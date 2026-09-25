@@ -188,4 +188,115 @@
     <string name="lane_b_puppet_record_detail">Detail of recorded moves</string>
     <string name="lane_b_puppet_record_blend_out">Blend out</string>
 
+    <!-- FaditorEditorActivity: the Text drawer (E1–E21) -->
+    <string name="faditor_text_underline">Underline</string>
+    <string name="faditor_text_case_first">Capitalize first letters</string>
+    <string name="faditor_text_case_all">All caps</string>
+    <string name="faditor_text_case_small">Small caps</string>
+    <string name="faditor_text_align">Alignment: %1$s. Tap to change</string>
+    <string name="faditor_text_align_left">left</string>
+    <string name="faditor_text_align_center">center</string>
+    <string name="faditor_text_align_right">right</string>
+    <string name="faditor_text_align_justify">justified</string>
+    <string name="faditor_text_color">Text color</string>
+    <string name="faditor_text_shadow_distance">Distance</string>
+    <string name="faditor_text_shadow_direction">Shadow direction</string>
+    <string name="faditor_text_shadow_angle">Shadow angle</string>
+    <string name="faditor_text_anim_label">Animation</string>
+
+    <!-- FaditorEditorActivity: the Caption drawer (C5–C23) -->
+    <string name="lane_b_caption_hide">Hide this caption track</string>
+    <string name="lane_b_caption_show">Show this caption track</string>
+    <string name="lane_b_caption_add_track">Add a caption track</string>
+    <string name="caption_size">Caption size</string>
+    <string name="caption_highlight">Highlight</string>
+    <string name="caption_style_save">Save as my style</string>
+    <string name="caption_style_delete">Delete this custom style</string>
+    <string name="caption_style_copy">Copy style as text</string>
+    <string name="caption_style_import">Import style from text</string>
+    <string name="caption_anim_pop">Pop</string>
+    <string name="caption_anim_zoom">Zoom</string>
+    <string name="caption_anim_bounce">Bounce</string>
+    <string name="caption_box">Box</string>
+    <string name="caption_box_more">Box…</string>
+    <string name="caption_box_more_desc">More box options</string>
+    <string name="caption_drawer_empty">No captioned clip selected</string>
+    <string name="caption_fit_uniform">Uniform</string>
+    <string name="caption_fit_per_cue">Per cue</string>
+    <string name="caption_fit_truncate">Truncate</string>
+    <string name="caption_fit_words">Words</string>
+    <string name="caption_fit_words_desc">Words per caption</string>
+    <string name="caption_fit_lines">Max lines</string>
+    <string name="caption_fit_lines_prompt">Max lines (0 = unlimited)</string>
+    <string name="caption_fit_floor">Floor</string>
+    <string name="caption_group_slide">Grouping: Slide</string>
+    <string name="caption_group_karaoke">Grouping: Karaoke</string>
+    <string name="caption_group_desc">How words group into captions. Tap to switch</string>
+    <string name="caption_grow_center">Grow: center</string>
+    <string name="caption_grow_down">Grow: down</string>
+    <string name="caption_grow_up">Grow: up</string>
+    <string name="caption_grow_desc">Which way the caption grows. Tap to cycle</string>
+    <string name="caption_align_center">Align: center</string>
+    <string name="caption_align_left">Align: left</string>
+    <string name="caption_align_right">Align: right</string>
+    <string name="caption_align_desc">Line alignment. Tap to cycle</string>
+    <string name="caption_copy_all">Copy to all</string>
+    <string name="caption_copy_all_desc">Copy this track\'s grow and align to every caption track</string>
+    <string name="caption_copy_all_done">Anchor + align applied to all tracks</string>
+    <string name="caption_position">Caption position</string>
+    <string name="caption_timing">Timing</string>
+    <string name="caption_timing_hint">Applied to every caption line, as a share of that line</string>
+    <string name="caption_timing_readout">In %1$d%%   Out %2$d%%   of each line</string>
+    <string name="caption_timing_readout_meet">In %1$d%%   Out %2$d%%   of each line  ·  in ends as out begins</string>
+    <string name="caption_timing_in_desc">Entrance timing</string>
+    <string name="caption_timing_out_desc">Exit timing</string>
+
+    <!-- FaditorEditorActivity: transform property names shared by Image / PiP / Sprite /
+         Visualizer (I5, PiP-1, V-2), drawer titles (V-1, I4) -->
+    <string name="faditor_prop_pos_x">Pos X</string>
+    <string name="faditor_prop_pos_y">Pos Y</string>
+    <string name="faditor_prop_scale">Scale</string>
+    <string name="faditor_prop_scale_x">Scale X</string>
+    <string name="faditor_prop_scale_y">Scale Y</string>
+    <string name="drawer_title_visualizer">Visualizer</string>
+    <string name="drawer_tab_puppet">Puppet</string>
+
+    <!-- FaditorEditorActivity: showExportConfirmation (ExportConf-1..7) -->
+    <string name="export_default_basename">JoyCreator_</string>
+    <plurals name="export_audio_count">
+        <item quantity="one">%1$d audio</item>
+        <item quantity="other">%1$d audio</item>
+    </plurals>
+    <string-array name="export_loudness_targets">
+        <item>Off</item>
+        <item>YouTube -14 LUFS</item>
+        <item>Podcast -16 LUFS</item>
+        <item>TikTok -14 LUFS</item>
+        <item>Broadcast -23 LUFS</item>
+    </string-array>
+    <string-array name="export_resolutions">
+        <item>Original</item>
+        <item>1080p</item>
+        <item>720p</item>
+        <item>480p</item>
+    </string-array>
+    <string-array name="export_frame_formats">
+        <item>PNG (no extra loss)</item>
+        <item>JPG (smaller)</item>
+    </string-array>
+    <string name="export_loudness">Loudness target</string>
+    <string name="export_loudness_readout">Measured: %1$s LUFS → Target: %2$s</string>
+    <string name="export_quality">Quality</string>
+    <string name="export_format">Format</string>
+    <string name="export_audio_only">Export audio only (.m4a)</string>
+    <string name="export_audio_only_desc">Mixes clip audio + music into one audio file — no video track</string>
+    <string name="export_audio_only_project">This project has no video — it exports as audio</string>
+    <string name="export_frame">Export single frame (image)</string>
+    <string name="export_frame_desc">Saves one composed frame — overlays included — at the export resolution. The frame comes off the same video encoder as an export, so Quality shapes it: PNG keeps that frame exactly, JPG is smaller (no transparency, frames are opaque)</string>
+    <string name="export_frame_time">Frame time (pre-filled from the playhead — type to override)</string>
+    <string name="export_time_hint">m:ss.t or seconds</string>
+    <string name="export_range_hint">m:ss.t</string>
+    <string name="export_frame_error_format">Enter a time like 01:23.4 (or 4.5 for 4.5 seconds)</string>
+    <string name="export_frame_error_past">That time is past the end of the project (%1$s). Pick an earlier time.</string>
+
 </resources>

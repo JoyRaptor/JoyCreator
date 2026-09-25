@@ -92,4 +92,35 @@
     <string name="pip_sound_off">This overlay\'s sound is off. Turn it on in its drawer to see its sound strip.</string>
     <string name="text_done">Done</string>
     <string name="text_done_desc">Finish editing this text: put the keyboard away and close the drawer</string>
+    <!-- Transcript word drawer (WordScrubDrawerStyle) -->
+    <string name="word_drawer_time">When this word starts. Tap to type an exact time</string>
+    <string name="word_drawer_earlier">Nudge this word earlier</string>
+    <string name="word_drawer_later">Nudge this word later</string>
+    <string name="word_drawer_center">Centre this word on the timeline</string>
+    <string name="word_drawer_close">Close</string>
+    <string name="word_drawer_case_upper">ALL CAPS</string>
+    <string name="word_drawer_case_title">Capitalise</string>
+    <string name="word_drawer_case_lower">lower case</string>
+    <string name="word_drawer_ripple">What moves with this word: one word, every word after it, or stretch to fit. Tap to change</string>
+    <string name="word_drawer_snap">SNAP</string>
+    <!-- Link tool (tools/LinkTool, SPEC_20260924_LINKING §12) -->
+    <string name="link_button_desc">Link. Tap, then tap what the selected object should follow. Tap again to cancel</string>
+    <string name="link_armed_toast">Tap what it should follow</string>
+    <string name="link_select_first">Select the object you want to link first</string>
+    <string name="link_details_title">%1$s follows %2$s</string>
+    <string name="link_details_hint">Choose what it copies from what it follows. Nothing moves now; from here on it goes where its parent goes.</string>
+    <string name="link_details_ok">Link</string>
+    <string name="link_prop_position">Position</string>
+    <string name="link_prop_scale">Size</string>
+    <string name="link_prop_rotation">Rotation</string>
+    <string name="link_prop_opacity">Opacity</string>
+    <string name="link_cant_self">It can\'t follow itself</string>
+    <string name="link_cant_cycle">That would make a loop: it already leads that one</string>
+    <string name="link_cant_kind">Links work between text, pictures and sprites for now</string>
+    <string name="link_done">Linked: %1$s follows %2$s</string>
+    <string name="link_undo">Link</string>
+    <string name="unlink_undo">Unlink</string>
+    <string name="link_row_follows">Follows %1$s</string>
+    <string name="link_row_unlink">Unlink</string>
+    <string name="link_row_unlink_desc">Stop following. It stays exactly where it is now</string>
 </resources>

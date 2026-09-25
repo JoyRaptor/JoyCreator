@@ -12624,8 +12624,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long totalDurationMs = tl.getTotalDurationMs();
         String durationStr = TimeFormatter.formatAuto(totalDurationMs);
         boolean hasAudio = tl.hasAudioClips();
+        // Plural resource, not "N audio" typed inline (drawer audit 2026-09-24, ExportConf-2).
+        int audioCount = tl.getAudioClips().size();
         String audioInfo = hasAudio
-                ? " • " + tl.getAudioClips().size() + " audio"
+                ? " • " + getResources().getQuantityString(
+                        R.plurals.export_audio_count, audioCount, audioCount)
                 : "";
 
         String helperText = getString(R.string.faditor_export_confirm_helper,
@@ -12657,7 +12660,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             fileNameLabel.setLayoutParams(fnLabelLp);
             root.addView(fileNameLabel);
 
-            final String defaultExportBaseName = "Faditor_"
+            // Named after the product, not the legacy fork (drawer audit 2026-09-24, ExportConf-1).
+            final String defaultExportBaseName = getString(R.string.export_default_basename)
                     + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
                             .format(new java.util.Date());
 
@@ -12701,11 +12705,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.PODCAST,
                     com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.TIKTOK,
                     com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.BROADCAST};
-            final String[] loudLabels = {"Off", "YouTube -14 LUFS", "Podcast -16 LUFS", "TikTok -14 LUFS", "Broadcast -23 LUFS"};
+            // Words from resources (drawer audit 2026-09-24, ExportConf-3..7); same order as loudValues.
+            final String[] loudLabels = getResources().getStringArray(R.array.export_loudness_targets);
             // Current target is stored transiently on the ExportManager (lane forbids touching model/ExportSettings for C4)
             final com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget[] currentTarget = {com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.OFF};
             TextView loudMeasured = new TextView(this);
-            loudMeasured.setText("Measured: -- LUFS → Target: Off");
+            // The readout is rebuilt from its two parts, rather than by splitting its own text
+            // on "→" (which a translation need not contain).
+            final String[] measuredLufs = {"--"};
+            final int[] loudIdx = {0};
+            final Runnable renderLoud = () -> loudMeasured.setText(getString(
+                    R.string.export_loudness_readout, measuredLufs[0], loudLabels[loudIdx[0]]));
+            renderLoud.run();
             loudMeasured.setTextColor(Studio.INK_FAINT);
             loudMeasured.setTextSize(11);
             loudMeasured.setPadding(0, pad/2, 0, 0);
@@ -12726,21 +12737,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (probePath != null) {
                         java.io.File f = new java.io.File(probePath);
                         com.fadcam.ui.faditor.audio.LoudnessAnalyzer.Result r = com.fadcam.ui.faditor.audio.LoudnessAnalyzer.measure(f);
-                        final String txt = r != null ? String.format(java.util.Locale.US, "Measured: %.1f LUFS → Target: %s", r.integratedLUFS, currentTarget[0].label) : "Measured: -- LUFS → Target: Off";
-                        runOnUiThread(() -> loudMeasured.setText(txt));
+                        final String lufs = r != null
+                                ? String.format(java.util.Locale.US, "%.1f", r.integratedLUFS) : "--";
+                        runOnUiThread(() -> { measuredLufs[0] = lufs; renderLoud.run(); });
                     }
                 } catch (Exception ignored) {}
             }).start();
-            final android.widget.Spinner loudSpinner = buildExportSettingSpinner(root, "Loudness target", loudLabels, 0, pad);
+            final android.widget.Spinner loudSpinner = buildExportSettingSpinner(root,
+                    getString(R.string.export_loudness), loudLabels, 0, pad);
             loudSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
                 @Override public void onItemSelected(android.widget.AdapterView<?> p, android.view.View v, int pos, long id) {
-                    currentTarget[0] = loudValues[Math.max(0, Math.min(pos, loudValues.length-1))];
-                    String cur = loudMeasured.getText().toString();
-                    // update target part without re-measuring
-                    if (cur.contains("→")) {
-                        String before = cur.split("→")[0].trim();
-                        loudMeasured.setText(before + " → Target: " + currentTarget[0].label);
-                    }
+                    loudIdx[0] = Math.max(0, Math.min(pos, loudValues.length-1));
+                    currentTarget[0] = loudValues[loudIdx[0]];
+                    // update the target part without re-measuring
+                    renderLoud.run();
                 }
                 @Override public void onNothingSelected(android.widget.AdapterView<?> p) {}
             });
@@ -12752,27 +12762,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.model.ExportSettings.Resolution.FHD_1080P,
                     com.fadcam.ui.faditor.model.ExportSettings.Resolution.HD_720P,
                     com.fadcam.ui.faditor.model.ExportSettings.Resolution.SD_480P};
-            final String[] resLabels = {"Original", "1080p", "720p", "480p"};
+            final String[] resLabels = getResources().getStringArray(R.array.export_resolutions);
             final com.fadcam.ui.faditor.model.ExportSettings.Quality[] qualValues = {
                     com.fadcam.ui.faditor.model.ExportSettings.Quality.HIGH,
                     com.fadcam.ui.faditor.model.ExportSettings.Quality.MEDIUM,
                     com.fadcam.ui.faditor.model.ExportSettings.Quality.LOW};
-            final String[] qualLabels = {"High", "Medium", "Low"};
+            final String[] qualLabels = {getString(R.string.remote_quality_high),
+                    getString(R.string.remote_quality_medium), getString(R.string.remote_quality_low)};
 
             // ── One-tap "Low bandwidth" preset chip: 720p + Low quality in one tap
             //    (cosmetic — just drives the two spinners below, no encoder changes). ──
             // Renamed "Draft (fast)" (2026-09-24): at 720p every overlay pass runs at 720p too,
             // so this is roughly twice as fast as 1080p — speed is what it is for.
-            final TextView lowBandwidthChip = new TextView(this);
-            lowBandwidthChip.setText(R.string.export_draft_chip);
+            // The sheet chip (an opaque dialog, so SheetKit's screen ramp), not a hand-rolled
+            // TextView (drawer audit 2026-09-24, ExportConf-8).
+            final TextView lowBandwidthChip = com.fadcam.ui.faditor.SheetKit.chip(this,
+                    getString(R.string.export_draft_chip));
             com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(lowBandwidthChip,
                     getString(R.string.export_draft_chip_desc));
-            lowBandwidthChip.setTextColor(Studio.INK);
-            lowBandwidthChip.setTextSize(12);
-            lowBandwidthChip.setBackgroundResource(R.drawable.settings_home_row_bg);
-            int chipPadH = (int) (12 * getResources().getDisplayMetrics().density);
-            int chipPadV = (int) (6 * getResources().getDisplayMetrics().density);
-            lowBandwidthChip.setPadding(chipPadH, chipPadV, chipPadH, chipPadV);
             android.widget.LinearLayout.LayoutParams chipLp =
                     new android.widget.LinearLayout.LayoutParams(
                             android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -12782,11 +12789,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             root.addView(lowBandwidthChip);
 
             final android.widget.Spinner resSpinner =
-                    buildExportSettingSpinner(root, "Resolution", resLabels,
+                    buildExportSettingSpinner(root, getString(R.string.row_resolution_title), resLabels,
                             java.util.Arrays.asList(resValues)
                                     .indexOf(project.getExportSettings().getResolution()), pad);
             final android.widget.Spinner qualSpinner =
-                    buildExportSettingSpinner(root, "Quality", qualLabels,
+                    buildExportSettingSpinner(root, getString(R.string.export_quality), qualLabels,
                             java.util.Arrays.asList(qualValues)
                                     .indexOf(project.getExportSettings().getQuality()), pad);
 
@@ -12803,7 +12810,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             //    Not persisted on ExportSettings: an audio pull is a one-off act,
             //    defaulting back to video export next time is the safe behavior. ──
             final android.widget.CheckBox audioOnlyBox = new android.widget.CheckBox(this);
-            audioOnlyBox.setText("Export audio only (.m4a)");
+            audioOnlyBox.setText(R.string.export_audio_only);
             audioOnlyBox.setTextColor(Studio.INK);
             android.widget.LinearLayout.LayoutParams aoLp =
                     new android.widget.LinearLayout.LayoutParams(
@@ -12814,8 +12821,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             root.addView(audioOnlyBox);
 
             TextView audioOnlyDesc = new TextView(this);
-            audioOnlyDesc.setText(
-                    "Mixes clip audio + music into one audio file — no video track");
+            audioOnlyDesc.setText(R.string.export_audio_only_desc);
             audioOnlyDesc.setTextColor(Studio.INK_FAINT);
             audioOnlyDesc.setTextSize(11);
             root.addView(audioOnlyDesc);
@@ -12829,12 +12835,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 qualSpinner.setAlpha(checked ? 0.4f : 1f);
             });
 
-            // ── SPEC_C: single-frame image export (PNG/JPG) ── // TODO(strings)
+            // ── SPEC_C: single-frame image export (PNG/JPG) ──
             // Either where the playhead is (pre-filled) or a typed timecode. The frame is
             // rendered by the SAME pipeline as a video export at the export resolution,
             // so Resolution stays live while the video/audio-only choices grey out.
             final android.widget.CheckBox frameBox = new android.widget.CheckBox(this);
-            frameBox.setText("Export single frame (image)");
+            frameBox.setText(R.string.export_frame);
             frameBox.setTextColor(Studio.INK);
             android.widget.LinearLayout.LayoutParams frameBoxLp =
                     new android.widget.LinearLayout.LayoutParams(
@@ -12845,10 +12851,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             root.addView(frameBox);
 
             TextView frameDesc = new TextView(this);
-            frameDesc.setText("Saves one composed frame — overlays included — at the export "
-                    + "resolution. The frame comes off the same video encoder as an export, so "
-                    + "Quality shapes it: PNG keeps that frame exactly, JPG is smaller "
-                    + "(no transparency, frames are opaque)");
+            frameDesc.setText(R.string.export_frame_desc);
             frameDesc.setTextColor(Studio.INK_FAINT);
             frameDesc.setTextSize(11);
             root.addView(frameDesc);
@@ -12859,11 +12862,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             root.addView(frameExtras);
 
             final android.widget.Spinner frameFormatSpinner = buildExportSettingSpinner(
-                    frameExtras, "Format",
-                    new String[]{"PNG (no extra loss)", "JPG (smaller)"}, 0, pad);
+                    frameExtras, getString(R.string.export_format),
+                    getResources().getStringArray(R.array.export_frame_formats), 0, pad);
 
             TextView frameTimeLabel = new TextView(this);
-            frameTimeLabel.setText("Frame time (pre-filled from the playhead — type to override)");
+            frameTimeLabel.setText(R.string.export_frame_time);
             frameTimeLabel.setTextColor(Studio.INK_FAINT);
             frameTimeLabel.setTextSize(11);
             android.widget.LinearLayout.LayoutParams ftLabelLp =
@@ -12877,7 +12880,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final android.widget.EditText frameTimeInput = new android.widget.EditText(this);
             frameTimeInput.setText(TimeFormatter.formatMmSsTenths(
                     Math.max(0L, lastPlayheadAbsoluteMs)));
-            frameTimeInput.setHint("m:ss.t or seconds");
+            frameTimeInput.setHint(R.string.export_time_hint);
             frameTimeInput.setSelectAllOnFocus(true);
             frameTimeInput.setSingleLine(true);
             frameTimeInput.setTextColor(Studio.INK);
@@ -12938,7 +12941,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 et.setTextColor(Studio.INK);
                 et.setTextSize(14);
                 et.setInputType(android.text.InputType.TYPE_CLASS_DATETIME);
-                et.setHint("m:ss.t");
+                et.setHint(R.string.export_range_hint);
             }
             rangeFrom.setText(TimeFormatter.formatMmSsTenths(Math.max(0L, lastPlayheadAbsoluteMs)));
             rangeTo.setText(TimeFormatter.formatMmSsTenths(tl.getTotalDurationMs()));
@@ -12971,7 +12974,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (audioProject) {
                 audioOnlyBox.setChecked(true);
                 audioOnlyBox.setEnabled(false);
-                audioOnlyDesc.setText("This project has no video — it exports as audio");
+                audioOnlyDesc.setText(R.string.export_audio_only_project);
                 resSpinner.setVisibility(View.GONE);
                 qualSpinner.setVisibility(View.GONE);
                 lowBandwidthChip.setVisibility(View.GONE);
@@ -12999,18 +13002,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 long frameAtMs = -1L;
                 boolean frameJpeg = false;
                 if (frameBox.isChecked()) {
-                    // TODO(strings)
                     frameAtMs = TimeFormatter.parseTimecodeMs(frameTimeInput.getText().toString());
                     if (frameAtMs < 0) {
-                        frameError.setText("Enter a time like 01:23.4 (or 4.5 for 4.5 seconds)");
+                        frameError.setText(R.string.export_frame_error_format);
                         frameError.setVisibility(View.VISIBLE);
                         return;
                     }
                     long totalMs = tl.getTotalDurationMs();
                     if (frameAtMs >= totalMs) {
-                        frameError.setText("That time is past the end of the project ("
-                                + TimeFormatter.formatAuto(totalMs)
-                                + "). Pick an earlier time.");
+                        frameError.setText(getString(R.string.export_frame_error_past,
+                                TimeFormatter.formatAuto(totalMs)));
                         frameError.setVisibility(View.VISIBLE);
                         return;
                     }
@@ -13508,8 +13509,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long totalDurationMs = tl.getTotalDurationMs();
         String durationStr = TimeFormatter.formatAuto(totalDurationMs);
         boolean hasAudio = tl.hasAudioClips();
+        // Plural resource, not "N audio" typed inline (drawer audit 2026-09-24, ExportConf-2).
+        int audioCount = tl.getAudioClips().size();
         String audioInfo = hasAudio
-                ? " • " + tl.getAudioClips().size() + " audio"
+                ? " • " + getResources().getQuantityString(
+                        R.plurals.export_audio_count, audioCount, audioCount)
                 : "";
 
         exportInfoText.setText(getString(R.string.faditor_export_info,
@@ -18219,6 +18223,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void wireWordScrubDrawer() {
         if (wordScrubDrawerWired || wordScrubDrawer == null) return;
         wordScrubDrawerWired = true;
+        // The Studio drawer look, same sizes (JoyRaptor, 2026-09-25) — see WordScrubDrawerStyle.
+        com.fadcam.ui.faditor.transcript.WordScrubDrawerStyle.apply(wordScrubDrawer);
 
         View close = wordScrubDrawer.findViewById(R.id.word_scrub_close);
         if (close != null) close.setOnClickListener(v -> hideWordScrubDrawer());
@@ -18570,6 +18576,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             wordSyncBlockToggle.setContentDescription(label);
             androidx.appcompat.widget.TooltipCompat.setTooltipText(wordSyncBlockToggle, label);
         }
+        restyleWordDrawerState();
     }
 
     /**
@@ -19020,11 +19027,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (wordSyncDrawerRippleLabel != null && wordSyncMode != null) {
             wordSyncDrawerRippleLabel.setText(wordSyncMode.getRippleMode().name());
         }
-        if (wordSyncDrawerSnapLabel != null && wordSyncMode != null) {
-            boolean on = wordSyncMode.isSnapEnabled();
-            wordSyncDrawerSnapLabel.setText(on ? "SNAP ON" : "SNAP OFF");
-            wordSyncDrawerSnapLabel.setTextColor(on ? Studio.INK : Studio.INK_FAINT);
-        }
+        restyleWordDrawerState();
+    }
+
+    /** On/off faces of the word drawer's chips, from the current state (WordScrubDrawerStyle). */
+    private void restyleWordDrawerState() {
+        if (wordScrubDrawer == null) return;
+        com.fadcam.ui.faditor.transcript.WordScrubDrawerStyle.state(wordScrubDrawer,
+                wordEditBlockMode,
+                wordSyncMode != null ? wordSyncMode.getRippleMode().name() : null,
+                wordSyncMode != null && wordSyncMode.isSnapEnabled());
     }
 
     private void cycleWordSyncRipple() {
@@ -21017,7 +21029,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ctx -> buildCaptionStyleTab(ctx)));
         // ── Fit tab ── mode, truncate, words per caption, floor, max lines (SPEC §3.3)
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Fit", R.drawable.ic_caption_fit_24,
+                getString(R.string.drawer_fit), R.drawable.ic_caption_fit_24,   // drawer audit 2026-09-24, C13
                 ctx -> buildCaptionFitTab(ctx)));
         // ── Header consolidation (SPEC_20260831_CAPTION_SLIDES_UX §7.2): [CC] Style | pills | icons.
         // The pills row is kept in captionHeaderPills so selection changes can refill it in place
@@ -21158,36 +21170,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // position toggle on the left (was a separate Position tab)
         android.view.View posToggle = makeCaptionPositionToggle(d);
         sizeRow.addView(posToggle);
-        com.google.android.material.slider.Slider sizeSlider = new com.google.android.material.slider.Slider(new androidx.appcompat.view.ContextThemeWrapper(ctx, R.style.Widget_FadCam_BottomSheetSlider));
-        sizeSlider.setValueFrom(0.02f);
-        sizeSlider.setValueTo(0.20f);
-        sizeSlider.setStepSize(0.005f);
-        sizeSlider.setValue(Math.max(0.02f, Math.min(0.20f, getCurrentCaptionSize())));
+        // The ONE drawer slider face (white thumb, Kit track, the drawer's CAPTION accent fill),
+        // named; it was a Material Slider in its own colours (drawer audit 2026-09-24, C9).
+        // 0.02..0.20 in 0.005 steps = 36 steps.
+        final com.fadcam.ui.faditor.tools.FineSeekBar sizeSlider =
+                new com.fadcam.ui.faditor.tools.FineSeekBar(ctx);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(sizeSlider);
+        sizeSlider.setContentDescription(getString(R.string.caption_size));
+        sizeSlider.setMax(36);
+        sizeSlider.setProgress(Math.round(
+                (Math.max(0.02f, Math.min(0.20f, getCurrentCaptionSize())) - 0.02f) / 0.005f));
         android.widget.LinearLayout.LayoutParams slp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 0.65f);
         slp.leftMargin = (int)(10*d);
         sizeSlider.setLayoutParams(slp);
-        sizeSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION));
-        sizeSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION));
-        sizeSlider.setTrackInactiveTintList(android.content.res.ColorStateList.valueOf(Studio.OFF));
         sizeRow.addView(sizeSlider);
-        android.widget.TextView sizeVal = new android.widget.TextView(ctx);
-        sizeVal.setTextSize(12);
-        sizeVal.setTextColor(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION);
-        sizeVal.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        sizeVal.setPadding((int)(6*d), 0, 0, 0);
+        android.widget.TextView sizeVal = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.value(ctx, 40);
         sizeVal.setText(Math.round(getCurrentCaptionSize() * 100) + "%");
         sizeRow.addView(sizeVal);
-        sizeSlider.addOnChangeListener((sl, value, fromUser) -> {
-            if (!fromUser) return;
-            sizeVal.setText(Math.round(value * 100) + "%");
-            applyCaptionSize(value);
-        });
-        sizeSlider.addOnSliderTouchListener(new com.google.android.material.slider.Slider.OnSliderTouchListener() {
-            @Override public void onStartTrackingTouch(@NonNull com.google.android.material.slider.Slider s) {
+        sizeSlider.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar sb, int p, boolean fromUser) {
+                // A fine drag reports fromUser == false; it is still the user's edit.
+                if (!fromUser && !sizeSlider.isFineDriving()) return;
+                float value = 0.02f + p * 0.005f;
+                sizeVal.setText(Math.round(value * 100) + "%");
+                applyCaptionSize(value);
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar sb) {
                 captionSizeSuppressUndo = true;
                 captionSizeDragBefore = currentCaptionSizeOfSelection();
             }
-            @Override public void onStopTrackingTouch(@NonNull com.google.android.material.slider.Slider s) {
+            @Override public void onStopTrackingTouch(android.widget.SeekBar sb) {
                 captionSizeSuppressUndo = false;
                 recordCaptionSizeUndo(captionSizeDragBefore);
             }
@@ -21198,12 +21210,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         fontRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         fontRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         root.addView(fontRow);
-        android.widget.TextView fontLabel = new android.widget.TextView(ctx);
-        fontLabel.setText("Font");
-        fontLabel.setTextColor(Studio.DRAWER_DIM);
-        fontLabel.setTextSize(12);
-        fontLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        fontRow.addView(fontLabel);
+        // Kit row labels throughout this tab (drawer audit 2026-09-24, C12/C14).
+        fontRow.addView(drawerInlineLabel(ctx, getString(R.string.faditor_font_picker_title)));
         // ONE FONT BUTTON, opening the one font picker the text drawer uses too.
         //
         // JoyRaptor, 2026-09-22: "I don't think the fonts scrolling in the closed caption
@@ -21213,8 +21221,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // icons, with Import first so it wasn't lost off the edge. The button shows the current
         // font's name IN that font; the picker shows every font in its own face, the current one
         // in selection cyan, and offers the text tool's full list, not only captions' six.
-        final android.widget.TextView fontButton = new android.widget.TextView(ctx);
-        styleDrawerChip(fontButton, d);
+        final android.widget.TextView fontButton = captionChip(ctx, d, "");
         fontButton.setMaxLines(1);
         fontButton.setEllipsize(android.text.TextUtils.TruncateAt.END);
         final Runnable refreshFontButton = () -> {
@@ -21227,7 +21234,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     label.length(), txt.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             fontButton.setText(txt);
             fontButton.setTypeface(cs.typeface());
-            fontButton.setContentDescription(getString(R.string.faditor_font_button_desc, label));
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(fontButton, getString(R.string.faditor_font_button_desc, label));
         };
         refreshFontButton.run();
         fontButton.setOnClickListener(v -> showFontPicker(captionFontChoices(),
@@ -21247,35 +21254,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         fontLp.setMarginStart(Math.round(8 * d));
         fontRow.addView(fontButton, fontLp);
-        addCaptionActionIcon(fontRow, d, "save", "Save as my style", v -> promptSaveCaptionStyle());
-        addCaptionActionIcon(fontRow, d, "delete", "Delete this custom style", v -> confirmDeleteCaptionStyle());
-        addCaptionActionIcon(fontRow, d, "ios_share", "Copy style as text", v -> exportCaptionStyleToClipboard());
-        addCaptionActionIcon(fontRow, d, "download", "Import style from text", v -> promptImportCaptionStyle());
+        addCaptionActionIcon(fontRow, d, "save", getString(R.string.caption_style_save), v -> promptSaveCaptionStyle());
+        addCaptionActionIcon(fontRow, d, "delete", getString(R.string.caption_style_delete), v -> confirmDeleteCaptionStyle());
+        addCaptionActionIcon(fontRow, d, "ios_share", getString(R.string.caption_style_copy), v -> exportCaptionStyleToClipboard());
+        addCaptionActionIcon(fontRow, d, "download", getString(R.string.caption_style_import), v -> promptImportCaptionStyle());
         root.addView(makeDivider(d));
         // highlight
         android.widget.LinearLayout animRow = new android.widget.LinearLayout(ctx);
         animRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         animRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         root.addView(animRow);
-        android.widget.TextView animLabel = new android.widget.TextView(ctx);
-        animLabel.setText("Highlight");
-        animLabel.setTextColor(Studio.DRAWER_DIM);
-        animLabel.setTextSize(12);
-        animLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        animRow.addView(animLabel);
+        animRow.addView(drawerInlineLabel(ctx, getString(R.string.caption_highlight)));
         com.fadcam.ui.faditor.transcript.CaptionStyle.Anim[] anims = com.fadcam.ui.faditor.transcript.CaptionStyle.Anim.values();
-        String[] animNames = {"Pop", "Zoom", "Bounce"};
+        String[] animNames = {getString(R.string.caption_anim_pop),
+                getString(R.string.caption_anim_zoom), getString(R.string.caption_anim_bounce)};
         for (int a = 0; a < anims.length; a++) {
             final com.fadcam.ui.faditor.transcript.CaptionStyle.Anim anim = anims[a];
-            android.widget.TextView ab = new android.widget.TextView(ctx);
-            styleDrawerChip(ab, d);
-            ab.setText(animNames[a]);
-            ab.setAlpha(cur.anim == anim ? 0.88f : 0.45f);
+            android.widget.TextView ab = captionChip(ctx, d, animNames[a]);
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(ab, cur.anim == anim);
             final android.widget.LinearLayout rowRef = animRow;
             ab.setOnClickListener(v -> {
                 tweakCaptionStyle(s -> s.anim = anim);
                 for (int i = 1; i < rowRef.getChildCount(); i++) {
-                    rowRef.getChildAt(i).setAlpha(rowRef.getChildAt(i) == v ? 0.88f : 0.45f);
+                    com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn((TextView) rowRef.getChildAt(i),
+                            rowRef.getChildAt(i) == v);
                 }
             });
             animRow.addView(ab);
@@ -21289,17 +21291,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         colorScroll.setHorizontalScrollBarEnabled(false);
         colorScroll.addView(colorRow1);
         root.addView(colorScroll);
-        addColorControl(colorRow1, d, "Text", () -> currentCaptionStyle().baseColor, c -> tweakCaptionStyle(s -> s.baseColor = c));
-        addColorControl(colorRow1, d, "Highlight", () -> currentCaptionStyle().activeColor, c -> tweakCaptionStyle(s -> s.activeColor = c));
+        addColorControl(colorRow1, d, getString(R.string.faditor_tool_text), () -> currentCaptionStyle().baseColor, c -> tweakCaptionStyle(s -> s.baseColor = c));
+        addColorControl(colorRow1, d, getString(R.string.caption_highlight), () -> currentCaptionStyle().activeColor, c -> tweakCaptionStyle(s -> s.activeColor = c));
         android.widget.LinearLayout colorRow2 = colorRow1;
-        addToggleColorControl(colorRow2, d, "Box", () -> currentCaptionStyle().pill, on -> tweakCaptionStyle(s -> { s.pill = on; if (on && s.pillColor == 0) s.pillColor = Studio.alpha(Studio.GROUND, 0xCC); }), () -> currentCaptionStyle().pillColor, c -> tweakCaptionStyle(s -> { s.pillColor = c; s.pill = true; }));
-        addToggleColorControl(colorRow2, d, "Outline", () -> currentCaptionStyle().outline, on -> tweakCaptionStyle(s -> s.outline = on), () -> currentCaptionStyle().outlineColor, c -> tweakCaptionStyle(s -> { s.outlineColor = c; s.outline = true; }));
-        addToggleControl(colorRow2, d, "Shadow", () -> currentCaptionStyle().shadow, on -> tweakCaptionStyle(s -> s.shadow = on));
+        addToggleColorControl(colorRow2, d, getString(R.string.caption_box), () -> currentCaptionStyle().pill, on -> tweakCaptionStyle(s -> { s.pill = on; if (on && s.pillColor == 0) s.pillColor = Studio.alpha(Studio.GROUND, 0xCC); }), () -> currentCaptionStyle().pillColor, c -> tweakCaptionStyle(s -> { s.pillColor = c; s.pill = true; }));
+        addToggleColorControl(colorRow2, d, getString(R.string.faditor_text_decor_stroke), () -> currentCaptionStyle().outline, on -> tweakCaptionStyle(s -> s.outline = on), () -> currentCaptionStyle().outlineColor, c -> tweakCaptionStyle(s -> { s.outlineColor = c; s.outline = true; }));
+        addToggleControl(colorRow2, d, getString(R.string.faditor_text_decor_shadow), () -> currentCaptionStyle().shadow, on -> tweakCaptionStyle(s -> s.shadow = on));
         // The same sheet a long-press on the caption box opens — a long-press is not
         // discoverable on its own, so the drawer carries a visible way in too.
-        TextView boxOptsChip = new TextView(ctx);
-        styleDrawerChip(boxOptsChip, d);
-        boxOptsChip.setText("Box\u2026");
+        TextView boxOptsChip = captionChip(ctx, d, getString(R.string.caption_box_more));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(boxOptsChip, getString(R.string.caption_box_more_desc));
         boxOptsChip.setOnClickListener(v -> showCaptionBoxOptions());
         colorRow2.addView(boxOptsChip);
         root.addView(makeDivider(d));
@@ -21311,15 +21312,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             motionRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
             motionRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
             root.addView(motionRow);
-            android.widget.TextView motionLabel = new android.widget.TextView(ctx);
-            motionLabel.setText("Motion");
-            motionLabel.setTextColor(Studio.DRAWER_DIM);
-            motionLabel.setTextSize(12);
-            motionLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-            motionRow.addView(motionLabel);
-            final android.widget.TextView motionChip = new android.widget.TextView(ctx);
-            styleDrawerChip(motionChip, d);
-            motionChip.setText(captionAnimPresetLabel(motionTarget));
+            motionRow.addView(drawerInlineLabel(ctx, getString(R.string.faditor_lc_motion_title)));
+            final android.widget.TextView motionChip = captionChip(ctx, d,
+                    captionAnimPresetLabel(motionTarget));
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(motionChip, getString(R.string.faditor_lc_motion_title));
             motionRow.addView(motionChip);
             android.view.View motionBtn = makeTextMotionIcon(d);
             motionRow.addView(motionBtn);
@@ -21343,12 +21339,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             motionChip.setOnClickListener(open);
             addCaptionAnimRangeControl(root, d);
         } else {
-            android.widget.TextView empty = new android.widget.TextView(ctx);
-            empty.setText("No captioned clip selected");
-            empty.setTextColor(Studio.DRAWER_DIM);
-            empty.setTextSize(12);
-            empty.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-            root.addView(empty);
+            // Kit note (drawer audit 2026-09-24, C12/C18).
+            root.addView(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.note(ctx, getString(R.string.caption_drawer_empty)));
         }
         android.widget.ScrollView scroll = new android.widget.ScrollView(ctx);
         scroll.setVerticalScrollBarEnabled(false);
@@ -21446,9 +21438,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             TextView eye = new TextView(ctx);
             eye.setText(isEnabled ? "visibility" : "visibility_off");
             eye.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.materialicons));
-            eye.setTextColor(isEnabled ? Studio.DRAWER_INK : Studio.INK_OFF);
+            eye.setTextColor(isEnabled ? Studio.DRAWER_INK : Studio.DRAWER_DIM);
             eye.setTextSize(13);
             eye.setClickable(true);
+            // Named: TalkBack read the "visibility" ligature aloud (drawer audit 2026-09-24, C5).
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(eye, getString(isEnabled
+                    ? R.string.lane_b_caption_hide : R.string.lane_b_caption_show));
             eye.setOnClickListener(v -> {
                 // Belt and braces: a version delete can shrink the binding list while this
                 // stale listener is still attached (the row is rebuilt after, not before).
@@ -21471,6 +21466,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 refreshCaptionDrawerIfOpen();
             });
             pill.addView(eye);
+            // The full track name: the pill shows at most eight characters of it.
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(pill, label);
             pill.setOnClickListener(v -> {
                 // ONE selection path, shared with the preview tap (see selectCaptionBinding):
                 // the two routes must leave identical state.
@@ -21492,14 +21489,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
 
         // "+" wire/import pill
-        TextView add = new TextView(ctx);
-        add.setText("+");
-        add.setTextColor(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION);
-        add.setTextSize(16);
-        add.setTypeface(null, android.graphics.Typeface.BOLD);
-        int ap = (int)(10*d);
-        add.setPadding(ap, ap/2, ap, ap/2);
-        add.setBackgroundResource(R.drawable.floating_button_item_bg);
+        // A Kit chip, named: a bare "+" said nothing to TalkBack or the stylus hover (drawer
+        // audit 2026-09-24, C6).
+        TextView add = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(ctx, "+");
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(add, getString(R.string.lane_b_caption_add_track));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pressable(add);
         add.setOnClickListener(v -> showWireCaptionTrackDialog());
         row.addView(add);
     }
@@ -21768,28 +21762,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
         modeRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         modeRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         root.addView(modeRow);
-        android.widget.TextView modeLabel = new android.widget.TextView(ctx);
-        modeLabel.setText("Fit");
-        modeLabel.setTextColor(Studio.DRAWER_DIM);
-        modeLabel.setTextSize(12);
-        modeLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        modeRow.addView(modeLabel);
+        // Kit labels, resource strings and Kit chips throughout this tab (drawer audit
+        // 2026-09-24, C1/C2/C12/C19–C21).
+        modeRow.addView(drawerInlineLabel(ctx, getString(R.string.drawer_fit)));
         com.fadcam.ui.faditor.transcript.CaptionStyle.FitMode[] modes = com.fadcam.ui.faditor.transcript.CaptionStyle.FitMode.values();
-        String[] modeNames = {"Off", "Uniform", "Per cue"};
+        String[] modeNames = {getString(R.string.setting_off),
+                getString(R.string.caption_fit_uniform), getString(R.string.caption_fit_per_cue)};
         com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
         for (int mi = 0; mi < modes.length; mi++) {
             final com.fadcam.ui.faditor.transcript.CaptionStyle.FitMode mode = modes[mi];
-            android.widget.TextView chip = new android.widget.TextView(ctx);
-            styleDrawerChip(chip, d);
-            chip.setText(modeNames[mi]);
-            chip.setAlpha(cur.fitMode == mode ? 0.88f : 0.45f);
+            android.widget.TextView chip = captionChip(ctx, d, modeNames[mi]);
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(chip, cur.fitMode == mode);
             final android.widget.LinearLayout rowRef = modeRow;
             chip.setOnClickListener(v -> {
                 tweakCaptionStyle(s -> s.fitMode = mode);
-                // Only the mode chips dim (children 1..modes.length) — the truncate checkbox
-                // and its label live past them and must keep their own colours (§7.2.7).
+                // Only the mode chips light (children 1..modes.length) — the truncate checkbox
+                // lives past them and keeps its own state (§7.2.7).
                 for (int i = 1; i <= modes.length; i++) {
-                    rowRef.getChildAt(i).setAlpha(rowRef.getChildAt(i) == v ? 0.88f : 0.45f);
+                    com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn((TextView) rowRef.getChildAt(i), rowRef.getChildAt(i) == v);
                 }
             });
             modeRow.addView(chip);
@@ -21798,28 +21788,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // checkbox, not a chip — it qualifies the Fit modes (on = clip the overflowing block
         // with an ellipsis; off = width-only fit so the column may run tall). Semantics live
         // in CaptionStyle.fitTruncate, applied by preview + export.
-        TextView truncateBox = new TextView(ctx);
-        truncateBox.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.materialicons));
-        truncateBox.setText(currentCaptionStyle().fitTruncate ? "check_box" : "check_box_outline_blank");
-        truncateBox.setTextColor(currentCaptionStyle().fitTruncate ? com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION : Studio.DRAWER_DIM);
-        truncateBox.setTextSize(14);
-        truncateBox.setClickable(true);
-        TextView truncateLbl = new TextView(ctx);
-        truncateLbl.setText(currentCaptionStyle().fitTruncate ? "truncate on" : "truncate off");
-        truncateLbl.setTextColor(Studio.DRAWER_DIM);
-        truncateLbl.setTextSize(11);
-        truncateBox.setOnClickListener(v -> {
-            tweakCaptionStyle(s -> s.fitTruncate = !s.fitTruncate);
-            truncateBox.setText(currentCaptionStyle().fitTruncate ? "check_box" : "check_box_outline_blank");
-            truncateBox.setTextColor(currentCaptionStyle().fitTruncate ? com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION : Studio.DRAWER_DIM);
-            truncateLbl.setText(currentCaptionStyle().fitTruncate ? "truncate on" : "truncate off");
+        // A real CheckBox in the Kit's face, its label its own text: the ligature glyph read
+        // "check_box" aloud and its label was a separate, untappable view (drawer audit
+        // 2026-09-24, C7).
+        final android.widget.CheckBox truncateBox = new android.widget.CheckBox(ctx);
+        truncateBox.setText(R.string.caption_fit_truncate);
+        truncateBox.setChecked(currentCaptionStyle().fitTruncate);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleCheck(truncateBox);
+        truncateBox.setOnCheckedChangeListener((cb, on) -> {
+            if (currentCaptionStyle().fitTruncate != on) tweakCaptionStyle(s -> s.fitTruncate = on);
         });
         android.widget.LinearLayout.LayoutParams cbLp = new android.widget.LinearLayout.LayoutParams(
                 android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
                 android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
         cbLp.leftMargin = (int)(6*d);
         modeRow.addView(truncateBox, cbLp);
-        modeRow.addView(truncateLbl);
         root.addView(makeDivider(d));
         // ── Words per caption (moved from Style row — SPEC §3.3)
         android.widget.LinearLayout wordsRow = new android.widget.LinearLayout(ctx);
@@ -21827,52 +21810,42 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wordsRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         wordsRow.setPadding(0, pad, 0, 0);
         root.addView(wordsRow);
-        android.widget.TextView wordsLabel = new android.widget.TextView(ctx);
-        wordsLabel.setText("Words");
-        wordsLabel.setTextColor(Studio.DRAWER_DIM);
-        wordsLabel.setTextSize(12);
-        wordsLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        wordsRow.addView(wordsLabel);
+        wordsRow.addView(drawerInlineLabel(ctx, getString(R.string.caption_fit_words)));
         wordsRow.addView(makeCaptionWordCountDial(ctx, d));
         // Max lines dial beside it
-        android.widget.TextView maxLinesLabel = new android.widget.TextView(ctx);
-        maxLinesLabel.setText("Max lines");
-        maxLinesLabel.setTextColor(Studio.DRAWER_DIM);
-        maxLinesLabel.setTextSize(12);
-        maxLinesLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
+        android.widget.TextView maxLinesLabel = drawerInlineLabel(ctx,
+                getString(R.string.caption_fit_lines));
         maxLinesLabel.setPadding((int)(16*d), 0, 0, 0);
         wordsRow.addView(maxLinesLabel);
         wordsRow.addView(makeCaptionMaxLinesDial(ctx, d));
         // ── Floor shares the Words/Max-lines line (was a full-width row of its own)
-        android.widget.TextView floorLabel = new android.widget.TextView(ctx);
-        floorLabel.setText("Floor");
-        floorLabel.setTextColor(Studio.DRAWER_DIM);
-        floorLabel.setTextSize(12);
-        floorLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        wordsRow.addView(floorLabel);
-        com.google.android.material.slider.Slider floorSlider = new com.google.android.material.slider.Slider(new androidx.appcompat.view.ContextThemeWrapper(ctx, R.style.Widget_FadCam_BottomSheetSlider));
-        floorSlider.setValueFrom(0.15f);
-        floorSlider.setValueTo(1.0f);
-        floorSlider.setStepSize(0.05f);
-        floorSlider.setValue(Math.max(0.15f, Math.min(1f, currentCaptionStyle().fitMinScale)));
+        wordsRow.addView(drawerInlineLabel(ctx, getString(R.string.caption_fit_floor)));
+        // The ONE drawer slider face, named (drawer audit 2026-09-24, C9).
+        // 0.15..1.0 in 0.05 steps = 17 steps.
+        final com.fadcam.ui.faditor.tools.FineSeekBar floorSlider =
+                new com.fadcam.ui.faditor.tools.FineSeekBar(ctx);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(floorSlider);
+        floorSlider.setContentDescription(getString(R.string.caption_fit_floor));
+        floorSlider.setMax(17);
+        floorSlider.setProgress(Math.round(
+                (Math.max(0.15f, Math.min(1f, currentCaptionStyle().fitMinScale)) - 0.15f) / 0.05f));
         android.widget.LinearLayout.LayoutParams flp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         flp.leftMargin = (int)(10*d);
         floorSlider.setLayoutParams(flp);
-        floorSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION));
-        floorSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION));
-        floorSlider.setTrackInactiveTintList(android.content.res.ColorStateList.valueOf(Studio.OFF));
         wordsRow.addView(floorSlider);
-        android.widget.TextView floorVal = new android.widget.TextView(ctx);
-        floorVal.setTextSize(12);
-        floorVal.setTextColor(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION);
-        floorVal.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        floorVal.setPadding((int)(6*d), 0, 0, 0);
+        android.widget.TextView floorVal = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.value(ctx, 40);
         floorVal.setText(Math.round(currentCaptionStyle().fitMinScale * 100) + "%");
         wordsRow.addView(floorVal);
-        floorSlider.addOnChangeListener((sl, value, fromUser) -> {
-            if (!fromUser) return;
-            floorVal.setText(Math.round(value * 100) + "%");
-            tweakCaptionStyle(s -> s.fitMinScale = value);
+        floorSlider.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar sb, int p, boolean fromUser) {
+                // A fine drag reports fromUser == false; it is still the user's edit.
+                if (!fromUser && !floorSlider.isFineDriving()) return;
+                final float value = 0.15f + p * 0.05f;
+                floorVal.setText(Math.round(value * 100) + "%");
+                tweakCaptionStyle(s -> s.fitMinScale = value);
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar sb) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar sb) {}
         });
         root.addView(makeDivider(d));
         // Slide grouping + growth cycles consolidated on ONE row (Grouping / Grow / Align /
@@ -21883,14 +21856,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         growRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         growRow.setPadding(0, pad, 0, 0);
         root.addView(growRow);
-        TextView slideChip = new TextView(ctx);
-        styleDrawerChip(slideChip, d);
-        slideChip.setText(currentCaptionStyle().slideGroup ? "Grouping: Slide" : "Grouping: Karaoke");
-        slideChip.setTextColor(currentCaptionStyle().slideGroup ? com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION : Studio.DRAWER_INK);
+        // A cycling chip: its words say which grouping is on, so it keeps the one chip face
+        // rather than a caption-coloured ink for one of the two values.
+        TextView slideChip = captionChip(ctx, d, getString(currentCaptionStyle().slideGroup
+                ? R.string.caption_group_slide : R.string.caption_group_karaoke));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(slideChip, getString(R.string.caption_group_desc));
         slideChip.setOnClickListener(v -> {
             tweakCaptionStyle(s -> s.slideGroup = !s.slideGroup);
-            slideChip.setText(currentCaptionStyle().slideGroup ? "Grouping: Slide" : "Grouping: Karaoke");
-            slideChip.setTextColor(currentCaptionStyle().slideGroup ? com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION : Studio.DRAWER_INK);
+            slideChip.setText(getString(currentCaptionStyle().slideGroup
+                    ? R.string.caption_group_slide : R.string.caption_group_karaoke));
         });
         final int[] bindRef = {-1, -1}; // [bindingIdx, isAudio]
         Runnable resolveBinding = () -> {
@@ -21908,16 +21882,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         resolveBinding.run();
         final boolean[] isAudioRef = {bindRef[1] == 1};
-        final String[] anchorNames = {"Grow: center", "Grow: down", "Grow: up"};
-        final String[] justifyNames = {"Align: center", "Align: left", "Align: right"};
-        TextView growChip = new TextView(ctx);
-        styleDrawerChip(growChip, d);
-        TextView alignChip = new TextView(ctx);
-        styleDrawerChip(alignChip, d);
-        TextView allChip = new TextView(ctx);
-        styleDrawerChip(allChip, d);
-        allChip.setText("Copy to all");
-        allChip.setTextColor(Studio.VIDEO);
+        final String[] anchorNames = {getString(R.string.caption_grow_center),
+                getString(R.string.caption_grow_down), getString(R.string.caption_grow_up)};
+        final String[] justifyNames = {getString(R.string.caption_align_center),
+                getString(R.string.caption_align_left), getString(R.string.caption_align_right)};
+        TextView growChip = captionChip(ctx, d, "");
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(growChip, getString(R.string.caption_grow_desc));
+        TextView alignChip = captionChip(ctx, d, "");
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(alignChip, getString(R.string.caption_align_desc));
+        // Default chip ink: VIDEO blue is the video track's identity, not an action colour
+        // (drawer audit 2026-09-24, C11).
+        TextView allChip = captionChip(ctx, d, getString(R.string.caption_copy_all));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(allChip, getString(R.string.caption_copy_all_desc));
         Runnable refreshGrowRow = () -> {
             int anchor = 0, justify = 0;
             if (isAudioRef[0]) {
@@ -22026,7 +22002,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             editorTimeline.invalidate();
             scheduleAutoSave();
-            Toast.makeText(this, "Anchor + align applied to all tracks", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.caption_copy_all_done, Toast.LENGTH_SHORT).show();
         });
         growRow.addView(slideChip);
         growRow.addView(growChip);
@@ -22042,7 +22018,38 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // ── Caption style drawer helpers
 
 
-    /** Common look for the drawer's tappable chips. */
+    /**
+     * A caption-drawer chip: the ONE drawer chip face ({@code Kit.chip}), placed with the 8dp
+     * lead gap these rows use. The caption drawer had its own fifth chip recipe, and faded chips
+     * to 45% to mean "off" (drawer audit 2026-09-24, C1/C2): off is grey, never a faded colour.
+     */
+    @NonNull
+    private TextView captionChip(@NonNull android.content.Context ctx, float d,
+                                 @NonNull CharSequence text) {
+        TextView chip = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(ctx, text);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.leftMargin = (int)(8*d);
+        chip.setLayoutParams(lp);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pressable(chip);
+        return chip;
+    }
+
+    /**
+     * {@code Kit.rowLabel} at its natural width, for a label that shares a line with other
+     * controls rather than heading a column (drawer audit 2026-09-24, C12/E16/E21).
+     */
+    @NonNull
+    private static TextView drawerInlineLabel(@NonNull android.content.Context ctx,
+                                              @NonNull CharSequence text) {
+        TextView t = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.rowLabel(ctx, text, 0);
+        t.setMinWidth(0);
+        t.setMaxWidth(Integer.MAX_VALUE);
+        return t;
+    }
+
+    /** The caption BOX OPTIONS dialog's chips. That dialog is opaque, so its screen ramp is right;
+     *  the drawer's own chips use {@link #captionChip}. */
     private void styleDrawerChip(@NonNull TextView chip, float d) {
         chip.setTextColor(Studio.INK);
         chip.setTextSize(13);
@@ -22094,7 +22101,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         dial.setLayoutParams(lp);
         final Runnable label = () -> dial.setText(currentCaptionStyle().maxWords + "w");
         label.run();
-        dial.setContentDescription("Words per caption");
+        // Named for TalkBack AND the hover: "3w" alone is cryptic (drawer audit 2026-09-24, C8/C20).
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(dial, getString(R.string.caption_fit_words_desc));
 
         dial.setOnTouchListener(new View.OnTouchListener() {
             float downY;
@@ -22140,7 +22148,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         input.setText(String.valueOf(currentCaptionStyle().maxWords));
         input.setSelectAllOnFocus(true);
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle("Words per caption") // TODO(strings)
+                .setTitle(R.string.caption_fit_words_desc)
                 .setView(input)
                 .setPositiveButton(android.R.string.ok, (dlg, w) -> {
                     int want;
@@ -22174,7 +22182,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             dial.setText(v == 0 ? "\u221E" : v + "L");
         };
         label.run();
-        dial.setContentDescription("Max lines");
+        // Named (drawer audit 2026-09-24, C8/C20).
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(dial, getString(R.string.caption_fit_lines));
         dial.setOnTouchListener(new View.OnTouchListener() {
             float downY;
             int startVal;
@@ -22216,7 +22225,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         input.setText(String.valueOf(currentCaptionStyle().fitMaxLines));
         input.setSelectAllOnFocus(true);
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle("Max lines (0 = unlimited)")
+                .setTitle(R.string.caption_fit_lines_prompt)
                 .setView(input)
                 .setPositiveButton(android.R.string.ok, (dlg, w) -> {
                     int want;
@@ -22250,7 +22259,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 int active = nearestCaptionPositionIndex(ys);
                 float[] lineYs = {h * 0.28f, h * 0.5f, h * 0.72f};
                 for (int i = 0; i < 3; i++) {
-                    p.setColor(i == active ? Studio.GO : Studio.INK_OFF);
+                    // Drawer ramp for the idle lines (drawer audit 2026-09-24, C3).
+                    p.setColor(i == active ? Studio.GO : Studio.DRAWER_DIM);
                     canvas.drawLine(inset, lineYs[i], w - inset, lineYs[i], p);
                 }
             }
@@ -22259,7 +22269,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(wPx, hPx);
         v.setLayoutParams(lp);
         v.setBackgroundResource(R.drawable.floating_button_item_bg);
-        v.setContentDescription("Caption position"); // TODO(strings)
+        // Named for TalkBack AND the hover (drawer audit 2026-09-24, C22).
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(v, getString(R.string.caption_position));
         v.setOnClickListener(view -> {
             int next = (nearestCaptionPositionIndex(ys) + 1) % 3;
             applyCaptionPosition(0.5f, ys[next]);
@@ -22578,8 +22589,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 android.graphics.Paint p = new android.graphics.Paint(
                         android.graphics.Paint.ANTI_ALIAS_FLAG);
                 float w = getWidth(), h = getHeight();
-                // The "A", pushed right so the motion lines have room to trail it.
-                p.setColor(Studio.INK);
+                // The "A", pushed right so the motion lines have room to trail it. Drawer ink:
+                // it sits on the see-through drawer (drawer audit 2026-09-24, E8).
+                p.setColor(Studio.DRAWER_INK);
                 p.setTextAlign(android.graphics.Paint.Align.CENTER);
                 p.setTextSize(h * 0.52f);
                 p.setFakeBoldText(true);
@@ -22603,7 +22615,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         lp.leftMargin = (int)(8*d);
         v.setLayoutParams(lp);
         v.setBackgroundResource(R.drawable.floating_button_item_bg);
-        v.setContentDescription("Text motion"); // TODO(strings)
+        // Named for TalkBack AND the stylus hover (drawer audit 2026-09-24, E8).
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(v,
+                getString(R.string.faditor_lc_motion_title));
         return v;
     }
 
@@ -22611,11 +22625,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void addColorControl(@NonNull LinearLayout row, float d, @NonNull String label,
                                  @NonNull java.util.function.Supplier<Integer> get,
                                  @NonNull java.util.function.IntConsumer set) {
-        TextView tl = new TextView(this);
-        tl.setText(label);
-        tl.setTextColor(Studio.INK_FAINT);
-        tl.setTextSize(12);
-        tl.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
+        // Kit label in drawer ink; screen INK_FAINT on the see-through drawer (drawer audit
+        // 2026-09-24, C3).
+        TextView tl = drawerInlineLabel(this, label);
         tl.setPadding((int)(4*d), 0, 0, 0);
         row.addView(tl);
         View swatch = new View(this);
@@ -22626,8 +22638,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
         bg.setCornerRadius(6*d);
         bg.setColor(get.get());
-        bg.setStroke((int)(1*d), Studio.INK_OFF);
+        bg.setStroke((int)(1*d), Studio.DRAWER_LABEL);   // drawer ring (audit 2026-09-24, C3)
         swatch.setBackground(bg);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(swatch, label);   // named (drawer audit 2026-09-24, C4)
         // LIVE, both ways: dragging any control in the picker re-styles the caption on the
         // preview immediately (tweakCaptionStyle records no undo, so calling it on every tick
         // costs nothing extra), and Cancel replays the original colour back through the same
@@ -22645,14 +22658,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                        @NonNull java.util.function.Consumer<Boolean> setOn,
                                        @NonNull java.util.function.Supplier<Integer> getColor,
                                        @NonNull java.util.function.IntConsumer setColor) {
-        TextView toggle = new TextView(this);
-        styleDrawerChip(toggle, d);
-        toggle.setText(label);
-        toggle.setAlpha(getOn.get() ? 1f : 0.45f);
+        // Kit chip + Kit on/off: off is grey, never 45% alpha (drawer audit 2026-09-24, C1/C2).
+        TextView toggle = captionChip(this, d, label);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(toggle, getOn.get());
         toggle.setOnClickListener(v -> {
             boolean now = !getOn.get();
             setOn.accept(now);
-            toggle.setAlpha(now ? 1f : 0.45f);
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(toggle, now);
         });
         row.addView(toggle);
         View swatch = new View(this);
@@ -22663,12 +22675,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
         bg.setCornerRadius(5*d);
         bg.setColor(getColor.get());
-        bg.setStroke((int)(1*d), Studio.INK_OFF);
+        bg.setStroke((int)(1*d), Studio.DRAWER_LABEL);   // drawer ring (audit 2026-09-24, C3)
         swatch.setBackground(bg);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(swatch, label);   // named (drawer audit 2026-09-24, C4)
         swatch.setOnClickListener(v -> com.fadcam.ui.faditor.tools.ColorPickerDialog.show(
                 this, label, getColor.get(), false,
-                c -> { if (c != null) { setColor.accept(c); bg.setColor(c); toggle.setAlpha(1f); } },
-                c -> { if (c != null) { setColor.accept(c); bg.setColor(c); toggle.setAlpha(1f); } }));
+                c -> { if (c != null) { setColor.accept(c); bg.setColor(c); com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(toggle, true); } },
+                c -> { if (c != null) { setColor.accept(c); bg.setColor(c); com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(toggle, true); } }));
         row.addView(swatch);
     }
 
@@ -22676,14 +22689,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void addToggleControl(@NonNull LinearLayout row, float d, @NonNull String label,
                                   @NonNull java.util.function.Supplier<Boolean> getOn,
                                   @NonNull java.util.function.Consumer<Boolean> setOn) {
-        TextView toggle = new TextView(this);
-        styleDrawerChip(toggle, d);
-        toggle.setText(label);
-        toggle.setAlpha(getOn.get() ? 1f : 0.45f);
+        // Kit chip + Kit on/off (drawer audit 2026-09-24, C1/C2).
+        TextView toggle = captionChip(this, d, label);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(toggle, getOn.get());
         toggle.setOnClickListener(v -> {
             boolean now = !getOn.get();
             setOn.accept(now);
-            toggle.setAlpha(now ? 1f : 0.45f);
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(toggle, now);
         });
         row.addView(toggle);
     }
@@ -22694,7 +22706,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView btn = new TextView(this);
         btn.setText(icon);
         btn.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(this, R.font.materialicons));
-        btn.setTextColor(Studio.INK_DIM);
+        btn.setTextColor(Studio.DRAWER_DIM);   // drawer ramp (audit 2026-09-24, C3)
         btn.setTextSize(20);
         btn.setGravity(Gravity.CENTER);
         int p = (int)(10*d);
@@ -22704,7 +22716,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.leftMargin = (int)(8*d);
         btn.setLayoutParams(lp);
-        btn.setContentDescription(cd);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(btn, cd);   // + the hover tooltip (drawer audit 2026-09-24, C8)
         btn.setOnClickListener(onClick);
         row.addView(btn);
     }
@@ -23512,24 +23524,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final int maxPercent = Math.round(
                 com.fadcam.ui.faditor.transcript.CaptionAnimator.MAX_ZONE_PCT * 100f);
 
-        TextView heading = new TextView(this);
-        heading.setText("Timing"); // TODO(strings)
-        heading.setTextColor(Studio.INK_FAINT);
-        heading.setTextSize(12);
+        // Kit section label + notes: drawer ink, resource strings (drawer audit 2026-09-24,
+        // C3/C23).
+        TextView heading = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.sectionLabel(this, getString(R.string.caption_timing));
         heading.setPadding(0, (int) (8 * d), 0, 0);
         root.addView(heading);
 
-        TextView hint = new TextView(this);
         // Named explicitly because the whole feature turns on it: this is per LINE, not per clip.
-        hint.setText("Applied to every caption line, as a share of that line"); // TODO(strings)
-        hint.setTextColor(Studio.INK_FAINT);
-        hint.setTextSize(11);
+        TextView hint = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.note(this, getString(R.string.caption_timing_hint));
         hint.setPadding(0, (int) (2 * d), 0, (int) (4 * d));
         root.addView(hint);
 
-        final TextView readout = new TextView(this);
-        readout.setTextColor(Studio.INK_DIM);
-        readout.setTextSize(11);
+        final TextView readout = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.note(this, "");
 
         // One updater for both sliders so the two readouts can never disagree with the model.
         final Runnable refresh = () -> {
@@ -23537,18 +23543,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (now == null) return;
             int in = Math.round(now.getCaptionAnimInPct() * 100f);
             int out = Math.round(now.getCaptionAnimOutPct() * 100f);
-            // TODO(strings)
-            readout.setText("In " + in + "%   Out " + out + "%   of each line"
-                    + (in + out >= maxPercent * 2 ? "  ·  in ends as out begins" : ""));
+            readout.setText(getString(in + out >= maxPercent * 2
+                    ? R.string.caption_timing_readout_meet : R.string.caption_timing_readout,
+                    in, out));
         };
 
         // G12: In and Out on ONE line — same half treatment as audio fades
         android.widget.LinearLayout timingRow = new android.widget.LinearLayout(this);
         timingRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         timingRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        View inSlider = makeCaptionAnimSlider(timingRow, d, "In", maxPercent,
+        View inSlider = makeCaptionAnimSlider(timingRow, d,
+                getString(R.string.lane_b_audio_fade_in_short), maxPercent,
                 Math.round(target.getCaptionAnimInPct() * 100f), true, refresh);
-        View outSlider = makeCaptionAnimSlider(timingRow, d, "Out", maxPercent,
+        View outSlider = makeCaptionAnimSlider(timingRow, d,
+                getString(R.string.lane_b_audio_fade_out_short), maxPercent,
                 Math.round(target.getCaptionAnimOutPct() * 100f), false, refresh);
         android.widget.LinearLayout.LayoutParams lpIn = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 0.5f);
         android.widget.LinearLayout.LayoutParams lpOut = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 0.5f);
@@ -23575,14 +23583,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView name = new TextView(this);
-        name.setText(label); // TODO(strings)
-        name.setTextColor(Studio.INK_DIM);
-        name.setTextSize(11);
+        // Kit label + the ONE drawer slider face, named (drawer audit 2026-09-24, C3/C10).
+        TextView name = drawerInlineLabel(this, label);
         name.setMinEms(2);
         row.addView(name);
 
-        SeekBar bar = new SeekBar(this);
+        final com.fadcam.ui.faditor.tools.FineSeekBar bar =
+                new com.fadcam.ui.faditor.tools.FineSeekBar(this);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(bar);
+        bar.setContentDescription(getString(isIn
+                ? R.string.caption_timing_in_desc : R.string.caption_timing_out_desc));
         bar.setMax(maxPercent);
         bar.setProgress(Math.max(0, Math.min(maxPercent, startPercent)));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
@@ -23595,7 +23605,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final float[] gestureStart = new float[2];
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar sb, int p, boolean fromUser) {
-                if (!fromUser) return;
+                // A fine drag reports fromUser == false; it is still the user's edit.
+                if (!fromUser && !bar.isFineDriving()) return;
                 CapAnim now = captionAnimTarget();
                 if (now == null) return;
                 float pct = p / 100f;
@@ -27954,17 +27965,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // rendered size, so a huge overlay can be pushed until it just leaves the
         // frame — a fixed 0..100% range could only ever get an object fully off
         // frame for at most one frame-height (KeyframeSet.POS_MIN rationale).
-        props.add(overlayMenuProp(o, K_X, "Pos X",
-                -o.getCenterLimitX(), 1f + o.getCenterLimitX(), pct,   // TODO(strings)
+        // Property names from resources, shared by every object (drawer audit 2026-09-24, I5).
+        props.add(overlayMenuProp(o, K_X, getString(R.string.faditor_prop_pos_x),
+                -o.getCenterLimitX(), 1f + o.getCenterLimitX(), pct,
                 ms -> o.animatedCenterX(ms)));
-        props.add(overlayMenuProp(o, K_Y, "Pos Y",
-                -o.getCenterLimitY(), 1f + o.getCenterLimitY(), pct,   // TODO(strings)
+        props.add(overlayMenuProp(o, K_Y, getString(R.string.faditor_prop_pos_y),
+                -o.getCenterLimitY(), 1f + o.getCenterLimitY(), pct,
                 ms -> o.animatedCenterY(ms)));
-        props.add(overlayMenuProp(o, K_SCALE, "Scale", 0.02f, 10f, pct, // TODO(strings)
+        props.add(overlayMenuProp(o, K_SCALE, getString(R.string.faditor_prop_scale), 0.02f, 10f, pct,
                 ms -> o.animatedSizeFraction(ms)));
-        props.add(overlayMenuProp(o, K_ROT, "Rotate", -180f, 180f, deg, // TODO(strings)
+        props.add(overlayMenuProp(o, K_ROT, getString(R.string.faditor_tool_rotate), -180f, 180f, deg,
                 ms -> o.animatedRotation(ms)));
-        props.add(overlayMenuProp(o, K_OP, "Opacity", 0f, 1f, pct,      // TODO(strings)
+        props.add(overlayMenuProp(o, K_OP, getString(R.string.faditor_tool_opacity), 0f, 1f, pct,
                 ms -> o.animatedOpacity(ms)));
 
         java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
@@ -28239,7 +28251,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null) return;
         commitPendingCompUndo();
         com.fadcam.ui.faditor.sprite.SpriteSheet sheet = project.spriteSheetById(s.getSheetId());
-        final String title = sheet != null ? sheet.getName() : "Sprite";   // TODO(strings)
+        final String title = sheet != null ? sheet.getName()
+                : getString(R.string.sprite_editor_default_name);   // drawer audit 2026-09-24, SP1
         final com.fadcam.ui.faditor.tools.PipDrawerTabs.Host host =
                 new com.fadcam.ui.faditor.tools.PipDrawerTabs.Host() {
             @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
@@ -28301,18 +28314,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ObjectMenuSheet.ValueFormat deg = v -> Math.round(v) + "°"; // SPEC A: raw, keeps winding
         final java.util.List<Runnable> refreshers = new java.util.ArrayList<>();
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
-                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.X, "Pos X",   // TODO(strings)
+                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.X, getString(R.string.faditor_prop_pos_x),
                         0f, 1f, pct, ms -> s.animatedCenterX(ms)), host));
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
-                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, "Pos Y",   // TODO(strings)
+                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, getString(R.string.faditor_prop_pos_y),
                         0f, 1f, pct, ms -> s.animatedCenterY(ms)), host));
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
-                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, "Scale", // TODO(strings)
+                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, getString(R.string.faditor_prop_scale),
                         0.01f, 1f, pct, ms -> s.animatedSizeFraction(ms)), host));
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addRotateOpacityRow(this, root,
-                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, "Rotate", // TODO(strings)
+                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, getString(R.string.faditor_tool_rotate),
                         -180f, 180f, deg, ms -> s.animatedRotation(ms)),
-                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY, "Opacity", // TODO(strings)
+                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY, getString(R.string.faditor_tool_opacity),
                         0f, 1f, pct, ms -> s.animatedOpacity(ms)),
                 host));
         for (Runnable r : refreshers) r.run();
@@ -28333,14 +28346,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
         props.add(spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
-                "Pos X", 0f, 1f, pct, ms -> s.animatedCenterX(ms)));      // TODO(strings)
+                getString(R.string.faditor_prop_pos_x), 0f, 1f, pct, ms -> s.animatedCenterX(ms)));
         props.add(spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
-                "Pos Y", 0f, 1f, pct, ms -> s.animatedCenterY(ms)));      // TODO(strings)
+                getString(R.string.faditor_prop_pos_y), 0f, 1f, pct, ms -> s.animatedCenterY(ms)));
         props.add(spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
-                "Scale", 0.01f, 1f, pct, ms -> s.animatedSizeFraction(ms))); // TODO(strings)
-        props.add(spriteMenuProp(s, K_ROT, "Rotate", -180f, 180f, deg,    // TODO(strings)
+                getString(R.string.faditor_prop_scale), 0.01f, 1f, pct, ms -> s.animatedSizeFraction(ms)));
+        props.add(spriteMenuProp(s, K_ROT, getString(R.string.faditor_tool_rotate), -180f, 180f, deg,
                 ms -> s.animatedRotation(ms)));
-        props.add(spriteMenuProp(s, K_OP, "Opacity", 0f, 1f, pct,         // TODO(strings)
+        props.add(spriteMenuProp(s, K_OP, getString(R.string.faditor_tool_opacity), 0f, 1f, pct,
                 ms -> s.animatedOpacity(ms)));
 
         final com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot[] sliderBefore =
@@ -28354,7 +28367,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
 
         com.fadcam.ui.faditor.sprite.SpriteSheet sheet = project.spriteSheetById(s.getSheetId());
-        String title = sheet != null ? sheet.getName() : "Sprite";        // TODO(strings)
+        String title = sheet != null ? sheet.getName()
+                : getString(R.string.sprite_editor_default_name);
         // Delete lives on the timeline selection badge only (JoyRaptor 2026-07-17 —
         // the drawer trash was confusing next to ×, and duplicated the badge).
         // Sprites are one-per-lane (T8) so no layer-move actions — just the
@@ -29230,7 +29244,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs =
                 new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Effects", R.drawable.ic_fx_24,                               // TODO(strings)
+                getString(R.string.drawer_tab_effects), R.drawable.ic_fx_24,
                 ctx -> {
                     // Hoisted for the same reason the PiP tab hoists it: setFx(getFx())
                     // detaches an emptied stack, and the panel would go on holding the orphan.
@@ -29943,21 +29957,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // away to the right was not expressible at all (user, 2026-08-06). See
         // KeyframeSet.POS_MIN for why the limit is one frame of travel beyond each edge.
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
-                "Pos X", com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MIN,
-                com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MAX, pct));      // TODO(strings)
+                getString(R.string.faditor_prop_pos_x), com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MIN,
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MAX, pct));   // drawer audit 2026-09-24, PiP-1
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
-                "Pos Y", com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MIN,
-                com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MAX, pct));      // TODO(strings)
+                getString(R.string.faditor_prop_pos_y), com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MIN,
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MAX, pct));
         // Scale to 400% (user, 2026-08-05). The pinch gesture already clamped at 300% while
         // this slider stopped at 150%, so the two disagreed about the maximum — the slider
         // could not express a size the fingers could reach. Both are 4.0 now; see
         // OverlayVideoPreviewView's pinch clamp, which was raised in the same change.
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
-                "Scale", 0.05f, 4.0f, pct)); // TODO(strings)
+                getString(R.string.faditor_prop_scale), 0.05f, 4.0f, pct));
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION,
-                "Rotate", -180f, 180f, deg)); // TODO(strings)
+                getString(R.string.faditor_tool_rotate), -180f, 180f, deg));
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY,
-                "Opacity", 0f, 1f, pct));    // TODO(strings)
+                getString(R.string.faditor_tool_opacity), 0f, 1f, pct));
         // SPEC_PIP_AUDIO slice C: volume is only meaningful once this PiP contributes
         // audio at all, so the slider appears only for an opted-in clip (static — a PiP
         // volume ENVELOPE is not wired through the export sequence yet).
@@ -30508,7 +30522,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("A/V Sync", 0, ctx -> createAvSyncView(ctx)));
         // C6: the FX tab — compressor gain-reduction bar. Tuning blind is guesswork.
         // Carries the per-clip voice-chain switch (the clip IS the real AudioClip here).
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Effects", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, ac)));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(getString(R.string.drawer_tab_effects), R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, ac)));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         // JoyRaptor 2026-08-23: the ⇤/⇥ range CHIPS moved out of the bottom peek sheet and up here,
         // "on the left side of the mute button ... start here, end here, break, mute, shield".
@@ -30721,7 +30735,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // C6: same FX tab a standalone audio clip gets (§2.2 — identical four tabs).
         // The REAL Clip is passed, not the synth proxy, so the per-clip voice-chain
         // switch writes straight through and cannot die with the drawer (pan lesson).
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Effects", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, clip)));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(getString(R.string.drawer_tab_effects), R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, clip)));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24, clip::isAudioMuted, () -> { clip.setAudioMuted(!clip.isAudioMuted()); synth.setMuted(clip.isAudioMuted()); if (editorTimeline != null) editorTimeline.invalidate(); if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume(); scheduleAutoSave(); }, true));
         // C7: A/B bypass — identical to the audio-clip drawer's (one global chain).
@@ -31303,7 +31317,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Visualizer", getString(R.string.drawer_tab_transform),       // TODO(strings)
+                getString(R.string.drawer_title_visualizer), getString(R.string.drawer_tab_transform),   // drawer audit 2026-09-24, V-1
                 R.drawable.ic_transform_24, ctx -> buildVisualizerTransformTab(wf, host)));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         final Runnable afterToggle = () -> { refreshVizAfterMenuWrite(); scheduleAutoSave(); };
@@ -31342,28 +31356,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ObjectMenuSheet.ValueFormat deg = v -> Math.round(v) + "°";
         final java.util.List<Runnable> refreshers = new java.util.ArrayList<>();
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
-                ObjectMenuSheet.Prop.staticProp("viz_x", "Pos X", 0f, 1f, pct,     // TODO(strings)
+                ObjectMenuSheet.Prop.staticProp("viz_x", getString(R.string.faditor_prop_pos_x), 0f, 1f, pct,
                         ms -> wf.getCenterX(),
                         (v, ms) -> { wf.setCenter(v, wf.getCenterY()); refreshVizAfterMenuWrite(); }),
                 host));
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
-                ObjectMenuSheet.Prop.staticProp("viz_y", "Pos Y", 0f, 1f, pct,     // TODO(strings)
+                ObjectMenuSheet.Prop.staticProp("viz_y", getString(R.string.faditor_prop_pos_y), 0f, 1f, pct,
                         ms -> wf.getCenterY(),
                         (v, ms) -> { wf.setCenter(wf.getCenterX(), v); refreshVizAfterMenuWrite(); }),
                 host));
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
-                ObjectMenuSheet.Prop.staticProp("viz_w", "Width", 0.1f, 1f, pct,   // TODO(strings)
+                ObjectMenuSheet.Prop.staticProp("viz_w", getString(R.string.faditor_mask_w), 0.1f, 1f, pct,
                         ms -> wf.getWidthFraction(),
                         (v, ms) -> { wf.setSize(v, wf.getHeightFraction()); refreshVizAfterMenuWrite(); }),
                 host));
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
-                ObjectMenuSheet.Prop.staticProp("viz_h", "Height", 0.05f, 1f, pct, // TODO(strings)
+                ObjectMenuSheet.Prop.staticProp("viz_h", getString(R.string.faditor_mask_h), 0.05f, 1f, pct,
                         ms -> wf.getHeightFraction(),
                         (v, ms) -> { wf.setSize(wf.getWidthFraction(), v); refreshVizAfterMenuWrite(); }),
                 host));
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
                 ObjectMenuSheet.Prop.staticProp(
-                        com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, "Rotate",    // TODO(strings)
+                        com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, getString(R.string.faditor_tool_rotate),
                         -180f, 180f, deg, ms -> wf.getRotationDeg(),
                         (v, ms) -> { wf.setRotationDeg(v); refreshVizAfterMenuWrite(); }),
                 host));
@@ -31380,23 +31394,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
         ObjectMenuSheet.ValueFormat deg = v -> Math.round(v) + "°"; // SPEC A: raw, keeps winding
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
-        props.add(ObjectMenuSheet.Prop.staticProp("viz_x", "Pos X", 0f, 1f, pct, // TODO(strings)
+        props.add(ObjectMenuSheet.Prop.staticProp("viz_x", getString(R.string.faditor_prop_pos_x), 0f, 1f, pct,
                 ms -> wf.getCenterX(),
                 (v, ms) -> { wf.setCenter(v, wf.getCenterY()); refreshVizAfterMenuWrite(); }));
-        props.add(ObjectMenuSheet.Prop.staticProp("viz_y", "Pos Y", 0f, 1f, pct, // TODO(strings)
+        props.add(ObjectMenuSheet.Prop.staticProp("viz_y", getString(R.string.faditor_prop_pos_y), 0f, 1f, pct,
                 ms -> wf.getCenterY(),
                 (v, ms) -> { wf.setCenter(wf.getCenterX(), v); refreshVizAfterMenuWrite(); }));
-        props.add(ObjectMenuSheet.Prop.staticProp("viz_w", "Width", 0.1f, 1f, pct, // TODO(strings)
+        props.add(ObjectMenuSheet.Prop.staticProp("viz_w", getString(R.string.faditor_mask_w), 0.1f, 1f, pct,
                 ms -> wf.getWidthFraction(),
                 (v, ms) -> { wf.setSize(v, wf.getHeightFraction()); refreshVizAfterMenuWrite(); }));
-        props.add(ObjectMenuSheet.Prop.staticProp("viz_h", "Height", 0.05f, 1f, pct, // TODO(strings)
+        props.add(ObjectMenuSheet.Prop.staticProp("viz_h", getString(R.string.faditor_mask_h), 0.05f, 1f, pct,
                 ms -> wf.getHeightFraction(),
                 (v, ms) -> { wf.setSize(wf.getWidthFraction(), v); refreshVizAfterMenuWrite(); }));
         // SPEC A: the key MUST be KeyframeSet.ROTATION so promptForValue's rotation branch
         // applies — the old "viz_rot" key fell into the numeric branch and CLAMPED a typed
         // 720 to the slider's 180 max. The value itself was already raw; only the door lied.
-        props.add(ObjectMenuSheet.Prop.staticProp( // TODO(strings)
-                com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, "Rotate", -180f, 180f, deg,
+        props.add(ObjectMenuSheet.Prop.staticProp(
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, getString(R.string.faditor_tool_rotate), -180f, 180f, deg,
                 ms -> wf.getRotationDeg(),
                 (v, ms) -> { wf.setRotationDeg(v); refreshVizAfterMenuWrite(); }));
 
@@ -32029,7 +32043,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.onFill(accent), 0));
             t.setTextColor(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.inkOn(accent));
         } else {
-            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.background(t, null);
+            // Off is the Kit's control fill + ring, like every other drawer chip — it was bare
+            // text (drawer audit 2026-09-24, E6).
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.background(t,
+                    com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pill(t.getContext(),
+                            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.CTL,
+                            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.RING));
             t.setTextColor(Studio.DRAWER_DIM);
         }
     }
@@ -32044,7 +32063,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.graphics.drawable.GradientDrawable g =
                 new android.graphics.drawable.GradientDrawable(
                         android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
-                        new int[]{com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.onFill(accent), 0x00000000});
+                        new int[]{com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.onFill(accent),
+                                // Palette clear, not a hex literal (drawer audit 2026-09-24, E7).
+                                Studio.alpha(Studio.GROUND, 0)});
         g.setCornerRadius(999f);
         com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.background(t, g);
     }
@@ -33492,7 +33513,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // up because you went looking for them; the corner badge puts them up because you want
         // to pose, right now, with nothing covering the picture. Either is enough.
         boolean viaDrawer = objectDrawer != null && objectDrawer.isShowing()
-                && "Puppet".equals(objectDrawer.currentTabTitle());
+                && getString(R.string.drawer_tab_puppet).equals(objectDrawer.currentTabTitle());
         // PUT AWAY beats both ways in. `rig.locked` used to mean "the pins are grey and inert",
         // which left a rigged picture as the one kind of picture you could not move — JoyRaptor
         // reported exactly that: <i>"it kind of behaves like it’s not selected."</i> It now means
@@ -33666,7 +33687,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // The drawer is the OTHER way the pins are up. Leaving it open on the Puppet
                     // tab would put them straight back and the tap would look like it failed.
                     if (objectDrawer != null && objectDrawer.isShowing()
-                            && "Puppet".equals(objectDrawer.currentTabTitle())) {
+                            && getString(R.string.drawer_tab_puppet).equals(objectDrawer.currentTabTitle())) {
                         objectDrawer.hide();
                     }
                     syncPuppetOverlay(it);
@@ -33890,7 +33911,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs =
                 new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Image", getString(R.string.drawer_tab_transform),         // TODO(strings)
+                getString(R.string.faditor_tool_sticker), getString(R.string.drawer_tab_transform),   // drawer audit 2026-09-24, I2
                 R.drawable.ic_transform_24,
                 ctx -> buildImageTransformTab(o, tabHost)));
         // ── Mask / Chroma key / Effects ──────────────────────────────────────────────────────
@@ -33949,7 +33970,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // stack, which detaches the very object the panel is still editing.
         final com.fadcam.ui.faditor.fx.FxStack imageFx = o.getOrCreateFx();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Effects", R.drawable.ic_fx_24,                           // TODO(strings)
+                getString(R.string.drawer_tab_effects), R.drawable.ic_fx_24,   // drawer audit 2026-09-24, I3
                 // An image's effect stack reaches BOTH renderers now: ImageBlendGlEffect on
                 // export, FxPreviewTextureView here, from the same fused pass and the same
                 // splice a PiP uses. So the note no longer says "export only" — it says the one
@@ -33972,7 +33993,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // The rig is created on first use, so an image that never opens this tab still saves
         // byte-identically — PuppetRigJson.toJson returns null for a rig with no pins.
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Puppet", R.drawable.ic_person_24,                        // TODO(strings)
+                // The title is a resource, and every "is the Puppet tab showing" check below
+                // compares against the SAME resource, so a translation cannot break the
+                // pin-restore (drawer audit 2026-09-24, I4).
+                getString(R.string.drawer_tab_puppet), R.drawable.ic_person_24,
                 ctx -> com.fadcam.ui.faditor.tools.PuppetDrawerTabs.build(
                         ctx, puppetHostFor(o, applyComp))));
 
@@ -34022,7 +34046,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // been put away would show the whole puppet drawer over a picture with nothing on it
             // — every control present, referring to something invisible. Changing tabs is a
             // deliberate act, so it is a fair place to clear a state the user set deliberately.
-            if ("Puppet".equals(drawer.currentTabTitle())
+            if (getString(R.string.drawer_tab_puppet).equals(drawer.currentTabTitle())
                     && o.getPuppet() != null && o.getPuppet().locked) {
                 o.getPuppet().locked = false;
                 scheduleAutoSave();
@@ -34314,28 +34338,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
             rows.removeAllViews();
             refreshers[0].clear();
             refreshers[0].add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(
-                    this, rows, overlayMenuProp(o, K_X, "Pos X",            // TODO(strings)
+                    // Resource names (drawer audit 2026-09-24, I5).
+                    this, rows, overlayMenuProp(o, K_X, getString(R.string.faditor_prop_pos_x),
                             -o.getCenterLimitX(), 1f + o.getCenterLimitX(), pct,
                             ms -> o.animatedCenterX(ms)), host));
             refreshers[0].add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(
-                    this, rows, overlayMenuProp(o, K_Y, "Pos Y",            // TODO(strings)
+                    this, rows, overlayMenuProp(o, K_Y, getString(R.string.faditor_prop_pos_y),
                             -o.getCenterLimitY(), 1f + o.getCenterLimitY(), pct,
                             ms -> o.animatedCenterY(ms)), host));
             refreshers[0].add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addScaleRow(
-                    this, rows, "Scale", host, o.isScaleLinked(),           // TODO(strings)
-                    overlayMenuProp(o, K_SCALE, "Scale", 0.02f, 10f, pct,   // TODO(strings)
+                    this, rows, getString(R.string.faditor_prop_scale), host, o.isScaleLinked(),
+                    overlayMenuProp(o, K_SCALE, getString(R.string.faditor_prop_scale), 0.02f, 10f, pct,
                             ms -> o.animatedSizeFraction(ms)),
-                    overlayMenuProp(o, K_SX, "Scale X", 0.02f, 10f, pct,    // TODO(strings)
+                    overlayMenuProp(o, K_SX, getString(R.string.faditor_prop_scale_x), 0.02f, 10f, pct,
                             ms -> o.animatedScaleX(ms)),
-                    overlayMenuProp(o, K_SY, "Scale Y", 0.02f, 10f, pct,    // TODO(strings)
+                    overlayMenuProp(o, K_SY, getString(R.string.faditor_prop_scale_y), 0.02f, 10f, pct,
                             ms -> o.animatedScaleY(ms)),
                     imageScaleChainToggle(o, rebuild[0], d)));
             // Rotate and Opacity share a line where the phone is wide enough (see the helper).
             refreshers[0].add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addRotateOpacityRow(
                     this, rows,
-                    overlayMenuProp(o, K_ROT, "Rotate",                     // TODO(strings)
+                    overlayMenuProp(o, K_ROT, getString(R.string.faditor_tool_rotate),
                             -180f, 180f, deg, ms -> o.animatedRotation(ms)),
-                    overlayMenuProp(o, K_OP, "Opacity",                     // TODO(strings)
+                    overlayMenuProp(o, K_OP, getString(R.string.faditor_tool_opacity),
                             0f, 1f, pct, ms -> o.animatedOpacity(ms)),
                     host));
             for (Runnable r : refreshers[0]) r.run();
@@ -34935,7 +34960,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         item.setColorInt(c);
                     }
                 },
-                "Text",
+                getString(R.string.faditor_text_color),   // drawer audit 2026-09-24, E11
                 () -> session.hasSelection() && TextStyleResolver.overRange(
                         session.item.resolveBase(), session.spans,
                         TextStyleResolver.Prop.FILL_COLOR,
@@ -34949,11 +34974,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // B / I / U — independent toggles (see TextOverlayItem javadoc on why not an enum).
         // With a selection these read and WRITE the SPAN over the range: mixed → two-tone,
         // tap → ON; uniform → tap flips. No selection: the item's base fields, as before.
-        TextView boldBtn = topRowToggle(this, d, "B");
+        TextView boldBtn = topRowToggle(this, d, "B", getString(R.string.desc_bold));
         boldBtn.setTypeface(null, android.graphics.Typeface.BOLD);
-        TextView italicBtn = topRowToggle(this, d, "I");
+        TextView italicBtn = topRowToggle(this, d, "I", getString(R.string.desc_italic));
         italicBtn.setTypeface(null, android.graphics.Typeface.ITALIC);
-        TextView underlineBtn = topRowToggle(this, d, "U");
+        TextView underlineBtn = topRowToggle(this, d, "U", getString(R.string.faditor_text_underline));
         underlineBtn.getPaint().setUnderlineText(true);
         Runnable refreshBiu = () -> {
             Boolean b = textToggleValue(session, TextStyleResolver.Prop.BOLD);
@@ -34984,9 +35009,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // CASE — three toggles, mutually exclusive with NONE (tapping the active one clears it).
         // With a selection the active chip is the (possibly MIXED → two-tone) range's case; mixed
         // or different → tap sets that case over the range, tapping the active case clears it.
-        TextView capFirstBtn = topRowToggle(this, d, "Tt");
-        TextView allCapsBtn = topRowToggle(this, d, "TT");
-        TextView smallCapsBtn = topRowToggle(this, d, "ᴛᴛ");
+        TextView capFirstBtn = topRowToggle(this, d, "Tt",
+                getString(R.string.faditor_text_case_first));
+        TextView allCapsBtn = topRowToggle(this, d, "TT",
+                getString(R.string.faditor_text_case_all));
+        TextView smallCapsBtn = topRowToggle(this, d, "ᴛᴛ",
+                getString(R.string.faditor_text_case_small));
         Runnable refreshCase = () -> {
             String active = textCaseValue(session);
             if (active == null) {
@@ -35031,9 +35059,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         Math.round(34 * d), Math.round(34 * d));
         alignLp.setMarginEnd(Math.round(2 * d));
         alignBtn.setLayoutParams(alignLp);
+        // Named with the CURRENT alignment, and re-named on every tap: a drawn paragraph has
+        // no text for TalkBack or the stylus hover (drawer audit 2026-09-24, E3).
+        final Runnable describeAlign = () -> com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(
+                alignBtn, getString(R.string.faditor_text_align, alignName(item.getTextAlign())));
+        describeAlign.run();
         alignBtn.setOnClickListener(v -> {
             item.setTextAlign(com.fadcam.ui.faditor.model.TextOverlayItem.nextAlign(item.getTextAlign()));
             alignBtn.setAlign(item.getTextAlign());
+            describeAlign.run();
             refreshOverlayPreview();
             scheduleAutoSave();
         });
@@ -35096,8 +35130,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         fxBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
         int fxCount = item.getFx() == null ? 0 : item.getFx().active().size();
         boolean hasFx = fxCount > 0;
-        fxBg.setColor(hasFx ? Studio.alpha(Studio.GUIDE, 0x55) : Studio.alpha(Studio.INK, 0x22));
-        fxBg.setStroke(Math.round(1.5f * d), hasFx ? Studio.alpha(Studio.GUIDE, 0xCC) : Studio.alpha(Studio.INK, 0x55));
+        // Kit faces: off = control fill + ring; on = the accent's on-fill. It was GUIDE violet,
+        // which means "snap line", not "has effects" (drawer audit 2026-09-24, E5).
+        if (hasFx) {
+            fxBg.setColor(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.onFill(
+                    com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.accent()));
+        } else {
+            fxBg.setColor(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.CTL);
+            fxBg.setStroke(Math.max(1, Math.round(d)),
+                    com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.RING);
+        }
         fxBtn.setBackground(fxBg);
         android.widget.ImageView fxIcon = new android.widget.ImageView(this);
         fxIcon.setImageResource(R.drawable.ic_fx_24);
@@ -35108,6 +35150,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
         // FX is a tab of this same drawer now: switch to it (showTextFxDrawer knows how).
         fxBtn.setOnClickListener(v -> showTextFxDrawer(item));
+        // Named (drawer audit 2026-09-24, E4).
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(fxBtn,
+                getString(R.string.drawer_tab_effects));
         row.addView(fxBtn);
 
         // The consolidated top row is wider than any phone — [colour] Aa B I U Tt TT TT
@@ -35119,6 +35164,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 android.widget.HorizontalScrollView.LayoutParams.WRAP_CONTENT,
                 android.widget.HorizontalScrollView.LayoutParams.WRAP_CONTENT));
         return topScroll;
+    }
+
+    /** The word for a text alignment, for the align button's name (drawer audit 2026-09-24, E3). */
+    @NonNull
+    private String alignName(@Nullable String align) {
+        if (com.fadcam.ui.faditor.model.TextOverlayItem.ALIGN_LEFT.equals(align)) {
+            return getString(R.string.faditor_text_align_left);
+        } else if (com.fadcam.ui.faditor.model.TextOverlayItem.ALIGN_RIGHT.equals(align)) {
+            return getString(R.string.faditor_text_align_right);
+        } else if (com.fadcam.ui.faditor.model.TextOverlayItem.ALIGN_JUSTIFY.equals(align)) {
+            return getString(R.string.faditor_text_align_justify);
+        }
+        return getString(R.string.faditor_text_align_center);
     }
 
     /**
@@ -35186,7 +35244,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private static TextView topRowChip(@NonNull Context ctx, float d, @NonNull String label) {
         TextView t = new TextView(ctx);
         t.setText(label);
-        t.setTextColor(Studio.INK);
+        // Drawer ink, not screen INK: the row sits on the see-through drawer (drawer audit
+        // 2026-09-24, E6). The face itself comes from styleToggleState, the Kit's on/off pill.
+        t.setTextColor(Studio.DRAWER_DIM);
         t.setTextSize(14);
         t.setGravity(android.view.Gravity.CENTER);
         int pad = Math.round(8 * d);
@@ -35198,13 +35258,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMarginEnd(Math.round(4 * d));
         t.setLayoutParams(lp);
-        t.setBackgroundResource(R.drawable.floating_button_item_bg);
+        styleToggleState(t, false);
         return t;
     }
 
+    /** A top-row toggle, named for TalkBack and the stylus hover: "B" alone says nothing
+     *  (drawer audit 2026-09-24, E1/E2). */
     @NonNull
-    private static TextView topRowToggle(@NonNull Context ctx, float d, @NonNull String label) {
-        return topRowChip(ctx, d, label);
+    private static TextView topRowToggle(@NonNull Context ctx, float d, @NonNull String label,
+                                         @NonNull String name) {
+        TextView t = topRowChip(ctx, d, label);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(t, name);
+        return t;
     }
 
     /**
@@ -35799,14 +35864,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         box.setOrientation(android.widget.LinearLayout.VERTICAL);
         box.setPadding(0, gap * 2, 0, 0);
 
-        TextView header = new TextView(this);
-        header.setText(R.string.faditor_text_decor_section);
-        header.setTextColor(Studio.INK_FAINT);
-        header.setTextSize(12);
-        header.setTypeface(null, android.graphics.Typeface.BOLD);
-        header.setAllCaps(true);
-        header.setLetterSpacing(0.06f);
-        box.addView(header);
+        // The Kit's section label, in drawer ink: screen INK_FAINT on the see-through drawer
+        // was the 1.09:1 case (drawer audit 2026-09-24, E12).
+        box.addView(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.sectionLabel(this,
+                getString(R.string.faditor_text_decor_section)));
 
         // TEXT: colour (no "none" — invisible text is a bug) · opacity · the existing pose
         // keyframe (isArmed()/addOpacityKeyframeAt), which is the one already wired end to end.
@@ -35869,10 +35930,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // box itself (TextBoxRenderer draws it as the box's own rounded rect), not a separate
         // radius — so no keyframeable numeric track applies here either.
         {
-            TextView label = new TextView(this);
-            label.setText(getString(R.string.faditor_text_decor_plate));
-            label.setTextColor(Studio.INK_FAINT);
-            label.setTextSize(12);
+            // Kit row label, drawer ink (drawer audit 2026-09-24, E13).
+            TextView label = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.rowLabel(this,
+                    getString(R.string.faditor_text_decor_plate), 84);
             label.setPadding(0, gap, 0, gap / 2);
             box.addView(label);
             box.addView(colorSwatchButton(d, true, item::getBackgroundColorInt, c -> {
@@ -36066,22 +36126,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
             scheduleAutoSave();
         }, label, mixed, repaintOut));
 
-        TextView desc = new TextView(this);
-        desc.setText(label);
-        desc.setTextColor(Studio.INK_DIM);
-        desc.setTextSize(12.5f);
+        // Kit row label + the ONE drawer slider face, named: this was the theme's default
+        // SeekBar in screen grey (drawer audit 2026-09-24, E14/E15).
+        TextView desc = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.rowLabel(this, label, 84);
         desc.setPadding(gap, 0, gap, 0);
-        desc.setWidth(Math.round(84 * d));
         row.addView(desc);
 
-        android.widget.SeekBar bar = new android.widget.SeekBar(this);
+        final com.fadcam.ui.faditor.tools.FineSeekBar bar =
+                new com.fadcam.ui.faditor.tools.FineSeekBar(this);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(bar);
+        bar.setContentDescription(label);
         bar.setMax(100);
         bar.setProgress(Math.max(0, Math.min(100, getSlider.get())));
         bar.setLayoutParams(new android.widget.LinearLayout.LayoutParams(
                 0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean fromUser) {
-                if (!fromUser) return;
+                // A fine drag reports fromUser == false; it is still the user's edit.
+                if (!fromUser && !bar.isFineDriving()) return;
                 setSlider.accept((float) p);
                 refreshOverlayPreview();
             }
@@ -36163,12 +36225,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             int c = get.get();
             android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
             bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-            bg.setColor(allowNone && c == android.graphics.Color.TRANSPARENT ? 0x00000000 : c);
-            bg.setStroke(Math.round(1.5f * d), Studio.INK_FAINT);
+            // Drawer-ramp ring; the old "none → 0x00000000" ternary was a no-op (TRANSPARENT
+            // is already clear), so the colour goes straight in (drawer audit 2026-09-24, E10).
+            bg.setColor(c);
+            bg.setStroke(Math.round(1.5f * d), Studio.DRAWER_LABEL);
             swatch.setBackground(bg);
         };
         paint.run();
         if (repaintOut != null) repaintOut.accept(paint);
+        // Named by the picker's own title (drawer audit 2026-09-24, E9).
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(swatch, title);
         swatch.setOnClickListener(v -> {
             boolean isMixed = mixed != null && mixed.get();
             Integer initial = isMixed ? null
@@ -36224,13 +36290,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         knobRow.setPadding(0, gap / 2, 0, 0);
 
         ShadowDirectionKnob knob = new ShadowDirectionKnob(this);
+        // Named (drawer audit 2026-09-24, E17).
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(knob, getString(R.string.faditor_text_shadow_direction));
         int knobSize = Math.round(46 * d);
         knobRow.addView(knob, new android.widget.LinearLayout.LayoutParams(knobSize, knobSize));
 
-        TextView angleReadout = new TextView(this);
-        angleReadout.setTextColor(Studio.INK_DIM);
-        angleReadout.setTextSize(13);
-        angleReadout.setPadding(gap, 0, gap, 0);
+        // The Kit's value readout (drawer ink, tabular); tap-to-type gets a tooltip hint only,
+        // so TalkBack still reads the number (drawer audit 2026-09-24, E18).
+        TextView angleReadout = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.value(this, 48);
+        angleReadout.setPadding(0, 0, gap, 0);   // 40dp of text column + the gap to "Distance"
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(angleReadout,
+                getString(R.string.lane_a_value_type_hint));
         Runnable syncAngle = () -> {
             angleReadout.setText(Math.round(item.getShadowAngleDeg()) + "°");
             knob.setAngleDeg(item.getShadowAngleDeg());
@@ -36246,7 +36316,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
             in.setText(String.valueOf(Math.round(item.getShadowAngleDeg())));
             new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                    .setTitle("Shadow angle") // TODO(strings)
+                    .setTitle(R.string.faditor_text_shadow_angle)
                     .setView(in)
                     .setPositiveButton(android.R.string.ok, (dlg, w) -> {
                         try {
@@ -36271,18 +36341,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Distance slider, same line as the angle (no label row of its own): the label is a
         // short inline word so the two share the one horizontal line without wrapping.
-        TextView distLabel = new TextView(this);
-        distLabel.setText("Dist"); // TODO(strings)
-        distLabel.setTextColor(Studio.INK_FAINT);
-        distLabel.setTextSize(12);
+        // Kit label (wrap width: it shares the line with the knob) + the drawer slider face,
+        // named (drawer audit 2026-09-24, E16).
+        TextView distLabel = drawerInlineLabel(this,
+                getString(R.string.faditor_text_shadow_distance));
         distLabel.setPadding(0, 0, gap / 2, 0);
         knobRow.addView(distLabel);
-        android.widget.SeekBar distBar = new android.widget.SeekBar(this);
+        final com.fadcam.ui.faditor.tools.FineSeekBar distBar =
+                new com.fadcam.ui.faditor.tools.FineSeekBar(this);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(distBar);
+        distBar.setContentDescription(getString(R.string.faditor_text_shadow_distance));
         distBar.setMax(100);
         distBar.setProgress(Math.round(item.animatedShadowDistancePx(lastPlayheadAbsoluteMs)));
         distBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean fromUser) {
-                if (!fromUser) return;
+                if (!fromUser && !distBar.isFineDriving()) return;
                 item.setShadowDistancePx(p);
                 if (item.isShadowArmed()) item.addShadowKeyframeAt(lastPlayheadAbsoluteMs);
                 refreshOverlayPreview();
@@ -36384,10 +36457,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             motionRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
             motionRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
             motionRow.setPadding(0, 0, 0, gap / 2);
-            TextView motionLabel = new TextView(this);
-            motionLabel.setText("Animation"); // TODO(strings)
-            motionLabel.setTextColor(Studio.INK_FAINT);
-            motionLabel.setTextSize(11);
+            // Kit row label in drawer ink (drawer audit 2026-09-24, E21).
+            TextView motionLabel = drawerInlineLabel(this,
+                    getString(R.string.faditor_text_anim_label));
             android.widget.LinearLayout.LayoutParams mlp =
                     new android.widget.LinearLayout.LayoutParams(
                             android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -36455,9 +36527,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // "the wiring for four buttons was made and only two shown for lack of room" — the
             // honest answer was that the amber entrance/exit carets never had buttons at all, in
             // any amount of room. They do now, and they are the same shapes and colour the tape
-            // draws, so the row reads as the tape does. TODO(strings)
+            // draws, so the row reads as the tape does. The separator is the Kit's ring, not
+            // screen ink (drawer audit 2026-09-24, E21).
             View sep = new View(this);
-            sep.setBackgroundColor(Studio.alpha(Studio.INK, 0x33));
+            sep.setBackgroundColor(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.RING);
             android.widget.LinearLayout.LayoutParams slp =
                     new android.widget.LinearLayout.LayoutParams(
                             Math.max(1, Math.round(d)), Math.round(20 * d));
@@ -36489,34 +36562,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // The selection status + Clear chip (folded in from the old status row). "Select all"
         // sits right beside "Clear" so the context makes it clear Clear removes the selection.
-        final TextView status = new TextView(this);
-        status.setTextColor(Studio.INK_FAINT);
-        status.setTextSize(11);
+        // Kit note: drawer ink, not screen INK_FAINT (drawer audit 2026-09-24, E21).
+        final TextView status = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.note(this, "");
         status.setMaxLines(1);
         // Ellipsize rather than push: this row's job is to keep the trim chips and the trashcan
         // reachable, and the status is the one thing on it that can lose a character harmlessly.
         status.setEllipsize(android.text.TextUtils.TruncateAt.END);
         row.addView(status);
 
-        TextView clearChip = new TextView(this);
-        clearChip.setText(R.string.faditor_text_selection_clear);
-        clearChip.setTextColor(Studio.GUIDE);
-        clearChip.setTextSize(12);
-        int cp = Math.round(8 * d);
-        clearChip.setPadding(cp, cp / 2, cp, cp / 2);
-        clearChip.setOnClickListener(v -> {
-            if (session.item.isTimer()) return;
-            if (session.hasSelection()) {
-                TextStyleResolver.clearRange(session.spans, session.selStart, session.selEnd);
-            } else {
-                TextStyleResolver.clearAll(session.spans);
-            }
-            TextStyleResolver.normalize(session.spans, session.len());
-            session.refresh.run();
-            refreshOverlayPreview();
-            scheduleAutoSave();
-        });
-        row.addView(clearChip);
+        // A timer's text is generated, so it has no spans to clear: no Clear chip at all, rather
+        // than one that silently does nothing. And a Kit chip, enabled only when there is style
+        // to clear — it was GUIDE violet, which means "snap line" (drawer audit 2026-09-24, E20).
+        final TextView clearChip = item.isTimer() ? null
+                : com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(
+                        this, getString(R.string.faditor_text_selection_clear));
+        if (clearChip != null) {
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(clearChip,
+                    getString(R.string.faditor_text_selection_clear));
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pressable(clearChip);
+            clearChip.setOnClickListener(v -> {
+                if (session.hasSelection()) {
+                    TextStyleResolver.clearRange(session.spans, session.selStart, session.selEnd);
+                } else {
+                    TextStyleResolver.clearAll(session.spans);
+                }
+                TextStyleResolver.normalize(session.spans, session.len());
+                session.refresh.run();
+                refreshOverlayPreview();
+                scheduleAutoSave();
+            });
+            row.addView(clearChip, com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chipLp(this));
+        }
 
         // The DELETE affordance at the END of the line, as the TRASHCAN ICON the spec actually
         // asked for — "Start span end | whole clear | trashcan icon" (user, 2026-08-10). It was
@@ -36557,11 +36633,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (session.hasSelection()) {
                 int n = session.selEnd - session.selStart;
                 status.setText(getString(R.string.faditor_text_selection_count, n));
-                clearChip.setTextColor(Studio.GUIDE);
             } else {
                 status.setText(getString(R.string.faditor_text_selection_whole));
-                clearChip.setTextColor(Studio.INK_OFF);
             }
+            if (clearChip != null) clearChip.setEnabled(!session.spans.isEmpty());
         };
         session.refreshers.add(refresh);
         refresh.run();
@@ -36801,14 +36876,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             float r = Math.min(w, h) / 2f - 2f;
             paint.setStyle(android.graphics.Paint.Style.STROKE);
             paint.setStrokeWidth(2f);
-            paint.setColor(Studio.INK_OFF);
+            // Kit ring + accent dot: screen INK_OFF / GUIDE violet on the see-through drawer
+            // (drawer audit 2026-09-24, E17).
+            paint.setColor(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.RING);
             c.drawCircle(cx, cy, r, paint);
             // 0° = straight down, matching TextOverlayItem's shadowDx/shadowDy convention.
             double rad = Math.toRadians(angleDeg);
             float ix = cx + (float) Math.sin(rad) * r;
             float iy = cy + (float) Math.cos(rad) * r;
             paint.setStyle(android.graphics.Paint.Style.FILL);
-            paint.setColor(Studio.GUIDE);
+            paint.setColor(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.accent());
             c.drawCircle(ix, iy, r * 0.22f, paint);
         }
 
@@ -36852,18 +36929,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         box.setOrientation(android.widget.LinearLayout.VERTICAL);
         box.setPadding(0, gap * 2, 0, 0);
 
-        TextView header = new TextView(this);
-        header.setText(R.string.faditor_kf_section);
-        header.setTextColor(Studio.INK_FAINT);
-        header.setTextSize(12);
-        header.setTypeface(null, android.graphics.Typeface.BOLD);
-        header.setAllCaps(true);
-        header.setLetterSpacing(0.06f);
-        box.addView(header);
+        // Kit section label + note: drawer ink, not screen INK_FAINT (drawer audit 2026-09-24, E12).
+        box.addView(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.sectionLabel(this, getString(R.string.faditor_kf_section)));
 
-        final TextView status = new TextView(this);
-        status.setTextColor(Studio.INK_FAINT);
-        status.setTextSize(12);
+        final TextView status = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.note(this, "");
         status.setPadding(0, gap / 2, 0, gap);
         box.addView(status);
 
@@ -36877,68 +36946,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         refreshStatus.run();
 
-        // ── Opacity / transparency ──────────────────────────────────────
-        // Mirrors the volume-keyframe model: when the overlay is ARMED (has
-        // keyframes) the slider drops/updates an OPACITY keyframe at the
-        // playhead (a fade); otherwise it sets the static opacity for the
-        // whole overlay. Preview updates live.
-        TextView opLabel = new TextView(this);
-        opLabel.setText("OPACITY");
-        opLabel.setTextColor(Studio.INK_FAINT);
-        opLabel.setTextSize(12);
-        opLabel.setTypeface(null, android.graphics.Typeface.BOLD);
-        opLabel.setAllCaps(true);
-        opLabel.setLetterSpacing(0.06f);
-        opLabel.setPadding(0, gap, 0, gap / 2);
-        box.addView(opLabel);
-
-        android.widget.LinearLayout opRow = new android.widget.LinearLayout(this);
-        opRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        opRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-
-        final android.widget.SeekBar opBar = new android.widget.SeekBar(this);
-        opBar.setMax(100);
-        opBar.setProgress(Math.round(item.animatedOpacity(lastPlayheadAbsoluteMs) * 100f));
-        android.widget.LinearLayout.LayoutParams opLp =
-                new android.widget.LinearLayout.LayoutParams(
-                        0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        opBar.setLayoutParams(opLp);
-        opRow.addView(opBar);
-
-        final TextView opPct = new TextView(this);
-        opPct.setTextColor(Studio.INK_DIM);
-        opPct.setTextSize(13);
-        opPct.setPadding(gap, 0, 0, 0);
-        opPct.setText(opBar.getProgress() + "%");
-        opRow.addView(opPct);
-        box.addView(opRow);
-
-        opBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(android.widget.SeekBar sb, int progress, boolean fromUser) {
-                opPct.setText(progress + "%");
-                if (!fromUser) return;
-                float op = progress / 100f;
-                if (item.isArmed()) {
-                    item.addOpacityKeyframeAt(lastPlayheadAbsoluteMs, op);
-                } else {
-                    item.setOpacity(op);
-                }
-                if (overlayLayer != null) {
-                    setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
-                    overlayLayer.rebuild();
-                }
-                syncTimelineOverlays();
-            }
-
-            @Override public void onStartTrackingTouch(android.widget.SeekBar sb) {}
-
-            @Override
-            public void onStopTrackingTouch(android.widget.SeekBar sb) {
-                refreshStatus.run();
-                scheduleAutoSave();
-            }
-        });
+        // The OPACITY slider that sat here is gone: it duplicated the Transform tab's Opacity
+        // row (which has the real keyframe diamond), unstyled and unkeyable (drawer audit
+        // 2026-09-24, E22).
 
         // The "◆ Add keyframe" mega-button + "Clear" button are gone (D2a): the
         // drawer's ‹♦› control drops/removes single keys and "Clear all keyframes"

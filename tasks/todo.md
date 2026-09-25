@@ -210,6 +210,15 @@ ImageOverlayDraw.draw) - the GPU-compositor port in the handoff is the next spee
 - [x] Video overlay drawer now device-verified (3e6dfa60); visualizer hold path still not reachable on the Note 9
 - Test media left on the Note 9: /sdcard/Download/joy_test_overlay.mp4 (copy of ws20.mp4), pushed for the PiP test
 
+## EXPORT — MEASURED 2026-09-25 19:31 (Note 20, fresh render, 0/7 cached, screen held on)
+
+- 48:27 lecture: 10:37 wall total. Parts done 10:08, sound 10:18, JOIN 19.5 s (was 2:27).
+- Sync: video 2907.438 s, audio 2907.435 s, project 2907.401 s (was audio +3.1 s).
+- Audio clock index read in 1.4 s (MP4 table; was 18 s).
+- AAC encoder input-size hint: NO effect (sound pass 10:18 either way, same profile) -
+  reverted. The sound pass and the parts now finish together; the next speed step must
+  make BOTH faster (e.g. 3 parts at once + the sound pass split in two).
+
 ## EXPORT — state at 2026-09-25 01:00 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
 
 - Owner's export 2026-09-24 23:24 (screen kept on): 48:27 lecture in 12:48 wall - parts +

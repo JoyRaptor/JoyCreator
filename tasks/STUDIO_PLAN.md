@@ -81,4 +81,10 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
 | Full export ZA_CONTROL completes; frames match preview at 0/1.8/3 s | ✅ |
 | Link tool slice 1: arm → pick → details → tether; unlink keeps place; world↔own writes | 🧪 bf6cd08a (phone offline) |
 | Captions bar double-tap/hold opens caption drawer | 🧪 d1ab37c1 |
-| NEXT: parent-delete dialog (owner's checklist), link settings on double-tap, time links, sprite followers, Dummy/Proxy object, keyed parent switch | ⏳ |
+| Link tool device-checked on the Note 9: arm/pick/popup/link/follow/tether, double-tap settings, unlink keeps place, sprite followers, delete dialog, time links both ways | ✅ |
+| Visualizers follow links (preview + export) | 🧪 no visualizer in the test project |
+| Beats sheet switch = the magnet's Beats setting | ✅ 4f5dbbc7 |
+| A time-linked follower that would land on something drops to its own lane (owner's rule) | 🧪 e2bb20d3 (phone offline) |
+| **Proxy** (hold link button › Add a proxy): invisible handle, selection follows it, never exported, dashed tag in preview, Transform/Follows/Lanes drawer | 🧪 59d48be8 (phone offline) |
+| **Keyed parent switch** (proxy › Follows: Switch parent here / Let go here); seamless handoff, verified numerically | 🧪 5fb0be84 (phone offline) |
+| NEXT: phone pass on all 🧪; pin links (warp/puppet pins as parents); parameter drivers; text box sizing modes (#14); bottom-tools sweep | ⏳ |

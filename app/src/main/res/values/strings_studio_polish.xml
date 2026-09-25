@@ -126,4 +126,12 @@
     <string name="link_unlink_followers">Unlink its %1$d followers (they stay where they are)</string>
     <string name="link_none_here">Nothing is linked here. Tap the link button to link the selection</string>
     <string name="link_settings_title">Links</string>
+    <plurals name="link_delete_title">
+        <item quantity="one">%1$s has %2$d follower. Tick it to delete it too, or leave it free</item>
+        <item quantity="other">%1$s has %2$d followers. Tick the ones to delete too; the rest go free</item>
+    </plurals>
+    <string name="link_delete_never_mind">Never mind</string>
+    <string name="link_delete_confirm_short">Confirm</string>
+    <string name="link_delete_confirm">Confirm: %1$d of %2$d objects will be removed</string>
+    <string name="link_delete_undo">Delete with followers</string>
 </resources>

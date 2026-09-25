@@ -17662,6 +17662,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void deleteTextOverlayWithConfirmation(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
         if (project == null) return;
+        if (askAboutFollowers(o.getId(), linkName(o), () -> {
+            project.getTimeline().removeTextOverlay(o);
+            undoManager.recordAction(new EditActions.LambdaAction(
+                    o.isImage() ? "Delete image overlay" : "Delete text overlay",
+                    () -> project.getTimeline().removeTextOverlay(o),
+                    () -> project.getTimeline().addTextOverlay(o)));
+            refreshAfterMarqueeBatchDelete();
+            scheduleAutoSave();
+        })) return;
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(o.isImage() ? "Remove image overlay?" : "Remove text overlay?")
                 .setNegativeButton("Cancel", null)
@@ -28425,6 +28434,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void deleteSpriteWithConfirmation(
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
         if (project == null) return;
+        if (askAboutFollowers(s.getId(), linkName(s), () -> {
+            project.getTimeline().removeSpriteOverlay(s);
+            syncTimelineOverlays();
+            refreshSpritePreviewData();
+            undoManager.recordAction(new EditActions.LambdaAction("Delete sprite",
+                    () -> { project.getTimeline().removeSpriteOverlay(s);
+                            syncTimelineOverlays(); refreshSpritePreviewData(); },
+                    () -> { project.getTimeline().addSpriteOverlay(s);
+                            syncTimelineOverlays(); refreshSpritePreviewData(); }));
+            scheduleAutoSave();
+        })) return;
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Remove sprite?")                                // TODO(strings)
                 .setNegativeButton("Cancel", null)                         // TODO(strings)
@@ -34558,6 +34578,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void deleteTextOverlay(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
             @NonNull TextStyleSession session) {
+        if (askAboutFollowers(item.getId(), linkName(item),
+                () -> deleteTextOverlayNow(item, session))) {
+            return;
+        }
+        deleteTextOverlayNow(item, session);
+    }
+
+    private void deleteTextOverlayNow(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
+            @NonNull TextStyleSession session) {
         boolean wasCommitted = textOverlayAddRecorded.remove(item);
         String emptiedLane = item.getLayerId();
         project.getTimeline().removeTextOverlay(item);
@@ -34990,6 +35020,98 @@ public class FaditorEditorActivity extends AppCompatActivity {
         refreshLinkTethers();
         syncTimelineOverlays();
         scheduleAutoSave();
+    }
+
+    /**
+     * DELETING SOMETHING THAT LEADS (owner's design, SPEC_20260924_LINKING §12): "this object has
+     * [checklist] dependents — delete with parent or set free? [Never mind] [Confirm: 5 of 8
+     * objects will be removed]". Checked followers go with it; unchecked ones are set free where
+     * they stand. The whole choice is ONE undo step.
+     *
+     * @return true if the object has followers and the dialog took over (the caller stops);
+     *         false if it has none and the caller's own path should run.
+     */
+    private boolean askAboutFollowers(@NonNull String parentId, @NonNull String parentName,
+                                      @NonNull Runnable deleteParent) {
+        if (project == null) return false;
+        final java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> followers =
+                new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.model.TextOverlayItem c : project.getTimeline().getTextOverlays()) {
+            com.fadcam.ui.faditor.model.SpaceLink l = c.getSpaceLink();
+            if (l != null && parentId.equals(l.parentId)) followers.add(c);
+        }
+        if (followers.isEmpty()) return false;
+        final CharSequence[] names = new CharSequence[followers.size()];
+        for (int i = 0; i < names.length; i++) names[i] = linkName(followers.get(i));
+        final boolean[] with = new boolean[followers.size()];   // default: set them free
+        final int total = followers.size() + 1;
+        final androidx.appcompat.app.AlertDialog[] dlg = new androidx.appcompat.app.AlertDialog[1];
+        final Runnable relabel = () -> {
+            if (dlg[0] == null) return;
+            int n = 1;
+            for (boolean b : with) if (b) n++;
+            dlg[0].getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+                    .setText(getString(R.string.link_delete_confirm, n, total));
+        };
+        dlg[0] = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(getResources().getQuantityString(R.plurals.link_delete_title,
+                        followers.size(), parentName, followers.size()))
+                .setMultiChoiceItems(names, with, (d, which, checked) -> {
+                    with[which] = checked;
+                    relabel.run();
+                })
+                .setNegativeButton(R.string.link_delete_never_mind, null)
+                .setPositiveButton(R.string.link_delete_confirm_short, (d, w) ->
+                        deleteWithFollowers(followers, with, deleteParent))
+                .create();
+        dlg[0].show();
+        relabel.run();
+        return true;
+    }
+
+    private void deleteWithFollowers(
+            @NonNull java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> followers,
+            @NonNull boolean[] with, @NonNull Runnable deleteParent) {
+        if (project == null) return;
+        final long t = Math.max(0, lastPlayheadAbsoluteMs);
+        final int n = followers.size();
+        final com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[] before =
+                new com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[n];
+        final com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[] after =
+                new com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[n];
+        final com.fadcam.ui.faditor.model.SpaceLink[] links = new com.fadcam.ui.faditor.model.SpaceLink[n];
+        // Free ones are baked while their parent still exists — the bake reads its pose.
+        for (int i = 0; i < n; i++) {
+            com.fadcam.ui.faditor.model.TextOverlayItem c = followers.get(i);
+            before[i] = c.snapshotTransform();
+            links[i] = c.getSpaceLink();
+            if (!with[i]) bakeLink(c, t);
+            after[i] = c.snapshotTransform();
+        }
+        final Runnable apply = () -> {
+            for (int i = 0; i < n; i++) {
+                com.fadcam.ui.faditor.model.TextOverlayItem c = followers.get(i);
+                if (with[i]) project.getTimeline().removeTextOverlay(c);
+                else { c.restoreTransform(after[i]); c.setSpaceLink(null); }
+            }
+            refreshAfterMarqueeBatchDelete();
+        };
+        final Runnable revert = () -> {
+            for (int i = 0; i < n; i++) {
+                com.fadcam.ui.faditor.model.TextOverlayItem c = followers.get(i);
+                if (with[i]) project.getTimeline().addTextOverlay(c);
+                c.restoreTransform(before[i]);
+                c.setSpaceLink(links[i]);
+            }
+            refreshAfterMarqueeBatchDelete();
+        };
+        apply.run();
+        undoManager.recordAction(new EditActions.LambdaAction(
+                getString(R.string.link_delete_undo), apply, revert));
+        // The parent's own delete folds into that same step: one press undoes all of it.
+        undoManager.mergeNextIntoTop();
+        deleteParent.run();
+        undoManager.clearMergeNextIntoTop();
     }
 
     /** Hold on the link button: the selection's links — unlink it, or unlink its followers. */

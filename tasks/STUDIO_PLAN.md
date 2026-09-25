@@ -68,3 +68,17 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
    clean Bezier keys. **Research first** (how Moho, Toon Boom, Spine, Rive, Cascadeur, and
    Adobe Character Animator make it easy) → spec → build. Needs mesh/pin work (P0 #4)
    to be solid before it starts.
+
+## Session 2026-09-25 — status
+| What | Status |
+|---|---|
+| Drawer audit, all 145 findings (tool files + Studio file) | ✅ 05f919da, 437fbea2 |
+| Transcript word drawer restyle (same sizes, Kit look, dead B/U/I hidden) | 🧪 437fbea2 (phone offline) |
+| Drawer folds on tapping the open tab; text stays in edit mode | ✅ 0f76e7dc |
+| Text Done button; text corner pin; overlay double-tap = sound strip | ✅ / 🧪 pin |
+| Anchor drift (gap mode) + heal on load | ✅ 2e19060f |
+| Bent text drawn twice (export lane 635c4e48) | ✅ device-checked |
+| Full export ZA_CONTROL completes; frames match preview at 0/1.8/3 s | ✅ |
+| Link tool slice 1: arm → pick → details → tether; unlink keeps place; world↔own writes | 🧪 bf6cd08a (phone offline) |
+| Captions bar double-tap/hold opens caption drawer | 🧪 d1ab37c1 |
+| NEXT: parent-delete dialog (owner's checklist), link settings on double-tap, time links, sprite followers, Dummy/Proxy object, keyed parent switch | ⏳ |

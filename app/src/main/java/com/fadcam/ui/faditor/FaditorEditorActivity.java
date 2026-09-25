@@ -10062,6 +10062,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     showTransitionPanel(false);
                     return;
                 }
+                // The panels added since this list was written (Studio sweep, 2026-09-25: BACK
+                // skipped every one of them and went straight to "press again to exit").
+                // Topmost first: the word drawer, the object drawer, the caption drawer, then the
+                // transcript panel on the side.
+                if (wordScrubDrawerOpen) {
+                    hideWordScrubDrawer();
+                    return;
+                }
+                if (objectDrawer != null && objectDrawer.isShowing()) {
+                    objectDrawer.hide();
+                    return;
+                }
+                if (captionDrawerOpen) {
+                    showCaptionDrawer(false);
+                    return;
+                }
+                if (transcriptPanelOpen) {
+                    showTranscriptPanel(false);
+                    return;
+                }
 
                 // Double-press to exit
                 long now = System.currentTimeMillis();

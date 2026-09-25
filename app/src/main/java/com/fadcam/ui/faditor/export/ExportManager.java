@@ -2510,6 +2510,7 @@ public class ExportManager {
                 try (java.io.FileOutputStream fos = new java.io.FileOutputStream(listFile)) {
                     fos.write(sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 }
+                // (An older build joined the parts into this file first; clear any leftover.)
                 File videoFull = new File(dir, "video_full.mp4");
                 if (videoFull.exists()) videoFull.delete();
                 String audioPath = manifest.optString("audioFile",
@@ -2517,17 +2518,6 @@ public class ExportManager {
                 int joined = 0;
                 for (boolean need : run.needed) if (need) joined++;
                 trace("CHUNK joining " + joined + " of " + ranges.size() + " parts + audio");
-                com.arthenica.ffmpegkit.FFmpegSession s1 =
-                        com.arthenica.ffmpegkit.FFmpegKit.execute(
-                                "-f concat -safe 0 -i \"" + listFile.getAbsolutePath()
-                                        + "\" -map 0:v:0 -an -c copy -f mp4 -movflags +faststart -y \""
-                                        + videoFull.getAbsolutePath() + "\"");
-                if (!com.arthenica.ffmpegkit.ReturnCode.isSuccess(s1.getReturnCode())
-                        || !videoFull.exists() || videoFull.length() <= 0) {
-                    traceFfmpegTail("join video", s1);
-                    throw new IllegalStateException("Joining video parts failed: "
-                            + s1.getReturnCode());
-                }
                 // RANGE: the joined parts start at the first needed part's composition time; the
                 // sound is the whole project's, so it is cut to the same span, and the result is
                 // trimmed to the exact range afterwards (unless the range IS whole parts).
@@ -2551,26 +2541,34 @@ public class ExportManager {
                 if (staging.exists()) staging.delete();
                 File muxOut = trim ? new File(dir, "range_joined.mp4") : staging;
                 if (muxOut.exists()) muxOut.delete();
+                long joinT0 = System.currentTimeMillis();
+                // ONE PASS: the parts and the sound go straight into the export. This was two
+                // ffmpeg runs, parts -> video_full.mp4 -> + sound, each with a faststart
+                // rewrite: four writes of a 2.2 GB file, 2.5 min of the lecture's 12.8 min
+                // (Note 20, 2026-09-24). Faststart only on the file people keep; the range's
+                // intermediate is read by Transformer, which does not need it.
                 com.arthenica.ffmpegkit.FFmpegSession s2 =
                         com.arthenica.ffmpegkit.FFmpegKit.execute(
                                 // EXPLICIT maps. Every video part carries Media3's forced
                                 // SILENT audio track; unmapped, ffmpeg picks "the best"
                                 // audio across inputs and on a tie takes input 0's — the
                                 // silence — shipping a full-length export with no sound.
-                                "-i \"" + videoFull.getAbsolutePath() + "\" " + audioCut
+                                "-f concat -safe 0 -i \"" + listFile.getAbsolutePath() + "\" " + audioCut
                                         + "-i \"" + audioPath
                                         // -f mp4: the staging name ends ".exporting", and ffmpeg
                                         // picks the container from the extension — without it
                                         // the join died "Error opening output file" (exit 1)
                                         // after 58 minutes of good parts (2026-09-23 05:42).
-                                        + "\" -map 0:v:0 -map 1:a:0 -c copy -f mp4 -movflags +faststart -y \""
+                                        + "\" -map 0:v:0 -map 1:a:0 -c copy -f mp4"
+                                        + (trim ? "" : " -movflags +faststart") + " -y \""
                                         + muxOut.getAbsolutePath() + "\"");
                 if (!com.arthenica.ffmpegkit.ReturnCode.isSuccess(s2.getReturnCode())
                         || !muxOut.exists() || muxOut.length() <= 0) {
-                    traceFfmpegTail("join sound", s2);
-                    throw new IllegalStateException("Joining sound failed: "
+                    traceFfmpegTail("join", s2);
+                    throw new IllegalStateException("Joining the parts and sound failed: "
                             + s2.getReturnCode());
                 }
+                trace("CHUNK joined in " + (System.currentTimeMillis() - joinT0) + " ms");
                 if (chunkCancelled) {
                     discardStaging(stagingPath);
                     isExporting = false;
@@ -4307,7 +4305,13 @@ public class ExportManager {
         int a = lowerBound(ix.pts, inMs * 1000L), b = lowerBound(ix.pts, outMs * 1000L);
         double heldUs = (b - a) * 1024.0 * 1_000_000.0 / ix.sampleRate;
         double spanUs = to - from;
-        if (Math.abs(heldUs - spanUs) < 20_000) return 1f;   // within a lip-sync frame
+        // SHORT is Media3's job, not ours: it pads an item's missing sound with silence at its
+        // end, BEFORE the processors - so stretching a short clip also stretched that silence
+        // and made it LONG (the first version of this fit: +0.37 s over the lecture). The
+        // recorder stamps frames in batches (8 frames, then a ~150 ms jump), so a cut lands up
+        // to ~170 ms either way: a "short" clip is that jitter, and a few ms of silence at its
+        // end is the honest fill. Only sound that runs LONG is squeezed, to the millisecond.
+        if (heldUs - spanUs < 2_000) return 1f;
         float fit = (float) (heldUs / spanUs);
         // A clock runs a fraction of a percent off. Anything wilder is not drift (a broken
         // index, a variable frame size) - leave it as it was rather than guess.
@@ -4360,14 +4364,20 @@ public class ExportManager {
                 if ((aot != 1 && aot != 2 && aot != 4)
                         || !f.containsKey(android.media.MediaFormat.KEY_SAMPLE_RATE)) break;
                 int rate = f.getInteger(android.media.MediaFormat.KEY_SAMPLE_RATE);
-                ex.selectTrack(i);
-                long[] pts = new long[4096];
-                int n = 0;
-                long t;
-                while ((t = ex.getSampleTime()) >= 0) {
-                    if (n == pts.length) pts = java.util.Arrays.copyOf(pts, n * 2);
-                    pts[n++] = t;
-                    if (!ex.advance()) break;
+                // The sample table first (milliseconds); walking the extractor reads every
+                // frame's bytes (18 s for the 48-min lecture).
+                long[] pts = "file".equals(uri.getScheme()) && uri.getPath() != null
+                        ? Mp4AudioTimes.read(new File(uri.getPath())) : null;
+                int n = pts != null ? pts.length : 0;
+                if (pts == null) {
+                    ex.selectTrack(i);
+                    pts = new long[4096];
+                    long t;
+                    while ((t = ex.getSampleTime()) >= 0) {
+                        if (n == pts.length) pts = java.util.Arrays.copyOf(pts, n * 2);
+                        pts[n++] = t;
+                        if (!ex.advance()) break;
+                    }
                 }
                 if (n >= 2 && rate > 0) {
                     pts = java.util.Arrays.copyOf(pts, n);

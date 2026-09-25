@@ -210,7 +210,19 @@ ImageOverlayDraw.draw) - the GPU-compositor port in the handoff is the next spee
 - [x] Video overlay drawer now device-verified (3e6dfa60); visualizer hold path still not reachable on the Note 9
 - Test media left on the Note 9: /sdcard/Download/joy_test_overlay.mp4 (copy of ws20.mp4), pushed for the PiP test
 
-## EXPORT SPEED — state at 2026-09-24 17:30 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
+## EXPORT — state at 2026-09-25 01:00 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
+
+- Owner's export 2026-09-24 23:24 (screen kept on): 48:27 lecture in 12:48 wall - parts +
+  sound 10:20 (1 part cached), join 2:27. CPU_GROUP stayed /foreground the whole run.
+- [x] A/V SYNC: export sound 2910.2 s vs picture 2907.2 s (project 2907.1) - the voice slid
+      up to ~3 s behind lips/captions. Recorder audio clock runs +0.104% against its wall-clock
+      timestamps (AUDIO_CLOCK line, Note 20); Media3 strings samples. Every audio item now
+      gets a Sonic fit to its span (3248c0be); timestamps read from the MP4 sample table
+      (Mp4AudioTimes; MediaExtractor took 18 s). Verify: sound-only export length.
+- [x] Join in ONE ffmpeg pass (parts + sound; faststart only on the kept file).
+- [x] Preview: bent/pinned text drew a flat duplicate below a blend (635c4e48).
+
+## (older) EXPORT SPEED — state at 2026-09-24 17:30 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
 
 PROVEN ON THE NOTE 20 (project a32d24e2, 48:27, started over adb by ExportDebugActivity):
 - FULL export 16:28 -> 17:19 (51:52, phone LOCKED -> Samsung /abnormal = little cores only):

@@ -854,3 +854,20 @@ whole file, while the editor had already cached exactly the span it needed.
 - Anything that may take minutes (decode, analysis) never runs on the export's main thread:
   part scheduling, progress and Transformer callbacks all live there.
 - Timings from a locked, charging, warm phone are the worst case; say so next to the number.
+
+## 2026-09-25 — "the export is out of sync": compare stream lengths first
+
+The owner saw lips and captions a few lines ahead of the voice in the export, never in
+preview. One ffprobe answered it: picture 2907.2 s, sound 2910.2 s, project 2907.1 s. Our
+recorders stamp audio with the WALL CLOCK (`RecordingClock.audioPtsUs`) while the audio
+hardware delivers ~0.1% more samples; players follow timestamps, Media3 concatenates
+samples (pads short items with silence, never trims long ones). Frame-level checks
+(framemd5, caption placement) had all passed because they never compared the two tracks.
+
+**Rules:**
+- Every export verification includes `ffprobe` stream durations: video, audio and the
+  project's own length must agree within a frame.
+- A recorded file's sound is only as long as its TIMESTAMPS say. Anything that strings
+  decoded samples (Media3, a mixer, a join) must fit each clip's sound to its span.
+- MediaExtractor.advance() reads sample DATA; to walk timestamps of a long file, read the
+  MP4 sample table (Mp4AudioTimes) — 18 s vs milliseconds on the lecture.

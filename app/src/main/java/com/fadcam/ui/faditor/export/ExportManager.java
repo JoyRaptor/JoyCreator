@@ -2218,6 +2218,40 @@ public class ExportManager {
         run.soundWorker = w;
         run.soundState = 1;
         trace("CHUNK sound pass started" + (run.active > 0 ? " alongside the video parts" : ""));
+        // The audio clock fit reads each source's audio frame index once - a 48-min
+        // recording's whole audio track. Read here, not on the main thread where the
+        // composition is built.
+        new Thread(() -> {
+            long t0 = System.currentTimeMillis();
+            w.readAudioClocks(run.project.getTimeline());
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                if (run != chunkRun || chunkCancelled || !isExporting) return;
+                trace("CHUNK audio clocks read in " + (System.currentTimeMillis() - t0) + " ms");
+                runSoundPass(run, w, audioPath);
+            });
+        }, "faditor-audio-clocks").start();
+    }
+
+    /** Warm {@link #aacIndexOf} for every source the sound pass will read. Any thread. */
+    private void readAudioClocks(@NonNull Timeline timeline) {
+        try {
+            for (int i = 0; i < timeline.getClipCount(); i++) {
+                Clip c = timeline.getClip(i);
+                if (c.isImageClip() || c.isAudioMuted()) continue;
+                Uri u = resolveSeekableSourceUri(c);
+                if (u != null) aacIndexOf(u);
+            }
+            for (AudioClip ac : timeline.getAudioClips()) {
+                if (ac.isMuted() || ac.getSourceUri() == null) continue;
+                aacIndexOf(seekableUriFor(ac.getSourceUri()));
+            }
+        } catch (RuntimeException e) {
+            FLog.w(TAG, "readAudioClocks: the sound pass reads what is left itself", e);
+        }
+    }
+
+    private void runSoundPass(@NonNull ChunkRun run, @NonNull ExportManager w,
+                              @NonNull String audioPath) {
         w.exportAudioOnly(run.project, audioPath, new ExportListener() {
             @Override public void onExportStarted(@NonNull String outputPath) {}
             @Override public void onExportProgress(float progress) {}
@@ -2844,12 +2878,9 @@ public class ExportManager {
                             .setRemoveVideo(true)
                             .setDurationUs(timelineDurMs * 1000);
                     List<AudioProcessor> aps = new ArrayList<>();
-                    if (speed != 1.0f) {
-                        SonicAudioProcessor sap = new SonicAudioProcessor();
-                        sap.setSpeed(speed);
-                        if (clip.isPitchCompensationEnabled()) sap.setPitch(1.0f);
-                        aps.add(sap);
-                    }
+                    SonicAudioProcessor sap = speedAndFit(speed,
+                            audioClockFit(resolveSeekableSourceUri(clip), clipInMs, endMs));
+                    if (sap != null) aps.add(sap);
                     if (clip.hasVolumeKeyframes()) {
                         @SuppressWarnings("unchecked")
                         List<Clip.VolumeKeyframe> kfs = (List<Clip.VolumeKeyframe>) clip.getVolumeKeyframes();
@@ -4252,6 +4283,125 @@ public class ExportManager {
     }
 
     /**
+     * AUDIO CLOCK FIT (2026-09-25). Our recorders stamp each audio frame with the WALL CLOCK
+     * ({@code RecordingClock.audioPtsUs}), and the audio hardware delivers slightly more
+     * samples than wall time: the 48-min lecture's source holds ~3.1 s more sound than its
+     * timestamps span. A player follows the timestamps, so preview stays in sync; Media3
+     * strings decoded samples end to end (it pads a short item with silence, never trims a
+     * long one), so the export's voice slid later clip after clip - lips and captions ~3 s
+     * ahead of the sound by the end, and the file 3.1 s longer than its picture.
+     *
+     * <p>The fix is what the timestamps say: a clip's sound lasts exactly its span. This is
+     * the Sonic speed that fits the frames {@code [inMs, outMs)} actually holds onto that
+     * span; 1 when they already fit (any file whose timestamps come from its sample count -
+     * mp3, other apps' AAC). Sonic at ~1.001 keeps the samples bit-exact and splices out one
+     * pitch period every few seconds, so there is no pitch shift and no resampling blur.</p>
+     */
+    private float audioClockFit(@NonNull Uri uri, long inMs, long outMs) {
+        AacIndex ix = aacIndexOf(uri);
+        if (ix == null || outMs <= inMs) return 1f;
+        long frameUs = 1024L * 1_000_000L / ix.sampleRate;
+        long from = Math.max(inMs * 1000L, ix.pts[0]);
+        long to = Math.min(outMs * 1000L, ix.pts[ix.pts.length - 1] + frameUs);
+        if (to - from < 1_000_000L) return 1f;   // under a second: nothing to drift
+        int a = lowerBound(ix.pts, inMs * 1000L), b = lowerBound(ix.pts, outMs * 1000L);
+        double heldUs = (b - a) * 1024.0 * 1_000_000.0 / ix.sampleRate;
+        double spanUs = to - from;
+        if (Math.abs(heldUs - spanUs) < 20_000) return 1f;   // within a lip-sync frame
+        float fit = (float) (heldUs / spanUs);
+        // A clock runs a fraction of a percent off. Anything wilder is not drift (a broken
+        // index, a variable frame size) - leave it as it was rather than guess.
+        return fit < 0.97f || fit > 1.03f ? 1f : fit;
+    }
+
+    /** The user's speed times {@link #audioClockFit}, as one Sonic; null when it would be 1. */
+    @Nullable
+    private static SonicAudioProcessor speedAndFit(float speed, float fit) {
+        float s = speed * fit;
+        if (Math.abs(s - 1f) < 1e-5f) return null;
+        SonicAudioProcessor sap = new SonicAudioProcessor();
+        sap.setSpeed(s);   // pitch stays 1: time-stretch, not tape speed
+        return sap;
+    }
+
+    /** Frame timestamps of a source's AAC track, read once from the file's index (no decode). */
+    private static final class AacIndex {
+        final long[] pts;
+        final int sampleRate;
+
+        AacIndex(long[] pts, int sampleRate) {
+            this.pts = pts;
+            this.sampleRate = sampleRate;
+        }
+    }
+
+    /** Keyed by uri; a missing entry is "not yet read", {@link #NO_AAC_INDEX} "not applicable". */
+    private static final java.util.concurrent.ConcurrentHashMap<String, AacIndex> aacIndexes =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final AacIndex NO_AAC_INDEX = new AacIndex(new long[0], 1);
+
+    @Nullable
+    private AacIndex aacIndexOf(@NonNull Uri uri) {
+        String key = uri.toString();
+        AacIndex cached = aacIndexes.get(key);
+        if (cached != null) return cached == NO_AAC_INDEX ? null : cached;
+        long t0 = System.currentTimeMillis();
+        AacIndex result = NO_AAC_INDEX;
+        android.media.MediaExtractor ex = new android.media.MediaExtractor();
+        try {
+            ex.setDataSource(context, uri, null);
+            for (int i = 0; i < ex.getTrackCount(); i++) {
+                android.media.MediaFormat f = ex.getTrackFormat(i);
+                if (!android.media.MediaFormat.MIMETYPE_AUDIO_AAC.equals(
+                        f.getString(android.media.MediaFormat.KEY_MIME))) continue;
+                // 1024 samples a frame holds for AAC Main/LC/LTP only; HE-AAC (SBR) doubles it.
+                java.nio.ByteBuffer csd = f.getByteBuffer("csd-0");
+                int aot = csd != null && csd.remaining() > 0 ? (csd.get(csd.position()) & 0xFF) >> 3 : 0;
+                if ((aot != 1 && aot != 2 && aot != 4)
+                        || !f.containsKey(android.media.MediaFormat.KEY_SAMPLE_RATE)) break;
+                int rate = f.getInteger(android.media.MediaFormat.KEY_SAMPLE_RATE);
+                ex.selectTrack(i);
+                long[] pts = new long[4096];
+                int n = 0;
+                long t;
+                while ((t = ex.getSampleTime()) >= 0) {
+                    if (n == pts.length) pts = java.util.Arrays.copyOf(pts, n * 2);
+                    pts[n++] = t;
+                    if (!ex.advance()) break;
+                }
+                if (n >= 2 && rate > 0) {
+                    pts = java.util.Arrays.copyOf(pts, n);
+                    java.util.Arrays.sort(pts);
+                    result = new AacIndex(pts, rate);
+                    double heldS = n * 1024.0 / rate;
+                    double spanS = (pts[n - 1] - pts[0]) / 1e6 + 1024.0 / rate;
+                    trace(String.format(Locale.US, "AUDIO_CLOCK %s: %d frames = %.3f s of sound"
+                                    + " over %.3f s of timestamps (%+.4f%%), read in %d ms",
+                            uri.getLastPathSegment(), n, heldS, spanS,
+                            (heldS / spanS - 1) * 100, System.currentTimeMillis() - t0));
+                }
+                break;
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "aacIndexOf: cannot read " + uri + " - no clock fit", e);
+        } finally {
+            ex.release();
+        }
+        aacIndexes.put(key, result);
+        return result == NO_AAC_INDEX ? null : result;
+    }
+
+    /** First index whose value is >= v. */
+    private static int lowerBound(long[] a, long v) {
+        int lo = 0, hi = a.length;
+        while (lo < hi) {
+            int mid = (lo + hi) >>> 1;
+            if (a[mid] < v) lo = mid + 1; else hi = mid;
+        }
+        return lo;
+    }
+
+    /**
      * Probe the sample rate of the first audio track in {@code uri}.
      * Returns 48000 (project default) if probing fails or no audio track found.
      */
@@ -4595,12 +4745,9 @@ public class ExportManager {
                 audioProcessors.add(new ResamplingAudioProcessor(clipSampleRate, projectSampleRate));
                 FLog.d(TAG, "A6: clip " + clip.getId() + " resampled " + clipSampleRate + " → " + projectSampleRate + " Hz");
             }
-            if (speed != 1.0f) {
-                SonicAudioProcessor sonicProcessor = new SonicAudioProcessor();
-                sonicProcessor.setSpeed(speed);
-                if (clip.isPitchCompensationEnabled()) sonicProcessor.setPitch(1.0f);
-                audioProcessors.add(sonicProcessor);
-            }
+            SonicAudioProcessor sonicProcessor = speedAndFit(speed, audioClockFit(
+                    resolveSeekableSourceUri(clip), clipInMs, clipInMs + sourceDurationMs));
+            if (sonicProcessor != null) audioProcessors.add(sonicProcessor);
             VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
             boolean volumeAdjusted = false;
             if (clip.hasVolumeKeyframes()) {
@@ -4726,12 +4873,10 @@ public class ExportManager {
                         - AUDIO_COVERAGE_EPS_MS) {
             eb.setRemoveAudio(true);
         } else {
-            if (speed != 1.0f) {
-                SonicAudioProcessor sap = new SonicAudioProcessor();
-                sap.setSpeed(speed);
-                if (clip.isPitchCompensationEnabled()) sap.setPitch(1.0f);
-                aps.add(sap);
-            }
+            SonicAudioProcessor sap = speedAndFit(speed,
+                    audioClockFit(resolveSeekableSourceUri(clip), transInMs,
+                            Math.min(transOutMs, clip.getSourceDurationMs())));
+            if (sap != null) aps.add(sap);
             float vol = clip.getVolumeLevel();
             if (Math.abs(vol - 1.0f) >= 0.01f) {
                 VolumeAudioProcessor vp = new VolumeAudioProcessor();
@@ -4831,10 +4976,9 @@ public class ExportManager {
         if (clip.isAudioMuted() || clip.isImageClip()) eb.setRemoveAudio(true);
 
         List<AudioProcessor> audioProcessors = new ArrayList<>();
-        if (speed != 1.0f && !clip.isAudioMuted()) {
-            SonicAudioProcessor sap = new SonicAudioProcessor();
-            sap.setSpeed(speed);
-            audioProcessors.add(sap);
+        if (!clip.isAudioMuted()) {
+            SonicAudioProcessor sap = speedAndFit(speed, audioClockFit(itemUri, startMs, endMs));
+            if (sap != null) audioProcessors.add(sap);
         }
 
         // No reverse-mirror effect: a true reverse leg comes pre-reversed (video AND areverse'd
@@ -5581,9 +5725,13 @@ public class ExportManager {
             // The voice chain runs only when THIS CLIP asked for it (per-clip toggle in the
             // drawer's FX tab). The project-wide "Clean Audio" setting used to gate it here,
             // which processed a music lane underneath a voice lane identically to the voice.
-            List<AudioProcessor> processors = AudioFxChainFactory.buildLaneChain(
+            List<AudioProcessor> processors = new ArrayList<>(AudioFxChainFactory.buildLaneChain(
                     ac, clipSampleRate, projectSampleRate, fxBypassedSnapshot,
-                    ac.isVoiceFxEnabled());
+                    ac.isVoiceFxEnabled()));
+            // First, so the lane's envelope and FX run on sound already fitted to its span.
+            SonicAudioProcessor fit = speedAndFit(1f, audioClockFit(
+                    seekableUriFor(ac.getSourceUri()), ac.getInPointMs(), ac.getOutPointMs()));
+            if (fit != null) processors.add(0, fit);
             if (clipSampleRate > 0 && clipSampleRate != projectSampleRate) {
                 FLog.d(TAG, "A6: audio clip " + ac.getId() + " resampled " + clipSampleRate + " → " + projectSampleRate + " Hz");
             }
@@ -5682,12 +5830,10 @@ public class ExportManager {
 
             List<AudioProcessor> processors = new ArrayList<>();
             float speed = c.getSpeedMultiplier();
-            if (Math.abs(speed - 1.0f) >= 0.001f && speed > 0) {
-                SonicAudioProcessor sonic = new SonicAudioProcessor();
-                sonic.setSpeed(speed);
-                if (c.isPitchCompensationEnabled()) sonic.setPitch(1.0f);
-                processors.add(sonic);
-            }
+            if (Math.abs(speed - 1.0f) < 0.001f || speed <= 0) speed = 1f;
+            SonicAudioProcessor sonic = speedAndFit(speed,
+                    audioClockFit(src, c.getInPointMs(), c.getOutPointMs()));
+            if (sonic != null) processors.add(sonic);
             // PiP volume: ENVELOPE when the clip has keyframes, flat level otherwise.
             //
             // This sequence used to only ever call setVolume(), i.e. a constant — which is why

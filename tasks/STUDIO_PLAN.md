@@ -88,3 +88,16 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
 | **Proxy** (hold link button › Add a proxy): invisible handle, selection follows it, never exported, dashed tag in preview, Transform/Follows/Lanes drawer | 🧪 59d48be8 (phone offline) |
 | **Keyed parent switch** (proxy › Follows: Switch parent here / Let go here); seamless handoff, verified numerically | 🧪 5fb0be84 (phone offline) |
 | NEXT: phone pass on all 🧪; pin links (warp/puppet pins as parents); parameter drivers; text box sizing modes (#14); bottom-tools sweep | ⏳ |
+
+**Pin links — the prerequisite (found 2026-09-25).** A pin's place in the picture is its handle
+(object unit space, `MeshWarpSpec.handlesAt`) pushed through the object's CURRENT quad
+(`MeshBendSeam.handlePosition` + `MeshProjection`). That quad is only known to the preview views
+and the export renderers: it needs the loaded picture's aspect (`getImageWHForPreset`), presets,
+pivot fold and corner pin (`MeshPlacement`). So a pin cannot be a `LinkPose` until there is ONE
+model-side "corners at time t" function that the preview, the export and the link resolver all
+call (image aspect cached on the item at import). Build that first, then `PinPose implements
+LinkPose` (id `owner#pin`) is ~100 lines and the link tool can pick pins.
+
+**Text sizing modes (#14) — scope.** Nothing wraps today. Wrap needs the SAME line breaking in
+TextBoxRenderer (export), TextBoxView and the in-picture EditText, plus per-letter animation
+layout on wrapped lines. Phone-verify-heavy: do it with the Note 9 connected.

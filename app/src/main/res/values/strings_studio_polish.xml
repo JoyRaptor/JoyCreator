@@ -156,5 +156,21 @@
         <item quantity="other">%1$s added; %2$d things follow it</item>
     </plurals>
     <string name="link_add_proxy">Add a proxy</string>
+    <!-- Keyed parent switches, in the proxy's Follows tab -->
+    <string name="proxy_tab_follows">Follows</string>
+    <string name="proxy_follows_hint">Who it follows, over time. Hand it from one thing to another at the playhead, or let it go and stay put. The handoff never jumps.</string>
+    <string name="proxy_from">from %1$s</string>
+    <string name="proxy_free">Nothing (free)</string>
+    <string name="proxy_gone">(deleted)</string>
+    <string name="proxy_let_go_row">Lets go, stays put</string>
+    <string name="proxy_switch_here">Switch parent here</string>
+    <string name="proxy_switch_here_desc">From the playhead on, follow something else. Tap this, then tap what it should follow</string>
+    <string name="proxy_let_go_here">Let go here</string>
+    <string name="proxy_let_go_here_desc">From the playhead on, follow nothing and stay where it is</string>
+    <string name="proxy_switch_remove_desc">Remove this handoff</string>
+    <string name="proxy_switch_undo">Switch parent</string>
+    <string name="proxy_switch_remove_undo">Remove handoff</string>
+    <string name="proxy_switch_done">From %2$s it follows %1$s</string>
+    <string name="proxy_let_go_done">From %1$s it lets go and stays put</string>
     <string name="link_add_proxy_hint">A proxy is an invisible handle. Whatever is selected follows it, so moving, turning or keying the proxy moves them all. It never shows in the video.</string>
 </resources>

@@ -34997,6 +34997,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void handleLinkPick(@NonNull String targetId) {
         if (linkTool == null || project == null) return;
         final String srcId = linkTool.armedSource();
+        final Long switchAt = linkTool.switchAt();
         linkTool.disarm();
         final com.fadcam.ui.faditor.model.LinkFollower child = followerById(srcId);
         final com.fadcam.ui.faditor.model.LinkPose parent =
@@ -35014,21 +35015,73 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.link_cant_cycle, Toast.LENGTH_SHORT).show();
             return;
         }
+        if (switchAt != null) { putParentSwitch(child, switchAt, parent.getId()); return; }
         com.fadcam.ui.faditor.tools.LinkTool.showDetails(this, linkName(child), linkName(parent),
                 props -> applyLink(child, parent, props));
     }
 
+    /**
+     * KEYED PARENT SWITCH (SPEC_20260924_LINKING §12, the ball passed between two hands): from
+     * {@code atMs} on, {@code child} follows {@code parentId} ("" = let go and stay put). The
+     * handoff is seamless by construction (SpaceLink solves it). An object that follows nothing
+     * yet gets a link that is free until the handoff. One undo step.
+     */
+    private void putParentSwitch(@NonNull com.fadcam.ui.faditor.model.LinkFollower child,
+                                 long atMs, @NonNull String parentId) {
+        if (project == null) return;
+        final com.fadcam.ui.faditor.model.SpaceLink before = child.getSpaceLink();
+        final com.fadcam.ui.faditor.model.SpaceLink after;
+        if (before != null) {
+            after = before.copy();
+        } else {
+            android.graphics.RectF cr = computeCanvasRect();
+            float aspect = cr.height() > 1f ? cr.width() / cr.height() : 1f;
+            // "" = free until the first handoff; the reference is its own pose, so that stretch
+            // is the identity.
+            after = new com.fadcam.ui.faditor.model.SpaceLink("", child.getCenterX(),
+                    child.getCenterY(), child.getSizeFraction(), child.getRotationDeg(),
+                    child.getOpacity(), aspect);
+            com.fadcam.ui.faditor.tools.LinkTool.Props p =
+                    com.fadcam.ui.faditor.tools.LinkTool.lastProps(this);
+            after.position = p.position;
+            after.scale = p.scale;
+            after.rotation = p.rotation;
+            after.opacity = p.opacity;
+        }
+        after.putSwitch(atMs, parentId);
+        child.setSpaceLink(after);
+        afterLinkChange();
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.proxy_switch_undo),
+                () -> { child.setSpaceLink(after); afterLinkChange(); },
+                () -> { child.setSpaceLink(before); afterLinkChange(); }));
+        refreshProxyDrawerFor(child);
+        com.fadcam.ui.faditor.model.LinkPose np = parentId.isEmpty() ? null
+                : project.getTimeline().linkPoseById(parentId);
+        Toast.makeText(this, np == null
+                        ? getString(R.string.proxy_let_go_done, formatMs(atMs))
+                        : getString(R.string.proxy_switch_done, linkName(np), formatMs(atMs)),
+                Toast.LENGTH_SHORT).show();
+    }
+
+    /** Remove one handoff. One undo step. */
+    private void removeParentSwitch(@NonNull com.fadcam.ui.faditor.model.LinkFollower child,
+                                    long atMs) {
+        final com.fadcam.ui.faditor.model.SpaceLink before = child.getSpaceLink();
+        if (before == null) return;
+        final com.fadcam.ui.faditor.model.SpaceLink after = before.copy();
+        after.removeSwitchAt(atMs);
+        final boolean empty = after.switches.isEmpty() && after.parentId.isEmpty();
+        child.setSpaceLink(empty ? null : after);
+        afterLinkChange();
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.proxy_switch_remove_undo),
+                () -> { child.setSpaceLink(empty ? null : after); afterLinkChange(); },
+                () -> { child.setSpaceLink(before); afterLinkChange(); }));
+        refreshProxyDrawerFor(child);
+    }
+
     private boolean linkWouldCycle(@NonNull com.fadcam.ui.faditor.model.LinkFollower child,
                                    @NonNull com.fadcam.ui.faditor.model.LinkPose parent) {
-        com.fadcam.ui.faditor.model.LinkPose cur = parent;
-        for (int guard = 0; cur != null && guard < 64; guard++) {
-            if (cur.getId().equals(child.getId())) return true;
-            if (!(cur instanceof com.fadcam.ui.faditor.model.LinkFollower)) return false;
-            com.fadcam.ui.faditor.model.SpaceLink l =
-                    ((com.fadcam.ui.faditor.model.LinkFollower) cur).getSpaceLink();
-            cur = l == null ? null : project.getTimeline().linkPoseById(l.parentId);
-        }
-        return false;
+        return project != null && project.getTimeline().wouldCycle(child, parent);
     }
 
     /** Link {@code child} to {@code parent} as they stand now: nothing moves. One undo step. */
@@ -35048,7 +35101,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         link.scale = props.scale;
         link.rotation = props.rotation;
         link.opacity = props.opacity;
+        // A re-link keeps its later handoffs (keyed parent switches); they re-solve seamlessly.
+        if (beforeLink != null) {
+            for (com.fadcam.ui.faditor.model.SpaceLink.Switch sw : beforeLink.switches) {
+                if (sw.atMs > t) link.putSwitch(sw.atMs, sw.parentId);
+            }
+        }
         child.setSpaceLink(link);
+        project.getTimeline().resolveSpaceLinks();
         final Object afterPose = child.snapshotPose();
         if (beforeTime != null) project.getTimeline().removeLinkGroup(beforeTime.id);
         final com.fadcam.ui.faditor.layers.LinkGroup afterTime =
@@ -35356,7 +35416,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null) return out;
         for (com.fadcam.ui.faditor.model.LinkFollower c : project.getTimeline().linkFollowers()) {
             com.fadcam.ui.faditor.model.SpaceLink l = c.getSpaceLink();
-            if (l != null && parentId.equals(l.parentId)) out.add(c);
+            if (l != null && l.parentIds().contains(parentId)) out.add(c);
         }
         return out;
     }
@@ -35503,7 +35563,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (link != null) {
             com.fadcam.ui.faditor.model.LinkPose p = project.getTimeline().linkPoseById(link.parentId);
             root.addView(SheetKit.sectionLabel(this,
-                    getString(R.string.link_row_follows, p == null ? "?" : linkName(p)), 0));
+                    getString(R.string.link_row_follows, p != null ? linkName(p)
+                            : getString(link.parentId.isEmpty() ? R.string.proxy_free
+                                    : R.string.proxy_gone)), 0));
             android.widget.LinearLayout chips = new android.widget.LinearLayout(this);
             chips.setPadding(side, SheetKit.dp(this, 6), side, SheetKit.dp(this, 6));
             addLinkPropChip(chips, R.string.link_prop_position, me, () -> link.position, v -> link.position = v);
@@ -35617,11 +35679,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (sel != null && cr.width() > 1f) {
             for (com.fadcam.ui.faditor.model.LinkFollower c : project.getTimeline().linkFollowers()) {
                 com.fadcam.ui.faditor.model.SpaceLink l = c.getSpaceLink();
-                if (l == null || l.parentRef == null || !c.isVisibleAt(t)) continue;
-                if (!sel.equals(c.getId()) && !sel.equals(l.parentId)) continue;
+                com.fadcam.ui.faditor.model.LinkPose lp = l == null ? null : l.activeParent(t);
+                if (lp == null || !c.isVisibleAt(t)) continue;
+                if (!sel.equals(c.getId()) && !sel.equals(lp.getId())) continue;
                 list.add(new com.fadcam.ui.faditor.tools.LinkTetherView.Tether(
-                        cr.left + l.parentRef.animatedCenterX(t) * cr.width(),
-                        cr.top + l.parentRef.animatedCenterY(t) * cr.height(),
+                        cr.left + lp.animatedCenterX(t) * cr.width(),
+                        cr.top + lp.animatedCenterY(t) * cr.height(),
                         cr.left + c.animatedCenterX(t) * cr.width(),
                         cr.top + c.animatedCenterY(t) * cr.height()));
             }
@@ -35680,15 +35743,108 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 name, getString(R.string.drawer_tab_transform), R.drawable.ic_transform_24,
                 ctx -> buildTextTransformTab(item)));
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                name, getString(R.string.proxy_tab_follows), R.drawable.ic_link_tool_24,
+                ctx -> buildProxyFollowsTab(item)));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 name, getString(R.string.drawer_tab_lanes), R.drawable.ic_lanes_24,
                 ctx -> buildImageMoveTab(item)));
         drawer.setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.forOverlay(item));
         drawer.setOnTabChanged(null);
         textDrawerItemId = null;
+        proxyDrawerItemId = item.getId();
         drawer.show(tabs, overlayToggles(item), false);
         if (transformItemId == null || !transformItemId.equals(item.getId())) {
             enterTextTransformMode(item);
         }
+    }
+
+    /** The proxy whose drawer is up, so a finished handoff can repaint its Follows tab. */
+    @Nullable private String proxyDrawerItemId;
+
+    /**
+     * A proxy's FOLLOWS tab: who it follows, over time, and the two handoff actions. "Switch
+     * parent here" arms the link tool for a switch at the playhead (the drawer folds so the
+     * picture is free to tap); "Let go here" makes it stay put from the playhead on. The
+     * owner's example: a ball passed between two hands is a proxy that switches parent.
+     */
+    @NonNull
+    private View buildProxyFollowsTab(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        final float d = getResources().getDisplayMetrics().density;
+        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(Math.round(14 * d), Math.round(4 * d), Math.round(14 * d), Math.round(10 * d));
+        root.addView(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.note(this,
+                getString(R.string.proxy_follows_hint)));
+        com.fadcam.ui.faditor.model.SpaceLink l = item.getSpaceLink();
+        root.addView(proxyFollowsRow(formatMs(0),
+                l == null || l.parentId.isEmpty() ? getString(R.string.proxy_free)
+                        : parentNameOf(l.parentId), null));
+        if (l != null) {
+            for (com.fadcam.ui.faditor.model.SpaceLink.Switch sw : l.switches) {
+                final long at = sw.atMs;
+                root.addView(proxyFollowsRow(formatMs(at),
+                        sw.letsGo() ? getString(R.string.proxy_let_go_row) : parentNameOf(sw.parentId),
+                        () -> removeParentSwitch(item, at)));
+            }
+        }
+        android.widget.LinearLayout acts = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.row(this);
+        android.widget.TextView swBtn = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(this,
+                getString(R.string.proxy_switch_here));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(swBtn,
+                getString(R.string.proxy_switch_here_desc));
+        swBtn.setOnClickListener(v -> {
+            if (linkTool == null) return;
+            linkTool.armSwitch(item.getId(), Math.max(0, lastPlayheadAbsoluteMs));
+            if (objectDrawer != null) objectDrawer.foldIfOpen();
+            Toast.makeText(this, R.string.link_armed_toast, Toast.LENGTH_SHORT).show();
+        });
+        acts.addView(swBtn);
+        android.widget.TextView goBtn = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(this,
+                getString(R.string.proxy_let_go_here));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(goBtn,
+                getString(R.string.proxy_let_go_here_desc));
+        goBtn.setOnClickListener(v -> putParentSwitch(item, Math.max(0, lastPlayheadAbsoluteMs), ""));
+        acts.addView(goBtn);
+        root.addView(acts);
+        return root;
+    }
+
+    /** One line of the Follows list: "from [time]  [who]  [remove]". */
+    @NonNull
+    private View proxyFollowsRow(@NonNull String when, @NonNull String who, @Nullable Runnable remove) {
+        android.widget.LinearLayout row = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.row(this);
+        row.setMinimumHeight(Math.round(34 * getResources().getDisplayMetrics().density));
+        row.addView(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.rowLabel(this,
+                getString(R.string.proxy_from, when), 64));
+        android.widget.TextView name = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.value(this, 0);
+        name.setText(who);
+        name.setGravity(android.view.Gravity.START);
+        row.addView(name, new android.widget.LinearLayout.LayoutParams(0,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        if (remove != null) {
+            android.widget.TextView x = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.stepper(this,
+                    "\u2715", getString(R.string.proxy_switch_remove_desc));
+            x.setOnClickListener(v -> remove.run());
+            row.addView(x);
+        }
+        return row;
+    }
+
+    @NonNull
+    private String parentNameOf(@NonNull String id) {
+        com.fadcam.ui.faditor.model.LinkPose p = project == null ? null
+                : project.getTimeline().linkPoseById(id);
+        return p == null ? getString(R.string.proxy_gone) : linkName(p);
+    }
+
+    /** After a handoff changed: repaint the proxy's Follows tab if its drawer is up. */
+    private void refreshProxyDrawerFor(@NonNull com.fadcam.ui.faditor.model.LinkFollower child) {
+        if (!(child instanceof com.fadcam.ui.faditor.model.TextOverlayItem)
+                || !child.getId().equals(proxyDrawerItemId)
+                || objectDrawer == null || !objectDrawer.isShowing()) {
+            return;
+        }
+        showProxyDrawer((com.fadcam.ui.faditor.model.TextOverlayItem) child);
     }
 
     /** Tab order of a text drawer: Text · Transform · Effects · Lanes. */

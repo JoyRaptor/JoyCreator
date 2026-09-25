@@ -49,15 +49,30 @@ public final class LinkTool {
 
     @Nullable public String armedSource() { return armedSourceId; }
 
+    /** Set while armed for a keyed parent SWITCH: the moment the new parent takes over. */
+    @Nullable private Long switchAtMs;
+
     /** Tap on the link button: arm with {@code selectedId}, or disarm if already armed. */
     public void toggle(@Nullable String selectedId) {
         armedSourceId = armedSourceId == null ? selectedId : null;
+        switchAtMs = null;
         host.onArmedChanged(isArmed());
     }
+
+    /** Arm to pick who {@code selectedId} follows from {@code atMs} on (a parent switch). */
+    public void armSwitch(@NonNull String selectedId, long atMs) {
+        armedSourceId = selectedId;
+        switchAtMs = atMs;
+        host.onArmedChanged(true);
+    }
+
+    /** The handoff moment when armed for a switch; null for an ordinary link. */
+    @Nullable public Long switchAt() { return switchAtMs; }
 
     public void disarm() {
         if (armedSourceId == null) return;
         armedSourceId = null;
+        switchAtMs = null;
         host.onArmedChanged(false);
     }
 

@@ -1101,6 +1101,11 @@ public final class ObjectDrawer extends LinearLayout {
         switchTo(index);
     }
 
+    /** Fold to the header strip so the picture is free to tap (a pick); any tab unfolds it. */
+    public void foldIfOpen() {
+        if (getVisibility() == VISIBLE && !collapsed) fold();
+    }
+
     /** Hide the body, keep the header (name, tabs, toggles) and the session behind it. */
     private void fold() {
         collapsed = true;

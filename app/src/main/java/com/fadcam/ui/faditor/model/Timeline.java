@@ -2958,6 +2958,11 @@ public class Timeline {
             if (l == null) continue;
             LinkPose p = byId.get(l.parentId);
             l.parentRef = (p == f || wouldCycle(f, p, byId)) ? null : p;
+            for (SpaceLink.Switch sw : l.switches) {
+                LinkPose q = sw.letsGo() ? null : byId.get(sw.parentId);
+                sw.ref = (q == f || wouldCycle(f, q, byId)) ? null : q;
+            }
+            l.invalidate();
         }
     }
 
@@ -2980,14 +2985,34 @@ public class Timeline {
     /** Would following {@code parent} make {@code child} its own ancestor? */
     public boolean wouldCycle(@NonNull LinkFollower child, @androidx.annotation.Nullable LinkPose parent,
                               @NonNull java.util.Map<String, LinkPose> byId) {
-        LinkPose cur = parent;
-        for (int guard = 0; cur != null && guard < 64; guard++) {
+        // Every parent an object has at ANY moment counts: a keyed switch to something that
+        // follows it would loop just the same, only later.
+        java.util.ArrayDeque<LinkPose> todo = new java.util.ArrayDeque<>();
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        if (parent != null) todo.push(parent);
+        while (!todo.isEmpty()) {
+            LinkPose cur = todo.pop();
             if (cur.getId().equals(child.getId())) return true;
-            if (!(cur instanceof LinkFollower)) return false;
+            if (!seen.add(cur.getId())) continue;
+            if (seen.size() > 256) return true;   // absurdly deep: refuse rather than hang
+            if (!(cur instanceof LinkFollower)) continue;
             SpaceLink l = ((LinkFollower) cur).getSpaceLink();
-            cur = l == null ? null : byId.get(l.parentId);
+            if (l == null) continue;
+            for (String id : l.parentIds()) {
+                LinkPose next = byId.get(id);
+                if (next != null) todo.push(next);
+            }
         }
-        return cur != null;
+        return false;
+    }
+
+    /** {@link #wouldCycle(LinkFollower, LinkPose, java.util.Map)} over this timeline's objects. */
+    public boolean wouldCycle(@NonNull LinkFollower child, @androidx.annotation.Nullable LinkPose parent) {
+        java.util.Map<String, LinkPose> byId = new java.util.HashMap<>();
+        for (TextOverlayItem t : textOverlays) byId.put(t.getId(), t);
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) byId.put(s.getId(), s);
+        for (WaveformOverlayInstance w : waveformOverlays) byId.put(w.getId(), w);
+        return wouldCycle(child, parent, byId);
     }
 
     /** The object a link can point at, by id: a text, image or sprite; null otherwise. */

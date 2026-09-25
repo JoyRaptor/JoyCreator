@@ -12,6 +12,7 @@
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 </manifest>

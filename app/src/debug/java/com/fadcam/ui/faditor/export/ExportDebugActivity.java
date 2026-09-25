@@ -19,35 +19,74 @@ import java.nio.charset.StandardCharsets;
  * an export fix on the device without JoyRaptor tapping through it again ("I am so sick and
  * tired of doing the same export testing", 2026-09-23). Extras:
  * {@code project_id} (required), {@code range_start_ms}/{@code range_end_ms} (optional range
- * export), {@code audio_only} (optional). Progress and results land in the export trace and
- * the usual notifications. The editor's slide pre-pass is not run here.
+ * export), {@code audio_only} (optional), {@code keep_awake} (default true: stay open, dimmed,
+ * holding the screen on until the export ends - the editor's "Keep screen on" box; with the
+ * screen off Samsung moves the export to the little cores and it runs ~4x slower). Progress
+ * and results land in the export trace and the usual notifications. The editor's slide
+ * pre-pass is not run here.
  */
 public class ExportDebugActivity extends Activity {
 
     private static final String TAG = "ExportDebug";
 
+    private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private long startedAt;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        boolean started = false;
         try {
-            start(getIntent());
+            started = start(getIntent());
         } catch (Exception e) {
             FLog.e(TAG, "debug export failed to start", e);
         }
-        finish();
+        if (!started || !getIntent().getBooleanExtra("keep_awake", true)) {
+            finish();
+            return;
+        }
+        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
+        lp.screenBrightness = 0.02f;
+        getWindow().setAttributes(lp);
+        android.widget.TextView tv = new android.widget.TextView(this);
+        tv.setText("Debug export running - screen held on until it ends");
+        tv.setTextColor(0xFF888888);
+        tv.setBackgroundColor(0xFF000000);
+        tv.setGravity(android.view.Gravity.CENTER);
+        setContentView(tv);
+        startedAt = System.currentTimeMillis();
+        handler.postDelayed(this::checkDone, 15_000L);
     }
 
-    private void start(Intent in) throws Exception {
+    /** Close once the export's ongoing notification is gone (done, failed or cancelled). */
+    private void checkDone() {
+        if (isFinishing()) return;
+        if (!ExportService.isRunning(this) && System.currentTimeMillis() - startedAt > 15_000L) {
+            FLog.i(TAG, "export no longer running - releasing the screen");
+            finish();
+            return;
+        }
+        handler.postDelayed(this::checkDone, 5_000L);
+    }
+
+    @Override
+    protected void onDestroy() {
+        handler.removeCallbacksAndMessages(null);
+        super.onDestroy();
+    }
+
+    private boolean start(Intent in) throws Exception {
         String id = in.getStringExtra("project_id");
         if (id == null) {
             FLog.w(TAG, "no project_id extra");
-            return;
+            return false;
         }
         ProjectStorage storage = new ProjectStorage(this);
         FaditorProject project = storage.load(id);
         if (project == null) {
             FLog.w(TAG, "no project " + id);
-            return;
+            return false;
         }
         File dir = new File(getFilesDir(), "faditor");
         //noinspection ResultOfMethodCallIgnored
@@ -75,5 +114,6 @@ public class ExportDebugActivity extends Activity {
         }
         FLog.i(TAG, "debug export started for " + id + (a >= 0 && b > a
                 ? " range " + a + ".." + b : ""));
+        return true;
     }
 }

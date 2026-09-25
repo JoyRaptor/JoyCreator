@@ -27016,6 +27016,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     || !transformPipClipId.equals(item.getClip().getId()))) {
             exitTransformMode();
         }
+        // The PIN SURFACE belongs to one picture: another selection takes it down (its toolbar
+        // stayed over the next object's drawer on the Note 9, 2026-09-25).
+        if (puppetItem != null && (item == null || item.getTextOverlay() != puppetItem)) {
+            syncPuppetOverlay(null);
+        }
         // And a SPRITE (found on the Note 9, 2026-09-25: the star's handles stayed up after the
         // captions bar was selected — the one kind this sweep left out).
         if (transformSpriteId != null

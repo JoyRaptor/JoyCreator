@@ -731,7 +731,8 @@ public final class ObjectDrawer extends LinearLayout {
      */
     public boolean isAnimatingTabs() { return animating; }
 
-    public boolean isShowing() { return getVisibility() == VISIBLE; }
+    /** Open and not on its way out. */
+    public boolean isShowing() { return getVisibility() == VISIBLE && !hiding; }
 
     /**
      * Switch to the tab with this title, if it exists.
@@ -900,12 +901,15 @@ public final class ObjectDrawer extends LinearLayout {
     public void hide() {
         // Announce first: a tab-driven overlay (the puppet pins) has to come
         // down with the drawer, not linger over the picture with nothing to
-        // explain it.
+        // explain it. And announce as ALREADY CLOSING: the listener asks isShowing() to decide,
+        // and answering "yes, on the Puppet tab" here left the puppet toolbar standing over the
+        // next object's drawer (Note 9, 2026-09-25).
+        boolean wasVisible = getVisibility() == VISIBLE;
+        hiding = true;
         if (onTabChanged != null) onTabChanged.run();
-        if (getVisibility() != VISIBLE) return;
+        if (!wasVisible) return;
         // Give the picture back its space on the way out, not after — the two animations run
         // together so the video rises as the drawer leaves rather than jumping when it lands.
-        hiding = true;
         reportedHeightPx = 0;
         if (heightListener != null) heightListener.onDrawerHeightChanged(0);
         animate().translationY(-dp(120)).alpha(0f).setDuration(SLIDE_MS)

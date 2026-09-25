@@ -617,7 +617,18 @@ public class Timeline {
         if (clips.isEmpty()) return healed;
         for (TextOverlayItem o : textOverlays) {
             String host = o.getHostClipId();
-            if (host == null || indexOfMasterClipId(host) >= 0) continue;
+            if (host == null) continue;
+            int idx = indexOfMasterClipId(host);
+            if (idx >= 0) {
+                // DRIFTED, not dangling: the host exists but start != hostStart + offset. The start
+                // is what the preview and the export both draw, so it is the truth the user sees;
+                // re-home to keep the anchor honest (the same repair a gap-mode edit now makes).
+                if (o.getStartMs() == segmentStartMs(idx) + o.getHostOffsetMs()) continue;
+                String newHost = attachOverlayToHostUnderStart(o);
+                healed.add(o.getId() + " drift " + host + "→"
+                        + (newHost == null ? "unanchored" : newHost));
+                continue;
+            }
             String newHost = attachOverlayToHostUnderStart(o);
             healed.add(o.getId() + " " + host + "→" + (newHost == null ? "unanchored" : newHost));
         }
@@ -2529,7 +2540,17 @@ public class Timeline {
             }
             Long newStart = after.get(host);
             if (newStart == null) { res.orphanedOverlayIds.add(o.getId()); continue; }
-            if (!ripple) continue;
+            if (!ripple) {
+                // GAP MODE: the rider stays at its time — but if its host MOVED, the anchor no
+                // longer describes that time, so re-home it to whatever clip is under it now.
+                // Skipping this left start and host+offset disagreeing (found in a real project
+                // 2026-09-24: an image kept 7293 ms against an anchor that now said 3224 ms, after
+                // a slice's first half moved to a lane and the tape closed up). The preview and
+                // the export then read different times for the same object.
+                Long was = beforeStarts.get(host);
+                if (was != null && !was.equals(newStart)) attachOverlayToHostUnderStart(o);
+                continue;
+            }
             Long oldStart = beforeStarts.get(host);
             if (oldStart == null) continue;           // host is new; nothing to shift relative to
             long delta = newStart - oldStart;

@@ -172,6 +172,7 @@ public final class AudioDrawerTabs {
     private static Runnable levelRow(@NonNull Context ctx, @NonNull LinearLayout parent,
                                      @NonNull AudioParams clip, @NonNull Host host) {
         LinearLayout row = sliderRow(ctx);
+        row.addView(PipDrawerTabs.rowIcon(ctx, "pipVolume"));   // the shared slider-row icon
         row.addView(inlineLabel(ctx, ctx.getString(R.string.lane_b_audio_level_slider), LABEL_W));
 
         FineSeekBar bar = slider(ctx, R.string.lane_b_audio_level_slider);
@@ -245,6 +246,7 @@ public final class AudioDrawerTabs {
         // A5.U BUGFIX 2026-08-24: this read parent.addView(label) — the label rendered as
         // its own full-width LINE above a label-less slider row, breaking the one-line
         // "Label · slider · value · diamond" idiom every other row in this file follows.
+        row.addView(PipDrawerTabs.rowIcon(ctx, "audio_pan"));
         row.addView(inlineLabel(ctx, ctx.getString(R.string.lane_b_audio_pan_slider), LABEL_W));
 
         FineSeekBar bar = slider(ctx, R.string.lane_b_audio_pan_slider);
@@ -387,6 +389,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
                                    @NonNull AudioClip clip, @NonNull Host host,
                                    boolean half) {
         LinearLayout row = sliderRow(ctx);
+        row.addView(PipDrawerTabs.rowIcon(ctx, fadeIn ? "audio_fade_in" : "audio_fade_out"));
         row.addView(inlineLabel(ctx, label, half ? HALF_LABEL_W : LABEL_W));
 
         long maxFade = Math.max(1, clip.getTrimmedDurationMs() / 2);
@@ -428,8 +431,12 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         value.setOnClickListener(v ->
                 promptForFadeSeconds(ctx, clip, host, fadeIn, maxFade, refreshAll));
         if (half) {
-            parent.addView(row, new LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            // A gap after each half: the In value ran straight into the Out label ("0msOut",
+            // drawer sweep on the Note 9, 2026-09-25).
+            LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            if (fadeIn) hlp.setMarginEnd(dp(ctx, 12));
+            parent.addView(row, hlp);
         } else {
             parent.addView(row);
         }

@@ -84,6 +84,9 @@ public final class PipDrawerTabs {
             case KeyframeSet.OPACITY:                          return R.drawable.ic_prop_opacity;
             case "pipVolume":                                  return R.drawable.ic_prop_volume;
             case "mask_round":                                 return R.drawable.ic_prop_roundness;
+            case "audio_pan":                                  return R.drawable.ic_prop_pan;
+            case "audio_fade_in":                              return R.drawable.ic_prop_fade_in;
+            case "audio_fade_out":                             return R.drawable.ic_prop_fade_out;
             case "mask_soften": case "key_softness":           return R.drawable.ic_prop_feather;
             case "key_tolerance":                              return R.drawable.ic_prop_tolerance;
             case "key_spill":                                  return R.drawable.ic_prop_spread;
@@ -117,7 +120,7 @@ public final class PipDrawerTabs {
      * Decorative to TalkBack — the label next to it already says the same thing.
      */
     @NonNull
-    private static View rowIcon(@NonNull Context ctx, @Nullable String key) {
+    public static View rowIcon(@NonNull Context ctx, @Nullable String key) {
         float d = ctx.getResources().getDisplayMetrics().density;
         android.widget.ImageView iv = new android.widget.ImageView(ctx);
         int res = iconFor(key);

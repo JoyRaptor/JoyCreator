@@ -2651,6 +2651,8 @@ public class ProjectStorage {
                     if (so.isFlipH()) sj.addProperty("flipH", true);
                     if (so.isFlipV()) sj.addProperty("flipV", true);
                     if (so.getStartMs() != 0) sj.addProperty("startMs", so.getStartMs());
+                    // Follows a parent in the picture (SPEC_20260924_LINKING). Absent = free.
+                    if (so.getSpaceLink() != null) sj.add("spaceLink", so.getSpaceLink().toJson());
                     if (so.getEndMs() != Long.MAX_VALUE) sj.addProperty("endMs", so.getEndMs());
                     if (so.getLayerId() != null) sj.addProperty("layerId", so.getLayerId());
                     if (!"hold".equals(so.getEndBehavior())) sj.addProperty("endBehavior", so.getEndBehavior());
@@ -3676,6 +3678,10 @@ public class ProjectStorage {
                             long sStart = hasValue(sj, "startMs") ? sj.get("startMs").getAsLong() : 0;
                             long sEnd = hasValue(sj, "endMs") ? sj.get("endMs").getAsLong() : Long.MAX_VALUE;
                             so.setTimeRange(sStart, sEnd);
+                            if (sj.has("spaceLink") && sj.get("spaceLink").isJsonObject()) {
+                                so.setSpaceLink(com.fadcam.ui.faditor.model.SpaceLink.fromJson(
+                                        sj.getAsJsonObject("spaceLink")));
+                            }
                             // Audit 1.3. Unlike the three above, this one sits inside a
                             // `catch (Exception ignored)`, so an explicit null does not
                             // break the load — it silently drops THIS SPRITE and moves on.

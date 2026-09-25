@@ -20,7 +20,7 @@ import java.util.UUID;
  * <p>For v1 the overlay spans the entire timeline. Time-range trimming and image
  * (PNG) overlays reuse this same model and the same export path.</p>
  */
-public class TextOverlayItem implements LinkPose {
+public class TextOverlayItem implements LinkFollower {
 
     // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19): the eye/lock
     // moved off the row gutter onto the object itself. Hidden = excluded from preview AND
@@ -2293,7 +2293,13 @@ public class TextOverlayItem implements LinkPose {
     public void setSpaceLink(@Nullable SpaceLink l) { spaceLink = l; }
 
     /** True when drawing goes through a live parent. */
-    public boolean isLinked() { return spaceLink != null && spaceLink.active(); }
+    @Override public boolean isLinked() { return spaceLink != null && spaceLink.active(); }
+
+    @NonNull @Override public Object snapshotPose() { return snapshotTransform(); }
+
+    @Override public void restorePose(@NonNull Object s) {
+        restoreTransform((TransformSnapshot) s);
+    }
 
     public float ownCenterX(long timelineMs) {
         return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.X,

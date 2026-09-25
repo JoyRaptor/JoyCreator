@@ -133,6 +133,47 @@ public final class LinkTool {
         dialog.show();
     }
 
+    /**
+     * HOLD on the link button: the tool's own settings — what a NEW link copies by default.
+     * (The owner also listed "add a helper" and modes here; those arrive with the Dummy/Proxy
+     * object, and a button that did nothing yet would be worse than none.)
+     */
+    public static void showDefaults(@NonNull Context ctx) {
+        final Props p = lastProps(ctx);
+        final com.google.android.material.bottomsheet.BottomSheetDialog dialog =
+                new com.google.android.material.bottomsheet.BottomSheetDialog(ctx,
+                        R.style.CustomBottomSheetDialogTheme);
+        SheetKit.install(dialog, null);
+        LinearLayout root = new LinearLayout(ctx);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(0, 0, 0, SheetKit.dp(ctx, 16));
+        SheetKit.Header header = SheetKit.header(ctx, ctx.getString(R.string.link_defaults_title), null);
+        header.addTrailing(SheetKit.closeButton(ctx, dialog::dismiss));
+        root.addView(header.view);
+        root.addView(SheetKit.subtitle(ctx, ctx.getString(R.string.link_defaults_hint)));
+        LinearLayout chips = new LinearLayout(ctx);
+        int side = SheetKit.dp(ctx, 16);
+        chips.setPadding(side, SheetKit.dp(ctx, 10), side, SheetKit.dp(ctx, 4));
+        // Each switch saves as it flips: there is nothing to confirm.
+        addToggle(ctx, chips, R.string.link_prop_position, () -> p.position,
+                v -> { p.position = v; remember(ctx, p); });
+        addToggle(ctx, chips, R.string.link_prop_scale, () -> p.scale,
+                v -> { p.scale = v; remember(ctx, p); });
+        addToggle(ctx, chips, R.string.link_prop_rotation, () -> p.rotation,
+                v -> { p.rotation = v; remember(ctx, p); });
+        addToggle(ctx, chips, R.string.link_prop_opacity, () -> p.opacity,
+                v -> { p.opacity = v; remember(ctx, p); });
+        android.widget.HorizontalScrollView scroll = new android.widget.HorizontalScrollView(ctx);
+        scroll.setHorizontalScrollBarEnabled(false);
+        scroll.addView(chips);
+        root.addView(scroll);
+        dialog.setContentView(SheetKit.fitNavBar(root));
+        dialog.getBehavior().setSkipCollapsed(true);
+        dialog.getBehavior().setState(
+                com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
+        dialog.show();
+    }
+
     private interface Get { boolean get(); }
     private interface Set { void set(boolean v); }
 

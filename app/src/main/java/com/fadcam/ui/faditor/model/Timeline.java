@@ -2952,22 +2952,37 @@ public class Timeline {
         java.util.Map<String, LinkPose> byId = new java.util.HashMap<>();
         for (TextOverlayItem t : textOverlays) byId.put(t.getId(), t);
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) byId.put(s.getId(), s);
-        for (TextOverlayItem t : textOverlays) {
-            SpaceLink l = t.getSpaceLink();
+        for (LinkFollower f : linkFollowers()) {
+            SpaceLink l = f.getSpaceLink();
             if (l == null) continue;
             LinkPose p = byId.get(l.parentId);
-            l.parentRef = (p == t || wouldCycle(t, p, byId)) ? null : p;
+            l.parentRef = (p == f || wouldCycle(f, p, byId)) ? null : p;
         }
     }
 
+    /** Everything that can follow a parent: text, pictures and sprites. */
+    @NonNull
+    public java.util.List<LinkFollower> linkFollowers() {
+        java.util.List<LinkFollower> out = new java.util.ArrayList<>(textOverlays);
+        out.addAll(spriteOverlays);
+        return out;
+    }
+
+    /** The follower with this id, or null. */
+    @androidx.annotation.Nullable
+    public LinkFollower linkFollowerById(@NonNull String id) {
+        for (LinkFollower f : linkFollowers()) if (f.getId().equals(id)) return f;
+        return null;
+    }
+
     /** Would following {@code parent} make {@code child} its own ancestor? */
-    public boolean wouldCycle(@NonNull TextOverlayItem child, @androidx.annotation.Nullable LinkPose parent,
+    public boolean wouldCycle(@NonNull LinkFollower child, @androidx.annotation.Nullable LinkPose parent,
                               @NonNull java.util.Map<String, LinkPose> byId) {
         LinkPose cur = parent;
         for (int guard = 0; cur != null && guard < 64; guard++) {
             if (cur.getId().equals(child.getId())) return true;
-            if (!(cur instanceof TextOverlayItem)) return false;
-            SpaceLink l = ((TextOverlayItem) cur).getSpaceLink();
+            if (!(cur instanceof LinkFollower)) return false;
+            SpaceLink l = ((LinkFollower) cur).getSpaceLink();
             cur = l == null ? null : byId.get(l.parentId);
         }
         return cur != null;

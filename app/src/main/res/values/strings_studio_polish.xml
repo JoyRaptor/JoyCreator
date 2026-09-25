@@ -134,4 +134,15 @@
     <string name="link_delete_confirm_short">Confirm</string>
     <string name="link_delete_confirm">Confirm: %1$d of %2$d objects will be removed</string>
     <string name="link_delete_undo">Delete with followers</string>
+    <string name="link_settings_for">Links: %1$s</string>
+    <string name="link_change_parent">Change what it follows</string>
+    <string name="link_not_following">It doesn\'t follow anything yet.</string>
+    <string name="link_pick_parent">Pick what it follows</string>
+    <string name="link_unlink_all">Unlink all</string>
+    <plurals name="link_followers_title">
+        <item quantity="one">%1$d follows it</item>
+        <item quantity="other">%1$d follow it</item>
+    </plurals>
+    <string name="link_defaults_title">New links copy</string>
+    <string name="link_defaults_hint">What a new link copies from what it follows. You can still change it each time.</string>
 </resources>

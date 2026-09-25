@@ -10550,13 +10550,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         && audioCaptionOverlay.getVisibility() == View.VISIBLE)
                     || multiInPlay;
             // (b): in-play is necessary but no longer SUFFICIENT — the user must have asked.
-            int wantCaptionBarVis = (captionInPlay && captionStyleBarRequested)
-                    ? View.VISIBLE : View.GONE;
+            // (c) THE STRIP BELONGS TO THE CAPTIONS BAR (JoyRaptor, 2026-09-25): "always up when
+            // the captions bar is selected ... when it is not selected, it should tuck away."
+            // Selected = shown, whether or not a line is under the playhead right now.
+            int wantCaptionBarVis = (captionStyleBarRequested
+                    && (captionInPlay || captionBarSelected)) ? View.VISIBLE : View.GONE;
             // ⚠ And RESET the request once no caption is in play. Without this the flag was
             // one-way: a single tap on a caption — easy to hit by accident while tapping the
             // preview — restored the permanent bottom bar for the rest of the session, which is
             // the annoyance this was meant to remove, merely deferred.
-            if (!captionInPlay) captionStyleBarRequested = false;
+            if (!captionInPlay && !captionBarSelected) captionStyleBarRequested = false;
             if (captionStyleBar.getVisibility() != wantCaptionBarVis) {
                 captionStyleBar.setVisibility(wantCaptionBarVis);
             }
@@ -16995,6 +16998,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // target yet) hides them.
                 updatePreviewHandlesForSelection(item);
                 refreshLinkTethers();
+                // The caption style strip follows the captions bar's selection (see the tick).
+                captionBarSelected = item != null && item.getCaptionSpan() != null;
+                captionStyleBarRequested = captionBarSelected;
+                if (captionStyleBar != null) {
+                    captionStyleBar.setVisibility(captionBarSelected ? View.VISIBLE : View.GONE);
+                }
                 // Link appears for a clip whose media is actually MISSING, and for nothing
                 // else. Studio Final §05: "Relink — the broken clip itself. Moved. Amber ring
                 // plus a chip in the drawer. Freed a transport slot."
@@ -27007,6 +27016,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     || !transformPipClipId.equals(item.getClip().getId()))) {
             exitTransformMode();
         }
+        // And a SPRITE (found on the Note 9, 2026-09-25: the star's handles stayed up after the
+        // captions bar was selected — the one kind this sweep left out).
+        if (transformSpriteId != null
+                && (item == null || item.getSprite() == null
+                    || !transformSpriteId.equals(item.getSprite().getId()))) {
+            exitTransformMode();
+        }
         if (item != null && item.getTextOverlay() != null
                 && item.getTextOverlay().isImage()) {
             // AN IMAGE OVERLAY'S HANDLES *ARE* THE TRANSFORM SURFACE. JoyRaptor, 2026-09-04: "when I
@@ -27604,6 +27620,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void moveTo(float normCx, float normCy, long timeMs) {
+                if (s.isLinked()) {
+                    // The finger is in the picture; a follower stores its own pose (LINKING).
+                    float[] own = new float[2];
+                    s.worldToOwn(normCx, normCy, timeMs, own);
+                    normCx = own[0];
+                    normCy = own[1];
+                }
                 if (s.isArmed()) {
                     s.addPropertyKeyframeAt(
                             com.fadcam.ui.faditor.keyframe.KeyframeSet.X, timeMs, normCx);
@@ -27617,6 +27640,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void scaleTo(float sizeFraction, long timeMs) {
+                sizeFraction = s.worldSizeToOwn(sizeFraction, timeMs);   // follower: own space
                 if (s.isArmed()) {
                     s.addPropertyKeyframeAt(
                             com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, timeMs, sizeFraction);
@@ -27628,6 +27652,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void rotateTo(float deg, long timeMs) {
+                deg = s.worldRotationToOwn(deg, timeMs);   // follower: own space
                 if (s.isArmed()) {
                     s.addPropertyKeyframeAt(
                             com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, timeMs, deg);
@@ -28554,6 +28579,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull String key, @NonNull String label, float min, float max,
             @NonNull ObjectMenuSheet.ValueFormat fmt, @NonNull ObjectMenuSheet.Getter get) {
         ObjectMenuSheet.Setter set = (v, ms) -> {
+            if (s.isLinked()) {
+                Float own = linkedRowToOwn(s, key, v, ms, s.isArmed()
+                        ? (k, t, val) -> s.addPropertyKeyframeAt(k, t, val) : null);
+                if (own == null) { refreshSpriteAfterMenuWrite(); return; }
+                v = own;
+            }
             if (s.isArmed()) {
                 s.addPropertyKeyframeAt(key, ms, v);
             } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.X.equals(key)) {
@@ -34841,12 +34872,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     // ── THE LINK TOOL (SPEC_20260924_LINKING §12) ──────────────────────────────────────────
     // Tap = arm with the selection; the next single tap on an object picks what it follows and
-    // opens the details popup; tap again = cancel. Hold = the selection's link settings.
-    // Followers are text and pictures (TextOverlayItem); parents are text, pictures and sprites.
+    // opens the details popup; tap again = cancel. DOUBLE-TAP = the selection's link settings
+    // (what it follows, what it copies, its followers, unlink). HOLD = the tool's own defaults.
+    // Followers: text, pictures, sprites (LinkFollower). Parents: the same.
+
+    /** The captions bar is the timeline selection: its style strip shows (see the tick). */
+    private boolean captionBarSelected;
 
     @Nullable private com.fadcam.ui.faditor.tools.LinkTool linkTool;
     @Nullable private android.widget.ImageView btnLinkTool;
     @Nullable private com.fadcam.ui.faditor.tools.LinkTetherView linkTether;
+    private long linkLastTapMs;
+
+    private static final long LINK_DOUBLE_TAP_MS = 320L;
 
     private void wireLinkTool() {
         btnLinkTool = findViewById(R.id.btn_link_tool);
@@ -34854,12 +34892,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         linkTool = new com.fadcam.ui.faditor.tools.LinkTool(armed -> {
             paintLinkButton();
             refreshLinkTethers();
-            if (armed) Toast.makeText(this, R.string.link_armed_toast, Toast.LENGTH_SHORT).show();
         });
         com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(btnLinkTool,
                 getString(R.string.link_button_desc));
         btnLinkTool.setOnClickListener(v -> onLinkButtonTap());
-        btnLinkTool.setOnLongClickListener(v -> { showLinkSettingsForSelection(); return true; });
+        btnLinkTool.setOnLongClickListener(v -> {
+            if (linkTool != null) linkTool.disarm();
+            com.fadcam.ui.faditor.tools.LinkTool.showDefaults(this);
+            return true;
+        });
         paintLinkButton();
     }
 
@@ -34870,16 +34911,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 armed ? STUDIO_ARMED : STUDIO_OFF));
     }
 
+    @Nullable
+    private com.fadcam.ui.faditor.model.LinkFollower followerById(@Nullable String id) {
+        return id == null || project == null ? null : project.getTimeline().linkFollowerById(id);
+    }
+
     private void onLinkButtonTap() {
         if (linkTool == null || editorTimeline == null) return;
+        long now = android.os.SystemClock.uptimeMillis();
+        boolean doubleTap = now - linkLastTapMs < LINK_DOUBLE_TAP_MS;
+        linkLastTapMs = doubleTap ? 0L : now;
+        if (doubleTap) {
+            // The first tap armed (or disarmed); a double-tap means "settings", so undo that.
+            linkTool.disarm();
+            showLinkSettingsForSelection();
+            return;
+        }
         if (linkTool.isArmed()) { linkTool.disarm(); return; }
         String sel = editorTimeline.getSelectedLayerItemId();
-        if (sel == null || textOverlayById(sel) == null) {
+        if (followerById(sel) == null) {
             Toast.makeText(this, sel == null ? R.string.link_select_first : R.string.link_cant_kind,
                     Toast.LENGTH_SHORT).show();
             return;
         }
         linkTool.toggle(sel);
+        // Say what to do next, a beat later, so a double-tap (settings) does not flash it.
+        btnLinkTool.postDelayed(() -> {
+            if (linkTool != null && linkTool.isArmed()) {
+                Toast.makeText(this, R.string.link_armed_toast, Toast.LENGTH_SHORT).show();
+            }
+        }, LINK_DOUBLE_TAP_MS);
     }
 
     /** What an object is called in a link sentence. */
@@ -34892,6 +34953,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             String t = o.getText() == null ? "" : o.getText().trim().replace('\n', ' ');
             return t.length() > 18 ? t.substring(0, 18) + "…" : t;
         }
+        if (p instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
+            com.fadcam.ui.faditor.sprite.SpriteSheet sh = project == null ? null : project.spriteSheetById(
+                    ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) p).getSheetId());
+            if (sh != null && sh.getName() != null && !sh.getName().isEmpty()) return sh.getName();
+        }
         return getString(R.string.sprite_editor_default_name);
     }
 
@@ -34899,8 +34965,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (linkTool == null || project == null) return;
         final String srcId = linkTool.armedSource();
         linkTool.disarm();
-        final com.fadcam.ui.faditor.model.TextOverlayItem child =
-                srcId == null ? null : textOverlayById(srcId);
+        final com.fadcam.ui.faditor.model.LinkFollower child = followerById(srcId);
         final com.fadcam.ui.faditor.model.LinkPose parent =
                 project.getTimeline().linkPoseById(targetId);
         if (child == null) return;
@@ -34920,26 +34985,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 props -> applyLink(child, parent, props));
     }
 
-    private boolean linkWouldCycle(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem child,
+    private boolean linkWouldCycle(@NonNull com.fadcam.ui.faditor.model.LinkFollower child,
                                    @NonNull com.fadcam.ui.faditor.model.LinkPose parent) {
         com.fadcam.ui.faditor.model.LinkPose cur = parent;
         for (int guard = 0; cur != null && guard < 64; guard++) {
             if (cur.getId().equals(child.getId())) return true;
-            if (!(cur instanceof com.fadcam.ui.faditor.model.TextOverlayItem)) return false;
+            if (!(cur instanceof com.fadcam.ui.faditor.model.LinkFollower)) return false;
             com.fadcam.ui.faditor.model.SpaceLink l =
-                    ((com.fadcam.ui.faditor.model.TextOverlayItem) cur).getSpaceLink();
+                    ((com.fadcam.ui.faditor.model.LinkFollower) cur).getSpaceLink();
             cur = l == null ? null : project.getTimeline().linkPoseById(l.parentId);
         }
         return false;
     }
 
     /** Link {@code child} to {@code parent} as they stand now: nothing moves. One undo step. */
-    private void applyLink(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem child,
+    private void applyLink(@NonNull com.fadcam.ui.faditor.model.LinkFollower child,
                            @NonNull com.fadcam.ui.faditor.model.LinkPose parent,
                            @NonNull com.fadcam.ui.faditor.tools.LinkTool.Props props) {
         final long t = Math.max(0, lastPlayheadAbsoluteMs);
-        final com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot beforePose =
-                child.snapshotTransform();
+        final Object beforePose = child.snapshotPose();
         final com.fadcam.ui.faditor.model.SpaceLink beforeLink = child.getSpaceLink();
         bakeLink(child, t);   // re-linking: keep where it is before following something new
         android.graphics.RectF cr = computeCanvasRect();
@@ -34951,29 +35015,44 @@ public class FaditorEditorActivity extends AppCompatActivity {
         link.rotation = props.rotation;
         link.opacity = props.opacity;
         child.setSpaceLink(link);
-        final com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot afterPose =
-                child.snapshotTransform();
+        final Object afterPose = child.snapshotPose();
         afterLinkChange();
         undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.link_undo),
-                () -> { child.restoreTransform(afterPose); child.setSpaceLink(link); afterLinkChange(); },
-                () -> { child.restoreTransform(beforePose); child.setSpaceLink(beforeLink); afterLinkChange(); }));
+                () -> { child.restorePose(afterPose); child.setSpaceLink(link); afterLinkChange(); },
+                () -> { child.restorePose(beforePose); child.setSpaceLink(beforeLink); afterLinkChange(); }));
         Toast.makeText(this, getString(R.string.link_done, linkName(child), linkName(parent)),
                 Toast.LENGTH_SHORT).show();
     }
 
     /** Stop following, staying exactly where it is at the playhead. One undo step. */
-    private void unlinkKeepingPlace(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem child) {
-        final com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot beforePose =
-                child.snapshotTransform();
-        final com.fadcam.ui.faditor.model.SpaceLink beforeLink = child.getSpaceLink();
-        if (beforeLink == null) return;
-        bakeLink(child, Math.max(0, lastPlayheadAbsoluteMs));
-        final com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot afterPose =
-                child.snapshotTransform();
+    private void unlinkKeepingPlace(@NonNull com.fadcam.ui.faditor.model.LinkFollower child) {
+        unlinkAllKeepingPlace(java.util.Collections.singletonList(child));
+    }
+
+    /** Unlink several at once, each staying where it is. ONE undo step for the lot. */
+    private void unlinkAllKeepingPlace(
+            @NonNull java.util.List<? extends com.fadcam.ui.faditor.model.LinkFollower> list) {
+        final int n = list.size();
+        final java.util.List<com.fadcam.ui.faditor.model.LinkFollower> cs = new java.util.ArrayList<>(list);
+        final Object[] before = new Object[n], after = new Object[n];
+        final com.fadcam.ui.faditor.model.SpaceLink[] links = new com.fadcam.ui.faditor.model.SpaceLink[n];
+        long t = Math.max(0, lastPlayheadAbsoluteMs);
+        boolean any = false;
+        for (int i = 0; i < n; i++) {
+            com.fadcam.ui.faditor.model.LinkFollower c = cs.get(i);
+            before[i] = c.snapshotPose();
+            links[i] = c.getSpaceLink();
+            any |= links[i] != null;
+            bakeLink(c, t);
+            after[i] = c.snapshotPose();
+        }
+        if (!any) return;
         afterLinkChange();
         undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.unlink_undo),
-                () -> { child.restoreTransform(afterPose); child.setSpaceLink(null); afterLinkChange(); },
-                () -> { child.restoreTransform(beforePose); child.setSpaceLink(beforeLink); afterLinkChange(); }));
+                () -> { for (int i = 0; i < n; i++) { cs.get(i).restorePose(after[i]); cs.get(i).setSpaceLink(null); }
+                        afterLinkChange(); },
+                () -> { for (int i = 0; i < n; i++) { cs.get(i).restorePose(before[i]); cs.get(i).setSpaceLink(links[i]); }
+                        afterLinkChange(); }));
     }
 
     /**
@@ -34981,7 +35060,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * the picture position it had at its own moment, and the statics take the position at
      * {@code t}. So the object stays where it is (owner's answer to §11 Q2).
      */
-    private void bakeLink(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o, long t) {
+    private void bakeLink(@NonNull com.fadcam.ui.faditor.model.LinkFollower o, long t) {
         com.fadcam.ui.faditor.model.SpaceLink l = o.getSpaceLink();
         if (l == null) return;
         if (!l.active()) { o.setSpaceLink(null); return; }
@@ -35020,10 +35099,67 @@ public class FaditorEditorActivity extends AppCompatActivity {
         project.getTimeline().resolveSpaceLinks();
         setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
         refreshOverlayPreview();
+        refreshSpritePreviewData();
         if (transformOverlay != null) transformOverlay.refresh();
         refreshLinkTethers();
         syncTimelineOverlays();
         scheduleAutoSave();
+    }
+
+    /** Writes one keyframe: (property, timeline ms, value). */
+    private interface KeyWriter { void put(@NonNull String key, long ms, float value); }
+
+    /**
+     * A drawer row on a FOLLOWER shows where it is in the picture; the object stores its own
+     * pose. Position rows are converted as a pair and written here (returns null: handled);
+     * scale and rotation are converted and returned for the caller's ordinary write.
+     */
+    @Nullable
+    private Float linkedRowToOwn(@NonNull com.fadcam.ui.faditor.model.LinkFollower f,
+                                 @NonNull String key, float v, long ms, @Nullable KeyWriter keys) {
+        boolean isX = com.fadcam.ui.faditor.keyframe.KeyframeSet.X.equals(key);
+        if (isX || com.fadcam.ui.faditor.keyframe.KeyframeSet.Y.equals(key)) {
+            float[] own = new float[2];
+            f.worldToOwn(isX ? v : f.animatedCenterX(ms), isX ? f.animatedCenterY(ms) : v, ms, own);
+            if (keys != null) {
+                keys.put(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, ms, own[0]);
+                keys.put(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, ms, own[1]);
+            } else {
+                f.setCenter(own[0], own[1]);
+            }
+            return null;
+        }
+        if (com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE.equals(key)) return f.worldSizeToOwn(v, ms);
+        if (com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION.equals(key)) return f.worldRotationToOwn(v, ms);
+        return v;
+    }
+
+    /** Everything following {@code parentId}. */
+    @NonNull
+    private java.util.List<com.fadcam.ui.faditor.model.LinkFollower> followersOf(@NonNull String parentId) {
+        java.util.List<com.fadcam.ui.faditor.model.LinkFollower> out = new java.util.ArrayList<>();
+        if (project == null) return out;
+        for (com.fadcam.ui.faditor.model.LinkFollower c : project.getTimeline().linkFollowers()) {
+            com.fadcam.ui.faditor.model.SpaceLink l = c.getSpaceLink();
+            if (l != null && parentId.equals(l.parentId)) out.add(c);
+        }
+        return out;
+    }
+
+    private void removeFollowerObject(@NonNull com.fadcam.ui.faditor.model.LinkFollower c) {
+        if (c instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
+            project.getTimeline().removeTextOverlay((com.fadcam.ui.faditor.model.TextOverlayItem) c);
+        } else if (c instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
+            project.getTimeline().removeSpriteOverlay((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) c);
+        }
+    }
+
+    private void addFollowerObject(@NonNull com.fadcam.ui.faditor.model.LinkFollower c) {
+        if (c instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
+            project.getTimeline().addTextOverlay((com.fadcam.ui.faditor.model.TextOverlayItem) c);
+        } else if (c instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
+            project.getTimeline().addSpriteOverlay((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) c);
+        }
     }
 
     /**
@@ -35038,12 +35174,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean askAboutFollowers(@NonNull String parentId, @NonNull String parentName,
                                       @NonNull Runnable deleteParent) {
         if (project == null) return false;
-        final java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> followers =
-                new java.util.ArrayList<>();
-        for (com.fadcam.ui.faditor.model.TextOverlayItem c : project.getTimeline().getTextOverlays()) {
-            com.fadcam.ui.faditor.model.SpaceLink l = c.getSpaceLink();
-            if (l != null && parentId.equals(l.parentId)) followers.add(c);
-        }
+        final java.util.List<com.fadcam.ui.faditor.model.LinkFollower> followers = followersOf(parentId);
         if (followers.isEmpty()) return false;
         final CharSequence[] names = new CharSequence[followers.size()];
         for (int i = 0; i < names.length; i++) names[i] = linkName(followers.get(i));
@@ -35074,37 +35205,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void deleteWithFollowers(
-            @NonNull java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> followers,
+            @NonNull java.util.List<com.fadcam.ui.faditor.model.LinkFollower> followers,
             @NonNull boolean[] with, @NonNull Runnable deleteParent) {
         if (project == null) return;
         final long t = Math.max(0, lastPlayheadAbsoluteMs);
         final int n = followers.size();
-        final com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[] before =
-                new com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[n];
-        final com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[] after =
-                new com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[n];
+        final Object[] before = new Object[n], after = new Object[n];
         final com.fadcam.ui.faditor.model.SpaceLink[] links = new com.fadcam.ui.faditor.model.SpaceLink[n];
         // Free ones are baked while their parent still exists — the bake reads its pose.
         for (int i = 0; i < n; i++) {
-            com.fadcam.ui.faditor.model.TextOverlayItem c = followers.get(i);
-            before[i] = c.snapshotTransform();
+            com.fadcam.ui.faditor.model.LinkFollower c = followers.get(i);
+            before[i] = c.snapshotPose();
             links[i] = c.getSpaceLink();
             if (!with[i]) bakeLink(c, t);
-            after[i] = c.snapshotTransform();
+            after[i] = c.snapshotPose();
         }
         final Runnable apply = () -> {
             for (int i = 0; i < n; i++) {
-                com.fadcam.ui.faditor.model.TextOverlayItem c = followers.get(i);
-                if (with[i]) project.getTimeline().removeTextOverlay(c);
-                else { c.restoreTransform(after[i]); c.setSpaceLink(null); }
+                com.fadcam.ui.faditor.model.LinkFollower c = followers.get(i);
+                if (with[i]) removeFollowerObject(c);
+                else { c.restorePose(after[i]); c.setSpaceLink(null); }
             }
             refreshAfterMarqueeBatchDelete();
         };
         final Runnable revert = () -> {
             for (int i = 0; i < n; i++) {
-                com.fadcam.ui.faditor.model.TextOverlayItem c = followers.get(i);
-                if (with[i]) project.getTimeline().addTextOverlay(c);
-                c.restoreTransform(before[i]);
+                com.fadcam.ui.faditor.model.LinkFollower c = followers.get(i);
+                if (with[i]) addFollowerObject(c);
+                c.restorePose(before[i]);
                 c.setSpaceLink(links[i]);
             }
             refreshAfterMarqueeBatchDelete();
@@ -35118,40 +35246,140 @@ public class FaditorEditorActivity extends AppCompatActivity {
         undoManager.clearMergeNextIntoTop();
     }
 
-    /** Hold on the link button: the selection's links — unlink it, or unlink its followers. */
+    /**
+     * DOUBLE-TAP on the link button: the selection's links, in one sheet (owner, 2026-09-25:
+     * "change easily what it follows and how it behaves, and what is linked or unlinked to it").
+     * <ul>
+     *   <li>What it follows, what it copies (switches apply at once, one undo each), Change
+     *       (re-arms the tool to pick a new parent), Unlink.</li>
+     *   <li>Its followers, each with Unlink, and Unlink all.</li>
+     * </ul>
+     */
     private void showLinkSettingsForSelection() {
         if (project == null || editorTimeline == null) return;
-        String sel = editorTimeline.getSelectedLayerItemId();
-        final com.fadcam.ui.faditor.model.TextOverlayItem o = sel == null ? null : textOverlayById(sel);
-        final java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> followers =
-                new java.util.ArrayList<>();
-        for (com.fadcam.ui.faditor.model.TextOverlayItem c : project.getTimeline().getTextOverlays()) {
-            if (sel != null && c.getSpaceLink() != null && sel.equals(c.getSpaceLink().parentId)) {
-                followers.add(c);
-            }
-        }
-        final java.util.List<CharSequence> labels = new java.util.ArrayList<>();
-        final java.util.List<Runnable> acts = new java.util.ArrayList<>();
-        if (o != null && o.getSpaceLink() != null) {
-            com.fadcam.ui.faditor.model.LinkPose p =
-                    project.getTimeline().linkPoseById(o.getSpaceLink().parentId);
-            labels.add(getString(R.string.link_row_follows, p == null ? "?" : linkName(p))
-                    + " — " + getString(R.string.link_row_unlink));
-            acts.add(() -> unlinkKeepingPlace(o));
-        }
-        if (!followers.isEmpty()) {
-            labels.add(getString(R.string.link_unlink_followers, followers.size()));
-            acts.add(() -> { for (com.fadcam.ui.faditor.model.TextOverlayItem c : followers) unlinkKeepingPlace(c); });
-        }
-        if (labels.isEmpty()) {
-            Toast.makeText(this, R.string.link_none_here, Toast.LENGTH_SHORT).show();
+        final String sel = editorTimeline.getSelectedLayerItemId();
+        final com.fadcam.ui.faditor.model.LinkFollower me = followerById(sel);
+        final com.fadcam.ui.faditor.model.LinkPose meAsParent =
+                sel == null ? null : project.getTimeline().linkPoseById(sel);
+        if (me == null && meAsParent == null) {
+            Toast.makeText(this, sel == null ? R.string.link_select_first : R.string.link_cant_kind,
+                    Toast.LENGTH_SHORT).show();
             return;
         }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.link_settings_title)
-                .setItems(labels.toArray(new CharSequence[0]), (d, which) -> acts.get(which).run())
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+        final java.util.List<com.fadcam.ui.faditor.model.LinkFollower> followers = followersOf(sel);
+        final com.google.android.material.bottomsheet.BottomSheetDialog dialog =
+                new com.google.android.material.bottomsheet.BottomSheetDialog(this,
+                        R.style.CustomBottomSheetDialogTheme);
+        SheetKit.install(dialog, null);
+        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(0, 0, 0, SheetKit.dp(this, 16));
+        SheetKit.Header header = SheetKit.header(this, getString(R.string.link_settings_for,
+                linkName(me != null ? me : meAsParent)), null);
+        header.addTrailing(SheetKit.closeButton(this, dialog::dismiss));
+        root.addView(header.view);
+        int side = SheetKit.dp(this, 16);
+
+        final com.fadcam.ui.faditor.model.SpaceLink link = me == null ? null : me.getSpaceLink();
+        if (link != null) {
+            com.fadcam.ui.faditor.model.LinkPose p = project.getTimeline().linkPoseById(link.parentId);
+            root.addView(SheetKit.sectionLabel(this,
+                    getString(R.string.link_row_follows, p == null ? "?" : linkName(p)), 0));
+            android.widget.LinearLayout chips = new android.widget.LinearLayout(this);
+            chips.setPadding(side, SheetKit.dp(this, 6), side, SheetKit.dp(this, 6));
+            addLinkPropChip(chips, R.string.link_prop_position, me, () -> link.position, v -> link.position = v);
+            addLinkPropChip(chips, R.string.link_prop_scale, me, () -> link.scale, v -> link.scale = v);
+            addLinkPropChip(chips, R.string.link_prop_rotation, me, () -> link.rotation, v -> link.rotation = v);
+            addLinkPropChip(chips, R.string.link_prop_opacity, me, () -> link.opacity, v -> link.opacity = v);
+            android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
+            hs.setHorizontalScrollBarEnabled(false);
+            hs.addView(chips);
+            root.addView(hs);
+            android.widget.LinearLayout acts = new android.widget.LinearLayout(this);
+            acts.setPadding(side, SheetKit.dp(this, 4), side, SheetKit.dp(this, 8));
+            acts.addView(SheetKit.pillButton(this, getString(R.string.link_change_parent), false, v -> {
+                dialog.dismiss();
+                if (linkTool != null) linkTool.toggle(me.getId());
+                Toast.makeText(this, R.string.link_armed_toast, Toast.LENGTH_SHORT).show();
+            }));
+            android.view.View gap = new android.view.View(this);
+            acts.addView(gap, new android.widget.LinearLayout.LayoutParams(SheetKit.dp(this, 8), 1));
+            acts.addView(SheetKit.pillButton(this, getString(R.string.link_row_unlink), false, v -> {
+                dialog.dismiss();
+                unlinkKeepingPlace(me);
+            }));
+            root.addView(acts);
+        } else if (me != null) {
+            root.addView(SheetKit.subtitle(this, getString(R.string.link_not_following)));
+            android.widget.LinearLayout acts = new android.widget.LinearLayout(this);
+            acts.setPadding(side, SheetKit.dp(this, 4), side, SheetKit.dp(this, 8));
+            acts.addView(SheetKit.pillButton(this, getString(R.string.link_pick_parent), true, v -> {
+                dialog.dismiss();
+                if (linkTool != null) linkTool.toggle(me.getId());
+                Toast.makeText(this, R.string.link_armed_toast, Toast.LENGTH_SHORT).show();
+            }));
+            root.addView(acts);
+        }
+
+        if (!followers.isEmpty()) {
+            root.addView(SheetKit.sectionLabel(this, getResources().getQuantityString(
+                    R.plurals.link_followers_title, followers.size(), followers.size()), 0));
+            for (final com.fadcam.ui.faditor.model.LinkFollower c : followers) {
+                android.widget.TextView unlink = SheetKit.chip(this, getString(R.string.link_row_unlink));
+                SheetKit.label(unlink, getString(R.string.link_row_unlink_desc));
+                android.widget.LinearLayout row = SheetKit.detailRow(this, null, 0, linkName(c),
+                        null, unlink, false);
+                unlink.setOnClickListener(v -> {
+                    unlinkKeepingPlace(c);
+                    row.setAlpha(0.35f);
+                    unlink.setEnabled(false);
+                });
+                root.addView(row);
+            }
+            if (followers.size() > 1) {
+                android.widget.LinearLayout acts = new android.widget.LinearLayout(this);
+                acts.setPadding(side, SheetKit.dp(this, 4), side, 0);
+                acts.addView(SheetKit.pillButton(this, getString(R.string.link_unlink_all), false, v -> {
+                    dialog.dismiss();
+                    unlinkAllKeepingPlace(followers);
+                }));
+                root.addView(acts);
+            }
+        } else if (link == null && me == null) {
+            root.addView(SheetKit.subtitle(this, getString(R.string.link_none_here)));
+        }
+        dialog.setContentView(SheetKit.fitNavBar(root));
+        dialog.getBehavior().setSkipCollapsed(true);
+        dialog.getBehavior().setState(
+                com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
+        dialog.show();
+    }
+
+    private interface LinkBoolGet { boolean get(); }
+    private interface LinkBoolSet { void set(boolean v); }
+
+    /** A what-it-copies switch on an existing link: changes at once, keeps the picture still. */
+    private void addLinkPropChip(@NonNull android.widget.LinearLayout row, int label,
+                                 @NonNull com.fadcam.ui.faditor.model.LinkFollower me,
+                                 @NonNull LinkBoolGet get, @NonNull LinkBoolSet set) {
+        android.widget.TextView chip = SheetKit.chip(this, getString(label));
+        SheetKit.setChipSelected(chip, get.get());
+        chip.setOnClickListener(v -> {
+            // Flipping a switch must not make it jump: bake to where it is, then re-link with
+            // the new switch captured at this moment.
+            com.fadcam.ui.faditor.model.SpaceLink old = me.getSpaceLink();
+            if (old == null || old.parentRef == null) return;
+            com.fadcam.ui.faditor.tools.LinkTool.Props p = new com.fadcam.ui.faditor.tools.LinkTool.Props();
+            p.position = old.position; p.scale = old.scale; p.rotation = old.rotation; p.opacity = old.opacity;
+            boolean nv = !get.get();
+            if (label == R.string.link_prop_position) p.position = nv;
+            else if (label == R.string.link_prop_scale) p.scale = nv;
+            else if (label == R.string.link_prop_rotation) p.rotation = nv;
+            else p.opacity = nv;
+            applyLink(me, old.parentRef, p);
+            SheetKit.setChipSelected(chip, nv);
+        });
+        row.addView(chip);
     }
 
     /** Tethers for the selected object's links, and "can link here" marks while armed. */
@@ -35164,7 +35392,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.graphics.RectF cr = computeCanvasRect();
         long t = Math.max(0, lastPlayheadAbsoluteMs);
         if (sel != null && cr.width() > 1f) {
-            for (com.fadcam.ui.faditor.model.TextOverlayItem c : project.getTimeline().getTextOverlays()) {
+            for (com.fadcam.ui.faditor.model.LinkFollower c : project.getTimeline().linkFollowers()) {
                 com.fadcam.ui.faditor.model.SpaceLink l = c.getSpaceLink();
                 if (l == null || l.parentRef == null || !c.isVisibleAt(t)) continue;
                 if (!sel.equals(c.getId()) && !sel.equals(l.parentId)) continue;

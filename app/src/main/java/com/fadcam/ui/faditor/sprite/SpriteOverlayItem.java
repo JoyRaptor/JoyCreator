@@ -21,7 +21,7 @@ import java.util.UUID;
  * (step/hold, item-local times); {@link SpriteFrameResolver} is the only code
  * allowed to turn (sheet, item, time) into a cell index.</p>
  */
-public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkPose {
+public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollower {
 
     // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19) — see
     // TextOverlayItem's twin fields. Tolerant storage: absent = false.
@@ -180,6 +180,7 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkPose {
         c.flipV = flipV;
         c.startMs = startMs;
         c.endMs = endMs;
+        c.spaceLink = spaceLink == null ? null : spaceLink.copy();
         c.endBehavior = endBehavior;
         c.continuesUntilBlocked = continuesUntilBlocked;
         c.sequenceStartFrame = sequenceStartFrame;
@@ -324,24 +325,62 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkPose {
         return Math.max(0, timelineMs - startMs);
     }
 
-    public float animatedCenterX(long timelineMs) {
+    // ── LINKED TO A PARENT (SPEC_20260924_LINKING) — the same contract as TextOverlayItem:
+    // animated* is the WORLD pose every renderer draws, own* the sprite's own values.
+
+    @Nullable private com.fadcam.ui.faditor.model.SpaceLink spaceLink;
+
+    @Nullable @Override
+    public com.fadcam.ui.faditor.model.SpaceLink getSpaceLink() { return spaceLink; }
+
+    @Override
+    public void setSpaceLink(@Nullable com.fadcam.ui.faditor.model.SpaceLink l) { spaceLink = l; }
+
+    @NonNull @Override public Object snapshotPose() { return snapshotTransform(); }
+
+    @Override public void restorePose(@NonNull Object s) {
+        restoreTransform((TransformSnapshot) s);
+    }
+
+    public float ownCenterX(long timelineMs) {
         return keyframes.valueAt(KeyframeSet.X, localTime(timelineMs), centerX);
     }
 
-    public float animatedCenterY(long timelineMs) {
+    public float ownCenterY(long timelineMs) {
         return keyframes.valueAt(KeyframeSet.Y, localTime(timelineMs), centerY);
+    }
+
+    public float animatedCenterX(long timelineMs) {
+        if (!isLinked()) return ownCenterX(timelineMs);
+        float[] w = new float[2];
+        spaceLink.toWorld(ownCenterX(timelineMs), ownCenterY(timelineMs), timelineMs, w);
+        return w[0];
+    }
+
+    public float animatedCenterY(long timelineMs) {
+        if (!isLinked()) return ownCenterY(timelineMs);
+        float[] w = new float[2];
+        spaceLink.toWorld(ownCenterX(timelineMs), ownCenterY(timelineMs), timelineMs, w);
+        return w[1];
     }
 
     /** Animated size fraction (the scale track stores the absolute fraction). */
     public float animatedSizeFraction(long timelineMs) {
-        return keyframes.valueAt(KeyframeSet.SCALE, localTime(timelineMs), sizeFraction);
+        float own = keyframes.valueAt(KeyframeSet.SCALE, localTime(timelineMs), sizeFraction);
+        return isLinked() ? spaceLink.sizeToWorld(own, timelineMs) : own;
     }
 
     public float animatedRotation(long timelineMs) {
-        return keyframes.valueAt(KeyframeSet.ROTATION, localTime(timelineMs), rotationDeg);
+        float own = keyframes.valueAt(KeyframeSet.ROTATION, localTime(timelineMs), rotationDeg);
+        return isLinked() ? spaceLink.rotToWorld(own, timelineMs) : own;
     }
 
     public float animatedOpacity(long timelineMs) {
+        float own = ownOpacity(timelineMs);
+        return isLinked() ? spaceLink.opacityToWorld(own, timelineMs) : own;
+    }
+
+    public float ownOpacity(long timelineMs) {
         float base = keyframes.valueAt(KeyframeSet.OPACITY, localTime(timelineMs), opacity);
         // FADE_KNOBS §2.5: fade handles multiply the base opacity (stackable — mirrors
         // TextOverlayItem.animatedOpacity; every preview + export site reads this).

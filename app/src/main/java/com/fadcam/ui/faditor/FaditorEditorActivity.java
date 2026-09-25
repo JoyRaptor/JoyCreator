@@ -34686,6 +34686,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             showImageOverlayDrawer(item);
             return;
         }
+        if (item.isProxy()) {
+            // Nothing to type: a proxy's words are only its name. Its drawer is where it moves.
+            showProxyDrawer(item);
+            return;
+        }
 
         // ONE SURFACE AT A TIME. The object menu sheet's "More…" is a common door into this
         // drawer, and the sheet is a modal sibling in the same container — leaving it up would
@@ -34923,7 +34928,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btnLinkTool.setOnClickListener(v -> onLinkButtonTap());
         btnLinkTool.setOnLongClickListener(v -> {
             if (linkTool != null) linkTool.disarm();
-            com.fadcam.ui.faditor.tools.LinkTool.showDefaults(this);
+            com.fadcam.ui.faditor.tools.LinkTool.showDefaults(this, this::addProxyForSelection);
             return true;
         });
         paintLinkButton();
@@ -35056,6 +35061,124 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         swapTimeLink(afterTime, beforeTime); afterLinkChange(); }));
         Toast.makeText(this, getString(R.string.link_done, linkName(child), linkName(parent)),
                 Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * HOLD on the link button › Add a proxy (SPEC_20260924_LINKING §3.5): an invisible handle at
+     * the centre of what is selected, spanning its time, with everything selected following it
+     * (new-link defaults). Nothing moves. Something whose parent is also selected keeps following
+     * that parent, so a chain comes along as a unit. With nothing selected it is a lone proxy at
+     * the canvas centre. Creating it and every link is ONE undo step.
+     */
+    private void addProxyForSelection() {
+        if (project == null || editorTimeline == null) return;
+        final Timeline tl = project.getTimeline();
+        final long t = Math.max(0, lastPlayheadAbsoluteMs);
+        java.util.LinkedHashSet<String> ids = new java.util.LinkedHashSet<>();
+        for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h
+                : editorTimeline.getMarqueeSelectedItems()) {
+            ids.add(h.item.getId());
+        }
+        String single = editorTimeline.getSelectedLayerItemId();
+        if (ids.isEmpty() && single != null) ids.add(single);
+        final java.util.List<com.fadcam.ui.faditor.model.LinkFollower> kids = new java.util.ArrayList<>();
+        for (String id : ids) {
+            com.fadcam.ui.faditor.model.LinkFollower f = followerById(id);
+            com.fadcam.ui.faditor.model.SpaceLink l = f == null ? null : f.getSpaceLink();
+            if (f != null && (l == null || !ids.contains(l.parentId))) kids.add(f);
+        }
+
+        float cx = 0f, cy = 0f;
+        long start = Long.MAX_VALUE, end = 0L;
+        for (com.fadcam.ui.faditor.model.LinkFollower f : kids) {
+            cx += f.animatedCenterX(t);
+            cy += f.animatedCenterY(t);
+            start = Math.min(start, f.getStartMs());
+            end = Math.max(end, followerEndMs(f));
+        }
+        int proxies = 1;
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
+            if (o.isProxy()) proxies++;
+        }
+        final com.fadcam.ui.faditor.model.TextOverlayItem proxy =
+                new com.fadcam.ui.faditor.model.TextOverlayItem(
+                        getString(R.string.proxy_name, proxies), 0xFFFFFFFF,
+                        kids.isEmpty() ? 0.5f : cx / kids.size(),
+                        kids.isEmpty() ? 0.5f : cy / kids.size(), 0.05f, 0f);
+        proxy.setProxy(true);
+        if (kids.isEmpty()) placeNewOverlayAtPlayhead(proxy);
+        else proxy.setTimeRange(start, end);
+        assignTextOverlayToFreeLane(proxy);
+        tl.addTextOverlay(proxy);
+        tl.attachOverlayToHostUnderStart(proxy);
+
+        final com.fadcam.ui.faditor.tools.LinkTool.Props props =
+                com.fadcam.ui.faditor.tools.LinkTool.lastProps(this);
+        android.graphics.RectF cr = computeCanvasRect();
+        float aspect = cr.height() > 1f ? cr.width() / cr.height() : 1f;
+        final int n = kids.size();
+        final Object[] before = new Object[n], after = new Object[n];
+        final com.fadcam.ui.faditor.model.SpaceLink[] oldLinks = new com.fadcam.ui.faditor.model.SpaceLink[n];
+        final com.fadcam.ui.faditor.model.SpaceLink[] newLinks = new com.fadcam.ui.faditor.model.SpaceLink[n];
+        final com.fadcam.ui.faditor.layers.LinkGroup[] oldTime = new com.fadcam.ui.faditor.layers.LinkGroup[n];
+        final com.fadcam.ui.faditor.layers.LinkGroup[] newTime = new com.fadcam.ui.faditor.layers.LinkGroup[n];
+        for (int i = 0; i < n; i++) {
+            com.fadcam.ui.faditor.model.LinkFollower c = kids.get(i);
+            before[i] = c.snapshotPose();
+            oldLinks[i] = c.getSpaceLink();
+            oldTime[i] = timeLinkOf(c.getId());
+            bakeLink(c, t);
+            com.fadcam.ui.faditor.model.SpaceLink link =
+                    com.fadcam.ui.faditor.model.SpaceLink.capture(proxy, t, aspect);
+            link.position = props.position;
+            link.scale = props.scale;
+            link.rotation = props.rotation;
+            link.opacity = props.opacity;
+            c.setSpaceLink(link);
+            newLinks[i] = link;
+            after[i] = c.snapshotPose();
+            if (oldTime[i] != null) tl.removeLinkGroup(oldTime[i].id);
+            newTime[i] = props.time ? makeTimeLink(c.getId(), proxy.getId()) : null;
+        }
+        afterLinkChange();
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.proxy_add_undo),
+                () -> {
+                    if (!tl.getTextOverlays().contains(proxy)) tl.addTextOverlay(proxy);
+                    for (int i = 0; i < n; i++) {
+                        kids.get(i).restorePose(after[i]);
+                        kids.get(i).setSpaceLink(newLinks[i]);
+                        swapTimeLink(oldTime[i], newTime[i]);
+                    }
+                    afterLinkChange();
+                },
+                () -> {
+                    for (int i = 0; i < n; i++) {
+                        kids.get(i).restorePose(before[i]);
+                        kids.get(i).setSpaceLink(oldLinks[i]);
+                        swapTimeLink(newTime[i], oldTime[i]);
+                    }
+                    tl.removeTextOverlay(proxy);
+                    afterLinkChange();
+                }));
+        editorTimeline.clearMarqueeSelection();
+        selectAndRevealNewObject(proxy.getId());
+        Toast.makeText(this, n == 0 ? getString(R.string.proxy_added, proxy.getText())
+                : getResources().getQuantityString(R.plurals.proxy_added_with, n,
+                        proxy.getText(), n), Toast.LENGTH_SHORT).show();
+    }
+
+    /** Where a follower ends on the timeline (open-ended: the project's end). */
+    private long followerEndMs(@NonNull com.fadcam.ui.faditor.model.LinkFollower f) {
+        long e = Long.MAX_VALUE;
+        if (f instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
+            e = ((com.fadcam.ui.faditor.model.TextOverlayItem) f).getEndMs();
+        } else if (f instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
+            e = ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) f).getEndMs();
+        } else if (f instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) {
+            e = ((com.fadcam.ui.faditor.model.WaveformOverlayInstance) f).getEndMs();
+        }
+        long total = project == null ? 0L : project.getTimeline().getTotalDurationMs();
+        return e == Long.MAX_VALUE || e <= f.getStartMs() ? Math.max(f.getStartMs() + 1, total) : e;
     }
 
     /** Stop following, staying exactly where it is at the playhead. One undo step. */
@@ -35544,6 +35667,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
             enterTextTransformMode(item);
         }
     }
+    /**
+     * A PROXY's drawer: Transform and Lanes. No Text tab (it never takes the keyboard), no
+     * Effects (it is never drawn). The move handles come up at once, as on an image.
+     */
+    private void showProxyDrawer(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        dismissOpenObjectSheets();
+        final com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
+        String name = item.getText() == null ? getString(R.string.proxy_kind) : item.getText();
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                name, getString(R.string.drawer_tab_transform), R.drawable.ic_transform_24,
+                ctx -> buildTextTransformTab(item)));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                name, getString(R.string.drawer_tab_lanes), R.drawable.ic_lanes_24,
+                ctx -> buildImageMoveTab(item)));
+        drawer.setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.forOverlay(item));
+        drawer.setOnTabChanged(null);
+        textDrawerItemId = null;
+        drawer.show(tabs, overlayToggles(item), false);
+        if (transformItemId == null || !transformItemId.equals(item.getId())) {
+            enterTextTransformMode(item);
+        }
+    }
+
     /** Tab order of a text drawer: Text · Transform · Effects · Lanes. */
     private static final int TEXT_TAB_EFFECTS = 2;
 

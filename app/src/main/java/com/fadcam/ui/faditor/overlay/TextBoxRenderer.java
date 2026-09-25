@@ -267,6 +267,9 @@ public final class TextBoxRenderer {
                             float left, float top, float fontPx, long mediaMs,
                             long projectDurationMs, boolean animate, float objectAlpha,
                             int selStart, int selEnd) {
+        // A proxy is an invisible handle: its words are only its name, and they never reach
+        // the video. Every text path (preview views, GPU texture cache, export) draws here.
+        if (o.isProxy()) return;
         String authored = normalise(text);
         List<TextStyleResolver.Run> runs = runsFor(o, authored.length());
         // Normalise ONCE, at the top, and use this string for everything below. Getting this

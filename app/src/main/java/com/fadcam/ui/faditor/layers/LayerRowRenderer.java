@@ -4085,7 +4085,9 @@ public final class LayerRowRenderer {
     @Nullable
     private String labelFor(@NonNull TimedItem item) {
         if (item.getTextOverlay() != null) {
-            return item.getTextOverlay().isImage() ? "IMG" : item.getTextOverlay().getText();
+            com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+            if (o.isProxy()) return "◎ " + o.getText();   // ◎ marks a proxy's tape
+            return o.isImage() ? "IMG" : o.getText();
         }
         if (item.getAudioClip() != null) return item.getAudioClip().getLabel();
         if (item.getSprite() != null) {

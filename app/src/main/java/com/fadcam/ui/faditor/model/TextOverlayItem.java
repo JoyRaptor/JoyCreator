@@ -670,6 +670,7 @@ public class TextOverlayItem implements LinkFollower {
         c.opacity = opacity;
         c.fontFamily = fontFamily;
         c.imageUri = imageUri;
+        c.proxy = proxy;
         c.startMs = startMs;
         c.endMs = endMs;
         c.hostClipId = hostClipId;
@@ -1964,6 +1965,20 @@ public class TextOverlayItem implements LinkFollower {
 
     /** True if this overlay is an image/PNG rather than text. */
     public boolean isImage() { return imageUri != null; }
+
+    // ── Proxy (SPEC_20260924_LINKING §3.5, the owner's "Dummy / Proxy") ──
+
+    /**
+     * An invisible handle other objects follow: a text item whose words are only its NAME.
+     * Nothing draws it in the video (TextBoxRenderer returns at once); the preview alone marks it
+     * with a dashed crosshair tag, and it never takes the keyboard. Being a text item, it already
+     * has a lane, keys, the move handles, the Transform drawer and link support.
+     */
+    private boolean proxy;
+
+    public boolean isProxy() { return proxy; }
+
+    public void setProxy(boolean proxy) { this.proxy = proxy; }
 
     // ── AI-authored animated overlay slide (spec Phase 4) ───────────────
 

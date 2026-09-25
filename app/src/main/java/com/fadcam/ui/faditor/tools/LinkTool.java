@@ -139,11 +139,10 @@ public final class LinkTool {
     }
 
     /**
-     * HOLD on the link button: the tool's own settings — what a NEW link copies by default.
-     * (The owner also listed "add a helper" and modes here; those arrive with the Dummy/Proxy
-     * object, and a button that did nothing yet would be worse than none.)
+     * HOLD on the link button: the tool's own settings. "Add a proxy" (an invisible handle for
+     * what is selected to follow), then what a NEW link copies by default.
      */
-    public static void showDefaults(@NonNull Context ctx) {
+    public static void showDefaults(@NonNull Context ctx, @NonNull Runnable onAddProxy) {
         final Props p = lastProps(ctx);
         final com.google.android.material.bottomsheet.BottomSheetDialog dialog =
                 new com.google.android.material.bottomsheet.BottomSheetDialog(ctx,
@@ -155,9 +154,17 @@ public final class LinkTool {
         SheetKit.Header header = SheetKit.header(ctx, ctx.getString(R.string.link_defaults_title), null);
         header.addTrailing(SheetKit.closeButton(ctx, dialog::dismiss));
         root.addView(header.view);
+        int side = SheetKit.dp(ctx, 16);
+        root.addView(SheetKit.subtitle(ctx, ctx.getString(R.string.link_add_proxy_hint)));
+        LinearLayout proxyRow = new LinearLayout(ctx);
+        proxyRow.setPadding(side, SheetKit.dp(ctx, 6), side, SheetKit.dp(ctx, 10));
+        proxyRow.addView(SheetKit.pillButton(ctx, ctx.getString(R.string.link_add_proxy), true, v -> {
+            dialog.dismiss();
+            onAddProxy.run();
+        }));
+        root.addView(proxyRow);
         root.addView(SheetKit.subtitle(ctx, ctx.getString(R.string.link_defaults_hint)));
         LinearLayout chips = new LinearLayout(ctx);
-        int side = SheetKit.dp(ctx, 16);
         chips.setPadding(side, SheetKit.dp(ctx, 10), side, SheetKit.dp(ctx, 4));
         // Each switch saves as it flips: there is nothing to confirm.
         addToggle(ctx, chips, R.string.link_prop_position, () -> p.position,

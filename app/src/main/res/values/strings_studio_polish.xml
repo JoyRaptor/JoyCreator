@@ -146,4 +146,15 @@
     <string name="link_defaults_title">New links copy</string>
     <string name="link_defaults_hint">What a new link copies from what it follows. You can still change it each time.</string>
     <string name="link_prop_time">Timing</string>
+    <!-- Proxy: the invisible handle things follow (SPEC_20260924_LINKING §3.5) -->
+    <string name="proxy_kind">Proxy</string>
+    <string name="proxy_name">Proxy %1$d</string>
+    <string name="proxy_add_undo">Add proxy</string>
+    <string name="proxy_added">%1$s added. Link things to it to move them together</string>
+    <plurals name="proxy_added_with">
+        <item quantity="one">%1$s added; %2$d thing follows it</item>
+        <item quantity="other">%1$s added; %2$d things follow it</item>
+    </plurals>
+    <string name="link_add_proxy">Add a proxy</string>
+    <string name="link_add_proxy_hint">A proxy is an invisible handle. Whatever is selected follows it, so moving, turning or keying the proxy moves them all. It never shows in the video.</string>
 </resources>

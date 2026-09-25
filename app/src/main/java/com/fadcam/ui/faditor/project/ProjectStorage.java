@@ -2445,6 +2445,7 @@ public class ProjectStorage {
                 serializeGeneratedSource(oJson, o.getGeneratedSource());
                 // §4.5 per-object eye/lock (write-if-true — pre-§4.5 JSON unchanged).
                 if (o.isHidden()) oJson.addProperty("objHidden", true);
+                if (o.isProxy()) oJson.addProperty("proxy", true);
                 if (o.isLocked()) oJson.addProperty("objLocked", true);
                 // Image-overlay drawer state (M-IMG-1). All sparse defaults:
                 // passThrough/scaleLinked false/true and blend "NORMAL" write nothing,
@@ -3451,6 +3452,7 @@ public class ProjectStorage {
                         }
                         // §4.5 per-object eye/lock (tolerant: absent = false).
                         if (hasValue(oObj, "objHidden")) o.setHidden(oObj.get("objHidden").getAsBoolean());
+                        if (hasValue(oObj, "proxy")) o.setProxy(oObj.get("proxy").getAsBoolean());
                         if (hasValue(oObj, "objLocked")) o.setLocked(oObj.get("objLocked").getAsBoolean());
                         o.setTimerSpec(deserializeTimerSpec(oObj)); // absent = ordinary text
                         // W5-2 rich text spans (§3.8). Tolerant per-span read: a malformed

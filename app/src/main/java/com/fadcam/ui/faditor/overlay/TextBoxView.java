@@ -273,7 +273,48 @@ public class TextBoxView extends FrameLayout {
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
         float inset = boxInsetPx();
+        if (item.isProxy()) { drawProxyMarker(canvas, inset); return; }
         TextBoxRenderer.draw(canvas, item, text, inset, inset, fontPx, mediaMs,
                 projectDurationMs, animate, objectAlpha, selStart, selEnd);
+    }
+
+    @Nullable private android.graphics.Paint proxyLine, proxyInk;
+    @Nullable private android.graphics.DashPathEffect proxyDash;
+
+    /**
+     * A proxy in the PREVIEW only (the renderer draws nothing for it, so it never reaches the
+     * video): a dashed tag holding its name, with four ticks pointing in at its centre, in the
+     * link colour. It stays visible at low opacity, since its opacity is only something its
+     * followers may copy.
+     */
+    private void drawProxyMarker(@NonNull Canvas canvas, float inset) {
+        float d = getResources().getDisplayMetrics().density;
+        if (proxyLine == null) {
+            proxyLine = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+            proxyLine.setStyle(android.graphics.Paint.Style.STROKE);
+            proxyLine.setStrokeWidth(1.5f * d);
+            proxyInk = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+            proxyInk.setTextAlign(android.graphics.Paint.Align.CENTER);
+            proxyInk.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            proxyDash = new android.graphics.DashPathEffect(new float[]{5 * d, 4 * d}, 0);
+        }
+        int a = Math.round(0xFF * Math.max(0.45f, Math.min(1f, objectAlpha)));
+        proxyLine.setColor(com.fadcam.ui.faditor.Studio.alpha(com.fadcam.ui.faditor.Studio.ARMED, a));
+        proxyInk.setColor(proxyLine.getColor());
+        float[] size = new float[2];
+        TextBoxRenderer.measure(item, text, fontPx, size);
+        float l = inset, t = inset, r = inset + size[0], b = inset + size[1];
+        float cx = (l + r) / 2f, cy = (t + b) / 2f;
+        proxyLine.setPathEffect(proxyDash);
+        canvas.drawRoundRect(l, t, r, b, 6 * d, 6 * d, proxyLine);
+        proxyLine.setPathEffect(null);
+        float tick = Math.min(inset * 0.8f, 10 * d);
+        canvas.drawLine(cx, t - tick, cx, t, proxyLine);
+        canvas.drawLine(cx, b, cx, b + tick, proxyLine);
+        canvas.drawLine(l - tick, cy, l, cy, proxyLine);
+        canvas.drawLine(r, cy, r + tick, cy, proxyLine);
+        proxyInk.setTextSize(Math.max(10 * d, fontPx * 0.8f));
+        android.graphics.Paint.FontMetrics fm = proxyInk.getFontMetrics();
+        canvas.drawText(text, cx, cy - (fm.ascent + fm.descent) / 2f, proxyInk);
     }
 }

@@ -2,6 +2,24 @@ package cc.joycreator.joybrush.core.brush
 
 import kotlinx.serialization.Serializable
 
+/**
+ * The dynamic inputs a brush may respond to, read in declaration order. The constant NAME is the
+ * whole of what lands in `brush.json` (`"input": "pressure"`) — brush.json stores no ordinals, so
+ * a reorder here is harmless but a rename is not.
+ *
+ * SERIALISED: new constants are APPEND-ONLY and require bumping DOC_VERSION (or the brush "version"). See LEAD_RULINGS R3.
+ *
+ * On this side of the codebase the bump is [BRUSH_VERSION] — together with [BrushPreset.version]'s
+ * default, which is a second literal and has to move in the same edit. `DOC_VERSION` is a
+ * `document.json` number and has nothing to do with brush.json.
+ *
+ * Why it matters here more than most: an input a build does not have is refused by name.
+ * [BrushJson.decode] throws [BrushException] rather than falling back to some other input, and the
+ * fallback would not be a small mistake — a brush that asked for `lean` and silently got `tilt`
+ * draws differently, everywhere, forever. [BrushValidate.validate] is what tells the person their
+ * brush is "from a newer Joy Brush", and that sentence only appears if the version was bumped, so
+ * bump it in the same change as the new constant.
+ */
 @Serializable enum class BrushInput { pressure, tilt, speed, direction, lean, attack, distance, random, strokeRandom, barrel }
 @Serializable data class InputCurve(val input: BrushInput, val curve: List<List<Float>>) // [[x,y],…]
 @Serializable data class Param(val base: Float, val inputs: List<InputCurve> = emptyList(), val combine: String = "multiply")

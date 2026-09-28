@@ -42,6 +42,21 @@ const val TILE_SIZE = Tiles.SIZE
     val includeInExport: Boolean = false,   // the "Include paper" checkbox default
 )
 
+/**
+ * What a board is FOR. The constant NAME is the whole of what lands in `document.json`
+ * (`"kind": "CANVAS"`) — there is no number in the file.
+ *
+ * SERIALISED: new constants are APPEND-ONLY and require bumping DOC_VERSION (or the brush "version"). See LEAD_RULINGS R3.
+ *
+ * Why the rule is a rule: reading IGNORES keys it has never heard of, but not VALUES. An older app
+ * handed a kind it does not have throws, and [DocJson.decode] says so as a [DocException]. That is
+ * the intended answer, not an oversight — quietly falling back to CANVAS would look like it worked
+ * and then write "CANVAS" out again on the next save, which is how a drawing loses its boards for
+ * good. Bumping [DOC_VERSION] alongside the new constant turns that parse error into
+ * [DocOps.validate] saying "from a newer Joy Brush", which the person can act on.
+ *
+ * So: append at the END, and never rename or delete a name some saved file already holds.
+ */
 @Serializable enum class BoardKind { CANVAS, ANIMATION, SPRITE, PUPPET, CHARACTER }
 
 @Serializable data class Frame(
@@ -62,7 +77,31 @@ const val TILE_SIZE = Tiles.SIZE
     val grid: SpriteGrid? = null,           // SPRITE only
 )
 
+/**
+ * A layer is PAINT (pixels are the truth) or INK (stroke records are the truth), and this pair is
+ * the whole of it — animation does not get a third kind. The constant NAME is what lands in
+ * `document.json` (`"kind": "INK"`).
+ *
+ * SERIALISED: new constants are APPEND-ONLY and require bumping DOC_VERSION (or the brush "version"). See LEAD_RULINGS R3.
+ *
+ * Two constants with a one-letter difference between them (PAINT vs PAINTER) are two kinds the app
+ * would then have to keep apart forever, so the names are as much a contract as the set is: append
+ * at the END, never rename, and bump [DOC_VERSION] in the same change. A kind a build does not have
+ * is refused by name (a [DocException] from [DocJson.decode]), never guessed at.
+ */
 @Serializable enum class LayerKind { PAINT, INK }
+/**
+ * How a layer combines with what is under it. The constant NAME is what lands in `document.json`
+ * (`"blend": "MULTIPLY"`).
+ *
+ * SERIALISED: new constants are APPEND-ONLY and require bumping DOC_VERSION (or the brush "version"). See LEAD_RULINGS R3.
+ *
+ * Every name here is a promise the renderer has to keep, so the set should grow only when the
+ * renderer grows — a name nothing composites is a promise nobody kept, and by then a saved file may
+ * depend on it. An unknown blend is refused rather than approximated, because a blend that quietly
+ * becomes NORMAL and is then re-saved has changed the painting without telling anybody. Append at
+ * the END, never rename, and bump [DOC_VERSION] with it.
+ */
 @Serializable enum class BlendMode { NORMAL, MULTIPLY, SCREEN, OVERLAY, ADD, DARKEN, LIGHTEN, ERASE_BELOW }
 
 @Serializable data class Cel(

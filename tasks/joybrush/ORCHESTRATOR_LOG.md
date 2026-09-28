@@ -304,38 +304,59 @@ disjoint — but I am still the only verifier, so each batch lands before the ne
 
 The live picture. I alone edit the board, commit and push; subagents only build and report.
 
-### 🟢 Landed and green (`:core:jvmTest` — 228 tests, 0 failures)
+### 🟢 Landed and green (`:core:jvmTest` — 280 tests, 0 failures · `:androidkit:test` — 32 tests, 0 failures)
 | Task | What | Who |
 |---|---|---|
 | JB-0.02b | new enum constant ⇒ version bump (R3) | subagent of openrouter/stealth/space-bunny-alpha |
 | JB-0.03b | brush validation hardening + the Infinity BLOCKER (R1) | subagent of openrouter/stealth/space-bunny-alpha |
 | JB-3.01 | animation model ops — 44 tests | subagent of openrouter/stealth/space-bunny-alpha |
 | JB-5.02 | stroke picking in dense line work — 23 tests | subagent of openrouter/stealth/space-bunny-alpha |
+| JB-1.04 | BrushDabber — the brush file drives every dab (13 tests) | subagent of openrouter/stealth/space-bunny-alpha |
+| JB-2.13a | RegionRenderer + all 8 blend modes (33 tests) | subagent of openrouter/stealth/space-bunny-alpha |
+| JB-0.08a | the `.joybrush` archive (32 tests) | subagent of openrouter/stealth/space-bunny-alpha |
 
-### 🔵 In flight
-_(none right now)_
+### 🔴 Escalated to the Lead this round
+- **`GlPaintEngine` implements NO layer blend modes.** No `u_blend` uniform, no `ERASE_BELOW` in any
+  shader. So for **seven of the eight** modes there is no GPU implementation to agree with: the phone
+  will *display* NORMAL while an *export* honours the mode. Found by the JB-2.13a builder reading the
+  shaders rather than assuming. **This is a display-path task that does not exist yet.** Until it
+  does, CPU/GPU parity can only be *asserted* for NORMAL and ERASE_BELOW.
+- **JB-0.08a's `read` holds a whole drawing in memory** (`JbContents` is the spec's contract). A
+  4096² painting asks for ~256 MiB of arrays on a phone. `MAX_TOTAL_BYTES` is a DoS backstop, not a
+  promise that it fits. Streaming to a temp directory is a different spec.
+
+### 🧭 Bugs I had to fix by hand, because the subagents cannot compile
+Recorded so nobody re-"fixes" them, and because the *pattern* is the lesson:
+| Where | Error | Cause |
+|---|---|---|
+| `BrushDabber.kt` + test | `toRadians` unresolved | this engine converts with `PI / 180.0`; replaced with a private `degToRad` |
+| `JbArchive.kt` | 16 cascading errors | **`in` is a hard Kotlin keyword** — `fun f(in: InputStream…)` is a syntax error. Renamed to `source` |
+| `JbArchiveTest.kt` | 8 errors | `const val` is only legal at file top level; wrapping the constants in the class broke it |
+| `AnimOpsTest.kt` | 5 errors | a missing `.doc` unwrap, and a test using `frameIds()[2]` when the frame is inserted at `[1]` |
+| `BrushTest.kt` (JB-0.03b) | ~160 cascading errors | a `}` and `)` transposed inside a lambda |
+| `ShippedBrushFilesTest.kt` (JB-0.03b) | unclosed comment | **a glob `brushes/*/brush.json` inside a KDoc**: Kotlin nests block comments and the lexer steps past the `/*`, so it never sees the overlapping `*/` |
+
+**Pattern:** every one of these is a *mechanical* error in code an agent could not execute. **The
+`}` / `)` transposition inside a lambda has now appeared three times in three different tasks.** I
+warned every brief about it and it kept happening, so the warning does not work — the reliable fix is
+that **I** compile and patch. Budget for it.
+
+### 🧪 Two tests that were lying, and the agents said so
+- **A "4096 unique draws" test was failing ~39% of runs** and was not flaky — it was a genuine
+  **birthday collision in the 24-bit projection** of a 64-bit mixer. Now asserted distinctness on the
+  64-bit stream and a small collision budget on the float view.
+- **"Two layers showing the same cel both contribute" never tested two layers.** The fixture built
+  one tile, layer B's lookup missed and `continue`d, and the test passed/failed on one layer's
+  pixels. The builder stated plainly that its own summary had claimed coverage it did not have. Now
+  non-vacuous, plus a `RecordingTiles` fixture that fails if the renderer ever memoises by cel id
+  alone (cel ids are unique **per layer**, not globally — `DocOps` only checks per layer).
 
 ### ⬜ Ready, not yet dispatched
-| Task | Why not yet |
-|---|---|
-| JB-1.04 BrushDabber | 🟦 Ready, needs 0.03 ✅. Dispatch 1 returned empty, 0 files. Retry with a scaffolded brief. **Keystone of Phase 1** — unblocks 1.05a → 1.05b → 1.21. |
-| JB-0.08a `.joybrush` archive | 🟦 Ready, needs 0.02 + 0.04 ✅. Dispatch 1 returned empty. Retry. Owns the one line of `androidkit/build.gradle.kts` this round. |
-| JB-2.14a PNG writer | 🟦 Ready, no deps. **Held** so it does not race JB-0.08a for `androidkit/build.gradle.kts`. Send in the batch *after* 0.08a lands. |
-| JB-2.06a flood fill · JB-2.13a region renderer · JB-3.06a GIF · JB-4.03a sprite packer · JB-8.03 MyPaint import | 🟦 Ready, deps met, all in fresh folders. Nothing blocking them. |
-
-### 🔴 Blocked on another task
-`JB-0.06` · `JB-0.08b` · `JB-1.05a` · `JB-1.05b` · `JB-1.21` · `JB-2.02` · `D.01` — all need **JB-0.05**, which is space bunny #5's lane, not mine.
-`JB-2.14b` needs 2.13a + 2.14a + 0.08a.
-
-### ⛔ Not dispatchable at any tier
-| Task | Why |
-|---|---|
-| **JB-2.10** shape recognizer | **3 dispatches, 2 agent types, every one returned an empty report and wrote 0 files.** The spec is sound (136 lines, no odd encoding) — it is simply the heaviest maths in the T2 set: PCA on a 2×2 covariance, Kåsa algebraic circle fit, Ramer–Douglas–Peucker, and arc-length parametrisation, all derived from scratch with no reference, ~750 lines. **Do not run a 4th identical retry.** It needs one of: (a) split into 2.10a *recognise* / 2.10b *perfect*; (b) a brief that hands over the derivations; (c) a T1 attempt. That is a Lead decision — logged, not actioned. |
-
-### 🧭 Sweep notes (updated 2026-09-28)
-- **JB-5.02 is the first feature with a spec that named a *failure mode* rather than a function** ("distance-to-centreline is not enough, the stroke under the pen is usually not the nearest centreline"), and it shows: the half-width is in the score, ties are resolved by recency, and the agent found and fixed a `NaN` clock hole and an infinite-zoom slop. Read this spec's shape when writing the next one.
-- **Two `AnimOps` test failures were the same mistake twice**: a test asserting a *generation counter* instead of the invariant. Fixed structurally (identify the added frame as "the one not there before"), not by nudging an index. Watch for this in every agent's tests.
-- **Subagent reliability: 6 of 10 dispatches produced code.** Failures cluster by *task*, not by agent type. Treat an empty report as "nothing was written" and check the filesystem rather than waiting for a report.
+`JB-2.14a` PNG writer (now unblocked — `androidkit/build.gradle.kts` has the test line) ·
+`JB-2.06a` flood fill · `JB-3.06a` GIF · `JB-4.03a` sprite packer · `JB-8.03` MyPaint import
+· `JB-2.10` (see below) · `JB-1.20` (needs a browser; **Edge is installed** at
+`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`, so R6(a) is reachable — but a
+subagent has no shell and cannot launch it, so **I** would have to do that one myself)
 
 ## Open questions
 

@@ -115,7 +115,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | [JB-0.05](specs/JB-0.05_android_module_and_input.md) Android module in the app build + Joy Brush screen hosting the engine's drawing view | T2 (T1 review) | 0.01, 0.07 | 🟦 Ready | |
 | [JB-0.06](specs/JB-0.06_pen_diagnostics.md) Hidden pen-diagnostics overlay (raw pressure/tilt/lean, sample-rate histogram, copy report) | T2 | 0.05 | 🟦 Ready | |
 | JB-0.07 GPU tile engine: 256² tiles, dab/commit/display shaders, stroke buffer (flow/opacity, wash/build-up), copy-on-write tile undo, pen input, drawing view (`joybrush/androidkit`) — compiled against the Android API, shaders verified in WebGL2, **not yet run on a phone** | T1 | 1.01 | 🟧 Built | Claude 2026-09-28 |
-| [JB-0.08a](specs/JB-0.08a_document_archive.md) The `.joybrush` archive: atomic write, read, zip-slip guard (JVM-tested) | T2 | 0.02, 0.04 | 🟦 Ready | (dispatch 1: agent returned empty, 0 files) |
+| [JB-0.08a](specs/JB-0.08a_document_archive.md) The `.joybrush` archive: atomic write, read, zip-slip guard (JVM-tested) | T2 | 0.02, 0.04 | 🟧 Built | unknown model (subagent of openrouter/stealth/space-bunny-alpha) 2026-09-28 |
 | [JB-0.08b](specs/JB-0.08b_save_open_wiring.md) Autosave, reopen, "Save a copy…", "Open…" on the screen | T2 | 0.05, 0.08a | 🟦 Ready | |
 | JB-0.09 Lobby entry + first screen chrome in Joy Creator's look | T2-V | 0.05, D.01 | ⚪ Outline | |
 | JB-0.10 CPU benchmark harness (flood fill, tile compression, PSD write) on the Note 9 | T2 | 0.05 | ⚪ Outline | |
@@ -134,7 +134,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-1.01 Tip shape maths (superellipse corners, taper, aspect to razor, rotation, min width) — `joybrush/shaders/jb_tip.glsl` | T1 | — | 🟧 Built | Claude 2026-09-28 |
 | JB-1.02 Grain maths: tip texture + paper grain, height threshold with edge width, tilt-aimed gradient — `joybrush/shaders/jb_grain.glsl` | T1 | — | 🟧 Built | Claude 2026-09-28 |
 | [JB-1.03](specs/JB-1.03_cloud_texture.md) Procedural tileable cloud texture generator (deterministic) | T2 | — | 🟧 Built | space bunny agent #4 2026-09-28 |
-| [JB-1.04](specs/JB-1.04_brush_dabber.md) BrushDabber: brush file drives every dab (pressure, tilt, speed, deterministic randomness) | T2 | 0.03 | 🟦 Ready | (dispatch 1: agent returned empty, 0 files) |
+| [JB-1.04](specs/JB-1.04_brush_dabber.md) BrushDabber: brush file drives every dab (pressure, tilt, speed, deterministic randomness) | T2 | 0.03 | 🟧 Built | unknown model (subagent of openrouter/stealth/space-bunny-alpha) 2026-09-28 |
 | [JB-1.05a](specs/JB-1.05a_scatter.md) Scatter and count (jitter → leaves) | T2 | 1.04 | 🟦 Ready | |
 | [JB-1.05b](specs/JB-1.05b_brushes_in_the_view.md) Brush files drive the drawing view (+ brush picker pill) | T2 (T1 review) | 0.05, 1.04, 1.05a | 🟦 Ready | |
 | JB-1.05c Grain in the dab shader: tip texture + paper grain textures, tilt gradient uniforms (JB-1.02 maths) | T1 | 1.05b, 1.03 | ⚪ Outline | |
@@ -158,7 +158,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | [JB-2.10](specs/JB-2.10_shape_recognizer.md) Hold-to-shape maths (recognise + perfect, keep pressure/tilt) | T2 | 0.01 | 🟦 Ready | (3 dispatches, 2 agent types, all returned empty — hardest maths in T2: PCA + Kåsa + RDP. Needs scaffolding, not a 4th retry) |
 | JB-2.11 Hold-to-shape UI (hold timer, preview, resize before lift) | T2 | 2.10, 1.05 | ⚪ Outline | |
 | JB-2.12 Helpers: grid, perspective guides, shape tracers (never exported) | T2-V | 2.01 | ⚪ Outline | |
-| [JB-2.13a](specs/JB-2.13a_region_renderer.md) RegionRenderer: flatten any rectangle/frame to pixels, all blend modes (CPU) | T2 | 0.02 | 🟦 Ready | |
+| [JB-2.13a](specs/JB-2.13a_region_renderer.md) RegionRenderer: flatten any rectangle/frame to pixels, all blend modes (CPU) | T2 | 0.02 | 🟧 Built | unknown model (subagent of openrouter/stealth/space-bunny-alpha) 2026-09-28 |
 | JB-2.13b Paper setting (colour/texture) + export PNG: screen / selection / board, include paper | T2 | 2.13a, 2.14a, 0.08b | ⚪ Outline | |
 | [JB-2.14a](specs/JB-2.14a_png_writer.md) PNG writer (exact, JVM-tested) | T2 | — | 🟦 Ready | |
 | [JB-2.14b](specs/JB-2.14b_openraster_export.md) Export OpenRaster (.ora) — layers for Krita/GIMP/MyPaint | T2 | 2.13a, 2.14a, 0.08a | 🟦 Ready | |

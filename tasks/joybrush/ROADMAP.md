@@ -84,7 +84,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 |---|---|---|---|---|
 | JB-0.01 Pen-sample & stroke contracts, context-aware smoothing, tip direction, curves (`joybrush/core`) | T1 | — | 🟧 Built | Claude 2026-09-28 |
 | [JB-0.02](specs/JB-0.02_document_model.md) Document model, boards, layers, cels, file layout | T2 | 0.01 | 🟦 Ready | (agent #2 released: in use by agent #1) |
-| [JB-0.03](specs/JB-0.03_brush_preset_and_dynamics.md) Brush preset format + dynamics evaluator | T2 | 0.01 | 🟨 Claimed | stealth/space-bunny-alpha 2026-09-28 |
+| [JB-0.03](specs/JB-0.03_brush_preset_and_dynamics.md) Brush preset format + dynamics evaluator | T2 | 0.01 | 🟧 Built | stealth/space-bunny-alpha 2026-09-28 |
 | [JB-0.04](specs/JB-0.04_stroke_codec.md) Stroke recording codec | T2 | 0.01 | 🟧 Built | space bunny agent #3 2026-09-28 |
 | [JB-0.05](specs/JB-0.05_android_module_and_input.md) Android module in the app build + Joy Brush screen hosting the engine's drawing view | T2 (T1 review) | 0.01, 0.07 | 🟦 Ready | |
 | JB-0.06 Hidden pen-diagnostics overlay (raw pressure/tilt/lean, sample-rate histogram; reuse `MotionEventSamples`) | T2 | 0.05 | ⚪ Outline | |

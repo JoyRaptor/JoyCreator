@@ -6,6 +6,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("multiplatform")
+    // JB-0.02: document.json. The version is pinned in the root joybrush/build.gradle.kts.
+    kotlin("plugin.serialization")
 }
 
 kotlin {
@@ -15,6 +17,11 @@ kotlin {
     }
 
     sourceSets {
+        // The serialization plugin and this one dependency are the whole JSON layer of the engine
+        // (JB-0.03 brush.json; JB-0.02 adds document.json). Nothing else here is platform-specific.
+        commonMain.dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }

@@ -1,0 +1,29 @@
+{
+  "format": "joybrush.brush",
+  "version": 1,
+  "id": "joybrush.pencil",
+  "name": "Pencil",
+  "engine": "stamp",
+  "tip": {
+    "corner": 2,
+    "aspect": 0,
+    "followDirection": false
+  },
+  "size": {
+    "base": 3,
+    "inputs": [ { "input": "pressure", "curve": [ [0, 0.6], [1, 1] ] } ]
+  },
+  "opacity": {
+    "base": 1,
+    "inputs": [ { "input": "pressure", "curve": [ [0, 0.1], [1, 0.9] ] } ]
+  },
+  "paperGrain": {
+    "enabled": true,
+    "source": "cloud",
+    "depth": { "base": 1, "inputs": [ { "input": "pressure", "curve": [ [0, 0.2], [1, 0.9] ] } ] },
+    "edge": 0.25,
+    "tiltGradient": 0.6
+  },
+  "smoothing": 0.2,
+  "license": "CC0"
+}

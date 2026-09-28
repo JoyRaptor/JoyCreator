@@ -150,3 +150,34 @@ Tests pass (paste) · only owner-area files changed · commit `JB-0.03: brush pr
 ROADMAP row → 🟧 Built.
 
 ## Questions
+*(raised by the builder of JB-0.03, 2026-09-28 — none of these blocked the spec as written; each is a
+gap the builder was told not to guess at. The engine is `🟧 Built`; these need a ruling before the
+specs that meet them.)*
+
+1. **Should there be a limit on how much curve a brush file may carry?** The validation list has no
+   count rule, and `Compiled.of` builds one 256-float lookup table per curve on the render thread.
+   A file with 10,000 inputs on `size` would allocate ~10 MB and then loop 10,000 times *per dab*.
+   This is reachable: JB-1.21 hot-reloads brush files over Wi-Fi and Phase 8 imports `.abr`/`.myb`/
+   `.kpp` from other people's folders. Suggested: cap inputs per Param and points per curve, and say
+   so in the validation list.
+2. **Curve x outside 0..1, and the `source` sets.** The model says curve points are "in 0..1", but
+   the rule list only asks for ≥1 point of exactly 2 numbers, so `x = -5` passes and is silently
+   clamped into a ramp. Same for `TipSpec.source` / `GrainSpec.source`: only `"image"` is looked at,
+   so a typo renders as procedural with no message. Should these be rules?
+3. **Non-finite numbers.** Nothing in the list ranges `smoothing`, `minPx`, `sizeJitter`,
+   `angleJitter`, `countJitter`, `tip.angle` or the grain settings, so a `"hardness": {"base": 1e999}`
+   (which decodes to Infinity) passes validation. `BrushJson.encode` now turns that into a
+   `BrushException` instead of a raw library error, but should validation say it first?
+4. **`version` below 1** is read with v1 assumptions. "newer = error" is all the spec asks; a ruling on
+   older-than-1 would be cheap to add later.
+5. **Should the example files be read from disk by a test?** `commonTest` cannot open a file and
+   `src/jvmTest` is outside this spec's owner area, so `BrushTest` carries byte-identical copies of
+   `joybrush/brushes/{ink,pencil}/brush.json` (verified identical today). A JVM-only test that reads
+   the real files would make drift impossible — may a later spec own that?
+6. **For JB-1.04, not for this spec:** `DabPlacer` (JB-0.07) calls `radiusOf(sample)` **twice per
+   dab** — once in `dabAt` and again in `step` (`DabPlacer.kt:49,50,56,59`). Anything that advances
+   state inside those lambdas (a distance-along-stroke counter, an RNG) will double-count, and
+   `PenSample` carries no distance, speed or random at all, so four of the ten inputs have no source
+   yet. Whoever wires the dynamics up needs the lambdas called exactly once per dab, with a
+   `DabInputs` (or the dab index and accumulated distance) passed in.
+

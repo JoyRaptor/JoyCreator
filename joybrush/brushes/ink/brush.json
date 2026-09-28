@@ -1,0 +1,22 @@
+{
+  "format": "joybrush.brush",
+  "version": 1,
+  "id": "joybrush.ink",
+  "name": "Ink",
+  "engine": "stamp",
+  "tip": {
+    "corner": 2,
+    "hardness": { "base": 0.95 }
+  },
+  "size": {
+    "base": 6,
+    "inputs": [ { "input": "pressure", "curve": [ [0, 0.15], [1, 1] ] } ]
+  },
+  "opacity": { "base": 1 },
+  "flow": { "base": 1 },
+  "spacing": 0.04,
+  "accumulate": "wash",
+  "blend": "normal",
+  "smoothing": 0.35,
+  "license": "CC0"
+}

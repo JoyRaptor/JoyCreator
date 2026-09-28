@@ -1,7 +1,7 @@
 # JOY PAINT — the blueprint (v1, 2026-09-28)
 
 **Status:** design direction from the Joy Paint design lead, built on seven research reports
-(`tasks/joypaint/research/R1…R7`) and the owner's rulings (`tasks/joypaint/OWNER_CONSTRAINTS.md`).
+(`tasks/joybrush/research/R1…R7`) and the owner's rulings (`tasks/joybrush/OWNER_CONSTRAINTS.md`).
 This is the one current-truth document for the wing. Specs for each phase are written *when that
 phase is scheduled*, not before (repo rule), and they must agree with this file or change it.
 

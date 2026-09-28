@@ -86,10 +86,10 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | [JB-0.02](specs/JB-0.02_document_model.md) Document model, boards, layers, cels, file layout | T2 | 0.01 | 🟦 Ready | |
 | [JB-0.03](specs/JB-0.03_brush_preset_and_dynamics.md) Brush preset format + dynamics evaluator | T2 | 0.01 | 🟦 Ready | |
 | [JB-0.04](specs/JB-0.04_stroke_codec.md) Stroke recording codec | T2 | 0.01 | 🟦 Ready | |
-| [JB-0.05](specs/JB-0.05_android_module_and_input.md) Android module in the app build, Joy Brush screen, MotionEvent → PenSample | T2 (T1 review) | 0.01 | 🟦 Ready | |
-| JB-0.06 Hidden pen-diagnostics overlay (raw pressure/tilt/lean, sample-rate histogram) | T2 | 0.05 | ⚪ Outline | |
-| JB-0.07 GPU tile engine: 256² tiles, round dab shader, stroke buffer (flow/opacity, wash/build-up), tile undo | T1 | 0.02, 0.05, 1.01 | ⚪ Outline | |
-| JB-0.08 Save / open `.joybrush`; PNG export with "include paper" | T2 | 0.02, 0.04, 0.07 | ⚪ Outline | |
+| [JB-0.05](specs/JB-0.05_android_module_and_input.md) Android module in the app build + Joy Brush screen hosting the engine's drawing view | T2 (T1 review) | 0.01, 0.07 | 🟦 Ready | |
+| JB-0.06 Hidden pen-diagnostics overlay (raw pressure/tilt/lean, sample-rate histogram; reuse `MotionEventSamples`) | T2 | 0.05 | ⚪ Outline | |
+| JB-0.07 GPU tile engine: 256² tiles, dab/commit/display shaders, stroke buffer (flow/opacity, wash/build-up), copy-on-write tile undo, pen input, drawing view (`joybrush/androidkit`) — compiled against the Android API, shaders verified in WebGL2, **not yet run on a phone** | T1 | 1.01 | 🟧 Built | Claude 2026-09-28 |
+| JB-0.08 Save / open `.joybrush`; PNG export with "include paper" (needs a tile read-back/upload API on `GlPaintEngine` — T1 adds it first) | T2 | 0.02, 0.04, 0.07 | ⚪ Outline | |
 | JB-0.09 Lobby entry + first screen chrome in Joy Creator's look | T2-V | 0.05, D.01 | ⚪ Outline | |
 | JB-0.10 CPU benchmark harness (flood fill, tile compression, PSD write) on the Note 9 | T2 | 0.05 | ⚪ Outline | |
 | JB-0.12 Low-latency front buffer + motion prediction, with an off switch | T1 | 0.07 | ⚪ Outline | |

@@ -4,14 +4,15 @@
 |---|---|
 | **Tier** | T2, **T1 review required before 🟩** (it edits the app's build files) |
 | **Status** | see ROADMAP.md |
-| **Depends on** | JB-0.01 (done: `PenSample`, `StrokeSmoother`, `DirectionTracker`, `AxisMapping`) |
+| **Depends on** | JB-0.01, JB-0.07 (done: the GPU engine, pen input and drawing view already exist in `joybrush/androidkit` as `cc.joycreator.joybrush.androidkit.JbCanvasView`) |
 | **Owner area** | NEW `joybrush-android/` (whole folder); EXACT edits only to `settings.gradle.kts`, `build.gradle.kts` (root), `gradle/libs.versions.toml`, `app/build.gradle.kts`, `app/src/main/AndroidManifest.xml` as listed below |
-| **Estimated size** | ~450 lines of Kotlin |
+| **Estimated size** | ~150 lines of Kotlin |
 
 ## Goal
-The first thing the owner can hold: open a Joy Brush screen, draw with the S Pen, and feel the
-pressure, smoothing and tilt. Rendering is a deliberately simple CPU placeholder (android.graphics
-circles) — the GPU engine replaces it in JB-0.07. What must be right here is the INPUT.
+The first thing the owner can hold: open a Joy Brush screen, draw with the S Pen on the real GPU
+engine, and feel the pressure and smoothing. The engine, pen input, palm rejection and drawing view
+are ALREADY BUILT (JB-0.07, `joybrush/androidkit`). This spec wires them into the app: a module, an
+activity, three controls.
 
 ## Exact build edits (do these and nothing else in app files)
 1. `gradle/libs.versions.toml` — under `[plugins]` add:
@@ -55,6 +56,7 @@ android {
 }
 dependencies {
     implementation("cc.joycreator.joybrush:core")
+    implementation("cc.joycreator.joybrush:androidkit")
     implementation(libs.core.ktx)
 }
 ```
@@ -62,44 +64,19 @@ dependencies {
 `kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }`.)
 
 ## Files to create (package `cc.joycreator.joybrush.android`)
-1. `JoyBrushActivity.kt` — full-screen, keeps the screen on while open, hosts `JbCanvasView`.
-   Top-right: a small round "×" button (40dp, white 10% fill, 12% ring — the drawer idle style) that
-   finishes the activity; a smoothing slider (0..1, default 0.35) in a pill at the top centre; a
-   "Clear" pill. That is all the UI for now.
-2. `PenInputAdapter.kt`:
-   ```kotlin
-   object PenInputAdapter {
-       /** Every sample in the event, oldest first: all historical samples, then the current one. */
-       fun samples(ev: MotionEvent, pointerIndex: Int, toDoc: (Float, Float) -> Pair<Float, Float>,
-                   canvasRotation: Float): List<PenSample>
-   }
-   ```
-   - For h in 0 until ev.historySize: x/y from `getHistoricalX/Y(pointerIndex, h)`, time
-     `getHistoricalEventTime(h)`, pressure `getHistoricalPressure`, tilt
-     `getHistoricalAxisValue(AXIS_TILT, pointerIndex, h)`, orientation
-     `getHistoricalAxisValue(AXIS_ORIENTATION, pointerIndex, h)`; then the current sample the same way.
-   - Tool: `getToolType(pointerIndex)` → STYLUS / ERASER / FINGER / MOUSE.
-   - For FINGER and MOUSE: pressure = 1, tilt = NaN, azimuth = NaN.
-   - For STYLUS/ERASER: tilt = the axis value (radians); azimuth =
-     `AxisMapping.androidOrientationToAzimuth(orientation, canvasRotation)`; if tilt is 0 for every
-     sample of a stroke the device probably lacks tilt — keep the zeros (diagnostics decide later).
-   - barrel = NaN always on Android.
-3. `TouchPolicy.kt` — who may draw:
-   - Before any stylus event has been seen: fingers draw.
-   - After the first stylus event (hover or touch) in this activity: fingers never draw (they will
-     become the tool finger in Phase 2; for now they do nothing).
-   - Ignore a finger ACTION_DOWN while the stylus is hovering (ACTION_HOVER_ENTER..EXIT) or within
-     400 ms after the stylus lifted.
-   - `ACTION_CANCEL`, or `FLAG_CANCELED` on API 33+ (`ev.flags and MotionEvent.FLAG_CANCELED != 0`)
-     → discard the stroke in progress.
-   - Call `requestUnbufferedDispatch(ev)` on a stylus ACTION_DOWN only (API 30+).
-4. `JbCanvasView.kt` — a View. On pen down: new `StrokeSmoother(sliderValue, screenPerDoc = 1f)` and
-   `DirectionTracker()`. Feed every sample from the adapter. Draw each released point as a filled
-   circle, radius = 1.5 + 10 × pressure px, into an offscreen `Bitmap` the size of the view (the
-   "canvas"); invalidate. On up: `finish()`, draw the rest. For tilt visibility, when a sample has
-   tilt > 0.17 draw the circle as an ellipse squashed by cos(tilt) along the tilt direction
-   (`DirectionTracker.update` output). Clear button clears the bitmap.
-   Document space == view space in this spec (no zoom/pan yet).
+1. `JoyBrushActivity.kt` — full-screen; keeps the screen on while open; content = a FrameLayout with
+   `JbCanvasView(this)` filling it (`import cc.joycreator.joybrush.androidkit.JbCanvasView`).
+   Overlay controls (plain Views, no new dependencies):
+   - top-right: a round "×" button (40dp, white 10% fill, 12% white ring) → `finish()`;
+   - top-centre pill: a SeekBar 0..100 for smoothing → `canvas.smoothing = progress / 100f`
+     (default 35);
+   - bottom-left pills: **Undo** → `canvas.undo()`, **Redo** → `canvas.redo()`, **Clear** →
+     `canvas.clearCanvas()`; enable/disable Undo/Redo from `canvas.onHistoryChanged`;
+   - bottom-right pill: **Eraser** toggle → `canvas.brush = canvas.brush.copy(erase = on)`.
+   Every button gets a `contentDescription` and `setTooltipText` (hover labels are a house rule).
+   Call `canvas.onPause()` / `canvas.onResume()` from the activity's `onPause` / `onResume`.
+2. Nothing else. Do NOT write your own input adapter, palm rejection or renderer — they exist in
+   `JbCanvasView`, `MotionEventSamples` and `GlPaintEngine`.
 
 ## Verification (no gradle on the owner's PC — the watcher builds)
 1. Save the files; the watcher builds. Check `build.log` shows `BUILD SUCCESSFUL` with a fresh
@@ -112,7 +89,7 @@ dependencies {
 ## Do not
 - Do not touch any other app file (especially not `FaditorEditorActivity`).
 - Do not add Jetpack Compose, AppCompat themes, or other dependencies.
-- Do not implement zoom, layers, saving, GPU rendering — later specs.
+- Do not implement zoom, layers or saving — later specs. Do not modify anything under `joybrush/`.
 - Never `adb uninstall`. Never install on the owner's Note 20 (START_HERE rule 3).
 
 ## Definition of done

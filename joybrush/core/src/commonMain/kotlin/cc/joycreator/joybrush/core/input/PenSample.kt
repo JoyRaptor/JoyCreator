@@ -41,5 +41,10 @@ data class PenSample(
     val hasBarrel: Boolean get() = !barrel.isNaN()
 }
 
-/** What touched the screen. The eraser end of a pen is its own tool, not a flag. */
+/**
+ * What touched the screen. The eraser end of a pen is its own tool, not a flag.
+ *
+ * FROZEN ORDER: stroke files store the ordinal (JB-0.04), so constants are never reordered or
+ * removed — only appended. `ToolOrdinalFreezeTest` enforces it.
+ */
 enum class Tool { STYLUS, ERASER, FINGER, MOUSE }

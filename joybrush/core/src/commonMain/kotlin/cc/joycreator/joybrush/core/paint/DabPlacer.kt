@@ -1,5 +1,6 @@
 package cc.joycreator.joybrush.core.paint
 
+import cc.joycreator.joybrush.core.input.Angles
 import cc.joycreator.joybrush.core.input.PenSample
 import kotlin.math.hypot
 import kotlin.math.max
@@ -72,9 +73,14 @@ class DabPlacer(
     /** Emits one dab and returns the distance to the next one. */
     private fun emit(s: PenSample, distance: Float, out: MutableList<Dab>): Float {
         val l = look(s, distance, index++)
-        out.add(Dab(x = s.x, y = s.y, radius = l.radius, angle = l.angle, flow = l.flow,
-            cap = if (l.cap.isNaN()) cap else l.cap, pressure = s.pressure))
-        return max(2f * l.radius * spacing, minSpacingPx)
+        // A brush file can only reach here after validation, but the placer must never hang or
+        // explode on a bad number (review JB-0.03 F1: size 1e999 = Infinity froze the stroke).
+        val radius = if (l.radius.isFinite()) l.radius.coerceIn(0f, MAX_RADIUS_PX) else 0f
+        out.add(Dab(x = s.x, y = s.y, radius = radius, angle = if (l.angle.isFinite()) l.angle else 0f,
+            flow = if (l.flow.isFinite()) l.flow.coerceIn(0f, 1f) else 0f,
+            cap = if (l.cap.isNaN()) cap else l.cap.coerceIn(0f, 1f), pressure = s.pressure))
+        val step = 2f * radius * spacing
+        return if (step.isFinite()) max(step, minSpacingPx) else minSpacingPx
     }
 
     private fun lerp(a: PenSample, b: PenSample, t: Float) = PenSample(
@@ -83,8 +89,14 @@ class DabPlacer(
         timeMs = a.timeMs + (b.timeMs - a.timeMs) * t,
         pressure = a.pressure + (b.pressure - a.pressure) * t,
         tilt = if (a.tilt.isNaN() || b.tilt.isNaN()) Float.NaN else a.tilt + (b.tilt - a.tilt) * t,
-        azimuth = b.azimuth,
-        barrel = b.barrel,
+        // Angles take the short way round (review JB-0.07 F3: these were copied from the later sample).
+        azimuth = Angles.lerp(a.azimuth, b.azimuth, t),
+        barrel = Angles.lerp(a.barrel, b.barrel, t),
         tool = b.tool,
     )
+
+    companion object {
+        /** Largest dab radius the engine accepts (a 4096 px wide brush). */
+        const val MAX_RADIUS_PX = 2048f
+    }
 }

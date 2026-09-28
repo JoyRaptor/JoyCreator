@@ -148,4 +148,20 @@ class PaintTest {
         assertEquals((0 until dabs.size).toList(), seen.map { it.first })
         for ((i, d) in seen) assertEquals(i * 2f, d, 1e-3f) // distance along the stroke, 2 px apart
     }
+
+    @Test
+    fun anInfiniteBrushSizeCannotFreezeTheStroke() {
+        val p = DabPlacer(spacing = 0.1f, look = { _, _, _ -> DabLook(Float.POSITIVE_INFINITY, Float.NaN, Float.NaN) })
+        val dabs = p.add((0..10).map { PenSample(it * 10f, 0f, it * 4.0) })
+        assertTrue(dabs.size > 1, "stroke stopped after ${dabs.size} dab(s)")
+        assertTrue(dabs.all { it.radius.isFinite() && it.angle.isFinite() && it.flow.isFinite() })
+    }
+
+    @Test
+    fun leanDirectionTakesTheShortWayRoundBetweenSamples() {
+        val a = PenSample(0f, 0f, 0.0, azimuth = 3.0f)
+        val b = PenSample(100f, 0f, 10.0, azimuth = -3.0f) // 3.0 → -3.0 is only ~0.28 rad the short way
+        val dabs = DabPlacer(spacing = 0.25f, look = { s, _, _ -> DabLook(10f, angle = s.azimuth) }).add(listOf(a, b))
+        assertTrue(dabs.all { kotlin.math.abs(it.angle) > 2.9f }, "lean swung the long way: ${dabs.map { it.angle }}")
+    }
 }

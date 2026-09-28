@@ -109,8 +109,8 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-0.01 Pen-sample & stroke contracts, context-aware smoothing, tip direction, curves (`joybrush/core`) | T1 | — | 🟧 Built | Claude 2026-09-28 |
 | [JB-0.02](specs/JB-0.02_document_model.md) Document model, boards, layers, cels, file layout | T2 | 0.01 | 🟧 Built | space bunny agent #1 2026-09-28 |
 | [JB-0.03](specs/JB-0.03_brush_preset_and_dynamics.md) Brush preset format + dynamics evaluator | T2 | 0.01 | 🟧 Built | stealth/space-bunny-alpha 2026-09-28 |
-| [JB-0.02b](specs/JB-0.02b_enum_version_rule.md) "New enum constant ⇒ version bump" rule: docs + guard test (LEAD_RULINGS R3) | T2 | 0.02, 0.03 | 🟦 Ready | |
-| [JB-0.03b](specs/JB-0.03b_brush_validation_hardening.md) Brush validation hardening (Lead's rulings on 0.03's questions) + the size = Infinity BLOCKER as a named test, `size.base ≤ 4096` (LEAD_RULINGS R1) | T2 | 0.03 | 🟦 Ready | |
+| [JB-0.02b](specs/JB-0.02b_enum_version_rule.md) "New enum constant ⇒ version bump" rule: docs + guard test (LEAD_RULINGS R3) | T2 | 0.02, 0.03 | 🟧 Built | unknown model (subagent of openrouter/stealth/space-bunny-alpha) 2026-09-28 |
+| [JB-0.03b](specs/JB-0.03b_brush_validation_hardening.md) Brush validation hardening (Lead's rulings on 0.03's questions) + the size = Infinity BLOCKER as a named test, `size.base ≤ 4096` (LEAD_RULINGS R1) | T2 | 0.03 | 🟧 Built | unknown model (subagent of openrouter/stealth/space-bunny-alpha) 2026-09-28 |
 | [JB-0.04](specs/JB-0.04_stroke_codec.md) Stroke recording codec | T2 | 0.01 | 🟧 Built | space bunny agent #3 2026-09-28 |
 | [JB-0.05](specs/JB-0.05_android_module_and_input.md) Android module in the app build + Joy Brush screen hosting the engine's drawing view | T2 (T1 review) | 0.01, 0.07 | 🟦 Ready | |
 | [JB-0.06](specs/JB-0.06_pen_diagnostics.md) Hidden pen-diagnostics overlay (raw pressure/tilt/lean, sample-rate histogram, copy report) | T2 | 0.05 | 🟦 Ready | |

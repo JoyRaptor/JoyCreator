@@ -236,6 +236,70 @@ merge conflict I am not allowed to resolve.
 
 ---
 
+## Turn 3 — LEAD_RULINGS R1–R8 read, JB-0.02b + JB-0.03b landed
+
+`:core:jvmTest` → **BUILD SUCCESSFUL, 161 tests, 0 failures** (was 142 before this batch).
+
+### Rulings closed by Claude's `061fd2b5`, so they are no longer my open questions
+- **R1 (engine half)** — `DabPlacer` clamps every dab to finite values; test
+  `anInfiniteBrushSizeCannotFreezeTheStroke`.
+- **R2** — the azimuth/barrel interpolation I flagged as *still open* is fixed
+  (`leanDirectionTakesTheShortWayRoundBetweenSamples`). My earlier check was correct at the time and
+  is now superseded; do not re-flag it.
+- **R4** — `Tool` ordinal freeze, with `ToolOrdinalFreezeTest`.
+- **R3** — unknown enum values are a **version rule, not a code bug**: a new constant requires a
+  version bump, and readers refuse a newer version with a clear message. No behaviour change. My
+  JB-0.02 F1 and JB-0.03 F3 referrals are answered.
+
+### The Infinity BLOCKER is closed at three independent layers — better than reported
+The reviewer's proof assumed `1e999` decodes to `+Inf`. **With kotlinx's default strictness it does
+not**: the parser refuses a non-finite literal outright (`Unexpected special floating-point value
+Infinity … at path: $.size.base`). So the original "any stroke with this brush draws one dot" path is
+narrower than the finding claimed. The builder added the sharp probe — **`1e40`**, a perfectly
+well-formed JSON number that `Float.parseFloat` should saturate to `+Inf` — and it is **refused
+too**. So: parser rejects the literal, parser rejects the saturating number, validation rejects a
+`Param` holding `+Inf` by whatever route, and the engine clamps regardless. **Which layer is meant to
+speak to the person is still the Lead's call** (logged as a question, no code changed).
+
+### Two mechanical errors I fixed myself, because the subagents cannot compile
+Both were flagged as risks by the subagent that wrote them; recording them so nobody re-"fixes" them:
+1. **`BrushTest.kt:472`** — `}) })` with `}` and `)` transposed, closing the `preset { }` lambda
+   before `it.copy(`. One syntax error, ~160 phantom "Unresolved reference" messages downstream.
+2. **`ShippedBrushFilesTest.kt:13`** — the KDoc contained `` `joybrush/brushes/*/brush.json` ``.
+   **Kotlin nests block comments and the lexer steps past the `/*`, so it never sees the overlapping
+   `*/`** — the comment stayed open to EOF. Rewritten as `joybrush/brushes/<folder>/brush.json`.
+   **Never put a glob containing `/*` inside a KDoc.**
+
+### The cap rule was right; the test was wrong
+`aFileCannotCarryUnlimitedCurve` failed with zero messages. Not a bug in `BrushValidate`: the fixture
+built a 9-point curve and asserted the **point** cap (64) using the **input** cap's number. The
+builder conflated the two caps. The DoS finding (JB-0.03 F2) **is** fixed. Tests now use 65 and
+1000 points so the asserted count proves the fixture is real.
+
+### 🔴 For the Lead: a maintenance trap the subagent named honestly
+`BrushValidate`'s `RANGED_BASES` deny-list and `paramsOf` are a **hand-written enumeration** of the
+eight `Param`s in `BrushPreset`. A `Param` added to `BrushPreset` and forgotten in `paramsOf` is
+checked by **none** of rules 16–20 — which is exactly the `tip.hardness` NaN bug this task closed.
+It is complete today, and no test can catch a future omission (enumerating a data class's `Param`
+fields needs reflection, and the build forbids new dependencies). **The structural fix is a
+`BrushPreset.allParams()` — which is `BrushPreset.kt`, outside JB-0.03b's owner area.** Logged as
+JB-0.03b Question 6.
+
+### 🔴 For the Lead: the guard test in JB-0.02b cannot enforce what it looks like it enforces
+The subagent's own blunt answer, which I am passing on unchanged: appending `"HOLOGRAM"` to the
+frozen name list makes the suite green with **no version bump**, because the harm only manifests
+inside an *older* build, which nothing here can instantiate. What the test buys is conspicuousness,
+not enforcement. The documentation half is **entirely unguarded** — deleting all 39 KDoc lines leaves
+the suite green. Both are recorded as JB-0.02b Questions 1 and 2.
+
+### Parallel dispatch: verdict
+Two T2 tasks ran concurrently, owner areas disjoint (`core/doc` + `BrushPreset` comments vs
+`core/brush` validation), and **neither agent touched a file that was not its own**, including when
+each hit shared-tree build noise. `DocModel.kt` and `BrushPreset.kt` were verified **comments-only**
+mechanically (`git diff` filtered to non-comment added lines: none), not taken on trust. Both
+subagents volunteered weaknesses in their own work. **Parallel dispatch is safe when owner areas are
+disjoint — but I am still the only verifier, so each batch lands before the next is trusted.**
+
 ## Open questions
 
 ### 🔴 For Claude — contract, and the only one that can lock a user out of their own file

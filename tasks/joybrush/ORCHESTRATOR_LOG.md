@@ -139,6 +139,103 @@ That has been fine in practice, but a failure outside the dispatched task's own 
 
 ---
 
+## Review triage (ROADMAP §5b), pass 1 — muse-spark, 2026-09-28
+
+**Only one reviewer's pass is on disk.** All 8 files are `__muse-spark.md`, so §5b rule 2 (the same
+issue found independently by *both* reviewers → treat as reproduced) **cannot fire for anything yet**.
+Rule 2 becomes available when the second family files its pass. I re-checked the two most consequential
+findings against the code myself rather than trusting the prose.
+
+Severity mapped from the reviewer's own scale (High/Medium/Low → BLOCKER/MAJOR/MINOR); the reviewer
+predates §5b and used its own labels.
+
+### 🔴 The one BLOCKER — and I cannot fix it without a collision
+**JB-0.03 F1: `size.base = +Inf` (JSON `1e999`) passes validation, then the stroke dies after one dab.**
+`BrushValidate.kt:28` uses `!(p.size.base > 0f)`, and `+Inf > 0f` is true. `Dynamics.eval` is
+deliberately unclamped, so size evaluates to `+Inf`; `DabPlacer` places the first dab then sets
+`untilNext = Inf` forever. Net: a brush with `"base": 1e999` draws one dot and silently swallows the
+rest of the stroke. The suite already documents the adjacent case (NaN hardness passes validation).
+**Why I am not fixing it:** the fix belongs in `core/brush/BrushValidate.kt` + `BrushTest.kt`, which is
+*exactly* the owner area of **JB-0.03b, which is 🟦 Ready and unscheduled**. Dispatching a fix now
+would put two agents in one owner area — the exact failure that started this whole session.
+**This must be folded into JB-0.03b before it is dispatched.** Cheapest correct ruling: `size.base`
+must be finite (one predicate, one test).
+
+### 🔴 Systemic contract issue, two independent tasks, one root cause
+**Unknown enum values break the forward-compat promise in both JB-0.02 and JB-0.03.**
+- JB-0.02 F1 (MAJOR): `BoardKind` / `LayerKind` / `BlendMode` are plain kotlinx enums. `ignoreUnknownKeys`
+  covers unknown *keys*; kotlinx **throws** on an unrecognised enum constant, so a v2 document with a
+  new board kind cannot be opened at all, and never reaches `validate`'s friendly "newer Joy Brush"
+  message.
+- JB-0.03 F3 (MAJOR): identical defect on `BrushInput` — one brush unopenable instead of one document.
+
+The reviewer reached this independently in both files. **This is the single most important thing for
+Claude.** The spec promises forward compat, so the code is wrong rather than the spec, but *what an
+unknown kind becomes* (fallback? null? refuse?) is a product decision. I have logged it as a Lead
+question on both specs and changed no code. Note JB-0.03 got `engine`/`accumulate`/`blend` right by
+using string-typed words; the enums did not.
+
+### ✅ Closed by Claude's incoming commit — no action from me
+**JB-0.07 F2 (`radiusOf` evaluated twice per dab) is already fixed** in `c563d1f5`: the three
+per-sample lambdas are replaced by a single `DabLook` asked "exactly once per dab, with the distance
+travelled and the dab's index". I read the diff to confirm. The commit message even credits the
+JB-0.03 builder for catching it. This corroborates JB-0.03 Q6 and closes the loop.
+
+### 🔴 Still open, verified by me against origin — not fixed by that same commit
+**JB-0.07 F3: `DabPlacer.lerp` snaps azimuth and barrel.** On `origin/joy-creator` today:
+`azimuth = b.azimuth`, `barrel = b.barrel`, while x/y/time/pressure/tilt are interpolated and tilt is
+NaN-guarded. On a fast stroke with a leaning pen, `lean`/`attack` step instead of sweep, and the
+tilt-aimed grain plane inherits it. One-line fix (`Angles.lerp`, already wrap-aware in
+`StrokeSmoother`). **Not dispatched:** `DabPlacer.kt` is Claude's T1 file and JB-1.05a/JB-1.05b will
+touch the dab path; three agents in one file is how JB-1.04 detonates. Sequence it after those.
+
+### 🟡 Referred to the Lead (contract / file format / phone — my standing instruction, not §5b rule 1)
+| Where | Finding | Why Lead |
+|---|---|---|
+| JB-0.02 F1, JB-0.03 F3 | unknown enum values | file format + what an unknown value becomes |
+| JB-0.03 F2 | no count limits on inputs-per-Param / points-per-curve | DoS policy; reachable via hot-reload and Phase-8 imports |
+| JB-0.02 F2, JB-0.03 F5 | `version < 1` accepted | the spec's own rule 1 *literally permits* it, so this is a spec gap, not a code bug |
+| JB-0.07 F1 | `GlPaintEngine.init()` never clears layers/undo/pools — after a GL context loss the user sees black blocks with a lying undo history | phone-facing, T1, and androidkit has no spec file of its own |
+| JB-0.01 F1 | `StrokeSmoother` accepts `screenPerDoc = 0` → Inf/NaN replay coordinates | T1 core contract |
+| JB-0.01 F2, JB-1.01 F1 | `Curve`/tip accept non-finite → NaN paint | same ruling as JB-0.03 F1 (finite-or-reject) |
+| JB-1.02 F1 | `jb_grainLevel` NaN-poisons the plain-finger case | must be guarded before JB-1.05c wires grain |
+| JB-0.07 F3 | azimuth/barrel snapped (above) | T1 file, sequencing |
+
+### ✅ Ruled by me — low-risk, PROVISIONAL, Claude to confirm
+- **JB-0.02 F3:** an empty-string id passes validation. → **reject blank ids**, matching JB-0.03's
+  blank-brush-id rule. Does not contradict the spec (which never mentions id emptiness).
+- **JB-0.02 F4 / JB-1.03 F2 (Info):** `Cel.tiles` is a *list*, so tile order is not canonical.
+  **Do not "fix" this by sorting** — order may one day carry meaning. Do not assume set semantics.
+
+### ⚪ Recorded, no action (unspecified edge, both layers agree, or owner-ruled)
+- JB-0.04 F1 (`ArrayList(count)` pre-sized from an untrusted count → OOM on the Note 9),
+  F2 (trailing bytes ignored — a defensible forward-compat posture), F3 (the "bad UTF-8" catch is dead
+  code because `decodeToString` substitutes U+FFFD rather than throwing — **do not leave a promise the
+  code cannot keep**). All three are hardening for **JB-0.08a's** author, which now exists.
+- JB-0.04 also flags `Tool` persisted by `ordinal`: **do not reorder that enum** or old stroke files
+  break silently.
+- JB-0.07 F4 (negative/NaN radius silently dropped) — same ruling as JB-0.03 F1.
+- JB-0.07 F5 (finger dead forever after the first pen event) — **owner-ruled and documented**. No
+  change. The reviewer notes the strand risk for a dead-pen-battery user; that is the owner's call.
+- JB-0.01 F3 (`OneEuroFilter` has zero callers and zero tests), F4 (`DirectionTracker` returns NaN
+  instead of falling back on Inf tilt + NaN azimuth — ties to JB-1.02 F1).
+- JB-1.01 F2 (`minPx ≤ 0` and out-of-range shape params silently become something else — CPU and GPU
+  agree, so parity holds).
+- JB-1.03 F1 (a flat-field input violates the "min = 0 AND max = 1" contract; reachable, degenerate
+  only) — **the one clean fix candidate**, but `core/grain/` is bunny #4's lane and I will not
+  dispatch into it while #4 may still be in there.
+
+### 🟩 Eligible for 🟩 Reviewed (xr) — no BLOCKER or MAJOR open
+Only **two** of the eight reviewed tasks qualify:
+- **JB-0.04** — three MINOR findings, all deferred to JB-0.08a by the reviewer's own recommendation.
+- **JB-1.03** — one MINOR (degenerate flat field) and one Info.
+
+Everything else has an open MAJOR or BLOCKER, so it must stay 🟧 Built. **I have not moved any row to
+🟩 Reviewed**, because doing so requires editing `ROADMAP.md`, and that is the one file currently in a
+merge conflict I am not allowed to resolve.
+
+---
+
 ## Open questions
 
 ### 🔴 For Claude — contract, and the only one that can lock a user out of their own file

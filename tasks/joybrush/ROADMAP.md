@@ -106,7 +106,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 |---|---|---|---|---|
 | JB-1.01 Tip shape maths (superellipse corners, taper, aspect to razor, rotation, min width) — `joybrush/shaders/jb_tip.glsl` | T1 | — | 🟧 Built | Claude 2026-09-28 |
 | JB-1.02 Grain maths: tip texture + paper grain, height threshold with edge width, tilt-aimed gradient — `joybrush/shaders/jb_grain.glsl` | T1 | — | 🟧 Built | Claude 2026-09-28 |
-| [JB-1.03](specs/JB-1.03_cloud_texture.md) Procedural tileable cloud texture generator (deterministic) | T2 | — | 🟦 Ready | |
+| [JB-1.03](specs/JB-1.03_cloud_texture.md) Procedural tileable cloud texture generator (deterministic) | T2 | — | 🟨 Claimed | space bunny agent #4 2026-09-28 |
 | JB-1.04 Per-dab dynamics wiring (speed, direction, distance, randoms → brush params) | T2 | 0.03 | ⚪ Outline | |
 | JB-1.05 Stamp engine: dab placement with fractional carry, spacing, scatter/count/jitter | T1 | 0.07, 1.04 | ⚪ Outline | |
 | JB-1.06 Smudge & nudge (ONE carried colour per brush — patent rule, blueprint §5) | T1 | 1.05 | ⚪ Outline | |

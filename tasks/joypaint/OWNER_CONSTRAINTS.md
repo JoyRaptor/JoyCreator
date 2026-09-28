@@ -30,3 +30,12 @@ before every spec. Newest at the bottom.
 - His test hardware for barrel rotation: none (Samsung laptop uses the same pen family as the Note 9).
 - Consequence: the Joy Paint core must be platform-neutral (no Android types, portable shaders,
   platform-neutral file format), so a later iOS shell reuses the engine rather than rewriting it.
+
+## 2026-09-28 — tilt on the Note series
+- JoyRaptor confirms: the Note 9 and the Note series report tilt (part of the EMR pen technology).
+- Consequence: tilt is a FIRST-CLASS input on his devices, not an optional extra. Brushes may lean on
+  tilt (tilt-aimed grain gradient, chisel/side-of-pencil shading) and default rotation can use the
+  pen's lean direction (AXIS_ORIENTATION) when tilted, falling back to stroke direction when upright.
+- Still owed: the Stylus Probe spike measures the actual ranges, direction convention and noise on
+  the Note 9 / Note 20 so the calibration is right (forum reports show reversed or diagonal-only tilt
+  on some other Samsung models).

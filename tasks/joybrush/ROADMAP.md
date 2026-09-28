@@ -86,11 +86,13 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-0.01 Pen-sample & stroke contracts, context-aware smoothing, tip direction, curves (`joybrush/core`) | T1 | — | 🟧 Built | Claude 2026-09-28 |
 | [JB-0.02](specs/JB-0.02_document_model.md) Document model, boards, layers, cels, file layout | T2 | 0.01 | 🟧 Built | space bunny agent #1 2026-09-28 |
 | [JB-0.03](specs/JB-0.03_brush_preset_and_dynamics.md) Brush preset format + dynamics evaluator | T2 | 0.01 | 🟧 Built | stealth/space-bunny-alpha 2026-09-28 |
+| [JB-0.03b](specs/JB-0.03b_brush_validation_hardening.md) Brush validation hardening (Lead's rulings on 0.03's questions) | T2 | 0.03 | 🟦 Ready | |
 | [JB-0.04](specs/JB-0.04_stroke_codec.md) Stroke recording codec | T2 | 0.01 | 🟧 Built | space bunny agent #3 2026-09-28 |
 | [JB-0.05](specs/JB-0.05_android_module_and_input.md) Android module in the app build + Joy Brush screen hosting the engine's drawing view | T2 (T1 review) | 0.01, 0.07 | 🟦 Ready | |
-| JB-0.06 Hidden pen-diagnostics overlay (raw pressure/tilt/lean, sample-rate histogram; reuse `MotionEventSamples`) | T2 | 0.05 | ⚪ Outline | |
+| [JB-0.06](specs/JB-0.06_pen_diagnostics.md) Hidden pen-diagnostics overlay (raw pressure/tilt/lean, sample-rate histogram, copy report) | T2 | 0.05 | 🟦 Ready | |
 | JB-0.07 GPU tile engine: 256² tiles, dab/commit/display shaders, stroke buffer (flow/opacity, wash/build-up), copy-on-write tile undo, pen input, drawing view (`joybrush/androidkit`) — compiled against the Android API, shaders verified in WebGL2, **not yet run on a phone** | T1 | 1.01 | 🟧 Built | Claude 2026-09-28 |
-| JB-0.08 Save / open `.joybrush`; PNG export with "include paper" (needs a tile read-back/upload API on `GlPaintEngine` — T1 adds it first) | T2 | 0.02, 0.04, 0.07 | ⚪ Outline | |
+| [JB-0.08a](specs/JB-0.08a_document_archive.md) The `.joybrush` archive: atomic write, read, zip-slip guard (JVM-tested) | T2 | 0.02, 0.04 | 🟦 Ready | |
+| [JB-0.08b](specs/JB-0.08b_save_open_wiring.md) Autosave, reopen, "Save a copy…", "Open…" on the screen | T2 | 0.05, 0.08a | 🟦 Ready | |
 | JB-0.09 Lobby entry + first screen chrome in Joy Creator's look | T2-V | 0.05, D.01 | ⚪ Outline | |
 | JB-0.10 CPU benchmark harness (flood fill, tile compression, PSD write) on the Note 9 | T2 | 0.05 | ⚪ Outline | |
 | JB-0.12 Low-latency front buffer + motion prediction, with an off switch | T1 | 0.07 | ⚪ Outline | |
@@ -108,8 +110,10 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-1.01 Tip shape maths (superellipse corners, taper, aspect to razor, rotation, min width) — `joybrush/shaders/jb_tip.glsl` | T1 | — | 🟧 Built | Claude 2026-09-28 |
 | JB-1.02 Grain maths: tip texture + paper grain, height threshold with edge width, tilt-aimed gradient — `joybrush/shaders/jb_grain.glsl` | T1 | — | 🟧 Built | Claude 2026-09-28 |
 | [JB-1.03](specs/JB-1.03_cloud_texture.md) Procedural tileable cloud texture generator (deterministic) | T2 | — | 🟧 Built | space bunny agent #4 2026-09-28 |
-| JB-1.04 Per-dab dynamics wiring (speed, direction, distance, randoms → brush params) | T2 | 0.03 | ⚪ Outline | |
-| JB-1.05 Stamp engine: dab placement with fractional carry, spacing, scatter/count/jitter | T1 | 0.07, 1.04 | ⚪ Outline | |
+| [JB-1.04](specs/JB-1.04_brush_dabber.md) BrushDabber: brush file drives every dab (pressure, tilt, speed, deterministic randomness) | T2 | 0.03 | 🟦 Ready | |
+| [JB-1.05a](specs/JB-1.05a_scatter.md) Scatter and count (jitter → leaves) | T2 | 1.04 | 🟦 Ready | |
+| [JB-1.05b](specs/JB-1.05b_brushes_in_the_view.md) Brush files drive the drawing view (+ brush picker pill) | T2 (T1 review) | 0.05, 1.04, 1.05a | 🟦 Ready | |
+| JB-1.05c Grain in the dab shader: tip texture + paper grain textures, tilt gradient uniforms (JB-1.02 maths) | T1 | 1.05b, 1.03 | ⚪ Outline | |
 | JB-1.06 Smudge & nudge (ONE carried colour per brush — patent rule, blueprint §5) | T1 | 1.05 | ⚪ Outline | |
 | JB-1.07 Default presets: Ink, Pencil, Marker, Soft air, Smudge, Nudge, Eraser | T1 + T3 tuning | 1.05, 1.06 | ⚪ Outline | |
 | [JB-1.20](specs/JB-1.20_pc_brush_lab.md) PC Brush Lab (one HTML file, WebGL2, runs the shared shaders, pen pressure/tilt, fake rotation) | T2 | 1.01, 1.02 | 🟦 Ready | |
@@ -120,7 +124,8 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | Task | Tier | Needs | Status | Who |
 |---|---|---|---|---|
 | JB-2.01 Screen chrome: control cluster, thumb rail, drawers-on-phone / popovers-on-tablet | T2-V | 0.09, D.02 | ⚪ Outline | |
-| JB-2.02 Gestures: 2-finger undo, 3-finger redo, pan/zoom/rotate, 4-finger hide UI, tool finger modes (select · lasso · colour pick), assignable 2/3-finger gestures | T2 | 0.05 | ⚪ Outline | |
+| [JB-2.02](specs/JB-2.02_view_and_gestures.md) Zoom / pan / rotate (snap to 90°), 2-finger tap undo, 3-finger tap redo, fingers navigate once a pen is seen | T2 (T1 review) | 0.05 | 🟦 Ready | |
+| JB-2.02b Tool finger modes (select · lasso · colour pick) and assignable 2/3-finger gestures | T2 | 2.02, 2.05 | ⚪ Outline | |
 | JB-2.03 Colour: panel, drag-off-swatch picker, long-press eyedropper | T2-V | 2.01 | ⚪ Outline | |
 | JB-2.04 Layers panel: paint/ink layers, blend modes, opacity, runtime layer budget | T2-V | 0.07, 2.01 | ⚪ Outline | |
 | JB-2.05 Selection + transform (one-gesture start, live box, tap outside commits, survives ops) | T1 | 0.07, 2.02 | ⚪ Outline | |
@@ -138,7 +143,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 ### Phase 3 — Animation board
 | Task | Tier | Needs | Status | Who |
 |---|---|---|---|---|
-| JB-3.01 Animation model in core: frames, holds, cels per layer (see JB-0.02) | T2 | 0.02 | ⚪ Outline | |
+| [JB-3.01](specs/JB-3.01_animation_model.md) Animation model ops: add/duplicate/link/delete/move frames, holds, timing | T2 | 0.02 | 🟦 Ready | |
 | JB-3.02 Animation paper: peg bar that doubles as buttons, pixel rulers | T2-V | 3.01, 2.01 | ⚪ Outline | |
 | JB-3.03 Film strip: sprockets, ± actions, drag a frame's edge to hold it, finger scrub | T2-V | 3.01 | ⚪ Outline | |
 | JB-3.04 Onion skin as ONE shared component (extracted from SpriteLab, same settings) | T1 | 3.01 | ⚪ Outline | |
@@ -160,7 +165,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | Task | Tier | Needs | Status | Who |
 |---|---|---|---|---|
 | JB-5.01 Ink layer renders from stroke records, crisp at any zoom | T1 | 0.07, 1.05 | ⚪ Outline | |
-| JB-5.02 Picking the right stroke in dense line work | T2 | 5.01 | ⚪ Outline | |
+| [JB-5.02](specs/JB-5.02_stroke_picking.md) Picking the right stroke in dense line work (tap again to cycle) | T2 | 5.10 | 🟦 Ready | |
 | JB-5.03 Reshape / re-weight / re-brush a stroke after drawing | T2 | 5.01 | ⚪ Outline | |
 | [JB-5.10](specs/JB-5.10_vector_eraser_geometry.md) Vector eraser maths: partial, whole, to-intersection | T2 | — | 🟦 Ready | |
 | JB-5.11 Context-aware eraser (ink erases lines, paint erases pixels) | T2 | 5.10, 5.01 | ⚪ Outline | |

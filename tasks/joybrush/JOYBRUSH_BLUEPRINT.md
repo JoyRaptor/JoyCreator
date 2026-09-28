@@ -1,11 +1,11 @@
-# JOY PAINT — the blueprint (v1, 2026-09-28)
+# JOY BRUSH — the blueprint (v1.1, 2026-09-28)
 
 **Status:** design direction from the Joy Paint design lead, built on seven research reports
-(`tasks/joybrush/research/R1…R7`) and the owner's rulings (`tasks/joybrush/OWNER_CONSTRAINTS.md`).
+(`tasks/joybrush/research/R1…R8`) and the owner's rulings (`tasks/joybrush/OWNER_CONSTRAINTS.md`).
 This is the one current-truth document for the wing. Specs for each phase are written *when that
 phase is scheduled*, not before (repo rule), and they must agree with this file or change it.
 
-Working name: **Joy Paint** (owner may still pick "Joy Brush"; nothing below depends on the name).
+Working name: **Joy Brush** (owner, 2026-09-28). Earlier notes say "Joy Paint" — same thing.
 
 ---
 
@@ -75,6 +75,29 @@ paint-and-animate app, then adding one ecosystem link at a time.
   canvas; turn on **Clip to board** and it *is* one. The space around it is there when you want it.
 - A layer-count budget is computed at runtime from the device's memory and shown on screen (what
   Procreate and Infinite Painter do), so the Note 9 never gets pushed into a crash.
+
+### What the canvas feels like (owner's reference: Concepts, 2026-09-28)
+- **Open and draw.** A new drawing opens straight onto a white or gently textured page. No setup
+  questions. Zoom and pan freely.
+- **Paper is a setting, not a layer.** The background is transparent underneath; the paper colour
+  and texture are chosen visually and shown behind everything. Export has an **Include paper**
+  checkbox.
+- **Export three ways:** what's on screen · the selected objects · the whole board.
+- **Helpers are overlays**, never part of the art: grids, perspective guides, and shape tracers
+  (ruler, ellipse, French curve) that the pen can run along. They never export.
+- **Hold to perfect a shape.** Finish a rough line, arc, circle, ellipse, triangle or rectangle and
+  hold: it becomes precise but keeps the stroke's pressure and tilt, so it still looks hand-made
+  (spec JB-2.10).
+- **One smoothing slider**, context-aware inside: corners stay sharp at any setting, slow shaky
+  stretches get more smoothing than fast confident ones, and it is measured on screen so zooming in
+  for detail automatically smooths less (built: JB-0.01, `StrokeSmoother`).
+- **One eraser, context-aware.** On an ink layer it erases lines; on a paint layer it erases pixels
+  with its raster brush settings. Ink erasing has three modes: *partial* (cut at eraser width),
+  *whole line*, and **to intersection** (trim an overhang back to where it crosses another line,
+  leaving a clean corner) (spec JB-5.10).
+- **Selecting in dense line work** picks the stroke you meant: nearest centreline to the pen, most
+  recent on ties, with a quick cycle-through on repeated taps (UI spec to come).
+- **Nudge scales with zoom:** one nudge moves the same distance on screen; zoom in for fine moves.
 
 ---
 
@@ -151,13 +174,19 @@ Two levels, so power users get depth and the phone stays safe:
   users never find gestures by accident. **Unresolved, decided at the UI spec:** three-finger drag is
   wanted twice — for size/opacity (Infinite Painter, much praised) and for flipping animation frames
   (Callipeg). It can only mean one thing.
-- **Values change by dragging on the control**, never by opening a panel.
+- **Values change by dragging on the control**, never by opening a panel. Drag off the active colour
+  swatch = instant colour picker; drag on the brush swatch = size. Any control that has a useful
+  drag gets one.
+- **Pen and finger (owner, 2026-09-28):** with no pen seen, fingers draw. The moment a pen is
+  detected, fingers stop drawing and become a **tool finger** the user cycles between three modes —
+  *select objects · lasso · colour pick* (Concepts' model) — plus nudging. Two- and three-finger
+  gestures are assignable in settings.
+- **Transforms commit when you tap outside** (owner, 2026-09-28). Undo reverts.
 - **Selection done right (the thing Infinite Painter gets wrong):** start it in one gesture (hold the
   S Pen button and loop); the transform box appears immediately; two fingers *inside* the box
   transform it, outside they move the canvas; painting stays inside the selection; the selection
   survives operations and can be reselected. One row of actions, nothing hidden in a sideways
-  scroll. (How a transform is *finished* is open: R5 says a tap outside commits, like Concepts; R6
-  says an explicit ✓ so a stray tap can't commit, like Clip Studio. Owner question 3.)
+  scroll. A tap outside commits.
 - **S Pen button:** hold while drawing = erase with the current brush; tap = eyedropper. Never bind
   the click while hovering (Samsung's Air Command owns it).
 - **Autosave that never loses work** — the #1 complaint across 34,000 reviews of competitors was
@@ -189,8 +218,8 @@ claimed in `tasks/LANES.md`.
 
 ### Relation to the launch
 `ROADMAP.md` keeps BEFORE LAUNCH closed. Joy Paint touches no launch file except one lobby entry,
-so it can run as its own lane without disturbing launch work. When it starts is the owner's call;
-it competes for agent hours, not for files.
+so it can run as its own lane without disturbing launch work. **Started 2026-09-28 on the owner's
+word.** It competes for agent hours, not for files.
 
 ---
 
@@ -210,10 +239,22 @@ it competes for agent hours, not for files.
 
 ---
 
-## 6. Open product questions for the owner (answer any time)
-1. Name: Joy Paint or Joy Brush.
-2. When Joy Paint's Phase 0 may start relative to launch work.
-3. Selection exit: tap outside commits (Concepts) or an explicit ✓ (Clip Studio)?
-4. With no pen detected, do fingers draw (default yes), and does that switch off the moment a pen
-   touches the screen (default yes)?
-5. Three-finger drag: brush size/opacity, or flipping animation frames?
+## 5b. The look
+Joy Brush uses Joy Creator's own visual language — tokens, drawers, pills, frosted see-through
+panels, fonts and motion — reusing the existing components wherever they are public
+(`tasks/joybrush/design/JOYBRUSH_VISUAL_LANGUAGE.md`). **Boards wear the colour of what they feed:**
+Sprite board in SpriteLab's pink→violet, Puppet and Character boards in Avatar's violet→purple,
+Animation board in the Studio's aqua→lime, Canvas board in Joy Brush's own. State colours stay
+global (cyan = selected, pink = live) and are never used as a section colour.
+
+## 5c. How the work is shared out
+The build is split into spec sheets that a non-frontier model can execute reliably, tiered by what
+each needs (Claude / code model / vision-and-design model / owner on the phone), with Claude keeping
+one phase of ready specs ahead of the builders. See `tasks/joybrush/specs/README.md` and `INDEX.md`.
+
+## 6. Open product questions for the owner
+Answered 2026-09-28: name = **Joy Brush**; **start now**; **tap outside commits**; fingers draw until
+a pen is seen, then become the tool finger.
+1. Three-finger drag: brush size/opacity, or flipping animation frames?
+2. Joy Brush's own section colour — design lead's recommendation is **indigo → bright blue**
+   (`#5C43FD → #4397FD`); runner-up lime → yellow-green.

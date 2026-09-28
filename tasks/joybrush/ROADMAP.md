@@ -140,7 +140,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-1.06 Smudge & nudge (ONE carried colour per brush — patent rule, blueprint §5) | T1 | 1.05 | ⚪ Outline | |
 | JB-1.07 Default presets: Ink, Pencil, Marker, Soft air, Smudge, Nudge, Eraser | T1 + T3 tuning | 1.05, 1.06 | ⚪ Outline | |
 | [JB-1.20](specs/JB-1.20_pc_brush_lab.md) PC Brush Lab (one HTML file, WebGL2, runs the shared shaders, pen pressure/tilt, fake rotation) | T2 | 1.01, 1.02 | 🟦 Ready | |
-| JB-1.21 Phone hot-reload brush lab (hidden screen reloads brush files from the PC over Wi-Fi) | T2 | 0.05, 1.05 | ⚪ Outline | |
+| [JB-1.21](specs/JB-1.21_phone_brush_lab.md) Phone Brush Lab: edit brush.json on the PC, the phone reloads it in ~1 s | T2 | 1.05b | 🟦 Ready | |
 | JB-1.30 📱 Owner signs off each brush on the Note 9 | T3 | 1.07 | ⚪ Outline | |
 
 ### Phase 2 — A real painting app
@@ -152,12 +152,16 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-2.03 Colour: panel, drag-off-swatch picker, long-press eyedropper | T2-V | 2.01 | ⚪ Outline | |
 | JB-2.04 Layers panel: paint/ink layers, blend modes, opacity, runtime layer budget | T2-V | 0.07, 2.01 | ⚪ Outline | |
 | JB-2.05 Selection + transform (one-gesture start, live box, tap outside commits, survives ops) | T1 | 0.07, 2.02 | ⚪ Outline | |
-| JB-2.06 Fill: gap closing, reference layer, drag tolerance | T2 | 0.07 | ⚪ Outline | |
+| [JB-2.06a](specs/JB-2.06a_flood_fill.md) Fill maths: flood fill with tolerance, gap closing, no fringe | T2 | — | 🟦 Ready | |
+| JB-2.06b Fill tool on screen: reference layer, drag to set tolerance | T2 | 2.06a, 2.13a, 2.01 | ⚪ Outline | |
 | [JB-2.10](specs/JB-2.10_shape_recognizer.md) Hold-to-shape maths (recognise + perfect, keep pressure/tilt) | T2 | 0.01 | 🟦 Ready | |
 | JB-2.11 Hold-to-shape UI (hold timer, preview, resize before lift) | T2 | 2.10, 1.05 | ⚪ Outline | |
 | JB-2.12 Helpers: grid, perspective guides, shape tracers (never exported) | T2-V | 2.01 | ⚪ Outline | |
-| JB-2.13 Paper setting (colour/texture) + export options: screen / selection / board, include paper | T2 | 0.08 | ⚪ Outline | |
-| JB-2.14 Export PSD (own writer) and OpenRaster | T2 | 0.08 | ⚪ Outline | |
+| [JB-2.13a](specs/JB-2.13a_region_renderer.md) RegionRenderer: flatten any rectangle/frame to pixels, all blend modes (CPU) | T2 | 0.02 | 🟦 Ready | |
+| JB-2.13b Paper setting (colour/texture) + export PNG: screen / selection / board, include paper | T2 | 2.13a, 2.14a, 0.08b | ⚪ Outline | |
+| [JB-2.14a](specs/JB-2.14a_png_writer.md) PNG writer (exact, JVM-tested) | T2 | — | 🟦 Ready | |
+| [JB-2.14b](specs/JB-2.14b_openraster_export.md) Export OpenRaster (.ora) — layers for Krita/GIMP/MyPaint | T2 | 2.13a, 2.14a, 0.08a | 🟦 Ready | |
+| JB-2.14c Export PSD (own writer, 8-bit layered) | T2 | 2.13a | ⚪ Outline | |
 | JB-2.15 Autosave and crash safety (never lose work) | T2 | 0.08 | ⚪ Outline | |
 | JB-2.16 Brush size/opacity by dragging the brush swatch; nudge scaled to zoom | T2 | 2.01 | ⚪ Outline | |
 | JB-2.17 Gesture cheat-sheet + first-run hints | T2-V | 2.02 | ⚪ Outline | |
@@ -171,7 +175,8 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-3.03 Film strip: sprockets, ± actions, drag a frame's edge to hold it, finger scrub | T2-V | 3.01 | ⚪ Outline | |
 | JB-3.04 Onion skin as ONE shared component (extracted from SpriteLab, same settings) | T1 | 3.01 | ⚪ Outline | |
 | JB-3.05 Playback + an audio track | T2 | 3.03 | ⚪ Outline | |
-| JB-3.06 Export MP4 / GIF / WebP / PNG sequence / sprite sheet | T2 | 3.05 | ⚪ Outline | |
+| [JB-3.06a](specs/JB-3.06a_gif_encoder.md) Animated GIF encoder (pure, deterministic) | T2 | — | 🟦 Ready | |
+| JB-3.06b Export MP4 / WebP / PNG sequence / GIF / sprite sheet from the animation board | T2 | 3.01, 3.06a, 2.13a, 4.03a | ⚪ Outline | |
 | JB-3.07 Send to Studio (drops on the timeline) | T1 | 3.06 | ⚪ Outline | |
 | JB-3.08 Context-aware 3-finger swipe: frame flip when the ACTIVE board is an animation board with ≥ 2 frames, else brush size/opacity; corner badge (running figure / brush) shows the mode and a tap overrides it; never switches mid-gesture | T2 | 2.02, 3.03 | ⚪ Outline | |
 | JB-3.30 📱 Owner animates a loop and drops it in the Studio | T3 | Phase 3 | ⚪ Outline | |
@@ -181,7 +186,8 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 |---|---|---|---|---|
 | JB-4.01 Sprite board: grid by px or cell count, sub-grids, edge sizing | T2-V | 2.01 | ⚪ Outline | |
 | JB-4.02 Tap cells in order, play preview (SpriteLab's chip mechanic, reused) | T2-V | 4.01 | ⚪ Outline | |
-| JB-4.03 Export sheet + `.sprite.json` or sequence; "Export" and "Export and open in SpriteLab" | T2 | 4.01 | ⚪ Outline | |
+| [JB-4.03a](specs/JB-4.03a_sprite_sheet_packer.md) Sprite sheet packer + SpriteLab `.sprite.json` sidecar | T2 | 0.02 | 🟦 Ready | |
+| JB-4.03b "Export" and "Export and open in SpriteLab" buttons on the sprite board | T2 | 4.01, 4.03a | ⚪ Outline | |
 | JB-4.30 📱 Owner check | T3 | Phase 4 | ⚪ Outline | |
 
 ### Phase 5 — Ink layers
@@ -216,5 +222,5 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 |---|---|---|---|---|
 | JB-8.01 Photoshop `.abr` import (port of ag-psd's reader, MIT) | T2 | 0.03 | ⚪ Outline | |
 | JB-8.02 Procreate `.brush` / `.brushset` import | T2 | 0.03 | ⚪ Outline | |
-| JB-8.03 MyPaint `.myb` import + bundled CC0 MyPaint brushes | T2 | 0.03 | ⚪ Outline | |
+| [JB-8.03](specs/JB-8.03_mypaint_import.md) MyPaint `.myb` import (then bundle CC0 MyPaint brushes) | T2 | 0.03, 0.03b | 🟦 Ready | |
 | JB-8.04 Krita `.kpp` / `.bundle` import (pixel + colour smudge engines only) | T2 | 0.03 | ⚪ Outline | |

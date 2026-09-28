@@ -43,8 +43,9 @@ float jb_tipCoverage(vec2 offsetPx, JbTip t) {
     float hy = t.radiusPx * (a < 0.0 ? 1.0 + a : 1.0);
 
     // Razor safety: never thinner than minPx; fade by how much thinner it "should" be.
+    // At exactly ±1 the true width is zero; a quarter-pixel floor keeps a faint hairline visible.
     float halfMin = max(t.minPx, 0.5) * 0.5;
-    float fade = min(hx / max(halfMin, 1e-4), 1.0) * min(hy / max(halfMin, 1e-4), 1.0);
+    float fade = min(max(hx, 0.25) / halfMin, 1.0) * min(max(hy, 0.25) / halfMin, 1.0);
     hx = max(hx, halfMin);
     hy = max(hy, halfMin);
 

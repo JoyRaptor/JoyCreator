@@ -16,6 +16,7 @@ The person who started you will usually say it ("you are a design builder"). If 
 | **Design builder** | T2-V | a coding model **with strong vision/design ability** that can look at screenshots | `T2-V`, `T2` |
 | **Spec writer** | T2+ | a strong model asked to extend the runway | turns `⚪ Outline` rows into draft specs (§4) |
 | **Cross-reviewer** | T2+ | a strong model of a DIFFERENT family from the spec's writer/builder | reviews `🟧 Built` or draft specs (§5) |
+| **Adversarial reviewer** | T2+ | a strong model, different family from the builder, told to BREAK things | reads `🟧 Built` work and files findings; never edits code (§5b) |
 | **Lead** | T1 | Claude (frontier) | anything; owns `T1` rows and final review |
 | **Owner** | T3 | JoyRaptor, on the phone | `📱` checks and `✅` sign-off — nobody else |
 
@@ -74,6 +75,28 @@ Never contradict the blueprint or the owner's rulings; if they seem wrong, write
 - **Built → Reviewed (xr):** read the diff; run the spec's command yourself; check nothing outside the
   owner area changed. Approve as `🟩 Reviewed (xr)` or send back to `🟦 Ready` with notes in the spec.
 - The Lead (Claude) re-checks xr approvals when it has budget, T1 rows first.
+
+## 5b. Adversarial reviewers (read-only)
+Two reviewers from DIFFERENT model families may attack the same `🟧 Built` task independently.
+- **Never edit code, specs or this board.** Write findings only to
+  `tasks/joybrush/reviews/<task-id>__<your-model>.md` (one file per reviewer per task).
+- **Every finding needs proof:** either a failing test (paste its code and output), or the exact
+  `file:line`, the input that breaks it, and what goes wrong. No proof → don't file it.
+- Each finding gets a severity: **BLOCKER** (wrong result, data loss, crash, contract broken),
+  **MAJOR** (fails an edge case the spec names), **MINOR** (clarity, naming). Also state whether it
+  contradicts the spec — "the spec is wrong" is a valid finding, sent to the Lead, never "fixed".
+- Allowed commands: reading files and `./gradlew -p joybrush :core:jvmTest` /
+  `:androidkit:compileKotlin :androidkit:test`. Put any test you wrote inside the findings file,
+  never in the source tree.
+
+**The orchestrator triages** (the reviewers never decide):
+1. A finding with a failing test that reproduces for the orchestrator → fix it (a subagent does it
+   within that spec's owner area), add the test to the suite, note it in the log.
+2. The same issue found independently by both reviewers → treat as reproduced; fix it.
+3. Anything that disagrees with a spec, `JOYBRUSH_BLUEPRINT.md` or `OWNER_CONSTRAINTS.md` → copy it to
+   the spec's **Questions** as "for the Lead", status unchanged. Never "fix" a spec by changing code.
+4. Everything else → recorded in the findings file as "not reproduced", no action.
+A task only moves to `🟩 Reviewed (xr)` when no BLOCKER or MAJOR finding is open against it.
 
 ## 6. The board
 

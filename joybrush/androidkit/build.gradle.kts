@@ -44,6 +44,7 @@ java {
 dependencies {
     implementation(project(":core"))
     compileOnly(files(findAndroidJar()))
+    testImplementation(kotlin("test"))
 }
 
 tasks.processResources {

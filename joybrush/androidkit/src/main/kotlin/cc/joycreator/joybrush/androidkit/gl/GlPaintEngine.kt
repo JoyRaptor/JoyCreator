@@ -164,6 +164,58 @@ class GlPaintEngine(
         undo.push(UndoLog.Step(changes))
     }
 
+    // ── tile I/O (save, open, export — JB-0.08) ─────────────────────────────
+
+    /** Layer ids, bottom → top. */
+    fun layerIds(): List<String> = layers.keys.toList()
+
+    /** Keys of every tile a layer has (sparse). */
+    fun tileKeys(layerId: String): List<Long> = layers[layerId]?.tiles?.keys?.toList() ?: emptyList()
+
+    /**
+     * A tile's pixels: 256×256 premultiplied RGBA8, 262,144 bytes, row 0 = the tile's TOP document
+     * row (no flip needed). Null if the tile does not exist.
+     */
+    fun readTile(layerId: String, key: Long): ByteArray? {
+        val tex = layers[layerId]?.tiles?.get(key) ?: return null
+        val buf = ByteBuffer.allocateDirect(size * size * 4).order(ByteOrder.nativeOrder())
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+        attach(tex)
+        GLES30.glReadPixels(0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        val out = ByteArray(size * size * 4)
+        buf.rewind()
+        buf.get(out)
+        return out
+    }
+
+    /**
+     * Sets a tile's pixels (same layout as [readTile]). For loading a document: NOT undoable, and it
+     * clears nothing else. Creates the layer and the tile if needed.
+     */
+    fun writeTile(layerId: String, key: Long, rgba: ByteArray) {
+        require(rgba.size == size * size * 4) { "tile must be ${size * size * 4} bytes, got ${rgba.size}" }
+        val layer = layers.getOrPut(layerId) { Layer(layerId) }
+        val tex = layer.tiles.getOrPut(key) { newLayerTile() }
+        val buf = ByteBuffer.allocateDirect(rgba.size).order(ByteOrder.nativeOrder())
+        buf.put(rgba).rewind()
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
+        GLES30.glPixelStorei(GLES30.GL_UNPACK_ALIGNMENT, 4)
+        GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+    }
+
+    /** Empties the whole document (all layers, all undo). For "open another document". */
+    fun resetDocument() {
+        cancelStroke()
+        undo.clear()
+        layers.values.forEach { l -> l.tiles.values.forEach(::recycleLayerTex) }
+        layers.clear()
+    }
+
+    fun layerOpacity(id: String): Float = layers[id]?.opacity ?: 1f
+    fun layerVisible(id: String): Boolean = layers[id]?.visible ?: true
+
     // ── strokes ──────────────────────────────────────────────────────────────
 
     /** Starts a stroke. [argb] is the brush colour (alpha ignored — [opacity] is the stroke's opacity). */

@@ -26,8 +26,9 @@ If you have no vision, never take `T2-V`. If a task is `T1`, only Claude takes i
 1. `git pull` (branch **`joy-creator`**). If git reports a conflict: **STOP** and tell the owner.
    Never resolve a merge conflict (START_HERE.md rule 4).
 2. Read `START_HERE.md` rules 1–10 once per session. **One exception to rule 2 ("never run
-   gradle") for Joy Brush:** `./gradlew -p joybrush :core:jvmTest` is allowed — it builds only the
-   standalone `joybrush/` project, installs nothing and never touches the app build. Anything in the
+   gradle") for Joy Brush:** `./gradlew -p joybrush :core:jvmTest` and
+   `./gradlew -p joybrush :androidkit:compileKotlin :androidkit:test` are allowed — they build only the
+   standalone `joybrush/` project, install nothing and never touch the app build. Anything in the
    app or in `joybrush-android/` is verified by the watcher's `build.log`, never by running gradle.
 3. Find the **first** row in the board (§6) where: status is `🟦 Ready`, your role may take its
    tier, and every task in "Needs" is at `🟧 Built` or better.

@@ -138,4 +138,14 @@ class PaintTest {
         log.clear()
         assertEquals(released.size, released.toSet().size, "released twice: $released")
     }
+
+    @Test
+    fun theBrushIsAskedExactlyOncePerDabInOrder() {
+        val seen = ArrayList<Pair<Int, Float>>()
+        val p = DabPlacer(spacing = 0.1f, look = { _, dist, i -> seen.add(i to dist); DabLook(10f) })
+        val dabs = p.add((0..10).map { PenSample(it * 10f, 0f, it * 4.0) })
+        assertEquals(dabs.size, seen.size)
+        assertEquals((0 until dabs.size).toList(), seen.map { it.first })
+        for ((i, d) in seen) assertEquals(i * 2f, d, 1e-3f) // distance along the stroke, 2 px apart
+    }
 }

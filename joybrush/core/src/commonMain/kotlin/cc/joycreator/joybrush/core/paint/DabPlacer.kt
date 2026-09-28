@@ -5,6 +5,13 @@ import kotlin.math.hypot
 import kotlin.math.max
 
 /**
+ * What the brush decides about ONE dab. Asked exactly once per dab (see [DabPlacer]).
+ * [cap] overrides the placer's cap for this dab (NaN = use the placer's) — this is how a WASH brush
+ * fades with pressure: each dab's ceiling is its own opacity.
+ */
+data class DabLook(val radius: Float, val angle: Float = 0f, val flow: Float = 1f, val cap: Float = Float.NaN)
+
+/**
  * Turns a stream of (smoothed) pen samples into evenly spaced dabs.
  *
  * Spacing is a fraction of the dab DIAMETER at that point (never below [minSpacingPx]). The leftover
@@ -12,19 +19,31 @@ import kotlin.math.max
  * batched — the result does not depend on the device's event rate (MyPaint's rule, R3).
  * Every channel is interpolated between the two samples a dab falls between.
  *
- * The brush decides size, angle and flow per sample through the three functions; the engine never
- * interprets pressure itself.
+ * The brush decides each dab through [look], which is called **exactly once per dab, in stroke
+ * order**, with the distance travelled along the stroke so far and the dab's index. So a brush may
+ * keep state inside it (a random generator, a speed filter) without double-counting — the JB-0.03
+ * builder caught the earlier version asking for the radius twice.
  */
 class DabPlacer(
     private val spacing: Float,
-    private val radiusOf: (PenSample) -> Float,
-    private val angleOf: (PenSample) -> Float = { 0f },
-    private val flowOf: (PenSample) -> Float = { 1f },
+    private val look: (sample: PenSample, distancePx: Float, index: Int) -> DabLook,
     private val cap: Float = 1f,
     private val minSpacingPx: Float = 0.5f,
 ) {
+    /** Convenience for brushes whose dabs depend only on the sample. */
+    constructor(
+        spacing: Float,
+        radiusOf: (PenSample) -> Float,
+        angleOf: (PenSample) -> Float = { 0f },
+        flowOf: (PenSample) -> Float = { 1f },
+        cap: Float = 1f,
+        minSpacingPx: Float = 0.5f,
+    ) : this(spacing, { s, _, _ -> DabLook(radiusOf(s), angleOf(s), flowOf(s)) }, cap, minSpacingPx)
+
     private var prev: PenSample? = null
     private var untilNext = 0f
+    private var travelled = 0f
+    private var index = 0
 
     fun add(samples: List<PenSample>): List<Dab> {
         val out = ArrayList<Dab>()
@@ -35,30 +54,28 @@ class DabPlacer(
     private fun addOne(s: PenSample, out: MutableList<Dab>) {
         val p = prev
         if (p == null) {
-            out.add(dabAt(s))
+            untilNext = emit(s, 0f, out)
             prev = s
-            untilNext = step(s)
             return
         }
         val len = hypot(s.x - p.x, s.y - p.y)
         if (len <= 0f) { prev = s; return }
         var along = untilNext
         while (along <= len) {
-            val t = along / len
-            val m = lerp(p, s, t)
-            out.add(dabAt(m))
-            along += step(m)
+            along += emit(lerp(p, s, along / len), travelled + along, out)
         }
         untilNext = along - len
+        travelled += len
         prev = s
     }
 
-    private fun step(s: PenSample): Float = max(2f * radiusOf(s) * spacing, minSpacingPx)
-
-    private fun dabAt(s: PenSample) = Dab(
-        x = s.x, y = s.y, radius = radiusOf(s), angle = angleOf(s), flow = flowOf(s), cap = cap,
-        pressure = s.pressure,
-    )
+    /** Emits one dab and returns the distance to the next one. */
+    private fun emit(s: PenSample, distance: Float, out: MutableList<Dab>): Float {
+        val l = look(s, distance, index++)
+        out.add(Dab(x = s.x, y = s.y, radius = l.radius, angle = l.angle, flow = l.flow,
+            cap = if (l.cap.isNaN()) cap else l.cap, pressure = s.pressure))
+        return max(2f * l.radius * spacing, minSpacingPx)
+    }
 
     private fun lerp(a: PenSample, b: PenSample, t: Float) = PenSample(
         x = a.x + (b.x - a.x) * t,

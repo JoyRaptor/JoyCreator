@@ -111,7 +111,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-1.05 Stamp engine: dab placement with fractional carry, spacing, scatter/count/jitter | T1 | 0.07, 1.04 | ⚪ Outline | |
 | JB-1.06 Smudge & nudge (ONE carried colour per brush — patent rule, blueprint §5) | T1 | 1.05 | ⚪ Outline | |
 | JB-1.07 Default presets: Ink, Pencil, Marker, Soft air, Smudge, Nudge, Eraser | T1 + T3 tuning | 1.05, 1.06 | ⚪ Outline | |
-| [JB-1.20](specs/JB-1.20_pc_brush_lab.md) PC Brush Lab (one HTML file, WebGL2, runs the shared shaders, pen pressure/tilt, fake rotation) | T2 | 1.01, 1.02 | 🟦 Ready | |
+| [JB-1.20](specs/JB-1.20_pc_brush_lab.md) PC Brush Lab (one HTML file, WebGL2, runs the shared shaders, pen pressure/tilt, fake rotation) | T2 | 1.01, 1.02 | ⛔ Blocked | space bunny #1 orchestrator 2026-09-28 — code landed + JS parses (`node --check`); spec's DoD needs a browser (screenshots, console) and 3 open brush-format questions |
 | JB-1.21 Phone hot-reload brush lab (hidden screen reloads brush files from the PC over Wi-Fi) | T2 | 0.05, 1.05 | ⚪ Outline | |
 | JB-1.30 📱 Owner signs off each brush on the Note 9 | T3 | 1.07 | ⚪ Outline | |
 
@@ -124,7 +124,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-2.04 Layers panel: paint/ink layers, blend modes, opacity, runtime layer budget | T2-V | 0.07, 2.01 | ⚪ Outline | |
 | JB-2.05 Selection + transform (one-gesture start, live box, tap outside commits, survives ops) | T1 | 0.07, 2.02 | ⚪ Outline | |
 | JB-2.06 Fill: gap closing, reference layer, drag tolerance | T2 | 0.07 | ⚪ Outline | |
-| [JB-2.10](specs/JB-2.10_shape_recognizer.md) Hold-to-shape maths (recognise + perfect, keep pressure/tilt) | T2 | 0.01 | 🟦 Ready | |
+| [JB-2.10](specs/JB-2.10_shape_recognizer.md) Hold-to-shape maths (recognise + perfect, keep pressure/tilt) | T2 | 0.01 | 🟦 Ready | (2 dispatch attempts by space bunny #1 returned no files, no report — lane free) |
 | JB-2.11 Hold-to-shape UI (hold timer, preview, resize before lift) | T2 | 2.10, 1.05 | ⚪ Outline | |
 | JB-2.12 Helpers: grid, perspective guides, shape tracers (never exported) | T2-V | 2.01 | ⚪ Outline | |
 | JB-2.13 Paper setting (colour/texture) + export options: screen / selection / board, include paper | T2 | 0.08 | ⚪ Outline | |
@@ -161,7 +161,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-5.01 Ink layer renders from stroke records, crisp at any zoom | T1 | 0.07, 1.05 | ⚪ Outline | |
 | JB-5.02 Picking the right stroke in dense line work | T2 | 5.01 | ⚪ Outline | |
 | JB-5.03 Reshape / re-weight / re-brush a stroke after drawing | T2 | 5.01 | ⚪ Outline | |
-| [JB-5.10](specs/JB-5.10_vector_eraser_geometry.md) Vector eraser maths: partial, whole, to-intersection | T2 | — | 🟦 Ready | |
+| [JB-5.10](specs/JB-5.10_vector_eraser_geometry.md) Vector eraser maths: partial, whole, to-intersection | T2 | — | 🟧 Built | space bunny #1 orchestrator (subagent) 2026-09-28 — 40 tests green; 1 contract question to Claude |
 | JB-5.11 Context-aware eraser (ink erases lines, paint erases pixels) | T2 | 5.10, 5.01 | ⚪ Outline | |
 | JB-5.30 📱 Owner check | T3 | Phase 5 | ⚪ Outline | |
 

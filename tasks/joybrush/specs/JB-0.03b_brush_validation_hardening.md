@@ -55,3 +55,49 @@ Tests pass (paste) · only owner-area files · commit `JB-0.03b: brush validatio
 row → 🟧 Built.
 
 ## Questions
+*(raised by the builder of JB-0.03b, 2026-09-28 — the rulings above are all implemented; these six
+are the gaps the builder was told not to guess at, and none of them is inside JB-0.03b's owner area.)*
+
+1. **Nothing calls `BrushValidate.validate` yet.** As of this build the only callers are the tests, so
+   the refusal is *advisory*: a hostile `brush.json` can still be decoded and handed to `DabPlacer`
+   with any `size.base`, and the engine's clamp will turn the radius into `0` — the stroke then
+   draws nothing, silently, which is the same shape of lost work as the freeze. The first real caller
+   should be the thing that loads a brush for use (the brush shelf, and JB-1.21's hot-reload), and
+   that file does not exist yet. **Who owns it, and should `BrushJson` grow a
+   `decodeChecked(json): BrushPreset` that throws on a non-empty problem list so no caller can
+   forget?** A `decodeChecked` would be a one-line change to `BrushJson.kt`, which is outside this
+   spec's owner area ("Do not change `BrushPreset`, `BrushJson` or `Dynamics`").
+2. **`size.base` has a ceiling but no floor.** `above 0 and ≤ 4096` refuses `1e999`, `0` and `NaN`,
+   but a *denormal* like `1e-40` px passes: it is above 0, and `DabPlacer` clamps a sub-pixel radius
+   to 0, so such a brush again draws nothing, silently. (`1e-50` does **not** get through — it
+   underflows to `0.0f` and is refused.) Is a sub-pixel brush a legitimate thing to allow, or should
+   the floor be `tip.minPx` (0.25)? Left as ruled, with a test pinning today's behaviour
+   (`everyNonFiniteSizeIsRefusedByName`).
+3. **Seven `Param` bases still have no range** — `opacity`, `flow`, `tip.angle`, `tip.hardness`, the
+   two grain depths, `scatter.amount`. Ruling 3's table did not name them, so all validation can ask
+   is that they are finite, and `"opacity": {"base": 5}` loads clean; whether the ceiling holds then
+   depends on whatever draws it (JB-1.04 / the shader). Should `opacity`, `flow` and the two grain
+   depths be ranged `0..1` at the same time the first caller of `validate` is written?
+4. **A disabled grain is still ranged.** `tipTexture: {"enabled": false, "scale": 0}` is refused even
+   though nothing samples that texture, because "every number in the file means something" is easier
+   to state and to test than "every number the sampler can reach". A file that never enables a grain
+   and leaves it at 0 must set `scale` to something legal. Say the word if `enabled == false` should
+   skip the grain's own rules instead.
+5. **Validation happens *after* the file is parsed, so the file itself is still unbounded.** The caps
+   (8 inputs, 64 points) bound the work the *render thread* does, but a `brush.json` with a 200 MB
+   `name`, a huge `extensions` map or a megabyte-long `image` path is read into memory by
+   `BrushJson.decode` before `validate` ever sees it, and decoding a `"count": 1e999` throws
+   `BrushException` from the number parser rather than from a rule (safe, but not the same message).
+   A byte ceiling belongs to whoever fetches the file (JB-1.21's hot-reload, the Phase 8 importers);
+   `BrushJson` is outside this spec's owner area.
+6. **`BrushPreset` has no way to enumerate its own `Param`s, so the validator keeps its own list.**
+   `BrushValidate.paramsOf` is a hand-written list of the eight `Param`s in the preset, and rules 16
+   to 20 walk *only* that list — so a `Param` added to `BrushPreset` and forgotten there is checked by
+   nothing, which is the very bug this spec closed for `tip.hardness`. `RANGED_BASES` is a deny-list
+   on top of it and is the *safe* kind of trap (a name wrongly left out yields two messages, which
+   `assertSole` catches); the list itself is the unsafe one, and no test can catch a missing entry
+   without reflection. **Should `BrushPreset` grow `fun allParams(): List<Pair<String, Param>>` (or a
+   sealed settings tree) that `BrushValidate` and any future exporter both walk?** That is a change to
+   `BrushPreset.kt`, which this spec is forbidden to touch, and it is the one thing that would make
+   the finite check structural rather than conventional.
+

@@ -181,3 +181,65 @@ specs that meet them.)*
    yet. Whoever wires the dynamics up needs the lambdas called exactly once per dab, with a
    `DabInputs` (or the dab index and accumulated distance) passed in.
 
+---
+
+## Lead rulings 2026-09-28 — all six answered (folded in as JB-0.03b)
+
+The rulings live in `LEAD_RULINGS.md`; they are copied here so this spec reads on its own. **JB-0.03b**
+(`specs/JB-0.03b_brush_validation_hardening.md`) is the code that carries them: every ruling became a
+rule in `BrushValidate` with its own test, and the range table below is what `validate` now asks.
+
+1. **Curve budget (Q1).** At most **8 `inputs` per `Param`** and **64 points per curve**. Each input
+   is a `Curve` — a 256-float lookup table — built once and evaluated on *every dab of every stroke*,
+   so a file with 10,000 inputs on `size` is a denial of service on the render thread, not just a big
+   file. The caps are in `validate`, not in the loader, so they hold for every path that reads a file.
+2. **Curve points are numbers, and sources are words (Q2).** Every point's **x is in 0..1** — it is
+   where the input sits, and `Curve.eval` clamps it, so an x of −5 is a ramp nobody drew — and
+   **every y is finite** (y is the setting's own value, so it is not ranged here). `tip.source` ∈
+   {`procedural`, `image`}; `tipTexture.source` and `paperGrain.source` ∈ {`cloud`, `image`} — a typo
+   used to render as procedural with nothing said at all.
+3. **Every number in a file must be finite (Q3)**, including every `Param` base, plus a range for
+   every setting that had none:
+
+   | Field | Range |
+   |---|---|
+   | `size.base` | above 0 and ≤ 4096 |
+   | `smoothing` | 0..1 |
+   | `tip.minPx` | 0.25..16 |
+   | `sizeJitter` | 0..1 |
+   | `angleJitter` | 0..360 |
+   | `scatter.count` | 1..16 |
+   | `scatter.countJitter` | 0..1 |
+   | grain scale (`tipTexture`, `paperGrain`) | above 0 and ≤ 64 |
+   | grain edge | 0..1 |
+   | grain tiltGradient | −4..4 |
+   | grain radial | 0..4 |
+   | color hue/saturation/value jitter | 0..1 |
+
+   Range rules are written `v in lo..hi`, which fails NaN and ±Infinity as well as the numbers
+   outside it. Where the lower bound is *excluded* ("above 0"), the rule is
+   `!(v > lo) || v > hi`, which fails the same three — a bare `!(v > 0f)` lets +Infinity through,
+   which is exactly how a `"base": 1e999` size once reached the dab loop. Seven `Param` bases are not
+   in the table (`opacity`, `flow`, `tip.angle`, `tip.hardness`, the two grain depths,
+   `scatter.amount`); for those, "must be finite" is the whole rule until they are ranged.
+4. **`version < 1` is an error (Q4)** — `"unknown brush version N"`. A file claiming version 0 would
+   be read with v1's rules, and refusing it costs nothing.
+5. **The shipped files are read from disk (Q5).** `ShippedBrushFilesTest` (jvmTest) finds the
+   `joybrush/` folder the way `WriteGrainAssets` does and decodes + validates **every**
+   `joybrush/brushes/*/brush.json` with zero problems, so the two example files cannot drift out of
+   the rules. `BrushTest`'s byte-identical inline copies stay — commonTest cannot open a file.
+6. **Already done by the Lead (Q6, for JB-1.04):** `DabPlacer` now asks the brush exactly once per
+   dab, passing distance and index — see `DabLook` in `paint/DabPlacer.kt`.
+
+**Plus, from the first adversarial review (Lead ruling R1).** A brush file with
+`"size": {"base": 1e999}` decodes to `+Inf`; `Dynamics.eval` is deliberately unclamped, so the size
+evaluated to `+Inf`, the dab loop placed one dab and then stepped by `Inf` forever, and the stroke
+drew one dot and silently swallowed the rest. That is fixed in **two** places:
+
+- **Engine (done by the Lead):** `DabPlacer` clamps every dab to finite values (radius 0..2048 px,
+  flow 0..1, cap 0..1, angle finite) and the step to the next dab is always finite, so a bad brush
+  can no longer hang or freeze a stroke. Test: `anInfiniteBrushSizeCannotFreezeTheStroke`.
+- **Validation (JB-0.03b):** the `size.base` row above, so the file is *refused and named* before
+  the engine is ever asked. Test: `anInfiniteBrushSizeIsRefusedBeforeItReachesTheEngine`.
+
+

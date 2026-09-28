@@ -39,3 +39,17 @@ before every spec. Newest at the bottom.
 - Still owed: the Stylus Probe spike measures the actual ranges, direction convention and noise on
   the Note 9 / Note 20 so the calibration is right (forum reports show reversed or diagonal-only tilt
   on some other Samsung models).
+
+## 2026-09-28 — screen size, performance floor, probe timing, sprite export
+- **Screen-size agnostic UI.** Infinite Painter and Concepts work equally well on phones and tablets;
+  so must Joy Paint. Panels are small and local: drawers on a phone, small drop-downs/popovers on a
+  larger screen, with little or no other change between them.
+- **The Note 9 is the performance floor.** "If it works good on there … it'll work good on pretty
+  much anything modern." Use modern features when available, never depend on them. All his favourite
+  art apps run on the Note 9.
+- **Tablet check comes after the phone works well:** he has a Galaxy Tab S8.
+- **The stylus probe does NOT have to come first.** Build the app, then calibrate. (Ruling adopted:
+  the probe is a hidden diagnostics overlay inside the first build, and calibration is a data table
+  with sensible defaults, so nothing waits on it.)
+- **Sprite export = two buttons:** "Export" (save the sheet + .sprite.json) and "Export and open in
+  SpriteLab". A file is always written first.

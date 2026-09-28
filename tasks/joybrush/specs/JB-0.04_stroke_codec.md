@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T2 (no vision needed) |
-| **Status** | Ready |
+| **Status** | see ROADMAP.md |
 | **Depends on** | JB-0.01 (done: `PenSample`, `Tool`, `StrokeRecord` exist) |
 | **Owner area** | `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/io/ByteWriter.kt`, `.../core/io/ByteReader.kt`, `.../core/stroke/StrokeCodec.kt`, `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/stroke/StrokeCodecTest.kt` |
 | **Estimated size** | ~250 lines + ~200 lines of tests |
@@ -113,7 +113,7 @@ exactly that many bytes of the single-record encoding.
 (`StrokeRecord` equality uses `PenSample.equals`, and NaN == NaN is true for data-class `Float`
 fields in Kotlin, so equality checks work with NaN channels.)
 
-**Command:** `./gradlew -p joybrush :core:jvmTest` from the repo root. Passing = `BUILD SUCCESSFUL`
+**Command:** `./gradlew -p joybrush :core:jvmTest` from the repo root (the one gradle command Joy Brush agents may run — ROADMAP.md §2). Passing = `BUILD SUCCESSFUL`
 and the StrokeCodecTest suite shows 10+ tests, 0 failures in
 `joybrush/core/build/test-results/jvmTest/`.
 
@@ -127,6 +127,6 @@ and the StrokeCodecTest suite shows 10+ tests, 0 failures in
 - [ ] tests pass (paste the output)
 - [ ] only owner-area files changed (paste `git status --short`)
 - [ ] committed as `JB-0.04: stroke codec`; pushed
-- [ ] `tasks/joybrush/specs/INDEX.md` → "Built — awaiting T1 review"
+- [ ] ROADMAP.md row → 🟧 Built
 
 ## Questions

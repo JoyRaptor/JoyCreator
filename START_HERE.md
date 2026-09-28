@@ -44,6 +44,7 @@ He is often away while you work. Keep going rather than blocking.
 | Driving the phone | `tasks/RUNBOOK.md` |
 | Launch, pricing, the two builds | `tasks/LAUNCH_STRATEGY.md` |
 | Project file format | `docs/project-schema.md` |
+| **Joy Brush** (the painting & animation wing) — agents start here | `tasks/joybrush/ROADMAP.md` |
 
 `tasks/` holds 175 files. Most are history. **Do not read them looking for current truth** —
 the five files above are the current truth; the rest are the story of how it got here.

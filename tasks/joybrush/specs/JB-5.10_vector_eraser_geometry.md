@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T2 (no vision needed) |
-| **Status** | Ready |
+| **Status** | see ROADMAP.md |
 | **Depends on** | none (self-contained geometry) |
 | **Owner area** | `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/vector/` (new folder: `InkGeometry.kt`, `VectorEraser.kt`, `Intersections.kt`), `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/vector/` |
 | **Estimated size** | ~350 lines + ~300 lines of tests |
@@ -109,6 +109,6 @@ failures in `joybrush/core/build/test-results/jvmTest/`.
 - [ ] tests pass (paste the output)
 - [ ] only owner-area files changed (paste `git status --short`)
 - [ ] committed as `JB-5.10: vector eraser geometry`; pushed
-- [ ] `INDEX.md` → "Built — awaiting T1 review"
+- [ ] ROADMAP.md row → 🟧 Built
 
 ## Questions

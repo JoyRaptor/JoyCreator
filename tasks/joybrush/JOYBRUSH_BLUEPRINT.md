@@ -264,6 +264,12 @@ one phase of ready specs ahead of the builders. See `tasks/joybrush/specs/README
 ## 6. Open product questions for the owner
 Answered 2026-09-28: name = **Joy Brush**; **start now**; **tap outside commits**; fingers draw until
 a pen is seen, then become the tool finger.
-1. Three-finger drag: brush size/opacity, or flipping animation frames?
-2. Joy Brush's own section colour — design lead's recommendation is **indigo → bright blue**
-   (`#5C43FD → #4397FD`); runner-up lime → yellow-green.
+1. ~~Three-finger drag~~ — decided 2026-09-28 (owner's idea, reviewed and kept): context-aware. When
+   the ACTIVE board is an animation board with at least two frames, a three-finger swipe flips frames;
+   otherwise it adjusts brush size/opacity. A small corner badge (running figure / brush) always shows
+   which, and tapping it overrides the automatic choice. The mode never changes in the middle of a
+   gesture, and the film strip stays scrubbable in either mode. Keyed to the active board, not the
+   whole file, so a document with a still illustration beside an animation behaves predictably.
+2. Joy Brush's own section colour — undecided. Built as ONE token pair so changing it later ripples
+   everywhere (spec D.01). Placeholder: indigo → bright blue (`#5C43FD → #4397FD`). The owner's
+   pink-red → yellow/orange idea collides with two state colours (red = destroys, amber = careful).

@@ -1,5 +1,8 @@
 # Joy Brush specs — how the build is shared between Claude and cheaper models
 
+> **Agents: start at `tasks/joybrush/ROADMAP.md`.** It has the roles, the claim loop, the status
+> ladder and the board. This file explains the reasoning behind it.
+
 **Why this exists (owner, 2026-09-28):** JoyRaptor is short of money. When Claude usage runs out he
 keeps building in the opencode harness with the best free models of the day (GLM 5.3, DeepSeek 4.1,
 MuseSpark 1.3, Xiaomi models …). So Joy Brush is built from **spec sheets that a capable but

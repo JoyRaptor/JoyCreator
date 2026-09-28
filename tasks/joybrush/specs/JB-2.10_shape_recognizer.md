@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T2 (no vision needed) |
-| **Status** | Ready |
+| **Status** | see ROADMAP.md |
 | **Depends on** | JB-0.01 (done: `PenSample`) |
 | **Owner area** | `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/shape/` (new folder: `Shape.kt`, `ShapeRecognizer.kt`, `ShapePerfecter.kt`, `Geometry.kt`), `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/shape/` |
 | **Estimated size** | ~450 lines + ~300 lines of tests |
@@ -131,6 +131,6 @@ with 0 failures in `joybrush/core/build/test-results/jvmTest/`.
 - [ ] tests pass (paste the output)
 - [ ] only owner-area files changed (paste `git status --short`)
 - [ ] committed as `JB-2.10: shape recognizer`; pushed
-- [ ] `INDEX.md` → "Built — awaiting T1 review"
+- [ ] ROADMAP.md row → 🟧 Built
 
 ## Questions

@@ -230,10 +230,19 @@ word.** It competes for agent hours, not for files.
   the published equations.
 - Krita code (GPL-2+/3+) and libmypaint (ISC) are compatible with Joy Creator's GPL-3.0; keep their
   copyright notices on anything ported.
-- **Live patents to design around** (Adobe, Microsoft, Autodesk; details in R1/R2): no
-  lattice-Boltzmann height-field solver, no paper "absorption channel" texture, no separate
-  reservoir + pickup brush buffers, no brush-loading-by-sampling-canvas-colours. Have counsel check
-  before a US launch of the wash engine.
+- **Patents — read from the actual claims (R8, 2026-09-28; re-check in USPTO Patent Center before a
+  US launch):** US 8,296,668 (paper absorption channel) **lapsed 2024**. Every other effect is built
+  without the claimed recipe:
+  - Smudge / colour pickup: ONE carried colour + amount per brush that mixes toward the canvas and
+    toward the chosen colour, one dab — never separate reservoir and pickup stores, never "deposit
+    only picked-up paint when there is enough" (8,462,173; 8,599,213). Wet/Load/Mix/Dry sliders are fine.
+  - Loading a brush: from a swatch or gradient tray, or a one-colour eyedropper — never a mode that
+    sweeps over the painting sampling it without changing it (8,654,143).
+  - Brush tip is a 2-D shape, never a 3-D brush model; pickup state stays coarse (9,030,464).
+  - Wet paint: grid shallow-water / diffusion / thin-film solvers, never lattice Boltzmann
+    (8,335,675); never growing water/pigment polygons (8,917,282/283 — may lapse Dec 2026).
+  - Edge darkening on the raster wet mask, never on vector fill outlines (7,777,745, to 2028).
+  - Vector export is one outline per stylus stroke, never per-bristle paths (8,605,095).
 - Importing brush files the user owns is fine; redistributing converted third-party packs is not.
   Keep author/licence/source in every imported brush.
 

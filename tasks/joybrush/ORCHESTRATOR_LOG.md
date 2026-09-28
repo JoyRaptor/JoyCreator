@@ -300,6 +300,43 @@ mechanically (`git diff` filtered to non-comment added lines: none), not taken o
 subagents volunteered weaknesses in their own work. **Parallel dispatch is safe when owner areas are
 disjoint — but I am still the only verifier, so each batch lands before the next is trusted.**
 
+## ROLLING ROSTER
+
+The live picture. I alone edit the board, commit and push; subagents only build and report.
+
+### 🟢 Landed and green (`:core:jvmTest` — 228 tests, 0 failures)
+| Task | What | Who |
+|---|---|---|
+| JB-0.02b | new enum constant ⇒ version bump (R3) | subagent of openrouter/stealth/space-bunny-alpha |
+| JB-0.03b | brush validation hardening + the Infinity BLOCKER (R1) | subagent of openrouter/stealth/space-bunny-alpha |
+| JB-3.01 | animation model ops — 44 tests | subagent of openrouter/stealth/space-bunny-alpha |
+| JB-5.02 | stroke picking in dense line work — 23 tests | subagent of openrouter/stealth/space-bunny-alpha |
+
+### 🔵 In flight
+_(none right now)_
+
+### ⬜ Ready, not yet dispatched
+| Task | Why not yet |
+|---|---|
+| JB-1.04 BrushDabber | 🟦 Ready, needs 0.03 ✅. Dispatch 1 returned empty, 0 files. Retry with a scaffolded brief. **Keystone of Phase 1** — unblocks 1.05a → 1.05b → 1.21. |
+| JB-0.08a `.joybrush` archive | 🟦 Ready, needs 0.02 + 0.04 ✅. Dispatch 1 returned empty. Retry. Owns the one line of `androidkit/build.gradle.kts` this round. |
+| JB-2.14a PNG writer | 🟦 Ready, no deps. **Held** so it does not race JB-0.08a for `androidkit/build.gradle.kts`. Send in the batch *after* 0.08a lands. |
+| JB-2.06a flood fill · JB-2.13a region renderer · JB-3.06a GIF · JB-4.03a sprite packer · JB-8.03 MyPaint import | 🟦 Ready, deps met, all in fresh folders. Nothing blocking them. |
+
+### 🔴 Blocked on another task
+`JB-0.06` · `JB-0.08b` · `JB-1.05a` · `JB-1.05b` · `JB-1.21` · `JB-2.02` · `D.01` — all need **JB-0.05**, which is space bunny #5's lane, not mine.
+`JB-2.14b` needs 2.13a + 2.14a + 0.08a.
+
+### ⛔ Not dispatchable at any tier
+| Task | Why |
+|---|---|
+| **JB-2.10** shape recognizer | **3 dispatches, 2 agent types, every one returned an empty report and wrote 0 files.** The spec is sound (136 lines, no odd encoding) — it is simply the heaviest maths in the T2 set: PCA on a 2×2 covariance, Kåsa algebraic circle fit, Ramer–Douglas–Peucker, and arc-length parametrisation, all derived from scratch with no reference, ~750 lines. **Do not run a 4th identical retry.** It needs one of: (a) split into 2.10a *recognise* / 2.10b *perfect*; (b) a brief that hands over the derivations; (c) a T1 attempt. That is a Lead decision — logged, not actioned. |
+
+### 🧭 Sweep notes (updated 2026-09-28)
+- **JB-5.02 is the first feature with a spec that named a *failure mode* rather than a function** ("distance-to-centreline is not enough, the stroke under the pen is usually not the nearest centreline"), and it shows: the half-width is in the score, ties are resolved by recency, and the agent found and fixed a `NaN` clock hole and an infinite-zoom slop. Read this spec's shape when writing the next one.
+- **Two `AnimOps` test failures were the same mistake twice**: a test asserting a *generation counter* instead of the invariant. Fixed structurally (identify the added frame as "the one not there before"), not by nudging an index. Watch for this in every agent's tests.
+- **Subagent reliability: 6 of 10 dispatches produced code.** Failures cluster by *task*, not by agent type. Treat an empty report as "nothing was written" and check the filesystem rather than waiting for a report.
+
 ## Open questions
 
 ### 🔴 For Claude — contract, and the only one that can lock a user out of their own file

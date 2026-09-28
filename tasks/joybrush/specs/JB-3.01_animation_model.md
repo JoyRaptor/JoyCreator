@@ -74,3 +74,46 @@ No pixels, no engine calls, no UI. Don't change DocModel types.
 Tests pass (paste) · commit `JB-3.01: animation model` · ROADMAP row → 🟧 Built.
 
 ## Questions
+
+*From the JB-3.01 builder, 2026-09-28. None of these block the build — `DocModel.kt` and `DocOps.kt`
+are untouched and nothing above contradicts them. They are the four things the contract above left
+open, each of which a later task would otherwise have to guess at, plus one thing the validator does
+not check.*
+
+1. **`moveFrame`'s `toIndex` — final index or drop gap?** Built as the index the frame **ends up
+   at**, so the legal range is `0..frames.size - 1` and `toIndex == frames.size` is REFUSED. A drag
+   handler that reports "the gap after the last frame" will therefore throw and must clamp. This is
+   deliberate (one meaning beats two) but JB-3.03's film strip has to know it.
+2. **An ANIMATION board with no frames** (which `DocOps.validate` rule 4 rejects). Built as:
+   `addFrame(BLANK)` **works** — it is how such a board is made into a board, and it leaves a
+   document that validates clean. `DUPLICATE`, `LINK`, `animateLayer`, `deleteFrame`, `setHold` and
+   `moveFrame` all refuse, as does `frameAt` (it must return a `Frame` and there is none to return).
+   `totalDurationMs` and `frameStartsMs` are **total**: 0.0 and an empty list. A board that is empty
+   is an empty schedule; a board whose `fps` is outside **1..60** is a broken one, and all three
+   time functions refuse that in words.
+   **The rate guard is `DocOps.validate` rule 4's own `fps !in 1f..60f`, on purpose** (added after a
+   first run: a `fps <= 0` guard let `Infinity` through, and an infinite fps makes every frame 0 ms
+   long, so `totalDurationMs` answered 0.0 and `frameAt` answered "the last frame" at every time —
+   a confident wrong answer from a document the validator had already called broken). `AnimOps` must
+   not be able to call a board playable that `validate` calls broken, so it uses the same range in
+   the same idiom. JB-3.0x: **do the same for any other number you do arithmetic on.**
+3. **`addFrame`'s SOURCE frame when `afterFrameId` is null** (inserting at the start). Built as the
+   frame that is **currently first** — the one the new frame lands on top of, which is the frame the
+   playhead is on when somebody taps "add frame here". `DUPLICATE` and `LINK` are refused on an
+   empty board rather than quietly doing something else.
+4. **`addFrame` id allocation.** Ids are drawn in a fixed SHAPE — the new FRAME first, then one cel
+   per animated layer, in the order the layers sit in the document — and an id the document is
+   already using anywhere is **refused** in words, which is stricter than `DocOps.validate` (that
+   only forbids a repeat *within* one list). One flat rule beat four namespaces to remember; say the
+   word if the Lead wants it loosened to the per-namespace rule.
+   The shape is for DIAGNOSIS only. **Which layer gets which id is not part of this contract**: the
+   first test run proved that the hard way, when a test asserting `[c-anim, gen1]` failed with
+   `[c-anim, gen2]` — correct behaviour (the fixture's bottom layer animates first and so drew the
+   earlier number), wrong test. Every test now asserts structure — two cels, the right mapping,
+   `validate` clean, no orphans — and **exactly one** test pins the shape on purpose. A caller must
+   read ids out of the returned document, never assume them.
+5. **`DocOps.validate` does not require every cel of an animated layer to be shown by some frame** —
+   an orphan cel is *valid* as far as the validator is concerned. `AnimOps` never produces one
+   (`deleteFrame` drops a cel no remaining frame points at, and emits `DropCel` for the engine to
+   free), and a 300-step randomised test asserts the invariant anyway. JB-3.0x should not assume
+   the validator will catch a leak.

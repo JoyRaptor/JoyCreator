@@ -23,7 +23,7 @@ Each setting = base value + per-input piecewise-linear curves whose outputs ADD 
 
 ## Contract
 ```kotlin
-package cc.joycreator.joybrush.core.brush.imports   // ("import" is a Kotlin keyword)s
+package cc.joycreator.joybrush.core.brush.imports   // ("import" is a Kotlin keyword)
 data class ImportResult(val preset: BrushPreset, val warnings: List<String>)
 object MypaintImport {
     fun convert(mybJson: String, id: String, name: String): ImportResult   // throws BrushException on unreadable input

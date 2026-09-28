@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Joy Brush Lab — PC brush tuning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+  :root{
+    --ground:#000000; --panel:#111114; --line:#2C2C35; --text:#E4E4E7; --dim:#A1A1AA;
+    --accent:#8AB4F8; --warn:#E0A340;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--ground);color:var(--text);font-family:var(--sans);font-size:13px;overflow:hidden}
+
+  #topbar{display:flex;align-items:center;gap:18px;height:46px;padding:0 14px;
+    background:var(--panel);border-bottom:1px solid var(--line);position:relative;z-index:5}
+  #topbar h1{font-size:14px;font-weight:600;margin:0;letter-spacing:.2px;white-space:nowrap}
+  #topbar h1 span{color:var(--dim);font-weight:400}
+  #meter{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  #meterText{white-space:nowrap}
+  #meter.warn #meterText,#meter.warn #meterWarn{color:var(--warn)}
+  #meterWarn{display:none;font-weight:500}
+  #meter.warn #meterWarn{display:inline}
+  #bufTag{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--dim);
+    border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap}
+
+  #layout{display:flex;height:calc(100% - 46px)}
+  #panel{width:326px;flex:0 0 326px;height:100%;overflow-y:auto;background:var(--panel);
+    border-right:1px solid var(--line);padding:10px 12px 40px}
+  #stage{flex:1;height:100%;overflow:auto;padding:18px}
+
+  fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 12px;padding:8px 10px 10px}
+  legend{font-size:10px;letter-spacing:.9px;text-transform:uppercase;color:var(--dim);padding:0 5px}
+
+  .row{display:grid;grid-template-columns:96px 1fr 62px;align-items:center;gap:8px;height:24px}
+  .row > label{color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row > input[type=range]{width:100%;accent-color:var(--accent);height:16px}
+  .scrub{font-family:var(--mono);font-size:11px;text-align:right;background:transparent;
+    border:1px solid var(--line);border-radius:4px;color:var(--text);padding:2px 4px;
+    cursor:ew-resize;user-select:none;white-space:nowrap;overflow:hidden}
+  .scrub:hover{border-color:var(--dim)}
+  .scrub input{width:100%;background:var(--ground);color:var(--text);border:1px solid var(--accent);
+    border-radius:3px;font:inherit;padding:0;text-align:right}
+  .row.wide{grid-template-columns:96px 1fr}
+  .row select{background:var(--ground);color:var(--text);border:1px solid var(--line);
+    border-radius:4px;font:inherit;padding:2px 4px}
+  .row input[type=color]{width:100%;height:20px;background:var(--ground);
+    border:1px solid var(--line);border-radius:4px;padding:1px}
+  .row input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);grid-column:2;justify-self:start}
+
+  .actions{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0}
+  button.b{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:6px;
+    padding:6px 11px;font:inherit;font-size:12px;cursor:pointer}
+  button.b:hover{border-color:var(--dim)}
+  button.b:active{background:var(--line)}
+
+  #canvasWrap{position:relative;width:1600px;height:1000px;background:var(--ground);
+    border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  canvas#gl{display:block;width:1600px;height:1000px;touch-action:none;cursor:crosshair}
+  #hint{color:var(--dim);font-family:var(--mono);font-size:11px;margin:8px 0 0;max-width:1000px;line-height:1.6}
+  #hud{margin:8px 0 0;font-family:var(--mono);font-size:11px;color:var(--dim);
+    max-width:1600px;line-height:1.5;word-break:break-all}
+
+  #fatal{position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:50;overflow:auto;padding:40px}
+  #fatal .box{max-width:760px;margin:0 auto}
+  #fatal h2{margin:0 0 12px;font-size:17px;color:var(--warn)}
+  #fatal pre{font-family:var(--mono);font-size:11.5px;color:var(--dim);white-space:pre-wrap;
+    border:1px solid var(--line);border-radius:6px;padding:14px;background:var(--panel);
+    max-height:52vh;overflow:auto;line-height:1.6}
+  #fatal code{font-family:var(--mono);color:var(--text);background:var(--panel);
+    border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <h1>Joy Brush Lab <span>&mdash; tune the look, the phone judges the feel</span></h1>
+  <div id="meter" title="Phone budget: dabs per second and total dab pixels per second over the last second. The average dab area is in this tooltip.">
+    <span id="meterText">&mdash; dabs/s</span>
+    <span id="meterWarn">may be slow on a Note 9</span>
+  </div>
+  <div id="bufTag">starting&hellip;</div>
+</header>
+
+<div id="layout">
+  <aside id="panel"></aside>
+  <main id="stage">
+    <div id="canvasWrap"><canvas id="gl" width="1600" height="1000"></canvas></div>
+    <p id="hint"></p>
+    <div id="hud">no sample yet</div>
+  </main>
+</div>
+
+<div id="fatal" hidden><div class="box">
+  <h2 id="fatalTitle"></h2>
+  <div id="fatalBody"></div>
+  <pre id="fatalLog"></pre>
+</div></div>
+
+<input type="file" id="fileIn" accept=".json,application/json" hidden>
+
+<script>
+'use strict';
+(function () {
+
+/* ==========================================================================
+   Joy Brush Lab - PC brush tuning (JB-1.20).
+
+   The one rule that matters: jb_tip.glsl and jb_grain.glsl are NOT in this
+   file. They are the same files the phone compiles, fetched at runtime and
+   pasted after this page's own `#version 300 es` header. If they ever need to
+   change, they change in joybrush/shaders/ and both surfaces move together.
+   ========================================================================== */
+
+/* ------------------------------------------------------------- constants */
+
+const CSS_W = 1600, CSS_H = 1000;                 // Decision 9
+const DEG = Math.PI / 180, HALF_PI = Math.PI / 2, TAU = Math.PI * 2;
+const STORE_KEY = 'joybrush.brushlab.params.v1';
+
+// Tried in order. The absolute paths are the ones the spec names (page served
+// from the repo root); the relative ones let the page work when the server's
+// document root is one level above the repo.
+const SHADER_SOURCES = [
+  ['/joybrush/shaders/jb_tip.glsl',   '../../joybrush/shaders/jb_tip.glsl'],
+  ['/joybrush/shaders/jb_grain.glsl', '../../joybrush/shaders/jb_grain.glsl'],
+];
+const GRAIN_SOURCES = [
+  '/joybrush/assets/grain/cloud_256.png', '../../joybrush/assets/grain/cloud_256.png',
+];
+
+const DAB_FLOATS = 9;   // cx cy radius angle | pressure tilt leanX leanY | flow
+const DAB_STRIDE = DAB_FLOATS * 4;
+const TIP_LEAN_TILT = 0.17;              // Decision 4: above this the pen's lean aims the tip
+const DIR_DAMP_PX = 6;                   // Decision 4: k = 1 - exp(-step/6px)
+const BUDGET_DABS = 20000, BUDGET_PIXELS = 60e6;   // Decision 8
+const MAX_DABS_PER_EVENT = 20000;        // stops a 0 spacing from hanging the tab
+
+/* ----------------------------------------------------------------- utils */
+
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+function wrapPi(a) { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; }
+// Declared up here, not down with the preset code: DEFAULT_PRESET is cloned at
+// module evaluation time and would hit the temporal dead zone.
+const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+const clone = o => JSON.parse(JSON.stringify(o));
+const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+const bool = (v, d) => (typeof v === 'boolean' ? v : d);
+const baseOf = p => (isObj(p) ? num(p.base, undefined) : undefined);
+function hexToRgb(hex) {
+  let h = String(hex).trim().replace('#', '');
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  const n = parseInt(h, 16);
+  if (!isFinite(n)) return [0, 0, 0];
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+
+/* ------------------------------------------------------------ parameters */
+
+// Every knob the lab exposes. Single source of truth: the panel is generated
+// from this list, so a control and its handler cannot drift apart.
+const GROUPS = [
+  // Defaults here are BrushPreset's defaults, so an untouched lab produces the
+  // same brush the phone produces from a fresh BrushPreset().
+  { title: 'Preset', items: [
+    { k: 'name',           label: 'Name', type: 'text', def: 'Untitled brush' },
+    { k: 'sizeByPressure', label: 'Size by pressure', type: 'choice',
+      options: ['linear', 'off'], def: 'linear' },
+  ] },
+  { title: 'Brush', items: [
+    { k: 'size',       label: 'Size',        min: 1,   max: 400, step: 0.5, def: 40,  unit: 'px' },
+    { k: 'flow',       label: 'Flow',        min: 0.01, max: 1,  step: 0.01, def: 1 },
+    { k: 'opacity',    label: 'Opacity',     min: 0.01, max: 1,  step: 0.01, def: 1 },
+    { k: 'spacing',    label: 'Spacing',     min: 1,   max: 100, step: 1,   def: 4,   unit: '%' },
+    { k: 'hardness',   label: 'Hardness',    min: 0,   max: 1,   step: 0.01, def: 0.9 },
+    { k: 'corner',     label: 'Corner',      min: 0.5, max: 16,  step: 0.1,  def: 2 },
+    { k: 'taper',      label: 'Taper',       min: 0,   max: 1,   step: 0.01, def: 0 },
+    { k: 'aspect',     label: 'Aspect',      min: -1,  max: 1,   step: 0.01, def: 0 },
+    { k: 'angle',      label: 'Angle',       min: -180, max: 180, step: 1,  def: 0,  unit: '\u00B0' },
+    { k: 'follow',     label: 'Follow dir',  type: 'check', def: false },
+    { k: 'minPx',      label: 'Min px',      min: 0,   max: 8,   step: 0.1,  def: 1,  unit: 'px' },
+  ] },
+  { title: 'Tip texture', items: [
+    { k: 'tipOn',        label: 'On',            type: 'check', def: false },
+    { k: 'tipScale',     label: 'Scale',         min: 0.05, max: 6, step: 0.05, def: 1 },
+    { k: 'tipDepth',     label: 'Depth',         min: 0, max: 1, step: 0.01, def: 1 },
+    { k: 'tipEdge',      label: 'Edge',          min: 0, max: 1, step: 0.01, def: 0.3 },
+    { k: 'tiltGradient', label: 'Tilt gradient', min: -2, max: 2, step: 0.01, def: 0 },
+    { k: 'radial',       label: 'Radial',        min: 0, max: 1, step: 0.01, def: 0 },
+  ] },
+  { title: 'Paper grain', items: [
+    { k: 'paperOn',    label: 'On',    type: 'check', def: false },
+    { k: 'paperScale', label: 'Scale', min: 0.05, max: 6, step: 0.05, def: 1 },
+    { k: 'paperDepth', label: 'Depth', min: 0, max: 1, step: 0.01, def: 1 },
+    { k: 'paperEdge',  label: 'Edge',  min: 0, max: 1, step: 0.01, def: 0.3 },
+  ] },
+  { title: 'Stroke', items: [
+    { k: 'mode',  label: 'Mode', type: 'choice', options: ['wash', 'buildup'], def: 'wash' },
+    { k: 'fakeRotation', label: 'Fake rotation', type: 'check', def: false },
+    { k: 'fakeAngle',     label: 'Fake angle',  min: -180, max: 180, step: 1, def: 0, unit: '\u00B0' },
+  ] },
+  { title: 'Colour', items: [
+    { k: 'brushColour', label: 'Brush', type: 'color', def: '#101014' },
+    { k: 'paperColour', label: 'Paper', type: 'color', def: '#FFFFFF' },
+  ] },
+];
+
+const ITEM = {};
+for (const g of GROUPS) for (const it of g.items) ITEM[it.k] = it;
+
+const V = {};
+for (const k in ITEM) V[k] = ITEM[k].def;
+
+/* ----------------------------------------------------------- brush.json */
+
+// NOT provisional any more: this mirrors joybrush/core/.../brush/BrushPreset.kt
+// (JB-0.03, committed 5295eacf) field for field, in declaration order, so
+// kotlinx.serialization with ignoreUnknownKeys reads what we write. The one
+// thing we add is `extensions`, which the contract itself defines as
+// Map<String,String> for lossless storage of things outside the preset - that
+// is where the lab's own ink/paper colours and fake rotation live, because
+// BrushPreset has no ink colour of its own (its `color` is ColorJitter).
+const BRUSH_FORMAT = 'joybrush.brush';
+const BRUSH_VERSION = 1;
+
+const DEFAULT_PRESET = {
+  format: BRUSH_FORMAT,
+  version: BRUSH_VERSION,
+  id: '',                       // required, no Kotlin default: filled in on save
+  name: 'Untitled brush',       // required, no Kotlin default
+  engine: 'stamp',
+  tip: {
+    source: 'procedural',
+    image: null,
+    corner: 2,
+    taper: 0,
+    aspect: 0,
+    angle: { base: 0, inputs: [], combine: 'multiply' },        // DEGREES
+    followDirection: false,
+    hardness: { base: 0.9, inputs: [], combine: 'multiply' },
+    minPx: 1,
+  },
+  size: { base: 40, inputs: [], combine: 'multiply' },          // diameter, px
+  opacity: { base: 1, inputs: [], combine: 'multiply' },
+  flow: { base: 1, inputs: [], combine: 'multiply' },
+  spacing: 0.04,                 // FRACTION of diameter, not a percentage
+  tipTexture: {
+    enabled: false, source: 'cloud', image: null, scale: 1,
+    depth: { base: 1, inputs: [], combine: 'multiply' },
+    edge: 0.3, tiltGradient: 0, radial: 0,
+  },
+  paperGrain: {
+    enabled: false, source: 'cloud', image: null, scale: 1,
+    depth: { base: 1, inputs: [], combine: 'multiply' },
+    edge: 0.3, tiltGradient: 0, radial: 0,
+  },
+  scatter: {
+    amount: { base: 0, inputs: [], combine: 'multiply' },
+    count: 1, countJitter: 0, bothAxes: true,
+  },
+  sizeJitter: 0,
+  angleJitter: 0,
+  color: { hue: 0, saturation: 0, value: 0, perStroke: false },
+  accumulate: 'wash',           // "wash" | "buildup"
+  blend: 'normal',               // "normal" | "erase"
+  smoothing: 0.3,
+  license: 'CC0',
+  author: '',
+  sourceFormat: 'native',
+  extensions: {},
+};
+
+let preset = clone(DEFAULT_PRESET);   // the whole preset, driven by the panel
+
+/* ------------------------------------------------------------------ state */
+
+let gl = null, progDab = null, progPresent = null, progCommit = null;
+let texGrain = null;
+let paintTarget = null, strokeTarget = null;
+let quadBuf = null, dabBuf = null, vaoQuad = null, vaoDab = null;
+let floatBuffer = false, ready = false, drawing = false;
+let dpr = 1, pendingResize = true, sharedGLSL = '';
+
+let dabPending = new Float32Array(DAB_FLOATS * 4096), dabPendingN = 0;
+let frameDabs = 0, frameArea = 0, meterT0 = 0, lastPresented = 0;
+const meterWin = [];              // {t, n, area} over the last second
+
+const stroke = {
+  active: false, id: null, last: null, residual: 0,
+  prevDab: null, dirX: 1, dirY: 0, penTwist: false, lastSample: null,
+};
+
+const ctl = {};                   // param key -> { row, range|input, out }
+let persistQueued = false;
+
+/* ------------------------------------------------------- preset plumbing */
+
+function slug(s) {
+  const t = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return t || 'brush';
+}
+
+// The contract's Param, written without losing the parts the lab has no
+// control for: `inputs` and `combine` survive unless this call drives them.
+function setParam(t, base, inputs) {
+  if (!isObj(t)) return;
+  t.base = base;
+  t.inputs = inputs !== undefined ? inputs : (Array.isArray(t.inputs) ? t.inputs : []);
+  if (typeof t.combine !== 'string') t.combine = 'multiply';
+}
+
+function setGrain(g, on, scale, depth, edge, tiltGradient, radial) {
+  if (!isObj(g)) return;
+  g.enabled = on;
+  g.source = 'cloud';
+  g.image = null;
+  g.scale = scale;
+  setParam(g.depth, depth);
+  g.edge = edge;
+  // null means "the lab has no control for this, leave whatever was loaded".
+  if (tiltGradient !== null && tiltGradient !== undefined) g.tiltGradient = tiltGradient;
+  if (radial !== null && radial !== undefined) g.radial = radial;
+}
+
+// [[0,0],[1,1]] = the output follows the input linearly. This is how the lab
+// expresses "size grows with pressure" in the contract's own language.
+function linearCurve(input) {
+  return { input: input, curve: [[0, 0], [1, 1]] };
+}
+
+// Merge over the defaults so a hand-written file missing a key still loads, and
+// so any key we do not know is carried into the preset and written back out. A
+// null never overwrites a good default: `image: String?` is the only nullable
+// field and its default is already null.
+function mergePreset(def, over) {
+  const out = clone(def);
+  if (!isObj(over)) return out;
+  for (const k in over) {
+    const v = over[k];
+    if (v === undefined || v === null) continue;
+    out[k] = (isObj(v) && isObj(out[k])) ? mergePreset(out[k], v) : v;
+  }
+  return out;
+}
+
+// `id`, `name` and `size` are required and the nested Params have to be objects,
+// so a file that mistypes one of them must still save into something the phone
+// will accept rather than into a brush.json it rejects outright.
+function repair(p) {
+  const d = DEFAULT_PRESET;
+  for (const k of ['tip', 'tipTexture', 'paperGrain', 'scatter', 'color', 'extensions']) {
+    if (!isObj(p[k])) p[k] = clone(d[k]);
+  }
+  const put = (obj, key, def) => { if (!isObj(obj[key])) obj[key] = clone(def); };
+  put(p, 'size', d.size);
+  put(p, 'opacity', d.opacity);
+  put(p, 'flow', d.flow);
+  put(p.tip, 'angle', d.tip.angle);
+  put(p.tip, 'hardness', d.tip.hardness);
+  put(p.tipTexture, 'depth', d.tipTexture.depth);
+  put(p.paperGrain, 'depth', d.paperGrain.depth);
+  return p;
+}
+
+function findCurves(p, path, out) {
+  out = out || [];
+  if (isObj(p)) {
+    if (Array.isArray(p.inputs) && p.inputs.length) out.push(path);
+    for (const k in p) findCurves(p[k], path ? path + '.' + k : k, out);
+  }
+  return out;
+}
+
+// Panel -> preset. Only the fields the lab actually drives are written; every
+// other key (scatter, colour jitter, smoothing, blend, license...) is whatever
+// was loaded, so a round trip through the lab loses nothing.
+function toPreset() {
+  const p = repair(preset);
+  p.format = BRUSH_FORMAT;
+  p.version = BRUSH_VERSION;
+  p.name = V.name || 'Untitled brush';
+  p.id = slug(V.name);
+  p.tip.source = 'procedural';
+  p.tip.image = null;
+  p.tip.corner = V.corner;
+  p.tip.taper = V.taper;
+  p.tip.aspect = V.aspect;
+  setParam(p.tip.angle, V.angle);
+  p.tip.followDirection = !!V.follow;
+  setParam(p.tip.hardness, V.hardness);
+  p.tip.minPx = V.minPx;
+  setParam(p.size, V.size,
+    V.sizeByPressure === 'linear' ? [linearCurve('pressure')] : []);
+  setParam(p.opacity, V.opacity);
+  setParam(p.flow, V.flow);
+  p.spacing = V.spacing / 100;
+  setGrain(p.tipTexture, !!V.tipOn, V.tipScale, V.tipDepth, V.tipEdge, V.tiltGradient, V.radial);
+  setGrain(p.paperGrain, !!V.paperOn, V.paperScale, V.paperDepth, V.paperEdge, null, null);
+  p.accumulate = V.mode === 'buildup' ? 'buildup' : 'wash';
+  p.extensions = Object.assign({}, p.extensions, {
+    brushColour: V.brushColour,
+    paperColour: V.paperColour,
+    fakeRotation: String(!!V.fakeRotation),
+    fakeAngleDegrees: String(V.fakeAngle),
+    writtenBy: 'tools/brushlab/BrushLab.html (JB-1.20)',
+  });
+  return p;
+}
+
+// Preset -> panel. Every read is defensive: a field that is absent, null or
+// the wrong type falls back to the contract default rather than poisoning a
+// uniform with NaN.
+function fromPreset(p) {
+  const t = isObj(p.tip) ? p.tip : {};
+  const tt = isObj(p.tipTexture) ? p.tipTexture : {};
+  const pg = isObj(p.paperGrain) ? p.paperGrain : {};
+  V.name = typeof p.name === 'string' && p.name ? p.name : 'Untitled brush';
+  V.size = clamp(num(baseOf(p.size), 40), 1, 400);
+  V.opacity = clamp(num(baseOf(p.opacity), 1), 0.01, 1);
+  V.flow = clamp(num(baseOf(p.flow), 1), 0.01, 1);
+  V.spacing = Math.round(clamp(num(p.spacing, 0.04) * 100, 1, 100));
+  V.corner = clamp(num(t.corner, 2), 0.5, 16);
+  V.taper = clamp(num(t.taper, 0), 0, 1);
+  V.aspect = clamp(num(t.aspect, 0), -1, 1);
+  V.angle = clamp(num(baseOf(t.angle), 0), -180, 180);
+  V.hardness = clamp(num(baseOf(t.hardness), 0.9), 0, 1);
+  V.follow = bool(t.followDirection, false);
+  V.minPx = clamp(num(t.minPx, 1), 0, 8);
+  V.tipOn = bool(tt.enabled, false);
+  V.tipScale = clamp(num(tt.scale, 1), 0.05, 6);
+  V.tipDepth = clamp(num(baseOf(tt.depth), 1), 0, 1);
+  V.tipEdge = clamp(num(tt.edge, 0.3), 0, 1);
+  V.tiltGradient = clamp(num(tt.tiltGradient, 0), -2, 2);
+  V.radial = clamp(num(tt.radial, 0), 0, 1);
+  V.paperOn = bool(pg.enabled, false);
+  V.paperScale = clamp(num(pg.scale, 1), 0.05, 6);
+  V.paperDepth = clamp(num(baseOf(pg.depth), 1), 0, 1);
+  V.paperEdge = clamp(num(pg.edge, 0.3), 0, 1);
+  V.mode = p.accumulate === 'buildup' ? 'buildup' : 'wash';
+  V.sizeByPressure = (isObj(p.size) && Array.isArray(p.size.inputs) && p.size.inputs.length)
+    ? 'linear' : 'off';
+  const ex = isObj(p.extensions) ? p.extensions : {};
+  if (typeof ex.brushColour === 'string') V.brushColour = ex.brushColour;
+  if (typeof ex.paperColour === 'string') V.paperColour = ex.paperColour;
+  if (typeof ex.fakeRotation === 'string') V.fakeRotation = ex.fakeRotation === 'true';
+  if (typeof ex.fakeAngleDegrees === 'string') {
+    const a = parseFloat(ex.fakeAngleDegrees);
+    if (isFinite(a)) V.fakeAngle = clamp(a, -180, 180);
+  }
+  for (const k in ITEM) paint(ITEM[k]);
+}
+
+/* ============================== shader source ============================ */
+
+async function fetchFirst(cands) {
+  const tried = [];
+  for (const url of cands) {
+    try {
+      const res = await fetch(url, { cache: 'no-cache' });
+      if (!res.ok) { tried.push(url + '  ->  HTTP ' + res.status); continue; }
+      return { url: url, text: await res.text() };
+    } catch (e) {
+      tried.push(url + '  ->  ' + (e && e.message ? e.message : String(e)));
+    }
+  }
+  return { error: tried.join('\n') };
+}
+
+async function loadSharedShaders() {
+  const res = await Promise.all(SHADER_SOURCES.map(fetchFirst));
+  const bad = res.filter(r => r.error).map(r => r.error).join('\n');
+  if (bad) {
+    fatal('Could not load the shared shaders',
+      'Brush Lab compiles the <em>same</em> GLSL files the phone does &mdash; ' +
+      '<code>joybrush/shaders/jb_tip.glsl</code> and <code>jb_grain.glsl</code> &mdash; and it ' +
+      'will not fall back to a private copy of them. So it has to be served over HTTP: opening ' +
+      'the file directly (<code>file://</code>) always fails here, because <code>fetch</code> is ' +
+      'blocked on local files.' +
+      '<p>From the repo root:</p><p><code>python -m http.server 8777</code></p>' +
+      '<p>then open <code>http://127.0.0.1:8777/tools/brushlab/BrushLab.html</code></p>', bad);
+    return false;
+  }
+  sharedGLSL = res[0].text + '\n' + res[1].text;
+  return true;
+}
+
+/* ================================= GLSL ================================= */
+
+const VS_DAB = `#version 300 es
+layout(location = 0) in vec2 aCorner;
+layout(location = 1) in vec4 aDab0;   // cx, cy, radiusPx, angle
+layout(location = 2) in vec4 aDab1;   // pressure, tilt, leanX, leanY
+layout(location = 3) in float aFlow;
+uniform vec2 uCanvas;                 // drawing-buffer size, px
+out vec2 vLocal;
+out float vAngle;
+out float vRadius;
+out float vPressure;
+out float vTilt;
+out float vFlow;
+out vec2 vLean;
+void main() {
+  // The quad is the nominal dab plus a 2px skirt: room for the tip's own
+  // antialiasing band and for grain sampled just outside the shape.
+  vec2 halfPx = vec2(aDab0.z + 2.0);
+  vec2 p = aDab0.xy + aCorner * halfPx;
+  vLocal = p - aDab0.xy;
+  vAngle = aDab0.w;
+  vRadius = aDab0.z;
+  vPressure = aDab1.x;
+  vTilt = aDab1.y;
+  vLean = aDab1.zw;
+  vFlow = aFlow;
+  gl_Position = vec4(p.x / uCanvas.x * 2.0 - 1.0, 1.0 - p.y / uCanvas.y * 2.0, 0.0, 1.0);
+}`;
+
+// __SHARED__ is where joybrush/shaders/jb_tip.glsl and jb_grain.glsl are pasted,
+// verbatim, straight after the precision block.
+const FS_DAB = `#version 300 es
+precision highp float;
+precision highp int;
+uniform vec3  uBrush;
+uniform float uOpacity;
+uniform float uAspect;
+uniform float uCorner;
+uniform float uTaper;
+uniform float uHardness;
+uniform float uMinPx;
+uniform float uTipOn;
+uniform float uTipDepth;
+uniform float uTipEdge;
+uniform float uTiltGradient;
+uniform float uRadial;
+uniform float uTilePx;
+uniform float uPaperOn;
+uniform float uPaperScale;
+uniform float uPaperDepth;
+uniform float uPaperEdge;
+uniform sampler2D uGrain;
+in vec2 vLocal;
+in float vAngle;
+in float vRadius;
+in float vPressure;
+in float vTilt;
+in float vFlow;
+in vec2 vLean;
+layout(location = 0) out vec4 fragColor;
+__SHARED__
+void main() {
+  float r = max(vRadius, 0.25);
+  JbTip tip = JbTip(r, vAngle, uAspect, uCorner, uTaper, uHardness, uMinPx);
+  float cov = jb_tipCoverage(vLocal, tip);
+
+  // localN and leanDir are in the SAME frame: vLocal is canvas space (y down),
+  // and so is the azimuth-derived lean, so neither is rotated by vAngle.
+  vec2 localN = vLocal / r;
+  vec2 leanDir = normalize(vLean + vec2(1e-5, 0.0));
+  float tiltAmount = sin(clamp(vTilt, 0.0, 1.5707963));
+
+  if (uTipOn > 0.5) {
+    // Dab space: undo the tip rotation so the grain turns with the brush, and
+    // divide by the NOMINAL size (not this dab's radius) so the grain sticks to
+    // the tip instead of swelling and shrinking with pressure.
+    float ca = cos(vAngle), sa = sin(vAngle);
+    vec2 q = vec2(ca * vLocal.x + sa * vLocal.y, -sa * vLocal.x + ca * vLocal.y);
+    float h = texture(uGrain, q / max(uTilePx, 1.0) + 0.5).r;
+    float lvl = jb_grainLevel(uTipDepth * vPressure, cov, localN, leanDir,
+                              tiltAmount, uTiltGradient, uRadial);
+    cov = jb_grainedCoverage(cov, jb_heightCoverage(h, lvl, uTipEdge));
+  }
+
+  if (uPaperOn > 0.5) {
+    // Canvas space: the paper stays put while the brush moves over it.
+    float hp = texture(uGrain, gl_FragCoord.xy / max(uPaperScale * 256.0, 1.0)).r;
+    cov *= jb_heightCoverage(hp, uPaperDepth * vPressure, uPaperEdge);
+  }
+
+  float a = clamp(cov, 0.0, 1.0) * vFlow * uOpacity;
+  fragColor = vec4(uBrush * a, a);
+}`;
+
+const VS_QUAD = `#version 300 es
+layout(location = 0) in vec2 aCorner;
+out vec2 vUv;
+void main() {
+  vUv = aCorner * 0.5 + 0.5;
+  gl_Position = vec4(aCorner, 0.0, 1.0);
+}`;
+
+// One shader for both "show the live stroke buffer over the painting" and
+// "the stroke is finished". Compositing a stroke is the same operation either
+// way: cap alpha at the stroke opacity, un-overbrighten the premultiplied
+// colour, then over-blend.
+const FS_PRESENT = `#version 300 es
+precision highp float;
+precision highp int;
+uniform sampler2D uPaint;
+uniform sampler2D uStroke;
+uniform vec3 uPaper;
+uniform float uOpacity;
+in vec2 vUv;
+layout(location = 0) out vec4 fragColor;
+void main() {
+  vec4 p = texture(uPaint, vUv);
+  vec3 c = p.rgb + uPaper * (1.0 - p.a);            // painting over the paper colour
+  vec4 s = texture(uStroke, vUv);
+  float a = clamp(min(s.a, uOpacity), 0.0, 1.0);
+  vec3 sr = s.a > 1e-5 ? s.rgb * (a / s.a) : vec3(0.0);
+  c = sr + c * (1.0 - a);
+  fragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+}`;
+
+const FS_COMMIT = `#version 300 es
+precision highp float;
+precision highp int;
+uniform sampler2D uStroke;
+uniform float uOpacity;
+uniform float uCopy;          // 1 = straight copy, used when a resize moves the painting
+in vec2 vUv;
+layout(location = 0) out vec4 fragColor;
+void main() {
+  vec4 s = texture(uStroke, vUv);
+  if (uCopy > 0.5) { fragColor = s; return; }
+  float a = clamp(min(s.a, uOpacity), 0.0, 1.0);   // buildup caps here, on commit
+  vec3 rgb = s.a > 1e-5 ? s.rgb * (a / s.a) : vec3(0.0);
+  fragColor = vec4(rgb, a);
+}`;
+
+/* ============================== GL bootstrap ============================= */
+
+function compile(type, src, what) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    const log = what + ':\n' + gl.getShaderInfoLog(sh);
+    gl.deleteShader(sh);
+    throw new Error(log);
+  }
+  return sh;
+}
+
+function program(vs, fs, what) {
+  const p = gl.createProgram();
+  const v = compile(gl.VERTEX_SHADER, vs, what + ' vertex shader');
+  const f = compile(gl.FRAGMENT_SHADER, fs, what + ' fragment shader');
+  gl.attachShader(p, v); gl.attachShader(p, f); gl.linkProgram(p);
+  gl.deleteShader(v); gl.deleteShader(f);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    const log = what + ':\n' + gl.getProgramInfoLog(p);
+    gl.deleteProgram(p);
+    throw new Error(log);
+  }
+  const u = {};
+  const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) {
+    const info = gl.getActiveUniform(p, i);
+    u[info.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(p, info.name);
+  }
+  return { p: p, u: u };
+}
+
+function initContext() {
+  const canvas = $('gl');
+  gl = canvas.getContext('webgl2', {
+    alpha: false, antialias: false, depth: false, stencil: false,
+    premultipliedAlpha: true, preserveDrawingBuffer: true,   // so a screenshot shows the mark
+  });
+  if (!gl) {
+    fatal('This browser has no WebGL2',
+      'Brush Lab needs <code>WebGL2</code> and will not fall back to WebGL1 &mdash; the shared ' +
+      'shaders are written for GLSL ES 3.00 and the phone runs those same ones. Try a current ' +
+      'Chrome, Edge or Firefox, and check that hardware acceleration is switched on.');
+    return false;
+  }
+  floatBuffer = !!gl.getExtension('EXT_color_buffer_float');   // Decision 1
+  return true;
+}
+
+function initPrograms() {
+  try {
+    // Replacer function, not a replacement string: a `$&` in the GLSL would
+    // otherwise be eaten by String.replace's substitution syntax.
+    progDab = program(VS_DAB, FS_DAB.replace('__SHARED__', () => sharedGLSL), 'dab');
+    progPresent = program(VS_QUAD, FS_PRESENT, 'present');
+    progCommit = program(VS_QUAD, FS_COMMIT, 'commit');
+  } catch (e) {
+    fatal('The shared shaders did not compile',
+      'Unexpected &mdash; these files are also built for the phone, so this is a browser or driver ' +
+      'problem, not a brush problem. The compiler log is below.',
+      String(e && e.message || e));
+    return false;
+  }
+
+  gl.disable(gl.DEPTH_TEST);
+  gl.disable(gl.CULL_FACE);
+  gl.disable(gl.BLEND);
+  gl.clearColor(0, 0, 0, 0);
+
+  quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+
+  vaoQuad = gl.createVertexArray();
+  gl.bindVertexArray(vaoQuad);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
+  gl.bindVertexArray(null);
+
+  dabBuf = gl.createBuffer();
+  vaoDab = gl.createVertexArray();
+  gl.bindVertexArray(vaoDab);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
+  gl.vertexAttribDivisor(0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, dabBuf);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, DAB_STRIDE, 0);
+  gl.vertexAttribDivisor(1, 1);
+  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, DAB_STRIDE, 16);
+  gl.vertexAttribDivisor(2, 1);
+  gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 1, gl.FLOAT, false, DAB_STRIDE, 32);
+  gl.vertexAttribDivisor(3, 1);
+  gl.bindVertexArray(null);
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+  paintTag();
+  return true;
+}
+
+function paintTag() {
+  const el = $('bufTag');
+  el.textContent = floatBuffer
+    ? 'RGBA16F stroke buffer \u00B7 WebGL2'
+    : 'RGBA8 stroke buffer (no EXT_color_buffer_float) \u00B7 WebGL2';
+  el.title = floatBuffer
+    ? 'Dabs accumulate in a half-float buffer, so buildup can go past 1.0 before the opacity cap.'
+    : 'EXT_color_buffer_float is missing, so buildup saturates at 1.0 instead of piling up. ' +
+      'The opacity cap still applies when the stroke is committed.' +
+      (texGrain ? '' : '  Grain texture: generated in JS (JB-1.03 PNG not found).');
+}
+
+/* -------------------------------------------------------------- targets */
+
+function makeTarget(w, h, floating) {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  if (floating) {
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  } else {
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  }
+  // NEAREST + CLAMP: both buffers are a 1:1 image of the framebuffer, and any
+  // filtering here would be a lie about the mark.
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.bindTexture(gl.TEXTURE_2D, null);
+  return { tex: tex, fbo: fbo, ok: ok, w: w, h: h };
+}
+
+function destroyTarget(t) {
+  if (!t) return;
+  gl.deleteTexture(t.tex);
+  gl.deleteFramebuffer(t.fbo);
+}
+
+function allocTargets(w, h) {
+  const oldPaint = paintTarget, oldStroke = strokeTarget;
+
+  let st = makeTarget(w, h, floatBuffer);
+  if (!st.ok) {
+    // Some drivers advertise EXT_color_buffer_float and then refuse RGBA16F.
+    destroyTarget(st);
+    floatBuffer = false;
+    st = makeTarget(w, h, false);
+    if (st.ok) paintTag();
+  }
+  if (!st.ok) {
+    destroyTarget(st);
+    fatal('Could not allocate the stroke buffer',
+      'The drawing surface could not be created at ' + w + ' \u00D7 ' + h + '. Try a smaller ' +
+      'display scale, or a machine with more graphics memory.', '');
+    ready = false;
+    return false;
+  }
+  strokeTarget = st;
+
+  if (oldPaint) {
+    // Carry the painting across the resize instead of losing it.
+    const next = makeTarget(w, h, false);
+    blit(oldPaint.tex, next, 1);
+    paintTarget = next;
+    destroyTarget(oldPaint);
+  } else {
+    paintTarget = makeTarget(w, h, false);
+  }
+  destroyTarget(oldStroke);
+  if (!paintTarget.ok) {
+    fatal('Could not allocate the painting buffer',
+      'The drawing surface could not be created at ' + w + ' \u00D7 ' + h + '.', '');
+    ready = false;
+    return false;
+  }
+  clearTarget(paintTarget);
+  clearTarget(strokeTarget);
+  return true;
+}
+
+function clearTarget(t) {
+  if (!t) return;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
+  gl.viewport(0, 0, t.w, t.h);
+  gl.disable(gl.BLEND);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
+function bindTex(unit, tex, loc) {
+  gl.activeTexture(gl.TEXTURE0 + unit);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.uniform1i(loc, unit);
+}
+
+// Straight copy of one fullscreen quad's worth of texture into a target.
+function blit(srcTex, dstTarget, copy) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, dstTarget.fbo);
+  gl.viewport(0, 0, dstTarget.w, dstTarget.h);
+  gl.disable(gl.BLEND);
+  gl.useProgram(progCommit.p);
+  bindTex(0, srcTex, progCommit.u.uStroke);
+  gl.uniform1f(progCommit.u.uOpacity, 1);
+  gl.uniform1f(progCommit.u.uCopy, copy);
+  gl.bindVertexArray(vaoQuad);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.bindVertexArray(null);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
+/* ----------------------------------------------------------- grain texture */
+
+function hash2(x, y) {
+  let n = Math.imul(x, 374761393) + Math.imul(y, 668265263);
+  n = Math.imul(n ^ (n >>> 13), 1274126177);
+  return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+}
+
+// Value noise on an f x f lattice that wraps, so the tile has no seam.
+function tileNoise(x, y, f, N) {
+  const fx = x / N * f, fy = y / N * f;
+  const x0 = Math.floor(fx), y0 = Math.floor(fy);
+  let tx = fx - x0, ty = fy - y0;
+  tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+  const h00 = hash2(((x0 % f) + f) % f, ((y0 % f) + f) % f);
+  const h10 = hash2((((x0 + 1) % f) + f) % f, ((y0 % f) + f) % f);
+  const h01 = hash2(((x0 % f) + f) % f, (((y0 + 1) % f) + f) % f);
+  const h11 = hash2((((x0 + 1) % f) + f) % f, (((y0 + 1) % f) + f) % f);
+  const a = h00 + (h10 - h00) * tx, b = h01 + (h11 - h01) * tx;
+  return a + (b - a) * ty;
+}
+
+// JB-1.03's PNG if it is there, a tileable fBm in JS if it is not. Either way
+// the shaders stay the shared ones: the texture is only an input to them.
+async function initGrain() {
+  let img = null;
+  for (const url of GRAIN_SOURCES) {
+    img = await new Promise(resolve => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => resolve(null);
+      im.src = url;
+    });
+    if (img) break;
+  }
+  const N = 256;
+  let px;
+  if (img) {
+    const cv = document.createElement('canvas');
+    cv.width = N; cv.height = N;
+    const cx = cv.getContext('2d');
+    cx.drawImage(img, 0, 0, N, N);
+    px = cx.getImageData(0, 0, N, N).data;
+  } else {
+    px = new Uint8Array(N * N * 4);
+    const oct = [[4, 0.55], [8, 0.25], [16, 0.13], [32, 0.07]];
+    let norm = 0; for (const o of oct) norm += o[1];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      let v = 0;
+      for (const o of oct) v += o[1] * tileNoise(x, y, o[0], N);
+      const c = Math.round(clamp(v / norm, 0, 1) * 255);
+      const i = (y * N + x) * 4;
+      px[i] = c; px[i + 1] = c; px[i + 2] = c; px[i + 3] = 255;
+    }
+  }
+  texGrain = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texGrain);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, N, N, 0, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);      // tiled in both spaces
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  gl.bindTexture(gl.TEXTURE_2D, null);
+  paintTag();
+}
+
+/* ================================= render =============================== */
+
+function doResize() {
+  pendingResize = false;
+  dpr = clamp(window.devicePixelRatio || 1, 1, 2);   // 3x would want 4800x3000, twice over
+  const canvas = $('gl');
+  const w = Math.round(CSS_W * dpr), h = Math.round(CSS_H * dpr);
+  if (canvas.width === w && canvas.height === h && paintTarget) return;
+  canvas.width = w; canvas.height = h;
+  if (!allocTargets(w, h)) return;
+  dabPendingN = 0;
+}
+
+function pushDab(d) {
+  if (dabPendingN + DAB_FLOATS > dabPending.length) {
+    const bigger = new Float32Array(dabPending.length * 2);
+    bigger.set(dabPending);
+    dabPending = bigger;
+  }
+  dabPending.set(d, dabPendingN);
+  dabPendingN += DAB_FLOATS;
+}
+
+function flushDabs() {
+  if (dabPendingN === 0 || !strokeTarget) return;
+  const n = dabPendingN / DAB_FLOATS;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, strokeTarget.fbo);
+  gl.viewport(0, 0, strokeTarget.w, strokeTarget.h);
+
+  gl.enable(gl.BLEND);
+  if (V.mode === 'wash') {
+    // "Alpha darken": the stroke only ever gets darker, it never builds up.
+    // MAX ignores the blend factors, which is why the opacity cap is applied to
+    // src.a on the CPU side instead.
+    gl.blendEquationSeparate(gl.FUNC_ADD, gl.MAX);
+    gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE);
+  } else {
+    gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
+    gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  }
+
+  gl.useProgram(progDab.p);
+  const u = progDab.u;
+  const c = hexToRgb(V.brushColour);
+  gl.uniform3f(u.uBrush, c[0], c[1], c[2]);
+  gl.uniform1f(u.uOpacity, V.opacity);
+  gl.uniform1f(u.uAspect, V.aspect);
+  gl.uniform1f(u.uCorner, V.corner);
+  gl.uniform1f(u.uTaper, V.taper);
+  gl.uniform1f(u.uHardness, V.hardness);
+  gl.uniform1f(u.uMinPx, V.minPx);
+  gl.uniform1f(u.uTipOn, V.tipOn ? 1 : 0);
+  gl.uniform1f(u.uTipDepth, V.tipDepth);
+  gl.uniform1f(u.uTipEdge, V.tipEdge);
+  gl.uniform1f(u.uTiltGradient, V.tiltGradient);
+  gl.uniform1f(u.uRadial, V.radial);
+  gl.uniform1f(u.uTilePx, Math.max(V.size * dpr * V.tipScale, 1));
+  gl.uniform1f(u.uPaperOn, V.paperOn ? 1 : 0);
+  gl.uniform1f(u.uPaperScale, V.paperScale);
+  gl.uniform1f(u.uPaperDepth, V.paperDepth);
+  gl.uniform1f(u.uPaperEdge, V.paperEdge);
+  gl.uniform2f(u.uCanvas, strokeTarget.w, strokeTarget.h);
+  bindTex(0, texGrain, u.uGrain);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, dabBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, dabPending.subarray(0, dabPendingN), gl.DYNAMIC_STREAM);
+  gl.bindVertexArray(vaoDab);
+  gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
+  gl.bindVertexArray(null);
+
+  gl.disable(gl.BLEND);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  dabPendingN = 0;
+}
+
+function present() {
+  if (!paintTarget || !strokeTarget) return;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, $('gl').width, $('gl').height);
+  gl.disable(gl.BLEND);
+  gl.useProgram(progPresent.p);
+  const u = progPresent.u;
+  const p = hexToRgb(V.paperColour);
+  gl.uniform3f(u.uPaper, p[0], p[1], p[2]);
+  gl.uniform1f(u.uOpacity, V.opacity);
+  bindTex(0, paintTarget.tex, u.uPaint);
+  bindTex(1, strokeTarget.tex, u.uStroke);
+  gl.bindVertexArray(vaoQuad);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.bindVertexArray(null);
+  lastPresented = performance.now();
+}
+
+function commitStroke() {
+  if (!paintTarget || !strokeTarget) return;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, paintTarget.fbo);
+  gl.viewport(0, 0, paintTarget.w, paintTarget.h);
+  gl.enable(gl.BLEND);
+  gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
+  gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.useProgram(progCommit.p);
+  bindTex(0, strokeTarget.tex, progCommit.u.uStroke);
+  gl.uniform1f(progCommit.u.uOpacity, V.opacity);
+  gl.uniform1f(progCommit.u.uCopy, 0);
+  gl.bindVertexArray(vaoQuad);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.bindVertexArray(null);
+  gl.disable(gl.BLEND);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  clearTarget(strokeTarget);      // the stroke buffer is per-stroke
+}
+
+/* ================================ input ================================= */
+
+// Decision 2. Every field of PenSample is filled in, so the HUD can show the
+// mapping and a test can read window.__lastPenSample.
+function readTilt(e) {
+  const alt = Number.isFinite(e.altitudeAngle) ? e.altitudeAngle : null;
+  const azi = Number.isFinite(e.azimuthAngle) ? e.azimuthAngle : NaN;
+  // A browser with no altitude sensor reports exactly PI/2 (perpendicular),
+  // which is indistinguishable from a real pen held upright. So when altitude
+  // says "upright" and the legacy angles disagree, believe the legacy angles.
+  if (alt !== null && alt < HALF_PI - 1e-4) {
+    return { tilt: clamp(HALF_PI - alt, 0, HALF_PI), azimuth: wrapPi(azi) };
+  }
+  if (Number.isFinite(e.tiltX) && Number.isFinite(e.tiltY)) {
+    const tx = Math.tan(e.tiltX * DEG), ty = Math.tan(e.tiltY * DEG);
+    if (tx !== 0 || ty !== 0) {
+      return {
+        tilt: Math.min(Math.atan(Math.sqrt(tx * tx + ty * ty)), HALF_PI),
+        azimuth: wrapPi(Math.atan2(ty, tx)),
+      };
+    }
+  }
+  if (alt !== null) return { tilt: 0, azimuth: wrapPi(azi) };
+  return { tilt: NaN, azimuth: NaN };
+}
+
+function readSample(e, canvas) {
+  const r = canvas.getBoundingClientRect();
+  const sx = canvas.width / r.width, sy = canvas.height / r.height;
+  const t = readTilt(e);
+
+  // Decision 2. A pen that reports 0 while in contact must NOT become a
+  // full-size blob at the start of every stroke, so 0-with-buttons-down means
+  // "this device measures no pressure", not "pressed hard".
+  let pressure;
+  if (e.pointerType === 'mouse') pressure = 0.5;
+  else if (Number.isFinite(e.pressure) && e.pressure > 0) pressure = e.pressure;
+  else pressure = e.buttons ? 0.02 : 1;
+
+  let barrel = NaN;
+  if (Number.isFinite(e.twist)) {
+    if (e.twist !== 0) stroke.penTwist = true;              // "non-zero ever"
+    if (stroke.penTwist) barrel = e.twist;
+  }
+
+  const tool = e.pointerType === 'pen' ? 'STYLUS'
+             : e.pointerType === 'touch' ? 'FINGER' : 'MOUSE';
+
+  return {
+    x: (e.clientX - r.left) * sx,
+    y: (e.clientY - r.top) * sy,
+    timeMs: e.timeStamp,
+    pressure: clamp(pressure, 0.01, 1),
+    tilt: t.tilt,
+    azimuth: t.azimuth,
+    barrel: barrel,
+    tool: tool,
+    predicted: false,                       // coalesced events are real, never predicted
+  };
+}
+
+function barrelFor(s) {
+  if (Number.isFinite(s.barrel)) return s.barrel;
+  if (V.fakeRotation) return V.fakeAngle * DEG;
+  return 0;                                 // "else NaN" - and NaN means no rotation
+}
+
+function lerpSample(a, b, t) {
+  const bothAz = Number.isFinite(a.azimuth) && Number.isFinite(b.azimuth);
+  const bothBr = Number.isFinite(a.barrel) && Number.isFinite(b.barrel);
+  const bothTi = Number.isFinite(a.tilt) && Number.isFinite(b.tilt);
+  // Interpolate the lean VECTOR, not the angle: halfway between +179 and -179
+  // degrees is 0 degrees, halfway between the two vectors is 180.
+  const lx = Math.cos(Number.isFinite(a.azimuth) ? a.azimuth : 0);
+  const ly = Math.sin(Number.isFinite(a.azimuth) ? a.azimuth : 0);
+  const mx = Math.cos(Number.isFinite(b.azimuth) ? b.azimuth : 0);
+  const my = Math.sin(Number.isFinite(b.azimuth) ? b.azimuth : 0);
+  const vx = lx + (mx - lx) * t, vy = ly + (my - ly) * t;
+  const vl = Math.hypot(vx, vy) || 1;
+  return {
+    x: a.x + (b.x - a.x) * t,
+    y: a.y + (b.y - a.y) * t,
+    timeMs: a.timeMs + (b.timeMs - a.timeMs) * t,
+    pressure: a.pressure + (b.pressure - a.pressure) * t,
+    tilt: bothTi ? a.tilt + (b.tilt - a.tilt) * t : (t < 0.5 ? a.tilt : b.tilt),
+    azimuth: bothAz ? Math.atan2(vy / vl, vx / vl) : (t < 0.5 ? a.azimuth : b.azimuth),
+    barrel: bothBr ? a.barrel + (b.barrel - a.barrel) * t : (t < 0.5 ? a.barrel : b.barrel),
+    tool: t < 0.5 ? a.tool : b.tool,
+    predicted: false,
+  };
+}
+
+function emitDab(x, y, s) {
+  // Follow-direction damping, the way DirectionTracker.kt does it.
+  if (stroke.prevDab) {
+    const dx = x - stroke.prevDab.x, dy = y - stroke.prevDab.y;
+    const step = Math.hypot(dx, dy);
+    if (step > 1e-6) {
+      const k = 1 - Math.exp(-step / DIR_DAMP_PX);
+      const nx = stroke.dirX * (1 - k) + (dx / step) * k;
+      const ny = stroke.dirY * (1 - k) + (dy / step) * k;
+      const nl = Math.hypot(nx, ny);
+      if (nl > 1e-6) { stroke.dirX = nx / nl; stroke.dirY = ny / nl; }
+    }
+  } else {
+    stroke.dirX = 1; stroke.dirY = 0;
+  }
+  stroke.prevDab = { x: x, y: y };
+
+  const leaning = Number.isFinite(s.tilt) && s.tilt > TIP_LEAN_TILT && Number.isFinite(s.azimuth);
+  let base = 0;
+  if (leaning) base = s.azimuth;                            // Decision 4
+  else if (V.follow) base = Math.atan2(stroke.dirY, stroke.dirX);
+  const angle = base + V.angle * DEG + barrelFor(s);
+
+  // The same choice the preset records: `linear` writes size.inputs =
+  // [{input:"pressure", curve:[[0,0],[1,1]]}], and it must draw the same way.
+  const radius = (V.sizeByPressure === 'linear' ? Math.max(s.pressure, 0.01) : 1)
+              * 0.5 * V.size * dpr;
+  const lx = Number.isFinite(s.azimuth) ? Math.cos(s.azimuth) : 1;
+  const ly = Number.isFinite(s.azimuth) ? Math.sin(s.azimuth) : 0;
+
+  const d = new Float32Array(DAB_FLOATS);
+  d[0] = x; d[1] = y; d[2] = radius; d[3] = angle;
+  d[4] = clamp(s.pressure, 0, 1);
+  d[5] = Number.isFinite(s.tilt) ? s.tilt : 0;
+  d[6] = lx; d[7] = ly;
+  d[8] = V.flow;
+  pushDab(d);
+
+  frameDabs++;
+  frameArea += Math.PI * radius * radius;
+}
+
+function feed(s) {
+  if (!stroke.active) return;
+  if (stroke.last === null) {
+    // A tap with no movement still has to leave a dot.
+    stroke.last = s; stroke.residual = 0;
+    emitDab(s.x, s.y, s);
+    return;
+  }
+  const dx = s.x - stroke.last.x, dy = s.y - stroke.last.y;
+  const seg = Math.hypot(dx, dy);
+  if (seg <= 1e-6) { stroke.last = s; return; }     // same place: no dabs, no spacing burned
+
+  const spacing = Math.max((V.spacing / 100) * V.size * dpr, 0.05);
+  const ux = dx / seg, uy = dy / seg;
+  // residual = distance from the last dab to the end of the previous event.
+  let t = spacing - stroke.residual;
+  if (t < 0) t = 0;
+  let guard = 0;
+  // Strictly less than seg, so a dab landing exactly on the junction is placed
+  // by the NEXT event instead of being placed twice.
+  while (t < seg && guard++ < MAX_DABS_PER_EVENT) {
+    emitDab(stroke.last.x + ux * t, stroke.last.y + uy * t, lerpSample(stroke.last, s, t / seg));
+    t += spacing;
+  }
+  stroke.residual = seg - (t - spacing);
+  stroke.last = s;
+}
+
+function showSample(s) {
+  if (!s) return;
+  stroke.lastSample = s;
+  window.__lastPenSample = s;                        // for a Playwright assertion
+  const f = v => (typeof v === 'number' && isFinite(v) ? Math.round(v * 1000) / 1000 : String(v));
+  $('hud').textContent =
+    'PenSample  x=' + f(s.x) + '  y=' + f(s.y) + '  timeMs=' + f(s.timeMs) +
+    '  pressure=' + f(s.pressure) + '  tilt=' + f(s.tilt) + '  azimuth=' + f(s.azimuth) +
+    '  barrel=' + f(s.barrel) + '  tool=' + s.tool + '  predicted=' + s.predicted;
+}
+
+function canDraw() {
+  return ready && paintTarget && strokeTarget;
+}
+
+function beginStroke(e) {
+  if (!canDraw() || drawing) return;
+  if (e.button !== undefined && e.button !== 0) return;
+  drawing = true; stroke.active = true; stroke.id = e.pointerId;
+  stroke.last = null; stroke.residual = 0;
+  stroke.prevDab = null; stroke.dirX = 1; stroke.dirY = 0;
+  clearTarget(strokeTarget);
+  const s = readSample(e, $('gl'));
+  feed(s);
+  showSample(s);
+  $('gl').setPointerCapture(e.pointerId);
+  e.preventDefault();
+}
+
+function moveStroke(e) {
+  if (!drawing || e.pointerId !== stroke.id) return;
+  const co = e.getCoalescedEvents ? e.getCoalescedEvents() : null;   // Decision 2
+  const evs = (co && co.length) ? co : [e];
+  const canvas = $('gl');
+  for (const ev of evs) feed(readSample(ev, canvas));
+  showSample(stroke.last);
+  e.preventDefault();
+}
+
+function endStroke(e) {
+  if (!drawing || (e && e.pointerId !== undefined && e.pointerId !== stroke.id)) return;
+  flushDabs();
+  commitStroke();
+  drawing = false; stroke.active = false; stroke.last = null;
+  // A resize requested mid-stroke is left pending: frame() applies it now that
+  // the stroke buffer is committed and cleared.
+  const canvas = $('gl');
+  if (e && canvas.hasPointerCapture && canvas.hasPointerCapture(e.pointerId)) {
+    canvas.releasePointerCapture(e.pointerId);
+  }
+}
+
+/* ================================ budget ================================ */
+
+function updateMeter(now) {
+  if (!meterT0) meterT0 = now;
+  meterWin.push({ t: now, n: frameDabs, area: frameArea });
+  while (meterWin.length && now - meterWin[0].t > 1000) meterWin.shift();
+  frameDabs = 0; frameArea = 0;
+  if (now - lastPresented < 200) return;                     // 5 Hz is plenty to read
+  if (now - meterT0 < 500) return;                           // no warning off a single frame
+
+  let n = 0, area = 0;
+  for (const s of meterWin) { n += s.n; area += s.area; }
+  const span = clamp((now - meterWin[0].t + 16) / 1000, 0.05, 1);
+  const dabsS = n / span, areaS = area / span;
+  const over = dabsS > BUDGET_DABS || areaS > BUDGET_PIXELS;
+  $('meterText').textContent =
+    Math.round(dabsS) + ' dabs/s \u00B7 ' + (areaS / 1e6).toFixed(1) + ' M dab-px/s';
+  $('meter').classList.toggle('warn', over);
+  $('meter').title = 'Average dab area ' + Math.round(n ? area / n : 0) + ' px\u00B2. ' +
+    (over ? 'Over the phone budget \u2014 may be slow on a Note 9.'
+          : 'Within the phone budget.');
+}
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (!ready) return;
+  if (pendingResize) {
+    if (drawing) return;                                     // never resize mid-stroke
+    doResize();
+    if (!ready) return;
+    flushDabs();
+    present();
+  } else if (drawing) {
+    flushDabs();                                             // only the new dabs
+    present();
+  }
+  updateMeter(now);
+}
+
+/* ================================ panel ================================ */
+
+function fmt(it, v) {
+  if (it.unit === '%') return Math.round(v) + '%';
+  if (it.unit === 'px') return (v >= 10 ? Math.round(v) : Math.round(v * 10) / 10) + 'px';
+  if (it.unit === '\u00B0') return Math.round(v) + '\u00B0';
+  return Math.round(v * 1000) / 1000;
+}
+
+function quantise(it, v) {
+  v = clamp(v, it.min, it.max);
+  const s = it.step || 0.01;
+  return Math.round(v / s) * s;
+}
+
+function paint(it) {
+  const c = ctl[it.k];
+  if (!c) return;
+  const v = V[it.k];
+  if (c.range) c.range.value = String(v);
+  if (it.type === 'check') c.input.checked = !!v;
+  else if (it.type === 'color') c.input.value = v;
+  else if (it.type === 'choice') c.input.value = v;
+  else if (it.type === 'text') c.input.value = v;
+  else if (c.out && !c.out.dataset.editing) c.out.textContent = fmt(it, v);
+}
+
+function persist() {
+  if (persistQueued) return;
+  persistQueued = true;
+  requestAnimationFrame(() => {
+    persistQueued = false;
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(V)); }
+    catch (e) { /* private mode: the sliders still work, they just will not stick */ }
+  });
+}
+
+function setValue(k, v) {
+  const it = ITEM[k];
+  if (!it) return;
+  if (typeof v === 'number' && !isFinite(v)) return;      // a typed field left empty
+  V[k] = (it.type === 'check' || it.type === 'color' || it.type === 'choice' || it.type === 'text')
+    ? v : quantise(it, v);
+  paint(it);
+  persist();
+}
+
+function restore() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    // Validated by type, because a stored value goes straight into a uniform:
+    // a hand-edited or older store must not be able to poison one with NaN or
+    // an out-of-range number.
+    for (const k in ITEM) {
+      if (!(k in o)) continue;
+      const it = ITEM[k];
+      if (it.type === 'choice') { if (it.options.indexOf(o[k]) >= 0) V[k] = o[k]; }
+      else if (it.type === 'check') V[k] = !!o[k];
+      else if (it.type === 'text') V[k] = String(o[k]);
+      else if (it.type === 'color') V[k] = String(o[k]);
+      else if (typeof o[k] === 'number' && isFinite(o[k])) V[k] = clamp(o[k], it.min, it.max);
+    }
+  } catch (e) { /* corrupt or blocked: the defaults stand */ }
+}
+
+function buildPanel() {
+  const panel = $('panel');
+  for (const g of GROUPS) {
+    const fs = document.createElement('fieldset');
+    const lg = document.createElement('legend');
+    lg.textContent = g.title;
+    fs.appendChild(lg);
+
+    for (const it of g.items) {
+      const row = document.createElement('div');
+      row.className = 'row' + (it.type ? ' wide' : '');
+      const lab = document.createElement('label');
+      lab.textContent = it.label;
+      row.appendChild(lab);
+
+      const c = { row: row };
+      if (!it.type) {
+        const range = document.createElement('input');
+        range.type = 'range';
+        range.min = it.min; range.max = it.max; range.step = it.step;
+        range.value = String(V[it.k]);
+        range.addEventListener('input', () => setValue(it.k, parseFloat(range.value)));
+        row.appendChild(range);
+        c.range = range;
+
+        const out = document.createElement('div');
+        out.className = 'scrub';
+        out.title = 'drag sideways \u00B7 shift \u00D710 \u00B7 alt \u00D70.1 \u00B7 double-click to type';
+        row.appendChild(out);
+        c.out = out;
+        attachScrub(out, it);
+      } else if (it.type === 'check') {
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.checked = !!V[it.k];
+        box.addEventListener('change', () => setValue(it.k, box.checked));
+        row.appendChild(box);
+        c.input = box;
+      } else if (it.type === 'color') {
+        const col = document.createElement('input');
+        col.type = 'color';
+        col.value = V[it.k];
+        col.addEventListener('input', () => setValue(it.k, col.value));
+        row.appendChild(col);
+        c.input = col;
+      } else if (it.type === 'text') {
+        const tx = document.createElement('input');
+        tx.type = 'text';
+        tx.value = V[it.k];
+        tx.spellcheck = false;
+        tx.addEventListener('input', () => setValue(it.k, tx.value));
+        row.appendChild(tx);
+        c.input = tx;
+      } else if (it.type === 'choice') {
+        const sel = document.createElement('select');
+        for (const o of it.options) {
+          const op = document.createElement('option');
+          op.value = o; op.textContent = o;
+          sel.appendChild(op);
+        }
+        sel.value = V[it.k];
+        sel.addEventListener('change', () => setValue(it.k, sel.value));
+        row.appendChild(sel);
+        c.input = sel;
+      }
+      ctl[it.k] = c;
+      fs.appendChild(row);
+      paint(it);
+    }
+    panel.appendChild(fs);
+  }
+
+  const acts = document.createElement('fieldset');
+  const lg = document.createElement('legend');
+  lg.textContent = 'File';
+  acts.appendChild(lg);
+  const bar = document.createElement('div');
+  bar.className = 'actions';
+  const mk = (text, fn) => {
+    const b = document.createElement('button');
+    b.className = 'b'; b.type = 'button'; b.textContent = text;
+    b.addEventListener('click', fn);
+    bar.appendChild(b);
+  };
+  mk('Clear', () => { if (!canDraw()) return; clearTarget(paintTarget); clearTarget(strokeTarget); });
+  mk('Save brush.json', saveJson);
+  mk('Load brush.json', () => $('fileIn').click());
+  acts.appendChild(bar);
+  panel.appendChild(acts);
+}
+
+function attachScrub(out, it) {
+  out.addEventListener('pointerdown', e => {
+    if (out.dataset.editing) return;
+    out.setPointerCapture(e.pointerId);
+    const startX = e.clientX, start = V[it.k];
+    const perPx = (it.max - it.min) / 400;
+    const move = ev => {
+      const speed = ev.shiftKey ? 10 : ev.altKey ? 0.1 : 1;
+      setValue(it.k, start + (ev.clientX - startX) * perPx * speed);
+    };
+    const up = () => {
+      if (out.hasPointerCapture(e.pointerId)) out.releasePointerCapture(e.pointerId);
+      out.removeEventListener('pointermove', move);
+      out.removeEventListener('pointerup', up);
+      out.removeEventListener('pointercancel', up);
+    };
+    out.addEventListener('pointermove', move);
+    out.addEventListener('pointerup', up);
+    out.addEventListener('pointercancel', up);
+    e.preventDefault();
+  });
+
+  out.addEventListener('dblclick', () => {
+    if (out.dataset.editing) return;
+    out.dataset.editing = '1';
+    const inp = document.createElement('input');
+    inp.type = 'number';
+    inp.min = it.min; inp.max = it.max; inp.step = it.step;
+    inp.value = String(V[it.k]);
+    out.textContent = '';
+    out.appendChild(inp);
+    inp.focus();
+    inp.select();
+    const done = commit => {
+      if (commit) setValue(it.k, parseFloat(inp.value));
+      delete out.dataset.editing;
+      inp.remove();
+      paint(it);
+    };
+    inp.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') { ev.preventDefault(); done(true); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); done(false); }
+      ev.stopPropagation();
+    });
+    inp.addEventListener('blur', () => done(true));
+  });
+}
+
+/* ============================ brush.json i/o ============================ */
+
+function saveJson() {
+  const p = toPreset();
+  // Pretty, keys in BrushPreset's declaration order, every default written
+  // out - the same shape BrushJson.encode() produces.
+  const blob = new Blob([JSON.stringify(p, null, 2) + '\n'], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'brush.json';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
+
+function loadJson(file) {
+  const fr = new FileReader();
+  fr.onload = () => {
+    let o;
+    try { o = JSON.parse(String(fr.result)); }
+    catch (e) { $('hud').textContent = 'That file is not JSON: ' + e.message; return; }
+    if (!isObj(o)) { $('hud').textContent = 'That file holds no brush.'; return; }
+    // Merged over the defaults, so a hand-written file missing a key still
+    // loads and a key we do not know is carried through to the next save.
+    preset = mergePreset(DEFAULT_PRESET, o);
+    fromPreset(preset);
+    const curves = findCurves(preset);
+    $('hud').textContent = 'Loaded ' + file.name + ' \u2014 ' +
+      (curves.length ? curves.join(', ') : 'none') +
+      '. The lab reads every param as its flat base; size.inputs is the only curve it writes.';
+  };
+  fr.readAsText(file);
+}
+
+/* ================================ errors ================================ */
+
+function fatal(title, html, log) {
+  ready = false;
+  $('fatalTitle').textContent = title;
+  $('fatalBody').innerHTML = html;                 // only ever our own markup
+  $('fatalLog').textContent = log || '';
+  $('fatalLog').style.display = log ? 'block' : 'none';
+  $('fatal').hidden = false;
+  $('bufTag').textContent = 'not running';
+}
+
+/* ================================= boot ================================= */
+
+async function boot() {
+  restore();
+  buildPanel();
+  $('hint').textContent =
+    'Draw on the paper with a pen, a finger or the mouse. Size, spacing and the grain are in CSS ' +
+    'pixels \u2014 the lab scales them by the display so the mark looks the same on any screen. ' +
+    'Numbers are scrubbable: drag them sideways, shift \u00D710, alt \u00D70.1, double-click to ' +
+    'type. The look you set here is only ever as good as the shared shaders it runs, and the ' +
+    'phone runs those same files.';
+
+  if (!initContext()) return;                 // no WebGL2: explained, nothing to draw on
+  if (!await loadSharedShaders()) return;     // fetch blocked (file://): explained, not faked
+  if (!initPrograms()) return;
+  await initGrain();
+
+  ready = true;
+  pendingResize = true;
+
+  const canvas = $('gl');
+  canvas.addEventListener('pointerdown', beginStroke);
+  canvas.addEventListener('pointermove', moveStroke);
+  canvas.addEventListener('pointerup', endStroke);
+  canvas.addEventListener('pointercancel', endStroke);
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  window.addEventListener('resize', () => { pendingResize = true; });
+  $('fileIn').addEventListener('change', e => {
+    if (e.target.files && e.target.files[0]) loadJson(e.target.files[0]);
+    e.target.value = '';
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && drawing) endStroke({ pointerId: stroke.id });
+  });
+
+  requestAnimationFrame(frame);
+}
+
+boot();
+
+})();
+</script>
+</body>
+</html>

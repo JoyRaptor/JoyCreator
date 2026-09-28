@@ -81,3 +81,84 @@ Screenshots + clean console · only owner-area files · commit `JB-1.20: PC Brus
 🟧 Built.
 
 ## Questions
+
+*Note: an earlier draft of this section asked for JB-0.03's key names. That is **answered** — the
+lab now mirrors `BrushPreset.kt` field for field (see 1 below), and the provisional stamp is gone
+from both the page and the README.*
+
+### 1. RESOLVED — Save/Load now conforms to `BrushPreset.kt`
+The lab holds a complete mirror of `BrushPreset` and writes it whole, so `BrushJson.decode()`
+reads it and `encodeDefaults` means no key is missing. The mapping that mattered, because my
+provisional guesses were wrong in *shape*, not just in spelling:
+
+| Panel | Real field | My earlier guess was |
+|---|---|---|
+| Size | `size: Param` (`base`/`inputs`/`combine`) | a flat number — **would have been rejected** |
+| Flow, Opacity | `flow` / `opacity`: `Param` | flat numbers — rejected |
+| Hardness, Angle | `tip.hardness`, `tip.angle`: `Param`, **angle in degrees** | flat numbers; I had invented `angleRadians` |
+| Spacing | `spacing: Float`, a **fraction** (0.04), not a percent | `spacingPercent: 10` |
+| Wash / buildup | `accumulate: "wash" \| "buildup"` | a `buildup: Boolean` |
+| — | `format: "joybrush.brush"`, `version: 1` | `brushSchemaVersion: 1` |
+| — | **`id` and `name` are required, no Kotlin default** | I emitted neither — the phone would have thrown on decode |
+| Tip / paper grain | `tipTexture` / `paperGrain`: `GrainSpec` | flat keys |
+
+Defaults now come from `BrushPreset`, not from my taste: spacing 4 % (was 10), hardness 0.9
+(was 0.85), flow 1 (was 0.6), `followDirection` **false** (was true), grain `edge` 0.3 and
+`depth` 1. Note depth 1 is nearly solid — that is the contract default, so grain only becomes
+visible once you drag depth down. `TipSpec.source`/`image` and `GrainSpec.source`/`image` are
+always written `procedural`/`cloud` + `null`, because those are what the lab renders.
+
+### 2. Still open — the lab cannot evaluate input curves, only write them
+Reading `BrushPreset` resolved *how* pressure reaches size: `Param.inputs = [{input:"pressure",
+curve:[[0,0],[1,1]]}]`. The lab therefore writes that curve when **Size by pressure** is `linear`
+(default) and `[]` when it is `off`, and it draws the matching behaviour on screen — so the file
+and the picture always agree. **What remains open:** a phone brush carrying a *shaped* curve
+(a hard S-curve, say) will draw differently in the lab, because the lab has no curve evaluator and
+reads every param as its flat `base`. Loading reports which curves it found, and every curve
+except `size.inputs` is written back untouched — so nothing is lost, it is just not previewed.
+Does the lab need a curve editor to be useful to you, or is flat-base plus the `linear` shortcut
+enough for judging a look?
+
+### 3. Still open — what did pressure drive *before* the contract told me?
+Decision 5 lists `pressure` as a per-dab attribute and never says what it affects. I have it doing
+**both** `radiusPx = pressure × size / 2` and `jb_grainLevel(depth × pressure, ...)`. Size is
+needed or the required "pressure ramp with the default ink" screenshot is a flat ribbon, since
+with tip texture off grain depth is invisible. Question 2 covers the size half; what is still
+unconfirmed is whether **grain depth is also meant to follow pressure** on the phone, or whether
+`tipTexture.depth.inputs` is supposed to carry that instead.
+
+### 4. NEW — `BrushPreset` has no ink colour, so brush/paper colour have nowhere to go.
+`color: ColorJitter` is a *jitter* (hue/saturation/value/perStroke), not a colour. The lab's
+**brush colour** and **paper colour** are therefore parked in `extensions` (which the contract
+defines as `Map<String,String>` for exactly this — lossless storage outside the preset), alongside
+**fake rotation**. Is that the right home, or should `BrushPreset` grow a real `colour` field?
+Fake rotation is lab-only by nature (most S Pens report no barrel) — the contract expresses barrel
+the other way round, as `angle.inputs = [{input:"barrel", …}]`, which the lab does not write.
+
+### 5. NEW — `blend: "erase"` has no lab representation.
+The lab always renders `normal` blend. An erase brush loads and round-trips intact but is
+previewed as if it painted. Not a data problem; a fidelity gap. Does the lab need an eraser mode
+to be useful, or is erasing out of scope for a look-tuning tool?
+
+### 6. NEW — preserved but never previewed: `scatter`, `sizeJitter`, `angleJitter`, `color`,
+`smoothing`, `license`, `author`, `sourceFormat`, `engine`.
+These round-trip byte-identically (the lab keeps the whole preset object and only writes the
+fields it drives), so nothing is lost. But if you tune a brush that leans on scatter or jitter,
+the lab will not show you what it looks like. Flagging rather than guessing: out of scope for
+JB-1.20?
+
+### 7. The wash blend writes colour with `MAX`, which is only right for a constant colour.
+Decision 6 sanctions this ("simple approach acceptable: colour is the brush colour, constant
+within a stroke"), and the colour is constant per stroke here, so it is correct as built. Worth
+recording that the phone's wash cannot do this trick if it ever wants per-dab colour.
+
+### 8. Minor, not blocking: colour space.
+Both surfaces premultiply and over-blend in raw sRGB values with no linearisation. That matches as
+long as the phone does the same. If the phone blends in linear space, washes will look slightly
+heavier in the lab than on the phone.
+
+### 9. Verification I could NOT do — the visual check is OUTSTANDING, not done.
+The orchestrator ran `node --check` on the extracted `<script>` block and **it parses**, so the
+syntax is sound. Everything below is still unverified: the three screenshots and the clean-console
+check in the Verification section. No browser was available to me and no GLSL in this file has ever
+been compiled by a driver. Treat this task as built-but-unverified until someone draws on it.

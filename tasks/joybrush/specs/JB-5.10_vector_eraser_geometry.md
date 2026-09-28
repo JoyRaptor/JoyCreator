@@ -112,3 +112,35 @@ failures in `joybrush/core/build/test-results/jvmTest/`.
 - [ ] ROADMAP.md row → 🟧 Built
 
 ## Questions
+
+*Raised by the JB-5.10 build, 2026-09-28. None of these blocked the build; they are decisions I took
+that a later spec may want to overrule.*
+
+1. **The 0.5 doc px speck filter — PARTIAL only.** Decision 2 mandates dropping surviving pieces
+   under 0.5 doc px; decision 4 says only "the complement is the survivor list". I implemented the
+   filter for PARTIAL only, because that is the literal reading. TO_INTERSECTION can therefore
+   return a sub-0.5 doc px sliver. Either say so, or extend the filter to all modes.
+2. **An empty or half-built `EraserPath` touches nothing** rather than throwing. `InkLine` has
+   `require`s; `EraserPath` has none, so `EraserPath(DoubleArray(0), DoubleArray(0), r)` is legal and
+   means "the pen has not moved yet". Mismatched `xs`/`ys` lengths are tolerated the same way (only
+   the shared prefix is swept) rather than rejected. Confirm, or add `require`s to `EraserPath`.
+3. **Collinear overlap is a crossing, reported at both ends.** "Proper segment–segment
+   intersections" does not say what to do when two lines lie on top of each other. I treat the
+   overlap's entry and exit as two crossings, so a line lying along another trims to where the
+   overlap starts and ends. The alternative is to ignore collinear pairs entirely.
+4. **A line is never compared with another line of the same `id`.** The ids in `lines` are assumed
+   unique because `survivors` is keyed by them; the self-crossing rule is enforced on the id, not on
+   object identity, so a duplicated id is also skipped.
+5. **A degenerate segment still consumes a parameter step, so the answer is 2.6 — not 2.0.**
+   Worked example, which is also a test: a line through (0,0), (10,0), (10,0), (20,0) (it doubles
+   back, so points 1 and 2 are the same place under two different parameters), half-width 1, and a
+   dot eraser of radius 5 sitting on (10,0). The eraser reaches 5 + 1 = 6 doc px, so it cuts the
+   centreline from x = 4 to x = 16. Those are parameter 0.4 (on the point 0 → 1 segment) and
+   parameter 2.6 (on the point 2 → 3 segment). The zero-length segment between points 1 and 2 is
+   erased too, so the erased stretch is one unbroken run from 0.4 to 2.6 and the survivor restarts
+   at 2.6 — not at 1.0, and not at 2.0. The survivor does begin at the right *place* (x = 10), so
+   the picture is correct either way, but the numbers a later spec receives depend on this.
+6. **TO_INTERSECTION is quadratic in the number of lines.** With a left-to-right bounding-box sweep
+   it is fine for lines that do not all overlap (the tested case), but 50 long lines sharing one
+   region is the known worst case and is *not* covered by a timing test. A uniform grid over the
+   eraser path would fix it if a real layer turns out to look like that.

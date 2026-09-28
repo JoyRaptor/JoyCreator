@@ -168,3 +168,47 @@ Tests pass (paste output) · only owner-area files changed · commit `JB-0.02: d
 ROADMAP row → 🟧 Built.
 
 ## Questions
+
+## Lead rulings 2026-09-28
+
+Rulings from Claude (Lead) after the builder's adversarial audit. All five are implemented and each
+has its own test. They amend the contract above; where they disagree with it, they win.
+
+1. **`TILE_SIZE` must be the engine's constant, not a second copy.**
+   `const val TILE_SIZE = cc.joycreator.joybrush.core.paint.Tiles.SIZE`. `Cel.tiles` holds the keys the
+   engine wrote with `paint.Tiles`; two independent `256` literals can drift, and every tile in every
+   saved document would then point somewhere silent and wrong. The drift test is kept.
+   → `tileSizeIsTheEngineTileSizeNotASecondCopy`
+
+2. **New rule 11: a document needs at least one board and at least one layer.**
+   A document with nothing in it is not a document. Reported as one message per thing missing.
+   → `rule11_aDocumentNeedsABoardAndALayer`
+
+3. **Rule 7 gains its converse: every KEY in an animated layer's `frameCel` must be a frame id of its
+   board.** The rule already walked board → `frameCel`; it never walked `frameCel` → board, so a
+   mapping for a frame that does not exist survived validation forever, and deleting a frame left its
+   mapping behind as junk. Only checked when the layer's board exists and is an ANIMATION board, so a
+   document broken in one way still reports one problem.
+   → `rule7_aFrameMapMayNotNameAFrameThatDoesNotExist`
+
+4. **Rule 10 also checks `paper.textureScale`: over 0 and no more than 64.** Zero hides the paper and
+   a huge scale stretches one texel across the page. The lower bound is exclusive; `NaN` is rejected
+   explicitly because it answers false to every comparison.
+   → `rule10_paperTextureScaleHasToBeSane`
+
+5. **`newDocument` requires `w > 0 && h > 0`.** A document with no room cannot be drawn on. A caller
+   making a document is a program and should hear about it at once, rather than getting a document
+   that only fails later in `validate`.
+   → `newDocumentRefusesADocumentWithNoRoom`
+
+Also approved and left in: **`DocJson.encode` sorts `frameCel` by key before writing** (the
+`canonical()` pass). The audit proved by probe that without it two logically identical documents
+produced different bytes whenever the map was built in a different order — and a `.joybrush` is a file
+people diff and sync. Sorting loses nothing: play order is `Board.frames`, not the order of these
+keys, and object keys are already stable because kotlinx writes properties in declaration order.
+→ `encodingIsStableWhateverOrderTheFrameMapWasBuiltIn`
+
+The builder also noted, and the Lead did **not** rule on, that `decode` never validates on purpose: a
+document from a newer Joy Brush must still decode so `validate` can explain the version problem in
+words. `DocJson.decode` and `DocOps.validate` are therefore a pair, and callers should use both.
+

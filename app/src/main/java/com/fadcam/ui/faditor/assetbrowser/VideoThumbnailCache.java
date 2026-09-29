@@ -113,7 +113,7 @@ public final class VideoThumbnailCache {
         Bitmap mem = MEM_CACHE.get(key);
         if (mem != null && !mem.isRecycled()) {
             target.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            target.setBackgroundColor(Color.parseColor("#FF1F1F26"));
+            target.setBackgroundColor(com.fadcam.ui.faditor.Studio.RAISED);
             target.setImageBitmap(mem);
             return;
         }
@@ -125,7 +125,7 @@ public final class VideoThumbnailCache {
             if (bmp != null) {
                 MEM_CACHE.put(key, bmp);
                 target.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                target.setBackgroundColor(Color.parseColor("#FF1F1F26"));
+                target.setBackgroundColor(com.fadcam.ui.faditor.Studio.RAISED);
                 target.setImageBitmap(bmp);
                 return;
             } else {
@@ -136,7 +136,7 @@ public final class VideoThumbnailCache {
 
         // 3. Placeholder while loading
         target.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        target.setBackgroundColor(Color.parseColor("#FF1F1F26"));
+        target.setBackgroundColor(com.fadcam.ui.faditor.Studio.RAISED);
         target.setImageDrawable(null);
 
         // 4. Background extraction
@@ -245,7 +245,7 @@ public final class VideoThumbnailCache {
             Object tag = target.getTag(R.id.tag_layer_index);
             if (!key.equals(tag)) return; // view recycled to different item
             target.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            target.setBackgroundColor(Color.parseColor("#FF1F1F26"));
+            target.setBackgroundColor(com.fadcam.ui.faditor.Studio.RAISED);
             target.setImageBitmap(bmp);
         });
     }
@@ -257,7 +257,7 @@ public final class VideoThumbnailCache {
             // Distinct generic-video fallback: dark bg, no bitmap (type badge "movie"
             // remains visible in the adapter). A permanent spinner would read as hung.
             target.setScaleType(ImageView.ScaleType.CENTER);
-            target.setBackgroundColor(Color.parseColor("#FF16161B"));
+            target.setBackgroundColor(com.fadcam.ui.faditor.Studio.SURFACE);
             target.setImageDrawable(null);
         });
     }

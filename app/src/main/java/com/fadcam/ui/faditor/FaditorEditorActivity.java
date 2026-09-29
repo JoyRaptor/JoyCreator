@@ -40149,7 +40149,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         card.setGravity(android.view.Gravity.CENTER);
         int pad = (int) (8 * d);
         card.setPadding(pad, pad, pad, pad);
-        card.setBackgroundColor(Color.parseColor("#332C2C35"));
+        card.setBackgroundColor(Studio.alpha(Studio.LINE, 0x33));
         android.widget.LinearLayout.LayoutParams clp =
                 new android.widget.LinearLayout.LayoutParams((int) (96 * d), (int) (118 * d));
         clp.setMarginEnd((int) (8 * d));
@@ -40296,7 +40296,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             View view = entry.getValue();
             if (view == null) continue;
             boolean selectedType = selected != null && selected.type == entry.getKey();
-            view.setBackgroundColor(selectedType ? Color.parseColor("#2A35F6BF") : Color.parseColor("#332C2C35"));
+            view.setBackgroundColor(selectedType ? Studio.alpha(Studio.ARMED, 0x2A) : Studio.alpha(Studio.LINE, 0x33));
         }
     }
 
@@ -44641,7 +44641,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER);
         bar.setPadding(barPad, barPad, barPad, barPad);
-        bar.setBackgroundColor(Color.parseColor("#DD33333C"));
+        bar.setBackgroundColor(Studio.alpha(Studio.OFF, 0xDD));
         bar.setElevation(24 * d);
 
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
@@ -44654,10 +44654,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Insert at start
         TextView btnStart = new TextView(this);
         btnStart.setText("|< Insert");
-        btnStart.setTextColor(Color.WHITE);
+        btnStart.setTextColor(Studio.INK);
         btnStart.setTextSize(12);
         btnStart.setPadding((int)(12*d), (int)(8*d), (int)(12*d), (int)(8*d));
-        btnStart.setBackgroundColor(Color.parseColor("#6635F6BF"));
+        btnStart.setBackgroundColor(Studio.alpha(Studio.ARMED, 0x66));
         btnStart.setGravity(Gravity.CENTER);
         btnStart.setOnClickListener(v -> {
             if (selectedAsset != null && project != null) {
@@ -44670,7 +44670,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView btnPlayhead = new TextView(this);
         btnPlayhead.setTypeface(ResourcesCompat.getFont(this, R.font.materialicons));
         btnPlayhead.setText("play_arrow");
-        btnPlayhead.setTextColor(Color.WHITE);
+        btnPlayhead.setTextColor(Studio.INK);
         btnPlayhead.setTextSize(28);
         btnPlayhead.setBackground(getDrawable(R.drawable.asset_insert_triangle_bg));
         btnPlayhead.setGravity(Gravity.CENTER);
@@ -44682,10 +44682,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Insert at end
         TextView btnEnd = new TextView(this);
         btnEnd.setText("Insert >|");
-        btnEnd.setTextColor(Color.WHITE);
+        btnEnd.setTextColor(Studio.INK);
         btnEnd.setTextSize(12);
         btnEnd.setPadding((int)(12*d), (int)(8*d), (int)(12*d), (int)(8*d));
-        btnEnd.setBackgroundColor(Color.parseColor("#6635F6BF"));
+        btnEnd.setBackgroundColor(Studio.alpha(Studio.ARMED, 0x66));
         btnEnd.setGravity(Gravity.CENTER);
         btnEnd.setOnClickListener(v -> {
             if (selectedAsset != null && project != null) {
@@ -44721,7 +44721,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         assetDragView = new TextView(this);
         assetDragView.setTypeface(ResourcesCompat.getFont(this, R.font.materialicons));
         assetDragView.setText(getAssetDragIcon(item));
-        assetDragView.setTextColor(Color.parseColor("#FFF4F4F5"));
+        assetDragView.setTextColor(Studio.INK);
         assetDragView.setGravity(Gravity.CENTER);
         assetDragView.setTextSize(26);
         assetDragView.setBackgroundResource(R.drawable.asset_insert_btn_bg);

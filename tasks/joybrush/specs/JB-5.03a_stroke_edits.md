@@ -76,3 +76,59 @@ Change no existing field or its order; no other file than the owner area.
 Tests pass (paste) · commit `JB-5.03a: stroke record v2 and line edits` · ROADMAP row → 🟧 Built.
 
 ## Questions
+
+*Builder T2, 2026-09-29. Nothing here blocked the build. Q2 and Q3 are the two that need a ruling;
+Q1 is a verification I was not permitted to do.*
+
+**Q1 — the spec's second command was not run, and I cannot certify `JbArchiveTest`.** The Commands
+line asks for `:core:jvmTest` **and** `:androidkit:test`; the standing rule I was given permits only
+`:core:jvmTest`, so `JbArchiveTest` is **unverified**. What I can say from reading it
+(`androidkit/src/test/.../JbArchiveTest.kt:87,495`): it builds its records with the six-argument
+constructor and asserts `strokeRecords() == back.strokes[…]`, and the two new fields default to
+black and 1, which is exactly what the decoder gives a v2 recording — so it should be green, and
+nothing it does is affected by the layout change (the strokes live in `strokes.jbs` behind
+`encodeAll`/`decodeAll`, and the codec's own header is what versions them). **Someone should run
+`:androidkit:test` once** to turn "should" into "is". No edit outside my owner area is needed for
+it either way: the archive has no separate stroke-format version to bump.
+
+**Q2 — I added `StrokeEdit.INK_ENGINES` and `drawsInkLines(engine)`; they are not in the contract.
+Ruling wanted.** R20 says only `stamp` and `fill` may draw an ink layer and a `smudge`/`wet` brush
+is "refused in words", but nothing in *this* spec's contract can do that: `rebrush` is handed a
+brush **id**, knows nothing about engines, and the only caller that has a `BrushPreset` is JB-5.03's
+`InkEditSession` (its Decision 9 already owns the sentence and the `Refused` result). So I put the
+rule's *list* in the one place that owns the edits, for the session to call, and left the refusal
+where the spec that owns it put it. Three answers: (a) keep `drawsInkLines` in `stroke/` and have
+JB-5.03 call it; (b) move it to `BrushValidate` or a `Layer` rule, where a `LayerKind` is also in
+scope — that is a different owner area and I did not touch it; (c) drop it as unused. It is five
+lines and one test either way, and it is the only place in core that names R20's set.
+
+**Q3 — the decoder REPAIRS an out-of-range `widthScale`, so `decode(encode(r)) != r` for a
+hand-built record.** Decision 2 says clamp "in `StrokeEdit` and in the decoder", and as built the
+decoder clamps (0 → 0.05, 1e9 → 20, NaN/±Inf → 1) and the encoder writes the record verbatim. So a
+record that came off a device, out of an edit, or off a v1 file always round-trips exactly, but a
+record built in a test with `widthScale = 0f` does not. I chose this because the record is a plain
+value (the spec says so) and because repairing on the way IN means nothing downstream of a decode
+has to re-check. The alternative is to clamp in `encode` as well, which makes encode/decode total at
+the cost of silently rewriting a value the caller set. **Rule it**, and say which end is allowed to
+normalise.
+
+**Q4 — `VERSION` is still one constant, now 2, and it is "the newest this build reads"; the other
+half of the range is a new `OLDEST_VERSION = 1`.** JB-1.08a's builder had to invent a *second*
+constant (`BRUSH_VERSION_FILL`) because `EnumFreezeTest` pinned `BRUSH_VERSION = 1` in a file
+outside their area, and the orchestrator then made it THE `BRUSH_VERSION`. Nothing in the tree pins
+`StrokeCodec.VERSION` (I grepped: only `StrokeCodecTest` reads it), so I moved it in one edit and
+the range reads as two names. `DEFAULT_COLOR_ARGB` is new for the same reason. Confirm, or say the
+reader should carry a list of versions it understands instead of two bounds.
+
+**Q5 — provisionally ruled, low risk: `radius ≤ 0` or non-finite moves the grabbed sample ALONE,
+even when its neighbours are within a pixel.** Decision 3 says exactly this, so it is as specified;
+it is only worth naming because "radius 0" and "radius 0.5 with a grab halfway between two samples"
+give the same answer, and someone may want the second to move the nearer of the two. One line to
+change in `reshape` if so.
+
+**Q6 — a note so nobody "fixes" it: the two sides of a reshape agree to 1e-4 px, not bit for bit.**
+The falloff is computed from cumulative arc length in `Float`, and the arc length 20 px to the right
+of a grab and the arc length 20 px to the left are differences of different pairs of accumulated
+sums. The test asserts `abs(right − left) < 1e-4` rather than list equality, with the reason in the
+test. The closed-form weight assertion (±1e-3) is the sharp one; the mirror assertion is the sanity
+one.

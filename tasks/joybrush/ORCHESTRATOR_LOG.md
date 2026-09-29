@@ -4,9 +4,162 @@ Handover file. If the orchestrator's context fills, read this first: it says wha
 landed, and what is still open. **The orchestrator alone edits `ROADMAP.md`, commits and pushes.**
 Subagents never commit, push or touch the board — they build, run the spec's test command, and report.
 
-Promoted 2026-09-28 (space bunny agent #1, from JB-0.02). Turn 4 begins below.
+Promoted 2026-09-28 (space bunny agent #1, from JB-0.02).
 
 ---
+
+## 🔴 TURN 5 — what the next orchestrator must know, first
+
+### 1. The subagent failure rate is the biggest operational fact
+**`CoderAgent` returned an EMPTY report and wrote no files on 5 of 8 dispatches** (JB-2.05a, JB-2.12a,
+JB-3.05a, and two more). Switching the agent type to `general` recovered 2 of 3 retries, so:
+
+- **Never dispatch `CoderAgent` again. Use `general`.**
+- **An empty report is a zero, not a retry-able hiccup.** Check the tree before re-dispatching: 5 of
+  those dispatches had written nothing at all.
+- **Their shells are denied** (only the task-router script is allowed), so they cannot run gradle, git,
+  or anything else, and they cannot check `build.log`'s mtime. They can still *read* `build.log`'s tail
+  with the file reader and report honestly that they cannot date it. Ask for an explicit file list
+  instead of `git status`.
+
+### 2. The transcript of a failed dispatch is worth more than a 4th dispatch
+JB-3.05a failed 3× with empty reports. With the transcript it was obvious why: **the last attempt died
+mid-sentence in the middle of a derivation.** It was not flailing — it had the maths right and was
+burning its entire budget on an ambiguity in spec Decision 3 that it was not permitted to resolve. A
+4th dispatch would have hit the same wall. **When a task fails repeatedly, read the transcript before
+retrying, and ask the owner to paste it — one paste saved a whole task.**
+
+### 3. Two bugs in this repo's own maths were invisible to reading the code and to reasoning
+Both were found by **making something print intermediate values**, and in both cases my first fix was
+also wrong:
+
+- **JB-2.12a**, the ellipse tracer's Newton iteration: the second derivative was missing its
+  `(ry² − rx²)(cos²t − sin²t)` term, so the curvature was negative where it must be positive and `t`
+  ran to 230 px from a pen that was 5 px off the curve. The symptom was not a stroke snapped wrong — the
+  tracer silently **never captured anything**. I "fixed" it once, wrongly, before I wrote a throwaway
+  test that printed every step.
+- **JB-3.06a**, the GIF encoder: the Logical Screen Descriptor was 5 bytes instead of 7, so the colour
+  table started two bytes early and **every file the encoder produced was malformed**. GDI+ refused it
+  and ImageIO said `Unexpected block type 11` — which is the NETSCAPE app-id length read as a block
+  introducer. Two decoders, one cause, invisible in the source.
+
+**Standing rule for every future task in this project: the suite must contain at least one assertion
+made by something that did not write the bytes** — a real decoder, a second implementation, or a
+differential model. Hand-derived expected values agree with the model that produced the bug.
+
+### 4. What I verified, and how often
+Every landing ran `./gradlew -p joybrush :core:jvmTest` myself, and app-side work was proved by the
+watcher's `build.log` (a Gradle **watch-mode** daemon that is ALIVE — see Turn 4; do not believe any
+handover note that says it is stale). **`:androidkit:test` is permitted by ROADMAP §2** and I used it.
+
+### 5. The rebase, and the branch that makes it possible
+`git pull --ff-only` **fails** whenever the Lead pushes while I am mid-task. The working answer, which
+worked cleanly four times with **no conflict**: rebase (my commits are always local-only, so nothing
+else depends on them), then push. If a rebase ever conflicts, **stop and report** — do not resolve it.
+The 6 leftover app files made the rebase impossible until R14 moved them to `bunny/leftover-app-edits`
+(pushed, awaiting the Lead's merge).
+
+---
+
+## STATE AT HANDOVER (end of turn 5)
+
+`:core:jvmTest` **584 tests, 2 failures** · `:androidkit:test` **85 tests, 0 failures**
+
+### ✅ Landed and green this turn
+| Task | Tests | Note |
+|---|---|---|
+| JB-0.05 | — | the Android module; **unblocked 5 stalled tasks** |
+| D.01 | — | 30 colour tokens + a drift checker that really fails |
+| JB-0.06 | — | pen-diagnostics overlay |
+| JB-1.05b | — | brush files drive the view |
+| JB-0.08b | — | autosave / open, with R11 applied |
+| JB-2.02 | 16 | `ViewTransform` + `CanvasGestures` |
+| JB-2.06a | — | flood fill; 3 test expectations were wrong, code was right |
+| JB-3.06a | — | GIF encoder; **two real encoder bugs** |
+| JB-2.14b | — | OpenRaster; also fixed a **shared** `implementation`→`api` bug that had been silently killing every androidkit test |
+| JB-2.16a | 16 | size/opacity drag |
+| JB-4.01a | 33 | sprite grid maths |
+| JB-2.05a | 13 | selection masks |
+| JB-2.12a | 20 | guides + snapping |
+| JB-3.05a | 12 | playback clock — **built by me on the main thread** |
+| JB-2.05b | 34 | homography + inverse-mapped resampler |
+| JB-1.05a, JB-2.10 | — | rows corrected to Built (JB-2.10 by the Lead) |
+
+### 🔴 IN THE TREE, NOT LANDED — the first thing to finish
+**JB-3.08a** three-finger swipe. 17 tests, **15 green, 2 red**. Both failures are written up in full on
+its ROADMAP row; in short:
+1. `anOverrideIsRememberedForTheBoardItWasMadeOnAndForgottenOnAnother` — the spec (Decision 2 + test 2)
+   is unambiguous that an override is **forgotten** the moment a different board is asked about, and
+   switching back does not restore it. The implementation keeps it. **The test is right; the code is
+   wrong.** `badge()` must clear the override when the active board differs.
+2. `aBrushGestureIgnoresNonFiniteOffsetsToo` — a valid move after a NaN returns `Nothing` instead of
+   `Step.Brush`. Probably `running` was cleared, or `begin` picked FRAMES on a canvas board so 173 px
+   crosses no boundary. **Note that the sibling test also gets BRUSH where the automatic answer is
+   FRAMES on its very first assert, so the two may share one root cause in `begin` or the fixture.**
+   Fix the badge one first — it is unambiguous — then re-run and see whether the other falls over.
+
+### 🔴 Open for the Lead (my referrals, newest first)
+- **JB-2.05b Decision 5's "±1" split is impossible** over a source-over backdrop: two halves of an
+  opaque colour composited over that same colour give **191**, whatever the split. Exact over a
+  *transparent* backdrop only. The test asserts 191 and the gap is red on purpose.
+- **JB-3.05a Decision 5's PING_PONG audio formula desyncs** — `t mod rangeMs` equals the cycle position
+  only inside the first cycle. Ruled: the audio follows the frame. Recorded in the spec.
+- **JB-2.04a / 4.01a `Int` overflow** in `rect.x + col * cellW` → a *silently wrong cell*, not a crash.
+  (R19 may already cover this — check.)
+- **`SizeOpacityDrag.MAX_SIZE` is a private local copy** of `BrushValidate.MAX_SIZE_PX`, so nothing can
+  catch them drifting. (R19 may cover it.)
+- **`GlPaintEngine` still has no layer blend modes** — 6 of 8 modes have no GPU implementation, so
+  CPU/GPU parity is only assertable for NORMAL and ERASE_BELOW. Still no display-path task.
+- **`GlPaintEngine` exposes no "stroke in progress"** → a stroke drawn with a preset cannot be
+  reconstructed from its record, because the seed is `uptimeMillis()` and never saved. Rule R13: the
+  `StrokeRecord` must get the exact seed the `BrushDabber` used.
+
+### 🟡 Known-red, deliberately not relaxed by me
+**JB-5.10's timing bound.** `toIntersectionOverFiftyOverlappingLinesStaysInteractive` took **2931 ms
+against a 500 ms limit** under full-suite load and **passes in 8 s run alone**. A timing bound loosened
+until it passes is a checkbox that has become a wish; the spec's own 50 ms promise needs a ruling
+instead. Referred, not touched.
+
+### Still outstanding and nobody but a human can close it
+- **Every `📱` device check.** The whole `🟧 Built` column is unproven on a phone. In particular
+  JB-0.08b's draw → Home → force-stop → reopen, and JB-0.05's screen.
+- **JB-1.20's visual check** — Edge is installed and headless could screenshot the lab, but it has
+  never been run; the GLSL has never been compiled by a driver.
+- **The leftover app files** on `bunny/leftover-app-edits` await the Lead's merge; **JB-0.09 stays
+  ⛔ Blocked** on it (R12/R14).
+- **Spec runway: the Lead wrote eight (R15) and I have written NONE.** I referred to this twice and
+  then spent the turn landing. The Lead owns the whole spec queue now — mine is 0.09 (blocked), D.02,
+  2.14c, 8.01/8.02/8.04, 3.06b, 2.15, 0.10.
+
+---
+
+## Turn 4 — the watcher was never dead
+
+Every earlier handover called `build.log` "343 min stale — watcher dead". **Wrong.** It is a Gradle
+watch-mode daemon with a stale-looking timestamp. That one correction turned JB-0.05 from 🟨 Claimed to
+🟧 Built and released JB-0.06, JB-0.08b, JB-1.05b, JB-2.02 and D.01 from a board deadlocked on one row.
+**Green for app-side work means `build.log`, never a hand-run gradle** — and only a `BUILD SUCCESSFUL`
+whose `:joybrush-android:compileDebugKotlin` / `:joybrush:androidkit:compileKotlin` lines say
+**EXECUTED, not `UP-TO-DATE`**. An `UP-TO-DATE` line proves the state *before* the agent's edit.
+
+### 🔴 A trap I walked into myself
+`(Get-Content -Raw).Replace(...) | Set-Content -Encoding UTF8` on a spec **destroyed 6 lines**: UTF-8
+read as Windows-1252, so every em dash became mojibake and a BOM was added. Repairable (read as UTF-8,
+re-encode as cp1252 after stripping the BOM) and I repaired it. **Use the editor tool, never
+`Get-Content`/`Set-Content`, on anything in this repo.** Console display of emoji is also unreliable —
+a 🟧 prints as `??` — so count `U+FFFD` from the bytes rather than trusting what you see.
+
+### 🔴 The subagents that were denied a shell still produced the best work of the night
+The two strongest reports came from agents with no shell at all: one disclosed that **it had caused
+three red builds and fixed them**, another that **the watcher had silently skipped its mid-build
+edits** and that it had forced re-triggers. Both also volunteered their own weak points. **Reward
+volunteered weakness in a report over a confident summary** — I verify anyway, and a volunteered
+weakness is the only thing that ever saved me a round trip.
+
+---
+
+## Older, still-true ground rules
+
 
 ## 🔴 TURN 4 — THE SINGLE BIGGEST FINDING: THE WATCHER IS ALIVE
 

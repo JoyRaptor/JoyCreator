@@ -93,3 +93,43 @@ Touch no existing file. No handles, no touch code, no GL (the Studio overlay and
 Tests pass (paste) · commit `JB-2.05b: homography and resample` · ROADMAP row → 🟧 Built.
 
 ## Questions
+
+*Asked by the builder. Implemented as written in every case; the three below are the ones where the
+written contract and the arithmetic disagree, and none of them is resolved by guessing.*
+
+**Q1 — Decision 5's `±1` is not achievable with a source-over, and it matters.** Source-over is
+`out = B + T(1 - B/255)`, which returns `v` only when `B = 0`; for any nonzero remainder the
+topped-up part is short by `L·R/255`. Worked, not estimated: at `v = 255` and coverage 128 the
+split is `lifted = (255·128+127)/255 = 128` and `remaining = 127`, and the composite is
+`127 + (128·128+127)/255 = 127 + 64 = 191` — **64 short of 255**, and the alpha channel
+(`128 → 191`) is as wrong as the colour. It is exact for a 0/255 mask, so a marquee is fine and a
+soft lasso is not.
+The invariant that *does* hold with no rounding anywhere is `lifted + remaining == v` per channel,
+which is what `ResampleTest.liftSplitsTheBytesExactly` asserts, and the composite for coverage 128
+is asserted as exactly 191 so the gap is a red test rather than a comment.
+**Ruling needed:** is the intended composite a plain clamped ADD (`lifted + remaining`, which is
+`Blend.ADD` and would be exact) rather than source-over? If it really is source-over, Decision 5
+should say "the original where the mask is 0 or 255, and darker where it is soft", because a
+caller reading `±1` will ship a soft selection that visibly fades.
+
+**Q2 — `warp` refuses three ways and all three are an empty map.** Decision 2 names two (a corner
+at infinity, and the derived destination being unallocatable). I also refuse a **singular matrix**,
+because there is no inverse to sample through and the alternative is a NaN byte in a tile. And for
+"unallocatable" I picked the destination span cap of `MAX_SELECT_SPAN` (16384 px, the same number
+`SelectionMask` uses, and a 64 × 64-tile budget) rather than inventing a second budget.
+The consequence to rule on: **an empty map is also the answer for an empty source**, so a caller
+cannot tell "refused" from "nothing there". If a caller outside this spec has to show the person
+"that is too big to move", it needs a separate signal — a thrown `RegionException`, or a nullable
+return, or a boolean out-parameter. The contract as written gives it no way to.
+
+**Q3 — the `w ≈ 0` threshold and the minification threshold are mine, not yours.** `Homography.apply`
+treats `|w| < 1e-9` as the horizon (1e-9 of a pixel is a hundred million times below anything a
+person can drag), and `Resample` uses the same 1e-9 plus `σmax > 2` for the 3 × 3 grid. Both are
+one-line changes and both are guesses at intent. In particular `σmax > 2` is the Nyquist limit: a
+factor of 2.0 exactly takes the nine-sample path, which is the conservative side.
+
+**Also worth a ruling, lower stakes:** Decision 3's minification is judged from the Jacobian at the
+**tile's** centre (one 2 × 2 determinant per 256² tile rather than per pixel). For a corner-pin the
+factor genuinely changes across the picture, so a large shrink on one side of the quad and a
+magnification on the other will use one decision for both. Per-pixel is affordable if a case for it
+appears.

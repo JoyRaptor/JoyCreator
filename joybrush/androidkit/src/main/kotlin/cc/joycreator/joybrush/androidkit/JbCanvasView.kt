@@ -134,10 +134,23 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * Whether the pen is mid-stroke right now (R11). A snapshot taken in that state captures the
      * tiles as they were BEFORE this stroke, so a save that ran then would write a drawing missing
      * the mark the person is making at that instant — and the autosave is precisely where that
-     * matters. A read-only view of `GlPaintEngine.strokeInProgress`; the screen asks before it
-     * saves and never ends or cancels a stroke to make the question easier.
+     * matters. The screen asks before it saves and never ends or cancels a stroke to make the
+     * question easier.
+     *
+     * This is the UI thread's own [drawing] flag and not the engine's, on purpose (JB-0.08b review
+     * finding 4): the engine's `strokeLayer` is written on the GL thread and read here with no
+     * synchronisation. And the UI flag is the exact one: [finishStroke] and [cancelStroke] clear it
+     * only AFTER they have queued the stroke's end on the GL thread, and a snapshot is queued behind
+     * that, so a snapshot asked for while this reads false always sees the finished stroke.
      */
-    val strokeInProgress: Boolean get() = engine.strokeInProgress
+    val strokeInProgress: Boolean get() = drawing
+
+    /**
+     * Called on the UI thread when a stroke has ended OR been cancelled, after its end is queued on
+     * the GL thread. This is the one signal a save that was waiting for the pen is released by; an
+     * undo, redo or clear is a history event and is NOT it (JB-0.08b review finding 2).
+     */
+    var onStrokeEnded: (() -> Unit)? = null
 
     private val engine = GlPaintEngine()
     private val layerId = "layer-1"
@@ -365,6 +378,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false
         onGl { engine.endStroke(); reportHistory() }
+        onStrokeEnded?.invoke()
     }
 
     private fun cancelStroke() {
@@ -372,6 +386,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false
         onGl { engine.cancelStroke() }
+        onStrokeEnded?.invoke()
     }
 
     private fun paint(points: List<PenSample>) {

@@ -146,7 +146,7 @@
         <item quantity="one">%1$d follows it</item>
         <item quantity="other">%1$d follow it</item>
     </plurals>
-    <string name="link_defaults_title">New links copy</string>
+    <string name="link_defaults_title">Link tool</string>
     <string name="link_defaults_hint">What a new link copies from what it follows. You can still change it each time.</string>
     <string name="link_prop_time">Timing</string>
     <!-- Proxy: the invisible handle things follow (SPEC_20260924_LINKING §3.5) -->

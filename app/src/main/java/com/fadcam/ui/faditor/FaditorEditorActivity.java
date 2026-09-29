@@ -35084,6 +35084,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.proxy_switch_undo),
                 () -> { child.setSpaceLink(after); afterLinkChange(); },
                 () -> { child.setSpaceLink(before); afterLinkChange(); }));
+        // The pick tap also selected the new parent; stay on the object being edited.
+        selectAndRevealNewObject(child.getId());
         refreshProxyDrawerFor(child);
         com.fadcam.ui.faditor.model.LinkPose np = parentId.isEmpty() ? null
                 : project.getTimeline().linkPoseById(parentId);
@@ -35194,7 +35196,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 new com.fadcam.ui.faditor.model.TextOverlayItem(
                         getString(R.string.proxy_name, proxies), 0xFFFFFFFF,
                         kids.isEmpty() ? 0.5f : cx / kids.size(),
-                        kids.isEmpty() ? 0.5f : cy / kids.size(), 0.05f, 0f);
+                        kids.isEmpty() ? 0.5f : cy / kids.size(), 0.09f, 0f);
         proxy.setProxy(true);
         if (kids.isEmpty()) placeNewOverlayAtPlayhead(proxy);
         else proxy.setTimeRange(start, end);

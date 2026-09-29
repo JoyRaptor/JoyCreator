@@ -91,6 +91,7 @@
     <string name="text_wrap_wide">Wrap · wide</string>
     <string name="text_wrap_medium">Wrap · medium</string>
     <string name="text_wrap_narrow">Wrap · narrow</string>
+    <string name="text_wrap_width_desc">Text wrap width</string>
     <string name="text_wrap_desc">Text width: %1$s. Tap to change</string>
     <string name="caption_timing_pct">%1$d%%</string>
     <string name="export_keep_awake">Keep screen on (export runs much faster)</string>

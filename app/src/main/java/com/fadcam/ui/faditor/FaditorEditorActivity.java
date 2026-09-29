@@ -36180,13 +36180,42 @@ public class FaditorEditorActivity extends AppCompatActivity {
             com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(wrapChip, w > 0f);
         };
         paintWrap.run();
+        // A free width beside the chip while wrapping is on: 4-30 ems, live in the preview. The
+        // chip's three steps are quick picks; the slider is the fine control (and works with a
+        // thumb, which a handle on a small box does not).
+        final int wrapMinEm = 4, wrapMaxEm = 30;
+        final com.fadcam.ui.faditor.tools.FineSeekBar wrapBar =
+                new com.fadcam.ui.faditor.tools.FineSeekBar(this);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(wrapBar);
+        wrapBar.setMax(wrapMaxEm - wrapMinEm);
+        wrapBar.setContentDescription(getString(R.string.text_wrap_width_desc));
+        final Runnable syncWrapBar = () -> {
+            float w = item.getWrapEm();
+            wrapBar.setVisibility(w > 0f ? View.VISIBLE : View.GONE);
+            wrapBar.setProgress(Math.max(0, Math.min(wrapMaxEm - wrapMinEm,
+                    Math.round(w) - wrapMinEm)));
+        };
+        syncWrapBar.run();
         wrapChip.setOnClickListener(v -> {
             item.setWrapEm(com.fadcam.ui.faditor.model.TextOverlayItem.nextWrapEm(item.getWrapEm()));
             paintWrap.run();
+            syncWrapBar.run();
             refreshOverlayPreview();
             scheduleAutoSave();
         });
         row.addView(wrapChip, com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chipLp(this));
+        wrapBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar sb, int p, boolean fromUser) {
+                if (!fromUser && !wrapBar.isFineDriving()) return;
+                item.setWrapEm(wrapMinEm + p);
+                paintWrap.run();
+                refreshOverlayPreview();
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar sb) { }
+            @Override public void onStopTrackingTouch(android.widget.SeekBar sb) { scheduleAutoSave(); }
+        });
+        row.addView(wrapBar, new android.widget.LinearLayout.LayoutParams(
+                Math.round(110 * d), android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
 
         // MOTION — the SAME icon/behaviour, just relocated into this row (owner: "I just moved
         // its location. I like it the same"). Its label turns the app's purple accent when a

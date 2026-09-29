@@ -44,4 +44,9 @@ tasks.named("jvmTest") {
     inputs.dir(rootDir.resolve("brushes")).withPropertyName("shippedBrushes")
     inputs.dir(rootDir.resolve("assets")).withPropertyName("shippedAssets")
     inputs.dir(rootDir.resolve("shaders")).withPropertyName("shippedShaders")
+    // JB-8.05 (R44): the real-files probe reads a git-ignored local corpus of third-party brush files.
+    // Declared so adding or changing a file re-runs the probe; an absent folder is simply empty.
+    val corpus = providers.environmentVariable("JOYBRUSH_TESTDATA").orElse(rootDir.resolve("testdata-local").path)
+    inputs.files(fileTree(corpus)).withPropertyName("realCorpus").optional()
+    inputs.property("realCorpusPath", corpus)
 }

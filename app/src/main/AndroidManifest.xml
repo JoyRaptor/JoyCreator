@@ -131,6 +131,14 @@
         <!-- Avatar Studio matrix editor (PLAN_AVATAR_STUDIO A1-UI) -->
         <activity android:name="com.fadcam.ui.faditor.avatar.AvatarStudioActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" android:windowSoftInputMode="adjustPan" />
 
+        <!-- Joy Brush drawing screen (JB-0.05) -->
+        <!-- exported="true" TEMPORARILY so it can be opened with adb until the lobby entry exists;
+             JB-0.09 sets it back to false. -->
+        <activity android:name="cc.joycreator.joybrush.android.JoyBrushActivity"
+            android:theme="@style/Theme.FadCam.FaditorEditor"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:exported="true" />
+
         <!-- M-COMP-2 decoder-budget probe (PLAN_LAYERS_V2 Part 10 #1) — adb-driven debug tool -->
         <activity android:name="com.fadcam.ui.faditor.compositor.DecoderBudgetProbeActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:exported="false" />
 

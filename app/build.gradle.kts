@@ -306,6 +306,9 @@ dependencies {
     implementation(libs.documentfile)
     implementation(libs.localbroadcastmanager)
     implementation(libs.room.runtime)
+
+    // JB-0.05: the Joy Brush screen (JoyBrushActivity) and its pen input.
+    implementation(project(":joybrush-android"))
     
     // Media3 for fragmented MP4 muxing (patched for live streaming via composite build)
     implementation(libs.media3.muxer)

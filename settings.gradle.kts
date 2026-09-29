@@ -25,6 +25,8 @@ dependencyResolutionManagement {
 
 rootProject.name = "FadCam"
 include(":app")
+include(":joybrush-android")
+includeBuild("joybrush")   // Joy Brush core (standalone build, substituted as cc.joycreator.joybrush:core)
 
 // Include patched Media3 as composite build for live streaming support
 // Clone it once: git clone --depth 1 https://github.com/anonfaded/media3-patched.git /tmp/media3-patched

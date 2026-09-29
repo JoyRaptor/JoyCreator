@@ -75,7 +75,7 @@ object Blend {
         if (mode.needsWholePixelBlend()) {
             STRAIGHT_S[0] = cs0; STRAIGHT_S[1] = cs1; STRAIGHT_S[2] = cs2
             STRAIGHT_B[0] = cb0; STRAIGHT_B[1] = cb1; STRAIGHT_B[2] = cb2
-            val b = wholePixelTerm(mode, STRAIGHT_B, STRAIGHT_S, out)
+            val b = wholePixelTerm(mode, STRAIGHT_B, STRAIGHT_S)
             out[0] = compositeChannel(cs0, cb0, b[0], sa, da)
             out[1] = compositeChannel(cs1, cb1, b[1], sa, da)
             out[2] = compositeChannel(cs2, cb2, b[2], sa, da)
@@ -118,7 +118,6 @@ object Blend {
         mode: BlendMode,
         b: FloatArray,
         s: FloatArray,
-        out: FloatArray,
     ): FloatArray {
         BlendRgb.blendRgb(mode, b, s, B_TERM, SCRATCH)
         for (i in 0..2) B_TERM[i] = B_TERM[i].coerceIn(0f, 1f)
@@ -197,7 +196,12 @@ object Blend {
 
     // Scratch for the whole-pixel path. Object-level rather than per-call because this runs once per
     // pixel per layer and an allocation there is the kind of thing that turns a 60 fps canvas into a
-    // warm one. Safe because `apply` is not re-entrant (see `wholePixelTerm`'s KDoc).
+    // warm one. Safe because `apply` is not re-entrant: it reads these into locals via
+    // `wholePixelTerm` and writes `out` only after the blend has been read back, and `out` may not be
+    // `s` or `d` (the KDoc on `apply` already requires that) and so cannot be these. A concurrent
+    // call on a second thread would of course corrupt them — which is the same single-thread
+    // assumption every other object in this engine makes, and the reason the GPU path hands numbers
+    // across on one thread.
     private val STRAIGHT_B = FloatArray(3)
     private val STRAIGHT_S = FloatArray(3)
     private val B_TERM = FloatArray(3)

@@ -10056,6 +10056,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     hideMoveDrawer();
                     return;
                 }
+                if (loopDrawerOpen) {
+                    hideLoopDrawer();
+                    return;
+                }
                 if (visualizerDrawerOpen) {
                     showVisualizerDrawer(false);
                     return;

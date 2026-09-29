@@ -175,15 +175,16 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
             labelRow.setGravity(Gravity.CENTER_VERTICAL);
             labelRow.setPadding(0, (int) (2 * dp), 0, 0);
             root.addView(labelRow);
+            // ONE line per slider, the drawers' row: label, slider, value (record 06 .dr).
 
             TextView label = new TextView(requireContext());
             label.setText(spec.label);
             label.setTextColor(Studio.INK_DIM);
             label.setTextSize(13);
             com.fadcam.ui.type.Type.body(label, com.fadcam.ui.type.Type.REGULAR);
-            LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            label.setLayoutParams(labelLp);
+            label.setWidth((int) (92 * dp));
+            label.setMaxLines(1);
+            label.setEllipsize(android.text.TextUtils.TruncateAt.END);
             labelRow.addView(label);
 
             TextView value = new TextView(requireContext());
@@ -191,7 +192,8 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
             value.setTextSize(12);
             com.fadcam.ui.type.Type.mono(value, com.fadcam.ui.type.Type.MEDIUM);
             value.setText(format(spec.g.get(stack)));
-            labelRow.addView(value);
+            value.setWidth((int) (52 * dp));
+            value.setGravity(Gravity.END);
             valueTexts[i] = value;
 
             Slider slider = new Slider(new ContextThemeWrapper(requireContext(),
@@ -206,7 +208,9 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
                     android.content.res.ColorStateList.valueOf(Studio.ARMED));
             slider.setTrackInactiveTintList(
                     android.content.res.ColorStateList.valueOf(Studio.OFF));
-            root.addView(slider);
+            labelRow.addView(slider, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            labelRow.addView(value);
             sliders[i] = slider;
 
             slider.addOnChangeListener((sl, v, fromUser) -> {

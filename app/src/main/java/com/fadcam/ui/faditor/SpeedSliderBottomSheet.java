@@ -218,6 +218,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         root.addView(pitchRow);
 
         android.widget.CheckBox pitchCheck = new android.widget.CheckBox(requireContext());
+        SheetKit.styleCheckbox(pitchCheck);
         pitchCheck.setChecked(pitchCompensation);
         pitchCheck.setTextColor(SheetKit.ROW_LABEL);
         pitchCheck.setTextSize(TypedValue.COMPLEX_UNIT_SP, SheetKit.ROW_SP);

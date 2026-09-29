@@ -300,6 +300,7 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
     @NonNull
     private CheckBox check(@NonNull LinearLayout root, @NonNull String label, boolean initial) {
         CheckBox cb = new CheckBox(requireContext());
+        com.fadcam.ui.faditor.SheetKit.styleCheckbox(cb);
         cb.setText(label);
         cb.setTextColor(Studio.LABEL);
         cb.setTextSize(14);
@@ -368,6 +369,7 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
         labelRow.addView(valueView);
 
         SeekBar bar = new SeekBar(requireContext());
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(bar);
         bar.setMax(max);
         bar.setProgress(progress);
         bar.setContentDescription(label);
@@ -427,6 +429,7 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
         // on/off
         CheckBox on = new CheckBox(requireContext());
+        com.fadcam.ui.faditor.SheetKit.styleCheckbox(on);
         tintCheck(on);
         hoverLabel(on, getString(R.string.lane_b_wave_band_show, BAND_LABELS[band]));
         on.setChecked(style.bandOn[band]);

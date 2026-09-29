@@ -43554,6 +43554,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         label.setTextColor(Studio.INK_DIM);
         root.addView(label);
         final android.widget.SeekBar seek = new android.widget.SeekBar(this);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(seek);
         seek.setMax(100);
         seek.setProgress(50);
         root.addView(seek);
@@ -44053,6 +44054,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(label);
 
         final android.widget.SeekBar seek = new android.widget.SeekBar(this);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(seek);
         seek.setMax(100);
         seek.setProgress(50);
         root.addView(seek);

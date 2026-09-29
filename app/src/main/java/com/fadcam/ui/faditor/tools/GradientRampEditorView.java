@@ -91,6 +91,7 @@ public final class GradientRampEditorView extends LinearLayout {
     private static CheckBox checkRow(@NonNull Context ctx, @NonNull LinearLayout row,
                                      @NonNull String label, float d) {
         CheckBox box = new CheckBox(ctx);
+        ObjectDrawer.Kit.styleCheck(box);
         box.setText(label);
         box.setTextColor(Studio.INK_DIM);
         box.setTextSize(11.5f);

@@ -16956,7 +16956,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // The sprite's drawer AND its frames palette (see showSpriteDrawer).
                     showSpriteDrawer(item.getSprite(), true);
                 } else if (item.getWaveform() != null) {
-                    showVisualizerDrawer(true);
+                    showVisualizerObjectDrawer(item.getWaveform());
                 } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
                     // ON THE TIMELINE, double-tap opens the overlay's SOUND STRIP, exactly as it
                     // does on the main track (JoyRaptor, 2026-09-24: "double tap like how it works
@@ -19946,21 +19946,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     this, android.net.Uri.parse(project.getPinnedAssetDir())));
         }
         if (styles.isEmpty()) return;
-        final float dp = getResources().getDisplayMetrics().density;
+        // The style studio is the object drawer's STYLE tab now (owner, 2026-09-29: "I don't see
+        // their drawer or drawer tab for the visualizer studio ... the primary thing somebody is
+        // going to be messing with"). The separate top panel it used to fill is retired: it was
+        // a second, older-looking surface with its own chrome, and opening it empty (from the
+        // timeline lane) showed a header and nothing else.
+        showVisualizerObjectDrawer(overlay);
+    }
 
-        // STAGE 2: 3-column Rolodex (left icons · centre style carousel · right gradient carousel).
-        View root = buildVisualizerRolodex(overlay, styles);
-
-        // Show in the NON-BLOCKING top drawer (the live canvas stays visible below, so style/colour/
-        // sensitivity changes preview live on the real visualizer) instead of a video-blocking dialog.
-        android.widget.FrameLayout content = findViewById(R.id.visualizer_drawer_content);
-        if (content == null) return;
-        content.removeAllViews();
-        content.addView(root, new android.widget.FrameLayout.LayoutParams(
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT));
-        setupVisualizerDrawerChrome();
-        showVisualizerDrawer(true);
+    /** The Style tab's content: the Rolodex (style and gradient carousels, mode toggles, layers). */
+    @NonNull
+    private View buildVisualizerStyleTab(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
+        java.util.List<com.fadcam.ui.faditor.model.WaveformStyle> styles =
+                com.fadcam.ui.faditor.waveform.WaveformStyleIO.loadBuiltins(this);
+        if (project != null && project.getPinnedAssetDir() != null) {
+            styles.addAll(com.fadcam.ui.faditor.waveform.WaveformStyleIO.loadUserStyles(
+                    this, android.net.Uri.parse(project.getPinnedAssetDir())));
+        }
+        if (styles.isEmpty()) {
+            return com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.note(this,
+                    getString(R.string.viz_no_styles));
+        }
+        return buildVisualizerRolodex(overlay, styles);
     }
 
     // ── Visualizer Stage-2 Rolodex (3-column: icons · style carousel · gradient carousel) ──
@@ -31446,6 +31454,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         };
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
+        // STYLE FIRST: the look is what people come to a visualizer for (owner, 2026-09-29).
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                getString(R.string.drawer_title_visualizer), getString(R.string.caption_tab_style),
+                R.drawable.ic_waveform_bars, ctx -> buildVisualizerStyleTab(wf)));
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.drawer_title_visualizer), getString(R.string.drawer_tab_transform),   // drawer audit 2026-09-24, V-1
                 R.drawable.ic_transform_24, ctx -> buildVisualizerTransformTab(wf, host)));
@@ -31471,45 +31483,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.LinearLayout root = new android.widget.LinearLayout(this);
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
         root.setPadding(Math.round(14 * d), Math.round(4 * d), Math.round(14 * d), Math.round(10 * d));
-        android.widget.TextView style = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(
-                this, getString(R.string.viz_style_chip));
-        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(style, getString(R.string.viz_style_chip_desc));
-        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pressable(style);
-        style.setOnClickListener(v -> {
-            if (objectDrawer != null) objectDrawer.hide();
-            showVisualizerDrawer(true);
-        });
-        android.widget.LinearLayout styleRow = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.row(this);
-        styleRow.addView(style, com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chipLp(this));
-        root.addView(styleRow);
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
         ObjectMenuSheet.ValueFormat deg = v -> Math.round(v) + "°";
         final java.util.List<Runnable> refreshers = new java.util.ArrayList<>();
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
-                ObjectMenuSheet.Prop.staticProp("viz_x", getString(R.string.faditor_prop_pos_x), 0f, 1f, pct,
-                        ms -> wf.getCenterX(),
-                        (v, ms) -> { wf.setCenter(v, wf.getCenterY()); refreshVizAfterMenuWrite(); }),
+                vizMenuProp(wf, com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
+                        getString(R.string.faditor_prop_pos_x), 0f, 1f, pct, wf::animatedCenterX),
                 host));
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
-                ObjectMenuSheet.Prop.staticProp("viz_y", getString(R.string.faditor_prop_pos_y), 0f, 1f, pct,
-                        ms -> wf.getCenterY(),
-                        (v, ms) -> { wf.setCenter(wf.getCenterX(), v); refreshVizAfterMenuWrite(); }),
+                vizMenuProp(wf, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
+                        getString(R.string.faditor_prop_pos_y), 0f, 1f, pct, wf::animatedCenterY),
                 host));
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
-                ObjectMenuSheet.Prop.staticProp("viz_w", getString(R.string.faditor_mask_w), 0.1f, 1f, pct,
-                        ms -> wf.getWidthFraction(),
-                        (v, ms) -> { wf.setSize(v, wf.getHeightFraction()); refreshVizAfterMenuWrite(); }),
+                vizMenuProp(wf, com.fadcam.ui.faditor.model.WaveformOverlayInstance.VIZ_WIDTH,
+                        getString(R.string.faditor_mask_w), 0.1f, 1f, pct, wf::animatedWidthFraction),
                 host));
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
-                ObjectMenuSheet.Prop.staticProp("viz_h", getString(R.string.faditor_mask_h), 0.05f, 1f, pct,
-                        ms -> wf.getHeightFraction(),
-                        (v, ms) -> { wf.setSize(wf.getWidthFraction(), v); refreshVizAfterMenuWrite(); }),
+                vizMenuProp(wf, com.fadcam.ui.faditor.model.WaveformOverlayInstance.VIZ_HEIGHT,
+                        getString(R.string.faditor_mask_h), 0.05f, 1f, pct, wf::animatedHeightFraction),
                 host));
         refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
-                ObjectMenuSheet.Prop.staticProp(
-                        com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, getString(R.string.faditor_tool_rotate),
-                        -180f, 180f, deg, ms -> wf.getRotationDeg(),
-                        (v, ms) -> { wf.setRotationDeg(v); refreshVizAfterMenuWrite(); }),
+                vizMenuProp(wf, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION,
+                        getString(R.string.faditor_tool_rotate), -180f, 180f, deg, wf::animatedRotation),
                 host));
         for (Runnable r : refreshers) r.run();
         root.setTag(R.id.faditor_tag_row_refresh, (Runnable) () -> {
@@ -31562,22 +31557,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
         addObjectVisibilityActions(vizActions, wf::isHidden, wf::setHidden, wf::isLocked, wf::setLocked);
         maybeAddLinkActions(vizActions, wf.getId());
         ensureObjectMenuSheet().show("Visualizer", null, props, // TODO(strings)
-                vizActions, () -> showVisualizerDrawer(true),
+                vizActions, () -> showVisualizerObjectDrawer(wf),
                 rangeChips, hooks, lastPlayheadAbsoluteMs, null);
     }
 
     /** Snapshot of a visualizer's static transform for one-undo-step bracketing. */
     private static final class VizTransformState {
         final float cx, cy, w, h, rot;
-        VizTransformState(float cx, float cy, float w, float h, float rot) {
-            this.cx = cx; this.cy = cy; this.w = w; this.h = h; this.rot = rot;
+        final com.fadcam.ui.faditor.keyframe.KeyframeSet keys;
+        VizTransformState(float cx, float cy, float w, float h, float rot,
+                          com.fadcam.ui.faditor.keyframe.KeyframeSet keys) {
+            this.cx = cx; this.cy = cy; this.w = w; this.h = h; this.rot = rot; this.keys = keys;
         }
     }
 
     private VizTransformState snapshotViz(
             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf) {
         return new VizTransformState(wf.getCenterX(), wf.getCenterY(),
-                wf.getWidthFraction(), wf.getHeightFraction(), wf.getRotationDeg());
+                wf.getWidthFraction(), wf.getHeightFraction(), wf.getRotationDeg(),
+                wf.getKeyframes().copy());
     }
 
     private void applyVizTransform(
@@ -31586,6 +31584,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wf.setCenter(s.cx, s.cy);
         wf.setSize(s.w, s.h);
         wf.setRotationDeg(s.rot);
+        wf.getKeyframes().copyFrom(s.keys);
         refreshVizAfterMenuWrite();
         if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
             objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
@@ -31604,7 +31603,126 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private boolean vizStateEquals(@NonNull VizTransformState a, @NonNull VizTransformState b) {
-        return a.cx == b.cx && a.cy == b.cy && a.w == b.w && a.h == b.h && a.rot == b.rot;
+        return a.cx == b.cx && a.cy == b.cy && a.w == b.w && a.h == b.h && a.rot == b.rot
+                && keysEqual(a.keys, b.keys);
+    }
+
+    private boolean keysEqual(com.fadcam.ui.faditor.keyframe.KeyframeSet x,
+                              com.fadcam.ui.faditor.keyframe.KeyframeSet y) {
+        java.util.List<com.fadcam.ui.faditor.keyframe.KeyframeTrack> tx = new java.util.ArrayList<>();
+        int ny = 0;
+        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack t : x.tracks()) if (!t.isEmpty()) tx.add(t);
+        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack t : y.tracks()) if (!t.isEmpty()) ny++;
+        if (tx.size() != ny) return false;
+        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack t : tx) {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack u = y.get(t.property);
+            if (u == null || u.keyframes.size() != t.keyframes.size()) return false;
+            for (int i = 0; i < t.keyframes.size(); i++) {
+                com.fadcam.ui.faditor.keyframe.Keyframe p = t.keyframes.get(i), q = u.keyframes.get(i);
+                if (p.timeMs != q.timeMs || p.value != q.value || p.easing != q.easing) return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * A keyframe-aware drawer row for one visualizer property: a plain write while nothing is
+     * keyed, a key at the playhead once any is (the sprite and overlay rules, one undo step per
+     * gesture through the host). Position, width, height and rotation all come through here.
+     */
+    @NonNull
+    private ObjectMenuSheet.Prop vizMenuProp(
+            @NonNull final com.fadcam.ui.faditor.model.WaveformOverlayInstance wf,
+            @NonNull final String key, @NonNull String label, float min, float max,
+            @NonNull ObjectMenuSheet.ValueFormat fmt, @NonNull ObjectMenuSheet.Getter get) {
+        final String X = com.fadcam.ui.faditor.keyframe.KeyframeSet.X;
+        final String Y = com.fadcam.ui.faditor.keyframe.KeyframeSet.Y;
+        final String W = com.fadcam.ui.faditor.model.WaveformOverlayInstance.VIZ_WIDTH;
+        final String H = com.fadcam.ui.faditor.model.WaveformOverlayInstance.VIZ_HEIGHT;
+        final String ROT = com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION;
+        ObjectMenuSheet.Setter set = (v, ms) -> {
+            if (wf.isLinked()) {
+                // The row shows where it IS in the picture; the model stores its own pose.
+                float[] own = new float[2];
+                if (X.equals(key) || Y.equals(key)) {
+                    wf.worldToOwn(X.equals(key) ? v : wf.animatedCenterX(ms),
+                            X.equals(key) ? wf.animatedCenterY(ms) : v, ms, own);
+                    if (wf.isArmed()) {
+                        wf.addPropertyKeyframeAt(X, ms, own[0]);
+                        wf.addPropertyKeyframeAt(Y, ms, own[1]);
+                    } else {
+                        wf.setCenter(own[0], own[1]);
+                    }
+                    refreshVizAfterMenuWrite();
+                    return;
+                }
+                if (W.equals(key) || H.equals(key)) v = wf.worldSizeToOwn(v, ms);
+                else if (ROT.equals(key)) v = wf.worldRotationToOwn(v, ms);
+            }
+            if (wf.isArmed()) {
+                wf.addPropertyKeyframeAt(key, ms, v);
+            } else if (X.equals(key)) {
+                wf.setCenter(v, wf.getCenterY());
+            } else if (Y.equals(key)) {
+                wf.setCenter(wf.getCenterX(), v);
+            } else if (W.equals(key)) {
+                wf.setSize(v, wf.getHeightFraction());
+            } else if (H.equals(key)) {
+                wf.setSize(wf.getWidthFraction(), v);
+            } else if (ROT.equals(key)) {
+                wf.setRotationDeg(v);
+            }
+            refreshVizAfterMenuWrite();
+        };
+        ObjectMenuSheet.OnKeyQuery onKey = ms -> {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = wf.getKeyframes().get(key);
+            if (tr == null) return false;
+            long local = Math.max(0, ms - wf.getStartMs());
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+                if (Math.abs(k.timeMs - local) <= 66) return true;
+            }
+            return false;
+        };
+        Runnable dropKey = () -> {
+            VizTransformState before = snapshotViz(wf);
+            if (wf.isArmed()) {
+                wf.addPropertyKeyframeAt(key, lastPlayheadAbsoluteMs, get.at(lastPlayheadAbsoluteMs));
+            } else {
+                wf.addKeyframeAt(lastPlayheadAbsoluteMs);
+            }
+            recordVizMenuUndo(wf, before, getString(R.string.studio_label_add_keyframe));
+            refreshVizAfterMenuWrite();
+        };
+        Runnable prevKey = () -> jumpToAdjacentKey(wf.getKeyframes().get(key), wf.getStartMs(), false);
+        Runnable nextKey = () -> jumpToAdjacentKey(wf.getKeyframes().get(key), wf.getStartMs(), true);
+        Runnable deleteKey = () -> {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = wf.getKeyframes().get(key);
+            Long hit = keyUnderPlayheadLocalMs(tr, wf.getStartMs());
+            if (hit == null) return;
+            VizTransformState before = snapshotViz(wf);
+            wf.getKeyframes().removeKey(key, hit);
+            recordVizMenuUndo(wf, before, getString(R.string.studio_label_delete_keyframe));
+            refreshVizAfterMenuWrite();
+        };
+        ObjectMenuSheet.ArmedQuery armed = wf::isArmed;
+        ObjectMenuSheet.EaseGet easeGet =
+                ms -> segmentEasingAt(wf.getKeyframes().get(key), wf.getStartMs(), ms);
+        ObjectMenuSheet.EaseSet easeSet = (e, ms) -> {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = wf.getKeyframes().get(key);
+            if (tr == null || tr.keyframes.isEmpty()) return;
+            long local = Math.max(0, ms - wf.getStartMs());
+            com.fadcam.ui.faditor.keyframe.Keyframe owner = null;
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+                if (k.timeMs <= local) owner = k; else break;
+            }
+            if (owner == null) return;
+            VizTransformState before = snapshotViz(wf);
+            owner.easing = e;
+            recordVizMenuUndo(wf, before, getString(R.string.studio_label_ease_curve));
+            refreshVizAfterMenuWrite();
+        };
+        return new ObjectMenuSheet.Prop(key, label, min, max, fmt, get, set, onKey, dropKey,
+                prevKey, nextKey, deleteKey, armed, easeGet, easeSet);
     }
 
     private void refreshVizAfterMenuWrite() {
@@ -35318,7 +35436,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     next.put(k, o.animatedCenterX(tk));
                 } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.Y.equals(tr.property)) {
                     next.put(k, o.animatedCenterY(tk));
-                } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE.equals(tr.property)) {
+                } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE.equals(tr.property)
+                        || "viz_w".equals(tr.property) || "viz_h".equals(tr.property)) {
                     next.put(k, l.sizeToWorld(k.value, tk));
                 } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION.equals(tr.property)) {
                     next.put(k, l.rotToWorld(k.value, tk));

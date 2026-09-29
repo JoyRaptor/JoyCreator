@@ -1108,7 +1108,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
             int sw = ws.slotW, sh = ws.slotH, px = ws.posX, py = ws.posY;
             float rot = ws.instance.getRotationDeg();
             float linkAlpha = 1f;
-            if (ws.instance.isLinked()) {
+            if (ws.instance.isLinked() || ws.instance.isArmed()) {
                 sw = Math.max(1, Math.round(ws.outW * ws.instance.animatedWidthFraction(timelineMs)));
                 sh = Math.max(1, Math.round(ws.outH * ws.instance.animatedHeightFraction(timelineMs)));
                 px = Math.round(ws.outW * ws.instance.animatedCenterX(timelineMs) - sw / 2f);

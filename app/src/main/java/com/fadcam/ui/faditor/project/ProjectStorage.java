@@ -2564,6 +2564,24 @@ public class ProjectStorage {
                     wj.addProperty("widthFraction", wo.getWidthFraction());
                     wj.addProperty("heightFraction", wo.getHeightFraction());
                     if (wo.getRotationDeg() != 0f) wj.addProperty("rotationDeg", wo.getRotationDeg());
+                    // Keys on position / width / height / rotation: the same { property: [ {t,v,e} ] }
+                    // shape overlays and sprites use, written only when there are any.
+                    if (!wo.getKeyframes().isEmpty()) {
+                        JsonObject wkeys = new JsonObject();
+                        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : wo.getKeyframes().tracks()) {
+                            if (tr.isEmpty()) continue;
+                            JsonArray arr = new JsonArray();
+                            for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+                                JsonObject kj = new JsonObject();
+                                kj.addProperty("t", k.timeMs);
+                                kj.addProperty("v", k.value);
+                                kj.addProperty("e", k.easing.name());
+                                arr.add(kj);
+                            }
+                            wkeys.add(tr.property, arr);
+                        }
+                        wj.add("keyframes", wkeys);
+                    }
                     if (wo.getJustify() >= 0) wj.addProperty("justify", wo.getJustify());
                     if (wo.getDataMode() >= 0) wj.addProperty("dataMode", wo.getDataMode());
                     if (wo.isHorizontalMirror()) wj.addProperty("hMirror", true);
@@ -3518,6 +3536,20 @@ public class ProjectStorage {
                         }
                         if (hasValue(wj, "rotationDeg")) {
                             wo.setRotationDeg(wj.get("rotationDeg").getAsFloat());
+                        }
+                        if (wj.has("keyframes") && wj.get("keyframes").isJsonObject()) {
+                            for (java.util.Map.Entry<String, JsonElement> ke
+                                    : wj.getAsJsonObject("keyframes").entrySet()) {
+                                if (!ke.getValue().isJsonArray()) continue;
+                                com.fadcam.ui.faditor.keyframe.KeyframeTrack tr =
+                                        wo.getKeyframes().getOrCreate(ke.getKey());
+                                for (JsonElement el : ke.getValue().getAsJsonArray()) {
+                                    JsonObject kj = el.getAsJsonObject();
+                                    tr.put(kj.get("t").getAsLong(), kj.get("v").getAsFloat(),
+                                            com.fadcam.ui.faditor.keyframe.Easing.fromName(
+                                                    kj.get("e").getAsString()));
+                                }
+                            }
                         }
                         if (wj.has("spaceLink") && wj.get("spaceLink").isJsonObject()) {
                             wo.setSpaceLink(com.fadcam.ui.faditor.model.SpaceLink.fromJson(

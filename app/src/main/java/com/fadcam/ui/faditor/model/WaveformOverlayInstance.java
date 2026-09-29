@@ -1,5 +1,6 @@
 package com.fadcam.ui.faditor.model;
 
+import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -167,8 +168,12 @@ public class WaveformOverlayInstance implements LinkFollower {
     public long getStartMs() { return startMs; }
     public long getEndMs() { return endMs; }
     public void setTimeRange(long startMs, long endMs) {
+        long before = this.startMs;
         this.startMs = Math.max(0, startMs);
         this.endMs = Math.max(this.startMs + 1, endMs);
+        // Keys are stored relative to the start, so moving the start must move them the other
+        // way or they would slide along the timeline with it (same rule as sprites).
+        if (this.startMs != before && !keyframes.isEmpty()) keyframes.shiftAll(before - this.startMs);
     }
 
     @Nullable public String getAttachedClipId() { return attachedClipId; }
@@ -208,32 +213,90 @@ public class WaveformOverlayInstance implements LinkFollower {
     @Nullable @Override public SpaceLink getSpaceLink() { return spaceLink; }
     @Override public void setSpaceLink(@Nullable SpaceLink l) { spaceLink = l; }
 
+    // ── KEYFRAMES (owner, 2026-09-29: position, width, height and rotate lacked the keyframe
+    // helper) ─────────────────────────────────────────────────────────────────────────────────
+    // The same KeyframeSet every other object carries. Tracks: X, Y, VIZ_WIDTH, VIZ_HEIGHT, ROTATION. Keys
+    // are relative to the visualizer's own start, like sprites. The animated* getters below are
+    // the pose the preview and the export draw; with no keys they are the statics.
+
+    /** The width and height fractions' tracks. */
+    public static final String VIZ_WIDTH = "viz_w";
+    public static final String VIZ_HEIGHT = "viz_h";
+
+    @NonNull private final KeyframeSet keyframes = new KeyframeSet();
+
+    private long localTime(long timelineMs) { return Math.max(0L, timelineMs - startMs); }
+
+    /** True when any property has keys; the export then places the slot per frame. */
+    public boolean isArmed() { return !keyframes.isEmpty(); }
+
+    public float ownCenterX(long t) { return keyframes.valueAt(KeyframeSet.X, localTime(t), centerX); }
+    public float ownCenterY(long t) { return keyframes.valueAt(KeyframeSet.Y, localTime(t), centerY); }
+    public float ownWidthFraction(long t) {
+        return keyframes.valueAt(VIZ_WIDTH, localTime(t), widthFraction);
+    }
+    public float ownHeightFraction(long t) {
+        return keyframes.valueAt(VIZ_HEIGHT, localTime(t), heightFraction);
+    }
+    public float ownRotation(long t) {
+        return keyframes.valueAt(KeyframeSet.ROTATION, localTime(t), rotationDeg);
+    }
+
+    /** Key every pose track at {@code timelineMs} from the current statics. */
+    public void addKeyframeAt(long timelineMs) {
+        long t = localTime(timelineMs);
+        com.fadcam.ui.faditor.keyframe.Easing ease = com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
+        keyframes.getOrCreate(KeyframeSet.X).put(t, centerX, ease);
+        keyframes.getOrCreate(KeyframeSet.Y).put(t, centerY, ease);
+        keyframes.getOrCreate(VIZ_WIDTH).put(t, widthFraction, ease);
+        keyframes.getOrCreate(VIZ_HEIGHT).put(t, heightFraction, ease);
+        keyframes.getOrCreate(KeyframeSet.ROTATION).put(t, rotationDeg, ease);
+    }
+
+    /** Write ONE property as a key at {@code timelineMs}, anchoring the other pose tracks so
+     *  the rest of the pose does not drift between keys. */
+    public void addPropertyKeyframeAt(@NonNull String property, long timelineMs, float value) {
+        long t = localTime(timelineMs);
+        com.fadcam.ui.faditor.keyframe.Easing ease = com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
+        keyframes.getOrCreate(KeyframeSet.X).put(t, ownCenterX(timelineMs), ease);
+        keyframes.getOrCreate(KeyframeSet.Y).put(t, ownCenterY(timelineMs), ease);
+        keyframes.getOrCreate(VIZ_WIDTH).put(t, ownWidthFraction(timelineMs), ease);
+        keyframes.getOrCreate(VIZ_HEIGHT).put(t, ownHeightFraction(timelineMs), ease);
+        float v = value;
+        if (VIZ_WIDTH.equals(property)) v = Math.max(0.1f, Math.min(1f, value));
+        else if (VIZ_HEIGHT.equals(property)) v = Math.max(0.05f, Math.min(1f, value));
+        keyframes.getOrCreate(property).put(t, v, ease);
+    }
+
     @Override public float animatedCenterX(long t) {
-        if (!isLinked()) return centerX;
+        if (!isLinked()) return ownCenterX(t);
         float[] w = new float[2];
-        spaceLink.toWorld(centerX, centerY, t, w);
+        spaceLink.toWorld(ownCenterX(t), ownCenterY(t), t, w);
         return w[0];
     }
 
     @Override public float animatedCenterY(long t) {
-        if (!isLinked()) return centerY;
+        if (!isLinked()) return ownCenterY(t);
         float[] w = new float[2];
-        spaceLink.toWorld(centerX, centerY, t, w);
+        spaceLink.toWorld(ownCenterX(t), ownCenterY(t), t, w);
         return w[1];
     }
 
     @Override public float animatedSizeFraction(long t) { return animatedWidthFraction(t); }
 
     public float animatedWidthFraction(long t) {
-        return isLinked() ? spaceLink.sizeToWorld(widthFraction, t) : widthFraction;
+        float own = ownWidthFraction(t);
+        return isLinked() ? spaceLink.sizeToWorld(own, t) : own;
     }
 
     public float animatedHeightFraction(long t) {
-        return isLinked() ? spaceLink.sizeToWorld(heightFraction, t) : heightFraction;
+        float own = ownHeightFraction(t);
+        return isLinked() ? spaceLink.sizeToWorld(own, t) : own;
     }
 
     @Override public float animatedRotation(long t) {
-        return isLinked() ? spaceLink.rotToWorld(rotationDeg, t) : rotationDeg;
+        float own = ownRotation(t);
+        return isLinked() ? spaceLink.rotToWorld(own, t) : own;
     }
 
     /** A visualizer has no opacity of its own: 1, times its parent's when that is linked. */
@@ -252,21 +315,29 @@ public class WaveformOverlayInstance implements LinkFollower {
     @Override public void setOpacity(float o) { /* no opacity of its own */ }
 
     @NonNull @Override
-    public com.fadcam.ui.faditor.keyframe.KeyframeSet getKeyframes() {
-        return new com.fadcam.ui.faditor.keyframe.KeyframeSet();   // none: statics only
-    }
+    public com.fadcam.ui.faditor.keyframe.KeyframeSet getKeyframes() { return keyframes; }
 
     @Override public boolean isVisibleAt(long t) {
         return !hidden && t >= startMs && t <= endMs;
     }
 
+    /** The statics AND the keys, so one undo step reverses a keyed edit as well. */
+    public static final class PoseSnapshot {
+        public final float[] a;
+        public final KeyframeSet keys;
+        PoseSnapshot(float[] a, KeyframeSet keys) { this.a = a; this.keys = keys; }
+    }
+
     @NonNull @Override public Object snapshotPose() {
-        return new float[]{centerX, centerY, widthFraction, heightFraction, rotationDeg};
+        return new PoseSnapshot(new float[]{centerX, centerY, widthFraction, heightFraction,
+                rotationDeg}, keyframes.copy());
     }
 
     @Override public void restorePose(@NonNull Object s) {
-        float[] a = (float[]) s;
+        PoseSnapshot p = (PoseSnapshot) s;
+        float[] a = p.a;
         centerX = a[0]; centerY = a[1]; widthFraction = a[2]; heightFraction = a[3]; rotationDeg = a[4];
+        keyframes.copyFrom(p.keys);
     }
 
     public int getJustify() { return justify; }

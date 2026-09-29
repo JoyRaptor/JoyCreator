@@ -3,6 +3,7 @@ package cc.joycreator.joybrush.androidkit
 import android.content.Context
 import android.opengl.GLSurfaceView
 import android.os.Build
+import android.os.Looper
 import android.os.SystemClock
 import android.view.MotionEvent
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
@@ -90,15 +91,23 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      */
     @Volatile var smoothingFromUser = false
 
-    var paperArgb: Int = 0xFFFFFFFF.toInt()
+    @Volatile var paperArgb: Int = 0xFFFFFFFF.toInt()
         set(v) { field = v; requestRender() }
 
     /**
      * Zoom, rotation and pan (JB-2.02) — the one place that says where the document is on the
      * screen. Public so the screen can fit the board or put it back where it was; the gesture
      * machine writes to it, nothing else does.
+     *
+     * UI thread only. The GL thread never reads it: [requestRender] (called on the UI thread after
+     * every change) copies the four numbers into [drawView] in one go, so a frame can never pair
+     * one gesture step's zoom with another's pan.
      */
     val view = ViewTransform()
+
+    /** GL thread's copy of [view], replaced whole — never mutated — so it cannot be half-updated. */
+    @Volatile private var viewSnapshot = floatArrayOf(1f, 0f, 0f, 0f)
+    private val drawView = ViewTransform()
 
     /**
      * Called when four fingers tap. Nothing on screen listens yet — the chrome that would hide is
@@ -153,7 +162,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var penUpAt = 0L
     private var drawing = false
     private var pointerId = -1
-    private var laidOut = false
 
     private var smoother: StrokeSmoother? = null
     private var tracker: DirectionTracker? = null
@@ -176,21 +184,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 engine.addLayer(layerId)
             }
             override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
+                // The view is NOT touched here: a new ViewTransform is already identity (the page
+                // starts on its own top-left corner, unzoomed and upright), and later layouts —
+                // rotation, a keyboard, a resumed Activity — must not make the page jump.
                 viewW = width; viewH = height
-                if (!laidOut) {
-                    // First layout: the page starts on its own top-left corner, unzoomed and
-                    // upright, so document (0, 0) is exactly the screen origin. Later layouts —
-                    // rotation, a keyboard, a resumed Activity — must NOT touch the view, or the
-                    // page would jump under the person mid-drawing.
-                    laidOut = true
-                    view.zoom = 1f
-                    view.rotation = 0f
-                    view.panX = 0f
-                    view.panY = 0f
-                }
             }
             override fun onDrawFrame(gl: GL10?) {
-                engine.draw(viewW, viewH, view.docToClip(viewW, viewH), paperArgb)
+                val s = viewSnapshot
+                drawView.zoom = s[0]; drawView.rotation = s[1]; drawView.panX = s[2]; drawView.panY = s[3]
+                engine.draw(viewW, viewH, drawView.docToClip(viewW, viewH), paperArgb)
             }
         })
         renderMode = RENDERMODE_WHEN_DIRTY
@@ -254,6 +256,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 feed(ev)
             } else if (drawing) {
                 cancelStroke() // a second finger during a finger stroke: that is a view gesture
+                gestures.handOver() // …which the gesture machine never saw start (JB-2.02 review)
             }
         } else if (action == MotionEvent.ACTION_POINTER_UP) {
             val i = ev.actionIndex
@@ -601,6 +604,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    /** Also publishes [view] to the GL thread when called on the UI thread (see [viewSnapshot]). */
+    override fun requestRender() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            viewSnapshot = floatArrayOf(view.zoom, view.rotation, view.panX, view.panY)
+        }
+        super.requestRender()
+    }
 
     private fun onGl(block: () -> Unit) {
         queueEvent(block)

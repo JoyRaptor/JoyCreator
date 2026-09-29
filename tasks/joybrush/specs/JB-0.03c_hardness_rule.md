@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T2 (tiny) |
-| **Status** | 📝 Draft spec |
+| **Status** | 🟦 Ready |
 | **Depends on** | JB-0.03b (`BrushValidate`, Built) |
 | **Owner area** | `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/brush/BrushValidate.kt` · `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/BrushTest.kt` · `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/imports/MypaintImportTest.kt` — **nothing else** |
 | **Estimated size** | ~10 lines of code, ~35 lines of tests, ~12 lines of test edits |
@@ -208,8 +208,9 @@ Its KDoc says *"delete it then"*. **This row rewrites it instead — see Decisio
    trap — a name wrongly *left out* is caught by the tests — and the set's own KDoc says so.
 5. **Only the BASE is ranged. A curve's `y` is still not.** *Why:* rule 19 already states the
    position — *"y is the setting's own value, so it is not ranged here — it only has to be a
-   number"* — and `TipMath.kt:34` clamps with `tip.hardness.coerceIn(0f, 1f)` at the point of use.
-   R37 Q3's "the 0..1 hardness rule" reads as the base, which is how every other `Param` range in
+   number"* — and `core/.../paint/TipMath.kt:34` clamps with `tip.hardness.coerceIn(0f, 1f)` at the
+   point of use. (Note the package: `TipMath` lives in `core.paint`, **not** in `core.brush`.) R37 Q3's
+   "the 0..1 hardness rule" reads as the base, which is how every other `Param` range in
    JB-0.03b's table reads. Ranging curve `y` is a different row and would touch rule 19 and every
    other setting at once.
 6. **The validator REFUSES; it never clamps or repairs.** *Why:* the whole file is a list of
@@ -217,17 +218,34 @@ Its KDoc says *"delete it then"*. **This row rewrites it instead — see Decisio
    validator that quietly fixed a number would be a second, invisible source of truth.
 7. **`BRUSH_VERSION` is NOT bumped, and `BrushPreset.kt` is NOT edited — so `EnumFreezeTest` is not
    touched and is not in the owner area.**
-   *Why:* R31's trigger is "ANY new serialised field" and R3's is a new enum constant. **This row adds
-   neither.** `tip.hardness` has been a serialised field since JB-0.03; what changes is which values
-   this build *accepts*, which is a reader, not a format. Bumping `BRUSH_VERSION` would make every
-   brush file an older build had already written fail in that build with "from a newer Joy Brush" —
-   a real cost against the owner's own brush library, bought for nothing. It would also move
-   `BrushPreset.version`'s default (a second file) and turn `EnumFreezeTest.theVersionsTheNamesWereWrittenFor`
-   (line 93, `assertEquals(2, BRUSH_VERSION)`) red.
-   **This is PROVISIONAL and it is the one place I may be over-riding the row's own framing** — see
-   Questions 1. Per R30 this spec writes no version number. If the Lead rules that a bump is wanted,
-   the change is: bump to the next `BRUSH_VERSION`, move `BrushPreset.version`'s default with it, and
-   add `EnumFreezeTest.kt` to the owner area.
+    *Why:* R31's trigger is "ANY new serialised field" and R3's is a new enum constant. **This row adds
+    neither.** `tip.hardness` has been a serialised field since JB-0.03; what changes is which values
+    this build *accepts*, which is a reader, not a format.
+    **The concrete cost of a bump, verified against the landed files (2026-09-29 cross-review):**
+    - `joybrush/brushes/fill/brush.json` ships as `"version": 2` with `"engine": "fill"`. `BrushValidate`
+      rule 1b runs `BrushJson.wordsNeedingVersion` whenever `p.version < BRUSH_VERSION`, and
+      `wordsNeedingVersion` (BrushJson.kt:118-123) returns `engine "fill"`. So a bump to 3 makes the
+      **shipped fill pen** report `engine "fill" needs brush version 3`, and
+      `ShippedBrushFilesTest.everyShippedBrushFileOnDiskDecodesAndValidatesClean` — which asserts
+      `emptyList()` for every shipped file, and whose own KDoc calls itself "the canary for a new rule
+      in `BrushValidate`" — goes **red**. Recovering needs a **fourth** file,
+      `joybrush/brushes/fill/brush.json`, re-stamped to the new number, which is outside this row's
+      owner area and is a change to a shipped asset.
+    - `EnumFreezeTest.theVersionsTheNamesWereWrittenFor` (line 95, `assertEquals(2, BRUSH_VERSION)`)
+      goes red, so that file joins the owner area.
+    - `BrushPreset.version` does **not** need an edit: it is written `val version: Int = BRUSH_VERSION`
+      (BrushPreset.kt:61), a *reference*, not a second literal, so it moves with the constant and
+      `EnumFreezeTest`'s `assertEquals(BRUSH_VERSION, BrushPreset(...).version)` stays true. (The KDoc
+      above it, BrushPreset.kt:12-14, calls it "a second literal" — that sentence is stale. Do not
+      copy it into the code.)
+    - What a bump does **not** cost: the owner's existing files do not stop opening. A file stamped with
+      the old number still validates under a newer build, because rule 1 only refuses
+      `p.version > BRUSH_VERSION`.
+    **This is PROVISIONAL and it is the one place I may be over-riding the row's own framing** — see
+    Questions 1. Per R30 this spec writes no version number. If the Lead rules that a bump is wanted,
+    the change is: bump to the next `BRUSH_VERSION`, add `EnumFreezeTest.kt` **and**
+    `joybrush/brushes/fill/brush.json` to the owner area, and re-stamp that file — and expect
+    `ShippedBrushFilesTest` to be the test that says so.
 8. **`everyBaseNoRuleRangedMustStillBeANumber` is edited, not deleted: the hardness case moves out
    and the comment's "seven" becomes "six".**
    *Why:* the remaining six are `opacity`, `flow`, `tip.angle`, `tipTexture.depth`,
@@ -294,8 +312,8 @@ demands zero problems — so the shipped library is checked by the same run. Pas
 ## Do not
 
 - **Do not put the rule in the ink path** (R37 Q3 placed it here deliberately), and do not add a
-  clamp to `TipMath`, `Dab` or `BrushDabber`. The engine already clamps; that is exactly why the
-  person must be told at the door instead.
+  clamp to `paint/TipMath.kt`, `Dab` or `BrushDabber`. The engine already clamps; that is exactly why
+  the person must be told at the door instead.
 - **Do not clamp or repair the value in the validator.** A validator that fixes a number is a second
   source of truth. Refuse, in words.
 - **Do not renumber rules 9–23.** Rule 16's own comment and JB-0.03b's table depend on those
@@ -312,6 +330,9 @@ demands zero problems — so the shipped library is checked by the same run. Pas
   what this row overrules, because the test's value is now higher than it was.
 - **Do not touch `BrushPreset.kt`, `BrushJson.kt`, `EnumFreezeTest.kt` or `DocModel.kt`.** In
   particular, do **not** bump `BRUSH_VERSION` (Decision 7) and do not write a version number here.
+  The reason is not tidiness: `joybrush/brushes/fill/brush.json` ships as `"version": 2` with
+  `"engine": "fill"`, so a bump makes the shipped fill pen fail rule 1b and turns
+  `ShippedBrushFilesTest` red — and the cure is a file this row is not allowed to edit.
 - **Do not add a `wordsNeedingVersion` entry for hardness.** It is not a new word in the file; it is
   a range on a word that has been there since version 1. Adding it would say "this file is older than
   a word it is using", which is false.
@@ -356,17 +377,50 @@ demands zero problems — so the shipped library is checked by the same run. Pas
    `BRUSH_VERSION` and say `bump to the next BRUSH_VERSION`", and my reading of the rulings is that
    it should **not** move: R31's trigger is a new *serialised field*, R3's is a new enum constant, and
    this row adds neither — it makes an existing field's range narrower. **My recommendation is no
-   bump** (Decision 7): bumping makes every brush file the owner has already saved fail in an older
-   build with "from a newer Joy Brush", costs a second file (`BrushPreset.version`'s default), and
-   turns `EnumFreezeTest.theVersionsTheNamesWereWrittenFor` red for no gain. If the Lead rules that a
-   stricter reader is itself a format change, the whole scope changes with it.
-2. 🟠 **The MyPaint test: rewrite or delete?** Its landed KDoc says *"This test fails when the JB-0.03b
-   range rule lands; delete it then."* I am rewriting it instead (Decision 9), because deleting it
-   also deletes the only coverage of the importer's own warning. Confirm the rewrite, or overrule me
-   and it gets deleted.
-3. **Is the message wording right?** `"tip.hardness 1.5 is outside 0..1"` — it matches the ten existing
-   range messages exactly (Decision 2). Low-risk, but it is a user-visible string and there is no
-   reason for a T2 builder to be the last person to touch it.
+   bump** (Decision 7), and the cross-review checked the cost against the landed files rather than
+   taking the first draft's word for it. What a bump actually costs is *not* "the owner's brush
+   library stops opening" — that is backwards, since rule 1 only refuses a *higher* version. It costs:
+   (i) the **shipped** `joybrush/brushes/fill/brush.json` (`"version": 2`, `"engine": "fill"`) starts
+   failing rule 1b and turns `ShippedBrushFilesTest` red, which needs that shipped file re-stamped —
+   a fourth file, outside this row's owner area; and (ii) `EnumFreezeTest.kt` joins the owner area.
+   `BrushPreset.kt` does **not** need touching — its `version` default is a reference to
+   `BRUSH_VERSION`, not a second literal. If the Lead still rules that a bump is wanted, Decision 7's
+   last paragraph is the change list, and it is bigger than one constant.
+2. ✅ **RULED (cross-review, 2026-09-29): the MyPaint test is REWRITTEN, not deleted.**
+   **PROVISIONAL — Claude to confirm.** The evidence settles it. After this row the importer's warning
+   at `MypaintImport.kt:376-379` *still fires* and is *still correct* — the importer genuinely does
+   pass `1e30` through untouched and genuinely does say so — and the sweep at
+   `MypaintImport.kt:454-456` now adds a second, truer sentence. So all three facts the old test pinned
+   are still true and worth keeping; the rewrite (test 6) pins all three and adds the refusal.
+   Deleting it would drop the only coverage of a warning that still happens. Overrule me and it
+   becomes a one-function deletion.
+3. ✅ **RULED (cross-review, 2026-09-29): the message wording stands** —
+   `out += "tip.hardness ${p.tip.hardness.base} is outside 0..1"`. **PROVISIONAL — Claude to confirm.**
+   Checked against the landed file: exactly ten rules already use the form
+   `<name> <value> is outside <lo>..<hi>` written `!in` (spacing, tip.corner, tip.taper, tip.aspect,
+   tip.minPx, smoothing, sizeJitter, angleJitter, scatter.count, scatter.countJitter), and
+   `tip.hardness` is already the name `paramsOf` uses and the name rule 17's message already uses.
+   Low-risk and reversible.
 4. **Should the rule land in the same commit as the range for `opacity` and `flow`?** JB-0.03b Q3
    raised all seven together. This row is deliberately one of them (R37 Q3 called it tiny). If the
    Lead wants the other two, that is a different row, not a bigger version of this one.
+
+---
+
+xr: stealth/space-bunny-alpha 2026-09-29 — Verified against the landed files, not the spec's restatement
+of them: `RANGED_BASES = setOf("size")` (BrushValidate.kt:43), rule 16's "Seven bases" comment
+(148-152), `paramsOf` already carrying `"tip.hardness"` (259), the last rule really being **23** so 24
+is correct, `TipSpec.hardness` defaulting to `Param(0.9f)` inside the range, and only `ink` carrying a
+`hardness` key (0.95) while `pencil`/`fill` omit it — Decision 11 is exactly right. All four verbatim
+contract quotes and both test quotes are byte-accurate, and the tests correctly live in `commonTest`
+(none of them opens a file) with `ShippedBrushFilesTest` confirmed in `jvmTest`. **Corrected two
+false claims in Decision 7 and Question 1**: `BrushPreset.version`'s default is a *reference* to
+`BRUSH_VERSION`, not a second literal, so a bump does not need that file; and "the owner's files stop
+opening" is backwards — rule 1 only refuses a *higher* version. Replaced both with the real, verified
+cost of a bump, which is stronger than the original argument and which the first draft had missed:
+the shipped `joybrush/brushes/fill/brush.json` is `"version": 2` + `"engine": "fill"`, so any bump
+turns `ShippedBrushFilesTest` red and needs a fourth file outside the owner area. Also corrected
+`TipMath.kt`'s package (`core.paint`, not `core.brush`), and ruled Questions 2 and 3 (rewrite, and
+the house message form) as PROVISIONAL. Agreed with the writer on the merits of the no-bump argument:
+R31's trigger is a new serialised field, R3's a new enum constant, and this row adds neither.
+**One question left for the Lead (Q1) — see above.**

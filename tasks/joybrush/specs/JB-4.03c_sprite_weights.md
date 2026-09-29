@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T2 |
-| **Status** | 📝 Draft spec |
+| **Status** | 🟦 Ready |
 | **Depends on** | JB-4.03a (`SpritePacker`, 🟩 Reviewed) |
 | **Owner area** | `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/export/SpritePacker.kt` · `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/export/SpritePackerTest.kt` — **nothing else** |
 | **Estimated size** | ~25 lines of code, ~70 lines of tests |
@@ -182,23 +182,39 @@ the reason this row exists and it stays true after it.
     }
 ```
 
-**`"weights"` comes out of that list. Nothing else changes in it.** Two further facts about this
-test, both verified, and both reasons the entry was wrong rather than merely stale:
+**`"weights"` comes out of that list. Nothing else changes in it.** Three further facts about this
+test, all verified against the landed file, and the first two are reasons the entry was *wrong* rather
+than merely stale:
 
-- `pack(board(5), cols = 3)` passes **no clips**, so the sidecar has no `presets` key at all.
-  `root.containsKey("weights")` was therefore trivially `false` — the entry could never have caught
-  anything, even before weights existed in `Clip`.
-- `weights` is a key **inside each preset**, not a root key, so `root.containsKey` is the wrong level
-  to ask the question at regardless.
+- `pack(board(5), cols = 3)` passes **no clips**, and the private helper's own default is
+  `clips: List<Clip> = emptyList()` (`SpritePackerTest.kt:46`). `clips` is therefore empty, the
+  `if (clips.isNotEmpty())` block in `SpritePacker.pack` (line 231) never runs, and the sidecar has
+  **no `presets` key at all**. `root.containsKey("weights")` was trivially `false` — the entry could
+  never have caught anything, even before weights existed in `Clip`.
+- `weights` is a key **inside each preset**, not a root key (see the app writer above: `pj.add("weights", …)`
+  at `SpriteSheet.java:653`, inside the `for (Preset p : presets)` loop). So `root.containsKey` is the
+  wrong level to ask the question at regardless.
+- **The other seventeen entries are at the RIGHT level and the test really does check them.** The
+  cross-review verified every one against `SpriteSheet.toJson()`: `kind` (line 596), `frameUris`
+  (599), `resizeMode` (601), `visemeMap` (678), `bakedFrom` (683) and `cellOrder` (688) are all
+  written on the **root** `j` object, as are `marginX`/`spacingX`/`bgKeyColor`/`keyTolerance`/`pivotX`
+  (606-617), `cells` (633) and `cellXf`. The first draft filed six of these as "preset-level, not
+  root-level" and asked for a row; that is **backwards** and the row is not needed. See Question 3.
 
 ## Decisions already made
 
 1. **`weights` is appended as the LAST field of `Clip`, after `fps`.**
-   *Why, verified:* the existing test suite calls `Clip` **positionally** —
-   `Clip("walk", listOf(0, 1, 2), "pingpong")` and `Clip("blink", listOf(3), "once", 12f)`
-   (`SpritePackerTest.kt:206, 223`). Inserting `weights` anywhere but the end breaks those two calls
-   and every future one. A default on the last field also means **no existing call site changes**,
-   which is what makes this row additive on the Kotlin side.
+    *Why, verified:* the existing test suite calls `Clip` **positionally** —
+    `Clip("walk", listOf(0, 1, 2, 1), "pingpong")` and `Clip("blink", listOf(3), "once", 12f)`
+    (`SpritePackerTest.kt:206, 223`). Inserting `weights` anywhere but the end breaks those two calls
+    and every future one. A default on the last field also means **no existing call site changes**,
+    which is what makes this row additive on the Kotlin side.
+    *(Cross-review correction: the first draft quoted line 206 as `Clip("walk", listOf(0, 1, 2),
+    "pingpong")` — the landed call is `listOf(0, 1, 2, 1)`, a ping-pong. Same conclusion, wrong quote;
+    a verbatim-contract row may not carry a wrong quote.)* All eleven `Clip(…)` constructions in the
+    repo are in `SpritePackerTest.kt`, and `SpriteGridMathTest.kt:385` calls `SpritePacker.pack` with
+    `clips = emptyList()` and every argument named — so it is insulated from the new field and must
+    stay green.
 2. **Default is `emptyList()`.** *Why:* R36 says so, and it is the same shape as the app's `Preset`,
    where an empty `weights` list means "every frame weighs 1" and serialises byte-identically to a
    preset from before weights existed.
@@ -226,22 +242,25 @@ test, both verified, and both reasons the entry was wrong rather than merely sta
    arrives as `1` — a timing change nobody is told about, in a file whose whole purpose is to be
    read by that app. Refusing is the packer's policy and it is the same policy as every other
    `require` in `pack`. R36 fixes the range; this decides clamp-or-refuse, and refusal is what the
-   rest of the file does. **PROVISIONAL — Claude to confirm** (Questions 1).
+   rest of the file does. **RULED — refuse (cross-review, Questions 1). PROVISIONAL — Claude to
+   confirm.**
 7. **`SPRITE_SIDECAR_SCHEMA_VERSION` stays as it is.** *Why:* the app already writes this key, at
-   `SpriteSheet.SPRITE_SCHEMA_VERSION = 1` (verified in `SpriteSheet.java:29`). This row makes Joy
-   Brush agree with the format; it does not extend it, so nothing about the schema changes.
-   **PROVISIONAL — Claude to confirm** (Questions 2). Per R30 this spec writes no number.
+   `SpriteSheet.SPRITE_SCHEMA_VERSION = 1` (verified in `SpriteSheet.java:29`, written at line 589).
+   This row makes Joy Brush agree with the format; it does not extend it, so nothing about the schema
+   changes. **RULED (cross-review, Questions 2). PROVISIONAL — Claude to confirm.** Per R30 this spec
+   writes no number.
 8. **`weights` is per preset, parallel to `frames`. It is not a root key, not a map, and not named
    `holdFrames`.** *Why:* the app's key is `weights` and its shape is an array parallel to `frames`.
    Renaming it to something that reads better in Joy Brush would produce a file the app cannot read,
    which is the one outcome this row exists to prevent.
 9. **`pack`'s signature is unchanged.** *Why:* `clips: List<Clip>` is already there, so the field
    arrives through a value that already exists. `SpriteGridMathTest` (JB-4.01a) calls the landed
-   `SpritePacker.pack` and must not be disturbed by this row — a cross-lane dependency the JB-4.01a
-   report flagged, so it is named here as a thing to check rather than discover.
+   `SpritePacker.pack` and must not be disturbed by this row — verified: it calls it at line 385 with
+   every argument named and `clips = emptyList()`, so a new `Clip` field cannot reach it.
 10. **The refusal messages follow the packer's existing `"clip \"$name\" …"` shape.**
-    `"clip \"walk\" has 2 weights for 3 frames; the app reads a short array as 1s, so a hold would be lost"`
-    and `"clip \"walk\" has weight 0; the app reads weights 1..9999"`. **PROVISIONAL** (Questions 1).
+     `"clip \"walk\" has 2 weights for 3 frames; the app reads a short array as 1s, so a hold would be lost"`
+     and `"clip \"walk\" has weight 0; the app reads weights 1..9999"`. **RULED with Questions 1.
+     PROVISIONAL — Claude to confirm.**
 
 ## Steps
 
@@ -353,22 +372,66 @@ test, both verified, and both reasons the entry was wrong rather than merely sta
 
 ### For the Lead
 
-1. 🟠 **Clamp or refuse for an out-of-range or wrong-length `weights`?** Decisions 5 and 6 say
-   **refuse**, on the grounds that the packer's whole policy is to refuse what it cannot write
-   truthfully, and that the app's own `weightAt` clamps on read — so a clamp here is a silent change
-   written into a file. The alternative is to clamp to 1..9999 and fit to `frames.size`, which is
-   what the app's own `SequenceTiming.fit` does on its side. This is about what goes in a file
-   somebody else reads, so it is the Lead's; refusal is my recommendation and the packer's habit.
-2. **Confirm `SPRITE_SIDECAR_SCHEMA_VERSION` does not move** (Decision 7). The reasoning is that the
-   app already writes this key at version 1, so the schema is unchanged. If the Lead wants a bump
-   anyway, that is a one-line change here and one in `SpriteSheet.java` — and the second is an
-   app-file edit with its own row, which would make this row not-tiny.
-3. 🟡 **Six more entries in `nothingTheAppDoesNotWriteIsWritten` are preset-level, not root-level:**
-   `kind`, `frameUris`, `resizeMode`, `visemeMap`, `bakedFrom`, `cellOrder`. The test packs with no
-   clips, so none of them could ever be caught either — the same defect `weights` had, and it survived
-   a cross-review because the test looks like it is guarding a key set. Out of scope here, but it
-   should be a row rather than a quiet fix inside this one.
+1. ✅ **RULED (cross-review, 2026-09-29): REFUSE — a wrong-length or out-of-range `weights` is a
+   `require`, never a clamp and never a fit.** **PROVISIONAL — Claude to confirm.** The evidence
+   settles it, and it is this packer's own stated policy rather than a new one: `SpritePacker`'s class
+   KDoc already says *"What it refuses, and why: a cell of the wrong size, a cell index or clip frame
+   outside the packed cells, a clip with no frames, an unknown clip type, and an empty pack. Each of
+   those would write a sidecar describing something the sheet does not contain… Failing here is a
+   message on the export button; failing later is a sheet that renders blank in someone else's app."* A
+   weight outside 1..9999 is precisely "a sidecar describing something the sheet does not contain",
+   because the app's `SequenceTiming.weightAt` **clamps on read** — a written `10000` arrives as `9999`
+   and a `0` arrives as `1`, which is the silent timing change the app's own `SequenceTiming.fit`
+   KDoc calls out. Reversible: a clamp is a two-line change later, and the range is the app's own
+   constant, not a Joy Brush tolerance. **The range itself (1..9999, `MIN_WEIGHT`/`MAX_WEIGHT`) is not
+   in question** — it is the app's own, verified at `SequenceTiming.java:47, 54`.
+2. ✅ **RULED (cross-review, 2026-09-29): `SPRITE_SIDECAR_SCHEMA_VERSION` stays 1.** **PROVISIONAL —
+   Claude to confirm.** The app already writes the `weights` key and already writes
+   `"spriteSchemaVersion": SPRITE_SCHEMA_VERSION` with `SPRITE_SCHEMA_VERSION = 1`
+   (`SpriteSheet.java:29, 589`) — verified. So this row makes the packer agree with a schema that is
+   already at 1; it does not extend it. Bumping would need `SpriteSheet.java` too, an app-file edit
+   with its own row, which is the thing Decision 7 is avoiding.
+3. 🟡 **The first draft's Question 3 was wrong and is withdrawn; here is the verified fact instead.**
+   It claimed `kind`, `frameUris`, `resizeMode`, `visemeMap`, `bakedFrom` and `cellOrder` are
+   "preset-level, not root-level" and asked for a row to fix them. **They are all root keys** —
+   `SpriteSheet.toJson()` writes every one of them on the root `j` (`kind` 596, `frameUris` 599,
+   `resizeMode` 601, `visemeMap` 678, `bakedFrom` 683, `cellOrder` 688), which is exactly the level
+   `root.containsKey` asks about. So those six are checked correctly today and **no row is owed**.
+   `weights` was the only miscategorised entry.
+   **What the test genuinely cannot see** is the real, still-open weakness: because it packs with no
+   clips, the sidecar has no `presets`, so the test is blind to **every** preset-level key — `weights`
+   today and any key a future row adds. A cheap guard would be a second assertion over a pack *with* a
+   clip, but that belongs in whatever row next touches presets, not here. Raising it only so the Lead
+   knows the blind spot is named rather than assumed closed.
+   (Side note, not a defect: `kind` and `frameUris` are written **unconditionally** by the app, so the
+   test's name "nothing the app does not write is written" is loose for those two. The packer's real
+   contract — visible in its KDoc — is "nothing optional is written as a default", which the test does
+   enforce. Renaming it is cosmetic and out of scope.)
 4. **Who picks the weights from the board?** `Clip.weights` is a value the packer writes; something
    has to fill it from JB-4.02's roll (`List<Entry>` with a per-entry hold of 1..16, which fits
    1..9999 with room to spare). JB-4.03b is the row that packs a board. This row deliberately does
    not touch it — but if the Lead expects the wiring here, say so now rather than after it lands.
+
+---
+
+xr: stealth/space-bunny-alpha 2026-09-29 — **The app is Java and the classes exist.** Read them
+myself rather than trusting the ruling or the first draft: `app/…/ui/faditor/sprite/SpriteSheet.java`
+and `SequenceTiming.java` are both there, and the spec's rule is exactly right — `Preset.hasWeights()`
+(SpriteSheet.java:209-214) returns true only when a weight `!= SequenceTiming.DEFAULT_WEIGHT`, the
+writer puts `weights` after `frames` **inside** the preset object (lines 645→653), and the range is
+`MIN_WEIGHT = 1` / `MAX_WEIGHT = 9999` (SequenceTiming.java:47, 54) with `weightAt` clamping on read
+(74-83). All four contract quotes are byte-accurate including the line numbers, as are the landed
+`Clip`, the `presets` block and the two test quotes; `SPRITE_SIDECAR_SCHEMA_VERSION = 1` is at
+SpriteSheet.java:29 as claimed. **The cross-review diagnosis is confirmed exactly, not backwards:**
+`nothingTheAppDoesNotWriteIsWritten` calls `pack(board(5), cols = 3)`, the helper's default is
+`clips: List<Clip> = emptyList()` (SpritePackerTest.kt:46), so `if (clips.isNotEmpty())` (line 231)
+never runs, the sidecar has no `presets` key, and `root.containsKey("weights")` was trivially `false` —
+and `weights` is a preset-level key, so the root was the wrong level twice over. Also verified
+`presetsCarryTheirFramesAndOmitAnInheritedFps` really does assert `["id","name","type","frames"]` and
+that `sidecarHasExactlyTheAppsKeysInTheAppsOrder` is root-level and unaffected; the tests correctly
+live in `commonTest` (they build byte arrays and parse strings; none opens a file, so the repeated
+`jvmTest` slip is avoided). **Fixed:** a misquoted `Clip(...)` call in Decision 1, and **withdrew
+Question 3's false premise** — all six keys it named are root keys in the app's writer, so no row is
+owed; the real open point is the test's blindness to preset-level keys, now named as such. Ruled
+Questions 1 and 2 (refuse, and the schema version stays 1) as PROVISIONAL. Question 4 stays open for
+the Lead.

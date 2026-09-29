@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T2 |
-| **Status** | 📝 Draft spec |
+| **Status** | 🟦 Ready — Q0 was a BLOCKER (Decisions 2 and 4 were mutually unsatisfiable) and is now **RULED by the orchestrator, 2026-09-29: `ignoreUnknownKeys` STAYS `true` and the scan is the whole guard. PROVISIONAL — Claude to confirm.** Q2 (the refusal wording) and Q3 (one offender or all) remain the Lead's. |
 | **Depends on** | JB-0.02 (`DocJson`, Built) · JB-0.02b (the version rule, 🟩 Reviewed) |
 | **Owner area** | `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/doc/DocJson.kt` · `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/doc/DocModelTest.kt` — **nothing else** |
 | **Estimated size** | ~60 lines of code, ~90 lines of tests |
@@ -228,6 +228,28 @@ so the value is not a "key" question). `grid`, `textureId`, `strokesFile`, `anim
 updated to still pass.** `aNewerVersionStillDecodesAndIsReportedInWords` is not touched and must stay
 green.
 
+### `commonTest/.../doc/DocModelTest.kt:145-149` — a third test this row sits between, which the
+### first draft did not name
+
+```kotlin
+    @Test
+    fun unreadableJsonThrowsDocException() {
+        assertFailsWith<DocException> { DocJson.decode("{ not json") }
+        assertFailsWith<DocException> { DocJson.decode("[]") }
+    }
+```
+
+**It must stay green, and it constrains where the walk may sit.** (Cross-review, 2026-09-29.)
+
+- `"{ not json"` is not JSON at all, so any parse of it — the walk's or the typed decode's — throws
+  `SerializationException`. **The walk must therefore be inside the existing `try`**, not in front of
+  it. Placed before, the exception escapes `decode` uncaught and a person gets a raw library message
+  where they should get a `DocException`; that is exactly what test 10 exists to prevent.
+- `"[]"` **is** valid JSON, and its root is a `JsonArray`, not a `JsonObject`. Decision 2's "read the
+  root `version` off the parsed `JsonObject`" has no object to read. **A root that is not a
+  `JsonObject` must fall straight through to the typed decode untouched**, which throws today's message
+  and the test passes. A `as JsonObject` cast in the walk turns this red.
+
 ### `androidkit/.../io/JbArchive.kt:381-386` — the only production caller, and it needs no change
 
 ```kotlin
@@ -269,12 +291,41 @@ the one way a `document.json` enters the app, so the refusal at `decode` is the 
    `kotlinx-serialization-json:1.8.1`; a hand-written table with a test that pins it against
    `DocJson.encode` output is the fallback. A **JVM-only** mechanism (reflection, `::class.memberProperties`)
    is forbidden either way — it would break the iOS door in `OWNER_CONSTRAINTS.md`.
+   *(Cross-review, 2026-09-29: the 1.8.1 claim is verified, not assumed. The build pins
+   `kotlinx-serialization-json:1.8.1` (`joybrush/core/build.gradle.kts:31`), and
+   `SerialDescriptor.elementNames` and `getElementDescriptor` are both present in the 1.8.1 core jar
+   — `elementNames` as the extension `SerialDescriptorKt.getElementNames`, and unlike `getNullable` it
+   carries no `$annotations` sibling, so it is **not** `@ExperimentalSerializationApi`. The
+   `@OptIn(ExperimentalSerializationApi::class)` already on the `DocJson` object covers the rest. One
+   note the first draft did not give: the walk needs `StructureKind.CLASS` / `LIST` / `MAP` to know
+   when to stop — a `MAP` descriptor's keys are data, not key names, which is the `frameCel` case.)*
 
-4. **`ignoreUnknownKeys` becomes `false` on the `Json` instance.**
-   *Why:* the scan in Decision 3 is the guard, and it should be a guard that fails **closed**. If it
-   ever has a hole, `true` makes the hole drop the key silently — the R31 bug, back. `false` makes the
-   same hole produce a refusal whose message at least names the key from the library. Both are
-   `DocException`; only one of them is safe.
+4. ✅ **RULED by the orchestrator 2026-09-29 (PROVISIONAL — Claude to confirm): `ignoreUnknownKeys`
+   STAYS `true`, and this scan is the whole guard. Decision 4 as originally drafted ("becomes
+   `false`") is WITHDRAWN.** The first draft contradicted its own Decision 2 and test 7; the
+   cross-reviewer found that and declined to rule it, and the ruling is in Questions → Q0.
+   **The builder's one obligation here is to make the scan exhaustive**, because with the flag `true`
+   a hole in the walk is silent — and silent is the exact failure R31 exists to stop. So: walk every
+   `JsonObject` in the tree, including the ones nested inside arrays, and add a test that a key buried
+   at a known depth is still caught. That test is the fail-closed guarantee `false` would have given,
+   bought without a second code path.
+   library. Both raise `DocException`; only one is safe against a hole in Decision 3.
+   **The `false` half of that is what costs the version gate**, and that is the trade the Lead has to
+   make, not this row:
+   - **(a) keep `true`.** The scan is the whole guard. Cheapest, and test 7 passes as written. The
+     risk is a hole in the walk failing open.
+   - **(b) flip to `false`, as first drafted.** Fails closed, but the typed decode then refuses an
+     unknown key **in every file, including one from a newer Joy Brush** — which is the common case
+     for the very files this row exists to protect. Test 7 becomes unpassable, Decision 2's gate
+     becomes unreachable, and R3's promise ("an old app says *from a newer Joy Brush*") is replaced by
+     "cannot be read: Encountered an unknown key 'audio'" — a worse sentence that sends people
+     looking for a bug.
+   - **(c) two `Json` instances** — strict for the same-version path, lenient for the newer-version
+     path — gets both, at the cost of one extra field and a branch. The cross-review has **not**
+     chosen between these: which sentence a person sees for a file from the future is a file-format
+     decision and the Lead's.
+   *Until the Lead rules, a builder must not start: any of (a), (b), (c) makes a different test in
+   this spec pass or fail.*
 
 5. **One `DocException`; every unknown key found is in it, joined `"; "`.**
    *Why:* there is no object to hold a list, because no object was built. `BrushJson.decodeChecked`
@@ -295,9 +346,13 @@ the one way a `document.json` enters the app, so the refusal at `decode` is the 
    R3's is a new enum constant. This row adds no field and no constant — it changes what the reader
    *accepts*, not what the file can *say*. Bumping would make every file an older build had already
    written fail in that build with "from a newer Joy Brush", which is a real cost (the owner's own
-   past drawings) bought for nothing. It would also force a second edit in `DocModel.kt`, which is
-   outside this row's owner area. **PROVISIONAL — Claude to confirm** (Questions 4). Per R30 this
-   spec deliberately writes no number.
+   past drawings) bought for nothing.
+   **The full cost of a bump, verified (cross-review):** it is **two** files outside this row's owner
+   area, not one. (i) `DocModel.kt:7`, `const val DOC_VERSION = 2`; and (ii)
+   `EnumFreezeTest.theVersionsTheNamesWereWrittenFor` at line 94, `assertEquals(2, DOC_VERSION)`, which
+   goes red. `DocModel.kt` is named in the "Do not" list; `EnumFreezeTest.kt` was not, and the Lead
+   should know both files are in play before ruling. Per R30 this spec deliberately writes no number.
+   **PROVISIONAL — Claude to confirm** (Questions 4).
 
 9. **The row's KDoc on `DocJson` is rewritten, because the landed one now states the opposite.**
    The lines *"Reading IGNORES keys it does not know, so a document written by a later Joy Brush
@@ -337,9 +392,9 @@ Do not rewrite it into something that still passes.
 | 3 | `anUnknownKeyInsideALayerIsRefusedAndNamed` | `encode(fresh()).replaceFirst("\"visible\"", "\"fromTheFuture\": \"yes\",\n    \"visible\"")` → `DocException`, message contains `fromTheFuture`. |
 | 4 | `anUnknownKeyInsideABoardIsRefused` | insert a key into a board object of `richDocument()` → `DocException`, message names it. |
 | 5 | `anUnknownKeyAtTheDeepestLevelIsRefused` | one inside a `Cel` (`layers[0].cels[0]`) and one inside a `Frame` (`boards[…].frames[0]`) → `DocException` naming both (or at least the first). These are two levels down; a walk that only checks the root passes 2–4 and fails here. |
-| 6 | `everyKeyInAFileThisBuildWritesIsAKnownKey` | Walk `DocJson.encode(richDocument())` as a JSON tree, collect the key at every object, and assert the set equals the eight rows of the table in the Contract. **This is the drift guard**: a field added to `DocModel.kt` without the walker knowing it turns this red. It is written against the *file*, not against the implementation, so it holds under either mechanism in Decision 3. |
+| 6 | `everyKeyInAFileThisBuildWritesIsAKnownKey` | Walk `DocJson.encode(richDocument())` as a JSON tree, collect the key at every object, and assert the set equals the eight rows of the table in the Contract. **This is the drift guard**: a field added to `DocModel.kt` without the walker knowing it turns this red. It is written against the *file*, not against the implementation, so it holds under either mechanism in Decision 3. **One trap, stated because it is the obvious wrong turn: a JSON object's *members* are only keys where the value is an object or an array. `frameCel` is a `Map<String, String>`, so `f1`/`f2`/`f3` are DATA (cel ids keyed by frame id), not keys, and collecting them makes this test red for a correct implementation. The Contract section says so; this row says it again because a "collect the key at every object" instruction without it is a trap.** |
 | 7 | `aNewerVersionWithAnUnknownKeyStillDecodesAndIsStillReportedAsNewer` | `fresh().copy(version = DOC_VERSION + 1)`, encode, insert an unknown key at the root → **decodes** (no throw), and `DocOps.validate` still says `newer Joy Brush`. This is Decision 2, and it is the test that would catch a scan placed before the version gate. |
-| 8 | `aVersionOneDocumentStillOpens` | The `"version": 1` fixture used by `EnumFreezeTest.documentWith` (all keys known) → decodes. **An older file must not be refused**: refusing old files is the other way this rule could break a person's drawings. |
+| 8 | `aVersionOneDocumentStillOpens` | The `"version": 1` fixture from `EnumFreezeTest.documentWith` (all keys known) → decodes. **An older file must not be refused**: refusing old files is the other way this rule could break a person's drawings. **It has to be copied into this file.** `documentWith` is `private` to `EnumFreezeTest` in a different file that is NOT in the owner area, so it cannot be called from here and must not be edited to expose it. Copy the text verbatim into `DocModelTest.kt` as a private helper of its own — the cross-review verified every key in it is known, and that its `"version": 1` is what makes it the case this test needs:<br>`{ "format": "joybrush.document", "version": 1, "id": "d", "name": "D", "boards": [ { "id": "b", "name": "B", "kind": "CANVAS", "rect": { "x": 0, "y": 0, "w": 8, "h": 8 } } ], "layers": [ { "id": "l", "name": "L", "kind": "PAINT", "blend": "NORMAL", "cels": [ { "id": "c" } ] } ] }` |
 | 9 | `nothingIsEverReSavedWithoutAKeyItDidNotUnderstand` | Take a same-version file carrying an unknown key and try to get a document out of it at all: `assertFailsWith<DocException>`. The R31 bug is that a document *came back*; this test names the bug and fails if any future change lets one through again. |
 | 10 | `aFileWithAnUnknownKeyStillRefusesWithADocExceptionNotALibraryError` | Same as 2, and the throwable is `DocException` — not `SerializationException`, not `IllegalArgumentException` escaping. `JbArchive` catches only `DocException` (line 383), so anything else crashes the archive read instead of being reported. |
 
@@ -355,8 +410,11 @@ is on `main` by the number of tests added minus the one deleted. Paste the outpu
   deleted, and its replacement is test 2, which uses the same `replaceFirst` trick.
 - **Do not refuse a file from a NEWER version at the parse.** `DocOps` owns that sentence
   (`"document is from a newer Joy Brush (version N, this build reads M)"`), and it is the better one.
-- **Do not leave `ignoreUnknownKeys = true`** as the only line of defence (Decision 4). A guard that
-  can fail open is not a guard.
+- **Do not leave `ignoreUnknownKeys = true`** as the only line of defence — but note the first draft
+  made that absolute, and it is the OPEN QUESTION rather than a rule (Decision 4, Question 0). If the
+  Lead rules (a), this bullet inverts. Until then the honest statement is the narrower one: a guard
+  that can fail open is not a guard, and a guard that fails closed *everywhere* breaks the version
+  sentence.
 - **Do not edit `DocModel.kt`.** No field is added, removed or renamed. It is not in the owner area.
   If you believe a field must move, **stop** and write the question.
 - **Do not edit `DocOps.kt`, `JbArchive.kt`, `EnumFreezeTest.kt` or anything in `androidkit`.**
@@ -397,10 +455,77 @@ is on `main` by the number of tests added minus the one deleted. Paste the outpu
   change twice.
 - `aNewerVersionStillDecodesAndIsReportedInWords` (the landed test, line 131) goes red. That is not
   yours to fix; it means the version gate is wrong, and it is the Lead's call whether the gate moves.
+- **Test 7 goes red with the message `Encountered an unknown key`.** That is not a bug in your walk:
+  it is Question 0 below, already known before you started, and the fix is the Lead's ruling, not a
+  change to the walk. Do not "fix" it by skipping the scan, by special-casing the version, or by
+  turning `ignoreUnknownKeys` back on to make it pass. Report it and stop.
 
 ## Questions
 
-### For the Lead
+### For the cross-reviewer — **this spec stays at 📝 Draft because of Q0**
+
+0. ⛔ **BLOCKER. `ignoreUnknownKeys` — keep it `true`, or flip it to `false`? The first draft's
+   Decisions 2 and 4 contradict each other, and no implementation can satisfy both.**
+   **Cross-review finding, 2026-09-29 — this is the reason the row is not 🟦 Ready.**
+   The chain, in full, so the ruling is one line:
+   - Decision 2 says a file whose root `version` is greater than `DOC_VERSION` is **not scanned**.
+   - Decision 4 says `ignoreUnknownKeys` becomes **`false`**, "so a hole in the walk fails closed".
+   - With `ignoreUnknownKeys = false`, kotlinx.serialization's typed decode **refuses an unknown key
+     in every file** — that is what the flag means, and it is why the landed
+     `unknownKeysAreIgnoredAtEveryLevel` passes today only because the flag is `true`.
+   - Therefore a file that is **both** newer than this build **and** carries a key this build does not
+     know — which is the *normal* shape of a file from a later Joy Brush, and exactly the case R31 is
+     about — is refused by the library before `DocOps.validate` ever sees it. **Test 7 is unpassable.**
+   - R3's promise is broken at the same time: an old app handed a new file says *"cannot be read:
+     Encountered an unknown key 'audio'"* instead of *"from a newer Joy Brush"*. R31 says the file must
+     be refused **in words**, and R3 says which words.
+   The three ways out, and what each costs — the Lead picks one:
+   - **(a) keep `true`.** The scan is the guard, whole and alone. Test 7 passes as written; Decision 2's
+     gate keeps its meaning; R3 keeps its sentence. The residual risk is a hole in the walk failing
+     open, which test 6 and tests 2-5 are there to bound. **The cross-review's recommendation** — it
+     is also the smallest change and the one that keeps R3 whole.
+   - **(b) flip to `false`** as first drafted, and accept that a newer file no longer reaches
+     `DocOps.validate`. Then test 7 must be **deleted**, not fixed, and Decision 2, Decision 9 and the
+     `DocJson` KDoc all have to be rewritten to say a newer file is refused at the parse. That is a
+     different, more hostile reader than R31 asked for.
+   - **(c) two `Json` instances** — strict on the same-version path, lenient on the newer-version path
+     — so the same-version hole fails closed *and* the version sentence survives. Costs one extra
+     field and a branch, and it is the only option that gets both properties. The cross-review has not
+     chosen it over (a) because it adds a second code path to a row whose whole risk is one code path.
+   **This is a file-format decision and the cross-review did not rule it.** Everything else in this spec
+   is executable the moment Q0 is answered.
+
+   ### ORCHESTRATOR RULING on Q0 — **(a), keep `ignoreUnknownKeys = true`.** 2026-09-29.
+   **PROVISIONAL — Claude to confirm.** The reviewer's costings were right and I took (a) for three
+   reasons, in order of weight:
+
+   1. **(a) is the only option that does not quietly weaken a ruling that is already in force.** R3 and
+      R31 both say readers "refuse newer versions **in words**". Option (b) keeps the refusal but moves
+      it from *our sentence* to a library error — the person sees "Encountered an unknown key 'audio'"
+      instead of "this file is from a newer Joy Brush" — and it names a key that is not the reason the
+      file cannot be read. R31's actual subject is *this build's ignorance of a field*, not a future
+      build's fields, so (b) trades a promise that was never in question for one nobody asked for.
+   2. **(a) makes the scan the whole guard, which is the simplest thing that satisfies R31's real
+      requirement** — a same-version file carrying unknown keys is refused in words. The scan is
+      already written, already walks the tree, and already produces the message. There is nothing for
+      `false` to add.
+   3. **(c) is right and I am not taking it.** It gets both properties, and the reviewer's objection —
+      a second code path in the row whose whole risk is one code path — is the right objection. This
+      row's job is to stop a save from silently discarding a field. The cheapest correct version of
+      that wins over the most complete one, and (c) can be adopted later without rework if the
+      newer-version path ever needs a different sentence.
+
+   **What this means for the spec:** Decision 4 is **withdrawn** — the flag stays `true` and the scan
+   is the guard. Decision 2's version gate stands as written and **test 7 passes unchanged**, which is
+   the test that pins the whole point. The "Do not" entry that made "leave `true` as the only line of
+   defence" an OPEN QUESTION is now a settled rule: **do not flip it**, and do not weaken the scan's
+   coverage to justify flipping it.
+
+   **Still the Lead's, and I am not deciding it:** the refusal **wording** (Q2) and whether the message
+   lists one offender or all of them (Q3). Those are sentences, not behaviour, and the behaviour is
+   now fixed.
+
+### Also for the Lead
 
 1. 🔴 **What counts as a "known" key — and how is the set obtained?** (Decision 3, PROVISIONAL.)
    Two ways, and they have different failure modes:
@@ -421,9 +546,33 @@ is on `main` by the number of tests added minus the one deleted. Paste the outpu
    in document order?
 4. 🔴 **Confirm: `DOC_VERSION` is NOT bumped by this row** (Decision 8). The reading is that R31's
    trigger is a new *serialised field* and this row adds none. If the Lead rules that a stricter
-   reader is itself a format change, then this row needs "bump to the next `DOC_VERSION`" — which
-   also puts `DocModel.kt` in the owner area, and that is a scope change worth knowing about now.
+   reader is itself a format change, then this row needs "bump to the next `DOC_VERSION`" — which puts
+   **two** files in the owner area, `DocModel.kt` **and** `EnumFreezeTest.kt` (line 94 asserts
+   `2 == DOC_VERSION`; verified). That is a scope change worth knowing about now.
 5. **Does the freeze lift?** R31: *"Until it lands nothing new may rely on additive fields."* Does
    landing it lift the freeze by itself, or does the Lead say so separately? Several rows (JB-0.02c's
    `Board.audio`, JB-2.21, JB-2.23) are waiting on the answer to this, so it is worth an explicit
    word in the ruling rather than an inference.
+
+---
+
+xr: stealth/space-bunny-alpha 2026-09-29 — **Left at 📝 Draft. One blocker (Q0), and it is the spec's
+own Decisions 2 and 4 contradicting each other, not a missing detail.** Verified as already correct
+first, against the landed files rather than the spec's restatement of them: the `DocJson.kt` contract
+quote is byte-accurate including the `@OptIn` and the two KDoc paragraphs Decision 9 says must go; the
+`DocModel.kt` key universe and the eight-row table match exactly (`BlendMode` really is 27 constants,
+`DOC_VERSION` really is 2); `DocOps.kt:59-61` and `JbArchive.kt:381-386` are quoted accurately and
+`JbArchive.documentFrom` **is** the only production caller of `DocJson.decode` in the repo; the
+`kotlinx-serialization-json:1.8.1` pin is real and `SerialDescriptor.elementNames` is genuinely
+available and non-experimental in it; and `unknownKeysAreIgnoredAtEveryLevel` is a genuine deletion
+requirement — the landed test really does assert the old behaviour (`assertEquals(doc, back)` after
+inserting two foreign keys), so it cannot be kept under its old name. **Four gaps fixed:** test 8
+called `EnumFreezeTest.documentWith`, which is `private` to another class in a file outside the owner
+area (the fixture text is now pasted inline); the landed test `unreadableJsonThrowsDocException`
+(line 146, `"[]"` and `"{ not json"`) was never mentioned and it constrains the walk to sit *inside*
+the existing `try` with a non-`JsonObject` root falling through — added to the Contract and the
+"Do not"; test 6's "collect the key at every object" would have collected `frameCel`'s map keys and
+failed a correct implementation — the trap is now spelled out; and Decision 8's cost of a bump named
+one file where there are two. **Not ruled:** Q0. Whether a file from a newer Joy Brush says
+"from a newer Joy Brush" or "cannot be read: unknown key 'audio'" is a file-format decision, and the
+two answers produce different sentences to a person with an old build.

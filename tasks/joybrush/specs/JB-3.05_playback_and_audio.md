@@ -1,35 +1,110 @@
-# JB-3.05 — Playback: the transport, the frame loop, and one audio track
+# JB-3.05 — Playback: the frame stepper (the pure half)
+
+**xr: openrouter/stealth/space-bunny-alpha 2026-09-29** — the Lead's review fixes applied: test 3's
+expected ping-pong sequence corrected to **six** frames (`0 1 2 3 4 5 4 3 2 1 0 …`, at most
+`2n − 2` = **10** `ShowFrame`s a cycle) with the arithmetic written into the test; Decisions 13–14
+(the play/pause pill and the loop chip) **deleted** under R33 — the peg bar owns PLAY and MODE, the
+film strip has prev/next and nothing else, and there is one saturated control; the audio half
+scoped out to **JB-0.02c**; owner area cut to two `:core` files. Re-deriving the contract from the
+**landed** `PlaybackClock` rather than from the spec's restatement of it found two more defects in
+the earlier draft: `Finish` cannot be emitted "exactly once" by a function of its three arguments,
+and `nextWakeMs` needed a floor **above** `elapsed` because the clock answers `nextChangeMs(t) == t`
+bit-for-bit at every backward boundary (Decision 7, and the test that proves it).
 
 | | |
 |---|---|
-| **Tier** | T2 (the loop and the audio contract are pure `:core`; the transport buttons are a thin view) |
-| **Status** | 🟨 **Draft.** The **playback half is complete and a T2 builder can build and test it today.** The **audio half cannot be written at all**: `JbDocument`/`Board` have **no audio field** and `JbContents` carries **no audio bytes**, so there is nowhere for a track to live — and putting one there is a document-format change, which R3 governs and which belongs to JB-0.02's owner area, not this row's. See **Q1**. The file is written as one spec with the two halves separated so the split is a copy-and-paste if you want it. |
-| **Needs** | 3.03, 3.05a (as the ROADMAP row states) |
-| **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/anim/FrameStepper.kt` · NEW `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/anim/FrameStepperTest.kt` · NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/anim/PlaybackController.kt` · EDIT `joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt` (the play/pause pill and the loop-mode chip — nothing else in that file) |
-| **Estimated size** | ~200 lines of Kotlin in `:core` + ~280 lines of tests, ~200 lines of Android |
-| **Command** | `./gradlew -p joybrush :core:jvmTest` — 0 failures. Then the watcher compiles `:androidkit:compileKotlin` and `:joybrush-android:compileDebugKotlin` green. |
-| **Naming** | The ROADMAP row is **JB-3.05**. JB-3.05a's Questions §4 calls this row "JB-3.05b" (JB-3.05a being the clock). **One name only — the file is the ROADMAP row's number.** A builder reading 3.05a's spec will see "3.05b" and should read this file. |
+| **Tier** | T2 (one pure `:core` file and its test. No Android, no app file, no phone, no gradle task but `:core:jvmTest`) |
+| **Status** | 🟦 **Ready.** The audio half is **not in this row** — it waits for **JB-0.02c** (R33), which owns the document field it needs. The transport (buttons, `Handler`, `MediaPlayer`) is **not in this row** either, for two reasons stated in *Boundaries* below: R30 item 1 puts `JoyBrushActivity.kt` in a one-row-at-a-time lock order, and `androidkit` has no Robolectric, so a `Handler` loop could not be tested. |
+| **Needs** | 3.05a (`PlaybackClock` — 🟧 Built, green) |
+| **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/anim/FrameStepper.kt` · NEW `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/anim/FrameStepperTest.kt` — **these two files and nothing else** |
+| **Estimated size** | ~150 lines of Kotlin, ~300 lines of tests |
+| **Command** | `./gradlew -p joybrush :core:jvmTest` — 0 failures |
+| **Naming** | The ROADMAP row is **JB-3.05**. JB-3.05a's Questions §4 calls this row "JB-3.05b" (3.05a being the clock). **One name only: the file is the ROADMAP row's number.** |
 
-## The trap this spec is built around
+## What this row is, in one paragraph
 
-`PlaybackClock.nextChangeMs` is, at a backward boundary of a PING_PONG leg, the **infimum** of the
-times at which the frame differs — not a minimum. The set is an open interval with no smallest
-member, so the boundary itself is what the function hands back. JB-3.05a's Questions §4 says exactly
-this and says the consequence:
+`PlaybackClock` (JB-3.05a, built) already answers "which frame is up at elapsed time *t*",
+"where should the sound be", "have we finished" and "when does the frame next change". What it
+deliberately does **not** do is compare that answer with **what is actually on the screen**, and
+that comparison is the whole of this row. `FrameStepper` is a pure function that takes the frame
+the caller believes is up and returns a list of *things to do* — draw this frame, move the sound to
+here, stop — and it never tells a caller to draw the frame that is already there. One parameter
+(`frameIndex`) is the entire fix for the spin that a player otherwise walks into at every backward
+boundary, because a caller cannot ask "what should I draw?" without also saying "here is what is
+drawn".
 
-> A player that sleeps until `nextChangeMs(t)` and then asks again without comparing frames will
-> spin at every backward boundary.
+## The trap this spec is built around, and what the landed clock actually does
 
-That is why the row below is not "a player loop". It is a **pure function whose signature makes the
-frame comparison impossible to forget**, and its test is written so that the spin is a failing test
-rather than a hang on a phone.
+`PlaybackClock.nextChangeMs` is, at a backward boundary, the **infimum** of the times at which the
+frame differs — not a minimum. Read the landed code and it is exact and deliberate:
 
-## Contract
+```kotlin
+fun nextChangeMs(elapsedMs: Double): Double {
+    if (count == 1) return Double.POSITIVE_INFINITY
+    val clean = cleanElapsed(elapsedMs)
+    val board = clean * rate
+    if (mode == PlayMode.ONCE && board >= rangeMs) return Double.POSITIVE_INFINITY
+    val cyclePos = board % periodMs
+    val boundary = if (cyclePos < rangeMs) {
+        nextForwardBoundaryAfter(cyclePos)
+    } else {
+        nextBackwardBoundaryAtOrAfter(cyclePos)
+    }
+    return clean + (boundary - cyclePos) / rate
+}
+```
+
+Asked **exactly at** a backward boundary — the seam, or any interior falling edge — the difference
+`(boundary − cyclePos)` is exactly `0.0`, so the answer is **bit-for-bit the elapsed that was passed
+in**. `PlaybackClockTest.everyBackwardBoundaryIsExactlyItsOwnNextChange` pins that; it is a promise,
+not an accident. And at that same instant `frameIndexAt` is still showing the **outgoing** frame
+(`slotOnTheBackwardLeg` returns `k` when `edge == cyclePos`). So at a backward boundary, all three of
+these are true at once:
+
+* the frame on screen is still the outgoing one, so a comparison-based step emits **nothing**;
+* `nextChangeMs` says the next change is **now**;
+* a player that sleeps "until nextChangeMs" and re-asks at the *same* number gets the same answer
+  for ever.
+
+That third bullet is the spin, and a millisecond-resolution elapsed clock (`SystemClock.uptimeMillis`,
+which is what a `Handler` delay is measured in) makes it a real one rather than a theoretical one.
+**Decision 7 is the answer**, and it is this row's other load-bearing decision.
+
+## Contract (verbatim)
+
+**The clock this is written against**, pasted from the landed
+`joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/anim/PlaybackClock.kt`
+(🟧 Built). Its public surface, in full:
 
 ```kotlin
 package cc.joycreator.joybrush.core.anim
 
-import cc.joycreator.joybrush.core.doc.Board
+enum class PlayMode { LOOP, PING_PONG, ONCE }
+
+class PlaybackClock(
+    board: Board,
+    val mode: PlayMode = PlayMode.LOOP,
+    firstFrame: Int = 0,
+    lastFrame: Int = board.frames.size - 1,
+    speed: Float = 1f,
+) {
+    /** Length of one pass through the range at speed 1, ms. */
+    val rangeMs: Double
+
+    fun frameIndexAt(elapsedMs: Double): Int
+    fun isFinished(elapsedMs: Double): Boolean
+    fun audioPositionMs(elapsedMs: Double): Double?
+    fun nextChangeMs(elapsedMs: Double): Double
+}
+```
+
+Note what is **not** on it: there is no `firstFrame`, `lastFrame`, `count` or `speed` getter. The
+range is private. Decision 8 is about that, and it is not an oversight in the clock.
+
+**What this row writes:**
+
+```kotlin
+package cc.joycreator.joybrush.core.anim
 
 /**
  * What the screen must DO, at one instant, given what is currently on it. Pure: no clock, no
@@ -37,19 +112,31 @@ import cc.joycreator.joybrush.core.doc.Board
  * player that owns arithmetic is a bug waiting for a review.
  */
 sealed class Step {
-    /** Put frame [index] on screen. Emitted ONLY when it differs from what [FrameStepper.step] was told is up. */
+    /**
+     * Put frame [index] on screen. Emitted ONLY when it differs from the frame the caller said was
+     * up — that comparison is the reason this file exists.
+     */
     data class ShowFrame(val index: Int) : Step()
 
     /**
      * The sound must be at [boardMs] of the BOARD's timeline, or SILENT when null.
      *
-     * This is `PlaybackClock.audioPositionMs` verbatim, and it is emitted on every change of that
-     * value with **no tolerance, no smoothing and no interpolation anywhere in this file** — see
-     * Decision 6. The device side decides whether a change of 0.4 ms is worth a `seekTo`.
+     * This is `PlaybackClock.audioPositionMs` verbatim, with **no tolerance, no smoothing and no
+     * interpolation** — see Decision 6. The device side decides whether a change of 0.4 ms is worth
+     * a `seekTo`; this file does not know what a `seekTo` costs.
+     *
+     * Where the BYTES come from is JB-0.02c's business (`Board.audio`, the archive entry, the size
+     * bound). Nothing in this file opens a file, a stream or a player.
      */
     data class Audio(val boardMs: Double?) : Step()
 
-    /** ONCE has reached the end of its range. The last frame stays up. */
+    /**
+     * ONCE has reached the end of its range. The last frame stays up.
+     *
+     * LEVEL-TRIGGERED, not once: `step` is a pure function of its three arguments, so it cannot
+     * know it has already said this. A player must therefore treat it as a standing fact and stop.
+     * See Decision 4.
+     */
     object Finish : Step()
 
     /** Nothing changed. The overwhelmingly common answer, and it is not an error. */
@@ -64,31 +151,61 @@ sealed class Step {
  * should I draw?" without also saying "here is what is drawn", so there is no code path in which
  * "something changed" is decided without comparing it to something.
  *
- * IMMUTABLE, like the clock. Changing the board, the range, the mode or the speed builds a new
- * clock and a new stepper, which restarts playback at 0 — the clock's own KDoc promises this and
- * this class does not work around it.
+ * IMMUTABLE, like the clock, and for the clock's own reason: changing the board, the range, the
+ * mode or the speed builds a new clock and a new stepper, which restarts playback at 0. This class
+ * does not work around that, and it holds no state of its own — see Decision 2.
  */
 class FrameStepper(val clock: PlaybackClock) {
 
-    /** [frameIndex] = the frame showing. Rejected (in words) unless it is a frame of the range. */
+    /**
+     * What to do at [elapsedMs], given that [frameIndex] is on screen and the sound is at
+     * [audioAtMs] on the board's timeline (`null` = silent).
+     *
+     * PURE: the same three arguments always give the same list. No "last frame" field, no
+     * "already finished" field, no `var` of any kind.
+     *
+     * [frameIndex] is what the CALLER believes, and is not checked against the clock's range —
+     * [PlaybackClock] does not expose the range, and a caller that lies here gets the clock's
+     * answer back rather than an exception. See Decision 8.
+     */
     fun step(elapsedMs: Double, frameIndex: Int, audioAtMs: Double?): List<Step>
 
-    /** The frame the clock says is up at [elapsedMs], whatever is on screen. For the strip's marker. */
+    /**
+     * The frame the clock says is up at [elapsedMs], whatever is on screen. For the film strip's
+     * playhead marker, which is a READING and not a change, so it does not go through [step].
+     */
     fun frameOnScreen(elapsedMs: Double): Int
 
     /**
-     * How long until the next step that would EMIT something, wall ms — a floor for the handler's
-     * delay, not a schedule. A caller that sleeps until this and then calls [step] again is
-     * correct; a caller that treats it as "the frame changes here" is not, and at a backward
-     * boundary the difference is the spin.
+     * How long until the player should look again, wall ms — a FLOOR for the handler's delay, not a
+     * schedule and never [PlaybackClock.nextChangeMs] itself.
      *
-     * Clamped to [MAX_SLEEP_MS] so a stopped or one-frame clock cannot park a Handler forever.
+     * **ALWAYS STRICTLY GREATER THAN THE ELAPSED, once the elapsed has been placed on a timeline**
+     * (a `NaN`, a negative or an infinite `t` means the beginning, exactly as
+     * `PlaybackClock` decides it — see Decision 7). That is the whole contract, and Decision 7 is
+     * why it takes work to keep: at a backward boundary the clock answers `nextChangeMs(t) == t`
+     * bit-for-bit and the frame has not changed yet, so a naive `min(nextChangeMs, t + MAX)` hands
+     * a player back its own timestamp and a millisecond clock loops on it.
+     *
+     * A caller that sleeps until this and then calls [step] again makes progress. A caller that
+     * treats it as "the frame changes here" is wrong, and at a backward boundary the difference is
+     * the spin.
      */
     fun nextWakeMs(elapsedMs: Double): Double
 
     companion object {
-        /** The longest a player may sleep before looking again, wall ms. 250 = the tap threshold. */
+        /** The longest a player may sleep before looking again, wall ms. 250 = the app's own tap
+         *  threshold (`CanvasGestures.TAP_MS = 250L`), chosen so a Handler can never be parked past
+         *  the point where a person would tap Stop. */
         const val MAX_SLEEP_MS: Double = 250.0
+
+        /**
+         * The smallest move this class will ask a player to make, wall ms. Used ONLY when the
+         * clock says the next change is at or before now — which, by the clock's own pinned
+         * contract, is exactly a backward boundary asked at exactly itself. See Decision 7 for why
+         * 1 ms and not something derived from a frame.
+         */
+        const val MIN_WAKE_MS: Double = 1.0
     }
 }
 ```
@@ -96,276 +213,393 @@ class FrameStepper(val clock: PlaybackClock) {
 ## Decisions
 
 1. **`step` takes the frame that is on screen, and emits `ShowFrame` only for a DIFFERENT one.**
-   This is the entire reason this class exists. *Why:* at a backward boundary `nextChangeMs` is an
-   **infimum** (JB-3.05a's Decision 3 and its Questions §4), so a player that wakes on it, draws
-   unconditionally, and re-asks will draw the same frame and re-ask at the same time, for ever.
-   Putting the comparison in the signature means there is no version of this player that can spin.
-2. **`step` is idempotent: `step(t, i, a) == step(t, i, a)` for any `t`, `i`, `a`.** Same inputs, same
-   output, no hidden state, no accumulated "last frame". *Why:* a stepper with hidden state cannot be
-   tested against a table of expected timelines, and a table of expected timelines is the only thing
-   that catches a seam.
-3. **`ShowFrame` comes first in the returned list, then `Audio`, then `Finish`, then `Nothing`.** A
-   caller that draws before it sounds never shows a picture a frame ahead of its sound.
-   *Why:* the sound is the thing a person notices late, so it is the thing to be right about last.
-4. **`Finish` is emitted only in `ONCE`, only once, and only while the last frame stays up.** After
-   it, `step` returns `Nothing` forever (LOOP and PING_PONG never finish; `isFinished` says so).
-   *Why:* the transport has to know to stop, and a player that emits `Finish` every tick is a player
-   that toasts.
+   This is the entire reason the class exists. *Why:* at a backward boundary `nextChangeMs` is an
+   **infimum** equal to the elapsed passed in, and the frame is still the outgoing one, so a player
+   that wakes on it, draws unconditionally and re-asks draws the same frame and re-asks at the same
+   time, for ever. Putting the comparison in the signature means there is no version of this player
+   that can spin.
+
+2. **`step` is pure: `step(t, i, a) == step(t, i, a)` for any `t`, `i`, `a`.** Same inputs, same
+   output, no hidden state, no accumulated "last frame". *Why:* a stepper with hidden state cannot
+   be tested against a table of expected timelines, and a table of expected timelines is the only
+   thing that catches a seam. (Decision 4 is what this costs, and it is a cheap price.)
+
+3. **`ShowFrame` comes first in the returned list, then `Audio`, then `Finish`; an empty list is
+   returned rather than `Step.Nothing`.** A caller that draws before it sounds never shows a picture
+   a frame ahead of its sound. *Why:* the sound is the thing a person notices late, so it is the
+   thing to be right about last. *(Changed from the earlier draft of this spec, which returned a
+   singleton `Step.Nothing`: a list is what the caller has to handle anyway, and one less type in
+   the contract is one less thing to get wrong. `Step.Nothing` is deleted, not deprecated.)*
+
+4. **`Finish` is a LEVEL-triggered fact, not an edge, and this row does not make it fire once.**
+   `PlaybackClock.isFinished(t)` is a pure function of `t`, so `step` past the end of an ONCE clock
+   returns `[Finish]` (or `[ShowFrame(last), Finish]`) on **every** call, for ever. "Stop the player
+   on the first `Finish`" is the transport's job and lives in *Carried forward* below. *Why:* the
+   earlier draft of this spec asked for `Finish` exactly once and pinned it with a test that
+   asserted `Nothing` on every later call — which no pure function of `(t, i, a)` can do, and the
+   only way to make it pass is the hidden field Decision 2 forbids. LOOP and PING_PONG never finish,
+   and `isFinished` says so at any `t` whatsoever.
+
 5. **`Audio` carries `clock.audioPositionMs(elapsed)` EXACTLY — including the corrected PING_PONG
-   formula.** On the forward leg it is `rangeStartMs + cyclePos`; on the backward leg it is **null**.
+   formula.** On the forward leg it is `rangeStartMs + cyclePos`; on the backward leg it is `null`.
    It is **never** `rangeStartMs + (elapsed × speed mod rangeMs)`, which was Decision 5 as first
    written in JB-3.05a and was **wrong**: those two agree only inside the first cycle, so the sound
    desyncs from the picture after one loop. *Why:* I am restating a correction rather than trusting
-   that everyone read the correction.
-6. **No epsilon, no smoothing, no `±` anywhere in the emitted value.** The stepper emits the clock's
-   number, and the DEVICE decides whether a 0.4 ms difference is worth a `seekTo` — that tolerance
+   that everyone read the correction. `Audio` is emitted only when the value **differs** from the
+   `audioAtMs` the caller passed in, which is what makes it a change rather than a reading.
+
+6. **No epsilon, no smoothing, no `±` anywhere in an emitted value.** The stepper emits the clock's
+   number and the DEVICE decides whether a 0.4 ms difference is worth a `seekTo` — that tolerance
    is a playback-engine fact (`MediaPlayer.seekTo` has millisecond granularity and a cost), not a
    timing fact, and putting it here would put a playback tolerance into the one function whose whole
    claim is that it never drifts. *Why:* the same reasoning JB-3.05a used to refuse a `seam − ε`.
-7. **`nextWakeMs` is a FLOOR, never a schedule, and never `nextChangeMs` itself.** It is
-   `min(clock.nextChangeMs(elapsed), elapsed + MAX_SLEEP_MS)`, and `MAX_SLEEP_MS` is 250 — the app's
-   own tap threshold (JB-2.02), chosen so a Handler can never be parked past the point where a
-   person would tap Stop. *Why:* `nextChangeMs` is `∞` for a one-frame range and for a finished
-   ONCE clock, and a Handler posted to `∞` never runs again; a floor with a cap has no such state.
-8. **Pressing Play while at the end starts from the beginning** (owner, R18, 2026-09-29). The
-   transport therefore builds a **new** `PlaybackClock` and a new `FrameStepper` on every press, so
-   elapsed restarts at 0 — including when the person paused at the last frame, and including in
-   `ONCE` (which would otherwise be un-replayable). *Why:* R18 is the owner's own answer and it is
-   the only sensible one for a play button.
-9. **Pressing Play while PAUSED mid-range resumes from the frame on screen, not from 0.** The
-   clock is built with `firstFrame = <the frame showing>`; `lastFrame`, `mode` and `speed` are
-   unchanged. *Why:* resuming is what pause means. (This is the one asymmetry with Decision 8 and it
-   is deliberate: "at the end" is a position, and the end is the only position with no next frame.)
-10. **Scrubbing the strip while playing PAUSES, and does not resume on lift.** A finger on the
-    strip is a person steering; the strip is the authority for where the playhead is and the player
-    is the authority for what time it is, and two authorities over one playhead is how they drift
-    apart. *Why:* and JB-3.03 Decision 2 says the strip never consults the clock, so the pause has
-    to come from this side or nowhere.
-11. **The loop-mode chip is `LOOP / PING_PONG / ONCE`, in that order, wrapping, and it is the ONLY
-    place the mode changes.** Changing it while stopped rebuilds the clock. Changing it while
-    playing **stops first and does not auto-resume**. *Why:* a mode change is a range change, and
-    `PlaybackClock` is immutable by design (Decision 8's reasoning). Auto-resume would be a new
-    behaviour nobody asked for.
-12. **A speed control is NOT in this spec.** `PlaybackClock` takes `speed` and the contract is
-    settled, but nothing in the blueprint asks for a speed slider, and adding one means deciding
-    where it lives in a chrome that does not exist yet. The constructor parameter is honoured the
-    day someone supplies one. *Why:* not shipping an undesigned control.
-13. **The transport is ONE play/pause pill and ONE loop-mode chip, docked to the film strip's left
-    end.** Not on the peg bar (JB-3.02's five pegs are fixed and do not include these) and not in a
-    drawer. *Why:* the blueprint wants the transport next to the thing it transports, and the peg
-    bar's contents are frozen by JB-3.02 Decision 1 — this is the note that keeps the two specs from
-    each claiming the same pixels.
-14. **The play/pause pill is `studio_action_pill` (aqua→lime) while playing and `jb_raised` with a
-    `jb_line` ring while paused**, and it is the one saturated control on the board. The loop chip
-    wears the board gradient. *Why:* D.01's rule and the visual language's "one saturated control per
-    screen" — and the peg bar's own `PLAY` peg is a *different* control on a *different* row; if both
-    end up visible at once there are two saturated controls, which is a design bug the Lead should
-    see rather than a builder should resolve. See Q2.
-15. **The whole loop runs on a `Handler(Looper.getMainLooper())`**, posting itself with
-    `nextWakeMs` as the delay, and it is torn down in `onPause` and rebuilt in `onResume` with the
-    playhead preserved and playback PAUSED. *Why:* a Handler that survives a backgrounded screen is
-    a Handler drawing to a surface that is not there. (This is the same discipline as
-    `JoyBrushActivity`'s GL-thread pause, for the same reason.)
+   `MIN_WAKE_MS` below is **not** an epsilon on a value; it is a floor on a *delay*, and the two are
+   different things.
 
-## Decision → Test map (every Decision is checkable)
+7. **`nextWakeMs(t) > t` at every `t`, and the floor is a two-case rule, not `min`.**
+   ```kotlin
+   fun nextWakeMs(elapsedMs: Double): Double {
+       // The clock's OWN rule, restated: `cleanElapsed` is private to it, and a `t` that cannot be
+       // placed on a timeline means "the beginning". Restating it here rather than importing it is
+       // not duplication — the two are one sentence, and this one has to run BEFORE the comparison
+       // below, because every comparison against NaN is false.
+       val t = if (elapsedMs.isFinite() && elapsedMs >= 0.0) elapsedMs else 0.0
+       val next = clock.nextChangeMs(t)
+       return when {
+           next > t -> min(next, t + MAX_SLEEP_MS)
+           else -> t + MIN_WAKE_MS       // next == t, bit-for-bit: a backward boundary
+       }
+   }
+   ```
+   The second case is reachable and is the row's second real finding: the clock returns
+   `clean + (boundary − cyclePos) / rate`, which at a backward boundary asked at exactly itself is
+   `clean` — the elapsed passed in — and `frameIndexAt` is still the outgoing frame, so `step`
+   emits nothing. `min` alone would hand a player back its own timestamp. *Why 1 ms, and not
+   something derived from the board:* it is a floor on a **delay**, not a tolerance on a value, and
+   it has to be independent of the board so it cannot depend on a frame length this class does not
+   hold. It is also exactly one tick of the clock a `Handler` delay is measured in, and it is 1/16.7
+   of the shortest frame a board can have (`fps ≤ 60`, so ≥ `1000.0/60.0 = 16.667` ms), so a 1 ms
+   step **cannot** step over a change: the frame that is coming is already up, and 1 ms later it is
+   still up, and the `ShowFrame` that says so has already been emitted.
+
+8. **`frameIndex` is not range-checked, and a frame outside the range is not an error.**
+   `PlaybackClock` keeps `first`, `last` and `count` private and exposes no getter for any of them,
+   so the stepper **cannot** validate the argument without editing a built, reviewed file that is
+   not in its owner area. It does not try. If the caller passes a frame the clock could never show,
+   the stepper simply emits the frame the clock does say is up — which is the right answer, because
+   the caller's belief was the thing that was wrong. *Why:* the stepper is not the authority on the
+   range, and an exception here would be a crash on a live animation for a mistake the very next
+   emitted `ShowFrame` repairs. (If the Lead would rather `PlaybackClock` exposed `firstFrame` /
+   `lastFrame`, that is a one-line change to a built file and a question, not something this row
+   does.)
+
+9. **`frameOnScreen(t)` is `clock.frameIndexAt(t)` and nothing else.** *Why:* the film strip's
+   playhead marker is a *reading* — it draws where the playhead is every frame, whether or not the
+   frame changed — and routing a reading through `step` would emit nothing most of the time and
+   something at a boundary, which is the wrong shape for a marker. It is also the cheapest possible
+   definition, and one that cannot drift from the clock.
+
+### Boundaries of this row — what is deliberately NOT here
+
+10. **There is no control, no pill, no chip, no layout and no Android import in this row.** R33: the
+    **peg bar owns PLAY and MODE** (the owner's own idea — the pegs *are* the buttons) and the
+    **film strip has prev/next and nothing else**. There is therefore **one** saturated control on
+    the animation board, not two, and the earlier draft of this spec — which put a play/pause pill
+    *and* a loop-mode chip on the strip while JB-3.02's peg bar also had a `PLAY` peg — is deleted,
+    Decisions 13 and 14 with it. Nothing in this file is a control, so nothing in this file can be
+    the second one. *Which* peg wears the saturated gradient is JB-3.02's business; the constraint
+    this row states is only that there is one.
+
+11. **The audio half is not here, and waits for JB-0.02c.** `PlaybackClock.audioPositionMs` and
+    `Step.Audio` are pure arithmetic on the clock and need no document field, so they are here. What
+    is not here is every part that needs a *track*: where it is referenced (`Board.audio`), where it
+    lives (`audio/<boardId>.<ext>` inside the archive), how big it may be (`MAX_AUDIO_BYTES`,
+    16 MiB, refused in words at attach time), and the `MediaPlayer` that plays it. Verified against
+    the tree, 2026-09-29: `Board` is `id, name, kind, rect, clipToBoard, fps, frames, grid` — no
+    audio; `JbContents` is `doc, tiles, strokes, thumbnailPng` — no audio bytes; `JbArchive`'s
+    entry table has no audio entry. R33 makes that field a **new T1 row, JB-0.02c**, with a version
+    bump per R30/R31.
+
+12. **The transport is not here, and the reason is in the build files, not in taste.**
+    `androidkit/build.gradle.kts` compiles against `android.jar` with `compileOnly`, has
+    `testImplementation(kotlin("test"))` and **no Robolectric** anywhere in the `joybrush` build. A
+    `Handler(Looper.getMainLooper())` loop in `androidkit` therefore **cannot be executed by
+    `:androidkit:test`** — every framework call throws `Stub!`. Shipping an untested player loop is
+    exactly what this project's quality bar forbids. And the other half is a lock: R30 item 1 puts
+    `JoyBrushActivity.kt` in a one-row-at-a-time order in which JB-3.05 waits for the chrome row
+    JB-2.01 rather than bolting on a control. Both reasons point the same way.
+
+13. **No version number appears anywhere in this row, and no document or archive file is touched.**
+    `DocModel.kt`, `DocJson.kt`, `JbArchive.kt` and `DOC_VERSION` are JB-0.02's and JB-0.02c's.
+    R30 item 3: a version is assigned AT LANDING, by the builder, from the current number. This row
+    adds no field and no word, so there is nothing to bump.
+
+### Carried forward — the transport's rules, for whoever builds it later
+
+These are settled and are recorded here so they are not re-litigated. **They are not this row's
+work, they are not in the owner area, and no test in this spec asserts them**, because none of them
+can be asserted without an Android loop (Boundary 12).
+
+* Pressing Play **while at the end** starts from the beginning (owner, R18) — the transport builds a
+  **new** `PlaybackClock` and a new `FrameStepper` on every press, so elapsed restarts at 0,
+  including in `ONCE` and including when the person paused on the last frame.
+* Pressing Play **while paused mid-range** resumes from the frame on screen, not from 0: the new
+  clock is built with `firstFrame = <the frame showing>`. That is the one asymmetry with the rule
+  above, and it is deliberate — "at the end" is a position, and the end is the only position with no
+  next frame.
+* Scrubbing the strip while playing **pauses and does not resume on lift**. The strip is the
+  authority for where the playhead is and the player is the authority for what time it is; two
+  authorities over one playhead is how they drift apart. (JB-3.03 Decision 2 says the strip never
+  consults the clock, so the pause has to come from the transport's side.)
+* The mode control is `LOOP / PING_PONG / ONCE`, in that order, wrapping, and changing it while
+  playing **stops first and does not auto-resume** — a mode change is a range change, and
+  `PlaybackClock` is immutable by design.
+* The loop runs on a `Handler(Looper.getMainLooper())` posting itself with `nextWakeMs` as the
+  delay, torn down in `onPause` and rebuilt in `onResume` with the playhead preserved and playback
+  **paused**. A Handler that survives a backgrounded screen is a Handler drawing to a surface that
+  is not there.
+* A speed control is **not** shipped. `PlaybackClock` honours `speed` and the constructor parameter
+  is there; nothing in the blueprint asks for a slider, and adding one means deciding where it lives
+  in a chrome that does not exist yet.
+
+## Decision → Test map (every numbered Decision above is checkable)
 
 | Decision | Pinned by |
 |---|---|
 | 1 (comparison in the signature) | `aFrameAlreadyOnScreenIsNeverEmittedAgain`, `theStepperCannotEmitTheFrameItWasToldIsUp` |
-| 2 (idempotent) | `stepIsAFunctionOfItsArgumentsAlone` — 5 000 random triples, each twice, equal lists |
-| 3 (order) | `thePictureIsDrawnBeforeTheSoundIsMoved` |
-| 4 (`Finish` once, ONCE only) | `finishIsEmittedExactlyOnceAndOnlyForOnce`, `afterFinishOnlyTheLastFrameIsUp` |
-| 5 (corrected audio) | `theSoundIsTheCorrectedFormulaAndNotTheModulo` — the two disagree from cycle 2 and the test says so |
-| 6 (no epsilon) | `theEmittedAudioIsBitIdenticalToTheClock` — exact equality, no tolerance anywhere in the file |
-| 7 (`nextWakeMs` a floor) | `nextWakeNeverParksTheHandlerForever` (one-frame range, finished ONCE), `nextWakeIsTheClocksAnswerCappedAt250` |
-| 8 (play at the end restarts) | `pressingPlayAtTheEndStartsFromTheBeginning` |
-| 9 (pause resumes) | `pressingPlayMidRangeResumesFromTheFrameOnScreen` |
-| 10 (scrub pauses) | `aScrubDuringPlaybackPausesAndDoesNotResume` |
-| 11 (mode chip) | `theModeChipWrapsInOrderAndStopsPlaybackOnAChange` |
-| 12 (no speed control) | `noSpeedControlIsOffered` — the transport's action list contains no speed action |
-| 13 (docked to the strip) | `theTransportIsTwoControlsAndNotOnThePegBar` |
-| 14 (one saturated control) | `onlyTheTransportWearsTheActionGradient` |
-| 15 (Handler lifetime) | `theLoopIsTornDownWithTheScreen` |
+| 2 (purity) | `stepIsAFunctionOfItsArgumentsAlone` — 5 000 random triples, each called twice, equal lists |
+| 3 (order, and the empty list instead of `Nothing`) | `thePictureIsDrawnBeforeTheSoundIsMoved`, `anUnchangedMomentReturnsAnEmptyList` |
+| 4 (`Finish` is level-triggered) | `finishIsAStandingFactAndOnlyForOnce` |
+| 5 (corrected audio, and only on a change) | `theSoundIsTheCorrectedFormulaAndNotTheModulo`, `anUnchangedSoundPositionEmitsNothing` |
+| 6 (no epsilon) | `theEmittedAudioIsBitIdenticalToTheClock` — exact equality, no tolerance argument anywhere in the file |
+| 7 (`nextWakeMs > t`, two cases) | `nextWakeIsAlwaysStrictlyAfterNow` (**the 1 ms walk, four exact backward boundaries per cycle**), `nextWakeNeverParksTheHandlerForever`, `nextWakeIsTheClocksAnswerCappedAt250` |
+| 8 (no range check on `frameIndex`) | `aFrameTheClockCouldNeverShowIsNotAnError` |
+| 9 (`frameOnScreen` is a reading) | `frameOnScreenIsTheClocksOwnAnswer` |
 
 ## Tests
 
 `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/anim/FrameStepperTest.kt`
 
-**The two rules for this file, before anything else** (both are JB-3.05a's, and they apply here
-unchanged):
+**`commonTest`, not `jvmTest`, and that is deliberate.** Nothing in this row opens a file, a
+stream or a socket, so there is nothing `commonTest` cannot do; a test that could live in
+`commonMain`'s own test source set should (the iOS door, blueprint §3.1). The other source-level
+tests in this project that open files are in `jvmTest` for the opposite reason.
+
+**The two rules for this file, before anything else** (both are JB-3.05a's, unchanged):
 
 1. **Every boundary is derived by indexing `AnimOps`, never by accumulating `hold × 1000 / fps` a
    second time.** `2 × (1000.0 / 12.0)` is not bit-identical to `2000.0 / 12.0`.
 2. **`frameStartsMs` returns one start per frame and no trailing end.** The end of a board is
    `totalDurationMs`. Use the same `edge(k)` accessor `PlaybackClockTest` uses.
 
-Fixture: the same 12 fps board with holds `[1, 2, 1, 3]` and ids `f0..f3`, plus an eight-frame uneven
-board `[1,2,1,3,2,1,2,1]` for the ping-pong work.
+**The two fixtures.**
 
-1. `aFrameAlreadyOnScreenIsNeverEmittedAgain`: for every board edge `e` and every frame `i` in the
-   range, `step(e, i, null)` contains **no** `ShowFrame` naming `i`. Structure, not a count.
-2. `theStepperCannotEmitTheFrameItWasToldIsUp`: same as 1 over 2 000 random `(t, i, a)` triples.
-3. **`theStepperDoesNotSpinAtABackwardBoundary` — the test this row exists for.** On a six-frame
-   board in PING_PONG, walk the whole cycle in 1 ms steps carrying the shown frame forward exactly
-   as a player would (`shown = the last ShowFrame, else the initial one`). Assert:
-   - the walk **terminates** (it is a bounded `for`, so this is about the *count*, below);
-   - `ShowFrame` is emitted at most `2n − 2` times per cycle (the number of real slots), **not**
-     once per step;
-   - the sequence of emitted indices is exactly `0 1 2 3 4 3 2 1 0 …` with **no repeats**;
-   - and `nextWakeMs` returns a value **strictly greater** than the current elapsed at every step
-     where the frame does not change, so a player sleeping on it always makes progress.
-   The failure mode this catches is a stepper that emits on every call, and its symptom in the
-   field is a phone at 100% battery playing a two-frame animation.
-4. `stepIsAFunctionOfItsArgumentsAlone`: 5 000 random triples, `step` called twice with each, the
-   two lists equal. No hidden state, no "last frame" field.
-5. `thePictureIsDrawnBeforeTheSoundIsMoved`: at a forward boundary where both fire, the list is
-   `[ShowFrame, Audio]` in that order — asserted as an index comparison, not as a string.
-6. `theSoundIsTheCorrectedFormulaAndNotTheModulo`: on a PING_PONG clock, for `elapsed` in the
-   second cycle, the emitted `Audio.boardMs` equals `rangeStartMs + cyclePos` **exactly**, and a
-   hand-written `rangeStartMs + (t mod rangeMs)` is asserted to **differ** (it does, from cycle 2 on
-   — and the comment says where the two agree, which is the first cycle only). On the backward leg
-   the emitted value is `null`, from the seam onward.
-7. `theEmittedAudioIsBitIdenticalToTheClock`: for 3 000 probes across both legs, three speeds and a
-   sub-range, `emitted == clock.audioPositionMs(t)` with **no tolerance argument at all**. If anyone
-   adds an epsilon this test fails, which is the point.
-8. `finishIsEmittedExactlyOnceAndOnlyForOnce`: an ONCE clock past its end emits `Finish` on the
-   first `step` and `Nothing` on every one after. A LOOP and a PING_PONG clock never emit it, at
-   3 600 001 ms or anywhere else.
-9. `afterFinishOnlyTheLastFrameIsUp`: `frameOnScreen` is the last frame at every `t` past the end.
-10. `nextWakeNeverParksTheHandlerForever`: a one-frame range and a finished ONCE clock both return
-    `elapsed + MAX_SLEEP_MS`, not `∞`. Assert the value, not merely "finite".
-11. `nextWakeIsTheClocksAnswerCappedAt250`: inside a frame, `nextWakeMs` equals
-    `clock.nextChangeMs(t)` exactly; when that is more than 250 ms away it is exactly
-    `t + 250`.
-12. `pressingPlayAtTheEndStartsFromTheBeginning`: at the last frame in every mode, a fresh
-    `FrameStepper` built the way Decision 8 says puts frame 0 on screen at `elapsed = 0`, and
-    `ONCE` — which has already finished — plays again rather than reporting `Finish` immediately.
-13. `pressingPlayMidRangeResumesFromTheFrameOnScreen`: a clock built with `firstFrame = 2` shows
-    frame 2 at 0, and its `rangeMs` is the remainder, so the last frame is still the last frame.
-14. `aScrubDuringPlaybackPausesAndDoesNotResume`: the transport's state after a scrub is PAUSED,
-    and one `nextWakeMs` later it is STILL paused — the assertion is on the *absence* of a
-    `ShowFrame` without a new press, which is what "does not resume" means operationally.
-15. `theModeChipWrapsInOrderAndStopsPlaybackOnAChange`: the action list of the loop chip is exactly
-    `[LOOP, PING_PONG, ONCE]` in that order, tapping ONCE wraps to LOOP, and every tap while playing
-    emits a `Stop` **before** the new clock's first step.
-16. `noSpeedControlIsOffered`: the transport's action list contains no speed action, and
-    `FrameStepper`'s declared API contains no `speed` setter. A test that can be failed by adding
-    the control.
-17. `theTransportIsTwoControlsAndNotOnThePegBar` / `onlyTheTransportWearsTheActionGradient` /
-    `theLoopIsTornDownWithTheScreen`: asserted against the Android layer's own reported control list
-    and lifecycle, so they are checks on a contract and not on a comment.
+* **A — the four-frame board** `PlaybackClockTest` uses: 12 fps, holds `[1, 2, 1, 3]`, ids `f0..f3`.
+* **B — the six-frame ping-pong board, and it is B on purpose:** 10 fps, holds `[1, 1, 1, 1, 1, 1]`,
+  ids `f0..f5`, built by the same `boardOf(vararg holds, fps = …)` helper. **10 fps and not 12** so
+  that one tick is exactly `100.0` ms and every boundary is a whole millisecond. The derived
+  numbers, all of them from `AnimOps` and all of them exact:
+  `frameStartsMs = [0, 100, 200, 300, 400, 500]`, `totalDurationMs = 600.0`, so
+  `rangeMs = 600.0`, and from the clock's own rule `backSpanMs = rangeStarts[5] − rangeStarts[1] =
+  500 − 100 = 400.0`, so `cycleMs = 600 + 400 = 1000.0`. **Every boundary in the cycle is therefore
+  a whole millisecond, and a 1 ms walk steps exactly onto all of them** — including the seam at
+  `600` and the three interior falling edges at `700, 800, 900`. That is what makes test 3 sharp
+  instead of approximate.
 
-**Non-vacuity proof the builder must run and paste:** delete the `if (index != frameIndex)` guard
-from Decision 1, run the suite, watch test 3 fail, put it back. Then **delete the `min(250.0, …)`
-from Decision 7** and watch test 10 fail. A seam test that has never been seen to fail is a
-suspicion, not a test.
+1. `aFrameAlreadyOnScreenIsNeverEmittedAgain`: for board A, every board edge `e` and every frame
+   `i` in the range, `step(e, i, null)` contains **no** `ShowFrame` naming `i`. Structure, not a
+   count.
+2. `theStepperCannotEmitTheFrameItWasToldIsUp`: the same over 2 000 pseudo-random `(t, i, a)`
+   triples — a fixed LCG, no `kotlin.random` (its algorithm is not promised across versions).
+3. **`theStepperDoesNotSpinAtABackwardBoundary` — the test this row exists for.** Board B, a
+   `PING_PONG` clock over the whole range, speed 1, walked in 1 ms steps from `t = 0.0` to
+   `t = 1000.0` (one whole `cycleMs`), carrying the shown frame forward exactly as a player would:
+   `shown = the last ShowFrame's index, else 0`, and the sound likewise. Then assert, **with the
+   arithmetic in the test's own comment**:
+   - **The emitted sequence is exactly `[1, 2, 3, 4, 5, 4, 3, 2, 1, 0]` — ten emissions, `2n − 2`
+     for `n = 6`.** The derivation, which the test writes out: the forward leg shows all `n = 6`
+     frames, in the slots starting at `0, 100, 200, 300, 400, 500`; the backward leg replays the
+     range's **interior** and therefore shows `n − 2 = 4` new frames — slots 4, 3, 2, 1, up over the
+     half-open intervals `(600, 700]`, `(700, 800]`, `(800, 900]`, `(900, 1000]`, so nothing is
+     emitted *at* 700, 800 or 900 but one step after each; and the wrap at `1000` shows frame 0
+     again, which is the first emission of the *next* cycle. So a full cycle
+     emits `6 + 4 = 10` times, which is `2n − 2` — and **not once per step**: the walk is 1 001
+     steps and 10 of them emit. The visible sequence, sampled at slot midpoints
+     (`50, 150, 250, 350, 450, 550, 650, 750, 850, 950`), is
+     `0 1 2 3 4 5 4 3 2 1` (ten slots, the ends once each), and the leading `0` in
+     `0 1 2 3 4 5 4 3 2 1 0 …` is the eleventh slot — the wrap, i.e. the first emission of the next
+     cycle. **Both spellings are the same fact; the test pins the emission list because that is what
+     a player sees.**
+   - **No index is emitted twice in a row** and no index is emitted at a `t` where
+     `clock.frameIndexAt(t)` is not equal to it (an index comparison against the clock, not against
+     a written-out table).
+   - **`step` emits nothing at `t = 600, 700, 800, 900`** — the four exact backward boundaries.
+     Asserted positively, because it is the surprising half: at those instants the frame has *not*
+     changed yet.
+   - **And the one that fails without Decision 7:** at every one of the 1 001 steps,
+     **`nextWakeMs(t) > t`**. With Decision 7's second branch deleted this assertion goes red at
+     `t = 600, 700, 800, 900` and nowhere else, which is what makes it a real test.
+   The failure mode this catches is a stepper that emits on every call, and its symptom in the field
+   is a phone at 100 % battery playing a two-frame animation.
+4. `stepIsAFunctionOfItsArgumentsAlone`: 5 000 triples, `step` called twice with each, the two lists
+   equal (`==`, on the list of data-class `Step`s). No hidden state, no "last frame" field.
+5. `thePictureIsDrawnBeforeTheSoundIsMoved`: on board B at a forward boundary where both fire, the
+   list is `[ShowFrame, Audio]` in that order — asserted as an index comparison, not as a string.
+6. `anUnchangedMomentReturnsAnEmptyList`: mid-frame, with the sound already at the clock's own
+   answer, `step` returns an **empty list** — and `Step.Nothing` does not exist, which the test
+   proves by not being able to reference it. (Assert the empty list; the deletion of the type is
+   checked by the file compiling.)
+7. `theSoundIsTheCorrectedFormulaAndNotTheModulo`: on a `PING_PONG` clock over board B at speed 1,
+   for `elapsed` in the **second** cycle, the emitted `Audio.boardMs` equals
+   `edge(board, 0) + (t mod 1000.0)` **exactly** — the expected value is derived from the **board**,
+   not from the clock, because `rangeStartMs` is a private field of `PlaybackClock` and a test that
+   read it would be asserting the clock against itself. (On this board `edge(board, 0) = 0.0`, so
+   the expected value is just `t mod 1000.0`.) The test then asserts a hand-written
+   `edge(board, 0) + (t mod 600.0)` — the wrong formula — **differs**, and writes the arithmetic:
+   `rangeMs = 600`, `cycleMs = 1000`, so at `t = 1100.0` the emitted value is `100.0` and the modulo
+   formula gives `500.0`. The two agree only on the **first cycle's forward leg** (`0 ≤ t < 600`),
+   which is the comment's other half. On the backward leg the emitted value is `null`, from the seam
+   (`cyclePos = 600`) onward, and the test asserts that at `t = 600, 650, 900, 1000`.
+8. `anUnchangedSoundPositionEmitsNothing`: `step(t, shown, clock.audioPositionMs(t))` emits **no**
+   `Audio` at any `t`, over 1 000 probes across both legs and three speeds. (The comparison is
+   `==` on `Double?`, no tolerance — that is Decision 6.)
+9. `theEmittedAudioIsBitIdenticalToTheClock`: for 3 000 probes across both legs, three speeds
+   (`0.5f`, `1f`, `2.5f`) and a sub-range, every emitted `Audio.boardMs` equals
+   `clock.audioPositionMs(t)` with **no tolerance argument at all**. If anyone adds an epsilon this
+   test fails, which is the point.
+10. `finishIsAStandingFactAndOnlyForOnce`: an `ONCE` clock over board A, past `rangeMs`, emits a
+    list whose **last** element is `Finish` on **every** call — `step(t, 3, null)` and
+    `step(t + 1, 3, null)` alike, which is the level-triggered half (Decision 4). When the shown
+    frame is not yet the last, the list is `[ShowFrame(3), Finish]`; when it is, it is `[Finish]`
+    alone. A `LOOP` and a `PING_PONG` clock never contain `Finish`, at `3 600 001` ms or anywhere
+    else. And the test does **not** assert `Nothing` on a second call, because that is not a
+    property a pure function can have.
+11. `afterFinishOnlyTheLastFrameIsUp`: `frameOnScreen` is frame 3 at every `t` past the end of an
+    `ONCE` clock over board A, including `t = rangeMs × 1000`.
+12. **`nextWakeIsAlwaysStrictlyAfterNow`**: the invariant of Decision 7, on its own, over board B in
+    all three modes, walking `t` from `0.0` to `3 000.0` in 1 ms steps, **and** at 2 000 pseudo-random
+    `t`, **and** at the three values that cannot be placed on a timeline: `NaN`, `−1.0` and
+    `Double.POSITIVE_INFINITY`. The clock's own `cleanElapsed` turns all three into `0.0`, so on
+    board B the answer is the first boundary from zero, `100.0`, for each of them — **assert the
+    value, not merely its finiteness**, and assert that none of the three is `NaN`. The `NaN` case
+    is the one that must be there: every comparison against `NaN` is false, so a `nextWakeMs` that
+    compared before normalising would return `NaN` and the invariant would be silently broken.
+    (`step(NaN, i, a)` is well defined for the same reason: it is the step at `t = 0`, and the test
+    says so rather than leaving it implied.) Non-vacuous: delete Decision 7's second branch and this
+    is the test that goes red, at `t = 600, 700, 800, 900` in each PING_PONG cycle.
+13. `nextWakeNeverParksTheHandlerForever`: a one-frame range (board A with `firstFrame = 2,
+    lastFrame = 2`) and a finished `ONCE` clock both return `t + MAX_SLEEP_MS` — the clock answers
+    `Double.POSITIVE_INFINITY` for both — and never `∞`. Assert the value, not merely "finite".
+14. `nextWakeIsTheClocksAnswerCappedAt250`: inside a frame on board A, `nextWakeMs(t)` equals
+    `clock.nextChangeMs(t)` **exactly**; when that is more than 250 ms away it is exactly
+    `t + 250.0`; and `MAX_SLEEP_MS == 250.0` is asserted equal to `CanvasGestures.TAP_MS`'s value
+    only in a comment, not by importing an Android class into a `commonTest`.
+15. `aFrameTheClockCouldNeverShowIsNotAnError` (Decision 8): `step(0.0, 99, null)` on board A's
+    clock does not throw and its `ShowFrame`, if any, names `clock.frameIndexAt(0.0)`. The comment
+    records why: the range is private in `PlaybackClock`, and an exception here would crash a live
+    animation over a mistake the next emission repairs.
+16. `frameOnScreenIsTheClocksOwnAnswer`: at 3 000 probes across all three modes, two sub-ranges and
+    three speeds, `frameOnScreen(t) == clock.frameIndexAt(t)` with no tolerance.
+17. `aSubRangeStepsOverItsOwnFramesOnly`: board A, frames `1..2`, PING_PONG and LOOP. Every
+    `ShowFrame` the walk emits names `1` or `2` — never `0` or `3` — over a whole cycle. This is the
+    test that catches a stepper that forgets the range and starts emitting the board's frames.
 
-Command: `./gradlew -p joybrush :core:jvmTest` — 0 failures.
+**Non-vacuity proof the builder must run and paste** (all three, each is a one-line edit):
+
+1. delete the `if (index != frameIndex)` guard from Decision 1 → tests 1, 2 and 3 go red;
+2. delete the `else -> t + MIN_WAKE_MS` branch from Decision 7 → test 12 goes red at `t = 600, 700,
+   800, 900` and nowhere else;
+3. add a `private var finished = false` to make `Finish` fire once (the old Decision 4) → test 4
+   goes red, because the second call now differs from the first.
+
+A seam test that has never been seen to fail is a suspicion, not a test.
+
+**Command:** `./gradlew -p joybrush :core:jvmTest` — BUILD SUCCESSFUL, 0 failures. The builder
+cannot run gradle if it has no JVM; in that case say so in the report rather than claiming a pass.
 
 ## Do not
 
 - **Do not sleep on `nextChangeMs` and draw unconditionally.** That is the spin. `nextWakeMs` is a
   floor, and the comparison lives in `step`'s signature.
+- Do not hand `nextWakeMs` back a value that is not `> elapsedMs`. Decision 7's second branch is not
+  optional, and the four instants in test 3 are exactly where it is load-bearing.
+- Do not give `FrameStepper` a `var`. Not a "last frame", not a "finished" flag, not a "last audio
+  position". Purity is what makes the table of expected timelines possible (Decision 2), and the
+  `Finish` semantics are the price, not the excuse.
 - Do not re-derive `holdFrames * 1000.0 / fps`. Index `AnimOps`.
-- Do not put an epsilon, a tolerance or a `±` into anything `PlaybackClock` produced.
+- Do not put an epsilon, a tolerance or a `±` into anything `PlaybackClock` produced, or into
+  Decision 7's `MIN_WAKE_MS` (which is a floor on a delay, not a tolerance on a value).
 - Do not reintroduce `rangeStartMs + (t mod rangeMs)` for PING_PONG. It was wrong as written and it
-  is corrected in JB-3.05a; the correction is in Decision 5 above precisely so it cannot be.
-- Do not add a speed control, a frame counter, a loop-count or a "reverse" button (Decision 12).
-- Do not add a second audio track, a volume control or a mute. One track, no mixing.
-- Do not touch `DocModel.kt`, `DocJson.kt`, `JbArchive.kt` or `DOC_VERSION`. That is Q1, and it is
-  the Lead's.
-- No new dependencies. `Handler`/`Looper` are the platform; `MediaPlayer` is the platform.
+  is corrected in JB-3.05a; Decision 5 exists precisely so it cannot be.
+- **Do not add a control, a pill, a chip, a `Handler`, a `MediaPlayer`, an `import android.*`, or
+  any file outside the owner area.** R33 gives PLAY and MODE to the peg bar and gives the film
+  strip prev/next and nothing else; one saturated control is the whole of it.
+- Do not add a speed control, a frame counter, a loop count or a "reverse" button.
+- Do not add a second audio track, a volume control or a mute. One track, no mixing — and the track
+  is JB-0.02c's.
+- Do not touch `DocModel.kt`, `DocJson.kt`, `JbArchive.kt`, `BrushJson.kt` or `DOC_VERSION` /
+  `BRUSH_VERSION`. Nothing in this row is serialised.
+- No new dependencies. This file is `commonMain`.
 
 ## Definition of done
 
-- [ ] `./gradlew -p joybrush :core:jvmTest` output pasted, 0 failures
-- [ ] the non-vacuity proof pasted (remove the guard → test 3 red; remove the cap → test 10 red)
-- [ ] watcher `build.log` shows `:androidkit:compileKotlin` and `:joybrush-android:compileDebugKotlin` EXECUTED inside `BUILD SUCCESSFUL`
-- [ ] `git status --short` shows only the owner-area paths
-- [ ] **device check, owner, Note 9:** a 6-frame ping-pong with a sound plays, the sound is silent
-      on the way back, and Home → reopen leaves it paused on the frame it was on
-- [ ] committed `JB-3.05: playback`; ROADMAP row set by the Lead
+- [ ] `./gradlew -p joybrush :core:jvmTest` green, output pasted, 0 failures
+- [ ] the three-part non-vacuity proof pasted (guard removed → 1/2/3 red; `MIN_WAKE_MS` branch
+      removed → 12 red; `finished` flag added → 4 red)
+- [ ] `git status --short` shows **only** the two owner-area files
+- [ ] committed `JB-3.05: playback frame stepper`, pushed
+- [ ] `INDEX.md` updated to "Built — awaiting T1 review"
+- [ ] **No device check is owed by this row.** The Note 9 check ("a six-frame ping-pong plays, the
+      sound is silent on the way back, Home → reopen leaves it paused") belongs to the transport row
+      that builds a `Handler` and a `MediaPlayer`, and to JB-0.02c for the track. Saying so in the
+      report is part of the row being done, not an omission.
 
 ## Questions
 
-_(Spec writer: openrouter/stealth/space-bunny-alpha, 2026-09-29. The loop is complete and pinned.
-The audio track has nowhere to live, and that is the whole of Q1.)_
+_(Spec writer: openrouter/stealth/space-bunny-alpha, 2026-09-29. The frame stepper is complete and
+pinned; the corrections applied are listed in the review's "Corrected numbers" plus two found by
+reading the landed clock.)_
 
-### Q1 — for the Lead, and it blocks the audio half outright: **the document has no audio field**
+### For the Lead
 
-The row says "Playback **+ an audio track**". I have read `DocModel.kt` and `JbArchive.kt` line by
-line looking for where one lives. There is nowhere:
+**Q1 — the audio half is JB-0.02c, and this row now says so instead of asking.** The review asked me
+to scope the audio half out, and the tree confirms there is nowhere for a track to live: `Board` is
+`id, name, kind, rect, clipToBoard, fps, frames, grid`; `JbContents` is `doc, tiles, strokes,
+thumbnailPng`; `JbArchive`'s entry table has no audio entry and no size bound. R33 has already
+opened **JB-0.02c** for it (`Board.audio`, `audio/<boardId>.<ext>`, `MAX_AUDIO_BYTES` = 16 MiB
+refused in words at attach time, copied INTO the archive, version bump per R30/R31), so the six
+things I asked about in the earlier draft of this spec are answered by the ruling and the row exists.
+**Nothing is left for you to rule on here.** What this row keeps is the pure half —
+`PlaybackClock.audioPositionMs` and `Step.Audio` — because that is arithmetic on the clock and
+needs no field. A player that has no track simply ignores `Step.Audio`.
 
-- `Board` is `id, name, kind, rect, clipToBoard, fps, frames, grid`. **No audio.**
-- `JbContents` is `doc, tiles, strokes, thumbnailPng`. **No audio bytes, and no path to any.**
-- `JbArchive`'s entry table is `mimetype / document.json / layers/… / strokes.jbs / thumbnail.png`.
-  **No audio entry, and no `MAX_AUDIO_BYTES` bound.**
+**Q2 — `PlaybackClock` does not expose its range, so `frameIndex` cannot be validated (Decision 8).**
+This is the one place where the contract I have written is narrower than the contract the earlier
+draft wanted ("rejected in words unless it is a frame of the range"). The clock's `first`, `last`
+and `count` are private with no getters, so the stepper cannot check without editing a built,
+reviewed file. I chose to accept the caller's word and let the next `ShowFrame` repair it, because
+throwing on a live animation is worse than one wrong frame for one tick. **If you would rather
+`PlaybackClock` grew `val firstFrame` / `val lastFrame` (a two-line addition to a built file), say
+so and I will add a test that refuses out-of-range indices** — it is a one-line change to a
+`PlaybackClock.kt` that is not in this row's owner area, so it is your call, not this builder's.
 
-So "add an audio track" is a **document-format change**, and R3 is explicit that a serialised change
-carries a version obligation, and `DocJson.kt` / `JbArchive.kt` / `DocModel.kt` are **JB-0.02's and
-JB-0.08a's owner area**, not this row's. I will not edit them from here, and I will not write a spec
-that pretends the track can be attached to a path that is not in the model.
+### Ruled here, low-risk and reversible, flagged for you to confirm
 
-**What a ruling needs to cover — six things, and I have thought about each:**
+**Q3 — PROVISIONAL (Claude to confirm): `MIN_WAKE_MS = 1.0` (Decision 7).** This is the only new
+number in the row. The reasoning is in Decision 7: it is a floor on a *delay*, it must not depend on
+a board (this class does not hold one), and 1 ms is one tick of the clock a `Handler` delay is
+measured in and 1/16.7 of the shortest frame a board can hold, so it cannot step over a change. If
+you would rather the second case sleep until the *next* boundary strictly after now — which needs
+`PlaybackClock` to expose one, so it is not available today — say so and the alternative is to have
+`nextWakeMs` return `t + MAX_SLEEP_MS` there and accept skipping a frame at every turn of a
+ping-pong. I do not think that is the right trade, but it is a design call and it is yours.
 
-1. **Where does the reference live?** `Board.audioPath: String?` (a path inside the `.joybrush`
-   zip, beside `strokes.jbs` in the model's own idiom) is the obvious answer and I would take it. It
-   also means the file is **inside the archive**, so a track survives a copy of the drawing — which
-   is the whole point of the archive and matches how ink strokes are stored.
-2. **What is the entry, and what bounds it?** `audio/<something>.<ext>` stored or deflated, with a
-   `MAX_AUDIO_BYTES` next to `MAX_STROKES_BYTES`. The archive's own rule 2 says no allocation is
-   sized from a number the archive declared, so the bound is mandatory, and the question is only its
-   value. A 5 MB track is generous; 50 MB is a drawing that no longer fits in memory to open.
-3. **Does adding the field bump `DOC_VERSION`?** R3's letter is about enum constants; a new optional
-   field with a default is the additive case the archive already handles (it reads unknown keys and
-   tolerates them). **My reading: no bump is needed, and I would rather have the Lead say so in
-   writing than have me guess**, because the answer changes what an old build does with a new file.
-4. **Which formats, and is transcoding allowed?** Decoding to play needs a decoder; Android has
-   `MediaPlayer` for anything the device supports and Joy Brush has no codec of its own. My
-   inclination is **store what the person picked, play it with `MediaPlayer`, and refuse in words a
-   container the device cannot open** — never silently transcode, never silently drop (the house
-   rule). But "the device cannot open it" is a runtime answer, so the refusal has to happen at play
-   time with a sentence, not at open time.
-5. **Does the track belong to the BOARD or to the DOCUMENT?** A board, in my reading — a document
-   with two animation boards and two tracks is a real thing and the model has room for it. But
-   `Board` is a value class copied by every operation, and a `String?` in it is nothing; if the
-   answer is "document", the field goes on `JbDocument` and every board shares one track.
-6. **Is the track copied into the `.joybrush`, or referenced?** Copy, per 1 — otherwise a document
-   that opens on another device has a dead reference, which is the "refuse rather than half-open"
-   rule in JB-0.08b's own vocabulary.
+**Q4 — PROVISIONAL (Claude to confirm): `step` returns an empty list, and `Step.Nothing` is deleted
+(Decision 3).** Purely a shape decision about this row's own sealed class; nothing outside the two
+owner-area files can observe it either way.
 
-**My recommendation, for what it is worth:** open **JB-0.02c — audio in the archive** (T1, owner area
-`DocModel.kt` + `DocJson.kt` + `JbArchive.kt` + its tests, `DOC_VERSION` ruling included) and make
-JB-3.05 depend on it. Then this row's audio half is a `MediaPlayer` and a `seekTo`, which is what it
-should have been.
-
-### Q2 — for the Lead: there are now two Play controls on the animation board
-
-JB-3.02 Decision 1 freezes the peg bar at five pegs and Play is one of them; Decision 14 of this
-spec puts a play/pause pill on the film strip. Both are live at once, and the visual language's rule
-is **one saturated control per screen**. I ruled the transport pill to be the saturated one and the
-peg to wear the board gradient, but that is me picking between two controls the Lead put there.
-
-1. **Should the peg bar's `PLAY` peg be dropped** (which means amending JB-3.02's frozen list), or
-   **should the strip's transport be dropped**? My recommendation is to drop the peg's, because the
-   transport belongs beside the thing it transports — but the peg bar was the owner's own idea and
-   the pegs are supposed to be *the* buttons.
-2. Related: **should the loop-mode chip live on the peg bar** for the same reason? If the peg bar is
-   the button row, `MODE` is already one of its five pegs, and a second mode control is a duplicate.
-
-I have written the spec assuming the peg bar keeps `PLAY` and `MODE` and the strip keeps **only**
-prev/next, because that is what "the strip is the transport" means in every other app. Say if you
-want it the other way and it is a two-line change here.
-
-### Q3 — for the Lead, and it is a small one I did not want to decide alone
-
-**A ping-pong with a sound is silent for half of every cycle.** That is Decision 5 and it is
-JB-3.05a's ruling, and it is right ("sound played backwards is never wanted"). But a person who
-records a two-step footstep and plays it ping-pong will hear a click at the seam every cycle, because
-the audio is paused and resumed at a non-zero offset with no crossfade.
-
-**Options: (a) accept the click** (the current ruling, and correct); **(b) ramp the volume to zero
-over the last 20 ms of the forward leg and back up over the first 20 ms of the next** — a device-side
-ramp, not a change to the clock; **(c) do not offer a sound at all in PING_PONG.** I ruled (a),
-because a ramp is a design decision about how the app sounds and this project does not make those in
-a spec's Decisions. But you should know the click is there.
+**Q5 — the one saturated control.** R33 settles ownership (peg bar = PLAY and MODE; strip = prev/next
+and nothing else) but not which peg wears the saturated gradient. That is JB-3.02's file and I have
+not touched it; I have only recorded in Boundary 10 that this row adds no control, so the count of
+saturated controls on the animation board is whatever JB-3.02 and the chrome row decide, and it
+must be one.

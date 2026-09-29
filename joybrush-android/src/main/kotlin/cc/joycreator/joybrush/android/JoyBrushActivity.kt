@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -32,6 +33,7 @@ import cc.joycreator.joybrush.androidkit.io.JB_MIMETYPE
 import cc.joycreator.joybrush.androidkit.io.JbArchive
 import cc.joycreator.joybrush.androidkit.io.JbArchiveException
 import cc.joycreator.joybrush.androidkit.io.JbContents
+import cc.joycreator.joybrush.androidkit.lab.BrushHotReload
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import java.io.File
 import java.text.SimpleDateFormat
@@ -187,9 +189,11 @@ class JoyBrushActivity : Activity() {
         viewPausePending = false
         ui.removeCallbacks(pauseView)
         canvas.onResume()
+        startBrushLab()
     }
 
     override fun onPause() {
+        stopBrushLab()
         // GLSurfaceView DEFERS a GL event that was queued before its GL thread is paused until the
         // next resume — and after a force-stop there is no next resume, so the autosave would never
         // happen at exactly the moment it matters. So the readback is asked for FIRST and the view
@@ -678,5 +682,46 @@ class JoyBrushActivity : Activity() {
             view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
             insets
         }
+    }
+
+    // ── the brush lab (JB-1.21) ───────────────────────────────────────────────
+    //
+    // A development door, not a feature: `tools/brushlab_push.sh` pushes a brush folder the person
+    // is editing on a PC, and the watcher hands every changed one straight to the view. Debuggable
+    // builds ONLY, because in any other build this would let a file that reached the device's app
+    // folder swap the brush under somebody's hand, invisibly. There is nothing to see in a release
+    // build and nothing to turn off.
+
+    private var brushLab: BrushHotReload? = null
+
+    /**
+     * Starts watching `<external files>/joybrush/lab` for edited `brush.json` files. Does nothing
+     * outside a debuggable build, and nothing if the device will not give us an app folder.
+     */
+    private fun startBrushLab() {
+        if (brushLab != null) return
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return
+        val labDir = getExternalFilesDir(BrushHotReload.LAB_DIR) ?: return
+        brushLab = BrushHotReload(
+            labDir,
+            { preset ->
+                // Straight onto the view, with no undo step and no GL round trip: the person is
+                // mid-session, judging a brush, and a brush is not drawing content.
+                canvas.preset = preset
+                toast("Reloaded ${preset.name}")
+            },
+            { file, problems ->
+                // The preset is NOT touched here, so the brush that was working is still the one on
+                // screen — the whole point of reporting the problem rather than loading half a file.
+                toast("Lab brush ${file.parentFile?.name ?: file.name} — ${problems.first()}")
+            },
+        )
+        brushLab?.start()
+    }
+
+    /** Stops the watcher. Safe to call when it was never started, which is every release build. */
+    private fun stopBrushLab() {
+        brushLab?.stop()
+        brushLab = null
     }
 }

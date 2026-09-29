@@ -97,3 +97,19 @@ Tests pass (paste) · commit `JB-3.08a: three-finger swipe logic` · ROADMAP row
 
 ## Questions
 - Answered by the owner 2026-09-29: stop at the ends, with push-through to wrap (Decision 4).
+- Builder (JB-3.08a, built, tests unrun by the builder). **Where the push clock starts.** Decision 4
+  says "once the index is held at an end, keep pushing the SAME way for a further `3 × step`". I read
+  "held" as the mathematical clamp, so the push is measured in px from a WHOLE number of steps past
+  the begin index (`baseIndex × step`), not from the `move` that happened to report the end. With
+  10 frames from frame 4 that means `Ended(0,false)` at dx = 126 (3.53 steps, the first sample past
+  the clamp) and `Wrapped(9)` at dx = 252 (144 + 3×36). Reading it the other way gives `Ended` at
+  144 and `Wrapped` at 252 as well, but the wrap then depends on how finely `move` was called. I
+  chose the reading that makes the wrap a pure function of `dxScreen`, because `move` is documented
+  as taking the TOTAL offset. **Confirm, or say "count from the sample that reported Ended".**
+- Builder: **a gesture that BEGINS on an end frame.** It has not "reached" anything, so it gets no
+  `Ended` tick — but the push clock runs from dx = 0, so 3 steps of pushing from finger-down wraps.
+  A begin at frame 9 of 10, pushed −108 px, returns `Wrapped(0)`.
+- Builder: **the end just wrapped onto gets no `Ended`.** A wrap returns `Wrapped` and suppresses
+  `Ended` until the index leaves that end again, so one arrival is one tick, not two.
+- Builder: Decision 2's refusal is read as covering a CANVAS board too (it cannot legally hold
+  frames, so it is always < 2) and a one-frame ANIMATION board; both keep the badge on BRUSH.

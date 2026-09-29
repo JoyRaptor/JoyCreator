@@ -90,7 +90,9 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
 | Phone pass 2026-09-29 (Note 9): Split, Undo/Redo, Captions, text drawer, Opacity/Loop/Canvas/Filter open and work; Back now closes Loop; Filters sliders one-line | ✅ 867fc2bb |
 | Phone pass: Proxy add / drag-moves-followers / Follows tab / Switch parent (records "from 5s: Proxy 1", no jump) / dashed marker in preview | ✅ 7517c538 |
 | Phone pass: Let go here; bottom tools Rotate / Flip / Align / Clean / Crop / Select / Extract / Loop / Opacity / Canvas / Filter all open and respond (Rotate undone, Select mode back off) | ✅ |
-| Not yet on phone: follower drops to own lane on time overlap; visualizer following (no test project); pin links; text sizing | ⏳ |
+| Phone pass 2026-09-29: video-overlay drawer complete (Transform/Blend/Mask/Key/Sound, all rows); Add sheet complete | ✅ |
+| Visualizer: a fresh one attaches to the main clip with no lane of its own in ZA_CONTROL, so its drawer (code path exists: lane double-tap/hold -> showVisualizerObjectDrawer) was never opened on the phone. Undo removes it from the model (LambdaAction wired) but one saved file still held it after Undo; autosave timing, unconfirmed | 👀 |
+| Not yet on phone: follower drops to own lane on time overlap; visualizer following; pin links; text sizing | ⏳ |
 | Observed, not mine: caption line shifted right/clipped at 5.1s in ZA_CONTROL on the ~10:40 build (export lane told) | 👀 |
 | NEXT: phone pass on remaining 🧪; pin links (warp/puppet pins as parents); parameter drivers; text box sizing modes (#14); bottom-tools sweep | ⏳ |
 

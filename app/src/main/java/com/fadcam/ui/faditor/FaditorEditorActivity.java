@@ -3752,7 +3752,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Tap to relink hint
         android.widget.TextView hintView = new android.widget.TextView(this);
-        hintView.setText("Tap to relink");
+        hintView.setText(R.string.studio_text_tap_to_relink);
         hintView.setTextColor(Studio.INK_FAINT);
         hintView.setTextSize(13f);
         hintView.setGravity(android.view.Gravity.CENTER);
@@ -6806,7 +6806,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 toolMuteIcon.setTextColor(Studio.GO);
             }
             if (toolMuteLabel != null) {
-                toolMuteLabel.setText("Keyframe");
+                toolMuteLabel.setText(R.string.studio_text_keyframe);
                 toolMuteLabel.setTextColor(Studio.GO);
             }
             return;
@@ -7430,7 +7430,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             movePositionFrames.setText(frames + "f");
         }
         if (movePositionLayer != null) {
-            movePositionLayer.setText("Lane 1");
+            movePositionLayer.setText(R.string.studio_text_lane_1);
         }
         refreshMoveClipButtons();
     }
@@ -7704,7 +7704,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 toolOpacityIcon.setTextColor(Studio.GO);
             }
             if (toolOpacityLabel != null) {
-                toolOpacityLabel.setText("Keyframe");
+                toolOpacityLabel.setText(R.string.studio_text_keyframe);
                 toolOpacityLabel.setTextColor(Studio.GO);
             }
             return;
@@ -14021,7 +14021,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         row.addView(dot, dotLp);
 
         TextView label = new TextView(this);
-        label.setText("Current position");
+        label.setText(R.string.studio_text_current_position);
         label.setTextSize(13);
         label.setTypeface(null, android.graphics.Typeface.BOLD);
         label.setTextColor(Studio.INK);
@@ -17930,7 +17930,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         col.addView(timeRow);
 
         TextView hint = new TextView(this);
-        hint.setText("Tap the time to type an exact value · ◄ ► nudge ±1 frame");
+        hint.setText(R.string.studio_text_tap_the_time_to_type);
         hint.setTextColor(Studio.INK_FAINT);
         hint.setTextSize(11);
         hint.setPadding(0, (int) (8 * dp), 0, 0);
@@ -18421,7 +18421,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // Right: ONE/RIPPLE/STRETCH and SNAP
             wordSyncDrawerRippleLabel = new TextView(this);
             wordSyncDrawerRippleLabel.setId(R.id.word_sync_ripple);
-            wordSyncDrawerRippleLabel.setText("ONE");
+            wordSyncDrawerRippleLabel.setText(R.string.studio_text_one);
             wordSyncDrawerRippleLabel.setTextColor(Studio.ARMED);
             wordSyncDrawerRippleLabel.setTextSize(12f);
             wordSyncDrawerRippleLabel.setTypeface(null, android.graphics.Typeface.BOLD);
@@ -18431,7 +18431,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             row.addView(wordSyncDrawerRippleLabel);
             wordSyncDrawerSnapLabel = new TextView(this);
             wordSyncDrawerSnapLabel.setId(R.id.word_sync_snap);
-            wordSyncDrawerSnapLabel.setText("SNAP");
+            wordSyncDrawerSnapLabel.setText(R.string.studio_text_snap);
             wordSyncDrawerSnapLabel.setTextColor(Studio.INK);
             wordSyncDrawerSnapLabel.setTextSize(11f);
             wordSyncDrawerSnapLabel.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
@@ -20069,7 +20069,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         freqRow.setPadding(0, (int) (2 * dp), 0, 0);
 
         TextView freqLabel = new TextView(this);
-        freqLabel.setText("Hz");
+        freqLabel.setText(R.string.studio_text_hz);
         freqLabel.setTextColor(Studio.INK_FAINT);
         freqLabel.setTextSize(11);
         freqLabel.setPadding(0, 0, (int) (6 * dp), 0);
@@ -20136,7 +20136,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
 
         TextView barsLabel = new TextView(this);
-        barsLabel.setText("Bars");
+        barsLabel.setText(R.string.studio_text_bars);
         barsLabel.setTextColor(Studio.INK_FAINT);
         barsLabel.setTextSize(11);
         barsLabel.setPadding((int) (10 * dp), 0, (int) (4 * dp), 0);
@@ -20184,7 +20184,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         barRow.setPadding(0, (int) (2 * dp), 0, 0);
 
         TextView widthLabel = new TextView(this);
-        widthLabel.setText("Width");
+        widthLabel.setText(R.string.studio_text_width);
         widthLabel.setTextColor(Studio.INK_FAINT);
         widthLabel.setTextSize(11);
         widthLabel.setPadding(0, 0, (int) (4 * dp), 0);
@@ -20205,7 +20205,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         barRow.addView(widthSeek, widthLp);
 
         TextView gapLabel = new TextView(this);
-        gapLabel.setText("Gap");
+        gapLabel.setText(R.string.studio_text_gap);
         gapLabel.setTextColor(Studio.INK_FAINT);
         gapLabel.setTextSize(11);
         gapLabel.setPadding((int) (6 * dp), 0, (int) (4 * dp), 0);
@@ -20517,7 +20517,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         section.setLayoutParams(secLp);
 
         TextView header = new TextView(this);
-        header.setText("Lanes"); // TODO(strings): externalize once the studio strings land.
+        header.setText(R.string.studio_text_lanes); // TODO(strings): externalize once the studio strings land.
         header.setTextColor(Studio.INK_FAINT);
         header.setTextSize(12);
         header.setPadding(0, 0, 0, (int) (4 * dp));
@@ -21674,7 +21674,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         col.setPadding(pad, pad / 2, pad, 0);
 
         TextView kLabel = new TextView(this);
-        kLabel.setText("Karaoke — one word per line (per-word timing):");
+        kLabel.setText(R.string.studio_text_karaoke_one_word_per_line);
         kLabel.setTextColor(Studio.DRAWER_DIM);
         kLabel.setTextSize(12);
         col.addView(kLabel);
@@ -21685,7 +21685,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         kEx.setTypeface(android.graphics.Typeface.MONOSPACE);
         col.addView(kEx);
         TextView kCopy = new TextView(this);
-        kCopy.setText("Copy example");
+        kCopy.setText(R.string.studio_text_copy_example);
         kCopy.setTextColor(Studio.VIDEO);
         kCopy.setTextSize(13);
         int cp = (int) (8 * d);
@@ -21695,7 +21695,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         col.addView(kCopy);
 
         TextView sLabel = new TextView(this);
-        sLabel.setText("Slide — one block per timestamp (whole verse shows at once):");
+        sLabel.setText(R.string.studio_text_slide_one_block_per_timestamp);
         sLabel.setTextColor(Studio.DRAWER_DIM);
         sLabel.setTextSize(12);
         col.addView(sLabel);
@@ -21706,7 +21706,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         sEx.setTypeface(android.graphics.Typeface.MONOSPACE);
         col.addView(sEx);
         TextView sCopy = new TextView(this);
-        sCopy.setText("Copy example");
+        sCopy.setText(R.string.studio_text_copy_example);
         sCopy.setTextColor(Studio.VIDEO);
         sCopy.setTextSize(13);
         sCopy.setPadding(0, cp / 2, 0, 0);
@@ -22417,7 +22417,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         .parsePreset(o.getTextAnimPreset());
         if (p == com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
                 || !o.hasTextAnim()) {
-            label.setText("None");
+            label.setText(R.string.studio_text_none);
             return;
         }
         int in = Math.round(o.getTextAnimInPct() * 100f);
@@ -22884,7 +22884,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // ── Box on/off ──
         final TextView boxToggle = new TextView(this);
         styleDrawerChip(boxToggle, d);
-        boxToggle.setText("Backing box");
+        boxToggle.setText(R.string.studio_text_backing_box);
         boxToggle.setAlpha(cur0.pill ? 1f : 0.45f);
         boxToggle.setOnClickListener(v -> {
             boolean now = !currentCaptionStyle().pill;
@@ -22937,7 +22937,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // ── The old long-press behaviour, kept ──
         final TextView hideRow = new TextView(this);
         styleDrawerChip(hideRow, d);
-        hideRow.setText("Hide this track");
+        hideRow.setText(R.string.studio_text_hide_this_track);
         hideRow.setTextColor(Studio.GUIDE);
         root.addView(hideRow);
 
@@ -34436,7 +34436,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             root.addView(topRow);
             // One-line hint for None (§2.6)
             android.widget.TextView hint = new android.widget.TextView(this);
-            hint.setText("No animation (reset) — centred, cover-scaled, static");
+            hint.setText(R.string.studio_text_no_animation_reset_centred_cover);
             hint.setTextColor(Studio.DRAWER_LABEL);
             hint.setTextSize(10);
             hint.setPadding(0, Math.round(2*d), 0, Math.round(6*d));
@@ -39070,7 +39070,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         final android.widget.CheckBox copyPosition = new android.widget.CheckBox(this);
         SheetKit.styleCheckbox(copyPosition);
-        copyPosition.setText("Also apply caption position to all clips");
+        copyPosition.setText(R.string.studio_text_also_apply_caption_position_to);
         copyPosition.setTextColor(Studio.INK);
         copyPosition.setChecked(false);
         android.widget.LinearLayout.LayoutParams posLp =
@@ -39083,7 +39083,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         final android.widget.CheckBox copySize = new android.widget.CheckBox(this);
         SheetKit.styleCheckbox(copySize);
-        copySize.setText("Also apply caption size to all clips");
+        copySize.setText(R.string.studio_text_also_apply_caption_size_to);
         copySize.setTextColor(Studio.INK);
         copySize.setChecked(false);
         android.widget.LinearLayout.LayoutParams sizeLp =
@@ -43524,7 +43524,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bpmLabel.setText(beats.length > 0 && bpm > 0 ? String.format(java.util.Locale.US, "BPM: %.1f (%d beats)", bpm, beats.length) : "No beats detected yet");
         root.addView(bpmLabel);
         android.widget.TextView sensLabel = new android.widget.TextView(this);
-        sensLabel.setText("Sensitivity");
+        sensLabel.setText(R.string.studio_text_sensitivity);
         sensLabel.setTextColor(Studio.INK_DIM);
         sensLabel.setPadding(0, pad/2, 0, 0);
         root.addView(sensLabel);
@@ -43540,7 +43540,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         snapRow.setPadding(0, pad/2, 0, 0);
         root.addView(snapRow);
         android.widget.TextView snapLabel = new android.widget.TextView(this);
-        snapLabel.setText("Snap to beats");
+        snapLabel.setText(R.string.studio_text_snap_to_beats);
         snapLabel.setTextColor(Studio.INK_DIM);
         snapLabel.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         snapRow.addView(snapLabel);
@@ -43605,7 +43605,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
         root.setPadding(pad, pad, pad, pad);
         android.widget.TextView refLabel = new android.widget.TextView(this);
-        refLabel.setText("Reference clip (stays)");
+        refLabel.setText(R.string.studio_text_reference_clip_stays);
         refLabel.setTextColor(Studio.INK_DIM);
         root.addView(refLabel);
         android.widget.Spinner refSpinner = new android.widget.Spinner(this);
@@ -43614,7 +43614,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         refSpinner.setAdapter(refAdapter);
         root.addView(refSpinner);
         android.widget.TextView targetLabel = new android.widget.TextView(this);
-        targetLabel.setText("Clip to move");
+        targetLabel.setText(R.string.studio_text_clip_to_move);
         targetLabel.setTextColor(Studio.INK_DIM);
         targetLabel.setPadding(0, pad/2, 0, 0);
         root.addView(targetLabel);
@@ -43700,7 +43700,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         preview.setTextColor(Studio.CAREFUL);
         preview.setTextSize(12);
         preview.setPadding(0, (int) (6 * getResources().getDisplayMetrics().density), 0, 0);
-        preview.setText("Release the slider to preview gaps on the timeline"); // TODO(strings)
+        preview.setText(R.string.studio_text_release_the_slider_to_preview); // TODO(strings)
         root.addView(preview);
         seek.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(android.widget.SeekBar sb, int p, boolean u) { }
@@ -43722,7 +43722,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final Clip clip = getSelectedClip();
         if (clip == null) return;
         final int gen = ++silencePreviewGen;
-        status.setText("Scanning…"); // TODO(strings)
+        status.setText(R.string.studio_text_scanning); // TODO(strings)
         if (silenceDetector == null) silenceDetector = new SilenceDetector(this);
         final long inMs = clip.getInPointMs();
         final long outMs = clip.getOutPointMs();
@@ -43751,7 +43751,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @Override
                     public void onError(@NonNull Exception e) {
                         if (gen != silencePreviewGen || isFinishing()) return;
-                        status.setText("Couldn't scan the audio"); // TODO(strings)
+                        status.setText(R.string.studio_text_couldn_t_scan_the_audio); // TODO(strings)
                     }
                 });
     }
@@ -44084,7 +44084,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final android.widget.TextView hint = new android.widget.TextView(this);
         // The hint IS the discoverability for the whole feature: long-press is hidden, so the
         // dialog it opens has to teach the grammar on sight.
-        hint.setText("2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min"); // TODO(strings)
+        hint.setText(R.string.studio_text_2m30s_10_5s_1_30); // TODO(strings)
         hint.setTextSize(12);
         hint.setTextColor(Studio.INK_FAINT);
 
@@ -44650,7 +44650,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Insert at start
         TextView btnStart = new TextView(this);
-        btnStart.setText("|< Insert");
+        btnStart.setText(R.string.studio_text_insert);
         btnStart.setTextColor(Studio.INK);
         btnStart.setTextSize(12);
         btnStart.setPadding((int)(12*d), (int)(8*d), (int)(12*d), (int)(8*d));
@@ -44678,7 +44678,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Insert at end
         TextView btnEnd = new TextView(this);
-        btnEnd.setText("Insert >|");
+        btnEnd.setText(R.string.studio_text_insert_2);
         btnEnd.setTextColor(Studio.INK);
         btnEnd.setTextSize(12);
         btnEnd.setPadding((int)(12*d), (int)(8*d), (int)(12*d), (int)(8*d));
@@ -45424,12 +45424,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.setPadding(Math.round(12*d), Math.round(12*d), Math.round(12*d), Math.round(12*d));
 
         android.widget.TextView title = new android.widget.TextView(this);
-        title.setText("Choose image for timeline (tap to select, numbered — as clip)");
+        title.setText(R.string.studio_text_choose_image_for_timeline_tap);
         title.setTextSize(14); title.setTextColor(Studio.INK); title.setPadding(0,0,0,Math.round(8*d));
         root.addView(title);
 
         android.widget.TextView browse = new android.widget.TextView(this);
-        browse.setText("Browse files…");
+        browse.setText(R.string.studio_text_browse_files);
         browse.setTextColor(Studio.GO); browse.setTextSize(14);
         browse.setPadding(Math.round(8*d), Math.round(8*d), Math.round(8*d), Math.round(8*d));
         browse.setBackgroundResource(R.drawable.segment_active_background);
@@ -45456,7 +45456,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btnCancel.setPadding(Math.round(16*d), Math.round(10*d), Math.round(16*d), Math.round(10*d));
         btnCancel.setBackgroundResource(R.drawable.segment_active_background);
         android.widget.TextView btnAdd = new android.widget.TextView(this);
-        btnAdd.setText("Add (0)");
+        btnAdd.setText(R.string.studio_text_add_0);
         btnAdd.setTextColor(Studio.GO); btnAdd.setTextSize(14); btnAdd.setTypeface(null, Typeface.BOLD);
         btnAdd.setPadding(Math.round(16*d), Math.round(10*d), Math.round(16*d), Math.round(10*d));
         btnAdd.setBackgroundResource(R.drawable.segment_active_background);
@@ -45641,7 +45641,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(title);
 
         android.widget.TextView browse = new android.widget.TextView(this);
-        browse.setText("Browse files…");
+        browse.setText(R.string.studio_text_browse_files);
         browse.setTextColor(Studio.GO); browse.setTextSize(14);
         browse.setPadding(Math.round(8*d), Math.round(8*d), Math.round(8*d), Math.round(8*d));
         browse.setBackgroundResource(R.drawable.segment_active_background);
@@ -45669,7 +45669,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btnCancel.setPadding(Math.round(16*d), Math.round(10*d), Math.round(16*d), Math.round(10*d));
         btnCancel.setBackgroundResource(R.drawable.segment_active_background);
         android.widget.TextView btnAdd = new android.widget.TextView(this);
-        btnAdd.setText("Add (0)");
+        btnAdd.setText(R.string.studio_text_add_0);
         btnAdd.setTextColor(Studio.GO); btnAdd.setTextSize(14); btnAdd.setTypeface(null, Typeface.BOLD);
         btnAdd.setPadding(Math.round(16*d), Math.round(10*d), Math.round(16*d), Math.round(10*d));
         btnAdd.setBackgroundResource(R.drawable.segment_active_background);

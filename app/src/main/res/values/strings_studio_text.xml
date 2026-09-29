@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- On-screen labels set from code, moved out of FaditorEditorActivity (2026-09-29). -->
+<resources>
+    <string name="studio_text_tap_to_relink">Tap to relink</string>
+    <string name="studio_text_keyframe">Keyframe</string>
+    <string name="studio_text_lane_1">Lane 1</string>
+    <string name="studio_text_current_position">Current position</string>
+    <string name="studio_text_tap_the_time_to_type">Tap the time to type an exact value · ◄ ► nudge ±1 frame</string>
+    <string name="studio_text_one">ONE</string>
+    <string name="studio_text_snap">SNAP</string>
+    <string name="studio_text_hz">Hz</string>
+    <string name="studio_text_bars">Bars</string>
+    <string name="studio_text_width">Width</string>
+    <string name="studio_text_gap">Gap</string>
+    <string name="studio_text_lanes">Lanes</string>
+    <string name="studio_text_karaoke_one_word_per_line">Karaoke — one word per line (per-word timing):</string>
+    <string name="studio_text_copy_example">Copy example</string>
+    <string name="studio_text_slide_one_block_per_timestamp">Slide — one block per timestamp (whole verse shows at once):</string>
+    <string name="studio_text_none">None</string>
+    <string name="studio_text_backing_box">Backing box</string>
+    <string name="studio_text_hide_this_track">Hide this track</string>
+    <string name="studio_text_no_animation_reset_centred_cover">No animation (reset) — centred, cover-scaled, static</string>
+    <string name="studio_text_also_apply_caption_position_to">Also apply caption position to all clips</string>
+    <string name="studio_text_also_apply_caption_size_to">Also apply caption size to all clips</string>
+    <string name="studio_text_sensitivity">Sensitivity</string>
+    <string name="studio_text_snap_to_beats">Snap to beats</string>
+    <string name="studio_text_reference_clip_stays">Reference clip (stays)</string>
+    <string name="studio_text_clip_to_move">Clip to move</string>
+    <string name="studio_text_release_the_slider_to_preview">Release the slider to preview gaps on the timeline</string>
+    <string name="studio_text_scanning">Scanning…</string>
+    <string name="studio_text_couldn_t_scan_the_audio">Couldn\'t scan the audio</string>
+    <string name="studio_text_2m30s_10_5s_1_30">2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min</string>
+    <string name="studio_text_insert">|&lt; Insert</string>
+    <string name="studio_text_insert_2">Insert >|</string>
+    <string name="studio_text_choose_image_for_timeline_tap">Choose image for timeline (tap to select, numbered — as clip)</string>
+    <string name="studio_text_browse_files">Browse files…</string>
+    <string name="studio_text_add_0">Add (0)</string>
+</resources>

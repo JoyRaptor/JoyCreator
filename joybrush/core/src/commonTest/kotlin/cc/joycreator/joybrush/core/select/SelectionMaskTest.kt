@@ -11,9 +11,11 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.TimeSource
 
@@ -121,8 +123,8 @@ class SelectionMaskTest {
         }
         assertEquals(100, fullCount(m, RectPx(9, 9, 12, 12)))
         assertEquals(25_500L, coverageSum(m, RectPx(0, 0, 40, 40)), "100 pixels x 255 and nothing else")
-        assertEquals(1, m.tiles.size, "one tile holds all of it")
-        assertTrue(m.tiles.containsKey(Tiles.key(0, 0)), "tile (0,0) is 0..255 in both axes")
+        assertEquals(1, m.tileKeys.size, "one tile holds all of it")
+        assertTrue(m.tileKeys.contains(Tiles.key(0, 0)), "tile (0,0) is 0..255 in both axes")
     }
 
     // ---- 2: negative coordinates and a seam ------------------------------------------------------
@@ -146,9 +148,9 @@ class SelectionMaskTest {
         }
         assertEquals(100, fullCount(m, RectPx(-305, -10, 20, 20)))
         assertEquals(25_500L, coverageSum(m, RectPx(-310, -20, 30, 30)))
-        assertEquals(2, m.tiles.size, "y = 0 is a seam, so two tiles")
-        assertTrue(m.tiles.containsKey(Tiles.key(-2, -1)), "y -5..-1 is tile -1")
-        assertTrue(m.tiles.containsKey(Tiles.key(-2, 0)), "y 0..4 is tile 0")
+        assertEquals(2, m.tileKeys.size, "y = 0 is a seam, so two tiles")
+        assertTrue(m.tileKeys.contains(Tiles.key(-2, -1)), "y -5..-1 is tile -1")
+        assertTrue(m.tileKeys.contains(Tiles.key(-2, 0)), "y 0..4 is tile 0")
         assertEquals(0, m.coverage(-301, 0), "one pixel left of it")
         assertEquals(255, m.coverage(-300, 0), "on the seam itself, and inside")
     }
@@ -294,6 +296,145 @@ class SelectionMaskTest {
     }
 
     /**
+     * Two masks in DIFFERENT TILES, which the op tests above never asked for: a and b there share
+     * tile (0,0) and differ inside it, where the arithmetic runs pixel by pixel and gets the right
+     * answer. Across a tile seam there are no shared pixels at all, and a tile of `a` that `b` does
+     * not have is `a AND 0` over 65536 pixels — all of them zero.
+     *
+     * So `rect(0,0,10,10).intersect(rect(300,0,10,10))` is not 10 x 10 of the first mask. It is
+     * nothing, and an intersection that can answer with the whole of its first operand is not an
+     * intersection. The commutativity assertion is the same bug seen from the other side: `b` has no
+     * tile (0,0) to lose, so it used to return 10 x 10 of ITSELF, and the two orders disagreed.
+     *
+     * 300 is one tile past 256, so the two sit in tile columns 0 and 1 and cannot share an array.
+     */
+    @Test
+    fun masksInDifferentTilesIntersectToNothing() {
+        val a = SelectionMask.rect(RectPx(0, 0, 10, 10))
+        val b = SelectionMask.rect(RectPx(300, 0, 10, 10))
+        val forward = a.intersect(b)
+        val backward = b.intersect(a)
+
+        assertTrue(forward.isEmpty, "tile column 0 AND tile column 1 is no pixels at all")
+        assertTrue(backward.isEmpty, "and the other order round is the same answer, not the other mask")
+        assertNull(forward.bounds(), "nothing selected has no box")
+        assertEquals(0, forward.coverage(0, 0), "a is not in it")
+        assertEquals(0, forward.coverage(300, 0), "nor is b")
+        assertEquals(0, backward.coverage(300, 0))
+
+        // Commutativity, pixel for pixel over both boxes and the empty space between them, because
+        // `bounds()` being null on both sides would not catch a difference off to one edge.
+        for (y in -5 until 25) {
+            for (x in -5 until 325) {
+                assertEquals(forward.coverage(x, y), backward.coverage(x, y), "pixel $x,$y")
+            }
+        }
+    }
+
+    /**
+     * The same bug with a tile the two masks DO share, which is the case a real gesture hits and the
+     * one a fix has to get right rather than merely less wrong.
+     *
+     * A marquee dragged from x = 0 to x = 299 straddles the seam and fills tile (0,0) AND tile
+     * (1,0). The second marquee, x = 290..309, lies wholly inside tile (1,0) and has never heard of
+     * tile (0,0). The intersection is the 10 x 10 where they overlap at x = 290..299 — and tile
+     * (0,0) is gone ENTIRELY, because a tile of `a` that `b` does not have is `a AND 0` over all
+     * 65536 of its pixels. [finalise] drops it, and the result's box is 20 px wide rather than the
+     * 300 px the first marquee would have handed back unchanged.
+     */
+    @Test
+    fun anIntersectionKeepsOnlyTheTilesBothMasksHave() {
+        val wide = SelectionMask.rect(RectPx(0, 0, 300, 10))
+        val part = SelectionMask.rect(RectPx(290, 0, 20, 10))
+        assertEquals(2, wide.tileKeys.size, "the wide marquee straddles the seam: two tiles")
+        assertEquals(1, part.tileKeys.size, "the second one is inside tile column 1 alone")
+
+        val cut = wide.intersect(part)
+        assertEquals(100, fullCount(cut, RectPx(280, 0, 40, 20)), "the 10 x 10 they share")
+        assertEquals(0, cut.coverage(100, 5), "tile (0,0) is not in the result at all")
+        assertEquals(RectPx(290, 0, 10, 10), cut.bounds(), "and the box is the overlap's")
+        assertEquals(1, cut.tileKeys.size, "one tile: (1,0)")
+        assertEquals(
+            part.intersect(wide).tileKeys,
+            cut.tileKeys,
+            "the other order round keeps the same tile",
+        )
+    }
+
+    /**
+     * ... and the mirror image, which is why `subtract` must NOT be "fixed" the same way.
+     *
+     * `subtract` iterates its operand the same way `intersect` used to, and for `subtract` that is
+     * correct: a tile of `a` that `b` never mentions is `a - 0`, which is `a`. Keeping it IS the
+     * arithmetic, not a shortcut around it. The identities differ (`a AND 0 = 0` against `a - 0 =
+     * a`), so the loop shape is allowed to look the same in the two functions and mean opposite
+     * things — and a "symmetry" fix here would delete 290 pixels of selection.
+     *
+     * 300..599 less 300..309: the 290 px from 310 on, in tile (1,0) AND tile (2,0), and tile (2,0)
+     * survives precisely because `far` has never heard of it.
+     */
+    @Test
+    fun subtractionKeepsTheTilesItsOperandDoesNotHave() {
+        val wide = SelectionMask.rect(RectPx(300, 0, 300, 10))
+        val far = SelectionMask.rect(RectPx(300, 0, 10, 10))
+        val tail = wide.subtract(far)
+        assertEquals(2900, fullCount(tail, RectPx(280, 0, 340, 20)), "the 290 x 10 from x = 310 on")
+        assertEquals(0, tail.coverage(305, 5), "far's own pixels went")
+        assertEquals(255, tail.coverage(310, 5), "and the rest of tile (1,0) stayed")
+        assertEquals(255, tail.coverage(500, 5), "as did tile (2,0), which far never mentions")
+        assertEquals(2, tail.tileKeys.size, "two tiles, not one")
+        assertEquals(RectPx(310, 0, 290, 10), tail.bounds())
+    }
+
+    /**
+     * THE IMMUTABILITY PROMISE, enforced from outside rather than asserted about the inside.
+     *
+     * Two separate masks hold the same tile (0,0) as the shared read-only [FULL_TILE], which is one
+     * 65536-byte array standing in for every solid tile in the program. Under the old public
+     * `val tiles`, the map handed that very array to any caller who asked, so writing zero into its
+     * first byte would have silently changed both masks — and every solid mask anyone had ever
+     * made — with no exception and nowhere to point at afterwards.
+     *
+     * So the test does the damage with the only tools the public API now offers: [SelectionMask.tile],
+     * which hands back a COPY, and [SelectionMask.tileKeys], which hands back a fresh set of keys.
+     * Neither is connected to the mask it came from, and the mask is taken apart afterwards to prove
+     * it.
+     */
+    @Test
+    fun theSharedFullTileCannotBeCorruptedThroughThePublicApi() {
+        val full = Tiles.key(0, 0)
+        val a = SelectionMask.rect(RectPx(0, 0, 256, 256))
+        val b = a.add(SelectionMask.rect(RectPx(0, 0, 256, 256)))
+        // The sharing is real — that is what makes the test worth having. Both masks' tile (0,0) is
+        // the one process-wide array, reached here through the internal map that no caller has.
+        assertSame(FULL_TILE, a.tiles[full], "a solid tile is the shared one")
+        assertSame(a.tiles[full], b.tiles[full], "and two masks share it")
+        assertEquals(255, b.coverage(0, 0), "before the damage")
+
+        // Damage, with the only things the public API hands out.
+        val stolen = assertNotNull(a.tile(full), "the tile is there to be read")
+        stolen.fill(0)
+        stolen[0] = 7
+
+        assertEquals(255, a.coverage(0, 0), "the mask it was copied from")
+        assertEquals(255, a.coverage(255, 255), "at the far corner of the tile too")
+        assertEquals(255, b.coverage(0, 0), "and the OTHER mask, which never saw the write")
+        assertEquals(255, b.coverage(255, 255))
+        assertSame(FULL_TILE, b.tiles[full], "the shared array is untouched")
+        assertEquals(RectPx(0, 0, 256, 256), b.bounds(), "and b still has the box it had")
+        assertEquals(255, FULL_TILE[0].toInt() and 0xFF, "the shared array itself, read directly")
+        assertTrue(FULL_TILE.all { (it.toInt() and 0xFF) == 255 }, "every byte of it")
+        assertEquals(setOf(full), a.tileKeys, "and the mask still has exactly the tile it had")
+        // The key set is a copy as well: two reads are two objects, so it cannot be a live view onto
+        // the mask either. (And being a read-only [Set] there is no `remove` to try in the first place.)
+        assertTrue(a.tileKeys !== a.tileKeys, "each read is a fresh set")
+
+        // And a copy really is a copy: two reads of the same tile are two arrays.
+        assertTrue(a.tile(full) !== a.tile(full), "each read is a fresh array")
+        assertNull(a.tile(Tiles.key(9, 9)), "an absent tile is null, not an empty array")
+    }
+
+    /**
      * `invert` is 255 - a INSIDE the box and 0 outside it, so it is the one op that can turn an
      * empty pixel into a full one.
      */
@@ -412,6 +553,34 @@ class SelectionMaskTest {
         )
     }
 
+    /**
+     * A radius of zero or less is [SelectionMask.EMPTY], which is what [SelectionMask.ellipse] has
+     * always PROMISED and, before the guard was added, did not do for a finite negative radius.
+     *
+     * Nothing would have thrown and nothing would have looked wrong: `rx * cos(t)` with a negative rx
+     * is the same 360 points with every angle turned by half a revolution, which is the same ellipse
+     * moved to the other side of its centre — a shape with a real area, a real box, and nothing to
+     * do with the ellipse that was asked for. A NaN and an infinity happened to come back EMPTY
+     * anyway, because [Lasso] refuses a non-finite coordinate; a negative finite number got past it,
+     * which is the case a caller who reads the doc rather than the code will send.
+     */
+    @Test
+    fun anEllipseOfNoRadiusIsEmpty() {
+        assertTrue(SelectionMask.ellipse(0.0, 0.0, 0.0, 0.0, 0.0).isEmpty, "no radius at all")
+        assertTrue(SelectionMask.ellipse(200.0, 200.0, 0.0, 50.0, 0.0).isEmpty, "a zero rx")
+        assertTrue(SelectionMask.ellipse(200.0, 200.0, 50.0, 0.0, 0.0).isEmpty, "a zero ry")
+        assertTrue(SelectionMask.ellipse(200.0, 200.0, -50.0, 50.0, 0.0).isEmpty, "a negative rx")
+        assertTrue(SelectionMask.ellipse(200.0, 200.0, 50.0, -50.0, 0.0).isEmpty, "a negative ry")
+        assertTrue(SelectionMask.ellipse(200.0, 200.0, -50.0, -50.0, 0.3).isEmpty, "both, and a rotation")
+        assertNull(SelectionMask.ellipse(200.0, 200.0, -50.0, 50.0, 0.0).bounds(), "and no box")
+        // The guard is `!(rx > 0.0)` rather than `rx <= 0.0`, because every comparison with a NaN is
+        // false: the obvious guard lets a NaN radius through to the polygon, where it dies by luck.
+        assertTrue(SelectionMask.ellipse(200.0, 200.0, Double.NaN, 50.0, 0.0).isEmpty, "a NaN rx")
+        assertTrue(SelectionMask.ellipse(200.0, 200.0, 50.0, Double.NaN, 0.0).isEmpty, "a NaN ry")
+        // A tiny positive radius is still a radius, and an ellipse of it is legal rather than empty.
+        assertFalse(SelectionMask.ellipse(200.0, 200.0, 0.5, 0.5, 0.0).isEmpty, "half a pixel is a shape")
+    }
+
     // ---- 9: rubbish in ---------------------------------------------------------------------------
 
     /**
@@ -454,6 +623,52 @@ class SelectionMaskTest {
         assertFalse(atCap.isEmpty, "16384 is the cap, not one past it")
         assertEquals(16_384, fullCount(atCap, RectPx(0, 0, 16385, 1)))
         assertTrue(SelectionMask.rect(RectPx(0, 0, 16385, 1)).isEmpty, "one past the cap")
+    }
+
+    /**
+     * A box that runs off the end of an `Int` is REFUSED, in every door that used to wrap round it.
+     *
+     * `RectPx(Int.MAX_VALUE - 5, 0, 10, 10)` is a well formed 10 x 10 box; it is its far corner that
+     * is not a pixel, because `x + w` is 2147483652 and an Int sum of that wraps to -2147483644. The
+     * two failures that produced were silent and look like real answers:
+     *
+     *  - `invert` walked `x in x until x + w` over a wrapped sum, i.e. an EMPTY range, and returned
+     *    EMPTY — indistinguishable from a box that selects nothing.
+     *  - `rect` built its right and bottom edges from the same wrapped sum, so the polygon came out
+     *    with its right edge to the LEFT of its left one, spanned a couple of billion pixels, and
+     *    came back EMPTY from the 16384 cap rather than from any check of its own.
+     *
+     * So the far corner is checked in Long before anything is added and the caller is told, which is
+     * the same shape of guard as `SpriteGridMath` and `SpritePacker` use for the same argument. It
+     * cannot happen from a document — the engine caps coordinates at 2^30 well below this — which is
+     * exactly why a loud answer is the right one: it means the cap was broken, not that a person
+     * selected nothing.
+     */
+    @Test
+    fun aBoxOffTheEndOfAnIntIsRefusedRatherThanWrapped() {
+        val off = RectPx(Int.MAX_VALUE - 5, 0, 10, 10)
+        assertFailsWith<IllegalArgumentException>("invert over a box with no far corner") {
+            SelectionMask.EMPTY.invert(off)
+        }
+        assertFailsWith<IllegalArgumentException>("a rectangle with no far corner") {
+            SelectionMask.rect(off)
+        }
+        assertFailsWith<IllegalArgumentException>("a placed mask with no far corner") {
+            SelectionMask.fromMask(10, 10, ByteArray(100) { 255.toByte() }, Int.MAX_VALUE - 5, 0)
+        }
+        assertFailsWith<IllegalArgumentException>("and in the other axis") {
+            SelectionMask.rect(RectPx(0, Int.MAX_VALUE - 5, 10, 10))
+        }
+
+        // One pixel further in and the box DOES fit: Int.MAX_VALUE - 10 + 10 is Int.MAX_VALUE, and
+        // the last pixel of it is a pixel. The check is against the sum and not against `x`, so it
+        // must not refuse this one.
+        val lastFits = RectPx(Int.MAX_VALUE - 10, 0, 10, 10)
+        val edge = SelectionMask.EMPTY.invert(lastFits)
+        assertEquals(255, edge.coverage(Int.MAX_VALUE - 10, 0), "the first pixel of the last row")
+        assertEquals(255, edge.coverage(Int.MAX_VALUE - 1, 0), "and the very last pixel of an Int")
+        assertEquals(0, edge.coverage(Int.MAX_VALUE - 10, 10), "which is the point: a box, and no more")
+        assertEquals(RectPx(Int.MAX_VALUE - 10, 0, 10, 10), edge.bounds())
     }
 
     // ---- 10: the performance case -----------------------------------------------------------------

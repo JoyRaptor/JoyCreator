@@ -260,10 +260,24 @@ object Resample {
      * Premultiplied SOURCE-OVER of [top] onto [bottom], per tile. Neither input is modified and
      * neither is shared with the result.
      *
-     * `out = bottom + top * (1 - bottom / 255)` on all four channels, which is `ONE,
+     * `out = top + bottom * (1 - top_alpha / 255)` on all four channels, which is `ONE,
      * ONE_MINUS_SRC_ALPHA` — the blend `GlPaintEngine` sets once, and the one the GPU has. The
      * alpha channel gets the same rule as the colours and not a special one: alpha is a channel,
      * and a source-over that raised the alpha and left the colours alone invents opacity.
+     *
+     * THREE THINGS IN THAT FORMULA ARE NOT INTERCHANGEABLE, and getting any of them wrong gives a
+     * blend that looks plausible and is not one the GPU has:
+     *  - the operands. The thing being DRAWN is [top] — it is the source — and the thing already on
+     *    the paper is the destination. A blend written the other way round is a DESTINATION-over,
+     *    and an opaque source under a transparent backdrop would then win, which is backwards.
+     *  - the factor's channel. `ONE_MINUS_SRC_ALPHA` is the source's ALPHA, and one number from it
+     *    is used for the three colours and for alpha itself. It is emphatically not the
+     *    backdrop's alpha: with a per-channel factor taken from the backdrop, a half-transparent
+     *    black over an opaque white returns WHITE, and opaque white is the one thing the black
+     *    should have been able to cover.
+     *  - the direction of the early exit. An opaque [top] is the case the loop can short-circuit,
+     *    because the factor is then zero and the result is [top] exactly. An opaque [bottom] is
+     *    the case that does NOT short-circuit anything: it is still overwritten.
      *
      * A key present in only one of the two maps is composited against nothing, so it comes back as
      * a copy of itself. An all-zero result tile is dropped, as everywhere else here.
@@ -288,19 +302,28 @@ object Resample {
             val tile = ByteArray(TILE_BYTES)
             for (pixel in 0 until PIXELS_PER_TILE) {
                 val at = pixel * 4
+                // ONE factor for the whole pixel, and it is the TOP's alpha. `over` is
+                // `top + bottom * (1 - topA/255)`: the top is the source, as it is for every
+                // glBlendFunc(ONE, ONE_MINUS_SRC_ALPHA) the engine ever issues, and
+                // ONE_MINUS_SRC_ALPHA is the SOURCE's alpha. Reading the backdrop's alpha here
+                // instead gives a destination-over, which is not a blend anything can undo.
+                val ta = t[at + 3].toInt() and 0xFF
+                if (ta == 255) {
+                    // The only early exit, and it is exact: the factor is zero, so the result is
+                    // the top in every channel. An opaque BACKDROP is not an exit — under a
+                    // source-over it is the thing that gets painted on.
+                    for (c in 0 until 4) tile[at + c] = t[at + c]
+                    continue
+                }
+                val keep = 255 - ta
                 for (c in 0 until 4) {
                     val bv = b[at + c].toInt() and 0xFF
                     val tv = t[at + c].toInt() and 0xFF
-                    // The two early exits are not an optimisation. b = 255 is an opaque backdrop
-                    // and the top cannot show at all; t = 0 is no top. Both are exact, and both
-                    // are the cases a selection edge spends most of its pixels in.
-                    if (bv == 255) {
-                        tile[at + c] = b[at + c]
-                    } else if (tv == 0) {
-                        tile[at + c] = b[at + c]
-                    } else {
-                        tile[at + c] = (bv + (tv * (255 - bv) + 127) / 255).coerceIn(0, 255).toByte()
-                    }
+                    // `tv + round(bv * (255 - ta) / 255)`, which is `(tv * 255 + bv * keep +
+                    // 127) / 255` because tv is a whole number. The clamp is a guard, not a rule:
+                    // for premultiplied input (`tv <= ta`, `bv <= 255`) the sum cannot pass 255,
+                    // because `ta + 255 * (255 - ta) / 255 = 255`.
+                    tile[at + c] = (tv + (bv * keep + 127) / 255).coerceIn(0, 255).toByte()
                 }
             }
             if (!allZero(tile)) out[key] = tile

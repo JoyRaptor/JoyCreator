@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.shape.Pt
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.floor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -45,11 +46,20 @@ import kotlin.test.assertTrue
  *
  *  - ...BUT SOURCE-OVER DOES NOT PUT IT BACK. Decision 5 of the spec claims
  *    `over(remaining, lifted) == original ± 1`, and that is not true of a source-over, for a reason
- *    that is arithmetic rather than a bug: `over(B, T) = B + T(1 - B/255)`, so recovering `v` needs
- *    `B = 0`. With `v = 255` and coverage 128 the split is 128 and 127, and the composite is
- *    `127 + round(128 x 128 / 255) = 127 + 64 = 191`, which is 64 short of 255. The test asserts 191
- *    exactly, so the discrepancy is pinned in code and referred rather than quietly rounded away;
- *    see the spec's `## Questions`.
+ *    that is arithmetic rather than a bug: `over(B, T) = T + B(1 - T_a/255)`, so recovering `v`
+ *    needs `B = 0`. With `v = 255` and coverage 128 the split is 128 and 127, and the composite is
+ *    `128 + round(127 x 127 / 255) = 128 + 63 = 191`, which is 64 short of 255. The test asserts
+ *    191 exactly, so the discrepancy is pinned in code and referred rather than quietly rounded
+ *    away; see the spec's `## Questions`, Q1.
+ *
+ *  - SOURCE-OVER IS `top + bottom (1 - top_alpha)`, AND THE OPERANDS ARE NOT INTERCHANGEABLE. The
+ *    thing being drawn is the source; the thing already on the paper is the destination; and
+ *    `ONE_MINUS_SRC_ALPHA` is the SOURCE's alpha, one number for all three colours. The three
+ *    consequences below are each a test: a half-transparent black over an opaque white is 127
+ *    grey and NOT white, an opaque top over an opaque backdrop is the top and NOT the backdrop,
+ *    and the arithmetic agrees byte for byte with a second model of the same blend written in
+ *    normalised Double. Getting the factor from the backdrop instead gives a destination-over —
+ *    a blend no `glBlendFunc` can express and no caller can undo.
  *
  *  - THE CORNER-PIN CENTRE. A projective map takes the intersection of one pair of diagonals to
  *    the intersection of the other, so the centre of a warped source lands on the destination's
@@ -474,10 +484,11 @@ class ResampleTest {
         assertNoEmptyTiles(lifted, "lift")
         assertNoEmptyTiles(remaining, "lift")
 
-        // AND THE COMPOSITE. Source-over is B + T (1 - B / 255), which recovers v only when B = 0,
-        // so a 128/127 split comes back as 127 + round(128 x 128 / 255) = 127 + 64 = 191, not 255.
+        // AND THE COMPOSITE. Source-over is T + B (1 - T_a/255), which recovers v only when B = 0,
+        // so a 128/127 split comes back as 128 + round(127 x 127 / 255) = 128 + 63 = 191, not 255.
         // The spec's Decision 5 says this is the original +- 1; it is not, and the number is
-        // asserted here so the gap is a red test if anyone changes the arithmetic.
+        // asserted here so the gap is a red test if anyone changes the arithmetic. This is Decision
+        // 5's deliberate, referred gap (the spec's Q1) and the number is NOT adjusted for it.
         val putBack = Resample.over(remaining, lifted)
         for (y in 0 until 4) {
             for (x in 0 until 4) {
@@ -531,11 +542,14 @@ class ResampleTest {
         val topBefore = top.getValue(Tiles.key(0, 0)).copyOf()
 
         val out = Resample.over(bottom, top)
-        // red: 128 + 0 (the top has no red, and a half-transparent backdrop shows through 127/255
-        // of the way — 128 x 127 / 255 = 63, rounded, and 0 x 127 / 255 = 0). blue: 0 + 255 x 255 /
-        // 255 = 255. alpha: 128 + 255 x 127 / 255 = 128 + 127 = 255. A premultiplied pixel, still.
+        // The TOP is the source: `out = top + bottom (1 - top_a/255)`, and an opaque blue has
+        // top_a = 255, so the factor is zero and the composite IS the blue. The half-transparent
+        // red underneath is gone, and it has to be: it is the DESTINATION, and an opaque source
+        // covers the destination completely. The old per-channel-factor form read the backdrop's
+        // alpha instead and answered 128 red here, i.e. a blend the source is nowhere near opaque
+        // enough to perform. Alpha: 0 + 255 x 0 / 255 = 255, and 255 x (1 - 255/255) + 255 = 255.
         val got = at(out, 10, 10)
-        assertEquals(128, got[0], "red survives the backdrop's transparency")
+        assertEquals(0, got[0], "an opaque top replaces the red underneath")
         assertEquals(0, got[1], "green")
         assertEquals(255, got[2], "blue")
         assertEquals(255, got[3], "an opaque top makes the result opaque")
@@ -545,17 +559,19 @@ class ResampleTest {
         }
         assertTrue(out.getValue(Tiles.key(0, 0)) !== bottom.getValue(Tiles.key(0, 0)), "a fresh array")
 
-        // An OPAQUE BACKDROP is not moved by anything, because ONE_MINUS_SRC_ALPHA is zero when
-        // da = 1. The bottom is a mid grey at full alpha and the top is opaque black, and the
-        // bottom is what survives.
+        // An OPAQUE TOP is not moved by anything and moves everything: the factor is
+        // 1 - 255/255 = 0, so `out = top` in all four channels whatever is underneath. The
+        // backdrop here is an opaque mid grey and the top is opaque black, and what survives is
+        // the BLACK. Reading the backdrop's alpha instead would have answered the grey — the
+        // destination-over, in which an opaque backdrop is unpaintable.
         val opaque = LinkedHashMap<Long, ByteArray>()
         val paint = LinkedHashMap<Long, ByteArray>()
         put(opaque, 20, 20, 10, 20, 30, 255)
         put(paint, 20, 20, 0, 0, 0, 255)
         val onOpaque = at(Resample.over(opaque, paint), 20, 20)
-        assertEquals(10, onOpaque[0], "an opaque backdrop cannot be painted on")
-        assertEquals(20, onOpaque[1], "an opaque backdrop cannot be painted on")
-        assertEquals(30, onOpaque[2], "an opaque backdrop cannot be painted on")
+        assertEquals(0, onOpaque[0], "an opaque top wins over an opaque backdrop")
+        assertEquals(0, onOpaque[1], "an opaque top wins over an opaque backdrop")
+        assertEquals(0, onOpaque[2], "an opaque top wins over an opaque backdrop")
         assertEquals(255, onOpaque[3], "still opaque")
 
         // A tile in only one of the two maps comes back as itself.
@@ -566,6 +582,154 @@ class ResampleTest {
         assertEquals(255, topAlone[2], "the top alone")
         assertEquals(255, topAlone[3], "the top alone")
         assertTrue(Resample.over(emptyMap(), emptyMap()).isEmpty(), "nothing in, nothing out")
+    }
+
+    // ---- 9b. source-over against a second model of itself -----------------------------------------
+
+    /**
+     * The same blend written down a second time, in NORMALISED DOUBLE, from the words of the spec
+     * rather than from the words of the implementation: GL's `s' = s + d (1 - sa)` with s and d
+     * divided by 255, rounded once at the end.
+     *
+     * It shares no code with [Resample.over] — different units, different arithmetic, a different
+     * rounding path — which is the only property that makes it worth having. An "independent"
+     * derivation that recomputes the same integer expression is a copy of the thing it checks.
+     */
+    private fun referenceOver(top: IntArray, bottom: IntArray): IntArray {
+        val keep = 1.0 - top[3] / 255.0
+        return IntArray(4) { c ->
+            val v = top[c] / 255.0 + (bottom[c] / 255.0) * keep
+            val byte = floor(v * 255.0 + 0.5).toInt()
+            if (byte < 0) 0 else if (byte > 255) 255 else byte
+        }
+    }
+
+    @Test
+    fun overAgreesWithASecondModelOfTheSameBlend() {
+        val bottom = LinkedHashMap<Long, ByteArray>()
+        val top = LinkedHashMap<Long, ByteArray>()
+        // 256 pixels, one per top alpha, so every alpha in 0..255 is exercised at least once, with
+        // premultiplied-valid colours on both sides (no channel above its own alpha).
+        val topAlpha = IntArray(256)
+        val bottomAlpha = IntArray(256)
+        for (i in 0 until 256) {
+            val x = i % 16
+            val y = i / 16
+            val ta = i
+            val ba = (i * 37) % 256
+            topAlpha[i] = ta
+            bottomAlpha[i] = ba
+            put(top, x, y, (i * 61) % (ta + 1), (i * 29) % (ta + 1), (i * 97) % (ta + 1), ta)
+            put(
+                bottom, x, y,
+                (i * 11) % (ba + 1), (i * 53) % (ba + 1), (i * 7) % (ba + 1), ba,
+            )
+        }
+        val out = Resample.over(bottom, top)
+        assertTrue(out.containsKey(Tiles.key(0, 0)), "the composite tile is there to compare")
+        for (i in 0 until 256) {
+            val x = i % 16
+            val y = i / 16
+            val want = referenceOver(at(top, x, y), at(bottom, x, y))
+            val got = at(out, x, y)
+            for (c in 0 until 4) {
+                assertEquals(
+                    want[c], got[c],
+                    "channel $c at $x,$y: top alpha ${topAlpha[i]}, bottom alpha ${bottomAlpha[i]}",
+                )
+            }
+        }
+
+        // THE CASE THE OLD FORMULA GOT WRONG, worked by hand because it is the one a person would
+        // see. Premultiplied black at half coverage over premultiplied white at full coverage:
+        // out = top + bottom (1 - 128/255) = 0 + 255 x 127/255 = 127. The old factor, taken from
+        // the backdrop, gave 255 + 0 x (1 - 1) = 255 — the white, unchanged, by a half-transparent
+        // black that should have greyed it. Alpha: 128 + 255 x 127/255 = 255.
+        val grey = LinkedHashMap<Long, ByteArray>()
+        val smoke = LinkedHashMap<Long, ByteArray>()
+        put(grey, 0, 0, 255, 255, 255, 255)
+        put(smoke, 0, 0, 0, 0, 0, 128)
+        val overSmoke = at(Resample.over(grey, smoke), 0, 0)
+        assertEquals(listOf(127, 127, 127, 255), overSmoke.toList(), "127 grey, not white")
+        assertEquals(
+            listOf(127, 127, 127, 255),
+            referenceOver(intArrayOf(0, 0, 0, 128), intArrayOf(255, 255, 255, 255)).toList(),
+            "the second model says 127 too",
+        )
+
+        // And a genuinely partial one, so the sweep above is not the only evidence. Premultiplied
+        // (64, 32, 16) at alpha 64 over premultiplied (200, 100, 50) at alpha 200: the factor is
+        // 1 - 64/255 = 191/255, so 64 + 200 x 191/255 = 64 + 149.80 = 214; 32 + 100 x 191/255 =
+        // 32 + 74.90 = 107; 16 + 50 x 191/255 = 16 + 37.45 = 53; and alpha 64 + 200 x 191/255 = 214.
+        val partialTop = LinkedHashMap<Long, ByteArray>()
+        val partialBottom = LinkedHashMap<Long, ByteArray>()
+        put(partialTop, 1, 1, 64, 32, 16, 64)
+        put(partialBottom, 1, 1, 200, 100, 50, 200)
+        val partial = at(Resample.over(partialBottom, partialTop), 1, 1)
+        assertEquals(listOf(214, 107, 53, 214), partial.toList(), "the partial composite")
+        assertEquals(
+            listOf(214, 107, 53, 214),
+            referenceOver(intArrayOf(64, 32, 16, 64), intArrayOf(200, 100, 50, 200)).toList(),
+        )
+    }
+
+    @Test
+    fun overHasTheThreeIdentitiesSourceOverMustHave() {
+        val bottom = LinkedHashMap<Long, ByteArray>()
+        val top = LinkedHashMap<Long, ByteArray>()
+        for (i in 0 until 256) {
+            val x = i % 16
+            val y = i / 16
+            val ba = (i * 37) % 256
+            put(bottom, x, y, (i * 11) % (ba + 1), (i * 53) % (ba + 1), (i * 7) % (ba + 1), ba)
+            // Every fourth pixel gets an opaque top, every fourth a clear one, the rest partial.
+            when (i % 4) {
+                0 -> put(top, x, y, (i * 3) % 256, (i * 5) % 256, (i * 9) % 256, 255)
+                1 -> put(top, x, y, 0, 0, 0, 0)
+                else -> {
+                    val ta = 1 + (i * 17) % 254
+                    put(top, x, y, (i * 61) % (ta + 1), (i * 29) % (ta + 1), (i * 97) % (ta + 1), ta)
+                }
+            }
+        }
+        val out = Resample.over(bottom, top)
+        for (i in 0 until 256) {
+            val x = i % 16
+            val y = i / 16
+            val t = at(top, x, y)
+            val b = at(bottom, x, y)
+            val got = at(out, x, y)
+            // AN OPAQUE SOURCE OVER ANYTHING IS THE SOURCE. The factor is zero, so the backdrop
+            // is not in the answer at all. This is the identity the old formula broke hardest:
+            // with the backdrop's alpha as the factor it answered the backdrop for these pixels.
+            if (t[3] == 255) {
+                for (c in 0 until 4) assertEquals(t[c], got[c], "opaque top, channel $c at $x,$y")
+            }
+            // A FULLY TRANSPARENT SOURCE IS A NO-OP. `1 - 0/255 = 1`, so the source adds nothing
+            // and the backdrop arrives untouched — which is the whole meaning of "no paint".
+            if (t[3] == 0) {
+                for (c in 0 until 4) assertEquals(b[c], got[c], "clear top, channel $c at $x,$y")
+            }
+            // COMPOSITING OVER A CLEAR BACKDROP IS THE SOURCE: `bottom (1 - t_a)` is zero when
+            // there is no bottom, so the top is the whole answer.
+            if (b[3] == 0) {
+                for (c in 0 until 4) assertEquals(t[c], got[c], "clear backdrop, channel $c at $x,$y")
+            }
+            // And whatever else happened, the result is still a premultiplied byte in range.
+            for (c in 0 until 3) {
+                assertTrue(got[c] <= got[3], "still premultiplied, channel $c at $x,$y")
+                assertTrue(got[c] in 0..255, "in range, channel $c at $x,$y")
+            }
+        }
+
+        // A transparent backdrop over a real source, on its own, so the identity above is not
+        // only ever true of pixels that happen to be zero on both sides.
+        val clearBackdrop = LinkedHashMap<Long, ByteArray>()
+        val smoke = LinkedHashMap<Long, ByteArray>()
+        put(clearBackdrop, 3, 3, 0, 0, 0, 0)
+        put(smoke, 3, 3, 90, 60, 30, 128)
+        val onNothing = at(Resample.over(clearBackdrop, smoke), 3, 3)
+        assertEquals(listOf(90, 60, 30, 128), onNothing.toList(), "over nothing is the source itself")
     }
 
     // ---- 10. the refusals ---------------------------------------------------------------------------

@@ -86,3 +86,39 @@ Touch no existing file. No GL, no Android, no dependencies.
 Tests pass (paste) · commit `JB-2.05a: selection masks` · ROADMAP row → 🟧 Built.
 
 ## Questions
+
+1. **`class SelectionMask internal constructor(val tiles: Map<Long, ByteArray>)` — the contract above
+   no longer matches the code, and the code is the better one.** The public `tiles` handed out the
+   internal `ByteArray`s, including the process-wide `FULL_TILE` that `finalise` shares between every
+   mask with a solid tile: one `m.tiles[key]!![0] = 0` from outside would have corrupted every solid
+   mask in the program at once, silently, which is exactly what the "Immutable" line in the class
+   doc forbids and exactly what no test could have caught afterwards. `tiles` is now `internal`, and
+   the public surface is `coverage`, `bounds`, `isEmpty`, `tileKeys: Set<Long>` (a fresh set) and
+   `tile(key: Long): ByteArray?` (a **copy**). `Resample.lift` is in the same module and still reads
+   `mask.tiles[key]` unchanged; there is no caller anywhere else in the repo.
+   **Decision wanted:** (a) keep this, and update the contract sketch above to
+   `tileKeys` / `tile(key)`; or (b) expose a read-only `Map<Long, ByteArray>` whose arrays are
+   copies — same immutability, but a 64 KB allocation per tile per call, which is the wrong shape for
+   a renderer walking 64 tiles a frame; or (c) hand `MaskPaint` (JB-2.07a) and the transform box
+   (JB-2.05b) an `internal` read path as well, since they are in this module and would otherwise copy
+   a whole mask per frame. I took (a)+(c)'s shape: one copy-returning accessor for everyone outside,
+   and the module keeps the direct read it already had.
+
+2. **`rect`, `invert` and `fromMask` now `require` a box that fits in an `Int`, instead of wrapping.**
+   `RectPx(Int.MAX_VALUE - 5, 0, 10, 10)` used to give `EMPTY` from `invert` (an empty `until` over
+   the wrapped sum) and `EMPTY` from `rect` (a right edge left of the left one, caught by the 16384
+   cap by accident). Both were silent wrong answers that look like "nothing selected". The far corner
+   is now checked in Long and the caller is told, matching `SpriteGridMath`/`SpritePacker`.
+   **Decision wanted:** `require` or `EMPTY`? I chose `require`, because unlike a rubbish polygon
+   (a gesture, and a person is allowed to draw a lasso with two points) this can only come from a
+   caller that has already lost track of its own coordinates, and `EMPTY` is indistinguishable from
+   the legitimate answer. Note `polygon`/`ellipse` still return `EMPTY` past 2^30 — `Lasso` caps in
+   Double before anything becomes an Int — so the two doors disagree on purpose: a shape too big to
+   rasterise is refused data, a box too big to name is a bug.
+
+3. **`ellipse` now refuses a radius of zero or less, and a NaN one.** The doc promised it; the code
+   did not, and a finite negative radius did not even fail — `rx * cos(t)` with a negative `rx` is the
+   same 360-gon turned half a revolution round, i.e. a non-empty mask that is not the ellipse asked
+   for. Guarded as `!(rx > 0.0) || !(ry > 0.0)` so that a NaN is caught here too rather than by
+   `Lasso`'s non-finite check downstream. No spec change needed; the code was the thing that was
+   wrong.

@@ -87,3 +87,4 @@ tools/devices.local.sh
 scratchpad/
 window_dump.xml
 .mockup-preview/
+joybrush/testdata-local/

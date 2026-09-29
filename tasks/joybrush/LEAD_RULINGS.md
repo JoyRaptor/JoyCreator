@@ -554,3 +554,39 @@ effective now, for the orchestrator and every builder:
 3. Files already half-written in the main folder (8.02/8.04 importers, `jvmMain/`, `BrushValidate`, `DocJson`,
    `SpritePacker` edits) are finished and committed, or moved into their builder's worktree, before anything
    else is dispatched.
+
+## 2026-09-29 (evening) — four rows landed under R43, the audit, and what the app build needed
+
+Verified at `82bf4258` with `--rerun-tasks`: `:core:jvmTest` 974 / 0, `:androidkit:test` 132 / 0 — the orchestrator's
+numbers are right this time. The owner's watcher had been failing since the R43 cleanup because the main folder's
+`joybrush/androidkit/build` held a jar with ZERO classes that Gradle still called UP-TO-DATE (a leftover of the
+overlapping runs); the build output was deleted and rebuilt (47 classes) and the app build is green. No source was touched.
+
+**R44. Referred items and the audit's findings.**
+1. **The test-input hole (found by the JB-1.07 builder) — fixed by the Lead.** `joybrush/core/build.gradle.kts` now
+   declares `brushes/`, `assets/` and `shaders/` as `jvmTest` inputs. Proven: with the fix an edited preset re-runs the
+   tests; before it, `:core:jvmTest` said UP-TO-DATE and tested nothing. Never `--rerun-tasks` as a workaround.
+2. **JB-8.04's `.bundle` refusal — Decision 5 is REVERSED.** A `.bundle` importer that cannot open a bundle is not one.
+   `KritaZip` calls JB-8.02's `inflateRaw` (one DEFLATE implementation, one set of bomb caps — no second one). New
+   row **JB-8.04b** (T2): the swap, plus `zTXt` may be inflated the same way. The builder was right to stop and refer.
+3. **JB-5.01 Decision 9 vs its test 9 (`widthScale = 1e30`).** Test wins: a finite value is CLAMPED (the dab radius
+   clamp, 2048), the safe-zero rule is for non-finite values only. Fix the Decision's sentence. The scallop number in
+   Decision 3 was 4.4× optimistic (0.167 screen px at 16×, not 0.038) — the conclusion stands and is stronger; fix the number.
+4. **No real brush file has ever been read** (JB-8.01, 8.02, 8.04 — every fixture is hand-built from the research notes).
+   That is the audit's MAJOR and it is right: the importers are proven self-consistent, not proven against Photoshop's,
+   Procreate's or Krita's real bytes. Ruling: none of the three is signed off (🟧 Built, "real-file check owed").
+   Real third-party files are NEVER committed (R8/blueprint §5: importing what the user owns is fine, redistributing
+   is not). Instead a git-ignored local folder `joybrush/testdata-local/{abr,procreate,krita}/` and one
+   `RealFilesProbeTest` that, when the folder has files, imports each and PRINTS a per-brush verdict (imported /
+   warned / refused, and why) and fails only on a crash or a hang; with the folder empty it skips. Row **JB-8.05** (T2).
+   What is needed is a handful of real files from the owner (or his say-so to fetch public CC-licensed packs).
+5. **Audit MINORs.** JB-0.02d: absent/non-integer `version` IS scanned for unknown keys — the CODE is right (R31: refuse
+   rather than silently drop) and the sentence in Decision 2 and the KDoc change to match. JB-8.02: `convertBrush`
+   throws on brush-level faults — the code's reading stands; add the one sentence to the spec. JB-8.01: the spacing
+   range restated as local literals is the third drift copy — import the shared constant. JB-3.06b: the PNG-signature
+   check reads 7 of 8 bytes (a real bug — fix), the stale "Clip has no weights" comment (R36 changed that), unbounded
+   frame retention (encode as you go, do not hold every frame), and `roundHalfUpMs` defined but unused. One small
+   row **JB-3.06c** for all four.
+6. **Process, kept because it will happen again:** `& "$TEMP\jbclean\gradlew.bat" -p joybrush` runs the worktree's wrapper
+   but leaves the working directory in the MAIN folder, so `-p joybrush` resolves to the main copy and produces a
+   plausible red that is not red. Always `cd` into the worktree first (add to the R43 checklist).

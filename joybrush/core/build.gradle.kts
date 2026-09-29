@@ -35,3 +35,13 @@ kotlin {
         }
     }
 }
+
+// The tests read the shipped brush files and grain assets straight off disk (ShippedBrushFilesTest,
+// DefaultPresetsTest, the grain tests). Gradle only knows a directory is a test INPUT if it is
+// declared, so before this an edited preset left `:core:jvmTest` UP-TO-DATE: "BUILD SUCCESSFUL" with
+// the changed brush never tested (found by the JB-1.07 builder, LEAD_RULINGS R44).
+tasks.named("jvmTest") {
+    inputs.dir(rootDir.resolve("brushes")).withPropertyName("shippedBrushes")
+    inputs.dir(rootDir.resolve("assets")).withPropertyName("shippedAssets")
+    inputs.dir(rootDir.resolve("shaders")).withPropertyName("shippedShaders")
+}

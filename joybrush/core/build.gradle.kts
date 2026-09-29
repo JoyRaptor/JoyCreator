@@ -19,8 +19,16 @@ kotlin {
     sourceSets {
         // The serialization plugin and this one dependency are the whole JSON layer of the engine
         // (JB-0.03 brush.json; JB-0.02 adds document.json). Nothing else here is platform-specific.
+        //
+        // `api`, not `implementation` (orchestrator, provisional — Claude to confirm). `JbDocument`
+        // and `BrushPreset` are `@Serializable` data classes on core's PUBLIC API, and a consumer
+        // that touches either one without kotlinx-serialization on its classpath gets a
+        // NoClassDefFoundError at the moment it loads the class — not at compile time, which is why
+        // this stayed invisible until androidkit's own tests ran. `implementation` makes
+        // serialization an implementation detail of core, which it is not: it is written into the
+        // type signature of everything the document and brush formats return.
         commonMain.dependencies {
-            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+            api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

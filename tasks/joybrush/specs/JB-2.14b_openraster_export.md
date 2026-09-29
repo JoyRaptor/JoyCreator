@@ -58,3 +58,34 @@ Build `JbContents` with two PAINT layers (one MULTIPLY at 0.5 opacity) on a 300�
 Tests pass (paste) · commit `JB-2.14b: OpenRaster export` · ROADMAP row → 🟧 Built.
 
 ## Questions
+
+_(Orchestrator, provisional — Claude to confirm. Nothing here is a contract decision; all three are
+mechanical and all three are recorded so the next reader does not "fix" them again.)_
+
+1. **The two failures were both the test's arithmetic, and both were the same mistake: counting the
+   fixture instead of the output.**
+   - `anInkLayerIsSkippedAndNamedWhileThePaintLayersBesideItAreExported` asserted **3** `data/*`
+     entries. The fixture has three *layers*; the writer exports two *files*, because the INK layer
+     is skipped. The same test already asserts the two `src` values are `data/0.png` and
+     `data/1.png`, so 3 contradicted its own assertions two lines above. Now 2.
+   - `aLayerAtZeroOpacityOrHiddenOrMeaninglessIsNamedRatherThanVanishing` asserted **5** omissions and
+     **1** survivor — while its own following lines asserted that the layer named "Loud", at
+     `opacity = 2f`, is exported at `1.000`. Loud clamps to fully opaque, which is an ordinary
+     layer, not an omission. So: 4 omissions (Wash, Backwards, Nonsense, Sketch) and 2 survivors
+     (Loud, Gloss). Loud is now asserted to be **present by name**, which is the stronger claim: it
+     pins where the line is drawn rather than only how many things sit on the far side of it.
+
+2. **`joybrush/core/build.gradle.kts`: `implementation` → `api` for kotlinx-serialization.** This is
+   outside this spec's owner area and is the one change I made outside a task, so here is why.
+   `:androidkit:test` was failing with `NoClassDefFoundError: cc/joycreator/joybrush/core/doc/JbDocument`
+   for **every** test class in the module — including JB-0.08a's already-landed `JbArchiveTest`.
+   `JbDocument` and `BrushPreset` are `@Serializable` data classes on core's *public* API; declaring
+   serialization as `implementation` makes it an implementation detail of core, which it is not,
+   because it is written into the type of everything the document and brush formats return. Consumers
+   then load a class whose annotations and generated serializers are absent, and the failure appears
+   at class-load time rather than at compile time — which is exactly why it survived JB-0.08a
+   landing. With `api`, the whole module's test suite runs again: **85 tests, 0 failures.**
+
+   If the Lead prefers core to keep its dependency private, the alternative is
+   `testImplementation(...)` in `joybrush/androidkit/build.gradle.kts`. That fixes the tests and
+   leaves the phone one runtime accident away from the same error, which is why I did not choose it.

@@ -1486,7 +1486,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         byte[] buf = new byte[8192];
                         int n;
                         while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
-                        Toast.makeText(this, "Imported " + name, Toast.LENGTH_SHORT).show(); // TODO(strings)
+                        Toast.makeText(this, getString(R.string.studio_fmt_imported_1_s, name), Toast.LENGTH_SHORT).show(); // TODO(strings)
                         if (cb != null) cb.accept("file:" + dest.getAbsolutePath());
                     } catch (Exception e) {
                         FLog.w(TAG, "Font import failed", e);
@@ -13366,8 +13366,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     exportStartedLocallyAtMs = 0;
                     if (!queued) hideExportProgress();
                     // TODO(strings)
-                    Toast.makeText(this, "Could not render slide: " + err,
-                            Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, getString(R.string.studio_fmt_could_not_render_slide_1, err), Toast.LENGTH_LONG).show();
                     return;
                 }
                 resolvableCache.clear();
@@ -19685,7 +19684,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (res.cancelled) {
                     android.widget.Toast.makeText(this, R.string.studio_toast_consolidate_cancelled_project_still_works, android.widget.Toast.LENGTH_LONG).show();
                 } else if (!res.ok) {
-                    android.widget.Toast.makeText(this, "Consolidate failed: " + res.error, android.widget.Toast.LENGTH_LONG).show();
+                    android.widget.Toast.makeText(this, getString(R.string.studio_fmt_consolidate_failed_1_s, res.error), android.widget.Toast.LENGTH_LONG).show();
                 } else {
                     // Refresh UI — project now has project:// refs
                     if (project != null) saveProjectNow();
@@ -19743,7 +19742,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             java.io.File tmp = new java.io.File(getCacheDir(), "export_" + pid + ".zip");
             ProjectBundle.ExportResult r = ProjectBundle.exportToZip(this, pid, tmp);
             if (!r.ok) {
-                runOnUiThread(() -> android.widget.Toast.makeText(this, "Export failed: " + r.error, android.widget.Toast.LENGTH_LONG).show());
+                runOnUiThread(() -> android.widget.Toast.makeText(this, getString(R.string.studio_fmt_export_failed_1_s, r.error), android.widget.Toast.LENGTH_LONG).show());
                 return;
             }
             // Copy tmp zip to dest content uri
@@ -19755,7 +19754,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 tmp.delete();
                 runOnUiThread(() -> android.widget.Toast.makeText(this, "Exported " + r.manifest.fileCount + " file(s), " + r.manifest.totalBytes + " bytes", android.widget.Toast.LENGTH_LONG).show());
             } catch (Exception e) {
-                runOnUiThread(() -> android.widget.Toast.makeText(this, "Export copy failed: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                runOnUiThread(() -> android.widget.Toast.makeText(this, getString(R.string.studio_fmt_export_copy_failed_1_s, e.getMessage()), android.widget.Toast.LENGTH_LONG).show());
             }
         }).start();
     }
@@ -19771,7 +19770,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         new Thread(() -> {
             ProjectBundle.ImportResult r = ProjectBundle.importFromZip(this, zip);
             runOnUiThread(() -> {
-                if (!r.ok) android.widget.Toast.makeText(this, "Import failed: " + r.error, android.widget.Toast.LENGTH_LONG).show();
+                if (!r.ok) android.widget.Toast.makeText(this, getString(R.string.studio_fmt_import_failed_1_s, r.error), android.widget.Toast.LENGTH_LONG).show();
                 else {
                     android.widget.Toast.makeText(this, "Imported " + r.project.getName() + " (" + r.newProjectId + ")", android.widget.Toast.LENGTH_LONG).show();
                     // Optionally open it — for now just toast. Project appears in list.
@@ -23943,7 +23942,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             waveformOverlayView.invalidate();
         }
         scheduleAutoSave();
-        Toast.makeText(this, "Imported " + imported.displayName, Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.studio_fmt_imported_1_s, imported.displayName), Toast.LENGTH_SHORT).show();
     }
 
     /** Synthetic waveform data for rendering style-preview thumbnails (a representative audio shape). */
@@ -38751,7 +38750,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             applier.setContext(this);
             com.fadcam.ui.faditor.ai.EditScriptApplier.Result result = applier.apply(project, script);
             if (!result.success) {
-                android.widget.Toast.makeText(this, "Reorder failed: " + result.error, android.widget.Toast.LENGTH_LONG).show();
+                android.widget.Toast.makeText(this, getString(R.string.studio_fmt_reorder_failed_1_s, result.error), android.widget.Toast.LENGTH_LONG).show();
                 return;
             }
             projectStorage.save(project);
@@ -38761,7 +38760,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             scheduleAutoSave();
             android.widget.Toast.makeText(this, R.string.studio_toast_paragraph_moved, android.widget.Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
-            android.widget.Toast.makeText(this, "Reorder error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+            android.widget.Toast.makeText(this, getString(R.string.studio_fmt_reorder_error_1_s, e.getMessage()), android.widget.Toast.LENGTH_LONG).show();
             com.fadcam.FLog.e("Faditor", "Paragraph reorder failed", e);
         }
     }
@@ -43680,7 +43679,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         scheduleAutoSave();
                         android.widget.Toast.makeText(this, "Aligned: moved " + (res.offsetMs/1000.0) + "s (confidence " + String.format(java.util.Locale.US, "%.2f", res.confidence) + ")", android.widget.Toast.LENGTH_SHORT).show();
                     } catch (Exception e) {
-                        android.widget.Toast.makeText(this, "Align failed: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                        android.widget.Toast.makeText(this, getString(R.string.studio_fmt_align_failed_1_s, e.getMessage()), android.widget.Toast.LENGTH_LONG).show();
                     }
                 })
                 .setNegativeButton(R.string.studio_ui_cancel, null)
@@ -46136,8 +46135,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String reason = com.fadcam.ui.faditor.slides.SlideContract.validate(html);
         if (reason != null) {
             // TODO(strings)
-            Toast.makeText(this, "That doesn't look like a Faditor slide: " + reason,
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.studio_fmt_that_doesn_t_look_like, reason), Toast.LENGTH_LONG).show();
             return;
         }
         int contractVersion = com.fadcam.ui.faditor.slides.SlideContract
@@ -46187,8 +46185,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     applier.apply(project, script);
             if (!result.success) {
                 // TODO(strings)
-                Toast.makeText(this, "Slide import failed: " + result.error,
-                        Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.studio_fmt_slide_import_failed_1_s, result.error), Toast.LENGTH_LONG).show();
                 return;
             }
 
@@ -46258,8 +46255,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String reason = com.fadcam.ui.faditor.slides.SlideContract.validate(html);
         if (reason != null) {
             // TODO(strings)
-            Toast.makeText(this, "That doesn't look like a Faditor slide: " + reason,
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.studio_fmt_that_doesn_t_look_like, reason), Toast.LENGTH_LONG).show();
             return;
         }
         int contractVersion = com.fadcam.ui.faditor.slides.SlideContract

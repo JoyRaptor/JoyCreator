@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Messages with one inserted value, moved out of FaditorEditorActivity (2026-09-29). -->
+<resources>
+    <string name="studio_fmt_imported_1_s">Imported %1$s</string>
+    <string name="studio_fmt_could_not_render_slide_1">Could not render slide: %1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">Consolidate failed: %1$s</string>
+    <string name="studio_fmt_export_failed_1_s">Export failed: %1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">Export copy failed: %1$s</string>
+    <string name="studio_fmt_import_failed_1_s">Import failed: %1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">Reorder failed: %1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">Reorder error: %1$s</string>
+    <string name="studio_fmt_align_failed_1_s">Align failed: %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">That doesn\'t look like a Faditor slide: %1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">Slide import failed: %1$s</string>
+</resources>

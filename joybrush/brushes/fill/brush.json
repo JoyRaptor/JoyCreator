@@ -1,0 +1,12 @@
+{
+  "format": "joybrush.brush",
+  "version": 2,
+  "id": "fill",
+  "name": "Fill pen",
+  "engine": "fill",
+  "size": { "base": 8 },
+  "opacity": { "base": 1 },
+  "blend": "normal",
+  "smoothing": 0.3,
+  "license": "CC0"
+}

@@ -19,6 +19,11 @@ import kotlinx.serialization.Serializable
  * draws differently, everywhere, forever. [BrushValidate.validate] is what tells the person their
  * brush is "from a newer Joy Brush", and that sentence only appears if the version was bumped, so
  * bump it in the same change as the new constant.
+ *
+ * The two words JB-1.08a added — `engine: "fill"` and `blend: "behind"` — are not enum constants, so
+ * no enum freeze applies to them; what they needed instead was [BRUSH_VERSION] itself, because a file
+ * that uses one of them cannot honestly claim to be a version-1 file. That is the bump R3 asks for,
+ * made in the same edit as this default.
  */
 @Serializable enum class BrushInput { pressure, tilt, speed, direction, lean, attack, distance, random, strokeRandom, barrel }
 @Serializable data class InputCurve(val input: BrushInput, val curve: List<List<Float>>) // [[x,y],…]
@@ -53,10 +58,10 @@ import kotlinx.serialization.Serializable
 
 @Serializable data class BrushPreset(
     val format: String = "joybrush.brush",
-    val version: Int = 1,
+    val version: Int = BRUSH_VERSION,
     val id: String,
     val name: String,
-    val engine: String = "stamp",        // "stamp" | "smudge" | "wet" (later phases)
+    val engine: String = "stamp",        // "stamp" | "smudge" | "wet" | "fill" (the fill pen, JB-1.08a)
     val tip: TipSpec = TipSpec(),
     val size: Param,                     // diameter in px
     val opacity: Param = Param(1f),      // ceiling for the whole stroke
@@ -69,7 +74,7 @@ import kotlinx.serialization.Serializable
     val angleJitter: Float = 0f,         // degrees
     val color: ColorJitter = ColorJitter(),
     val accumulate: String = "wash",     // "wash" (never darker than opacity) | "buildup"
-    val blend: String = "normal",        // "normal" | "erase"
+    val blend: String = "normal",        // "normal" | "erase" | "behind" (fill under line art, JB-1.08a)
     val smoothing: Float = 0.3f,
     val license: String = "CC0",
     val author: String = "",

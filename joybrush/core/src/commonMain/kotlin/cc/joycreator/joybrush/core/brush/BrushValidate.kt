@@ -13,9 +13,9 @@ package cc.joycreator.joybrush.core.brush
  */
 object BrushValidate {
 
-    private val ENGINES = setOf("stamp", "smudge", "wet")
+    private val ENGINES = setOf("stamp", "smudge", "wet", ENGINE_FILL)
     private val ACCUMULATES = setOf("wash", "buildup")
-    private val BLENDS = setOf("normal", "erase")
+    private val BLENDS = setOf("normal", "erase", BLEND_BEHIND)
     private val COMBINES = setOf("multiply", "add")
     private val TIP_SOURCES = setOf("procedural", "image")
     private val GRAIN_SOURCES = setOf("cloud", "image")
@@ -54,6 +54,18 @@ object BrushValidate {
             out += "unknown brush version ${p.version}"
         } else if (p.format != BRUSH_FORMAT) {
             out += "format is \"${p.format}\", expected \"$BRUSH_FORMAT\""
+        }
+
+        // 1b — a word the file's own version cannot mean. A brush built in Kotlin (or saved by an
+        // older Joy Brush and hand-edited) can say `engine: "fill"` under `"version": 1`; [BrushJson]
+        // refuses that on the way IN, and this is the same sentence for a preset that never came from
+        // a file. It is deliberately not the "from a newer Joy Brush" message above: this file is
+        // older than the word it uses, and saying the opposite would send the person looking for a
+        // build that does not exist.
+        if (p.version < BRUSH_VERSION) {
+            for (word in BrushJson.wordsNeedingVersion(p)) {
+                out += "$word needs brush version $BRUSH_VERSION"
+            }
         }
 
         // 2 — a brush without an id cannot be saved, exported or replaced.

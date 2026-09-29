@@ -4,7 +4,7 @@ import cc.joycreator.joybrush.core.paint.Tiles
 import kotlinx.serialization.Serializable
 
 const val DOC_FORMAT = "joybrush.document"
-const val DOC_VERSION = 1
+const val DOC_VERSION = 2
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -102,7 +102,26 @@ const val TILE_SIZE = Tiles.SIZE
  * becomes NORMAL and is then re-saved has changed the painting without telling anybody. Append at
  * the END, never rename, and bump [DOC_VERSION] with it.
  */
-@Serializable enum class BlendMode { NORMAL, MULTIPLY, SCREEN, OVERLAY, ADD, DARKEN, LIGHTEN, ERASE_BELOW }
+/**
+ * The blend modes a layer composites with. The first eight are Joy Brush's own; the nineteen below
+ * the fold are the Studio's, appended in the Studio's `BlendModes.ALL` order so that a mode's ordinal
+ * IS the Studio's `modeCode` (JB-2.20a, R23). That correspondence is the whole point: the maths in
+ * `core/blend` is proved equal to the Studio's Java by a GENERATED golden table rather than copied
+ * by eye, and an ordinal that quietly drifted from `modeCode` would make that table a lie.
+ *
+ * `ERASE_BELOW` is the one constant with no Studio counterpart — it is Joy Brush's own — which is
+ * why the enum has 27 entries where the Studio has 26.
+ *
+ * APPEND-ONLY: these names are on-disk tokens, so a rename or a delete breaks saved files. R3.
+ */
+@Serializable enum class BlendMode {
+    NORMAL, MULTIPLY, SCREEN, OVERLAY, ADD, DARKEN, LIGHTEN, ERASE_BELOW,
+    // ---- appended, in `BlendModes.ALL` / modeCode order. FROZEN (R3, DOC_VERSION 2) ----
+    DIFFERENCE, COLOR, COLOR_DODGE, COLOR_BURN, LINEAR_BURN,
+    HARD_LIGHT, SOFT_LIGHT, VIVID_LIGHT, LINEAR_LIGHT, PIN_LIGHT, HARD_MIX,
+    EXCLUSION, SUBTRACT, DIVIDE, DARKER_COLOR, LIGHTER_COLOR,
+    HUE, SATURATION, LUMINOSITY,
+}
 
 @Serializable data class Cel(
     val id: String,

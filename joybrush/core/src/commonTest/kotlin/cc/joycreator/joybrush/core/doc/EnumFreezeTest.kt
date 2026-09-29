@@ -55,9 +55,19 @@ class EnumFreezeTest {
     @Test
     fun blendModeNamesAreFrozenInOrder() {
         assertEquals(
-            listOf("NORMAL", "MULTIPLY", "SCREEN", "OVERLAY", "ADD", "DARKEN", "LIGHTEN", "ERASE_BELOW"),
+            listOf(
+                // Joy Brush's own eight.
+                "NORMAL", "MULTIPLY", "SCREEN", "OVERLAY", "ADD", "DARKEN", "LIGHTEN", "ERASE_BELOW",
+                // The Studio's, in `BlendModes.ALL` order, so ordinal == modeCode (R23, JB-2.20a).
+                "DIFFERENCE", "COLOR", "COLOR_DODGE", "COLOR_BURN", "LINEAR_BURN",
+                "HARD_LIGHT", "SOFT_LIGHT", "VIVID_LIGHT", "LINEAR_LIGHT", "PIN_LIGHT", "HARD_MIX",
+                "EXCLUSION", "SUBTRACT", "DIVIDE", "DARKER_COLOR", "LIGHTER_COLOR",
+                "HUE", "SATURATION", "LUMINOSITY",
+            ),
             BlendMode.entries.map { it.name },
-            "a name here is one a saved file may already hold, and the renderer is expected to honour.",
+            "a name here is one a saved file may already hold, and the renderer is expected to honour. " +
+                "27 entries where the Studio has 26, because ERASE_BELOW is Joy Brush's own. The " +
+                "generator in tools/blend-golden asserts the Studio's 26 land on their own modeCode.",
         )
     }
 
@@ -77,8 +87,8 @@ class EnumFreezeTest {
      */
     @Test
     fun theVersionsTheNamesWereWrittenFor() {
-        assertEquals(1, DOC_VERSION)
-        assertEquals(1, BRUSH_VERSION)
+        assertEquals(2, DOC_VERSION)
+        assertEquals(2, BRUSH_VERSION)
         // BrushPreset.version is a second literal beside BRUSH_VERSION, and the file writes the
         // default — if they drift, every new brush is stamped with a version nobody validates.
         assertEquals(BRUSH_VERSION, BrushPreset(id = "b", name = "B", size = Param(1f)).version)

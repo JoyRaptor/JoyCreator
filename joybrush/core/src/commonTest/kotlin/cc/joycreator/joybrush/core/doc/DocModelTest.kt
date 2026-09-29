@@ -129,9 +129,9 @@ class DocModelTest {
 
     @Test
     fun aNewerVersionStillDecodesAndIsReportedInWords() {
-        val doc = fresh().copy(version = 2)
+        val doc = fresh().copy(version = DOC_VERSION + 1)
         val back = DocJson.decode(DocJson.encode(doc))
-        assertEquals(2, back.version, "decoding must not refuse a newer document")
+        assertEquals(DOC_VERSION + 1, back.version, "decoding must not refuse a newer document")
         val problems = DocOps.validate(back)
         assertEquals(1, problems.size, "got $problems")
         assertTrue(

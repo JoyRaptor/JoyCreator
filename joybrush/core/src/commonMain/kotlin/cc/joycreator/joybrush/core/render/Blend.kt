@@ -1,5 +1,6 @@
 package cc.joycreator.joybrush.core.render
 
+import cc.joycreator.joybrush.core.blend.BlendRgb
 import cc.joycreator.joybrush.core.doc.BlendMode
 import kotlin.math.min
 
@@ -70,10 +71,53 @@ object Blend {
         val cb1 = if (da > 0f) d[1] / da else 0f
         val cb2 = if (da > 0f) d[2] / da else 0f
 
+        // The twenty modes whose answer belongs to the pixel rather than to a channel (JB-2.20a).
+        if (mode.needsWholePixelBlend()) {
+            STRAIGHT_S[0] = cs0; STRAIGHT_S[1] = cs1; STRAIGHT_S[2] = cs2
+            STRAIGHT_B[0] = cb0; STRAIGHT_B[1] = cb1; STRAIGHT_B[2] = cb2
+            val b = wholePixelTerm(mode, STRAIGHT_B, STRAIGHT_S, out)
+            out[0] = compositeChannel(cs0, cb0, b[0], sa, da)
+            out[1] = compositeChannel(cs1, cb1, b[1], sa, da)
+            out[2] = compositeChannel(cs2, cb2, b[2], sa, da)
+            out[3] = sa + da * (1f - sa)
+            return
+        }
+
         out[0] = compositeChannel(cs0, cb0, term(mode, cs0, cb0), sa, da)
         out[1] = compositeChannel(cs1, cb1, term(mode, cs1, cb1), sa, da)
         out[2] = compositeChannel(cs2, cb2, term(mode, cs2, cb2), sa, da)
         out[3] = sa + da * (1f - sa)
+    }
+
+    /**
+     * The blend term `B(Cb, Cs)` for all THREE channels at once, which is what the twenty non-
+     * separable modes need and what [term] cannot give: HUE, SATURATION, COLOR and LUMINOSITY all
+     * mix the channels into each other, so there is no per-channel answer to hand to
+     * [compositeChannel] — the answer only exists for the pixel.
+     *
+     * [BlendRgb] is the single implementation of those modes (JB-2.20a), proved equal to the Studio's
+     * Java by a generated golden table rather than transcribed by eye — see R23. Calling it here is
+     * what keeps the CPU renderer and the Studio from being two implementations that agree today.
+     *
+     * THE CLAMP LIVES HERE, NOT IN [BlendRgb]. [BlendRgb] is deliberately UNCLAMPED, because SCREEN,
+     * EXCLUSION and OVERLAY all legitimately return values above 1 for inputs above 1 and clipping
+     * them inside the blend term is how an exporter stops doing what the Studio does. Clamping the
+     * finished term is the same clamp the seven separable modes get below, so all twenty-seven
+     * modes are clamped in exactly one place and in the same way.
+     *
+     * The scratch arrays are the object's own, and safe because [apply] is not re-entrant: it writes
+     * [out] only after [blendRgb] has returned, and [out] may not be [s] or [d] (which the KDoc on
+     * [apply] already requires) and so cannot be these either.
+     */
+    private fun wholePixelTerm(
+        mode: BlendMode,
+        b: FloatArray,
+        s: FloatArray,
+        out: FloatArray,
+    ): FloatArray {
+        BlendRgb.blendRgb(mode, b, s, B_TERM, SCRATCH)
+        for (i in 0..2) B_TERM[i] = B_TERM[i].coerceIn(0f, 1f)
+        return B_TERM
     }
 
     /** One channel of the W3C formula, named once so all seven modes provably share it. */
@@ -87,6 +131,12 @@ object Blend {
      * The cases are written out by NAME rather than behind an `else` so that a ninth
      * [BlendMode] cannot be added without a compiler error here. DocModel says an unknown blend is
      * refused rather than approximated, and this is the half of that promise Kotlin can keep.
+     *
+     * [term] now answers only the seven SEPARABLE modes. The other twenty are named in
+     * [needsWholePixelBlend] and dispatched to [BlendRgb] in [apply] before this is ever reached;
+     * they are listed here as `else -> 0f` purely to satisfy the compiler, and that value is
+     * unreachable because [needsWholePixelBlend] and this `when` are exhaustive over the same enum —
+     * `everySepparableModeIsTheOnesTermHandles` in the test suite is what keeps them that way.
      */
     private fun term(mode: BlendMode, cs: Float, cb: Float): Float = when (mode) {
         BlendMode.NORMAL -> cs
@@ -107,7 +157,38 @@ object Blend {
         // Unreachable: apply() returns before any separable term is asked for. Listed so that the
         // `when` stays exhaustive and a future mode cannot fall through as a silent NORMAL.
         BlendMode.ERASE_BELOW -> 0f
+        // The twenty non-separable modes. Unreachable: `apply` routes every one of them to
+        // `wholePixelTerm` first, because their answer belongs to the pixel and not to a channel.
+        // `0f` is here so that adding one of them to this `when` is a deliberate act.
+        else -> 0f
     }
+
+    /**
+     * True for the twenty modes that cannot be answered one channel at a time, so [apply] knows to
+     * take the [BlendRgb] path.
+     *
+     * WRITTEN AS A NEGATIVE LIST ON PURPOSE. The positive form ("these seven are separable") is what
+     * [term] already says by name, and the two together are exhaustive. Listing them separately
+     * would be a second thing to keep in step with the enum — and this project's own history is a
+     * case where two lists of the same fact drifted. A new mode therefore lands in this `else` and
+     * is automatically treated as a whole-pixel blend, which is the SAFE default: a whole-pixel
+     * blend that behaves per channel is merely a little slower, whereas a per-channel term silently
+     * applied to HUE would give a wrong pixel rather than a slow one.
+     */
+    private fun BlendMode.needsWholePixelBlend(): Boolean = when (this) {
+        BlendMode.NORMAL, BlendMode.MULTIPLY, BlendMode.SCREEN, BlendMode.OVERLAY,
+        BlendMode.ADD, BlendMode.DARKEN, BlendMode.LIGHTEN,
+        -> false
+        else -> true
+    }
+
+    // Scratch for the whole-pixel path. Object-level rather than per-call because this runs once per
+    // pixel per layer and an allocation there is the kind of thing that turns a 60 fps canvas into a
+    // warm one. Safe because `apply` is not re-entrant (see `wholePixelTerm`'s KDoc).
+    private val STRAIGHT_B = FloatArray(3)
+    private val STRAIGHT_S = FloatArray(3)
+    private val B_TERM = FloatArray(3)
+    private val SCRATCH = FloatArray(3)
 
     // ── the eight names ───────────────────────────────────────────────────────────
     // Thin doors onto apply(), so the enum and the arithmetic cannot drift apart. They exist

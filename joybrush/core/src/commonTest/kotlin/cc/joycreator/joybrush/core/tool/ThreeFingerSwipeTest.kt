@@ -9,6 +9,7 @@ import cc.joycreator.joybrush.core.doc.Layer
 import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.tool.ThreeFingerSwipe.Step
+import kotlin.math.pow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -517,7 +518,20 @@ class ThreeFingerSwipeTest {
         assertEquals(Step.Nothing, s.move(Float.NaN, 0f))
         assertEquals(Step.Nothing, s.move(13f, Float.POSITIVE_INFINITY))
 
-        val step = s.move(173f, 0f) as Step.Brush
-        assertEquals(20f, step.size, eps)
+        // The two non-finite moves are IGNORED, not fatal: the gesture is still alive afterwards.
+        //
+        // Two things about SizeOpacityDrag have to be true for the recovery move below to report
+        // anything, and both are its Decision 1/2 rather than anything to do with the NaN:
+        //
+        //  - the first move past LOCK_TRAVEL_DP DECIDES the axis and is measured FROM ITS OWN POINT,
+        //    so it lands on exactly the starting value. It is a move of its own, not a dead gesture.
+        //  - size is exponential from the lock point, not linear, so the number is start * 2^(dx/160).
+        //
+        // So the recovery move needs two calls: one to lock, one to actually move the number. A
+        // single 173 px call is the LOCK call, and returns Nothing for the most boring reason there
+        // is — nothing changed yet.
+        assertEquals(Step.Nothing, s.move(100f, 0f))
+        val step = s.move(200f, 0f) as Step.Brush
+        assertEquals(10f * 2f.pow(100f / 160f), step.size, eps)
     }
 }

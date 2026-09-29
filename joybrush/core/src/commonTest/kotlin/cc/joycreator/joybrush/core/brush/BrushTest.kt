@@ -70,6 +70,30 @@ class BrushTest {
         }
     """.trimIndent() + "\n"
 
+    // ---- the fill pen (JB-1.08a) --------------------------------------------------------------
+    //
+    // The shipped fill preset, byte for byte. commonTest cannot open a file, so the file
+    // `joybrush/brushes/fill/brush.json` and this string have to be kept in step by hand — the same
+    // bargain the two brushes above strike with their files. (JB-1.08a's owner area stops at
+    // `core/`; the shipped folder is the orchestrator's to add. See the Questions in the spec.)
+    //
+    // `size` is in the file because BrushPreset has no default for it and the size rule always runs;
+    // the fill engine never reads it. 8 px is as good a number as any until somebody says otherwise.
+    private val fillJson: String = """
+        {
+          "format": "joybrush.brush",
+          "version": 2,
+          "id": "fill",
+          "name": "Fill pen",
+          "engine": "fill",
+          "size": { "base": 8 },
+          "opacity": { "base": 1 },
+          "blend": "normal",
+          "smoothing": 0.3,
+          "license": "CC0"
+        }
+    """.trimIndent() + "\n"
+
     /** pressure 0.5, upright, still, 200 px along, tilt at half lean, two fixed randoms. */
     private val dab = DabInputs(
         pressure = 0.5f, tilt = 0f, speedPxPerS = 0f, direction = 0f,
@@ -109,7 +133,12 @@ class BrushTest {
             val p = BrushJson.decode(json)
             assertEquals(emptyList(), BrushValidate.validate(p), "$p.id must be clean")
             assertEquals(BRUSH_FORMAT, p.format)
-            assertEquals(BRUSH_VERSION, p.version)
+            // NOT BRUSH_VERSION. JB-1.08a raised the newest readable version to 2, but these two
+            // shipped brushes use no v2 word, so they must still round-trip as the version-1 files
+            // they have always been — `versionFor` only ever bumps a file upward, and a test that
+            // demanded the current version here would have pushed a pointless re-save of every brush
+            // anybody already has. The fill pen is the v2 case; see the shipped-preset test.
+            assertEquals(1, p.version, "$p.id uses no version-2 word, so it stays a version-1 file")
             assertEquals(p, BrushJson.decode(BrushJson.encode(p)))
         }
         val ink = BrushJson.decode(inkJson)
@@ -148,8 +177,8 @@ class BrushTest {
         assertEquals(BrushJson.decode(inkJson), p)
         assertEquals(emptyList(), BrushValidate.validate(p), "an unknown key is not a problem: ${BrushValidate.validate(p)}")
 
-        val newer = BrushJson.decode(inkJson.replace("\"version\": 1,", "\"version\": 2,"))
-        assertEquals(2, newer.version)
+        val newer = BrushJson.decode(inkJson.replace("\"version\": 1,", "\"version\": 3,"))
+        assertEquals(3, newer.version)
         assertSole(BrushValidate.validate(newer), "newer Joy Brush")
 
         assertFailsWith<BrushException> { BrushJson.decode("{\"format\": \"joybrush.brush\",") }
@@ -275,8 +304,9 @@ class BrushTest {
 
     @Test
     fun validationSaysOneThingPerRule() {
-        // 1 — format and version.
-        assertSole(BrushValidate.validate(preset { it.copy(version = 2) }), "newer Joy Brush")
+        // 1 — format and version. Version 2 is the newest this build reads (the fill pen's words),
+        // so the "from a newer Joy Brush" case is 3.
+        assertSole(BrushValidate.validate(preset { it.copy(version = 3) }), "newer Joy Brush")
         assertSole(BrushValidate.validate(preset { it.copy(format = "photoshop.abr") }), "expected \"joybrush.brush\"")
         // 2 — id.
         assertSole(BrushValidate.validate(preset { it.copy(id = "  ") }), "id is empty")
@@ -589,6 +619,93 @@ class BrushTest {
                 },
             ),
         )
+    }
+
+    // ---- 9. the fill pen is a brush, and a file says so (JB-1.08a, R21) ---------------------------
+
+    /** The shipped fill preset, read from the string above: it must load clean and be a file of its own. */
+    @Test
+    fun theShippedFillPresetLoadsAndRoundTrips() {
+        val p = BrushJson.decode(fillJson)
+        assertEquals(emptyList(), BrushValidate.validate(p), "the fill preset must be clean: ${BrushValidate.validate(p)}")
+        assertEquals("fill", p.id)
+        assertEquals("Fill pen", p.name)
+        assertEquals(ENGINE_FILL, p.engine)
+        assertEquals("normal", p.blend)
+        assertEquals(1f, p.opacity.base)
+        assertEquals(0.3f, p.smoothing)
+        assertEquals("CC0", p.license)
+        assertEquals(BRUSH_VERSION, p.version)
+        // The file is hand-written and states only what it means, the way the other two shipped
+        // brushes do; writing it back out says every default, so equality is with the round trip.
+        assertEquals(p, BrushJson.decode(BrushJson.encode(p)))
+        assertEquals(BrushJson.encode(p), BrushJson.encode(BrushJson.decode(BrushJson.encode(p))))
+    }
+
+    @Test
+    fun onlyAFillBrushIsWrittenAsVersionTwo() {
+        // The rule: the LOWEST version that can express the file. A fill pen says 2; everything else
+        // stays 1, so an older Joy Brush can still open an ordinary brush.
+        assertTrue(BrushJson.encode(BrushJson.decode(fillJson)).contains("\"version\": $BRUSH_VERSION"))
+        for (json in listOf(inkJson, pencilJson)) {
+            val text = BrushJson.encode(BrushJson.decode(json))
+            assertTrue(text.contains("\"version\": 1"), "an ordinary brush must stay a version-1 file:\n$text")
+            assertTrue(!text.contains("\"version\": 2"), "an ordinary brush must stay a version-1 file:\n$text")
+        }
+        // A brush built in Kotlin (a pencil re-brushed to a fill pen, say) is written as a version-2
+        // file whatever version it was holding, and keeps the pencil's own fields — a fill pen that
+        // has just been re-brushed must still draw as a pencil the day it is re-brushed back.
+        val reBrushed = preset { it.copy(engine = ENGINE_FILL) }
+        assertTrue(BrushJson.encode(reBrushed).contains("\"version\": $BRUSH_VERSION"))
+        assertTrue(BrushJson.encode(reBrushed).contains("\"hardness\""), "the pencil's tip is kept")
+        // A brush from a later build is never downgraded by a round trip through here.
+        val fromTheFuture = preset { it.copy(version = 7) }
+        assertTrue(BrushJson.encode(fromTheFuture).contains("\"version\": 7"))
+        assertEquals(7, BrushJson.decode(BrushJson.encode(fromTheFuture)).version)
+    }
+
+    @Test
+    fun aVersionOneFileCannotSayFill() {
+        // A version-1 build would read this brush as an ordinary stamp pen and draw with it, so the
+        // file is refused here — and NOT with the "from a newer Joy Brush" sentence, which would send
+        // the person looking for a build that does not exist. This file is older than the word.
+        for ((v1, word) in listOf(
+            inkJson.replace("\"engine\": \"stamp\",", "\"engine\": \"fill\",") to "engine \"fill\"",
+            inkJson.replace("\"blend\": \"normal\",", "\"blend\": \"behind\",") to "blend \"behind\"",
+        )) {
+            val thrown = assertFailsWith<BrushException>("a v1 file saying $word must not decode") {
+                BrushJson.decode(v1)
+            }
+            assertEquals("$word needs brush version $BRUSH_VERSION", thrown.message)
+        }
+        // The same sentence, from validation, for a preset that never came from a file.
+        assertSole(
+            BrushValidate.validate(preset { it.copy(engine = ENGINE_FILL) }),
+            "engine \"fill\" needs brush version 2",
+        )
+        assertSole(
+            BrushValidate.validate(preset { it.copy(blend = BLEND_BEHIND) }),
+            "blend \"behind\" needs brush version 2",
+        )
+        // …and silence once the file is allowed to say it.
+        assertEquals(emptyList(), BrushValidate.validate(BrushJson.decode(fillJson)))
+    }
+
+    @Test
+    fun behindIsABlendAndSidewaysIsNot() {
+        // "behind" paints only where the layer is not already opaque: a fill that goes under line art
+        // on the same ink layer. It is a word this build knows, in version 2.
+        val behind = preset { it.copy(version = BRUSH_VERSION, blend = BLEND_BEHIND) }
+        assertEquals(emptyList(), BrushValidate.validate(behind))
+        assertTrue(BrushJson.encode(behind).contains("\"blend\": \"behind\""))
+        // A stamp pen may use it too — it is a blend, not a fill's private property.
+        assertEquals(emptyList(), BrushValidate.validate(BrushJson.decode(BrushJson.encode(behind))))
+        // And the old words still work, so nothing that used to be legal stopped being legal.
+        for (word in listOf("normal", "erase")) {
+            assertEquals(emptyList(), BrushValidate.validate(preset { it.copy(blend = word) }), word)
+        }
+        // A typo is still a typo, and is still named.
+        assertSole(BrushValidate.validate(preset { it.copy(blend = "sideways") }), "blend \"sideways\"")
     }
 }
 

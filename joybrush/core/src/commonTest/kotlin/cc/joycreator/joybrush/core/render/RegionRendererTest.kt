@@ -86,6 +86,12 @@ class RegionRendererTest {
                 BlendMode.DARKEN -> Blend.darken(s, d, byName)
                 BlendMode.LIGHTEN -> Blend.lighten(s, d, byName)
                 BlendMode.ERASE_BELOW -> Blend.eraseBelow(s, d, byName)
+                // The nineteen modes JB-2.20a appended have no named door, and that is deliberate:
+                // the doors exist so a caller can ask for a mode BY NAME, and a door per mode would
+                // be nineteen more places for the enum and the arithmetic to drift apart. The point
+                // of this test is that the eight doors that DO exist are the same functions as the
+                // enum, and `byEnum` above already covers all twenty-seven through `apply`.
+                else -> continue
             }
             for (c in 0..3) assertEquals(byEnum[c], byName[c], 0f, "$mode through its named function")
         }

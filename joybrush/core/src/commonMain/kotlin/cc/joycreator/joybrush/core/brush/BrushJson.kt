@@ -7,7 +7,23 @@ class BrushException(message: String) : Exception(message)
 
 /** The format tag and version in every brush.json. Bump with the defaults in [BrushPreset]. */
 const val BRUSH_FORMAT = "joybrush.brush"
-const val BRUSH_VERSION = 1
+/**
+ * The first brush version that could express the fill pen's two new words — `engine: "fill"` and
+ * `blend: "behind"` (JB-1.08a, LEAD_RULINGS R21) — and, today, the newest version this build reads.
+ *
+ * The builder first added this as a *second* constant beside [BRUSH_VERSION], because
+ * `commonTest/doc/EnumFreezeTest` pins that constant and the file was outside its owner area. The
+ * orchestrator has since made it THE [BRUSH_VERSION] (and moved `BrushPreset.version`'s default
+ * with it, since the two are one edit), which is what R3 asks for: a new word in a serialised file
+ * is a version bump, not a second number to remember.
+ */
+const val BRUSH_VERSION = 2
+
+/** The fill pen is a BRUSH, not a tool (R21): the engine word that makes a stroke a filled shape. */
+const val ENGINE_FILL = "fill"
+
+/** Paints only where the layer is not already opaque, so a fill can go UNDER line art on its layer. */
+const val BLEND_BEHIND = "behind"
 
 /**
  * brush.json — one brush, the smallest thing a person can share. It is written by Joy Brush, by the
@@ -24,17 +40,47 @@ object BrushJson {
     }
 
     fun encode(p: BrushPreset): String = try {
-        FORMAT.encodeToString(BrushPreset.serializer(), p)
+        FORMAT.encodeToString(BrushPreset.serializer(), p.copy(version = versionFor(p)))
     } catch (e: IllegalArgumentException) {
         // A preset built in memory can hold a NaN or an Infinity; JSON has no word for either, and
         // the person saving the brush should be told which brush failed, not which library threw.
         throw BrushException("brush cannot be written: ${e.message}")
     }
 
-    fun decode(json: String): BrushPreset = try {
-        FORMAT.decodeFromString(BrushPreset.serializer(), json)
-    } catch (e: IllegalArgumentException) {
-        // SerializationException and JsonDecodingException both land here.
-        throw BrushException("brush.json cannot be read: ${e.message}")
+    fun decode(json: String): BrushPreset {
+        val p = try {
+            FORMAT.decodeFromString(BrushPreset.serializer(), json)
+        } catch (e: IllegalArgumentException) {
+            // SerializationException and JsonDecodingException both land here.
+            throw BrushException("brush.json cannot be read: ${e.message}")
+        }
+        // A word a version-1 file cannot mean. Refused here rather than in validation, because a
+        // version-1 build would read this brush as an ordinary stamp pen and happily draw with it —
+        // which is exactly the small mistake the version number exists to prevent. It is NOT the
+        // "from a newer Joy Brush" sentence: this file is older than the word it uses.
+        for (word in wordsNeedingVersion(p)) {
+            if (p.version < BRUSH_VERSION) throw BrushException("$word needs brush version $BRUSH_VERSION")
+        }
+        return p
+    }
+
+    /**
+     * The version this file is written with: the LOWEST one that can express the brush, so an
+     * ordinary pen stays a version-1 file that an older Joy Brush can still open. A brush that
+     * already carries a version of its own is never downgraded, so a file from a later build keeps
+     * its number when it passes through here.
+     */
+    private fun versionFor(p: BrushPreset): Int =
+        if (p.version < BRUSH_VERSION && wordsNeedingVersion(p).isNotEmpty()) BRUSH_VERSION else p.version
+
+    /**
+     * The words brush version 2 added, named the way the file names them — `engine "fill"` —
+     * so a refusal is one sentence: `engine "fill" needs brush version 2`.
+     */
+    internal fun wordsNeedingVersion(p: BrushPreset): List<String> {
+        val out = ArrayList<String>(2)
+        if (p.engine == ENGINE_FILL) out += "engine \"$ENGINE_FILL\""
+        if (p.blend == BLEND_BEHIND) out += "blend \"$BLEND_BEHIND\""
+        return out
     }
 }

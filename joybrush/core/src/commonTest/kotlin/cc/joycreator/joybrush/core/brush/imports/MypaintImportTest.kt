@@ -1,5 +1,6 @@
 package cc.joycreator.joybrush.core.brush.imports
 
+import cc.joycreator.joybrush.core.brush.BRUSH_VERSION
 import cc.joycreator.joybrush.core.brush.BrushException
 import cc.joycreator.joybrush.core.brush.BrushInput
 import cc.joycreator.joybrush.core.brush.BrushValidate
@@ -244,7 +245,12 @@ class MypaintImportTest {
             val p = result.preset
             assertEquals(emptyList(), BrushValidate.validate(p), "$label must be a legal brush: $p")
             assertEquals("joybrush.brush", p.format, label)
-            assertEquals(1, p.version, label)
+            // A brush THIS build creates says the current version, not 1: `BrushPreset.version`
+            // defaults to BRUSH_VERSION, and EnumFreezeTest asserts the two are equal precisely so
+            // an imported brush cannot be stamped with a version nobody validates. It was 1 before
+            // JB-1.08a raised the version; the pin moves with the constant rather than being
+            // deleted, so the next bump is caught here.
+            assertEquals(BRUSH_VERSION, p.version, label)
             assertEquals("myb.test", p.id, label)
             assertEquals("MyPaint test brush", p.name, label)
             assertEquals("myb", p.sourceFormat, label)

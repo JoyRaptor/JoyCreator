@@ -881,3 +881,18 @@ them. He has never touched code and does not know git; earlier agent sessions le
 - Uncommitted files nobody claims belong to a past AGENT session, never to the owner.
 - The owner's jobs are: rulings, pasting reports, and phone checks (Note 9 plugged in). Anything
   involving git, gradle or files goes to the orchestrator or the Lead, with exact commands.
+
+## 2026-09-29 — a finding "rejected" by searching one language is not rejected
+
+The Joy Brush orchestrator dismissed a spec writer's finding (the sprite packer never writes `weights`, so held
+frames export at the wrong speed) because "there is no `SpriteSheet.kt` in this repo". The app is Java:
+`SpriteSheet.java` exists and writes `weights`. The finding was right, and the same session's log recorded the
+wrong rejection as a hard-won lesson.
+
+**Rules:**
+- Before saying a class "does not exist", search EVERY language in the repo (`find . -name "Name.*"`), not one
+  extension. This is a Java app with a Kotlin library beside it.
+- A verified-looking rejection is still a claim: when it overturns another agent's finding, quote the command
+  that proves it. The proof for "absent" is a search that could have found it.
+- When a test asserts a key is ABSENT ("nothing the app does not write"), check the app's real writer, not the
+  spec that told the builder what to write.

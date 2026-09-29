@@ -51,10 +51,12 @@ class ThreeFingerSwipe(val density: Float = 1f) {
 ## Decisions
 1. **Automatic mode** = FRAMES when `doc.activeBoardId` names a board of kind ANIMATION with
    `frames.size >= 2`; otherwise BRUSH (no active board, a canvas board, one frame…).
-2. **Override** (badge tap) is remembered TOGETHER WITH the board id it was made on. When the active
-   board is a different board, the override is ignored (and forgotten). Tapping again returns to
-   automatic. An override to FRAMES on a board that has < 2 frames is refused (the badge stays BRUSH)
-   — there is nothing to flip.
+2. **Override** (badge tap) is remembered **PER BOARD** (LEAD_RULINGS R25 — the owner keyed the mode to
+   the active board): tapping on board A changes A's answer and nothing else; looking at board B and
+   coming back leaves A's override exactly as it was. `badge()` is a **pure read** — it never changes
+   anything. Tapping again returns that one board to automatic. An override to FRAMES on a board that
+   has < 2 frames is refused (the badge stays BRUSH) — there is nothing to flip. Overrides for boards
+   the document no longer has are dropped at the next tap.
 3. **Mode is fixed at `begin`.** `badge()` may change during a gesture (e.g. a frame gets added) but
    the gesture in progress keeps the mode it began with.
 4. **FRAMES:** a flip every `36 × density` screen px of HORIZONTAL travel; finger moving LEFT shows
@@ -75,9 +77,11 @@ class ThreeFingerSwipe(val density: Float = 1f) {
 ## Tests
 1. Auto mode: canvas board → BRUSH; animation board with 1 frame → BRUSH; with 2 → FRAMES; no
    active board → BRUSH.
-2. Override: tap on the animation board → BRUSH; switch active board to another animation board →
-   FRAMES (override forgotten); switch back → FRAMES (still forgotten). Tap twice → automatic.
-   Override to FRAMES on a canvas board with 0 frames is refused.
+2. Override (R25, per board): tap on animation board 1 → BRUSH; ask about animation board 2 → FRAMES
+   (never tapped); back to board 1 → BRUSH (remembered). Tap on board 2 → BRUSH, board 1 still BRUSH.
+   Tap board 2 again → FRAMES, board 1 still BRUSH. `badge()` asked repeatedly in any order changes
+   nothing. An override on a board that is then deleted is dropped at the next tap and does not come
+   back when a board with that id returns. Override to FRAMES on a canvas board (0 frames) is refused.
 3. Mode fixed: begin in FRAMES, change the doc so the badge would say BRUSH, keep moving → still
    `ShowFrame` steps.
 4. FRAMES: 10 frames, start at 4, dx = −36 → ShowFrame(5); −72 → 6; tiny moves in between return
@@ -96,6 +100,7 @@ Touch no existing file; no Android. Do not reimplement the size/opacity maths �
 Tests pass (paste) · commit `JB-3.08a: three-finger swipe logic` · ROADMAP row → 🟧 Built.
 
 ## Questions
+- **Lead ruling R25 (2026-09-29): the override is per board and remembered.** The earlier text (single override, forgotten on switch) contradicted the owner's own ruling that the mode is keyed to the active board, and the old test asserted both rules at once. Implemented and tested; `badge()` was also destroying state on read, now fixed.
 - Answered by the owner 2026-09-29: stop at the ends, with push-through to wrap (Decision 4).
 - Builder (JB-3.08a, built, tests unrun by the builder). **Where the push clock starts.** Decision 4
   says "once the index is held at an end, keep pushing the SAME way for a further `3 × step`". I read

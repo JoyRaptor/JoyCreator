@@ -242,3 +242,244 @@ Outline rows to add (Lead designs; specs follow as their dependencies land):
 - **JB-2.23** (T1) Layer masks and clipping (a fill-pen shape can be a mask; an adjustment layer
   clipped to a shape = "set a shape as a gradient map", owner). Needs 2.21.
 - **D.05b** (T2) move `FxPanel`, `BlendPickerPopover`, `MaskKeyPanel` with their resources.
+
+## 2026-09-29 — the local Lead takes over: verified state, the seven open items, and the 38 new specs
+
+Verified on a CLEAN checkout of the pushed commit (`1bae49c6`), not the working folder (which had a live
+builder writing into it): `:core:jvmTest` **665 tests / 2 failures**, `:androidkit:test` **92 / 0**. The
+orchestrator claimed 665/1 and 90/0. The second core failure is the JB-5.10 wall-clock test, which is
+NOT "red for lack of an index" (R28). After R25/R26: `:core:jvmTest` 680 / 0, `:androidkit:test` 92 / 0.
+Every spec-by-spec verdict is in `reviews/SPECS_38__lead.md`; **these rulings override the specs**.
+
+### A. The open items the cloud Lead left
+
+**R25. JB-3.08a — the badge override is PER BOARD and remembered; `badge()` is a pure read.** Done, with tests.
+- The orchestrator's diagnosis was wrong twice. The test fails at line 138, not 128–130, and a per-board
+  map would NOT have passed the old test "unchanged" (line 129 asserted "forgotten on switch").
+- The real defect was in the CODE: `badge()` erased the override whenever it was asked about another board,
+  so merely drawing two badges destroyed the person's choice. Now a `HashMap<boardId, SwipeMode>` that only
+  `tapBadge` writes (it also drops entries for boards the document no longer has).
+- Reason (owner's own ruling, blueprint §6): the mode is keyed to the ACTIVE BOARD. Glancing at the sketch
+  board and coming back must not change the animation board's badge.
+- Mutation-checked: the old code fails two of the new tests. Spec JB-3.08a Decision 2 and test 2 updated.
+
+**R26. Save / autosave (JB-0.08b's three MAJORs + JB-2.15).** All three MAJORs verified against the code
+(they are real work-loss). They are ONE bug — a save request was a moment, not a thing that waits its turn —
+so they are fixed by one class: `core/io/SaveQueue<D>` (pure Kotlin, JVM-tested, 13 tests, two mutations
+turn them red). JB-2.15's own contract is superseded: it put `android.net.Uri` in `:core` (breaks the iOS
+door), referenced an undefined `SaveTarget2`, gave the wrong file path, and missed that the screen pauses the
+GL thread after the FIRST snapshot, which would strand a queued second save. Rules now in force:
+- Requests are queue entries: one at a time, in order, never dropped. IDLE merges only with a WAITING IDLE at
+  the END of the queue; EXPLICIT ("Save a copy") is never merged or dropped.
+- A pen down holds the whole queue; ONLY `strokeFinished()` (end AND cancel) releases it — the check is
+  level-triggered, so an undo/redo/timer cannot pay or cancel the debt.
+- `JbCanvasView.strokeInProgress` is the UI thread's own `drawing` flag (was an unsynchronised GL-thread read).
+- The GL thread is paused only when the queue is drained, never after the first snapshot alone.
+- A 15 s snapshot watchdog fails a save in words instead of blocking the queue for ever.
+- **Fourth bug found and fixed:** after ANY save, including "Save a copy", the screen marked the drawing fully
+  saved — but a copy never writes the working file, so a copy could cancel the pending autosave.
+- Status: core + view landed. The `JoyBrushActivity` wiring is finished and compiled but is held until the
+  JB-1.21 builder (mid-edit on that file) commits — then it is rebased and pushed.
+- STILL OPEN from the 0.08b review, written up as **JB-0.08c** (T2, to spec): (F6) a re-save drops document
+  metadata (layer name/blend/lock, board name, `textureScale`, thumbnail) — carry the loaded `JbDocument` and
+  replace only what the engine owns; (F5) no `onDestroy` cleanup; (F7) one wrong-paper frame on open.
+- NEW risk found (not in any review): **"Open…" replaces the canvas, then the next autosave overwrites
+  `current.joybrush` — so the drawing you had before Open is gone** (only one `.bak` generation). Ruling: before
+  Open… replaces a drawing, silently write the current one to `recent/<timestamp>.joybrush`, keep the last 5.
+  Goes into JB-0.08c. No dialog.
+- Owner check (Note 9): draw → Home → force-stop → reopen (drawing is back); pen down, tap "Save a copy…" →
+  the copy contains the stroke; start a stroke, tap Undo mid-stroke, lift, Home, force-stop → what is on screen
+  is what comes back.
+
+**R27. JB-2.02's MAJOR is already fixed — remove it from the held list.** R13's `CanvasGestures.handOver()`
+exists and `JbCanvasView` calls it (line ~272). No new API is needed. It has no JVM test (a `MotionEvent`
+cannot be built off-device); the device check "draw with one finger, add a second, pinch → zooms without
+lifting" stays owed.
+
+**R28. JB-5.10 — do NOT build a grid index; narrow Decision 5 and replace the wall-clock assertion.**
+- The "known-red" test is misdiagnosed. Measured warm cost is ~1.3 s against a 2.5 s bound: it passes alone and
+  failed for me only while another Gradle job ran. A wall-clock assertion is flaky by construction.
+- The builder's own arithmetic says a spatial index has a ~3.7× ceiling on this layout (50 scribbles through
+  one 200×200 square — not a drawing anyone makes), so a grid would not deliver the 50 ms promise anyway.
+  The eraser already has a per-line bounding-box prefilter (`VectorEraser.kt`), which is what a real layer needs.
+- Ruling: Decision 5's promise applies to REALISTIC layouts (lines spread across the layer); the adversarial
+  layout is bounded by a **deterministic work counter** (segment-pair tests ≤ a stated N), never milliseconds.
+  Add the counter as an `internal` test hook; delete the `< 2_500L` assertion. JB-5.10 Q1 (speck rule): the
+  0.5-doc-px rule applies to ALL THREE modes, implemented once in `VectorEraser` (that is one edit to JB-5.10's
+  file; JB-5.11 then inherits it).
+
+**R29. R14 leftover app files — MERGED, not dropped.** They are the owner's own Studio polish (hidden
+recycle-bin long-press on the lobby logo; caption in/out sliders with their own values; old text boxes load
+as per-letter — his ruling of 2026-09-23, recorded in `LEDGER.md`). The phone's builds contained them all
+along, so dropping would silently remove features he has been using. Merged by cherry-picking ONLY commit
+`14a82209` (the branch's other commit duplicates JB-0.08b). Branch `bunny/leftover-app-edits` can be deleted.
+The watcher must show a green app build after this lands; that is the check. JB-0.09 is unblocked on this axis.
+
+**R30. The lock order for shared hot files** (one row at a time in each; never two rows in one file):
+1. `JoyBrushActivity.kt`: JB-1.21 (in flight) → JB-0.08b/2.15 wiring (Lead) → JB-0.08c → JB-0.10 entry →
+   then chrome (JB-2.01) BEFORE any other row adds a pill. Rows 2.03a, 2.06b, 2.16, 2.17, 3.02, 3.05, 4.01
+   all want this file; they wait for 2.01's cluster instead of each bolting on controls.
+2. `GlPaintEngine.kt` / `JbCanvasView.kt` (Lead only): 2.20b → 1.05c → 1.06 → 5.01b → 2.21 → 2.23 → 2.05 →
+   0.12 Half B. T2 rows do not edit these two files (JB-2.04 and JB-2.05's small engine edits are the
+   Lead's, taken in this order).
+3. `DocModel.kt` / brush format: version numbers are assigned AT LANDING, never in a spec. Specs say "bump to
+   the next `DOC_VERSION`" / "the next `BRUSH_VERSION`"; the builder reads the current number. (2.21 says 3,
+   2.23 says 4, 7.01 says 3 — they collide.) Brush words each carry their own minimum version in
+   `wordsNeedingVersion` (smudge/push, gradient fill), so an ordinary brush never gets swept along.
+
+**R31. JB-0.02's open MAJOR (re-saving drops unknown keys and can stamp a newer version over discarded
+content).** R3 is extended: ANY new serialised field bumps the version (not only enum constants); readers
+already refuse newer versions in words. The remaining hole is a same-version file with keys the reader does not
+know: it is REFUSED in words ("this file has X, which this version of Joy Brush does not know"), never
+silently dropped. Small T2 row **JB-0.02d** (DocJson only). Until it lands nothing new may rely on additive
+fields.
+
+### B. The 38 new specs — how they are judged, then the rulings they asked for
+
+**Overall verdict:** they are good — a strong model wrote them and they hold the house quality bar in nearly
+every respect (verbatim contracts, numbered decisions, honest Questions, existing APIs almost all real,
+patent/licence rules respected). They are not yet as reliable as the Lead's, in five repeated ways, all
+mechanical (list in `reviews/SPECS_38__lead.md`): wrong expected numbers in tests (JB-3.02 has four), unit
+mix-ups (44 dp written as 88), source-level tests put in `commonTest` (cannot open files — `jvmTest`), stale
+paths/line numbers, and two false premises (PSD Subtract; the Studio's ramp model). Fix list → Ready.
+
+**R32. Units: every layout constant is in DP and multiplied by density at the use site.** JB-3.02 and JB-3.03
+wrote "44 dp" and declared 88 as a `const` "already × density" — impossible (density is runtime) and twice the
+size. Tick = **44 dp**, peg pitch **44 dp**, peg radius **14 dp**, hit radius **22 dp**, edge grab **12 dp**.
+Every derived number in their test tables changes; the corrected JB-3.02 numbers are in the review file.
+
+**R33. Animation board controls.** The peg bar owns PLAY and MODE (the owner's own idea: the pegs ARE the
+buttons). The film strip has prev/next and nothing else — JB-3.05 Decisions 13–14 are amended accordingly, so
+there is one saturated control. JB-3.03's `+` tap = **DUPLICATE** frame (what animators do most; FlipaClip is the
+named reference), long-press = Blank / Link / Hold ± / Delete. (Phone-check item: if the owner finds duplicate
+surprising, it is one constant.) Strip thumbnails: (c) now — numbered cells, host supplies bitmaps; thumbnails
+via CPU render are **JB-3.03b**. **Audio:** JB-3.05's audio half needs a document field: new T1 row **JB-0.02c**
+(`Board.audio`, archive entry `audio/<boardId>.<ext>`, `MAX_AUDIO_BYTES` = 16 MiB, refuse at attach time in
+words; copied INTO the archive; version bump per R30/R31). The pure `FrameStepper` half of JB-3.05 is Ready.
+
+**R34. Onion skin (JB-3.04).** The parity plan as written repeats the exact failure the JB-2.20a reviewers
+caught (two hand-written transcriptions compared with each other; neither reads the real code). Corrected:
+the golden is generated by RUNNING the real Java, so the Java must first be a runnable class — it is a private
+inner class of a 4 823-line Activity today. Order: D.02 (`:studiokit`) → extract `OnionMath` (pure Java, no
+Android) into the kit with SpriteLab calling it → generate the golden from it → then the core maths (**3.04a**).
+No Python transcription. Q2: 0.62, floor 12, MAX 6 stay as the Studio has them (pinned, not ours to change).
+Q3: (a) all frames in play order; the HOST passes the ghost list so the view never learns about ranges.
+
+**R35. Animation export (JB-3.06b).** GIF, PNG sequence and sprite sheet + the plan layer are Ready. **MP4 is
+delivered by "Send to Studio" (JB-3.07)**, where the Studio's own exporter produces it — no in-app MP4 encoder
+now (a `MediaCodec` path is a later T2 row with a mandatory device check). **WebP is dropped** (Android cannot
+write an animated one and nothing here can oracle a hand-written encoder). No scale factor, no range picker on
+the sheet. Also fix: `NNNN.txt` in Decision 8 is a literal typo for the manifest name — use `<name>.timing.txt`.
+
+**R36. Sprite board (4.x) — and a correction to the orchestrator.** The orchestrator's log says the "held
+frames export at the wrong speed" finding is FALSE because "there is no SpriteSheet.kt in this repo". **It was
+right.** The app is Java: `app/.../sprite/SpriteSheet.java` exists, its `Preset` carries `weights`
+(`hasWeights()`, written only when something is held, range 1..9999 via `SequenceTiming`), and
+`SpritePackerTest.nothingTheAppDoesNotWriteIsWritten` wrongly lists `weights` as a key the app never writes.
+A cell held ×3 currently exports at the wrong speed. Ruling: `Clip` gains `weights: List<Int> = emptyList()`;
+`SpritePacker` writes it under the app's own `hasWeights()` rule; the test's absent-list loses `weights` and a
+positive round-trip test is added. New row **JB-4.03c** (T2; edits a reviewed file, so a re-review follows).
+JB-4.03b's "refuse a roll with a hold" (Decision 7) is deleted once 4.03c lands. JB-4.02 Q1: roll is
+session-only for now (a). JB-4.01 Q1: "used" is derived (yes). Q2: a `−`/`+` stepper pair now.
+- **Export location (4.03b Q1):** write BOTH files together into `Documents/JoyBrush/<name>/` through
+  MediaStore on API 29+ (no permission prompt, both land in one folder, visible in the Files app); below 29 the
+  app's own folder, and say where. No tree-picker.
+- **"Export and open in SpriteLab" (4.03b Q2):** the owner's ruling stands, so this needs the Studio side:
+  new Lead row **JB-4.03d** (app file, in the serialised order) — `SpriteSheetEditorActivity` accepts a
+  sheet + sidecar and imports them into a new project. Until then 4.03b ships "Export" only and the second
+  button is absent (not dead).
+
+**R37. Ink (5.x).** JB-5.01 is split: **5.01** (replay + raster, pure core, T2, Ready) and **5.01b** (the view
+captures a `StrokeRecord` per stroke, and the GL side — T1, Lead). Q1: the SEED is generated by the view at
+stroke start, stored in the `StrokeRecord`, and is the record's alone from then on (R13 confirmed; shape (a)).
+Q2: randomness is a property of the RECORDING (doc-space spacing) — beads at 16× are invisible in practice
+(edge scallop ≈ 0.005 × diameter). Q3: the 0..1 hardness rule lands in `BrushValidate` (tiny row **JB-0.03c**),
+not in the ink path. Q4: no dab cap. JB-5.03: fix the contract typo `dy: Float` → `Double`; Q1: a smudge/wet
+pick is refused AT PICK TIME (the UI greys it with the sentence), the session's refusal stays as the backstop;
+Q2: one shared grab point; Q3: steps (50); Q4: wiring is mine, with 5.01b. JB-5.11: Q1 per R28; Q2: R10
+stands (document px — the eraser is the brush with an erase blend; one-line change if it feels wrong); Q3:
+erase everything else and REPORT the line that could not be replayed (do not refuse the whole gesture) —
+Decision 5 and test 6 are rewritten that way.
+
+**R38. The Lead's own T1 rows — decisions the writers asked for.**
+- **JB-2.20b:** ship the single composite pass and measure on the Note 9 (option a); reject (b) as the exact
+  two-implementations hazard. `GLSL_BLEND_FN` + `glslBlendFnWithModeParam()` (verified to exist) are the
+  source. `ERASE_BELOW` as an extra branch is acceptable and documented — the Studio has no band for it.
+  Keep two generators sharing one Java helper. Build BEFORE 0.12.
+- **JB-2.21 — filters run on the GPU for export too.** The spec's plan (write a CPU twin for each of 17
+  effects, offer an effect only when its twin has a golden, panel greyed in waves) is the expensive road and
+  the Studio has no CPU reference for any effect (verified: `FxRegistry`/`FxCompiler` only emit GLSL/AGSL).
+  Ruling: a `FxExecutor` seam in core; the on-device implementation runs the SAME compiled GLSL on an
+  offscreen EGL surface for export, so preview = export BY SHADER IDENTITY and no effect waits for a twin. CPU
+  twins are optional, for the few cloud-testable ones. The filter's ES 1.00 program stays its own program.
+  A filter over animation frames is out of scope. The version cost (old builds refuse new files) is accepted —
+  one owner, one phone.
+- **JB-2.22:** `GradientRamp.sampleColor/sampleAlpha` exist in Java and are Android-free (verified), so the
+  golden is generated from the REAL class — proof, not transcription. BUT the spec's `Ramp` does not match it:
+  the Studio has TWO tracks (colour stops + opacity stops, per-left-stop `biasToNext`), booleans
+  `mirror/flip/solidBands`, cap 8 — no global `bias`, no `bands: Int`. Rewrite the contract from the real class
+  before Ready (2.22b's `RampData` inherits the error). Baked = baked. Placement kind is a three-way chip
+  (line / circle / curve) in the editor bar; no gesture-only rules.
+- **JB-2.22b:** needs the owner's answer in plain words (see the report); build Reading A only after it.
+- **JB-2.23:** the composition reading is confirmed (a shape becomes a mask; a filter is clipped to it). Mask
+  is a snapshot, not a live link. A mask on a FILTER layer is refused. Mask tiles compress in the zip, so the
+  "262 KB per mask" worry is overstated.
+- **JB-1.05c:** Q1 (a): accept the half-band, fix the comment (a dry pencil should speckle at a feather touch;
+  T3 tunes). Q2: pitch = 64 / scale document px, fixed physical size. Q3: null image → `cloud_256`. Q4:
+  per-stroke depth now. Also a new T1 row **JB-1.05d** for per-brush image tips/grain (needed by imports).
+- **JB-1.06:** Q1: `"smudge": {"strength","pickup","load"}` and `"push": {"amount"}`, plain floats 0..1; one
+  `SmudgeSpec`. Q2: the engine↔layer rule lives in core (`brush/EngineRules.kt`, tiny) so 1.06 and 2.04 share
+  it. Q3: the pixel one is named "Push"; the tool-finger nudge stays "nudge".
+- **JB-0.12:** use the AndroidX libraries (route a) — `androidx.input:input-motionprediction` for prediction
+  and `androidx.graphics:graphics-core` for the front buffer; do NOT hand-roll a predictor. Half A shrinks to
+  `LatencySettings` + `LatencyPolicy` + `PenState` (the two switches are independent; hidden below API 29).
+  Half B (the view rewrite onto `SurfaceView`) is the Lead's, after 2.20b. Also fix: `object LatencyPredictor`
+  cannot have a constructor.
+- **JB-2.05 (T1, Lead):** confirmed: selection = stack of homographies (cap 64); painting is CLIPPED to the
+  selection (samples outside are dropped; no fence); moved pixels commit back into the SAME layer as one undo
+  step (NOT a new layer — Decision 7 is overturned; the layer list stays flat). **S Pen button — the spec
+  contradicts the blueprint.** Blueprint: hold-while-drawing = erase, tap = eyedropper. Spec: button-tap with
+  no loop = erase. Ruling (a design change, flagged to the owner): HOLD BUTTON + LOOP = select; the button never
+  erases; button TAP = eyedropper; erase is the Eraser preset or the pen's own eraser end.
+
+**R39. The UI rows.**
+- **JB-2.01 (chrome):** the layout is the screen the owner lives in — I will produce a mockup he approves on
+  the phone/preview BEFORE a T2-V builds it; until then the writer's cluster (rows: Undo Redo Tool Brush Colour /
+  Paper Layers Helpers Gradient Export ⋯; rail: Brush Colour Layers) is a proposal. Starts after D.02. 600 dp
+  breakpoint confirmed. `JbToast` local (a) until a shared toast exists.
+- **JB-2.02b:** NUDGE is a mode; the cycle control is the badge in the cluster; `ZOOM_FIT` is dropped from the
+  assignable set (untestable from this spec).
+- **JB-2.04:** the blend chip is HIDDEN until 2.20b (a dead control is worse than a missing one); a file with a
+  mode this build cannot composite is kept-and-marked; `SHARE = 0.5` is provisional until JB-0.10 measures a
+  layer; editing `GlPaintEngine` is fine (JB-0.07 was xr-cleared).
+- **JB-2.11:** 500 ms is a guess for the owner to tune. Contradiction fixed: the rough stroke STAYS visible in the
+  engine's stroke buffer while the preview draws over it; on lift the buffer is cancelled and the perfected
+  samples are fed through the same path (one stroke, one undo step). Fill pen: off.
+- **JB-2.12:** helpers are per-session in v1 (persisting a perspective setup is a later row, with a version
+  bump); snapping on; three ellipse handles.
+- **JB-2.14c (PSD):** Q1's premise is wrong. Photoshop's Subtract is `base − blend` and Divide is `base ÷ blend`
+  (clipped) — the same as ours; write the keys. The owner check opens a file with one layer per mode in Krita to
+  confirm (verify before trusting this ruling). `ERASE_BELOW` refuses with an offer of a flattened export. INK
+  layers are OMITTED with a warning naming them (an empty layer confuses). Also fix the contract (it uses
+  `LayerKind`, `RectPx`, `StrokeRecord` without imports; `toBytes(...)` has no types) and delete the
+  stream-of-consciousness in Decision 6.
+- **JB-2.16 / JB-2.17:** 2.16 waits for 2.01 (fill pen: greyed ring "no size"). 2.17 lands LAST and its Needs
+  gain 2.11, 2.16, 2.02b; add a fourth hint (the S Pen loop — a hidden gesture nobody discovers) — the "three,
+  then never" rule is relaxed to four; `TAP_MS`/`TAP_SLOP_PX` move to core so the sheet can read them.
+- **JB-0.10:** budgets provisional; the entry point is a "Run benchmarks" button in the hidden pen-diagnostics
+  panel (after the Activity lock order); make `JbArchive`'s deflate level a public constant (one-line edit
+  allowed); add `RegionRenderer.render` and `JbArchive.read` as two more cases; `psd-write` stays Unavailable.
+- **JB-1.07:** two waves (five now, Smudge/Nudge after 1.06). The Eraser preset wins over the Eraser button;
+  the button is removed by the chrome row (2.01), not before.
+
+**R40. Import and Phase 7.**
+- **JB-8.01/8.02/8.04:** all three importers store image tips/grain and set `source = "image"` WITH a visible
+  warning "this brush's texture is kept but not drawn yet" until JB-1.05d lands (option a, uniformly).
+  8.01: may edit `MypaintImport.kt` to read the shared `MAX_CURVE_POINTS`; hardness stand-in accepted
+  (calibration later); budgets 64 MiB / 2 048. 8.02: **no hand-written Inflate** — `expect/actual` with the JVM
+  using `java.util.zip` (and a zlib-backed actual on iOS later); taper imports LOSSY with a warning; Procreate's
+  built-ins are refused; set name becomes a prefix. 8.04: ColorSmudge imports with a warning; a brush using both
+  tilts carries a specific warning; licence/author are kept and surfaced later in the brush detail sheet.
+- **Phase 7 (7.01–7.04) stays Draft and off the runway.** Pins (7.01) are built in option (c) — Joy Brush data,
+  no solver — when scheduled; nothing else until the Lead documents Avatar Studio's real entry points
+  (`PuppetPoseResolver`, `AvatarLibrary`, driver/viseme names) in one short file. No more Phase 7 specs before that.

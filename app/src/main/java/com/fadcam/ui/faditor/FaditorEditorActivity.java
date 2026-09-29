@@ -36166,6 +36166,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
         row.addView(alignBtn);
 
+        // WRAP — Auto width (the box grows with its longest line) / wrap at Wide / Medium /
+        // Narrow widths (owner, 2026-09-29). One cycling chip, like alignment; the width is in
+        // ems so it holds at any size and resolution, and the export breaks the same lines.
+        final TextView wrapChip = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(this, "");
+        final Runnable paintWrap = () -> {
+            float w = item.getWrapEm();
+            int res = w <= 0f ? R.string.text_wrap_auto
+                    : w >= 15f ? R.string.text_wrap_wide
+                    : w >= 8f ? R.string.text_wrap_medium : R.string.text_wrap_narrow;
+            wrapChip.setText(res);
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(wrapChip,
+                    getString(R.string.text_wrap_desc, getString(res)));
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(wrapChip, w > 0f);
+        };
+        paintWrap.run();
+        wrapChip.setOnClickListener(v -> {
+            item.setWrapEm(com.fadcam.ui.faditor.model.TextOverlayItem.nextWrapEm(item.getWrapEm()));
+            paintWrap.run();
+            refreshOverlayPreview();
+            scheduleAutoSave();
+        });
+        row.addView(wrapChip, com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chipLp(this));
+
         // MOTION — the SAME icon/behaviour, just relocated into this row (owner: "I just moved
         // its location. I like it the same"). Its label turns the app's purple accent when a
         // preset is assigned, instead of staying dim — "when there's something there, it

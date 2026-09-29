@@ -204,6 +204,30 @@ public class TextOverlayItem implements LinkFollower {
 
     public void setTextAlign(@NonNull String textAlign) { this.textAlign = textAlign; }
 
+    /**
+     * Wrap width in EMS of the font size (0 = auto width: the box grows with its longest line).
+     * Ems, not pixels, because everything about a text box scales with its size; the preview and
+     * the export therefore break the same lines at any resolution. Lines break at spaces only.
+     */
+    private float wrapEm;
+
+    public float getWrapEm() { return wrapEm; }
+
+    public void setWrapEm(float wrapEm) { this.wrapEm = Math.max(0f, wrapEm); }
+
+    /** The wrap widths the drawer's chip cycles through (0 = auto). */
+    public static final float[] WRAP_STEPS_EM = {0f, 16f, 10f, 6f};
+
+    /** The step after {@code current}: auto, wide, medium, narrow, then auto again. */
+    public static float nextWrapEm(float current) {
+        for (int i = 0; i < WRAP_STEPS_EM.length; i++) {
+            if (Math.abs(WRAP_STEPS_EM[i] - current) < 0.01f) {
+                return WRAP_STEPS_EM[(i + 1) % WRAP_STEPS_EM.length];
+            }
+        }
+        return WRAP_STEPS_EM[0];
+    }
+
     /** Cycle LEFT → CENTER → RIGHT → JUSTIFY → LEFT, the order the top-row button steps through. */
     @NonNull
     public static String nextAlign(@NonNull String current) {
@@ -663,6 +687,7 @@ public class TextOverlayItem implements LinkFollower {
         c.underline = underline;
         c.textCase = textCase;
         c.textAlign = textAlign;
+        c.wrapEm = wrapEm;
         c.shadowAngleDeg = shadowAngleDeg;
         c.shadowDistancePx = shadowDistancePx;
         c.motionStartMs = motionStartMs;

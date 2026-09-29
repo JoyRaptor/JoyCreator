@@ -176,6 +176,48 @@ public final class TextBoxRenderer {
         return sb.toString();
     }
 
+    /**
+     * WRAP AT WIDTH (owner, 2026-09-29: Auto width / Wrap / Fit). When the box has a wrap width,
+     * every line longer than it is broken at spaces by turning the chosen space into a line
+     * break. That is LENGTH-PRESERVING, which is the whole trick: style runs, animation units and
+     * the drawer's selection all index into this string, and none of them move. Preview and
+     * export both come through here (measure and draw), so they break the same lines. A single
+     * word wider than the box stays whole rather than being split mid-word.
+     */
+    @NonNull
+    private static String wrapFor(@NonNull TextOverlayItem o, @NonNull String t,
+                                  @NonNull List<TextStyleResolver.Run> runs, float fontPx) {
+        float wrapEm = o.getWrapEm();
+        if (wrapEm <= 0f || o.isTimer() || t.indexOf(' ') < 0 || t.isEmpty()) return t;
+        float maxW = wrapEm * fontPx;
+        LineLayout[] lines = layout(t, runs, fontPx, null, null);
+        StringBuilder sb = null;
+        for (LineLayout ln : lines) {
+            float cur = 0f;
+            int lastSpace = -1;     // absolute index of the last space seen on this stretch
+            float sinceSpace = 0f;  // advance accumulated after that space
+            for (int k = 0; k < ln.n; k++) {
+                int gi = ln.start + k;
+                float a = ln.adv[k];
+                if (t.charAt(gi) == ' ') {
+                    lastSpace = gi;
+                    sinceSpace = 0f;
+                    cur += a;
+                    continue;
+                }
+                cur += a;
+                sinceSpace += a;
+                if (cur > maxW && lastSpace >= 0) {
+                    if (sb == null) sb = new StringBuilder(t);
+                    sb.setCharAt(lastSpace, '\n');
+                    cur = sinceSpace;       // the new line starts with the word just moved down
+                    lastSpace = -1;
+                }
+            }
+        }
+        return sb == null ? t : sb.toString();
+    }
+
     // ── Measurement ──────────────────────────────────────────────────────────────────────────
 
     /**
@@ -196,7 +238,7 @@ public final class TextBoxRenderer {
                                @NonNull float[] out) {
         String authored = normalise(text);
         List<TextStyleResolver.Run> runs = runsFor(o, authored.length());
-        String t = displayFor(o, authored, runs);
+        String t = wrapFor(o, displayFor(o, authored, runs), runs, fontPx);
         LineLayout[] lines = layout(t, runs, fontPx, null, null);
         float widest = 1f;
         float totalH = 0f;
@@ -277,7 +319,7 @@ public final class TextBoxRenderer {
         // map was still sized from the original zero-length string, so the first character of the
         // substituted line indexed past the end of a zero-length array. Any two derivations of
         // "the text" that can disagree will eventually disagree — so there is only one.
-        String t = displayFor(o, authored, runs);
+        String t = wrapFor(o, displayFor(o, authored, runs), runs, fontPx);
         float pad = fontPx * PAD_EM;
 
         float[] size = new float[2];

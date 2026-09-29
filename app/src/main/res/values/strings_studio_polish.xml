@@ -86,6 +86,12 @@
     <string name="export_draft_chip">Draft (fast)</string>
     <string name="export_draft_chip_desc">720p at low quality: about twice as fast as 1080p, for checking your edit</string>
     <string name="export_range_label">Export a range</string>
+    <!-- Text box wrap width chip (text drawer top row) -->
+    <string name="text_wrap_auto">Auto width</string>
+    <string name="text_wrap_wide">Wrap · wide</string>
+    <string name="text_wrap_medium">Wrap · medium</string>
+    <string name="text_wrap_narrow">Wrap · narrow</string>
+    <string name="text_wrap_desc">Text width: %1$s. Tap to change</string>
     <string name="caption_timing_pct">%1$d%%</string>
     <string name="export_keep_awake">Keep screen on (export runs much faster)</string>
     <string name="export_keep_awake_desc">With the screen off, the phone slows the export to save power, up to 4 times slower. The screen stays on until the export finishes, even if you keep editing.</string>

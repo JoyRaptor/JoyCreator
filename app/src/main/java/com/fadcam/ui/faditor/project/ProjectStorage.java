@@ -2446,6 +2446,11 @@ public class ProjectStorage {
                 // §4.5 per-object eye/lock (write-if-true — pre-§4.5 JSON unchanged).
                 if (o.isHidden()) oJson.addProperty("objHidden", true);
                 if (o.isProxy()) oJson.addProperty("proxy", true);
+                // Alignment was never written, so it reset to centre on every reopen.
+                if (!com.fadcam.ui.faditor.model.TextOverlayItem.ALIGN_CENTER.equals(o.getTextAlign())) {
+                    oJson.addProperty("textAlign", o.getTextAlign());
+                }
+                if (o.getWrapEm() > 0f) oJson.addProperty("wrapEm", o.getWrapEm());
                 if (o.isLocked()) oJson.addProperty("objLocked", true);
                 // Image-overlay drawer state (M-IMG-1). All sparse defaults:
                 // passThrough/scaleLinked false/true and blend "NORMAL" write nothing,
@@ -3449,6 +3454,8 @@ public class ProjectStorage {
                         // §4.5 per-object eye/lock (tolerant: absent = false).
                         if (hasValue(oObj, "objHidden")) o.setHidden(oObj.get("objHidden").getAsBoolean());
                         if (hasValue(oObj, "proxy")) o.setProxy(oObj.get("proxy").getAsBoolean());
+                        if (hasValue(oObj, "textAlign")) o.setTextAlign(oObj.get("textAlign").getAsString());
+                        if (hasValue(oObj, "wrapEm")) o.setWrapEm(oObj.get("wrapEm").getAsFloat());
                         if (hasValue(oObj, "objLocked")) o.setLocked(oObj.get("objLocked").getAsBoolean());
                         o.setTimerSpec(deserializeTimerSpec(oObj)); // absent = ordinary text
                         // W5-2 rich text spans (§3.8). Tolerant per-span read: a malformed

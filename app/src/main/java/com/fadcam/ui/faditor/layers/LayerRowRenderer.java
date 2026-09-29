@@ -2286,7 +2286,7 @@ public final class LayerRowRenderer {
         int prevColor = itemSelectionPaint.getColor();
         Paint.Style prevStyle = itemSelectionPaint.getStyle();
         itemSelectionPaint.setStyle(Paint.Style.FILL);
-        itemSelectionPaint.setColor(0xDD1F1F26);
+        itemSelectionPaint.setColor(com.fadcam.ui.faditor.Studio.alpha(com.fadcam.ui.faditor.Studio.RAISED, 0xDD));
         canvas.drawCircle(cx, cy, r, itemSelectionPaint);
         if (fxBadgePaint == null) {
             fxBadgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -2336,7 +2336,7 @@ public final class LayerRowRenderer {
         Paint.Style prevStyle = itemSelectionPaint.getStyle();
         float prevW = itemSelectionPaint.getStrokeWidth();
         itemSelectionPaint.setStyle(Paint.Style.FILL);
-        itemSelectionPaint.setColor(0xDD1F1F26);
+        itemSelectionPaint.setColor(com.fadcam.ui.faditor.Studio.alpha(com.fadcam.ui.faditor.Studio.RAISED, 0xDD));
         canvas.drawCircle(cx, cy, r, itemSelectionPaint);
         itemSelectionPaint.setStyle(Paint.Style.STROKE);
         itemSelectionPaint.setStrokeWidth(1.2f * density);
@@ -3505,7 +3505,7 @@ public final class LayerRowRenderer {
             int prevColor = itemSelectionPaint.getColor();
             float prevW = itemSelectionPaint.getStrokeWidth();
             itemSelectionPaint.setStyle(Paint.Style.FILL);
-            itemSelectionPaint.setColor(0xDD1F1F26);
+            itemSelectionPaint.setColor(com.fadcam.ui.faditor.Studio.alpha(com.fadcam.ui.faditor.Studio.RAISED, 0xDD));
             canvas.drawCircle(cx, cy, r, itemSelectionPaint);
             itemSelectionPaint.setStyle(Paint.Style.STROKE);
             itemSelectionPaint.setStrokeWidth(1.2f * density);
@@ -3623,7 +3623,7 @@ public final class LayerRowRenderer {
         fadeVeilClipPath.rewind();
         fadeVeilClipPath.addRoundRect(x0, top, x1, bottom, r, r, Path.Direction.CW);
         canvas.clipPath(fadeVeilClipPath);
-        fadeVeilPaint.setColor(0xAA050508);
+        fadeVeilPaint.setColor(com.fadcam.ui.faditor.Studio.alpha(com.fadcam.ui.faditor.Studio.GROUND, 0xAA));
         if (fadeIn > 0) {
             float fx = timeToX.map(item.getTimelineStartMs() + fadeIn);
             fx = Math.max(x0, Math.min(fx, x1));

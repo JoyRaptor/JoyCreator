@@ -22926,6 +22926,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(cornerLab);
 
         final SeekBar cornerBar = new SeekBar(this);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(cornerBar);
         cornerBar.setMax(50); // 0..0.5 of the text size, in whole percent
         final int startPct = Math.round(
                 com.fadcam.ui.faditor.transcript.CaptionStyle.clampPillCorner(cur0.pillCornerScale) * 100f);
@@ -31533,25 +31534,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
         ObjectMenuSheet.ValueFormat deg = v -> Math.round(v) + "°"; // SPEC A: raw, keeps winding
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
-        props.add(ObjectMenuSheet.Prop.staticProp("viz_x", getString(R.string.faditor_prop_pos_x), 0f, 1f, pct,
-                ms -> wf.getCenterX(),
-                (v, ms) -> { wf.setCenter(v, wf.getCenterY()); refreshVizAfterMenuWrite(); }));
-        props.add(ObjectMenuSheet.Prop.staticProp("viz_y", getString(R.string.faditor_prop_pos_y), 0f, 1f, pct,
-                ms -> wf.getCenterY(),
-                (v, ms) -> { wf.setCenter(wf.getCenterX(), v); refreshVizAfterMenuWrite(); }));
-        props.add(ObjectMenuSheet.Prop.staticProp("viz_w", getString(R.string.faditor_mask_w), 0.1f, 1f, pct,
-                ms -> wf.getWidthFraction(),
-                (v, ms) -> { wf.setSize(v, wf.getHeightFraction()); refreshVizAfterMenuWrite(); }));
-        props.add(ObjectMenuSheet.Prop.staticProp("viz_h", getString(R.string.faditor_mask_h), 0.05f, 1f, pct,
-                ms -> wf.getHeightFraction(),
-                (v, ms) -> { wf.setSize(wf.getWidthFraction(), v); refreshVizAfterMenuWrite(); }));
-        // SPEC A: the key MUST be KeyframeSet.ROTATION so promptForValue's rotation branch
-        // applies — the old "viz_rot" key fell into the numeric branch and CLAMPED a typed
-        // 720 to the slider's 180 max. The value itself was already raw; only the door lied.
-        props.add(ObjectMenuSheet.Prop.staticProp(
-                com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, getString(R.string.faditor_tool_rotate), -180f, 180f, deg,
-                ms -> wf.getRotationDeg(),
-                (v, ms) -> { wf.setRotationDeg(v); refreshVizAfterMenuWrite(); }));
+        // The same keyed rows the drawer uses (a diamond on each), not plain sliders: this sheet
+        // used to write statics only and quietly ignore a visualizer's keys.
+        props.add(vizMenuProp(wf, com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
+                getString(R.string.faditor_prop_pos_x), 0f, 1f, pct, wf::animatedCenterX));
+        props.add(vizMenuProp(wf, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
+                getString(R.string.faditor_prop_pos_y), 0f, 1f, pct, wf::animatedCenterY));
+        props.add(vizMenuProp(wf, com.fadcam.ui.faditor.model.WaveformOverlayInstance.VIZ_WIDTH,
+                getString(R.string.faditor_mask_w), 0.1f, 1f, pct, wf::animatedWidthFraction));
+        props.add(vizMenuProp(wf, com.fadcam.ui.faditor.model.WaveformOverlayInstance.VIZ_HEIGHT,
+                getString(R.string.faditor_mask_h), 0.05f, 1f, pct, wf::animatedHeightFraction));
+        // The key MUST be KeyframeSet.ROTATION so a typed 720 keeps its winding (SPEC A).
+        props.add(vizMenuProp(wf, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION,
+                getString(R.string.faditor_tool_rotate), -180f, 180f, deg, wf::animatedRotation));
 
         java.util.List<ObjectMenuSheet.Action> rangeChips = new java.util.ArrayList<>();
         rangeChips.add(new ObjectMenuSheet.Action(getString(R.string.faditor_trim_start_here), false,
@@ -36902,6 +36897,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         parent.addView(label);
 
         android.widget.SeekBar bar = new android.widget.SeekBar(this);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(bar);
         bar.setMax(maxPx);
         bar.setProgress(Math.round(Math.max(0f, Math.min(maxPx, getSize.get()))));
         label.setText(getString(labelRes) + "  ·  " + bar.getProgress() + "%");

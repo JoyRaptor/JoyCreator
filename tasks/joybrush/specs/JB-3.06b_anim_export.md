@@ -3,9 +3,10 @@
 | | |
 |---|---|
 | **Tier** | T2 (the plan layer is pure `:core` and is fully tested; the encoders are `androidkit` and are verified on device) |
-| **Status** | 🟨 **Draft — one question, and it is a big one.** Every *dependency* is Built, as the ROADMAP row says: 3.01, 3.06a (`GifEncoder`), 2.13a (`RegionRenderer`), 4.03a (`SpritePacker`). **The plan layer below — which frames, at what delay, in what order, at what size — is completely specified, fully testable in `:core` today, and is the part that is actually hard.** What is not decided is **MP4**, where the only encoders in reach are Android's `MediaCodec` (untestable off-device) and the app's own media3 pipeline (R23: integration code calling kit classes lives in `joybrush-android`, and the app-file order is the Lead's). See **Q1**. And **animated WebP has no encoder in this repo at all** — Android's `Bitmap.compress` cannot write an animation — see **Q2**. |
+| **Status** | 📝 Draft spec — **the owner area names `JoyBrushActivity.kt`, which is an APP FILE under the Lead's serialised app-file order (`D.02a → D.02 → D.02c / D.05`, one at a time, and never beside `JB-0.09`). `D.02c` and `D.05` are both on the board at `🟦 Ready (after D.02)`, so this row is not dispatchable until the Lead says which of the three runs first.** Two formats (MP4, animated WebP) also have no encoder in this repo — see Q1 and Q2, which are the Lead's and are format decisions a cross-reviewer may not take. The plan layer itself is complete and needs nothing. |
+| **Who** | spec writer `openrouter/stealth/space-bunny-alpha` 2026-09-29 · **xr: openrouter/stealth/space-bunny-alpha 2026-09-29** — verified `AnimOps.frameStartsMs(board): List<Double>` and `AnimOps.totalDurationMs(board): Double` exist (`AnimOps.kt:461`/`:442`), `SpritePacker.pack`/`assertEncodedSize(fileName, pngWidth, pngHeight)`/`data class Clip` exist (`SpritePacker.kt:143`/`:72`/`:28`), `GifEncoder.addFrame(rgba: ByteArray, delayMs: Int)` exists (`GifEncoder.kt:436`), the board's fps range really is 1..60 (`DocOps.kt:87` and `AnimOps.kt:543`), and `JbArchive`'s `unsafeReason` is **private** (`JbArchive.kt:514`) — so Decision 3's "the same set" is a restatement, not a shared constant. Added the stop rule and a hard app-file warning. Left Draft: the app-file order and Q1/Q2. |
 | **Needs** | 3.01, 3.06a, 2.13a, 4.03a (as the ROADMAP row states) |
-| **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlan.kt` · NEW `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlanTest.kt` · NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/AnimExport.kt` · EDIT `joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt` (the export pill and the format sheet — nothing else in that file) |
+| **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlan.kt` · NEW `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlanTest.kt` · NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/AnimExport.kt` · EDIT `joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt` (the export pill and the format sheet — nothing else in that file). **🔴 the last path is an APP FILE — see the Status line and "Do not".** |
 | **Estimated size** | ~230 lines of Kotlin in `:core` + ~280 lines of tests, ~260 lines of Android |
 | **Command** | `./gradlew -p joybrush :core:jvmTest` — 0 failures. Then the watcher compiles `:androidkit:compileKotlin` and `:joybrush-android:compileDebugKotlin` green. |
 
@@ -28,6 +29,7 @@ package cc.joycreator.joybrush.core.export
 
 import cc.joycreator.joybrush.core.doc.Board
 import cc.joycreator.joybrush.core.doc.RectPx
+import cc.joycreator.joybrush.core.export.SpritePacker
 
 /**
  * WHAT to export, as data. Every encoder below is a consumer of this and adds nothing of its own.
@@ -101,6 +103,43 @@ object AnimExport {
     fun safeBaseName(raw: String): String
 }
 ```
+
+**The landed functions this plan layer calls, pasted so nothing above says "see the other file"**
+(all verified in the tree 2026-09-29):
+
+```kotlin
+// cc.joycreator.joybrush.core.doc.DocModel.kt:69 — the whole of what `plan(board)` is given
+@Serializable data class Board(
+    val id: String,
+    val name: String,
+    val kind: BoardKind,                   // CANVAS | ANIMATION | SPRITE | PUPPET | CHARACTER
+    val rect: RectPx,
+    val clipToBoard: Boolean = false,
+    val fps: Float = 12f,                  // ANIMATION only. DocOps.kt:87 refuses `fps !in 1f..60f`
+    val frames: List<Frame>,               // ANIMATION only, IN PLAY ORDER
+    val grid: SpriteGrid? = null,          // SPRITE only
+)
+@Serializable data class Frame(val id: String, val holdFrames: Int = 1)
+@Serializable data class RectPx(val x: Int, val y: Int, val w: Int, val h: Int)
+
+// cc.joycreator.joybrush.core.doc.AnimOps.kt — THE ONLY source of a frame's length (Decision 2)
+fun totalDurationMs(board: Board): Double                        // :442
+fun frameStartsMs(board: Board): List<Double>                     // :461  — starts, not lengths
+// A frame's own length is `holdFrames * 1000.0 / fps`, multiplying before dividing (AnimOps.kt:475).
+
+// cc.joycreator.joybrush.core.export.SpritePacker.kt
+data class Clip(/* :28 */ …)                                     // the sidecar's one clip
+fun assertEncodedSize(fileName: String, pngWidth: Int, pngHeight: Int)   // :72
+fun pack(/* :143 */ …)                                           // the limits live HERE, not here
+
+// cc.joycreator.joybrush.core.export.GifEncoder.kt:436
+fun addFrame(rgba: ByteArray, delayMs: Int)
+```
+
+**`frameStartsMs` returns the STARTS of frames, not their lengths.** The plan's `delayMs[i]` is a
+length, so it is `frameStartsMs[i + 1] - frameStartsMs[i]` for every `i` but the last, and the last
+is `totalDurationMs - frameStartsMs.last`. Read that derivation out of those three functions; do not
+write `holdFrames * 1000 / fps` here (Decision 2, and the house rule from JB-3.05a).
 
 ## Contract — the encoder layer (`androidkit`)
 
@@ -318,6 +357,34 @@ Command: `./gradlew -p joybrush :core:jvmTest` — 0 failures.
 - Do not touch `DocModel.kt` / `DocJson.kt` / `JbArchive.kt`. Writing paper into the document is
   JB-2.13b's and it has done it.
 - No new dependencies.
+- **🔴 Do not edit `JoyBrushActivity.kt` in this row without the Lead naming the slot.** It is an
+  app file. The board's own note (Lead, 2026-09-29) is *"App-file work is serialised … Never two of
+  these in the tree together, and never alongside `JB-0.09`"*, and `D.02c` and `D.05` are both
+  sitting at `🟦 Ready (after D.02)`. **Three of the specs in flight name this one file — JB-3.06b
+  (this row), JB-2.15 and JB-2.13b — and JB-0.10's Q2 wants a fourth** (a hidden gesture on the same
+  screen). Four rows, one `Activity`. If the Lead wants the plan layer now, the clean split is to keep
+  `AnimExportPlan.kt` + its test as this row and move `AnimExport.kt` and the `Activity` edit into a
+  follow-up that owns the file outright. Say so and I will split the spec that way.
+- **Do not treat `JbArchive.unsafeReason` as a shared constant.** It is **private**
+  (`JbArchive.kt:514`) and lives in `androidkit`, which `commonMain` cannot see at all — so Decision
+  3's "the same set" is a *restatement*, not an import. Write the rules out in `commonMain` and put a
+  comment on both sides naming the other, so a future reader knows it is one rule in two places. The
+  exact set `JbArchive` refuses: an empty name; longer than its `MAX_NAME_CHARS`; any char with
+  `code < 0x20` or `code == 0x7F`; a `\`; a leading `/`; a `:`; a path that is nothing but a
+  separator; an empty path segment; a segment that is `.` or `..`; and a segment whose
+  `trimEnd(' ', '.')` is empty, `.` or `..` (Windows drops trailing dots and spaces, so `".. "` *is*
+  the parent folder). **`..` is not refused by a check for the substring `".."`** — it is refused by
+  the segment rule, so a builder who writes only the substring check misses `".. "`, `"foo/./bar"`
+  and `"a/ /../b"`.
+
+## Stop rule
+
+If anything here is ambiguous, or a claim about landed code turns out to be false when you open the
+file, **STOP**: write the question in *Questions* under a heading `for the cross-reviewer`, set this
+row `⛔ Blocked`, commit, push, and take another task. Two things are never a builder's call in this
+file: **which encoder a format uses** (Q1, Q2 — refuse the format in words instead) and **whether an
+app file may be edited** (see the Status line). Never write a file with the right extension and
+plausible-looking bytes to get past an unanswered question.
 
 ## Definition of done
 
@@ -335,6 +402,34 @@ Command: `./gradlew -p joybrush :core:jvmTest` — 0 failures.
 _(Spec writer: openrouter/stealth/space-bunny-alpha, 2026-09-29. The plan layer is finished and
 pinned. Two formats are undecided and one product question is open; none of the three changes a
 single line of the code above.)_
+
+### ⛔ for the cross-reviewer — why this is still Draft
+
+1. **The owner area names an app file that two other Ready rows also name.** See the Status line and
+   the app-file bullet in *Do not*. This is not a defect in the spec — the spec is right that the
+   export sheet belongs on that screen — it is a **dispatch** collision, and it is the Lead's to
+   order. A builder handed this file as written would have to decide whether it may edit
+   `JoyBrushActivity.kt` at all.
+2. **Q1 (MP4) and Q2 (animated WebP) are file-format decisions.** Which encoder writes MP4, and
+   whether a third-party bitstream format goes inside `commonMain` or inside `androidkit`, are
+   exactly the class of question the cross-reviewer brief forbids answering: *"Contracts, file
+   formats, app build files, or anything that touches the phone: you must NOT decide."* Decision 16
+   already makes the row safe in the meantime — both formats are **refused in words** and write zero
+   bytes — so nothing is half-specified; there is simply no MP4 in this row, and the board's row text
+   promises one.
+3. **Q3's three product options** (scale factor, transparent background, a range picker in the sheet)
+   are product calls the blueprint does not make. The spec has ruled "no" to all three and said so in
+   *Do not*, which is defensible, so I did not treat them as blocking.
+
+**Checked and found TRUE** (tree, 2026-09-29): `AnimOps.frameStartsMs(board): List<Double>`
+(`AnimOps.kt:461`) and `totalDurationMs(board): Double` (`:442`) exist with the signatures Decision 2
+assumes; `frameStartsMs` really does return **starts**, not lengths, so the derivation added to the
+contract is needed and is not decoration; `SpritePacker.pack` (`:143`), `assertEncodedSize` (`:72`)
+and `data class Clip` (`:28`) exist; `GifEncoder.addFrame(rgba: ByteArray, delayMs: Int)`
+(`GifEncoder.kt:436`) matches test 11's description; the board's fps range is `1f..60f` in **two**
+places (`DocOps.kt:87` and `AnimOps.kt:543`), so the contract's "1..60" refusal is `AnimOps`' own and
+not a second rule. The one claim that needed correcting is in *Do not*: `unsafeReason` is private and
+in another module, so it cannot be shared and "the same set" is a restatement.
 
 ### Q1 — for the Lead: MP4 has no encoder in reach, and both candidates are awkward
 

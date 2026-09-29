@@ -3,7 +3,8 @@
 | | |
 |---|---|
 | **Tier** | T2 |
-| **Status** | see ROADMAP.md |
+| **Status** | 🟦 Ready |
+| **Who** | spec writer (unattributed in the original) · **xr: openrouter/stealth/space-bunny-alpha 2026-09-29** — checked the whole mapping table against `BrushPreset.kt` and `BrushValidate.kt` and **found two fields that do not exist**: the row mapped `roundnessDynamics` to `tip.aspect.inputs[…]` and `colorDynamicsPerTip` to `color.perDab`, and `tip.aspect` is a plain `Float` with no `inputs` while the per-dab flag is `color.perStroke`. Both corrected below. Verified true: `BrushValidate.MAX_INPUTS`/`MAX_CURVE_POINTS` are `private const` (`:28`, `:31`) so making them public is two words; `MAX_SIZE_PX` is already public (`:25`) so the diameter clamp reads the shared one; `spacing` really is ranged `0.005..5` by rule 4; `sourceFormat` carries no validator rule and `"abr"` is already in the documented word list at `BrushPreset.kt:81`; `MypaintImport.kt:35` holds the `MAX_CURVE_POINTS = 64` copy the Q1 names, **and `:201` holds a second drift the Q1 did not name**. Ruled provisionally on Q1, Q2, Q3, Q4 and Q5 — all reversible, none a contract. Added the stop rule and a hard sequencing rule against JB-8.02 / JB-8.04. |
 | **Needs** | JB-0.03 (brush format + validation). **Only JB-0.03. JB-8.03's open MAJOR is a warning that applies here too.** |
 | **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/brush/imports/AbrImport.kt`, NEW `.../imports/AbrReader.kt` (big-endian container + Action Descriptor reader), NEW `.../commonTest/.../brush/imports/AbrImportTest.kt`, NEW `.../commonTest/.../brush/imports/AbrReaderTest.kt`, NEW `.../imports/ImportSupport.kt` (**only if it does not already exist** — Decision 2); EDIT `.../brush/BrushValidate.kt` (**two words only**: `MAX_INPUTS` and `MAX_CURVE_POINTS` `private` → `public`, so Decision 9 reads them instead of copying them) |
 | **Estimated size** | ~600 lines + ~400 lines of tests |
@@ -104,13 +105,25 @@ in full, and only then mapped.
 | Size minimum % | `szVr.Mnm `, `minimumDiameter` | folded into that curve's y | MAPPED |
 | Size fade steps | `szVr.fStp` | `size.inputs[distance]` | MAPPED |
 | Angle jitter % | `angleDynamics` | `angleJitter` = `jitter × 360` | MAPPED |
-| Angle control | `angleDynamics.bVTy` | `tip.angle.inputs[…]` | **MAPPED** |
-| Roundness jitter | `roundnessDynamics` | `tip.aspect.inputs[…]` | MAPPED |
-| Scatter % | `scatterDynamics` | `scatter.amount` | MAPPED |
+| Angle control | `angleDynamics.bVTy` | `tip.angle.inputs[…]` | **MAPPED** (`tip.angle` is a `Param`, so it takes inputs) |
+| Roundness jitter | `roundnessDynamics` | **no field** — `extensions["abr.roundnessDynamics"]` + one warning | **LOSSY** |
+| Scatter % | `scatterDynamics` | `scatter.amount` (a `Param`, so it takes inputs) | MAPPED |
 | Scatter both axes | `bothAxes` | `scatter.bothAxes` | MAPPED |
 | Count | `Cnt ` | `scatter.count` | MAPPED |
 | Count jitter | `countDynamics.jitter` + `.bVTy` | `scatter.countJitter` + no curve (no field) | LOSSY if `bVTy ≠ 0`, warn |
 | Tilt scale | `tiltScale` | y of `size.inputs[tilt]` | MAPPED |
+
+> **Cross-reviewer correction (2026-09-29): roundness dynamics has no home.** The original table said
+> `roundnessDynamics → tip.aspect.inputs[…]`. There is no such thing: `TipSpec.aspect` is
+> `val aspect: Float = 0f` (`BrushPreset.kt:37`) — a bare float with **no `inputs`, no `base`** — so a
+> curve cannot be attached to it at all, and writing one would not compile. Roundness is the same
+> shape of loss as "flip X/Y" two rows up: Joy Brush has the *setting* but not a curve on it. So it
+> follows the row's own rule — LOSSY, raw value in `extensions["abr.roundnessDynamics"]`, one warning
+> naming the setting. The jitter *percentage* is the part that could map, and there is nowhere to put
+> it either, so it rides in the same `extensions` entry.
+>
+> By contrast `tip.angle` (`val angle: Param = Param(0f)`), `size`, `opacity`, `flow` and
+> `scatter.amount` **are** `Param`s and do take `inputs` — those five curves are real.
 
 ### Texture, colour, transfer, toggles
 
@@ -121,8 +134,8 @@ in full, and only then mapped.
 | Texture brightness / contrast | `textureBrightness`, `textureContrast` | folded into the depth curve | **LOSSY**, warn (R4 A.5: the exact curve is unknown) |
 | Opacity jitter + control + min | `opVr` | `opacity.inputs[…]` + base | **MAPPED (control → curve)** |
 | Flow jitter + control | `prVr` | `flow.inputs[…]` | **MAPPED** |
-| Hue / Sat / Brightness jitter | `H   `, `Strt`, `Brgh` | `color.hue/saturation/value` | **MAPPED** (all are 0..1 already) |
-| Apply per tip | `colorDynamicsPerTip` | `color.perDab` | MAPPED |
+| Hue / Sat / Brightness jitter | `H   `, `Strt`, `Brgh` | `color.hue/saturation/value` | **MAPPED, with a division — see the note below** |
+| Apply per tip | `colorDynamicsPerTip` | `color.perStroke = true` | MAPPED (and see the note below) |
 | Wetness / mix jitter | `wtVr`, `mxVr` | — | **LOSSY**, `extensions`, warn (JB-1.06 not built) |
 | Noise | `Nose` | — | LOSSY, warn |
 | Wet edges | `Wtdg` | — | LOSSY, warn (Phase 6) |
@@ -130,6 +143,31 @@ in full, and only then mapped.
 | Tool opacity / flow | `toolOptions.Opct`, `toolOptions.flow` | `opacity.base`, `flow.base` | MAPPED |
 | Smoothing % | `toolOptions.smoothingValue` | `smoothing` = `/100` | MAPPED |
 | Everything else | any key not in this table | `extensions["abr.<path>"] = <raw>`, one warning **per group** | LOSSY |
+
+> **Two corrections in these last two rows (cross-reviewer, 2026-09-29).**
+>
+> **(a) The per-dab flag is `color.perStroke`, not `color.perDab`.** `ColorJitter` is
+> `data class ColorJitter(val hue: Float = 0f, val saturation: Float = 0f, val value: Float = 0f,
+> val perStroke: Boolean = false)` (`BrushPreset.kt:57`). There is no `perDab`; `color.perDab = true`
+> would not compile. Set `perStroke = true`.
+>
+> **(b) "All are 0..1 already" is a claim about the `.abr` format that nobody in this repo can check,
+> and `BrushValidate` will act on it.** `color.hue/saturation/value` are all ranged `0f..1f` by rule
+> 15, and Decision 11 says a preset that does not validate clean is a **refusal of the whole brush**.
+> So if `Brgh` is really a 0..100 percentage — which is how Photoshop's UI shows it — every `.abr` that
+> carries a brightness jitter is **refused**, and a whole pack imports as an empty library. The writer
+> asserted the scale; nobody verified it, and I cannot either from this tree.
+>
+> **The mapping is therefore written so the assertion cannot be the thing that breaks the import:**
+> `color.hue = H/100`, `color.saturation = Strt/100`, `color.value = Brgh/100` — divide by 100 — and
+> then **clamp to `0f..1f` with a warning naming the field and both numbers**, which is the row's own
+> standing rule (Decision 11, and the `Do not` "never clamp silently"). A percentage of 100 becomes
+> 1.0 and a percentage of 0 becomes 0.0, so the mapping is correct whether the file stores 0..1 or
+> 0..100 **as long as the file does not store something else entirely**; and if it does store
+> something else, the warning says so in the words a person can act on, instead of the brush
+> disappearing. **Add this as a named test:** a synthetic `Brgh = 100` produces `color.value == 1.0f`
+> and no warning, and a synthetic `Brgh = 250` produces a clamped value *and* a warning naming
+> `Brgh`. That test is what makes the row survive being wrong about the format.
 
 ### `bVTy` (the control) — R4 A.2's disputed codes
 
@@ -153,9 +191,14 @@ still bounded by `Mnm `** rather than being dropped.
    removes **that brush** and lands in `refused` with a sentence.
 2. **`ImportLibrary`, `RefusedBrush` and `summary()` live in `ImportSupport.kt`, and the three Phase 8
    importers are SERIALISED against each other for that one file.** Whoever lands first creates it
-   with exactly this content; the others read it and do not touch it. **Do not run two of JB-8.01,
-   JB-8.02, JB-8.04 at once.** (This is the same discipline as the board's app-file order, for the
-   same reason: two agents writing one new file is how a merge conflict becomes a lost hour.)
+   with exactly this content; the others read it and do not touch it. **This row is the one that
+   creates it**, because it is first on the board, and because it is also the only one of the three
+   that makes `BrushValidate.MAX_INPUTS` / `MAX_CURVE_POINTS` public (Decision 9) — and **JB-8.02 and
+   JB-8.04 read those two constants**, so neither of them compiles until this row lands. Their
+   *Needs* say `0.03` only; that is a board inaccuracy and this row's Do-not list now says so in
+   words. **Do not run two of JB-8.01, JB-8.02, JB-8.04 at once.** (This is the same discipline as
+   the board's app-file order, for the same reason: two agents writing one new file is how a merge
+   conflict becomes a lost hour.)
 3. **Every budget is a constant in `AbrImport.kt`, named, and every one is a refusal.** The numbers
    below are the cap **and** the test that it is enforced. A declared size is a wish; a length inside a
    file bounds only the file's claim about itself.
@@ -300,6 +343,22 @@ brushes. Use a CC0 or public-domain pack (R4 §B.9 names K. M. Alexander's carto
 - Do not write `extensions` past `MAX_EXTENSION_BYTES`.
 - Do not touch `BrushPreset.kt`, `BrushJson.kt` or `dynamics/` — JB-0.03b owns validation and
   `BRUSH_VERSION`.
+- **Do not run JB-8.02 or JB-8.04 beside this row**, and do not go and create `ImportSupport.kt` for
+  them: they read it and `BrushValidate.MAX_CURVE_POINTS` from **this** row (Decision 2).
+- Do not change a `BrushPreset` field name to make a mapping fit. Two of them did not fit and both
+  were corrected to the field that exists (`color.perStroke`, and roundness into `extensions`) rather
+  than to a field that does not.
+
+## Stop rule
+
+If anything here is ambiguous, or a claim about the `.abr` format turns out to be false when you
+build the fixture, **STOP**: write the question in *Questions* under a heading `for the cross-reviewer`,
+set this row `⛔ Blocked`, commit, push, and take another task. This file reads strangers' binaries,
+so the three failure modes that matter are: **never decode an image, never trust a length or a
+count, and never substitute a brush that draws differently without saying so in the warnings.** A
+brush that imports "successfully" and draws differently is the outcome this whole spec exists to
+avoid. If a field's *scale* turns out to be unknowable from the fixtures you have, keep the raw value
+in `extensions` and warn — do not pick a number.
 
 ## Definition of done
 
@@ -311,41 +370,67 @@ brushes. Use a CC0 or public-domain pack (R4 §B.9 names K. M. Alexander's carto
 
 ## Questions
 
-**Q1. `MypaintImport.kt:35` has a private copy of `MAX_CURVE_POINTS = 64`, and JB-8.03's own KDoc
-concedes it is "`BrushValidate`'s own per-curve cap". Decision 9 makes that constant public so this row
-can read it — which means there are now two literals that can drift, and the second one is in Built
-code.** R19 says a shared constant is never copied, and the review that caught the MyPaint opacity
-curves is the same family of bug. **Ruling needed:** may I edit `MypaintImport.kt` to delete its copy
-and read the shared constant? It is one line and it is outside this spec's owner area, so I have not
-touched it — but leaving it is knowingly shipping a drift.
+### PROVISIONAL — Claude to confirm (cross-reviewer, 2026-09-29)
 
-**Q2. BLOCKING for the sampled-tip call. Decision 4 LOSSY-maps a bitmap tip to a soft procedural stand-in.
-Is that right, or should a sampled-tip brush be REFUSED?** I chose LOSSY because the owner's Phase 8
-acceptance is *"your favourite Photoshop brush works"* and **the overwhelming majority of real `.abr`
-brushes are sampled tips** — refusing them all would import perhaps the minority and the row would look
-broken. But the JB-8.03 review's reasoning cuts the other way: *"imports successfully, draws
-differently is the worse outcome."* My reconciliation is that a bitmap tip's stand-in is *recognisably
-the same brush* (right size, right hardness, same place on the stack), whereas MyPaint's `opaque` base
-of `2.5e-05` made a visible brush **invisible**. **If you disagree, Decision 4 and tests 9 and 10 are
-the two places to change.**
+Every one of these five is a **mapping choice inside one row**, reversible in one edit, and none of
+them is a contract or a file format. The builder executes the spec exactly as written; if the Lead
+prefers the other branch, each one names the exact place to change it.
 
-**Q3. Does `hardness` derived from the bitmap's *mean* alpha match anything?** R4 A.3 is explicit that
-Adobe has never published the hardness curve, and lists four incompatible implementations (GIMP's
-`exponent = 0.4/(1−hardness)` Gaussian-ish, MyPaint's two linear segments in `r²`, Krita's
-`hfade = Hrdn/100`, brushkit's uncalibrated approximation). My `0.25 + 0.7 × mean` is a third guess and
-it is **not in any of the four**. It is one line and it is pinned by a test so it is at least visible
-when someone calibrates a real Photoshop screenshot — which is R4's own advice and is not in any row.
-**Do you want a calibration task, or is "documented and wrong-but-sane" acceptable for now?**
+1. **Q1 — `MypaintImport.kt` is NOT edited by this row.** Default **no**: leave the drift, report
+   it, and do not touch another Built spec's file to tidy a number. **Correction to Q1 as written:**
+   the duplication is **two**, not one — `MypaintImport.kt:35` holds
+   `private val MAX_CURVE_POINTS = 64` (the one Q1 names, at exactly the line Q1 gives) **and
+   `MypaintImport.kt:201` holds `private val MAX_SIZE_PX = 4096f`**, whose own KDoc admits it is
+   "`BrushValidate.MAX_SIZE_PX`, restated here". `BrushValidate.MAX_SIZE_PX` is already **public**
+   (`BrushValidate.kt:25`), so this row's diameter clamp reads the shared one and creates no third
+   copy — but the Lead should know there are two drifting literals in Built code, not one, and the
+   fix (delete both copies and import) is a two-line change to a file this row must not edit.
+   **PROVISIONAL — Claude to confirm.** The only test affected is 6, which asserts this row's presets
+   validate clean and therefore already fails if this row ever copies the constant.
+2. **Q2 — a sampled tip is LOSSY (Decision 4 stands).** Ruled, because the blueprint already answers
+   the underlying question in the owner's own words: blueprint §1 row 1, change (c), is *"add a
+   **tip-source switch** so an image can *be* the tip (needed for imports and leaf/stamp brushes)"* —
+   so a bitmap tip being importable is design direction, and Phase 8's owner check is *"your
+   favourite Photoshop brush works"*, and the overwhelming majority of real `.abr` tips are sampled.
+   Refusing them would make the row look broken while being more defensible in the abstract. The
+   stand-in keeps right size, right hardness and right place on the stack, and says what it did.
+   **To reverse it:** Decision 4 and tests 9 and 10 are the two places — exactly as Q2 says.
+3. **Q3 — `0.25 + 0.7 × mean` stands for now, documented as a guess.** It is one line, it is pinned
+   by a test, and R4's own advice is to calibrate against real Photoshop output. **No calibration
+   row is required to ship this row.** If the Lead wants one, it is a separate row and it changes
+   this one line. **PROVISIONAL — Claude to confirm.**
+4. **Q4 — the budgets stand as written** (`MAX_FILE_BYTES` 64 MiB, `MAX_BRUSHES` 2048). Both are
+   refusals with a sentence, so being generous costs time and being tight costs a pack; a pack that
+   "does not import" with a clear message is the better of the two failure modes here, because the
+   other one is a person waiting 30 s and then getting nothing. **PROVISIONAL — Claude to confirm.**
+5. **Q5 — `paperGrain.source` stays `"cloud"` and the grain stays disabled (Decision 5 stands).** The
+   ruling follows this row's own Q2 logic in the other direction: a *bitmap tip* gets a recognisable
+   procedural stand-in with the size and hardness preserved, whereas a bitmap *grain* has no such
+   stand-in — a cloud grain in place of the artist's texture is not a coarser version of their
+   brush, it is a different brush wearing its name. And the technical claim in Q5 is **verified
+   true**: `GRAIN_SOURCES = setOf("cloud", "image")` (`BrushValidate.kt:21`), so `"image"` would
+   validate clean and then draw nothing. Note that JB-8.02 as written sets `paperGrain.source =
+   "image"`, which is the thing Q5 argues against — the two specs must not land disagreeing.
+   **PROVISIONAL — Claude to confirm.**
 
-**Q4. Budgets (Decision 3) — the two I am least sure of.** `MAX_FILE_BYTES` at 64 MiB: large CC0
-`.abr` packs exist and I have not measured one. `MAX_BRUSHES` at 2 048: I have no idea what the largest
-real pack is. Both are one constant each and both are refusals, so being too low means a pack that
-"does not import" with a clear message. **Would you rather they were generous (and a big file took
-30 s) or tight (and some packs refuse)?**
+### Open, for the Lead, and it blocks JB-8.02 and JB-8.04 rather than this row
 
-**Q5. `paperGrain.source = "image"` exists in the brush format and `BrushValidate` accepts it, but
-nothing in the engine reads an image.** Decision 5 refuses to set it for that reason. **Is there a row
-for image tips and image grain, or should this importer set `source = "image"` anyway and let the
-untouched engine ignore it?** My answer is no — a file that validates clean and then draws nothing is
-the exact "silent nonsense" `BrushJson.decodeChecked`'s own KDoc was written to prevent, and the refusal
-plus a warning is this project's house answer.
+**Q6 (new). One ruling for all three importers: may an importer set `source = "image"` on a tip or a
+grain at all?** This row's answer is no (Decisions 4 and 5). JB-8.04's Q1 asks the same question and
+leans the other way; JB-8.02's mapping table sets `paperGrain.source = "image"` unconditionally. Two
+of the three are wrong under one answer and right under the other, and nothing in the board forces
+them to agree — which means whichever lands first silently decides it. **It is not a blocker for
+JB-8.01**, because JB-8.01 never sets an image source and so is correct under either answer. It is a
+blocker for JB-8.02 and JB-8.04, and it should be answered before either of them is dispatched.
+
+_(The spec writer's original Q1–Q5 text is superseded by the five PROVISIONAL rulings above, which
+answer each of them and name the place to reverse it. Their reasoning is kept here in one paragraph so
+the ruling can be argued with, not just obeyed: **Q1** was one private copy of `MAX_CURVE_POINTS` in
+Built MyPaint code and the writer wanted permission to delete it — ruled *no*, with the second
+drift at `:201` added; **Q2** was sampled tips as LOSSY-versus-REFUSED, and the writer noted the
+tension with the JB-8.03 review's "imports successfully, draws differently is the worse outcome",
+which is the reason it is now tied to blueprint §1(c) rather than left to taste; **Q3** was an
+uncalibrated hardness curve that matches none of the four implementations in R4 A.3; **Q4** was two
+budgets nobody has measured; **Q5** was whether an importer may set `source = "image"` at all —
+which turned out to be the one that matters, and is now Q6 because it reaches two other specs.)_
+

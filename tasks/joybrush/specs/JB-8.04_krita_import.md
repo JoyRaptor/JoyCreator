@@ -3,7 +3,8 @@
 | | |
 |---|---|
 | **Tier** | T2 |
-| **Status** | see ROADMAP.md |
+| **Status** | 📝 Draft spec — **Decision 4 cannot be built as written: the contract has no place to put what Decision 4 returns, and two tests assert it.** `ImportLibrary(brushes, refused)` and `ImportResult(preset, warnings)` — the types this spec is told to reuse (JB-8.01's Decision 2) — carry **no bytes at all**, so "the importer returns the bytes in its result" and test 12's round-trip on "the decoded bytes in the result" are unimplementable without changing a type two other specs read. **⛔ Plus the unreplied Q1** (may an importer set `source = "image"` at all? JB-8.01 says no, JB-8.02 says yes) **and a compile blocker:** Decision 3 reads `BrushValidate.MAX_CURVE_POINTS`, which is `private` until JB-8.01 lands. |
+| **Who** | spec writer (unattributed in the original) · **xr: openrouter/stealth/space-bunny-alpha 2026-09-29** — confirmed the contract cannot carry embedded-tip bytes (read `ImportResult` at `MypaintImport.kt:29` and `ImportLibrary` as declared in JB-8.01); confirmed `BrushValidate.rule 23` (`BrushValidate.kt:236`) makes `tip.source = "image"` require a non-blank `tip.image`, so Decision 4's "written out by the caller" is a promise nothing in this row keeps; confirmed `MAX_CURVE_POINTS` is `private`; fixed the truncated budget unit `8 Mi` and two missing units in Decision 7; confirmed the Decision 1 claim about `InkEraseMode`'s exhaustive mapping is a *style* reference, not a shared helper, so it needs no import. Left Draft. |
 | **Needs** | JB-0.03 (brush format + validation) |
 | **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaImport.kt`, NEW `.../imports/PngChunks.kt` (PNG signature + `tEXt`/`zTXt`/`iTXt` chunk reader — **no decoding**), NEW `.../commonTest/.../brush/imports/KritaImportTest.kt`, NEW `.../commonTest/.../brush/imports/PngChunksTest.kt`; `ImportSupport.kt` **only if absent** (JB-8.01's Decision 2). **NOT** `Inflate.kt` (Decision 5) |
 | **Estimated size** | ~500 lines + ~380 lines of tests |
@@ -97,10 +98,13 @@ object KritaImport {
 4. **`brush_definition` decides the tip, and the tip is the only place this row can go wrong.**
    * `type = "auto_mask"` or an empty definition → a procedural tip; `tip.aspect` from the ellipse's
      `rx`/`ry`, `tip.corner` = 2. MAPPED.
-   * a **base64-embedded PNG** → `tip.source = "image"`, `tip.image` = a written-out file name. **The
-     bytes are extracted and written by the caller**, not by this importer; the importer returns the
-     bytes in its result and names the file. (This is the same shape as JB-8.01's Decision 5
-     concern — see Q1.)
+   * a **base64-embedded PNG** → `tip.source = "image"` and a file name in `tip.image`. **How the
+     bytes get from the archive to a file the brush library can resolve is ⛔ NOT DECIDED — see
+     Q1.** As written this row is unimplementable: `ImportLibrary` and `ImportResult` (the types it
+     must reuse, JB-8.01's Decision 2) hold `List<ImportResult>` and `List<RefusedBrush>` and
+     **no bytes at all**, so "the importer returns the bytes in its result" names a field that does
+     not exist, and `commonMain` cannot write a file even if it did. **This is a contract decision on
+     a type two other specs read, so it is not a cross-reviewer's to make.**
    * a base64-embedded **GBR / GIH / ABR** → **REFUSED** for this row, with the format named. Reason,
      stated so it is not a bare "no": GIMP's `.gbr` and `.gih` and Adobe's `.abr` are three more
      binary readers, and this row's budget is one XML parser and one PNG chunk reader.
@@ -129,7 +133,7 @@ object KritaImport {
 | `MAX_XML_DEPTH` | 64 |
 | `MAX_XML_NODES` | 200 000 |
 | `MAX_XML_ATTRS_PER_NODE` | 256 |
-| `MAX_BASE64_CHARS` | 8 Mi |
+| `MAX_BASE64_CHARS` | 8 Mi chars (8 388 608) — **was written "8 Mi", a truncated unit; corrected 2026-09-29** |
 | `MAX_BRUSHES` | 2 048 |
 | `MAX_EXTENSION_BYTES` | 256 KiB per brush |
 
@@ -252,6 +256,25 @@ with their source and licence in a comment — R4 §B.9 names David Revoy's `dee
 - Do **not** set `license = "CC0"` for a pack that does not say so. R4 §B.9: Krita's default bundle is
   mixed and licences are **per resource**.
 - Do **not** run this spec at the same time as JB-8.01 or JB-8.02 — they share `ImportSupport.kt`.
+- **Do not run this spec until JB-8.01 has landed.** Decision 3 reads
+  `BrushValidate.MAX_CURVE_POINTS`, and **JB-8.01 is what makes it public**; it is `private const` in
+  the tree today. The board's *Needs* column for this row says `0.03` only; that is a board
+  inaccuracy, and the dispatch order is **JB-8.01 → (JB-8.02 | this row)**, never two at once.
+- Do **not** invent a field on `ImportResult` / `ImportLibrary` to carry the embedded-tip bytes. They
+  are JB-8.01's and two other specs read them; changing the shape is Q1 and the Lead's.
+- Do **not** assume `source = "image"` may be set. `BrushValidate` accepts it (`:20`, `:21`) and rule
+  23 (`:236`) only checks that the path is non-blank — so a preset can validate clean, name a file
+  that was never written, and draw as procedural. That is the silent-nonsense door and it is open.
+
+## Stop rule
+
+If anything here is ambiguous, or a claim about the `.kpp` format turns out to be false when you build
+the fixture, **STOP**: write the question in *Questions* under a heading `for the cross-reviewer`, set
+this row `⛔ Blocked`, commit, push, and take another task. Three things are never a builder's call in
+this file: **whether a non-`Pixel`/`ColorSmudge` engine may be approximated** (it may not — that is
+the row), **whether a compressed `zTXt` may be inflated here** (it may not — Decision 5), and **how
+an embedded tip's bytes reach a file** (Q1). Never reach for Q1 by adding a field to someone else's
+type.
 
 ## Definition of done
 
@@ -261,6 +284,66 @@ with their source and licence in a comment — R4 §B.9 names David Revoy's `dee
 - [ ] ROADMAP row → 🟧 Built
 
 ## Questions
+
+### ⛔ for the cross-reviewer — why this is still Draft
+
+**Q1 is now three questions wearing one name, and the first of them is a contract decision.**
+
+**Q1a (⛔ blocking, mechanical). Where do an embedded tip's bytes go?** Decision 4 says the importer
+*"returns the bytes in its result"* and the caller writes them; test 12 asserts the decoded bytes
+round-trip *"in the result"*. **Neither is possible.** `ImportResult(val preset: BrushPreset, val
+warnings: List<String>)` (`MypaintImport.kt:29`) has no bytes, `RefusedBrush(index, name, reason)` has
+no bytes, and `ImportLibrary(brushes, refused)` is the only container this spec is told to use — so
+"the bytes in the result" is a field that does not exist. Separately, a `tip.image` is *"path inside
+the brush folder when source == image"* (`BrushPreset.kt:34`), **not** a path inside the `.bundle`:
+so `"Shape.png"` is the wrong value for it whatever the container question is answered, and
+`commonMain` cannot write the file even if the container could carry it. **Writing this down because
+the spec reads as though it were already answered, and it is not.** The three candidate shapes each
+have a different cost, and each touches a type JB-8.01 owns:
+- widen `ImportResult` with an `images: Map<String, ByteArray>` — one type, three specs, and it works
+  only once a caller exists that writes them out;
+- keep the bytes out of the types and put base64 in `extensions["krita.tipPng"]` (what JB-8.01
+  Decision 4 does) — no contract change, but it collides with `MAX_EXTENSION_BYTES` at 256 KiB for a
+  real 2048² tip, and the preset is still not drawable;
+- refuse an embedded-bitmap tip outright (what JB-8.01 does) — honest, and it refuses a large part of
+  Revoy's pack, which is the pack the blueprint names as the one to ship.
+
+**Q1b (⛔ blocking, policy). May an importer set `source = "image"` at all?** JB-8.01 says **no**
+(Decisions 4–5: procedural stand-in, grain left disabled, raw kept in `extensions`); JB-8.02's table
+says **yes, unconditionally**; this spec leans yes. Nothing in the board makes them agree, so the
+first to land decides for all three. Verified: `BrushValidate` accepts `"image"` for both tip and
+grain (`:20`, `:21`) and rule 23 (`:236`) checks only that the path is non-blank — so the answer "yes"
+produces presets that validate clean, point at a file nobody wrote, and draw as procedural. **One
+ruling for all three importers is needed, and it is the Lead's.**
+
+**Q1c (not blocking).** The calibration remark stands — there is no third-party decoder to oracle a
+new format here, and there is none needed because this row writes no image.
+
+**Q2 (ruled, PROVISIONAL).** `ColorSmudge` imports as `engine = "smudge"` with a warning. **Verified
+true:** `ENGINES = setOf("stamp", "smudge", "wet", ENGINE_FILL)` (`BrushValidate.kt:16`), so no
+validator edit and no `BRUSH_VERSION` bump is needed — which is what Decision 11 and test 14 say.
+A preset is a fact; an engine being late is not the preset being wrong. **PROVISIONAL — Claude to
+confirm.**
+
+**Q3 (ruled, PROVISIONAL).** A brush using **both** `xtilt` and `declination` carries its own warning
+("Joy Brush has one tilt value; this brush uses two"). One extra line, and it is the difference
+between "silently coarser" and "told". **PROVISIONAL — Claude to confirm.**
+
+**Q4 (ruled, PROVISIONAL).** Keep the texture mode raw and warn; do **not** add a `GrainSpec` mode
+field. A new field is a `BRUSH_VERSION` bump and a validator change and belongs to whoever builds
+grain properly (JB-1.05c, Phase 6). **PROVISIONAL — Claude to confirm.**
+
+**Q5 (out of scope, referred).** Nothing displays an imported brush's author and licence, and CC-BY
+requires attribution. This row can carry the data and cannot surface it — a UI row, not this one.
+Correct as written; flagged so it is not lost.
+
+**Checked and found TRUE** (tree, 2026-09-29): `ENGINES` contains `"smudge"` (Decision 11, test 14);
+`TIP_SOURCES`/`GRAIN_SOURCES` contain `"image"` and `GrainSpec.image` exists, so rule 23 is reachable
+exactly as test 12 describes; `BrushValidate.MAX_CURVE_POINTS` is `private const`
+(`BrushValidate.kt:31`) and only JB-8.01 makes it public; `PngWriter` is a **writer** only and no PNG
+reader exists anywhere in `joybrush/`, which is what makes Decision 6's "no decoding" a fact about the
+tree rather than a preference.
+
 
 **Q1. An embedded PNG tip means Joy Brush writes an image file per imported brush, and nothing in the
 project reads an image back.** Decision 4 returns the bytes and sets `tip.source = "image"` — a word

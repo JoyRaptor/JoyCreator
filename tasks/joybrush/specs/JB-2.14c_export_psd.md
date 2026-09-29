@@ -3,7 +3,8 @@
 | | |
 |---|---|
 | **Tier** | T2 |
-| **Status** | 📝 Draft spec — see ROADMAP.md |
+| **Status** | 📝 Draft spec — **three things are for the Lead and are not mine to rule: the `SUBTRACT`/`DIVIDE` blend keys (Q1, a wrong-pixels decision), what the merged image looks like with `includePaper = false` (Q4), and whether a `luni`/`lsct` resource block is written at all (Q5).** See "for the cross-reviewer" at the foot. Everything else was checked against the landed code and corrected. |
+| **Who** | spec writer `openrouter/stealth/space-bunny-alpha` 2026-09-29 · **xr: openrouter/stealth/space-bunny-alpha 2026-09-29** — verified `BlendMode` has exactly 27 entries (`DocModel.kt:124`, `ERASE_BELOW` at ordinal 7 is Joy Brush's own insertion), `doc.layers` is bottom→top, `LayerKind`/`RectPx`/`RegionRenderer.TILE_BYTES`/`PngWriter.encode` all exist with the shapes the contract assumes, and `-Pjoybrush.androidJar` is a real property in `androidkit/build.gradle.kts:19`. **Corrected:** the `DocModel.kt:160` citation (it is line **159**), the unrunnable `-Pjoybrush.androidJar=<path>` in the test command, the `PsdLayer.strokes` field that no Decision uses, and Decision 6's draft thinking-out-loud. Added the missing stop rule. Left Draft on three format questions. |
 | **Needs** | JB-2.13a (`RegionRenderer`, `Blend`, `BlendRgb` — Built 🟧) |
 | **Owner area** | NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/PsdWriter.kt`, NEW `.../io/PsdBlend.kt` (the mode → PSD 4-char table, and nothing else), NEW `joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/io/PsdWriterTest.kt`, `PsdReaderForTest.kt` (a test-only reader, see Decision 9) |
 | **Estimated size** | ~330 lines + ~280 lines of tests + ~90 lines of the test reader |
@@ -25,7 +26,11 @@ spec, and the tests read it back with a reader written only for the tests.
 package cc.joycreator.joybrush.androidkit.io
 
 import cc.joycreator.joybrush.core.doc.BlendMode
+import cc.joycreator.joybrush.core.doc.JbDocument
+import cc.joycreator.joybrush.core.doc.LayerKind
+import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.render.RegionRenderer
+import cc.joycreator.joybrush.core.render.TileSource
 
 /** One layer to write. [rect] is the canvas rectangle the PSD has; layers are positioned inside it. */
 data class PsdLayer(
@@ -37,9 +42,46 @@ data class PsdLayer(
     val rect: RectPx,                    // the layer's own bounds, in document px
     /** Premultiplied RGBA8 tiles, keyed by Tiles.key, exactly as the engine holds them. */
     val tiles: Map<Long, ByteArray>,
-    val strokes: List<StrokeRecord> = emptyList(),
 )
+```
 
+**`PsdLayer` has no `strokes` field, deliberately.** An earlier draft of this contract carried
+`val strokes: List<StrokeRecord>` and no Decision below used it: Decision 8 writes an INK layer as an
+**empty** layer rather than rasterising it, so there is nothing to write. A field the writer must
+decide what to do with is a design decision left in the contract, so it is gone. (Cross-reviewer,
+2026-09-29.)
+
+The types this contract leans on, pasted so nothing above says "see the other file":
+
+```kotlin
+// cc.joycreator.joybrush.core.doc.DocModel.kt
+@Serializable data class RectPx(val x: Int, val y: Int, val w: Int, val h: Int)
+@Serializable enum class LayerKind { PAINT, INK }
+
+/** `DocModel.kt:124` — 27 entries. `ERASE_BELOW` is Joy Brush's own and has no Studio counterpart. */
+@Serializable enum class BlendMode {
+    NORMAL, MULTIPLY, SCREEN, OVERLAY, ADD, DARKEN, LIGHTEN, ERASE_BELOW,
+    // ---- appended, in `BlendModes.ALL` / modeCode order. FROZEN (R3, DOC_VERSION 2) ----
+    DIFFERENCE, COLOR, COLOR_DODGE, COLOR_BURN, LINEAR_BURN,
+    HARD_LIGHT, SOFT_LIGHT, VIVID_LIGHT, LINEAR_LIGHT, PIN_LIGHT, HARD_MIX,
+    EXCLUSION, SUBTRACT, DIVIDE, DARKER_COLOR, LIGHTER_COLOR,
+    HUE, SATURATION, LUMINOSITY,
+}
+
+// cc.joycreator.joybrush.core.render.RegionRenderer.kt:24
+fun interface TileSource {
+    fun tile(layerId: String, celId: String, tx: Int, ty: Int): ByteArray?
+}
+
+// cc.joycreator.joybrush.core.render.RegionRenderer.kt:196 — the one renderer (Decision 2)
+fun render(doc: JbDocument, tiles: TileSource, rect: RectPx, frameId: String?, paper: String?): ByteArray
+    //  -> STRAIGHT (un-premultiplied) RGBA8, rect.w * rect.h * 4 bytes, row 0 = top
+    //  -> throws RegionException above MAX_REGION_PX = 8_388_608
+    //  -> `paper` is a "#RRGGBB" string or null; anything else is IllegalArgumentException
+```
+
+
+```kotlin
 object PsdWriter {
     /** The largest canvas PSD's own header allows: 30 000 × 30 000. */
     const val MAX_DIMENSION = 30_000
@@ -102,19 +144,19 @@ object PsdBlend {
    channel ids appear. Getting the table wrong is the classic "Photoshop says the file is corrupt"
    bug, so it is Test 3.
 4. **Layer records are written TOP FIRST, so the input list is reversed.** `doc.layers` is
-   bottom → top (`DocModel.kt:160`); PSD's `LayerRecords` start with the topmost. Asserted, not
-   assumed.
+   bottom → top (`DocModel.kt:159`, the `val layers: List<Layer>, // bottom -> top` line — *not* 160,
+   which is `activeLayerId`); PSD's `LayerRecords` start with the topmost. Asserted, not assumed.
 5. **A layer's channels are `-1, 0, 1, 2` (alpha, R, G, B) and a layer with no pixels writes zero
    channels**, not a 0×0 rect. An empty layer is a real thing a person made.
 6. **The blend-key table is a TABLE, and the two modes whose Photoshop meaning differs are FLAGGED,
-   not corrected.** `PsdBlend` says so in the code and the writer records the discrepancy in the
-   layer's Pascal-string name? No — it is recorded in the spec, in `PsdBlend`'s KDoc, and in
-   **Questions** below, and that is all this row can do about it. Writing `"subtract"` for a mode
-   whose implementation is `max(b - s, 0)` is **wrong in Photoshop's direction** (Photoshop's
-   Subtract is `Cs/Cb` for the darkened pixels), and the honest answers are (a) write the key anyway
-   and accept a different picture in Photoshop, or (b) refuse the mode in words. See Questions; the
-   decision I have made is (a) with a loud KDoc, because a PSD that refuses to be written is worse
-   than one whose two exotic modes differ.
+   not corrected.** `PsdBlend`'s own KDoc says so, in the code, where the next reader of
+   `keyFor(BlendMode.SUBTRACT)` will find it; this spec and **Questions** below repeat it once so it
+   is not lost. That is all this row can do about it. Writing `"subtract"` for a mode whose
+   implementation is `max(b - s, 0)` is **wrong in Photoshop's direction** (Photoshop's Subtract is
+   `Cs/Cb` for the darkened pixels), and the honest answers are (a) write the key anyway and accept a
+   different picture in Photoshop, or (b) refuse the mode in words. See Questions; the decision I have
+   made is (a) with a loud KDoc, because a PSD that refuses to be written is worse than one whose two
+   exotic modes differ. **This is a wrong-pixels decision and it is the Lead's (Q1).**
 7. **`ERASE_BELOW` has no PSD key.** PSD has no per-layer "erase what is below"; Photoshop does it
    with a layer MASK (JB-2.23). `keyFor(ERASE_BELOW)` returns **null**, and the writer
    **refuses in words**: "this drawing has a layer in Erase Below mode, which PSD cannot express —
@@ -138,9 +180,16 @@ object PsdBlend {
     truncated on a CHARACTER boundary** — a name cut mid-UTF-8 is a file some readers reject.
     Layer names longer than 255 bytes get the tail cut, never an exception: a name is not worth
     refusing a drawing over, and the truncation is stated in the KDoc.
-12. **No `psd:` resource block beyond the minimum** (resolution 72 dpi, and a `luni`/`lsct` name
-    block if the name needs Unicode). Everything else is left out rather than faked: a made-up
-    resource block is one more thing that can disagree with the truth.
+12. **No `psd:` resource block beyond the minimum, and WHETHER `luni`/`lsct` IS WRITTEN IS NOT
+    DECIDED HERE.** The minimum is the resolution: 72 dpi in the header's resolution info, 72 dpi in
+    `psd:ResolutionInfo` if it is written at all. Everything else is left out rather than faked: a
+    made-up resource block is one more thing that can disagree with the truth. **`luni`/`lsct` — the
+    Unicode layer-name blocks — are Q5, and it is the Lead's.** The choice is real: write `luni` on
+    every layer (so a name with an emoji survives the round trip, at the cost of a resource block
+    nobody has asked for), write it only when the name needs it (a `when` in the writer that is a
+    silent difference between two otherwise identical files), or write it never (Decision 11's 255
+    byte Pascal truncation then genuinely loses characters, with nothing saying so). Test 11 already
+    exercises an emoji name, so whichever answer comes back has a test waiting for it.
 
 ## Tests (`PsdWriterTest`, JVM)
 
@@ -176,7 +225,13 @@ object PsdBlend {
 11. **Names:** a 300-character name truncates to ≤ 255 bytes on a character boundary and the file
     still parses; a name with an emoji does not produce invalid UTF-8 (Decision 11).
 
-**Command:** `./gradlew -p joybrush :androidkit:test -Pjoybrush.androidJar=<path>` — 0 failures.
+**Command:** `./gradlew -p joybrush :androidkit:compileKotlin :androidkit:test` — BUILD SUCCESSFUL,
+0 failures. **Do not pass `-Pjoybrush.androidJar=<path>`.** The property is real
+(`androidkit/build.gradle.kts:19`) but it is a *fallback*: `findAndroidJar()` tries it, then
+`$ANDROID_HOME`, then `$ANDROID_SDK_ROOT`, then `sdk.dir` in the repo's `local.properties`, newest
+platform wins. A builder on a machine with an SDK configured passes nothing and it works; the
+placeholder form above is not runnable as written and is therefore a spec that cannot prove its own
+tests. (Cross-reviewer, 2026-09-29.)
 
 ## Owner check (Note 9)
 
@@ -193,7 +248,9 @@ says why not.
 - Do not implement ink rasterisation, layer masks, adjustment layers, 16/32-bit, CMYK, spot
   channels, or PSD's vector/pattern blocks. v1 is 8-bit RGB, paint layers, one composite.
 - Do not "fix" the two divergent blend modes. Record them; the Lead rules (Decision 6).
-- Never run gradle on the owner's PC.
+- Never run gradle on the app build. **Only** `./gradlew -p joybrush …` is permitted, and only the
+  `:core` / `:androidkit` tasks (ROADMAP §2 rule 2). Anything in `:app` or `joybrush-android/` is
+  proved by the watcher's `build.log`, never by running it.
 
 ## Definition of done
 
@@ -203,9 +260,63 @@ says why not.
 - [ ] committed `JB-2.14c: PSD export`
 - [ ] ROADMAP row → 🟧 Built
 
+## Stop rule
+
+If anything here is ambiguous, or a claim about the landed code turns out to be false when you open
+the file, **STOP**: write the question in *Questions* under a heading `for the cross-reviewer`, set
+this row `⛔ Blocked`, commit, push, and take another task. In particular: **never invent a PSD
+resource block, a version number or a key name to get past an unanswered question here.** A PSD that
+Photoshop calls corrupt is worse than no PSD export, and a made-up key is exactly how that happens.
+And never widen the owner area to edit `Blend.kt`, `RegionRenderer.kt` or `JbArchive.kt` — this row
+writes a container and changes no arithmetic.
+
 ## Questions
 
 _(Spec writer, `openrouter/stealth/space-bunny-alpha`, 2026-09-29.)_
+
+### ⛔ for the cross-reviewer — why this is still Draft
+
+Two of these are **format decisions a cross-reviewer may not take** (which four-character key a blend
+mode gets, and what a resource block is), and one is a **contradiction between two Decisions** that
+only the Lead can settle. A spec marked Ready while any of the three is open is a spec the builder
+has to finish by guessing.
+
+**Q4. ⛔ Decision 1 and Decision 2 contradict each other on the merged image, and a builder has to
+pick.** Decision 1 says the canvas is opaque and *"black when not [includePaper]"*. Decision 2 says
+the composite is `RegionRenderer.render`'s bytes and nothing else. `RegionRenderer.render` with
+`paper = null` returns a **STRAIGHT RGBA8 image whose empty pixels have alpha 0** — transparent,
+not black (`RegionRenderer.kt:207-219`: alpha 0 takes `k = 0` and stays `0,0,0,0`). So the two
+readings of "the merged image" differ:
+- **(a)** pass `paper = null` and write a merged image **with** an alpha channel (PSD colour mode 3
+  allows 5 channels). Photoshop shows a transparent background, which is the truth and the honest
+  answer — and it is also what the PNG exporter writes, so the two agree.
+- **(b)** pass `paper = "#000000"` and write four opaque channels. Matches Decision 1's words.
+- **(c)** pass the document's `doc.paper.color` **always**, so "include paper" only ever means
+  "what is under it" and the merged image is never transparent.
+Which one is a colour decision and a format decision, so it is not mine to make and not a
+cross-reviewer's either. **Test 2, Test 5 and Test 10 are all waiting on this answer** — Test 10
+byte-compares the layer section between the two runs and would pass under all three, which means it
+cannot tell them apart, so whichever is chosen needs a **new** assertion on the composite's alpha,
+not just the existing byte-compare.
+
+**Q5. ⛔ Is `luni` (the Unicode layer-name resource) written at all?** Decision 12 used to say "and a
+`luni`/`lsct` name block *if the name needs Unicode*" — a condition with no owner. See Decision 12 for
+the three real answers and what each costs. This is a **resource-block decision**: the brief I work
+under says explicitly *do not invent a resource name*, so I have not chosen. Test 11's emoji name
+already exercises the path.
+
+**Checked and found TRUE — the claims I could verify, so nobody re-checks them** (all against the
+tree, 2026-09-29):
+
+| This spec says | The tree says |
+|---|---|
+| `doc.layers` is bottom → top (`DocModel.kt:160`) | True — but the line is **159**, not 160. Corrected in Decision 4. |
+| 27 blend modes, one with no Studio counterpart | True. `DocModel.kt:124-131`: 8 + 19 = 27; `ERASE_BELOW` is Joy Brush's own (ordinal 7) and `ERASE_BELOW` is the one Decision 7 refuses. |
+| `BlendMode.SUBTRACT` is `max(b - s, 0)` and `DIVIDE` is `min(b / max(s, 1e-5), 1)` (the W3C forms) | Consistent with what JB-2.20a's `BlendRgb` landed as, and with the Studio's `GLSL_BLEND_FN` per that row's own report. I did not re-derive the shader text — it lives in the app module and is not this row's to read for a claim. |
+| `RegionRenderer.TILE_BYTES` exists | True. `RegionRenderer.kt:176` = `TILE_SIZE * TILE_SIZE * 4` = 262 144. There is a second `TILE_BYTES` at `JbArchive.kt:31`; import the one you name in the contract and say which in a comment. |
+| `PngWriter.encode(width, height, rgba, compressionLevel = 6): ByteArray` | True (`PngWriter.kt:85`), and the byte order the PSD writer needs is what `RegionRenderer.render` returns: **straight** RGBA8, row 0 = top. PSD wants the same. |
+| `LayerKind { PAINT, INK }` | True (`DocModel.kt:92`). |
+| `-Pjoybrush.androidJar` is how `androidkit` finds the SDK | True but it is a *fallback*, not a requirement — corrected in Tests. |
 
 ### 🔴 For the Lead — the two blend modes where Photoshop and this app mean different things
 

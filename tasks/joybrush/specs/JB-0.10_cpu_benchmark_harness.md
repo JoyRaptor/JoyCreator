@@ -4,6 +4,7 @@
 |---|---|
 | **Tier** | T2 (the numbers themselves are collected on the phone, which is a separate act — see Definition of done) |
 | **Status** | 🟦 Ready — buildable as written; the budget numbers are provisional and the Lead may change them freely |
+| **Who** | spec writer `openrouter/stealth/space-bunny-alpha` 2026-09-29 · **xr: openrouter/stealth/space-bunny-alpha 2026-09-29** — verified every claim this spec makes about landed code (`MAX_FILL_PX = 8_388_608L`, `FloodFill.fill(w,h,rgba,seedX,seedY,FillOptions)`, `FillOptions.gapClosePx`, `TILE_BYTES = TILE_SIZE*TILE_SIZE*4` in `androidkit/io/JbArchive.kt:31`, and `zos.setLevel(6)`) against the files and found all of them true; **corrected Q3** — the deflate level is duplicated in `JbArchive.kt:207` *and* `OraExport.kt:230`, not once; added the stop rule the spec had none of, and a "do not" on which of the two same-valued `TILE_BYTES` to import. No blocking question found. |
 | **Needs** | 0.05 |
 | **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/bench/Bench.kt` · NEW `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/bench/BenchTest.kt` · NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/bench/BenchCases.kt` · NEW `joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/bench/BenchCasesTest.kt` |
 | **Estimated size** | ~180 lines + ~200 lines of tests |
@@ -201,7 +202,8 @@ object BenchCases {
 
 12. **The deflate case measures the archive's own settings, and the level is a copy.** `JbArchive`
     writes tiles with `ZipOutputStream.setLevel(6)` and that `6` is a **private literal inside
-    `JbArchive.kt`**, which is not this spec's owner area. `BenchCases` therefore carries its own
+    `JbArchive.kt:207`**, which is not this spec's owner area. (`OraExport.kt:230` holds a third,
+    identical literal — see Q3.) `BenchCases` therefore carries its own
     `private const val ARCHIVE_DEFLATE_LEVEL = 6` with a comment naming the drift, and a test
     asserts the deflated output is strictly smaller than the input (so the case cannot silently
     become a memcpy benchmark). **This is the same shape as the `SizeOpacityDrag.MAX_SIZE` copy that
@@ -280,6 +282,22 @@ object BenchCases {
 - Do not guess the device name, and do not report a cloud number as a Note 9 number. A run on any
   other machine is a smoke test of the harness (and a useful one: it is what Tests 11–15 are).
 - No `kotlin.random` and no `java.*` outside `androidkit`.
+- **There are TWO `TILE_BYTES` and they are both `262_144`.** Import the androidkit one —
+  `cc.joycreator.joybrush.androidkit.io.TILE_BYTES` (a top-level `const` at `JbArchive.kt:31`, the
+  same module `BenchCases.kt` lives in, and the one the archive itself writes with).
+  `cc.joycreator.joybrush.core.render.RegionRenderer.TILE_BYTES` is a *different* `const` that
+  happens to have the same value. Neither is wrong; importing the core one from `androidkit` would be
+  a bet that two files that agree today keep agreeing.
+- Do not "fix" the deflate-level duplication in Q3 by editing `JbArchive.kt` or `OraExport.kt`.
+  Both are outside this owner area and the fix is the Lead's call.
+
+## Stop rule
+
+If anything here is ambiguous, or a claim about landed code turns out to be false when you open the
+file, **STOP**: write the question in *Questions* under a heading `for the cross-reviewer`, set this
+row `⛔ Blocked`, commit, push, and take another task. Do not widen the owner area to reach the answer
+and do not substitute a number you invented for one you could not find — a benchmark of a job you
+guessed at is worse than no benchmark, because the number is real and the job is not.
 
 ## Definition of done
 
@@ -315,12 +333,18 @@ printing to `Log.i("JoyBrush", …)` and writing the report into
 choosing it means touching an app file, and that is yours.
 
 **Q3 — `JbArchive`'s deflate level is a private literal, and this is the `MAX_SIZE_PX` trap again.**
-`JbArchive.write` calls `zos.setLevel(6)` with the `6` inline; `BenchCases` now has a second `6`
-(Decision 12) and nothing can catch them drifting apart. R19 fixed exactly this for
-`BrushValidate.MAX_SIZE_PX` by making the constant public. The same one-line fix here is to make the
-archive's level a public constant in `JbArchive.kt` and have the benchmark import it — that file is
-not this spec's area, and a builder must not widen its own area to fix a number. Rule it and it is a
-one-line follow-up; leave it and the benchmark measures a level the archive may not be using.
+`JbArchive.write` calls `zos.setLevel(6)` with the `6` inline (`JbArchive.kt:207`); `BenchCases`
+now has a second `6` (Decision 12) and nothing can catch them drifting apart. R19 fixed exactly this
+for `BrushValidate.MAX_SIZE_PX` by making the constant public. The same one-line fix here is to make
+the archive's level a public constant in `JbArchive.kt` and have the benchmark import it — that file
+is not this spec's area, and a builder must not widen its own area to fix a number. Rule it and it is
+a one-line follow-up; leave it and the benchmark measures a level the archive may not be using.
+**Correction by the cross-reviewer (2026-09-29): the duplication is TWICE, not once.**
+`OraExport.kt:230` also calls `zos.setLevel(6)` with the `6` inline, and its own KDoc at
+`OraExport.kt:104` already reasons about sharing helpers with `JbArchive` and declined. So a ruling
+that makes one constant public should either make **one shared constant** in a file both can import,
+or make two public constants that a test compares — three literals of `6` is one more than this row
+wants to own. All three sites verified in the tree, 2026-09-29.
 
 **Q4 — the third job does not exist.** The blueprint names "flood fill, tile compression, PSD
 writing", and the PSD writer is JB-2.14c, which is `⚪ Outline` with `DOC_VERSION` work of its own.

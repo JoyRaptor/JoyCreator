@@ -3,7 +3,8 @@
 | | |
 |---|---|
 | **Tier** | T2 |
-| **Status** | see ROADMAP.md |
+| **Status** | 📝 Draft spec — **blocked on two things a cross-reviewer may not decide.** (1) **Q6: may an importer set `source = "image"` on a tip or a grain at all?** This spec's table says *yes, unconditionally*, which is a different answer from JB-8.01's Decisions 4–5 (*no*) and from JB-8.04's Q1 (which leans *yes*), so whichever lands first silently decides it for all three — and `BrushValidate` **verified true** accepts it (`GRAIN_SOURCES = setOf("cloud","image")`, `BrushValidate.kt:21`), so a preset that points at a file nobody wrote validates clean and draws nothing. That is the "silent nonsense" door in its purest form. (2) **Q1: `Inflate.kt` in `commonMain` or `androidkit`** — it decides whether a third-party bitstream format sits inside the platform-neutral engine, which is a contract-shaped call. Also blocked: `MAX_INPUTS` / `MAX_CURVE_POINTS` are still `private` and become public in JB-8.01, so **this spec does not compile until JB-8.01 lands** (Decision 13 reads them). |
+| **Who** | spec writer (unattributed in the original) · **xr: openrouter/stealth/space-bunny-alpha 2026-09-29** — verified `GRAIN_SOURCES`/`TIP_SOURCES` accept `"image"` while nothing in the tree reads one (the basis of Q6); verified `JbArchive.unsafeReason` is **private** and lives in `androidkit`, so Decision 12's "the same set" is a restatement across a module boundary `commonMain` cannot see; verified `PngWriter.encode(width, height, rgba, compressionLevel = 6): ByteArray` exists (`PngWriter.kt:85`), which Decision 1's `Shape.png → tip.image = "shape.png"` depends on; verified `BrushValidate.MAX_CURVE_POINTS`/`MAX_INPUTS` are `private const` at `:28`/`:31`. Fixed the truncated `8 Mi` unit in JB-8.04's twin table is *not* here — but corrected this row's own `shapeRoundness` mapping, which pointed at `tip.aspect` as if it took a curve. Left Draft. |
 | **Needs** | JB-0.03 (brush format + validation) |
 | **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/brush/imports/ProcreateImport.kt`, NEW `.../imports/KeyedArchive.kt` (NSKeyedArchiver reader), NEW `.../imports/Inflate.kt` (raw DEFLATE), NEW `.../commonTest/.../brush/imports/ProcreateImportTest.kt`, NEW `.../commonTest/.../brush/imports/KeyedArchiveTest.kt`, NEW `.../commonTest/.../brush/imports/InflateTest.kt`; `ImportSupport.kt` **only if absent** (Decision 2) |
 | **Estimated size** | ~650 lines + ~450 lines of tests |
@@ -88,9 +89,9 @@ Curves are arrays of `"{x, y}"` **strings**; a `*Curve` key pairs with a scalar 
 
 | Procreate | Key | Joy Brush | Scale |
 |---|---|---|---|
-| Shape is an image | `Shape.png` present | `tip.source = "image"`, `tip.image = "shape.png"` | — |
+| Shape is an image | `Shape.png` present | `tip.source = "image"`, `tip.image = "shape.png"` | — **⛔ see Q6** |
 | Shape rotation / follow stroke | `shapeRotation` | `tip.followDirection` = `v > 0` | boolean, unverified |
-| Shape roundness / angle | `shapeRoundness`, `shapeAngle` | `tip.aspect`, `tip.angle.base` | as stored |
+| Shape roundness / angle | `shapeRoundness`, `shapeAngle` | `tip.aspect` (a bare `Float`), `tip.angle.base` (`tip.angle` is a `Param`) | as stored |
 | Scatter | `plotJitter` | `scatter.amount` | **≈** R4: unverified scale; warn once per pack |
 | Count / count jitter | `shapeCount`, `shapeCountJitter` | `scatter.count`, `scatter.countJitter` | as stored |
 | Flip jitter | `shapeFlipXJitter/YJitter` | `extensions` (no flip field) | **LOSSY**, warn |
@@ -99,11 +100,11 @@ Curves are arrays of `"{x, y}"` **strings**; a `*Curve` key pairs with a scalar 
 | Pressure size | `dynamicsPressureSize(+Curve)` | `size.inputs[pressure]` multiply | curve points parsed |
 | Pressure opacity | `dynamicsPressureOpacity(+Curve)` | `opacity.inputs[pressure]` multiply | curve points parsed |
 | Tilt size / opacity | `dynamicsTiltSize`, `dynamicsTiltOpacity` | `size/opacity.inputs[tilt]` multiply | **≈** |
-| Grain image | `Grain.png` present | `paperGrain.source = "image"`, `.image = "grain.png"`, `.enabled = true` | — |
+| Grain image | `Grain.png` present | `paperGrain.source = "image"`, `.image = "grain.png"`, `.enabled = true` | — **⛔ see Q6 — this is the row that decides the question for all three** |
 | Grain depth / min | `grainDepth`, `grainDepthMinimum` | `paperGrain.depth` | as stored |
 | Grain scale | `textureScale` | `paperGrain.scale` | **≈** |
 | Brightness / contrast / invert | `textureBrightness`, `textureContrast`, `textureInverted` | folded into the depth curve / `extensions` | **LOSSY**, warn (R4: contrast is −1…1) |
-| Colour jitter | `dynamicsJitterHue/Saturation/Lightness` | `color.hue/saturation/value`, `perDab = true` | **≈** |
+| Colour jitter | `dynamicsJitterHue/Saturation/Lightness` | `color.hue/saturation/value`, `perStroke = true` | **≈** — divide by 100, then clamp with a warning, exactly as JB-8.01's ruling |
 | Blend mode | `blendMode` | `blend` when it is one of `normal`/`erase`/`behind` | **LOSSY** for any other value, raw kept |
 | Author | `authorName` | `author` | — |
 | Licence | any field naming one | `license`; else `"unknown"`, **never `"CC0"`** | — |
@@ -263,6 +264,30 @@ flat XML, zip bomb).
 - Do **not** trim an over-long curve to fit (D9).
 - Do **not** set `license = "CC0"` for an archive that does not say so.
 - Do **not** run this spec at the same time as JB-8.01 or JB-8.04 — they share `ImportSupport.kt`.
+- **Do not run this spec at all until JB-8.01 has landed.** Decision 13 reads
+  `BrushValidate.MAX_INPUTS` / `MAX_CURVE_POINTS`, and **JB-8.01 is what makes them public**
+  (its Decision 9). They are `private const` in the tree today, so this spec does not compile until
+  then. The board's *Needs* column for this row says `0.03` only; that is a board inaccuracy and the
+  dispatch order is **JB-8.01 → (this row | JB-8.04)**, never two at once.
+- **Do not restate `JbArchive.unsafeReason` as a shared constant.** It is **private**
+  (`JbArchive.kt:514`) and lives in `androidkit`, which `commonMain` cannot see — Decision 12's
+  "applied a second time" is a restatement, and the comment naming the other copy is what makes that
+  honest. The exact set it refuses: empty name; over `MAX_NAME_CHARS`; any char with `code < 0x20` or
+  `code == 0x7F`; a `\`; a leading `/`; a `:`; a path that is nothing but a separator; an empty path
+  segment; a segment that is `.` or `..`; and a segment whose `trimEnd(' ', '.')` is empty, `.` or
+  `..`. **A substring check for `".."` is not the rule** — the segment rule is, which is why
+  `".. "`, `"a/./b"` and `"a/ /../b"` all still climb out.
+
+## Stop rule
+
+If anything here is ambiguous, or a claim about the `.brush` format turns out to be false when you
+build the fixture, **STOP**: write the question in *Questions* under a heading `for the cross-reviewer`,
+set this row `⛔ Blocked`, commit, push, and take another task. Three things are never a builder's
+call in this file: **whether a Procreate built-in may be extracted or substituted** (never — R4 §5,
+and there is no exception to find), **whether a DEFLATE decoder belongs in `commonMain`** (Q1 — build
+the reading side behind the interface the way the spec says and stop if you cannot), and **whether an
+unverified scale may be shipped** (Q2 — guessed scales are allowed *only* with the per-pack warning of
+Decision 10; a scale you cannot defend is a field that goes to `extensions` with a warning).
 
 ## Definition of done
 
@@ -272,6 +297,60 @@ flat XML, zip bomb).
 - [ ] ROADMAP row → 🟧 Built
 
 ## Questions
+
+### ⛔ for the cross-reviewer — why this is still Draft
+
+**Q6 (NEW, and it is the one that matters). May an importer set `source = "image"` on a tip or a
+grain?** The three Phase 8 specs currently give three different answers:
+
+| Spec | Answer |
+|---|---|
+| JB-8.01, Decisions 4–5 | **No.** A sampled tip becomes a soft procedural stand-in with the raw bytes in `extensions`; a texture pattern is kept raw and **the grain stays disabled**. |
+| **this spec**, Decision 1's table | **Yes, unconditionally** — `tip.source = "image"` with `tip.image = "shape.png"`, and `paperGrain.source = "image"` with `.enabled = true`. |
+| JB-8.04, Q1 | Leans **yes**, provisionally, and says so. |
+
+**Verified in the tree, 2026-09-29:** `BrushValidate` **accepts** all three words —
+`TIP_SOURCES = setOf("procedural", "image")` and `GRAIN_SOURCES = setOf("cloud", "image")`
+(`BrushValidate.kt:20-21`) — and rule 23 only checks that an image source has a **non-blank path**,
+not that the file exists. So this row's presets would **validate clean and then draw as procedural**,
+because nothing in the engine reads an image (`PngWriter` is a writer only, and there is no reader
+anywhere in `joybrush/`). That is precisely the "silent nonsense" failure that
+`BrushJson.decodeChecked`'s own KDoc exists to prevent, and it is the failure the JB-8.03 review
+filed against MyPaint's dropped curves.
+
+There is a second, worse problem with this row's specific version, and it is not a policy question at
+all: **`tip.image = "shape.png"` names a file inside the `.brush` archive, and the importer never
+writes it out.** A `tip.image` is *"path inside the brush folder when source == image"*
+(`BrushPreset.kt:34`) — a path in a folder the **brush library** owns. Nothing in this row, or in any
+other, turns the archive's `Shape.png` into a file at such a path, and `commonMain` cannot write one.
+So `tip.image = "shape.png"` is not merely undrawn — it points at a path that does not exist, and no
+amount of an image-tip engine later fixes that without a writer. **The two answers the Lead has are
+(a) an image-tip row that also owns *writing* the bitmap out and the library lookup, or (b) these
+importers refuse a brush whose tip or grain is a bitmap, with a sentence saying why.** (a) is a real
+row of real work; (b) is what JB-8.01 already does and is honest today. I am not choosing: it is a
+file-format-shaped decision, it reaches three specs, and whoever lands first currently decides it by
+accident.
+
+**Q1 (structural, also blocking). `Inflate.kt` in `commonMain` or `androidkit`?** See below. The
+cross-reviewer's note: a hand-written DEFLATE decoder is *permitted* in `commonMain` — it uses no
+`java.*`, so it does not violate the module's own rule, and it serves the iOS door the blueprint §3.1
+insists on. But it is ~350 lines of bit-twiddling inside the engine for a container one format uses,
+and that is a "does a third-party format live in the engine" decision, not a naming one.
+
+**Q3 and Q5 (product calls, ruling provisionally available but not blocking).** Q3 asks whether the
+taper family is a LOSSY warning (my Decision 1) or a REFUSAL. **Ruled: LOSSY**, because refusing
+taper refuses most of Procreate and the format genuinely has no envelope field yet
+(`TipSpec.taper` is a *shape* taper — R4 §C says so explicitly). **PROVISIONAL — Claude to confirm.**
+Q5 asks whether a set name should prefix each brush name; that is a naming choice inside this row and
+does not block anything.
+
+**Checked and found TRUE** (tree, 2026-09-29): `BrushValidate` accepts `"image"` as a tip and grain
+source; `TipSpec.image` is documented as a *path inside the brush folder*, which is what makes this
+row's `"shape.png"` wrong rather than merely premature; `PngWriter.encode(width, height, rgba,
+compressionLevel = 6): ByteArray` exists (`PngWriter.kt:85`) and there is **no PNG reader** anywhere
+in `joybrush/`, so "write the bytes out" is not a one-liner in any module; `MAX_CURVE_POINTS` and
+`MAX_INPUTS` are `private const` (`BrushValidate.kt:28`, `:31`) and only JB-8.01 makes them public.
+
 
 **Q1. BLOCKING on `Inflate.kt`. Is a hand-written DEFLATE decoder in `commonMain` the right call, or
 should the zip reading happen in `androidkit`?** The case for core: `commonMain` is platform-neutral by

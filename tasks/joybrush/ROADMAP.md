@@ -152,19 +152,23 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-2.02b Tool finger modes (select · lasso · colour pick) and assignable 2/3-finger gestures | T2 | 2.02, 2.05 | ⚪ Outline | |
 | JB-2.03 Colour: panel, drag-off-swatch picker, long-press eyedropper | T2-V | 2.01 | ⚪ Outline | |
 | JB-2.04 Layers panel: paint/ink layers, blend modes, opacity, runtime layer budget | T2-V | 0.07, 2.01 | ⚪ Outline | |
-| JB-2.05 Selection + transform (one-gesture start, live box, tap outside commits, survives ops) | T1 | 0.07, 2.02 | ⚪ Outline | |
+| [JB-2.05a](specs/JB-2.05a_selection_mask.md) Selection masks: lasso (non-zero), rect, ellipse, from-fill, boolean ops | T2 | 0.07, 2.06a | 🟦 Ready | **Claude 2026-09-29** (R15) — Lead-written, no cross-review needed |
+| [JB-2.05b](specs/JB-2.05b_transform_and_resample.md) Transform maths: affine, box handles, tile resample | T2 | 2.05a, 2.02 | 🟦 Ready | **Claude 2026-09-29** (R15) — dispatch **after** 2.05a |
+| [JB-2.05](specs/JB-2.05_selection_transform_ui.md) Selection + transform (one-gesture start, live box, tap outside commits, survives ops) | T1 | 0.07, 2.02, 2.05a, 2.05b | ⚪ Outline | |
 | [JB-2.06a](specs/JB-2.06a_flood_fill.md) Fill maths: flood fill with tolerance, gap closing, no fringe | T2 | — | 🟧 Built | subagent of openrouter/stealth/space-bunny-alpha 2026-09-28 — 3 failures were all TEST bugs, not code (see the spec's orchestrator rulings: the thin-line push-back, the 5x5 diagonal dilation is 19 not 25, and a closed 3x3 ring has 72 in the region, not 73 white) |
 | JB-2.06b Fill tool on screen: reference layer, drag to set tolerance | T2 | 2.06a, 2.13a, 2.01 | ⚪ Outline | |
 | [JB-2.10](specs/JB-2.10_shape_recognizer.md) Hold-to-shape maths (recognise + perfect, keep pressure/tilt) | T2 | 0.01 | 🟧 Built | **Claude 2026-09-29** (`bab2b0e4`) — the Lead took it over after 4 empty dispatches; R12 says do not split or dispatch it. The maths is available; the hold-to-shape UI is still JB-2.11 ⚪ |
 | JB-2.11 Hold-to-shape UI (hold timer, preview, resize before lift) | T2 | 2.10, 1.05 | ⚪ Outline | |
-| JB-2.12 Helpers: grid, perspective guides, shape tracers (never exported) | T2-V | 2.01 | ⚪ Outline | |
+| [JB-2.12a](specs/JB-2.12a_guides_and_snapping.md) Guides: grid / iso / perspective / ruler / ellipse, stroke snapping, visible lines | T2 | 0.01, 2.02 | 🟦 Ready | **Claude 2026-09-29** (R15) |
+| JB-2.12 Helpers: grid, perspective guides, shape tracers (never exported) | T2-V | 2.01, 2.12a | ⚪ Outline | |
 | [JB-2.13a](specs/JB-2.13a_region_renderer.md) RegionRenderer: flatten any rectangle/frame to pixels, all blend modes (CPU) | T2 | 0.02 | 🟧 Built | unknown model (subagent of openrouter/stealth/space-bunny-alpha) 2026-09-28 |
 | JB-2.13b Paper setting (colour/texture) + export PNG: screen / selection / board, include paper | T2 | 2.13a, 2.14a, 0.08b | ⚪ Outline | |
 | [JB-2.14a](specs/JB-2.14a_png_writer.md) PNG writer (exact, JVM-tested) | T2 | — | 🟧 Built | unknown model (subagent of openrouter/stealth/space-bunny-alpha) 2026-09-28 — 17/17 green; review found a real w*h IDAT-cursor bug (infinite loop → OOM) now fixed |
 | [JB-2.14b](specs/JB-2.14b_openraster_export.md) Export OpenRaster (.ora) — layers for Krita/GIMP/MyPaint | T2 | 2.13a, 2.14a, 0.08a | 🟧 Built | subagent of openrouter/stealth/space-bunny-alpha 2026-09-28, finished by the orchestrator — the 2 failures were both the test counting the FIXTURE instead of the output (3 layers ≠ 3 files; and "Loud" at opacity 2f clamps to opaque and IS exported, so 4 omissions and 2 survivors, not 5 and 1). Also fixed a **shared** bug: `:androidkit:test` was failing with `NoClassDefFoundError: JbDocument` for *every* test in the module, because core declared kotlinx-serialization as `implementation` while `JbDocument`/`BrushPreset` are `@Serializable` on its public API — now `api`. That had been silently disabling JB-0.08a's tests too. `:core:jvmTest` 394/0 · `:androidkit:test` 85/0 |
 | JB-2.14c Export PSD (own writer, 8-bit layered) | T2 | 2.13a | ⚪ Outline | |
 | JB-2.15 Autosave and crash safety (never lose work) | T2 | 0.08 | ⚪ Outline | |
-| JB-2.16 Brush size/opacity by dragging the brush swatch; nudge scaled to zoom | T2 | 2.01 | ⚪ Outline | |
+| [JB-2.16a](specs/JB-2.16a_size_opacity_drag.md) Size & opacity drag maths + zoom-scaled nudge | T2 | 0.03b, 2.02 | 🟧 Built | subagent of openrouter/stealth/space-bunny-alpha 2026-09-29 — 16 tests, **green on the first `:core:jvmTest` run** (476/0). Four questions ruled. 🔴 Two for the Lead: `MAX_SIZE = 4096f` is a **local copy** of `BrushValidate.MAX_SIZE_PX` (which is `private`), so nothing can catch the two drifting apart; and `screenPerDoc` IS `ViewTransform.zoom` — pass `view.zoom`, never `1f / view.zoom` |
+| JB-2.16 Brush size/opacity by dragging the brush swatch; nudge scaled to zoom | T2 | 2.01, 2.16a | ⚪ Outline | R10 already ruled the hard part: the size control shows the on-screen circle at its true **screen** size (radius × zoom) while dragging, and writes `size.base` in **document** px (screen px ÷ zoom) |
 | JB-2.17 Gesture cheat-sheet + first-run hints | T2-V | 2.02 | ⚪ Outline | |
 | JB-2.30 📱 Owner finishes a real illustration; then Tab S8 check | T3 | Phase 2 | ⚪ Outline | |
 
@@ -175,17 +179,20 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-3.02 Animation paper: peg bar that doubles as buttons, pixel rulers | T2-V | 3.01, 2.01 | ⚪ Outline | |
 | JB-3.03 Film strip: sprockets, ± actions, drag a frame's edge to hold it, finger scrub | T2-V | 3.01 | ⚪ Outline | |
 | JB-3.04 Onion skin as ONE shared component (extracted from SpriteLab, same settings) | T1 | 3.01 | ⚪ Outline | |
-| JB-3.05 Playback + an audio track | T2 | 3.03 | ⚪ Outline | |
+| [JB-3.05a](specs/JB-3.05a_playback_clock.md) Playback clock: loop / ping-pong / once, range, audio position, no drift | T2 | 3.01 | 🟦 Ready | **Claude 2026-09-29** (R15) |
+| JB-3.05 Playback + an audio track | T2 | 3.03, 3.05a | ⚪ Outline | |
 | [JB-3.06a](specs/JB-3.06a_gif_encoder.md) Animated GIF encoder (pure, deterministic) | T2 | — | 🟧 Built | subagent of openrouter/stealth/space-bunny-alpha 2026-09-28, finished by the orchestrator — **two real encoder bugs, both found by asking GDI+/ImageIO to read the file, not by reading the code**: (1) the Logical Screen Descriptor was 5 bytes instead of 7, so the colour table started 2 bytes early and **every file was malformed**; (2) the LZW code width grew one code too early. Plus 5 test-side bugs, all recorded in the spec. `:core:jvmTest` 394/0 |
 | JB-3.06b Export MP4 / WebP / PNG sequence / GIF / sprite sheet from the animation board | T2 | 3.01, 3.06a, 2.13a, 4.03a | ⚪ Outline | |
 | JB-3.07 Send to Studio (drops on the timeline) | T1 | 3.06 | ⚪ Outline | |
-| JB-3.08 Context-aware 3-finger swipe: frame flip when the ACTIVE board is an animation board with ≥ 2 frames, else brush size/opacity; corner badge (running figure / brush) shows the mode and a tap overrides it; never switches mid-gesture | T2 | 2.02, 3.03 | ⚪ Outline | |
+| [JB-3.08a](specs/JB-3.08a_three_finger_swipe.md) Three-finger swipe: mode choice, badge override, frame flip / brush | T2 | 2.16a, 3.01 | 🟦 Ready | **Claude 2026-09-29** (R15) — dispatch **after** 2.16a |
+| JB-3.08 Context-aware 3-finger swipe: frame flip when the ACTIVE board is an animation board with ≥ 2 frames, else brush size/opacity; corner badge (running figure / brush) shows the mode and a tap overrides it; never switches mid-gesture | T2 | 2.02, 3.03, 3.08a | ⚪ Outline | |
 | JB-3.30 📱 Owner animates a loop and drops it in the Studio | T3 | Phase 3 | ⚪ Outline | |
 
 ### Phase 4 — Sprite board
 | Task | Tier | Needs | Status | Who |
 |---|---|---|---|---|
-| JB-4.01 Sprite board: grid by px or cell count, sub-grids, edge sizing | T2-V | 2.01 | ⚪ Outline | |
+| [JB-4.01a](specs/JB-4.01a_sprite_grid_math.md) Sprite grid maths: by size / count, cell lookup, edge drag, sub-grids | T2 | 0.02, 4.03a | 🟧 Built | subagent of openrouter/stealth/space-bunny-alpha 2026-09-29 — 33 tests, **green on the first `:core:jvmTest` run** (476/0), and test 8 checks grid maths against the *landed* `SpritePacker.pack` rather than a comment. 🔴 For the Lead: `rect.x + col * cellW` is plain `Int` and overflows near 2×10⁹ — a **silently wrong cell**, not a crash (same family as JB-2.13a Q3); and `cellAt` relies on JVM-only `Float.toInt()` saturation, which matters for the iOS door |
+| JB-4.01 Sprite board: grid by px or cell count, sub-grids, edge sizing | T2-V | 2.01, 4.01a | ⚪ Outline | |
 | JB-4.02 Tap cells in order, play preview (SpriteLab's chip mechanic, reused) | T2-V | 4.01 | ⚪ Outline | |
 | [JB-4.03a](specs/JB-4.03a_sprite_sheet_packer.md) Sprite sheet packer + SpriteLab `.sprite.json` sidecar | T2 | 0.02 | 🟧 Built | unknown model (subagent of openrouter/stealth/space-bunny-alpha) 2026-09-28 |
 | JB-4.03b "Export" and "Export and open in SpriteLab" buttons on the sprite board | T2 | 4.01, 4.03a | ⚪ Outline | |
@@ -196,7 +203,8 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 |---|---|---|---|---|
 | JB-5.01 Ink layer renders from stroke records, crisp at any zoom | T1 | 0.07, 1.05 | ⚪ Outline | |
 | [JB-5.02](specs/JB-5.02_stroke_picking.md) Picking the right stroke in dense line work (tap again to cycle) | T2 | 5.10 | 🟧 Built | unknown model (subagent of openrouter/stealth/space-bunny-alpha) 2026-09-28 |
-| JB-5.03 Reshape / re-weight / re-brush a stroke after drawing | T2 | 5.01 | ⚪ Outline | |
+| [JB-5.03a](specs/JB-5.03a_stroke_edits.md) Stroke record v2 (colour, width) + reshape / re-weight / re-brush | T2 | 0.04, 5.02 | 🟦 Ready | **Claude 2026-09-29** (R15) — edits `stroke/`, so nothing else touching `stroke/` runs beside it |
+| JB-5.03 Reshape / re-weight / re-brush a stroke after drawing | T2 | 5.01, 5.03a | ⚪ Outline | |
 | [JB-5.10](specs/JB-5.10_vector_eraser_geometry.md) Vector eraser maths: partial, whole, to-intersection | T2 | — | 🟧 Built | space bunny #1 orchestrator (subagent) 2026-09-28 — 40 tests green; 1 contract question to Claude |
 | JB-5.11 Context-aware eraser (ink erases lines, paint erases pixels) | T2 | 5.10, 5.01 | ⚪ Outline | |
 | JB-5.30 📱 Owner check | T3 | Phase 5 | ⚪ Outline | |

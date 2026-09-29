@@ -52,27 +52,31 @@ class ThreeFingerSwipe(val density: Float = 1f) {
     // ---------------------------------------------------------------- the badge
 
     /**
-     * The badge tap override, remembered TOGETHER with the board it was made on (Decision 2).
+     * The badge-tap overrides, ONE PER BOARD (Decision 2, as ruled in LEAD_RULINGS R25).
      *
-     * One id, not just one mode: an override is a statement about the board the person was looking
-     * at, so a canvas board and an animation board can each keep their own answer. It is dropped
-     * (not merely ignored) as soon as the active board is a different one, because a board the
-     * person has left is not a board they have an opinion about yet.
+     * The owner keyed the mode to the active board (blueprint §6), so an override is a statement
+     * about ONE board and stays there: turn frame-flipping off on the animation, glance at the
+     * sketch board, come back — the animation is as you left it. Nothing is forgotten by looking
+     * elsewhere.
+     *
+     * Keyed by board id, so [badge] can stay a pure READ. It used to drop the override the moment it
+     * was asked about another board, which meant merely DRAWING a second badge (or a test asking about
+     * two documents) silently destroyed the person's choice.
      */
-    private var overrideBoardId: String? = null
-    private var overrideMode: SwipeMode? = null
+    private val overrides = HashMap<String, SwipeMode>()
 
     /**
      * What the badge shows right now for [doc]'s active board, with any override applied.
      *
-     * This is allowed to change DURING a gesture (Decision 3) — it is what the badge draws — so it
-     * is never read as "the mode this gesture is in". [begin] is what reads it, once.
+     * A pure read: it changes nothing, so asking about any board any number of times is harmless. It
+     * is allowed to change DURING a gesture (Decision 3) — it is what the badge draws — so it is never
+     * read as "the mode this gesture is in". [begin] is what reads it, once.
      */
     fun badge(doc: JbDocument): SwipeMode {
-        forgetOtherBoard(doc)
-        val forced = overrideMode
-        if (forced != null) return forced
-        return automatic(doc)
+        val boardId = doc.activeBoardId ?: return automatic(doc)
+        // Only BRUSH is ever stored: an override to FRAMES is refused in [tapBadge] on any board that
+        // cannot flip, and on one that can, FRAMES is already the automatic answer.
+        return overrides[boardId] ?: automatic(doc)
     }
 
     /**
@@ -85,39 +89,29 @@ class ThreeFingerSwipe(val density: Float = 1f) {
      * [MIN_FLIPPABLE_FRAMES] frames, or not an ANIMATION board at all — is REFUSED and the badge
      * stays [SwipeMode.BRUSH]: there is nothing there to flip, and a badge offering a mode the
      * gesture cannot honour is worse than no badge.
+     *
+     * Overrides of boards the document no longer has are dropped here (a tap is the one place this
+     * class is allowed to write), so the map cannot grow past the number of boards ever tapped.
      */
     fun tapBadge(doc: JbDocument) {
-        val boardId = doc.activeBoardId
-        if (boardId == null) return
+        overrides.keys.retainAll(doc.boards.map { it.id }.toSet())
+        val boardId = doc.activeBoardId ?: return
         val auto = automatic(doc)
-        val showing = badge(doc) // also drops an override made on some other board
-        if (showing != auto) {
-            overrideBoardId = null
-            overrideMode = null
+        if (badge(doc) != auto) {
+            overrides.remove(boardId)
             return
         }
         val flipped = if (auto == SwipeMode.FRAMES) SwipeMode.BRUSH else SwipeMode.FRAMES
         if (flipped == SwipeMode.FRAMES && frameCountOf(doc) < MIN_FLIPPABLE_FRAMES) {
-            overrideBoardId = null
-            overrideMode = null
+            overrides.remove(boardId)
             return
         }
-        overrideBoardId = boardId
-        overrideMode = flipped
+        overrides[boardId] = flipped
     }
 
     /** Decision 1: flip frames only where there are frames to flip. Everything else is the brush. */
     private fun automatic(doc: JbDocument): SwipeMode =
         if (frameCountOf(doc) >= MIN_FLIPPABLE_FRAMES) SwipeMode.FRAMES else SwipeMode.BRUSH
-
-    /** Drops an override that was made on a board the document is no longer showing. */
-    private fun forgetOtherBoard(doc: JbDocument) {
-        if (overrideMode == null) return
-        if (overrideBoardId != doc.activeBoardId) {
-            overrideBoardId = null
-            overrideMode = null
-        }
-    }
 
     /**
      * How many frames the active board has, or 0 when there is no board, it is not an

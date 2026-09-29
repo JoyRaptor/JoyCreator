@@ -112,8 +112,16 @@ class ThreeFingerSwipeTest {
 
     // ---- 2: the badge tap ------------------------------------------------------------------------
 
+    /**
+     * LEAD_RULINGS R25: an override is PER BOARD and is remembered (the owner keyed the mode to the
+     * active board). This replaces the earlier test, which asserted both "forgotten when you switch
+     * boards" (its old lines 128-129) and "each board keeps its own answer" (its old lines 134-138) —
+     * two rules no single object can satisfy. Derivation of every value below: the automatic answer
+     * of both animation boards is FRAMES (10 and 3 frames, both ≥ 2), so the only thing that can make
+     * a badge say BRUSH is a tap made on THAT board.
+     */
     @Test
-    fun anOverrideIsRememberedForTheBoardItWasMadeOnAndForgottenOnAnother() {
+    fun anOverrideBelongsToItsBoardAndIsRememberedWhenYouComeBack() {
         val s = ThreeFingerSwipe()
         val onAnim1 = fixture()
         val onAnim2 = fixture(active = "b-anim2")
@@ -122,22 +130,58 @@ class ThreeFingerSwipeTest {
         s.tapBadge(onAnim1)
         assertEquals(SwipeMode.BRUSH, s.badge(onAnim1))
 
-        // A different board: the override is ignored, and dropped on the spot.
+        // The other board was never tapped, so it is still automatic.
         assertEquals(SwipeMode.FRAMES, s.badge(onAnim2))
 
-        // …so coming back does NOT bring it back, which is the spec's "switch back → FRAMES".
-        assertEquals(SwipeMode.FRAMES, s.badge(onAnim1))
+        // Coming back: the choice is exactly as it was left.
+        assertEquals(SwipeMode.BRUSH, s.badge(onAnim1))
 
-        // A fresh override, this time on b-anim2 — and each board keeps its own answer.
+        // A tap on b-anim2 is its own answer and does not touch b-anim1's.
         s.tapBadge(onAnim2)
         assertEquals(SwipeMode.BRUSH, s.badge(onAnim2))
-        assertEquals(SwipeMode.FRAMES, s.badge(onAnim1))
+        assertEquals(SwipeMode.BRUSH, s.badge(onAnim1))
 
-        // Tapping again returns to the automatic answer; tapping once more overrides again.
+        // Tapping again returns ONE board to automatic; the other keeps its override.
         s.tapBadge(onAnim2)
         assertEquals(SwipeMode.FRAMES, s.badge(onAnim2))
+        assertEquals(SwipeMode.BRUSH, s.badge(onAnim1))
         s.tapBadge(onAnim2)
         assertEquals(SwipeMode.BRUSH, s.badge(onAnim2))
+    }
+
+    /**
+     * The failure that made the old test red was in the CODE, not only in the spec: `badge()` used to
+     * erase the override when asked about a different board, so drawing two badges destroyed a choice.
+     * A read must change nothing, however often and in whatever order it is asked.
+     */
+    @Test
+    fun askingTheBadgeNeverChangesAnything() {
+        val s = ThreeFingerSwipe()
+        val onAnim1 = fixture()
+        val onAnim2 = fixture(active = "b-anim2")
+        s.tapBadge(onAnim1) // b-anim1 → BRUSH
+
+        repeat(5) {
+            assertEquals(SwipeMode.FRAMES, s.badge(onAnim2))
+            assertEquals(SwipeMode.BRUSH, s.badge(onAnim1))
+        }
+    }
+
+    @Test
+    fun anOverrideForABoardThatIsGoneIsDroppedAndNeverBreaksAnything() {
+        val s = ThreeFingerSwipe()
+        s.tapBadge(fixture()) // b-anim1 → BRUSH
+
+        // b-anim1 is deleted from the document (an undo or a delete can do this).
+        val without = docOf(
+            active = "b-anim2",
+            boards = listOf(canvasBoard(), animBoard("b-anim2", 3)),
+        )
+        s.tapBadge(without) // the tap is where stale ids are dropped
+        assertEquals(SwipeMode.BRUSH, s.badge(without)) // b-anim2 was tapped once: FRAMES → BRUSH
+
+        // A board with the same id comes back (undo): its old choice is gone, so it is automatic.
+        assertEquals(SwipeMode.FRAMES, s.badge(fixture()))
     }
 
     @Test

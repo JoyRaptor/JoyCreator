@@ -89,7 +89,8 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
 | **Keyed parent switch** (proxy › Follows: Switch parent here / Let go here); seamless handoff, verified numerically | 🧪 5fb0be84 (phone offline) |
 | Phone pass 2026-09-29 (Note 9): Split, Undo/Redo, Captions, text drawer, Opacity/Loop/Canvas/Filter open and work; Back now closes Loop; Filters sliders one-line | ✅ 867fc2bb |
 | Phone pass: Proxy add / drag-moves-followers / Follows tab / Switch parent (records "from 5s: Proxy 1", no jump) / dashed marker in preview | ✅ 7517c538 |
-| Not yet on phone: follower drops to own lane on time overlap; visualizer following; Let go here; pin links; text sizing | ⏳ |
+| Phone pass: Let go here; bottom tools Rotate / Flip / Align / Clean / Crop / Select / Extract / Loop / Opacity / Canvas / Filter all open and respond (Rotate undone, Select mode back off) | ✅ |
+| Not yet on phone: follower drops to own lane on time overlap; visualizer following (no test project); pin links; text sizing | ⏳ |
 | Observed, not mine: caption line shifted right/clipped at 5.1s in ZA_CONTROL on the ~10:40 build (export lane told) | 👀 |
 | NEXT: phone pass on remaining 🧪; pin links (warp/puppet pins as parents); parameter drivers; text box sizing modes (#14); bottom-tools sweep | ⏳ |
 

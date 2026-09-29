@@ -1,0 +1,4 @@
+# One built-in brush folder per line. Each folder needs a brush.json that BrushJson can read and
+# BrushValidate accepts. Adding a brush later is a new folder and a new line here.
+ink
+pencil

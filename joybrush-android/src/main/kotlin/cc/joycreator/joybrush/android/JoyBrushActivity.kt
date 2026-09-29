@@ -19,8 +19,10 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import cc.joycreator.joybrush.androidkit.BrushLibrary
 import cc.joycreator.joybrush.androidkit.JbCanvasView
 import cc.joycreator.joybrush.androidkit.diag.PenDiagnosticsView
+import cc.joycreator.joybrush.core.brush.BrushPreset
 
 // 10% and 12% white, the spec's overlay colours. Both literals fit in an Int.
 private const val OVERLAY_FILL = 0x1AFFFFFF
@@ -35,7 +37,8 @@ private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
  *
  * Nothing about input lives here. The pen, palm rejection, smoothing and the GPU renderer all
  * belong to JbCanvasView; this Activity only hosts it, keeps the screen awake, and wires the
- * overlay controls to the view's public surface (brush, smoothing, undo, redo, clear).
+ * overlay controls to the view's public surface (brush preset and eraser, smoothing, the brush
+ * picker, undo, redo, clear).
  */
 class JoyBrushActivity : Activity() {
 
@@ -44,6 +47,12 @@ class JoyBrushActivity : Activity() {
     private lateinit var redoBtn: TextView
     private lateinit var eraserBtn: TextView
     private var erasing = false
+
+    // JB-1.05b: the shipped brush files. The pill shows whichever one is current, and the view
+    // draws with it — the hard-coded round brush is only reached by leaving preset null.
+    private val brushes: List<BrushPreset> = BrushLibrary.builtIn()
+    private var brushIndex = 0
+    private lateinit var brushBtn: TextView
 
     // JB-0.06: the hidden pen probe. GONE until the owner long-presses the close button.
     private lateinit var diag: PenDiagnosticsView
@@ -55,6 +64,8 @@ class JoyBrushActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         canvas = JbCanvasView(this)
+        // The first shipped brush file drives the view from the moment the screen opens (JB-1.05b).
+        canvas.preset = brushes.firstOrNull()
         val overlays = buildOverlays()
 
         val root = FrameLayout(this)
@@ -136,6 +147,9 @@ class JoyBrushActivity : Activity() {
         smoothSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
                 canvas.smoothing = progress / 100f
+                // JB-1.05b: only a real move of the slider takes smoothing away from the brush
+                // file, so the starting 35% set below does not count as the person choosing.
+                if (fromUser) canvas.smoothingFromUser = true
             }
 
             override fun onStartTrackingTouch(bar: SeekBar) {
@@ -166,6 +180,11 @@ class JoyBrushActivity : Activity() {
         eraserBtn = pillButton("Eraser", "Toggle the eraser") { toggleEraser() }
         overlays.addView(eraserBtn, corner(WRAP, dp(40), Gravity.BOTTOM or Gravity.END, 12))
 
+        // bottom-centre: the brush picker. Its label IS the current brush's name, so there is no
+        // drawer to open and no second place to look for what is in the nib.
+        brushBtn = pillButton(brushLabel(), "Change the brush") { cycleBrush() }
+        overlays.addView(brushBtn, corner(WRAP, dp(40), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, 12))
+
         return overlays
     }
 
@@ -180,6 +199,27 @@ class JoyBrushActivity : Activity() {
         erasing = !erasing
         canvas.brush = canvas.brush.copy(erase = erasing)
         eraserBtn.alpha = if (erasing) 1f else 0.55f
+    }
+
+    /**
+     * The brush pill's label: the name of the file the view is drawing with. "Brush" alone, with
+     * no name after it, means no brush file was packaged into the build.
+     */
+    private fun brushLabel(): String {
+        val p = brushes.getOrNull(brushIndex)
+        return if (p == null) "Brush" else "Brush: ${p.name}"
+    }
+
+    /** Tap cycles through the packaged brush files, wrapping round at the end. */
+    private fun cycleBrush() {
+        if (brushes.isEmpty()) return
+        brushIndex += 1
+        if (brushIndex >= brushes.size) brushIndex = 0
+        canvas.preset = brushes[brushIndex]
+        brushBtn.text = brushLabel()
+        // The tooltip is read when the person presses and holds, so it has to be brought up to
+        // date with the label rather than always saying the same thing.
+        ViewCompat.setTooltipText(brushBtn, "Change the brush — now ${brushes[brushIndex].name}")
     }
 
     // ── the hidden pen diagnostics (JB-0.06) ─────────────────────────────────

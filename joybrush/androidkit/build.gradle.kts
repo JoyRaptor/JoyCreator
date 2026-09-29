@@ -3,7 +3,7 @@
 // A plain Kotlin/JVM library compiled against android.jar (compileOnly). That lets it be
 // compile-checked anywhere, including a cloud machine with no Android SDK, and the Android app
 // consumes it like any other jar. It has no Android resources; the shared shaders ride along as
-// Java resources under /joybrush/shaders/.
+// Java resources under /joybrush/shaders/, and the shipped brush files under /joybrush/brushes/.
 //
 // android.jar is found in this order: -Pjoybrush.androidJar=<path>, $ANDROID_HOME or
 // $ANDROID_SDK_ROOT, then sdk.dir in the repo's local.properties — newest platform wins.
@@ -49,4 +49,7 @@ dependencies {
 
 tasks.processResources {
     from(rootDir.resolve("shaders")) { into("joybrush/shaders") }
+    // JB-1.05b: the shipped brush files, one folder per brush plus index.txt. Read by
+    // cc.joycreator.joybrush.androidkit.BrushLibrary from /joybrush/brushes.
+    from(rootDir.resolve("brushes")) { into("joybrush/brushes") }
 }

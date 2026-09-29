@@ -7,11 +7,17 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
 import cc.joycreator.joybrush.androidkit.input.MotionEventSamples
+import cc.joycreator.joybrush.core.brush.BrushDabber
+import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.DabInputs
+import cc.joycreator.joybrush.core.brush.Scatter
+import cc.joycreator.joybrush.core.brush.SplitMix
 import cc.joycreator.joybrush.core.input.DirectionTracker
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.input.StrokeSmoother
 import cc.joycreator.joybrush.core.input.Tool
 import cc.joycreator.joybrush.core.paint.Accumulate
+import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.DabPlacer
 import cc.joycreator.joybrush.core.paint.StrokeBlend
 import cc.joycreator.joybrush.core.paint.TipShape
@@ -24,6 +30,11 @@ import javax.microedition.khronos.opengles.GL10
  * UI thread: reads the pen, smooths ([StrokeSmoother]), turns the tip ([DirectionTracker]) and places
  * dabs ([DabPlacer]). GL thread: [GlPaintEngine] paints them. Dabs cross threads through queueEvent,
  * so the pen path is never blocked by rendering.
+ *
+ * A stroke is laid down in one of two ways. With [preset] null it is the hard-coded round [Brush]
+ * below. With a brush FILE set, the dab itself is the file's answer ([BrushDabber], one call per
+ * dab), its scatter is [Scatter]'s, and the engine's whole-stroke numbers -- opacity, accumulate,
+ * blend and the tip -- are read off the same file. The file is read once per stroke, not per dab.
  *
  * Pen vs finger (owner's ruling): until a pen has been seen, fingers draw. After the first pen event
  * fingers never draw here (Phase 2 turns them into the tool finger). A finger landing while the pen
@@ -50,6 +61,21 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     var brush = Brush()
     var smoothing = 0.35f
+
+    /**
+     * The brush FILE in use (JB-1.05b), or null for the hard-coded round [Brush] above. Change it
+     * between strokes: a stroke in progress keeps the preset it started with, so every dab of one
+     * stroke comes from one file and one seed.
+     */
+    @Volatile var preset: BrushPreset? = null
+
+    /**
+     * True once the person has moved the smoothing slider, and only then does the slider beat the
+     * brush file's own `smoothing` -- so Ink keeps its 0.35 and Pencil its 0.2 without either of
+     * those numbers being written down here.
+     */
+    @Volatile var smoothingFromUser = false
+
     var paperArgb: Int = 0xFFFFFFFF.toInt()
         set(v) { field = v; requestRender() }
 
@@ -76,6 +102,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var smoother: StrokeSmoother? = null
     private var tracker: DirectionTracker? = null
     private var placer: DabPlacer? = null
+
+    // JB-1.05b: the file-driven stroke's own state, all of it one stroke long.
+    private var strokePreset: BrushPreset? = null
+    private var strokeDabber: BrushDabber? = null
+    private var scatterRng: SplitMix? = null
+    private var strokeErase = false
+    private var glBegan = false
 
     init {
         setEGLContextClientVersion(3)
@@ -139,22 +172,70 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     private fun startStroke(eraser: Boolean) {
         val b = brush
-        drawing = true
-        smoother = StrokeSmoother(smoothing, screenPerDoc = 1f)
-        val tr = DirectionTracker().also { tracker = it }
+        val p = preset
         val erase = b.erase || eraser
-        val cap = if (b.accumulate == Accumulate.WASH) b.opacity else 1f
-        placer = DabPlacer(
-            spacing = b.spacing,
-            radiusOf = { s -> 0.5f * b.sizePx * (b.minSizeFraction + (1f - b.minSizeFraction) * s.pressure) },
-            angleOf = if (b.followDirection) { s -> tr.update(s) } else { _ -> 0f },
-            flowOf = { b.flow },
-            cap = cap,
-        )
-        onGl {
-            engine.beginStroke(layerId, b.argb, b.opacity, b.accumulate,
-                if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
+        drawing = true
+        glBegan = false
+        strokePreset = p
+        strokeDabber = null
+        scatterRng = null
+        strokeErase = erase
+        val amount = if (p != null && !smoothingFromUser) p.smoothing else smoothing
+        smoother = StrokeSmoother(amount, screenPerDoc = 1f)
+        val tr = DirectionTracker().also { tracker = it }
+        if (p == null) {
+            val cap = if (b.accumulate == Accumulate.WASH) b.opacity else 1f
+            placer = DabPlacer(
+                spacing = b.spacing,
+                radiusOf = { s -> 0.5f * b.sizePx * (b.minSizeFraction + (1f - b.minSizeFraction) * s.pressure) },
+                angleOf = if (b.followDirection) { s -> tr.update(s) } else { _ -> 0f },
+                flowOf = { b.flow },
+                cap = cap,
+            )
+            glBegan = true
+            onGl {
+                engine.beginStroke(layerId, b.argb, b.opacity, b.accumulate,
+                    if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
+            }
+        } else {
+            // One dabber per stroke: it holds the random stream, the speed filter and the tip
+            // direction, and the placer asks it exactly once per dab. The placer's own cap stays 1
+            // -- a WASH dab carries its own opacity as its cap, and a BUILD_UP dab wants 1.
+            val seed = SystemClock.uptimeMillis()
+            val d = BrushDabber(p, seed)
+            strokeDabber = d
+            scatterRng = SplitMix(seed xor SCATTER_SALT)
+            placer = DabPlacer(spacing = d.spacing, look = d::look)
+            // glBegan stays false here on purpose: the stroke is begun on the GL thread only once a
+            // first dab exists, so the tip's hardness and the stroke's opacity are the ones the
+            // file evaluated AT that dab rather than the base values the file happens to carry.
         }
+    }
+
+    /**
+     * Posts [GlPaintEngine.beginStroke] for the stroke in progress, from [paint] on its first real
+     * dabs. The hard-coded [Brush] branch of [startStroke] has already done this, which is what
+     * [glBegan] remembers.
+     */
+    private fun beginStrokeNow() {
+        val b = brush
+        val p = strokePreset
+        val d = strokeDabber
+        val accumulate = if (p == null) b.accumulate
+        else if (p.accumulate == "buildup") Accumulate.BUILD_UP
+        else Accumulate.WASH
+        val eraseBlend = strokeErase || (p != null && p.blend == "erase")
+        val opacity = if (p == null) b.opacity else if (d == null) p.opacity.base else d.strokeOpacity
+        val tip = if (p == null) b.tip else TipShape(
+            aspect = p.tip.aspect,
+            corner = p.tip.corner,
+            taper = p.tip.taper,
+            hardness = if (d == null) p.tip.hardness.base else d.strokeHardness,
+            minPx = p.tip.minPx,
+        )
+        glBegan = true
+        onGl { engine.beginStroke(layerId, b.argb, opacity, accumulate,
+            if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip) }
     }
 
     private fun feed(ev: MotionEvent) {
@@ -170,20 +251,54 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         smoother?.let { paint(it.finish()) }
         drawing = false
         smoother = null; placer = null; tracker = null
+        strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false
         onGl { engine.endStroke(); reportHistory() }
     }
 
     private fun cancelStroke() {
         drawing = false
         smoother = null; placer = null; tracker = null
+        strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false
         onGl { engine.cancelStroke() }
     }
 
     private fun paint(points: List<PenSample>) {
         if (points.isEmpty()) return
-        val dabs = placer?.add(points) ?: return
-        if (dabs.isNotEmpty()) onGl { engine.addDabs(dabs) }
+        val placed = placer?.add(points) ?: return
+        if (placed.isEmpty()) return
+        val p = strokePreset
+        val dabs = if (p == null) placed else scattered(p, placed)
+        if (!glBegan) beginStrokeNow()
+        onGl { engine.addDabs(dabs) }
     }
+
+    /**
+     * The file's own scatter, over the dabs the placer has just built. [Scatter] asks once per input
+     * dab, and every draw a scatter makes is in the same order whatever the batches were, so
+     * feeding it batch by batch gives the same leaves as feeding it the whole stroke at once.
+     */
+    private fun scattered(p: BrushPreset, placed: List<Dab>): List<Dab> {
+        val rng = scatterRng ?: return placed
+        return Scatter.expand(placed, p.scatter, rng) { dab -> dabInputsOf(dab) }
+    }
+
+    /**
+     * What [Scatter] gets to ask about one dab: its pressure, and nothing else. A [Dab] does not
+     * carry tilt or speed or distance, so those are NaN — which the curves read as "not available"
+     * and skip, leaving a scatter curve on tilt to contribute its base rather than a number invented
+     * here.
+     */
+    private fun dabInputsOf(dab: Dab) = DabInputs(
+        pressure = dab.pressure,
+        tilt = Float.NaN,
+        speedPxPerS = Float.NaN,
+        direction = Float.NaN,
+        lean = Float.NaN,
+        distancePx = Float.NaN,
+        random = Float.NaN,
+        strokeRandom = Float.NaN,
+        barrel = Float.NaN,
+    )
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -205,5 +320,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     companion object {
         /** Fingers are ignored for this long after the pen lifts (palm rejection). */
         const val PALM_GRACE_MS = 400L
+
+        /**
+         * The scatter generator's salt, so its stream is not the dabber's own. A second generator
+         * rather than a second stream out of one, because [BrushDabber]'s draws per dab are fixed
+         * by its own contract and must not be walked differently.
+         */
+        const val SCATTER_SALT = 0x5CA7L
     }
 }

@@ -90,3 +90,32 @@ with two changes:
   the spec anyway.
 - JB-2.10 (hold-to-shape maths) is claimed by the Lead — do not split or dispatch it.
 - JB-1.20 headless browser check by the orchestrator (R6 option a): approved.
+
+## 2026-09-29 — muse-spark audit of the new Built work (10 review files)
+
+**R13. The two MAJORs.**
+- **JB-2.02 mid-stroke handoff is dead — CONFIRMED, fixed by the Lead.** Before a pen is seen a finger
+  draws; a second finger cancels that stroke, but `CanvasGestures` never saw the ACTION_DOWN so it
+  ignored the rest until a re-touch. `CanvasGestures.handOver()` (landed) lets the view hand the
+  gesture over; the machine then adopts every finger where it is. It is only adopted when the view
+  says so, so a palm the view swallowed plus one finger still cannot drag the page. The view's
+  one-line call is in `tasks/joybrush/held/JbCanvasView_lead.patch` with the R10 frame-snapshot fix;
+  the Lead applies it after JB-0.08b is pushed. Device check owed (sandbox phone, fingers only):
+  draw with one finger, drop a second, pinch — the page zooms with no lift.
+- **JB-1.05b `uptimeMillis()` seed makes strokes unreplayable — downgraded to MINOR.** Where a seed
+  comes from does not matter; replay needs the seed to be SAVED. `StrokeRecord.seed` already exists.
+  Rule for whichever task first records strokes: the `StrokeRecord` gets the exact seed the
+  `BrushDabber` used (the view keeps it for the stroke's life). No code change now.
+- JB-1.05a: its code is committed (`9c7cc9a`) and built on — the orchestrator sets its row to 🟧 Built.
+- The MINORs: orchestrator triages per ROADMAP §5b.
+
+**R14. The 6 uncommitted app files are NOT the owner's.** The owner does not write code or use git;
+they were left in the working tree by earlier agent sessions (Studio polish work): `ProjectStorage.java`,
+`INBOX.md`, `LEDGER.md` (staged), `FaditorEditorActivity.java`, `LobbyFragment.java`,
+`strings_studio_polish.xml`. The watcher has been building WITH them all along. Procedure, AFTER
+JB-0.08b is pushed so nothing else is uncommitted:
+1. `git switch -c bunny/leftover-app-edits`
+2. `git add` those 6 paths by name, commit "Leftover app edits from earlier sessions (for Lead review)"
+3. `git push origin bunny/leftover-app-edits`, then `git switch joy-creator`.
+The Lead reviews them in the cloud and either merges them into `joy-creator` or drops them, then
+JB-0.09 is unblocked. Never ask the owner to commit, stash or resolve anything.

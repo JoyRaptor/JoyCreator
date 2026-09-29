@@ -871,3 +871,13 @@ samples (pads short items with silence, never trims long ones). Frame-level chec
   decoded samples (Media3, a mixer, a join) must fit each clip's sound to its span.
 - MediaExtractor.advance() reads sample DATA; to walk timestamps of a long file, read the
   MP4 sample table (Mp4AudioTimes) — 18 s vs milliseconds on the lecture.
+
+## 2026-09-29 — the owner does not code: never hand him a git chore
+
+I called the six uncommitted app files on the laptop "the owner's changes" and asked him to commit
+them. He has never touched code and does not know git; earlier agent sessions left them there.
+
+**Rules:**
+- Uncommitted files nobody claims belong to a past AGENT session, never to the owner.
+- The owner's jobs are: rulings, pasting reports, and phone checks (Note 9 plugged in). Anything
+  involving git, gradle or files goes to the orchestrator or the Lead, with exact commands.

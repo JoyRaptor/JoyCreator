@@ -47,6 +47,7 @@ class CanvasGestures(
     var fingersNavigate: Boolean = false
 
     private var active = false
+    private var handedOver = false
     private var downTimeMs = 0L
     private var maxPointers = 0
     private var wandered = false
@@ -86,11 +87,22 @@ class CanvasGestures(
      */
     fun reset() {
         active = false
+        handedOver = false
         wandered = false
         navigated = false
         maxPointers = 0
         downX.clear()
         downY.clear()
+    }
+
+    /**
+     * The view just cancelled a one-finger stroke because a second finger landed: the gesture is
+     * this machine's from the NEXT event on, even though it never saw the first finger go down.
+     * Only the view can say this — a first touch it swallowed as a palm must NOT be adopted, or a
+     * resting palm plus one finger would drag the page.
+     */
+    fun handOver() {
+        handedOver = true
     }
 
     // ── the gesture ───────────────────────────────────────────────────────────────────────────────
@@ -114,11 +126,39 @@ class CanvasGestures(
     }
 
     private fun pointerDown(ev: MotionEvent) {
-        if (!active) return
+        if (!active) {
+            if (handedOver) adopt(ev)
+            return
+        }
         if (ev.pointerCount > maxPointers) maxPointers = ev.pointerCount
         val i = ev.actionIndex
         downX[ev.getPointerId(i)] = ev.getX(i)
         downY[ev.getPointerId(i)] = ev.getY(i)
+        rebase(ev, -1)
+    }
+
+    /**
+     * A second finger landed on a gesture this machine never saw start: the first finger was
+     * drawing, so the view kept its ACTION_DOWN, then cancelled the stroke and handed over. Take the
+     * gesture over from here — every finger's CURRENT position counts as where it went down, and the
+     * tap clock runs from the first finger's real down time — so the pinch works at once and a quick
+     * two-finger tap still undoes.
+     */
+    private fun adopt(ev: MotionEvent) {
+        active = true
+        handedOver = false
+        downTimeMs = ev.downTime
+        maxPointers = ev.pointerCount
+        wandered = false
+        navigated = false
+        turnArmed = false
+        turnBase = 0f
+        downX.clear()
+        downY.clear()
+        for (i in 0 until ev.pointerCount) {
+            downX[ev.getPointerId(i)] = ev.getX(i)
+            downY[ev.getPointerId(i)] = ev.getY(i)
+        }
         rebase(ev, -1)
     }
 

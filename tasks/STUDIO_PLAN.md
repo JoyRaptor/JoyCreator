@@ -92,7 +92,10 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
 | Phone pass: Let go here; bottom tools Rotate / Flip / Align / Clean / Crop / Select / Extract / Loop / Opacity / Canvas / Filter all open and respond (Rotate undone, Select mode back off) | ✅ |
 | Phone pass 2026-09-29: video-overlay drawer complete (Transform/Blend/Mask/Key/Sound, all rows); Add sheet complete | ✅ |
 | Visualizer: a fresh one attaches to the main clip with no lane of its own in ZA_CONTROL, so its drawer (code path exists: lane double-tap/hold -> showVisualizerObjectDrawer) was never opened on the phone. Undo removes it from the model (LambdaAction wired) but one saved file still held it after Undo; autosave timing, unconfirmed | 👀 |
-| Not yet on phone: follower drops to own lane on time overlap; visualizer following; pin links; text sizing | ⏳ |
+| Main clip: one double-tap opens the sound strip AND the Volume drawer, the next closes both | ✅ 4032f7b3 (Note 9) |
+| String resources: 145 toasts, 121 undo/menu labels, 147 dialog texts moved (strings_studio_toasts/labels/dialogs.xml); ~50 formatted/concatenated remain | ✅ / ⏳ |
+| Text wrap width (chip: Auto / wide 16em / medium 10em / narrow 6em); alignment now saved | 🧪 006fd0d5: chip verified on device, wrap algorithm property-tested (2,000 sentences); NOT yet seen wrapping a real sentence (typing into a box over adb failed twice in landscape, and once landed in the wrong text, restored from backup). Next: side-handle drag, Fit mode |
+| Not yet on phone: follower drops to own lane on time overlap; visualizer drawer + following; pin links (needs the shared pin-position model first); portrait re-check | ⏳ |
 | Observed, not mine: caption line shifted right/clipped at 5.1s in ZA_CONTROL on the ~10:40 build (export lane told) | 👀 |
 | NEXT: phone pass on remaining 🧪; pin links (warp/puppet pins as parents); parameter drivers; text box sizing modes (#14); bottom-tools sweep | ⏳ |
 

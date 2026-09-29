@@ -1,5 +1,10 @@
 # One built-in brush folder per line. Each folder needs a brush.json that BrushJson can read and
 # BrushValidate accepts. Adding a brush later is a new folder and a new line here.
+#
+# The order here is the brush pill's order, and the first line is what the screen opens with.
 ink
 pencil
+marker
+softair
+eraser
 fill

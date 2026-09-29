@@ -1,0 +1,24 @@
+{
+  "format": "joybrush.brush",
+  "version": 1,
+  "id": "joybrush.softair",
+  "name": "Soft air",
+  "engine": "stamp",
+  "tip": {
+    "corner": 2,
+    "aspect": 0,
+    "hardness": { "base": 0.05 },
+    "minPx": 1
+  },
+  "size": {
+    "base": 60,
+    "inputs": [ { "input": "pressure", "curve": [ [0, 0.2], [1, 1] ] } ]
+  },
+  "opacity": { "base": 0.9 },
+  "flow": { "base": 0.05 },
+  "spacing": 0.02,
+  "accumulate": "buildup",
+  "blend": "normal",
+  "smoothing": 0.4,
+  "license": "CC0"
+}

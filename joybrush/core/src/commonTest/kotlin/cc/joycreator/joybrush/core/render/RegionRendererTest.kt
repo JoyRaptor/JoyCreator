@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.core.doc.Board
 import cc.joycreator.joybrush.core.doc.BoardKind
 import cc.joycreator.joybrush.core.doc.BlendMode
 import cc.joycreator.joybrush.core.doc.Cel
+import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.Frame
 import cc.joycreator.joybrush.core.doc.JbDocument
 import cc.joycreator.joybrush.core.doc.Layer
@@ -604,6 +605,167 @@ class RegionRendererTest {
             listOf(128, 0, 127, 255),
             pixelAt(RegionRenderer.render(d, tiles, rect, null, "#0000FF"), rect, 0, 0),
         )
+    }
+
+    // ── the size budget: a declared size is a wish ─────────────────────────────
+
+    /*
+     * Every export goes through RegionRenderer, so a rect it cannot allocate is a rect no exporter
+     * can draw. The budget is MAX_REGION_PX; these tests pin it from both sides, pin the two ways it
+     * used to fail (the Int wrap and the plain out-of-memory), and pin the mismatch that made this a
+     * bug at all: `DocOps.validate` passes a document this renderer then refuses.
+     */
+
+    /**
+     * THE BOUNDARY from the allowed side: exactly [MAX_REGION_PX] pixels must render.
+     *
+     * This is the test that says the guard is not off by one, and it is the only expensive test in
+     * this file. 4096 x 2048 IS the budget, so `render` really does allocate 160 MiB — 32 MiB of
+     * result and 128 MiB of float scratch — and then walk 8.4 million pixels. That is deliberate:
+     * the constant's claim is "160 MiB is affordable", and the only honest way to check a claim
+     * about an allocation is to make the allocation. The document is empty, so allocating it is the
+     * only work done.
+     */
+    @Test
+    fun aRegionExactlyOnTheBudgetIsRendered() {
+        val rect = RectPx(0, 0, 4096, 2048)
+        assertEquals(MAX_REGION_PX, rect.w.toLong() * rect.h.toLong(), "the fixture IS the budget")
+        val out = RegionRenderer.render(doc(emptyList()), tilesOf(), rect, null, null)
+        assertEquals(MAX_REGION_PX * 4, out.size.toLong())
+        assertEquals(listOf(0, 0, 0, 0), pixelAt(out, rect, 0, 0), "first pixel")
+        assertEquals(listOf(0, 0, 0, 0), pixelAt(out, rect, 4095, 2047), "last pixel")
+    }
+
+    /**
+     * THE BOUNDARY from the refused side: one row over must be refused, and the message must say how
+     * many pixels it wanted. A refusal nobody can act on is one they report as "export just failed",
+     * which is how a 160 MiB budget becomes a bug report instead of a sentence.
+     *
+     * Both doors are checked. `renderPremultiplied` allocates from the same rect, so a guard on one
+     * door and not the other would be a guard that can be walked around.
+     */
+    @Test
+    fun aRegionOneRowOverTheBudgetIsRefusedAndSaysWhatItWanted() {
+        val rect = RectPx(0, 0, 4096, 2049)
+        val wanted = 4096L * 2049
+        assertEquals(MAX_REGION_PX + 4096, wanted, "one row of 4096 px past the fixture above")
+
+        val fromRender = assertFailsWith<RegionException>("render") {
+            RegionRenderer.render(doc(emptyList()), tilesOf(), rect, null, null)
+        }
+        val fromScratch = assertFailsWith<RegionException>("renderPremultiplied") {
+            RegionRenderer.renderPremultiplied(doc(emptyList()), tilesOf(), rect, null, null)
+        }
+        val m = fromRender.message ?: ""
+        assertTrue(m.contains("$wanted"), "the message names the pixel count it wanted: $m")
+        assertTrue(m.contains("$MAX_REGION_PX"), "the message names the budget: $m")
+        assertTrue(m.contains("4096") && m.contains("2049"), "the message names the rect: $m")
+        assertEquals(m, fromScratch.message, "both doors refuse in the same words")
+    }
+
+    /**
+     * THE CRASH — the Int wrap, with the multiplication written out so this is a claim about
+     * arithmetic rather than about taste.
+     *
+     * 30,000 x 30,000 is 900,000,000 px, which is fine. x 4 is 3,600,000,000, which is not: an Int
+     * holds to 2,147,483,647, and two's complement puts 3,600,000,000 at -694,967,296, so the
+     * unguarded `ByteArray` answered `NegativeArraySizeException`. The thing being asserted is
+     * therefore not the message but the TYPE: a different exception has to come out. This test
+     * cannot pass by accident, because the crash it replaces was not a [RegionException].
+     */
+    @Test
+    fun aRegionWhoseByteCountWrapsAnIntIsRefusedRatherThanCrashing() {
+        val real = 30000L * 30000L * 4L
+        assertEquals(900_000_000L, 30000L * 30000L, "the pixel count itself is not the problem")
+        assertEquals(3_600_000_000L, real, "the byte count the renderer used to ask for")
+        assertTrue(real > Int.MAX_VALUE, "3.6 GB does not fit an Int")
+        assertEquals(-694967296L, real - 4294967296L, "and an Int wraps it to exactly this")
+
+        val e = assertFailsWith<RegionException> {
+            RegionRenderer.render(doc(emptyList()), tilesOf(), RectPx(0, 0, 30000, 30000), null, null)
+        }
+        assertTrue((e.message ?: "").contains("900000000"), "names the pixel count: ${e.message}")
+    }
+
+    /**
+     * THE OUT OF MEMORY — the case the wrap test cannot reach, and the one that would have taken the
+     * phone down rather than the build.
+     *
+     * Nothing here overflows: 400,000,000 px is a legal pixel count, and 1,600,000,000 bytes is
+     * still a legal Int array length. The renderer simply asks for 6.4 GB of floats and the device
+     * says no. So `assertFailsWith<RegionException>` IS the assertion — an [OutOfMemoryError] is not
+     * a [RegionException], and before the budget this test took the test process with it instead of
+     * failing tidily.
+     */
+    @Test
+    fun aRegionThatOverflowsNothingAndStillCannotBeAllocatedIsAlsoRefused() {
+        val px = 20000L * 20000L
+        assertEquals(400_000_000L, px, "no wrap anywhere in here — that is the whole point")
+        assertTrue(px * 4 <= Int.MAX_VALUE, "a 1.6 GB result is still a legal Int length")
+        assertTrue(px * 16 > Int.MAX_VALUE, "and 6.4 GB of floats is not")
+
+        val e = assertFailsWith<RegionException> {
+            RegionRenderer.render(doc(emptyList()), tilesOf(), RectPx(0, 0, 20000, 20000), null, null)
+        }
+        assertTrue((e.message ?: "").contains("400000000"), "names the pixel count: ${e.message}")
+    }
+
+    /**
+     * THE MISMATCH, which is the actual bug rather than a symptom of it: the document validator says
+     * this drawing is fine and the renderer says it cannot be drawn. Both are right, and the point of
+     * the test is that they are NOT the same check — a budget that merely repeated
+     * `DocOps.validate` would be useless here, because validate passes this document.
+     *
+     * The rect is the BOARD's, which is how an exporter asks for a whole board. So a hostile file
+     * does not have to be corrupt at all: it only has to declare a large board.
+     */
+    @Test
+    fun aRegionDocOpsValidatesIsStillRefusedHere() {
+        for (side in listOf(30000, 20000, 4096)) {
+            val board = Board("big", "Big", BoardKind.CANVAS, RectPx(0, 0, side, side))
+            val d = doc(listOf(layer("L1")), boards = listOf(board))
+            assertEquals(emptyList<String>(), DocOps.validate(d), "validate accepts a $side-square board")
+            assertFailsWith<RegionException>("$side-square board") {
+                RegionRenderer.render(d, tilesOf(), board.rect, null, null)
+            }
+        }
+    }
+
+    /**
+     * The budget's arithmetic, checked without allocating 160 MiB: the result, the scratch, the peak,
+     * and — the one that is easy to forget — that every one of them still fits an [Int], because
+     * every one is a length AND an index. Raise the constant past that and this goes red, which is
+     * the point: a memory problem would become an index wrap, and a wrap is a crash.
+     */
+    @Test
+    fun theBudgetBoundsEveryBufferDerivedFromTheRect() {
+        assertEquals(8_388_608L, MAX_REGION_PX, "the cap is 2^23")
+        assertEquals(33_554_432L, MAX_REGION_PX * 4, "the result ByteArray: px x 4")
+        assertEquals(134_217_728L, MAX_REGION_PX * 16, "the scratch FloatArray: px x 4ch x 4B")
+        assertEquals(167_772_160L, MAX_REGION_PX * 20, "the live peak: px x 20B")
+        assertEquals(0L, MAX_REGION_PX * 20 % (1024 * 1024), "which is 160 MiB exactly, as the kdoc says")
+        assertTrue(MAX_REGION_PX * 4 <= Int.MAX_VALUE, "the result is indexed with an Int")
+        assertTrue(MAX_REGION_PX * 16 <= Int.MAX_VALUE, "and so is the scratch")
+        assertTrue(MAX_REGION_PX * 20 <= 256L * 1024 * 1024, "and the peak fits a Note 9's app heap")
+    }
+
+    /**
+     * The other half of the constant's promise: it must not refuse an export anyone actually wants.
+     *
+     * 3840 x 2160 is 8,294,400 px, 94,208 under the cap, so a 4K board — the largest thing this app
+     * is realistically asked to export — goes through untouched. If this test ever fails, the budget
+     * has been lowered into a regression. The 4096-square on the other side is 2^24, the first round
+     * number over the line, and it is refused.
+     */
+    @Test
+    fun theBudgetLeavesA4KExportAloneAndRefusesTheFirstSizeOverIt() {
+        val d = doc(emptyList())
+        assertEquals(8_294_400L, 3840L * 2160L, "a 4K frame")
+        assertTrue(3840L * 2160L <= MAX_REGION_PX, "4K is inside the budget")
+        assertEquals(16_777_216L, 4096L * 4096L, "2^24 is the first power of two over it")
+        assertFailsWith<RegionException>("4096 square") {
+            RegionRenderer.render(d, tilesOf(), RectPx(0, 0, 4096, 4096), null, null)
+        }
     }
 
     // ── fixtures ───────────────────────────────────────────────────────────────

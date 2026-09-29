@@ -541,3 +541,16 @@ rebindable. Rules:
 - Row **JB-2.02c** (core map + detector, T2, Ready) is written; the settings screen waits for chrome (2.01) and
   the routing in `JbCanvasView` is the Lead's (with JB-2.05, whose lasso is now "the LASSO action", not a
   hard-coded button). JB-2.02b's finger gesture table is unchanged.
+
+**R43. Builders never work in the main folder.** `joybrush/` is part of the app build, so the owner's watcher
+(`watch-build.ps1`) compiles every half-written builder file in the main folder, and overlapping Gradle runs
+there corrupt its cache (build.log 09:51 and again at 11:3x; the Studio lane could not build the APK). Rule,
+effective now, for the orchestrator and every builder:
+1. Each dispatched builder gets its own worktree (`git worktree add --detach "$TEMP/jb-<row>" HEAD`, copy
+   `local.properties`), writes and tests THERE (`./gradlew -p joybrush ...`), and only a green, committed result
+   is pushed; the orchestrator then `git pull --ff-only`s in the main folder. The main folder holds only
+   committed, compiling code plus the orchestrator's own board edits.
+2. Nothing runs Gradle inside the main folder while the watcher runs.
+3. Files already half-written in the main folder (8.02/8.04 importers, `jvmMain/`, `BrushValidate`, `DocJson`,
+   `SpritePacker` edits) are finished and committed, or moved into their builder's worktree, before anything
+   else is dispatched.

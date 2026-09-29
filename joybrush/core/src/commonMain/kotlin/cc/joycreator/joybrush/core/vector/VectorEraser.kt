@@ -64,8 +64,48 @@ data class EraseResult(
  */
 object VectorEraser {
 
-    /** Survivor pieces thinner than this many doc px of centreline are dropped as specks. */
+    /**
+     * Survivor pieces thinner than this many doc px of centreline are dropped as specks. Applied
+     * once, to every mode's result — a sub-half-doc-px stub is noise whether it is what is left of
+     * a partial cut or what a trim to a nearby crossing left behind (JB-5.10 R28, Q1).
+     */
     private const val MIN_PIECE_ARC = 0.5
+
+    /**
+     * TEST HOOK (JB-5.10 R28) — work counted, never time.
+     *
+     * A wall-clock assertion is flaky by construction: it measures the machine, the JIT and whatever
+     * else the build is running beside it, not the code. These counters are deterministic — the same
+     * input compares the same pairs on every machine and every run — so a bound on one is a
+     * statement about the ALGORITHM and nothing else.
+     *
+     *  - [crossingPairTests]: segment pairs the TO_INTERSECTION crossing search compares
+     *    ([crossingsOnSegment]) — every pair that gets as far as the segment-box test, whether or
+     *    not the boxes then meet. This is the counter the pruning is judged by, and the one whose
+     *    bound replaces the deleted "< 2 500 ms" assertion on the adversarial layout. It is counted
+     *    BEFORE the box test on purpose: a prefilter that stopped working would show up as more
+     *    pairs examined, which is the work, whereas counting only the pairs that go on to the
+     *    intersection maths would hide it.
+     *  - [touchPairTests]: segment pairs compared in the PARTIAL / WHOLE_STROKE touch test
+     *    ([touchedRangesOf]) — one of the line's segments against one of the eraser path's whose
+     *    boxes meet, i.e. a pair that then gets the exact quadratic treatment. Counted after that
+     *    test, which is the only pruning there is: the loop itself always walks every eraser
+     *    segment, so counting before it would measure nothing but the loop's length.
+     *
+     * The eraser never reads either; [resetWorkCounters] puts them back to zero. Not thread-safe,
+     * which is fine and deliberate: a test counts one single-threaded call at a time.
+     */
+    internal var crossingPairTests = 0L
+        private set
+
+    internal var touchPairTests = 0L
+        private set
+
+    /** Zeroes both work counters, so a test can measure one call exactly. */
+    internal fun resetWorkCounters() {
+        crossingPairTests = 0L
+        touchPairTests = 0L
+    }
 
     fun erase(lines: List<InkLine>, eraser: EraserPath, mode: EraseMode): EraseResult {
         // A gesture with no samples yet (or a half-built path) touches nothing rather than throwing.
@@ -100,10 +140,12 @@ object VectorEraser {
             val line = lines[li]
             touchedRangesOf(line, eraser, n, eSegs, eBoxes, raw, touched, breaks)
             if (touched.isEmpty()) continue // untouched lines are simply not mentioned
-            when (mode) {
-                EraseMode.WHOLE_STROKE -> out[line.id] = emptyList()
-                EraseMode.PARTIAL -> out[line.id] =
-                    complementOf(line, touched).filter { it.arcLengthIn(line) >= MIN_PIECE_ARC }
+            // The speck rule is applied here, ONCE, to whatever the mode produced: 0.5 doc px is the
+            // same noise floor for a partial cut, a whole stroke and a trim to a crossing. It is
+            // vacuous for WHOLE_STROKE, which returns no pieces at all.
+            val pieces: List<Piece> = when (mode) {
+                EraseMode.WHOLE_STROKE -> emptyList()
+                EraseMode.PARTIAL -> complementOf(line, touched)
                 EraseMode.TO_INTERSECTION -> {
                     cuts.clear()
                     // Out to the crossing before each stretch, or to the line's end if none, and on
@@ -111,9 +153,10 @@ object VectorEraser {
                     // crossings at all therefore loses the stretch's whole length.
                     crossingTrims(line, li, lines, lineBoxes, sweep, touched, hit, cuts)
                     mergeRanges(cuts)
-                    out[line.id] = complementOf(line, cuts)
+                    complementOf(line, cuts)
                 }
             }
+            out[line.id] = pieces.filter { it.arcLengthIn(line) >= MIN_PIECE_ARC }
         }
         return EraseResult(out)
     }
@@ -159,6 +202,7 @@ object VectorEraser {
                 if (eBoxes[o] > lMaxX + pad || eBoxes[o + 1] < lMinX - pad ||
                     eBoxes[o + 2] > lMaxY + pad || eBoxes[o + 3] < lMinY - pad
                 ) continue
+                touchPairTests++ // this line segment against this eraser segment
                 val j0 = min(j, n - 1)
                 val j1 = min(j + 1, n - 1)
                 raw.clear()
@@ -518,6 +562,7 @@ object VectorEraser {
                 val cy = other.ys[j0]
                 val dx = other.xs[j1]
                 val dy = other.ys[j1]
+                crossingPairTests++ // this segment against this other line's segment
                 if (!boxesMayTouch(ax, ay, bx, by, GEOM_EPS, cx, cy, dx, dy)) continue
                 val hits = segmentIntersections(ax, ay, bx, by, cx, cy, dx, dy, hit)
                 for (k in 0 until hits) {

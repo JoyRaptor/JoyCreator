@@ -67,8 +67,17 @@ object VectorEraser {
      line's start, 0, if none) to the nearest crossing AFTER its end (or the line's end, n−1, if
      none). Merge overlapping spans.
    - The complement is the survivor list. Lines with no crossings at all behave like WHOLE_STROKE.
-5. Use doubles throughout. Bounding-box prefilter per segment pair (performance: 50 lines × 500
-   points must erase in under 50 ms on a desktop JVM — measured in a test with a generous timeout).
+5. Use doubles throughout. Bounding-box prefilter per segment pair.
+   **NARROWED BY R28 — read this before believing the number this line used to carry.** It said
+   "50 lines × 500 points must erase in under 50 ms on a desktop JVM, measured in a test with a
+   generous timeout". That was **three mistakes at once**: the bound is not reachable for the
+   fully-overlapping layout, a *wall-clock* assertion is flaky by construction (it failed for the
+   Lead only because another Gradle job was running), and no spatial index would have delivered it
+   either — the eraser already has a per-line bounding-box prefilter, and a grid has a ~3.7× ceiling
+   on the adversarial layout. **The promise now applies to REALISTIC layouts** — lines spread
+   across the layer — and the adversarial layout is bounded by a **deterministic work counter**
+   (segment-pair tests ≤ a stated N, reproducible on every machine), never by milliseconds. The
+   operative text and the bounds are in "Decision 5, as narrowed by R28" below.
 6. The eraser does not care which line is "on top"; ink lines are all equal.
 
 ## Steps
@@ -186,7 +195,133 @@ that a later spec may want to overrule.*
    My ask: either narrow decision 5 to "layouts where a segment's box does not span the layer" —
    which is every real ink layer, and where the sweep alone already gives two orders of magnitude
    — or accept that a deliberately adversarial 50-line scribble may take a couple of hundred ms
-   once per gesture. If you want the number under 50 ms anyway, the next step is a segment-level
-   index, and its ceiling in *this* layout is the 3.7× above; it pays properly only when segments
-   are short relative to how far they are spread (A/L² ≫ 1), which is the sparse case the sweep
-   already handles.
+    once per gesture. If you want the number under 50 ms anyway, the next step is a segment-level
+    index, and its ceiling in *this* layout is the 3.7× above; it pays properly only when segments
+    are short relative to how far they are spread (A/L² ≫ 1), which is the sparse case the sweep
+    already handles.
+
+## Lead rulings
+
+### R28 (2026-09-29) — applied to JB-5.10 as a rework of landed work
+
+**The ruling.** Three parts.
+
+1. **Do NOT build a spatial index.** The builder's own arithmetic puts a bucket grid's ceiling on
+   the adversarial layout at ~3.7x (A/L² ≈ 1, Q6 and Q8), so a grid would not deliver the 50 ms
+   promise there anyway — it would only move the number. The per-line bounding-box prefilter is what
+   a real layer needs, and it is already there.
+2. **Decision 5's promise applies to REALISTIC layouts** (lines spread across the layer). The
+   adversarial layout is bounded by a **deterministic work counter** — segment-pair tests ≤ a stated
+   N — and never by milliseconds. The counter is an `internal` test hook; the `< 2 500 ms` assertion
+   is deleted. The "known-red" test was misdiagnosed: it passes alone and failed for the Lead only
+   while another Gradle job was running, because a wall-clock assertion is flaky by construction.
+3. **Q1 is decided: the 0.5 doc px speck rule applies to ALL THREE modes**, implemented once in
+   `VectorEraser`, so JB-5.11 inherits it with no further edit.
+
+#### What was done
+
+1. **No index was built.** `crossingTrims` and the two prefilters stand exactly as they landed. Q6
+   and Q8 are answered: not built, and not needed for any layer a person draws on.
+2. `VectorEraser` grew two `internal` counters and nothing else — no behaviour change to the
+   geometry:
+   - `crossingPairTests` — segment pairs the TO_INTERSECTION crossing search **examines**, counted
+     BEFORE the segment-box test. Counting before it is deliberate: a prefilter that stops working
+     shows up as more pairs examined, which is the work, whereas counting only the pairs that reach
+     the intersection maths hides the regression inside the count.
+   - `touchPairTests` — line segment against eraser segment pairs that **pass** the box test, i.e.
+     the pairs that then get the exact quadratic treatment. Counted after it, because in that loop
+     the box test is the only pruning there is; counting before it would measure nothing but the
+     length of the loop.
+   Both are zeroed by `resetWorkCounters()`. The eraser never reads either. They are not
+   thread-safe, deliberately: a test counts one single-threaded call at a time.
+3. The speck filter now runs once, after the `when`, on whatever the mode produced:
+   `out[line.id] = pieces.filter { it.arcLengthIn(line) >= MIN_PIECE_ARC }`. It is vacuous for
+   WHOLE_STROKE, which produces no pieces at all. **Q1 is closed.**
+
+#### Decision 5, as narrowed by R28 — this is the operative text
+
+> 5. Use doubles throughout. Bounding-box prefilter per segment pair. **The "50 lines × 500 points in
+> under 50 ms" promise is made about REALISTIC layouts — lines spread across the layer, where a
+> stroke's box does not span the layer — and it is kept there by a deterministic work bound rather
+> than by a clock. A deliberately adversarial layout (many strokes scribbling through one small
+> region, so that no box prunes another) carries NO time promise at all: it is bounded by a stated
+> number of segment-pair comparisons, which is the only thing a work counter can honestly assert,
+> and which is reproducible on every machine. Decision 5's original line, further up, still reads
+> "under 50 ms ... measured in a test with a generous timeout"; this rework was scoped append-only
+> and did not edit that line, so where the two differ, this paragraph governs.**
+
+#### The bounds, and the arithmetic behind each N
+
+| test | measured today | N | what a regression there costs |
+|---|---|---|---|
+| `fiftyLinesOfFiveHundredPointsCompareBoundedWork` (PARTIAL + WHOLE_STROKE, 50 lines in one 400 px cell) | 14 567 | 50 000 | 4 970 050 = the complete double loop, 50 × 499 line segments × 199 eraser segments |
+| `toIntersectionOnFiftySeparateCellsComparesNoPairAtAll` (1 stroke per cell, 100 px of clear air) | 0 | exactly 0 | 637 365 714 with the line-box prefilter deleted |
+| `toIntersectionOnFiftySpreadStrokesComparesBoundedWork` (2 strokes per cell, 5 × 5 grid) | 3 822 340 | 10 000 000 | 24 900 100 for a whole-line walk (50 × 2 × 499 × 1 × 499); 119 435 151 with the line-box prefilter deleted |
+| `toIntersectionOverFiftyOverlappingLinesComparesBoundedWork` (adversarial: 50 scribbles through one 200 px box) | 59 513 734 | 200 000 000 | 1 220 104 900 for a whole-line walk, 50 × 2 × 499 × 49 × 499 — 6.1e8 was the pre-fix cost |
+
+Each measured figure is reproducible rather than merely repeatable: a seeded `kotlin.random.Random`
+or a fixed 48-bit LCG, and every comparison the counters tally is an exact min/max on doubles, so
+the same integer comes out on every platform and every run. Two further tests pin the counters
+themselves to hand-countable numbers (3 pairs for the touch test, 2 + 4 for the crossing test),
+because a counter that is never incremented is a test that never fails.
+
+**The old "fifty disjoint lines" layout was replaced on purpose.** Fifty strokes with 100 doc px of
+clear air between their cells have no crossings at all, so the counter read exactly 0 there — and a
+bound over 0 passes for the wrong reason. That layout is kept, and now asserts `== 0` on purpose,
+because "these strokes cannot be compared with each other, and the prefilter is what stops them"
+is precisely the guarantee R28 credits the eraser for, and it is the only one of the four layouts
+where the prefilter is load-bearing. The realistic-layout test now uses two strokes per cell, so the
+crossing search genuinely runs and the walk's early stop is what the bound measures.
+
+#### What the deleted clocks caught, and what nothing catches now
+
+The three deleted assertions (and they were three, not the one the ruling names — see the note
+below) would have caught:
+
+- **more pairs compared** — the pruning regressing, e.g. the walk no longer stopping at the first
+  crossing. Caught now, by the work bounds, and on a quiet machine as well as a busy one.
+- **the prefilter rejecting less** — caught now, by the two TO_INTERSECTION bounds and the `== 0`.
+- **a per-PAIR cost increase** — one pair becoming several times more expensive without becoming
+  more numerous. **NOT caught.** A work counter counts pairs; it says nothing about what a pair
+  costs, so a regression hidden inside `segmentIntersections` or inside allocation would pass all
+  four tests. The deleted clocks were the only thing standing behind that, and they stood behind it
+  by being flaky, which is the same property that made them worthless.
+- **allocation or GC pressure** — a change that allocates per pair and is still within N pairs would
+  pass every bound here. The old `< 500 ms` bounds were, on a quiet machine, the only guard.
+
+#### Mutation evidence (each run pasted, each reverted)
+
+- **A — the walk stops stopping** (both `break`s in `crossingTrims` removed, i.e. the exact shape the
+  fix removed; the answers were unchanged, so only the work assertions fired):
+  `723 tests completed, 2 failed` — adversarial 59 513 734 → **1 165 392 544** (predicted ceiling
+  1 220 104 900), spread 3 822 340 → **23 597 710** (predicted 24 900 100). Both regressions landed
+  within 5% of the arithmetic in the table, which is the check that the arithmetic is real.
+- **B — the line-box prefilter deleted** (that check only): `724 tests completed, 2 failed` —
+  separate cells 0 → **637 365 714**, spread 3 822 340 → **119 435 151**. The adversarial test is
+  correctly unaffected, because in that layout every box is the whole region and the prefilter never
+  rejected anything; that is why the prefilter is guarded over there and not here.
+- **C — the speck rule neutered** (`>= MIN_PIECE_ARC` → `>= 0.0`): `724 tests completed, 3 failed` —
+  both new TO_INTERSECTION speck tests plus the pre-existing PARTIAL one, which is the evidence that
+  the "once, in `VectorEraser`" edit really covers all three modes.
+
+#### Notes for the board
+
+- **PROVISIONAL — Claude to confirm.** The ruling names one assertion (`< 2 500 ms`). I removed
+  **all three** wall-clock assertions in the file, on the ruling's own argument that a wall-clock
+  assertion is flaky by construction — an argument that does not stop at the first test, and two of
+  the three were in the same file under the same ruling. If the Lead wants the other two back as
+  clocks, they are one line each and the work bounds can stay.
+- **PROVISIONAL — Claude to confirm.** The two hand-counted counter tests (`3`, and `2 + 4`) pin the
+  counters' meaning as tightly as the current implementation defines it. If a future change to the
+  walk alters how many pairs a tiny geometry costs, those tests are the ones that will complain
+  first — deliberately, but it is worth knowing they are coupled to the implementation's shape.
+- The ruling asked for the counter "as an `internal` test hook"; that is what these are, matching the
+  existing `StrokeSmoother.holdRelease` convention rather than inventing a second one.
+
+#### Question for the Lead
+
+- R28 requires the caveat to live in decision 5's own text, and it does — in the amended decision 5
+  above. But this rework's owner area allowed me to **append** to this spec, not to edit the
+  "Decisions already made" list, so line 5 still reads "under 50 ms ... measured in a test with a
+  generous timeout" and the two disagree in wording. I have not touched it. One line of edit by
+  whoever owns the list would settle it; nothing else in the repo depends on the old wording.

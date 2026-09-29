@@ -30,6 +30,19 @@ const val JB_MIMETYPE = "application/x-joybrush"
  */
 const val TILE_BYTES = TILE_SIZE * TILE_SIZE * 4
 
+/**
+ * The deflate level every zip this module writes uses.
+ *
+ * ONE number, read by [JbArchive] and `OraExport` -- the two writers, and the two places a literal
+ * `6` used to sit. They are in this same package, so the second writer reads this with no import and
+ * no ceremony. A second copy of the level in either writer is a bug nothing in the tree can catch:
+ * both are plain integers on a line that compiles either way, and the file they produce is still a
+ * perfectly readable zip that opens in anything. This constant is here so there is nothing left to
+ * copy. R39, and JB-0.10's Benchmark harness (which reads it rather than restating it, so the report
+ * says which level was measured even if the number is ever changed).
+ */
+const val ARCHIVE_DEFLATE_LEVEL = 6
+
 /** Thrown by every function here. The message is the whole error report, so it says what is wrong. */
 class JbArchiveException(message: String) : Exception(message)
 
@@ -204,7 +217,7 @@ object JbArchive {
         // STORED, because a reader can identify the file by the first bytes without inflating, and
         // because that is what OpenRaster does and what the reader expects.
         val zos = ZipOutputStream(out)
-        zos.setLevel(6)
+        zos.setLevel(ARCHIVE_DEFLATE_LEVEL)
         try {
             writeMimetype(zos)
 

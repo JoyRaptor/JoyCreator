@@ -20,3 +20,7 @@ Proof: ruling — "`nextChangeMs` at the seam returns `rangeMs`… the infimum�
 
 ## Recommendation
 Fix Finding 1 (one branch: `cyclePos == rangeMs` — and symmetric falling-edge boundaries — must return the infimum, i.e. `clean` itself). Everything else in this task matches the ruling exactly.
+
+## Addendum 2026-09-29 — Finding 1 fixed (`e16b7ae6`), verified
+- Fixed per the ruling's letter: backward boundaries restructured as `nextBackwardBoundaryAtOrAfter` (first at-or-after, seam simply the first of them), forward as strictly-after; asked exactly at a boundary the difference is exactly zero so the wall time returned is the elapsed passed in, bit for bit — no epsilon anywhere, with the KDoc stating the infimum/no-minimum subtlety and the ulp-off-boundary honesty rule. The fix's derivation (three independent ways + instrumented numbers per the commit message) matches this project's evidence bar.
+- Fresh run in a clean HEAD worktree: `PlaybackClockTest` 16/16 (12 old + 4 new exact-boundary pins), 0 failures. Finding closed; no open findings remain in this file.

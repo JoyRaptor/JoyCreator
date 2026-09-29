@@ -27,3 +27,7 @@ Proof: `GuideSnapper.kt:252-254` ("squared distance… concave… second derivat
 
 ## Recommendation
 Fix Finding 1 (systematic small-angle error on exactly the guide type that needs long accurate lines); 2–4 are MINOR. The Newton lesson in the spec ("instrument, don't reason") is now load-bearing project lore — keep it.
+
+## Addendum 2026-09-29 — Finding 1 fixed (`b8dd2ea9`), verified
+- Fixed as prescribed (`candidates(sx, sy)` — direction through S), measured 0.245°/4.269 px pre-fix, exactly `lockDist/dist(S,VP)` as derived. The fix also closed a second silent fail-open my review missed: a VP sitting exactly on the start offered a 0.0003°-off candidate that locked and projected the identity (highlight with no effect) — now offers no candidate. Perspective test strengthened to assert the WORST residual over the stroke (the deciding sample was only 0.057 px out under the bug — too thin to pin a broken fix; the end is 4.27 px).
+- Fresh run in a clean HEAD worktree: `GuideSnapperTest` 16/16 (10 old + 6 new), `GuideLinesTest` 10/10, 0 failures. Finding 1 closed; Findings 2–4 (MINOR) stand.

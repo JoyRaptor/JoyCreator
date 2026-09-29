@@ -36,3 +36,15 @@ Proof: `gen_blend_golden.sh:82-94` runs the GLSL cross-check only after `cmp` su
 
 ## Recommendation
 Finding 1 blocks the whole androidkit module — needs the Lead's export-mapping ruling (19 modes → `svg:composite-op` or refuse-in-words) plus the `androidkit` edit, then re-green `:androidkit:test`. Findings 2–6 are doc/comment/test-precision MINORs (2 borderline MAJOR only because it misstates a frozen contract). The parity methodology (generated table + drift check + independent GLSL transcription + W3C-identity tests that survive a wrong table) is the model for all future Studio-parity work.
+
+## Addendum 2026-09-29 — Finding 5 fixed (`47c4a17e`), verified in diff
+- The unused `out` parameter is removed from `wholePixelTerm` (signature no longer lies), and the object-level scratch now documents the single-thread assumption explicitly (locals + post-blend `out` write + `out != s/d` requirement + the GPU-hands-numbers-on-one-thread rationale). Behaviour identical — call chain and `B_TERM` flow unchanged, so no re-run needed beyond the already-green parity/identity suites. Finding 5 closed; Findings 1–4 and 6 stand.
+
+## Addendum 2026-09-29 — Findings 1–3 fixed (`e16b7ae6`, `b8dd2ea9`), verified
+- Finding 1 (BLOCKER) fixed with the ruled product decision: the 9 modes with no SVG equivalent are REFUSED in words (`else -> throw IllegalArgumentException` naming the mode), not approximated — the guard comment updated from "ninth" to "twenty-eighth". Fresh `:androidkit:test` in a clean HEAD worktree: BUILD SUCCESSFUL, 92/92 (`JbArchive` 32, `OraExport` 38 incl. new refusal pins, `PngWriter` 17, `GlContextLoss` 5). The whole module is green for the first time since the enum landed.
+- Finding 2 fixed: the ordinal==modeCode claim corrected (ordinals deliberately diverge at `ERASE_BELOW`; correspondence rides on `STUDIO_MODES`/`NAMES`, walked by Studio code + name lookup — backwards from what the old comment claimed).
+- Finding 3 fixed: the "twenty non-separable" comments corrected (negative list names the seven; `term`-ADD clamp acknowledged as part of the mode's definition).
+- Finding 4 stated as deliberate per the round-closure (tolerance looser out-of-range because those rows pin UNCLAMPED; max observed 1.19e-07, one ulp, predicted in the generator docstring) — accepted, no longer open. Finding 6 (check-order masking) stands as the one surviving MINOR.
+
+## Note 2026-09-29 — file restored after a mangling commit
+- `652114e3` committed this file with every non-ASCII byte replaced by `?` (em-dashes, arrows, ≤/≥/×/≠/ε/∞). Restored from `b8dd2ea9`'s intact version and re-applied both addenda above; verify with raw bytes, not console output (this console renders UTF-8 as `?` regardless).

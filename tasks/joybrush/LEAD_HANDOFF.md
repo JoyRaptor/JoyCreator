@@ -51,6 +51,25 @@ ran in a cloud session; you run on the owner's PC. Read this whole file first, t
 6. `tasks/joybrush/reviews/STUDIO_TRANSFORM_AUDIT__lead.md` — the Lead's audit of the Studio tool.
 7. `tasks/lessons.md` — incl. "the owner does not code: never hand him a git chore".
 
+### 3a. The research library (the subagent reports the whole design rests on)
+The eight research reports from the start of the project are saved IN FULL (~5,300 lines) in
+`tasks/joybrush/research/`. The blueprint summarises them; go to the report when a spec or ruling
+touches its subject. Written 2026-09-28 (early drafts say "Joy Paint" — the old working name).
+| Report | What it covers — read it before working on… |
+|---|---|
+| [R1_rebelle.md](research/R1_rebelle.md) | Rebelle's wet/dry paint simulation, its academic lineage, how to get the look on Android → Phase 6 (wet engine, watercolour) |
+| [R2_expresii.md](research/R2_expresii.md) | Expresii's brush and ink model (stroke-direction rotation, distance damping, "one great brush") → brush dynamics, JB-6.03 |
+| [R3_krita_mypaint.md](research/R3_krita_mypaint.md) | Krita's brush engines and libmypaint (inputs → curves, smudge, what to port) → brush format, dynamics, JB-8.03/8.04 imports |
+| [R4_photoshop_and_formats.md](research/R4_photoshop_and_formats.md) | Photoshop's brush engine, `.abr`/`.brushset`/`.kpp`/`.myb` formats, the owner's tip model (superellipse, taper, aspect) → tips, JB-8.x imports, PSD export |
+| [R5_concepts_infinite_painter.md](research/R5_concepts_infinite_painter.md) | Concepts and Infinite Painter: brushes, UI, gestures, selection, vector re-brushing → UI specs, ink layers, tool finger, swatch drags |
+| [R6_android_apps_ui.md](research/R6_android_apps_ui.md) | Ranking of Android drawing/animation apps, UI anatomy, reviews (34k-review complaint analysis: crashes/lost work #1), minimal-UI proposal → JB-2.01 chrome, autosave |
+| [R7_stylus_and_engine.md](research/R7_stylus_and_engine.md) | Stylus input (S Pen tilt/azimuth, palm rejection), low-latency inking (front buffer, prediction), tile/GL engine architecture → input, JB-0.12, engine |
+| [R8_patent_claims.md](research/R8_patent_claims.md) | What the risky patents actually claim and the design-arounds (the rules in §8 below) → ANY smudge, wet, pigment-mixing or brush-loading work |
+
+Also: [design/JOYBRUSH_VISUAL_LANGUAGE.md](design/JOYBRUSH_VISUAL_LANGUAGE.md) (tokens, components,
+the look — for every UI spec) and [reviews/](reviews/) (every adversarial review file, per task and
+reviewer model — read a task's reviews before ruling on it).
+
 ## 4. Architecture (what exists)
 - `joybrush/` = standalone Gradle build (Kotlin 2.2, group `cc.joycreator.joybrush`):
   - `:core` — Kotlin common, JVM target only, NO Android. Packages: `input` (PenSample with NaN for

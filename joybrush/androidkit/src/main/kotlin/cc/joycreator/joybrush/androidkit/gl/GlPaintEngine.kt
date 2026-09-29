@@ -166,6 +166,13 @@ class GlPaintEngine(
 
     // ── tile I/O (save, open, export — JB-0.08) ─────────────────────────────
 
+    /**
+     * True between [beginStroke] and [endStroke]/[cancelStroke]. The stroke in flight lives only in
+     * the stroke buffer, not in any tile, so a snapshot taken now would silently leave it out:
+     * autosave checks this and waits for the stroke to end instead (JB-0.08b).
+     */
+    val strokeInProgress: Boolean get() = strokeLayer != null
+
     /** Layer ids, bottom → top. */
     fun layerIds(): List<String> = layers.keys.toList()
 

@@ -53,3 +53,40 @@ conflict. Procedure: the orchestrator pushes its local branch to a NEW branch
 it into `joy-creator` taking the orchestrator's statuses for every row it changed, then pushes. After
 that the orchestrator's `git pull --ff-only` succeeds (the merge contains its commits), and its
 uncommitted files are untouched.
+
+## 2026-09-29 — review of the second orchestrator's first session (commits 0555cdf..83543c9)
+
+Verified in the cloud: `:core:jvmTest` 410/0, `:androidkit:test` 85/0, androidkit compiles. The
+serialization `implementation` → `api` fix, the GIF header (5 → 7 bytes) and LZW width fixes are right.
+
+**R9. JB-2.06a provisional rulings 1–3 — confirmed.** Each follows from the spec's own Decisions
+(push-back restores the edge → 512; a closed 3×3 ring encloses (5,5) → 72; the diagonal count is
+derived per pixel). Standing rule for everyone: an expected value in a test may be changed ONLY with
+its derivation written into the test, as was done here — never just to make a run go green.
+
+**R10. JB-2.02 questions.** Provisional rulings 1–4, 7, 8 confirmed.
+- Q5: brush size in DOCUMENT px is correct (a stroke must look the same when you zoom back out).
+  For JB-2.16: the size control shows the on-screen circle at its true screen size (radius × zoom)
+  while you drag, and writes `size.base` in document px (screen px ÷ zoom).
+- Q6: real defect, fixed by the Lead with an immutable per-frame snapshot of the view — but it edits
+  `JbCanvasView.kt`, which the uncommitted JB-0.08b also edits, so the Lead holds it until JB-0.08b is
+  committed and pushed, then lands it. Do not fix it in JB-0.08b.
+
+**R11. JB-0.08b questions.**
+- Pen down during an autosave: `GlPaintEngine.strokeInProgress` now exists (Lead, this commit). An
+  autosave that finds it true does NOT snapshot; it sets a "save owed" flag and saves right after the
+  stroke's `endStroke`/`cancelStroke`. Never end or cancel the person's stroke to save.
+- SAF "Save a copy" cannot be atomic — accepted. Build the whole archive into a temp file in
+  `cacheDir` first (same code path as a normal save), then stream it to the Uri opened with mode
+  `"wt"`. On any failure say so in words ("Couldn't save the copy. Your drawing is safe.") and delete
+  the temp file. "Save a copy" must never touch the working file.
+- 534 lines against ~200 is fine IF every line is exercised by a test or the device check.
+
+**R12. Spec runway.** Front-load spec writing now: keep at least 3 🟦 Ready rows at all times; when
+it drops below 3, write specs before dispatching more builds. Order as the orchestrator proposed,
+with two changes:
+- JB-0.09 (lobby entry) must edit `LobbyFragment.java`, which has the OWNER's uncommitted changes.
+  Mark it ⛔ Blocked "owner must commit or discard his LobbyFragment edits first" until he does. Write
+  the spec anyway.
+- JB-2.10 (hold-to-shape maths) is claimed by the Lead — do not split or dispatch it.
+- JB-1.20 headless browser check by the orchestrator (R6 option a): approved.

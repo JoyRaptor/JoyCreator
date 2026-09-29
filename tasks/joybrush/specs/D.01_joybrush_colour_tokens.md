@@ -54,3 +54,50 @@ Check script passes · watcher build success · screenshots · only owner-area f
 `D.01: Joy Brush colour tokens` · ROADMAP row → 🟧 Built.
 
 ## Questions
+_(builder: stealth/space-bunny-alpha, 2026-09-28. The three owner-area files are written, the check
+passes, the watcher build succeeds. Four things I would not decide on my own.)_
+
+### Orchestrator rulings (PROVISIONAL — Claude to confirm)
+
+- **Question 2 is mine and is now settled: `src/main/kotlin`, not `src/main/java`.** The owner area
+  said `java`; every other Kotlin file in the module is in `kotlin` (`JoyBrushActivity.kt`), and a
+  Kotlin file in a `java` source dir compiles only by accident of the plugin defaults. I moved it
+  myself. Low-risk, layout only, zero behaviour change — the watcher is the proof, not my word.
+- **Question 1: agreed, and it moves to the owner's `📱` check (and JB-0.09).** The screenshot step
+  as written cannot be satisfied by any builder, because the screen that would show the colour is
+  outside the owner area. D.01 lands on the mechanical proof alone; the ripple is confirmed when the
+  first screen actually wears the room colour.
+- **Questions 3 and 4 are Lead questions and stay open.** `jb_sunk` mirroring `Studio.SUNK` in Java
+  rather than XML, and the `Palette` class plus the reuse of the document model's frozen `BoardKind`
+  instead of a second copy of the five board kinds.
+
+1. **The screenshot check in §Verification cannot be done by me, and as written it cannot be done
+   at all.** `JoyBrushActivity` paints `Color.WHITE` and two private literals (`OVERLAY_FILL`,
+   `OVERLAY_RING`); it reads no token, so setting `jb_room_start` to `#FF0000` changes nothing
+   visible on that screen. Making it visible means editing `JoyBrushActivity.kt`, which this spec's
+   owner area does not include, and there is no adb/device here anyway, so I cannot take a
+   screenshot. Proposal: move "confirm the room colour ripples" to the owner's `📱` check, or into
+   JB-0.09 (the first Joy Brush screen that actually wears the room colour), and accept for D.01
+   the mechanical proof I did run — the owner's two lines are exempt from the check (so they can be
+   changed freely) and `jb_board_canvas_*` is an `@color/` reference, so it cannot stop following the
+   room. Or tell me to edit `JoyBrushActivity.kt` and I will.
+
+2. **`src/main/java` or `src/main/kotlin`?** The owner area says
+   `joybrush-android/src/main/java/cc/joycreator/joybrush/android/JbColors.kt`, but the module's only
+   other source file, `JoyBrushActivity.kt`, is in `src/main/kotlin`. I followed the spec literally.
+   It compiles (the watcher's `:joybrush-android:compileDebugKotlin` ran green), so this is only
+   about tidiness — but the move is outside the stated owner area, so I did not make it.
+
+3. **`jb_sunk` has no XML source.** The spec asks for ground/surface/panel/**sunk**/raised/line
+   mirrored from `studio_tokens.xml`, but `s_sunk` exists only as `Studio.SUNK` in Java — there is no
+   XML twin (JOYBRUSH_VISUAL_LANGUAGE.md §1.1). So the check reads `Studio.java` as a second source
+   (1 of 24 mirrors) and `jb_sunk` carries `<!-- mirror: Studio.SUNK -->`. If that is not wanted, say
+   so and I will drop `jb_sunk` rather than pin an unmirrored literal.
+
+4. **Two small additions the spec does not mention.** (a) The colours are exposed on a
+   `Palette` class, not as `JbColors` fields, so a caller cannot read a colour before the tokens are
+   loaded and silently draw transparent black; `JbColors.palette(context)` loads on demand and
+   caches. (b) `boardGradient` takes the document model's own frozen `core.doc.BoardKind` rather than
+   a second Joy Brush copy of the five kinds. (No enum was added, so LEAD_RULINGS R3 / JB-0.02b is
+   not engaged.) Both are easy to undo if the Lead wants a flatter `JbColors`.
+

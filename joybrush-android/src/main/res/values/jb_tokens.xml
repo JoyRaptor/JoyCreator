@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ══ JOY BRUSH's own tokens ═══════════════════════════════════════════════════════════
+  D.01. One file, one place to change a colour.
+
+  Joy Brush is its own Gradle module, so it cannot @color-reference the app's tokens: a
+  library's resources cannot see the consuming app's resources. Every token here is
+  therefore one of exactly three things, and tools/check_joybrush_tokens.py enforces that
+  there is no fourth.
+
+    1. THE ROOM PAIR · jb_room_start and jb_room_end, the only two lines in this file that
+       nobody mirrors. The OWNER edits those two lines and nothing else, and the change
+       ripples into the room gradient, the Canvas board gradient and everything drawn with
+       them. Six-digit hex, so opaque; #AARRGGBB would read the same.
+
+    2. A @color/ REFERENCE to a token in this same file (the Canvas board, which must
+       always equal the room, and the character board, which must always equal the puppet
+       board). Nothing to drift.
+
+    3. A MIRROR of a token in app/src/main/res/values/studio_tokens.xml, carrying a
+       trailing comment of the form  mirror: s_token  that names its source. One token
+       takes its source from Studio.java instead and reads  mirror: Studio.SUNK, because
+       that colour has no XML twin.
+
+  Why the owner may change the room pair but not the mirrors: the mirrors are the
+  ecosystem. State colours (cyan = selected, pink = live, amber = careful, red = destroys)
+  are global and constant, so they are mirrors and must stay mirrors. INBOX.md, 2026-09-12:
+  "STATE colours are global and constant ... A section accent must never be a colour that
+  already means a state."
+
+  ══ DO NOT REINTRODUCE A PINK-RED → AMBER/ORANGE ROOM GRADIENT ══════════════════════
+  The owner's own first idea for the Joy Brush gradient was a pink-red → yellow/orange
+  pair. It is rejected here on purpose, and this note exists so it is not reintroduced by
+  accident: it starts on the red family, which already MEANS "something is being
+  destroyed", and it ends on amber, which already MEANS "careful, or unsaved". A room
+  gradient that wears two state colours stops being an identity. The placeholder below is
+  "Ink", indigo → bright blue: 25 degrees from SELECTED cyan, and nowhere near LIVE,
+  CAREFUL or DANGER (JOYBRUSH_VISUAL_LANGUAGE.md §4.2). Changing it is the owner's call.
+  Changing it without a decision is not.
+  ═════════════════════════════════════════════════════════════════════════════════════
+-->
+<resources>
+
+    <!-- ══ IDENTITY ════════════════════════════════════════════════════════════════
+         The two lines the owner owns. Everything else in this file mirrors. -->
+    <color name="jb_room_start">#5C43FD</color>   <!-- indigo; the owner may change this line -->
+    <color name="jb_room_end">#4397FD</color>     <!-- bright blue; the owner may change this line -->
+
+    <!-- ══ BOARDS ═════════════════════════════════════════════════════════════════
+         "Boards wear the colours of what they connect to" (owner, 2026-09-28). A board's
+         identity is a FILL with its type glyph punched out of it; a coloured RING already
+         means a state. Its edge stays neutral, jb_line.
+         Canvas is Joy Brush itself, so it IS the room pair, by reference. -->
+    <color name="jb_board_canvas_start">@color/jb_room_start</color>
+    <color name="jb_board_canvas_end">@color/jb_room_end</color>
+
+    <!-- Animation feeds the Studio as video, and video wears the Studio room. -->
+    <color name="jb_board_animation_start">#FF35F6BF</color>   <!-- mirror: s_room_studio -->
+    <color name="jb_board_animation_end">#FF97FE8B</color>     <!-- mirror: s_go_end -->
+
+    <!-- Sprite feeds SpriteLab: neon pink → vivid purple. -->
+    <color name="jb_board_sprite_start">#FFFF008C</color>      <!-- mirror: s_room_sprite -->
+    <color name="jb_board_sprite_end">#FFCC27FF</color>        <!-- mirror: s_room_avatar -->
+
+    <!-- Puppet and Character both feed Avatar Studio: vivid purple → purple. -->
+    <color name="jb_board_puppet_start">#FFCC27FF</color>      <!-- mirror: s_room_avatar -->
+    <color name="jb_board_puppet_end">#FF8C3DFA</color>        <!-- mirror: s_room_avatar_deep -->
+    <color name="jb_board_character_start">@color/jb_board_puppet_start</color>
+    <color name="jb_board_character_end">@color/jb_board_puppet_end</color>
+
+    <!-- ══ STATE ══════════════════════════════════════════════════════════════════
+         Global and constant. Always a ring, never a fill, except jb_state_destroy: red
+         fills are the one exception in the whole app, and only for something being lost. -->
+    <color name="jb_state_selected">#FF22D3EE</color>          <!-- mirror: s_armed -->
+    <color name="jb_state_live">#FFF43F8E</color>              <!-- mirror: s_live -->
+    <color name="jb_state_careful">#FFFBBF24</color>           <!-- mirror: s_careful -->
+    <color name="jb_state_destroy">#FFFA3D5D</color>           <!-- mirror: s_danger -->
+
+    <!-- ══ SURFACES ═══════════════════════════════════════════════════════════════
+         The ground ramp, named by meaning, so a Joy Brush screen never needs a fifth. -->
+    <color name="jb_ground">#FF000000</color>                  <!-- mirror: s_ground -->
+    <color name="jb_surface">#FF0D0D10</color>                 <!-- mirror: s_surface -->
+    <color name="jb_panel">#FF111114</color>                   <!-- mirror: s_panel -->
+    <color name="jb_sunk">#FF16161B</color>                    <!-- mirror: Studio.SUNK -->
+    <color name="jb_raised">#FF1C1C22</color>                  <!-- mirror: s_raised -->
+    <color name="jb_line">#FF2C2C35</color>                    <!-- mirror: s_line -->
+
+    <!-- ══ INK, SOLID ════════════════════════════════════════════════════════════
+         Text on ordinary surfaces. -->
+    <color name="jb_ink">#FFE4E4E7</color>                     <!-- mirror: s_ink -->
+    <color name="jb_ink_dim">#FFA1A1AA</color>                 <!-- mirror: s_ink_dim -->
+    <color name="jb_ink_faint">#FF71717A</color>               <!-- mirror: s_ink_faint -->
+    <color name="jb_ink_off">#FF4B4B55</color>                 <!-- mirror: s_ink_off -->
+    <color name="jb_label">#FFC4C4CE</color>                   <!-- mirror: s_label -->
+
+    <!-- ══ INK, OVER THE PICTURE ════════════════════════════════════════════════
+         The frosted-drawer ramp, raised so text survives a blown-out frame. Nothing
+         outside a drawer or popover may use these. -->
+    <color name="jb_drawer_ink">#FFF2F2F5</color>              <!-- mirror: s_drawer_ink -->
+    <color name="jb_drawer_dim">#FFC9C9D3</color>              <!-- mirror: s_drawer_dim -->
+    <color name="jb_drawer_label">#FFC4C4CE</color>            <!-- mirror: s_drawer_label -->
+</resources>

@@ -125,7 +125,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 ### Design system
 | Task | Tier | Needs | Status | Who |
 |---|---|---|---|---|
-| [D.01](specs/D.01_joybrush_colour_tokens.md) Joy Brush section-colour tokens (one place, ripples everywhere) + board colours | T2-V | 0.05 | 🟦 Ready | |
+| [D.01](specs/D.01_joybrush_colour_tokens.md) Joy Brush section-colour tokens (one place, ripples everywhere) + board colours | T2-V | 0.05 | 🟧 Built | subagent of openrouter/stealth/space-bunny-alpha 2026-09-28 — 30 tokens, one owner-editable room pair, 24 mirrors, and `tools/check_joybrush_tokens.py` FAILS the moment a mirror drifts by hand (12-case drill, all correct). Watcher green twice with `compileDebugKotlin` EXECUTED. Q1 (screenshot) rerouted to the owner; Q2 ruled by me (file moved to `src/main/kotlin`); Q3/Q4 open for the Lead |
 | D.02 Extract shared UI kit pieces Joy Brush needs (scrubbable number, slider row, header icon button) out of editor files into a shared package | T2-V (T1 review) | — | ⚪ Outline | |
 
 ### Phase 1 — The brush engine

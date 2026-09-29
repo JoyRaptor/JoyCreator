@@ -16,6 +16,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.HapticFeedbackConstants;
 import android.graphics.Bitmap;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
@@ -39,6 +40,8 @@ import com.fadcam.FLog;
 import com.fadcam.MainActivity;
 import com.fadcam.R;
 import com.fadcam.ui.BaseFragment;
+import com.fadcam.ui.OverlayNavUtil;
+import com.fadcam.ui.TrashFragment;
 import com.fadcam.ui.faditor.FaditorEditorActivity;
 import com.fadcam.ui.faditor.project.ProjectStorage;
 import com.fadcam.SharedPreferencesManager;
@@ -301,6 +304,25 @@ public class LobbyFragment extends BaseFragment {
         banner.setImageResource(R.drawable.lobby_banner);
         banner.addOnLayoutChangeListener((vw, l, t, r, b, ol, ot, orr, ob) -> fitBanner(banner));
         fitBanner(banner);
+
+        // ── HIDDEN RECYCLE BIN ──────────────────────────────────────────────
+        // Old Faditor main window: long-hold on the center-top round-headed button
+        // opened the secret trash. Same behavior lives here now: long-hold on the
+        // logo banner in the upper left opens TrashFragment as an overlay.
+        //
+        // Hit-target note: the chrome row (lobby_chrome) sits ON TOP of the banner
+        // art with the scrim between them, so a listener on the banner alone would
+        // never fire — the chrome gets the touch first. The listener is attached to
+        // the banner, the wordmark (upper-left logo text) and the chrome row itself
+        // so the hold works wherever the finger lands up there.
+        View.OnLongClickListener trashHold = vw -> {
+            openHiddenTrash(vw);
+            return true;
+        };
+        banner.setOnLongClickListener(trashHold);
+        wordmark.setOnLongClickListener(trashHold);
+        View chrome = v.findViewById(R.id.lobby_chrome);
+        if (chrome != null) chrome.setOnLongClickListener(trashHold);
 
         // The scrim. Clear across the lettering, black by the time it reaches the stat,
         // the search and Joybot. Without it, grey 12sp type sits on a magenta grid and
@@ -1127,6 +1149,25 @@ public class LobbyFragment extends BaseFragment {
     private void routeTab(int position) {
         if (getActivity() instanceof MainActivity) {
             ((MainActivity) getActivity()).switchFragment(position, true);
+        }
+    }
+
+    /**
+     * Hidden recycle bin: long-hold on the upper-left logo banner opens the trash
+     * overlay. Same contract as the old Faditor main window's center-top button hold
+     * (see {@code HomeFragment.setupAppLogoLongPressListener}): haptic tick, then
+     * TrashFragment over {@code overlay_fragment_container} with back-stack handling
+     * owned by {@link OverlayNavUtil}.
+     */
+    private void openHiddenTrash(View anchor) {
+        try {
+            anchor.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+        } catch (Exception ignored) { }
+        FLog.i("Lobby", "Logo banner long-pressed. Opening hidden trash.");
+        try {
+            OverlayNavUtil.show(requireActivity(), new TrashFragment(), "trash");
+        } catch (Exception e) {
+            FLog.e("Lobby", "Failed to open hidden trash.", e);
         }
     }
 

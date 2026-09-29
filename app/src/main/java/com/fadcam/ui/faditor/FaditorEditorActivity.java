@@ -23615,15 +23615,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         final TextView readout = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.note(this, "");
 
-        // One updater for both sliders so the two readouts can never disagree with the model.
+        // Each half shows its own value (below); this line only speaks up when the two zones
+        // meet, the one fact neither value says alone.
+        final TextView[] values = new TextView[2];
         final Runnable refresh = () -> {
             CapAnim now = captionAnimTarget();
             if (now == null) return;
             int in = Math.round(now.getCaptionAnimInPct() * 100f);
             int out = Math.round(now.getCaptionAnimOutPct() * 100f);
-            readout.setText(getString(in + out >= maxPercent * 2
-                    ? R.string.caption_timing_readout_meet : R.string.caption_timing_readout,
-                    in, out));
+            if (values[0] != null) values[0].setText(getString(R.string.caption_timing_pct, in));
+            if (values[1] != null) values[1].setText(getString(R.string.caption_timing_pct, out));
+            boolean meet = in + out >= maxPercent * 2;
+            readout.setVisibility(meet ? View.VISIBLE : View.GONE);
+            if (meet) {
+                readout.setText(getString(R.string.caption_timing_readout_meet, in, out));
+            }
         };
 
         // G12: In and Out on ONE line — same half treatment as audio fades
@@ -23632,13 +23638,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         timingRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         View inSlider = makeCaptionAnimSlider(timingRow, d,
                 getString(R.string.lane_b_audio_fade_in_short), maxPercent,
-                Math.round(target.getCaptionAnimInPct() * 100f), true, refresh);
+                Math.round(target.getCaptionAnimInPct() * 100f), true, refresh, values);
         View outSlider = makeCaptionAnimSlider(timingRow, d,
                 getString(R.string.lane_b_audio_fade_out_short), maxPercent,
-                Math.round(target.getCaptionAnimOutPct() * 100f), false, refresh);
+                Math.round(target.getCaptionAnimOutPct() * 100f), false, refresh, values);
         android.widget.LinearLayout.LayoutParams lpIn = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 0.5f);
         android.widget.LinearLayout.LayoutParams lpOut = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 0.5f);
-        lpOut.leftMargin = (int)(8*d);
+        lpOut.leftMargin = (int) (12 * d);
         timingRow.addView(inSlider, lpIn);
         timingRow.addView(outSlider, lpOut);
         root.addView(timingRow);
@@ -23656,15 +23662,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @NonNull
     private View makeCaptionAnimSlider(@NonNull LinearLayout parent, float d, @NonNull String label,
                                        int maxPercent, int startPercent, boolean isIn,
-                                       @NonNull Runnable refresh) {
+                                       @NonNull Runnable refresh, @NonNull TextView[] values) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
 
-        // Kit label + the ONE drawer slider face, named (drawer audit 2026-09-24, C3/C10).
-        TextView name = drawerInlineLabel(this, label);
-        name.setMinEms(2);
-        row.addView(name);
+        // The half-row the audio fades use (owner, 2026-08-23: both on ONE line): fade icon,
+        // short name, slider, its own value. The label used to butt straight onto the In
+        // slider's track, so "Out" read as sitting on it (Note 9, 2026-09-25).
+        row.addView(com.fadcam.ui.faditor.tools.PipDrawerTabs.rowIcon(this,
+                isIn ? "audio_fade_in" : "audio_fade_out"));
+        row.addView(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.rowLabel(this, label, 28));
 
         final com.fadcam.ui.faditor.tools.FineSeekBar bar =
                 new com.fadcam.ui.faditor.tools.FineSeekBar(this);
@@ -23675,8 +23683,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bar.setProgress(Math.max(0, Math.min(maxPercent, startPercent)));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        lp.setMargins((int) (6 * d), 0, 0, 0);
+        lp.setMargins((int) (4 * d), 0, 0, 0);
         row.addView(bar, lp);
+        TextView value = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.value(this, 34);
+        row.addView(value);
+        values[isIn ? 0 : 1] = value;
 
         // Captured on the FIRST touch, not on every change: it is the value the undo step must
         // return to, and the clip's own value is being overwritten by the live preview.

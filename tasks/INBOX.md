@@ -484,3 +484,6 @@ Not fixed here, deliberately:
 Worth doing when someone is next in that file with a working build. The correct shape is the one
 `cellRectBitmap` already has: go through `sheet.sourceCell(slot)` rather than assuming the slot
 and the art share an index.
+
+## 2026-09-21 — Ranged export (export a span, not the whole timeline)
+Genuinely useful on its own (re-export one fixed region without redoing 48 min). Explicitly NOT the mitigation for the 30:35 watchdog stall (tasks/todo.md) — that bug must die as a one-pass export, not be worked around by user choice.

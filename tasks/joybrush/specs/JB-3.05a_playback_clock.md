@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T2 |
-| **Status** | see ROADMAP.md |
+| **Status** | 🟧 Built — see ROADMAP.md. **Decision 3 and Decision 5 below are superseded by the orchestrator ruling at the end of this file, which three empty dispatches forced.** |
 | **Depends on** | JB-3.01 (`AnimOps.frameStartsMs`, `totalDurationMs`) — Built |
 | **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/anim/PlaybackClock.kt`, NEW `.../commonTest/.../anim/PlaybackClockTest.kt` |
 | **Estimated size** | ~150 lines + ~200 lines of tests |
@@ -91,4 +91,46 @@ Touch no existing file (AnimOps is called, not changed). No Android, no audio co
 ## Definition of done
 Tests pass (paste) · commit `JB-3.05a: playback clock` · ROADMAP row → 🟧 Built.
 
-## Questions
+## Orchestrator ruling (PROVISIONAL — Claude to confirm) — why three dispatches produced nothing
+
+A builder given this spec spends its whole budget in Decision 3 and never writes a file. Two reasons,
+both mine to fix rather than the agent's:
+
+1. **"The backward leg covers the range minus the first and last frames" never says which interval it
+   traverses.** It has to be the forward interval `[starts[1], starts[count-1]]` to produce the
+   `A B C D C B` this same paragraph asks for, but that was not stated, and the plain reading also
+   admits a second interval.
+2. **The seam is unspecified and it changes two function bodies.** At the instant the backward leg
+   begins, is the frame D or C? Half-open or closed? That decides whether D is shown twice at one
+   instant, and it decides what `nextChangeMs` returns there.
+
+**Ruling.**
+
+- **Seam convention.** Forward leg **half-open `[0, rangeMs)`**; backward leg **`[rangeMs, cycleMs)`**,
+  where `cycleMs = rangeMs + (starts[count-1] - starts[1])` for a range of three or more frames, and
+  `cycleMs = rangeMs` for one or two. At `cyclePos == rangeMs` the last forward frame is **still on
+  screen**. So every frame is shown for exactly its own duration in measure, none is shown twice in a
+  row, and the sequence is exactly `A B C D C B A B C …`.
+- **The backward position** is `backPos = starts[count-1] - (cyclePos - rangeMs)`, traversing
+  `[starts[1], starts[count-1])` and landing on the frame whose start ≤ it — the same
+  `start ≤ position < start + duration` rule as the forward leg, applied to the reversed position.
+- **`nextChangeMs` at the seam returns `rangeMs`.** The index is still the last forward frame *at*
+  `rangeMs` and differs immediately after, so the change has no minimum: `rangeMs` is its
+  **infimum**, and that is what a player must sleep until. Do not "fix" it to `rangeMs + ε`.
+- **Decision 5's PING_PONG audio formula was wrong as written.** `rangeStartMs + (t mod rangeMs)`
+  desyncs sound from picture after the first cycle, because `t mod rangeMs` and the cycle position
+  are equal only inside the first cycle. **The audio follows the frame:** on the forward leg it is
+  `rangeStartMs + cyclePos`, on the backward leg `null`. That is Decision 6's own no-drift intent, and
+  the whole reason playback was put on a clock. LOOP's and ONCE's formulas are unchanged and correct.
+- **The audio stops a hair before the frame does** — at exactly the seam the frame is still the last
+  forward one while the audio has gone `null`. A measure-zero instant no player can observe; stated
+  here so nobody later reads it as an inconsistency.
+- **A one-frame range never changes frame**, so `nextChangeMs` returns `Double.POSITIVE_INFINITY` for
+  it in every mode. That follows from the contract's own wording and the spec did not say it.
+- **An unplayable fps surfaces `AnimOps`' own exception**, not a new one: the clock calls
+  `frameStartsMs`, which is where the 1..60 rule already lives, so the two cannot disagree.
+- **The durations come from `AnimOps.frameStartsMs(board)`, range-relative by subtraction.** A test
+  that needs a boundary must derive it the same way (index the same list) rather than accumulate
+  `hold * 1000 / fps` itself: `2 * (1000.0/12.0)` is **not** bit-identical to `2000.0/12.0`, and a
+  boundary off by one ulp lands on the wrong side of the comparison that decides the frame.
+

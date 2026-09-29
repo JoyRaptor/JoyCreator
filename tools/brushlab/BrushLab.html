@@ -949,10 +949,21 @@ function flushDabs() {
 
   gl.enable(gl.BLEND);
   if (V.mode === 'wash') {
-    // "Alpha darken": the stroke only ever gets darker, it never builds up.
-    // MAX ignores the blend factors, which is why the opacity cap is applied to
-    // src.a on the CPU side instead.
-    gl.blendEquationSeparate(gl.FUNC_ADD, gl.MAX);
+    // "Alpha darken" (Decision 6): the stroke only ever gets darker, it never
+    // builds up, and colour is written ONLY where alpha increases.
+    //
+    // MAX on BOTH channels is what achieves that, not MAX on alpha alone. The
+    // dab shader writes premultiplied colour (uBrush * coverage), so the two
+    // channels are the same quantity: dst.rgb = max over dabs of
+    // uBrush * a, and dst.a = max over dabs of a, so rgb is exactly
+    // uBrush * dst.a and the core of a wash is the brush colour, never lighter.
+    //
+    // With FUNC_ADD on colour (which is what a "FUNC_ADD, MAX" reading gives)
+    // every overlapping dab ADDSS its premultiplied colour instead, so a wash
+    // silently bleaches to white wherever the dabs pile up. MAX ignores the
+    // blend factors, hence ONE/ONE; the opacity cap is applied to src.a on the
+    // CPU side and again on commit.
+    gl.blendEquationSeparate(gl.MAX, gl.MAX);
     gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE);
   } else {
     gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
@@ -983,7 +994,11 @@ function flushDabs() {
   bindTex(0, texGrain, u.uGrain);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, dabBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, dabPending.subarray(0, dabPendingN), gl.DYNAMIC_STREAM);
+  // DYNAMIC_DRAW, not DYNAMIC_STREAM: the latter is a desktop-GL name (same
+  // value, 0x88E8) and WebGL does not define it, so passing it leaves `usage`
+  // undefined, bufferData raises INVALID_ENUM and no dab is ever uploaded -
+  // a canvas that shows paper and nothing else, with no exception anywhere.
+  gl.bufferData(gl.ARRAY_BUFFER, dabPending.subarray(0, dabPendingN), gl.DYNAMIC_DRAW);
   gl.bindVertexArray(vaoDab);
   gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
   gl.bindVertexArray(null);
@@ -1553,6 +1568,13 @@ async function boot() {
   await initGrain();
 
   ready = true;
+  // Allocate the buffers HERE, not on the first animation frame. Until
+  // doResize() has run there is no paintTarget, so canDraw() is false and
+  // beginStroke() returns without a word - a stroke started in the first frame
+  // after load (or by anything automated) is silently lost, which is exactly
+  // the kind of nothing-that-happened that reads as "the lab is broken".
+  doResize();
+  if (!ready) return;                 // allocTargets reported a fatal
   pendingResize = true;
 
   const canvas = $('gl');

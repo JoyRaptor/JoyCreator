@@ -21,16 +21,39 @@ It must be served over HTTP. It will not work as a double-click — `fetch()` is
 `file://`, so the shader load fails and the page says so instead of quietly carrying a private copy
 of the GLSL. That is deliberate: the one thing this tool must not do is drift away from the phone.
 
-Screenshots (Playwright — installed separately, this task installs nothing):
+## Screenshots (no install needed)
+
+Any installed Chromium will do — there is nothing to install and no npm. The page exposes
+`window.__lastPenSample`, so a headless run can both *drive* the pen and *assert* what the pen
+produced. Point it at Edge or Chrome:
 
 ```bash
-python -m playwright screenshot --viewport-size 1620,1120 \
-  --wait-for-timeout 1500 http://127.0.0.1:8777/tools/brushlab/BrushLab.html shot-1.png
+python -m http.server 8777                       # from the repo root
+
+"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" \
+  --headless=new --remote-debugging-port=9333 --window-size=1620,1120 \
+  --force-device-scale-factor=1 --enable-unsafe-swiftshader about:blank
 ```
 
-To drive real strokes rather than a blank page, load the page in Playwright yourself and
-dispatch pointer events, or just draw with the pen — the canvas keeps its contents between frames
-(`preserveDrawingBuffer`), so a screenshot of the window shows the mark.
+then talk to it over the DevTools protocol on `http://127.0.0.1:9333`. The three calls that matter:
+
+- `Input.dispatchMouseEvent` with `pointerType: "pen"` plus `force`, `tiltX`, `tiltY`, `twist` —
+  this is a real stylus event, so it goes down the same `PenSample` path a pen takes.
+- `Page.captureScreenshot` — the canvas is created with `preserveDrawingBuffer`, so a screenshot
+  shows the mark even between frames.
+- `Runtime.evaluate` for `gl.readPixels(...)` — the cheapest way to tell a real mark from a blank
+  canvas. Compare the darkest pixel against the brush colour: a correct wash composites to exactly
+  the brush colour, and a wash that has bleached anywhere is a bug, not a look.
+
+`--enable-unsafe-swiftshader` is what makes WebGL2 available on a machine with no GPU. Without it
+headless Chromium refuses the context and the page correctly reports "no WebGL2" — which is a
+different failure from a shader that will not compile, and worth telling apart.
+
+Two bugs were found and fixed this way, both invisible to a syntax check:
+`gl.DYNAMIC_STREAM` is a desktop-GL name that WebGL does not define (it is `DYNAMIC_DRAW`, 0x88E8),
+so every `bufferData` raised `INVALID_ENUM` and no dab was ever uploaded — a canvas showing paper
+and nothing else, with no exception thrown. And the wash blend was `FUNC_ADD` on colour, so
+overlapping dabs added their premultiplied colour until the core of a stroke bleached to white.
 
 ## What the panel does
 
@@ -136,9 +159,11 @@ Specs: `tasks/joybrush/specs/JB-1.20_pc_brush_lab.md`. Contract: `BrushPreset.kt
 - **One stroke at a time.** The second finger down does not draw; the lab models a single stylus,
   not two.
 - **A tap leaves a dot** even with no pointer movement — the pointer-down sample is always one dab.
-- **The visual check is still outstanding.** This page has been read over and its `<script>` parses
-  (`node --check`, run by the orchestrator), but nobody has yet drawn on it in a browser or seen a
-  single frame of it. See Question 9 in the spec.
+- **The visual check is DONE (2026-09-29).** Drawn on in headless Edge over CDP with real
+  `pointerType: "pen"` events: a pressure ramp with the default ink, a tilted stroke with tip
+  texture on at edge 0 and at edge 1, and a fake-rotation stroke with aspect. All four render, the
+  shared shaders compile and link with no log, and the console is clean. See Question 10 in the
+  spec. What that does *not* prove is how it feels — that is still the phone's job.
 
 Specs: `tasks/joybrush/specs/JB-1.20_pc_brush_lab.md`. Shaders: `joybrush/shaders/jb_tip.glsl`,
 `joybrush/shaders/jb_grain.glsl`. Contract: `PenSample.kt`.

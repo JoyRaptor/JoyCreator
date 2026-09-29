@@ -162,3 +162,46 @@ The orchestrator ran `node --check` on the extracted `<script>` block and **it p
 syntax is sound. Everything below is still unverified: the three screenshots and the clean-console
 check in the Verification section. No browser was available to me and no GLSL in this file has ever
 been compiled by a driver. Treat this task as built-but-unverified until someone draws on it.
+
+### 10. RESOLVED — it is verified, and drawing on it found two real bugs.
+Supersedes Question 9. Edge 154 (Chromium) is installed on this machine, so R6 option (a) applied:
+headless Edge over the DevTools protocol, `python -m http.server 8777` from the repo root, real
+`Input.dispatchMouseEvent` events with `pointerType: "pen"` carrying `force` / `tiltX` / `tiltY`,
+`Page.captureScreenshot`, and `gl.readPixels` to tell a mark from a blank canvas. No Playwright, no
+npm, nothing installed. The recipe is in `tools/brushlab/README.md`.
+
+**The shaders compile.** `joybrush/shaders/jb_tip.glsl` and `jb_grain.glsl` were fetched from the
+repo, pasted into the dab fragment shader and compiled and linked by a real driver for the first
+time in this project. Empty info log, `EXT_color_buffer_float` present, so the RGBA16F stroke buffer
+path was the one exercised. `gl.getError()` is 0. The console is clean — the only entry is a
+`favicon.ico` 404 from the dev server.
+
+Two defects, both invisible to `node --check`, both in the lab (my area), both fixed:
+
+1. **`gl.DYNAMIC_STREAM` is not a WebGL constant.** It is a desktop-GL name (same value,
+   0x88E8 = `DYNAMIC_DRAW`); WebGL defines only `STREAM_DRAW` / `STATIC_DRAW` / `DYNAMIC_DRAW`. So
+   `usage` went into `bufferData` as `undefined`, every flush logged
+   `WebGL: INVALID_ENUM: bufferData: invalid usage`, and **not one dab was ever uploaded**. The page
+   rendered paper, a panel, a working budget meter, a correct `PenSample` HUD — and a canvas with no
+   ink on it, and threw no exception anywhere. Now `DYNAMIC_DRAW`.
+2. **The wash bleached to white where dabs overlapped.** `blendEquationSeparate(FUNC_ADD, MAX)` puts
+   `FUNC_ADD` on *colour* and `MAX` only on alpha, so each overlapping dab **added** its
+   premultiplied colour while alpha was maxed: twenty dabs of `#101014 × 0.9` added up past 1.0 and
+   the core of every stroke came out white, with a pale halo. Decision 6 asks for "colour written
+   only where alpha increases", and since the dab writes `uBrush * coverage` the two channels are
+   the same quantity — so `MAX` on **both** is the correct reading and makes `dst.rgb` exactly
+   `uBrush * dst.a`. Now `blendEquationSeparate(MAX, MAX)`. This also makes Question 7 true, which
+   as built it was not.
+
+A third, smaller one: the buffers were only allocated on the first animation frame, so a stroke
+started before that frame hit `canDraw() === false`, returned quietly, and vanished. The first
+stroke after load is now deterministic.
+
+**Evidence.** Four strokes, driven with real pen events, screenshots in the report. The readPixels
+probe is the part worth keeping: the darkest pixel of a correct wash is **exactly** `rgb(16,16,20)`,
+the brush colour `#101014`, to the byte. Before fix 2 that same probe returned white cores. A blank
+canvas and a correct canvas are now distinguishable by number, not by squinting.
+
+What this does **not** prove, and I am not claiming: feel, latency, or the phone budget. Those are
+judged on the phone by design. Nor does it cover `blend: "erase"` (Question 5) or the un-previewed
+fields of Question 6 — those are still open questions, not defects.

@@ -358,6 +358,76 @@ that **I** compile and patch. Budget for it.
 `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`, so R6(a) is reachable — but a
 subagent has no shell and cannot launch it, so **I** would have to do that one myself)
 
+## REVIEW ROUND 2 — 16 Built tasks, two reviewers, 30 findings files
+
+**Both builds green before triage:** `:core:jvmTest` 327/0 · `:androidkit:test` 49/0 (JbArchive 32,
+PngWriter 17). The reviewer's note that a re-run was blocked by untracked `export/` + `brush/imports/`
+files was a **timing artefact** — those were mine and are now committed.
+
+**A second reviewer (`mimo`) has landed 11 files, so §5b rule 2 is now live** (the same issue found
+independently by both families counts as reproduced). Coverage: `muse-spark` 19 files, `mimo` 11.
+`JB-0.08a` and `JB-2.13a` are reviewed by **one family only**, so rule 2 cannot apply to either.
+
+### ✅ FIXED — JB-2.13a BLOCKER (the only BLOCKER of the round)
+`RegionRenderer` allocated from a validator-legal rect with no guard: 30000² → `w*h*4` wraps Int to
+−694,967,296 → `NegativeArraySizeException`; 20000² → 1.6 GB + 6.4 GB → `OutOfMemoryError`. Every
+exporter inherits it. Now refused via `RegionException` (following `JbArchiveException`), budget
+`MAX_REGION_PX = 2²³` = **160 MiB live** at 20 B/px, chosen against the Note 9's 256 MB
+`memoryClass`. 7 new tests, including `aRectDocOpsValidatesIsStillRefusedHere` — the guard
+deliberately *disagrees* with `DocOps.validate`, which is the whole bug. 3840×2160 (4K) still passes,
+pinned by a test. Committed `d99f561c`.
+
+Also: the KDoc's **GPU-parity claim was false for 6 of 8 modes** (`jb_tile.frag` is source-over only).
+Narrowed to the truth — NORMAL and ERASE_BELOW agree, the other six do not, and the result is a
+*different picture*, not a rounding difference. No behaviour change, no parity test written (that
+would pin the wrong behaviour as correct).
+
+### 🔴 For the Lead — decisions I am NOT making
+1. **JB-2.13a Q1 — the pixel budget itself.** 2²³ is defensible, not obvious. Also open: refuse at
+   export time or at open time in `DocOps.validate`; and whether "render in strips and stitch" is the
+   real answer for huge exports.
+2. **JB-2.13a Q3 — a wrong-answer bug the builder deliberately did NOT fix.**
+   `rect.x + rect.w - 1` overflows near `Int.MAX_VALUE`, the tile range inverts, and you get a
+   **silently transparent region with no error at all**. A crash is bad; a blank canvas is worse.
+   The cure changes behaviour for rects that currently render, so it needs a ruling.
+3. **JB-0.03b MAJOR — validation is still advisory.** `grep` proves **no production caller of
+   `BrushValidate.validate`**. Hostile brushes still reach the engine; the backstop prevents the
+   freeze but not wrong paint. This is not a bug in JB-0.03b, it is **missing wiring** — whoever
+   calls `validate` has to exist first (JB-1.05b / the brush shelf), or the whole task is decorative.
+4. **JB-5.10 — the acceptance bound, see below.**
+5. **`tip.hardness.base` is unranged.** `1e30` is legal, finite and meaningless. The MyPaint importer's
+   builder ruled it belongs in `BrushValidate` (JB-0.03b territory), and that it generalises to
+   `flow`, `tip.angle`, `scatter.amount` and both grain depths. Their test says to delete it when the
+   rule lands.
+
+### 🔴 JB-5.10 MAJOR — real fix, but the bound is NOT met, so NOT landed
+The reviewer reproduced the `TO_INTERSECTION` worst case (50 × 500-pt lines, one 200×200 region). The
+builder's trace: the sweep prunes **nothing** there (every line's box spans nearly the whole region),
+and the real cost was not the 6.1e8 cheap box rejects but **~1e6 crossings collected into an
+`ArrayList` per line, sorted, then linearly scanned**.
+
+Fixed by asking a smaller question: only the *nearest* crossing beside each touched stretch is ever
+used, so `crossingsOf` (build all → sort → scan) became `crossingTrims` (two directional walks that
+**stop at the first crossing**). ~6.1e8 box tests → ~2 000 segment scans.
+
+It also **argued against the spatial grid its own Question 6 proposed**, with arithmetic: for mean
+segment length `L` over area `A`, a grid's best case is `≈ S·L²/A` candidates however small the cells
+get, and here `A/L² ≈ 1`, so the ceiling is **3.7×** — it would move the problem, not fix it. That
+argument is the most valuable thing in this round.
+
+**Measured: 1170 ms warm, against a 500 ms test bound and the spec's 50 ms promise.** Down from
+"seconds to tens of seconds" — a large real win — but not to target, and the builder's own analysis
+says a segment-level index has that same 3.7× ceiling here, so **50 ms is likely unreachable for this
+adversarial layout.** I am **not** relaxing the test bound to make the suite green; a timing bound
+loosened until it passes is exactly the "checkbox is a wish" failure this repo keeps hitting. The
+work is left **uncommitted in the tree** with a red test on purpose. **This needs a ruling:** accept
+~1.2 s on a deliberately adversarial scribble, narrow the spec's promise, or fund the index anyway.
+
+### 🟩 Eligible for 🟩 Reviewed (xr) — no open BLOCKER or MAJOR
+`JB-0.02b` · `JB-0.04` · `JB-1.03` · `JB-3.01` · `JB-1.04` · `JB-5.02` — MINORs only.
+**Not moved yet**: §5b wants the Lead or a cross-reviewer to set it, and several of these have MINORs
+that are genuinely worth someone else's eye. Say the word and I will flip them.
+
 ## Open questions
 
 ### 🔴 For Claude — contract, and the only one that can lock a user out of their own file

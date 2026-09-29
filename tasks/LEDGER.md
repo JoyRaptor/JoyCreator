@@ -3725,6 +3725,71 @@ Owed on a phone: pick presets/granularities with the drawer open and watch the b
 confirm old projects still animate as BLOCK and new boxes as LETTER; confirm the keyboard
 returns on box tap and typing stays static (glyphs must not slide under the caret).
 
+2026-09-23 correction (owner): the BLOCK fallback is dropped — sole user, BLOCK never
+authored, everything inherits LETTER. `ProjectStorage` no longer writes missing-as-BLOCK;
+an explicitly saved BLOCK still loads as BLOCK.
+
+## 2026-09-23 — text repair pass: tap/drag disambiguation, selection surrender, color repaint
+
+JoyRaptor's triple report: (1) drags on text open the keyboard instead of moving;
+(2) bent text's box disassociates from its glyphs until the playhead moves;
+(3) per-span formatting (select-a-range → color/bold/italic/font) gone since the new
+bounding box / bend passes.
+
+Findings (all confirmed in code, file:line in LANES lane note):
+
+- (1) The double-tap pairing on all three gesture surfaces was time+identity with NO
+  distance check and NEVER cleared by a drag. Tap → drag → tap inside 320 ms paired
+  into "open the type editor". Fix: disarm on every transition to moved, plus a system-
+  slop spatial gate on the second UP. `TextOverlayLayer`, `TransformOverlayView`,
+  `PreviewHandlesOverlay` — committed 2773746d, pushed.
+- (3) `showTextOverlayEditor` never surrendered the transform surface (it sits above the
+  text layer and eats every in-box touch), while `PreviewHandlesOverlay` has had an
+  edited-box pass-through since the WYSIWYG reframe. The SPEC Y migration onto one
+  transform surface dropped it — that is the formatting regression, and the span
+  pipeline itself (resolver, renderer, storage, undo) is intact. Fix: exit transform
+  mode when the text drawer opens (text-only; images delegate out earlier), handles
+  return on next tap-select. Plus: the color-span write never called
+  `refreshOverlayPreview`/`scheduleAutoSave`, so it silently did nothing — fixed.
+  Both hunks staged in `FaditorEditorActivity.java`, NOT committed (export lane's
+  staged hunks share the file — coordination owed, see LANES).
+- (2) Preview draws text bent but lays out/selects/transforms it unbent (layout knows
+  pin, not mesh), and legacy-surface drags never re-synced the helper — hence "moves
+  font not box until playhead moves". Fix: legacy MOVE now calls
+  `onOverlayTransformSync` → `transformOverlay.refresh()` every frame
+  (committed 2773746d). Full mesh-aware bounds (expand layout/hit/quad by the warp)
+  NOT attempted blind — needs a phone. If bend keeps misbehaving on device, the
+  honest fallback is gating `meshBend` to images until the layout lands.
+
+Owed on a phone: drag text repeatedly (no keyboard), double-tap (drawer),
+select-a-range → color/B/I/U/font per span, drag a bent box (box follows),
+confirm handles return after drawer close.
+
+### Device note 2026-09-23 evening — Note 9 sandbox session (Note 20 left exporting)
+
+Installed the working-tree APK (all staged hunks incl.) to the Note 9 ONLY (`$env:PHONE`
+pin; every adb with `-s`). Verified backup first (13 project files, parses), restored it
+after — sandbox left pristine ("hi" test box gone, confirmed via re-pulled project.json).
+
+PROVED (screenshot + model ground truth):
+- Launch clean, zero FATAL in logcat; BundlingFontTest opens, all lanes render.
+- New text box + live typing works ("hi" typed, caret, suggestions).
+- Model: new box stored `granularity=LETTER`; pre-existing boxes with no field inherit
+  LETTER on load; autosave persists. (Owner ruling: everything per-letter.)
+- Tap = select without keyboard (row taps select, no keyboard; canvas tap selects sprite
+  with transform box, no keyboard). No false editor in any tap this session.
+
+NOT reached (needs JoyRaptor, seconds each): canvas double-tap → drawer (row
+double-taps kept selecting; adb tap gaps kept missing the 320 ms window), preset pick →
+keyboard-dismissed + seek, transform surrender on drawer open, span color repaint,
+drag-rhythm feel of the pairing fix. The drawer/preset/surrender hunks are IN the
+installed build, just unexercised.
+
+Incident: mid-session the Note 9 showed Samsung Weather (foreground dumpsys proved it —
+someone/something opened it on-device; no app crash, no FATAL). Relaunched via
+SplashActivity, lobby intact, continued. If the phone wanders again mid-test, stop and
+hand the checklist to JoyRaptor rather than fighting him for the touchscreen.
+
 ## 2026-09-23 — audio clips kept getting new ids every time a project opened
 
 **What was wrong.** Project a32d24e2 on the Note 20, saved twice minutes apart with no edits

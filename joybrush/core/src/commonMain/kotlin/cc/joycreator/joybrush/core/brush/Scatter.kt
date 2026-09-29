@@ -54,6 +54,26 @@ import kotlin.math.sin
 object Scatter {
 
     /**
+     * The salt the scatter's own generator is seeded with, so its stream is not the dabber's.
+     *
+     * `0x5CA7L` — MOVED, not chosen: this is the number `JbCanvasView.SCATTER_SALT`
+     * (`JbCanvasView.kt:651`) has always held, and the view reads a `SystemClock` value into its
+     * seed at `JbCanvasView.kt:329` before xor-ing it with exactly this. It lives in core because a
+     * REPLAY has to scatter identically to the drawing: [cc.joycreator.joybrush.core.vector.InkReplay]
+     * seeds `SplitMix(record.seed xor SALT)` because that is the stream the pen drew with, and a
+     * replay whose scatter lands somewhere else is a recording that does not look like the line.
+     *
+     * A SECOND generator rather than a second stream out of one, because [BrushDabber]'s three
+     * draws per dab are fixed by its own contract and must not be walked differently.
+     *
+     * Until the view reads this constant the two hold the same number in two places, and
+     * `InkReplayTest` pins this one to the literal so the pair cannot drift apart unnoticed; the
+     * two-line edit that makes the view read it is the Lead's, in JB-5.01b, because
+     * LEAD_RULINGS R30 item 2 reserves `JbCanvasView.kt`.
+     */
+    const val SALT = 0x5CA7L
+
+    /**
      * Expands [dabs] in order. For each input dab: n = spec.count, reduced by `countJitter`, at
      * least 1. Each of the n copies is offset by (u, v) × amount × diameter, where
      * amount = Dynamics.eval(spec.amount, inputsOf(dab)) and the dab's own radius is the scale.

@@ -36,3 +36,6 @@ Proof: `gen_blend_golden.sh:82-94` runs the GLSL cross-check only after `cmp` su
 
 ## Recommendation
 Finding 1 blocks the whole androidkit module — needs the Lead's export-mapping ruling (19 modes → `svg:composite-op` or refuse-in-words) plus the `androidkit` edit, then re-green `:androidkit:test`. Findings 2–6 are doc/comment/test-precision MINORs (2 borderline MAJOR only because it misstates a frozen contract). The parity methodology (generated table + drift check + independent GLSL transcription + W3C-identity tests that survive a wrong table) is the model for all future Studio-parity work.
+
+## Addendum 2026-09-29 — Finding 5 fixed (`47c4a17e`), verified in diff
+- The unused `out` parameter is removed from `wholePixelTerm` (signature no longer lies), and the object-level scratch now documents the single-thread assumption explicitly (locals + post-blend `out` write + `out ≠ s/d` requirement + the GPU-hands-numbers-on-one-thread rationale). Behaviour identical — call chain and `B_TERM` flow unchanged, so no re-run needed beyond the already-green parity/identity suites. Finding 5 closed; Findings 1–4 and 6 stand.

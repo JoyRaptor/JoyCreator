@@ -119,3 +119,27 @@ JB-0.08b is pushed so nothing else is uncommitted:
 3. `git push origin bunny/leftover-app-edits`, then `git switch joy-creator`.
 The Lead reviews them in the cloud and either merges them into `joy-creator` or drops them, then
 JB-0.09 is unblocked. Never ask the owner to commit, stash or resolve anything.
+
+## 2026-09-29 — eight new specs from the Lead (runway)
+
+**R15.** The Lead wrote eight specs, all pure `:core` maths, testable in the cloud, and dispatchable
+now: they need no screen chrome (JB-2.01) and touch no file anyone is editing. They are the "a" halves
+of UI rows; each UI row keeps its number and now also depends on its "a". Lead-written, so they go
+straight to 🟦 Ready (no cross-review needed). The orchestrator adds these rows to the board:
+
+| Row | Tier | Needs | Status |
+|---|---|---|---|
+| [JB-2.05a](specs/JB-2.05a_selection_mask.md) Selection masks: lasso (non-zero), rect, ellipse, from-fill, boolean ops | T2 | 0.07, 2.06a | 🟦 Ready |
+| [JB-2.05b](specs/JB-2.05b_transform_and_resample.md) Transform maths: affine, box handles, tile resample | T2 | 2.05a, 2.02 | 🟦 Ready (after 2.05a) |
+| [JB-2.12a](specs/JB-2.12a_guides_and_snapping.md) Guides: grid / iso / perspective / ruler / ellipse, stroke snapping, visible lines | T2 | 0.01, 2.02 | 🟦 Ready |
+| [JB-2.16a](specs/JB-2.16a_size_opacity_drag.md) Size & opacity drag maths + zoom-scaled nudge | T2 | 0.03b, 2.02 | 🟦 Ready |
+| [JB-3.05a](specs/JB-3.05a_playback_clock.md) Playback clock: loop / ping-pong / once, range, audio position, no drift | T2 | 3.01 | 🟦 Ready |
+| [JB-3.08a](specs/JB-3.08a_three_finger_swipe.md) Three-finger swipe: mode choice, badge override, frame flip / brush | T2 | 2.16a, 3.01 | 🟦 Ready (after 2.16a) |
+| [JB-4.01a](specs/JB-4.01a_sprite_grid_math.md) Sprite grid maths: by size / count, cell lookup, edge drag, sub-grids | T2 | 0.02, 4.03a | 🟦 Ready |
+| [JB-5.03a](specs/JB-5.03a_stroke_edits.md) Stroke record v2 (colour, width) + reshape / re-weight / re-brush | T2 | 0.04, 5.02 | 🟦 Ready |
+
+Dependencies to add to existing rows: JB-2.05 needs 2.05a + 2.05b · JB-2.12 needs 2.12a · JB-2.16
+needs 2.16a · JB-3.05 needs 3.05a · JB-3.08 needs 3.08a · JB-4.01 needs 4.01a · JB-5.03 needs 5.03a.
+Parallel-safe: every pair above except 2.05a→2.05b and 2.16a→3.08a (and 5.03a edits StrokeCodec, so
+nothing else touching `stroke/` runs beside it). The orchestrator keeps writing its own list
+(0.09, D.02, 2.14c, 8.01/8.02/8.04, 3.06b, 2.15, 0.10); the Lead will not write those.

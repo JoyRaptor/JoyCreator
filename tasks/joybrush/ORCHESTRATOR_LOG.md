@@ -73,10 +73,17 @@ the sentence, not the file.
 compile, made a temporary edit to get a real test count, and REVERTED it byte-identically rather
 than let "90 tests" imply a green module. That is the behaviour to reward in a report.
 
-**4. Verify a plausible finding before acting on it.** A spec writer reported that `SpritePacker`
-drops `weights` so held frames export at the wrong speed. It is wrong three ways: this format encodes
-holds as repeated `frames` indices, a test ASSERTS `weights` is absent, and the class it names does
-not exist in this repo. Recorded on JB-4.02 so nobody spends the five minutes again.
+**4. ~~Verify a plausible finding before acting on it.~~ — **STRUCK 2026-09-29 at R36's order. I got this
+one wrong, and the Lead says so in `LEAD_RULINGS.md`.** The sprite-weights finding ("a held frame exports at
+the wrong speed") was **REAL**, and I dismissed it with three reasons, of which two were false and the third
+was a category error. The app is **Java**: `app/…/sprite/SpriteSheet.java` exists and its `Preset` carries
+`weights` (`hasWeights()`, 1..9999 via `SequenceTiming`). I wrote "there is no `SpriteSheet.kt` in this repo" —
+I searched **one** module and generalised from it. The lesson was never "verify before acting"; it was
+"verify before **refuting**", and I used it as permission to close something I had not actually looked for.
+**A plausible finding is not a refuted finding until you have looked in the module it names.** The lesson was
+also duplicated as a "NOT a defect" note on JB-4.02, which is now struck. The defect itself is fixed by
+**JB-4.03c** (`Clip` gains `weights`; `SpritePacker` writes it under the app's own rule), and the bad test
+entry goes with it.
 
 **5. The rule in the file beats the prompt.** All four spec writers refused to mark their specs Ready
 and cited ROADMAP §3, against my explicit instruction to mark buildable ones Ready. They were right.

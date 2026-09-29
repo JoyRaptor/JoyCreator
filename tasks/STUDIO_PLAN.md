@@ -98,7 +98,11 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
 | Text wrap VERIFIED on the Note 9 (2026-09-29, in a throwaway project "Untitled" created for testing, NOT ZA_CONTROL): typed sentence wraps at Wrap · wide; the 4-30 em slider re-wraps live (narrow gives one word per line); chip relabels; wrapEm saved in project.json | ✅ 1ad0851c |
 | Visualizer lanes: FIXED (f88f6a57) - add/delete/undo/redo did not sync the timeline rows, so a new visualizer had no VIZ lane until reopen. Verified on device: VIZ lanes show, HOLD opens the Visualizer drawer (Style..., Pos X/Y, Width, Height, Rotate, hide/lock), double-tap opens the style panel (its body is clipped in LANDSCAPE, portrait unchecked) | ✅ / 👀 |
 | Visualizer link: picked the text as parent from the preview, popup "Visualizer follows this is a long sen...", Link = one undo step, spaceLink + time link group saved. Movement of the visualizer with its parent not watched on device (tiny landscape preview) | 🧪 |
-| Not yet on phone: follower drops to own lane on time overlap; visualizer drawer + following; pin links (needs the shared pin-position model first); portrait re-check; Fit mode | ⏳ |
+| **Text word/letter styling restored** (owner report 2026-09-29): the move handles stole in-box touches while the Text tab was open. Fixed twice over (selection handler + a settle re-assert); VERIFIED on device: long-press selects a word ("9 selected", handles, cut/copy), Bold changes only that word | ✅ e897c309 |
+| **Visualizer keyframes** on Pos X/Y, Width, Height, Rotate: model KeyframeSet, saved, undoable, export places per frame; diamonds + prev/next verified on device (2 keys saved) | ✅ 3542b3cc (export animation not watched) |
+| **Visualizer style studio is now the drawer's first tab** ("Style"), before Transform; old top panel retired; sliders restyled to the drawer look | ✅ 3542b3cc + next |
+| Phone is now in PORTRAIT: lanes, drawers and the Style tab render fine there (landscape clipped the old panel) | ✅ |
+| Not yet on phone: follower drops to own lane on time overlap; visualizer following its parent (watched moving); pin links (needs the shared pin-position model first); Fit mode; export of a keyed visualizer | ⏳ |
 | Observed, not mine: caption line shifted right/clipped at 5.1s in ZA_CONTROL on the ~10:40 build (export lane told) | 👀 |
 | NEXT: phone pass on remaining 🧪; pin links (warp/puppet pins as parents); parameter drivers; text box sizing modes (#14); bottom-tools sweep | ⏳ |
 

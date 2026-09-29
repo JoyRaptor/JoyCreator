@@ -19968,7 +19968,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.note(this,
                     getString(R.string.viz_no_styles));
         }
-        return buildVisualizerRolodex(overlay, styles);
+        View studio = buildVisualizerRolodex(overlay, styles);
+        // The studio predates the drawer kit and drew its sliders in the platform grey. Give every
+        // one the drawer's slider face (accent fill, ink thumb) so this tab reads as the same drawer.
+        restyleSlidersIn(studio);
+        return studio;
+    }
+
+    /** Apply {@code ObjectDrawer.Kit.styleSlider} to every SeekBar under {@code v}. */
+    private void restyleSlidersIn(@NonNull View v) {
+        if (v instanceof android.widget.SeekBar) {
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider((android.widget.SeekBar) v);
+        } else if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) restyleSlidersIn(g.getChildAt(i));
+        }
     }
 
     // ── Visualizer Stage-2 Rolodex (3-column: icons · style carousel · gradient carousel) ──

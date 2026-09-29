@@ -15,7 +15,11 @@ import kotlin.math.sqrt
  */
 internal const val GEOM_EPS = 1e-9
 
-/** Length of the vector (dx, dy). Cheaper and steadier than hypot, which overflows far sooner. */
+/**
+ * Length of the vector (dx, dy). Cheaper than kotlin.math.hypot, and the same answer at document
+ * scale: hypot exists to survive coordinates near 1e200, where `dx * dx` overflows to Infinity
+ * long before — a document's pixel counts are nowhere near that.
+ */
 internal fun len(dx: Double, dy: Double): Double = sqrt(dx * dx + dy * dy)
 
 /** A closed interval in line-parameter space (fractional point index — see [Piece]). */

@@ -120,7 +120,21 @@ object PngWriter {
         // so this do-while always writes at least one IDAT and never writes an empty one.
         var at = 0
         do {
-            val end = minOf(maxIdatBytes, deflated.size)
+            // `at + maxIdatBytes`, NOT `maxIdatBytes`. The end of a chunk is measured from the START
+            // of the stream. Leaving out the `at +` makes every chunk after the first begin where
+            // the previous one ended, so it writes nothing, sets `at` to the value `at` already
+            // held, and the loop never terminates — appending a 12-byte chunk at a time until the
+            // heap gives out. It is also wrong in a way that hides perfectly: a stream that fits in
+            // one chunk is correct by accident, so this only bites on a big export, which is the
+            // one case the splitting exists to serve.
+            //
+            // Written as a subtraction rather than a saturating add so it cannot overflow, and with
+            // the cursor check below, which cannot fire but turns any future mistake here from a
+            // silent heap-eating hang into an immediate, named failure.
+            val end = if (deflated.size - at <= maxIdatBytes) deflated.size else at + maxIdatBytes
+            check(end > at) {
+                "the IDAT cursor did not move: $at of ${deflated.size} bytes with a $maxIdatBytes limit"
+            }
             writeChunk(out, "IDAT", deflated, at, end)
             at = end
         } while (at < deflated.size)

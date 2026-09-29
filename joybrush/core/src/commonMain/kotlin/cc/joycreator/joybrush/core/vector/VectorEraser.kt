@@ -87,7 +87,6 @@ object VectorEraser {
         val touched = ArrayList<ParamRange>(8)
         val raw = ArrayList<ParamRange>(4)
         val cuts = ArrayList<ParamRange>(8)
-        val crosses = ArrayList<Double>(16)
         val breaks = DoubleArray(5)
         val hit = DoubleArray(4)
 
@@ -106,16 +105,11 @@ object VectorEraser {
                 EraseMode.PARTIAL -> out[line.id] =
                     complementOf(line, touched).filter { it.arcLengthIn(line) >= MIN_PIECE_ARC }
                 EraseMode.TO_INTERSECTION -> {
-                    crossingsOf(line, li, lines, lineBoxes, sweep, hit, crosses)
                     cuts.clear()
-                    for (t in touched) {
-                        // Out to the crossing before the stretch, or to the line's end if none, and
-                        // on to the crossing after it, or to the line's end if none. A line with no
-                        // crossings at all therefore loses the stretch's whole length.
-                        val lo = nearestAtOrBefore(crosses, t.from) ?: 0.0
-                        val hi = nearestAtOrAfter(crosses, t.to) ?: line.lastParam
-                        cuts.add(ParamRange(lo, hi))
-                    }
+                    // Out to the crossing before each stretch, or to the line's end if none, and on
+                    // to the crossing after it, or to the line's end if none. A line with no
+                    // crossings at all therefore loses the stretch's whole length.
+                    crossingTrims(line, li, lines, lineBoxes, sweep, touched, hit, cuts)
                     mergeRanges(cuts)
                     out[line.id] = complementOf(line, cuts)
                 }
@@ -378,59 +372,183 @@ object VectorEraser {
     }
 
     /**
-     * The parameters along [line] where its centreline crosses another line's centreline, sorted.
-     * A line is never compared with itself — a stroke looping back over its own tail is not a
-     * crossing, and the spec forbids counting it as one.
+     * Appends to [cuts] the stretch to remove for each entry of [touched], in the same order and
+     * the same number: from the nearest crossing at or before that stretch's start (or the line's
+     * own start) to the nearest crossing at or after its end (or the line's end). A line that
+     * crosses nothing at all therefore loses every touched stretch whole.
+     *
+     * WHY THIS DOES NOT COLLECT EVERY CROSSING. The obvious shape of this — build the list of all
+     * the line's crossings, sort it, then look up each stretch's nearest crossing either side — is
+     * quadratic, and the quadratic is not the bounding boxes. A line that crosses 49 others which
+     * all overlap it has a crossing every fraction of a doc px, so the list runs to millions of
+     * entries per line: 50 x 49 x 499 x 499 ≈ 6.1e8 segment pairs to build, then a sort, then a
+     * linear scan of the list per touched stretch (review JB-5.10 Finding 1, which is builder Q6).
+     * All of that work answers a question nobody asked. Only the NEAREST crossing beside each
+     * stretch is ever used, so this walks outward from the stretches and stops at the first
+     * crossing it meets — in dense ink, one or two segments' worth.
+     *
+     * Two passes share the walking. The stretches are visited right-to-left for the "at or before
+     * the start" answer and left-to-right for the "at or after the end" one, each with a frontier of
+     * how far it has got and a cursor over the crossings it has found, so one segment is compared
+     * with the other lines' segments at most once per direction however many stretches the eraser
+     * left on the line. The answers are the same values the full list would have given.
      */
-    private fun crossingsOf(
+    private fun crossingTrims(
+        line: InkLine,
+        li: Int,
+        lines: List<InkLine>,
+        lineBoxes: DoubleArray,
+        sweep: IntArray,
+        touched: List<ParamRange>,
+        hit: DoubleArray,
+        cuts: MutableList<ParamRange>,
+    ) {
+        val count = touched.size
+        if (count == 0) return
+        val aSegs = segmentCountOf(line.pointCount)
+        val starts = DoubleArray(count)
+        val ends = DoubleArray(count)
+        // The crossings this pass has found, in the order this pass walks: largest first going
+        // backwards, smallest first going forwards. Only crossings the remaining stretches can
+        // still use are ever added (see crossingsOnSegment), so this stays short.
+        val seen = ArrayList<Double>(16)
+
+        // Backwards. `next` is the next segment to compare and `cursor` walks the list, so a
+        // stretch is answered from what the stretches to its right already found wherever that is
+        // enough, and the walk only carries on when it is not.
+        var next = aSegs
+        var cursor = 0
+        for (ri in count - 1 downTo 0) {
+            val s = touched[ri].from
+            val here = segmentAt(s, aSegs)
+            var lo = 0.0 // no crossing at or before it: the cut starts at the line's own start
+            while (true) {
+                while (cursor < seen.size && seen[cursor] > s) cursor++
+                if (cursor < seen.size) {
+                    lo = seen[cursor]
+                    break
+                }
+                val i = if (next - 1 < here) next - 1 else here
+                if (i < 0) break
+                next = i
+                val from = seen.size
+                crossingsOnSegment(i, line, li, lines, lineBoxes, sweep, hit, seen, s, true)
+                reverseFrom(seen, from) // this pass walks backwards, so largest first
+            }
+            starts[ri] = lo
+        }
+
+        // Forwards, the same again for the smallest crossing at or after each stretch's end.
+        seen.clear()
+        next = -1
+        cursor = 0
+        for (ri in 0 until count) {
+            val s = touched[ri].to
+            val here = segmentAt(s, aSegs)
+            var hi = line.lastParam // no crossing at or after it: the cut runs to the line's end
+            while (true) {
+                while (cursor < seen.size && seen[cursor] < s) cursor++
+                if (cursor < seen.size) {
+                    hi = seen[cursor]
+                    break
+                }
+                val i = if (next + 1 > here) next + 1 else here
+                if (i >= aSegs) break
+                next = i
+                crossingsOnSegment(i, line, li, lines, lineBoxes, sweep, hit, seen, s, false)
+            }
+            ends[ri] = hi
+        }
+
+        for (ri in 0 until count) cuts.add(ParamRange(starts[ri], ends[ri]))
+    }
+
+    /**
+     * Appends to [seen] the parameters along [line] at which its segment [i] crosses another line's
+     * centreline and which the walk can still use: at or before [limit] when walking backwards, at
+     * or after it when walking forwards. The ones dropped are past the limit, and every stretch this
+     * pass has left to answer is nearer the start of the line than the one asking now, so a dropped
+     * crossing can never become an answer later.
+     *
+     * A NaN parameter is dropped too, so a degenerate pair can never become an interval end.
+     *
+     * The filter is this segment's own box rather than the whole line's, which is strictly tighter
+     * and loses nothing — a crossing is a point that both boxes contain — and the left-to-right
+     * break still holds, because the order is by the other line's left edge and a line starting
+     * past this segment cannot touch it.
+     */
+    private fun crossingsOnSegment(
+        i: Int,
         line: InkLine,
         li: Int,
         lines: List<InkLine>,
         lineBoxes: DoubleArray,
         sweep: IntArray,
         hit: DoubleArray,
-        out: MutableList<Double>,
+        seen: MutableList<Double>,
+        limit: Double,
+        backwards: Boolean,
     ) {
-        out.clear()
         val pts = line.pointCount
-        val aSegs = segmentCountOf(pts)
-        val left = lineBoxes[li * 4]
-        val right = lineBoxes[li * 4 + 1]
-        val bottom = lineBoxes[li * 4 + 2]
-        val top = lineBoxes[li * 4 + 3]
+        val i0 = min(i, pts - 1)
+        val i1 = min(i + 1, pts - 1)
+        val ax = line.xs[i0]
+        val ay = line.ys[i0]
+        val bx = line.xs[i1]
+        val by = line.ys[i1]
+        val left = min(ax, bx)
+        val right = max(ax, bx)
+        val bottom = min(ay, by)
+        val top = max(ay, by)
         for (oi in sweep) {
-            if (lineBoxes[oi * 4] > right) break // everything left is sorted: it starts past us
+            val box = oi * 4
+            if (lineBoxes[box] > right) break // sorted by left edge, so is everything after it
             if (oi == li) continue
-            if (lineBoxes[oi * 4 + 1] < left || lineBoxes[oi * 4 + 3] < bottom ||
-                lineBoxes[oi * 4 + 2] > top
+            if (lineBoxes[box + 1] < left || lineBoxes[box + 3] < bottom ||
+                lineBoxes[box + 2] > top
             ) continue
             val other = lines[oi]
             if (other.id == line.id) continue // a stroke never crosses itself
             val b = other.pointCount
             val bSegs = segmentCountOf(b)
-            for (i in 0 until aSegs) {
-                val i0 = min(i, pts - 1)
-                val i1 = min(i + 1, pts - 1)
-                val ax = line.xs[i0]
-                val ay = line.ys[i0]
-                val bx = line.xs[i1]
-                val by = line.ys[i1]
-                for (j in 0 until bSegs) {
-                    val j0 = min(j, b - 1)
-                    val j1 = min(j + 1, b - 1)
-                    if (!boxesMayTouch(
-                            ax, ay, bx, by, GEOM_EPS,
-                            other.xs[j0], other.ys[j0], other.xs[j1], other.ys[j1],
-                        )
-                    ) continue
-                    val hits = segmentIntersections(
-                        ax, ay, bx, by, other.xs[j0], other.ys[j0], other.xs[j1], other.ys[j1], hit,
-                    )
-                    for (k in 0 until hits) out.add(i + hit[2 * k])
+            for (j in 0 until bSegs) {
+                val j0 = min(j, b - 1)
+                val j1 = min(j + 1, b - 1)
+                val cx = other.xs[j0]
+                val cy = other.ys[j0]
+                val dx = other.xs[j1]
+                val dy = other.ys[j1]
+                if (!boxesMayTouch(ax, ay, bx, by, GEOM_EPS, cx, cy, dx, dy)) continue
+                val hits = segmentIntersections(ax, ay, bx, by, cx, cy, dx, dy, hit)
+                for (k in 0 until hits) {
+                    val at = i + hit[2 * k]
+                    if (at.isNaN()) continue
+                    if (backwards) {
+                        if (at > limit) continue
+                    } else if (at < limit) continue
+                    seen.add(at)
                 }
             }
         }
-        out.sort()
+    }
+
+    /** The segment holding parameter [v]: 3.25 is on segment 3, and the line's end is its last. */
+    private fun segmentAt(v: Double, aSegs: Int): Int {
+        val i = v.toInt()
+        return if (i < 0) 0 else if (i > aSegs - 1) aSegs - 1 else i
+    }
+
+    /** Reverses [list] from index [from] to its end, in place — one scanned segment's crossings. */
+    private fun reverseFrom(list: MutableList<Double>, from: Int) {
+        var lo = from
+        var hi = list.size - 1
+        while (lo < hi) {
+            val t = list[lo]
+            list[lo] = list[hi]
+            list[hi] = t
+            lo++
+            hi--
+        }
     }
 
     /** The pieces of [line] that are not inside any of the merged [removed] stretches. */
@@ -464,22 +582,5 @@ object VectorEraser {
         }
         ranges[write] = cur
         while (ranges.size > write + 1) ranges.removeAt(ranges.size - 1)
-    }
-
-    /** The largest value in the sorted [values] that is at or below [t], or null if there is none. */
-    private fun nearestAtOrBefore(values: List<Double>, t: Double): Double? {
-        var best: Double? = null
-        for (v in values) {
-            if (v <= t) best = v else return best
-        }
-        return best
-    }
-
-    /** The smallest value in the sorted [values] that is at or above [t], or null if there is none. */
-    private fun nearestAtOrAfter(values: List<Double>, t: Double): Double? {
-        for (v in values) {
-            if (v >= t) return v
-        }
-        return null
     }
 }

@@ -224,7 +224,8 @@ class VectorEraserTest {
         // Fifty lines sharing the document. The crossing search is quadratic in the number of
         // lines, and its left-to-right sweep stops at the first line that starts past this one's
         // right edge, so lines kept inside their own 300 doc px cell are never compared point by
-        // point. Lines that really do all overlap are the known worst case, not this test.
+        // point. The layout where no box prunes another is
+        // `toIntersectionOverFiftyOverlappingLinesStaysInteractive` below.
         val rng = Random(20260929)
         val lines = (0 until 50).map { i ->
             val col = i % 10
@@ -248,6 +249,75 @@ class VectorEraserTest {
         assertTrue(result.survivors.isNotEmpty(), "the eraser must actually cross some lines")
         assertTrue(coldMs < 3_000L, "the first, cold TO_INTERSECTION pass took $coldMs ms")
         assertTrue(warmMs < 500L, "50 x 500 points TO_INTERSECTION took $warmMs ms once warm")
+    }
+
+    /**
+     * The layout the left-to-right sweep cannot prune, and the one Q6 admitted was never timed
+     * (review Finding 1). Fifty 500-point lines all scribbling inside ONE 200x200 doc px region, so
+     * every line's bounding box is the whole region: no box lies left of another, no box lies right
+     * of another, and the sweep rejects nothing at all. A dot eraser sits in the middle of it.
+     *
+     * What this cost before the fix: every pair of segments of every pair of lines, which is
+     * 50 x 49 x 499 x 499 ≈ 6.1e8 bounding-box tests, and then — the part that actually dominated —
+     * a list of every crossing of each line, which for mutually-overlapping scribbles runs to
+     * millions of entries per line, sorted, then scanned linearly once per touched stretch. It is
+     * now asked only for the NEAREST crossing beside each touched stretch, which is a segment or
+     * two of walking outward.
+     *
+     * The data comes from a fixed 48-bit LCG rather than kotlin.random, so the geometry is the same
+     * on every platform and every run and the number below is comparable run to run.
+     */
+    @Test
+    fun toIntersectionOverFiftyOverlappingLinesStaysInteractive() {
+        val lines = (0 until 50).map { scribbleThroughTheMiddle("W$it", 500, it) }
+        val eraser = dot(100.0, 100.0, 3.0)
+
+        val t0 = TimeSource.Monotonic.markNow()
+        val result = VectorEraser.erase(lines, eraser, EraseMode.TO_INTERSECTION)
+        val coldMs = t0.elapsedNow().inWholeMilliseconds
+
+        val t1 = TimeSource.Monotonic.markNow()
+        val again = VectorEraser.erase(lines, eraser, EraseMode.TO_INTERSECTION)
+        val warmMs = t1.elapsedNow().inWholeMilliseconds
+
+        // Every line is forced through the eraser, so every one of the 50 is cut, and each is cut
+        // only as far as its nearest crossing: a line with no crossings would be gone entirely.
+        assertEquals(50, result.survivors.size, "all 50 lines pass through the eraser, so all 50 are cut")
+        assertTrue(result.survivors.values.any { it.isNotEmpty() }, "crossings everywhere leave survivors")
+        assertEquals(result.survivors, again.survivors, "the same input must give the same answer")
+        assertTrue(coldMs < 3_000L, "the first, cold TO_INTERSECTION pass took $coldMs ms")
+        // ORCHESTRATOR RULING 2026-09-28. The spec's decision 5 promises 50 ms, and this bound is NOT 50 ms.
+    // The spec writer should know both numbers:
+    //  - before the fix, this case was "seconds to tens of seconds" (the reviewer measured 1316 ms for
+    //    the FIXED code; the unfixed code was far worse, collecting ~1e6 crossings per line).
+    //  - after `crossingTrims`, the measured warm cost is ~1.3 s, and the builder's own arithmetic says a
+    //    spatial index has a ~3.7x ceiling for this layout (A/L^2 ~ 1, i.e. segments long relative to how
+    //    far they are spread), so 50 ms is NOT reachable here without a different data structure.
+    // 50 lines x 500 points, ALL scribbling through one point inside one 200x200 region is adversarial by
+    // construction; no real layer looks like this. So the promise is kept where it matters and the bound
+    // here is set to a truthful, regression-guarding number rather than a deleted assertion.
+    // OPEN QUESTION for the Lead: narrow decision 5's 50 ms promise, or fund the segment-level index.
+    assertTrue(warmMs < 2_500L, "50 x 500 fully overlapping points TO_INTERSECTION took $warmMs ms once warm")
+    }
+
+    /**
+     * One [points]-point scribble inside a 200x200 doc px square, forced through (100, 100) at its
+     * middle point so a dot eraser there certainly touches it. Positions come from a fixed LCG, so
+     * this line is identical on every platform; the seed is offset per line so no two coincide.
+     */
+    private fun scribbleThroughTheMiddle(id: String, points: Int, seedIndex: Int): InkLine {
+        var state = 0x2545F4914F6CDD1DL xor (seedIndex * 0x100000001B3L)
+        val xs = DoubleArray(points)
+        val ys = DoubleArray(points)
+        for (i in 0 until points) {
+            state = state * 6364136223846793005L + 1442695040888963407L
+            xs[i] = ((state ushr 11) % 200_000L) / 1000.0
+            state = state * 6364136223846793005L + 1442695040888963407L
+            ys[i] = ((state ushr 11) % 200_000L) / 1000.0
+        }
+        xs[points / 2] = 100.0
+        ys[points / 2] = 100.0
+        return InkLine(id, xs, ys, DoubleArray(points) { 1.0 })
     }
 
     private fun randomWalkLine(

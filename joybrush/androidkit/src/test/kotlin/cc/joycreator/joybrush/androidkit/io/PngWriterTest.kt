@@ -266,10 +266,12 @@ class PngWriterTest {
     @Test
     fun aStreamLongerThanTheIdatLimitIsCutIntoSeveralIdatsAndStillReadsBack() {
         // 64 by 64 of noise is about 16 KB of zlib stream, so a 4 KB limit splits it four or five
-        // ways. Crossing the REAL 1 MiB limit needs pixels that do not compress, which needs a
-        // four-megabyte image, and a four-megabyte image is what got this JVM's heap taken out from
-        // under it. The splitting is the same code either way: a 1024 by 1024 image would have
-        // proved nothing extra that this does not.
+        // ways. The size is not the point and never was: this test OOM'd the 512 MB test JVM twice,
+        // once from a 1024 by 1024 image and once from this 16 KB one, and both times at 16 KB the
+        // cause was the WRITER — a cursor that did not add its own offset, so the chunking loop
+        // never terminated and grew the file a chunk at a time. An image only has to compress to
+        // more than one chunk to walk into it, so a large one is the ordinary case, not a corner.
+        // Kept small anyway: the splitting is the same code at any size and this costs 16 KB.
         val rgba = noise(64, 64)
         // Two limits, one round and one awkward, so the tail chunk is very unlikely to land on an
         // exact multiple of either. The assertions below do not depend on that: they hold whether
@@ -282,6 +284,11 @@ class PngWriterTest {
             assertTrue(idats.size >= 2, "limit $limit: expected a split, got ${idats.size} IDAT")
             assertEquals("IHDR", cs[0].first, "limit $limit: IHDR is still first")
             assertEquals("IEND", cs[cs.size - 1].first, "limit $limit: IEND is still last")
+            // Every chunk but the last being FULL is the tripwire for the loop bug this test used
+            // to die on. A cursor that forgets to add its own offset does not write a wrong file;
+            // it writes empty chunks forever, and the test JVM reports that as an
+            // OutOfMemoryError with no stack pointing anywhere near here. This is the assertion
+            // that turns it into a failure with a line number.
             for (k in 0 until idats.size - 1) {
                 assertEquals(limit, idats[k].second.size, "limit $limit: IDAT $k should be full")
             }
@@ -290,10 +297,37 @@ class PngWriterTest {
                 "limit $limit: the last IDAT holds the remainder",
             )
 
+            // These two compare the file's own framing, and neither of them needs a number that
+            // zlib decides.
+            //
+            // NOT the sum of the IDAT lengths against the inflated length. The IDATs carry the
+            // COMPRESSED stream; the inflated one is the SCANLINE stream, and the two are only
+            // ever close by accident. For this noise they are 16464 and 16448 — 16 bytes apart,
+            // which is small enough to look like a truncation and is not one. Those 16 are the
+            // 2-byte zlib header, the 4-byte Adler-32, and two stored deflate block headers of
+            // 5 bytes each, because 16448 passes one block's boundary and zlib gives up on
+            // compressing data it cannot compress. How many block headers there are is zlib's
+            // business and moves between versions, so pinning 16464 here would be a constant that
+            // is right for this JDK and wrong for the next one, which is the same plausible-but-
+            // wrong trap in a different costume.
+            assertEquals(
+                file.size,
+                8 + cs.sumOf { 12 + it.second.size },
+                "limit $limit: the signature and the chunks must be the whole file, no more",
+            )
+            val raw = rawScanlines(file)
+            assertEquals(
+                64 * (1 + 64 * 4),
+                raw.size,
+                "limit $limit: one filter byte and width*4 bytes per row, and no more",
+            )
+
             assertEveryChunkCrc(file)
             // Inflate the IDATs together, because that is what a reader does: the split is a
-            // detail of the framing and the image behind it is unchanged.
-            assertContentEquals(rgba, unfilter(64, 64, rawScanlines(file)), "limit $limit: pixels")
+            // detail of the framing and the image behind it is unchanged. Inflating a zlib stream
+            // also verifies its Adler-32, so an IDAT that was dropped, duplicated or truncated
+            // fails HERE rather than quietly yielding a shorter image.
+            assertContentEquals(rgba, unfilter(64, 64, raw), "limit $limit: pixels")
             assertSamePixels(64, 64, rgba, decode(file))
         }
     }

@@ -148,7 +148,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | Task | Tier | Needs | Status | Who |
 |---|---|---|---|---|
 | JB-2.01 Screen chrome: control cluster, thumb rail, drawers-on-phone / popovers-on-tablet | T2-V | 0.09, D.02 | ⚪ Outline | |
-| [JB-2.02](specs/JB-2.02_view_and_gestures.md) Zoom / pan / rotate (snap to 90°), 2-finger tap undo, 3-finger tap redo, fingers navigate once a pen is seen | T2 (T1 review) | 0.05 | 🟦 Ready | |
+| [JB-2.02](specs/JB-2.02_view_and_gestures.md) Zoom / pan / rotate (snap to 90°), 2-finger tap undo, 3-finger tap redo, fingers navigate once a pen is seen | T2 (T1 review) | 0.05 | 🟧 Built | subagent of openrouter/stealth/space-bunny-alpha 2026-09-28 — `ViewTransform` (pure maths, 16 tests) + `CanvasGestures` (pinch/pan/rotate + tap machine). `:core:jvmTest` **410/0** and the watcher green with `:joybrush:androidkit:compileKotlin` EXECUTED. 🔴 Two for the Lead: `Brush.sizePx` is now document px (a "12 px" brush is 48 screen px at 4× — JB-2.16 inherits the decision), and four `Float`s cross to the GL thread un-synchronised, so a pinch can show a one-frame wobble. Six of the builder's eight questions ruled in the spec |
 | JB-2.02b Tool finger modes (select · lasso · colour pick) and assignable 2/3-finger gestures | T2 | 2.02, 2.05 | ⚪ Outline | |
 | JB-2.03 Colour: panel, drag-off-swatch picker, long-press eyedropper | T2-V | 2.01 | ⚪ Outline | |
 | JB-2.04 Layers panel: paint/ink layers, blend modes, opacity, runtime layer budget | T2-V | 0.07, 2.01 | ⚪ Outline | |

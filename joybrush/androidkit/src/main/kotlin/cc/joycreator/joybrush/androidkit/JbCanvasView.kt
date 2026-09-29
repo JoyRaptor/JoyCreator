@@ -21,6 +21,7 @@ import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.DabPlacer
 import cc.joycreator.joybrush.core.paint.StrokeBlend
 import cc.joycreator.joybrush.core.paint.TipShape
+import cc.joycreator.joybrush.core.view.ViewTransform
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -36,12 +37,17 @@ import javax.microedition.khronos.opengles.GL10
  * dab), its scatter is [Scatter]'s, and the engine's whole-stroke numbers -- opacity, accumulate,
  * blend and the tip -- are read off the same file. The file is read once per stroke, not per dab.
  *
- * Pen vs finger (owner's ruling): until a pen has been seen, fingers draw. After the first pen event
- * fingers never draw here (Phase 2 turns them into the tool finger). A finger landing while the pen
- * hovers, or within [PALM_GRACE_MS] of the pen lifting, is ignored (palm rejection). A cancelled
- * touch discards the stroke.
+ * Pen vs finger (owner's ruling): until a pen has been seen, ONE finger draws. The moment a pen is
+ * seen a finger never draws here again — it navigates instead (JB-2.02), through [CanvasGestures]:
+ * two fingers pan, zoom and turn the page, and a tap of two, three or four fingers is undo, redo
+ * and hide-the-UI. A finger landing while the pen HOVERS, or within [PALM_GRACE_MS] of the pen
+ * lifting, is ignored outright (palm rejection — a resting palm must never drag the page), and a
+ * second finger landing during a finger stroke cancels that stroke and hands the stream to the
+ * gestures. A cancelled touch discards the stroke.
  *
- * Document space == view pixels for now (zoom and pan arrive with the gesture work, JB-2.02).
+ * The view transform is [view]: a pen sample is recorded in DOCUMENT pixels, so every sample goes
+ * through `view.screenToDoc` and the smoother is told the zoom, and the GL draw is handed
+ * `view.docToClip` instead of a plain view matrix.
  */
 class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
@@ -79,6 +85,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     var paperArgb: Int = 0xFFFFFFFF.toInt()
         set(v) { field = v; requestRender() }
 
+    /**
+     * Zoom, rotation and pan (JB-2.02) — the one place that says where the document is on the
+     * screen. Public so the screen can fit the board or put it back where it was; the gesture
+     * machine writes to it, nothing else does.
+     */
+    val view = ViewTransform()
+
+    /**
+     * Called when four fingers tap. Nothing on screen listens yet — the chrome that would hide is
+     * JB-2.01's — and the view ignores it until something does.
+     */
+    var onToggleUi: (() -> Unit)? = null
+
     /** Called on the UI thread after each committed stroke / undo / redo (e.g. to enable buttons). */
     var onHistoryChanged: ((canUndo: Boolean, canRedo: Boolean) -> Unit)? = null
 
@@ -93,11 +112,21 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     @Volatile private var viewW = 1
     @Volatile private var viewH = 1
 
+    /** Every touch that is not drawing (JB-2.02). Owns pan, zoom, rotate and the tap gestures. */
+    private val gestures = CanvasGestures(
+        view,
+        onViewChanged = { requestRender() },
+        onUndo = { undo() },
+        onRedo = { redo() },
+        onToggleUi = { onToggleUi?.invoke() },
+    )
+
     private var penSeen = false
     private var penHovering = false
     private var penUpAt = 0L
     private var drawing = false
     private var pointerId = -1
+    private var laidOut = false
 
     private var smoother: StrokeSmoother? = null
     private var tracker: DirectionTracker? = null
@@ -121,9 +150,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
                 viewW = width; viewH = height
+                if (!laidOut) {
+                    // First layout: the page starts on its own top-left corner, unzoomed and
+                    // upright, so document (0, 0) is exactly the screen origin. Later layouts —
+                    // rotation, a keyboard, a resumed Activity — must NOT touch the view, or the
+                    // page would jump under the person mid-drawing.
+                    laidOut = true
+                    view.zoom = 1f
+                    view.rotation = 0f
+                    view.panX = 0f
+                    view.panY = 0f
+                }
             }
             override fun onDrawFrame(gl: GL10?) {
-                engine.draw(viewW, viewH, viewToClip(viewW, viewH), paperArgb)
+                engine.draw(viewW, viewH, view.docToClip(viewW, viewH), paperArgb)
             }
         })
         renderMode = RENDERMODE_WHEN_DIRTY
@@ -146,28 +186,65 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     override fun onTouchEvent(ev: MotionEvent): Boolean {
         onRawEvent?.invoke(ev)
-        when (ev.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                val tool = MotionEventSamples.tool(ev, 0)
-                val isPen = tool == Tool.STYLUS || tool == Tool.ERASER
-                if (isPen) penSeen = true
-                if (!isPen && (penSeen || penHovering || SystemClock.uptimeMillis() - penUpAt < PALM_GRACE_MS)) return true
-                if (isPen && Build.VERSION.SDK_INT >= 30) requestUnbufferedDispatch(ev)
+        val action = ev.actionMasked
+        if (action == MotionEvent.ACTION_DOWN) {
+            if (isPenAt(ev, 0)) {
+                penSeen = true
+                if (Build.VERSION.SDK_INT >= 30) requestUnbufferedDispatch(ev)
                 pointerId = ev.getPointerId(0)
-                startStroke(eraser = tool == Tool.ERASER)
+                startStroke(eraser = MotionEventSamples.tool(ev, 0) == Tool.ERASER)
                 feed(ev)
+            } else if (penHovering || SystemClock.uptimeMillis() - penUpAt < PALM_GRACE_MS) {
+                return true // a palm, not a finger: it must not draw and it must not navigate
+            } else {
+                // After the first pen a finger only navigates; before it, one finger draws.
+                gestures.fingersNavigate = penSeen
+                if (!penSeen) {
+                    pointerId = ev.getPointerId(0)
+                    startStroke(eraser = false)
+                    feed(ev)
+                }
             }
-            MotionEvent.ACTION_MOVE -> if (drawing) feed(ev)
-            MotionEvent.ACTION_UP -> if (drawing) {
+        } else if (action == MotionEvent.ACTION_MOVE) {
+            if (drawing) feed(ev)
+        } else if (action == MotionEvent.ACTION_UP) {
+            if (drawing) {
                 feed(ev)
                 finishStroke()
-                if (MotionEventSamples.tool(ev, 0) != Tool.FINGER) penUpAt = SystemClock.uptimeMillis()
             }
-            MotionEvent.ACTION_CANCEL -> if (drawing) cancelStroke()
-            MotionEvent.ACTION_POINTER_DOWN -> if (drawing && !penSeen) cancelStroke() // second finger: not a stroke
+            if (MotionEventSamples.tool(ev, 0) != Tool.FINGER) penUpAt = SystemClock.uptimeMillis()
+        } else if (action == MotionEvent.ACTION_CANCEL) {
+            if (drawing) cancelStroke()
+        } else if (action == MotionEvent.ACTION_POINTER_DOWN) {
+            val i = ev.actionIndex
+            if (isPenAt(ev, i)) {
+                // A pen always draws, even when it lands while a finger is already down.
+                penSeen = true
+                gestures.reset()
+                if (drawing) cancelStroke()
+                pointerId = ev.getPointerId(i)
+                startStroke(eraser = MotionEventSamples.tool(ev, i) == Tool.ERASER)
+                feed(ev)
+            } else if (drawing) {
+                cancelStroke() // a second finger during a finger stroke: that is a view gesture
+            }
+        } else if (action == MotionEvent.ACTION_POINTER_UP) {
+            val i = ev.actionIndex
+            if (drawing && ev.getPointerId(i) == pointerId) {
+                feed(ev)
+                finishStroke()
+                if (isPenAt(ev, i)) penUpAt = SystemClock.uptimeMillis()
+            }
         }
         if (drawing && Build.VERSION.SDK_INT >= 33 && (ev.flags and MotionEvent.FLAG_CANCELED) != 0) cancelStroke()
+        if (!drawing) gestures.onEvent(ev)
         return true
+    }
+
+    /** True for the pen's two ends — a stylus and an eraser barrel, never a finger or a mouse. */
+    private fun isPenAt(ev: MotionEvent, pointerIndex: Int): Boolean {
+        val tool = MotionEventSamples.tool(ev, pointerIndex)
+        return tool == Tool.STYLUS || tool == Tool.ERASER
     }
 
     private fun startStroke(eraser: Boolean) {
@@ -181,7 +258,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         scatterRng = null
         strokeErase = erase
         val amount = if (p != null && !smoothingFromUser) p.smoothing else smoothing
-        smoother = StrokeSmoother(amount, screenPerDoc = 1f)
+        // Smoothing is measured in SCREEN px, so it is told the zoom: the slider then means the
+        // same thing at every zoom, and the samples stay in document px either way.
+        smoother = StrokeSmoother(amount, screenPerDoc = view.zoom)
         val tr = DirectionTracker().also { tracker = it }
         if (p == null) {
             val cap = if (b.accumulate == Accumulate.WASH) b.opacity else 1f
@@ -243,7 +322,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         if (idx < 0) return
         val sm = smoother ?: return
         val released = ArrayList<PenSample>()
-        for (s in MotionEventSamples.from(ev, idx, { x, y -> x to y })) released.addAll(sm.add(s))
+        // The pen reports SCREEN px; a stroke is recorded in DOCUMENT px, and the page's own turn
+        // is what the lean direction is read against.
+        val samples = MotionEventSamples.from(ev, idx, { x, y -> view.screenToDoc(x, y) }, view.rotation)
+        for (s in samples) released.addAll(sm.add(s))
         paint(released)
     }
 
@@ -312,10 +394,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val r = engine.undo.canRedo
         post { onHistoryChanged?.invoke(u, r) }
     }
-
-    /** View px (y down) → clip space (y up), column-major 3×3. */
-    private fun viewToClip(w: Int, h: Int): FloatArray =
-        floatArrayOf(2f / w, 0f, 0f, 0f, -2f / h, 0f, -1f, 1f, 1f)
 
     companion object {
         /** Fingers are ignored for this long after the pen lifts (palm rejection). */

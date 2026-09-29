@@ -77,3 +77,45 @@ Tests pass (paste) · device screenshot · only owner-area files · commit `JB-2
 tap gestures` · ROADMAP row → 🟧 Built.
 
 ## Questions
+
+_(Builder: subagent of openrouter/stealth/space-bunny-alpha, 2026-09-28. It could not run gradle; I
+ran `:core:jvmTest` myself — **410 tests, 0 failures**, 16 of them `ViewTransformTest` — and the
+watcher's `build.log` shows `:joybrush:androidkit:compileKotlin` EXECUTED inside
+`BUILD SUCCESSFUL`. Eight questions; six are mine to rule, two are the Lead's.)_
+
+1. ✅ **Edit 5's `fit` call contradicts its own parenthetical** (`fit(0, 0, w, h …)` "so that
+   document (0,0) is the top-left at zoom 1" — but that call gives zoom ≈ 0.909 and centres the
+   page). **Ruling: the stated outcome wins.** `fit` is a pure function of a viewport and a document
+   rect; on first layout the caller has no document bounds (JB-0.08b builds them), so it passes a
+   rect equal to the viewport and the result is identity. A real fit arrives with the bounds. No
+   behaviour change now, and the function is not dead — it is waiting for its input.
+2. ✅ **The 5% fit margin.** **Ruling: 5% of the view on each side, so the content occupies 90%.**
+   Provisional — it is one named constant and cheap to change.
+3. ✅ **Palm rejection vs "after a pen has been seen, all finger events go to the gesture machine."**
+   **Ruling: palm rejection stays a hard ignore**, and it wins. A palm resting on the Note 9's
+   screen is a physical fact and the owner's own constraints make fingers navigate only *after* a
+   pen; a page that drifts under a resting palm is worse than a gesture that needs two fingers
+   lifted and re-placed. `penSeen` decides only whether **one** finger pans.
+4. ✅ **Two fingers navigate even before any pen has been seen.** **Ruling: confirmed.** The owner
+   ruled that fingers *draw* until a pen appears, and a second finger is not drawing. This also
+   matters practically: the sandbox phone the device check uses has no pen, so a pen-gated pinch
+   would be untestable there.
+5. 🔴 **For the Lead: `Brush.sizePx` is now in document px.** At 4× a "12 px" brush is 48 screen px.
+   That is what Procreate and Infinite Painter do and the agent was right not to touch the radius
+   maths, but it is a real behaviour change at zoom ≠ 1 and it lands on **JB-2.16**, which will have
+   to decide whether dragging the brush swatch scales `size.base` in document px or screen px.
+6. 🔴 **For the Lead, and it is a real (if small) defect: four `Float`s cross the thread boundary
+   un-synchronised.** `onDrawFrame` reads `zoom`/`rotation`/`panX`/`panY` written by the UI thread.
+   The spec's contract is plain `var`s in `commonMain` and `@Volatile` is not automatically
+   available there. Floats do not tear, so the worst case is a single frame combining an old zoom
+   with a new pan — a visible wobble while pinching, never a wrong document. The fix is
+   `@kotlin.concurrent.Volatile` on the four fields (stdlib, not a new dependency) or one immutable
+   per-frame snapshot handed across. **This will be visible on a real phone, so it belongs on the
+   T1 review list rather than in a hole.**
+7. ✅ **The tap mapping is hard-coded in one 3-line function.** Correct call: the owner's "two- and
+   three-finger gestures are user-assignable" is JB-2.02b, and keeping it in one place is what
+   makes lifting it out cheap.
+8. ✅ **Two numbers the agent chose:** `MIN_SPREAD_PX = 12` (below that finger separation the
+   two-finger angle is treated as noise and the move only translates) and arming the rotation dead
+   zone on the frame *after* the 7° crossing, so the page never jumps by the dead zone. Both
+   provisional, both sensible, both one constants.

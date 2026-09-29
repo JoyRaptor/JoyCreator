@@ -1429,7 +1429,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         Toast.makeText(this, ok ? "Exported " + s.displayName : "Export failed",
                                 Toast.LENGTH_SHORT).show();
                     } catch (Exception e) {
-                        Toast.makeText(this, "Export failed", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, R.string.studio_toast_export_failed, Toast.LENGTH_SHORT).show();
                     }
                 });
 
@@ -1444,7 +1444,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (in != null) imported = com.fadcam.ui.faditor.waveform.WaveformStyleIO.read(in);
                     } catch (Exception ignored) { }
                     if (imported == null || imported.type == null) {
-                        Toast.makeText(this, "Import failed: invalid style JSON", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, R.string.studio_toast_import_failed_invalid_style_json, Toast.LENGTH_SHORT).show();
                         return;
                     }
                     onVisualizerStyleImported(target, imported);
@@ -1465,7 +1465,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     String name = displayNameOf(uri);
                     if (name == null || !(name.toLowerCase(java.util.Locale.US).endsWith(".ttf")
                             || name.toLowerCase(java.util.Locale.US).endsWith(".otf"))) {
-                        Toast.makeText(this, "Not a .ttf/.otf font file", Toast.LENGTH_SHORT).show(); // TODO(strings)
+                        Toast.makeText(this, R.string.studio_toast_not_a_ttf_otf_font_file, Toast.LENGTH_SHORT).show();
                         return;
                     }
                     // App-private storage, NOT Pictures/. Scoped storage refuses a plain write
@@ -1477,7 +1477,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.text.FontLibrary.init(this);
                     File dest = com.fadcam.ui.faditor.text.FontLibrary.destFor(name);
                     if (dest == null) {
-                        Toast.makeText(this, "Import failed", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, R.string.studio_toast_import_failed, Toast.LENGTH_SHORT).show();
                         return;
                     }
                     try (java.io.InputStream in = getContentResolver().openInputStream(uri);
@@ -1490,7 +1490,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (cb != null) cb.accept("file:" + dest.getAbsolutePath());
                     } catch (Exception e) {
                         FLog.w(TAG, "Font import failed", e);
-                        Toast.makeText(this, "Import failed", Toast.LENGTH_SHORT).show(); // TODO(strings)
+                        Toast.makeText(this, R.string.studio_toast_import_failed, Toast.LENGTH_SHORT).show();
                     }
                 });
 
@@ -1513,7 +1513,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     if (html == null || html.trim().isEmpty()) {
                         // TODO(strings)
-                        Toast.makeText(this, "Could not read that file", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, R.string.studio_toast_could_not_read_that_file, Toast.LENGTH_SHORT).show();
                         return;
                     }
                     importSlideHtml(html, "external-file");
@@ -1959,19 +1959,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // reseed the rolling baseline from the swapped-in (post-AI) project so the
                     // next user edit records a correct pre-state (audit 1.6).
                     undoManager.resetBaseline();
-                    Toast.makeText(this, "AI edits applied", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, R.string.studio_toast_ai_edits_applied, Toast.LENGTH_SHORT).show();
                 } else {
                     // The signal was consumed above, so refusing here means the change on disk
                     // is lost the moment this activity autosaves. Never do that silently.
                     FLog.w(TAG, "Refused to reload after an external edit: the file came back "
                             + "empty or unreadable. This editor is holding a STALE project.");
-                    Toast.makeText(this, "Changes were saved — reopen the project to see them",
-                            Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, R.string.studio_toast_changes_were_saved_reopen_the_project, Toast.LENGTH_LONG).show();
                 }
             } catch (Exception e) {
                 FLog.e(TAG, "Failed to reload project after AI edits", e);
-                Toast.makeText(this, "AI edits saved — reopen project to see them",
-                        Toast.LENGTH_LONG).show();
+                Toast.makeText(this, R.string.studio_toast_ai_edits_saved_reopen_project_to, Toast.LENGTH_LONG).show();
             }
         }
 
@@ -5231,7 +5229,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void runConsolidation() {
         final com.fadcam.ui.faditor.model.FaditorProject target = project;
         if (target == null) return;
-        Toast.makeText(this, "Copying files…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.studio_toast_copying_files, Toast.LENGTH_SHORT).show();
         // Off the main thread: this copies whole video files and would ANR for any real project.
         new Thread(() -> {
             // The third argument is a ProgressListener, not a directory — the consolidator
@@ -6254,8 +6252,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     Toast.LENGTH_SHORT).show();
             return true;
         }
-        Toast.makeText(this, "Select a clip to use volume keyframes",
-                Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.studio_toast_select_a_clip_to_use_volume, Toast.LENGTH_SHORT).show();
         return true;
     }
 
@@ -6282,8 +6279,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean toggleClipOpacityKeyframeMode() {
         Clip clip = getSelectedClip();
         if (clip == null) {
-            Toast.makeText(this, "Select a video clip to use opacity keyframes",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_select_a_video_clip_to_use, Toast.LENGTH_SHORT).show();
             return true;
         }
         clipOpacityKeyframeMode = !clipOpacityKeyframeMode;
@@ -6305,8 +6301,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean toggleCaptionStyleKeyframeMode() {
         Clip clip = getSelectedClip();
         if (clip == null) {
-            Toast.makeText(this, "Select a video clip to use caption style keyframes",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_select_a_video_clip_to_use_2, Toast.LENGTH_SHORT).show();
             return true;
         }
         captionStyleKeyframeMode = !captionStyleKeyframeMode;
@@ -6317,10 +6312,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 clip.addOrUpdateCaptionStyleKeyframe(0, initialStyle);
                 clip.setCaptionsEnabled(true);
             }
-            Toast.makeText(this, "Caption style keyframes ON — tap a style pill to drop a keyframe",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_caption_style_keyframes_on_tap_a, Toast.LENGTH_SHORT).show();
         } else {
-            Toast.makeText(this, "Caption style keyframes OFF", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_caption_style_keyframes_off, Toast.LENGTH_SHORT).show();
         }
         scheduleAutoSave();
         refreshCaptionKeyframeDrawer();
@@ -6887,7 +6881,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             refreshOpacityDrawer();
             updateOpacityUI();
             scheduleAutoSave();
-            Toast.makeText(this, "Keyframe removed", Toast.LENGTH_SHORT).show(); // TODO(strings)
+            Toast.makeText(this, R.string.studio_toast_keyframe_removed, Toast.LENGTH_SHORT).show();
         });
 
         View.OnTouchListener swipeUp = new View.OnTouchListener() {
@@ -7480,7 +7474,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
             }
         } catch (NumberFormatException e) {
-            Toast.makeText(this, "Invalid format. Use HH:MM:SS.mmm or seconds", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_invalid_format_use_hh_mm_ss, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -7718,7 +7712,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void showSpeedSlider() {
         Clip clip = selectedTargetClip();
         if (clip == null) {
-            Toast.makeText(this, "Select a clip first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_select_a_clip_first, Toast.LENGTH_SHORT).show();
             return;
         }
         float oldSpeed = clip.getSpeedMultiplier();
@@ -9992,7 +9986,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     .setPositiveButton("Copy", (d2, w2) -> {
                                         android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
                                         if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("Export error", rawClass + ": " + raw));
-                                        android.widget.Toast.makeText(FaditorEditorActivity.this, "Copied", android.widget.Toast.LENGTH_SHORT).show();
+                                        android.widget.Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_copied, android.widget.Toast.LENGTH_SHORT).show();
                                     })
                                     .setNegativeButton("Close", null)
                                     .show();
@@ -13186,9 +13180,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     exportProgressOverlay.setVisibility(View.GONE)).start();
         }
         reacquirePreviewIfReleased();
-        Toast.makeText(this,
-                "Exporting in background — edits won't affect this export",
-                Toast.LENGTH_LONG).show();
+        Toast.makeText(this, R.string.studio_toast_exporting_in_background_edits_won_t, Toast.LENGTH_LONG).show();
     }
 
     /** Re-open the export overlay from the minimized state, keeping live progress. */
@@ -14269,8 +14261,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // §4.5 per-object eye
                         waveformOverlayView.invalidate();
                         scheduleAutoSave();
-                        Toast.makeText(FaditorEditorActivity.this, "Visualizer removed",
-                                Toast.LENGTH_SHORT).show();
+                        Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_visualizer_removed, Toast.LENGTH_SHORT).show();
                     }
 
                     @Override
@@ -15061,7 +15052,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         if (deletable == 0) {
-            Toast.makeText(this, "Nothing deletable in the selection", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_nothing_deletable_in_the_selection, Toast.LENGTH_SHORT).show();
             return;
         }
         final Runnable applyDelete = () -> {
@@ -15259,8 +15250,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         syncTimelineOverlays(); }));
         scheduleAutoSave();
         if (editorTimeline != null) editorTimeline.clearMarqueeSelection();
-        Toast.makeText(this, "Clips linked — edits mirror across both",
-                Toast.LENGTH_SHORT).show();                                    // TODO(strings)
+        Toast.makeText(this, R.string.studio_toast_clips_linked_edits_mirror_across_both, Toast.LENGTH_SHORT).show();
     }
 
     /** Break a dual-stream link on both sides (one undo step, toast). */
@@ -15272,7 +15262,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             clip.setLinkedClipId(null);
             syncTimelineOverlays();
             scheduleAutoSave();
-            Toast.makeText(this, "Clip unlinked", Toast.LENGTH_SHORT).show(); // TODO(strings)
+            Toast.makeText(this, R.string.studio_toast_clip_unlinked, Toast.LENGTH_SHORT).show();
             return;
         }
         timeline.unlinkClip(clip);
@@ -15283,7 +15273,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> { Timeline.linkClips(clip, partner); syncTimelineOverlays(); }));
         scheduleAutoSave();
         if (editorTimeline != null) editorTimeline.clearMarqueeSelection();
-        Toast.makeText(this, "Clips unlinked", Toast.LENGTH_SHORT).show();     // TODO(strings)
+        Toast.makeText(this, R.string.studio_toast_clips_unlinked, Toast.LENGTH_SHORT).show();
     }
 
     /**
@@ -15884,8 +15874,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (redos.isEmpty()) {
             // Nothing to duck under is a real answer and the user must SEE it land, or the
             // feature is indistinguishable from broken (the G18 lesson).
-            Toast.makeText(this, "Nothing to duck under \u2014 no speech found in that lane",
-                    Toast.LENGTH_LONG).show();                   // TODO(strings)
+            Toast.makeText(this, R.string.studio_toast_nothing_to_duck_under_no_speech, Toast.LENGTH_LONG).show();
             return;
         }
         undoManager.recordAction(new EditActions.LambdaAction("Duck under voice",
@@ -15922,9 +15911,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null || editorTimeline == null) return;
         final java.util.List<Clip> overlays = project.getTimeline().getOverlayClips();
         if (overlays.isEmpty()) {
-            Toast.makeText(this,
-                    "No overlay (PiP) clips to drive \u2014 add one first",
-                    Toast.LENGTH_LONG).show();                             // TODO(strings)
+            Toast.makeText(this, R.string.studio_toast_no_overlay_pip_clips_to_drive, Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -15974,8 +15961,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         EditorTimelineView.AnalysisEnvelope env = editorTimeline.bandedEnvelopeFor(src, band);
         if (env == null) {
             // The cache fetches asynchronously; this is "try again", not "no result".
-            Toast.makeText(this, "Waveform not ready \u2014 try again",
-                    Toast.LENGTH_LONG).show();                             // TODO(strings)
+            Toast.makeText(this, R.string.studio_toast_waveform_not_ready_try_again, Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -16006,8 +15992,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         envStartTimelineMs, tgtStart, target.getTrimmedDurationMs(), p);
         if (curve.isEmpty()) {
             // A silent or steady band says nothing — a real answer, and the user sees it.
-            Toast.makeText(this, "That band has nothing to react to here",
-                    Toast.LENGTH_LONG).show();                             // TODO(strings)
+            Toast.makeText(this, R.string.studio_toast_that_band_has_nothing_to_react, Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -16297,7 +16282,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final Clip original = timeline.getClip(index);
         Uri blackUri = ensureBlackSpacerUri();
         if (blackUri == null) {
-            Toast.makeText(this, "Could not create gap spacer", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_could_not_create_gap_spacer, Toast.LENGTH_SHORT).show();
             return;
         }
         long durMs = original.hasLoopExtension()
@@ -16321,7 +16306,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // (image window) so the engine stops playing the removed clip's stale window. No-op legacy.
         resyncGaplessAfterStructuralEdit(spacer.getId(), 0L, false);
         saveProjectNow();
-        Toast.makeText(this, "Clip removed — gap left in place", Toast.LENGTH_SHORT).show(); // TODO(strings)
+        Toast.makeText(this, R.string.studio_toast_clip_removed_gap_left_in_place, Toast.LENGTH_SHORT).show();
     }
 
     /**
@@ -16346,7 +16331,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long dur = Math.max(100L, durationMs);
         Uri blackUri = ensureBlackSpacerUri();
         if (blackUri == null) {
-            Toast.makeText(this, "Could not create the black clip", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_could_not_create_the_black_clip, Toast.LENGTH_SHORT).show();
             return;
         }
         Timeline timeline = project.getTimeline();
@@ -17737,7 +17722,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     editorTimeline.invalidate();
                     scheduleAutoSave();
-                    Toast.makeText(FaditorEditorActivity.this, "Overlay removed", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_overlay_removed, Toast.LENGTH_SHORT).show();
                 })
                 .show();
     }
@@ -17768,7 +17753,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         prepareAudioPlayer();
                     }
                     scheduleAutoSave();
-                    Toast.makeText(FaditorEditorActivity.this, "Audio clip removed", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_audio_clip_removed, Toast.LENGTH_SHORT).show();
                 })
                 .show();
     }
@@ -17794,7 +17779,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     syncTimelineOverlays();
                     editorTimeline.invalidate();
                     scheduleAutoSave();
-                    Toast.makeText(FaditorEditorActivity.this, "Video overlay removed", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_video_overlay_removed, Toast.LENGTH_SHORT).show();
                 })
                 .show();
     }
@@ -17822,8 +17807,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     syncTimelineOverlays();
                     editorTimeline.invalidate();
                     scheduleAutoSave();
-                    Toast.makeText(FaditorEditorActivity.this, "Visualizer removed",
-                            Toast.LENGTH_SHORT).show();
+                    Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_visualizer_removed, Toast.LENGTH_SHORT).show();
                 })
                 .show();
     }
@@ -18024,7 +18008,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         long newAbs = parseTsMs(tin.getText().toString());
                         onTimeSet.accept(newAbs);
                     } catch (Exception e) {
-                        Toast.makeText(this, "Invalid time format", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, R.string.studio_toast_invalid_time_format, Toast.LENGTH_SHORT).show();
                     }
                 })
                 .setNegativeButton("Cancel", null)
@@ -18791,7 +18775,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTimeline.invalidate();
         if (captionsActive && clip.hasTranscript()) bindCaptionData(clip);
         scheduleAutoSave();
-        Toast.makeText(this, "Centered word", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.studio_toast_centered_word, Toast.LENGTH_SHORT).show();
     }
 
     // ── SPEC_20260829_WORD_SYNC — Word Sync mode (bulk transcript fixing) ─────
@@ -19170,7 +19154,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (idx < 0) {
             // Fallback to first word.
             if (transcriptView.getWordCount() > 0) idx = 0;
-            if (idx < 0) { android.widget.Toast.makeText(this, "Tap a word first", android.widget.Toast.LENGTH_SHORT).show(); return; }
+            if (idx < 0) { android.widget.Toast.makeText(this, R.string.studio_toast_tap_a_word_first, android.widget.Toast.LENGTH_SHORT).show(); return; }
         }
         com.fadcam.ui.faditor.transcript.TranscriptWord w = transcriptView.getWord(idx);
         if (w == null) return;
@@ -19296,7 +19280,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Timeline.CompactResult result = tl.compactOverlayLanes();
         int emptied = result.removedLanes.size();
         if (result.moved == 0 && emptied == 0 && result.omittedLanes == 0) {
-            Toast.makeText(this, "Lanes already compact", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_lanes_already_compact, Toast.LENGTH_SHORT).show();
             return;
         }
         if (result.moved > 0 || emptied > 0) {
@@ -19623,16 +19607,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void handleLinkTap() {
         String sel = editorTimeline != null ? editorTimeline.getSelectedLayerItemId() : null;
-        if (sel == null) { android.widget.Toast.makeText(this, "Select an item to link", android.widget.Toast.LENGTH_SHORT).show(); return; }
+        if (sel == null) { android.widget.Toast.makeText(this, R.string.studio_toast_select_an_item_to_link, android.widget.Toast.LENGTH_SHORT).show(); return; }
         // If already linked, unlink quickly; otherwise show link options
-        android.widget.Toast.makeText(this, "Link: tap to link/unlink (long-press for options)", android.widget.Toast.LENGTH_SHORT).show();
+        android.widget.Toast.makeText(this, R.string.studio_toast_link_tap_to_link_unlink_long, android.widget.Toast.LENGTH_SHORT).show();
         showLinkOptions();
     }
     private void showLinkOptions() {
         String[] opts = {"Link selected", "Unlink selected", "Relink media", "Consolidate project", "Export bundle", "Import bundle"};
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("Project").setItems(opts, (d,which)-> {
-            if (which==0) android.widget.Toast.makeText(this, "Pick target to link", android.widget.Toast.LENGTH_SHORT).show();
-            else if (which==1) android.widget.Toast.makeText(this, "Unlinked", android.widget.Toast.LENGTH_SHORT).show();
+            if (which==0) android.widget.Toast.makeText(this, R.string.studio_toast_pick_target_to_link, android.widget.Toast.LENGTH_SHORT).show();
+            else if (which==1) android.widget.Toast.makeText(this, R.string.studio_toast_unlinked, android.widget.Toast.LENGTH_SHORT).show();
             else if (which==2) showRelinkCatalog();
             else if (which==3) showConsolidateDialog();
             else if (which==4) startBundleExport();
@@ -19683,7 +19667,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 pd.dismiss();
                 if (res.cancelled) {
-                    android.widget.Toast.makeText(this, "Consolidate cancelled — project still works", android.widget.Toast.LENGTH_LONG).show();
+                    android.widget.Toast.makeText(this, R.string.studio_toast_consolidate_cancelled_project_still_works, android.widget.Toast.LENGTH_LONG).show();
                 } else if (!res.ok) {
                     android.widget.Toast.makeText(this, "Consolidate failed: " + res.error, android.widget.Toast.LENGTH_LONG).show();
                 } else {
@@ -19845,7 +19829,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (inCropMode) exitCropMode(false);
         Clip clip = getSelectedClip();
         if (clip == null) {
-            Toast.makeText(this, "Select a clip first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_select_a_clip_first, Toast.LENGTH_SHORT).show();
             return;
         }
         com.fadcam.ui.faditor.model.WaveformOverlayInstance wo =
@@ -19858,7 +19842,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean spineIsSilent = clip.isImageClip() || clip.isAudioMuted();
         if (spineIsSilent && vizAudio != null) {
             wo.setAudioSourceRef(vizAudio.getId());
-            Toast.makeText(this, "Visualizer reading the audio track", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_visualizer_reading_the_audio_track, Toast.LENGTH_SHORT).show();
         } else {
             wo.setAudioSourceRef(clip.getId());
         }
@@ -19875,7 +19859,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         refreshWaveformOverlays();
         scheduleAutoSave();
         selectAndRevealNewObject(addedWo.getId());   // SPEC_U §3
-        Toast.makeText(this, "Visualizer added", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.studio_toast_visualizer_added, Toast.LENGTH_SHORT).show();
     }
 
     /** Open the color/filter editor for the selected clip; live-applies to the preview. */
@@ -19884,7 +19868,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (inCropMode) exitCropMode(false);
         Clip clip = selectedTargetClip();   // §3.5: a selected PiP grades itself, not the master
         if (clip == null) {
-            Toast.makeText(this, "Select a clip first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_select_a_clip_first, Toast.LENGTH_SHORT).show();
             return;
         }
         // Snapshot the color grade BEFORE editing so the whole grading session
@@ -20339,12 +20323,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (wo.isAttached()) {
                 tl.detachVisualizer(wo);
                 desc = "Detach visualizer";
-                Toast.makeText(this, "Visualizer detached — window frozen where it is",
-                        Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.studio_toast_visualizer_detached_window_frozen_where_it, Toast.LENGTH_SHORT).show();
             } else {
                 Clip host = tl.attachVisualizerToHostUnderStart(wo);
                 if (host == null) {
-                    Toast.makeText(this, "No clip to attach to", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, R.string.studio_toast_no_clip_to_attach_to, Toast.LENGTH_SHORT).show();
                     return;
                 }
                 int hostIdx = tl.getClips().indexOf(host) + 1;
@@ -20689,7 +20672,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }));
         chipsRow.addView(makeVizActionBtn("🗑", dp, v -> {
             if (fLayers.size() <= 1) { // min 1 layer stays
-                Toast.makeText(this, "At least one lane", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.studio_toast_at_least_one_lane, Toast.LENGTH_SHORT).show();
                 return;
             }
             fLayers.remove(visualizerSelectedLayer);
@@ -21631,7 +21614,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size()) {
             AudioClip ac = project.getTimeline().getAudioClips().get(editorTimeline.getSelectedAudioIndex());
             if (ac == null || !ac.canAddCaptionBinding()) {
-                Toast.makeText(this, "Max 3 tracks", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.studio_toast_max_3_tracks, Toast.LENGTH_SHORT).show();
                 return;
             }
             for (AudioClip.CaptionBinding b : ac.getCaptionBindings()) baseY = Math.min(baseY, b.centerY);
@@ -21646,7 +21629,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         } else if (getSelectedClip() != null) {
             Clip c = getSelectedClip();
             if (!c.canAddCaptionBinding()) {
-                Toast.makeText(this, "Max 3 tracks", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.studio_toast_max_3_tracks, Toast.LENGTH_SHORT).show();
                 return;
             }
             for (Clip.CaptionBinding b : c.getCaptionBindings()) baseY = Math.min(baseY, b.centerY);
@@ -21734,7 +21717,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setPositiveButton("Rename", (d,w) -> { b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave(); })
                 .setNegativeButton("Cancel", null)
                 .setNeutralButton("Delete", (d,w) -> {
-                    if (clip.getCaptionBindings().size() <= 1) { android.widget.Toast.makeText(this, "At least one track required", android.widget.Toast.LENGTH_SHORT).show(); return; }
+                    if (clip.getCaptionBindings().size() <= 1) { android.widget.Toast.makeText(this, R.string.studio_toast_at_least_one_track_required, android.widget.Toast.LENGTH_SHORT).show(); return; }
                     new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("Delete track?").setMessage("Delete \"" + b.label + "\"?").setPositiveButton("Delete", (dd,ww) -> {
                         clip.removeCaptionBinding(idx);
                         if (activeCaptionBindingIndex >= clip.getCaptionBindings().size()) activeCaptionBindingIndex = Math.max(0, clip.getCaptionBindings().size()-1);
@@ -21757,7 +21740,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setPositiveButton("Rename", (d,w) -> { b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave(); })
                 .setNegativeButton("Cancel", null)
                 .setNeutralButton("Delete", (d,w) -> {
-                    if (clip.getCaptionBindings().size() <= 1) { android.widget.Toast.makeText(this, "At least one track required", android.widget.Toast.LENGTH_SHORT).show(); return; }
+                    if (clip.getCaptionBindings().size() <= 1) { android.widget.Toast.makeText(this, R.string.studio_toast_at_least_one_track_required, android.widget.Toast.LENGTH_SHORT).show(); return; }
                     new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("Delete track?").setMessage("Delete \"" + b.label + "\"?").setPositiveButton("Delete", (dd,ww) -> {
                         clip.removeCaptionBinding(idx);
                         if (activeAudioCaptionBindingIndex >= clip.getCaptionBindings().size()) activeAudioCaptionBindingIndex = Math.max(0, clip.getCaptionBindings().size()-1);
@@ -21769,8 +21752,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void showAddCaptionTrackDialog(@NonNull Clip clip) {
-        if (!clip.canAddCaptionBinding()) { android.widget.Toast.makeText(this, "Max 3 tracks", android.widget.Toast.LENGTH_SHORT).show(); return; }
-        if (clip.getTranscripts().isEmpty()) { android.widget.Toast.makeText(this, "Add a transcript first", android.widget.Toast.LENGTH_SHORT).show(); return; }
+        if (!clip.canAddCaptionBinding()) { android.widget.Toast.makeText(this, R.string.studio_toast_max_3_tracks, android.widget.Toast.LENGTH_SHORT).show(); return; }
+        if (clip.getTranscripts().isEmpty()) { android.widget.Toast.makeText(this, R.string.studio_toast_add_a_transcript_first, android.widget.Toast.LENGTH_SHORT).show(); return; }
         String[] labels = new String[clip.getTranscripts().size()];
         for (int i = 0; i < clip.getTranscripts().size(); i++) labels[i] = clip.getTranscripts().get(i).label + " (" + clip.getTranscripts().get(i).engine + ")";
         final int[] picked = {0};
@@ -21800,8 +21783,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void showAddAudioCaptionTrackDialog(@NonNull AudioClip clip) {
-        if (!clip.canAddCaptionBinding()) { android.widget.Toast.makeText(this, "Max 3 tracks", android.widget.Toast.LENGTH_SHORT).show(); return; }
-        if (clip.getTranscripts().isEmpty()) { android.widget.Toast.makeText(this, "Add a transcript first", android.widget.Toast.LENGTH_SHORT).show(); return; }
+        if (!clip.canAddCaptionBinding()) { android.widget.Toast.makeText(this, R.string.studio_toast_max_3_tracks, android.widget.Toast.LENGTH_SHORT).show(); return; }
+        if (clip.getTranscripts().isEmpty()) { android.widget.Toast.makeText(this, R.string.studio_toast_add_a_transcript_first, android.widget.Toast.LENGTH_SHORT).show(); return; }
         String[] labels = new String[clip.getTranscripts().size()];
         for (int i = 0; i < clip.getTranscripts().size(); i++) labels[i] = clip.getTranscripts().get(i).label + " (" + clip.getTranscripts().get(i).engine + ")";
         final int[] picked = {0};
@@ -23056,7 +23039,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void confirmDeleteCaptionStyle() {
         com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
         if (!cur.isCustom()) {
-            Toast.makeText(this, "Built-in styles can't be deleted", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_built_in_styles_can_t_be, Toast.LENGTH_SHORT).show();
             return;
         }
         final String id = cur.id;
@@ -23082,8 +23065,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (cm == null) return;
         cm.setPrimaryClip(android.content.ClipData.newPlainText(
                 "Faditor caption style", cur.toJson().toString()));
-        Toast.makeText(this, "Style copied — paste it into Import on any device",
-                Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.studio_toast_style_copied_paste_it_into_import, Toast.LENGTH_SHORT).show();
     }
 
     /** Paste a style exported as text; it joins the bottom ticker. TODO(strings) */
@@ -23103,8 +23085,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 new org.json.JSONObject(input.getText().toString().trim()));
                     } catch (Exception ignored) { }
                     if (parsed == null) {
-                        Toast.makeText(this, "That doesn't look like a caption style",
-                                Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, R.string.studio_toast_that_doesn_t_look_like_a, Toast.LENGTH_SHORT).show();
                         return;
                     }
                     String id = "custom_" + java.util.UUID.randomUUID().toString().substring(0, 8);
@@ -23885,8 +23866,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null) return;
         String pinned = project.getPinnedAssetDir();
         if (pinned == null) {
-            Toast.makeText(this, "Pin a folder first (push-pin icon) to save your look",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_pin_a_folder_first_push_pin, Toast.LENGTH_SHORT).show();
             return;
         }
         java.util.List<com.fadcam.ui.faditor.model.WaveformStyle> builtins =
@@ -24302,8 +24282,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (o == item) continue;
             if (!java.util.Objects.equals(o.getLayerId(), dest)) continue;
             if (o.getStartMs() < item.getEndMs() && item.getStartMs() < o.getEndMs()) {
-                Toast.makeText(this, "That lane is occupied at this time",
-                        Toast.LENGTH_SHORT).show();                   // TODO(strings)
+                Toast.makeText(this, R.string.studio_toast_that_lane_is_occupied_at_this, Toast.LENGTH_SHORT).show();
                 return true;
             }
         }
@@ -24691,8 +24670,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
                         project.spriteSheetById(item.getSheetId());
                 if (sheet == null) {
-                    Toast.makeText(FaditorEditorActivity.this,
-                            "Sheet missing — can't stamp preset", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_sheet_missing_can_t_stamp_preset, Toast.LENGTH_SHORT).show();
                     return;
                 }
                 // Anchor at the item-LOCAL playhead; HOLD_CURRENT wants the cell
@@ -24704,8 +24682,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         com.fadcam.ui.faditor.sprite.SpritePresetStamper.generate(
                                 kind, sheet, localMs, currentCell);
                 if (generated.isEmpty()) {
-                    Toast.makeText(FaditorEditorActivity.this,
-                            "No enabled cells to stamp", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_no_enabled_cells_to_stamp, Toast.LENGTH_SHORT).show();
                     return;
                 }
                 // Whole-track before/after swap, ONE undo step — mirrors the
@@ -24721,8 +24698,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 scheduleAutoSave();
                 if (spriteOverlayView != null) spriteOverlayView.invalidate();
                 p.setPlayheadMs(lastPlayheadAbsoluteMs);
-                Toast.makeText(FaditorEditorActivity.this,
-                        "Preset stamped", Toast.LENGTH_SHORT).show();
+                Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_preset_stamped, Toast.LENGTH_SHORT).show();
             }
 
             @Override
@@ -24836,8 +24812,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.avatar.AvatarRig rig =
                 project != null ? project.avatarRigById(item.getAvatarRigId()) : null;
         if (rig == null) {
-            Toast.makeText(this, "This item's avatar rig is missing from the project",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_this_item_s_avatar_rig_is, Toast.LENGTH_SHORT).show();
             return;
         }
         // Camera + model gating — the studio's D4 source swap verbatim:
@@ -24852,11 +24827,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (!camGranted) {
             androidx.core.app.ActivityCompat.requestPermissions(this,
                     new String[]{android.Manifest.permission.CAMERA}, RC_PERF_CAMERA);
-            Toast.makeText(this, "Grant camera, then tap 🎯 again for face tracking",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_grant_camera_then_tap_again_for, Toast.LENGTH_SHORT).show();
         } else if (!modelPresent) {
-            Toast.makeText(this, "Face model missing — recording synthetic tracking",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_face_model_missing_recording_synthetic_tracking, Toast.LENGTH_SHORT).show();
         }
         java.util.List<String> ikParts = new java.util.ArrayList<>();
         for (com.fadcam.ui.faditor.avatar.AvatarRig.Part part : rig.getParts()) {
@@ -24901,8 +24874,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (after == null || after.isEmpty()) {
             item.setAvatarTrack(before); // nothing captured — keep the prior take
             if (spriteOverlayView != null) spriteOverlayView.resetAvatarPuppet(item.getId());
-            Toast.makeText(this, "No tracking captured — kept the previous take",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_no_tracking_captured_kept_the_previous, Toast.LENGTH_SHORT).show();
         } else {
             undoManager.recordAction(new EditActions.LambdaAction("Record performance",
                     () -> {
@@ -24939,31 +24911,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void sweepPerformanceFromVideo(
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
         if (perfRecordBus != null) {
-            Toast.makeText(this, "Stop the live recording first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_stop_the_live_recording_first, Toast.LENGTH_SHORT).show();
             return;
         }
         if (perfSweeper != null) {
-            Toast.makeText(this, "A sweep is already running", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_a_sweep_is_already_running, Toast.LENGTH_SHORT).show();
             return;
         }
         if (project == null || project.avatarRigById(item.getAvatarRigId()) == null) {
-            Toast.makeText(this, "This item's avatar rig is missing from the project",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_this_item_s_avatar_rig_is, Toast.LENGTH_SHORT).show();
             return;
         }
         // Unlike 🎯 Record there is no synthetic fallback — sweeping a video
         // without the face model would only ever bake an empty track.
         if (!com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.isModelPresent(this)) {
-            Toast.makeText(this, "Face model missing — can't sweep video",
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.studio_toast_face_model_missing_can_t_sweep, Toast.LENGTH_LONG).show();
             return;
         }
         long videoEndMs = project.getTimeline().getVideoTrackDurationMs();
         long startMs = Math.max(0, item.getStartMs());
         long endMs = Math.min(item.getEndMs(), videoEndMs);
         if (endMs <= startMs) {
-            Toast.makeText(this, "No video under this item to sweep",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_no_video_under_this_item_to, Toast.LENGTH_SHORT).show();
             return;
         }
         if (playerManager != null && playerManager.isPlaying()) playerManager.pause();
@@ -25008,9 +24977,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @Override
                     public void onCancelled() {
                         finishSweep(dialog);
-                        Toast.makeText(FaditorEditorActivity.this,
-                                "Sweep cancelled — kept the previous take",
-                                Toast.LENGTH_SHORT).show();
+                        Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_sweep_cancelled_kept_the_previous_take, Toast.LENGTH_SHORT).show();
                     }
 
                     @Override
@@ -25034,8 +25001,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
             @NonNull com.fadcam.ui.faditor.avatar.AvatarParamTrack after) {
         if (after.isEmpty()) {
-            Toast.makeText(this, "No face found in the video — kept the previous take",
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.studio_toast_no_face_found_in_the_video, Toast.LENGTH_LONG).show();
             return;
         }
         final com.fadcam.ui.faditor.avatar.AvatarParamTrack before = item.getAvatarTrack();
@@ -25517,7 +25483,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (sp.getBoolean(PREF_IMAGE_STICKER_HINT_SHOWN, false)) return;
             sp.edit().putBoolean(PREF_IMAGE_STICKER_HINT_SHOWN, true).apply();
         }
-        Toast.makeText(this, "Tip: long-press Image for timeline clip (rare)", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, R.string.studio_toast_tip_long_press_image_for_timeline, Toast.LENGTH_LONG).show();
     }
 
     /** Long-press sheet: Image as clip (spine) — the rare path, same payload as Add > More. */
@@ -25640,7 +25606,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         undoManager.recordAction(new EditActions.LambdaAction("Add image as new layer", redo, undo));
         scheduleAutoSave();
         selectAndRevealNewObject(item.getId());   // SPEC_U §3
-        Toast.makeText(this, "Image added as new layer", Toast.LENGTH_SHORT).show(); // TODO(strings)
+        Toast.makeText(this, R.string.studio_toast_image_added_as_new_layer, Toast.LENGTH_SHORT).show();
     }
 
     /**
@@ -29361,9 +29327,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             showAdjustmentDrawer(layers.get(layers.size() - 1));
             return;
         }
-        android.widget.Toast.makeText(this,
-                "Select a clip or object to adjust, or add an FX Adjustment Layer",
-                android.widget.Toast.LENGTH_SHORT).show();
+        android.widget.Toast.makeText(this, R.string.studio_toast_select_a_clip_or_object_to, android.widget.Toast.LENGTH_SHORT).show();
     }
 
     /**
@@ -29570,9 +29534,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // adjustment layer to sample, since it has no footage of its own. Declining
                 // honestly beats arming a dropper that would silently sample the wrong thing
                 // (or nothing) on the next tap.
-                android.widget.Toast.makeText(FaditorEditorActivity.this,
-                        "Pick a swatch — the eyedropper isn't available on an adjustment layer",
-                        android.widget.Toast.LENGTH_SHORT).show();     // TODO(strings)
+                android.widget.Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_pick_a_swatch_the_eyedropper_isn, android.widget.Toast.LENGTH_SHORT).show();
                 cb.onPicked(null);
             }
             @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
@@ -34060,9 +34022,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // The chroma tab's eyedropper samples a decoder texture through
                 // OverlayVideoPreviewView.sampleAt — an image overlay has no footage of its own
                 // to sample, so decline honestly (same call the adjustment layer makes).
-                android.widget.Toast.makeText(FaditorEditorActivity.this,
-                        "Pick a swatch — the eyedropper isn't available on an image overlay",
-                        android.widget.Toast.LENGTH_SHORT).show();         // TODO(strings)
+                android.widget.Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_pick_a_swatch_the_eyedropper_isn_2, android.widget.Toast.LENGTH_SHORT).show();
                 cb.onPicked(null);
             }
             @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
@@ -34581,7 +34541,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long dur = o.getImageDurationMs(project != null && project.getTimeline() != null ? project.getTimeline().getTotalDurationMs() : 5000);
         boolean ok = o.applyImagePreset(kind, canvas[0], canvas[1], img[0], img[1], dur);
         if (!ok) {
-            android.widget.Toast.makeText(this, "Image already fills canvas — no room to pan. Try Fill or a different crop.", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_image_already_fills_canvas_no_room, android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         recordOverlayMenuUndo(o, before, kind == com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.NONE ? "Clear animation" : "Apply " + kind.name());
@@ -38405,7 +38365,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             if (text.isEmpty()) text = "(no chapters yet — name a collapsed paragraph)";
                             android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
                             if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("YouTube chapters", text));
-                            android.widget.Toast.makeText(FaditorEditorActivity.this, "Chapters copied", android.widget.Toast.LENGTH_SHORT).show();
+                            android.widget.Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_chapters_copied, android.widget.Toast.LENGTH_SHORT).show();
                         })
                         .show();
             }
@@ -38436,7 +38396,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             }
                             if (transcriptView != null) transcriptView.invalidate();
                             scheduleAutoSave();
-                            android.widget.Toast.makeText(FaditorEditorActivity.this, "Speaker cleared", android.widget.Toast.LENGTH_SHORT).show();
+                            android.widget.Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_speaker_cleared, android.widget.Toast.LENGTH_SHORT).show();
                         })
                         .setPositiveButton(android.R.string.ok, (dlg, w) -> {
                             String name = input.getText().toString().trim();
@@ -38500,7 +38460,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (currentTranscript == null || transcriptView == null) return;
                 int para = transcriptView.getSelectedParagraph();
                 if (para < 0) {
-                    android.widget.Toast.makeText(this, "Tap a paragraph\u2019s rail to select it first", android.widget.Toast.LENGTH_SHORT).show();
+                    android.widget.Toast.makeText(this, R.string.studio_toast_tap_a_paragraph_s_rail_to, android.widget.Toast.LENGTH_SHORT).show();
                     return;
                 }
                 String cur = currentTranscript.getParagraphSpeaker(para);
@@ -38529,7 +38489,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             currentTranscript.paragraphSpeakers.remove(pIdx);
                             transcriptView.invalidate();
                             scheduleAutoSave();
-                            android.widget.Toast.makeText(this, "Speaker cleared", android.widget.Toast.LENGTH_SHORT).show();
+                            android.widget.Toast.makeText(this, R.string.studio_toast_speaker_cleared, android.widget.Toast.LENGTH_SHORT).show();
                         })
                         .setPositiveButton(android.R.string.ok, (dlg, w) -> {
                             String name = input.getText().toString().trim();
@@ -38643,7 +38603,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void handleTranscriptParagraphReordered(int from, int to) {
         if (project == null || currentTranscript == null) {
-            android.widget.Toast.makeText(this, "No transcript to reorder", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_no_transcript_to_reorder, android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         // Find the clip that owns the current transcript
@@ -38657,11 +38617,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         if (targetClip == null) {
             if (transcriptIsForAudio) {
-                android.widget.Toast.makeText(this, "Audio paragraph reorder not yet via EditScript — needs audio REORDER op", android.widget.Toast.LENGTH_LONG).show();
+                android.widget.Toast.makeText(this, R.string.studio_toast_audio_paragraph_reorder_not_yet_via, android.widget.Toast.LENGTH_LONG).show();
                 com.fadcam.FLog.w("Faditor", "Paragraph reorder for audio not yet implemented via EditScript");
                 return;
             }
-            android.widget.Toast.makeText(this, "Could not find clip for paragraph reorder", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_could_not_find_clip_for_paragraph, android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         com.fadcam.ui.faditor.transcript.TranscriptParagraphs paras = com.fadcam.ui.faditor.transcript.TranscriptParagraphs.of(currentTranscript);
@@ -38718,7 +38678,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (snapped > prevBoundary + 100) boundary = snapped;
                 prevBoundary = boundary;
                 if (boundary <= inPoint + 100 || boundary >= outPoint - 100) {
-                    android.widget.Toast.makeText(this, "Paragraph boundary outside clip trim", android.widget.Toast.LENGTH_SHORT).show();
+                    android.widget.Toast.makeText(this, R.string.studio_toast_paragraph_boundary_outside_clip_trim, android.widget.Toast.LENGTH_SHORT).show();
                     return;
                 }
                 String firstId = pieceId[i];
@@ -38760,7 +38720,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             syncTimelineOverlays();
             transcriptView.setTranscript(currentTranscript);
             scheduleAutoSave();
-            android.widget.Toast.makeText(this, "Paragraph moved", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_paragraph_moved, android.widget.Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             android.widget.Toast.makeText(this, "Reorder error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
             com.fadcam.FLog.e("Faditor", "Paragraph reorder failed", e);
@@ -38913,7 +38873,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     ac.setCaptionsEnabled(false);
                     if (audioCaptionOverlay != null) audioCaptionOverlay.setVisibility(View.GONE);
                     scheduleAutoSave();
-                    Toast.makeText(this, "Captions hidden — tap a style chip to show again", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, R.string.studio_toast_captions_hidden_tap_a_style_chip, Toast.LENGTH_SHORT).show();
                 }
             } else {
                 Clip cc = getSelectedClip();
@@ -38931,7 +38891,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         cc.setCaptionsEnabled(false);
                         if (captionOverlay != null) captionOverlay.setVisibility(View.GONE);
                         scheduleAutoSave();
-                        Toast.makeText(this, "Captions hidden — tap a style chip to show again", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, R.string.studio_toast_captions_hidden_tap_a_style_chip, Toast.LENGTH_SHORT).show();
                     }
                 }
             }
@@ -38995,7 +38955,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         undoManager.recordAction(new EditActions.LambdaAction(
                 "Hide captions on all clips", applyForward, restoreBackward));
         scheduleAutoSave();
-        Toast.makeText(this, "Captions hidden on all clips", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.studio_toast_captions_hidden_on_all_clips, Toast.LENGTH_SHORT).show();
     }
 
     /**
@@ -39199,7 +39159,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         undoManager.recordAction(new EditActions.LambdaAction(
                 "Apply caption style \"" + styleId + "\" to all clips", applyForward, restoreBackward));
         scheduleAutoSave();
-        Toast.makeText(this, "Style applied to all clips", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.studio_toast_style_applied_to_all_clips, Toast.LENGTH_SHORT).show();
     }
 
     /**
@@ -39405,8 +39365,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     () -> cc.setCaptionsEnabled(false),
                                     () -> cc.setCaptionsEnabled(true)));
                             scheduleAutoSave();
-                            Toast.makeText(FaditorEditorActivity.this,
-                                    "Captions hidden for this clip", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_captions_hidden_for_this_clip, Toast.LENGTH_SHORT).show();
                         }
                     }
 
@@ -39500,8 +39459,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     () -> ac.setCaptionsEnabled(false),
                                     () -> ac.setCaptionsEnabled(true)));
                             scheduleAutoSave();
-                            Toast.makeText(FaditorEditorActivity.this,
-                                    "Captions hidden — tap a style chip to show again", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_captions_hidden_tap_a_style_chip, Toast.LENGTH_SHORT).show();
                         }
                     }
 
@@ -41070,7 +41028,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             FLog.w(TAG, "sequence: could not list folder", e);
         }
         if (names.isEmpty()) {
-            Toast.makeText(this, "No images in that folder", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_no_images_in_that_folder, Toast.LENGTH_SHORT).show();
             return;
         }
         // Detect from the FIRST numbered image. §3a is explicit that the result is an OFFER with
@@ -41086,8 +41044,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.sprite.SequenceDetector.Candidate cand = seed == null ? null
                 : com.fadcam.ui.faditor.sprite.SequenceDetector.detect(seed, names);
         if (cand == null) {
-            Toast.makeText(this, "No numbered image sequence found in that folder",
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.studio_toast_no_numbered_image_sequence_found_in, Toast.LENGTH_LONG).show();
             return;
         }
         java.util.List<String> ordered = new java.util.ArrayList<>();
@@ -41343,7 +41300,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<Integer> idx = new java.util.ArrayList<>(keyIndices);
         java.util.Collections.sort(idx);
         if (idx.size() < 2) {
-            Toast.makeText(this, "Select at least two frames", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_select_at_least_two_frames, Toast.LENGTH_SHORT).show();
             return;
         }
         final com.fadcam.ui.faditor.sprite.SpriteSheet.Preset preset =
@@ -41367,7 +41324,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             consumed.add(i);
         }
         if (preset.frames.size() < 2) {
-            Toast.makeText(this, "Those keys can't make a preset", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_those_keys_can_t_make_a, Toast.LENGTH_SHORT).show();
             return;
         }
         final long anchorMs = anchor;
@@ -41414,7 +41371,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.sprite.SpriteSheet seq =
                 project.spriteSheetById(item.getSheetId());
         if (seq == null || !seq.isSequence()) {
-            Toast.makeText(this, "Not an image sequence", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_not_an_image_sequence, Toast.LENGTH_SHORT).show();
             return;
         }
         final int n = seq.cellCount();
@@ -41435,7 +41392,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final com.fadcam.ui.faditor.sprite.SpriteSheet result = packed;
             runOnUiThread(() -> {
                 if (result == null) {
-                    Toast.makeText(this, "Couldn't pack that sequence", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, R.string.studio_toast_couldn_t_pack_that_sequence, Toast.LENGTH_LONG).show();
                     return;
                 }
                 final String oldSheetId = seqId;
@@ -41544,8 +41501,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (item.isClippedByNeighbour()) {
             // "Never silently" (§6): if a neighbour cut it short, say so at the moment it
             // happens as well as marking it on the tape.
-            Toast.makeText(this, "Shortened by the next object in this lane",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_shortened_by_the_next_object_in, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -41649,7 +41605,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.io.File assetsDir = new java.io.File(
                 projectStorage.projectDir(project.getId()), "assets");
         if (!assetsDir.exists() && !assetsDir.mkdirs()) {
-            Toast.makeText(this, "Couldn't create project assets", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_couldn_t_create_project_assets, Toast.LENGTH_SHORT).show();
             return;
         }
         // 1) Neutral-pose bake → 1-cell sheet asset.
@@ -41658,7 +41614,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.io.File baked = new java.io.File(assetsDir, assetName);
         if (!com.fadcam.ui.faditor.avatar.AvatarNeutralBaker.bakeNeutralPng(
                 this, entry.rig, entry.sheets, baked, 1024)) {
-            Toast.makeText(this, "Avatar bake failed", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_avatar_bake_failed, Toast.LENGTH_SHORT).show();
             return;
         }
         // 2) Register (or refresh) the baked sheet — stable id from the rig so
@@ -41989,7 +41945,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             applyTranscriptClipWindow();
             transcriptView.invalidate();
             scheduleAutoSave();
-            android.widget.Toast.makeText(this, "Transcript loaded", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_transcript_loaded, android.widget.Toast.LENGTH_SHORT).show();
         });
         builder.setNegativeButton(android.R.string.cancel, null);
         builder.show();
@@ -42865,7 +42821,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.content.ClipboardManager cm =
                 (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         cm.setPrimaryClip(android.content.ClipData.newPlainText("transcript", text));
-        Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.studio_toast_copied_to_clipboard, Toast.LENGTH_SHORT).show();
     }
 
     /** Paste SRT / WebVTT / [mm:ss]-stamped text → new transcript version on the selection. */
@@ -42883,9 +42839,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             com.fadcam.ui.faditor.transcript.TranscriptIO.parse(
                                     input.getText().toString());
                     if (parsed == null) {
-                        Toast.makeText(this,
-                                "No timestamps found — expected SRT, VTT, or [mm:ss] lines",
-                                Toast.LENGTH_LONG).show();
+                        Toast.makeText(this, R.string.studio_toast_no_timestamps_found_expected_srt_vtt, Toast.LENGTH_LONG).show();
                         return;
                     }
                     com.fadcam.ui.faditor.transcript.NamedTranscript named =
@@ -43412,7 +43366,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // ── C3: Fix audio — one-tap baked chain (highpass → afftdn → acompressor → loudnorm) ──
     private void fixSelectedAudio() {
         if (project == null) {
-            Toast.makeText(this, "No project", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_no_project, Toast.LENGTH_SHORT).show();
             return;
         }
         // Resolve selected audio: prefer the audio-band selection, else the master clip's audio
@@ -43429,7 +43383,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             clip = findAudioClipAtTimelineMs(lastPlayheadAbsoluteMs);
         }
         if (clip == null) {
-            Toast.makeText(this, "Select an audio clip first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_select_an_audio_clip_first, Toast.LENGTH_SHORT).show();
             return;
         }
         final AudioClip target = clip;
@@ -43437,7 +43391,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long endMs = target.getOutPointMs();
         if (endMs <= startMs) endMs = target.getSourceDurationMs();
         if (endMs <= startMs) {
-            Toast.makeText(this, "Audio has no duration", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_audio_has_no_duration, Toast.LENGTH_SHORT).show();
             return;
         }
         // If already baked, the Clean tab's revert is the honest path — but Fix should still
@@ -43496,14 +43450,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (editorTimeline != null) editorTimeline.invalidate();
             prepareAudioPlayer();
             scheduleAutoSave();
-            Toast.makeText(this, "Audio fixed — Revert in Clean tab", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_audio_fixed_revert_in_clean_tab, Toast.LENGTH_SHORT).show();
         }));
     }
 
     // ── D6: Beat detection door ──
     private void showBeatDetectionSheet() {
         if (project == null || editorTimeline == null) {
-            android.widget.Toast.makeText(this, "No project", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_no_project, android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         com.fadcam.ui.faditor.model.AudioClip ac = null;
@@ -43516,7 +43470,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             ac = findAudioClipAtTimelineMs(lastPlayheadAbsoluteMs);
         }
         if (ac == null) {
-            android.widget.Toast.makeText(this, "Select an audio clip first", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_select_an_audio_clip_first, android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         final com.fadcam.ui.faditor.model.AudioClip clip = ac;
@@ -43568,13 +43522,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     float sens = sensSlider.getValue();
                     boolean ok = editorTimeline.detectBeatsForAudioClip(clip, sens);
                     if (!ok) {
-                        android.widget.Toast.makeText(this, "Waveform not ready — try again after it loads", android.widget.Toast.LENGTH_SHORT).show();
+                        android.widget.Toast.makeText(this, R.string.studio_toast_waveform_not_ready_try_again_after, android.widget.Toast.LENGTH_SHORT).show();
                         return;
                     }
                     long[] newBeats = editorTimeline.getBeatMarkers();
                     float newBpm = editorTimeline.getLastDetectedBpm();
                     if (newBeats.length == 0) {
-                        android.widget.Toast.makeText(this, "No beats found (try different sensitivity)", android.widget.Toast.LENGTH_SHORT).show();
+                        android.widget.Toast.makeText(this, R.string.studio_toast_no_beats_found_try_different_sensitivity, android.widget.Toast.LENGTH_SHORT).show();
                     } else {
                         bpmLabel.setText(String.format(java.util.Locale.US, "BPM: %.1f (%d beats)", newBpm, newBeats.length));
                         android.widget.Toast.makeText(this, String.format(java.util.Locale.US, "Found %d beats at %.1f BPM", newBeats.length, newBpm), android.widget.Toast.LENGTH_SHORT).show();
@@ -43583,7 +43537,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 })
                 .setNegativeButton("Clear beats", (d,w) -> {
                     editorTimeline.setBeatMarkers(null);
-                    android.widget.Toast.makeText(this, "Beats cleared", android.widget.Toast.LENGTH_SHORT).show();
+                    android.widget.Toast.makeText(this, R.string.studio_toast_beats_cleared, android.widget.Toast.LENGTH_SHORT).show();
                     if (editorTimeline != null) editorTimeline.invalidate();
                 })
                 .setNeutralButton("Close", null)
@@ -43593,12 +43547,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // ── D7: Clap sync door ──
     private void showAlignClipsSheet() {
         if (project == null || project.getTimeline() == null) {
-            android.widget.Toast.makeText(this, "No project", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_no_project, android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         java.util.List<com.fadcam.ui.faditor.model.AudioClip> clips = project.getTimeline().getAudioClips();
         if (clips.size() < 2) {
-            android.widget.Toast.makeText(this, "Need at least 2 audio clips to align", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_need_at_least_2_audio_clips, android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         String[] labels = new String[clips.size()];
@@ -43639,24 +43593,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     int refIdx = refSpinner.getSelectedItemPosition();
                     int targetIdx = targetSpinner.getSelectedItemPosition();
                     if (refIdx == targetIdx) {
-                        android.widget.Toast.makeText(this, "Pick two different clips", android.widget.Toast.LENGTH_SHORT).show();
+                        android.widget.Toast.makeText(this, R.string.studio_toast_pick_two_different_clips, android.widget.Toast.LENGTH_SHORT).show();
                         return;
                     }
                     com.fadcam.ui.faditor.model.AudioClip ref = clips.get(refIdx);
                     com.fadcam.ui.faditor.model.AudioClip target = clips.get(targetIdx);
                     if (editorTimeline == null) {
-                        android.widget.Toast.makeText(this, "Timeline not ready", android.widget.Toast.LENGTH_SHORT).show();
+                        android.widget.Toast.makeText(this, R.string.studio_toast_timeline_not_ready, android.widget.Toast.LENGTH_SHORT).show();
                         return;
                     }
                     try {
                         com.fadcam.ui.faditor.timeline.EditorTimelineView.AnalysisEnvelope env1 = editorTimeline.analysisEnvelopeFor(ref);
                     com.fadcam.ui.faditor.timeline.EditorTimelineView.AnalysisEnvelope env2 = editorTimeline.analysisEnvelopeFor(target);
                     if (env1 == null || env2 == null) {
-                        android.widget.Toast.makeText(this, "Waveform not cached yet — try again after it loads", android.widget.Toast.LENGTH_SHORT).show();
+                        android.widget.Toast.makeText(this, R.string.studio_toast_waveform_not_cached_yet_try_again, android.widget.Toast.LENGTH_SHORT).show();
                         return;
                     }
                     if (Math.abs(env1.framesPerSecond - env2.framesPerSecond) > 1e-6) {
-                        android.widget.Toast.makeText(this, "Waveforms at different resolutions — try again", android.widget.Toast.LENGTH_SHORT).show();
+                        android.widget.Toast.makeText(this, R.string.studio_toast_waveforms_at_different_resolutions_try_again, android.widget.Toast.LENGTH_SHORT).show();
                         return;
                     }
                     long maxOffsetMs = 10000;
@@ -43843,7 +43797,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             editorTimeline.invalidate();
             refreshTotalTimeDisplay();
             scheduleAutoSave();
-            Toast.makeText(this, "Cut removed", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_cut_removed, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -44421,7 +44375,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 new ActivityResultContracts.RequestPermission(),
                 granted -> {
                     if (granted) startVoiceoverRecordingInternal();
-                    else android.widget.Toast.makeText(this, "Microphone permission needed for voiceover", android.widget.Toast.LENGTH_SHORT).show();
+                    else android.widget.Toast.makeText(this, R.string.studio_toast_microphone_permission_needed_for_voiceover, android.widget.Toast.LENGTH_SHORT).show();
                 });
 
         spriteRelinkPickerLauncher = registerForActivityResult(
@@ -44942,8 +44896,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         "Add linked screen + webcam pair", apply, revert)); // TODO(strings)
                 saveProjectNow();
                 if (assetBrowserPanel != null) assetBrowserPanel.collapse();
-                Toast.makeText(this, "Linked pair added — edits mirror across both",
-                        Toast.LENGTH_SHORT).show(); // TODO(strings)
+                Toast.makeText(this, R.string.studio_toast_linked_pair_added_edits_mirror_across, Toast.LENGTH_SHORT).show();
             });
         });
     }
@@ -45508,7 +45461,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         adapter.setCallback(new com.fadcam.ui.faditor.assetbrowser.AssetBrowserAdapter.Callback() {
             @Override public void onItemTapped(@NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem item) {
                 if (item.type != com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE) {
-                    android.widget.Toast.makeText(FaditorEditorActivity.this, "Please select an image", android.widget.Toast.LENGTH_SHORT).show(); return;
+                    android.widget.Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_please_select_an_image, android.widget.Toast.LENGTH_SHORT).show(); return;
                 }
                 int existing = -1;
                 for (int i = 0; i < selectedInOrder.size(); i++) {
@@ -45727,10 +45680,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         adapter.setCallback(new com.fadcam.ui.faditor.assetbrowser.AssetBrowserAdapter.Callback() {
             @Override public void onItemTapped(@NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem item) {
                 if (forImage && item.type != com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE) {
-                    android.widget.Toast.makeText(FaditorEditorActivity.this, "Please select an image", android.widget.Toast.LENGTH_SHORT).show(); return;
+                    android.widget.Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_please_select_an_image, android.widget.Toast.LENGTH_SHORT).show(); return;
                 }
                 if (!forImage && item.type != com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.VIDEO) {
-                    android.widget.Toast.makeText(FaditorEditorActivity.this, "Please select a video", android.widget.Toast.LENGTH_SHORT).show(); return;
+                    android.widget.Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_please_select_a_video, android.widget.Toast.LENGTH_SHORT).show(); return;
                 }
                 // Toggle: if already selected, remove (and renumber remaining); else append.
                 int existing = -1;
@@ -45960,7 +45913,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         if (project == null) {
-            android.widget.Toast.makeText(this, "No project", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_no_project, android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO)
@@ -45991,15 +45944,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     try { mp.setVolume(0f, 0f); } catch (Exception ignored) {}
                 }
             }
-            android.widget.Toast.makeText(this, "Playback muted to prevent feedback \u2014 use headphones to hear timeline while recording", android.widget.Toast.LENGTH_LONG).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_playback_muted_to_prevent_feedback_use, android.widget.Toast.LENGTH_LONG).show();
         } else {
-            android.widget.Toast.makeText(this, "Recording voiceover \u2014 timeline playing", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_recording_voiceover_timeline_playing, android.widget.Toast.LENGTH_SHORT).show();
         }
         voiceoverRecorder = new com.fadcam.ui.faditor.audio.VoiceoverRecorder();
         boolean started = voiceoverRecorder.start(this, playheadMs);
         if (!started) {
             voiceoverRecorder = null;
-            android.widget.Toast.makeText(this, "Could not start microphone", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_could_not_start_microphone, android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         // Punch-in: start timeline playback if not already playing
@@ -46044,7 +45997,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         if (btnPlayPause != null) btnPlayPause.setText("play_arrow");
         if (wavFile == null) {
-            android.widget.Toast.makeText(this, "Voiceover too short — discarded", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, R.string.studio_toast_voiceover_too_short_discarded, android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         // Create AudioClip at the punch-in point — one undo step (§0 rule 7)
@@ -46127,8 +46080,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         if (text == null || text.toString().trim().isEmpty()) {
             // TODO(strings)
-            Toast.makeText(this, "Clipboard is empty — copy the chatbot's HTML first",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_clipboard_is_empty_copy_the_chatbot, Toast.LENGTH_SHORT).show();
             return;
         }
         importSlideHtml(text.toString(), "external-paste");
@@ -46215,15 +46167,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             renderSlidesInBackground();
 
             // TODO(strings)
-            Toast.makeText(this, "Animated slide added — preparing video in background",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_animated_slide_added_preparing_video_in, Toast.LENGTH_SHORT).show();
             FLog.d(TAG, "Imported external slide at index " + insertIndex
                     + " duration=" + durationMs + "ms source=" + sourceLabel
                     + " contractV=" + contractVersion);
         } catch (Exception e) {
             FLog.e(TAG, "Slide import failed", e);
             // TODO(strings)
-            Toast.makeText(this, "Slide import failed", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_slide_import_failed, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -46245,7 +46196,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ? com.fadcam.ui.faditor.slides.SlideHtmlReader.read(htmlFile) : null;
         if (html == null) {
             // TODO(strings)
-            Toast.makeText(this, "Slide code not found", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_slide_code_not_found, Toast.LENGTH_SHORT).show();
             return;
         }
         SlideCodeBottomSheet sheet = SlideCodeBottomSheet.newInstance();
@@ -46365,14 +46316,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             renderSlidesInBackground();
             showSlidePreview(fresh, 0);
             // TODO(strings)
-            Toast.makeText(this, "Slide updated — re-rendering in background",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_slide_updated_re_rendering_in_background, Toast.LENGTH_SHORT).show();
             FLog.d(TAG, "Slide code edited: clip=" + oldClip.getId()
                     + " newDuration=" + durationMs + "ms hash=" + hash.substring(0, 12));
         } catch (Exception e) {
             FLog.e(TAG, "Slide code edit failed", e);
             // TODO(strings)
-            Toast.makeText(this, "Couldn't apply the slide edit", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.studio_toast_couldn_t_apply_the_slide_edit, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -47333,7 +47283,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     undoManager.recordAction(new EditActions.LambdaAction(
                             "Delete linked pair", apply, revert));            // TODO(strings)
                     saveProjectNow();
-                    Toast.makeText(this, "Linked pair deleted", Toast.LENGTH_SHORT).show(); // TODO(strings)
+                    Toast.makeText(this, R.string.studio_toast_linked_pair_deleted, Toast.LENGTH_SHORT).show();
                 })
                 .show();
     }

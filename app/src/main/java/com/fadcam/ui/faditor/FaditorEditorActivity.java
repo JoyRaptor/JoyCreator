@@ -2339,6 +2339,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onMasterAudioShelfToggled(int segmentIndex, boolean open) {
+                // ONE gesture, both doors (owner, 2026-09-29): the double-tap that opens a
+                // clip's sound shelf on the timeline also raises the top Volume drawer, and the
+                // next double-tap lowers both. A silent picture has neither. Word Sync owns the
+                // top drawer while it runs, so it is left alone then.
+                if (isWordSyncActive() || project == null) return;
+                Clip c = project.getTimeline().getClip(segmentIndex);
+                if (c == null || c.isImageClip()) return;
+                if (open) {
+                    if (!volumeDrawerOpen) openVolumeDrawer();
+                } else if (volumeDrawerOpen) {
+                    hideVolumeDrawer();
+                }
+            }
+
+            @Override
             public void onSlideDoubleTapped(int segmentIndex) {
                 Timeline tl = project.getTimeline();
                 if (segmentIndex >= 0 && segmentIndex < tl.getClipCount()) {

@@ -1791,6 +1791,12 @@ public class EditorTimelineView extends View {
                 long startMs, long endMs) {}
         /** Double-tap on a generated-slide clip → its code editor sheet. */
         default void onSlideDoubleTapped(int segmentIndex) {}
+        /**
+         * A double-tap on a main-track clip opened ({@code open}) or closed the clips' sound
+         * shelf. The host pairs it with the clip's top drawer, so one gesture opens both and the
+         * next closes both (owner, 2026-09-29).
+         */
+        default void onMasterAudioShelfToggled(int segmentIndex, boolean open) {}
         /** Called when playhead is seeked. isDragging=true means user is actively dragging,
          *  so don't load new clips yet; isDragging=false means this is a discrete seek or drag end. */
         void onPlayheadSeeked(int segmentIndex, float fractionInSegment, boolean isDragging);
@@ -9698,12 +9704,16 @@ if (sd.clip.hasVolumeKeyframes()) {
                             downSegIndex = -1;
                             return true;
                         }
+                        final boolean shelfOpening = !clipAudioDrawerOpen.contains(doubleTapClipId);
                         toggleLayerAudioDrawers(doubleTapClipId);
                         // Keep the first tap's selection: ensure the clip stays selected
                         // instead of the same-segment tap-toggle deselecting it.
                         if (selectedIndex != doubleTapSegIndex) {
                             selectedIndex = doubleTapSegIndex;
                             if (listener != null) listener.onSegmentSelected(doubleTapSegIndex);
+                        }
+                        if (listener != null) {
+                            listener.onMasterAudioShelfToggled(doubleTapSegIndex, shelfOpening);
                         }
                         invalidate();
                     } else if (downSegIndex == selectedIndex) {

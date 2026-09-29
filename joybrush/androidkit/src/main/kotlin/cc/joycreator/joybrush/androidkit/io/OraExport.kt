@@ -227,7 +227,7 @@ object OraExport {
         }
 
         val zos = ZipOutputStream(out)
-        zos.setLevel(6)
+        zos.setLevel(ARCHIVE_DEFLATE_LEVEL)
         try {
             writeMimetype(zos)
             put(zos, STACK_NAME, stackXml(rect, entries, omitted).toByteArray(Charsets.UTF_8))

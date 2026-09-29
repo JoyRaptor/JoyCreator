@@ -192,3 +192,53 @@ them at the same time. D.02a and D.02 touch app files — one at a time, and nev
   to a wrong place; `cellAt` range-checks in Double before any `toInt()`, so it no longer relies on
   JVM saturation (iOS door). Two tests added. Orchestrator's other provisional rulings on both
   specs: confirmed.
+
+## 2026-09-29 — owner: the fill pen, swappable vector brushes, recent colours, share everything
+
+**R20. Every vector brush is swappable after drawing (owner; "as in Concepts").** On an INK layer a
+stroke is its recording (`StrokeRecord`), so selecting one or MANY strokes and picking another pen
+redraws them as if drawn with that pen: pencil → fill pen gives the solid shape (ends joined), fill
+pen → pencil gives the outline stroke. `StrokeEdit.rebrush` (JB-5.03a) already keeps the samples and
+the seed; the Lead's JB-5.01 renders by the stroke's CURRENT brush; JB-5.03 (UI) applies a brush pick
+to the whole selection as ONE undo step. Only `stamp` and `fill` engines are allowed on ink layers:
+`smudge` and `wet` read the pixels underneath, so they are paint-layer brushes (picking one while
+ink strokes are selected is refused in words).
+
+**R21. The fill pen is a brush, not a tool** (owner). JB-1.08a (brush `engine: "fill"`,
+`blend: "behind"`, brush version rule) + JB-2.06b revised (tap fill tool + fill pen on paint layers).
+The old "lasso fill / lasso erase" tools are gone; JB-2.07a (`MaskPaint`) stays as the fill pen's
+raster maths.
+
+**R22. Eyedropper:** drag off the colour swatch (fast; drag back onto it to cancel) AND long-press
+(with a visible cancel: slide back to the start circle, or a second finger; setting to turn it off).
+JB-2.03a revised. **Recent colours bar** (owner: "a must have") = D.02c: one app-wide colour history
+shared by the Studio picker and Joy Brush, and a thin bar that grows and divides by history (12 max).
+
+**R23. Share, don't copy (owner's modular rule).** When Joy Brush needs something the Studio has, it
+moves into `:studiokit` (same package names, pure move) and both use it; improvements land once.
+Joy Brush's pure-Kotlin core cannot call Java, so where core needs the same MATHS (blend modes) it is
+proven equal by a generated golden table + drift check (JB-2.20a), never copied by eye. Integration
+code that calls kit classes lives in `joybrush-android` (the only Joy Brush module in the app build).
+
+**R24. New Ready specs** (Lead-written → 🟦 Ready; add to the board):
+
+| Row | Tier | Needs | Status |
+|---|---|---|---|
+| [JB-1.08a](specs/JB-1.08a_fill_pen.md) Fill pen brush: `engine "fill"`, `blend "behind"`, outline maths, shipped preset | T2 | 0.03b, 0.01 | 🟦 Ready |
+| [JB-2.06b](specs/JB-2.06b_fill_tools_on_canvas.md) **REVISED:** tap fill tool + fill pen on paint layers | T2 + T3 | 2.06a, 2.07a, 2.05a, 1.08a, 2.13a | 🟦 Ready (after 1.08a, 2.07a) |
+| [JB-2.03a](specs/JB-2.03a_colour_pill_and_eyedropper.md) **REVISED:** colour pill + drag-off eyedropper + long-press with cancel | T2 + T3 | D.02, 2.13a | 🟦 Ready (after D.02) |
+| [D.02c](specs/D.02c_recent_colours_bar.md) Shared colour history + recent-colours bar | T2-V + T3 | D.02 | 🟦 Ready (after D.02) |
+| [D.05](specs/D.05_share_fx_gradients_blends.md) Move fx (17 effects, gradient ramp/curve), keyframes, BlendModes, MaskSdf, gradient editor into `:studiokit` | T2 + T3 | D.02 | 🟦 Ready (after D.02) |
+| [JB-2.20a](specs/JB-2.20a_all_blend_modes.md) The Studio's 26 blend modes in the document + export maths, golden-table parity, DOC_VERSION 2 | T2 | 2.13a, 0.02b | 🟦 Ready |
+
+Outline rows to add (Lead designs; specs follow as their dependencies land):
+- **JB-2.20b** (T1) GL layer compositing with the Studio's `GLSL_BLEND_FN` — preview = export. Needs 2.20a.
+- **JB-2.21** (T1 engine + T2 UI) FILTER layers = the Studio's adjustment layer: an `FxStack` over
+  everything below (blur, levels, colour grade, gradient MAP to remap colours, posterize, duotone…),
+  UI = the Studio's `FxPanel` (D.05b moves it). Needs D.05, 2.20b.
+- **JB-2.22** (T2) Gradient tool: the app-wide gradient editor bar (`GradientRampEditorView`) +
+  drag to place linear / radial / curve gradients, baked into the layer, clipped to a selection or
+  to a fill-pen shape. **JB-2.22b** fill pen with a gradient fill ("set a shape as this", owner).
+- **JB-2.23** (T1) Layer masks and clipping (a fill-pen shape can be a mask; an adjustment layer
+  clipped to a shape = "set a shape as a gradient map", owner). Needs 2.21.
+- **D.05b** (T2) move `FxPanel`, `BlendPickerPopover`, `MaskKeyPanel` with their resources.

@@ -39,7 +39,11 @@ Stays in the app: the three `*TransformHost.java` (they know the Studio's model)
    any translations): when a library and the app define the same name, the app's wins, so every
    language shows exactly what it shows today.
 4. `tools/check_joybrush_tokens.py`: `STUDIO_JAVA` points at the new path. Run it: it must pass.
-5. Any app-side test that referenced these classes keeps working unchanged (same packages).
+5. **The JVM harness** (`tools/jvm-harness/run-*.sh`, 57 scripts) compiles with
+   `-sourcepath "app/src/main/java"`; after the move those classes live under `studiokit/`. Change
+   every script's sourcepath to `app/src/main/java` + `studiokit/src/main/java` (joined with the same
+   separator each script already uses for `-cp`). Then run `run-speck.sh`, `run-escape.sh`,
+   `run-flip.sh`, `run-scalesnap.sh`, `run-rebase.sh`, `run-spech.sh` — all must stay green.
 
 ## Verification
 - The watcher's `build.log`: `BUILD SUCCESSFUL` with `:studiokit:compileDebugJavaWithJavac`,

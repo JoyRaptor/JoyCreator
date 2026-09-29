@@ -2361,7 +2361,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 gs.freezeStartMs = afterStart;
                 gs.freezeEndMs = afterEnd;
                 // TODO(strings)
-                undoManager.recordAction(new EditActions.LambdaAction("Slide freeze zones",
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_slide_freeze_zones),
                         () -> {
                             gs.freezeStartMs = afterStart;
                             gs.freezeEndMs = afterEnd;
@@ -5308,7 +5308,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         for (AudioClip ac : tl.getAudioClips()) after.put(ac.getId(), ac.getLayerId());
         FLog.i(TAG, "lane invariant: separated " + moved + " overlapping object(s)");
-        undoManager.amendTopAction(new EditActions.LambdaAction("Separate overlapping objects",
+        undoManager.amendTopAction(new EditActions.LambdaAction(getString(R.string.studio_label_separate_overlapping_objects),
                 () -> applyLaneMap(after), () -> applyLaneMap(before)));
     }
 
@@ -5837,7 +5837,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                        @Nullable Transition replaced) {
         final Timeline timeline = project.getTimeline();
         timeline.addTransition(transition);
-        undoManager.recordAction(new EditActions.LambdaAction("Add transition", // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add_transition), // TODO(strings)
                 () -> { // redo
                     if (replaced != null) removeTransitionObject(timeline, replaced);
                     removeTransitionObject(timeline, transition); // no dupes on redo-after-undo
@@ -14255,7 +14255,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     public void onWaveformDeleted(
                             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
                         project.getTimeline().removeWaveformOverlay(overlay);
-                        undoManager.recordAction(new EditActions.LambdaAction("Remove visualizer",
+                        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_remove_visualizer),
                                 () -> project.getTimeline().removeWaveformOverlay(overlay),
                                 () -> project.getTimeline().addWaveformOverlay(overlay)));
                         waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // §4.5 per-object eye
@@ -15181,7 +15181,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         timeline.addLinkGroup(g);
         syncTimelineOverlays(); // baselines the group's tracking + shows badges
-        undoManager.recordAction(new EditActions.LambdaAction("Link objects", // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_link_objects), // TODO(strings)
                 () -> { timeline.addLinkGroup(g); syncTimelineOverlays(); },
                 () -> { timeline.removeLinkGroup(g.id); syncTimelineOverlays(); }));
         scheduleAutoSave();
@@ -15244,7 +15244,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null) return;
         Timeline.linkClips(master, overlay);
         syncTimelineOverlays();
-        undoManager.recordAction(new EditActions.LambdaAction("Link clips", // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_link_clips), // TODO(strings)
                 () -> { Timeline.linkClips(master, overlay); syncTimelineOverlays(); },
                 () -> { master.setLinkedClipId(null); overlay.setLinkedClipId(null);
                         syncTimelineOverlays(); }));
@@ -15267,7 +15267,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         timeline.unlinkClip(clip);
         syncTimelineOverlays();
-        undoManager.recordAction(new EditActions.LambdaAction("Unlink clips", // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_unlink_clips), // TODO(strings)
                 () -> { clip.setLinkedClipId(null); partner.setLinkedClipId(null);
                         syncTimelineOverlays(); },
                 () -> { Timeline.linkClips(clip, partner); syncTimelineOverlays(); }));
@@ -15291,7 +15291,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (owner.findMember(itemId) == null) continue;
             final com.fadcam.ui.faditor.layers.LinkGroup g = owner;
             final String axes = describeLinkAxes(g);
-            actions.add(new ObjectMenuSheet.Action("Unlink " + axes + "…", false, () -> // TODO(strings)
+            actions.add(new ObjectMenuSheet.Action(getString(R.string.studio_label_unlink) + axes + "…", false, () -> // TODO(strings)
                     new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                             .setTitle("Unlink " + axes)                        // TODO(strings)
                             .setItems(new CharSequence[]{
@@ -15877,7 +15877,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.studio_toast_nothing_to_duck_under_no_speech, Toast.LENGTH_LONG).show();
             return;
         }
-        undoManager.recordAction(new EditActions.LambdaAction("Duck under voice",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_duck_under_voice),
                 () -> { for (Runnable r : redos) r.run(); afterDuckApplied(); },
                 () -> { for (Runnable r : undos) r.run(); afterDuckApplied(); }));
         for (Runnable r : redos) r.run();
@@ -16014,7 +16014,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         final com.fadcam.ui.faditor.keyframe.KeyframeSet after = set.copy();
         final Clip tgt = target;
-        undoManager.recordAction(new EditActions.LambdaAction("Beat-reactive link",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_beat_reactive_link),
                 () -> { tgt.setOverlayTransform(after.copy()); afterLinkApplied(); },
                 () -> { tgt.setOverlayTransform(before != null ? before.copy() : null); afterLinkApplied(); }));
         tgt.setOverlayTransform(set);
@@ -16215,7 +16215,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 refreshPreviewOverlayVisibility();
             };
             redo.run();
-            undoManager.recordAction(new EditActions.LambdaAction("Delete lane", redo, undo));
+            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_delete_lane), redo, undo));
             scheduleAutoSave();
         };
 
@@ -16247,7 +16247,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String before = timeline.getRippleMode();
         final String after = "ripple".equals(before) ? "gap" : "ripple";
         timeline.setRippleMode(after);
-        undoManager.recordAction(new EditActions.LambdaAction("Edit mode: " + after,
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_edit_mode) + after,
                 () -> { timeline.setRippleMode(after); updateRippleModeButton(); },
                 () -> { timeline.setRippleMode(before); updateRippleModeButton(); }));
         updateRippleModeButton();
@@ -16293,7 +16293,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         timeline.removeClip(index);
         timeline.addClip(index, spacer);
-        undoManager.recordAction(new EditActions.LambdaAction("Delete clip (gap)",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_delete_clip_gap),
                 () -> { timeline.removeClip(index); timeline.addClip(index, spacer); },
                 () -> { timeline.removeClip(index); timeline.addClip(index, original); }));
 
@@ -16345,7 +16345,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         timeline.shiftTransitionsAfterInsert(at);
         endStructuralEdit(anchors, "insertBlank");
 
-        undoManager.recordAction(new EditActions.LambdaAction("Add black clip", // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add_black_clip), // TODO(strings)
                 () -> { timeline.addClip(at, blank); refreshAfterLaneChange(); },
                 () -> { timeline.removeClip(at); refreshAfterLaneChange(); }));
 
@@ -17183,7 +17183,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // ONE undo step per drag. The Key object is the identity: its neighbours bound
                 // the drag, so the track's order holds in both directions without a resort.
                 final com.fadcam.ui.faditor.sprite.SpriteOverlayItem s = item.getSprite();
-                undoManager.recordAction(new EditActions.LambdaAction("Retime frame", // TODO(strings)
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_retime_frame), // TODO(strings)
                         () -> { key.timeMs = toMs; refreshSpritePreviewData(); syncTimelineOverlays(); },
                         () -> { key.timeMs = fromMs; refreshSpritePreviewData(); syncTimelineOverlays(); }));
                 refreshSpritePreviewData();
@@ -17201,7 +17201,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (changed && before != null) {
                     final com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack after =
                             o.getMesh().track() == null ? null : o.getMesh().track().copy();
-                    undoManager.recordAction(new EditActions.LambdaAction("Retime performance",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_retime_performance),
                             () -> { o.getMesh().setTrack(after == null ? null : after.copy());
                                     repaintPuppetPicture(); syncTimelineOverlays(); },
                             () -> { o.getMesh().setTrack(before.copy());
@@ -17772,7 +17772,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setTitle("Remove video overlay?")
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Remove", (d, w) -> {
-                    undoManager.recordAction(new EditActions.LambdaAction("Remove video overlay",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_remove_video_overlay),
                             () -> timeline.removeOverlayClip(clip),
                             () -> timeline.addOverlayClip(clip)));
                     timeline.removeOverlayClip(clip);
@@ -17797,7 +17797,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Remove", (d, w) -> {
                     project.getTimeline().removeWaveformOverlay(wv);
-                    undoManager.recordAction(new EditActions.LambdaAction("Remove visualizer",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_remove_visualizer),
                             () -> project.getTimeline().removeWaveformOverlay(wv),
                             () -> project.getTimeline().addWaveformOverlay(wv)));
                     if (waveformOverlayView != null) {
@@ -19302,7 +19302,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // Compaction also DELETES the lane definitions it emptied, so undo has to put those
             // rows back at their original index or the redo/undo pair would quietly reorder the band.
             java.util.List<Timeline.RemovedLane> emptiedLanes = result.removedLanes;
-            undoManager.recordAction(new EditActions.LambdaAction("Compact lanes",
+            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_compact_lanes),
                     () -> { applyLaneSnapshot(textBefore, spriteBefore, videoBefore, adjustmentBefore);
                             for (Timeline.RemovedLane rl : emptiedLanes) {
                                 tl.restoreLayerTrackDefAt(rl.def, rl.index);
@@ -19853,7 +19853,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wo.setSize(0.85f, 0.22f);
         final com.fadcam.ui.faditor.model.WaveformOverlayInstance addedWo = wo;
         project.getTimeline().addWaveformOverlay(addedWo);
-        undoManager.recordAction(new EditActions.LambdaAction("Add visualizer",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add_visualizer),
                 () -> project.getTimeline().addWaveformOverlay(addedWo),
                 () -> project.getTimeline().removeWaveformOverlay(addedWo)));
         refreshWaveformOverlays();
@@ -22470,7 +22470,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final float clampedIn = o.getTextAnimInPct();
         final float clampedOut = o.getTextAnimOutPct();
 
-        undoManager.recordAction(new EditActions.LambdaAction("Text animation", // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_text_animation), // TODO(strings)
                 () -> {
                     o.setTextAnimPreset(afterPreset);
                     o.setTextAnimGranularity(afterGran);
@@ -22592,7 +22592,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             return;
         }
-        undoManager.recordAction(new EditActions.LambdaAction("Text animation timing", // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_text_animation_timing), // TODO(strings)
                 () -> {
                     o.setTextAnimZonePct(afterIn, afterOut);
                     refreshAfterTimerEdit(o);
@@ -23184,7 +23184,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     activeCaptionIsAudio = true; audioCaptionClipId = ac.getId();
                     if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(android.view.View.VISIBLE); }
                     if (!styleId.equals(beforeStyle) || !beforeEnabled) {
-                        undoManager.recordAction(new EditActions.LambdaAction("Caption style",
+                        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_style),
                         () -> { b.styleId = styleId; b.enabled = true; ac.syncLegacyFromBindings(); editorTimeline.invalidate(); applyStyleToActiveOverlayViews(styleId); },
                         () -> { b.styleId = beforeStyle; b.enabled = beforeEnabled; ac.syncLegacyFromBindings(); editorTimeline.invalidate(); applyStyleToActiveOverlayViews(beforeStyle); }));
                     }
@@ -23206,7 +23206,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(android.view.View.VISIBLE); }
                     if (!styleId.equals(beforeStyle) || !beforeEnabled) {
-                        undoManager.recordAction(new EditActions.LambdaAction("Caption style",
+                        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_style),
                         () -> { b.styleId = styleId; b.enabled = true; c.syncLegacyFromBindings(); editorTimeline.invalidate(); applyStyleToActiveOverlayViews(styleId); },
                         () -> { b.styleId = beforeStyle; b.enabled = beforeEnabled; c.syncLegacyFromBindings(); editorTimeline.invalidate(); applyStyleToActiveOverlayViews(beforeStyle); }));
                     }
@@ -23231,7 +23231,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 audioCaptionOverlay.setVisibility(View.VISIBLE);
                 if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
                 if (!styleId.equals(beforeStyle) || !beforeEnabled) {
-                    undoManager.recordAction(new EditActions.LambdaAction("Caption style",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_style),
                             () -> { ac.setCaptionStyleId(styleId); ac.setCaptionsEnabled(true);
                                     editorTimeline.invalidate(); },
                             () -> { ac.setCaptionStyleId(beforeStyle); ac.setCaptionsEnabled(beforeEnabled);
@@ -23252,7 +23252,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 captionOverlay.setVisibility(View.VISIBLE);
                 if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
                 if (!styleId.equals(beforeStyle) || !beforeEnabled) {
-                    undoManager.recordAction(new EditActions.LambdaAction("Caption style",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_style),
                             () -> { cc.setCaptionStyleId(styleId); cc.setCaptionsEnabled(true);
                                     editorTimeline.invalidate(); },
                             () -> { cc.setCaptionStyleId(beforeStyle); cc.setCaptionsEnabled(beforeEnabled);
@@ -23277,7 +23277,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ac.setCaptionCenter(x, y);
                 bindAudioCaptionData(ac);
                 if (beforeX != x || beforeY != y) {
-                    undoManager.recordAction(new EditActions.LambdaAction("Caption position",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_position),
                             () -> ac.setCaptionCenter(x, y),
                             () -> ac.setCaptionCenter(beforeX, beforeY)));
                 }
@@ -23291,7 +23291,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 cc.setCaptionCenter(x, y);
                 bindCaptionData(cc);
                 if (beforeX != x || beforeY != y) {
-                    undoManager.recordAction(new EditActions.LambdaAction("Caption position",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_position),
                             () -> cc.setCaptionCenter(x, y),
                             () -> cc.setCaptionCenter(beforeX, beforeY)));
                 }
@@ -23335,7 +23335,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (!bs.isEmpty() && activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < bs.size()) {
                     final AudioClip.CaptionBinding b = bs.get(activeAudioCaptionBindingIndex);
                     final float after = b.sizeFraction;
-                    if (before != after) undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+                    if (before != after) undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_size),
                             () -> { b.sizeFraction = after; ac.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); },
                             () -> { b.sizeFraction = before; ac.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); }));
                     return;
@@ -23348,7 +23348,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (!bs.isEmpty() && activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < bs.size()) {
                     final Clip.CaptionBinding b = bs.get(activeCaptionBindingIndex);
                     final float after = b.sizeFraction;
-                    if (before != after) undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+                    if (before != after) undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_size),
                             () -> { b.sizeFraction = after; c.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); },
                             () -> { b.sizeFraction = before; c.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); }));
                     return;
@@ -23359,14 +23359,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (idx >= 0 && idx < project.getTimeline().getAudioClips().size()) {
             final AudioClip ac = project.getTimeline().getAudioClips().get(idx);
             final float after = ac.getCaptionSizeFraction();
-            if (before != after) undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+            if (before != after) undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_size),
                     () -> ac.setCaptionSizeFraction(after), () -> ac.setCaptionSizeFraction(before)));
             return;
         }
         final Clip cc = getSelectedClip();
         if (cc != null && cc.hasTranscript()) {
             final float after = cc.getCaptionSizeFraction();
-            if (before != after) undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+            if (before != after) undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_size),
                     () -> cc.setCaptionSizeFraction(after), () -> cc.setCaptionSizeFraction(before)));
         }
     }
@@ -23406,7 +23406,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     ac.syncLegacyFromBindings();
                     { com.fadcam.ui.faditor.transcript.CaptionOverlayView ov = audioCaptionOverlayForBinding(activeAudioCaptionBindingIndex); if (ov != null) ov.setSizeFraction(b.sizeFraction); }
                     if (!captionSizeSuppressUndo && before != b.sizeFraction) {
-                        undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+                        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_size),
                                 () -> { b.sizeFraction = size; ac.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); },
                                 () -> { b.sizeFraction = before; ac.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); }));
                     }
@@ -23426,7 +23426,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     c.syncLegacyFromBindings();
                     { com.fadcam.ui.faditor.transcript.CaptionOverlayView ov = captionOverlayForBinding(activeCaptionBindingIndex); if (ov != null) ov.setSizeFraction(b.sizeFraction); }
                     if (!captionSizeSuppressUndo && before != b.sizeFraction) {
-                        undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+                        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_size),
                                 () -> { b.sizeFraction = size; c.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); },
                                 () -> { b.sizeFraction = before; c.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); }));
                     }
@@ -23446,7 +23446,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ac.setCaptionSizeFraction(size);
                 bindAudioCaptionData(ac);
                 if (!captionSizeSuppressUndo && beforeSize != size) {
-                    undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_size),
                             () -> ac.setCaptionSizeFraction(size),
                             () -> ac.setCaptionSizeFraction(beforeSize)));
                 }
@@ -23459,7 +23459,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 cc.setCaptionSizeFraction(size);
                 bindCaptionData(cc);
                 if (!captionSizeSuppressUndo && beforeSize != size) {
-                    undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_size),
                             () -> cc.setCaptionSizeFraction(size),
                             () -> cc.setCaptionSizeFraction(beforeSize)));
                 }
@@ -23754,7 +23754,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // is ever loosened, this comparison has to change with it.
         if (beforeIn == afterIn && beforeOut == afterOut) return;
         // TODO(strings)
-        undoManager.recordAction(new EditActions.LambdaAction("Text animation timing",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_text_animation_timing),
                 () -> { cc.setCaptionAnimZones(afterIn, afterOut); cc.rebind(); },
                 () -> { cc.setCaptionAnimZones(beforeIn, beforeOut); cc.rebind(); }));
         cc.rebind();
@@ -23795,7 +23795,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final float clampedIn = cc.getCaptionAnimInPct();
         final float clampedOut = cc.getCaptionAnimOutPct();
         // TODO(strings)
-        undoManager.recordAction(new EditActions.LambdaAction("Text animation",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_text_animation),
                 () -> {
                     cc.setCaptionAnimPreset(after);
                     cc.setCaptionAnimZones(clampedIn, clampedOut);
@@ -23821,7 +23821,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (before.equals(after)) return;
         cc.setCaptionAnimGranularity(after);
         // TODO(strings)
-        undoManager.recordAction(new EditActions.LambdaAction("Text animation unit",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_text_animation_unit),
                 () -> { cc.setCaptionAnimGranularity(after); cc.rebind(); },
                 () -> { cc.setCaptionAnimGranularity(before); cc.rebind(); }));
         cc.rebind();
@@ -24464,7 +24464,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofCell(localMs, cellIndex));
                 final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
                         new java.util.ArrayList<>(item.getFrameTrack().keys());
-                undoManager.recordAction(new EditActions.LambdaAction("Sprite swap",
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_sprite_swap),
                         () -> { restoreFrameKeys(item, after); },
                         () -> { restoreFrameKeys(item, before); }));
                 scheduleAutoSave();
@@ -24495,7 +24495,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofPreset(localMs, presetId));
                 final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
                         new java.util.ArrayList<>(item.getFrameTrack().keys());
-                undoManager.recordAction(new EditActions.LambdaAction("Drop animation",
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_drop_animation),
                         () -> restoreFrameKeys(item, after),
                         () -> restoreFrameKeys(item, before)));
                 scheduleAutoSave();
@@ -24554,7 +24554,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (item == perfSweepItem && perfSweeper != null) perfSweeper.cancel();
                 project.getTimeline().removeSpriteOverlay(item);
                 syncTimelineOverlays();
-                undoManager.recordAction(new EditActions.LambdaAction("Delete sprite",
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_delete_sprite),
                         () -> { project.getTimeline().removeSpriteOverlay(item); syncTimelineOverlays(); },
                         () -> { project.getTimeline().addSpriteOverlay(item); syncTimelineOverlays(); }));
                 scheduleAutoSave();
@@ -24692,7 +24692,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
                         new java.util.ArrayList<>(generated);
                 restoreFrameKeys(item, after);
-                undoManager.recordAction(new EditActions.LambdaAction("Sprite preset",
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_sprite_preset),
                         () -> { restoreFrameKeys(item, after); },
                         () -> { restoreFrameKeys(item, before); }));
                 scheduleAutoSave();
@@ -24729,7 +24729,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofCell(newTime, found.cellIndex));
                 final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
                         new java.util.ArrayList<>(item.getFrameTrack().keys());
-                undoManager.recordAction(new EditActions.LambdaAction("Nudge key",
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_nudge_key),
                         () -> { restoreFrameKeys(item, after); },
                         () -> { restoreFrameKeys(item, before); }));
                 scheduleAutoSave();
@@ -24751,7 +24751,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 item.getFrameTrack().removeAt(found.timeMs);
                 final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
                         new java.util.ArrayList<>(item.getFrameTrack().keys());
-                undoManager.recordAction(new EditActions.LambdaAction("Delete key",
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_delete_key),
                         () -> { restoreFrameKeys(item, after); },
                         () -> { restoreFrameKeys(item, before); }));
                 scheduleAutoSave();
@@ -24876,7 +24876,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (spriteOverlayView != null) spriteOverlayView.resetAvatarPuppet(item.getId());
             Toast.makeText(this, R.string.studio_toast_no_tracking_captured_kept_the_previous, Toast.LENGTH_SHORT).show();
         } else {
-            undoManager.recordAction(new EditActions.LambdaAction("Record performance",
+            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_record_performance),
                     () -> {
                         item.setAvatarTrack(after);
                         if (spriteOverlayView != null) {
@@ -25007,7 +25007,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.avatar.AvatarParamTrack before = item.getAvatarTrack();
         item.setAvatarTrack(after);
         if (spriteOverlayView != null) spriteOverlayView.resetAvatarPuppet(item.getId());
-        undoManager.recordAction(new EditActions.LambdaAction("Sweep performance",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_sweep_performance),
                 () -> {
                     item.setAvatarTrack(after);
                     if (spriteOverlayView != null) {
@@ -25113,7 +25113,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot after =
                         item.snapshotTransform();
                 if (before.matches(after)) return;
-                undoManager.recordAction(new EditActions.LambdaAction("Move sprite",
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_move_sprite),
                         () -> {
                             item.restoreTransform(after);
                             if (spriteOverlayView != null) spriteOverlayView.invalidate();
@@ -25168,7 +25168,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         clip.getOverlayTransform() != null
                                 ? clip.getOverlayTransform().copy()
                                 : new com.fadcam.ui.faditor.keyframe.KeyframeSet();
-                undoManager.recordAction(new EditActions.LambdaAction("Move video overlay",
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_move_video_overlay),
                         () -> {
                             restoreOverlayTransform(clip, after);
                         },
@@ -25416,7 +25416,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                 project.getTimeline().addOverlayClip(overlay);
                 syncTimelineOverlays();
-                undoManager.recordAction(new EditActions.LambdaAction("Add video overlay",
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add_video_overlay),
                         () -> { project.getTimeline().addOverlayClip(overlay); syncTimelineOverlays(); },
                         () -> { project.getTimeline().removeOverlayClip(overlay); syncTimelineOverlays(); }));
                 scheduleAutoSave();
@@ -25534,7 +25534,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         project.getTimeline().addTextOverlay(item);
         overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()), overlayLayerCallback());
         syncTimelineOverlays();
-        undoManager.recordAction(new EditActions.LambdaAction("Add image overlay",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add_image_overlay),
                 () -> project.getTimeline().addTextOverlay(item),
                 () -> project.getTimeline().removeTextOverlay(item)));
         scheduleAutoSave();
@@ -25603,7 +25603,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             refreshAfterOverlayLayerChange();
         };
         redo.run();
-        undoManager.recordAction(new EditActions.LambdaAction("Add image as new layer", redo, undo));
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add_image_as_new_layer), redo, undo));
         scheduleAutoSave();
         selectAndRevealNewObject(item.getId());   // SPEC_U §3
         Toast.makeText(this, R.string.studio_toast_image_added_as_new_layer, Toast.LENGTH_SHORT).show();
@@ -27902,7 +27902,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (o.isImage() || o.isGeneratedSlide()) return;
         final com.fadcam.ui.faditor.model.TimerSpec spec = o.getTimerSpec();
         if (spec == null) {
-            actions.add(new ObjectMenuSheet.Action("Make it a timer", false, () -> { // TODO(strings)
+            actions.add(new ObjectMenuSheet.Action(getString(R.string.studio_label_make_it_a_timer), false, () -> { // TODO(strings)
                 // Default = countdown over the tape with M:SS, which is the shape the
                 // feature was asked for ("trim in at 5s, out at 10s, counts 5 -> 0").
                 applyTimerEdit(o, new com.fadcam.ui.faditor.model.TimerSpec(), null,
@@ -27944,7 +27944,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String pLabel = p == com.fadcam.ui.faditor.model.TimerSpec.Precision.FRAMES
                 ? "frames" : p == com.fadcam.ui.faditor.model.TimerSpec.Precision.MILLIS
                 ? "milliseconds" : "off";                                    // TODO(strings)
-        actions.add(new ObjectMenuSheet.Action("Sub-second: " + pLabel, false, () -> {
+        actions.add(new ObjectMenuSheet.Action(getString(R.string.studio_label_sub_second) + pLabel, false, () -> {
             com.fadcam.ui.faditor.model.TimerSpec next = spec.copy();
             // Cycle off -> frames -> milliseconds -> off.
             next.setPrecision(p == com.fadcam.ui.faditor.model.TimerSpec.Precision.NONE
@@ -27955,7 +27955,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             applyTimerEdit(o, next, spec, "Timer precision");
         }));
 
-        actions.add(new ObjectMenuSheet.Action("Stop being a timer", true, () -> // TODO(strings)
+        actions.add(new ObjectMenuSheet.Action(getString(R.string.studio_label_stop_being_a_timer), true, () -> // TODO(strings)
                 applyTimerEdit(o, null, spec, "Remove timer")));
     }
 
@@ -28081,26 +28081,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // purpose: the smart handles are now simply what a SELECTED image shows in the preview
         // (updatePreviewHandlesForSelection), so there is no drawer to open and -- deliberately --
         // no second way in that could disagree with the first.
-        actions.add(new ObjectMenuSheet.Action("New lane above", false, // TODO(strings)
+        actions.add(new ObjectMenuSheet.Action(getString(R.string.studio_label_new_lane_above), false, // TODO(strings)
                 () -> moveOverlayItemToNewLayer(o, true)));
-        actions.add(new ObjectMenuSheet.Action("New lane below", false, // TODO(strings)
+        actions.add(new ObjectMenuSheet.Action(getString(R.string.studio_label_new_lane_below), false, // TODO(strings)
                 () -> moveOverlayItemToNewLayer(o, false)));
         // Adjacent-layer moves only make sense with >1 floating layer present.
         java.util.List<com.fadcam.ui.faditor.layers.Track> layers = timeline.getLayers();
         int rowIdx = overlayItemRowIndex(o, layers);
         if (layers.size() > 1 && rowIdx >= 0) {
             if (rowIdx > 0) { // not already the top row (row 0 = highest z)
-                actions.add(new ObjectMenuSheet.Action("Move layer ▲", false, // TODO(strings)
+                actions.add(new ObjectMenuSheet.Action(getString(R.string.studio_label_move_layer), false, // TODO(strings)
                         () -> moveOverlayItemToAdjacentLayer(o, true)));
             }
             if (rowIdx < layers.size() - 1) {
-                actions.add(new ObjectMenuSheet.Action("Move layer ▼", false, // TODO(strings)
+                actions.add(new ObjectMenuSheet.Action(getString(R.string.studio_label_move_layer_2), false, // TODO(strings)
                         () -> moveOverlayItemToAdjacentLayer(o, false)));
             }
         }
         // "Clear all keyframes" moved off the old animation panel into the drawer
         // (D2a) — one undo step, no confirm (the × diamond removes single keys).
-        actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
+        actions.add(new ObjectMenuSheet.Action(getString(R.string.studio_label_clear_all_keyframes), true, // TODO(strings)
                 () -> clearAllOverlayKeyframes(o)));
 
         final com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[] sliderBefore =
@@ -28190,7 +28190,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 final long fromStart = fromRange[0], fromEnd = fromRange[1];
                 final long toStart = o.getStartMs(), toEnd = o.getEndMs();
                 if (fromStart == toStart) { syncTimelineOverlays(); return; }
-                undoManager.recordAction(new EditActions.LambdaAction("Move text in time", // TODO(strings)
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_move_text_in_time), // TODO(strings)
                         () -> { o.setTimeRange(toStart, toEnd); syncTimelineOverlays(); },
                         () -> { o.setTimeRange(fromStart, fromEnd); syncTimelineOverlays(); }));
                 syncTimelineOverlays();
@@ -28318,7 +28318,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
                 o.snapshotTransform();
         o.setTrimmedTimeRange(0L, total, total);
-        recordOverlayMenuUndo(o, before, "Span whole timeline");
+        recordOverlayMenuUndo(o, before, getString(R.string.studio_label_span_whole_timeline));
         refreshOverlayAfterRangeEdit();
     }
 
@@ -28470,7 +28470,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Sprites are one-per-lane (T8) so no layer-move actions — just the
         // drawer's "Clear all keyframes" (D2a).
         java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
-        actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
+        actions.add(new ObjectMenuSheet.Action(getString(R.string.studio_label_clear_all_keyframes), true, // TODO(strings)
                 () -> clearAllSpriteKeyframes(s)));
         addObjectVisibilityActions(actions, s::isHidden, s::setHidden, s::isLocked, s::setLocked);
         maybeAddLinkActions(actions, s.getId());
@@ -28490,7 +28490,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             project.getTimeline().removeSpriteOverlay(s);
             syncTimelineOverlays();
             refreshSpritePreviewData();
-            undoManager.recordAction(new EditActions.LambdaAction("Delete sprite",
+            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_delete_sprite),
                     () -> { project.getTimeline().removeSpriteOverlay(s);
                             syncTimelineOverlays(); refreshSpritePreviewData(); },
                     () -> { project.getTimeline().addSpriteOverlay(s);
@@ -28504,7 +28504,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     project.getTimeline().removeSpriteOverlay(s);
                     syncTimelineOverlays();
                     refreshSpritePreviewData();
-                    undoManager.recordAction(new EditActions.LambdaAction("Delete sprite",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_delete_sprite),
                             () -> { project.getTimeline().removeSpriteOverlay(s);
                                     syncTimelineOverlays(); refreshSpritePreviewData(); },
                             () -> { project.getTimeline().addSpriteOverlay(s);
@@ -28559,7 +28559,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
                 o.snapshotTransform();
         o.clearKeyframes();
-        recordOverlayMenuUndo(o, before, "Clear all keyframes"); // TODO(strings)
+        recordOverlayMenuUndo(o, before, getString(R.string.studio_label_clear_all_keyframes)); // TODO(strings)
         if (overlayLayer != null) {
             setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             overlayLayer.rebuild();
@@ -28588,7 +28588,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 s.getKeyframes().removeKey(p, tr.keyframes.get(0).timeMs);
             }
         }
-        recordSpriteMenuUndo(s, before, "Clear all keyframes"); // TODO(strings)
+        recordSpriteMenuUndo(s, before, getString(R.string.studio_label_clear_all_keyframes)); // TODO(strings)
         refreshSpriteAfterMenuWrite();
         if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
             objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
@@ -28641,7 +28641,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             } else {
                 s.addKeyframeAt(lastPlayheadAbsoluteMs);
             }
-            recordSpriteMenuUndo(s, before, "Add keyframe");
+            recordSpriteMenuUndo(s, before, getString(R.string.studio_label_add_keyframe));
             refreshSpriteAfterMenuWrite();
         };
         // G3: diamond swipe-nav + long-press-delete (sprite twins).
@@ -28654,7 +28654,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot before =
                     s.snapshotTransform();
             s.getKeyframes().removeKey(key, hit);
-            recordSpriteMenuUndo(s, before, "Delete keyframe");
+            recordSpriteMenuUndo(s, before, getString(R.string.studio_label_delete_keyframe));
             refreshSpriteAfterMenuWrite();
         };
         ObjectMenuSheet.ArmedQuery armed = s::isArmed;
@@ -28682,7 +28682,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot before =
                 s.snapshotTransform();
         owner.easing = e;
-        recordSpriteMenuUndo(s, before, "Ease curve"); // TODO(strings)
+        recordSpriteMenuUndo(s, before, getString(R.string.studio_label_ease_curve)); // TODO(strings)
         refreshSpriteAfterMenuWrite();
     }
 
@@ -28764,7 +28764,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final long fBeforeIn = beforeIn, fBeforeOut = beforeOut, fBeforeOff = beforeOff;
             ac.setInPointMs(fNewIn);
             ac.setOffsetMs(fPh);
-            undoManager.recordAction(new EditActions.LambdaAction("Audio start", // TODO(strings)
+            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_audio_start), // TODO(strings)
                     () -> { ac.setInPointMs(fNewIn); ac.setOffsetMs(fPh); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); },
                     () -> { ac.setInPointMs(fBeforeIn); ac.setOutPointMs(fBeforeOut); ac.setOffsetMs(fBeforeOff); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); }));
         } else {
@@ -28783,7 +28783,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final long fNewOut = tmpOut;
             final long fBeforeIn2 = beforeIn2, fBeforeOut2 = beforeOut2, fBeforeOff2 = beforeOff2;
             ac.setOutPointMs(fNewOut);
-            undoManager.recordAction(new EditActions.LambdaAction("Audio end", // TODO(strings)
+            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_audio_end), // TODO(strings)
                     () -> { ac.setOutPointMs(fNewOut); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); },
                     () -> { ac.setInPointMs(fBeforeIn2); ac.setOutPointMs(fBeforeOut2); ac.setOffsetMs(fBeforeOff2); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); }));
         }
@@ -29747,7 +29747,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         right.getHostOffsetMs() + (cut - start));
             }
             timeline.addTextOverlay(right);
-            undoManager.recordAction(new EditActions.LambdaAction("Split text",
+            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_split_text),
                     () -> {
                         left.setTimeRange(start, cut);
                         timeline.addTextOverlay(right);
@@ -29786,7 +29786,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             right.setLayerId(left.getLayerId());   // same lane as its left half (see the text split)
             rebaseOverlayKeyframes(right.getKeyframes(), left.getKeyframes(), cut - start);
             timeline.addSpriteOverlay(right);
-            undoManager.recordAction(new EditActions.LambdaAction("Split sprite",
+            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_split_sprite),
                     () -> {
                         left.setTimeRange(start, cut);
                         timeline.addSpriteOverlay(right);
@@ -29833,7 +29833,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             right.setInPointMs(absSplit);
             right.setOverlayStartMs(cut);
             timeline.addOverlayClip(right);
-            undoManager.recordAction(new EditActions.LambdaAction("Split PiP",
+            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_split_pip),
                     () -> {
                         left.setOutPointMs(absSplit);
                         timeline.addOverlayClip(right);
@@ -29911,7 +29911,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         left.setDurationMs(cut - left.getStartMs());
         project.getTimeline().addAdjustmentLayer(right);
-        undoManager.recordAction(new EditActions.LambdaAction("Split adjustment layer",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_split_adjustment_layer),
                 () -> {
                     left.setStartMs(beforeStart);
                     left.setDurationMs(cut - beforeStart);
@@ -29947,7 +29947,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (beforeStart == 0L && beforeDur == total) return;
         layer.setStartMs(0L);
         layer.setDurationMs(total);
-        undoManager.recordAction(new EditActions.LambdaAction("Span whole timeline",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_span_whole_timeline),
                 () -> { layer.setStartMs(0L); layer.setDurationMs(total);
                         refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); },
                 () -> { layer.setStartMs(beforeStart); layer.setDurationMs(beforeDur);
@@ -29980,7 +29980,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (cut == beforeStart) return;
         layer.setStartMs(cut);
         layer.setDurationMs(layer.getDurationMs() > 0L ? end - cut : 0L);
-        undoManager.recordAction(new EditActions.LambdaAction("Start here",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_start_here),
                 () -> { layer.setStartMs(cut);
                         layer.setDurationMs(layer.getDurationMs() > 0L ? end - cut : 0L);
                         refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); },
@@ -30011,7 +30011,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long newDur = cut - layer.getStartMs();
         if (newDur == beforeDur) return;
         layer.setDurationMs(newDur);
-        undoManager.recordAction(new EditActions.LambdaAction("End here",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_end_here),
                 () -> { layer.setDurationMs(newDur);
                         refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); },
                 () -> { layer.setDurationMs(beforeDur);
@@ -30966,7 +30966,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String durLabel = "Duration: " + xfade.getDurationMs() + " ms";
         actions.add(new ObjectMenuSheet.Action(durLabel, false, () -> {}));
         // Delete
-        actions.add(new ObjectMenuSheet.Action("Delete cross-fade", true, () -> {
+        actions.add(new ObjectMenuSheet.Action(getString(R.string.studio_label_delete_cross_fade), true, () -> {
             String id = xfade.getId();
             com.fadcam.ui.faditor.model.AudioCrossfade copy = new com.fadcam.ui.faditor.model.AudioCrossfade(xfade);
             project.getTimeline().removeAudioCrossfadeById(id);
@@ -31180,7 +31180,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
                 }
             }
-            recordPipMenuUndo(c, before, "Add keyframe"); // TODO(strings)
+            recordPipMenuUndo(c, before, getString(R.string.studio_label_add_keyframe)); // TODO(strings)
             android.util.Log.i(TAG, "KFDIAG drop key=" + key
                     + " clip=" + c.getId()
                     + " ph=" + ph
@@ -31199,7 +31199,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (hit == null) return;
             com.fadcam.ui.faditor.keyframe.KeyframeSet before = kf.copy();
             kf.removeKey(key, hit);
-            recordPipMenuUndo(c, before, "Delete keyframe"); // TODO(strings)
+            recordPipMenuUndo(c, before, getString(R.string.studio_label_delete_keyframe)); // TODO(strings)
             refreshPipAfterMenuWrite();
         };
         ObjectMenuSheet.ArmedQuery armed = () -> pipArmed(c);
@@ -31319,7 +31319,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (owner == null) return;
         com.fadcam.ui.faditor.keyframe.KeyframeSet before = kf.copy();
         owner.easing = e;
-        recordPipMenuUndo(c, before, "Ease curve"); // TODO(strings)
+        recordPipMenuUndo(c, before, getString(R.string.studio_label_ease_curve)); // TODO(strings)
         refreshPipAfterMenuWrite();
     }
 
@@ -31335,7 +31335,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             tr.keyframes.clear();
             tr.put(0L, cur, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
         }
-        recordPipMenuUndo(c, before, "Clear all keyframes"); // TODO(strings)
+        recordPipMenuUndo(c, before, getString(R.string.studio_label_clear_all_keyframes)); // TODO(strings)
         refreshPipAfterMenuWrite();
         if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
             objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
@@ -31700,7 +31700,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // same as the type editor's "Add keyframe" button.
                 o.addKeyframeAt(lastPlayheadAbsoluteMs);
             }
-            recordOverlayMenuUndo(o, before, "Add keyframe");
+            recordOverlayMenuUndo(o, before, getString(R.string.studio_label_add_keyframe));
             setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             syncTimelineOverlays();
         };
@@ -31714,7 +31714,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
                     o.snapshotTransform();
             o.getKeyframes().removeKey(key, hit);
-            recordOverlayMenuUndo(o, before, "Delete keyframe");
+            recordOverlayMenuUndo(o, before, getString(R.string.studio_label_delete_keyframe));
             if (overlayLayer != null) {
                 setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                 overlayLayer.rebuild();
@@ -31764,7 +31764,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
                 o.snapshotTransform();
         owner.easing = e;
-        recordOverlayMenuUndo(o, before, "Ease curve"); // TODO(strings)
+        recordOverlayMenuUndo(o, before, getString(R.string.studio_label_ease_curve)); // TODO(strings)
         if (overlayLayer != null) {
             setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             overlayLayer.rebuild();
@@ -32694,7 +32694,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.puppet.PuppetRig withBone = rig.copy();
         final com.fadcam.ui.faditor.puppet.PuppetRig withoutBone = rig.copy();
         withoutBone.removeBone(made);
-        undoManager.recordAction(new EditActions.LambdaAction("Add bone",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add_bone),
                 () -> { it.setPuppet(withBone.copy()); repaintPuppetPicture(); },
                 () -> { it.setPuppet(withoutBone.copy()); repaintPuppetPicture(); }));
 
@@ -32875,7 +32875,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec hadMesh =
                 o.getMesh() == null ? null : o.getMesh().copy();
 
-        undoManager.recordAction(new EditActions.LambdaAction("Start over",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_start_over),
                 () -> { o.setPuppet(null); o.setMesh(null); puppetAfterReset(); },
                 () -> { o.setPuppet(hadRig == null ? null : hadRig.copy());
                         o.setMesh(hadMesh == null ? null : hadMesh.copy());
@@ -33294,7 +33294,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // type is a property of the pin; the pose track is untouched by this, and a
                     // Dangle pin's bake simply takes over while it wears that type.
                     p.type = type;
-                    undoManager.recordAction(new EditActions.LambdaAction("Pin type",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_pin_type),
                             () -> { p.type = type; rebuildPuppetMesh(it, -1); repaintPuppetPicture(); },
                             () -> { p.type = was; rebuildPuppetMesh(it, -1); repaintPuppetPicture(); }));
                     rebuildPuppetMesh(it, -1);
@@ -33454,7 +33454,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.puppet.PuppetRig withPin = rig.copy();
         final com.fadcam.ui.faditor.puppet.PuppetRig withoutPin = rig.copy();
         withoutPin.removePin(made);
-        undoManager.recordAction(new EditActions.LambdaAction("Add pin",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add_pin),
                 () -> { it.setPuppet(withPin.copy()); rebuildPuppetMesh(it, -1);
                         repaintPuppetPicture(); },
                 () -> { it.setPuppet(withoutPin.copy()); rebuildPuppetMesh(it, made);
@@ -33479,7 +33479,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.puppet.PuppetRig after = rig.copy();
         final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec meshAfter =
                 it.getMesh() == null ? null : it.getMesh().copy();
-        undoManager.recordAction(new EditActions.LambdaAction("Remove pin",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_remove_pin),
                 () -> {
                     it.setPuppet(after.copy());
                     it.setMesh(meshAfter == null ? null : meshAfter.copy());
@@ -34316,7 +34316,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 float[] canvas = getCanvasWHForImagePreset();
                 float[] img = getImageWHForPreset(o);
                 o.applyFit(canvas[0], canvas[1], img[0], img[1]);
-                recordOverlayMenuUndo(o, before, "Fit");
+                recordOverlayMenuUndo(o, before, getString(R.string.studio_label_fit));
                 refreshOverlayPreview(); syncTimelineOverlays(); scheduleAutoSave();
                 if (objectDrawer != null && objectDrawer.isShowing()) showImageOverlayDrawer(o);
             });
@@ -34330,7 +34330,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 float[] canvas = getCanvasWHForImagePreset();
                 float[] img = getImageWHForPreset(o);
                 o.applyFill(canvas[0], canvas[1], img[0], img[1]);
-                recordOverlayMenuUndo(o, before, "Fill");
+                recordOverlayMenuUndo(o, before, getString(R.string.studio_label_fill));
                 refreshOverlayPreview(); syncTimelineOverlays(); scheduleAutoSave();
                 if (objectDrawer != null && objectDrawer.isShowing()) showImageOverlayDrawer(o);
             });
@@ -34358,7 +34358,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         float[] img = getImageWHForPreset(o);
                         com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before = o.snapshotTransform();
                         o.resetToStaticCover(canvas[0], canvas[1], img[0], img[1]);
-                        recordOverlayMenuUndo(o, before, "No animation (reset)");
+                        recordOverlayMenuUndo(o, before, getString(R.string.studio_label_no_animation_reset));
                         refreshOverlayPreview(); syncTimelineOverlays(); scheduleAutoSave();
                         if (objectDrawer != null && objectDrawer.isShowing()) showImageOverlayDrawer(o);
                         return;
@@ -34528,7 +34528,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
                     o.snapshotTransform();
             o.setScaleLinked(!o.isScaleLinked());
-            recordOverlayMenuUndo(o, before, "Link scale axes");           // TODO(strings)
+            recordOverlayMenuUndo(o, before, getString(R.string.studio_label_link_scale_axes));           // TODO(strings)
             rebuild.run();
         });
         return iv;
@@ -34650,7 +34650,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         refreshOverlayPreview();
         syncTimelineOverlays();
         if (wasCommitted) {
-            undoManager.recordAction(new EditActions.LambdaAction("Delete text overlay",
+            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_delete_text_overlay),
                     () -> project.getTimeline().removeTextOverlay(item),
                     () -> { restorePrunedLane(prunedLane);
                             project.getTimeline().addTextOverlay(item); }));
@@ -34854,7 +34854,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     && !textOverlayAddRecorded.contains(item)) {
                 textOverlayAddRecorded.add(item);
                 session.addUndoRecordedHere = true;
-                undoManager.recordAction(new EditActions.LambdaAction("Add text overlay",
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add_text_overlay),
                         () -> project.getTimeline().addTextOverlay(item),
                         () -> project.getTimeline().removeTextOverlay(item)));
             }
@@ -36854,7 +36854,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (canvas.width() > 1f && canvas.height() > 1f && (exX != 0f || exY != 0f)) {
             shiftOverlayCentreForPivot(o, exX / canvas.width(), exY / canvas.height(), ms);
         }
-        recordOverlayMenuUndo(o, before, "Pivot");                         // TODO(strings)
+        recordOverlayMenuUndo(o, before, getString(R.string.studio_label_pivot));                         // TODO(strings)
         if (iconToUpdate != null) {
             iconToUpdate.setSelection(o.rotationPivotXNorm(), o.rotationPivotYNorm());
         }
@@ -37052,7 +37052,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
                     o.snapshotTransform();
             o.getKeyframes().removeKey(key, hit);
-            recordOverlayMenuUndo(o, before, "Delete keyframe");
+            recordOverlayMenuUndo(o, before, getString(R.string.studio_label_delete_keyframe));
             refreshOverlayPreview();
             syncTimelineOverlays();
         };
@@ -39324,7 +39324,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             final float afterY = captionOverlay.getCenterY();
                             cc.setCaptionCenter(afterX, afterY);
                             if (beforeX != afterX || beforeY != afterY) {
-                                undoManager.recordAction(new EditActions.LambdaAction("Caption position",
+                                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_position),
                                         () -> cc.setCaptionCenter(afterX, afterY),
                                         () -> cc.setCaptionCenter(beforeX, beforeY)));
                             }
@@ -39361,7 +39361,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (cc != null) {
                             cc.setCaptionsEnabled(false);
                             captionOverlay.setVisibility(View.GONE);
-                            undoManager.recordAction(new EditActions.LambdaAction("Hide captions",
+                            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_hide_captions),
                                     () -> cc.setCaptionsEnabled(false),
                                     () -> cc.setCaptionsEnabled(true)));
                             scheduleAutoSave();
@@ -39425,7 +39425,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             final float afterY = audioCaptionOverlay.getCenterY();
                             ac.setCaptionCenter(afterX, afterY);
                             if (beforeX != afterX || beforeY != afterY) {
-                                undoManager.recordAction(new EditActions.LambdaAction("Caption position",
+                                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_position),
                                         () -> ac.setCaptionCenter(afterX, afterY),
                                         () -> ac.setCaptionCenter(beforeX, beforeY)));
                             }
@@ -39455,7 +39455,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (ac != null) {
                             ac.setCaptionsEnabled(false);
                             audioCaptionOverlay.setVisibility(View.GONE);
-                            undoManager.recordAction(new EditActions.LambdaAction("Hide captions",
+                            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_hide_captions),
                                     () -> ac.setCaptionsEnabled(false),
                                     () -> ac.setCaptionsEnabled(true)));
                             scheduleAutoSave();
@@ -39617,7 +39617,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             bb.centerX = afterX; bb.centerY = afterY;
                             cc.syncLegacyFromBindings();
                             if (beforeX != afterX || beforeY != afterY) {
-                                undoManager.recordAction(new EditActions.LambdaAction("Caption position",
+                                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_position),
                                         () -> { bb.centerX = afterX; bb.centerY = afterY; cc.syncLegacyFromBindings(); },
                                         () -> { bb.centerX = beforeX; bb.centerY = beforeY; cc.syncLegacyFromBindings(); }));
                             }
@@ -39729,7 +39729,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             bb.centerX = afterX; bb.centerY = afterY;
                             ac.syncLegacyFromBindings();
                             if (beforeX != afterX || beforeY != afterY) {
-                                undoManager.recordAction(new EditActions.LambdaAction("Caption position",
+                                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_position),
                                         () -> { bb.centerX = afterX; bb.centerY = afterY; ac.syncLegacyFromBindings(); },
                                         () -> { bb.centerX = beforeX; bb.centerY = beforeY; ac.syncLegacyFromBindings(); }));
                             }
@@ -40546,7 +40546,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Undoable (was not until 2026-07-18), and the resync RE-PROMOTES the session to the
         // gapless engine if removing this transition made the project eligible again — without
         // it the session stayed stranded on the legacy single-clip player.
-        undoManager.recordAction(new EditActions.LambdaAction("Remove transition", // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_remove_transition), // TODO(strings)
                 () -> { // redo
                     removeTransitionObject(timeline, removed);
                     refreshTransitionUiAfterUndoRedo();
@@ -40798,7 +40798,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         applySpriteRelinkUri(sheetId, newUri);
-        undoManager.recordAction(new EditActions.LambdaAction("Relink sprite sheet",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_relink_sprite_sheet),
                 () -> applySpriteRelinkUri(sheetId, newUri),
                 () -> applySpriteRelinkUri(sheetId, oldUri)));
         scheduleAutoSave();
@@ -40872,7 +40872,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         project.getTimeline().addSpriteOverlay(item);
         syncTimelineOverlays();
-        undoManager.recordAction(new EditActions.LambdaAction("Place sprite",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_place_sprite),
                 () -> { project.getTimeline().addSpriteOverlay(item); syncTimelineOverlays(); },
                 () -> { project.getTimeline().removeSpriteOverlay(item); syncTimelineOverlays(); }));
         scheduleAutoSave();
@@ -41149,7 +41149,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // ONE undo step covers BOTH the sheet registration and the placement. Undoing a placement
         // and being left with an orphan sheet in the manager would be the user's action only
         // half-reversed.
-        undoManager.recordAction(new EditActions.LambdaAction("Import image sequence",
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_import_image_sequence),
                 () -> {
                     if (!project.getSpriteSheets().contains(sheet)) {
                         project.getSpriteSheets().add(sheet);
@@ -41347,7 +41347,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             restoreFrameKeys(item, before);
         };
         apply.run();
-        undoManager.recordAction(new EditActions.LambdaAction("Make preset", apply, undo));
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_make_preset), apply, undo));
         scheduleAutoSave();
         Toast.makeText(this, preset.name + " · " + preset.frames.size() + " frames",
                 Toast.LENGTH_SHORT).show();
@@ -41419,7 +41419,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 };
                 apply.run();
                 undoManager.recordAction(
-                        new EditActions.LambdaAction("Convert to sprite sheet", apply, undo));
+                        new EditActions.LambdaAction(getString(R.string.studio_label_convert_to_sprite_sheet), apply, undo));
                 scheduleAutoSave();
                 if (spriteOverlayView != null) spriteOverlayView.invalidate();
                 Toast.makeText(this, "Packed into a "
@@ -41464,7 +41464,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             syncTimelineOverlays();
         };
         apply.run();
-        undoManager.recordAction(new EditActions.LambdaAction("Loop mode", apply, undo));
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_loop_mode), apply, undo));
         scheduleAutoSave();
         if (spriteOverlayView != null) spriteOverlayView.invalidate();
     }
@@ -41496,7 +41496,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             syncTimelineOverlays();
         };
         apply.run();
-        undoManager.recordAction(new EditActions.LambdaAction("Continue to next", apply, undo));
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_continue_to_next), apply, undo));
         scheduleAutoSave();
         if (item.isClippedByNeighbour()) {
             // "Never silently" (§6): if a neighbour cut it short, say so at the moment it
@@ -41533,7 +41533,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Runnable apply = () -> { sheet.setResizeMode(after); syncTimelineOverlays(); };
         Runnable undo = () -> { sheet.setResizeMode(before); syncTimelineOverlays(); };
         apply.run();
-        undoManager.recordAction(new EditActions.LambdaAction("Resize mode", apply, undo));
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_resize_mode), apply, undo));
         scheduleAutoSave();
         Toast.makeText(this,
                 after == com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode.ABSOLUTE
@@ -45553,7 +45553,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 } else {
                     java.util.List<Clip> fClips = new java.util.ArrayList<>(createdClips);
                     java.util.List<Integer> fIdx = new java.util.ArrayList<>(createdIdx);
-                    undoManager.recordAction(new EditActions.LambdaAction("Add " + fClips.size() + " image clips",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add) + fClips.size() + " image clips",
                             () -> {
                                 for (int i = 0; i < fClips.size(); i++) {
                                     int at = Math.max(0, Math.min(fIdx.get(i), tl.getClipCount()));
@@ -45825,7 +45825,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     if (!created.isEmpty()) {
                         java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> fCreated = new java.util.ArrayList<>(created);
-                        undoManager.recordAction(new EditActions.LambdaAction("Add " + fCreated.size() + " images",
+                        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add) + fCreated.size() + " images",
                                 () -> { for (com.fadcam.ui.faditor.model.TextOverlayItem it : fCreated) tl.addTextOverlay(it); refreshAfterOverlayLayerChange(); },
                                 () -> { for (com.fadcam.ui.faditor.model.TextOverlayItem it : fCreated) tl.removeTextOverlay(it); refreshAfterOverlayLayerChange(); }));
                         refreshAfterOverlayLayerChange();
@@ -45851,7 +45851,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     } else {
                         java.util.List<Clip> fClips = new java.util.ArrayList<>(createdClips);
                         java.util.List<Integer> fIdx = new java.util.ArrayList<>(createdIdx);
-                        undoManager.recordAction(new EditActions.LambdaAction("Add " + fClips.size() + " clips",
+                        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add) + fClips.size() + " clips",
                                 () -> {
                                     for (int i = 0; i < fClips.size(); i++) {
                                         int at = fIdx.get(i);
@@ -46279,7 +46279,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final String finalHtml = html;
             final java.io.File finalProjectDir = projectDir;
             // TODO(strings)
-            undoManager.recordAction(new EditActions.LambdaAction("Edit slide code",
+            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_edit_slide_code),
                     () -> {
                         try {
                             com.fadcam.ui.faditor.slides.SlideFiles.writeHtml(
@@ -46719,7 +46719,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     t.snapshotTransitions();
 
             Runnable rejoin = () -> {
-                undoManager.recordAction(new EditActions.LambdaAction("Heal split",
+                undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_heal_split),
                         () -> {
                             left.setOutPointMs(leftSourceEnd);
                             t.removeClip(rightIndex);
@@ -47098,7 +47098,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final long pOldIn = partner.getInPointMs(), pOldOut = partner.getOutPointMs();
         final long pNewIn = pOldIn + dIn, pNewOut = pOldOut + dOut; // setters clamp to partner bounds
         final Clip fClip = clip, fPartner = partner;
-        undoManager.recordAction(new EditActions.LambdaAction("Trim linked pair", // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_trim_linked_pair), // TODO(strings)
                 () -> { fClip.setInPointMs(newIn); fClip.setOutPointMs(newOut);
                         fPartner.setInPointMs(pNewIn); fPartner.setOutPointMs(pNewOut);
                         syncTimelineOverlays();

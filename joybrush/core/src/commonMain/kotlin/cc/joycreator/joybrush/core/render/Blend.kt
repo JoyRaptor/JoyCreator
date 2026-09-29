@@ -102,8 +102,13 @@ object Blend {
      * THE CLAMP LIVES HERE, NOT IN [BlendRgb]. [BlendRgb] is deliberately UNCLAMPED, because SCREEN,
      * EXCLUSION and OVERLAY all legitimately return values above 1 for inputs above 1 and clipping
      * them inside the blend term is how an exporter stops doing what the Studio does. Clamping the
-     * finished term is the same clamp the seven separable modes get below, so all twenty-seven
-     * modes are clamped in exactly one place and in the same way.
+     * finished term keeps this path in the same 0..1 world [term] works in, so a blended pixel can
+     * never be an impossible premultiplied colour.
+     *
+     * NOT "in exactly one place", which an earlier version of this comment claimed and which was
+     * false: [term] clamps too, and it must — `BlendMode.ADD` is Joy Brush's own straight-colour
+     * sum and its clamp is part of that mode's definition, not a shared post-step. The two paths
+     * agree on the 0..1 result they hand on; they are not the same line of code.
      *
      * The scratch arrays are the object's own, and safe because [apply] is not re-entrant: it writes
      * [out] only after [blendRgb] has returned, and [out] may not be [s] or [d] (which the KDoc on
@@ -136,11 +141,14 @@ object Blend {
      * still buys is that a mode cannot be quietly per-channel when it should be whole-pixel: the
      * separation of concerns is visible in the source instead of living in a reader's memory.
      *
-     * [term] now answers only the seven SEPARABLE modes. The other twenty are named in
-     * [needsWholePixelBlend] and dispatched to [BlendRgb] in [apply] before this is ever reached;
-     * they are listed here as `else -> 0f` purely to satisfy the compiler, and that value is
-     * unreachable because [needsWholePixelBlend] and this `when` are exhaustive over the same enum —
-     * `everySepparableModeIsTheOnesTermHandles` in the test suite is what keeps them that way.
+     * [term] now answers only the SEPARABLE modes, and every one of them is separable per channel by
+     * definition. The modes whose answer belongs to the pixel rather than to a channel — HUE,
+     * SATURATION, COLOR, LUMINOSITY, and DARKER/LIGHTER_COLOR among them — are dispatched to
+     * [BlendRgb] in [apply] before this is ever reached, via [needsWholePixelBlend]. They are listed
+     * here as `else -> 0f` purely to satisfy the compiler, and that value is unreachable because
+     * [needsWholePixelBlend] and this `when` are exhaustive over the same enum —
+     * `theSevenSeparableModesAreTheOnesBlendAnswersPerChannel` in the test suite is what keeps them
+     * that way.
      */
     private fun term(mode: BlendMode, cs: Float, cb: Float): Float = when (mode) {
         BlendMode.NORMAL -> cs
@@ -168,8 +176,9 @@ object Blend {
     }
 
     /**
-     * True for the twenty modes that cannot be answered one channel at a time, so [apply] knows to
-     * take the [BlendRgb] path.
+     * True for the modes that cannot be answered one channel at a time, so [apply] knows to take the
+     * [BlendRgb] path. Note it is a NEGATIVE list, so the twenty it covers are the ones it does not
+     * name: the KDoc above once said the other twenty were "named in" here, which was backwards.
      *
      * WRITTEN AS A NEGATIVE LIST ON PURPOSE. The positive form ("these seven are separable") is what
      * [term] already says by name, and the two together are exhaustive. Listing them separately

@@ -104,10 +104,17 @@ const val TILE_SIZE = Tiles.SIZE
  */
 /**
  * The blend modes a layer composites with. The first eight are Joy Brush's own; the nineteen below
- * the fold are the Studio's, appended in the Studio's `BlendModes.ALL` order so that a mode's ordinal
- * IS the Studio's `modeCode` (JB-2.20a, R23). That correspondence is the whole point: the maths in
- * `core/blend` is proved equal to the Studio's Java by a GENERATED golden table rather than copied
- * by eye, and an ordinal that quietly drifted from `modeCode` would make that table a lie.
+ * the fold are the Studio's, appended in the Studio's `BlendModes.ALL` order (JB-2.20a, R23).
+ *
+ * **THE ORDER IS THE STUDIO'S, BUT THE ORDINALS DO NOT *EQUAL* THE STUDIO'S `modeCode`, and an
+ * earlier version of this comment claimed they did.** That claim was false and was filed against it
+ * as a MAJOR false-claim finding: `ERASE_BELOW` is Joy Brush's own insertion at ordinal 7, so every
+ * Studio mode after it is shifted by one, and `DARKEN`/`LIGHTEN` are the Studio's own non-adjacent
+ * codes, so the divergence is larger than that. Nothing reads `BlendMode.ordinal` in production and
+ * nothing is miscomposited today — but the claim mattered because it said the parity proof *rides
+ * on* the ordinal, which is backwards: `BlendParityTest` walks by Studio **code** and looks the
+ * mode up by name, so it would keep working even if this list were reordered. What the order
+ * actually buys is that a human reading the two lists side by side finds the same sequence.
  *
  * `ERASE_BELOW` is the one constant with no Studio counterpart — it is Joy Brush's own — which is
  * why the enum has 27 entries where the Studio has 26.

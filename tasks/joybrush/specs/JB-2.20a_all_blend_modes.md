@@ -155,3 +155,54 @@ are all in `blend/`. Moving them is a rename if the Lead wants the spec's paths.
   Studio's bits.
 - `bash tools/gen_blend_golden.sh --check` also runs the independent GLSL cross-check, because a
   regeneration diff alone cannot see the Java mirror and the shader drifting apart.
+
+---
+
+## Orchestrator rulings on the adversarial round (2026-09-29)
+
+A reviewer attacked the PROOF rather than the arithmetic, which was the right thing to attack, and
+found four false claims. Three are fixed in the KDocs; one goes to the Lead because closing it
+properly is a design decision, not a comment edit.
+
+**R1 — the "independent GLSL cross-check" cannot see a GLSL change. FIXED AS A CLAIM, REFERRED AS A
+GAP.** `tools/blend-golden/glsl_model.py` never opens `BlendModes.java`; its only input is the
+generated `BlendGolden.kt` and its equations are a hand-written transcription of the GLSL *string*.
+So edit the GLSL the GPU actually runs and the generator produces a byte-identical table, `cmp`
+passes, and `--model` compares an unchanged Python against an unchanged table and exits 0. It cannot
+see the drift it was advertised as catching, and the claim was repeated in `gen_blend_golden.sh`,
+in `BlendRgb.kt`'s KDoc, and in this spec's own added-rules bullet — three places asserting one
+false thing.
+What is true, and now what the KDocs say: the Kotlin agrees with the Java, and the Kotlin agrees
+with an independent transcription of the GLSL. **Three implementations, none of which compares the
+Java to the GLSL directly.** That still catches a typo in `BlendRgb`, which is worth having.
+> **FOR THE LEAD.** The honest version of the last check has to EVALUATE the equations from the
+> GLSL string inside `BlendModes.java` rather than trusting a hand-copy — i.e. a tiny GLSL-subset
+> interpreter, or a generator that emits both from one source. That is a real piece of work and a
+> judgement about whether the GPU shader is worth guarding this tightly. Until then the repo's honest
+> claim is "Java and Kotlin and a Python hand-copy agree", and nothing more.
+
+**R2 — "a mode's ordinal IS the Studio's `modeCode`". FALSE for 22 of 27; claim removed.**
+`ERASE_BELOW` is Joy Brush's own insertion at ordinal 7, so everything after it shifts, and
+DARKEN/LIGHTEN are the Studio's own non-adjacent codes, so the divergence is larger than one.
+Nothing reads `ordinal` in production and nothing miscomposites — but the claim said the parity proof
+*rides on* the ordinal, which is backwards: `BlendParityTest` walks by Studio **code** and looks
+modes up by name, so it keeps working even if the list were reordered. `DocModel.kt` and
+`EnumFreezeTest` now say what the order actually buys: a human comparing two lists finds the same
+sequence.
+
+**R3 — five false sentences in `render/Blend.kt` about the whole-pixel path; all corrected.** The
+worst were "the other twenty are NAMED IN `needsWholePixelBlend`" (it is a negative list — it names
+the seven) and "all twenty-seven modes are clamped in exactly one place and in the same way" (only
+19 are; `term` clamps ADD, and that clamp is part of that mode's definition, not a shared post-step).
+
+**R4 — the fill-pen review note was wrong and is not being carried forward.** A brief described
+JB-1.08a as "proven against a Python re-implementation"; no such artefact exists in the tree. The
+real proof is the two analytic models inside `FillPenTest` (the closed-form circular-segment area,
+and the exactness of a rectangle's area), and the reviewer re-derived both and found them holding.
+The closed-form model is worth more than a hand-diff anyway.
+
+**Also confirmed by the reviewer, not acted on:** JB-2.05a's `invert` is the only coverage door with
+no `MAX_SELECT_SPAN` budget, so `EMPTY.invert(RectPx(0,0,100_000,100_000))` would try to allocate
+~10 GB from a rect the file's own `fitsIntPixels` accepts. No production caller, and spec Decision 7
+scopes the cap to `polygon` only — **for the Lead.**
+---

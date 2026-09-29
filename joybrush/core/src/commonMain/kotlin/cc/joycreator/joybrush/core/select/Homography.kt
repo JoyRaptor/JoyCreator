@@ -67,8 +67,10 @@ class Homography(matrix: DoubleArray) {
      *
      * The ORDER IS THE WHOLE POINT and it is the opposite of the usual reading of the word
      * "then", which is why it is spelled out here and tested in `HomographyTest`: `translate(10, 0)`
-     * `.then(scale(2, 2))` scales first and moves second, and the other order gives a different
-     * picture.
+     * `.then(scale(2, 2))` moves FIRST and scales second — the point goes (1,1) → (11,1) → (22,2) —
+     * and the other order, `scale(2, 2).then(translate(10, 0))`, gives (12,2). The two are different
+     * pictures, and an earlier version of this comment claimed the opposite order here, which is
+     * exactly the kind of false claim the adversarial round exists to catch.
      */
     fun then(next: Homography): Homography = Homography(mul(next.m, m))
 

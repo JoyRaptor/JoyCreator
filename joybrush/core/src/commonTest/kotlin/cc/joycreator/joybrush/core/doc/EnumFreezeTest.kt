@@ -58,7 +58,11 @@ class EnumFreezeTest {
             listOf(
                 // Joy Brush's own eight.
                 "NORMAL", "MULTIPLY", "SCREEN", "OVERLAY", "ADD", "DARKEN", "LIGHTEN", "ERASE_BELOW",
-                // The Studio's, in `BlendModes.ALL` order, so ordinal == modeCode (R23, JB-2.20a).
+                // The Studio's, in `BlendModes.ALL` order (R23, JB-2.20a). NOT "so ordinal ==
+                // modeCode" — ERASE_BELOW is Joy Brush's own insertion and shifts everything after
+                // it. The parity test walks by Studio code and looks modes up by NAME, so it does not
+                // depend on this order; what the order buys is that a human comparing the two lists
+                // finds the same sequence. (The false ordinal claim here was filed as a MAJOR.)
                 "DIFFERENCE", "COLOR", "COLOR_DODGE", "COLOR_BURN", "LINEAR_BURN",
                 "HARD_LIGHT", "SOFT_LIGHT", "VIVID_LIGHT", "LINEAR_LIGHT", "PIN_LIGHT", "HARD_MIX",
                 "EXCLUSION", "SUBTRACT", "DIVIDE", "DARKER_COLOR", "LIGHTER_COLOR",

@@ -1,0 +1,19 @@
+# Adversarial review — JB-1.08a Fill pen brush (outline maths + v2 format + preset)
+
+- Reviewer: muse-spark (cross-reviewer; builder was an unrelated subagent — different family; orchestrator applied the two cross-area rulings Q1/Q2).
+- Task status: 🟧 Built. Commit reviewed: `47b49391` (fill-pen half; blend-modes half is JB-2.20a, reviewed separately).
+- Spec reviewed: `tasks/joybrush/specs/JB-1.08a_fill_pen.md` (contract, decisions 1–5, tests 1–6, Do-not + orchestrator rulings Q1–Q4 + builder Q1–Q6).
+- §5b checks: the fill-pen half touches the spec's owner area (`brush/FillPen.kt`, `BrushJson.kt` version rule, `BrushValidate.kt` fill/behind acceptance, `BrushPreset.kt` comments/default, `brushes/fill/brush.json` + `index.txt` line — the last two via the orchestrator's declared Q1 ruling, not smuggled) plus board row and spec questions; no rendering, no stamp-behaviour change, no field renames per "Do not". Suite run by me in a clean HEAD worktree: `FillPenTest` 4/4, `BrushTest` 20/20, `DocModelTest` 39/39, `EnumFreezeTest` 10/10 — 0 failures.
+- Severity scale per §5b: BLOCKER / MAJOR / MINOR.
+
+## Findings: none on the built code. Verified instead
+
+1. **Outline contract exact:** `smoothAll(samples, smoothing, screenPerDoc)` batch call with matching arg order; dedup on BOTH sides (pre-smooth input, post-smooth output — the Q3 ruling); implicit closing (first point never repeated); `<3 → empty` on both sides (`MIN_CORNERS=3`); x/y-only reads (pressure/tilt recorded in the `PenSample`, never read — Decision 5, so re-brush to pencil recovers feel for free). The two-sample-flick edge (51 collinear points vs empty) follows the ruled conservative reading, one line to reverse if the Lead disagrees.
+2. **Format versioning per Decision 1 + Q2(b):** `BRUSH_VERSION = 2` is THE constant (no second constant remains); `encode` writes the lowest expressing version (old ordinary brushes still encode 1 — bump without rewriting anyone's files); `decode` accepts 1+2 and refuses v1+`fill`/`behind` with the exact spec message `engine "fill" needs brush version 2`; the refusal is mirrored in `validate` (deliberate dual placement, documented both sides — hand-built presets can bypass `decode`); `BrushPreset.version` default moved to `BRUSH_VERSION` with the freeze test asserting the equality (the easy-to-forget half, pinned).
+3. **Shipped preset byte-exact to the spec's JSON** (id/name/engine/size 8/opacity 1/blend normal/smoothing 0.3/CC0, `version 2`) + `index.txt` line; `size.base = 8` keeps the Q1 ruling (key mandatory since `size` has no default; size rule intentionally NOT skipped for fill — validator change for cosmetic reasons correctly refused).
+4. **Validation intentionally uniform:** no fill-specific branch — tip/size/spacing/grain/scatter fields ride along silently (a re-brushed pencil keeps its fields, as specified), so no spurious warnings on re-brush round-trips.
+5. Latent notes (recorded, not filed — unreachable via files, hand-built presets only): the refusal message interpolates the *current* `BRUSH_VERSION` (a future bump to 3 would mislabel a v1-fill file); `decode` lets `version > 2` through for the validator to flag (lenient-open by design); `version 0 + fill` upgrades to 2, masking the unknown-version pin (unreachable via `decode`'s own path in practice).
+6. **Q6 confirmed and endorsed to the Lead:** R20's "only stamp/fill on ink layers" rule is implemented nowhere in core — no engine↔`LayerKind` pairing exists anywhere, and `FillPen` is deliberately layer-agnostic (correct here; the check belongs to the pick UI, and inventing it here would have been scope creep).
+
+## Recommendation
+No send-back. No BLOCKER, MAJOR, or MINOR open. The analytic area proofs (square exactly 40000, "C" 0.039% under closed-form) are the right evidence class for geometry — keep requiring them.

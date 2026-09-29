@@ -17,6 +17,15 @@ import kotlin.math.sqrt
  * and deciding they look the same. `BlendParityTest` is the half of that which runs in CI, and
  * `BlendRgbIdentityTest` checks the equations themselves rather than the table.
  *
+ * WHAT THE PARITY PROOF DOES **NOT** COVER, added 2026-09-29 after an adversarial review found the
+ * KDoc claiming more than was true. `--model` is a third transcription (Python, from the GLSL text)
+ * and it genuinely does catch a typo in this file, because it never looks at this file or at the
+ * Java. But it is **not** a Java-versus-GLSL check: it reads only the generated table, so a change
+ * to the GLSL the GPU actually runs would pass every check in the repo. So the honest summary of the
+ * evidence is: *the Kotlin agrees with the Java, and the Kotlin agrees with an independent
+ * transcription of the GLSL* — three implementations, none of which compares the Java to the GLSL
+ * directly. Closing that last gap is a Lead question; see the spec's Questions.
+ *
  * THE CONTRACT, which is the Studio's contract verbatim and not a convenient one:
  *
  *  - [b] is the STRAIGHT (un-premultiplied) backdrop and [s] the STRAIGHT source, each 3 floats.

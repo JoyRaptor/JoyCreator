@@ -110,12 +110,23 @@ class GuideSnapper(val guides: List<Guide>, val screenPerDoc: Float) {
 
     // ── direction guides ───────────────────────────────────────────────────────
 
-    /** The candidate direction nearest the pen's own direction, or null when none is close enough. */
+    /**
+     * The candidate direction nearest the pen's own direction, or null when none is close enough.
+     *
+     * [mx], [my] is where the pen is NOW, and it is only used for the pen's own heading. The
+     * candidates come from [candidates] at the START, always: Decision 2 locks a direction and then
+     * projects every later sample onto the line through the start in it, so the locked direction has
+     * to be a direction OF THAT LINE. Measuring a guide at the current point instead makes the two
+     * disagree by the angle subtended at the guide's own feature — for a vanishing point roughly
+     * lockDistance / distance(start, vp) — and the stroke is then guided onto a line the guide does
+     * not draw. Grid and isometric directions do not depend on where they are measured, which is
+     * why the mistake hides there.
+     */
     private fun nearestDirection(mx: Double, my: Double): Pt? {
         var best: Pt? = null
         var bestDiff = Double.MAX_VALUE
         val at = atan2(my, mx)
-        for (c in candidates(mx + sx, my + sy)) {
+        for (c in candidates(sx, sy)) {
             val d = lineAngleDiff(at, atan2(c.y, c.x))
             if (d < bestDiff) {
                 bestDiff = d
@@ -128,7 +139,8 @@ class GuideSnapper(val guides: List<Guide>, val screenPerDoc: Float) {
     }
 
     /**
-     * Every direction any direction guide offers through the point (x, y) — the stroke's start.
+     * Every direction any direction guide offers through the point (x, y). The caller always passes
+     * the stroke's START, because that is the point the locked line runs through.
      * Tracers offer none: they are edges, not directions.
      */
     private fun candidates(x: Double, y: Double): List<Pt> {
@@ -148,6 +160,13 @@ class GuideSnapper(val guides: List<Guide>, val screenPerDoc: Float) {
                     out.add(Pt(-cos(h), sin(h)))
                 }
                 is Guide.Perspective -> {
+                    // The direction towards a vanishing point is the line THROUGH the start and the
+                    // point — the same line the overlay's rays lie on. A vanishing point that sits
+                    // ON the start is a deliberate no-op: the stroke is already there, every
+                    // direction from it reaches it, so there is nothing to choose and offering one
+                    // would pin the stroke to an arbitrary line. The guard is also what keeps the
+                    // division honest. The other vanishing points, the vertical and the horizontal
+                    // are unaffected, so such a stroke can still lock to one of those.
                     for (vp in g.vanishingPoints) {
                         val dx = vp.x - x
                         val dy = vp.y - y
@@ -208,7 +227,13 @@ class GuideSnapper(val guides: List<Guide>, val screenPerDoc: Float) {
         return best
     }
 
-    /** Orthogonal distance from (x, y) to the INFINITE line through a and b (0 for a==b). */
+    /**
+     * Orthogonal distance from (x, y) to the INFINITE line through a and b.
+     *
+     * `a == b` is a guide with no direction, so it is REFUSED rather than measured as a distance to
+     * the point: the overlay draws nothing for it and the projection would be the identity, so
+     * taking it would light up the "locked" highlight over a stroke that never moves.
+     */
     private fun rulerDistance(g: Guide.Ruler, x: Double, y: Double): Double {
         if (!g.a.x.isFinite() || !g.a.y.isFinite() || !g.b.x.isFinite() || !g.b.y.isFinite()) {
             return Double.MAX_VALUE
@@ -216,16 +241,33 @@ class GuideSnapper(val guides: List<Guide>, val screenPerDoc: Float) {
         val dx = g.b.x - g.a.x
         val dy = g.b.y - g.a.y
         val len2 = dx * dx + dy * dy
-        if (!(len2 > 0.0) || !len2.isFinite()) return hypot(x - g.a.x, y - g.a.y)
+        if (!(len2 > 0.0) || !len2.isFinite()) return Double.MAX_VALUE
         return abs((x - g.a.x) * dy - (y - g.a.y) * dx) / sqrt(len2)
     }
 
-    /** How far (x, y) is from the ellipse's curve, in document px. */
+    /**
+     * How far (x, y) is from the ellipse's curve, in document px, or [Double.MAX_VALUE] when the
+     * tracer is not one this snapper can act on.
+     */
     private fun ellipseDistance(g: Guide.EllipseTracer, x: Double, y: Double): Double {
-        if (!g.rx.isFinite() || !g.ry.isFinite() || g.rx <= 0.0 || g.ry <= 0.0) return Double.MAX_VALUE
+        if (!snappable(g)) return Double.MAX_VALUE
         val p = ellipsePoint(g, x, y)
         return hypot(p.x - x, p.y - y)
     }
+
+    /**
+     * Whether an ellipse tracer has every number the maths needs: a finite centre, a finite rotation
+     * and two positive finite radii.
+     *
+     * A tracer that is missing one of them is REFUSED instead of silently measured. The failure it
+     * avoids is specific: [ellipsePoint] returns its input unchanged when the centre is not finite,
+     * so the "distance" comes out as exactly zero, the tracer is in reach of every stroke, and
+     * [locked] goes true while `map` leaves every sample where it was — a highlight on a guide that
+     * does nothing. Same reason a degenerate ruler is refused.
+     */
+    private fun snappable(g: Guide.EllipseTracer): Boolean =
+        g.center.x.isFinite() && g.center.y.isFinite() && g.rotation.isFinite() &&
+            g.rx.isFinite() && g.ry.isFinite() && g.rx > 0.0 && g.ry > 0.0
 
     private fun ontoTracer(s: PenSample, g: Guide, x: Double, y: Double): PenSample {
         val p = when (g) {
@@ -236,7 +278,11 @@ class GuideSnapper(val guides: List<Guide>, val screenPerDoc: Float) {
         return s.copy(x = p.x.toFloat(), y = p.y.toFloat())
     }
 
-    /** Orthogonal projection onto the infinite line through a and b; a==b is left where it is. */
+    /**
+     * Orthogonal projection onto the infinite line through a and b. `a == b` has no line to project
+     * onto and leaves the sample where it is — [rulerDistance] refuses such a ruler long before
+     * this is reached, so it is the backstop, not the plan.
+     */
     private fun rulerPoint(g: Guide.Ruler, x: Double, y: Double): Pt {
         val dx = g.b.x - g.a.x
         val dy = g.b.y - g.a.y
@@ -249,9 +295,13 @@ class GuideSnapper(val guides: List<Guide>, val screenPerDoc: Float) {
     /**
      * The point of the ellipse's curve nearest to (x, y), by Newton's method on the parametric
      * angle [NEWTON_STEPS] times, started from the angle the point makes in the ellipse's own
-     * frame. The squared distance along t is a concave function of t (its second derivative is
-     * always negative for positive radii), so Newton walks straight down to the local minimum
-     * instead of hunting — six steps is far more than drawing a line by hand needs.
+     * frame.
+     *
+     * D(t) — the squared distance from (x, y) to the curve point at angle t — is NOT concave. Its
+     * curvature at its own minimum is positive (the long comment on the Newton step below says by
+     * how much), which is the whole reason Newton walks down to the nearest point instead of away
+     * from it; six steps is far more than drawing a line by hand needs. Treat D as if it were
+     * concave and this function stops working, silently.
      */
     private fun ellipsePoint(g: Guide.EllipseTracer, x: Double, y: Double): Pt {
         if (!g.center.x.isFinite() || !g.center.y.isFinite()) return Pt(x, y)

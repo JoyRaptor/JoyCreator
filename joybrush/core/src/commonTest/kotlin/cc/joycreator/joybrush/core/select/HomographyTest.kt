@@ -28,9 +28,11 @@ import kotlin.test.assertTrue
  *    and h4 - h7 = 1; and the two at (1, 1) give 1 - h7 = 1 and 1 - h6 = 1, so h6 = h7 = 0 and the
  *    matrix is the identity. That is the derivation the first test below re-runs in code.
  *
- *  - `then` IS "THIS FIRST". So `translate(10, 0).then(scale(2, 2))` applied to (1, 1) scales the
- *    point to (2, 2) and then moves it to (12, 2), while the same two in the other order give
- *    (22, 2). Both numbers are exact integers and both are asserted.
+ *  - `then` IS "THIS FIRST". So `translate(10, 0).then(scale(2, 2))` applied to (1, 1) moves the
+ *    point to (11, 1) and then scales it to (22, 2), while the same two in the other order
+ *    (`scale(2, 2).then(translate(10, 0))`) give (12, 2). Both numbers are exact integers and both
+ *    are asserted. (This header once had the two results swapped, while the test 155 lines below
+ *    asserted the right one — a comment contradicting its own test.)
  *
  *  - A PROJECTIVE CENTRE IS THE INTERSECTION OF THE DIAGONALS. A map that takes one quad to
  *    another takes the intersection of the source's diagonals to the intersection of the

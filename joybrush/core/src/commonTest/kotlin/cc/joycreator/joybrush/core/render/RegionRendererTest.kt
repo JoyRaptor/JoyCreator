@@ -927,8 +927,15 @@ class RegionRendererTest {
             BlendMode.HUE, BlendMode.SATURATION, BlendMode.LUMINOSITY,
         )
 
+        // THREE sets, not two, and the distinction is load-bearing:
+        //   - 7 separable: per channel, answered by `Blend.term`.
+        //   - ERASE_BELOW: destination-out, and `apply` returns before EITHER path — it is not
+        //     separable, but it is not a `BlendRgb` case either. `needsWholePixelBlend` answers true
+        //     for it (it is not one of the seven) and that answer is never consulted, which is why
+        //     this comment exists: the helper's true-branch is 20 modes wide, not 19.
+        //   - 19 whole-pixel: `BlendRgb`, all of them from JB-2.20a.
         assertEquals(7, separable.size, "seven are separable")
-        assertEquals(19, wholePixel.size, "nineteen are not, and all nineteen came from JB-2.20a")
+        assertEquals(19, wholePixel.size, "nineteen are whole-pixel, and all nineteen came from JB-2.20a")
         assertEquals(
             BlendMode.entries.toList(),
             (separable + listOf(BlendMode.ERASE_BELOW) + wholePixel).sortedBy { it.ordinal },

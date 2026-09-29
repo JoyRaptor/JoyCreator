@@ -13,10 +13,32 @@
 #   --check     regenerate to a temp file and diff against the committed one; non-zero on ANY
 #               difference. Run this in CI: it is what notices that BlendModes.java changed and
 #               nobody re-ran the generator.
-#   --model     re-derive every row from the Studio's GLSL source (a SECOND, independent
-#               transcription, in Python) and diff that against the Java-generated table. Catches
-#               the case where BlendModes.java's Java mirror and its GLSL have drifted from each
-#               other, which no Java-side check can see.
+#   --model     re-derive every row from a SECOND, independent transcription of the Studio's GLSL
+#               (in Python) and diff that against the Java-generated table. See the HONESTY note
+#               below before you believe how much this buys you.
+#
+# ------------------------------------------------------------------------------
+# HONESTY NOTE — WHAT --model DOES *NOT* DO (added 2026-09-29 after adversarial review)
+#
+# An earlier version of this comment claimed --model "catches the case where BlendModes.java's Java
+# mirror and its GLSL have drifted from each other, which no Java-side check can see." THAT IS FALSE
+# and the reviewer was right to file it as a MAJOR against a false claim.
+#
+# `glsl_model.py` never opens `BlendModes.java`. Its only input is the generated `BlendGolden.kt`,
+# and its equations are a hand-written transcription of the GLSL *string*. So edit the GLSL the GPU
+# actually runs and: the generator still calls the Java, the table is byte-identical, `cmp` passes,
+# and --model compares an unchanged Python against an unchanged table and exits 0. It cannot see a
+# GLSL-only edit, which is exactly the drift it was advertised as catching.
+#
+# What --model DOES establish: that the Kotlin `BlendRgb` and this independent Python transcription
+# agree with each other and with the Java-generated table. Three implementations, one of which never
+# looks at the other two. That is worth having, and it does catch a typo in `BlendRgb` — but it is
+# NOT a Java-vs-GLSL parity check and must not be described as one.
+#
+# CLOSING THAT GAP IS A LEAD QUESTION, not something to invent here: the honest version has to
+# extract the equations from the GLSL string in `BlendModes.java` itself and evaluate them, rather
+# than trusting a hand-copy. Recorded in the JB-2.20a spec's Questions.
+# ------------------------------------------------------------------------------
 #
 # Usage:
 #   bash tools/gen_blend_golden.sh            # regenerate

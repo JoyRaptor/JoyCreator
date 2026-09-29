@@ -183,3 +183,12 @@ updated, still Ready after 2.16a). JB-3.05 (player, not 3.05a) — owner: pressi
 end starts from the beginning. JB-2.06b now includes lasso fill; there is no separate 2.07b.
 Parallel-safety: JB-2.06b and JB-2.03a both edit `JbCanvasView` and `JoyBrushActivity` — never run
 them at the same time. D.02a and D.02 touch app files — one at a time, and never beside JB-0.09.
+
+**R19. JB-2.16a / JB-4.01a referred questions — fixed by the Lead.**
+- `BrushValidate.MAX_SIZE_PX` is now public and `SizeOpacityDrag.MAX_SIZE` IS it (no copy); a test
+  pins the equality. JB-2.16a Q4 (pass `view.zoom`, not its inverse): confirmed.
+- `SpriteGridMath`: `cellRect` and `subGridLines` add in Long; `cellRect` REFUSES
+  (`IllegalArgumentException`) a cell whose rectangle cannot be expressed in Int instead of wrapping
+  to a wrong place; `cellAt` range-checks in Double before any `toInt()`, so it no longer relies on
+  JVM saturation (iOS door). Two tests added. Orchestrator's other provisional rulings on both
+  specs: confirmed.

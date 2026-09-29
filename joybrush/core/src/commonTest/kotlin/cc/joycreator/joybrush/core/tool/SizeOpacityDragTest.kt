@@ -205,4 +205,9 @@ class SizeOpacityDragTest {
         assertEquals(0.01f, drag(startOpacity = 0f).opacity, eps)
         assertEquals(1.0f, drag(startOpacity = Float.NaN).opacity, eps)
     }
+
+    @Test
+    fun theSizeLimitIsBrushValidatesOwnNumber() {
+        assertEquals(cc.joycreator.joybrush.core.brush.BrushValidate.MAX_SIZE_PX, SizeOpacityDrag.MAX_SIZE)
+    }
 }

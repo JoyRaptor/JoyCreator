@@ -137,12 +137,14 @@ object SpriteGridMath {
         require(index in 0..last) { "cell $index is outside a ${cols}x$rows grid, which holds 0..$last" }
         val col = index % cols
         val row = index / cols
-        return RectPx(
-            x = board.rect.x + col * cellW,
-            y = board.rect.y + row * cellH,
-            w = cellW,
-            h = cellH,
-        )
+        // Long, then checked: a cell whose corner is past Int's range cannot be named by a RectPx,
+        // and saying so beats wrapping round to a cell somewhere else (LEAD R19).
+        val left = board.rect.x.toLong() + col.toLong() * cellW
+        val top = board.rect.y.toLong() + row.toLong() * cellH
+        require(left in Int.MIN_VALUE..Int.MAX_VALUE - cellW && top in Int.MIN_VALUE..Int.MAX_VALUE - cellH) {
+            "cell $index of board \"${board.id}\" lies beyond the canvas coordinates a document can hold"
+        }
+        return RectPx(x = left.toInt(), y = top.toInt(), w = cellW, h = cellH)
     }
 
     /**
@@ -164,16 +166,16 @@ object SpriteGridMath {
         val rows = rowsOf(grid.rows, cols)
         val cellW = cellWOf(grid.cellW)
         val cellH = cellHOf(grid.cellH)
-        // Offsets from the grid's top-left. Both are non-negative from here, and the cell edges are
-        // at least 1, so neither division can be 0/0 — a huge point saturates an Int in `.toInt()`
-        // and then fails the range test below, which is the -1 it should have been.
-        val fromLeft = x - board.rect.x.toFloat()
-        val fromTop = y - board.rect.y.toFloat()
-        if (fromLeft < 0f || fromTop < 0f) return -1
-        val col = floor(fromLeft / cellW).toInt()
-        val row = floor(fromTop / cellH).toInt()
+        // Offsets from the grid's top-left, in Double, and the range test happens BEFORE any
+        // conversion to Int — so this never relies on how a platform saturates a huge Float.toInt()
+        // (true on the JVM, not promised on every Kotlin target; LEAD R19).
+        val fromLeft = x.toDouble() - board.rect.x.toDouble()
+        val fromTop = y.toDouble() - board.rect.y.toDouble()
+        if (fromLeft < 0.0 || fromTop < 0.0) return -1
+        val col = floor(fromLeft / cellW)
+        val row = floor(fromTop / cellH)
         if (col >= cols || row >= rows) return -1
-        return row * cols + col
+        return row.toInt() * cols + col.toInt()
     }
 
     // ---------- dragging an edge ----------
@@ -245,8 +247,8 @@ object SpriteGridMath {
         val lines = ArrayList<FloatArray>(cols * rows * (div - 1) * 2)
         for (row in 0 until rows) {
             for (col in 0 until cols) {
-                val left = board.rect.x + col * cellW
-                val top = board.rect.y + row * cellH
+                val left = board.rect.x.toLong() + col.toLong() * cellW
+                val top = board.rect.y.toLong() + row.toLong() * cellH
                 val right = left + cellW
                 val bottom = top + cellH
                 for (step in 1 until div) {

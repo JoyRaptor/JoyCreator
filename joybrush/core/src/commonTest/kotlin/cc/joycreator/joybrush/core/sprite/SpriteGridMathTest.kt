@@ -415,4 +415,31 @@ class SpriteGridMathTest {
     /** The y of every segment that runs horizontally (`y0 == y1`). */
     private fun horizontalLines(lines: List<FloatArray>): List<Float> =
         lines.filter { it[1] == it[3] }.map { it[1] }
+
+    // ---------- LEAD R19: no silent Int overflow, no platform-specific saturation ----------
+
+    private fun farBoard(x: Int, y: Int) = Board(
+        id = "far", name = "far", kind = BoardKind.SPRITE, rect = RectPx(x, y, 4096 * 8, 4096),
+        grid = SpriteGrid(cols = 8, rows = 1, cellW = 4096, cellH = 4096),
+    )
+
+    @Test
+    fun aCellBeyondTheCoordinateRangeIsRefusedNotWrapped() {
+        val b = farBoard(Int.MAX_VALUE - 10_000, 0)
+        // Cells 0 and 1 fit (cell 1 ends at MAX - 1808); cell 2 would end past Int.MAX_VALUE, and
+        // in Int arithmetic cell 3 would wrap to a large NEGATIVE x. Refused, not wrapped.
+        assertEquals(Int.MAX_VALUE - 10_000, SpriteGridMath.cellRect(b, 0).x)
+        assertEquals(Int.MAX_VALUE - 10_000 + 4096, SpriteGridMath.cellRect(b, 1).x)
+        assertFailsWith<IllegalArgumentException> { SpriteGridMath.cellRect(b, 2) }
+        assertFailsWith<IllegalArgumentException> { SpriteGridMath.cellRect(b, 3) }
+    }
+
+    @Test
+    fun hugeCoordinatesAreOffTheGridWithoutRelyingOnSaturation() {
+        val b = farBoard(0, 0)
+        assertEquals(-1, SpriteGridMath.cellAt(b, 3.0e38f, 10f))
+        assertEquals(-1, SpriteGridMath.cellAt(b, 10f, 3.0e38f))
+        assertEquals(-1, SpriteGridMath.cellAt(b, -3.0e38f, 10f))
+        assertEquals(7, SpriteGridMath.cellAt(b, 4096f * 7 + 1f, 10f))
+    }
 }

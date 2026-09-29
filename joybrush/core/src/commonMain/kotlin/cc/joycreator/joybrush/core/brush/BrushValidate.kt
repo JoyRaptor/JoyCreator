@@ -21,7 +21,8 @@ object BrushValidate {
     private val GRAIN_SOURCES = setOf("cloud", "image")
 
     /** A dab bigger than this is not a big brush, it is a mistake. px. */
-    private const val MAX_SIZE_PX = 4096f
+    /** The largest brush diameter, px. Public so every size control clamps to the SAME number. */
+    const val MAX_SIZE_PX = 4096f
 
     /** Per [Param]. Each input is a curve evaluated on every dab of every stroke. */
     private const val MAX_INPUTS = 8

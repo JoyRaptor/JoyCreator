@@ -1,5 +1,7 @@
 package cc.joycreator.joybrush.core.tool
 
+import cc.joycreator.joybrush.core.brush.BrushValidate
+
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -162,8 +164,8 @@ class SizeOpacityDrag(
         /** Smallest size the drag will set, document px — under this a dab is a speck. */
         const val MIN_SIZE = 0.5f
 
-        /** Biggest size the drag will set, document px — the same limit BrushValidate enforces. */
-        const val MAX_SIZE = 4096f
+        /** Biggest size the drag will set, document px — BrushValidate's own limit, not a copy of it. */
+        const val MAX_SIZE = BrushValidate.MAX_SIZE_PX
 
         /** Opacity never reaches 0: an invisible brush looks broken. */
         const val MIN_OPACITY = 0.01f

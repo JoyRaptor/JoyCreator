@@ -134,3 +134,18 @@ with 0 failures in `joybrush/core/build/test-results/jvmTest/`.
 - [ ] ROADMAP.md row → 🟧 Built
 
 ## Questions
+
+**Built by the Lead (2026-09-29).** Four dispatches failed, and the likely reason is the spec, not the
+builders: Decision 6's plain PCA is exact only for points spread evenly in the ellipse's own angle,
+but a drawn stroke is spread evenly in arc length. On test 3 (rx 160, ry 80) plain PCA gives
+rx ≈ 147, so the test cannot pass (checked by mutation). Three changes, all marked `Lead:` in code:
+1. **Ellipse fit:** cut a closed stroke after exactly one lap (the overlap is drawn twice and pulls
+   the centre), then re-weight each point by the span of ellipse angle it covers and refit (3 rounds).
+   Radii now land within ~1 px.
+2. **Closure:** after dropping the final vertex, also drop trailing vertices within 2·eps of the
+   start (an overshoot leaves a second copy of the start corner).
+3. **Merging on closed strokes is cyclic**, vertex 0 included, so a rectangle begun mid-side still
+   has 4 corners (new test `aRectangleBegunMidSideStillHasFourCorners`).
+Test 1's "within 2 px of the drawn ends" now reads as specified: the ends ARE the drawn samples
+(asserted equal); they are ≤ 4.5 px from the ideal ends because of the roughening. All tests run
+over seeds 1…10.

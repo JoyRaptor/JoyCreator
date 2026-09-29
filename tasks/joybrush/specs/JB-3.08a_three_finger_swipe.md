@@ -34,6 +34,10 @@ class ThreeFingerSwipe(val density: Float = 1f) {
         /** Show frame [index] of the active board (already clamped to 0 until frames − 1). */
         data class ShowFrame(val index: Int) : Step()
         data class Brush(val size: Float, val opacity: Float) : Step()
+        /** The index just reached the first (atEnd = false) or last (true) frame and stops there. */
+        data class Ended(val index: Int, val atEnd: Boolean) : Step()
+        /** Pushed through an end: now showing [index] at the other end. */
+        data class Wrapped(val index: Int) : Step()
         object Nothing : Step()
     }
     /** Three fingers came down. [frameIndex] = the frame showing; brush values as now; zoom now. */
@@ -54,10 +58,16 @@ class ThreeFingerSwipe(val density: Float = 1f) {
 3. **Mode is fixed at `begin`.** `badge()` may change during a gesture (e.g. a frame gets added) but
    the gesture in progress keeps the mode it began with.
 4. **FRAMES:** a flip every `36 × density` screen px of HORIZONTAL travel; finger moving LEFT shows
-   the NEXT frame (like turning a page), right shows the previous. `index = clamp(start − round(dx /
-   step), 0, frames − 1)` — clamped, not wrapped: a flip-book stops at its ends, and wrap-around at
-   speed is disorienting. Vertical travel is ignored. Each `move` returns `ShowFrame` only when the
-   index CHANGES, else `Nothing` (so the caller redraws only when needed).
+   the NEXT frame (like turning a page), right shows the previous. The ends STOP (owner, 2026-09-29):
+   `index = clamp(start − round(dx / step), 0, frames − 1)`. **Push-through wrap** (owner's idea, to
+   avoid scrolling all the way back): once the index is held at an end, keep pushing the SAME way for
+   a further `3 × step` and it wraps to the other end (last → first, or first → last), continuing
+   from there. The push distance restarts after each wrap, so a long swipe wraps at most once per
+   3-step push. Returns `Step.Ended(atEnd)` exactly once each time the index first reaches an end
+   (the caller gives a small haptic tick, so the stop is felt), and `Step.Wrapped` on a wrap (a
+   stronger tick). After a wrap, the formula restarts from the wrap point (start := the new index,
+   dx measured from where the wrap happened). Vertical travel is ignored. Each `move` returns `ShowFrame` only when the index
+   CHANGES, else `Nothing`.
 5. **BRUSH:** exactly JB-2.16a's `SizeOpacityDrag` (axis lock, exponential size, linear opacity);
    returns `Brush` whenever a value changes.
 6. Non-finite offsets → `Nothing`. `move` before `begin` or after `end` → `Nothing`.
@@ -70,8 +80,10 @@ class ThreeFingerSwipe(val density: Float = 1f) {
    Override to FRAMES on a canvas board with 0 frames is refused.
 3. Mode fixed: begin in FRAMES, change the doc so the badge would say BRUSH, keep moving → still
    `ShowFrame` steps.
-4. FRAMES: 10 frames, start at 4, dx = −36 → ShowFrame(5); −72 → 6; +200 → clamps at 0; tiny
-   moves in between return Nothing; density 2 doubles the step.
+4. FRAMES: 10 frames, start at 4, dx = −36 → ShowFrame(5); −72 → 6; tiny moves in between return
+   Nothing; density 2 doubles the step. Right to the start: reaching 0 returns Ended(0, false) once;
+   pushing on by < 3 steps → Nothing; by 3 steps → Wrapped(9); keep pushing → 8, 7 … Symmetric at
+   the last frame (Ended(9, true), then Wrapped(0)). Reversing direction at an end never wraps.
 5. BRUSH: same numbers as JB-2.16a tests 2 and 4, through this class.
 6. move without begin → Nothing; NaN → Nothing.
 
@@ -84,5 +96,4 @@ Touch no existing file; no Android. Do not reimplement the size/opacity maths �
 Tests pass (paste) · commit `JB-3.08a: three-finger swipe logic` · ROADMAP row → 🟧 Built.
 
 ## Questions
-- For the owner (answer any time, the constant is one line): at the ends of the animation, should a
-  flip STOP (as specified) or WRAP around to the other end?
+- Answered by the owner 2026-09-29: stop at the ends, with push-through to wrap (Decision 4).

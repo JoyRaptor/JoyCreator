@@ -143,3 +143,43 @@ needs 2.16a · JB-3.05 needs 3.05a · JB-3.08 needs 3.08a · JB-4.01 needs 4.01a
 Parallel-safe: every pair above except 2.05a→2.05b and 2.16a→3.08a (and 5.03a edits StrokeCodec, so
 nothing else touching `stroke/` runs beside it). The orchestrator keeps writing its own list
 (0.09, D.02, 2.14c, 8.01/8.02/8.04, 3.06b, 2.15, 0.10); the Lead will not write those.
+
+## 2026-09-29 — reuse the Studio's colour picker and transform tool; more specs
+
+**R16. Reuse, don't rebuild (owner).** Joy Brush uses the Studio's colour picker
+(`ColorPickerDialog`) and transform surface (`TransformOverlayView` + `TransformQuad` +
+`HandleModel`). The Lead audited the transform tool first:
+`tasks/joybrush/reviews/STUDIO_TRANSFORM_AUDIT__lead.md` — 4 MAJOR gesture bugs (a drag + second
+finger jumps back; a third finger splits the pinch's undo; an absorbed drag can end uncommitted;
+rotation past 180° is stored the long way round, which breaks keyframes), 1 MINOR feel bug (corner
+lags the finger by half), 1 stale harness test. Order: **D.02a** (fix them, in the app) → **D.02**
+(move them into the shared `:studiokit` module, pure move). The Lead has taken over **D.02** (it
+supersedes the old outline; the orchestrator's planned pieces — scrubbable number, slider row, header
+icon button — become **D.02b**, still the orchestrator's to write, into the same module).
+
+**R17. Warp and puppet come almost free.** The Studio's `transform/mesh/` holds a green grid-warp
+engine and a full puppet pipeline (contour → triangles → weights → MLS solver → pose tracks; ~290
+harness checks pass). Plan (outline rows, specs later): **D.03** move `mesh/` into `:studiokit`;
+**JB-2.05c** warp a selection with the lattice (T1, after JB-2.05); Phase 7's puppet board builds on
+the same engine — JB-7.02 already says "no copy". Liquify is NOT in there (JB-1.06 nudge covers push).
+
+**R18. New Ready specs** (add to the board; Lead-written, so 🟦 Ready):
+
+| Row | Tier | Needs | Status |
+|---|---|---|---|
+| [D.02a](specs/D.02a_transform_fixes.md) Fix the Studio transform tool's gesture bugs (audit T1–T6) | T2 (T1 review) + T3 | — | 🟦 Ready |
+| [D.02](specs/D.02_studiokit_module.md) `:studiokit` module: Studio colours, colour picker, transform surface (pure move) | T2 (T1 review) + T3 | D.02a | 🟦 Ready (after D.02a) |
+| [JB-2.05b](specs/JB-2.05b_transform_and_resample.md) **REVISED:** homography (quad→quad) + tile resample; handles come from the Studio overlay | T2 | 2.05a | 🟦 Ready (after 2.05a) |
+| [JB-2.07a](specs/JB-2.07a_lasso_fill.md) Mask paint: lasso fill / erase / paint-behind maths | T2 | 2.05a | 🟦 Ready (after 2.05a) |
+| [JB-2.06b](specs/JB-2.06b_fill_tools_on_canvas.md) Fill tools on the canvas now (tap fill, lasso fill/behind, lasso erase) + Tool pill | T2 + T3 | 2.06a, 2.07a, 2.05a, 2.13a | 🟦 Ready (after 2.07a) |
+| [JB-2.03a](specs/JB-2.03a_colour_pill_and_eyedropper.md) Colour pill (Studio picker) + long-press / S Pen button eyedropper | T2 + T3 | D.02, 2.13a | 🟦 Ready (after D.02) |
+| [JB-2.13b](specs/JB-2.13b_paper_and_png_export.md) Paper colour + Export PNG (screen / drawing / board, include paper, 1–4×) | T2 + T3 | 2.13a, 2.14a, 0.08b, D.02 | 🟦 Ready (after D.02) |
+
+Outline rows to add: **D.03** move `mesh/` into `:studiokit` (T2, after D.02) · **JB-2.05c** warp a
+selection (T1, after 2.05, D.03) · **D.04** make `tools/jvm-harness/run-*.sh` pick `:` or `;` by
+`uname` so the cloud can run them (T2, tiny).
+Changes to existing rows: JB-3.08a — owner answered: ends STOP, with push-through wrap (spec
+updated, still Ready after 2.16a). JB-3.05 (player, not 3.05a) — owner: pressing Play while at the
+end starts from the beginning. JB-2.06b now includes lasso fill; there is no separate 2.07b.
+Parallel-safety: JB-2.06b and JB-2.03a both edit `JbCanvasView` and `JoyBrushActivity` — never run
+them at the same time. D.02a and D.02 touch app files — one at a time, and never beside JB-0.09.

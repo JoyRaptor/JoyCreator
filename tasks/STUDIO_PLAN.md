@@ -95,7 +95,9 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
 | Main clip: one double-tap opens the sound strip AND the Volume drawer, the next closes both | ✅ 4032f7b3 (Note 9) |
 | String resources: 145 toasts, 121 undo/menu labels, 147 dialog texts moved (strings_studio_toasts/labels/dialogs.xml); ~50 formatted/concatenated remain | ✅ / ⏳ |
 | Text wrap width (chip: Auto / wide 16em / medium 10em / narrow 6em); alignment now saved | 🧪 006fd0d5: chip verified on device, wrap algorithm property-tested (2,000 sentences); NOT yet seen wrapping a real sentence (typing into a box over adb failed twice in landscape, and once landed in the wrong text, restored from backup). Next: side-handle drag, Fit mode |
-| Not yet on phone: follower drops to own lane on time overlap; visualizer drawer + following; pin links (needs the shared pin-position model first); portrait re-check | ⏳ |
+| Text wrap VERIFIED on the Note 9 (2026-09-29, in a throwaway project "Untitled" created for testing, NOT ZA_CONTROL): typed sentence wraps at Wrap · wide; the 4-30 em slider re-wraps live (narrow gives one word per line); chip relabels; wrapEm saved in project.json | ✅ 1ad0851c |
+| Visualizer: each tap of the Visualizer tool adds another (Undo count rises); in the test project no lane appears, so the visualizer drawer is still not reached on device. Investigate how a visualizer is meant to get a lane/handle | 👀 |
+| Not yet on phone: follower drops to own lane on time overlap; visualizer drawer + following; pin links (needs the shared pin-position model first); portrait re-check; Fit mode | ⏳ |
 | Observed, not mine: caption line shifted right/clipped at 5.1s in ZA_CONTROL on the ~10:40 build (export lane told) | 👀 |
 | NEXT: phone pass on remaining 🧪; pin links (warp/puppet pins as parents); parameter drivers; text box sizing modes (#14); bottom-tools sweep | ⏳ |
 

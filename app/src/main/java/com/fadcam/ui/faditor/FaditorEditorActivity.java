@@ -4842,7 +4842,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             totalDuration += durationMs;
         }
 
-        project = new FaditorProject(videoUris.size() > 1 ? "Batch Project" : "Untitled");
+        project = new FaditorProject(videoUris.size() > 1 ? getString(R.string.studio_opt_batch_project) : getString(R.string.studio_opt_untitled));
         updateEditorTitle();
         for (Uri uri : videoUris) {
             long durationMs = getVideoDuration(uri);
@@ -4878,7 +4878,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (before.equals(after)) return;
             applyBookmarks(after);
             undoManager.recordAction(new EditActions.LambdaAction(
-                    after.size() > before.size() ? "Add bookmark" : "Remove bookmark", // TODO(strings)
+                    after.size() > before.size() ? getString(R.string.studio_opt_add_bookmark) : getString(R.string.studio_opt_remove_bookmark), // TODO(strings)
                     () -> applyBookmarks(after),
                     () -> applyBookmarks(before)));
         });
@@ -5269,8 +5269,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 ? ("Cancelled after " + r.copied + " file(s). The project still "
                                         + "works; run it again to finish.")
                                 : (r.copied == 0
-                                        ? "Already self-contained — nothing to copy."
-                                        : "Copied " + r.copied + " file(s). This project no longer "
+                                        ? getString(R.string.studio_opt_already_self_contained_nothing_to) : getString(R.string.studio_opt_copied) + r.copied + " file(s). This project no longer "
                                                 + "depends on anything outside itself.");
                 new androidx.appcompat.app.AlertDialog.Builder(FaditorEditorActivity.this)
                         .setTitle(R.string.studio_ui_consolidate)
@@ -6252,8 +6251,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             updateVolumeKeyframeModeUI();
             Toast.makeText(this,
                     audioVolumeKeyframeMode
-                            ? "Volume keyframes ON — adjust volume at each point to set fades"
-                            : "Volume keyframes OFF",
+                            ? getString(R.string.studio_opt_volume_keyframes_on_adjust_volume) : getString(R.string.studio_opt_volume_keyframes_off),
                     Toast.LENGTH_SHORT).show();
             return true;
         }
@@ -6263,8 +6261,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             updateVolumeKeyframeModeUI();
             Toast.makeText(this,
                     audioVolumeKeyframeMode
-                            ? "Volume keyframes ON — adjust volume at each point to set fades"
-                            : "Volume keyframes OFF",
+                            ? getString(R.string.studio_opt_volume_keyframes_on_adjust_volume) : getString(R.string.studio_opt_volume_keyframes_off),
                     Toast.LENGTH_SHORT).show();
             return true;
         }
@@ -6302,8 +6299,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         updateOpacityKeyframeModeUI();
         Toast.makeText(this,
                 clipOpacityKeyframeMode
-                        ? "Opacity keyframes ON — adjust opacity at each point to set fades"
-                        : "Opacity keyframes OFF",
+                        ? getString(R.string.studio_opt_opacity_keyframes_on_adjust_opacity) : getString(R.string.studio_opt_opacity_keyframes_off),
                 Toast.LENGTH_SHORT).show();
         return true;
     }
@@ -14971,9 +14967,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null || items.isEmpty()) return;
         final java.util.List<CharSequence> labels = new java.util.ArrayList<>();
         final java.util.List<Runnable> handlers = new java.util.ArrayList<>();
-        labels.add("Delete selected");                                        // TODO(strings)
+        labels.add(getString(R.string.studio_opt_delete_selected));                                        // TODO(strings)
         handlers.add(() -> confirmMarqueeBatchDelete(items));
-        labels.add("Link objects…");                                          // TODO(strings)
+        labels.add(getString(R.string.studio_opt_link_objects));                                          // TODO(strings)
         handlers.add(() -> showLinkCreationDialog(items));
         // Dual-stream Phase 4 (manual entry point B): a master clip + an overlay video
         // clip can be linked as a synced pair; any selection touching a linked clip can
@@ -14986,7 +14982,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         Clip linkedInSel = firstLinkedClipInSelection(items);
         if (linkedInSel != null) {
-            labels.add("Unlink clips");                                       // TODO(strings)
+            labels.add(getString(R.string.studio_opt_unlink_clips));                                       // TODO(strings)
             handlers.add(() -> unlinkDualStreamPair(linkedInSel));
         }
         final Runnable[] h = handlers.toArray(new Runnable[0]);
@@ -15185,8 +15181,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (opacityOk) g.properties.add(com.fadcam.ui.faditor.layers.LinkedProperty.OPACITY);
         if (g.properties.isEmpty() || members.size() < 2) {
             String why = members.size() < 2
-                    ? (stripped > 0 ? "Not enough linkable objects"
-                                    : "Select at least 2 linkable objects")
+                    ? (stripped > 0 ? getString(R.string.studio_opt_not_enough_linkable_objects) : getString(R.string.studio_opt_select_at_least_2_linkable))
                     : "Nothing to link — " + android.text.TextUtils.join(", ", droppedAxes);
             Toast.makeText(this, why, Toast.LENGTH_LONG).show();               // TODO(strings)
             return;
@@ -15334,7 +15329,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (getHidden != null && setHidden != null) {
             final boolean was = getHidden.getAsBoolean();
             actions.add(new ObjectMenuSheet.Action(
-                    was ? "Show object" : "Hide object", false, () -> {      // TODO(strings)
+                    was ? getString(R.string.studio_opt_show_object) : getString(R.string.studio_opt_hide_object), false, () -> {      // TODO(strings)
                 final Runnable apply = () -> {
                     setHidden.accept(!was);
                     refreshAfterMarqueeBatchDelete();
@@ -15347,13 +15342,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 };
                 apply.run();
                 undoManager.recordAction(new EditActions.LambdaAction(
-                        was ? "Show object" : "Hide object", apply, revert)); // TODO(strings)
+                        was ? getString(R.string.studio_opt_show_object) : getString(R.string.studio_opt_hide_object), apply, revert)); // TODO(strings)
                 if (objectMenuSheet != null) objectMenuSheet.hide();
             }));
         }
         final boolean wasLocked = getLocked.getAsBoolean();
         actions.add(new ObjectMenuSheet.Action(
-                wasLocked ? "Unlock object" : "Lock object", false, () -> {   // TODO(strings)
+                wasLocked ? getString(R.string.studio_opt_unlock_object) : getString(R.string.studio_opt_lock_object), false, () -> {   // TODO(strings)
             final Runnable apply = () -> {
                 setLocked.accept(!wasLocked);
                 if (editorTimeline != null) editorTimeline.invalidate();
@@ -15366,7 +15361,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             };
             apply.run();
             undoManager.recordAction(new EditActions.LambdaAction(
-                    wasLocked ? "Unlock object" : "Lock object", apply, revert)); // TODO(strings)
+                    wasLocked ? getString(R.string.studio_opt_unlock_object) : getString(R.string.studio_opt_lock_object), apply, revert)); // TODO(strings)
             if (objectMenuSheet != null) objectMenuSheet.hide();
         }));
     }
@@ -15397,9 +15392,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         redo.run();
         undoManager.recordAction(new EditActions.LambdaAction(
-                wholeGroup ? "Unlink group" : "Unlink object", redo, undo));  // TODO(strings)
+                wholeGroup ? getString(R.string.studio_opt_unlink_group) : getString(R.string.studio_opt_unlink_object), redo, undo));  // TODO(strings)
         scheduleAutoSave();
-        Toast.makeText(this, wholeGroup ? "Group unlinked" : "Object unlinked",
+        Toast.makeText(this, wholeGroup ? getString(R.string.studio_opt_group_unlinked) : getString(R.string.studio_opt_object_unlinked),
                 Toast.LENGTH_SHORT).show();                                    // TODO(strings)
     }
 
@@ -15482,20 +15477,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         switch (zone) {
             case CARET:
                 track.setCollapsed(!track.isCollapsed());
-                description = track.isCollapsed() ? "Collapse track" : "Expand track";
+                description = track.isCollapsed() ? getString(R.string.studio_opt_collapse_track) : getString(R.string.studio_opt_expand_track);
                 break;
             case HIDE:
                 track.setHidden(!track.isHidden());
                 // M-COMP-1: a hidden track is now also skipped by LayerPreviewController
                 // (see visibleTextOverlays/visibleImageItems), applied below via
                 // syncTimelineOverlays(). TODO(M-EXPORT-1): mirror in ExportManager.
-                description = track.isHidden() ? "Hide track" : "Show track";
+                description = track.isHidden() ? getString(R.string.studio_opt_hide_track) : getString(R.string.studio_opt_show_track);
                 break;
             case LOCK:
                 track.setLocked(!track.isLocked());
                 // Locked already takes effect at the timeline level in M6 (row-body
                 // taps/gestures are swallowed by LayerRowRenderer/EditorTimelineView).
-                description = track.isLocked() ? "Lock track" : "Unlock track";
+                description = track.isLocked() ? getString(R.string.studio_opt_lock_track) : getString(R.string.studio_opt_unlock_track);
                 break;
             case MUTE:
                 track.setMuted(!track.isMuted());
@@ -15506,7 +15501,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // playheadUpdater tick (mirrors the clip-level mute button's live push).
                 // TODO(M-EXPORT-1): mirror in ExportManager's audio mix.
                 applyAudioTrackMuteLive(timeline);
-                description = track.isMuted() ? "Mute track" : "Unmute track";
+                description = track.isMuted() ? getString(R.string.studio_opt_mute_track) : getString(R.string.studio_opt_unmute_track);
                 break;
             default:
                 return;
@@ -15616,7 +15611,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // the menu never offers a control the header does not have.
         if (com.fadcam.ui.faditor.layers.LayerRowRenderer.rowCarriesAudio(track)) {
             final boolean soloedNow = com.fadcam.ui.faditor.layers.LayerRowRenderer.isSoloed(track);
-            addTrackMenuRow(list, popup, soloedNow ? "Unsolo" : "Solo",   // TODO(strings)
+            addTrackMenuRow(list, popup, soloedNow ? getString(R.string.studio_opt_unsolo) : getString(R.string.studio_opt_solo),   // TODO(strings)
                     () -> toggleTrackSolo(track));
         }
         // C5.U - the way in to ducking. Offered only where it could mean something: this lane
@@ -15775,7 +15770,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
 
-        final String label = engaging ? "Solo lane" : "Unsolo lane";       // TODO(strings)
+        final String label = engaging ? getString(R.string.studio_opt_solo_lane) : getString(R.string.studio_opt_unsolo_lane);       // TODO(strings)
         final Timeline tlForUndo = tl;
         undoManager.recordAction(new EditActions.LambdaAction(label,
                 () -> applySoloState(afterSolo, afterMuted, afterClipMuted, tlForUndo),
@@ -16115,7 +16110,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         int target = idx + (up ? -1 : 1);
         if (idx < 0 || target < 0 || target >= band.size()) {
-            Toast.makeText(this, up ? "Already at top" : "Already at bottom",
+            Toast.makeText(this, up ? getString(R.string.studio_opt_already_at_top) : getString(R.string.studio_opt_already_at_bottom),
                     Toast.LENGTH_SHORT).show(); // TODO(strings)
             return;
         }
@@ -16138,7 +16133,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 snapshotBandFlags(timeline, band);
 
         undoManager.recordAction(new EditActions.LambdaAction(
-                up ? "Move lane up" : "Move lane down",
+                up ? getString(R.string.studio_opt_move_lane_up) : getString(R.string.studio_opt_move_lane_down),
                 () -> applyBandFlags(timeline, after),
                 () -> applyBandFlags(timeline, before)));
 
@@ -16270,8 +16265,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scheduleAutoSave();
         // TODO(strings)
         Toast.makeText(this, "gap".equals(after)
-                ? "Gap mode: deleting a clip leaves a black gap"
-                : "Ripple mode: deleting a clip closes the gap", Toast.LENGTH_SHORT).show();
+                ? getString(R.string.studio_opt_gap_mode_deleting_a_clip) : getString(R.string.studio_opt_ripple_mode_deleting_a_clip), Toast.LENGTH_SHORT).show();
     }
 
     /** Cyan = ripple (the armed default), amber = gap (the careful, unusual mode). */
@@ -16666,7 +16660,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (aIn != bIn || aOut != bOut) {
                             undoManager.recordAction(new EditActions.LambdaAction(
                                     kind == com.fadcam.ui.faditor.layers.LayerGestureController
-                                            .GestureKind.FADE_IN ? "Fade in" : "Fade out", // TODO(strings)
+                                            .GestureKind.FADE_IN ? getString(R.string.studio_opt_fade_in) : getString(R.string.studio_opt_fade_out), // TODO(strings)
                                     () -> { rr.setFadeInMsForItem(item, aIn, fTotal);
                                             rr.setFadeOutMsForItem(item, aOut, fTotal);
                                             syncTimelineOverlays();
@@ -16700,7 +16694,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (bIn != aIn || bOut != aOut) {
                             boolean fadeIn = kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.FADE_IN;
                             undoManager.recordAction(new EditActions.LambdaAction(
-                                    fadeIn ? "Fade in" : "Fade out", // TODO(strings)
+                                    fadeIn ? getString(R.string.studio_opt_fade_in) : getString(R.string.studio_opt_fade_out), // TODO(strings)
                                     () -> { o.setImageFadeInMs(aIn); o.setImageFadeOutMs(aOut); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); },
                                     () -> { o.setImageFadeInMs(bIn); o.setImageFadeOutMs(bOut); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); }));
                         } else {
@@ -16716,7 +16710,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 String desc = trackChange != null
                                         ? trackChange.description
                                         : (kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.MOVE
-                                                ? "Move overlay" : "Overlay time range");
+                                                ? getString(R.string.studio_opt_move_overlay) : getString(R.string.studio_opt_overlay_time_range));
                                 undoManager.recordAction(mergedAction(desc,
                                         positionChanged ? () -> o.restoreTransform(after) : null,
                                         positionChanged ? () -> o.restoreTransform(before) : null,
@@ -16755,7 +16749,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             float bLvl = beforeLevel;
                             java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> aCopy = new java.util.ArrayList<>(afterKfs);
                             float aLvl = afterLevel;
-                            undoManager.recordAction(new EditActions.LambdaAction(kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.FADE_IN ? "Fade in" : "Fade out", // TODO(strings)
+                            undoManager.recordAction(new EditActions.LambdaAction(kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.FADE_IN ? getString(R.string.studio_opt_fade_in) : getString(R.string.studio_opt_fade_out), // TODO(strings)
                                     () -> { ac.setVolumeLevel(aLvl); ac.setVolumeKeyframes(aCopy); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); },
                                     () -> { ac.setVolumeLevel(bLvl); ac.setVolumeKeyframes(bCopy); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); }));
                         } else {
@@ -16853,7 +16847,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             || sheetChanged || trackChange != null) {
                         String desc = trackChange != null ? trackChange.description
                                 : (kind == com.fadcam.ui.faditor.layers.LayerGestureController
-                                        .GestureKind.MOVE ? "Move sprite" : "Resize sequence");
+                                        .GestureKind.MOVE ? getString(R.string.studio_opt_move_sprite) : getString(R.string.studio_opt_resize_sequence));
                         final com.fadcam.ui.faditor.sprite.SpriteSheet fSheet = sh;
                         undoManager.recordAction(mergedAction(desc,
                                 () -> {
@@ -16893,7 +16887,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         String desc = trackChange != null ? trackChange.description
                                 : (kind == com.fadcam.ui.faditor.layers.LayerGestureController
                                         .GestureKind.MOVE
-                                        ? "Move adjustment layer" : "Trim adjustment layer");
+                                        ? getString(R.string.studio_opt_move_adjustment_layer) : getString(R.string.studio_opt_trim_adjustment_layer));
                         undoManager.recordAction(mergedAction(desc,
                                 changed ? () -> { a.setStartMs(afterStart);
                                                   a.setDurationMs(afterDur); } : null,
@@ -17455,7 +17449,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ? com.fadcam.ui.faditor.layers.TrackKind.LAYER
                 : com.fadcam.ui.faditor.layers.TrackKind.AUDIO;
         int nextNum = (floatingBand ? timeline.getLayers().size() : timeline.getAudioTracks().size()) + 1;
-        String newName = (floatingBand ? "Lane " : "Audio ") + nextNum;
+        String newName = (floatingBand ? getString(R.string.studio_opt_lane) : getString(R.string.studio_opt_audio)) + nextNum;
         final String newTrackId = timeline.createLayerTrack(newKind, newName);
         final com.fadcam.ui.faditor.layers.LayerTrackDef createdDef =
                 timeline.getLayerTrackDef(newTrackId);
@@ -17716,19 +17710,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (askAboutFollowers(o.getId(), linkName(o), () -> {
             project.getTimeline().removeTextOverlay(o);
             undoManager.recordAction(new EditActions.LambdaAction(
-                    o.isImage() ? "Delete image overlay" : "Delete text overlay",
+                    o.isImage() ? getString(R.string.studio_opt_delete_image_overlay) : getString(R.string.studio_opt_delete_text_overlay),
                     () -> project.getTimeline().removeTextOverlay(o),
                     () -> project.getTimeline().addTextOverlay(o)));
             refreshAfterMarqueeBatchDelete();
             scheduleAutoSave();
         })) return;
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle(o.isImage() ? "Remove image overlay?" : "Remove text overlay?")
+                .setTitle(o.isImage() ? getString(R.string.studio_opt_remove_image_overlay) : getString(R.string.studio_opt_remove_text_overlay))
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .setPositiveButton(R.string.studio_ui_remove, (d, w) -> {
                     project.getTimeline().removeTextOverlay(o);
                     undoManager.recordAction(new EditActions.LambdaAction(
-                            o.isImage() ? "Delete image overlay" : "Delete text overlay",
+                            o.isImage() ? getString(R.string.studio_opt_delete_image_overlay) : getString(R.string.studio_opt_delete_text_overlay),
                             () -> project.getTimeline().removeTextOverlay(o),
                             () -> project.getTimeline().addTextOverlay(o)));
                     syncTimelineOverlays();
@@ -18477,8 +18471,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 wordEditBlockMode = !wordEditBlockMode;
                 updateWordBlockToggleChrome();
                 showWordSyncToast(wordEditBlockMode
-                        ? "One block — the whole box stays a single caption, spaces won't split it."
-                        : "Split into words — the box splits on spaces into timed words.");
+                        ? getString(R.string.studio_opt_one_block_the_whole_box) : getString(R.string.studio_opt_split_into_words_the_box));
             });
         }
         updateWordBlockToggleChrome();
@@ -18656,7 +18649,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             } catch (Exception ignored) {}
             wordSyncBlockToggle.setText(wordEditBlockMode ? "link" : "call_split");
             wordSyncBlockToggle.setTextColor(wordEditBlockMode ? ACCENT_GREEN : Studio.INK);
-            String label = wordEditBlockMode ? "One block" : "Split into words";
+            String label = wordEditBlockMode ? getString(R.string.studio_opt_one_block) : getString(R.string.studio_opt_split_into_words);
             wordSyncBlockToggle.setContentDescription(label);
             androidx.appcompat.widget.TooltipCompat.setTooltipText(wordSyncBlockToggle, label);
         }
@@ -18697,8 +18690,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (t != null && before != null) {
             final java.util.List<com.fadcam.ui.faditor.transcript.TranscriptWord> after = snapshotWords(t);
             String desc = wordEditBlockMode
-                    ? "Caption text (one block)"
-                    : "Caption text (" + toks.length + " word" + (toks.length == 1 ? "" : "s") + ")";
+                    ? getString(R.string.studio_opt_caption_text_one_block) : getString(R.string.studio_opt_caption_text) + toks.length + " word" + (toks.length == 1 ? "" : "s") + ")";
             undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
                     desc,
                     () -> restoreWords(t, after),
@@ -19153,7 +19145,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wordSyncMode.setSnapEnabled(next);
         updateWordScrubDrawerChrome();
         if (!next && wordSyncMagnet != null) wordSyncMagnet.setSnapping(false);
-        showWordSyncToast(next ? "Snapping on — words jump to the nearest sound." : "Snapping off — words land exactly where you drop them.");
+        showWordSyncToast(next ? getString(R.string.studio_opt_snapping_on_words_jump_to) : getString(R.string.studio_opt_snapping_off_words_land_exactly));
         if (editorTimeline != null) editorTimeline.invalidate();
     }
 
@@ -19654,7 +19646,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.studio_ui_consolidate_project)
                 .setMessage(msg)
-                .setPositiveButton(est.fileCount == 0 ? "OK" : "Consolidate", (d,w) -> {
+                .setPositiveButton(est.fileCount == 0 ? getString(R.string.studio_opt_ok) : getString(R.string.studio_opt_consolidate), (d,w) -> {
                     if (est.fileCount == 0) return;
                     doConsolidate();
                 })
@@ -19702,7 +19694,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void doConsolidateRevert() {
         if (project == null) return;
         boolean ok = ProjectConsolidator.revert(this, project.getId());
-        android.widget.Toast.makeText(this, ok ? "Reverted to external references" : "Nothing to revert", android.widget.Toast.LENGTH_SHORT).show();
+        android.widget.Toast.makeText(this, ok ? getString(R.string.studio_opt_reverted_to_external_references) : getString(R.string.studio_opt_nothing_to_revert), android.widget.Toast.LENGTH_SHORT).show();
         if (ok) {
             project = new com.fadcam.ui.faditor.project.ProjectStorage(this).load(project.getId());
             if (editorTimeline != null && project != null) {
@@ -20787,7 +20779,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         LinearLayout blendRow = vizPropRow(dp, "Blend");
         TextView blendBtn = new TextView(this);
         Runnable setBlendLabel = () -> blendBtn.setText(
-                com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD.equals(layer.blend) ? "Add" : "Normal");
+                com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD.equals(layer.blend) ? getString(R.string.studio_opt_add) : getString(R.string.studio_opt_normal));
         setBlendLabel.run();
         blendBtn.setTextColor(Studio.INK);
         blendBtn.setTextSize(12);
@@ -20822,7 +20814,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         LinearLayout mirRow = vizPropRow(dp, "Mirror");
         TextView mirBtn2 = new TextView(this);
         Runnable setMir = () -> {
-            mirBtn2.setText(layer.mirror ? "On" : "Off");
+            mirBtn2.setText(layer.mirror ? getString(R.string.studio_opt_on) : getString(R.string.studio_opt_off));
             mirBtn2.setTextColor(layer.mirror ? Studio.GO : Studio.INK);
         };
         setMir.run();
@@ -20838,7 +20830,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView glowBtn = new TextView(this);
         Runnable setGlow = () -> {
             boolean on = layer.glowColor != null && layer.glowRadiusDp > 0f;
-            glowBtn.setText(on ? "On" : "Off");
+            glowBtn.setText(on ? getString(R.string.studio_opt_on) : getString(R.string.studio_opt_off));
             glowBtn.setTextColor(on ? Studio.GO : Studio.INK);
         };
         setGlow.run();
@@ -24296,7 +24288,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (at < 0) return false;
         int to = at + (up ? 1 : -1);
         if (to < 0 || to >= lanes.size()) {
-            Toast.makeText(this, up ? "Already on the top lane" : "Already on the bottom lane",
+            Toast.makeText(this, up ? getString(R.string.studio_opt_already_on_the_top_lane) : getString(R.string.studio_opt_already_on_the_bottom_lane),
                     Toast.LENGTH_SHORT).show();                       // TODO(strings)
             return true;
         }
@@ -24313,7 +24305,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String from = item.getLayerId();
         moved.setLayerId(dest);
         undoManager.recordAction(new EditActions.LambdaAction(
-                up ? "Move up a lane" : "Move down a lane",            // TODO(strings)
+                up ? getString(R.string.studio_opt_move_up_a_lane) : getString(R.string.studio_opt_move_down_a_lane),            // TODO(strings)
                 () -> { moved.setLayerId(dest); refreshOverlayPreview(); syncTimelineOverlays(); },
                 () -> { moved.setLayerId(from); refreshOverlayPreview(); syncTimelineOverlays(); }));
         refreshOverlayPreview();
@@ -24874,8 +24866,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (playerManager != null && !playerManager.isPlaying()) playerManager.play();
         if (spriteOverlayView != null) spriteOverlayView.postOnAnimation(perfRecordTick);
         Toast.makeText(this, face
-                ? "Recording performance — tap ⏺︎ Stop to finish"
-                : "Recording (synthetic) — tap ⏺︎ Stop to finish",
+                ? getString(R.string.studio_opt_recording_performance_tap_stop_to) : getString(R.string.studio_opt_recording_synthetic_tap_stop_to),
                 Toast.LENGTH_SHORT).show();
     }
 
@@ -27086,7 +27077,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // SPEC D: text (non-image) now gets the same transform surface, affine-only because
             // neither preview (TextOverlayLayer) nor export (TextOverlayRenderer) has a corner-pin
             // channel for text — a distortion would be authored with nowhere to draw it.
-            enterTextTransformMode(item.getTextOverlay());
+            // ...EXCEPT while this box's Text tab is open: there the transform surface must stay
+            // down or it eats every in-box touch and words can never be selected (owner,
+            // 2026-09-29: "I can't select words and change fonts, backgrounds, italics anymore").
+            // The Text tab is the one place that is for words; the other tabs bring handles back.
+            final com.fadcam.ui.faditor.model.TextOverlayItem selText = item.getTextOverlay();
+            final boolean onTextTab = objectDrawer != null && objectDrawer.isShowing()
+                    && selText.getId().equals(textDrawerItemId)
+                    && objectDrawer.activeTabIndex() == 0;
+            if (!onTextTab) enterTextTransformMode(selText);
         } else if (item != null && item.getSprite() != null) {
             // SPEC Z slice 1: sprites used to stop here, on the legacy handle overlay. They get
             // the same surface, the same ring and the same grammar as every other object now.
@@ -27936,7 +27935,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final boolean down =
                 spec.getDirection() == com.fadcam.ui.faditor.model.TimerSpec.Direction.COUNT_DOWN;
         actions.add(new ObjectMenuSheet.Action(
-                down ? "Counting: down ▾" : "Counting: up ▴", false, () -> {  // TODO(strings)
+                down ? getString(R.string.studio_opt_counting_down) : getString(R.string.studio_opt_counting_up), false, () -> {  // TODO(strings)
             com.fadcam.ui.faditor.model.TimerSpec next = spec.copy();
             next.setDirection(down
                     ? com.fadcam.ui.faditor.model.TimerSpec.Direction.COUNT_UP
@@ -27947,7 +27946,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final boolean relative =
                 spec.getBasis() == com.fadcam.ui.faditor.model.TimerSpec.Basis.RELATIVE;
         actions.add(new ObjectMenuSheet.Action(
-                relative ? "Measured: this tape" : "Measured: whole project", // TODO(strings)
+                relative ? getString(R.string.studio_opt_measured_this_tape) : getString(R.string.studio_opt_measured_whole_project), // TODO(strings)
                 false, () -> {
             com.fadcam.ui.faditor.model.TimerSpec next = spec.copy();
             next.setBasis(relative
@@ -28314,7 +28313,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long timelineDur = project != null && project.getTimeline() != null ? project.getTimeline().getTotalDurationMs() : (afterEnd == Long.MAX_VALUE ? afterStart + 5000 : afterEnd);
         o.setTrimmedTimeRange(afterStart, afterEnd, timelineDur);
         undoManager.recordAction(new EditActions.LambdaAction(
-                startEdge ? "Overlay start" : "Overlay end",
+                startEdge ? getString(R.string.studio_opt_overlay_start) : getString(R.string.studio_opt_overlay_end),
                 () -> { o.setTrimmedTimeRange(afterStart, afterEnd, timelineDur); refreshOverlayAfterRangeEdit(); },
                 () -> { o.setTrimmedTimeRange(beforeStart, beforeEnd, timelineDur); refreshOverlayAfterRangeEdit(); }));
         refreshOverlayAfterRangeEdit();
@@ -30587,8 +30586,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     c.setPassThrough(!c.isPassThrough());
                     android.widget.Toast.makeText(this,
                             c.isPassThrough()
-                                    ? "Taps now pass through this in the preview"
-                                    : "Touchable in the preview again",       // TODO(strings)
+                                    ? getString(R.string.studio_opt_taps_now_pass_through_this) : getString(R.string.studio_opt_touchable_in_the_preview_again),       // TODO(strings)
                             android.widget.Toast.LENGTH_SHORT).show();
                     refreshAfterMarqueeBatchDelete();
                     scheduleAutoSave();
@@ -30689,7 +30687,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> {
                     boolean now = !com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
                     com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed = now;
-                    Toast.makeText(this, now ? "A/B: FX chain OFF" : "A/B: FX chain ON",
+                    Toast.makeText(this, now ? getString(R.string.studio_opt_a_b_fx_chain_off) : getString(R.string.studio_opt_a_b_fx_chain_on),
                             Toast.LENGTH_SHORT).show();                     // TODO(strings)
                 }, true));
         // B9: audio-only projects raise the drawer's height cap to 0.75 (§2.3 rider) —
@@ -30877,7 +30875,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> {
                     boolean now = !com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
                     com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed = now;
-                    Toast.makeText(this, now ? "A/B: FX chain OFF" : "A/B: FX chain ON",
+                    Toast.makeText(this, now ? getString(R.string.studio_opt_a_b_fx_chain_off) : getString(R.string.studio_opt_a_b_fx_chain_on),
                             Toast.LENGTH_SHORT).show();                     // TODO(strings)
                 }, true));
         // B9: same audio-only drawer cap for the clip-audio shelf drawer.
@@ -30897,7 +30895,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
         java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
         // Direction: one tap flips it
-        String dirLabel = xfade.isToLaneAbove() ? "To lane above \u2191" : "To lane below \u2193";
+        String dirLabel = xfade.isToLaneAbove() ? getString(R.string.studio_opt_to_lane_above) : getString(R.string.studio_opt_to_lane_below);
         actions.add(new ObjectMenuSheet.Action(dirLabel, false, () -> {
             com.fadcam.ui.faditor.model.AudioCrossfade before = new com.fadcam.ui.faditor.model.AudioCrossfade(xfade);
             xfade.flipDirection();
@@ -31045,7 +31043,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull Clip c) {
         final boolean was = c.isOverlayAudioEnabled();
         actions.add(new ObjectMenuSheet.Action(
-                was ? "Mute overlay audio" : "Include audio", false, () -> {  // TODO(strings)
+                was ? getString(R.string.studio_opt_mute_overlay_audio) : getString(R.string.studio_opt_include_audio), false, () -> {  // TODO(strings)
             final Runnable apply = () -> {
                 c.setOverlayAudioEnabled(!was);
                 if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
@@ -31060,7 +31058,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             };
             apply.run();
             undoManager.recordAction(new EditActions.LambdaAction(
-                    was ? "Mute overlay audio" : "Include overlay audio", apply, revert));
+                    was ? getString(R.string.studio_opt_mute_overlay_audio) : getString(R.string.studio_opt_include_overlay_audio), apply, revert));
         }));
     }
 
@@ -31634,7 +31632,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final long afterEnd = startEdge ? beforeEnd : ph;
         wf.setTimeRange(afterStart, afterEnd);
         undoManager.recordAction(new EditActions.LambdaAction(
-                startEdge ? "Visualizer start" : "Visualizer end", // TODO(strings)
+                startEdge ? getString(R.string.studio_opt_visualizer_start) : getString(R.string.studio_opt_visualizer_end), // TODO(strings)
                 () -> { wf.setTimeRange(afterStart, afterEnd); refreshVizAfterMenuWrite(); },
                 () -> { wf.setTimeRange(beforeStart, beforeEnd); refreshVizAfterMenuWrite(); }));
         refreshVizAfterMenuWrite();
@@ -31918,7 +31916,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String kind = it.getSprite() != null ? "Sprite "
                 : it.getClip() != null ? "Video "
                 : it.getAdjustment() != null ? "Adjustment "
-                : it.getTextOverlay() != null && it.getTextOverlay().isImage() ? "Image " : "Text ";
+                : it.getTextOverlay() != null && it.getTextOverlay().isImage() ? getString(R.string.studio_opt_image) : getString(R.string.studio_opt_text);
         return kind + n;                                                    // TODO(strings)
     }
 
@@ -31949,7 +31947,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         refreshAfterOverlayLayerChange();
         undoManager.recordAction(new EditActions.LambdaAction(
-                above ? "New lane above" : "New lane below",               // TODO(strings)
+                above ? getString(R.string.studio_opt_new_lane_above) : getString(R.string.studio_opt_new_lane_below),               // TODO(strings)
                 () -> {
                     if (createdDef != null) timeline.restoreLayerTrackDef(createdDef);
                     timeline.getOrCreateTrackFlags(newTrackId).zIndex = newZ;
@@ -31963,7 +31961,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     refreshAfterOverlayLayerChange();
                 }));
         scheduleAutoSave();
-        Toast.makeText(this, above ? "Moved to new lane above" : "Moved to new lane below",
+        Toast.makeText(this, above ? getString(R.string.studio_opt_moved_to_new_lane_above) : getString(R.string.studio_opt_moved_to_new_lane_below),
                 Toast.LENGTH_SHORT).show(); // TODO(strings)
     }
 
@@ -31980,11 +31978,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (move == null) return;
         refreshAfterOverlayLayerChange();
         undoManager.recordAction(new EditActions.LambdaAction(
-                up ? "Move layer up" : "Move layer down",                   // TODO(strings)
+                up ? getString(R.string.studio_opt_move_layer_up) : getString(R.string.studio_opt_move_layer_down),                   // TODO(strings)
                 () -> { move.redo.run(); refreshAfterOverlayLayerChange(); },
                 () -> { move.undo.run(); refreshAfterOverlayLayerChange(); }));
         scheduleAutoSave();
-        Toast.makeText(this, up ? "Moved up a lane" : "Moved down a lane",
+        Toast.makeText(this, up ? getString(R.string.studio_opt_moved_up_a_lane) : getString(R.string.studio_opt_moved_down_a_lane),
                 Toast.LENGTH_SHORT).show(); // TODO(strings)
     }
 
@@ -34567,7 +34565,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             android.widget.Toast.makeText(this, R.string.studio_toast_image_already_fills_canvas_no_room, android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
-        recordOverlayMenuUndo(o, before, kind == com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.NONE ? "Clear animation" : "Apply " + kind.name());
+        recordOverlayMenuUndo(o, before, kind == com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.NONE ? getString(R.string.studio_opt_clear_animation) : getString(R.string.studio_opt_apply) + kind.name());
         refreshOverlayPreview(); syncTimelineOverlays(); scheduleAutoSave();
         showImageOverlayDrawer(o);
     }
@@ -34798,6 +34796,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // was ever written ("can't even select it"). The Text tab is where words are selected;
         // Transform, Effects and Lanes are where the box is moved, so the handles come back there.
         syncTextTransformSurrender(item);
+        // ...and once more after the opening taps and selection events have settled: on the
+        // Note 9 (2026-09-29) a double-tap on a selected box's lane opened the drawer and then the
+        // selection handler put the handles back over the editor, so words could not be selected.
+        if (objectDrawer != null) {
+            objectDrawer.postDelayed(() -> {
+                if (item.getId().equals(textDrawerItemId)) syncTextTransformSurrender(item);
+            }, 350);
+        }
         // Closing the drawer (✕, BACK, grip-drag-dismiss, or opening a different object) is what
         // "OK" used to be: text/colour/font/style all write live as the user works, so all that
         // is left on the way out is recording the ADD undo the first time the box survives a
@@ -35983,8 +35989,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     o.setPassThrough(!o.isPassThrough());
                     android.widget.Toast.makeText(this,
                             o.isPassThrough()
-                                    ? "Taps now pass through this in the preview"
-                                    : "Touchable in the preview again",   // TODO(strings)
+                                    ? getString(R.string.studio_opt_taps_now_pass_through_this) : getString(R.string.studio_opt_touchable_in_the_preview_again),   // TODO(strings)
                             android.widget.Toast.LENGTH_SHORT).show();
                     refreshAfterMarqueeBatchDelete();
                     scheduleAutoSave();
@@ -38432,7 +38437,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             if (transcriptView != null) transcriptView.invalidate();
                             scheduleAutoSave();
                             android.widget.Toast.makeText(FaditorEditorActivity.this,
-                                    title.isEmpty() ? "Chapter cleared" : "Chapter: " + title,
+                                    title.isEmpty() ? getString(R.string.studio_opt_chapter_cleared) : getString(R.string.studio_opt_chapter) + title,
                                     android.widget.Toast.LENGTH_SHORT).show();
                         })
                         .setNeutralButton(R.string.studio_ui_copy_chapters, (dlg, w) -> {
@@ -38479,7 +38484,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             String applied = name.isEmpty() ? null : name;
                             if (undoManager != null) {
                                 undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
-                                        name.isEmpty() ? "Clear speaker" : "Set speaker",
+                                        name.isEmpty() ? getString(R.string.studio_opt_clear_speaker) : getString(R.string.studio_opt_set_speaker),
                                         () -> { if (old == null) currentTranscript.paragraphSpeakers.remove(pIdx); else currentTranscript.paragraphSpeakers.put(pIdx, old); if (transcriptView != null) transcriptView.invalidate(); scheduleAutoSave(); },
                                         () -> { if (applied == null) currentTranscript.paragraphSpeakers.remove(pIdx); else currentTranscript.paragraphSpeakers.put(pIdx, applied); if (transcriptView != null) transcriptView.invalidate(); scheduleAutoSave(); }));
                             }
@@ -38488,7 +38493,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             if (transcriptView != null) transcriptView.invalidate();
                             scheduleAutoSave();
                             android.widget.Toast.makeText(FaditorEditorActivity.this,
-                                    name.isEmpty() ? "Speaker cleared" : "Speaker: " + name,
+                                    name.isEmpty() ? getString(R.string.studio_opt_speaker_cleared) : getString(R.string.studio_opt_speaker) + name,
                                     android.widget.Toast.LENGTH_SHORT).show();
                         })
                         .show();
@@ -38572,7 +38577,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             String applied = name.isEmpty() ? null : name;
                             if (undoManager != null) {
                                 undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
-                                        name.isEmpty() ? "Clear speaker" : "Set speaker",
+                                        name.isEmpty() ? getString(R.string.studio_opt_clear_speaker) : getString(R.string.studio_opt_set_speaker),
                                         () -> { if (old == null) currentTranscript.paragraphSpeakers.remove(pIdx); else currentTranscript.paragraphSpeakers.put(pIdx, old); transcriptView.invalidate(); scheduleAutoSave(); },
                                         () -> { if (applied == null) currentTranscript.paragraphSpeakers.remove(pIdx); else currentTranscript.paragraphSpeakers.put(pIdx, applied); transcriptView.invalidate(); scheduleAutoSave(); }));
                             }
@@ -38580,7 +38585,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             else currentTranscript.paragraphSpeakers.put(pIdx, name);
                             transcriptView.invalidate();
                             scheduleAutoSave();
-                            android.widget.Toast.makeText(this, name.isEmpty() ? "Speaker cleared" : "Speaker: " + name, android.widget.Toast.LENGTH_SHORT).show();
+                            android.widget.Toast.makeText(this, name.isEmpty() ? getString(R.string.studio_opt_speaker_cleared) : getString(R.string.studio_opt_speaker) + name, android.widget.Toast.LENGTH_SHORT).show();
                         })
                         .show();
             });
@@ -38598,7 +38603,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 updateTranscriptBreakButton();
                 scheduleAutoSave();
                 android.widget.Toast.makeText(this,
-                        w.forceLineBreakAfter ? "Paragraph break added" : "Paragraph break removed",
+                        w.forceLineBreakAfter ? getString(R.string.studio_opt_paragraph_break_added) : getString(R.string.studio_opt_paragraph_break_removed),
                         android.widget.Toast.LENGTH_SHORT).show();
             });
         }
@@ -38903,8 +38908,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             refreshCaptionKeyframeDrawer();
                             Toast.makeText(this,
                                     action == com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController.TapAction.REPLACE
-                                            ? "Keyframe style replaced"
-                                            : "Style keyframe dropped",
+                                            ? getString(R.string.studio_opt_keyframe_style_replaced) : getString(R.string.studio_opt_style_keyframe_dropped),
                                     Toast.LENGTH_SHORT).show();
                         } else if (cc.hasTranscript()) {
                             cc.setCaptionStyleId(s.id);
@@ -41342,7 +41346,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         apply.run();
         undoManager.recordAction(new EditActions.LambdaAction(
-                "REVERSE".equals(op) ? "Reverse frames" : "Shuffle frames", apply, undo));
+                "REVERSE".equals(op) ? getString(R.string.studio_opt_reverse_frames) : getString(R.string.studio_opt_shuffle_frames), apply, undo));
         scheduleAutoSave();
         if (spriteOverlayView != null) spriteOverlayView.invalidate();
     }
@@ -41612,8 +41616,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scheduleAutoSave();
         Toast.makeText(this,
                 after == com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode.ABSOLUTE
-                        ? "Dragging the edge now adds/removes frames"
-                        : "Dragging the edge now retimes all frames",
+                        ? getString(R.string.studio_opt_dragging_the_edge_now_adds) : getString(R.string.studio_opt_dragging_the_edge_now_retimes),
                 Toast.LENGTH_SHORT).show();
     }
 
@@ -45513,7 +45516,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Runnable refreshAddButton = new Runnable() {
             @Override public void run() {
                 int n = selectedInOrder.size();
-                btnAdd.setText(n == 0 ? "Add (0)" : "Add (" + n + ")");
+                btnAdd.setText(n == 0 ? getString(R.string.studio_opt_add_0) : getString(R.string.studio_opt_add_2) + n + ")");
                 btnAdd.setEnabled(n > 0);
                 btnAdd.setAlpha(n > 0 ? 1f : 0.4f);
                 title.setText("Choose image for timeline" + (n > 0 ? " — " + n + " selected" : " (tap to select, numbered — as clip)"));
@@ -45563,7 +45566,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 bar.setVisibility(android.view.View.GONE);
                 if (filtered.isEmpty()) {
                     android.widget.TextView empty = new android.widget.TextView(FaditorEditorActivity.this);
-                    empty.setText(dir.isEmpty() ? "No folder pinned — tap Browse files…" : "No images in this folder — try Browse files…");
+                    empty.setText(dir.isEmpty() ? getString(R.string.studio_opt_no_folder_pinned_tap_browse) : getString(R.string.studio_opt_no_images_in_this_folder));
                     empty.setTextColor(Studio.INK_FAINT); empty.setGravity(android.view.Gravity.CENTER);
                     empty.setPadding(0, Math.round(24*d), 0, Math.round(24*d));
                     root.addView(empty, 2);
@@ -45673,7 +45676,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.setPadding(Math.round(12*d), Math.round(12*d), Math.round(12*d), Math.round(12*d));
 
         android.widget.TextView title = new android.widget.TextView(this);
-        title.setText(forImage ? "Choose image (tap to select, numbered)" : "Choose video (tap to select, numbered)");
+        title.setText(forImage ? getString(R.string.studio_opt_choose_image_tap_to_select) : getString(R.string.studio_opt_choose_video_tap_to_select));
         title.setTextSize(14); title.setTextColor(Studio.INK); title.setPadding(0,0,0,Math.round(8*d));
         root.addView(title);
 
@@ -45729,10 +45732,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Runnable refreshAddButton = new Runnable() {
             @Override public void run() {
                 int n = selectedInOrder.size();
-                btnAdd.setText(n == 0 ? "Add (0)" : "Add (" + n + ")");
+                btnAdd.setText(n == 0 ? getString(R.string.studio_opt_add_0) : getString(R.string.studio_opt_add_2) + n + ")");
                 btnAdd.setEnabled(n > 0);
                 btnAdd.setAlpha(n > 0 ? 1f : 0.4f);
-                title.setText((forImage ? "Choose image" : "Choose video") + (n > 0 ? " — " + n + " selected" : " (tap to select, numbered)"));
+                title.setText((forImage ? getString(R.string.studio_opt_choose_image) : getString(R.string.studio_opt_choose_video)) + (n > 0 ? " — " + n + " selected" : " (tap to select, numbered)"));
                 adapter.setSelectedOrdered(selectedInOrder);
             }
         };
@@ -45789,7 +45792,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 bar.setVisibility(android.view.View.GONE);
                 if (filtered.isEmpty()) {
                     android.widget.TextView empty = new android.widget.TextView(FaditorEditorActivity.this);
-                    empty.setText(dir.isEmpty() ? "No folder pinned — tap Browse files…" : "No " + (forImage ? "images" : "videos") + " in this folder — try Browse files…");
+                    empty.setText(dir.isEmpty() ? getString(R.string.studio_opt_no_folder_pinned_tap_browse) : getString(R.string.studio_opt_no) + (forImage ? "images" : "videos") + " in this folder — try Browse files…");
                     empty.setTextColor(Studio.INK_FAINT); empty.setGravity(android.view.Gravity.CENTER);
                     empty.setPadding(0, Math.round(24*d), 0, Math.round(24*d));
                     root.addView(empty, 2);
@@ -47593,8 +47596,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         if (made == 0) {
             Toast.makeText(this, lockedCount > 0
-                            ? "Everything selected is locked"
-                            : "Nothing in the selection can be duplicated",   // TODO(strings)
+                            ? getString(R.string.studio_opt_everything_selected_is_locked) : getString(R.string.studio_opt_nothing_in_the_selection_can),   // TODO(strings)
                     Toast.LENGTH_SHORT).show();
             return true;
         }

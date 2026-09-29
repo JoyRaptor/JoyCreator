@@ -444,13 +444,30 @@ object OraExport {
      * One [BlendMode] as the SVG compositing operator that means it, in the `svg:` form OpenRaster
      * uses.
      *
-     * Written out BY NAME rather than behind an `else`, so a ninth blend mode cannot be added
-     * without a compiler error here — the same promise `Blend.term` keeps, and for the same reason:
-     * a mode that quietly became `svg:src-over` would flatten a painting and say nothing.
+     * Written out BY NAME rather than behind an `else`, so a twenty-eighth blend mode cannot be
+     * added without a compiler error here — the same promise the arithmetic in `Blend` keeps, and
+     * for the same reason: a mode that quietly became `svg:src-over` would flatten a painting and
+     * say nothing. JB-2.20a made that promise fire for real: it appended nineteen modes and this
+     * function refused to compile, which is the guard working.
      *
      * `ERASE_BELOW` is `svg:dst-out`, which takes the destination's alpha with it — the whole reason
      * `Blend` cannot express it by swapping a separable function. `ADD` is `svg:plus`; see the class
      * note for the one place a W3C reader and `Blend` still differ.
+     *
+     * **THE NINE WITH NO SVG EQUIVALENT ARE REFUSED, NOT APPROXIMATED.** SVG has no `linear-burn`,
+     * `vivid-light`, `pin-light`, `hard-mix`, `subtract`, `divide`, `darker-color`,
+     * `lighter-color` or `linear-light` operator. Mapping any of them onto the nearest relative is
+     * the one failure mode this function exists to prevent, and it would be invisible: the .ora would
+     * open, look plausible, and be wrong in a way nobody notices until they compare it to the app.
+     * So the export stops and says which mode it cannot express.
+     *
+     * This costs nothing in practice, and that is the point worth recording: `DOC_VERSION` 2 is what
+     * introduced these modes, so no document written by an earlier Joy Brush can contain one. The
+     * refusal cannot strand anybody's existing work — it can only stop a drawing made since.
+     * Referred to the Lead: if ORA consumers turn out to need these nine, the honest route is a
+     * `feComposite`/filter-based fallback with its own parity proof, not a nearest-relative guess.
+     *
+     * @throws IllegalArgumentException naming the mode, when SVG cannot express it.
      */
     private fun compositeOp(mode: BlendMode): String = when (mode) {
         BlendMode.NORMAL -> "svg:src-over"
@@ -461,6 +478,23 @@ object OraExport {
         BlendMode.DARKEN -> "svg:darken"
         BlendMode.LIGHTEN -> "svg:lighten"
         BlendMode.ERASE_BELOW -> "svg:dst-out"
+        // The Studio's modes that SVG's feBlend also names, so the mapping is exact.
+        BlendMode.DIFFERENCE -> "svg:difference"
+        BlendMode.EXCLUSION -> "svg:exclusion"
+        BlendMode.COLOR_DODGE -> "svg:color-dodge"
+        BlendMode.COLOR_BURN -> "svg:color-burn"
+        BlendMode.HARD_LIGHT -> "svg:hard-light"
+        BlendMode.SOFT_LIGHT -> "svg:soft-light"
+        BlendMode.HUE -> "svg:hue"
+        BlendMode.SATURATION -> "svg:saturation"
+        BlendMode.COLOR -> "svg:color"
+        BlendMode.LUMINOSITY -> "svg:luminosity"
+        // No SVG operator means this. NEVER a nearest-relative guess - see the KDoc above.
+        else -> throw IllegalArgumentException(
+            "OpenRaster cannot express the $mode blend mode: SVG has no operator for it, and " +
+                "substituting the nearest one would silently change the painting. Export as PNG, " +
+                "or change the layer to a mode OpenRaster can express.",
+        )
     }
 
     /**

@@ -22,6 +22,11 @@ import kotlin.math.sin
  * flip the long way round. The first real movement seeds it directly so a stroke does not start
  * pointing the wrong way.
  *
+ * A channel that reads as an Infinity is a broken reading, not a measurement, and is ignored so the
+ * other channels answer instead — the same rule the engine follows everywhere else (LEAD_RULINGS R1).
+ * Both the barrel shortcut and the lean branch need real numbers for this reason; a NaN, which is how
+ * an absent sensor is spelled, is handled by the channel tests instead and is not an error.
+ *
  * Round tips ignore rotation entirely (Expresii's developer removed twist from round brushes because
  * it made them worse); that choice belongs to the brush, not to this tracker.
  */
@@ -45,7 +50,10 @@ class DirectionTracker(
 
     /** Feeds one (already smoothed) sample and returns the tip direction in radians, -PI..PI. */
     fun update(s: PenSample): Float {
-        if (s.hasBarrel) return s.barrel
+        // A barrel reading is used as it stands — but only when it is a real number. `hasBarrel` is
+        // "!isNaN", which admits an Infinity, and the raw shortcut below would then hand `cos(Inf)` =
+        // NaN straight to the tip maths. A broken reading falls back to the other channels (R1).
+        if (s.hasBarrel && s.barrel.isFinite()) return s.barrel
         if (!hasPos) {
             hasPos = true
             lastX = s.x; lastY = s.y
@@ -54,7 +62,14 @@ class DirectionTracker(
         val my = (s.y - lastY).toDouble()
         val step = hypot(mx, my)
 
-        if (s.hasTilt && s.hasAzimuth && s.tilt > tiltThreshold) {
+        // The lean branch needs BOTH channels to be real numbers, not merely "not NaN": an infinite
+        // tilt passes `tilt > tiltThreshold` and an infinite azimuth passes `hasAzimuth`, and either
+        // one makes `cos`/`sin` return NaN, so the branch would return `atan2(NaN, NaN)` and switch
+        // NaN ON for the rest of the stroke. The engine guards every other number it is handed
+        // (LEAD_RULINGS R1); a pen that reports an impossible angle falls back to travel direction.
+        if (s.hasTilt && s.hasAzimuth && s.tilt.isFinite() && s.azimuth.isFinite() &&
+            s.tilt > tiltThreshold
+        ) {
             dx = cos(s.azimuth.toDouble()); dy = sin(s.azimuth.toDouble())
             hasDir = true
         } else if (step >= minStep) {

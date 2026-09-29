@@ -10,6 +10,23 @@ package cc.joycreator.joybrush.core.dynamics
  * Points are joined by straight lines (piecewise linear). Outside the first/last point the curve
  * holds its end value. Points are sorted by x on construction; duplicate x keeps the later point,
  * which allows a deliberate step.
+ *
+ * A point that is not a FINITE number in both coordinates is not a point of the curve the file
+ * describes, so it is DROPPED, and the curve is the points that are real. This matters more than it
+ * looks: one NaN or one Infinity in a point poisons the whole 256-entry table it is written into, and
+ * then [eval] returns a non-finite value for EVERY input — including the ones that were perfectly
+ * good. [Dynamics.eval] is deliberately unclamped, so a curve like that makes `size` evaluate to
+ * Infinity, the dab loop steps by Infinity, and the stroke stops after one dab (LEAD_RULINGS R1).
+ * Dropping the bad point keeps the other 63 the file also says, which is the faithful answer: a
+ * curve is a function, and the part of it that is readable still describes what the painter drew.
+ *
+ * When NOT ONE point survives there is no curve left to keep, and the only remaining answers would
+ * be a made-up value (this module never invents a reading — see the NaN convention in [PenSample]) or
+ * a silent NaN back again. So that case is refused, by name, with the point that caused it. Note that
+ * the one caller that builds curves from a file, `Dynamics.Compiled`, already drops a curve it has no
+ * usable point for; it tests the point SHAPE (`[[x,y],…]`) but not whether the numbers in it are
+ * real, so an all-non-finite curve reaches this constructor. That is recorded as a Question in the
+ * JB-0.01 spec.
  */
 class Curve(points: List<Pair<Float, Float>>) {
 
@@ -18,7 +35,13 @@ class Curve(points: List<Pair<Float, Float>>) {
 
     init {
         require(points.isNotEmpty()) { "a curve needs at least one point" }
-        this.points = points.sortedBy { it.first }
+        val usable = points.filter { it.first.isFinite() && it.second.isFinite() }
+        require(usable.isNotEmpty()) {
+            val first = points[0]
+            "a curve needs at least one point that is a finite number; " +
+                "${points.size} were given and the first is ${first.first} to ${first.second}"
+        }
+        this.points = usable.sortedBy { it.first }
         for (i in 0 until LUT_SIZE) lut[i] = exact(i / (LUT_SIZE - 1f))
     }
 

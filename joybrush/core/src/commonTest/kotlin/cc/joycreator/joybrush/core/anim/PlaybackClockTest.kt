@@ -51,6 +51,31 @@ class PlaybackClockTest {
 
     private fun b(k: Int): Double = edge(board, k)
 
+    /**
+     * How far inside a slot a probe may sit and still be unambiguously inside it: a thousandth of a
+     * millisecond against a shortest possible frame of 16.7 ms. Chosen to be far larger than the ulp
+     * of any boundary a board can hold — so no rounding can be argued about — and far smaller than
+     * any frame — so a probe can never skip over a boundary.
+     */
+    private val AWAY = 0.001
+
+    /**
+     * Tolerance for a value that has been through `elapsed + (boundary - position) / speed` and is
+     * therefore only promised to be *one ulp* from the boundary. Boundaries themselves are asserted
+     * with no tolerance at all; see [everyBackwardBoundaryIsExactlyItsOwnNextChange].
+     */
+    private val RECONSTRUCTED = 1.0e-9
+
+    /**
+     * The range's own starts, `first`..`first + count - 1` plus its end, indexed exactly as the
+     * clock indexes them: board edges, made relative by subtracting the range's first edge.
+     *
+     * A table derived from the same arithmetic the clock uses would prove nothing, which is why
+     * nothing in this file is written as `hold * 1000 / fps`.
+     */
+    private fun rangeStarts(of: Board, first: Int, count: Int): List<Double> =
+        (0..count).map { edge(of, first + it) - edge(of, first) }
+
     private fun clock(
         mode: PlayMode = PlayMode.LOOP,
         first: Int = 0,
@@ -217,6 +242,294 @@ class PlaybackClockTest {
             }
         }
         assertEquals(listOf(0, 1, 2, 3, 2, 1, 0), seen, "one cycle and the turn, with no repeats")
+    }
+
+    // ── 4b. nextChangeMs AT a backward boundary ──────────────────────────────────────────────────
+    //
+    // Everything below is about one number. At a falling edge of the backward leg the frame on screen
+    // AT the edge is the frame on its way OUT, so the set of times at which the frame differs is an
+    // open interval with no smallest member: its infimum is the edge itself, and the contract asks
+    // for the infimum. A clock that answers `edge + ε` — or, worse, and this is what this file used
+    // to contain, the NEXT edge along, a whole frame away — makes a player sleep straight through
+    // the incoming frame every time it turns.
+
+    /**
+     * THE TIMELINE, BY HAND, for six EQUAL frames at 12 fps. `d` is one tick and the table is written
+     * in multiples of `d` only to be legible, because every assertion below indexes the board's own
+     * starts instead: `6 * (1000.0 / 12.0)` and the sixth ACCUMULATED start are not the same double,
+     * and a boundary an ulp out is a boundary on the wrong side of the question.
+     *
+     * ```
+     * starts    0    d    2d    3d    4d    5d       rangeMs = 6d  (an end, not a start)
+     * cycleMs  10d = 6d + (5d - d)                   the leg replays starts[5] back to starts[1]
+     *
+     *  cycle slot        frame   at its right end      nextChangeMs AT that right end
+     *    [0,     d)         0      1                            d        (a frame start)
+     *    [d,    2d)         1      2                           2d
+     *    [2d,   3d)         2      3                           3d
+     *    [3d,   4d)         3      4                           4d
+     *    [4d,   5d)         4      5                           5d
+     *    [5d,   6d]         5      5                           6d     <- the SEAM, still frame 5
+     *    (6d,   7d]         4      4                           7d     <- falling edge #1, still 4
+     *    (7d,   8d]         3      3                           8d     <- #2
+     *    (8d,   9d]         2      2                           9d     <- #3
+     *    (9d,  10d)         1      0                          10d + d <- the turn; the frame IS 0 at 10d
+     * ```
+     *
+     * Every `]` is the content of the ruling: the right end belongs to the slot, the change lands
+     * immediately after it, and `nextChangeMs` asked there must answer with that end. The last row is
+     * the one that stops this being a rule about "the seam": at the turn the frame really does change
+     * AT the boundary, so the turn answers 11d like any other forward start. A backward boundary is
+     * not a special time; it is every time the position is falling, and there are four of them here.
+     */
+    @Test
+    fun everyBackwardBoundaryIsExactlyItsOwnNextChange() {
+        val even = boardOf(1, 1, 1, 1, 1, 1, id = "six")
+        val c = PlaybackClock(even, mode = PlayMode.PING_PONG)
+        val n = 6
+        val s = rangeStarts(even, 0, n)
+
+        // The falling edges of the leg, seam first and turn last, in cycle time.
+        val u = DoubleArray(n) { c.rangeMs + (s[n - 1] - s[it]) }
+        assertEquals(c.rangeMs, u[n - 1], "u[5] is the seam, and it is rangeMs")
+        assertEquals(c.rangeMs + (s[n - 1] - s[1]), u[1], "u[1] is the turn")
+
+        // The seam and THREE interior falling edges. One board with several of them is the only way
+        // to catch a fix that has understood the seam and stopped there — which is precisely the shape
+        // of the bug this file was found with.
+        val selfAnswering = (2..n - 1).map { u[it] }
+        assertEquals(4, selfAnswering.size, "the seam plus three interior edges")
+
+        for (speed in listOf(1f, 2f, 0.5f, 4f)) {
+            val rate = speed.toDouble()
+            val clock = PlaybackClock(even, mode = PlayMode.PING_PONG, speed = speed)
+            for (at in selfAnswering) {
+                val asked = at / rate
+                assertEquals(
+                    asked,
+                    clock.nextChangeMs(asked),
+                    "at speed $speed the boundary $at is its OWN next change, exactly",
+                )
+            }
+            // The turn is not one of them, and that is the point of checking it here: at the turn the
+            // frame HAS changed, so the boundary is a forward one and answers the boundary after it.
+            val turn = u[1] / rate
+            assertEquals(0, clock.frameIndexAt(turn), "at the turn the cycle has wrapped to frame 0")
+            assertEquals(turn + s[1] / rate, clock.nextChangeMs(turn), "so the turn answers forwards")
+        }
+    }
+
+    /**
+     * The same claim where a table written for equal frames quietly stops holding: a range that does
+     * not start at frame 0, whose frames are not all the same length, and which has four interior
+     * falling edges rather than three.
+     */
+    @Test
+    fun interiorFallingEdgesAreTheirOwnNextChangeOnAnUnevenSubRange() {
+        // holds 3, 1, 2, 1, 3, 2, 1 — ranged 1..6 that is six frames of six different lengths.
+        val bd = boardOf(3, 1, 2, 1, 3, 2, 1, id = "seven")
+        val c = PlaybackClock(bd, mode = PlayMode.PING_PONG, firstFrame = 1, lastFrame = 6)
+        val n = 6
+        val s = rangeStarts(bd, 1, n)
+        val u = DoubleArray(n) { c.rangeMs + (s[n - 1] - s[it]) }
+
+        for (k in 2..n - 1) {
+            val at = u[k]
+            assertEquals(at, c.nextChangeMs(at), "falling edge $k at $at is its own next change")
+            // The frame on screen AT the edge is the one going out and the one a hair later is not, so
+            // the answer is an infimum and not merely the far side of a slot.
+            assertTrue(
+                c.frameIndexAt(at + AWAY) != c.frameIndexAt(at),
+                "at $at the change is immediately after, not a frame later",
+            )
+        }
+        assertEquals(c.rangeMs, u[n - 1], "the seam of a sub-range is still its own rangeMs")
+        assertEquals(3, (2..n - 2).count(), "three interior falling edges plus the seam")
+        // They are four different numbers, not one number counted four times.
+        assertEquals(4, selfDistinct(u.copyOfRange(2, n)).size, "four distinct falling edges")
+    }
+
+    /**
+     * THE WHOLE TIMELINE, SLOT BY SLOT, on four boards — four equal frames, six equal frames, six
+     * uneven frames and seven uneven frames — walking three cycles of each.
+     *
+     * For every slot: the frame a hair inside it, at its midpoint and a hair before its right end;
+     * the frame AT its right end if the slot owns that end and a different one if it does not; and
+     * that `nextChangeMs` from inside the slot is that right end. Those last two cannot both be true
+     * of a clock that is wrong in either direction — reported early and the frame has already changed
+     * inside the slot, reported late and the slot's own end is reached with the frame unchanged while
+     * the answer is still a whole frame off.
+     *
+     * The EXACT-at-the-boundary assertions run in the first cycle only. Adding a cycle offset in
+     * floating point moves the probe by up to an ulp of the sum, which at a boundary is the difference
+     * between the frame on either side of it; the later cycles are walked with the same probes but the
+     * ones that carry a tolerance, plus the interval invariant in
+     * [nextChangeMsIsTheInfimumOfWhenTheFrameActuallyChanges], which has no tolerance in it at all.
+     */
+    @Test
+    fun theWholePingPongTimelineIsPinnedSlotBySlot() {
+        for (holds in listOf(
+            intArrayOf(1, 1, 1, 1),
+            intArrayOf(1, 1, 1, 1, 1, 1),
+            intArrayOf(1, 2, 1, 3, 2, 1),
+            intArrayOf(3, 1, 2, 1, 3, 2, 1),
+        )) {
+            val bd = boardOf(*holds, id = "p${holds.size}")
+            val c = PlaybackClock(bd, mode = PlayMode.PING_PONG)
+            val starts = rangeStarts(bd, 0, holds.size)
+            val slots = cycleSlots(c, starts)
+            val label = holds.joinToString(",")
+            assertEquals(2 * holds.size - 2, slots.size, "$label frames, ${slots.size} slots")
+            // The shape of the ruling, counted rather than described: `count` forward slots, all
+            // closed on the left; the seam plus every interior falling edge closed on the right; and
+            // exactly one slot — the last — that runs into the turn and is closed on neither end.
+            assertEquals(holds.size, slots.count { it.closedLeft }, "$label: forward slots")
+            assertEquals(holds.size - 2, slots.count { it.closedRight }, "$label: the falling edges")
+            assertEquals(false, slots.last().closedRight, "$label: the turn ends no slot")
+            assertTrue(slots.last().to > slots[slots.size - 2].to, "$label: it is the last one")
+
+            // The RIGHT-HAND COLUMN OF THE HAND TABLE, asserted rather than described. Asked AT a
+            // boundary, `nextChangeMs` is that boundary itself where the position is falling and the
+            // boundary after it where it is rising — one rule, two comparisons, and the only part of
+            // this test that carries no tolerance of any kind. This is the assertion the bug got past.
+            for (i in slots.indices) {
+                val expected = if (slots[i].closedRight) {
+                    slots[i].to
+                } else if (i + 1 < slots.size) {
+                    slots[i + 1].to
+                } else {
+                    // The turn is not the end of anything: the range starts again, at its first frame.
+                    slots[i].to + starts[1]
+                }
+                assertEquals(
+                    expected,
+                    c.nextChangeMs(slots[i].to),
+                    "$label, asked at the end of frame ${slots[i].frame}'s slot",
+                )
+            }
+
+            var elapsed = 0.0
+            for (cycle in 0 until 3) {
+                for (slot in slots) {
+                    val at = "$label, cycle $cycle, frame ${slot.frame} in [${slot.from}, ${slot.to}]"
+                    val from = elapsed + slot.from
+                    val to = elapsed + slot.to
+                    // Cycle 0's probes land EXACTLY on the table, because nothing has been added to
+                    // them. Later cycles carry an ulp of accumulated offset, so they step AWAY inside
+                    // the slot instead — a probe that means to be AT a boundary and lands on the far
+                    // side of the one comparison that decides which frame that is would be reporting
+                    // the clock's rounding rather than its rule.
+                    val inside = if (slot.closedLeft && cycle == 0) from else from + AWAY
+                    assertEquals(slot.frame, c.frameIndexAt(inside), "$at, a hair inside")
+                    assertEquals(slot.frame, c.frameIndexAt((from + to) / 2.0), "$at, midway")
+                    assertEquals(slot.frame, c.frameIndexAt(to - AWAY), "$at, just before its end")
+                    if (cycle == 0) {
+                        if (slot.closedRight) {
+                            assertEquals(slot.frame, c.frameIndexAt(to), "$at, AT its own right end")
+                        } else {
+                            assertTrue(
+                                c.frameIndexAt(to) != slot.frame,
+                                "$at, its right end belongs to the next slot, not this one",
+                            )
+                        }
+                    }
+                    // From inside the slot, the next change is that slot's right end. Tolerated only
+                    // because the answer is REBUILT as elapsed + (boundary - position) / speed.
+                    assertEquals(to, c.nextChangeMs(inside), RECONSTRUCTED, "$at, awake at its end")
+                    assertEquals(to, c.nextChangeMs(to - AWAY), RECONSTRUCTED, "$at, from inside it")
+                    assertTrue(
+                        c.frameIndexAt(c.nextChangeMs(inside) + AWAY) != slot.frame,
+                        "$at, the frame HAS changed a hair after the answer",
+                    )
+                }
+                elapsed += slots.last().to
+            }
+        }
+    }
+
+    /**
+     * The same statement as [theWholePingPongTimelineIsPinnedSlotBySlot] asked the one way that needs
+     * no table at all, so it cannot inherit a mistake from one: everything here compares
+     * `nextChangeMs` against `frameIndexAt` and nothing else.
+     *
+     * `nextChangeMs(t)` is the infimum of the times at which the frame differs from the frame at `t`,
+     * which is exactly these two statements:
+     *
+     *  - the frame is UNCHANGED everywhere in `[t, nextChangeMs(t))`. This is what fails for an answer
+     *    a hair late, and a whole frame late — the bug this file was found with — fails it loudly.
+     *  - the frame HAS changed at `nextChangeMs(t) + ε`. This is what fails for an answer that is
+     *    early, which is what an epsilon "safety margin" on a boundary would buy.
+     *
+     * Neither tolerance appears anywhere below. Over four cycles at a thousand probes each, on six
+     * clocks covering both legs, three speeds, a sub-range and all three modes.
+     *
+     * ONCE is the one mode exempt from the second clause, and deliberately so. ONCE does not wrap:
+     * once its last frame is up, `frameIndexAt` parks there and the set of times at which it differs
+     * is empty, so there is no "and it HAS changed just after" to assert from inside that frame. What
+     * `nextChangeMs` should answer there instead is a question this spec has not yet ruled on — see
+     * the Questions section of the spec — and pinning either answer here would smuggle a decision in
+     * through a test written to prove something else. The first clause still applies to ONCE, and the
+     * ONCE answers this file already pinned are untouched.
+     */
+    @Test
+    fun nextChangeMsIsTheInfimumOfWhenTheFrameActuallyChanges() {
+        val bd = boardOf(1, 2, 1, 3, 2, 1, 2, 1, id = "eight")
+        val full = PlaybackClock(bd, mode = PlayMode.PING_PONG)
+        val mid = PlaybackClock(bd, mode = PlayMode.PING_PONG, firstFrame = 2, lastFrame = 5)
+        val clocks = listOf(
+            Triple("pong", full, full.rangeMs + (edge(bd, 7) - edge(bd, 1))),
+            Triple("pong x2", PlaybackClock(bd, mode = PlayMode.PING_PONG, speed = 2f), 0.0),
+            Triple("pong 0.5", PlaybackClock(bd, mode = PlayMode.PING_PONG, speed = 0.5f), 0.0),
+            Triple("pong 2..5", mid, mid.rangeMs + (edge(bd, 5) - edge(bd, 3))),
+            Triple("loop", PlaybackClock(bd, mode = PlayMode.LOOP), 0.0),
+            Triple("once", PlaybackClock(bd, mode = PlayMode.ONCE), 0.0),
+        )
+        for ((name, c, span) in clocks) {
+            val period = if (span > 0.0) span else c.rangeMs
+            val probes = ArrayList<Double>()
+            for (i in 0..1000) probes.add(period * 4.0 * i / 1000.0)
+            // And every frame edge of the board, which the grid above lands on only by luck.
+            for (k in 1..bd.frames.size) probes.add(edge(bd, k))
+            var checked = 0
+            var silent = 0
+            for (t in probes) {
+                val frame = c.frameIndexAt(t)
+                val wake = c.nextChangeMs(t)
+                if (wake.isInfinite()) {
+                    // Only ONCE does this, and only past its end — see the note on the class above.
+                    silent++
+                    continue
+                }
+                assertTrue(wake >= t, "$name: the answer at $t is not before the question")
+                if (wake - t > 1.0e-6) {
+                    // Nine probes across the window, so a boundary an eighth of the way in cannot
+                    // hide between two of them. Skipped when the window is thinner than a
+                    // microsecond: that is a sliver 16 000 times narrower than the shortest possible
+                    // frame, so there is genuinely nothing inside it to find — and a probe placed by
+                    // interpolation across a one-ulp window can round up ONTO the boundary, which
+                    // would be the test failing where no assertion is even meaningful.
+                    for (k in 0 until 9) {
+                        val inside = t + (wake - t) * k / 9.0
+                        assertEquals(
+                            frame,
+                            c.frameIndexAt(inside),
+                            "$name: frame $frame changed inside its own window: asked at $t, " +
+                                "told $wake, found ${c.frameIndexAt(inside)} at $inside",
+                        )
+                    }
+                }
+                if (c.mode != PlayMode.ONCE) {
+                    assertTrue(
+                        c.frameIndexAt(wake + AWAY) != frame,
+                        "$name: frame $frame is still up at ${wake + AWAY}, so the answer $wake asked " +
+                            "at $t is early",
+                    )
+                }
+                checked++
+            }
+            assertEquals(probes.size, checked + silent, "$name: every probe answered one way or the other")
+            assertTrue(checked > 200, "$name: only $checked probes had a finite answer")
+        }
     }
 
     /** A range too short to ping-pong simply plays forwards. */
@@ -404,4 +717,48 @@ class PlaybackClockTest {
         }
         assertEquals(false, c.isFinished(Double.NaN), "and NaN has not finished")
     }
+
+    // ── the timeline, worked out from the board rather than from the clock ───────────────────────
+
+    /**
+     * A ping-pong cycle split into the slots its frames actually occupy, in cycle time.
+     *
+     * Built from [starts] — the board's own edges, made range-relative — by the ruling's own recipe,
+     * and deliberately NOT by asking the clock: a table derived from the function it is meant to
+     * check proves nothing at all.
+     *
+     * Forward: `[starts[k], starts[k + 1])`, and the last one `[starts[n-1], rangeMs]` because the
+     * seam still shows the last forward frame. Backward: the leg walks `starts[n-1]` back to
+     * `starts[1]`, so its edges are `u[k] = rangeMs + (starts[n-1] - starts[k])` for `k` from `n - 1`
+     * down to 1 — the seam first, the turn last — and the slot showing frame `k` is `(u[k+1], u[k]]`.
+     * The turn itself belongs to no slot: at `cycleMs` the range has started again. The backward slots
+     * are walked from `n - 2` down to 1 so that the list comes out in increasing cycle time, which is
+     * the order a player meets them in.
+     */
+    private fun cycleSlots(c: PlaybackClock, starts: List<Double>): List<Slot> {
+        val n = starts.size - 1
+        val last = starts[n - 1]
+        val u = DoubleArray(n) { c.rangeMs + (last - starts[it]) }
+        val slots = ArrayList<Slot>(2 * n - 2)
+        for (k in 0 until n) {
+            slots.add(Slot(starts[k], starts[k + 1], k, closedLeft = true, closedRight = k == n - 1))
+        }
+        for (k in n - 2 downTo 1) {
+            // Frame 1's slot also stops at the turn, where the frame is no longer 1.
+            slots.add(Slot(u[k + 1], u[k], k, closedLeft = false, closedRight = k != 1))
+        }
+        return slots
+    }
+
+    /** How many of [these] are distinct — used to prove four edges are four numbers and not one. */
+    private fun selfDistinct(these: DoubleArray): List<Double> = these.distinct()
+
+    /** One frame's occupancy of one cycle: `frame` is shown over `[from, to]`, ends per the flags. */
+    private data class Slot(
+        val from: Double,
+        val to: Double,
+        val frame: Int,
+        val closedLeft: Boolean,
+        val closedRight: Boolean,
+    )
 }

@@ -374,9 +374,26 @@ class OraExportTest {
             // Destination-out, and not src-over. An erase written as src-over would put the eraser
             // layer's own pixels into the file as though they were paint.
             BlendMode.ERASE_BELOW to "svg:dst-out",
+            // The Studio's modes that SVG's feBlend also names, so these are EXACT mappings rather
+            // than approximations. Named here explicitly for the same reason the arithmetic side is:
+            // a mode missing from this table must be a compile error, never a silent src-over.
+            BlendMode.DIFFERENCE to "svg:difference",
+            BlendMode.EXCLUSION to "svg:exclusion",
+            BlendMode.COLOR_DODGE to "svg:color-dodge",
+            BlendMode.COLOR_BURN to "svg:color-burn",
+            BlendMode.HARD_LIGHT to "svg:hard-light",
+            BlendMode.SOFT_LIGHT to "svg:soft-light",
+            BlendMode.HUE to "svg:hue",
+            BlendMode.SATURATION to "svg:saturation",
+            BlendMode.COLOR to "svg:color",
+            BlendMode.LUMINOSITY to "svg:luminosity",
         )
-        assertEquals(BlendMode.entries.size, expected.size, "the table above covers every mode there is")
-        for (mode in BlendMode.entries) {
+        assertEquals(
+            BlendMode.entries.toSet(),
+            expected.keys.toSet() + unexpressibleBlendModes(),
+            "every mode is either mapped exactly or refused by name - never approximated",
+        )
+        for (mode in expected.keys) {
             val d = doc(layers = listOf(background(blend = mode), gloss()))
             val layers = layersOf(stackXml(encoded(contents(d))))
             assertEquals(2, layers.size, "$mode")
@@ -384,6 +401,51 @@ class OraExportTest {
             assertEquals("visible", layers[1][5], "$mode is written visible, because only visible layers are written")
         }
     }
+
+    /**
+     * The nine modes SVG has no operator for must stop the export IN WORDS. This is the test that
+     * makes the refusal a promise rather than a comment: the failure being prevented is a .ora that
+     * opens, looks plausible, and is quietly wrong — which is worse than no export at all, because
+     * the person finds out weeks later when they compare it to the app.
+     */
+    @Test
+    fun aBlendModeSvgCannotExpressStopsTheExportByName() {
+        for (mode in unexpressibleBlendModes()) {
+            val d = doc(layers = listOf(background(blend = mode), gloss()))
+            val thrown = assertFailsWith<IllegalArgumentException>("$mode must not be approximated") {
+                stackXml(encoded(contents(d)))
+            }
+            assertTrue(
+                thrown.message.orEmpty().contains(mode.name),
+                "the refusal must name the mode, got: ${thrown.message}",
+            )
+        }
+    }
+
+    /**
+     * A refusal must not become a blanket ban: the modes SVG *can* express still export, so the
+     * guard cannot quietly grow into "reject everything".
+     */
+    @Test
+    fun everyModeSvgCanExpressStillExports() {
+        for (mode in BlendMode.entries - unexpressibleBlendModes()) {
+            val d = doc(layers = listOf(background(blend = mode), gloss()))
+            val layers = layersOf(stackXml(encoded(contents(d))))
+            assertEquals(2, layers.size, "$mode must still export")
+            assertTrue(layers[1][6].startsWith("svg:"), "$mode must map to a real svg: operator")
+        }
+    }
+
+    /**
+     * The nine modes SVG has no operator for, in ONE place, so the table above, the refusal test and
+     * the still-exports test cannot disagree about which nine they are. Three copies of this list
+     * would be three chances to be wrong.
+     */
+    private fun unexpressibleBlendModes(): Set<BlendMode> = setOf(
+        BlendMode.LINEAR_BURN, BlendMode.LINEAR_LIGHT, BlendMode.VIVID_LIGHT,
+        BlendMode.PIN_LIGHT, BlendMode.HARD_MIX, BlendMode.SUBTRACT, BlendMode.DIVIDE,
+        BlendMode.DARKER_COLOR, BlendMode.LIGHTER_COLOR,
+    )
 
     // ── 3. every layer PNG decodes, to the right size and a known pixel ─────────
 

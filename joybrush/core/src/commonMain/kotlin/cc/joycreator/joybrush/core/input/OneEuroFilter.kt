@@ -16,6 +16,11 @@ import kotlin.math.hypot
  * Units are whatever the caller feeds in; [StrokeSmoother] feeds SCREEN pixels so the filter feels
  * the same at every zoom.
  *
+ * NOT WIRED, and not tested: as of 2026-09-29 this class has no callers outside this file and no
+ * test, because [StrokeSmoother] does not use a causal low-pass (see its KDoc). It is here because
+ * it is the algorithm the velocity-sensitive idea is named after, and reading "Built" on the board
+ * as "this is exercised" would be wrong. Whoever wires it must add tests in the same change.
+ *
  * @param minCutoff cutoff in Hz when the point is still. Lower = smoother and laggier when slow.
  * @param beta how fast the cutoff rises with speed (Hz per unit/second).
  * @param dCutoff cutoff for the speed estimate itself.

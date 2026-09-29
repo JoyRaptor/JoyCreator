@@ -134,3 +134,80 @@ both mine to fix rather than the agent's:
   `hold * 1000 / fps` itself: `2 * (1000.0/12.0)` is **not** bit-identical to `2000.0/12.0`, and a
   boundary off by one ulp lands on the wrong side of the comparison that decides the frame.
 
+## Questions
+_(builder: stealth/space-bunny-alpha, 2026-09-29. Fixing Finding 1 of `JB-3.05a__muse-spark.md` —
+"nextChangeMs at the seam and every interior backward boundary returns the next boundary along". Three
+things I settled inside my own area and one I did not.)_
+
+### 1. "A backward boundary" is a class, not the seam — and the ruling already says so
+
+The review's recommendation ("one branch: `cyclePos == rangeMs` — and symmetric falling-edge
+boundaries") is now one rule rather than a special case, and the code says why in one place:
+
+> **ONE RULE, two comparisons.** A FORWARD boundary is a frame START, so the incoming frame is
+> already up at it and the next change is the start after it — strictly greater. A BACKWARD boundary
+> is a frame END in cycle time, so the outgoing frame is the one up at it and the change is
+> immediately after — at or after, which is the infimum.
+
+The backward edges are the interior starts mirrored about the last frame's start,
+`u[k] = rangeMs + (starts[count-1] - starts[k])` for `k = count-1 … 1`: the seam at `k = count-1`
+(`= rangeMs`), the interior falling edges between, and the turn at `k = 1` (`= cycleMs`). A six-frame
+range has **four** backward boundaries, three of them interior, and a seven-frame range has five.
+Note the turn is *not* one of them — at the turn the frame really does change AT the boundary, so it
+answers forwards like any other frame start. That asymmetry is now pinned by a test rather than left
+to be rediscovered.
+
+### 2. The floating-point rule: **no epsilon, and no snapping either** — settled deliberately
+
+`nextChangeMs` rebuilds its answer as `elapsed + (boundary - position) / speed`. Asked exactly at a
+boundary that difference is exactly zero, so the returned wall time is the elapsed that was passed
+in, bit for bit. There is therefore **no `seam - 1e-12` to snap**: exactness is a property of the
+arithmetic rather than something a tolerance has to buy back. Where the caller's own arithmetic lands
+an ulp off — reachable only at a speed that is not a power of two, since dividing and re-multiplying
+by 1 is exact — the clock answers with the boundary it is genuinely inside or genuinely past. A
+tolerance there would turn a correct answer into a slightly wrong one silently, in the one function
+whose entire claim is that it never drifts. Decision: **none, and pinned with exact equality on every
+boundary, at four speeds.**
+
+**What did need fixing is `frameIndexAt`, not `nextChangeMs`.** Turning `cyclePos` back into a
+forward position (`last - (cyclePos - rangeMs)`) and looking that up cannot be done exactly:
+`rangeMs + (last - starts[k])` is a rounded sum, so the round trip comes back a hair either side of
+`starts[k]` even when `cyclePos` is EXACTLY the edge. On the uneven board
+`holds(3,1,2,1,3,2,1)` ranged 1..6, `nextChangeMs(1333.333…)` reported the change at 1333.333… while
+`frameIndexAt(1333.333…)` was already showing the frame it was supposed to change TO. The seam would
+show the incoming frame instead of the outgoing one, which contradicts the ruling it is supposed to
+implement. So the backward leg now reads its slot off the falling edges themselves
+(`slotOnTheBackwardLeg`), comparing the same edge the same way `nextChangeMs` does — the two can no
+longer disagree, because there is only one comparison left to disagree about. This is in scope: it
+is the same seam, and without it "the ruling holds" is false by an ulp on some boards.
+
+### 3. **UNRESOLVED — `nextChangeMs` inside an ONCE clock's LAST frame.** Needs an orchestrator ruling.
+
+Writing the exhaustive timeline test turned up a second thing, on a different boundary and a
+different mode, which I have deliberately **not** fixed because it is not this finding:
+
+> An ONCE clock's frame never changes after its last frame's own start. Decision 7 says
+> `nextChangeMs` is the smallest time at which `frameIndexAt` changes, and the ruling already settled
+> the degenerate case — "a one-frame range never changes frame, so `nextChangeMs` returns infinity for
+> it in every mode". The last frame of an ONCE range is that same situation and is not covered by the
+> words: `positionOf` parks it at `rangeMs − ε`, the frame on either side of `rangeMs` is the same
+> index, and `nextChangeMs` hands back `rangeMs` — a time at which nothing changes.
+
+By the ruling's own logic the answer there should be `Double.POSITIVE_INFINITY`, and it is a
+three-line change. I have not made it, because (a) it is a second finding and the review explicitly
+recorded the ONCE clamp as verified correct, and (b) it is the orchestrator's call whether ONCE's
+end should report `∞` like a one-frame range or keep reporting `rangeMs` as "playback stops here".
+`nextChangeMsIsTheInfimumOfWhenTheFrameActuallyChanges` therefore skips ONCE's second clause and says
+so in the test's own comment, rather than pinning either answer.
+
+### 4. For JB-3.05b: at a backward boundary the change has **no minimum**, so "sleep until
+### `nextChangeMs`" is not a loop on its own
+
+A player that sleeps until `nextChangeMs(t)` and then asks again without comparing frames will spin at
+every backward boundary: the answer at the boundary is the boundary, and the frame it is told to show
+is still the outgoing one until the very next instant. The infimum is what it must sleep until, and
+then it has to redraw — it just cannot treat "woke up" as "something changed". This is a consequence
+of the ruling, not a defect in it, and it is recorded here so JB-3.05b does not read it as a clock
+bug and try to fix it with an epsilon.
+
+

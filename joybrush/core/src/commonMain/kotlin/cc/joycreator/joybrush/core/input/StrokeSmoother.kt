@@ -41,12 +41,40 @@ import kotlin.math.pow
  * when nothing that arrives later can change it. That is what makes stroke recordings replayable and
  * lets an ink stroke be re-smoothed later with a different slider value (blueprint §2).
  *
+ * TWO NUMBERS CANNOT BE TRUSTED, and both are read the way the rest of the engine reads a broken
+ * number (LEAD_RULINGS R1, R10, R19 — the same rule as `Nudge.stepDoc` and `SizeOpacityDrag.ratio`):
+ * a value that is not a usable number is read as 1, never allowed to reach the maths.
+ *
+ *  1. **[screenPerDoc]** — a zero, a negative, a NaN or an Infinity here does not merely look odd:
+ *    `feedPath` multiplies every position by it and `smoothedAt` divides by it, so the release is
+ *    `x/0` = ±Infinity and `0/0` = NaN, and a NaN in [xs] is *permanent* — `segLen` becomes NaN, the
+ *    resampling loop's `along <= segLen` is false for every value of `along`, and the stroke stops
+ *    releasing anything at all. Every point after the first bad one is lost with no error at all. So
+ *    a bad zoom is read as 1: the smoothing is then measured in document px instead of screen px, and
+ *    the stroke comes out slightly too smooth or too rough at a zoom it should not have been given —
+ *    a visible, survivable wrong answer, not a deleted stroke.
+ *  2. **[add] refuses a sample with no place and no time in the world** (a non-finite `x`, `y` or
+ *    `timeMs`). A device cannot report that — [PenSample]'s NaN convention is for channels a pen has
+ *    no sensor for, never for where it is — so it only arrives from a corrupt or hostile recording,
+ *    which [cc.joycreator.joybrush.core.stroke.StrokeCodec] will hand back bit for bit because
+ *    bit-exactness is that codec's whole contract. Such a sample is DROPPED and the rest of the
+ *    stroke is kept: a missing pen sample is an ordinary event (a MotionEvent batch is coalesced
+ *    anyway) and the resampler already resamples across the gap, so dropping one is exactly as
+ *    faithful as if the device had never reported it. Throwing here instead would throw away the
+ *    other 999 good samples over one bad float, and letting it through is what deleted the rest of
+ *    the stroke in the first place. The drop is not silent: [droppedSamples] counts it, so a caller
+ *    replaying a recording can say so.
+ *
  * @param amount the slider, 0 = raw pen, 1 = maximum smoothing.
- * @param screenPerDoc zoom: screen pixels per document pixel, fixed for the whole stroke.
+ * @param screenPerDoc zoom: screen pixels per document pixel, fixed for the whole stroke. Anything
+ *   that is not a positive finite zoom is read as 1.
  */
-class StrokeSmoother(amount: Float, private val screenPerDoc: Float = 1f) {
+class StrokeSmoother(amount: Float, screenPerDoc: Float = 1f) {
 
     val amount: Float = amount.coerceIn(0f, 1f)
+
+    /** The zoom this stroke is smoothed at, guarded. See the class KDoc; same rule as [Nudge]. */
+    private val zoom: Float = if (screenPerDoc.isFinite() && screenPerDoc > 0f) screenPerDoc else 1f
 
     /** Gaussian width in screen px at this slider value (0 when the slider is 0). */
     val sigma: Double = amount.coerceIn(0f, 1f).toDouble().pow(1.5) * MAX_SIGMA
@@ -84,13 +112,33 @@ class StrokeSmoother(amount: Float, private val screenPerDoc: Float = 1f) {
     /** Test hook: when true, [add] releases nothing and [finish] releases everything (pure batch). */
     internal var holdRelease = false
 
-    /** Feeds one pen sample. Returns the points that are now final (possibly none). Predicted samples are ignored. */
+    /**
+     * How many samples [add] has refused because they had no place or no time in the world. Zero in
+     * every real stroke: a device reports a position or it does not report an event. Above zero, the
+     * stroke that came out is still the whole stroke minus those samples — see the class KDoc — and
+     * this is how a caller replaying a recording finds out that the file said something impossible.
+     */
+    var droppedSamples: Int = 0
+        private set
+
+    /**
+     * Feeds one pen sample. Returns the points that are now final (possibly none).
+     *
+     * Predicted samples are ignored, and a sample whose position or time is not a number is dropped
+     * and counted in [droppedSamples] — see the class KDoc for why dropping is the faithful answer and
+     * not a silent one. A dropped sample changes nothing else: it does not become the stroke's tool,
+     * it is not the point the line ends on, and it does not move the resampler's carried distance.
+     */
     fun add(sample: PenSample): List<PenSample> {
         check(!finished) { "stroke already finished" }
         if (sample.predicted) return emptyList()
+        if (!sample.isPlaceable) {
+            droppedSamples++
+            return emptyList()
+        }
         if (lastRaw == null) tool = sample.tool
         lastRaw = sample
-        feedPath(sample.x.toDouble() * screenPerDoc, sample.y.toDouble() * screenPerDoc, sample)
+        feedPath(sample.x.toDouble() * zoom, sample.y.toDouble() * zoom, sample)
         if (holdRelease) return emptyList()
         return release(xs.size - 1 - lookahead)
     }
@@ -174,8 +222,8 @@ class StrokeSmoother(amount: Float, private val screenPerDoc: Float = 1f) {
             }
         }
         return PenSample(
-            x = (x / screenPerDoc).toFloat(),
-            y = (y / screenPerDoc).toFloat(),
+            x = (x / zoom).toFloat(),
+            y = (y / zoom).toFloat(),
             timeMs = ts[i],
             pressure = p,
             tilt = tilts[i],

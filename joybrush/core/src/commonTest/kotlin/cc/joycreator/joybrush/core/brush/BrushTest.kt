@@ -707,5 +707,102 @@ class BrushTest {
         // A typo is still a typo, and is still named.
         assertSole(BrushValidate.validate(preset { it.copy(blend = "sideways") }), "blend \"sideways\"")
     }
+
+    // ---- 10. the checked door: loading a brush a person chose -----------------------------------
+
+    /**
+     * The guarantee, as opposed to the rules.
+     *
+     * Every test above calls [BrushValidate.validate] and reads the list, which proves the rules work
+     * and proves nothing at all about whether anything *asks* — and for a long time nothing did, so a
+     * hostile `brush.json` decoded clean and reached the engine, where every number is clamped and
+     * nothing is ever said: a `size.base` of 0 came out as a dotted stroke on the `minPx` floor, an
+     * opacity of 5 as 1, and the person who wrote the file learned none of it. Silent nonsense rather
+     * than a refusal. This test goes through the API a caller actually holds, so the guarantee is
+     * pinned where it is spent.
+     *
+     * The contrast is asserted deliberately: [BrushJson.decode] still hands the same file back. It is
+     * the *readable* door, for a caller that knows what it has; `decodeChecked` is the *usable* one.
+     */
+    @Test
+    fun aCheckedLoadRefusesABrushWithProblemsAndNamesEveryOneOfThem() {
+        val broken = inkJson
+            .replace("\"id\": \"joybrush.ink\",", "\"id\": \"  \",")
+            .replace("\"base\": 6,", "\"base\": 0,")
+            .replace("\"spacing\": 0.04,", "\"spacing\": 6,")
+
+        val thrown = assertFailsWith<BrushException>("a file with three problems must not load") {
+            BrushJson.decodeChecked(broken)
+        }
+        val said = thrown.message.orEmpty()
+        for (expected in listOf(
+            "id is empty",
+            "size.base must be above 0 and at most 4096, is 0.0",
+            "spacing 6.0 is outside 0.005..5",
+        )) {
+            assertTrue(said.contains(expected), "`$expected` must be named. The refusal was: $said")
+        }
+        // One refusal carrying every problem, in the validator's order — a person fixes a file in one
+        // pass instead of reloading it once per rule. This is the contract, so it is stated against
+        // the validator rather than against a count that a new rule would silently change.
+        assertEquals(
+            BrushValidate.validate(BrushJson.decode(broken)),
+            said.removePrefix("brush.json cannot be used: ").split("; "),
+        )
+        // The unchecked door still lets it through, which is the whole reason the other one exists.
+        assertEquals(3, BrushValidate.validate(BrushJson.decode(broken)).size)
+    }
+
+    @Test
+    fun theThreeBordersOfTheCheckedDoorAreTheOnesTheReviewsNamed() {
+        // 1. `size.base: 0` — a brush with no size, which the engine would quietly floor into `minPx`
+        // dots. The message has to name the number, because "something was wrong" is not fixable.
+        val noSize = assertFailsWith<BrushException>("a brush with no size must not load") {
+            BrushJson.decodeChecked(inkJson.replace("\"base\": 6,", "\"base\": 0,"))
+        }
+        assertTrue(
+            noSize.message.orEmpty().contains("size.base must be above 0 and at most 4096, is 0.0"),
+            "message was: ${noSize.message}",
+        )
+
+        // 2. `"opacity": {"base": 5}` — the one of the three this build does NOT refuse, and the
+        // assertion says so out loud. Seven `Param` bases carry no range (see the Question in
+        // JB-0.03b), so all validation can ask of opacity today is that it is a number. A brush with
+        // opacity 5 loads and dabs clamped, quietly — pinned here so that the day the base is ranged
+        // this test goes red and says which sentence changed, instead of the gap going unnoticed.
+        val loud = inkJson.replace("\"opacity\": { \"base\": 1 },", "\"opacity\": { \"base\": 5 },")
+        assertEquals(BrushJson.decode(loud), BrushJson.decodeChecked(loud), "today opacity is finite, so it loads")
+        assertEquals(emptyList(), BrushValidate.validate(BrushJson.decode(loud)), "and validation says nothing about it")
+
+        // 3. A version-1 file saying `engine: "fill"`. `decode` refuses this before it can validate;
+        // the checked door gets the same sentence out of rule 1b, which is why the message is here at
+        // all and not swallowed by an early throw — and it is named, not merged with the format tag.
+        val v1Fill = assertFailsWith<BrushException>("a v1 file saying fill must not load") {
+            BrushJson.decodeChecked(inkJson.replace("\"engine\": \"stamp\",", "\"engine\": \"fill\","))
+        }
+        assertEquals(
+            "brush.json cannot be used: engine \"fill\" needs brush version $BRUSH_VERSION",
+            v1Fill.message,
+        )
+    }
+
+    @Test
+    fun aLegalBrushComesBackThroughTheCheckedDoorUnchanged() {
+        // Every shipped brush, by the string each of them is: the door is not a filter that quietly
+        // drops something, and what it returns is the very preset `decode` would have returned.
+        for (json in listOf(inkJson, pencilJson, fillJson)) {
+            assertEquals(BrushJson.decode(json), BrushJson.decodeChecked(json))
+        }
+        // A brush saved and re-read is still itself, so a file that has been through the app's own
+        // writer is not refused by the app's own reader.
+        for (json in listOf(inkJson, pencilJson, fillJson)) {
+            val p = BrushJson.decodeChecked(BrushJson.encode(BrushJson.decode(json)))
+            assertEquals(BrushJson.decode(json), p)
+        }
+        // A file that will not parse is still refused by the same door, with the reader's sentence:
+        // the checked door adds the rules, it does not take the parser's away.
+        val truncated = assertFailsWith<BrushException> { BrushJson.decodeChecked("{\"format\": \"joybrush.brush\",") }
+        assertTrue(truncated.message.orEmpty().startsWith("brush.json cannot be read:"), "was: ${truncated.message}")
+    }
 }
 

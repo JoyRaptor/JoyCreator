@@ -82,7 +82,6 @@ class PlaybackClock(
         // SECOND frame's start. On four frames that is D (for one instant, the seam) then C then B,
         // which is the spec's `A B C D C B`. Reaching only as far back as the second-to-last frame's
         // start drops a whole frame and gives `A B C D B`.
-        // drops a whole frame and gives `A B C D B`.
         if (count >= 3) {
             backSpanMs = rangeStarts[count - 1] - rangeStarts[1]
             cycleMs = rangeMs + backSpanMs
@@ -135,9 +134,26 @@ class PlaybackClock(
      * then. [Double.POSITIVE_INFINITY] when the frame will not change again: a one-frame range, or
      * an ONCE clock that has finished.
      *
-     * AT THE PING-PONG SEAM THIS IS THE INFIMUM, not a minimum. At exactly `rangeMs` the index is
-     * still the last forward frame, and it differs immediately afterwards, so the change has no
-     * smallest time. `rangeMs` is where the player must wake, and it is what this returns.
+     * AT A BACKWARD BOUNDARY THIS IS THE INFIMUM, not a minimum, and that is the whole subtlety.
+     * Ask from inside a falling edge and the answer is the boundary ahead of you. Ask *at* it and
+     * you are already in the frame that is going away, so the frame differs at every instant after
+     * you and the set of change times has no smallest member. The boundary itself is then its
+     * infimum, and the infimum is what a player must sleep until: returning the boundary plus an
+     * epsilon would let a player that wakes on it draw the OUTGOING frame and sleep again straight
+     * past the incoming one, skipping a frame of a ping-pong every time it turned.
+     *
+     * "A backward boundary" is every falling edge of the leg, not only the wrap seam — see
+     * [nextBackwardBoundaryAtOrAfter], where the seam is simply the first of them.
+     *
+     * **NO EPSILON IS APPLIED TO THE BOUNDARY, AND NONE SHOULD BE.** The boundary is taken from the
+     * same [rangeStarts] the frame lookup uses and compared exactly, and the answer is rebuilt as
+     * `elapsed + (boundary - position) / speed`. Asked exactly at a boundary that difference is
+     * exactly zero, so the returned wall time is the elapsed that was passed in, bit for bit — there
+     * is no `seam - 1e-12` to snap in the first place. And where the caller's own arithmetic lands a
+     * ulp off the boundary (only reachable at a speed that is not a power of two, since dividing and
+     * re-multiplying by one is exact), the honest answer is the boundary it is genuinely inside or
+     * genuinely past: a tolerance here would turn a correct boundary into a slightly wrong one, and
+     * it would do it silently, in the one function whose entire claim is that it never drifts.
      */
     fun nextChangeMs(elapsedMs: Double): Double {
         // One frame cannot change. The contract asks for "the smallest wall time at which
@@ -147,31 +163,51 @@ class PlaybackClock(
         val board = clean * rate
         if (mode == PlayMode.ONCE && board >= rangeMs) return Double.POSITIVE_INFINITY
         val cyclePos = board % periodMs
+        // ONE RULE, two comparisons. A FORWARD boundary is a frame START, so the incoming frame is
+        // already up at it and the next change is the start after it — strictly greater. A BACKWARD
+        // boundary is a frame END in cycle time, so the outgoing frame is the one up at it and the
+        // change is immediately after — at or after, which is the infimum above.
         val boundary = if (cyclePos < rangeMs) {
-            // Forward leg, or either non-ping-pong mode: the next start in the range. For the last
-            // frame that is `rangeMs` itself, which is the wrap — and under PING_PONG it is also the
-            // seam, where the change lands immediately afterwards.
-            rangeStarts[slotAt(cyclePos) + 1]
+            nextForwardBoundaryAfter(cyclePos)
         } else {
-            nextBoundaryOnTheBackwardLeg(cyclePos)
+            nextBackwardBoundaryAtOrAfter(cyclePos)
         }
         return clean + (boundary - cyclePos) / rate
     }
 
-    /** The next frame boundary, as a position inside the current cycle, while on the backward leg. */
-    private fun nextBoundaryOnTheBackwardLeg(cyclePos: Double): Double {
-        val backPos = rangeStarts[count - 1] - (cyclePos - rangeMs)
-        // The position is falling, so the next change is the last start strictly below it, or the end
-        // of the cycle when there is none inside the backward leg.
-        var k = 0
-        // The interior starts are 0 .. count - 2 INCLUSIVE. Stopping one short of that skips the
-        // C-to-B change on a four-frame range and reports the turn instead — a player that then
-        // sleeps through a whole frame of a ping-pong.
-        for (i in 0 until count - 1) {
-            if (rangeStarts[i] < backPos) k = i else break
+    /**
+     * The first frame start strictly after [position] inside the range, or [rangeMs] itself, which is
+     * the range's end and the start of whatever comes next in every mode.
+     */
+    private fun nextForwardBoundaryAfter(position: Double): Double {
+        for (k in 1..count) {
+            if (rangeStarts[k] > position) return rangeStarts[k]
         }
-        if (k == 0) return cycleMs
-        return rangeMs + (rangeStarts[count - 1] - rangeStarts[k])
+        // Only reachable if a position ever reached the range's end, where this is the right answer
+        // anyway. `rangeStarts[count]` IS rangeMs, so the loop above already returns that value for
+        // every position the caller can actually hand it.
+        return rangeMs
+    }
+
+    /**
+     * The first boundary of the backward leg at or after [cyclePos].
+     *
+     * The leg replays the range's interior in reverse, so its boundaries are the interior starts
+     * measured from the seam: k = [count - 1] is the seam itself and k = 1 is the end of the cycle,
+     * because the leg never reaches back past the second frame's start. Walking k downwards
+     * therefore visits them in increasing cycle time and the first one at or after [cyclePos] is the
+     * answer — which is what makes the interior falling edges (`C` to `B` on four frames) come out
+     * right instead of only the seam.
+     */
+    private fun nextBackwardBoundaryAtOrAfter(cyclePos: Double): Double {
+        val lastStart = rangeStarts[count - 1]
+        for (k in count - 1 downTo 1) {
+            val at = rangeMs + (lastStart - rangeStarts[k])
+            if (at >= cyclePos) return at
+        }
+        // k = 1 is cycleMs, and cyclePos < cycleMs, so the loop returns. The value is the right
+        // answer for a position past every boundary in the leg regardless.
+        return cycleMs
     }
 
     /**
@@ -189,7 +225,34 @@ class PlaybackClock(
         }
         val cyclePos = board % periodMs
         if (cyclePos < rangeMs) return cyclePos
-        return rangeStarts[count - 1] - (cyclePos - rangeMs)
+        return rangeStarts[slotOnTheBackwardLeg(cyclePos)]
+    }
+
+    /**
+     * The slot to show while the position is FALLING, read off the falling edges themselves.
+     *
+     * The obvious spelling of this — turn [cyclePos] back into a forward position and look that up —
+     * cannot be done exactly, and the error is not cosmetic. `rangeMs + (last - rangeStarts[k])` is
+     * a rounded sum, so `last - (cyclePos - rangeMs)` comes back a hair either side of
+     * `rangeStarts[k]` even when [cyclePos] is EXACTLY that edge, and an ulp out at an edge is the
+     * wrong frame on the wrong side of the only comparison in this class that decides anything: the
+     * seam would show the incoming frame instead of the outgoing one, and `nextChangeMs` — which
+     * compares the very same edge — would then hand out a boundary at which the frame had already
+     * changed. So the edges are compared where they are, and the slot follows from the comparison.
+     *
+     * The edges are `u[k] = rangeMs + (last - rangeStarts[k])`, strictly DECREASING in `k` from the
+     * turn at `k = 1` to the seam at `k = count - 1`, which is `rangeMs` itself. The first one at or
+     * below [cyclePos] is the edge being stood on: frame `k` AT it, frame `k - 1` immediately after.
+     */
+    private fun slotOnTheBackwardLeg(cyclePos: Double): Int {
+        val lastStart = rangeStarts[count - 1]
+        for (k in 1 until count) {
+            val edge = rangeMs + (lastStart - rangeStarts[k])
+            if (edge <= cyclePos) return if (edge == cyclePos) k else k - 1
+        }
+        // Only reachable below the seam, which the caller has already excluded. The last forward frame
+        // is the right answer there in any case: it is what the leg is walking away from.
+        return count - 1
     }
 
     /** The frame slot a position falls in: the largest [k] with `rangeStarts[k] <= position`. */

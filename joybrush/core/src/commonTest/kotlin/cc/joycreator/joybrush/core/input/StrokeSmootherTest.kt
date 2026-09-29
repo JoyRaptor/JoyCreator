@@ -158,6 +158,110 @@ class StrokeSmootherTest {
         assertTrue(out.all { it.tilt.isNaN() && it.azimuth.isNaN() && it.barrel.isNaN() })
     }
 
+    // ── review JB-0.01 F1 / M1: the two numbers that must not be trusted ────────────────────────
+
+    /**
+     * A zoom that is not a positive finite number is read as 1, so the stroke is smoothed at the
+     * wrong scale rather than not at all.
+     *
+     * The four bad values are the review's own (F1: "0, -1, NaN, +Inf"), and the property asserted is
+     * the one that was broken rather than "it does not crash": every released point is a real point
+     * in the document, and the stroke is the WHOLE stroke — the same number of points, over the same
+     * span, ending where the pen lifted. Before the guard, `0f` released one NaN point and stopped,
+     * `±Inf` released one ±Inf point and stopped, and NaN released one NaN point and stopped.
+     */
+    @Test
+    fun aZoomThatIsNotAUsableNumberIsReadAsOneAndTheWholeStrokeSurvives() {
+        val path = drawAlong(listOf(0.0 to 0.0, 400.0 to 40.0), speed = 300.0, wobbleAmp = 1.5)
+        val atOneToOne = StrokeSmoother.smoothAll(path, 0.8f, 1f)
+        assertTrue(atOneToOne.size > 100, "the reference stroke is only ${atOneToOne.size} points")
+
+        for (zoom in listOf(0f, -1f, Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+            val s = StrokeSmoother(0.8f, zoom)
+            val out = ArrayList<PenSample>()
+            path.forEach { out.addAll(s.add(it)) }
+            out.addAll(s.finish())
+
+            for (p in out) {
+                assertTrue(p.x.isFinite(), "zoom $zoom released a non-finite x: $p")
+                assertTrue(p.y.isFinite(), "zoom $zoom released a non-finite y: $p")
+            }
+            // Read as 1, so the result is not merely finite, it is THE SAME STROKE at 1:1.
+            assertEquals(atOneToOne, out, "zoom $zoom is not the 1:1 stroke")
+            assertEquals(0, s.droppedSamples, "a bad zoom is not a bad sample")
+        }
+    }
+
+    /**
+     * The review's own reproduction (M1), as a permanent test. One NaN sample in the middle of a
+     * stroke used to delete everything after it: `segLen` became NaN, `along <= segLen` is then
+     * false for EVERY value of `along`, and the pen-up catch-up (`hypot(...) > 1e-9`, also false for
+     * NaN) never pushed the lift-off point either — so the stroke silently stopped following the pen.
+     *
+     * POLICY: FAITHFUL. The bad sample is dropped and the REST of the stroke is kept, because a
+     * missing pen sample is an ordinary event (Android coalesces a MotionEvent batch anyway) and the
+     * resampler already resamples across the gap, so "the device never reported that point" and
+     * "that point was not a number" are the same stroke. Refusing the whole recording instead would
+     * throw away the 999 good samples over one bad float; letting the NaN through is what deleted them.
+     */
+    @Test
+    fun oneNonFiniteSampleInTheMiddleCostsThatSampleAndNothingElse() {
+        val path = drawAlong(listOf(0.0 to 0.0, 400.0 to 40.0), speed = 300.0, wobbleAmp = 1.5)
+        val bad = path.size / 2
+
+        for (broken in listOf(
+            PenSample(path[bad].x, Float.NaN, path[bad].timeMs, pressure = path[bad].pressure),
+            PenSample(Float.NaN, path[bad].y, path[bad].timeMs, pressure = path[bad].pressure),
+            PenSample(path[bad].x, path[bad].y, Double.NaN, pressure = path[bad].pressure),
+            PenSample(path[bad].x, path[bad].y, Double.POSITIVE_INFINITY, pressure = path[bad].pressure),
+        )) {
+            val s = StrokeSmoother(0.8f)
+            val out = ArrayList<PenSample>()
+            path.forEachIndexed { i, p -> out.addAll(s.add(if (i == bad) broken else p)) }
+            out.addAll(s.finish())
+
+            // Not silent: the drop is counted, so a caller replaying a file can say so.
+            assertEquals(1, s.droppedSamples, "the broken sample $broken was not counted")
+
+            // What happens to the samples on EITHER SIDE, precisely.
+            val clean = path.filterIndexed { i, _ -> i != bad }
+            assertEquals(
+                StrokeSmoother.smoothAll(clean, 0.8f), out,
+                "the stroke must be exactly the stroke without that one sample",
+            )
+            // The stroke before it and the stroke after it are both still there, and the line still
+            // ends where the pen really lifted — the two things the NaN used to destroy.
+            assertTrue(out.size > 100, "only ${out.size} points survived")
+            for (p in out) {
+                assertTrue(p.x.isFinite() && p.y.isFinite() && p.timeMs.isFinite(), "released $p")
+            }
+            assertEquals(path.first().x, out.first().x, 1e-3f, "the stroke no longer starts at the first sample")
+            assertEquals(path.last().x, out.last().x, 1e-3f, "the stroke no longer reaches the last sample")
+        }
+    }
+
+    /** A stroke made only of bad samples is no stroke, and says so, rather than one NaN point. */
+    @Test
+    fun aStrokeOfNothingButNonFiniteSamplesIsEmpty() {
+        val s = StrokeSmoother(0.5f)
+        s.add(PenSample(Float.NaN, 0f, 0.0))
+        s.add(PenSample(0f, Float.NaN, 4.0))
+        val out = s.add(PenSample(0f, 0f, Double.NaN))
+        assertEquals(3, s.droppedSamples)
+        assertEquals(emptyList(), out)
+        assertEquals(emptyList(), s.finish())
+    }
+
+    /** A sensor channel reading NaN is an ABSENT sensor, and must not be mistaken for a bad sample. */
+    @Test
+    fun anAbsentSensorIsNotAnUnplaceableSample() {
+        val s = PenSample(3f, 4f, 5.0, tilt = Float.NaN, azimuth = Float.NaN, barrel = Float.NaN)
+        assertTrue(s.isPlaceable, "NaN channels are how an absent sensor is spelled, not a broken point")
+        assertTrue(PenSample(0f, 0f, 0.0).isPlaceable)
+        assertTrue(!PenSample(Float.NEGATIVE_INFINITY, 0f, 0.0).isPlaceable)
+        assertTrue(!PenSample(0f, Float.POSITIVE_INFINITY, 0.0).isPlaceable)
+    }
+
     private fun distToSegment(p: PenSample, a: PenSample, b: PenSample): Double {
         val ax = a.x.toDouble(); val ay = a.y.toDouble()
         val bx = b.x.toDouble(); val by = b.y.toDouble()

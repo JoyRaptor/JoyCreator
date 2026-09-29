@@ -13,6 +13,10 @@ package cc.joycreator.joybrush.core.input
  *
  * Channels a device cannot measure are [Float.NaN], never a made-up value — so a brush can tell "the
  * pen is upright" (tilt = 0) from "this pen has no tilt sensor" (tilt = NaN) and fall back properly.
+ * The NaN convention is for CHANNELS ONLY. Where the sample is ([x], [y]) and when it was ([timeMs])
+ * are not channels: there is no reading of "the pen is nowhere", so a sample whose position or time
+ * is not a finite number is not a sample with a missing channel, it is a broken one. [isPlaceable]
+ * is that test, and it is deliberately NOT the same test as [hasTilt] and friends.
  *
  * @property pressure 0..1 after the device's pressure calibration. Fingers and pressure-less pens
  *   report 1.
@@ -39,6 +43,19 @@ data class PenSample(
     val hasTilt: Boolean get() = !tilt.isNaN()
     val hasAzimuth: Boolean get() = !azimuth.isNaN()
     val hasBarrel: Boolean get() = !barrel.isNaN()
+
+    /**
+     * True when this sample says where the pen is and when: `x`, `y` and `timeMs` are all real
+     * numbers. A sample that fails this is dropped by [StrokeSmoother] rather than smoothed, because
+     * a NaN in the resampler's carried distance is permanent — the stroke stops releasing points for
+     * the rest of its life. Zero, negative, NaN and ±Infinity all fail, so a coordinate read from a
+     * corrupt recording cannot delete the samples recorded after it.
+     *
+     * The sensor channels are NOT part of this: a pen with no tilt sensor has `tilt = NaN` and is
+     * perfectly placeable, which is the whole point of the NaN convention above.
+     */
+    val isPlaceable: Boolean
+        get() = x.isFinite() && y.isFinite() && timeMs.isFinite()
 }
 
 /**

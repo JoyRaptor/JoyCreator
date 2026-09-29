@@ -52,6 +52,18 @@ class GlPaintEngine(
     var ready = false
         private set
 
+    /**
+     * True when the last [init] found GPU-side state left over from an earlier context — so the
+     * pixels are gone and this engine emptied itself instead of carrying the dead texture names
+     * into the new context as if they were somebody's drawing (review JB-0.07 F1).
+     *
+     * A caller that can tell the person ("the drawing was lost, it will have to be opened again")
+     * reads this. This class shows nothing on screen: what it guarantees is only that what IS shown
+     * is real.
+     */
+    var lostContent = false
+        private set
+
     /** Which stroke-buffer precision this GPU got (for the diagnostics overlay). */
     val strokeBufferIsHalfFloat: Boolean get() = strokeInternal == GLES30.GL_R16F
 
@@ -80,8 +92,24 @@ class GlPaintEngine(
 
     // ── lifecycle ────────────────────────────────────────────────────────────
 
-    /** Creates GL objects. Call once per GL context (again after a context loss — content is lost then). */
-    fun init() {
+    /**
+     * Creates GL objects. Call once per GL context — and again after a context loss, which is why
+     * the first thing it does is forget what the last context held (see [initWith]).
+     */
+    fun init() = initWith(::createGlObjects)
+
+    /**
+     * [init], with the GL calls behind a parameter so the bookkeeping can be tested where there is
+     * no context. `create` runs AFTER the loss is absorbed, never before: an object made on the new
+     * context must never meet a name the old one minted.
+     */
+    internal fun initWith(create: () -> Unit) {
+        lostContent = forgetEverythingFromTheLastContext()
+        create()
+        ready = true
+    }
+
+    private fun createGlObjects() {
         val version = GLES30.glGetString(GLES30.GL_VERSION) ?: ""
         val ext = GLES30.glGetString(GLES30.GL_EXTENSIONS) ?: ""
         val halfFloatRenderable = version.contains("OpenGL ES 3.2") ||
@@ -126,8 +154,50 @@ class GlPaintEngine(
         fbo = f[0]
 
         clearTex = newTexture(1, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
-        ready = true
     }
+
+    /**
+     * Drops every texture name this engine holds, and says whether there was anything to drop. This
+     * is [initWith]'s first statement and has to stay it: a texture name only means anything on the
+     * context that minted it, and after a loss the old names are free-list numbers the driver will
+     * hand to something else — or, once [initWith] has run, names that now belong to the clear tex.
+     * That is how a layer's dead texture came to be presented as somebody's painting (JB-0.07 F1).
+     *
+     * So a loss is not repaired: the pixels cannot come back, and the honest recovery is an EMPTY
+     * document, reported through [lostContent], rather than a blank canvas wearing somebody's undo
+     * history. Nothing is recycled on this path — a recycled name would be handed straight back out
+     * by [newLayerTile] — and the pools are cleared AFTER the stroke and the undo log have released
+     * into them, so both end up empty whatever order those releases happen in.
+     *
+     * The releases themselves delete nothing: the names were minted by the dead context, and this
+     * runs before the new context's first `glGen*`, so a pool trimmed here can only be deleting
+     * something that does not exist.
+     */
+    private fun forgetEverythingFromTheLastContext(): Boolean {
+        // [heldTextureNames] rather than the maps one by one, so "there was something to lose" and
+        // "a name is still being held" can never mean different things. `ready` is deliberately NOT
+        // in the question: init is also how a second init on a live context is recovered from, and
+        // what the caller needs to be told is that the DRAWING did not survive — not that init ran
+        // twice. An engine with nothing in it has nothing to announce.
+        val had = heldTextureNames() > 0 || undo.canUndo || undo.canRedo
+        // The stroke goes with its buffer, and the layers with their tiles: the stroke was never in
+        // a layer, so nothing is released twice and nothing is left pointing at a dead name.
+        cancelStroke()
+        layers.clear()
+        undo.clear()
+        freeLayerTex.clear()
+        freeStrokeTex.clear()
+        return had
+    }
+
+    /**
+     * How many texture names this engine is holding right now — every layer tile, every stroke-buffer
+     * tile and both free pools. It exists so a test can prove a context loss leaves NONE of them
+     * behind; it is not a count of GL objects, because the programs, buffers, framebuffer and
+     * [clearTex] are the driver's business and [initWith] makes new ones rather than reusing old.
+     */
+    internal fun heldTextureNames(): Int =
+        layers.values.sumOf { it.tiles.size } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size
 
     /** Frees every GL object this engine owns. */
     fun release() {

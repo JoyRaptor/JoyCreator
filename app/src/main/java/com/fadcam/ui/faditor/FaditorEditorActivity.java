@@ -14271,10 +14271,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
                         project.getTimeline().removeWaveformOverlay(overlay);
                         undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_remove_visualizer),
-                                () -> project.getTimeline().removeWaveformOverlay(overlay),
-                                () -> project.getTimeline().addWaveformOverlay(overlay)));
+                                () -> { project.getTimeline().removeWaveformOverlay(overlay); syncTimelineOverlays(); refreshWaveformOverlays(); },
+                                () -> { project.getTimeline().addWaveformOverlay(overlay); syncTimelineOverlays(); refreshWaveformOverlays(); }));
                         waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // §4.5 per-object eye
                         waveformOverlayView.invalidate();
+                        syncTimelineOverlays();
                         scheduleAutoSave();
                         Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_visualizer_removed, Toast.LENGTH_SHORT).show();
                     }
@@ -17813,8 +17814,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setPositiveButton(R.string.studio_ui_remove, (d, w) -> {
                     project.getTimeline().removeWaveformOverlay(wv);
                     undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_remove_visualizer),
-                            () -> project.getTimeline().removeWaveformOverlay(wv),
-                            () -> project.getTimeline().addWaveformOverlay(wv)));
+                            () -> { project.getTimeline().removeWaveformOverlay(wv); syncTimelineOverlays(); refreshWaveformOverlays(); },
+                                () -> { project.getTimeline().addWaveformOverlay(wv); syncTimelineOverlays(); refreshWaveformOverlays(); }));
                     if (waveformOverlayView != null) {
                         waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // §4.5 per-object eye
                         waveformOverlayView.invalidate();
@@ -19868,9 +19869,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wo.setSize(0.85f, 0.22f);
         final com.fadcam.ui.faditor.model.WaveformOverlayInstance addedWo = wo;
         project.getTimeline().addWaveformOverlay(addedWo);
+        // The visualizer's own timeline row comes from the timeline sync. Add and undo/redo used
+        // to refresh only the picture, so the new row (the thing you double-tap to open its
+        // drawer) did not exist until some other edit happened to sync (found on the Note 9,
+        // 2026-09-29: three visualizers added, no row for any of them).
         undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add_visualizer),
-                () -> project.getTimeline().addWaveformOverlay(addedWo),
-                () -> project.getTimeline().removeWaveformOverlay(addedWo)));
+                () -> { project.getTimeline().addWaveformOverlay(addedWo);
+                        syncTimelineOverlays(); refreshWaveformOverlays(); },
+                () -> { project.getTimeline().removeWaveformOverlay(addedWo);
+                        syncTimelineOverlays(); refreshWaveformOverlays(); }));
+        syncTimelineOverlays();
         refreshWaveformOverlays();
         scheduleAutoSave();
         selectAndRevealNewObject(addedWo.getId());   // SPEC_U §3

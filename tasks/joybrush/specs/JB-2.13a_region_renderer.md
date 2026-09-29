@@ -138,3 +138,88 @@ it is exactly the shape of hostile input the budget was added to survive.
 Needs a ruling: refuse an extent that will not fit `Int` (a one-line `Long` check next to the budget),
 or is a board coordinate near `Int.MAX` considered out of scope for an unbounded canvas?
 
+### Q4 — ANSWERED, NOT ASKED: the parity gap is 26 modes wide, not six, and only ONE is on the GPU
+
+Re-review pass, after **JB-2.20a** landed. Q2 above is the right finding and the wrong number, and
+the wrongness is worse than staleness: it was naming **JB-2.04** as the task that owes the GPU the
+modes, and **JB-2.04 is not that task.** The GL layer compositing row is **JB-2.20b** ("GL layer
+compositing with the Studio's `GLSL_BLEND_FN` — preview = export", T1, `⚪ Outline`, depends on
+2.20a), and JB-2.20a decision 6 already says so and forbids any UI offering a non-NORMAL mode until
+it lands. A reader who trusted Q2 would have gone to look in the wrong row and found nothing.
+
+So the corrected claim, and the counts that make it a claim rather than an opinion:
+
+| | CPU (`RegionRenderer` / `Blend`) | GPU layer path (`GlPaintEngine`) |
+|---|---|---|
+| modes implemented | **27 of 27** | **1 of 27** — `NORMAL` only |
+
+The GPU's one is source-over by **fixed function**, which is why nothing in the shader source can be
+grepped to find the absence: `jb_tile.frag:13` is `o_color = texture(u_layer, v_uv) * u_layerOpacity`
+— no mode uniform, no mode branch, no second program — and `GlPaintEngine.kt:367` sets
+`glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)` once, before the layer loop, and never changes it.
+Decisively: `GlPaintEngine`'s own layer record (`:58-62`) holds `id`, `opacity`, `visible` and `tiles`
+and **no blend field at all**, so there is nothing for a mode to arrive in. Not a missing branch — a
+missing field.
+
+**The twenty-six CPU-only modes**, now in the KDoc by name: MULTIPLY, SCREEN, OVERLAY, ADD, DARKEN,
+LIGHTEN, ERASE_BELOW, and the nineteen JB-2.20a appended — DIFFERENCE, COLOR, COLOR_DODGE,
+COLOR_BURN, LINEAR_BURN, HARD_LIGHT, SOFT_LIGHT, VIVID_LIGHT, LINEAR_LIGHT, PIN_LIGHT, HARD_MIX,
+EXCLUSION, SUBTRACT, DIVIDE, DARKER_COLOR, LIGHTER_COLOR, HUE, SATURATION, LUMINOSITY.
+
+**One correction to Q2 that matters more than the count.** Q2 called `ERASE_BELOW` an agreement with
+the GPU. It is not one. `jb_commit.frag:21`'s `dst * (1.0 - a)` is driven by the **`u_erase` uniform**
+— that is the eraser TOOL writing into a tile, and it does make an erased pixel agree screen-versus-
+export, which is why the grey-smear failure mode is structurally impossible. But the GL engine
+compositing an `ERASE_BELOW` **layer** would do it source-over like any other. So `ERASE_BELOW` is
+one of the twenty-six, and the eraser-tool fact is recorded separately and explicitly NOT counted as
+layer parity. Getting this wrong in the other direction is how a real divergence gets excused as a
+known agreement.
+
+**Still latent, still not a parity test.** Nothing in `commonMain` can produce a non-NORMAL layer and
+JB-2.20a decision 6 forbids offering one, so nothing diverges *today*. I have deliberately not
+written a test that pins source-over as the correct GPU answer — that is the wrong behaviour, and a
+test would make it expensive to fix. What I did write is
+`theParityClaimNamesExactlyTheModesEachSideHas`, which pins the **claim**: both halves named, and
+required to partition the enum. A twenty-eighth mode now breaks a test rather than quietly making
+the KDoc a lie — which is the whole point of finding 2, since a KDoc that lies about wrong pixels is
+the defect rather than the documentation of it.
+
+### Q5 — ANSWERED IN THE SOURCE, NO RULING NEEDED: the paper precondition, and the "non-finite" half of Finding 1
+
+Review Finding 3, and a piece of the test brief that cannot be satisfied as written and is better
+said out loud than faked.
+
+**Finding 3 is fixed at the door.** Invalid `paper` still throws — `IllegalArgumentException`, never a
+guessed colour, for the reason `parsePaper` already gave: defaulting would silently export a black
+background, the one answer nobody mistakes for a bug. What changed is that the check is now its own
+function (`requirePaperIfAny`) called by **both** public doors *before* the allocation, instead of
+being buried in a helper `render` only reached indirectly. The observable difference is the empty
+region: both doors return early for a 0 × 5 rect, and that return happens before the paper is read,
+so with the check buried in the helper `render` of an empty region with a nonsense paper colour
+returned an empty array and said nothing. It is a small thing and it is exactly the shape of Finding
+3 — a precondition enforced somewhere other than where the request is made. The class KDoc now also
+states the half that was missing outright: **these functions do not validate the document.** They
+read it as given; `DocOps.validate` belongs at the open door, where there is a person to tell, and a
+renderer that re-validated per call would make every export pay for a check that is not its job.
+
+**On "non-finite dimensions", which I did not fake.** `RectPx` is four `Int`s. A NaN or an infinity
+is not a value these functions can be handed, so there is no non-finite dimension to refuse and
+inventing a door for one would be theatre. The nearest thing in the request that CAN be non-finite is
+a layer's `opacity`, and that is neutralised rather than refused on purpose — a document that means
+0% should render nothing, not fail — which was already tested. The dimensional arithmetic is exact at
+the extremes instead, and that IS tested: `theLargestRectTwoIntsCanDescribeIsRefusedInWordsRatherThanWrapping`
+pins that `Int.MAX_VALUE` squared is 2^62 − 2^32 + 1, that truncating it to 32 bits gives **1**, and
+that the request is refused anyway. A guard doing `w * h` in `Int` would believe it had been asked
+for a single pixel and hand back a 4-byte image for the largest rectangle that can be written down —
+silent, and a caller would blame the export rather than the guard. The size arithmetic is `Int` and
+`Long` end to end and never touches a float, so there is no float to go non-finite in the first place.
+
+### Q6 — the Review's §5b evidence is now stale in a way that would hide a regression
+
+Not a finding; a process note for whoever re-reviews. The suite is **642 tests** and
+`RegionRendererTest` is **47**. A reviewer who reads "34/34" from the original build and does not
+re-run will not see that the budget tests, the parity-claim tests and the paper tests are new work
+rather than the original six spec tests, and cannot tell a silently-deleted assertion from one that
+was never written. The command and the counts belong in this file, not only in a build log.
+
+

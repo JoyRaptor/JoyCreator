@@ -5,7 +5,7 @@ import cc.joycreator.joybrush.core.doc.BlendMode
 import kotlin.math.min
 
 /**
- * The eight [BlendMode]s as ONE compositing step, on PREMULTIPLIED floats in 0..1.
+ * All TWENTY-SEVEN [BlendMode]s as ONE compositing step, on PREMULTIPLIED floats in 0..1.
  *
  * WHY PREMULTIPLIED, and why it is the only choice: the GPU stores tiles as premultiplied RGBA8
  * (`jb_tile.frag` blends them straight into a premultiplied framebuffer with ONE,
@@ -128,9 +128,13 @@ object Blend {
      * `B(Cb, Cs)` per channel: the separable blend function, on STRAIGHT (un-premultiplied) 0..1
      * colours so that the mode means what a colour picker says it means.
      *
-     * The cases are written out by NAME rather than behind an `else` so that a ninth
-     * [BlendMode] cannot be added without a compiler error here. DocModel says an unknown blend is
-     * refused rather than approximated, and this is the half of that promise Kotlin can keep.
+     * THE SEVEN CASES ARE WRITTEN OUT BY NAME rather than behind an `else`, and the reason is no
+     * longer "so a new mode will not compile". JB-2.20a made that untrue: the enum now has
+     * twenty-seven constants, so a twenty-eighth is a compile error nobody would get — it lands in
+     * the `else` below and is routed to [BlendRgb] by [needsWholePixelBlend] first, which is the
+     * SAFE default and is the opposite failure from a compiler error. What naming them by hand
+     * still buys is that a mode cannot be quietly per-channel when it should be whole-pixel: the
+     * separation of concerns is visible in the source instead of living in a reader's memory.
      *
      * [term] now answers only the seven SEPARABLE modes. The other twenty are named in
      * [needsWholePixelBlend] and dispatched to [BlendRgb] in [apply] before this is ever reached;
@@ -190,9 +194,12 @@ object Blend {
     private val B_TERM = FloatArray(3)
     private val SCRATCH = FloatArray(3)
 
-    // ── the eight names ───────────────────────────────────────────────────────────
+    // ── the eight named doors ──────────────────────────────────────────────────────
     // Thin doors onto apply(), so the enum and the arithmetic cannot drift apart. They exist
-    // because a caller (or a test) should be able to ask for one mode by name.
+    // because a caller (or a test) should be able to ask for one mode by name. EIGHT of
+    // twenty-seven: the doors predate the Studio's nineteen and those have none, deliberately —
+    // see `theEightNamedFunctionsMatchTheEnum` for why one door per mode would be nineteen more
+    // places for the enum and the arithmetic to drift apart.
 
     fun normal(s: FloatArray, d: FloatArray, out: FloatArray) = apply(BlendMode.NORMAL, s, d, out)
     fun multiply(s: FloatArray, d: FloatArray, out: FloatArray) = apply(BlendMode.MULTIPLY, s, d, out)

@@ -117,3 +117,48 @@ not check.*
    (`deleteFrame` drops a cel no remaining frame points at, and emits `DropCel` for the engine to
    free), and a 300-step randomised test asserts the invariant anyway. JB-3.0x should not assume
    the validator will catch a leak.
+
+*From the JB-3.01 fix pass, 2026-09-29, after mimo's review. Code is in and tested; these four are
+the decisions the fix had to make on the spec's behalf and the ones the Lead still owns.*
+
+6. **Two frames of one board with the same id: FORBIDDEN, so every frame operation refuses.**
+   `DocOps.validate` rule 4 says so — `duplicateIds(b.frames.map { it.id }) { "board \"${b.id}\" has
+   two frames called \"$it\"" }` (`DocOps.kt:80`) — and rule 2's ids-address-things argument applies,
+   so the fix is a refusal in words, not support for the case. `AnimOps.playableBoard` now refuses
+   such a board for **all four** frame operations, not just `deleteFrame`: `deleteFrame` could not
+   avoid losing a cel (it removed one copy of the frame and the mapping both copies share), `setHold`
+   would have set the hold on *both* copies, and `moveFrame` could only pick one of the two. The
+   **question for the Lead is the one place where this is visible as a change of behaviour**:
+   `addFrame(BLANK)` and `animateLayer` used to work on such a board (they only ever ADD a frame, so
+   they cannot make the duplicate worse) and now refuse. That is deliberate — the file's promise is
+   "every operation returns a document `validate` is happy with, or throws", and no op here can make
+   a board with two frames called `f1` valid — but Question 2 above blessed `addFrame` on a board
+   `validate` rejects (no frames, a different rule), and if the Lead wants BLANK to stay available on
+   a duplicate-id board, say so and the check moves from `playableBoard` into the two operations that
+   can actually lose or corrupt something.
+7. **An ANIMATION board with no frames AND a bad fps (m3, still unresolved).** Question 2 says both
+   that an empty board's schedule is `0.0` and an empty list **and** that a board whose fps is outside
+   1..60 is refused by all three functions. The code refuses, because the rate guard runs before the
+   frames are walked (`AnimOps.playableSchedule` → `playableFps`), so an empty board at `fps = 0f`
+   throws rather than answering 0.0. That is defensible — an empty board is not a board, and `fps` is
+   a rate the model stores — but the spec currently says both, and the fix deliberately did **not**
+   add a test pinning either answer. Please pick one: refuse (current code) or answer the empty
+   schedule; if refuse, Question 2's wording should stop promising `0.0` for an empty board.
+8. **`setHold` clamps to 999 ticks, and `DocOps.validate` has no upper bound on `holdFrames` at
+   all.** So a document with `holdFrames = 5000` — hand-edited, or written by a future build — is
+   VALID, and calling `setHold(doc, …, 5000)` on it answers 999, silently changing a document nobody
+   said was wrong. This is the mirror of Question 4's stricter-than-`validate` id rule, and it is
+   deliberate (`MAX_HOLD_FRAMES` exists so a document cannot claim to run for years), but it is an
+   asymmetry between the model and the maths that nobody has ratified. Fixing it means either a rule
+   in `DocOps` (`holdFrames > 999`) — **outside this task's owner area** — or dropping the clamp, and
+   both are the Lead's call. Not changed here.
+9. **Reachability of the three new refusals (F1/F2/F3 + the `kind` guard).** Archive read and write
+   both call `DocOps.validate` before anything else (`androidkit/.../io/JbArchive.kt:170` on write,
+   `:388` on read), and no `AnimOps` operation can *create* these documents — `setHold` clamps, and
+   ids are refused. So all four guards are reachable only through `DocJson.decode`, which by design
+   does not validate. The fix follows the fps guard's existing argument ("each is a value a
+   hand-edited or half-written document really does contain") rather than inventing a new one. If the
+   Lead would rather not carry four such guards, the alternative is a cheap structural check at
+   decode time — **`DocJson.kt` is outside this task's owner area**, so it is recorded here and not
+   touched.
+

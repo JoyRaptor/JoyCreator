@@ -77,6 +77,14 @@ enum class NewFrame {
  * because every caller of this is a program (the film strip, the undo stack) and should hear about
  * it at once rather than paint a broken frame.
  *
+ * The one place where "returns a valid document" cannot be honoured is a board holding two frames
+ * with the same id — [DocOps.validate] rule 4 calls that out (`"board … has two frames called …"`),
+ * and a frame id is what every operation below takes to mean "this frame". With two of them the id
+ * names two frames, so no operation can say which one was meant: `deleteFrame` would remove one copy
+ * of the frame and the mapping both copies share, dropping a cel the surviving frame still needs, and
+ * `setHold` would set the hold on both. Guessing is not available and repairing is not allowed, so
+ * [playableBoard] refuses the board in words and every operation here inherits that.
+ *
  * Nothing here mutates: every function returns a new [JbDocument], so the undo stack can hold the
  * old one and a caller can try a move and look at it before committing.
  */
@@ -98,6 +106,16 @@ object AnimOps {
     private const val MIN_FPS = 1f
     private const val MAX_FPS = 60f
 
+    /**
+     * The fewest ticks a frame may be held, which is [DocOps.validate] rule 4's own `holdFrames < 1`
+     * for the same reason the fps range is used: one rule, written once.
+     *
+     * It is both ends of the same number — the floor [setHold] clamps up to and the ceiling
+     * [playableSchedule] refuses below — so the slider and the schedule cannot disagree about what a
+     * frame is.
+     */
+    private const val MIN_HOLD_FRAMES = 1
+
     // ------------------------------------------------------------------ animateLayer
 
     /**
@@ -111,14 +129,15 @@ object AnimOps {
      * [DocOps.validate] reports as a hole and which a renderer has no way to draw.
      *
      * Refuses: a layer that is already animated (a layer animates on one board or none, never two),
-     * a board that is not an [BoardKind.ANIMATION] board, an unknown id, a board with no frames
+     * a board that is not an [BoardKind.ANIMATION] board, a board with two frames of the same id,
+     * an unknown id, a board with no frames
      * (there is nothing to be animated across — add the first frame and come back), and a static
      * layer that is already wrong under [DocOps.validate] rule 6 (not one cel, or any frame
      * mappings). Those last two are refused rather than tidied away: fixing them here would be a
      * silent repair, and whatever put them there is the thing that has to be undone.
      */
     fun animateLayer(doc: JbDocument, layerId: String, boardId: String): JbDocument {
-        val board = animationBoard(doc, boardId)
+        val board = playableBoard(doc, boardId)
         val target = layer(doc, layerId)
         if (target.animatedIn != null) {
             throw DocException(
@@ -184,8 +203,8 @@ object AnimOps {
      *
      * Refuses: an unknown board, a board that is not [BoardKind.ANIMATION], an [afterFrameId] that
      * is not a frame of this board, [NewFrame.DUPLICATE] or [NewFrame.LINK] on a board with no
-     * frames to copy from, an animated layer that has no cel for the source frame, and an id that
-     * the document already uses.
+     * frames to copy from, an animated layer that has no cel for the source frame — or whose mapping
+     * for it names a cel the layer does not have — and an id that the document already uses.
      */
     fun addFrame(
         doc: JbDocument,
@@ -194,7 +213,7 @@ object AnimOps {
         mode: NewFrame,
         ids: () -> String,
     ): AnimResult {
-        val board = animationBoard(doc, boardId)
+        val board = playableBoard(doc, boardId)
 
         val insertAt: Int
         val sourceFrameId: String?
@@ -225,6 +244,21 @@ object AnimOps {
                 continue
             }
             val sourceCelId = sourceFrameId?.let { layer.frameCel[it] }
+            // A mapping is only half an answer: it also has to be a mapping to a cel THIS layer has.
+            // `frameCel` names frames that do not exist and cels that do not exist alike, so both
+            // halves are checked — a missing key below, a phantom value here. Copying or linking a
+            // cel that is not in the document would put that name in a [CelWork.CopyCel] or write it
+            // into a second `frameCel` entry, and either way the operation would be handing back
+            // something the validator dislikes (one problem before, two after) or an instruction to
+            // copy tiles out of a cel the engine cannot find.
+            if (mode != NewFrame.BLANK && sourceCelId != null &&
+                layer.cels.none { it.id == sourceCelId }
+            ) {
+                throw DocException(
+                    "layer \"${layer.id}\" shows frame \"$sourceFrameId\" with cel \"$sourceCelId\", " +
+                        "which it does not have, so a new frame cannot be copied from or linked to it",
+                )
+            }
             when (mode) {
                 NewFrame.LINK -> {
                     val celId = sourceCelId ?: throw DocException(
@@ -277,9 +311,14 @@ object AnimOps {
      * Refuses to delete the last frame of a board: [DocOps.validate] rule 4 says an animation board
      * with no frames is not a board, so the operation that produced it would be handing back a
      * document it had just been told is broken. Add a frame, then delete this one.
+     *
+     * It also refuses a board with two frames of the same id (see [playableBoard]): the two copies
+     * share one `frameCel` key, so deleting one of them would remove the mapping the survivor still
+     * needs and hand its live cel to the engine as free — a cel nothing points at only in the answer
+     * this function would have made up.
      */
     fun deleteFrame(doc: JbDocument, boardId: String, frameId: String): AnimResult {
-        val board = animationBoard(doc, boardId)
+        val board = playableBoard(doc, boardId)
         val index = frameIndexOf(board, frameId)
         if (board.frames.size <= 1) {
             throw DocException(
@@ -327,9 +366,9 @@ object AnimOps {
      * No cel moves and no pixels change, so this is a plain [JbDocument] and no [CelWork].
      */
     fun setHold(doc: JbDocument, boardId: String, frameId: String, holdFrames: Int): JbDocument {
-        val board = animationBoard(doc, boardId)
+        val board = playableBoard(doc, boardId)
         frameIndexOf(board, frameId) // refuses an unknown frame before anything is written
-        val hold = holdFrames.coerceIn(1, MAX_HOLD_FRAMES)
+        val hold = holdFrames.coerceIn(MIN_HOLD_FRAMES, MAX_HOLD_FRAMES)
         val frames = board.frames.map { if (it.id == frameId) it.copy(holdFrames = hold) else it }
         return withFrames(doc, boardId, frames)
     }
@@ -346,7 +385,7 @@ object AnimOps {
      * index a frame is already at returns the document it was given.
      */
     fun moveFrame(doc: JbDocument, boardId: String, frameId: String, toIndex: Int): JbDocument {
-        val board = animationBoard(doc, boardId)
+        val board = playableBoard(doc, boardId)
         val from = frameIndexOf(board, frameId)
         if (toIndex < 0 || toIndex >= board.frames.size) {
             throw DocException(
@@ -374,8 +413,9 @@ object AnimOps {
      * of two.
      *
      * Refuses a board with no frames, because [frameAt] has to return a [Frame] and there is no
-     * honest one to return. A [Double.NaN] time is treated as before the start rather than being
-     * allowed to fall out of the search below as "no frame matched".
+     * honest one to return, and a board [playableSchedule] cannot time at all. A [Double.NaN] time
+     * is treated as before the start rather than being allowed to fall out of the search below as
+     * "no frame matched".
      */
     fun frameAt(board: Board, timeMs: Double): Frame {
         if (board.frames.isEmpty()) {
@@ -394,13 +434,13 @@ object AnimOps {
     /**
      * How long one play of [board] lasts, in milliseconds: the sum of `holdFrames × 1000 / fps`.
      *
-     * An empty board is 0 ms rather than an error, and this function refuses a board whose fps is
-     * outside 1..60 — which is [DocOps.validate] rule 4's own range, and catches [Float.NaN] and
-     * infinities as well as a rate that is merely too fast. Together those two are the only reasons a
-     * document's timing cannot be answered at all.
+     * An empty board is 0 ms rather than an error, and this function refuses anything
+     * [playableSchedule] refuses: a board that is not [BoardKind.ANIMATION], a rate outside 1..60, or
+     * a frame held for no time at all. Those three, and only those three, are the reasons a
+     * document's timing cannot be answered.
      */
     fun totalDurationMs(board: Board): Double {
-        val fps = playableFps(board)
+        val fps = playableSchedule(board)
         var total = 0.0
         for (frame in board.frames) total += durationMs(frame, fps)
         return total
@@ -413,9 +453,13 @@ object AnimOps {
      * A frame's own length is worked out as `holdFrames × 1000 / fps`, multiplying before dividing,
      * so the values add up exactly to [totalDurationMs]: both walk the same expression in the same
      * order, and the last start plus the last frame's length IS the total.
+     *
+     * Refuses anything [playableSchedule] refuses, which is why a hold of zero never reaches the
+     * arithmetic below: two frames would otherwise be given the SAME start, and [frameAt] would
+     * answer with whichever of them came second.
      */
     fun frameStartsMs(board: Board): List<Double> {
-        val fps = playableFps(board)
+        val fps = playableSchedule(board)
         val starts = ArrayList<Double>(board.frames.size)
         var at = 0.0
         for (frame in board.frames) {
@@ -431,7 +475,55 @@ object AnimOps {
     private fun durationMs(frame: Frame, fps: Double): Double = frame.holdFrames * 1000.0 / fps
 
     /**
-     * [board]'s fps as a [Double], refused unless it is a rate a board can actually play at.
+     * [board]'s fps as a [Double], refused unless [board] is something whose schedule can honestly be
+     * answered: an [BoardKind.ANIMATION] board (the only kind that holds frames, and the same rule
+     * every operation above enforces through [playableBoard]), playing at a rate in 1..60
+     * ([DocOps.validate] rule 4's `fps !in 1f..60f`), with every frame held for at least one tick
+     * (rule 4's `holdFrames < 1`).
+     *
+     * All three are arithmetic this object then does blind, so all three are checked here, ONCE, and
+     * in the model's own idiom rather than a second opinion invented here: this object must never
+     * call a board playable that the validator calls broken, or the other way round, or the two
+     * disagree about the same document in the same run.
+     *
+     * The hold is guarded for exactly the reason the rate is, and the failure it prevents is the one
+     * [playableFps] describes for an infinite rate, arrived at from a different number: a frame held
+     * for zero ticks has no length, so it takes up no time on the timeline at all. Then
+     * [frameStartsMs] hands two frames the SAME start, [totalDurationMs] quietly loses that frame's
+     * share of the play, and [frameAt]'s `starts[i] <= timeMs` walk accepts both starts and answers
+     * with the LATER of the two — so a frame the person drew is shown for no time whatsoever except
+     * a negative one, and a board where every frame is held for nothing answers the LAST frame at
+     * every time in the world. A plausible, confident, wrong answer, from a document the validator
+     * has already called broken. [setHold] is the only way to write such a hold, and it clamps, so
+     * reaching this needs a hand-edited or half-written file — which is the same reachability the
+     * rate guard has, and the same answer.
+     *
+     * A board with NO frames is not refused: an empty schedule is empty, not untimeable, and the two
+     * readers above are total over it. (An empty ANIMATION board is still not a board the validator
+     * accepts; see Question 2 of the JB-3.01 spec.)
+     */
+    private fun playableSchedule(board: Board): Double {
+        if (board.kind != BoardKind.ANIMATION) {
+            throw DocException(
+                "board \"${board.id}\" is a ${board.kind} board; only an ANIMATION board has frames to play",
+            )
+        }
+        val fps = playableFps(board)
+        for (frame in board.frames) {
+            if (frame.holdFrames < MIN_HOLD_FRAMES) {
+                throw DocException(
+                    "board \"${board.id}\" holds frame \"${frame.id}\" for ${frame.holdFrames} frames, " +
+                        "so its schedule has no length in time (a frame is held for at least " +
+                        "$MIN_HOLD_FRAMES frame)",
+                )
+            }
+        }
+        return fps
+    }
+
+    /**
+     * [board]'s fps as a [Double], refused unless it is a rate a board can actually play at. The rate
+     * half of [playableSchedule], which calls it — this is where the range is, and there is one.
      *
      * This is the SAME range, in the SAME idiom, as [DocOps.validate] rule 4's `fps !in 1f..60f`, and
      * that is the whole point of writing it that way: this object must never call a board playable
@@ -461,13 +553,39 @@ object AnimOps {
         doc.boards.firstOrNull { it.id == boardId }
             ?: throw DocException("this document has no board \"$boardId\"")
 
-    /** An [BoardKind.ANIMATION] board, which is the only kind that can hold frames. */
-    private fun animationBoard(doc: JbDocument, boardId: String): Board {
+    /**
+     * The board an operation is allowed to act on: an [BoardKind.ANIMATION] board, which is the only
+     * kind that can hold frames, and one whose frames are uniquely named.
+     *
+     * The frame-id half is [DocOps.validate] rule 4's `duplicateIds(frames)` and it is enforced here
+     * rather than tidied away, for the reason the whole object is built the way it is: every
+     * operation below takes a frame ID, so two frames sharing one makes the request ambiguous, and
+     * "delete the frame called f1" cannot be answered without picking one. Picking one is how
+     * `deleteFrame` used to lose a cel — it removes the first frame and then the mapping both copies
+     * share, so the surviving frame is left with no cel and the live cel is handed to the engine as
+     * free. Refusing costs a person one message; guessing costs them their ink.
+     */
+    private fun playableBoard(doc: JbDocument, boardId: String): Board {
         val found = board(doc, boardId)
         if (found.kind != BoardKind.ANIMATION) {
             throw DocException("board \"$boardId\" is a ${found.kind} board; only an ANIMATION board has frames")
         }
+        val repeated = firstRepeatedFrameId(found)
+        if (repeated != null) {
+            throw DocException(
+                "board \"$boardId\" has two frames called \"$repeated\", so a frame id does not say " +
+                    "which frame is meant; that is a broken document, and no frame operation can " +
+                    "work out which of the two was meant — fix that first",
+            )
+        }
         return found
+    }
+
+    /** The first frame id [DocOps.validate] rule 4 already calls a repeat, or null if there is none. */
+    private fun firstRepeatedFrameId(board: Board): String? {
+        val seen = HashSet<String>()
+        for (frame in board.frames) if (!seen.add(frame.id)) return frame.id
+        return null
     }
 
     private fun layer(doc: JbDocument, layerId: String): Layer =

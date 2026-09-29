@@ -13,6 +13,7 @@ import cc.joycreator.joybrush.core.doc.RectPx
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
@@ -259,6 +260,54 @@ class RegionRendererTest {
         val rect = RectPx(0, 0, 1, 1)
         val ok = RegionRenderer.render(doc(emptyList()), tiles, rect, null, "#ff8000")
         assertEquals(listOf(255, 128, 0, 255), pixelAt(ok, rect, 0, 0))
+    }
+
+    /**
+     * THE PRECONDITION, AT THE DOOR, ON BOTH DOORS — and this test is here because the precondition
+     * used to be real but unwritten, which is the state a caller cannot do anything with.
+     *
+     * Two things are being pinned, and the second is the one that only a door check can give.
+     *
+     * ONE: the same string is refused the same way whichever entry point is called, and the message
+     * quotes the string it was handed, so a person sees WHICH paper rather than "invalid input".
+     *
+     * TWO, the empty region. Both doors return early for a region of no size, and that return
+     * happens BEFORE the paper is read — so with the check buried in the helper, `render` of a
+     * 0 x 5 region with a nonsense paper colour would have quietly returned an empty image and said
+     * nothing. It is a small thing, and it is exactly the shape of the bug the review named: a
+     * precondition that is enforced somewhere other than where the request is made. An empty region
+     * is still a request, and it carries the same paper.
+     */
+    @Test
+    fun thePaperPreconditionIsCheckedAtBothDoorsBeforeAnythingIsAllocated() {
+        val d = doc(emptyList())
+        val rect = RectPx(0, 0, 1, 1)
+        val emptyRect = RectPx(0, 0, 0, 5)
+
+        for (bad in listOf("FFFFFF", "#FFF", "#GGGGGG", "not a colour", "#12345")) {
+            val fromRender = assertFailsWith<IllegalArgumentException>("render, paper \"$bad\"") {
+                RegionRenderer.render(d, tilesOf(), rect, null, bad)
+            }
+            val fromScratch = assertFailsWith<IllegalArgumentException>("renderPremultiplied, paper \"$bad\"") {
+                RegionRenderer.renderPremultiplied(d, tilesOf(), rect, null, bad)
+            }
+            val m = fromRender.message ?: ""
+            assertTrue(m.contains(bad), "the message quotes the paper it refused: $m")
+            assertTrue(m.contains("#RRGGBB"), "and says what a paper is: $m")
+            assertEquals(m, fromScratch.message, "both doors refuse in the same words")
+        }
+
+        // The empty region is the door check, made observable. Without it these return empty arrays
+        // and complain about nothing.
+        assertFailsWith<IllegalArgumentException>("an empty region is still a request") {
+            RegionRenderer.render(d, tilesOf(), emptyRect, null, "#GGGGGG")
+        }
+        assertFailsWith<IllegalArgumentException>("and the same through the premultiplied door") {
+            RegionRenderer.renderPremultiplied(d, tilesOf(), emptyRect, null, "#GGGGGG")
+        }
+        // Null is the other half of the precondition — no paper is a legal request, not a missing
+        // one, and it must not have started sharing a door with the unreadable case.
+        assertEquals(0, RegionRenderer.render(d, tilesOf(), emptyRect, null, null).size)
     }
 
     /**
@@ -551,12 +600,40 @@ class RegionRendererTest {
         assertEquals(0, RegionRenderer.renderPremultiplied(d, tiles, RectPx(0, 0, 0, 0), null, null).size)
     }
 
+    /**
+     * A NEGATIVE side is a caller bug, and it is refused IN WORDS at BOTH DOORS.
+     *
+     * The word "same way" matters: `RegionException` is a property of the request (this region is
+     * too big to allocate) and a negative side is a bug in it, so the two are different types on
+     * purpose. But a caller that gets one of them should get the same answer whichever door it
+     * asked, and both messages have to name the numbers — a refusal nobody can act on gets
+     * reported as "export just failed", which is how a budget turns into a bug report instead of
+     * a sentence.
+     *
+     * ON NON-FINITE, because "refuse it the same way" has to be answered honestly: `RectPx` is four
+     * `Int`s, so a NaN or an infinity is not a value this function can be handed. There is no
+     * non-finite dimension to refuse, and inventing a door for it would be theatre. The nearest
+     * thing that CAN be non-finite in this request is a layer's opacity, and that is neutralised
+     * rather than refused on purpose (`opacityOf`, checked by
+     * `aMeaninglessOpacityIsClampedRatherThanFollowedIntoNaN`) because a document that means 0%
+     * should render nothing, not fail. The dimensional arithmetic itself is exact at the extremes
+     * — see `theLargestRectTwoIntsCanDescribeIsRefusedInWords` — because it is `Int` and `Long`
+     * from end to end and never touches a float.
+     */
     @Test
     fun aRegionOfNoSizeInTheOtherDirectionIsRefused() {
         val d = doc(listOf(layer("L1")))
         val tiles = tilesOf()
-        for (r in listOf(RectPx(0, 0, -1, 5), RectPx(0, 0, 5, -1))) {
-            assertFailsWith<IllegalArgumentException>("$r") { RegionRenderer.render(d, tiles, r, null, null) }
+        for (r in listOf(RectPx(0, 0, -1, 5), RectPx(0, 0, 5, -1), RectPx(0, 0, -1, -1))) {
+            val fromRender = assertFailsWith<IllegalArgumentException>("render, $r") {
+                RegionRenderer.render(d, tiles, r, null, null)
+            }
+            val fromScratch = assertFailsWith<IllegalArgumentException>("renderPremultiplied, $r") {
+                RegionRenderer.renderPremultiplied(d, tiles, r, null, null)
+            }
+            val m = fromRender.message ?: ""
+            assertTrue(m.contains("${r.w}") && m.contains("${r.h}"), "the message names the sides: $m")
+            assertEquals(m, fromScratch.message, "both doors refuse in the same words")
         }
     }
 
@@ -771,6 +848,223 @@ class RegionRendererTest {
         assertEquals(16_777_216L, 4096L * 4096L, "2^24 is the first power of two over it")
         assertFailsWith<RegionException>("4096 square") {
             RegionRenderer.render(d, tilesOf(), RectPx(0, 0, 4096, 4096), null, null)
+        }
+    }
+
+    // ── which blend modes, and which side of the parity gap has them ─────────────
+
+    /**
+     * THE KDOC CLAIM, MADE EXECUTABLE. `RegionRenderer`'s class KDoc claims the CPU implements all
+     * twenty-seven modes and the GPU exactly one, and names both halves; this is that claim as an
+     * assertion, because a KDoc that lies about wrong pixels is the defect rather than the
+     * documentation of it, and a comment is not a thing that can fail.
+     *
+     * The GPU half cannot be observed from here — there is no GL in this module — so it is pinned
+     * as a NAMED SET and proved to partition the enum. That is what stops it rotting: a twenty-eighth
+     * mode lands in neither list, the partition assertion fails, and whoever adds it has to say
+     * which side of the gap it went on, in the source, where the KDoc points.
+     *
+     * The CPU half IS observed, at the end: every mode renders, and every one of the twenty-six
+     * is a genuinely DIFFERENT picture from NORMAL rather than a second NORMAL wearing a name.
+     */
+    @Test
+    fun theParityClaimNamesExactlyTheModesEachSideHas() {
+        // What the GL layer path has. jb_tile.frag:13 has no mode uniform and no mode branch;
+        // GlPaintEngine.kt:367 sets one blend func before the layer loop and never changes it;
+        // GlPaintEngine's own layer record has no blend field for a mode to arrive in.
+        val gpu = listOf(BlendMode.NORMAL)
+
+        // What it does not have. Written out because "the other twenty-six" is a number that rots,
+        // and because which modes are missing is the whole content of the claim.
+        val cpuOnly = listOf(
+            // The separable ones, which is all this file had to itself before JB-2.20a landed.
+            BlendMode.MULTIPLY, BlendMode.SCREEN, BlendMode.OVERLAY, BlendMode.ADD,
+            BlendMode.DARKEN, BlendMode.LIGHTEN,
+            // Joy Brush's own erase. NOT a blend term, and not something the GPU can composite as
+            // a layer — the eraser TOOL happens to agree pixel-for-pixel, which is a narrower fact.
+            BlendMode.ERASE_BELOW,
+            // The nineteen JB-2.20a appended, in the order it appended them.
+            BlendMode.DIFFERENCE, BlendMode.COLOR, BlendMode.COLOR_DODGE, BlendMode.COLOR_BURN,
+            BlendMode.LINEAR_BURN, BlendMode.HARD_LIGHT, BlendMode.SOFT_LIGHT, BlendMode.VIVID_LIGHT,
+            BlendMode.LINEAR_LIGHT, BlendMode.PIN_LIGHT, BlendMode.HARD_MIX, BlendMode.EXCLUSION,
+            BlendMode.SUBTRACT, BlendMode.DIVIDE, BlendMode.DARKER_COLOR, BlendMode.LIGHTER_COLOR,
+            BlendMode.HUE, BlendMode.SATURATION, BlendMode.LUMINOSITY,
+        )
+
+        assertEquals(27, BlendMode.entries.size, "the enum grew, so the KDoc's 27 is now wrong")
+        assertEquals(1, gpu.size, "the GPU has exactly one layer blend, and it is NORMAL")
+        assertEquals(26, cpuOnly.size, "27 modes, one of them implemented on the GPU")
+        // THE PARTITION: together, every mode in the enum's own order and no mode twice. This is
+        // the assertion that makes a new constant break a test instead of making a KDoc a lie.
+        assertEquals(
+            BlendMode.entries.toList(),
+            (gpu + cpuOnly).sortedBy { it.ordinal },
+            "the two halves must partition the enum — a new mode belongs on one side or the other, " +
+                "and this is where that decision gets written down",
+        )
+    }
+
+    /**
+     * The same claim one level down: which of the twenty-seven are answered ONE CHANNEL AT A TIME.
+     *
+     * `Blend.needsWholePixelBlend` is written as a negative list precisely so there is only one list
+     * of modes, and this is the positive list the KDoc and the two `when`s have to agree with. It
+     * is the claim most likely to rot, because a mode can be added to the enum and quietly end up
+     * per-channel when it should not be — and a per-channel term applied to HUE gives a WRONG
+     * pixel rather than a slow one, which is the whole reason the negative list is safe by default.
+     */
+    @Test
+    fun theSevenSeparableModesAreTheOnesBlendAnswersPerChannel() {
+        val separable = listOf(
+            BlendMode.NORMAL, BlendMode.MULTIPLY, BlendMode.SCREEN, BlendMode.OVERLAY,
+            BlendMode.ADD, BlendMode.DARKEN, BlendMode.LIGHTEN,
+        )
+        val wholePixel = listOf(
+            BlendMode.DIFFERENCE, BlendMode.COLOR, BlendMode.COLOR_DODGE, BlendMode.COLOR_BURN,
+            BlendMode.LINEAR_BURN, BlendMode.HARD_LIGHT, BlendMode.SOFT_LIGHT, BlendMode.VIVID_LIGHT,
+            BlendMode.LINEAR_LIGHT, BlendMode.PIN_LIGHT, BlendMode.HARD_MIX, BlendMode.EXCLUSION,
+            BlendMode.SUBTRACT, BlendMode.DIVIDE, BlendMode.DARKER_COLOR, BlendMode.LIGHTER_COLOR,
+            BlendMode.HUE, BlendMode.SATURATION, BlendMode.LUMINOSITY,
+        )
+
+        assertEquals(7, separable.size, "seven are separable")
+        assertEquals(19, wholePixel.size, "nineteen are not, and all nineteen came from JB-2.20a")
+        assertEquals(
+            BlendMode.entries.toList(),
+            (separable + listOf(BlendMode.ERASE_BELOW) + wholePixel).sortedBy { it.ordinal },
+            "7 separable + ERASE_BELOW + 19 whole-pixel must be all twenty-seven, in enum order",
+        )
+
+        // And the partition is the behaviour, not just the arithmetic: over a BACKDROP, a separable
+        // mode is independent per channel and a whole-pixel mode is not. Backdrop 50% blue, source
+        // 50% red — the green channel is 0 in both inputs, so MULTIPLY and the non-separable modes
+        // (which reach into the other channels) must leave different traces in it.
+        val s = floatArrayOf(0.4f, 0.1f, 0.05f, 0.5f)
+        val d = floatArrayOf(0.15f, 0.3f, 0.45f, 0.5f)
+        val out = FloatArray(4)
+        val greenOf = { m: BlendMode ->
+            Blend.apply(m, s, d, out); out[1]
+        }
+        // MULTIPLY of a green the source does not have is 0, and NORMAL is the source's own green.
+        // With sa = da = 0.5 the W3C formula collapses to co = 0.25(Cs + B + Cb), which is what
+        // makes two of these checkable by hand — the same collapse the blend table above uses.
+        assertEquals(0.25f * (0.2f + (0.2f * 0.6f) + 0.6f), greenOf(BlendMode.MULTIPLY), 1e-5f, "B = Cs*Cb")
+        assertEquals(0.25f * (0.2f + 0.2f + 0.6f), greenOf(BlendMode.NORMAL), 1e-5f, "B = Cs")
+        // DIFFERENCE is separable too, so it is the NON-separable set that must be the ones whose
+        // green channel depends on the other two inputs — COLOR, for one, mixes all three.
+        assertTrue(
+            listOf(BlendMode.COLOR, BlendMode.HUE, BlendMode.SATURATION, BlendMode.LUMINOSITY)
+                .all { greenOf(it) != greenOf(BlendMode.NORMAL) },
+            "a whole-colour mode that leaves green alone is not a whole-colour mode",
+        )
+    }
+
+    /**
+     * Every one of the twenty-seven really does render, and every one of the twenty-six the GPU
+     * lacks is a DIFFERENT picture from NORMAL. Without this the two lists above would be a claim
+     * about names; with it, they are a claim about pixels.
+     */
+    @Test
+    fun everyBlendModeRendersAndEveryCpuOnlyOneRendersDifferentlyFromNormal() {
+        val rect = RectPx(0, 0, 1, 1)
+        // Two layers, because over nothing EVERY mode returns its own source — the backdrop is what
+        // makes a blend function visible at all.
+        fun render(blend: BlendMode): List<Int> {
+            val d = doc(listOf(layer("bg"), layer("m", blend = blend)))
+            val tiles = tilesOf(
+                TKey("bg", "bg-cel", 0, 0) to solid(0, 128, 255, 128),
+                TKey("m", "m-cel", 0, 0) to solid(255, 64, 0, 128),
+            )
+            return pixelAt(RegionRenderer.render(d, tiles, rect, null, null), rect, 0, 0)
+        }
+
+        val normal = render(BlendMode.NORMAL)
+        for (m in BlendMode.entries) {
+            val p = render(m)
+            for (c in 0..3) {
+                assertTrue(p[c] in 0..255, "$m channel $c is ${p[c]}, out of range")
+            }
+        }
+        val cpuOnly = listOf(
+            BlendMode.MULTIPLY, BlendMode.SCREEN, BlendMode.OVERLAY, BlendMode.ADD,
+            BlendMode.DARKEN, BlendMode.LIGHTEN, BlendMode.ERASE_BELOW,
+            BlendMode.DIFFERENCE, BlendMode.COLOR, BlendMode.COLOR_DODGE, BlendMode.COLOR_BURN,
+            BlendMode.LINEAR_BURN, BlendMode.HARD_LIGHT, BlendMode.SOFT_LIGHT, BlendMode.VIVID_LIGHT,
+            BlendMode.LINEAR_LIGHT, BlendMode.PIN_LIGHT, BlendMode.HARD_MIX, BlendMode.EXCLUSION,
+            BlendMode.SUBTRACT, BlendMode.DIVIDE, BlendMode.DARKER_COLOR, BlendMode.LIGHTER_COLOR,
+            BlendMode.HUE, BlendMode.SATURATION, BlendMode.LUMINOSITY,
+        )
+        for (m in cpuOnly) {
+            assertNotEquals(normal, render(m), "$m renders exactly as NORMAL, so the GPU does not need it")
+        }
+    }
+
+    /**
+     * THE OTHER END OF THE SAME ARITHMETIC, and the one that would have been a SILENT WRONG ANSWER
+     * rather than a crash.
+     *
+     * `Int.MAX_VALUE` square is 2^62 − 2^32 + 1 pixels, which a `Long` holds and an `Int` does not
+     * — and truncated to 32 bits it is exactly 1. So a guard that did `rect.w * rect.h` in `Int`
+     * would compute 1, believe it had been asked for a single pixel, and hand back a 4-byte image
+     * for the largest rectangle that can be written down. No exception, no crash, no wrong-coloured
+     * pixel: a caller asking for everything gets one pixel, and calls that a bug in the export
+     * rather than in the guard. That is precisely the failure mode the project's rule is about — a
+     * silent wrong answer is worse than a loud one.
+     *
+     * So the product is widened BEFORE it is multiplied, and this pins both halves: the arithmetic
+     * (`Long`, exact at the top of the range) and the refusal (a [RegionException] that names the
+     * count it wanted).
+     */
+    @Test
+    fun theLargestRectTwoIntsCanDescribeIsRefusedInWordsRatherThanWrapping() {
+        val px = Int.MAX_VALUE.toLong() * Int.MAX_VALUE.toLong()
+        assertEquals(4_611_686_014_132_420_609L, px, "2^62 - 2^32 + 1: a Long holds it exactly")
+        assertTrue(px > Int.MAX_VALUE, "an Int does not")
+        assertEquals(1, px.toInt(), "and truncating it to 32 bits gives ONE — the silent wrong answer")
+        assertTrue(px > MAX_REGION_PX, "which is why it is refused rather than allocated")
+
+        for (door in listOf("render", "renderPremultiplied")) {
+            val e = assertFailsWith<RegionException>(door) {
+                if (door == "render") {
+                    RegionRenderer.render(doc(emptyList()), tilesOf(), RectPx(0, 0, Int.MAX_VALUE, Int.MAX_VALUE), null, null)
+                } else {
+                    RegionRenderer.renderPremultiplied(doc(emptyList()), tilesOf(), RectPx(0, 0, Int.MAX_VALUE, Int.MAX_VALUE), null, null)
+                }
+            }
+            val m = e.message ?: ""
+            assertTrue(m.contains(px.toString()), "$door names the pixel count it wanted: $m")
+            assertTrue(m.contains("$MAX_REGION_PX"), "$door names the budget: $m")
+        }
+    }
+
+    /**
+     * THE BOUNDARY, written as the rule rather than as two fixtures either side of it, because a
+     * boundary is only a boundary if the test says where it is.
+     *
+     * Exactly [MAX_REGION_PX] pixels is allowed and one pixel more is refused — and it is the
+     * PRODUCT, not either side, that decides, so a 1 x [MAX_REGION_PX] strip is allowed while a
+     * 2 x [MAX_REGION_PX] is not. The other side of the boundary is checked in
+     * [aRegionExactlyOnTheBudgetIsRendered], which pays the 160 MiB to prove the allowed half.
+     */
+    @Test
+    fun theBoundaryIsOnTheProductAndOnePixelOverItIsRefused() {
+        val d = doc(emptyList())
+        val onBudget = listOf(1L to MAX_REGION_PX, MAX_REGION_PX to 1L)
+        for ((w, h) in onBudget) {
+            assertEquals(MAX_REGION_PX, w * h, "the fixture is ON the budget")
+            assertEquals(
+                (MAX_REGION_PX * 4).toInt(),
+                RegionRenderer.render(d, tilesOf(), RectPx(0, 0, w.toInt(), h.toInt()), null, null).size,
+                "${w}x$h is inside the budget, so it renders",
+            )
+        }
+        for ((w, h) in listOf(1L to (MAX_REGION_PX + 1), (MAX_REGION_PX + 1) to 1L, 2L to (MAX_REGION_PX / 2 + 1))) {
+            val wanted = w * h
+            assertTrue(wanted > MAX_REGION_PX, "the fixture is OVER the budget: $w x $h")
+            val e = assertFailsWith<RegionException>("$w by $h") {
+                RegionRenderer.render(d, tilesOf(), RectPx(0, 0, w.toInt(), h.toInt()), null, null)
+            }
+            assertTrue((e.message ?: "").contains(wanted.toString()), "names the count it wanted: ${e.message}")
         }
     }
 

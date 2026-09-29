@@ -99,23 +99,48 @@ private val MAX_REGION_PEAK_MIB = MAX_REGION_PX * BYTES_PER_PX / (1024L * 1024L)
  * without paper". Every export (PNG, OpenRaster, GIF, video, sprite sheet, thumbnail) goes through
  * here, so they cannot disagree with each other.
  *
- * WHAT IT AGREES WITH — AND EXACTLY HOW MUCH, because the honest answer is "three things". Paper
- * is a `glClearColor` backdrop rather than a layer, so a region nothing covers is TRANSPARENT, not
- * black, unless paper was asked for. NORMAL is source-over, which is what the GPU does:
- * `jb_tile.frag:13` emits `texture(u_layer) * u_layerOpacity` into a blend func of
- * `(ONE, ONE_MINUS_SRC_ALPHA)` that is set ONCE, before the layer loop, at `GlPaintEngine.kt:332`.
- * And an erase multiplies the backdrop by one minus the source alpha on all four channels
- * (`jb_commit.frag:21`).
+ * WHAT IT AGREES WITH — AND EXACTLY HOW MUCH, because the honest answer is "one blend mode out of
+ * twenty-seven, and two conventions". Paper is a `glClearColor` backdrop rather than a layer —
+ * `GlPaintEngine.draw` clears to it and blends over it — so a region no layer covers is
+ * TRANSPARENT, not black, unless paper was asked for, and the phone agrees about that one.
  *
- * THE OTHER SIX MODES DO NOT AGREE WITH THE GPU, BECAUSE THE GPU DOES NOT HAVE THEM. There is no
- * mode uniform, no mode branch and no second program — `GlPaintEngine` sets that one blend func and
- * never changes it — so MULTIPLY, SCREEN, OVERLAY, ADD, DARKEN and LIGHTEN composite source-over ON
- * THE PHONE while this file composites them per W3C. That is a different picture, not a rounding
- * difference: a person with a MULTIPLY layer sees one thing on screen and gets another in the
- * exported file. It has bitten nobody yet only because nothing in `commonMain` can currently
- * produce a non-NORMAL layer; JB-2.04 — the task that puts layers in the view — is where it
- * starts. Until the GPU has the modes, this file is the specification and the screen is the
- * approximation. The arithmetic itself is [Blend].
+ * The CPU side implements ALL TWENTY-SEVEN [BlendMode]s: the seven separable ones per channel,
+ * [BlendMode.ERASE_BELOW] as destination-out, and the nineteen the Studio's arithmetic brought in
+ * under JB-2.20a. The GPU layer path implements exactly ONE of them.
+ *
+ * THE GPU'S ONE MODE IS NORMAL, and it is source-over by FIXED FUNCTION rather than by shader.
+ * `jb_tile.frag:13` is `o_color = texture(u_layer, v_uv) * u_layerOpacity` — no mode uniform, no
+ * mode branch, no second program — and `GlPaintEngine.kt:367` sets
+ * `glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)` ONCE, before the layer loop, and never changes it
+ * again. The GL engine's own layer record (`GlPaintEngine.kt:58-62`) carries `id`, `opacity`,
+ * `visible` and `tiles` and NO blend field at all, so a mode has nothing to arrive in. Parity is
+ * therefore 27-vs-27 on this side and 1-vs-27 on the phone.
+ *
+ * THE OTHER TWENTY-SIX ARE CPU-ONLY: MULTIPLY, SCREEN, OVERLAY, ADD, DARKEN and LIGHTEN (the
+ * separable ones this file used to have to itself), ERASE_BELOW, and the nineteen JB-2.20a
+ * appended — DIFFERENCE, COLOR, COLOR_DODGE, COLOR_BURN, LINEAR_BURN, HARD_LIGHT, SOFT_LIGHT,
+ * VIVID_LIGHT, LINEAR_LIGHT, PIN_LIGHT, HARD_MIX, EXCLUSION, SUBTRACT, DIVIDE, DARKER_COLOR,
+ * LIGHTER_COLOR, HUE, SATURATION, LUMINOSITY. Those composite per W3C here and source-over on the
+ * phone. That is a different PICTURE, not a rounding difference: a person with a MULTIPLY layer
+ * sees one thing on screen and gets another in the exported file. It has bitten nobody yet only
+ * because nothing in `commonMain` can currently produce a non-NORMAL layer, and JB-2.20a decision 6
+ * forbids any UI offering one until the GPU can do it. The arithmetic itself is [Blend].
+ *
+ * ONE NARROWER AGREEMENT, WHICH IS NOT LAYER PARITY AND MUST NOT BE COUNTED AS IT. The eraser
+ * TOOL writes destination-out pixels — `jb_commit.frag:21` is `dst * (1.0 - a)` on the whole
+ * `vec4`, driven by the `u_erase` uniform — so an erased PIXEL comes out the same on screen and in
+ * the export, and that is why the grey-smear failure mode is structurally impossible here. But
+ * that is a brush writing into a tile. It is not the GL engine compositing an ERASE_BELOW LAYER,
+ * which it would do source-over like any other, so ERASE_BELOW is one of the twenty-six above.
+ *
+ * WHO OWES THE REST: JB-2.20b, the GL layer compositing row, which exists to make preview = export
+ * by compiling the Studio's `GLSL_BLEND_FN`. Until it lands, this file is the specification and
+ * the screen is the approximation.
+ *
+ * AND THE CLAIM IS TESTED, NOT MERELY WRITTEN DOWN, because a KDoc that lies about wrong pixels is
+ * the defect rather than the documentation of it. `theParityClaimNamesExactlyTheModesEachSideHas`
+ * in `RegionRendererTest` lists both halves BY NAME and checks they partition the enum, so a
+ * twenty-eighth mode turns the suite red instead of quietly turning this paragraph into a lie.
  *
  * WHICH CEL. Not derived here: [DocOps.celFor] owns the frame-to-cel rule, so a renderer can never
  * grow its own, slightly different, idea of which cel a frame shows.
@@ -128,11 +153,22 @@ private val MAX_REGION_PEAK_MIB = MAX_REGION_PX * BYTES_PER_PX / (1024L * 1024L)
  * inside [MAX_REGION_PX], and that is a MEMORY budget, not a restatement of Int range: a declared
  * size is a wish, `DocOps.validate` calls any `w > 0, h > 0` board rect a valid document, and the
  * rect handed to [render] is not validated at all, so a region can be perfectly legal and still be
- * impossible to allocate. There are three refusals and they are three different facts: a region of
+ * impossible to allocate. There are four refusals and they are four different facts: a region of
  * nothing (w or h of 0) returns an empty image rather than throwing, because a board of no size is
  * a legal thing to ask about; a NEGATIVE size throws [IllegalArgumentException], because that is a
- * caller bug and silently returning nothing would hide it; and a region too large to allocate
- * throws [RegionException], which is a property of the request rather than a bug in it.
+ * caller bug and silently returning nothing would hide it; a region too large to allocate throws
+ * [RegionException], which is a property of the request rather than a bug in it; and a [paper]
+ * this renderer cannot read throws [IllegalArgumentException] too, because a document whose paper
+ * is not a colour is a document nobody wants to export and guessing one would silently paint a
+ * black background. Both doors check both, so a guard cannot be walked around by calling the other.
+ *
+ * THE DOCUMENT ITSELF IS NOT VALIDATED, and that is the caller's half of the deal. These functions
+ * read [doc] as given: they do not call [DocOps.validate], they do not check that a cel exists, and
+ * they do not check that the layer is one this renderer can blend (it can — see the claim above).
+ * An exporter's job is to validate the document at OPEN time, once, where there is a person to
+ * tell; a renderer's job is to refuse loudly the specific requests it cannot answer, which is what
+ * the four above are. A renderer that validated the whole document on every call would make every
+ * export pay for a check that belongs to the door before it.
  */
 object RegionRenderer {
 
@@ -149,7 +185,10 @@ object RegionRenderer {
      * @return STRAIGHT (un-premultiplied) RGBA8, `rect.w * rect.h * 4` bytes, row 0 = top. The
      *   straight form is what every exporter writes, so the un-premultiply happens here, once,
      *   instead of in each of the five exporters that would otherwise each get it slightly wrong.
-     * @throws IllegalArgumentException if a side is negative, which is a caller bug.
+     * @throws IllegalArgumentException if a side is negative, which is a caller bug, or if [paper]
+     *   is neither null nor a `#RRGGBB` colour. Checked HERE, before the [ByteArray] is allocated,
+     *   because a 4K export is 160 MiB of scratch to spend on a request that is going to be
+     *   refused anyway.
      * @throws RegionException if the region holds more than [MAX_REGION_PX] pixels. This is the
      *   refusal an exporter shows instead of dying: every exporter calls this, so every exporter
      *   can catch this one type and say what it wanted in a sentence.
@@ -162,6 +201,7 @@ object RegionRenderer {
         paper: String?,
     ): ByteArray {
         requireSize(rect)
+        requirePaperIfAny(paper)
         val out = ByteArray(rect.w * rect.h * 4)
         if (rect.w == 0 || rect.h == 0) return out
         val p = renderPremultiplied(doc, tiles, rect, frameId, paper)
@@ -184,7 +224,8 @@ object RegionRenderer {
      * The same picture, left PREMULTIPLIED in 0..1 floats — for compositing onward, and for tests
      * that care about the arithmetic rather than about the bytes.
      *
-     * @throws IllegalArgumentException if a side is negative, which is a caller bug.
+     * @throws IllegalArgumentException if a side is negative, which is a caller bug, or if [paper]
+     *   is neither null nor a `#RRGGBB` colour.
      * @throws RegionException if the region holds more than [MAX_REGION_PX] pixels. The same
      *   refusal as [render] and for the same reason: this door allocates from the same rect, so a
      *   guard on one door and not the other would be a guard that can be walked around.
@@ -197,6 +238,7 @@ object RegionRenderer {
         paper: String?,
     ): FloatArray {
         requireSize(rect)
+        requirePaperIfAny(paper)
         val px = FloatArray(rect.w * rect.h * 4)
         if (rect.w == 0 || rect.h == 0) return px
 
@@ -349,16 +391,38 @@ object RegionRenderer {
 
     /**
      * `#RRGGBB` as three 0..1 channels, or null for no paper. Alpha is always 1 — paper is a
-     * backdrop, never a translucent one. A colour this cannot read is refused rather than guessed
-     * at, because guessing here would silently export a black background.
+     * backdrop, never a translucent one.
      */
     private fun parsePaper(paper: String?): FloatArray? {
         if (paper == null) return null
-        require(PAPER_COLOR.matches(paper)) { "paper \"$paper\" is not a #RRGGBB colour" }
+        requirePaperIfAny(paper)
         return floatArrayOf(
             paper.substring(1, 3).toInt(16) / 255f,
             paper.substring(3, 5).toInt(16) / 255f,
             paper.substring(5, 7).toInt(16) / 255f,
         )
+    }
+
+    /**
+     * The paper precondition, as its own door rather than a line inside [parsePaper].
+     *
+     * Both public doors call this, so the precondition is stated at the REQUEST rather than buried
+     * in a helper that only one of them happens to reach, and so a bad paper is refused BEFORE the
+     * allocation rather than after — a 4K export is 160 MiB of scratch to spend on a request that
+     * is going to be refused anyway, and paying it first is the difference between a sentence and
+     * a stall. It is a separate function only because there are three callers: [render]'s, this
+     * one's and [parsePaper]'s. One function means one answer; a second copy of the regex would be
+     * a second opinion about what a colour is, and this project's own history is a case where two
+     * lists of the same fact drifted.
+     *
+     * A colour this cannot read is REFUSED, not defaulted, and the reason is worth writing down:
+     * guessing here would silently export a black background, which is the one answer nobody can
+     * mistake for a bug and therefore the one that reaches a person as "the export is just black".
+     * [doc]'s own `paper.color` is not validated either — the caller passes a validated document,
+     * and this checks only the string it was actually handed.
+     */
+    private fun requirePaperIfAny(paper: String?) {
+        if (paper == null) return
+        require(PAPER_COLOR.matches(paper)) { "paper \"$paper\" is not a #RRGGBB colour" }
     }
 }

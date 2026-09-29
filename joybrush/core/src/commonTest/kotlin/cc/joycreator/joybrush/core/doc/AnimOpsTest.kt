@@ -330,7 +330,84 @@ class AnimOpsTest {
         }
     }
 
+    /**
+     * F2. A `frameCel` entry has two halves, and both of them are checked: the key naming a frame,
+     * and the VALUE naming a cel the layer actually has. The value half was missing, so DUPLICATE
+     * handed the engine a [CelWork.CopyCel] reading `fromCelId = "ghost"` for a cel not in the
+     * document, and LINK wrote `"ghost"` into a second `frameCel` entry — turning the one validation
+     * problem this document already had into two.
+     */
+    @Test
+    fun addDuplicateAndLinkRefuseWhenTheSourceFramePointsAtACelTheLayerDoesNotHave() {
+        val doc = fixture(listOf(Frame("f1"), Frame("f2")))
+        val broken = doc.copy(
+            layers = doc.layers.map {
+                if (it.id == "l-anim") it.copy(frameCel = mapOf("f1" to "ghost", "f2" to "c-anim")) else it
+            },
+        )
+        val problems = DocOps.validate(broken)
+        assertTrue(
+            problems.any { it.contains("ghost") },
+            "the validator already calls this broken: $problems",
+        )
+
+        for (mode in listOf(NewFrame.DUPLICATE, NewFrame.LINK)) {
+            val error = assertFailsWith<DocException>("$mode must refuse a cel that is not there") {
+                AnimOps.addFrame(broken, "b-anim", "f1", mode, Ids()::next)
+            }
+            val message = error.message!!
+            assertTrue(message.contains("ghost"), "the message must name the cel it cannot use: $message")
+            assertTrue(message.contains("l-anim"), "and the layer that cannot show it: $message")
+        }
+
+        // BLANK needs no source frame, so the same broken document can still be added to — and it does
+        // not get one problem worse, which is what LINK used to do.
+        val before = DocOps.validate(broken)
+        val blank = AnimOps.addFrame(broken, "b-anim", "f1", NewFrame.BLANK, Ids()::next)
+        assertEquals(listOf("f1", "gen0", "f2"), blank.doc.frameIds())
+        assertEquals("gen1", blank.doc.layer("l-anim").frameCel["gen0"])
+        assertEquals(before, DocOps.validate(blank.doc), "one problem in, one problem out")
+    }
+
     // ---------- 3. deleteFrame ----------
+
+    /**
+     * F3. `DocOps.validate` rule 4 forbids two frames of one board sharing an id, so `deleteFrame` may
+     * not guess which of the two "f1" was meant. It refuses instead.
+     *
+     * What it used to do, and why that is data loss rather than an edge case: `removeAt` drops the
+     * FIRST copy, the `frameCel` mapping is keyed by id so BOTH copies lose it at once, the cel is then
+     * in no remaining mapping and is filtered out of `cels`, and a [CelWork.DropCel] hands the live
+     * cel to the engine to free. The frame that is left has no cel at all.
+     */
+    @Test
+    fun twoFramesCalledTheSameThingAreRefusedRatherThanHalfDeleted() {
+        // `associate` collapses the two f1 frames to ONE mapping entry, which is exactly the shape the
+        // reviewer's input has and exactly the case that loses the cel.
+        val broken = fixture(listOf(Frame("f1"), Frame("f1")))
+        assertEquals(mapOf("f1" to "c-anim"), broken.layer("l-anim").frameCel)
+        assertTrue(
+            DocOps.validate(broken).any { it.contains("two frames called \"f1\"") },
+            "rule 4 already forbids this: ${DocOps.validate(broken)}",
+        )
+
+        val error = assertFailsWith<DocException> { AnimOps.deleteFrame(broken, "b-anim", "f1") }
+        assertTrue(
+            error.message!!.contains("f1"),
+            "the message must name the id that is ambiguous: ${error.message}",
+        )
+        // The other three are refused for the same reason: a frame id that names two frames cannot be
+        // acted on without picking one, and setHold would set the hold on both.
+        assertFailsWith<DocException> { AnimOps.setHold(broken, "b-anim", "f1", 4) }
+        assertFailsWith<DocException> { AnimOps.moveFrame(broken, "b-anim", "f1", 1) }
+        assertFailsWith<DocException> { AnimOps.addFrame(broken, "b-anim", "f1", NewFrame.BLANK, Ids()::next) }
+        assertFailsWith<DocException> { AnimOps.animateLayer(broken, "l-static", "b-anim") }
+
+        // Nothing was changed and, above all, nothing was dropped.
+        assertEquals(listOf("f1", "f1"), broken.frameIds())
+        assertEquals(listOf("c-anim"), broken.layer("l-anim").cels.map { it.id }, "the ink is still there")
+        assertEquals(mapOf("f1" to "c-anim"), broken.layer("l-anim").frameCel)
+    }
 
     @Test
     fun deletingAFrameThatHoldsACelAnotherFrameStillShowsKeepsTheCel() {
@@ -506,6 +583,169 @@ class AnimOpsTest {
         assertFailsWith<DocException> { AnimOps.setHold(fixture(emptyList()), "b-anim", "f1", 2) }
     }
 
+    // ---------- 4b. a hold the validator already calls broken ----------
+
+    /**
+     * F1. `DocOps.validate` rule 4 rejects a frame held for fewer than one tick, and none of the three
+     * time functions may answer for such a board.
+     *
+     * WHAT THE OLD CODE DID, walked by hand from its own arithmetic (`hold × 1000 / fps`, 12 fps, so
+     * one tick = 83.333333333333329 ms):
+     *
+     *   frames [f1 held 0, f2 held 1]  ->  starts [0.0, 0.0], total 83.333333333333329
+     *     frameAt(board, 0.0): 0.0 is not < 0.0 and not >= 83.33, so the walk runs `0.0 <= 0.0`
+     *     twice, chosen = 1, and it answers **f2**. f1 — the frame held for NOTHING — is shown at
+     *     no time in the whole play except a negative one.
+     *   frames [f1 held 0, f2 held 0, f3 held 0]  ->  starts [0.0, 0.0, 0.0], total 0.0
+     *     every time is at or past a total of zero, so frameAt answers the LAST frame at every time
+     *     in the world.
+     *
+     * Both are the "confident wrong answer" the fps guard exists to prevent, reached through the other
+     * half of the same rule. Both now throw, and say which frame and which hold.
+     */
+    @Test
+    fun aFrameHeldForNoTicksIsRefusedInWords() {
+        val boards = listOf(
+            "first" to fixture(listOf(Frame("f1", holdFrames = 0), Frame("f2"))),
+            "middle" to fixture(listOf(Frame("f1"), Frame("f2", holdFrames = 0), Frame("f3"))),
+            "last" to fixture(listOf(Frame("f1"), Frame("f2"), Frame("f3", holdFrames = 0))),
+            "all of them" to fixture(listOf(Frame("f1", 0), Frame("f2", 0), Frame("f3", 0))),
+            "negative too" to fixture(listOf(Frame("f1", -5), Frame("f2"))),
+        )
+        for ((which, broken) in boards) {
+            val board = broken.board()
+            // The validator calls it broken first — the guard is that rule and not a second opinion.
+            assertTrue(
+                DocOps.validate(broken).any { it.contains("held for") },
+                "the validator should already refuse the $which board: ${DocOps.validate(broken)}",
+            )
+            val error = assertFailsWith<DocException>("the $which board should be refused") {
+                AnimOps.frameAt(board, 0.0)
+            }
+            val message = error.message!!
+            assertTrue(
+                message.contains(board.frames.first { it.holdFrames < 1 }.id),
+                "the message must name the frame held for nothing: $message",
+            )
+            assertTrue(message.contains("held"), "and say that a hold is the problem: $message")
+            assertFailsWith<DocException>("totalDurationMs, $which") { AnimOps.totalDurationMs(board) }
+            assertFailsWith<DocException>("frameStartsMs, $which") { AnimOps.frameStartsMs(board) }
+        }
+    }
+
+    /**
+     * The held-frame answer for a hold of 0, 1 and 2 — the three numbers that decide whether this
+     * change is right, in one place.
+     *
+     * Derived by hand at 12 fps, one tick = 1000/12 ms:
+     *   hold 0 -> no time on the timeline at all -> refused, in words, by all three
+     *   hold 1 -> one tick:  starts [0.0],  total 1000/12 = 83.333333333333329,
+     *            and the frame is on screen for the whole of that one tick
+     *   hold 2 -> two ticks: starts [0.0],  total 2000/12 = 166.66666666666666,
+     *            and the frame is STILL on screen a whole tick in, which is the only thing that
+     *            distinguishes a hold of 2 from a hold of 1
+     *
+     * A board of one frame is used so that "which frame is showing" cannot be answered by accident:
+     * with a single frame the only question left is when it stops being on screen, and that boundary
+     * is the whole of the arithmetic.
+     */
+    @Test
+    fun aHoldOfZeroOneAndTwoTicksAreThreeDifferentAnswers() {
+        val legal = fixture().board() // 12 fps, one frame held for one tick
+        val none = legal.copy(frames = listOf(Frame("f1", holdFrames = 0)))
+        val one = legal
+        val two = legal.copy(frames = listOf(Frame("f1", holdFrames = 2)))
+
+        // 0 — refused by every reader, and not quietly answered as "the frame that is there".
+        assertFailsWith<DocException> { AnimOps.frameAt(none, 0.0) }
+        assertFailsWith<DocException> { AnimOps.totalDurationMs(none) }
+        assertFailsWith<DocException> { AnimOps.frameStartsMs(none) }
+
+        // 1 — one tick, exact.
+        assertEquals(listOf(0.0), AnimOps.frameStartsMs(one))
+        assertEquals(1000.0 / 12.0, AnimOps.totalDurationMs(one), 0.0)
+        assertEquals("f1", AnimOps.frameAt(one, 0.0).id)
+        assertEquals("f1", AnimOps.frameAt(one, 1000.0 / 12.0 - 0.5).id, "half a tick in")
+
+        // 2 — two ticks, exact, and the frame outlives a whole tick.
+        assertEquals(listOf(0.0), AnimOps.frameStartsMs(two))
+        assertEquals(2000.0 / 12.0, AnimOps.totalDurationMs(two), 0.0)
+        assertEquals("f1", AnimOps.frameAt(two, 0.0).id)
+        assertEquals("f1", AnimOps.frameAt(two, 1000.0 / 12.0).id, "a whole tick in, not out")
+        assertEquals("f1", AnimOps.frameAt(two, 2 * 1000.0 / 12.0 - 0.5).id, "the last half tick")
+    }
+
+    /**
+     * The boundary of a hold that spans a range: three frames held 1, 2 and 1 ticks.
+     *
+     * THE TIMELINE, WRITTEN OUT BEFORE ANY EXPECTATION BELOW:
+     *
+     *     f1   1 tick    [ 0 .................................... 1 tick )
+     *     f2   2 ticks   [ 1 tick ............................... 3 ticks )
+     *     f3   1 tick    [ 3 ticks .............................. 4 ticks )
+     *
+     * At 12 fps one tick is 1000/12 = 83.333333333333329 ms, so the starts are 0, one tick and three
+     * ticks. Three ticks is `3000.0 / 12.0`, which is EXACTLY 250.0 in binary floating point, and
+     * `1000.0/12.0 + 2000.0/12.0` is also exactly 250.0 — so the second boundary does not depend on
+     * how the addition rounds, which is what makes a delta of 0.0 honest here rather than lucky.
+     * The total is four ticks: the walk gives 333.33333333333331, which is bit-for-bit the same
+     * double as `4 * 1000.0 / 12.0` and as 83.333333333333329 + 166.66666666666666 + 83.333333333333329.
+     *
+     * The times asked about are whole milliseconds, which are exactly representable, so none of these
+     * comparisons sits on a rounding knife edge except the two boundaries themselves — and those are
+     * asked about from BOTH sides, because a boundary tested from one side only is a boundary that can
+     * be off by one in the direction nobody looked.
+     */
+    @Test
+    fun aHoldThatSpansARangeMovesEveryBoundaryAfterItByExactlyThatManyTicks() {
+        // Two ticks for f2, in a document built by the only writer of holds there is.
+        val doc = AnimOps.setHold(
+            fixture(listOf(Frame("f1"), Frame("f2"), Frame("f3"))), "b-anim", "f2", 2,
+        )
+        val held = doc.board()
+        assertEquals(emptyList(), DocOps.validate(doc))
+        assertEquals(listOf(1, 2, 1), held.frames.map { it.holdFrames })
+
+        assertEquals(listOf(0.0, 1000.0 / 12.0, 250.0), AnimOps.frameStartsMs(held), "0, 1 tick, 3 ticks")
+        assertEquals(250.0, AnimOps.frameStartsMs(held)[2], 0.0, "three ticks is exactly 250 ms")
+        assertEquals(4 * 1000.0 / 12.0, AnimOps.totalDurationMs(held), 0.0, "four ticks in all")
+
+        assertEquals("f1", AnimOps.frameAt(held, 0.0).id)
+        assertEquals("f1", AnimOps.frameAt(held, 1000.0 / 12.0 - 0.5).id, "half a tick before the first boundary")
+        assertEquals("f2", AnimOps.frameAt(held, 1000.0 / 12.0).id, "the first boundary belongs to f2")
+        assertEquals("f2", AnimOps.frameAt(held, 125.0).id, "1.5 ticks: inside the TWO-tick hold")
+        assertEquals("f2", AnimOps.frameAt(held, 249.0).id, "a whole tick before f3 starts")
+        assertEquals("f3", AnimOps.frameAt(held, 250.0).id, "the second boundary belongs to f3")
+        assertEquals("f3", AnimOps.frameAt(held, 333.0).id, "inside f3's single tick")
+        assertEquals("f3", AnimOps.frameAt(held, 4 * 1000.0 / 12.0 - 0.5).id, "the last half ms")
+        assertEquals("f3", AnimOps.frameAt(held, AnimOps.totalDurationMs(held)).id, "and the end is still it")
+    }
+
+    /**
+     * The same timeline at 10 fps, where every number is a whole number of milliseconds.
+     *
+     * This is the SECOND, INDEPENDENT derivation of the test above, and the one that needs no
+     * rounding argument at all: one tick is `1000 / 10` = 100 ms exactly, two is 200 exactly, so
+     * holds of 1, 2, 1 are starts [0, 100, 300] and a total of 400 with nothing left over. If the
+     * 12 fps expectations and these disagree, one of the two derivations is wrong.
+     */
+    @Test
+    fun theSameTimelineAtTenFramesPerSecondIsExactInEveryValue() {
+        val doc = AnimOps.setHold(fixture(listOf(Frame("f1"), Frame("f2"), Frame("f3"))), "b-anim", "f2", 2)
+        val board = doc.board().copy(fps = 10f)
+
+        assertEquals(listOf(0.0, 100.0, 300.0), AnimOps.frameStartsMs(board))
+        assertEquals(400.0, AnimOps.totalDurationMs(board), 0.0)
+        assertEquals("f1", AnimOps.frameAt(board, 0.0).id)
+        assertEquals("f1", AnimOps.frameAt(board, 99.0).id, "the last ms of f1's single tick")
+        assertEquals("f2", AnimOps.frameAt(board, 100.0).id, "f2 starts")
+        assertEquals("f2", AnimOps.frameAt(board, 150.0).id, "and runs for TWO ticks")
+        assertEquals("f2", AnimOps.frameAt(board, 299.0).id, "the last ms of the long hold")
+        assertEquals("f3", AnimOps.frameAt(board, 300.0).id)
+        assertEquals("f3", AnimOps.frameAt(board, 399.0).id)
+        assertEquals("f3", AnimOps.frameAt(board, 400.0).id, "and the end of the play")
+    }
+
     // ---------- 5. frameAt ----------
 
     private fun threeFrames(): Board = fixture(listOf(Frame("f1"), Frame("f2"), Frame("f3"))).board()
@@ -612,6 +852,30 @@ class AnimOpsTest {
         }
     }
 
+    /**
+     * Only an ANIMATION board has a schedule. Every mutating operation says so through
+     * `playableBoard`; these three used to be the only operations here that did not check, so a
+     * CANVAS board that somehow held frames could be timed and asked for "the frame showing" as
+     * though it were playing.
+     *
+     * (`DocOps.validate` says nothing about frames on a non-ANIMATION board, so such a board can be
+     * valid. It is also not something any operation here can produce. A renderer asked to play it has
+     * no honest answer, which is why the maths refuses rather than inventing one.)
+     */
+    @Test
+    fun onlyAnAnimationBoardHasAScheduleToTime() {
+        val notAnimating = threeFrames().copy(kind = BoardKind.CANVAS)
+        assertFailsWith<DocException> { AnimOps.frameAt(notAnimating, 0.0) }
+        assertFailsWith<DocException> { AnimOps.totalDurationMs(notAnimating) }
+        assertFailsWith<DocException> { AnimOps.frameStartsMs(notAnimating) }
+
+        // The very same frames on an ANIMATION board answer, so it is the kind and nothing else.
+        val animating = threeFrames()
+        assertEquals(listOf(0.0, 1000.0 / 12.0, 2000.0 / 12.0), AnimOps.frameStartsMs(animating))
+        assertEquals(3 * 1000.0 / 12.0, AnimOps.totalDurationMs(animating), 0.0)
+        assertEquals("f1", AnimOps.frameAt(animating, 0.0).id)
+    }
+
     // ---------- 6. moveFrame ----------
 
     @Test
@@ -654,6 +918,37 @@ class AnimOpsTest {
         assertFailsWith<DocException> { AnimOps.moveFrame(doc, "nope", "f1", 0) }
         assertFailsWith<DocException> { AnimOps.moveFrame(doc, "b-canvas", "f1", 0) }
         assertFailsWith<DocException> { AnimOps.moveFrame(fixture(emptyList()), "b-anim", "f1", 0) }
+    }
+
+    /**
+     * Spec test clause 7: "moveFrame reorders; **the static layer and other boards are unchanged**."
+     *
+     * That second half had no test at all, which is a gap and not a design choice: the sibling
+     * operations each prove it (`addFrameLeavesLayersThatDoNotAnimateHereAlone`,
+     * `deletingAFrameLeavesOtherBoardsAndStaticLayersAlone`). Reordering is exactly where a "just
+     * rewrite the board list" implementation could touch a neighbouring layer, so the proof is worth
+     * having rather than assuming.
+     */
+    @Test
+    fun moveFrameLeavesTheStaticLayerAndEveryOtherBoardAlone() {
+        val doc = fixture(listOf(Frame("f1"), Frame("f2"), Frame("f3"))).withSecondAnimationBoard()
+        val moved = AnimOps.moveFrame(doc, "b-anim", "f1", 2)
+
+        assertEquals(emptyList(), DocOps.validate(moved))
+        assertEquals(listOf("f2", "f3", "f1"), moved.frameIds(), "the board it was asked about is the one that moves")
+
+        assertEquals(doc.layer("l-static"), moved.layer("l-static"), "a static layer is a held background")
+        assertEquals(
+            doc.layer("l-other"),
+            moved.layer("l-other"),
+            "a layer animated on ANOTHER board belongs to that board's film strip",
+        )
+        assertEquals(doc.board("b-canvas"), moved.board("b-canvas"))
+        assertEquals(doc.board("b-anim2"), moved.board("b-anim2"))
+        assertEquals(listOf("g1", "g2"), moved.frameIds("b-anim2"), "the other film strip still reads g1, g2")
+        assertEquals(doc.id, moved.id)
+        assertEquals(doc.activeBoardId, moved.activeBoardId)
+        assertEquals(doc.layers.size, moved.layers.size, "no layer was added or lost either")
     }
 
     @Test

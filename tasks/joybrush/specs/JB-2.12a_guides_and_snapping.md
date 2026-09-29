@@ -103,3 +103,70 @@ Touch no existing file. Guides are never written into tiles or exports.
 Tests pass (paste) · commit `JB-2.12a: guides and snapping` · ROADMAP row → 🟧 Built.
 
 ## Questions
+
+### 🔴 Orchestrator found and fixed a real bug in the delivered code — read this first
+
+`GuideSnapper.ellipsePoint` computed Newton's second derivative as
+
+```
+f2 = 2 * (rx*u*cos t + ry*v*sin t - (rx² + ry²))
+```
+
+which is **not** D″. The true derivative of `D(t) = (rx·cos t − u)² + (ry·sin t − v)²` is
+
+```
+D″(t) = 2[ (ry² − rx²)(cos²t − sin²t) + rx·u·cos t + ry·v·sin t ]
+```
+
+The dropped term is what makes D″ positive at the minimum — evaluated with `u, v` on the curve it
+collapses to `2(ry² + rx²·sin²t)`, always positive. Without it the curvature is **negative where it
+must be positive**, and the iteration walks away from its answer: instrumented, `t` went
+0.5 → 0.12 → −1.63 → −3.85 → −3.03 → −3.06 and settled **230 px** from a pen that was **5 px** off the
+curve. The symptom was not a stroke snapped to the wrong place — it was a stroke **never captured at
+all**, because the distance `nearestTracer` measured was nonsense and came back over the 24 px reach.
+
+Worth recording *how* this was found, because the first fix was wrong too:
+
+1. I read the code, saw "the constant should be a function of t", and substituted
+   `−(rx²cos²t + ry²sin²t)`. That is also not D″, and the test still failed.
+2. So I stopped reasoning and wrote a throwaway test that printed every Newton step. The divergence
+   was visible in one line, and the missing `(ry² − rx²)(cos²t − sin²t)` term fell out of the
+   algebra immediately.
+
+**Lesson, and it is the same one the GIF header cost us:** a plausible fix to numerical code is
+indistinguishable from a correct one until something prints the intermediate values. Two rounds of
+"reasoning about it" produced one wrong fix; one round of instrumenting produced the answer.
+
+The builder's own honest list is below and all five items are recorded. One of them is a behaviour
+the spec did not name and I have ruled on it.
+
+Answered in the code; none of these change the contract, they only fix what the text left open.
+
+1. **The ellipse tracer's polyline is NOT clipped to the view.** Decision 6 clips Grid, Isometric,
+   Perspective and Ruler and then says "EllipseTracer: a 128-segment polyline" with no clipping, so
+   that is what it does: always 128 segments (or fewer only if the guide is degenerate). Dragging a
+   tracer half off the page must not change its shape, and the caller's scissor keeps it off the
+   window. JB-2.12's overlay must therefore not assume "nothing comes back outside the view" for
+   this one guide.
+2. **The 24 perspective rays are spread over the full 360°** of each vanishing point (one every
+   15°), because Decision 6 says "evenly spread in angle" and gives no range. A vanishing point
+   inside the view therefore gets a full starburst. Rays that do not reach the view produce no
+   segment at all, so the count is 24 × points + 1 horizon at most.
+3. **A line that only touches the view at a single point produces no segment** (a zero-length
+   segment cannot be drawn). This is what the corner-touching lines of a slanted isometric family
+   do, and `GuideLinesTest.anIsometricGridHasThreeDirections` counts them: 13 + 11 + 13, not
+   14 + 11 + 14.
+4. **The 2000-segment cap is reached by stopping, not by truncating.** The line index range is
+   derived from the view's own extent along each family's normal, so the loop itself is bounded and
+   no more than 2000 segments are ever allocated.
+5. **`locked` is a `val`** as the contract says, and it is true from the very sample that decided
+   the lock: the first sample for a tracer (the decision is made at the start), the sample 12
+   screen px out for a direction guide.
+6. **`viewDoc` is not produced by anything that exists yet.** `ViewTransform` (JB-2.02) can map the
+   screen corners to document px, but it has no `viewDoc` helper; JB-2.12's overlay builds the
+   `floatArrayOf(left, top, right, bottom)` itself. Nothing in this spec needed a new field on
+   `ViewTransform`, so none was added.
+7. **Decision 5's list of untouched channels also has to include `predicted`** (JB-0.01 has it
+   and the spec text predates it): `map` only ever calls `copy(x =, y =)`.
+8. **Tile size (256) is irrelevant here** and nothing in this spec reads it — a guide is never
+   written into a tile or an export, so `GuideLines` only ever produces overlay geometry.

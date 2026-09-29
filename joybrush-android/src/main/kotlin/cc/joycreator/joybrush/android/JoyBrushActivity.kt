@@ -1,6 +1,9 @@
 package cc.joycreator.joybrush.android
 
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -17,6 +20,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import cc.joycreator.joybrush.androidkit.JbCanvasView
+import cc.joycreator.joybrush.androidkit.diag.PenDiagnosticsView
 
 // 10% and 12% white, the spec's overlay colours. Both literals fit in an Int.
 private const val OVERLAY_FILL = 0x1AFFFFFF
@@ -41,6 +45,11 @@ class JoyBrushActivity : Activity() {
     private lateinit var eraserBtn: TextView
     private var erasing = false
 
+    // JB-0.06: the hidden pen probe. GONE until the owner long-presses the close button.
+    private lateinit var diag: PenDiagnosticsView
+    private lateinit var diagBox: LinearLayout
+    private var diagShown = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -56,6 +65,9 @@ class JoyBrushActivity : Activity() {
         // undo, redo and clear. Undo and Redo start disabled -- there is no history yet.
         canvas.onHistoryChanged = { canUndo, canRedo -> updateHistoryButtons(canUndo, canRedo) }
         updateHistoryButtons(false, false)
+        // JB-0.06: the diagnostics overlay sees every pen event. It only stores numbers, and only
+        // while it is visible, so drawing is untouched.
+        canvas.onRawEvent = { ev -> diag.onRawEvent(ev) }
 
         goFullScreen(overlays)
     }
@@ -75,7 +87,8 @@ class JoyBrushActivity : Activity() {
     private fun buildOverlays(): FrameLayout {
         val overlays = FrameLayout(this)
 
-        // top-right: close
+        // top-right: close. A long press is the hidden way into the pen diagnostics (JB-0.06);
+        // returning true from the long-click keeps it from also closing the screen.
         val closeBtn = TextView(this).apply {
             text = "×"
             textSize = 20f
@@ -85,8 +98,20 @@ class JoyBrushActivity : Activity() {
             contentDescription = "Close Joy Brush"
             ViewCompat.setTooltipText(this, "Close Joy Brush")
             setOnClickListener { finish() }
+            setOnLongClickListener { toggleDiagnostics(); true }
         }
         overlays.addView(closeBtn, corner(dp(40), dp(40), Gravity.TOP or Gravity.END))
+
+        // top-left: the pen diagnostics panel and its copy pill, both hidden until asked for.
+        diag = PenDiagnosticsView(this)
+        diagBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+        }
+        diagBox.addView(diag, LinearLayout.LayoutParams(WRAP, WRAP))
+        val copyBtn = pillButton("Copy report", "Copy the pen diagnostics to the clipboard") { copyReport() }
+        diagBox.addView(copyBtn, LinearLayout.LayoutParams(WRAP, dp(40)))
+        overlays.addView(diagBox, corner(WRAP, WRAP, Gravity.TOP or Gravity.START, 10))
 
         // top-centre: smoothing
         val smoothRow = LinearLayout(this).apply {
@@ -155,6 +180,19 @@ class JoyBrushActivity : Activity() {
         erasing = !erasing
         canvas.brush = canvas.brush.copy(erase = erasing)
         eraserBtn.alpha = if (erasing) 1f else 0.55f
+    }
+
+    // ── the hidden pen diagnostics (JB-0.06) ─────────────────────────────────
+
+    private fun toggleDiagnostics() {
+        diagShown = !diagShown
+        diagBox.visibility = if (diagShown) View.VISIBLE else View.GONE
+        if (diagShown) diag.reset()
+    }
+
+    private fun copyReport() {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Joy Brush pen diagnostics", diag.report()))
     }
 
     // ── view helpers, all programmatic so this module needs no resources ─────

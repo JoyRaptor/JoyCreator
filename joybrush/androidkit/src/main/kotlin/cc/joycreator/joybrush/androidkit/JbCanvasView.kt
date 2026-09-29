@@ -56,6 +56,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** Called on the UI thread after each committed stroke / undo / redo (e.g. to enable buttons). */
     var onHistoryChanged: ((canUndo: Boolean, canRedo: Boolean) -> Unit)? = null
 
+    /**
+     * Every touch and hover event, before any of this view's own handling (JB-0.06). The hidden
+     * pen diagnostics overlay listens here and nothing else uses it, so drawing is unaffected.
+     */
+    var onRawEvent: ((MotionEvent) -> Unit)? = null
+
     private val engine = GlPaintEngine()
     private val layerId = "layer-1"
     @Volatile private var viewW = 1
@@ -97,6 +103,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     // ── input ────────────────────────────────────────────────────────────────
 
     override fun onHoverEvent(event: MotionEvent): Boolean {
+        onRawEvent?.invoke(event)
         if (MotionEventSamples.tool(event, 0).let { it == Tool.STYLUS || it == Tool.ERASER }) {
             penSeen = true
             penHovering = event.actionMasked != MotionEvent.ACTION_HOVER_EXIT
@@ -105,6 +112,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     override fun onTouchEvent(ev: MotionEvent): Boolean {
+        onRawEvent?.invoke(ev)
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 val tool = MotionEventSamples.tool(ev, 0)

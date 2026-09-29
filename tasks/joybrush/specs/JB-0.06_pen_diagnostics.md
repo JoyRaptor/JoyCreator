@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T2 (owner uses it) |
-| **Status** | see ROADMAP.md |
+| **Status** | 🟧 Built — see ROADMAP.md |
 | **Depends on** | JB-0.05 |
 | **Owner area** | NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/diag/PenDiagnosticsView.kt`; EDIT `JbCanvasView.kt` (add ONE callback property, below); EDIT `joybrush-android/.../JoyBrushActivity.kt` (add the overlay and its toggle) |
 | **Estimated size** | ~220 lines |
@@ -40,3 +40,24 @@ No calibration logic yet (a later spec reads the reports). Don't change input ha
 Screenshot · watcher green · commit `JB-0.06: pen diagnostics overlay` · ROADMAP row → 🟧 Built.
 
 ## Questions
+
+### For the Lead — the panel's colours are hex literals, against the JbColors rule (non-blocking, built anyway)
+
+`JbColors` states "no hex literal, ever" for Joy Brush code, but `PenDiagnosticsView` lives in
+`joybrush/androidkit`, which `build.gradle.kts` says has **no Android resources at all** and which
+`joybrush-android` cannot be made to share (`jb_tokens.xml` lives in the app-facing module, and an
+Android library cannot see the consuming app's resources). So the panel's fill and ink are two named
+top-level literals in that one file (`PANEL_COLOR`, `TEXT_COLOR`) with a comment saying why. Is a
+debug-only panel exempt from the token rule, or should `jb_tokens.xml` grow a pair of "diagnostics"
+tokens and the file be moved into `joybrush-android`? Left as-is: the spec asks for a
+"semi-transparent dark panel" and that is what it draws. Not a blocker; the build is green.
+
+### Two readings the builder had to pick (documented in the code and in the copied report itself)
+
+- "intervals between samples": the panel counts them between consecutive **samples** (historical +
+  current, so the 240 Hz path inside one event is counted), over a sliding 1 s window, and the same
+  window is the "samples per second". A pause between strokes therefore empties the histogram
+  instead of landing in the `>20 ms` bucket.
+- "running min/max … since shown": tracked for **pen** events only, and cleared each time the panel
+  is shown. The copied report says both of these in its own header so the numbers cannot be misread.
+

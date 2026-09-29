@@ -40,7 +40,7 @@ object BrushValidate {
      * second message, which every `assertSole` in the tests would notice. The trap, therefore, is
      * [paramsOf], not this set.
      */
-    private val RANGED_BASES = setOf("size")
+    private val RANGED_BASES = setOf("size", "tip.hardness")
 
     fun validate(p: BrushPreset): List<String> {
         val out = ArrayList<String>()
@@ -147,9 +147,9 @@ object BrushValidate {
 
         // 16 — a number no range speaks for must still be a number. `"hardness": {"base": 1e999}`
         // decodes to +Infinity, which draws nothing and which JSON cannot write back out, so a brush
-        // holding one cannot be saved again. Seven bases are in this state (opacity, flow, tip.angle,
-        // tip.hardness, the two grain depths, scatter.amount) and this is all that can be asked of
-        // them until they are ranged.
+        // holding one cannot be saved again. Six bases are in this state (opacity, flow, tip.angle,
+        // the two grain depths, scatter.amount) and this is all that can be asked of them until they
+        // are ranged.
         val notNumbers = ArrayList<String>()
         for ((name, param) in paramsOf(p)) {
             if (name in RANGED_BASES) continue
@@ -237,6 +237,23 @@ object BrushValidate {
         if (p.tipTexture.source == "image" && p.tipTexture.image.isNullOrBlank()) images += "tipTexture"
         if (p.paperGrain.source == "image" && p.paperGrain.image.isNullOrBlank()) images += "paperGrain"
         if (images.isNotEmpty()) out += "source is image but no image path is set: " + images.joinToString(", ")
+
+        // 24 — the tip's hardness, which is a 0..1 fraction. `jb_tip.glsl` saturates it, so before
+        // this rule a file could say `"hardness": {"base": 1e30}`, get a perfectly hard tip, and the
+        // person who wrote the file would never hear about it: the engine clamps, a validator that
+        // clamps would be a second and invisible source of truth, so this REFUSES and says the number.
+        //
+        // It sits at the END rather than beside rules 6/7, where it belongs physically, because rules
+        // 9–23 are numbered in the order they were added and those numbers are named in JB-0.03b's
+        // table and in `BrushTest`'s section comments. One out-of-order rule is cheaper than
+        // renumbering three files this row does not own.
+        //
+        // Only the BASE: a curve's `y` is the setting's own value and is rule 19's business ("it only
+        // has to be a number"), and `TipMath.coverage` clamps it at the point of use. Written `!in`,
+        // so NaN is refused as well as ±Infinity — `< 0f || > 1f` would let NaN straight through.
+        if (p.tip.hardness.base !in 0f..1f) {
+            out += "tip.hardness ${p.tip.hardness.base} is outside 0..1"
+        }
 
         return out
     }

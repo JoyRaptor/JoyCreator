@@ -24,12 +24,20 @@ const val SPRITE_SIDECAR_SCHEMA_VERSION = 1
  * @param type one of `loop`, `pingpong`, `once` — the app's vocabulary, nothing else.
  * @param fps 0 means "inherit the sheet's fps", and is then left out of the sidecar exactly as
  *   the app leaves it out.
+ * @param weights how many ticks each frame is held for, PARALLEL to [frames] — the app's key and
+ *   the app's shape. Empty means "every frame weighs 1", which is what a clip with no holds plays,
+ *   and the key is then left out of the sidecar exactly as the app leaves it out
+ *   (`SpriteSheet.Preset.hasWeights()` writes `weights` only when some frame is not 1). A non-empty
+ *   list must be as long as [frames] and every entry in 1..9999, the app's
+ *   `SequenceTiming.MIN_WEIGHT`..`MAX_WEIGHT`: the app CLAMPS on read, so a value it would silently
+ *   correct is refused here rather than written.
  */
 data class Clip(
     val name: String,
     val frames: List<Int>,
     val type: String = "loop",
     val fps: Float = 0f,
+    val weights: List<Int> = emptyList(),
 )
 
 /**
@@ -100,7 +108,8 @@ data class PackedSheet(
  *    file.
  *
  * What it refuses, and why: a cell of the wrong size, a cell index or clip frame outside the
- * packed cells, a clip with no frames, an unknown clip type, and an empty pack. Each of those
+ * packed cells, a clip with no frames, an unknown clip type, clip weights that do not line up with
+ * its frames or that fall outside the app's own 1..9999, and an empty pack. Each of those
  * would write a sidecar describing something the sheet does not contain, or an image with no
  * drawing in it. Failing here is a message on the export button; failing later is a sheet that
  * renders blank in someone else's app.
@@ -117,6 +126,15 @@ object SpritePacker {
     /** The closed set the app reads. An unknown type is stored verbatim and then behaves as a
      *  loop, which is exactly the kind of quiet wrongness a writer should catch. */
     private val CLIP_TYPES = setOf("loop", "pingpong", "once")
+
+    /**
+     * The weight of a frame that is not held, and the bounds on one that is. These are the app's
+     * own numbers, not a Joy Brush tolerance: `SequenceTiming.DEFAULT_WEIGHT` / `MIN_WEIGHT` /
+     * `MAX_WEIGHT` (`SequenceTiming.java:44,47,54`).
+     */
+    private const val DEFAULT_WEIGHT = 1
+    private const val MIN_WEIGHT = 1
+    private const val MAX_WEIGHT = 9999
 
     /**
      * Lays [cells] out in reading order on one RGBA8 sheet and writes the sidecar for it.
@@ -136,7 +154,9 @@ object SpritePacker {
      *
      * @throws IllegalArgumentException if any cell is not exactly `cellW` by `cellH` of RGBA, if
      *   a cell size, [cols] or [cells] is degenerate, if a name or clip frame names a cell index
-     *   the sheet does not hold, if a clip has no frames or an unknown type, or if [fps] is
+     *   the sheet does not hold, if a clip has no frames or an unknown type, if a clip's weights
+     *   are not exactly as long as its frames or hold a value outside 1..9999 (the app would clamp
+     *   them on read, which is a silent timing change), or if [fps] is
      *   negative or not a finite number (JSON has no word for NaN, and the app would read a
      *   missing key as its own default).
      */
@@ -192,6 +212,24 @@ object SpritePacker {
                         "${cells.size} cells (0..${cells.size - 1})"
                 }
             }
+            // Weights are a parallel array, and the app reads them tolerantly: `weightAt` answers 1
+            // for anything past the end, and `clampWeight` folds 0 up to 1 and 10000 down to 9999.
+            // So a short array exports as "the tail is all 1s" and an out-of-range one arrives
+            // altered — a silent timing change, which is what the app's own `SequenceTiming.fit`
+            // KDoc calls out. Both are refused rather than padded, truncated or clamped.
+            if (clip.weights.isNotEmpty()) {
+                require(clip.weights.size == clip.frames.size) {
+                    "clip \"${clip.name}\" has ${clip.weights.size} weights for " +
+                        "${clip.frames.size} frames; the app reads a short array as 1s, so a hold " +
+                        "would be lost"
+                }
+                for (weight in clip.weights) {
+                    require(weight in MIN_WEIGHT..MAX_WEIGHT) {
+                        "clip \"${clip.name}\" has weight $weight; the app reads weights " +
+                            "$MIN_WEIGHT..$MAX_WEIGHT"
+                    }
+                }
+            }
         }
 
         val rows = ((cells.size.toLong() + cols - 1) / cols).toInt()
@@ -238,6 +276,16 @@ object SpritePacker {
                             if (clip.fps > 0f) put("fps", clip.fps)
                             putJsonArray("frames") {
                                 for (frame in clip.frames) add(frame)
+                            }
+                            // The app's own rule and the app's own place: `hasWeights()` is true
+                            // only when some frame is not 1, and the key is written then and only
+                            // then, straight after `frames`. An all-1s array carries no information
+                            // and omitting it is what keeps a clip byte-identical to one written
+                            // before weights existed.
+                            if (clip.weights.any { it != DEFAULT_WEIGHT }) {
+                                putJsonArray("weights") {
+                                    for (weight in clip.weights) add(weight)
+                                }
                             }
                         }
                     }

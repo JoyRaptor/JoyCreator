@@ -1,9 +1,14 @@
 package cc.joycreator.joybrush.core.doc
 
 import cc.joycreator.joybrush.core.paint.Tiles
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -116,16 +121,12 @@ class DocModelTest {
     }
 
     // ---------- 3. reading the future ----------
-
-    @Test
-    fun unknownKeysAreIgnoredAtEveryLevel() {
-        val doc = fresh()
-        val json = DocJson.encode(doc)
-            .replaceFirst("\"format\"", "\"future\": 1,\n  \"format\"")
-            .replaceFirst("\"visible\"", "\"fromTheFuture\": \"yes\",\n    \"visible\"")
-        val back = DocJson.decode(json)
-        assertEquals(doc, back)
-    }
+    //
+    // The test that used to live here, `unknownKeysAreIgnoredAtEveryLevel`, is DELETED, not
+    // renamed and not rewritten. It asserted the behaviour R31 removes: it injected two foreign
+    // keys and required the document to come back equal. A test that keeps its name while
+    // asserting the opposite is worse than no test, so it is gone and its replacement is section
+    // 3b below, which asserts the opposite with the same `replaceFirst` trick.
 
     @Test
     fun aNewerVersionStillDecodesAndIsReportedInWords() {
@@ -137,6 +138,200 @@ class DocModelTest {
         assertTrue(
             problems.single().contains("newer Joy Brush"),
             "the message must say why, got: ${problems.single()}",
+        )
+    }
+
+    // ---------- 3b. a key this build does not know is refused BY NAME (R31, JB-0.02d) ----------
+    //
+    // `ignoreUnknownKeys` is still `true` (orchestrator's ruling, Q0), so the walk in `DocJson` is
+    // the WHOLE guard. A hole in that walk fails OPEN — the key is dropped silently and the next
+    // autosave loses it under a current version stamp — which is the exact failure this section
+    // exists to stop. So most of these tests are about DEPTH: they put the key where a shallow
+    // walk would never look.
+
+    /** The eight rows of the key table, as a path → keys map, so a drift is named, not counted. */
+    private fun expectedKeyTable(): Map<String, Set<String>> = mapOf(
+        "\$" to setOf(
+            "format", "version", "id", "name", "paper", "boards", "layers",
+            "activeLayerId", "activeBoardId",
+        ),
+        "\$.paper" to setOf("color", "textureId", "textureScale", "includeInExport"),
+        "\$.boards[]" to setOf("id", "name", "kind", "rect", "clipToBoard", "fps", "frames", "grid"),
+        "\$.boards[].rect" to setOf("x", "y", "w", "h"),
+        "\$.boards[].frames[]" to setOf("id", "holdFrames"),
+        "\$.boards[].grid" to setOf("cols", "rows", "cellW", "cellH"),
+        "\$.layers[]" to setOf(
+            "id", "name", "kind", "visible", "locked", "opacity", "blend", "animatedIn",
+            "cels", "frameCel",
+        ),
+        "\$.layers[].cels[]" to setOf("id", "tiles", "strokesFile"),
+    )
+
+    /**
+     * The ONE place in `document.json` whose object keys are DATA rather than keys of the format:
+     * `frameCel` maps a frame id to a cel id, so `f1`/`f2`/`f3` are ids somebody chose. Collecting
+     * them would make [everyKeyInAFileThisBuildWritesIsAKnownKey] red for a CORRECT implementation,
+     * so they are stepped over here.
+     */
+    private val KEYS_THAT_ARE_DATA = setOf("frameCel")
+
+    /** Collects the keys at every object in a parsed document, with array indices collapsed. */
+    private fun collectKeys(node: JsonElement, path: String, into: MutableMap<String, MutableSet<String>>) {
+        when (node) {
+            is JsonObject -> {
+                if (path.substringAfterLast('.') !in KEYS_THAT_ARE_DATA) {
+                    into.getOrPut(path) { sortedSetOf() }.addAll(node.keys)
+                }
+                for ((key, value) in node) collectKeys(value, "$path.$key", into)
+            }
+            is JsonArray -> node.forEach { collectKeys(it, "$path[]", into) }
+            else -> Unit
+        }
+    }
+
+    // 1 — the control. Without it, tests 2-10 could all be green because the fixture was broken.
+    @Test
+    fun aFileWithNoKeysThisBuildDoesNotKnowStillDecodes() {
+        for (doc in listOf(fresh(), richDocument())) {
+            val text = DocJson.encode(doc)
+            assertEquals(doc, DocJson.decode(text), "a file this build wrote must read back as itself")
+        }
+    }
+
+    // 2
+    @Test
+    fun anUnknownKeyAtTheRootIsRefusedAndNamed() {
+        val json = DocJson.encode(fresh())
+            .replaceFirst("\"format\"", "\"future\": 1,\n  \"format\"")
+        val e = assertFailsWith<DocException> { DocJson.decode(json) }
+        assertTrue(e.message!!.contains("future"), "the key must be named: ${e.message}")
+    }
+
+    // 3
+    @Test
+    fun anUnknownKeyInsideALayerIsRefusedAndNamed() {
+        val json = DocJson.encode(fresh())
+            .replaceFirst("\"visible\"", "\"fromTheFuture\": \"yes\",\n      \"visible\"")
+        val e = assertFailsWith<DocException> { DocJson.decode(json) }
+        assertTrue(e.message!!.contains("fromTheFuture"), "the key must be named: ${e.message}")
+    }
+
+    // 4
+    @Test
+    fun anUnknownKeyInsideABoardIsRefused() {
+        val json = DocJson.encode(richDocument())
+            .replaceFirst("\"clipToBoard\"", "\"boardFromTheFuture\": true,\n      \"clipToBoard\"")
+        val e = assertFailsWith<DocException> { DocJson.decode(json) }
+        assertTrue(e.message!!.contains("boardFromTheFuture"), "the key must be named: ${e.message}")
+        // The path, so "a key called `id`" never arrives without a location.
+        assertTrue(e.message!!.contains("\$.boards[0]"), "the path must be named: ${e.message}")
+    }
+
+    /**
+     * 5 — THE BURIED-KEY TEST, and the reason this section exists.
+     *
+     * Both keys are two descriptor hops below an object that is itself inside an array, so a walk
+     * that only looked at the root, or only one level down, would pass tests 2-4 and fail here.
+     * That is what makes it non-vacuous: the shallow walk is exactly the walk `ignoreUnknownKeys`
+     * would allow to be wrong.
+     */
+    @Test
+    fun anUnknownKeyAtTheDeepestLevelIsRefused() {
+        // layers[0].cels[0] — root → layers[] → cels[] → Cel.
+        val inCel = DocJson.encode(richDocument())
+            .replaceFirst("\"strokesFile\"", "\"celFromTheFuture\": 1,\n            \"strokesFile\"")
+        val celMessage = assertFailsWith<DocException> { DocJson.decode(inCel) }.message!!
+        assertTrue(celMessage.contains("celFromTheFuture"), celMessage)
+        assertTrue(celMessage.contains("\$.layers[0].cels[0]"), celMessage)
+
+        // boards[1].frames[0] — root → boards[] → frames[] → Frame.
+        val inFrame = DocJson.encode(richDocument())
+            .replaceFirst("\"holdFrames\"", "\"frameFromTheFuture\": 1,\n            \"holdFrames\"")
+        val frameMessage = assertFailsWith<DocException> { DocJson.decode(inFrame) }.message!!
+        assertTrue(frameMessage.contains("frameFromTheFuture"), frameMessage)
+        assertTrue(frameMessage.contains("\$.boards[1].frames[0]"), frameMessage)
+    }
+
+    /**
+     * 6 — the DRIFT GUARD, and the only one of these tests that is about the file rather than
+     * about one bad key.
+     *
+     * It walks what `DocJson.encode` ACTUALLY writes and compares every object's key set to the
+     * documented table. A field added to `DocModel.kt` without the table changing turns this red,
+     * which is the "hand-maintained list of a data class's fields is the unsafe kind of trap"
+     * failure this project has been bitten by.
+     */
+    @Test
+    fun everyKeyInAFileThisBuildWritesIsAKnownKey() {
+        val found = sortedMapOf<String, MutableSet<String>>()
+        collectKeys(Json.parseToJsonElement(DocJson.encode(richDocument())), "$", found)
+        assertEquals(
+            expectedKeyTable(),
+            found.mapValues { it.value.toSet() },
+            "the file this build writes must not say a key the table does not list",
+        )
+        // And the map was really walked: `richDocument` has an animated layer with a frameCel, so
+        // if the walker had stopped at the first object the table above would be short.
+        assertTrue(found.keys.any { it.endsWith("cels[]") }, "the walk did not reach the cels: ${found.keys}")
+    }
+
+    // 7 — Decision 2, and the test that pins the version gate in the right place.
+    @Test
+    fun aNewerVersionWithAnUnknownKeyStillDecodesAndIsStillReportedAsNewer() {
+        val json = DocJson.encode(fresh().copy(version = DOC_VERSION + 1))
+            .replaceFirst("\"format\"", "\"audio\": [],\n  \"format\"")
+        val back = DocJson.decode(json)
+        assertEquals(DOC_VERSION + 1, back.version, "a file from a newer build must still decode")
+        val problems = DocOps.validate(back)
+        assertEquals(1, problems.size, "got $problems")
+        assertTrue(
+            problems.single().contains("newer Joy Brush"),
+            "the version sentence must still win over any key sentence, got: ${problems.single()}",
+        )
+    }
+
+    // 8 — an OLDER file must not be refused. `version` 1 <= DOC_VERSION, so the scan runs and
+    // every key in the fixture has to be a key this build knows. Copied verbatim out of
+    // `EnumFreezeTest.documentWith`, which is `private` to another class in a file outside this
+    // row's owner area and so cannot be called from here.
+    @Test
+    fun aVersionOneDocumentStillOpens() {
+        val v1 = """
+            { "format": "joybrush.document", "version": 1, "id": "d", "name": "D", "boards": [ { "id": "b", "name": "B", "kind": "CANVAS", "rect": { "x": 0, "y": 0, "w": 8, "h": 8 } } ], "layers": [ { "id": "l", "name": "L", "kind": "PAINT", "blend": "NORMAL", "cels": [ { "id": "c" } ] } ] }
+        """.trimIndent()
+        val back = DocJson.decode(v1)
+        assertEquals(1, back.version)
+        assertEquals(BoardKind.CANVAS, back.boards.single().kind)
+        // The gate is `>`, not `>=`: the same file at the current version is scanned too.
+        val atCurrent = v1.replace("\"version\": 1", "\"version\": $DOC_VERSION")
+            .replaceFirst("\"B\"", "\"B\", \"fromTheFuture\": 1")
+        assertFailsWith<DocException> { DocJson.decode(atCurrent) }
+    }
+
+    // 9 — names the R31 bug itself: a document CAME BACK. This fails the moment any future change
+    // lets one through again, whatever the reason.
+    @Test
+    fun nothingIsEverReSavedWithoutAKeyItDidNotUnderstand() {
+        val json = DocJson.encode(richDocument())
+            .replaceFirst("\"color\"", "\"paperFromTheFuture\": 1,\n    \"color\"")
+        // There is no path to a JbDocument at all, so there is nothing an autosave could write back
+        // stripped — and the key is still in the text afterwards, because nothing consumed it.
+        assertFailsWith<DocException> { DocJson.decode(json) }
+        assertTrue(json.contains("paperFromTheFuture"), "the fixture lost its own key")
+    }
+
+    // 10 — `JbArchive` catches only DocException (JbArchive.kt:383), so a raw library exception
+    // escaping decode would crash the archive read instead of being reported to a person.
+    @Test
+    fun aFileWithAnUnknownKeyStillRefusesWithADocExceptionNotALibraryError() {
+        val json = DocJson.encode(fresh())
+            .replaceFirst("\"format\"", "\"future\": 1,\n  \"format\"")
+        val e = assertFailsWith<DocException> { DocJson.decode(json) }
+        assertEquals(DocException::class.java, e::class.java, "exactly DocException, not a subclass and not a library type")
+        // The key sentence, not the generic parse failure — this proves WHERE it came from.
+        assertFalse(
+            e.message!!.startsWith("document.json cannot be read"),
+            "the refusal must be the walk's own sentence, got: ${e.message}",
         )
     }
 

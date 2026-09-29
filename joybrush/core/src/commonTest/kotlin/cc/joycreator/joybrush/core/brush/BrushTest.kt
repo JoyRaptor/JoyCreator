@@ -382,9 +382,16 @@ class BrushTest {
         )
         // A number that no rule used to range is still a number this build cannot write, and now it
         // is named too (JB-0.03b, ruling 3) instead of only being caught when the file is saved.
+        //
+        // JB-0.03c moved `tip.hardness` into RANGED_BASES, and the message this assertion names
+        // changed with it — deliberately, and for the same reason `spacing` below reads
+        // "spacing NaN is outside 0.005..5" rather than "not a finite number". The finiteness rule
+        // SKIPS a ranged base (BrushValidate.kt:155), so a NaN hardness is caught by the RANGE rule
+        // and is still named exactly once. Saying "not a finite number" here would now be a
+        // description of a message the validator does not send.
         assertSole(
             BrushValidate.validate(preset { it.copy(tip = it.tip.copy(hardness = Param(Float.NaN))) }),
-            "not a finite number: tip.hardness.base = NaN",
+            "tip.hardness NaN is outside 0..1",
         )
         assertFailsWith<BrushException> { BrushJson.encode(preset { it.copy(tip = it.tip.copy(hardness = Param(Float.NaN))) }) }
         assertFailsWith<BrushException> { BrushJson.encode(preset { it.copy(smoothing = Float.POSITIVE_INFINITY) }) }
@@ -516,15 +523,84 @@ class BrushTest {
         )
     }
 
+    // ---- the 0..1 hardness rule (JB-0.03c, Lead ruling R37 Q3) ------------------------------------
+    //
+    // R37 Q3 put this rule in the validator on purpose: a rule in the ink path protects one caller
+    // and leaves every other way of loading a brush (the swatch, an import, a hand-edited file)
+    // unprotected. `TipMath.coverage` clamps `tip.hardness` at the point of use, which is exactly why
+    // the person has to be told at the door instead of finding the brush is not the brush they made.
+
+    @Test
+    fun hardnessOutsideZeroToOneIsRefusedWithTheHouseRangeMessage() {
+        // BOTH edges are brushes: a fully soft tip and a fully hard tip. So 0 and 1 are legal, and the
+        // rule is the inclusive `0..1` every other fraction in this file already uses.
+        for (legal in listOf(0f, 0.5f, 1f)) {
+            assertEquals(
+                emptyList(),
+                BrushValidate.validate(preset { it.copy(tip = it.tip.copy(hardness = Param(legal))) }),
+                "a hardness of $legal is legal",
+            )
+        }
+        // A hair past either edge is not. The number in the message IS the value, so the expected text
+        // is `Float.toString` of it: -0.001f, 1.001f, 2f and -1f.
+        assertSole(BrushValidate.validate(preset { it.copy(tip = it.tip.copy(hardness = Param(-0.001f))) }), "tip.hardness -0.001 is outside 0..1")
+        assertSole(BrushValidate.validate(preset { it.copy(tip = it.tip.copy(hardness = Param(1.001f))) }), "tip.hardness 1.001 is outside 0..1")
+        assertSole(BrushValidate.validate(preset { it.copy(tip = it.tip.copy(hardness = Param(2f))) }), "tip.hardness 2.0 is outside 0..1")
+        assertSole(BrushValidate.validate(preset { it.copy(tip = it.tip.copy(hardness = Param(-1f))) }), "tip.hardness -1.0 is outside 0..1")
+    }
+
+    @Test
+    fun aHardnessThatIsNotANumberIsCaughtByTheRangeRuleAndNamedOnce() {
+        // `!in` fails NaN. `h < 0f || h > 1f` would NOT: NaN compares false both ways, so a NaN
+        // hardness walks past the door and into `TipMath.coverage`, where `coerceIn` hands it back
+        // as NaN and the dab draws nothing. One message, and it is the range's.
+        assertSole(
+            BrushValidate.validate(preset { it.copy(tip = it.tip.copy(hardness = Param(Float.NaN))) }),
+            "tip.hardness NaN is outside 0..1",
+        )
+    }
+
+    @Test
+    fun aHardnessOfInfinityIsNamedByTheRangeRuleAndNotTwice() {
+        // `tip.hardness` is in RANGED_BASES, so rule 16 does not name it a second time as "not a
+        // finite number". Drop that one word from RANGED_BASES and this test sees two messages.
+        for (h in listOf(Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+            val problems = BrushValidate.validate(preset { it.copy(tip = it.tip.copy(hardness = Param(h))) })
+            assertEquals(1, problems.size, "a hardness of $h must be named once, got $problems")
+            assertTrue(problems.single().contains("tip.hardness $h is outside 0..1"), "message was: ${problems.single()}")
+            assertTrue(!problems.single().contains("not a finite number"), "named twice: ${problems.single()}")
+        }
+    }
+
+    @Test
+    fun aHardnessCurveIsStillNotRanged() {
+        // Only the BASE is ranged. A curve's `y` is the setting's own value and is rule 19's business
+        // ("it only has to be a number"), and `TipMath.coverage` clamps at the point of use — so a
+        // curve that runs to 3.0 stays legal today. Pinned, so the row that does range it has to
+        // change this test on purpose rather than break it by accident.
+        assertEquals(
+            emptyList(),
+            BrushValidate.validate(
+                preset { it.copy(tip = it.tip.copy(hardness = Param(0.5f, listOf(curve(0f to 0f, 1f to 3f))))) },
+            ),
+            "y 3.0 on a hardness curve is not this rule's business",
+        )
+    }
+
+    @Test
+    fun anUntouchedBrushStillHasAZeroPointNineHardness() {
+        // TipSpec's own default, so a brush nobody touched is never born refused. `size` is the only
+        // field BrushPreset has no default for, which is why it is the one thing named here.
+        val fresh = BrushPreset(id = "b", name = "B", size = Param(1f))
+        assertEquals(0.9f, fresh.tip.hardness.base, "TipSpec.hardness's default is unchanged")
+        assertEquals(emptyList(), BrushValidate.validate(fresh), "a brand-new brush must be legal")
+    }
+
     @Test
     fun everyBaseNoRuleRangedMustStillBeANumber() {
-        // These seven bases have no range yet (see the table in JB-0.03b), so all that can be asked
+        // These six bases have no range yet (see the table in JB-0.03b), so all that can be asked
         // of them is that they are numbers: 1e999 decodes to +Infinity, which draws nothing and
-        // which JSON cannot write back out.
-        assertSole(
-            BrushValidate.validate(preset { it.copy(tip = it.tip.copy(hardness = Param(Float.POSITIVE_INFINITY))) }),
-            "not a finite number: tip.hardness.base = Infinity",
-        )
+        // which JSON cannot write back out. `tip.hardness` left this list at JB-0.03c.
         assertSole(
             BrushValidate.validate(preset { it.copy(tip = it.tip.copy(angle = Param(Float.NaN))) }),
             "not a finite number: tip.angle.base = NaN",
@@ -543,7 +619,8 @@ class BrushTest {
             BrushValidate.validate(preset { it.copy(scatter = it.scatter.copy(amount = Param(Float.NEGATIVE_INFINITY))) }),
             "scatter.amount.base = -Infinity",
         )
-        // size.base is the one base a range does speak for, so the size rule names it instead.
+        // size.base and tip.hardness.base are the two bases a range does speak for, so their own rules
+        // name them instead.
         assertSole(
             BrushValidate.validate(preset { it.copy(size = Param(Float.POSITIVE_INFINITY)) }),
             "size.base must be above 0 and at most 4096, is Infinity",
@@ -766,8 +843,9 @@ class BrushTest {
         )
 
         // 2. `"opacity": {"base": 5}` — the one of the three this build does NOT refuse, and the
-        // assertion says so out loud. Seven `Param` bases carry no range (see the Question in
-        // JB-0.03b), so all validation can ask of opacity today is that it is a number. A brush with
+        // assertion says so out loud. Six `Param` bases carry no range (see the Question in
+        // JB-0.03b; `tip.hardness` left that list at JB-0.03c), so all validation can ask of opacity
+        // today is that it is a number. A brush with
         // opacity 5 loads and dabs clamped, quietly — pinned here so that the day the base is ranged
         // this test goes red and says which sentence changed, instead of the gap going unnoticed.
         val loud = inkJson.replace("\"opacity\": { \"base\": 1 },", "\"opacity\": { \"base\": 5 },")

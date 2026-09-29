@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.core.export
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.float
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
@@ -72,6 +73,17 @@ class SpritePackerTest {
     }
 
     private fun parse(sidecar: String) = Json.parseToJsonElement(sidecar).jsonObject
+
+    /** The one preset of a one-clip pack, at the level the app's `fromJson` reads it from. */
+    private fun presetOf(clip: Clip) =
+        parse(pack(board(5), cols = 3, clips = listOf(clip)).sidecarJson)["presets"]!!
+            .jsonArray[0].jsonObject
+
+    private fun framesOf(preset: JsonObject) =
+        preset["frames"]!!.jsonArray.map { it.jsonPrimitive.int }
+
+    private fun weightsOf(preset: JsonObject) =
+        preset["weights"]!!.jsonArray.map { it.jsonPrimitive.int }
 
     // ── geometry ───────────────────────────────────────────────────────────
 
@@ -176,7 +188,7 @@ class SpritePackerTest {
         for (absent in listOf(
             "marginX", "marginY", "spacingX", "spacingY", "order", "bgKeyColor", "keyTolerance",
             "pivotX", "pivotY", "cells", "cellXf", "visemeMap", "bakedFrom", "cellOrder",
-            "kind", "frameUris", "resizeMode", "weights",
+            "kind", "frameUris", "resizeMode",
         )) {
             assertFalse(root.containsKey(absent), "$absent must not be written")
         }
@@ -250,6 +262,137 @@ class SpritePackerTest {
             listOf("0", "2", "4"),
             parse(sheet.sidecarJson)["cellNames"]!!.jsonObject.keys.toList(),
         )
+    }
+
+    // ── held frames: the sidecar's `weights`, the app's key ─────────────────
+
+    @Test
+    fun aHeldFrameIsWrittenAsWeightsBesideItsFrames() {
+        val preset = presetOf(Clip("walk", listOf(0, 1, 2), weights = listOf(3, 1, 1)))
+        // The app's own key ORDER is part of the contract: frames, then weights, then nothing.
+        assertEquals(listOf("id", "name", "type", "frames", "weights"), preset.keys.toList())
+        assertEquals(listOf(0, 1, 2), framesOf(preset))
+        // This is the row. Cell 0 is held for three ticks and the file says so; before it, the
+        // sidecar described the sheet in every other particular and said nothing about this one.
+        assertEquals(listOf(3, 1, 1), weightsOf(preset))
+    }
+
+    @Test
+    fun weightsIsWrittenAfterFramesAndNotBefore() {
+        val text = pack(
+            cells = board(5),
+            cols = 3,
+            clips = listOf(Clip("walk", listOf(0, 1, 2), weights = listOf(3, 1, 1))),
+        ).sidecarJson
+        // The order is checked in the RAW text, not only in a parsed key list: a key list answers
+        // "which keys", and this is about "in what order the file says them".
+        val framesAt = text.indexOf("\"frames\"")
+        val weightsAt = text.indexOf("\"weights\"")
+        assertTrue(framesAt >= 0 && weightsAt > framesAt, "frames at $framesAt, weights at $weightsAt")
+        // And inside the preset, not hoisted to the root: the app reads it off `p`, one array per
+        // preset, so a root key is a key it would drop on the floor.
+        val root = parse(text)
+        assertFalse(root.containsKey("weights"))
+        assertTrue(root["presets"]!!.jsonArray[0].jsonObject.containsKey("weights"))
+    }
+
+    @Test
+    fun aClipWithNothingHeldWritesNoWeightsKey() {
+        // Three ways of saying "no hold", and the app writes nothing for any of them.
+        assertFalse(presetOf(Clip("walk", listOf(0, 1, 2))).containsKey("weights"))
+        assertFalse(presetOf(Clip("walk", listOf(0, 1, 2), weights = emptyList())).containsKey("weights"))
+        assertFalse(presetOf(Clip("walk", listOf(0, 1, 2), weights = listOf(1, 1, 1))).containsKey("weights"))
+
+        // The app's promise is stronger than "no key": an all-1s array "carries no information,
+        // and omitting it keeps a pre-weights preset byte-identical" (SpriteSheet.java:646-647). So
+        // this compares the STRINGS. A key-list comparison would still pass if the packer wrote
+        // the key somewhere else, or with different spacing than the default case.
+        assertEquals(
+            pack(board(5), cols = 3, clips = listOf(Clip("walk", listOf(0, 1, 2)))).sidecarJson,
+            pack(
+                board(5),
+                cols = 3,
+                clips = listOf(Clip("walk", listOf(0, 1, 2), weights = listOf(1, 1, 1))),
+            ).sidecarJson,
+        )
+    }
+
+    @Test
+    fun aHoldOnTheFirstCellIsTheOrdinaryCaseAndItSurvives() {
+        val written = Json.parseToJsonElement(
+            pack(
+                cells = board(5),
+                cols = 3,
+                clips = listOf(Clip("walk", listOf(0, 1, 2), weights = listOf(3, 1, 1))),
+            ).sidecarJson,
+        ).jsonObject["presets"]!!.jsonArray[0].jsonObject
+
+        val frames = framesOf(written)
+        val weights = weightsOf(written)
+        assertEquals(3, frames.size)
+        assertEquals(frames.indices.toList(), weights.indices.toList())
+        assertEquals(3, weights[0])
+
+        // What the key is FOR. Without it the app's `weightAt` answers DEFAULT_WEIGHT for every
+        // frame — a preset with no weights resolves down the identical code path as one written
+        // before weights existed — so cell 0 gets one tick, the person who held it for three has
+        // lost the hold, and nothing anywhere in the file says so. With it, the hold is on the
+        // other side of the export.
+        //
+        // The read the app actually performs (SpriteSheet.fromJson:813-824) clamps every entry
+        // into 1..9999 and then `fit`s the array to the frame count. This is that read stated as
+        // an assertion: what is on disk is already what the app will hold, which is the property
+        // the refusal tests protect, seen from the writing side.
+        assertTrue(weights.all { it in 1..9999 }, "a written weight the app would change on read: $weights")
+    }
+
+    @Test
+    fun packingTwiceWithTheSameWeightsProducesTheSameJson() {
+        val clip = Clip("walk", listOf(0, 1, 2), weights = listOf(3, 1, 1))
+        val first = pack(board(5), cols = 3, clips = listOf(clip))
+        val second = pack(board(5), cols = 3, clips = listOf(clip))
+        assertEquals(first.sidecarJson, second.sidecarJson)
+    }
+
+    @Test
+    fun weightsOfTheWrongLengthIsRefused() {
+        val short = assertFailsWith<IllegalArgumentException> {
+            pack(
+                board(5),
+                cols = 3,
+                clips = listOf(Clip("walk", listOf(0, 1, 2, 3, 4), weights = listOf(1, 3))),
+            )
+        }
+        assertTrue(short.message!!.contains("walk"), short.message!!)
+        assertTrue(short.message!!.contains("2"), short.message!!)
+        assertTrue(short.message!!.contains("5"), short.message!!)
+        // The other direction, which is just as wrong: a longer array's tail would be read as
+        // weights on frames that are not there. Neither direction is padded or truncated.
+        assertFailsWith<IllegalArgumentException> {
+            pack(
+                board(5),
+                cols = 3,
+                clips = listOf(Clip("walk", listOf(0, 1), weights = listOf(1, 1, 1))),
+            )
+        }
+    }
+
+    @Test
+    fun aWeightOutsideOneToNineThousandNineHundredAndNinetyNineIsRefused() {
+        for (bad in listOf(0, -1, 10000)) {
+            val e = assertFailsWith<IllegalArgumentException> {
+                pack(
+                    board(5),
+                    cols = 3,
+                    clips = listOf(Clip("walk", listOf(0, 1, 2), weights = listOf(bad, 1, 1))),
+                )
+            }
+            assertTrue(e.message!!.contains("walk"), e.message!!)
+            assertTrue(e.message!!.contains("$bad"), e.message!!)
+        }
+        // Both edges are legal, and 1 is the default weight: the boundaries are accepted, and a
+        // legal 9999 is written as 9999 rather than folded down to something rounder.
+        assertEquals(listOf(1, 9999, 1), weightsOf(presetOf(Clip("walk", listOf(0, 1, 2), weights = listOf(1, 9999, 1)))))
     }
 
     // ── determinism ────────────────────────────────────────────────────────

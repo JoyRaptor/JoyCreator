@@ -664,17 +664,31 @@ class MypaintImportTest {
     }
 
     /**
-     * `hardness` is "as is" per the spec, and `BrushValidate` rule 16 only asks for finiteness, so
-     * 1e30 is a legal, finite, meaningless hardness. The importer must not clamp it — that would
-     * invent a decision about `jb_tip.glsl` that is not its to make — but it must not be silent
-     * either. This test fails when the JB-0.03b range rule lands; delete it then.
+     * `hardness` is "as is" per the MyPaint spec, so 1e30 is passed through untouched — and the three
+     * facts this test pinned before JB-0.03c are all still true: the value crosses intact, the
+     * importer warns that it did, and the three real brushes get no such warning.
+     *
+     * What changed is the fourth: the preset the importer produced is now REFUSED by [BrushValidate].
+     * That is rule 24 doing in the validator what `TipMath.coverage` used to do silently at the
+     * canvas, and it is why this test was REWRITTEN rather than deleted. The importer is deliberately
+     * left alone: clamping 1e30 here would invent a rendering decision (does `jb_tip.glsl` saturate
+     * above 1, or is it an error?) that is not the importer's to make. So the value crosses intact,
+     * the importer says so, and the importer's own validation sweep says the caller a second time
+     * that the brush it has just built is one Joy Brush will not load.
      */
     @Test
-    fun aHardnessOutsideZeroToOneIsPassedThroughButNotSilently() {
+    fun aHardnessOutsideZeroToOneIsPassedThroughWarnedAboutAndNowRefused() {
         val wild = convert(file(""""hardness": { "base_value": 1e30, "inputs": {} }"""))
-        assertEquals(1e30f, wild.preset.tip.hardness.base, 1e20f)   // untouched
-        assertEquals(emptyList(), BrushValidate.validate(wild.preset))  // …and legal, today
+        assertEquals(1e30f, wild.preset.tip.hardness.base, 1e20f)   // untouched — still no clamp
         warnsAbout(wild, "hardness", "outside", "passed through unchanged")
+        // …and refused, in the validator's own words. `1e30` is a legal Float, so this is the range
+        // rule and not rule 16's finiteness: 1e30 is very much a number.
+        val problems = BrushValidate.validate(wild.preset)
+        assertTrue(
+            problems.any { it.contains("tip.hardness") && it.contains("outside 0..1") },
+            "the preset the importer produced must now be refused: $problems",
+        )
+        warnsAbout(wild, "imported brush would be refused")
         // The three real brushes are all inside 0..1, so none of them gets this warning. (Checked on
         // the message, not on the word "hardness" — the pen does warn about a *dropped hardness
         // input*, and that is a different sentence about a different thing.)

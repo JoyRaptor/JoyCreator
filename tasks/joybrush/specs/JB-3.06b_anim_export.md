@@ -1,63 +1,83 @@
-# JB-3.06b — Export the animation board: PNG sequence, GIF, sprite sheet, MP4, WebP
+# JB-3.06b — Export the animation board: GIF, PNG sequence, sprite sheet
 
 | | |
 |---|---|
-| **Tier** | T2 (the plan layer is pure `:core` and is fully tested; the encoders are `androidkit` and are verified on device) |
-| **Status** | 📝 Draft spec — **the owner area names `JoyBrushActivity.kt`, which is an APP FILE under the Lead's serialised app-file order (`D.02a → D.02 → D.02c / D.05`, one at a time, and never beside `JB-0.09`). `D.02c` and `D.05` are both on the board at `🟦 Ready (after D.02)`, so this row is not dispatchable until the Lead says which of the three runs first.** Two formats (MP4, animated WebP) also have no encoder in this repo — see Q1 and Q2, which are the Lead's and are format decisions a cross-reviewer may not take. The plan layer itself is complete and needs nothing. |
-| **Who** | spec writer `openrouter/stealth/space-bunny-alpha` 2026-09-29 · **xr: openrouter/stealth/space-bunny-alpha 2026-09-29** — verified `AnimOps.frameStartsMs(board): List<Double>` and `AnimOps.totalDurationMs(board): Double` exist (`AnimOps.kt:461`/`:442`), `SpritePacker.pack`/`assertEncodedSize(fileName, pngWidth, pngHeight)`/`data class Clip` exist (`SpritePacker.kt:143`/`:72`/`:28`), `GifEncoder.addFrame(rgba: ByteArray, delayMs: Int)` exists (`GifEncoder.kt:436`), the board's fps range really is 1..60 (`DocOps.kt:87` and `AnimOps.kt:543`), and `JbArchive`'s `unsafeReason` is **private** (`JbArchive.kt:514`) — so Decision 3's "the same set" is a restatement, not a shared constant. Added the stop rule and a hard app-file warning. Left Draft: the app-file order and Q1/Q2. |
-| **Needs** | 3.01, 3.06a, 2.13a, 4.03a (as the ROADMAP row states) |
-| **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlan.kt` · NEW `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlanTest.kt` · NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/AnimExport.kt` · EDIT `joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt` (the export pill and the format sheet — nothing else in that file). **🔴 the last path is an APP FILE — see the Status line and "Do not".** |
-| **Estimated size** | ~230 lines of Kotlin in `:core` + ~280 lines of tests, ~260 lines of Android |
-| **Command** | `./gradlew -p joybrush :core:jvmTest` — 0 failures. Then the watcher compiles `:androidkit:compileKotlin` and `:joybrush-android:compileDebugKotlin` green. |
+| **Tier** | T2 (the plan layer is pure `:core` and is JVM-testable with no canvas and no phone; the encoders are `androidkit`, plain JVM against landed code) |
+| **Status** | 🟦 Ready — **ruling R35 applied in full: MP4 is out of this row, WebP is out of this row, no scale factor, no range picker.** The two questions that held this at Draft (Q1 MP4, Q2 animated WebP) are answered by R35 and are no longer questions. The owner area names **no app file**: the export pill belongs to the chrome row (JB-2.01, R30 item 1 and R39), which is *not* this row — see *Questions*. |
+| **Who** | spec writer `openrouter/stealth/space-bunny-alpha` 2026-09-29 · **xr: openrouter/stealth/space-bunny-alpha 2026-09-29** — R35 applied; verified against the landed files: `AnimOps.frameStartsMs` returns **starts, not lengths** (`AnimOps.kt:461`) and `PlaybackClock.kt:64-78` is the landed derivation of a delay from it; `Clip` is `Clip(name, frames, type, fps)` with **no `id`** (`SpritePacker.kt:28`), which the previous contract got wrong; `assertEncodedSize` is a member of `PackedSheet`, not of `SpritePacker` (`:72`); the board's fps range really is in **two** places (`DocOps.kt:87` and `AnimOps.kt:543`) and both reach the caller as a `DocException`, not an `IllegalArgumentException`; `JbArchive.unsafeReason` is **private** (`JbArchive.kt:514`), so the name rules are pasted out of it rather than shared. **Restructured:** the encoder layer no longer names `android.net.Uri` (the repo's own lesson from `JbArchive`/`OraExport`/`PngWriter`, which are pure JVM precisely so they can be tested) — it produces bytes and hands them to a sink, and the SAF/`cacheDir` staging belongs to the wiring row. |
+| **Needs** | 3.01 (animation model), 3.06a (`GifEncoder`), 2.13a (`RegionRenderer`), 2.14a (`PngWriter`), 4.03a (`SpritePacker`) |
+| **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlan.kt` · NEW `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlanTest.kt` · NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/AnimExport.kt` · NEW `joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/io/AnimExportTest.kt`. **Nothing else. No app file, no build file, no `document.json` field.** |
+| **Estimated size** | ~210 lines of Kotlin in `:core` + ~170 lines of Android-side (JVM) + ~330 lines of tests |
+| **Command** | `./gradlew -p joybrush :core:jvmTest` then `./gradlew -p joybrush :androidkit:compileKotlin :androidkit:test` — both BUILD SUCCESSFUL, 0 failures |
 
 ## Goal
 
 Blueprint §4 Phase 3: *"Export MP4 / GIF / WebP / PNG sequence / sprite sheet"* from the animation
-board, and §3.4: *"Export PNG, OpenRaster, PSD (own writer), GIF/WebP/MP4, PNG sequence, sprite
-sheet."* All five land as file contracts somebody else already reads, so nothing here invents a
-format.
+board. **R35 keeps three of those five in this row** — GIF, PNG sequence, sprite sheet — and says
+where the other two went, so this spec does not argue with it and does not quietly re-add them.
 
-The design in one sentence: **one plan, five encoders.** Which frames, in what order, held for how
-long, at what size is a *pure function of the board* and is therefore a `List<Frame>` a test can
-check exhaustively; the encoders are dumb consumers of that list. Getting that seam right is the
-whole reason this is one task and not five.
+The design in one sentence: **one plan, three encoders.** Which frames, in what order, held for how
+long, at what size is a *pure function of the board*, so it is a `List<Frame>` that a test can check
+exhaustively with no canvas, no tiles and no phone; the encoders are dumb consumers of it and add
+nothing of their own. Getting that seam right is the whole reason this is one task and not three.
 
-## Contract — the plan layer (`:core`, pure, buildable today)
+### The two formats this row does NOT ship, and why (R35 — read this before adding either back)
+
+- **MP4 is not in this row and is not a gap in it.** R35: MP4 *is delivered*, by **"Send to Studio"
+  (JB-3.07)**, where the Studio's own exporter produces it. There is no in-app MP4 encoder in this
+  repo today, and a `MediaCodec` path is a later T2 row with a **mandatory device check** (the
+  encoder cannot be exercised off a phone, so it cannot be a cloud-tested row). So the enum in this
+  spec has no MP4 entry and the export sheet will not offer one. If you are reading this and thinking
+  "just add MediaMuxer", you are about to build the later row inside this one, without its device
+  check.
+- **Animated WebP is dropped, permanently for now, and here is the reason so nobody re-derives it.**
+  Android's `Bitmap.CompressFormat.WEBP` writes a **still**; the platform has never had an animation
+  path. A still WebP under the name "Export WebP" on an animation board is a file that is not what
+  the person tapped. Writing an animated WebP by hand (VP8/VP8L bitstreams plus the `ANMF`/`ANIM`
+  container chunks) is a different order of work from `GifEncoder` **and there would be no
+  third-party decoder anywhere in this repo to oracle it against** — and "at least one assertion made
+  by a decoder that did not write the bytes" is the lesson JB-3.06a learned at cost. `GifEncoder`
+  has `javax.imageio` standing in for the gallery; a hand-written WebP encoder would have nothing.
+  **So: three formats, and this is not a temporary gap waiting for a third-party library.**
+
+## Contract — the plan layer (`:core`, pure, testable today)
 
 ```kotlin
 package cc.joycreator.joybrush.core.export
 
 import cc.joycreator.joybrush.core.doc.Board
 import cc.joycreator.joybrush.core.doc.RectPx
-import cc.joycreator.joybrush.core.export.SpritePacker
+
+// `Clip`, `PackedSheet` and `SpritePacker` are in THIS package, so they need no import — adding one
+// would be noise. `DocException` is named in KDoc only, so it is qualified there rather than imported.
 
 /**
  * WHAT to export, as data. Every encoder below is a consumer of this and adds nothing of its own.
  *
- * The delays come from `AnimOps.frameStartsMs` / `AnimOps.totalDurationMs` and are **never**
- * re-derived by accumulating `holdFrames × 1000 / fps` — the same rule as JB-3.05a and JB-3.03, and
- * for the same reason: a boundary one ulp out is a frame of the wrong length in a file somebody
- * else will play.
+ * The delays come from [cc.joycreator.joybrush.core.doc.AnimOps.frameStartsMs] and
+ * [cc.joycreator.joybrush.core.doc.AnimOps.totalDurationMs] and are **never** re-derived by
+ * accumulating `holdFrames × 1000 / fps` — the same rule as JB-3.05a and JB-3.03, and for the same
+ * reason: a boundary one ulp out is a frame of the wrong length in a file somebody else will play.
  */
 data class AnimExportPlan(
-    /** Frame ids, in play order. The cells of a sprite sheet and the frames of a GIF or an MP4. */
+    /** Frame ids, in play order. The cells of a sprite sheet, and the frames of a GIF or a sequence. */
     val frameIds: List<String>,
-    /** How long each frame is shown, ms, parallel to [frameIds]. `delayMs[i] > 0` for every i. */
+    /** How long each frame is shown, in ms, parallel to [frameIds]. Every entry is at least 1. */
     val delayMs: List<Int>,
-    /** The picture size, in pixels. Every frame is this size; a board has one rect. */
+    /** The picture size, in pixels. Every frame is this size; a board has one rectangle. */
     val width: Int,
     val height: Int,
-    /** The board's own fps, for the formats that want a cadence rather than a list of delays. */
+    /** The board's own fps, for the one format that wants a cadence rather than a list of delays. */
     val fps: Float,
-    /** The suggested file name WITHOUT an extension, e.g. "Walk cycle". */
+    /** The file name WITHOUT an extension, already through [AnimExport.safeBaseName]. */
     val baseName: String,
+    /**
+     * The board's own rectangle, not just its size, and every render is at exactly this rect.
+     * A board may sit at a negative origin and the export crops to it (the same crop
+     * `RegionRenderer` does and the same one `OraExport` makes).
+     */
+    val rect: RectPx,
 ) {
-    init {
-        require(frameIds.isNotEmpty())
-        require(delayMs.size == frameIds.size)
-        require(delayMs.all { it > 0 })
-        require(width > 0 && height > 0)
-    }
     val totalMs: Int get() = delayMs.sum()
     val frameCount: Int get() = frameIds.size
 }
@@ -65,435 +85,651 @@ data class AnimExportPlan(
 object AnimExport {
 
     /**
-     * The whole board, in play order, at [board]'s rect.
+     * The whole board, in play order, at [board]'s own rect.
      *
-     * @param baseName the file name without an extension; sanitised (see Decision 4).
-     * @throws IllegalArgumentException on a board with no frames, a non-positive rect, or an fps
-     *   outside 1..60 — which is `AnimOps`' own refusal, surfaced, not a second rule.
+     * @param baseName the file name without an extension. Sanitised by [safeBaseName] — the caller
+     *   passes whatever the board is called and does not pre-clean it.
+     * @throws cc.joycreator.joybrush.core.doc.DocException on a board with no frames, a board with
+     *   two frames of the same id, a board that is not `BoardKind.ANIMATION`, or an fps outside
+     *   1..60. **All four are `DocException`, not `IllegalArgumentException`** — TWO of them are
+     *   `AnimOps`' own refusals arriving unchanged (the board kind and the fps; it throws
+     *   `DocException`, which extends `Exception`, `DocJson.kt:8`), and the other two are this
+     *   object's own sentences in the same type, because a sentence is what the export button shows.
      */
     fun plan(board: Board, baseName: String): AnimExportPlan
 
     /**
      * A SUB-RANGE of the board: frames [first]..[last] inclusive, in play order.
      *
-     * A sub-range is what "export just this shot" means, and it is the same arithmetic the
-     * `PlaybackClock` range does — so this refuses and clamps exactly as it does (swapped,
-     * clamped) rather than inventing a second convention. See Decision 3.
+     * Swapped if given backwards and clamped into the board, because that is exactly what
+     * `PlaybackClock`'s constructor does with the same two numbers (`PlaybackClock.kt:52-53`), and
+     * "export frames 2..5" and "play frames 2..5" must be the same four frames by construction.
+     * See Decision 4 and the test that proves it against the clock's own answers.
      */
     fun planRange(board: Board, first: Int, last: Int, baseName: String): AnimExportPlan
 
     /**
-     * The cells of a sprite sheet for [plan]: the frames in order, laid out [cols] per row.
-     * `rows = ceil(frameCount / cols)`; the surplus slots in the last row are transparent, and the
-     * sidecar's grid still counts them.
-     *
-     * @throws IllegalArgumentException if [cols] < 1 or > [SpritePacker]'s own limits — checked by
-     *   CALLING `SpritePacker.pack` and letting IT refuse, so the two cannot disagree (R23).
-     */
-    fun sheetCols(frameCount: Int, requested: Int): Int
-
-    /** The sidecar's one clip for this plan: every frame, [type] verbatim, the board's own fps. */
-    fun sheetClip(plan: AnimExportPlan, id: String, name: String, type: String): Clip
-
-    /**
-     * A file name that is safe on every filesystem the app writes to: no path separators, no
-     * control characters, no `:` (a Windows drive letter or an NTFS stream — `JbArchive`
-     * `unsafeReason` refuses the same set), trimmed, and never empty.
+     * The file name that goes in front of every extension: no path separator, no colon, no control
+     * character, trimmed, and never empty. **The algorithm is Decision 5 — there is no judgement left.**
      */
     fun safeBaseName(raw: String): String
+
+    /**
+     * Columns for the sprite sheet of [frameCount] frames, with no picker and no caller argument:
+     * `ceil(sqrt(frameCount))`, at least 1. See Decision 6.
+     */
+    fun sheetCols(frameCount: Int): Int
+
+    /**
+     * The sidecar's ONE clip for [plan]: every frame of the plan as a cell index, **with each hold
+     * folded in as a repeat of that index** (`frames = [0, 1, 1, 2]` for holds `[1, 2, 1]`), [type]
+     * verbatim, [fps] = the plan's. See Decision 7.
+     */
+    fun sheetClip(plan: AnimExportPlan, name: String, type: String): Clip
+
+    /**
+     * `frameIndex.withIndex { index, frameId -> index to frameId }` — the sparse `cellNames` map
+     * `SpritePacker.pack` already writes, so the sidecar says which cell is which frame.
+     */
+    fun sheetCellNames(plan: AnimExportPlan): Map<Int, String>
 }
 ```
 
-**The landed functions this plan layer calls, pasted so nothing above says "see the other file"**
-(all verified in the tree 2026-09-29):
+**The landed code this plan layer calls, pasted so nothing above says "see the other file"** (every
+line number checked in the tree on 2026-09-29):
 
 ```kotlin
-// cc.joycreator.joybrush.core.doc.DocModel.kt:69 — the whole of what `plan(board)` is given
-@Serializable data class Board(
+// ---- cc.joycreator.joybrush.core.doc.DocModel.kt --------------------------------------------
+const val DOC_FORMAT = "joybrush.document"                                  // :6
+@Serializable data class RectPx(val x: Int, val y: Int, val w: Int, val h: Int)   // :36
+@Serializable enum class BoardKind { CANVAS, ANIMATION, SPRITE, PUPPET, CHARACTER } // :60
+@Serializable data class Frame(val id: String, val holdFrames: Int = 1)       // :62
+@Serializable data class Board(                                               // :69
     val id: String,
     val name: String,
-    val kind: BoardKind,                   // CANVAS | ANIMATION | SPRITE | PUPPET | CHARACTER
+    val kind: BoardKind,
     val rect: RectPx,
     val clipToBoard: Boolean = false,
-    val fps: Float = 12f,                  // ANIMATION only. DocOps.kt:87 refuses `fps !in 1f..60f`
-    val frames: List<Frame>,               // ANIMATION only, IN PLAY ORDER
-    val grid: SpriteGrid? = null,          // SPRITE only
+    val fps: Float = 12f,                   // ANIMATION only
+    val frames: List<Frame> = emptyList(),  // ANIMATION only, IN PLAY ORDER
+    val grid: SpriteGrid? = null,           // SPRITE only
 )
-@Serializable data class Frame(val id: String, val holdFrames: Int = 1)
-@Serializable data class RectPx(val x: Int, val y: Int, val w: Int, val h: Int)
+@Serializable data class Paper(                                              // :38
+    val color: String = "#FFFFFF",          // #RRGGBB
+    val textureId: String? = null,
+    val textureScale: Float = 1f,
+    val includeInExport: Boolean = false,   // the "Include paper" checkbox default
+)
 
-// cc.joycreator.joybrush.core.doc.AnimOps.kt — THE ONLY source of a frame's length (Decision 2)
-fun totalDurationMs(board: Board): Double                        // :442
-fun frameStartsMs(board: Board): List<Double>                     // :461  — starts, not lengths
-// A frame's own length is `holdFrames * 1000.0 / fps`, multiplying before dividing (AnimOps.kt:475).
+// ---- cc.joycreator.joybrush.core.doc.DocJson.kt --------------------------------------------
+class DocException(message: String) : Exception(message)                     // :8
 
-// cc.joycreator.joybrush.core.export.SpritePacker.kt
-data class Clip(/* :28 */ …)                                     // the sidecar's one clip
-fun assertEncodedSize(fileName: String, pngWidth: Int, pngHeight: Int)   // :72
-fun pack(/* :143 */ …)                                           // the limits live HERE, not here
+// ---- cc.joycreator.joybrush.core.doc.AnimOps.kt -- THE ONLY SOURCE OF A FRAME'S LENGTH -------
+private const val MAX_HOLD_FRAMES = 999                                      // :100
 
-// cc.joycreator.joybrush.core.export.GifEncoder.kt:436
-fun addFrame(rgba: ByteArray, delayMs: Int)
+/** How long one play of [board] lasts, ms: the sum of `holdFrames × 1000 / fps`. */
+fun totalDurationMs(board: Board): Double                                    // :442
+
+/**
+ * WHEN each frame STARTS, in play order. **THIS RETURNS THE STARTS OF THE FRAMES, NOT THEIR
+ * LENGTHS, AND IT IS NOT THE LENGTH LIST.** It has one entry per frame and **no trailing end**.
+ * Refuses everything [playableSchedule] refuses.
+ */
+fun frameStartsMs(board: Board): List<Double>                                // :461
+
+/** Multiply before dividing, so `holdFrames = 3` at 12 fps is exactly 250. */
+private fun durationMs(frame: Frame, fps: Double): Double = frame.holdFrames * 1000.0 / fps  // :475
+
+// ---- cc.joycreator.joybrush.core.anim.PlaybackClock.kt -- THE LANDED DERIVATION ----------------
+// This is the code that turns starts into lengths, already written and already reviewed. Read it
+// before writing the line in Decision 2; it is the reason the rule below exists.
+val boardStarts = AnimOps.frameStartsMs(board)                               // :69
+rangeStartMs = boardStarts[lo]                                               // :70
+val rangeEndMs = if (hi < frames - 1) boardStarts[hi + 1] else AnimOps.totalDurationMs(board) // :71
+
+// ---- cc.joycreator.joybrush.core.export.SpritePacker.kt -------------------------------------
+/** One animation over CELL INDICES. **There is no `id` field here — `id` belongs to `pack`.** */
+data class Clip(                                                             // :28
+    val name: String,
+    val frames: List<Int>,     // cell indices in playing order; a repeat is a repeat, not a mistake
+    val type: String = "loop", // one of `loop`, `pingpong`, `once`
+    val fps: Float = 0f,       // 0 means "inherit the sheet's fps", and is then OMITTED from the sidecar
+)
+
+/** NOT a member of `SpritePacker`. It is a method ON the packed sheet. */
+fun PackedSheet.assertEncodedSize(fileName: String, pngWidth: Int, pngHeight: Int)  // :72
+// -> IllegalStateException if the encoded PNG is not width x height. Call BEFORE writing either file.
+
+fun SpritePacker.pack(                                                       // :143
+    cells: List<ByteArray>,      // straight RGBA8, all cellW x cellH, in reading order
+    cellW: Int,
+    cellH: Int,
+    cols: Int,                   // rows = ceil(cells.size / cols)
+    id: String,                  // the sidecar's `id`
+    name: String,                // the sidecar's `name`
+    sheetFileName: String,       // written verbatim as `sheetUri`, RELATIVE — e.g. "Walk.png"
+    fps: Float,                  // the sheet's default cadence, always written
+    clips: List<Clip>,           // `presets` is written only when this is non-empty
+    cellNames: Map<Int, String> = emptyMap(), // sparse, ascending index order
+): PackedSheet
+// Refuses (IllegalArgumentException): a cell that is not cellW x cellH RGBA, cols < 1, no cells,
+// a cellName or clip frame naming a cell index the sheet does not hold, a clip with no frames or
+// an unknown type, a non-finite/negative fps, and a sheet needing more than Int.MAX_VALUE bytes.
+
+// ---- cc.joycreator.joybrush.core.export.GifEncoder.kt ---------------------------------------
+class GifEncoder(val width: Int, val height: Int, val loop: Boolean = true)  // :411
+fun GifEncoder.addFrame(rgba: ByteArray, delayMs: Int)                       // :436
+// -> IllegalArgumentException if `rgba` is not exactly width*height*4. Straight RGBA8, row 0 = TOP.
+// `finish(): ByteArray` (:456) is the whole file; IllegalStateException if no frame was added.
+// Internally: `delayCentiseconds` (:372) is `(ms + 5) / 10` clamped to 2..65535 cs. **Do not
+// second-guess it.** `MAX_SCREEN = 0xFFFF` (:75).
+
+// ---- cc.joycreator.joybrush.core.render.RegionRenderer.kt ------------------------------------
+fun interface TileSource { fun tile(layerId: String, celId: String, tx: Int, ty: Int): ByteArray? } // :24
+const val MAX_REGION_PX = 8_388_608L                                          // :89
+
+fun RegionRenderer.render(
+    doc: JbDocument, tiles: TileSource, rect: RectPx, frameId: String?, paper: String?,
+): ByteArray                                                                // :196
+// -> STRAIGHT (un-premultiplied) RGBA8, `rect.w * rect.h * 4` bytes, row 0 = TOP.
+// -> RegionException above MAX_REGION_PX; IllegalArgumentException for a negative side or a
+//    `paper` that is neither null nor a `#RRGGBB` string.
+
+// ---- cc.joycreator.joybrush.androidkit.io.JbArchive.kt -- the rules safeBaseName RESTATES ----
+private const val MAX_NAME_CHARS = 512                                        // :104
+private fun unsafeReason(name: String): String?                              // :514  **PRIVATE**
 ```
 
-**`frameStartsMs` returns the STARTS of frames, not their lengths.** The plan's `delayMs[i]` is a
-length, so it is `frameStartsMs[i + 1] - frameStartsMs[i]` for every `i` but the last, and the last
-is `totalDurationMs - frameStartsMs.last`. Read that derivation out of those three functions; do not
-write `holdFrames * 1000 / fps` here (Decision 2, and the house rule from JB-3.05a).
+### `frameStartsMs` returns STARTS. Here is the whole derivation, in one line, with its witness.
 
-## Contract — the encoder layer (`androidkit`)
+`delayMs[i]` is a **length**, and `frameStartsMs` hands back a **start**. So:
+
+```kotlin
+val starts = AnimOps.frameStartsMs(board)              // one per frame, NO trailing end — already ms
+val total  = AnimOps.totalDurationMs(board)            // already ms
+delayMs[i] = floor(
+    (if (i < starts.lastIndex) starts[i + 1] - starts[i] else total - starts[i]) + 0.5
+).toInt().coerceAtLeast(1)
+```
+
+**There is no `× 1000` in that line.** `frameStartsMs` and `totalDurationMs` are already in
+milliseconds; the `1000 / fps` inside them has been applied. Multiplying a millisecond difference by
+1000 is how a 12 fps board exports at 12 000× the right speed, and it is the exact mistake the
+`holdFrames × 1000 / fps` prohibition is aimed at wearing a different hat.
+
+The last frame is the one that is easy to get wrong, and it is why `totalDurationMs` is called at
+all: there is no `starts[n]` to difference against for the final frame. `PlaybackClock.kt:69-78`
+does exactly this and has been reviewed; a builder who finds a neater-looking way to write it is
+re-deriving a definition that already exists.
+
+## Contract — the encoder layer (`androidkit`, plain JVM, **no `android.*` import in this file**)
 
 ```kotlin
 package cc.joycreator.joybrush.androidkit.io
 
-enum class AnimFormat(val extension: String, val mime: String) {
-    PNG_SEQUENCE("png", "image/png"),
-    GIF("gif", "image/gif"),
-    SHEET_PNG("png", "image/png"),   // one sheet PNG + a .sprite.json beside it
-    MP4("mp4", "video/mp4"),
-    WEBP("webp", "image/webp"),
+import cc.joycreator.joybrush.core.export.AnimExportPlan
+
+// `JbContents`, `JbArchiveException` and `PngWriter` are all in THIS package, so they need no import.
+
+/**
+ * The three formats this row exports. **MP4 and WebP are deliberately absent** — MP4 is delivered by
+ * "Send to Studio" (JB-3.07, R35) and animated WebP cannot be written by anything in reach (see the
+ * note at the top of this spec). Adding either is a different row with its own reasons.
+ */
+enum class AnimFormat(val label: String, val extension: String, val mime: String) {
+    GIF("GIF", "gif", "image/gif"),
+    PNG_SEQUENCE("PNG sequence", "png", "image/png"),
+    SPRITE_SHEET("Sprite sheet", "png", "image/png"),
+}
+
+/**
+ * One file an export produced, in memory.
+ *
+ * **NOT a `data class`, and that is a decision.** A generated `equals` on a `ByteArray` compares
+ * arrays by REFERENCE, so two `AnimFile`s holding identical bytes would say they differ — the exact
+ * trap `JbContents` (`JbArchive.kt:39-42`) and `OraExport.Thumb` (`OraExport.kt:53-58`) already
+ * document and already work around. A plain class has no such `equals` to mislead anyone.
+ */
+class AnimFile(val name: String, val mime: String, val bytes: ByteArray)
+
+/**
+ * Where the bytes go. The **caller owns the folder, the SAF `Uri` and the `cacheDir` staging** —
+ * this row has no `android.net.Uri` and no `Context` anywhere in it, exactly as `JbArchive`,
+ * `OraExport` and `PngWriter` do not, and for exactly the reason they do not: `android.jar` is
+ * `compileOnly`, so an `android.*` type in a signature here would put `NoClassDefFoundError` between
+ * this row and every test below it. Staging into `cacheDir` and streaming to the `Uri` is R11 and
+ * belongs to the row that owns the screen (see *Questions*).
+ */
+fun interface AnimFileSink {
+    fun write(name: String, mime: String, bytes: ByteArray)
 }
 
 object AnimExportRunner {
-    /**
-     * Renders and writes. Never on the UI or the GL thread: tiles are read on the GL thread
-     * (the same rule as JB-2.13b) and the encode and the write are on a background executor.
-     *
-     * @param includePaper defaults to `doc.paper.includeInExport`, the document's own setting
-     *   (blueprint §2: "Export has an Include paper checkbox").
-     * @param onFrame (index, total) so the dialog can say "frame 7 of 40" rather than freeze.
-     * @return the files written, in the order they were written.
-     */
-    fun export(
-        format: AnimFormat,
-        board: Board,
-        plan: AnimExportPlan,
-        tiles: TileSource,
-        paper: String?,
-        destination: Destination,
-        onFrame: (Int, Int) -> Unit = { _, _ -> },
-    ): List<String>
-}
 
-/** Where the bytes go. One file, or a folder (the sequence writes many). */
-sealed interface Destination {
-    data class OneFile(val uri: android.net.Uri) : Destination
-    data class Folder(val treeUri: android.net.Uri) : Destination
+    /**
+     * GIF or the sprite sheet: **every byte, or an exception.** Nothing is written by this call and
+     * nothing is written until it has returned, which is R11's rule satisfied by construction
+     * rather than by remembering it.
+     *
+     * @param includePaper `doc.paper.color` as the backdrop, or null. The CALLER defaults this to
+     *   `doc.paper.includeInExport`; this row writes nothing back to the document (Decision 11).
+     * @param cols the sheet's columns; ignored by `GIF`. `[AnimExport.sheetCols]` is the default.
+     * @param onFrame `(done, total)` after each frame is rendered, so a 40-frame export says
+     *   "frame 7 of 40" instead of freezing. Never called before the first refusal, which is why
+     *   Decision 8 can claim "refused before frame 1" and test it.
+     * @return the files written, in the order a reader must receive them.
+     * @throws cc.joycreator.joybrush.core.doc.DocException if [plan]'s frame ids are not all frames
+     *   of board [boardId] — the one consistency check this call makes, and it names the board and
+     *   the frame that is wrong.
+     */
+    fun encodeOne(
+        format: AnimFormat,
+        contents: JbContents,
+        boardId: String,
+        plan: AnimExportPlan,
+        includePaper: Boolean,
+        cols: Int = AnimExport.sheetCols(plan.frameCount),
+        onFrame: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ): List<AnimFile>
+
+    /**
+     * The PNG sequence: frames in order, then the manifest, into [sink], in that order.
+     *
+     * The manifest is written LAST and only after the last frame has been accepted by [sink], which
+     * is what makes "an incomplete sequence is recognisable by its missing manifest" true instead of
+     * aspirational (Decision 12).
+     */
+    fun writeSequence(
+        contents: JbContents,
+        boardId: String,
+        plan: AnimExportPlan,
+        includePaper: Boolean,
+        sink: AnimFileSink,
+        onFrame: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ): List<String>
+
+    /** The one rule both halves obey, as a function so a test can call it: the file name for [n]. */
+    fun sequenceName(n: Int): String   // 1 -> "0001.png", 10000 -> "10000.png"
 }
 ```
 
 ## Decisions
 
-1. **One plan, five encoders, and the plan is a `data class` that can be asserted field by field.**
-   *Why:* the moment each format computes its own delays, two formats drift — and the drift shows
-   up as "the GIF is a frame short", which is a bug report with no cause anybody can find.
-2. **`delayMs[i]` is the frame's own length in ms, ROUNDED TO NEAREST with ties away from zero, and
-   every delay is at least 1.** The rounding is the same idiom as `SpriteGridMath.dragEdge` and as
-   JB-3.03 Decision 9 — one rounding rule in the project, and **not** Kotlin's `round`
-   (ties-to-even). *Why:* a GIF's delay is in centiseconds and an MP4's is in timescale units; a
-   delay of 0 is a frame nobody ever sees, which is a silent frame loss, so the floor is 1 and not 0.
-3. **Sub-ranges behave exactly as `PlaybackClock`'s range does**: swapped if given backwards,
-   clamped into the board, and **refused in words** for a board with no frames or a bad fps. The
-   arithmetic comes from `AnimOps`, so "export frames 2..5" and "play frames 2..5" are the same four
-   frames by construction. *Why:* an export that disagrees with what played is the one bug a person
-   cannot argue with.
-4. **`safeBaseName` refuses rather than repairs, and falls back to a fixed name.** A name that
-   reduces to nothing is not an error the person caused deliberately, so: strip what a filesystem
-   cannot hold, trim, and if the result is empty use **"Animation"**. *Why:* the house rule —
-   refuse bad input in words, never clamp silently — with one exception, because here the caller is
-   not typing a name into a field and a hard failure would be worse than a sensible default. The
-   fallback is *named*, so a test can assert it.
-5. **Every frame is rendered at the BOARD's rect, and every frame is the same size.** A board is one
-   rectangle; a frame that needed less space than another would be a different size, and a GIF or an
-   MP4 of mixed sizes is a file other apps will not open. *Why:* a frame with nothing on it is still
-   the size of the board — that is what "the picture at this frame" means, and `RegionRenderer`
-   already answers exactly that question.
-6. **The plan layer NEVER touches pixels and NEVER touches a file.** It takes a `Board` and gives
-   back numbers. `RegionRenderer` and the encoders do the rest. *Why:* this is what makes the plan
-   testable with no canvas, no tiles and no phone, which is the only reason it can be pinned at all.
-7. **Paper follows the document's own `includeInExport`, and the export sheet's checkbox writes
-   back to it** so the next export starts where the person left off. *Why:* blueprint §2, and
-   JB-2.13b already made this the document's setting rather than the dialog's.
-8. **A PNG sequence is `NNNN.png`, four digits, zero-padded, starting at 0001**, plus a
-   `NNNN.txt` manifest beside them listing `filename<TAB>delayMs` per line. *Why:* four digits
-   sorts correctly in every file manager up to 9 999 frames and is a number a person can read; and
-   the manifest is what makes the sequence playable with the right timing by anyone who is not this
-   app — the delays are the whole content of a sequence and a folder of PNGs has none. (A manifest
-   nobody reads is still worth writing: it is the difference between a folder and a document.)
-9. **`sheetCols` defaults to 8, wraps to 1 for a single frame, and is passed to `SpritePacker.pack`
-   which does the refusing.** This class does not hold a copy of the packer's limits — it asks.
-   *Why:* R23 and the `MAX_SIZE_PX` lesson. A second copy of a limit is a limit that can drift, and
-   nothing can catch it.
-10. **The sheet's clip is ONE clip covering every frame, `type` written verbatim from the app's own
-    three words, `fps` = the board's.** The sidecar is then describing exactly what was exported,
-    with no weights and no omitted keys. *Why:* `SpritePacker` already omits a default rather than
-    writing it, and inventing a second clip ("the first half", "the second half") is a product
-    decision nobody asked for.
-11. **`SpritePacker.assertEncodedSize` is called BEFORE either file is written.** It is the
-    packer's own rule, already there for exactly this, and the alternative is a pair of files on
-    disk that disagree. *Why:* a disagreeing pair is worse than a message.
-12. **GIF is `GifEncoder` with `loop = true` and the plan's delays**, and the encoder's own
-    centisecond rounding and 2 cs minimum apply — this spec does not second-guess them.
-    *Why:* the encoder is Built, reviewed and cleared; a second rounding here would be a second
-    answer.
-13. **A render that exceeds `RegionRenderer.MAX_REGION_PX` is refused in words before the first
-    frame is rendered**, not partway through. The check is on the plan's `width × height`, so it
-    costs nothing and it is the same number the renderer uses. *Why:* the renderer's rule 2 says
-    every exporter catches `RegionException` and says what it wanted in a sentence; catching it in
-    the plan makes the sentence name the board.
-14. **Nothing is written anywhere until the whole export has succeeded, except that a PNG sequence
-    is many files and is therefore written one at a time.** For the single-file formats the bytes
-    are built in full in `cacheDir` and then streamed to the Uri — **the R11 rule, verbatim, and for
-    the same reason**: a SAF `Uri` has no rename, so "write it and hope" leaves a half file at a
-    name the person chose. For a sequence, a failure at frame 20 leaves 19 good frames and the
-    manifest **is not written** — so an incomplete sequence is recognisable by its absence.
-    *Why:* a file that announces itself as complete and is not is the worst outcome available, and
-    the manifest is the cheapest honest signal.
-15. **Every refusal reaches the user as a sentence with the reason, and a partial export says how
-    far it got.** "Exported 19 of 40 frames — frame 20 would not fit in memory." *Why:* the house
-    rule from JB-0.08b, and the only thing that makes a 40-frame export on a Note 9 debuggable.
-16. **MP4 and WebP are NOT specified in this spec.** They are in the format list and in the enum so
-    the sheet is complete, and the runner refuses them in words — *"MP4 needs the encoder task
-    first"* — rather than writing a file with the right extension and the wrong contents. *Why:*
-    this is the single most important line in the file. Q1 and Q2 explain why.
+1. **One plan, three encoders, and the plan is a `data class` a test can assert field by field.**
+   *Why:* the moment each format computes its own delays, two formats drift — and the drift arrives
+   as "the GIF is a frame short", which is a bug report with no cause anybody can find.
+2. **`delayMs[i]` is frame `i`'s own length in ms, taken from the starts, and it is
+   `floor(x + 0.5)` with a floor of 1.** Every delay is positive, so `floor(x + 0.5)` *is* "round half
+   up", which on a positive number is the same as "ties away from zero"; write it as `floor` and say
+   so in the KDoc, because `kotlin.math.round` is **ties-to-even** and at 16 fps a hold of 1 is
+   exactly `62.5` ms, where the two disagree (`62` vs `63`). *Why:* a delay of 0 is a frame nobody
+   ever sees — a silent frame loss — so the floor is 1, not 0.
+3. **The delays are the only timing source and they come from `AnimOps`, indexed.** No accumulating
+   `holdFrames × 1000 / fps` anywhere in this row. *Why:* `AnimOps` is where the 1..60 fps rule and
+   the multiply-before-divide order live; a second derivation is a second answer that can differ in
+   the last ulp, and the last ulp is a frame boundary in a file somebody else plays.
+4. **A sub-range is swapped and clamped exactly as `PlaybackClock`'s range is, and the export sheet
+   does not offer a range picker** (R35: no range picker). `planRange` exists because JB-3.05's range
+   chip and the tests need it, not because a person picks one. *Why:* an export that disagrees with
+   what played is the one bug a person cannot argue with; and two range pickers on one board is one
+   too many.
+5. **`safeBaseName` sanitises rather than refuses, and falls back to `"Animation"`.** The algorithm,
+   in order, is:
+   ```
+   val s = raw
+       .filter { it.code >= 0x20 && it.code != 0x7F }   // 1. drop control chars
+       .replace(Regex("[/\\\\:*?\"<>|]"), " ")           // 2. separators + Windows-illegal -> ONE space
+       .replace(Regex(" +"), " ")                        // 3. collapse the runs that step 2 made
+       .trim()                                            // 4. trim
+       .trim('.', ' ')                                   // 5. Windows drops trailing dots and spaces
+   val capped = if (s.length > 512) s.take(512).trim('.', ' ') else s   // 6. MAX_NAME_CHARS
+   return if (capped.isEmpty()) "Animation" else capped                  // 7. the named fallback
+   ```
+   `"C:evil"` → `"C evil"`, `"../etc/passwd"` → `"etc passwd"`, `"a\u0000b"` → `"ab"`, `"///"` →
+   `"Animation"`. *Why:* a person is not typing this into a field — it is a board's name — so a hard
+   failure would be worse than a sensible default, and the fallback is *named* so a test can assert
+   it. This is one rule in two places and not a shared constant: `JbArchive.unsafeReason` is
+   **private** and lives in `androidkit`, which `commonMain` cannot see at all (the dependency runs
+   the other way — `androidkit/build.gradle.kts:45`). The rule it is copied from, for the reader who
+   has to keep them in step, is pasted verbatim in *Do not*.
+6. **`sheetCols(frameCount) = max(1, ceil(sqrt(frameCount)))` — no picker, no caller argument, no
+   scale factor** (R35). 1→1, 4→2, 5→3, 9→3, 10→4. *Why:* a 1×N strip is unreadable in a file
+   manager and every reader has to scroll it; a near-square grid is what a sheet is for. And it
+   holds **no copy** of `SpritePacker`'s limits — `pack` still refuses what it refuses
+   (`SpritePacker.kt:201` for a sheet that will not fit an array), and that refusal is the one the
+   user hears, reached by calling it.
+7. **The sidecar's clip folds each hold in as a REPEAT of that cell's index**, and that is how a
+   hold survives into a format that only has an `fps` and a list of indices: `Clip.frames` is
+   "cell indices in playing order; **a repeat is a repeat, not a mistake**" (`SpritePacker.kt:22`),
+   which is how a ping-pong animation is written and how a held frame is played. Holds
+   `[1,2,1,3]` over four frames become `[0,1,1,2,2,2,3]`. One clip, covering every exported frame,
+   `type` written verbatim from the app's own three words, `fps` = the board's.
+   *Why:* the alternative is a sidecar that plays a double-hold at single speed, which is the exact
+   defect R36 called a MAJOR for the Studio's own sheets — and `Clip` has **no `weights` field today**
+   (`SpritePacker.kt:28-33`), so a spec that wrote weights would be writing a field that does not
+   exist. If JB-4.03c adds `Clip.weights` later, this row must keep using repeats and **must not
+   start writing weights**; see *Questions*.
+8. **Everything that can be refused is refused BEFORE the first byte and before the first frame.**
+   The board rect is checked against `MAX_REGION_PX` in `Long` arithmetic (`4000 × 4000` is refused;
+   `onFrame` has not been called); the fps and the frame ids come from `plan()`, which is where those
+   refusals happen at all. *Why:* the renderer's own rule is that every exporter catches
+   `RegionException` and says what it wanted in a sentence, and catching it in the plan makes the
+   sentence name the board.
+9. **Every frame is rendered at the BOARD's rect, at the board's own size.** A board is one
+   rectangle; a GIF or a sheet of mixed sizes is a file other apps will not open, and a frame with
+   nothing on it is still the size of the board — that is what "the picture at this frame" means and
+   `RegionRenderer.render` already answers exactly that question.
+10. **No scale factor, no background colour, no transparent-background toggle, no "reverse the
+    animation"** (R35 rules the first two out; the blueprint asks for neither of the others).
+    `RegionRenderer` renders at 1:1 by definition, and the exported file is exactly what played.
+11. **Paper follows `doc.paper.includeInExport` and this row writes NOTHING back.** `includePaper`
+    is a parameter of `encodeOne`/`writeSequence`; the caller supplies the document's own setting.
+    *Why:* blueprint §2 makes the checkbox a document setting, and persisting it is the save queue's
+    job (JB-0.08b's), not an exporter's. A writer that edited the document would need to mark it
+    dirty and would be the second thing in the app doing that.
+12. **A PNG sequence is `NNNN.png` from `0001`, then `<baseName>.timing.txt` last.** The manifest is
+    UTF-8 with LF line endings, one line per frame in play order, `<fileName><TAB><delayMs>`, no
+    header, a trailing LF on the last line. `sequenceName` pads to **at least** four digits and does
+    not truncate: 10 000 frames give `10000.png`, which is longer and still sorts correctly, and a
+    silent truncation would be a file with two frames of the same name. *Why (name):* R35 fixed the
+    name — the earlier draft's `NNNN.txt` was a literal typo for the manifest, and the manifest is a
+    *document* beside the images, not one of them. *Why (the manifest at all):* the delays are the
+    whole content of a sequence and a folder of PNGs has none, so without it the export is a folder;
+    with it, it is a document anybody can play at the right speed.
+13. **The sprite sheet's two files go out together, or neither does.** `SpritePacker.pack` first,
+    then `PackedSheet.assertEncodedSize(sheetName, pngW, pngH)` (it is a method **on the packed
+    sheet**), then both writes. *Why:* a `.sprite.json` describing a PNG that is not the right size
+    is the pair of files that disagree, and the packer exists to give that check one name and one
+    place.
+14. **GIF is `GifEncoder` with `loop = true` and the plan's delays**, and the encoder's own
+    centisecond rounding (`(ms + 5) / 10`) and 2 cs floor apply untouched. *Why:* the encoder is
+    Built and cleared, `GifEncoderTest`/`GifDecodeTest` pin its rounding, and a second rounding here
+    would be a second answer. The plan's ms are the input; the encoder owns the unit.
+15. **The sidecar's `sheetUri` is the sheet's own file name, written verbatim and relative**, and
+    `cellNames` maps every cell index to its frame id. *Why:* `sheetUri` is resolved relative to the
+    sidecar (`SpritePacker.kt:130`), so it is a name and never a path; and `cellNames` is the app's
+    own sparse key, already written by the packer, so it adds no key the app does not read.
+16. **A failure reaches the user as a sentence that says how far it got**, and a sequence that
+    failed has no manifest. `"Exported 19 of 40 frames — frame 20 would not fit in memory."`
+    *Why:* the house rule from JB-0.08b, and the only thing that makes a 40-frame export on a Note 9
+    debuggable.
+17. **The test command is two commands, and the first is the whole `:core` suite.** A new `:core` file
+    that broke an unrelated test would otherwise be a green row.
 
 ## Decision → Test map (every Decision is checkable)
 
 | Decision | Pinned by |
 |---|---|
-| 1 (one plan) | `everyFormatIsAConsumererOfTheSamePlan` — all five produce byte-identical `delayMs` for the same board |
-| 2 (delay rounding, floor 1) | `aDelayIsRoundedTiesAwayFromZero`, `noDelayIsEverZero` |
-| 3 (sub-range = the clock's range) | `aSubRangeIsSwappedAndClampedLikeTheClocks`, `aRangeOverTheWholeBoardIsTheWholeBoard`, `anEmptyBoardIsRefused` |
-| 4 (safe name) | `aFileNameWithAPathSeparatorIsRefusedNotHonoured`, `anEmptyNameFallsBackToAnimation` |
-| 5 (one size) | `everyFrameIsTheBoardsOwnRect` — asserted across a board at a negative origin |
-| 6 (no pixels, no files) | `thePlanLayerTouchesNoPixelAndNoFile` — reflection over `AnimExport`'s members |
-| 7 (paper from the document) | `paperDefaultsToTheDocumentsOwnSetting` |
-| 8 (0001 + manifest) | `aSequenceIsNumberedFromOneWithFourDigits`, `theManifestIsWrittenOnlyWhenEveryFrameIs` |
-| 9 (ask the packer) | `sheetColsHoldsNoCopyOfThePackersLimits` — reflection, plus a case the packer refuses |
-| 10 (one clip) | `theSheetCarriesExactlyOneClipCoveringEveryFrame` |
-| 11 (assert before write) | `theEncodedSizeIsCheckedBeforeEitherFileIsWritten` — asserted by ordering in the runner's own log |
-| 12 (GIF is the encoder's) | `gifDelaysAreTheEncodersOwnRoundedCentiseconds` — the plan's ms, the encoder's cs, compared with the encoder's rule written out |
-| 13 (refuse before frame 1) | `anOversizedBoardIsRefusedBeforeAnyFrameIsRendered` — the render callback never fires |
-| 14 (nothing half-written) | `aFailedSingleFileExportLeavesNoTargetBytes`, `anInterruptedSequenceHasNoManifest` |
-| 15 (sentences) | `aPartialExportSaysHowFarItGot` |
-| 16 (MP4/WebP refused) | `mp4AndWebpAreRefusedInWordsAndWriteNothing` |
+| 1 (one plan, three encoders) | `everyFormatConsumesTheSamePlan` |
+| 2 (starts → lengths, half-up, floor 1) | `aTieGoesTo63Not62`, `noDelayIsEverZero` |
+| 3 (`AnimOps` is the only timing source) | `theDelaysAreDifferencesOfTheRealStarts` |
+| 4 (sub-range = the clock's range; no picker) | `aSubRangeIsSwappedAndClampedLikeTheClock` (against `PlaybackClock`'s own answers) |
+| 5 (name algorithm + fallback) | `aNameWithASeparatorIsSanitisedNotHonoured`, `anEmptyNameFallsBackToAnimation` |
+| 6 (cols from `sqrt`, no picker, no scale) | `theSheetIsNearSquare` |
+| 7 (holds folded as repeats) | `aHoldIsARepeatedCellIndex`, `theSheetCarriesExactlyOneClip` |
+| 8 (refused before the first byte) | `anOversizedBoardIsRefusedBeforeAnyFrameIsRendered` |
+| 9 (one size, the board's rect) | `everyFrameIsTheBoardsOwnRect` |
+| 10 (no scale, no toggles) | review of the enum + `Do not`; a scale factor cannot be added without changing `sheetCols`' signature |
+| 11 (paper from the document, nothing written back) | `paperFollowsTheDocumentsOwnSettingAndWritesNothingBack` |
+| 12 (0001 + `<name>.timing.txt` last) | `aSequenceIsNumberedFromOneWithFourDigits`, `theManifestIsWrittenLastAndOnlyAfterEveryFrame` |
+| 13 (sheet and sidecar agree or neither) | `theEncodedSizeIsCheckedBeforeEitherFileIsWritten` |
+| 14 (the encoder owns the cs rounding) | `gifDelaysAreTheEncodersOwnCentiseconds` — **decoded by `javax.imageio`** |
+| 15 (relative sheetUri + cellNames) | `theSidecarNamesEveryCellAndPointsAtTheSheetBesideIt` |
+| 16 (a sentence that says how far) | `anInterruptedSequenceHasNoManifestAndSaysHowFarItGot` |
+| 17 (two commands) | pasted output |
 
 ## Tests
 
-`joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlanTest.kt`
+### A. `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlanTest.kt`
 
-Fixture: a 12 fps board, holds `[1, 2, 1, 3]`, frames `f0..f3`, rect `(0, 0, 64, 48)`, plus a
-four-frame board at rect `(−40, 300, 32, 32)`. **Every expected delay below is written as an
-expression over `AnimOps.frameStartsMs`, never as a hand-typed `hold * 1000 / fps`**, and the test's
-own KDoc says why (JB-3.05a's rule 1, verbatim).
+`commonTest`, not `jvmTest`: this half touches no file and no decoder. Fixture — a 12 fps ANIMATION
+board, holds `[1, 2, 1, 3]`, frames `f0..f3`, rect `(0, 0, 64, 48)`; a second board at rect
+`(−40, 300, 32, 32)`; a 16 fps board for the tie; a board at 3 fps.
 
-1. `aDelayIsRoundedTiesAwayFromZero`: at 3 fps a hold of 1 is 333.33… ms → **333**; a hold of 2 is
-   666.67 → **667**. Two exact halves are constructed from a 60 fps board (`hold × 1000/60` lands on
-   .5 at some holds) and the tie goes **away from zero**, not to even. Comment names
-   `kotlin.math.round` as the wrong answer.
-2. `noDelayIsEverZero`: a board at 60 fps with a hold of 1 gives 16.67 → 17; the property is checked
-   over fps 1..60 × hold 1..50 — **3 000 cases, every delay ≥ 1.**
-3. `everyFrameIsTheBoardsOwnRect`: the plan's `width`/`height` equal `board.rect.w`/`h` for a board
-   at `(−40, 300, 32, 32)`. Assert the **negative origin is irrelevant** to the size, which is the
-   half a builder gets wrong.
-4. `aSubRangeIsSwappedAndClampedLikeTheClocks`: `planRange(board, 3, 1)` equals `planRange(board, 1,
-   3)`; `planRange(board, 0, 99)` equals `plan(board)`; `planRange(board, -5, -9)` yields frame 0
-   alone. Compared **against `PlaybackClock`'s own answers** for the same range, not against a second
-   implementation — Decision 3's whole claim is that they cannot disagree.
-5. `anEmptyBoardIsRefused` / `aBoardAtZeroFpsIsRefusedInWords`: `IllegalArgumentException` with the
-   reason in the message, and the message names the fps.
-6. `aFileNameWithAPathSeparatorIsRefusedNotHonoured`: `"../etc/passwd"`, `"a/b"`, `"a\\b"`,
-   `"C:evil"`, `"a\u0000b"` all reduce to a single safe token; the result contains no separator, no
-   colon and no control character. Assert the **properties**, not one expected string.
-7. `anEmptyNameFallsBackToAnimation`: `""`, `"   "`, `"///"` all → `"Animation"`.
-8. `aSequenceIsNumberedFromOneWithFourDigits`: frames 1..12 → `0001.png` … `0012.png`; frame 10 000
-   would be five digits, and the plan **says so in its KDoc** rather than silently truncating
-   (asserted as a comment-derived property: `name.length >= 8` for the padded form).
-9. `sheetColsHoldsNoCopyOfThePackersLimits`: reflection over `AnimExport`'s constants — no `Int`
-   named like a cap. Plus a functional case: `sheetCols(40, 3)` = 3, and packing 40 cells in 3
-   columns is `SpritePacker`'s to accept or refuse, which the test **delegates** and asserts the
-   delegated outcome.
-10. `theSheetCarriesExactlyOneClipCoveringEveryFrame`: the `Clip` from `sheetClip` has
-    `frames == plan.frameIds`, `type` verbatim, `fps == plan.fps`. And packing it with the real
-    `SpritePacker.pack` produces a sidecar whose `presets` array has **one** entry with those frames —
-    asserted by parsing the JSON, so it is the file that is checked and not the object.
-11. `everyFormatIsAConsumererOfTheSamePlan`: GIF, sheet and sequence on the same board all
-    `addFrame`/`pack` the **same** `delayMs` list. This is the test that makes Decision 1 real.
-12. `gifDelaysAreTheEncodersOwnRoundedCentiseconds`: the plan says 83 ms; `GifEncoder` writes
-    `round(83/10) = 8` cs. Asserted by decoding the produced GIF's Graphic Control Extension — i.e.
-    **by reading the bytes the encoder wrote**, not by asking the encoder what it thinks it wrote.
-13. `anOversizedBoardIsRefusedBeforeAnyFrameIsRendered`: a rect of 4 000 × 4 000 (16 M px, over
-    `MAX_REGION_PX` = 8 388 608) → `RegionException` and the render callback's counter is **0**.
-14. `paperDefaultsToTheDocumentsOwnSetting`: `Paper(includeInExport = true)` → the plan's export
-    passes the paper colour; `false` → null. Asserted on the argument the runner receives.
-15. `aFailedSingleFileExportLeavesNoTargetBytes` / `anInterruptedSequenceHasNoManifest`: the write
-    is to a fake `Destination` that fails at frame 20 of 40. The single-file case leaves **0 bytes**
-    at the target; the sequence case has 19 files and **no manifest**. Both are counts, not
-    descriptions.
-16. `aPartialExportSaysHowFarItGot`: the message from the failure contains `19` and `40`.
-17. `mp4AndWebpAreRefusedInWordsAndWriteNothing`: both formats throw with a message that names the
-    missing task, and the fake destination's byte count is **0**.
-18. `thePlanLayerTouchesNoPixelAndNoFile`: `AnimExport`'s and `AnimExportPlan`'s declared members
-    mention no `TileSource`, no `Uri`, no `File`, no `ByteArray`. It is numbers in and numbers out,
-    and the test is the mechanical form of that promise.
-19. **Non-vacuity, which the builder must run and paste:** change the rounding in Decision 2 from
-    ties-away-from-zero to `kotlin.math.round`, run, and watch test 1 go red. Then change
-    `frameIds` in Decision 3 from `frameIds` to `frameIds.drop(1)`, and watch test 4 go red — that
-    is the "export drops a frame" bug, and the test has to be seen failing once.
+**Every expected delay in this file is written as an expression over `AnimOps.frameStartsMs`, never
+as a hand-typed `hold × 1000 / fps`, and the file's KDoc says why** (JB-3.05a rule 1, verbatim). The
+only hand-typed numbers in the whole file are the tie cases, and those are exact halves.
 
-Command: `./gradlew -p joybrush :core:jvmTest` — 0 failures.
+1. `theDelaysAreDifferencesOfTheRealStarts`: for the 12 fps fixture, `delayMs == [83, 167, 83, 250]`
+   **and** every entry equals `round(starts[i+1] - starts[i])` computed in the test from
+   `AnimOps.frameStartsMs` (and the last from `totalDurationMs - starts.last()`). Asserted both ways
+   so a builder cannot satisfy it by coincidence.
+2. `aTieGoesTo63Not62`: a 16 fps board, one frame, hold 1 → `1000/16 = 62.5` exactly → **63**. The
+   test's comment names `kotlin.math.round` (ties-to-even) as the wrong answer, which returns 62.
+   A second case: 16 fps, hold 3 → `187.5` → **188**.
+3. `noDelayIsEverZero`: fps 1..60 × hold 1..999 — 59 940 cases — **every delay ≥ 1**. (The smallest
+   possible is `1000/60 = 16.67 → 17`.)
+4. `everyFrameIsTheBoardsOwnRect`: for the board at `(−40, 300, 32, 32)` the plan's `width`/`height`
+   are `32`/`32` and its `rect` is `RectPx(−40, 300, 32, 32)` verbatim. The **negative origin is
+   irrelevant to the size** — that is the half a builder gets wrong.
+5. `aSubRangeIsSwappedAndClampedLikeTheClock`: **not against a second implementation.** Build a real
+   `PlaybackClock(board, PlaybackMode.LOOP, firstFrame = first, lastFrame = last)` and enumerate the
+   frame indices it plays by walking `nextChangeMs(elapsed)` from 0 to `rangeMs`; the plan's
+   `frameIds` must equal `board.frames[thoseIndices]`. Cases: `(3, 1)`, `(0, 99)`, `(−5, −9)`,
+   `(2, 2)`, and the whole board.
+6. `anEmptyBoardIsRefusedInWords` / `aBoardWithTwoFramesOfTheSameIdIsRefused` / `aBoardAtZeroFpsIs
+   RefusedInWords`: all three `DocException`, and each message **names the board** (and the fps, for
+   the third — the message comes from `AnimOps.playableFps` and already does).
+7. `aNameWithASeparatorIsSanitisedNotHonoured`: `"../etc/passwd"`, `"a/b"`, `"a\\b"`, `"C:evil"`,
+   `"a\u0000b"`, `"x:y|z?"`, `"trailing dot . "`. Assert the **properties** of each result — no `/`, no
+   `\`, no `:`, no char below `0x20` or equal to `0x7F`, no leading or trailing space or dot, length
+   ≤ 512 — and not one expected string, so a builder cannot pass by hard-coding the fixture's
+   answers.
+8. `anEmptyNameFallsBackToAnimation`: `""`, `"   "`, `"///"`, `"..."`, `"   .  "` → `"Animation"`.
+9. `theSheetIsNearSquare`: `sheetCols` for 1, 2, 3, 4, 5, 9, 10, 40 → `1, 2, 2, 2, 3, 3, 4, 7`.
+   Assert **both** ends: the exact value, and that `cols × ceil(n/cols)` is within `sqrt(n) + cols` of
+   `n` (so it is near-square and not a strip).
+10. `aHoldIsARepeatedCellIndex`: for the fixture, `sheetClip(plan, "Walk", "loop").frames ==
+    listOf(0, 1, 1, 2, 2, 2, 3)` — 7 entries for 4 frames and holds summing to 7 — with
+    `type == "loop"` and `fps == plan.fps`. And `planRange(board, 1, 2, …)` gives `[1, 1, 2]`.
+11. `theSheetCarriesExactlyOneClip`: packing with the real `SpritePacker.pack` produces a sidecar
+    whose `presets` array has **one** entry, whose `frames` array is that folded list, and whose
+    `frames` has no index ≥ the cell count. Asserted by **parsing the JSON string the packer
+    returned**, so the file that would be written is what is checked.
+12. `theSheetIsAcceptedOrRefusedByThePackerItself`: `sheetCols(40)` = 7, pack 40 cells in 7 columns,
+    and assert that whatever `pack` says happens (succeeds, or throws naming the numbers) — the test
+    **delegates** rather than predicting a limit this file does not own.
+13. `anOversizedBoardIsRefusedBeforeAnyFrameIsRendered`: a rect of `4000 × 4000` (16 M px > `MAX_REGION_PX`
+    = 8 388 608) → `RegionException`, and a counter the `onFrame` callback would have incremented is
+    **0**. (This half of the test lives in the `androidkit` file below, where the runner is; here it
+    is a `plan` that simply cannot be built.)
+
+### B. `joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/io/AnimExportTest.kt`
+
+`androidkit`'s test source set, **not `commonTest`**: this half decodes files with
+`javax.imageio`, which is JVM-only. `core/src/jvmTest` (`GifDecodeTest`) is the precedent and the
+reason the module's other exporter tests live where they do. Fixture: build a `JbContents` the way
+`OraExportTest` does — a `JbDocument` with two PAINT layers over one board, and
+`tiles = mapOf(Triple(layerId, celId, "tx_ty") to a solid 256×256 tile)` — and a
+`TileSource` from it: `TileSource { l, c, tx, ty -> contents.tiles[Triple(l, c, DocOps.key(tx, ty))] }`
+(the exact line `OraExport.kt:358-360` uses).
+
+1. `gifDecodesToThePlanAtTheEncodersOwnCentiseconds`: 6 frames, export a GIF, **decode it with
+   `javax.imageio`**, and read each frame's Graphic Control Extension delay. The plan's ms →
+   `(ms + 5) / 10`, clamped to 2 — written out in the test with the encoder's formula beside it, and
+   the total decoded delay compared with `round(plan.totalMs / 10)` to within one centisecond. The
+   decoder did not write these bytes; that is the point of this test and it is why it is not an
+   assertion about the encoder's own idea of what it wrote.
+2. `theLoopExtensionIsPresentAndTheFrameCountMatchesThePlan`: the decoder sees **6** frames, and
+   `frames.size == 6`. Asserted on the decoded file.
+3. `everyFormatConsumesTheSamePlan`: for one board, the GIF's decoded per-frame delays, the sheet's
+   folded `frames` list, and the sequence manifest's delay column are all the **same** list. This is
+   the test that makes Decision 1 real rather than asserted.
+4. `aSequenceIsNumberedFromOneWithFourDigits`: 12 frames → `0001.png` … `0012.png`, asserted on the
+   names the sink recorded, in order. Plus `sequenceName(10_000) == "10000.png"` — longer, never
+   truncated, never colliding.
+5. `theManifestIsWrittenLastAndOnlyAfterEveryFrame`: a recording sink; assert the recorded order is
+   12 PNGs and **then** `<baseName>.timing.txt`, and that the manifest's 12 lines parse to exactly
+   the plan's `delayMs`.
+6. `anInterruptedSequenceHasNoManifestAndSaysHowFarItGot`: a sink that throws on the 20th call. The
+   recorded names are `0001.png` … `0019.png` and **no** `.timing.txt`; the thrown message (or the
+   returned warning) contains `19` and `20`.
+7. `aFailedSingleFileExportLeavesNothingToWrite`: a sink that throws on the first call for the GIF
+   and for the sheet; assert `out.size == 0` because `encodeOne` builds everything **before** the
+   sink is ever touched. This is the R11 property, made measurable.
+8. `anOversizedBoardIsRefusedBeforeAnyFrameIsRendered`: `4000 × 4000` → `RegionException`, and the
+   `onFrame` counter is **0**.
+9. `paperFollowsTheDocumentsOwnSettingAndWritesNothingBack`: with `includePaper = true` the decoded
+   GIF's corner pixel is `doc.paper.color` where no layer covers; with `false` the same pixel has
+   alpha 0. Then: `contents.doc` is **byte-identical** (`assertEquals` on the document, and on every
+   tile's `contentEquals`) before and after every export in this file. That assertion is what makes
+   "writes nothing back" a fact.
+10. `aPaperColourThatIsNotAColourIsRefusedInWords`: `doc.paper.color = "white"` → refused with a
+    sentence naming the colour, **before** any render (`onFrame` counter 0).
+11. `theEncodedSizeIsCheckedBeforeEitherFileIsWritten`: `encodeOne(SPRITE_SHEET, …)` returns two
+    `AnimFile`s, the first `.png` and the second `.sprite.json`; the sidecar's `sheetUri` equals the
+    PNG's `name` **verbatim**, and the PNG's bytes, decoded by `javax.imageio`, are exactly
+    `cols × width` by `ceil(n / cols) × height`.
+12. `theSidecarNamesEveryCellAndPointsAtTheSheetBesideIt`: the parsed `cellNames` has one entry per
+    cell index, mapping to the plan's frame ids; `sheetUri` contains no `/` and no `..`.
+13. `aPlanForAnotherBoardIsRefusedInWords`: a plan whose `frameIds` include a frame the board does
+    not have → `DocException` naming the board and the frame, and the sink sees **zero** calls.
+14. `anInvisibleLayerIsStillRendered`: a document with a **locked** layer and a **hidden** layer
+    exported — hidden contributes nothing (it is not painted), and the assertion is only that the
+    export succeeds and the composite equals `RegionRenderer`'s own bytes for the same document,
+    which is the property `RegionRenderer`'s KDoc promises about locks.
+15. **Non-vacuity, which the builder must run and paste:** change Decision 2's rounding from
+    `floor(x + 0.5)` to `kotlin.math.round` and watch test A2 go red; then change `delayMs` in
+    Decision 2 to `starts[i] - (if (i > 0) starts[i-1] else 0.0)` **off by one** (i.e. use
+    `starts[i+1] - starts[i+1]`) and watch A1 go red; then make `sheetClip` emit `0 until n` instead
+    of folding holds, and watch B3 go red. Those three mutations are the three ways this row can be
+    wrong while looking finished.
+
+**Command:** `./gradlew -p joybrush :core:jvmTest` (the plan layer, and the whole core suite — 0
+failures) then `./gradlew -p joybrush :androidkit:compileKotlin :androidkit:test` (0 failures). Both
+must be BUILD SUCCESSFUL. **Do not pass `-Pjoybrush.androidJar=<path>`**: it is a *fallback*, not a
+requirement (`androidkit/build.gradle.kts:19` tries it first, then `$ANDROID_HOME`,
+`$ANDROID_SDK_ROOT`, then `sdk.dir` in the repo's `local.properties`). A machine with an SDK
+configured passes nothing at all.
 
 ## Do not
 
-- **Do not write a file with the right extension and the wrong contents.** Decision 16. A refused
-  MP4 is a message; a broken MP4 is a support ticket.
-- Do not re-derive a frame's length. `AnimOps.frameStartsMs` / `totalDurationMs`, indexed.
-- Do not hold a second copy of `SpritePacker`'s limits, `RegionRenderer.MAX_REGION_PX` or
-  `GifEncoder`'s rounding rule. Ask, catch, delegate.
-- Do not write to a SAF `Uri` incrementally for a single-file format. R11: build it whole in
-  `cacheDir` first, then stream.
-- Do not add a scale factor, a background colour, a transparent-background toggle or a "reverse the
-  animation" option. Every one of those is a product decision (Q3) and none is in the blueprint.
-- Do not touch `DocModel.kt` / `DocJson.kt` / `JbArchive.kt`. Writing paper into the document is
-  JB-2.13b's and it has done it.
+- **Do not add an MP4 or an animated WebP to `AnimFormat`.** R35. MP4 is JB-3.07's; WebP cannot be
+  written and could not be checked. An `AnimFormat` entry that the runner refuses is a dead control
+  (R39: a dead control is worse than a missing one).
+- **Do not re-derive a frame's length.** `AnimOps.frameStartsMs` / `totalDurationMs`, indexed. The
+  line is in *Do not* because it is the mistake this codebase has already made once.
+- **Do not write `holdFrames * 1000.0 / fps` anywhere in this row**, not even "just to check". It is
+  a second definition of a number `AnimOps` owns.
+- Do not use `kotlin.math.round` for a delay (Decision 2) and do not invent a second copy of
+  `GifEncoder`'s centisecond rule, `SpritePacker`'s limits or `MAX_REGION_PX`. Ask, catch, delegate.
+- Do not use `ceil(sqrt(n))` as anything other than a column count — **no scale factor** means the
+  export is at the board's own pixels, and `RegionRenderer` renders at 1:1 by definition.
+- Do not fold a hold any other way than as a repeated cell index, and do not write `Clip.weights`
+  (it does not exist; JB-4.03c may add it later, and this row then keeps using repeats).
+- Do not put `android.net.Uri`, `android.content.ContentResolver` or any other `android.*` type in
+  `AnimExport.kt`. `android.jar` is `compileOnly`; a signature naming one puts
+  `NoClassDefFoundError` between this file and every test above, which is why `JbArchive`,
+  `OraExport` and `PngWriter` all take an `OutputStream` instead.
+- Do not write to a destination incrementally for a single-file format. R11: build it whole, then
+  stream. `encodeOne` already gives you that for free — do not undo it to save memory.
+- Do not touch `DocModel.kt`, `DocJson.kt`, `JbArchive.kt`, `Blend.kt`, `RegionRenderer.kt`,
+  `SpritePacker.kt` or `GifEncoder.kt`. This row adds files; it edits no landed file.
 - No new dependencies.
-- **🔴 Do not edit `JoyBrushActivity.kt` in this row without the Lead naming the slot.** It is an
-  app file. The board's own note (Lead, 2026-09-29) is *"App-file work is serialised … Never two of
-  these in the tree together, and never alongside `JB-0.09`"*, and `D.02c` and `D.05` are both
-  sitting at `🟦 Ready (after D.02)`. **Three of the specs in flight name this one file — JB-3.06b
-  (this row), JB-2.15 and JB-2.13b — and JB-0.10's Q2 wants a fourth** (a hidden gesture on the same
-  screen). Four rows, one `Activity`. If the Lead wants the plan layer now, the clean split is to keep
-  `AnimExportPlan.kt` + its test as this row and move `AnimExport.kt` and the `Activity` edit into a
-  follow-up that owns the file outright. Say so and I will split the spec that way.
+- Do not `git add` anything outside the four owner-area paths.
 - **Do not treat `JbArchive.unsafeReason` as a shared constant.** It is **private**
-  (`JbArchive.kt:514`) and lives in `androidkit`, which `commonMain` cannot see at all — so Decision
-  3's "the same set" is a *restatement*, not an import. Write the rules out in `commonMain` and put a
-  comment on both sides naming the other, so a future reader knows it is one rule in two places. The
-  exact set `JbArchive` refuses: an empty name; longer than its `MAX_NAME_CHARS`; any char with
-  `code < 0x20` or `code == 0x7F`; a `\`; a leading `/`; a `:`; a path that is nothing but a
-  separator; an empty path segment; a segment that is `.` or `..`; and a segment whose
-  `trimEnd(' ', '.')` is empty, `.` or `..` (Windows drops trailing dots and spaces, so `".. "` *is*
-  the parent folder). **`..` is not refused by a check for the substring `".."`** — it is refused by
-  the segment rule, so a builder who writes only the substring check misses `".. "`, `"foo/./bar"`
-  and `"a/ /../b"`.
+  (`JbArchive.kt:514`) and lives in `androidkit`, which `commonMain` cannot see — so Decision 5's
+  rules are a **restatement**, not an import. Put a comment on both sides naming the other. The
+  exact set `JbArchive` refuses (`JbArchive.kt:514-538`, pasted so it can be checked against):
+  an empty name; a name longer than `MAX_NAME_CHARS` (512); any char with `code < 0x20` or
+  `code == 0x7F`; a `\`; a leading `/`; a `:`; a path that is nothing but a separator (after ONE
+  trailing `/` is dropped — a single trailing slash is a directory marker and is allowed); an empty
+  path segment; a segment that is `.` or `..`; and a segment whose `trimEnd(' ', '.')` is empty, `.`
+  or `..` — Windows drops trailing dots and spaces, so `".. "` **is** the parent folder.
+  **`..` is not refused by a check for the substring `".."`** — it is refused by the segment rule, so
+  a builder who writes only the substring check misses `".. "`, `"foo/./bar"` and `"a/ /../b"`.
+  `safeBaseName` does not need the segment rules at all, because it removes every separator in step 2.
 
 ## Stop rule
 
 If anything here is ambiguous, or a claim about landed code turns out to be false when you open the
-file, **STOP**: write the question in *Questions* under a heading `for the cross-reviewer`, set this
-row `⛔ Blocked`, commit, push, and take another task. Two things are never a builder's call in this
-file: **which encoder a format uses** (Q1, Q2 — refuse the format in words instead) and **whether an
-app file may be edited** (see the Status line). Never write a file with the right extension and
+file, **STOP**: write the question in *Questions* under the heading `for the Lead`, set this row
+`⛔ Blocked`, commit, push, and take another task. Three things are never a builder's call in this
+file: **the encoding of a format** (this row composes landed encoders; it invents none), **where the
+files land** (SAF tree, `MediaStore`, `cacheDir` staging — the wiring row's, R11), and **what the
+export sheet offers** (the chrome row's, JB-2.01). Never write a file with the right extension and
 plausible-looking bytes to get past an unanswered question.
 
 ## Definition of done
 
 - [ ] `./gradlew -p joybrush :core:jvmTest` output pasted, 0 failures
-- [ ] the non-vacuity proof pasted (ties-to-even → test 1 red; `drop(1)` → test 4 red)
-- [ ] watcher `build.log` shows `:androidkit:compileKotlin` and `:joybrush-android:compileDebugKotlin` EXECUTED inside `BUILD SUCCESSFUL`
-- [ ] `git status --short` shows only the owner-area paths
-- [ ] **owner check, Note 9:** export a 6-frame loop as GIF (open it in Gallery — it must loop and
-      the timing must be right), as a PNG sequence (open the folder — the manifest must be there),
-      and as a sheet + sidecar (open it in SpriteLab — the cells must be in order)
-- [ ] committed `JB-3.06b: animation export`; ROADMAP row set by the Lead
+- [ ] `./gradlew -p joybrush :androidkit:compileKotlin :androidkit:test` output pasted, 0 failures
+- [ ] the non-vacuity proof pasted (three mutations, three red tests)
+- [ ] `git status --short` shows only the four owner-area paths
+- [ ] **owner check, Note 9 (📱 the owner, not the builder):** export a 6-frame loop as GIF — open it
+      in Gallery: it loops and the timing is right; export the same loop as a PNG sequence — open the
+      folder: `0001.png`… and `<name>.timing.txt` are both there; export it as a sheet — open the
+      folder in SpriteLab: the cells are in order, **and a frame with a hold of 2 is held for twice
+      as long when the sidecar plays it.**
+- [ ] committed `JB-3.06b: animation export`; the ROADMAP row is set by the Lead (this spec does not
+      touch `ROADMAP.md`)
 
 ## Questions
 
-_(Spec writer: openrouter/stealth/space-bunny-alpha, 2026-09-29. The plan layer is finished and
-pinned. Two formats are undecided and one product question is open; none of the three changes a
-single line of the code above.)_
+_(Spec writer: `openrouter/stealth/space-bunny-alpha`, 2026-09-29. R35 is applied above; the
+questions left are board questions and two provisional calls, not design decisions.)_
 
-### ⛔ for the cross-reviewer — why this is still Draft
+### For the Lead — three things, none of which a builder can settle
 
-1. **The owner area names an app file that two other Ready rows also name.** See the Status line and
-   the app-file bullet in *Do not*. This is not a defect in the spec — the spec is right that the
-   export sheet belongs on that screen — it is a **dispatch** collision, and it is the Lead's to
-   order. A builder handed this file as written would have to decide whether it may edit
-   `JoyBrushActivity.kt` at all.
-2. **Q1 (MP4) and Q2 (animated WebP) are file-format decisions.** Which encoder writes MP4, and
-   whether a third-party bitstream format goes inside `commonMain` or inside `androidkit`, are
-   exactly the class of question the cross-reviewer brief forbids answering: *"Contracts, file
-   formats, app build files, or anything that touches the phone: you must NOT decide."* Decision 16
-   already makes the row safe in the meantime — both formats are **refused in words** and write zero
-   bytes — so nothing is half-specified; there is simply no MP4 in this row, and the board's row text
-   promises one.
-3. **Q3's three product options** (scale factor, transparent background, a range picker in the sheet)
-   are product calls the blueprint does not make. The spec has ruled "no" to all three and said so in
-   *Do not*, which is defensible, so I did not treat them as blocking.
+1. **The export pill is not in this row's owner area any more, and that is a change.** The previous
+   draft of this spec had `JoyBrushActivity.kt` in the owner area, which is an app file. R30 item 1
+   puts the chrome row (JB-2.01) **before any other row adds a pill**, and R39's JB-2.01 entry lists
+   `Export` as part of the cluster the owner will approve — so the export sheet is **JB-2.01's**, and
+   this row delivers the three formats plus the exact names/labels/warnings a sheet must show
+   (`AnimFormat.label` is in the contract for that reason). **Consequence:** when JB-2.01 lands, it
+   wires `AnimFormat` into the cluster. If you want the sheet to land *with* the formats, say so and
+   I will split this spec: the plan layer and the runner as JB-3.06b, and a follow-up row that owns
+   `JoyBrushActivity.kt` outright — but that row has to be **added to the R30 lock order**, because
+   right now it is not in it, which is what made this row undispatchable in the first place.
+2. **Where the bytes are written is the wiring row's, and I have not specified it.** `AnimExport.kt`
+   has no `Uri` in it, so the SAF/`MediaStore`/`cacheDir` decision is deliberately *not made here*.
+   If you want it in this row, the obvious answer is R36's landed pattern for 4.03b — `Documents/
+   JoyBrush/<name>/` through `MediaStore` on API 29+, the app's own folder below that — but it is a
+   decision that touches the phone, so it is yours. **PROVISIONAL — Claude to confirm** if you would
+   rather I fold it in with the R36 pattern.
+3. **JB-4.03c and `Clip.weights`.** R36 gives `Clip` a `weights: List<Int>` (a cell held ×3
+   currently exports at the wrong speed) via new row **JB-4.03c**. That row has **not** landed: I
+   opened `SpritePacker.kt` and `Clip` is still `Clip(name, frames, type, fps)` with no `weights`,
+   and `pack` writes no weights key. **This row does not depend on 4.03c** — Decision 7 folds a hold
+   into a repeated cell index, which is the app's own vocabulary (`Clip.frames`: *"a repeat is a
+   repeat, not a mistake"*) and is exact at a uniform board fps. What I need is a **one-line
+   instruction for later**: when 4.03c lands, JB-3.06b must keep using repeats and must not start
+   writing `weights` (and must not be re-reviewed for it). If you would rather this row simply wait
+   for 4.03c, say so and it goes in `Needs`.
 
-**Checked and found TRUE** (tree, 2026-09-29): `AnimOps.frameStartsMs(board): List<Double>`
-(`AnimOps.kt:461`) and `totalDurationMs(board): Double` (`:442`) exist with the signatures Decision 2
-assumes; `frameStartsMs` really does return **starts**, not lengths, so the derivation added to the
-contract is needed and is not decoration; `SpritePacker.pack` (`:143`), `assertEncodedSize` (`:72`)
-and `data class Clip` (`:28`) exist; `GifEncoder.addFrame(rgba: ByteArray, delayMs: Int)`
-(`GifEncoder.kt:436`) matches test 11's description; the board's fps range is `1f..60f` in **two**
-places (`DocOps.kt:87` and `AnimOps.kt:543`), so the contract's "1..60" refusal is `AnimOps`' own and
-not a second rule. The one claim that needed correcting is in *Do not*: `unsafeReason` is private and
-in another module, so it cannot be shared and "the same set" is a restatement.
+### PROVISIONAL — Claude to confirm
 
-### Q1 — for the Lead: MP4 has no encoder in reach, and both candidates are awkward
+4. **Decision 7 (holds as repeats) instead of waiting for `weights`.** Chosen because it uses only
+   what the landed packer writes and makes all three formats carry the timing exactly today.
+5. **Decision 12's manifest format** (`<fileName><TAB><delayMs>`, LF, UTF-8, no header). Nobody else's
+   app reads it, so nothing can contradict it later.
+6. **Decision 6's `ceil(sqrt(n))`.** A near-square grid, no picker (R35).
 
-`grep` over the whole `joybrush/` tree finds **no MP4, no `MediaCodec`, no muxer of any kind**. So
-"Export MP4" is not a wiring job; it is a new encoder, and there are exactly two roads:
+### Checked against the landed code — true, so nobody re-checks it
 
-- **(a) Android `MediaCodec` + `MediaMuxer` in `joybrush/androidkit`.** The platform encoder, no
-  dependency, H.264 baseline, and every phone since 2014 has it. The costs: it is **untestable off
-  a device** (`MediaCodec` needs a real codec; there is no JVM or Robolectric path in this build),
-  it needs an `EGL` input surface or a byte-buffer mode with its own colour-conversion rules, and it
-  is a few hundred lines of surface handling that no cloud CI can check. The Note 9 is the floor and
-  it can encode 1080p30 — but "it can" is a claim I cannot make from here.
-- **(b) The app's own media3 pipeline** (`app/…/export/ExportManager.java`, 407 209 bytes, already
-  using `Composition`/`EditedMediaItem`/`Transformer`). R23 says *"Integration code that calls kit
-  classes lives in `joybrush-android` (the only Joy Brush module in the app build)"* — so this is
-  permitted. It is also **the Studio's video exporter**, and driving someone else's 400 KB export
-  manager from Joy Brush is a coupling the Lead should choose deliberately rather than have a
-  spec-writer assume.
-
-**My recommendation: (a), in its own row (JB-3.06c), tier T2 with a T1 review and a mandatory
-device check** — because it keeps `joybrush/` self-contained, which is the blueprint's whole
-modularity claim, and because (b) would make Joy Brush's export quality the Studio's export quality
-without anybody having decided that. **But the honest cost is that this row would then ship GIF,
-PNG sequence and sprite sheet, and MP4 would be a follow-up**, which is not what the ROADMAP row
-promises.
-
-**What I need ruled:** (a) or (b), and — if (a) — whether a spec is written for it now or after
-this row lands.
-
-### Q2 — for the Lead: **animated WebP cannot be written by anything in this repo**
-
-`Bitmap.CompressFormat.WEBP` writes a **still**. There is no `compressToFile(stream, "image/webp")`
-that takes several frames — Android's WebP writer has never had an animation path. So "Export WebP"
-for an animation board means one of:
-
-- **(a) Write a WebP (VP8L/VP8 + ANMF chunk) encoder in pure Kotlin**, the way `GifEncoder` was
-  written. That is a serious piece of work — container, lossy and lossless bitstreams, a muxing
-  chunk format, and unlike GIF there is no `javax.imageio` reader in the JDK to check the result
-  against. **There would be no third-party decoder to oracle the file**, which is precisely the
-  lesson JB-3.06a learned at cost ("the suite must contain at least one assertion made by a decoder
-  that did not write the bytes"). I would want a plan for that oracle before starting, and I do not
-  have one.
-- **(b) Export a STILL WebP** — the board's current frame, as a single image. Useful, honest, and
-  **not** what "Export WebP" on an animation board means to the person who taps it.
-- **(c) Drop WebP from this row** and let it arrive with a proper encoder task, the way the still
-  formats did.
-
-**My recommendation: (c), with (b) offered as a clearly-labelled "current frame as WebP"** if you
-want *something* under the name. But the row says WebP, so the Lead should say which of the three
-the row means.
-
-### Q3 — for the Lead: three export options I deliberately did not build
-
-The blueprint's Phase 3 line is a list of five formats and nothing else. Each of these is something
-a person will ask for within a week of using the export sheet, and each is a product decision:
-
-1. **A scale factor.** JB-2.13b's PNG export has 1× / 2× / 4×. The animation export has none, and
-   `RegionRenderer` renders at 1:1 by definition. **Should an animation export scale, and is
-   nearest-neighbour upscaling right for it?** (For pixel art yes; for a painted loop it produces
-   the blocky edge the owner dislikes everywhere else.) My inclination is **no scale on the
-   animation formats**, so the exported file is exactly what played.
-2. **A transparent-background toggle for MP4/WebP.** H.264 has no alpha; WebP does. A video with a
-   transparent background is a different file and a different pipeline. **In, or out?**
-3. **Exporting a sub-range** (Decision 3) is in the code, but the **export sheet does not offer a
-   range picker** — the plan's sub-range is there for JB-3.05 to call and for tests to pin. Should
-   the sheet offer "frames 3–7 of 12"? I ruled **no**, because the playback range is already a
-   concept on this board (JB-3.05's chip) and two range pickers on one board is one too many.
+`AnimOps.frameStartsMs(board): List<Double>` (`AnimOps.kt:461`) and `totalDurationMs(board): Double`
+(`:442`) exist with the shapes Decision 3 assumes; `frameStartsMs` really does return **starts with
+no trailing end**, which is why the derivation above is needed and why `totalDurationMs` is called
+for the last frame — and `PlaybackClock.kt:69-78` is that same derivation, already landed and
+reviewed, so the claim is copied from a reviewer rather than re-derived. `durationMs` multiplies
+before dividing (`:475`) and `MAX_HOLD_FRAMES` is 999 (`:100`). `Clip` is
+`Clip(name, frames, type, fps)` (`:28`) with **no `id`** — the previous draft of this contract had
+`sheetClip(plan, id, name, type)`, and `id` belongs to `pack`, not to `Clip`. `assertEncodedSize` is a
+member of `PackedSheet` (`:72`), not a top-level function of `SpritePacker`. `pack`'s parameter list
+and its refusals are as pasted (`SpritePacker.kt:143-201`), including the `pixels * 4 <= Int.MAX_VALUE`
+check at `:201`. `GifEncoder(width, height, loop = true)` (`:411`), `addFrame` (`:436`),
+`delayCentiseconds = (ms + 5) / 10` clamped to 2..65535 (`:372`), `MAX_SCREEN = 0xFFFF` (`:75`).
+`RegionRenderer.render` (`:196`) returns straight RGBA8, row 0 = top, and `MAX_REGION_PX = 8_388_608`
+(`:89`); `√8 388 608 ≈ 2896 < 65 535`, so the GIF and PNG side caps **cannot** be reached from a plan
+and `MAX_REGION_PX` is the only size bound a plan has to check. `DocException : Exception`
+(`DocJson.kt:8`) and `AnimOps` throws it, so the fps refusal is a `DocException` — the previous draft
+said `IllegalArgumentException`, which was wrong. The fps range `1f..60f` really is in **two**
+places (`DocOps.kt:87` in `validate`, `AnimOps.kt:543` in `playableFps`), so "1..60" is `AnimOps`'
+own refusal surfacing through, not a third rule written here — Decision 8 names which one.
+`JbArchive.unsafeReason` is **private** (`JbArchive.kt:514`) and the module dependency runs
+`androidkit → core` (`androidkit/build.gradle.kts:45`), so `commonMain` cannot see it and the name
+rules are a restatement; its exact refusals are pasted in *Do not* and were read out of
+`JbArchive.kt:514-538`. `Paper.includeInExport` exists (`DocModel.kt:42`). `JbContents` is
+`JbContents(doc, tiles, strokes, thumbnailPng)` (`JbArchive.kt:44-51`) and the `TileSource` line
+copied from `OraExport.kt:358-360` is the real one. `OraExport`, `PngWriter` and `JbArchive` contain
+**no** `android.*` import, which is why this row's encoder layer contains none either.

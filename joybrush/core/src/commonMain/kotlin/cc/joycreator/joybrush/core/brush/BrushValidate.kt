@@ -25,10 +25,10 @@ object BrushValidate {
     const val MAX_SIZE_PX = 4096f
 
     /** Per [Param]. Each input is a curve evaluated on every dab of every stroke. */
-    private const val MAX_INPUTS = 8
+    const val MAX_INPUTS = 8
 
     /** Per curve. */
-    private const val MAX_CURVE_POINTS = 64
+    const val MAX_CURVE_POINTS = 64
 
     /** The grain texture's size in cells: above 0, and never so large the noise is one flat tone. */
     private const val MAX_GRAIN_SCALE = 64f

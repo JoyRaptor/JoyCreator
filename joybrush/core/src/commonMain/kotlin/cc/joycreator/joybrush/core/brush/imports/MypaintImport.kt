@@ -29,12 +29,6 @@ import kotlin.math.exp
 data class ImportResult(val preset: BrushPreset, val warnings: List<String>)
 
 /**
- * [BrushValidate]'s own per-curve cap. A curve over it would make the converted file illegal, so
- * `pointsOf` refuses one rather than trimming it to fit.
- */
-private val MAX_CURVE_POINTS = 64
-
-/**
  * The array of points for one input, after every point has been checked to be a pair of numbers.
  *
  * This is the **shape** gate, and it is the same gate for every input on every setting whether or
@@ -101,8 +95,8 @@ private fun pointsOf(
 ): List<List<Float>> {
     val curve = shapeOf(setting, input, source)
     val n = curve.size
-    if (n > MAX_CURVE_POINTS) {
-        throw BrushException("setting \"$setting\" input \"$input\" has $n points, at most $MAX_CURVE_POINTS")
+    if (n > BrushValidate.MAX_CURVE_POINTS) {
+        throw BrushException("setting \"$setting\" input \"$input\" has $n points, at most ${BrushValidate.MAX_CURVE_POINTS}")
     }
     // `n` is already known to be in 1..64, so this allocation is bounded by a constant, not by a
     // number the file got to choose.
@@ -196,9 +190,6 @@ object MypaintImport {
     private val MAX_SETTINGS = 256
 
     // ---- bounds Joy Brush has and the file does not ------------------------------------------------
-
-    /** [BrushValidate.MAX_SIZE_PX], restated here because the importer clamps to it and says so. */
-    private val MAX_SIZE_PX = 4096f
 
     /** A dab below this is not a brush. There is no lower rule in the validator, so this is mine. */
     private val MIN_SIZE_PX = 0.01f
@@ -596,12 +587,12 @@ object MypaintImport {
 
     private fun clampSize(raw: Float, warnings: MutableList<String>): Float = when {
         !raw.isFinite() -> {
-            warn(warnings, "size 2·e^b is $raw; clamped to $MAX_SIZE_PX px")
-            MAX_SIZE_PX
+            warn(warnings, "size 2·e^b is $raw; clamped to ${BrushValidate.MAX_SIZE_PX} px")
+            BrushValidate.MAX_SIZE_PX
         }
-        raw > MAX_SIZE_PX -> {
-            warn(warnings, "size $raw px clamped to $MAX_SIZE_PX")
-            MAX_SIZE_PX
+        raw > BrushValidate.MAX_SIZE_PX -> {
+            warn(warnings, "size $raw px clamped to ${BrushValidate.MAX_SIZE_PX}")
+            BrushValidate.MAX_SIZE_PX
         }
         !(raw > 0f) -> {
             warn(warnings, "size $raw px clamped to $MIN_SIZE_PX")

@@ -203,13 +203,41 @@ class GlPaintEngine(
     fun writeTile(layerId: String, key: Long, rgba: ByteArray) {
         require(rgba.size == size * size * 4) { "tile must be ${size * size * 4} bytes, got ${rgba.size}" }
         val layer = layers.getOrPut(layerId) { Layer(layerId) }
-        val tex = layer.tiles.getOrPut(key) { newLayerTile() }
+        uploadTile(layer.tiles.getOrPut(key) { newLayerTile() }, rgba)
+    }
+
+    /**
+     * Replaces some of a layer's tiles as ONE undoable step — for everything that edits pixels
+     * without a brush: fill, lasso fill, moving a selection (JB-2.06b, 2.07b, 2.05). A null value
+     * deletes that tile. Same layout as [readTile]. Copy-on-write like [endStroke]: the old texture
+     * becomes the undo snapshot, so nothing is copied. Returns how many tiles changed.
+     */
+    fun replaceTiles(layerId: String, tiles: Map<Long, ByteArray?>): Int {
+        check(!strokeInProgress) { "replaceTiles during a stroke would be undone out of order" }
+        val layer = layers[layerId] ?: error("no layer $layerId")
+        for (rgba in tiles.values) {
+            require(rgba == null || rgba.size == size * size * 4) { "tile must be ${size * size * 4} bytes" }
+        }
+        val changes = ArrayList<UndoLog.TileChange<Int>>()
+        for ((key, rgba) in tiles) {
+            val before = layer.tiles[key]
+            if (rgba == null && before == null) continue
+            val after = rgba?.let { uploadTile(newLayerTile(), it) }
+            if (after == null) layer.tiles.remove(key) else layer.tiles[key] = after
+            changes.add(UndoLog.TileChange(layer.id, key, before, after))
+        }
+        if (changes.isNotEmpty()) undo.push(UndoLog.Step(changes))
+        return changes.size
+    }
+
+    private fun uploadTile(tex: Int, rgba: ByteArray): Int {
         val buf = ByteBuffer.allocateDirect(rgba.size).order(ByteOrder.nativeOrder())
         buf.put(rgba).rewind()
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
         GLES30.glPixelStorei(GLES30.GL_UNPACK_ALIGNMENT, 4)
         GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+        return tex
     }
 
     /** Empties the whole document (all layers, all undo). For "open another document". */

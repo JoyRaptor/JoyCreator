@@ -29,10 +29,25 @@ internal const val MAX_PNG_CHUNKS = 4_096
 internal const val MAX_PNG_CHUNK_BYTES = 32L * 1024 * 1024
 
 /**
- * One `tEXt`/`iTXt` text, in bytes. 64 Ki, the same budget `AbrImport` gives a string that ends up in
- * the same place — a `brush.json` a person shares.
+ * One `tEXt`/`iTXt` text, in bytes. **8 MiB, and JB-8.04 re-pointed it from 64 Ki (2026-09-29).**
+ *
+ * The 64 Ki it was born with is `AbrImport`'s budget for a *string that ends up in a `brush.json`*, and
+ * it is the right number for that. It is the wrong number for a Krita `.kpp`, and it is wrong by an
+ * order of magnitude that decides whether this row works: a `.kpp`'s `preset` chunk is one text chunk
+ * that carries **the whole paint-op settings XML**, and a preset with an embedded tip carries that tip
+ * as a **base64 string inside the same chunk**. `ImportSupport.MAX_EXTENSION_BYTES` — the cap R40 puts on
+ * what a brush may *keep* — is 256 Ki, and base64 is 4 characters per 3 bytes, so the smallest tip that
+ * is worth storing at all is ~192 KiB of bytes, ~256 Ki of characters, and the chunk that holds it is
+ * that plus the rest of the settings. At 64 KiB this reader would refuse **every `.kpp` with an embedded
+ * tip** — precisely the case Decision 4 and the R40 tests exist for — and would refuse it as a malformed
+ * PNG rather than as an import it declined.
+ *
+ * 8 MiB is this spec's Decision 7 `MAX_STRING_BYTES` and is ~32x the R40 cap, so a preset is either
+ * readable or genuinely absurd. **Only JB-8.04 is affected:** `MAX_PNG_STRING_BYTES` has exactly two call
+ * sites and both are in this file, and nothing in JB-8.02 or JB-8.03 reads a PNG text chunk at all
+ * (`ProcreateImport` reads `readPngHeader` only, and a header has no text).
  */
-internal const val MAX_PNG_STRING_BYTES = 64 * 1024
+internal const val MAX_PNG_STRING_BYTES = 8 * 1024 * 1024
 
 /**
  * One text chunk out of a PNG. [compressed] is true for `zTXt` and for an `iTXt` that asks for it.

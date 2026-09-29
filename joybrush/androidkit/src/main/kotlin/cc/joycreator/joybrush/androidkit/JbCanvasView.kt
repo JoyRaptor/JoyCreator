@@ -7,11 +7,17 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
 import cc.joycreator.joybrush.androidkit.input.MotionEventSamples
+import cc.joycreator.joybrush.androidkit.io.JbArchiveException
+import cc.joycreator.joybrush.androidkit.io.JbContents
+import cc.joycreator.joybrush.androidkit.io.TILE_BYTES
 import cc.joycreator.joybrush.core.brush.BrushDabber
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.DabInputs
 import cc.joycreator.joybrush.core.brush.Scatter
 import cc.joycreator.joybrush.core.brush.SplitMix
+import cc.joycreator.joybrush.core.doc.BoardKind
+import cc.joycreator.joybrush.core.doc.DocOps
+import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.input.DirectionTracker
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.input.StrokeSmoother
@@ -20,8 +26,10 @@ import cc.joycreator.joybrush.core.paint.Accumulate
 import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.DabPlacer
 import cc.joycreator.joybrush.core.paint.StrokeBlend
+import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.paint.TipShape
 import cc.joycreator.joybrush.core.view.ViewTransform
+import java.util.Locale
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -107,10 +115,29 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      */
     var onRawEvent: ((MotionEvent) -> Unit)? = null
 
+    /**
+     * Called on the UI thread when a snapshot cannot be taken (JB-0.08b), with the reason in words.
+     * The screen shows it: a save that failed has to say so, or the drawing is simply gone.
+     */
+    var onSnapshotFailed: ((String) -> Unit)? = null
+
+    /**
+     * Whether the pen is mid-stroke right now (R11). A snapshot taken in that state captures the
+     * tiles as they were BEFORE this stroke, so a save that ran then would write a drawing missing
+     * the mark the person is making at that instant — and the autosave is precisely where that
+     * matters. A read-only view of `GlPaintEngine.strokeInProgress`; the screen asks before it
+     * saves and never ends or cancels a stroke to make the question easier.
+     */
+    val strokeInProgress: Boolean get() = engine.strokeInProgress
+
     private val engine = GlPaintEngine()
     private val layerId = "layer-1"
     @Volatile private var viewW = 1
     @Volatile private var viewH = 1
+
+    /** The document's own name, so a file that is opened and saved again keeps the name it had. */
+    @Volatile private var documentName = "Joy Brush"
+    private val whitePaper = 0xFFFFFFFF.toInt()
 
     /** Every touch that is not drawing (JB-2.02). Owns pan, zoom, rotate and the tap gestures. */
     private val gestures = CanvasGestures(
@@ -382,6 +409,197 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         barrel = Float.NaN,
     )
 
+    // ── save and open (JB-0.08b) ─────────────────────────────────────────────
+
+    /**
+     * The whole canvas as a [JbContents], ready for `JbArchive.write`.
+     *
+     * The GL thread reads the tiles — a GPU texture cannot be read from any other thread — and
+     * [onReady] arrives on the UI thread, so the caller may hand the result to a background writer
+     * without touching the GL context again.
+     *
+     * It is ONE board, ONE paint layer, ONE cel, because that is all this engine holds (multi-layer
+     * and ink arrive with 2.04/5.01). The layer's id is the engine's own, because that is where
+     * the tiles live and where the next stroke will be laid down. Anything that cannot be written is
+     * refused with a [JbArchiveException] on [onSnapshotFailed] — never skipped.
+     */
+    fun snapshot(onReady: (JbContents) -> Unit) {
+        val w = viewW
+        val h = viewH
+        onGl {
+            val made: JbContents? = try {
+                readContents(w, h)
+            } catch (e: Exception) {
+                post { onSnapshotFailed?.invoke(e.message ?: e.javaClass.simpleName) }
+                null
+            }
+            if (made != null) {
+                val contents = made
+                post { onReady(contents) }
+            }
+        }
+    }
+
+    /**
+     * Puts [contents] on the canvas, replacing what is there, then calls [onDone] on the UI thread.
+     *
+     * REFUSES — by throwing [JbArchiveException] HERE, on the caller's thread, BEFORE any GL work is
+     * queued, so a refused file leaves the drawing that was on screen exactly as it was. What is
+     * refused is any file this engine cannot show in full: ink, several layers, several cels, an
+     * animated layer, several boards, a board that is not a canvas, a paper texture, or a tile that
+     * is not a tile. Opening the half that can be shown and dropping the rest is the one thing this
+     * must never do.
+     */
+    fun load(contents: JbContents, onDone: () -> Unit) {
+        val doc = contents.doc
+        val refusal = refusalFor(contents)
+        if (refusal != null) throw JbArchiveException(refusal)
+
+        val docLayer = doc.layers[0]
+        val visible = docLayer.visible
+        val opacity = docLayer.opacity
+        val wanted = ArrayList<Pair<Long, ByteArray>>(contents.tiles.size)
+        for (entry in contents.tiles) {
+            // Iterating the map gives the ENTRY, so the tile's "tx_ty" is the entry key's third part.
+            wanted.add(Pair(tileKeyOf(entry.key.third), entry.value))
+        }
+        val paper = paperArgbOf(doc.paper.color)
+        val name = doc.name
+
+        onGl {
+            // resetDocument() empties EVERY layer, including the one this view draws into, and
+            // beginStroke() refuses a layer that is not there. So it goes back before anything else.
+            engine.resetDocument()
+            engine.addLayer(layerId)
+            engine.setLayerVisible(layerId, visible)
+            engine.setLayerOpacity(layerId, opacity)
+            for (item in wanted) {
+                engine.writeTile(layerId, item.first, item.second)
+            }
+            reportHistory()
+            post { onDone() }
+        }
+        paperArgb = paper
+        documentName = if (name.isBlank()) "Joy Brush" else name
+    }
+
+    /**
+     * Why this file cannot be shown in full, in the person's words — or null, which means EVERY
+     * check passed and not just the ones that happened to run.
+     */
+    private fun refusalFor(contents: JbContents): String? {
+        val doc = contents.doc
+        if (contents.strokes.isNotEmpty()) {
+            return "this drawing has ink strokes in it, and this screen cannot show ink yet"
+        }
+        if (doc.layers.size != 1) {
+            return "this drawing has ${doc.layers.size} layers, and this screen holds one"
+        }
+        val layer = doc.layers[0]
+        if (layer.kind != LayerKind.PAINT) {
+            return "layer \"${layer.id}\" is ${layer.kind}, and this screen only paints pixels"
+        }
+        if (layer.animatedIn != null) {
+            return "layer \"${layer.id}\" is animated, and this screen cannot play animation yet"
+        }
+        if (layer.cels.size != 1) {
+            return "layer \"${layer.id}\" has ${layer.cels.size} cels, and this screen holds one"
+        }
+        val cel = layer.cels[0]
+        if (doc.boards.size != 1) {
+            return "this drawing has ${doc.boards.size} boards, and this screen holds one"
+        }
+        val board = doc.boards[0]
+        if (board.kind != BoardKind.CANVAS) {
+            return "board \"${board.id}\" is ${board.kind}, and this screen shows a canvas board"
+        }
+        if (doc.paper.textureId != null) {
+            return "this drawing has a paper texture, which this screen cannot show yet"
+        }
+        for (key in contents.tiles.keys) {
+            if (key.first != layer.id || key.second != cel.id) {
+                return "a tile is in cel \"${key.second}\" of layer \"${key.first}\", which this drawing does not have"
+            }
+            if (key.third !in cel.tiles) {
+                return "the drawing lists tile \"${key.third}\", and this file does not have it"
+            }
+            val bytes = contents.tiles.getValue(key)
+            if (bytes.size != TILE_BYTES) {
+                return "tile \"${key.third}\" is ${bytes.size} bytes, and a paint tile is $TILE_BYTES"
+            }
+        }
+        for (tile in cel.tiles) {
+            if (Triple(layer.id, cel.id, tile) !in contents.tiles) {
+                return "the drawing lists tile \"$tile\", and this file does not have it"
+            }
+        }
+        return null
+    }
+
+    /** The GL-thread half of [snapshot]: every tile, read back, under one document. */
+    private fun readContents(w: Int, h: Int): JbContents {
+        // Read back, not guessed at: the tiles are the drawing, so the archive carries exactly the
+        // bytes the engine is holding and nothing has to be rebuilt from stroke records to save.
+        val tiles = LinkedHashMap<Triple<String, String, String>, ByteArray>()
+        val listed = ArrayList<String>()
+        for (key in engine.tileKeys(layerId)) {
+            val bytes = engine.readTile(layerId, key)
+            if (bytes == null || bytes.size != TILE_BYTES) {
+                throw JbArchiveException("a tile of the drawing could not be read back from the GPU")
+            }
+            val name = DocOps.key(Tiles.tx(key), Tiles.ty(key))
+            listed.add(name)
+            tiles[Triple(layerId, CEL_ID, name)] = bytes
+        }
+        listed.sort()
+
+        // The three ids the factory hands out, in the order it asks for them — board, layer, cel.
+        // The layer's MUST be the engine's own layer id, because that is where the tiles are and
+        // where the next stroke goes; if the factory ever stops agreeing, that is said out loud
+        // rather than quietly writing tiles into a layer nothing draws on.
+        val ids = ArrayDeque(listOf(BOARD_ID, layerId, CEL_ID))
+        val base = DocOps.newDocument(DOC_ID, documentName, w, h) { ids.removeFirst() }
+        val docLayer = base.layers[0]
+        if (docLayer.id != layerId) {
+            throw JbArchiveException("a new document's layer is called \"${docLayer.id}\", not \"$layerId\"")
+        }
+        val docCel = docLayer.cels[0]
+        val doc = base.copy(
+            paper = base.paper.copy(color = paperHex(paperArgb)),
+            layers = listOf(
+                docLayer.copy(
+                    visible = engine.layerVisible(layerId),
+                    opacity = engine.layerOpacity(layerId),
+                    cels = listOf(docCel.copy(tiles = listed)),
+                ),
+            ),
+        )
+        return JbContents(doc = doc, tiles = tiles, strokes = emptyMap(), thumbnailPng = null)
+    }
+
+    /** `"3_-2"` → the engine's packed tile key. Signed, because the canvas has no edge. */
+    private fun tileKeyOf(name: String): Long {
+        val parts = name.split('_')
+        val tx = if (parts.size == 2) parts[0].toIntOrNull() else null
+        val ty = if (parts.size == 2) parts[1].toIntOrNull() else null
+        if (tx == null || ty == null) throw JbArchiveException("\"$name\" is not a \"tx_ty\" tile key")
+        return Tiles.key(tx, ty)
+    }
+
+    /** The paper setting as a document states it: `#RRGGBB`, the paper colour's own format. */
+    private fun paperHex(argb: Int): String = String.format(Locale.US, "#%06X", 0xFFFFFF and argb)
+
+    /**
+     * A `#RRGGBB` paper colour as this view's ARGB. A malformed one is white rather than a crash:
+     * `JbArchive.read` has already refused anything malformed by the time a file arrives here.
+     */
+    private fun paperArgbOf(hex: String): Int {
+        val digits = hex.removePrefix("#")
+        val value = if (digits.length == 6) digits.toLongOrNull(16) else null
+        if (value == null) return whitePaper
+        return (whitePaper.toLong() or value).toInt()
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private fun onGl(block: () -> Unit) {
@@ -405,5 +623,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
          * by its own contract and must not be walked differently.
          */
         const val SCATTER_SALT = 0x5CA7L
+
+        /** This screen holds exactly one drawing, so its document id is a constant. */
+        private const val DOC_ID = "joy-brush"
+        private const val BOARD_ID = "board-1"
+        private const val CEL_ID = "cel-1"
     }
 }

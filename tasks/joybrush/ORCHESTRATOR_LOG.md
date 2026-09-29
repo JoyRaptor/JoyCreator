@@ -4,9 +4,105 @@ Handover file. If the orchestrator's context fills, read this first: it says wha
 landed, and what is still open. **The orchestrator alone edits `ROADMAP.md`, commits and pushes.**
 Subagents never commit, push or touch the board — they build, run the spec's test command, and report.
 
-Promoted 2026-09-28 (space bunny agent #1, from JB-0.02).
+Promoted 2026-09-28 (space bunny agent #1, from JB-0.02). Turn 4 begins below.
 
 ---
+
+## 🔴 TURN 4 — THE SINGLE BIGGEST FINDING: THE WATCHER IS ALIVE
+
+Every previous turn recorded that `build.log` was "343 min stale — watcher dead" and that
+`joybrush-android/` therefore could not be verified. **That was wrong.** At 21:53 on 2026-09-28 the
+log's own mtime was 21:52:58 and still ticking; it is a Gradle **watch-mode** daemon
+("Waiting for changes to input files..."), and the whole log's last line says so. A stale-looking
+timestamp was a stale *clock reading*, not a dead build.
+
+**What this changes, permanently:**
+
+- `joybrush-android/` and `app/` work **is** verifiable here, by the watcher's `build.log` — which
+  is exactly what the owner's own instructions say ("green means the watcher's build.log, not
+  gradle"). No gradle run is needed or permitted; the watcher is running the real app build.
+- **Unblocked JB-0.05 → 🟧 Built**, which was 🟨 Claimed and stalled. That in turn unblocked
+  JB-0.06, JB-0.08b, JB-1.05b, JB-2.02 and D.01 — five of the six tasks that were Ready and idle
+  because of one wrongly-blocked row.
+- **Give every app-side subagent the log-reading recipe.** It is a ~230 MB UTF-16LE file; read only
+  the tail, and only trust a `BUILD SUCCESSFUL` whose `:joybrush-android:compileDebugKotlin` and
+  `:joybrush:androidkit:compileKotlin` lines say **EXECUTED, not `UP-TO-DATE`**. An `UP-TO-DATE`
+  line proves the state *before* the agent's edit — this is the trap, and a subagent claiming a green
+  build while quoting an `UP-TO-DATE` line has proved nothing.
+- The log has **no wall-clock timestamps inside it**. Freshness comes from the file's mtime. A
+  subagent whose shell is denied (see below) can read it by line offset but cannot date anything,
+  and must say so rather than invent a time.
+
+### Subagent shells are denied — this is the harness, not the agent
+The `CoderAgent` and `OpenFrontendSpecialist` sessions had their shells **denied by their own
+permission config** (only the task-router script was allowed). Consequences, which I would otherwise
+have to keep rediscovering:
+- **No subagent can run any command**, including `git status`. Ask for an explicit file list instead.
+- **No subagent can run gradle**, which I already assumed. So *I* still run `:core:jvmTest`.
+- Two of them *could* still read `build.log` (via the file reader) and did so honestly, reporting
+  "line positions, not clock times". One of them also spotted that the watcher **silently skipped
+  its mid-build edits** and forced a re-trigger to get coverage. Both were right, and both reported
+  the failures they had caused rather than hiding them. That is the behaviour to keep rewarding.
+
+### 🔴 A trap I walked into myself — never round-trip these files through PowerShell
+I edited a spec's `| **Status** |` line with
+`(Get-Content -Raw).Replace(...)  | Set-Content -Encoding UTF8`. `Get-Content` read UTF-8 as
+Windows-1252, so every em dash and `──` in the file became mojibake and a BOM was added: 6 lines
+destroyed. **Repairable, and I repaired it** (read as UTF-8, re-encode as cp1252 after removing the
+BOM — the round trip is lossless if every mangled char came from a cp1252 byte pair), but the lesson
+is free: **use the editor tool, never `Get-Content`/`Set-Content`, on anything in this repo.**
+Afterwards I checked every touched file for `U+FFFD` and for a BOM. The console display of emoji is
+also unreliable here — a `🟧` prints as `??` — so *never* judge encoding from console output; count
+`U+FFFD` from the bytes.
+
+### Turn 4 — landed
+| Task | What | Commit |
+|---|---|---|
+| JB-0.05 | the Android module + first screen; watcher green | `047efa88` |
+| D.01 | 30 colour tokens + a drift checker that actually fails | `6f0d317f` |
+| JB-0.06 | the hidden pen-diagnostics overlay | `f25837b3` |
+| JB-1.05b | brush files drive the view, brush picker pill | `424e559e` |
+| JB-2.06a | flood fill — 3 test expectations corrected, code unchanged | `103cda10` |
+
+**Nothing has left the working tree uncommitted except JB-3.06a (GIF) and JB-2.14b (ORA),** which
+are still red and are my job on the main thread.
+
+### Turn 4 — rulings I made (PROVISIONAL, Claude to confirm)
+- **JB-0.05 reaches 🟧 Built without the sandbox screenshot.** The spec's step 2 is a device check
+  and the board already has a status for that (`📱 On phone`, owner-only). 🟧 Built means *code done,
+  automated proof green*; making a T2 builder responsible for "open it on a phone" duplicates the
+  owner's row and blocks the runway for no gain. The T1 review the spec asks for is still owed —
+  it edits the app build files.
+- **D.01 Q2 (`src/main/java` → `src/main/kotlin`): I moved the file myself.** The spec's owner area
+  said `java`; every other Kotlin file in the module is in `kotlin`, and a `.kt` in a `java` source
+  dir compiles only by accident of plugin defaults. Layout only, zero behaviour change.
+- **D.01 Q1 (the screenshot): rerouted to the owner.** The screen that would *show* the colour is
+  outside that spec's owner area, so no builder could ever satisfy it. It is owed on the `📱` row
+  and by JB-0.09, which is the first screen that actually wears the room colour.
+
+### 🔴 Escalated to the Lead in turn 4
+1. **A recorded stroke drawn with a preset cannot be replayed.** JB-1.05b seeds the dab randomness
+   from `SystemClock.uptimeMillis()`, as its spec says, and the seed never leaves the view. The
+   blueprint calls strokes *recordings, re-rendered at another zoom*; a stroke saved and reopened
+   would come back **different**. This lands straight on **JB-0.08b (save/reopen)**, which is the
+   next app-side task and has no ruling for it. The other candidate — the seed in JB-0.04's codec —
+   is `joybrush/core`, i.e. a contract change.
+2. **The spec's second salted `SplitMix` contradicts `Scatter`'s own class note** ("the caller must
+   hand this the SAME generator the brush was drawing from, not a fresh one"). The builder followed
+   the spec. One stream instead would need `BrushDabber` to expose its generator.
+3. **No layer blend modes on the GPU** (carried over: `GlPaintEngine` has no `u_blend`), so
+   CPU/GPU parity is only assertable for NORMAL and ERASE_BELOW. Still no display-path task.
+4. **`androidkit` has no Android resources**, so JB-0.06's diagnostics panel cannot use
+   `jb_tokens.xml` and carries two hex literals against D.01's "no hex literal, ever" rule. Either a
+   debug panel is exempt, or the tokens grow a diagnostics pair and the view moves to
+   `joybrush-android`. Cross-module, so not mine.
+5. **JB-1.05b Q5:** with a preset set, `Brush.sizePx` is ignored and nothing on screen scales
+   `size.base`, so switching brush silently changes the apparent size. JB-2.16 owns size, and it now
+   inherits a decision nobody has made.
+
+---
+
+## Older, still-true ground rules
 
 ## Ground rules I am holding myself to
 

@@ -1,12 +1,17 @@
 package cc.joycreator.joybrush.android
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -15,6 +20,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -22,7 +28,17 @@ import androidx.core.view.WindowInsetsControllerCompat
 import cc.joycreator.joybrush.androidkit.BrushLibrary
 import cc.joycreator.joybrush.androidkit.JbCanvasView
 import cc.joycreator.joybrush.androidkit.diag.PenDiagnosticsView
+import cc.joycreator.joybrush.androidkit.io.JB_MIMETYPE
+import cc.joycreator.joybrush.androidkit.io.JbArchive
+import cc.joycreator.joybrush.androidkit.io.JbArchiveException
+import cc.joycreator.joybrush.androidkit.io.JbContents
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 // 10% and 12% white, the spec's overlay colours. Both literals fit in an Int.
 private const val OVERLAY_FILL = 0x1AFFFFFF
@@ -30,6 +46,41 @@ private const val OVERLAY_RING = 0x1FFFFFFF
 private const val SMOOTHING_DEFAULT = 35
 private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
+
+// JB-0.08b. The working file and its folder are the spec's decisions (1) and (3).
+private const val WORKING_DIR = "joybrush"
+private const val WORKING_FILE = "current.joybrush"
+
+/**
+ * The "Save a copy" staging file in `cacheDir` (R11). A SAF `Uri` has no rename, so the copy is
+ * built here in full and only then streamed to the place the person chose. Deleted in a `finally`,
+ * so a failure cannot leave a whole drawing sitting in the cache.
+ */
+private const val COPY_TEMP = "joybrush-copy.tmp"
+
+/** Autosave this long after the last stroke (spec decision 2). */
+private const val AUTOSAVE_AFTER_MS = 30_000L
+
+/**
+ * How long the GL thread is left running waiting for a snapshot at the end of the screen, before
+ * the view is paused anyway. See [JoyBrushActivity.onPause] for why it is not paused immediately.
+ */
+private const val PAUSE_FALLBACK_MS = 2_000L
+
+private const val REQUEST_OPEN = 4101
+private const val REQUEST_SAVE_COPY = 4102
+
+/** What "Open…" accepts: a Joy Brush drawing, and the two types a provider gives one it does not know. */
+private val OPENABLE_TYPES = arrayOf(JB_MIMETYPE, "application/zip", "application/octet-stream")
+
+/**
+ * ONE writer thread, shared by every instance of the screen.
+ *
+ * Two would fight over the same working file's `.tmp`, and an executor that is ever shut down turns
+ * a snapshot that lands late (after onDestroy) into a `RejectedExecutionException` on the UI thread.
+ * An idle thread costs nothing on a phone, and the process ends with the app.
+ */
+private val fileIo = Executors.newSingleThreadExecutor()
 
 /**
  * The Joy Brush screen (JB-0.05): a [JbCanvasView] filling the window with a few plain overlay
@@ -39,6 +90,14 @@ private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
  * belong to JbCanvasView; this Activity only hosts it, keeps the screen awake, and wires the
  * overlay controls to the view's public surface (brush preset and eraser, smoothing, the brush
  * picker, undo, redo, clear).
+ *
+ * Save and open (JB-0.08b) live here too, and only here: the view turns the canvas into a
+ * [JbContents] on the GL thread and puts one back, and this Activity owns every path to disk —
+ * the working file, "Save a copy…" and "Open…". Three rules run through all of it. A save goes
+ * through `JbArchive.save`, which writes a temporary file and only then moves it into place, so a
+ * save that fails leaves the drawing the person already had exactly where it was. Nothing is ever
+ * written on the UI or GL thread. And a file that cannot be shown in full is refused out loud
+ * rather than opened in part.
  */
 class JoyBrushActivity : Activity() {
 
@@ -59,6 +118,26 @@ class JoyBrushActivity : Activity() {
     private lateinit var diagBox: LinearLayout
     private var diagShown = false
 
+    // JB-0.08b. `ui` is the main thread's queue; `saving` keeps two writers off one file; `changes`
+    // counts the edits that are not in the working file yet, and zero means it is all there.
+    private val ui = Handler(Looper.getMainLooper())
+    private val saving = AtomicBoolean(false)
+    private var changes = 0
+
+    /**
+     * A save that was asked for while the pen was down (R11), and is therefore waiting for the
+     * stroke to end rather than being dropped. It is a flag and not a timer because the moment to
+     * write is when the drawing is complete, which is not a moment the clock knows about.
+     */
+    private var saveOwed = false
+    private var viewPausePending = false
+
+    /** The autosave the last change asked for, and the one the screen leaving asks for. */
+    private val idleSave = Runnable { if (changes > 0) saveWorkingFile() }
+
+    /** Pausing the GL thread, once a snapshot has answered or the wait for one is up. */
+    private val pauseView = Runnable { pauseViewNow() }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -74,22 +153,52 @@ class JoyBrushActivity : Activity() {
         setContentView(root)
         // JbCanvasView reports this on the UI thread via post(), after every committed stroke,
         // undo, redo and clear. Undo and Redo start disabled -- there is no history yet.
-        canvas.onHistoryChanged = { canUndo, canRedo -> updateHistoryButtons(canUndo, canRedo) }
+        canvas.onHistoryChanged = { canUndo, canRedo ->
+            updateHistoryButtons(canUndo, canRedo)
+            // Every one of those is work that is not in the working file yet, so each one restarts
+            // the 30 s clock (JB-0.08b decision 2).
+            noteChange()
+            // A stroke has just been committed or thrown away, so a save that was waiting for the
+            // pen to lift can go now (R11). Ordered after `noteChange` on purpose: this is what
+            // makes the deferred save land, and a timer that has just been restarted is exactly the
+            // one that would otherwise fire 30 s later with nothing new to write.
+            onStrokeFinished()
+        }
         updateHistoryButtons(false, false)
         // JB-0.06: the diagnostics overlay sees every pen event. It only stores numbers, and only
         // while it is visible, so drawing is untouched.
         canvas.onRawEvent = { ev -> diag.onRawEvent(ev) }
+        // A drawing that cannot be read back is not a drawing that was saved, and saying so is the
+        // whole of the difference between "saved" and "lost".
+        canvas.onSnapshotFailed = { why ->
+            pauseViewNow()
+            saving.set(false)
+            toast("Could not read the drawing: $why")
+        }
 
         goFullScreen(overlays)
+
+        // Where the person left off, if they left off anywhere.
+        restoreWorkingFile()
     }
 
     override fun onResume() {
         super.onResume()
+        viewPausePending = false
+        ui.removeCallbacks(pauseView)
         canvas.onResume()
     }
 
     override fun onPause() {
-        canvas.onPause()
+        // GLSurfaceView DEFERS a GL event that was queued before its GL thread is paused until the
+        // next resume — and after a force-stop there is no next resume, so the autosave would never
+        // happen at exactly the moment it matters. So the readback is asked for FIRST and the view
+        // is paused once it has answered, with a timeout so a GL thread that never answers cannot
+        // keep the GPU awake in the background.
+        viewPausePending = true
+        ui.removeCallbacks(pauseView)
+        ui.postDelayed(pauseView, PAUSE_FALLBACK_MS)
+        if (!saving.get()) saveWorkingFile()
         super.onPause()
     }
 
@@ -163,6 +272,14 @@ class JoyBrushActivity : Activity() {
         // Setting progress fires onProgressChanged, so the canvas gets its 35% starting value.
         smoothSeek.progress = SMOOTHING_DEFAULT
 
+        // bottom-left: the two buttons that move a drawing off this screen and back on, stacked over
+        // undo / redo / clear.
+        val fileRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        fileRow.addView(pillButton("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() }, pillChild())
+        fileRow.addView(pillButton("Open…", "Open a drawing from your files") { askWhichToOpen() }, pillChild())
+
         // bottom-left: undo / redo / clear
         val historyRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -174,7 +291,13 @@ class JoyBrushActivity : Activity() {
         historyRow.addView(undoBtn, pillChild())
         historyRow.addView(redoBtn, pillChild())
         historyRow.addView(clearBtn, pillChild())
-        overlays.addView(historyRow, corner(WRAP, dp(40), Gravity.BOTTOM or Gravity.START, 12))
+
+        val bottomLeft = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        bottomLeft.addView(fileRow, LinearLayout.LayoutParams(WRAP, WRAP))
+        bottomLeft.addView(historyRow, LinearLayout.LayoutParams(WRAP, dp(40)))
+        overlays.addView(bottomLeft, corner(WRAP, WRAP, Gravity.BOTTOM or Gravity.START, 12))
 
         // bottom-right: eraser toggle
         eraserBtn = pillButton("Eraser", "Toggle the eraser") { toggleEraser() }
@@ -220,6 +343,269 @@ class JoyBrushActivity : Activity() {
         // The tooltip is read when the person presses and holds, so it has to be brought up to
         // date with the label rather than always saying the same thing.
         ViewCompat.setTooltipText(brushBtn, "Change the brush — now ${brushes[brushIndex].name}")
+    }
+
+    // ── save, open and "save a copy" (JB-0.08b) ─────────────────────────────
+
+    /**
+     * The working file: `getExternalFilesDir("joybrush")/current.joybrush`.
+     *
+     * Its folder goes when the app is uninstalled, which is why "Save a copy…" exists and why
+     * documents move to the vault later. Never `adb uninstall` this app (START_HERE rule 3).
+     */
+    private fun workingFile(): File? {
+        val dir = getExternalFilesDir(WORKING_DIR) ?: return null
+        if (!dir.isDirectory && !dir.mkdirs()) return null
+        return File(dir, WORKING_FILE)
+    }
+
+    /** Something changed on the canvas: (re)start the 30 s clock before the autosave. */
+    private fun noteChange() {
+        changes += 1
+        ui.removeCallbacks(idleSave)
+        ui.postDelayed(idleSave, AUTOSAVE_AFTER_MS)
+    }
+
+    /**
+     * Takes a snapshot on the GL thread and writes it on the writer thread.
+     *
+     * [failurePrefix] is the sentence shown if the write fails, with the reason appended. It is a
+     * parameter rather than derived from a name because R11 asks for one specific sentence on the
+     * copy path: a person who picked a destination, watched it fail, and cannot see whether their
+     * drawing survived has to be told THAT first and the reason second — "Couldn't save the copy.
+     * Your drawing is safe." Everything else says "X did not work: …".
+     *
+     * [done] is shown only when the write actually worked, because "Saved" is the one word here
+     * that must never be a lie. One at a time: two writers would fight over the working file's own
+     * temporary file, and the loser would say so in a message about a file the person has never
+     * heard of.
+     */
+    private fun saveAsync(
+        failurePrefix: String,
+        done: String?,
+        write: (JbContents) -> Unit,
+    ) {
+        if (!saving.compareAndSet(false, true)) {
+            // One save is already running. Ask again later rather than losing this change to it.
+            ui.removeCallbacks(idleSave)
+            ui.postDelayed(idleSave, AUTOSAVE_AFTER_MS)
+            return
+        }
+        // Read on the UI thread, before the snapshot: only a save that started at this count and
+        // found the count unchanged when it finished has written everything, so a stroke made while
+        // it was writing is still counted and still waiting for its own autosave.
+        val from = changes
+        canvas.snapshot { contents ->
+            pauseViewNow()
+            fileIo.execute {
+                val problem = try {
+                    write(contents)
+                    null
+                } catch (e: Exception) {
+                    e.message ?: e.javaClass.simpleName
+                }
+                saving.set(false)
+                if (problem != null) {
+                    runOnUiThread { toast("$failurePrefix$problem") }
+                } else {
+                    runOnUiThread {
+                        if (changes == from) changes = 0
+                        if (done != null) toast(done)
+                    }
+                }
+            }
+        }
+    }
+
+    /** The autosave: the working file, through the archive's own atomic write. */
+    private fun saveWorkingFile() {
+        // R11: never end or cancel the person's stroke to save. If one is in flight, a snapshot
+        // would capture the tiles as they were BEFORE this stroke, so the drawing on disk would
+        // silently lack the mark they are making right now — and the autosave that is supposed to
+        // be the safety net is exactly where that hurts most. So: note that a save is owed, and
+        // do it the moment the stroke ends, when the snapshot will be complete.
+        if (canvas.strokeInProgress) {
+            saveOwed = true
+            return
+        }
+        writeWorkingFile()
+    }
+
+    private fun writeWorkingFile() {
+        val file = workingFile()
+        if (file == null) {
+            toast("This device has nowhere to keep a working drawing")
+            return
+        }
+        saveAsync("The autosave did not work: ", null) { JbArchive.save(file, it) }
+    }
+
+    /**
+     * Called when a stroke has ended or been cancelled, and the snapshot can therefore be complete.
+     * Runs whether the stroke was going to be saved or not: a stroke that changed nothing still
+     * costs one small write, and the alternative is a flag that can be left set forever.
+     */
+    private fun onStrokeFinished() {
+        if (!saveOwed) return
+        saveOwed = false
+        if (!canvas.strokeInProgress) writeWorkingFile()
+    }
+
+    /**
+     * Puts the working file back on the canvas at startup, if there is one and if this screen can
+     * show all of it. Read on the writer thread; nothing touches the canvas until it has answered.
+     */
+    private fun restoreWorkingFile() {
+        val file = workingFile() ?: return
+        if (!file.isFile) return
+        fileIo.execute {
+            val read = try {
+                JbArchive.open(file)
+            } catch (e: Exception) {
+                ui.post { toast("Your last drawing could not be opened: ${e.message}") }
+                null
+            }
+            if (read != null) {
+                val contents = read
+                ui.post {
+                    // A stroke that landed while the file was being read outranks the file.
+                    if (changes == 0) showContents(contents)
+                }
+            }
+        }
+    }
+
+    /**
+     * "Save a copy…": the person picks where, and the archive is written to that stream.
+     *
+     * R11: a SAF `Uri` cannot be made atomic — there is no rename, and no way to say "only put it
+     * there if it all fits". So the copy is BUILT IN FULL in `cacheDir` first, through the same
+     * code path a normal save uses, and only a complete archive is ever streamed to the chosen
+     * place. That does not make the final copy atomic — a card that fills one byte from the end
+     * still leaves a half file at the name the person chose — but it means a drawing that cannot be
+     * written is refused *before* the chosen file is opened at all, and it guarantees this can
+     * never touch the working file.
+     */
+    private fun saveCopyTo(uri: Uri) {
+        saveAsync(
+            "Couldn't save the copy. Your drawing is safe. ",
+            "Copy saved",
+        ) { contents ->
+            val temp = File(cacheDir, COPY_TEMP)
+            try {
+                JbArchive.save(temp, contents)
+                val out = contentResolver.openOutputStream(uri, "wt")
+                    ?: throw JbArchiveException("the file you chose could not be opened for writing")
+                out.use { stream -> temp.inputStream().use { source -> source.copyTo(stream) } }
+            } finally {
+                // Whatever happened, the temporary is not left lying around: it is a whole drawing
+                // sitting in a cache directory, and the next copy would overwrite it anyway.
+                temp.delete()
+            }
+        }
+    }
+
+    /** "Open…": the person picks a file, and it replaces whatever is on the canvas. */
+    private fun openFrom(uri: Uri) {
+        fileIo.execute {
+            val read = try {
+                val input = contentResolver.openInputStream(uri)
+                    ?: throw JbArchiveException("the file could not be opened")
+                input.use { JbArchive.read(it) }
+            } catch (e: Exception) {
+                ui.post { toast("That drawing could not be opened: ${e.message}") }
+                null
+            }
+            if (read != null) {
+                val contents = read
+                ui.post { showContents(contents) }
+            }
+        }
+    }
+
+    /**
+     * Puts a drawing on the canvas, or says why it cannot go there and leaves the drawing that is
+     * already there alone. UI thread.
+     */
+    private fun showContents(contents: JbContents) {
+        try {
+            canvas.load(contents) {
+                // Loading reports a history change of its own; that is not work to be autosaved.
+                changes = 0
+                ui.removeCallbacks(idleSave)
+            }
+        } catch (e: JbArchiveException) {
+            toast(e.message ?: "that drawing cannot be opened")
+        }
+    }
+
+    private fun askWhereToSave() {
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = JB_MIMETYPE
+            putExtra(Intent.EXTRA_TITLE, copyName())
+        }
+        launch(intent, REQUEST_SAVE_COPY)
+    }
+
+    /**
+     * "Open…" shows every file, not just the ones a provider happens to have typed as a Joy Brush
+     * drawing: a `.joybrush` that arrived through a file manager or a download is usually typed
+     * `application/zip` or `application/octet-stream`, and a picker that hides it is a drawing the
+     * person cannot get back. Picking the wrong file is harmless — the archive refuses it in words.
+     */
+    private fun askWhichToOpen() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+            putExtra(Intent.EXTRA_MIME_TYPES, OPENABLE_TYPES)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        launch(intent, REQUEST_OPEN)
+    }
+
+    /** A device with no document picker at all must say so, not take the screen down with it. */
+    private fun launch(intent: Intent, request: Int) {
+        try {
+            startActivityForResult(intent, request)
+        } catch (e: ActivityNotFoundException) {
+            toast("This device has nowhere to save or open files")
+        }
+    }
+
+    /**
+     * The file picker's answer. This screen is a plain `Activity`, not a `ComponentActivity`, so it
+     * has no `registerForActivityResult`; the file picker is the only thing that reaches here, and
+     * a request code of its own keeps it from touching anything else that reports back.
+     */
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != Activity.RESULT_OK) return
+        val uri = data?.data ?: return
+        if (requestCode == REQUEST_OPEN) openFrom(uri)
+        if (requestCode == REQUEST_SAVE_COPY) saveCopyTo(uri)
+    }
+
+    /** `Joy Brush 2026-09-28 2311.joybrush` — the default name the picker opens with. */
+    private fun copyName(): String {
+        val stamp = SimpleDateFormat("yyyy-MM-dd HHmm", Locale.US).format(Date())
+        return "Joy Brush $stamp.joybrush"
+    }
+
+    /**
+     * Pauses the GL thread, if the screen leaving still owes it one. Called from the snapshot that
+     * was asked for on the way out, from the snapshot failing, and from the timeout — never from
+     * onPause itself, which is the whole point.
+     */
+    private fun pauseViewNow() {
+        if (!viewPausePending) return
+        viewPausePending = false
+        ui.removeCallbacks(pauseView)
+        canvas.onPause()
+    }
+
+    private fun toast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
     // ── the hidden pen diagnostics (JB-0.06) ─────────────────────────────────

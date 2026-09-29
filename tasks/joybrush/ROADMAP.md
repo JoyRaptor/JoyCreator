@@ -176,7 +176,7 @@ Phases follow `JOYBRUSH_BLUEPRINT.md` §4. Each phase ends with an owner check (
 | JB-3.03 Film strip: sprockets, ± actions, drag a frame's edge to hold it, finger scrub | T2-V | 3.01 | ⚪ Outline | |
 | JB-3.04 Onion skin as ONE shared component (extracted from SpriteLab, same settings) | T1 | 3.01 | ⚪ Outline | |
 | JB-3.05 Playback + an audio track | T2 | 3.03 | ⚪ Outline | |
-| [JB-3.06a](specs/JB-3.06a_gif_encoder.md) Animated GIF encoder (pure, deterministic) | T2 | — | 🟦 Ready | |
+| [JB-3.06a](specs/JB-3.06a_gif_encoder.md) Animated GIF encoder (pure, deterministic) | T2 | — | 🟧 Built | subagent of openrouter/stealth/space-bunny-alpha 2026-09-28, finished by the orchestrator — **two real encoder bugs, both found by asking GDI+/ImageIO to read the file, not by reading the code**: (1) the Logical Screen Descriptor was 5 bytes instead of 7, so the colour table started 2 bytes early and **every file was malformed**; (2) the LZW code width grew one code too early. Plus 5 test-side bugs, all recorded in the spec. `:core:jvmTest` 394/0 |
 | JB-3.06b Export MP4 / WebP / PNG sequence / GIF / sprite sheet from the animation board | T2 | 3.01, 3.06a, 2.13a, 4.03a | ⚪ Outline | |
 | JB-3.07 Send to Studio (drops on the timeline) | T1 | 3.06 | ⚪ Outline | |
 | JB-3.08 Context-aware 3-finger swipe: frame flip when the ACTIVE board is an animation board with ≥ 2 frames, else brush size/opacity; corner badge (running figure / brush) shows the mode and a tap overrides it; never switches mid-gesture | T2 | 2.02, 3.03 | ⚪ Outline | |

@@ -483,3 +483,61 @@ Decision 5 and test 6 are rewritten that way.
 - **Phase 7 (7.01–7.04) stays Draft and off the runway.** Pins (7.01) are built in option (c) — Joy Brush data,
   no solver — when scheduled; nothing else until the Lead documents Avatar Studio's real entry points
   (`PuppetPoseResolver`, `AvatarLibrary`, driver/viseme names) in one short file. No more Phase 7 specs before that.
+
+## 2026-09-29 — the owner answers the two open questions (effect shapes; stylus buttons)
+
+**R41. Effect shapes — the owner's answer to JB-2.22b ("set a shape as this") is Reading A, and bigger.**
+Owner, in his words: draw a shape and it fills with a gradient; "but not a normal gradient" — a drawn shape can
+be set to be an EFFECT that acts on what is underneath it: a gradient map (recolours what is under it), a blur,
+a distortion. "Select a line, set it to a solid-fill shape, and add an effect to it." He was not sure it is a
+good idea. **It is, and it is not a new engine — it is the machinery already planned, wearing a friendlier
+face.** A shape whose fill is an effect is exactly "a FILTER layer (JB-2.21) clipped to a mask (JB-2.23)", except
+the shape stays LIVE. So:
+- A shape has a **fill kind**: `solid` (today), `gradient` (colours painted inside it — JB-2.22b's original
+  meaning), or `effect` (an FX stack applied to whatever is below it, only inside the shape). The gradient
+  fill paints; the effect fill *transforms what is underneath*; both exist because they are different tools.
+- **Live, on ink layers.** A shape is an ink stroke (R20), so it stays a recording: move it, reshape it,
+  re-brush it, change or remove its effect afterwards, crisp at any zoom. The effect lives in the document's
+  filter table (`FilterSpec`, JB-2.21) and the stroke points at it by id (`StrokeRecord.effectId`), so the stroke
+  codec stays small and the Studio's own `FxPanel` is the editor (R23: one panel, improved once).
+- **On paint layers it bakes**, as one undo step ("apply this effect to the pixels under this shape") — a paint
+  layer has no live shapes. The same gesture and the same panel; only the result is permanent.
+- **Preview = export by shader identity** (R38): the effect runs as the same compiled GLSL on the GPU, on
+  screen and in export. No per-effect CPU twin.
+- **Feel:** select a line → the selection row offers `Fill` → `Solid | Gradient | Effect`; choosing Effect opens
+  the FX panel on that shape. A soft edge is a per-shape feather slider (0 = crisp).
+- **Distortions:** the Studio's registry today has blurs (gaussian, directional), pixelate, gradient map, colour
+  grade, RGB shift, offset and others, but NO true distortion (ripple, twirl, bulge, displacement). Adding one
+  is a Studio effect (`FxRegistry`), so it improves both apps at once. Request logged for D.05/JB-2.21 wave 2.
+- Build order (all the Lead's, T1): 2.20b → 2.21 (filter layers, GPU export) → 2.23 (masks/clipping) → **JB-5.04
+  effect shapes** (fill kinds, `effectId`, feather, the selection-row `Fill` action). JB-2.22b as written is
+  superseded: its gradient-FILL half becomes the `gradient` fill kind of JB-5.04; its "capture a ramp from a
+  region" half stays as a small optional action in the gradient editor.
+- Constraint: nothing here may touch `StrokeCodec`/`StrokeRecord` until JB-5.03a (in review) is cleared; the
+  extra field is added at JB-5.04's landing with the version bump (R30/R31).
+
+**R42. Stylus buttons are USER-ASSIGNABLE, and the lasso is the S Pen button's default.** Owner: the S Pen
+button is most useful as lasso, but Settings must let the user choose what every stylus button does; if a pen
+has several buttons or a back-end eraser, those get slots too, whenever detected. Some legacy Wacoms work with
+the e-pen, and off-brand USB pens can have more buttons. This AMENDS R38's S Pen rule (which hard-coded "button
+never erases"): the default is now **primary button, held = lasso; tap = eyedropper**, and everything is
+rebindable. Rules:
+- **Slots appear by detection, not by a fixed list.** Android reports pen buttons as `buttonState` bits
+  (`BUTTON_STYLUS_PRIMARY` 0x20, `BUTTON_STYLUS_SECONDARY` 0x40, and mouse-style `BUTTON_SECONDARY` 2, `TERTIARY`
+  4, `BACK` 8, `FORWARD` 16 which off-brand and legacy-Wacom pens often use), as `TOOL_TYPE_ERASER` for a back-end
+  eraser, and as key events for tablet "express keys" (any keycode). A button becomes a slot the first time it is
+  seen (and settings has "Detect a button": press it now). Seen buttons are remembered across launches.
+- **Two bindings per button:** *while held* (drawing with it down) and *on tap* (press and release without
+  drawing). Held actions: LASSO, ERASE, PAN. Tap actions: EYEDROPPER, UNDO, REDO, TOGGLE_CHROME, BRUSH_PREV,
+  BRUSH_NEXT. Not every button needs both. A lasso ALWAYS closes itself when the pen lifts (no "did it close a
+  loop?" guessing) — that also removes the erase/select ambiguity R38 was worried about.
+- **The tip's own contact bit (`BUTTON_PRIMARY`) is never bindable** — it is set by touching the screen, not by
+  a button. Verify the raw bits on the Note 9 with the pen diagnostics panel (it prints `btn 0x..`).
+- **Defaults:** primary = lasso (held) / eyedropper (tap); secondary = erase (held); back-end eraser = erase
+  (held); every other detected button starts unassigned. Hover-clicks are not bindable (Samsung's Air Command owns
+  them — blueprint §3.5): a button acts only while the pen is touching.
+- Unknown buttons and unknown action names in saved settings are KEPT, never dropped (a newer build's setting
+  survives an older build).
+- Row **JB-2.02c** (core map + detector, T2, Ready) is written; the settings screen waits for chrome (2.01) and
+  the routing in `JbCanvasView` is the Lead's (with JB-2.05, whose lasso is now "the LASSO action", not a
+  hard-coded button). JB-2.02b's finger gesture table is unchanged.

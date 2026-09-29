@@ -566,6 +566,20 @@ public final class SheetKit {
     }
 
     /**
+     * A sheet checkbox in the Studio face: tick in the armed colour, box and label in the sheet
+     * ramp. The sheets are opaque dialogs, so this is the SCREEN ramp; drawers use
+     * {@code ObjectDrawer.Kit.styleCheck} over their scrim. One helper, so a tick is the same
+     * colour in every dialog.
+     */
+    public static void styleCheckbox(@NonNull android.widget.CompoundButton cb) {
+        int[][] states = {{android.R.attr.state_checked}, {}};
+        androidx.core.widget.CompoundButtonCompat.setButtonTintList(cb,
+                new android.content.res.ColorStateList(states,
+                        new int[]{Studio.ARMED, Studio.INK_FAINT}));
+        cb.setTextColor(Studio.INK);
+    }
+
+    /**
      * A pill button. {@code primary} wears the Studio gradient with ink-on-go — one per view,
      * that is the rule. Everything else is a flat RAISED pill.
      */

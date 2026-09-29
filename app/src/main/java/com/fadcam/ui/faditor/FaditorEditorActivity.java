@@ -5624,6 +5624,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if ("delete".equals(policy)) { deleteOrphans(ids, true); return; }
 
         android.widget.CheckBox remember = new android.widget.CheckBox(this);
+        SheetKit.styleCheckbox(remember);
         remember.setText(R.string.faditor_orphan_remember);
         remember.setTextColor(Studio.INK_DIM);
         int pad = (int) (20 * getResources().getDisplayMetrics().density);
@@ -13543,6 +13544,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private android.widget.CheckBox exportCheckbox(@NonNull android.widget.LinearLayout root,
                                                    int labelRes, int descRes, int pad) {
         android.widget.CheckBox box = new android.widget.CheckBox(this);
+        SheetKit.styleCheckbox(box);
         box.setText(labelRes);
         box.setTextColor(Studio.INK);
         android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
@@ -39069,6 +39071,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(helper);
 
         final android.widget.CheckBox copyPosition = new android.widget.CheckBox(this);
+        SheetKit.styleCheckbox(copyPosition);
         copyPosition.setText("Also apply caption position to all clips");
         copyPosition.setTextColor(Studio.INK);
         copyPosition.setChecked(false);
@@ -39081,6 +39084,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(copyPosition);
 
         final android.widget.CheckBox copySize = new android.widget.CheckBox(this);
+        SheetKit.styleCheckbox(copySize);
         copySize.setText("Also apply caption size to all clips");
         copySize.setTextColor(Studio.INK);
         copySize.setChecked(false);
@@ -41999,6 +42003,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void showTranscriptSourceOffer() {
         android.widget.CheckBox cb = new android.widget.CheckBox(this);
+        SheetKit.styleCheckbox(cb);
         cb.setText(R.string.faditor_transcript_offer_dont_show);
         cb.setTextSize(13);
         cb.setPadding((int) (16 * getResources().getDisplayMetrics().density), 0, 0, 0);
@@ -46529,24 +46534,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(message);
 
         final android.widget.CheckBox cbFast = new android.widget.CheckBox(this);
+        SheetKit.styleCheckbox(cbFast);
         cbFast.setText(getString(R.string.faditor_transcript_model_fast)
                 + " — " + getString(R.string.faditor_transcript_model_fast_sub));
         cbFast.setTextColor(Studio.INK);
         root.addView(cbFast);
 
         final android.widget.CheckBox cbAccurate = new android.widget.CheckBox(this);
+        SheetKit.styleCheckbox(cbAccurate);
         cbAccurate.setText(getString(R.string.faditor_transcript_model_accurate)
                 + " — " + getString(R.string.faditor_transcript_model_accurate_sub));
         cbAccurate.setTextColor(Studio.INK);
         root.addView(cbAccurate);
 
         final android.widget.CheckBox cbWhisper = new android.widget.CheckBox(this);
+        SheetKit.styleCheckbox(cbWhisper);
         cbWhisper.setText(getString(R.string.faditor_transcript_model_whisper)
                 + " — " + getString(R.string.faditor_transcript_model_whisper_sub));
         cbWhisper.setTextColor(Studio.INK);
         root.addView(cbWhisper);
 
         final android.widget.CheckBox cbDontAsk = new android.widget.CheckBox(this);
+        SheetKit.styleCheckbox(cbDontAsk);
         cbDontAsk.setText(R.string.faditor_transcribe_prompt_dont_ask);
         cbDontAsk.setTextColor(Studio.INK_FAINT);
         cbDontAsk.setTextSize(12);

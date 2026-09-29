@@ -428,6 +428,65 @@ work is left **uncommitted in the tree** with a red test on purpose. **This need
 **Not moved yet**: §5b wants the Lead or a cross-reviewer to set it, and several of these have MINORs
 that are genuinely worth someone else's eye. Say the word and I will flip them.
 
+## STATE AT HANDOVER (orchestrator context exhausted — read this first)
+
+`:core:jvmTest` **394 tests, 21 failures** · `:androidkit:test` **85 tests, 2 failures**
+
+### ✅ Committed and green
+| Task | Tests | Commit |
+|---|---|---|
+| JB-0.02, JB-0.02b, JB-0.03, JB-0.03b, JB-0.04, JB-0.08a, JB-1.03 | — | earlier |
+| JB-2.13a RegionRenderer (review BLOCKER fixed) | 41 | `d99f561c` |
+| JB-2.14a PNG writer (IDAT cursor-loop OOM fixed) | 17 | `cf240c5d` |
+| JB-5.10 vector eraser (worst-case fixed) | 23 | `cf240c5d` |
+| JB-1.05a scatter | 11 | `cfa48e10` (approx — check `git log`) |
+
+### 🔴 IN THE WORKING TREE, UNCOMMITTED, NOT GREEN — do not land these
+| Task | State | Exact failures |
+|---|---|---|
+| **JB-2.06a** flood fill | 16/26 → **3/28** after one fix | `FloodFillTest` 3 failing |
+| **JB-3.06a** GIF encoder | **13/15 + 5/5** | `GifEncoderTest` 13, `GifDecodeTest` 5 |
+| **JB-2.14b** OpenRaster | **34/36** | `OraExportTest` 2 |
+
+Files: `core/fill/`, `core/export/Gif*.kt`, `core/src/jvmTest/.../export/`, `androidkit/.../io/Ora*.kt`.
+
+### Next actions, in order
+1. **JB-3.06a is the blocker and the agent is failing.** It has now returned an **empty report on the
+   fix round**, having already written 709 lines. Diagnosis is already known and written down:
+   **a row stride / buffer length is being passed where a height belongs** (`frame is 16x256, screen
+   is 16x1`; `8x8` → `8x2048`). It is ~30 minutes of work for someone who can run a build.
+   **Recommendation: build it on the main thread, or dispatch with a *different* agent type.** Do not
+   send it back to the same session a third time.
+2. **JB-2.06a** — 3 failures left, root cause found and fixed (row index vs pixel offset). Get the
+   remaining 3 messages and finish it.
+3. **JB-2.14b** — 2 failures, both about **how many omitted layers are named in the `stack.xml`
+   comment** (`expected:<3> but was:<2>`, `expected:<5> but was:<4>`). Almost certainly the test
+   counting, not the writer dropping a name. Verify which — a silently unnamed omission is exactly
+   the "no silent drops" property that task exists for.
+
+### 🔴 The pattern that matters most from this batch
+Two ~700-line implementations were written with **zero executions** and came back with **16 and 18
+failies**. Every smaller task in the same batch landed clean. Both bugs were in hand-rolled index
+arithmetic, and **both were invisible to hand-derivation** — the builders derived 22 and 20 correct
+expected values and every one of them passed, because the code was not indexing what the derivation
+assumed.
+
+**FloodFill's own conclusion is the one to keep:** *"a uniform image has no arithmetic to get wrong,
+so it is the one case that cannot be validated by agreement with my own reasoning."* Write the null
+test first, and do not treat a suite of derived numbers as evidence that the code agrees with the
+model. The old FloodFill suite had 4 tests that passed *for the wrong reason* (single-row images,
+where a row index and a pixel offset are the same number).
+
+**Standing instruction for future briefs:** cap the size of any single deliverable, or require a
+skeleton compiled before the rest is written.
+
+### ⛔ JB-2.10 shape recognizer — STOP dispatching it
+**4 dispatches, 4 empty reports, 0 files**, across two agent types. It is the heaviest maths in T2
+(PCA + Kåsa + RDP + arc-length parametrisation, ~750 lines). The 4th attempt was given the
+derivations inline and an explicit instruction to land `Geometry.kt` first, and still returned
+nothing. **This needs either a split spec (2.10a recognise / 2.10b perfect — a spec change, so
+Lead) or to be built on the main thread.** Every retry so far has cost a dispatch and produced nothing.
+
 ## Open questions
 
 ### 🔴 For Claude — contract, and the only one that can lock a user out of their own file

@@ -84,6 +84,18 @@ object ProcreateImport {
      */
     fun convertBrush(bytes: ByteArray, idPrefix: String): ImportLibrary
 
+    // R44 item 5 — the distinction between the two entry points, which this spec did not state and
+    // which the landed code got right. `convertBrush` THROWS a `BrushException` on a BRUSH-LEVEL
+    // fault: the bytes are not a Procreate brush at all, the archive is not a zip, an entry is
+    // truncated, a DEFLATE stream does not inflate. Those are faults in the FILE, and a single-
+    // brush call has nothing to continue to - the honest answer is to fail loudly. A fault that
+    // belongs to ONE PRESET inside an otherwise sound pack is never an exception in either entry
+    // point; it becomes a `RefusedBrush` and the rest of the pack survives, which is what the
+    // sentence above the signature says. So: `convertBrush` throws where `convertBrushSet`
+    // refuses, and the dividing line is "is the fault in the container or in one of its contents?"
+    // A caller that wants the forgiving behaviour for a single brush must go through
+    // `convertBrushSet` with a one-brush folder, or catch - not silently assume it.
+    //
     /**
      * A `.brushset` (a zip of UUID folders) → every brush inside, in `brushset.plist` order, and
      * **every preset's `name` is the set's name, then ` · `, then the brush's own name** (Decision 16).

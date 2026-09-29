@@ -278,8 +278,27 @@ the one way a `document.json` enters the app, so the refusal at `decode` is the 
    any key sentence could be. Scanning first would pre-empt it and hand a person "this file has
    `audio`, which this version of Joy Brush does not know" instead of "from a newer Joy Brush",
    which sends them looking for a build that exists. Read the root `version` off the parsed
-   `JsonObject` first; if it is absent, not an integer, or `> DOC_VERSION`, fall through to today's
-   behaviour untouched.
+   `JsonObject` first; if it is `> DOC_VERSION`, fall through to today's behaviour untouched.
+
+   **R44 item 5 — THE SENTENCE ABOVE WAS WRONG IN ITS TAIL, and the CODE was right.** The original
+   text also let a file whose `version` is **absent or not an integer** fall through unscanned, on
+   the reasoning that such a file has no usable version and so might as well be passed on. That
+   reasoning is backwards, and it is the same failure this row exists to stop: a file with no
+   `version` at all is a file this build **cannot place in time**, and if it also carries a key this
+   build does not know, the one sentence that would have told the person so is the one thing the
+   scan was for. Scattering it silently is exactly the "silently dropped" bug R31 was raised about,
+   only reached by a different road.
+
+   **So the rule is narrower and the scan is wider:** **only** a root `version` that is a JSON
+   integer strictly greater than `DOC_VERSION` skips the scan. **Absent, non-integer, `null`,
+   `1.5`, a string `"2"`, or anything else IS scanned** and, if it carries unknown keys, is refused
+   in words. The landed code already does this — the audit confirmed the code is right — and this
+   decision now matches it.
+
+   There is a test for the shape that matters: a v1 document (a real integer, below
+   `DOC_VERSION`) carrying an unknown key is **refused**, which is what "absent and non-integer are
+   scanned" buys alongside a malformed one. A reader who only tested the missing-`version` case
+   would not notice the difference.
 
 3. **The known-key set is the declared property names of the class being walked.**
    *Why:* the alternative is a hand-written table, and a hand-written table of a data class drifts

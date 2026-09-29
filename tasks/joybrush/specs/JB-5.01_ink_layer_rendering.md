@@ -180,17 +180,26 @@ parity test is then a transcription of a test that already exists, not a design.
    randomness is a property of the RECORDING, not of the viewing zoom.** Dabs are placed by
    `DabPlacer` at `spacing × diameter` doc px, exactly as the live drawing path does
    (`JbCanvasView.kt:330`: `DabPlacer(spacing = d.spacing, look = d::look)`).
-   **The consequence, derived, because it is the whole reason the ruling went this way.** Two dabs
-   of radius `r` with centres `d = spacing × 2r` apart leave a scallop at the midpoint of depth
-   `r − √(r² − (d/2)²) = r(1 − √(1 − spacing²)) ≈ r·spacing²/2`. Ink ships `spacing = 0.04`
-   (`joybrush/brushes/ink/brush.json`), so the scallop is `r × 0.0008`, which as a fraction of the
-   **diameter** `2r` is `0.0004 × diameter`. For Ink's `size.base = 6` that is **0.0024 doc px**, and
-   at 16× — the zoom the ruling names — **0.038 screen px**: a fortieth of a pixel. Invisible.
-   (The ROADMAP's "≈ 0.005 × diameter" is the same calculation at `spacing ≈ 0.14`; Ink ships
-   0.04, so the real figure is smaller and the conclusion is stronger, not weaker.) Placing dabs in
-   SCREEN space instead would remove even that, and would change the dab count at every zoom — and
-   the dab count is what walks the random stream, so the same recording would draw a *different*
-   scatter at 4× than at 1×. That is the promise `SplitMix`'s KDoc and `StrokeCodec`'s both make.
+    **The consequence, derived, because it is the whole reason the ruling went this way.** Two dabs
+    of radius `r` with centres `d` apart leave a scallop at the midpoint of depth
+    `r − √(r² − (d/2)²) = r(1 − √(1 − (d/2r)²))`.
+
+    **The nominal step is not the real step, and this correction (R44 item 3) is the whole point.**
+    `DabPlacer.emit` returns `max(2r × spacing, minSpacingPx)` and `minSpacingPx` defaults to
+    **0.5 doc px**, so for Ink — `spacing = 0.04`, `size.base = 6` — the nominal step is
+    `2 × 3 × 0.04 = 0.24` doc px and the **floor binds**: the real step is **0.5**. Computing at the
+    nominal step, as this decision originally did, is 4.4× optimistic.
+
+    At the real step, with `r = 3` and `d = 0.5`: `3 − √(9 − 0.25²) = 0.01044` doc px, which as a
+    fraction of the **diameter** `2r` is `0.00174 × diameter`. For Ink that is **0.167 screen px at
+    16×** — a sixth of a pixel, not the fortieth this decision once claimed.
+
+    **The ruling's conclusion is unchanged and in fact stronger.** Sub-pixel on a hard edge that
+    antialiasing softens and that a ~500-fold bead overlap sits on top of is invisible by a wider
+    margin than 0.038 was. What was wrong was the number, not the judgement. `InkReplayTest`
+    asserts the floor directly (0.5 for the shipped brush) and, on a 20 px brush where the spacing
+    binds rather than the floor, the 0.8 that makes a wrong spacing go red — which is what makes
+    this derivation testable rather than decorative.
 
 4. **Crispness is the rasteriser, not the tessellation.** `stamps` evaluates `TipMath.coverage`
    over the DESTINATION's own pixel grid with the radius multiplied by `scale`. Zoom changes the
@@ -238,12 +247,25 @@ parity test is then a transcription of a test that already exists, not a design.
    (`StrokeRecord.kt:42`) carries `widthScale: Float` and its KDoc says it is "a multiplier on the
    brush's size for THIS line". `BrushDabber` computes a radius from the preset alone, so a replay
    that ignored `widthScale` would make JB-5.03's `reweight` change a number and not the drawing.
-   `InkReplay` multiplies each dab's radius by `record.widthScale` **after** `DabPlacer` has
-   produced it, clamped to `0f..DabPlacer.MAX_RADIUS_PX` — the same guard `DabPlacer.emit` applies
-   (`DabPlacer.kt:78`), and for the same reason: a file that was never validated must not make a
-   radius that cannot be allocated. `DabPlacer`'s own `step = 2r × spacing` was computed from the
-   UNSCALED radius, so a re-weighted line's dabs are further apart as well as fatter, which is what
-   the live path would have done with a bigger brush. Test 9 pins it.
+    `InkReplay` multiplies each dab's radius by `record.widthScale` **after** `DabPlacer` has
+    produced it, clamped to `0f..DabPlacer.MAX_RADIUS_PX` — the same guard `DabPlacer.emit` applies
+    (`DabPlacer.kt:78`), and for the same reason: a file that was never validated must not make a
+    radius that cannot be allocated. `DabPlacer`'s own `step = 2r × spacing` was computed from the
+    UNSCALED radius, so a re-weighted line's dabs are further apart as well as fatter, which is what
+    the live path would have done with a bigger brush. Test 9 pins it.
+
+    **R44 item 3 — THE TEST WINS, and this decision's sentence is what was wrong.** A `widthScale`
+    of `1e30` gives `3 × 1e30 = 3e30`, which is a perfectly good **finite** float, so the safe-zero
+    rule (below) does not apply and the clamp answers `DabPlacer.MAX_RADIUS_PX` = 2048. The original
+    text of this decision implied the safe-zero rule caught it, and test 9 said otherwise; the
+    builder implemented the decision and was right to flag the contradiction rather than pick the
+    reading that made its test pass.
+
+    The two rules are disjoint and both are right, which is what this decision now says:
+    - **NON-FINITE** (`NaN`, `±Infinity`) → `0f`. A radius that is not a number cannot be allocated
+      and cannot be reasoned about, so it contributes nothing.
+    - **FINITE but out of range** → **clamped** to `0f..MAX_RADIUS_PX`. `3e30` is a real number that
+      is merely too big, and the honest answer is the biggest radius that can exist.
 
 10. **The replay walks the live path's own steps, in the live path's own order.** A `StrokeSmoother`
     (not `StrokeSmoother.smoothAll` — the class, so `droppedSamples` is readable and the batching is
@@ -364,7 +386,14 @@ predictable. `scatterBrush()` = the same with `scatter = ScatterSpec(amount = Pa
 8. **A missing brush is refused, naming both (D8).** Message contains the stroke id and the brush id.
 9. **`widthScale` thickens the replay (D9).** The same record with `widthScale = 1f` and with
    `widthScale = 2f` gives the same dab count and every radius exactly twice (within 1e-6 relative).
-   A `widthScale` of `0f`, of `1e30f` and of `Float.NaN` gives radii of `0f` and does not throw:
+   **Then the three degenerate values, and R44 item 3 settled the split between them — the
+   NON-FINITE ones go to `0f` and the finite-but-huge one is CLAMPED, not zeroed:**
+   - `widthScale = 0f` → radii of `0f`.
+   - `widthScale = Float.NaN` and `Float.POSITIVE_INFINITY` → radii of `0f`. These are not numbers,
+     so there is nothing to clamp them to.
+   - `widthScale = 1e30f` → radii of **`DabPlacer.MAX_RADIUS_PX` (2048)**, not `0f`. `3 × 1e30` is
+     finite; the honest answer is the largest radius that can be allocated. This is what the shipped
+     `InkReplayTest` already asserted, and the test was right where this spec's prose was not.
    `NaN` is read as `0f` and the result clamped, the same "a broken number is read as a safe one" rule
    as `DabPlacer.emit` and `StrokeEdit.reweight`.
 10. **The dab count is bounded by the placer, not by a cap (D10, D14).** A line of 400 samples 100 doc

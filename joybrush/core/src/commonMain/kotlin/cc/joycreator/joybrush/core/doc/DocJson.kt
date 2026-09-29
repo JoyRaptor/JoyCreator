@@ -95,8 +95,19 @@ object DocJson {
      *
      * A file whose root `version` is GREATER than [DOC_VERSION] is not scanned: that file is from
      * the future, [DocOps.validate] already says so in better words, and a key is not the reason
-     * it cannot be read here. A `version` that is absent or is not an integer falls through with
-     * it, exactly as Decision 2 of JB-0.02d specifies.
+     * it cannot be read here.
+     *
+     * That exemption is NARROW, and deliberately so (JB-0.02d Decision 2, corrected by R44 item 5).
+     * ONLY a root `version` that is a JSON integer strictly greater than [DOC_VERSION] skips the
+     * scan. A `version` that is absent, `null`, non-integer, fractional or a string IS scanned, and
+     * a file carrying unknown keys is refused in words.
+     *
+     * An earlier draft of that decision let a version-less file fall through unscanned too, on the
+     * reasoning that a file with no usable version might as well be passed on. That is the same
+     * failure this function exists to stop, reached by a different road: a file this build cannot
+     * place in time, carrying a setting it does not know, is precisely the file whose one useful
+     * sentence is the one the scan would have given. Silently scattering it is what R31 was raised
+     * about. The code below has always scanned those; only the prose was wrong.
      */
     private fun refuseUnknownKeys(root: JsonElement) {
         val obj = root as? JsonObject ?: return

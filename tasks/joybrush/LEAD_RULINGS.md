@@ -554,6 +554,14 @@ effective now, for the orchestrator and every builder:
 3. Files already half-written in the main folder (8.02/8.04 importers, `jvmMain/`, `BrushValidate`, `DocJson`,
    `SpritePacker` edits) are finished and committed, or moved into their builder's worktree, before anything
    else is dispatched.
+4. **`cd` INTO THE WORKTREE before running Gradle, and check where you are.** Added by R44 item 6, after
+   the orchestrator got this wrong on `82bf4258`. `& "$TEMP/jb-<row>\gradlew.bat" -p joybrush` executes
+   the worktree's wrapper but leaves the WORKING DIRECTORY in the main folder, so **`-p joybrush` resolves
+   to the MAIN copy.** The symptom is a plausible red that is not red: four type-inference errors in a
+   file that had passed 132/0 an hour earlier, in a tree the worktree did not contain. A JB-8.04 builder
+   had already made this exact mistake and written it into its own report; the orchestrator read that
+   sentence and then did it anyway. Always `cd` first — or run with the worktree as the working directory
+   — and if a run reports errors in files you have not opened, suspect this before you suspect the code.
 
 ## 2026-09-29 (evening) — four rows landed under R43, the audit, and what the app build needed
 

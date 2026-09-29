@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T2 |
-| **Status** | see ROADMAP.md |
+| **Status** | 🟧 Built — see ROADMAP.md |
 | **Depends on** | none |
 | **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/fill/FloodFill.kt`, NEW `.../commonTest/.../fill/FloodFillTest.kt` |
 | **Estimated size** | ~220 lines + ~200 lines of tests |
@@ -56,5 +56,30 @@ object FloodFill {
 
 ## Definition of done
 Tests pass (paste) · commit `JB-2.06a: flood fill` · ROADMAP row → 🟧 Built.
+
+## Rulings from the orchestrator (PROVISIONAL — Claude to confirm)
+
+Three tests asserted numbers the geometry does not support. The **implementation was right in all
+three cases**; the expectations were the bug, which is the same failure mode this file's own null
+test warns about, three paragraphs up. Each correction is written into the test with its derivation
+so the next reader can check it rather than trust it:
+
+1. **`gapClosingDoesNotCrossAThinLine`** asserted 480 (15 columns) for `gapClosePx = 1` on a 1 px
+   line. Decision 2's push-back step puts the fill back over the moat onto pixels that were within
+   tolerance, and x = 15 is white, so the answer is **512** (16 columns) — the same as with no
+   closing, which is the correct shape: closing decides whether a region can get *out*, and the
+   push-back restores the edge. It also agrees with
+   `threePixelGapLeaksWithoutClosingAndIsSealedByTwo`, whose 196 depends on that same no-moat rule.
+   The test's own property (the far side of the line is untouched) is still asserted, at x = 17
+   as well as x = 20.
+2. **`floodIsFourConnectedAndGrowIsSquare`** asserted 25 for a 5 x 5 whose main diagonal is black.
+   A square dilation of the x > y triangle does not reach the far triangle — the Chebyshev radius
+   runs out. The expectation is now **derived in the test** (minimum Chebyshev distance to the
+   triangle, per pixel, compared pixel by pixel) and the derived count is 19. The 25 was a guess.
+3. **`growIsClampedToFour`** asserted 73 white pixels for a 3 x 3 box outline on 9 x 9. 81 - 8 black
+   = 73 white, but the box is a **closed ring**: the single white pixel inside it, (5,5), is not
+   4-connected to the outside, so the region is **72**. The count was of the white pixels, not of
+   the region — i.e. the assertion did not actually test 4-connectivity. The enclosed pixel is now
+   asserted explicitly, which makes the test prove the property it was named for.
 
 ## Questions

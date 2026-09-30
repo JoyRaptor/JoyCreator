@@ -25,9 +25,9 @@ import kotlin.math.roundToInt
  *
  * Each cell is the layer alone, the page's own shape, over a faint checkerboard. The layer the brush paints on wears the
  * cyan ring. A hidden layer is dimmed with a crossed eye; opacity under 100% and a blend mode other than Normal are
- * printed small in the cell's lower corners. MASKS and CLIPPING have their places already (JB-2.23): a layer's mask sits
- * as a small second thumbnail on the cell's right edge, and a clipped layer steps in with an arrow — so they arrive
- * without a redesign.
+ * printed small in the cell's lower corners. MASKS and CLIPPING (JB-2.23): a layer's mask sits as a small second thumbnail
+ * over the cell's lower right corner — tap it to paint on the mask, and the ring moves to it — and a clipped layer steps in
+ * with an arrow.
  *
  * Tap a cell to paint on it; tap the ringed cell for its options ([Host.openLayer]). Press and hold, then drag, to move a
  * layer; ＋ adds one above the ringed layer. The column only reports; the canvas owns the stack.
@@ -40,10 +40,9 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         fun selectLayer(id: String)
         fun openLayer(id: String, anchor: View)
         fun moveLayer(id: String, toIndex: Int)
+        /** The mask thumbnail was tapped: paint on the mask (or back on the layer). JB-2.23 Decision 9. */
+        fun maskTapped(id: String)
     }
-
-    /** What one cell shows beyond the layer's own settings. Masks and clipping arrive with JB-2.23. */
-    class Extras(val mask: Bitmap? = null, val clipped: Boolean = false)
 
     private val plus = PlusCell()
     private val rows = LinearLayout(context).apply { orientation = VERTICAL }
@@ -55,7 +54,8 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     private var stack: LayerStack? = null
     private var max = 0
     private val thumbs = HashMap<String, Bitmap>()
-    private val extras = HashMap<String, Extras>()
+    private val maskThumbs = HashMap<String, Bitmap>()
+    private var editingMask = false
 
     /** The page's shape, width over height: every cell is drawn in it. */
     var pageAspect = 0.5f
@@ -77,7 +77,8 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     /** The column's width, for the screen to keep other things clear of it. */
     val widthPx: Int get() = kit.dpi(WIDTH_DP)
 
-    fun show(s: LayerStack, maxLayers: Int) {
+    fun show(s: LayerStack, maxLayers: Int, maskEditing: Boolean = false) {
+        editingMask = maskEditing
         // Cells are only rebuilt when the LIST changes (a layer added, removed or moved). A change of opacity, blend,
         // visibility or the ringed layer redraws the same cells, so a panel anchored to one never loses its anchor.
         val sameList = stack?.layers?.map { it.id } == s.layers.map { it.id }
@@ -105,9 +106,10 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         for (i in 0 until rows.childCount) rows.getChildAt(i).invalidate()
     }
 
-    fun setExtras(map: Map<String, Extras>) {
-        extras.clear(); extras.putAll(map)
-        rebuild()
+    /** Pictures of the masks, by LAYER id (white shows, black hides). */
+    fun setMaskThumbnails(map: Map<String, Bitmap>) {
+        maskThumbs.putAll(map)
+        for (i in 0 until rows.childCount) rows.getChildAt(i).invalidate()
     }
 
     /** The cell size in px, the page's own shape inside a [CELL_W_DP]-wide cell (capped in height so a tall page stays compact). */
@@ -123,6 +125,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         rows.removeAllViews()
         val ids = s.layers.map { it.id }.toSet()
         thumbs.keys.retainAll(ids)
+        maskThumbs.keys.retainAll(s.layers.filter { it.hasMask }.map { it.id }.toSet())
         for (layer in s.layers.asReversed()) {
             val cell = Cell(layer.id)
             val h = thumbSize().second + kit.dpi(8f)
@@ -170,6 +173,8 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
             textSize = kit.dp(8f)
         }
         private val box = RectF()
+        private val maskBox = RectF()
+        private var hasMaskBox = false
         private val clip = Path()
         private val slop = ViewConfiguration.get(context).scaledTouchSlop
         private var downY = 0f
@@ -187,39 +192,46 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         override fun onDraw(c: Canvas) {
             val s = stack ?: return
             val layer = s[id] ?: return
-            val ex = extras[id]
             val (tw, th) = thumbSize()
-            val indent = if (ex?.clipped == true) kit.dp(CLIP_INDENT_DP) else 0f
+            val indent = if (layer.clip) kit.dp(CLIP_INDENT_DP) else 0f
             val left = (width - tw) / 2f + indent / 2f
             val top = (height - th) / 2f
             box.set(left, top, left + tw, top + th)
             drawCell(c, layer, box, thumbs[id])
-            if (ex?.clipped == true) {
+            if (layer.clip) {
                 // The clip arrow: this layer only shows where the layer below it has paint.
                 text.color = kit.p.drawerDim
                 text.textSize = kit.dp(10f)
                 c.drawText("↳", box.left - kit.dp(10f), box.top + kit.dp(12f), text)
                 text.textSize = kit.dp(8f)
             }
-            ex?.mask?.let { m ->
-                // The mask, as a small second thumbnail over the cell's right edge.
-                val mw = tw * 0.42f
-                val mh = th * 0.42f
-                val mr = RectF(box.right - mw * 0.6f, box.bottom - mh - kit.dp(2f), box.right + mw * 0.4f, box.bottom - kit.dp(2f))
-                paint.alpha = 255
-                c.drawBitmap(m, null, mr, paint)
+            hasMaskBox = layer.hasMask
+            if (layer.hasMask) {
+                // The mask, as a small second thumbnail over the cell's lower right corner: white shows, black hides.
+                val mw = tw * 0.46f
+                val mh = th * 0.46f
+                maskBox.set(box.right - mw * 0.55f, box.bottom - mh + kit.dp(3f), box.right + mw * 0.45f, box.bottom + kit.dp(3f))
+                paint.style = Paint.Style.FILL
+                paint.color = kit.p.drawerInk
+                c.drawRect(maskBox, paint)
+                maskThumbs[id]?.let { m -> paint.alpha = 255; c.drawBitmap(m, null, maskBox, paint) }
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = kit.dp(1f)
                 paint.color = kit.p.line
-                c.drawRect(mr, paint)
+                c.drawRect(maskBox, paint)
                 paint.style = Paint.Style.FILL
             }
             if (layer.id == s.activeId) {
+                // The ring is on whatever the brush paints: the layer, or its mask.
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = kit.dp(2f)
                 paint.color = kit.p.stateSelected
-                c.drawRoundRect(box.left - kit.dp(2f), box.top - kit.dp(2f), box.right + kit.dp(2f), box.bottom + kit.dp(2f),
-                    kit.dp(7f), kit.dp(7f), paint)
+                if (editingMask && layer.hasMask) {
+                    c.drawRect(maskBox.left - kit.dp(2f), maskBox.top - kit.dp(2f), maskBox.right + kit.dp(2f), maskBox.bottom + kit.dp(2f), paint)
+                } else {
+                    c.drawRoundRect(box.left - kit.dp(2f), box.top - kit.dp(2f), box.right + kit.dp(2f), box.bottom + kit.dp(2f),
+                        kit.dp(7f), kit.dp(7f), paint)
+                }
                 paint.style = Paint.Style.FILL
             }
             if (dragging) {
@@ -314,6 +326,13 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
                     if (dragging) { drop(e.rawY - downY); return true }
                     performClick()
                     val s = stack ?: return true
+                    // A tap on the mask thumbnail (with a little slack around it, it is small) is about the mask.
+                    val slack = kit.dp(6f)
+                    if (hasMaskBox && e.x >= maskBox.left - slack && e.x <= maskBox.right + slack &&
+                        e.y >= maskBox.top - slack && e.y <= maskBox.bottom + slack) {
+                        host.maskTapped(id)
+                        return true
+                    }
                     if (s.activeId == id) host.openLayer(id, this) else host.selectLayer(id)
                     return true
                 }

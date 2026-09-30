@@ -44,6 +44,7 @@ import cc.joycreator.joybrush.android.chrome.BrushSettingsView
 import cc.joycreator.joybrush.android.chrome.ValueHud
 import cc.joycreator.joybrush.androidkit.BrushLibrary
 import cc.joycreator.joybrush.androidkit.JbCanvasView
+import cc.joycreator.joybrush.androidkit.gl.maskStoreId
 import cc.joycreator.joybrush.androidkit.diag.PenDiagnosticsView
 import cc.joycreator.joybrush.androidkit.io.JB_MIMETYPE
 import cc.joycreator.joybrush.androidkit.io.JbArchive
@@ -812,6 +813,14 @@ class JoyBrushActivity : Activity() {
         override fun selectLayer(id: String) = canvas.selectLayer(id)
         override fun openLayer(id: String, anchor: View) = layerPanel(id, anchor)
         override fun moveLayer(id: String, toIndex: Int) = canvas.moveLayer(id, toIndex)
+
+        /** JB-2.23 Decision 9: the brush goes to the mask only because the person tapped the mask. */
+        override fun maskTapped(id: String) {
+            if (canvas.activeLayerId != id) canvas.selectLayer(id)
+            val on = !canvas.editingMask
+            canvas.setEditingMask(on)
+            if (on) toast("Painting on the mask: dark hides, light shows")
+        }
     }
 
     private fun setColumnOpen(open: Boolean) {
@@ -830,7 +839,7 @@ class JoyBrushActivity : Activity() {
     private fun layersChanged(stack: LayerStack) {
         canvas.maxLayers = budget()
         if (canvas.pageWidth > 0 && canvas.pageHeight > 0) column.pageAspect = canvas.pageWidth.toFloat() / canvas.pageHeight
-        column.show(stack, canvas.maxLayers)
+        column.show(stack, canvas.maxLayers, canvas.editingMask)
         refreshThumbs()
     }
 
@@ -854,6 +863,13 @@ class JoyBrushActivity : Activity() {
         canvas.layerThumbnails(canvas.layers.layers.map { it.id }, w, h) { pixels ->
             val bitmaps = pixels.mapValues { (_, argb) -> Bitmap.createBitmap(argb, w, h, Bitmap.Config.ARGB_8888) }
             column.setThumbnails(bitmaps)
+        }
+        // And the masks, keyed back to their layers (JB-2.23).
+        val masked = canvas.layers.layers.filter { it.hasMask }.map { it.id }
+        if (masked.isNotEmpty()) canvas.layerThumbnails(masked.map { maskStoreId(it) }, w, h) { pixels ->
+            column.setMaskThumbnails(pixels.entries.associate { (store, argb) ->
+                store.removeSuffix(maskStoreId("")) to Bitmap.createBitmap(argb, w, h, Bitmap.Config.ARGB_8888)
+            })
         }
     }
 
@@ -916,6 +932,28 @@ class JoyBrushActivity : Activity() {
         box.addView(menuRow("Blend: ${BlendNames.name(layer.blend)}  ›", "Choose how this layer mixes with the ones below") {
             blendList(id, column.cellFor(id) ?: anchor)
         })
+        // JB-2.23: the mask, and the clip.
+        if (!layer.hasMask) {
+            box.addView(menuRow("Add mask", "Add a mask to this layer — paint dark on it to hide, light to show") {
+                canvas.selectLayer(id)
+                canvas.addMask(id)
+                toast("Painting on the mask: dark hides, light shows")
+            })
+        } else {
+            val onMask = canvas.editingMask && canvas.activeLayerId == id
+            box.addView(menuRow(if (onMask) "Paint on the layer" else "Paint on the mask",
+                if (onMask) "Go back to painting the layer's colours" else "Paint the mask: dark hides, light shows") {
+                canvas.selectLayer(id)
+                canvas.setEditingMask(!onMask)
+            })
+            box.addView(menuRow("Delete mask", "Throw the mask away — Undo brings it back", dot = kit.p.stateDestroy) { canvas.deleteMask(id) })
+        }
+        if (canvas.layers.indexOf(id) > 0) {
+            box.addView(menuRow(if (layer.clip) "Unclip" else "Clip to layer below",
+                if (layer.clip) "Show this layer everywhere again" else "Show this layer only where the layer below has paint") {
+                canvas.setClip(id, !layer.clip)
+            })
+        }
         box.addView(menuRow(if (layer.visible) "Hide" else "Show", if (layer.visible) "Hide this layer" else "Show this layer") {
             canvas.setLayerVisible(id, !layer.visible)
         })

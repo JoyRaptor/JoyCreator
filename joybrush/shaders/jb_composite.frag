@@ -1,5 +1,6 @@
 #version 300 es
-// jb_composite.frag — one layer tile blended over the stack beneath it, with any of the 27 modes (JB-2.20b).
+// jb_composite.frag — one layer tile blended over the stack beneath it, with any of the 27 modes (JB-2.20b), through the
+// layer's mask and its clip (JB-2.23).
 // SHARED by the phone and the PC Brush Lab. Premultiplied RGBA in and out. Blending is OFF for this draw:
 // the result REPLACES the pixel, because the backdrop is read here, from a copy, not by the blend unit.
 //
@@ -8,12 +9,20 @@
 //     a  = sa + da(1 - sa)
 // with Cs / Cb the STRAIGHT source / backdrop colour and B = the Studio's blendPix (jb_blend.glsl,
 // GENERATED from BlendModes.java — R23). ERASE_BELOW is destination-out on all four channels.
+//
+// And RegionRenderer's mask and clip (core/render/LayerMask.kt): the layer's own pixel is multiplied by its mask's R
+// (alpha ignored) and, when clipped, by the clip base's ALPHA times the base's own mask R — BEFORE opacity and blend.
+// A layer with no mask is given a 1x1 white mask; the engine skips a clipped tile whose base has none.
 precision highp float;
 
 #include "jb_blend.glsl"
 
 uniform sampler2D u_layer;      // the layer's tile, premultiplied RGBA8
 uniform sampler2D u_backdrop;   // a copy of the stack so far, the size of the target: texel = pixel
+uniform sampler2D u_mask;       // the layer's mask tile (R = coverage), or 1x1 white
+uniform sampler2D u_clipBase;   // the clip base's tile (its ALPHA is the shape), when u_clipped is 1
+uniform sampler2D u_clipMask;   // the clip base's own mask tile, or 1x1 white
+uniform float u_clipped;        // 1 = clipped, 0 = not
 uniform float u_layerOpacity;
 uniform float u_mode;           // the Studio's mode code 0..25; -1 = ERASE_BELOW (no Studio code)
 
@@ -21,7 +30,9 @@ in vec2 v_uv;
 out vec4 o_color;
 
 void main() {
-    vec4 s = texture(u_layer, v_uv) * u_layerOpacity;
+    float k = u_layerOpacity * texture(u_mask, v_uv).r;
+    if (u_clipped > 0.5) k *= texture(u_clipBase, v_uv).a * texture(u_clipMask, v_uv).r;
+    vec4 s = texture(u_layer, v_uv) * k;
     vec4 d = texelFetch(u_backdrop, ivec2(gl_FragCoord.xy), 0);
     float sa = s.a;
     float da = d.a;

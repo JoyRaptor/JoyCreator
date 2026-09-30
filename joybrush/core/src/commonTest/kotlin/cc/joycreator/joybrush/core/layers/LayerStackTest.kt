@@ -129,4 +129,25 @@ class LayerStackTest {
         assertTrue(LayerBudget.maxLayers(8L shl 30, 1080, 2220) >= LayerBudget.maxLayers(6L shl 30, 1080, 2220))
         assertTrue(LayerBudget.maxLayers(6L shl 30, 2560, 1600) <= LayerBudget.maxLayers(6L shl 30, 1080, 2220))
     }
+
+    // ── masks and clipping (JB-2.23) ──
+
+    @Test
+    fun theBottomLayerCannotBeClippedAndNeverEndsUpClipped() {
+        assertEquals(false, abc.withClip("a", true)["a"]!!.clip, "nothing below the bottom layer to clip to")
+        val clippedB = abc.withClip("b", true)
+        assertEquals(true, clippedB["b"]!!.clip)
+        // Moving the clipped layer to the bottom unclips it: a clipped bottom layer is a file that cannot be saved.
+        assertEquals(false, clippedB.move("b", 0)["b"]!!.clip)
+        // Deleting what was under it does the same.
+        assertEquals(false, clippedB.delete("a")!!["b"]!!.clip)
+    }
+
+    @Test
+    fun aMaskIsAFlagOnTheStackAndADuplicateKeepsIt() {
+        val masked = abc.withMask("a", true)
+        assertEquals(true, masked["a"]!!.hasMask)
+        assertEquals(true, masked.duplicate("a", "a2")!!["a2"]!!.hasMask)
+        assertEquals(false, masked.withMask("a", false)["a"]!!.hasMask)
+    }
 }

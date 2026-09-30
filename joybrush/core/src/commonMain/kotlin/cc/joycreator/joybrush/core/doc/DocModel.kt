@@ -4,7 +4,8 @@ import cc.joycreator.joybrush.core.paint.Tiles
 import kotlinx.serialization.Serializable
 
 const val DOC_FORMAT = "joybrush.document"
-const val DOC_VERSION = 2
+/** 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48). */
+const val DOC_VERSION = 3
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -147,6 +148,14 @@ const val TILE_SIZE = Tiles.SIZE
     val animatedIn: String? = null,         // board id, or null = static
     val cels: List<Cel>,                    // static: exactly 1; animated: >= 1
     val frameCel: Map<String, String> = emptyMap(), // animated: frame id -> cel id
+    /**
+     * The layer's mask (JB-2.23, R48), or null for none. Its OWN field, not one of [cels]: every rule that counts cels
+     * (static = 1, animation frames, the exporters) stays exactly as it was. Coverage is the tiles' R channel; alpha is
+     * ignored; a tile the mask does not have is full coverage (255), so a new mask shows everything. PAINT layers only.
+     */
+    val mask: Cel? = null,
+    /** Clipped (Photoshop's clipping mask): shown only where the nearest unclipped layer below has paint. */
+    val clip: Boolean = false,
 )
 
 @Serializable data class JbDocument(

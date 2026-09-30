@@ -83,6 +83,8 @@ class DocModelTest {
         val paint = Layer(
             id = "l-paint", name = "Paint", kind = LayerKind.PAINT,
             cels = listOf(Cel("c-p", tiles = listOf("0_0", "-1_2", "3_-4"))),
+            // JB-2.23 (R48): a mask, so the walk reaches its keys too.
+            mask = Cel("mask", tiles = listOf("0_0")),
         )
         val ink = Layer(
             id = "l-ink", name = "Ink", kind = LayerKind.INK, opacity = 0.5f,
@@ -162,9 +164,10 @@ class DocModelTest {
         "\$.boards[].grid" to setOf("cols", "rows", "cellW", "cellH"),
         "\$.layers[]" to setOf(
             "id", "name", "kind", "visible", "locked", "opacity", "blend", "animatedIn",
-            "cels", "frameCel",
+            "cels", "frameCel", "mask", "clip",
         ),
         "\$.layers[].cels[]" to setOf("id", "tiles", "strokesFile"),
+        "\$.layers[].mask" to setOf("id", "tiles", "strokesFile"),
     )
 
     /**

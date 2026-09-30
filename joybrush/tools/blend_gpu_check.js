@@ -9,6 +9,10 @@
 //     co = sa(1-da)Cs + sa*da*clamp(B) + (1-sa)da*Cb      a = sa + da(1-sa)         (ERASE_BELOW: d*(1-sa))
 // It is the same formula core/render/Blend.kt uses, so a pass means: GPU shader == CPU renderer == the Studio's Java.
 // Pass = "mismatches":0 and "checked" > 100000.
+//
+// JB-2.23 adds a second run: MASK and CLIP. The same shader, NORMAL and ERASE_BELOW, with a different mask R, clip-base
+// alpha and base-mask R at every pixel, against core/render/LayerMask's rule (RegionRenderer's): the layer's own pixel
+// times mask.r times clipBase.a times clipMask.r, then the blend. Pass = "maskMismatches":0.
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright-core');
@@ -73,6 +77,13 @@ void main() { v_uv = a; gl_Position = vec4(a * 2.0 - 1.0, 0.0, 1.0); }`;
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t;
     }
     ftex(layerData, 0); ftex(backData, 1);
+    // JB-2.23: no mask and no clip for the blend table: a 1x1 white on each of the three new samplers.
+    const white = new Float32Array([1, 1, 1, 1]);
+    for (const unit of [3, 4, 5]) {
+      const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 1, 1, 0, gl.RGBA, gl.FLOAT, white);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    }
     const target = gl.createTexture(); gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, target);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, null);
     const fbo = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
@@ -84,6 +95,7 @@ void main() { v_uv = a; gl_Position = vec4(a * 2.0 - 1.0, 0.0, 1.0); }`;
     const vao = gl.createVertexArray(); gl.bindVertexArray(vao); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.useProgram(p); const u = n => gl.getUniformLocation(p, n);
     gl.uniform1f(u('u_layerOpacity'), 1); gl.uniform1i(u('u_layer'), 0); gl.uniform1i(u('u_backdrop'), 1);
+    gl.uniform1i(u('u_mask'), 3); gl.uniform1i(u('u_clipBase'), 4); gl.uniform1i(u('u_clipMask'), 5); gl.uniform1f(u('u_clipped'), 0);
     for (let m = 0; m <= MODES; m++) {
       gl.scissor(0, m * A, W, A);
       gl.uniform1f(u('u_mode'), m === MODES ? -1 : m);
@@ -112,7 +124,51 @@ void main() { v_uv = a; gl_Position = vec4(a * 2.0 - 1.0, 0.0, 1.0); }`;
         if (!(err <= 2e-4)) { mismatches++; if (first.length < 8) first.push({ mode: m, alpha: ALPHAS[a], pair: i, ch, got: px[o + ch], want: want[ch] }); }
       }
     }
-    return { checked, mismatches, worst, first, glError: gl.getError() };
+    // ── JB-2.23: mask and clip. One row NORMAL (code 0), one row ERASE_BELOW, at sa = 0.75, da = 0.5, opacity 0.8.
+    const MW = W, MH = 2, op = 0.8, msa = 0.75, mda = 0.5;
+    const mLayer = new Float32Array(MW * MH * 4), mBack = new Float32Array(MW * MH * 4);
+    const mMask = new Float32Array(MW * MH * 4), mBase = new Float32Array(MW * MH * 4), mBaseMask = new Float32Array(MW * MH * 4);
+    const mk3 = i => [(i % 11) / 10, ((i * 7) % 13) / 12, ((i * 3) % 5) / 4];   // mask R, base alpha, base-mask R
+    for (let r = 0; r < MH; r++) for (let i = 0; i < MW; i++) {
+      const o = (r * MW + i) * 4; const [mr, ba, bm] = mk3(i);
+      for (let ch = 0; ch < 3; ch++) { mBack[o + ch] = BS[i * 6 + ch] * mda; mLayer[o + ch] = BS[i * 6 + 3 + ch] * msa; }
+      mBack[o + 3] = mda; mLayer[o + 3] = msa;
+      mMask[o] = mr; mMask[o + 1] = 0.3; mMask[o + 2] = 0.9; mMask[o + 3] = 0.2;   // G, B, A of a mask mean nothing
+      mBase[o] = 0.4; mBase[o + 1] = 0.4; mBase[o + 2] = 0.4; mBase[o + 3] = ba;
+      mBaseMask[o] = bm; mBaseMask[o + 1] = 0; mBaseMask[o + 2] = 0; mBaseMask[o + 3] = 1;
+    }
+    function ftex2(data, unit, w, h) {
+      const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, w, h, 0, gl.RGBA, gl.FLOAT, data);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t;
+    }
+    ftex2(mLayer, 0, MW, MH); ftex2(mBack, 1, MW, MH); ftex2(mMask, 3, MW, MH); ftex2(mBase, 4, MW, MH); ftex2(mBaseMask, 5, MW, MH);
+    const mTarget = gl.createTexture(); gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, mTarget);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, MW, MH, 0, gl.RGBA, gl.FLOAT, null);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, mTarget, 0);
+    gl.viewport(0, 0, MW, MH);
+    gl.uniform1f(u('u_layerOpacity'), op); gl.uniform1f(u('u_clipped'), 1);
+    gl.scissor(0, 0, MW, 1); gl.uniform1f(u('u_mode'), 0); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.scissor(0, 1, MW, 1); gl.uniform1f(u('u_mode'), -1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    const mpx = new Float32Array(MW * MH * 4); gl.readPixels(0, 0, MW, MH, gl.RGBA, gl.FLOAT, mpx);
+    let maskChecked = 0, maskMismatches = 0, maskWorst = 0; const maskFirst = [];
+    for (let r = 0; r < MH; r++) for (let i = 0; i < MW; i++) {
+      const o = (r * MW + i) * 4; const [mr, ba, bm] = mk3(i);
+      const k = op * mr * ba * bm;                                   // LayerMask: pixel x mask x clip, then opacity
+      const s = [mLayer[o] * k, mLayer[o + 1] * k, mLayer[o + 2] * k, mLayer[o + 3] * k];
+      const d = [mBack[o], mBack[o + 1], mBack[o + 2], mBack[o + 3]];
+      let want;
+      if (s[3] <= 0) want = d;
+      else if (r === 1) want = d.map(v => v * (1 - s[3]));               // ERASE_BELOW
+      else want = [0, 1, 2].map(ch => s[ch] + d[ch] * (1 - s[3])).concat([s[3] + d[3] * (1 - s[3])]);   // NORMAL, premultiplied
+      for (let ch = 0; ch < 4; ch++) {
+        maskChecked++;
+        const err = Math.abs(mpx[o + ch] - want[ch]); if (err > maskWorst) maskWorst = err;
+        if (!(err <= 2e-4)) { maskMismatches++; if (maskFirst.length < 8) maskFirst.push({ row: r, pair: i, ch, got: mpx[o + ch], want: want[ch] }); }
+      }
+    }
+    return { checked, mismatches, worst, first, maskChecked, maskMismatches, maskWorst, maskFirst, glError: gl.getError() };
   }, { vs: VS, fsrc: src('jb_composite.frag'), BS, EXP, ALPHAS, PAIRS, MODES }).catch(e => ({ error: String(e) }));
   console.log(JSON.stringify(out));
   await browser.close();

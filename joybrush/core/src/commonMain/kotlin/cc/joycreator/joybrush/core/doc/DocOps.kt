@@ -137,6 +137,17 @@ object DocOps {
             }
         }
 
+        // 7b — masks and clipping (JB-2.23, R48).
+        for ((index, l) in doc.layers.withIndex()) {
+            val m = l.mask
+            if (m != null) {
+                if (l.kind != LayerKind.PAINT) out += "layer \"${l.id}\" is ${l.kind}, and only a paint layer can have a mask"
+                if (l.cels.any { it.id == m.id }) out += "layer \"${l.id}\" has a mask and a cel both called \"${m.id}\""
+                if (m.strokesFile != null) out += "the mask of layer \"${l.id}\" has strokes; a mask is pixels"
+            }
+            if (l.clip && index == 0) out += "layer \"${l.id}\" is clipped, and there is no layer below it to clip to"
+        }
+
         // 8 — pixels and strokes are different truths; a cel is one or the other.
         for (l in doc.layers) for (c in l.cels) when (l.kind) {
             LayerKind.PAINT ->
@@ -173,6 +184,9 @@ object DocOps {
 
         return out
     }
+
+    /** Every cel of a layer that holds tiles in the archive: its [Layer.cels] and its mask (JB-2.23, R48). */
+    fun storedCels(layer: Layer): List<Cel> = layer.mask?.let { layer.cels + it } ?: layer.cels
 
     /** The cel a layer shows on a frame: static → its only cel; animated → what the frame maps to. */
     fun celFor(layer: Layer, frameId: String?): Cel? {

@@ -9,6 +9,7 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import cc.joycreator.joybrush.androidkit.diag.BlendSelfCheck
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
+import cc.joycreator.joybrush.androidkit.gl.maskStoreId
 import cc.joycreator.joybrush.androidkit.gl.SmudgeParams
 import cc.joycreator.joybrush.androidkit.input.MotionEventSamples
 import cc.joycreator.joybrush.androidkit.io.JbArchiveException
@@ -28,6 +29,7 @@ import cc.joycreator.joybrush.core.brush.DabInputs
 import cc.joycreator.joybrush.core.brush.Scatter
 import cc.joycreator.joybrush.core.brush.SplitMix
 import cc.joycreator.joybrush.core.doc.BoardKind
+import cc.joycreator.joybrush.core.doc.Cel
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.grain.GrainMath
@@ -35,6 +37,7 @@ import cc.joycreator.joybrush.core.doc.BlendMode
 import cc.joycreator.joybrush.core.layers.LayerBudget
 import cc.joycreator.joybrush.core.layers.LayerStack
 import cc.joycreator.joybrush.core.layers.LayerState
+import cc.joycreator.joybrush.core.render.LayerMask
 import cc.joycreator.joybrush.core.input.DirectionTracker
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.input.StrokeSmoother
@@ -260,6 +263,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     fun selectLayer(id: String) {
         val next = stackUi.select(id)
         if (next === stackUi) return
+        editingMask = false
         stackUi = next
         activeLayer = next.activeId
         onLayersChanged?.invoke(next)
@@ -330,6 +334,52 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         if (after != before) commitStack(before, after) else onGl { engine.setLayerOpacity(id, opacity); reportHistory() }
     }
 
+    // ── masks and clipping (JB-2.23) ─────────────────────────────────────────
+
+    /**
+     * The brush paints the ACTIVE layer's mask instead of its pixels. A state the person sets on purpose, by tapping the
+     * mask (JB-2.23 Decision 9), never guessed from where the pen lands. Choosing another layer turns it off.
+     */
+    var editingMask = false
+        private set
+
+    fun setEditingMask(on: Boolean) {
+        val next = on && stackUi.active.hasMask
+        if (next == editingMask) return
+        editingMask = next
+        onLayersChanged?.invoke(stackUi)
+    }
+
+    /** An empty mask (it shows everything) on [id], as ONE undo step; the brush goes to it, ready to hide. */
+    fun addMask(id: String) {
+        val before = stackUi
+        if (before[id]?.hasMask != false) return
+        editingMask = id == before.activeId
+        commitStack(before, before.withMask(id, true))
+    }
+
+    /** Throws the mask away as ONE undo step (its pixels go into the step: Undo brings it back). */
+    fun deleteMask(id: String) {
+        if (drawing) return
+        val before = stackUi
+        if (before[id]?.hasMask != true) return
+        val after = before.withMask(id, false)
+        if (id == before.activeId) editingMask = false
+        adopt(after)
+        onGl { engine.deleteMaskStep(id, before, after); reportHistory() }
+    }
+
+    /** Clipped to the layer below, or not, as ONE undo step. The bottom layer cannot be clipped, and says so. */
+    fun setClip(id: String, on: Boolean) {
+        val before = stackUi
+        if (on && before.indexOf(id) == 0) {
+            onRefused?.invoke("The bottom layer has nothing below it to clip to.")
+            return
+        }
+        val after = before.withClip(id, on)
+        if (after != before) commitStack(before, after)
+    }
+
     /** Shown or hidden. Not an undo step: it changes no pixel (JB-2.04 Decision 7). It IS saved. */
     fun setLayerVisible(id: String, visible: Boolean) {
         stackUi = stackUi.withVisible(id, visible)
@@ -360,6 +410,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private fun adopt(next: LayerStack) {
         stackUi = next
         activeLayer = next.activeId
+        if (!next.active.hasMask) editingMask = false
         onLayersChanged?.invoke(next)
     }
 
@@ -689,6 +740,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** The layer the stroke in progress paints on, fixed at pen-down: choosing another layer mid-stroke must not split it. */
     private var strokeLayerId = FIRST_LAYER
 
+    /** The stroke in progress paints a mask, so its colour is a grey (JB-2.23). */
+    private var strokeOnMask = false
+
+    /** A colour as the grey a mask stores: its luminance (Rec. 709), so dark paint hides and light paint shows. */
+    private fun maskGrey(argb: Int): Int {
+        val r = (argb shr 16) and 0xFF
+        val g = (argb shr 8) and 0xFF
+        val b = argb and 0xFF
+        val y = (0.2126f * r + 0.7152f * g + 0.0722f * b + 0.5f).toInt().coerceIn(0, 255)
+        return (0xFF shl 24) or (y shl 16) or (y shl 8) or y
+    }
+
     private fun startStroke(eraser: Boolean) {
         // A hidden layer is refused out loud: painting where the paint cannot be seen is how work gets lost (JB-2.04).
         if (!stackUi.active.visible) {
@@ -699,7 +762,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val b = brush
         val p = preset
         val erase = b.erase || eraser
-        strokeLayerId = activeLayer
+        // JB-2.23: on the mask, the stroke goes to the mask's store and paints GREY — white shows, black hides.
+        strokeOnMask = editingMask && stackUi.active.hasMask
+        strokeLayerId = if (strokeOnMask) maskStoreId(activeLayer) else activeLayer
         drawing = true
         glBegan = false
         strokePreset = p
@@ -724,7 +789,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             glBegan = true
             val target = strokeLayerId
             onGl {
-                engine.beginStroke(target, colorArgb ?: b.argb, b.opacity, b.accumulate,
+                engine.beginStroke(target, (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }, b.opacity, b.accumulate,
                     if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
             }
         } else if (p.engine == ENGINE_TUFT) {
@@ -778,7 +843,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val smudge = if (p != null && p.engine == ENGINE_SMUDGE) SmudgeParams(p.smudge.pickup, p.smudge.load) else null
         // R9: a tuft stroke's whole-stroke shader numbers (streaks, tooth), from the file and this stroke's seed.
         val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
-        val argb = colorArgb ?: b.argb
+        val argb = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
         val target = strokeLayerId
         onGl { engine.beginStroke(target, argb, opacity, accumulate,
             if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip, grain, smudge, tuft) }
@@ -953,13 +1018,16 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val refusal = refusalFor(contents)
         if (refusal != null) throw JbArchiveException(refusal)
 
-        val states = doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend) }
+        val states = doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend, it.mask != null, it.clip) }
         val active = doc.activeLayerId?.takeIf { id -> doc.layers.any { it.id == id } } ?: doc.layers.last().id
         val stack = LayerStack(states, active)
         val wanted = ArrayList<Triple<String, Long, ByteArray>>(contents.tiles.size)
         for (entry in contents.tiles) {
             // Iterating the map gives the ENTRY: its key is (layer, cel, "tx_ty").
-            wanted.add(Triple(entry.key.first, tileKeyOf(entry.key.third), entry.value))
+            // A mask's tiles go to the mask's store (JB-2.23); every other tile to its layer.
+            val layer = doc.layers.first { it.id == entry.key.first }
+            val store = if (layer.mask?.id == entry.key.second) maskStoreId(layer.id) else layer.id
+            wanted.add(Triple(store, tileKeyOf(entry.key.third), entry.value))
         }
         val paper = paperArgbOf(doc.paper.color)
         val name = doc.name
@@ -968,6 +1036,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // The UI's own picture of the stack changes now, so nothing drawn after this lands on a layer the file does not have.
         stackUi = stack
         activeLayer = active
+        editingMask = false
         onGl {
             // resetDocument() empties EVERY layer; the file's stack is put back whole, then its pixels.
             engine.resetDocument()
@@ -1017,11 +1086,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             celOf[layer.id] = layer.cels[0].id
         }
         for (key in contents.tiles.keys) {
-            val cel = celOf[key.first]
-            if (cel == null || key.second != cel) {
+            val owner = doc.layers.firstOrNull { it.id == key.first }
+            // JB-2.23: a tile of the layer's own cel, or of its mask.
+            val stored = owner?.let { DocOps.storedCels(it) }?.firstOrNull { it.id == key.second }
+            if (owner == null || stored == null) {
                 return "a tile is in cel \"${key.second}\" of layer \"${key.first}\", which this drawing does not have"
             }
-            val listed = doc.layers.first { it.id == key.first }.cels[0].tiles
+            val listed = stored.tiles
             if (key.third !in listed) {
                 return "the drawing lists tile \"${key.third}\", and this file does not have it"
             }
@@ -1030,8 +1101,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 return "tile \"${key.third}\" is ${bytes.size} bytes, and a paint tile is $TILE_BYTES"
             }
         }
-        for (layer in doc.layers) {
-            val cel = layer.cels[0]
+        for (layer in doc.layers) for (cel in DocOps.storedCels(layer)) {
             for (tile in cel.tiles) {
                 if (Triple(layer.id, cel.id, tile) !in contents.tiles) {
                     return "the drawing lists tile \"$tile\", and this file does not have it"
@@ -1048,6 +1118,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val stack = engine.stack(activeLayer)
         val tiles = LinkedHashMap<Triple<String, String, String>, ByteArray>()
         val listed = HashMap<String, List<String>>()
+        val maskListed = HashMap<String, List<String>>()
         for (s in stack.layers) {
             val names = ArrayList<String>()
             for (key in engine.tileKeys(s.id)) {
@@ -1061,6 +1132,22 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             names.sort()
             listed[s.id] = names
+            // JB-2.23: the mask's tiles, under the mask's own cel.
+            if (s.hasMask) {
+                val maskNames = ArrayList<String>()
+                val store = maskStoreId(s.id)
+                for (key in engine.tileKeys(store)) {
+                    val bytes = engine.readTile(store, key)
+                    if (bytes == null || bytes.size != TILE_BYTES) {
+                        throw JbArchiveException("a tile of the mask of layer \"${s.name}\" could not be read back from the GPU")
+                    }
+                    val name = DocOps.key(Tiles.tx(key), Tiles.ty(key))
+                    maskNames.add(name)
+                    tiles[Triple(s.id, LayerMask.MASK_CEL, name)] = bytes
+                }
+                maskNames.sort()
+                maskListed[s.id] = maskNames
+            }
         }
 
         // The factory makes the board, and a one-layer template every layer is written from. Each layer keeps the
@@ -1079,6 +1166,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 opacity = s.opacity,
                 blend = s.blend,
                 cels = listOf(templateCel.copy(tiles = listed[s.id] ?: emptyList())),
+                mask = if (s.hasMask) Cel(LayerMask.MASK_CEL, maskListed[s.id] ?: emptyList()) else null,
+                clip = s.clip,
             )
         }
         val doc = base.copy(

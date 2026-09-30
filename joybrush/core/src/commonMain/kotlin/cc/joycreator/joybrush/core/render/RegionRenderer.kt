@@ -261,7 +261,7 @@ object RegionRenderer {
         val xLast = rect.x + rect.w - 1
         val yLast = rect.y + rect.h - 1
 
-        for (layer in doc.layers) {
+        for ((index, layer) in doc.layers.withIndex()) {
             if (!layer.visible) continue
             // The frame-to-cel rule belongs to DocOps; a layer with no cel on this frame (a static
             // layer asked for an animation frame, or a mapping the document has lost) shows nothing.
@@ -269,6 +269,15 @@ object RegionRenderer {
             val opacity = opacityOf(layer)
             if (opacity <= 0f) continue
             val mode = layer.blend
+            // JB-2.23: the mask and the clip base, by LayerMask's rules (the GPU asks the same object). A clipped layer
+            // whose base is hidden, or has no cel on this frame, shows nothing — the base is its shape.
+            val mask = layer.mask
+            val baseIndex = LayerMask.clipBaseOf(index, doc.layers)
+            val base = baseIndex?.let { doc.layers[it] }
+            if (base != null && !base.visible) continue
+            val baseCel = base?.let { DocOps.celFor(it, frameId) }
+            if (base != null && baseCel == null) continue
+            val baseMask = base?.mask
 
             for (ty in ty0..ty1) {
                 val ry0 = maxOf(ty * TILE_SIZE, rect.y)
@@ -278,6 +287,11 @@ object RegionRenderer {
                     require(bytes.size == TILE_BYTES) {
                         "tile $tx,$ty of layer \"${layer.id}\" cel \"${cel.id}\" is ${bytes.size} bytes, not $TILE_BYTES"
                     }
+                    val maskTile = mask?.let { m -> tiles.tile(layer.id, m.id, tx, ty)?.also { requireTile(it, layer.id, m.id, tx, ty) } }
+                    // Where the clip base has no tile, a clipped layer shows nothing there.
+                    val baseTile = if (base == null) null else (tiles.tile(base.id, baseCel!!.id, tx, ty) ?: continue)
+                    baseTile?.let { requireTile(it, base!!.id, baseCel!!.id, tx, ty) }
+                    val baseMaskTile = baseMask?.let { m -> tiles.tile(base!!.id, m.id, tx, ty)?.also { requireTile(it, base.id, m.id, tx, ty) } }
                     val rx0 = maxOf(tx * TILE_SIZE, rect.x)
                     val rx1 = minOf(tx * TILE_SIZE + TILE_SIZE - 1, xLast)
                     for (y in ry0..ry1) {
@@ -292,10 +306,13 @@ object RegionRenderer {
                             // above 1.0 — a white layer at half opacity becomes a "colour" of 2.0,
                             // and MULTIPLY by white stops being a no-op. `jb_tile.frag` scales the
                             // whole texel, and so does this.
-                            s[0] = unit(bytes, si) * opacity
-                            s[1] = unit(bytes, si + 1) * opacity
-                            s[2] = unit(bytes, si + 2) * opacity
-                            s[3] = unit(bytes, si + 3) * opacity
+                            // Mask and clip first, then opacity, then the blend (JB-2.23 Decision 6: the Photoshop order).
+                            var k = opacity * LayerMask.coverage(maskTile, si)
+                            if (base != null) k *= LayerMask.clipAlpha(baseTile, baseMaskTile, si)
+                            s[0] = unit(bytes, si) * k
+                            s[1] = unit(bytes, si + 1) * k
+                            s[2] = unit(bytes, si + 2) * k
+                            s[3] = unit(bytes, si + 3) * k
                             d[0] = px[di]
                             d[1] = px[di + 1]
                             d[2] = px[di + 2]
@@ -349,6 +366,10 @@ object RegionRenderer {
                     "float scratch together). Export a smaller area, or a piece of it at a time.",
             )
         }
+    }
+
+    private fun requireTile(bytes: ByteArray, layerId: String, celId: String, tx: Int, ty: Int) {
+        require(bytes.size == TILE_BYTES) { "tile $tx,$ty of layer \"$layerId\" cel \"$celId\" is ${bytes.size} bytes, not $TILE_BYTES" }
     }
 
     /** Which tile a document pixel is in. The canvas is unbounded, so this floors and stays negative. */

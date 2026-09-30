@@ -404,7 +404,7 @@ object JbArchive {
         }
 
         val declared = declaredTiles(doc)
-        for (l in doc.layers) for (c in l.cels) {
+        for (l in doc.layers) for (c in DocOps.storedCels(l)) {
             for (key in c.tiles) {
                 if (Triple(l.id, c.id, key) !in tiles) {
                     throw JbArchiveException(
@@ -473,7 +473,7 @@ object JbArchive {
     /** celId to the tile keys its [cc.joycreator.joybrush.core.doc.Cel] lists. */
     private fun declaredTiles(doc: JbDocument): Map<Pair<String, String>, List<String>> {
         val out = HashMap<Pair<String, String>, List<String>>()
-        for (l in doc.layers) for (c in l.cels) out[Pair(l.id, c.id)] = c.tiles
+        for (l in doc.layers) for (c in DocOps.storedCels(l)) out[Pair(l.id, c.id)] = c.tiles
         return out
     }
 

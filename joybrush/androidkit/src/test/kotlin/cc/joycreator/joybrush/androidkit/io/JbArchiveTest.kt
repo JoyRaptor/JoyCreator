@@ -202,6 +202,27 @@ class JbArchiveTest {
         assertNull(back.thumbnailPng)
     }
 
+    /** JB-2.23 (R48): a mask's tiles and a clip survive a save and an open, byte for byte. */
+    @Test
+    fun roundTripKeepsAMaskAndAClip() {
+        val base = contents()
+        val d = base.doc
+        val masked = d.copy(layers = listOf(
+            d.layers[0].copy(mask = Cel(id = "mask", tiles = listOf("0_0"))),
+            Layer(id = "clipped", name = "Clipped", kind = LayerKind.PAINT, clip = true, cels = listOf(Cel(id = "c", tiles = listOf("0_0")))),
+        ) + d.layers.drop(1))
+        val original = base.copy(doc = masked, tiles = base.tiles + mapOf(
+            Triple(PAINT_LAYER, "mask", "0_0") to tileBytes(9),
+            Triple("clipped", "c", "0_0") to tileBytes(10),
+        ))
+        val back = read(encoded(original))
+        assertEquals(original.doc, back.doc)
+        assertContentEquals(tileBytes(9), back.tiles.getValue(Triple(PAINT_LAYER, "mask", "0_0")), "the mask tile came back different")
+        // A mask tile the document does not list is refused like any other stray tile.
+        val stray = original.copy(tiles = original.tiles + (Triple(PAINT_LAYER, "mask", "5_5") to tileBytes(1)))
+        assertFailsWith<JbArchiveException> { encoded(stray) }
+    }
+
     @Test
     fun roundTripKeepsTheThumbnail() {
         val png = ByteArray(64) { (it * 3).toByte() }

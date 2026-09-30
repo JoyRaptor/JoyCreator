@@ -691,3 +691,30 @@ overlapping runs); the build output was deleted and rebuilt (47 classes) and the
 8. **Push is NOT built yet — row JB-1.06b.** A push reads pixels at an offset, which crosses 256-px tile borders, so it needs a stitched snapshot of
    the stroke's area; `Push.offsetFor` (geometry) and the `push` section/engine word are in, the engine pass is not. Until it lands the engine word
    `push` must not ship in a preset (`JbCanvasView` would draw it as a stamp): the shipped set has Smudge only.
+
+**R48. JB-2.23 (masks and clipping) — the Lead's rulings, and how it is built.** (2026-09-30)
+1. **A mask is its own field, `Layer.mask: Cel?`, not one of `Layer.cels`.** The spec put the mask cel among the cels. Every
+   rule that counts cels would then have had to learn to skip it: static = exactly 1, the animation frame mapping,
+   `DocOps.celFor`, and the exporters. As its own field, none of them change. `DocOps.storedCels(layer)` (cels + mask) is
+   the one place that says "every cel with tiles in the archive". `DOC_VERSION` 2 → 3 (R3). Masks are PAINT only; a clipped
+   bottom layer is refused at open; a mask id may not clash with a cel id.
+2. **Coverage is R, alpha ignored; a tile the mask does not have is FULL coverage.** A new mask shows everything. The engine
+   starts an unpainted mask tile from opaque WHITE (not transparent), so the first stroke on it does not blank the rest of the
+   tile. A stroke on a mask paints the brush colour's luminance (Rec. 709): dark hides, light shows.
+3. **Clipping is Photoshop's.** The base is the nearest unclipped layer below, so a run of clipped layers shares one base. The
+   clip factor is the base's ALPHA times the base's own mask; the base's OPACITY is not in it. Hiding the base hides everything
+   clipped to it. The order is pixel × mask × clip, then opacity, then blend.
+4. **One set of rules, two compositors.** `core/render/LayerMask` holds coverage, clip resolution and the clip factor.
+   `RegionRenderer` calls it, and so does `GlPaintEngine.drawComposited` (for `LayerMask.clipBase`). The shader does the same
+   multiply. Proven on a real GL driver: `tools/blend_gpu_check.js` has a mask-and-clip run (9,032 values, 0 mismatches), and
+   sabotaging the shader's base-mask term gives 5,212.
+5. **OpenRaster has no clipping, so a clipped layer's PNG is written already cut to its base.** The base rides along at opacity
+   0: it gives the shape and paints nothing. Masks are baked into each layer PNG by the renderer. The merged image and the
+   layers still agree.
+6. **Which one the brush paints (layer or mask) is set on purpose**, by tapping the mask thumbnail or with "Paint on the mask"
+   (spec Decision 9). Choosing another layer returns the brush to pixels.
+7. **Not in this row:**
+   - a fill-pen shape made into a mask;
+   - FILTER layers and "a shape as a gradient map" (needs JB-2.21);
+   - a "hide everything" mask (every unpainted tile would have to be black: a later default-value field);
+   - PSD layer masks (JB-2.14c).

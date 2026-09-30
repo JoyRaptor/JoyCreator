@@ -1109,4 +1109,28 @@ class OraExportTest {
             )
         }
     }
+
+    /**
+     * JB-2.23: OpenRaster has no clipping, so a clipped layer's PNG is cut to its base before it is written. The base
+     * here covers only the LEFT tile, so the clipped red layer is red at x = 10 and nothing at x = 260 — in its own PNG,
+     * exactly as in the merged image.
+     */
+    @Test
+    fun aClippedLayerIsWrittenAlreadyCutToItsBase() {
+        val clipped = Layer(id = "clip1", name = "Shade", kind = LayerKind.PAINT, clip = true,
+            cels = listOf(Cel(id = "clip1-cel", tiles = listOf("0_0", "1_0"))))
+        val d = doc(layers = listOf(background(tiles = listOf("0_0")), clipped))
+        val c = JbContents(
+            doc = d,
+            tiles = mapOf(
+                Triple(BG, "$BG-cel", "0_0") to solid(128, 128, 128, 255),
+                Triple("clip1", "clip1-cel", "0_0") to solid(255, 0, 0, 255),
+                Triple("clip1", "clip1-cel", "1_0") to solid(255, 0, 0, 255),
+            ),
+            strokes = emptyMap(),
+        )
+        val img = image(encoded(c), "data/1.png")
+        assertEquals(listOf(255, 0, 0, 255), pixelAt(img, 10, 10), "inside the base: the layer, whole")
+        assertEquals(0, pixelAt(img, 260, 10)[3], "outside the base: nothing")
+    }
 }

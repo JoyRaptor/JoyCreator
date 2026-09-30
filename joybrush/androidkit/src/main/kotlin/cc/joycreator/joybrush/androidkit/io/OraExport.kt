@@ -7,6 +7,7 @@ import cc.joycreator.joybrush.core.doc.Layer
 import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
+import cc.joycreator.joybrush.core.render.LayerMask
 import cc.joycreator.joybrush.core.render.RegionRenderer
 import cc.joycreator.joybrush.core.render.TileSource
 import java.io.OutputStream
@@ -273,8 +274,15 @@ object OraExport {
         fun pixels(rect: RectPx, frameId: String?): ByteArray {
             val subject = layer
             if (subject != null) {
-                val solo = doc.copy(layers = listOf(subject.copy(opacity = 1f, blend = BlendMode.NORMAL)))
-                return RegionRenderer.render(solo, tiles, rect, frameId, null)
+                // A mask is the layer's own and is baked in by the renderer. A CLIP needs its base (JB-2.23): OpenRaster has
+                // no clipping, so the clip is baked too — the base rides along at opacity 0, which gives the shape and paints
+                // nothing, and the layer PNG then agrees with the merged image.
+                val index = doc.layers.indexOfFirst { it.id == subject.id }
+                val baseIndex = if (index >= 0) LayerMask.clipBaseOf(index, doc.layers) else null
+                val own = subject.copy(opacity = 1f, blend = BlendMode.NORMAL)
+                val layers = if (baseIndex == null) listOf(own.copy(clip = false))
+                else listOf(doc.layers[baseIndex].copy(opacity = 0f, blend = BlendMode.NORMAL, clip = false), own)
+                return RegionRenderer.render(doc.copy(layers = layers), tiles, rect, frameId, null)
             }
             return paperPixels(rect, requireNotNull(paper) { "a Paper entry with no paper colour" })
         }

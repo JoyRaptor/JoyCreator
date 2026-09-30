@@ -254,3 +254,35 @@ _(Spec writer, `openrouter/stealth/space-bunny-alpha`, 2026-09-29.)_
 8. **Neither feature costs an extra full-viewport pass on the GPU** (Decision 12) — a mask is a
    multiply in the existing pass and a clip is a uniform.
 9. **A missing mask cel is refused at open in words** (Decision 10), never silently unmasked.
+
+## Lead build 2026-09-30 — masks and clipping, built by the Lead (see LEAD_RULINGS R48)
+
+Owner: *"build the layer column … compact and can take into account masks."* Built together with the column (JB-2.04).
+
+**Built, and how it is proved.**
+- `core/render/LayerMask`: coverage, clip base and clip factor. `RegionRenderer` applies them (pixel × mask × clip, then
+  opacity, then blend). `LayerMaskTest` has 10 checks with hand-worked pixels: R-not-alpha, an unpainted mask, a run of clipped
+  layers, a clip over an empty base, a hidden base, the base's own mask, base opacity, and file round trip plus validation.
+- Document: `Layer.mask: Cel?` and `Layer.clip`, `DOC_VERSION` 3, validation in words.
+- Archive: mask tiles are stored and checked (`JbArchiveTest.roundTripKeepsAMaskAndAClip`).
+- OpenRaster bakes the clip (`OraExportTest.aClippedLayerIsWrittenAlreadyCutToItsBase`).
+- GPU:
+  - `jb_composite.frag` multiplies by `u_mask.r`, and when clipped by `u_clipBase.a × u_clipMask.r`.
+  - The engine keeps a mask as a second tile store (`id#mask`), whose unpainted tiles are white.
+  - Strokes, undo, delete (the mask goes with its layer), duplicate and thumbnails all know it.
+  - Any mask or clip sends the stack down the composite path.
+  - `blend_gpu_check.js` mask run: 9,032 values, 0 mismatches. It fails at 5,212 when the shader drops a term.
+- Screen:
+  - The mask's thumbnail sits on its layer's cell. Tap it to paint on the mask; the cyan ring moves to it.
+  - A clipped layer steps in with ↳.
+  - The panel offers Add mask, Paint on the mask / on the layer, Delete mask (red dot), and Clip to layer below / Unclip
+    (not offered for the bottom layer).
+  - A move or delete that would leave the bottom layer clipped unclips it (`LayerStack.normalized`), so such a drawing never
+    exists.
+
+**Owner check (Note 9), owed: the phone locked before these were tried.**
+1. Add a layer, paint on it, then Add mask and paint black on the mask: the paint disappears there. Paint white: it comes back.
+2. Add a layer above, paint over its edge, then Clip to layer below: the new paint shows only where the layer below has paint.
+3. Hide the layer below: the clipped paint hides too.
+4. Undo each step.
+5. Close the app and reopen: the mask and the clip are still there.

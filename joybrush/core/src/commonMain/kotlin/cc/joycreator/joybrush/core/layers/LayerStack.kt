@@ -9,6 +9,10 @@ data class LayerState(
     val opacity: Float = 1f,
     val visible: Boolean = true,
     val blend: BlendMode = BlendMode.NORMAL,
+    /** It has a mask (JB-2.23). The mask's pixels live with the engine; the stack only says it is there. */
+    val hasMask: Boolean = false,
+    /** Clipped to the nearest unclipped layer below (JB-2.23). Never true of the bottom layer: see [LayerStack.normalized]. */
+    val clip: Boolean = false,
 )
 
 /**
@@ -65,7 +69,7 @@ data class LayerStack(val layers: List<LayerState>, val activeId: String) {
         val list = layers.toMutableList()
         list.removeAt(i)
         val active = if (id != activeId) activeId else list[(i - 1).coerceAtLeast(0)].id
-        return LayerStack(list, active)
+        return LayerStack(list, active).normalized()
     }
 
     /** [id] moved to position [toIndex] (0 = bottom), clamped. The active layer stays active. */
@@ -75,7 +79,7 @@ data class LayerStack(val layers: List<LayerState>, val activeId: String) {
         val list = layers.toMutableList()
         val item = list.removeAt(i)
         list.add(toIndex.coerceIn(0, list.size), item)
-        return copy(layers = list)
+        return copy(layers = list).normalized()
     }
 
     fun withOpacity(id: String, opacity: Float): LayerStack =
@@ -83,6 +87,18 @@ data class LayerStack(val layers: List<LayerState>, val activeId: String) {
 
     fun withBlend(id: String, blend: BlendMode): LayerStack = update(id) { it.copy(blend = blend) }
     fun withVisible(id: String, visible: Boolean): LayerStack = update(id) { it.copy(visible = visible) }
+
+    /** With or without a mask. Removing one is the engine's to record (its pixels go into the undo step). */
+    fun withMask(id: String, on: Boolean): LayerStack = update(id) { it.copy(hasMask = on) }
+
+    /** Clipped or not. The bottom layer has nothing to clip to, so asking to clip it changes nothing. */
+    fun withClip(id: String, on: Boolean): LayerStack = if (on && indexOf(id) == 0) this else update(id) { it.copy(clip = on) }
+
+    /**
+     * The bottom layer is never clipped: a file with a clipped bottom layer is refused at open (DocOps.validate), so a
+     * move or a delete that would leave one there unclips it instead of making a drawing that cannot be saved.
+     */
+    fun normalized(): LayerStack = if (layers.first().clip) copy(layers = listOf(layers.first().copy(clip = false)) + layers.drop(1)) else this
 
     /** A new name, trimmed; a blank one keeps the old name (a layer with no name cannot be found in a list). */
     fun rename(id: String, name: String): LayerStack {

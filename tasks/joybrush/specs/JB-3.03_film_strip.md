@@ -1,13 +1,39 @@
-# JB-3.03 — Film strip: sprockets, the ± actions, drag-a-frame's-edge to hold it, finger scrub
+# JB-3.03 — Film strip: the cell is the hold, drag a frame's edge to hold it, finger scrub
 
 | | |
 |---|---|
-| **Tier** | T2-V (the layout maths and the gesture rules are plain T2 and are tested in `:core`; the drawing is the vision half) |
-| **Status** | 🟨 **Draft.** Everything below is decided and a T2 builder can build and test `:core` today. Two things are not mine to decide: whether the strip's frame THUMBNAILS come from the GL engine or from a CPU render (Q1 — it decides which module owns a new interface), and what a long-press on a frame opens (Q2). Both are one-line answers. |
-| **Needs** | 3.01 (as the ROADMAP row states) |
-| **Owner area** | NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/anim/FilmStrip.kt` · NEW `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/anim/FilmStripTest.kt` · NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/anim/FilmStripView.kt` · EDIT `joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt` (host the strip, wire the callbacks — nothing else in that file) |
-| **Estimated size** | ~320 lines of Kotlin in `:core` + ~320 lines of tests, ~300 lines of view |
-| **Command** | `./gradlew -p joybrush :core:jvmTest` — 0 failures. Then the watcher compiles `:androidkit:compileKotlin` and `:joybrush-android:compileDebugKotlin` green. |
+| **Tier** | **T2** (the core half is pure arithmetic over `Board`, testable on any JVM) |
+| **Status** | 🟦 **Ready** — core half only. R32 units, R33 controls, and the review's corrected numbers are all applied. No Lead ruling is outstanding for the build. |
+| **xr** | xr: openrouter/stealth/space-bunny-alpha 2026-09-29 — cut to the **core half** per R30; R32 units applied (tick 44 dp, edge grab one-sided 24 dp, both × density at the use site); R33 applied (`+` tap = **DUPLICATE**, the peg bar owns PLAY, no `Action.Play`); the review's corrected numbers used throughout (44/88/44/132, 0/44/132/176, strip 308, 999 × 44 = 43 956 — the old test 3 wrote 88 912); **the `AnimOps` calls in the old contract did not match the landed signatures and are now pasted verbatim**; strip thumbnails answered by R33 (numbered cells) and moved to JB-3.03b. |
+| **Needs** | JB-3.01 (`Board`, `Frame`, `AnimOps` — all Built). JB-3.05a is **Built** and its `FrameStepper` is what the view half drives; this row does not need it and does not touch it. |
+| **Owner area** | (1) NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/anim/FilmStrip.kt` · (2) NEW `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/anim/FilmStripTest.kt` · (3) NEW `joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/anim/FilmStripNoSecondCopyTest.kt` · **NOTHING ELSE.** In particular **NOT** `JoyBrushActivity.kt` (R30 lock order — the Lead's, and it wants JB-2.01's cluster first), **NOT** `AnimOps.kt`, **NOT** `PlaybackClock.kt`, **NOT** `FrameStepper.kt`, **NOT** anything in `joybrush-android/` or `app/`, no Gradle file, no build file. |
+| **Estimated size** | ~230 lines of Kotlin, ~330 lines of tests |
+| **Command** | `./gradlew -p joybrush :core:jvmTest` — `BUILD SUCCESSFUL`, 0 failures in `joybrush/core/build/test-results/jvmTest/` |
+
+## What was CUT, and where it now lives
+
+The Lead's review split this row because the old spec promised pure maths in `core/` **and** a view plus a
+`JoyBrushActivity` panel, and R30 reserves the second for the Lead. A spec that promises both cannot be
+dispatched to a free model, because the builder would have to touch a reserved file. **Everything in the
+table below is gone from this file.** It is listed so the later row inherits the rulings instead of
+re-arguing them, and so nobody reading this row believes the strip is finished when it is not.
+
+| Cut | What it was | Where it now lives |
+|---|---|---|
+| `FilmStripView.kt` | the whole view: drawing, sprockets, scroll, the `+`/`−` cap, the long-press menu widget | the **view half of JB-3.03**, the Lead's, with the 2.01 chrome cluster. **The spec does not exist yet** — say so rather than pretend. |
+| `EDIT JoyBrushActivity.kt` | hosting the strip, wiring the callbacks | same row, and R30 says it waits for **JB-2.01** anyway. |
+| Sprockets (old Decision 16: 4 per frame, fixed spacing, never scaling with the hold) | drawing | the view half. The ruling is recorded in **Cut Decision C4** below and travels with the row. |
+| Playhead ring / onion rails (old Decision 17) | drawing | the view half (JB-3.04 owns the ghosts). |
+| `+` drawn on the cell's left cap (old Decision 18) | drawing | the view half. The *reason* it moved there — never in the edge zone — is Cut Decision C5. |
+| `Action.Play` | — | **deleted outright, not moved**: R33 gives PLAY and MODE to the peg bar, so the strip must not carry a second one. The strip's only stepper is prev/next. |
+| `Action.LongPressMenu` | the menu as an intent | **folded into the model operations.** R33 names the menu's four items (Blank / Link / Hold ± / Delete) and every one of them is a `AnimOps` call that this spec now provides and tests. The menu *widget* is the view half's. |
+| No auto-scroll mid-gesture (old Decision 15) | scroll policy | the view half. The core half's gesture refuses to move anything on its own, which is the part that can be pinned. |
+| **Strip thumbnails** | where the bitmaps come from | **JB-3.03b**, a `⚪ Outline` row on the board: *"Film-strip thumbnails via a CPU render"*, Needs 3.03. **Its spec file does not exist yet** (`specs/JB-3.03b_strip_thumbnails.md` is not on disk) — I could not check it, and the ROADMAP link is currently a dead link. Until it lands, the strip draws **numbered cells** and the host may supply bitmaps. |
+| `AlertDialog` vs `SheetKit` for the long-press menu (old Q2.2) | chrome | the view half. `SheetKit` is D.02, not built. |
+
+**This row is Ready, and it builds the strip's geometry, its gesture rules and its five document
+operations. It does not put a film strip on the phone.** That is the view half, and it is not a
+near-term thing: it is behind JB-2.01.
 
 ## Goal
 
@@ -16,65 +42,141 @@ Blueprint §1 idea 10, and specifically its change (b), which is the whole point
 > **"A frame's cell width shows how long it is held, and you drag its edge to hold it longer"** —
 > FlipaClip, the #1 animation app (82M installs), has refused its users this for 12 years (R6).
 
-So the strip is not a row of equal thumbnails. **A frame's cell is `holdFrames × TICK_PX` wide.**
-A frame held for 3 ticks is three times as wide as one held for a tick, and dragging its right edge
-changes that number and nothing else. Everything else the strip does — sprockets, the ± actions, the
-finger scrub — is in service of that one sentence.
+So the strip is not a row of equal thumbnails. **A frame's cell is `holdFrames × TICK_PX_DP × density`
+wide.** A frame held 3 ticks is three times as wide as one held a tick, and dragging its right edge
+changes that number and nothing else. Everything else here — the half-open hit test, the one-sided edge
+grab, the scrub, the playhead re-anchoring — is in service of that one sentence.
 
-## The seam, stated first because it is the bug this project keeps shipping
+## The seam, stated first, and it is the OPPOSITE of what the old spec claimed
 
-Every arithmetic decision in this file is taken **from `AnimOps.frameStartsMs` and `AnimOps.totalDurationMs`
-and never from a second evaluation of `holdFrames × 1000 / fps`**. `2 × (1000.0 / 12.0)` is **not**
-bit-identical to `2000.0 / 12.0`, and a boundary one ulp out is on the wrong side of the
-`start ≤ position < start + duration` comparison that decides which frame is under a finger. The
-3.05a test file already writes this out at length; it applies here verbatim, and `FilmStripTest`
-indexes `frameStartsMs` the same way.
+The old spec opened with "every arithmetic decision is taken from `AnimOps.frameStartsMs`". **That is
+false, and building to it would have produced a strip measured in milliseconds.** The strip's x axis is
+**ticks**, which is the model's own unit, so a cell is an exact number of ticks wide and no millisecond
+appears anywhere in this file. The seam is therefore a one-way door with a name:
 
-And the second seam, which is the one that bites hardest and which this spec exists to prevent:
+> **No millisecond number may enter the strip.** A caller holding an elapsed time converts it to an
+> index first — `FrameStepper.frameOnScreen(elapsedMs)` (JB-3.05a, Built) — and then maps index to cell.
+> The reverse direction (a hold → a width) is `holdFrames × tickPx` and nothing else.
+
+This matters because the two spellings are not interchangeable: `44 dp` per tick is a *screen* distance
+that does not change with the board's fps, while a millisecond-proportional strip would change with it.
+Decision 4 and test 2 pin the difference at 24 fps, where the two disagree by a factor of two.
+
+The second seam is the one that bites hardest, and it is why this row still says it even though the
+strip no longer touches a clock:
 
 > **The strip MUST NOT drive itself from `PlaybackClock.nextChangeMs`.** At a backward boundary of a
-> PING_PONG leg the frame change **has no minimum** — `nextChangeMs` hands back the boundary itself
-> as an *infimum* (JB-3.05a Decision 3 / its Questions §4), and a caller that sleeps until it and
-> then re-asks without comparing frame indices **spins forever**. That is correct behaviour of the
-> clock and a bug in the caller.
+> PING_PONG leg the frame change **has no minimum** — `nextChangeMs` hands back the boundary itself as
+> an *infimum* (`PlaybackClock.nextChangeMs`'s own KDoc; JB-3.05a Decision 3 / Questions §4) — and a
+> caller that sleeps until it and then re-asks without comparing frame indices **spins forever**. That
+> is correct behaviour of the clock and a bug in the caller.
 
-The strip never asks the clock anything. The strip maps **a finger's x to a frame** and a frame's
-**id** to a cell. Playback is a different row (JB-3.05) and a different loop. See Decision 2.
+`theStripNeverConsultsThePlaybackClock` (**J1**, in `jvmTest`) is the mechanical form of that sentence and
+is the reason it survives a cut that removed every line of clock code from the spec.
 
 ## Contract
+
+### What this file calls — pasted verbatim from the landed source
+
+`joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/doc/AnimOps.kt`:
+
+```kotlin
+enum class NewFrame {
+    /** An empty cel. Nothing has been drawn on the frame yet. */
+    BLANK,
+
+    /** A new cel holding a COPY of the source frame's cel — [CelWork.CopyCel] for the engine. */
+    DUPLICATE,
+
+    /**
+     * The source frame's cel ITSELF, shared: a second frame id pointing at the same cel. No new cel
+     * and no pixel work. This is how "hold" is stored, and deleting either frame keeps the cel for
+     * the other.
+     */
+    LINK,
+}
+
+data class AnimResult(val doc: JbDocument, val work: List<CelWork>)
+
+    fun addFrame(
+        doc: JbDocument,
+        boardId: String,
+        afterFrameId: String?,
+        mode: NewFrame,
+        ids: () -> String,
+    ): AnimResult
+
+    fun deleteFrame(doc: JbDocument, boardId: String, frameId: String): AnimResult
+
+    fun setHold(doc: JbDocument, boardId: String, frameId: String, holdFrames: Int): JbDocument
+
+    fun frameStartsMs(board: Board): List<Double>
+
+    fun totalDurationMs(board: Board): Double
+```
+
+`CelWork` is a sealed class with `CopyCel(layerId, fromCelId, toCelId)` and `DropCel(layerId, celId)`; a
+`DUPLICATE` returns exactly one `CopyCel` per animated layer, a `BLANK` and a `LINK` return none.
+
+**`MAX_HOLD_FRAMES = 999` and `MIN_HOLD_FRAMES = 1` are `private` in `AnimOps`** (`AnimOps.kt:100`,
+`:117`). This file may not restate them, so every clamp below is done by **calling `setHold` and reading
+`holdFrames` back out of the document it returns**. **J2** is the reflection that notices a second copy.
+
+> **Correction to the old contract, and it would not have compiled.** It declared
+> `addBlank(board: Board, frameId: String, ids: () -> String): AnimResult` and
+> `setHold(board: Board, …)`. The landed functions take a **`JbDocument` and a `boardId`**, and
+> `setHold` returns a `JbDocument`, not an `AnimResult`. A builder who wrote the old signatures would
+> have had to invent a `Board` → `JbDocument` bridge in the owner area, which does not exist.
+
+### The new file
+
+`joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/anim/FilmStrip.kt`
 
 ```kotlin
 package cc.joycreator.joybrush.core.anim
 
+import cc.joycreator.joybrush.core.doc.AnimOps
+import cc.joycreator.joybrush.core.doc.AnimResult
 import cc.joycreator.joybrush.core.doc.Board
+import cc.joycreator.joybrush.core.doc.DocException
+import cc.joycreator.joybrush.core.doc.JbDocument
+import cc.joycreator.joybrush.core.doc.NewFrame
+import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 
 /**
- * The film strip's geometry and gesture rules, as pure maths. No Android, no clock, no document
- * mutation: every function that changes the document returns a NEW document and a list of
- * instructions, exactly like `AnimOps` does.
+ * The film strip's geometry, its gesture rules and its five document operations, as pure maths.
+ * No Android, no view, no clock, no document mutation: every operation that changes the document
+ * returns a NEW document, exactly like `AnimOps` does.
  *
- * The strip's state is a PLAYHEAD, which is a frame ID and never an index. Every operation in this
- * file that can remove a frame re-anchors the playhead by ID first. See Decision 1.
+ * THE STRIP'S X AXIS IS TICKS, NOT MILLISECONDS. A cell is `holdFrames × tickPx` wide and that is
+ * the whole geometry; no `Double` in milliseconds appears in this file, on purpose — see the
+ * spec's seam section. A caller with an elapsed time converts it to an index first, through
+ * `FrameStepper.frameOnScreen`, and never multiplies a duration by a pixel rate.
+ *
+ * The strip's state that ISN'T the document is a PLAYHEAD, which is a frame ID and never an index:
+ * `playheadAfterDelete` re-anchors it by ID, and every gesture that can remove a frame says which
+ * frame the playhead is on. See Decision 1.
  */
 class FilmStrip(val board: Board, val density: Float = 1f) {
 
-    /** Screen px per tick of hold (already × density). One tick is 44 dp. */
-    val tickPx: Float get() = TICK_PX_BASE * density
+    /** Screen px per tick of hold. 44 dp × density (R32). */
+    val tickPx: Float get() = TICK_PX_DP * density
 
-    /** How close a finger-down must be, screen px, to a frame's RIGHT edge to grab that edge. */
-    val edgeGrabPx: Float get() = EDGE_GRAB_BASE * density
+    /** Screen px a finger-down may be from a frame's right edge and still grab it. 24 dp × density. */
+    val edgeGrabPx: Float get() = EDGE_GRAB_PX_DP * density
 
     /**
      * Cell [frameIndex]'s left edge in STRIP coordinates, strip px from the strip's own left end.
-     * Cell 0's left edge is 0. Derived from `AnimOps.frameStartsMs` and the board's own
-     * `totalDurationMs` — never from a second `hold * 1000 / fps`.
+     * Cell 0's left edge is 0. The sum of the widths before it — ticks, never ms.
      */
     fun cellLeft(frameIndex: Int): Float
 
-    /** Cell width: `holdFrames × tickPx`, never less than one tick. */
+    /** Cell width: `holdFrames × tickPx`, which is never less than one tick. */
     fun cellWidth(frameIndex: Int): Float
 
-    /** Total strip width: the last cell's right edge. */
+    /** Total strip width: the last cell's right edge, i.e. the sum of every cell's width. */
     fun stripWidth(): Float
 
     /**
@@ -87,333 +189,515 @@ class FilmStrip(val board: Board, val density: Float = 1f) {
 
     /**
      * Which frame's RIGHT EDGE a finger-down at [xPx] has hold of, or -1.
+     *
      * The grab zone is `[edgeLeft - edgeGrabPx, edgeLeft]` — to the LEFT of the edge only, and
      * INCLUDING the edge itself. Frame 0's right edge is a real edge; the strip's own left end
-     * (x = 0) is not, because there is no frame before it to lengthen.
+     * (x = 0) is not, because there is no frame before it to lengthen. There is no "left edge"
+     * zone at all, so the zones of two frames can never overlap and no tie-break exists.
      */
     fun edgeAt(xPx: Float): Int
 
     /**
-     * The playhead after the frame [frameId] is deleted, given the board that results.
+     * The playhead after the frame [deletedFrameId] is deleted, given the board that results.
      * Anchored by ID: the frame that now sits where the deleted one was, or the new last frame if
      * the deleted one was the last. See Decision 1.
      */
     fun playheadAfterDelete(boardAfter: Board, deletedFrameId: String, playheadFrameId: String?): String?
 
-    // ---- the four actions. Each returns a NEW board; none of them mutates. ----
+    /**
+     * Whether delete is available. `false` exactly when [AnimOps.deleteFrame] will refuse, which is
+     * a board with one frame — so a view can disable the control instead of offering something the
+     * model will throw at.
+     */
+    fun canDelete(): Boolean = board.frames.size > 1
 
-    /** `+` on frame [frameId]: a BLANK frame after it (`AnimOps.addFrame(BLANK)`). */
-    fun addBlank(board: Board, frameId: String, ids: () -> String): AnimResult
-
-    /** `+` long-press "Duplicate": a DUPLICATE frame after it — a new cel with a copy of the pixels. */
-    fun addDuplicate(board: Board, frameId: String, ids: () -> String): AnimResult
-
-    /** `+` long-press "Link": a LINK frame after it — the SAME cel, no pixel work. */
-    fun addLink(board: Board, frameId: String, ids: () -> String): AnimResult
+    // ---- the five document operations. Each returns a NEW document; none of them mutates. ----
 
     /**
-     * The edge drag, live. [dxPx] is the TOTAL screen offset since the finger went down, positive
-     * right. Returns the frame's new hold, clamped by `AnimOps.setHold` to 1..999 — **this class
-     * never clamps the hold itself and never writes its own 999**; it calls `setHold` and reads
-     * `holdFrames` back out of the returned document.
+     * The `+` TAP, which is **DUPLICATE** (R33: what animators do most; FlipaClip is the named
+     * reference). A new cel holding a copy of the pixels: one `CelWork.CopyCel` per animated layer.
+     * The long-press menu's BLANK and LINK are the same call with the other two `NewFrame` values.
      */
-    fun heldAfterDrag(board: Board, frameId: String, dxPx: Float): Int
+    fun addAfter(
+        doc: JbDocument,
+        boardId: String,
+        afterFrameId: String?,
+        mode: NewFrame,
+        ids: () -> String,
+    ): AnimResult = AnimOps.addFrame(doc, boardId, afterFrameId, mode, ids)
+
+    /** The `−`: `AnimOps.deleteFrame` verbatim, including its refusal in words on a one-frame board. */
+    fun delete(doc: JbDocument, boardId: String, frameId: String): AnimResult =
+        AnimOps.deleteFrame(doc, boardId, frameId)
+
+    /**
+     * The edge drag, COMMITTED: [dxPx] is the TOTAL screen offset since the finger went down,
+     * positive right. The step is `round(dxPx / tickPx)` with ties away from zero and the new hold is
+     * `holdAtDown + step`; the clamp is `AnimOps.setHold`'s and this class reads `holdFrames` back out
+     * of the document that comes back. **This class holds no copy of 1 and no copy of 999.**
+     */
+    fun setHoldByDrag(
+        doc: JbDocument,
+        boardId: String,
+        frameId: String,
+        holdAtDown: Int,
+        dxPx: Float,
+    ): JbDocument
+
+    /**
+     * The long-press menu's HOLD ±1 on one entry: `setHold(hold + delta)`, read back the same way.
+     * One code path with [setHoldByDrag] (Decision 13).
+     */
+    fun setHoldByBump(
+        doc: JbDocument,
+        boardId: String,
+        frameId: String,
+        holdAtDown: Int,
+        delta: Int,
+    ): JbDocument
+
+    /** The hold of [frameId] in [doc], which is how "read it back" is spelled. */
+    fun holdOf(doc: JbDocument, boardId: String, frameId: String): Int
+
+    /**
+     * The playhead one step along, for the strip's own prev/next. Clamped at the ends and **never
+     * wrapped** — wrapping is playback's business and the strip is not playback (Decision 12).
+     */
+    fun stepPlayhead(frameId: String?, delta: Int): String?
 
     companion object {
-        /** Screen px per tick before density. 44 dp — the house touch floor. */
-        const val TICK_PX_BASE: Float = 88f
-        /** Edge grab depth before density, screen px. 12 dp either side of the edge's centre. */
-        const val EDGE_GRAB_BASE: Float = 24f
+        /** Screen px per tick, in DP. Density is applied at the use site (R32). */
+        const val TICK_PX_DP: Float = 44f
+
+        /**
+         * How deep the edge grab zone is, in DP, to the LEFT of a frame's right edge. Density is
+         * applied at the use site (R32). 24, not 12: the zone is ONE-SIDED (Decision 6), so 24 dp of
+         * depth is what the old "12 dp either side of the edge" constant became — see Decision 5.
+         */
+        const val EDGE_GRAB_PX_DP: Float = 24f
     }
 }
 ```
 
 ```kotlin
-// joybrush/androidkit/src/main/kotlin/.../androidkit/anim/FilmStripView.kt
-class FilmStripView(context: Context) : View(context) {
-    /** Thumbnail per frame id, or null for a frame the host has not rendered yet. */
-    fun setThumbnail(frameId: String, bitmap: Bitmap?)
-    fun setBoard(board: Board)
-    fun setPlayhead(frameId: String?)
-    fun setOnion(on: Boolean, past: Int, future: Int)
-    fun interface OnAction { fun onAction(a: Action) }
-    fun setOnAction(l: OnAction?)
+// same file, second half: the gesture. It is HERE, not in the view, because three of the strip's
+// rules (decided once at finger-down; a second finger cancels; one document write per gesture) are
+// only checkable if something other than a View owns the gesture.
+
+/** What a finger-down has hold of, decided ONCE. See Decision 7. */
+sealed class Grab {
+    /** An edge: the frame whose right edge is being dragged, and its hold at finger-down. */
+    data class Edge(val frameIndex: Int, val holdAtDown: Int) : Grab()
+
+    /** Not an edge — the finger is scrubbing to whichever frame is under it. */
+    object Scrub : Grab()
 }
 
-sealed class Action {
-    object Play : Action()
-    object Next : Action()
-    object Previous : Action()
-    data class AddBlank(val afterFrameId: String) : Action()
-    data class AddDuplicate(val afterFrameId: String) : Action()
-    data class AddLink(val afterFrameId: String) : Action()
-    data class Delete(val frameId: String) : Action()
-    data class SetHold(val frameId: String, val holdFrames: Int) : Action()
-    data class ScrubTo(val frameId: String) : Action()
-    data class LongPressMenu(val frameId: String) : Action()
+/** What a lift, or a second finger, produces. Nothing here is a view type. */
+sealed class StripStep {
+    /** The playhead moves. Session state, not a document: no document is produced. */
+    data class PlayheadTo(val frameId: String) : StripStep()
+
+    /**
+     * The hold changed. [doc] is a NEW document; the one the gesture was given is untouched and is
+     * still what the undo stack holds. There is exactly ONE of these per gesture.
+     */
+    data class HoldChanged(val doc: JbDocument, val frameId: String, val holdFrames: Int) : StripStep()
+
+    /** A second finger, or a lift that changed nothing. The document is not touched at all. */
+    object Nothing : StripStep()
+}
+
+/**
+ * One finger's gesture on the strip. Pure: it holds the document it was GIVEN and the x it went down
+ * at, and every answer is a function of those. It never mutates, never asks a clock and never
+ * decides anything twice.
+ */
+class FilmStripGesture(
+    val doc: JbDocument,
+    val boardId: String,
+    val density: Float = 1f,
+) {
+
+    /** A finger-down at strip coordinate [xPx]. Decides edge-grab vs scrub ONCE, for the whole gesture. */
+    fun down(xPx: Float): Grab
+
+    /**
+     * The frame a move to [xPx] would playhead to, for a SCRUB. A non-finite [xPx] returns the frame
+     * last published, so a pointer that has not reported a position moves nothing (Decision 6).
+     */
+    fun previewFrameAt(xPx: Float): Int
+
+    /**
+     * The hold a lift at [xPx] would commit, for an EDGE GRAB, WITHOUT committing it: the live
+     * preview the cell width is drawn from. The document is not touched.
+     */
+    fun previewHoldAt(xPx: Float): Int
+
+    /** The lift. The ONE place a gesture writes, and only for an edge grab. */
+    fun up(xPx: Float): StripStep
+
+    /** A second finger. [StripStep.Nothing], always — the gesture is over and nothing was written. */
+    fun cancel(): StripStep = StripStep.Nothing
 }
 ```
 
 ## Decisions
 
-1. **The playhead is a frame ID, and every operation re-anchors it by ID before it re-anchors by
-   index.** Deleting the frame the playhead is on moves the playhead to **the frame now at the
-   deleted frame's old index**, or to the new last frame if the deleted one WAS the last.
-   Deleting any OTHER frame leaves the playhead alone, by ID, whatever the indices did.
-   *Why:* the playhead is a frame, and an index is a position that a delete has just renumbered.
-   An index playhead lands one frame past the end of a board whenever the frame before it is
-   deleted, and this is the exact off-by-one the project keeps shipping.
-2. **The strip NEVER asks `PlaybackClock` anything.** It maps x → frame and frame → cell, and
-   nothing else. It never sleeps, never holds a clock and never calls `nextChangeMs`. *Why:*
-   JB-3.05a Questions §4 — at a backward boundary `nextChangeMs` is an **infimum**, so "sleep until
-   `nextChangeMs` and ask again" spins forever at every falling edge of a PING_PONG leg. A scrub is
-   a finger's position, not a time, and keeping the two apart is what stops the strip from
-   inheriting that trap when the player lands. **If JB-3.05 ever drives a playhead marker along this
-   strip, the marker is drawn from `frameIndexAt` and the wake is scheduled with a frame comparison,
-   never with `nextChangeMs` alone.**
-3. **Cell width is `holdFrames × tickPx`, and `tickPx` is 44 dp × density.** A one-tick frame is
-   44 dp — pressable, and the same floor the peg bar uses. A ten-tick frame is 440 dp and the strip
-   scrolls. *Why:* a cell that does not scale with its hold would not be showing the hold at all,
-   which is the entire premise.
+1. **The playhead is a frame ID, and a delete re-anchors it by ID before it re-anchors by index.**
+   Deleting the frame the playhead is on moves it to **the frame now at the deleted frame's old
+   index**, or to the new last frame if the deleted one WAS the last. Deleting any OTHER frame leaves
+   the playhead alone, by ID, whatever the indices did. *Why:* the playhead is a frame, and an index
+   is a position a delete has just renumbered. An index playhead lands one frame past the end of a
+   board whenever the frame before it is deleted, and this is the exact off-by-one the project keeps
+   shipping. Tests 16 and 17.
+2. **The strip's x axis is ticks, and no millisecond appears in this file.** `cellWidth` is
+   `holdFrames × tickPx`; `cellLeft` is the sum of the widths before it. *Why:* the cell is the hold —
+   that is the premise — and a millisecond-proportional strip would make the width a function of the
+   board's fps, so the same hold would be a different number of pixels on a different board. Test 2
+   pins the difference at 24 fps, where the two answers are 44 and 22.
+3. **Density is applied at the use site, and the constants are in DP (R32).** `TICK_PX_DP = 44f`,
+   `EDGE_GRAB_PX_DP = 24f`; `tickPx` and `edgeGrabPx` multiply by the `density` the strip was built
+   with. *Why:* a `const` cannot be "already × density" — density is a runtime value. The old spec
+   declared `TICK_PX_BASE = 88f` as "already × density" while also calling it 44 dp, which is both
+   impossible and twice the size.
 4. **A frame held 999 ticks is 43 956 dp wide and the strip still lays it out.** No cap on the drawn
-   width; the cap is on the hold (`AnimOps.setHold` clamps 1..999) and the strip scrolls. *Why:*
-   clamping the drawn width would make a long-held frame look short, which is a lie.
-5. **`frameAt` is HALF-OPEN, `[cellLeft(i), cellLeft(i) + cellWidth(i))`.** The exact pixel on a
+   width; the cap is on the hold (`AnimOps.setHold` clamps 1..999, a private number this file does not
+   copy) and the strip scrolls. *Why:* clamping the drawn width would make a long-held frame look
+   short, which is a lie. Test 4.
+5. **The edge grab zone is 24 dp deep and ONE-SIDED — to the left of the edge, including the edge.**
+   *Why:* two sides would put frame *i*'s left-edge zone on top of frame *i−1*'s right-edge zone at
+   every interior boundary, and the winner would have to be decided by an arbitrary tie. One zone, no
+   tie. **The 24 is the Lead's number, not R32's:** R32 lists "edge grab 12 dp", which is the old
+   constant's *half* — the old spec's zone was 24 px wide and CENTRED ("12 dp either side of the
+   edge's centre"), so `edgeAt(44.001f)` would have been 0. The Lead's corrected numbers say
+   `edgeAt(44.001f) = −1`, which is one-sided, and `edgeAt(20f) = 0`, which is 24 deep. Both cannot be
+   true of a 12 dp zone, so the review's expected values govern and the constant is 24. **Q1.**
+6. **`frameAt` is HALF-OPEN, `[cellLeft(i), cellLeft(i) + cellWidth(i))`.** The exact pixel on a
    boundary belongs to the frame that STARTS there. Before the strip → frame 0; past the end → the
-   last frame; a non-finite x → the last frame. *Why:* the same rule as `AnimOps.frameAt` and as
-   `PlaybackClock.slotAt`. Three implementations of "which frame is showing" that disagree by one
-   frame at a boundary is exactly the failure this project has already paid for twice.
-6. **`edgeAt` grabs only to the LEFT of a frame's right edge, `in [edgeLeft − edgeGrabPx,
-   edgeLeft]`, and the zone INCLUDES the edge.** There is no "left edge" grab zone at all, so the
-   two zones can never overlap and no tie-break is needed. *Why:* a left-edge zone would overlap the
-   previous frame's right-edge zone at every interior boundary and the winner would have to be
-   decided by an arbitrary tie. One zone, no tie.
-7. **A finger-down is an EDGE GRAB if `edgeAt(x) >= 0`, otherwise a SCRUB — and that decision is made
-   ONCE, at finger-down, and never revisited for the life of the gesture.** *Why:* a gesture that
-   changes what it means halfway is how a scrub becomes an accidental hold change. The blueprint's
-   rule for the whole app: a mode is fixed at `begin` (JB-3.08a Decision 3 is the same rule for the
-   same reason).
-8. **The edge drag's new hold is computed by CALLING `AnimOps.setHold` and reading
-   `holdFrames` back out of the document it returns.** `FilmStrip` contains **no copy of 999** and
-   no copy of 1. *Why:* `MAX_HOLD_FRAMES` is `private` in `AnimOps`, so a local copy could drift and
-   nothing could catch it — the same trap R19 already fixed once for `SizeOpacityDrag.MAX_SIZE`.
-   Reading back also means the drawn width is always the width the model will keep, even when the
-   model clamped.
-9. **The drag's step is `round(dxPx / tickPx)` with ties away from zero**, and the new hold is
-   `holdAtDown + step`. Ties away from zero, deliberately **not** Kotlin's `round` (ties-to-even) —
-   the same ruling and the same reason as `SpriteGridMath.dragEdge`'s `roundedPx`, and for the same
-   reason: a person dragging under a finger expects the value it looks nearest, and 0.5 px is a tie
-   only by arithmetic. *Why:* one rounding idiom in the project, not two.
-10. **Dragging LEFT past the frame's own start clamps to 1 and the cell stops shrinking.** Dragging
-    right past 999 clamps to 999. Both are read back from the document (Decision 8), so the cell
-    stops moving and the finger keeps going — the strip is showing the model's answer, not a
-    number it invented. *Why:* silent clamping is the house no; a *visible* clamp that comes from
-    the model is the model being honest.
-11. **A second finger cancels the whole strip gesture.** During a scrub, the second finger's arrival
-    ends the gesture with **no** frame change committed and the playhead where it was. During an edge
-    drag it ends the gesture with **no** `SetHold` — the document is untouched, so the drag can be
-    simply abandoned. *Why:* the house rule for a second finger is already written down twice (JB-0.07
-    cancels a finger stroke; JB-2.02 hands the stream to the gesture machine) and the strip is no
-    exception. A second finger is a palm, or a pinch, and neither means "change my frame".
-12. **A `+` TAP adds a BLANK frame. The LONG-PRESS opens a menu with three items: Blank, Duplicate,
-    Link.** Blank is the tap because it is the one that cannot be wrong, and Duplicate is one
-    long-press away because it is the one people want most. *Why:* the blueprint lists "± buttons to
-    add/duplicate/extend/delete" and does not rank them; ranking is a product decision and this is
-    mine to make provisionally (Q2).
-13. **"Extend" is the drag, not a button.** The menu's hold item is `Hold +1` / `Hold −1`, which is
-    the *accessible* version of the drag for anyone who cannot drag an edge, and it goes through the
-    same `AnimOps.setHold` and the same read-back. One code path, two affordances. *Why:* two
-    affordances for one number is right; two code paths for one number is how they drift.
-14. **Delete is `jb_state_destroy` filled, and it is refused in words when the board has one frame**
-    — `AnimOps.deleteFrame` already throws for exactly that, and the strip's `−` is **disabled**
-    (not silent) when `board.frames.size == 1`, because a control that is visibly dead teaches and
-    a control that is silently dead is a bug report. *Why:* refuse in words, do not clamp.
-15. **The strip scrolls horizontally and the playhead is kept visible by the HOST after every
-    change**, not by the strip mid-gesture. *Why:* auto-scrolling during a drag moves the pixels
-    under a finger, and the drag is the one gesture in this app that must be perfectly still.
-16. **Sprockets are drawn in the strip's top and bottom rails, 4 per cell at a fixed spacing, and
-    they do NOT scale with the cell.** Real film has four perforations per frame regardless of how
-    long the frame is held — a held frame is *the same frame held longer*, not more frames. *Why:*
-    this is what "sprockets should do what sprockets do" (blueprint §1 idea 10) means, and it is the
-    one place where a decorative scaling would be actively misleading about the timing.
-17. **The playhead wears `jb_state_live` as a 2.5 dp ring; onion ghosts are JB-3.04's and the strip
-    only shows their frame indices in the rails.** *Why:* a coloured ring already means a state
-    (D.01), and the live ring is the one state this board owns.
-18. **The `±` button is drawn at each cell's LEFT cap**, not its right, so it never sits under the
-    drag zone (Decision 6) and can never be mistaken for an edge. *Why:* the edge is the special
-    gesture on this strip; nothing else may live where the edge is.
+   last frame; a non-finite x → the last frame. *Why:* the same rule as `AnimOps.frameAt`
+   (`starts[i] <= timeMs`, breaking at the first start past it) and as `PlaybackClock.slotAt`. Three
+   implementations of "which frame is showing" that disagree by one frame at a boundary is exactly the
+   failure this project has already paid for twice. Tests 5, 6 and 9.
+7. **A non-finite coordinate is never an edge and never moves a scrub.** `edgeAt(NaN) = −1` (a NaN is
+   not inside any zone), and the gesture's `previewFrameAt` returns the frame it last published rather
+   than `frameAt`'s "last frame" answer. *Why:* `SpriteGridMath.cellAt` already answers −1 for a
+   non-finite point and says why — "a pen that reports NaN during a lift must not select a cell". A
+   pointer that has not reported a position must not move a playhead either. `frameAt` keeps the total
+   "last frame" answer because it is a pure lookup with no state to protect.
+8. **A gesture is EDGE or SCRUB, decided ONCE at finger-down and never revisited.** *Why:* a gesture
+   that changes what it means halfway is how a scrub becomes an accidental hold change. The blueprint's
+   rule for the whole app: a mode is fixed at `begin` (JB-3.08a Decision 3 is the same rule for the same
+   reason). Test 20 — the most important test in the file.
+9. **A second finger cancels the whole strip gesture** (Decision 11 of the old spec, kept). During a
+   scrub the second finger ends the gesture with no playhead move committed; during an edge drag it
+   ends it with **no** `setHold` — the document was never touched, so the drag is simply abandoned.
+   *Why:* the house rule is already written down twice (JB-0.07 cancels a finger stroke; JB-2.02 hands
+   the stream to the gesture machine) and the strip is no exception. A second finger is a palm or a
+   pinch, and neither means "change my frame". Tests 19–20.
+10. **The edge drag is measured from the finger-down and committed ONCE, on the lift.** `previewHoldAt`
+    is live and writes nothing; `up` produces the single `HoldChanged` for the whole gesture.
+    *Why:* a document write per move would put one entry per frame of dragging on the undo stack, and
+    a person who drags to a hold and then moves one pixel back would have to undo twice to get where
+    they started. The old spec's `heldAfterDrag` was a pure query with no way to commit at all, which
+    is why this needed deciding. Tests 21 and 22 pin it.
+11. **The new hold is computed by CALLING `AnimOps.setHold` and reading `holdFrames` back out of the
+    document it returns.** `FilmStrip` contains **no copy of 999 and no copy of 1.** *Why:*
+    `MAX_HOLD_FRAMES` is `private` in `AnimOps` (`AnimOps.kt:100`), so a local copy could drift and
+    nothing could catch it — the same trap R19 already fixed for `SizeOpacityDrag.MAX_SIZE`. Reading
+    back also means the drawn width is always the width the model will keep, even when the model
+    clamped. Test 13, and **J2**.
+12. **The step is `round(dxPx / tickPx)` with ties away from zero, and the new hold is
+    `holdAtDown + step`.** Deliberately **not** `kotlin.math.round`, which is ties-to-even. *Why:* one
+    rounding idiom in the project, not two — this is the same ruling and the same reason as
+    `SpriteGridMath.roundedPx` (`SpriteGridMath.kt:321-328`, `floor(v+0.5)` / `ceil(v−0.5)`), and a
+    person dragging under a finger expects the value it looks nearest. Half a tick is 22 px at density
+    1, so the tie is a real one and not a hypothetical. Test 11.
+13. **A cell is dragged to 1 by dragging left and to the model's own 999 by dragging right, and both
+    clamps are read back from the document.** The cell stops moving and the finger keeps going. *Why:*
+    silent clamping is the house no; a *visible* clamp that comes from the model is the model being
+    honest. Tests 12 and 13.
+14. **`+` is ONE control with two answers (R33): a TAP adds a DUPLICATE frame, a LONG-PRESS opens a
+    menu of Blank / Link / Hold ± / Delete.** *Why:* R33 rules it, and the reason is in R33: duplicate
+    is what animators do most and FlipaClip — the app the blueprint names — is the reference. The old
+    spec had tap = blank on the reasoning that "blank cannot be wrong"; that is overruled. Every one of
+    the four menu items is a model call this spec now provides, so the menu is four tested operations
+    and no new code. **The phone check R33 attaches: if the owner finds duplicate surprising, it is one
+    constant** (`NewFrame.DUPLICATE` in `addAfter`'s one call site). Tests 14 and 15.
+15. **Delete is `jb_state_destroy` filled and is REFUSED IN WORDS when the board has one frame.**
+    `AnimOps.deleteFrame` throws `DocException` for exactly that, so `canDelete()` is false in exactly
+    the same case and the view can disable the control — visibly, not silently. *Why:* refuse in words,
+    do not clamp; and a control that is visibly dead teaches, while one that is silently dead is a bug
+    report. Test 23.
+16. **The strip's only stepper is prev/next, and it does not wrap (R33).** The peg bar owns PLAY and
+    MODE, so there is one saturated control, not two. `Action.Play` is deleted from this spec's
+    vocabulary and is not in any form in the core half. *Why:* two play buttons on one screen is the
+    thing R33 exists to prevent. Test 24.
+
+### Cut Decisions — these rulings travel to the view half and must not be re-argued
+
+- **C1 (old D15).** The strip scrolls horizontally and the playhead is kept visible by the **host**
+  after every change, never by the strip mid-gesture. *Why:* auto-scrolling during a drag moves the
+  pixels under a finger, and the drag is the one gesture in this app that must be perfectly still.
+- **C2 (old D17).** The playhead wears `jb_state_live` as a 2.5 dp ring; onion ghosts are JB-3.04's
+  and the strip only reserves the rails for their frame indices. *Why:* a coloured ring already means a
+  state (D.01).
+- **C3 (R33).** **Strip thumbnails are JB-3.03b, not this row.** This row's strip shows **numbered
+  cells** and the host may supply bitmaps. *Why:* a GL read path means touching the engine R14 just
+  stabilised, and a CPU render is a memory-budget decision on a phone. Both are the Lead's, both are
+  questions about a phone, and neither is this builder's.
+- **C4 (old D16).** Sprockets are drawn in the top and bottom rails, 4 per cell at a fixed spacing, and
+  they do **not** scale with the cell. *Why:* real film has four perforations per frame however long
+  the frame is held — a held frame is the same frame held longer, not more frames — and a decorative
+  scaling would be actively misleading about the timing.
+- **C5 (old D18).** The `+` cap is drawn at each cell's LEFT cap, not its right. *Why:* the edge is the
+  special gesture on this strip; nothing else may live where the edge is, or it can be mistaken for one.
 
 ## Decision → Test map (every Decision is checkable)
 
 | Decision | Pinned by |
 |---|---|
-| 1 (playhead is an ID) | `deletingTheFrameUnderThePlayheadMovesItToTheFrameThatReplacedIt`, `deletingTheLastFrameLeavesThePlayheadOnTheNewLast`, `deletingAnyOtherFrameLeavesThePlayheadAlone` |
-| 2 (no clock) | `theStripNeverConsultsThePlaybackClock` — the file's import list and public API contain no `PlaybackClock`; asserted by reflection over the class's declared methods |
-| 3 (width = hold × tick) | `aCellIsAsWideAsItsHold` (holds 1/2/3/10 on a 12 fps board), `aOneTickFrameIsTheTouchFloor` |
-| 4 (999 draws) | `aNineHundredAndNinetyNineTickFrameStillDrawsItsWholeWidth` |
-| 5 (half-open) | `thePixelOnABoundaryBelongsToTheFrameThatStartsThere`, `beforeTheStripIsFrameZero`, `pastTheEndIsTheLastFrame`, `aNaNXIsTheLastFrame` |
-| 6 (one zone, left of the edge) | `anEdgeIsGrabbedFromItsLeftOnly`, `theEdgeItselfIsInsideItsOwnZone`, `thereIsNoLeftEdgeZoneSoTwoZonesCannotOverlap` |
-| 7 (decided at down, never revisited) | `aDragThatCrossesAnEdgeMidGestureDoesNotBecomeAnEdgeGrab` |
-| 8 (no local 999) | `theStripHasNoCopyOfTheHoldClamp` — reflection over `FilmStrip.Companion` constants, plus a test that a 5000-tick drag reads back 999 |
-| 9 (ties away from zero) | `theDragStepRoundsTiesAwayFromZero` (the ±0.5 case the reviewer found missing in 4.01a) |
-| 10 (clamps visibly) | `draggingLeftStopsAtOneTickAndTheCellStopsShrinking`, `draggingRightStopsAtTheModelsOwnLimit` |
-| 11 (second finger cancels) | `aSecondFingerEndsAScrubWithNothingCommitted`, `aSecondFingerEndsAnEdgeDragWithNoHoldChange` |
-| 12 (tap = blank, hold = menu) | `theAddButtonAddsBlankOnATap` |
-| 13 (one hold code path) | `theMenuHoldButtonAndTheEdgeDragProduceTheSameHold` |
-| 14 (delete disabled at one frame) | `theDeleteButtonIsDeadOnAOneFrameBoardAndTheModelAlsoRefuses` |
-| 15 (no auto-scroll mid-gesture) | `theStripDoesNotScrollWhileADragIsInProgress` |
-| 16 (sprockets fixed) | `sprocketCountIsFourPerFrameAndDoesNotScaleWithTheHold` |
-| 17 (playhead ring) | `thePlayheadIsARingInTheLiveColourAndNotAFill` |
-| 18 (± on the left cap) | `theAddButtonIsOnTheLeftCapSoItIsNeverInTheEdgeZone` |
+| 1 (playhead is an ID) | 16, 17 |
+| 2 (ticks, not ms) | 1, 2, 25 |
+| 3 (dp × density) | 3, 7 |
+| 4 (999 draws) | 4 |
+| 5 (one-sided, 24 deep) | 7, 8 |
+| 6 (half-open) | 5, 6, 9 |
+| 7 (non-finite moves nothing) | 6, 10 |
+| 8 (decided at down) | 20 |
+| 9 (second finger cancels) | 18, 19 |
+| 10 (one write, on the lift) | 21, 22 |
+| 11 (no copy of the clamp) | 13, **J2** |
+| 12 (ties away from zero) | 11 |
+| 13 (visible clamps) | 12, 13 |
+| 14 (`+` tap = duplicate) | 14, 15 |
+| 15 (delete refused in words) | 23 |
+| 16 (prev/next, no wrap, no play) | 24 |
+| — (the seam: no clock, ever) | **J1** |
 
 ## Tests
 
-`joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/anim/FilmStripTest.kt`
+### `commonTest` — `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/anim/FilmStripTest.kt`
 
-Fixture: a 12 fps ANIMATION board with holds `[1, 2, 1, 3]` and frame ids `f0..f3`, built with
-`DocOps.newDocument` + `AnimOps`, exactly as `PlaybackClockTest` builds its own. **All boundaries are
-taken by indexing `AnimOps.frameStartsMs(board)`, and the end of the board is
-`AnimOps.totalDurationMs(board)` — never by accumulating `hold * 1000 / fps`.** That is the rule the
-whole file runs on and it is written into the file's own KDoc.
+**Fixture** (copied from `AnimOpsTest.kt:55-74`, which is the fixture `PlaybackClockTest` and the rest
+of the row use — same shape, one ANIMATION board `b-anim` at 12 fps, one PAINT layer `l-anim` animated
+in it, every frame showing cel `c-anim`):
 
-1. `aCellIsAsWideAsItsHold` at density 1 (`tickPx` 88): f0 = 88, f1 = 176, f2 = 88, f3 = 264, and
-   `cellLeft` = 0, 88, 264, 352. Strip width 616 = the sum, and it is **not** proportional to
-   `totalDurationMs` unless the fps is 12 — assert that explicitly, because a strip that sized cells
-   by wall time instead of by ticks would pass the first assertion and fail this one.
-2. `aOneTickFrameIsTheTouchFloor` at density 3: `tickPx` = 264, so a 1-hold cell is 264 screen px.
-3. `aNineHundredAndNinetyNineTickFrameStillDrawsItsWholeWidth`: `setHold(999)` then `cellWidth` =
-   88 912 — no cap, no exception.
-4. `thePixelOnABoundaryBelongsToTheFrameThatStartsThere`: `frameAt(88.0f)` = 1, `frameAt(87.999f)`
-   = 0, `frameAt(263.999f)` = 1, `frameAt(264.0f)` = 2. Every one of the four, because a boundary
-   tested from one side only is a boundary that can be off by one in the direction nobody looked.
-5. `beforeTheStripIsFrameZero` / `pastTheEndIsTheLastFrame` / `aNaNXIsTheLastFrame`:
-   `frameAt(-1f)` = 0, `frameAt(1e9f)` = 3, `frameAt(NaN)` = 3, `frameAt(+∞)` = 3.
-6. `anEdgeIsGrabbedFromItsLeftOnly` with `edgeGrabPx` = 24: `edgeAt(88f)` = 0 (the edge itself is
-   inside), `edgeAt(64f)` = 0, `edgeAt(87.999f)` = 0, `edgeAt(88.001f)` = **−1**. And `edgeAt(0f)`
-   = −1, because the strip's left end is not a frame's right edge.
-7. `thereIsNoLeftEdgeZoneSoTwoZonesCannotOverlap`: for every pair of consecutive frames, the grab
-   zones are disjoint **as sets** — assert `edgeAt` is a function (each x yields one answer, and the
-   two zones never both contain it) across 2000 probes over the whole strip.
-8. `theDragStepRoundsTiesAwayFromZero`: at density 1, a drag of exactly `tickPx / 2` = 44 px adds
-   **+1**, and −44 px subtracts **1**. `kotlin.math.round` would give 0 for both (ties-to-even) — the
-   test says so in its comment, because that is the difference between this test and a tautology.
-9. `draggingLeftStopsAtOneTickAndTheCellStopsShrinking`: f1 (hold 2) dragged −1000 px → hold 1, and
-   `cellWidth` then equals 88, unchanged by a further −1000 px.
-10. `draggingRightStopsAtTheModelsOwnLimit`: f0 dragged +10 000 px → `setHold` returns a document
-    whose `f0.holdFrames` is **999**, and the test asserts against `AnimOps`, not a literal in this
-    file. (If `MAX_HOLD_FRAMES` ever moves, this test follows it and
-    `theStripHasNoCopyOfTheHoldClamp` is the one that notices a second copy appearing.)
-11. `theMenuHoldButtonAndTheEdgeDragProduceTheSameHold`: `heldAfterDrag(board, "f0", 3f × tickPx)`
-    and `setHold(board, "f0", 4)` produce byte-equal documents.
-12. `deletingTheFrameUnderThePlayheadMovesItToTheFrameThatReplacedIt`: 4 frames, playhead on `f1`;
-    delete `f1` → playhead `f2` (the frame now at index 1), **not** `f3`.
-13. `deletingTheLastFrameLeavesThePlayheadOnTheNewLast`: playhead on `f2`, delete `f3` → playhead is
-    still `f2` (unchanged, by ID).
-14. `deletingAnyOtherFrameLeavesThePlayheadAlone`: playhead on `f3`, delete `f0` → `f3`, and the
-    test also checks it against a *renumbered index* (which would say 2) so the difference is named.
-15. `aSecondFingerEndsAScrubWithNothingCommitted`: the strip's `Action.ScrubTo` fires for frames 0
-    and 1, the second finger lands, a further move over frame 3 fires **nothing**, and the board
-    equals the board at finger-down. Structural assertions, not generation counters.
-16. `aDragThatCrossesAnEdgeMidGestureDoesNotBecomeAnEdgeGrab`: finger-down at x = 500 (not in any
-    zone), drag to x = 90 (which IS frame 0's edge zone) → still a scrub, still `ScrubTo`, never a
-    `SetHold`. This is Decision 7 and the most important test in the file.
-17. `theAddButtonAddsBlankOnATap` / `addLink` shares a cel: `addLink` produces a board with one more
-    frame and **no** new cel and no `CopyCel`; `addDuplicate` produces a new cel and a `CopyCel`.
+```kotlin
+private fun fixture(frames: List<Frame>): JbDocument   // exactly AnimOpsTest's, with these frames
+private fun JbDocument.board(id: String = "b-anim"): Board = boards.first { it.id == id }
+private fun JbDocument.frame(id: String): Frame = board().frames.first { it.id == id }
+```
+
+The board under test is **holds `[1, 2, 1, 3]`, frame ids `f0..f3`, 12 fps**, at **density 1** unless a
+test says otherwise. Those seven numbers are the whole of test 1 and every other test reads them off it.
+
+**Every expected value below is DERIVED and the derivation is in the test's own comment.** A test that
+cannot say where its number came from is a test that gets "fixed" to match whatever the code did.
+
+1. `aCellIsAsWideAsItsHold` — density 1, so `tickPx` = 44 × 1 = 44. `holdFrames × 44`:
+   f0 = **44**, f1 = **88**, f2 = **44**, f3 = **132**. `cellLeft` = **0, 44, 132, 176** (0; 0+44;
+   44+88; 132+44). `stripWidth()` = **308**, asserted as the sum AND as `cellLeft(3) + cellWidth(3)`.
+2. `aCellIsNotSizedByWallTime` — the same board at **24 fps** instead of 12. The fps has no effect on
+   the strip: `cellWidth(3)` is still **132**, because a tick is 44 dp and not a duration. The comment
+   names the other answer: frame 3 is 250 ms at 12 fps and 125 ms at 24 fps, so a millisecond-proportional
+   strip would have given 264 and 132, and 132 is the number that must NOT be a coincidence of 12 fps.
+3. `aOneTickFrameIsTheTouchFloorAtEveryDensity` — density 1 → 44; density 2.5 → **110**; density 3 →
+   **132** (the Lead's number: 44 × 3). Three densities, because "44 dp" written once as a pixel is the
+   slip R32 exists to stop.
+4. `aNineHundredAndNinetyNineTickFrameStillDrawsItsWholeWidth` — `setHold(999)` through `AnimOps`
+   first, then `cellWidth` = 999 × 44 = **43 956** at density 1 and 999 × 132 = **131 868** at density 3.
+   No cap, no exception, no `Float` overflow. **The old spec's Decision 4 said 43 956 and its test 3
+   said 88 912 — the two contradicted each other inside one file, and 43 956 is the one the arithmetic
+   supports.**
+5. `thePixelOnABoundaryBelongsToTheFrameThatStartsThere` — the Lead's four, then the fourth boundary
+   nobody had looked at: `frameAt(44f) = 1`, `frameAt(43.999f) = 0`, `frameAt(131.999f) = 1`,
+   `frameAt(132f) = 2`, `frameAt(0f) = 0`, `frameAt(175.999f) = 2`, `frameAt(176f) = 3`. Every boundary
+   from both sides, because a boundary tested from one side only is a boundary that can be off by one
+   in the direction nobody looked.
+6. `beforeTheStripIsFrameZeroPastTheEndIsTheLastFrameAndANaNIsTheLastFrame` —
+   `frameAt(-1f) = 0`, `frameAt(1e9f) = 3`, `frameAt(Float.NaN) = 3`, `frameAt(Float.POSITIVE_INFINITY) = 3`.
+7. `anEdgeIsGrabbedFromItsLeftOnly` — `edgeGrabPx` = 24: `edgeAt(44f) = 0` (the edge is inside its own
+   zone), `edgeAt(20f) = 0` (24 dp to the left), `edgeAt(19.999f) = −1` (one thousandth further),
+   `edgeAt(44.001f) = **−1**` (one thousandth to the RIGHT — this is the value that proves the zone is
+   one-sided, and the old centred zone would have said 0), `edgeAt(0f) = −1` (the strip's left end is
+   not a frame's right edge), `edgeAt(307.999f) = 2` (f3's right edge is at 308 and its zone is
+   [284, 308]). **Assert all four numbers of the Lead's corrected list — 44 → 0, 20 → 0, 44.001 → −1,
+   0 → −1 — in that order, because `44.001` is the one that fails if the zone is the wrong shape.**
+8. `thereIsNoLeftEdgeZoneSoTwoZonesCannotOverlap` — 2000 probes spread over the whole strip at
+   density 1: every x yields exactly one answer, and for each interior boundary the two neighbouring
+   zones are disjoint **as sets** (probe `b − 0.001`, `b` and `b + 0.001` for each of 44, 132 and 176
+   and assert the three answers are `i−1`, `i`, `−1`).
+9. `theStripIsHalfOpenInExactlyTheSameWayTheModelIs` — for a range of probes, the frame the strip says
+   is under x is the frame whose cell STARTS there: assert `strip.frameAt(cellLeft(i)) == i` for every
+   i, which is the property a hit test is judged by (`SpriteGridMath.cellAt`'s own KDoc states the same
+   property for cells, as `cellAt(cellRect(i).topLeft) == i`).
+10. `aNonFiniteCoordinateIsNeitherAnEdgeNorAMove` — `edgeAt(NaN) = −1`, `edgeAt(−Inf) = −1`,
+    `edgeAt(+Inf) = −1`; and `down(NaN)` is `Grab.Scrub` whose `lastPublished` starts at
+    `frameAt(downX) = 3` and is returned unchanged by `previewFrameAt(NaN)` and `previewFrameAt(1e9f)`.
+    Nothing moves on a pointer that has not reported a position.
+11. `theDragStepRoundsTiesAwayFromZero` — at density 1 the half tick is 44 / 2 = **22 px**, so a drag of
+    exactly **+22** adds **+1** and **−22** subtracts **1**. `kotlin.math.round` would give 0 for both
+    (ties-to-even) and the test says so in its comment, because that is the difference between this test
+    and a tautology. Both directions, because "ties away from zero" is a claim about the negative side
+    too.
+12. `draggingLeftStopsAtOneTickAndTheCellStopsShrinking` — f1 (hold 2) dragged **−1000 px** → hold 1, and
+    the same gesture dragged **−2000 px** → still 1. `cellWidth(1)` is **44** in both cases.
+13. `draggingRightStopsAtTheModelsOwnLimit` — f0 dragged **+10 000 px** → the hold is **999**, asserted
+    AGAINST `AnimOps`, not against a literal in this file: build
+    `expected = AnimOps.setHold(doc, "b-anim", "f0", 12_345)` and assert the strip's read-back equals
+    `expected`'s `holdFrames`. If `MAX_HOLD_FRAMES` ever moves, this test follows it and **J2** is the
+    one that notices a second copy appearing.
+14. `theAddButtonDuplicatesTheFrameUnderIt` — the `+` tap: one more frame, one more `CelWork.CopyCel`
+    per animated layer, a NEW cel id, and `DocOps.validate(after.doc)` **empty** (assert the shape, then
+    the validation, in that order — a test that only checks the shape passes just as happily on a
+    broken document).
+15. `theMenuIsFourModelOperationsAndNothingElse` — BLANK: +1 frame, +1 cel, **no** `CelWork`; LINK: +1
+    frame, **no** new cel, no `CelWork`, and the layer's `frameCel` maps the new frame to the SAME cel
+    id as its source; HOLD ±: one code path (a `setHoldByBump(+1)` and a `setHoldByDrag(+tickPx)` from
+    the same hold produce `==` documents); DELETE: the frame is gone and so is the cel only it showed.
     `DocOps.validate` clean after each.
-18. `theDeleteButtonIsDeadOnAOneFrameBoardAndTheModelAlsoRefuses`: on a 1-frame board the strip
-    reports delete unavailable **and** `AnimOps.deleteFrame` throws — the two must agree, or the UI
-    is offering something the model will refuse.
-19. `aSecondFingerEndsAnEdgeDragWithNoHoldChange`: as 15, for the drag. The document is `==` the one
-    at finger-down, field for field.
-20. `sprocketCountIsFourPerFrameAndDoesNotScaleWithTheHold`: 4 sprockets for a 1-hold frame and
-    **4** for a 3-hold frame. (Not 12. The count is per frame, and the test says why.)
-21. `theStripNeverConsultsThePlaybackClock`: `FilmStrip::class.java.declaredMethods` and
-    `declaredFields` contain no reference to `PlaybackClock` or to `nextChangeMs`. This is the
-    mechanical form of Decision 2, and it is the test that would catch somebody "optimising" the
-    scrub through the clock later.
-22. `theStripHasNoCopyOfTheHoldClamp`: `FilmStrip.Companion` declares no `Int` constant; the only
-    numeric constants are `TICK_PX_BASE` and `EDGE_GRAB_BASE`. If a builder adds `MAX_HOLD = 999`
-    this test goes red, which is the entire point (R19's lesson about `MAX_SIZE_PX`).
-23. `theAddButtonIsOnTheLeftCapSoItIsNeverInTheEdgeZone`: the view's reported `±` rect for each
-    frame does not intersect that frame's grab zone `[edgeLeft − 24, edgeLeft]`, for every frame.
-24. `thePlayheadIsARingInTheLiveColourAndNotAFill` / `theStripDoesNotScrollWhileADragIsInProgress`:
-    asserted against the view's own reported layout, so they are checks on the drawing contract and
-    not on a comment.
+16. `deletingTheFrameUnderThePlayheadMovesItToTheFrameThatReplacedIt` — 4 frames, playhead on `f1`;
+    `AnimOps.deleteFrame` then `playheadAfterDelete(after, "f1", "f1")` = **"f2"** (the frame now at
+    index 1), **not** `f3`.
+17. `deletingTheLastFrameLeavesThePlayheadAloneAndSoDoesDeletingAnyOtherFrame` — playhead on `f2`,
+    delete `f3` → still `f2`; playhead on `f3`, delete `f0` → `f3`, and the test also computes the
+    *renumbered index* answer (2) so the difference is named rather than implied.
+18. `aSecondFingerEndsAScrubWithNothingCommitted` — `down(10)`, `previewFrameAt(44) = 1`, then
+    `cancel()`, then `previewFrameAt(176)` is still **answered** (3) and `up(176)` is `StripStep.Nothing`,
+    and the document the gesture holds is `===` the one it was given. `cancel()` is terminal, so the
+    `up` after it is a no-op rather than a late playhead move.
+19. `aSecondFingerEndsAnEdgeDragWithNoHoldChange` — `down(44)` is `Grab.Edge(0, holdAtDown = 1)`, move
+    to 200 (`previewHoldAt(200)` = 1 + round(156/44) = 5), `cancel()`, `up(200)` is `StripStep.Nothing`,
+    and the document is `===` the one at finger-down, field for field. The preview was 5 and the
+    document still says 1, which is the whole claim.
+20. `aDragThatCrossesAnEdgeMidGestureDoesNotBecomeAnEdgeGrab` — `down(200)`, which is in **no** zone
+    (the zones are [20,44], [108,132], [152,176] and [284,308]), so the grab is `Scrub`. Move to
+    **120**, which IS inside frame 1's zone, and `up(120)` is `PlayheadTo("f1")` and **no
+    `HoldChanged`**. This is Decision 8 and the most important test in the file.
+21. `theGestureWritesTheDocumentOnceAndOnlyOnTheLift` — an edge grab (`down(44)`) with FIVE moves
+    (50, 100, 90, 130, 194) then `up(194)`: exactly one `HoldChanged`, its `doc` is `==` to
+    `AnimOps.setHold(docAtDown, "b-anim", "f0", 4)`, and its `holdFrames` is 4. The COUNT is the point:
+    every one of the five `previewHoldAt` calls is answered and writes nothing.
+22. `aDragIsMeasuredFromTheFingerDownAndNotFromTheLastMove` — `down(44)`, moves to 50, 100, 150 and 194,
+    `up(194)`: the offset is 194 − 44 = **150**, the step is round(150/44) = **3**, the hold is **4**. The
+    comment names both wrong answers — summing the moves gives 10, and measuring from the last move
+    gives round(44/44) = 1 and a hold of 2 — because those are the two bugs this test exists to catch.
+23. `theDeleteButtonIsDeadOnAOneFrameBoardAndTheModelAlsoRefuses` — on a one-frame board `canDelete()`
+    is `false` **and** `assertFailsWith<DocException> { strip.delete(doc, "b-anim", "f0") }`. Both
+    halves, because a control that is offered when the model will throw is a bug report. On a two-frame
+    board both are true the other way.
+24. `aStepOfThePlayheadStopsAtTheEndsAndNeverWraps` — `stepPlayhead("f0", −1) = "f0"`,
+    `stepPlayhead("f3", +1) = "f3"`, `stepPlayhead("f1", +1) = "f2"`, and `stepPlayhead(null, +1) = "f0"`.
+    Wrapping would give `f3` for the first and is asserted not to.
+25. `theCellWidthIsUnchangedByEveryOtherBoardProperty` — the same frames at fps 6, 12, 24 and 60 and
+    every cell width is identical; and the strip's geometry is unaffected by the board's rect, the
+    number of layers and the fps. *Why:* the strip is a function of `frames` and `density` and nothing
+    else, and a test that says so is what stops somebody adding an fps term "for accuracy".
 
-Command: `./gradlew -p joybrush :core:jvmTest` — 0 failures.
+### `jvmTest` — `joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/anim/FilmStripNoSecondCopyTest.kt`
+
+**These two are here and not in `commonTest` because they use Java reflection** (`::class.java`),
+which is not available in a multiplatform `commonTest` source set. The same slip put source-level tests
+in `commonTest` in JB-1.07, JB-2.04, JB-2.12, JB-2.16, JB-2.17, JB-2.23 and JB-3.04; it is the Lead's
+slip 3 and it is a build failure, not a style note.
+
+**J1.** `theStripNeverConsultsThePlaybackClock` — `FilmStrip::class.java.declaredMethods` and
+`declaredFields`, and the same for `FilmStripGesture`, contain no reference to `PlaybackClock` or to
+`nextChangeMs`; and neither file declares an import of it. This is the mechanical form of the seam, and
+it is the test that would catch somebody "optimising" the scrub through the clock later.
+
+**J2.** `theStripHasNoCopyOfTheHoldClamp` — `FilmStrip.Companion.declaredFields` holds exactly two
+constants, `TICK_PX_DP` and `EDGE_GRAB_PX_DP`, both `Float`, both **44f and 24f**. If a builder adds
+`MAX_HOLD = 999` this goes red, which is the entire point (R19's lesson about `MAX_SIZE_PX`).
+
+**Non-vacuity the builder must run and paste:** (1) change `edgeAt`'s zone to be centred and watch
+**test 7** fail on `edgeAt(44.001f)`; (2) change the step to `kotlin.math.round` and watch **test 11**
+fail; (3) drop the read-back in `setHoldByDrag` and return `holdAtDown + step` directly, and watch
+**test 13** fail with a number over 999; (4) make `up` commit on every move and watch **test 21** fail
+on the count of `HoldChanged`; (5) make `down` re-decide the grab on every move and watch **test 20**
+fail. A helper that has never been seen wrong is a helper nobody can rely on.
+
+**Command:** `./gradlew -p joybrush :core:jvmTest` — `BUILD SUCCESSFUL`, 0 failures.
 
 ## Do not
 
-- **Do not call `PlaybackClock` from this file, or from the view.** Decision 2, and
-  `theStripNeverConsultsThePlaybackClock` is the test. Playback is JB-3.05.
-- Do not add a `MAX_HOLD_FRAMES`, a `MIN_HOLD_FRAMES` or any other copy of `AnimOps`' private
-  numbers. Call the model, read the answer back.
-- Do not re-derive `holdFrames * 1000.0 / fps` anywhere. `frameStartsMs` / `totalDurationMs`, indexed.
-- Do not auto-scroll during a gesture.
-- Do not draw onion ghosts. JB-3.04 owns them and this strip only reserves the rails.
-- Do not touch `AnimOps.kt`. It is called, never changed (its own spec's "Do not").
-- No hex literals — `JbColors.palette(context)` only.
+- **Do not call `PlaybackClock` from this file, or let any caller reach it through one.** The seam, and
+  **J1** is the test. Playback is JB-3.05 and it is Built.
+- Do not add a `MAX_HOLD_FRAMES`, a `MIN_HOLD_FRAMES`, or any other copy of `AnimOps`' private numbers.
+  Call the model, read the answer back.
+- **Do not multiply a duration by a pixel rate.** No millisecond appears in this file; the strip is in
+  ticks (Decision 2).
+- Do not re-implement `AnimOps.addFrame` / `deleteFrame` / `setHold` with a `Board` argument. They take
+  a `JbDocument` and a `boardId`; that is the landed signature and the contract above is pasted from it.
+- Do not put PLAY or MODE anywhere in this file. The peg bar owns them (R33), and `Action.Play` is
+  deleted, not deferred.
+- Do not add a second way to change a hold. The edge drag and the menu's `Hold ±` are one function
+  (Decision 13 of the old spec, kept).
+- Do not change what a gesture means halfway, and do not write a second time. One decision at `down`,
+  one write on lift.
+- Do not touch `AnimOps.kt`, `PlaybackClock.kt` or `FrameStepper.kt`. They are called, never changed.
+- Do not create `FilmStripView.kt` or touch `JoyBrushActivity.kt`. They are the view half and the Lead's.
+- No hex literals anywhere. `JbColors.palette(context)` only — and that is a view-half rule anyway.
 
 ## Definition of done
 
 - [ ] `./gradlew -p joybrush :core:jvmTest` output pasted, 0 failures
-- [ ] watcher `build.log` shows `:androidkit:compileKotlin` and `:joybrush-android:compileDebugKotlin` EXECUTED inside `BUILD SUCCESSFUL`
-- [ ] `git status --short` shows only the four owner-area paths
-- [ ] committed `JB-3.03: film strip`; ROADMAP row set by the Lead
+- [ ] the four non-vacuity runs pasted, each with the name of the test that went red
+- [ ] `git status --short` shows **only** the three owner-area paths
+- [ ] committed `JB-3.03: film strip core`; the ROADMAP row is the Lead's to set
+
+## Stop rule
+
+**Stop, set the row `⛔ Blocked`, and write the question in this file's Questions section — do not guess
+and do not widen the owner area — if any of these happen:**
+
+1. A signature in the "Contract" section above does not match the landed file it is pasted from
+   (`AnimOps.kt`, `AnimOps.addFrame`, `AnimOps.setHold`, `NewFrame`, `AnimResult`). The contract is
+   authoritative over this spec and this spec is wrong.
+2. A test's expected value cannot be derived from the numbers in this spec. That means a design
+   decision is missing, and a builder must not invent one.
+3. Making something pass would need an edit to `AnimOps.kt`, `PlaybackClock.kt`, `FrameStepper.kt`,
+   `DocModel.kt` or any file outside the three owner-area paths — **especially** `JoyBrushActivity.kt`,
+   which R30 reserves.
+4. `DocOps.validate` is unhappy with a document one of the five operations returned, and the cause is
+   in `AnimOps` rather than in the call. Report it; do not repair it.
+5. Anything here turns out to need an Android type, a `View`, a density read, or a file. That means the
+   scope is wrong, and the answer is a question, not an import.
 
 ## Questions
 
-_(Spec writer: openrouter/stealth/space-bunny-alpha, 2026-09-29. The maths and every gesture rule
-are decided and pinned. Two answers are needed and neither changes a single line of `:core`.)_
+_(Spec writer: openrouter/stealth/space-bunny-alpha, 2026-09-29. The core half is decided and pinned by
+25 `commonTest` cases and 2 `jvmTest` ones, plus five non-vacuity runs. **No question below blocks the
+build.** The old Q1 and Q2 are answered by R33 and restated above; the old Q3 is answered by the fact
+that `FrameStepper` is Built.)_
 
-### Q1 — for the Lead: where do the frame THUMBNAILS come from?
+### Q1 — for the Lead: the edge grab is 24 dp here and 12 dp in R32. One constant, but a phone question.
 
-`FilmStripView.setThumbnail(frameId, bitmap)` is a hole in this spec on purpose, and which module
-fills it decides whether this row is T2 or T1 and whether it can land at all.
+R32 lists the film's edge grab as **12 dp**. The review's corrected numbers for this row say
+**"Edge grab 24 dp one-sided"** and pin `edgeAt(20f) = 0` and `edgeAt(44.001f) = −1`. Both cannot be
+true of a 12 dp zone: with a 12 dp one-sided zone, 20 is 24 px from the edge and the answer is −1. My
+reading is that R32's 12 dp is the old constant's *half* — the old spec's zone was 24 px wide and
+CENTRED ("12 dp either side of the edge's centre"), which is a different shape from the one-sided zone
+Decision 6 rules, and 24 is the depth that one-sided shape has. **So the constant here is 24 dp
+one-sided, because the review's expected values are the authority and they only fit 24.**
 
-The three candidates, and what each costs:
+This is a **touch-target** question and therefore a phone question, so I have not decided it beyond
+"follow the review's numbers". If the Lead means a 12 dp depth, every value in tests 7 and 8 halves and
+`EDGE_GRAB_PX_DP` is the only thing that changes.
 
-- **(a) Read back from the GL engine.** `GlPaintEngine` already has a tile read path (`readTile`,
-  used by JB-0.08b's snapshot) but it has no "render this frame at this size" call, and adding one
-  means touching the T1 engine that R14 just stabilised. It is also the only option that is
-  free at draw time.
-- **(b) CPU render through `RegionRenderer`** (JB-2.13a, Built). It works today, needs no engine
-  change, and is correct by construction — the thumbnail is the export. It costs a
-  `w × h × 4` buffer per frame on the CPU, so a 40-frame board at 512² is 40 MB of transient
-  allocation on a background thread, and the region budget `MAX_REGION_PX` applies per frame.
-- **(c) No thumbnails in this row.** The strip draws numbered cells; the host supplies thumbnails
-  when it can. This makes JB-3.03 buildable and testable today and defers the whole question to
-  whoever wires the board to the engine.
+### Q2 — for the Lead: JB-3.03b has no spec, and the ROADMAP link to it is dead.
 
-**I would take (c) for JB-3.03 and open the thumbnail question as its own row**, because (a) is
-engine work in the one file this project has just been told to leave alone and (b) is a memory
-budget decision on a phone. But the row as written says "film strip", and a strip of numbered grey
-boxes is not what the owner pictured. **Ruling: (a), (b), or (c)?**
+R33 puts the strip's thumbnails in **JB-3.03b**. That row is on the board as `⚪ Outline` and points at
+`specs/JB-3.03b_strip_thumbnails.md`, **which does not exist on disk** — I checked. So today the strip
+shows numbered cells (Decision C3) and nobody can build the thumbnail row from a spec. **Recommend the
+Lead either open it or delete the link.** Until then this row does not depend on it and does not wait
+for it.
 
-### Q2 — for the Lead: what does a long-press on a frame open, and is tap-add-blank right?
+### Q3 — for the Lead, a warning rather than a question, and it is the same one as the old Q3.
 
-Decision 12 rules tap = add BLANK and long-press = a three-item menu (Blank / Duplicate / Link),
-plus `Hold ±1` and `Delete` on the same menu. The blueprint lists "± buttons to add/duplicate/extend/
-delete" without ranking them, and the ranking is a product decision I have made provisionally
-because leaving it blank is not an option.
-
-1. **Is blank the right tap?** FlipaClip's `+` duplicates by default. My reasoning was that blank is
-   the one that cannot be wrong and duplicate is one long-press away. If you would rather the tap
-   duplicate (matching the app the blueprint cites by name), that is one constant.
-2. **Should the menu be a sheet (`SheetKit`/`ObjectDrawer`, once `:studiokit` exists) or a plain
-   `AlertDialog`?** JB-2.13b's precedent is "a plain `AlertDialog` is fine — the real chrome restyles
-   it later". I have assumed that.
-3. **Should long-press on the frame BODY (not the `+`) open the same menu, or do something else?**
-   I ruled it opens the same menu for the frame under the finger, because a long-press on a frame
-   means "about this frame" and there is nothing else it could mean.
-
-### Q3 — for the Lead, and it is a warning rather than a question
-
-**JB-3.05 (playback) must not be written as "sleep until `nextChangeMs`".** I have put that in
-Decision 2 here so the two specs cannot be read independently and get it wrong, and
-`theStripNeverConsultsThePlaybackClock` is the test that keeps the strip honest. But the strip is
-only the easy half: a player that drives a playhead marker along this strip and schedules its redraw
-from `nextChangeMs` will spin at every falling edge of a PING_PONG leg, because there the answer is
-an **infimum** and not a minimum. JB-3.05a Questions §4 says exactly this and I am repeating it
-rather than trusting that it was read. **Recommend JB-3.05 own a pure `FrameStepper` in `:core` with
-the frame comparison inside it, so the loop is testable without a device.**
+**The view half must not drive the playhead marker from `nextChangeMs`.** The core half cannot spin —
+it never asks the clock — but the view half that draws a playhead marker along this strip is where the
+trap is, and `FrameStepper.nextWakeMs` (`FrameStepper.kt:109-120`) is the answer that already landed:
+it is strictly greater than the elapsed, including at a backward boundary where the clock hands back
+`nextChangeMs(t) == t` bit for bit. Write that into the view row's contract when it is written.

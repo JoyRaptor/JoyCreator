@@ -1,11 +1,13 @@
 package cc.joycreator.joybrush.androidkit
 
 import android.content.Context
+import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Looper
 import android.os.SystemClock
 import android.view.MotionEvent
+import cc.joycreator.joybrush.androidkit.diag.BlendSelfCheck
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
 import cc.joycreator.joybrush.androidkit.input.MotionEventSamples
 import cc.joycreator.joybrush.androidkit.io.JbArchiveException
@@ -480,6 +482,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val docLayer = doc.layers[0]
         val visible = docLayer.visible
         val opacity = docLayer.opacity
+        val blend = docLayer.blend
         val wanted = ArrayList<Pair<Long, ByteArray>>(contents.tiles.size)
         for (entry in contents.tiles) {
             // Iterating the map gives the ENTRY, so the tile's "tx_ty" is the entry key's third part.
@@ -495,6 +498,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             engine.addLayer(layerId)
             engine.setLayerVisible(layerId, visible)
             engine.setLayerOpacity(layerId, opacity)
+            engine.setLayerBlend(layerId, blend)   // JB-2.20b: the GPU composites all 27
             for (item in wanted) {
                 engine.writeTile(layerId, item.first, item.second)
             }
@@ -635,6 +639,63 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private fun onGl(block: () -> Unit) {
         queueEvent(block)
         requestRender()
+    }
+
+    /**
+     * The JB-2.20b owner check, one tap (the hidden diagnostics panel has the button): draws a fixed
+     * 27-layer test drawing (one blend mode per layer, over opaque and half-transparent backdrops)
+     * through a SECOND, throwaway engine on this same GL context, reads the pixels back, and compares
+     * them with the export renderer's picture of the same drawing ([BlendSelfCheck]). It never touches
+     * the person's own drawing: that lives in [engine], which this does not use. [onResult] arrives on
+     * the UI thread with one sentence.
+     */
+    fun runBlendCheck(onResult: (String) -> Unit) {
+        onGl {
+            val sentence = try {
+                blendCheckOnGl()
+            } catch (e: Exception) {
+                "The blend check could not run: ${e.message ?: e.javaClass.simpleName}."
+            }
+            post { onResult(sentence) }
+        }
+    }
+
+    private fun blendCheckOnGl(): String {
+        val w = viewW
+        val h = viewH
+        if (w < BlendSelfCheck.WIDTH || h < BlendSelfCheck.HEIGHT) {
+            return "The screen is too small for the blend check (it needs ${BlendSelfCheck.WIDTH} x ${BlendSelfCheck.HEIGHT})."
+        }
+        val scene = BlendSelfCheck.build()
+        val check = GlPaintEngine()
+        try {
+            check.init()
+            for (l in scene.layers) {
+                check.addLayer(l.id)
+                check.setLayerOpacity(l.id, l.opacity)
+                check.setLayerBlend(l.id, l.blend)
+                for ((key, bytes) in l.tiles) check.writeTile(l.id, key, bytes)
+            }
+            // Document pixels land 1:1 in the top-left corner of the surface.
+            val m = floatArrayOf(2f / w, 0f, 0f, 0f, -2f / h, 0f, -1f, 1f, 1f)
+            check.draw(w, h, m, 0xFF808080.toInt())
+            val buf = java.nio.ByteBuffer.allocateDirect(BlendSelfCheck.WIDTH * BlendSelfCheck.HEIGHT * 4)
+                .order(java.nio.ByteOrder.nativeOrder())
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+            GLES30.glReadPixels(0, h - BlendSelfCheck.HEIGHT, BlendSelfCheck.WIDTH, BlendSelfCheck.HEIGHT,
+                GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf)
+            val raw = ByteArray(buf.capacity())
+            buf.rewind(); buf.get(raw)
+            // glReadPixels gives the bottom row first; the export's picture has the top row first.
+            val rowBytes = BlendSelfCheck.WIDTH * 4
+            val actual = ByteArray(raw.size)
+            for (row in 0 until BlendSelfCheck.HEIGHT) {
+                System.arraycopy(raw, (BlendSelfCheck.HEIGHT - 1 - row) * rowBytes, actual, row * rowBytes, rowBytes)
+            }
+            return BlendSelfCheck.compare(BlendSelfCheck.expected(scene), actual).sentence()
+        } finally {
+            check.release()
+        }
     }
 
     private fun reportHistory() {

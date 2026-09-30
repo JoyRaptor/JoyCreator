@@ -855,7 +855,7 @@ class RegionRendererTest {
 
     /**
      * THE KDOC CLAIM, MADE EXECUTABLE. `RegionRenderer`'s class KDoc claims the CPU implements all
-     * twenty-seven modes and the GPU exactly one, and names both halves; this is that claim as an
+     * twenty-seven modes and (since JB-2.20b) so does the GPU, and names both halves; this is that claim as an
      * assertion, because a KDoc that lies about wrong pixels is the defect rather than the
      * documentation of it, and a comment is not a thing that can fail.
      *
@@ -869,21 +869,16 @@ class RegionRendererTest {
      */
     @Test
     fun theParityClaimNamesExactlyTheModesEachSideHas() {
-        // What the GL layer path has. jb_tile.frag:13 has no mode uniform and no mode branch;
-        // GlPaintEngine.kt:367 sets one blend func before the layer loop and never changes it;
-        // GlPaintEngine's own layer record has no blend field for a mode to arrive in.
-        val gpu = listOf(BlendMode.NORMAL)
-
-        // What it does not have. Written out because "the other twenty-six" is a number that rots,
-        // and because which modes are missing is the whole content of the claim.
-        val cpuOnly = listOf(
-            // The separable ones, which is all this file had to itself before JB-2.20a landed.
-            BlendMode.MULTIPLY, BlendMode.SCREEN, BlendMode.OVERLAY, BlendMode.ADD,
-            BlendMode.DARKEN, BlendMode.LIGHTEN,
-            // Joy Brush's own erase. NOT a blend term, and not something the GPU can composite as
-            // a layer — the eraser TOOL happens to agree pixel-for-pixel, which is a narrower fact.
-            BlendMode.ERASE_BELOW,
-            // The nineteen JB-2.20a appended, in the order it appended them.
+        // What the GL layer path has (JB-2.20b): ALL of them. `jb_composite.frag` includes the generated
+        // `jb_blend.glsl` (the Studio's own function) and composites the stack in an offscreen pass when any
+        // visible layer is not NORMAL; ERASE_BELOW is its own branch there, as it is in `Blend.apply`. Written
+        // out by name, not as `BlendMode.entries`, so that a twenty-eighth mode is a red test here and not a
+        // silent "the GPU has it too". Proved on a real GL driver by `joybrush/tools/blend_gpu_check.js`
+        // (853,524 comparisons against the Studio's Java) and, in the androidkit module, by
+        // `BlendGlslShapeTest.theGpuAndTheCpuImplementTheSameSetOfNames`.
+        val gpu = listOf(
+            BlendMode.NORMAL, BlendMode.MULTIPLY, BlendMode.SCREEN, BlendMode.OVERLAY, BlendMode.ADD,
+            BlendMode.DARKEN, BlendMode.LIGHTEN, BlendMode.ERASE_BELOW,
             BlendMode.DIFFERENCE, BlendMode.COLOR, BlendMode.COLOR_DODGE, BlendMode.COLOR_BURN,
             BlendMode.LINEAR_BURN, BlendMode.HARD_LIGHT, BlendMode.SOFT_LIGHT, BlendMode.VIVID_LIGHT,
             BlendMode.LINEAR_LIGHT, BlendMode.PIN_LIGHT, BlendMode.HARD_MIX, BlendMode.EXCLUSION,
@@ -891,9 +886,13 @@ class RegionRendererTest {
             BlendMode.HUE, BlendMode.SATURATION, BlendMode.LUMINOSITY,
         )
 
+        // What only the CPU has: nothing any more. Kept as a list, and kept in the partition below, because
+        // the day a mode is added on one side first this is where that gets written down again.
+        val cpuOnly = emptyList<BlendMode>()
+
         assertEquals(27, BlendMode.entries.size, "the enum grew, so the KDoc's 27 is now wrong")
-        assertEquals(1, gpu.size, "the GPU has exactly one layer blend, and it is NORMAL")
-        assertEquals(26, cpuOnly.size, "27 modes, one of them implemented on the GPU")
+        assertEquals(27, gpu.size, "27 modes, all of them composited on the GPU since JB-2.20b")
+        assertEquals(0, cpuOnly.size)
         // THE PARTITION: together, every mode in the enum's own order and no mode twice. This is
         // the assertion that makes a new constant break a test instead of making a KDoc a lie.
         assertEquals(

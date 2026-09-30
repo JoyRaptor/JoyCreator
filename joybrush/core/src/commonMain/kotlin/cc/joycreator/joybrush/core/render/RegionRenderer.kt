@@ -99,47 +99,35 @@ private val MAX_REGION_PEAK_MIB = MAX_REGION_PX * BYTES_PER_PX / (1024L * 1024L)
  * without paper". Every export (PNG, OpenRaster, GIF, video, sprite sheet, thumbnail) goes through
  * here, so they cannot disagree with each other.
  *
- * WHAT IT AGREES WITH — AND EXACTLY HOW MUCH, because the honest answer is "one blend mode out of
- * twenty-seven, and two conventions". Paper is a `glClearColor` backdrop rather than a layer —
- * `GlPaintEngine.draw` clears to it and blends over it — so a region no layer covers is
- * TRANSPARENT, not black, unless paper was asked for, and the phone agrees about that one.
+ * WHAT IT AGREES WITH. Paper is a `glClearColor` backdrop rather than a layer —
+ * `GlPaintEngine.draw` clears to it and composites over it — so a region no layer covers is
+ * TRANSPARENT, not black, unless paper was asked for, and the phone agrees about that.
  *
  * The CPU side implements ALL TWENTY-SEVEN [BlendMode]s: the seven separable ones per channel,
  * [BlendMode.ERASE_BELOW] as destination-out, and the nineteen the Studio's arithmetic brought in
- * under JB-2.20a. The GPU layer path implements exactly ONE of them.
+ * under JB-2.20a. SO DOES THE GPU LAYER PATH, SINCE JB-2.20b: when any visible layer is not NORMAL,
+ * `GlPaintEngine.draw` builds the stack in an offscreen target and `jb_composite.frag` blends each
+ * layer over it with the Studio's own `blendPix` (`jb_blend.glsl`, GENERATED from `BlendModes.java`
+ * by `tools/blend-glsl/gen_blend_glsl.sh`, and drift-checked). A stack of NORMAL layers keeps the
+ * fixed-function fast path, whose picture is the same by construction.
  *
- * THE GPU'S ONE MODE IS NORMAL, and it is source-over by FIXED FUNCTION rather than by shader.
- * `jb_tile.frag:13` is `o_color = texture(u_layer, v_uv) * u_layerOpacity` — no mode uniform, no
- * mode branch, no second program — and `GlPaintEngine.kt:367` sets
- * `glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)` ONCE, before the layer loop, and never changes it
- * again. The GL engine's own layer record (`GlPaintEngine.kt:58-62`) carries `id`, `opacity`,
- * `visible` and `tiles` and NO blend field at all, so a mode has nothing to arrive in. Parity is
- * therefore 27-vs-27 on this side and 1-vs-27 on the phone.
+ * WHAT IS PROVED, AND WHAT IS NOT. Proved: the shader gives the Studio's Java answers, for all 26
+ * modes and ERASE_BELOW at seven alpha combinations, 853,524 comparisons through the generated golden
+ * table on a real GL driver (`joybrush/tools/blend_gpu_check.js`, worst error 3e-7). Not yet proved:
+ * that the PHONE's driver agrees — that is the JB-2.20b owner check, a screenshot of one layer per
+ * mode. And the two paths differ by eight-bit rounding (the phone composites in RGBA8 a layer at a
+ * time, this class in floats once): at most a few 1/255 on a deep stack, and an exact equality
+ * nowhere claimed.
  *
- * THE OTHER TWENTY-SIX ARE CPU-ONLY: MULTIPLY, SCREEN, OVERLAY, ADD, DARKEN and LIGHTEN (the
- * separable ones this file used to have to itself), ERASE_BELOW, and the nineteen JB-2.20a
- * appended — DIFFERENCE, COLOR, COLOR_DODGE, COLOR_BURN, LINEAR_BURN, HARD_LIGHT, SOFT_LIGHT,
- * VIVID_LIGHT, LINEAR_LIGHT, PIN_LIGHT, HARD_MIX, EXCLUSION, SUBTRACT, DIVIDE, DARKER_COLOR,
- * LIGHTER_COLOR, HUE, SATURATION, LUMINOSITY. Those composite per W3C here and source-over on the
- * phone. That is a different PICTURE, not a rounding difference: a person with a MULTIPLY layer
- * sees one thing on screen and gets another in the exported file. It has bitten nobody yet only
- * because nothing in `commonMain` can currently produce a non-NORMAL layer, and JB-2.20a decision 6
- * forbids any UI offering one until the GPU can do it. The arithmetic itself is [Blend].
- *
- * ONE NARROWER AGREEMENT, WHICH IS NOT LAYER PARITY AND MUST NOT BE COUNTED AS IT. The eraser
- * TOOL writes destination-out pixels — `jb_commit.frag:21` is `dst * (1.0 - a)` on the whole
- * `vec4`, driven by the `u_erase` uniform — so an erased PIXEL comes out the same on screen and in
- * the export, and that is why the grey-smear failure mode is structurally impossible here. But
- * that is a brush writing into a tile. It is not the GL engine compositing an ERASE_BELOW LAYER,
- * which it would do source-over like any other, so ERASE_BELOW is one of the twenty-six above.
- *
- * WHO OWES THE REST: JB-2.20b, the GL layer compositing row, which exists to make preview = export
- * by compiling the Studio's `GLSL_BLEND_FN`. Until it lands, this file is the specification and
- * the screen is the approximation.
+ * ONE NARROWER AGREEMENT THAT PREDATES ALL THAT. The eraser TOOL writes destination-out pixels —
+ * `jb_commit.frag` is `dst * (1.0 - a)` on the whole `vec4`, driven by the `u_erase` uniform — so an
+ * erased PIXEL comes out the same on screen and in the export, and the grey-smear failure mode is
+ * structurally impossible here. That is a brush writing into a tile; compositing an ERASE_BELOW
+ * LAYER is the composite pass's own branch.
  *
  * AND THE CLAIM IS TESTED, NOT MERELY WRITTEN DOWN, because a KDoc that lies about wrong pixels is
  * the defect rather than the documentation of it. `theParityClaimNamesExactlyTheModesEachSideHas`
- * in `RegionRendererTest` lists both halves BY NAME and checks they partition the enum, so a
+ * in `RegionRendererTest` lists the GPU's modes BY NAME and checks they partition the enum, so a
  * twenty-eighth mode turns the suite red instead of quietly turning this paragraph into a lie.
  *
  * WHICH CEL. Not derived here: [DocOps.celFor] owns the frame-to-cel rule, so a renderer can never

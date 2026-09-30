@@ -73,16 +73,11 @@ private class Thumb(val w: Int, val h: Int, val pixels: ByteArray)
  * file that LOOKS like a multilayer drawing and is not one: every layer would already be flattened
  * against transparent black, and no reader could put them back in the right order.
  *
- * THE SIX BLEND MODES THE PHONE DOES NOT IMPLEMENT ARE CORRECT HERE AND WRONG ON THE SCREEN. This
- * is worth saying plainly, because it is the one place where the export and the phone disagree and
- * where the EXPORT is the right one. `RegionRenderer` composites MULTIPLY, SCREEN, OVERLAY, ADD,
- * DARKEN and LIGHTEN per W3C; the GPU has no mode uniform and one blend func set before the layer
- * loop (`GlPaintEngine.kt:332`), so on the phone those six are source-over. An `.ora` is the file
- * other apps read, so for those six modes this file is the SPECIFICATION and the phone screen is
- * the approximation — see `RegionRenderer`'s KDoc and JB-2.13a `## Questions` Q2. A person who
- * exports a MULTIPLY layer and opens it in Krita sees the painting they made. There is deliberately
- * no test here that asserts the phone agrees, because the phone does not and pinning it would make
- * the wrong answer look like a contract.
+ * THE PHONE COMPOSITES ALL TWENTY-SEVEN MODES TOO (JB-2.20b), so this file and the screen now
+ * agree about a MULTIPLY layer, to within eight-bit rounding: `RegionRenderer` composites per W3C
+ * in floats, and `GlPaintEngine.draw` runs the Studio's `blendPix` on the GPU (see `RegionRenderer`'s
+ * KDoc for what is proved and what is still the owner's screenshot). An `.ora` is the file other apps
+ * read, so a person who exports a MULTIPLY layer and opens it in Krita sees the painting they made.
  *
  * `ADD` IS THE ONE MODE A W3C READER MAY STILL DISAGREE WITH, AND IT IS THE READER THAT IS
  * DIFFERENT. `svg:plus` is the SVG compositing operator, and it is the only thing in the format that

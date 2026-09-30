@@ -623,3 +623,40 @@ overlapping runs); the build output was deleted and rebuilt (47 classes) and the
    passes on a real GL driver: default draws exactly as before (0.4998 / committed [127,0,0,127]), dark paper 0, bright 1.
 6. `Dab` now carries `tilt` and `azimuth` (Kotlin side only — the GPU instance layout is untouched). Scatter's
    `DabInputs.tilt` reads it (NaN for a finger, skipped by the curves as before).
+
+**R46. JB-2.20b (GL layer compositing) — built by the Lead; the spec's five Questions answered, and where the build differs.** (2026-09-29)
+1. **Q1 — ship it and measure (option a).** The cost is real and is counted in Decision 4; the Note 9 number belongs to JB-0.10/0.12.
+   **One change from Decision 3:** not a ping-pong of two full-screen targets with a full-screen pass per layer. The build keeps ONE
+   screen-sized target plus ONE backdrop copy, and before each layer copies only the screen rectangle that layer's tiles can touch
+   (`LayerCompositor.copyToBackdrop`), then draws the layer's tiles into the target reading that copy. A small layer costs a small copy;
+   pixels a layer does not touch are never read or rewritten. Same memory as the ping-pong (2 x RGBA8 at screen size), less bandwidth.
+   A stack whose every visible layer is NORMAL still takes the old fixed-function path untouched (Decision 5).
+2. **Q2 — JB-0.12 is written against this row's structure.** The front buffer decides WHEN a frame is presented, this decides HOW the
+   stack is composited; they compose. 0.12's spec must say it presents `compositor.target` when the composite path is active.
+3. **Q3 — two generators, both with `--check`.** `tools/gen_blend_golden.sh` (the table) and `tools/blend-glsl/gen_blend_glsl.sh`
+   (the shader). One tool would be tidier, but the table generator is Built and reviewed and is not touched. The new one reads the
+   string the GPU runs, which is the JB-2.20a Finding 1 the old `--model` check could not make.
+4. **Q4 — the parameter variant is right.** `glslBlendFnWithModeParam()` rewrites only the signature line; the equations are the
+   Studio's characters. It also lets JB-2.21's adjustment layers fold into the same program.
+5. **Q5 — ERASE_BELOW as its own branch is acceptable under R23.** The Studio's function is unchanged inside `blendPix`; the erase is
+   a branch in `jb_composite.frag` OUTSIDE it, exactly as `Blend.apply` has it outside `term`. No Studio band is added (that would
+   change every Studio export).
+6. **The value pin is done on a real GL driver, not left to the phone alone.** `joybrush/tools/blend_gpu_check.js` runs the real
+   `jb_composite.frag` over the generated golden table (26 modes x 1129 in-range pairs x 7 alpha combinations + ERASE_BELOW =
+   853,524 float comparisons) and gets **0 mismatches, worst error 3e-7**; a 2 % change to MULTIPLY in the generated file turns it red
+   (10,102 mismatches). What that does NOT prove is the Note 9's driver, so:
+7. **The owner check is one tap, and it checks itself.** Long-press the close button (the hidden pen-diagnostics panel), tap
+   **Blend check**. `JbCanvasView.runBlendCheck` draws a fixed 27-layer drawing (one mode per layer; over an opaque and a
+   half-transparent backdrop; every third layer at opacity 0.8) through a second throwaway engine on the same GL context, reads the
+   pixels back and compares them with `RegionRenderer`'s picture of the same drawing (`BlendSelfCheck`). It never touches the person's
+   drawing. Result is a toast: "All 27 blend modes match the export (worst difference N out of 255)" or the list of modes that do not.
+   Tolerance is 4/255; a simulation of the screen's RGBA8 rounding stays within 1/255 (`BlendSelfCheckTest`). This replaces the spec's
+   "screenshot 27 swatches and compare by eye".
+8. **The screen is RGBA8 per layer, the export is float end to end.** Up to a few 1/255 on a deep stack; exact equality is claimed
+   nowhere, and the KDocs that said "the GPU implements exactly ONE mode" (`RegionRenderer`, `OraExport`, `RegionRendererTest`) are
+   rewritten to say what is now true and what is proved.
+9. **Windows javac reads `/tmp/x` as `C:\tmp\x`.** `gen_blend_glsl.sh` converts with `cygpath -m` and picks the classpath separator by
+   OS; `gen_blend_golden.sh` still hard-codes `;` and `-d $OUT` (works only where those happen to line up) — a MINOR for whoever next
+   touches that script.
+10. **JB-2.04's blend chip may now be un-greyed** (`LayerRules.gpuComposite()`), but only after the owner has tapped Blend check once
+    and it says all 27. Until then the chip stays grey.

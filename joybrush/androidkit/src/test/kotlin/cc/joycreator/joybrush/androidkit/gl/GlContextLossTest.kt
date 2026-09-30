@@ -140,4 +140,28 @@ class GlContextLossTest {
         assertEquals(setOf(7L, 9L), engine.tileKeys(layer).toSet(), "the test failed to plant layer tiles")
         engine.beginStroke(layer, 0xFF1B1B22.toInt(), 1f, Accumulate.WASH, StrokeBlend.NORMAL, TipShape())
     }
+
+    @Test
+    fun aContextLossLetsGoOfTheCompositeTargetsToo() {
+        // JB-2.20b: the two screen-sized textures and the two framebuffers are context objects like any other.
+        // A name planted the way the tiles are (made-up numbers) must be gone after a loss, and must not be
+        // counted as held by an engine that has been told the context is new.
+        val engine = GlPaintEngine()
+        engine.reInit()
+        engine.compositor.target = 9001
+        engine.compositor.backdrop = 9002
+        engine.compositor.targetFbo = 9003
+        engine.compositor.backdropFbo = 9004
+        engine.compositor.width = 1080
+        engine.compositor.height = 2400
+        assertEquals(2, engine.heldTextureNames(), "the two composite textures are held names")
+
+        engine.reInit()
+        assertEquals(0, engine.heldTextureNames())
+        assertEquals(0, engine.compositor.target)
+        assertEquals(0, engine.compositor.backdrop)
+        assertEquals(0, engine.compositor.targetFbo)
+        assertEquals(0, engine.compositor.backdropFbo)
+        assertEquals(0, engine.compositor.width, "a stale size would make ensure() think the new context already has targets")
+    }
 }

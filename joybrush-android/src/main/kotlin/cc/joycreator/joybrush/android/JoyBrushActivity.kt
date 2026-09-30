@@ -262,6 +262,12 @@ class JoyBrushActivity : Activity() {
         diagBox.addView(diag, LinearLayout.LayoutParams(WRAP, WRAP))
         val copyBtn = pillButton("Copy report", "Copy the pen diagnostics to the clipboard") { copyReport() }
         diagBox.addView(copyBtn, LinearLayout.LayoutParams(WRAP, dp(40)))
+        // JB-2.20b: draws a 27-mode test drawing on this screen's GPU and compares it with the export.
+        val blendBtn = pillButton("Blend check", "Check that this screen mixes layers the way the export does") {
+            toast("Checking all 27 blend modes…")
+            canvas.runBlendCheck { toast(it) }
+        }
+        diagBox.addView(blendBtn, LinearLayout.LayoutParams(WRAP, dp(40)))
         overlays.addView(diagBox, corner(WRAP, WRAP, Gravity.TOP or Gravity.START, 10))
 
         // top-centre: smoothing

@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.androidkit.gl
 
 import android.opengl.GLES30
+import cc.joycreator.joybrush.core.doc.BlendMode
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.paint.Accumulate
 import cc.joycreator.joybrush.core.paint.Dab
@@ -37,6 +38,7 @@ class GlPaintEngine(
     private lateinit var dabProg: GlProgram
     private lateinit var commitProg: GlProgram
     private lateinit var tileProg: GlProgram
+    private lateinit var compositeProg: GlProgram
 
     private var dabVao = 0
     private var tileVao = 0
@@ -48,6 +50,9 @@ class GlPaintEngine(
 
     /** The grain pictures (JB-1.05c): loaded on first use, dropped on a context loss. */
     private val grains = GrainTextures()
+
+    /** The offscreen stack the composite path builds (JB-2.20b); made on first use, dropped on a context loss. */
+    internal val compositor = LayerCompositor()
 
     private var strokeInternal = GLES30.GL_R8
     private var strokeType = GLES30.GL_UNSIGNED_BYTE
@@ -75,6 +80,7 @@ class GlPaintEngine(
         val tiles = HashMap<Long, Int>()
         var opacity = 1f
         var visible = true
+        var blend = BlendMode.NORMAL
     }
 
     private val layers = LinkedHashMap<String, Layer>()   // bottom → top
@@ -126,6 +132,7 @@ class GlPaintEngine(
         dabProg = GlProgram(shaders.source("jb_dab.vert"), shaders.source("jb_dab.frag"), "dab")
         commitProg = GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_commit.frag"), "commit")
         tileProg = GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_tile.frag"), "tile")
+        compositeProg = GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_composite.frag"), "composite")
 
         val ids = IntArray(3)
         GLES30.glGenBuffers(3, ids, 0)
@@ -198,6 +205,7 @@ class GlPaintEngine(
         // The grain pictures are not the person's drawing, so they do not count as "had" -- but their
         // names are just as dead, and a brush is reloaded from its file on the next stroke.
         grains.forget()
+        compositor.forget()
         return had
     }
 
@@ -208,7 +216,8 @@ class GlPaintEngine(
      * [clearTex] are the driver's business and [initWith] makes new ones rather than reusing old.
      */
     internal fun heldTextureNames(): Int =
-        layers.values.sumOf { it.tiles.size } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size
+        layers.values.sumOf { it.tiles.size } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size +
+            compositor.heldNames()
 
     /** Frees every GL object this engine owns. */
     fun release() {
@@ -224,7 +233,8 @@ class GlPaintEngine(
         GLES30.glDeleteVertexArrays(2, intArrayOf(dabVao, tileVao), 0)
         GLES30.glDeleteFramebuffers(1, intArrayOf(fbo), 0)
         grains.release()
-        dabProg.release(); commitProg.release(); tileProg.release()
+        compositor.release()
+        dabProg.release(); commitProg.release(); tileProg.release(); compositeProg.release()
         ready = false
     }
 
@@ -235,6 +245,14 @@ class GlPaintEngine(
 
     fun setLayerOpacity(id: String, opacity: Float) { layers[id]?.opacity = opacity.coerceIn(0f, 1f) }
     fun setLayerVisible(id: String, visible: Boolean) { layers[id]?.visible = visible }
+
+    /**
+     * How a layer composites over the ones beneath it (JB-2.20b). All 27 [BlendMode]s are supported;
+     * a stack in which every visible layer is NORMAL stays on the fixed-function path, and one
+     * non-NORMAL layer sends the whole stack down [drawComposited].
+     */
+    fun setLayerBlend(id: String, mode: BlendMode) { layers[id]?.blend = mode }
+    fun layerBlend(id: String): BlendMode = layers[id]?.blend ?: BlendMode.NORMAL
     fun tileCount(id: String): Int = layers[id]?.tiles?.size ?: 0
 
     /** Empties a layer as one undoable step. */
@@ -484,6 +502,7 @@ class GlPaintEngine(
      * framebuffer. [docToClip] is a column-major 3×3 matrix from document px to clip space.
      */
     fun draw(viewportW: Int, viewportH: Int, docToClip: FloatArray, paperArgb: Int) {
+        if (needsComposite()) { drawComposited(viewportW, viewportH, docToClip, paperArgb); return }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         GLES30.glViewport(0, 0, viewportW, viewportH)
         GLES30.glClearColor(
@@ -527,6 +546,130 @@ class GlPaintEngine(
         }
         GLES30.glBindVertexArray(0)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+    }
+
+
+    /** True when any visible layer composites with something other than plain source-over. */
+    private fun needsComposite(): Boolean = layers.values.any { it.visible && it.blend != BlendMode.NORMAL }
+
+    /**
+     * The whole stack, one layer at a time, into an offscreen target that a shader can read (JB-2.20b).
+     *
+     * For each visible layer: work out the screen rectangle its tiles can touch, copy that rectangle of
+     * the stack-so-far into a backdrop texture, then draw the layer's tiles INTO the stack with
+     * `jb_composite.frag`, which reads the backdrop and applies the layer's blend mode and opacity.
+     * The stroke being drawn is previewed the same way [draw] previews it: its tiles are committed into
+     * temporary textures first and those stand in for the layer's own. Finally the stack is copied to
+     * the screen. Same picture as [draw] for a NORMAL layer (a test and the device check say so).
+     */
+    private fun drawComposited(w: Int, h: Int, docToClip: FloatArray, paperArgb: Int) {
+        compositor.ensure(w, h)
+        GLES30.glDisable(GLES30.GL_BLEND)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, compositor.targetFbo)
+        GLES30.glViewport(0, 0, w, h)
+        GLES30.glClearColor(
+            ((paperArgb shr 16) and 0xFF) / 255f, ((paperArgb shr 8) and 0xFF) / 255f,
+            (paperArgb and 0xFF) / 255f, 1f,
+        )
+        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+
+        for (layer in layers.values) {
+            if (!layer.visible) continue
+            val previewing = layer === strokeLayer && strokeTiles.isNotEmpty()
+            val previews = if (previewing) renderStrokePreviews(layer) else emptyMap()
+            val keys = LinkedHashSet<Long>(layer.tiles.keys)
+            keys.addAll(previews.keys)
+            val rect = if (keys.isEmpty()) null else screenRect(keys, docToClip, w, h)
+            if (rect != null) {
+                compositor.copyToBackdrop(rect[0], rect[1], rect[2], rect[3])
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, compositor.targetFbo)
+                GLES30.glViewport(0, 0, w, h)
+                compositeProg.use()
+                GLES30.glUniform1f(compositeProg.loc("u_tileSize"), size.toFloat())
+                GLES30.glUniformMatrix3fv(compositeProg.loc("u_docToClip"), 1, false, docToClip, 0)
+                GLES30.glUniform1f(compositeProg.loc("u_layerOpacity"), layer.opacity)
+                GLES30.glUniform1f(compositeProg.loc("u_mode"), BlendCodes.codeOf(layer.blend))
+                GLES30.glUniform1i(compositeProg.loc("u_layer"), 0)
+                GLES30.glUniform1i(compositeProg.loc("u_backdrop"), 1)
+                GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, compositor.backdrop)
+                GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+                GLES30.glBindVertexArray(tileVao)
+                for (key in keys) {
+                    val tex = previews[key] ?: layer.tiles[key] ?: continue
+                    GLES30.glUniform2f(compositeProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
+                    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
+                    GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+                }
+            }
+            previews.values.forEach(::recycleLayerTex)
+        }
+        compositor.blitToScreen()
+        GLES30.glBindVertexArray(0)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+    }
+
+    /**
+     * The tiles of [layer] as they will look once the live stroke is committed, rendered into temporary
+     * textures (recycled by the caller). Same commit maths as [endStroke], at layer opacity 1: the
+     * composite pass applies the layer's opacity.
+     */
+    private fun renderStrokePreviews(layer: Layer): Map<Long, Int> {
+        val out = HashMap<Long, Int>()
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+        GLES30.glViewport(0, 0, size, size)
+        GLES30.glDisable(GLES30.GL_BLEND)
+        commitProg.use()
+        setCommitUniforms(layerOpacity = 1f)
+        GLES30.glBindVertexArray(tileVao)
+        for ((key, strokeTex) in strokeTiles) {
+            val base = layer.tiles[key]
+            if (base == null && blend == StrokeBlend.ERASE) continue
+            val after = newLayerTile()
+            attach(after)
+            val ox = (Tiles.tx(key) * size).toFloat()
+            val oy = (Tiles.ty(key) * size).toFloat()
+            GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), ox, oy)
+            GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
+            bindTextures(base ?: clearTex, strokeTex)
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            out[key] = after
+        }
+        GLES30.glBindVertexArray(0)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        return out
+    }
+
+    /**
+     * The screen rectangle (x, y, w, h in pixels, clamped to the [w] x [h] target, one pixel of margin) that
+     * the tiles [keys] can touch under [m] (the document-to-clip matrix); null if none of it is on screen.
+     * Uses all four corners of every tile, so a rotated view is covered.
+     */
+    private fun screenRect(keys: Collection<Long>, m: FloatArray, w: Int, h: Int): IntArray? {
+        var x0 = Float.MAX_VALUE
+        var y0 = Float.MAX_VALUE
+        var x1 = -Float.MAX_VALUE
+        var y1 = -Float.MAX_VALUE
+        for (key in keys) {
+            val ox = (Tiles.tx(key) * size).toFloat()
+            val oy = (Tiles.ty(key) * size).toFloat()
+            for (corner in 0 until 4) {
+                val dx = ox + (corner and 1) * size
+                val dy = oy + (corner shr 1) * size
+                val cw = m[2] * dx + m[5] * dy + m[8]
+                val inv = if (cw != 0f) 1f / cw else 1f
+                val px = ((m[0] * dx + m[3] * dy + m[6]) * inv * 0.5f + 0.5f) * w
+                val py = ((m[1] * dx + m[4] * dy + m[7]) * inv * 0.5f + 0.5f) * h
+                x0 = minOf(x0, px); x1 = maxOf(x1, px)
+                y0 = minOf(y0, py); y1 = maxOf(y1, py)
+            }
+        }
+        val ix0 = (kotlin.math.floor(x0).toInt() - 1).coerceIn(0, w)
+        val iy0 = (kotlin.math.floor(y0).toInt() - 1).coerceIn(0, h)
+        val ix1 = (kotlin.math.ceil(x1).toInt() + 1).coerceIn(0, w)
+        val iy1 = (kotlin.math.ceil(y1).toInt() + 1).coerceIn(0, h)
+        if (ix1 <= ix0 || iy1 <= iy0) return null
+        return intArrayOf(ix0, iy0, ix1 - ix0, iy1 - iy0)
     }
 
     // ── internals ────────────────────────────────────────────────────────────

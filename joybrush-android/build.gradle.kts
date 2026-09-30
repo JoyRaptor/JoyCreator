@@ -40,4 +40,5 @@ dependencies {
     implementation("cc.joycreator.joybrush:core")
     implementation("cc.joycreator.joybrush:androidkit")
     implementation(libs.core.ktx)
+    implementation(project(":studiokit"))   // D.02: the Studio's colour picker and transform tool, shared not copied
 }

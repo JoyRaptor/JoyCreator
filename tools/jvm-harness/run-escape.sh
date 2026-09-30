@@ -16,12 +16,12 @@ OUT=tools/jvm-harness/out-escape
 rm -rf "$OUT"; mkdir -p "$OUT"
 
 javac -nowarn -encoding UTF-8 -d "$OUT" \
-  -sourcepath "app/src/main/java" \
+  -sourcepath "app/src/main/java;studiokit/src/main/java" \
   tools/jvm-harness/SpecLEscapeTest.java || exit 1
 
 [ -f "$OUT/SpecLEscapeTest.class" ] || { echo "no SpecLEscapeTest class — the compile did not run"; exit 1; }
 
-if grep -rn "^import android\|^import androidx" app/src/main/java/com/fadcam/ui/faditor/transform/TransformQuad.java; then
+if grep -rn "^import android\|^import androidx" studiokit/src/main/java/com/fadcam/ui/faditor/transform/TransformQuad.java; then
   echo "FAIL: an Android import leaked into TransformQuad"
   exit 1
 fi

@@ -438,7 +438,7 @@ public final class ColorPickerDialog {
         actions.addView(cancelBtn);
 
         TextView setBtn = new TextView(ctx);
-        setBtn.setText(ctx.getString(com.fadcam.R.string.faditor_color_set));
+        setBtn.setText(ctx.getString(com.fadcam.studiokit.R.string.faditor_color_set));
         // Was 0xFF4FC3F7 — a Material light-blue that appears nowhere else in Joy Creator and
         // belonged to no family. ARMED is the nearest hue the app actually owns, so the
         // affirmative button keeps the blue it was drawn with and stops being a one-off.

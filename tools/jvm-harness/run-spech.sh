@@ -19,7 +19,7 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 ARGS=$(mktemp); RUNARGS=$(mktemp)
 { echo "-nowarn"; echo "-encoding UTF-8"; echo "-d $OUT";
   printf -- '-cp "%s"\n' "$GSON";
-  echo '-sourcepath "app/src/main/java"'; } > "$ARGS"
+  echo '-sourcepath "app/src/main/java;studiokit/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
 javac @"$ARGS" tools/jvm-harness/SpecHBendMirrorTest.java || exit 1
@@ -31,8 +31,8 @@ javac @"$ARGS" tools/jvm-harness/SpecHBendMirrorTest.java || exit 1
 # The android-free property, enforced rather than trusted. The bend seam (TransformQuad +
 # the whole mesh package + MeshGlSource strings) must stay harness-loadable.
 # (androidx.annotation is only @NonNull / @Nullable markers, which load anywhere: it is not the leak this guards against.)
-if { grep -rn "^import android\." app/src/main/java/com/fadcam/ui/faditor/transform/mesh/ app/src/main/java/com/fadcam/ui/faditor/transform/TransformQuad.java;
-     grep -rn "^import androidx\." app/src/main/java/com/fadcam/ui/faditor/transform/mesh/ app/src/main/java/com/fadcam/ui/faditor/transform/TransformQuad.java | grep -v "androidx\.annotation\."; }; then
+if { grep -rn "^import android\." app/src/main/java/com/fadcam/ui/faditor/transform/mesh/ studiokit/src/main/java/com/fadcam/ui/faditor/transform/TransformQuad.java;
+     grep -rn "^import androidx\." app/src/main/java/com/fadcam/ui/faditor/transform/mesh/ studiokit/src/main/java/com/fadcam/ui/faditor/transform/TransformQuad.java | grep -v "androidx\.annotation\."; }; then
   echo "FAIL: an Android import leaked into the bend seam"
   exit 1
 fi

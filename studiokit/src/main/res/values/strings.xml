@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ColorPickerDialog's confirm button. The app defines the same name; when a library and the app both do, the app's wins,
+         so every language shows exactly what it showed before the move. -->
+    <string name="faditor_color_set">Set</string>
+</resources>

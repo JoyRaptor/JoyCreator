@@ -32,7 +32,7 @@ CP="$CP$(find "$HOME/.gradle/caches/modules-2" -name 'gson-2*.jar' 2>/dev/null |
 OUT=tools/jvm-harness/out-audioid
 rm -rf "$OUT"; mkdir -p "$OUT"
 
-SRC='tools/jvm-harness/stubs-clipwarp;tools/jvm-harness/stubs;app/src/main/java'
+SRC='tools/jvm-harness/stubs-clipwarp;tools/jvm-harness/stubs;app/src/main/java;studiokit/src/main/java'
 if [ -n "${AUDIOID_BASE:-}" ]; then
   BASE="$OUT/base-src"
   for f in model/AudioClip.java project/ProjectStorage.java; do

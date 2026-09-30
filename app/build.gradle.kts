@@ -309,6 +309,7 @@ dependencies {
 
     // JB-0.05: the Joy Brush screen (JoyBrushActivity) and its pen input.
     implementation(project(":joybrush-android"))
+    implementation(project(":studiokit"))
     
     // Media3 for fragmented MP4 muxing (patched for live streaming via composite build)
     implementation(libs.media3.muxer)

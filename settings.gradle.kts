@@ -26,6 +26,7 @@ dependencyResolutionManagement {
 rootProject.name = "FadCam"
 include(":app")
 include(":joybrush-android")
+include(":studiokit")   // the Studio's shared UI kit (D.02): colours, colour picker, transform tool
 includeBuild("joybrush")   // Joy Brush core (standalone build, substituted as cc.joycreator.joybrush:core)
 
 // Include patched Media3 as composite build for live streaming support

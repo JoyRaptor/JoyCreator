@@ -27,7 +27,7 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 ARGS=$(mktemp); RUNARGS=$(mktemp)
 { echo "-nowarn"; echo "-encoding UTF-8"; echo "-d $OUT";
   printf -- '-cp "%s"\n' "$GSON";
-  echo '-sourcepath "app/src/main/java"'; } > "$ARGS"
+  echo '-sourcepath "app/src/main/java;studiokit/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
 javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java tools/jvm-harness/PuppetSolverTest.java tools/jvm-harness/PuppetWeightsTest.java tools/jvm-harness/PuppetIslandTest.java tools/jvm-harness/PuppetKnobsTest.java tools/jvm-harness/PuppetRigSolverTest.java tools/jvm-harness/PuppetDrawOrderTest.java tools/jvm-harness/PuppetDepthFieldTest.java tools/jvm-harness/PuppetDangleBakeTest.java tools/jvm-harness/PuppetHoleTest.java tools/jvm-harness/PuppetRigTest.java tools/jvm-harness/PuppetTapeTest.java tools/jvm-harness/PuppetKeysTest.java tools/jvm-harness/PuppetRetimeTest.java tools/jvm-harness/MeshEasingFitTest.java tools/jvm-harness/DangleTest.java tools/jvm-harness/PinWarpTest.java || exit 1

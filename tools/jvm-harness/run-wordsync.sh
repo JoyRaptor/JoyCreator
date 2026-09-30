@@ -13,7 +13,7 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 # @argfile, not a bare -cp: MSYS mangles a semicolon classpath silently (see run-caption.sh).
 ARGS=$(mktemp)
 { echo "-nowarn"; echo "-encoding UTF-8"; echo "-d $OUT";
-  echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java"'; } > "$ARGS"
+  echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java;studiokit/src/main/java"'; } > "$ARGS"
 
 javac @"$ARGS" tools/jvm-harness/WordSyncRippleTest.java || exit 1
 

@@ -12,7 +12,7 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 # @argfile, not a bare -cp — MSYS mangles a semicolon classpath silently (see run-textstyle.sh).
 ARGS=$(mktemp); RUNARGS=$(mktemp)
 { echo "-nowarn"; echo "-encoding UTF-8"; echo "-d $OUT";
-  echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java"'; } > "$ARGS"
+  echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java;studiokit/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s"\n' "$OUT" > "$RUNARGS"
 
 javac @"$ARGS" tools/jvm-harness/FlexibleTimeTest.java || exit 1

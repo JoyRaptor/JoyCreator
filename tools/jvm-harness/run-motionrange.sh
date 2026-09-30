@@ -11,7 +11,7 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 ARGS=$(mktemp); RUNARGS=$(mktemp)
 { echo "-nowarn"; echo "-encoding UTF-8"; echo "-d $OUT";
   [ -n "$GSON" ] && printf -- '-cp "%s"\n' "$GSON";
-  echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java"'; } > "$ARGS"
+  echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java;studiokit/src/main/java"'; } > "$ARGS"
 if [ -n "$GSON" ]; then printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS";
 else printf -- '-cp "%s"\n' "$OUT" > "$RUNARGS"; fi
 

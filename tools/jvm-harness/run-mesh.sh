@@ -27,7 +27,7 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 ARGS=$(mktemp); RUNARGS=$(mktemp)
 { echo "-nowarn"; echo "-encoding UTF-8"; echo "-d $OUT";
   printf -- '-cp "%s"\n' "$GSON";
-  echo '-sourcepath "app/src/main/java"'; } > "$ARGS"
+  echo '-sourcepath "app/src/main/java;studiokit/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
 javac @"$ARGS" tools/jvm-harness/MeshEngineTest.java || exit 1

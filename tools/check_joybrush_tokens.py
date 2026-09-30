@@ -29,7 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 JB = ROOT / "joybrush-android" / "src" / "main" / "res" / "values" / "jb_tokens.xml"
 STUDIO = ROOT / "app" / "src" / "main" / "res" / "values" / "studio_tokens.xml"
-STUDIO_JAVA = ROOT / "app" / "src" / "main" / "java" / "com" / "fadcam" / "ui" / "faditor" / "Studio.java"
+STUDIO_JAVA = ROOT / "studiokit" / "src" / "main" / "java" / "com" / "fadcam" / "ui" / "faditor" / "Studio.java"
 
 # The two lines the owner owns. Editing them must never fail this check: that is the
 # whole point of the file.

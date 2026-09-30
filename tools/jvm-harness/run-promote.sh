@@ -39,7 +39,7 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 ARGS=$(mktemp); RUNARGS=$(mktemp)
 { echo "-nowarn"; echo "-encoding UTF-8"; echo "-d $OUT";
   printf -- '-cp "%s"\n' "$CP";
-  echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java"'; } > "$ARGS"
+  echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java;studiokit/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$CP" > "$RUNARGS"
 
 javac @"$ARGS" tools/jvm-harness/PromoteDemoteTest.java || exit 1

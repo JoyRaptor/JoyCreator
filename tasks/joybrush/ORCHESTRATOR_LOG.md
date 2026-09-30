@@ -164,18 +164,116 @@ Nothing is blocked on these; nothing was fixed in defiance of them.
 
 ---
 
+## SECOND HALF — the runway emptied, so the work changed shape
+
+**The Lead landed 24 commits while I worked** (`JB-2.01` the compact screen chrome, `D.02a`,
+`D.02`, `D.05`, `JB-2.03a`+`D.02c`, `JB-0.09`, `JB-1.06`, the R9 Sable tuft engine, then `JB-2.04`,
+`JB-2.23`, the colour wheel and the brush settings drawer). Two consequences:
+
+**1. `R30 item 1` is now satisfied, so `JB-3.02b` and `JB-3.02`'s view half unblocked.** The board
+had them waiting on `JB-2.01`'s cluster for two days.
+
+**2. Every Ready row drained, and the only two left are not dispatchable.** `JB-2.06b` wants
+`JbCanvasView.kt` (R30 item 2, the Lead's) and `JoyBrushActivity.kt` (R30 item 1).
+`JB-8.01b` needs `JB-8.05`, which is still `⚪ Outline`, and its acceptance test is a real `.abr`
+file that will never be in the repo (R8). So: **spec authoring**, which is what I did.
+
+### Three specs written, cross-reviewed, and sent back — all three came back BLOCKED
+
+| Row | Spec | xr verdict |
+|---|---|---|
+| **JB-3.03b** | `specs/JB-3.03b_strip_thumbnails.md` — **the dead link is now live** | 2 BLOCKER, 4 MAJOR, 10 MINOR → revised |
+| **JB-3.08** | `specs/JB-3.08_three_finger_swipe_ui.md` | 1 BLOCKER, 7 MAJOR, 14 MINOR → revised |
+| **JB-3.02b** | `specs/JB-3.02b_paper_overlay_view.md` | 3 BLOCKER, 7 MAJOR, 11 MINOR → revised |
+
+All three are now `📝 Draft spec`, **not `🟦 Ready`**, and they should stay that way until a
+different-family reader has looked. See the disclosure below.
+
+### ⚠ THE DISCLOSURE THAT MATTERS MOST IN THIS LOG
+
+**Every subagent available to me is `openrouter/stealth/space-bunny-alpha`.** So the
+cross-reviews above are **same-family and are not independent reviews** — the board records that
+in each row's Who cell, in the `xr` sigil sense it does *not* claim `xr`. It still earned its
+keep, emphatically: it found **six BLOCKERs across three specs**, and every one was a defect
+invisible to the writer and to the compiler. But a same-family reader shares the writer's failure
+modes, and the JB-3.08 writer said so about its own spec unprompted, which is the right instinct.
+
+**Six BLOCKERs, and the pattern is the lesson:** *not one of them was a wrong number or a bad
+arithmetic.* Every one was a claim the spec made that its own contract could not deliver.
+
+- **A test that could not pass.** JB-3.08's T3a forbade the constant pool from naming `copy`
+  while its contract declared the payload cases `data class` — and Kotlin generates `copy` into
+  each class's own pool. Red on arrival. A builder would have had to invent a scope to fix it.
+- **A number that only ONE test could see.** JB-3.03b's un-premultiply divided colour by the
+  *weight sum* instead of by *alpha*, so it returned a premultiplied array labelled straight —
+  which **is** the black fringe. All 22 tests had uniform alpha and could not see it. The
+  overwhelmingly likely "fix" was to bend the one failing test to the code.
+- **A predicate the spec never wrote down.** JB-3.03b's budget: tests 7 and 8 were *the same
+  board with one frame moved* and demanded opposite answers, and no predicate satisfied 6, 7 and 8.
+- **Two `JoyBrushActivity.kt` region counts wrong.** JB-3.02b said three; it is five, and it said
+  three in four places.
+- **`shown` never wired to `visibility`** — so the peg bar would have shipped **visible** on the
+  Note 9 with five live TalkBack nodes reading "Play/Mode/Onion/Cadence/Export" wired to `= Unit`,
+  which is precisely what `JoyBrushActivity.kt:355` forbids. It contradicted the spec's own
+  Decision 22, its own Region 1 note, and its own T3 claim in the same sitting.
+- **A KDoc that produced no tested value.** `pegBarWidthPx`'s formula gave 72 for every count;
+  its tests wanted 248 for five and 72 for one.
+
+**So: a spec's most dangerous sentence is the one that asserts a consequence rather than stating a
+number.** Six of six BLOCKERs were consequences. The numbers were fine — the reviewer re-derived
+JB-3.03b's entire scale table from first principles and found **one** wrong, out of ~40.
+
+### 🔴 THE PLAN HOLE — a new board row, `JB-3.00`, and it blocks NINE rows
+
+Found by the JB-3.02b cross-review and confirmed three independent ways: **the screen cannot
+create an animation board, or any non-canvas board.** No row on the board owns it.
+`JbCanvasView.kt:876` builds `newDocument` with `BoardKind.CANVAS`; a tree-wide grep for
+`BoardKind.ANIMATION` hits only `core/`, tests and `JbColors.kt:66`; and `JoyBrushActivity.kt`
+contains no `JbDocument` at all.
+
+**JB-3.08 is not merely unprovable — it is DEAD CODE.** Its entire predicate is
+`board.kind != ANIMATION -> 0` (`ThreeFingerSwipe.kt:125`), so `frameCountOf` is always 0,
+`automatic()` always answers `BRUSH`, and its `activeBoardId` read has **no caller anywhere**.
+
+**Blocks:** JB-3.02b, JB-3.03b, JB-3.04a, JB-3.04b, JB-3.05, JB-3.05a, JB-3.08, and the view
+halves of JB-4.01 and JB-4.02. **One thin row, not nine dead ends** — and it is app-file work in
+`JoyBrushActivity.kt`, so it is the Lead's to rule on before it can be specified.
+
+### The main tree went stale twice, and how I handled it
+
+The Lead pushed 24 commits during this session, so the main folder's working copy was twice ~20
+commits behind `origin`. **It is a stale *working copy*, not uncommitted work** — proven by
+`git diff <old-base>`, which showed the 19-commit delta with exactly **two** genuinely modified
+files (Muse's review notes, uncommitted by design).
+
+The refresh, which I ran twice and which is safe because only those two files are ever at risk:
+
+```powershell
+# 1. hold the two files with a hash
+# 2. git reset --hard origin/joy-creator      # untracked files are NOT touched
+# 3. copy them back, verify SHA-256 matches
+```
+
+Both times: **byte-identical restored, untracked count unchanged (64, then 67).** Never
+`--hard` without the hash step — that is the difference between refreshing a tree and eating
+somebody's afternoon.
+
 ## WHAT IS NEXT
 
-**Ready and dispatchable:** nothing in wave A remains. The next Ready rows are all
-**app-file or Lead-owned** and blocked by R30's lock order — `JB-2.01` (chrome, first in
-`JoyBrushActivity.kt`), `D.02` → `D.02c`/`D.05`, `JB-2.03a`, `JB-2.06b`.
+**Dispatchable now:** nothing. Every 🟦 row is app-file work or waiting on the owner.
 
-**So the next work is spec authoring**, for the `⚪ Outline` rows whose Needs are all Built:
-`JB-3.03b` (film-strip thumbnails — **the board link is dead, there is no spec file**), `JB-3.02b`
-and `JB-2.11b` (the two view halves cut off by R30, both blocked on `JB-2.01`), `JB-2.05`,
-`JB-2.22`, `JB-8.05` (the real-files probe, which JB-8.01b also waits on).
+**The highest-value thing in the queue is `JB-3.00`**, and it is small: a phone affordance that
+adds a board of a chosen `BoardKind`, plus wiring `activeBoardId`. Nine rows are unprovable
+without it and one of them (JB-3.08) is dead code today. It needs a Lead decision because it
+edits `JoyBrushActivity.kt`.
 
-`JB-8.01b` is 🟦 Ready and **needs `JB-8.05`, which is `⚪ Outline`** — so it is not dispatchable
-however tempting it looks. Its acceptance test is a real `.abr` file that does not exist in the
-repo and never will (R8: importing what the user owns is fine, redistributing is not), so it is
-waiting on the owner for `joybrush/testdata-local/abr/*/data.json`.
+**Then, in order:**
+1. **A different-family read of the three draft specs.** They have been cross-reviewed once, by
+   their own family. Nothing marks them `🟦 Ready` and nothing should until that is done.
+2. `JB-8.05` (the real-files probe) — it is what unblocks `JB-8.01b`, and it needs the owner's
+   handful of real files in `joybrush/testdata-local/`, not a decision.
+3. `JB-0.08c` — the rest of the save/open row, next in R30's lock order, and the Lead already
+   ruled the Open-overwrites-your-drawing case.
+4. `JB-3.04a`/`b` (onion skin) need D.02 → `OnionMath` extracted first, per R34's ordering.
+
+**Unchanged and still owed:** the owner's Note 9 checks, and the questions listed above.

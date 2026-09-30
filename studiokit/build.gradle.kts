@@ -22,4 +22,5 @@ android {
 
 dependencies {
     implementation(libs.material)
+    implementation(libs.gson)   // D.05: fx / keyframe / composting JSON
 }

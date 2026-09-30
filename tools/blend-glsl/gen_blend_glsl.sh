@@ -44,7 +44,8 @@ case "${1:-}" in
     echo "blend glsl: wrote $COMMITTED"
     ;;
   --check)
-    if cmp -s "$REGEN" "$COMMITTED"; then
+    # A Windows checkout may hold the committed file with CRLF line ends (git autocrlf); the CONTENT is what is compared.
+    if cmp -s "$REGEN" <(tr -d '\r' < "$COMMITTED"); then
       echo "blend glsl: in sync with $SRC"
     else
       echo "blend glsl: OUT OF SYNC with $SRC" >&2

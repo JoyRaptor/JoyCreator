@@ -76,9 +76,14 @@ trap 'rm -rf "$OUT"' EXIT
 # @argfile, not a bare -cp: a semicolon-separated classpath handed to javac as a shell argument
 # gets mangled by MSYS path conversion, and the failure is silent — javac sees the jar, java does
 # not. tools/jvm-harness/run-fx.sh was bitten by exactly this.
+# A Windows javac reads "/tmp/x" as C:\tmp\x, not as Git Bash's /tmp, and writes its classes where this script never looks:
+# hand the JDK a path it understands (cygpath -m gives C:/..., and is absent on Linux). Same for the classpath separator.
+OUTJ=$(cygpath -m "$OUT" 2>/dev/null || echo "$OUT")
+SEP=":"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) SEP=";";; esac
 ARGS="$OUT/args"
-{ echo "-nowarn"; echo "-encoding UTF-8"; echo "-d $OUT/classes";
-  printf -- '-sourcepath "%s;tools/jvm-harness/stubs"\n' "$SRC"; } > "$ARGS"
+{ echo "-nowarn"; echo "-encoding UTF-8"; echo "-d $OUTJ/classes";
+  printf -- '-sourcepath "%s%stools/jvm-harness/stubs"\n' "$SRC" "$SEP"; } > "$ARGS"
 
 echo "blend golden: compiling $SRC/com/fadcam/ui/faditor/model/BlendModes.java"
 javac @"$ARGS" "$GENERATOR"
@@ -88,11 +93,11 @@ javac @"$ARGS" "$GENERATOR"
 [ -f "$OUT/classes/com/fadcam/ui/faditor/model/BlendModes.class" ] || { echo "no BlendModes.class — the Studio's source did not compile" >&2; exit 1; }
 
 REGEN="$OUT/BlendGolden.kt"
-java -cp "$OUT/classes" GenBlendGolden "$REGEN"
+java -cp "$OUTJ/classes" GenBlendGolden "$(cygpath -m "$REGEN" 2>/dev/null || echo "$REGEN")"
 
 run_model_check() {
   echo "blend golden: independent GLSL cross-check"
-  python3 "$MODEL" "$COMMITTED"
+  { python3 --version >/dev/null 2>&1 && python3 "$MODEL" "$COMMITTED"; } || python "$MODEL" "$COMMITTED"
 }
 
 case "${1:---all}" in
@@ -104,7 +109,7 @@ case "${1:---all}" in
   --check)
     # The diff is on BYTES, not on "the numbers look right". A regeneration that differs by a
     # single literal has to fail, because that literal is the Studio's answer to something.
-    if cmp -s "$REGEN" "$COMMITTED"; then
+    if cmp -s <(tr -d '\r' < "$REGEN") <(tr -d '\r' < "$COMMITTED"); then
       echo "blend golden: in sync with $SRC"
       run_model_check
     else

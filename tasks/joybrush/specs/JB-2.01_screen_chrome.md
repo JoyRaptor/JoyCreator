@@ -253,3 +253,16 @@ tap outside a panel closes it with no mark on the drawing.
 - The guides button (JB-2.12).
 - The small colour-wheel popover beside the strip. For now the Studio's full picker opens, and it dims the drawing.
 - The dial, as a later setting.
+
+### Lead 2026-09-30 (later): solid icons that ink themselves from the picture (owner ruling)
+
+Owner: *"the icons along the top and any icon that would expand into a menu should be solid and … auto detect what's behind
+them"*: a little lighter than middle grey means a black icon, a little darker means white with a drop shadow. Built:
+- Every `JbIcon` is solid; the top bar has no chips.
+- `core/chrome/IconContrast` picks the ink (`IconContrastTest` 7/7). Middle grey is L* 50 (sRGB 119, not 128). There is a ±4 L*
+  hold band so an icon does not flicker. An icon over mixed black and white (samples 45 L* or more apart) is white with a shadow.
+  Samples are averaged in luminance.
+- `JbCanvasView.sampleScreen` reads the real screen right after a frame (every layer, the paper, the grey outside the page). The
+  pinned reference answers for any point it covers. Each icon reads a 3 × 3 grid, re-read at most every 120 ms after a pan,
+  zoom, turn, stroke, undo, load or reference move.
+- Checked on the Note 9: white icons over marker paint, black over white paper, and back to black after undo.

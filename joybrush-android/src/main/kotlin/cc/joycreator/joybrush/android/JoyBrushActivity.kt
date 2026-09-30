@@ -55,6 +55,7 @@ import com.fadcam.ui.faditor.tools.ColorRecents
 import com.fadcam.ui.faditor.tools.RecentColorsBar
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.chrome.BrushShelf
+import cc.joycreator.joybrush.core.chrome.IconContrast
 import cc.joycreator.joybrush.core.chrome.StripPlacement
 import cc.joycreator.joybrush.core.chrome.ToolMemory
 import cc.joycreator.joybrush.core.chrome.ToolSlot
@@ -121,6 +122,12 @@ private const val TOP_RESERVE_DP = 54f
 /** A reference picture is decoded no bigger than this on its long side: a pinned picture never needs more. */
 private const val REFERENCE_MAX_PX = 1600
 
+/** How often, at most, the top icons re-read the picture behind them while it moves. */
+private const val ICON_CHECK_MS = 120L
+
+/** The icons read a GRID × GRID square of points each. */
+private const val GRID = 3
+
 /** The brush size slider runs 0..SIZE_STEPS on a log scale from the smallest brush to the largest. */
 private const val SIZE_STEPS = 1000
 
@@ -169,6 +176,9 @@ class JoyBrushActivity : Activity() {
     private lateinit var hud: ValueHud
     private lateinit var reference: ReferenceView
     private lateinit var pinBtn: TopButton
+    private val topButtons = ArrayList<TopButton>()
+    private var iconsInked = false
+    private var iconCheckPending = false
     private lateinit var overlaysView: FrameLayout
     private lateinit var prefs: SharedPreferences
     private var placement = StripPlacement.DEFAULT
@@ -243,7 +253,7 @@ class JoyBrushActivity : Activity() {
         // The eyedropper's ring is drawn over the canvas and is exactly its size, so the canvas's own coordinates are the ring's.
         root.addView(ring, FrameLayout.LayoutParams(MATCH, MATCH))
         // The pinned reference floats over the drawing, full-bleed like it, under the chrome. It is a view, never a layer.
-        reference = ReferenceView(kit).apply { onMoved = { saveReferencePlace() } }
+        reference = ReferenceView(kit)
         root.addView(reference, FrameLayout.LayoutParams(MATCH, MATCH))
         root.addView(overlays, FrameLayout.LayoutParams(MATCH, MATCH))
         // Joy Brush's identity, as a hairline along the very top (visual language §4.2): the section colour, never a button.
@@ -254,10 +264,15 @@ class JoyBrushActivity : Activity() {
         restoreReference()
         // Four fingers tap: the chrome goes, the picture stays (JB-2.02's gesture, JB-2.01's one toggle).
         canvas.onToggleUi = { toggleChrome() }
+        // The top icons re-read the picture behind them whenever it can have changed under them.
+        canvas.onViewMoved = { checkIcons() }
+        reference.onMoved = { saveReferencePlace(); checkIcons() }
+        root.post { checkIcons() }
         // JbCanvasView reports this on the UI thread via post(), after every committed stroke,
         // undo, redo and clear. Undo and Redo start disabled -- there is no history yet.
         canvas.onHistoryChanged = { canUndo, canRedo ->
             updateHistoryButtons(canUndo, canRedo)
+            checkIcons()
             // Every one of those is work that is not in the working file yet, so each one restarts
             // the 30 s clock (JB-0.08b decision 2).
             noteChange()
@@ -358,6 +373,7 @@ class JoyBrushActivity : Activity() {
         for (b in listOf(home, undoBtn, redoBtn)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
         topBar.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
         for (b in listOf(pinBtn, more)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
+        topButtons.addAll(listOf(home, undoBtn, redoBtn, pinBtn, more))
         overlays.addView(topBar, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP).apply {
             val m = kit.dpi(6f)
             setMargins(m, m, m, 0)
@@ -669,6 +685,7 @@ class JoyBrushActivity : Activity() {
         reference.visibility = if (show) View.VISIBLE else View.GONE
         pinBtn.on = show
         prefs.edit().putBoolean(PREF_REF_SHOWN, show).apply()
+        checkIcons()
     }
 
     private fun referenceMenu() {
@@ -721,6 +738,7 @@ class JoyBrushActivity : Activity() {
                 reference.setPicture(bmp, place)
                 reference.visibility = if (shown) View.VISIBLE else View.GONE
                 pinBtn.on = shown
+                checkIcons()
             }
         }
     }
@@ -760,6 +778,58 @@ class JoyBrushActivity : Activity() {
         reference.setPicture(null, null)
         pinBtn.on = false
         prefs.edit().remove(PREF_REF_URI).remove(PREF_REF_PLACE).remove(PREF_REF_SHOWN).apply()
+    }
+
+    // ── the top icons read the picture behind them (owner, 2026-09-30) ──
+
+    /**
+     * Asks for the top icons to re-read what is behind them, at most once every [ICON_CHECK_MS]: a pan sends dozens of
+     * moves a second, and one read per settle is plenty to keep a black icon off black paint.
+     */
+    private fun checkIcons() {
+        if (iconCheckPending) return
+        iconCheckPending = true
+        ui.postDelayed(iconCheck, ICON_CHECK_MS)
+    }
+
+    private val iconCheck = Runnable {
+        iconCheckPending = false
+        readIcons()
+    }
+
+    /**
+     * Nine points under each icon (a 3 × 3 grid across its face), read from the screen after the next frame, with the
+     * pinned reference answering for any point it covers; then [IconContrast] picks each icon's ink.
+     */
+    private fun readIcons() {
+        val buttons = topButtons.filter { it.isShown && it.width > 0 }
+        if (buttons.isEmpty()) return
+        val here = IntArray(2)
+        val there = IntArray(2)
+        canvas.getLocationOnScreen(there)
+        val step = kit.dp(7f)
+        val pts = FloatArray(buttons.size * GRID * GRID * 2)
+        var k = 0
+        for (b in buttons) {
+            b.getLocationOnScreen(here)
+            val cx = here[0] - there[0] + b.width / 2f
+            val cy = here[1] - there[1] + b.height / 2f
+            for (j in -1..1) for (i in -1..1) {
+                pts[k++] = cx + i * step
+                pts[k++] = cy + j * step
+            }
+        }
+        canvas.sampleScreen(pts) { colours ->
+            val per = GRID * GRID
+            for ((n, b) in buttons.withIndex()) {
+                val samples = IntArray(per) { m ->
+                    val idx = n * per + m
+                    reference.colourAt(pts[2 * idx], pts[2 * idx + 1]) ?: colours[idx]
+                }
+                b.ink = IconContrast.inkFor(samples, if (iconsInked) b.ink else null)
+            }
+            iconsInked = true
+        }
     }
 
     /** The strip's swatch and opacity button show the colour the next stroke will use; the hair outlines it. */

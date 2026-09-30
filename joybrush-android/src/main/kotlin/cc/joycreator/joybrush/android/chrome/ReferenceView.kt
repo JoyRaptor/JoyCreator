@@ -91,6 +91,23 @@ class ReferenceView(private val kit: ChromeKit) : View(kit.context) {
         }
     }
 
+    /**
+     * The reference picture's colour at view point ([x], [y]), or null when the picture is hidden or not there. The canvas
+     * cannot see this view (it is drawn above the GL surface), so the top icons ask it directly.
+     */
+    fun colourAt(x: Float, y: Float): Int? {
+        val b = bitmap ?: return null
+        if (visibility != VISIBLE || !place.invert(inv)) return null
+        pt[0] = x; pt[1] = y
+        inv.mapPoints(pt)
+        val px = pt[0].toInt()
+        val py = pt[1].toInt()
+        if (px < 0 || py < 0 || px >= b.width || py >= b.height) return null
+        val c = b.getPixel(px, py)
+        // A mostly see-through pixel of a cut-out picture shows the drawing, not the picture.
+        return if ((c ushr 24) < 128) null else c
+    }
+
     private fun hits(x: Float, y: Float): Boolean {
         val b = bitmap ?: return false
         if (!place.invert(inv)) return false

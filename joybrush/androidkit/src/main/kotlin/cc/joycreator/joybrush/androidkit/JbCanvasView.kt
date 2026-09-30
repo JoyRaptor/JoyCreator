@@ -120,10 +120,48 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private val drawView = ViewTransform()
 
     /**
-     * Called when four fingers tap. Nothing on screen listens yet — the chrome that would hide is
-     * JB-2.01's — and the view ignores it until something does.
+     * Called when four fingers tap: JB-2.01's chrome hides or comes back.
      */
     var onToggleUi: (() -> Unit)? = null
+
+    /** Called on the UI thread whenever a pan, zoom or turn moves the page (JB-2.01: the top icons re-read what is behind them). */
+    var onViewMoved: (() -> Unit)? = null
+
+    /** The one outstanding [sampleScreen] request: view px as x,y pairs, and who wants the answer. Latest wins. */
+    private val screenSample = java.util.concurrent.atomic.AtomicReference<Pair<FloatArray, (IntArray) -> Unit>?>(null)
+
+    /**
+     * The colours actually SHOWN at [points] (view px, x,y pairs), read from the screen right after the next frame is drawn
+     * and handed to [onColors] on the UI thread as opaque ARGB, one per point. This is what is on the glass — every layer,
+     * the paper, and the grey outside the page — which is exactly what an icon over the picture has to be legible against.
+     * A request made before the last one was answered replaces it.
+     */
+    fun sampleScreen(points: FloatArray, onColors: (IntArray) -> Unit) {
+        screenSample.set(Pair(points.copyOf(), onColors))
+        requestRender()
+    }
+
+    /** GL thread, after the frame: answers a waiting [sampleScreen]. A point off the surface reads as black. */
+    private fun answerScreenSample() {
+        val req = screenSample.getAndSet(null) ?: return
+        val pts = req.first
+        val out = IntArray(pts.size / 2)
+        val px = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder())
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        for (i in out.indices) {
+            val x = pts[2 * i].toInt()
+            val y = viewH - 1 - pts[2 * i + 1].toInt()
+            if (x < 0 || y < 0 || x >= viewW || y >= viewH) { out[i] = OPAQUE_BLACK; continue }
+            px.clear()
+            GLES30.glReadPixels(x, y, 1, 1, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, px)
+            val r = px.get(0).toInt() and 0xFF
+            val g = px.get(1).toInt() and 0xFF
+            val b = px.get(2).toInt() and 0xFF
+            out[i] = OPAQUE_BLACK or (r shl 16) or (g shl 8) or b
+        }
+        val answer = req.second
+        post { answer(out) }
+    }
 
     /** Called on the UI thread after each committed stroke / undo / redo (e.g. to enable buttons). */
     var onHistoryChanged: ((canUndo: Boolean, canRedo: Boolean) -> Unit)? = null
@@ -194,7 +232,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** Every touch that is not drawing (JB-2.02). Owns pan, zoom, rotate and the tap gestures. */
     private val gestures = CanvasGestures(
         view,
-        onViewChanged = { requestRender() },
+        onViewChanged = {
+            requestRender()
+            onViewMoved?.invoke()
+        },
         onUndo = { undo() },
         onRedo = { redo() },
         onToggleUi = { onToggleUi?.invoke() },
@@ -236,6 +277,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 val s = viewSnapshot
                 drawView.zoom = s[0]; drawView.rotation = s[1]; drawView.panX = s[2]; drawView.panY = s[3]
                 engine.draw(viewW, viewH, drawView.docToClip(viewW, viewH), paperArgb)
+                answerScreenSample()
             }
         })
         renderMode = RENDERMODE_WHEN_DIRTY
@@ -946,6 +988,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     companion object {
         /** Fingers are ignored for this long after the pen lifts (palm rejection). */
         const val PALM_GRACE_MS = 400L
+
+        /** Opaque black, the alpha a screen sample is given (the screen has no transparency). */
+        private const val OPAQUE_BLACK = -0x1000000
 
         /**
          * The scatter generator's salt, so its stream is not the dabber's own. A second generator

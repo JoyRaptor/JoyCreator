@@ -1978,7 +1978,7 @@ public class EditorTimelineView extends View {
         spineKnobStrokePaint.setColor(COLOR_HANDLE);
         spineKnobStrokePaint.setStyle(Paint.Style.STROKE);
         spineKnobStrokePaint.setStrokeWidth(2f * density);
-        spineKnobVeilPaint.setColor(0xAA050508);
+        spineKnobVeilPaint.setColor(Studio.alpha(Studio.GROUND, 0xAA));
         spineKnobVeilPaint.setStyle(Paint.Style.FILL);
         spineStemPaint.setColor(COLOR_HANDLE);
         spineStemPaint.setStyle(Paint.Style.STROKE);

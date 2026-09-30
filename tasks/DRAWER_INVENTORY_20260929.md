@@ -2,7 +2,7 @@
 
 A baseline for the owner's "every item in every drawer is still there" check. Read off the
 accessibility tree of the live app, so it is what a user (and TalkBack) actually gets. PARTIAL:
-only the text drawer is inventoried so far; the others are listed as "seen, not enumerated".
+the text and image drawers are inventoried; the others are listed as "seen, not enumerated".
 Re-run after big changes and diff.
 
 ## Text drawer (FONT TEST, ZA_CONTROL)
@@ -19,7 +19,18 @@ Let taps pass through / Frost, close.
   diamond and previous/next key.
 - **Lanes tab:** New lane (Above / Below), Move (Up a lane / Down a lane).
 
+## Image drawer (ZA_CONTROL, portrait)
+Header: name, tabs **Transform | Blend mode | Mask | Chroma key | Effects | Lanes | Puppet**, toggles
+Hide / Lock / Let taps pass through.
+- **Transform:** start here / span whole / end here (time range), Fit, Fill, Motion, Rotation pivot,
+  Clear all keys, animation summary line; rows Pos X, Pos Y, Scale (linked/split toggle) with Scale X /
+  Scale Y when split, Rotate, Opacity — each with value, diamond, previous/next key.
+- **Chroma key:** "Key out a colour" is exposed. **Lanes:** New lane (Above / Below), Move (Up / Down a lane).
+- **GAP FOUND:** the Blend, Mask and Effects tabs expose NO labelled controls to the accessibility tree
+  (only the header), so TalkBack cannot reach their controls and this inventory cannot list them. They
+  render fine visually. A real accessibility follow-up: give their sliders and chips content descriptions.
+
 ## Seen working in portrait, not enumerated here
-Image (Transform / Blend / Mask / Key / Effects / Lanes), sprite (header strip + frame palette),
+Sprite (header strip + frame palette),
 audio (Level / A/V Sync / FX: Level, Pan, In, Out), film double-tap (Volume drawer), video overlay,
 visualizer (Style | Transform), caption drawer (Style / Fit).

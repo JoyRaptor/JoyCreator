@@ -78,7 +78,8 @@ class DabPlacer(
         val radius = if (l.radius.isFinite()) l.radius.coerceIn(0f, MAX_RADIUS_PX) else 0f
         out.add(Dab(x = s.x, y = s.y, radius = radius, angle = if (l.angle.isFinite()) l.angle else 0f,
             flow = if (l.flow.isFinite()) l.flow.coerceIn(0f, 1f) else 0f,
-            cap = if (l.cap.isNaN()) cap else l.cap.coerceIn(0f, 1f), pressure = s.pressure))
+            cap = if (l.cap.isNaN()) cap else l.cap.coerceIn(0f, 1f), pressure = s.pressure,
+            tilt = s.tilt, azimuth = s.azimuth))
         val step = 2f * radius * spacing
         return if (step.isFinite()) max(step, minSpacingPx) else minSpacingPx
     }

@@ -6,6 +6,10 @@ package cc.joycreator.joybrush.core.paint
  * @property flow how much this dab adds to the stroke (0..1).
  * @property cap the ceiling the stroke may build to: the brush opacity in WASH mode, 1 in BUILD_UP
  *   mode (where opacity is applied once, when the stroke is committed). See [Accumulate].
+ * @property tilt the pen's tilt at this dab, radians, or NaN when the pen has no tilt sensor (a finger).
+ *   Kotlin-side only: it is NOT in the GPU instance buffer, so JB-0.07's reviewed layout is untouched —
+ *   the engine reads the newest dab of a batch to set the two per-batch grain uniforms (JB-1.05c D10).
+ * @property azimuth the direction the pen leans, radians, or NaN. Same rule as [tilt].
  */
 data class Dab(
     val x: Float,
@@ -15,6 +19,8 @@ data class Dab(
     val flow: Float = 1f,
     val cap: Float = 1f,
     val pressure: Float = 1f,
+    val tilt: Float = Float.NaN,
+    val azimuth: Float = Float.NaN,
 )
 
 /**

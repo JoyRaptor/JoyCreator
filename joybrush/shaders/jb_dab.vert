@@ -11,6 +11,7 @@ uniform vec2 u_tileOrigin;               // document px of the tile's first texe
 uniform float u_tileSize;
 
 out vec2 v_offset;                       // this fragment's offset from the dab centre, px
+out vec2 v_dabCentre;                   // the dab centre in document px (the paper grain is sampled in canvas space)
 out float v_radius;
 out float v_angle;
 out float v_flow;
@@ -24,6 +25,7 @@ void main() {
     vec2 p = a_dab.xy + off;
     gl_Position = vec4((p - u_tileOrigin) / u_tileSize * 2.0 - 1.0, 0.0, 1.0);
     v_offset = off;
+    v_dabCentre = a_dab.xy;
     v_radius = a_dab.z;
     v_angle = a_dab.w;
     v_flow = a_dab2.x;

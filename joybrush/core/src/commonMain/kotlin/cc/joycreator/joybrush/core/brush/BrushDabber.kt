@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.core.brush
 
 import cc.joycreator.joybrush.core.input.DirectionTracker
+import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.paint.DabLook
 import kotlin.math.PI
@@ -45,6 +46,8 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
     private var dabCount = 0
     private var hardness = preset.tip.hardness.base
     private var strokeOpacityValue = if (buildUp) preset.opacity.base else 1f
+    private var tipGrainDepth = preset.tipTexture.depth.base
+    private var paperGrainDepth = preset.paperGrain.depth.base
 
     /** [cc.joycreator.joybrush.core.paint.DabPlacer]'s `spacing`: a fraction of the dab diameter. */
     val spacing: Float = preset.spacing
@@ -54,6 +57,18 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
      * FIRST dab and then fixed. Before the first [look] it is the file's own base value.
      */
     val strokeHardness: Float get() = hardness
+
+    /**
+     * The stroke's two grains as the shader takes them (JB-1.05c). A grain's `depth` is a [Param] and
+     * could follow pressure, but the shader takes it as a uniform, so it is evaluated at the FIRST dab
+     * and then fixed — the same treatment [strokeHardness] and [strokeOpacity] get, for the same reason.
+     * Before the first [look] it is the file's own base value. Pure of GL: the engine only uploads it.
+     */
+    val strokeGrain: GrainMath.StrokeGrain
+        get() = GrainMath.StrokeGrain(
+            tip = GrainMath.uniformsFor(preset.tipTexture, tipGrainDepth),
+            paper = GrainMath.uniformsFor(preset.paperGrain, paperGrainDepth),
+        )
 
     /**
      * What opacity is applied to the whole stroke when it is committed — a BUILD_UP stroke's only
@@ -128,6 +143,8 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
             // batch, so the stroke's two whole-stroke numbers are the ones that get clamped.
             hardness = unit(Dynamics.eval(preset.tip.hardness, inputs), preset.tip.hardness.base)
             if (buildUp) strokeOpacityValue = unit(Dynamics.eval(preset.opacity, inputs), 1f)
+            tipGrainDepth = Dynamics.eval(preset.tipTexture.depth, inputs)
+            paperGrainDepth = Dynamics.eval(preset.paperGrain.depth, inputs)
         }
         dabCount++
 

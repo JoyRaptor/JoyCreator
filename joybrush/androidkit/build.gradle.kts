@@ -52,4 +52,7 @@ tasks.processResources {
     // JB-1.05b: the shipped brush files, one folder per brush plus index.txt. Read by
     // cc.joycreator.joybrush.androidkit.BrushLibrary from /joybrush/brushes.
     from(rootDir.resolve("brushes")) { into("joybrush/brushes") }
+    // JB-1.05c: the grain pictures a brush file names (`"image": "cloud_fine_256.png"`), read by
+    // GrainTextures from /joybrush/assets/grain.
+    from(rootDir.resolve("assets/grain")) { into("joybrush/assets/grain") }
 }

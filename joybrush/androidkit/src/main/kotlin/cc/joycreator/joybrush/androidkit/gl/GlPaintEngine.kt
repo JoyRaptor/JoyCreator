@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.androidkit.gl
 
 import android.opengl.GLES30
+import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.paint.Accumulate
 import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.StrokeBlend
@@ -45,6 +46,9 @@ class GlPaintEngine(
     private var fbo = 0
     private var clearTex = 0
 
+    /** The grain pictures (JB-1.05c): loaded on first use, dropped on a context loss. */
+    private val grains = GrainTextures()
+
     private var strokeInternal = GLES30.GL_R8
     private var strokeType = GLES30.GL_UNSIGNED_BYTE
 
@@ -87,6 +91,9 @@ class GlPaintEngine(
     private var accumulate = Accumulate.WASH
     private var blend = StrokeBlend.NORMAL
     private var tip = TipShape()
+    private var grain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF)
+    private var tipGrainTex = 0
+    private var paperGrainTex = 0
 
     private var instanceData: FloatBuffer = newFloats(6 * 256)
 
@@ -154,6 +161,7 @@ class GlPaintEngine(
         fbo = f[0]
 
         clearTex = newTexture(1, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
+        grains.create()
     }
 
     /**
@@ -187,6 +195,9 @@ class GlPaintEngine(
         undo.clear()
         freeLayerTex.clear()
         freeStrokeTex.clear()
+        // The grain pictures are not the person's drawing, so they do not count as "had" -- but their
+        // names are just as dead, and a brush is reloaded from its file on the next stroke.
+        grains.forget()
         return had
     }
 
@@ -212,6 +223,7 @@ class GlPaintEngine(
         GLES30.glDeleteBuffers(3, intArrayOf(quadVbo, unitVbo, instanceVbo), 0)
         GLES30.glDeleteVertexArrays(2, intArrayOf(dabVao, tileVao), 0)
         GLES30.glDeleteFramebuffers(1, intArrayOf(fbo), 0)
+        grains.release()
         dabProg.release(); commitProg.release(); tileProg.release()
         ready = false
     }
@@ -325,7 +337,8 @@ class GlPaintEngine(
 
     /** Starts a stroke. [argb] is the brush colour (alpha ignored — [opacity] is the stroke's opacity). */
     fun beginStroke(layerId: String, argb: Int, opacity: Float, accumulate: Accumulate,
-                    blend: StrokeBlend, tip: TipShape) {
+                    blend: StrokeBlend, tip: TipShape,
+                    grain: GrainMath.StrokeGrain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF)) {
         cancelStroke()
         strokeLayer = layers[layerId] ?: error("no layer $layerId")
         colR = ((argb shr 16) and 0xFF) / 255f
@@ -335,6 +348,16 @@ class GlPaintEngine(
         this.accumulate = accumulate
         this.blend = blend
         this.tip = tip
+        // A grain whose picture is missing is drawn as OFF: a missing picture must never read as "paint
+        // everywhere". The picture is bound per batch in addDabs, but resolved here, once per stroke.
+        val tipTex = if (grain.tip.enabled) grains.textureFor(grain.tip.asset) else null
+        val paperTex = if (grain.paper.enabled) grains.textureFor(grain.paper.asset) else null
+        this.grain = GrainMath.StrokeGrain(
+            tip = if (tipTex != null) grain.tip else GrainMath.GrainUniforms.OFF,
+            paper = if (paperTex != null) grain.paper else GrainMath.GrainUniforms.OFF,
+        )
+        tipGrainTex = tipTex ?: grains.placeholder
+        paperGrainTex = paperTex ?: grains.placeholder
     }
 
     /** The cap every dab of the active stroke should carry (see Accumulate). */
@@ -354,6 +377,7 @@ class GlPaintEngine(
         GLES30.glUniform1f(dabProg.loc("u_taper"), tip.taper)
         GLES30.glUniform1f(dabProg.loc("u_hardness"), tip.hardness)
         GLES30.glUniform1f(dabProg.loc("u_minPx"), tip.minPx)
+        setGrainUniforms(dabs[dabs.size - 1])
         GLES30.glBindVertexArray(dabVao)
 
         for ((key, list) in Tiles.bucket(dabs, size)) {
@@ -368,6 +392,40 @@ class GlPaintEngine(
         GLES30.glBindVertexArray(0)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+    }
+
+    /**
+     * Everything the dab shader takes for grain (JB-1.05c). The pictures go on units 0 and 1 EVERY batch
+     * and are never left to a default: an unset sampler reads unit 0, and whatever is bound there might
+     * be the very stroke tile being drawn into -- a feedback loop, which the driver answers by dropping
+     * the draw. A grain that is OFF gets the 1x1 placeholder and a pitch of 0, and the shader ignores it.
+     *
+     * The lean is from the NEWEST dab of the batch (Decision 10): one set of numbers per draw call, and
+     * a batch is a few milliseconds of pen. It goes through [GrainMath.tiltAmount] / [GrainMath.leanX] /
+     * [GrainMath.leanY], which turn a finger's NaN into "upright, no lean" before the GPU ever sees it.
+     */
+    private fun setGrainUniforms(newest: Dab) {
+        GLES30.glUniform1i(dabProg.loc("u_tipGrain"), 0)
+        GLES30.glUniform1i(dabProg.loc("u_paperGrain"), 1)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tipGrainTex)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, paperGrainTex)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        val tg = grain.tip
+        val pg = grain.paper
+        GLES30.glUniform1f(dabProg.loc("u_tipGrainPitchPx"), tg.pitchPx)
+        GLES30.glUniform1f(dabProg.loc("u_tipDepth"), tg.depth)
+        GLES30.glUniform1f(dabProg.loc("u_tipEdge"), tg.edge)
+        GLES30.glUniform1f(dabProg.loc("u_tipTiltGradient"), tg.tiltGradient)
+        GLES30.glUniform1f(dabProg.loc("u_tipRadial"), tg.radial)
+        GLES30.glUniform1f(dabProg.loc("u_paperGrainPitchPx"), pg.pitchPx)
+        GLES30.glUniform1f(dabProg.loc("u_paperDepth"), pg.depth)
+        GLES30.glUniform1f(dabProg.loc("u_paperEdge"), pg.edge)
+        GLES30.glUniform1f(dabProg.loc("u_paperTiltGradient"), pg.tiltGradient)
+        GLES30.glUniform1f(dabProg.loc("u_paperRadial"), pg.radial)
+        GLES30.glUniform1f(dabProg.loc("u_tiltAmount"), GrainMath.tiltAmount(newest.tilt))
+        GLES30.glUniform2f(dabProg.loc("u_leanDir"), GrainMath.leanX(newest.azimuth), GrainMath.leanY(newest.azimuth))
     }
 
     /** Commits the active stroke into its layer as one undoable step. Returns tiles changed. */

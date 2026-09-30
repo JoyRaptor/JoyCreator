@@ -19,6 +19,7 @@ import cc.joycreator.joybrush.core.brush.SplitMix
 import cc.joycreator.joybrush.core.doc.BoardKind
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.LayerKind
+import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.input.DirectionTracker
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.input.StrokeSmoother
@@ -356,8 +357,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             minPx = p.tip.minPx,
         )
         glBegan = true
+        // The grain the file asked for, with its depth as evaluated at the first dab (JB-1.05c). The
+        // hard-coded Brush has none.
+        val grain = d?.strokeGrain ?: GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF)
         onGl { engine.beginStroke(layerId, b.argb, opacity, accumulate,
-            if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip) }
+            if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip, grain) }
     }
 
     private fun feed(ev: MotionEvent) {
@@ -410,14 +414,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     /**
-     * What [Scatter] gets to ask about one dab: its pressure, and nothing else. A [Dab] does not
-     * carry tilt or speed or distance, so those are NaN — which the curves read as "not available"
-     * and skip, leaving a scatter curve on tilt to contribute its base rather than a number invented
-     * here.
+     * What [Scatter] gets to ask about one dab: its pressure and its tilt. A [Dab] does not carry
+     * speed or distance, so those are NaN — which the curves read as "not available" and skip,
+     * leaving a scatter curve on speed to contribute its base rather than a number invented here.
+     * The tilt is NaN for a finger, and read the same way.
      */
     private fun dabInputsOf(dab: Dab) = DabInputs(
         pressure = dab.pressure,
-        tilt = Float.NaN,
+        tilt = dab.tilt,
         speedPxPerS = Float.NaN,
         direction = Float.NaN,
         lean = Float.NaN,

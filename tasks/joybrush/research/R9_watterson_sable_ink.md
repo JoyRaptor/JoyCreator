@@ -336,3 +336,16 @@ The owner asked for all of §3B, with sliders. Everything below is on `joy-creat
 | Stray strands: longer, shorter, stuttering on the tooth | Up to 5 hairs, two rhythms of on and off, and about half of them STUTTER on the page's tooth (`KIND_HAIR`). |
 | A live preview in the settings that shows tilt, pressure and speed | `BrushPreviewStrokes`: one long stroke walks hairline → line weight → pressed flat and laid over → quick lift, with spikes, switchbacks, a tilted shadow pass, a jolt and whiskers. It is drawn by a real `JbCanvasView` in the sheet (`replaceWithStrokes`: no undo) and redrawn 40 ms after each slider move. You can draw on it too. |
 | — | A finger or mouse (always full pressure) draws line weight, not a shadow. The earlier Sable tuning carries over from `tuft_tuning` into `brush_tuning`. |
+
+### 10c. Round three (2026-09-30, drawing 3s on the Note 9)
+
+| Owner note | Cause / built |
+|---|---|
+| A jog on the lower right of curves, "as if the brush flipped" | The trailing-bristle target was `−travel − lean·tilt`. Running AGAINST the lean, the two cancelled, the normalised target spun 180°, and the teardrop flipped sides. Now only travel pulls the tip, and the tilt moves the BELLY (`ox, oy`). Nothing is normalised, so nothing can flip. Test: `aCurveAgainstTheLeanNeverFlipsTheBrush`. |
+| Tilt: the point at the pen, the oblong body growing toward the tilt; the tip pulled by the travel | The belly sits at `pen + lean × ext(tilt, pressure)`, and the tip trails behind travel. A steep, light touch is oblong and nearly as big (`sideW`). |
+| Steep and hard = black with stray strokes; steep and light = wispy, scratchy grazing, for shading | `graze = Graze × lay × (1 − p)^1.3`, drier toward the belly end in `jb_tuft.frag`. Pressed hard, graze is 0. The **Ink side** slider is replaced by **Graze**. |
+| Pivoting the pen round a fixed point vs walking the point round a rim must look different | The smoother releases nothing for a still pen, so `JbCanvasView.feedOne` hands such samples to `TuftStroke.dwell`, and the belly swings round the point. Both circles are in the preview. |
+| A mashed brush can lift split, in two or three points | `mashed` (pressed flat + splay, fading with distance) gives a chance, set by Splay, of 2–3 prongs at the lift. |
+| Wet, then suddenly dry and useless | The load drains about 3× slower, and slower still as it empties. Dryness from the load is `0.72 × (1 − load)^1.2`: early, gentle, and never all the way. |
+| Curves for pressure and tilt with Bezier handles; a dot showing what the pen reads | `ResponseSpec` (brush version 5 when bent) for every brush, applied before the smoother. `CurveEditorView` ×2 and `PenReadingView` in the settings, driven by `JbCanvasView.onPenReading` (hovering too). |
+| — | Hardware: the Note 9's `sec_e-pen` reports ABS_TILT_X/Y ±63° (from `getevent -lp`). |

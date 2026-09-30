@@ -1355,7 +1355,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // an armed dropper surviving a miss would eat the user's next real gesture. The event
         // is swallowed so sampling a colour cannot also drag the PiP.
         if (pendingEyedropper != null && ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
-            com.fadcam.ui.faditor.tools.MaskKeyPanel.ColorPicked cb = pendingEyedropper;
+            com.fadcam.ui.faditor.tools.PipDrawerTabs.ColorPicked cb = pendingEyedropper;
             pendingEyedropper = null;
             if (overlayVideoLayer == null) { cb.onPicked(null); return true; }
             int[] loc = new int[2];
@@ -28947,48 +28947,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * dropper armed inside the PiP view never receives a touch at all. Only
      * {@link #dispatchTouchEvent} is above every sibling.
      */
-    @Nullable private com.fadcam.ui.faditor.tools.MaskKeyPanel.ColorPicked pendingEyedropper;
-
-    /**
-     * §3a MASK &amp; KEY — the authoring UI for {@code CompositingSpec}.
-     *
-     * <p>The panel itself lives in {@link com.fadcam.ui.faditor.tools.MaskKeyPanel}; this method
-     * is only the {@code Host} wiring. It USED to be ~120 lines of dialog inline here, and the
-     * key half would have added as many again to a file that is already 27,000 lines — so it
-     * moved out rather than growing, matching {@code ObjectMenuSheet}/{@code FilterBottomSheet}.
-     *
-     * <p><b>Both halves now render live in the preview.</b> The mask goes through
-     * {@code MaskPathBuilder} and the key through {@code ChromaKeyTextureView}, which compiles
-     * the same {@code ChromaKey.GLSL_KEY_FN} the export effect does — so every slider is tuned
-     * against what the file will actually contain. That was the binding condition (2026-07-28)
-     * on the key getting a UI at all.</p>
-     */
-    private void showMaskDialog(@NonNull Clip c) {
-        if (project == null) return;
-        new com.fadcam.ui.faditor.tools.MaskKeyPanel(this, c,
-                new com.fadcam.ui.faditor.tools.MaskKeyPanel.Host() {
-            @Override public void onCompositingChanged() {
-                if (overlayVideoLayer != null) overlayVideoLayer.refreshCompositing();
-                if (editorTimeline != null) editorTimeline.invalidate();
-            }
-            @Override public void saveNow() { saveProjectNow(); }
-            @Override public void scheduleSave() { scheduleAutoSave(); }
-            @Override public void recordCompositingUndo(@NonNull String label,
-                                                        @NonNull Runnable redo,
-                                                        @NonNull Runnable undo) {
-                undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
-            }
-            @Override public void pickColorFromPreview(
-                    @NonNull com.fadcam.ui.faditor.tools.MaskKeyPanel.ColorPicked cb) {
-                if (overlayVideoLayer == null) { cb.onPicked(null); return; }
-                android.widget.Toast.makeText(FaditorEditorActivity.this,
-                        R.string.faditor_key_tap_prompt,
-                        android.widget.Toast.LENGTH_SHORT).show();
-                pendingEyedropper = cb;
-            }
-            @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
-        }).show();
-    }
+    @Nullable private com.fadcam.ui.faditor.tools.PipDrawerTabs.ColorPicked pendingEyedropper;
 
     /**
      * Blend-mode picker for a PiP (access-point audit item 2).
@@ -30443,7 +30402,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 android.widget.Toast.makeText(FaditorEditorActivity.this,
                         R.string.faditor_key_tap_prompt,
                         android.widget.Toast.LENGTH_SHORT).show();
-                pendingEyedropper = cb::onPicked;
+                pendingEyedropper = cb;
             }
             @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
                                              @NonNull Runnable undo) {

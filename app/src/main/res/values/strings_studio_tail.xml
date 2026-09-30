@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Undo names and messages from the last marked batch (2026-09-29). -->
+<resources>
+    <string name="studio_tail_move_keyframe">Move keyframe</string>
+    <string name="studio_tail_add_adjustment_layer">Add adjustment layer</string>
+    <string name="studio_tail_add_linked_pair">Add linked screen + webcam pair</string>
+    <string name="studio_tail_insert_at_playhead">Insert at playhead</string>
+    <string name="studio_tail_split_linked_pair">Split linked pair</string>
+    <string name="studio_tail_delete_linked_pair">Delete linked pair</string>
+    <string name="studio_tail_duplicate">Duplicate</string>
+    <string name="studio_tail_link_clips_pair">Link clips (screen + webcam)</string>
+</resources>

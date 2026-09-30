@@ -14982,7 +14982,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // from the G9 peer link-timing groups above.
         Clip[] pair = eligibleDualStreamLinkPair(items);
         if (pair != null) {
-            labels.add("Link clips (screen + webcam)");                       // TODO(strings)
+            labels.add(getString(R.string.studio_tail_link_clips_pair));                       // TODO(strings)
             handlers.add(() -> linkDualStreamPair(pair[0], pair[1]));
         }
         Clip linkedInSel = firstLinkedClipInSelection(items);
@@ -17246,9 +17246,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // C4 §2: ONE undo step for the whole drag (recordXxxMenuUndo no-ops when the
                 // before/after snapshots match, so a tap or fully-clamped drag records nothing).
                 if (item.getTextOverlay() != null && kfShiftOverlayBefore != null) {
-                    recordOverlayMenuUndo(item.getTextOverlay(), kfShiftOverlayBefore, "Move keyframe"); // TODO(strings)
+                    recordOverlayMenuUndo(item.getTextOverlay(), kfShiftOverlayBefore, getString(R.string.studio_tail_move_keyframe)); // TODO(strings)
                 } else if (item.getSprite() != null && kfShiftSpriteBefore != null) {
-                    recordSpriteMenuUndo(item.getSprite(), kfShiftSpriteBefore, "Move keyframe"); // TODO(strings)
+                    recordSpriteMenuUndo(item.getSprite(), kfShiftSpriteBefore, getString(R.string.studio_tail_move_keyframe)); // TODO(strings)
                 }
                 kfShiftOverlayBefore = null;
                 kfShiftSpriteBefore = null;
@@ -30085,7 +30085,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         project.getTimeline().addAdjustmentLayer(layer);
         undoManager.recordAction(new EditActions.LambdaAction(
-                "Add adjustment layer",                                       // TODO(strings)
+                getString(R.string.studio_tail_add_adjustment_layer),                                       // TODO(strings)
                 () -> {
                     project.getTimeline().addAdjustmentLayer(layer);
                     refreshAfterMarqueeBatchDelete();
@@ -45107,7 +45107,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 };
                 apply.run();
                 undoManager.recordAction(new EditActions.LambdaAction(
-                        "Add linked screen + webcam pair", apply, revert)); // TODO(strings)
+                        getString(R.string.studio_tail_add_linked_pair), apply, revert)); // TODO(strings)
                 saveProjectNow();
                 if (assetBrowserPanel != null) assetBrowserPanel.collapse();
                 Toast.makeText(this, R.string.studio_toast_linked_pair_added_edits_mirror_across, Toast.LENGTH_SHORT).show();
@@ -45286,7 +45286,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 final Clip fOriginal = splitOriginal, fLeft = splitLeft, fRight = splitRight;
                 final int fSplitIndex = splitIndex, fInsertIndex = insertIndex;
                 undoManager.recordAction(new EditActions.LambdaAction(
-                        "Insert at playhead",                              // TODO(strings)
+                        getString(R.string.studio_tail_insert_at_playhead),                              // TODO(strings)
                         () -> {
                             tl.removeClip(fSplitIndex);
                             tl.addClip(fSplitIndex, fRight);
@@ -47225,7 +47225,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (editorTimeline != null) editorTimeline.invalidate();
         };
         undoManager.recordAction(new EditActions.LambdaAction(
-                "Split linked pair", apply, revert)); // TODO(strings)
+                getString(R.string.studio_tail_split_linked_pair), apply, revert)); // TODO(strings)
     }
 
     /**
@@ -47492,7 +47492,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     };
                     apply.run();
                     undoManager.recordAction(new EditActions.LambdaAction(
-                            "Delete linked pair", apply, revert));            // TODO(strings)
+                            getString(R.string.studio_tail_delete_linked_pair), apply, revert));            // TODO(strings)
                     saveProjectNow();
                     Toast.makeText(this, R.string.studio_toast_linked_pair_deleted, Toast.LENGTH_SHORT).show();
                 })
@@ -47943,7 +47943,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Shared tail of {@link #duplicateSelectedObject}: one undo step, repaint, save, tell. */
     private void finishDuplicate(@NonNull Runnable undo) {
         undoManager.recordAction(new EditActions.LambdaAction(
-                "Duplicate",                                                  // TODO(strings)
+                getString(R.string.studio_tail_duplicate),                                                  // TODO(strings)
                 () -> { refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); },
                 () -> { undo.run(); refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); }));
         refreshAfterMarqueeBatchDelete();

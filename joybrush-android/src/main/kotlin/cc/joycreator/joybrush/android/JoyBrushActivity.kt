@@ -39,7 +39,7 @@ import cc.joycreator.joybrush.android.chrome.Popovers
 import cc.joycreator.joybrush.android.chrome.ReferenceView
 import cc.joycreator.joybrush.android.chrome.ToolStripView
 import cc.joycreator.joybrush.android.chrome.TopButton
-import cc.joycreator.joybrush.android.chrome.TuftTuningView
+import cc.joycreator.joybrush.android.chrome.BrushSettingsView
 import cc.joycreator.joybrush.android.chrome.ValueHud
 import cc.joycreator.joybrush.androidkit.BrushLibrary
 import cc.joycreator.joybrush.androidkit.JbCanvasView
@@ -55,15 +55,14 @@ import com.fadcam.ui.faditor.tools.ColorPickerDialog
 import com.fadcam.ui.faditor.tools.ColorRecents
 import com.fadcam.ui.faditor.tools.RecentColorsBar
 import cc.joycreator.joybrush.core.brush.BrushPreset
-import cc.joycreator.joybrush.core.brush.ENGINE_TUFT
-import cc.joycreator.joybrush.core.brush.TuftSpec
 import cc.joycreator.joybrush.core.chrome.BrushShelf
 import cc.joycreator.joybrush.core.chrome.IconContrast
 import cc.joycreator.joybrush.core.chrome.StripPlacement
 import cc.joycreator.joybrush.core.chrome.ToolMemory
 import cc.joycreator.joybrush.core.chrome.ToolSlot
 import cc.joycreator.joybrush.core.chrome.TuftTestSheet
-import cc.joycreator.joybrush.core.chrome.TuftTuning
+import cc.joycreator.joybrush.core.chrome.BrushPreviewStrokes
+import cc.joycreator.joybrush.core.chrome.BrushTuning
 import cc.joycreator.joybrush.core.io.SaveQueue
 import cc.joycreator.joybrush.core.tool.SizeOpacityDrag
 import cc.joycreator.joybrush.core.io.SaveReason
@@ -117,7 +116,11 @@ private const val REQUEST_REFERENCE = 4103
 private const val CHROME_PREFS = "joybrush_chrome"
 private const val PREF_STRIP = "strip"
 private const val PREF_TOOLS = "tools"
-/** R9: the owner's tuning of each tuft brush, laid over the brush file when it is picked. */
+/** Every brush's slider positions (BrushTuning), laid over the brush file whenever it is picked. */
+private const val PREF_TUNING = "brush_tuning"
+/** How long the live preview waits after a slider move before it redraws, ms (a drag sends a move per frame). */
+private const val PREVIEW_DEBOUNCE_MS = 40L
+/** The first tuning format (tuft brushes only). Read once, carried into [PREF_TUNING], then removed. */
 private const val PREF_TUFT = "tuft_tuning"
 private const val PREF_REF_URI = "reference_uri"
 private const val PREF_REF_PLACE = "reference_place"
@@ -201,8 +204,11 @@ class JoyBrushActivity : Activity() {
     private val brushes: List<BrushPreset> = BrushLibrary.builtIn()
     private var tools = ToolMemory.defaults(brushes)
 
-    /** R9: the tuft brushes' slider settings, by brush id. Empty until the owner tunes one. */
-    private var tuftTuning: Map<String, TuftSpec> = emptyMap()
+    /** Each brush's slider positions, by brush id (BrushTuning). Empty until the owner moves one. */
+    private var tuning: Map<String, Map<String, Float>> = emptyMap()
+
+    /** The brushes as the owner has tuned them: what the drawer shows and what the canvas draws with. */
+    private fun tunedBrushes(): List<BrushPreset> = brushes.map { BrushTuning.apply(it, tuning) }
 
     // JB-0.06: the hidden pen probe. GONE until the owner holds the ⋯ button.
     private lateinit var diag: PenDiagnosticsView
@@ -254,7 +260,12 @@ class JoyBrushActivity : Activity() {
         prefs = getSharedPreferences(CHROME_PREFS, Context.MODE_PRIVATE)
         // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
         tools = ToolMemory.decode(prefs.getString(PREF_TOOLS, null), brushes)
-        tuftTuning = TuftTuning.decode(prefs.getString(PREF_TUFT, null))
+        tuning = BrushTuning.decode(prefs.getString(PREF_TUNING, null))
+        prefs.getString(PREF_TUFT, null)?.let { old ->
+            // The first format: carry the owner's Sable tuning over rather than lose it.
+            tuning = BrushTuning.fromLegacyTuft(old, brushes) + tuning
+            prefs.edit().putString(PREF_TUNING, BrushTuning.encode(tuning)).remove(PREF_TUFT).apply()
+        }
         placement = StripPlacement.decode(prefs.getString(PREF_STRIP, null))
         val overlays = buildOverlays()
         overlaysView = overlays
@@ -489,7 +500,8 @@ class JoyBrushActivity : Activity() {
      * never lost to a force-stop.
      */
     private fun applyTool() {
-        canvas.preset = (tools.presetFrom(brushes) ?: brushes.firstOrNull())?.let { TuftTuning.apply(it, tuftTuning) }
+        val tuned = tunedBrushes()
+        canvas.preset = tools.presetFrom(tuned) ?: tuned.firstOrNull()
         strip.showTools(tools.slots.keys, tools.active)
         showStripValues()
         prefs.edit().putString(PREF_TOOLS, tools.encode()).apply()
@@ -511,11 +523,16 @@ class JoyBrushActivity : Activity() {
         // A shelf of one is a nearly empty drawer (seen on the Note 9): open on All until the tool's own shelf has a choice.
         val ownCount = BrushShelf.shelves(brushes).firstOrNull { it.first == own }?.second?.size ?: 0
         val start = if (ownCount >= 2) own else BrushShelf.Kind.ALL
-        val drawer = BrushDrawerView(kit, brushes, start, current) { picked ->
+        val drawer = BrushDrawerView(kit, tunedBrushes(), start, current, onPick = { picked ->
             tools = tools.pick(picked)
             applyTool()
             popovers.close()
-        }
+        }, onSettings = { held ->
+            // Holding a brush takes it up AND opens its settings, so the sliders and the pen speak about the same brush.
+            tools = tools.pick(held)
+            applyTool()
+            brushes.firstOrNull { it.id == held.id }?.let { openSettings(it) }
+        })
         // Full width on a phone (the Note 9 at its dense setting is ~548 dp); capped on a tablet so strokes stay readable.
         popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
     }
@@ -613,11 +630,11 @@ class JoyBrushActivity : Activity() {
             })
         }, LinearLayout.LayoutParams(MATCH, dp(40)))
 
-        // R9: a tuft brush in the hand can be tuned while drawing.
-        val inHand = tools.presetFrom(brushes)
-        if (inHand != null && inHand.engine == ENGINE_TUFT) {
-            box.addView(menuRow("Tune ${inHand.name}…", "Adjust how this brush behaves; you can keep drawing while the sliders are open") {
-                openTuning(inHand)
+        // Every brush's advanced settings (also: hold the brush in the drawer).
+        val inHand = tools.current?.brushId?.let { id -> brushes.firstOrNull { it.id == id } }
+        if (inHand != null) {
+            box.addView(menuRow("${inHand.name} settings…", "Adjust how this brush behaves, with a live preview; you can keep drawing while it is open") {
+                openSettings(inHand)
             })
         }
 
@@ -629,34 +646,60 @@ class JoyBrushActivity : Activity() {
     }
 
     /**
-     * R9: the tuning sheet for a tuft brush. It does not catch the canvas, so every slider move can be tried at once. Each
-     * move re-applies the brush (the NEXT stroke uses it); the settings are saved when a finger lifts off a slider.
+     * A brush's advanced settings (owner, 2026-09-30): a live preview, then every slider the brush has. The sheet does not
+     * catch the canvas. Each move re-applies the brush (the NEXT stroke uses it) and redraws the preview; the positions are
+     * saved when a finger lifts off a slider. [brush] is the brush as it SHIPS; its saved positions are laid over it here.
      */
-    private fun openTuning(brush: BrushPreset) {
-        val start = tuftTuning[brush.id] ?: brush.tuft
-        val view = TuftTuningView(kit, brush.name, start,
-            onChange = { spec, done ->
-                tuftTuning = tuftTuning + (brush.id to spec)
+    private fun openSettings(brush: BrushPreset) {
+        val preview = JbCanvasView(this).apply {
+            // Above the drawing's own surface, below the chrome.
+            setZOrderMediaOverlay(true)
+            longPressEyedropper = false
+            paperArgb = canvas.paperArgb
+            colorArgb = canvas.strokeColor
+        }
+        fun previewBrush(): BrushPreset {
+            val tuned = BrushTuning.apply(brush, tuning)
+            // At the size the tool in hand has for it, so the preview is the stroke the pen will make.
+            val size = tools.current?.takeIf { it.brushId == brush.id }?.sizePx ?: tuned.size.base
+            return cc.joycreator.joybrush.core.chrome.ToolMemory.sized(tuned, size, tuned.opacity.base)
+        }
+        val redraw = Runnable {
+            if (preview.width > 0 && preview.height > 0) {
+                preview.preset = previewBrush()
+                preview.replaceWithStrokes(BrushPreviewStrokes.strokes(preview.width.toFloat(), preview.height.toFloat()))
+            }
+        }
+        fun redrawSoon() {
+            preview.removeCallbacks(redraw)
+            preview.postDelayed(redraw, PREVIEW_DEBOUNCE_MS)
+        }
+        preview.onReady = { redrawSoon() }
+        fun save() = prefs.edit().putString(PREF_TUNING, BrushTuning.encode(tuning)).apply()
+        val view = BrushSettingsView(kit, brush, tuning[brush.id] ?: emptyMap(), preview,
+            onChange = { positions, done ->
+                tuning = tuning + (brush.id to positions)
                 applyTool()
-                if (done) prefs.edit().putString(PREF_TUFT, TuftTuning.encode(tuftTuning)).apply()
+                redrawSoon()
+                if (done) save()
             },
             onReset = {
-                tuftTuning = tuftTuning - brush.id
+                tuning = tuning - brush.id
                 applyTool()
-                prefs.edit().putString(PREF_TUFT, TuftTuning.encode(tuftTuning)).apply()
-                brush.tuft
+                redrawSoon()
+                save()
             },
-            onDone = { popovers.close() },
             onTest = {
                 // Above the sheet, which covers the lower part of the screen.
                 val w = canvas.width.toFloat()
                 val h = canvas.height.toFloat()
                 val left = w * 0.05f
-                val top = h * 0.1f
-                val strokes = TuftTestSheet.strokes(w * 0.9f, h * 0.42f)
+                val top = h * 0.06f
+                val strokes = TuftTestSheet.strokes(w * 0.9f, h * 0.36f)
                     .map { s -> s.map { it.copy(x = it.x + left, y = it.y + top) } }
                 canvas.drawStrokes(strokes)
             },
+            onDone = { popovers.close() },
         )
         popovers.showSheet(view, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT, modal = false)
     }

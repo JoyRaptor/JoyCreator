@@ -272,6 +272,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
                 engine.init()
                 engine.addLayer(layerId)
+                post {
+                    surfaceReady = true
+                    onReady?.invoke()
+                }
             }
             override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
                 // The view is NOT touched here: a new ViewTransform is already identity (the page
@@ -685,6 +689,26 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             finishStroke()
         }
         onGl { engine.undo.mergeNewest(engine.undo.undoDepth - mark); reportHistory() }
+    }
+
+    /** Called on the UI thread once the GL surface exists and strokes can be laid (and again after a context loss). */
+    var onReady: (() -> Unit)? = null
+
+    /** True once [onReady] has fired: before that, a stroke queued for the GL thread would find no engine. */
+    @Volatile var surfaceReady = false
+        private set
+
+    /**
+     * A brush's live preview (owner, 2026-09-30): empties this canvas WITHOUT an undo step and lays [strokes] afresh. For a
+     * small canvas used as a preview, never for the person's drawing. Does nothing before [onReady] or mid-stroke.
+     */
+    fun replaceWithStrokes(strokes: List<List<PenSample>>) {
+        if (!surfaceReady || drawing) return
+        onGl {
+            engine.resetDocument()
+            engine.addLayer(layerId)
+        }
+        drawStrokes(strokes)
     }
 
     /** R9: a tuft stroke's footprints to the GL thread, beginning the stroke there with the first of them. */

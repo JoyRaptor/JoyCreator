@@ -49,6 +49,18 @@ const val VERSION_TUFT = 4
     val spatter: Float = 0.3f,
     /** A broken hair or two, only when painting with the belly: a thin, on-and-off line beside the stroke (O4). */
     val strays: Float = 0.4f,
-    /** Laying the pen over spreads the belly wider (pens that report tilt only). */
+    /** Laying the pen over spreads the belly wider and stretches it on the diagonal (pens that report tilt only). */
     val tilt: Float = 0.5f,
+    /**
+     * Pressing the brush flat for shadows: past the line-weight range the belly spreads to the widest the bristles go
+     * (owner, 2026-09-30: "three modes — detail, line weight, shadows"). 0 = no press-flat zone … 1 = five times wider.
+     */
+    val flatten: Float = 0.5f,
+    /** Bristle marks even in a loaded brush: broken edges and a streaky light side. */
+    val action: Float = 0.4f,
+    /**
+     * Which side of a tilted brush keeps the ink. 1 = the LIGHT side (the bristle tips, least force) carries the most ink
+     * and the heavy side shows the bristles (the owner's words, 2026-09-30); 0 = the other way round; 0.5 = even.
+     */
+    val inkSide: Float = 0.75f,
 )

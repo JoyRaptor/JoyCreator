@@ -19,6 +19,7 @@ uniform float u_bristles;   // streaks across the full width
 uniform float u_streakPx;   // how long a streak runs along the stroke before it changes, document px
 uniform float u_tooth;      // 0..1: how much the paper breaks up the dry parts
 uniform float u_seed;       // per stroke, so two strokes do not share one streak pattern
+uniform float u_action;     // 0..1: bristle marks even in a loaded brush, strongest at the edges
 
 in vec2 v_pos;
 flat in vec4 v_ab;
@@ -80,7 +81,11 @@ void main() {
 
     float sd = jb_tuftDistance(v_pos, a, b, ra, rb);
     float d;
-    if (v_kind > 0.5) {
+    if (v_kind > 1.5) {
+        // A stray hair: it catches on the paper's high points and skips the low ones, as much as it stutters.
+        d = clamp(0.5 - sd, 0.0, 1.0);
+        if (dry > 0.0) d *= clamp((h - dry) / 0.08 + 0.5, 0.0, 1.0);
+    } else if (v_kind > 0.5) {
         d = clamp(0.5 - sd, 0.0, 1.0);
     } else {
         vec2 axis = b - a;
@@ -102,6 +107,8 @@ void main() {
         // Sweep: the inside keeps its ink, the outside runs dry first.
         float side = bias * y;
         float dLocal = clamp(dry + max(-side, 0.0) * 0.9 - max(side, 0.0) * 0.6, 0.0, 1.0);
+        // Bristle action: a loaded brush still breaks at its edges; a little all the way across.
+        dLocal = clamp(dLocal + u_action * (0.12 + 0.5 * y * y), 0.0, 1.0);
 
         // Bristle streaks: each streak has its own ink, and the drier the brush the fewer of them touch.
         float g = jb_vnoise(vec2((y * 0.5 + 0.5) * u_bristles, s / u_streakPx + u_seed * 0.37));

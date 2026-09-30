@@ -33,6 +33,8 @@ class BrushDrawerView(
     startKind: BrushShelf.Kind,
     private val currentId: String?,
     private val onPick: (BrushPreset) -> Unit,
+    /** Long-press on a brush: its advanced settings (owner, 2026-09-30). Null keeps the drawer tap-only. */
+    private val onSettings: ((BrushPreset) -> Unit)? = null,
 ) : LinearLayout(kit.context) {
 
     private val shelves = BrushShelf.shelves(library)
@@ -100,8 +102,9 @@ class BrushDrawerView(
             topMargin = kit.dpi(LABEL_DP)
         })
         if (p.id == currentId) box.background = ring(10f)
-        kit.label(box, p.name)
+        kit.label(box, if (onSettings != null) "${p.name}. Hold for its settings" else p.name)
         box.setOnClickListener { onPick(p) }
+        onSettings?.let { open -> box.setOnLongClickListener { open(p); true } }
         // The sample needs the row's real width; it is drawn once the row is laid out.
         img.doOnLayout { if (img.width > 0 && img.height > 0) img.setImageBitmap(sample(p, img.width, img.height)) }
         return box

@@ -27,7 +27,10 @@
     "tooth": 0.5,
     "spatter": 0.3,
     "strays": 0.4,
-    "tilt": 0.5
+    "tilt": 0.5,
+    "flatten": 0.5,
+    "action": 0.4,
+    "inkSide": 0.75
   },
   "license": "CC0"
 }

@@ -49,6 +49,9 @@ data class TuftStamp(
         const val KIND_FOOTPRINT = 0
         const val KIND_PLAIN = 1
 
+        /** A stray hair: a plain segment that STUTTERS on the paper's tooth, as much as its [dry] says (O4). */
+        const val KIND_HAIR = 2
+
         /** Floats per stamp in the GPU instance buffer: four vec4s. Must match `jb_tuft.vert`. */
         const val FLOATS = 16
     }
@@ -61,6 +64,7 @@ data class TuftStamp(
  * @property streakPx how far along the stroke one streak runs before it changes, document px.
  * @property tooth 0..1: how much the page's tooth breaks up the dry parts.
  * @property seed a per-stroke offset into the streak pattern.
+ * @property action 0..1: bristle marks even in a loaded brush — broken edges (the Bristle action slider).
  * @property paperAsset the packaged grain picture the page's tooth is read from.
  * @property paperPitchPx document px per repeat of [paperAsset] — a property of the page, not of the brush.
  */
@@ -69,6 +73,7 @@ data class TuftShading(
     val streakPx: Float,
     val tooth: Float,
     val seed: Float,
+    val action: Float,
     val paperAsset: String,
     val paperPitchPx: Float,
 )

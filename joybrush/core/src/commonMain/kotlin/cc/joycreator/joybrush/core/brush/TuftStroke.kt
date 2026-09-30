@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.core.brush
 
 import cc.joycreator.joybrush.core.input.PenSample
+import cc.joycreator.joybrush.core.input.Tool
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.paint.TuftShading
 import cc.joycreator.joybrush.core.paint.TuftStamp
@@ -98,7 +99,9 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         fun copy() = Look(x, y, w, len, bx, by, rb, dry, bias, splay, arc, pc, nx, ny)
     }
 
-    private class Hair(val side: Float, val offset: Float, val phase: Float, val freq: Float, val threshold: Float) {
+    private class Hair(
+        val side: Float, val offset: Float, val phase: Float, val freq: Float, val threshold: Float, val stutter: Float,
+    ) {
         var on = false
         var hx = 0f
         var hy = 0f
@@ -153,7 +156,8 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
     // ── one sample ───────────────────────────────────────────────────────────
 
     private fun step(s: PenSample, out: MutableList<TuftStamp>) {
-        val p = s.pressure.finiteOr(1f).coerceIn(0f, 1f)
+        // A finger or a mouse reports full pressure all the time; read it as line weight, not as pressing flat.
+        val p = if (s.tool == Tool.FINGER || s.tool == Tool.MOUSE) NO_PRESSURE else s.pressure.finiteOr(1f).coerceIn(0f, 1f)
         if (!started) {
             started = true
             rawX = s.x; rawY = s.y; fx = s.x; fy = s.y
@@ -226,8 +230,8 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
             val tf = tiltAmount(s.tilt)
             if (s.azimuth.isFinite() && tf > 0f) {
                 // The tuft lies on past the contact point, away from the way the handle leans.
-                gx -= cos(s.azimuth) * tf * 0.5f
-                gy -= sin(s.azimuth) * tf * 0.5f
+                gx -= cos(s.azimuth) * tf * (0.5f + 0.9f * smooth(0.3f, 0.9f, tf))
+                gy -= sin(s.azimuth) * tf * (0.5f + 0.9f * smooth(0.3f, 0.9f, tf))
                 val n = sqrt(gx * gx + gy * gy)
                 if (n > 1e-6f) { gx /= n; gy /= n } else { gx = -tx; gy = -ty }
             }
@@ -246,7 +250,8 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         // Ink drains with the width laid down (O3).
         val w0 = cur.w.coerceAtLeast(tipR)
         val capacity = 2f * bellyR * (12f + 300f * u(spec.ink) * u(spec.ink))
-        load = max(0f, load - ds * (w0 / bellyR) * (0.25f + 0.75f * pc) / capacity)
+        // A pressed-flat belly lays more ink, but not in proportion: the bristles spread the same load thinner.
+        load = max(0f, load - ds * (w0 / bellyR).pow(0.6f) * (0.25f + 0.75f * pc) / capacity)
 
         // Splay (O11): opens quickly, closes over time — fast when wet, slowly when dry.
         val engaged = smooth(0.03f, 0.25f, p)
@@ -327,17 +332,23 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         val engaged = smooth(0.03f, 0.25f, p)
         val slowness = 1f - smooth(0.02f, 0.12f, vN)
 
-        var w = tipR + (bellyR - tipR) * pc
+        // Three zones (owner, 2026-09-30): the hairline shelf for detail, the line weight up to the belly, then pressing
+        // flat spreads the bristles to their widest for shadows.
+        val flat = u(spec.flatten) * FLATTEN_MAX * smooth(FLAT_FROM, 1f, p)
+        var w = tipR + (bellyR - tipR) * pc + bellyR * flat
+        // A steep pen is a multiplier on top: the side of the brush, stretched on the diagonal.
         val tf = tiltAmount(s.tilt)
-        w *= 1f + u(spec.tilt) * 0.8f * smooth(0.6f, 0.95f, tf)
+        val lay = smooth(0.3f, 0.9f, tf)
+        w *= 1f + u(spec.tilt) * 1.6f * lay
         w *= 1f - u(spec.speedThin) * 0.4f * smooth(0.15f, 1f, vN)
         w += u(spec.settle) * slowness * (0.15f * w + 0.25f * tipR)
         w *= 1f + u(spec.corner) * 1.2f * mis * engaged
         w = max(w, tipR * 0.5f)
 
         var len = bristleLen * engaged * (0.12f + 0.4f * pc + u(spec.trail) * 0.9f * min(vN, 1f) * (0.4f + 0.6f * engaged))
+        len *= 1f + 0.5f * flat / FLATTEN_MAX + u(spec.tilt) * 1.2f * lay
         // The bristles can only trail over paper the brush has already crossed (no tail behind the touch-down).
-        len = min(len, min(bristleLen, arc * 0.8f))
+        len = min(len, min(bristleLen * 2.5f, arc * 0.8f))
 
         val needle = min(w, tipR)
         val rb = needle + (w * 0.7f - needle) * splay
@@ -357,6 +368,12 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
             val ix = -ty * sign
             val iy = tx * sign
             bias = strength * (ix * nx + iy * ny)
+        }
+        // A tilted brush presses harder on the side the handle leans to; the other side is the light, tip side. Which of
+        // the two keeps the ink is the Ink side slider; the other shows the bristles.
+        if (s.azimuth.isFinite() && lay > 0f) {
+            val across = cos(s.azimuth) * nx + sin(s.azimuth) * ny
+            bias += -across * lay * (2f * u(spec.inkSide) - 1f) * 0.9f
         }
 
         return Look(
@@ -394,33 +411,39 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
 
     private fun setUpHairs() {
         val strays = u(spec.strays)
-        val count = min(3, floor(strays * 2.2f + rng.nextFloat() * strays * 1.8f).toInt())
+        val count = min(MAX_HAIRS, floor(strays * 3.5f + rng.nextFloat() * strays * 2.5f).toInt())
         for (i in 0 until count) {
             val side = if (rng.nextFloat() < 0.5f) -1f else 1f
+            // Some hairs run long, some catch in short bits, some stutter on the paper's tooth (owner, 2026-09-30).
+            val stutterDraw = rng.nextFloat()
             hairs.add(Hair(
                 side = side,
-                offset = 0.08f + rng.nextFloat() * 0.35f,
+                offset = 0.04f + rng.nextFloat() * 0.4f,
                 phase = rng.nextFloat() * 1000f,
-                freq = 1f / (bellyR * (2f + rng.nextFloat() * 4f)),
-                threshold = 0.45f + rng.nextFloat() * 0.2f,
+                freq = 1f / (bellyR * (1f + rng.nextFloat() * 8f)),
+                threshold = 0.35f + rng.nextFloat() * 0.35f,
+                stutter = if (stutterDraw < 0.45f) 0f else 0.25f + 0.55f * rng.nextFloat(),
             ))
         }
     }
 
     private fun emitHairs(k: Look, out: MutableList<TuftStamp>) {
         if (hairs.isEmpty()) return
-        val belly = k.pc > 0.4f && k.w > 2f
+        val belly = k.w > 0.55f * bellyR && k.w > 2f
         // Which way the bristles are swung across the stroke: a hair on that side presses into the paper.
         val swing = if (hasDir) (k.bx * ty - k.by * tx) else 0f
         val hairR = max(0.35f, tipR * 0.45f)
         for (h in hairs) {
-            val gate = valueNoise(k.arc * h.freq + h.phase) + 0.25f * h.side * swing
+            // Two rhythms: long runs, broken now and then into shorter bits.
+            val gate = 0.65f * valueNoise(k.arc * h.freq + h.phase) + 0.35f * valueNoise(k.arc * h.freq * 4f + h.phase * 1.7f) +
+                0.25f * h.side * swing
             val on = belly && gate > h.threshold
             if (!on) { h.on = false; continue }
             val px = k.x + k.nx * h.side * k.w * (1f + h.offset) + k.bx * k.len * 0.35f
             val py = k.y + k.ny * h.side * k.w * (1f + h.offset) + k.by * k.len * 0.35f
             if (h.on) {
-                out.add(TuftStamp(ax = px, ay = py, bx = h.hx, by = h.hy, ra = hairR, rb = hairR, cap = cap, kind = TuftStamp.KIND_PLAIN))
+                out.add(TuftStamp(ax = px, ay = py, bx = h.hx, by = h.hy, ra = hairR, rb = hairR, cap = cap, dry = h.stutter,
+                    kind = TuftStamp.KIND_HAIR))
             }
             h.on = true
             h.hx = px; h.hy = py
@@ -507,6 +530,7 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
                 streakPx = max(6f, bellyR * (1.5f + 4f * (1f - fine))),
                 tooth = u(t.tooth),
                 seed = (SplitMix(seed xor SHADING_SALT).nextFloat() * 97f),
+                action = u(t.action),
                 paperAsset = PAPER_TOOTH,
                 paperPitchPx = GrainMath.pitchPxFor(PAPER_TOOTH_SCALE),
             )
@@ -516,6 +540,14 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         const val PAPER_TOOTH = "cloud_fine_256.png"
         const val PAPER_TOOTH_SCALE = 1.5f
         private const val SHADING_SALT = 0x7F7L
+
+        /** At the Press flat slider's top, the belly spreads to this many MORE belly widths. */
+        private const val FLATTEN_MAX = 4f
+        /** Where on the pressure the press-flat zone begins. */
+        private const val FLAT_FROM = 0.72f
+        private const val MAX_HAIRS = 5
+        /** What a finger or a mouse draws at: line weight. */
+        private const val NO_PRESSURE = 0.6f
 
         /** Screen px per second that counts as "fast" (speed 1). */
         private const val SPEED_REF = 2500f

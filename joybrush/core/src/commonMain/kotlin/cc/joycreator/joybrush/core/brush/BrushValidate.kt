@@ -35,7 +35,7 @@ object BrushValidate {
         "shelf" to t.shelf, "steady" to t.steady, "trail" to t.trail, "snap" to t.snap, "corner" to t.corner,
         "settle" to t.settle, "speedThin" to t.speedThin, "ink" to t.ink, "dry" to t.dry, "sweep" to t.sweep,
         "splay" to t.splay, "bristles" to t.bristles, "tooth" to t.tooth, "spatter" to t.spatter,
-        "strays" to t.strays, "tilt" to t.tilt,
+        "strays" to t.strays, "tilt" to t.tilt, "flatten" to t.flatten, "action" to t.action, "inkSide" to t.inkSide,
     )
 
     /** Per curve. */

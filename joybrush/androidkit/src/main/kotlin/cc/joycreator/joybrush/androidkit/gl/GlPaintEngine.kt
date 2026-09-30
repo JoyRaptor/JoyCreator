@@ -549,6 +549,7 @@ class GlPaintEngine(
         GLES30.glUniform1f(tuftProg.loc("u_streakPx"), shading.streakPx)
         GLES30.glUniform1f(tuftProg.loc("u_tooth"), shading.tooth)
         GLES30.glUniform1f(tuftProg.loc("u_seed"), shading.seed)
+        GLES30.glUniform1f(tuftProg.loc("u_action"), shading.action)
         // Both samplers get a real picture every batch: an unset sampler reads unit 0, which may be the tile being drawn.
         GLES30.glUniform1i(tuftProg.loc("u_tipGrain"), 0)
         GLES30.glUniform1i(tuftProg.loc("u_paperGrain"), 1)

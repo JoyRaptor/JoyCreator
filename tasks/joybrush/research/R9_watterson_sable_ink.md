@@ -324,3 +324,15 @@ The owner asked for all of §3B, with sliders. Everything below is on `joy-creat
 - **Tuning:** ⋯ → *Tune Sable…* opens a sheet that leaves the canvas drawable. Each slider applies to the next stroke. Tuning is saved per brush and laid over the file. **Reset** forgets it. **Test** draws the fixed `TuftTestSheet` strokes as ONE undo (`UndoLog.mergeNewest`).
 - **Tests:** `TuftStrokeTest` has one or more per ruling, and `TuftTuningTest` checks that every knob is wired, the tuning round-trips, Test is one undo, and the in-between tiles are released.
 - **Not done:** the PC Brush Lab (WebGL pilot) does not draw tuft brushes. Ink layers (JB-5.01 replay) do not know the tuft engine, and this screen refuses ink files anyway. The drawer sample shows the silhouette only, not the streaks.
+
+### 10b. The owner's second round (2026-09-30, while drawing with it)
+
+| Owner note | Built |
+|---|---|
+| Hold a brush in the drawer = its advanced settings, for EVERY brush | `BrushDrawerView(onSettings)`: holding takes the brush up and opens `BrushSettingsView`. The menu row is "<brush> settings…". Knobs per engine: `BrushKnobs.forBrush`. The tuft brush gets its 20; stamp brushes get Thinnest, Pressure fades, Hardness, Flow, Spacing, Size jitter, Angle jitter (+ Paper grain where there is grain); Smudge adds Pick up and Own colour; every brush has Smoothing. |
+| Three modes: detail, line weight, SHADOWS; the belly was far too small | A press-flat zone past 72% pressure spreads the belly up to 5× (**Press flat**, default 3×). |
+| A steep angle is a multiplier, on the diagonal | Tilt multiplies the width up to 2.6× and stretches the contact (**Tilt spread**). The bristles lie away from the lean. |
+| The least-force side has the most ink; far more bristle action | A tilted brush presses harder on the side the handle leans to. **Ink side** (default: the light side keeps the ink) dries the other side into bristle streaks. **Bristle action** breaks the edges even when the brush is loaded. |
+| Stray strands: longer, shorter, stuttering on the tooth | Up to 5 hairs, two rhythms of on and off, and about half of them STUTTER on the page's tooth (`KIND_HAIR`). |
+| A live preview in the settings that shows tilt, pressure and speed | `BrushPreviewStrokes`: one long stroke walks hairline → line weight → pressed flat and laid over → quick lift, with spikes, switchbacks, a tilted shadow pass, a jolt and whiskers. It is drawn by a real `JbCanvasView` in the sheet (`replaceWithStrokes`: no undo) and redrawn 40 ms after each slider move. You can draw on it too. |
+| — | A finger or mouse (always full pressure) draws line weight, not a shadow. The earlier Sable tuning carries over from `tuft_tuning` into `brush_tuning`. |

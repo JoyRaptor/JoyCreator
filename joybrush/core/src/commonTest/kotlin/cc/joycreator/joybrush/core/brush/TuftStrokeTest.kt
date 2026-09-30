@@ -30,7 +30,7 @@ class TuftStrokeTest {
     }
 
     private fun footprints(s: List<TuftStamp>) = s.filter { it.kind == TuftStamp.KIND_FOOTPRINT }
-    private fun plain(s: List<TuftStamp>) = s.filter { it.kind == TuftStamp.KIND_PLAIN }
+    private fun plain(s: List<TuftStamp>) = s.filter { it.kind != TuftStamp.KIND_FOOTPRINT }
     private fun length(s: TuftStamp) = hypot(s.bx - s.ax, s.by - s.ay)
 
     // ── replay ──
@@ -56,6 +56,36 @@ class TuftStrokeTest {
     }
 
     // ── R9 §3.1: the hairline shelf ──
+
+    // ── owner, 2026-09-30: three zones — detail, line weight, pressed flat for shadows — and tilt multiplies ──
+
+    @Test
+    fun pressingFlatSpreadsWideForShadowsAndTiltMultipliesIt() {
+        fun widthAt(p: Float, tilt: Float = Float.NaN, edit: (TuftSpec) -> TuftSpec = { it }) =
+            footprints(draw(sable(edit = edit), (0..60).map { i -> PenSample(i.toFloat(), 0f, i / 0.3, p, tilt = tilt, azimuth = -2.3f) }).first).last().ra
+        val line = widthAt(0.82f)
+        val flat = widthAt(1f)
+        assertTrue(flat > 2.2f * line, "pressed flat ($flat) is far wider than line weight ($line)")
+        assertTrue(widthAt(1f, edit = { it.copy(flatten = 0f) }) < 1.3f * line, "Press flat at 0 turns it off")
+        val tilted = widthAt(0.7f, tilt = 1.2f)
+        assertTrue(tilted > 1.5f * widthAt(0.7f, tilt = 0f), "a steep pen multiplies the width: $tilted")
+    }
+
+    @Test
+    fun aTiltedBrushPutsTheInkOnOneSide() {
+        val samples = (0..300).map { i -> PenSample(i.toFloat(), 0f, i / 0.8, 0.8f, tilt = 1.2f, azimuth = -PI.toFloat() / 2f) }
+        fun meanBias(side: Float) = footprints(draw(sable { it.copy(inkSide = side, sweep = 0f) }, samples).first).drop(50).map { it.bias }.average()
+        val light = meanBias(1f)
+        val heavy = meanBias(0f)
+        assertTrue(abs(light) > 0.2 && abs(heavy) > 0.2 && light * heavy < 0, "the Ink side slider moves the ink across: $light vs $heavy")
+        assertTrue(abs(meanBias(0.5f)) < 0.05, "even in the middle")
+    }
+
+    @Test
+    fun aFingerDrawsLineWeightNotAShadow() {
+        val finger = (0..60).map { i -> PenSample(i.toFloat(), 0f, i / 0.3, 1f, tool = cc.joycreator.joybrush.core.input.Tool.FINGER) }
+        assertTrue(footprints(draw(sable(), finger).first).last().ra < 9.5f)
+    }
 
     @Test
     fun theFirstPartOfThePressureStaysAHairlineAndTheBellyOpensAfter() {
@@ -153,7 +183,7 @@ class TuftStrokeTest {
 
     @Test
     fun longHeavyStrokesRunDryAndInkHoldsOut() {
-        val samples = line(4000, 1.2f) { 1f }
+        val samples = line(4000, 1.2f) { 0.8f }
         fun dryAtEnd(ink: Float) = footprints(draw(sable { it.copy(ink = ink, dry = 0f, settle = 0f) }, samples).first)
             .takeLast(50).map { it.dry }.average()
         val thin = dryAtEnd(0.1f)
@@ -204,6 +234,9 @@ class TuftStrokeTest {
         }
         assertEquals(0, light, "no hairs on light work")
         assertTrue(heavy > 20, "belly strokes catch a hair: $heavy")
+        var stutter = 0
+        for (seed in 1L..20L) stutter += plain(draw(sable { it.copy(strays = 1f, spatter = 0f) }, line(800, 0.6f) { 0.95f }, seed).first).count { it.dry > 0f }
+        assertTrue(stutter > 0, "some hairs stutter on the tooth")
         val hair = plain(draw(sable { it.copy(strays = 1f, spatter = 0f) }, line(800, 0.6f) { 0.95f }, 3L).first)
         assertTrue(hair.all { it.ra < 1f }, "a hair is a hairline")
     }

@@ -62,19 +62,6 @@ object ProcreateImport {
      */
     const val MAX_ENTRY_NAME_CHARS = 512
 
-    /**
-     * How much bigger than its payload an entry may claim to be: 200:1.
-     *
-     * **Checked before anything is inflated, and that is the whole point of the number.** DEFLATE
-     * reaches about 1 038:1 on a run of zeroes, so 200:1 is comfortably above every real brush
-     * bitmap and far below what a bomb needs. A `.brush` that declares 100 MiB out of 1 KiB is
-     * refused by arithmetic rather than by a memory limit, which costs nothing to refuse.
-     */
-    const val MAX_INFLATE_RATIO = 200L
-
-    /** What one deflate entry may inflate to. 64 MiB, and the declared size is **not** believed. */
-    const val MAX_INFLATED_BYTES = 64L * 1024 * 1024
-
     /** `$objects` entries in one archive. 200 000: a Procreate brush writes about forty. */
     const val MAX_OBJECTS = 200_000
 
@@ -418,10 +405,10 @@ private class Zip private constructor(
      *
      * The order of the three refusals is not arbitrary and a test depends on it:
      *  1. the entry's own bytes against [ProcreateImport.MAX_ENTRY_BYTES] — what is *in the file*;
-     *  2. the declared expansion against [ProcreateImport.MAX_INFLATE_RATIO] — **a zip bomb is
+     *  2. the declared expansion against [MAX_INFLATE_RATIO] — **a zip bomb is
      *     refused by arithmetic, before a byte is inflated**, which is the only way to refuse one
      *     that costs nothing;
-     *  3. the declared expansion against [ProcreateImport.MAX_INFLATED_BYTES].
+     *  3. the declared expansion against [MAX_INFLATED_BYTES].
      *
      * A STORED entry (method 0) is copied, not inflated — Decision 5 calls it "a real case", because
      * entry 0 of a zip is conventionally stored and a `.brush` written by one tool and packed by
@@ -435,17 +422,17 @@ private class Zip private constructor(
             )
         }
         if (entry.method == DEFLATED && entry.uncompressedSize > 0 &&
-            entry.uncompressedSize > entry.compressedSize * ProcreateImport.MAX_INFLATE_RATIO
+            entry.uncompressedSize > entry.compressedSize * MAX_INFLATE_RATIO
         ) {
             throw BrushException(
                 "\"${entry.name}\" claims ${entry.uncompressedSize} bytes out of ${entry.compressedSize}, " +
-                    "over the ${ProcreateImport.MAX_INFLATE_RATIO}:1 limit this build will expand"
+                    "over the ${MAX_INFLATE_RATIO}:1 limit this build will expand"
             )
         }
-        if (entry.method == DEFLATED && entry.uncompressedSize > ProcreateImport.MAX_INFLATED_BYTES) {
+        if (entry.method == DEFLATED && entry.uncompressedSize > MAX_INFLATED_BYTES) {
             throw BrushException(
                 "\"${entry.name}\" inflates to ${entry.uncompressedSize} bytes, " +
-                    "at most ${ProcreateImport.MAX_INFLATED_BYTES}"
+                    "at most ${MAX_INFLATED_BYTES}"
             )
         }
         if (entry.method != STORED && entry.method != DEFLATED) {
@@ -511,7 +498,7 @@ private class Zip private constructor(
         val from = at + if (wrapped) ZLIB_HEADER_BYTES else 0
         val length = entry.compressedSize - if (wrapped) ZLIB_HEADER_BYTES + ZLIB_ADLER_BYTES else 0
         if (length < 1) throw BrushException("\"${entry.name}\" holds no DEFLATE data")
-        val maxOut = minOf(entry.uncompressedSize.toLong(), ProcreateImport.MAX_INFLATED_BYTES).toInt()
+        val maxOut = inflateMaxOut(entry.uncompressedSize.toLong())
         return inflateRaw(data, from, length, maxOut)
     }
 
@@ -678,27 +665,6 @@ private fun hex2(v: Int): String {
     val digits = "0123456789abcdef"
     return "${digits[v shr 4]}${digits[v and 15]}"
 }
-
-/**
- * Do the two bytes at [at] form a zlib header? `CMF`'s low nibble is the compression method and must
- * be 8, and the pair must be a big-endian multiple of 31.
- *
- * **A test, not a requirement** — see the note in [Zip.read]. A false positive costs two bytes of a
- * stream that was never going to decode, so it fails loudly rather than silently, and a true negative
- * on a real zlib-wrapped entry is the case the spec describes.
- */
-private fun looksLikeZlib(data: ByteArray, at: Int): Boolean {
-    if (at + 2 > data.size) return false
-    val cmf = data[at].toInt() and 0xFF
-    val flg = data[at + 1].toInt() and 0xFF
-    return cmf and 0x0F == 8 && (cmf * 256 + flg) % 31 == 0
-}
-
-/** RFC 1950's two-byte header: `CMF` then `FLG`. */
-private const val ZLIB_HEADER_BYTES = 2
-
-/** RFC 1950's four-byte Adler-32 of the *uncompressed* data. Not DEFLATE, so it comes off too. */
-private const val ZLIB_ADLER_BYTES = 4
 
 // ---- one brush -------------------------------------------------------------------------------------------
 

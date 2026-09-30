@@ -4,8 +4,15 @@ import cc.joycreator.joybrush.core.brush.BrushException
 
 /**
  * Inflate a **raw DEFLATE stream (RFC 1951)** — the payload of one zip entry, with no zlib and no
- * gzip wrapper around it. A `.brush` entry carries the zlib two-byte header; `ProcreateImport` reads
- * and checks that header itself and hands this function the bytes after it (Decision 5).
+ * gzip wrapper around it. **A zip's method 8 is raw DEFLATE, not zlib** (PKWARE APPNOTE 4.4.5), which is
+ * a correction of an earlier claim in JB-8.02's spec and was found by building a fixture, not by
+ * reading. The wrapper is therefore **tolerated, not required**: a caller that sees a zlib header strips
+ * both of its ends and hands this function the raw stream. Two callers do this — `ProcreateImport` for a
+ * zip entry and `PngChunks` for a `zTXt`, whose PNG specification *does* say zlib — and the probe is
+ * `ImportSupport.looksLikeZlib`, one of them.
+ *
+ * **The wrapper's four-byte Adler-32 trailer is removed by the caller and is NOT verified.** That is the
+ * landed `ProcreateImport` decision and this row copies it; see its Questions for the Lead.
  *
  * **`expect`/`actual` rather than a decoder in `commonMain`, by ruling.** LEAD_RULINGS R40: "no
  * hand-written Inflate — `expect/actual` with the JVM using `java.util.zip` (and a zlib-backed

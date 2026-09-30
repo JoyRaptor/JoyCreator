@@ -673,14 +673,14 @@ class ProcreateImportTest {
         // fires. Choosing the two numbers independently is the point: a fixture that only ever
         // produced a high-ratio bomb could not tell the two refusals apart.
         val payload = deflate(incompressible(500 * 1024), 6)
-        val ratio = (ProcreateImport.MAX_INFLATED_BYTES + 1) / payload.size.toLong()
-        assertTrue(ratio in 1..ProcreateImport.MAX_INFLATE_RATIO, "the fixture's own ratio is $ratio, too high to be useful")
+        val ratio = (MAX_INFLATED_BYTES + 1) / payload.size.toLong()
+        assertTrue(ratio in 1..MAX_INFLATE_RATIO, "the fixture's own ratio is $ratio, too high to be useful")
         val bytes = zipOfRaw(
-            RawEntry("Brush.archive", payload, (ProcreateImport.MAX_INFLATED_BYTES + 1).toInt())
+            RawEntry("Brush.archive", payload, (MAX_INFLATED_BYTES + 1).toInt())
         )
         val e = assertFailsWith<BrushException> { ProcreateImport.convertBrush(bytes, "pack") }
         assertTrue(e.message!!.contains("inflates to"), e.message!!)
-        assertTrue(e.message!!.contains("${ProcreateImport.MAX_INFLATED_BYTES}"), e.message!!)
+        assertTrue(e.message!!.contains("${MAX_INFLATED_BYTES}"), e.message!!)
     }
 
     @Test

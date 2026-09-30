@@ -61,16 +61,25 @@ import cc.joycreator.joybrush.core.brush.TipSpec
  * 64 KiB to 8 MiB, and the reason is in that constant's own comment: at 64 KiB this reader would refuse
  * every `.kpp` carrying an embedded base64 tip, which is exactly the case R40 is about.
  *
- * ### No inflater, and that is a decision rather than a module boundary
+ * ### One inflater, and that is the point
  *
- * JB-8.02's `inflateRaw` is an `internal expect fun` **in this same module**, so calling it from here would
- * compile. It is not called, and the reason is not "it is private": R4 §B.3 says Krita writes `preset` as
- * an **uncompressed** `tEXt`, so the case should never arise on a real file; and a DEFLATE stream needs a
- * **ratio** budget and an **output** budget, and both of those numbers would then be this file's, next to
- * JB-8.02's. Reusing the function while re-deriving the caps is the worst of the two options — the
- * *appearance* of sharing with none of the safety. So a compressed chunk and a compressed bundle entry are
- * both **refused in words**, and the person sees why. **Consequence, reported not hidden: a real `.bundle`
- * zips its entries with DEFLATE, so `convertBundle` refuses a great many real bundles.** See the Questions.
+ * **JB-8.04 refused a DEFLATE bundle entry in words; JB-8.04b reversed that ruling (R44 item 2) and this
+ * row's zip reader now inflates.** LEAD_RULINGS R44 item 2 overturned JB-8.04's Decision 5 by name: the
+ * two numbers that make inflating safe live in the *caller*, so a second importer had only two choices —
+ * share the numbers or write its own — and it now shares them.
+ *
+ * So there is **one** DEFLATE implementation (`inflateRaw`, JB-8.02's `internal expect` in this same
+ * module) and **one** pair of bomb caps, and both live in `ImportSupport.kt` rather than in either
+ * importer: `MAX_INFLATE_RATIO`, `MAX_INFLATED_BYTES`, the one `maxOut` formula (`inflateMaxOut`) and the
+ * one zlib-wrapper probe (`looksLikeZlib`). R23 is the reason: a number written twice is one writer
+ * believing it twice, and re-deriving a security bound in a second file is that plus worse. A compressed
+ * PNG text chunk goes through the same probe and the same formula.
+ *
+ * **The three refusals a bomb gets are copied character for character from `ProcreateImport.Zip.read`,
+ * and the order is that reader's**: the entry's own bytes, then the declared expansion against the
+ * ratio — **a bomb is refused by arithmetic, before a byte is inflated** — then the declared expansion
+ * against the ceiling. What a file declares is never believed; `maxOut` is the declared size *capped* at
+ * the ceiling, and a stream that expands past it is refused rather than truncated.
  *
  * **Every class here is prefixed `Krita`, and that is not a style choice.** A *class*'s simple name resolves
  * by name across a package rather than by signature: `AbrImport.kt` has a `private class BrushImport` in
@@ -263,7 +272,7 @@ object KritaImport {
                 continue
             }
             try {
-                val file = readKppFile(zip.readStored(entry))
+                val file = readKppFile(zip.read(entry))
                 brushes += KritaBrush(file, zip, meta).build(name, brushId(idPrefix, name))
             } catch (e: BrushException) {
                 refused += RefusedBrush(index, name, e.message ?: "it cannot be read")
@@ -275,13 +284,18 @@ object KritaImport {
     // ---- the file-level half of a `.kpp` ------------------------------------------------------------
 
     /**
-     * The two things [readPngTextChunks] can give this importer and the three it cannot.
+     * The two things [readPngTextChunks] can give this importer and the one it cannot.
      *
-     * `PngChunks` **never inflates and never decodes** (Decisions 5 and 6), so a compressed chunk arrives
-     * here as `compressed = true` with an **empty** `text` and *this* is the code that refuses it in words.
+     * `PngChunks`' **uncompressed** read never inflates (Decisions 5 and 6), so a compressed chunk arrives
+     * here as `compressed = true` with an **empty** `text`, and *this* is the code that has to do something
+     * about it. Before JB-8.04b it refused it in words; now it **asks for the text** —
+     * [readPngCompressedText] inflates and decodes it — and refuses only what that cannot deliver.
+     *
      * The split is deliberate and is what test 4 of `PngChunksTest` pins from the other side: "the reader
      * tried to decode it" and "the caller forgot to check" are two different failures and must produce two
-     * different messages.
+     * different messages. Asking a second time is what a caller of a lossy reader has to do, and it is
+     * why that second function lives in `PngChunks` and keeps the compressed bytes rather than handing them
+     * here.
      */
     private fun readKppFile(bytes: ByteArray): KritaFile {
         if (bytes.size > MAX_FILE_BYTES) {
@@ -305,19 +319,23 @@ object KritaImport {
                 "this file has no \"preset\" text chunk, so it holds no Krita brush settings"
             )
 
-        if (found.compressed) {
-            throw BrushException(
-                "this file's \"preset\" chunk is compressed (a zTXt, or an iTXt that asks to be), and this " +
-                    "build does not inflate a PNG text chunk: Krita writes the chunk uncompressed, so a " +
-                    "compressed one means the file was written by something else. Re-save the brush from " +
-                    "Krita and it will read"
-            )
+        val xml = if (found.compressed) {
+            readPngCompressedText(bytes, "preset")
+                ?: throw BrushException(
+                    "its \"preset\" chunk is marked compressed, but walking the file again did not find " +
+                        "one: this build's PNG reader and its compressed-chunk reader disagree, so nothing " +
+                        "here is guessed at"
+                )
+        } else {
+            found.text
         }
-        val xml = found.text
         if (xml.isBlank() || !xml.trimStart().startsWith("<")) {
+            // "after inflating" only when it *was* inflated, so the sentence does not send somebody looking
+            // for corruption in a file that was merely compressed.
+            val where = if (found.compressed) "after inflating" else "as it stands"
             throw BrushException(
-                "this file's \"preset\" chunk is ${xml.length} characters and does not begin with \"<\", so " +
-                    "it is not the XML a .kpp keeps its paint-op settings in"
+                "this file's \"preset\" chunk is ${xml.length} characters and does not begin with \"<\", " +
+                    "$where, so it is not the XML a .kpp keeps its paint-op settings in"
             )
         }
         return KritaFile(xml, title?.takeIf { it.isNotBlank() })
@@ -340,7 +358,7 @@ object KritaImport {
     private fun readBundleMeta(zip: KritaZip): KritaMeta {
         val entry = zip.find(META_NAME) ?: return KritaMeta(null, null)
         val text = try {
-            zip.readStored(entry)
+            zip.read(entry)
         } catch (e: BrushException) {
             // A `meta.xml` this build cannot read is not a reason to refuse a pack of brushes: the licence
             // and author stay "unknown" and "", which is exactly what they would be without it.
@@ -881,28 +899,24 @@ object KritaImport {
             node.attr("depth")?.toFloatOrNull()?.let { textureDepth = it }
             node.attr("scale")?.toFloatOrNull()?.let { if (it > 0f && it <= MAX_GRAIN_SCALE) textureScale = it }
 
-            // Branch two first: does the name resolve to a STORED entry of this bundle?
+            // Branch two first: does the name resolve to an entry of this bundle?
             val zip = bundle
             val entry = zip?.let { z -> z.find("patterns/$name") ?: z.find(name) }
             if (zip != null && entry != null) {
-                if (entry.method == KritaZip.STORED) {
-                    val bytes = try {
-                        zip.readStored(entry)
-                    } catch (e: BrushException) {
-                        grainUnreadable = e.message
-                        null
-                    }
-                    if (bytes != null) {
-                        grainStored = KritaStored(bytes, GRAIN_IMAGE_FILE, 0)
-                        extensions[TEXTURE_PATTERN_KEY] = textureName!!
-                        return
-                    }
-                } else {
-                    // Decision 12: a DEFLATE entry needs an inflater this row does not have (Decision 5), so
-                    // it falls back to the named case and says why.
-                    grainUnreadable = "the pattern \"$name\" is inside this bundle but uses zip compression " +
-                        "method ${entry.method}, which this build has no inflater for (Decision 5), so its " +
-                        "bytes could not be read out of the bundle"
+                val bytes = try {
+                    zip.read(entry)
+                } catch (e: BrushException) {
+                    // A pattern this build cannot read is **not** a reason to refuse a brush: the name is
+                    // kept, the grain stays a cloud, and the reason is carried into the warning. Every
+                    // refusal that reaches here is one `read` made — a bomb, a method, a truncated
+                    // stream — and all of them are more informative than the single message this replaced.
+                    grainUnreadable = e.message
+                    null
+                }
+                if (bytes != null) {
+                    grainStored = KritaStored(bytes, GRAIN_IMAGE_FILE, 0)
+                    extensions[TEXTURE_PATTERN_KEY] = textureName!!
+                    return
                 }
             }
 
@@ -932,8 +946,12 @@ object KritaImport {
                     )
                 }
             }
+            // The reason a stored or deflated entry could not be read, phrased as what happened to **this
+            // brush**: the entry itself was fine, and the bytes are the part that is missing. Every refusal
+            // `KritaZip.read` raises names its own cause, so the cause is kept and the consequence is said
+            // once, here.
             val because = if (grainUnreadable != null) {
-                "${grainUnreadable}, so"
+                "$grainUnreadable, so its bytes could not be read out of the bundle, and"
             } else {
                 "this brush's texture is the Krita pattern \"$name\", which is kept by name and"
             }
@@ -1361,15 +1379,17 @@ object KritaImport {
     // ---- the zip of a `.bundle` ----------------------------------------------------------------------
 
     /**
-     * Just enough of a zip to walk a `.bundle`. **It reads STORED entries and refuses DEFLATE ones in
-     * words** (Decision 5), and it has its own central-directory walk rather than reusing
-     * `ProcreateImport`'s because that one is a `private class Zip` in another file and Decision 5 is this
-     * row's decision, not a shared mechanism.
+     * Just enough of a zip to walk a `.bundle`. **It reads both STORED and DEFLATE entries** — R44 item 2
+     * reversed JB-8.04's Decision 5, and a `.bundle` is unreadable without this — and it inflates through
+     * the *shared* `inflateRaw`, under the *shared* caps, which is the whole point of the reversal. It has
+     * its own central-directory walk rather than reusing `ProcreateImport`'s because that one is a
+     * `private class Zip` in another file and this row's budgets are this reader's.
      *
-     * **Two things this deliberately does not do, both said here rather than discovered later:** it does
-     * not verify a CRC (a wrong CRC in a pattern PNG is a pattern nobody will see, and an importer that
-     * refuses a whole pack over one entry's CRC is a worse tool), and it does not inflate. Both are in the
-     * report's Questions.
+     * **One thing this deliberately does not do, said here rather than discovered later: it does not verify
+     * a CRC** (a wrong CRC in a pattern PNG is a pattern nobody will see, and an importer that refuses a
+     * whole pack over one entry's CRC is a worse tool). That decision is inherited, not revisited, and
+     * whether a CRC is now *checkable* — a DEFLATE entry's bytes are in memory and its CRC is in the
+     * central directory — is in the report's Questions.
      */
     private class KritaZip private constructor(
         private val data: ByteArray,
@@ -1385,8 +1405,8 @@ object KritaImport {
 
         fun find(name: String): Entry? = entries.firstOrNull { it.name.equals(name, ignoreCase = true) }
 
-        /** One entry's bytes, and the refusal that says why a compressed one is not available. */
-        fun readStored(entry: Entry): ByteArray {
+        /** One entry's bytes, bounded on the way in and on the way out. */
+        fun read(entry: Entry): ByteArray {
             if (entry.name.length > KritaImport.MAX_ENTRY_NAME_CHARS) {
                 throw BrushException(
                     "its entry name is ${entry.name.length} characters, at most " +
@@ -1399,14 +1419,27 @@ object KritaImport {
                         "${KritaImport.MAX_ENTRY_BYTES}"
                 )
             }
-            if (entry.method != STORED) {
+            if (entry.method == DEFLATED && entry.uncompressedSize > 0 &&
+                entry.uncompressedSize > entry.compressedSize * MAX_INFLATE_RATIO
+            ) {
                 throw BrushException(
-                    "\"${entry.name}\" uses zip compression method ${entry.method}, and this build has no " +
-                        "inflater (Decision 5), so it cannot be read out of the bundle. Krita zips a " +
-                        "bundle's entries with DEFLATE, so a real .bundle is mostly this message"
+                    "\"${entry.name}\" claims ${entry.uncompressedSize} bytes out of ${entry.compressedSize}, " +
+                        "over the ${MAX_INFLATE_RATIO}:1 limit this build will expand"
                 )
             }
-            if (entry.compressedSize != entry.uncompressedSize) {
+            if (entry.method == DEFLATED && entry.uncompressedSize > MAX_INFLATED_BYTES) {
+                throw BrushException(
+                    "\"${entry.name}\" inflates to ${entry.uncompressedSize} bytes, " +
+                        "at most ${MAX_INFLATED_BYTES}"
+                )
+            }
+            if (entry.method != STORED && entry.method != DEFLATED) {
+                throw BrushException(
+                    "\"${entry.name}\" uses compression method ${entry.method}; this build reads " +
+                        "$STORED (stored) and $DEFLATED (deflate), and will not guess at the rest"
+                )
+            }
+            if (entry.method == STORED && entry.compressedSize != entry.uncompressedSize) {
                 throw BrushException(
                     "\"${entry.name}\" is stored but says ${entry.uncompressedSize} bytes out of " +
                         "${entry.compressedSize}, which a stored entry cannot be"
@@ -1424,14 +1457,20 @@ object KritaImport {
             // central directory's is how a reader lands in the middle of a name.
             val localName = KritaImport.le16(data, local + 26, "the name length of \"${entry.name}\"")
             val localExtra = KritaImport.le16(data, local + 28, "the extra length of \"${entry.name}\"")
-            val start = local + LOCAL_HEADER + localName + localExtra
-            if (start < 0 || start + entry.compressedSize > data.size) {
+            val at = local + LOCAL_HEADER + localName + localExtra
+            if (at < 0 || at + entry.compressedSize > data.size) {
                 throw BrushException(
-                    "\"${entry.name}\" claims ${entry.compressedSize} bytes from byte $start, past the end " +
+                    "\"${entry.name}\" claims ${entry.compressedSize} bytes from byte $at, past the end " +
                         "of the bundle"
                 )
             }
-            return data.copyOfRange(start, start + entry.compressedSize)
+            if (entry.method == STORED) return data.copyOfRange(at, at + entry.compressedSize)
+
+            val wrapped = looksLikeZlib(data, at)
+            val from = at + if (wrapped) ZLIB_HEADER_BYTES else 0
+            val length = entry.compressedSize - if (wrapped) ZLIB_HEADER_BYTES + ZLIB_ADLER_BYTES else 0
+            if (length < 1) throw BrushException("\"${entry.name}\" holds no DEFLATE data")
+            return inflateRaw(data, from, length, inflateMaxOut(entry.uncompressedSize.toLong()))
         }
 
         companion object {

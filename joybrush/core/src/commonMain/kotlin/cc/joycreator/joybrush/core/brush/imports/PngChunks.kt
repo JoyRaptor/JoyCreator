@@ -52,10 +52,13 @@ internal const val MAX_PNG_STRING_BYTES = 8 * 1024 * 1024
 /**
  * One text chunk out of a PNG. [compressed] is true for `zTXt` and for an `iTXt` that asks for it.
  *
- * [text] is **empty** whenever [compressed] is true, and that is the whole of the contract: this
- * reader never inflates (KritaImport Decision 5), so a reader that silently returned nothing would
- * make a compressed chunk indistinguishable from a file that has no such chunk at all. The caller
- * refuses it *in words* — "this chunk is compressed" — and the person who chose the file sees why.
+ * [text] is **empty** whenever [compressed] is true, and that is the whole of the contract: the reader
+ * this call goes through never inflates, so a reader that silently returned nothing would make a
+ * compressed chunk indistinguishable from a file that has no such chunk at all. **That is where the
+ * boundary sits, not a policy of any one importer**: the other side of it is [readPngCompressedText],
+ * which inflates a compressed chunk *for a caller that asks* — and the two are additive, so nothing
+ * here depends on anyone calling that one. A caller that does not ask refuses it *in words* — "this
+ * chunk is compressed" — and the person who chose the file sees why.
  */
 data class PngTextChunk(val keyword: String, val text: String, val compressed: Boolean)
 
@@ -75,7 +78,8 @@ internal data class PngHeader(val width: Int, val height: Int)
  * **Never decodes pixels and never inflates** (Decisions 5 and 6). A `zTXt` chunk, and an `iTXt` with
  * a non-zero compression flag, are returned with `compressed = true` and an **empty** `text` — the
  * caller refuses them in words, and a reader that silently returned nothing would make that
- * indistinguishable from a file that simply has no such chunk.
+ * indistinguishable from a file that simply has no such chunk. That is unchanged by [readPngCompressedText]
+ * existing: the two are **additive**, so the split is a boundary and not a policy.
  *
  * What is read: the 8-byte signature, the chunk walk by declared length, and the `tEXt`/`zTXt`/
  * `iTXt` payloads. `tEXt` text is **Latin-1** and `iTXt` text is **UTF-8**, which is what the PNG
@@ -276,12 +280,13 @@ private fun flatChunk(bytes: ByteArray, at: Int, length: Int, type: String): Png
 }
 
 /**
- * `zTXt`: keyword, NUL, a compression-method byte, then a DEFLATE stream this build does not have.
+ * `zTXt`: keyword, NUL, a compression-method byte, then a DEFLATE stream this function does not touch.
  *
  * The keyword is read — the person needs to know *which* chunk is compressed — and the payload is
  * not touched. One byte of the method is read so that a chunk which is not even shaped like a `zTXt`
- * is refused rather than treated as one; no inflater is called and no budget is invented here
- * (Decision 5).
+ * is refused rather than treated as one; neither this function nor [readPngCompressedText] invents a
+ * budget here, because the cap that governs a compressed text chunk is this file's own
+ * [MAX_PNG_STRING_BYTES] and it is applied inside [readPngCompressedText].
  */
 private fun compressedChunk(bytes: ByteArray, at: Int, length: Int, type: String): PngTextChunk {
     val keyword = keywordOf(bytes, at, length, type)
@@ -295,8 +300,8 @@ private fun compressedChunk(bytes: ByteArray, at: Int, length: Int, type: String
  * `iTXt`: keyword, NUL, a compression flag, a compression method, a language tag, a NUL, a
  * translated keyword, a NUL, then the text in **UTF-8**.
  *
- * A non-zero compression flag is [compressed] with no text, for the same reason `zTXt` is: this
- * build has no inflater (Decision 5). The two NUL-terminated fields in front of the text are read
+ * A non-zero compression flag is [compressed] with no text, for the same reason `zTXt` is: neither of
+ * these two functions calls an inflater. The two NUL-terminated fields in front of the text are read
  * with a bound each, because a file can leave them unterminated and the text is then the whole
  * remainder.
  */
@@ -323,6 +328,110 @@ private fun internationalChunk(bytes: ByteArray, at: Int, length: Int): PngTextC
         )
     }
     return PngTextChunk(latin1(bytes, at, keyword), decodeUtf8Strict(bytes, cursor, textLength, "iTXt"), false)
+}
+
+/**
+ * The **text** of the first chunk whose keyword is [keyword] and which asks to be compressed, inflated and
+ * decoded with that chunk type's own encoding — or null when this file has no such chunk.
+ *
+ * **Why this lives here and not in the importer, and it is not tidiness.** (1) `readPngTextChunks` keeps no
+ * offset and no payload for a compressed chunk, so a caller holding only a `PngTextChunk` cannot inflate it
+ * — the bytes are simply gone, and no amount of calling discipline gets them back. (2) The **encoding** is
+ * a property of the chunk *type*: PNG says a `zTXt` holds Latin-1 and an `iTXt` holds UTF-8, and only this
+ * file knows which of the two it is looking at. A caller that decoded it would need the type handed to it
+ * as a second return value, and a caller handed the wrong encoding mangles every brush name with an accent
+ * in it — silently, and in a way no test that used ASCII would ever catch.
+ *
+ * **The cap is this file's own `MAX_PNG_STRING_BYTES`, not a number the caller passes.** A `zTXt` states no
+ * uncompressed size, so [MAX_INFLATE_RATIO] has nothing to compare and the *only* bomb defence is the
+ * output ceiling — which is why the ceiling asked for here is the string cap and is additionally bounded
+ * by `ImportSupport.MAX_INFLATED_BYTES` through [inflateMaxOut]. Test 2 in `ImportSupportTest` pins that
+ * the string cap is strictly tighter, so a later row cannot quietly make this path looser.
+ *
+ * **A zlib wrapper is stripped from both ends and not verified** (`ImportSupport.looksLikeZlib`): PNG
+ * specifies a `zTXt` payload as a zlib stream, so the wrapper is *expected* to be there, which makes this
+ * the opposite of the zip case — there the wrapper is rare and a false positive is 1 in ~496, here it is
+ * the normal shape. **The compression method byte is read and must be 0**, and anything else is a refusal
+ * naming the method: a flag says "compressed", not "deflate", and this is a stranger's file.
+ *
+ * @throws BrushException if the chunk is a compressed `zTXt`/compressed `iTXt` whose compression method is
+ *   not 0, whose language or translated-keyword field is unterminated, whose payload is not a DEFLATE
+ *   stream, or which would expand past the cap. **Never returns a short string**: a truncated text chunk
+ *   is a file that is not what it says.
+ */
+internal fun readPngCompressedText(bytes: ByteArray, keyword: String): String? {
+    var found: String? = null
+    walkPngChunks(bytes) { type, at, length ->
+        if (type != "zTXt" && type != "iTXt") return@walkPngChunks true
+        // The keyword is read and compared FIRST, so a refusal about the shape of *this* chunk is
+        // never raised on behalf of a caller that asked about a different one.
+        val kw = keywordOf(bytes, at, length, type)
+        if (latin1(bytes, at, kw) != keyword) return@walkPngChunks true
+        val payloadAt: Int
+        val encodingIsUtf8: Boolean
+        when (type) {
+            "zTXt" -> {
+                if (length - kw - 1 < 1) {
+                    throw BrushException("its \"$type\" chunk is truncated before its compression method")
+                }
+                val method = bytes[at + kw + 1].toInt() and 0xFF
+                if (method != 0) {
+                    throw BrushException(
+                        "its \"$type\" chunk is compressed with method $method, and this build reads " +
+                            "only 0 (deflate)",
+                    )
+                }
+                payloadAt = at + kw + 2
+                encodingIsUtf8 = false
+            }
+            else -> {
+                val flag = at + kw + 1
+                if (flag + 2 > at + length) {
+                    throw BrushException("its \"$type\" chunk is truncated before its compression flags")
+                }
+                if (bytes[flag].toInt() and 0xFF == 0) {
+                    // Uncompressed: `readPngTextChunks` already returned this one's text, and
+                    // Decision 8 says it is never speculatively inflated.
+                    return@walkPngChunks true
+                }
+                val method = bytes[flag + 1].toInt() and 0xFF
+                if (method != 0) {
+                    throw BrushException(
+                        "its \"$type\" chunk is compressed with method $method, and this build reads " +
+                            "only 0 (deflate)",
+                    )
+                }
+                // The two NUL-terminated fields in front of the text, skipped exactly as
+                // `internationalChunk` skips them: language tag, then translated keyword.
+                var cursor = flag + 2
+                val language = indexOfZero(bytes, cursor, at + length - cursor) ?: -1
+                if (language < 0) throw BrushException("its \"$type\" chunk's language tag is not terminated")
+                cursor += language + 1
+                val translated = indexOfZero(bytes, cursor, at + length - cursor) ?: -1
+                if (translated < 0) {
+                    throw BrushException("its \"$type\" chunk's translated keyword is not terminated")
+                }
+                payloadAt = cursor + translated + 1
+                encodingIsUtf8 = true
+            }
+        }
+        val payloadLength = at + length - payloadAt
+        if (payloadLength < 1) {
+            throw BrushException("its \"$type\" chunk is compressed but carries no text")
+        }
+        val wrapped = looksLikeZlib(bytes, payloadAt)
+        val from = payloadAt + if (wrapped) ZLIB_HEADER_BYTES else 0
+        val deflated = payloadLength - if (wrapped) ZLIB_HEADER_BYTES + ZLIB_ADLER_BYTES else 0
+        if (deflated < 1) throw BrushException("its \"$type\" chunk holds no DEFLATE data")
+        val plain = inflateRaw(bytes, from, deflated, inflateMaxOut(MAX_PNG_STRING_BYTES.toLong()))
+        found = if (encodingIsUtf8) {
+            decodeUtf8Strict(plain, 0, plain.size, "\"$type\" \"$keyword\"")
+        } else {
+            latin1(plain, 0, plain.size)
+        }
+        false   // first match wins, exactly as `KritaImport.kt:300` takes the first `preset`
+    }
+    return found
 }
 
 /** Latin-1: the byte *is* the code point. One byte becomes one char, which is the PNG rule. */

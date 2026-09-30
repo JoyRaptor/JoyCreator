@@ -3,7 +3,8 @@
 | | |
 |---|---|
 | **Tier** | T2 |
-| **Status** | 📝 Draft spec |
+| **Status** | 🟦 **Ready** — cross-reviewed 2026-09-29. Three defects fixed (below); no Lead ruling is outstanding for the build. Q1's factual half is ruled; the security-bound half stays a non-blocking Lead question. |
+| **xr** | xr: openrouter/stealth/space-bunny-alpha 2026-09-29 — **two contract lines would not have compiled**: `inflateMaxOut` takes a `Long` and both zip readers hold `uncompressedSize` as an `Int`, so both call sites need an explicit `.toLong()` (Kotlin does not widen); a Do-not entry added. **Both proved with the Kotlin 2.2.0 compiler, not by eye:** the form as written gives `error: argument type mismatch: actual type is 'Int', but 'Long' was expected.` and the form with `.toLong()` compiles clean. **`readPngCompressedText` had no body** — §D pointed at "Decision 6", which decides where the function lives and why and says nothing about how; the body is now pasted in, every offset a move of `compressedChunk`/`internationalChunk`, with the five refusal sentences marked PROVISIONAL. **The pasted body is compiled, not eyeballed**: it was built against the **real, unmodified** `PngChunks.kt` (only `BrushException`, `inflateRaw`, `inflateMaxOut`, `looksLikeZlib` and the two byte counts stubbed) and came back `exit 0`. **That test also found a fragility worth naming: `walkPngChunks`, `keywordOf`, `latin1` and `indexOfZero` are all `private` *in file*, so this function must physically live inside `PngChunks.kt`** — putting it in a new file in the same package produces a wall of *"it is private in file"* errors, which is the Do-not entry's whole subject one level down. **Q1's factual half ruled against the landed reader, not the spec**: `walkPngChunks` hands its visitor only the *compressed* chunk length (`:210`) and `compressedChunk` keeps no expansion figure (`:286-292`), so there is genuinely no second number for `MAX_INFLATE_RATIO` to divide by — a fact about the format, not a gap. **Every `file:line` in the verification list re-read at the byte level**: `MAX_INFLATE_RATIO`/`MAX_INFLATED_BYTES` and their derivation are at `ProcreateImport.kt:65-76` with `looksLikeZlib` at `:690-701`, both `private`, and grep over all of `joybrush/` finds them in **only** that file and `ProcreateImportTest.kt:676/677/679/683` — so the move breaks no caller and is a move, not a decision. Verified too: `PngTextChunk` is a public three-field data class at `PngChunks.kt:60` with `compressedChunk` returning `("", true)` and keeping no offset, so the `zTXt` inflate genuinely cannot live in `KritaImport`; `MAX_PNG_STRING_BYTES = 8 388 608 < 67 108 864`; `readStored` at `:1388-1435` with the "mostly this message" refusal at `:1402-1408` and callers at `:266`/`:343`/`:890`; the `+ ZLIB_ADLER_BYTES else 0` grouping is right in both the spec and the landed code (a `read`-tool rendering that showed it as `else 0 + …` was checked against the raw bytes and **disproved**); `KritaImportTest` is 1126 lines with no `java.*`, `bundleOf` already takes a per-entry method and writes a stored DEFLATE block; `PngChunksTest` 296 lines with no test needing a change; `InflateTest` 206 lines with the 5 000 ms bound at `:140`; `core/build.gradle.kts:43-51` and `:14`. Two claims corrected: `RealFilesProbeTest.kt` is **46** lines, not 26, and Test 26's "exactly as `RealFilesProbeTest` locates `testdata-local`" described a different anchor than the test uses. |
 | **Who** | spec writer: **openrouter/stealth/space-bunny-alpha** 2026-09-29 |
 | **Needs** | JB-8.04 (🟧), JB-8.02 (🟧), JB-8.01 (🟧 — it created `ImportSupport.kt`). Nothing else. |
 | **Owner area** | EDIT `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/brush/imports/ImportSupport.kt` · EDIT `.../imports/ProcreateImport.kt` · EDIT `.../imports/Inflate.kt` (**KDoc only — Decision 11**) · EDIT `.../imports/PngChunks.kt` (**additive only — Decision 6**) · EDIT `.../imports/KritaImport.kt` · EDIT `joybrush/core/src/commonTest/.../imports/KritaImportTest.kt` · EDIT `joybrush/core/src/commonTest/.../imports/PngChunksTest.kt` · NEW `joybrush/core/src/commonTest/.../imports/ImportSupportTest.kt` · EDIT `joybrush/core/src/jvmTest/.../imports/ProcreateImportTest.kt` (**four lines, Decision 3**) · NEW `joybrush/core/src/jvmTest/.../imports/KritaBundleInflateTest.kt`<br>**NOT** `core/build.gradle.kts`. **NOT** `joybrush/androidkit/`. **NOT** `Inflate.jvm.kt` — the `actual` is correct as landed and Decision 11 forbids editing it. **NOT** any app file. |
@@ -208,8 +209,15 @@ trap `ProcreateImport.kt:713` warns about — but they are deleted anyway so the
 **`ProcreateImport.kt:514`** becomes:
 
 ```kotlin
-        val maxOut = inflateMaxOut(entry.uncompressedSize)
+        val maxOut = inflateMaxOut(entry.uncompressedSize.toLong())
 ```
+
+> **The `.toLong()` is load-bearing and it is not optional.** `Zip.Entry.uncompressedSize` is an
+> `Int` (`ProcreateImport.kt:398`) and `inflateMaxOut` takes a `Long` (A.3). **Kotlin does not widen
+> `Int` to `Long` implicitly**, so `inflateMaxOut(entry.uncompressedSize)` is a compile error
+> ("type mismatch: inferred type is `Int` but `Long` was expected"), not a conversion. The landed
+> line it replaces spelled the same arithmetic out by hand (`minOf(entry.uncompressedSize.toLong(),
+> …)`) and therefore had the conversion in it; the call hides it, so the call has to carry it.
 
 **`ProcreateImport.kt:510-512`** is unchanged in body and now reads the shared constants:
 
@@ -295,7 +303,118 @@ in `PngChunksTest` needs to change.** What is added, verbatim:
 internal fun readPngCompressedText(bytes: ByteArray, keyword: String): String?
 ```
 
-Its body is specified in Decision 6. **Do not add a parameter for the cap** — see the Do-not list.
+**Its body, verbatim.** Decision 6 decides **where** the function lives and **why**; this is the code,
+and every offset in it is a **move** of landed arithmetic rather than a new decision — the two chunk
+shapes are read by the landed `compressedChunk` (`PngChunks.kt:286-292`) and `internationalChunk`
+(`PngChunks.kt:303-326`), and this re-derives the payload start from the same two expressions. The
+only free choices in it are the five refusal **sentences**, and those are marked
+**PROVISIONAL — Claude to confirm** (Questions) because wording is reversible and a sentence is what a
+person reads.
+
+```kotlin
+internal fun readPngCompressedText(bytes: ByteArray, keyword: String): String? {
+    var found: String? = null
+    walkPngChunks(bytes) { type, at, length ->
+        if (type != "zTXt" && type != "iTXt") return@walkPngChunks true
+        // The keyword is read and compared FIRST, so a refusal about the shape of *this* chunk is
+        // never raised on behalf of a caller that asked about a different one.
+        val kw = keywordOf(bytes, at, length, type)
+        if (latin1(bytes, at, kw) != keyword) return@walkPngChunks true
+        val payloadAt: Int
+        val encodingIsUtf8: Boolean
+        when (type) {
+            "zTXt" -> {
+                if (length - kw - 1 < 1) {
+                    throw BrushException("its \"$type\" chunk is truncated before its compression method")
+                }
+                val method = bytes[at + kw + 1].toInt() and 0xFF
+                if (method != 0) {
+                    throw BrushException(
+                        "its \"$type\" chunk is compressed with method $method, and this build reads " +
+                            "only 0 (deflate)",
+                    )
+                }
+                payloadAt = at + kw + 2
+                encodingIsUtf8 = false
+            }
+            else -> {
+                val flag = at + kw + 1
+                if (flag + 2 > at + length) {
+                    throw BrushException("its \"$type\" chunk is truncated before its compression flags")
+                }
+                if (bytes[flag].toInt() and 0xFF == 0) {
+                    // Uncompressed: `readPngTextChunks` already returned this one's text, and
+                    // Decision 8 says it is never speculatively inflated.
+                    return@walkPngChunks true
+                }
+                val method = bytes[flag + 1].toInt() and 0xFF
+                if (method != 0) {
+                    throw BrushException(
+                        "its \"$type\" chunk is compressed with method $method, and this build reads " +
+                            "only 0 (deflate)",
+                    )
+                }
+                // The two NUL-terminated fields in front of the text, skipped exactly as
+                // `internationalChunk` skips them: language tag, then translated keyword.
+                var cursor = flag + 2
+                val language = indexOfZero(bytes, cursor, at + length - cursor) ?: -1
+                if (language < 0) throw BrushException("its \"$type\" chunk's language tag is not terminated")
+                cursor += language + 1
+                val translated = indexOfZero(bytes, cursor, at + length - cursor) ?: -1
+                if (translated < 0) {
+                    throw BrushException("its \"$type\" chunk's translated keyword is not terminated")
+                }
+                payloadAt = cursor + translated + 1
+                encodingIsUtf8 = true
+            }
+        }
+        val payloadLength = at + length - payloadAt
+        if (payloadLength < 1) {
+            throw BrushException("its \"$type\" chunk is compressed but carries no text")
+        }
+        val wrapped = looksLikeZlib(bytes, payloadAt)
+        val from = payloadAt + if (wrapped) ZLIB_HEADER_BYTES else 0
+        val deflated = payloadLength - if (wrapped) ZLIB_HEADER_BYTES + ZLIB_ADLER_BYTES else 0
+        if (deflated < 1) throw BrushException("its \"$type\" chunk holds no DEFLATE data")
+        val plain = inflateRaw(bytes, from, deflated, inflateMaxOut(MAX_PNG_STRING_BYTES.toLong()))
+        found = if (encodingIsUtf8) {
+            decodeUtf8Strict(plain, 0, plain.size, "\"$type\" \"$keyword\"")
+        } else {
+            latin1(plain, 0, plain.size)
+        }
+        false   // first match wins, exactly as `KritaImport.kt:300` takes the first `preset`
+    }
+    return found
+}
+```
+
+**What is decided here and was not before, and why none of it is a judgement:**
+
+- **The walk.** `walkPngChunks` is `private` in this same file (`PngChunks.kt:166`), so it is
+  reachable and reusing it is what keeps the file caps, the chunk-length arithmetic and the
+  `Long`-before-add rule from having a second copy. A second hand-rolled walk here would be the
+  single worst thing a builder could add to this row.
+- **The first match wins.** `KritaImport.kt:300` takes the *first* `preset` chunk and this row must
+  hand back that same one, or the importer would inflate a different chunk than the one whose
+  `compressed` flag it read. `visit` returning `false` is how the walk stops
+  (`PngChunks.kt:210`), and it is the same early exit `readPngHeader` uses (`:133`).
+- **The keyword is compared by value, case sensitively, and BEFORE any shape refusal** — the PNG rule,
+  and the same rule `KritaImport.kt:298` states for its own comparison. Comparing first is what stops a
+  bad compression method on some *other* keyword's chunk from being raised against a caller that
+  asked about a different one.
+- **An uncompressed `iTXt` is skipped, not refused**, and the keyword comparison has already happened,
+  so skipping it is not the same as not finding it.
+- **The payload offsets** are `compressedChunk`'s and `internationalChunk`'s arithmetic, moved:
+  `zTXt` = keyword, NUL, method, payload at `at + kw + 2`; a compressed `iTXt` = keyword, NUL, flag,
+  method, language, NUL, translated, NUL, payload after the second NUL. Nothing here is new.
+- **`inflateMaxOut(MAX_PNG_STRING_BYTES.toLong())`** — the cap is this file's own string cap, floored
+  by the shared ceiling (A.3). Test 2 pins that the string cap is the tighter of the two, so the
+  `.toLong()` here is `Int → Long` on a `const`, the one place where the widening is genuinely a no-op
+  and is written only because `inflateMaxOut` takes a `Long`.
+
+**Do not add a parameter for the cap** — see the Do-not list. **Do not widen `PngTextChunk`** to
+avoid the re-walk; that is the trap Decision 6 exists to close, and it would put the payload back in
+the hands of a caller that has to remember the encoding.
 
 ## E. `KritaImport.kt` — the swap
 
@@ -422,9 +541,13 @@ Its body is specified in Decision 6. **Do not add a parameter for the cap** — 
             val from = at + if (wrapped) ZLIB_HEADER_BYTES else 0
             val length = entry.compressedSize - if (wrapped) ZLIB_HEADER_BYTES + ZLIB_ADLER_BYTES else 0
             if (length < 1) throw BrushException("\"${entry.name}\" holds no DEFLATE data")
-            return inflateRaw(data, from, length, inflateMaxOut(entry.uncompressedSize))
+            return inflateRaw(data, from, length, inflateMaxOut(entry.uncompressedSize.toLong()))
         }
 ```
+
+> **The `.toLong()` again, for the same reason** (`KritaZip.Entry.uncompressedSize` is an `Int`,
+> `KritaImport.kt:1383`; `inflateMaxOut` takes a `Long`). Two call sites, two chances to write it
+> without, and a build that stops at step 8 rather than at step 5.
 
 The three bomb refusals and the method refusal are **copied character for character** from
 `ProcreateImport.Zip.read` (`ProcreateImport.kt:431-455`), because "one set of bomb caps" is only true if
@@ -898,8 +1021,10 @@ so the inflater then reports 'ends early' rather than returning something short"
 that sentence true rather than plausible.*
 
 **26. `noSourceFileStillSaysThisBuildHasNoInflater`** — read `KritaImport.kt` and `PngChunks.kt` from disk
-(locate the module root by walking up from `File("").absoluteFile` for a directory containing
-`src/commonMain`, exactly as `RealFilesProbeTest` locates `testdata-local`) and assert **none** of them
+(locate the module root the way `RealFilesProbeTest` locates its corpus, by walking up from
+`File("").absoluteFile` for the first directory that contains `src/commonMain`; that is the same
+`generateSequence(…).firstOrNull { … }` idiom pointed at the module root rather than at
+`testdata-local`) and assert **none** of them
 contains the strings `"no inflater"`, `"does not inflate a PNG text chunk"` or `"readStored"`. *Three
 needles, each chosen for a reason: the first two are the prose claim this row reverses, and the third is
 the old function name, so a call site left behind by a partial rename is caught by a test rather than by a
@@ -931,8 +1056,21 @@ total test count not lower than it was before you started**. Report both numbers
 - **Do not choose a bomb ratio, or any other number in this row.** Every value here is moved or copied from
   a landed declaration, and the spec says which. If a number is not in the contract above, it is a
   **question**, and a builder who invents one has quietly become the author of a security bound.
+- **Do not put `readPngCompressedText` in a new file.** It reuses `walkPngChunks`, `keywordOf`,
+  `latin1`, `indexOfZero` and `decodeUtf8Strict`, and the first four are **`private` in file**
+  (`PngChunks.kt:166`, `:240`, `:254`, `:329`). In this package that is a wall of
+  *"cannot access … it is private in file"*, not a one-line fix, and the answer is never to make them
+  `internal` — the cap-ownership comment at `PngChunks.kt:5-17` explains why this file's helpers are
+  file-private. **Add the function to `PngChunks.kt`.** The owner area already says EDIT, not NEW.
+- **Do not compare the keyword after reading the shape.** A `zTXt` carrying some *other* keyword with a
+  bad compression method must not raise against a caller that asked about a different one. The pasted
+  body compares the keyword first, and that is the order.
 - **Do not write a second `minOf` in a second file.** `inflateMaxOut` is the formula (Decision 2, A.3). A
   `minOf(declared, MAX_INFLATED_BYTES)` typed into `KritaImport.kt` is the same drift as a second constant.
+- **Do not pass an `Int` to `inflateMaxOut`.** It takes a `Long` and Kotlin does not widen. Both zip
+  readers hold `uncompressedSize` as an `Int` (`ProcreateImport.kt:398`, `KritaImport.kt:1383`), so
+  **both** call sites need the explicit `.toLong()`. This is the one line in the row a build stops on,
+  and it is easy to write correctly in the first file and wrongly in the second.
 - **Do not add a `maxOut` parameter to `readPngCompressedText`.** The cap is `PngChunks`' own
   `MAX_PNG_STRING_BYTES` because the caller does not get a vote in it; a parameter invites a caller to pass
   `MAX_INFLATED_BYTES` and quietly raise this path's ceiling from 8 MiB to 64 MiB.
@@ -1026,6 +1164,27 @@ thing they were unsure of is how the next `.bundle` importer gets refused in wor
 
 Both are wording, both are reversible in one edit, and neither is a contract, a file format or a number.
 
+0. **RULED BY THE CROSS-REVIEWER, and it closes the factual half of Q1: the `zTXt` really does state
+   no uncompressed size, so `MAX_INFLATE_RATIO` genuinely has nothing to compare there — and that is a
+   fact about the format, not a gap in this row.** Checked against the landed reader rather than against
+   the PNG specification, because the specification is not in this tree: `Zip.read` applies the ratio as
+   `entry.uncompressedSize > entry.compressedSize * MAX_INFLATE_RATIO` (`ProcreateImport.kt:437-439`),
+   where both numbers come out of the zip's **central directory**, and a central directory states
+   `uncompressedSize` as its own field. A PNG chunk header states one length and it is the length of
+   the **compressed** payload — `walkPngChunks` hands its visitor exactly that (`PngChunks.kt:210`:
+   `visit(type, dataAt, dataLength)`, and `dataLength` is the chunk's declared length), and
+   `compressedChunk` reads keyword, one method byte and returns, keeping no expansion figure at all
+   (`PngChunks.kt:286-292`). **So there is no second number anywhere in this codebase for the ratio to
+   divide by, and the claim holds.** What is left binding is `MAX_PNG_STRING_BYTES = 8 MiB`, capped
+   inside the `actual` at `Inflate.jvm.kt:51` **before** `out.write` at `:52` — so the worst a `zTXt`
+   bomb costs is 8 MiB plus one 64 KiB chunk, which is the same worst case the zip path has when the
+   ratio check is the one that fires. **On "is a row that half-works a problem": no, and the reason
+   is that this row's load-bearing half is complete.** The zip-bomb ratio now applies to `KritaZip`,
+   which is what makes real `.bundle` files open at all; the compressed-chunk path is bounded, loudly,
+   and the asymmetry is a difference between two file formats rather than an omission. Test 2 pins
+   that the string cap is the tighter of the two so a later row cannot quietly widen it, and the
+   constant's own KDoc (A.2) states the asymmetry where the next reader will meet it.
+
 1. **The words of the "one inflater" KDoc** (E.4, `KritaImport.kt:64-73`). The paragraph has to change
    because it asserts the opposite of what the code does; the wording is this spec's. *What is not
    provisional: the sentence "a real `.bundle` is mostly this message" must be **deleted**, not softened,
@@ -1034,20 +1193,26 @@ Both are wording, both are reversible in one edit, and neither is a contract, a 
    (no declared size ⇒ the ceiling is the only bound) and the encoding asymmetry (`zTXt` Latin-1, `iTXt`
    UTF-8). Both facts are from the PNG specification, both are load-bearing for Decisions 6 and 7, and
    neither is verifiable inside this repository — the same class of fact as JB-8.04's R4 citations.
+3. **The five refusal sentences inside `readPngCompressedText`'s body** (D): *"compressed with method
+   $method, and this build reads only 0 (deflate)"*, *"is truncated before its compression method"*, the
+   two `iTXt` unterminated-field sentences, and *"is compressed but carries no text"*. They are
+   **wording**, and the spec supplies them so no builder invents one; three of the five are reuses of
+   sentences `PngChunks` already ships (`PngChunks.kt:289`, `:307`, `:314`, `:317`). Change any of them
+   freely — Tests 7 and 18 only assert that a sentence is raised and names the method, never the
+   wording.
 
 ## for the Lead
 
-**Q1. Is a `zTXt` bomb bounded only by the output ceiling, and is that the answer you want?** A PNG's
-`zTXt` states **no** uncompressed size, so `MAX_INFLATE_RATIO` has nothing to compare and the *only* bound
-before the bytes are written is `MAX_INFLATED_BYTES` — in practice `MAX_PNG_STRING_BYTES = 8 MiB`, enforced
-inside `Inflate.jvm.kt:51` before `out.write`. **A bomb inside a `zTXt` therefore costs at most 8 MiB plus
-one 64 KiB chunk**, which I judge acceptable and which the spec implements as the default. The alternative
-is to read the DEFLATE stream's own trailing `ISIZE` (RFC 1951) and apply the ratio as a *pre-check*: a
-hostile file's claim about itself, used only to **refuse** rather than to accept, so a false claim can
-cause a false refusal and never a false acceptance. **My recommendation: do not add it to this row.** It is
-a security-bound design decision, it is not needed for 8 MiB, and it is the kind of thing that should be
-ruled once rather than discovered. **Not blocking** — the default is safe and the spec says so in the
-constant's own KDoc.
+**Q1. Is a `zTXt` bomb bounded only by the output ceiling, and is that the answer you want?** **The
+factual half is RULED (see PROVISIONAL 0): yes, a `zTXt` states no uncompressed size, and that is
+checked against the landed reader.** What remains is the design choice the ruling deliberately does not
+make. The alternative to the ceiling-only bound is to read the DEFLATE stream's own trailing `ISIZE`
+(RFC 1951) and apply the ratio as a *pre-check*: a hostile file's claim about itself, used only to
+**refuse** rather than to accept, so a false claim can cause a false refusal and never a false
+acceptance. **My recommendation: do not add it to this row.** It is a security-bound design decision,
+it is not needed for 8 MiB, and it is the kind of thing that should be ruled once rather than
+discovered. **Not blocking** — the default is safe, the spec says so in the constant's own KDoc, and
+this row does not stop the builder on it.
 
 **Q2. The two zip readers are now near-identical, and R23 says "share, don't copy".** `KritaZip` and
 `ProcreateImport.Zip` are two hand-written central-directory walks with two sets of file caps and **two
@@ -1099,7 +1264,7 @@ working tree, not recalled:
   Decision 7 and that only JB-8.04 is affected. 8 388 608 < 67 108 864, so Test 2 is true as written.
 - `KritaZip.readStored` is `KritaImport.kt:1388-1435` and the "a real `.bundle` is mostly this message"
   refusal is `:1402-1408`, verbatim. Its three callers are `convertBundle` (`:266`), `readBundleMeta`
-  (`:344`) and `texture()` (`:890`), and the `KritaZip.STORED` test is at `:888`. All four are named.
+  (`:343`) and `texture()` (`:890`), and the `KritaZip.STORED` test is at `:888`. All four are named.
 - `texture()`'s DEFLATE-fallback branch is `KritaImport.kt:900-906`; `readKppFile`'s compressed refusal is
   `:308-315` and the non-XML check that follows is `:317-322`. All verbatim above.
 - `ImportSupport.kt` is 71 lines: `ImportLibrary`/`summary()` (`:11-30`), `RefusedBrush` (`:32`),
@@ -1124,7 +1289,7 @@ working tree, not recalled:
 - `core/build.gradle.kts:43-51` declares `brushes/`, `assets/`, `shaders/` and the real-file corpus as
   `jvmTest` inputs (R44 item 1), and `:14` enables `jvm()` as the only target — so `expect`/`actual` needs
   no build-file change and this row edits none.
-- `RealFilesProbeTest.kt` (26 lines, `jvmTest`) already calls `KritaImport.convertBundle` and
+- `RealFilesProbeTest.kt` (46 lines, `jvmTest`) already calls `KritaImport.convertBundle` and
   `convertKpp` over a git-ignored corpus, so **this row's code is already wired into the probe** and
   JB-8.05 owes the real-file verdict, not this row.
 

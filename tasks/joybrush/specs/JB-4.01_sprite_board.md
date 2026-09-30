@@ -5,6 +5,7 @@
 | **Tier** | **T2** (the maths is already Built and reviewed; this row is the *board* that asks it questions, and every question is testable on a JVM) |
 | **Status** | 🟦 **Ready** — core half only. R36's two rulings are inlined as Decisions 8 and 10. No Lead ruling is outstanding for the build. |
 | **xr** | xr: openrouter/stealth/space-bunny-alpha 2026-09-29 — cut to the **core half** per R30; **the review's test-5 correction applied and the underlying contradiction resolved** (after `fitted(...)` there is no spare strip, and on the 2 px strip the old test could not have had *both* answers — see Decision 9 and tests 9/10); R36 Q1 ("used" is derived) made a real function in `:core` instead of a view field; R36 Q2 (a `−`/`+` stepper pair) moved from "the pill is D.02's" to a stepper whose arithmetic is here; `subGridDiv` **deleted** because keeping it would have meant restating `SpriteGridMath`'s private 2..8 clamp (old Decision 1 vs old Decision 8, in one file); `edgeAt` now takes **document** px (Decision 5 rewritten), which is what makes the spare-strip case expressible at all. |
+| **xr (cross-review)** | xr: openrouter/stealth/space-bunny-alpha 2026-09-29 — **Ready.** Every `SpriteGridMath` / `DocModel` signature and both private `MIN/MAX_SUB_GRID_DIV` line numbers re-read and correct; the test-5 derivation (499 is 1 px from a 22 dp grab) is arithmetically sound and the two fixtures do separate the two answers. **Two tests contradicted each other and are fixed: test 11 asked for `RIGHT` at a point that is inside BOTH the right and the corner grab, which test 13 requires to be `CORNER`.** Test 12's two zone labels were swapped, and test 14's probe points are now pinned. Q1 left open for the Lead with the value named; Q2 confirmed. |
 | **Needs** | JB-4.01a (`SpriteGridMath` — 🟩 Reviewed), JB-0.02 (`Board`, `SpriteGrid`, `RectPx`). **JB-2.01 is NOT needed by this row** — it is needed by the *view* half, and that half is not here. |
 | **Owner area** | (1) NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/sprite/SpriteBoard.kt` · (2) NEW `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/sprite/SpriteBoardTest.kt` · (3) NEW `joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/sprite/SpriteBoardHoldsNoGridArithmeticTest.kt` · **NOTHING ELSE.** In particular **NOT** `SpriteGridMath.kt` (Reviewed — a re-review follows any edit), **NOT** `SpriteGrid` / `Board` / `DocModel.kt`, **NOT** `JoyBrushActivity.kt` (R30 lock order), **NOT** anything in `joybrush-android/` or `app/`, no Gradle file. |
 | **Estimated size** | ~170 lines of Kotlin, ~300 lines of tests |
@@ -444,27 +445,41 @@ private fun staleBySize(): Board = board(rect = RectPx(0, 0, 500, 300),
       `BOTTOM`.
     - and the fitted board (448 × 256) has no spare at all: `cellAt(448f, 20f) == −1` while
       `edgeAt(448f, 20f, 1f) == RIGHT` — the edge itself is inside its own zone.
-11. `theCornerWinsOverBothEdgesAndTheEdgeItselfIsInsideItsOwnZone` — **fixture B**: at the exact grid
-    corner (448, 256) → `CORNER`; at 3 px above the corner, on the right edge → `RIGHT`; at 3 px right
-    of the corner, on the bottom edge → `BOTTOM`. Three cases, because a corner that resolves to an
-    edge is an off-by-one in the wrong direction and resizes only one axis. Plus test 5's refusal.
-12. `theGrabIsTwoSidedOnTheEdgeLine` — **fixture B**: `edgeAt(470f, 20f, 1f) == RIGHT` (22 px INSIDE
-    the grid, on the last cell) as well as `edgeAt(426f, 20f, 1f) == RIGHT` (22 px outside it). The
-    test's comment says why: a finger is wider than a 1 px line, and a zone that exists only outside
-    the grid could not be hit at all.
+11. `theCornerWinsOverBothEdgesAndTheEdgeItselfIsInsideItsOwnZone` — **fixture B** (grid 448 × 256,
+    grab 22): at the exact grid corner `(448f, 256f)` → `CORNER`; and then the three points that
+    separate the zones, which **must not** be near the corner, because a 22 dp two-sided zone on each
+    line makes the corner a 44 × 44 square and anything inside it is `CORNER`:
+    - `(448f, 230f)` — on the right edge, **26 px above** the bottom edge, so outside the corner square
+      → `RIGHT`;
+    - `(420f, 256f)` — on the bottom edge, **28 px left of** the right edge → `BOTTOM`;
+    - `(448f, 250f)` — 6 px above the corner, inside **both** grabs → **`CORNER`**, and this is the case
+      the draft got wrong: it asked for `RIGHT` there, which test 13 forbids and which "the corner is
+      checked first" cannot produce. A corner that resolves to an edge resizes only one axis, so the
+      answer at the corner matters more than the answer near it.
+    Plus test 5's refusal.
+12. `theGrabIsTwoSidedOnTheEdgeLine` — **fixture B**, `screenPerDoc = 1f`: `edgeAt(426f, 20f, 1f) ==
+    RIGHT` (**22 px INSIDE** the grid, on the last cell) as well as `edgeAt(470f, 20f, 1f) == RIGHT`
+    (**22 px OUTSIDE** it, in the spare strip). The test's comment says why: a finger is wider than a
+    1 px line, and a zone that exists only outside the grid could not be hit at all. (The draft had
+    these two labels the wrong way round — 470 is outside a grid that ends at 448, not inside. The two
+    expected values were right; only the words were not, and the words are what a reader copies.)
 13. `aHandleIsDecidedOnceAndTheGridCannotBeGrabbedByBothAtOnce` — probe the corner region at 1 px
     steps: for every probe in a 30 × 30 box around (448, 256), `edgeAt` returns exactly one of
     `CORNER` / `RIGHT` / `BOTTOM` / `null` and never two, and `CORNER` is returned for every point that
     is within the grab of **both** lines. *Why:* that is Decision 4's "the corner is checked first
     because it is the intersection; a finger at the corner is unambiguous by construction rather than by
-    a tie-break", as a test rather than a promise.
+    a tie-break", as a test rather than a promise. **This is the test that made test 11 wrong**, and
+    the two must be read together: the 44 × 44 corner square belongs to `CORNER` in its entirety, and
+    the only way to reach `RIGHT` is to be outside the bottom grab or `BOTTOM` outside the right grab.
 14. `theGrabIsSizedInScreenPixelsAndTheZoomIsNotInverted` — the direction of the conversion, with
-    numbers that only come out one way round. At density 1, `screenPerDoc = 4f` (zoomed IN, so a doc
-    pixel is 4 screen px and the 22 screen px grab is **5.5 doc px**): a finger **6 doc px** from the
-    right edge is 24 screen px away → `null`; a finger **5 doc px** away is 20 screen px → `RIGHT`. At
-    `screenPerDoc = 0.25f` (zoomed OUT) the same 22 screen px is **88 doc px**: 80 doc px away →
-    `RIGHT`, 100 doc px away → `null`. Both directions, and the comment says that dividing instead of
-    multiplying inverts both.
+    numbers that only come out one way round. **Every probe is pinned to `(x, 20f)`: 20 is 236 px above
+    the grid's bottom edge, so no probe can accidentally land in the corner square and turn this into
+    a test of `edgeAt`'s corner rule.** At density 1, `screenPerDoc = 4f` (zoomed IN, so a doc pixel is
+    4 screen px and the 22 screen px grab is **5.5 doc px**): a finger **6 doc px** from the right edge
+    (`x = 454f`) is 24 screen px away → `null`; **5 doc px** away (`x = 453f`) is 20 screen px → `RIGHT`.
+    At `screenPerDoc = 0.25f` (zoomed OUT) the same 22 screen px is **88 doc px**: **80 doc px** away
+    (`x = 528f`) → `RIGHT`, **100 doc px** away (`x = 548f`) → `null`. Both directions, and the comment
+    says that dividing instead of multiplying inverts both.
 15. `theIgnoredAxisIsStillPassedAndStillIgnored` — through `dragged`: `dragged(CORNER, 80f, −50f)` on an
     8 × 4 grid changes both; `dragged(RIGHT, 80f, −50f)` changes `cellW` and leaves `cellH`
     **bit-identical**, and the same for `BOTTOM`. Pinned with `∓9999` on the ignored axis, as 4.01a
@@ -474,7 +489,9 @@ private fun staleBySize(): Board = board(rect = RectPx(0, 0, 500, 300),
     **512 × 4** (8 columns × 64 wide, 4 rows × 1 tall); `dragged(RIGHT, −1_000_000f, 0f)` yields
     `cellW` of exactly **1** and a board of **8 × 256**. Neither throws, and the clamped board is
     still `fitRect`'d — which is why both numbers are given and not just "it did not crash".
-17. `usedCellsAreComputedAndACellWithNothingInItIsNotUsed` — 40 cells of `64 × 64` RGBA, all zeros but
+17. `usedCellsAreComputedAndACellWithNothingInItIsNotUsed` — a list of **40 cells of `64 × 64` RGBA**
+    (a list of its own — `usedCellsOf` is handed cells and told nothing about the fixture's 28, and the
+    index it returns is the index in the list, which is reading order), all zeros but
     three, and `usedCellsOf` is exactly those three indices. Then two more cases that are the point of
     deriving it: erasing a cell (all zero again) makes it **not** used, and a cell holding a single
     pixel of alpha 1 **is** used. *Why:* the second is what a stored flag could not do without a
@@ -551,7 +568,9 @@ has never been seen wrong is a helper nobody can rely on.
 - [ ] `./gradlew -p joybrush :core:jvmTest` output pasted, 0 failures
 - [ ] the four non-vacuity runs pasted, each with the name of the test that went red
 - [ ] `git status --short` shows **only** the three owner-area paths
-- [ ] committed `JB-4.01: sprite board core`; the ROADMAP row is the Lead's to set
+- [ ] committed `JB-4.01: sprite board core`. **The ROADMAP row is the orchestrator's, not yours — do not
+      edit `tasks/joybrush/ROADMAP.md`.** `specs/INDEX.md` was retired ("# Moved"), so there is no
+      index line to update; report the new status in the build report and the orchestrator sets it.
 
 ## Stop rule
 
@@ -578,26 +597,37 @@ _(Spec writer: openrouter/stealth/space-bunny-alpha, 2026-09-29. The core half i
 22 `commonTest` cases and 2 `jvmTest` ones, plus four non-vacuity runs. **No question below blocks the
 build.**)_
 
-### Q1 — for the Lead: the grid's grab depth is 22 dp here, and R32 says "hit radius 22 dp" for the pegs.
+### Q1 — LEFT OPEN for the Lead, deliberately, and here is exactly what the spec currently uses.
 
-This row's `edgeGrabPx` is **22 dp × density** at the use site (R32), which is what the old spec said and
-what the house touch floor wants. R32's list — "peg pitch 44 dp, peg radius 14 dp, hit radius 22 dp,
-edge grab 12 dp" — reads as the **animation peg bar's** four numbers, and its "edge grab 12 dp" is
-almost certainly the same 12 dp that JB-3.03's edge zone is half of (see that spec's Q1). So the two
-rows may or may not be meant to share one edge-grab depth. **They are different surfaces with different
-targets** and this spec has kept 22, because a grid edge is a 1 px line a finger is trying to find and
-a strip edge sits between two cells. **If the Lead means one number for both, this is
-`EDGE_GRAB_PX_DP` here and `EDGE_GRAB_PX_DP` there, and nothing else changes but the tests.**
+**This spec uses `EDGE_GRAB_PX_DP = 22f`, one-sided on each line with the corner square to `CORNER`,
+and every derived number in tests 9, 10, 11, 12, 13 and 14 follows from that one constant.** The Lead
+should know that list, because a change of 12 dp does not touch a decision — it touches six tests.
 
-### Q2 — for the Lead, non-blocking: the `−`/`+` stepper's step is 1, and that is PROVISIONAL.
+The review says nothing about this row's grab depth, so the review's arithmetic does not settle it and
+I have not ruled on it: R32's list — "peg pitch 44 dp, peg radius 14 dp, hit radius 22 dp, edge grab
+12 dp" — reads as the **animation peg bar's** four numbers, and its "edge grab 12 dp" is very likely the
+same 12 dp that JB-3.03's edge zone is half of (see that spec's Q1, where the cross-reviewer DID rule,
+because the corrected-numbers section settles it there). So the two rows may or may not be meant to
+share one depth. They are different surfaces with different targets, and this spec has kept 22, because
+a grid edge is a 1 px line a finger is trying to find and a strip edge sits between two cells.
+
+**If the Lead wants 12 dp instead, this is the whole change:** `EDGE_GRAB_PX_DP` alone, and then
+fixture B's spare strips (52 px right, 44 px below) are still wider than the grab, so **tests 9 and 10
+still pass unchanged** — which is the useful part, because the review's test-5 correction does not
+depend on the depth. Tests 11, 12, 13 and 14 all move: the corner square becomes 24 × 24, test 11's
+outside-the-corner probes must be 13 px and 14 px from the other line instead of 26 and 28, and test
+12's two probes move from 426/470 to 436/460. Nothing else in the file changes, and no decision does.
+
+### Q2 — PROVISIONAL, confirmed as written by the cross-reviewer (2026-09-29); still the Lead's to move.
 
 Decision 10 takes R36's "a `−`/`+` stepper pair now" and rules the step to be one document px (or one
 column / row). It is marked PROVISIONAL because it is a touch-feel question and therefore a phone
-question, and I have not decided it. What a builder needs is only that **the arithmetic is a call to
-`bySize` / `byCount` with the argument moved by the step** — so if the Lead wants the step to be 8 px,
-or a long-press to multiply it, or the step to follow the zoom, only `Axis` and this Decision change and
-tests 6, 7, 18 and 19 move with them. The real scrubbable `NumPill` stays D.02's and replaces this pair
-later.
+question. What a builder needs is only that **the arithmetic is a call to `bySize` / `byCount` with the
+argument moved by the step** — so if the Lead wants the step to be 8 px, or a long-press to multiply
+it, or the step to follow the zoom, only `Axis` and this Decision change and tests 6, 7, 18 and 19 move
+with them. The real scrubbable `NumPill` stays D.02's and replaces this pair later. **Cross-reviewer:
+this does not block the build and nothing here was changed** — it is already decided, derived and
+reversible in one function, which is the bar a provisional decision has to clear.
 
 ### Q3 — for the Lead: the view half has no spec, and its `Needs` (2.01) is the project's bottleneck.
 

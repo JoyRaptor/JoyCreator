@@ -3,7 +3,8 @@
 | | |
 |---|---|
 | **Tier** | T2 (three small edits to two landed source files and two landed test files; no new file, no app file, no build file, no `document.json` field, nothing on the phone) |
-| **Status** | 📝 Draft spec — **one of the four findings is WRONG as reported and one of them is a defect the audit did not name. Both are corrected below, with the code quoted.** Not 🟦 Ready: a cross-reviewer sets that. |
+| **Status** | 🟦 **Ready** — cross-reviewed 2026-09-29. **Two blocking defects in the contract fixed** (both found by compiling and running the spec's own code, not by reading it), plus corrections to four factual claims. No Lead ruling is outstanding for the build: the two format/product questions (Q1, Q2) stay open and are marked non-blocking, and Decision 6's multiple is PROVISIONAL. |
+| **xr** | xr: openrouter/stealth/space-bunny-alpha 2026-09-29 — **TWO blocking defects, both in `decodedPixels`, both type-correct, neither visible by reading.** (1) `if (format != AnimFormat.SPRITE_SHEET) return frames` costs `PNG_SEQUENCE` `n * cell` instead of one cell, so `writeSequence` on 400 frames of 1024x1024 = `419 430 400` px is **refused** — the exact "a rule that refused an export that works" the spec forbids. Ran both versions: original gives `419 430 400 / accepted=false`, fixed gives `1 048 576 / accepted=true`, and Test 8's sequence half goes red on the original. (2) **The sheet's `rows` divided the PIXEL TOTAL by `cols`, not the frame count** — `val rows = (frames + cols - 1) / cols` where `frames` is already `cell * count`. That makes the sheet term about `cell / cols` too large: 7 frames of 1024x1024 at 3 columns becomes `ceil(7_340_032 / 3) = 2_446_678` rows and a `7 696 590 831_616`-pixel "need", so **every sprite sheet at every size is refused** and Decision 6's own stated sheet costs collapse to zero. The packer's line is `((cells.size.toLong() + cols - 1) / cols)` where `cells.size` is the frame count (`SpritePacker.kt:235`), so the corrected `(count + cols - 1) / cols` is the move. **Both fixes are confirmed by executing the corrected function: it reproduces every number the spec already asserts** — Test 5's GIF `16 777_216` exact / `16_842_752`, Test 5's sheet `16_777_216` exact / `17_825_792`, Test 6's two cols-invariance assertions, Test 8's `41943040` refusal and its sequence acceptance, and Decision 6's costs **16 / 7, 64 / 30, 2 / 1** — all exactly. So the spec's prose and arithmetic were right throughout and only the code block was wrong; that is why hand-checking the arithmetic passed twice. The `writeSequence` call site is now spelled out, because `checkExportFits` takes four arguments and that function has three things to give it. Mutation drill is now six, with (e) and (f) being these two. **Finding 4 verified and the audit is WRONG**: `roundHalfUpMs` is defined at `AnimExportPlan.kt:240` and called at `:255` in `ticksOf` <- `cellIndices:261` <- `sheetClip:159` <- `AnimExport.kt:269`, so deleting it deletes the hold arithmetic; the real drift is the same expression **inlined at `:218`** inside `build`, and `:218` is character-for-character the function's body, so Decision 5 is behaviour-preserving. **Finding 1 verified exactly, including the second defect the audit missed**: `pngSize` walks `0 until 7` (`:383`) so `PNG_SIGNATURE[7] = 0x0A` is never read, **and** the guard `bytes.size < WIDTH_AT + 8` sits at `:388`, *below* the loop, so a 3-byte array throws `ArrayIndexOutOfBoundsException` instead of the sentence — widening the loop to `.indices` without moving the guard turns a 7-byte array from quietly accepted into a crash. **The multiple is arithmetically right**: `64 MiB / 4 B per px = 16 777 216 = 2 * 8 388 608` (`MAX_REGION_PX = 8_388_608L`, `RegionRenderer.kt:89`). **Finding 3 verified**: `GifEncoder` holds `PendingFrame` in `frames` (`GifEncoder.kt:413-415`, added `:443`, read in `finish():456`) and `SpritePacker.pack` allocates the whole sheet at `:248`, so "encode as you go" is unreachable in four files — the ceiling is the reachable half, exactly as ruled. **"FOUR places" is NOT what the tree holds**: three sites are in the owner area (`AnimExportPlan.kt:151-154`, `AnimExport.kt:266-268`, `AnimExportPlanTest.kt:455-457`) and **three are not** (`JB-3.06b_anim_export.md:408-411` and `:618-619`, `JB-4.02:678-679`, `reviews/JB-3.06b__muse-spark.md:19`); the spec now says so precisely and hands the Lead Q4. **The vacuous assertion is real and was deleted**: `AnimExportPlanTest.kt:457` asserted `assertEquals("Clip", Clip::class.simpleName)`, which no edit in this row can falsify, and it sat directly under a `weights` comment. **Two other claims corrected**: the duplicate-frame-id check is at `DocOps.kt:80`, not `:120-121`, and the packer key-set sentence is at `SpritePacker.kt:92-95`, not `:94-95`. Also verified: `Clip` at `SpritePacker.kt:35-41` with `weights` written at `:285-288` and validated at `:220-232`; `AnimOps.MAX_HOLD_FRAMES = 999` (`:100`) and fps `:543`; `JbArchive.MAX_DOCUMENT_BYTES` (`:119`); the 59 940-pair sweep at `AnimExportPlanTest.kt:181-201` (`60 * 999`, arithmetic checked); the two `floor` witnesses at `:88` and `:108`; `thePlanLayerHoldsNoSizeBudgetAndTheRunnerHoldsTheOnlyOne` at `:558-569`; `PngWriter.kt:98` `internal` reached from `PngWriterTest.kt:280`; `androidkit/build.gradle.kts:45` running `androidkit -> core`; `KritaImport.kt:89` and `AbrImport.kt:39` both 64 MiB. **No test in either file opens a file**, so `:core:jvmTest` and `:androidkit:test` are both the right commands. |
 | **Who** | spec writer `openrouter/stealth/space-bunny-alpha` 2026-09-29. Every claim below was opened in the tree on 2026-09-29 and carries its `file:line`; where the audit's wording differs from the code, the code wins and the difference is stated in *Audit verification*. |
 | **Needs** | 3.06b (built — the four files below are its output) |
 | **Owner area** | EDIT `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlan.kt` · EDIT `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlanTest.kt` · EDIT `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/AnimExport.kt` · EDIT `joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/io/AnimExportTest.kt`. **Those four paths and nothing else.** `ROADMAP.md`, `LEAD_RULINGS.md`, `tasks/lessons.md` and every other spec are the Lead's and are NOT in this row. |
@@ -53,7 +54,9 @@ and the array it is compared against, `AnimExport.kt:409`:
 
 ### Finding 2 — the stale "Clip has no `weights` field today" comment. **EXACTLY RIGHT about the comment, and the audit stopped one line short of a decision that rests on the same false premise.**
 
-Reported at `AnimExportPlan.kt:151-154`; it is really at **`:151-154` and a second copy at `AnimExport.kt:266-268`**, plus a third in the test at `AnimExportPlanTest.kt:455-457`. Verbatim, `AnimExportPlan.kt:151-154`:
+**How many places, stated exactly, because "four places" is a number this row must not get wrong.** A grep for the stale premise across the whole repository returns **three sites inside this row's owner area** — `AnimExportPlan.kt:151-154`, `AnimExport.kt:266-268`, `AnimExportPlanTest.kt:455-457` — and **three more outside it**, none of which this row may edit: `JB-3.06b_anim_export.md:408-411` and `:618-619` (the spec's own Decision 7 and its own answer, both still resting on the false premise, and `:409` even cites `SpritePacker.kt:28-33` for a `Clip` that now lives at `:35-41`), `JB-4.02_cell_order_and_play.md:678-679` (which quotes the stale sentence as evidence), and `reviews/JB-3.06b__muse-spark.md:19` (the review that first caught it). **So: three to fix here, three to hand the Lead, and the row's four *sentences* are the three sites' sentences plus `JB-3.06b`'s two.** It is a Lead question (Q8) which of the outside files get corrected, and by whom; nothing in this row's diff may touch them.
+
+Reported at `AnimExportPlan.kt:151-154`; the second copy is at `AnimExport.kt:266-268` and the third is in the test at `AnimExportPlanTest.kt:455-457`. Verbatim, `AnimExportPlan.kt:151-154`:
 
 ```kotlin
      * `Clip` has no `weights` field today, and this row must not start writing one: JB-4.03c may
@@ -100,7 +103,7 @@ So the spec has to say what is actually true, and here is the part that matters:
         }
 ```
 
-Every frame's RGBA is kept until the encoder has finished, and **nothing in the tree caps how many frames a board may have.** `AnimOps` caps a single *hold* at `MAX_HOLD_FRAMES = 999` (`AnimOps.kt:100`) and the *rate* at 1..60 (`AnimOps.kt:543`) — **the frame COUNT is uncapped**; `DocOps.validate` checks duplicate frame ids (`DocOps.kt:120-121`) and nothing else. The only bound is `JbArchive.MAX_DOCUMENT_BYTES = 32 * 1024 * 1024` (`JbArchive.kt:119`), which at roughly thirty bytes of JSON per frame is on the order of a million frames. So a pathological board is reachable from a real file, not a thought experiment.
+Every frame's RGBA is kept until the encoder has finished, and **nothing in the tree caps how many frames a board may have.** `AnimOps` caps a single *hold* at `MAX_HOLD_FRAMES = 999` (`AnimOps.kt:100`) and the *rate* at 1..60 (`AnimOps.kt:543`) — **the frame COUNT is uncapped**; `DocOps.validate` checks for two frames with the same id (`DocOps.kt:80`) and nothing anywhere checks how many there are. The only bound is `JbArchive.MAX_DOCUMENT_BYTES = 32 * 1024 * 1024` (`JbArchive.kt:119`), which at roughly thirty bytes of JSON per frame is on the order of a million frames. So a pathological board is reachable from a real file, not a thought experiment.
 
 **The 4096×4096 case the brief asks about, and why it is not the worst one.** 4096×4096 = 16 777 216 px; ×4 B = 67 108 864 B = **64 MiB per frame**; ×600 frames = 40 265 318 400 B = **37.5 GiB**. But that board is refused before a single frame exists: `checkRegionFits` (`AnimExport.kt:334-343`) compares 16 777 216 against `MAX_REGION_PX = 8_388_608` (`RegionRenderer.kt:89`) and throws. The largest cell this row will actually render is therefore `⌊√8 388 608⌋ = 2896`, i.e. 2896×2896 = 8 385 856 px = **32 MiB per frame**, and **a 600-frame GIF at that size retains 600 × 33 554 432 = 20 132 659 200 B = 18.75 GiB.** That is the real number, and it is the one the ceiling has to forbid.
 
@@ -331,9 +334,24 @@ it belongs to moves to the new test in *Tests*:
      */
     internal fun decodedPixels(format: AnimFormat, plan: AnimExportPlan, cols: Int): Long {
         val cell = plan.width.toLong() * plan.height.toLong()
-        val frames = cell * plan.frameCount.toLong()
+        // **PNG_SEQUENCE FIRST, and it returns ONE cell.** `writeSequence` renders, encodes, writes and
+        // drops inside its loop, so nothing accumulates and the peak is a single frame. Costing it
+        // `frames * cell` would be refusing a 400-frame 1024x1024 sequence that runs in constant
+        // memory - the exact "a rule that refused an export that works" the KDoc above rules out, and
+        // the exact failure Test 8's last assertion exists to catch.
+        if (format == AnimFormat.PNG_SEQUENCE) return cell
+        val count = plan.frameCount.toLong()
+        val frames = cell * count
         if (format != AnimFormat.SPRITE_SHEET) return frames
-        val rows = (frames + cols - 1) / cols
+        // **`rows` is ceil(FRAME COUNT / cols), NOT ceil(pixel total / cols).** The packer's own line is
+        // `((cells.size.toLong() + cols - 1) / cols)` (`SpritePacker.kt:235`), where `cells.size` is the
+        // frame count, and dividing the pixel total instead makes this term ~`cell / cols` times too
+        // large: 7 frames of 1024x1024 at 3 columns becomes `ceil(7_340_032 / 3) = 2_446_678` rows and
+        // a 7 696 590 831_616-pixel "need", so **every sprite sheet at every size is refused** - which is
+        // why Decision 6's own costs (16 / 64 / 2 as a GIF and **7 / 30 / 1** as a sheet) are the proof
+        // that this line is meant to be the frame count. Test 5's sheet boundary is the other proof: it
+        // only lands on the cap exactly with `rows = 3 = ceil(7 / 3)`.
+        val rows = (count + cols - 1) / cols
         return frames + (cols.toLong() * plan.width) * (rows * plan.height.toLong())
     }
 
@@ -367,8 +385,23 @@ it belongs to moves to the new test in *Tests*:
         val paper = if (includePaper) checkedPaper(doc.paper.color) else null
 ```
 
-and in `writeSequence`, with `AnimFormat.PNG_SEQUENCE` in place of `format` and no `cols`
-argument. **It is placed after `checkRegionFits`, not before**, because a board that cannot be
+and in `writeSequence`, where there is no `format` and no `cols` variable to name, so **the line is
+spelled out** (a builder cannot guess this one: `checkExportFits` takes four arguments and
+`writeSequence` has only three things to give it):
+
+```kotlin
+        checkPlanFitsBoard(boardId, board.frames.map { it.id }, plan.frameIds)
+        checkRegionFits(boardId, plan.width, plan.height)
+        checkExportFits(boardId, AnimFormat.PNG_SEQUENCE, plan, AnimExport.sheetCols(plan.frameCount))
+        val paper = if (includePaper) checkedPaper(doc.paper.color) else null
+```
+
+`AnimExport.sheetCols` is already imported (`AnimExport.kt:5`) and is already this file's own default
+for `encodeOne` (`:118`), so the `cols` argument here is the same number for the same reason. **It is
+deliberately ignored** — `decodedPixels` returns at the `PNG_SEQUENCE` line before it reads `cols` —
+and Test 6 pins that.
+
+**It is placed after `checkRegionFits`, not before**, because a board that cannot be
 rendered at all has no business being told how many frames it holds; `checkRegionFits` is the older
 sentence and stays the first one a person meets.
 
@@ -419,7 +452,7 @@ inside `roundHalfUpMs`.
    it does, is worse than no comment: it is a false statement with a line number, and the next
    reader trusts it. *Why the behaviour is pinned rather than changed:* whether an exported
    `.sprite.json` carries `weights` is a **file format** decision, and file formats are the Lead's
-   (R36 changed this packer's key set once already, and `SpritePacker.kt:94-95` says so: "the key
+   (R36 changed this packer's key set once already, and `SpritePacker.kt:92-95` says so: "the key
    set, the key ORDER and the sparse-write rule … follow `SpriteSheet.toJson()` on the Android
    side, because that file is what parses it"). *Why the positive control matters:* an assertion that
    no `weights` key appears proves nothing on its own — the packer might simply not write one, ever.
@@ -484,7 +517,7 @@ inside `roundHalfUpMs`.
 | 3 (the cells list stays, and says why) | review + the Do-not entry; a test cannot pin a comment's existence, and the *behaviour* it documents is pinned by `theSheetIsAcceptedOrRefusedByThePackerItself` and `noHoldIsLostOrGainedByTheRoundTrip` |
 | 4 (the sequence keeps streaming) | `aLongSequenceIsAcceptedWhateverItsFrameCount`, which fails if the sequence's count ever becomes `n × cell` |
 | 5 (`build` calls `roundHalfUpMs`) | `theDelaysAreDifferencesOfTheRealStarts` and `aTieGoesTo63Not62`, **run unchanged**, plus the mutation drill |
-| 6 (`MAX_EXPORT_PX`, per format, before frame 1) | `theBudgetIsTwiceTheRenderersPixelBudget`, `theBudgetAcceptsExactlyTheCapAndRefusesOnePixelOver` (a GIF **and** a sheet, each hitting the cap exactly), `theBudgetIsTheSameForEveryColumnCountOnATwoDimensionalFormat`, `anExportOverThePixelBudgetIsRefusedBeforeAnyFrameIsRendered` |
+| 6 (`MAX_EXPORT_PX`, per format, before frame 1) | `theBudgetIsTwiceTheRenderersPixelBudget`, `theBudgetAcceptsExactlyTheCapAndRefusesOnePixelOver` (a GIF **and** a sheet, each hitting the cap exactly), `theBudgetIsTheSameForEveryColumnCountOnATwoDimensionalFormat`, `anExportOverThePixelBudgetIsRefusedBeforeAnyFrameIsRendered` (its **sequence half is the one that pins the per-format table**, and is the assertion the contract as first written failed), `aLongSequenceIsAcceptedWhateverItsFrameCount` **plus its counter-example** |
 
 ## Tests
 
@@ -553,26 +586,49 @@ says otherwise, **STOP** (see *Stop rule*).
    and for `SPRITE_SHEET` it does **not** (so the test also proves the sheet's term is real, and
    that a two-dimensional format is not accidentally costed as a stream).
 7. `aLongSequenceIsAcceptedWhateverItsFrameCount`: 400 frames at 128×128 through `writeSequence`
-   with a recording sink. 400 × 16 384 = 6 553 600 px, **under** the budget, and the export must
-   complete with 400 PNGs and the manifest. A `decodedPixels` that ever became `n × cell` plus a
-   sheet for this format would still pass here, so the test that actually pins Decision 4 is the
-   **counter-example** the builder must run: temporarily make `decodedPixels` add a sheet term for
-   `PNG_SEQUENCE`, lower `MAX_EXPORT_PX` until 400 × 16 384 is over it, and confirm this test goes
-   red. Paste that. (400 frames at 128×128 is 6.5 MB of pixels in the test JVM — cheap.)
+   with a recording sink. **The assertion is the export completing** — 400 PNGs and the manifest, in
+   that order — and **not** an arithmetic total, because `decodedPixels` for `PNG_SEQUENCE` is ONE cell
+   (`128 × 128 = 16 384`), not `400 × 16 384`. (400 frames at 128×128 is 6.5 MB of pixels in the test
+   JVM if you ever do sum them — cheap.)
+   **The counter-example the builder must run, and it is the more important half of this test:**
+   temporarily change the `PNG_SEQUENCE` line of `decodedPixels` from `return cell` to `return frames`
+   — which is precisely the shape this spec's contract first carried, and which would make Test 8's
+   last assertion fail too — lower `MAX_EXPORT_PX` until `400 × 16 384 = 6 553 600` is over it, and
+   confirm this test goes **red** with the budget sentence instead of 400 files. **Paste that.** A green
+   test 7 with no red to go with it proves nothing about Decision 4, and the mutation it must catch is
+   one a builder will very plausibly write, because "`return frames` for everything that is not a
+   sheet" reads as tidier than two separate cases.
 8. `anExportOverThePixelBudgetIsRefusedBeforeAnyFrameIsRendered`: the template is
    `anOversizedBoardIsRefusedBeforeAnyFrameIsRendered` (`:461-496`) — **`tiles = emptyMap()`**, a
    40-frame board at 1024×1024, so `40 * 1_048_576 = 41_943_040` px is over the budget. For each of
    `GIF` and `SPRITE_SHEET`: `RegionException`, the message names the board, `41943040` and
    `16777216`, and the `onFrame` counter is **0**. Then the **sequence** at 400 frames of 1024×1024
-   (400 × 1 048 576 = 419 430 400 px) must still be **accepted** and write 400 PNGs and the
-   manifest — that is the assertion that stops a builder from making the budget a flat `n × cell`
-   rule and refusing the one format that streams.
+   must still be **accepted** and write 400 PNGs and the
+   manifest — its count is ONE cell (`1 048 576`), because `writeSequence` renders, writes and drops
+   inside its loop. That is the assertion that stops a builder from making the budget a flat
+   `n × cell` rule and refusing the one format that streams, **and it is the assertion that fails if
+   `decodedPixels` keeps the `if (format != AnimFormat.SPRITE_SHEET) return frames` shape this spec's
+   contract first carried: `400 × 1 048 576 = 419 430 400` would be over the cap and a working export
+   would be refused.**
 9. **Mutation drill, all four, pasted:** (a) put the loop back to `0 until 7` → tests 1 red;
    (b) move the length guard back below the loop → test 2 red; (c) change `build`'s call back to the
    inlined `floor(…)` **and** change `roundHalfUpMs` to `kotlin.math.round` →
    `aTieGoesTo63Not62` red **while `theDelaysAreDifferencesOfTheRealStarts` stays green**, which is
-   exactly the drift the two copies allowed; (d) make `decodedPixels` return `frames` for
-   `SPRITE_SHEET` too → test 8's sequence half or test 6 red.
+   exactly the drift the two copies allowed; (d) drop the sheet term, so `decodedPixels` returns
+   `frames` for `SPRITE_SHEET` too → **test 5's sheet half and test 6 both red** (test 5's exact-cap
+   sheet is `7 340 032` instead of `16 777 216`, so the "accepted at exactly the cap" and the
+   "refused one frame over" halves both invert); (e) the fifth, and it is the one that catches **the
+   defect this cross-review found in the contract**: move the `PNG_SEQUENCE` case below
+   `if (format != AnimFormat.SPRITE_SHEET) return frames`, i.e. restore
+   `if (format != AnimFormat.SPRITE_SHEET) return frames` as the *first* branch → **test 8's sequence
+   half red** and **test 7 red** once `MAX_EXPORT_PX` is lowered as test 7's counter-example says;
+   (f) change `rows` from the frame count to the pixel total, i.e. `(frames + cols - 1) / cols`
+   instead of `(count + cols - 1) / cols` → **test 5's sheet half red on both boundaries** (7 frames of
+   1024x1024 becomes `7 696 590 831_616` px instead of `16 777_216`) and **Decision 6's stated sheet
+   costs go to zero at every size**, which means *no sprite sheet at any size can be exported*. This is
+   the second defect this cross-review found in the contract and it is the more silent of the two: it
+   type-checks, it never looks wrong in review, and it only shows up as a budget that refuses
+   everything.
 
 **Command:** `./gradlew -p joybrush :core:jvmTest` (the whole `:core` suite, 0 failures) then
 `./gradlew -p joybrush :androidkit:compileKotlin :androidkit:test` (0 failures). Both BUILD
@@ -645,7 +701,7 @@ Three things are never a builder's call in this file, and they are the same thre
 
 - [ ] `./gradlew -p joybrush :core:jvmTest` output pasted, 0 failures
 - [ ] `./gradlew -p joybrush :androidkit:compileKotlin :androidkit:test` output pasted, 0 failures
-- [ ] the four-test mutation drill pasted (four reds, in the order above)
+- [ ] the **six**-mutation drill pasted (six reds, in the order above — (e) is the per-format ordering and (f) is the sheet's `rows`, and both are defects this row's own contract carried when it was written)
 - [ ] `git diff` on `AnimExportPlanTest.kt` pasted, showing only the new test and the Site 2 comment
 - [ ] `git status --short` shows only the four owner-area paths
 - [ ] **the Decision 6 pre-check, pasted:** a one-line sweep that computes
@@ -698,6 +754,19 @@ One question is a format question and is the Lead's; the rest are decisions I ma
    is `MAX_REGION_PX * 2L`, so **your ruling on that number moves this one automatically** and there
    is no second number to rule on. What I need is only whether 2× is the right multiple once you
    have ruled on the base.
+4. **The stale `weights` premise survives in three files this row may not touch.** Finding 2 fixes the
+   three sites inside the owner area; these are the rest, and none of them is in this row's diff:
+   `tasks/joybrush/specs/JB-3.06b_anim_export.md:408-411` **and** `:618-619` (its Decision 7 and its own
+   Question answer, both still resting on "a field that does not exist", and `:409` cites
+   `SpritePacker.kt:28-33` for a `Clip` now at `:35-41`); `tasks/joybrush/specs/JB-4.02_cell_order_and_play.md:678-679`,
+   which quotes the stale sentence as evidence for a decision it has already made; and
+   `tasks/joybrush/reviews/JB-3.06b__muse-spark.md:19`, which is the review that first caught it and is
+   a record and should stay as it is. **My recommendation: a one-line correction to `JB-3.06b`'s two
+   spots, in whatever row next touches that file, and nothing to `JB-4.02` or the review.** It is a
+   bookkeeping question, not a build question, and it is not this row's to close.
+   *Added by the cross-reviewer, 2026-09-29 — this row's own text says "three sites" while the board
+   says "FOUR places"; the tree says three inside the owner area and three outside it, and the
+   discrepancy is worth a line rather than a silent choice.*
 
 ### PROVISIONAL — Claude to confirm
 

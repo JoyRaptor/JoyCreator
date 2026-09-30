@@ -5,6 +5,7 @@
 | **Tier** | **T2** (the roll is pure `:core` maths, and the timing it drives is the project one reviewed clock) |
 | **Status** | 🟦 **Ready** — core half only. R36's Q1 is inlined as Decision 15. No Lead ruling is outstanding for the build. |
 | **xr** | xr: openrouter/stealth/space-bunny-alpha 2026-09-29 — cut to the **core half** per R30; **the Q2 finding is CONFIRMED real and its fix has LANDED** (`Clip.weights` is in `SpritePacker.kt:40`; the packer writes `weights` under the app's own `hasWeights()` rule at `SpritePacker.kt:285-289`), so the old Q2 is closed and this spec no longer describes a hold as repeated cell indices anywhere; **the roll maths is independent of the packer** — `Clip` does not appear in this row's file, in its tests, or in its contract; R36 Q1 (session-only) stated plainly as Decision 15 rather than left open; **every line number quoted from the Studio's Java was re-read this pass and two of the old spec's were wrong** (`labSeq.add` is 2122, not 4304; `unAddCell` is 4123, which was right); `bumpHold`'s clamp is confirmed as 1..16 at line 2210. |
+| **xr (cross-review)** | xr: openrouter/stealth/space-bunny-alpha 2026-09-29 — **Ready.** Every Java line number re-read against `SpriteSheetEditorActivity.java` and all correct but one (the toast is 4146, not "4139+"); `Clip.weights` at `SpritePacker.kt:40`, the `hasWeights()` write at `:285-289` and the weight refusal at `:220-232` all verified present. **J2 contradicted the contract it guards** — it said `CellRoll`'s methods "mention no `Board`" while `asBoard` returns one — and is rewritten to be mechanically checkable. **`removedBy` promised `null` and returned `Int`.** A missing decision was found and filled: **where the cursor goes after a removal**. Q1 gains a fact the writer did not have: JB-3.06c already owns that file and rules the opposite way. |
 | **Needs** | JB-4.01 (the grid's cell count — **a number, not a class**: this row does not import `SpriteBoard`), JB-3.05a (`PlaybackClock` + `FrameStepper`, 🟧 Built), JB-0.02 (`Board`, `Frame`, `DocOps`). |
 | **Owner area** | (1) NEW `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/sprite/CellRoll.kt` · (2) NEW `joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/sprite/CellRollTest.kt` · (3) NEW `joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/sprite/CellRollShapeTest.kt` · **NOTHING ELSE.** In particular **NOT** `SpriteGridView.kt` (the view half's, and it does not exist yet), **NOT** `export/SpritePacker.kt` (Reviewed — a re-review follows any edit), **NOT** `export/AnimExportPlan.kt`, **NOT** `doc/`, **NOT** anything in `joybrush-android/` or `app/`, no Gradle file. |
 | **Estimated size** | ~200 lines of Kotlin, ~320 lines of tests |
@@ -181,7 +182,8 @@ data class CellRoll(val entries: List<Entry> = emptyList(), val cursor: Int = 0)
 
     /**
      * Tap a badge: remove the LAST use of [cell], scanning backwards — `unAddCell(all=false)`,
-     * lines 4131-4133. Returns this roll unchanged if there is none.
+     * lines 4131-4133. Returns this roll unchanged if there is none. The cursor is clamped down to
+     * the last surviving entry (Decision 17), whatever it was.
      */
     fun untapped(cell: Int): CellRoll
 
@@ -302,8 +304,13 @@ object CellRollGrammar {
     /** What [gesture] does to [roll], given a grid of [cellCount] cells. */
     fun apply(roll: CellRoll, gesture: CellGesture, cellCount: Int): CellRoll
 
-    /** How many entries [gesture] would remove, or null when it removes none. 0 for a `BadgeTapped`
-     *  with no entry to take, so a caller can always say something. */
+    /**
+     * How many entries [gesture] would remove. **Always a number, never null** — `0` for a
+     * `BadgeTapped` on a cell that is not in the roll, so a caller can always say something (and a
+     * nullable return would be the one thing this grammar must not have, since a caller that forgets
+     * the null case is the caller that silently says nothing). `0` for every gesture that removes
+     * nothing at all, including `Cancel`.
+     */
     fun removedBy(roll: CellRoll, gesture: CellGesture, cellCount: Int): Int
 
     /** "Play all" and "Clear", which the grammar owns and the roll does not. */
@@ -331,7 +338,7 @@ object CellRollGrammar {
 3. **A badge long-press removes EVERY use of that cell, and reports how many in words.** *Why:*
    SpriteLab's own toast and the reason in its own comment (lines 4118-4121): the rhythm of taps must
    not be broken by hunting for a chip on a strip that has scrolled. `Prune.dropped` is what lets the
-   caller say it. Test 3.
+   caller say it — the app's own sentence is `"Removed every use of cell N"` (lines 4146-4147). Test 3.
 4. **A hold belongs to an ENTRY, never to a cell.** `Hold ±1` on the entry under the cursor, clamped
    1..16. *Why:* `bumpHold` edits `labSeq.get(labCur)[1]` (line 2209-2210), and the app prunes
    `frames` and `weights` in the same pass (`pruneDeadFrames`, line 4222) — two parallel arrays, one
@@ -404,6 +411,17 @@ object CellRollGrammar {
     long-press never also fires a tap. *Why:* the same "long-press is the options gesture" rule as
     JB-3.02 and JB-4.01, and a double-fire puts a cell in the roll twice by accident. The MENU is the
     view half's; what the menu *does* is `CellGesture` and is here.
+17. **After ANY removal the cursor is clamped DOWN, exactly as the app clamps it** —
+    `cursor.coerceIn(0, max(0, size - 1))`, so it points at the last surviving entry, and at 0 on an
+    empty roll. **Added by the cross-reviewer; the draft did not decide it and a builder would have had
+    to invent it.** *Why:* `unAddCell` line 4137 is `if (labCur >= labSeq.size()) labCur =
+    Math.max(0, labSeq.size() - 1);`, and lines 4139-4141 put it back to 0 when the roll empties;
+    `pruneDeadFrames` line 4229 says the same thing again. The two obvious answers are both wrong:
+    leaving the cursor where it was points at a *different* entry, and resetting it to 0 loses the
+    person's place in a long roll because they took one chip back. `cleared()` and `playAll()` are the
+    exceptions and are already 0 — the app's `focusRoll(0, true)` on line 2141. **This lives on
+    `CellRoll` itself, not on the grammar**, because every removal goes through a copy. Tests 2, 3, 6
+    and 17 pin it.
 
 ## Decision → Test map (every Decision is checkable)
 
@@ -425,6 +443,7 @@ object CellRollGrammar {
 | 14 (second finger cancels) | 16 |
 | 15 (session-only, unreachable from the document) | **J1**, **J2** |
 | 16 (long-press is the menu, no double-fire) | 16 |
+| 17 (the cursor is clamped after a removal) | 2, 3, 6, 17 |
 
 ## Tests
 
@@ -437,12 +456,16 @@ so mechanically.
 1. `aTapAlwaysAppendsHoldOneEvenAfterTheCellHasBeenHeld` — tap cell 0, bump its hold to 5, tap cell 0
    again → the roll is `[(0,5), (0,1)]` and the cursor is on index 1. The second tap is **one tick**,
    not five. This is Decision 1's whole content and the bug it prevents is a subtle one.
-2. `aBadgeTapTakesTheLastUseNotTheFirst` — roll `[(3,1),(1,1),(3,1)]`, badge-tap cell 3 →
-   `[(3,1),(1,1)]`, and `removedBy` is 1. A first-match removal would give `[(1,1),(3,1)]`, which is a
-   different animation; the test names the difference in its comment.
+2. `aBadgeTapTakesTheLastUseNotTheFirst` — roll `[(3,1),(1,1),(3,1)]` with the cursor on index 2,
+    badge-tap cell 3 → `[(3,1),(1,1)]`, `removedBy` is 1, and the cursor is **1** (Decision 17: the
+    entry that was last is gone, so the cursor clamps down to the new last one). A first-match removal
+    would give `[(1,1),(3,1)]`, which is a different animation; the test names the difference in its
+    comment. **The cursor half is half the test**: a builder who left `cursor = 2` on a two-entry roll
+    has shipped a `focused(2)` that will be clamped by every reader and points at nothing.
 3. `aBadgeHoldRemovesEveryUseAndReportsHowMany` — roll `[(3,1),(1,1),(3,1),(3,1)]`, badge-hold 3 →
-   `[(1,1)]` and `Prune.dropped == 3`. The count is returned, not just the roll, so the caller can say
-   "removed every use of cell 3" (the app's own toast, line 4139+).
+    `[(1,1)]` and `Prune.dropped == 3`, and the cursor is **0** (one entry left, so the clamp is a
+    no-op). The count is returned, not just the roll, so the caller can say "removed every use of cell
+    3" (the app's own toast, lines 4146-4147).
 4. `aHoldBelongsToTheEntryAndNotToTheCell` / `aHoldStopsAtSixteenAndAtOne` — roll `[(3,1),(3,1)]`,
    cursor 0: bump +1 → `[(3,2),(3,1)]`; bump +99 → **16**; bump −99 → **1**. The two entries stay
    different, which is the whole point of a per-entry hold, and the two ends are the app's own
@@ -515,10 +538,23 @@ so mechanically.
     the suite.
 16. `aSecondFingerEndsARollGestureWithNothingApplied` / `aLongPressFiresNoTap` — `apply(roll, Cancel,
     8)` returns the roll `==` to what it was given; `isBulk(Cancel)` is false; `isBulk(PlayAll)` and
-    `isBulk(Clear)` are true; and `apply(roll, Tapped(c), 8)` followed by `apply(…, CellGesture.BadgeHeld,
-    8)` on the same cell removes **every** use, so a double-fire cannot put a cell in twice by accident.
+    `isBulk(Clear)` are true; `removedBy(roll, Cancel, 8)` is **0** and is an `Int`, never a null (the
+    contract says so and a nullable here is a caller that can forget the case); and
+    `apply(roll, Tapped(c), 8)` followed by `apply(…, CellGesture.BadgeHeld, 8)` on the same cell
+    removes **every** use, so a double-fire cannot put a cell in twice by accident.
     `CellLongPressed` is not a `CellGesture` case at all — the view half's menu, per Decision 16 — and
     **J2** is the test that says so, by reflection.
+17. `theCursorIsClampedDownAfterEveryRemoval` *(Decision 17, added by the cross-reviewer — the draft
+    did not decide this and a builder would have had to invent it)*. Four cases, each with the app's
+    line beside it:
+    - `[(0,1),(1,1),(2,1)]`, cursor 2, badge-tap cell 2 → entries `[(0,1),(1,1)]`, cursor **1**
+      (`unAddCell` :4137);
+    - the same roll, `prunedTo(2)` → entries `[(0,1),(1,1)]`, cursor **1** (`pruneDeadFrames` :4229);
+    - `[(0,1)]`, cursor 0, badge-tap cell 0 → `isEmpty` and cursor **0** (`:4139-4141`);
+    - `[(0,1),(1,1)]`, cursor 0, badge-tap cell 0 → entries `[(1,1)]` and the cursor is still **0**,
+      because 0 is in range and clamping DOWN never moves an index that is still legal. That last case
+      is the one that catches an implementation which clamps to `size` instead of to `size - 1`, and
+      which would leave the cursor one past the end on every removal.
 
 ### `jvmTest` — `joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/sprite/CellRollShapeTest.kt`
 
@@ -534,12 +570,27 @@ played against it is **byte-identical** to the same document before, and contain
 `weights` key. *Why both halves:* the field walk says the model cannot hold it, and the encode says the
 model does not accidentally say it. Decision 15.
 
-**J2.** `theRollHasNoIdeaWhatAGridIs` — `CellRoll`'s declared methods mention no `Board`, no
-`SpriteGrid`, no `Layer`, no `Cel` and no `Int`-returning "cell count" source other than the `cellCount`
-parameters it is handed; `CellRollGrammar` likewise. And `Clip` appears in **neither** file's imports
-(Decision 13). `CellGesture::class.java.declaredClasses` is exactly `[Tapped, BadgeTapped, BadgeHeld,
-HoldBumped, Focused, PlayAll, Clear, Cancel]` — **eight, and no `CellLongPressed`**, because a
-long-press opens the view half's menu and must not also fire a tap (Decision 16, C3 in JB-4.01).
+**J2.** `theRollHasNoIdeaWhatAGridIs` — **rewritten by the cross-reviewer, because the draft's version
+contradicted the contract it guards**: it said `CellRoll`'s declared methods "mention no `Board`", and
+`asBoard(fps, rect, name): Board` in this very file returns one. As written it would have gone red on
+the spec's own code, and a builder faced with that has two bad choices: weaken the test until it proves
+nothing, or drop `asBoard` and lose the whole design.
+
+The mechanical form that is both true and checkable:
+- Walk **`CellRoll`'s and `CellRollGrammar`'s fields** and **every method's PARAMETER types** — not
+  return types — and assert the set of parameter types drawn from is exactly the primitive/value types
+  the contract shows (`Int`, `Float`, `String`, `Boolean`, `CellRoll`, `CellRoll.Prune`) and that
+  **no `JbDocument`, no `SpriteBoard`, no `SpriteGrid`, no `Layer` and no `Cel` appears anywhere**,
+  in a field, in a parameter, in a return type, or in either file's import list.
+- Say out loud the two things the walk deliberately does **not** forbid, so nobody tightens it into
+  a false red: (a) `asBoard`'s **return** type IS `Board` — a transient value this class builds out of
+  its own entries, never one it was handed; and (b) a Kotlin `val … get() = …` is a real `getSize()`
+  method in the bytecode, so **restrict the walk to parameters** and skip `component1`, `component2`,
+  `copy`, `equals`, `hashCode` and `toString`, or the data-class boilerplate will match the search.
+- `CellGesture::class.java.declaredClasses` is exactly `[Tapped, BadgeTapped, BadgeHeld, HoldBumped,
+  Focused, PlayAll, Clear, Cancel]` — **eight, and no `CellLongPressed`**, because a long-press opens
+  the view half's menu and must not also fire a tap (Decision 16, C3 in JB-4.01).
+- `Clip` and `SpritePacker` appear in **neither** file's import list (Decision 13).
 *Why:* this is the cross-row coupling guard — a roll that reached for `SpriteBoard` or for `Clip` would
 make JB-4.02 depend on a row it does not need, which is how a row blocks on another.
 
@@ -564,6 +615,11 @@ is a helper nobody can rely on.
   better answer.
 - Do not re-derive a hold in ms anywhere. `PlaybackClock` does it, from `AnimOps.frameStartsMs`.
 - Do not give a **cell** a hold. Per entry, or ping-pong cannot be expressed (Decision 4).
+- **Do not leave the cursor where it was after a removal, and do not reset it to 0.** It is clamped to
+  the last surviving entry, exactly as `unAddCell` line 4137 clamps `labCur` (Decision 17). Only
+  `cleared()` and `playAll()` put it at 0.
+- Do not make `removedBy` nullable. It is an `Int` that is `0` when nothing is removed, so a caller
+  cannot forget a case; a `null` is a branch somebody will not write.
 - Do not remove the FIRST use of a cell on a badge tap.
 - **Do not spell a hold as repeated cell indices.** `frames = [0, 1, 1, 1]` for a hold of 3 is the old
   and wrong spelling; it is `frames = [0, 1]`, `weights = [3, 1]` (Decision 13, and `cellsAndHolds()`
@@ -584,7 +640,9 @@ is a helper nobody can rely on.
 - [ ] the five non-vacuity runs pasted, **including the unconditional-`ShowFrame` run and how long
       test 9 took to fail**
 - [ ] `git status --short` shows **only** the three owner-area paths
-- [ ] committed `JB-4.02: cell roll core`; the ROADMAP row is the Lead's to set
+- [ ] committed `JB-4.02: cell roll core`. **The ROADMAP row is the orchestrator's, not yours — do not
+      edit `tasks/joybrush/ROADMAP.md`.** `specs/INDEX.md` was retired ("# Moved"), so there is no
+      index line to update; report the new status in the build report and the orchestrator sets it.
 
 ## Stop rule
 
@@ -605,11 +663,12 @@ and do not widen the owner area — if any of these happen:**
    the scope is wrong, and the answer is a question — see the Do-not list and Q3.
 
 ## Questions
-
 _(Spec writer: openrouter/stealth/space-bunny-alpha, 2026-09-29. The roll, the grammar, the playback and
-the timing are decided and pinned by 16 `commonTest` cases and 2 `jvmTest` ones, plus five non-vacuity
-runs. **The old Q2 is closed: the finding was real and the fix has landed.** No question below blocks the
-build.)_
+the timing are decided and pinned by 17 `commonTest` cases and 2 `jvmTest` ones, plus five non-vacuity
+runs. **The old Q2 is closed: the finding was real and the fix has landed.** No question below blocks
+the build. Cross-reviewer 2026-09-29: one decision was **added** (17, the cursor after a removal) and
+nothing was removed.)_
+
 
 ### Q1 — for the Lead, MINOR: `AnimExportPlan.sheetClip` still spells a hold as repeated indices, and its KDoc is now false.
 
@@ -621,14 +680,34 @@ claiming a silent timing loss here. It is two smaller things, in a Built file:
   has landed and `Clip` has `weights`** (`SpritePacker.kt:40`). The KDoc is describing a world that no
   longer exists, and the file is someone's instruction.
 - `sheetClip` (line 156) still builds `frames = cellIndices(plan)` with each hold folded in as a repeat
-  (line 258-264), and there is now a second, better spelling in the same codebase. Two spellings of a
+  (lines 257-264 — `cellIndices` is documented as "with each hold folded in as a repeat of it" at line
+  257), and there is now a second, better spelling in the same codebase. Two spellings of a
   hold is a drift risk, and the repeats also make a 4-frame board with holds `[1,2,1,3]` claim **7** cells
-  where 4 would do.
+  where 4 would do (1+2+1+3 = 7).
 
-**Recommend a small row (or an edit inside JB-3.06b's owner area) to make `sheetClip` write
-`weights = plan.frameIds.indices.map { ticksOf(plan, it) }` and drop the repeats**, with the empty-weights
-rule doing the rest — `SpritePacker` already omits an all-1s array. I have not touched it: it is a Built
-file, it is not this row's area, and the fix is a re-review.
+> **ADDED BY THE CROSS-REVIEWER — this finding is already half-owned, by a row that rules the other
+> way, and the Lead should know before reading the recommendation below.**
+> **`specs/JB-3.06c_audit_fixes.md` exists on disk** (R44 item 5; status `??` — Draft, waiting for a
+> cross-reviewer) and it lists **`AnimExportPlan.kt` in its owner area**. Its *Site 2* rewrites **the
+> exact four lines this question quotes** (`AnimExportPlan.kt:151-154`) and its Decision says, in the
+> replacement text: *"**`Clip` HAS a `weights` field** … and this row still folds each hold in as a
+> REPEAT … which one goes into an exported `.sprite.json` is a file-format question **this row does not
+> decide**: see the JB-3.06c spec, Question 1. **Until the Lead rules, the repeats stay.**"*
+> It also found the sentence is repeated in **four** places (this file, `AnimExport.kt:266-268`,
+> `AnimExportPlanTest.kt:455-457`, and `JB-3.06b`'s own spec) and it separately established — by
+> walking **all 59 940 rate/hold pairs** through the real `AnimOps` — that **the fold is exact**, so
+> the repeats are **not a bug** but a deliberate file-format choice.
+>
+> **So: do not open a third row for this.** The KDoc half is already JB-3.06c's to fix, and the
+> repeats half is already parked on the Lead as JB-3.06c Question 1. This question now serves as the
+> *second* row reporting the same thing, which is the cross-check; the decision is the Lead's and there
+> is one place to make it.
+
+**The question itself, unchanged:** should `sheetClip` write
+`weights = plan.frameIds.indices.map { ticksOf(plan, it) }` and drop the repeats, with the empty-weights
+rule doing the rest — `SpritePacker` already omits an all-1s array? `ticksOf` is `private` in
+`AnimExportPlan` (`AnimExportPlan.kt:254-255`) and exists, so the proposed fix is one line. I have not
+touched that file: it is a Built file, it is not this row's area, and it is inside another row's.
 
 ### Q2 — for the Lead, non-blocking, and R36 Q1 restated as a cost: the roll is session-only and it will generate a complaint.
 
@@ -666,3 +745,11 @@ whole sheet: on a fresh sheet, playing 40 cells of which 3 have something in it 
 honest and obvious, rather than 3 frames that mysteriously appear once you touch something. **It is
 PROVISIONAL and reversible, and it is one function.** If the Lead prefers the app's reading, `playAll`
 gains a `used: Set<Int>` parameter and nothing else in this file changes.
+
+> **Cross-reviewer (2026-09-29): stands as written, and does not block the build.** This is a
+> behaviour question with one function between the two answers and no other decision resting on it,
+> which is the bar a provisional decision has to clear. One detail for whoever reverses it, since the
+> app's own reading is not quite "the used cells": the app skips a cell whose drawing is `null` **or**
+> whose `enabled` flag is false (`SpriteSheetEditorActivity.java:2135-2138`), so the faithful port of
+> the app's `playAll` would take a predicate over the cells, not a `Set` of used indices. Nothing in
+> this row builds that, and nothing in this row should.

@@ -298,3 +298,29 @@ Not found: a Watterson interview naming brush size or brand in his own words; an
 - Chu & Tai, Virtual Chinese Brush: https://cse.hkust.edu.hk/VCB/
 - Baxter & Lin, A Versatile Interactive 3D Brush Model (PG 2004): https://gamma.cs.unc.edu/BRUSH/Baxter-Lin-PG04-Submission.pdf
 - In-repo: R2 (Expresii tufts/dry map), R7 (stylus, tilt [VERIFY]), R8 (patents), JB-6.03 spec.
+
+---
+
+## 10. Built (2026-09-30)
+
+The owner asked for all of §3B, with sliders. Everything below is on `joy-creator` and was checked on the Note 9 with the tuning sheet's **Test** strokes.
+
+| Owner note | Where | Slider |
+|---|---|---|
+| Hairline shelf, absolute needle point (§3.1, §3.2) | `TuftStroke.curve`, `tipR` | Hairline, Light touch |
+| O5 light work is round · O8 thin but long at speed | `TuftStroke.look` (`len`: 0 at a feather touch; grows with pressure × speed; never trails behind the touch-down) | Trail |
+| O7 built-in steadiness, across the stroke only | `TuftStroke.step` (distance-eased travel direction; cross-track low-pass over the contact length; bounded) | Steadiness |
+| O9 turn blot | bend direction lags the travel direction by distance; misalignment widens and dries | Spring, Turn blot |
+| O6 slow settle · fast thinning | `look` / `dryness` | Slow settle, Fast thinning |
+| O3 ink load and dry brush | `load` drains with width × distance; full at every touch-down | Ink load, Dry brush |
+| O10 sweep | lateral acceleration → `bias` → `jb_tuft.frag` dries the outside | Sweep |
+| O11 splay, quick-lift ends | `splay` opens fast, closes slowly when dry; the lift tail is a needle that dries out, rougher when splayed | Splay, Trail |
+| O1 spatter on jolts (not at touch-down) | jolt = sudden press, speed change or direction snap; seeded | Spatter |
+| O4 stray hairs on belly strokes only | 0–3 seeded hairs, on/off along the stroke, weighted by swing | Stray hairs |
+| Bristle streaks and paper tooth | `jb_tuft.frag`: streaks in stroke space, the page-anchored tooth on dry parts only | Bristles, Paper tooth |
+| Tilt spread (pens that report tilt) | `look` | Tilt spread |
+
+- **Format:** brush version 4, `engine: "tuft"` plus the `tuft` section (`TuftSpec`). `brushes/sable` ships after Ink.
+- **Tuning:** ⋯ → *Tune Sable…* opens a sheet that leaves the canvas drawable. Each slider applies to the next stroke. Tuning is saved per brush and laid over the file. **Reset** forgets it. **Test** draws the fixed `TuftTestSheet` strokes as ONE undo (`UndoLog.mergeNewest`).
+- **Tests:** `TuftStrokeTest` has one or more per ruling, and `TuftTuningTest` checks that every knob is wired, the tuning round-trips, Test is one undo, and the in-between tiles are released.
+- **Not done:** the PC Brush Lab (WebGL pilot) does not draw tuft brushes. Ink layers (JB-5.01 replay) do not know the tuft engine, and this screen refuses ink files anyway. The drawer sample shows the silhouette only, not the streaks.

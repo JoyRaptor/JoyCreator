@@ -31,6 +31,7 @@ class TuftTuningView(
     private val onChange: (TuftSpec, done: Boolean) -> Unit,
     private val onReset: () -> TuftSpec,
     private val onDone: () -> Unit,
+    private val onTest: () -> Unit,
 ) : LinearLayout(kit.context) {
 
     private var spec = start
@@ -48,6 +49,7 @@ class TuftTuningView(
                 views.second.text = knob.show(spec)
             }
         })
+        head.addView(button("Test", "Draw a sheet of test strokes with this brush. One undo removes them") { onTest() })
         head.addView(button("Done", "Close the brush tuning") { onDone() })
         addView(head, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(6f), 0, 0, kit.dpi(4f)) })
 

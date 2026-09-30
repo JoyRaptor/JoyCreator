@@ -59,6 +59,33 @@ class UndoLog<T : Any>(
         return s
     }
 
+    /**
+     * Folds the newest [count] steps into ONE, so a single press that laid several strokes is a single undo (the owner's
+     * rule: one press, one step). Per tile, the merged step keeps the oldest `before` and the newest `after`. The tiles in
+     * between belonged to nobody but the folded steps — the layer holds the newest, the merged step the oldest — so they are
+     * released here. Does nothing for fewer than two steps.
+     */
+    fun mergeNewest(count: Int) {
+        val n = minOf(count, undoStack.size)
+        if (n < 2) return
+        val steps = ArrayList<Step<T>>(n)
+        repeat(n) { steps.add(0, undoStack.removeLast()) }
+        val merged = LinkedHashMap<Pair<String, Long>, TileChange<T>>()
+        for (s in steps) for (c in s.changes) {
+            val k = c.layerId to c.key
+            val prev = merged[k]
+            if (prev == null) {
+                merged[k] = c
+            } else {
+                // c.before is prev.after: copy-on-write made it, and now nothing will ever put it back.
+                c.before?.let(release)
+                merged[k] = TileChange(c.layerId, c.key, prev.before, c.after)
+            }
+        }
+        undoStack.addLast(Step(merged.values.toList()))
+        trim()
+    }
+
     /** Releases everything held for undo/redo (document closed). */
     fun clear() {
         undoStack.forEach { s -> s.changes.forEach { c -> c.before?.let(release) } }

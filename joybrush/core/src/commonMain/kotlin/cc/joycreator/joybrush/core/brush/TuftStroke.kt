@@ -121,7 +121,7 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         val vN = speedN()
         val end = cur.copy()
         if (hasDir && vN > 0.15f && end.pc > 0.03f && u(spec.trail) > 0f) {
-            val tail = min(u(spec.trail) * speed * TAIL_SECONDS * (0.5f + vN), 6f * bellyR)
+            val tail = min(u(spec.trail) * (speed * TAIL_SECONDS * (0.5f + vN) + 2f * end.w), 8f * bellyR)
             if (tail > 0.5f) {
                 val needle = min(end.w, tipR)
                 val endR = needle + (end.w * 0.6f - needle) * end.splay
@@ -132,10 +132,11 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
                     val k = end.copy()
                     k.x = end.x + tx * d
                     k.y = end.y + ty * d
-                    k.w = endR + (end.w - endR) * (1f - f).pow(1.5f)
+                    // A needle, not a wedge: the width falls away fast, then runs thin.
+                    k.w = endR + (end.w - endR) * (1f - f).pow(2.4f)
                     k.len = end.len * (1f - 0.6f * f)
                     k.rb = min(k.rb, k.w)
-                    k.dry = max(end.dry, f * 0.8f * (0.35f + 0.65f * end.splay))
+                    k.dry = max(end.dry, f * (0.5f + 0.5f * end.splay))
                     k.arc = end.arc + d
                     out.add(stampOf(k))
                     d += step
@@ -309,7 +310,9 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
 
         // Spatter on a jolt (O1): the harder the jolt and the fuller the brush, the likelier.
         val rate = u(spec.spatter) * (0.3f + 0.7f * load) * jolt * jolt * SPATTER_PER_MS
-        val chance = if (jolt > 0.25f && dt > 0f) 1f - exp(-rate * dt) else 0f
+        // Not at touch-down: a brush that has only just met the paper has nothing to throw yet.
+        val landed = arc > 2f * cur.w + 4f
+        val chance = if (landed && jolt > 0.25f && dt > 0f) 1f - exp(-rate * dt) else 0f
         if (rng.nextFloat() < chance) {
             val n = 1 + floor(rng.nextFloat() * 3f * jolt).toInt()
             for (i in 0 until n) out.add(droplet(next, jolt))
@@ -333,7 +336,8 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         w = max(w, tipR * 0.5f)
 
         var len = bristleLen * engaged * (0.12f + 0.4f * pc + u(spec.trail) * 0.9f * min(vN, 1f) * (0.4f + 0.6f * engaged))
-        len = min(len, bristleLen)
+        // The bristles can only trail over paper the brush has already crossed (no tail behind the touch-down).
+        len = min(len, min(bristleLen, arc * 0.8f))
 
         val needle = min(w, tipR)
         val rb = needle + (w * 0.7f - needle) * splay

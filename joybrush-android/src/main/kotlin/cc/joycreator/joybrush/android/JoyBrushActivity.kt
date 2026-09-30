@@ -62,6 +62,7 @@ import cc.joycreator.joybrush.core.chrome.IconContrast
 import cc.joycreator.joybrush.core.chrome.StripPlacement
 import cc.joycreator.joybrush.core.chrome.ToolMemory
 import cc.joycreator.joybrush.core.chrome.ToolSlot
+import cc.joycreator.joybrush.core.chrome.TuftTestSheet
 import cc.joycreator.joybrush.core.chrome.TuftTuning
 import cc.joycreator.joybrush.core.io.SaveQueue
 import cc.joycreator.joybrush.core.tool.SizeOpacityDrag
@@ -646,6 +647,16 @@ class JoyBrushActivity : Activity() {
                 brush.tuft
             },
             onDone = { popovers.close() },
+            onTest = {
+                // Above the sheet, which covers the lower part of the screen.
+                val w = canvas.width.toFloat()
+                val h = canvas.height.toFloat()
+                val left = w * 0.05f
+                val top = h * 0.1f
+                val strokes = TuftTestSheet.strokes(w * 0.9f, h * 0.42f)
+                    .map { s -> s.map { it.copy(x = it.x + left, y = it.y + top) } }
+                canvas.drawStrokes(strokes)
+            },
         )
         popovers.showSheet(view, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT, modal = false)
     }

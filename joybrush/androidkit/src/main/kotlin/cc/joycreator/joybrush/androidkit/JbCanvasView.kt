@@ -665,6 +665,28 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         onGl { engine.addDabs(dabs) }
     }
 
+    /**
+     * Lays [strokes] with the brush in hand, as if drawn, and makes them ONE undo step (R9: the tuning sheet's "Test"). The
+     * samples are SCREEN px of this view; they are put on the page where they appear. Ignored while a stroke is drawn.
+     */
+    fun drawStrokes(strokes: List<List<PenSample>>) {
+        if (drawing || strokes.isEmpty()) return
+        var mark = 0
+        onGl { mark = engine.undo.undoDepth }
+        for (samples in strokes) {
+            startStroke(eraser = false)
+            val sm = smoother ?: continue
+            val released = ArrayList<PenSample>()
+            for (s in samples) {
+                val (dx, dy) = view.screenToDoc(s.x, s.y)
+                released.addAll(sm.add(s.copy(x = dx, y = dy)))
+            }
+            paint(released)
+            finishStroke()
+        }
+        onGl { engine.undo.mergeNewest(engine.undo.undoDepth - mark); reportHistory() }
+    }
+
     /** R9: a tuft stroke's footprints to the GL thread, beginning the stroke there with the first of them. */
     private fun paintTuft(stamps: List<cc.joycreator.joybrush.core.paint.TuftStamp>) {
         if (stamps.isEmpty()) return

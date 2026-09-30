@@ -2452,6 +2452,7 @@ public class ProjectStorage {
                     oJson.addProperty("textAlign", o.getTextAlign());
                 }
                 if (o.getWrapEm() > 0f) oJson.addProperty("wrapEm", o.getWrapEm());
+                if (o.isFitWidth()) oJson.addProperty("fitWidth", true);
                 if (o.isLocked()) oJson.addProperty("objLocked", true);
                 // Image-overlay drawer state (M-IMG-1). All sparse defaults:
                 // passThrough/scaleLinked false/true and blend "NORMAL" write nothing,
@@ -3476,6 +3477,7 @@ public class ProjectStorage {
                         if (hasValue(oObj, "imageAspect")) o.setImageAspect(oObj.get("imageAspect").getAsFloat());
                         if (hasValue(oObj, "textAlign")) o.setTextAlign(oObj.get("textAlign").getAsString());
                         if (hasValue(oObj, "wrapEm")) o.setWrapEm(oObj.get("wrapEm").getAsFloat());
+                        if (hasValue(oObj, "fitWidth")) o.setFitWidth(oObj.get("fitWidth").getAsBoolean());
                         if (hasValue(oObj, "objLocked")) o.setLocked(oObj.get("objLocked").getAsBoolean());
                         o.setTimerSpec(deserializeTimerSpec(oObj)); // absent = ordinary text
                         // W5-2 rich text spans (§3.8). Tolerant per-span read: a malformed

@@ -177,6 +177,22 @@ public final class TextBoxRenderer {
     }
 
     /**
+     * FIT: the font size that makes the box's widest line fill its width. Both {@link #measure}
+     * and {@link #draw} call this first, so the preview, the texture path and the export size the
+     * text identically. Bounded, so a one-letter box cannot explode and an empty one cannot vanish.
+     */
+    private static float fitFontPx(@NonNull TextOverlayItem o, @NonNull String t,
+                                   @NonNull List<TextStyleResolver.Run> runs, float fontPx) {
+        if (!o.isFitWidth() || o.isTimer() || t.isEmpty()) return fontPx;
+        LineLayout[] lines = layout(t, runs, fontPx, null, null);
+        float widest = 0f;
+        for (LineLayout ln : lines) widest = Math.max(widest, ln.lineW);
+        if (widest < 1f) return fontPx;
+        float scale = (o.getWrapEm() * fontPx) / widest;
+        return fontPx * Math.max(0.25f, Math.min(4f, scale));
+    }
+
+    /**
      * WRAP AT WIDTH (owner, 2026-09-29: Auto width / Wrap / Fit). When the box has a wrap width,
      * every line longer than it is broken at spaces by turning the chosen space into a line
      * break. That is LENGTH-PRESERVING, which is the whole trick: style runs, animation units and
@@ -188,7 +204,7 @@ public final class TextBoxRenderer {
     private static String wrapFor(@NonNull TextOverlayItem o, @NonNull String t,
                                   @NonNull List<TextStyleResolver.Run> runs, float fontPx) {
         float wrapEm = o.getWrapEm();
-        if (wrapEm <= 0f || o.isTimer() || t.indexOf(' ') < 0 || t.isEmpty()) return t;
+        if (wrapEm <= 0f || o.isFitWidth() || o.isTimer() || t.indexOf(' ') < 0 || t.isEmpty()) return t;
         float maxW = wrapEm * fontPx;
         LineLayout[] lines = layout(t, runs, fontPx, null, null);
         StringBuilder sb = null;
@@ -236,9 +252,20 @@ public final class TextBoxRenderer {
      */
     public static void measure(@NonNull TextOverlayItem o, @NonNull String text, float fontPx,
                                @NonNull float[] out) {
+        measure(o, text, fontPx, out, true);
+    }
+
+    /**
+     * @param applyFit false when {@code fontPx} is ALREADY the fitted size ({@link #draw} passes
+     *                 its own): fitting is a scale relative to the font it is given, so applying
+     *                 it twice compounds and the box stops matching what is drawn.
+     */
+    private static void measure(@NonNull TextOverlayItem o, @NonNull String text, float fontPx,
+                                @NonNull float[] out, boolean applyFit) {
         String authored = normalise(text);
         List<TextStyleResolver.Run> runs = runsFor(o, authored.length());
         String t = wrapFor(o, displayFor(o, authored, runs), runs, fontPx);
+        if (applyFit) fontPx = fitFontPx(o, t, runs, fontPx);
         LineLayout[] lines = layout(t, runs, fontPx, null, null);
         float widest = 1f;
         float totalH = 0f;
@@ -320,10 +347,11 @@ public final class TextBoxRenderer {
         // substituted line indexed past the end of a zero-length array. Any two derivations of
         // "the text" that can disagree will eventually disagree — so there is only one.
         String t = wrapFor(o, displayFor(o, authored, runs), runs, fontPx);
+        fontPx = fitFontPx(o, t, runs, fontPx);
         float pad = fontPx * PAD_EM;
 
         float[] size = new float[2];
-        measure(o, t, fontPx, size);
+        measure(o, t, fontPx, size, false);
 
         if (o.getBackgroundColorInt() != Color.TRANSPARENT) {
             Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);

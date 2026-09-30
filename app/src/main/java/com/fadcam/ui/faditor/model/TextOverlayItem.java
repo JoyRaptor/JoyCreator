@@ -211,6 +211,16 @@ public class TextOverlayItem implements LinkFollower {
      */
     private float wrapEm;
 
+    /**
+     * FIT (owner, 2026-09-29: Auto width / Wrap / Fit): the text keeps its own line breaks and is
+     * scaled so its widest line fills {@link #getWrapEm()} ems. Only meaningful with a width.
+     */
+    private boolean fitWidth;
+
+    public boolean isFitWidth() { return fitWidth && wrapEm > 0f; }
+
+    public void setFitWidth(boolean fit) { this.fitWidth = fit; }
+
     public float getWrapEm() { return wrapEm; }
 
     public void setWrapEm(float wrapEm) { this.wrapEm = Math.max(0f, wrapEm); }
@@ -688,6 +698,7 @@ public class TextOverlayItem implements LinkFollower {
         c.textCase = textCase;
         c.textAlign = textAlign;
         c.wrapEm = wrapEm;
+        c.fitWidth = fitWidth;
         c.shadowAngleDeg = shadowAngleDeg;
         c.shadowDistancePx = shadowDistancePx;
         c.motionStartMs = motionStartMs;

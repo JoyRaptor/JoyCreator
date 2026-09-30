@@ -36362,6 +36362,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final Runnable paintWrap = () -> {
             float w = item.getWrapEm();
             int res = w <= 0f ? R.string.text_wrap_auto
+                    : item.isFitWidth() ? R.string.text_wrap_fit
                     : w >= 15f ? R.string.text_wrap_wide
                     : w >= 8f ? R.string.text_wrap_medium : R.string.text_wrap_narrow;
             wrapChip.setText(res);
@@ -36387,7 +36388,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         syncWrapBar.run();
         wrapChip.setOnClickListener(v -> {
-            item.setWrapEm(com.fadcam.ui.faditor.model.TextOverlayItem.nextWrapEm(item.getWrapEm()));
+            if (item.isFitWidth()) {                 // Fit -> Auto
+                item.setFitWidth(false);
+                item.setWrapEm(0f);
+            } else if (item.getWrapEm() > 0f && item.getWrapEm() <= 6.01f) {   // narrow -> Fit
+                item.setFitWidth(true);
+                item.setWrapEm(12f);
+            } else {
+                item.setWrapEm(com.fadcam.ui.faditor.model.TextOverlayItem.nextWrapEm(item.getWrapEm()));
+            }
             paintWrap.run();
             syncWrapBar.run();
             refreshOverlayPreview();

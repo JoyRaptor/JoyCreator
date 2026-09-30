@@ -3,7 +3,6 @@ package com.fadcam.ui.faditor.tools;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.text.InputType;
@@ -59,8 +58,6 @@ public final class ColorPickerDialog {
 
     private static final OnLive NO_LIVE = c -> { };
 
-    private static final String PREFS = "faditor_color_picker";
-    private static final String KEY_RECENTS = "recents";
     private static final int RECENT_SLOTS = 8;
 
     /** Useful fixed colours: greys at both ends, then a spread that covers the common asks.
@@ -499,35 +496,16 @@ public final class ColorPickerDialog {
 
     // ── Recents storage ─────────────────────────────────────────────────────────────────
 
-    @NonNull
-    private static SharedPreferences prefs(@NonNull Context ctx) {
-        return ctx.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-    }
-
+    /** The history the picker's row draws: the app-wide {@link ColorRecents}, first {@link #RECENT_SLOTS} of it (D.02c). */
     @NonNull
     public static List<Integer> loadRecents(@NonNull Context ctx) {
-        List<Integer> out = new ArrayList<>();
-        String raw = prefs(ctx).getString(KEY_RECENTS, "");
-        if (raw == null || raw.isEmpty()) return out;
-        for (String part : raw.split(",")) {
-            try { out.add((int) Long.parseLong(part.trim(), 16)); } catch (Exception ignored) { }
-            if (out.size() >= RECENT_SLOTS) break;
-        }
-        return out;
+        List<Integer> all = ColorRecents.get(ctx);
+        return all.size() > RECENT_SLOTS ? new ArrayList<>(all.subList(0, RECENT_SLOTS)) : all;
     }
 
-    /** Most recent first, de-duplicated, capped at the number of slots the row draws. */
+    /** Most recent first, de-duplicated; the ONE history now lives in {@link ColorRecents} (D.02c). */
     public static void pushRecent(@NonNull Context ctx, @ColorInt int color) {
-        List<Integer> cur = loadRecents(ctx);
-        cur.remove(Integer.valueOf(color));
-        cur.add(0, color);
-        while (cur.size() > RECENT_SLOTS) cur.remove(cur.size() - 1);
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < cur.size(); i++) {
-            if (i > 0) sb.append(',');
-            sb.append(Integer.toHexString(cur.get(i)));
-        }
-        prefs(ctx).edit().putString(KEY_RECENTS, sb.toString()).apply();
+        ColorRecents.push(ctx, color);
     }
 
     // ── Small views ─────────────────────────────────────────────────────────────────────

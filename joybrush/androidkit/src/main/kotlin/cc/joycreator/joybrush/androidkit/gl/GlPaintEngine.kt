@@ -352,6 +352,25 @@ class GlPaintEngine(
     }
 
     /**
+     * One pixel of a layer at a DOCUMENT point, as 4 premultiplied RGBA8 bytes, or null where the layer has no tile (JB-2.03a: the
+     * eyedropper reads one pixel per move, not a whole 256 KB tile).
+     */
+    fun readPixel(layerId: String, docX: Int, docY: Int): ByteArray? {
+        val tx = Math.floorDiv(docX, size)
+        val ty = Math.floorDiv(docY, size)
+        val tex = layers[layerId]?.tiles?.get(Tiles.key(tx, ty)) ?: return null
+        val buf = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+        attach(tex)
+        GLES30.glReadPixels(docX - tx * size, docY - ty * size, 1, 1, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        val out = ByteArray(4)
+        buf.rewind()
+        buf.get(out)
+        return out
+    }
+
+    /**
      * Sets a tile's pixels (same layout as [readTile]). For loading a document: NOT undoable, and it
      * clears nothing else. Creates the layer and the tile if needed.
      */

@@ -12,6 +12,11 @@ import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
 import cc.joycreator.joybrush.androidkit.gl.SmudgeParams
 import cc.joycreator.joybrush.androidkit.input.MotionEventSamples
 import cc.joycreator.joybrush.androidkit.io.JbArchiveException
+import cc.joycreator.joybrush.androidkit.tools.EyedropState
+import cc.joycreator.joybrush.androidkit.tools.Eyedropper
+import cc.joycreator.joybrush.core.input.PenAction
+import cc.joycreator.joybrush.core.input.PenButton
+import cc.joycreator.joybrush.core.input.PenButtonMap
 import cc.joycreator.joybrush.androidkit.io.JbContents
 import cc.joycreator.joybrush.androidkit.io.TILE_BYTES
 import cc.joycreator.joybrush.core.brush.BrushDabber
@@ -157,6 +162,26 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      */
     var onStrokeEnded: (() -> Unit)? = null
 
+    // ── colour (JB-2.03a) ────────────────────────────────────────────────────
+
+    /** The colour strokes are drawn in, or null for the brush's own. UI thread. Read when a stroke begins. */
+    @Volatile var colorArgb: Int? = null
+
+    /** Called on the UI thread after an eyedropper result has been taken ([colorArgb] is already set). */
+    var onColorPicked: ((Int) -> Unit)? = null
+
+    /** The eyedropper's ring to draw, or null to hide it. The screen owns the overlay that draws it. */
+    var onEyedrop: ((EyedropState?) -> Unit)? = null
+
+    /** Long-press on the canvas picks a colour (default on; a setting can turn it off). */
+    var longPressEyedropper = true
+
+    /** What the pen's buttons do (R42). The screen loads the person's own map; until it does, the defaults. */
+    var penButtons: PenButtonMap = PenButtonMap.DEFAULT
+
+    /** The colour a new stroke starts with: the override if there is one, else the brush's. */
+    val strokeColor: Int get() = colorArgb ?: brush.argb
+
     private val engine = GlPaintEngine()
     private val layerId = "layer-1"
     @Volatile private var viewW = 1
@@ -233,14 +258,27 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     override fun onTouchEvent(ev: MotionEvent): Boolean {
         onRawEvent?.invoke(ev)
+        if (eyedropTouch(ev)) return true
         val action = ev.actionMasked
         if (action == MotionEvent.ACTION_DOWN) {
+            if (isPenAt(ev, 0) && (ev.buttonState and PenButton.BIT_STYLUS_PRIMARY) != 0) {
+                // The pen button held at touch-down is a BUTTON gesture, never a stroke (R42): a quick tap runs the button's
+                // tap action (the eyedropper by default). A drag with it held is the hold action (lasso), which is not wired to
+                // this screen yet, so it does nothing rather than paint.
+                buttonDown = true
+                buttonDownAt = SystemClock.uptimeMillis()
+                buttonDownX = ev.x; buttonDownY = ev.y
+                buttonMoved = false
+                penSeen = true
+                return true
+            }
             if (isPenAt(ev, 0)) {
                 penSeen = true
                 if (Build.VERSION.SDK_INT >= 30) requestUnbufferedDispatch(ev)
                 pointerId = ev.getPointerId(0)
                 startStroke(eraser = MotionEventSamples.tool(ev, 0) == Tool.ERASER)
                 feed(ev)
+                watchForHold(ev, 0)
             } else if (penHovering || SystemClock.uptimeMillis() - penUpAt < PALM_GRACE_MS) {
                 return true // a palm, not a finger: it must not draw and it must not navigate
             } else {
@@ -250,6 +288,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     pointerId = ev.getPointerId(0)
                     startStroke(eraser = false)
                     feed(ev)
+                    watchForHold(ev, 0)
                 }
             }
         } else if (action == MotionEvent.ACTION_MOVE) {
@@ -289,6 +328,161 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         return true
     }
 
+    // ── the eyedropper (JB-2.03a) ────────────────────────────────────────────
+
+    private var buttonDown = false
+    private var buttonDownAt = 0L
+    private var buttonDownX = 0f
+    private var buttonDownY = 0f
+    private var buttonMoved = false
+
+    /** The stroke's first touch, for the long-press: where and when it began and whether it has wandered. */
+    private var holdX = 0f
+    private var holdY = 0f
+    private var holdSlop = 0f
+    private var holdPointer = -1
+
+    /** The eyedropper is up (after a long-press, or dragged off the colour pill). */
+    private var eyedropping = false
+    private var eyedropOld = 0
+    private var eyedropNew = 0
+    private var eyedropX = 0f
+    private var eyedropY = 0f
+    private var cancelX = 0f
+    private var cancelY = 0f
+    private var cancelR = 0f
+    private var sampleSeq = 0
+
+    private val holdFired = Runnable {
+        if (!drawing || !longPressEyedropper) return@Runnable
+        // A hold that stayed still: the dot the pen made is thrown away (nothing is committed) and the ring comes up.
+        cancelStroke()
+        startEyedrop(holdX, holdY, withCancelCircle = true)
+    }
+
+    /** The pen button's tap, the long-press, and a live eyedropper own the touch. True = handled here. */
+    private fun eyedropTouch(ev: MotionEvent): Boolean {
+        val action = ev.actionMasked
+        if (buttonDown) {
+            val slop = Eyedropper.PEN_SLOP_PX
+            if (Math.hypot((ev.x - buttonDownX).toDouble(), (ev.y - buttonDownY).toDouble()) > slop) buttonMoved = true
+            if (action == MotionEvent.ACTION_UP) {
+                buttonDown = false
+                penUpAt = SystemClock.uptimeMillis()
+                val quick = SystemClock.uptimeMillis() - buttonDownAt <= Eyedropper.PEN_BUTTON_TAP_MS
+                if (quick && !buttonMoved &&
+                    penButtons.tapActionFor(PenButton.bit(PenButton.BIT_STYLUS_PRIMARY)) == PenAction.EYEDROPPER) {
+                    sampleAt(ev.x, ev.y) { argb -> take(argb) }
+                }
+            } else if (action == MotionEvent.ACTION_CANCEL) {
+                buttonDown = false
+            }
+            return true
+        }
+        if (eyedropping) {
+            when (action) {
+                MotionEvent.ACTION_MOVE -> eyedropMove(ev.x, ev.y)
+                MotionEvent.ACTION_UP -> eyedropEnd(take = true)
+                // A second finger is the other way out.
+                MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> eyedropEnd(take = false)
+            }
+            return true
+        }
+        // The long-press watch, while a stroke is being drawn by its first touch.
+        if (drawing && holdPointer >= 0) {
+            val i = ev.findPointerIndex(holdPointer)
+            if (action == MotionEvent.ACTION_MOVE && i >= 0 &&
+                Math.hypot((ev.getX(i) - holdX).toDouble(), (ev.getY(i) - holdY).toDouble()) > holdSlop) {
+                stopHoldWatch()
+            } else if (action != MotionEvent.ACTION_MOVE) {
+                stopHoldWatch()
+            }
+        }
+        return false
+    }
+
+    private fun watchForHold(ev: MotionEvent, index: Int) {
+        stopHoldWatch()
+        if (!longPressEyedropper) return
+        holdPointer = ev.getPointerId(index)
+        holdX = ev.getX(index)
+        holdY = ev.getY(index)
+        holdSlop = if (isPenAt(ev, index)) Eyedropper.PEN_SLOP_PX else Eyedropper.FINGER_SLOP_PX
+        postDelayed(holdFired, Eyedropper.HOLD_MS)
+    }
+
+    private fun stopHoldWatch() {
+        removeCallbacks(holdFired)
+        holdPointer = -1
+    }
+
+    private fun startEyedrop(x: Float, y: Float, withCancelCircle: Boolean) {
+        eyedropping = true
+        eyedropOld = strokeColor
+        eyedropNew = eyedropOld
+        cancelX = x; cancelY = y
+        cancelR = if (withCancelCircle) Eyedropper.CANCEL_CIRCLE_DP * resources.displayMetrics.density / 2f else 0f
+        eyedropMove(x, y)
+    }
+
+    private fun eyedropMove(x: Float, y: Float) {
+        eyedropX = x; eyedropY = y
+        publishEyedrop()
+        val seq = ++sampleSeq
+        sampleAt(x, y) { argb -> if (seq == sampleSeq && eyedropping) { eyedropNew = argb; publishEyedrop() } }
+    }
+
+    private fun overCancel(): Boolean =
+        cancelR > 0f && Eyedropper.insideCircle(eyedropX, eyedropY, cancelX, cancelY, cancelR)
+
+    private fun publishEyedrop() {
+        onEyedrop?.invoke(EyedropState(eyedropX, eyedropY, eyedropNew, eyedropOld, cancelX, cancelY, cancelR, overCancel()))
+    }
+
+    private fun eyedropEnd(take: Boolean) {
+        val took = take && !overCancel()
+        val x = eyedropX
+        val y = eyedropY
+        eyedropping = false
+        sampleSeq++
+        onEyedrop?.invoke(null)
+        // Sample once more exactly where the pen left, so a fast lift still takes the colour under it.
+        if (took) sampleAt(x, y) { argb -> take(argb) }
+    }
+
+    private fun take(argb: Int) {
+        colorArgb = argb
+        onColorPicked?.invoke(argb)
+    }
+
+    /**
+     * The colour a person SEES at a screen point (view-local px): the layer's pixel at that document point, at the layer's opacity, over
+     * the paper. Read on the GL thread (a texture can only be read there); [onColor] arrives on the UI thread, opaque.
+     */
+    fun sampleAt(screenX: Float, screenY: Float, onColor: (Int) -> Unit) {
+        val (dx, dy) = view.screenToDoc(screenX, screenY)
+        val px = kotlin.math.floor(dx).toInt()
+        val py = kotlin.math.floor(dy).toInt()
+        val paper = paperArgb
+        onGl {
+            val pixel = engine.readPixel(layerId, px, py)
+            val argb = Eyedropper.seen(pixel, 0, engine.layerOpacity(layerId), paper)
+            post { onColor(argb) }
+        }
+    }
+
+    /**
+     * The drag-off-the-colour-pill eyedropper (JB-2.03a Decision 2), driven by the screen that owns the pill. Points are VIEW-LOCAL px of
+     * this canvas. [dragEyedropEnd] with `take = false` (lifted back on the pill) changes nothing.
+     */
+    fun dragEyedropMove(x: Float, y: Float) {
+        if (!eyedropping) startEyedrop(x, y, withCancelCircle = false) else eyedropMove(x, y)
+    }
+
+    fun dragEyedropEnd(take: Boolean) {
+        if (eyedropping) eyedropEnd(take)
+    }
+
     /** True for the pen's two ends — a stylus and an eraser barrel, never a finger or a mouse. */
     private fun isPenAt(ev: MotionEvent, pointerIndex: Int): Boolean {
         val tool = MotionEventSamples.tool(ev, pointerIndex)
@@ -321,7 +515,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             )
             glBegan = true
             onGl {
-                engine.beginStroke(layerId, b.argb, b.opacity, b.accumulate,
+                engine.beginStroke(layerId, colorArgb ?: b.argb, b.opacity, b.accumulate,
                     if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
             }
         } else {
@@ -367,7 +561,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // JB-1.06: a smudge brush carries ONE colour from the layer under the tip (R47); how hard it presses is the
         // dab's own flow. Stamp brushes pass nothing.
         val smudge = if (p != null && p.engine == ENGINE_SMUDGE) SmudgeParams(p.smudge.pickup, p.smudge.load) else null
-        onGl { engine.beginStroke(layerId, b.argb, opacity, accumulate,
+        val argb = colorArgb ?: b.argb
+        onGl { engine.beginStroke(layerId, argb, opacity, accumulate,
             if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip, grain, smudge) }
     }
 

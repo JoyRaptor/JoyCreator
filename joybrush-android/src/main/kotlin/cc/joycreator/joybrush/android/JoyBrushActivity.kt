@@ -14,6 +14,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -34,6 +35,11 @@ import cc.joycreator.joybrush.androidkit.io.JbArchive
 import cc.joycreator.joybrush.androidkit.io.JbArchiveException
 import cc.joycreator.joybrush.androidkit.io.JbContents
 import cc.joycreator.joybrush.androidkit.lab.BrushHotReload
+import cc.joycreator.joybrush.androidkit.tools.Eyedropper
+import cc.joycreator.joybrush.androidkit.tools.EyedropperRingView
+import com.fadcam.ui.faditor.tools.ColorPickerDialog
+import com.fadcam.ui.faditor.tools.ColorRecents
+import com.fadcam.ui.faditor.tools.RecentColorsBar
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.io.SaveQueue
 import cc.joycreator.joybrush.core.io.SaveReason
@@ -117,6 +123,11 @@ class JoyBrushActivity : Activity() {
     private lateinit var undoBtn: TextView
     private lateinit var redoBtn: TextView
     private lateinit var eraserBtn: TextView
+
+    // JB-2.03a / D.02c: the colour pill, the shared recent-colours bar, and the eyedropper's ring.
+    private lateinit var colourPill: View
+    private lateinit var recentBar: RecentColorsBar
+    private lateinit var ring: EyedropperRingView
     private var erasing = false
 
     // JB-1.05b: the shipped brush files. The pill shows whichever one is current, and the view
@@ -177,6 +188,8 @@ class JoyBrushActivity : Activity() {
 
         val root = FrameLayout(this)
         root.addView(canvas, FrameLayout.LayoutParams(MATCH, MATCH))
+        // The eyedropper's ring is drawn over the canvas and is exactly its size, so the canvas's own coordinates are the ring's.
+        root.addView(ring, FrameLayout.LayoutParams(MATCH, MATCH))
         root.addView(overlays, FrameLayout.LayoutParams(MATCH, MATCH))
         setContentView(root)
         // JbCanvasView reports this on the UI thread via post(), after every committed stroke,
@@ -190,7 +203,21 @@ class JoyBrushActivity : Activity() {
         // The one thing that releases a save that was waiting for the pen (JB-2.15). An undo, a redo
         // and a clear are history events, NOT this: they must not be able to pay — or cancel — a
         // debt a stroke owes.
-        canvas.onStrokeEnded = { saves.strokeFinished() }
+        canvas.onStrokeEnded = {
+            saves.strokeFinished()
+            // D.02c Decision 3: a colour joins the history when a stroke is FINISHED with it (not on every live change in the
+            // picker). An eraser stroke used no colour. The history is only written when this colour is not already first.
+            if (!erasing) {
+                val c = canvas.strokeColor
+                if (ColorRecents.get(this).firstOrNull()?.let { it and 0xFFFFFF } != (c and 0xFFFFFF)) ColorRecents.push(this, c)
+            }
+            recentBar.setCurrent(canvas.strokeColor)
+        }
+        canvas.onEyedrop = { state -> ring.setState(state) }
+        canvas.onColorPicked = { argb ->
+            ColorRecents.push(this, argb)
+            refreshColour()
+        }
         updateHistoryButtons(false, false)
         // JB-0.06: the diagnostics overlay sees every pen event. It only stores numbers, and only
         // while it is visible, so drawing is untouched.
@@ -336,9 +363,30 @@ class JoyBrushActivity : Activity() {
         bottomLeft.addView(historyRow, LinearLayout.LayoutParams(WRAP, dp(40)))
         overlays.addView(bottomLeft, corner(WRAP, WRAP, Gravity.BOTTOM or Gravity.START, 12))
 
-        // bottom-right: eraser toggle
+        // bottom-right: the recent colours, the colour pill, and the eraser toggle, stacked (JB-2.03a, D.02c). JB-2.01's chrome
+        // re-hosts the same views later.
+        ring = EyedropperRingView(this)
+        recentBar = RecentColorsBar(this).apply {
+            setOnPick { argb ->
+                canvas.colorArgb = argb
+                refreshColour()
+            }
+        }
+        colourPill = View(this).apply {
+            contentDescription = "Colour"
+            ViewCompat.setTooltipText(this, "Colour — tap to pick, or drag onto the drawing to take a colour from it")
+            setOnTouchListener(ColourPillTouch())
+        }
         eraserBtn = pillButton("Eraser", "Toggle the eraser") { toggleEraser() }
-        overlays.addView(eraserBtn, corner(WRAP, dp(40), Gravity.BOTTOM or Gravity.END, 12))
+        val colourColumn = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.END
+        }
+        colourColumn.addView(recentBar, LinearLayout.LayoutParams(WRAP, WRAP).apply { bottomMargin = dp(2) })
+        colourColumn.addView(colourPill, LinearLayout.LayoutParams(dp(40), dp(40)).apply { bottomMargin = dp(8) })
+        colourColumn.addView(eraserBtn, LinearLayout.LayoutParams(WRAP, dp(40)))
+        overlays.addView(colourColumn, corner(WRAP, WRAP, Gravity.BOTTOM or Gravity.END, 12))
+        refreshColour()
 
         // bottom-centre: the brush picker. Its label IS the current brush's name, so there is no
         // drawer to open and no second place to look for what is in the nib.
@@ -346,6 +394,71 @@ class JoyBrushActivity : Activity() {
         overlays.addView(brushBtn, corner(WRAP, dp(40), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, 12))
 
         return overlays
+    }
+
+    /** The pill shows the colour the next stroke will use; the bar outlines it. */
+    private fun refreshColour() {
+        val c = canvas.strokeColor
+        colourPill.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(c or 0xFF000000.toInt())
+            setStroke(dp(2), OVERLAY_RING)
+        }
+        recentBar.setCurrent(c)
+    }
+
+    /** The Studio's own colour picker (JB-2.03a Decision 1). This Activity wears the Studio's theme, so its bottom sheet looks the same. */
+    private fun openColourPicker() {
+        val before = canvas.strokeColor
+        ColorPickerDialog.show(this, "Colour", before, false,
+            { live -> if (live != null) { canvas.colorArgb = live; refreshColour() } },
+            { picked -> if (picked != null) { canvas.colorArgb = picked; refreshColour() } })
+    }
+
+    /**
+     * Tap = the picker. Press and drag off the pill = the eyedropper (JB-2.03a Decision 2): the ring follows the finger over the drawing,
+     * lifting on the drawing takes that colour, and dragging back onto the pill and lifting changes nothing.
+     */
+    private inner class ColourPillTouch : View.OnTouchListener {
+        private var downX = 0f
+        private var downY = 0f
+        private var dragging = false
+        private val loc = IntArray(2)
+
+        private fun onCanvas(ev: MotionEvent): Pair<Float, Float> {
+            canvas.getLocationOnScreen(loc)
+            return Pair(ev.rawX - loc[0], ev.rawY - loc[1])
+        }
+
+        private fun overPill(v: View, ev: MotionEvent): Boolean =
+            ev.x >= 0f && ev.y >= 0f && ev.x <= v.width && ev.y <= v.height
+
+        override fun onTouch(v: View, ev: MotionEvent): Boolean {
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = ev.rawX; downY = ev.rawY; dragging = false
+                    v.parent?.requestDisallowInterceptTouchEvent(true)
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val far = Eyedropper.DRAG_OFF_DP * resources.displayMetrics.density
+                    if (!dragging && Math.hypot((ev.rawX - downX).toDouble(), (ev.rawY - downY).toDouble()) > far) dragging = true
+                    if (dragging) {
+                        val (x, y) = onCanvas(ev)
+                        canvas.dragEyedropMove(x, y)
+                    }
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (dragging) canvas.dragEyedropEnd(take = !overPill(v, ev))
+                    else { v.performClick(); openColourPicker() }
+                    dragging = false
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    if (dragging) canvas.dragEyedropEnd(take = false)
+                    dragging = false
+                }
+            }
+            return true
+        }
     }
 
     private fun updateHistoryButtons(canUndo: Boolean, canRedo: Boolean) {

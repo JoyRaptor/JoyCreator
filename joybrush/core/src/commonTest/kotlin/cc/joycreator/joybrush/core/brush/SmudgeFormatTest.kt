@@ -16,8 +16,9 @@ class SmudgeFormatTest {
         edit(BrushPreset(id = "t", name = "T", size = Param(20f), version = 1))
 
     @Test
-    fun theNewestVersionIsThreeAndItsWordsAreTheTwoNewEngines() {
-        assertEquals(3, BRUSH_VERSION)
+    fun smudgeAndPushAreVersionThreeWords() {
+        // Version 4 (the tuft brush, R9) came after; these two words still need only 3.
+        assertTrue(BRUSH_VERSION >= 3)
         assertEquals(2, VERSION_FILL)
         assertEquals(3, VERSION_SMUDGE)
         assertEquals("smudge", ENGINE_SMUDGE)

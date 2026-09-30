@@ -22,6 +22,8 @@ import cc.joycreator.joybrush.androidkit.io.TILE_BYTES
 import cc.joycreator.joybrush.core.brush.BrushDabber
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
+import cc.joycreator.joybrush.core.brush.ENGINE_TUFT
+import cc.joycreator.joybrush.core.brush.TuftStroke
 import cc.joycreator.joybrush.core.brush.DabInputs
 import cc.joycreator.joybrush.core.brush.Scatter
 import cc.joycreator.joybrush.core.brush.SplitMix
@@ -257,6 +259,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var scatterRng: SplitMix? = null
     private var strokeErase = false
     private var glBegan = false
+
+    /** R9: a tuft brush's stroke — the sable brush's own state, one stroke long. Null for every other engine. */
+    private var strokeTuft: TuftStroke? = null
+    private var strokeSeed = 0L
 
     init {
         setEGLContextClientVersion(3)
@@ -540,6 +546,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         strokePreset = p
         strokeDabber = null
         scatterRng = null
+        strokeTuft = null
         strokeErase = erase
         val amount = if (p != null && !smoothingFromUser) p.smoothing else smoothing
         // Smoothing is measured in SCREEN px, so it is told the zoom: the slider then means the
@@ -560,6 +567,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 engine.beginStroke(layerId, colorArgb ?: b.argb, b.opacity, b.accumulate,
                     if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
             }
+        } else if (p.engine == ENGINE_TUFT) {
+            // R9: the tuft brush lays footprints, not dabs. Its speed is judged in screen px, so it is told the zoom.
+            // Begun on the GL thread with its first footprints, like a file brush.
+            strokeSeed = SystemClock.uptimeMillis()
+            strokeTuft = TuftStroke(p, strokeSeed, screenPerDoc = view.zoom)
+            placer = null
         } else {
             // One dabber per stroke: it holds the random stream, the speed filter and the tip
             // direction, and the placer asks it exactly once per dab. The placer's own cap stays 1
@@ -603,9 +616,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // JB-1.06: a smudge brush carries ONE colour from the layer under the tip (R47); how hard it presses is the
         // dab's own flow. Stamp brushes pass nothing.
         val smudge = if (p != null && p.engine == ENGINE_SMUDGE) SmudgeParams(p.smudge.pickup, p.smudge.load) else null
+        // R9: a tuft stroke's whole-stroke shader numbers (streaks, tooth), from the file and this stroke's seed.
+        val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
         val argb = colorArgb ?: b.argb
         onGl { engine.beginStroke(layerId, argb, opacity, accumulate,
-            if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip, grain, smudge) }
+            if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip, grain, smudge, tuft) }
     }
 
     private fun feed(ev: MotionEvent) {
@@ -622,9 +637,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     private fun finishStroke() {
         smoother?.let { paint(it.finish()) }
+        // R9: the lift — a fast one carries on as the bristles leave the paper — and any spatter it throws.
+        strokeTuft?.let { t -> paintTuft(t.finish()) }
         drawing = false
         smoother = null; placer = null; tracker = null
-        strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false
+        strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl { engine.endStroke(); reportHistory() }
         onStrokeEnded?.invoke()
     }
@@ -632,19 +649,27 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private fun cancelStroke() {
         drawing = false
         smoother = null; placer = null; tracker = null
-        strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false
+        strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl { engine.cancelStroke() }
         onStrokeEnded?.invoke()
     }
 
     private fun paint(points: List<PenSample>) {
         if (points.isEmpty()) return
+        strokeTuft?.let { t -> paintTuft(t.add(points)); return }
         val placed = placer?.add(points) ?: return
         if (placed.isEmpty()) return
         val p = strokePreset
         val dabs = if (p == null) placed else scattered(p, placed)
         if (!glBegan) beginStrokeNow()
         onGl { engine.addDabs(dabs) }
+    }
+
+    /** R9: a tuft stroke's footprints to the GL thread, beginning the stroke there with the first of them. */
+    private fun paintTuft(stamps: List<cc.joycreator.joybrush.core.paint.TuftStamp>) {
+        if (stamps.isEmpty()) return
+        if (!glBegan) beginStrokeNow()
+        onGl { engine.addTuftStamps(stamps) }
     }
 
     /**

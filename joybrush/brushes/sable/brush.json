@@ -1,0 +1,33 @@
+{
+  "format": "joybrush.brush",
+  "version": 4,
+  "id": "joybrush.sable",
+  "name": "Sable",
+  "engine": "tuft",
+  "size": { "base": 18 },
+  "opacity": { "base": 1 },
+  "flow": { "base": 1 },
+  "accumulate": "wash",
+  "blend": "normal",
+  "smoothing": 0.15,
+  "tuft": {
+    "tipPx": 1,
+    "shelf": 0.6,
+    "steady": 0.6,
+    "trail": 0.5,
+    "snap": 0.6,
+    "corner": 0.5,
+    "settle": 0.5,
+    "speedThin": 0.3,
+    "ink": 0.6,
+    "dry": 0.5,
+    "sweep": 0.5,
+    "splay": 0.5,
+    "bristles": 0.5,
+    "tooth": 0.5,
+    "spatter": 0.3,
+    "strays": 0.4,
+    "tilt": 0.5
+  },
+  "license": "CC0"
+}

@@ -3,6 +3,7 @@
 #
 # The order here is the brush pill's order, and the first line is what the screen opens with.
 ink
+sable
 pencil
 marker
 softair

@@ -55,16 +55,24 @@ class Popovers(private val kit: ChromeKit, private val host: FrameLayout) {
         frame.doOnLayout { place(frame, anchor, side) }
     }
 
-    /** Opens [content] along the bottom of the screen, full width up to [maxWidthDp] (the brush drawer on a phone). */
+    /**
+     * Opens [content] along the bottom of the screen, full width up to [maxWidthDp] (the brush drawer on a phone).
+     *
+     * [modal] false leaves the rest of the screen live: no touch-catcher, so the canvas still draws while the sheet is up
+     * (R9: the brush tuning sheet, where a slider is moved and a test stroke drawn, over and over). Such a sheet closes
+     * itself, or when another panel opens.
+     */
     @SuppressLint("ClickableViewAccessibility")
-    fun showSheet(content: View, maxWidthDp: Float, alignEnd: Boolean, onClosed: (() -> Unit)? = null) {
+    fun showSheet(content: View, maxWidthDp: Float, alignEnd: Boolean, onClosed: (() -> Unit)? = null, modal: Boolean = true) {
         close()
         this.onClosed = onClosed
-        val c = View(host.context).apply {
-            setOnTouchListener { _, e -> if (e.actionMasked == MotionEvent.ACTION_DOWN) close(); true }
+        if (modal) {
+            val c = View(host.context).apply {
+                setOnTouchListener { _, e -> if (e.actionMasked == MotionEvent.ACTION_DOWN) close(); true }
+            }
+            host.addView(c, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            catcher = c
         }
-        host.addView(c, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        catcher = c
         val frame = FrameLayout(host.context).apply {
             val pad = kit.dpi(8f)
             setPadding(pad, pad, pad, pad)

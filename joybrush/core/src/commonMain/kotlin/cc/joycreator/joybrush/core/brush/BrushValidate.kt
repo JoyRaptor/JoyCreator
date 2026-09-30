@@ -13,7 +13,7 @@ package cc.joycreator.joybrush.core.brush
  */
 object BrushValidate {
 
-    private val ENGINES = setOf("stamp", ENGINE_SMUDGE, "wet", ENGINE_FILL, ENGINE_PUSH)
+    private val ENGINES = setOf("stamp", ENGINE_SMUDGE, "wet", ENGINE_FILL, ENGINE_PUSH, ENGINE_TUFT)
     private val ACCUMULATES = setOf("wash", "buildup")
     private val BLENDS = setOf("normal", "erase", BLEND_BEHIND)
     private val COMBINES = setOf("multiply", "add")
@@ -26,6 +26,17 @@ object BrushValidate {
 
     /** Per [Param]. Each input is a curve evaluated on every dab of every stroke. */
     const val MAX_INPUTS = 8
+
+    /** The widest needle point a tuft brush may have, px. */
+    const val MAX_TUFT_TIP_PX = 64f
+
+    /** The tuft sliders, by the name the file uses — every [TuftSpec] number except `tipPx`. */
+    fun tuftSliders(t: TuftSpec): List<Pair<String, Float>> = listOf(
+        "shelf" to t.shelf, "steady" to t.steady, "trail" to t.trail, "snap" to t.snap, "corner" to t.corner,
+        "settle" to t.settle, "speedThin" to t.speedThin, "ink" to t.ink, "dry" to t.dry, "sweep" to t.sweep,
+        "splay" to t.splay, "bristles" to t.bristles, "tooth" to t.tooth, "spatter" to t.spatter,
+        "strays" to t.strays, "tilt" to t.tilt,
+    )
 
     /** Per curve. */
     const val MAX_CURVE_POINTS = 64
@@ -133,6 +144,13 @@ object BrushValidate {
         if (grainRadial.isNotEmpty()) {
             out += "grain radial is outside 0..4: " + grainRadial.joinToString("; ")
         }
+
+        // 14b — the tuft brush's sliders (R9): each 0..1, and the needle point a real width. Ranged even when the
+        // engine is not "tuft", for the grain rule's reason: a number nobody reads is still one the file writes back.
+        val tuftBad = ArrayList<String>()
+        for ((n, v) in tuftSliders(p.tuft)) if (v !in 0f..1f) tuftBad += "tuft.$n $v"
+        if (!(p.tuft.tipPx > 0f) || p.tuft.tipPx > MAX_TUFT_TIP_PX) tuftBad += "tuft.tipPx ${p.tuft.tipPx} (must be above 0 and at most ${MAX_TUFT_TIP_PX.toInt()})"
+        if (tuftBad.isNotEmpty()) out += "tuft settings are outside 0..1: " + tuftBad.joinToString("; ")
 
         // 15 — colour jitter: a fraction of the hue circle, of the saturation, of the value.
         val colours = ArrayList<String>()

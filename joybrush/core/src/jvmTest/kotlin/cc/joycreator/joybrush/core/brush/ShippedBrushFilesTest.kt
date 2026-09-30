@@ -94,7 +94,7 @@ class ShippedBrushFilesTest {
      */
     @Test
     fun theIndexOrderIsTheFinishedOrderWithWhateverHasNotLandedRemoved() {
-        val finished = listOf("ink", "pencil", "marker", "softair", "smudge", "nudge", "eraser", "fill")
+        val finished = listOf("ink", "sable", "pencil", "marker", "softair", "smudge", "nudge", "eraser", "fill")
         val landed = brushFolders().map { it.name }.toSet()
         val notYet = finished.filterNot { landed.contains(it) }
         val expected = finished.filter { landed.contains(it) }

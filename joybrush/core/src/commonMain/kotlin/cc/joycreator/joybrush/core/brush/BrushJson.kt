@@ -14,12 +14,13 @@ const val BRUSH_FORMAT = "joybrush.brush"
  *  - **2** (JB-1.08a, R21) added `engine: "fill"` and `blend: "behind"` — [VERSION_FILL].
  *  - **3** (JB-1.06, R47) added `engine: "smudge"` and `engine: "push"`, and the `smudge` and `push`
  *    sections that go with them — [VERSION_SMUDGE].
+ *  - **4** (R9, the owner's sable brush) added `engine: "tuft"` and its `tuft` section — [VERSION_TUFT].
  *
  * A word needs the version that introduced it, NOT the newest one: a fill pen is still a version-2
  * file, so a build that predates smudge can open it. [BrushJson.wordsNeedingVersion] carries the
  * per-word number.
  */
-const val BRUSH_VERSION = 3
+const val BRUSH_VERSION = 4
 
 /** The brush version that introduced the fill pen's words. */
 const val VERSION_FILL = 2
@@ -140,6 +141,7 @@ object BrushJson {
         if (p.blend == BLEND_BEHIND) out += VersionedWord("blend \"$BLEND_BEHIND\"", VERSION_FILL)
         if (p.engine == ENGINE_SMUDGE) out += VersionedWord("engine \"$ENGINE_SMUDGE\"", VERSION_SMUDGE)
         if (p.engine == ENGINE_PUSH) out += VersionedWord("engine \"$ENGINE_PUSH\"", VERSION_SMUDGE)
+        if (p.engine == ENGINE_TUFT) out += VersionedWord("engine \"$ENGINE_TUFT\"", VERSION_TUFT)
         return out
     }
 }

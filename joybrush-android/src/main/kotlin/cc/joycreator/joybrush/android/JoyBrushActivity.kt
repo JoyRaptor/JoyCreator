@@ -39,6 +39,7 @@ import cc.joycreator.joybrush.android.chrome.Popovers
 import cc.joycreator.joybrush.android.chrome.ReferenceView
 import cc.joycreator.joybrush.android.chrome.ToolStripView
 import cc.joycreator.joybrush.android.chrome.TopButton
+import cc.joycreator.joybrush.android.chrome.TuftTuningView
 import cc.joycreator.joybrush.android.chrome.ValueHud
 import cc.joycreator.joybrush.androidkit.BrushLibrary
 import cc.joycreator.joybrush.androidkit.JbCanvasView
@@ -54,11 +55,14 @@ import com.fadcam.ui.faditor.tools.ColorPickerDialog
 import com.fadcam.ui.faditor.tools.ColorRecents
 import com.fadcam.ui.faditor.tools.RecentColorsBar
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.ENGINE_TUFT
+import cc.joycreator.joybrush.core.brush.TuftSpec
 import cc.joycreator.joybrush.core.chrome.BrushShelf
 import cc.joycreator.joybrush.core.chrome.IconContrast
 import cc.joycreator.joybrush.core.chrome.StripPlacement
 import cc.joycreator.joybrush.core.chrome.ToolMemory
 import cc.joycreator.joybrush.core.chrome.ToolSlot
+import cc.joycreator.joybrush.core.chrome.TuftTuning
 import cc.joycreator.joybrush.core.io.SaveQueue
 import cc.joycreator.joybrush.core.tool.SizeOpacityDrag
 import cc.joycreator.joybrush.core.io.SaveReason
@@ -112,6 +116,8 @@ private const val REQUEST_REFERENCE = 4103
 private const val CHROME_PREFS = "joybrush_chrome"
 private const val PREF_STRIP = "strip"
 private const val PREF_TOOLS = "tools"
+/** R9: the owner's tuning of each tuft brush, laid over the brush file when it is picked. */
+private const val PREF_TUFT = "tuft_tuning"
 private const val PREF_REF_URI = "reference_uri"
 private const val PREF_REF_PLACE = "reference_place"
 private const val PREF_REF_SHOWN = "reference_shown"
@@ -194,6 +200,9 @@ class JoyBrushActivity : Activity() {
     private val brushes: List<BrushPreset> = BrushLibrary.builtIn()
     private var tools = ToolMemory.defaults(brushes)
 
+    /** R9: the tuft brushes' slider settings, by brush id. Empty until the owner tunes one. */
+    private var tuftTuning: Map<String, TuftSpec> = emptyMap()
+
     // JB-0.06: the hidden pen probe. GONE until the owner holds the ⋯ button.
     private lateinit var diag: PenDiagnosticsView
     private lateinit var diagBox: LinearLayout
@@ -244,6 +253,7 @@ class JoyBrushActivity : Activity() {
         prefs = getSharedPreferences(CHROME_PREFS, Context.MODE_PRIVATE)
         // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
         tools = ToolMemory.decode(prefs.getString(PREF_TOOLS, null), brushes)
+        tuftTuning = TuftTuning.decode(prefs.getString(PREF_TUFT, null))
         placement = StripPlacement.decode(prefs.getString(PREF_STRIP, null))
         val overlays = buildOverlays()
         overlaysView = overlays
@@ -478,7 +488,7 @@ class JoyBrushActivity : Activity() {
      * never lost to a force-stop.
      */
     private fun applyTool() {
-        canvas.preset = tools.presetFrom(brushes) ?: brushes.firstOrNull()
+        canvas.preset = (tools.presetFrom(brushes) ?: brushes.firstOrNull())?.let { TuftTuning.apply(it, tuftTuning) }
         strip.showTools(tools.slots.keys, tools.active)
         showStripValues()
         prefs.edit().putString(PREF_TOOLS, tools.encode()).apply()
@@ -602,11 +612,42 @@ class JoyBrushActivity : Activity() {
             })
         }, LinearLayout.LayoutParams(MATCH, dp(40)))
 
+        // R9: a tuft brush in the hand can be tuned while drawing.
+        val inHand = tools.presetFrom(brushes)
+        if (inHand != null && inHand.engine == ENGINE_TUFT) {
+            box.addView(menuRow("Tune ${inHand.name}…", "Adjust how this brush behaves; you can keep drawing while the sliders are open") {
+                openTuning(inHand)
+            })
+        }
+
         box.addView(menuRow("Put everything back", "Move the tool strip and the reference picture back to where they started") { putEverythingBack() })
         // The one destructive row carries the one colour allowed to mean "something is lost", as a dot: red TEXT over a
         // see-through panel was hard to read on the Note 9. Undo brings the drawing back.
         box.addView(menuRow("Clear drawing", "Clear the drawing — Undo brings it back", dot = kit.p.stateDestroy) { canvas.clearCanvas() })
         popovers.show(box, anchor, Popovers.Side.BELOW, widthDp = 240f)
+    }
+
+    /**
+     * R9: the tuning sheet for a tuft brush. It does not catch the canvas, so every slider move can be tried at once. Each
+     * move re-applies the brush (the NEXT stroke uses it); the settings are saved when a finger lifts off a slider.
+     */
+    private fun openTuning(brush: BrushPreset) {
+        val start = tuftTuning[brush.id] ?: brush.tuft
+        val view = TuftTuningView(kit, brush.name, start,
+            onChange = { spec, done ->
+                tuftTuning = tuftTuning + (brush.id to spec)
+                applyTool()
+                if (done) prefs.edit().putString(PREF_TUFT, TuftTuning.encode(tuftTuning)).apply()
+            },
+            onReset = {
+                tuftTuning = tuftTuning - brush.id
+                applyTool()
+                prefs.edit().putString(PREF_TUFT, TuftTuning.encode(tuftTuning)).apply()
+                brush.tuft
+            },
+            onDone = { popovers.close() },
+        )
+        popovers.showSheet(view, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT, modal = false)
     }
 
     private fun menuRow(text: String, label: String, dot: Int? = null, action: () -> Unit): View =

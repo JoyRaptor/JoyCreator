@@ -110,6 +110,8 @@ class DefaultPresetsTest {
         val expected = setOf(
             "joybrush.ink", "joybrush.pencil", "joybrush.marker",
             "joybrush.softair", "joybrush.eraser", "fill",
+            // R9: the owner's sable ink brush, the tuft engine's first brush.
+            "joybrush.sable",
         ) + present.map { "joybrush.$it" }
 
         assertEquals(

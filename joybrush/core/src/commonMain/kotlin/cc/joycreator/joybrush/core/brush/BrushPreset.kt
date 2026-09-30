@@ -75,7 +75,7 @@ import kotlinx.serialization.Serializable
     val version: Int = BRUSH_VERSION,
     val id: String,
     val name: String,
-    val engine: String = "stamp",        // "stamp" | "smudge" | "push" (JB-1.06) | "wet" | "fill" (the fill pen, JB-1.08a)
+    val engine: String = "stamp",        // "stamp" | "smudge" | "push" (JB-1.06) | "wet" | "fill" (the fill pen, JB-1.08a) | "tuft" (R9)
     val tip: TipSpec = TipSpec(),
     val size: Param,                     // diameter in px
     val opacity: Param = Param(1f),      // ceiling for the whole stroke
@@ -86,6 +86,7 @@ import kotlinx.serialization.Serializable
     val scatter: ScatterSpec = ScatterSpec(),
     val smudge: SmudgeSpec = SmudgeSpec(),     // read only when engine == "smudge" (version 3)
     val push: PushSpec = PushSpec(),           // read only when engine == "push" (version 3)
+    val tuft: TuftSpec = TuftSpec(),           // read only when engine == "tuft" (version 4, R9 §3B)
     val sizeJitter: Float = 0f,
     val angleJitter: Float = 0f,         // degrees
     val color: ColorJitter = ColorJitter(),

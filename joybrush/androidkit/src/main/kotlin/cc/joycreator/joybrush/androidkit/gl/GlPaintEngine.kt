@@ -11,6 +11,9 @@ import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.StrokeBlend
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.paint.TipShape
+import cc.joycreator.joybrush.core.paint.TuftMath
+import cc.joycreator.joybrush.core.paint.TuftShading
+import cc.joycreator.joybrush.core.paint.TuftStamp
 import cc.joycreator.joybrush.core.paint.UndoLog
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -49,6 +52,7 @@ class GlPaintEngine(
     private lateinit var commitProg: GlProgram
     private lateinit var tileProg: GlProgram
     private lateinit var smudgeProg: GlProgram
+    private lateinit var tuftProg: GlProgram
     /** Compiled the first time a blended stack is drawn, not at [init]: see [drawComposited]. */
     private var compositeProg: GlProgram? = null
 
@@ -63,6 +67,7 @@ class GlPaintEngine(
     private var dabVao = 0
     private var tileVao = 0
     private var smudgeVao = 0
+    private var tuftVao = 0
     private var quadVbo = 0
     private var unitVbo = 0
     private var instanceVbo = 0
@@ -129,6 +134,11 @@ class GlPaintEngine(
 
     private var instanceData: FloatBuffer = newFloats(6 * 256)
     private var smudgeInstanceData: FloatBuffer = newFloats(10 * 256)
+    private var tuftInstanceData: FloatBuffer = newFloats(TuftStamp.FLOATS * 256)
+
+    /** Set while a tuft stroke is in progress (R9): its whole-stroke shader numbers, and the page's tooth picture. */
+    private var tuft: TuftShading? = null
+    private var tuftPaperTex = 0
 
     /** Set while a smudge stroke is in progress: the ONE carried colour, and the layer as it was at pen-down. */
     private var smudge: SmudgeStroke? = null
@@ -169,6 +179,7 @@ class GlPaintEngine(
         commitProg = GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_commit.frag"), "commit")
         tileProg = GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_tile.frag"), "tile")
         smudgeProg = GlProgram(shaders.source("jb_dab.vert"), shaders.source("jb_smudge_dab.frag"), "smudge")
+        tuftProg = GlProgram(shaders.source("jb_tuft.vert"), shaders.source("jb_tuft.frag"), "tuft")
 
         val ids = IntArray(3)
         GLES30.glGenBuffers(3, ids, 0)
@@ -176,9 +187,9 @@ class GlPaintEngine(
         upload(quadVbo, floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f))
         upload(unitVbo, floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f))
 
-        val vaos = IntArray(3)
-        GLES30.glGenVertexArrays(3, vaos, 0)
-        dabVao = vaos[0]; tileVao = vaos[1]; smudgeVao = vaos[2]
+        val vaos = IntArray(4)
+        GLES30.glGenVertexArrays(4, vaos, 0)
+        dabVao = vaos[0]; tileVao = vaos[1]; smudgeVao = vaos[2]; tuftVao = vaos[3]
 
         GLES30.glBindVertexArray(dabVao)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, quadVbo)
@@ -207,6 +218,18 @@ class GlPaintEngine(
         GLES30.glEnableVertexAttribArray(3)
         GLES30.glVertexAttribPointer(3, 4, GLES30.GL_FLOAT, false, 40, 24)
         GLES30.glVertexAttribDivisor(3, 1)
+
+        // The tuft footprint (R9): the same quad and instance buffer, four vec4s per footprint (TuftStamp.FLOATS).
+        GLES30.glBindVertexArray(tuftVao)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, quadVbo)
+        GLES30.glEnableVertexAttribArray(0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 0, 0)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
+        for (i in 0 until 4) {
+            GLES30.glEnableVertexAttribArray(1 + i)
+            GLES30.glVertexAttribPointer(1 + i, 4, GLES30.GL_FLOAT, false, TuftStamp.FLOATS * 4, i * 16)
+            GLES30.glVertexAttribDivisor(1 + i, 1)
+        }
 
         GLES30.glBindVertexArray(tileVao)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, unitVbo)
@@ -285,11 +308,12 @@ class GlPaintEngine(
         GLES30.glDeleteTextures(all.size, all.toIntArray(), 0)
         layers.clear(); freeLayerTex.clear(); freeStrokeTex.clear(); freeSmudgeTex.clear()
         GLES30.glDeleteBuffers(3, intArrayOf(quadVbo, unitVbo, instanceVbo), 0)
-        GLES30.glDeleteVertexArrays(3, intArrayOf(dabVao, tileVao, smudgeVao), 0)
+        GLES30.glDeleteVertexArrays(4, intArrayOf(dabVao, tileVao, smudgeVao, tuftVao), 0)
         GLES30.glDeleteFramebuffers(1, intArrayOf(fbo), 0)
         grains.release()
         compositor.release()
-        dabProg.release(); commitProg.release(); tileProg.release(); smudgeProg.release(); compositeProg?.release(); compositeProg = null
+        dabProg.release(); commitProg.release(); tileProg.release(); smudgeProg.release(); tuftProg.release()
+        compositeProg?.release(); compositeProg = null
         ready = false
     }
 
@@ -431,7 +455,7 @@ class GlPaintEngine(
     fun beginStroke(layerId: String, argb: Int, opacity: Float, accumulate: Accumulate,
                     blend: StrokeBlend, tip: TipShape,
                     grain: GrainMath.StrokeGrain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF),
-                    smudge: SmudgeParams? = null) {
+                    smudge: SmudgeParams? = null, tuft: TuftShading? = null) {
         cancelStroke()
         strokeLayer = layers[layerId] ?: error("no layer $layerId")
         strokeIsRgba = smudge != null
@@ -459,6 +483,10 @@ class GlPaintEngine(
         )
         tipGrainTex = tipTex ?: grains.placeholder
         paperGrainTex = paperTex ?: grains.placeholder
+        // A tuft stroke reads the page's tooth; a missing picture means no tooth (pitch 0), never "ink everywhere".
+        val tooth = if (tuft != null) grains.textureFor(tuft.paperAsset) else null
+        tuftPaperTex = tooth ?: grains.placeholder
+        this.tuft = if (tuft != null && tooth == null) tuft.copy(paperPitchPx = 0f) else tuft
     }
 
     /** The cap every dab of the active stroke should carry (see Accumulate). */
@@ -494,6 +522,59 @@ class GlPaintEngine(
             fillInstances(list)
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
             GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * 24, instanceData, GLES30.GL_STREAM_DRAW)
+            GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
+        }
+        GLES30.glBindVertexArray(0)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+    }
+
+    /**
+     * A tuft stroke's footprints (R9 §3B), into the same single-channel stroke buffer with the same blending as
+     * [addDabs] — so commit, preview and undo are the stamp engine's own. Needs a stroke begun with a [TuftShading].
+     */
+    fun addTuftStamps(stamps: List<TuftStamp>) {
+        val shading = tuft
+        if (strokeLayer == null || stamps.isEmpty() || shading == null) return
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+        GLES30.glViewport(0, 0, size, size)
+        GLES30.glEnable(GLES30.GL_BLEND)
+        GLES30.glBlendFuncSeparate(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA, GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+        // Stroke tiles first, for the reason addDabs gives: making one binds texture 0 on the active unit.
+        val buckets = TuftMath.bucket(stamps, size)
+        for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
+        tuftProg.use()
+        GLES30.glUniform1f(tuftProg.loc("u_tileSize"), size.toFloat())
+        GLES30.glUniform1f(tuftProg.loc("u_bristles"), shading.bristles)
+        GLES30.glUniform1f(tuftProg.loc("u_streakPx"), shading.streakPx)
+        GLES30.glUniform1f(tuftProg.loc("u_tooth"), shading.tooth)
+        GLES30.glUniform1f(tuftProg.loc("u_seed"), shading.seed)
+        // Both samplers get a real picture every batch: an unset sampler reads unit 0, which may be the tile being drawn.
+        GLES30.glUniform1i(tuftProg.loc("u_tipGrain"), 0)
+        GLES30.glUniform1i(tuftProg.loc("u_paperGrain"), 1)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, grains.placeholder)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tuftPaperTex)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        GLES30.glUniform1f(tuftProg.loc("u_tipGrainPitchPx"), 0f)
+        GLES30.glUniform1f(tuftProg.loc("u_paperGrainPitchPx"), shading.paperPitchPx)
+        GLES30.glBindVertexArray(tuftVao)
+        for ((key, list) in buckets) {
+            attach(strokeTiles.getValue(key))
+            GLES30.glUniform2f(tuftProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
+            val need = list.size * TuftStamp.FLOATS
+            if (tuftInstanceData.capacity() < need) tuftInstanceData = newFloats(need * 2)
+            tuftInstanceData.clear()
+            for (t in list) {
+                tuftInstanceData.put(t.ax).put(t.ay).put(t.bx).put(t.by)
+                    .put(t.ra).put(t.rb).put(t.flow).put(t.cap)
+                    .put(t.dry).put(t.bias).put(t.splay).put(t.arc)
+                    .put(t.kind.toFloat()).put(0f).put(0f).put(0f)
+            }
+            tuftInstanceData.flip()
+            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
+            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, need * 4, tuftInstanceData, GLES30.GL_STREAM_DRAW)
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
         }
         GLES30.glBindVertexArray(0)
@@ -608,6 +689,7 @@ class GlPaintEngine(
         releaseStrokeTiles()
         strokeLayer = null
         smudge = null
+        tuft = null
         if (changes.isNotEmpty()) undo.push(UndoLog.Step(changes))
         return changes.size
     }
@@ -616,6 +698,7 @@ class GlPaintEngine(
         releaseStrokeTiles()
         strokeLayer = null
         smudge = null
+        tuft = null
     }
 
     fun undoStep(): Boolean {

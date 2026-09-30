@@ -3,6 +3,8 @@ package cc.joycreator.joybrush.core.chrome
 import cc.joycreator.joybrush.core.brush.BrushDabber
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.DabInputs
+import cc.joycreator.joybrush.core.brush.ENGINE_TUFT
+import cc.joycreator.joybrush.core.brush.TuftStroke
 import cc.joycreator.joybrush.core.brush.Scatter
 import cc.joycreator.joybrush.core.brush.SplitMix
 import cc.joycreator.joybrush.core.input.PenSample
@@ -54,6 +56,7 @@ object SampleStroke {
     fun dabs(preset: BrushPreset, width: Float, height: Float, displaySize: Float): List<Dab> {
         val size = min(preset.size.base, displaySize).coerceAtLeast(1f)
         val shown = ToolMemory.sized(preset, size, preset.opacity.base)
+        if (shown.engine == ENGINE_TUFT) return tuftDabs(shown, path(width, height, inset = size / 2f + 1f))
         val dabber = BrushDabber(shown, SEED)
         val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
         val placed = placer.add(path(width, height, inset = size / 2f + 1f))
@@ -70,5 +73,25 @@ object SampleStroke {
                 barrel = Float.NaN,
             )
         }
+    }
+
+    /**
+     * A tuft brush's sample (R9) as round dabs the drawer can draw: each footprint's teardrop filled with circles from
+     * the belly to the tip, and each droplet or hair as one circle. The drawer shows the silhouette — the swell from
+     * hairline to belly — not the streaks, which only the GPU draws.
+     */
+    private fun tuftDabs(preset: BrushPreset, samples: List<PenSample>): List<Dab> {
+        val stroke = TuftStroke(preset, SEED)
+        val out = ArrayList<Dab>()
+        for (t in stroke.add(samples) + stroke.finish()) {
+            val len = kotlin.math.hypot(t.bx - t.ax, t.by - t.ay)
+            val steps = if (len < 1f) 0 else min(8, (len / kotlin.math.max(t.rb, 0.5f)).toInt() + 1)
+            out.add(Dab(t.ax, t.ay, t.ra))
+            for (i in 1..steps) {
+                val f = i / steps.toFloat()
+                out.add(Dab(t.ax + (t.bx - t.ax) * f, t.ay + (t.by - t.ay) * f, t.ra + (t.rb - t.ra) * f))
+            }
+        }
+        return out
     }
 }

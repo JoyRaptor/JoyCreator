@@ -166,6 +166,16 @@ public final class SpineTransformHost implements TransformOverlayView.Host {
     }
 
     @Override
+    public void rebaseGesture() {
+        Clip c = bridge.clip();
+        c.spinePoseAt(bridge.clipLocalMs(), pose);
+        startCx = pose[SpineTransform.CX];
+        startCy = pose[SpineTransform.CY];
+        startScale = pose[SpineTransform.SC];
+        startRot = pose[SpineTransform.ROT];
+    }
+
+    @Override
     public void writeTranslate(float dxPx, float dyPx) {
         RectF r = bridge.canvasRect();
         if (r.width() <= 1f || r.height() <= 1f) return;

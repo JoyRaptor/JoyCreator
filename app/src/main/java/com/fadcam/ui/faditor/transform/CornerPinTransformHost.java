@@ -192,6 +192,15 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
     }
 
     @Override
+    public void rebaseGesture() {
+        long t = now();
+        startCx = target.centerX(t);
+        startCy = target.centerY(t);
+        startSize = target.sizeFraction(t);
+        startRot = target.rotationDeg(t);
+    }
+
+    @Override
     public boolean writeQuad(@NonNull float[] quad8) {
         long t = now();
         if (!readBox(t)) return false;

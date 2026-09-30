@@ -30,7 +30,9 @@ javac @"$ARGS" tools/jvm-harness/SpecHBendMirrorTest.java || exit 1
 
 # The android-free property, enforced rather than trusted. The bend seam (TransformQuad +
 # the whole mesh package + MeshGlSource strings) must stay harness-loadable.
-if grep -rn "^import android\|^import androidx" app/src/main/java/com/fadcam/ui/faditor/transform/mesh/ app/src/main/java/com/fadcam/ui/faditor/transform/TransformQuad.java; then
+# (androidx.annotation is only @NonNull / @Nullable markers, which load anywhere: it is not the leak this guards against.)
+if { grep -rn "^import android\." app/src/main/java/com/fadcam/ui/faditor/transform/mesh/ app/src/main/java/com/fadcam/ui/faditor/transform/TransformQuad.java;
+     grep -rn "^import androidx\." app/src/main/java/com/fadcam/ui/faditor/transform/mesh/ app/src/main/java/com/fadcam/ui/faditor/transform/TransformQuad.java | grep -v "androidx\.annotation\."; }; then
   echo "FAIL: an Android import leaked into the bend seam"
   exit 1
 fi

@@ -273,6 +273,19 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
     }
 
     @Override
+    public void rebaseGesture() {
+        long t = now();
+        startCx = target.centerX(t);
+        startCy = target.centerY(t);
+        startSize = target.sizeFraction(t);
+        startRot = target.rotationDeg(t);
+        if (readBox(t)) {
+            startW = box.width();
+            startH = box.height();
+        }
+    }
+
+    @Override
     public void commitGesture(@NonNull String what) { target.commit(what); }
 
     // ── Writing ──────────────────────────────────────────────────────────

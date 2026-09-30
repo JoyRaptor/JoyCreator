@@ -83,6 +83,14 @@ public class TransformOverlayView extends View {
         void beginGesture();
 
         /**
+         * Re-read the start values (centre, size, rotation) from the object AS IT IS NOW, WITHOUT a new undo
+         * snapshot — the gesture continues (D.02a T1). The pinch writes {@code start * factor}, so when a pinch
+         * takes over from a drag that already moved the object, the start values captured at the first finger's
+         * DOWN are stale and the object would jump back on the first pinch frame.
+         */
+        default void rebaseGesture() { }
+
+        /**
          * The canvas rect the gesture pixels are measured against, in this view's pixels.
          * The view snapshots it when a gesture starts and rebases its frozen state if the
          * rect moves underneath it (drawer resize, controls fade) instead of baking the
@@ -391,6 +399,8 @@ public class TransformOverlayView extends View {
 
     // Pure-rotation gesture state.
     private float rotPivotX, rotPivotY, rotStartAngleRad, rotStartDeg;
+    /** D.02a T4: the rotate handle's angle is ACCUMULATED per move (each step wrapped to +-PI), never differenced against the start. */
+    private float rotLastRad, rotAccumRad;
     /** True once this drag has escaped the cardinal detent (see ROT_DETENT_*). */
     private boolean rotDetentBroken;
     /** Rotate-handle grab point, for re-deriving the grab angle after a rect rebase. */
@@ -408,6 +418,8 @@ public class TransformOverlayView extends View {
     private float pinchFactor = 1f, pinchDeg = 0f;
     /** The object's absolute rotation when the pinch began — the base the detent reads. */
     private float pinchStartDeg;
+    /** D.02a T4: the finger pair's angle, accumulated per move like the rotate handle's. */
+    private float pinchLastRad, pinchAccumRad;
     /** This pinch has cleared {@link #PINCH_ROT_DEADZONE_DEG}; once unlocked it stays so. */
     private boolean pinchRotating;
     /** This pinch has escaped the cardinal detent (the one-finger ROT_DETENT_* rule). */
@@ -1912,6 +1924,13 @@ public class TransformOverlayView extends View {
                     // the way out — the most common way a pinch "also moved it a bit".
                     return true;
                 }
+                // D.02a T2: three or more fingers down and one of the two TRACKED ones lifts: pick the pair again from the fingers
+                // that remain, or applyPinch finds a missing pointer and the pinch freezes for the rest of the gesture.
+                if (pinching) {
+                    int lifting = e.getActionIndex();
+                    int liftedId = e.getPointerId(lifting);
+                    if (liftedId == pinchIdA || liftedId == pinchIdB) repickPinchPair(h, e, lifting);
+                }
                 return true;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
@@ -2044,6 +2063,8 @@ public class TransformOverlayView extends View {
                 rotGrabX = hit.x;
                 rotGrabY = hit.y;
                 rotStartAngleRad = (float) Math.atan2(hit.y - rotPivotY, hit.x - rotPivotX);
+                rotLastRad = rotStartAngleRad;
+                rotAccumRad = 0f;
                 rotDetentBroken = false;
                 rotStartDeg = h.currentRotationDeg();
             } else {
@@ -2283,7 +2304,12 @@ public class TransformOverlayView extends View {
             }
             case ROTATE: {
                 float ang = (float) Math.atan2(ty - rotPivotY, tx - rotPivotX);
-                float deltaDeg = (float) Math.toDegrees(ang - rotStartAngleRad);
+                // D.02a T4: unwrap. Differencing against the START angle stores the long way round once the handle crosses the
+                // +-180 seam (turn 100 degrees anticlockwise from the top and the stored angle is +260, which a keyframe then
+                // spins the wrong way). Add each move's step, wrapped to +-PI, to a running total instead.
+                rotAccumRad += TransformQuad.wrapRad(ang - rotLastRad);
+                rotLastRad = ang;
+                float deltaDeg = (float) Math.toDegrees(rotAccumRad);
                 // SPEC B — the live preview must orbit the SAME point the render orbits: the
                 // stored pivot, not the presented centre. Rotating about the centre spun the
                 // handles in place while the picture swung round the pivot — the two met only
@@ -2331,6 +2357,10 @@ public class TransformOverlayView extends View {
                     // off-diagonal breaks out to free aspect until nearly diagonal again.
                     if (!TransformQuad.scaleCornerFactors(quadAtGrab, dragIndex, tx, ty,
                             scratchFactors)) return;
+                    // D.02a T5: the factors were measured from the OPPOSITE corner but are applied about the CENTRE, so the corner
+                    // lagged the finger by half. Convert to the centre factor (2f - 1) so it lands under the finger.
+                    scratchFactors[0] = TransformQuad.centreFactor(scratchFactors[0]);
+                    scratchFactors[1] = TransformQuad.centreFactor(scratchFactors[1]);
                     float tol = cornerSnapBroken ? SNAP_REJOIN_REL : SNAP_BREAK_REL;
                     float[] sf = scratch2;
                     boolean snapped = TransformQuad.snapUniformFactors(
@@ -2417,12 +2447,28 @@ public class TransformOverlayView extends View {
     private void startPinch(@NonNull Host h, @NonNull MotionEvent e) {
         if (e.getPointerCount() < 2) return;
         removeCallbacks(longPress);
+        // D.02a T2: a THIRD finger mid-pinch (a palm edge, a knuckle) must not start a second gesture: it used to call
+        // beginGesture again (a new undo snapshot, moved reset), so whatever the pinch had done fell outside any undo step.
+        // Keep the gesture and `moved`; only pick the pair again and re-seed the pinch from the object as it is now.
+        if (pinching) {
+            repickPinchPair(h, e, -1);
+            return;
+        }
+        // D.02a T3: work out whether the drag being absorbed had already changed the model BEFORE it is cleared, and carry that
+        // into the pinch. `moved = false` used to drop it: two fingers that lift without moving then committed nothing, and
+        // the drag's change stayed applied but was never an undo step.
+        final boolean carried = (dragKind != null && moved) || bendMoved;
+        final boolean absorbing = dragKind != null || bendDragIndex >= 0;
         // A one-finger drag already in flight is ABSORBED, not committed: one continuous
         // two-finger gesture is one edit in the user's head, and it must be one undo step.
         // SPEC H — a bend-dot drag absorbs the same way: its live pose stays, and the
         // pinch's begin/commit covers it (its snapshot is already taken, so it is not
         // taken twice and the pre-bend state is what undo restores).
         if (dragKind == null && bendDragIndex < 0) h.beginGesture();
+        // D.02a T1: the hosts write the pinch as start * factor, with `start` captured at the first finger's DOWN. When the pinch
+        // takes over from a drag that already moved the object those values are stale, and the first pinch frame (factor ~1)
+        // snapped the object back. Re-read them from the object as it is now — same gesture, no new snapshot.
+        if (absorbing) h.rebaseGesture();
         if (bendDragIndex >= 0) {
             bendDragIndex = -1;
             bendMoved = false;
@@ -2454,11 +2500,50 @@ public class TransformOverlayView extends View {
         pinchFactor = 1f;
         pinchDeg = 0f;
         pinchStartDeg = h.currentRotationDeg();
+        pinchLastRad = (float) Math.atan2(pinchBy - pinchAy, pinchBx - pinchAx);
+        pinchAccumRad = 0f;
         pinchRotating = false;
         pinchDetentBroken = false;
         pinching = true;
-        moved = false;
+        moved = carried;
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
+        invalidate();
+    }
+
+    /**
+     * Track a different pair of fingers WITHOUT starting a new gesture (D.02a T2): a third finger went down, or one of the two
+     * tracked fingers lifted while others remain. The pair is the first two pointers still down (skipping [skipIndex], the
+     * pointer index that is lifting, or -1); the object is rebased so the pinch continues from where it is; the undo snapshot
+     * and `moved` are left alone.
+     */
+    private void repickPinchPair(@NonNull Host h, @NonNull MotionEvent e, int skipIndex) {
+        int a = -1, b = -1;
+        for (int i = 0; i < e.getPointerCount(); i++) {
+            if (i == skipIndex) continue;
+            if (a < 0) a = i; else if (b < 0) { b = i; break; }
+        }
+        if (a < 0 || b < 0) return;
+        h.rebaseGesture();
+        pinchIdA = e.getPointerId(a);
+        pinchIdB = e.getPointerId(b);
+        pinchAx = e.getX(a);
+        pinchAy = e.getY(a);
+        pinchBx = e.getX(b);
+        pinchBy = e.getY(b);
+        System.arraycopy(quad, 0, quadAtGrab, 0, 8);
+        System.arraycopy(quad, 0, quadLastGood, 0, 8);
+        h.readPivot(scratch2);
+        pinchPivotX = scratch2[0];
+        pinchPivotY = scratch2[1];
+        pinchFactor = 1f;
+        pinchDeg = 0f;
+        pinchStartDeg = h.currentRotationDeg();
+        pinchLastRad = (float) Math.atan2(pinchBy - pinchAy, pinchBx - pinchAx);
+        pinchAccumRad = 0f;
+        // The twist is measured from the new pair, so the dead-zone starts again: keeping it unlocked would subtract the
+        // dead-zone from a twist of ~0 and jump the picture by 7 degrees.
+        pinchRotating = false;
+        pinchDetentBroken = false;
         invalidate();
     }
 
@@ -2480,10 +2565,12 @@ public class TransformOverlayView extends View {
         float d0 = (float) Math.max(1.0, Math.hypot(pinchBx - pinchAx, pinchBy - pinchAy));
         float d1 = (float) Math.hypot(bx - ax, by - ay);
         float f = TransformQuad.clamp(d1 / d0, 0.08f, 12f);
-        double th = Math.atan2(by - ay, bx - ax) - Math.atan2(pinchBy - pinchAy, pinchBx - pinchAx);
-        // Normalise into ±π so crossing the seam does not spin the object a whole turn.
-        while (th > Math.PI) th -= 2 * Math.PI;
-        while (th < -Math.PI) th += 2 * Math.PI;
+        // D.02a T4: accumulate the pair's angle per move (each step wrapped to +-PI) instead of differencing against the start
+        // angle and wrapping once: that version jumped by a whole turn the moment the pinch turned past 180 degrees.
+        float nowRad = (float) Math.atan2(by - ay, bx - ax);
+        pinchAccumRad += TransformQuad.wrapRad(nowRad - pinchLastRad);
+        pinchLastRad = nowRad;
+        double th = pinchAccumRad;
         // ROTATION EASE (JoyRaptor, 2026-09-24: "rotation is a little bit hard to manage").
         // Two fingers never travel purely apart, so every pinch meant as a zoom carries a few
         // degrees of incidental twist, and applying it from the first frame made the picture
@@ -2513,7 +2600,8 @@ public class TransformOverlayView extends View {
         pinchDeg = deg;
         moved = true;
 
-        System.arraycopy(quadLastGood, 0, quadAtGrab, 0, 8);   // keep the rollback pose current
+        // (D.02a T7: a copy of quadLastGood into quadAtGrab used to sit here under the comment "keep the rollback pose current".
+        // Nothing updates quadLastGood during a pinch, so it copied the grab pose onto itself. Removed.)
         TransformQuad.pinch(quad, quadAtGrab, m0x, m0y, m1x, m1y, f, (float) th);
         // Where the object's own centre ends up under the same similarity.
         float dx = pinchPivotX - m0x, dy = pinchPivotY - m0y;

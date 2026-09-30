@@ -72,8 +72,13 @@ public class SpecHBendMirrorTest {
         String v = MeshGlSource.VERTEX_SHADER;
         check("vertex shader declares uMirror once",
                 countOf(v, "uniform vec2 uMirror;") == 1);
-        check("mirror applies to deformed aLocal.x", v.contains("uMirror.x * (aLocal.x - 0.5)"));
-        check("mirror applies to deformed aLocal.y", v.contains("uMirror.y * (aLocal.y - 0.5)"));
+        // The rule since bc949c4 (2026-09-24): mirror the PICTURE, not the bend. Mirroring the deformed position AND the source
+        // coordinate cancelled out (a mirrored, bent picture drew unmirrored), so the position stays as authored.
+        check("mirror does NOT touch the deformed aLocal.x (the bend stays where it was authored)",
+                !v.contains("uMirror.x * (aLocal.x - 0.5)"));
+        check("mirror does NOT touch the deformed aLocal.y",
+                !v.contains("uMirror.y * (aLocal.y - 0.5)"));
+        check("the deformed position goes to the homography as authored", v.contains("vec2 ml = aLocal;"));
         check("mirror applies to source aUv.x", v.contains("uMirror.x * (aUv.x - 0.5)"));
         check("mirror applies to source aUv.y", v.contains("uMirror.y * (aUv.y - 0.5)"));
         check("mirrored position feeds the homography (mirror BEFORE pin)",

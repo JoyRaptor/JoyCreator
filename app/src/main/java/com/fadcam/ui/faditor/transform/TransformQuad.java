@@ -632,6 +632,25 @@ public final class TransformQuad {
         return a;
     }
 
+    /** {@code r} wrapped into {@code (-PI, PI]}: the SHORT way round between two angles (D.02a T4). */
+    public static float wrapRad(float r) {
+        if (Float.isNaN(r) || Float.isInfinite(r)) return 0f;
+        final float twoPi = (float) (2.0 * Math.PI);
+        while (r > Math.PI) r -= twoPi;
+        while (r <= -Math.PI) r += twoPi;
+        return r;
+    }
+
+    /**
+     * A corner-drag factor measured from the OPPOSITE corner, as the factor to apply about the CENTRE so the
+     * dragged corner lands under the finger (D.02a T5). With the corner at {@code L} from the anchor and the centre at
+     * {@code L/2}, a finger at {@code f*L} is {@code (f*L - L/2) / (L/2) = 2f - 1} centre-lengths out. Clamped to
+     * {@link #MIN_FACTOR}..{@link #MAX_FACTOR}.
+     */
+    public static float centreFactor(float f) {
+        return clamp(2f * f - 1f, MIN_FACTOR, MAX_FACTOR);
+    }
+
     public static float clamp(float v, float lo, float hi) {
         return v < lo ? lo : (v > hi ? hi : v);
     }

@@ -911,7 +911,7 @@ public class FaditorToolsAdapter {
             chevron.setGravity(Gravity.CENTER);
             chevron.setAlpha(0.85f);
             // Content description for accessibility: hints long-press.
-            chevron.setContentDescription("Long-press for Image as clip");
+            chevron.setContentDescription(context.getString(R.string.studio_tools_sticker_long_press_hint));
             cell.addView(chevron);
         }
 

@@ -1,6 +1,7 @@
 package com.fadcam.ui.faditor.compositor;
 
 import android.content.Context;
+import com.fadcam.R;
 import android.graphics.SurfaceTexture;
 import android.opengl.EGL14;
 import android.opengl.EGLConfig;
@@ -2975,9 +2976,8 @@ public class FxPreviewTextureView extends TextureView
                 // the user their phone is too weak when the app miscompiled would be worse than
                 // saying nothing. The limit is included because it is the number a bug report
                 // needs; the log carries the exception.
-                final String reason = "This effect couldn't run on this device's GPU"
-                        + " (it allows " + maxFragmentUniformVectors()
-                        + " uniform slots per shader). Previewing without it."; // TODO(strings)
+                final String reason = getContext().getString(R.string.studio_fx_shader_unavailable,
+                        maxFragmentUniformVectors());
                 post(() -> l.onFxShaderUnavailable(reason));
             }
             return false;

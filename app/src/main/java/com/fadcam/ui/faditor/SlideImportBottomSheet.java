@@ -72,24 +72,18 @@ public class SlideImportBottomSheet extends BottomSheetDialogFragment {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(0, 0, 0, SheetKit.dp(requireContext(), 16));
 
-        // TODO(strings)
-        root.addView(SheetKit.header(requireContext(), "AI slide", null).view);
+        root.addView(SheetKit.header(requireContext(), getString(R.string.studio_slideimport_title), null).view);
 
-        // TODO(strings)
         root.addView(SheetKit.subtitle(requireContext(),
-                "Have any AI chatbot design an animated slide: copy the "
-                + "prompt, send it, then paste back the HTML it writes."));
+                getString(R.string.studio_slideimport_subtitle)));
 
-        // TODO(strings)
-        root.addView(createOptionRow("Copy slide prompt", "content_copy",
+        root.addView(createOptionRow(getString(R.string.studio_slideimport_copy_prompt), "content_copy",
                 () -> { if (callback != null) callback.onCopyPrompt(); }));
 
-        // TODO(strings)
-        root.addView(createOptionRow("Paste slide HTML", "content_paste",
+        root.addView(createOptionRow(getString(R.string.studio_slideimport_paste_html), "content_paste",
                 () -> { if (callback != null) callback.onPasteHtml(); }));
 
-        // TODO(strings)
-        root.addView(createOptionRow("Import .html file", "upload_file",
+        root.addView(createOptionRow(getString(R.string.studio_slideimport_import_file), "upload_file",
                 () -> { if (callback != null) callback.onImportFile(); }));
 
         NestedScrollView scroll = new NestedScrollView(requireContext());

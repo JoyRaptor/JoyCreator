@@ -4,6 +4,7 @@ import com.fadcam.ui.faditor.Studio;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import com.fadcam.R;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.view.MotionEvent;
@@ -133,7 +134,7 @@ public class FineSeekBar extends SeekBar {
         if (!fine) return;
         // Said, not guessed at. A precision mode nobody can tell is on reads as a broken slider —
         // the same discoverability complaint the drag affordance drew.
-        String label = "FINE";                                             // TODO(strings)
+        String label = getContext().getString(R.string.studio_fine_seek_hint);
         canvas.drawText(label, getPaddingLeft(), getHeight() - 1f * density, hintPaint);
     }
 }

@@ -259,7 +259,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         lutIntensityRow.addView(intLabelRow);
 
         TextView intLabel = new TextView(requireContext());
-        intLabel.setText("Intensity");
+        intLabel.setText(R.string.studio_filter_intensity);
         intLabel.setTextColor(Studio.INK_DIM);
         intLabel.setTextSize(13);
         com.fadcam.ui.type.Type.body(intLabel, com.fadcam.ui.type.Type.REGULAR);
@@ -280,7 +280,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         lutIntensitySlider.setValueFrom(0f);
         lutIntensitySlider.setValueTo(1f);
         lutIntensitySlider.setValue(clamp(stack.getLutIntensity(), 0f, 1f));
-        lutIntensitySlider.setContentDescription("Intensity");
+        lutIntensitySlider.setContentDescription(getString(R.string.studio_filter_intensity));
         lutIntensitySlider.setTrackActiveTintList(
                 android.content.res.ColorStateList.valueOf(Studio.ARMED));
         lutIntensitySlider.setThumbTintList(

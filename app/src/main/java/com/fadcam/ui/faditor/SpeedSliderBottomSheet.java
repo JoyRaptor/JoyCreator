@@ -224,7 +224,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         pitchCheck.setTextSize(TypedValue.COMPLEX_UNIT_SP, SheetKit.ROW_SP);
         com.fadcam.ui.type.Type.body(pitchCheck, com.fadcam.ui.type.Type.REGULAR);
         pitchCheck.setButtonTintList(android.content.res.ColorStateList.valueOf(Studio.ARMED));
-        pitchCheck.setText("Maintain pitch");
+        pitchCheck.setText(R.string.studio_speed_maintain_pitch);
         SheetKit.label(pitchCheck, getString(R.string.lane_d_pitch_tip));
         pitchCheck.setOnCheckedChangeListener((buttonView, isChecked) -> {
             pitchCompensation = isChecked;

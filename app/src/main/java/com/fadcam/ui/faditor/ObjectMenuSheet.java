@@ -1,5 +1,6 @@
 package com.fadcam.ui.faditor;
 
+import com.fadcam.R;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -643,13 +644,13 @@ public final class ObjectMenuSheet extends LinearLayout {
         in.setText(fmtTime(scrubDisplayMs));
         in.setSelectAllOnFocus(true);
         new android.app.AlertDialog.Builder(getContext())
-                .setTitle("Jump to time (m:ss.mmm)") // TODO(strings)
+                .setTitle(R.string.studio_object_jump_to_time_title)
                 .setView(in)
-                .setPositiveButton("Go", (d, w) -> {  // TODO(strings)
+                .setPositiveButton(R.string.studio_object_jump_go, (d, w) -> {
                     long ms = parseTime(in.getText().toString());
                     if (ms >= 0 && timeScrubListener != null) timeScrubListener.onJumpTo(ms);
                 })
-                .setNegativeButton("Cancel", null)    // TODO(strings)
+                .setNegativeButton(R.string.studio_ui_cancel, null)
                 .show();
     }
 
@@ -769,7 +770,7 @@ public final class ObjectMenuSheet extends LinearLayout {
         sheet.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(ctx);
-        title.setText("Keyframes — what the shapes mean");
+        title.setText(R.string.studio_keyframe_legend_title);
         title.setTextColor(TXT);
         title.setTextSize(15);
         title.setTypeface(null, android.graphics.Typeface.BOLD);
@@ -777,14 +778,14 @@ public final class ObjectMenuSheet extends LinearLayout {
         sheet.addView(title);
 
         // Representative easings per family
-        addLegendRow(sheet, Easing.LINEAR, "Even", "same speed the whole way.");
-        addLegendRow(sheet, Easing.HOLD, "Hold", "stays put, then jumps.");
-        addLegendRow(sheet, Easing.EASE_OUT, "Ramp", "speeds up or slows down. The slope shows which.");
-        addLegendRow(sheet, Easing.EASE_IN_OUT, "Smooth", "eases away and eases in. The safe default.");
-        addLegendRow(sheet, Easing.SPRING, "Springy", "overshoots, wobbles or bounces.");
+        addLegendRow(sheet, Easing.LINEAR, ctx.getString(R.string.studio_keyframe_legend_even_name), ctx.getString(R.string.studio_keyframe_legend_even_desc));
+        addLegendRow(sheet, Easing.HOLD, ctx.getString(R.string.studio_keyframe_legend_hold_name), ctx.getString(R.string.studio_keyframe_legend_hold_desc));
+        addLegendRow(sheet, Easing.EASE_OUT, ctx.getString(R.string.studio_keyframe_legend_ramp_name), ctx.getString(R.string.studio_keyframe_legend_ramp_desc));
+        addLegendRow(sheet, Easing.EASE_IN_OUT, ctx.getString(R.string.studio_keyframe_legend_smooth_name), ctx.getString(R.string.studio_keyframe_legend_smooth_desc));
+        addLegendRow(sheet, Easing.SPRING, ctx.getString(R.string.studio_keyframe_legend_springy_name), ctx.getString(R.string.studio_keyframe_legend_springy_desc));
 
         TextView hint = new TextView(ctx);
-        hint.setText("The little curve inside is the real motion — it’s drawn from the maths so it can’t lie.");
+        hint.setText(R.string.studio_keyframe_legend_hint);
         hint.setTextColor(TXT_DIM);
         hint.setTextSize(11);
         hint.setPadding(0, dp(12), 0, 0);

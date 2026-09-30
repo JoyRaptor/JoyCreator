@@ -1,5 +1,6 @@
 package com.fadcam.ui.faditor.puppet;
 
+import com.fadcam.R;
 import com.fadcam.ui.faditor.Studio;
 
 import android.annotation.SuppressLint;
@@ -69,7 +70,7 @@ public class PuppetBadgeView extends View {
         super(ctx);
         d = ctx.getResources().getDisplayMetrics().density;
         stroke.setStyle(Paint.Style.STROKE);
-        setContentDescription("Puppet pins — tap to move them");     // TODO(strings)
+        setContentDescription(ctx.getString(R.string.studio_puppet_badge_description));
     }
 
     public void setHost(@Nullable Host h) { this.host = h; }

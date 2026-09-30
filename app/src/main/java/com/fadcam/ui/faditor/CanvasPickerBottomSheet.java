@@ -213,7 +213,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
 
         android.widget.EditText wField = new android.widget.EditText(requireContext());
         wField.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        wField.setHint("Width");
+        wField.setHint(R.string.studio_canvas_width_hint);
         wField.setGravity(Gravity.CENTER);
         if (existing != null) wField.setText(String.valueOf(existing[0]));
         LinearLayout.LayoutParams wLp = new LinearLayout.LayoutParams(0,
@@ -230,7 +230,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
 
         android.widget.EditText hField = new android.widget.EditText(requireContext());
         hField.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        hField.setHint("Height");
+        hField.setHint(R.string.studio_canvas_height_hint);
         hField.setGravity(Gravity.CENTER);
         if (existing != null) hField.setText(String.valueOf(existing[1]));
         LinearLayout.LayoutParams hLp = new LinearLayout.LayoutParams(0,

@@ -1,5 +1,6 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.R;
 import com.fadcam.ui.faditor.Studio;
 
 import android.content.Context;
@@ -36,7 +37,7 @@ public final class PivotNineView extends View {
 
     public PivotNineView(@NonNull Context ctx) {
         super(ctx);
-        setContentDescription("Rotation pivot");                           // TODO(strings)
+        setContentDescription(ctx.getString(R.string.studio_pivot_nine_description));
     }
 
     /**

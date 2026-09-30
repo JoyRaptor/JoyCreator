@@ -209,9 +209,8 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
      */
     @NonNull
     private View createBlankAudioRow(@Nullable Typeface iconFont, float dp) {
-        // TODO(strings)
         LinearLayout row = SheetKit.detailRow(requireContext(), "graphic_eq", Studio.AUDIO,
-                "Blank audio project", "Podcast, voiceover, music — import audio after",
+                getString(R.string.studio_videosource_blank_audio_title), getString(R.string.studio_videosource_blank_audio_sub),
                 SheetKit.chevron(requireContext()), true);
         row.setOnClickListener(v -> {
             dismiss();

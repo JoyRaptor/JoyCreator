@@ -179,15 +179,13 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 () -> { if (callback != null) callback.onVoiceoverRecordSelected(); }));
 
         // AI slide row — copy-a-prompt / paste-HTML animated slide flow.
-        // TODO(strings)
         root.addView(createOptionRow(
-                "AI slide (animated)", "auto_awesome",
+                getString(R.string.studio_addasset_ai_slide), "auto_awesome",
                 () -> { if (callback != null) callback.onGeneratedSlideSelected(); }));
 
         // FX adjustment layer — an empty container that grades everything beneath it.
-        // TODO(strings)
         root.addView(createOptionRow(
-                "FX Adjustment Layer", "auto_fix_high",
+                getString(R.string.studio_addasset_fx_layer), "auto_fix_high",
                 () -> { if (callback != null) callback.onAdjustmentLayerSelected(); }));
 
         // -- Demoted: Image as clip (spine segment) -- SPEC_20260829_QUICK_WINS S1 --

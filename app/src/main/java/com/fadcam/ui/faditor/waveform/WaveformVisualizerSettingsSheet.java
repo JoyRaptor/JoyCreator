@@ -156,7 +156,7 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
         root.addView(grabber);
 
         TextView title = new TextView(requireContext());
-        title.setText("Waveform visualizer");
+        title.setText(R.string.studio_waveform_settings_title);
         title.setTextColor(Studio.INK);
         title.setTextSize(18);
         // Archivo — the display face, for a title meant to be LOOKED AT.

@@ -1,5 +1,6 @@
 package com.fadcam.ui.faditor;
 
+import com.fadcam.R;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -93,7 +94,7 @@ public final class ImagePresetPicker {
 
         // Hint for None
         TextView hint = new TextView(ctx);
-        hint.setText("No animation (reset) — centred, cover-scaled, static");
+        hint.setText(R.string.studio_image_preset_none_hint);
         hint.setTextColor(Studio.INK_DIM);
         hint.setTextSize(10);
         com.fadcam.ui.type.Type.body(hint, com.fadcam.ui.type.Type.REGULAR);

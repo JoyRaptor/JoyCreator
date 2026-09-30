@@ -90,13 +90,10 @@ public class SlideCodeBottomSheet extends BottomSheetDialogFragment {
         LinearLayout outer = new LinearLayout(requireContext());
         outer.setOrientation(LinearLayout.VERTICAL);
 
-        // TODO(strings)
-        outer.addView(SheetKit.header(requireContext(), "Slide code", null).view);
+        outer.addView(SheetKit.header(requireContext(), getString(R.string.studio_slidecode_title), null).view);
 
-        // TODO(strings)
         outer.addView(SheetKit.subtitle(requireContext(),
-                "Edit the HTML, or select all and paste a different slide. "
-                + "Apply re-renders the clip."));
+                getString(R.string.studio_slidecode_subtitle)));
 
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
@@ -143,19 +140,16 @@ public class SlideCodeBottomSheet extends BottomSheetDialogFragment {
         LinearLayout buttons = new LinearLayout(requireContext());
         buttons.setOrientation(LinearLayout.HORIZONTAL);
         buttons.setGravity(Gravity.END);
-        // TODO(strings)
-        buttons.addView(makeButton("Copy all", false, dp, () -> {
+        buttons.addView(makeButton(getString(R.string.studio_slidecode_copy_all), false, dp, () -> {
             android.content.ClipboardManager cm = (android.content.ClipboardManager)
                     requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
             if (cm != null && codeBox != null) {
                 cm.setPrimaryClip(android.content.ClipData.newPlainText(
                         "Faditor slide HTML", codeBox.getText().toString()));
-                // TODO(strings)
-                Toast.makeText(requireContext(), "Slide code copied", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), R.string.studio_slidecode_copied, Toast.LENGTH_SHORT).show();
             }
         }));
-        // TODO(strings)
-        buttons.addView(makeButton("Paste & replace", false, dp, () -> {
+        buttons.addView(makeButton(getString(R.string.studio_slidecode_paste_replace), false, dp, () -> {
             android.content.ClipboardManager cm = (android.content.ClipboardManager)
                     requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
             CharSequence text = null;
@@ -164,16 +158,14 @@ public class SlideCodeBottomSheet extends BottomSheetDialogFragment {
                 text = cm.getPrimaryClip().getItemAt(0).coerceToText(requireContext());
             }
             if (text == null || text.toString().trim().isEmpty()) {
-                // TODO(strings)
                 Toast.makeText(requireContext(),
-                        "Clipboard is empty — copy the new slide HTML first",
+                        R.string.studio_slidecode_clipboard_empty,
                         Toast.LENGTH_SHORT).show();
             } else if (codeBox != null) {
                 codeBox.setText(text);
             }
         }));
-        // TODO(strings)
-        buttons.addView(makeButton("Apply", true, dp, () -> {
+        buttons.addView(makeButton(getString(R.string.studio_slidecode_apply), true, dp, () -> {
             if (callback != null && codeBox != null) {
                 callback.onApply(codeBox.getText().toString());
             }

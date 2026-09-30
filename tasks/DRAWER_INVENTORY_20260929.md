@@ -26,9 +26,12 @@ Hide / Lock / Let taps pass through.
   Clear all keys, animation summary line; rows Pos X, Pos Y, Scale (linked/split toggle) with Scale X /
   Scale Y when split, Rotate, Opacity — each with value, diamond, previous/next key.
 - **Chroma key:** "Key out a colour" is exposed. **Lanes:** New lane (Above / Below), Move (Up / Down a lane).
-- **GAP FOUND:** the Blend, Mask and Effects tabs expose NO labelled controls to the accessibility tree
-  (only the header), so TalkBack cannot reach their controls and this inventory cannot list them. They
-  render fine visually. A real accessibility follow-up: give their sliders and chips content descriptions.
+- **Blend mode:** a single blend dropdown ("Screen v"). **Mask:** shape chips (add / remove), the
+  mask-mode toggles, and rows Center X, Center Y, Width, Height, Roundness, Rotation, Soften edges,
+  each with value and previous/next key. **Effects / Puppet:** not enumerated.
+- CORRECTION: an earlier version of this file claimed a TalkBack gap on the Blend/Mask/Effects tabs.
+  That was my capture running while the app was out of front; re-checked, Mask exposes all its
+  labelled controls. No accessibility gap found.
 
 ## Seen working in portrait, not enumerated here
 Sprite (header strip + frame palette),

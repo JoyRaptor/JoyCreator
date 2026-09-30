@@ -34,6 +34,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import cc.joycreator.joybrush.android.chrome.BrushDrawerView
 import cc.joycreator.joybrush.android.chrome.ChromeKit
+import cc.joycreator.joybrush.android.chrome.ColourPairView
 import cc.joycreator.joybrush.android.chrome.JbIcon
 import cc.joycreator.joybrush.android.chrome.LayerColumnView
 import cc.joycreator.joybrush.android.chrome.Popovers
@@ -54,6 +55,7 @@ import cc.joycreator.joybrush.androidkit.lab.BrushHotReload
 import cc.joycreator.joybrush.androidkit.tools.Eyedropper
 import cc.joycreator.joybrush.androidkit.tools.EyedropperRingView
 import com.fadcam.ui.faditor.tools.ColorPickerDialog
+import com.fadcam.ui.faditor.tools.ColorWheelView
 import com.fadcam.ui.faditor.tools.ColorRecents
 import com.fadcam.ui.faditor.tools.RecentColorsBar
 import cc.joycreator.joybrush.core.brush.BrushPreset
@@ -147,6 +149,9 @@ private const val ICON_CHECK_MS = 120L
 
 /** The icons read a GRID × GRID square of points each. */
 private const val GRID = 3
+
+/** The small colour wheel beside the strip, dp across. */
+private const val WHEEL_DP = 176
 
 /** The brush size slider runs 0..SIZE_STEPS on a log scale from the smallest brush to the largest. */
 private const val SIZE_STEPS = 1000
@@ -1159,11 +1164,50 @@ class JoyBrushActivity : Activity() {
     }
 
     /** The Studio's own colour picker (JB-2.03a Decision 1). This Activity wears the Studio's theme, so its bottom sheet looks the same. */
+    /**
+     * The small colour wheel beside the strip (the mockup's colour popover): the Studio's own hue ring and triangle, the
+     * before/after pair under it, and "More colours…" for the Studio's full picker. The drawing stays in view — the full
+     * picker's sheet dims it, which is fine for a careful choice and wrong for a quick one.
+     */
     private fun openColourPicker() {
         val before = canvas.strokeColor
-        ColorPickerDialog.show(this, "Colour", before, false,
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        val pair = ColourPairView(kit, before) {
+            canvas.colorArgb = before
+            refreshColour()
+            popovers.close()
+        }
+        val hsv = FloatArray(3)
+        Color.colorToHSV(before, hsv)
+        val wheel = ColorWheelView(this).apply {
+            setHsb(hsv[0], hsv[1], hsv[2])
+            kit.label(this, "Colour wheel — turn the ring for the hue, move in the triangle for how rich and how light")
+            setListener { h, s, b ->
+                val c = Color.HSVToColor(floatArrayOf(h, s, b))
+                canvas.colorArgb = c
+                pair.now = c
+                refreshColour()
+            }
+        }
+        box.addView(wheel, LinearLayout.LayoutParams(dp(WHEEL_DP), dp(WHEEL_DP)))
+        box.addView(pair, LinearLayout.LayoutParams(dp(WHEEL_DP) - dp(24), dp(22)).apply { topMargin = dp(8) })
+        box.addView(menuRow("More colours…", "Open the full colour picker: sliders, hex, and saved colours") { openFullColourPicker() })
+        popovers.show(box, strip.swatch, Popovers.Side.BESIDE)
+    }
+
+    /** The Studio's full picker (JB-2.03a Decision 1), one press away from the wheel. */
+    private fun openFullColourPicker() {
+        // Cancel goes back to the colour in hand when the full picker opened, after everything its live preview tried.
+        val start = canvas.strokeColor
+        ColorPickerDialog.show(this, "Colour", start, false,
             { live -> if (live != null) { canvas.colorArgb = live; refreshColour() } },
-            { picked -> if (picked != null) { canvas.colorArgb = picked; refreshColour() } })
+            { picked ->
+                canvas.colorArgb = picked ?: start
+                refreshColour()
+            })
     }
 
     /**

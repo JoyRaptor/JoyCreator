@@ -42,6 +42,12 @@ Header: tabs **Level | A/V Sync | Effects**, actions Start here / End here / Spl
 Mute / Lock / Bypass effects (A/B). Level: volume (%, keyable), Pan (C), In / Out fades (Fade in /
 Fade out, ms). Effects: Enhance voice, Beat-reactive link, Compressor gain-reduction meter.
 
+## Visualizer drawer (double-tap the VIZ lane)
+Tabs **Style | Transform**. Style: Lanes (layer chips, add, duplicate, delete, prev/next), **Shape** (all eight
+options showing as chips with a drawn icon: Bars, Line, Filled, Dots, Squares, Peaks, Ring, Particles;
+scrolls sideways), Color (swatch dots), Opacity, Softness, Gain, **Blend** (Normal | Add), Trails, Spread,
+Phase, Mirror (Off | On), Glow (Off | On) + Glow radius. Transform: position, scale, rotation, opacity,
+each keyable (diamond + prev/next).
+
 ## Seen working in portrait, not enumerated here
-Film double-tap (Volume drawer), video overlay,
-visualizer (Style | Transform), caption drawer (Style / Fit).
+Film double-tap (Volume drawer), video overlay, caption drawer (Style / Fit).

@@ -6,10 +6,15 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.ImageDecoder
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -27,6 +32,14 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import cc.joycreator.joybrush.android.chrome.BrushDrawerView
+import cc.joycreator.joybrush.android.chrome.ChromeKit
+import cc.joycreator.joybrush.android.chrome.JbIcon
+import cc.joycreator.joybrush.android.chrome.Popovers
+import cc.joycreator.joybrush.android.chrome.ReferenceView
+import cc.joycreator.joybrush.android.chrome.ToolStripView
+import cc.joycreator.joybrush.android.chrome.TopButton
+import cc.joycreator.joybrush.android.chrome.ValueHud
 import cc.joycreator.joybrush.androidkit.BrushLibrary
 import cc.joycreator.joybrush.androidkit.JbCanvasView
 import cc.joycreator.joybrush.androidkit.diag.PenDiagnosticsView
@@ -41,7 +54,12 @@ import com.fadcam.ui.faditor.tools.ColorPickerDialog
 import com.fadcam.ui.faditor.tools.ColorRecents
 import com.fadcam.ui.faditor.tools.RecentColorsBar
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.chrome.BrushShelf
+import cc.joycreator.joybrush.core.chrome.StripPlacement
+import cc.joycreator.joybrush.core.chrome.ToolMemory
+import cc.joycreator.joybrush.core.chrome.ToolSlot
 import cc.joycreator.joybrush.core.io.SaveQueue
+import cc.joycreator.joybrush.core.tool.SizeOpacityDrag
 import cc.joycreator.joybrush.core.io.SaveReason
 import cc.joycreator.joybrush.core.io.SaveTarget
 import java.io.File
@@ -53,7 +71,6 @@ import java.util.concurrent.Executors
 // 10% and 12% white, the spec's overlay colours. Both literals fit in an Int.
 private const val OVERLAY_FILL = 0x1AFFFFFF
 private const val OVERLAY_RING = 0x1FFFFFFF
-private const val SMOOTHING_DEFAULT = 35
 private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 
@@ -87,6 +104,25 @@ private const val SNAPSHOT_TIMEOUT_MS = 15_000L
 
 private const val REQUEST_OPEN = 4101
 private const val REQUEST_SAVE_COPY = 4102
+private const val REQUEST_REFERENCE = 4103
+
+// JB-2.01: where the chrome remembers itself between visits — the strip's place, each tool's brush and size, the
+// pinned reference picture.
+private const val CHROME_PREFS = "joybrush_chrome"
+private const val PREF_STRIP = "strip"
+private const val PREF_TOOLS = "tools"
+private const val PREF_REF_URI = "reference_uri"
+private const val PREF_REF_PLACE = "reference_place"
+private const val PREF_REF_SHOWN = "reference_shown"
+
+/** The top bar's height plus its margin: the strip never slides under it. */
+private const val TOP_RESERVE_DP = 54f
+
+/** A reference picture is decoded no bigger than this on its long side: a pinned picture never needs more. */
+private const val REFERENCE_MAX_PX = 1600
+
+/** The brush size slider runs 0..SIZE_STEPS on a log scale from the smallest brush to the largest. */
+private const val SIZE_STEPS = 1000
 
 /** What "Open…" accepts: a Joy Brush drawing, and the two types a provider gives one it does not know. */
 private val OPENABLE_TYPES = arrayOf(JB_MIMETYPE, "application/zip", "application/octet-stream")
@@ -101,13 +137,13 @@ private val OPENABLE_TYPES = arrayOf(JB_MIMETYPE, "application/zip", "applicatio
 private val fileIo = Executors.newSingleThreadExecutor()
 
 /**
- * The Joy Brush screen (JB-0.05): a [JbCanvasView] filling the window with a few plain overlay
- * controls on top of it.
+ * The Joy Brush screen (JB-0.05): a [JbCanvasView] filling the window, with the compact chrome
+ * of JB-2.01 over it — a top bar, a movable tool strip, one panel at a time, and a pinned
+ * reference picture.
  *
  * Nothing about input lives here. The pen, palm rejection, smoothing and the GPU renderer all
  * belong to JbCanvasView; this Activity only hosts it, keeps the screen awake, and wires the
- * overlay controls to the view's public surface (brush preset and eraser, smoothing, the brush
- * picker, undo, redo, clear).
+ * chrome to the view's public surface (brush preset, colour, smoothing, undo, redo, clear).
  *
  * Save and open (JB-0.08b) live here too, and only here: the view turns the canvas into a
  * [JbContents] on the GL thread and puts one back, and this Activity owns every path to disk —
@@ -120,23 +156,35 @@ private val fileIo = Executors.newSingleThreadExecutor()
 class JoyBrushActivity : Activity() {
 
     private lateinit var canvas: JbCanvasView
-    private lateinit var undoBtn: TextView
-    private lateinit var redoBtn: TextView
-    private lateinit var eraserBtn: TextView
+    private lateinit var undoBtn: TopButton
+    private lateinit var redoBtn: TopButton
 
-    // JB-2.03a / D.02c: the colour pill, the shared recent-colours bar, and the eyedropper's ring.
-    private lateinit var colourPill: View
+    // JB-2.01: the compact chrome. The strip carries the tools, size, colour and opacity; the top bar the rest; one panel
+    // at a time opens beside what was tapped.
+    private lateinit var kit: ChromeKit
+    private lateinit var strip: ToolStripView
+    private lateinit var topBar: LinearLayout
+    private lateinit var hairline: View
+    private lateinit var popovers: Popovers
+    private lateinit var hud: ValueHud
+    private lateinit var reference: ReferenceView
+    private lateinit var pinBtn: TopButton
+    private lateinit var overlaysView: FrameLayout
+    private lateinit var prefs: SharedPreferences
+    private var placement = StripPlacement.DEFAULT
+    private var chromeShown = true
+
+    // JB-2.03a / D.02c: the recent-colours bar (now the strip's hair) and the eyedropper's ring.
     private lateinit var recentBar: RecentColorsBar
     private lateinit var ring: EyedropperRingView
-    private var erasing = false
+    private val erasing: Boolean get() = tools.active == ToolSlot.ERASER
 
-    // JB-1.05b: the shipped brush files. The pill shows whichever one is current, and the view
-    // draws with it — the hard-coded round brush is only reached by leaving preset null.
+    // JB-1.05b: the shipped brush files. Each tool in the strip remembers its own brush, size and opacity (JB-2.01), and
+    // the view draws with the one in the hand — the hard-coded round brush is only reached by an empty library.
     private val brushes: List<BrushPreset> = BrushLibrary.builtIn()
-    private var brushIndex = 0
-    private lateinit var brushBtn: TextView
+    private var tools = ToolMemory.defaults(brushes)
 
-    // JB-0.06: the hidden pen probe. GONE until the owner long-presses the close button.
+    // JB-0.06: the hidden pen probe. GONE until the owner holds the ⋯ button.
     private lateinit var diag: PenDiagnosticsView
     private lateinit var diagBox: LinearLayout
     private var diagShown = false
@@ -182,16 +230,30 @@ class JoyBrushActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         canvas = JbCanvasView(this)
-        // The first shipped brush file drives the view from the moment the screen opens (JB-1.05b).
-        canvas.preset = brushes.firstOrNull()
+        kit = ChromeKit(this)
+        prefs = getSharedPreferences(CHROME_PREFS, Context.MODE_PRIVATE)
+        // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
+        tools = ToolMemory.decode(prefs.getString(PREF_TOOLS, null), brushes)
+        placement = StripPlacement.decode(prefs.getString(PREF_STRIP, null))
         val overlays = buildOverlays()
+        overlaysView = overlays
 
         val root = FrameLayout(this)
         root.addView(canvas, FrameLayout.LayoutParams(MATCH, MATCH))
         // The eyedropper's ring is drawn over the canvas and is exactly its size, so the canvas's own coordinates are the ring's.
         root.addView(ring, FrameLayout.LayoutParams(MATCH, MATCH))
+        // The pinned reference floats over the drawing, full-bleed like it, under the chrome. It is a view, never a layer.
+        reference = ReferenceView(kit).apply { onMoved = { saveReferencePlace() } }
+        root.addView(reference, FrameLayout.LayoutParams(MATCH, MATCH))
         root.addView(overlays, FrameLayout.LayoutParams(MATCH, MATCH))
+        // Joy Brush's identity, as a hairline along the very top (visual language §4.2): the section colour, never a button.
+        hairline = View(this).apply { background = JbColors.roomGradient(this@JoyBrushActivity) }
+        root.addView(hairline, FrameLayout.LayoutParams(MATCH, kit.dpi(2f), Gravity.TOP))
         setContentView(root)
+        applyTool()
+        restoreReference()
+        // Four fingers tap: the chrome goes, the picture stays (JB-2.02's gesture, JB-2.01's one toggle).
+        canvas.onToggleUi = { toggleChrome() }
         // JbCanvasView reports this on the UI thread via post(), after every committed stroke,
         // undo, redo and clear. Undo and Redo start disabled -- there is no history yet.
         canvas.onHistoryChanged = { canUndo, canRedo ->
@@ -260,27 +322,66 @@ class JoyBrushActivity : Activity() {
         super.onPause()
     }
 
-    // ── the overlay controls ────────────────────────────────────────────────
+    // ── the chrome (JB-2.01) ────────────────────────────────────────────────
+    //
+    // Infinite Painter's lesson, in Joy Creator's clothes: Home, Undo and Redo top-left; the reference pin and ⋯ top-right;
+    // a slim tool strip on one edge with the recent-colour hair beside it; everything else is the picture. Guides and
+    // Layers join the top bar when their rows land — a button that does nothing is worse than none.
 
     private fun buildOverlays(): FrameLayout {
         val overlays = FrameLayout(this)
+        popovers = Popovers(kit, overlays)
+        ring = EyedropperRingView(this)
 
-        // top-right: close. A long press is the hidden way into the pen diagnostics (JB-0.06);
-        // returning true from the long-click keeps it from also closing the screen.
-        val closeBtn = TextView(this).apply {
-            text = "×"
-            textSize = 20f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            background = oval(OVERLAY_FILL, dp(1))
-            contentDescription = "Close Joy Brush"
-            ViewCompat.setTooltipText(this, "Close Joy Brush")
-            setOnClickListener { finish() }
+        // The drag readout sits under everything else, in the middle of the screen.
+        hud = ValueHud(kit)
+        overlays.addView(hud, FrameLayout.LayoutParams(MATCH, MATCH))
+
+        // ── the top bar ──
+        topBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val home = TopButton(kit, JbIcon.HOME, "Home — your drawing is kept").apply { setOnClickListener { finish() } }
+        undoBtn = TopButton(kit, JbIcon.UNDO, "Undo (or tap with two fingers)").apply { setOnClickListener { canvas.undo() } }
+        redoBtn = TopButton(kit, JbIcon.REDO, "Redo (or tap with three fingers)").apply { setOnClickListener { canvas.redo() } }
+        pinBtn = TopButton(kit, JbIcon.PIN, "Pin a reference picture — hold for its options").apply {
+            setOnClickListener { pinTapped() }
+            setOnLongClickListener { referenceMenu(); true }
+        }
+        val more = TopButton(kit, JbIcon.MORE, "More — save a copy, open, smoothing, put everything back").apply {
+            setOnClickListener { moreMenu(this) }
+            // JB-0.06's hidden door moved here from the old close button: hold ⋯ for the pen diagnostics.
             setOnLongClickListener { toggleDiagnostics(); true }
         }
-        overlays.addView(closeBtn, corner(dp(40), dp(40), Gravity.TOP or Gravity.END))
+        val touch = kit.dpi(ChromeKit.TOUCH_DP)
+        for (b in listOf(home, undoBtn, redoBtn)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
+        topBar.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        for (b in listOf(pinBtn, more)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
+        overlays.addView(topBar, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP).apply {
+            val m = kit.dpi(6f)
+            setMargins(m, m, m, 0)
+        })
 
-        // top-left: the pen diagnostics panel and its copy pill, both hidden until asked for.
+        // ── the tool strip ──
+        strip = ToolStripView(kit, stripHost)
+        recentBar = strip.recentBar.apply {
+            setOnPick { argb ->
+                canvas.colorArgb = argb
+                refreshColour()
+            }
+        }
+        strip.swatch.setOnTouchListener(ColourPillTouch())
+        strip.edge = placement.edge
+        overlays.addView(strip, FrameLayout.LayoutParams(WRAP, WRAP))
+        overlays.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+            if (bottom - top != oldBottom - oldTop) overlays.post { placeStrip() }
+        }
+        strip.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+            if (bottom - top != oldBottom - oldTop) strip.post { placeStrip() }
+        }
+
+        // ── the hidden pen diagnostics (JB-0.06), under the top bar ──
         diag = PenDiagnosticsView(this)
         diagBox = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -295,116 +396,375 @@ class JoyBrushActivity : Activity() {
             canvas.runBlendCheck { toast(it) }
         }
         diagBox.addView(blendBtn, LinearLayout.LayoutParams(WRAP, dp(40)))
-        overlays.addView(diagBox, corner(WRAP, WRAP, Gravity.TOP or Gravity.START, 10))
-
-        // top-centre: smoothing
-        val smoothRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            background = pill()
-            setPadding(dp(12), 0, dp(12), 0)
-        }
-        val smoothLabel = TextView(this).apply {
-            text = "Smoothing"
-            textSize = 13f
-            setTextColor(Color.WHITE)
-        }
-        val smoothSeek = SeekBar(this).apply {
-            max = 100
-            contentDescription = "Stroke smoothing"
-            ViewCompat.setTooltipText(this, "Stroke smoothing")
-        }
-        smoothRow.addView(smoothLabel, pillChild())
-        smoothRow.addView(smoothSeek, LinearLayout.LayoutParams(dp(140), dp(40)))
-        overlays.addView(smoothRow, corner(WRAP, dp(40), Gravity.TOP or Gravity.CENTER_HORIZONTAL, 10))
-        smoothSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
-                canvas.smoothing = progress / 100f
-                // JB-1.05b: only a real move of the slider takes smoothing away from the brush
-                // file, so the starting 35% set below does not count as the person choosing.
-                if (fromUser) canvas.smoothingFromUser = true
-            }
-
-            override fun onStartTrackingTouch(bar: SeekBar) {
-                // nothing to do
-            }
-
-            override fun onStopTrackingTouch(bar: SeekBar) {
-                // nothing to do
-            }
+        overlays.addView(diagBox, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+            topMargin = kit.dpi(TOP_RESERVE_DP)
         })
-        // Setting progress fires onProgressChanged, so the canvas gets its 35% starting value.
-        smoothSeek.progress = SMOOTHING_DEFAULT
-
-        // bottom-left: the two buttons that move a drawing off this screen and back on, stacked over
-        // undo / redo / clear.
-        val fileRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
-        fileRow.addView(pillButton("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() }, pillChild())
-        fileRow.addView(pillButton("Open…", "Open a drawing from your files") { askWhichToOpen() }, pillChild())
-
-        // bottom-left: undo / redo / clear
-        val historyRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        undoBtn = pillButton("Undo", "Undo the last stroke") { canvas.undo() }
-        redoBtn = pillButton("Redo", "Redo the last undone stroke") { canvas.redo() }
-        val clearBtn = pillButton("Clear", "Clear the canvas") { canvas.clearCanvas() }
-        historyRow.addView(undoBtn, pillChild())
-        historyRow.addView(redoBtn, pillChild())
-        historyRow.addView(clearBtn, pillChild())
-
-        val bottomLeft = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-        bottomLeft.addView(fileRow, LinearLayout.LayoutParams(WRAP, WRAP))
-        bottomLeft.addView(historyRow, LinearLayout.LayoutParams(WRAP, dp(40)))
-        overlays.addView(bottomLeft, corner(WRAP, WRAP, Gravity.BOTTOM or Gravity.START, 12))
-
-        // bottom-right: the recent colours, the colour pill, and the eraser toggle, stacked (JB-2.03a, D.02c). JB-2.01's chrome
-        // re-hosts the same views later.
-        ring = EyedropperRingView(this)
-        recentBar = RecentColorsBar(this).apply {
-            setOnPick { argb ->
-                canvas.colorArgb = argb
-                refreshColour()
-            }
-        }
-        colourPill = View(this).apply {
-            contentDescription = "Colour"
-            ViewCompat.setTooltipText(this, "Colour — tap to pick, or drag onto the drawing to take a colour from it")
-            setOnTouchListener(ColourPillTouch())
-        }
-        eraserBtn = pillButton("Eraser", "Toggle the eraser") { toggleEraser() }
-        val colourColumn = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.END
-        }
-        colourColumn.addView(recentBar, LinearLayout.LayoutParams(WRAP, WRAP).apply { bottomMargin = dp(2) })
-        colourColumn.addView(colourPill, LinearLayout.LayoutParams(dp(40), dp(40)).apply { bottomMargin = dp(8) })
-        colourColumn.addView(eraserBtn, LinearLayout.LayoutParams(WRAP, dp(40)))
-        overlays.addView(colourColumn, corner(WRAP, WRAP, Gravity.BOTTOM or Gravity.END, 12))
-        refreshColour()
-
-        // bottom-centre: the brush picker. Its label IS the current brush's name, so there is no
-        // drawer to open and no second place to look for what is in the nib.
-        brushBtn = pillButton(brushLabel(), "Change the brush") { cycleBrush() }
-        overlays.addView(brushBtn, corner(WRAP, dp(40), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, 12))
 
         return overlays
     }
 
-    /** The pill shows the colour the next stroke will use; the bar outlines it. */
-    private fun refreshColour() {
-        val c = canvas.strokeColor
-        colourPill.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(c or 0xFF000000.toInt())
-            setStroke(dp(2), OVERLAY_RING)
+    /** What the strip asks of the screen. The strip only reports; the values live in [tools] and the canvas. */
+    private val stripHost = object : ToolStripView.Host {
+        override fun toolTapped(slot: ToolSlot, anchor: View) {
+            // First tap takes the tool up; a tap on the tool already in the hand opens its brushes (Infinite Painter's way).
+            if (tools.active == slot) openBrushes(slot) else { tools = tools.activate(slot); applyTool() }
         }
-        recentBar.setCurrent(c)
+
+        override fun sizeNow(): Float = tools.current?.sizePx ?: 12f
+        override fun opacityNow(): Float = tools.current?.opacity ?: 1f
+        override fun zoom(): Float = canvas.view.zoom
+
+        override fun sizeDragged(px: Float, done: Boolean) {
+            tools = tools.withSize(px)
+            if (done) { hud.hide(); applyTool() } else { hud.showSize(tools.current?.sizePx ?: px, canvas.view.zoom); showStripValues() }
+        }
+
+        override fun opacityDragged(value: Float, done: Boolean) {
+            tools = tools.withOpacity(value)
+            if (done) { hud.hide(); applyTool() } else { hud.showOpacity(canvas.strokeColor, tools.current?.opacity ?: value); showStripValues() }
+        }
+
+        override fun sizeTapped(anchor: View) = sizeSlider(anchor)
+        override fun opacityTapped(anchor: View) = opacitySlider(anchor)
+
+        override fun stripDropped(cx: Float, cy: Float) {
+            val o = overlaysView
+            val w = (o.width - o.paddingLeft - o.paddingRight).toFloat()
+            val free = freeHeight()
+            placement = StripPlacement.dropAt(cx - o.paddingLeft, cy - o.paddingTop - kit.dp(TOP_RESERVE_DP), w, free, strip.height.toFloat())
+            strip.edge = placement.edge
+            prefs.edit().putString(PREF_STRIP, placement.encode()).apply()
+            strip.post { placeStrip() }
+        }
+    }
+
+    /** The height the strip may travel in: the screen less the top bar and a small bottom margin. */
+    private fun freeHeight(): Float {
+        val o = overlaysView
+        return (o.height - o.paddingTop - o.paddingBottom).toFloat() - kit.dp(TOP_RESERVE_DP) - kit.dp(8f)
+    }
+
+    /** Puts the strip where [placement] says: hugging its edge, at its fraction of the free height. */
+    private fun placeStrip() {
+        if (!::strip.isInitialized || strip.height == 0) return
+        val lp = strip.layoutParams as FrameLayout.LayoutParams
+        val g = Gravity.TOP or (if (placement.edge == StripPlacement.Edge.LEFT) Gravity.START else Gravity.END)
+        val top = (kit.dp(TOP_RESERVE_DP) + placement.topPx(freeHeight(), strip.height.toFloat())).toInt()
+        if (lp.gravity != g || lp.topMargin != top) {
+            lp.gravity = g
+            lp.topMargin = top
+            strip.layoutParams = lp
+        }
+    }
+
+    /**
+     * The tool in the hand goes to the canvas: its brush at its remembered size and opacity. Saved at once, so a tool is
+     * never lost to a force-stop.
+     */
+    private fun applyTool() {
+        canvas.preset = tools.presetFrom(brushes) ?: brushes.firstOrNull()
+        strip.showTools(tools.slots.keys, tools.active)
+        showStripValues()
+        prefs.edit().putString(PREF_TOOLS, tools.encode()).apply()
+    }
+
+    private fun showStripValues() {
+        val s = tools.current
+        strip.showValues(s?.sizePx ?: 12f, canvas.strokeColor, s?.opacity ?: 1f)
+    }
+
+    /** The brush drawer, opened on the shelf the tool's brush is on. Picking closes it at once (0 ms). */
+    private fun openBrushes(slot: ToolSlot) {
+        val current = tools.current?.brushId
+        val own = when (slot) {
+            ToolSlot.SMUDGE -> BrushShelf.Kind.SMUDGE
+            ToolSlot.ERASER -> BrushShelf.Kind.ERASERS
+            ToolSlot.BRUSH -> brushes.firstOrNull { it.id == current }?.let { BrushShelf.kindOf(it) } ?: BrushShelf.Kind.ALL
+        }
+        // A shelf of one is a nearly empty drawer (seen on the Note 9): open on All until the tool's own shelf has a choice.
+        val ownCount = BrushShelf.shelves(brushes).firstOrNull { it.first == own }?.second?.size ?: 0
+        val start = if (ownCount >= 2) own else BrushShelf.Kind.ALL
+        val drawer = BrushDrawerView(kit, brushes, start, current) { picked ->
+            tools = tools.pick(picked)
+            applyTool()
+            popovers.close()
+        }
+        // Full width on a phone (the Note 9 at its dense setting is ~548 dp); capped on a tablet so strokes stay readable.
+        popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
+    }
+
+    /** Size on a slider: a log scale, so a 2 px pen and a 400 px wash are both easy to set. */
+    private fun sizeSlider(anchor: View) {
+        val min = SizeOpacityDrag.MIN_SIZE
+        val max = SizeOpacityDrag.MAX_SIZE
+        val ratio = Math.log((max / min).toDouble())
+        fun toSize(step: Int) = (min * Math.exp(ratio * step / SIZE_STEPS)).toFloat()
+        fun toStep(size: Float) = (Math.log((size / min).toDouble()) / ratio * SIZE_STEPS).toInt()
+        val start = tools.current?.sizePx ?: 12f
+        valueSlider(anchor, "Size", SIZE_STEPS, toStep(start), { step -> sizeLabel(toSize(step)) }) { step, done ->
+            tools = tools.withSize(toSize(step))
+            if (done) applyTool() else showStripValues()
+        }
+    }
+
+    private fun opacitySlider(anchor: View) {
+        val start = Math.round((tools.current?.opacity ?: 1f) * 100)
+        valueSlider(anchor, "Opacity", 100, start, { v -> "${v.coerceAtLeast(1)}%" }) { v, done ->
+            tools = tools.withOpacity(v / 100f)
+            if (done) applyTool() else showStripValues()
+        }
+    }
+
+    private fun sizeLabel(px: Float): String = if (px >= 10f) "${Math.round(px)} px" else String.format(Locale.US, "%.1f px", px)
+
+    /** A labelled slider in a popover beside [anchor]; [onValue] hears every move, and `done` when the finger lifts. */
+    private fun valueSlider(anchor: View, title: String, max: Int, start: Int, label: (Int) -> String, onValue: (Int, Boolean) -> Unit) {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val name = drawerText(title, 13f)
+        val value = drawerText(label(start), 12f).apply { typeface = android.graphics.Typeface.MONOSPACE }
+        head.addView(name, LinearLayout.LayoutParams(0, WRAP, 1f))
+        head.addView(value, LinearLayout.LayoutParams(WRAP, WRAP))
+        val seek = SeekBar(this).apply {
+            tintSlider(this)
+            this.max = max
+            progress = start
+            kit.label(this, title)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    value.text = label(progress)
+                    onValue(progress, false)
+                }
+
+                override fun onStartTrackingTouch(bar: SeekBar) {
+                    // nothing to do
+                }
+
+                override fun onStopTrackingTouch(bar: SeekBar) = onValue(bar.progress, true)
+            })
+        }
+        box.addView(head, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(6), 0, dp(6), 0) })
+        box.addView(seek, LinearLayout.LayoutParams(MATCH, dp(40)))
+        popovers.show(box, anchor, Popovers.Side.BESIDE, widthDp = 220f)
+    }
+
+    // ── the ⋯ menu ──
+
+    private fun moreMenu(anchor: View) {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        box.addView(menuRow("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() })
+        box.addView(menuRow("Open…", "Open a drawing from your files") { askWhichToOpen() })
+
+        // Smoothing lives here now: set once, rarely touched.
+        val smoothHead = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val smoothValue = drawerText("${Math.round(canvas.smoothing * 100)}%", 12f).apply { typeface = android.graphics.Typeface.MONOSPACE }
+        smoothHead.addView(drawerText("Smoothing", 14f), LinearLayout.LayoutParams(0, WRAP, 1f))
+        smoothHead.addView(smoothValue, LinearLayout.LayoutParams(WRAP, WRAP))
+        box.addView(smoothHead, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(10), dp(8), dp(10), 0) })
+        box.addView(SeekBar(this).apply {
+            tintSlider(this)
+            max = 100
+            progress = Math.round(canvas.smoothing * 100)
+            kit.label(this, "Stroke smoothing")
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    canvas.smoothing = progress / 100f
+                    // JB-1.05b: only a real move of the slider takes smoothing away from the brush file.
+                    canvas.smoothingFromUser = true
+                    smoothValue.text = "$progress%"
+                }
+
+                override fun onStartTrackingTouch(bar: SeekBar) {
+                    // nothing to do
+                }
+
+                override fun onStopTrackingTouch(bar: SeekBar) {
+                    // nothing to do
+                }
+            })
+        }, LinearLayout.LayoutParams(MATCH, dp(40)))
+
+        box.addView(menuRow("Put everything back", "Move the tool strip and the reference picture back to where they started") { putEverythingBack() })
+        // The one destructive row carries the one colour allowed to mean "something is lost", as a dot: red TEXT over a
+        // see-through panel was hard to read on the Note 9. Undo brings the drawing back.
+        box.addView(menuRow("Clear drawing", "Clear the drawing — Undo brings it back", dot = kit.p.stateDestroy) { canvas.clearCanvas() })
+        popovers.show(box, anchor, Popovers.Side.BELOW, widthDp = 240f)
+    }
+
+    private fun menuRow(text: String, label: String, dot: Int? = null, action: () -> Unit): View =
+        drawerText(text, 14f).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            if (dot != null) {
+                val d = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(dot)
+                    setSize(dp(7), dp(7))
+                }
+                setCompoundDrawablesRelativeWithIntrinsicBounds(d, null, null, null)
+                compoundDrawablePadding = dp(8)
+            }
+            setPadding(dp(10), 0, dp(10), 0)
+            minHeight = dp(40)
+            kit.label(this, label)
+            background = pressWash()
+            setOnClickListener {
+                popovers.close()
+                action()
+            }
+        }
+
+    private fun drawerText(text: String, sp: Float): TextView = TextView(this).apply {
+        this.text = text
+        textSize = sp
+        setTextColor(kit.p.drawerInk)
+    }
+
+    /** Sliders in the chrome: a drawer-ink thumb on a faint track, as the mockup drew them — never the platform's accent. */
+    private fun tintSlider(s: SeekBar) {
+        val ink = android.content.res.ColorStateList.valueOf(kit.p.drawerInk)
+        s.thumbTintList = ink
+        s.progressTintList = ink
+        s.progressBackgroundTintList = android.content.res.ColorStateList.valueOf(kit.ink(0.25f))
+    }
+
+    /** A pressed row washes with drawer ink at 20%; idle rows are bare. */
+    private fun pressWash(): android.graphics.drawable.Drawable = android.graphics.drawable.StateListDrawable().apply {
+        addState(intArrayOf(android.R.attr.state_pressed), GradientDrawable().apply {
+            cornerRadius = kit.dp(10f)
+            setColor(kit.ink(0.2f))
+        })
+    }
+
+    /** Owner decision 5: everything movable, and one way back. */
+    private fun putEverythingBack() {
+        placement = StripPlacement.DEFAULT
+        strip.edge = placement.edge
+        prefs.edit().putString(PREF_STRIP, placement.encode()).apply()
+        strip.post { placeStrip() }
+        reference.putBack()
+    }
+
+    /** Four fingers: the chrome fades out, or back in (170 ms). The drawing and the pinned reference are never touched. */
+    private fun toggleChrome() {
+        chromeShown = !chromeShown
+        popovers.close()
+        for (v in listOf<View>(topBar, strip, hairline)) {
+            v.animate().cancel()
+            if (chromeShown) {
+                v.visibility = View.VISIBLE
+                v.animate().alpha(1f).setDuration(170L).start()
+            } else {
+                v.animate().alpha(0f).setDuration(170L).withEndAction { if (!chromeShown) v.visibility = View.GONE }.start()
+            }
+        }
+    }
+
+    // ── the pinned reference (owner decision 3) ──
+
+    private fun pinTapped() {
+        if (reference.bitmap == null) { askForReference(); return }
+        val show = reference.visibility != View.VISIBLE
+        reference.visibility = if (show) View.VISIBLE else View.GONE
+        pinBtn.on = show
+        prefs.edit().putBoolean(PREF_REF_SHOWN, show).apply()
+    }
+
+    private fun referenceMenu() {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        box.addView(menuRow(if (reference.bitmap == null) "Pin a picture…" else "Change picture…", "Choose the reference picture") { askForReference() })
+        if (reference.bitmap != null) {
+            box.addView(menuRow("Put it back", "Move the reference picture back to the corner") { reference.putBack() })
+            box.addView(menuRow("Remove picture", "Unpin the reference picture") { removeReference() })
+        }
+        popovers.show(box, pinBtn, Popovers.Side.BELOW, widthDp = 200f)
+    }
+
+    private fun askForReference() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        launch(intent, REQUEST_REFERENCE)
+    }
+
+    /** A picture was chosen: kept by its address (not copied), so it survives the screen closing but costs no space. */
+    private fun pinReference(uri: Uri) {
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (e: SecurityException) {
+            // A provider that will not let us keep it still shows it now; it just will not come back next visit.
+        }
+        loadReference(uri, null, shown = true)
+        prefs.edit().putString(PREF_REF_URI, uri.toString()).remove(PREF_REF_PLACE).putBoolean(PREF_REF_SHOWN, true).apply()
+    }
+
+    private fun restoreReference() {
+        val uri = prefs.getString(PREF_REF_URI, null)?.let { Uri.parse(it) } ?: return
+        val place = prefs.getString(PREF_REF_PLACE, null)?.split(' ')?.mapNotNull { it.toFloatOrNull() }
+            ?.takeIf { it.size == 9 }?.toFloatArray()
+        loadReference(uri, place, shown = prefs.getBoolean(PREF_REF_SHOWN, true), quietIfGone = true)
+    }
+
+    /** Decoded on the writer thread, at most [REFERENCE_MAX_PX] on its long side, turned the right way up. */
+    private fun loadReference(uri: Uri, place: FloatArray?, shown: Boolean, quietIfGone: Boolean = false) {
+        fileIo.execute {
+            val bmp = try { decodeReference(uri) } catch (e: Exception) { null }
+            ui.post {
+                if (bmp == null) {
+                    if (!quietIfGone) toast("That picture could not be opened")
+                    else removeReference()
+                    return@post
+                }
+                reference.setPicture(bmp, place)
+                reference.visibility = if (shown) View.VISIBLE else View.GONE
+                pinBtn.on = shown
+            }
+        }
+    }
+
+    private fun decodeReference(uri: Uri): Bitmap? {
+        if (Build.VERSION.SDK_INT >= 28) {
+            val src = ImageDecoder.createSource(contentResolver, uri)
+            return ImageDecoder.decodeBitmap(src) { decoder, info, _ ->
+                val long = maxOf(info.size.width, info.size.height)
+                if (long > REFERENCE_MAX_PX) {
+                    val s = REFERENCE_MAX_PX.toFloat() / long
+                    decoder.setTargetSize(Math.max(1, Math.round(info.size.width * s)), Math.max(1, Math.round(info.size.height * s)))
+                }
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            }
+        }
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= REFERENCE_MAX_PX) sample *= 2
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        return contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+    }
+
+    private fun saveReferencePlace() {
+        prefs.edit().putString(PREF_REF_PLACE, reference.placement().joinToString(" ")).apply()
+    }
+
+    private fun removeReference() {
+        prefs.getString(PREF_REF_URI, null)?.let { old ->
+            try {
+                contentResolver.releasePersistableUriPermission(Uri.parse(old), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (e: SecurityException) {
+                // Never held, or already gone: nothing to give back.
+            }
+        }
+        reference.setPicture(null, null)
+        pinBtn.on = false
+        prefs.edit().remove(PREF_REF_URI).remove(PREF_REF_PLACE).remove(PREF_REF_SHOWN).apply()
+    }
+
+    /** The strip's swatch and opacity button show the colour the next stroke will use; the hair outlines it. */
+    private fun refreshColour() {
+        showStripValues()
     }
 
     /** The Studio's own colour picker (JB-2.03a Decision 1). This Activity wears the Studio's theme, so its bottom sheet looks the same. */
@@ -416,8 +776,8 @@ class JoyBrushActivity : Activity() {
     }
 
     /**
-     * Tap = the picker. Press and drag off the pill = the eyedropper (JB-2.03a Decision 2): the ring follows the finger over the drawing,
-     * lifting on the drawing takes that colour, and dragging back onto the pill and lifting changes nothing.
+     * Tap = the picker. Press and drag off the swatch = the eyedropper (JB-2.03a Decision 2): the ring follows the finger over the
+     * drawing, lifting on the drawing takes that colour, and dragging back onto the swatch and lifting changes nothing.
      */
     private inner class ColourPillTouch : View.OnTouchListener {
         private var downX = 0f
@@ -463,36 +823,7 @@ class JoyBrushActivity : Activity() {
 
     private fun updateHistoryButtons(canUndo: Boolean, canRedo: Boolean) {
         undoBtn.isEnabled = canUndo
-        undoBtn.alpha = if (canUndo) 1f else 0.4f
         redoBtn.isEnabled = canRedo
-        redoBtn.alpha = if (canRedo) 1f else 0.4f
-    }
-
-    private fun toggleEraser() {
-        erasing = !erasing
-        canvas.brush = canvas.brush.copy(erase = erasing)
-        eraserBtn.alpha = if (erasing) 1f else 0.55f
-    }
-
-    /**
-     * The brush pill's label: the name of the file the view is drawing with. "Brush" alone, with
-     * no name after it, means no brush file was packaged into the build.
-     */
-    private fun brushLabel(): String {
-        val p = brushes.getOrNull(brushIndex)
-        return if (p == null) "Brush" else "Brush: ${p.name}"
-    }
-
-    /** Tap cycles through the packaged brush files, wrapping round at the end. */
-    private fun cycleBrush() {
-        if (brushes.isEmpty()) return
-        brushIndex += 1
-        if (brushIndex >= brushes.size) brushIndex = 0
-        canvas.preset = brushes[brushIndex]
-        brushBtn.text = brushLabel()
-        // The tooltip is read when the person presses and holds, so it has to be brought up to
-        // date with the label rather than always saying the same thing.
-        ViewCompat.setTooltipText(brushBtn, "Change the brush — now ${brushes[brushIndex].name}")
     }
 
     // ── save, open and "save a copy" (JB-0.08b) ─────────────────────────────
@@ -722,6 +1053,7 @@ class JoyBrushActivity : Activity() {
         val uri = data?.data ?: return
         if (requestCode == REQUEST_OPEN) openFrom(uri)
         if (requestCode == REQUEST_SAVE_COPY) saveCopyTo(uri)
+        if (requestCode == REQUEST_REFERENCE) pinReference(uri)
     }
 
     /** `Joy Brush 2026-09-28 2311.joybrush` — the default name the picker opens with. */
@@ -759,7 +1091,7 @@ class JoyBrushActivity : Activity() {
         clipboard.setPrimaryClip(ClipData.newPlainText("Joy Brush pen diagnostics", diag.report()))
     }
 
-    // ── view helpers, all programmatic so this module needs no resources ─────
+    // ── view helpers (the diagnostics panel keeps its plain pills) ──────────
 
     private fun pillButton(label: String, description: String, action: () -> Unit): TextView =
         TextView(this).apply {
@@ -780,27 +1112,11 @@ class JoyBrushActivity : Activity() {
         setStroke(dp(1), OVERLAY_RING)
     }
 
-    private fun oval(fill: Int, stroke: Int): GradientDrawable = GradientDrawable().apply {
-        shape = GradientDrawable.OVAL
-        setColor(fill)
-        if (stroke > 0) setStroke(stroke, OVERLAY_RING)
-    }
-
-    private fun corner(w: Int, h: Int, gravity: Int, marginDp: Int = 0): FrameLayout.LayoutParams =
-        FrameLayout.LayoutParams(w, h).apply {
-            this.gravity = gravity
-            val m = dp(marginDp)
-            setMargins(m, m, m, m)
-        }
-
-    private fun pillChild(): LinearLayout.LayoutParams =
-        LinearLayout.LayoutParams(WRAP, dp(40)).apply { marginEnd = dp(8) }
-
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     /**
      * The canvas is deliberately full-bleed; only the overlay layer steps aside of the cutout and
-     * the (transient) system bars, so the close button never lands under the punch-hole.
+     * the (transient) system bars, so no button ever lands under the punch-hole.
      */
     private fun goFullScreen(overlays: View) {
         WindowCompat.setDecorFitsSystemWindows(window, false)

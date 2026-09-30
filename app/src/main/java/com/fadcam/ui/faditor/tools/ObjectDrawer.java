@@ -1338,61 +1338,27 @@ public final class ObjectDrawer extends LinearLayout {
         // HOW see-through is the owner's call, per phone (2026-09-24): "if we're at 65, let's
         // try 50% ... perhaps a slider in the settings tool." Default 50% see-through; the
         // Studio's Settings tool holds the slider; every drawer repaints the moment it moves.
-        private static final String PREFS = "studio_drawer";
-        private static final String KEY_SEE_THROUGH = "see_through_pct";
-        public static final int SEE_THROUGH_DEFAULT = 50;
-        public static final int SEE_THROUGH_MIN = 20;
-        public static final int SEE_THROUGH_MAX = 85;
+        // The fill itself lives in studiokit's DrawerFill now (D.02, R23), so Joy Brush's panels read the same slider.
+        // These stay as the Studio's names for it.
+        public static final int SEE_THROUGH_DEFAULT = DrawerFill.SEE_THROUGH_DEFAULT;
+        public static final int SEE_THROUGH_MIN = DrawerFill.SEE_THROUGH_MIN;
+        public static final int SEE_THROUGH_MAX = DrawerFill.SEE_THROUGH_MAX;
 
         /** How see-through drawers are, in percent (the Settings slider's value). */
-        public static int seeThroughPct(@NonNull Context ctx) {
-            int v = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                    .getInt(KEY_SEE_THROUGH, SEE_THROUGH_DEFAULT);
-            return Math.max(SEE_THROUGH_MIN, Math.min(SEE_THROUGH_MAX, v));
-        }
+        public static int seeThroughPct(@NonNull Context ctx) { return DrawerFill.seeThroughPct(ctx); }
 
-        public static void setSeeThroughPct(@NonNull Context ctx, int pct) {
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                    .putInt(KEY_SEE_THROUGH,
-                            Math.max(SEE_THROUGH_MIN, Math.min(SEE_THROUGH_MAX, pct)))
-                    .apply();
-        }
+        public static void setSeeThroughPct(@NonNull Context ctx, int pct) { DrawerFill.setSeeThroughPct(ctx, pct); }
 
         /** The one see-through drawer fill (--scrim), at the chosen see-through. */
-        public static int drawerFill(@NonNull Context ctx) {
-            return Studio.alpha(Studio.GROUND, Math.round((100 - seeThroughPct(ctx)) * 2.55f));
-        }
-
-        private static final String KEY_FROST = "frost";
+        public static int drawerFill(@NonNull Context ctx) { return DrawerFill.fill(ctx); }
 
         /** Frost: the picture behind a drawer is blurred under its see-through fill. */
-        public static boolean frostOn(@NonNull Context ctx) {
-            return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_FROST, false);
-        }
+        public static boolean frostOn(@NonNull Context ctx) { return DrawerFill.frostOn(ctx); }
 
-        public static void setFrostOn(@NonNull Context ctx, boolean on) {
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                    .putBoolean(KEY_FROST, on).apply();
-        }
+        public static void setFrostOn(@NonNull Context ctx, boolean on) { DrawerFill.setFrostOn(ctx, on); }
 
         /** Repaint {@code v}'s fill now and whenever the slider moves; a no-op off a drawable fill. */
-        public static void followDrawerFill(@NonNull View v) {
-            final Context ctx = v.getContext();
-            final android.content.SharedPreferences sp =
-                    ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-            final Runnable paint = () -> {
-                android.graphics.drawable.Drawable bg = v.getBackground();
-                if (bg instanceof GradientDrawable) {
-                    ((GradientDrawable) bg.mutate()).setColor(drawerFill(ctx));
-                }
-            };
-            paint.run();
-            // Held on the view: SharedPreferences keeps listeners weakly.
-            android.content.SharedPreferences.OnSharedPreferenceChangeListener l =
-                    (prefs, key) -> { if (KEY_SEE_THROUGH.equals(key)) v.post(paint); };
-            v.setTag(com.fadcam.R.id.faditor_tag_drawer_fill, l);
-            sp.registerOnSharedPreferenceChangeListener(l);
-        }
+        public static void followDrawerFill(@NonNull View v) { DrawerFill.follow(v); }
 
         private Kit() {}
 

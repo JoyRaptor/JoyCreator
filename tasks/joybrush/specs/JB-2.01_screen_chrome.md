@@ -208,3 +208,48 @@ on one edge (Brush, Smudge, Eraser, Size, Colour, Opacity) with the D.02c recent
 options in a popover (opacity, 27 blend modes, mask, clip); a **brush drawer** with kinds on the left and stroke samples on the right;
 a **pinned reference picture**; a Concepts-style **dial** later as a setting; every piece movable with a reset.
 **Do not build this row until the owner answers the five decisions on that page.**
+
+## Lead build 2026-09-30 — built by the Lead to the owner-approved mockup v2 (supersedes the Contract and Decisions above)
+
+The owner approved v2 ("I think that is good design … you should do the ui, not a cheap model") and all five picks on it:
+strip on the left edge and draggable; layers as a thumbnail column; a pinned reference in the top bar; the strip now and the
+dial later as a setting; everything movable with a "Put everything back". The two-row cluster, the thumb rail and the 600 dp
+drawer/popover switch above are NOT built and are not coming back.
+
+**What is built.**
+- Core, pure and tested (`core/chrome/`, `ChromeCoreTest` 15/15): `StripPlacement` (snap to the nearer edge, clamp on screen,
+  one-line preferences), `ToolMemory` (brush, smudge and eraser each remember their own brush, size and opacity; a brush
+  picked in the drawer goes to the tool it belongs to), `BrushShelf` (the drawer's kinds; only non-empty shelves are shown),
+  and `SampleStroke` (a drawer row's sample is a real stroke from the brush's own dabber, placer and scatter).
+- Views in `joybrush-android/.../chrome/`: `ToolStripView`, `TopButton`, `Popovers` (one panel at a time; a tap outside
+  closes it and is consumed, so it never leaves a dot), `BrushDrawerView`, `ValueHud` (the size ring at the true width and
+  zoom, or the colour at its opacity, while dragging), `ReferenceView` (move, turn and scale; never saved into the drawing),
+  `JbIcon`, `ChromeKit`.
+- `studiokit/.../tools/DrawerFill.java`: the see-through drawer fill, moved out of `ObjectDrawer.Kit` (R23); Kit delegates.
+
+**Design calls made on the phone (Note 9, 2026-09-30), each seen in a screenshot first.**
+1. The strip and the top chips use a near-solid panel (`ChromeKit.chrome()`, 90%), as the mockup drew them. At the drawer's
+   50% they read as flat grey over white paper and looked switched off. Drawers and panels keep `DrawerFill` (the owner's rule).
+2. Opacity is a gauge ring with the colour inside, never a plain disc: at 100% it was indistinguishable from the colour button.
+3. The drawer is full width on a phone. The Note 9 at its dense setting is 548 dp wide, not 411 dp; the first cap at 460 dp
+   stopped it short. Now capped at 600 dp.
+4. A brush's name sits in a band above its sample, never over it: a name in the corner hid the eraser's stroke.
+5. The drawer opens on All until the tool's own shelf holds two brushes. A shelf of one was a nearly empty drawer.
+6. A disabled Undo dims its icon, not its chip. Sliders are drawer ink on a faint track, not the platform's lavender.
+   "Clear drawing" is ink text with a red dot, because red text over a see-through panel was hard to read.
+7. The pen diagnostics' hidden door moved from holding the old × to holding ⋯.
+
+**Checked on the Note 9 by the Lead:** open from the lobby room; draw; Undo turns on; the stroke's colour joins the hair;
+tap the brush again → drawer; pick Marker; drag size (the readout shows the true width); draw at the new size and opacity;
+the eraser tool erases at its own size; drag the strip → it snaps to the right edge with the hair on the inside; the strip's
+place and the drawing survive a reinstall; ⋯ → Put everything back; tap Size → slider; tap Colour → the Studio's picker; a
+tap outside a panel closes it with no mark on the drawing.
+
+**Not checked (needs the owner):** the pinned reference, which needs a picture picked from his files; the four-finger hide
+(adb cannot tap with four fingers); a real pen.
+
+**Still to come, in their own rows:**
+- The layer column (JB-2.04, with the multi-layer view).
+- The guides button (JB-2.12).
+- The small colour-wheel popover beside the strip. For now the Studio's full picker opens, and it dims the drawing.
+- The dial, as a later setting.

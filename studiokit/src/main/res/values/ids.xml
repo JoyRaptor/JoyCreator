@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- DrawerFill.follow keeps its preference listener alive on the view it repaints. -->
+    <item name="studiokit_tag_drawer_fill" type="id"/>
+</resources>

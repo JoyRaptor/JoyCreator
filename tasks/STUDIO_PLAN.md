@@ -102,7 +102,8 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
 | **Visualizer keyframes** on Pos X/Y, Width, Height, Rotate: model KeyframeSet, saved, undoable, export places per frame; diamonds + prev/next verified on device (2 keys saved) | ✅ 3542b3cc (export animation not watched) |
 | **Visualizer style studio is now the drawer's first tab** ("Style"), before Transform; old top panel retired; sliders restyled to the drawer look | ✅ 3542b3cc + next |
 | Phone is now in PORTRAIT: lanes, drawers and the Style tab render fine there (landscape clipped the old panel) | ✅ |
-| Not yet on phone: follower drops to own lane on time overlap; visualizer following its parent (watched moving); pin links (needs the shared pin-position model first); Fit mode; export of a keyed visualizer | ⏳ |
+| **Keyed visualizer EXPORTS animated** (Note 9, full 1080p export of the test project, frames at 0.1/0.8/1.5/2.3/3.0/3.5/5 s): the keyed visualizer starts at the left edge and has moved right by 1.5 s (blue extent min 0.00 -> 0.08, max 0.93 -> 1.00, centroid 0.47 -> ~0.57), matching keys x 0.18 @0 -> 1.0 @3.1 s | ✅ |
+| Not yet on phone: follower drops to own lane on time overlap; a linked visualizer watched following its parent; pin links (needs the shared pin-position model first); Fit mode; dead MaskKeyPanel removal (entangled with the eyedropper plumbing) | ⏳ |
 | Observed, not mine: caption line shifted right/clipped at 5.1s in ZA_CONTROL on the ~10:40 build (export lane told) | 👀 |
 | NEXT: phone pass on remaining 🧪; pin links (warp/puppet pins as parents); parameter drivers; text box sizing modes (#14); bottom-tools sweep | ⏳ |
 

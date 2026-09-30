@@ -198,3 +198,13 @@ visual language, LEAD_RULINGS R20–R24 and the specs of every pill this row re-
 6. **Only the three most-used controls go in the rail** (Decision 2's shape). A rail with eight
    items is a second cluster and the screen stops having one place to look.
 7. **Hiding the chrome never hides a modal.** A dialog or a popover in flight is dismissed first.
+
+## Lead note 2026-09-30 — the shape is being redesigned with the owner (supersedes Questions 1–2)
+
+The owner sent Infinite Painter and Concepts screenshots as the target: compact chrome. The proposal now on the table
+(https://claude.ai/artifact/3WvEvXr9fxVWREpMbU4mA9, v2) replaces the two-row bottom cluster with: a slim draggable **tool strip**
+on one edge (Brush, Smudge, Eraser, Size, Colour, Opacity) with the D.02c recent-colour hair beside it; four icons top-right
+(guides, pinned reference, layers, more) and Home/Undo top-left; **layers as a thumbnail column** on the right edge with per-layer
+options in a popover (opacity, 27 blend modes, mask, clip); a **brush drawer** with kinds on the left and stroke samples on the right;
+a **pinned reference picture**; a Concepts-style **dial** later as a setting; every piece movable with a reset.
+**Do not build this row until the owner answers the five decisions on that page.**

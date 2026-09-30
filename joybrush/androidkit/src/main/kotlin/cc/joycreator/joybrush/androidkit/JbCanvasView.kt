@@ -608,11 +608,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var cancelR = 0f
     private var sampleSeq = 0
 
+    /** The eyedropper is being driven by a finger: big ring, lifted off the fingertip (owner, 2026-09-30). */
+    private var eyedropFinger = false
+    private var fingerX = 0f
+    private var fingerY = 0f
+
+    /** The long-press being watched is a finger's, not a pen's. */
+    private var holdIsFinger = false
+
     private val holdFired = Runnable {
         if (!drawing || !longPressEyedropper) return@Runnable
         // A hold that stayed still: the dot the pen made is thrown away (nothing is committed) and the ring comes up.
         cancelStroke()
-        startEyedrop(holdX, holdY, withCancelCircle = true)
+        startEyedrop(holdX, holdY, withCancelCircle = true, finger = holdIsFinger)
     }
 
     /** The pen button's tap, the long-press, and a live eyedropper own the touch. True = handled here. */
@@ -663,6 +671,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         holdX = ev.getX(index)
         holdY = ev.getY(index)
         holdSlop = if (isPenAt(ev, index)) Eyedropper.PEN_SLOP_PX else Eyedropper.FINGER_SLOP_PX
+        holdIsFinger = MotionEventSamples.tool(ev, index) == Tool.FINGER
         postDelayed(holdFired, Eyedropper.HOLD_MS)
     }
 
@@ -671,8 +680,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         holdPointer = -1
     }
 
-    private fun startEyedrop(x: Float, y: Float, withCancelCircle: Boolean) {
+    private fun startEyedrop(x: Float, y: Float, withCancelCircle: Boolean, finger: Boolean = false) {
         eyedropping = true
+        eyedropFinger = finger
         eyedropOld = strokeColor
         eyedropNew = eyedropOld
         cancelX = x; cancelY = y
@@ -680,18 +690,23 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         eyedropMove(x, y)
     }
 
+    /** The touch is at ([x], [y]); the eyedropper samples there (a pen) or off the fingertip (a finger). */
     private fun eyedropMove(x: Float, y: Float) {
-        eyedropX = x; eyedropY = y
+        fingerX = x; fingerY = y
+        val (sx, sy) = Eyedropper.samplePoint(x, y, eyedropFinger, resources.displayMetrics.density)
+        eyedropX = sx; eyedropY = sy
         publishEyedrop()
         val seq = ++sampleSeq
-        sampleAt(x, y) { argb -> if (seq == sampleSeq && eyedropping) { eyedropNew = argb; publishEyedrop() } }
+        sampleAt(sx, sy) { argb -> if (seq == sampleSeq && eyedropping) { eyedropNew = argb; publishEyedrop() } }
     }
 
+    /** Cancel is where the TOUCH went back to, not where the lifted ring is. */
     private fun overCancel(): Boolean =
-        cancelR > 0f && Eyedropper.insideCircle(eyedropX, eyedropY, cancelX, cancelY, cancelR)
+        cancelR > 0f && Eyedropper.insideCircle(fingerX, fingerY, cancelX, cancelY, cancelR)
 
     private fun publishEyedrop() {
-        onEyedrop?.invoke(EyedropState(eyedropX, eyedropY, eyedropNew, eyedropOld, cancelX, cancelY, cancelR, overCancel()))
+        onEyedrop?.invoke(EyedropState(eyedropX, eyedropY, eyedropNew, eyedropOld, cancelX, cancelY, cancelR, overCancel(),
+            eyedropFinger, fingerX, fingerY))
     }
 
     private fun eyedropEnd(take: Boolean) {
@@ -723,8 +738,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * The drag-off-the-colour-pill eyedropper (JB-2.03a Decision 2), driven by the screen that owns the pill. Points are VIEW-LOCAL px of
      * this canvas. [dragEyedropEnd] with `take = false` (lifted back on the pill) changes nothing.
      */
-    fun dragEyedropMove(x: Float, y: Float) {
-        if (!eyedropping) startEyedrop(x, y, withCancelCircle = false) else eyedropMove(x, y)
+    fun dragEyedropMove(x: Float, y: Float, finger: Boolean = false) {
+        if (!eyedropping) startEyedrop(x, y, withCancelCircle = false, finger = finger) else eyedropMove(x, y)
     }
 
     fun dragEyedropEnd(take: Boolean) {

@@ -18,6 +18,13 @@ data class EyedropState(
     val cancelCy: Float,
     val cancelR: Float,
     val overCancel: Boolean,
+    /**
+     * A FINGER is picking (owner, 2026-09-30: "needs a big version for fat fingers"): the ring is big and floats off the
+     * fingertip at ([x], [y]) — the point being sampled — with a stem back to the finger at ([fingerX], [fingerY]).
+     */
+    val finger: Boolean = false,
+    val fingerX: Float = x,
+    val fingerY: Float = y,
 )
 
 /** The pure numbers of the eyedropper (JB-2.03a), so they are tests and not folklore. */
@@ -40,6 +47,26 @@ object Eyedropper {
 
     /** A press on the colour pill that moves further than this (dp) is a drag-off, not a tap. */
     const val DRAG_OFF_DP = 8f
+
+    /**
+     * The finger eyedropper (owner, 2026-09-30): a fingertip covers what it is pointing at, so a finger samples the point
+     * [FINGER_LIFT_DP] above it, and the ring there is big ([FINGER_RING_DP], [FINGER_RING_THICK_DP] thick) with a
+     * crosshair at the exact pixel. A pen samples under its tip, as before: the tip is small and you can see past it.
+     */
+    const val FINGER_LIFT_DP = 76f
+    const val FINGER_RING_DP = 92f
+    const val FINGER_RING_THICK_DP = 12f
+
+    /**
+     * Where the eyedropper samples for a touch at ([x], [y]) (view px): under a pen; [FINGER_LIFT_DP] above a finger —
+     * or BELOW it when there is no room above for the ring (the top edge of the screen), so the ring is never cut off.
+     */
+    fun samplePoint(x: Float, y: Float, finger: Boolean, density: Float): Pair<Float, Float> {
+        if (!finger) return Pair(x, y)
+        val lift = FINGER_LIFT_DP * density
+        val room = FINGER_RING_DP * density / 2f
+        return if (y - lift >= room) Pair(x, y - lift) else Pair(x, y + lift)
+    }
 
     /**
      * The colour a person SEES at one pixel: the layer's premultiplied RGBA8 [rgba] pixel at [pixelIndex] (the index of its first byte),

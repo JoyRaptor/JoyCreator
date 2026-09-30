@@ -1239,7 +1239,8 @@ class JoyBrushActivity : Activity() {
                     if (!dragging && Math.hypot((ev.rawX - downX).toDouble(), (ev.rawY - downY).toDouble()) > far) dragging = true
                     if (dragging) {
                         val (x, y) = onCanvas(ev)
-                        canvas.dragEyedropMove(x, y)
+                        // A finger gets the big, lifted ring (owner, 2026-09-30); a pen samples under its tip.
+                        canvas.dragEyedropMove(x, y, finger = ev.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER)
                     }
                 }
                 MotionEvent.ACTION_UP -> {

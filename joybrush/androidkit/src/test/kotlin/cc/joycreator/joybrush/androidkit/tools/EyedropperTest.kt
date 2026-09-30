@@ -43,4 +43,27 @@ class EyedropperTest {
         assertTrue(Eyedropper.insideCircle(22f, 10f, 10f, 10f, 12f))
         assertFalse(Eyedropper.insideCircle(19f, 19f, 10f, 10f, 12f), "a corner of the bounding square is outside")
     }
+
+    /** Owner, 2026-09-30: "needs a big version for fat fingers". A pen samples under its tip; a finger above it. */
+    @Test
+    fun aPenSamplesUnderItsTipAndAFingerSamplesAboveItsTip() {
+        assertEquals(Pair(100f, 500f), Eyedropper.samplePoint(100f, 500f, finger = false, density = 2f))
+        // 76 dp at density 2 is 152 px above.
+        assertEquals(Pair(100f, 348f), Eyedropper.samplePoint(100f, 500f, finger = true, density = 2f))
+    }
+
+    @Test
+    fun nearTheTopEdgeTheFingerRingGoesBelowSoItIsNeverCutOff() {
+        // At y = 150, 152 px up would leave -2 px for a ring that needs 92 px (its half) of room: it goes below instead.
+        assertEquals(Pair(100f, 302f), Eyedropper.samplePoint(100f, 150f, finger = true, density = 2f))
+        // At y = 244 there is exactly room (244 - 152 = 92): it stays above.
+        assertEquals(Pair(100f, 92f), Eyedropper.samplePoint(100f, 244f, finger = true, density = 2f))
+    }
+
+    @Test
+    fun theFingerRingIsBigEnoughToSeeAroundAFingertip() {
+        // A fingertip on a phone is about 10 mm (~ 60 dp). The ring must be wider than that, and lifted clear of it.
+        kotlin.test.assertTrue(Eyedropper.FINGER_RING_DP >= 2 * Eyedropper.RING_DP)
+        kotlin.test.assertTrue(Eyedropper.FINGER_LIFT_DP - Eyedropper.FINGER_RING_DP / 2f >= 25f, "the ring clears the fingertip")
+    }
 }

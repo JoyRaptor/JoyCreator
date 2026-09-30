@@ -375,11 +375,13 @@ class DefaultPresetsTest {
     @Test
     fun grainIsOnlyOnTheBrushItIsFor() {
         val grained = shipped.filter { it.second.tipTexture.enabled || it.second.paperGrain.enabled }
-        val smudgeHasLanded = brushFolders().any { it.name == "smudge" }
-        val allowed = setOf("pencil") + if (smudgeHasLanded) setOf("smudge") else emptySet()
-        assertEquals(
-            allowed, grained.map { it.first }.toSet(),
-            "only Pencil may carry grain, and these folders do: " +
+        // Pencil MUST have grain. Smudge MAY (the spec allows a textured smudge); nobody else.
+        val mayHave = setOf("pencil", "smudge")
+        val names = grained.map { it.first }.toSet()
+        assertTrue("pencil" in names, "the Pencil is the brush grain is for, and it has none")
+        assertTrue(
+            mayHave.containsAll(names),
+            "only Pencil (and optionally Smudge) may carry grain, and these folders do: " +
                 grained.joinToString { "${it.first} (${it.second.id})" },
         )
     }
@@ -419,26 +421,16 @@ class DefaultPresetsTest {
             )
         }
 
-        val claimsCurrent = all.filter { it.second.version == BRUSH_VERSION }
-        assertTrue(
-            claimsCurrent.size <= 1,
-            "more than one shipped file claims version $BRUSH_VERSION: ${claimsCurrent.map { it.first }}. " +
-                "Only a file that uses a version-$BRUSH_VERSION word needs that number, and a bump is not " +
-                "a reason to restamp the others.",
-        )
-        for ((folder, p) in claimsCurrent) {
-            assertTrue(
-                p.engine == ENGINE_FILL || p.blend == BLEND_BEHIND,
-                "$folder/brush.json claims version $BRUSH_VERSION but uses no word that needs it " +
-                    "(engine \"${p.engine}\", blend \"${p.blend}\") — it should be the LOWEST version.",
-            )
-        }
+        // Every word carries the version that introduced it (`BrushJson.wordsNeedingVersion`), so this reads the
+        // rule from the code and needs no edit when a later bump adds words: a shipped file claims EXACTLY the
+        // highest version among its own words, or 1 if it has none. Claiming more would restamp it for nothing
+        // (an older Joy Brush could no longer open it); claiming less would be refused as older than its word.
         for ((folder, p) in all) {
-            if (claimsCurrent.any { it.first == folder }) continue
-            assertTrue(
-                p.engine != ENGINE_FILL && p.blend != BLEND_BEHIND,
-                "$folder/brush.json uses a version-$BRUSH_VERSION word but claims version ${p.version}; it " +
-                    "would be refused as a file older than the word it uses.",
+            val needed = BrushJson.wordsNeedingVersion(p).maxOfOrNull { it.minVersion } ?: 1
+            assertEquals(
+                needed, p.version,
+                "$folder/brush.json claims version ${p.version} but its words need $needed " +
+                    "(engine \"${p.engine}\", blend \"${p.blend}\") — the file should say the LOWEST version that can express it.",
             )
         }
     }

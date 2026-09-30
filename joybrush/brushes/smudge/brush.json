@@ -1,0 +1,27 @@
+{
+  "format": "joybrush.brush",
+  "version": 3,
+  "id": "joybrush.smudge",
+  "name": "Smudge",
+  "engine": "smudge",
+  "tip": {
+    "corner": 2,
+    "aspect": 0,
+    "hardness": { "base": 0.5 }
+  },
+  "size": {
+    "base": 28,
+    "inputs": [ { "input": "pressure", "curve": [ [0, 0.6], [1, 1] ] } ]
+  },
+  "opacity": { "base": 1 },
+  "flow": {
+    "base": 0.55,
+    "inputs": [ { "input": "pressure", "curve": [ [0, 0.25], [1, 1] ] } ]
+  },
+  "spacing": 0.06,
+  "accumulate": "buildup",
+  "blend": "normal",
+  "smoothing": 0.4,
+  "smudge": { "pickup": 0.08, "load": 0 },
+  "license": "CC0"
+}

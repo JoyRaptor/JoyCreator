@@ -6,5 +6,6 @@ ink
 pencil
 marker
 softair
+smudge
 eraser
 fill

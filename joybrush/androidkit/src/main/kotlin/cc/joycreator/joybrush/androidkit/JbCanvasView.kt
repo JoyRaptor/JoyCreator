@@ -9,12 +9,14 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import cc.joycreator.joybrush.androidkit.diag.BlendSelfCheck
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
+import cc.joycreator.joybrush.androidkit.gl.SmudgeParams
 import cc.joycreator.joybrush.androidkit.input.MotionEventSamples
 import cc.joycreator.joybrush.androidkit.io.JbArchiveException
 import cc.joycreator.joybrush.androidkit.io.JbContents
 import cc.joycreator.joybrush.androidkit.io.TILE_BYTES
 import cc.joycreator.joybrush.core.brush.BrushDabber
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 import cc.joycreator.joybrush.core.brush.DabInputs
 import cc.joycreator.joybrush.core.brush.Scatter
 import cc.joycreator.joybrush.core.brush.SplitMix
@@ -362,8 +364,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // The grain the file asked for, with its depth as evaluated at the first dab (JB-1.05c). The
         // hard-coded Brush has none.
         val grain = d?.strokeGrain ?: GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF)
+        // JB-1.06: a smudge brush carries ONE colour from the layer under the tip (R47); how hard it presses is the
+        // dab's own flow. Stamp brushes pass nothing.
+        val smudge = if (p != null && p.engine == ENGINE_SMUDGE) SmudgeParams(p.smudge.pickup, p.smudge.load) else null
         onGl { engine.beginStroke(layerId, b.argb, opacity, accumulate,
-            if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip, grain) }
+            if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip, grain, smudge) }
     }
 
     private fun feed(ev: MotionEvent) {
@@ -667,6 +672,38 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             return "The screen is too small for the blend check (it needs ${BlendSelfCheck.WIDTH} x ${BlendSelfCheck.HEIGHT})."
         }
         val scene = BlendSelfCheck.build()
+        val modes = drawCheckScene(scene, w, h, forceComposite = false)
+        modes.error?.let { return it }
+        val report = BlendSelfCheck.compare(BlendSelfCheck.expected(scene), modes.pixels!!)
+
+        // The second question: does the composite path give the same picture as the plain fast path when every
+        // layer is NORMAL? The same drawing with every mode set to NORMAL, drawn once the plain way, and once
+        // with an empty MULTIPLY layer on top (which sends the stack down the composite path and changes
+        // nothing about the picture).
+        val flat = BlendSelfCheck.Scene(
+            scene.doc,
+            scene.layers.map { BlendSelfCheck.CheckLayer(it.id, cc.joycreator.joybrush.core.doc.BlendMode.NORMAL, it.opacity, it.tiles) },
+        )
+        val plain = drawCheckScene(flat, w, h, forceComposite = false)
+        val composited = drawCheckScene(flat, w, h, forceComposite = true)
+        plain.error?.let { return it }
+        composited.error?.let { return it }
+        val pathDifference = BlendSelfCheck.worstDifference(plain.pixels!!, composited.pixels!!)
+        val pathsAgree = pathDifference <= BlendSelfCheck.TOLERANCE
+
+        return report.sentence() +
+            if (pathsAgree) " The two drawing paths agree (worst difference $pathDifference out of 255)."
+            else " BUT the fast path and the blend path draw ordinary layers differently (worst difference $pathDifference out of 255)."
+    }
+
+    private class CheckPicture(val pixels: ByteArray?, val error: String?)
+
+    /**
+     * Draws [scene] on a throwaway engine on this GL context and reads the top-left corner of the surface back,
+     * PREMULTIPLIED, top row first. With [forceComposite] an empty MULTIPLY layer goes on top, which changes no
+     * pixel but makes the engine composite the stack the shader way.
+     */
+    private fun drawCheckScene(scene: BlendSelfCheck.Scene, w: Int, h: Int, forceComposite: Boolean): CheckPicture {
         val check = GlPaintEngine()
         try {
             check.init()
@@ -676,9 +713,16 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 check.setLayerBlend(l.id, l.blend)
                 for ((key, bytes) in l.tiles) check.writeTile(l.id, key, bytes)
             }
+            if (forceComposite) {
+                check.addLayer("force-composite")
+                check.setLayerBlend("force-composite", cc.joycreator.joybrush.core.doc.BlendMode.MULTIPLY)
+            }
             // Document pixels land 1:1 in the top-left corner of the surface.
             val m = floatArrayOf(2f / w, 0f, 0f, 0f, -2f / h, 0f, -1f, 1f, 1f)
             check.draw(w, h, m, 0xFF808080.toInt())
+            check.compositeError?.let {
+                return CheckPicture(null, "This GPU would not build the blend shader, so blend modes are drawn as normal here: $it")
+            }
             val buf = java.nio.ByteBuffer.allocateDirect(BlendSelfCheck.WIDTH * BlendSelfCheck.HEIGHT * 4)
                 .order(java.nio.ByteOrder.nativeOrder())
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
@@ -688,11 +732,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             buf.rewind(); buf.get(raw)
             // glReadPixels gives the bottom row first; the export's picture has the top row first.
             val rowBytes = BlendSelfCheck.WIDTH * 4
-            val actual = ByteArray(raw.size)
+            val out = ByteArray(raw.size)
             for (row in 0 until BlendSelfCheck.HEIGHT) {
-                System.arraycopy(raw, (BlendSelfCheck.HEIGHT - 1 - row) * rowBytes, actual, row * rowBytes, rowBytes)
+                System.arraycopy(raw, (BlendSelfCheck.HEIGHT - 1 - row) * rowBytes, out, row * rowBytes, rowBytes)
             }
-            return BlendSelfCheck.compare(BlendSelfCheck.expected(scene), actual).sentence()
+            return CheckPicture(out, null)
         } finally {
             check.release()
         }

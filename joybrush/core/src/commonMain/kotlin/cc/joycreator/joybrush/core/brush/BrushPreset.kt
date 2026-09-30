@@ -52,6 +52,20 @@ import kotlinx.serialization.Serializable
     val radial: Float = 0f,
 )
 
+/**
+ * The two rates of a smudge brush (JB-1.06, brush version 3). How hard the smudge presses is the brush's
+ * own `flow` — pressure already drives it — so there is no `strength` here.
+ *
+ * Blueprint §5 / R8: ONE carried colour per brush, mixing toward the canvas AND toward the chosen colour
+ * in one dab — never separate reservoir and pickup stores. [pickup] is how fast the carried colour
+ * forgets what it has passed over and takes up the canvas; [load] is how fast it takes up the brush's
+ * own chosen colour. Both `0..1`.
+ */
+@Serializable data class SmudgeSpec(val pickup: Float = 0.5f, val load: Float = 0.15f)
+
+/** How far a push dab moves the pixels under it: a fraction of the tip's radius, along the stroke. `0<a<=1`. */
+@Serializable data class PushSpec(val amount: Float = 0.3f)
+
 @Serializable data class ScatterSpec(val amount: Param = Param(0f), val count: Int = 1, val countJitter: Float = 0f, val bothAxes: Boolean = true)
 
 @Serializable data class ColorJitter(val hue: Float = 0f, val saturation: Float = 0f, val value: Float = 0f, val perStroke: Boolean = false)
@@ -61,7 +75,7 @@ import kotlinx.serialization.Serializable
     val version: Int = BRUSH_VERSION,
     val id: String,
     val name: String,
-    val engine: String = "stamp",        // "stamp" | "smudge" | "wet" | "fill" (the fill pen, JB-1.08a)
+    val engine: String = "stamp",        // "stamp" | "smudge" | "push" (JB-1.06) | "wet" | "fill" (the fill pen, JB-1.08a)
     val tip: TipSpec = TipSpec(),
     val size: Param,                     // diameter in px
     val opacity: Param = Param(1f),      // ceiling for the whole stroke
@@ -70,6 +84,8 @@ import kotlinx.serialization.Serializable
     val tipTexture: GrainSpec = GrainSpec(),   // dab space: turns with the tip
     val paperGrain: GrainSpec = GrainSpec(),   // canvas space: stays put
     val scatter: ScatterSpec = ScatterSpec(),
+    val smudge: SmudgeSpec = SmudgeSpec(),     // read only when engine == "smudge" (version 3)
+    val push: PushSpec = PushSpec(),           // read only when engine == "push" (version 3)
     val sizeJitter: Float = 0f,
     val angleJitter: Float = 0f,         // degrees
     val color: ColorJitter = ColorJitter(),

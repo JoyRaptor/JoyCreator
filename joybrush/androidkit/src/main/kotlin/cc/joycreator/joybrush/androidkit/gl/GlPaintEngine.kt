@@ -1,6 +1,9 @@
 package cc.joycreator.joybrush.androidkit.gl
 
 import android.opengl.GLES30
+import cc.joycreator.joybrush.core.brush.SmudgeCarried
+import cc.joycreator.joybrush.core.brush.SmudgeStroke
+import cc.joycreator.joybrush.core.brush.TileReader
 import cc.joycreator.joybrush.core.doc.BlendMode
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.paint.Accumulate
@@ -12,6 +15,13 @@ import cc.joycreator.joybrush.core.paint.UndoLog
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import java.util.IdentityHashMap
+
+/**
+ * The two rates of a smudge stroke (JB-1.06): how fast the ONE carried colour takes on the canvas ([pickup]) and the brush's
+ * own colour ([load]), both 0..1. How hard a dab presses is the dab's own flow. See `core/brush/Smudge.kt` for the rule.
+ */
+class SmudgeParams(val pickup: Float, val load: Float)
 
 /**
  * The GPU painting engine (JB-0.07). GL THREAD ONLY — every method must be called on the thread that
@@ -38,10 +48,21 @@ class GlPaintEngine(
     private lateinit var dabProg: GlProgram
     private lateinit var commitProg: GlProgram
     private lateinit var tileProg: GlProgram
-    private lateinit var compositeProg: GlProgram
+    private lateinit var smudgeProg: GlProgram
+    /** Compiled the first time a blended stack is drawn, not at [init]: see [drawComposited]. */
+    private var compositeProg: GlProgram? = null
+
+    /**
+     * Why the composite shader could not be built on this GPU, or null. While it is set, [draw] takes the
+     * fixed-function path for every stack (layers then all composite as NORMAL) rather than the engine failing
+     * to start; the diagnostics panel's Blend check reports it in words.
+     */
+    var compositeError: String? = null
+        private set
 
     private var dabVao = 0
     private var tileVao = 0
+    private var smudgeVao = 0
     private var quadVbo = 0
     private var unitVbo = 0
     private var instanceVbo = 0
@@ -56,6 +77,10 @@ class GlPaintEngine(
 
     private var strokeInternal = GLES30.GL_R8
     private var strokeType = GLES30.GL_UNSIGNED_BYTE
+
+    /** What a smudge stroke's RGBA buffer is made of: half float where the GPU can render to it, else 8 bits. */
+    private var smudgeInternal = GLES30.GL_RGBA8
+    private var smudgeType = GLES30.GL_UNSIGNED_BYTE
 
     /** True once [init] has run on the current context. */
     var ready = false
@@ -86,6 +111,7 @@ class GlPaintEngine(
     private val layers = LinkedHashMap<String, Layer>()   // bottom → top
     private val freeLayerTex = ArrayDeque<Int>()
     private val freeStrokeTex = ArrayDeque<Int>()
+    private val freeSmudgeTex = ArrayDeque<Int>()
 
     val undo = UndoLog<Int>(undoBudgetBytes, sizeOf = { size.toLong() * size * 4 }, release = ::recycleLayerTex)
 
@@ -102,6 +128,13 @@ class GlPaintEngine(
     private var paperGrainTex = 0
 
     private var instanceData: FloatBuffer = newFloats(6 * 256)
+    private var smudgeInstanceData: FloatBuffer = newFloats(10 * 256)
+
+    /** Set while a smudge stroke is in progress: the ONE carried colour, and the layer as it was at pen-down. */
+    private var smudge: SmudgeStroke? = null
+
+    /** True while the stroke buffer holds RGBA carried paint (a smudge) instead of a single coverage channel. */
+    private var strokeIsRgba = false
 
     // ── lifecycle ────────────────────────────────────────────────────────────
 
@@ -127,12 +160,15 @@ class GlPaintEngine(
         val ext = GLES30.glGetString(GLES30.GL_EXTENSIONS) ?: ""
         val halfFloatRenderable = version.contains("OpenGL ES 3.2") ||
             ext.contains("GL_EXT_color_buffer_half_float") || ext.contains("GL_EXT_color_buffer_float")
-        if (halfFloatRenderable) { strokeInternal = GLES30.GL_R16F; strokeType = GLES30.GL_HALF_FLOAT }
+        if (halfFloatRenderable) {
+            strokeInternal = GLES30.GL_R16F; strokeType = GLES30.GL_HALF_FLOAT
+            smudgeInternal = GLES30.GL_RGBA16F; smudgeType = GLES30.GL_HALF_FLOAT
+        }
 
         dabProg = GlProgram(shaders.source("jb_dab.vert"), shaders.source("jb_dab.frag"), "dab")
         commitProg = GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_commit.frag"), "commit")
         tileProg = GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_tile.frag"), "tile")
-        compositeProg = GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_composite.frag"), "composite")
+        smudgeProg = GlProgram(shaders.source("jb_dab.vert"), shaders.source("jb_smudge_dab.frag"), "smudge")
 
         val ids = IntArray(3)
         GLES30.glGenBuffers(3, ids, 0)
@@ -140,9 +176,9 @@ class GlPaintEngine(
         upload(quadVbo, floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f))
         upload(unitVbo, floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f))
 
-        val vaos = IntArray(2)
-        GLES30.glGenVertexArrays(2, vaos, 0)
-        dabVao = vaos[0]; tileVao = vaos[1]
+        val vaos = IntArray(3)
+        GLES30.glGenVertexArrays(3, vaos, 0)
+        dabVao = vaos[0]; tileVao = vaos[1]; smudgeVao = vaos[2]
 
         GLES30.glBindVertexArray(dabVao)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, quadVbo)
@@ -155,6 +191,22 @@ class GlPaintEngine(
         GLES30.glEnableVertexAttribArray(2)
         GLES30.glVertexAttribPointer(2, 2, GLES30.GL_FLOAT, false, 24, 16)
         GLES30.glVertexAttribDivisor(2, 1)
+
+        // The smudge dab: the same quad and the same instance buffer, but 10 floats per dab (the stamp's 6 plus the carried colour).
+        GLES30.glBindVertexArray(smudgeVao)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, quadVbo)
+        GLES30.glEnableVertexAttribArray(0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 0, 0)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
+        GLES30.glEnableVertexAttribArray(1)
+        GLES30.glVertexAttribPointer(1, 4, GLES30.GL_FLOAT, false, 40, 0)
+        GLES30.glVertexAttribDivisor(1, 1)
+        GLES30.glEnableVertexAttribArray(2)
+        GLES30.glVertexAttribPointer(2, 2, GLES30.GL_FLOAT, false, 40, 16)
+        GLES30.glVertexAttribDivisor(2, 1)
+        GLES30.glEnableVertexAttribArray(3)
+        GLES30.glVertexAttribPointer(3, 4, GLES30.GL_FLOAT, false, 40, 24)
+        GLES30.glVertexAttribDivisor(3, 1)
 
         GLES30.glBindVertexArray(tileVao)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, unitVbo)
@@ -202,10 +254,13 @@ class GlPaintEngine(
         undo.clear()
         freeLayerTex.clear()
         freeStrokeTex.clear()
+        freeSmudgeTex.clear()
         // The grain pictures are not the person's drawing, so they do not count as "had" -- but their
         // names are just as dead, and a brush is reloaded from its file on the next stroke.
         grains.forget()
         compositor.forget()
+        compositeProg = null      // a name from the dead context; the new one compiles on first use
+        compositeError = null
         return had
     }
 
@@ -216,7 +271,7 @@ class GlPaintEngine(
      * [clearTex] are the driver's business and [initWith] makes new ones rather than reusing old.
      */
     internal fun heldTextureNames(): Int =
-        layers.values.sumOf { it.tiles.size } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size +
+        layers.values.sumOf { it.tiles.size } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size +
             compositor.heldNames()
 
     /** Frees every GL object this engine owns. */
@@ -226,15 +281,15 @@ class GlPaintEngine(
         cancelStroke()
         val all = ArrayList<Int>()
         layers.values.forEach { all.addAll(it.tiles.values) }
-        all.addAll(freeLayerTex); all.addAll(freeStrokeTex); all.add(clearTex)
+        all.addAll(freeLayerTex); all.addAll(freeStrokeTex); all.addAll(freeSmudgeTex); all.add(clearTex)
         GLES30.glDeleteTextures(all.size, all.toIntArray(), 0)
-        layers.clear(); freeLayerTex.clear(); freeStrokeTex.clear()
+        layers.clear(); freeLayerTex.clear(); freeStrokeTex.clear(); freeSmudgeTex.clear()
         GLES30.glDeleteBuffers(3, intArrayOf(quadVbo, unitVbo, instanceVbo), 0)
-        GLES30.glDeleteVertexArrays(2, intArrayOf(dabVao, tileVao), 0)
+        GLES30.glDeleteVertexArrays(3, intArrayOf(dabVao, tileVao, smudgeVao), 0)
         GLES30.glDeleteFramebuffers(1, intArrayOf(fbo), 0)
         grains.release()
         compositor.release()
-        dabProg.release(); commitProg.release(); tileProg.release(); compositeProg.release()
+        dabProg.release(); commitProg.release(); tileProg.release(); smudgeProg.release(); compositeProg?.release(); compositeProg = null
         ready = false
     }
 
@@ -356,9 +411,11 @@ class GlPaintEngine(
     /** Starts a stroke. [argb] is the brush colour (alpha ignored — [opacity] is the stroke's opacity). */
     fun beginStroke(layerId: String, argb: Int, opacity: Float, accumulate: Accumulate,
                     blend: StrokeBlend, tip: TipShape,
-                    grain: GrainMath.StrokeGrain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF)) {
+                    grain: GrainMath.StrokeGrain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF),
+                    smudge: SmudgeParams? = null) {
         cancelStroke()
         strokeLayer = layers[layerId] ?: error("no layer $layerId")
+        strokeIsRgba = smudge != null
         colR = ((argb shr 16) and 0xFF) / 255f
         colG = ((argb shr 8) and 0xFF) / 255f
         colB = (argb and 0xFF) / 255f
@@ -366,6 +423,13 @@ class GlPaintEngine(
         this.accumulate = accumulate
         this.blend = blend
         this.tip = tip
+        // A smudge reads the layer as it stands NOW (pen-down): the stroke buffer is not the layer until pen-up, so the
+        // pixels it picks up from stay put for the whole stroke. Colours are decided on the GL thread, where a tile can be read.
+        this.smudge = if (smudge == null) null else SmudgeStroke(
+            TileReader { tx, ty -> readTile(layerId, Tiles.key(tx, ty)) },
+            SmudgeCarried(colR, colG, colB, 1f, smudge.pickup.coerceIn(0f, 1f), smudge.load.coerceIn(0f, 1f)),
+            tip,
+        )
         // A grain whose picture is missing is drawn as OFF: a missing picture must never read as "paint
         // everywhere". The picture is bound per batch in addDabs, but resolved here, once per stroke.
         val tipTex = if (grain.tip.enabled) grains.textureFor(grain.tip.asset) else null
@@ -384,10 +448,16 @@ class GlPaintEngine(
     /** Renders dabs into the stroke buffer. */
     fun addDabs(dabs: List<Dab>) {
         if (strokeLayer == null || dabs.isEmpty()) return
+        smudge?.let { addSmudgeDabs(it, dabs); return }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         GLES30.glViewport(0, 0, size, size)
         GLES30.glEnable(GLES30.GL_BLEND)
         GLES30.glBlendFuncSeparate(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA, GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+        // New stroke tiles are made HERE, before the grain pictures are bound: making a texture binds it on
+        // the active unit and ends by binding 0, which would silently unbind the tip picture on unit 0 for
+        // the rest of the batch (a stroke crossing into a new tile lost its grain: review of JB-1.05c).
+        val buckets = Tiles.bucket(dabs, size)
+        for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
         dabProg.use()
         GLES30.glUniform1f(dabProg.loc("u_tileSize"), size.toFloat())
         GLES30.glUniform1f(dabProg.loc("u_aspect"), tip.aspect)
@@ -398,13 +468,57 @@ class GlPaintEngine(
         setGrainUniforms(dabs[dabs.size - 1])
         GLES30.glBindVertexArray(dabVao)
 
-        for ((key, list) in Tiles.bucket(dabs, size)) {
-            val tex = strokeTiles.getOrPut(key) { newStrokeTile() }
+        for ((key, list) in buckets) {
+            val tex = strokeTiles.getValue(key)
             attach(tex)
             GLES30.glUniform2f(dabProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
             fillInstances(list)
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
             GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * 24, instanceData, GLES30.GL_STREAM_DRAW)
+            GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
+        }
+        GLES30.glBindVertexArray(0)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+    }
+
+    /**
+     * A smudge stroke's dabs (JB-1.06): the same stroke buffer and the same fixed-function blending as a stamp, but each dab
+     * carries the colour it paints with (decided by [SmudgeStroke] before anything is bound, because reading a tile binds the
+     * framebuffer) and the buffer is RGBA. Nothing here reads the canvas.
+     */
+    private fun addSmudgeDabs(sm: SmudgeStroke, dabs: List<Dab>) {
+        val colours = sm.colours(dabs)
+        val at = IdentityHashMap<Dab, Int>(dabs.size * 2)
+        for ((i, d) in dabs.withIndex()) at[d] = i
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+        GLES30.glViewport(0, 0, size, size)
+        GLES30.glEnable(GLES30.GL_BLEND)
+        GLES30.glBlendFuncSeparate(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA, GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+        val buckets = Tiles.bucket(dabs, size)
+        for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
+        smudgeProg.use()
+        GLES30.glUniform1f(smudgeProg.loc("u_tileSize"), size.toFloat())
+        GLES30.glUniform1f(smudgeProg.loc("u_aspect"), tip.aspect)
+        GLES30.glUniform1f(smudgeProg.loc("u_corner"), tip.corner)
+        GLES30.glUniform1f(smudgeProg.loc("u_taper"), tip.taper)
+        GLES30.glUniform1f(smudgeProg.loc("u_hardness"), tip.hardness)
+        GLES30.glUniform1f(smudgeProg.loc("u_minPx"), tip.minPx)
+        GLES30.glBindVertexArray(smudgeVao)
+        for ((key, list) in buckets) {
+            attach(strokeTiles.getValue(key))
+            GLES30.glUniform2f(smudgeProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
+            val need = list.size * 10
+            if (smudgeInstanceData.capacity() < need) smudgeInstanceData = newFloats(need * 2)
+            smudgeInstanceData.clear()
+            for (d in list) {
+                val c = (at[d] ?: 0) * 4
+                smudgeInstanceData.put(d.x).put(d.y).put(d.radius).put(d.angle).put(d.flow).put(d.cap)
+                    .put(colours[c]).put(colours[c + 1]).put(colours[c + 2]).put(colours[c + 3])
+            }
+            smudgeInstanceData.flip()
+            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
+            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * 40, smudgeInstanceData, GLES30.GL_STREAM_DRAW)
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
         }
         GLES30.glBindVertexArray(0)
@@ -474,6 +588,7 @@ class GlPaintEngine(
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         releaseStrokeTiles()
         strokeLayer = null
+        smudge = null
         if (changes.isNotEmpty()) undo.push(UndoLog.Step(changes))
         return changes.size
     }
@@ -481,6 +596,7 @@ class GlPaintEngine(
     fun cancelStroke() {
         releaseStrokeTiles()
         strokeLayer = null
+        smudge = null
     }
 
     fun undoStep(): Boolean {
@@ -550,7 +666,8 @@ class GlPaintEngine(
 
 
     /** True when any visible layer composites with something other than plain source-over. */
-    private fun needsComposite(): Boolean = layers.values.any { it.visible && it.blend != BlendMode.NORMAL }
+    private fun needsComposite(): Boolean =
+        compositeError == null && layers.values.any { it.visible && it.blend != BlendMode.NORMAL }
 
     /**
      * The whole stack, one layer at a time, into an offscreen target that a shader can read (JB-2.20b).
@@ -560,9 +677,19 @@ class GlPaintEngine(
      * `jb_composite.frag`, which reads the backdrop and applies the layer's blend mode and opacity.
      * The stroke being drawn is previewed the same way [draw] previews it: its tiles are committed into
      * temporary textures first and those stand in for the layer's own. Finally the stack is copied to
-     * the screen. Same picture as [draw] for a NORMAL layer (a test and the device check say so).
+     * the screen. The Blend check on the phone compares this path with [draw]'s for NORMAL layers as well as
+     * checking all 27 modes against the export; up to a few 1/255 apart is rounding (RGBA8 per layer), not a bug.
      */
     private fun drawComposited(w: Int, h: Int, docToClip: FloatArray, paperArgb: Int) {
+        val prog = compositeProg ?: try {
+            GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_composite.frag"), "composite").also { compositeProg = it }
+        } catch (e: RuntimeException) {
+            // The 27-branch blend shader is the biggest one we compile. If a driver refuses it, the rest of the
+            // engine must keep working: remember why, and draw this and every later frame the plain way.
+            compositeError = e.message ?: e.javaClass.simpleName
+            draw(w, h, docToClip, paperArgb)
+            return
+        }
         compositor.ensure(w, h)
         GLES30.glDisable(GLES30.GL_BLEND)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, compositor.targetFbo)
@@ -584,20 +711,20 @@ class GlPaintEngine(
                 compositor.copyToBackdrop(rect[0], rect[1], rect[2], rect[3])
                 GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, compositor.targetFbo)
                 GLES30.glViewport(0, 0, w, h)
-                compositeProg.use()
-                GLES30.glUniform1f(compositeProg.loc("u_tileSize"), size.toFloat())
-                GLES30.glUniformMatrix3fv(compositeProg.loc("u_docToClip"), 1, false, docToClip, 0)
-                GLES30.glUniform1f(compositeProg.loc("u_layerOpacity"), layer.opacity)
-                GLES30.glUniform1f(compositeProg.loc("u_mode"), BlendCodes.codeOf(layer.blend))
-                GLES30.glUniform1i(compositeProg.loc("u_layer"), 0)
-                GLES30.glUniform1i(compositeProg.loc("u_backdrop"), 1)
+                prog.use()
+                GLES30.glUniform1f(prog.loc("u_tileSize"), size.toFloat())
+                GLES30.glUniformMatrix3fv(prog.loc("u_docToClip"), 1, false, docToClip, 0)
+                GLES30.glUniform1f(prog.loc("u_layerOpacity"), layer.opacity)
+                GLES30.glUniform1f(prog.loc("u_mode"), BlendCodes.codeOf(layer.blend))
+                GLES30.glUniform1i(prog.loc("u_layer"), 0)
+                GLES30.glUniform1i(prog.loc("u_backdrop"), 1)
                 GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
                 GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, compositor.backdrop)
                 GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
                 GLES30.glBindVertexArray(tileVao)
                 for (key in keys) {
                     val tex = previews[key] ?: layer.tiles[key] ?: continue
-                    GLES30.glUniform2f(compositeProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
+                    GLES30.glUniform2f(prog.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
                     GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
                     GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
                 }
@@ -681,6 +808,7 @@ class GlPaintEngine(
         GLES30.glUniform3f(commitProg.loc("u_color"), colR, colG, colB)
         GLES30.glUniform1f(commitProg.loc("u_strokeScale"), if (accumulate == Accumulate.BUILD_UP) opacity else 1f)
         GLES30.glUniform1i(commitProg.loc("u_erase"), if (blend == StrokeBlend.ERASE) 1 else 0)
+        GLES30.glUniform1i(commitProg.loc("u_smudge"), if (smudge != null) 1 else 0)
         GLES30.glUniform1f(commitProg.loc("u_layerOpacity"), layerOpacity)
     }
 
@@ -711,8 +839,11 @@ class GlPaintEngine(
         ?: newTexture(size, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
 
     private fun newStrokeTile(): Int {
-        val tex = freeStrokeTex.removeLastOrNull()
-            ?: newTexture(size, strokeInternal, GLES30.GL_RED, strokeType)
+        val tex = if (strokeIsRgba) {
+            freeSmudgeTex.removeLastOrNull() ?: newTexture(size, smudgeInternal, GLES30.GL_RGBA, smudgeType)
+        } else {
+            freeStrokeTex.removeLastOrNull() ?: newTexture(size, strokeInternal, GLES30.GL_RED, strokeType)
+        }
         attach(tex)
         GLES30.glClearColor(0f, 0f, 0f, 0f)
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
@@ -720,9 +851,10 @@ class GlPaintEngine(
     }
 
     private fun releaseStrokeTiles() {
-        freeStrokeTex.addAll(strokeTiles.values)
+        // Back into the pool it came from: a smudge's RGBA tiles and a stamp's single-channel tiles are not interchangeable.
+        if (strokeIsRgba) { freeSmudgeTex.addAll(strokeTiles.values); trimPool(freeSmudgeTex, 16) }
+        else { freeStrokeTex.addAll(strokeTiles.values); trimPool(freeStrokeTex, 32) }
         strokeTiles.clear()
-        trimPool(freeStrokeTex, 32)
     }
 
     private fun recycleLayerTex(tex: Int) {

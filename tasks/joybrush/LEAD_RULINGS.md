@@ -660,3 +660,34 @@ overlapping runs); the build output was deleted and rebuilt (47 classes) and the
    touches that script.
 10. **JB-2.04's blend chip may now be un-greyed** (`LayerRules.gpuComposite()`), but only after the owner has tapped Blend check once
     and it says all 27. Until then the chip stays grey.
+
+**R47. JB-1.06 (smudge and push) — the Lead's rulings on its three Questions, and how the engine is built.** (2026-09-30)
+1. **Q1 — the file.** Brush version **3**. Two plain-float sections, present only for their engine: `"smudge": {"pickup", "load"}` (both 0..1)
+   for `engine "smudge"`, and `"push": {"amount"}` (0 < amount <= 1) for `engine "push"`. **There is no `strength`: how hard a smudge presses
+   IS the brush's `flow`**, which pressure already drives, so pressure-sensitive smudging costs no new curve machinery. The shipped
+   `smudge/brush.json` is version 3; a fill pen stays version 2 and an ordinary brush version 1 — a word needs the version that introduced
+   it (`VERSION_FILL = 2`, `VERSION_SMUDGE = 3`; `BrushJson.wordsNeedingVersion` carries the per-word number). `DefaultPresetsTest` now
+   asserts each shipped file claims exactly the highest version among its own words.
+2. **Q2 — the layer rule (R20) lives in core**: `BrushRules.refusalFor(engine, LayerKind)`; smudge/push/wet on an ink layer return the sentence
+   "Smudge reads the paint under it, and an ink layer has none." (and "Push …", "Wet paint …"). Every entry point (picker, keyboard, stroke
+   re-brush JB-5.03a, file open) calls it.
+3. **Q3 — two nudges: keep both, and name the pixel one "Push"** in the brush list. The board row is retitled "Smudge & push". `Nudge` (selection) is untouched.
+4. **A smudge is drawn as a stroke the engine already knows** (this replaces Decision 6's framebuffer-fetch/ping-pong design, which needed a GPU
+   read-back per dab). `lerp(canvas, carried, t)` is "over" of the carried colour with weight `t`; the stroke buffer already accumulates dabs in
+   order with fixed-function blending. So the GPU never reads the canvas per dab: `SmudgeStroke` (core, pure, tested with a fake tile reader) decides
+   each dab's carried colour on the GL thread from **the layer as it was when the stroke began**, each dab carries that colour as an attribute
+   (`jb_smudge_dab.frag`, RGBA16F stroke buffer), and `jb_commit.frag` with `u_smudge = 1` lays the accumulated paint over the layer **only where
+   the layer already has alpha** (Decision 4). Deterministic (same stroke + same layer = same pixels), one batched draw per tile, no new GPU
+   feature required. Cost: a stroke that doubles back over its own smear picks up the ORIGINAL paint there, not the smear; a second stroke does.
+   Checked on a real GL driver: `shader_check.js` `smudgeOk` (two dabs over paint = the sequential rule, over an empty layer = unchanged).
+5. **Amendment to Decision 3 — a smudge STARTS carrying what is under the pen**, not the brush's chosen colour. A finger dragged through paint
+   moves that paint; it does not first add another colour. `load` is how fast the chosen colour then creeps in (the shipped Smudge has load 0).
+   On bare canvas it starts as the chosen colour and (Decision 4) paints nothing until it meets paint.
+6. **`Smudge.dab` alpha rule**: `out = carried*t + canvas*(1 - carriedA*t)`. Identical to the spec's `lerp` for an opaque carried colour, and the
+   same "over" the shader does for a faded one (pickup from thin paint), so the CPU function and the GPU cannot disagree.
+7. **Spec slips found by the build.** Test 5's "at coverage 0.25 it is a quarter of the way" is an eighth at strength 0.5 (0.5 x 0.25); the test
+   pins 0.125 and separately a quarter at strength 1. Float fuzz: a lerp or a mean of values in 0..1 can land on 1.0000001, which the strict
+   constructor refuses and would take a whole stroke down — `afterDab` and the canvas mean now clamp (there is a test that found it).
+8. **Push is NOT built yet — row JB-1.06b.** A push reads pixels at an offset, which crosses 256-px tile borders, so it needs a stitched snapshot of
+   the stroke's area; `Push.offsetFor` (geometry) and the `push` section/engine word are in, the engine pass is not. Until it lands the engine word
+   `push` must not ship in a preset (`JbCanvasView` would draw it as a stamp): the shipped set has Smudge only.

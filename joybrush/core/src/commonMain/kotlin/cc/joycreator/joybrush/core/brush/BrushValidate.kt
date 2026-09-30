@@ -13,7 +13,7 @@ package cc.joycreator.joybrush.core.brush
  */
 object BrushValidate {
 
-    private val ENGINES = setOf("stamp", "smudge", "wet", ENGINE_FILL)
+    private val ENGINES = setOf("stamp", ENGINE_SMUDGE, "wet", ENGINE_FILL, ENGINE_PUSH)
     private val ACCUMULATES = setOf("wash", "buildup")
     private val BLENDS = setOf("normal", "erase", BLEND_BEHIND)
     private val COMBINES = setOf("multiply", "add")
@@ -62,10 +62,8 @@ object BrushValidate {
         // a file. It is deliberately not the "from a newer Joy Brush" message above: this file is
         // older than the word it uses, and saying the opposite would send the person looking for a
         // build that does not exist.
-        if (p.version < BRUSH_VERSION) {
-            for (word in BrushJson.wordsNeedingVersion(p)) {
-                out += "$word needs brush version $BRUSH_VERSION"
-            }
+        for (word in BrushJson.wordsNeedingVersion(p)) {
+            if (p.version < word.minVersion) out += "${word.text} needs brush version ${word.minVersion}"
         }
 
         // 2 — a brush without an id cannot be saved, exported or replaced.
@@ -254,6 +252,16 @@ object BrushValidate {
         if (p.tip.hardness.base !in 0f..1f) {
             out += "tip.hardness ${p.tip.hardness.base} is outside 0..1"
         }
+
+        // 25 — the smudge engine's two rates and the push engine's amount (JB-1.06). Only ranged when
+        // that engine is the one in use, but ALWAYS ranged when present in a file: a number nobody
+        // reads today is one the brush cannot be written back out with. Written `!in`, so NaN is
+        // refused as well as +-Infinity. `strength` is not here on purpose: it is the brush's `flow`.
+        val smudgeRates = ArrayList<String>()
+        if (p.smudge.pickup !in 0f..1f) smudgeRates += "smudge.pickup ${p.smudge.pickup}"
+        if (p.smudge.load !in 0f..1f) smudgeRates += "smudge.load ${p.smudge.load}"
+        if (smudgeRates.isNotEmpty()) out += "smudge rate is outside 0..1: " + smudgeRates.joinToString("; ")
+        if (!(p.push.amount > 0f) || p.push.amount > 1f) out += "push.amount ${p.push.amount} must be above 0 and at most 1"
 
         return out
     }

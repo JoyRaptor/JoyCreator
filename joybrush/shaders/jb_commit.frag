@@ -10,6 +10,7 @@ uniform sampler2D u_stroke;    // stroke buffer, R channel
 uniform vec3 u_color;          // brush colour, straight (not premultiplied)
 uniform float u_strokeScale;   // opacity for BUILD_UP strokes, 1 for WASH
 uniform int u_erase;           // 1 = erase
+uniform int u_smudge;          // 1 = the stroke buffer holds PREMULTIPLIED RGBA carried paint, not a coverage (JB-1.06)
 uniform float u_layerOpacity;
 
 in vec2 v_uv;
@@ -17,6 +18,14 @@ out vec4 o_color;
 
 void main() {
     vec4 dst = texture(u_layer, v_uv);
+    if (u_smudge == 1) {
+        // A smudge only moves paint that is already there: where the layer has no alpha the stroke leaves it alone
+        // (Smudge Decision 4). The stroke buffer is the accumulated carried paint, so this is "over", masked.
+        vec4 s = texture(u_stroke, v_uv);
+        float m = dst.a > 0.0 ? 1.0 : 0.0;
+        o_color = (s * m + dst * (1.0 - s.a * m)) * u_layerOpacity;
+        return;
+    }
     float a = texture(u_stroke, v_uv).r * u_strokeScale;
     vec4 outc = (u_erase == 1) ? dst * (1.0 - a) : vec4(u_color * a, a) + dst * (1.0 - a);
     o_color = outc * u_layerOpacity;

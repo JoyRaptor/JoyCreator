@@ -177,8 +177,9 @@ class BrushTest {
         assertEquals(BrushJson.decode(inkJson), p)
         assertEquals(emptyList(), BrushValidate.validate(p), "an unknown key is not a problem: ${BrushValidate.validate(p)}")
 
-        val newer = BrushJson.decode(inkJson.replace("\"version\": 1,", "\"version\": 3,"))
-        assertEquals(3, newer.version)
+        val newerNumber = BRUSH_VERSION + 1
+        val newer = BrushJson.decode(inkJson.replace("\"version\": 1,", "\"version\": $newerNumber,"))
+        assertEquals(newerNumber, newer.version)
         assertSole(BrushValidate.validate(newer), "newer Joy Brush")
 
         assertFailsWith<BrushException> { BrushJson.decode("{\"format\": \"joybrush.brush\",") }
@@ -304,9 +305,9 @@ class BrushTest {
 
     @Test
     fun validationSaysOneThingPerRule() {
-        // 1 — format and version. Version 2 is the newest this build reads (the fill pen's words),
-        // so the "from a newer Joy Brush" case is 3.
-        assertSole(BrushValidate.validate(preset { it.copy(version = 3) }), "newer Joy Brush")
+        // 1 — format and version. BRUSH_VERSION is the newest this build reads, so the "from a newer
+        // Joy Brush" case is the number after it.
+        assertSole(BrushValidate.validate(preset { it.copy(version = BRUSH_VERSION + 1) }), "newer Joy Brush")
         assertSole(BrushValidate.validate(preset { it.copy(format = "photoshop.abr") }), "expected \"joybrush.brush\"")
         // 2 — id.
         assertSole(BrushValidate.validate(preset { it.copy(id = "  ") }), "id is empty")
@@ -712,7 +713,7 @@ class BrushTest {
         assertEquals(1f, p.opacity.base)
         assertEquals(0.3f, p.smoothing)
         assertEquals("CC0", p.license)
-        assertEquals(BRUSH_VERSION, p.version)
+        assertEquals(VERSION_FILL, p.version, "a fill pen is a version-2 file: it needs no newer word")
         // The file is hand-written and states only what it means, the way the other two shipped
         // brushes do; writing it back out says every default, so equality is with the round trip.
         assertEquals(p, BrushJson.decode(BrushJson.encode(p)))
@@ -723,7 +724,7 @@ class BrushTest {
     fun onlyAFillBrushIsWrittenAsVersionTwo() {
         // The rule: the LOWEST version that can express the file. A fill pen says 2; everything else
         // stays 1, so an older Joy Brush can still open an ordinary brush.
-        assertTrue(BrushJson.encode(BrushJson.decode(fillJson)).contains("\"version\": $BRUSH_VERSION"))
+        assertTrue(BrushJson.encode(BrushJson.decode(fillJson)).contains("\"version\": $VERSION_FILL"))
         for (json in listOf(inkJson, pencilJson)) {
             val text = BrushJson.encode(BrushJson.decode(json))
             assertTrue(text.contains("\"version\": 1"), "an ordinary brush must stay a version-1 file:\n$text")
@@ -733,7 +734,7 @@ class BrushTest {
         // file whatever version it was holding, and keeps the pencil's own fields — a fill pen that
         // has just been re-brushed must still draw as a pencil the day it is re-brushed back.
         val reBrushed = preset { it.copy(engine = ENGINE_FILL) }
-        assertTrue(BrushJson.encode(reBrushed).contains("\"version\": $BRUSH_VERSION"))
+        assertTrue(BrushJson.encode(reBrushed).contains("\"version\": $VERSION_FILL"))
         assertTrue(BrushJson.encode(reBrushed).contains("\"hardness\""), "the pencil's tip is kept")
         // A brush from a later build is never downgraded by a round trip through here.
         val fromTheFuture = preset { it.copy(version = 7) }
@@ -753,7 +754,7 @@ class BrushTest {
             val thrown = assertFailsWith<BrushException>("a v1 file saying $word must not decode") {
                 BrushJson.decode(v1)
             }
-            assertEquals("$word needs brush version $BRUSH_VERSION", thrown.message)
+            assertEquals("$word needs brush version $VERSION_FILL", thrown.message)
         }
         // The same sentence, from validation, for a preset that never came from a file.
         assertSole(
@@ -859,7 +860,7 @@ class BrushTest {
             BrushJson.decodeChecked(inkJson.replace("\"engine\": \"stamp\",", "\"engine\": \"fill\","))
         }
         assertEquals(
-            "brush.json cannot be used: engine \"fill\" needs brush version $BRUSH_VERSION",
+            "brush.json cannot be used: engine \"fill\" needs brush version $VERSION_FILL",
             v1Fill.message,
         )
     }

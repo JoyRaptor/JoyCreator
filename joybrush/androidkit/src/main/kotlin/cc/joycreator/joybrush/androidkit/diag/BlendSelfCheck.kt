@@ -133,6 +133,14 @@ object BlendSelfCheck {
         return Report(worst)
     }
 
+    /** The largest channel difference between two pictures of the same layout (both premultiplied), over every pixel. */
+    fun worstDifference(a: ByteArray, b: ByteArray): Int {
+        require(a.size == b.size) { "two check pictures must be the same size, got ${a.size} and ${b.size}" }
+        var w = 0
+        for (i in a.indices) w = maxOf(w, abs((a[i].toInt() and 0xFF) - (b[i].toInt() and 0xFF)))
+        return w
+    }
+
     // ---- the drawing -------------------------------------------------------------------------------
 
     private fun newTiles(): HashMap<Long, ByteArray> = HashMap()

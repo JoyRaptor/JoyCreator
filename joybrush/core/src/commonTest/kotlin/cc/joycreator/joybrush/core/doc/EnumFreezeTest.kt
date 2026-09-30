@@ -92,7 +92,7 @@ class EnumFreezeTest {
     @Test
     fun theVersionsTheNamesWereWrittenFor() {
         assertEquals(2, DOC_VERSION)
-        assertEquals(2, BRUSH_VERSION)
+        assertEquals(3, BRUSH_VERSION)
         // BrushPreset.version is a second literal beside BRUSH_VERSION, and the file writes the
         // default — if they drift, every new brush is stamped with a version nobody validates.
         assertEquals(BRUSH_VERSION, BrushPreset(id = "b", name = "B", size = Param(1f)).version)

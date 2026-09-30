@@ -8,16 +8,30 @@ class BrushException(message: String) : Exception(message)
 /** The format tag and version in every brush.json. Bump with the defaults in [BrushPreset]. */
 const val BRUSH_FORMAT = "joybrush.brush"
 /**
- * The first brush version that could express the fill pen's two new words — `engine: "fill"` and
- * `blend: "behind"` (JB-1.08a, LEAD_RULINGS R21) — and, today, the newest version this build reads.
+ * The newest brush version this build reads. THE ONE constant (R3): `BrushPreset.version`'s default
+ * moves with it, in the same edit, and `EnumFreezeTest` pins it.
  *
- * The builder first added this as a *second* constant beside [BRUSH_VERSION], because
- * `commonTest/doc/EnumFreezeTest` pins that constant and the file was outside its owner area. The
- * orchestrator has since made it THE [BRUSH_VERSION] (and moved `BrushPreset.version`'s default
- * with it, since the two are one edit), which is what R3 asks for: a new word in a serialised file
- * is a version bump, not a second number to remember.
+ *  - **2** (JB-1.08a, R21) added `engine: "fill"` and `blend: "behind"` — [VERSION_FILL].
+ *  - **3** (JB-1.06, R47) added `engine: "smudge"` and `engine: "push"`, and the `smudge` and `push`
+ *    sections that go with them — [VERSION_SMUDGE].
+ *
+ * A word needs the version that introduced it, NOT the newest one: a fill pen is still a version-2
+ * file, so a build that predates smudge can open it. [BrushJson.wordsNeedingVersion] carries the
+ * per-word number.
  */
-const val BRUSH_VERSION = 2
+const val BRUSH_VERSION = 3
+
+/** The brush version that introduced the fill pen's words. */
+const val VERSION_FILL = 2
+
+/** The brush version that introduced the smudge and push engines (JB-1.06). */
+const val VERSION_SMUDGE = 3
+
+/** Smudge (JB-1.06): drags the paint already on the layer, carrying ONE colour (blueprint §5, R8). */
+const val ENGINE_SMUDGE = "smudge"
+
+/** Push (JB-1.06): displaces the pixels under the tip along the stroke. */
+const val ENGINE_PUSH = "push"
 
 /** The fill pen is a BRUSH, not a tool (R21): the engine word that makes a stroke a filled shape. */
 const val ENGINE_FILL = "fill"
@@ -60,7 +74,7 @@ object BrushJson {
         // which is exactly the small mistake the version number exists to prevent. It is NOT the
         // "from a newer Joy Brush" sentence: this file is older than the word it uses.
         for (word in wordsNeedingVersion(p)) {
-            if (p.version < BRUSH_VERSION) throw BrushException("$word needs brush version $BRUSH_VERSION")
+            if (p.version < word.minVersion) throw BrushException("${word.text} needs brush version ${word.minVersion}")
         }
         return p
     }
@@ -108,17 +122,24 @@ object BrushJson {
      * already carries a version of its own is never downgraded, so a file from a later build keeps
      * its number when it passes through here.
      */
-    private fun versionFor(p: BrushPreset): Int =
-        if (p.version < BRUSH_VERSION && wordsNeedingVersion(p).isNotEmpty()) BRUSH_VERSION else p.version
+    private fun versionFor(p: BrushPreset): Int {
+        val needed = wordsNeedingVersion(p).maxOfOrNull { it.minVersion } ?: return p.version
+        return if (p.version < needed) needed else p.version
+    }
+
+    /** A word a file can only say from [minVersion] on, named the way the file names it. */
+    internal class VersionedWord(val text: String, val minVersion: Int)
 
     /**
-     * The words brush version 2 added, named the way the file names them — `engine "fill"` —
-     * so a refusal is one sentence: `engine "fill" needs brush version 2`.
+     * The words that need a version above 1, each with the version that introduced it, so a refusal is
+     * one sentence: `engine "fill" needs brush version 2`, `engine "smudge" needs brush version 3`.
      */
-    internal fun wordsNeedingVersion(p: BrushPreset): List<String> {
-        val out = ArrayList<String>(2)
-        if (p.engine == ENGINE_FILL) out += "engine \"$ENGINE_FILL\""
-        if (p.blend == BLEND_BEHIND) out += "blend \"$BLEND_BEHIND\""
+    internal fun wordsNeedingVersion(p: BrushPreset): List<VersionedWord> {
+        val out = ArrayList<VersionedWord>(2)
+        if (p.engine == ENGINE_FILL) out += VersionedWord("engine \"$ENGINE_FILL\"", VERSION_FILL)
+        if (p.blend == BLEND_BEHIND) out += VersionedWord("blend \"$BLEND_BEHIND\"", VERSION_FILL)
+        if (p.engine == ENGINE_SMUDGE) out += VersionedWord("engine \"$ENGINE_SMUDGE\"", VERSION_SMUDGE)
+        if (p.engine == ENGINE_PUSH) out += VersionedWord("engine \"$ENGINE_PUSH\"", VERSION_SMUDGE)
         return out
     }
 }

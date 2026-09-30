@@ -13,7 +13,7 @@ function src(name, seen = new Set()) {
   }).join('\n');
 }
 const S = {};
-for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_tile.vert', 'jb_commit.frag', 'jb_tile.frag']) S[n] = src(n);
+for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_smudge_dab.frag', 'jb_tile.vert', 'jb_commit.frag', 'jb_tile.frag']) S[n] = src(n);
 
 (async () => {
   const exe = process.env.CHROME ? null : fs.readdirSync('/opt/pw-browsers').find(d => d.startsWith('chromium-'));
@@ -125,6 +125,62 @@ for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_tile.vert', 'jb_commit.frag',
     out.grainPenCentre = centreWith(256, bright, 0.7, [1, 0]);      // a leaning pen: still finite at the centre
     out.grainDarkens = out.grainBrightCentre > 0.9 && out.grainDarkCentre < 0.05 && out.grainOffCentre > 0.9;
     out.grainAllFinite = [out.grainOffCentre, out.grainBrightCentre, out.grainDarkCentre, out.grainFingerCentre, out.grainPenCentre].every(Number.isFinite);
+    // ---- JB-1.06: the smudge path ---------------------------------------------------------------------
+    // Two dabs of two different carried colours, accumulated in an RGBA float stroke buffer, then committed with u_smudge = 1 over an
+    // opaque canvas and over an EMPTY one. Must equal the sequential rule  out = carried*t + canvas*(1 - carriedA*t)  applied twice
+    // (core Smudge.dab), and must leave the empty canvas empty.
+    try {
+      const smudge = prog(S['jb_dab.vert'], S['jb_smudge_dab.frag']);
+      const sbuf = gl.createTexture(); gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, sbuf);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, N, N, 0, gl.RGBA, gl.HALF_FLOAT, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sbuf, 0);
+      gl.viewport(0, 0, N, N); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      const svao = gl.createVertexArray(); gl.bindVertexArray(svao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      const sib = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, sib);
+      // x, y, r, angle, flow, cap, then the carried colour (premultiplied rgba)
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        128, 128, 40, 0, 0.5, 1,   1, 0, 0, 1,
+        128, 128, 40, 0, 0.5, 1,   0, 0, 1, 1,
+      ]), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 40, 0); gl.vertexAttribDivisor(1, 1);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 40, 16); gl.vertexAttribDivisor(2, 1);
+      gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 40, 24); gl.vertexAttribDivisor(3, 1);
+      gl.useProgram(smudge);
+      gl.uniform2f(u(smudge, 'u_tileOrigin'), 0, 0); gl.uniform1f(u(smudge, 'u_tileSize'), N);
+      gl.uniform1f(u(smudge, 'u_aspect'), 0); gl.uniform1f(u(smudge, 'u_corner'), 2); gl.uniform1f(u(smudge, 'u_taper'), 0);
+      gl.uniform1f(u(smudge, 'u_hardness'), 1); gl.uniform1f(u(smudge, 'u_minPx'), 1);
+      gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 2);
+      gl.disable(gl.BLEND);
+      function commitOver(canvasRGBA) {           // canvasRGBA: bytes, premultiplied, one texel used for the whole 4x4 layer
+        const layerT = gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, layerT);
+        const a = new Uint8Array(4 * 4 * 4); for (let i = 0; i < 16; i++) a.set(canvasRGBA, i * 4);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 4, 4, 0, gl.RGBA, gl.UNSIGNED_BYTE, a);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.activeTexture(gl.TEXTURE3);   // tex() binds on the ACTIVE unit: keep it away from units 0 and 1, which the commit samples
+        const outT = tex(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
+        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, sbuf);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, outT, 0);
+        gl.useProgram(commit); gl.bindVertexArray(vao2); gl.bindBuffer(gl.ARRAY_BUFFER, unit);
+        gl.uniform1i(u(commit, 'u_layer'), 0); gl.uniform1i(u(commit, 'u_stroke'), 1); gl.uniform1i(u(commit, 'u_smudge'), 1);
+        gl.uniform1i(u(commit, 'u_erase'), 0); gl.uniform1f(u(commit, 'u_layerOpacity'), 1); gl.uniform1f(u(commit, 'u_strokeScale'), 1);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        const px2 = new Uint8Array(4); gl.readPixels(128, 128, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px2); return Array.from(px2);
+      }
+      const canvas = [0.2, 0.4, 0.6];
+      const bytes = c => c.map(v => Math.round(v * 255));
+      out.smudgeOverPaint = commitOver([...bytes(canvas), 255]);
+      out.smudgeOverEmpty = commitOver([0, 0, 0, 0]);
+      // The rule, twice: t = 0.5 each (flow 0.5 x coverage 1 at the centre of a hard tip), carried opaque.
+      let c = canvas.slice();
+      for (const carried of [[1, 0, 0], [0, 0, 1]]) c = c.map((v, i) => carried[i] * 0.5 + v * 0.5);
+      out.smudgeWant = bytes(c);
+      out.smudgeOk = out.smudgeOverPaint.slice(0, 3).every((v, i) => Math.abs(v - out.smudgeWant[i]) <= 2) && out.smudgeOverPaint[3] === 255
+        && out.smudgeOverEmpty.every(v => v === 0);
+    } catch (e) { out.smudgeError = String(e).slice(0, 300); }
     out.glError = gl.getError();
     return out;
   }, S);

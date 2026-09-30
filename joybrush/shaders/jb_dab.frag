@@ -50,10 +50,12 @@ void main() {
     bool tipOn = u_tipGrainPitchPx > 0.0;
     bool paperOn = u_paperGrainPitchPx > 0.0;
 
-    // Both textures are sampled every time, outside any branch: texture() needs uniform control flow
-    // for its mip-level derivatives.
-    float hTip = jb_tipGrainHeight(v_offset, v_angle);
-    float hPaper = jb_paperGrainHeight(v_dabCentre + v_offset);
+    // texture() needs UNIFORM control flow for its mip-level derivatives, and a branch on a uniform is
+    // uniform: every fragment of the draw takes the same side. So a grain that is off costs no texture read.
+    float hTip = 1.0;
+    if (tipOn) hTip = jb_tipGrainHeight(v_offset, v_angle);
+    float hPaper = 1.0;
+    if (paperOn) hPaper = jb_paperGrainHeight(v_dabCentre + v_offset);
 
     if (tipOn || paperOn) {
         // The lean is in DOCUMENT space and so is v_offset, so they are already in one frame. (Rotating

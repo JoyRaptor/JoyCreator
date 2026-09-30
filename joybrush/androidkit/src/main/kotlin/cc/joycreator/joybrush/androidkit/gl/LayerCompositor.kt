@@ -6,7 +6,7 @@ import android.opengl.GLES30
  * The offscreen half of the composite path (JB-2.20b). GL THREAD ONLY.
  *
  * A shader-side blend needs the backdrop, and ES 3.0 cannot read the framebuffer it is writing. So the
- * stack is built in a target [target] the size of the screen, and each layer's tiles are drawn INTO it
+ * stack is built in a texture ([target]) the size of the screen, and each layer's tiles are drawn INTO it
  * while reading a copy of the stack so far from [backdrop]. Before a layer is drawn only the rectangle
  * its tiles can touch is copied (target → backdrop), so a small layer costs a small copy, not a
  * screen-sized one; pixels outside that rectangle are never read by that layer.

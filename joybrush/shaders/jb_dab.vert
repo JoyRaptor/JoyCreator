@@ -6,6 +6,7 @@ precision highp float;
 layout(location = 0) in vec2 a_corner;   // unit quad corner, -1..1
 layout(location = 1) in vec4 a_dab;      // x, y, radius (document px), angle (radians)
 layout(location = 2) in vec2 a_dab2;     // flow, cap
+layout(location = 3) in vec4 a_carried;  // smudge only (JB-1.06): the ONE carried colour this dab paints with, premultiplied. A stamp brush never enables it.
 
 uniform vec2 u_tileOrigin;               // document px of the tile's first texel
 uniform float u_tileSize;
@@ -16,6 +17,7 @@ out float v_radius;
 out float v_angle;
 out float v_flow;
 out float v_cap;
+out vec4 v_carried;
 
 void main() {
     // Half-size that contains the tip at any rotation, plus an antialiasing margin
@@ -30,4 +32,5 @@ void main() {
     v_angle = a_dab.w;
     v_flow = a_dab2.x;
     v_cap = a_dab2.y;
+    v_carried = a_carried;
 }

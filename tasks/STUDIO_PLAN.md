@@ -122,3 +122,5 @@ LinkPose` (id `owner#pin`) is ~100 lines and the link tool can pick pins.
 **Text sizing modes (#14) — scope.** Nothing wraps today. Wrap needs the SAME line breaking in
 TextBoxRenderer (export), TextBoxView and the in-picture EditText, plus per-letter animation
 layout on wrapped lines. Phone-verify-heavy: do it with the Note 9 connected.
+
+**Status 2026-09-30 (Note 9).** Done and pushed: visualizer Style drawer shows every Shape option with a drawn icon (VizGlyph) and both choices for Blend/Mirror/Glow (5763c584); the last 150 hard-coded UI strings live in strings_studio_leftovers.xml (519fdd26; build green, editor opens, dialogs' wording not each opened); eyedropper still routed through the live PiP tab after MaskKeyPanel's removal (read, not device-tested). Still open: caption and video-overlay drawer inventories (the Untitled test project has neither; needs a captioned clip and an overlay), sprite pin links, parent-follow for a linked visualizer, follower lane-drop, dragging a pin with a linked prop.

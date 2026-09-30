@@ -2,7 +2,7 @@
 
 A baseline for the owner's "every item in every drawer is still there" check. Read off the
 accessibility tree of the live app, so it is what a user (and TalkBack) actually gets. PARTIAL:
-the text and image drawers are inventoried; the others are listed as "seen, not enumerated".
+the text, image, sprite and audio drawers are inventoried; the others are listed as "seen, not enumerated".
 Re-run after big changes and diff.
 
 ## Text drawer (FONT TEST, ZA_CONTROL)
@@ -33,7 +33,15 @@ Hide / Lock / Let taps pass through.
   That was my capture running while the app was out of front; re-checked, Mask exposes all its
   labelled controls. No accessibility gap found.
 
+## Sprite drawer (Starguy)
+Header: name, tabs **Transform | Lanes**, toggles Hide / Lock. Transform: Pos X, Pos Y, Scale, Rotate,
+Opacity, each with value and previous/next key (Pos X shows the diamond row). Frame palette below.
+
+## Audio drawer
+Header: tabs **Level | A/V Sync | Effects**, actions Start here / End here / Split at playhead, toggles
+Mute / Lock / Bypass effects (A/B). Level: volume (%, keyable), Pan (C), In / Out fades (Fade in /
+Fade out, ms). Effects: Enhance voice, Beat-reactive link, Compressor gain-reduction meter.
+
 ## Seen working in portrait, not enumerated here
-Sprite (header strip + frame palette),
-audio (Level / A/V Sync / FX: Level, Pan, In, Out), film double-tap (Volume drawer), video overlay,
+Film double-tap (Volume drawer), video overlay,
 visualizer (Style | Transform), caption drawer (Style / Fit).

@@ -2948,6 +2948,26 @@ public class Timeline {
      * after anything that adds or removes objects. A parent that is gone leaves the link inert
      * (drawn at its own pose), never a crash. Parents: text, images and sprites.
      */
+    /** The frame aspect pins are placed with when a link is being made; the editor keeps it current. */
+    private float linkFrameAspect = 9f / 16f;
+
+    public void setLinkFrameAspect(float a) { if (a > 0.01f) linkFrameAspect = a; }
+
+    /** A pin as a link parent ("id#pinN"), or null when {@code id} is not one or the picture is gone. */
+    @androidx.annotation.Nullable
+    public LinkPose pinPoseById(@NonNull String id, float frameAspect) {
+        int i = id.indexOf(MeshPinLink.MARK);
+        if (i <= 0) return null;
+        try {
+            int pin = Integer.parseInt(id.substring(i + MeshPinLink.MARK.length()));
+            String ownerId = id.substring(0, i);
+            for (TextOverlayItem o : textOverlays) {
+                if (o.getId().equals(ownerId)) return new MeshPinLink(o, pin, frameAspect);
+            }
+        } catch (NumberFormatException ignored) { }
+        return null;
+    }
+
     public void resolveSpaceLinks() {
         java.util.Map<String, LinkPose> byId = new java.util.HashMap<>();
         for (TextOverlayItem t : textOverlays) byId.put(t.getId(), t);
@@ -2957,9 +2977,11 @@ public class Timeline {
             SpaceLink l = f.getSpaceLink();
             if (l == null) continue;
             LinkPose p = byId.get(l.parentId);
+            if (p == null && !l.parentId.isEmpty()) p = pinPoseById(l.parentId, l.aspect);
             l.parentRef = (p == f || wouldCycle(f, p, byId)) ? null : p;
             for (SpaceLink.Switch sw : l.switches) {
                 LinkPose q = sw.letsGo() ? null : byId.get(sw.parentId);
+                if (q == null && !sw.letsGo() && !sw.parentId.isEmpty()) q = pinPoseById(sw.parentId, l.aspect);
                 sw.ref = (q == f || wouldCycle(f, q, byId)) ? null : q;
             }
             l.invalidate();
@@ -2993,6 +3015,8 @@ public class Timeline {
         while (!todo.isEmpty()) {
             LinkPose cur = todo.pop();
             if (cur.getId().equals(child.getId())) return true;
+            // A pin leads to its picture: following your own picture's pin would be a loop.
+            if (cur instanceof MeshPinLink) { todo.push(((MeshPinLink) cur).owner()); continue; }
             if (!seen.add(cur.getId())) continue;
             if (seen.size() > 256) return true;   // absurdly deep: refuse rather than hang
             if (!(cur instanceof LinkFollower)) continue;
@@ -3000,6 +3024,7 @@ public class Timeline {
             if (l == null) continue;
             for (String id : l.parentIds()) {
                 LinkPose next = byId.get(id);
+                if (next == null) next = pinPoseById(id, linkFrameAspect);
                 if (next != null) todo.push(next);
             }
         }
@@ -3023,7 +3048,7 @@ public class Timeline {
             if (s.getId().equals(id)) return s;
         }
         for (WaveformOverlayInstance w : waveformOverlays) if (w.getId().equals(id)) return w;
-        return null;
+        return pinPoseById(id, linkFrameAspect);
     }
 
     /**

@@ -696,6 +696,7 @@ public class TextOverlayItem implements LinkFollower {
         c.fontFamily = fontFamily;
         c.imageUri = imageUri;
         c.proxy = proxy;
+        c.imageAspect = imageAspect;
         c.startMs = startMs;
         c.endMs = endMs;
         c.hostClipId = hostClipId;
@@ -2000,6 +2001,16 @@ public class TextOverlayItem implements LinkFollower {
      * has a lane, keys, the move handles, the Transform drawer and link support.
      */
     private boolean proxy;
+
+    /**
+     * The picture's width / height in pixels (0 = not known yet). Pin links need it to place a pin
+     * in the frame without a bitmap; it is filled in when a pin is first picked and saved.
+     */
+    private float imageAspect;
+
+    public float getImageAspect() { return imageAspect; }
+
+    public void setImageAspect(float a) { this.imageAspect = a > 0f ? a : 0f; }
 
     public boolean isProxy() { return proxy; }
 

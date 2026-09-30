@@ -35129,6 +35129,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** What an object is called in a link sentence. */
     @NonNull
     private String linkName(@NonNull com.fadcam.ui.faditor.model.LinkPose p) {
+        if (p instanceof com.fadcam.ui.faditor.model.MeshPinLink) {
+            com.fadcam.ui.faditor.model.MeshPinLink mp = (com.fadcam.ui.faditor.model.MeshPinLink) p;
+            return getString(R.string.link_pin_named, linkName(mp.owner()), mp.pin() + 1);
+        }
         if (p instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
             com.fadcam.ui.faditor.model.TextOverlayItem o =
                     (com.fadcam.ui.faditor.model.TextOverlayItem) p;
@@ -35168,9 +35172,49 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.link_cant_cycle, Toast.LENGTH_SHORT).show();
             return;
         }
-        if (switchAt != null) { putParentSwitch(child, switchAt, parent.getId()); return; }
-        com.fadcam.ui.faditor.tools.LinkTool.showDetails(this, linkName(child), linkName(parent),
-                props -> applyLink(child, parent, props));
+        // A bent or puppeted picture can be followed as a whole or by one of its pins.
+        chooseFollowTarget(parent, target -> {
+            if (switchAt != null) { putParentSwitch(child, switchAt, target.getId()); return; }
+            com.fadcam.ui.faditor.tools.LinkTool.showDetails(this, linkName(child), linkName(target),
+                    props -> applyLink(child, target, props));
+        });
+    }
+
+    /**
+     * "Follow what?" for a picture with pins: the picture itself, or pin 1..n (a prop that rides
+     * a hand). A picture without pins goes straight through. The pick needs the picture's
+     * aspect ratio to place a pin without a bitmap, so it is measured and remembered here.
+     */
+    private void chooseFollowTarget(@NonNull com.fadcam.ui.faditor.model.LinkPose parent,
+                                    @NonNull java.util.function.Consumer<com.fadcam.ui.faditor.model.LinkPose> then) {
+        if (!(parent instanceof com.fadcam.ui.faditor.model.TextOverlayItem) || project == null) {
+            then.accept(parent);
+            return;
+        }
+        final com.fadcam.ui.faditor.model.TextOverlayItem pic =
+                (com.fadcam.ui.faditor.model.TextOverlayItem) parent;
+        final int n = com.fadcam.ui.faditor.transform.mesh.MeshPinPose.pinCount(pic);
+        if (n <= 0 || !pic.isImage()) { then.accept(parent); return; }
+        final String[] names = new String[n + 1];
+        names[0] = getString(R.string.link_pin_picture);
+        for (int i = 0; i < n; i++) names[i + 1] = getString(R.string.link_pin_n, i + 1);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this,
+                R.style.CustomBottomSheetDialogTheme)
+                .setTitle(R.string.link_pin_choose)
+                .setItems(names, (d, which) -> {
+                    if (which == 0) { then.accept(parent); return; }
+                    float[] wh = getImageWHForPreset(pic);
+                    if (wh[1] > 0f) pic.setImageAspect(wh[0] / wh[1]);
+                    android.graphics.RectF cr = computeCanvasRect();
+                    project.getTimeline().setLinkFrameAspect(
+                            cr.height() > 1f ? cr.width() / cr.height() : 9f / 16f);
+                    com.fadcam.ui.faditor.model.LinkPose pin =
+                            project.getTimeline().pinPoseById(pic.getId() + "#pin" + (which - 1),
+                                    cr.height() > 1f ? cr.width() / cr.height() : 9f / 16f);
+                    then.accept(pin != null ? pin : parent);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     /**

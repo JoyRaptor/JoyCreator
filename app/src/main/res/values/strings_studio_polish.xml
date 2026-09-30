@@ -92,6 +92,11 @@
     <string name="text_wrap_medium">Wrap · medium</string>
     <string name="text_wrap_narrow">Wrap · narrow</string>
     <string name="text_wrap_width_desc">Text wrap width</string>
+    <!-- Pin links: a prop follows one pin of a bent or puppeted picture -->
+    <string name="link_pin_choose">Follow what?</string>
+    <string name="link_pin_picture">The picture itself</string>
+    <string name="link_pin_n">Pin %1$d</string>
+    <string name="link_pin_named">%1$s, pin %2$d</string>
     <string name="viz_no_styles">No visualizer styles were found.</string>
     <string name="text_wrap_desc">Text width: %1$s. Tap to change</string>
     <string name="caption_timing_pct">%1$d%%</string>

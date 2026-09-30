@@ -2446,6 +2446,7 @@ public class ProjectStorage {
                 // §4.5 per-object eye/lock (write-if-true — pre-§4.5 JSON unchanged).
                 if (o.isHidden()) oJson.addProperty("objHidden", true);
                 if (o.isProxy()) oJson.addProperty("proxy", true);
+                if (o.getImageAspect() > 0f) oJson.addProperty("imageAspect", o.getImageAspect());
                 // Alignment was never written, so it reset to centre on every reopen.
                 if (!com.fadcam.ui.faditor.model.TextOverlayItem.ALIGN_CENTER.equals(o.getTextAlign())) {
                     oJson.addProperty("textAlign", o.getTextAlign());
@@ -3472,6 +3473,7 @@ public class ProjectStorage {
                         // §4.5 per-object eye/lock (tolerant: absent = false).
                         if (hasValue(oObj, "objHidden")) o.setHidden(oObj.get("objHidden").getAsBoolean());
                         if (hasValue(oObj, "proxy")) o.setProxy(oObj.get("proxy").getAsBoolean());
+                        if (hasValue(oObj, "imageAspect")) o.setImageAspect(oObj.get("imageAspect").getAsFloat());
                         if (hasValue(oObj, "textAlign")) o.setTextAlign(oObj.get("textAlign").getAsString());
                         if (hasValue(oObj, "wrapEm")) o.setWrapEm(oObj.get("wrapEm").getAsFloat());
                         if (hasValue(oObj, "objLocked")) o.setLocked(oObj.get("objLocked").getAsBoolean());

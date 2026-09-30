@@ -10092,6 +10092,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     showCaptionDrawer(false);
                     return;
                 }
+                // The sprite frames palette at the bottom (Sprites tool): BACK skipped it too.
+                if (spritePalettePanel != null && spritePalettePanel.isAttachedToWindow()) {
+                    spritePalettePanel.collapse();
+                    return;
+                }
                 if (transcriptPanelOpen) {
                     showTranscriptPanel(false);
                     return;

@@ -458,6 +458,16 @@ public class LobbyFragment extends BaseFragment {
                 Studio.ROOM_VIZ, Studio.ROOM_VIZ_DEEP, ON_LIGHT, "LAST VISUALISER",
                 getString(R.string.lobby_act_start),
                 getString(R.string.lobby_empty_viz), -1, "graphic_eq"));
+
+        // JB-0.09 — Joy Brush, the painting room. APPENDED, never inserted: enterRoom() and paintHero() address rooms by index
+        // (2 Sprite Lab, 3 Avatar, 4 Viz Lab), so a room anywhere but the end would silently re-point them. Its colours are
+        // Joy Brush's own (jb_tokens.xml, which the owner can change without touching this file) and its ink is white, the
+        // same as the other dark-gradient rooms.
+        cc.joycreator.joybrush.android.Palette jb = cc.joycreator.joybrush.android.JbColors.palette(requireContext());
+        rooms.add(new Room(getString(R.string.lobby_room_joybrush),
+                jb.getRoomStart(), jb.getRoomEnd(), Color.WHITE, "NEW DRAWING",
+                getString(R.string.lobby_act_new_drawing),
+                getString(R.string.lobby_empty_joybrush), -1, "brush"));
     }
 
     private Room room() { return rooms.get(active); }
@@ -989,7 +999,9 @@ public class LobbyFragment extends BaseFragment {
             // defect 13: "sheets live inside project.json, so a character perfected in one
             // project does not exist in the next"). So the honest hero is the most recent
             // project's, and the empty state is honest too when there is none.
-            hasContent = !projects.isEmpty() && rooms.indexOf(r) != 4;
+            // Room 4 (Viz Lab) has no room yet, and room 5 (Joy Brush) is not inside a project at all: a drawing has its
+            // own store, so putting "IN <LAST VIDEO>" under it would be a lie (JB-0.09 Decision 4).
+            hasContent = !projects.isEmpty() && rooms.indexOf(r) != 4 && rooms.indexOf(r) != 5;
             name = hasContent ? projects.get(0).name : "";
             sub  = hasContent ? "IN " + projects.get(0).name.toUpperCase(Locale.US) : "";
         }
@@ -1048,7 +1060,7 @@ public class LobbyFragment extends BaseFragment {
         heroSub.setText(sub);
         heroSub.setVisibility(hasContent ? View.VISIBLE : View.INVISIBLE);
 
-        heroAction.setText(hasContent ? r.action : getString(R.string.lobby_act_start));
+        heroAction.setText(hasContent || rooms.indexOf(r) == 5 ? r.action : getString(R.string.lobby_act_start));
         heroAction.setTextColor(r.onGrad);
         heroAction.setBackground(pillGradient(r.gradA, r.gradB, dp(999)));
         heroAction.setOnClickListener(v -> enterRoom());
@@ -1110,6 +1122,14 @@ public class LobbyFragment extends BaseFragment {
 
         String projectId = projects.isEmpty() ? null : projects.get(0).id;
         int idx = rooms.indexOf(r);
+        if (idx == 5) {                                              // Joy Brush: one screen, no project, no extras
+            try {
+                startActivity(new Intent(requireContext(), cc.joycreator.joybrush.android.JoyBrushActivity.class));
+                return;
+            } catch (Exception e) {
+                FLog.w("Lobby", "enterRoom failed for " + r.title, e);
+            }
+        }
         try {
             if (idx == 2 && projectId != null) {                    // Sprite Lab
                 Intent i = new Intent(requireContext(),

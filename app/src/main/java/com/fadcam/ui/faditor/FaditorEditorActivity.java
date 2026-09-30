@@ -20744,23 +20744,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final Runnable commit = () -> commitVisualizerWorkingStyle(overlay);
         final Runnable refreshChips = () -> rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
 
-        // emitter cycle
+        // Shape: EVERY option visible at once, each with a drawn icon (owner, 2026-09-30: "a
+        // preview icon in the chip ... show all the options"). Scrolls sideways if the drawer is narrow.
         LinearLayout emRow = vizPropRow(dp, "Shape");
-        TextView emBtn = new TextView(this);
-        emBtn.setText(emitterLabel(layer.emitter));
-        emBtn.setTextColor(Studio.INK);
-        emBtn.setTextSize(12);
-        emBtn.setPadding((int) (12 * dp), (int) (5 * dp), (int) (12 * dp), (int) (5 * dp));
-        emBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
-        emBtn.setOnClickListener(v -> {
-            int cur = 0;
-            for (int k = 0; k < VIZ_EMITTERS.length; k++) if (VIZ_EMITTERS[k].equals(layer.emitter)) { cur = k; break; }
-            layer.emitter = VIZ_EMITTERS[(cur + 1) % VIZ_EMITTERS.length];
-            emBtn.setText(emitterLabel(layer.emitter));
+        final int[] emIdx = {0};
+        for (int k = 0; k < VIZ_EMITTERS.length; k++) if (VIZ_EMITTERS[k].equals(layer.emitter)) emIdx[0] = k;
+        String[] emNames = new String[VIZ_EMITTERS.length];
+        for (int k = 0; k < emNames.length; k++) emNames[k] = emitterLabel(VIZ_EMITTERS[k]);
+        emRow.addView(vizChoices(dp, emNames, VIZ_EMITTERS, emIdx[0], true, which -> {
+            layer.emitter = VIZ_EMITTERS[which];
             commit.run();
-            refreshChips.run(); // chip label + particle-row visibility depend on emitter
-        });
-        emRow.addView(emBtn);
+            refreshChips.run(); // the layer chip's label and the particle rows depend on the emitter
+        }), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         propBox.addView(emRow);
 
         // color dots (in a horizontal scroll so a long palette never widens the drawer)
@@ -20802,24 +20797,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         propBox.addView(vizSlider(dp, "Softness", 0f, 1f, layer.softness, false, v -> { layer.softness = v; commit.run(); }));
         propBox.addView(vizSlider(dp, "Gain", 0.1f, 4f, layer.gain, false, v -> { layer.gain = v; commit.run(); }));
 
-        // blend toggle
+        // Blend: both choices visible.
         LinearLayout blendRow = vizPropRow(dp, "Blend");
-        TextView blendBtn = new TextView(this);
-        Runnable setBlendLabel = () -> blendBtn.setText(
-                com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD.equals(layer.blend) ? getString(R.string.studio_opt_add) : getString(R.string.studio_opt_normal));
-        setBlendLabel.run();
-        blendBtn.setTextColor(Studio.INK);
-        blendBtn.setTextSize(12);
-        blendBtn.setPadding((int) (12 * dp), (int) (5 * dp), (int) (12 * dp), (int) (5 * dp));
-        blendBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
-        blendBtn.setOnClickListener(v -> {
-            layer.blend = com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD.equals(layer.blend)
-                    ? com.fadcam.ui.faditor.model.VizLayer.BLEND_NORMAL
-                    : com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD;
-            setBlendLabel.run();
-            commit.run();
-        });
-        blendRow.addView(blendBtn);
+        blendRow.addView(vizChoices(dp,
+                new String[]{getString(R.string.studio_opt_normal), getString(R.string.studio_opt_add)}, null,
+                com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD.equals(layer.blend) ? 1 : 0, false, which -> {
+                    layer.blend = which == 1 ? com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD
+                            : com.fadcam.ui.faditor.model.VizLayer.BLEND_NORMAL;
+                    commit.run();
+                }));
         propBox.addView(blendRow);
 
         // trails
@@ -20839,40 +20825,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         propBox.addView(vizSlider(dp, "Phase", 0f, 360f, layer.phaseDeg, true,
                 v -> { layer.phaseDeg = Math.round(v); commit.run(); }));
         LinearLayout mirRow = vizPropRow(dp, "Mirror");
-        TextView mirBtn2 = new TextView(this);
-        Runnable setMir = () -> {
-            mirBtn2.setText(layer.mirror ? getString(R.string.studio_opt_on) : getString(R.string.studio_opt_off));
-            mirBtn2.setTextColor(layer.mirror ? Studio.GO : Studio.INK);
-        };
-        setMir.run();
-        mirBtn2.setTextSize(12);
-        mirBtn2.setPadding((int) (12 * dp), (int) (5 * dp), (int) (12 * dp), (int) (5 * dp));
-        mirBtn2.setBackgroundResource(R.drawable.settings_home_row_bg);
-        mirBtn2.setOnClickListener(v -> { layer.mirror = !layer.mirror; setMir.run(); commit.run(); });
-        mirRow.addView(mirBtn2);
+        mirRow.addView(vizChoices(dp,
+                new String[]{getString(R.string.studio_opt_off), getString(R.string.studio_opt_on)}, null,
+                layer.mirror ? 1 : 0, false, which -> { layer.mirror = which == 1; commit.run(); }));
         propBox.addView(mirRow);
 
         // glow on/off + radius
         LinearLayout glowRow = vizPropRow(dp, "Glow");
-        TextView glowBtn = new TextView(this);
-        Runnable setGlow = () -> {
-            boolean on = layer.glowColor != null && layer.glowRadiusDp > 0f;
-            glowBtn.setText(on ? getString(R.string.studio_opt_on) : getString(R.string.studio_opt_off));
-            glowBtn.setTextColor(on ? Studio.GO : Studio.INK);
-        };
-        setGlow.run();
-        glowBtn.setTextSize(12);
-        glowBtn.setPadding((int) (12 * dp), (int) (5 * dp), (int) (12 * dp), (int) (5 * dp));
-        glowBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
-        glowBtn.setOnClickListener(v -> {
-            boolean on = layer.glowColor != null && layer.glowRadiusDp > 0f;
-            if (on) { layer.glowColor = null; layer.glowRadiusDp = 0f; }
-            else { layer.glowColor = layer.color; layer.glowRadiusDp = 6f; }
-            setGlow.run();
-            commit.run();
-            refreshChips.run(); // re-render so the glow radius slider default reflects the new state
-        });
-        glowRow.addView(glowBtn);
+        final boolean glowOn = layer.glowColor != null && layer.glowRadiusDp > 0f;
+        glowRow.addView(vizChoices(dp,
+                new String[]{getString(R.string.studio_opt_off), getString(R.string.studio_opt_on)}, null,
+                glowOn ? 1 : 0, false, which -> {
+                    if (which == 1) { layer.glowColor = layer.color; layer.glowRadiusDp = 6f; }
+                    else { layer.glowColor = null; layer.glowRadiusDp = 0f; }
+                    commit.run();
+                    refreshChips.run(); // the glow radius slider's default follows the state
+                }));
         propBox.addView(glowRow);
         propBox.addView(vizSlider(dp, "Glow radius", 0f, 24f, layer.glowRadiusDp, false, v -> {
             layer.glowRadiusDp = v;
@@ -20903,6 +20871,56 @@ public class FaditorEditorActivity extends AppCompatActivity {
         b.setLayoutParams(lp);
         b.setOnClickListener(onClick);
         return b;
+    }
+
+    /** The callback of {@link #vizChoices}. */
+    private interface VizPick { void onPick(int index); }
+
+    /**
+     * A row of choices with all of them showing, the picked one lit (drawer chips, so it matches
+     * every other drawer). {@code kinds}, when given, is one {@link com.fadcam.ui.faditor.tools.VizGlyph}
+     * kind per option: a small drawn picture before the word. Rebuilds itself on a pick so the lit chip
+     * and the glyph colours stay right without the caller re-rendering the drawer.
+     */
+    @NonNull
+    private View vizChoices(float dp, @NonNull String[] names, @androidx.annotation.Nullable String[] kinds,
+                            int selected, boolean scroll, @NonNull VizPick pick) {
+        final LinearLayout host = new LinearLayout(this);
+        host.setOrientation(LinearLayout.HORIZONTAL);
+        host.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        final int[] sel = {selected};
+        final Runnable[] render = new Runnable[1];
+        render[0] = () -> {
+            host.removeAllViews();
+            for (int i = 0; i < names.length; i++) {
+                final int idx = i;
+                final boolean on = i == sel[0];
+                TextView chip = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(this, names[i]);
+                com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(chip, on);
+                if (kinds != null) {
+                    int sz = (int) (16 * dp);
+                    int ink = on ? com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.inkOn(
+                            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.accent()) : Studio.DRAWER_LABEL;
+                    chip.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                            new com.fadcam.ui.faditor.tools.VizGlyph(kinds[i], sz, ink), null, null, null);
+                    chip.setCompoundDrawablePadding((int) (5 * dp));
+                }
+                com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(chip, names[i]);
+                chip.setOnClickListener(v -> {
+                    if (sel[0] == idx) return;
+                    sel[0] = idx;
+                    render[0].run();
+                    pick.onPick(idx);
+                });
+                host.addView(chip, com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chipLp(this));
+            }
+        };
+        render[0].run();
+        if (!scroll) return host;
+        android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        hs.addView(host);
+        return hs;
     }
 
     /** A labeled prop row (horizontal; label + caller-appended control(s)). */

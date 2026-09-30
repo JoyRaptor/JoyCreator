@@ -83,8 +83,9 @@ fun interface AnimFileSink {
  *
  * **EVERY REFUSAL HAPPENS BEFORE THE FIRST BYTE AND BEFORE THE FIRST FRAME (Decision 8).** The
  * board's existence, the plan's frame ids belonging to that board, the board's size against
- * [MAX_REGION_PX] in `Long` arithmetic, and the paper colour being a colour at all are all decided
- * before `onFrame` is ever called. A refused export costs a sentence, not a stalled phone.
+ * [MAX_REGION_PX] in `Long` arithmetic, the decoded pixels the chosen format would hold alive
+ * against [MAX_EXPORT_PX], and the paper colour being a colour at all are all decided before
+ * `onFrame` is ever called. A refused export costs a sentence, not a stalled phone.
  */
 object AnimExportRunner {
 
@@ -105,7 +106,8 @@ object AnimExportRunner {
      *   of board [boardId] — the one consistency check this call makes, and it names the board and
      *   the frame that is wrong.
      * @throws cc.joycreator.joybrush.core.render.RegionException if the board is larger than one
-     *   render, before any frame is rendered.
+     *   render, or if this [format] would hold more decoded pixels alive than [MAX_EXPORT_PX] —
+     *   both decided before any frame is rendered.
      * @throws IllegalArgumentException for [AnimFormat.PNG_SEQUENCE], which is written by
      *   [writeSequence] and nowhere else — a sheet or a GIF is one file and a sequence is many.
      */
@@ -123,8 +125,20 @@ object AnimExportRunner {
             ?: throw DocException("this document has no board called \"$boardId\"")
         checkPlanFitsBoard(boardId, board.frames.map { it.id }, plan.frameIds)
         checkRegionFits(boardId, plan.width, plan.height)
+        checkExportFits(boardId, format, plan, cols)
         val paper = if (includePaper) checkedPaper(doc.paper.color) else null
 
+        // **THE LIST STAYS, AND IT IS NOT AN OVERSIGHT (Decision 3).** It reads like the obvious
+        // memory fix — hold every frame at once, encode as you go instead — and it would move no
+        // bytes. `GifEncoder` retains every frame's array by design (`PendingFrame` / `frames` at
+        // `GifEncoder.kt:413-415`, `frames.add(…)` at `:443`, read back in `finish()` at `:456`),
+        // so dropping this list frees REFERENCES and leaves every byte exactly where it is; and for
+        // the sheet `pack` is handed the whole list and allocates the whole sheet on top of it
+        // (`SpritePacker.kt:248`), so it needs it in one piece anyway. `GifEncoder.kt` is a
+        // JB-3.06a file and `SpritePacker.kt` a reviewed landed one, so a streaming entry point is
+        // not this row's to add — it is Question 2 of the JB-3.06c spec. What IS this row's is the
+        // budget above, which turns the board that would run out of memory into a sentence naming
+        // both numbers before a single frame exists.
         val cells = ArrayList<ByteArray>(plan.frameCount)
         plan.frameIds.forEachIndexed { i, frameId ->
             cells.add(RegionRenderer.render(doc, tileSource(contents), plan.rect, frameId, paper))
@@ -155,6 +169,10 @@ object AnimExportRunner {
      * puts in words.
      *
      * @return the names written, in the order they were written, manifest included.
+     * @throws cc.joycreator.joybrush.core.render.RegionException if the board is larger than one
+     *   render, or if a sequence of this size would hold more decoded pixels alive than
+     *   [MAX_EXPORT_PX] — which for this format is one cell, because the loop below streams. Both
+     *   are decided before the first frame is rendered and before [sink] is called.
      * @throws JbArchiveException naming how far it got when [sink] refuses a file, so the export
      *   button can show `"Exported 19 of 40 frames — frame 20 could not be written."`
      */
@@ -171,6 +189,12 @@ object AnimExportRunner {
             ?: throw DocException("this document has no board called \"$boardId\"")
         checkPlanFitsBoard(boardId, board.frames.map { it.id }, plan.frameIds)
         checkRegionFits(boardId, plan.width, plan.height)
+        // There is no `format` and no `cols` in scope here, so both are spelled out. `sheetCols` is
+        // this file's own default for `encodeOne`'s `cols` and `decodedPixels` returns at the
+        // `PNG_SEQUENCE` line before it reads `cols` at all — the column count is deliberately
+        // ignored, because a sequence renders, writes and drops inside its loop. Pinned by
+        // `theBudgetIsTheSameForEveryColumnCountOnATwoDimensionalFormat`.
+        checkExportFits(boardId, AnimFormat.PNG_SEQUENCE, plan, AnimExport.sheetCols(plan.frameCount))
         val paper = if (includePaper) checkedPaper(doc.paper.color) else null
         val tiles = tileSource(contents)
 
@@ -264,8 +288,9 @@ object AnimExportRunner {
             sheetFileName = sheetName,
             fps = plan.fps,
             // Decision 7: ONE clip covering every exported frame, with each hold folded in as a
-            // repeat of that cell's index. `Clip` has no `weights` field today and this row must
-            // not start writing one; a repeat is a repeat, not a mistake.
+            // repeat of that cell's index. `Clip` HAS a `weights` field now (JB-4.03c) and this row
+            // does not write one — that is Question 1 of the JB-3.06c spec, not a fact about the
+            // field. A repeat is a repeat, not a mistake, and it is what the app's own KDoc means.
             clips = listOf(AnimExport.sheetClip(plan, plan.baseName, CLIP_TYPE)),
             cellNames = AnimExport.sheetCellNames(plan),
         )
@@ -343,6 +368,95 @@ object AnimExportRunner {
     }
 
     /**
+     * The most DECODED picture one export may hold alive at once, in pixels.
+     *
+     * **DERIVED, NOT CHOSEN — and written as `MAX_REGION_PX * 2` so the derivation cannot rot.**
+     * 1. [MAX_REGION_PX] is this tree's one-render budget, and it is documented as a MEMORY budget,
+     *    not a range check (`RegionRenderer.kt:141` says so, and `RegionRenderer.kt:345-350` backs
+     *    it), and `BYTES_PER_PX = 20` (`RegionRenderer.kt:92`, four result bytes plus sixteen of
+     *    float scratch) puts one render's live footprint at `MAX_REGION_PX * 20` = 160 MiB.
+     * 2. This codebase's own ceiling for ONE decoded blob is 64 MiB, and it says so three times
+     *    with the same number: `ProcreateImport.MAX_INFLATED_BYTES = 64L * 1024 * 1024`
+     *    (`ProcreateImport.kt:76`, "What one deflate entry may inflate to. 64 MiB, and the declared
+     *    size is not believed"), `KritaImport.MAX_FILE_BYTES` (`KritaImport.kt:89`) and
+     *    `AbrImport.MAX_FILE_BYTES = 64L * 1024 * 1024` (`AbrImport.kt:39`) — and
+     *    `KritaImport.kt:87` names the agreement in prose, which is where the number comes from.
+     * 3. 64 MiB of straight RGBA8 is 64 * 1024 * 1024 / 4 = 16 777 216 pixels, and
+     *    16 777 216 = 2 * 8 388 608. **So the multiplier is 2 because the tree's blob ceiling
+     *    happens to be exactly twice the renderer's pixel budget, not because two felt right.**
+     *
+     * The consequence is the sentence a person gets instead of an `OutOfMemoryError`, and the
+     * number moves on its own if the Lead rules on the renderer's own pending question
+     * (`RegionRenderer.kt:85-86`: "LEAD RULING PENDING … the implementer picked it, not the Lead").
+     * **PROVISIONAL (Decision 6):** it caps what a person can export, so the Lead may want a
+     * different multiple; this one constant is the only thing to change and the arithmetic moves
+     * with it.
+     */
+    internal const val MAX_EXPORT_PX = MAX_REGION_PX * 2L
+
+    /**
+     * How many decoded RGBA pixels [format] holds alive at once. **ONE TABLE, THREE ANSWERS, and
+     * each answer is a line of landed code rather than a preference:**
+     *
+     * - `GIF`: `frames * cellW * cellH`, because `GifEncoder` retains every frame's array by
+     *   design — `PendingFrame` / `frames` (`GifEncoder.kt:413-415`), `frames.add(…)` (`:443`),
+     *   read back in `finish()` (`:456`) — and `GifEncoder.kt` is not this row's to change.
+     * - `PNG_SEQUENCE`: ONE cell, because `writeSequence` above renders, encodes and writes inside
+     *   its loop and nothing accumulates. **This is why the count is not
+     *   `frames * …` for every format: a 600-frame sequence runs in constant memory, and a rule
+     *   that refused it would be refusing an export that works.**
+     * - `SPRITE_SHEET`: `frames * cellW * cellH` PLUS the sheet itself, because `encodeOne` holds
+     *   the cells list and `pack` allocates the whole sheet on top of it (`SpritePacker.kt:248`) —
+     *   the one place two full copies of the same picture are alive.
+     *
+     * `cols` is ignored for the two formats that have no grid, and the test that proves it is
+     * `theBudgetIsTheSameForEveryColumnCountOnATwoDimensionalFormat`.
+     */
+    internal fun decodedPixels(format: AnimFormat, plan: AnimExportPlan, cols: Int): Long {
+        val cell = plan.width.toLong() * plan.height.toLong()
+        // **PNG_SEQUENCE FIRST, and it returns ONE cell.** `writeSequence` renders, encodes, writes
+        // and drops inside its loop, so nothing accumulates and the peak is a single frame. Costing
+        // it `frames * cell` would be refusing a 400-frame 1024x1024 sequence that runs in constant
+        // memory - the exact "a rule that refused an export that works" the KDoc above rules out, and
+        // the exact failure `anExportOverThePixelBudgetIsRefusedBeforeAnyFrameIsRendered`'s last
+        // assertion exists to catch.
+        if (format == AnimFormat.PNG_SEQUENCE) return cell
+        val count = plan.frameCount.toLong()
+        val frames = cell * count
+        if (format != AnimFormat.SPRITE_SHEET) return frames
+        // **`rows` is ceil(FRAME COUNT / cols), NOT ceil(pixel total / cols).** The packer's own line is
+        // `((cells.size.toLong() + cols - 1) / cols)` (`SpritePacker.kt:235`), where `cells.size` is the
+        // frame count, and dividing the pixel total instead makes this term ~`cell / cols` times too
+        // large: 7 frames of 1024x1024 at 3 columns becomes `ceil(7_340_032 / 3) = 2_446_678` rows and
+        // a 7 696 590 831_616-pixel "need", so **every sprite sheet at every size is refused** - which is
+        // why Decision 6's own costs (16 / 64 / 2 as a GIF and **7 / 30 / 1** as a sheet) are the proof
+        // that this line is meant to be the frame count. The exact-cap sheet boundary is the other
+        // proof: it only lands on the cap exactly with `rows = 3 = ceil(7 / 3)`.
+        val rows = (count + cols - 1) / cols
+        return frames + (cols.toLong() * plan.width) * (rows * plan.height.toLong())
+    }
+
+    /**
+     * The refusal, in a sentence that names the board and both numbers.
+     *
+     * `RegionException`, not `DocException`: [checkRegionFits] above throws `RegionException` for
+     * the same reason — this export will not fit in memory — and one type means a caller wraps
+     * `encodeOne` in one `catch`. The sentence names what the export WOULD need, what the most IS,
+     * and one remedy. **It does not name a control** (see *Do not*, R35).
+     */
+    private fun checkExportFits(boardId: String, format: AnimFormat, plan: AnimExportPlan, cols: Int) {
+        val px = decodedPixels(format, plan, cols)
+        if (px > MAX_EXPORT_PX) {
+            throw RegionException(
+                "board \"$boardId\" would hold $px pixels of picture at once for this " +
+                    "${format.label} — ${plan.frameCount} frames of ${plan.width} by " +
+                    "${plan.height} — and the most one export will hold is $MAX_EXPORT_PX. " +
+                    "Export a shorter range of it, or a smaller board.",
+            )
+        }
+    }
+
+    /**
      * The paper colour, or a refusal in a sentence naming it.
      *
      * Checked HERE rather than left to the renderer's `IllegalArgumentException` for the same reason
@@ -378,15 +492,28 @@ object AnimExportRunner {
      * of the two 4-byte big-endian numbers, so [WIDTH_AT] is where the width starts; nothing here
      * decodes a pixel, inflates an IDAT or checks a CRC, and a file that is not a PNG is refused
      * rather than read at random.
+     *
+     * **THE SIGNATURE IS CHECKED IN FULL, AND THE LENGTH IS CHECKED FIRST.** [PNG_SIGNATURE] is
+     * eight bytes and the loop walks `PNG_SIGNATURE.indices`, so the bound cannot drift from the
+     * array the way a typed `7` did — that was the bug this row fixes. The length guard is ABOVE the
+     * loop because the loop indexes the array: a short file must arrive as the sentence below and
+     * never as an `ArrayIndexOutOfBoundsException`.
+     *
+     * **A RESTATEMENT OF `PngChunks`'s own `PNG_SIGNATURE`, NOT AN IMPORT OF IT.** That array is
+     * `private` in `:core` (`PngChunks.kt:148`) and the module dependency runs `androidkit -> core`
+     * (`androidkit/build.gradle.kts:45`), so this file cannot see it. `PngChunks.kt:172-179` does
+     * this same check in this same order; keep them in step, and put a comment on both sides naming
+     * the other. The difference is deliberate: `PngChunks` refuses a file it is *reading*, `pngSize`
+     * refuses one it has just *written*, which is a backstop against a writer that lies.
      */
-    private fun pngSize(bytes: ByteArray, fileName: String): Pair<Int, Int> {
-        for (i in 0 until 7) {
+    internal fun pngSize(bytes: ByteArray, fileName: String): Pair<Int, Int> {
+        if (bytes.size < WIDTH_AT + 8) {
+            throw JbArchiveException("$fileName is ${bytes.size} bytes, which is too short to be a PNG")
+        }
+        for (i in PNG_SIGNATURE.indices) {
             if (bytes[i] != PNG_SIGNATURE[i]) {
                 throw JbArchiveException("$fileName does not start with a PNG signature, so its size cannot be checked")
             }
-        }
-        if (bytes.size < WIDTH_AT + 8) {
-            throw JbArchiveException("$fileName is ${bytes.size} bytes, which is too short to be a PNG")
         }
         val w = ((bytes[WIDTH_AT].toInt() and 0xFF) shl 24) or
             ((bytes[WIDTH_AT + 1].toInt() and 0xFF) shl 16) or

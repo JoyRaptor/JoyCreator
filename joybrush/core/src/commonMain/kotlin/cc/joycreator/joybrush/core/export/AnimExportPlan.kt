@@ -148,10 +148,14 @@ object AnimExport {
      * folded in as a repeat of that index** (`frames = [0, 1, 1, 2]` for holds `[1, 2, 1]`), [type]
      * verbatim, [fps] = the plan's. See Decision 7.
      *
-     * `Clip` has no `weights` field today, and this row must not start writing one: JB-4.03c may
-     * add it later, and when it does this row keeps using repeats. A repeat is a repeat, not a
-     * mistake — that is `SpritePacker`'s own KDoc on `Clip.frames`, and it is how a ping-pong is
-     * written too.
+     * **`Clip` HAS a `weights` field** (`SpritePacker.kt:40`, added by JB-4.03c), and this row
+     * still folds each hold in as a REPEAT of that cell's index rather than writing a weight. A
+     * repeat is a repeat, not a mistake — that is `SpritePacker`'s own KDoc on `Clip.frames`, and
+     * it is how a ping-pong is written too. The two spellings say the same thing to a reader, and
+     * which one goes into an exported `.sprite.json` is a file-format question this row does not
+     * decide: see the JB-3.06c spec, Question 1. Until the Lead rules, the repeats stay, and
+     * `AnimExportPlanTest.theFoldedClipCarriesNoWeightsKeyAndThePackerWouldWriteOne` is what makes
+     * that a fact rather than an intention.
      */
     fun sheetClip(plan: AnimExportPlan, name: String, type: String): Clip =
         Clip(
@@ -215,7 +219,7 @@ object AnimExport {
         val delays = ArrayList<Int>(hi - lo + 1)
         for (i in lo..hi) {
             val end = if (i < last) starts[i + 1] else total
-            delays.add(floor(end - starts[i] + 0.5).toInt().coerceAtLeast(1))
+            delays.add(roundHalfUpMs(end - starts[i]))
         }
 
         return AnimExportPlan(
@@ -236,6 +240,16 @@ object AnimExport {
      * meant: at 16 fps a hold of one frame is exactly 62.5 ms, and the two spellings disagree there
      * (62 against 63). Every delay in a plan is positive, so `floor(x + 0.5)` IS "round half up",
      * which on a positive number is also "ties away from zero" — and it says which one it is.
+     *
+     * **TWO CALL SITES AND ONE RULE (Decision 5).** `build` rounds every delay this row exports
+     * through it, and `ticksOf` reads a hold back out of one. `build` used to spell the same
+     * expression out inline, character for character, which is a whole rounding rule written twice
+     * in one file with the LOAD-BEARING copy unnamed: change the tie behaviour in one place and the
+     * GIF and the sidecar disagree about 62.5 ms and nothing notices. Routing one caller through
+     * the other is behaviour-preserving by construction — the expression is the function's own body
+     * — and `theDelaysAreDifferencesOfTheRealStarts` and `aTieGoesTo63Not62` are the proof, run
+     * unchanged. **DO NOT DELETE THIS FUNCTION:** it is the only thing computing a hold from a
+     * duration, and JB-3.06b's audit finding that it was unused is wrong.
      */
     private fun roundHalfUpMs(x: Double): Int = floor(x + 0.5).toInt().coerceAtLeast(1)
 

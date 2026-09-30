@@ -452,9 +452,9 @@ class AnimExportPlanTest {
         assertEquals("Walk", clip.name, "the clip's own name, verbatim")
         assertEquals("loop", clip.type, "the type, verbatim from the app's own three words")
         assertEquals(plan.fps, clip.fps, "and the plan's fps")
-        // No `weights` key is invented, because `Clip` has no such field. If JB-4.03c adds one,
-        // this row must keep folding repeats — see the spec's Question 3.
-        assertEquals("Clip", Clip::class.simpleName, "the landed Clip")
+        // `weights` is a field of `Clip` now (JB-4.03c) and this row does not write one; what the
+        // exported sidecar actually carries is asserted in
+        // theFoldedClipCarriesNoWeightsKeyAndThePackerWouldWriteOne, against the packer's own JSON.
 
         // The same rule on a RANGE. Cells are numbered from zero WITHIN THE plan, so a two-frame
         // plan folds to [0, 0, 1] and never to the board's [1, 1, 2]: `SpritePacker.pack` refuses
@@ -464,6 +464,73 @@ class AnimExportPlanTest {
         // ...and the board's [1, 1, 2] IS the middle of the whole plan's list, which is what the
         // brief's number describes: frames 1 and 2 of this board, held twice and once.
         assertEquals(listOf(1, 1, 2), clip.frames.subList(1, 4), "the same two cells, board-numbered")    }
+
+    /**
+     * Decision 2: today's spelling is PINNED, and a positive control says the absence is a CHOICE.
+     *
+     * `weights` is a real field of `Clip` (`SpritePacker.kt:40`, added by JB-4.03c) and the packer
+     * writes it whenever a weight is not 1 (`SpritePacker.kt:285-288`). This row still folds each
+     * hold in as a REPEAT of its cell, because which of the app's two own vocabularies goes into an
+     * exported `.sprite.json` is a FILE FORMAT question and the Lead has not ruled on it (JB-3.06c
+     * Question 1). So the fact pinned here is not "the sidecar has no `weights` key" — that would be
+     * satisfied just as happily by a packer that had never heard of weights. It is "THIS ROW does not
+     * write one, and the packer WOULD if it were told to", and the control below is the half that
+     * makes the difference visible.
+     */
+    @Test
+    fun theFoldedClipCarriesNoWeightsKeyAndThePackerWouldWriteOne() {
+        val plan = AnimExport.plan(board, "Walk")
+        val folded = AnimExport.sheetClip(plan, "Walk", "loop")
+        assertEquals(listOf(0, 1, 1, 2, 3, 3, 3), folded.frames, "the fold this row exports, unchanged")
+        assertEquals(emptyList<Int>(), folded.weights, "and the clip it hands the packer carries no weights")
+
+        // 1. WHAT IS ACTUALLY WRITTEN — read out of the packer's own JSON string, not off the call.
+        val clip = clipOf(packWith(folded))
+        assertTrue("weights" !in clip, "the exported clip carries no weights key at all: $clip")
+        assertEquals(folded.frames, clip.getValue("frames").jsonArray.map { it.jsonPrimitive.int })
+
+        // 2. THE POSITIVE CONTROL. Without it the assertion above proves nothing: a packer that
+        // never wrote `weights`, ever, would pass it too. The same packer, handed the same fold with
+        // weights on it, writes them — so the key is absent here because of a decision.
+        val handed = List(folded.frames.size) { if (it == 0) 3 else 1 }
+        val weighted = folded.copy(weights = handed)
+        val control = clipOf(packWith(weighted))
+        assertTrue("weights" in control, "the packer DOES write weights when the clip carries one")
+        assertEquals(handed, control.getValue("weights").jsonArray.map { it.jsonPrimitive.int })
+        // ...and it ACCEPTED that clip rather than quietly dropping the key on the way past it.
+        assertEquals(weighted.frames, control.getValue("frames").jsonArray.map { it.jsonPrimitive.int })
+
+        // 3. AND `weights` IS PARALLEL TO `frames`, which is a fact about the packer this row now
+        // RELIES ON rather than assumes: a short array is refused outright, naming both numbers,
+        // because the app reads a missing tail as 1s and would lose the hold silently. This is
+        // `SpritePacker.kt:221-225`, and it is also why writing weights is not a free alternative
+        // to repeats — the two arrays have to be built in step.
+        val e = assertFailsWith<IllegalArgumentException> { packWith(folded.copy(weights = listOf(3))) }
+        val message = e.message ?: ""
+        assertTrue(message.contains("1"), "the sentence names the weights it was given: $message")
+        assertTrue(message.contains("7"), "and the frames they should have matched: $message")
+    }
+
+    /** The REAL packer over the REAL cells, so what is read back is the sidecar that would be written. */
+    private fun packWith(clip: Clip): PackedSheet {
+        val plan = AnimExport.plan(board, "Walk")
+        return SpritePacker.pack(
+            cells = List(plan.frameCount) { ByteArray(plan.width * plan.height * 4) },
+            cellW = plan.width,
+            cellH = plan.height,
+            cols = AnimExport.sheetCols(plan.frameCount),
+            id = plan.baseName,
+            name = plan.baseName,
+            sheetFileName = "${plan.baseName}.png",
+            fps = plan.fps,
+            clips = listOf(clip),
+            cellNames = AnimExport.sheetCellNames(plan),
+        )
+    }
+
+    /** The one clip object out of the sidecar string the packer returned. */
+    private fun clipOf(packed: PackedSheet) = Json.parseToJsonElement(packed.sidecarJson).jsonObject
+        .getValue("presets").jsonArray[0].jsonObject
 
     @Test
     fun theSheetCarriesExactlyOneClip() {

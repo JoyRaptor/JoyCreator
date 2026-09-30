@@ -226,6 +226,27 @@ class AnimExportTest {
         return out
     }
 
+    /**
+     * A board of [frames] frames at `w` by `h`, every frame held once, **with NO TILES AT ALL.**
+     *
+     * The empty tile map is the point, for the reason
+     * `anOversizedBoardIsRefusedBeforeAnyFrameIsRendered` gives: every claim the budget tests make
+     * is about a check that runs BEFORE the first frame is rendered, so a document with no pixels
+     * in it is not a weaker case — and a FILLED one at 1024 by 1024 would want gigabytes of tile
+     * before the test had asserted anything. `RegionRenderer` asks the `TileSource` per tile and
+     * `continue`s on a miss, so an empty map costs one `FloatArray(w * h * 4)` per render and no
+     * per-pixel work at all, which is what lets a 400-frame sequence be exported here at all.
+     */
+    private fun emptyContents(w: Int, h: Int, frames: Int): JbContents {
+        val ids = (0 until frames).map { "f$it" }
+        val b = board(rect = RectPx(0, 0, w, h), ids = ids, hs = List(frames) { 1 })
+        return JbContents(
+            doc = doc(board = b, frames = ids),
+            tiles = emptyMap(),
+            strokes = emptyMap(),
+        )
+    }
+
     // ── Decision 14 + 1: the GIF, read back by a foreign decoder ────────────────
 
     @Test
@@ -493,6 +514,304 @@ class AnimExportTest {
         assertFailsWith<RegionException> { AnimExportRunner.writeSequence(d, BOARD, p, false, sink) }
         assertEquals(0, sink.files.size, "and nothing was written")
         assertEquals(0, rendered, "still not one frame")
+    }
+
+    // ── Decision 1: the signature gate, in full, with the length first ─────────
+
+    @Test
+    fun aFileWithAWrongEighthByteIsNotAPng() {
+        // `PNG_SIGNATURE` is `private` in `AnimExport.kt`, so the fixture BUILDS the eight bytes:
+        // the first seven are the real signature and the eighth is 0x41 ('A') where every PNG has
+        // LF. Twenty-four bytes, so the length guard passes and the only thing under test is the
+        // signature. **THIS TEST THROWS NOTHING TODAY**: the loop walked `0 until 7`, compared
+        // indices 0..6, and never read `PNG_SIGNATURE[7]` — so a garbled file came back with a size
+        // and a confident answer, through a function whose own KDoc promises to refuse one that
+        // "does not start with a PNG signature".
+        val bytes = ByteArray(24)
+        byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x41).copyInto(bytes)
+        val e = assertFailsWith<JbArchiveException> { AnimExportRunner.pngSize(bytes, "Board.png") }
+        val message = e.message ?: ""
+        assertTrue(message.contains("Board.png"), "the sentence names the file: $message")
+        assertTrue(message.contains("signature"), "and says what is wrong with it: $message")
+    }
+
+    @Test
+    fun aFileTooShortToHoldASignatureIsRefusedInWords() {
+        // **RED BEFORE THE FIX AND GREEN AFTER, WHICH IS WHY THE GUARD MOVED ABOVE THE LOOP.**
+        // Three bytes cannot hold an eight-byte signature and the sentence says exactly that. With
+        // the guard BELOW the loop — where it was — the same three bytes threw
+        // `ArrayIndexOutOfBoundsException` out of the one function every sheet export calls, which
+        // is an unchecked crash where a person gets a message. And the naive fix is worse than the
+        // bug: widening the loop to eight bytes without moving the guard would have left the crash
+        // AND turned a seven-byte file from quietly accepted into a hard failure.
+        val e = assertFailsWith<JbArchiveException> { AnimExportRunner.pngSize(ByteArray(3), "Board.png") }
+        val message = e.message ?: ""
+        assertTrue(message.contains("3"), "the sentence says how short the file is: $message")
+        assertTrue(message.contains("too short"), "and that it is too short to be a PNG: $message")
+    }
+
+    @Test
+    fun theSignatureIsEightBytesAndTheLoopWalksAllOfIt() {
+        // A 4 by 2 sheet's own header, with the REAL eight bytes, so `pngSize` answers the two
+        // numbers the file declares about itself — which is the whole of what it is for, and what
+        // `PackedSheet.assertEncodedSize` compares the sidecar's grid against.
+        val bytes = ByteArray(24)
+        byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A).copyInto(bytes)
+        // Big-endian 4 and 2 at WIDTH_AT, the two 4-byte numbers an IHDR carries.
+        bytes[16] = 0x00; bytes[17] = 0x00; bytes[18] = 0x00; bytes[19] = 0x04
+        bytes[20] = 0x00; bytes[21] = 0x00; bytes[22] = 0x00; bytes[23] = 0x02
+        assertEquals(4 to 2, AnimExportRunner.pngSize(bytes, "Board.png"), "the IHDR's own two numbers")
+
+        // ...and the COUNT of the signature, as a number in a test rather than only in a comment,
+        // read off the same eight bytes the fixture just used. This is the assertion that stops
+        // those eight bytes quietly becoming seven, which is the bug this row exists to fix.
+        val signature = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+        assertEquals(8, signature.size, "a PNG signature is EIGHT bytes, and the loop walks all of it")
+        assertEquals(0x0A, signature[7].toInt(), "the eighth byte is LF — the one `0 until 7` never read")
+    }
+
+    // ── Decision 6: the decoded-pixel budget, derived, per format, before frame 1 ─
+
+    @Test
+    fun theBudgetIsTwiceTheRenderersPixelBudget() {
+        // TWO assertions, and the second is the one that matters. The first says the constant is
+        // written as the RULE; the second says the rule is the arithmetic the KDoc's derivation
+        // claims. A quiet retyping of `16_777_216` as a literal would satisfy the first and nothing
+        // else, so the number is pinned here as a number — and the base it comes from is pinned
+        // beside it, because `MAX_REGION_PX` is the Lead's open question and this one follows it.
+        assertEquals(MAX_REGION_PX * 2L, AnimExportRunner.MAX_EXPORT_PX, "the budget IS twice the renderer's")
+        assertEquals(16_777_216L, AnimExportRunner.MAX_EXPORT_PX, "and 64 MiB of RGBA8 is 16 777 216 px")
+        assertEquals(8_388_608L, MAX_REGION_PX, "over the renderer's own 8 388 608")
+    }
+
+    @Test
+    fun theBudgetAcceptsExactlyTheCapAndRefusesOnePixelOver() {
+        // **THE EXACT CAP, FOR BOTH FORMATS THAT CAN REACH IT.** 256 frames of 256 by 256 is
+        // `256 * 65 536 = 16 777 216` = `MAX_EXPORT_PX` precisely, so this board is the ONLY thing
+        // that can tell `<=` from `<`: a builder who writes `>=` refuses the one export the budget
+        // is supposed to let through, and a builder who writes `<` lets the 257-frame board in.
+        // Both expectations are written as EXPRESSIONS over the frame count and the cap rather than
+        // as this paragraph's numbers, and the assertions check the two agree — so a mistake in
+        // the reasoning above cannot hide a mistake in the code.
+        val atCap = emptyContents(256, 256, 256)
+        val overGif = emptyContents(256, 256, 257)
+        assertEquals(256L * 256L * 256L, AnimExportRunner.MAX_EXPORT_PX, "the arithmetic, not typed in")
+        assertEquals(
+            AnimExportRunner.MAX_EXPORT_PX,
+            AnimExportRunner.decodedPixels(AnimFormat.GIF, plan(atCap), 1),
+            "256 frames of 256x256 IS the cap, exactly",
+        )
+        assertEquals(
+            AnimExportRunner.MAX_EXPORT_PX + 256L * 256L,
+            AnimExportRunner.decodedPixels(AnimFormat.GIF, plan(overGif), 1),
+            "and one frame more is one cell over it",
+        )
+
+        var rendered = 0
+        val accepted = AnimExportRunner.encodeOne(
+            AnimFormat.GIF, atCap, BOARD, plan(atCap), false, onFrame = { _, _ -> rendered++ },
+        )
+        assertEquals(1, accepted.size, "the exact-cap GIF is ACCEPTED, so the comparison is `<=`")
+        assertEquals(256, rendered, "and every one of its 256 frames really was rendered")
+
+        rendered = 0
+        val e = assertFailsWith<RegionException> {
+            AnimExportRunner.encodeOne(
+                AnimFormat.GIF, overGif, BOARD, plan(overGif), false, onFrame = { _, _ -> rendered++ },
+            )
+        }
+        val message = e.message ?: ""
+        assertTrue(message.contains(BOARD), "the sentence names the board: $message")
+        assertTrue(message.contains("16842752"), "and what it would have held: $message")
+        assertTrue(message.contains("16777216"), "and what the most is: $message")
+        assertEquals(0, rendered, "and it was refused BEFORE the first frame")
+
+        // **AND THE SAME BOUNDARY FOR THE SHEET, WHICH IS THE ONLY FORMAT WITH A SECOND TERM.**
+        // 7 frames of 1024 by 1024 is `7 * 1_048_576 + (3 * 1024) * (3 * 1024)` = 7 340_032 +
+        // 9 437_184 = `MAX_EXPORT_PX` — the sheet's nine grid slots are what make it land there,
+        // with `cols = ceil(sqrt(7)) = 3` and `rows = ceil(7 / 3) = 3`. 8 frames gives 17 825_792.
+        // This is also the only thing in the file that can catch `rows` being computed from the
+        // PIXEL TOTAL instead of the FRAME COUNT: `ceil(7_340_032 / 3) = 2_446_678` rows instead of
+        // 3, a "need" of 7 696 590 831_616 pixels, and every sprite sheet at every size refused.
+        val atSheet = emptyContents(1024, 1024, 7)
+        val overSheet = emptyContents(1024, 1024, 8)
+        assertEquals(3, AnimExport.sheetCols(7), "seven frames is a three-wide grid")
+        assertEquals(
+            7L * 1024L * 1024L + (3L * 1024L) * (3L * 1024L),
+            AnimExportRunner.MAX_EXPORT_PX,
+            "seven frames of 1024x1024 in a 3x3 grid is the cap, exactly",
+        )
+        assertEquals(
+            AnimExportRunner.MAX_EXPORT_PX,
+            AnimExportRunner.decodedPixels(AnimFormat.SPRITE_SHEET, plan(atSheet), AnimExport.sheetCols(7)),
+            "the sheet at the cap, through the packer's own row count",
+        )
+        assertEquals(
+            AnimExportRunner.MAX_EXPORT_PX + 1024L * 1024L,
+            AnimExportRunner.decodedPixels(AnimFormat.SPRITE_SHEET, plan(overSheet), AnimExport.sheetCols(8)),
+            "and one frame more is one cell over it, the grid being unchanged at 3x3",
+        )
+
+        rendered = 0
+        val sheet = AnimExportRunner.encodeOne(
+            AnimFormat.SPRITE_SHEET, atSheet, BOARD, plan(atSheet), false, onFrame = { _, _ -> rendered++ },
+        )
+        assertEquals(2, sheet.size, "the exact-cap sheet is ACCEPTED: the PNG and its sidecar")
+        assertEquals(7, rendered, "and all seven frames were rendered")
+
+        rendered = 0
+        val sheetRefusal = assertFailsWith<RegionException> {
+            AnimExportRunner.encodeOne(
+                AnimFormat.SPRITE_SHEET, overSheet, BOARD, plan(overSheet), false,
+                onFrame = { _, _ -> rendered++ },
+            )
+        }
+        val sheetMessage = sheetRefusal.message ?: ""
+        assertTrue(sheetMessage.contains("17825792"), "the sheet sentence names the need: $sheetMessage")
+        assertTrue(sheetMessage.contains("16777216"), "and the cap: $sheetMessage")
+        assertEquals(0, rendered, "and the sheet was refused before its first frame too")
+    }
+
+    @Test
+    fun theBudgetIsTheSameForEveryColumnCountOnATwoDimensionalFormat() {
+        val p = plan()
+        val oneCol = 1
+        val manyCols = 99
+        // The two formats with NO GRID must not care what a column count is. `GIF` gets there
+        // because it returns before reading `cols`; `PNG_SEQUENCE` because it returns at its own
+        // line, higher up, before `cols` is read at all. `writeSequence` spells the default out
+        // because it has no `cols` variable in scope, so this is the assertion that says it does
+        // not need one.
+        for (format in listOf(AnimFormat.GIF, AnimFormat.PNG_SEQUENCE)) {
+            assertEquals(
+                AnimExportRunner.decodedPixels(format, p, oneCol),
+                AnimExportRunner.decodedPixels(format, p, manyCols),
+                "$format has no grid, so a column count is not its business",
+            )
+        }
+        // A sequence is ONE CELL whatever its frame count, and the fixture has six frames — so this
+        // is the assertion that says the two formats are not costed the same way. If a sequence
+        // ever went back to `frames * cell`, this would want 18 432 and answer 3 072.
+        assertEquals(
+            p.width.toLong() * p.height.toLong(),
+            AnimExportRunner.decodedPixels(AnimFormat.PNG_SEQUENCE, p, manyCols),
+            "a sequence costs ONE cell, not six of them",
+        )
+        assertEquals(
+            p.frameCount.toLong() * p.width * p.height,
+            AnimExportRunner.decodedPixels(AnimFormat.GIF, p, oneCol),
+            "a GIF costs all six, because GifEncoder keeps all six",
+        )
+        // AND THE SHEET IS NOT ACCIDENTALLY COSTED AS A STREAM. Its second term is the grid, so the
+        // column count really does move the answer — and if it ever stopped doing so, the term
+        // would be dead code and every sheet would be costed as though it streamed.
+        val atOne = AnimExportRunner.decodedPixels(AnimFormat.SPRITE_SHEET, p, oneCol)
+        val atMany = AnimExportRunner.decodedPixels(AnimFormat.SPRITE_SHEET, p, manyCols)
+        assertTrue(atOne != atMany, "a two-dimensional format's cost DOES depend on its grid")
+        assertEquals(
+            2L * p.frameCount * p.width * p.height,
+            atOne,
+            "one column, one row per frame: the cells plus a sheet of exactly the same size",
+        )
+    }
+
+    @Test
+    fun aLongSequenceIsAcceptedWhateverItsFrameCount() {
+        // 400 frames at 128 by 128, through the real sequence path with a recording sink. **THE
+        // ASSERTION IS THE EXPORT COMPLETING** — 400 PNGs and then the manifest, in that order —
+        // and deliberately NOT a total of the pixels, because `decodedPixels` for a sequence is
+        // ONE cell (16 384) and not `400 * 16 384`. Costing a format that streams as though it
+        // accumulated would refuse 6.5 MB of picture that never exists at the same time, which is
+        // the "a rule that refused an export that works" this row exists to stop.
+        val d = emptyContents(128, 128, 400)
+        val p = plan(d)
+        assertEquals(400, p.frameCount, "the fixture really is 400 frames")
+        assertEquals(
+            128L * 128L,
+            AnimExportRunner.decodedPixels(AnimFormat.PNG_SEQUENCE, p, AnimExport.sheetCols(400)),
+            "what a 400-frame sequence holds alive at once: one cell",
+        )
+        assertTrue(
+            128L * 128L <= AnimExportRunner.MAX_EXPORT_PX,
+            "which is under the budget whatever the frame count is",
+        )
+
+        var rendered = 0
+        val sink = RecordingSink()
+        val written = AnimExportRunner.writeSequence(d, BOARD, p, false, sink, onFrame = { _, _ -> rendered++ })
+        assertEquals(401, written.size, "400 frames and the manifest, and nothing else")
+        assertEquals(AnimExportRunner.sequenceName(1), written.first(), "numbered from one")
+        assertEquals(AnimExportRunner.sequenceName(400), written[399], "through the last frame")
+        assertEquals("Board.timing.txt", written.last(), "and the manifest is LAST")
+        assertEquals(written, sink.files.map { it.name }, "the return value is what the sink saw")
+        assertEquals(400, rendered, "and every frame was rendered, none refused")
+    }
+
+    @Test
+    fun anExportOverThePixelBudgetIsRefusedBeforeAnyFrameIsRendered() {
+        // The template is `anOversizedBoardIsRefusedBeforeAnyFrameIsRendered` and that test is NOT
+        // edited: it is the proof this check was ADDED and did not replace the region one. 40 frames
+        // of 1024 by 1024 is over a 16 777 216 budget, at a size the renderer itself is perfectly
+        // happy with — so it is a refusal about RETENTION, not about one render, and it takes the
+        // second budget to catch it.
+        val d = emptyContents(1024, 1024, 40)
+        val p = plan(d)
+        assertTrue(1024L * 1024L <= MAX_REGION_PX, "1024x1024 is ONE RENDER, so this is not that refusal")
+        assertEquals(41_943_040L, AnimExportRunner.decodedPixels(AnimFormat.GIF, p, AnimExport.sheetCols(40)))
+        assertEquals(85_983_232L, AnimExportRunner.decodedPixels(AnimFormat.SPRITE_SHEET, p, AnimExport.sheetCols(40)))
+
+        // **THE NUMBER IS PER FORMAT, AND BOTH ARE TYPED IN AS LITERALS — NOT COMPUTED FROM
+        // `decodedPixels`.** An expectation re-derived from the function under test agrees with it
+        // by construction and pins nothing, which is the vacuous assertion this file has already
+        // been burned by; so the two figures below are written out, and the two being DIFFERENT is
+        // the whole of the per-format table:
+        //
+        // - `GIF` retains the cells and nothing else, so its figure is `40 * 1_048_576`
+        //   = **41 943 040**.
+        // - `SPRITE_SHEET` retains the cells AND the sheet `pack` allocates on top of them, because
+        //   `encodeOne` holds the list while `SpritePacker.kt:248` builds the grid out of it — the
+        //   one place two full copies of the same picture are alive. `sheetCols(40)` is 7 and
+        //   `ceil(40 / 7) = 6` rows, so the grid is 42 more cells, and `(40 + 42) * 1_048_576`
+        //   = **85 983 232**. Reporting the frames term alone here would UNDERSTATE the need by
+        //   half, and that understatement is the exact defect the second term exists to prevent.
+        var rendered = 0
+        val refusals = listOf(
+            AnimFormat.GIF to 41_943_040L,
+            AnimFormat.SPRITE_SHEET to 85_983_232L,
+        )
+        for ((format, held) in refusals) {
+            val e = assertFailsWith<RegionException> {
+                AnimExportRunner.encodeOne(format, d, BOARD, p, false, onFrame = { _, _ -> rendered++ })
+            }
+            val message = e.message ?: ""
+            assertTrue(message.contains(BOARD), "$format: the sentence names the board: $message")
+            assertTrue(
+                message.contains(held.toString()),
+                "$format: and what it would REALLY hold, cells and sheet: $message",
+            )
+            assertTrue(message.contains("16777216"), "$format: and what the most is: $message")
+        }
+        assertEquals(0, rendered, "onFrame was NEVER called, so not one frame was rendered")
+
+        // **AND THE SEQUENCE AT FOUR TIMES THE SIZE IS STILL ACCEPTED.** This is the assertion that
+        // stops a builder from making the budget a flat `n x cell` rule: `writeSequence` renders,
+        // encodes, writes and drops inside its loop, so its peak is ONE cell — 1 048 576 — and
+        // costing it 400 cells would be `419 430 400` pixels of picture that are never alive
+        // together, refusing a working export. It is also the exact assertion this row's own
+        // contract failed when it was first written, in the shape
+        // `if (format != AnimFormat.SPRITE_SHEET) return frames`.
+        val seq = emptyContents(1024, 1024, 400)
+        val seqPlan = plan(seq)
+        assertEquals(
+            1024L * 1024L,
+            AnimExportRunner.decodedPixels(AnimFormat.PNG_SEQUENCE, seqPlan, AnimExport.sheetCols(400)),
+            "400 frames of 1024x1024 as a sequence is ONE cell, not 419 430 400 pixels",
+        )
+        val sink = RecordingSink()
+        val written = AnimExportRunner.writeSequence(seq, BOARD, seqPlan, false, sink)
+        assertEquals(401, written.size, "400 PNGs and the manifest, from a board the other two refused")
+        assertEquals(AnimExportRunner.sequenceName(400), written[399])
+        assertEquals("Board.timing.txt", written.last())
     }
 
     // ── Decision 11: paper follows the document, and nothing is written back ────

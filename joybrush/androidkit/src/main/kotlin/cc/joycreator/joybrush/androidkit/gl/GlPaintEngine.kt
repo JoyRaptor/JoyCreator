@@ -6,6 +6,9 @@ import cc.joycreator.joybrush.core.brush.SmudgeStroke
 import cc.joycreator.joybrush.core.brush.TileReader
 import cc.joycreator.joybrush.core.doc.BlendMode
 import cc.joycreator.joybrush.core.grain.GrainMath
+import cc.joycreator.joybrush.core.layers.LayerStack
+import cc.joycreator.joybrush.core.layers.LayerState
+import cc.joycreator.joybrush.core.paint.Thumbnails
 import cc.joycreator.joybrush.core.paint.Accumulate
 import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.StrokeBlend
@@ -19,6 +22,9 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.util.IdentityHashMap
+
+/** Layer thumbnails are drawn this many times bigger, then box-averaged down (JB-2.04). */
+private const val THUMB_SUPERSAMPLE = 4
 
 /**
  * The two rates of a smudge stroke (JB-1.06): how fast the ONE carried colour takes on the canvas ([pickup]) and the brush's
@@ -108,10 +114,19 @@ class GlPaintEngine(
 
     private class Layer(val id: String) {
         val tiles = HashMap<Long, Int>()
+        var name = id
         var opacity = 1f
         var visible = true
         var blend = BlendMode.NORMAL
     }
+
+    /** The active layer an undo or redo last put the stack back to, for a view whose own active layer it removed. */
+    private var activeHint: String? = null
+
+    /** The small target thumbnails are rendered into, made on first use (JB-2.04). 0 = none on this context. */
+    private var thumbTex = 0
+    private var thumbW = 0
+    private var thumbH = 0
 
     private val layers = LinkedHashMap<String, Layer>()   // bottom → top
     private val freeLayerTex = ArrayDeque<Int>()
@@ -283,6 +298,7 @@ class GlPaintEngine(
         grains.forget()
         compositor.forget()
         compositeProg = null      // a name from the dead context; the new one compiles on first use
+        thumbTex = 0; thumbW = 0; thumbH = 0
         compositeError = null
         return had
     }
@@ -305,6 +321,8 @@ class GlPaintEngine(
         val all = ArrayList<Int>()
         layers.values.forEach { all.addAll(it.tiles.values) }
         all.addAll(freeLayerTex); all.addAll(freeStrokeTex); all.addAll(freeSmudgeTex); all.add(clearTex)
+        if (thumbTex != 0) all.add(thumbTex)
+        thumbTex = 0; thumbW = 0; thumbH = 0
         GLES30.glDeleteTextures(all.size, all.toIntArray(), 0)
         layers.clear(); freeLayerTex.clear(); freeStrokeTex.clear(); freeSmudgeTex.clear()
         GLES30.glDeleteBuffers(3, intArrayOf(quadVbo, unitVbo, instanceVbo), 0)
@@ -323,6 +341,149 @@ class GlPaintEngine(
     fun addLayer(id: String) { layers.getOrPut(id) { Layer(id) } }
 
     fun setLayerOpacity(id: String, opacity: Float) { layers[id]?.opacity = opacity.coerceIn(0f, 1f) }
+    fun setLayerName(id: String, name: String) { layers[id]?.name = name }
+    fun layerName(id: String): String = layers[id]?.name ?: id
+
+    // ── the layer stack (JB-2.04) ────────────────────────────────────────────
+    //
+    // The screen works out the new stack (core's LayerStack, pure and tested); the engine applies it and records ONE
+    // undo step. Every structural change goes through here, so undo can never meet a layer it does not know.
+
+    /**
+     * The stack as it is now, bottom to top. [preferredActive] is the view's own brush layer; if it is gone (an undo took
+     * it away), the layer the last undo or redo named, else the top one.
+     */
+    fun stack(preferredActive: String?): LayerStack {
+        val list = layers.values.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend) }
+        val ids = list.map { it.id }
+        val hint = activeHint
+        val active = when {
+            preferredActive != null && preferredActive in ids -> preferredActive
+            hint != null && hint in ids -> hint
+            else -> ids.last()
+        }
+        return LayerStack(list, active)
+    }
+
+    /**
+     * Makes the engine's layers exactly [target]: order, names, opacity, blend, visibility; creates the ones it lacks and
+     * removes the ones it does not list. A layer is only ever removed EMPTY (its tiles belong to an undo step by the time
+     * a stack drops it); one that still has tiles is kept on top rather than have its textures freed under the undo
+     * log's feet, a visible mistake instead of a crash.
+     */
+    private fun applyStack(target: LayerStack) {
+        val next = LinkedHashMap<String, Layer>()
+        for (s in target.layers) {
+            val l = layers[s.id] ?: Layer(s.id)
+            l.name = s.name; l.opacity = s.opacity; l.visible = s.visible; l.blend = s.blend
+            next[s.id] = l
+        }
+        for ((id, l) in layers) if (id !in next && l.tiles.isNotEmpty()) next[id] = l
+        layers.clear()
+        layers.putAll(next)
+    }
+
+    /** A change to the stack alone (add, move, rename, opacity, blend) as ONE undo step. */
+    fun pushStackStep(before: LayerStack, after: LayerStack) {
+        check(!strokeInProgress) { "a layer change during a stroke would be undone out of order" }
+        applyStack(after)
+        undo.push(UndoLog.Step(emptyList(), before, after))
+    }
+
+    /** The stack made [target] with NO undo step: loading a drawing. */
+    fun setStack(target: LayerStack) {
+        applyStack(target)
+        activeHint = target.activeId
+    }
+
+    /** Deletes [id] (as [after] says) as ONE undo step: its tiles go into the step, so undo brings the pixels back. */
+    fun deleteLayerStep(id: String, before: LayerStack, after: LayerStack) {
+        check(!strokeInProgress) { "a layer change during a stroke would be undone out of order" }
+        val layer = layers[id] ?: return
+        val changes = layer.tiles.map { (k, tex) -> UndoLog.TileChange<Int>(id, k, tex, null) }
+        layer.tiles.clear()
+        applyStack(after)
+        undo.push(UndoLog.Step(changes, before, after))
+    }
+
+    /** Copies [sourceId]'s pixels into the new layer [newId] that [after] adds, as ONE undo step. Copied on the GPU, tile by tile. */
+    fun duplicateLayerStep(sourceId: String, newId: String, before: LayerStack, after: LayerStack) {
+        check(!strokeInProgress) { "a layer change during a stroke would be undone out of order" }
+        val src = layers[sourceId] ?: return
+        applyStack(after)
+        val dst = layers[newId] ?: return
+        val changes = ArrayList<UndoLog.TileChange<Int>>()
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+        GLES30.glViewport(0, 0, size, size)
+        GLES30.glDisable(GLES30.GL_BLEND)
+        tileProg.use()
+        GLES30.glUniform1f(tileProg.loc("u_tileSize"), size.toFloat())
+        GLES30.glUniform1f(tileProg.loc("u_layerOpacity"), 1f)
+        GLES30.glUniform1i(tileProg.loc("u_layer"), 0)
+        GLES30.glBindVertexArray(tileVao)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        for ((key, tex) in src.tiles) {
+            val copy = newLayerTile()
+            attach(copy)
+            val ox = (Tiles.tx(key) * size).toFloat()
+            val oy = (Tiles.ty(key) * size).toFloat()
+            GLES30.glUniform2f(tileProg.loc("u_tileOrigin"), ox, oy)
+            GLES30.glUniformMatrix3fv(tileProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            dst.tiles[key] = copy
+            changes.add(UndoLog.TileChange(newId, key, null, copy))
+        }
+        GLES30.glBindVertexArray(0)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        undo.push(UndoLog.Step(changes, before, after))
+    }
+
+    /**
+     * One layer, alone, as a small picture of the page [pageW] x [pageH] (document px from 0,0): [outW] x [outH] ARGB,
+     * NOT premultiplied (what Bitmap.createBitmap(int[]) takes), transparent where the layer is empty. Rendered at
+     * [THUMB_SUPERSAMPLE] times the size and box-averaged, because a 1 px pencil line minified 30 times without it
+     * sparkles or vanishes. Null for a layer that does not exist.
+     */
+    fun renderThumbnail(id: String, pageW: Int, pageH: Int, outW: Int, outH: Int): IntArray? {
+        val layer = layers[id] ?: return null
+        if (outW <= 0 || outH <= 0 || pageW <= 0 || pageH <= 0) return null
+        val w = outW * THUMB_SUPERSAMPLE
+        val h = outH * THUMB_SUPERSAMPLE
+        if (thumbTex == 0 || thumbW != w || thumbH != h) {
+            if (thumbTex != 0) GLES30.glDeleteTextures(1, intArrayOf(thumbTex), 0)
+            thumbTex = newTexture(w, h, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
+            thumbW = w; thumbH = h
+        }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+        attach(thumbTex)
+        GLES30.glViewport(0, 0, w, h)
+        GLES30.glClearColor(0f, 0f, 0f, 0f)
+        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+        GLES30.glEnable(GLES30.GL_BLEND)
+        GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+        tileProg.use()
+        GLES30.glUniform1f(tileProg.loc("u_tileSize"), size.toFloat())
+        // The page onto the whole target, its TOP row at row 0 of the readback (the tiles' own convention).
+        val m = floatArrayOf(2f / pageW, 0f, 0f, 0f, 2f / pageH, 0f, -1f, -1f, 1f)
+        GLES30.glUniformMatrix3fv(tileProg.loc("u_docToClip"), 1, false, m, 0)
+        GLES30.glUniform1f(tileProg.loc("u_layerOpacity"), 1f)
+        GLES30.glUniform1i(tileProg.loc("u_layer"), 0)
+        GLES30.glBindVertexArray(tileVao)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        for ((key, tex) in layer.tiles) {
+            GLES30.glUniform2f(tileProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        }
+        GLES30.glBindVertexArray(0)
+        val buf = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder())
+        GLES30.glReadPixels(0, 0, w, h, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        val px = ByteArray(w * h * 4)
+        buf.rewind(); buf.get(px)
+        return Thumbnails.downsample(px, w, h, THUMB_SUPERSAMPLE)
+    }
     fun setLayerVisible(id: String, visible: Boolean) { layers[id]?.visible = visible }
 
     /**
@@ -705,13 +866,21 @@ class GlPaintEngine(
     fun undoStep(): Boolean {
         val s = undo.undo() ?: return false
         s.changes.forEach { put(it.layerId, it.key, it.before) }
+        s.stackBefore?.let { restoreStack(it) }
         return true
     }
 
     fun redoStep(): Boolean {
         val s = undo.redo() ?: return false
         s.changes.forEach { put(it.layerId, it.key, it.after) }
+        s.stackAfter?.let { restoreStack(it) }
         return true
+    }
+
+    /** Undo's half of a stack step: back to [target], every layer that survives keeping how it is shown or hidden. */
+    private fun restoreStack(target: LayerStack) {
+        applyStack(stack(null).restoring(target))
+        activeHint = target.activeId
     }
 
     // ── display ──────────────────────────────────────────────────────────────
@@ -969,11 +1138,14 @@ class GlPaintEngine(
         while (pool.size > keep) GLES30.glDeleteTextures(1, intArrayOf(pool.removeFirst()), 0)
     }
 
-    private fun newTexture(dim: Int, internal: Int, format: Int, type: Int): Int {
+    private fun newTexture(dim: Int, internal: Int, format: Int, type: Int): Int = newTexture(dim, dim, internal, format, type)
+
+    private fun newTexture(w: Int, h: Int, internal: Int, format: Int, type: Int): Int {
+        val dim = if (w == h) w else 0
         val t = IntArray(1)
         GLES30.glGenTextures(1, t, 0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
-        GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, internal, dim, dim, 0, format, type, null)
+        GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, null)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)

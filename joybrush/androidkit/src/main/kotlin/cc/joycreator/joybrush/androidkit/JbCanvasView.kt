@@ -31,6 +31,10 @@ import cc.joycreator.joybrush.core.doc.BoardKind
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.grain.GrainMath
+import cc.joycreator.joybrush.core.doc.BlendMode
+import cc.joycreator.joybrush.core.layers.LayerBudget
+import cc.joycreator.joybrush.core.layers.LayerStack
+import cc.joycreator.joybrush.core.layers.LayerState
 import cc.joycreator.joybrush.core.input.DirectionTracker
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.input.StrokeSmoother
@@ -129,23 +133,26 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** Called on the UI thread whenever a pan, zoom or turn moves the page (JB-2.01: the top icons re-read what is behind them). */
     var onViewMoved: (() -> Unit)? = null
 
-    /** The one outstanding [sampleScreen] request: view px as x,y pairs, and who wants the answer. Latest wins. */
-    private val screenSample = java.util.concurrent.atomic.AtomicReference<Pair<FloatArray, (IntArray) -> Unit>?>(null)
+    /** Outstanding [sampleScreen] requests: view px as x,y pairs, and who wants the answer. All answered after the next frame. */
+    private val screenSamples = java.util.concurrent.ConcurrentLinkedQueue<Pair<FloatArray, (IntArray) -> Unit>>()
 
     /**
      * The colours actually SHOWN at [points] (view px, x,y pairs), read from the screen right after the next frame is drawn
      * and handed to [onColors] on the UI thread as opaque ARGB, one per point. This is what is on the glass — every layer,
      * the paper, and the grey outside the page — which is exactly what an icon over the picture has to be legible against.
-     * A request made before the last one was answered replaces it.
+     * Every request is answered (the top icons and the eyedropper both ask, and neither may starve the other).
      */
     fun sampleScreen(points: FloatArray, onColors: (IntArray) -> Unit) {
-        screenSample.set(Pair(points.copyOf(), onColors))
+        screenSamples.add(Pair(points.copyOf(), onColors))
         requestRender()
     }
 
-    /** GL thread, after the frame: answers a waiting [sampleScreen]. A point off the surface reads as black. */
+    /** GL thread, after the frame: answers every waiting [sampleScreen]. A point off the surface reads as black. */
     private fun answerScreenSample() {
-        val req = screenSample.getAndSet(null) ?: return
+        while (true) answerOne(screenSamples.poll() ?: return)
+    }
+
+    private fun answerOne(req: Pair<FloatArray, (IntArray) -> Unit>) {
         val pts = req.first
         val out = IntArray(pts.size / 2)
         val px = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder())
@@ -223,7 +230,145 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     val strokeColor: Int get() = colorArgb ?: brush.argb
 
     private val engine = GlPaintEngine()
-    private val layerId = "layer-1"
+
+    // ── layers (JB-2.04) ─────────────────────────────────────────────────────
+
+    /** The layer the brush paints on. Written on the UI thread; read by the GL work a stroke queues. */
+    @Volatile private var activeLayer = FIRST_LAYER
+
+    /** The stack as the UI last heard it from the engine (UI thread only). Every change goes through [commitStack]. */
+    private var stackUi = LayerStack.single(FIRST_LAYER, FIRST_LAYER_NAME)
+
+    /** The page, in document px: the board a new drawing gets (the screen, the first time) or the one a file brings. */
+    @Volatile private var pageW = 0
+    @Volatile private var pageH = 0
+
+    /** How many layers this device may hold ([LayerBudget]); the screen sets it from the phone's RAM. */
+    var maxLayers = LayerBudget.MIN
+
+    /** Called on the UI thread whenever the stack changes: a layer added, removed, moved, renamed, shown or hidden, an undo. */
+    var onLayersChanged: ((LayerStack) -> Unit)? = null
+
+    /** Called on the UI thread when something the person tried is refused, with the reason in words. */
+    var onRefused: ((String) -> Unit)? = null
+
+    val layers: LayerStack get() = stackUi
+    val activeLayerId: String get() = activeLayer
+    val pageWidth: Int get() = pageW
+    val pageHeight: Int get() = pageH
+
+    fun selectLayer(id: String) {
+        val next = stackUi.select(id)
+        if (next === stackUi) return
+        stackUi = next
+        activeLayer = next.activeId
+        onLayersChanged?.invoke(next)
+    }
+
+    /** A new empty layer above the active one. False (and [onRefused]) when the device has no room for another. */
+    fun addLayer(): Boolean {
+        if (!roomForAnother()) return false
+        val before = stackUi
+        commitStack(before, before.add(before.freshId()))
+        return true
+    }
+
+    fun duplicateLayer(id: String): Boolean {
+        if (drawing || !roomForAnother()) return false
+        val before = stackUi
+        val newId = before.freshId()
+        val after = before.duplicate(id, newId) ?: return false
+        adopt(after)
+        onGl { engine.duplicateLayerStep(id, newId, before, after); reportHistory() }
+        return true
+    }
+
+    /** False for the last layer: a drawing always has somewhere to paint. */
+    fun deleteLayer(id: String): Boolean {
+        if (drawing) return false
+        val before = stackUi
+        val after = before.delete(id)
+        if (after == null) {
+            onRefused?.invoke("A drawing needs at least one layer, so the last one stays.")
+            return false
+        }
+        adopt(after)
+        onGl { engine.deleteLayerStep(id, before, after); reportHistory() }
+        return true
+    }
+
+    fun moveLayer(id: String, toIndex: Int) {
+        val before = stackUi
+        val after = before.move(id, toIndex)
+        if (after != before) commitStack(before, after)
+    }
+
+    fun renameLayer(id: String, name: String) {
+        val before = stackUi
+        val after = before.rename(id, name)
+        if (after != before) commitStack(before, after)
+    }
+
+    fun setLayerBlend(id: String, mode: BlendMode) {
+        val before = stackUi
+        val after = before.withBlend(id, mode)
+        if (after != before) commitStack(before, after)
+    }
+
+    /**
+     * Opacity while a finger is on the slider: shown at once, NOT an undo step. [commitLayerOpacity] with the stack as it
+     * was when the finger went down makes the whole drag ONE step.
+     */
+    fun previewLayerOpacity(id: String, opacity: Float) {
+        stackUi = stackUi.withOpacity(id, opacity)
+        val v = stackUi[id]?.opacity ?: return
+        onGl { engine.setLayerOpacity(id, v) }
+    }
+
+    fun commitLayerOpacity(before: LayerStack, id: String, opacity: Float) {
+        val after = before.withOpacity(id, opacity)
+        if (after != before) commitStack(before, after) else onGl { engine.setLayerOpacity(id, opacity); reportHistory() }
+    }
+
+    /** Shown or hidden. Not an undo step: it changes no pixel (JB-2.04 Decision 7). It IS saved. */
+    fun setLayerVisible(id: String, visible: Boolean) {
+        stackUi = stackUi.withVisible(id, visible)
+        onGl { engine.setLayerVisible(id, visible); reportHistory() }
+    }
+
+    /**
+     * Small pictures of [ids], each [w] x [h] px of the whole page (ARGB, not premultiplied), rendered on the GL thread
+     * and handed over on the UI thread. A layer that has gone by then is simply missing from the map.
+     */
+    fun layerThumbnails(ids: List<String>, w: Int, h: Int, onReady: (Map<String, IntArray>) -> Unit) {
+        val pw = pageW
+        val ph = pageH
+        if (pw <= 0 || ph <= 0) return
+        onGl {
+            val out = HashMap<String, IntArray>()
+            for (id in ids) engine.renderThumbnail(id, pw, ph, w, h)?.let { out[id] = it }
+            post { onReady(out) }
+        }
+    }
+
+    private fun roomForAnother(): Boolean {
+        if (stackUi.size < maxLayers) return true
+        onRefused?.invoke("This phone has room for $maxLayers layers, and this drawing has ${stackUi.size}.")
+        return false
+    }
+
+    private fun adopt(next: LayerStack) {
+        stackUi = next
+        activeLayer = next.activeId
+        onLayersChanged?.invoke(next)
+    }
+
+    /** A stack-only change as ONE undo step. Shown at once; the engine confirms through [reportHistory]. */
+    private fun commitStack(before: LayerStack, after: LayerStack) {
+        if (drawing) return
+        adopt(after)
+        onGl { engine.pushStackStep(before, after); reportHistory() }
+    }
     @Volatile private var viewW = 1
     @Volatile private var viewH = 1
 
@@ -271,7 +416,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         setRenderer(object : Renderer {
             override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
                 engine.init()
-                engine.addLayer(layerId)
+                engine.addLayer(FIRST_LAYER)
+                engine.setLayerName(FIRST_LAYER, FIRST_LAYER_NAME)
                 post {
                     surfaceReady = true
                     onReady?.invoke()
@@ -282,6 +428,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 // starts on its own top-left corner, unzoomed and upright), and later layouts —
                 // rotation, a keyboard, a resumed Activity — must not make the page jump.
                 viewW = width; viewH = height
+                // A new drawing's page is the screen it was started on, once; a rotation must not resize it.
+                if (pageW <= 0 || pageH <= 0) { pageW = width; pageH = height }
             }
             override fun onDrawFrame(gl: GL10?) {
                 val s = viewSnapshot
@@ -295,7 +443,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     fun undo() = onGl { engine.undoStep(); reportHistory() }
     fun redo() = onGl { engine.redoStep(); reportHistory() }
-    fun clearCanvas() = onGl { engine.clearLayer(layerId); reportHistory() }
+    /** Empties the layer being painted on, as one undo step. */
+    fun clearCanvas() {
+        val id = activeLayer
+        onGl { engine.clearLayer(id); reportHistory() }
+    }
 
     // ── input ────────────────────────────────────────────────────────────────
 
@@ -508,19 +660,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     /**
-     * The colour a person SEES at a screen point (view-local px): the layer's pixel at that document point, at the layer's opacity, over
-     * the paper. Read on the GL thread (a texture can only be read there); [onColor] arrives on the UI thread, opaque.
+     * The colour a person SEES at a screen point (view-local px): read from the screen itself after the next frame, so it is
+     * every visible layer at its opacity and blend over the paper (JB-2.04: one layer's pixel stopped being "what you see"
+     * the day there were two). [onColor] arrives on the UI thread, opaque.
      */
     fun sampleAt(screenX: Float, screenY: Float, onColor: (Int) -> Unit) {
-        val (dx, dy) = view.screenToDoc(screenX, screenY)
-        val px = kotlin.math.floor(dx).toInt()
-        val py = kotlin.math.floor(dy).toInt()
-        val paper = paperArgb
-        onGl {
-            val pixel = engine.readPixel(layerId, px, py)
-            val argb = Eyedropper.seen(pixel, 0, engine.layerOpacity(layerId), paper)
-            post { onColor(argb) }
-        }
+        sampleScreen(floatArrayOf(screenX, screenY)) { c -> onColor(c[0]) }
     }
 
     /**
@@ -541,10 +686,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         return tool == Tool.STYLUS || tool == Tool.ERASER
     }
 
+    /** The layer the stroke in progress paints on, fixed at pen-down: choosing another layer mid-stroke must not split it. */
+    private var strokeLayerId = FIRST_LAYER
+
     private fun startStroke(eraser: Boolean) {
+        // A hidden layer is refused out loud: painting where the paint cannot be seen is how work gets lost (JB-2.04).
+        if (!stackUi.active.visible) {
+            drawing = false
+            onRefused?.invoke("\"${stackUi.active.name}\" is hidden. Show it to paint on it.")
+            return
+        }
         val b = brush
         val p = preset
         val erase = b.erase || eraser
+        strokeLayerId = activeLayer
         drawing = true
         glBegan = false
         strokePreset = p
@@ -567,8 +722,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 cap = cap,
             )
             glBegan = true
+            val target = strokeLayerId
             onGl {
-                engine.beginStroke(layerId, colorArgb ?: b.argb, b.opacity, b.accumulate,
+                engine.beginStroke(target, colorArgb ?: b.argb, b.opacity, b.accumulate,
                     if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
             }
         } else if (p.engine == ENGINE_TUFT) {
@@ -623,7 +779,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // R9: a tuft stroke's whole-stroke shader numbers (streaks, tooth), from the file and this stroke's seed.
         val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
         val argb = colorArgb ?: b.argb
-        onGl { engine.beginStroke(layerId, argb, opacity, accumulate,
+        val target = strokeLayerId
+        onGl { engine.beginStroke(target, argb, opacity, accumulate,
             if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip, grain, smudge, tuft) }
     }
 
@@ -704,9 +861,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      */
     fun replaceWithStrokes(strokes: List<List<PenSample>>) {
         if (!surfaceReady || drawing) return
+        // One fresh layer, and the brush on it (JB-2.04: strokes go to the active layer, so it must be the one re-added).
+        val fresh = LayerStack.single(FIRST_LAYER, FIRST_LAYER_NAME)
+        stackUi = fresh
+        activeLayer = FIRST_LAYER
         onGl {
             engine.resetDocument()
-            engine.addLayer(layerId)
+            engine.setStack(fresh)
         }
         drawStrokes(strokes)
     }
@@ -782,43 +943,42 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      *
      * REFUSES — by throwing [JbArchiveException] HERE, on the caller's thread, BEFORE any GL work is
      * queued, so a refused file leaves the drawing that was on screen exactly as it was. What is
-     * refused is any file this engine cannot show in full: ink, several layers, several cels, an
-     * animated layer, several boards, a board that is not a canvas, a paper texture, or a tile that
-     * is not a tile. Opening the half that can be shown and dropping the rest is the one thing this
-     * must never do.
+     * refused is any file this engine cannot show in full: ink, an animated layer, a layer with several
+     * cels, several boards, a board that is not a canvas, a paper texture, or a tile that is not a tile.
+     * Several PAINT layers are shown in full (JB-2.04). Opening the half that can be shown and dropping
+     * the rest is the one thing this must never do.
      */
     fun load(contents: JbContents, onDone: () -> Unit) {
         val doc = contents.doc
         val refusal = refusalFor(contents)
         if (refusal != null) throw JbArchiveException(refusal)
 
-        val docLayer = doc.layers[0]
-        val visible = docLayer.visible
-        val opacity = docLayer.opacity
-        val blend = docLayer.blend
-        val wanted = ArrayList<Pair<Long, ByteArray>>(contents.tiles.size)
+        val states = doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend) }
+        val active = doc.activeLayerId?.takeIf { id -> doc.layers.any { it.id == id } } ?: doc.layers.last().id
+        val stack = LayerStack(states, active)
+        val wanted = ArrayList<Triple<String, Long, ByteArray>>(contents.tiles.size)
         for (entry in contents.tiles) {
-            // Iterating the map gives the ENTRY, so the tile's "tx_ty" is the entry key's third part.
-            wanted.add(Pair(tileKeyOf(entry.key.third), entry.value))
+            // Iterating the map gives the ENTRY: its key is (layer, cel, "tx_ty").
+            wanted.add(Triple(entry.key.first, tileKeyOf(entry.key.third), entry.value))
         }
         val paper = paperArgbOf(doc.paper.color)
         val name = doc.name
+        val board = doc.boards[0].rect
 
+        // The UI's own picture of the stack changes now, so nothing drawn after this lands on a layer the file does not have.
+        stackUi = stack
+        activeLayer = active
         onGl {
-            // resetDocument() empties EVERY layer, including the one this view draws into, and
-            // beginStroke() refuses a layer that is not there. So it goes back before anything else.
+            // resetDocument() empties EVERY layer; the file's stack is put back whole, then its pixels.
             engine.resetDocument()
-            engine.addLayer(layerId)
-            engine.setLayerVisible(layerId, visible)
-            engine.setLayerOpacity(layerId, opacity)
-            engine.setLayerBlend(layerId, blend)   // JB-2.20b: the GPU composites all 27
-            for (item in wanted) {
-                engine.writeTile(layerId, item.first, item.second)
-            }
+            engine.setStack(stack)
+            for (item in wanted) engine.writeTile(item.first, item.second, item.third)
             reportHistory()
             post { onDone() }
         }
         paperArgb = paper
+        pageW = board.w
+        pageH = board.h
         documentName = if (name.isBlank()) "Joy Brush" else name
     }
 
@@ -831,20 +991,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         if (contents.strokes.isNotEmpty()) {
             return "this drawing has ink strokes in it, and this screen cannot show ink yet"
         }
-        if (doc.layers.size != 1) {
-            return "this drawing has ${doc.layers.size} layers, and this screen holds one"
-        }
-        val layer = doc.layers[0]
-        if (layer.kind != LayerKind.PAINT) {
-            return "layer \"${layer.id}\" is ${layer.kind}, and this screen only paints pixels"
-        }
-        if (layer.animatedIn != null) {
-            return "layer \"${layer.id}\" is animated, and this screen cannot play animation yet"
-        }
-        if (layer.cels.size != 1) {
-            return "layer \"${layer.id}\" has ${layer.cels.size} cels, and this screen holds one"
-        }
-        val cel = layer.cels[0]
+        if (doc.layers.isEmpty()) return "this drawing has no layers"
         if (doc.boards.size != 1) {
             return "this drawing has ${doc.boards.size} boards, and this screen holds one"
         }
@@ -852,14 +999,30 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         if (board.kind != BoardKind.CANVAS) {
             return "board \"${board.id}\" is ${board.kind}, and this screen shows a canvas board"
         }
+        if (board.rect.w <= 0 || board.rect.h <= 0) return "board \"${board.id}\" has no room"
         if (doc.paper.textureId != null) {
             return "this drawing has a paper texture, which this screen cannot show yet"
         }
+        val celOf = HashMap<String, String>()
+        for (layer in doc.layers) {
+            if (layer.kind != LayerKind.PAINT) {
+                return "layer \"${layer.name}\" is ${layer.kind}, and this screen only paints pixels"
+            }
+            if (layer.animatedIn != null) {
+                return "layer \"${layer.name}\" is animated, and this screen cannot play animation yet"
+            }
+            if (layer.cels.size != 1) {
+                return "layer \"${layer.name}\" has ${layer.cels.size} cels, and this screen holds one"
+            }
+            celOf[layer.id] = layer.cels[0].id
+        }
         for (key in contents.tiles.keys) {
-            if (key.first != layer.id || key.second != cel.id) {
+            val cel = celOf[key.first]
+            if (cel == null || key.second != cel) {
                 return "a tile is in cel \"${key.second}\" of layer \"${key.first}\", which this drawing does not have"
             }
-            if (key.third !in cel.tiles) {
+            val listed = doc.layers.first { it.id == key.first }.cels[0].tiles
+            if (key.third !in listed) {
                 return "the drawing lists tile \"${key.third}\", and this file does not have it"
             }
             val bytes = contents.tiles.getValue(key)
@@ -867,51 +1030,61 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 return "tile \"${key.third}\" is ${bytes.size} bytes, and a paint tile is $TILE_BYTES"
             }
         }
-        for (tile in cel.tiles) {
-            if (Triple(layer.id, cel.id, tile) !in contents.tiles) {
-                return "the drawing lists tile \"$tile\", and this file does not have it"
+        for (layer in doc.layers) {
+            val cel = layer.cels[0]
+            for (tile in cel.tiles) {
+                if (Triple(layer.id, cel.id, tile) !in contents.tiles) {
+                    return "the drawing lists tile \"$tile\", and this file does not have it"
+                }
             }
         }
         return null
     }
 
-    /** The GL-thread half of [snapshot]: every tile, read back, under one document. */
+    /** The GL-thread half of [snapshot]: every layer, every tile, read back, under one document. */
     private fun readContents(w: Int, h: Int): JbContents {
         // Read back, not guessed at: the tiles are the drawing, so the archive carries exactly the
         // bytes the engine is holding and nothing has to be rebuilt from stroke records to save.
+        val stack = engine.stack(activeLayer)
         val tiles = LinkedHashMap<Triple<String, String, String>, ByteArray>()
-        val listed = ArrayList<String>()
-        for (key in engine.tileKeys(layerId)) {
-            val bytes = engine.readTile(layerId, key)
-            if (bytes == null || bytes.size != TILE_BYTES) {
-                throw JbArchiveException("a tile of the drawing could not be read back from the GPU")
+        val listed = HashMap<String, List<String>>()
+        for (s in stack.layers) {
+            val names = ArrayList<String>()
+            for (key in engine.tileKeys(s.id)) {
+                val bytes = engine.readTile(s.id, key)
+                if (bytes == null || bytes.size != TILE_BYTES) {
+                    throw JbArchiveException("a tile of layer \"${s.name}\" could not be read back from the GPU")
+                }
+                val name = DocOps.key(Tiles.tx(key), Tiles.ty(key))
+                names.add(name)
+                tiles[Triple(s.id, CEL_ID, name)] = bytes
             }
-            val name = DocOps.key(Tiles.tx(key), Tiles.ty(key))
-            listed.add(name)
-            tiles[Triple(layerId, CEL_ID, name)] = bytes
+            names.sort()
+            listed[s.id] = names
         }
-        listed.sort()
 
-        // The three ids the factory hands out, in the order it asks for them — board, layer, cel.
-        // The layer's MUST be the engine's own layer id, because that is where the tiles are and
-        // where the next stroke goes; if the factory ever stops agreeing, that is said out loud
-        // rather than quietly writing tiles into a layer nothing draws on.
-        val ids = ArrayDeque(listOf(BOARD_ID, layerId, CEL_ID))
-        val base = DocOps.newDocument(DOC_ID, documentName, w, h) { ids.removeFirst() }
-        val docLayer = base.layers[0]
-        if (docLayer.id != layerId) {
-            throw JbArchiveException("a new document's layer is called \"${docLayer.id}\", not \"$layerId\"")
+        // The factory makes the board, and a one-layer template every layer is written from. Each layer keeps the
+        // engine's own id, because that is where its tiles are; a cel id only has to be unique within its layer.
+        val pw = if (pageW > 0) pageW else w
+        val ph = if (pageH > 0) pageH else h
+        val ids = ArrayDeque(listOf(BOARD_ID, stack.layers[0].id, CEL_ID))
+        val base = DocOps.newDocument(DOC_ID, documentName, pw, ph) { ids.removeFirst() }
+        val template = base.layers[0]
+        val templateCel = template.cels[0]
+        val docLayers = stack.layers.map { s ->
+            template.copy(
+                id = s.id,
+                name = s.name,
+                visible = s.visible,
+                opacity = s.opacity,
+                blend = s.blend,
+                cels = listOf(templateCel.copy(tiles = listed[s.id] ?: emptyList())),
+            )
         }
-        val docCel = docLayer.cels[0]
         val doc = base.copy(
             paper = base.paper.copy(color = paperHex(paperArgb)),
-            layers = listOf(
-                docLayer.copy(
-                    visible = engine.layerVisible(layerId),
-                    opacity = engine.layerOpacity(layerId),
-                    cels = listOf(docCel.copy(tiles = listed)),
-                ),
-            ),
+            layers = docLayers,
+            activeLayerId = stack.activeId,
         )
         return JbContents(doc = doc, tiles = tiles, strokes = emptyMap(), thumbnailPng = null)
     }
@@ -1053,7 +1226,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private fun reportHistory() {
         val u = engine.undo.canUndo
         val r = engine.undo.canRedo
-        post { onHistoryChanged?.invoke(u, r) }
+        val stack = engine.stack(activeLayer)
+        post {
+            // The engine is the truth after an undo or a redo: the UI takes its stack, and keeps its own brush layer if
+            // that layer is still there.
+            stackUi = stack
+            activeLayer = stack.activeId
+            onLayersChanged?.invoke(stack)
+            onHistoryChanged?.invoke(u, r)
+        }
     }
 
     companion object {
@@ -1074,5 +1255,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         private const val DOC_ID = "joy-brush"
         private const val BOARD_ID = "board-1"
         private const val CEL_ID = "cel-1"
+
+        /** A new drawing's one layer. */
+        private const val FIRST_LAYER = "layer-1"
+        private const val FIRST_LAYER_NAME = "Layer 1"
     }
 }

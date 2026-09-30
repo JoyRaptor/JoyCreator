@@ -256,3 +256,51 @@ having **no blend field** — is Decision 2/4 and test 2.)_
 7. **The row is `[eye] [kind] [name] [opacity drag] [blend chip] [⋯]`** — one row, no sideways
    scroll (blueprint §3.5: "one row of actions, nothing hidden in a sideways scroll"). The `⋯`
    opens the per-layer menu (rename, duplicate, merge down, delete, convert kind).
+
+
+## Lead build 2026-09-30 — the compact column, built by the Lead (supersedes the list-row design above)
+
+The owner approved the JB-2.01 mockup: layers as a compact thumbnail column on the right edge, per-layer options in a panel
+beside it, and room for masks ("make sure it is compact and can take masks into account"). Two facts have changed since this
+spec was written. First, **the GPU composites all 27 blend modes** (JB-2.20b, Lead, R46), so Decisions 2–4 and Tests 1–3 and 9
+(offer Normal only; the tripwire test) are retired, and every mode is offered. Second, the layer rows became thumbnail cells.
+
+**Built.**
+- Core, tested (`LayerStackTest` 11, `ThumbnailsTest` 3):
+  - `layers/LayerStack`: pure add, duplicate, delete (never the last), move, opacity, blend, visibility, rename; names count
+    up and never repeat; `restoring` keeps visibility out of undo (Decision 7).
+  - `layers/BlendNames`: the 27 modes in painter groups, spelled the app's way, plus short corner tags. A test pins each mode
+    exactly once.
+  - `layers/LayerBudget`: 6% of RAM ÷ a full-page layer, clamped 4..64. The Note 9 reports 40.
+  - `paint/Thumbnails`: premultiplied box-downsample.
+  - `UndoLog.Step` carries an optional stack before/after, and every step is applied tiles first, then stack. `mergeNewest`
+    keeps a stack change.
+- Engine: named layers, `stack()`, `setStack`, `pushStackStep`, `deleteLayerStep` (the pixels go into the step),
+  `duplicateLayerStep` (a GPU tile copy), and `renderThumbnail` (4× supersampled, one layer alone, the page's shape).
+- `JbCanvasView`:
+  - Strokes go to the active layer, fixed at pen-down.
+  - A hidden layer refuses a stroke in words.
+  - Save and open cover every PAINT layer. Blend is now saved; the old snapshot dropped it.
+  - The eyedropper reads what is on the glass across all layers.
+  - Screen samples are queued, so two askers never cancel each other.
+- `chrome/LayerColumnView`:
+  - A cyan ring marks the layer being painted on; a hidden layer is dimmed with a crossed eye. Opacity and blend show as small
+    corner labels.
+  - ＋ with a `n/max` count.
+  - Tap to paint on a layer, tap again for its panel, hold and drag to move it.
+  - **Mask thumbnail slot and clip indent drawn by `Extras`**, ready for JB-2.23.
+- Layer panel: name, opacity (live while dragging, ONE undo step on release), Blend › (the 27 grouped, the current one
+  ringed), Hide/Show, Duplicate, Clear layer, Delete layer (red dot; Undo restores the pixels).
+
+**Found on the phone and fixed.** Changing opacity rebuilt the column's cells, so the Blend list opened beside a detached
+cell and the app closed. Cells are now only rebuilt when the list changes, the list re-finds its cell, and a panel with a gone
+anchor opens beside the column instead. Panels also stay below the top bar now: a see-through panel over the icons muddled
+both.
+
+**Checked on the Note 9:** open the column; ＋ adds Layer 2 above; strokes land on it alone; opacity to 35% fades them live
+and the cell shows "35%". After the crash above and a reinstall, both layers, the 35% and the open column all came back from
+the autosave (multi-layer save and restore, end to end).
+**Not yet checked on the phone** (it locked): the Blend list after the fix, Hide, Duplicate, Delete and Undo of each, and
+drag-to-move.
+
+**Next: JB-2.23 masks and clipping**, in the engine and the export together. The column already has their places.

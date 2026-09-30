@@ -25,6 +25,9 @@ class Popovers(private val kit: ChromeKit, private val host: FrameLayout) {
 
     val isOpen: Boolean get() = card != null
 
+    /** Panels never open above this (px from the host's top): the top bar lives there, and a see-through panel over it muddles both. */
+    var topInsetPx = 0
+
     /**
      * Opens [content] beside [anchor] (on the side of it with more room when [side] is BESIDE). [widthDp] 0 means the
      * content's own width. Anything already open is closed first.
@@ -109,11 +112,17 @@ class Popovers(private val kit: ChromeKit, private val host: FrameLayout) {
     private fun place(frame: View, anchor: View, side: Side) {
         val a = Rect()
         anchor.getDrawingRect(a)
-        host.offsetDescendantRectToMyCoords(anchor, a)
+        try {
+            host.offsetDescendantRectToMyCoords(anchor, a)
+        } catch (e: IllegalArgumentException) {
+            // The anchor left the screen between the tap and this layout (a list rebuilt under it). Open beside the
+            // host's right edge instead: a panel in a slightly odd place beats the whole screen closing.
+            a.set(host.width - host.paddingRight, host.height / 3, host.width - host.paddingRight, host.height / 3)
+        }
         val gap = kit.dpi(6f)
         val minX = host.paddingLeft + gap
         val maxX = host.width - host.paddingRight - gap - frame.width
-        val minY = host.paddingTop + gap
+        val minY = host.paddingTop + gap + topInsetPx
         val maxY = host.height - host.paddingBottom - gap - frame.height
         var x: Int
         var y: Int

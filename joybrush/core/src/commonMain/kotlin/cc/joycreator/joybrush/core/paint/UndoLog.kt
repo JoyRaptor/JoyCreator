@@ -1,5 +1,7 @@
 package cc.joycreator.joybrush.core.paint
 
+import cc.joycreator.joybrush.core.layers.LayerStack
+
 /**
  * Undo/redo of tile changes, with a memory budget — shared by the GPU engine (T = a texture) and the
  * CPU reference (T = a pixel array).
@@ -23,7 +25,20 @@ class UndoLog<T : Any>(
     private val release: (T) -> Unit,
 ) {
     class TileChange<T : Any>(val layerId: String, val key: Long, val before: T?, val after: T?)
-    class Step<T : Any>(val changes: List<TileChange<T>>)
+
+    /**
+     * One undo step: the tiles it changed and, for a change to the layers themselves (JB-2.04: add, duplicate, delete,
+     * move, opacity, blend, rename), the stack before and after. Null stacks = a pixels-only step, as every stroke is.
+     *
+     * Applying a step is ALWAYS tiles first, then the stack — in both directions. That one order makes every structural
+     * step work: undoing a delete puts the tiles back (which recreates the layer) and then the stack puts it back in its
+     * place; undoing a duplicate takes its tiles away and then the stack removes the now-empty layer.
+     */
+    class Step<T : Any>(
+        val changes: List<TileChange<T>>,
+        val stackBefore: LayerStack? = null,
+        val stackAfter: LayerStack? = null,
+    )
 
     private val undoStack = ArrayDeque<Step<T>>()
     private val redoStack = ArrayDeque<Step<T>>()
@@ -82,7 +97,10 @@ class UndoLog<T : Any>(
                 merged[k] = TileChange(c.layerId, c.key, prev.before, c.after)
             }
         }
-        undoStack.addLast(Step(merged.values.toList()))
+        // A layer change inside the batch (JB-2.04) is kept: the merged step goes from the first stack to the last.
+        val stackBefore = steps.firstOrNull { it.stackBefore != null }?.stackBefore
+        val stackAfter = steps.lastOrNull { it.stackAfter != null }?.stackAfter
+        undoStack.addLast(Step(merged.values.toList(), stackBefore, stackAfter))
         trim()
     }
 

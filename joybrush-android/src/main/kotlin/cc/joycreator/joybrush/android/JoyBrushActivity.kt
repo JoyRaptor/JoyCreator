@@ -35,6 +35,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import cc.joycreator.joybrush.android.chrome.BrushDrawerView
 import cc.joycreator.joybrush.android.chrome.ChromeKit
 import cc.joycreator.joybrush.android.chrome.JbIcon
+import cc.joycreator.joybrush.android.chrome.LayerColumnView
 import cc.joycreator.joybrush.android.chrome.Popovers
 import cc.joycreator.joybrush.android.chrome.ReferenceView
 import cc.joycreator.joybrush.android.chrome.ToolStripView
@@ -56,6 +57,10 @@ import com.fadcam.ui.faditor.tools.ColorRecents
 import com.fadcam.ui.faditor.tools.RecentColorsBar
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.chrome.BrushShelf
+import cc.joycreator.joybrush.core.doc.BlendMode
+import cc.joycreator.joybrush.core.layers.BlendNames
+import cc.joycreator.joybrush.core.layers.LayerBudget
+import cc.joycreator.joybrush.core.layers.LayerStack
 import cc.joycreator.joybrush.core.chrome.IconContrast
 import cc.joycreator.joybrush.core.chrome.StripPlacement
 import cc.joycreator.joybrush.core.chrome.ToolMemory
@@ -125,6 +130,10 @@ private const val PREF_TUFT = "tuft_tuning"
 private const val PREF_REF_URI = "reference_uri"
 private const val PREF_REF_PLACE = "reference_place"
 private const val PREF_REF_SHOWN = "reference_shown"
+private const val PREF_LAYERS_OPEN = "layers_open"
+
+/** Layer thumbnails are re-drawn this long after the last change, so a burst of strokes costs one refresh. */
+private const val THUMBS_AFTER_MS = 250L
 
 /** The top bar's height plus its margin: the strip never slides under it. */
 private const val TOP_RESERVE_DP = 54f
@@ -186,6 +195,10 @@ class JoyBrushActivity : Activity() {
     private lateinit var hud: ValueHud
     private lateinit var reference: ReferenceView
     private lateinit var pinBtn: TopButton
+    private lateinit var layersBtn: TopButton
+    private lateinit var column: LayerColumnView
+    private var columnOpen = false
+    private var thumbsPending = false
     private val topButtons = ArrayList<TopButton>()
     private var iconsInked = false
     private var iconCheckPending = false
@@ -286,6 +299,10 @@ class JoyBrushActivity : Activity() {
         restoreReference()
         // Four fingers tap: the chrome goes, the picture stays (JB-2.02's gesture, JB-2.01's one toggle).
         canvas.onToggleUi = { toggleChrome() }
+        // JB-2.04: the column follows the stack, and anything refused is said in words.
+        canvas.onLayersChanged = { stack -> layersChanged(stack) }
+        canvas.onRefused = { why -> toast(why) }
+        setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
         canvas.onViewMoved = { checkIcons() }
         reference.onMoved = { saveReferencePlace(); checkIcons() }
@@ -367,7 +384,7 @@ class JoyBrushActivity : Activity() {
 
     private fun buildOverlays(): FrameLayout {
         val overlays = FrameLayout(this)
-        popovers = Popovers(kit, overlays)
+        popovers = Popovers(kit, overlays).apply { topInsetPx = kit.dpi(TOP_RESERVE_DP) - kit.dpi(6f) }
         ring = EyedropperRingView(this)
 
         // The drag readout sits under everything else, in the middle of the screen.
@@ -386,6 +403,7 @@ class JoyBrushActivity : Activity() {
             setOnClickListener { pinTapped() }
             setOnLongClickListener { referenceMenu(); true }
         }
+        layersBtn = TopButton(kit, JbIcon.LAYERS, "Layers").apply { setOnClickListener { setColumnOpen(!columnOpen) } }
         val more = TopButton(kit, JbIcon.MORE, "More — save a copy, open, smoothing, put everything back").apply {
             setOnClickListener { moreMenu(this) }
             // JB-0.06's hidden door moved here from the old close button: hold ⋯ for the pen diagnostics.
@@ -394,8 +412,8 @@ class JoyBrushActivity : Activity() {
         val touch = kit.dpi(ChromeKit.TOUCH_DP)
         for (b in listOf(home, undoBtn, redoBtn)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
         topBar.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        for (b in listOf(pinBtn, more)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
-        topButtons.addAll(listOf(home, undoBtn, redoBtn, pinBtn, more))
+        for (b in listOf(pinBtn, layersBtn, more)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
+        topButtons.addAll(listOf(home, undoBtn, redoBtn, pinBtn, layersBtn, more))
         overlays.addView(topBar, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP).apply {
             val m = kit.dpi(6f)
             setMargins(m, m, m, 0)
@@ -418,6 +436,14 @@ class JoyBrushActivity : Activity() {
         strip.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
             if (bottom - top != oldBottom - oldTop) strip.post { placeStrip() }
         }
+
+        // ── the layer column (JB-2.04), on the right edge under the top bar ──
+        column = LayerColumnView(kit, columnHost)
+        column.visibility = View.GONE
+        overlays.addView(column, FrameLayout.LayoutParams(column.widthPx, WRAP, Gravity.TOP or Gravity.END).apply {
+            topMargin = kit.dpi(TOP_RESERVE_DP)
+            bottomMargin = kit.dpi(8f)
+        })
 
         // ── the hidden pen diagnostics (JB-0.06), under the top bar ──
         diag = PenDiagnosticsView(this)
@@ -488,9 +514,12 @@ class JoyBrushActivity : Activity() {
         val lp = strip.layoutParams as FrameLayout.LayoutParams
         val g = Gravity.TOP or (if (placement.edge == StripPlacement.Edge.LEFT) Gravity.START else Gravity.END)
         val top = (kit.dp(TOP_RESERVE_DP) + placement.topPx(freeHeight(), strip.height.toFloat())).toInt()
-        if (lp.gravity != g || lp.topMargin != top) {
+        // A strip on the right steps aside for the open layer column rather than sit on it.
+        val end = if (placement.edge == StripPlacement.Edge.RIGHT && columnOpen) column.widthPx else 0
+        if (lp.gravity != g || lp.topMargin != top || lp.marginEnd != end) {
             lp.gravity = g
             lp.topMargin = top
+            lp.marginEnd = end
             strip.layoutParams = lp
         }
     }
@@ -761,7 +790,8 @@ class JoyBrushActivity : Activity() {
     private fun toggleChrome() {
         chromeShown = !chromeShown
         popovers.close()
-        for (v in listOf<View>(topBar, strip, hairline)) {
+        val views = if (columnOpen) listOf<View>(topBar, strip, hairline, column) else listOf<View>(topBar, strip, hairline)
+        for (v in views) {
             v.animate().cancel()
             if (chromeShown) {
                 v.visibility = View.VISIBLE
@@ -770,6 +800,164 @@ class JoyBrushActivity : Activity() {
                 v.animate().alpha(0f).setDuration(170L).withEndAction { if (!chromeShown) v.visibility = View.GONE }.start()
             }
         }
+    }
+
+    // ── layers (JB-2.04): the column, its panel, the thumbnails ──
+
+    private val columnHost = object : LayerColumnView.Host {
+        override fun addLayer() {
+            canvas.addLayer()
+        }
+
+        override fun selectLayer(id: String) = canvas.selectLayer(id)
+        override fun openLayer(id: String, anchor: View) = layerPanel(id, anchor)
+        override fun moveLayer(id: String, toIndex: Int) = canvas.moveLayer(id, toIndex)
+    }
+
+    private fun setColumnOpen(open: Boolean) {
+        columnOpen = open
+        column.visibility = if (open && chromeShown) View.VISIBLE else View.GONE
+        layersBtn.on = open
+        prefs.edit().putBoolean(PREF_LAYERS_OPEN, open).apply()
+        if (open) {
+            layersChanged(canvas.layers)
+        }
+        strip.post { placeStrip() }
+        checkIcons()
+    }
+
+    /** The stack moved: the column shows it and its pictures are re-drawn shortly. */
+    private fun layersChanged(stack: LayerStack) {
+        canvas.maxLayers = budget()
+        if (canvas.pageWidth > 0 && canvas.pageHeight > 0) column.pageAspect = canvas.pageWidth.toFloat() / canvas.pageHeight
+        column.show(stack, canvas.maxLayers)
+        refreshThumbs()
+    }
+
+    /** How many layers this phone may hold, from its RAM and the page (core's [LayerBudget]). */
+    private fun budget(): Int {
+        val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val info = android.app.ActivityManager.MemoryInfo()
+        am.getMemoryInfo(info)
+        return LayerBudget.maxLayers(info.totalMem, canvas.pageWidth, canvas.pageHeight)
+    }
+
+    private fun refreshThumbs() {
+        if (!columnOpen || thumbsPending) return
+        thumbsPending = true
+        ui.postDelayed(thumbsNow, THUMBS_AFTER_MS)
+    }
+
+    private val thumbsNow = Runnable {
+        thumbsPending = false
+        val (w, h) = column.thumbSize()
+        canvas.layerThumbnails(canvas.layers.layers.map { it.id }, w, h) { pixels ->
+            val bitmaps = pixels.mapValues { (_, argb) -> Bitmap.createBitmap(argb, w, h, Bitmap.Config.ARGB_8888) }
+            column.setThumbnails(bitmaps)
+        }
+    }
+
+    /**
+     * One layer's panel, beside its cell: its name, its opacity, its blend mode, and what can be done to it. Delete is the
+     * one destructive row and wears the red dot; Undo brings a deleted layer back, pixels and all.
+     */
+    private fun layerPanel(id: String, anchor: View) {
+        val layer = canvas.layers[id] ?: return
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        val name = android.widget.EditText(this).apply {
+            setText(layer.name)
+            setSingleLine()
+            textSize = 14f
+            setTextColor(kit.p.drawerInk)
+            background = null
+            setPadding(dp(8), 0, dp(8), 0)
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+            kit.label(this, "Layer name")
+            setOnEditorActionListener { v, _, _ ->
+                canvas.renameLayer(id, v.text.toString())
+                v.clearFocus()
+                false
+            }
+            setOnFocusChangeListener { v, has -> if (!has) canvas.renameLayer(id, (v as android.widget.EditText).text.toString()) }
+        }
+        box.addView(name, LinearLayout.LayoutParams(MATCH, dp(40)))
+
+        // Opacity: shown live while the finger is on it, ONE undo step when it lets go.
+        val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val value = drawerText("${Math.round(layer.opacity * 100)}%", 12f).apply { typeface = android.graphics.Typeface.MONOSPACE }
+        head.addView(drawerText("Opacity", 13f), LinearLayout.LayoutParams(0, WRAP, 1f))
+        head.addView(value, LinearLayout.LayoutParams(WRAP, WRAP))
+        box.addView(head, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(8), dp(4), dp(8), 0) })
+        var before: LayerStack? = null
+        box.addView(SeekBar(this).apply {
+            tintSlider(this)
+            max = 100
+            progress = Math.round(layer.opacity * 100)
+            kit.label(this, "Layer opacity")
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    value.text = "$progress%"
+                    canvas.previewLayerOpacity(id, progress / 100f)
+                }
+
+                override fun onStartTrackingTouch(bar: SeekBar) {
+                    before = canvas.layers
+                }
+
+                override fun onStopTrackingTouch(bar: SeekBar) {
+                    canvas.commitLayerOpacity(before ?: canvas.layers, id, bar.progress / 100f)
+                    before = null
+                }
+            })
+        }, LinearLayout.LayoutParams(MATCH, dp(40)))
+
+        box.addView(menuRow("Blend: ${BlendNames.name(layer.blend)}  ›", "Choose how this layer mixes with the ones below") {
+            blendList(id, column.cellFor(id) ?: anchor)
+        })
+        box.addView(menuRow(if (layer.visible) "Hide" else "Show", if (layer.visible) "Hide this layer" else "Show this layer") {
+            canvas.setLayerVisible(id, !layer.visible)
+        })
+        box.addView(menuRow("Duplicate", "Make a copy of this layer above it") { canvas.duplicateLayer(id) })
+        box.addView(menuRow("Clear layer", "Empty this layer — Undo brings it back") {
+            canvas.selectLayer(id)
+            canvas.clearCanvas()
+        })
+        box.addView(menuRow("Delete layer", "Delete this layer — Undo brings it back", dot = kit.p.stateDestroy) { canvas.deleteLayer(id) })
+        popovers.show(box, anchor, Popovers.Side.BESIDE, widthDp = 220f)
+    }
+
+    /** All 27 blend modes, in the groups painters know, the current one ringed. Picking one is ONE undo step. */
+    private fun blendList(id: String, anchor: View) {
+        val current = canvas.layers[id]?.blend ?: BlendMode.NORMAL
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        for ((group, modes) in BlendNames.GROUPS) {
+            list.addView(drawerText(group.uppercase(Locale.ROOT), 10f).apply {
+                setTextColor(kit.p.drawerDim)
+                letterSpacing = 0.12f
+                setPadding(dp(10), dp(8), dp(10), dp(2))
+            })
+            for (m in modes) {
+                val row = menuRow(BlendNames.name(m), "Blend mode ${BlendNames.name(m)}") { canvas.setLayerBlend(id, m) }
+                if (m == current) row.background = GradientDrawable().apply {
+                    cornerRadius = kit.dp(10f)
+                    setColor(kit.ink(0.10f))
+                    setStroke(kit.dpi(1.5f), kit.p.stateSelected)
+                }
+                list.addView(row)
+            }
+        }
+        val scroll = android.widget.ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            addView(list)
+        }
+        val maxH = (resources.displayMetrics.heightPixels * 0.6f).toInt()
+        val holder = FrameLayout(this)
+        holder.addView(scroll, FrameLayout.LayoutParams(MATCH, WRAP))
+        holder.layoutParams = FrameLayout.LayoutParams(MATCH, WRAP)
+        scroll.layoutParams = FrameLayout.LayoutParams(MATCH, maxH)
+        popovers.show(holder, anchor, Popovers.Side.BESIDE, widthDp = 200f)
     }
 
     // ── the pinned reference (owner decision 3) ──

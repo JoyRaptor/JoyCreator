@@ -15,12 +15,13 @@ const val BRUSH_FORMAT = "joybrush.brush"
  *  - **3** (JB-1.06, R47) added `engine: "smudge"` and `engine: "push"`, and the `smudge` and `push`
  *    sections that go with them — [VERSION_SMUDGE].
  *  - **4** (R9, the owner's sable brush) added `engine: "tuft"` and its `tuft` section — [VERSION_TUFT].
+ *  - **5** added the `response` section's curves (pressure and tilt), when they are not the straight line — [VERSION_RESPONSE].
  *
  * A word needs the version that introduced it, NOT the newest one: a fill pen is still a version-2
  * file, so a build that predates smudge can open it. [BrushJson.wordsNeedingVersion] carries the
  * per-word number.
  */
-const val BRUSH_VERSION = 4
+const val BRUSH_VERSION = 5
 
 /** The brush version that introduced the fill pen's words. */
 const val VERSION_FILL = 2
@@ -142,6 +143,7 @@ object BrushJson {
         if (p.engine == ENGINE_SMUDGE) out += VersionedWord("engine \"$ENGINE_SMUDGE\"", VERSION_SMUDGE)
         if (p.engine == ENGINE_PUSH) out += VersionedWord("engine \"$ENGINE_PUSH\"", VERSION_SMUDGE)
         if (p.engine == ENGINE_TUFT) out += VersionedWord("engine \"$ENGINE_TUFT\"", VERSION_TUFT)
+        if (!p.response.isDefault) out += VersionedWord("response curves", VERSION_RESPONSE)
         return out
     }
 }

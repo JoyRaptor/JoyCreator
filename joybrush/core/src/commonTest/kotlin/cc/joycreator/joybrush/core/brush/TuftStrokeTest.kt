@@ -67,18 +67,108 @@ class TuftStrokeTest {
         val flat = widthAt(1f)
         assertTrue(flat > 2.2f * line, "pressed flat ($flat) is far wider than line weight ($line)")
         assertTrue(widthAt(1f, edit = { it.copy(flatten = 0f) }) < 1.3f * line, "Press flat at 0 turns it off")
-        val tilted = widthAt(0.7f, tilt = 1.2f)
-        assertTrue(tilted > 1.5f * widthAt(0.7f, tilt = 0f), "a steep pen multiplies the width: $tilted")
+        // A steep pen is a multiplier on the diagonal: the footprint grows long along the lean.
+        fun reach(tilt: Float): Float {
+            val f = footprints(draw(sable(), (0..60).map { i -> PenSample(i.toFloat(), 0f, i / 0.3, 0.7f, tilt = tilt, azimuth = -2.3f) }).first).last()
+            return hypot(f.bx - f.ax, f.by - f.ay) + f.ra + f.rb
+        }
+        assertTrue(reach(1.2f) > 1.5f * reach(0f), "a steep pen multiplies the mark: ${reach(1.2f)} vs ${reach(0f)}")
+    }
+
+    // ── owner, 2026-09-30, round three: the tilted brush ──
+
+    /** A bowl drawn AGAINST the lean, as his 3s were: the footprint must never jump sideways (the brush "flipping"). */
+    @Test
+    fun aCurveAgainstTheLeanNeverFlipsTheBrush() {
+        val lean = (-PI * 0.25).toFloat()
+        val samples = (0..700).map { i ->
+            val a = i / 110.0
+            PenSample((150 * cos(a)).toFloat(), (150 * sin(a)).toFloat(), timeMs = i / 1.2, pressure = 0.7f, tilt = 0.8f, azimuth = lean)
+        }
+        val fp = footprints(draw(sable(), samples).first)
+        for ((a, b) in fp.zipWithNext()) {
+            val jumpA = hypot(b.ax - a.ax, b.ay - a.ay)
+            val jumpB = hypot(b.bx - a.bx, b.by - a.by)
+            assertTrue(jumpA < 3f && jumpB < 6f, "a footprint jumped: belly $jumpA, tip $jumpB at (${b.ax}, ${b.ay})")
+        }
+    }
+
+    /** The point stays at the pen and the body lies out along the lean, longer the steeper — oblong even when light. */
+    @Test
+    fun aTiltedBrushLiesOutAlongTheLeanEvenWhenLight() {
+        val lean = 0f
+        fun last(p: Float, tilt: Float) =
+            footprints(draw(sable(), (0..80).map { i -> PenSample(0f, i.toFloat(), i / 0.3, p, tilt = tilt, azimuth = lean) }).first).last()
+        val light = last(0.12f, 1.1f)
+        assertTrue(light.ax - 0f > 8f, "the belly lies out along the lean (+x): ${light.ax}")
+        assertTrue(light.ra > 3f, "a light touch on its side is still almost as big: ${light.ra}")
+        assertTrue(light.graze > 0.3f, "and it grazes: ${light.graze}")
+        val hard = last(0.95f, 1.1f)
+        assertTrue(hard.graze < 0.05f, "pressed hard it is black: ${hard.graze}")
+        val upright = last(0.12f, 0f)
+        assertTrue(abs(upright.ax) < 0.5f && upright.ra < 1.5f, "upright and light stays a hairline at the pen")
+        val steeper = last(0.5f, 1.3f)
+        val shallower = last(0.5f, 0.6f)
+        assertTrue(steeper.ax > shallower.ax, "steeper lies out further: ${steeper.ax} vs ${shallower.ax}")
+    }
+
+    /** Pivoting the pen round a fixed point sweeps the belly round it; walking the point round a circle does not. */
+    @Test
+    fun turningThePenRoundItsPointSweepsTheBelly() {
+        val t = TuftStroke(sable(), 3L)
+        val out = ArrayList<TuftStamp>()
+        out += t.add(listOf(PenSample(0f, 0f, 0.0, 0.4f, tilt = 1f, azimuth = 0f)))
+        for (i in 1..90) out += t.dwell(PenSample(0f, 0f, i * 4.0, 0.4f, tilt = 1f, azimuth = (i * 4 * PI / 180).toFloat()))
+        val bellies = footprints(out)
+        assertTrue(bellies.size > 20, "turning in place lays footprints: ${bellies.size}")
+        val angles = bellies.map { kotlin.math.atan2(it.ay, it.ax) }
+        assertTrue(angles.maxOrNull()!! - angles.minOrNull()!! > 2.5, "the belly swings round the point")
+        assertTrue(bellies.all { abs(it.bx) < 1f && abs(it.by) < 1f }, "the point never leaves the pen")
     }
 
     @Test
-    fun aTiltedBrushPutsTheInkOnOneSide() {
-        val samples = (0..300).map { i -> PenSample(i.toFloat(), 0f, i / 0.8, 0.8f, tilt = 1.2f, azimuth = -PI.toFloat() / 2f) }
-        fun meanBias(side: Float) = footprints(draw(sable { it.copy(inkSide = side, sweep = 0f) }, samples).first).drop(50).map { it.bias }.average()
-        val light = meanBias(1f)
-        val heavy = meanBias(0f)
-        assertTrue(abs(light) > 0.2 && abs(heavy) > 0.2 && light * heavy < 0, "the Ink side slider moves the ink across: $light vs $heavy")
-        assertTrue(abs(meanBias(0.5f)) < 0.05, "even in the middle")
+    fun aMashedBrushMayLiftSplit() {
+        var split = 0
+        for (seed in 1L..40L) {
+            val tail = footprints(draw(sable { it.copy(splay = 1f) }, line(300, 1.5f) { 1f }, seed).second)
+            // Prongs run side by side: two footprints at the same distance along, apart across the stroke.
+            val ys = tail.map { it.ay }.distinctBy { (it * 2).toInt() }
+            if (tail.isNotEmpty() && ys.size > 3 && (tail.maxOf { it.ay } - tail.minOf { it.ay }) > 3f) split++
+        }
+        assertTrue(split in 3..39, "some mashed lifts split, not all: $split of 40")
+        var never = 0
+        for (seed in 1L..20L) {
+            val tail = footprints(draw(sable { it.copy(splay = 0f) }, line(300, 1.5f) { 1f }, seed).second)
+            if (tail.isNotEmpty() && tail.maxOf { it.ay } - tail.minOf { it.ay } > 3f) never++
+        }
+        assertEquals(0, never, "Splay at 0: a single point")
+    }
+
+    /** Dryness creeps in early, grows gently, and never reaches nothing: an empty brush still dry-brushes. */
+    @Test
+    fun theBrushDriesGraduallyAndNeverRunsToNothing() {
+        val fp = footprints(draw(sable { it.copy(ink = 0f, dry = 0f, settle = 0f, corner = 0f) }, line(20000, 1f) { 0.8f }).first)
+        val quarters = fp.chunked(fp.size / 4).map { c -> c.map { it.dry }.average() }
+        assertTrue(quarters.zipWithNext().all { (a, b) -> b >= a - 1e-3 }, "drier as it goes: $quarters")
+        assertTrue(quarters[0] > 0.02, "a little dryness early: $quarters")
+        assertTrue(fp.last().dry < 0.8f, "never to nothing: ${fp.last().dry}")
+    }
+
+    @Test
+    fun theResponseCurvesShapeWhatTheBrushHears() {
+        val straight = ResponseSpec()
+        val s = PenSample(0f, 0f, 0.0, 0.5f, tilt = 0.7f)
+        assertEquals(s, straight.apply(s))
+        val soft = ResponseSpec(pressure = listOf(0f, 0.6f, 0.4f, 1f))
+        assertTrue(soft.apply(s).pressure > 0.6f, "a curve above the line makes a light touch heavier")
+        val hard = ResponseSpec(tilt = listOf(0.6f, 0f, 1f, 0.4f))
+        assertTrue(hard.apply(s).tilt < 0.7f)
+        for (x in listOf(0f, 0.25f, 0.5f, 0.75f, 1f)) assertEquals(x, ResponseCurve.eval(ResponseCurve.LINEAR, x), 1e-3f)
+        val finger = s.copy(tool = cc.joycreator.joybrush.core.input.Tool.FINGER, pressure = 1f)
+        assertEquals(1f, soft.apply(finger).pressure)
+        val p = BrushPreset(id = "b", name = "B", size = Param(4f), version = 1, response = soft)
+        assertTrue(BrushValidate.validate(p).any { it.contains("needs brush version 5") })
+        assertTrue(BrushJson.encode(p).contains("\"version\": 5"))
     }
 
     @Test
@@ -251,7 +341,7 @@ class TuftStrokeTest {
         val tail = footprints(draw(sable(), fast).second)
         assertTrue(tail.size > 3, "a fast lift carries on: ${tail.size} footprints")
         val closed = footprints(draw(sable { it.copy(splay = 0f) }, fast).second).last().ra
-        val spread = footprints(draw(sable { it.copy(splay = 1f) }, line(300, 3f) { f -> if (f > 0.95f) 1f else 0.4f }).second).last().ra
+        val spread = footprints(draw(sable { it.copy(splay = 1f, flatten = 0f) }, line(300, 3f) { f -> if (f > 0.95f) 1f else 0.4f }).second).last().ra
         assertTrue(spread > closed, "spread bristles end wider ($spread) than closed ones ($closed)")
     }
 
@@ -284,8 +374,8 @@ class TuftStrokeTest {
         val bad = sable { it.copy(dry = 2f, tipPx = 0f) }
         val msg = BrushValidate.validate(bad).joinToString()
         assertTrue(msg.contains("tuft.dry 2.0") && msg.contains("tuft.tipPx"), msg)
-        val text = BrushJson.encode(sable())
+        val text = BrushJson.encode(sable().copy(version = 4))
         assertTrue(text.contains("\"version\": 4") && text.contains("\"tuft\""), text)
-        assertEquals(sable(), BrushJson.decode(text))
+        assertEquals(sable().copy(version = 4), BrushJson.decode(text))
     }
 }

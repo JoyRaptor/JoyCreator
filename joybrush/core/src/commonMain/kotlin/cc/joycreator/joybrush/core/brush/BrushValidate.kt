@@ -35,7 +35,7 @@ object BrushValidate {
         "shelf" to t.shelf, "steady" to t.steady, "trail" to t.trail, "snap" to t.snap, "corner" to t.corner,
         "settle" to t.settle, "speedThin" to t.speedThin, "ink" to t.ink, "dry" to t.dry, "sweep" to t.sweep,
         "splay" to t.splay, "bristles" to t.bristles, "tooth" to t.tooth, "spatter" to t.spatter,
-        "strays" to t.strays, "tilt" to t.tilt, "flatten" to t.flatten, "action" to t.action, "inkSide" to t.inkSide,
+        "strays" to t.strays, "tilt" to t.tilt, "flatten" to t.flatten, "action" to t.action, "graze" to t.graze,
     )
 
     /** Per curve. */
@@ -151,6 +151,14 @@ object BrushValidate {
         for ((n, v) in tuftSliders(p.tuft)) if (v !in 0f..1f) tuftBad += "tuft.$n $v"
         if (!(p.tuft.tipPx > 0f) || p.tuft.tipPx > MAX_TUFT_TIP_PX) tuftBad += "tuft.tipPx ${p.tuft.tipPx} (must be above 0 and at most ${MAX_TUFT_TIP_PX.toInt()})"
         if (tuftBad.isNotEmpty()) out += "tuft settings are outside 0..1: " + tuftBad.joinToString("; ")
+
+        // 14c — the response curves: two handles each, every number in 0..1 (x must be, or the curve could fold back).
+        val curveBad = ArrayList<String>()
+        for ((n, h) in listOf("pressure" to p.response.pressure, "tilt" to p.response.tilt)) {
+            if (h.size != 4) curveBad += "response.$n has ${h.size} numbers, not 4"
+            else if (h.any { it !in 0f..1f }) curveBad += "response.$n $h"
+        }
+        if (curveBad.isNotEmpty()) out += "response curves are outside 0..1: " + curveBad.joinToString("; ")
 
         // 15 — colour jitter: a fraction of the hue circle, of the saturation, of the value.
         val colours = ArrayList<String>()

@@ -86,6 +86,10 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
     private var cur = Look()
     private var untilNext = 0f
     private var lastEmittedW = 0f
+    private var lastBellyX = 0f
+    private var lastBellyY = 0f
+    /** How hard the brush has been mashed lately (pressed flat and spread): what makes a lift split (owner, 2026-09-30). */
+    private var mashed = 0f
 
     private val hairs = ArrayList<Hair>()
 
@@ -93,10 +97,16 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
     private class Look(
         var x: Float = 0f, var y: Float = 0f, var w: Float = 0f, var len: Float = 0f,
         var bx: Float = 1f, var by: Float = 0f, var rb: Float = 0f,
-        var dry: Float = 0f, var bias: Float = 0f, var splay: Float = 0f, var arc: Float = 0f,
+        var dry: Float = 0f, var splay: Float = 0f, var arc: Float = 0f,
         var pc: Float = 0f, var nx: Float = 0f, var ny: Float = 1f,
+        /** Where the belly sits, from the pen: out along the lean when the pen is tilted (owner, 2026-09-30). */
+        var ox: Float = 0f, var oy: Float = 0f,
+        /** The sweep, as a vector toward the inside of the curve, scaled by how hard (O10). */
+        var sx: Float = 0f, var sy: Float = 0f,
+        /** How lightly the far end of a laid-over brush grazes the paper: wispy and scratchy there. */
+        var graze: Float = 0f,
     ) {
-        fun copy() = Look(x, y, w, len, bx, by, rb, dry, bias, splay, arc, pc, nx, ny)
+        fun copy() = Look(x, y, w, len, bx, by, rb, dry, splay, arc, pc, nx, ny, ox, oy, sx, sy, graze)
     }
 
     private class Hair(
@@ -115,6 +125,18 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
     }
 
     /**
+     * The pen changed without moving: pressed harder, or tilted and turned round its point (owner, 2026-09-30: "the point
+     * never leaves, but the butt of the pen goes round it"). The smoother releases nothing for a pen that does not move,
+     * so the caller hands such a sample here instead of to [add]; it is read AT the brush's current place.
+     */
+    fun dwell(sample: PenSample): List<TuftStamp> {
+        val out = ArrayList<TuftStamp>()
+        if (!started || !sample.timeMs.isFinite()) return out
+        step(sample.copy(x = rawX, y = rawY), out)
+        return out
+    }
+
+    /**
      * The lift (O11) and its spatter (O1). Call once, after the last [add]. A fast lift carries on a little along the
      * stroke as the bristles leave the paper; how pointed that end is depends on how spread the bristles still were.
      */
@@ -123,7 +145,40 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         if (!started) return out
         val vN = speedN()
         val end = cur.copy()
-        if (hasDir && vN > 0.15f && end.pc > 0.03f && u(spec.trail) > 0f) {
+        // A brush that was mashed flat may come off split, in two or three points (owner, 2026-09-30).
+        val prongs = if (hasDir && mashed > 0.3f && rng.nextFloat() < u(spec.splay) * 0.9f * mashed) {
+            if (rng.nextFloat() < 0.4f) 3 else 2
+        } else 1
+        if (prongs > 1) {
+            val tail = max(u(spec.trail) * (speed * TAIL_SECONDS * (0.5f + vN)), end.w * 2.5f).coerceAtMost(8f * bellyR)
+            for (i in 0 until prongs) {
+                val across = ((i + 0.5f) / prongs - 0.5f) * 2f * end.w * 0.8f
+                val turn = (i - (prongs - 1) / 2f) * 0.1f + (rng.nextFloat() - 0.5f) * 0.08f
+                val c = cos(turn)
+                val sn = sin(turn)
+                val dx = tx * c - ty * sn
+                val dy = tx * sn + ty * c
+                val length = tail * (0.65f + 0.6f * rng.nextFloat())
+                val startW = end.w / prongs * 1.15f
+                val step = max(MIN_SPACING, 0.2f * min(startW, 4f))
+                var d = 0f
+                while (d <= length) {
+                    val f = d / length
+                    val k = end.copy()
+                    k.x = end.x + end.nx * across + dx * d
+                    k.y = end.y + end.ny * across + dy * d
+                    k.w = tipR * 0.6f + (startW - tipR * 0.6f) * (1f - f).pow(2f)
+                    k.ox = end.ox * (1f - f) / prongs
+                    k.oy = end.oy * (1f - f) / prongs
+                    k.len = end.len * (1f - 0.7f * f) / prongs
+                    k.rb = min(k.rb, k.w)
+                    k.dry = max(end.dry, f * 0.7f)
+                    k.arc = end.arc + d + i * 97f
+                    out.add(stampOf(k))
+                    d += step
+                }
+            }
+        } else if (hasDir && vN > 0.15f && end.pc > 0.03f && u(spec.trail) > 0f) {
             val tail = min(u(spec.trail) * (speed * TAIL_SECONDS * (0.5f + vN) + 2f * end.w), 8f * bellyR)
             if (tail > 0.5f) {
                 val needle = min(end.w, tipR)
@@ -138,6 +193,8 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
                     // A needle, not a wedge: the width falls away fast, then runs thin.
                     k.w = endR + (end.w - endR) * (1f - f).pow(2.4f)
                     k.len = end.len * (1f - 0.6f * f)
+                    k.ox = end.ox * (1f - f)
+                    k.oy = end.oy * (1f - f)
                     k.rb = min(k.rb, k.w)
                     k.dry = max(end.dry, f * (0.5f + 0.5f * end.splay))
                     k.arc = end.arc + d
@@ -225,16 +282,10 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         // The bristles swing toward trailing the stroke (O9), over a distance: stiff sable swings fast.
         val pc = curve(p)
         if (hasDir && ds > 0f) {
-            var gx = -tx
-            var gy = -ty
-            val tf = tiltAmount(s.tilt)
-            if (s.azimuth.isFinite() && tf > 0f) {
-                // The tuft lies on past the contact point, away from the way the handle leans.
-                gx -= cos(s.azimuth) * tf * (0.5f + 0.9f * smooth(0.3f, 0.9f, tf))
-                gy -= sin(s.azimuth) * tf * (0.5f + 0.9f * smooth(0.3f, 0.9f, tf))
-                val n = sqrt(gx * gx + gy * gy)
-                if (n > 1e-6f) { gx /= n; gy /= n } else { gx = -tx; gy = -ty }
-            }
+            // Only the travel pulls the tip. The tilt moves the BELLY (see look), never this direction: adding the two made
+            // them cancel when the stroke ran against the lean, and the brush flipped over (the owner's jogging 3s).
+            val gx = -tx
+            val gy = -ty
             val lag = bristleLen * (0.12f + 0.8f * (1f - u(spec.snap))) * (0.4f + 0.6f * pc) + 1f
             val k = 1f - exp(-ds / lag)
             val ang = atan2(bx * gy - by * gx, bx * gx + by * gy)
@@ -249,9 +300,10 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
 
         // Ink drains with the width laid down (O3).
         val w0 = cur.w.coerceAtLeast(tipR)
-        val capacity = 2f * bellyR * (12f + 300f * u(spec.ink) * u(spec.ink))
-        // A pressed-flat belly lays more ink, but not in proportion: the bristles spread the same load thinner.
-        load = max(0f, load - ds * (w0 / bellyR).pow(0.6f) * (0.25f + 0.75f * pc) / capacity)
+        val capacity = 2f * bellyR * (30f + 900f * u(spec.ink) * u(spec.ink))
+        // A pressed-flat belly lays more ink, but not in proportion: the bristles spread the same load thinner. A nearly
+        // empty brush gives up what it has slowly, so it keeps dry-brushing for a long while instead of stopping.
+        load = max(0f, load - ds * (w0 / bellyR).pow(0.6f) * (0.25f + 0.75f * pc) * (0.35f + 0.65f * load) / capacity)
 
         // Splay (O11): opens quickly, closes over time — fast when wet, slowly when dry.
         val engaged = smooth(0.03f, 0.25f, p)
@@ -308,10 +360,14 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
                 along += max(MIN_SPACING, SPACING * min(k.w, 2f * bellyR))
             }
             untilNext = along - moved
-        } else if (next.w > lastEmittedW * 1.08f + 0.2f) {
-            // Pressing down in one place: the blot grows.
-            emit(next, out)
+        } else {
+            // Still: pressing down grows the blot, and turning the pen swings the belly round its point.
+            val bx0 = next.x + next.ox
+            val by0 = next.y + next.oy
+            val swung = sqrt((bx0 - lastBellyX) * (bx0 - lastBellyX) + (by0 - lastBellyY) * (by0 - lastBellyY))
+            if (next.w > lastEmittedW * 1.08f + 0.2f || swung > max(0.5f, 0.2f * next.w)) emit(next, out)
         }
+        mashed = max(mashed * (1f - min(1f, moved / (6f * bellyR + 1f))), smooth(FLAT_FROM, 1f, p) * u(spec.flatten) + 0.5f * splay)
 
         // Spatter on a jolt (O1): the harder the jolt and the fuller the brush, the likelier.
         val rate = u(spec.spatter) * (0.3f + 0.7f * load) * jolt * jolt * SPATTER_PER_MS
@@ -335,57 +391,58 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         // Three zones (owner, 2026-09-30): the hairline shelf for detail, the line weight up to the belly, then pressing
         // flat spreads the bristles to their widest for shadows.
         val flat = u(spec.flatten) * FLATTEN_MAX * smooth(FLAT_FROM, 1f, p)
-        var w = tipR + (bellyR - tipR) * pc + bellyR * flat
-        // A steep pen is a multiplier on top: the side of the brush, stretched on the diagonal.
+        // The tilt (owner, 2026-09-30): the point stays at the pen, and the body of the brush lies out along the lean,
+        // longer the steeper the pen. Even a light touch lays the side down, almost as big — but only grazing.
         val tf = tiltAmount(s.tilt)
-        val lay = smooth(0.3f, 0.9f, tf)
-        w *= 1f + u(spec.tilt) * 1.6f * lay
+        val lay = if (s.azimuth.isFinite()) smooth(0.25f, 0.85f, tf) else 0f
+        val tiltK = 0.3f + 1.3f * u(spec.tilt)
+        val pressW = tipR + (bellyR - tipR) * pc + bellyR * flat * (1f - 0.6f * lay)
+        val sideW = bellyR * lay * tiltK * (0.35f + 0.35f * p)
+        var w = max(pressW, sideW)
+        val ext = bristleLen * lay * tiltK * (0.45f + 0.4f * p) * (1f + 0.4f * flat * lay)
+        val ox = if (lay > 0f) cos(s.azimuth) * ext else 0f
+        val oy = if (lay > 0f) sin(s.azimuth) * ext else 0f
+        val graze = u(spec.graze) * lay * (1f - p).pow(1.3f)
         w *= 1f - u(spec.speedThin) * 0.4f * smooth(0.15f, 1f, vN)
         w += u(spec.settle) * slowness * (0.15f * w + 0.25f * tipR)
         w *= 1f + u(spec.corner) * 1.2f * mis * engaged
         w = max(w, tipR * 0.5f)
 
         var len = bristleLen * engaged * (0.12f + 0.4f * pc + u(spec.trail) * 0.9f * min(vN, 1f) * (0.4f + 0.6f * engaged))
-        len *= 1f + 0.5f * flat / FLATTEN_MAX + u(spec.tilt) * 1.2f * lay
+        len *= 1f + 0.5f * flat / FLATTEN_MAX
         // The bristles can only trail over paper the brush has already crossed (no tail behind the touch-down).
         len = min(len, min(bristleLen * 2.5f, arc * 0.8f))
 
         val needle = min(w, tipR)
         val rb = needle + (w * 0.7f - needle) * splay
 
-        // Sweep (O10): which side of the brush is the inside of the curve, and how hard it is being thrown there.
         val bLen = sqrt(bx * bx + by * by)
         val ubx = if (bLen > 1e-6f) bx / bLen else 1f
         val uby = if (bLen > 1e-6f) by / bLen else 0f
-        val nx = -uby
-        val ny = ubx
-        var bias = 0f
+        // Sweep (O10): toward the inside of the curve, as hard as it is being thrown there. Turned into a side of the
+        // footprint in stampOf, against the footprint's own axis.
+        var sx = 0f
+        var sy = 0f
         if (hasDir && curvature != 0f) {
             val screenV = speed * zoom
             val aLat = screenV * screenV * abs(curvature) / zoom
             val strength = u(spec.sweep) * smooth(0.08f, 1f, aLat / SWEEP_REF)
             val sign = if (curvature > 0f) 1f else -1f
-            val ix = -ty * sign
-            val iy = tx * sign
-            bias = strength * (ix * nx + iy * ny)
-        }
-        // A tilted brush presses harder on the side the handle leans to; the other side is the light, tip side. Which of
-        // the two keeps the ink is the Ink side slider; the other shows the bristles.
-        if (s.azimuth.isFinite() && lay > 0f) {
-            val across = cos(s.azimuth) * nx + sin(s.azimuth) * ny
-            bias += -across * lay * (2f * u(spec.inkSide) - 1f) * 0.9f
+            sx = -ty * sign * strength
+            sy = tx * sign * strength
         }
 
         return Look(
             x = fx, y = fy, w = w, len = len, bx = ubx, by = uby, rb = rb,
-            dry = dryness(vN, pc, mis, engaged), bias = bias.coerceIn(-1f, 1f), splay = splay, arc = arc,
-            pc = pc, nx = if (hasDir) -ty else 0f, ny = if (hasDir) tx else 1f,
+            dry = (dryness(vN, pc, mis, engaged) + 0.3f * graze).coerceIn(0f, 1f), splay = splay, arc = arc,
+            pc = pc, nx = if (hasDir) -ty else 0f, ny = if (hasDir) tx else 1f, ox = ox, oy = oy, sx = sx, sy = sy, graze = graze,
         )
     }
 
     private fun dryness(vN: Float, pc: Float, mis: Float, engaged: Float): Float {
         val dSpeed = u(spec.dry) * smooth(0.3f, 1f, vN) * (0.3f + 0.7f * pc)
-        val dLoad = 1f - smooth(0f, 0.5f, load)
+        // Dryness creeps in early and grows as the brush empties, but never to nothing: an empty brush still dry-brushes.
+        val dLoad = LOAD_DRY_MAX * (1f - load).pow(1.2f)
         val dCorner = u(spec.corner) * mis * 0.7f * engaged * min(1f, vN * 3f)
         var d = 1f - (1f - dSpeed) * (1f - dLoad) * (1f - dCorner)
         d *= 1f - u(spec.settle) * 0.85f * (1f - smooth(0.02f, 0.12f, vN))
@@ -395,15 +452,27 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
     private fun emit(k: Look, out: MutableList<TuftStamp>) {
         out.add(stampOf(k))
         lastEmittedW = k.w
+        lastBellyX = k.x + k.ox
+        lastBellyY = k.y + k.oy
         emitHairs(k, out)
     }
 
     private fun stampOf(k: Look): TuftStamp {
         val len = max(k.len, MIN_LEN)
+        val ax = k.x + k.ox
+        val ay = k.y + k.oy
+        var bx = k.x + k.bx * len
+        var by = k.y + k.by * len
+        if ((bx - ax) * (bx - ax) + (by - ay) * (by - ay) < MIN_LEN * MIN_LEN) { bx = ax + k.bx * MIN_LEN; by = ay + k.by * MIN_LEN }
+        // The side the ink is thrown to, against the footprint's axis (belly → tip): jb_tuft.frag's +normal side.
+        val axl = sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)).coerceAtLeast(1e-6f)
+        val nx = -(by - ay) / axl
+        val ny = (bx - ax) / axl
+        val bias = (k.sx * nx + k.sy * ny).coerceIn(-1f, 1f)
         return TuftStamp(
-            ax = k.x, ay = k.y, bx = k.x + k.bx * len, by = k.y + k.by * len,
+            ax = ax, ay = ay, bx = bx, by = by,
             ra = k.w, rb = k.rb.coerceIn(0.05f, k.w), flow = 1f, cap = cap,
-            dry = k.dry, bias = k.bias, splay = k.splay, arc = k.arc, kind = TuftStamp.KIND_FOOTPRINT,
+            dry = k.dry, bias = bias, splay = k.splay, arc = k.arc, kind = TuftStamp.KIND_FOOTPRINT, graze = k.graze,
         )
     }
 
@@ -439,8 +508,8 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
                 0.25f * h.side * swing
             val on = belly && gate > h.threshold
             if (!on) { h.on = false; continue }
-            val px = k.x + k.nx * h.side * k.w * (1f + h.offset) + k.bx * k.len * 0.35f
-            val py = k.y + k.ny * h.side * k.w * (1f + h.offset) + k.by * k.len * 0.35f
+            val px = k.x + k.ox + k.nx * h.side * k.w * (1f + h.offset) + k.bx * k.len * 0.35f
+            val py = k.y + k.oy + k.ny * h.side * k.w * (1f + h.offset) + k.by * k.len * 0.35f
             if (h.on) {
                 out.add(TuftStamp(ax = px, ay = py, bx = h.hx, by = h.hy, ra = hairR, rb = hairR, cap = cap, dry = h.stutter,
                     kind = TuftStamp.KIND_HAIR))
@@ -463,8 +532,8 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         val ry = dx * sn + dy * c
         dx = rx; dy = ry
         // Out of the curve, away from the inside the ink was thrown to.
-        dx -= k.nx * k.bias * 0.4f
-        dy -= k.ny * k.bias * 0.4f
+        dx -= k.sx * 0.4f
+        dy -= k.sy * 0.4f
         val n = sqrt(dx * dx + dy * dy).coerceAtLeast(1e-6f)
         dx /= n; dy /= n
         val vN = speedN()
@@ -492,8 +561,9 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         if (n > 1e-6f) { nbx /= n; nby /= n } else { nbx = b.bx; nby = b.by }
         return Look(
             x = m(a.x, b.x), y = m(a.y, b.y), w = m(a.w, b.w), len = m(a.len, b.len), bx = nbx, by = nby,
-            rb = m(a.rb, b.rb), dry = m(a.dry, b.dry), bias = m(a.bias, b.bias), splay = m(a.splay, b.splay),
+            rb = m(a.rb, b.rb), dry = m(a.dry, b.dry), splay = m(a.splay, b.splay),
             arc = m(a.arc, b.arc), pc = m(a.pc, b.pc), nx = b.nx, ny = b.ny,
+            ox = m(a.ox, b.ox), oy = m(a.oy, b.oy), sx = m(a.sx, b.sx), sy = m(a.sy, b.sy), graze = m(a.graze, b.graze),
         )
     }
 
@@ -546,6 +616,8 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         /** Where on the pressure the press-flat zone begins. */
         private const val FLAT_FROM = 0.72f
         private const val MAX_HAIRS = 5
+        /** The driest an empty brush gets from its load alone: still enough ink to dry-brush. */
+        private const val LOAD_DRY_MAX = 0.72f
         /** What a finger or a mouse draws at: line weight. */
         private const val NO_PRESSURE = 0.6f
 

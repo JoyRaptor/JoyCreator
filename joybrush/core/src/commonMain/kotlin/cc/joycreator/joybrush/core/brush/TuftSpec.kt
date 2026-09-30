@@ -59,8 +59,8 @@ const val VERSION_TUFT = 4
     /** Bristle marks even in a loaded brush: broken edges and a streaky light side. */
     val action: Float = 0.4f,
     /**
-     * Which side of a tilted brush keeps the ink. 1 = the LIGHT side (the bristle tips, least force) carries the most ink
-     * and the heavy side shows the bristles (the owner's words, 2026-09-30); 0 = the other way round; 0.5 = even.
+     * A laid-over brush pressed lightly: how wispy and scratchy the far end of its body is, where only a few bristles
+     * graze the tooth (owner, 2026-09-30: "shading, even though it's a pen"). Pressed hard it is black whatever this says.
      */
-    val inkSide: Float = 0.75f,
+    val graze: Float = 0.6f,
 )

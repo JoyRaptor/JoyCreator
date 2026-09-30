@@ -736,7 +736,12 @@ class JoyBrushActivity : Activity() {
             },
             onDone = { popovers.close() },
         )
-        popovers.showSheet(view, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT, modal = false)
+        // The pen dot and the curves' markers follow the pen on the drawing and on the preview alike.
+        val reading: (Float, Float, Float) -> Unit = { p, t, o -> view.showReading(p, t, o) }
+        canvas.onPenReading = reading
+        preview.onPenReading = reading
+        popovers.showSheet(view, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT,
+            onClosed = { canvas.onPenReading = null }, modal = false)
     }
 
     private fun menuRow(text: String, label: String, dot: Int? = null, action: () -> Unit): View =

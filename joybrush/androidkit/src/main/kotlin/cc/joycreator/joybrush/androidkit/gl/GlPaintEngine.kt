@@ -799,7 +799,7 @@ class GlPaintEngine(
                 tuftInstanceData.put(t.ax).put(t.ay).put(t.bx).put(t.by)
                     .put(t.ra).put(t.rb).put(t.flow).put(t.cap)
                     .put(t.dry).put(t.bias).put(t.splay).put(t.arc)
-                    .put(t.kind.toFloat()).put(0f).put(0f).put(0f)
+                    .put(t.kind.toFloat()).put(t.graze).put(0f).put(0f)
             }
             tuftInstanceData.flip()
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)

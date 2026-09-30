@@ -87,6 +87,7 @@ import kotlinx.serialization.Serializable
     val smudge: SmudgeSpec = SmudgeSpec(),     // read only when engine == "smudge" (version 3)
     val push: PushSpec = PushSpec(),           // read only when engine == "push" (version 3)
     val tuft: TuftSpec = TuftSpec(),           // read only when engine == "tuft" (version 4, R9 §3B)
+    val response: ResponseSpec = ResponseSpec(), // pressure and tilt curves, every engine (version 5 when not straight)
     val sizeJitter: Float = 0f,
     val angleJitter: Float = 0f,         // degrees
     val color: ColorJitter = ColorJitter(),

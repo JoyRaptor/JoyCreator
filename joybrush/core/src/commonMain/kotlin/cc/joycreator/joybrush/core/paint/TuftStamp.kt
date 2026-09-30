@@ -44,6 +44,8 @@ data class TuftStamp(
     val splay: Float = 0f,
     val arc: Float = 0f,
     val kind: Int = KIND_FOOTPRINT,
+    /** 0..1: how lightly the belly END of a laid-over brush grazes the paper — dry and scratchy there, solid at the tip. */
+    val graze: Float = 0f,
 ) {
     companion object {
         const val KIND_FOOTPRINT = 0

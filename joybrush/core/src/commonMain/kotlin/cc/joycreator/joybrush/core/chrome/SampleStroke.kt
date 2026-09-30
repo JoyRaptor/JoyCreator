@@ -56,10 +56,10 @@ object SampleStroke {
     fun dabs(preset: BrushPreset, width: Float, height: Float, displaySize: Float): List<Dab> {
         val size = min(preset.size.base, displaySize).coerceAtLeast(1f)
         val shown = ToolMemory.sized(preset, size, preset.opacity.base)
-        if (shown.engine == ENGINE_TUFT) return tuftDabs(shown, path(width, height, inset = size / 2f + 1f))
+        if (shown.engine == ENGINE_TUFT) return tuftDabs(shown, path(width, height, inset = size / 2f + 1f).map { shown.response.apply(it) })
         val dabber = BrushDabber(shown, SEED)
         val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
-        val placed = placer.add(path(width, height, inset = size / 2f + 1f))
+        val placed = placer.add(path(width, height, inset = size / 2f + 1f).map { shown.response.apply(it) })
         return Scatter.expand(placed, shown.scatter, SplitMix(SEED xor SCATTER_SALT)) { dab ->
             DabInputs(
                 pressure = dab.pressure,

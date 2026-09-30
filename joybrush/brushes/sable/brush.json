@@ -30,7 +30,7 @@
     "tilt": 0.5,
     "flatten": 0.5,
     "action": 0.4,
-    "inkSide": 0.75
+    "graze": 0.6
   },
   "license": "CC0"
 }

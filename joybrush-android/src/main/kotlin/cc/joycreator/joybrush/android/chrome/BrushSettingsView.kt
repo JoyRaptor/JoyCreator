@@ -40,6 +40,25 @@ class BrushSettingsView(
 
     private var positions = start
     private val rows = ArrayList<Triple<BrushKnobs.Knob, SeekBar, TextView>>()
+    private val penDot = PenReadingView(kit)
+    private val pressureCurve = CurveEditorView(kit, "Pressure", tuned().response.pressure) { h, done -> curveMoved("pressure", h, done) }
+    private val tiltCurve = CurveEditorView(kit, "Tilt", tuned().response.tilt) { h, done -> curveMoved("tilt", h, done) }
+
+    /**
+     * What the pen reads now, from the drawing or the preview: the pen dot, and the markers on the two curves. [tilt] in
+     * radians from upright, [orientation] as Android's AXIS_ORIENTATION.
+     */
+    fun showReading(pressure: Float, tilt: Float, orientation: Float) {
+        penDot.show(pressure, tilt, orientation)
+        pressureCurve.showReading(if (pressure > 0f) pressure else Float.NaN)
+        tiltCurve.showReading(if (tilt.isFinite()) tilt / (Math.PI.toFloat() / 2f) else Float.NaN)
+    }
+
+    private fun curveMoved(curve: String, handles: List<Float>, done: Boolean) {
+        val keys = BrushKnobs.curveKeys(curve)
+        positions = positions + keys.zip(handles)
+        onChange(positions, done)
+    }
 
     /** The brush as the sliders have it now. */
     private fun tuned(): BrushPreset = BrushTuning.apply(base, mapOf(base.id to positions))
@@ -62,7 +81,13 @@ class BrushSettingsView(
         addView(preview, LayoutParams(MATCH, kit.dpi(PREVIEW_DP)).apply { setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(4f)) })
 
         val list = LinearLayout(context).apply { orientation = VERTICAL }
-        for (knob in BrushKnobs.forBrush(base)) list.addView(row(knob))
+        // How the brush hears the pen: what it reads now, and the two curves that shape it.
+        val hearing = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.TOP }
+        hearing.addView(penDot, LayoutParams(0, WRAP, 0.8f))
+        hearing.addView(pressureCurve, LayoutParams(0, WRAP, 1f).apply { marginStart = kit.dpi(6f) })
+        hearing.addView(tiltCurve, LayoutParams(0, WRAP, 1f).apply { marginStart = kit.dpi(6f) })
+        list.addView(hearing, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(6f)) })
+        for (knob in BrushKnobs.forBrush(base)) if (knob.slider) list.addView(row(knob))
         val scroll = ScrollView(context).apply { addView(list, ViewGroup.LayoutParams(MATCH, WRAP)) }
         // Preview + sliders take at most ~55% of the screen, so the drawing above stays free for test strokes.
         val maxH = (context.resources.displayMetrics.heightPixels * 0.55f).toInt() - kit.dpi(PREVIEW_DP + 48f)
@@ -75,6 +100,8 @@ class BrushSettingsView(
 
     private fun refresh() {
         val p = tuned()
+        pressureCurve.setHandles(p.response.pressure)
+        tiltCurve.setHandles(p.response.tilt)
         for ((knob, seek, value) in rows) {
             seek.progress = Math.round(knob.get(p) * STEPS)
             value.text = knob.show(p)

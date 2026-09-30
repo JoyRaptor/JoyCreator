@@ -504,6 +504,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     override fun onHoverEvent(event: MotionEvent): Boolean {
         onRawEvent?.invoke(event)
+        reportPen(event)
         if (MotionEventSamples.tool(event, 0).let { it == Tool.STYLUS || it == Tool.ERASER }) {
             penSeen = true
             penHovering = event.actionMasked != MotionEvent.ACTION_HOVER_EXIT
@@ -513,6 +514,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     override fun onTouchEvent(ev: MotionEvent): Boolean {
         onRawEvent?.invoke(ev)
+        reportPen(ev)
         if (eyedropTouch(ev)) return true
         val action = ev.actionMasked
         if (action == MotionEvent.ACTION_DOWN) {
@@ -872,7 +874,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // The pen reports SCREEN px; a stroke is recorded in DOCUMENT px, and the page's own turn
         // is what the lean direction is read against.
         val samples = MotionEventSamples.from(ev, idx, { x, y -> view.screenToDoc(x, y) }, view.rotation)
-        for (s in samples) released.addAll(sm.add(s))
+        for (s in samples) feedOne(sm, s, released)
         paint(released)
     }
 
@@ -920,7 +922,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             val released = ArrayList<PenSample>()
             for (s in samples) {
                 val (dx, dy) = view.screenToDoc(s.x, s.y)
-                released.addAll(sm.add(s.copy(x = dx, y = dy)))
+                feedOne(sm, s.copy(x = dx, y = dy), released)
             }
             paint(released)
             finishStroke()
@@ -950,6 +952,39 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             engine.setStack(fresh)
         }
         drawStrokes(strokes)
+    }
+
+    /**
+     * One pen sample into the stroke: through the brush's response curves (how it hears the pen), then the smoother. A
+     * pen that pressed or turned WITHOUT moving releases nothing from the smoother, so a tuft brush is told directly
+     * ([TuftStroke.dwell]): pressing grows the blot, and turning the pen swings the belly round its point.
+     */
+    private fun feedOne(sm: StrokeSmoother, raw: PenSample, released: MutableList<PenSample>) {
+        val s = strokePreset?.response?.apply(raw) ?: raw
+        val before = released.size
+        released.addAll(sm.add(s))
+        val t = strokeTuft
+        if (t != null && released.size == before && !s.predicted) {
+            paint(released)
+            released.clear()
+            paintTuft(t.dwell(s))
+        }
+    }
+
+    /**
+     * What the pen reads right now, for the brush settings' pen dot (owner, 2026-09-30): pressure 0..1, tilt in radians
+     * from upright, and the direction it leans on the SCREEN (radians, 0 = up, as Android's AXIS_ORIENTATION). Hovering
+     * reports pressure 0. UI thread.
+     */
+    var onPenReading: ((pressure: Float, tilt: Float, orientation: Float) -> Unit)? = null
+
+    private fun reportPen(ev: MotionEvent) {
+        val l = onPenReading ?: return
+        if (!isPenAt(ev, 0)) return
+        val hovering = ev.actionMasked == MotionEvent.ACTION_HOVER_MOVE || ev.actionMasked == MotionEvent.ACTION_HOVER_ENTER
+        val up = ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_HOVER_EXIT
+        l(if (hovering || up) 0f else ev.getPressure(0), ev.getAxisValue(MotionEvent.AXIS_TILT, 0),
+            ev.getAxisValue(MotionEvent.AXIS_ORIENTATION, 0))
     }
 
     /** R9: a tuft stroke's footprints to the GL thread, beginning the stroke there with the first of them. */

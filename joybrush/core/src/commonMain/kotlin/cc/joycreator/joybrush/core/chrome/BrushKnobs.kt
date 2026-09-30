@@ -8,6 +8,7 @@ import cc.joycreator.joybrush.core.brush.ENGINE_TUFT
 import cc.joycreator.joybrush.core.brush.InputCurve
 import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.brush.TuftSpec
+import cc.joycreator.joybrush.core.brush.VERSION_RESPONSE
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -36,6 +37,8 @@ object BrushKnobs {
         val set: (BrushPreset, Float) -> BrushPreset,
         /** How the value reads beside the slider. */
         val show: (BrushPreset) -> String,
+        /** False for a number a curve editor owns (the response handles): saved and applied like a slider, drawn as a curve. */
+        val slider: Boolean = true,
     )
 
     /** The knobs for [p], in the order a person meets them: the line first, then the ink, then the accidents. */
@@ -44,12 +47,28 @@ object BrushKnobs {
         ENGINE_SMUDGE -> SMUDGE + STAMP + SMOOTHING
         ENGINE_FILL -> SMOOTHING
         else -> STAMP + (if (p.paperGrain.enabled) listOf(GRAIN) else emptyList()) + SMOOTHING
-    }
+    } + RESPONSE
+
+    /** The keys of a response curve's four handle numbers, `response.<curve>.0` … `.3` ([x1, y1, x2, y2]). */
+    fun curveKeys(curve: String): List<String> = (0 until 4).map { "response.$curve.$it" }
+
+    private fun handle(curve: String, i: Int) = Knob("response.$curve.$i", "$curve curve", "The $curve curve's handle",
+        get = { p -> (if (curve == "pressure") p.response.pressure else p.response.tilt).getOrElse(i) { 0.5f }.coerceIn(0f, 1f) },
+        set = { p, v ->
+            val r = p.response
+            val out = if (curve == "pressure") p.copy(response = r.copy(pressure = r.pressure.toMutableList().also { if (i < it.size) it[i] = v }))
+            else p.copy(response = r.copy(tilt = r.tilt.toMutableList().also { if (i < it.size) it[i] = v }))
+            // A bent curve is a version-5 word: the tuned brush says so, as its file would.
+            if (!out.response.isDefault && out.version < VERSION_RESPONSE) out.copy(version = VERSION_RESPONSE) else out
+        },
+        show = { "" }, slider = false)
+
+    private val RESPONSE: List<Knob> = (0 until 4).map { handle("pressure", it) } + (0 until 4).map { handle("tilt", it) }
 
     private fun pct(v: Float) = "${(v * 100).roundToInt()}%"
 
     private fun knob(key: String, label: String, hint: String, get: (BrushPreset) -> Float, set: (BrushPreset, Float) -> BrushPreset) =
-        Knob(key, label, hint, get, set) { p -> pct(get(p)) }
+        Knob(key, label, hint, get, set, show = { p -> pct(get(p)) })
 
     // ── the tuft brush (R9 §3A, O1–O13) ──
 
@@ -70,8 +89,8 @@ object BrushKnobs {
             { it.flatten }, { s, v -> s.copy(flatten = v) }),
         tuft("tilt", "Tilt spread", "Laying the pen over multiplies the width and stretches the mark on the diagonal.",
             { it.tilt }, { s, v -> s.copy(tilt = v) }),
-        tuft("inkSide", "Ink side", "On a tilted brush: right keeps the ink on the light side (the tips) and shows bristles on the pressed side; left is the opposite.",
-            { it.inkSide }, { s, v -> s.copy(inkSide = v) }),
+        tuft("graze", "Graze", "A laid-over pen pressed lightly: how wispy and scratchy the far side of the brush is, for shading. Pressed hard it is black.",
+            { it.graze }, { s, v -> s.copy(graze = v) }),
         tuft("steady", "Steadiness", "The brush smooths your hand's wobble across the line into a calm drift. The line never lags behind the pen.",
             { it.steady }, { s, v -> s.copy(steady = v) }),
         tuft("trail", "Trail", "How long the bristles trail when you move with a little pressure: thin but long, calligraphic. Also how far a quick lift carries on.",

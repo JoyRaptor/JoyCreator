@@ -26,6 +26,7 @@ flat in vec4 v_ab;
 flat in vec4 v_r;
 flat in vec4 v_look;
 flat in float v_kind;
+flat in float v_graze;
 
 out vec4 o_color;
 
@@ -107,6 +108,8 @@ void main() {
         // Sweep: the inside keeps its ink, the outside runs dry first.
         float side = bias * y;
         float dLocal = clamp(dry + max(-side, 0.0) * 0.9 - max(side, 0.0) * 0.6, 0.0, 1.0);
+        // Graze: a laid-over brush pressed lightly is wispy toward its belly end (t = 0), solid at the tip on the pen.
+        dLocal = clamp(dLocal + v_graze * (0.25 + 0.75 * (1.0 - t) * (1.0 - t)), 0.0, 1.0);
         // Bristle action: a loaded brush still breaks at its edges; a little all the way across.
         dLocal = clamp(dLocal + u_action * (0.12 + 0.5 * y * y), 0.0, 1.0);
 

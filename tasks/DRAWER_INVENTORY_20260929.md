@@ -49,5 +49,18 @@ scrolls sideways), Color (swatch dots), Opacity, Softness, Gain, **Blend** (Norm
 Phase, Mirror (Off | On), Glow (Off | On) + Glow radius. Transform: position, scale, rotation, opacity,
 each keyable (diamond + prev/next).
 
+## Video overlay drawer (ZA_CONTROL, HOLD on the overlay clip; double-tap only selects it)
+Header: tabs **Transform | Blend mode | Mask | Chroma key | Effects | Lanes**, toggles Mute, Show this
+overlay's sound on the timeline, Hide, Lock, Let taps pass through, close. Transform: Pos X, Pos Y, Scale,
+Rotate, Opacity, Volume (each with value, diamond, previous/next key). Chroma key: "Key out a colour"
+(eyedropper). Lanes: New lane (Above / Below), Move (Up / Down a lane).
+
+## Caption drawer (ZA_CONTROL, HOLD on the CC lane)
+Header: Captions chip (dot + eye toggle), add (+), tabs **Style | Fit**, Frost, close. Style: caption
+position and size sliders (6%), Font (Standard) with save / delete / share / import, Highlight (Pop, Zoom,
+Bounce), Text / Highlight colours, Box, box colour, Outline + colour, Shadow, Box…, Motion (None + an
+alignment menu), Timing (In / Out as a share of the line, 0%). Preset strip along the bottom: Pop, Zoom,
+Bounce, Boxed, Hot, Meme, Bright, hide-captions eye, timer.
+
 ## Seen working in portrait, not enumerated here
-Film double-tap (Volume drawer), video overlay, caption drawer (Style / Fit).
+Film double-tap (Volume drawer).

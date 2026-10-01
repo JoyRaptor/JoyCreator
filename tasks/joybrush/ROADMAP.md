@@ -296,3 +296,19 @@ Phases follow `JOYBRUSH_BLUEPRInT.md` §4. Each phase ends with an owner check (
 | [JB-8.02 Procreate `.brush` / `.brushset` import](specs/JB-8.02_procreate_import.md) | T2 | 0.03 | 🟧 | subagent + a FINISHER subagent, 2026-09-29  **REAL-FILE CHECK OWED - NOT SIGNED OFF (R44 item 4).** No real Procreate file has been read; all 68 tests are hand-built fixtures. R44 item 5: convertBrush THROWS on brush-level faults while convertBrushSet refuses per-preset, and the spec now says so - the dividing line is whether the fault is in the CONTAINER or in one of its CONTENTS. | |
 | [JB-8.03](specs/JB-8.03_mypaint_import.md) MyPaint `.myb` import (then bundle CC0 MyPaint brushes) | T2 | 0.03, 0.03b | 🟧 Built | unknown model (subagent of openrouter/stealth/space-bunny-alpha) 2026-09-28 | | **xr BLOCKED (MAJOR):** the mapping table drops `opaque`'s and `hardness`'s input curves, so two of three fixture brushes lose their opacity ramp and one imports nearly invisible. **needs a Lead ruling** because the fix changes the table
 | [JB-8.04 Krita `.kpp` / `.bundle` import (pixel + colour smudge engines only)](specs/JB-8.04_krita_import.md) | T2 | 0.03 | 🟧 | subagent of openrouter/stealth/space-bunny-alpha 2026-09-29, in its own worktree per R43  **REAL-FILE CHECK OWED - NOT SIGNED OFF (R44 item 4).** No real .kpp or .bundle has been read - the third importer in a row. **R44 REVERSED Decision 5**, so the .bundle refusal is fixed by **JB-8.04b**, not by this row. MINOR also open: the base64 encoder is now the same nine lines in three files. | |
+
+### Phase 9 — Paper (R10; dispatch: `PAPER_DISPATCH.md`)
+
+| Row | Tier | Needs | Status | Who |
+|---|---|---|---|---|
+| [JB-9.01](specs/JB-9.01_surface_maps.md) Height → slopes ("normal map") → packed RGBA surface | T1 | — | 🟦 Ready | OpenCode |
+| [JB-9.02](specs/JB-9.02_hex_tile_sampler.md) Hex-tile sampler, CPU twin: the no-repeat read (canonical maths) | T1 | 9.01 | 🟦 Ready | OpenCode |
+| [JB-9.03](specs/JB-9.03_paper_grain_quick_win.md) Quick win: pencil + Sable feel a real paper that never shows its grid | T1+T3 | — | 🟦 Ready | Codex |
+| [JB-9.04](specs/JB-9.04_paper_catalogue.md) Paper catalogue: types, reader, validator | T1 | — | 🟦 Ready | OpenCode |
+| [JB-9.05](specs/JB-9.05_document_paper_v4.md) Document paper: look, surface, tint, show, bite, light (DOC_VERSION 4) | T1 | 9.04 | 🟦 Ready | OpenCode |
+| [JB-9.06](specs/JB-9.06_paper_on_screen_and_export.md) Paper on screen behind the layers, swappable, exported or left out, right at every zoom | T1+T3 | 9.03, 9.04, 9.05 | 🟦 Ready | Codex |
+| [JB-9.07](specs/JB-9.07_paper_sheet_ui.md) Paper swatch at the bottom of the layers + the Paper sheet | T2-V+T3 | 9.06 | 🟦 Ready | Lead (or Codex) |
+| [JB-9.08](specs/JB-9.08_directional_and_wet_deposit.md) Directional dry deposit + wet pooling, per-dab travel direction | T1+T3 | 9.03, 9.09 | 🟦 Ready | Codex |
+| [JB-9.09](specs/JB-9.09_brush_paper_response.md) Brush sliders Paper · Direction · Wet (brush version 6) | T1 | — | 🟦 Ready | OpenCode |
+| [JB-9.10](specs/JB-9.10_paper_library.md) The launch paper library (looks + surfaces) | T2+T3 | 9.01, 9.04 | 🟦 Ready | Claude picks; Codex makes candidates |
+| [JB-9.11](specs/JB-9.11_imported_textures_get_slopes.md) Imported brush textures become surfaces | T1 | 9.01 | 🟦 Ready | OpenCode |

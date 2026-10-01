@@ -1,7 +1,7 @@
 # R10 — Paper, background and canvas texture: research, design and build plan
 
 **Author:** the paper/texture specialist session (Claude), 2026-10-01. Started from `HANDOFF_paper_texture.md`.
-**Status:** PLAN — waiting for the owner's go and for the split of work (§9). Nothing in the app has changed yet.
+**Status:** SPECCED (2026-10-01). Rows JB-9.01–9.11 in `specs/`, dispatched in `../PAPER_DISPATCH.md` (Codex · OpenCode · Claude · Lead).
 **Legend:** [S] = a cited source says so · [C] = checked in our code or on the PC today · [I] = my engineering judgement.
 
 ---
@@ -42,6 +42,10 @@
 | P7 | **Placement: a paper swatch at the very bottom of the Layers panel** (Infinite Painter style, not a gear like Concepts). It is visible though out of the way, and it sits physically BELOW every layer, which gives the right mental map. |
 | P8 | Backgrounds at launch: AMOLED black · dusty black chalkboard · dusty green chalkboard (a different dust) · tan construction paper with variance · blueprint · aged parchment · ancient papyrus · off-white · rice paper · several popular canvases · user colour · transparent/none. Looks may tint to any colour, so "user colour" is always live. |
 | P9 | Surfaces: pressed pulp in grades (chunky handmade > artisan > factory refined) · canvas (several weaves) · cement · fabric · silk · crumpled paper (2). |
+| P11 | **Zoom:** Joy Brush is a lot of zoom (0.05×–64× on one pixel density), not truly infinite, so detail fades in as you zoom in. Mischief-style: a finer, offset copy fading in so gradually it never reads as a loop (JB-9.06 Decision 4). |
+| P12 | **Rice paper:** filaments and fibre clumps in a thin translucent sheet. FLAT: whiter areas are more OPAQUE, not raised (layered cobweb). Cool white or warm cream. Fibres in the look, near-smooth surface. |
+| P13 | **Thai sugarcane pulp:** short straw fibres plus brown and grey-brown chunks of unbleached plant matter. |
+| P14 | CC0 downloads approved. Codex (image generation, 3D) makes candidate looks and 3D height renders. The specialist keeps taste and the final say. |
 | P10 | A normal map can be faked by offsetting colour channels. Answer: that offset IS a slope measure. We do the careful version (Scharr filter on the height map, all directions), as NVIDIA's Photoshop plugin did. |
 
 ---
@@ -224,7 +228,7 @@ and the Joy Brush Lead is consulted before anything touches its hot files (`GlPa
 | F. Scharr slope derivation (CPU, core) + golden tests; importer hook | **OpenCode free agents** | Pure function, easy to test |
 | Catalogue file (paper ids, sizes, flags) + its validator | **OpenCode free agents** | Data + a schema |
 
-## 10. Open questions for the owner
+## 10. Open questions for the owner (1, 2 and 4 answered 2026-10-01: P11, P14, PAPER_DISPATCH.md)
 
 1. **Zoom and grain size.** On an endless canvas, if you zoom to 16× and draw tiny details, should the paper's tooth stay at its
    real physical size (tiny strokes ride over big bumps, like drawing under a magnifier) or shrink with the zoom you drew at?

@@ -1,0 +1,30 @@
+{
+  "format": "joybrush-papers",
+  "version": 1,
+  "surfaces": [
+    {
+      "id": "pulp_artisan",
+      "name": "Artisan pulp",
+      "file": "surface_pulp_artisan.png",
+      "size": 512,
+      "texelPx": 2.0,
+      "slopeRange": 0.099,
+      "hexTexels": 180,
+      "rotatable": true,
+      "relief": 1.0
+    }
+  ],
+  "looks": [
+    {
+      "id": "off_white",
+      "name": "Off-white",
+      "base": "#F3EFE6",
+      "file": null,
+      "detailStrength": 0.0,
+      "texelPx": 2.0,
+      "hexTexels": 180,
+      "rotatable": true,
+      "defaultSurface": "pulp_artisan"
+    }
+  ]
+}

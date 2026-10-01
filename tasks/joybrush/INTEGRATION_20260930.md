@@ -198,3 +198,28 @@ Studio handoff. User already verified drawing, colour picking, erasing and closi
 
 Next integration slice: memory-safe large drawing swaps, then frame/cel projection and animation/
 Studio wiring. Recovery covers completed saves, not pixels destroyed before any checkpoint exists.
+
+## Large drawing switching — 2026-10-01
+
+Open and Recent now stage selected compressed bytes in a private cache file. The save queue first
+snapshots and durably preserves the previous drawing. Only a separate writer task, after releasing
+that snapshot, decodes the selection. No queued Open owns an inflated pixel set. Independent staging
+copies survive provider changes and Recent pruning. Failed reads, decode allocation failures and
+closed screens release staging files and keep the existing drawing. Candidate format/canvas
+validation still completes before replacement; an invalid selection can add a harmless Recent
+safety copy, but never replaces the canvas. Closing a screen drains queued Open cleanup.
+
+Verification: 211 androidkit tests, zero failures/errors, including six new staging tests. Allowed
+standalone test command: .\gradlew.bat -p joybrush :androidkit:test --console=plain. Watcher paused
+for standalone tests and restarted once afterward. Full app watcher build passed in 3m40s; installed
+in place on Note 9 at 13:07:33. Includes the independently landed JB-9.03 paper sampler; no paper,
+shader or catalogue files changed in this lane.
+
+On Note 9, Open switched the live 1711-tile owner drawing to a distinct-ID large fixture. All 1711
+paint tiles and document settings matched the selected archive. Recent then restored the previous
+large owner drawing: all 1713 archive entries matched the fresh pre-test backup. A damaged-file Open
+was refused; staging was cleaned, drawing still visible, all owner entries still exact, no new crash.
+Fresh local backup retained outside Git. Temporary files created by this check removed from Downloads.
+Note 20 untouched; no uninstall or storage clearing. Large swaps still take tens of seconds for
+snapshot/compression/load; progress feedback and reusing validated compressed checkpoints can improve
+this later. Next: frame/cel projection, then animation/Studio host wiring.

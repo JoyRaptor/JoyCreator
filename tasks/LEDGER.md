@@ -3857,3 +3857,13 @@ atomic archive writes to copy saved compressed bytes without keeping another ful
 on Note 9 with the 1711-tile drawing. Owner pre-test archive restored with all 1713 entries exact;
 normal phone operation restored. Undo restarts; unsaved marks are outside the recovery guarantee.
 Next defect: large-to-large Open memory overlap. Details: tasks/joybrush/INTEGRATION_20260930.md.
+
+## 2026-10-01 — Large Joy Brush drawings can switch without simultaneous pixel sets
+
+Open/Recent now queue private compressed files, preserve the current canvas, release its snapshot,
+then decode the selection in a separate writer task. Damaged/read-failed selections keep the current
+canvas; staging is isolated and cleaned. 211 androidkit tests pass and app watcher build passes.
+Note 9 in-place install at 13:07:33: 1711-tile large Open and Recent switches pass, pixels/document
+exact. Damaged selection refused; owner drawing restored with all 1713 archive entries exact. Fresh
+local backup retained, Note 20 untouched. Large files still take tens of seconds. Next: frame/cel
+projection. Evidence: tasks/joybrush/INTEGRATION_20260930.md.

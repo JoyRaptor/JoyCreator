@@ -54,6 +54,7 @@ import cc.joycreator.joybrush.androidkit.io.JbArchiveException
 import cc.joycreator.joybrush.androidkit.io.JbContents
 import cc.joycreator.joybrush.androidkit.io.DrawingHistory
 import cc.joycreator.joybrush.androidkit.io.DrawingRecovery
+import cc.joycreator.joybrush.androidkit.io.StagedDrawing
 import cc.joycreator.joybrush.androidkit.io.CanvasPng
 import cc.joycreator.joybrush.androidkit.lab.BrushHotReload
 import cc.joycreator.joybrush.androidkit.tools.Eyedropper
@@ -260,7 +261,7 @@ class JoyBrushActivity : Activity() {
     private sealed class SaveDest {
         object Working : SaveDest()
         class Copy(val uri: Uri) : SaveDest()
-        class Open(val contents: JbContents) : SaveDest()
+        class Open(val selection: StagedDrawing) : SaveDest()
         class Png(val uri: Uri, val includePaper: Boolean) : SaveDest()
     }
 
@@ -284,7 +285,8 @@ class JoyBrushActivity : Activity() {
      * down — and all three are the queue's job now. There is deliberately no `saveOwed` boolean.
      */
     private val saves = SaveQueue(object : SaveTarget<SaveDest> {
-        override val strokeInProgress: Boolean get() = canvas.strokeInProgress || loadingDrawing || recoveringDrawing
+        override val strokeInProgress: Boolean get() = !destroyed &&
+            (canvas.strokeInProgress || loadingDrawing || recoveringDrawing)
         override fun start(reason: SaveReason, destination: SaveDest, finished: (String?) -> Unit) {
             beginSave(destination, finished)
         }
@@ -428,6 +430,7 @@ class JoyBrushActivity : Activity() {
         stopBrushLab()
         // In-flight writes and their request watchdogs finish normally; no new old-screen saves.
         fileIo.execute { recovery.close() }
+        saves.drain() // Closed-screen Open requests release their private staging files.
         super.onDestroy()
     }
 
@@ -1461,7 +1464,11 @@ class JoyBrushActivity : Activity() {
      * drawing survived FIRST and the reason second.
      */
     private fun beginSave(dest: SaveDest, finished: (String?) -> Unit) {
-        if (destroyed) { finished("the drawing screen has closed"); return }
+        if (destroyed) {
+            if (dest is SaveDest.Open) dest.selection.close()
+            finished("the drawing screen has closed")
+            return
+        }
         if (dest is SaveDest.Working && !workingSaveAllowed) {
             finished("the previous drawing needs recovery before autosave can replace it")
             return
@@ -1481,6 +1488,7 @@ class JoyBrushActivity : Activity() {
                 answered = true
                 ui.removeCallbacks(watchdog)
                 if (dest is SaveDest.Open) {
+                    dest.selection.close()
                     replacingDrawing = false
                     overlaysView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
                 }
@@ -1549,13 +1557,33 @@ class JoyBrushActivity : Activity() {
                 runOnUiThread {
                     if (dest is SaveDest.Open && problem == null && !destroyed && !answered) {
                         // Replacement only follows a successful durable write of the old drawing.
-                        ui.postDelayed(watchdog, SNAPSHOT_TIMEOUT_MS)
-                        showContents(dest.contents) { loaded ->
-                            if (loaded) {
-                                changes = 1
-                                saves.request(SaveReason.IDLE, SaveDest.Working)
+                        // A separate executor task releases this snapshot's pixel arrays BEFORE
+                        // decoding the selection. Holding both exceeds the Note 9's 512 MiB heap.
+                        fileIo.execute {
+                            var readProblem: String? = null
+                            val selected = try { dest.selection.read() }
+                                catch (_: OutOfMemoryError) {
+                                    readProblem = "this device has too little memory for that drawing"
+                                    null
+                                } catch (e: Exception) {
+                                    readProblem = e.message ?: "the selected file could not be read"
+                                    null
+                                }
+                            ui.post {
+                                if (answered) return@post
+                                if (destroyed || selected == null) {
+                                    answer(readProblem ?: "the drawing screen has closed")
+                                    return@post
+                                }
+                                ui.postDelayed(watchdog, 30_000L)
+                                showContents(selected) { loaded ->
+                                    if (loaded) {
+                                        changes = 1
+                                        saves.request(SaveReason.IDLE, SaveDest.Working)
+                                    }
+                                    answer(if (loaded) null else "the selected drawing could not be shown")
+                                }
                             }
-                            answer(if (loaded) null else "the selected drawing could not be shown")
                         }
                     } else answer(problem)
                 }
@@ -1642,18 +1670,15 @@ class JoyBrushActivity : Activity() {
     /** "Open…": the person picks a file, and it replaces whatever is on the canvas. */
     private fun openFrom(uri: Uri) {
         fileIo.execute {
-            val read = try {
+            val selection = try {
                 val input = contentResolver.openInputStream(uri)
                     ?: throw JbArchiveException("the file could not be opened")
-                input.use { JbArchive.read(it) }
+                input.use { StagedDrawing.stage(cacheDir, it) }
             } catch (e: Exception) {
                 ui.post { if (!destroyed) toast("That drawing could not be opened: ${e.message}") }
                 null
             }
-            if (read != null) {
-                val contents = read
-                ui.post { requestOpen(contents) }
-            }
+            if (selection != null) ui.post { requestOpen(selection) }
         }
     }
 
@@ -1661,12 +1686,9 @@ class JoyBrushActivity : Activity() {
      * Puts a drawing on the canvas, or says why it cannot go there and leaves the drawing that is
      * already there alone. UI thread.
      */
-    private fun requestOpen(contents: JbContents) {
-        if (destroyed) return
-        try {
-            canvas.checkContents(contents)
-            saves.request(SaveReason.EXPLICIT, SaveDest.Open(contents))
-        } catch (e: JbArchiveException) { toast(e.message ?: "that drawing cannot be opened") }
+    private fun requestOpen(selection: StagedDrawing) {
+        if (destroyed) { selection.close(); return }
+        saves.request(SaveReason.EXPLICIT, SaveDest.Open(selection))
     }
 
     private fun showContents(contents: JbContents, keepRecoveryCopy: Boolean = true, onLoaded: (Boolean) -> Unit = {}) {
@@ -1782,8 +1804,8 @@ class JoyBrushActivity : Activity() {
                     box.addView(menuRow("Before Open · $whenSaved", "Open the drawing kept on $whenSaved") {
                         fileIo.execute {
                             try {
-                                val contents = JbArchive.open(file)
-                                ui.post { requestOpen(contents) }
+                                val selection = file.inputStream().use { StagedDrawing.stage(cacheDir, it) }
+                                ui.post { requestOpen(selection) }
                             } catch (e: Exception) { ui.post { if (!destroyed) toast("That recent drawing could not be opened: ${e.message}") } }
                         }
                     })

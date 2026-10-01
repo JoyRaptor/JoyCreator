@@ -381,8 +381,8 @@ frames/cels into the canvas before connecting the existing animation controls an
 Review: saved artwork automatically returns in the same Activity after EGL recreation. Private
 compressed checkpoints avoid retaining a second full pixel set and isolate sessions with the same
 default document ID. All owner archive entries restored exactly; phone is back in normal mode.
-- [ ] Next: large-to-large Open must preserve the old drawing before inflating the selected drawing;
-      current simultaneous pixel sets exceed the Note 9 heap. Refusal keeps the previous file safe.
+- [x] Large-to-large Open now preserves the old drawing before inflating the selected drawing;
+      the selected drawing stays compressed until the old snapshot is written and released.
 
 ## Joy Brush paper lane — 2026-10-01
 - [x] Read dispatch/research/spec; isolate JB-9.03 and copy local settings.
@@ -393,3 +393,13 @@ default document ID. All owner archive entries restored exactly; phone is back i
 
 ### Review
 JB-9.03: core XML 1328 tests, 0 failures/errors/skips; Edge no-repeat correlation 0.029826 vs control 1.0; Kotlin/APK passed. No phone installation. Later row specification conflicts are recorded under Questions.
+
+## Joy Brush large drawing switching — October 1
+- [x] Keep selected files compressed until the previous drawing is safely preserved.
+- [x] Test staging, damaged files, history pruning and cleanup; verify watcher build.
+- [x] Verify large-to-large Open on Note 9, restore owner artwork, record and push.
+
+Review: 211 androidkit tests pass. App watcher build passes; installed in place at 13:07:33.
+Large Open and Recent swaps pass on Note 9 with 1711 tiles; selected pixels/document exact.
+Damaged-file refusal keeps all 1713 owner archive entries exact. Large swaps still take tens of
+seconds. Next integration: frame/cel projection before animation and Studio controls.

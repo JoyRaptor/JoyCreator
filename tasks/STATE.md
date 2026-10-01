@@ -395,3 +395,10 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 > Activity; 205 androidkit tests pass and full app builds pass. Undo history restarts; marks since
 > the last completed save may be missing. Owner pre-test archive restored byte-for-byte, normal
 > phone operation restored. Next blocker: memory overlap when Open switches two large drawings.
+
+> **Joy Brush large drawing switching, 2026-10-01:** Open/Recent keep the selection compressed until
+> the previous drawing is preserved and its snapshot released. 211 androidkit tests and app watcher
+> build pass. Installed and verified on Note 9: large-to-large Open and Recent both pass, all selected
+> pixels/settings exact; damaged files leave the previous drawing intact. Owner drawing restored,
+> all 1713 entries exact. Large swaps still take tens of seconds. Next: frame/cel and host integration.
+Details: tasks/joybrush/INTEGRATION_20260930.md.

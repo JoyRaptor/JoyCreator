@@ -9,9 +9,12 @@ import kotlin.time.TimeSource
 
 class BrushTest {
 
-    // The two shipped example brushes. These strings are byte-for-byte the files in
-    // joybrush/brushes/ink/brush.json and joybrush/brushes/pencil/brush.json — commonTest cannot open
-    // a file (it must stay platform-neutral), so if one of these is edited, edit the file to match.
+    // Two version-1 brushes, in the form joybrush/brushes/{ink,pencil}/brush.json had before JB-9.09.
+    // commonTest cannot open a file, so these are copies; JB-9.09 gave both shipped brushes a `paper`
+    // section and so made them version-6 files, which leaves these deliberately at the version-1 shape
+    // — that is the case worth having here: a brush saying nothing new must still round-trip as the
+    // version-1 file it always was, on a build whose newest version is 6. What ships today is read off
+    // the disk by `ShippedBrushFilesTest` and `DefaultPresetsTest` (jvmTest, which can open a file).
 
     private val inkJson: String = """
         {
@@ -882,6 +885,129 @@ class BrushTest {
         // the checked door adds the rules, it does not take the parser's away.
         val truncated = assertFailsWith<BrushException> { BrushJson.decodeChecked("{\"format\": \"joybrush.brush\",") }
         assertTrue(truncated.message.orEmpty().startsWith("brush.json cannot be read:"), "was: ${truncated.message}")
+    }
+
+    // ---- 11. each brush's relation to the paper (JB-9.09, R10) ------------------------------------
+
+    /**
+     * The round trip, in both directions, and the version number it writes.
+     *
+     * A `paper` that is not the default is a version-6 word, so a brush carrying one is written as a
+     * version-6 file; a brush whose `paper` IS the default needs nothing from version 6 and keeps the
+     * lowest version that can express it — which is `BrushJson.versionFor`'s rule and the reason the
+     * two strings above stay version-1 files.
+     */
+    @Test
+    fun aPaperResponseRoundTripsAndOnlyTheNonDefaultOneNeedsVersionSix() {
+        val felt = PaperResponse(influence = 1f, directional = 0.6f, wet = 0.3f)
+        val pencil = preset { it.copy(paper = felt) }
+        assertEquals(felt, pencil.paper, "the section says what the caller asked for")
+
+        val text = BrushJson.encode(pencil)
+        assertTrue(text.contains("\"version\": $VERSION_PAPER"), "a felt paper is a version-6 file:\n$text")
+        val again = BrushJson.decode(text)
+        // `versionFor` restamps the FILE, so what comes back is the preset with the version the file
+        // honestly claims — the section is what has to survive unchanged, and the preset's own version
+        // literal is not part of it.
+        assertEquals(pencil.copy(version = VERSION_PAPER), again, "a non-default paper survives the round trip as itself")
+        assertEquals(VERSION_PAPER, again.version)
+        assertEquals(felt, again.paper)
+        assertEquals(emptyList(), BrushValidate.validate(again), "…and loads clean: ${BrushValidate.validate(again)}")
+
+        // The other half: the default says nothing, so the file stays the version it already was. This
+        // is what keeps every brush somebody already has openable by an older Joy Brush.
+        val untouched = preset { it }
+        assertEquals(PaperResponse(), untouched.paper, "0/0/0 is the default, so it needs no words")
+        assertTrue(untouched.paper.isDefault)
+        assertTrue(BrushJson.encode(untouched).contains("\"version\": 1"), "an ordinary brush stays a version-1 file")
+        assertEquals(untouched, BrushJson.decode(BrushJson.encode(untouched)))
+    }
+
+    /**
+     * A version-5 file that says `paper` is refused, by name.
+     *
+     * A version-5 build would read the section as nothing at all — `ignoreUnknownKeys` is on — and draw
+     * a brush the owner had deliberately made feel the paper, without telling anybody. So the word is
+     * refused on the way IN with the same sentence every other versioned word uses, and NOT with the
+     * "from a newer Joy Brush" text, which would send the person looking for a build that does not exist.
+     */
+    @Test
+    fun aVersionFiveFileCannotSayPaper() {
+        val said = """  "paper": { "influence": 1, "directional": 0.6, "wet": 0.3 },"""
+        for (v in listOf(1, 5)) {
+            val json = inkJson.replace("\"version\": 1,", "\"version\": $v,\n$said")
+            if (v == 5) {
+                val thrown = assertFailsWith<BrushException>("a v5 file saying paper must not decode") {
+                    BrushJson.decode(json)
+                }
+                assertEquals("paper needs brush version $VERSION_PAPER", thrown.message)
+            } else {
+                // The control: the same file at version 1 is refused too, so the refusal above is about
+                // the version and not about the file being broken.
+                assertFailsWith<BrushException> { BrushJson.decode(json) }
+            }
+        }
+        // The same sentence out of validation, for a preset that never came from a file.
+        assertSole(
+            BrushValidate.validate(preset { it.copy(version = VERSION_RESPONSE, paper = PaperResponse(influence = 1f)) }),
+            "paper needs brush version $VERSION_PAPER",
+        )
+        // …and silence the moment the file is allowed to say it.
+        assertEquals(
+            emptyList(),
+            BrushValidate.validate(preset { it.copy(version = VERSION_PAPER, paper = PaperResponse(influence = 1f)) }),
+        )
+        // The empty version of the section is still the default, so it costs no version: a file written
+        // by `encodeDefaults` says 0/0/0 explicitly and must still be a file an older build can open.
+        val written = BrushJson.encode(preset { it.copy(paper = PaperResponse()) })
+        assertTrue(written.contains("\"version\": 1"), "a stated 0/0/0 is still the default:\n$written")
+        assertEquals(PaperResponse(), BrushJson.decode(written).paper)
+    }
+
+    /**
+     * Each of the three numbers is a 0..1 fraction, and a bad one is named.
+     *
+     * Written `!in`, so a NaN and both infinities are refused as well as the numbers outside the range —
+     * a NaN `paper.wet` would be read by the paper engine as "not a number" and nothing else, which is
+     * the silent-nonsense case `BrushValidate` exists to replace with a sentence.
+     */
+    @Test
+    fun everyPaperNumberIsAFractionAndIsNamedWhenItIsNot() {
+        // Rule 1b would speak about the version on a version-1 file, so this rule is read on a brush
+        // that is allowed to say `paper` at all — then a non-default value is ONE problem, and it is the
+        // range's, named by its own field.
+        val saying = preset { it.copy(version = VERSION_PAPER) }
+        for (field in listOf("influence", "directional", "wet")) {
+            // The edges are brushes, not mistakes: 0 is "ignores the paper" and 1 is "feels it fully".
+            for (legal in listOf(0f, 0.5f, 1f)) {
+                assertEquals(
+                    emptyList(),
+                    BrushValidate.validate(saying.copy(paper = paperWhere(field, legal))),
+                    "paper.$field = $legal is legal",
+                )
+            }
+            for (bad in listOf(-0.1f, 1.1f, Float.NaN, Float.POSITIVE_INFINITY)) {
+                assertSole(
+                    BrushValidate.validate(saying.copy(paper = paperWhere(field, bad))),
+                    "paper.$field $bad is outside 0..1",
+                )
+            }
+        }
+        // All three wrong is still ONE sentence, so a person fixes them in one pass, and each is named.
+        val all = BrushValidate.validate(saying.copy(paper = PaperResponse(-0.1f, 1.1f, 2f)))
+        assertEquals(1, all.size, "expected one message, got $all")
+        for (named in listOf("paper.influence -0.1", "paper.directional 1.1", "paper.wet 2.0")) {
+            assertTrue(all.single().contains(named), "message was: ${all.single()}")
+        }
+        // A brush nobody touched is still legal, which is what makes the default safe for old files.
+        assertEquals(PaperResponse(), BrushPreset(id = "b", name = "B", size = Param(1f)).paper)
+    }
+
+    /** [BrushPreset] with one field of `paper` set to [v] and the other two at the default. */
+    private fun paperWhere(field: String, v: Float): PaperResponse = when (field) {
+        "influence" -> PaperResponse(influence = v)
+        "directional" -> PaperResponse(directional = v)
+        else -> PaperResponse(wet = v)
     }
 }
 

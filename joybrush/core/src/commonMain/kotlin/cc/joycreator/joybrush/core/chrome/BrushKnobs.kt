@@ -3,11 +3,14 @@ package cc.joycreator.joybrush.core.chrome
 import cc.joycreator.joybrush.core.brush.BrushInput
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.ENGINE_FILL
+import cc.joycreator.joybrush.core.brush.ENGINE_PUSH
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 import cc.joycreator.joybrush.core.brush.ENGINE_TUFT
 import cc.joycreator.joybrush.core.brush.InputCurve
+import cc.joycreator.joybrush.core.brush.PaperResponse
 import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.brush.TuftSpec
+import cc.joycreator.joybrush.core.brush.VERSION_PAPER
 import cc.joycreator.joybrush.core.brush.VERSION_RESPONSE
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -43,12 +46,20 @@ object BrushKnobs {
         val toggle: Boolean = false,
     )
 
-    /** The knobs for [p], in the order a person meets them: the line first, then the ink, then the accidents. */
+    /**
+     * The knobs for [p], in the order a person meets them: the line first, then the ink, then the accidents.
+     *
+     * The three `paper` sliders go after the engine's own knobs and before Smoothing (JB-9.09 Decision 2),
+     * and on every engine that LAYS PAINT. Smudge, push and fill do not: they drag paint that is already
+     * there, move pixels, and fill a shape, so there is no deposit for the paper to hold or catch and a
+     * slider there would be a control that cannot do anything. Push keeps the grain knob it always had.
+     */
     fun forBrush(p: BrushPreset): List<Knob> = when (p.engine) {
-        ENGINE_TUFT -> TUFT + SMOOTHING
+        ENGINE_TUFT -> TUFT + PAPER + SMOOTHING
         ENGINE_SMUDGE -> SMUDGE + STAMP + SMOOTHING
+        ENGINE_PUSH -> STAMP + (if (p.paperGrain.enabled) listOf(GRAIN) else emptyList()) + SMOOTHING
         ENGINE_FILL -> SMOOTHING
-        else -> STAMP + (if (p.paperGrain.enabled) listOf(GRAIN) else emptyList()) + SMOOTHING
+        else -> STAMP + (if (p.paperGrain.enabled) listOf(GRAIN) else emptyList()) + PAPER + SMOOTHING
     } + RESPONSE
 
     /** The keys of a response curve's four handle numbers, `response.<curve>.0` … `.3` ([x1, y1, x2, y2]). */
@@ -184,6 +195,47 @@ object BrushKnobs {
     private val SMOOTHING: List<Knob> = listOf(
         knob("smoothing", "Smoothing", "How much this brush smooths your line. The menu's Smoothing, once you move it, overrides this for every brush.",
             { p -> p.smoothing.coerceIn(0f, 1f) }, { p, v -> p.copy(smoothing = v) }),
+    )
+
+    // ── the paper response (JB-9.09, R10) ──
+    //
+    // Owner P4: the paper is universal, so every brush that lays paint feels it — at a strength that
+    // suits it, which is why the shipped values differ per brush (Decision 4) rather than being one
+    // global setting. Holding a brush shows these three with the live preview.
+
+    /**
+     * Said on all three sliders until the paper engine lands (JB-9.08): the numbers are stored, validated
+     * and tunable today and change nothing you can see, so a slider that promises an effect and does not
+     * have one yet is worse than no slider. JB-9.08 removes this tail and says so in its report.
+     */
+    private const val NOT_YET = " (takes effect when the paper engine lands)"
+
+    private fun paper(
+        field: String,
+        label: String,
+        hint: String,
+        get: (PaperResponse) -> Float,
+        set: (PaperResponse, Float) -> PaperResponse,
+    ): Knob = Knob(
+        "paper.$field", label, hint + NOT_YET,
+        get = { p -> get(p.paper).coerceIn(0f, 1f) },
+        set = { p, v ->
+            val out = p.copy(paper = set(p.paper, v))
+            // A paper that is not 0/0/0 is a version-6 word, so the tuned brush says so — exactly as a
+            // bent response curve above bumps itself to VERSION_RESPONSE, and for the same reason: a file
+            // written back out must not claim a version that cannot express its own words.
+            if (!out.paper.isDefault && out.version < VERSION_PAPER) out.copy(version = VERSION_PAPER) else out
+        },
+        show = { p -> pct(get(p.paper)) },
+    )
+
+    private val PAPER: List<Knob> = listOf(
+        paper("influence", "Paper", "How much this brush feels the paper's surface.",
+            { it.influence }, { s, v -> s.copy(influence = v) }),
+        paper("directional", "Direction", "Dry paint catches the side of each bump that faces the stroke.",
+            { it.directional }, { s, v -> s.copy(directional = v) }),
+        paper("wet", "Wet", "Dry rides the tops of the paper; wet sinks into the dips.",
+            { it.wet }, { s, v -> s.copy(wet = v) }),
     )
 }
 

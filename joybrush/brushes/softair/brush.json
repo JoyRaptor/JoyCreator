@@ -1,6 +1,6 @@
 {
   "format": "joybrush.brush",
-  "version": 1,
+  "version": 6,
   "id": "joybrush.softair",
   "name": "Soft air",
   "engine": "stamp",
@@ -17,6 +17,7 @@
   "opacity": { "base": 0.9 },
   "flow": { "base": 0.05 },
   "spacing": 0.02,
+  "paper": { "influence": 0.2, "directional": 0, "wet": 0.3 },
   "accumulate": "buildup",
   "blend": "normal",
   "smoothing": 0.4,

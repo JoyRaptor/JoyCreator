@@ -1,6 +1,6 @@
 {
   "format": "joybrush.brush",
-  "version": 1,
+  "version": 6,
   "id": "joybrush.ink",
   "name": "Ink",
   "engine": "stamp",
@@ -15,6 +15,7 @@
   "opacity": { "base": 1 },
   "flow": { "base": 1 },
   "spacing": 0.04,
+  "paper": { "influence": 0.15, "directional": 0, "wet": 0 },
   "accumulate": "wash",
   "blend": "normal",
   "smoothing": 0.35,

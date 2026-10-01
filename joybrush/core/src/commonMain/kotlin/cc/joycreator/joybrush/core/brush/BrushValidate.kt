@@ -289,8 +289,27 @@ object BrushValidate {
         if (smudgeRates.isNotEmpty()) out += "smudge rate is outside 0..1: " + smudgeRates.joinToString("; ")
         if (!(p.push.amount > 0f) || p.push.amount > 1f) out += "push.amount ${p.push.amount} must be above 0 and at most 1"
 
+        // 26 — how much this brush feels the document paper (JB-9.09): three 0..1 fractions. Ranged even
+        // when the engine lays no paint of its own (smudge, push, fill), for the grain rule's reason: a
+        // number nobody reads today is still one the brush cannot be written back out with. Written `!in`,
+        // so NaN and both infinities are refused as well as the numbers outside the range — and named by
+        // their own field, because "paper is wrong" is not something a person can act on.
+        val paperBad = ArrayList<String>()
+        for ((n, v) in paperSliders(p.paper)) {
+            if (v !in 0f..1f) paperBad += "paper.$n $v is outside 0..1"
+        }
+        if (paperBad.isNotEmpty()) out += paperBad.joinToString("; ")
+
         return out
     }
+
+    /**
+     * The paper section's three numbers, by the name the file uses them under. Public for the same reason
+     * [tuftSliders] is: one list, walked by the validator and by the tests that check the two agree.
+     */
+    fun paperSliders(p: PaperResponse): List<Pair<String, Float>> = listOf(
+        "influence" to p.influence, "directional" to p.directional, "wet" to p.wet,
+    )
 
     /**
      * Every [Param] in the preset, named the way the file names it.

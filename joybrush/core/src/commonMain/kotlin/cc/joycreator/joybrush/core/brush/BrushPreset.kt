@@ -66,6 +66,31 @@ import kotlinx.serialization.Serializable
 /** How far a push dab moves the pixels under it: a fraction of the tip's radius, along the stroke. `0<a<=1`. */
 @Serializable data class PushSpec(val amount: Float = 0.3f)
 
+/**
+ * How this brush relates to the document's paper (JB-9.09, owner P4: the paper is universal). Three
+ * numbers, each `0..1`, read by the paper engine in JB-9.08 — until then they are stored, validated and
+ * tunable, with no visible effect, which is what the knob hints say out loud.
+ *
+ * The default is 0/0/0 on purpose, and it is the load-bearing decision of the row: **a brush file that
+ * says nothing must mean exactly what it always meant.** A pencil saved before this row keeps every
+ * mark it ever made, and a build that predates the section reads a file that carries one as a brush
+ * with no paper in it — which is why a non-default section needs [VERSION_PAPER] and a default one does
+ * not (see `BrushJson.wordsNeedingVersion`).
+ *
+ * @property influence 0 = ignores the document paper, 1 = feels it fully.
+ * @property directional 0 = deposit ignores stroke direction, 1 = dry paint fully catches the side of
+ *   each bump that faces the stroke (R10 §5).
+ * @property wet 0 = dry, riding the peaks; 1 = wet, pooling in the valleys.
+ */
+@Serializable data class PaperResponse(
+    val influence: Float = 0f,
+    val directional: Float = 0f,
+    val wet: Float = 0f,
+) {
+    /** True at 0/0/0, so the section costs no version to say nothing (the LOWEST-version rule). */
+    val isDefault: Boolean get() = influence == 0f && directional == 0f && wet == 0f
+}
+
 @Serializable data class ScatterSpec(val amount: Param = Param(0f), val count: Int = 1, val countJitter: Float = 0f, val bothAxes: Boolean = true)
 
 @Serializable data class ColorJitter(val hue: Float = 0f, val saturation: Float = 0f, val value: Float = 0f, val perStroke: Boolean = false)
@@ -88,6 +113,7 @@ import kotlinx.serialization.Serializable
     val push: PushSpec = PushSpec(),           // read only when engine == "push" (version 3)
     val tuft: TuftSpec = TuftSpec(),           // read only when engine == "tuft" (version 4, R9 §3B)
     val response: ResponseSpec = ResponseSpec(), // pressure and tilt curves, every engine (version 5 when not straight)
+    val paper: PaperResponse = PaperResponse(), // how this brush feels the document paper (version 6 when not default, R10, JB-9.09)
     val sizeJitter: Float = 0f,
     val angleJitter: Float = 0f,         // degrees
     val color: ColorJitter = ColorJitter(),

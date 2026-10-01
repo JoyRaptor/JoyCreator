@@ -62,6 +62,34 @@ const val VERSION_PAPER = 6
 Do not touch shaders, `GlPaintEngine`, or anything in androidkit. Do not change `GrainSpec`.
 
 ## Definition of done
-- [ ] tests pass with counts · [ ] mutation: drop the version word → the refusal test goes red · [ ] owner area only · [ ] pushed · [ ] ROADMAP → 🟧 Built
+- [x] tests pass with counts · [x] mutation: drop the version word → the refusal test goes red · [x] owner area only · [x] pushed · [x] ROADMAP → 🟧 Built
 
 ## Questions
+Nothing blocked the row. Two things the spec left to the builder, recorded so the next reader does not
+have to guess:
+
+1. **`BrushValidate` message shape.** Decision 3 says "a `BrushValidate` sentence naming `paper.<field>`".
+   Three broken fields therefore share ONE sentence, joined with `; `, the way the grain rule joins two
+   grains (`grain edge is outside 0..1: …`) — a person fixes a hand-edited file in one pass. The
+   `BrushJson` refusal names the section, not a field (`paper needs brush version 6`), which is the
+   spec's own wording and one line per versioned word like every other word in `wordsNeedingVersion`.
+2. **`push` in `forBrush`.** The spec says three knobs "for EVERY engine except smudge/push/fill", and
+   `forBrush` had no `ENGINE_PUSH` arm — push fell through to `else`. It now has one, so it keeps the
+   grain knob it always had and does not gain three sliders it cannot use. That is a behaviour-preserving
+   change for push, not a new knob list for it.
+
+Two notes for JB-9.08, which reads these numbers:
+
+- The three hints end with `" (takes effect when the paper engine lands)"` (Decision 5). JB-9.08 removes
+  that tail — it is the `NOT_YET` constant in `core/chrome/BrushKnobs.kt`, one string, and one test
+  (`everyPaperSliderSaysWhenItStartsWorking`) to go with it.
+- `BrushJson.versionFor` restamps a file UPWARD only. Moving a paper slider back to 0 leaves the tuned
+  brush claiming version 6, which is the house rule and matches how a bent response curve behaves; the
+  default costs nothing again on the next save. Pinned by
+  `aPaperSliderMovedOnAVersionOneBrushRestampsTheFile`.
+
+Landed 2026-10-01 by an OpenCode agent for the owner. `:core:jvmTest --rerun-tasks`, core XML
+**1339 tests / 0 failures / 0 errors / 0 skipped** across 87 suites. Mutation check: replacing
+`if (!p.paper.isDefault) out += VersionedWord("paper", VERSION_PAPER)` with `Unit` in
+`BrushJson.wordsNeedingVersion` turned `aVersionFiveFileCannotSayPaper` red, plus two others — it went
+red, and was restored.

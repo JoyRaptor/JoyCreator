@@ -6,6 +6,7 @@ import cc.joycreator.joybrush.core.brush.BrushInput
 import cc.joycreator.joybrush.core.brush.BrushJson
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.Param
+import cc.joycreator.joybrush.core.brush.VERSION_PAPER
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -92,7 +93,10 @@ class EnumFreezeTest {
     @Test
     fun theVersionsTheNamesWereWrittenFor() {
         assertEquals(3, DOC_VERSION)
-        assertEquals(5, BRUSH_VERSION)
+        // 6 is `paper` (JB-9.09): the three numbers each brush carries about how it feels the document
+        // paper. Read as BRUSH_VERSION rather than typed, so the bump is one edit here and one there.
+        assertEquals(6, BRUSH_VERSION)
+        assertEquals(VERSION_PAPER, BRUSH_VERSION, "the newest version is the one this row added")
         // BrushPreset.version is a second literal beside BRUSH_VERSION, and the file writes the
         // default — if they drift, every new brush is stamped with a version nobody validates.
         assertEquals(BRUSH_VERSION, BrushPreset(id = "b", name = "B", size = Param(1f)).version)

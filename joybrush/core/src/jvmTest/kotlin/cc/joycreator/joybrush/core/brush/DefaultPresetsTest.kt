@@ -436,6 +436,84 @@ class DefaultPresetsTest {
             )
         }
     }
+
+    // ---- 11. how each brush feels the paper (JB-9.09, Decision 4) --------------------------------
+
+    /**
+     * The owner's own numbers, one line per shipped brush, read off the disk.
+     *
+     * These are **TUNING values the owner judges on the Note 9**, and the whole of Decision 4. They are
+     * written here as a table so that tuning one is a one-line change and not a test rewrite, and the
+     * failure message names the brush and the three numbers that moved.
+     *
+     * Eraser reads 0/0/0 like Smudge, Push and Fill, and that is deliberate rather than an oversight:
+     * the Eraser removes paint instead of leaving any, so there is nothing for the paper to hold or
+     * catch. Those four brushes carry no `paper` section at all, which is why they stay the versions
+     * they were.
+     */
+    @Test
+    fun everyShippedBrushSaysHowItFeelsThePaper() {
+        val tuned = mapOf(
+            "pencil" to PaperResponse(influence = 1f, directional = 0.6f, wet = 0f),
+            "sable" to PaperResponse(influence = 1f, directional = 0.4f, wet = 0f),
+            "ink" to PaperResponse(influence = 0.15f, directional = 0f, wet = 0f),
+            "marker" to PaperResponse(influence = 0.35f, directional = 0f, wet = 0.6f),
+            "softair" to PaperResponse(influence = 0.2f, directional = 0f, wet = 0.3f),
+            // No paint is left, or no paint is laid, so no felt paper: the default, said by saying nothing.
+            "eraser" to PaperResponse(),
+            "smudge" to PaperResponse(),
+            "fill" to PaperResponse(),
+        )
+        val onDisk = shipped.map { it.first }.toSet()
+        val absent = tuned.keys - onDisk
+        assertTrue(
+            absent.isEmpty(),
+            "these folders are named in JB-9.09 Decision 4 but are not on disk, so the row cannot be " +
+                "called done: $absent. Folders on disk: $onDisk.",
+        )
+
+        for ((folder, said) in tuned) {
+            val p = shipped.first { it.first == folder }.second
+            assertEquals(
+                said, p.paper,
+                "$folder/brush.json: paper is ${p.paper}, and Decision 4 says influence " +
+                    "${said.influence}, directional ${said.directional}, wet ${said.wet}. The owner tunes " +
+                    "these three on the Note 9.",
+            )
+        }
+        // …and every one of them is a legal 0..1 fraction, which is the rule the file was refused by once.
+        for ((folder, p) in shipped) {
+            assertEquals(emptyList(), BrushValidate.validate(p), "$folder/brush.json must load clean, but: ${BrushValidate.validate(p)}")
+        }
+    }
+
+    /**
+     * **Only the files that say something new moved version.** This is the test that stops a version
+     * bump from sweeping every shipped file along with it: a re-stamped file is one an older Joy Brush
+     * can no longer open, for nothing.
+     *
+     * The set is asserted against the brushes whose `paper` is NOT the default, read from the files —
+     * so if a tuning value is later changed back to 0 the file has to lose its version in the same edit,
+     * and this says so by name.
+     */
+    @Test
+    fun onlyTheBrushesThatFeltThePaperChangedVersion() {
+        val felt = shipped.filter { !it.second.paper.isDefault }.map { it.first }.toSet()
+        assertEquals(
+            setOf("pencil", "sable", "ink", "marker", "softair"), felt,
+            "these shipped brushes carry a non-default `paper`, and only these. A brush whose paper is " +
+                "0/0/0 says nothing a version-6 build needs, so it stays the version it was.",
+        )
+
+        val atSix = shipped.filter { it.second.version == BRUSH_VERSION }.map { it.first }.toSet()
+        assertEquals(
+            felt, atSix,
+            "these files claim the newest version $BRUSH_VERSION. A file that claims it without needing " +
+                "it cannot be opened by an older Joy Brush; a file that needs it and does not claim it is " +
+                "refused as older than its own word. Folders and versions: " +
+                shipped.joinToString { "${it.first}=${it.second.version}" },
+        )
+    }
 }
 
 /**

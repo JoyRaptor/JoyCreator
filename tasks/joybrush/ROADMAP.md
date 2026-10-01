@@ -309,6 +309,6 @@ Phases follow `JOYBRUSH_BLUEPRInT.md` §4. Each phase ends with an owner check (
 | [JB-9.06](specs/JB-9.06_paper_on_screen_and_export.md) Paper on screen behind the layers, swappable, exported or left out, right at every zoom | T1+T3 | 9.03, 9.04, 9.05 | 🟦 Ready | Codex |
 | [JB-9.07](specs/JB-9.07_paper_sheet_ui.md) Paper swatch at the bottom of the layers + the Paper sheet | T2-V+T3 | 9.06 | 🟦 Ready | Lead (or Codex) |
 | [JB-9.08](specs/JB-9.08_directional_and_wet_deposit.md) Directional dry deposit + wet pooling, per-dab travel direction | T1+T3 | 9.03, 9.09 | 🟦 Ready | Codex |
-| [JB-9.09](specs/JB-9.09_brush_paper_response.md) Brush sliders Paper · Direction · Wet (brush version 6) | T1 | — | 🟦 Ready | OpenCode |
+| [JB-9.09](specs/JB-9.09_brush_paper_response.md) Brush sliders Paper · Direction · Wet (brush version 6) | T1 | — | 🟧 Built — stored, validated and tunable, no visible effect until JB-9.08; core XML 1339/0/0/0; `.\gradlew.bat --no-watch-fs -p joybrush :core:jvmTest --rerun-tasks` | OpenCode |
 | [JB-9.10](specs/JB-9.10_paper_library.md) The launch paper library (looks + surfaces) | T2+T3 | 9.01, 9.04 | 🟦 Ready | Claude picks; Codex makes candidates |
 | [JB-9.11](specs/JB-9.11_imported_textures_get_slopes.md) Imported brush textures become surfaces | T1 | 9.01 | 🟦 Ready | OpenCode |

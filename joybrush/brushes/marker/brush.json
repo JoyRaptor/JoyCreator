@@ -1,6 +1,6 @@
 {
   "format": "joybrush.brush",
-  "version": 1,
+  "version": 6,
   "id": "joybrush.marker",
   "name": "Marker",
   "engine": "stamp",
@@ -16,6 +16,7 @@
   "opacity": { "base": 0.9 },
   "flow": { "base": 0.7 },
   "spacing": 0.03,
+  "paper": { "influence": 0.35, "directional": 0, "wet": 0.6 },
   "accumulate": "wash",
   "blend": "normal",
   "smoothing": 0.3,

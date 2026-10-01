@@ -16,18 +16,26 @@ const val BRUSH_FORMAT = "joybrush.brush"
  *    sections that go with them — [VERSION_SMUDGE].
  *  - **4** (R9, the owner's sable brush) added `engine: "tuft"` and its `tuft` section — [VERSION_TUFT].
  *  - **5** added the `response` section's curves (pressure and tilt), when they are not the straight line — [VERSION_RESPONSE].
+ *  - **6** (JB-9.09, R10) added the `paper` section — how much each brush feels the document paper — [VERSION_PAPER].
  *
  * A word needs the version that introduced it, NOT the newest one: a fill pen is still a version-2
  * file, so a build that predates smudge can open it. [BrushJson.wordsNeedingVersion] carries the
  * per-word number.
  */
-const val BRUSH_VERSION = 5
+const val BRUSH_VERSION = 6
 
 /** The brush version that introduced the fill pen's words. */
 const val VERSION_FILL = 2
 
 /** The brush version that introduced the smudge and push engines (JB-1.06). */
 const val VERSION_SMUDGE = 3
+
+/**
+ * The brush version that introduced the `paper` section (JB-9.09) — the three numbers saying how much
+ * this brush feels the document paper. A file needs it only when its `paper` is NOT the default, which
+ * is the LOWEST-version rule like every other word: 0/0/0 says nothing a version-6 build needs.
+ */
+const val VERSION_PAPER = 6
 
 /** Smudge (JB-1.06): drags the paint already on the layer, carrying ONE colour (blueprint §5, R8). */
 const val ENGINE_SMUDGE = "smudge"
@@ -144,6 +152,10 @@ object BrushJson {
         if (p.engine == ENGINE_PUSH) out += VersionedWord("engine \"$ENGINE_PUSH\"", VERSION_SMUDGE)
         if (p.engine == ENGINE_TUFT) out += VersionedWord("engine \"$ENGINE_TUFT\"", VERSION_TUFT)
         if (!p.response.isDefault) out += VersionedWord("response curves", VERSION_RESPONSE)
+        // The paper section, same rule: only a brush that FEELS the paper is a version-6 file. Naming the
+        // section rather than a field means one refusal reads `paper needs brush version 6`, which is
+        // what a person holding a hand-edited file needs to hear.
+        if (!p.paper.isDefault) out += VersionedWord("paper", VERSION_PAPER)
         return out
     }
 }

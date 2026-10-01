@@ -1,6 +1,6 @@
 {
   "format": "joybrush.brush",
-  "version": 1,
+  "version": 6,
   "id": "joybrush.pencil",
   "name": "Pencil",
   "engine": "stamp",
@@ -26,6 +26,7 @@
     "edge": 0.25,
     "tiltGradient": 0.6
   },
+  "paper": { "influence": 1, "directional": 0.6, "wet": 0 },
   "smoothing": 0.2,
   "license": "CC0"
 }

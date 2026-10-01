@@ -1,6 +1,6 @@
 {
   "format": "joybrush.brush",
-  "version": 4,
+  "version": 6,
   "id": "joybrush.sable",
   "name": "Sable",
   "engine": "tuft",
@@ -33,5 +33,6 @@
     "graze": 0.6,
     "grazeAtPoint": false
   },
+  "paper": { "influence": 1, "directional": 0.4, "wet": 0 },
   "license": "CC0"
 }

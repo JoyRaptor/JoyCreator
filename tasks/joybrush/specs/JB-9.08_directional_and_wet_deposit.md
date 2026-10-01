@@ -71,3 +71,5 @@ Do not normalise slopes to unit normals before `face` (the range normalisation i
 - [ ] tests pass (paste) · [ ] mutation: flip the sign of `face` → the ridge test goes red · [ ] LEAD_DESK line · [ ] pushed · [ ] ROADMAP → 🟧 Built — awaiting the Note 9
 
 ## Questions
+
+2026-10-01 Codex: Paused per the owner's incorrect/unclear-spec rule. The contract requires document `bite` in `influence · bite` and calls for the document's surface scale, but dependencies list only JB-9.03/9.09. At origin/joy-creator, Paper has no bite and the document-surface engine seam is not present; JB-9.05/9.06 are needed, with JB-9.06 awaiting the questions recorded there. Should this row also build those dependencies, or wait for the corrected screen-paper row? A fixed bite of 1 would silently discard the required document behavior, so no placeholder implementation was made. Continuing to the JB-9.10 candidate work.

@@ -379,3 +379,10 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 3. When an idea appears it goes in INBOX.md — **not** into a new SPEC_*.md.
 4. When a defect is found, add it to section 9 with its severity.
 5. LEDGER.md keeps the story. This file keeps the score. Both stay.
+
+> **Joy Brush Note 9 agent check, 2026-10-01:** Open A/B and Recent recovery passed on the phone.
+> The safety copy of the owner's drawing matches every original archive entry byte-for-byte.
+> Fixed an actual large-drawing snapshot memory crash, coloured-paper decoding and premature GL
+> startup uploads. 193 androidkit tests pass and app watcher build is green; updated APK installed.
+> PNG/paper phone checks and restoring the owner drawing are pending while device availability is
+> clarified. Details: `tasks/joybrush/INTEGRATION_20260930.md`.

@@ -98,3 +98,32 @@ These ordinary workflows are owner-verified; this does not verify the new safegu
 
 Automatic graphics-context pixel recovery, frame projection, animation controls and Studio handoff
 remain outstanding. The first two old "Next work" entries above are partly superseded by this slice.
+
+## October 1: Note 9 checks and memory/startup fixes
+
+- Installed in place on SM-N960U; backed up the owner working drawing and its backup before tests.
+  Initial Open attempt crashed in GPU tile readback: 1711 tiles (~428 MiB) remained in the retained
+  opened contents while snapshot allocated another full set. Retain document/thumbnail metadata
+  only after upload; live GPU pixels supply the next snapshot. Reuse one direct tile-read buffer.
+  Snapshot allocation failure now reports failure without replacing the previous save.
+- On the updated phone build, opened fixture A, then B, then recovered A through Recent drawings.
+  The preserved owner archive matched every original entry byte-for-byte, including all tile bytes.
+  Working fixture preserved arbitrary document/layer/cel IDs and signed board rect (-64,32,128,96).
+- Test fixtures exposed paper conversion OR-ing RGB with opaque white, making every colour white.
+  Corrected the alpha mask. Final coloured-paper and PNG phone checks are still pending.
+- Small-file cold restoration also exposed uploads queued before the first GL surface callback.
+  GL work now waits for initial engine creation. Final installed build restored the small fixture's
+  red pixels immediately, without the former blank-canvas/context-restart message.
+- Verification: 193 androidkit tests, zero failures/errors; metadata-only merge regression writes
+  and reopens an archive to prove current pixels replace old pixels while identities/geometry stay.
+  App watcher built successfully; final APK includes metadataOf and beforeFirstSurface in its dex.
+  Final successful in-place update timestamp: 2026-10-01 08:25:09.
+- Standalone test daemon held the shared core JAR and stalled the watcher. Stopped the completed
+  test daemon and restarted the single app watcher; final app build successful. Avoid concurrent
+  standalone/app builds; timestamp-only touches do not retrigger a failed continuous build.
+- Phone control paused after unexpected new pen marks appeared on the scratch drawing; awaiting
+  owner confirmation that the phone is free. Owner drawing remains backed up and in Recent.
+  PNG with/without paper, final paper-colour check and owner drawing restoration remain owed.
+
+Automatic runtime context recovery remains outstanding. The startup fix prevents premature initial
+uploads; it does not claim to recover lost GPU pixels later in the activity's lifetime.

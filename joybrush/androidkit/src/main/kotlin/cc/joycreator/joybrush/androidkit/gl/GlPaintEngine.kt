@@ -59,6 +59,8 @@ class GlPaintEngine(
     undoBudgetBytes: Long = 192L shl 20,
 ) {
     private val size = Tiles.SIZE
+    // GL-thread only. Reuse staging storage while a large snapshot fills its output arrays.
+    private val tileReadback by lazy { ByteBuffer.allocateDirect(size * size * 4).order(ByteOrder.nativeOrder()) }
 
     private lateinit var dabProg: GlProgram
     private lateinit var commitProg: GlProgram
@@ -592,7 +594,8 @@ class GlPaintEngine(
      */
     fun readTile(layerId: String, key: Long): ByteArray? {
         val tex = storeOf(layerId)?.tiles?.get(key) ?: return null
-        val buf = ByteBuffer.allocateDirect(size * size * 4).order(ByteOrder.nativeOrder())
+        val buf = tileReadback
+        buf.clear()
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         attach(tex)
         GLES30.glReadPixels(0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf)

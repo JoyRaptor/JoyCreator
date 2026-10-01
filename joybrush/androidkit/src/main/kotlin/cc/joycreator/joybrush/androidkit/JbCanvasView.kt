@@ -238,6 +238,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     // Metadata belongs to the opened document, not the GPU's layer projection. Written on GL;
     // the UI reads the immutable document to respect locks before starting a stroke.
+    // Metadata only after upload: GPU tiles own the live pixels.
     @Volatile private var retainedContents: JbContents? = null
     @Volatile private var contentLost = false
 
@@ -467,6 +468,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var strokeTuft: TuftStroke? = null
     private var strokeSeed = 0L
 
+    // GLSurfaceView can run queued events before its first onSurfaceCreated callback.
+    // Wait for a real GL context before uploading a quickly restored small document.
+    private val beforeFirstSurface = ArrayList<() -> Unit>()
+
     init {
         setEGLContextClientVersion(3)
         setEGLConfigChooser(8, 8, 8, 8, 0, 0)
@@ -478,6 +483,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 contentLost = contentLost || engine.lostContent
                 engine.addLayer(FIRST_LAYER)
                 engine.setLayerName(FIRST_LAYER, FIRST_LAYER_NAME)
+                val waiting = beforeFirstSurface.toList()
+                beforeFirstSurface.clear()
+                waiting.forEach { it() }
                 post {
                     surfaceReady = true
                     if (contentLost) onRefused?.invoke("The graphics restarted. Reopen your saved drawing before continuing; the empty canvas will not be saved.")
@@ -1069,6 +1077,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             val made: JbContents? = try {
                 if (contentLost) throw JbArchiveException("the graphics restarted; reopen the saved drawing first")
                 readContents(w, h)
+            } catch (e: OutOfMemoryError) {
+                post { onFailure("there is not enough memory to save this drawing; your previous save is kept") }
+                null
             } catch (e: Exception) {
                 post { onFailure(e.message ?: e.javaClass.simpleName) }
                 null
@@ -1118,7 +1129,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             engine.resetDocument()
             engine.setStack(stack)
             for (item in wanted) engine.writeTile(item.first, item.second, item.third)
-            retainedContents = contents
+            retainedContents = CanvasSnapshot.metadataOf(contents)
             contentLost = false
             paperArgb = paper
             reportHistory()
@@ -1284,7 +1295,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val digits = hex.removePrefix("#")
         val value = if (digits.length == 6) digits.toLongOrNull(16) else null
         if (value == null) return whitePaper
-        return (whitePaper.toLong() or value).toInt()
+        return (0xFF000000L or value).toInt()
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
@@ -1298,7 +1309,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     private fun onGl(block: () -> Unit) {
-        queueEvent(block)
+        queueEvent {
+            if (engine.ready) block() else beforeFirstSurface.add(block)
+        }
         requestRender()
     }
 

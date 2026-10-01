@@ -359,3 +359,10 @@ STALL_STACKS caught the GL thread inside ImageOverlayDraw.draw.
       item's chain in 48 kHz stereo (withStereoOutput) + 256 kbps AAC. Was: the audio-only composition
       takes its format from the first item (the silence WAV?). Should be the project rate
       (48 kHz) and stereo.
+
+## Joy Brush Note 9 verification — October 1
+- [x] Install current build without clearing data; back up owner drawing.
+- [x] Identify file-picker failure: snapshot OOM while retaining 1711 loaded paint tiles.
+- [x] Keep only document metadata after GPU upload; reuse tile readback buffer; handle allocation failure per snapshot.
+- [ ] Verify metadata/pixel snapshot contract and app build; reinstall and check Open/Recent/PNG on Note 9.
+- [ ] Restore owner drawing, record evidence and push the fix.

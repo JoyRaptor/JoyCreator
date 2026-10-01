@@ -13,6 +13,14 @@ import cc.joycreator.joybrush.core.doc.LayerKind
  * enable animation or other board types: those require a renderer that can retain every cel.
  */
 object CanvasSnapshot {
+    /** After GPU upload, keep identities/settings only. A second pixel copy can exhaust the heap.
+     * This is a merge template, not an archive: live readback supplies every tile when saving.
+     */
+    fun metadataOf(contents: JbContents): JbContents {
+        requireCanvas(contents)
+        return contents.copy(tiles = emptyMap(), strokes = emptyMap())
+    }
+
     fun merge(retained: JbContents?, fresh: JbContents): JbContents {
         if (retained == null) return fresh
         requireCanvas(retained)

@@ -2,6 +2,10 @@ package cc.joycreator.joybrush.androidkit
 
 import android.content.Context
 import android.opengl.GLES30
+import cc.joycreator.joybrush.androidkit.io.PaperResources
+import cc.joycreator.joybrush.core.paper.ResolvedPaper
+import cc.joycreator.joybrush.core.paper.PaperState
+import cc.joycreator.joybrush.core.doc.Paper
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Looper
@@ -114,8 +118,22 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      */
     @Volatile var smoothingFromUser = false
 
-    @Volatile var paperArgb: Int = 0xFFFFFFFF.toInt()
-        set(v) { field = v; requestRender() }
+    @Volatile private var documentPaperState = Paper()
+    @Volatile var paper: ResolvedPaper = PaperState.resolve(documentPaperState, PaperResources.catalogue)
+        set(v) {
+            field = v
+            documentPaperState = documentPaperState.copy(textureId=v.surface?.id,lookId=v.look?.id,
+                textureScale=v.scale,color=paperHex(v.baseArgb),tint=if(v.tintSet)paperHex(v.baseArgb) else null,
+                show=v.show,bite=v.bite,light=v.light)
+            requestRender()
+        }
+    var paperArgb: Int
+        get() = paper.baseArgb
+        set(v) { paper = paper.copy(baseArgb=v or 0xFF000000.toInt(),tintSet=true) }
+
+    /** A missing catalogue id is reported but never prevents opening the drawing. */
+    @Volatile var paperWarnings: List<String> = emptyList()
+        private set
 
     /**
      * Zoom, rotation and pan (JB-2.02) — the one place that says where the document is on the
@@ -530,6 +548,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 while (frameWork.isNotEmpty()) frameWork.removeFirst()()
                 val s = viewSnapshot
                 drawView.zoom = s[0]; drawView.rotation = s[1]; drawView.panX = s[2]; drawView.panY = s[3]
+                engine.setPaper(paper)
+                paperWarnings = (PaperState.problems(documentPaperState,PaperResources.catalogue) + engine.paperWarnings).distinct()
                 engine.draw(viewW, viewH, drawView.docToClip(viewW, viewH), paperArgb)
                 answerScreenSample()
             }
@@ -1144,7 +1164,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * REFUSES — by throwing [JbArchiveException] HERE, on the caller's thread, BEFORE any GL work is
      * queued, so a refused file leaves the drawing that was on screen exactly as it was. What is
      * refused is any file this engine cannot show in full: ink, an animated layer, a layer with several
-     * cels, several boards, a board that is not a canvas, a paper texture, or a tile that is not a tile.
+     * cels, several boards, a board that is not a canvas, or a tile that is not a tile.
      * Several PAINT layers are shown in full (JB-2.04). Opening the half that can be shown and dropping
      * the rest is the one thing this must never do.
      */
@@ -1163,7 +1183,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             val store = if (layer.mask?.id == entry.key.second) maskStoreId(layer.id) else layer.id
             wanted.add(Triple(store, tileKeyOf(entry.key.third), entry.value))
         }
-        val paper = paperArgbOf(doc.paper.color)
+        val resolved = PaperState.resolve(doc.paper,PaperResources.catalogue)
         val name = doc.name
         val board = doc.boards[0].rect
 
@@ -1178,7 +1198,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             for (item in wanted) engine.writeTile(item.first, item.second, item.third)
             retainedContents = CanvasSnapshot.metadataOf(contents)
             contentLost = false
-            paperArgb = paper
+            paper = resolved
+            documentPaperState = doc.paper
+            engine.setPaper(resolved)
+            paperWarnings = PaperState.problems(doc.paper,PaperResources.catalogue) + engine.paperWarnings
+            paperWarnings.forEach { android.util.Log.w("JoyBrushPaper",it) }
             reportHistory()
             post { onDone() }
         }
@@ -1205,9 +1229,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             return "board \"${board.id}\" is ${board.kind}, and this screen shows a canvas board"
         }
         if (board.rect.w <= 0 || board.rect.h <= 0) return "board \"${board.id}\" has no room"
-        if (doc.paper.textureId != null) {
-            return "this drawing has a paper texture, which this screen cannot show yet"
-        }
         val celOf = HashMap<String, String>()
         for (layer in doc.layers) {
             if (layer.id.endsWith(MASK_SUFFIX)) {
@@ -1315,11 +1336,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             )
         }
         val doc = base.copy(
-            paper = base.paper.copy(color = paperHex(paperArgb)),
+            paper = documentPaperState,
             layers = docLayers,
             activeLayerId = stack.activeId,
         )
-        return CanvasSnapshot.merge(retainedContents, JbContents(doc = doc, tiles = tiles, strokes = emptyMap(), thumbnailPng = null))
+        return CanvasSnapshot.merge(retainedContents, JbContents(doc = doc, tiles = tiles, strokes = emptyMap(), thumbnailPng = null), documentPaperState)
     }
 
     /** `"3_-2"` → the engine's packed tile key. Signed, because the canvas has no edge. */

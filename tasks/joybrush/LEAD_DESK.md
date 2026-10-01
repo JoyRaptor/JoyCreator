@@ -45,6 +45,8 @@ _(append below; newest last)_
 
 2026-10-01 JB-9.03b: Updated only paper shader lines for exact-zero slope encoding, seed offsets, high precision and height-only reads; safe un-premultiplied RGBA uploads and hidden inactive knobs are verified with CPU/GPU checks.
 
+2026-10-01 JB-9.06: checked latest five hot-file commits and rebased to b1b30633; editing GlPaintEngine/JbCanvasView and paper background shaders for the gated screen/export row; no installation.
+
 ## Lead answers
 
 _(the Lead writes here)_

@@ -105,3 +105,7 @@ The CPU HexTile/PaperTexture dependency (JB-9.02) has not landed and is not list
    9.04 and 9.05 have landed (PAPER_DISPATCH.md gates). JB-9.01/9.02 have landed.
 3. Detail-octave seed: JB-9.03b adds `seed: Int = 0` to `HexTile.sampleSurface/sampleLook` and `jb_paperSurface(docPx, seed)`. Use `seed = 10`.
 4. Surface folders come from the catalogue (JB-9.03b Decision 10). Load every look/surface by its catalogue entry.
+
+2026-10-01 Acting paper lead (owner promotion): ResolvedPaper needs explicit tintSet (default false); equal-to-base tint is still an explicit tint and must normalize the look by its mean. Added renderer-only flag, no document-format change. Background cache helper is PaperBackground.kt; export loader helper is PaperResources.kt. CanvasSnapshot's independent texture refusal must also be lifted, and its optional livePaper carries swaps without discarding old metadata.
+
+Known contract consequence: Decision 8 renders the layer stack transparent before adding paper. With non-NORMAL blend layers, this can differ from blending directly onto paper on screen; ORA readers may likewise differ from mergedimage.png. The row follows the explicit export contract and keeps blend metadata intact; harmonizing those blend semantics needs a follow-up contract. No phone check claimed.

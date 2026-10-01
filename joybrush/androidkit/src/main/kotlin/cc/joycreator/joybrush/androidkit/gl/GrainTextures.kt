@@ -23,6 +23,9 @@ class GrainTextures(
 ) {
     private val byName = HashMap<String, Int>()
     private val failed = HashSet<String>()
+    private val sizes = HashMap<String, Int>()
+
+    fun sizeFor(assetName: String, folder: String = folderFor(assetName)): Int = sizes["$folder/$assetName"] ?: 1
 
     /** A 1×1 white texel. Bound to a grain sampler whose grain is OFF, so a sampler never points at
      *  something else — above all never at the framebuffer's own attachment, which would be a feedback loop. */
@@ -58,6 +61,7 @@ class GrainTextures(
         val pixels = IntArray(bmp.width * bmp.height)
         bmp.getPixels(pixels, 0, bmp.width, 0, 0, bmp.width, bmp.height)
         val bytes = rgbaBytes(pixels)
+        sizes[key] = bmp.width
         val upload = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder())
         upload.put(bytes).rewind()
         GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8, bmp.width, bmp.height,
@@ -77,6 +81,7 @@ class GrainTextures(
     fun forget() {
         byName.clear()
         failed.clear()
+        sizes.clear()
         placeholder = 0
     }
 

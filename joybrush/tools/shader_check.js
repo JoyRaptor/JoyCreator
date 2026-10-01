@@ -13,8 +13,11 @@ function src(name, seen = new Set()) {
   }).join('\n');
 }
 const S = {};
-for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_tuft.vert', 'jb_tuft.frag', 'jb_paper.glsl', 'jb_smudge_dab.frag', 'jb_tile.vert', 'jb_commit.frag', 'jb_tile.frag']) S[n] = src(n);
+for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_tuft.vert', 'jb_tuft.frag', 'jb_paper.glsl', 'jb_paper_bg.vert', 'jb_paper_bg.frag', 'jb_smudge_dab.frag', 'jb_tile.vert', 'jb_commit.frag', 'jb_tile.frag']) S[n] = src(n);
 S.paperImage = 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, '..', 'assets', 'paper', 'surface_pulp_artisan.png')).toString('base64');
+// Required CPU-generated fixtures: run :core:jvmTest first; missing parity data is a failure.
+S.paperFixtures = ['paper-raster-fixture.json', 'paper-raster-large-fixture.json'].map(name =>
+  JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'core', 'build', name), 'utf8')));
 
 (async () => {
   const edge = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
@@ -298,12 +301,98 @@ S.paperImage = 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, '
       });
       out.coverageOpacityOk = out.coverageOpacityCases.every(c => c.ok);
     } catch (e) { out.smudgeError = String(e).slice(0, 300); }
+    // JB-9.06: production background, CPU bytes at zoom 1, and a smooth look near ±1e7.
+    const background = prog(S['jb_paper_bg.vert'], S['jb_paper_bg.frag']);
+    out.paperBackgroundCompiled = true;
+    function localFrame(origin, pitch, hex, size) {
+      const x=origin[0]/pitch, y=origin[1]/pitch;
+      const a=(x-y/Math.sqrt(3))/hex, b=2*y/Math.sqrt(3)/hex;
+      let i=Math.floor(a), j=Math.floor(b);
+      if (a-i+b-j>1) { i++;j++; }
+      const cx=hex*(i+j/2), cy=hex*j*Math.sqrt(3)/2;
+      const mod=v=>v-Math.floor(v/size)*size;
+      return {base:[i,j],local:[x-cx,y-cy],centre:[mod(cx),mod(cy)]};
+    }
+    function uploadFixtureTexture(entry, unitNumber) {
+      gl.activeTexture(gl.TEXTURE0+unitNumber);
+      const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
+      const size=entry?.size || 1, bytes=entry?.rgba || [127,127,127,255];
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,size,size,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(bytes));
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
+    }
+    function backgroundParity(fixture) {
+      const {width:w,height:h}=fixture;
+      uploadFixtureTexture(fixture.look,0);uploadFixtureTexture(fixture.surface,1);
+      gl.activeTexture(gl.TEXTURE3);
+      const target=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,target);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,target,0);
+      if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE) throw new Error('paper background framebuffer');
+      gl.viewport(0,0,w,h);gl.disable(gl.BLEND);gl.bindVertexArray(vao2);gl.useProgram(background);
+      const flag=(name,value)=>gl.uniform1i(u(background,name),value?1:0);
+      flag('u_hasLook',!!fixture.look);flag('u_hasSurface',!!fixture.surface);
+      flag('u_tinted',fixture.tintSet);flag('u_light',fixture.light);
+      gl.uniform1i(u(background,'u_look'),0);gl.uniform1i(u(background,'u_surface'),1);
+      gl.uniform3fv(u(background,'u_base'),fixture.base.map(v=>v/255));
+      gl.uniform3fv(u(background,'u_mean'),(fixture.look?.mean||[255,255,255]).map(v=>v/255));
+      const lamp=[-0.45,-0.55,0.70], lampLength=Math.hypot(...lamp);
+      gl.uniform3fv(u(background,'u_lamp'),lamp.map(v=>v/lampLength));
+      gl.uniform1f(u(background,'u_show'),fixture.show);
+      gl.uniform1f(u(background,'u_relief'),fixture.surface?.relief || 0);
+      gl.uniform1f(u(background,'u_slopeRange'),fixture.surface?.slopeRange || 0.099);
+      gl.uniform1f(u(background,'u_detail'),fixture.detail || 0);
+      // readPixels row 0 is the fixture's document top row; avoid a screen-dependent vertical flip.
+      gl.uniformMatrix2fv(u(background,'u_docStep'),false,new Float32Array([1,0,0,1]));
+      for(let k=0;k<3;k++) {
+        const entry=(k===0?fixture.look:fixture.surface);
+        const pitch=(entry?.texelPx||2)*fixture.scale/(k===2?8:1);
+        const hex=entry?.hexTexels||32, size=entry?.size||64;
+        const frame=localFrame(fixture.origin,pitch,hex,size);
+        gl.uniform1f(u(background,`u_pitch[${k}]`),pitch);
+        gl.uniform1f(u(background,`u_hex[${k}]`),hex);
+        gl.uniform1f(u(background,`u_size[${k}]`),size);
+        flag(`u_rotate[${k}]`,entry?.rotatable);
+        gl.uniform2iv(u(background,`u_hexBase[${k}]`),new Int32Array(frame.base));
+        gl.uniform2fv(u(background,`u_localOrigin[${k}]`),frame.local);
+        gl.uniform2fv(u(background,`u_baseCentreMod[${k}]`),frame.centre);
+      }
+      gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+      const actual=new Uint8Array(w*h*4);gl.readPixels(0,0,w,h,gl.RGBA,gl.UNSIGNED_BYTE,actual);
+      if(fixture.expected.length!==actual.length) throw new Error('paper fixture byte count');
+      let maxError=0,maxAdjacent=0;
+      for(let i=0;i<actual.length;i++) maxError=Math.max(maxError,Math.abs(actual[i]-fixture.expected[i]));
+      for(let y=0;y<h;y++) for(let x=0;x<w;x++) for(let c=0;c<3;c++) {
+        const i=(y*w+x)*4+c;
+        if(x+1<w) maxAdjacent=Math.max(maxAdjacent,Math.abs(actual[i]-actual[i+4]));
+        if(y+1<h) maxAdjacent=Math.max(maxAdjacent,Math.abs(actual[i]-actual[i+w*4]));
+      }
+      return {origin:fixture.origin,width:w,height:h,maxError,maxAdjacent};
+    }
+    out.paperBackgroundParity=backgroundParity(S.paperFixtures[0]);
+    out.paperLargeOriginParity=backgroundParity(S.paperFixtures[1]);
+    const opaqueFlat=(base,w,h)=>Array.from({length:w*h*4},(_,i)=>i%4===3?255:base[i%4]);
+    const flatCase={...S.paperFixtures[0],width:64,height:64,origin:[0,0]};
+    out.paperBlack=backgroundParity({...flatCase,base:[0,0,0],look:null,surface:null,light:false,
+      expected:opaqueFlat([0,0,0],64,64)});
+    out.paperShowZero=backgroundParity({...flatCase,show:0,expected:opaqueFlat(flatCase.base,64,64)});
+    // At maximum zoom the display-only octave is present; export fixture parity remains detail=0.
+    out.paperDetailSmoke=backgroundParity({...flatCase,detail:0.35,
+      expected:S.paperFixtures[0].expected.slice(0,64*64*4)});
+    out.paperBackgroundOk=out.paperBackgroundParity.maxError<=3 && out.paperLargeOriginParity.maxError<=3 &&
+      out.paperLargeOriginParity.maxAdjacent<3 && out.paperBlack.maxError===0 && out.paperShowZero.maxError===0;
     out.glError = gl.getError();
     return out;
   }, S);
-  console.log(JSON.stringify(res));
+  const compact={...res};delete compact.smudgeOpacityCases;delete compact.coverageOpacityCases;
+  console.log(JSON.stringify(compact));
   await browser.close();
-  if (!res.compiled || !res.tuftCompiled || !res.paperNoRepeat || !res.flatSlopeExactZero || !res.fbo || res.glError !== 0 || !res.grainDarkens || !res.grainAllFinite ||
+  if (!res.compiled || !res.tuftCompiled || !res.paperBackgroundCompiled || !res.paperBackgroundOk || !res.paperNoRepeat || !res.flatSlopeExactZero || !res.fbo || res.glError !== 0 || !res.grainDarkens || !res.grainAllFinite ||
       !res.smudgeOk || !res.smudgeOpacityOk || !res.coverageOpacityOk ||
       Math.abs(res.strokeCentre - 0.5) > 0.01 || res.strokeOutside !== 0 ||
       !res.committedRGBA?.every((v, i) => Math.abs(v - [127, 0, 0, 127][i]) <= 2)) process.exitCode = 1;

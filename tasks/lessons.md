@@ -913,3 +913,6 @@ Keep delegated work focused; avoid extra agents, speculative work and repeated v
 
 ## 2026-10-01 — Rice translucency is not height; keep texture white balance neutral
 Rice paper has subtle real relief, but opacity/brightness is not a 1:1 height proxy. Dark embedded plant chunks do not imply pits. Author the look and surface independently. Use neutral D65 white balance/no amber grade in generation prompts; let the material supply its own warmth.
+
+## 2026-10-01 - Prioritize functional paper before expanding assets
+When the owner pauses generation, start no new image calls. Finish saving already-running outputs and focus on rendering, export and brush response. Candidate abundance is not a substitute for a working paper system.

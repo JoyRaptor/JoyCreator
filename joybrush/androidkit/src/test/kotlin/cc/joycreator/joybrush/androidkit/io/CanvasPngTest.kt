@@ -6,6 +6,33 @@ import javax.imageio.ImageIO
 import kotlin.test.*
 
 class CanvasPngTest {
+    @Test fun texturedPaperExportUsesDocumentCoordinatesAndLeavesTilesUntouched() {
+        val art = contents()
+        val savedTile = art.tiles.values.single().copyOf()
+        var calls = 0
+        val renderer: (RectPx) -> ByteArray = { rect ->
+            assertEquals(RectPx(0, 0, 2, 1), rect); calls++
+            byteArrayOf(0, 80, 160.toByte(), 255.toByte(), 20, 40, 60, 255.toByte())
+        }
+        val with = ImageIO.read(ByteArrayInputStream(CanvasPng.encode(art, true, renderer)))
+        val without = ImageIO.read(ByteArrayInputStream(CanvasPng.encode(art, false, renderer)))
+        assertEquals(1, calls)
+        assertEquals(0xFF802850.toInt(), with.getRGB(0, 0))
+        assertEquals(0xFF14283C.toInt(), with.getRGB(1, 0))
+        assertEquals(0x80FF0000.toInt(), without.getRGB(0, 0)); assertEquals(0, without.getRGB(1, 0))
+        assertContentEquals(savedTile, art.tiles.values.single())
+    }
+    @Test fun opaqueLayerPixelIsIdenticalWithAndWithoutTexturedPaper() {
+        val art = contents().let { source ->
+            val tile = source.tiles.values.single().copyOf().also { it[0] = 255.toByte(); it[3] = 255.toByte() }
+            source.copy(tiles = source.tiles.mapValues { tile })
+        }
+        val renderer: (RectPx) -> ByteArray = { byteArrayOf(1, 2, 3, -1, 4, 5, 6, -1) }
+        val with = ImageIO.read(ByteArrayInputStream(CanvasPng.encode(art, true, renderer)))
+        val without = ImageIO.read(ByteArrayInputStream(CanvasPng.encode(art, false, renderer)))
+        assertEquals(without.getRGB(0, 0), with.getRGB(0, 0))
+        assertEquals(255, with.getRGB(1, 0) ushr 24); assertEquals(0, without.getRGB(1, 0) ushr 24)
+    }
     private fun contents(rect: RectPx = RectPx(0, 0, 2, 1)): JbContents {
         var id = 0
         val base = DocOps.newDocument("doc", "Art", rect.w, rect.h) { "id${id++}" }

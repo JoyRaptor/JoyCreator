@@ -13,6 +13,20 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class CanvasSnapshotTest {
+    @Test fun texturedPaperAndLivePaperSettingsSurviveSnapshotAndArchive() {
+        val paper = Paper("#123456", textureId = "pulp_artisan", lookId = "off_white",
+            tint = "#EEDDCC", textureScale = 2f, show = 0.4f, bite = 0.3f, light = false,
+            includeInExport = true)
+        val old = retained().let { it.copy(doc = it.doc.copy(paper = paper)) }
+        assertEquals(paper, CanvasSnapshot.metadataOf(old).doc.paper)
+        val changed = paper.copy(textureScale = 3f, show = 0.8f)
+        val merged = CanvasSnapshot.merge(old, fresh(), livePaper = changed)
+        assertEquals(changed, merged.doc.paper)
+        val stream = ByteArrayOutputStream()
+        JbArchive.write(stream, merged)
+        assertEquals(changed, JbArchive.read(ByteArrayInputStream(stream.toByteArray())).doc.paper)
+        assertEquals(changed, CanvasSnapshot.merge(null, fresh(), changed).doc.paper)
+    }
     private val paint = ByteArray(TILE_BYTES) { 17 }
     private val mask = ByteArray(TILE_BYTES) { 93 }
 

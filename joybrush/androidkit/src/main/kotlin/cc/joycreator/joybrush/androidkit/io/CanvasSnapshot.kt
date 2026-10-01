@@ -3,12 +3,13 @@ package cc.joycreator.joybrush.androidkit.io
 import cc.joycreator.joybrush.core.doc.BoardKind
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.LayerKind
+import cc.joycreator.joybrush.core.doc.Paper
 
 /**
  * Combines the single-canvas renderer's live pixels with the document it is displaying.
  *
  * The renderer owns stack order, names, visibility, opacity, blend, clipping and pixels. It does
- * not own board geometry, document identity, paper options or cel identities. Keep those from the
+ * not own board geometry, document identity or cel identities. Keep those from the
  * opened document, and move payload keys together with their cel IDs. This deliberately does not
  * enable animation or other board types: those require a renderer that can retain every cel.
  */
@@ -21,8 +22,9 @@ object CanvasSnapshot {
         return contents.copy(tiles = emptyMap(), strokes = emptyMap())
     }
 
-    fun merge(retained: JbContents?, fresh: JbContents): JbContents {
-        if (retained == null) return fresh
+    /** [livePaper] carries current paper settings; omitted for older colour-only snapshot callers. */
+    fun merge(retained: JbContents?, fresh: JbContents, livePaper: Paper? = null): JbContents {
+        if (retained == null) return if (livePaper == null) fresh else fresh.copy(doc = fresh.doc.copy(paper = livePaper))
         requireCanvas(retained)
         requireCanvas(fresh)
         val oldLayers = retained.doc.layers.associateBy { it.id }
@@ -60,7 +62,7 @@ object CanvasSnapshot {
             format = fresh.doc.format,
             version = fresh.doc.version,
             name = fresh.doc.name,
-            paper = retained.doc.paper.copy(color = fresh.doc.paper.color),
+            paper = livePaper ?: retained.doc.paper.copy(color = fresh.doc.paper.color),
             layers = layers,
             activeLayerId = fresh.doc.activeLayerId,
         )
@@ -78,7 +80,7 @@ object CanvasSnapshot {
             throw JbArchiveException("this snapshot cannot be saved: " + problems.joinToString("; "))
         }
         if (doc.boards.size != 1 || doc.boards.single().kind != BoardKind.CANVAS ||
-            doc.layers.isEmpty() || doc.paper.textureId != null || contents.strokes.isNotEmpty() ||
+            doc.layers.isEmpty() || contents.strokes.isNotEmpty() ||
             doc.layers.any { it.kind != LayerKind.PAINT || it.animatedIn != null || it.cels.size != 1 }
         ) {
             throw JbArchiveException("this snapshot requires one canvas board with static paint layers")

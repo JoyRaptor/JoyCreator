@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.io
 
 import cc.joycreator.joybrush.core.doc.DocException
 import cc.joycreator.joybrush.core.doc.DocOps
+import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.export.AnimExport
 import cc.joycreator.joybrush.core.export.AnimExportPlan
 import cc.joycreator.joybrush.core.export.GifEncoder
@@ -118,6 +119,8 @@ object AnimExportRunner {
         plan: AnimExportPlan,
         includePaper: Boolean,
         cols: Int = AnimExport.sheetCols(plan.frameCount),
+        paperRenderer: ((RectPx) -> ByteArray)? = null,
+        onWarning: (String) -> Unit = {},
         onFrame: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): List<AnimFile> {
         val doc = contents.doc
@@ -127,6 +130,8 @@ object AnimExportRunner {
         checkRegionFits(boardId, plan.width, plan.height)
         checkExportFits(boardId, format, plan, cols)
         val paper = if (includePaper) checkedPaper(doc.paper.color) else null
+        val renderer = CanvasPng.paperRendererFor(contents, includePaper, paperRenderer, onWarning)
+        val backdrop = renderer?.invoke(plan.rect)
 
         // **THE LIST STAYS, AND IT IS NOT AN OVERSIGHT (Decision 3).** It reads like the obvious
         // memory fix — hold every frame at once, encode as you go instead — and it would move no
@@ -141,7 +146,8 @@ object AnimExportRunner {
         // both numbers before a single frame exists.
         val cells = ArrayList<ByteArray>(plan.frameCount)
         plan.frameIds.forEachIndexed { i, frameId ->
-            cells.add(RegionRenderer.render(doc, tileSource(contents), plan.rect, frameId, paper))
+            val pixels = RegionRenderer.render(doc, tileSource(contents), plan.rect, frameId, if (backdrop == null) paper else null)
+            cells.add(if (backdrop == null) pixels else CanvasPng.overPaper(pixels, backdrop))
             onFrame(i + 1, plan.frameCount)
         }
 
@@ -182,6 +188,8 @@ object AnimExportRunner {
         plan: AnimExportPlan,
         includePaper: Boolean,
         sink: AnimFileSink,
+        paperRenderer: ((RectPx) -> ByteArray)? = null,
+        onWarning: (String) -> Unit = {},
         onFrame: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): List<String> {
         val doc = contents.doc
@@ -197,6 +205,8 @@ object AnimExportRunner {
         checkExportFits(boardId, AnimFormat.PNG_SEQUENCE, plan, AnimExport.sheetCols(plan.frameCount))
         val paper = if (includePaper) checkedPaper(doc.paper.color) else null
         val tiles = tileSource(contents)
+        val renderer = CanvasPng.paperRendererFor(contents, includePaper, paperRenderer, onWarning)
+        val backdrop = renderer?.invoke(plan.rect)
 
         val written = ArrayList<String>(plan.frameCount + 1)
         val total = plan.frameCount
@@ -205,7 +215,9 @@ object AnimExportRunner {
             val bytes = PngWriter.encode(
                 plan.width,
                 plan.height,
-                RegionRenderer.render(doc, tiles, plan.rect, frameId, paper),
+                RegionRenderer.render(doc, tiles, plan.rect, frameId, if (backdrop == null) paper else null).let {
+                    if (backdrop == null) it else CanvasPng.overPaper(it, backdrop)
+                },
             )
             try {
                 sink.write(name, AnimFormat.PNG_SEQUENCE.mime, bytes)

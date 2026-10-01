@@ -52,6 +52,22 @@ import org.w3c.dom.Node
  * functions compiles, reports a green build and executes nothing.
  */
 class OraExportTest {
+    @Test fun texturedPaperStaysInItsOwnBottomLayerAndMergedPreview() {
+        val empty = contents().let { it.copy(tiles = it.tiles.mapValues { ByteArray(256 * 256 * 4) }) }
+        val output = ByteArrayOutputStream()
+        var calls = 0
+        OraExport.write(output, empty, BOARD, null, true, paperRenderer = { rect ->
+            calls++
+            ByteArray(rect.w * rect.h * 4).also { bytes ->
+                for (i in bytes.indices step 4) { bytes[i] = 17; bytes[i + 1] = 34; bytes[i + 2] = 51; bytes[i + 3] = -1 }
+            }
+        })
+        val archive = output.toByteArray()
+        assertEquals(1, calls)
+        assertEquals(0xFF112233.toInt(), image(archive, "data/0.png").getRGB(0, 0))
+        assertEquals(0xFF112233.toInt(), image(archive, "mergedimage.png").getRGB(0, 0))
+        assertEquals(0, image(archive, "data/1.png").getRGB(0, 0), "paper must not enter the art layer")
+    }
 
     // ── the two-layer fixture, exactly as the spec describes it ───────────────────
 

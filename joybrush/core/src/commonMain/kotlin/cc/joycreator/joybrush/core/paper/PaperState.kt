@@ -16,6 +16,7 @@ data class ResolvedPaper(
     val scale: Float,             // textureScale clamped 0.25..4
     val show: Float, val bite: Float,
     val light: Boolean,           // light ?: look?.lightByDefault ?: true
+    val tintSet: Boolean = false, // explicit tint, including one equal to the look's base
 )
 
 /**
@@ -62,6 +63,7 @@ object PaperState {
             // Three states, and null is a real answer: the look's own default is what makes AMOLED
             // black stay black without every document having to remember to say so.
             light = p.light ?: look?.lightByDefault ?: true,
+            tintSet = p.tint != null,
         )
     }
 

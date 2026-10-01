@@ -1,6 +1,10 @@
 package cc.joycreator.joybrush.androidkit.gl
 
 import android.opengl.GLES30
+import cc.joycreator.joybrush.androidkit.io.PaperResources
+import cc.joycreator.joybrush.core.paper.ResolvedPaper
+import cc.joycreator.joybrush.core.paper.SurfaceEntry
+import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.brush.SmudgeCarried
 import cc.joycreator.joybrush.core.brush.SmudgeStroke
 import cc.joycreator.joybrush.core.brush.TileReader
@@ -93,6 +97,34 @@ class GlPaintEngine(
 
     /** The grain pictures (JB-1.05c): loaded on first use, dropped on a context loss. */
     private val grains = GrainTextures()
+    private val paperBackground = PaperBackground(shaders)
+    private var resolvedPaper: ResolvedPaper? = null
+    private var loadedPaper: PaperResources.Loaded? = null
+    private var lookTexture: Int? = null
+    private var surfaceTexture: Int? = null
+    private var strokeSurface: SurfaceEntry? = null
+    private var strokePaperScale = 1f
+    val paperWarnings: List<String> get() = loadedPaper?.warnings ?: emptyList()
+
+    /** GL thread: switching paper invalidates only the background, never painted tiles. */
+    fun setPaper(p: ResolvedPaper) {
+        if (resolvedPaper == p && loadedPaper != null) return
+        resolvedPaper = p
+        loadedPaper = PaperResources.load(p)
+        val effective = loadedPaper!!.paper
+        lookTexture = effective.look?.file?.let { grains.textureFor(it, "paper") }
+        surfaceTexture = effective.surface?.file?.let { grains.textureFor(it, "paper") }
+        paperBackground.invalidate()
+    }
+
+    fun renderPaper(rect: RectPx): ByteArray = (loadedPaper ?: PaperResources.load(
+        ResolvedPaper(null,null,0xFFFFFFFF.toInt(),1f,1f,1f,false))).render(rect)
+
+    private fun drawPaper(w: Int, h: Int, m: FloatArray, fallback: Int, target: Int) {
+        val p = loadedPaper?.paper ?: ResolvedPaper(null,null,fallback,1f,1f,1f,false)
+        val lookSize = p.look?.file?.let { grains.sizeFor(it,"paper") } ?: 1
+        paperBackground.draw(w,h,m,p,lookTexture,surfaceTexture,lookSize,grains.placeholder,tileVao,target)
+    }
 
     /** The offscreen stack the composite path builds (JB-2.20b); made on first use, dropped on a context loss. */
     internal val compositor = LayerCompositor()
@@ -317,6 +349,8 @@ class GlPaintEngine(
         // names are just as dead, and a brush is reloaded from its file on the next stroke.
         grains.forget()
         compositor.forget()
+        paperBackground.forget()
+        loadedPaper = null; lookTexture = null; surfaceTexture = null
         compositeProg = null      // a name from the dead context; the new one compiles on first use
         thumbTex = 0; thumbW = 0; thumbH = 0
         compositeError = null
@@ -350,6 +384,7 @@ class GlPaintEngine(
         GLES30.glDeleteFramebuffers(1, intArrayOf(fbo), 0)
         grains.release()
         compositor.release()
+        paperBackground.release()
         dabProg.release(); commitProg.release(); tileProg.release(); smudgeProg.release(); tuftProg.release()
         compositeProg?.release(); compositeProg = null
         ready = false
@@ -715,17 +750,27 @@ class GlPaintEngine(
         // A grain whose picture is missing is drawn as OFF: a missing picture must never read as "paint
         // everywhere". The picture is bound per batch in addDabs, but resolved here, once per stroke.
         val tipTex = if (grain.tip.enabled) grains.textureFor(grain.tip.asset) else null
-        val paperTex = if (grain.paper.enabled) grains.textureFor(grain.paper.asset) else null
+        val p = loadedPaper?.paper
+        val surface = p?.surface
+        strokeSurface = surface
+        strokePaperScale = p?.scale ?: 1f
+        val documentGrain = if (p == null) grain.paper else if (surface != null && grain.paper.enabled)
+            grain.paper.copy(asset=surface.file,pitchPx=surface.texelPx*p.scale,depth=grain.paper.depth*p.bite)
+            else GrainMath.GrainUniforms.OFF
+        val paperTex = if (documentGrain.enabled) grains.textureFor(documentGrain.asset) else null
         this.grain = GrainMath.StrokeGrain(
             tip = if (tipTex != null) grain.tip else GrainMath.GrainUniforms.OFF,
-            paper = if (paperTex != null) grain.paper else GrainMath.GrainUniforms.OFF,
+            paper = if (paperTex != null) documentGrain else GrainMath.GrainUniforms.OFF,
         )
         tipGrainTex = tipTex ?: grains.placeholder
         paperGrainTex = paperTex ?: grains.placeholder
-        // A tuft stroke reads the page's tooth; a missing picture means no tooth (pitch 0), never "ink everywhere".
-        val tooth = if (tuft != null) grains.textureFor(tuft.paperAsset) else null
+        val tooth = if (tuft == null) null else if (p == null) grains.textureFor(tuft.paperAsset) else surfaceTexture
         tuftPaperTex = tooth ?: grains.placeholder
-        this.tuft = if (tuft != null && tooth == null) tuft.copy(paperPitchPx = 0f) else tuft
+        this.tuft = tuft?.let {
+            if(tooth == null) it.copy(paperPitchPx=0f) else if(p != null && surface != null)
+                it.copy(paperAsset=surface.file,paperPitchPx=surface.texelPx*p.scale,tooth=it.tooth*p.bite)
+            else it
+        }
     }
 
     /** The cap every dab of the active stroke should carry (see Accumulate). */
@@ -868,12 +913,13 @@ class GlPaintEngine(
 
     /** JB-9.03: the fixed document surface; both brush programs bind it on unit 1. */
     private fun setPaperSurfaceUniforms(program: GlProgram) {
+        // Brush deposition uses document floats (accurate to +/-1e6 px); only display uses local frames.
         GLES30.glUniform1i(program.loc("u_paperSurface"), 1)
-        GLES30.glUniform1f(program.loc("u_paperTexelPx"), GrainMath.SURFACE_TEXEL_PX)
-        GLES30.glUniform1f(program.loc("u_paperSize"), GrainMath.SURFACE_SIZE)
-        GLES30.glUniform1f(program.loc("u_paperHexTexels"), GrainMath.SURFACE_HEX_TEXELS)
-        GLES30.glUniform1f(program.loc("u_paperSlopeRange"), GrainMath.SURFACE_SLOPE_RANGE)
-        GLES30.glUniform1i(program.loc("u_paperRotatable"), if (GrainMath.SURFACE_ROTATABLE) 1 else 0)
+        GLES30.glUniform1f(program.loc("u_paperTexelPx"), (strokeSurface?.texelPx ?: GrainMath.SURFACE_TEXEL_PX)*strokePaperScale)
+        GLES30.glUniform1f(program.loc("u_paperSize"), strokeSurface?.size?.toFloat() ?: GrainMath.SURFACE_SIZE)
+        GLES30.glUniform1f(program.loc("u_paperHexTexels"), strokeSurface?.hexTexels ?: GrainMath.SURFACE_HEX_TEXELS)
+        GLES30.glUniform1f(program.loc("u_paperSlopeRange"), strokeSurface?.slopeRange ?: GrainMath.SURFACE_SLOPE_RANGE)
+        GLES30.glUniform1i(program.loc("u_paperRotatable"), if (strokeSurface?.rotatable ?: GrainMath.SURFACE_ROTATABLE) 1 else 0)
     }
 
     /**
@@ -981,11 +1027,7 @@ class GlPaintEngine(
         if (needsComposite()) { drawComposited(viewportW, viewportH, docToClip, paperArgb); return }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         GLES30.glViewport(0, 0, viewportW, viewportH)
-        GLES30.glClearColor(
-            ((paperArgb shr 16) and 0xFF) / 255f, ((paperArgb shr 8) and 0xFF) / 255f,
-            (paperArgb and 0xFF) / 255f, 1f,
-        )
-        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+        drawPaper(viewportW,viewportH,docToClip,paperArgb,0)
         GLES30.glEnable(GLES30.GL_BLEND)
         GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
         GLES30.glBindVertexArray(tileVao)
@@ -1054,11 +1096,7 @@ class GlPaintEngine(
         GLES30.glDisable(GLES30.GL_BLEND)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, compositor.targetFbo)
         GLES30.glViewport(0, 0, w, h)
-        GLES30.glClearColor(
-            ((paperArgb shr 16) and 0xFF) / 255f, ((paperArgb shr 8) and 0xFF) / 255f,
-            (paperArgb and 0xFF) / 255f, 1f,
-        )
-        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+        drawPaper(w,h,docToClip,paperArgb,compositor.targetFbo)
 
         // The live stroke, rendered once as the tiles it will leave — into a layer or into a mask (JB-2.23). Anything
         // that reads that store this frame (the layer itself, a layer clipped to it, its own mask) sees the preview.

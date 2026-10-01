@@ -167,11 +167,15 @@ object OraExport {
         boardId: String,
         frameId: String?,
         includePaper: Boolean,
+        paperRenderer: ((RectPx) -> ByteArray)? = null,
+        onWarning: (String) -> Unit = {},
     ) {
         val doc = contents.doc
         val rect = boardOf(doc, boardId)
         val paper = if (includePaper) checkedPaper(doc) else null
         val tiles = tileSource(contents)
+        val renderer = CanvasPng.paperRendererFor(contents, includePaper, paperRenderer, onWarning)
+        val backdrop = renderer?.invoke(rect)
 
         // Which layers, and which are not. Both decided before a byte is written, so a document that
         // cannot be exported costs nothing to find out.
@@ -204,6 +208,7 @@ object OraExport {
                     layer = null,
                     doc = doc,
                     tiles = tiles,
+                    paperRgba = backdrop,
                 ),
             )
         }
@@ -230,7 +235,9 @@ object OraExport {
             for (entry in entries) {
                 put(zos, entry.src, PngWriter.encode(rect.w, rect.h, entry.pixels(rect, frameId)))
             }
-            val merged = RegionRenderer.render(doc, tiles, rect, frameId, paper)
+            val merged = RegionRenderer.render(doc, tiles, rect, frameId, if (backdrop == null) paper else null).let {
+                if (backdrop == null) it else CanvasPng.overPaper(it, backdrop)
+            }
             val thumb = thumbnail(merged, rect.w, rect.h)
             put(zos, THUMBNAIL_NAME, PngWriter.encode(thumb.w, thumb.h, thumb.pixels))
             put(zos, MERGED_NAME, PngWriter.encode(rect.w, rect.h, merged))
@@ -262,6 +269,7 @@ object OraExport {
         private val layer: Layer?,
         private val doc: JbDocument,
         private val tiles: TileSource,
+        private val paperRgba: ByteArray? = null,
     ) {
         /**
          * `rect.w * rect.h * 4` bytes of straight RGBA8 for this entry.
@@ -284,7 +292,7 @@ object OraExport {
                 else listOf(doc.layers[baseIndex].copy(opacity = 0f, blend = BlendMode.NORMAL, clip = false), own)
                 return RegionRenderer.render(doc.copy(layers = layers), tiles, rect, frameId, null)
             }
-            return paperPixels(rect, requireNotNull(paper) { "a Paper entry with no paper colour" })
+            return paperRgba ?: paperPixels(rect, requireNotNull(paper) { "a Paper entry with no paper colour" })
         }
     }
 

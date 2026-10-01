@@ -95,6 +95,26 @@ private class DecodedGifFrame(val width: Int, val height: Int, val delayCs: Int,
  * functions compiles, reports a green build and executes nothing.
  */
 class AnimExportTest {
+    @Test fun texturedPaperIsSharedBySequenceAndSheetAndIsNotLoadedWhenExcluded() {
+        val empty = contents.copy(tiles = contents.tiles.mapValues { ByteArray(TILE_BYTES) })
+        val p = plan(empty)
+        var calls = 0
+        val renderer: (RectPx) -> ByteArray = { rect ->
+            assertEquals(p.rect, rect); calls++
+            ByteArray(rect.w * rect.h * 4).also { bytes ->
+                for (i in bytes.indices step 4) { bytes[i] = 10; bytes[i + 1] = 20; bytes[i + 2] = 30; bytes[i + 3] = -1 }
+            }
+        }
+        val sheet = AnimExportRunner.encodeOne(AnimFormat.SPRITE_SHEET, empty, BOARD, p, true, paperRenderer = renderer)
+        assertEquals(0xFF0A141E.toInt(), ImageIO.read(ByteArrayInputStream(sheet[0].bytes)).getRGB(0, 0))
+        val frames = ArrayList<ByteArray>()
+        val sink = AnimFileSink { _, mime, bytes -> if (mime == "image/png") frames += bytes }
+        AnimExportRunner.writeSequence(empty, BOARD, p, true, sink, paperRenderer = renderer)
+        assertEquals(p.frameCount, frames.size)
+        frames.forEach { assertEquals(0xFF0A141E.toInt(), ImageIO.read(ByteArrayInputStream(it)).getRGB(0, 0)) }
+        AnimExportRunner.encodeOne(AnimFormat.SPRITE_SHEET, empty, BOARD, p, false, paperRenderer = renderer)
+        assertEquals(2, calls, "render the unchanged backdrop once per export, never when excluded")
+    }
 
     // ── the fixture: two PAINT layers over one ANIMATION board ──────────────────
 

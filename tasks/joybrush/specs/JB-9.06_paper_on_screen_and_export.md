@@ -94,3 +94,7 @@ Owner judges: paper visible behind strokes, no seam at 0.05×/1×/8×/64×, ligh
 - [ ] all tests pass (paste) · [ ] LEAD_DESK line · [ ] commit(s) "JB-9.06: …", rebased, pushed · [ ] ROADMAP row → 🟧 Built — awaiting the Note 9
 
 ## Questions
+
+2026-10-01 Codex: Paused per the owner's rule for incorrect/unclear specs. JB-9.04's strict parser rejects the shipped `off_white.detailStrength` key: it is absent from LookEntry, while JB-9.04's owner area excludes catalogue.json. Should the specialist remove that obsolete key, or should LookEntry support it? This prevents its required ShippedCatalogueTest from passing without guessing.
+
+The CPU HexTile/PaperTexture dependency (JB-9.02) has not landed and is not listed here, nor is it in the instruction to build missing dependencies first. May this row build JB-9.01/9.02 first, or should it wait for the OpenCode lane? Decision 4 also requires a hash-k offset for the detail octave, which the canonical sampleSurface API cannot express; which shared API extension should both CPU and GPU use? Continuing to JB-9.08 while these contracts are clarified.

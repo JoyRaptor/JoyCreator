@@ -8,9 +8,9 @@
 
 ## 1. The owner and how to work with him
 
-- **The owner (JoyRaptor) is an artist, not a developer.** Make the engineering calls yourself and explain them in what he will SEE. Report as short plain tables with ✅ / ⚠️ / ❌. No code in reports.
+- **The owner (JoyRaptor) is an artist, not a developer.** Make the engineering calls yourself and explain them in what they will SEE. Report as short plain tables with ✅ / ⚠️ / ❌. No code in reports.
 - **Phone first.** They test on a **Galaxy Note 9** (the sandbox). Never install on the **Note 20**, which holds the real project. `tools/build-install.sh` refuses when the Note 20 is attached.
-- **His hand-knowledge outranks research.** When he describes how a real medium behaves, that is a ruling. Record it, and build to it.
+- **Their hand-knowledge outranks research.** When they describe how a real medium behaves, that is a ruling. Record it, and build to it.
 - **Every control gets a hover label** (`ChromeKit.label`). **Holding a brush in the drawer opens its advanced settings, for every brush.** So any new paper or texture setting a brush uses must be a knob in `core/chrome/BrushKnobs.kt`, or it is hidden power.
 - **Finish everything shown.** A slider nothing reads is worse than no slider.
 
@@ -45,7 +45,7 @@
 - **Shared shaders:** `joybrush/shaders/*` also run in the **PC Brush Lab** (`tools/brushlab/BrushLab.html`, WebGL2). Keep them GLSL ES 3.00 and `#include`-able (`ShaderLibrary` expands `#include "x.glsl"`). The Brush Lab does not know the tuft engine yet.
 - **Preview tools:** `joybrush/tools/grain_look.js` → `grain_look.png`. In the app, the brush settings' **live preview** and **Test** sheet (`core/chrome/BrushPreviewStrokes.kt`, `TuftTestSheet.kt`) are how the owner judges a change.
 
-## 4. The problem he has already seen: visible patterning
+## 4. The problem the owner has already seen: visible patterning
 
 The paper repeats on a grid. It is a single **256-px tileable texture tiled every ~43 doc px** with `GL_REPEAT`. At 1:1 on the Note 9, that is the same cloud every ~43 screen px in both directions, and the eye finds the lattice at once. Only three cloud pictures exist, all from one generator, and Pencil and Sable share the same one.
 

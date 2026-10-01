@@ -413,3 +413,8 @@ seconds. Next integration: frame/cel projection before animation and Studio cont
 Pending.
 
 JB-9.03b review: core 1426/0 at 15:20:24 EDT, androidkit 213/0 at 15:27:47 EDT; dy mutation red; exact asset bytes and GPU zero/no-repeat pass. See reviews/JB-9.03b__codex.md for commands and the benchmark heap exception.
+
+## JB-9.10 candidate handoff
+- [x] 27 look candidates and 8 geometry surfaces saved in the approved ignored main-folder location with repeat previews and notes.
+- [x] Record rice relief/white-balance correction; pause generation per the owner.
+Review: raw candidates are not catalogue entries; seams need repair before shipping. No Gradle/XML or mutation applies.

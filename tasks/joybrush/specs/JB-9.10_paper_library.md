@@ -12,9 +12,9 @@
 Owner P8/P9: the launch list in R10 §7, each convincing as analogue, with no seam or loop, good at every zoom.
 
 ## Owner reference notes (2026-10-01)
-- **Rice paper:** filament fibres and fibrous clumps suspended in a thin translucent sheet. It is FLAT: the whiter areas are not raised,
+- **Rice paper:** filament fibres and fibrous clumps suspended in a thin translucent sheet. It has subtle relief independent of brightness: whiter areas need not be raised,
   they are more OPAQUE (layered cobweb webbing). Cool white or warm cream. So the fibres live in the LOOK (opacity/whiteness), and the
-  surface is nearly smooth, with only faint ridges along the thickest fibres. Reference images: owner's message of 2026-10-01 (two rice-paper photos).
+  surface has gentle relief authored separately from the look. Translucency does not map 1:1 to thickness, and embedded dark pulp chunks do not imply recesses. Reference images: owner's message of 2026-10-01 (two rice-paper photos).
 - **Thai sugarcane pulp:** a warm, slightly pink-beige sheet with short straw-coloured fibres and small chunks of brown and grey-brown
   (unbleached plant bits) scattered through it. Mild cloudiness. A good "artisan pulp" look. Two reference photos, same message.
 - **Downloads approved** (owner, 2026-10-01): free public-domain (CC0) scans from ambientCG / Poly Haven. Record each file's source URL and
@@ -43,3 +43,5 @@ goes to the owner, and the owner picks/rejects on the phone once JB-9.06 + JB-9.
 exception to "work only in your worktree", and it needs no Gradle. File names: `<paper>_<n>.png` (e.g. `rice_cool_1.png`). Add a
 `candidates/NOTES.md` saying how each was made (prompt or 3D setup). The owner's reference photos are next to it in `reference/`
 (study only, never ship).
+
+2026-10-01 Owner correction and promotion: Codex now heads paper/texture work while the specialist is out of usage. Rice paper must not be perfectly flat; brightness/opacity/dark inclusions are not height proxies. Use neutral D65 white balance, with material warmth and no global amber grade. Candidate generation is paused at the owner's request; prioritize general paper functionality before adding library entries. The 27 look candidates and eight geometry height candidates are raw material only; generation prompts do not prove seamlessness, and several repeat checks identify joins needing repair. No further images planned until requested.

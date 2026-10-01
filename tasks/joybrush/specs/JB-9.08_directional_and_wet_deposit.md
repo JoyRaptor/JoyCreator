@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T1 + T3 phone check |
-| **Status** | 🟦 Ready (paper specialist, 2026-10-01) |
+| **Status** | 🟧 Built — awaiting the Note 9 (Codex, 2026-10-01) |
 | **Builder** | Codex |
 | **Depends on** | JB-9.06 (document surface, bite, scale), JB-9.09 (landed). See the answer under Questions |
 | **Owner area** | EDIT `joybrush/shaders/jb_grain.glsl` (new function only), `jb_dab.frag`, `jb_dab.vert`, `jb_tuft.frag`; EDIT `GlPaintEngine.kt` (per-dab travel direction in the instance record); EDIT `core/grain/GrainMath.kt` (CPU twin); EDIT `core/paint/*` where the dab instance is built (`BrushDabber`, `Dab`); tests. **Hot files: JB-9.03's rule.** |
@@ -68,7 +68,7 @@ Owner judges dry scraping in two directions, wet pooling, and that Ink with a sm
 Do not normalise slopes to unit normals before `face` (the range normalisation is the scale). Do not install. Do not change tip-texture behaviour.
 
 ## Definition of done
-- [x] tests pass: core1440/0, newest XML2026-10-01 19:05:31 EDT; Android-kit225/0, newest XML19:07:44 EDT (own worktree, exact commands in reviews/JB-9.08__codex.md) · [x] mutation: flip the sign of `face` → the ridge test goes red1/1 · [x] LEAD_DESK line · [ ] pushed · [ ] ROADMAP → 🟧 Built — awaiting the Note 9
+- [x] tests pass: core1440/0, newest XML2026-10-01 19:05:31 EDT; Android-kit225/0, newest XML19:07:44 EDT (own worktree, exact commands in reviews/JB-9.08__codex.md) · [x] mutation: flip the sign of `face` → the ridge test goes red1/1 · [x] LEAD_DESK line · [x] pushed (15df2664) · [x] ROADMAP → 🟧 Built — awaiting the Note 9
 
 ## Questions
 

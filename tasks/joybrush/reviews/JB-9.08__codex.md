@@ -28,4 +28,4 @@ GPU: production dab/tuft compile and link; zero-influence R16F coverage bit-exac
 
 APK passed in 5m37s: C:/Users/JoyRaptor/AppData/Local/Temp/jb-9.08/app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk (also armeabi-v7a and universal). Never installed.
 
-Landing/main fast-forward: pending. Phone judgement remains with the owner/Lead; the Paper swatch/sheet is JB-9.07. The JB-9.06 non-NORMAL export blend contract question remains recorded there.
+Code landed as 15df2664 after fetch/rebase on origin/joy-creator and push HEAD:joy-creator. Main fast-forward refused: local edits in JbCanvasView.kt, GlPaintEngine.kt, CanvasPng.kt, CanvasSnapshot.kt and tasks/todo.md would be overwritten. Left main untouched. Phone judgement remains with the owner/Lead; the Paper swatch/sheet is JB-9.07. The JB-9.06 non-NORMAL export blend contract question remains recorded there.

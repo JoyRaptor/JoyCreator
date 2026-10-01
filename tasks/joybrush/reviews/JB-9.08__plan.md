@@ -5,6 +5,6 @@
 - [x] Wire response through existing stroke records, bind scaled document influence, widen only stamp instances.
 - [x] Implement production shader response/coarse read and GPU direction/zero-influence checks.
 - [x] Verify mutation red/restored, core/Android-kit/shaders and debug APK under build lock.
-- [ ] Record own XML counts/timestamps and land; main fast-forward attempt.
+- [x] Record own XML counts/timestamps and land; main fast-forward refused local edits, left untouched.
 
 No image generation and no phone installation.

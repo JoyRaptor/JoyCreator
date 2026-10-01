@@ -424,4 +424,6 @@ Review: raw candidates are not catalogue entries; seams need repair before shipp
 JB-9.06 review: core1433/0 and Android-kit224/0; GPU/tint mutation/APK pass. See reviews/JB-9.06__codex.md. Main ff refuses tasks/todo.md; leave it alone. Await phone/UI judgement.
 
 ## JB-9.08
-- [ ] Directional/wet deposit, travel and live controls; gated tests/mutation/APK and landing (reviews/JB-9.08__plan.md).
+- [x] Directional/wet deposit, travel and live controls; gated tests/mutation/APK and landing (reviews/JB-9.08__plan.md).
+
+JB-9.08 review: core1440/0 at19:05:31 EDT and Android-kit225/0 at19:07:44 EDT; sign mutation red1/1/restored; GPU direction and exact zero-influence pass; APK built, never installed. Code15df2664 landed. Main ff refuses local view/engine/export/todo edits; leave them intact. Images remain paused. See reviews/JB-9.08__codex.md for exact commands.

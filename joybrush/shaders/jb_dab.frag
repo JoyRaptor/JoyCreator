@@ -12,6 +12,7 @@ precision highp float;
 
 #include "jb_tip.glsl"
 #include "jb_grain.glsl"
+#include "jb_paper.glsl"
 #include "jb_grain_sample.glsl"
 
 uniform float u_aspect;

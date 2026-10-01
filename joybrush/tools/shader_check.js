@@ -13,16 +13,19 @@ function src(name, seen = new Set()) {
   }).join('\n');
 }
 const S = {};
-for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_smudge_dab.frag', 'jb_tile.vert', 'jb_commit.frag', 'jb_tile.frag']) S[n] = src(n);
+for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_tuft.vert', 'jb_tuft.frag', 'jb_paper.glsl', 'jb_smudge_dab.frag', 'jb_tile.vert', 'jb_commit.frag', 'jb_tile.frag']) S[n] = src(n);
+S.paperImage = 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, '..', 'assets', 'paper', 'surface_pulp_artisan.png')).toString('base64');
 
 (async () => {
-  const exe = process.env.CHROME ? null : fs.readdirSync('/opt/pw-browsers').find(d => d.startsWith('chromium-'));
+  const edge = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
+  const exe = process.env.CHROME || (fs.existsSync(edge) ? edge :
+    `/opt/pw-browsers/${fs.readdirSync('/opt/pw-browsers').find(d => d.startsWith('chromium-'))}/chrome-linux/chrome`);
   const browser = await chromium.launch({
-    executablePath: process.env.CHROME || `/opt/pw-browsers/${exe}/chrome-linux/chrome`,
+    executablePath: exe,
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
   });
   const page = await browser.newPage();
-  const res = await page.evaluate((S) => {
+  const res = await page.evaluate(async (S) => {
     const c = document.createElement('canvas');
     const gl = c.getContext('webgl2');
     if (!gl) return { error: 'no webgl2' };
@@ -37,6 +40,8 @@ for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_smudge_dab.frag', 'jb_tile.ve
     try { dab = prog(S['jb_dab.vert'], S['jb_dab.frag']); commit = prog(S['jb_tile.vert'], S['jb_commit.frag']); tile = prog(S['jb_tile.vert'], S['jb_tile.frag']); }
     catch (e) { return { error: 'compile: ' + e.message }; }
     out.compiled = true;
+    prog(S['jb_tuft.vert'], S['jb_tuft.frag']);
+    out.tuftCompiled = true;
     const N = 256;
     function tex(internal, format, type) { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
       gl.texImage2D(gl.TEXTURE_2D, 0, internal, N, N, 0, format, type, null);
@@ -65,7 +70,7 @@ for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_smudge_dab.frag', 'jb_tile.ve
     const dummy = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, dummy);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, dummy); gl.activeTexture(gl.TEXTURE0);
-    gl.uniform1i(u(dab, 'u_tipGrain'), 0); gl.uniform1i(u(dab, 'u_paperGrain'), 1);
+    gl.uniform1i(u(dab, 'u_tipGrain'), 0); gl.uniform1i(u(dab, 'u_paperSurface'), 1);
     gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 40);
     const px = new Float32Array(4); gl.readPixels(128, 128, 1, 1, gl.RGBA, gl.FLOAT, px); out.strokeCentre = px[0];
@@ -107,7 +112,8 @@ for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_smudge_dab.frag', 'jb_tile.ve
       gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 24, 0); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 24, 16);
       gl.useProgram(dab);
       gl.uniform1f(u(dab, 'u_hardness'), 1);
-      gl.uniform1i(u(dab, 'u_tipGrain'), 0); gl.uniform1i(u(dab, 'u_paperGrain'), 1);
+      gl.uniform1i(u(dab, 'u_tipGrain'), 0); gl.uniform1i(u(dab, 'u_paperSurface'), 1);
+      paperUniforms(dab, 4);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, bright);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, paperTex);
       gl.uniform1f(u(dab, 'u_tipGrainPitchPx'), 0); gl.uniform1f(u(dab, 'u_paperGrainPitchPx'), paperPitch);
@@ -125,6 +131,71 @@ for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_smudge_dab.frag', 'jb_tile.ve
     out.grainPenCentre = centreWith(256, bright, 0.7, [1, 0]);      // a leaning pen: still finite at the centre
     out.grainDarkens = out.grainBrightCentre > 0.9 && out.grainDarkCentre < 0.05 && out.grainOffCentre > 0.9;
     out.grainAllFinite = [out.grainOffCentre, out.grainBrightCentre, out.grainDarkCentre, out.grainFingerCentre, out.grainPenCentre].every(Number.isFinite);
+    // JB-9.03: the shipped paper, one full period apart, plus plain tiling as the control.
+    function paperUniforms(p, size = 512) {
+      gl.uniform1f(u(p, 'u_paperTexelPx'), 2);
+      gl.uniform1f(u(p, 'u_paperSize'), size);
+      gl.uniform1f(u(p, 'u_paperHexTexels'), 180);
+      gl.uniform1f(u(p, 'u_paperSlopeRange'), 0.099);
+      gl.uniform1i(u(p, 'u_paperRotatable'), 1);
+    }
+    const image = new Image(); image.src = S.paperImage; await image.decode();
+    gl.activeTexture(gl.TEXTURE1);
+    const surface = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, surface);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    const W = 2048, H = 256;
+    c.width = W; c.height = H;
+    gl.activeTexture(gl.TEXTURE3);
+    const strip = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, strip);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, strip, 0);
+    gl.viewport(0, 0, W, H); gl.disable(gl.BLEND);
+    const stripV = `#version 300 es\nprecision highp float; layout(location=0) in vec2 a; void main(){gl_Position=vec4(a,0,1);}`;
+    const stripF = `#version 300 es\nprecision highp float; ${S['jb_paper.glsl']}\nuniform bool u_control; out vec4 color;
+      void main(){float h=u_control ? texture(u_paperSurface,gl_FragCoord.xy/1024.0).b : jb_paperSurface(gl_FragCoord.xy).z; color=vec4(h,h,h,1);}`;
+    const stripP = prog(stripV, stripF);
+    gl.bindVertexArray(vao); gl.useProgram(stripP);
+    gl.uniform1i(u(stripP, 'u_paperSurface'), 1); paperUniforms(stripP);
+    function correlation(control, p = stripP) {
+      gl.uniform1i(u(p, 'u_control'), control);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      const pixels = new Uint8Array(W * H * 4); gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      let sx=0, sy=0, xx=0, yy=0, xy=0;
+      for(let y=0;y<H;y++) for(let x=0;x<W/2;x++) {
+        const a=pixels[(y*W+x)*4], b=pixels[(y*W+x+W/2)*4];
+        sx+=a;sy+=b;xx+=a*a;yy+=b*b;xy+=a*b;
+      }
+      const n=W/2*H;
+      return (n*xy-sx*sy)/Math.sqrt((n*xx-sx*sx)*(n*yy-sy*sy));
+    }
+    out.paperSurfaceCorrelation = correlation(0); out.paperSurfaceControlCorrelation = correlation(1);
+    // Fill the same strip with a paper-on dab using the production fragment shader.
+    const paperDabV = `#version 300 es\nprecision highp float; layout(location=0) in vec2 a;
+      out vec2 v_offset; out vec2 v_dabCentre; out float v_radius; out float v_angle; out float v_flow; out float v_cap;
+      void main(){gl_Position=vec4(a,0,1);v_offset=a*vec2(1024,128);v_dabCentre=vec2(1024,128);
+        v_radius=2048.0;v_angle=0.0;v_flow=1.0;v_cap=1.0;}`;
+    function dabCorrelation(control) {
+      const fragment = control ? S['jb_dab.frag'].replace('return jb_paperSurface(docPx).z;',
+        'return texture(u_paperSurface, docPx / 1024.0).b;') : S['jb_dab.frag'];
+      const p = prog(paperDabV, fragment); gl.useProgram(p); paperUniforms(p);
+      gl.uniform1i(u(p,'u_tipGrain'),0);gl.uniform1i(u(p,'u_paperSurface'),1);
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,dummy);
+      gl.uniform1f(u(p,'u_paperGrainPitchPx'),2);gl.uniform1f(u(p,'u_paperDepth'),0.5);
+      gl.uniform1f(u(p,'u_paperEdge'),0.5);gl.uniform1f(u(p,'u_hardness'),1);
+      gl.uniform1f(u(p,'u_corner'),2);gl.uniform1f(u(p,'u_minPx'),1);
+      // The program's chosen read is the control; u_control is absent in these dab shaders.
+      return correlation(control, p);
+    }
+    out.paperCorrelation=dabCorrelation(false);out.paperControlCorrelation=dabCorrelation(true);
+    out.paperNoRepeat = out.paperCorrelation < 0.3 && out.paperControlCorrelation > 0.99 &&
+      out.paperSurfaceCorrelation < 0.3 && out.paperSurfaceControlCorrelation > 0.99;
+    gl.viewport(0, 0, N, N);
     // ---- JB-1.06: the smudge path ---------------------------------------------------------------------
     // Two dabs of two different carried colours, accumulated in an RGBA float stroke buffer, then committed with u_smudge = 1 over an
     // opaque canvas and over an EMPTY one. Must equal the sequential rule  out = carried*t + canvas*(1 - carriedA*t)  applied twice
@@ -213,7 +284,7 @@ for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_smudge_dab.frag', 'jb_tile.ve
   }, S);
   console.log(JSON.stringify(res));
   await browser.close();
-  if (!res.compiled || !res.fbo || res.glError !== 0 || !res.grainDarkens || !res.grainAllFinite ||
+  if (!res.compiled || !res.tuftCompiled || !res.paperNoRepeat || !res.fbo || res.glError !== 0 || !res.grainDarkens || !res.grainAllFinite ||
       !res.smudgeOk || !res.smudgeOpacityOk || !res.coverageOpacityOk ||
       Math.abs(res.strokeCentre - 0.5) > 0.01 || res.strokeOutside !== 0 ||
       !res.committedRGBA?.every((v, i) => Math.abs(v - [127, 0, 0, 127][i]) <= 2)) process.exitCode = 1;

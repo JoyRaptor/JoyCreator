@@ -80,7 +80,16 @@ installs it after the owner presses Home. The owner then judges: pencil light→
 - Do not run Gradle in the main folder (R43). Worktree under `$TEMP/jb-9.03`, copy `local.properties` (root and `joybrush/`) and `tools/devices.local.sh`.
 
 ## Definition of done
-- [ ] shader check + suites pass (paste) · [ ] LEAD_DESK line written · [ ] commit "JB-9.03: …", rebased, pushed
-- [ ] ROADMAP row → 🟧 Built — **awaiting the owner on the Note 9**
+- [x] shader check + suites pass (paste) · [x] LEAD_DESK line written · [x] commit "JB-9.03: …", rebased, pushed
+- [x] ROADMAP row → 🟧 Built — **awaiting the owner on the Note 9**
+
+## Verification (2026-10-01)
+
+- `.\gradlew.bat --no-watch-fs -p joybrush :core:jvmTest --rerun-tasks`: XML 1328 tests, 0 failures, 0 errors, 0 skipped.
+- `.\gradlew.bat --no-watch-fs :joybrush-android:compileDebugKotlin :app:assembleDefaultDebug`: passed; no installation.
+- `node joybrush/tools/shader_check.js`: headless Edge compiles/links dab + tuft, GL error 0; production dab correlation 0.029826 versus plain-repeat control 1.0.
+- Packaged library contains the surface PNG, catalogue and `jb_paper.glsl`.
+- APK: `%TEMP%/jb-9.03/app/build/outputs/apk/default/debug/app-default-debug.apk`; awaiting the owner on the Note 9.
+- JB-9.02 has not landed: `PencilOnAFingerTest` records `TODO(JB-9.02)` for CPU hex sampling; shader/CPU seeded-point parity awaits that twin.
 
 ## Questions

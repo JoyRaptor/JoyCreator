@@ -9,10 +9,10 @@ import java.nio.ByteOrder
 
 /**
  * The grain pictures a brush points at (JB-1.05c): `cloud_256.png` and friends from the packaged
- * `/joybrush/assets/grain/`. GL THREAD ONLY, like [GlPaintEngine], which owns one.
+ * `/joybrush/assets/grain/` and paper surfaces from `/joybrush/assets/paper/`. GL THREAD ONLY, like [GlPaintEngine], which owns one.
  *
  * Every texture is REPEAT with a mip chain (a paper grain seen from far away must average, not shimmer)
- * and is read from its RED channel — the pictures are greyscale, so red is the height.
+ * Tip pictures use RED for height; paper surfaces retain RGBA slopes, height and height².
  *
  * A texture name only means something on the context that minted it, so after a context loss
  * [forget] drops the names WITHOUT deleting them (deleting a name the new context may already have
@@ -85,11 +85,17 @@ class GrainTextures(
     internal fun heldNames(): Int = byName.size + (if (placeholder != 0) 1 else 0)
 
     companion object {
-        /** Reads `/joybrush/assets/grain/<name>` from the jar. The name is a plain file name (GrainMath.assetNameFor). */
+        /** Reads grain or surface PNGs from their packaged resource folder. The name is a plain file name (GrainMath.assetNameFor). */
         fun loadPackagedBitmap(name: String): Bitmap? {
-            val stream = GrainTextures::class.java.getResourceAsStream("/joybrush/assets/grain/$name") ?: return null
+            val folder = if (name.startsWith("surface_")) "paper" else "grain"
+            val stream = GrainTextures::class.java.getResourceAsStream("/joybrush/assets/$folder/$name") ?: return null
             return stream.use {
-                val o = BitmapFactory.Options().apply { inScaled = false }
+                val o = BitmapFactory.Options().apply {
+                    inScaled = false
+                    // Surface alpha is height² data: never multiply the slopes/height by it.
+                    inPremultiplied = false
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
                 BitmapFactory.decodeStream(it, null, o)
             }
         }

@@ -58,13 +58,19 @@ class GrainWiringTest {
     }
 
     @Test
-    fun onlyTheGrainTheFileEnablesIsOnAndItsPitchIsSixtyFourOverScale() {
+    fun onlyTheGrainTheFileEnablesIsOnAndPaperUsesTheUniversalSurface() {
         val g = BrushDabber(pencil, 1L).strokeGrain
         assertFalse(g.tip.enabled, "the pencil has no tip texture")
         assertTrue(g.paper.enabled)
-        assertEquals(6.4f, g.paper.pitchPx, 1e-6f) // 64 / 10
-        assertEquals("cloud_fine_256.png", g.paper.asset)
+        assertEquals(2f, g.paper.pitchPx, 1e-6f) // JB-9.03: doc px per surface texel, independent of brush scale
+        assertEquals(GrainMath.DEFAULT_SURFACE, g.paper.asset) // JB-9.03: the document paper is universal
         assertEquals(0.6f, g.paper.tiltGradient)
         assertEquals(0.25f, g.paper.edge)
+        // JB-9.03: legacy paper image/scale cannot choose a second surface; tip keeps both.
+        val legacy = pencil.paperGrain.copy(image = "cloud_256.png", scale = 8f)
+        val both = BrushDabber(pencil.copy(paperGrain = legacy, tipTexture = legacy), 1L).strokeGrain
+        assertEquals(g.paper, both.paper)
+        assertEquals("cloud_256.png", both.tip.asset)
+        assertEquals(8f, both.tip.pitchPx)
     }
 }

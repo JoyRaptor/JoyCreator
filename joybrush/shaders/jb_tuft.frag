@@ -13,6 +13,7 @@
 // A plain mark (kind 1: spatter, stray hair) is the teardrop alone.
 precision highp float;
 
+#include "jb_paper.glsl"
 #include "jb_grain_sample.glsl"
 
 uniform float u_bristles;   // streaks across the full width

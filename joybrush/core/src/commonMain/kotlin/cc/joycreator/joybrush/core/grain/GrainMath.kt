@@ -35,6 +35,18 @@ object GrainMath {
     /** The asset a grain with no image of its own uses (Decision 7). */
     const val DEFAULT_CLOUD = "cloud_256.png"
 
+    /** JB-9.03: one physical paper surface for every brush (R10 P4). */
+    const val DEFAULT_SURFACE = "surface_pulp_artisan.png"
+    const val SURFACE_SIZE = 512f
+    const val SURFACE_TEXEL_PX = 2f
+    const val SURFACE_SLOPE_RANGE = 0.099f
+    const val SURFACE_HEX_TEXELS = 180f
+    const val SURFACE_ROTATABLE = true
+
+    /** Paper image and scale belong to the document surface, never the brush's legacy grain entry. */
+    fun paperUniformsFor(spec: GrainSpec, depthAtFirstDab: Float): GrainUniforms =
+        uniformsFor(spec.copy(image = DEFAULT_SURFACE, scale = GRAIN_UNIT_PX / SURFACE_TEXEL_PX), depthAtFirstDab)
+
     // ---- the NaN row --------------------------------------------------------------------------
 
     /** `sin(tilt)`; a channel that is not a finite number means "no tilt sensor", which is upright. */

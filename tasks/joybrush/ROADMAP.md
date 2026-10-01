@@ -303,7 +303,7 @@ Phases follow `JOYBRUSH_BLUEPRInT.md` §4. Each phase ends with an owner check (
 |---|---|---|---|---|
 | [JB-9.01](specs/JB-9.01_surface_maps.md) Height → slopes ("normal map") → packed RGBA surface | T1 | — | 🟦 Ready | OpenCode |
 | [JB-9.02](specs/JB-9.02_hex_tile_sampler.md) Hex-tile sampler, CPU twin: the no-repeat read (canonical maths) | T1 | 9.01 | 🟦 Ready | OpenCode |
-| [JB-9.03](specs/JB-9.03_paper_grain_quick_win.md) Quick win: pencil + Sable feel a real paper that never shows its grid | T1+T3 | — | 🟦 Ready | Codex |
+| [JB-9.03](specs/JB-9.03_paper_grain_quick_win.md) Quick win: pencil + Sable feel a real paper that never shows its grid | T1+T3 | — | 🟧 Built — awaiting the owner on the Note 9; core XML 1328/0/0/0; `.\gradlew.bat --no-watch-fs -p joybrush :core:jvmTest --rerun-tasks` | Codex |
 | [JB-9.04](specs/JB-9.04_paper_catalogue.md) Paper catalogue: types, reader, validator | T1 | — | 🟦 Ready | OpenCode |
 | [JB-9.05](specs/JB-9.05_document_paper_v4.md) Document paper: look, surface, tint, show, bite, light (DOC_VERSION 4) | T1 | 9.04 | 🟦 Ready | OpenCode |
 | [JB-9.06](specs/JB-9.06_paper_on_screen_and_export.md) Paper on screen behind the layers, swappable, exported or left out, right at every zoom | T1+T3 | 9.03, 9.04, 9.05 | 🟦 Ready | Codex |

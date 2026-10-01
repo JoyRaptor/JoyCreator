@@ -67,7 +67,7 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
     val strokeGrain: GrainMath.StrokeGrain
         get() = GrainMath.StrokeGrain(
             tip = GrainMath.uniformsFor(preset.tipTexture, tipGrainDepth),
-            paper = GrainMath.uniformsFor(preset.paperGrain, paperGrainDepth),
+            paper = GrainMath.paperUniformsFor(preset.paperGrain, paperGrainDepth),
         )
 
     /**

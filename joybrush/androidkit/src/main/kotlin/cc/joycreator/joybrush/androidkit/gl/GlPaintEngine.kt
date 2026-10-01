@@ -791,7 +791,7 @@ class GlPaintEngine(
         GLES30.glUniform1f(tuftProg.loc("u_action"), shading.action)
         // Both samplers get a real picture every batch: an unset sampler reads unit 0, which may be the tile being drawn.
         GLES30.glUniform1i(tuftProg.loc("u_tipGrain"), 0)
-        GLES30.glUniform1i(tuftProg.loc("u_paperGrain"), 1)
+        setPaperSurfaceUniforms(tuftProg)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, grains.placeholder)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
@@ -866,6 +866,16 @@ class GlPaintEngine(
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
     }
 
+    /** JB-9.03: the fixed document surface; both brush programs bind it on unit 1. */
+    private fun setPaperSurfaceUniforms(program: GlProgram) {
+        GLES30.glUniform1i(program.loc("u_paperSurface"), 1)
+        GLES30.glUniform1f(program.loc("u_paperTexelPx"), GrainMath.SURFACE_TEXEL_PX)
+        GLES30.glUniform1f(program.loc("u_paperSize"), GrainMath.SURFACE_SIZE)
+        GLES30.glUniform1f(program.loc("u_paperHexTexels"), GrainMath.SURFACE_HEX_TEXELS)
+        GLES30.glUniform1f(program.loc("u_paperSlopeRange"), GrainMath.SURFACE_SLOPE_RANGE)
+        GLES30.glUniform1i(program.loc("u_paperRotatable"), if (GrainMath.SURFACE_ROTATABLE) 1 else 0)
+    }
+
     /**
      * Everything the dab shader takes for grain (JB-1.05c). The pictures go on units 0 and 1 EVERY batch
      * and are never left to a default: an unset sampler reads unit 0, and whatever is bound there might
@@ -878,7 +888,7 @@ class GlPaintEngine(
      */
     private fun setGrainUniforms(newest: Dab) {
         GLES30.glUniform1i(dabProg.loc("u_tipGrain"), 0)
-        GLES30.glUniform1i(dabProg.loc("u_paperGrain"), 1)
+        setPaperSurfaceUniforms(dabProg)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tipGrainTex)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)

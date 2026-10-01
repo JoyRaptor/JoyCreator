@@ -1,4 +1,4 @@
-﻿# TODO — 48-minute export truncation + export UX (2026-09-21)
+# TODO — 48-minute export truncation + export UX (2026-09-21)
 
 ## Diagnosis (proved from on-device `faditor_export_errors/*.txt`, NOT theory)
 
@@ -383,3 +383,13 @@ compressed checkpoints avoid retaining a second full pixel set and isolate sessi
 default document ID. All owner archive entries restored exactly; phone is back in normal mode.
 - [ ] Next: large-to-large Open must preserve the old drawing before inflating the selected drawing;
       current simultaneous pixel sets exceed the Note 9 heap. Refusal keeps the previous file safe.
+
+## Joy Brush paper lane — 2026-10-01
+- [x] Read dispatch/research/spec; isolate JB-9.03 and copy local settings.
+- [x] JB-9.03: sampler, core constants, RGBA loading/binding, packaging.
+- [x] Verify shader control, XML counts, Kotlin compilation and APK.
+- [x] Record Lead note, commit/rebase/push, fast-forward main.
+- [ ] Continue JB-9.06, JB-9.08, JB-9.10 candidates under their specs.
+
+### Review
+JB-9.03: core XML 1328 tests, 0 failures/errors/skips; Edge no-repeat correlation 0.029826 vs control 1.0; Kotlin/APK passed. No phone installation. Later row specification conflicts are recorded under Questions.

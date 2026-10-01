@@ -604,13 +604,13 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
                 seed = (SplitMix(seed xor SHADING_SALT).nextFloat() * 97f),
                 action = u(t.action),
                 paperAsset = PAPER_TOOTH,
-                paperPitchPx = GrainMath.pitchPxFor(PAPER_TOOTH_SCALE),
+                paperPitchPx = GrainMath.SURFACE_TEXEL_PX,
             )
         }
 
-        /** The page's tooth: the fine cloud, at the Pencil's paper scale. */
-        const val PAPER_TOOTH = "cloud_fine_256.png"
-        const val PAPER_TOOTH_SCALE = 1.5f
+        /** JB-9.03: Sable touches the same physical paper surface as Pencil. */
+        const val PAPER_TOOTH = GrainMath.DEFAULT_SURFACE
+        const val PAPER_TOOTH_SCALE = GrainMath.GRAIN_UNIT_PX / GrainMath.SURFACE_TEXEL_PX
         private const val SHADING_SALT = 0x7F7L
 
         /** At the Press flat slider's top, the belly spreads to this many MORE belly widths. */

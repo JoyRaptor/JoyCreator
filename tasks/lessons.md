@@ -907,3 +907,6 @@ wrong rejection as a hard-won lesson.
   Killing just Gradle restarts it and leaves two writers when another watcher is launched.
   Keep one complete watcher tree; a green build can still contain corrupted dex after races.
   Verify the installed app launches and inspect actual class definitions when packaging fails.
+
+## 2026-10-01 — Respect the owner's limited Plus usage
+Keep delegated work focused; avoid extra agents, speculative work and repeated verification. Run required checks once and repeat only after a relevant change or failure.

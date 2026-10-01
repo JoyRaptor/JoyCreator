@@ -70,8 +70,8 @@ data class TuftStamp(
  * @property tooth 0..1: how much the page's tooth breaks up the dry parts.
  * @property seed a per-stroke offset into the streak pattern.
  * @property action 0..1: bristle marks even in a loaded brush — broken edges (the Bristle action slider).
- * @property paperAsset the packaged grain picture the page's tooth is read from.
- * @property paperPitchPx document px per repeat of [paperAsset] — a property of the page, not of the brush.
+ * @property paperAsset the packaged RGBA surface the page's tooth is read from.
+ * @property paperPitchPx document px per texel of [paperAsset] — a property of the page, not of the brush.
  */
 data class TuftShading(
     val bristles: Float,

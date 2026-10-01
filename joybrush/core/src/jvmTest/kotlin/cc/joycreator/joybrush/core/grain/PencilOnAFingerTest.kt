@@ -21,8 +21,8 @@ class PencilOnAFingerTest {
 
     private val pencil = BrushJson.decode(File(root(), "brushes/pencil/brush.json").readText())
     private val heights: Array<FloatArray> = run {
-        val name = GrainMath.assetNameFor(pencil.paperGrain)!!
-        val img = ImageIO.read(File(root(), "assets/grain/$name"))
+        val name = GrainMath.DEFAULT_SURFACE
+        val img = ImageIO.read(File(root(), "assets/paper/$name"))
         Array(img.height) { y -> FloatArray(img.width) { x -> (img.getRGB(x, y) and 0xFF) / 255f } }
     }
 
@@ -31,13 +31,15 @@ class PencilOnAFingerTest {
             u.depth, 1f, nx, ny, GrainMath.leanX(az), GrainMath.leanY(az),
             GrainMath.tiltAmount(tilt), u.tiltGradient, u.radial,
         )
-        val h = heights[ty and 255][tx and 255]
+        // TODO(JB-9.02): call HexTile.sampleSurface at document points once its CPU twin lands.
+        // JB-9.03: B is height; this test exercises real surface texels and the NaN/threshold guards.
+        val h = heights[Math.floorMod(ty, heights.size)][Math.floorMod(tx, heights[0].size)]
         return GrainMath.grainedCoverage(1f, GrainMath.heightCoverage(h, level, u.edge))
     }
 
     @Test
     fun theShippedPencilStillDrawsUnderAFinger() {
-        val u = GrainMath.uniformsFor(pencil.paperGrain, 0.9f) // pressure 1: curve top
+        val u = GrainMath.paperUniformsFor(pencil.paperGrain, 0.9f) // pressure 1: curve top
         assertTrue(u.enabled, "the shipped pencil has its paper grain on")
         var anyPaint = false
         for (i in -2..2) for (j in -2..2) {
@@ -46,7 +48,7 @@ class PencilOnAFingerTest {
                 GrainMath.tiltAmount(Float.NaN), u.tiltGradient, u.radial)
             assertTrue(level.isFinite() && level in 0f..1f, "finger level at ($nx,$ny) = $level")
         }
-        for (ty in 0 until 256) for (tx in 0 until 256) {
+        for (ty in heights.indices) for (tx in heights[0].indices) {
             val c = coverageAt(u, 0f, 0f, Float.NaN, Float.NaN, tx, ty)
             assertTrue(c.isFinite() && c in 0f..1f)
             if (c > 0f) anyPaint = true
@@ -56,9 +58,9 @@ class PencilOnAFingerTest {
 
     @Test
     fun aRealPenLeaningOneWayDrawsDifferentlyOnTheLeanSideSoTheGrainIsNotSimplyOff() {
-        val u = GrainMath.uniformsFor(pencil.paperGrain, 0.3f) // light pressure: the texture decides
+        val u = GrainMath.paperUniformsFor(pencil.paperGrain, 0.3f) // light pressure: the texture decides
         var lean = 0f; var away = 0f
-        for (ty in 0 until 256) for (tx in 0 until 256) {
+        for (ty in heights.indices) for (tx in heights[0].indices) {
             lean += coverageAt(u, 0.6f, 0f, 0.5f, 0f, tx, ty)
             away += coverageAt(u, -0.6f, 0f, 0.5f, 0f, tx, ty)
         }

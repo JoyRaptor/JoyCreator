@@ -63,4 +63,9 @@ const val VERSION_TUFT = 4
      * graze the tooth (owner, 2026-09-30: "shading, even though it's a pen"). Pressed hard it is black whatever this says.
      */
     val graze: Float = 0.6f,
+    /**
+     * Which end of a laid-over brush grazes: false = the far, belly end (solid at the point on the pen); true = the point
+     * end (solid out along the lean). The owner's preference (2026-10-01: "a checkbox to flip this").
+     */
+    val grazeAtPoint: Boolean = false,
 )

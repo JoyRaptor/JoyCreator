@@ -87,7 +87,9 @@ class BrushSettingsView(
         hearing.addView(pressureCurve, LayoutParams(0, WRAP, 1f).apply { marginStart = kit.dpi(6f) })
         hearing.addView(tiltCurve, LayoutParams(0, WRAP, 1f).apply { marginStart = kit.dpi(6f) })
         list.addView(hearing, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(6f)) })
-        for (knob in BrushKnobs.forBrush(base)) if (knob.slider) list.addView(row(knob))
+        for (knob in BrushKnobs.forBrush(base)) {
+            if (knob.toggle) list.addView(checkRow(knob)) else if (knob.slider) list.addView(row(knob))
+        }
         val scroll = ScrollView(context).apply { addView(list, ViewGroup.LayoutParams(MATCH, WRAP)) }
         // Preview + sliders take at most ~55% of the screen, so the drawing above stays free for test strokes.
         val maxH = (context.resources.displayMetrics.heightPixels * 0.55f).toInt() - kit.dpi(PREVIEW_DP + 48f)
@@ -100,6 +102,9 @@ class BrushSettingsView(
 
     private fun refresh() {
         val p = tuned()
+        refreshing = true
+        for ((knob, box) in checks) box.isChecked = knob.get(p) >= 0.5f
+        refreshing = false
         pressureCurve.setHandles(p.response.pressure)
         tiltCurve.setHandles(p.response.tilt)
         for ((knob, seek, value) in rows) {
@@ -141,6 +146,28 @@ class BrushSettingsView(
         box.addView(head, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(6f), kit.dpi(2f), kit.dpi(6f), 0) })
         box.addView(seek, LayoutParams(MATCH, kit.dpi(34f)))
         return box
+    }
+
+    private val checks = ArrayList<Pair<BrushKnobs.Knob, android.widget.CheckBox>>()
+
+    /** True while [refresh] sets the controls, so putting a checkbox back is not heard as the owner ticking it. */
+    private var refreshing = false
+
+    /** An on/off setting as a checkbox, in the chrome's ink. */
+    private fun checkRow(knob: BrushKnobs.Knob): android.widget.CheckBox = android.widget.CheckBox(context).apply {
+        text = knob.label
+        textSize = 13f
+        setTextColor(kit.p.drawerInk)
+        buttonTintList = ColorStateList.valueOf(kit.p.drawerInk)
+        isChecked = knob.get(tuned()) >= 0.5f
+        minHeight = kit.dpi(ChromeKit.TOUCH_DP)
+        kit.label(this, knob.hint)
+        setOnCheckedChangeListener { _, on ->
+            if (refreshing) return@setOnCheckedChangeListener
+            positions = positions + (knob.key to if (on) 1f else 0f)
+            onChange(positions, true)
+        }
+        checks.add(knob to this)
     }
 
     private fun text(s: String, sp: Float): TextView = TextView(context).apply {

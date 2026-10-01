@@ -30,7 +30,8 @@
     "tilt": 0.5,
     "flatten": 0.5,
     "action": 0.4,
-    "graze": 0.6
+    "graze": 0.6,
+    "grazeAtPoint": false
   },
   "license": "CC0"
 }

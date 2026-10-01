@@ -44,7 +44,10 @@ data class TuftStamp(
     val splay: Float = 0f,
     val arc: Float = 0f,
     val kind: Int = KIND_FOOTPRINT,
-    /** 0..1: how lightly the belly END of a laid-over brush grazes the paper — dry and scratchy there, solid at the tip. */
+    /**
+     * How lightly a laid-over brush grazes the paper, 0..1 in size: dry and scratchy at one end, solid at the other. Positive
+     * = the belly end grazes; negative = the point end does (the Graze-at-point setting).
+     */
     val graze: Float = 0f,
 ) {
     companion object {

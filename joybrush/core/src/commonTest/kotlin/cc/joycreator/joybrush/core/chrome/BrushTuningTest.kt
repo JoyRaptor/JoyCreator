@@ -45,7 +45,7 @@ class BrushTuningTest {
 
     @Test
     fun everyTuftSettingHasAKnob() {
-        val names = BrushValidate.tuftSliders(TuftSpec()).map { "tuft.${it.first}" }.toSet() + "tuft.tipPx"
+        val names = BrushValidate.tuftSliders(TuftSpec()).map { "tuft.${it.first}" }.toSet() + "tuft.tipPx" + "tuft.grazeAtPoint"
         val keys = BrushKnobs.forBrush(sable()).map { it.key }.filter { it.startsWith("tuft.") }.toSet()
         assertEquals(names, keys)
     }

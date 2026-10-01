@@ -103,6 +103,9 @@ class TuftStrokeTest {
         assertTrue(light.ax - 0f > 8f, "the belly lies out along the lean (+x): ${light.ax}")
         assertTrue(light.ra > 3f, "a light touch on its side is still almost as big: ${light.ra}")
         assertTrue(light.graze > 0.3f, "and it grazes: ${light.graze}")
+        val flipped = footprints(draw(sable { it.copy(grazeAtPoint = true) },
+            (0..80).map { i -> PenSample(0f, i.toFloat(), i / 0.3, 0.12f, tilt = 1.1f, azimuth = lean) }).first).last()
+        assertTrue(flipped.graze < -0.3f, "Graze at the point flips which end grazes: ${flipped.graze}")
         val hard = last(0.95f, 1.1f)
         assertTrue(hard.graze < 0.05f, "pressed hard it is black: ${hard.graze}")
         val upright = last(0.12f, 0f)

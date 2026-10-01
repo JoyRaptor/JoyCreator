@@ -39,6 +39,8 @@ object BrushKnobs {
         val show: (BrushPreset) -> String,
         /** False for a number a curve editor owns (the response handles): saved and applied like a slider, drawn as a curve. */
         val slider: Boolean = true,
+        /** An on/off setting: drawn as a checkbox, kept as 0 or 1. */
+        val toggle: Boolean = false,
     )
 
     /** The knobs for [p], in the order a person meets them: the line first, then the ink, then the accidents. */
@@ -91,6 +93,10 @@ object BrushKnobs {
             { it.tilt }, { s, v -> s.copy(tilt = v) }),
         tuft("graze", "Graze", "A laid-over pen pressed lightly: how wispy and scratchy the far side of the brush is, for shading. Pressed hard it is black.",
             { it.graze }, { s, v -> s.copy(graze = v) }),
+        Knob("tuft.grazeAtPoint", "Graze at the point", "Checked: the point end of a laid-over brush grazes and the far end stays solid. Unchecked: the other way round.",
+            get = { p -> if (p.tuft.grazeAtPoint) 1f else 0f },
+            set = { p, v -> p.copy(tuft = p.tuft.copy(grazeAtPoint = v >= 0.5f)) },
+            show = { p -> if (p.tuft.grazeAtPoint) "on" else "off" }, toggle = true),
         tuft("steady", "Steadiness", "The brush smooths your hand's wobble across the line into a calm drift. The line never lags behind the pen.",
             { it.steady }, { s, v -> s.copy(steady = v) }),
         tuft("trail", "Trail", "How long the bristles trail when you move with a little pressure: thin but long, calligraphic. Also how far a quick lift carries on.",

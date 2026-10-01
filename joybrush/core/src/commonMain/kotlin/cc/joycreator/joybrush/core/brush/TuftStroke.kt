@@ -403,6 +403,8 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         val ox = if (lay > 0f) cos(s.azimuth) * ext else 0f
         val oy = if (lay > 0f) sin(s.azimuth) * ext else 0f
         val graze = u(spec.graze) * lay * (1f - p).pow(1.3f)
+        // The sign carries which end grazes to the shader (TuftStamp.graze): negative = the point end.
+        val grazeSigned = if (spec.grazeAtPoint) -graze else graze
         w *= 1f - u(spec.speedThin) * 0.4f * smooth(0.15f, 1f, vN)
         w += u(spec.settle) * slowness * (0.15f * w + 0.25f * tipR)
         w *= 1f + u(spec.corner) * 1.2f * mis * engaged
@@ -435,7 +437,7 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         return Look(
             x = fx, y = fy, w = w, len = len, bx = ubx, by = uby, rb = rb,
             dry = (dryness(vN, pc, mis, engaged) + 0.3f * graze).coerceIn(0f, 1f), splay = splay, arc = arc,
-            pc = pc, nx = if (hasDir) -ty else 0f, ny = if (hasDir) tx else 1f, ox = ox, oy = oy, sx = sx, sy = sy, graze = graze,
+            pc = pc, nx = if (hasDir) -ty else 0f, ny = if (hasDir) tx else 1f, ox = ox, oy = oy, sx = sx, sy = sy, graze = grazeSigned,
         )
     }
 

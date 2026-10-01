@@ -72,8 +72,11 @@ object PaperState {
 - Do not add the catalogue to the document.
 
 ## Definition of done
-- [ ] tests pass with counts · [ ] mutation: drop the `show` range check → its test goes red · [ ] owner area only
-- [ ] commit "JB-9.05: …", rebased, pushed · [ ] ROADMAP row → 🟧 Built + command + counts
+- [x] tests pass with counts — 1421/0/0/0, 94 suites; `PaperStateTest` 15, `DocModelTest` 55, `EnumFreezeTest` 10; XML 2026-10-01 14:56:53
+- [x] mutation: drop the `show` range check → its test goes red — [showAndBiteMustBeFractions], 1 of 55, nothing else
+- [x] owner area only — `DocModel.kt` (Paper + the version), `DocOps.kt` (paper validation only), new `PaperState.kt`, plus the tests specialist answer 2 put in scope
+- [x] commit "JB-9.05: …", rebased, pushed
+- [x] ROADMAP row → 🟧 Built + command + counts
 
 ## Questions
 
@@ -106,3 +109,39 @@ Stopping this row here with no code written, rather than inventing a stand-in ca
    is a CLAMP inside `PaperState.resolve`, not a validation rule. Less churn, and old files stay valid. (Decision 3's sentence about 0.25..4 is
    overridden by this answer.)
 4. The `textureId != null` refusals in `JbCanvasView.kt:1208` and `CanvasSnapshot.kt:81` stay; JB-9.06 lifts them.
+
+---
+
+### What the builder did with each answer, and the pins the spec asked to be listed
+
+2026-10-01 OpenCode free agent. Answer 1: waited, then rebased onto the commit carrying it. No other
+row's files were built.
+
+**The `DOC_VERSION == 3` pins, as the spec asked them listed.** There was exactly **one** literal in the
+repo, and it is now 4:
+- `core/src/commonTest/.../doc/EnumFreezeTest.kt:95` — `assertEquals(3, DOC_VERSION)` → `4`, with a
+  comment naming JB-9.05, R31 and the R38 cost. This is the one the earlier question flagged, and the
+  specialist confirmed it in scope.
+- `core/src/commonTest/.../doc/DocModelTest.kt:160` — `expectedKeyTable()`'s `$.paper` row gained
+  `lookId, tint, show, bite, light`. It was not a version literal but it is a pin on the same file's
+  shape, and it backs the R31 unknown-key refusal, so a wrong answer would have been silently accepted.
+- `androidkit/.../io/CanvasSnapshotTest.kt:85` — **needs no change.** Answer 2 said "if it pins the
+  version"; it does not. It reads `assertEquals(DOC_VERSION, merged.doc.version)`, so it follows the
+  constant, and its `Paper("#123456", textureScale = 3.5f, includeInExport = true)` is inside the v3
+  scale rule that answer 3 kept. Left untouched, which is the point of reading it before editing it.
+
+`DocModelTest.kt:651` `rule10_paperTextureScaleHasToBeSane` is untouched per answer 3 — it still accepts
+0.0001, 1 and 64 and refuses 0, −1, 64.5, NaN and Infinity.
+
+**Two judgement calls, stated rather than hidden.**
+1. **`show` and `bite` are validated in `DocOps`; `lookId` and `textureId` are not** (Decision 3). That
+   split is not arbitrary and is pinned by `anUnknownCatalogueIdIsNotAValidationError`: `DocOps` knows
+   nothing about the catalogue, and refusing an id it cannot check would stop a drawing opening over a
+   background. `PaperState.problems` resolves them instead — it is the only place holding both halves.
+2. **`argb` checks the hex's LENGTH before reading its digits.** A short hex like `"#FFF"` parses as a
+   small number, so reading first would turn `#FFF` into a nearly transparent black instead of the
+   white fallback. `DocOps` refuses such a value first, so this only matters for a caller that skipped
+   validation — and the guard costs one comparison.
+
+**Nothing here lifts the canvas refusal.** `JbCanvasView.kt` and `CanvasSnapshot.kt` are untouched, so a
+document that sets `textureId` still refuses to open, exactly as answer 4 requires. JB-9.06 lifts it.

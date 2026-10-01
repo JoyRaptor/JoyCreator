@@ -54,3 +54,110 @@ Do not draw anything (JB-1.05d/JB-9.08). Do not remove the "kept but not drawn y
 - [ ] tests pass with counts · [ ] the importer list in the report · [ ] pushed · [ ] ROADMAP → 🟧 Built
 
 ## Questions
+
+**2026-10-01, OpenCode agent (JB-9.11): STOPPED, nothing landed, no code written, no Gradle run.** The
+`ImportedTexture` contract itself is unambiguous, but three things the row needs are not in the spec and I will not guess
+them. Numbers below are measured on the real corpus on this PC today.
+
+### Q1 — There is no PNG pixel decoder in `core`, and the importers refuse to decode pixels (blocking)
+
+Every texture this row names is stored as **PNG bytes**: Procreate `Shape.png` and `Grain.png`, Krita embedded tips and
+bundle `patterns/*.png`. The importers keep the bytes and never look at the pixels on purpose —
+`ProcreateImport.kt:759-760` says the width comes from "`IHDR` … a header read and not a decode", and `PngChunks.kt:27`
+explains why a chunk walk is expensive. But `toSurface(grey, w, h, invert)` takes **greyscale bytes**, so *someone* has to
+turn those PNGs into pixels inside `core`, and there is none: the only PNG decoders in the repo are `javax.imageio` in
+`jvmTest` and `BitmapFactory` in `androidkit/.../gl/GrainTextures.kt:93-99` — a different module, and not this row's
+owner area. Which is it?
+- (a) this row grows a PNG→grey decoder in `core` (IDAT inflate + the five filters + colour types + interlace — well past
+  "~120 lines", and it wants its own row and owner area), or
+- (b) `toSurface` stays pure (it already is) and only the **callers** get wired once a decoder row lands — which row id
+  writes it, and does it go before JB-1.05d?, or
+- (c) the decode happens on the phone at draw time in `androidkit` (JB-1.05d), and JB-9.11 lands `ImportedTexture` plus
+  its two core tests with no importer wiring at all.
+
+Until this is answered, two of the three bullets in **Tests** cannot be written, so I stopped rather than ship a row whose
+middle step is invented.
+
+### Q2 — Where the packed surface is stored, and it does not fit in `extensions` (blocking)
+
+Decision 2 says the importer "adds the packed surface beside it" the original bytes. The only place an importer can put
+bytes is `BrushPreset.extensions`, base64 text, capped at `MAX_EXTENSION_BYTES = 256 * 1024` characters **total across
+every key** (`ImportSupport.kt:37-45`; its KDoc says on purpose that it "counts the base64 of a stored tip or grain image
+as well as every unmapped setting", and `extensionChars()` sums all values in Abr/Procreate/Krita). A packed surface is
+**4 bytes per pixel** and Decision 3 forbids resizing. Measured on the real files in
+`joybrush/testdata-local/krita/deevad-v8-2.bundle`:
+
+| stored texture | size | packed RGBA | as base64 | the PNG's own base64 |
+|---|---|---|---|---|
+| `brushes/3_texture.png` | 454×448 | 794 KiB | **1 059 KiB** | 211 KiB |
+| `brushes/3_paint-sketch-b.png` | 256×256 | 256 KiB | 341 KiB | 44 KiB |
+| `brushes/3_rake.png` | 150×150 | 88 KiB | 117 KiB | 9 KiB |
+
+So the largest real texture needs 4× the entire budget on its own, and the smallest only fits if nothing else is stored.
+Every option touches something outside the owner area, which is why I am asking:
+- (a) raise `MAX_EXTENSION_BYTES` (a shared `const` whose KDoc says the number is not this row's to change),
+- (b) add a `BrushPreset` field (a brush-format version bump, outside the owner area), or
+- (c) store a downscaled surface (Decision 3 says no resizing), or
+- (d) **do not persist the surface in this row** — land `ImportedTexture` alone and let JB-1.05d hold it in memory at
+  draw time.
+
+If (a) or (b), please also name the extension key and where `w`, `h` and `slopeRange` live, because the surface is raw RGBA
+and nothing else in `extensions` has a header.
+
+### Q3 — the real-file test (R44) cannot be written for both importers today
+
+Tests bullet 3: "Each importer that now calls toSurface: one existing real-file test (JOYBRUSH_TESTDATA, LEAD_DESK
+order 5) asserts a packed surface is stored for a brush that has a texture. Synthetic files alone do not count (R44)."
+From the corpus:
+- `joybrush/testdata-local/procreate/` is **empty**; `ProcreateImportTest.kt:31-46` already records that there is no real
+  Procreate file. R44 says synthetic does not count, so a Procreate assertion cannot satisfy this bullet today.
+- `deevad-v8-2.bundle` has 96 entries and **no `patterns/` entry at all** (only `brushes/`, `paintoppresets/`,
+  `mimetype`, `preview.png`), so the Krita **grain** branch (`KritaImport.kt:902-921`) is not exercised by the real file;
+  only the embedded tips are.
+
+Is a real-file assertion on the **Krita tip path alone** enough for this row, with Procreate left for whenever a real
+`.brush` lands — or does the row wait for real files?
+
+### Q4 — is ABR (JB-8.01) in this row at all?
+
+The owner area says to edit the code that "stores `patt`, `Grain.png` and Krita patterns". Grep result: **JB-8.01 stores
+no pattern bytes.** `AbrImport.kt:409-417` writes `extensions["abr.texturePattern"]` as a *rendered string* only, and
+`AbrReader.kt:515` says outright "Nothing here decodes a pattern's pixels" (`AbrPattern`, `AbrReader.kt:163`, carries
+only id/byteLength/details). The bytes JB-8.01 does store are the tip (`AbrFile.storedBytes`, `AbrReader.kt:75-99`),
+PackBits or raw grey, and that is a **tip mask, not a height map**. So ABR can only reach `toSurface` by first decoding
+`patt`, which is a new reader feature well beyond this row. In, or out?
+
+### Q5 — the height polarity: the sources and Decision 1 do not agree
+
+Decision 1 asks me to verify each app against R4/R3 and quote the line. The quotes:
+- R4:176 — "at 100% low points in the texture receive no paint"
+- R4:181 — `t` is the texture "**valley-ness** after invert, brightness and contrast"
+- R4:189 — Height (PS) is `a' = clamp(10·d·a − t, 0, 1)`, i.e. "Paint exists where `t < 10·d·a`" (R4:193: "Light
+  pressure catches only the peaks")
+
+Those three say a **high pattern byte is a valley**, so in our convention (`GrainMath.heightCoverage:68-72`,
+`threshold = 1 − level`, high height paints first) the bytes would need **negating**. R3:422 says the same from Krita's
+side: "Here t is the depth of paper valleys: after subtraction, low t receives paint first." But Decision 1 says
+"Photoshop's Height modes treat WHITE as high (R4)" and "Procreate's grain: white = paint shows (high)", which is the
+opposite reading, and Tests bullet 1 pins it (`invert` flips B and negates slopes, so pass-through and negation differ).
+
+Please rule per app — Photoshop, Procreate, Krita — and say whether the importer's own Invert flag goes into the
+`invert` argument as-is (Decision 1's reading) or whether `toSurface` also needs a fixed per-app negation. Getting this
+backwards inverts every imported grain, so I will not pick.
+
+### Q6 — two small ones
+
+- Decision 4: "flagged 'flat texture' in the import report". Is the import report the per-brush `warnings` list
+  (`ImportResult.warnings` / `BrushImport`'s `warn`), and what exact sentence should the flag use? I read Decision 4 as
+  "substitute 0.001 for the range before `SurfaceMaps.pack` (which refuses `slopeRange <= 0`), keep B = the constant
+  byte, R = G = 128, and add a warning" — confirm or correct.
+- **Definition of done has no mutation check**, while the dispatch prompt and LEAD_DESK order 6 require one. Unless told
+  otherwise I will mutate the `invert` negation in `toSurface` and the `0.0722` blue weight in `luminance` and report
+  whether Tests 1 and 2 go red.
+
+### Note on the dependency
+
+JB-9.01 had not landed on `origin/joy-creator` when I looked (`236e5730` is the tip; `SurfaceMaps.kt` exists only
+uncommitted in `%TEMP%\jb-JB-9.01`). `toSurface` returns a `Surface` built from `SurfaceMaps.pack` +
+`SurfaceMaps.defaultSlopeRange`, so this row cannot compile without it. I will rebase on it when it lands; no answer
+needed.

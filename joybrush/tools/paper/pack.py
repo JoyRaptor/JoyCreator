@@ -1,7 +1,7 @@
 """Pack a height map into a Joy Brush SURFACE texture (JB-9.01 contract; the Kotlin SurfaceMaps is its twin).
 RGBA8: R = encode(dh/dx), G = encode(dh/dy), B = height, A = height^2.
 Slopes: Scharr on a torus, in height units per texel, divided by 32 so a ramp h = k*x gives exactly k.
-encode(s) = round(255 * clamp(0.5 + 0.5 * s / slopeRange, 0, 1)).
+encode(s) = round(127 + 127 * clamp(s / slopeRange, -1, 1)).
 Usage: python pack.py <height.png> <out.png> [slopeRange]   (prints the slopeRange used)"""
 import numpy as np, sys
 from PIL import Image
@@ -15,7 +15,7 @@ def pack(hbytes, slope_range=None):
     dx, dy = slopes(h)
     if slope_range is None:
         slope_range = float(np.ceil(np.percentile(np.abs(np.concatenate([dx.ravel(), dy.ravel()])), 99.9) * 1000) / 1000)
-    enc = lambda s: np.round(255 * np.clip(0.5 + 0.5 * s / slope_range, 0, 1))
+    enc = lambda s: np.round(127 + 127 * np.clip(s / slope_range, -1, 1))
     out = np.dstack([enc(dx), enc(dy), hbytes.astype(np.float64), np.round(255 * h * h)]).astype(np.uint8)
     return out, slope_range
 if __name__ == "__main__":

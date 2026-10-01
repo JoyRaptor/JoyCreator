@@ -15,6 +15,37 @@ import kotlin.test.assertTrue
  * is its twin, and the tests are what pin the two together.
  */
 class HexTileTest {
+    @Test fun aFilteredSlopeIsDecodedWithoutByteRounding() {
+        val bytes = ByteArray(4 * 4 * 4)
+        for (y in 0..3) for (x in 0..3) {
+            val i = (y * 4 + x) * 4
+            bytes[i] = (127 + x).toByte(); bytes[i + 1] = 127
+        }
+        val tex = PaperTexture(4, 4, bytes)
+        val out = FloatArray(4)
+        val sample = FloatArray(4)
+        // At the lattice origin exactly one vertex contributes: its offset lands between texels.
+        tex.bilinear(HexTile.hash(0, 0, 1) * 4.0, HexTile.hash(0, 0, 2) * 4.0, sample)
+        HexTile.sampleSurface(tex, 0.0, 0.0, 180.0, false, 0.5f, out)
+        assertEquals((sample[0] * 255f - 127f) / 127f * 0.5f, out[0], 1e-8f)
+        // Flat encoded 127 is exact zero everywhere, including rotated blends.
+        for (i in bytes.indices step 4) bytes[i] = 127
+        HexTile.sampleSurface(tex, 19.2, -37.1, 180.0, true, 0.5f, out)
+        assertEquals(0f, out[0]); assertEquals(0f, out[1])
+    }
+
+    @Test fun octaveSeedsAreDeterministicAndChangeBothReads() {
+        val bytes = ByteArray(16 * 16 * 4) { i -> ((i * 73 + i / 5) and 255).toByte() }
+        val tex = PaperTexture(16, 16, bytes)
+        val a = FloatArray(4); val b = FloatArray(4); val again = FloatArray(4)
+        HexTile.sampleSurface(tex, 19.3, -7.9, 32.0, true, 0.1f, a)
+        HexTile.sampleSurface(tex, 19.3, -7.9, 32.0, true, 0.1f, b, seed = 10)
+        HexTile.sampleSurface(tex, 19.3, -7.9, 32.0, true, 0.1f, again, seed = 10)
+        assertTrue(b.contentEquals(again)); assertTrue(!a.contentEquals(b))
+        HexTile.sampleLook(tex, 19.3, -7.9, 32.0, true, a)
+        HexTile.sampleLook(tex, 19.3, -7.9, 32.0, true, b, seed = 10)
+        assertTrue(!a.take(3).equals(b.take(3)))
+    }
 
     /**
      * A seeded generator written out here rather than `kotlin.random`, so every number in this file is
@@ -105,8 +136,8 @@ class HexTileTest {
             for (x in 0 until n) {
                 val height = 0.5 + 0.2 * sin(2.0 * PI * (x + 2.0 * y) / n)
                 val o = (y * n + x) * 4
-                px[o] = 128.toByte() // flat slope, so only the height channel is under test
-                px[o + 1] = 128.toByte()
+                px[o] = 127.toByte() // flat slope, so only the height channel is under test
+                px[o + 1] = 127.toByte()
                 px[o + 2] = (height * 255.0).roundToInt().coerceIn(0, 255).toByte()
                 px[o + 3] = (height * height * 255.0).roundToInt().coerceIn(0, 255).toByte()
             }
@@ -222,7 +253,7 @@ class HexTileTest {
     private val SLOPE_RANGE = 0.5f
     private val R = SLOPE_RANGE
 
-    /** R encodes `+R` everywhere, G is 128. Whatever the hex does, it is reading a slope of `+R` on x. */
+    /** R encodes `+R` everywhere, G is 127. Whatever the hex does, it is reading a slope of `+R` on x. */
     private fun uniformSlopeTexture(): PaperTexture {
         val n = 8
         val px = ByteArray(n * n * 4)

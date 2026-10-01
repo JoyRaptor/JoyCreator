@@ -21,6 +21,12 @@ import kotlin.test.assertTrue
  * Every expected number below is derived in its own comment.
  */
 class SurfaceMapsTest {
+    @Test fun normalizedFloatRoundOffDoesNotMakeAFlatSurfaceTilt() {
+        assertEquals(0f, SurfaceMaps.decodeFilteredSlope(127f / 255f, 0.099f))
+        // A sub-byte filtered slope is preserved; this must never become whole-byte quantization.
+        val v = (127f + 1f / 1024f) / 255f
+        assertTrue(SurfaceMaps.decodeFilteredSlope(v, 0.099f) > 0f)
+    }
 
     /** `h = 0.5 + 0.5·sin(2πx/w)` for every row, row-major, w wide. */
     private fun sineRamp(w: Int, h: Int): FloatArray =
@@ -76,6 +82,19 @@ class SurfaceMapsTest {
         }
     }
 
+    @Test
+    fun aSineRampInYReadsAsTheCentralDifferenceAndHasNoHorizontalSlope() {
+        val w = 4; val h = 64
+        val height = FloatArray(w * h) { i -> (0.5 + 0.5 * sin(2.0 * PI * (i / w) / h)).toFloat() }
+        val (dx, dy) = SurfaceMaps.slopes(height, w, h)
+        for (y in 0 until h) for (x in 0 until w) {
+            val central = (height[((y + 1) % h) * w + x] - height[((y - 1 + h) % h) * w + x]) / 2f
+            assertEquals(central, dy[y * w + x], 1e-6f, "dy at ($x,$y)")
+            assertEquals(0f, dx[y * w + x], "dx at ($x,$y)")
+        }
+        assertEquals(0f, SurfaceMaps.decodeSlope(SurfaceMaps.encodeSlope(0f, 0.099f), 0.099f))
+    }
+
     // ---- 3. every edge wraps --------------------------------------------------------------------
 
     /**
@@ -126,32 +145,19 @@ class SurfaceMapsTest {
 
     /** The four anchors: flat, both rails, and a value far past the rail. */
     @Test
-    fun aSlopeEncodesToItsByteWithTheHalfWayPointAt128() {
+    fun aSlopeEncodesToItsByteWithTheHalfWayPointAt127() {
         val r = 0.5f
-        assertEquals(128, SurfaceMaps.encodeSlope(0f, r))
-        assertEquals(255, SurfaceMaps.encodeSlope(r, r))
+        assertEquals(127, SurfaceMaps.encodeSlope(0f, r))
+        assertEquals(254, SurfaceMaps.encodeSlope(r, r))
         assertEquals(0, SurfaceMaps.encodeSlope(-r, r))
-        assertEquals(255, SurfaceMaps.encodeSlope(10f * r, r), "past the rail it clamps, it does not wrap")
+        assertEquals(254, SurfaceMaps.encodeSlope(10f * r, r), "past the rail it clamps, it does not wrap")
     }
 
-    /**
-     * `decodeSlope(encodeSlope(s, r), r)` is within `r/255` of `s` for 101 samples of −r..r.
-     *
-     * Derivation: encode rounds `255·(0.5 + 0.5·s/r)` to a byte, so the byte carries the encoded
-     * value to within half a step; decode is `(b/255 − 0.5)·2r`, i.e. it scales that same step back.
-     * One step is `2r/255`, so half a step — the worst case of the rounding — is exactly `r/255`.
-     *
-     * The bound is r/255 and the sample at i = 50 sits exactly ON it: that sample's encoded value
-     * lands on a whole number, so the round-trip error is the full half step, not less. Half a
-     * Float ulp on the four multiply/divide steps then carries it ~1.7e-5 of a step past the bound, so
-     * the comparison carries the same sliver of slack. A step and a half would be the honest failure
-     * to catch here: a wrong scale factor in [decodeSlope] moves the error by 2x or 0.5x, not by a
-     * fraction of a percent.
-     */
+    /** Exact-zero encoding has 254 intervals; the worst round-trip error is r/254. */
     @Test
     fun aSlopeSurvivesTheByteRoundTrip() {
         val r = 0.099f
-        val halfStep = r / 255f
+        val halfStep = r / 254f
         val slack = halfStep * 1e-3f
         for (i in 0..100) {
             val s = -r + 2f * r * i / 100f

@@ -63,15 +63,15 @@ object HexTile {
         val b = 2.0 * qy / SQRT3
         val i0 = floor(a)
         val j0 = floor(b)
-        val fa = (a - i0).toFloat()
-        val fb = (b - j0).toFloat()
+        val fa = a - i0
+        val fb = b - j0
         val i = i0.toInt()
         val j = j0.toInt()
-        return if (fa + fb > 1f) {
+        return if (fa + fb > 1.0) {
             Lattice(
                 intArrayOf(i + 1, i + 1, i),
                 intArrayOf(j + 1, j, j + 1),
-                floatArrayOf(fa + fb - 1f, 1f - fb, 1f - fa),
+                floatArrayOf((fa + fb - 1.0).toFloat(), (1.0 - fb).toFloat(), (1.0 - fa).toFloat()),
             )
         } else {
             // `1 - (fa + fb)`, not `(1 - fa) - fb`: the parenthesised form is the one that cannot come
@@ -80,7 +80,7 @@ object HexTile {
             Lattice(
                 intArrayOf(i, i + 1, i),
                 intArrayOf(j, j, j + 1),
-                floatArrayOf(1f - (fa + fb), fa, fb),
+                floatArrayOf((1.0 - (fa + fb)).toFloat(), fa.toFloat(), fb.toFloat()),
             )
         }
     }
@@ -105,6 +105,7 @@ object HexTile {
         rotatable: Boolean,
         slopeRange: Float,
         out: FloatArray,
+        seed: Int = 0,
     ) {
         require(out.size >= 4) { "sampleSurface needs an output array of at least 4 floats, got ${out.size}" }
         val l = lattice(px, py, hexTexels)
@@ -115,13 +116,13 @@ object HexTile {
         // overwritten rather than added to, so a second call cannot inherit the first one's answer.
         for (q in 0..3) out[q] = 0f
         for (n in 0..2) {
-            readAt(tex, px, py, hexTexels, l.vi[n], l.vj[n], rotatable, s)
-            contribution[0] = SurfaceMaps.decodeSlope(byteOf(s[0]), slopeRange)
-            contribution[1] = SurfaceMaps.decodeSlope(byteOf(s[1]), slopeRange)
+            readAt(tex, px, py, hexTexels, l.vi[n], l.vj[n], rotatable, s, seed)
+            contribution[0] = SurfaceMaps.decodeFilteredSlope(s[0], slopeRange)
+            contribution[1] = SurfaceMaps.decodeFilteredSlope(s[1], slopeRange)
             if (rotatable) {
                 // R(-θ) turns the slope back into the paper's own frame. Without it a rotated hex would
                 // face the wrong way, and the directional deposit of R10 §5 would be wrong with it.
-                val theta = rotation(l.vi[n], l.vj[n])
+                val theta = rotation(l.vi[n], l.vj[n], seed)
                 val c = cos(theta)
                 val sn = sin(theta)
                 val sx = contribution[0].toDouble()
@@ -136,14 +137,14 @@ object HexTile {
     }
 
     /** Same lattice, offsets and weights, for a LOOK texture (RGB colour; A ignored). Returns r,g,b 0..1 into [out]. */
-    fun sampleLook(tex: PaperTexture, px: Double, py: Double, hexTexels: Double, rotatable: Boolean, out: FloatArray) {
+    fun sampleLook(tex: PaperTexture, px: Double, py: Double, hexTexels: Double, rotatable: Boolean, out: FloatArray, seed: Int = 0) {
         require(out.size >= 3) { "sampleLook needs an output array of at least 3 floats, got ${out.size}" }
         val l = lattice(px, py, hexTexels)
         val w = gammaWeights(l.w)
         val s = FloatArray(4)
         for (q in 0..2) out[q] = 0f
         for (n in 0..2) {
-            readAt(tex, px, py, hexTexels, l.vi[n], l.vj[n], rotatable, s)
+            readAt(tex, px, py, hexTexels, l.vi[n], l.vj[n], rotatable, s, seed)
             for (q in 0..2) out[q] += w[n] * s[q]
         }
     }
@@ -178,16 +179,17 @@ object HexTile {
         j: Int,
         rotatable: Boolean,
         out: FloatArray,
+        seed: Int,
     ) {
         val cxp = centreX(i, j, hexTexels)
         val cyp = centreY(i, j, hexTexels)
-        val ox = hash(i, j, 1) * tex.w
-        val oy = hash(i, j, 2) * tex.h
+        val ox = hash(i, j, 1 + seed) * tex.w
+        val oy = hash(i, j, 2 + seed) * tex.h
         if (!rotatable) {
             tex.bilinear(px + ox, py + oy, out)
             return
         }
-        val theta = rotation(i, j)
+        val theta = rotation(i, j, seed)
         val c = cos(theta)
         val s = sin(theta)
         val dx = px - cxp
@@ -196,8 +198,6 @@ object HexTile {
     }
 
     /** A hex's own turn: [rotatable] papers get one, weaves and laid lines do not. */
-    private fun rotation(i: Int, j: Int): Double = hash(i, j, 3) * TAU
+    private fun rotation(i: Int, j: Int, seed: Int): Double = hash(i, j, 3 + seed) * TAU
 
-    /** The 0..1 channel a bilinear read produced, back to the byte the slope decoder takes. */
-    private fun byteOf(v: Float): Int = (v * 255f + 0.5f).toInt().coerceIn(0, 255)
 }

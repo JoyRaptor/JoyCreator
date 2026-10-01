@@ -54,12 +54,15 @@ object BrushKnobs {
      * there, move pixels, and fill a shape, so there is no deposit for the paper to hold or catch and a
      * slider there would be a control that cannot do anything. Push keeps the grain knob it always had.
      */
+    const val PAPER_ENGINE_LIVE = false // JB-9.08 enables the three response controls.
+    private val livePaper get() = if (PAPER_ENGINE_LIVE) PAPER else emptyList()
+
     fun forBrush(p: BrushPreset): List<Knob> = when (p.engine) {
-        ENGINE_TUFT -> TUFT + PAPER + SMOOTHING
+        ENGINE_TUFT -> TUFT + livePaper + SMOOTHING
         ENGINE_SMUDGE -> SMUDGE + STAMP + SMOOTHING
         ENGINE_PUSH -> STAMP + (if (p.paperGrain.enabled) listOf(GRAIN) else emptyList()) + SMOOTHING
         ENGINE_FILL -> SMOOTHING
-        else -> STAMP + (if (p.paperGrain.enabled) listOf(GRAIN) else emptyList()) + PAPER + SMOOTHING
+        else -> STAMP + (if (p.paperGrain.enabled) listOf(GRAIN) else emptyList()) + livePaper + SMOOTHING
     } + RESPONSE
 
     /** The keys of a response curve's four handle numbers, `response.<curve>.0` … `.3` ([x1, y1, x2, y2]). */
@@ -203,12 +206,6 @@ object BrushKnobs {
     // suits it, which is why the shipped values differ per brush (Decision 4) rather than being one
     // global setting. Holding a brush shows these three with the live preview.
 
-    /**
-     * Said on all three sliders until the paper engine lands (JB-9.08): the numbers are stored, validated
-     * and tunable today and change nothing you can see, so a slider that promises an effect and does not
-     * have one yet is worse than no slider. JB-9.08 removes this tail and says so in its report.
-     */
-    private const val NOT_YET = " (takes effect when the paper engine lands)"
 
     private fun paper(
         field: String,
@@ -217,7 +214,7 @@ object BrushKnobs {
         get: (PaperResponse) -> Float,
         set: (PaperResponse, Float) -> PaperResponse,
     ): Knob = Knob(
-        "paper.$field", label, hint + NOT_YET,
+        "paper.$field", label, hint,
         get = { p -> get(p.paper).coerceIn(0f, 1f) },
         set = { p, v ->
             val out = p.copy(paper = set(p.paper, v))
@@ -229,7 +226,7 @@ object BrushKnobs {
         show = { p -> pct(get(p.paper)) },
     )
 
-    private val PAPER: List<Knob> = listOf(
+    internal val PAPER: List<Knob> = listOf(
         paper("influence", "Paper", "How much this brush feels the paper's surface.",
             { it.influence }, { s, v -> s.copy(influence = v) }),
         paper("directional", "Direction", "Dry paint catches the side of each bump that faces the stroke.",

@@ -1,4 +1,5 @@
 // JB-9.03: canonical JB-9.02 hex sampler, in document coordinates.
+precision highp float;
 precision highp int; // lowbias32 requires all 32 bits on mobile fragment processors.
 uniform sampler2D u_paperSurface;
 uniform float u_paperTexelPx;
@@ -14,7 +15,7 @@ float jb_hash(int i, int j, int k) {
     return float(x >> 8u) / 16777216.0;
 }
 
-vec4 jb_paperSurface(vec2 docPx) {
+vec4 jb_paperRead(vec2 docPx, int seed, bool slopes) {
     vec2 p = docPx / u_paperTexelPx;
     // Different hexes rotate independently: differentiate before selecting a vertex.
     vec2 dx = dFdx(p), dy = dFdy(p);
@@ -42,17 +43,28 @@ vec4 jb_paperSurface(vec2 docPx) {
     for (int n = 0; n < 3; ++n) {
         int i = vertices[n].x, j = vertices[n].y;
         vec2 centre = u_paperHexTexels * vec2(float(i) + float(j) / 2.0, float(j) * SQRT3 / 2.0);
-        vec2 offset = vec2(jb_hash(i, j, 1), jb_hash(i, j, 2)) * u_paperSize;
-        float theta = u_paperRotatable ? jb_hash(i, j, 3) * 6.283185307179586 : 0.0;
+        vec2 offset = vec2(jb_hash(i, j, 1 + seed), jb_hash(i, j, 2 + seed)) * u_paperSize;
+        float theta = u_paperRotatable ? jb_hash(i, j, 3 + seed) * 6.283185307179586 : 0.0;
         float c = cos(theta), s = sin(theta);
         mat2 rotation = mat2(c, s, -s, c);
         vec2 t = rotation * (p - centre) + centre + offset;
         vec4 sampleValue = textureGrad(u_paperSurface, t / u_paperSize,
                                       rotation * dx / u_paperSize, rotation * dy / u_paperSize);
-        vec2 slope = (sampleValue.rg * 2.0 - 1.0) * u_paperSlopeRange;
-        slope = mat2(c, -s, s, c) * slope;
+        vec2 slope = vec2(0.0);
+        if (slopes) {
+            vec2 delta = sampleValue.rg * 255.0 - 127.0;
+            // UNORM filtering may move byte 127 by two float ulps. Preserve exact flatness;
+            // no byte rounding: every meaningful fractional slope still decodes linearly.
+            delta = mix(delta, vec2(0.0), lessThanEqual(abs(delta), vec2(1.0 / 65536.0)));
+            slope = delta / 127.0 * u_paperSlopeRange;
+            slope = mat2(c, -s, s, c) * slope;
+        }
         result += w[n] * vec4(slope, sampleValue.ba);
     }
     result.xy /= u_paperTexelPx;
     return result;
 }
+
+vec4 jb_paperSurface(vec2 docPx, int seed) { return jb_paperRead(docPx, seed, true); }
+vec4 jb_paperSurface(vec2 docPx) { return jb_paperSurface(docPx, 0); }
+float jb_paperHeight(vec2 docPx) { return jb_paperRead(docPx, 0, false).z; }

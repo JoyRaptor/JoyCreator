@@ -22,5 +22,5 @@ float jb_tipGrainHeight(vec2 offsetPx, float angle) {
 
 // The universal paper is anchored in document space, independently of the brush.
 float jb_paperGrainHeight(vec2 docPx) {
-    return jb_paperSurface(docPx).z;
+    return jb_paperHeight(docPx);
 }

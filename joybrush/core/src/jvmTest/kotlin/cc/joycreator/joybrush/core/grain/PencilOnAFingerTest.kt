@@ -1,6 +1,8 @@
 package cc.joycreator.joybrush.core.grain
 
 import cc.joycreator.joybrush.core.brush.BrushJson
+import cc.joycreator.joybrush.core.paper.HexTile
+import cc.joycreator.joybrush.core.paper.PaperTexture
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.Test
@@ -20,19 +22,29 @@ class PencilOnAFingerTest {
         .let { if (File(it, "brushes").isDirectory) it else File(it, "joybrush") }
 
     private val pencil = BrushJson.decode(File(root(), "brushes/pencil/brush.json").readText())
-    private val heights: Array<FloatArray> = run {
-        val name = GrainMath.DEFAULT_SURFACE
-        val img = ImageIO.read(File(root(), "assets/paper/$name"))
-        Array(img.height) { y -> FloatArray(img.width) { x -> (img.getRGB(x, y) and 0xFF) / 255f } }
+    private val surface: PaperTexture = run {
+        val img = ImageIO.read(File(root(), "assets/paper/${GrainMath.DEFAULT_SURFACE}"))
+        val bytes = ByteArray(img.width * img.height * 4)
+        for (y in 0 until img.height) for (x in 0 until img.width) {
+            val argb = img.getRGB(x, y); val i = (y * img.width + x) * 4
+            bytes[i] = (argb ushr 16).toByte(); bytes[i + 1] = (argb ushr 8).toByte()
+            bytes[i + 2] = argb.toByte(); bytes[i + 3] = (argb ushr 24).toByte()
+        }
+        PaperTexture(img.width, img.height, bytes)
     }
+    private val heights = Array(64) { y -> FloatArray(64) { x ->
+        val out = FloatArray(4)
+        HexTile.sampleSurface(surface, x * 8.0, y * 8.0, GrainMath.SURFACE_HEX_TEXELS.toDouble(),
+            GrainMath.SURFACE_ROTATABLE, GrainMath.SURFACE_SLOPE_RANGE, out)
+        out[2]
+    } }
 
     private fun coverageAt(u: GrainMath.GrainUniforms, nx: Float, ny: Float, tilt: Float, az: Float, tx: Int, ty: Int): Float {
         val level = GrainMath.grainLevel(
             u.depth, 1f, nx, ny, GrainMath.leanX(az), GrainMath.leanY(az),
             GrainMath.tiltAmount(tilt), u.tiltGradient, u.radial,
         )
-        // TODO(JB-9.02): call HexTile.sampleSurface at document points once its CPU twin lands.
-        // JB-9.03: B is height; this test exercises real surface texels and the NaN/threshold guards.
+        // JB-9.03b: heights are the real CPU hex reads used by the GPU, not repeating B texels.
         val h = heights[Math.floorMod(ty, heights.size)][Math.floorMod(tx, heights[0].size)]
         return GrainMath.grainedCoverage(1f, GrainMath.heightCoverage(h, level, u.edge))
     }

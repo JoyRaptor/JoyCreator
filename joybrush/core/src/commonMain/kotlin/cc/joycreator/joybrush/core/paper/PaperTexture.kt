@@ -30,8 +30,8 @@ class PaperTexture(val w: Int, val h: Int, val rgba: ByteArray) {
         val y = ty - 0.5
         val cx = floor(x)
         val cy = floor(y)
-        val fx = (x - cx).toFloat()
-        val fy = (y - cy).toFloat()
+        val fx = x - cx
+        val fy = y - cy
         val x0 = wrap(cx, w)
         val y0 = wrap(cy, h)
         val x1 = if (x0 + 1 == w) 0 else x0 + 1
@@ -40,13 +40,13 @@ class PaperTexture(val w: Int, val h: Int, val rgba: ByteArray) {
         val i10 = (y0 * w + x1) * 4
         val i01 = (y1 * w + x0) * 4
         val i11 = (y1 * w + x1) * 4
-        val g00 = (1f - fx) * (1f - fy)
-        val g10 = fx * (1f - fy)
-        val g01 = (1f - fx) * fy
+        val g00 = (1.0 - fx) * (1.0 - fy)
+        val g10 = fx * (1.0 - fy)
+        val g01 = (1.0 - fx) * fy
         val g11 = fx * fy
         for (c in 0..3) {
-            out[c] = g00 * byte(rgba[i00 + c]) + g10 * byte(rgba[i10 + c]) +
-                g01 * byte(rgba[i01 + c]) + g11 * byte(rgba[i11 + c])
+            out[c] = ((g00 * (rgba[i00 + c].toInt() and 255) + g10 * (rgba[i10 + c].toInt() and 255) +
+                g01 * (rgba[i01 + c].toInt() and 255) + g11 * (rgba[i11 + c].toInt() and 255)) / 255.0).toFloat()
         }
     }
 

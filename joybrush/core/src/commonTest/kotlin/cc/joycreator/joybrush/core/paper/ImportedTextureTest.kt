@@ -47,7 +47,7 @@ class ImportedTextureTest {
      * Scharr kernel's three difference terms are each a difference of two EQUAL heights, so dx and dy
      * are exactly 0 everywhere — the same fact as JB-9.01's own test 2 derivation, where three
      * identical rows make dy exactly 0. On top of that, `defaultSlopeRange` floors the range at
-     * 0.001, so a flat surface packs to R = G = 128.
+     * 0.001, so a flat surface packs to R = G = encodeSlope(0f, range).
      *
      * So the non-zero-edge claim is pinned on the smallest pattern that CAN slope — the same 4×4 with
      * a 2-texel cell, which has period 4 — and this function pins the single-texel board's true
@@ -86,8 +86,8 @@ class ImportedTextureTest {
             assertEquals(singleTexels[i], single.rgba[i * 4 + 2], "B at texel $i is the input byte")
         }
         for (i in 0 until w * h) {
-            assertEquals(128, single.rgba[i * 4].toInt() and 0xFF, "R at texel $i: a period-2 board has no dx")
-            assertEquals(128, single.rgba[i * 4 + 1].toInt() and 0xFF, "G at texel $i: a period-2 board has no dy")
+            assertEquals(SurfaceMaps.encodeSlope(0f, single.slopeRange), single.rgba[i * 4].toInt() and 0xFF, "R at texel $i: a period-2 board has no dx")
+            assertEquals(SurfaceMaps.encodeSlope(0f, single.slopeRange), single.rgba[i * 4 + 1].toInt() and 0xFF, "G at texel $i: a period-2 board has no dy")
         }
 
         val board = blockCheckerboard(w, h, 2)
@@ -101,7 +101,7 @@ class ImportedTextureTest {
             val i = y * w + x
             val r = surface.rgba[i * 4].toInt() and 0xFF
             val g = surface.rgba[i * 4 + 1].toInt() and 0xFF
-            assertTrue(r != 128 || g != 128, "texel ($x,$y) is on the border and must still slope from the wrap")
+            assertTrue(r != SurfaceMaps.encodeSlope(0f, surface.slopeRange) || g != SurfaceMaps.encodeSlope(0f, surface.slopeRange), "texel ($x,$y) is on the border and must still slope from the wrap")
         }
         assertEquals(0, surface.rgba[2].toInt() and 0xFF, "B at (0,0) is the board's own first texel")
 
@@ -145,7 +145,7 @@ class ImportedTextureTest {
         assertEquals(plain.slopeRange, flipped.slopeRange, "a range is a percentile of |slope|, so it is sign-blind")
 
         val range = plain.slopeRange
-        val halfStep = range / 255f
+        val halfStep = range / 254f
         val slack = halfStep * 1e-3f
         for (i in 0 until w * h) {
             for (channel in 0..1) {
@@ -227,8 +227,8 @@ class ImportedTextureTest {
         val surface = ImportedTexture.toSurface(flat, w, h, invert = false)
         assertEquals(0.001f, surface.slopeRange, "Decision 4's floor, which is also SurfaceMaps' own")
         for (i in flat.indices) {
-            assertEquals(128, surface.rgba[i * 4].toInt() and 0xFF, "R at texel $i")
-            assertEquals(128, surface.rgba[i * 4 + 1].toInt() and 0xFF, "G at texel $i")
+            assertEquals(SurfaceMaps.encodeSlope(0f, surface.slopeRange), surface.rgba[i * 4].toInt() and 0xFF, "R at texel $i")
+            assertEquals(SurfaceMaps.encodeSlope(0f, surface.slopeRange), surface.rgba[i * 4 + 1].toInt() and 0xFF, "G at texel $i")
             assertEquals(128.toByte(), surface.rgba[i * 4 + 2], "B at texel $i")
         }
     }

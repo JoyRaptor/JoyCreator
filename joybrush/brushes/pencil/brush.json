@@ -20,8 +20,6 @@
   "paperGrain": {
     "enabled": true,
     "source": "cloud",
-    "image": "cloud_fine_256.png",
-    "scale": 1.5,
     "depth": { "base": 1, "inputs": [ { "input": "pressure", "curve": [ [0, 0.2], [1, 0.9] ] } ] },
     "edge": 0.25,
     "tiltGradient": 0.6

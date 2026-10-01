@@ -58,7 +58,13 @@ slope on the GPU.
 **Gradle rule (memory is tight, ~1 GB free):** take the build lock first (see `PAPER_DISPATCH.md`), run with `--no-daemon`, release it after.
 
 ## Definition of done
-- [ ] tests pass (paste counts read from the XML of THIS worktree, with the time stamp of the newest file) · [ ] mutation: dy kernel → red
-- [ ] LEAD_DESK line appended · [ ] commit "JB-9.03b: …", rebased, pushed · [ ] main folder fast-forwarded (or refusal reported)
+- [x] tests pass (paste counts read from the XML of THIS worktree, with the time stamp of the newest file) · [ ] mutation: dy kernel → red
+- [x] LEAD_DESK line appended · [ ] commit "JB-9.03b: …", rebased, pushed · [ ] main folder fast-forwarded (or refusal reported)
 
 ## Questions
+
+2026-10-01 paper-lead decision (the owner delegated the specialist role to Codex): UNORM filtering of a flat 127 texture produced slopes around 3e-9 in SwiftShader with the literal linear decoder. CPU/GPU filtered decoding now treats only encoded-zero deltas within 1/65536 (two float ulps at byte 127) as exact zero. All other fractional slopes retain the linear formula; no byte re-quantization. The GPU test remains exact equality to zero; a CPU test pins preservation of a 1/1024-byte slope. This resolves the numerical contract without weakening verification.
+
+## Verification
+
+Core XML: 1426 tests, 0 failures/errors/skips, newest 2026-10-01 15:20:24 -04:00. Android-kit XML: 213 tests, 0 failures/errors/skips; time recorded in the worktree review. SurfaceAssetTest: zero of 1048576 bytes differ. dy 10→2 mutation: the new Y sine-ramp test failed, 1/1; source restored. GPU: exact flat slopes [0,0], GL error 0, paper correlation 0.029826 vs plain control 1.0. The baseline large-image benchmark needed a 1536m test heap; no benchmark code or assertion changed. No phone installation.

@@ -38,14 +38,20 @@ object GrainMath {
     /** JB-9.03: one physical paper surface for every brush (R10 P4). */
     const val DEFAULT_SURFACE = "surface_pulp_artisan.png"
     const val SURFACE_SIZE = 512f
-    const val SURFACE_TEXEL_PX = 2f
+    const val DEFAULT_SURFACE_TEXEL_PX = 2f
+    const val SURFACE_TEXEL_PX = DEFAULT_SURFACE_TEXEL_PX
     const val SURFACE_SLOPE_RANGE = 0.099f
     const val SURFACE_HEX_TEXELS = 180f
     const val SURFACE_ROTATABLE = true
 
     /** Paper image and scale belong to the document surface, never the brush's legacy grain entry. */
     fun paperUniformsFor(spec: GrainSpec, depthAtFirstDab: Float): GrainUniforms =
-        uniformsFor(spec.copy(image = DEFAULT_SURFACE, scale = GRAIN_UNIT_PX / SURFACE_TEXEL_PX), depthAtFirstDab)
+        if (!spec.enabled) GrainUniforms.OFF else GrainUniforms(
+            DEFAULT_SURFACE_TEXEL_PX, unit(depthAtFirstDab, unit(spec.depth.base, 1f)),
+            if (spec.edge.isFinite()) spec.edge.coerceIn(0f, 1f) else 0.3f,
+            if (spec.tiltGradient.isFinite()) spec.tiltGradient else 0f,
+            if (spec.radial.isFinite()) spec.radial else 0f, DEFAULT_SURFACE,
+        )
 
     // ---- the NaN row --------------------------------------------------------------------------
 

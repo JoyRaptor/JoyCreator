@@ -17,6 +17,7 @@ import cc.joycreator.joybrush.core.brush.TuftStroke
 import cc.joycreator.joybrush.core.brush.VERSION_PAPER
 import cc.joycreator.joybrush.core.paint.UndoLog
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -68,17 +69,11 @@ class BrushTuningTest {
      * meets the knobs in the order they come back.
      */
     @Test
-    fun thePaperSlidersSitAfterTheBrushsOwnKnobsAndBeforeSmoothing() {
-        val keys = BrushKnobs.forBrush(pencil()).map { it.key }
-        val at = keys.indexOf("paper.influence")
-        assertEquals(
-            listOf("paper.influence", "paper.directional", "paper.wet"),
-            keys.subList(at, at + 3),
-            "the three paper keys are consecutive and in the stated order. Pencil's whole list: $keys",
-        )
-        assertEquals("smoothing", keys[at + 3], "and Smoothing comes straight after them: $keys")
-        // "after the engine's own knobs": the engine's own come first.
-        assertTrue(keys.lastIndexOf("stamp.angleJitter") < at, "the engine's own knobs come first: $keys")
+    fun paperSlidersStayHiddenUntilTheirEngineIsLive() {
+        assertFalse(BrushKnobs.PAPER_ENGINE_LIVE)
+        for (brush in listOf(ink(), pencil(), sable())) {
+            assertTrue(BrushKnobs.forBrush(brush).none { it.key.startsWith("paper.") })
+        }
     }
 
     /**
@@ -93,7 +88,7 @@ class BrushTuningTest {
         val paperKeys = setOf("paper.influence", "paper.directional", "paper.wet")
         for (brush in listOf(ink(), pencil(), sable())) {
             val keys = BrushKnobs.forBrush(brush).map { it.key }
-            assertEquals(paperKeys, keys.filter { it in paperKeys }.toSet(), "${brush.id} (${brush.engine}) has them: $keys")
+            assertEquals(emptySet(), keys.filter { it in paperKeys }.toSet(), "${brush.id} (${brush.engine}) has them: $keys")
         }
         for (brush in listOf(
             ink().copy(id = "s", engine = ENGINE_SMUDGE, version = 3),
@@ -121,7 +116,7 @@ class BrushTuningTest {
             "paper.wet" to { p: BrushPreset -> p.paper.wet },
         )
         for (key in read.keys) {
-            val knob = BrushKnobs.forBrush(pencil()).first { it.key == key }
+            val knob = BrushKnobs.PAPER.first { it.key == key }
             for (v in listOf(0f, 0.5f, 1f)) {
                 val moved = knob.set(pencil(), v)
                 assertEquals(v, knob.get(moved), 1e-4f, "$key at $v")
@@ -144,7 +139,7 @@ class BrushTuningTest {
     @Test
     fun aPaperSliderMovedOnAVersionOneBrushRestampsTheFile() {
         val old = ink().copy(version = 1)
-        val moved = BrushKnobs.forBrush(old).first { it.key == "paper.influence" }.set(old, 0.5f)
+        val moved = BrushKnobs.PAPER.first { it.key == "paper.influence" }.set(old, 0.5f)
         assertEquals(VERSION_PAPER, moved.version, "the tuned brush says `paper`, so it is a version-6 file")
         assertTrue(BrushJson.encode(moved).contains("\"version\": $VERSION_PAPER"))
         assertEquals(emptyList(), BrushValidate.validate(moved), "and the tuned brush loads clean")
@@ -153,26 +148,26 @@ class BrushTuningTest {
         // an oversight: a version is only ever stamped UPWARD (`BrushJson.versionFor` says the same), so a
         // file somebody has already re-saved as version 6 stays version 6. What a slider put back restores
         // is the default, so the section costs nothing again.
-        val back = BrushKnobs.forBrush(moved).first { it.key == "paper.influence" }.set(moved, 0f)
+        val back = BrushKnobs.PAPER.first { it.key == "paper.influence" }.set(moved, 0f)
         assertTrue(back.paper.isDefault, "back to 0/0/0")
         assertEquals(VERSION_PAPER, back.version, "a version is never taken back")
         // A brush whose paper is already the default and stays there costs no version: that is the case
         // the shipped eraser, smudge and fill are in, and it is why they are still version 1, 3 and 2.
         val untouched = ink().copy(version = 1)
-        assertEquals(untouched, BrushKnobs.forBrush(untouched).first { it.key == "paper.influence" }.set(untouched, 0f))
+        assertEquals(untouched, BrushKnobs.PAPER.first { it.key == "paper.influence" }.set(untouched, 0f))
     }
 
     /** The hint says what the slider will do, and says plainly that it does not do it yet (Decision 5). */
     @Test
-    fun everyPaperSliderSaysWhenItStartsWorking() {
-        for (knob in BrushKnobs.forBrush(pencil()).filter { it.key.startsWith("paper.") }) {
+    fun hiddenPaperSlidersHaveFinishedHints() {
+        for (knob in BrushKnobs.PAPER) {
             assertTrue(knob.hint.isNotBlank(), "${knob.key} has no hint")
             assertTrue(
-                knob.hint.trimEnd().endsWith("(takes effect when the paper engine lands)"),
-                "${knob.key} must say the paper engine has not landed yet: ${knob.hint}",
+                !knob.hint.contains("takes effect when"),
+                "${knob.key} must not expose a temporary implementation note: ${knob.hint}",
             )
         }
-        val labels = BrushKnobs.forBrush(pencil()).filter { it.key.startsWith("paper.") }.map { it.label }
+        val labels = BrushKnobs.PAPER.map { it.label }
         assertEquals(listOf("Paper", "Direction", "Wet"), labels, "the labels the owner chose: $labels")
     }
 
@@ -187,7 +182,7 @@ class BrushTuningTest {
             BrushValidate.paperSliders(PaperResponse()).map { "paper.${it.first}" }.toSet(),
             setOf("paper.influence", "paper.directional", "paper.wet"),
         )
-        val keys = BrushKnobs.forBrush(pencil()).map { it.key }.filter { it.startsWith("paper.") }.toSet()
+        val keys = BrushKnobs.PAPER.map { it.key }.toSet()
         assertEquals(
             BrushValidate.paperSliders(PaperResponse()).map { "paper.${it.first}" }.toSet(),
             keys,

@@ -43,6 +43,8 @@ _(append below; newest last)_
 
 2026-10-01 JB-9.03: Replaced only paper reads/bindings in the dab and Sable hot files with the shared RGBA artisan-pulp hex sampler; tip textures and threshold maths remain unchanged, removing the visible paper grid.
 
+2026-10-01 JB-9.03b: Updated only paper shader lines for exact-zero slope encoding, seed offsets, high precision and height-only reads; safe un-premultiplied RGBA uploads and hidden inactive knobs are verified with CPU/GPU checks.
+
 ## Lead answers
 
 _(the Lead writes here)_

@@ -403,3 +403,13 @@ Review: 211 androidkit tests pass. App watcher build passes; installed in place 
 Large Open and Recent swaps pass on Note 9 with 1711 tiles; selected pixels/document exact.
 Damaged-file refusal keeps all 1713 owner archive entries exact. Large swaps still take tens of
 seconds. Next integration: frame/cel projection before animation and Studio controls.
+
+## JB-9.03b audit — 2026-10-01
+- [x] Read v2 dispatch/spec, isolate worktree, copy settings, check hot-file history.
+- [x] Update slope twins, precision, height path, safe upload, paper wiring and hidden knobs.
+- [x] Regenerate surface; locked --no-daemon verification; dy mutation red; restore and full suites.
+- [x] Append Lead note; commit/rebase/push and main fast-forward; candidates while gated.
+### Review
+Pending.
+
+JB-9.03b review: core 1426/0 at 15:20:24 EDT, androidkit 213/0 at 15:27:47 EDT; dy mutation red; exact asset bytes and GPU zero/no-repeat pass. See reviews/JB-9.03b__codex.md for commands and the benchmark heap exception.

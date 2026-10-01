@@ -701,8 +701,8 @@ Problem: any preview gate keyed on keyboard visibility is also keyed on every su
 Rule: when a setting's whole purpose is immediate visual feedback, the apply path must actively establish preview conditions (dismiss keyboard, seek into the animated zone) rather than relying on ambient state. Second hiding place: outside entrance/exit zones every preset draws the identical settled box, so un-suppressing alone still shows nothing with the playhead parked mid-hold â€” seek mid-entrance on explicit picks, never on undo/redo.
 Trigger: "changing X does nothing until I leave and come back" where leaving ends an editing/keyboard session.
 
-## 2026-09-22 — ffmpeg input -ss + -c copy rebases timestamps to zero
-Pattern: a pre-trim baked with -ss BEFORE -i and stream copy comes out zero-based (first packet PTS 0.000000, measured), while our composition clips in absolute source time — every padded window then seeks wrong, mostly past EOF into empty items (48-min export: video ending at 1:42 with full-length audio, 137MB file). Validation passed because durations match; only the base shifts. Rule: any ffmpeg window cut feeding timestamp-based clipping MUST pass -copyts, and validation must compare coverage in the file's own base (out - padStart), never absolute out.
+## 2026-09-22 ï¿½ ffmpeg input -ss + -c copy rebases timestamps to zero
+Pattern: a pre-trim baked with -ss BEFORE -i and stream copy comes out zero-based (first packet PTS 0.000000, measured), while our composition clips in absolute source time ï¿½ every padded window then seeks wrong, mostly past EOF into empty items (48-min export: video ending at 1:42 with full-length audio, 137MB file). Validation passed because durations match; only the base shifts. Rule: any ffmpeg window cut feeding timestamp-based clipping MUST pass -copyts, and validation must compare coverage in the file's own base (out - padStart), never absolute out.
 
 ## Media3 1.8.0 Composition/EditedMediaItemSequence expose public fields, not getters
 
@@ -910,3 +910,6 @@ wrong rejection as a hard-won lesson.
 
 ## 2026-10-01 â€” Respect the owner's limited Plus usage
 Keep delegated work focused; avoid extra agents, speculative work and repeated verification. Run required checks once and repeat only after a relevant change or failure.
+
+## 2026-10-01 â€” Rice translucency is not height; keep texture white balance neutral
+Rice paper has subtle real relief, but opacity/brightness is not a 1:1 height proxy. Dark embedded plant chunks do not imply pits. Author the look and surface independently. Use neutral D65 white balance/no amber grade in generation prompts; let the material supply its own warmth.

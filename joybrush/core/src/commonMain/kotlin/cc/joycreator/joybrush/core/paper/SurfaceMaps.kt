@@ -3,7 +3,7 @@ package cc.joycreator.joybrush.core.paper
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
-import kotlin.math.roundToInt
+import kotlin.math.round
 
 /**
  * Surface maps: a height map becomes slopes, slopes become the GPU texture layout (JB-9.01).
@@ -35,10 +35,15 @@ object SurfaceMaps {
      * (y grows DOWN, so dy > 0 means the ground rises toward the bottom of the picture.)
      */
     fun slopes(height: FloatArray, w: Int, h: Int): Pair<FloatArray, FloatArray> {
+        val (dx, dy) = slopesDouble(DoubleArray(height.size) { height[it].toDouble() }, w, h)
+        return FloatArray(dx.size) { dx[it].toFloat() } to FloatArray(dy.size) { dy[it].toFloat() }
+    }
+
+    private fun slopesDouble(height: DoubleArray, w: Int, h: Int): Pair<DoubleArray, DoubleArray> {
         require(w >= 3 && h >= 3) { "a surface needs at least 3x3 to have interior texels, got ${w}x$h" }
         require(height.size == w * h) { "height has ${height.size} values, but ${w}x$h needs ${w * h}" }
-        val dx = FloatArray(w * h)
-        val dy = FloatArray(w * h)
+        val dx = DoubleArray(w * h)
+        val dy = DoubleArray(w * h)
         for (y in 0 until h) {
             val rowUp = ((y - 1 + h) % h) * w
             val row = y * w
@@ -47,12 +52,12 @@ object SurfaceMaps {
                 val left = (x - 1 + w) % w
                 val right = (x + 1) % w
                 val i = row + x
-                dx[i] = (3f * (height[rowUp + right] - height[rowUp + left]) +
-                    10f * (height[row + right] - height[row + left]) +
-                    3f * (height[rowDown + right] - height[rowDown + left])) / SCHARR_NORM
-                dy[i] = (3f * (height[rowDown + left] - height[rowUp + left]) +
-                    10f * (height[rowDown + x] - height[rowUp + x]) +
-                    3f * (height[rowDown + right] - height[rowUp + right])) / SCHARR_NORM
+                dx[i] = (3.0 * (height[rowUp + right] - height[rowUp + left]) +
+                    10.0 * (height[row + right] - height[row + left]) +
+                    3.0 * (height[rowDown + right] - height[rowDown + left])) / 32.0
+                dy[i] = (3.0 * (height[rowDown + left] - height[rowUp + left]) +
+                    10.0 * (height[rowDown + x] - height[rowUp + x]) +
+                    3.0 * (height[rowDown + right] - height[rowUp + right])) / 32.0
             }
         }
         return dx to dy
@@ -79,19 +84,25 @@ object SurfaceMaps {
         return (ceil(percentile * 1000f) / 1000f).coerceAtLeast(0.001f)
     }
 
-    /** One slope as a byte: `round(255 · clamp(0.5 + 0.5·s/slopeRange, 0, 1))`. */
+    /** Exact-zero encoding: 127 is flat; -range and +range are 0 and 254. */
     fun encodeSlope(s: Float, slopeRange: Float): Int {
         require(slopeRange.isFinite() && slopeRange > 0f) { "slopeRange must be a positive finite number, was $slopeRange" }
-        return (255f * (0.5f + 0.5f * s / slopeRange)).coerceIn(0f, 255f).roundToInt()
+        return encodeDouble(s.toDouble(), slopeRange.toString().toDouble())
     }
 
-    /**
-     * Inverse of [encodeSlope] (byte 0..255 → slope). `128 ↦ +0.5/255·2·slopeRange ≈ 0`, NOT exactly 0:
-     * documented, tested.
-     */
+    private fun encodeDouble(s: Double, range: Double): Int =
+        round(127.0 + 127.0 * (s / range).coerceIn(-1.0, 1.0)).toInt()
+
+    /** Inverse, including the exact zero at byte 127. */
     fun decodeSlope(b: Int, slopeRange: Float): Float {
         require(slopeRange.isFinite() && slopeRange > 0f) { "slopeRange must be a positive finite number, was $slopeRange" }
-        return (b.toFloat() / 255f - 0.5f) * 2f * slopeRange
+        return (b - 127) / 127f * slopeRange
+    }
+
+    /** Filter first, decode linearly. Only two Float ulps around encoded zero are exact-zero aliases. */
+    fun decodeFilteredSlope(v: Float, slopeRange: Float): Float {
+        val delta = v * 255f - 127f
+        return if (abs(delta) <= 1f / 65536f) 0f else delta / 127f * slopeRange
     }
 
     /**
@@ -106,15 +117,15 @@ object SurfaceMaps {
      */
     fun pack(heightBytes: ByteArray, w: Int, h: Int, slopeRange: Float): ByteArray {
         require(slopeRange.isFinite() && slopeRange > 0f) { "slopeRange must be a positive finite number, was $slopeRange" }
-        val height = FloatArray(heightBytes.size) { heightBytes[it].toInt().and(0xFF) / 255f }
-        val (dx, dy) = slopes(height, w, h)
+        val height = DoubleArray(heightBytes.size) { heightBytes[it].toInt().and(0xFF) / 255.0 }
+        val (dx, dy) = slopesDouble(height, w, h)
         val out = ByteArray(w * h * 4)
         for (i in heightBytes.indices) {
             val b = heightBytes[i].toInt().and(0xFF)
-            out[i * 4] = encodeSlope(dx[i], slopeRange).toByte()
-            out[i * 4 + 1] = encodeSlope(dy[i], slopeRange).toByte()
+            out[i * 4] = encodeDouble(dx[i], slopeRange.toString().toDouble()).toByte()
+            out[i * 4 + 1] = encodeDouble(dy[i], slopeRange.toString().toDouble()).toByte()
             out[i * 4 + 2] = heightBytes[i]
-            out[i * 4 + 3] = (255f * b / 255f * (b / 255f)).roundToInt().toByte()
+            out[i * 4 + 3] = round(255.0 * height[i] * height[i]).toInt().toByte()
         }
         return out
     }

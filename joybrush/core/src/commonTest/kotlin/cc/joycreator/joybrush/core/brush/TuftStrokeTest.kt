@@ -15,6 +15,11 @@ import kotlin.test.assertTrue
 
 /** The tuft engine against the owner's rulings (R9 §3A, O1–O13). Each test names the ruling it holds the brush to. */
 class TuftStrokeTest {
+    @Test fun aBrushWithoutToothOrStrayHairsDoesNotReadPaper() {
+        assertEquals(0f, TuftStroke.shading(sable { it.copy(tooth = 0f, strays = 0f) }, 7L).paperPitchPx)
+        assertEquals(2f, TuftStroke.shading(sable { it.copy(tooth = 0.4f, strays = 0f) }, 7L).paperPitchPx)
+        assertEquals(2f, TuftStroke.shading(sable { it.copy(tooth = 0f, strays = 0.4f) }, 7L).paperPitchPx)
+    }
 
     private fun sable(size: Float = 18f, edit: (TuftSpec) -> TuftSpec = { it }) = BrushPreset(
         id = "t", name = "T", engine = ENGINE_TUFT, size = Param(size), tuft = edit(TuftSpec()),

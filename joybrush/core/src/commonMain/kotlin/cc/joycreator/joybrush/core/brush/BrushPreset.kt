@@ -41,6 +41,8 @@ import kotlinx.serialization.Serializable
     val minPx: Float = 1f,
 )
 
+/** Paper grain image/scale are ignored since JB-9.03: the document paper decides (R10 P4).
+ * Tip textures still use their own image and scale. */
 @Serializable data class GrainSpec(
     val enabled: Boolean = false,
     val source: String = "cloud",        // "cloud" | "image"

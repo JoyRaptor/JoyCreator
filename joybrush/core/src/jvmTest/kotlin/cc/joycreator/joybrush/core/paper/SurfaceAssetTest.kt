@@ -26,18 +26,7 @@ class SurfaceAssetTest {
         .first { File(it, "assets/paper/surface_pulp_artisan.png").isFile || File(it, "joybrush/assets/paper/surface_pulp_artisan.png").isFile }
         .let { if (File(it, "assets/paper").isDirectory) it else File(it, "joybrush") }
 
-    /**
-     * Rebuilding the shipped artisan surface with the catalogue's own `slopeRange` must reproduce the
-     * file byte for byte, to within ±1 per channel.
-     *
-     * ±1, and not 0, because the two implementations do their last rounding at different
-     * precisions: pack.py rounds in NumPy float64, this in Kotlin Float. A channel one step out is
-     * still a match; anything larger is a real disagreement and fails.
-     *
-     * The count of differing channels is reported, because "it passed" and "it needed the tolerance
-     * on 40% of the texels" are very different states of the world and a reader should be able to
-     * tell them apart.
-     */
+    /** Rebuild the regenerated surface with Double arithmetic: zero differing bytes. */
     @Test
     fun theShippedArtisanSurfaceIsWhatThisKotlinTwinPacks() {
         val img = ImageIO.read(File(root(), "assets/paper/surface_pulp_artisan.png"))
@@ -67,10 +56,10 @@ class SurfaceAssetTest {
         }
         println(
             "JB-9.01 SurfaceAssetTest: ${w}x$h slopeRange=$SLOPE_RANGE, " +
-                "$differing of ${packed.size} channels differ from the shipped file by ±1 or more; worst $worst",
+                "$differing of ${packed.size} channels differ from the shipped file by one byte or more; worst $worst",
         )
         assertTrue(
-            worst <= 1,
+            differing == 0,
             "pack() drifted from the shipped file: worst channel difference is $worst over " +
                 "$differing of ${packed.size} channels. The twin must match pack.py, not merely resemble it.",
         )

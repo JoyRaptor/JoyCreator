@@ -181,7 +181,7 @@ S.paperImage = 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, '
       void main(){gl_Position=vec4(a,0,1);v_offset=a*vec2(1024,128);v_dabCentre=vec2(1024,128);
         v_radius=2048.0;v_angle=0.0;v_flow=1.0;v_cap=1.0;}`;
     function dabCorrelation(control) {
-      const fragment = control ? S['jb_dab.frag'].replace('return jb_paperSurface(docPx).z;',
+      const fragment = control ? S['jb_dab.frag'].replace('return jb_paperHeight(docPx);',
         'return texture(u_paperSurface, docPx / 1024.0).b;') : S['jb_dab.frag'];
       const p = prog(paperDabV, fragment); gl.useProgram(p); paperUniforms(p);
       gl.uniform1i(u(p,'u_tipGrain'),0);gl.uniform1i(u(p,'u_paperSurface'),1);
@@ -192,6 +192,25 @@ S.paperImage = 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, '
       // The program's chosen read is the control; u_control is absent in these dab shaders.
       return correlation(control, p);
     }
+    // JB-9.03b: exact-zero slopes must survive the GPU's filtered decode.
+    const flatBytes = new Uint8Array(4 * 4 * 4);
+    for (let i=0;i<flatBytes.length;i+=4) flatBytes.set([127,127,128,64],i);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,surface);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,4,4,0,gl.RGBA,gl.UNSIGNED_BYTE,flatBytes);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    const zeroP = prog(stripV, `#version 300 es\n${S['jb_paper.glsl']}\nout vec4 color;
+      void main(){vec2 slope=jb_paperSurface(gl_FragCoord.xy).xy; color=vec4(slope,0,1);}`);
+    gl.useProgram(zeroP); paperUniforms(zeroP,4); gl.uniform1i(u(zeroP,'u_paperSurface'),1); gl.uniform1i(u(zeroP,'u_paperRotatable'),1);
+    gl.activeTexture(gl.TEXTURE3);
+    const zeroTex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,zeroTex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,1,1,0,gl.RGBA,gl.FLOAT,null);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,zeroTex,0);
+    gl.viewport(0,0,1,1); gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+    const slopes=new Float32Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,slopes);
+    out.flatSlopes=Array.from(slopes); out.flatSlopeExactZero=slopes[0]===0 && slopes[1]===0;
+    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,surface);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,image);gl.generateMipmap(gl.TEXTURE_2D);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,strip,0);gl.viewport(0,0,W,H);
     out.paperCorrelation=dabCorrelation(false);out.paperControlCorrelation=dabCorrelation(true);
     out.paperNoRepeat = out.paperCorrelation < 0.3 && out.paperControlCorrelation > 0.99 &&
       out.paperSurfaceCorrelation < 0.3 && out.paperSurfaceControlCorrelation > 0.99;
@@ -284,7 +303,7 @@ S.paperImage = 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, '
   }, S);
   console.log(JSON.stringify(res));
   await browser.close();
-  if (!res.compiled || !res.tuftCompiled || !res.paperNoRepeat || !res.fbo || res.glError !== 0 || !res.grainDarkens || !res.grainAllFinite ||
+  if (!res.compiled || !res.tuftCompiled || !res.paperNoRepeat || !res.flatSlopeExactZero || !res.fbo || res.glError !== 0 || !res.grainDarkens || !res.grainAllFinite ||
       !res.smudgeOk || !res.smudgeOpacityOk || !res.coverageOpacityOk ||
       Math.abs(res.strokeCentre - 0.5) > 0.01 || res.strokeOutside !== 0 ||
       !res.committedRGBA?.every((v, i) => Math.abs(v - [127, 0, 0, 127][i]) <= 2)) process.exitCode = 1;

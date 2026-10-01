@@ -84,8 +84,37 @@ Passing = BUILD SUCCESSFUL and your counts read from `joybrush/core/build/test-r
 - Do not touch the shaders or androidkit. That is JB-9.03.
 
 ## Definition of done
-- [ ] tests pass (paste counts) · [ ] mutation check: change 10→2 in the kernel and see test 2 go red; say so
-- [ ] only owner-area files changed (`git status --short`) · [ ] commit "JB-9.01: …", rebased on origin/joy-creator, pushed
-- [ ] ROADMAP row JB-9.01 set to 🟧 Built with the command and counts
+- [x] tests pass (paste counts) · [x] mutation check: change 10→2 in the kernel and see test 2 go red; say so
+- [x] only owner-area files changed (`git status --short`) · [x] commit "JB-9.01: …", rebased on origin/joy-creator, pushed
+- [x] ROADMAP row JB-9.01 set to 🟧 Built with the command and counts
+
+## Verification (2026-10-01)
+
+- `.\gradlew.bat --no-watch-fs -p joybrush :core:jvmTest --rerun-tasks`: BUILD SUCCESSFUL. XML over 89 suites:
+  **1337 tests, 0 failures, 0 errors, 0 skipped** (was 1328 before this row: +8 `SurfaceMapsTest`, +1
+  `SurfaceAssetTest`).
+- Test 9, the pack.py cross-check: `SurfaceAssetTest: 512x512 slopeRange=0.099, 285 of 1048576 channels
+  differ from the shipped file by ±1 or more; worst 1`. 285 of a million is rounding only — Kotlin Float
+  against NumPy float64 in the last step — and "worst 1" is the assertion that would go red on any real
+  disagreement, so the twin reproduces the golden.
+- Mutation check, as the spec asks: `10f` → `2f` in the dx kernel turns
+  `aSineRampInXReadsAsTheCentralDifferenceAndHasNoVerticalSlope` **red** (and `SurfaceAssetTest` red with
+  it), 1337 tests completed / 2 failed. Reverted; back to BUILD SUCCESSFUL. That is the row's load-bearing
+  test: it is the one that pins `/32` and the `3,10,3` weights together.
+- `git status --short` before the commit showed only the three owner-area files (plus the ROADMAP row and
+  this section), nothing in the shaders or androidkit.
+
+### One note for the specialist, on the spec's own text
+
+- **Test 4 reads "interior rows 2..5"**, and the builder took the whole ramp `h = y/8` and asserted dy > 0
+  on rows 2..5. Those rows are clear of the wrap seam; rows 0 and 7 would not be, on a ramp that is not
+  tileable, and Decision 4 says a non-tileable input still wraps. The comment in the test derives this.
+- **Test 6's bound is exactly the half step `r/255`,** and the i = 50 sample lands on it precisely, so the
+  round trip's error *is* a full half step there, not less. Float arithmetic in the four multiply/divide
+  steps then carries it ~1.7e-5 of a step past the bound, so the assertion carries the same sliver of
+  slack. A wrong scale factor in `decodeSlope` moves the error by 2× or 0.5×, not by a fraction of a
+  percent, so the slack costs the test nothing.
 
 ## Questions
+
+None. All eight contract decisions and all nine tests were implementable as written.

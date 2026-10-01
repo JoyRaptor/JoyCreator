@@ -6,7 +6,7 @@
 
 ---
 
-## 1. The owner and how to work with him
+## 1. The owner and how to work with them
 
 - **The owner (JoyRaptor) is an artist, not a developer.** Make the engineering calls yourself and explain them in what they will SEE. Report as short plain tables with ✅ / ⚠️ / ❌. No code in reports.
 - **Phone first.** They test on a **Galaxy Note 9** (the sandbox). Never install on the **Note 20**, which holds the real project. `tools/build-install.sh` refuses when the Note 20 is attached.

@@ -89,7 +89,7 @@ installs it after the owner presses Home. The owner then judges: pencil light→
 - `.\gradlew.bat --no-watch-fs :joybrush-android:compileDebugKotlin :app:assembleDefaultDebug`: passed; no installation.
 - `node joybrush/tools/shader_check.js`: headless Edge compiles/links dab + tuft, GL error 0; production dab correlation 0.029826 versus plain-repeat control 1.0.
 - Packaged library contains the surface PNG, catalogue and `jb_paper.glsl`.
-- APK: `%TEMP%/jb-9.03/app/build/outputs/apk/default/debug/app-default-debug.apk`; awaiting the owner on the Note 9.
+- APK: `%TEMP%/jb-9.03/app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk`; awaiting the owner on the Note 9.
 - JB-9.02 has not landed: `PencilOnAFingerTest` records `TODO(JB-9.02)` for CPU hex sampling; shader/CPU seeded-point parity awaits that twin.
 
 ## Questions

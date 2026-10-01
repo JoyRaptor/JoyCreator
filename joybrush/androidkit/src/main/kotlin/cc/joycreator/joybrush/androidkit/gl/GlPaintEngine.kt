@@ -754,9 +754,7 @@ class GlPaintEngine(
         val surface = p?.surface
         strokeSurface = surface
         strokePaperScale = p?.scale ?: 1f
-        val documentGrain = if (p == null) grain.paper else if (surface != null && grain.paper.enabled)
-            grain.paper.copy(asset=surface.file,pitchPx=surface.texelPx*p.scale,depth=grain.paper.depth*p.bite)
-            else GrainMath.GrainUniforms.OFF
+        val documentGrain = documentPaperGrain(grain.paper,p)
         val paperTex = if (documentGrain.enabled) grains.textureFor(documentGrain.asset) else null
         this.grain = GrainMath.StrokeGrain(
             tip = if (tipTex != null) grain.tip else GrainMath.GrainUniforms.OFF,

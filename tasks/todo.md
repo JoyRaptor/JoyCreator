@@ -420,3 +420,5 @@ JB-9.03b review: core 1426/0 at 15:20:24 EDT, androidkit 213/0 at 15:27:47 EDT; 
 Review: raw candidates are not catalogue entries; seams need repair before shipping. No Gradle/XML or mutation applies.
 ## JB-9.06
 - [ ] CPU/GPU paper, export and document surface; required checks and landing (see tasks/joybrush/reviews/JB-9.06__plan.md).
+
+JB-9.06 review: core1433/0 and Android-kit224/0; GPU/tint mutation/APK pass. See reviews/JB-9.06__codex.md. Main ff refuses tasks/todo.md; leave it alone. Await phone/UI judgement.

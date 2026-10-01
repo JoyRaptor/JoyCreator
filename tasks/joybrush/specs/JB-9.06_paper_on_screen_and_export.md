@@ -91,7 +91,7 @@ Owner judges: paper visible behind strokes, no seam at 0.05×/1×/8×/64×, ligh
 - Do not build the Paper sheet UI (JB-9.07) beyond a temporary debug toggle, and if you add one, remove it before your last commit.
 
 ## Definition of done
-- [ ] all tests pass (paste) · [ ] LEAD_DESK line · [ ] commit(s) "JB-9.06: …", rebased, pushed · [ ] ROADMAP row → 🟧 Built — awaiting the Note 9
+- [x] all tests pass (paste) · [x] LEAD_DESK line · [x] commit(s) "JB-9.06: …", rebased, pushed · [x] ROADMAP row → 🟧 Built — awaiting the Note 9
 
 ## Questions
 
@@ -109,3 +109,5 @@ The CPU HexTile/PaperTexture dependency (JB-9.02) has not landed and is not list
 2026-10-01 Acting paper lead (owner promotion): ResolvedPaper needs explicit tintSet (default false); equal-to-base tint is still an explicit tint and must normalize the look by its mean. Added renderer-only flag, no document-format change. Background cache helper is PaperBackground.kt; export loader helper is PaperResources.kt. CanvasSnapshot's independent texture refusal must also be lifted, and its optional livePaper carries swaps without discarding old metadata.
 
 Known contract consequence: Decision 8 renders the layer stack transparent before adding paper. With non-NORMAL blend layers, this can differ from blending directly onto paper on screen; ORA readers may likewise differ from mergedimage.png. The row follows the explicit export contract and keeps blend metadata intact; harmonizing those blend semantics needs a follow-up contract. No phone check claimed.
+
+Verification: core1433/0 (96 suites, newest2026-10-01 18:36:09 EDT), Android-kit224/0 (20 suites, newest18:38:17 EDT), tint mutation1/1 red/restored, GPU max CPU difference1 byte, large-origin0 bytes/adjacent1 byte, black/Show0/detail/no-repeat passed, APK passed. Exact commands in reviews/JB-9.06__codex.md. No installation.

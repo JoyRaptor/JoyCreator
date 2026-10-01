@@ -348,7 +348,7 @@ S.paperFixtures = ['paper-raster-fixture.json', 'paper-raster-large-fixture.json
       gl.uniform1f(u(background,'u_slopeRange'),fixture.surface?.slopeRange || 0.099);
       gl.uniform1f(u(background,'u_detail'),fixture.detail || 0);
       // readPixels row 0 is the fixture's document top row; avoid a screen-dependent vertical flip.
-      gl.uniformMatrix2fv(u(background,'u_docStep'),false,new Float32Array([1,0,0,1]));
+      gl.uniformMatrix2fv(u(background,'u_docStep'),false,new Float32Array(fixture.docStep || [1,0,0,1]));
       for(let k=0;k<3;k++) {
         const entry=(k===0?fixture.look:fixture.surface);
         const pitch=(entry?.texelPx||2)*fixture.scale/(k===2?8:1);
@@ -364,15 +364,18 @@ S.paperFixtures = ['paper-raster-fixture.json', 'paper-raster-large-fixture.json
       }
       gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
       const actual=new Uint8Array(w*h*4);gl.readPixels(0,0,w,h,gl.RGBA,gl.UNSIGNED_BYTE,actual);
-      if(fixture.expected.length!==actual.length) throw new Error('paper fixture byte count');
-      let maxError=0,maxAdjacent=0;
-      for(let i=0;i<actual.length;i++) maxError=Math.max(maxError,Math.abs(actual[i]-fixture.expected[i]));
+      if(fixture.expected && fixture.expected.length!==actual.length) throw new Error('paper fixture byte count');
+      let maxError=0,maxAdjacent=0,checksum=2166136261;
+      for(let i=0;i<actual.length;i++) {
+        if(fixture.expected) maxError=Math.max(maxError,Math.abs(actual[i]-fixture.expected[i]));
+        checksum=Math.imul(checksum^actual[i],16777619)>>>0;
+      }
       for(let y=0;y<h;y++) for(let x=0;x<w;x++) for(let c=0;c<3;c++) {
         const i=(y*w+x)*4+c;
         if(x+1<w) maxAdjacent=Math.max(maxAdjacent,Math.abs(actual[i]-actual[i+4]));
         if(y+1<h) maxAdjacent=Math.max(maxAdjacent,Math.abs(actual[i]-actual[i+w*4]));
       }
-      return {origin:fixture.origin,width:w,height:h,maxError,maxAdjacent};
+      return {origin:fixture.origin,width:w,height:h,maxError,maxAdjacent,checksum};
     }
     out.paperBackgroundParity=backgroundParity(S.paperFixtures[0]);
     out.paperLargeOriginParity=backgroundParity(S.paperFixtures[1]);
@@ -382,10 +385,12 @@ S.paperFixtures = ['paper-raster-fixture.json', 'paper-raster-large-fixture.json
       expected:opaqueFlat([0,0,0],64,64)});
     out.paperShowZero=backgroundParity({...flatCase,show:0,expected:opaqueFlat(flatCase.base,64,64)});
     // At maximum zoom the display-only octave is present; export fixture parity remains detail=0.
-    out.paperDetailSmoke=backgroundParity({...flatCase,detail:0.35,
-      expected:S.paperFixtures[0].expected.slice(0,64*64*4)});
+    const detailCase={...flatCase,docStep:[1/64,0,0,1/64],expected:null};
+    const detailBase=backgroundParity(detailCase), detailFine=backgroundParity({...detailCase,detail:0.35});
+    out.paperDetailSmoke={zoom:64,changed:detailBase.checksum!==detailFine.checksum};
     out.paperBackgroundOk=out.paperBackgroundParity.maxError<=3 && out.paperLargeOriginParity.maxError<=3 &&
-      out.paperLargeOriginParity.maxAdjacent<3 && out.paperBlack.maxError===0 && out.paperShowZero.maxError===0;
+      out.paperLargeOriginParity.maxAdjacent<3 && out.paperBlack.maxError===0 && out.paperShowZero.maxError===0 &&
+      out.paperDetailSmoke.changed;
     out.glError = gl.getError();
     return out;
   }, S);

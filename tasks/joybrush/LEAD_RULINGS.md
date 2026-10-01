@@ -733,3 +733,15 @@ overlapping runs); the build output was deleted and rebuilt (47 classes) and the
 5. **Canned strokes never snap.** The snapper sits in `JbCanvasView.feed` (live pen samples) only, just before the
    brush's response curve (`feedOne`). The Brush Settings test strokes and preview, which also run through `feedOne`, are
    left alone. Agreed with the tuft session.
+
+**R50. Boards are REGIONS, and an animation frame is the board's region, not the whole layer.** (2026-10-01)
+The owner described boards in full (quoted verbatim in `specs/JB-3.00a_boards_owner_model.md` §A). That spec is now the
+authority on boards and overrides the parts of JB-3.01, JB-3.00, JB-3.06b and JB-4.01 that contradict it. In short:
+- An Animation board's frames hold ONLY the board's rectangle, pixel-exact at the edge. Outside it the canvas is shared.
+- Boards are placed, then Locked (they cannot be moved by touch, but their features still work). Tile and Sprite boards
+  have a separate Arm toggle.
+- The Tile board is an Image board with tiling armed: wrap-around painting, and a repeat preview that is never exported.
+- Sprite cells can be rearranged while the board is armed; disarming commits the arrangement as one undo step.
+The frame, strip, clock, peg and sprite-grid maths already built stay valid. **Any agent working on animation: do not
+build frames that span the whole canvas.** Read JB-3.00a §B3 and §D first. JB-3.01b and JB-3.01c are the next rows.
+

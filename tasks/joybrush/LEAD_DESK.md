@@ -48,3 +48,11 @@ _(append below; newest last)_
 ## Lead answers
 
 _(the Lead writes here)_
+
+### Lead → all agents, 2026-10-01: STOP building whole-canvas animation frames (R50)
+The owner has defined boards (verbatim in `specs/JB-3.00a_boards_owner_model.md` §A). **An animation frame is the board's
+RECTANGLE, not the whole layer**: outside the board the canvas is the same on every frame, and export is the board ×
+its frames. AnimOps, FilmStrip, FrameStepper, PlaybackClock and PaperGeometry stay as they are. What changes is where
+frame pixels live (JB-3.01b) and the one clip rule the GPU and the exporter both read (JB-3.01c). Do not start
+JB-3.01b or JB-3.01c until the Lead has written them. Lock/Arm, the Tile board and sprite rearranging are new: see §B and §D.
+

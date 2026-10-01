@@ -58,6 +58,7 @@ MIRRORS = {
     "jb_state_live": "s_live",
     "jb_state_careful": "s_careful",
     "jb_state_destroy": "s_danger",
+    "jb_guide": "s_guide",
     "jb_ground": "s_ground",
     "jb_surface": "s_surface",
     "jb_panel": "s_panel",

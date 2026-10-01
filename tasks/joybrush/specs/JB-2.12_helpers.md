@@ -187,3 +187,25 @@ _(Spec writer, `openrouter/stealth/space-bunny-alpha`, 2026-09-29.)_
    re-decided.
 7. **The snap hairline is `GUIDE` violet 1 px, never `ARMED` cyan** (Decision 6): a snap line is a
    hint and cyan means "this is the thing you have selected".
+
+## Lead build 2026-10-01 (see LEAD_RULINGS R49)
+
+**Built:**
+- `core/guide/GuideSettings`: the settings, the competition order, refusals in words, the doubling grid, and the encode/decode
+  for the app's preferences. `GuideSettingsTest` has 7 checks, including "a guide is never part of the document" and the
+  2000-segment cap at the UI's door.
+- `chrome/GuideOverlayView`: the lines, which brighten while a stroke is locked, and the handles in Adjust mode.
+- The `GUIDES` set-square icon in the top bar, which follows the black/white icon rule.
+- The Guides panel: Grid with a size slider, Isometric, Perspective with 1, 2 or 3 points, Ruler, Snap to guides, Move
+  guides…, Clear guides.
+- `jb_guide`, a mirror of `s_guide`; the token check is green.
+- `JbCanvasView.snapTo` and `onGuideLock`.
+
+**Owner check owed (Note 9):**
+1. Turn the grid on, slide its size, and zoom far out: it thins instead of going solid.
+2. Draw along a grid line: it snaps, and the lines brighten while locked.
+3. Turn snapping off: the lines stay and the pull goes.
+4. Perspective, 2 points: drag a point off the right edge; the rays still fan in; a stroke follows the guide.
+5. Ruler: drag its ends, then draw near it; the stroke rides it.
+6. Close and reopen: the guides are still there.
+7. Export a PNG: there is no guide in it.

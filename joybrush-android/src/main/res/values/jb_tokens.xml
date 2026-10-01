@@ -76,6 +76,9 @@
     <color name="jb_state_careful">#FFFBBF24</color>           <!-- mirror: s_careful -->
     <color name="jb_state_destroy">#FFFA3D5D</color>           <!-- mirror: s_danger -->
 
+    <!-- A guide or snap line (JB-2.12): a hint about geometry, not a control and not a state. -->
+    <color name="jb_guide">#FFA78BFA</color>                   <!-- mirror: s_guide -->
+
     <!-- ══ SURFACES ═══════════════════════════════════════════════════════════════
          The ground ramp, named by meaning, so a Joy Brush screen never needs a fifth. -->
     <color name="jb_ground">#FF000000</color>                  <!-- mirror: s_ground -->

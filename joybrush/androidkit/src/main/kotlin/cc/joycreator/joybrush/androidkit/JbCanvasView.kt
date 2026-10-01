@@ -35,6 +35,8 @@ import cc.joycreator.joybrush.core.doc.Cel
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.grain.GrainMath
+import cc.joycreator.joybrush.core.guide.Guide
+import cc.joycreator.joybrush.core.guide.GuideSnapper
 import cc.joycreator.joybrush.core.doc.BlendMode
 import cc.joycreator.joybrush.core.layers.LayerBudget
 import cc.joycreator.joybrush.core.layers.LayerStack
@@ -137,6 +139,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** Called on the UI thread whenever a pan, zoom or turn moves the page (JB-2.01: the top icons re-read what is behind them). */
     var onViewMoved: (() -> Unit)? = null
+
+    // ── guides (JB-2.12) ─────────────────────────────────────────────────────
+
+    /**
+     * The guides strokes are pulled onto (JB-2.12a's GuideSnapper), or empty for none. The screen sets it from its guide
+     * settings — empty when snapping is off, even with the lines showing. Read at pen-down.
+     */
+    @Volatile var snapTo: List<Guide> = emptyList()
+
+    /** Called on the UI thread when the stroke in progress locks onto a guide (true) and when it ends (false). */
+    var onGuideLock: ((Boolean) -> Unit)? = null
+
+    private var snapper: GuideSnapper? = null
+    private var lockShown = false
 
     /** Outstanding [sampleScreen] requests: view px as x,y pairs, and who wants the answer. All answered after the next frame. */
     private val screenSamples = java.util.concurrent.ConcurrentLinkedQueue<Pair<FloatArray, (IntArray) -> Unit>>()
@@ -825,6 +841,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // JB-2.23: on the mask, the stroke goes to the mask's store and paints GREY — white shows, black hides.
         strokeOnMask = editingMask && stackUi.active.hasMask
         strokeLayerId = if (strokeOnMask) maskStoreId(activeLayer) else activeLayer
+        resetSnapper(fresh = true)
         drawing = true
         glBegan = false
         strokePreset = p
@@ -917,12 +934,29 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // The pen reports SCREEN px; a stroke is recorded in DOCUMENT px, and the page's own turn
         // is what the lean direction is read against.
         val samples = MotionEventSamples.from(ev, idx, { x, y -> view.screenToDoc(x, y) }, view.rotation)
-        for (s in samples) feedOne(sm, s, released)
+        // JB-2.12: onto the guides first (position only; pressure and tilt pass through), then the brush's own response.
+        val snap = snapper
+        for (s in samples) feedOne(sm, snap?.map(s) ?: s, released)
+        if (snap != null && snap.locked && !lockShown) {
+            lockShown = true
+            onGuideLock?.invoke(true)
+        }
         paint(released)
+    }
+
+    /** A new stroke gets a new snapper (it remembers one stroke's start and lock); the old one's highlight goes. */
+    private fun resetSnapper(fresh: Boolean) {
+        val guides = snapTo
+        snapper = if (fresh && guides.isNotEmpty()) GuideSnapper(guides, view.zoom) else null
+        if (lockShown) {
+            lockShown = false
+            onGuideLock?.invoke(false)
+        }
     }
 
     private fun finishStroke() {
         smoother?.let { paint(it.finish()) }
+        resetSnapper(fresh = false)
         // R9: the lift — a fast one carries on as the bristles leave the paper — and any spatter it throws.
         strokeTuft?.let { t -> paintTuft(t.finish()) }
         drawing = false
@@ -933,6 +967,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     private fun cancelStroke() {
+        resetSnapper(fresh = false)
         drawing = false
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null

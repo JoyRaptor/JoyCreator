@@ -718,3 +718,18 @@ overlapping runs); the build output was deleted and rebuilt (47 classes) and the
    - FILTER layers and "a shape as a gradient map" (needs JB-2.21);
    - a "hide everything" mask (every unpainted tile would have to be black: a later default-value field);
    - PSD layer masks (JB-2.14c).
+
+**R49. JB-2.12 (guides on screen) — the Lead's rulings on its four Questions.** (2026-10-01)
+1. **Guides are remembered, by the APP, never by the drawing.** They are kept in the app's preferences
+   (`GuideSettings.encode`, prefs key `guides`), not in `JbDocument`. A perspective setup survives a restart, and a guide
+   still has no road into `document.json`, a tile or an export. The spec's per-session reading would have had the owner
+   rebuild a three-point perspective every visit.
+2. **Snapping is on when a guide is on**, with "Snap to guides" in the panel to keep the lines without the pull.
+3. **Handles:** perspective points and the ruler's two ends are dragged in an "Adjust guides" mode (a Done pill at the
+   top), so a pen stroke can never grab a handle by accident. A point off the screen is drawn pinned to the edge so it can be
+   grabbed back. The ellipse tracer and its handles come next; rotation on it is left out (noise on a phone).
+4. **Spec Decision 7 (the scrub-number control) is taken as a slider** on a log scale (10 to 1000 doc px); there is no
+   shared scrub-number component yet.
+5. **Canned strokes never snap.** The snapper sits in `JbCanvasView.feed` (live pen samples) only, just before the
+   brush's response curve (`feedOne`). The Brush Settings test strokes and preview, which also run through `feedOne`, are
+   left alone. Agreed with the tuft session.

@@ -90,6 +90,7 @@ object JbColors {
             stateLive = get(R.color.jb_state_live),
             stateCareful = get(R.color.jb_state_careful),
             stateDestroy = get(R.color.jb_state_destroy),
+            guide = get(R.color.jb_guide),
             ground = get(R.color.jb_ground),
             surface = get(R.color.jb_surface),
             panel = get(R.color.jb_panel),
@@ -135,6 +136,8 @@ class Palette internal constructor(
     val stateCareful: Int,
     /** Delete, or something being lost. The one state allowed to fill. */
     val stateDestroy: Int,
+    /** A guide or snap line (JB-2.12): a hint, drawn as a thin line, never a fill and never a state. */
+    val guide: Int,
     val ground: Int,
     val surface: Int,
     val panel: Int,

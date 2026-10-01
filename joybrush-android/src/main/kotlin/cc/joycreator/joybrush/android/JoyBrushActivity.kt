@@ -35,6 +35,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import cc.joycreator.joybrush.android.chrome.BrushDrawerView
 import cc.joycreator.joybrush.android.chrome.ChromeKit
 import cc.joycreator.joybrush.android.chrome.ColourPairView
+import cc.joycreator.joybrush.android.chrome.GuideOverlayView
 import cc.joycreator.joybrush.android.chrome.JbIcon
 import cc.joycreator.joybrush.android.chrome.LayerColumnView
 import cc.joycreator.joybrush.android.chrome.Popovers
@@ -63,6 +64,9 @@ import com.fadcam.ui.faditor.tools.ColorRecents
 import com.fadcam.ui.faditor.tools.RecentColorsBar
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.chrome.BrushShelf
+import cc.joycreator.joybrush.core.guide.Guide
+import cc.joycreator.joybrush.core.guide.GuideSettings
+import cc.joycreator.joybrush.core.shape.Pt
 import cc.joycreator.joybrush.core.doc.BlendMode
 import cc.joycreator.joybrush.core.layers.BlendNames
 import cc.joycreator.joybrush.core.layers.LayerBudget
@@ -141,6 +145,9 @@ private const val PREF_REF_PLACE = "reference_place"
 private const val PREF_REF_SHOWN = "reference_shown"
 private const val PREF_LAYERS_OPEN = "layers_open"
 
+/** JB-2.12, Lead ruling R49: the guides are remembered by the app, never by the drawing. */
+private const val PREF_GUIDES = "guides"
+
 /** Layer thumbnails are re-drawn this long after the last change, so a burst of strokes costs one refresh. */
 private const val THUMBS_AFTER_MS = 250L
 
@@ -208,6 +215,10 @@ class JoyBrushActivity : Activity() {
     private lateinit var reference: ReferenceView
     private lateinit var pinBtn: TopButton
     private lateinit var layersBtn: TopButton
+    private lateinit var guidesBtn: TopButton
+    private lateinit var guideOverlay: GuideOverlayView
+    private lateinit var guideDone: TextView
+    private var guides = GuideSettings.NONE
     private lateinit var column: LayerColumnView
     private var columnOpen = false
     private var thumbsPending = false
@@ -322,6 +333,11 @@ class JoyBrushActivity : Activity() {
         // The pinned reference floats over the drawing, full-bleed like it, under the chrome. It is a view, never a layer.
         reference = ReferenceView(kit)
         root.addView(reference, FrameLayout.LayoutParams(MATCH, MATCH))
+        // JB-2.12: the guides, over the drawing and the reference, under the chrome. A view, never a layer.
+        guideOverlay = GuideOverlayView(kit, canvas.view).apply {
+            onChanged = { next, done -> guides = next; if (done) guidesChanged() }
+        }
+        root.addView(guideOverlay, FrameLayout.LayoutParams(MATCH, MATCH))
         root.addView(overlays, FrameLayout.LayoutParams(MATCH, MATCH))
         // Joy Brush's identity, as a hairline along the very top (visual language §4.2): the section colour, never a button.
         hairline = View(this).apply { background = JbColors.roomGradient(this@JoyBrushActivity) }
@@ -337,7 +353,10 @@ class JoyBrushActivity : Activity() {
         canvas.onGraphicsLost = { documentId -> recoverGraphics(documentId) }
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
-        canvas.onViewMoved = { checkIcons() }
+        canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate() }
+        canvas.onGuideLock = { on -> guideOverlay.locked = on }
+        guides = GuideSettings.decode(prefs.getString(PREF_GUIDES, null))
+        guidesChanged()
         reference.onMoved = { saveReferencePlace(); checkIcons() }
         root.post { checkIcons() }
         // JbCanvasView reports this on the UI thread via post(), after every committed stroke,
@@ -435,6 +454,7 @@ class JoyBrushActivity : Activity() {
         val home = TopButton(kit, JbIcon.HOME, "Home — your drawing is kept").apply { setOnClickListener { finish() } }
         undoBtn = TopButton(kit, JbIcon.UNDO, "Undo (or tap with two fingers)").apply { setOnClickListener { canvas.undo() } }
         redoBtn = TopButton(kit, JbIcon.REDO, "Redo (or tap with three fingers)").apply { setOnClickListener { canvas.redo() } }
+        guidesBtn = TopButton(kit, JbIcon.GUIDES, "Guides — grid, perspective, ruler").apply { setOnClickListener { guidesPanel(this) } }
         pinBtn = TopButton(kit, JbIcon.PIN, "Pin a reference picture — hold for its options").apply {
             setOnClickListener { pinTapped() }
             setOnLongClickListener { referenceMenu(); true }
@@ -448,8 +468,14 @@ class JoyBrushActivity : Activity() {
         val touch = kit.dpi(ChromeKit.TOUCH_DP)
         for (b in listOf(home, undoBtn, redoBtn)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
         topBar.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        for (b in listOf(pinBtn, layersBtn, more)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
-        topButtons.addAll(listOf(home, undoBtn, redoBtn, pinBtn, layersBtn, more))
+        for (b in listOf(guidesBtn, pinBtn, layersBtn, more)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
+        topButtons.addAll(listOf(home, undoBtn, redoBtn, guidesBtn, pinBtn, layersBtn, more))
+
+        // "Done" for adjusting guides: a pill at the top centre while the handles are out.
+        guideDone = pillButton("Done", "Finish moving the guides") { setAdjustingGuides(false) }.apply { visibility = View.GONE }
+        overlays.addView(guideDone, FrameLayout.LayoutParams(WRAP, dp(40), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+            topMargin = kit.dpi(6f)
+        })
         overlays.addView(topBar, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP).apply {
             val m = kit.dpi(6f)
             setMargins(m, m, m, 0)
@@ -1038,6 +1064,112 @@ class JoyBrushActivity : Activity() {
         holder.layoutParams = FrameLayout.LayoutParams(MATCH, WRAP)
         scroll.layoutParams = FrameLayout.LayoutParams(MATCH, maxH)
         popovers.show(holder, anchor, Popovers.Side.BESIDE, widthDp = 200f)
+    }
+
+    // ── guides (JB-2.12) ──
+
+    /** The guides changed: the overlay draws them, the canvas snaps to them, the app remembers them. */
+    private fun guidesChanged() {
+        guideOverlay.settings = guides
+        canvas.snapTo = if (guides.snapEnabled) guides.all() else emptyList()
+        guidesBtn.on = !guides.isEmpty
+        prefs.edit().putString(PREF_GUIDES, guides.encode()).apply()
+        if (guides.isEmpty) setAdjustingGuides(false)
+    }
+
+    /** The handles out (drag the perspective points and the ruler's ends) and a Done pill; or put away. */
+    private fun setAdjustingGuides(on: Boolean) {
+        val can = on && (guides.perspective != null || guides.tracers.isNotEmpty())
+        guideOverlay.adjusting = can
+        guideDone.visibility = if (can) View.VISIBLE else View.GONE
+    }
+
+    /** Where the screen's own corners are on the page, so a new guide lands where the person is looking. */
+    private fun screenOnPage(fx: Float, fy: Float): Pt {
+        val (x, y) = canvas.view.screenToDoc(canvas.width * fx, canvas.height * fy)
+        return Pt(x.toDouble(), y.toDouble())
+    }
+
+    /** A perspective guide with [n] vanishing points, placed the way painters start: on a horizon 40% down the screen. */
+    private fun perspectiveOf(n: Int): Guide.Perspective = Guide.Perspective(when (n) {
+        1 -> listOf(screenOnPage(0.5f, 0.4f))
+        2 -> listOf(screenOnPage(-0.4f, 0.4f), screenOnPage(1.4f, 0.4f))
+        else -> listOf(screenOnPage(-0.4f, 0.4f), screenOnPage(1.4f, 0.4f), screenOnPage(0.5f, 2.2f))
+    })
+
+    private fun guidesPanel(anchor: View) {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val g = guides
+        box.addView(menuRow(if (g.grid != null) "Grid  ✓" else "Grid", "A square grid over the drawing") {
+            guides = guides.copy(grid = if (guides.grid != null) null else GuideSettings.DEFAULT_GRID)
+            guidesChanged()
+        })
+        g.grid?.let { grid ->
+            // The grid's size, on a log scale from 10 to 1000 document px.
+            val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            val value = drawerText("${Math.round(grid.spacing)} px", 12f).apply { typeface = android.graphics.Typeface.MONOSPACE }
+            head.addView(drawerText("Grid size", 13f), LinearLayout.LayoutParams(0, WRAP, 1f))
+            head.addView(value, LinearLayout.LayoutParams(WRAP, WRAP))
+            box.addView(head, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(10), 0, dp(10), 0) })
+            fun toPx(p: Int) = 10.0 * Math.pow(100.0, p / 100.0)
+            box.addView(SeekBar(this).apply {
+                tintSlider(this)
+                max = 100
+                progress = (Math.log10(grid.spacing / 10.0) / 2.0 * 100).toInt().coerceIn(0, 100)
+                kit.label(this, "Grid size")
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
+                        if (!fromUser) return
+                        val px = Math.round(toPx(progress)).toDouble()
+                        value.text = "${px.toInt()} px"
+                        guides = guides.copy(grid = guides.grid?.copy(spacing = px))
+                        guideOverlay.settings = guides
+                    }
+
+                    override fun onStartTrackingTouch(bar: SeekBar) {
+                        // nothing to do
+                    }
+
+                    override fun onStopTrackingTouch(bar: SeekBar) = guidesChanged()
+                })
+            }, LinearLayout.LayoutParams(MATCH, dp(40)))
+        }
+        box.addView(menuRow(if (g.isometric != null) "Isometric  ✓" else "Isometric", "An isometric grid: lines at 30° either way and upright") {
+            guides = guides.copy(isometric = if (guides.isometric != null) null else Guide.Isometric(60.0))
+            guidesChanged()
+        })
+        // Perspective: off, one, two or three points. Choosing one puts the handles out to place them.
+        val now = g.perspective?.vanishingPoints?.size ?: 0
+        for (n in 1..3) {
+            val name = "Perspective, $n point" + (if (n > 1) "s" else "")
+            box.addView(menuRow(if (now == n) "$name  ✓" else name, "$name — drag the points where you want them") {
+                guides = guides.copy(perspective = if (now == n) null else perspectiveOf(n))
+                guidesChanged()
+                if (now != n) setAdjustingGuides(true)
+            })
+        }
+        val hasRuler = g.tracers.any { it is Guide.Ruler }
+        box.addView(menuRow(if (hasRuler) "Ruler  ✓" else "Ruler", "A straight edge to draw along — drag its ends") {
+            guides = if (hasRuler) guides.copy(tracers = guides.tracers.filterNot { it is Guide.Ruler })
+            else guides.copy(tracers = guides.tracers + Guide.Ruler(screenOnPage(0.2f, 0.5f), screenOnPage(0.8f, 0.5f)))
+            guidesChanged()
+            if (!hasRuler) setAdjustingGuides(true)
+        })
+        if (!g.isEmpty) {
+            box.addView(menuRow(if (g.snapEnabled) "Snap to guides  ✓" else "Snap to guides",
+                "Pull strokes onto the guides — off keeps the lines and lets the pen go free") {
+                guides = guides.copy(snapEnabled = !guides.snapEnabled)
+                guidesChanged()
+            })
+            if (g.perspective != null || g.tracers.isNotEmpty()) {
+                box.addView(menuRow("Move guides…", "Drag the perspective points and the ruler's ends") { setAdjustingGuides(true) })
+            }
+            box.addView(menuRow("Clear guides", "Turn every guide off") {
+                guides = GuideSettings(snapEnabled = guides.snapEnabled)
+                guidesChanged()
+            })
+        }
+        popovers.show(box, anchor, Popovers.Side.BELOW, widthDp = 230f)
     }
 
     // ── the pinned reference (owner decision 3) ──

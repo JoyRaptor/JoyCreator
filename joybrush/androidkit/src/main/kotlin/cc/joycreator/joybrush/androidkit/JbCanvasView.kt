@@ -468,9 +468,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var strokeTuft: TuftStroke? = null
     private var strokeSeed = 0L
 
-    // GLSurfaceView can run queued events before its first onSurfaceCreated callback.
-    // Wait for a real GL context before uploading a quickly restored small document.
-    private val beforeFirstSurface = ArrayList<() -> Unit>()
+    // queueEvent can run before EGL is current, both at startup and after a file picker.
+    // Only renderer callbacks guarantee a current context AND surface. GL-thread only.
+    private val frameWork = ArrayDeque<() -> Unit>()
 
     init {
         setEGLContextClientVersion(3)
@@ -483,9 +483,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 contentLost = contentLost || engine.lostContent
                 engine.addLayer(FIRST_LAYER)
                 engine.setLayerName(FIRST_LAYER, FIRST_LAYER_NAME)
-                val waiting = beforeFirstSurface.toList()
-                beforeFirstSurface.clear()
-                waiting.forEach { it() }
                 post {
                     surfaceReady = true
                     if (contentLost) onRefused?.invoke("The graphics restarted. Reopen your saved drawing before continuing; the empty canvas will not be saved.")
@@ -501,6 +498,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 if (pageW <= 0 || pageH <= 0) { pageW = width; pageH = height }
             }
             override fun onDrawFrame(gl: GL10?) {
+                while (frameWork.isNotEmpty()) frameWork.removeFirst()()
                 val s = viewSnapshot
                 drawView.zoom = s[0]; drawView.rotation = s[1]; drawView.panX = s[2]; drawView.panY = s[3]
                 engine.draw(viewW, viewH, drawView.docToClip(viewW, viewH), paperArgb)
@@ -1310,7 +1308,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     private fun onGl(block: () -> Unit) {
         queueEvent {
-            if (engine.ready) block() else beforeFirstSurface.add(block)
+            frameWork.addLast(block)
+            // Wake from inside the event too: an earlier render request may already be consumed.
+            super@JbCanvasView.requestRender()
         }
         requestRender()
     }

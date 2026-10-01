@@ -43,4 +43,30 @@ class CanvasPngTest {
     @Test fun missingDeclaredPixelsAreRefused() {
         assertFailsWith<JbArchiveException> { CanvasPng.encode(contents().copy(tiles = emptyMap()), false) }
     }
+    @Test fun exportKeepsPaintOnBothSidesOfNegativeTileBoundary() {
+        val base = contents(RectPx(-64, 32, 128, 96))
+        val layer = base.doc.layers.single()
+        val cel = layer.cels.single().copy(tiles = listOf("-1_0", "0_0"))
+        val tiles = (-1..0).associate { tx ->
+            val bytes = ByteArray(TILE_BYTES)
+            for (y in 48 until 80) for (x in -32 until 32) {
+                val localX = x - tx * 256
+                if (localX !in 0 until 256) continue
+                val offset = (y * 256 + localX) * 4
+                bytes[offset] = 20; bytes[offset + 1] = 60
+                bytes[offset + 2] = 240.toByte(); bytes[offset + 3] = 255.toByte()
+            }
+            Triple(layer.id, cel.id, "${tx}_0") to bytes
+        }
+        val art = base.copy(doc = base.doc.copy(layers = listOf(layer.copy(cels = listOf(cel)))), tiles = tiles)
+        for (paper in listOf(false, true)) {
+            val image = ImageIO.read(ByteArrayInputStream(CanvasPng.encode(art, paper)))
+            assertEquals(128, image.width); assertEquals(96, image.height)
+            for (y in 0 until 96) for (x in 0 until 128) {
+                val expected = if (x in 32 until 96 && y in 16 until 48) 0xFF143CF0.toInt()
+                    else if (paper) 0xFF204060.toInt() else 0
+                assertEquals(expected, image.getRGB(x, y), "$paper: ($x,$y)")
+            }
+        }
+    }
 }

@@ -896,3 +896,14 @@ wrong rejection as a hard-won lesson.
   that proves it. The proof for "absent" is a search that could have found it.
 - When a test asserts a key is ABSENT ("nothing the app does not write"), check the app's real writer, not the
   spec that told the builder what to write.
+
+
+## 2026-10-01 — GL events and restarting build watchers
+
+- GLSurfaceView queueEvent is a thread-ordering mechanism, not proof that EGL is current.
+  It can execute before initial creation or resumed surface activation. Execute GPU work in
+  renderer callbacks, and reject failed readback instead of accepting a reused buffer's bytes.
+- Before replacing a watcher, inspect its parent: watch-build.ps1 has an outer restart loop.
+  Killing just Gradle restarts it and leaves two writers when another watcher is launched.
+  Keep one complete watcher tree; a green build can still contain corrupted dex after races.
+  Verify the installed app launches and inspect actual class definitions when packaging fails.

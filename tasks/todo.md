@@ -364,5 +364,10 @@ STALL_STACKS caught the GL thread inside ImageOverlayDraw.draw.
 - [x] Install current build without clearing data; back up owner drawing.
 - [x] Identify file-picker failure: snapshot OOM while retaining 1711 loaded paint tiles.
 - [x] Keep only document metadata after GPU upload; reuse tile readback buffer; handle allocation failure per snapshot.
-- [ ] Verify metadata/pixel snapshot contract and app build; reinstall and check Open/Recent/PNG on Note 9.
-- [ ] Restore owner drawing, record evidence and push the fix.
+- [x] Verify metadata/pixel snapshot contract and app build; reinstall and check Open/Recent/PNG on Note 9.
+- [x] Restore owner drawing; exact archive comparison passed. Record evidence and push the fix.
+
+Review: 194 androidkit tests pass; full watcher build passes. Both PNG options verified on Note 9,
+transparent export matches every expected pixel, and original owner archive is restored unchanged.
+Next integration slice: recover GPU pixels after a runtime context loss, then project document
+frames/cels into the canvas before connecting the existing animation controls and Studio handoff.

@@ -384,5 +384,8 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 > The safety copy of the owner's drawing matches every original archive entry byte-for-byte.
 > Fixed an actual large-drawing snapshot memory crash, coloured-paper decoding and premature GL
 > startup uploads. 193 androidkit tests pass and app watcher build is green; updated APK installed.
-> PNG/paper phone checks and restoring the owner drawing are pending while device availability is
-> clarified. Details: `tasks/joybrush/INTEGRATION_20260930.md`.
+> PNG with/without paper now passes on the Note 9, including exact pixels across negative tile
+> coordinates. Fixed resumed GL work running before EGL was current after the picker. All 194
+> androidkit tests pass. Owner drawing restored: all 1713 archive entries (1711 paint tiles) match
+> the pre-test backup byte-for-byte. Final in-place install: 2026-10-01 09:30:55.
+> Details: `tasks/joybrush/INTEGRATION_20260930.md`.

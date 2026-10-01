@@ -966,3 +966,25 @@ files:
 NOT touching ExportManager (export lane) - its projectContentKey UUID-ordinal workaround stays valid.
 Device: none planned (Note 20 off-limits). If needed, Note 9 by serial only.
 since: 2026-09-23T05:05
+
+## JOYBRUSH_INTEGRATION_20260930
+status: IDLE (2026-10-01; first safety slice committed and pushed f1d3145a)
+files: none. Audit findings and next steps: tasks/joybrush/INTEGRATION_20260930.md
+DEVICE: none. No phone used.
+
+## JOYBRUSH_SAFE_OPEN_EXPORT_20261001
+status: IDLE (2026-10-01; committed and pushed 0b482a12; 192 tests and app build green)
+files: none. New phone checks owed: Recent drawings and PNG export.
+DEVICE: none.
+
+## JOYBRUSH_DEVICE_CHECK_20261001
+status: IDLE (2026-10-01; fixes committed/pushed 17f57463; awaiting phone availability)
+files: none. Remaining checks and restoration: tasks/joybrush/INTEGRATION_20260930.md
+DEVICE: none. Control stopped after unexpected pen marks; confirm owner availability before driving.
+Owner drawing preserved in Recent and local backup. No uninstall or storage clearing.
+
+## JOYBRUSH_DEVICE_FINISH_20261001
+status: IDLE (2026-10-01; phone verification complete, owner art restored)
+files: none. Evidence: tasks/joybrush/INTEGRATION_20260930.md
+DEVICE: none. Note 9 restored; original archive entries exact. Note 20 untouched.
+Single continuous app watcher remains active; do not start a duplicate.

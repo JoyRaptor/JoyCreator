@@ -3833,3 +3833,16 @@ NOT add a guess-the-clip repair on load: deleting an audio clip leaves a danglin
 guess could silently re-wire a visualizer to music nobody picked. Fix by hand: re-pick the
 visualizer's audio source once — it now sticks. Device check owed: on the Note 9, bind a
 visualizer to an audio clip, reopen the project, confirm it still draws.
+
+
+## 2026-10-01 — Joy Brush PNG resume fixed; Note 9 checks finished
+
+File-picker return could snapshot before EGL was current and reuse the last tile's bytes,
+cutting off paint in PNG export. Canvas GL work now runs in ordered renderer callbacks;
+readback refuses invalid framebuffers/errors. Temporary diagnostic archive capture removed.
+Proof: 194 androidkit tests pass; app watcher build passes; both PNG paper options checked
+on Note 9, transparent PNG independently decoded and all pixels exact. Original drawing
+restored with all 1713 archive entries unchanged, including 1711 paint tiles. In-place final
+install 09:30:55. Duplicate restarting watcher stopped; corrupted generated dex rebuilt and
+actual APK class definitions checked. Runtime context recovery is the next integration gap.
+Details: tasks/joybrush/INTEGRATION_20260930.md.

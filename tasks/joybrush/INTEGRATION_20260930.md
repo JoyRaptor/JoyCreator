@@ -127,3 +127,35 @@ remain outstanding. The first two old "Next work" entries above are partly super
 
 Automatic runtime context recovery remains outstanding. The startup fix prevents premature initial
 uploads; it does not claim to recover lost GPU pixels later in the activity's lifetime.
+
+## October 1: export resume fix and completed Note 9 checks
+
+- Owner confirmed new marks were disposable pen tests and authorized continued phone control.
+  Kept a local copy of those marks anyway. Coloured paper displays correctly on the phone.
+- Actual phone PNG export lost the negative-coordinate half of a painted rectangle. Captured
+  its exact input: both tile payloads contained the last tile's pixels, although the saved archive
+  remained correct and independent JVM export was correct. GLSurfaceView executes queueEvent
+  before EGL is current after resume, even when the context is preserved. A reused read buffer
+  made failed GL reads appear to succeed with the preceding tile's bytes.
+- All canvas GL actions now enter a FIFO drained by onDrawFrame, which guarantees the current
+  context and surface. queueEvent only enqueues work and requests a frame. This also covers
+  initial uploads. Tile readback checks framebuffer completeness and GL errors before accepting
+  bytes, and unbinds the framebuffer on failure. Actual lost-context recovery remains owed.
+- Note 9 proof: paper PNG is 128x96, background RGBA (160,192,224,255), paint (20,60,240,255)
+  on both sides of the tile boundary; both captured tile payloads exactly match fixture B.
+  Final-build transparent PNG is 128x96, painted bounds (32,16)-(96,48), corner alpha zero;
+  all 12,288 decoded pixels match expectations. Temporary capture code removed before final build.
+- Added a regression that independently decodes PNGs and checks every pixel across that signed
+  boundary for both paper options. **194 androidkit tests, zero failures/errors.** App watcher
+  BUILD SUCCESSFUL; final in-place install 2026-10-01 09:30:55. No Note 20 interaction.
+- Found an existing watch-build.ps1 outer restart loop plus a second watcher. Killing only its
+  child made it restart and compete again. Competition corrupted generated app dex: a green APK
+  missed JbColors and crashed at the lobby. Stopped the outer loop and duplicate; preserved the
+  generated dex in an ignored build-folder backup, rebuilt, verified actual class definitions in
+  the APK, reinstalled and confirmed launch. One continuous watcher remains; do not start another.
+- Reopened the original owner drawing through Open. Restored working archive has 1713 entries,
+  including 1711 paint tiles: **every entry matches the pre-test backup byte-for-byte**. Drawing
+  is visible on the phone. Separate pre-test and pen-test backups remain outside the repository.
+
+Next work: runtime graphics-context recovery, then frame/cel projection, animation controls and
+Studio handoff. User already verified drawing, colour picking, erasing and closing/reopening.

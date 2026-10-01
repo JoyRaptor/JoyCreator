@@ -598,8 +598,16 @@ class GlPaintEngine(
         buf.clear()
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         attach(tex)
-        GLES30.glReadPixels(0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf)
-        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        try {
+            check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) {
+                "tile framebuffer is unavailable"
+            }
+            GLES30.glReadPixels(0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf)
+            val error = GLES30.glGetError()
+            check(error == GLES30.GL_NO_ERROR) { "tile readback failed (GL $error)" }
+        } finally {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        }
         val out = ByteArray(size * size * 4)
         buf.rewind()
         buf.get(out)

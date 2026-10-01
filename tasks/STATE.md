@@ -4,6 +4,12 @@
 Every agent reads it first. Every promotional claim comes from it. The help doc and
 Joybot's knowledge are generated from it.
 
+**Joy Brush owner check, 2026-10-01:** JoyRaptor reports drawing, colour picking, erasing,
+closing and reopening work on the Note. Treat these ordinary workflows as device-verified.
+The newly wired Recent drawings, preservation-before-Open, backup fallback and PNG export
+are compile/test-verified separately; their phone checks remain owed. Details:
+`tasks/joybrush/INTEGRATION_20260930.md`.
+
 **Last full pass:** 2026-09-09 (Claude/Opus, launch-planning session)
 **Last touched:** 2026-09-16 evening — the puppet UI finish sweep (`tasks/PUPPET_FINISH_LEDGER.md`):
 nine dead knobs found and resolved, the tape made draggable, easing fitted from the recording, and

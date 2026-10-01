@@ -70,3 +70,31 @@ per-board art. The JB-0.08c draft merge also loses nonzero board origins and can
 invalid active board when the original activeBoardId is null. Do not copy either draft blindly.
 Phone priorities: preserve reopened settings, save/reopen painted pixels and masks, verify
 Smudge opacity, test background/resume and graphics recreation, then assess non-Sable brush feel.
+
+## October 1: safe Open, recent recovery and PNG export
+
+Owner reports drawing, colour picking, erasing, closing and reopening have worked on the Note.
+These ordinary workflows are owner-verified; this does not verify the new safeguards or exports.
+
+- Open now uses the existing save queue: wait for the stroke, block edits, snapshot, durably write
+  a separate safety copy, then load the selected drawing. A failed preservation does not replace
+  the screen. Unsupported files are checked before entering this transaction. The new drawing
+  is then saved as the working drawing. No confirmation dialog was added.
+- **Recent drawings** exposes the five prior drawings kept by Open. Preservation failure does not
+  prune earlier copies. A copy is retained even if the system clock changes or timestamps tie.
+- Startup drawing input waits for restoration. A missing/corrupt working file can restore a
+  validated `.bak`, with a recovery message. If neither can be read, autosave leaves them intact.
+  Destroyed screens cannot start additional save requests or open a newly read file.
+- **Export PNG** is wired through the same stroke-aware queue and the existing RegionRenderer
+  and PngWriter. The options offer **Include paper**; otherwise empty art remains transparent.
+  Export uses the complete board rectangle, including its signed origin, rather than a screenshot.
+  PNG encoding completes before the destination is opened. Export leaves autosave debt unchanged.
+- App watcher built successfully after these controls and their wiring were saved. No install or
+  phone driving occurred. New phone checks: Open two different drawings and recover the first
+  through Recent; export with and without paper; check the PNG dimensions and transparency.
+- Verification: **192 androidkit tests, 0 failures/errors**, including seven new history/recovery
+  tests and four PNG tests decoded independently by ImageIO. Full app watcher BUILD SUCCESSFUL
+  after the test run. Existing core tuning failure from the first slice remains separately recorded.
+
+Automatic graphics-context pixel recovery, frame projection, animation controls and Studio handoff
+remain outstanding. The first two old "Next work" entries above are partly superseded by this slice.

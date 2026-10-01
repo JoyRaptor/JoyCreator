@@ -51,6 +51,8 @@ import cc.joycreator.joybrush.androidkit.io.JB_MIMETYPE
 import cc.joycreator.joybrush.androidkit.io.JbArchive
 import cc.joycreator.joybrush.androidkit.io.JbArchiveException
 import cc.joycreator.joybrush.androidkit.io.JbContents
+import cc.joycreator.joybrush.androidkit.io.DrawingHistory
+import cc.joycreator.joybrush.androidkit.io.CanvasPng
 import cc.joycreator.joybrush.androidkit.lab.BrushHotReload
 import cc.joycreator.joybrush.androidkit.tools.Eyedropper
 import cc.joycreator.joybrush.androidkit.tools.EyedropperRingView
@@ -118,6 +120,8 @@ private const val SNAPSHOT_TIMEOUT_MS = 15_000L
 private const val REQUEST_OPEN = 4101
 private const val REQUEST_SAVE_COPY = 4102
 private const val REQUEST_REFERENCE = 4103
+private const val REQUEST_EXPORT_PNG = 4104
+private const val PREF_EXPORT_PAPER = "export_paper"
 
 // JB-2.01: where the chrome remembers itself between visits — the strip's place, each tool's brush and size, the
 // pinned reference picture.
@@ -243,7 +247,14 @@ class JoyBrushActivity : Activity() {
     private sealed class SaveDest {
         object Working : SaveDest()
         class Copy(val uri: Uri) : SaveDest()
+        class Open(val contents: JbContents) : SaveDest()
+        class Png(val uri: Uri, val includePaper: Boolean) : SaveDest()
     }
+
+    private var loadingDrawing = true
+    private var replacingDrawing = false
+    private var workingSaveAllowed = false
+    private var destroyed = false
 
     /**
      * EVERY save goes through this one queue (JB-2.15): a request is an entry that waits its turn,
@@ -253,7 +264,7 @@ class JoyBrushActivity : Activity() {
      * down — and all three are the queue's job now. There is deliberately no `saveOwed` boolean.
      */
     private val saves = SaveQueue(object : SaveTarget<SaveDest> {
-        override val strokeInProgress: Boolean get() = canvas.strokeInProgress
+        override val strokeInProgress: Boolean get() = canvas.strokeInProgress || loadingDrawing
         override fun start(reason: SaveReason, destination: SaveDest, finished: (String?) -> Unit) {
             beginSave(destination, finished)
         }
@@ -286,7 +297,11 @@ class JoyBrushActivity : Activity() {
         val overlays = buildOverlays()
         overlaysView = overlays
 
-        val root = FrameLayout(this)
+        val root = object : FrameLayout(this) {
+            // No stroke or layer edit can race startup restore or preservation-before-Open.
+            override fun dispatchTouchEvent(event: MotionEvent): Boolean =
+                if (loadingDrawing || replacingDrawing) true else super.dispatchTouchEvent(event)
+        }
         root.addView(canvas, FrameLayout.LayoutParams(MATCH, MATCH))
         // The eyedropper's ring is drawn over the canvas and is exactly its size, so the canvas's own coordinates are the ring's.
         root.addView(ring, FrameLayout.LayoutParams(MATCH, MATCH))
@@ -370,6 +385,14 @@ class JoyBrushActivity : Activity() {
         // the view stays running until the queue is empty (see [pauseViewIfDrained]).
         saves.request(SaveReason.IDLE, SaveDest.Working)
         super.onPause()
+    }
+
+    override fun onDestroy() {
+        destroyed = true
+        ui.removeCallbacks(idleSave)
+        stopBrushLab()
+        // In-flight writes and their request watchdogs finish normally; no new old-screen saves.
+        super.onDestroy()
     }
 
     // ── the chrome (JB-2.01) ────────────────────────────────────────────────
@@ -624,6 +647,8 @@ class JoyBrushActivity : Activity() {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         box.addView(menuRow("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() })
         box.addView(menuRow("Open…", "Open a drawing from your files") { askWhichToOpen() })
+        box.addView(menuRow("Recent drawings…", "Recover one of the last drawings kept before Open") { recentDrawings(anchor) })
+        box.addView(menuRow("Export PNG…", "Export the whole canvas board as a picture") { pngOptions(anchor) })
 
         // Smoothing lives here now: set once, rarely touched.
         val smoothHead = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -1287,6 +1312,15 @@ class JoyBrushActivity : Activity() {
      * drawing survived FIRST and the reason second.
      */
     private fun beginSave(dest: SaveDest, finished: (String?) -> Unit) {
+        if (destroyed) { finished("the drawing screen has closed"); return }
+        if (dest is SaveDest.Working && !workingSaveAllowed) {
+            finished("the previous drawing needs recovery before autosave can replace it")
+            return
+        }
+        if (dest is SaveDest.Open) {
+            replacingDrawing = true
+            overlaysView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        }
         // Read on the UI thread, before the snapshot: only a save that started at this count and
         // found the count unchanged when it finished has written everything, so a stroke made while
         // it was writing is still counted and still waiting for its own autosave.
@@ -1297,21 +1331,31 @@ class JoyBrushActivity : Activity() {
             if (!answered) {
                 answered = true
                 ui.removeCallbacks(watchdog)
-                if (problem != null) {
+                if (dest is SaveDest.Open) {
+                    replacingDrawing = false
+                    overlaysView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+                }
+                if (problem != null && !destroyed) {
                     toast(
-                        if (dest is SaveDest.Copy) "Couldn't save the copy. Your drawing is safe. $problem"
-                        else "The autosave did not work: $problem",
+                        when (dest) {
+                            is SaveDest.Copy -> "Couldn't save the copy. Your drawing is safe. $problem"
+                            is SaveDest.Open -> "Couldn't open the drawing. Your previous drawing was kept. $problem"
+                            is SaveDest.Png -> "Couldn't export the PNG. Your drawing is safe. $problem"
+                            is SaveDest.Working -> "The autosave did not work: $problem"
+                        },
                     )
                     // A working save that failed is still owed: ask again after the usual quiet.
                     if (dest is SaveDest.Working) {
                         ui.removeCallbacks(idleSave)
                         ui.postDelayed(idleSave, AUTOSAVE_AFTER_MS)
                     }
-                } else if (dest is SaveDest.Copy) {
+                } else if (problem == null && dest is SaveDest.Copy && !destroyed) {
                     // A COPY never touches the working file, so it says nothing about whether the
                     // working file is up to date: `changes` is left exactly as it was.
                     toast("Copy saved")
-                } else if (changes == from) {
+                } else if (problem == null && dest is SaveDest.Png && !destroyed) {
+                    toast("PNG exported")
+                } else if (problem == null && dest is SaveDest.Working && changes == from) {
                     changes = 0
                 }
                 finished(problem)
@@ -1337,12 +1381,32 @@ class JoyBrushActivity : Activity() {
                     when (dest) {
                         is SaveDest.Working -> JbArchive.save(file!!, contents)
                         is SaveDest.Copy -> writeCopy(dest.uri, contents)
+                        is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)
+                        is SaveDest.Png -> {
+                            // Encode and validate completely before touching the chosen destination.
+                            val png = CanvasPng.encode(contents, dest.includePaper)
+                            val output = contentResolver.openOutputStream(dest.uri, "wt")
+                                ?: throw JbArchiveException("the PNG destination could not be opened")
+                            output.use { it.write(png) }
+                        }
                     }
                     null
                 } catch (e: Exception) {
                     e.message ?: e.javaClass.simpleName
                 }
-                runOnUiThread { answer(problem) }
+                runOnUiThread {
+                    if (dest is SaveDest.Open && problem == null && !destroyed && !answered) {
+                        // Replacement only follows a successful durable write of the old drawing.
+                        ui.postDelayed(watchdog, SNAPSHOT_TIMEOUT_MS)
+                        showContents(dest.contents) { loaded ->
+                            if (loaded) {
+                                changes = 1
+                                saves.request(SaveReason.IDLE, SaveDest.Working)
+                            }
+                            answer(if (loaded) null else "the selected drawing could not be shown")
+                        }
+                    } else answer(problem)
+                }
             }
         // Keep failure bound to this save, even if the GL response arrives after its timeout.
         }, { why -> answer("Could not read the drawing: $why") })
@@ -1383,24 +1447,38 @@ class JoyBrushActivity : Activity() {
      * show all of it. Read on the writer thread; nothing touches the canvas until it has answered.
      */
     private fun restoreWorkingFile() {
-        val file = workingFile() ?: return
-        if (!file.isFile) return
+        val file = workingFile()
+        if (file == null) { finishStartup(false); return }
         fileIo.execute {
             val read = try {
-                JbArchive.open(file)
+                DrawingHistory.readWorking(file)
             } catch (e: Exception) {
-                ui.post { toast("Your last drawing could not be opened: ${e.message}") }
-                null
-            }
-            if (read != null) {
-                val contents = read
                 ui.post {
-                    // A stroke that landed while the file was being read outranks the file.
-                    if (changes == 0) showContents(contents)
+                    if (!destroyed) toast("Your last drawing could not be opened. Autosave will leave it intact: ${e.message}")
+                    finishStartup(false)
+                }
+                return@execute
+            }
+            ui.post {
+                if (destroyed) { finishStartup(false); return@post }
+                if (read == null) finishStartup(true)
+                else showContents(read.contents) { loaded ->
+                    if (loaded && read.recoveredBackup) toast("Recovered your drawing from its backup")
+                    finishStartup(loaded)
                 }
             }
         }
     }
+
+    private fun finishStartup(loaded: Boolean) {
+        workingSaveAllowed = loaded
+        loadingDrawing = false
+        saves.drain()
+    }
+
+    private fun historyDirectory(): File = File(
+        workingFile()?.parentFile ?: throw JbArchiveException("this device has no drawing folder"), "recent",
+    )
 
     /** "Save a copy…": queued behind anything already running, never dropped (JB-2.15). */
     private fun saveCopyTo(uri: Uri) {
@@ -1415,12 +1493,12 @@ class JoyBrushActivity : Activity() {
                     ?: throw JbArchiveException("the file could not be opened")
                 input.use { JbArchive.read(it) }
             } catch (e: Exception) {
-                ui.post { toast("That drawing could not be opened: ${e.message}") }
+                ui.post { if (!destroyed) toast("That drawing could not be opened: ${e.message}") }
                 null
             }
             if (read != null) {
                 val contents = read
-                ui.post { showContents(contents) }
+                ui.post { requestOpen(contents) }
             }
         }
     }
@@ -1429,16 +1507,72 @@ class JoyBrushActivity : Activity() {
      * Puts a drawing on the canvas, or says why it cannot go there and leaves the drawing that is
      * already there alone. UI thread.
      */
-    private fun showContents(contents: JbContents) {
+    private fun requestOpen(contents: JbContents) {
+        if (destroyed) return
+        try {
+            canvas.checkContents(contents)
+            saves.request(SaveReason.EXPLICIT, SaveDest.Open(contents))
+        } catch (e: JbArchiveException) { toast(e.message ?: "that drawing cannot be opened") }
+    }
+
+    private fun showContents(contents: JbContents, onLoaded: (Boolean) -> Unit = {}) {
+        if (destroyed) { onLoaded(false); return }
         try {
             canvas.load(contents) {
                 // Loading reports a history change of its own; that is not work to be autosaved.
                 changes = 0
                 ui.removeCallbacks(idleSave)
+                workingSaveAllowed = true
+                onLoaded(!destroyed)
             }
         } catch (e: JbArchiveException) {
             toast(e.message ?: "that drawing cannot be opened")
+            onLoaded(false)
         }
+    }
+
+    private fun recentDrawings(anchor: View) {
+        fileIo.execute {
+            val files = try { DrawingHistory.list(historyDirectory()) } catch (_: Exception) { emptyList() }
+            ui.post {
+                if (destroyed) return@post
+                if (files.isEmpty()) { toast("Drawings kept before Open will appear here"); return@post }
+                val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                for (file in files) {
+                    val whenSaved = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(file.lastModified()))
+                    box.addView(menuRow("Before Open · $whenSaved", "Open the drawing kept on $whenSaved") {
+                        fileIo.execute {
+                            try {
+                                val contents = JbArchive.open(file)
+                                ui.post { requestOpen(contents) }
+                            } catch (e: Exception) { ui.post { if (!destroyed) toast("That recent drawing could not be opened: ${e.message}") } }
+                        }
+                    })
+                }
+                popovers.show(box, anchor, Popovers.Side.BELOW, widthDp = 260f)
+            }
+        }
+    }
+
+    private fun pngOptions(anchor: View) {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val paper = android.widget.CheckBox(this).apply {
+            text = "Include paper"
+            setTextColor(kit.p.ink)
+            isChecked = prefs.getBoolean(PREF_EXPORT_PAPER, false)
+            contentDescription = "Include the paper colour; turn off for a transparent background"
+        }
+        box.addView(paper)
+        box.addView(menuRow("Choose where to save…", "Save the whole board as a PNG") {
+            prefs.edit().putBoolean(PREF_EXPORT_PAPER, paper.isChecked).apply()
+            val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "image/png"
+                putExtra(Intent.EXTRA_TITLE, copyName().removeSuffix(".joybrush") + ".png")
+            }
+            launch(intent, REQUEST_EXPORT_PNG)
+        })
+        popovers.show(box, anchor, Popovers.Side.BELOW, widthDp = 260f)
     }
 
     private fun askWhereToSave() {
@@ -1487,6 +1621,9 @@ class JoyBrushActivity : Activity() {
         if (requestCode == REQUEST_OPEN) openFrom(uri)
         if (requestCode == REQUEST_SAVE_COPY) saveCopyTo(uri)
         if (requestCode == REQUEST_REFERENCE) pinReference(uri)
+        if (requestCode == REQUEST_EXPORT_PNG) saves.request(
+            SaveReason.EXPLICIT, SaveDest.Png(uri, prefs.getBoolean(PREF_EXPORT_PAPER, false)),
+        )
     }
 
     /** `Joy Brush 2026-09-28 2311.joybrush` — the default name the picker opens with. */

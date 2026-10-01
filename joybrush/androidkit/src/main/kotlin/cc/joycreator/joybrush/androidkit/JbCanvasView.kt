@@ -1092,8 +1092,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      */
     fun load(contents: JbContents, onDone: () -> Unit) {
         val doc = contents.doc
-        val refusal = refusalFor(contents)
-        if (refusal != null) throw JbArchiveException(refusal)
+        checkContents(contents)
 
         val states = doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend, it.mask != null, it.clip) }
         val active = doc.activeLayerId?.takeIf { id -> doc.layers.any { it.id == id } } ?: doc.layers.last().id
@@ -1191,6 +1190,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
         }
         return null
+    }
+
+    /** Check a proposed Open before preservation starts, without changing the current drawing. */
+    fun checkContents(contents: JbContents) {
+        refusalFor(contents)?.let { throw JbArchiveException(it) }
     }
 
     /** The GL-thread half of [snapshot]: every layer, every tile, read back, under one document. */

@@ -997,5 +997,5 @@ Single original watch-build.ps1 loop is running.
 
 ## JOYBRUSH_LARGE_OPEN_20261001
 status: IDLE (211 tests pass; large Open/Recent and damaged-file refusal verified on Note 9)
-files: JoyBrushActivity.kt; androidkit/io/StagedDrawing.kt and its tests; integration evidence and task notes.
+files: none. Evidence: tasks/joybrush/INTEGRATION_20260930.md.
 DEVICE: none. Owner drawing restored exactly; local backup kept. Paper lane remains separate.

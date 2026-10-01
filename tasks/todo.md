@@ -389,7 +389,7 @@ default document ID. All owner archive entries restored exactly; phone is back i
 - [x] JB-9.03: sampler, core constants, RGBA loading/binding, packaging.
 - [x] Verify shader control, XML counts, Kotlin compilation and APK.
 - [x] Record Lead note, commit/rebase/push, fast-forward main.
-- [ ] Continue JB-9.06, JB-9.08, JB-9.10 candidates under their specs.
+- [x] Inspect JB-9.06, JB-9.08, JB-9.10; record specification/dependency questions and skip as directed. These rows remain unbuilt.
 
 ### Review
 JB-9.03: core XML 1328 tests, 0 failures/errors/skips; Edge no-repeat correlation 0.029826 vs control 1.0; Kotlin/APK passed. No phone installation. Later row specification conflicts are recorded under Questions.

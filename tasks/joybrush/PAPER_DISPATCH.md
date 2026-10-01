@@ -49,4 +49,7 @@ Codex has image generation and strong 3D. The **specialist keeps taste and the f
 > row; do not guess.
 
 ## After each landing
+Update the owner's main folder so the owner can see the new files there: `git -C C:/+Projects/Screenrecorder/FadCam merge --ff-only origin/joy-creator`
+(after a `git fetch`). It refuses on its own rather than overwrite anything. If it refuses, say so in the report and leave it alone. Never run Gradle there.
+
 The specialist (or the Lead) re-runs the suites in a clean worktree before a row is called done (LEAD_DESK order 1).

@@ -371,3 +371,15 @@ Review: 194 androidkit tests pass; full watcher build passes. Both PNG options v
 transparent export matches every expected pixel, and original owner archive is restored unchanged.
 Next integration slice: recover GPU pixels after a runtime context loss, then project document
 frames/cels into the canvas before connecting the existing animation controls and Studio handoff.
+
+## Joy Brush automatic graphics recovery — October 1
+- [x] Add identity-checked recovery from last loaded archive/latest completed working save.
+- [x] Freeze edits and save reads while recovery runs; discard stale GPU edits and ignore superseded recovery callbacks.
+- [x] Test archive fallback, mismatched identity, newer save and failure safety; 205 tests pass and app watcher builds pass.
+- [x] Verify actual context recreation on Note 9 with the large owner drawing; restore pre-test archive, document and push.
+
+Review: saved artwork automatically returns in the same Activity after EGL recreation. Private
+compressed checkpoints avoid retaining a second full pixel set and isolate sessions with the same
+default document ID. All owner archive entries restored exactly; phone is back in normal mode.
+- [ ] Next: large-to-large Open must preserve the old drawing before inflating the selected drawing;
+      current simultaneous pixel sets exceed the Note 9 heap. Refusal keeps the previous file safe.

@@ -134,12 +134,19 @@ object JbArchive {
      * old file or the new one — and if the last rename fails, the old one is put back and the
      * message says where it went.
      */
-    fun save(file: File, contents: JbContents) {
+    fun save(file: File, contents: JbContents) = atomicWrite(file) { write(it, contents) }
+
+    /** Already validated/saved source, copied without inflating or recompressing its paint tiles. */
+    internal fun copySaved(source: File, file: File) = atomicWrite(file) { out ->
+        source.inputStream().use { it.copyTo(out) }
+    }
+
+    private fun atomicWrite(file: File, writeBytes: (FileOutputStream) -> Unit) {
         val tmp = File(file.path + ".tmp")
         val bak = File(file.path + ".bak")
         try {
             FileOutputStream(tmp).use { out ->
-                write(out, contents)
+                writeBytes(out)
                 // A rename that beats a buffered write to the platter loses the last edit. This is
                 // the whole reason the dance above exists, so it is not optional and not caught.
                 out.fd.sync()

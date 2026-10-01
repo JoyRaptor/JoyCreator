@@ -3846,3 +3846,14 @@ restored with all 1713 archive entries unchanged, including 1711 paint tiles. In
 install 09:30:55. Duplicate restarting watcher stopped; corrupted generated dex rebuilt and
 actual APK class definitions checked. Runtime context recovery is the next integration gap.
 Details: tasks/joybrush/INTEGRATION_20260930.md.
+
+
+## 2026-10-01 — Joy Brush restores saved artwork after graphics restart
+
+Context loss now triggers identity-checked automatic restoration from a private compressed session
+checkpoint, with edit/save gating, stale GL action rejection and bounded failure handling. Reuses
+atomic archive writes to copy saved compressed bytes without keeping another full drawing in RAM.
+205 androidkit tests pass; app watcher builds pass; actual EGL recreation and restoration verified
+on Note 9 with the 1711-tile drawing. Owner pre-test archive restored with all 1713 entries exact;
+normal phone operation restored. Undo restarts; unsaved marks are outside the recovery guarantee.
+Next defect: large-to-large Open memory overlap. Details: tasks/joybrush/INTEGRATION_20260930.md.

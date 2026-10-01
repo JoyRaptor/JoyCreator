@@ -241,6 +241,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     // Metadata only after upload: GPU tiles own the live pixels.
     @Volatile private var retainedContents: JbContents? = null
     @Volatile private var contentLost = false
+    @Volatile private var graphicsEpoch = 0
+
+    /** UI-thread callback after GPU pixels are lost. The host restores a durable archive. */
+    var onGraphicsLost: ((documentId: String) -> Unit)? = null
+    val needsRecovery: Boolean get() = contentLost
+
+    /** Stop the interrupted pen gesture without ever committing it to the replacement context. */
+    fun cancelInterruptedStroke() { if (drawing) cancelStroke() }
 
     // ── layers (JB-2.04) ─────────────────────────────────────────────────────
 
@@ -478,14 +486,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         preserveEGLContextOnPause = true
         setRenderer(object : Renderer {
             override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
+                if (engine.ready) graphicsEpoch += 1
                 engine.init()
                 // Never let a context-loss placeholder overwrite the person's last good file.
-                contentLost = contentLost || engine.lostContent
+                contentLost = contentLost || engine.lostContent || retainedContents != null
                 engine.addLayer(FIRST_LAYER)
                 engine.setLayerName(FIRST_LAYER, FIRST_LAYER_NAME)
                 post {
                     surfaceReady = true
-                    if (contentLost) onRefused?.invoke("The graphics restarted. Reopen your saved drawing before continuing; the empty canvas will not be saved.")
+                    if (contentLost) {
+                        val recover = onGraphicsLost
+                        if (recover != null) recover(retainedContents?.doc?.id ?: DOC_ID)
+                        else onRefused?.invoke("The graphics restarted. Reopen your saved drawing before continuing; the empty canvas will not be saved.")
+                    }
                     onReady?.invoke()
                 }
             }
@@ -1071,9 +1084,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     fun snapshot(onReady: (JbContents) -> Unit, onFailure: (String) -> Unit) {
         val w = viewW
         val h = viewH
-        onGl {
+        val epoch = graphicsEpoch
+        onGl(allowLost = true) {
             val made: JbContents? = try {
-                if (contentLost) throw JbArchiveException("the graphics restarted; reopen the saved drawing first")
+                if (contentLost || epoch != graphicsEpoch) throw JbArchiveException("the graphics restarted; wait for drawing recovery")
                 readContents(w, h)
             } catch (e: OutOfMemoryError) {
                 post { onFailure("there is not enough memory to save this drawing; your previous save is kept") }
@@ -1122,7 +1136,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         stackUi = stack
         activeLayer = active
         editingMask = false
-        onGl {
+        onGl(allowLost = true) {
             // resetDocument() empties EVERY layer; the file's stack is put back whole, then its pixels.
             engine.resetDocument()
             engine.setStack(stack)
@@ -1306,9 +1320,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         super.requestRender()
     }
 
-    private fun onGl(block: () -> Unit) {
+    private fun onGl(allowLost: Boolean = false, block: () -> Unit) {
+        val epoch = graphicsEpoch
         queueEvent {
-            frameWork.addLast(block)
+            frameWork.addLast { if (allowLost || (!contentLost && epoch == graphicsEpoch)) block() }
             // Wake from inside the event too: an earlier render request may already be consumed.
             super@JbCanvasView.requestRender()
         }

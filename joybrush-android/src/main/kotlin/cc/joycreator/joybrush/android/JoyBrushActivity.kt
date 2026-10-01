@@ -52,6 +52,7 @@ import cc.joycreator.joybrush.androidkit.io.JbArchive
 import cc.joycreator.joybrush.androidkit.io.JbArchiveException
 import cc.joycreator.joybrush.androidkit.io.JbContents
 import cc.joycreator.joybrush.androidkit.io.DrawingHistory
+import cc.joycreator.joybrush.androidkit.io.DrawingRecovery
 import cc.joycreator.joybrush.androidkit.io.CanvasPng
 import cc.joycreator.joybrush.androidkit.lab.BrushHotReload
 import cc.joycreator.joybrush.androidkit.tools.Eyedropper
@@ -81,6 +82,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.Executors
 
 // 10% and 12% white, the spec's overlay colours. Both literals fit in an Int.
@@ -255,6 +257,13 @@ class JoyBrushActivity : Activity() {
     private var replacingDrawing = false
     private var workingSaveAllowed = false
     private var destroyed = false
+    private var recoveringDrawing = false
+    private var drawingLoadVersion = 0
+    private var recoveryVersion = 0
+    private var recoveryTimeout: Runnable? = null
+    private val recovery by lazy {
+        DrawingRecovery(File(cacheDir, "joybrush-recovery-${UUID.randomUUID()}.joybrush"))
+    }
 
     /**
      * EVERY save goes through this one queue (JB-2.15): a request is an entry that waits its turn,
@@ -264,7 +273,7 @@ class JoyBrushActivity : Activity() {
      * down — and all three are the queue's job now. There is deliberately no `saveOwed` boolean.
      */
     private val saves = SaveQueue(object : SaveTarget<SaveDest> {
-        override val strokeInProgress: Boolean get() = canvas.strokeInProgress || loadingDrawing
+        override val strokeInProgress: Boolean get() = canvas.strokeInProgress || loadingDrawing || recoveringDrawing
         override fun start(reason: SaveReason, destination: SaveDest, finished: (String?) -> Unit) {
             beginSave(destination, finished)
         }
@@ -283,6 +292,11 @@ class JoyBrushActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         canvas = JbCanvasView(this)
+        // Debug-only lifecycle probe: tests use the real EGL destruction/resume path.
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 &&
+            intent.getBooleanExtra("joybrush_test_recreate_context", false)) {
+            canvas.preserveEGLContextOnPause = false
+        }
         kit = ChromeKit(this)
         prefs = getSharedPreferences(CHROME_PREFS, Context.MODE_PRIVATE)
         // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
@@ -300,7 +314,7 @@ class JoyBrushActivity : Activity() {
         val root = object : FrameLayout(this) {
             // No stroke or layer edit can race startup restore or preservation-before-Open.
             override fun dispatchTouchEvent(event: MotionEvent): Boolean =
-                if (loadingDrawing || replacingDrawing) true else super.dispatchTouchEvent(event)
+                if (loadingDrawing || replacingDrawing || recoveringDrawing || canvas.needsRecovery) true else super.dispatchTouchEvent(event)
         }
         root.addView(canvas, FrameLayout.LayoutParams(MATCH, MATCH))
         // The eyedropper's ring is drawn over the canvas and is exactly its size, so the canvas's own coordinates are the ring's.
@@ -320,6 +334,7 @@ class JoyBrushActivity : Activity() {
         // JB-2.04: the column follows the stack, and anything refused is said in words.
         canvas.onLayersChanged = { stack -> layersChanged(stack) }
         canvas.onRefused = { why -> toast(why) }
+        canvas.onGraphicsLost = { documentId -> recoverGraphics(documentId) }
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
         canvas.onViewMoved = { checkIcons() }
@@ -390,8 +405,10 @@ class JoyBrushActivity : Activity() {
     override fun onDestroy() {
         destroyed = true
         ui.removeCallbacks(idleSave)
+        recoveryTimeout?.let { ui.removeCallbacks(it) }
         stopBrushLab()
         // In-flight writes and their request watchdogs finish normally; no new old-screen saves.
+        fileIo.execute { recovery.close() }
         super.onDestroy()
     }
 
@@ -1379,7 +1396,10 @@ class JoyBrushActivity : Activity() {
             fileIo.execute {
                 val problem = try {
                     when (dest) {
-                        is SaveDest.Working -> JbArchive.save(file!!, contents)
+                        is SaveDest.Working -> {
+                            JbArchive.save(file!!, contents)
+                            recovery.rememberWorking(file)
+                        }
                         is SaveDest.Copy -> writeCopy(dest.uri, contents)
                         is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)
                         is SaveDest.Png -> {
@@ -1451,7 +1471,9 @@ class JoyBrushActivity : Activity() {
         if (file == null) { finishStartup(false); return }
         fileIo.execute {
             val read = try {
-                DrawingHistory.readWorking(file)
+                DrawingHistory.readWorking(file).also {
+                    if (it != null) recovery.rememberWorking(if (it.recoveredBackup) File(file.path + ".bak") else file)
+                }
             } catch (e: Exception) {
                 ui.post {
                     if (!destroyed) toast("Your last drawing could not be opened. Autosave will leave it intact: ${e.message}")
@@ -1462,7 +1484,7 @@ class JoyBrushActivity : Activity() {
             ui.post {
                 if (destroyed) { finishStartup(false); return@post }
                 if (read == null) finishStartup(true)
-                else showContents(read.contents) { loaded ->
+                else showContents(read.contents, keepRecoveryCopy = false) { loaded ->
                     if (loaded && read.recoveredBackup) toast("Recovered your drawing from its backup")
                     finishStartup(loaded)
                 }
@@ -1515,20 +1537,105 @@ class JoyBrushActivity : Activity() {
         } catch (e: JbArchiveException) { toast(e.message ?: "that drawing cannot be opened") }
     }
 
-    private fun showContents(contents: JbContents, onLoaded: (Boolean) -> Unit = {}) {
+    private fun showContents(contents: JbContents, keepRecoveryCopy: Boolean = true, onLoaded: (Boolean) -> Unit = {}) {
         if (destroyed) { onLoaded(false); return }
         try {
-            canvas.load(contents) {
-                // Loading reports a history change of its own; that is not work to be autosaved.
-                changes = 0
-                ui.removeCallbacks(idleSave)
-                workingSaveAllowed = true
-                onLoaded(!destroyed)
+            canvas.checkContents(contents)
+            val version = ++drawingLoadVersion
+            ++recoveryVersion // A selected drawing supersedes any recovery already reading disk.
+            recoveryTimeout?.let { ui.removeCallbacks(it) }
+            recoveryTimeout = null
+            fileIo.execute {
+                val problem = try {
+                    if (keepRecoveryCopy) recovery.rememberOpened(contents)
+                    null
+                } catch (e: Exception) { e.message ?: "the recovery copy could not be kept" }
+                ui.post {
+                    if (destroyed || version != drawingLoadVersion) { onLoaded(false); return@post }
+                    if (problem != null) {
+                        if (recoveringDrawing) finishGraphicsRecovery()
+                        toast("That drawing could not be opened safely: $problem")
+                        onLoaded(false)
+                        return@post
+                    }
+                    uploadContents(contents) { loaded ->
+                        if (loaded) finishGraphicsRecovery()
+                        onLoaded(loaded)
+                    }
+                }
             }
         } catch (e: JbArchiveException) {
             toast(e.message ?: "that drawing cannot be opened")
             onLoaded(false)
         }
+    }
+
+    private fun uploadContents(contents: JbContents, onLoaded: (Boolean) -> Unit) {
+        canvas.load(contents) {
+            // Loading reports a history change; it is not a new edit.
+            changes = 0
+            ui.removeCallbacks(idleSave)
+            workingSaveAllowed = true
+            onLoaded(!destroyed)
+        }
+    }
+
+    private fun recoverGraphics(documentId: String) {
+        if (destroyed || !canvas.needsRecovery) return
+        recoveringDrawing = true
+        workingSaveAllowed = false
+        overlaysView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        ui.removeCallbacks(idleSave)
+        canvas.cancelInterruptedStroke()
+        val attempt = ++recoveryVersion
+        val loadVersion = drawingLoadVersion
+        recoveryTimeout?.let { ui.removeCallbacks(it) }
+        recoveryTimeout = Runnable {
+            if (!destroyed && attempt == recoveryVersion && recoveringDrawing) {
+                ++recoveryVersion // A late read/upload cannot claim this timed-out attempt succeeded.
+                finishGraphicsRecovery()
+                toast("Your saved files are safe. Restoration timed out; close and reopen Joy Brush.")
+            }
+        }.also { ui.postDelayed(it, 30_000L) }
+        toast("Restoring your drawing…")
+        // The single file executor places this AFTER every write already in progress.
+        fileIo.execute {
+            val contents = try { recovery.read(documentId) }
+                catch (_: OutOfMemoryError) { null }
+                catch (_: Exception) { null }
+            ui.post {
+                if (destroyed || attempt != recoveryVersion || loadVersion != drawingLoadVersion) return@post
+                if (!canvas.needsRecovery) { finishGraphicsRecovery(); return@post }
+                if (contents == null) {
+                    finishGraphicsRecovery()
+                    toast("Your saved files are safe, but the drawing could not be restored. Close and reopen Joy Brush.")
+                    return@post
+                }
+                val unsaved = changes > 0
+                try {
+                    canvas.checkContents(contents)
+                    uploadContents(contents) { loaded ->
+                        if (attempt != recoveryVersion) return@uploadContents
+                        finishGraphicsRecovery()
+                        if (loaded) toast(if (unsaved)
+                            "Recovered your last saved drawing. Recent unsaved marks may be missing; undo history restarted."
+                            else "Drawing restored; undo history restarted.")
+                    }
+                } catch (e: JbArchiveException) {
+                    finishGraphicsRecovery()
+                    toast("The saved drawing was kept, but could not be restored: ${e.message}")
+                }
+            }
+        }
+    }
+
+    private fun finishGraphicsRecovery() {
+        recoveryTimeout?.let { ui.removeCallbacks(it) }
+        recoveryTimeout = null
+        recoveringDrawing = false
+        overlaysView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+        saves.drain()
+        pauseViewIfDrained()
     }
 
     private fun recentDrawings(anchor: View) {

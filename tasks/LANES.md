@@ -988,3 +988,9 @@ status: IDLE (2026-10-01; phone verification complete, owner art restored)
 files: none. Evidence: tasks/joybrush/INTEGRATION_20260930.md
 DEVICE: none. Note 9 restored; original archive entries exact. Note 20 untouched.
 Single continuous app watcher remains active; do not start a duplicate.
+
+## JOYBRUSH_CONTEXT_RECOVERY_20261001
+status: IDLE (2026-10-01; 205 tests pass, graphics recreation verified on Note 9)
+files: none. Evidence: tasks/joybrush/INTEGRATION_20260930.md
+DEVICE: none. Owner pre-test drawing restored exactly; normal mode; Note 20 untouched.
+Single original watch-build.ps1 loop is running.

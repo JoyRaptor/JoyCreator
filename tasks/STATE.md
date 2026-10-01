@@ -389,3 +389,9 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 > androidkit tests pass. Owner drawing restored: all 1713 archive entries (1711 paint tiles) match
 > the pre-test backup byte-for-byte. Final in-place install: 2026-10-01 09:30:55.
 > Details: `tasks/joybrush/INTEGRATION_20260930.md`.
+
+> **Joy Brush automatic graphics recovery, 2026-10-01:** completed saved artwork now restores
+> automatically after runtime EGL loss. Verified on Note 9 with the 1711-tile drawing in the same
+> Activity; 205 androidkit tests pass and full app builds pass. Undo history restarts; marks since
+> the last completed save may be missing. Owner pre-test archive restored byte-for-byte, normal
+> phone operation restored. Next blocker: memory overlap when Open switches two large drawings.

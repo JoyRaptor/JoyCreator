@@ -159,3 +159,42 @@ uploads; it does not claim to recover lost GPU pixels later in the activity's li
 
 Next work: runtime graphics-context recovery, then frame/cel projection, animation controls and
 Studio handoff. User already verified drawing, colour picking, erasing and closing/reopening.
+
+
+## October 1: automatic runtime graphics recovery
+
+- JbCanvasView reports context loss with the active document identity. GL work is tagged with a
+  context generation: old queued pen/layer operations cannot run against the recovered canvas,
+  and a snapshot from an old generation fails explicitly. Interrupted pen gestures are cancelled.
+- Activity blocks input, accessibility edits and pending saves during recovery, reads behind any
+  active write on the single file executor, then restores the archive into the new GPU context.
+  New Open requests supersede recovery through generation checks; late responses and a 30-second
+  recovery timeout cannot claim success. Failed recovery leaves working saves blocked and files
+  intact. Recovery restores the last completed checkpoint; unsaved marks may be missing and undo
+  history restarts, which the screen says explicitly.
+- Each Activity keeps its own compressed session checkpoint on disk. Open preserves the selected
+  archive before GPU upload. Startup and completed working saves copy the existing compressed
+  archive using JbArchive's existing atomic rename/fsync path, with no tile inflation or extra
+  compression. No second full drawing is retained in memory. A selected drawing cannot fall back
+  to the previous drawing, even when both share the default document ID. Session files are cleaned
+  on normal destruction; working files are never removed by that cleanup.
+- Verification: **205 androidkit tests, zero failures/errors** (11 new recovery tests), including
+  metadata/pixels, newer saved revisions, corrupt checkpoints, wrong IDs, same-ID separate screens,
+  failed writes/copies and cleanup isolation. Full app watcher builds pass. Final source build
+  installed in place on Note 9 at 2026-10-01 10:20:45. Single original watch-build.ps1 loop restored
+  after standalone tests; no concurrent builds.
+- Debug-only intent probe disables EGL preservation to exercise actual destruction/resume, rather
+  than simulating restoration on an intact GPU. On Note 9, saw "Restoring your drawing" and the
+  original 1711-tile artwork return in the SAME Activity instance. Repeated the leave/return check
+  after the final checkpoint isolation changes. Note 20 untouched.
+- A fresh owner backup was taken before testing. A synthetic return tap added a small test mark;
+  restored the full pre-test archive with the app stopped and verified all 1713 entries exactly.
+  Relaunched normally without the lifecycle probe; owner artwork is visible. No uninstall/data clear.
+- Remaining bottleneck discovered during restoration: large-to-large Open still holds the selected
+  drawing's CPU tiles while snapshotting the previous drawing, exceeding the Note 9 heap. The
+  snapshot guard refuses it and keeps the previous file. Fix the load/preservation sequence before
+  adding more host controls; avoid simultaneous full pixel sets. This is distinct from recovery,
+  which now uses one CPU pixel set and passed on the large drawing.
+
+Next integration slice: memory-safe large drawing swaps, then frame/cel projection and animation/
+Studio wiring. Recovery covers completed saves, not pixels destroyed before any checkpoint exists.

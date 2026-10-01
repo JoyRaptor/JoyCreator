@@ -54,7 +54,7 @@ object BrushKnobs {
      * there, move pixels, and fill a shape, so there is no deposit for the paper to hold or catch and a
      * slider there would be a control that cannot do anything. Push keeps the grain knob it always had.
      */
-    const val PAPER_ENGINE_LIVE = false // JB-9.08 enables the three response controls.
+    const val PAPER_ENGINE_LIVE = true // JB-9.08 enables the three response controls.
     private val livePaper get() = if (PAPER_ENGINE_LIVE) PAPER else emptyList()
 
     fun forBrush(p: BrushPreset): List<Knob> = when (p.engine) {

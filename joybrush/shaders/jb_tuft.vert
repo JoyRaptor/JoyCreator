@@ -8,7 +8,7 @@ layout(location = 0) in vec2 a_corner;   // unit quad corner, -1..1
 layout(location = 1) in vec4 a_ab;       // A.x, A.y, B.x, B.y (document px)
 layout(location = 2) in vec4 a_r;        // ra, rb, flow, cap
 layout(location = 3) in vec4 a_look;     // dry, bias, splay, arc
-layout(location = 4) in vec4 a_kind;     // kind (0 footprint, 1 plain, 2 hair), graze, unused ×2
+layout(location = 4) in vec4 a_kind;     // kind, graze, actual document-space travel
 
 uniform vec2 u_tileOrigin;
 uniform float u_tileSize;
@@ -19,6 +19,7 @@ flat out vec4 v_r;
 flat out vec4 v_look;
 flat out float v_kind;
 flat out float v_graze;
+flat out vec2 v_travel;
 
 void main() {
     vec2 a = a_ab.xy;
@@ -33,4 +34,5 @@ void main() {
     v_look = a_look;
     v_kind = a_kind.x;
     v_graze = a_kind.y;
+    v_travel = a_kind.zw;
 }

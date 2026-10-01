@@ -16,6 +16,8 @@ import cc.joycreator.joybrush.core.paint.Thumbnails
 import cc.joycreator.joybrush.core.render.LayerMask
 import cc.joycreator.joybrush.core.paint.Accumulate
 import cc.joycreator.joybrush.core.paint.Dab
+import cc.joycreator.joybrush.core.paint.DabTravel
+import cc.joycreator.joybrush.core.brush.PaperResponse
 import cc.joycreator.joybrush.core.paint.StrokeBlend
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.paint.TipShape
@@ -193,7 +195,10 @@ class GlPaintEngine(
     private var tipGrainTex = 0
     private var paperGrainTex = 0
 
-    private var instanceData: FloatBuffer = newFloats(6 * 256)
+    private val strokeTravel = DabTravel()
+    private var strokePaperResponse = PaperResponse()
+    private var strokePaperInfluence = 0f
+    private var instanceData: FloatBuffer = newFloats(8 * 256)
     private var smudgeInstanceData: FloatBuffer = newFloats(10 * 256)
     private var tuftInstanceData: FloatBuffer = newFloats(TuftStamp.FLOATS * 256)
 
@@ -258,11 +263,15 @@ class GlPaintEngine(
         GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 0, 0)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
         GLES30.glEnableVertexAttribArray(1)
-        GLES30.glVertexAttribPointer(1, 4, GLES30.GL_FLOAT, false, 24, 0)
+        GLES30.glVertexAttribPointer(1, 4, GLES30.GL_FLOAT, false, 32, 0)
         GLES30.glVertexAttribDivisor(1, 1)
         GLES30.glEnableVertexAttribArray(2)
-        GLES30.glVertexAttribPointer(2, 2, GLES30.GL_FLOAT, false, 24, 16)
+        GLES30.glVertexAttribPointer(2, 2, GLES30.GL_FLOAT, false, 32, 16)
         GLES30.glVertexAttribDivisor(2, 1)
+
+        GLES30.glEnableVertexAttribArray(4)
+        GLES30.glVertexAttribPointer(4, 2, GLES30.GL_FLOAT, false, 32, 24)
+        GLES30.glVertexAttribDivisor(4, 1)
 
         // The smudge dab: the same quad and the same instance buffer, but 10 floats per dab (the stamp's 6 plus the carried colour).
         GLES30.glBindVertexArray(smudgeVao)
@@ -731,6 +740,7 @@ class GlPaintEngine(
                     grain: GrainMath.StrokeGrain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF),
                     smudge: SmudgeParams? = null, tuft: TuftShading? = null) {
         cancelStroke()
+        strokeTravel.reset()
         strokeLayer = storeOf(layerId) ?: error("no layer $layerId")
         strokeIsRgba = smudge != null
         colR = ((argb shr 16) and 0xFF) / 255f
@@ -754,11 +764,17 @@ class GlPaintEngine(
         val surface = p?.surface
         strokeSurface = surface
         strokePaperScale = p?.scale ?: 1f
-        val documentGrain = documentPaperGrain(grain.paper,p)
+        strokePaperResponse = if (tuft != null) tuft.paperResponse else grain.paperResponse
+        // Old direct engine callers have grain settings but no document/response section.
+        if (p == null && strokePaperResponse.isDefault && (grain.paper.enabled || (tuft?.paperPitchPx ?: 0f)>0f))
+            strokePaperResponse = PaperResponse(influence=1f)
+        strokePaperInfluence = if (smudge != null) 0f else strokePaperResponse.influence*(p?.bite ?: 1f)
+        val documentGrain = documentPaperGrain(grain.paper,p,strokePaperResponse)
         val paperTex = if (documentGrain.enabled) grains.textureFor(documentGrain.asset) else null
         this.grain = GrainMath.StrokeGrain(
             tip = if (tipTex != null) grain.tip else GrainMath.GrainUniforms.OFF,
             paper = if (paperTex != null) documentGrain else GrainMath.GrainUniforms.OFF,
+            paperResponse = strokePaperResponse,
         )
         tipGrainTex = tipTex ?: grains.placeholder
         paperGrainTex = paperTex ?: grains.placeholder
@@ -766,7 +782,7 @@ class GlPaintEngine(
         tuftPaperTex = tooth ?: grains.placeholder
         this.tuft = tuft?.let {
             if(tooth == null) it.copy(paperPitchPx=0f) else if(p != null && surface != null)
-                it.copy(paperAsset=surface.file,paperPitchPx=surface.texelPx*p.scale,tooth=it.tooth*p.bite)
+                it.copy(paperAsset=surface.file,paperPitchPx=if(strokePaperInfluence>0f)surface.texelPx*p.scale else 0f,tooth=it.tooth)
             else it
         }
     }
@@ -785,7 +801,11 @@ class GlPaintEngine(
         // New stroke tiles are made HERE, before the grain pictures are bound: making a texture binds it on
         // the active unit and ends by binding 0, which would silently unbind the tip picture on unit 0 for
         // the rest of the batch (a stroke crossing into a new tile lost its grain: review of JB-1.05c).
-        val buckets = Tiles.bucket(dabs, size)
+        val directed = dabs.map { dab ->
+            strokeTravel.update(dab.x,dab.y)
+            if (dab.travelKnown) dab else dab.copy(travelX=strokeTravel.x,travelY=strokeTravel.y,travelKnown=true)
+        }
+        val buckets = Tiles.bucket(directed, size)
         for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
         dabProg.use()
         GLES30.glUniform1f(dabProg.loc("u_tileSize"), size.toFloat())
@@ -803,7 +823,7 @@ class GlPaintEngine(
             GLES30.glUniform2f(dabProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
             fillInstances(list)
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
-            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * 24, instanceData, GLES30.GL_STREAM_DRAW)
+            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * 32, instanceData, GLES30.GL_STREAM_DRAW)
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
         }
         GLES30.glBindVertexArray(0)
@@ -835,6 +855,7 @@ class GlPaintEngine(
         // Both samplers get a real picture every batch: an unset sampler reads unit 0, which may be the tile being drawn.
         GLES30.glUniform1i(tuftProg.loc("u_tipGrain"), 0)
         setPaperSurfaceUniforms(tuftProg)
+        setPaperResponseUniforms(tuftProg)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, grains.placeholder)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
@@ -853,7 +874,7 @@ class GlPaintEngine(
                 tuftInstanceData.put(t.ax).put(t.ay).put(t.bx).put(t.by)
                     .put(t.ra).put(t.rb).put(t.flow).put(t.cap)
                     .put(t.dry).put(t.bias).put(t.splay).put(t.arc)
-                    .put(t.kind.toFloat()).put(t.graze).put(0f).put(0f)
+                    .put(t.kind.toFloat()).put(t.graze).put(t.travelX).put(t.travelY)
             }
             tuftInstanceData.flip()
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
@@ -930,7 +951,14 @@ class GlPaintEngine(
      * a batch is a few milliseconds of pen. It goes through [GrainMath.tiltAmount] / [GrainMath.leanX] /
      * [GrainMath.leanY], which turn a finger's NaN into "upright, no lean" before the GPU ever sees it.
      */
+    private fun setPaperResponseUniforms(program: GlProgram) {
+        GLES30.glUniform1f(program.loc("u_paperInfluence"),strokePaperInfluence)
+        GLES30.glUniform1f(program.loc("u_paperDirectional"),strokePaperResponse.directional)
+        GLES30.glUniform1f(program.loc("u_paperWet"),strokePaperResponse.wet)
+    }
+
     private fun setGrainUniforms(newest: Dab) {
+        setPaperResponseUniforms(dabProg)
         GLES30.glUniform1i(dabProg.loc("u_tipGrain"), 0)
         setPaperSurfaceUniforms(dabProg)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
@@ -1307,11 +1335,11 @@ class GlPaintEngine(
     }
 
     private fun fillInstances(list: List<Dab>) {
-        val need = list.size * 6
+        val need = list.size * 8
         if (instanceData.capacity() < need) instanceData = newFloats(need * 2)
         instanceData.clear()
         for (d in list) {
-            instanceData.put(d.x).put(d.y).put(d.radius).put(d.angle).put(d.flow).put(d.cap)
+            instanceData.put(d.x).put(d.y).put(d.radius).put(d.angle).put(d.flow).put(d.cap).put(d.travelX).put(d.travelY)
         }
         instanceData.flip()
     }

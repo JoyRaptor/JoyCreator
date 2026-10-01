@@ -69,10 +69,10 @@ class BrushTuningTest {
      * meets the knobs in the order they come back.
      */
     @Test
-    fun paperSlidersStayHiddenUntilTheirEngineIsLive() {
-        assertFalse(BrushKnobs.PAPER_ENGINE_LIVE)
+    fun paperSlidersAppearWhenTheDirectionalDepositEngineIsLive() {
+        assertTrue(BrushKnobs.PAPER_ENGINE_LIVE)
         for (brush in listOf(ink(), pencil(), sable())) {
-            assertTrue(BrushKnobs.forBrush(brush).none { it.key.startsWith("paper.") })
+            assertEquals(3, BrushKnobs.forBrush(brush).count { it.key.startsWith("paper.") })
         }
     }
 
@@ -88,7 +88,7 @@ class BrushTuningTest {
         val paperKeys = setOf("paper.influence", "paper.directional", "paper.wet")
         for (brush in listOf(ink(), pencil(), sable())) {
             val keys = BrushKnobs.forBrush(brush).map { it.key }
-            assertEquals(emptySet(), keys.filter { it in paperKeys }.toSet(), "${brush.id} (${brush.engine}) has them: $keys")
+            assertEquals(paperKeys, keys.filter { it in paperKeys }.toSet(), "${brush.id} (${brush.engine}) has them: $keys")
         }
         for (brush in listOf(
             ink().copy(id = "s", engine = ENGINE_SMUDGE, version = 3),

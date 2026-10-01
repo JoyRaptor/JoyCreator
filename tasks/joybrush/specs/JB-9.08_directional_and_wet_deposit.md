@@ -68,7 +68,7 @@ Owner judges dry scraping in two directions, wet pooling, and that Ink with a sm
 Do not normalise slopes to unit normals before `face` (the range normalisation is the scale). Do not install. Do not change tip-texture behaviour.
 
 ## Definition of done
-- [ ] tests pass (paste) · [ ] mutation: flip the sign of `face` → the ridge test goes red · [ ] LEAD_DESK line · [ ] pushed · [ ] ROADMAP → 🟧 Built — awaiting the Note 9
+- [x] tests pass: core1440/0, newest XML2026-10-01 19:05:31 EDT; Android-kit225/0, newest XML19:07:44 EDT (own worktree, exact commands in reviews/JB-9.08__codex.md) · [x] mutation: flip the sign of `face` → the ridge test goes red1/1 · [x] LEAD_DESK line · [ ] pushed · [ ] ROADMAP → 🟧 Built — awaiting the Note 9
 
 ## Questions
 
@@ -77,3 +77,8 @@ Do not normalise slopes to unit normals before `face` (the range normalisation i
 **Specialist answer (2026-10-01):** correct, the dependencies were wrong. This row needs **JB-9.06** (document surface, `bite`, `scale` in the
 engine) and JB-9.09. It starts after JB-9.06 lands (PAPER_DISPATCH.md gates). When it lands, flip `BrushKnobs.PAPER_ENGINE_LIVE = true`
 (JB-9.03b Decision 14) so the three sliders appear.
+
+2026-10-01 Acting paper lead clarification: the coarse mip requires extending jb_paper.glsl with a derivative multiplier (8 for the height-only coarse read). Add that file to this row's owner area/hot-file log; keep existing APIs intact. Carry PaperResponse through StrokeGrain/TuftShading at pen-down so no JbCanvasView hot edit is necessary. Influence is multiplied by document bite exactly once; remove 9.06's temporary depth*bite multiplication, since bite belongs in the grain-factor mix in this contract.
+
+
+The exact tuft travel vector needs jb_tuft.vert in the owner area too: a_kind.zw were unused and now carry doc-space travel. A tilted footprint's belly-tip axis is not the stroke travel; do not infer direction from that geometry. The tuft stride stays16 floats. Dab travelKnown is CPU-only bookkeeping to distinguish a known zero from externally supplied raw dabs; only travel vec2 is uploaded.

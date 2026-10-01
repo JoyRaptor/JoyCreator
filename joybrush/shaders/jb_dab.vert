@@ -18,6 +18,8 @@ out float v_angle;
 out float v_flow;
 out float v_cap;
 out vec4 v_carried;
+layout(location = 4) in vec2 a_travel;   // document-space unit travel, zero at a tap/dwell
+flat out vec2 v_travel;
 
 void main() {
     // Half-size that contains the tip at any rotation, plus an antialiasing margin
@@ -33,4 +35,5 @@ void main() {
     v_flow = a_dab2.x;
     v_cap = a_dab2.y;
     v_carried = a_carried;
+    v_travel = a_travel;
 }

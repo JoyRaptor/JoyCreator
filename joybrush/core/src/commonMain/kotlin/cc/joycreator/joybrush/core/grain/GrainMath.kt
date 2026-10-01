@@ -1,6 +1,10 @@
 package cc.joycreator.joybrush.core.grain
 
 import cc.joycreator.joybrush.core.brush.GrainSpec
+import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.PaperResponse
+import cc.joycreator.joybrush.core.paper.HexTile
+import cc.joycreator.joybrush.core.paper.PaperTexture
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -52,6 +56,45 @@ object GrainMath {
             if (spec.tiltGradient.isFinite()) spec.tiltGradient else 0f,
             if (spec.radial.isFinite()) spec.radial else 0f, DEFAULT_SURFACE,
         )
+
+    const val JB_DIR_GAIN = 0.35f
+    const val JB_WET_GAIN = 1f
+    const val UNIVERSAL_DEPTH = 0.85f
+    const val UNIVERSAL_EDGE = 0.3f
+    const val UNIVERSAL_TILT_GRADIENT = 0f
+    const val UNIVERSAL_RADIAL = 0f
+
+    /** JB-9.08: slopes remain height per doc px; do not normalise them as normals. */
+    fun paperEffectiveHeight(surf: FloatArray, hCoarse: Float, travelX: Float, travelY: Float,
+                             slopeRangeDocPx: Float, directional: Float, wet: Float): Float {
+        require(surf.size >= 4)
+        val face = ((surf[0] * travelX + surf[1] * travelY) / max(slopeRangeDocPx, 1e-6f)).coerceIn(-1f, 1f)
+        val hDry = surf[2] + JB_DIR_GAIN * directional * face
+        val hWet = surf[2] + JB_WET_GAIN * (hCoarse - surf[2])
+        return hDry + (hWet - hDry) * wet
+    }
+
+    /** CPU surroundings: mean of hex-read B over an 8x8 texel box; GPU coarse-mip tolerance ±0.03. */
+    fun paperCoarseHeight(tex: PaperTexture, texelX: Double, texelY: Double, hexTexels: Double,
+                          rotatable: Boolean, slopeRange: Float, seed: Int = 0): Float {
+        val sampled = FloatArray(4)
+        var sum = 0f
+        for (y in 0..7) for (x in 0..7) {
+            HexTile.sampleSurface(tex, texelX + x - 3.5, texelY + y - 3.5, hexTexels, rotatable, slopeRange, sampled, seed)
+            sum += sampled[2]
+        }
+        return sum / 64f
+    }
+
+    /** Universal response gives previously ungrained brushes physical paper without changing their tip. */
+    fun strokeUniformsFor(preset: BrushPreset, tipDepth: Float = preset.tipTexture.depth.base,
+                          paperDepth: Float = preset.paperGrain.depth.base): StrokeGrain {
+        val paper = if (preset.paperGrain.enabled) paperUniformsFor(preset.paperGrain, paperDepth)
+            else if (preset.paper.influence > 0f) GrainUniforms(DEFAULT_SURFACE_TEXEL_PX, UNIVERSAL_DEPTH,
+                UNIVERSAL_EDGE, UNIVERSAL_TILT_GRADIENT, UNIVERSAL_RADIAL, DEFAULT_SURFACE)
+            else GrainUniforms.OFF
+        return StrokeGrain(uniformsFor(preset.tipTexture, tipDepth), paper, preset.paper)
+    }
 
     // ---- the NaN row --------------------------------------------------------------------------
 
@@ -166,7 +209,7 @@ object GrainMath {
     }
 
     /** The two grains of a stroke. */
-    data class StrokeGrain(val tip: GrainUniforms, val paper: GrainUniforms) {
+    data class StrokeGrain(val tip: GrainUniforms, val paper: GrainUniforms, val paperResponse: PaperResponse = PaperResponse()) {
         val any: Boolean get() = tip.enabled || paper.enabled
     }
 

@@ -65,10 +65,7 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
      * Before the first [look] it is the file's own base value. Pure of GL: the engine only uploads it.
      */
     val strokeGrain: GrainMath.StrokeGrain
-        get() = GrainMath.StrokeGrain(
-            tip = GrainMath.uniformsFor(preset.tipTexture, tipGrainDepth),
-            paper = GrainMath.paperUniformsFor(preset.paperGrain, paperGrainDepth),
-        )
+        get() = GrainMath.strokeUniformsFor(preset, tipGrainDepth, paperGrainDepth)
 
     /**
      * What opacity is applied to the whole stroke when it is committed — a BUILD_UP stroke's only

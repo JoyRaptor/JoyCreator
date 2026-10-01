@@ -48,3 +48,13 @@ float jb_grainLevel(float depth, float tipCov, vec2 localN, vec2 leanDir,
 float jb_grainedCoverage(float tipCov, float grainCov) {
     return grainCov * smoothstep(0.0, 0.06, tipCov);
 }
+
+const float JB_DIR_GAIN = 0.35;
+const float JB_WET_GAIN = 1.0;
+float jb_paperEffectiveHeight(vec4 surf, float hCoarse, vec2 v, float slopeRangeDocPx,
+                              float directional, float wet) {
+    float face = clamp(dot(surf.xy, v) / max(slopeRangeDocPx, 1e-6), -1.0, 1.0);
+    float hDry = surf.z + JB_DIR_GAIN * directional * face;
+    float hWet = surf.z + JB_WET_GAIN * (hCoarse - surf.z);
+    return mix(hDry, hWet, wet);
+}

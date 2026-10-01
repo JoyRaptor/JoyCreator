@@ -21,6 +21,9 @@ data class Dab(
     val pressure: Float = 1f,
     val tilt: Float = Float.NaN,
     val azimuth: Float = Float.NaN,
+    val travelX: Float = 0f,
+    val travelY: Float = 0f,
+    val travelKnown: Boolean = false, // CPU only: true also distinguishes intentional first/dwell zero.
 )
 
 /**

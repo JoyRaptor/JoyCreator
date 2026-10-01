@@ -14,6 +14,7 @@
 precision highp float;
 
 #include "jb_paper.glsl"
+#include "jb_grain.glsl"
 #include "jb_grain_sample.glsl"
 
 uniform float u_bristles;   // streaks across the full width
@@ -28,6 +29,10 @@ flat in vec4 v_r;
 flat in vec4 v_look;
 flat in float v_kind;
 flat in float v_graze;
+flat in vec2 v_travel;
+uniform float u_paperInfluence; // brush influence multiplied by document bite
+uniform float u_paperDirectional;
+uniform float u_paperWet;
 
 out vec4 o_color;
 
@@ -79,14 +84,23 @@ void main() {
 
     // The page's tooth, read in uniform control flow (a texture read needs it for its derivatives).
     float h = 1.0;
-    if (u_paperGrainPitchPx > 0.0) h = jb_paperGrainHeight(v_pos);
+    bool paperOn = u_paperGrainPitchPx > 0.0 && u_paperInfluence > 0.0;
+    if (paperOn) {
+        if (u_paperDirectional <= 0.0 && u_paperWet <= 0.0) h = jb_paperGrainHeight(v_pos);
+        else {
+            vec4 surface = jb_paperSurface(v_pos);
+            float coarse = u_paperWet > 0.0 ? jb_paperCoarseHeight(v_pos) : surface.z;
+            h = jb_paperEffectiveHeight(surface, coarse, v_travel,
+                u_paperSlopeRange / u_paperTexelPx, u_paperDirectional, u_paperWet);
+        }
+    }
 
     float sd = jb_tuftDistance(v_pos, a, b, ra, rb);
     float d;
     if (v_kind > 1.5) {
         // A stray hair: it catches on the paper's high points and skips the low ones, as much as it stutters.
         d = clamp(0.5 - sd, 0.0, 1.0);
-        if (dry > 0.0) d *= clamp((h - dry) / 0.08 + 0.5, 0.0, 1.0);
+        if (dry > 0.0 && paperOn) d *= mix(1.0, clamp((h - dry) / 0.08 + 0.5, 0.0, 1.0), u_paperInfluence);
     } else if (v_kind > 0.5) {
         d = clamp(0.5 - sd, 0.0, 1.0);
     } else {
@@ -127,6 +141,7 @@ void main() {
         // Tooth: only the dry parts feel the paper; a loaded brush fills its valleys.
         float reach = u_tooth * dLocal;
         float tooth = mix(1.0, clamp((h - reach * 0.9) / 0.08 + 0.5, 0.0, 1.0), smoothstep(0.0, 0.15, reach));
+        tooth = paperOn ? mix(1.0, tooth, u_paperInfluence) : 1.0;
 
         d = cov * bristle * gap * tooth;
     }

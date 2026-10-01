@@ -47,6 +47,8 @@ _(append below; newest last)_
 
 2026-10-01 JB-9.06: checked latest five hot-file commits and rebased to b1b30633; editing GlPaintEngine/JbCanvasView and paper background shaders for the gated screen/export row; no installation.
 
+2026-10-01 JB-9.08: checked five hot-file commits and rebased after 2c746d3c; editing GlPaintEngine and deposit shaders, extending shared paper read for coarse derivatives; no view/app UI edits or installation.
+
 ## Lead answers
 
 _(the Lead writes here)_

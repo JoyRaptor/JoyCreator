@@ -15,10 +15,10 @@ float jb_hash(int i, int j, int k) {
     return float(x >> 8u) / 16777216.0;
 }
 
-vec4 jb_paperRead(vec2 docPx, int seed, bool slopes) {
+vec4 jb_paperRead(vec2 docPx, int seed, bool slopes, float derivativeScale) {
     vec2 p = docPx / u_paperTexelPx;
     // Different hexes rotate independently: differentiate before selecting a vertex.
-    vec2 dx = dFdx(p), dy = dFdy(p);
+    vec2 dx = dFdx(p) * derivativeScale, dy = dFdy(p) * derivativeScale;
     const float SQRT3 = 1.7320508075688772;
     vec2 q = p / u_paperHexTexels;
     vec2 ab = vec2(q.x - q.y / SQRT3, 2.0 * q.y / SQRT3);
@@ -65,6 +65,9 @@ vec4 jb_paperRead(vec2 docPx, int seed, bool slopes) {
     return result;
 }
 
+vec4 jb_paperRead(vec2 docPx, int seed, bool slopes) { return jb_paperRead(docPx, seed, slopes, 1.0); }
 vec4 jb_paperSurface(vec2 docPx, int seed) { return jb_paperRead(docPx, seed, true); }
 vec4 jb_paperSurface(vec2 docPx) { return jb_paperSurface(docPx, 0); }
 float jb_paperHeight(vec2 docPx) { return jb_paperRead(docPx, 0, false).z; }
+// Same global hex arrangement; only the wet surroundings' mip footprint changes.
+float jb_paperCoarseHeight(vec2 docPx) { return jb_paperRead(docPx, 0, false, 8.0).z; }

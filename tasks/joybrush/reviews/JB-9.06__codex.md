@@ -22,6 +22,6 @@ Production background compile/link passed; 256-square CPU parity max difference 
 .\gradlew.bat --no-daemon --no-watch-fs --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1024m -Dfile.encoding=UTF-8 -Djava.io.tmpdir=C:/Temp -Djdk.net.unixdomain.tmpdir=C:/Temp' '-Pkotlin.compiler.execution.strategy=in-process' :app:assembleDefaultDebug
 ```
 
-APK build passed (6m16s): app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk (also armeabi-v7a and x86_64). Never installed. Phone judgement/UI remain JB-9.07/the Lead.
+APK build passed (6m16s): app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk (also armeabi-v7a and universal). Never installed. Phone judgement/UI remain JB-9.07/the Lead.
 
 Known contract consequence recorded in the spec: transparent-stack-then-paper export can differ from screen blend semantics for non-NORMAL layers and ORA readers. Following the explicit export contract; blend metadata is preserved. Main fast-forward previously refused because tasks/todo.md has local changes; left alone as instructed.

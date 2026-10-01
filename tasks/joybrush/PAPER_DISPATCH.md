@@ -14,13 +14,13 @@ The design is `research/R10_paper_and_canvas.md`.
 | JB-9.03 | pencil + Sable on a real, non-repeating paper | ✅ landed, ⚠️ not yet seen on the Note 9 |
 | JB-9.09 | brush paper values in the files (sliders hidden by 9.03b) | ✅ landed (its folder's XML: 1357/0, not the 1339 in its report) |
 | JB-9.11 | imported textures → surfaces, core half | ✅ landed; the rest moves to JB-1.05d |
-| JB-9.03b | audit fixes | 🟦 next for Codex |
-| JB-9.04 | paper catalogue | 🟦 unblocked (the stray `detailStrength` key is gone) |
-| JB-9.05 | document paper v4 | ⏳ gate: 9.04 |
-| JB-9.06 | paper on screen + export + zoom | ⏳ gates: 9.03b, 9.04, 9.05 |
+| JB-9.03b | audit fixes | ✅ landed (`b1b30633`) |
+| JB-9.04 | paper catalogue | ✅ landed (OpenCode, before `5a5abc4b`) |
+| JB-9.05 | document paper v4 | ✅ landed (`5a5abc4b`) |
+| JB-9.06 | paper on screen + export + zoom | 🟧 Built and landed (`2c746d3c`) — awaiting the Note 9 |
 | JB-9.08 | directional + wet deposit | ⏳ gates: 9.06 (and 9.09 ✅) |
-| JB-9.07 | the Paper swatch + sheet | ⏳ gate: 9.06; **Joy Brush Lead only** |
-| JB-9.10 | picture candidates (Codex) → library (specialist) | 🟦 any time; needs no build |
+| JB-9.07 | the Paper swatch + sheet | 🟦 gate open: 9.06 landed; **Joy Brush Lead only** |
+| JB-9.10 | picture candidates (Codex) → library (specialist) | 27 looks + 8 surfaces handed off; generation paused by the owner |
 
 ## The lanes
 

@@ -49,6 +49,8 @@ data class TuftStamp(
      * = the belly end grazes; negative = the point end does (the Graze-at-point setting).
      */
     val graze: Float = 0f,
+    val travelX: Float = 0f,
+    val travelY: Float = 0f,
 ) {
     companion object {
         const val KIND_FOOTPRINT = 0
@@ -81,6 +83,7 @@ data class TuftShading(
     val action: Float,
     val paperAsset: String,
     val paperPitchPx: Float,
+    val paperResponse: cc.joycreator.joybrush.core.brush.PaperResponse = cc.joycreator.joybrush.core.brush.PaperResponse(),
 )
 
 /**

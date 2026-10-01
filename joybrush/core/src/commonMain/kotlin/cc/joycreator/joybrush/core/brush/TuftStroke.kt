@@ -92,6 +92,7 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
     private var mashed = 0f
 
     private val hairs = ArrayList<Hair>()
+    private val paperTravel = cc.joycreator.joybrush.core.paint.DabTravel()
 
     /** What one footprint looks like; interpolated between samples when stamps fall between them. */
     private class Look(
@@ -356,7 +357,7 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
             while (along <= moved) {
                 val f = along / moved
                 val k = lerp(prev, next, f)
-                emit(k, out)
+                emit(k, out, stationary = ds <= 1e-4f)
                 along += max(MIN_SPACING, SPACING * min(k.w, 2f * bellyR))
             }
             untilNext = along - moved
@@ -365,7 +366,7 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
             val bx0 = next.x + next.ox
             val by0 = next.y + next.oy
             val swung = sqrt((bx0 - lastBellyX) * (bx0 - lastBellyX) + (by0 - lastBellyY) * (by0 - lastBellyY))
-            if (next.w > lastEmittedW * 1.08f + 0.2f || swung > max(0.5f, 0.2f * next.w)) emit(next, out)
+            if (next.w > lastEmittedW * 1.08f + 0.2f || swung > max(0.5f, 0.2f * next.w)) emit(next, out, stationary = true)
         }
         mashed = max(mashed * (1f - min(1f, moved / (6f * bellyR + 1f))), smooth(FLAT_FROM, 1f, p) * u(spec.flatten) + 0.5f * splay)
 
@@ -451,7 +452,9 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         return d.coerceIn(0f, 1f)
     }
 
-    private fun emit(k: Look, out: MutableList<TuftStamp>) {
+    private fun emit(k: Look, out: MutableList<TuftStamp>, stationary: Boolean = false) {
+        // A dwell may be ahead of the last spaced footprint; that gap is not pen travel.
+        if (stationary) paperTravel.reset()
         out.add(stampOf(k))
         lastEmittedW = k.w
         lastBellyX = k.x + k.ox
@@ -460,6 +463,7 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
     }
 
     private fun stampOf(k: Look): TuftStamp {
+        paperTravel.update(k.x, k.y) // Before the belly offset: tilt never substitutes for travel.
         val len = max(k.len, MIN_LEN)
         val ax = k.x + k.ox
         val ay = k.y + k.oy
@@ -474,7 +478,7 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
         return TuftStamp(
             ax = ax, ay = ay, bx = bx, by = by,
             ra = k.w, rb = k.rb.coerceIn(0.05f, k.w), flow = 1f, cap = cap,
-            dry = k.dry, bias = bias, splay = k.splay, arc = k.arc, kind = TuftStamp.KIND_FOOTPRINT, graze = k.graze,
+            dry = k.dry, bias = bias, splay = k.splay, arc = k.arc, kind = TuftStamp.KIND_FOOTPRINT, graze = k.graze, travelX = paperTravel.x, travelY = paperTravel.y,
         )
     }
 
@@ -514,7 +518,7 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
             val py = k.y + k.oy + k.ny * h.side * k.w * (1f + h.offset) + k.by * k.len * 0.35f
             if (h.on) {
                 out.add(TuftStamp(ax = px, ay = py, bx = h.hx, by = h.hy, ra = hairR, rb = hairR, cap = cap, dry = h.stutter,
-                    kind = TuftStamp.KIND_HAIR))
+                    kind = TuftStamp.KIND_HAIR, travelX = paperTravel.x, travelY = paperTravel.y))
             }
             h.on = true
             h.hx = px; h.hy = py
@@ -604,7 +608,8 @@ class TuftStroke(preset: BrushPreset, seed: Long, screenPerDoc: Float = 1f) {
                 seed = (SplitMix(seed xor SHADING_SALT).nextFloat() * 97f),
                 action = u(t.action),
                 paperAsset = PAPER_TOOTH,
-                paperPitchPx = if (u(t.tooth) > 0f || u(t.strays) > 0f) GrainMath.DEFAULT_SURFACE_TEXEL_PX else 0f,
+                paperPitchPx = if (u(t.tooth) > 0f || u(t.strays) > 0f || preset.paper.influence > 0f) GrainMath.DEFAULT_SURFACE_TEXEL_PX else 0f,
+                paperResponse = preset.paper,
             )
         }
 

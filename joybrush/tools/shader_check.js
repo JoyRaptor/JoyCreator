@@ -120,6 +120,7 @@ S.paperFixtures = ['paper-raster-fixture.json', 'paper-raster-large-fixture.json
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, bright);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, paperTex);
       gl.uniform1f(u(dab, 'u_tipGrainPitchPx'), 0); gl.uniform1f(u(dab, 'u_paperGrainPitchPx'), paperPitch);
+      gl.uniform1f(u(dab, 'u_paperInfluence'), 1);
       gl.uniform1f(u(dab, 'u_paperDepth'), 0.2); gl.uniform1f(u(dab, 'u_paperEdge'), 0.05);
       gl.uniform1f(u(dab, 'u_paperTiltGradient'), 0.6); gl.uniform1f(u(dab, 'u_paperRadial'), 0);
       gl.uniform1f(u(dab, 'u_tiltAmount'), tiltAmount); gl.uniform2f(u(dab, 'u_leanDir'), lean[0], lean[1]);
@@ -180,9 +181,9 @@ S.paperFixtures = ['paper-raster-fixture.json', 'paper-raster-large-fixture.json
     out.paperSurfaceCorrelation = correlation(0); out.paperSurfaceControlCorrelation = correlation(1);
     // Fill the same strip with a paper-on dab using the production fragment shader.
     const paperDabV = `#version 300 es\nprecision highp float; layout(location=0) in vec2 a;
-      out vec2 v_offset; out vec2 v_dabCentre; out float v_radius; out float v_angle; out float v_flow; out float v_cap;
+      out vec2 v_offset; out vec2 v_dabCentre; out float v_radius; out float v_angle; out float v_flow; out float v_cap; flat out vec2 v_travel;
       void main(){gl_Position=vec4(a,0,1);v_offset=a*vec2(1024,128);v_dabCentre=vec2(1024,128);
-        v_radius=2048.0;v_angle=0.0;v_flow=1.0;v_cap=1.0;}`;
+        v_radius=2048.0;v_angle=0.0;v_flow=1.0;v_cap=1.0;v_travel=vec2(0);}`;
     function dabCorrelation(control) {
       const fragment = control ? S['jb_dab.frag'].replace('return jb_paperHeight(docPx);',
         'return texture(u_paperSurface, docPx / 1024.0).b;') : S['jb_dab.frag'];
@@ -190,6 +191,7 @@ S.paperFixtures = ['paper-raster-fixture.json', 'paper-raster-large-fixture.json
       gl.uniform1i(u(p,'u_tipGrain'),0);gl.uniform1i(u(p,'u_paperSurface'),1);
       gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,dummy);
       gl.uniform1f(u(p,'u_paperGrainPitchPx'),2);gl.uniform1f(u(p,'u_paperDepth'),0.5);
+      gl.uniform1f(u(p,'u_paperInfluence'),1);
       gl.uniform1f(u(p,'u_paperEdge'),0.5);gl.uniform1f(u(p,'u_hardness'),1);
       gl.uniform1f(u(p,'u_corner'),2);gl.uniform1f(u(p,'u_minPx'),1);
       // The program's chosen read is the control; u_control is absent in these dab shaders.
@@ -301,6 +303,51 @@ S.paperFixtures = ['paper-raster-fixture.json', 'paper-raster-large-fixture.json
       });
       out.coverageOpacityOk = out.coverageOpacityCases.every(c => c.ok);
     } catch (e) { out.smudgeError = String(e).slice(0, 300); }
+    // JB-9.08: influence zero must bypass paper even across antialiased edges and with tip grain.
+    gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,stroke,0);
+    gl.viewport(0,0,N,N);gl.bindVertexArray(vao);gl.useProgram(dab);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,surface);
+    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,surface);
+    gl.uniform1i(u(dab,'u_tipGrain'),0);gl.uniform1i(u(dab,'u_paperSurface'),1);paperUniforms(dab);
+    gl.uniform1f(u(dab,'u_paperDirectional'),1);gl.uniform1f(u(dab,'u_paperWet'),0);
+    gl.uniform1f(u(dab,'u_paperDepth'),0.5);gl.uniform1f(u(dab,'u_paperEdge'),0.4);
+    gl.uniform1f(u(dab,'u_paperTiltGradient'),0);gl.uniform1f(u(dab,'u_tipDepth'),0.6);gl.uniform1f(u(dab,'u_tipEdge'),0.2);
+    gl.uniform1f(u(dab,'u_hardness'),0.2);
+    gl.bindBuffer(gl.ARRAY_BUFFER,one);gl.vertexAttribPointer(1,4,gl.FLOAT,false,24,0);gl.vertexAttribPointer(2,2,gl.FLOAT,false,24,16);
+    gl.disableVertexAttribArray(4);gl.vertexAttrib2f(4,-1,0);
+    function deposition(pitch,influence,tipPitch,travel,radius=50) {
+      gl.useProgram(dab);gl.bindVertexArray(vao);gl.bindBuffer(gl.ARRAY_BUFFER,one);
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([128,128,radius,0,1,1]),gl.STATIC_DRAW);
+      gl.vertexAttrib2f(4,travel,0);
+      gl.uniform1f(u(dab,'u_paperGrainPitchPx'),pitch);gl.uniform1f(u(dab,'u_paperInfluence'),influence);
+      gl.uniform1f(u(dab,'u_tipGrainPitchPx'),tipPitch);
+      gl.disable(gl.BLEND);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,1);
+      const pixels=new Float32Array(N*N*4);gl.readPixels(0,0,N,N,gl.RGBA,gl.FLOAT,pixels);return pixels;
+    }
+    out.paperInfluenceZeroExact=true;
+    for(const tipPitch of [0,64]) {
+      const off=deposition(0,1,tipPitch,-1), ignored=deposition(2,0,tipPitch,-1);
+      const a=new Uint32Array(off.buffer), b=new Uint32Array(ignored.buffer);
+      out.paperInfluenceZeroExact &&= a.every((value,i)=>value===b[i]);
+    }
+    // Unit travel comes through the production vertex's per-instance attribute, including its sign.
+    gl.uniform1f(u(dab,'u_hardness'),1);
+    const rtl=deposition(2,1,0,-1,150), ltr=deposition(2,1,0,1,150);
+    const slopeProgram=prog(stripV,`#version 300 es\n${S['jb_paper.glsl']}\nout vec4 color;
+      void main(){color=vec4(-jb_paperSurface(gl_FragCoord.xy).x,0,0,1);}`);
+    gl.useProgram(slopeProgram);paperUniforms(slopeProgram);gl.uniform1i(u(slopeProgram,'u_paperSurface'),1);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+    const faces=new Float32Array(N*N*4);gl.readPixels(0,0,N,N,gl.RGBA,gl.FLOAT,faces);
+    let sx=0,sy=0,xx=0,yy=0,xy=0,count=0,changed=0;
+    for(let y=40;y<216;y++) for(let x=40;x<216;x++) {
+      const i=(y*N+x)*4, a=rtl[i]-ltr[i], b=faces[i];
+      if(a!==0)changed++;sx+=a;sy+=b;xx+=a*a;yy+=b*b;xy+=a*b;count++;
+    }
+    out.paperDirectionalCorrelation=(count*xy-sx*sy)/Math.sqrt((count*xx-sx*sx)*(count*yy-sy*sy));
+    out.paperDirectionalChanged=changed;
+    out.paperDepositionOk=out.paperInfluenceZeroExact && changed>0 && out.paperDirectionalCorrelation>0;
     // JB-9.06: production background, CPU bytes at zoom 1, and a smooth look near ±1e7.
     const background = prog(S['jb_paper_bg.vert'], S['jb_paper_bg.frag']);
     out.paperBackgroundCompiled = true;
@@ -397,7 +444,7 @@ S.paperFixtures = ['paper-raster-fixture.json', 'paper-raster-large-fixture.json
   const compact={...res};delete compact.smudgeOpacityCases;delete compact.coverageOpacityCases;
   console.log(JSON.stringify(compact));
   await browser.close();
-  if (!res.compiled || !res.tuftCompiled || !res.paperBackgroundCompiled || !res.paperBackgroundOk || !res.paperNoRepeat || !res.flatSlopeExactZero || !res.fbo || res.glError !== 0 || !res.grainDarkens || !res.grainAllFinite ||
+  if (!res.compiled || !res.tuftCompiled || !res.paperDepositionOk || !res.paperBackgroundCompiled || !res.paperBackgroundOk || !res.paperNoRepeat || !res.flatSlopeExactZero || !res.fbo || res.glError !== 0 || !res.grainDarkens || !res.grainAllFinite ||
       !res.smudgeOk || !res.smudgeOpacityOk || !res.coverageOpacityOk ||
       Math.abs(res.strokeCentre - 0.5) > 0.01 || res.strokeOutside !== 0 ||
       !res.committedRGBA?.every((v, i) => Math.abs(v - [127, 0, 0, 127][i]) <= 2)) process.exitCode = 1;

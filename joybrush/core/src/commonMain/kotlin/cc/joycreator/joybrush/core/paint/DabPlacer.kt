@@ -45,6 +45,7 @@ class DabPlacer(
     private var untilNext = 0f
     private var travelled = 0f
     private var index = 0
+    private val travel = DabTravel()
 
     fun add(samples: List<PenSample>): List<Dab> {
         val out = ArrayList<Dab>()
@@ -73,13 +74,14 @@ class DabPlacer(
     /** Emits one dab and returns the distance to the next one. */
     private fun emit(s: PenSample, distance: Float, out: MutableList<Dab>): Float {
         val l = look(s, distance, index++)
+        travel.update(s.x, s.y)
         // A brush file can only reach here after validation, but the placer must never hang or
         // explode on a bad number (review JB-0.03 F1: size 1e999 = Infinity froze the stroke).
         val radius = if (l.radius.isFinite()) l.radius.coerceIn(0f, MAX_RADIUS_PX) else 0f
         out.add(Dab(x = s.x, y = s.y, radius = radius, angle = if (l.angle.isFinite()) l.angle else 0f,
             flow = if (l.flow.isFinite()) l.flow.coerceIn(0f, 1f) else 0f,
             cap = if (l.cap.isNaN()) cap else l.cap.coerceIn(0f, 1f), pressure = s.pressure,
-            tilt = s.tilt, azimuth = s.azimuth))
+            tilt = s.tilt, azimuth = s.azimuth, travelX = travel.x, travelY = travel.y, travelKnown = true))
         val step = 2f * radius * spacing
         return if (step.isFinite()) max(step, minSpacingPx) else minSpacingPx
     }

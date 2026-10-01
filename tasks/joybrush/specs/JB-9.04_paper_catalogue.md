@@ -82,8 +82,11 @@ exists, decodes (javax.imageio), and is `size`×`size` (surfaces) / square power
 Do not add papers to the catalogue (that is the specialist's JB-9.10). Do not touch androidkit.
 
 ## Definition of done
-- [ ] tests pass with counts · [ ] mutation: remove the duplicate-id rule → its test goes red · [ ] owner area only
-- [ ] commit "JB-9.04: …", rebased, pushed · [ ] ROADMAP row → 🟧 Built + command + counts
+- [x] tests pass with counts — 1399/0/0/0, `PaperCatalogueTest` 33 + `ShippedCatalogueTest` 4, 2026-10-01 14:45:38
+- [x] mutation: remove the duplicate-id rule → its test goes red — removing both turns [twoSurfacesSharingAnIdAreRefused] and [twoLooksSharingAnIdAreRefused] red, 2 of 33, nothing else
+- [x] owner area only — the three new files, nothing else
+- [x] commit "JB-9.04: …", rebased, pushed
+- [x] ROADMAP row → 🟧 Built + command + counts
 
 ## Questions
 

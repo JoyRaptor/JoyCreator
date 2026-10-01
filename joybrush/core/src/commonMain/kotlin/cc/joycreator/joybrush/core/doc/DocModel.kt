@@ -4,8 +4,11 @@ import cc.joycreator.joybrush.core.paint.Tiles
 import kotlinx.serialization.Serializable
 
 const val DOC_FORMAT = "joybrush.document"
-/** 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48). */
-const val DOC_VERSION = 3
+/**
+ * 4: the paper carries a look, a tint and two sliders (JB-9.05, R10).
+ * 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48).
+ */
+const val DOC_VERSION = 4
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -36,11 +39,35 @@ const val TILE_SIZE = Tiles.SIZE
  */
 @Serializable data class RectPx(val x: Int, val y: Int, val w: Int, val h: Int)
 
+/**
+ * The paper the drawing sits on: a SETTING of the document, saved with it, and under the art.
+ *
+ * **A paper is a LOOK plus a SURFACE (JB-9.05, R10 §3).** The **look** is what you see — a colour
+ * picture, re-tintable — named by `lookId` out of the paper catalogue. The **surface** is what the
+ * brushes feel, named by `textureId`, and is the *same* catalogue's other list. They are separate
+ * because they answer different questions and are chosen separately: a rice paper's fibres are in its
+ * look, and its tooth is its surface.
+ *
+ * **`textureId` and `textureScale` keep their v3 NAMES, deliberately.** They are read and written
+ * exactly as v3 wrote them, so a v3 file's `textureId` means the same thing it meant then and nothing
+ * has to be migrated. `textureScale` is the sheet's **Scale** slider and multiplies the look and the
+ * surface together, so one slider sizes the whole paper.
+ *
+ * **`light` is a three-state field and `null` is not `false`.** Null means "whatever the look says",
+ * which is how AMOLED black ships: its `lightByDefault` is false, because lighting a relief on a true
+ * black greys it into a colour that is not black. An explicit true or false is the owner overriding
+ * the catalogue for this drawing. [cc.joycreator.joybrush.core.paper.PaperState] is what reads it.
+ */
 @Serializable data class Paper(
-    val color: String = "#FFFFFF",          // #RRGGBB
-    val textureId: String? = null,          // a grain asset id, null = plain
-    val textureScale: Float = 1f,
+    val color: String = "#FFFFFF",          // #RRGGBB. The flat colour when lookId == null; ignored for the base when a look is set
+    val textureId: String? = null,          // the SURFACE id (catalogue), null = smooth. Name kept for compatibility
+    val textureScale: Float = 1f,           // the sheet's Scale: multiplies the surface AND look physical size, 0.25..4
     val includeInExport: Boolean = false,   // the "Include paper" checkbox default
+    val lookId: String? = null,             // v4. Catalogue look id, null = flat `color`
+    val tint: String? = null,               // v4. "#RRGGBB" recolours the look; null = the look's own colours
+    val show: Float = 1f,                   // v4. 0..1 how visible the look + relief are (0 = flat base colour)
+    val bite: Float = 1f,                   // v4. 0..1 how strongly brushes feel the surface
+    val light: Boolean? = null,             // v4. relief lighting; null = the look's lightByDefault
 )
 
 /**

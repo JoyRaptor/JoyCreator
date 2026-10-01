@@ -157,7 +157,11 @@ class DocModelTest {
             "format", "version", "id", "name", "paper", "boards", "layers",
             "activeLayerId", "activeBoardId",
         ),
-        "\$.paper" to setOf("color", "textureId", "textureScale", "includeInExport"),
+        "\$.paper" to setOf(
+            "color", "textureId", "textureScale", "includeInExport",
+            // v4 (JB-9.05): the owner's paper controls. The first four are v3 and keep their names.
+            "lookId", "tint", "show", "bite", "light",
+        ),
         "\$.boards[]" to setOf("id", "name", "kind", "rect", "clipToBoard", "fps", "frames", "grid"),
         "\$.boards[].rect" to setOf("x", "y", "w", "h"),
         "\$.boards[].frames[]" to setOf("id", "holdFrames"),
@@ -671,5 +675,144 @@ class DocModelTest {
         }
         // One pixel is still a room.
         assertEquals(emptyList(), DocOps.validate(DocOps.newDocument("d", "n", 1, 1) { "x" }))
+    }
+
+    // ---------- the paper, v4 (JB-9.05) -------------------------------------------------------------
+    //
+    // `Paper` gains the owner's own controls here: which look, tinted how strongly, how visible, how
+    // much the brushes feel it, and whether its relief is lit. The fields that make a document SAVED
+    // are below; the fields that make it CORRECT are [PaperStateTest] in the paper package, because
+    // resolving an id needs the catalogue and the catalogue is not this package's business.
+
+    /** A paper with every field set, so a round trip cannot pass by leaving a field at its default. */
+    private fun everyPaperField() = Paper(
+        color = "#112233",
+        textureId = "pulp_artisan",
+        textureScale = 2.5f,
+        includeInExport = true,
+        lookId = "off_white",
+        tint = "#445566",
+        show = 0.4f,
+        bite = 0.6f,
+        light = false,
+    )
+
+    /** Every field set, out and back unchanged. The whole point of a serialised setting. */
+    @Test
+    fun everyPaperFieldSurvivesARoundTrip() {
+        val doc = fresh().copy(paper = everyPaperField())
+        val back = DocJson.decode(DocJson.encode(doc))
+        assertEquals(everyPaperField(), back.paper, "a paper must come back exactly as it went in")
+        assertEquals(4, back.version, "the codec stamps the current version, which is 4 from JB-9.05")
+        assertEquals(DOC_VERSION, back.version, "and reads it from the one constant, not a literal here")
+    }
+
+    /**
+     * **A v3 file opens with every v4 field at its default, and the defaults reproduce today exactly.**
+     * The cost of a version bump is that old files exist, and this is the test that says what happens
+     * to them: a v3 document is white flat paper with no surface, show 1 and bite 1 — which is what
+     * such a file meant under v3, so the drawing a person saved last month looks the same this month.
+     *
+     * The fixture is a real v3 shape written out in full, because a v3 file that is really a v4 file
+     * with the new keys deleted would not prove the DEFAULTS, only that the fields are nullable.
+     */
+    @Test
+    fun aVersionThreeDocumentOpensWithEveryPaperDefault() {
+        val v3 = """
+            {
+              "format": "joybrush.document", "version": 3, "id": "d", "name": "D",
+              "paper": { "color": "#F3EFE6", "textureId": "cloud_fine_256", "textureScale": 1.5, "includeInExport": true },
+              "boards": [ { "id": "b", "name": "B", "kind": "CANVAS", "rect": { "x": 0, "y": 0, "w": 8, "h": 8 } } ],
+              "layers": [ { "id": "l", "name": "L", "kind": "PAINT", "blend": "NORMAL", "cels": [ { "id": "c" } ] } ]
+            }
+        """.trimIndent()
+        val back = DocJson.decode(v3)
+        assertEquals(3, back.version, "the file's own version is kept; only the codec stamps on write")
+        // The v3 fields are still read, not dropped.
+        assertEquals("#F3EFE6", back.paper.color)
+        assertEquals("cloud_fine_256", back.paper.textureId, "`textureId` keeps its name, so a v3 field means the same thing")
+        assertEquals(1.5f, back.paper.textureScale)
+        assertTrue(back.paper.includeInExport)
+        // …and every v4 field arrives at the default that reproduces today's behaviour.
+        assertNull(back.paper.lookId, "a v3 file has no look, so the paper is a flat colour")
+        assertNull(back.paper.tint)
+        assertEquals(1f, back.paper.show, "show 1 = fully visible, which is what a flat paper was")
+        assertEquals(1f, back.paper.bite, "bite 1 = brushes feel the paper fully, which is what the old file meant")
+        assertNull(back.paper.light, "null = inherit the look's default; with no look that is lit")
+    }
+
+    /** A brand new document is the v3 defaults exactly, which is what makes an old file look unchanged. */
+    @Test
+    fun aNewDocumentsPaperIsTheVersionThreePaper() {
+        val p = fresh().paper
+        assertEquals("#FFFFFF", p.color)
+        assertNull(p.textureId)
+        assertEquals(1f, p.textureScale)
+        assertFalse(p.includeInExport)
+        assertNull(p.lookId)
+        assertNull(p.tint)
+        assertEquals(1f, p.show)
+        assertEquals(1f, p.bite)
+        assertNull(p.light)
+    }
+
+    // `show` and `bite` are the two fractions a renderer multiplies by. Written as one test with a loop
+    // because they are the same rule twice, and a loop makes the "both ends are legal" half as short as
+    // two tests would.
+    @Test
+    fun showAndBiteMustBeFractions() {
+        val doc = fresh()
+        for (bad in listOf(-0.01f, 1.01f, 5f, Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+            assertOneProblem(doc.copy(paper = Paper(show = bad)), "show")
+            assertOneProblem(doc.copy(paper = Paper(bite = bad)), "bite")
+        }
+        // The ends are the paper's own two extremes and both are legal: show 0 is a flat colour with no
+        // relief, bite 0 is a paper the brushes cannot feel.
+        for (end in listOf(0f, 1f, 0.5f)) {
+            assertEquals(emptyList(), DocOps.validate(doc.copy(paper = Paper(show = end, bite = end))))
+        }
+    }
+
+    @Test
+    fun theTintMustBeAColour() {
+        val doc = fresh()
+        for (bad in listOf("white", "#FFF", "0x445566", "#44556", "#GGGGGG", "445566", "")) {
+            assertOneProblem(doc.copy(paper = Paper(tint = bad)), "tint")
+        }
+        assertEquals(emptyList(), DocOps.validate(doc.copy(paper = Paper(tint = "#445566"))))
+        assertEquals(emptyList(), DocOps.validate(doc.copy(paper = Paper(tint = "#445566".lowercase()))))
+    }
+
+    /**
+     * **An unknown catalogue id is NOT a validation error, and that is the assertion.** A drawing saved
+     * with a paper a later build added must open here; refusing it in [DocOps.validate] would stop the
+     * document loading over a background. [cc.joycreator.joybrush.core.paper.PaperState] resolves such an
+     * id to smooth/flat and reports it, which is the right place for it.
+     */
+    @Test
+    fun anUnknownCatalogueIdIsNotAValidationError() {
+        val doc = fresh()
+        assertEquals(
+            emptyList(),
+            DocOps.validate(doc.copy(paper = Paper(lookId = "rice_paper", textureId = "chalk_green"))),
+            "DocOps knows nothing about the catalogue; it must not refuse an id it cannot check",
+        )
+    }
+
+    /**
+     * `textureScale` keeps its v3 rule — over 0, at most 64 — even though [cc.joycreator.joybrush.core.paper.PaperState]
+     * clamps it to 0.25..4. The specialist's answer on JB-9.05: a clamp is not a validation rule, so a
+     * file written under v3 stays valid instead of turning red on open. [rule10_paperTextureScaleHasToBeSane]
+     * is that rule and it is unchanged by this row.
+     */
+    @Test
+    fun thePaperScaleKeepsItsVersionThreeRule() {
+        val doc = fresh()
+        for (good in listOf(0.0001f, 1f, 4f, 64f)) {
+            assertEquals(
+                emptyList(), DocOps.validate(doc.copy(paper = Paper(textureScale = good))),
+                "textureScale $good is legal under the v3 rule and must stay legal",
+            )
+        }
     }
 }

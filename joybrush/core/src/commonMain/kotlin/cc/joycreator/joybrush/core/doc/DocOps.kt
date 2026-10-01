@@ -173,9 +173,35 @@ object DocOps {
         }
         // Zero hides the paper and a huge scale shows one texel stretched across the page. Lead
         // ruling, 2026-09-28. `isNaN` first, because NaN answers false to every comparison below.
+        //
+        // The scale keeps its v3 rule on purpose (JB-9.05, specialist answer 3): the 0.25..4 window
+        // is a CLAMP inside `PaperState.resolve`, not a validation rule, so a file written by a build
+        // that allowed 64 still opens and still gets a sane paper instead of turning red on open.
         val scale = doc.paper.textureScale
         if (scale.isNaN() || scale <= 0f || scale > 64f) {
             out += "the paper texture is scaled ${scale}x (must be over 0 and no more than 64)"
+        }
+        // 10b — the v4 paper controls (JB-9.05). `show` and `bite` are fractions a renderer multiplies
+        // by, so a value outside 0..1 is either an invisible paper or brushes that feel too much or
+        // nothing; `!in` rather than `< 0f || > 1f` so NaN is refused too, since a NaN `show` is a
+        // paper pass that draws nothing at all and says so nowhere.
+        //
+        // **`lookId` and `textureId` are NOT checked here.** `DocOps` knows nothing about the paper
+        // catalogue, and an id it cannot resolve is not a broken document: a drawing saved with a paper
+        // a later Joy Brush added must still open here. `PaperState.problems` resolves the ids and says
+        // so, which is the one place that can do it without this file growing a dependency on the
+        // catalogue.
+        if (doc.paper.show !in 0f..1f) {
+            out += "the paper is shown at ${doc.paper.show} (must be 0 to 1)"
+        }
+        if (doc.paper.bite !in 0f..1f) {
+            out += "the paper's bite is ${doc.paper.bite} (must be 0 to 1)"
+        }
+        // A tint is a colour a renderer parses, so the same `^#[0-9A-Fa-f]{6}$` the paper's own colour
+        // is held to. Null is not a bad tint: null means "the look's own colours".
+        val tint = doc.paper.tint
+        if (tint != null && !PAPER_COLOR.matches(tint)) {
+            out += "the paper tint \"$tint\" is not a #RRGGBB colour"
         }
 
         // 11 — a document with nothing in it is not a document. Lead ruling, 2026-09-28.

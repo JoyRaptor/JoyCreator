@@ -55,9 +55,28 @@ Do not draw anything (JB-1.05d/JB-9.08). Do not remove the "kept but not drawn y
 
 ## Questions
 
-**2026-10-01, OpenCode agent (JB-9.11): STOPPED, nothing landed, no code written, no Gradle run.** The
-`ImportedTexture` contract itself is unambiguous, but three things the row needs are not in the spec and I will not guess
-them. Numbers below are measured on the real corpus on this PC today.
+**2026-10-01, OpenCode agent (JB-9.11): the CORE HALF has since landed; the importer half is still STOPPED.**
+`ImportedTexture` (pure commonMain, on JB-9.01's `SurfaceMaps`) with its five tests is pushed; **no importer calls it
+yet**, so nothing is stored and nothing is drawn. Q1-Q5 below are still open and still block the wiring. Two notes
+from the build, neither of which blocks anything:
+
+- **The Tests bullet 1 input cannot do what the bullet says.** A 4x4 checkerboard of SINGLE texels has period 2, so
+  `H[y][x+1] == H[y][x-1]` at every texel and every Scharr difference is exactly zero: dx and dy are 0 everywhere and
+  "slopes non-zero at the edges" is false by construction, not by a bug. The test pins that board's true behaviour (B
+  round-trips, R = G = 128, range at the flat floor) and pins the non-zero-edge claim on the same 4x4 with a 2-texel
+  cell, which is the smallest pattern on a 4-wide grid that has any slope. Corner (0,0) there reads dx = dy =
+  −10/32 = −0.3125 exactly, off the wrap (its left neighbour is x = 3).
+- **`luminance` reads INTERLEAVED RGB triples, three bytes a texel** (`rgb.size == w*h*3`, pinned by a test). A
+  Photoshop `.pat` file stores its channels PLANAR — all the reds of a row, then all the greens — so whoever decodes a
+  `patt` has to repack before calling this. That repack belongs to the ABR question below, not to this function.
+
+Mutation check, as promised under Q6, both on the full suite: dropping the `invert` branch in `toSurface` turns
+`invertFlipsTheHeightBytesAndNegatesTheSlopes` red (1 of 1362), and swapping the red and blue luma weights
+(0.0722 -> 0.2126) turns `luminanceIsTheSrgbLumaFormula` red (1 of 1362). Restored, green, 1362/0/0/0 over 91 suites.
+A ±0.0001 nudge of a weight would NOT go red: the five literals round the same way, and the test's own copy of the
+formula cannot detect a coefficient change at all. The literals pin blue to `0.06863 <= w < 0.07255` and green to
+`0.71316 <= w < 0.71725` — that is the honest width of this test, and a tighter one needs a colour whose luma lands
+off a rounding boundary.
 
 ### Q1 — There is no PNG pixel decoder in `core`, and the importers refuse to decode pixels (blocking)
 
@@ -155,9 +174,11 @@ backwards inverts every imported grain, so I will not pick.
   otherwise I will mutate the `invert` negation in `toSurface` and the `0.0722` blue weight in `luminance` and report
   whether Tests 1 and 2 go red.
 
-### Note on the dependency
+### Note on the dependency — CLEARED
 
-JB-9.01 had not landed on `origin/joy-creator` when I looked (`236e5730` is the tip; `SurfaceMaps.kt` exists only
-uncommitted in `%TEMP%\jb-JB-9.01`). `toSurface` returns a `Surface` built from `SurfaceMaps.pack` +
-`SurfaceMaps.defaultSlopeRange`, so this row cannot compile without it. I will rebase on it when it lands; no answer
-needed.
+JB-9.01 landed as `6630f344` and its `SurfaceMaps` carries exactly the contract this spec quotes (`slopes`,
+`defaultSlopeRange`, `encodeSlope`, `decodeSlope`, `pack`, `SCHARR_NORM`), so the core half compiled and ran against it
+with nothing to change here. Two things worth knowing for the wiring row: `defaultSlopeRange` already ends in
+`coerceAtLeast(0.001f)`, which is where Decision 4's flat-pattern number comes from — a flat texture packs to R = G = 128
+and never trips `pack`'s refusal; and `pack` re-derives the Scharr pass itself, so `toSurface` runs the kernel twice
+(deliberate: the byte layout is written in exactly one place).

@@ -155,7 +155,7 @@ for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_smudge_dab.frag', 'jb_tile.ve
       gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 2);
       gl.disable(gl.BLEND);
-      function commitOver(canvasRGBA) {           // canvasRGBA: bytes, premultiplied, one texel used for the whole 4x4 layer
+      function commitOver(canvasRGBA, strokeScale = 1, layerOpacity = 1, smudgeMode = 1) { // premultiplied bytes
         const layerT = gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, layerT);
         const a = new Uint8Array(4 * 4 * 4); for (let i = 0; i < 16; i++) a.set(canvasRGBA, i * 4);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 4, 4, 0, gl.RGBA, gl.UNSIGNED_BYTE, a);
@@ -165,8 +165,8 @@ for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_smudge_dab.frag', 'jb_tile.ve
         gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, sbuf);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, outT, 0);
         gl.useProgram(commit); gl.bindVertexArray(vao2); gl.bindBuffer(gl.ARRAY_BUFFER, unit);
-        gl.uniform1i(u(commit, 'u_layer'), 0); gl.uniform1i(u(commit, 'u_stroke'), 1); gl.uniform1i(u(commit, 'u_smudge'), 1);
-        gl.uniform1i(u(commit, 'u_erase'), 0); gl.uniform1f(u(commit, 'u_layerOpacity'), 1); gl.uniform1f(u(commit, 'u_strokeScale'), 1);
+        gl.uniform1i(u(commit, 'u_layer'), 0); gl.uniform1i(u(commit, 'u_stroke'), 1); gl.uniform1i(u(commit, 'u_smudge'), smudgeMode);
+        gl.uniform1i(u(commit, 'u_erase'), 0); gl.uniform1f(u(commit, 'u_layerOpacity'), layerOpacity); gl.uniform1f(u(commit, 'u_strokeScale'), strokeScale);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         const px2 = new Uint8Array(4); gl.readPixels(128, 128, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px2); return Array.from(px2);
       }
@@ -180,10 +180,41 @@ for (const n of ['jb_dab.vert', 'jb_dab.frag', 'jb_smudge_dab.frag', 'jb_tile.ve
       out.smudgeWant = bytes(c);
       out.smudgeOk = out.smudgeOverPaint.slice(0, 3).every((v, i) => Math.abs(v - out.smudgeWant[i]) <= 2) && out.smudgeOverPaint[3] === 255
         && out.smudgeOverEmpty.every(v => v === 0);
+      // The two half-strength dabs have accumulated [0.25, 0, 0.5, 0.75]. Stroke opacity mixes
+      // that completed mark with the original canvas; layer opacity then scales the preview.
+      // A translucent backdrop catches scaling RGB without scaling alpha, which opaque-only
+      // colour checks can miss. Empty paint must stay empty at every setting.
+      out.smudgeOpacityCases = [];
+      for (const backdrop of [[51, 102, 153, 255], [26, 51, 77, 128], [0, 0, 0, 0]]) {
+        for (const scale of [0, 0.25, 1]) for (const layerOpacity of [1, 0.6]) {
+          const actual = commitOver(backdrop, scale, layerOpacity);
+          const dst = backdrop.map(v => v / 255);
+          const mark = [0.25, 0, 0.5, 0.75];
+          const want = dst.map((v, i) => Math.round(255 * layerOpacity *
+            (dst[3] === 0 ? v : mark[i] * scale + v * (1 - mark[3] * scale))));
+          out.smudgeOpacityCases.push({ backdrop, scale, layerOpacity, actual, want,
+            ok: actual.every((v, i) => Math.abs(v - want[i]) <= 1) });
+        }
+      }
+      out.smudgeOpacityOk = out.smudgeOpacityCases.every(c => c.ok);
+      // Stamp and tuft both use the non-smudge coverage branch. The same buffer's red channel
+      // is exactly 0.25: pin its existing red-over-canvas result at the same opacity settings.
+      out.coverageOpacityCases = [0, 0.25, 1].map(scale => {
+        const backdrop = [51, 102, 153, 255];
+        const actual = commitOver(backdrop, scale, 1, 0);
+        const a = 0.25 * scale;
+        const want = backdrop.map((v, i) => Math.round(v * (1 - a) + ([255, 0, 0, 255][i]) * a));
+        return { scale, actual, want, ok: actual.every((v, i) => Math.abs(v - want[i]) <= 1) };
+      });
+      out.coverageOpacityOk = out.coverageOpacityCases.every(c => c.ok);
     } catch (e) { out.smudgeError = String(e).slice(0, 300); }
     out.glError = gl.getError();
     return out;
   }, S);
   console.log(JSON.stringify(res));
   await browser.close();
+  if (!res.compiled || !res.fbo || res.glError !== 0 || !res.grainDarkens || !res.grainAllFinite ||
+      !res.smudgeOk || !res.smudgeOpacityOk || !res.coverageOpacityOk ||
+      Math.abs(res.strokeCentre - 0.5) > 0.01 || res.strokeOutside !== 0 ||
+      !res.committedRGBA?.every((v, i) => Math.abs(v - [127, 0, 0, 127][i]) <= 2)) process.exitCode = 1;
 })().catch(e => { console.error(e); process.exit(1); });

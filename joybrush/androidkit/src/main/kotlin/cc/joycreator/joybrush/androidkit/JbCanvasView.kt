@@ -9,6 +9,7 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import cc.joycreator.joybrush.androidkit.diag.BlendSelfCheck
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
+import cc.joycreator.joybrush.androidkit.gl.MASK_SUFFIX
 import cc.joycreator.joybrush.androidkit.gl.maskStoreId
 import cc.joycreator.joybrush.androidkit.gl.SmudgeParams
 import cc.joycreator.joybrush.androidkit.input.MotionEventSamples
@@ -19,6 +20,7 @@ import cc.joycreator.joybrush.core.input.PenAction
 import cc.joycreator.joybrush.core.input.PenButton
 import cc.joycreator.joybrush.core.input.PenButtonMap
 import cc.joycreator.joybrush.androidkit.io.JbContents
+import cc.joycreator.joybrush.androidkit.io.CanvasSnapshot
 import cc.joycreator.joybrush.androidkit.io.TILE_BYTES
 import cc.joycreator.joybrush.core.brush.BrushDabber
 import cc.joycreator.joybrush.core.brush.BrushPreset
@@ -233,6 +235,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     val strokeColor: Int get() = colorArgb ?: brush.argb
 
     private val engine = GlPaintEngine()
+
+    // Metadata belongs to the opened document, not the GPU's layer projection. Written on GL;
+    // the UI reads the immutable document to respect locks before starting a stroke.
+    @Volatile private var retainedContents: JbContents? = null
+    @Volatile private var contentLost = false
 
     // ── layers (JB-2.04) ─────────────────────────────────────────────────────
 
@@ -467,10 +474,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         setRenderer(object : Renderer {
             override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
                 engine.init()
+                // Never let a context-loss placeholder overwrite the person's last good file.
+                contentLost = contentLost || engine.lostContent
                 engine.addLayer(FIRST_LAYER)
                 engine.setLayerName(FIRST_LAYER, FIRST_LAYER_NAME)
                 post {
                     surfaceReady = true
+                    if (contentLost) onRefused?.invoke("The graphics restarted. Reopen your saved drawing before continuing; the empty canvas will not be saved.")
                     onReady?.invoke()
                 }
             }
@@ -497,6 +507,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** Empties the layer being painted on, as one undo step. */
     fun clearCanvas() {
         val id = activeLayer
+        if (contentLost || retainedContents?.doc?.layers?.any { it.id == id && it.locked } == true) {
+            onRefused?.invoke("This drawing cannot be cleared while it is locked or awaiting recovery.")
+            return
+        }
         onGl { engine.clearLayer(id); reportHistory() }
     }
 
@@ -770,6 +784,16 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     private fun startStroke(eraser: Boolean) {
+        if (contentLost) {
+            drawing = false
+            onRefused?.invoke("Reopen your saved drawing before continuing.")
+            return
+        }
+        if (retainedContents?.doc?.layers?.any { it.id == activeLayer && it.locked } == true) {
+            drawing = false
+            onRefused?.invoke("\"${stackUi.active.name}\" is locked.")
+            return
+        }
         // A hidden layer is refused out loud: painting where the paint cannot be seen is how work gets lost (JB-2.04).
         if (!stackUi.active.visible) {
             drawing = false
@@ -1031,19 +1055,22 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * [onReady] arrives on the UI thread, so the caller may hand the result to a background writer
      * without touching the GL context again.
      *
-     * It is ONE board, ONE paint layer, ONE cel, because that is all this engine holds (multi-layer
-     * and ink arrive with 2.04/5.01). The layer's id is the engine's own, because that is where
+     * It is one canvas board with static paint layers. The layer's id is the engine's own, because that is where
      * the tiles live and where the next stroke will be laid down. Anything that cannot be written is
      * refused with a [JbArchiveException] on [onSnapshotFailed] — never skipped.
      */
-    fun snapshot(onReady: (JbContents) -> Unit) {
+    fun snapshot(onReady: (JbContents) -> Unit) = snapshot(onReady) { why -> onSnapshotFailed?.invoke(why) }
+
+    /** Failure belongs to this request, including a late response after a caller's timeout. */
+    fun snapshot(onReady: (JbContents) -> Unit, onFailure: (String) -> Unit) {
         val w = viewW
         val h = viewH
         onGl {
             val made: JbContents? = try {
+                if (contentLost) throw JbArchiveException("the graphics restarted; reopen the saved drawing first")
                 readContents(w, h)
             } catch (e: Exception) {
-                post { onSnapshotFailed?.invoke(e.message ?: e.javaClass.simpleName) }
+                post { onFailure(e.message ?: e.javaClass.simpleName) }
                 null
             }
             if (made != null) {
@@ -1092,13 +1119,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             engine.resetDocument()
             engine.setStack(stack)
             for (item in wanted) engine.writeTile(item.first, item.second, item.third)
+            retainedContents = contents
+            contentLost = false
+            paperArgb = paper
             reportHistory()
             post { onDone() }
         }
-        paperArgb = paper
         pageW = board.w
         pageH = board.h
-        documentName = if (name.isBlank()) "Joy Brush" else name
+        documentName = name
     }
 
     /**
@@ -1124,6 +1153,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         val celOf = HashMap<String, String>()
         for (layer in doc.layers) {
+            if (layer.id.endsWith(MASK_SUFFIX)) {
+                return "layer \"${layer.name}\" uses a reserved mask identifier; this screen cannot open it safely"
+            }
             if (layer.kind != LayerKind.PAINT) {
                 return "layer \"${layer.name}\" is ${layer.kind}, and this screen only paints pixels"
             }
@@ -1225,7 +1257,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             layers = docLayers,
             activeLayerId = stack.activeId,
         )
-        return JbContents(doc = doc, tiles = tiles, strokes = emptyMap(), thumbnailPng = null)
+        return CanvasSnapshot.merge(retainedContents, JbContents(doc = doc, tiles = tiles, strokes = emptyMap(), thumbnailPng = null))
     }
 
     /** `"3_-2"` → the engine's packed tile key. Signed, because the canvas has no edge. */

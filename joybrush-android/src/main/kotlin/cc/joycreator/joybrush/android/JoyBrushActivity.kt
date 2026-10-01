@@ -111,7 +111,7 @@ private const val PAUSE_FALLBACK_MS = 2_000L
  * How long a save waits for the GL thread to hand over the drawing. A GL thread that never
  * answers (paused, or gone) would otherwise leave the save queue "busy" for ever, and every save
  * behind it would silently never happen. Past this the save is reported as failed and the idle
- * timer asks again; a late answer still writes its file, it just is not announced twice.
+ * timer asks again. A late readback is ignored; once writing starts, the snapshot watchdog stops.
  */
 private const val SNAPSHOT_TIMEOUT_MS = 15_000L
 
@@ -259,9 +259,6 @@ class JoyBrushActivity : Activity() {
         }
     })
 
-    /** The save whose snapshot the view is taking right now, so a failed snapshot can be reported. */
-    private var activeSave: ((String?) -> Unit)? = null
-
     private var viewPausePending = false
 
     /** The autosave the last change asked for, and the one the screen leaving asks for. */
@@ -344,13 +341,6 @@ class JoyBrushActivity : Activity() {
         // JB-0.06: the diagnostics overlay sees every pen event. It only stores numbers, and only
         // while it is visible, so drawing is untouched.
         canvas.onRawEvent = { ev -> diag.onRawEvent(ev) }
-        // A drawing that cannot be read back is not a drawing that was saved, and saying so is the
-        // whole of the difference between "saved" and "lost".
-        canvas.onSnapshotFailed = { why ->
-            pauseViewNow()
-            activeSave?.invoke("Could not read the drawing: $why")
-        }
-
         goFullScreen(overlays)
 
         // Where the person left off, if they left off anywhere.
@@ -1307,7 +1297,6 @@ class JoyBrushActivity : Activity() {
             if (!answered) {
                 answered = true
                 ui.removeCallbacks(watchdog)
-                activeSave = null
                 if (problem != null) {
                     toast(
                         if (dest is SaveDest.Copy) "Couldn't save the copy. Your drawing is safe. $problem"
@@ -1330,7 +1319,6 @@ class JoyBrushActivity : Activity() {
             }
         }
         watchdog = Runnable { answer("the drawing did not answer in time") }
-        activeSave = answer
         ui.postDelayed(watchdog, SNAPSHOT_TIMEOUT_MS)
 
         val file = if (dest is SaveDest.Working) workingFile() else null
@@ -1338,7 +1326,10 @@ class JoyBrushActivity : Activity() {
             answer("this device has nowhere to keep a working drawing")
             return
         }
-        canvas.snapshot { contents ->
+        canvas.snapshot({ contents ->
+            // A timed-out readback may arrive after another request has started. It owns no write.
+            if (answered) return@snapshot
+            ui.removeCallbacks(watchdog)
             // The GL thread has done its part. Nothing else is waiting for it, so it can rest now.
             pauseViewIfDrained()
             fileIo.execute {
@@ -1353,7 +1344,8 @@ class JoyBrushActivity : Activity() {
                 }
                 runOnUiThread { answer(problem) }
             }
-        }
+        // Keep failure bound to this save, even if the GL response arrives after its timeout.
+        }, { why -> answer("Could not read the drawing: $why") })
     }
 
     /**

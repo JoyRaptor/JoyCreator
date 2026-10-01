@@ -194,6 +194,18 @@ object JbArchive {
             tileEntries.add(tilePath(key) to bytes)
         }
 
+        // Check the reverse direction too. Validating only the supplied payloads can otherwise
+        // replace a healthy file with an archive that our own reader refuses to reopen.
+        for (layer in doc.layers) for (cel in DocOps.storedCels(layer)) {
+            for (key in cel.tiles) {
+                if (Triple(layer.id, cel.id, key) !in contents.tiles) {
+                    throw JbArchiveException(
+                        "the document lists tile \"$key\" of layer \"${layer.id}\" cel \"${cel.id}\", and no tile was given"
+                    )
+                }
+            }
+        }
+
         val strokeEntries = ArrayList<Pair<String, ByteArray>>()
         for (cel in contents.strokes.keys.sortedWith(CEL_ORDER)) {
             if (declared[cel] == null) {

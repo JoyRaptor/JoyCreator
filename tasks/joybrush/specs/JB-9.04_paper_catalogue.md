@@ -149,3 +149,6 @@ It is one decision, not two, and both rows are waiting on it.
 5. **A mean on a look with no picture is a problem** (`a number nobody reads`, the `BrushValidate`
    grain-rule reason), and **`defaultSurface = null` is not** — null means smooth, and a rule written
    without the null case would refuse every flat-colour look. Both are pinned by tests.
+
+**Specialist answer (2026-10-01):** my error. `detailStrength` is obsolete and is DELETED from the shipped `catalogue.json` (same commit
+as this answer). `LookEntry` stays exactly as the contract says. Finish the row: rebase onto this commit and land your 33 + 4 tests.

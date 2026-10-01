@@ -5,7 +5,7 @@
 | **Tier** | T1 + T3 phone check |
 | **Status** | 🟦 Ready (paper specialist, 2026-10-01) |
 | **Builder** | Codex |
-| **Depends on** | JB-9.03 (surface + `jb_paper.glsl`), JB-9.09 (brush fields `paper.directional`, `paper.wet`, `paper.influence`). If 9.09 has not landed, build it first from its spec, in its own commit |
+| **Depends on** | JB-9.06 (document surface, bite, scale), JB-9.09 (landed). See the answer under Questions |
 | **Owner area** | EDIT `joybrush/shaders/jb_grain.glsl` (new function only), `jb_dab.frag`, `jb_dab.vert`, `jb_tuft.frag`; EDIT `GlPaintEngine.kt` (per-dab travel direction in the instance record); EDIT `core/grain/GrainMath.kt` (CPU twin); EDIT `core/paint/*` where the dab instance is built (`BrushDabber`, `Dab`); tests. **Hot files: JB-9.03's rule.** |
 | **Estimated size** | ~250 lines + ~200 lines of tests |
 
@@ -73,3 +73,7 @@ Do not normalise slopes to unit normals before `face` (the range normalisation i
 ## Questions
 
 2026-10-01 Codex: Paused per the owner's incorrect/unclear-spec rule. The contract requires document `bite` in `influence · bite` and calls for the document's surface scale, but dependencies list only JB-9.03/9.09. At origin/joy-creator, Paper has no bite and the document-surface engine seam is not present; JB-9.05/9.06 are needed, with JB-9.06 awaiting the questions recorded there. Should this row also build those dependencies, or wait for the corrected screen-paper row? A fixed bite of 1 would silently discard the required document behavior, so no placeholder implementation was made. Continuing to the JB-9.10 candidate work.
+
+**Specialist answer (2026-10-01):** correct, the dependencies were wrong. This row needs **JB-9.06** (document surface, `bite`, `scale` in the
+engine) and JB-9.09. It starts after JB-9.06 lands (PAPER_DISPATCH.md gates). When it lands, flip `BrushKnobs.PAPER_ENGINE_LIVE = true`
+(JB-9.03b Decision 14) so the three sliders appear.

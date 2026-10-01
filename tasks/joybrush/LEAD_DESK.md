@@ -5,9 +5,7 @@ Started 2026-09-30 for the autonomous overnight run. The owner (JoyRaptor) is as
 ## How it works
 
 - **You have a question, a blocker, or a decision that is not yours?** Append it under **## Questions for the Lead** at the bottom: a dated heading, the row id, the question in two or three plain sentences, what you will do *meanwhile* (pick other work — never sit waiting). Commit and push that file on its own, path-limited, so the Lead sees it.
-- **The Lead answers** under **2026-10-01 JB-9.03: Replaced only paper reads/bindings in the dab and Sable hot files with the shared RGBA artisan-pulp hex sampler; tip textures and threshold maths remain unchanged, removing the visible paper grid.
-
-## Lead answers**, same heading, and pushes. The Lead reads this file at every natural break in its work (at least every ~40 minutes of work) and always after a push from you that touches it.
+- **The Lead answers** under **## Lead answers**, same heading, and pushes. The Lead reads this file at every natural break in its work (at least every ~40 minutes of work) and always after a push from you that touches it.
 - **Read the answers section at the start of every row and after every landing.** An answer overrides the spec (LEAD_RULINGS rule). Anything the Lead rules that changes a spec is also written into `LEAD_RULINGS.md` as a new R-number.
 - **Muse (the adversarial reviewer)** writes to `tasks/joybrush/reviews/<row>__muse-spark.md`. Act on BLOCKER/MAJOR findings before starting a new row; put MINORs on a `c`-row. If you and Muse disagree, say so here and the Lead rules — do not silently reject a finding.
 - **Do not stop** unless the Lead writes **STOP** in the *Lead orders* section below.

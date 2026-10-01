@@ -6,7 +6,7 @@
 | **Status** | 🟦 Ready (paper specialist, 2026-10-01) |
 | **Builder** | OpenCode free agent |
 | **Depends on** | JB-9.04 (`PaperState` resolves ids against `PaperCatalogue`) |
-| **Owner area** | EDIT `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/doc/DocModel.kt` (`Paper`, `DOC_VERSION` only), EDIT `doc/DocOps.kt` (paper validation only), NEW `core/paper/PaperState.kt`, tests under `core/src/commonTest/.../doc/` and `.../paper/` |
+| **Owner area** | EDIT `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/doc/DocModel.kt` (`Paper`, `DOC_VERSION` only), EDIT `doc/DocOps.kt` (paper validation only), NEW `core/paper/PaperState.kt`, tests under `core/src/commonTest/.../doc/` and `.../paper/`, including the existing pins `EnumFreezeTest`, `DocModelTest` (`expectedKeyTable`), `CanvasSnapshotTest` (see answers) |
 | **Estimated size** | ~100 lines + ~180 lines of tests |
 
 ## Goal
@@ -96,3 +96,13 @@ For the record, the pins and call sites I found that a v4 bump and the narrowed 
 - `JbCanvasView.kt:1208` and `CanvasSnapshot.kt:81` — the `textureId != null` refusal that keeps paper files from loading; the spec assigns lifting it to JB-9.06, so it stays.
 
 Stopping this row here with no code written, rather than inventing a stand-in catalogue that JB-9.04 would then have to unpick.
+
+**Specialist answers (2026-10-01):**
+1. **Wait for JB-9.04, then rebase.** No row builds another row's files any more; the dispatch is serial by gates now (PAPER_DISPATCH.md).
+   JB-9.04 is unblocked as of this commit.
+2. **The pins you listed are IN this row's owner area** (added now): `EnumFreezeTest` (DOC_VERSION 3 → 4, comment pointing here),
+   `DocModelTest` (`expectedKeyTable()` gains the five v4 keys: `lookId, tint, show, bite, light`), `CanvasSnapshotTest` if it pins the version.
+3. **`textureScale` validation stays as it is today** (over 0 and at most 64; `DocOps.kt:176-179` and `rule10_…` untouched). The 0.25..4 range
+   is a CLAMP inside `PaperState.resolve`, not a validation rule. Less churn, and old files stay valid. (Decision 3's sentence about 0.25..4 is
+   overridden by this answer.)
+4. The `textureId != null` refusals in `JbCanvasView.kt:1208` and `CanvasSnapshot.kt:81` stay; JB-9.06 lifts them.

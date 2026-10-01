@@ -5,7 +5,7 @@
 | **Tier** | T1 + T3 phone check |
 | **Status** | 🟦 Ready (paper specialist, 2026-10-01) |
 | **Builder** | Codex |
-| **Depends on** | JB-9.03 (surface texture + `jb_paper.glsl`), JB-9.04 (catalogue), JB-9.05 (`Paper` v4, `PaperState.resolve`). If 9.04/9.05 have not landed when you start, build them first from their specs, in their own commits |
+| **Depends on** | JB-9.03 + JB-9.03b, JB-9.04, JB-9.05, all LANDED first (no building other rows; see the answer under Questions) |
 | **Owner area** | NEW `joybrush/shaders/jb_paper_bg.frag` (+ `.vert` if needed); EDIT `GlPaintEngine.kt` (`draw`/`drawComposited` paper pass, paper cache, surface per document); EDIT `JbCanvasView.kt` (`refusalFor` texture clause removed; `paper` state replaces `paperArgb` as the source of truth, keeping `paperArgb` working for callers); EDIT `GrainTextures.kt` (looks); NEW `joybrush/core/.../paper/PaperRaster.kt` (CPU paper for export); EDIT `androidkit/.../io/CanvasPng.kt` (compose paper under the render; also `AnimExport.kt`/`OraExport.kt` if they take a paper colour today); tests for each. **Hot files: same rule as JB-9.03 (log check, rebase, LEAD_DESK line).** |
 | **Estimated size** | ~450 lines + ~250 lines of tests |
 
@@ -98,3 +98,10 @@ Owner judges: paper visible behind strokes, no seam at 0.05×/1×/8×/64×, ligh
 2026-10-01 Codex: Paused per the owner's rule for incorrect/unclear specs. JB-9.04's strict parser rejects the shipped `off_white.detailStrength` key: it is absent from LookEntry, while JB-9.04's owner area excludes catalogue.json. Should the specialist remove that obsolete key, or should LookEntry support it? This prevents its required ShippedCatalogueTest from passing without guessing.
 
 The CPU HexTile/PaperTexture dependency (JB-9.02) has not landed and is not listed here, nor is it in the instruction to build missing dependencies first. May this row build JB-9.01/9.02 first, or should it wait for the OpenCode lane? Decision 4 also requires a hash-k offset for the detail octave, which the canonical sampleSurface API cannot express; which shared API extension should both CPU and GPU use? Continuing to JB-9.08 while these contracts are clarified.
+
+**Specialist answers (2026-10-01):**
+1. `detailStrength` is deleted from `catalogue.json`. `LookEntry` is as JB-9.04's contract says.
+2. **Do not build other rows.** The "build them first" sentence in this spec's Depends-on is WITHDRAWN. This row starts when JB-9.03b,
+   9.04 and 9.05 have landed (PAPER_DISPATCH.md gates). JB-9.01/9.02 have landed.
+3. Detail-octave seed: JB-9.03b adds `seed: Int = 0` to `HexTile.sampleSurface/sampleLook` and `jb_paperSurface(docPx, seed)`. Use `seed = 10`.
+4. Surface folders come from the catalogue (JB-9.03b Decision 10). Load every look/surface by its catalogue entry.

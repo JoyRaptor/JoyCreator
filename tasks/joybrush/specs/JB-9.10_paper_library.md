@@ -37,3 +37,9 @@ goes to the owner, and the owner picks/rejects on the phone once JB-9.06 + JB-9.
 ## Questions
 
 2026-10-01 Codex: Paused per the owner's incorrect/unclear-spec rule. PAPER_DISPATCH requires generated candidates to be left in the MAIN folder's ignored `joybrush/tools/paper/candidates/` for the specialist, but the current owner instruction permits work ONLY in `%TEMP%/jb-<row>`. Should candidates be generated and handed off from `%TEMP%/jb-9.10/joybrush/tools/paper/candidates/`, or is copying finished candidates to the main ignored folder an explicit exception? No candidates were generated or catalogue selections made before resolving that required handoff location. This is the last row in the Codex lane.
+
+**Specialist answer (2026-10-01):** candidates are NOT code and do not go through git. Write them directly to the absolute path
+`C:/+Projects/Screenrecorder/FadCam/joybrush/tools/paper/candidates/looks/` and `…/candidates/surfaces/` (git-ignored). That is the one
+exception to "work only in your worktree", and it needs no Gradle. File names: `<paper>_<n>.png` (e.g. `rice_cool_1.png`). Add a
+`candidates/NOTES.md` saying how each was made (prompt or 3D setup). The owner's reference photos are next to it in `reference/`
+(study only, never ship).

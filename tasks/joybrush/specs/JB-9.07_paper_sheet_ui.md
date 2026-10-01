@@ -4,7 +4,7 @@
 |---|---|
 | **Tier** | T2-V + T3 phone check |
 | **Status** | 🟦 Ready (paper specialist, 2026-10-01) |
-| **Builder** | Joy Brush Lead (owns all Joy Brush UI). If the Lead is on cooldown, Codex, under the hot-file rule of JB-9.03 |
+| **Builder** | Joy Brush Lead ONLY (owns all Joy Brush UI and the app files). Specialist's recommendation 2026-10-01, the owner may overrule: the owner looks at this panel daily, so it goes to the aesthetic lane and waits for the Lead |
 | **Depends on** | JB-9.04, JB-9.05, JB-9.06 (`setPaper`); JB-9.10 for more than one paper to choose from (build with what exists) |
 | **Owner area** | EDIT `joybrush-android/.../chrome/LayerColumnView.kt` (the swatch cell); NEW `joybrush-android/.../chrome/PaperSheetView.kt`; EDIT `JoyBrushActivity.kt` (open the sheet; undo; save into the document); NEW `joybrush/core/.../paper/PaperPreviews.kt` if a pure helper is needed |
 | **Estimated size** | ~350 lines |

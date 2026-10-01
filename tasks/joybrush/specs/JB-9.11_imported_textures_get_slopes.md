@@ -182,3 +182,17 @@ with nothing to change here. Two things worth knowing for the wiring row: `defau
 `coerceAtLeast(0.001f)`, which is where Decision 4's flat-pattern number comes from — a flat texture packs to R = G = 128
 and never trips `pack`'s refusal; and `pack` re-derives the Scharr pass itself, so `toSurface` runs the kernel twice
 (deliberate: the byte layout is written in exactly one place).
+
+**Specialist answers (2026-10-01): the row is RESCOPED to the pure core function.** Your questions were right; the spec asked for things the code base cannot do yet.
+- **Q1 → (c).** Land `ImportedTexture` (`toSurface`, `luminance`) and its core tests ONLY. (Done: `86f1711b`, accepted.) No importer wiring and no decoder. Decoding PNG to grey
+  happens on the phone at draw time, in JB-1.05d (androidkit, `BitmapFactory`), which calls `toSurface`.
+- **Q2 → (d).** Nothing is persisted. Surfaces are derived in memory at draw time (cheap: one pass) and cached per texture.
+- **Q3:** moot (no importer wiring, so no real-file test in this row). JB-1.05d carries R44.
+- **Q4:** ABR is out of this row. Pattern-pixel decoding for `.abr` is a reader feature of its own (to be written as JB-8.01c).
+- **Q5:** `toSurface`'s convention is ours: high byte = high = takes paint first. `invert` flips it. Which way each app's bytes go
+  is decided where the bytes are read (JB-1.05d), against each app's own documentation, not here. (For the record: Photoshop's help
+  says that with Invert off "the lightest areas in the pattern receive the most paint", i.e. white = high. R4's `t` is valley-ness
+  AFTER inverting, which is why it reads the other way.)
+- **Q6:** `Surface` gains `val flat: Boolean`. A flat input gets slopeRange 0.001, slopes encode to the zero byte (127 under JB-9.03b's
+  encoding; if JB-9.03b has not landed, use whatever `SurfaceMaps.encodeSlope(0f, r)` returns, never a literal), and `flat = true`. No
+  warning text (no importer here). Mutation checks: yes, the two you proposed.

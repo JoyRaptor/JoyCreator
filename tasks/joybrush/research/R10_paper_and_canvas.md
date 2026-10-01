@@ -25,7 +25,8 @@
   Generated papers (pulp in three grades, crumpled) read as paper (`pulp_artisan_lit.jpg`, `crumpled_lit.jpg`).
 - **Patents:** no patent found on direction-dependent grain or normal-mapped paper (prior art: Murakami et al. 2005,
   Rudolf et al. 2005). Stay off Autodesk US 8,081,187 (two noise maps + smoothstep, active to ~2029-09); our route
-  (one authored height picture, hex-tiled, linear threshold) differs. Freedom-to-operate check before commercial ship.
+  (one authored height picture, hex-tiled, linear threshold) is DESIGNED to differ. That is an engineering choice, not a legal
+  opinion: a professional freedom-to-operate check is required before commercial ship.
 
 ---
 
@@ -251,3 +252,28 @@ Blending normal maps: blog.selfshadow.com/publications/blending-in-detail · Pat
 US 5,347,620 (Zimmer, expired), US 9,030,464 (Microsoft, to 2031), US 12,001,656 (Corel, to 2040): patents.google.com.
 Earlier in-repo research: R1 (Rebelle), R2 (Expresii), R3 (Krita/MyPaint), R4 (Photoshop/Procreate), R5 (Concepts/Infinite Painter), R8 (patents), the owner's
 `natural-media-shader-research.md` §2.3/§7 (kept outside the repo, in Downloads).
+
+## 12. Audit of round 1 (2026-10-01): rulings
+
+| Finding | Ruling |
+|---|---|
+| Dispatch deadlock ("build it first" not in the specs; "same time" false) | ✅ Agreed. Dispatch v2 is serial by gates, and no row builds another's files |
+| Several Gradles vs ~1 GB free | ✅ One shared build lock + `--no-daemon` (dispatch house rule 1) |
+| Candidates unpushable (ignored folder vs worktree-only) | ✅ Candidates go straight to the main folder's ignored `candidates/`; the one exception to worktree-only |
+| JB-9.07 to Codex breaks the Lead's app-file chain | ✅ JB-9.07 is the Lead's only |
+| LEAD_DESK instructions overwritten | ✅ Repaired from history; rule: append only |
+| `detailStrength` in the shipped catalogue | ✅ My error; deleted |
+| JB-9.09 count 1339 < parent 1346 | ⚠️ Misreported: its worktree XML holds 1357/0 (90 suites). The tree is fine; the report was wrong |
+| Slope zero decodes as +r/255 | ✅ Fixed in JB-9.03b: snorm-style 127 = 0 |
+| Float twin drift; dy unpinned; CPU re-quantises; `byteOf` truncates; Float lattice | ✅ All in JB-9.03b |
+| No seed for the detail octave | ✅ `seed` parameter (JB-9.03b), used by JB-9.06 |
+| `highp float` missing; slope work for height-only reads; Sable reads paper it ignores | ✅ JB-9.03b |
+| Premultiplied upload risk | ✅ Explicit byte upload with a pure, tested packer (JB-9.03b) |
+| Folder by name prefix; magic scale 32; dead `PAPER_TOOTH_SCALE`; pencil file lists ignored fields | ✅ JB-9.03b |
+| JB-9.09 ships dead sliders | ✅ Hidden until JB-9.08 lands (owner rule: a dead knob is worse than none) |
+| JB-9.09 version-6 values untuned | Accepted: starting values, tuned by the owner on the Note 9 when JB-9.08 lands (one owner, one phone; R38) |
+| Pencil retune after the paper change | Accepted: the owner judges on the Note 9 (T3) |
+| Detail octave is display-only | Accepted by design: layers hold one pixel per doc px, so brushes cannot deposit below that. Fibres seen at 16× are the paper, not paint |
+| Far-field precision in dab shaders | Accepted to ±1e6 doc px for deposit; the screen pass uses the local frame (JB-9.06 Decision 5) |
+| JB-9.11 impossible as written | ✅ Rescoped to the pure core function (landed `86f1711b`); decode + polarity move to JB-1.05d; ABR patterns to a future JB-8.01c |
+| Legal conclusion in R10 | ✅ Reworded: a design choice, not a legal opinion |

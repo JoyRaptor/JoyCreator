@@ -59,7 +59,7 @@ Codex has image generation and strong 3D. **The specialist keeps taste and the f
   rough jute; twisted threads with slubs and knots), papyrus strips, silk and fabric. Orthographic top-down HEIGHT render, 16-bit greyscale,
   tileable, 1024², into `candidates/surfaces/`.
 - Notes on how each was made go in `candidates/NOTES.md`. The owner's reference photos are in `joybrush/tools/paper/reference/`: study only,
-  never ship. Reference notes (rice paper is flat, its whiter fibres more opaque, not raised; sugarcane has brown/grey-brown chunks) are in
+  never ship. Reference notes (rice has subtle relief independent of brightness/opacity; dark inclusions do not imply pits; sugarcane has brown/grey-brown chunks) are in
   `specs/JB-9.10_paper_library.md`.
 - Codex does NOT pack, choose or catalogue.
 
@@ -74,3 +74,6 @@ Codex has image generation and strong 3D. **The specialist keeps taste and the f
 > Rebase it onto `origin/joy-creator` (the stray `detailStrength` key is now deleted). Read `tasks/joybrush/PAPER_DISPATCH.md` (version 2)
 > and the spec's answers under "Questions". Follow the house rules exactly, above all the build lock and `--no-daemon`. When JB-9.04 has
 > landed, do **JB-9.05** the same way. Report: what changed, the command, the counts from your worktree's XML and its time stamp, the mutation check.
+
+## Owner update, 2026-10-01
+Codex heads paper/textures while the specialist is out of usage; the owner retains final visual judgement. Image generation is paused: prioritize paper rendering, export and brush response before populating more. Rice has gentle independent relief; use neutral D65 white balance, not a global yellow/amber grade. Existing candidates still need seam review before selection.

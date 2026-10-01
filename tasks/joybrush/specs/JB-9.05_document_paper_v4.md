@@ -76,3 +76,23 @@ object PaperState {
 - [ ] commit "JB-9.05: …", rebased, pushed · [ ] ROADMAP row → 🟧 Built + command + counts
 
 ## Questions
+
+2026-10-01 OpenCode free agent: Paused per the owner's rule for unclear specs. This row's only dependency, JB-9.04, has not landed. At `origin/joy-creator` = ccf2980b there is no `core/paper/PaperCatalogue.kt`, and `PaperCatalogue`, `SurfaceEntry` and `LookEntry` appear in no `.kt` file on any ref (checked by filename, by identifier across `git rev-list --all`, and in every registered worktree; the only `core/paper/` in any worktree is `jb-JB-9.01`'s uncommitted `SurfaceMaps.kt` from JB-9.01). Every type in this row's verbatim contract — `ResolvedPaper.surface: SurfaceEntry?`, `.look: LookEntry?`, `PaperState.resolve(p, c: PaperCatalogue)`, and the required test "`light = null` → the look's `lightByDefault`" — is one of those three missing types, so the row cannot compile, let alone be tested, without writing JB-9.04's owner-area file.
+
+Unlike JB-9.06's spec ("If 9.04/9.05 have not landed when you start, build them first from their specs, in their own commits"), this spec has no such clause: it only lists JB-9.04 under **Depends on**, and this row's **Owner area** is `DocModel.kt` (`Paper`, `DOC_VERSION` only), `DocOps.kt` (paper validation only) and NEW `core/paper/PaperState.kt` — `PaperCatalogue.kt` is JB-9.04's, not this row's. Two ways forward, and they are the owner's call, not mine to guess:
+
+1. Should this row build JB-9.04 first, in its own commit, as JB-9.06 is permitted to? Doing so puts another row's owner-area file in this row's diff and would collide with whichever lane is assigned JB-9.04.
+2. Or should this row wait for JB-9.04 to land and rebase onto it?
+
+Note that JB-9.04 appears itself to be blocked, so waiting may be the cheap path: per the Questions already recorded in JB-9.06, the shipped `joybrush/assets/paper/catalogue.json` carries a `detailStrength` key on `off_white` that is absent from JB-9.04's `LookEntry`, while JB-9.04's parser is strict and that file is outside JB-9.04's owner area. Until the specialist answers that, JB-9.04's required `ShippedCatalogueTest` cannot pass either.
+
+One smaller question, which will matter the moment JB-9.04 lands and which I did not want to guess at: the spec's test list says "Every existing test that pins `DOC_VERSION == 3` is updated to 4, with a comment pointing here. List them in your report." `EnumFreezeTest.theVersionsTheNamesWereWrittenFor` (core/src/commonTest/.../doc/EnumFreezeTest.kt:94) asserts `assertEquals(3, DOC_VERSION)` and sits under this row's stated test area, so I read it as in scope and would update it. Its own comment (lines 88-91) says a bump "is a legal, deliberate act … this test does not forbid it", which agrees. Flagging it only so the owner can confirm the freeze test is meant to move rather than to fail loudly.
+
+For the record, the pins and call sites I found that a v4 bump and the narrowed `textureScale` range (0.25..4, versus today's "over 0 and no more than 64") would touch, all outside this row's owner area and therefore all needing a ruling:
+- `DocOps.kt:176-179` — the current scale check and its message.
+- `DocModelTest.kt:651-663` (`rule10_paperTextureScaleHasToBeSane`) — accepts 0.0001f, 1f and 64f as legal; 0.0001f and 64f both become invalid under 0.25..4.
+- `DocModelTest.kt:160` — `expectedKeyTable()` pins `$.paper` to exactly `color, textureId, textureScale, includeInExport`; the six v4 fields make it wrong, and this key table backs the R31 unknown-key refusal.
+- `CanvasSnapshotTest.kt:22` — builds `Paper(..., textureScale = 3.5f, ...)`, which survives 0.25..4.
+- `JbCanvasView.kt:1208` and `CanvasSnapshot.kt:81` — the `textureId != null` refusal that keeps paper files from loading; the spec assigns lifting it to JB-9.06, so it stays.
+
+Stopping this row here with no code written, rather than inventing a stand-in catalogue that JB-9.04 would then have to unpick.

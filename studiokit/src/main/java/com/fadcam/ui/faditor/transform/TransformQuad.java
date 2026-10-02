@@ -663,6 +663,65 @@ public final class TransformQuad {
         return d;
     }
 
+    /**
+     * One rotation gesture MOVE's answer from {@link #storedRotationDeg}: the angle to STORE and
+     * the turn to APPLY to the live quad.
+     *
+     * <p>Both are canonical ({@code (-180, 180]}) and they describe the SAME rotation by
+     * construction — that agreement is the whole point, because one gesture MOVE feeds two
+     * consumers that used to disagree: the quad, which needs a delta, and the model, which stores
+     * an absolute. Returned together so a caller cannot take one and drop the other.</p>
+     */
+    public static final class StoredRotation {
+
+        /** The ABSOLUTE angle to hand the model, in {@code (-180, 180]}. */
+        public final float deg;
+
+        /** The turn from the gesture's start, in {@code (-180, 180]}, for the live quad. */
+        public final float deltaDeg;
+
+        StoredRotation(float deg, float deltaDeg) {
+            this.deg = deg;
+            this.deltaDeg = deltaDeg;
+        }
+    }
+
+    /**
+     * THE ONE PLACE A ROTATION GESTURE BECOMES A STORED ANGLE. The canonical pair for a gesture
+     * that started at {@code startDeg} and whose detent + snap have chosen {@code snappedDeg}:
+     * the absolute angle to store, and the delta to turn the live quad by. Both folded into
+     * {@code (-180, 180]} by {@link #norm180}, so the model, the live quad and the HUD can only
+     * ever name one angle for one pose.
+     *
+     * <p><b>Why the gesture folds and a typed rotation does not.</b> Dragging the spin arc +30 on an
+     * object at 175 gives 205: a pose the model can spell 205 or -155, and the gesture only ever
+     * meant the second (it never turned 205, it turned 30). Storing 205 hands the keyframe track a
+     * span that interpolates the long way round, so the picture spins most of a turn instead of
+     * 30 — silently, because the HUD has been showing the folded number the whole time. A full
+     * 360 turn has the same defect without a keyframe at all: the cardinal detent pins
+     * {@code offDeg 0} at 360 and 360 is not 0.
+     *
+     * <p>The owner's SPEC A ("rotation beyond one full turn") asks for the opposite at the
+     * drawer's typed field, and gets it: {@code KeyframeSet.parseRotationInput} deliberately keeps
+     * {@code 720} as 720 so a sixteen-turn spin survives. That is a different door into the same
+     * storage, and both are honoured — a <b>typed</b> value keeps its winding on purpose, a
+     * <b>gesture</b> has one spelling because the drag it came from only ever meant one pose.
+     *
+     * <p>{@code startDeg} is folded too, so a value an older build stored unwrapped (205) heals on
+     * the first gesture instead of continuing to poison every keyframe made after it.
+     *
+     * <p>Deliberately NOT a clamp: a clamp would change the picture (205 clamped to 180 is a
+     * different pose), whereas folding changes only the spelling. Both outputs are exactly
+     * 360-equivalent to what was passed in: {@code deg} is {@code snappedDeg} turned round, and
+     * {@code norm180(startDeg) + deltaDeg} is {@code deg} turned round — so the angle the model
+     * stores and the turn the quad is given can never disagree. ({@code deg + deltaDeg} would be
+     * the wrong way round; that is 180 out wherever the turn is large.)
+     */
+    public static StoredRotation storedRotationDeg(float startDeg, float snappedDeg) {
+        float base = norm180(startDeg);
+        return new StoredRotation(norm180(snappedDeg), norm180(snappedDeg - base));
+    }
+
     // ── SPEC G: the corner-pin budget bake ──────────────────────────────────
     //
     // Every distortion is stored as four corner offsets in units of the picture's own size

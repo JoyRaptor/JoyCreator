@@ -37,6 +37,12 @@ import cc.joycreator.joybrush.android.chrome.ChromeKit
 import cc.joycreator.joybrush.android.chrome.ColourPairView
 import cc.joycreator.joybrush.android.chrome.GuideOverlayView
 import cc.joycreator.joybrush.android.chrome.JbIcon
+import cc.joycreator.joybrush.android.chrome.PaperSheetView
+import cc.joycreator.joybrush.androidkit.io.PaperResources
+import cc.joycreator.joybrush.core.doc.Paper
+import cc.joycreator.joybrush.core.paper.PaperPreviews
+import cc.joycreator.joybrush.core.paper.PaperState
+import kotlinx.serialization.json.Json
 import cc.joycreator.joybrush.android.chrome.LayerColumnView
 import cc.joycreator.joybrush.android.chrome.Popovers
 import cc.joycreator.joybrush.android.chrome.ReferenceView
@@ -129,6 +135,7 @@ private const val REQUEST_SAVE_COPY = 4102
 private const val REQUEST_REFERENCE = 4103
 private const val REQUEST_EXPORT_PNG = 4104
 private const val PREF_EXPORT_PAPER = "export_paper"
+private const val PREF_NEW_PAPER = "new_drawing_paper"
 
 // JB-2.01: where the chrome remembers itself between visits — the strip's place, each tool's brush and size, the
 // pinned reference picture.
@@ -220,6 +227,17 @@ class JoyBrushActivity : Activity() {
     private lateinit var guideOverlay: GuideOverlayView
     private lateinit var guideDone: TextView
     private var guides = GuideSettings.NONE
+    private var paperPickerRevert: (() -> Unit)? = null
+    private var paperSheet: PaperSheetView? = null
+    @Volatile private var paperPreviewRevision = 0L
+    private val paperPreviewWorker = Executors.newSingleThreadExecutor()
+    private var previewPaperRequest: cc.joycreator.joybrush.core.paper.ResolvedPaper? = null
+    private var previewPaperMaterial: PaperResources.Loaded? = null
+    private val paperPreviews = PaperPreviews(render = { p, r ->
+        val loaded = PaperResources.update(p,previewPaperRequest,previewPaperMaterial)
+        previewPaperRequest = p; previewPaperMaterial = loaded
+        loaded.render(r)
+    })
     private lateinit var column: LayerColumnView
     private var columnOpen = false
     private var thumbsPending = false
@@ -305,6 +323,10 @@ class JoyBrushActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         canvas = JbCanvasView(this)
+        getSharedPreferences(CHROME_PREFS, MODE_PRIVATE).getString(PREF_NEW_PAPER,null)?.let { saved ->
+            try { canvas.applyDocumentPaper(Json.decodeFromString(Paper.serializer(), saved)) }
+            catch (_: Exception) { /* An obsolete preference must not prevent opening the app. */ }
+        }
         // Debug-only lifecycle probe: tests use the real EGL destruction/resume path.
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 &&
             intent.getBooleanExtra("joybrush_test_recreate_context", false)) {
@@ -363,6 +385,9 @@ class JoyBrushActivity : Activity() {
         root.post { checkIcons() }
         // JbCanvasView reports this on the UI thread via post(), after every committed stroke,
         // undo, redo and clear. Undo and Redo start disabled -- there is no history yet.
+        canvas.onBeforeHistoryChange = { popovers.close() }
+        canvas.onPaperChanged = { p -> refreshPaper(p) }
+        refreshPaper(canvas.documentPaper)
         canvas.onHistoryChanged = { canUndo, canRedo ->
             updateHistoryButtons(canUndo, canRedo)
             checkIcons()
@@ -408,6 +433,7 @@ class JoyBrushActivity : Activity() {
     }
 
     override fun onPause() {
+        popovers.close()
         stopBrushLab()
         // GLSurfaceView DEFERS a GL event that was queued before its GL thread is paused until the
         // next resume — and after a force-stop there is no next resume, so the autosave would never
@@ -425,6 +451,8 @@ class JoyBrushActivity : Activity() {
 
     override fun onDestroy() {
         destroyed = true
+        paperPreviewRevision++
+        paperPreviewWorker.shutdownNow()
         ui.removeCallbacks(idleSave)
         recoveryTimeout?.let { ui.removeCallbacks(it) }
         stopBrushLab()
@@ -877,6 +905,8 @@ class JoyBrushActivity : Activity() {
     // ── layers (JB-2.04): the column, its panel, the thumbnails ──
 
     private val columnHost = object : LayerColumnView.Host {
+        override fun openPaper(anchor: View) = openPaperSheet()
+
         override fun addLayer() {
             canvas.addLayer()
         }
@@ -892,6 +922,87 @@ class JoyBrushActivity : Activity() {
             canvas.setEditingMask(on)
             if (on) toast("Painting on the mask: dark hides, light shows")
         }
+    }
+
+    private fun openPaperSheet() {
+        popovers.close()
+        val before = canvas.documentPaper
+        lateinit var sheet: PaperSheetView
+        sheet = PaperSheetView(kit, before, PaperResources.catalogue, object : PaperSheetView.Host {
+            override fun apply(paper: Paper) {
+                if (paperSheet !== sheet || destroyed) return
+                canvas.applyDocumentPaper(paper)
+                noteChange()
+            }
+            override fun pickColour(tint: Boolean, current: Int, onPicked: (Int?) -> Unit) {
+                val start = canvas.documentPaper
+                var committed = false
+                paperPickerRevert = { canvas.applyDocumentPaper(start); noteChange() }
+                ColorPickerDialog.show(this@JoyBrushActivity, if(tint) "Paper tint" else "Paper colour", current, false,
+                    { live -> if (live != null && paperSheet === sheet && !destroyed) onPicked(live) },
+                    { picked ->
+                        if (paperSheet === sheet && !destroyed) {
+                            committed = true
+                            paperPickerRevert = null
+                            onPicked(picked)
+                        }
+                    }, null, {
+                        if (!committed && paperSheet === sheet && !destroyed) paperPickerRevert?.invoke()
+                        paperPickerRevert = null
+                    })
+            }
+            override fun close() { popovers.close() }
+        })
+        paperSheet = sheet
+        popovers.showSheet(sheet, maxWidthDp = PaperSheetView.MAX_WIDTH_DP,
+            alignEnd = placement.edge == StripPlacement.Edge.RIGHT, modal = false, onClosed = {
+                paperPickerRevert?.invoke()
+                paperPickerRevert = null
+                paperSheet = null
+                paperPreviewRevision++
+                canvas.commitPaperVisit(before)
+                prefs.edit().putString(PREF_NEW_PAPER, Json.encodeToString(Paper.serializer(), canvas.documentPaper)).apply()
+                refreshPaper(canvas.documentPaper)
+            })
+        refreshPaper(before)
+    }
+
+    /** One worker owns the bounded cache; obsolete slider/closed-sheet work never reaches views. */
+    private fun refreshPaper(p: Paper) {
+        if (destroyed || !::column.isInitialized) return
+        val sheet = paperSheet
+        sheet?.refresh(p)
+        val requests = sheet?.previewRequests().orEmpty()
+        val revision = ++paperPreviewRevision
+        val resolved = PaperState.resolve(p, PaperResources.catalogue)
+        paperPreviewWorker.execute {
+            if (destroyed || revision != paperPreviewRevision) return@execute
+            try {
+                val swatch = paperBitmap(paperPreviews.crop(resolved, 64, 32), 64, 32)
+                ui.post {
+                    if (!destroyed && revision == paperPreviewRevision) column.setPaperPreview(swatch)
+                }
+                for (request in requests) {
+                    if (destroyed || revision != paperPreviewRevision) break
+                    val bitmap = paperBitmap(paperPreviews.crop(request.paper,request.size),request.size,request.size)
+                    ui.post {
+                        if (!destroyed && revision == paperPreviewRevision && paperSheet === sheet)
+                            sheet?.setPreview(request,bitmap)
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("JoyBrushPaper", "Paper preview unavailable", e)
+            }
+        }
+    }
+
+    private fun paperBitmap(bytes: ByteArray, w: Int, h: Int): Bitmap {
+        val argb = IntArray(w*h) { i ->
+            val j=i*4
+            ((bytes[j+3].toInt() and 255) shl 24) or ((bytes[j].toInt() and 255) shl 16) or
+                ((bytes[j+1].toInt() and 255) shl 8) or (bytes[j+2].toInt() and 255)
+        }
+        return Bitmap.createBitmap(argb,w,h,Bitmap.Config.ARGB_8888)
     }
 
     private fun setColumnOpen(open: Boolean) {
@@ -1820,7 +1931,8 @@ class JoyBrushActivity : Activity() {
         val paper = android.widget.CheckBox(this).apply {
             text = "Include paper"
             setTextColor(kit.p.ink)
-            isChecked = prefs.getBoolean(PREF_EXPORT_PAPER, false)
+            isChecked = canvas.documentPaper.includeInExport && !canvas.documentPaper.screenTransparent
+            isEnabled = !canvas.documentPaper.screenTransparent
             contentDescription = "Include the paper colour; turn off for a transparent background"
         }
         box.addView(paper)

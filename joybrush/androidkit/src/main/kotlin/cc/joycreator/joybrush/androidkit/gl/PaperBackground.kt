@@ -64,7 +64,7 @@ internal class PaperBackground(private val shaders: ShaderLibrary) {
             GLES30.glUniform3f(prog.loc("u_lamp"),(lx/len).toFloat(),(ly/len).toFloat(),(0.70/len).toFloat())
             fun flag(name: String, v: Boolean) = GLES30.glUniform1i(prog.loc(name),if(v)1 else 0)
             flag("u_hasLook",look!=null); flag("u_hasSurface",surface!=null)
-            flag("u_tinted",p.tintSet); flag("u_light",p.light)
+            flag("u_tinted",p.tintSet); flag("u_light",p.light); flag("u_transparent",p.screenTransparent)
             fun rgb(name: String, argb: Int) = GLES30.glUniform3f(prog.loc(name),((argb ushr 16) and 255)/255f,((argb ushr 8) and 255)/255f,(argb and 255)/255f)
             rgb("u_base",p.baseArgb)
             rgb("u_mean",p.look?.mean?.removePrefix("#")?.toIntOrNull(16) ?: 0xFFFFFF)

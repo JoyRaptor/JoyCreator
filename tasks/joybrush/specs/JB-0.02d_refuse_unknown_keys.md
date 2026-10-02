@@ -174,7 +174,7 @@ const val DOC_VERSION = 2
 | Class | Keys, in declaration order |
 |---|---|
 | root (`JbDocument`) | `format` `version` `id` `name` `paper` `boards` `layers` `activeLayerId` `activeBoardId` |
-| `paper` (`Paper`) | `color` `textureId` `textureScale` `includeInExport` `lookId` `tint` `show` `bite` `light` |
+| `paper` (`Paper`) | `color` `textureId` `textureScale` `includeInExport` `lookId` `tint` `show` `bite` `light` `screenTransparent` |
 | `boards[]` (`Board`) | `id` `name` `kind` `rect` `clipToBoard` `fps` `frames` `grid` `tiled` `currentFrameId` `locked` |
 | `boards[].rect` (`RectPx`) | `x` `y` `w` `h` |
 | `boards[].frames[]` (`Frame`) | `id` `holdFrames` |

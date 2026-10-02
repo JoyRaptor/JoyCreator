@@ -172,7 +172,7 @@ object OraExport {
     ) {
         val doc = contents.doc
         val rect = boardOf(doc, boardId)
-        val paper = if (includePaper) checkedPaper(doc) else null
+        val paper = if (includePaper && !doc.paper.screenTransparent) checkedPaper(doc) else null
         val tiles = tileSource(contents)
         val renderer = CanvasPng.paperRendererFor(contents, includePaper, paperRenderer, onWarning)
         val backdrop = renderer?.invoke(rect)

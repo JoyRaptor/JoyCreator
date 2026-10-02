@@ -129,7 +129,7 @@ object AnimExportRunner {
         checkPlanFitsBoard(boardId, board.frames.map { it.id }, plan.frameIds)
         checkRegionFits(boardId, plan.width, plan.height)
         checkExportFits(boardId, format, plan, cols)
-        val paper = if (includePaper) checkedPaper(doc.paper.color) else null
+        val paper = if (includePaper && !doc.paper.screenTransparent) checkedPaper(doc.paper.color) else null
         val renderer = CanvasPng.paperRendererFor(contents, includePaper, paperRenderer, onWarning)
         val backdrop = renderer?.invoke(plan.rect)
 
@@ -203,7 +203,7 @@ object AnimExportRunner {
         // ignored, because a sequence renders, writes and drops inside its loop. Pinned by
         // `theBudgetIsTheSameForEveryColumnCountOnATwoDimensionalFormat`.
         checkExportFits(boardId, AnimFormat.PNG_SEQUENCE, plan, AnimExport.sheetCols(plan.frameCount))
-        val paper = if (includePaper) checkedPaper(doc.paper.color) else null
+        val paper = if (includePaper && !doc.paper.screenTransparent) checkedPaper(doc.paper.color) else null
         val tiles = tileSource(contents)
         val renderer = CanvasPng.paperRendererFor(contents, includePaper, paperRenderer, onWarning)
         val backdrop = renderer?.invoke(plan.rect)

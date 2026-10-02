@@ -16,7 +16,7 @@ class RegionDocumentTest {
         assertEquals(listOf("base","second-base"),change.doc.layers.map{it.sharedCelId})
         assertEquals(original.layers.map{it.cels.first()},change.doc.layers.map{it.cels.first()})
         assertTrue(DocOps.validate(change.doc).isEmpty())
-        assertEquals(6,change.doc.version)
+        assertEquals(DOC_VERSION,change.doc.version)
         assertEquals(change.doc.boards.last().frames.first().id,change.doc.boards.last().currentFrameId)
         assertEquals(RectPx(17,23,101,93),change.copies.first().rect)
     }

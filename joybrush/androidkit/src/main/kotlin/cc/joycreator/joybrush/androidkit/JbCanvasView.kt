@@ -124,9 +124,43 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             field = v
             documentPaperState = documentPaperState.copy(textureId=v.surface?.id,lookId=v.look?.id,
                 textureScale=v.scale,color=paperHex(v.baseArgb),tint=if(v.tintSet)paperHex(v.baseArgb) else null,
-                show=v.show,bite=v.bite,light=v.light)
+                show=v.show,bite=v.bite,light=v.light,screenTransparent=v.screenTransparent)
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                val next = documentPaperState
+                onGl { engine.setDocumentPaper(next) }
+            }
             requestRender()
         }
+    val documentPaper: Paper get() = documentPaperState
+    var onPaperChanged: ((Paper) -> Unit)? = null
+    var onBeforeHistoryChange: (() -> Unit)? = null
+    @Volatile private var paperRevision = 0L
+    @Volatile private var paperHistoryRevision = 0L
+    private val pendingPaperVisits = ArrayDeque<Pair<Paper,Paper>>()
+
+    /** Keep exact nullable defaults/export flags rather than round-tripping through resolved values. */
+    fun applyDocumentPaper(value: Paper) {
+        paperRevision++
+        paper = PaperState.resolve(value, PaperResources.catalogue)
+        documentPaperState = value
+        onGl { engine.setDocumentPaper(value) }
+        onPaperChanged?.invoke(value)
+    }
+
+    fun commitPaperVisit(before: Paper) {
+        val after = documentPaperState
+        if (before == after) return
+        pendingPaperVisits.addLast(before to after)
+        if (!drawing) flushPaperVisits()
+    }
+
+    private fun flushPaperVisits() {
+        while (pendingPaperVisits.isNotEmpty()) {
+            val (before,after) = pendingPaperVisits.removeFirst()
+            onGl { engine.recordPaperChange(before,after); reportHistory() }
+        }
+    }
+
     var paperArgb: Int
         get() = paper.baseArgb
         set(v) { paper = paper.copy(baseArgb=v or 0xFF000000.toInt(),tintSet=true) }
@@ -522,6 +556,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
                 if (engine.ready) graphicsEpoch += 1
                 engine.init()
+                engine.setDocumentPaper(documentPaperState)
                 // Never let a context-loss placeholder overwrite the person's last good file.
                 contentLost = contentLost || engine.lostContent || retainedContents != null
                 engine.addLayer(FIRST_LAYER)
@@ -548,7 +583,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 while (frameWork.isNotEmpty()) frameWork.removeFirst()()
                 val s = viewSnapshot
                 drawView.zoom = s[0]; drawView.rotation = s[1]; drawView.panX = s[2]; drawView.panY = s[3]
-                engine.setPaper(paper)
                 paperWarnings = (PaperState.problems(documentPaperState,PaperResources.catalogue) + engine.paperWarnings).distinct()
                 engine.draw(viewW, viewH, drawView.docToClip(viewW, viewH), paperArgb)
                 answerScreenSample()
@@ -557,8 +591,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         renderMode = RENDERMODE_WHEN_DIRTY
     }
 
-    fun undo() = onGl { engine.undoStep(); reportHistory() }
-    fun redo() = onGl { engine.redoStep(); reportHistory() }
+    fun undo() {
+        onBeforeHistoryChange?.invoke()
+        if (drawing) finishStroke()
+        val editRevision = paperRevision; val historyRevision = ++paperHistoryRevision
+        onGl { engine.undoStep(); reportHistory(editRevision,historyRevision) }
+    }
+    fun redo() {
+        onBeforeHistoryChange?.invoke()
+        if (drawing) finishStroke()
+        val editRevision = paperRevision; val historyRevision = ++paperHistoryRevision
+        onGl { engine.redoStep(); reportHistory(editRevision,historyRevision) }
+    }
     /** Empties the layer being painted on, as one undo step. */
     fun clearCanvas() {
         val id = activeLayer
@@ -983,6 +1027,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl { engine.endStroke(); reportHistory() }
+        flushPaperVisits()
         onStrokeEnded?.invoke()
     }
 
@@ -992,6 +1037,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl { engine.cancelStroke() }
+        flushPaperVisits()
         onStrokeEnded?.invoke()
     }
 
@@ -1188,6 +1234,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val board = doc.boards[0].rect
 
         // The UI's own picture of the stack changes now, so nothing drawn after this lands on a layer the file does not have.
+        paperRevision++
+        pendingPaperVisits.clear()
         stackUi = stack
         activeLayer = active
         editingMask = false
@@ -1200,11 +1248,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             contentLost = false
             paper = resolved
             documentPaperState = doc.paper
-            engine.setPaper(resolved)
+            engine.setDocumentPaper(doc.paper)
             paperWarnings = PaperState.problems(doc.paper,PaperResources.catalogue) + engine.paperWarnings
             paperWarnings.forEach { android.util.Log.w("JoyBrushPaper",it) }
             reportHistory()
-            post { onDone() }
+            post { onPaperChanged?.invoke(doc.paper); onDone() }
         }
         pageW = board.w
         pageH = board.h
@@ -1482,11 +1530,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
-    private fun reportHistory() {
+    private fun reportHistory(restorePaperRevision: Long? = null, historyRevision: Long? = null) {
         val u = engine.undo.canUndo
         val r = engine.undo.canRedo
         val stack = engine.stack(activeLayer)
+        val restoredPaper = engine.documentPaper
+        val paperChanged = restorePaperRevision != null && paperRevision == restorePaperRevision && documentPaperState != restoredPaper
+        if (paperChanged) {
+            // Save/readback queued after undo must see the restored setting before the UI post runs.
+            paper = PaperState.resolve(restoredPaper,PaperResources.catalogue)
+            documentPaperState = restoredPaper
+        }
         post {
+            if (restorePaperRevision != null && paperRevision == restorePaperRevision && paperHistoryRevision == historyRevision)
+                onPaperChanged?.invoke(restoredPaper)
             // The engine is the truth after an undo or a redo: the UI takes its stack, and keeps its own brush layer if
             // that layer is still there.
             stackUi = stack

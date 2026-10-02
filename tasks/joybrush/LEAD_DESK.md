@@ -112,3 +112,11 @@ its frames. AnimOps, FilmStrip, FrameStepper, PlaybackClock and PaperGeometry st
 frame pixels live (JB-3.01b) and the one clip rule the GPU and the exporter both read (JB-3.01c). Do not start
 JB-3.01b or JB-3.01c until the Lead has written them. Lock/Arm, the Tile board and sprite rearranging are new: see §B and §D.
 
+
+### Paper UI handoff and material boundaries — 2026-10-02
+
+Lead JB-9.07 changes now provide the last layer-column Paper swatch, catalogue sheet, shared colour picker, one-visit paper undo, persisted None at DOC_VERSION 7, new-document defaults and transparent export guards. The earlier full run passed core1485/0, androidkit229/0 and UI5/0. Final resource reuse checks and UI recheck are recorded in PAPER_UI_INTEGRATION_20261002.md. Phone approval remains pending; this is not owner acceptance.
+
+PaperRaster.kt, PaperTexture.kt and HexTile.kt are free for specialist JB-9.06c minification/filtering work; Lead has not edited them. Preserve the v7 None exclusion in CanvasPng/AnimExport/OraExport when rebasing JB-9.06b. Root owns these IO guards until this commit lands.
+
+Outstanding integration: textured paper must be the initial backdrop before blend modes (approved9.06b), not a post-stack flatten; measured CPU/GPU material filtering requires9.06c. Do not claim those fixed by UI exposure. Imported texture drawing JB-1.05d and board GPU routing/chrome adapters remain separate jobs. No preservation or migration of disposable test scratches.

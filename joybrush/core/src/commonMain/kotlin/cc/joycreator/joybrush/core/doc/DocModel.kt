@@ -5,12 +5,13 @@ import kotlinx.serialization.Serializable
 
 const val DOC_FORMAT = "joybrush.document"
 /**
+ * 7: explicit screen transparency for paper.
  * 6: board-local region frame addresses and a saved current frame for each board.
  * 5: board chrome's tiled display flag.
  * 4: the paper carries a look, a tint and two sliders (JB-9.05, R10).
  * 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48).
  */
-const val DOC_VERSION = 6
+const val DOC_VERSION = 7
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -70,6 +71,7 @@ const val TILE_SIZE = Tiles.SIZE
     val show: Float = 1f,                   // v4. 0..1 how visible the look + relief are (0 = flat base colour)
     val bite: Float = 1f,                   // v4. 0..1 how strongly brushes feel the surface
     val light: Boolean? = null,             // v4. relief lighting; null = the look's lightByDefault
+    val screenTransparent: Boolean = false, // v7. checkerboard screen; retains physical tooth
 )
 
 /**

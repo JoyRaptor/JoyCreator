@@ -97,6 +97,7 @@ object DocOps {
             }
         }
 
+        if (doc.paper.screenTransparent && doc.version < 7) out += "screen transparency needs document version 7"
         val boardsById = doc.boards.associateBy { it.id }
 
         val regional = doc.layers.any { it.regions.isNotEmpty() }

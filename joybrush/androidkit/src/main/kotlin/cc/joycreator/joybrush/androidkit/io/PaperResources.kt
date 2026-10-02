@@ -37,6 +37,19 @@ object PaperResources {
             else Loaded(resolved, look, surface, warnings)
     }
 
+    /** Slider/tint changes reuse decoded images; changing either file performs a fresh material load. */
+    fun update(resolved: ResolvedPaper, previousRequest: ResolvedPaper?, previous: Loaded?,
+        readTexture: (String) -> PaperTexture? = ::decode,
+    ): Loaded {
+        if (previous == null || previousRequest == null ||
+            previousRequest.look?.file != resolved.look?.file || previousRequest.surface?.file != resolved.surface?.file) {
+            return load(resolved, readTexture)
+        }
+        val effective = if (previous.warnings.isEmpty()) resolved
+            else resolved.copy(look = null, surface = null, light = false)
+        return Loaded(effective, previous.look, previous.surface, previous.warnings)
+    }
+
     private fun decode(file: String): PaperTexture? {
         val bitmap = GrainTextures.loadPackagedBitmap("paper", file) ?: return null
         return try {

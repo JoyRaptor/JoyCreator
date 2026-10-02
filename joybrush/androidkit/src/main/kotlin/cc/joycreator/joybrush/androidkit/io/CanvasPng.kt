@@ -28,7 +28,7 @@ object CanvasPng {
         }
         val source = TileSource { layer, cel, tx, ty -> contents.tiles[Triple(layer, cel, DocOps.key(tx, ty))] }
         val pixels = RegionRenderer.render(doc, source, board.rect, null, null)
-        if (includePaper) {
+        if (includePaper && !doc.paper.screenTransparent) {
             val paper = paperRenderer?.invoke(board.rect) ?: PaperResources.load(doc.paper).let { loaded ->
                 loaded.warnings.forEach(onWarning); loaded.render(board.rect)
             }
@@ -53,7 +53,7 @@ object CanvasPng {
     internal fun paperRendererFor(contents: JbContents, includePaper: Boolean,
         renderer: ((RectPx) -> ByteArray)?, onWarning: (String) -> Unit,
     ): ((RectPx) -> ByteArray)? {
-        if (!includePaper) return null
+        if (!includePaper || contents.doc.paper.screenTransparent) return null
         if (renderer != null) return renderer
         val p = contents.doc.paper
         // Keep legacy flat animation/ORA compositing byte-for-byte for existing documents.

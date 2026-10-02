@@ -3,7 +3,7 @@ precision highp float;
 precision highp int;
 uniform sampler2D u_look;
 uniform sampler2D u_surface;
-uniform bool u_hasLook, u_hasSurface, u_tinted, u_light;
+uniform bool u_hasLook, u_hasSurface, u_tinted, u_light, u_transparent;
 uniform vec3 u_base, u_mean, u_lamp;
 uniform float u_show, u_relief, u_slopeRange, u_detail;
 uniform mat2 u_docStep;
@@ -55,6 +55,10 @@ vec4 readHex(sampler2D tex, int octave, int seed, bool slopes) {
     return result;
 }
 void main() {
+    if (u_transparent) {
+        float cell=mod(floor(gl_FragCoord.x/8.0)+floor(gl_FragCoord.y/8.0),2.0);
+        color=vec4(vec3(mix(204.0,230.0,cell)/255.0),1.0); return;
+    }
     vec3 look=u_base;
     if (u_hasLook) {
         look=readHex(u_look,0,0,false).rgb;

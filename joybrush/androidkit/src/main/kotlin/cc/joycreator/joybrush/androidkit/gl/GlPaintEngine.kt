@@ -2,6 +2,8 @@ package cc.joycreator.joybrush.androidkit.gl
 
 import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.io.PaperResources
+import cc.joycreator.joybrush.core.doc.Paper
+import cc.joycreator.joybrush.core.paper.PaperState
 import cc.joycreator.joybrush.core.paper.ResolvedPaper
 import cc.joycreator.joybrush.core.paper.SurfaceEntry
 import cc.joycreator.joybrush.core.doc.RectPx
@@ -108,11 +110,25 @@ class GlPaintEngine(
     private var strokePaperScale = 1f
     val paperWarnings: List<String> get() = loadedPaper?.warnings ?: emptyList()
 
+    var documentPaper: Paper = Paper()
+        private set
+
+    fun setDocumentPaper(value: Paper) {
+        documentPaper = value
+        setPaper(PaperState.resolve(value, PaperResources.catalogue))
+    }
+
+    /** Same undo stream as paint; no tiles or texture ownership involved. */
+    fun recordPaperChange(before: Paper, after: Paper) {
+        check(!strokeInProgress) { "Finish the stroke before closing a paper edit" }
+        if (before != after) undo.push(UndoLog.Step(emptyList(), paperBefore=before, paperAfter=after))
+    }
+
     /** GL thread: switching paper invalidates only the background, never painted tiles. */
     fun setPaper(p: ResolvedPaper) {
         if (resolvedPaper == p && loadedPaper != null) return
+        loadedPaper = PaperResources.update(p, resolvedPaper, loadedPaper)
         resolvedPaper = p
-        loadedPaper = PaperResources.load(p)
         val effective = loadedPaper!!.paper
         lookTexture = effective.look?.file?.let { grains.textureFor(it, "paper") }
         surfaceTexture = effective.surface?.file?.let { grains.textureFor(it, "paper") }
@@ -1027,6 +1043,7 @@ class GlPaintEngine(
         val s = undo.undo() ?: return false
         s.changes.forEach { put(it.layerId, it.key, it.before) }
         s.stackBefore?.let { restoreStack(it) }
+        s.paperBefore?.let { setDocumentPaper(it) }
         return true
     }
 
@@ -1034,6 +1051,7 @@ class GlPaintEngine(
         val s = undo.redo() ?: return false
         s.changes.forEach { put(it.layerId, it.key, it.after) }
         s.stackAfter?.let { restoreStack(it) }
+        s.paperAfter?.let { setDocumentPaper(it) }
         return true
     }
 

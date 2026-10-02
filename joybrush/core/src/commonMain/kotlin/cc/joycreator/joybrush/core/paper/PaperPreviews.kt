@@ -21,7 +21,8 @@ class PaperPreviews(
     fun crop(paper: ResolvedPaper, width: Int, height: Int = width): ByteArray {
         require(width in 1..MAX_SIZE && height in 1..MAX_SIZE)
         val key = Key(paper, width, height)
-        val bytes = cache.remove(key) ?: render(paper, RectPx(0, 0, width, height)).also {
+        val bytes = cache.remove(key) ?: (if (paper.screenTransparent) checker(width,height)
+            else render(paper, RectPx(0, 0, width, height))).also {
             require(it.size == width * height * 4) { "paper preview renderer returned the wrong RGBA size" }
         }.copyOf()
         cache[key] = bytes // Reinsert hits at the end: least-recently-used entry is first.
@@ -47,7 +48,14 @@ class PaperPreviews(
         /** Background colour replaces the look/tint; it never changes brush tooth or export choice. */
         fun customColour(current: Paper, colour: String): Paper {
             require(Regex("#[0-9a-fA-F]{6}").matches(colour)) { "paper colour must be #RRGGBB" }
-            return current.copy(color = colour, lookId = null, tint = null)
+            return current.copy(color = colour, lookId = null, tint = null, screenTransparent = false)
+        }
+
+        private fun checker(w: Int, h: Int): ByteArray = ByteArray(w*h*4).also { out ->
+            for(y in 0 until h) for(x in 0 until w) {
+                val i=(y*w+x)*4; val grey=if((x/8+y/8)%2==0) 204 else 230
+                out[i]=grey.toByte();out[i+1]=grey.toByte();out[i+2]=grey.toByte();out[i+3]=255.toByte()
+            }
         }
 
         const val MAX_SIZE = 128

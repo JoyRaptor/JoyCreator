@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.core.paint
 
 import cc.joycreator.joybrush.core.layers.LayerStack
+import cc.joycreator.joybrush.core.doc.Paper
 
 /**
  * Undo/redo of tile changes, with a memory budget — shared by the GPU engine (T = a texture) and the
@@ -38,6 +39,8 @@ class UndoLog<T : Any>(
         val changes: List<TileChange<T>>,
         val stackBefore: LayerStack? = null,
         val stackAfter: LayerStack? = null,
+        val paperBefore: Paper? = null,
+        val paperAfter: Paper? = null,
     )
 
     private val undoStack = ArrayDeque<Step<T>>()
@@ -100,7 +103,9 @@ class UndoLog<T : Any>(
         // A layer change inside the batch (JB-2.04) is kept: the merged step goes from the first stack to the last.
         val stackBefore = steps.firstOrNull { it.stackBefore != null }?.stackBefore
         val stackAfter = steps.lastOrNull { it.stackAfter != null }?.stackAfter
-        undoStack.addLast(Step(merged.values.toList(), stackBefore, stackAfter))
+        undoStack.addLast(Step(merged.values.toList(), stackBefore, stackAfter,
+            steps.firstOrNull { it.paperBefore != null }?.paperBefore,
+            steps.lastOrNull { it.paperAfter != null }?.paperAfter))
         trim()
     }
 

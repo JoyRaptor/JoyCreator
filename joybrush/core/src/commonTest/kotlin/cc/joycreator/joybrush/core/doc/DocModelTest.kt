@@ -160,7 +160,7 @@ class DocModelTest {
         "\$.paper" to setOf(
             "color", "textureId", "textureScale", "includeInExport",
             // v4 (JB-9.05): the owner's paper controls. The first four are v3 and keep their names.
-            "lookId", "tint", "show", "bite", "light",
+            "lookId", "tint", "show", "bite", "light", "screenTransparent",
         ),
         "\$.boards[]" to setOf("id", "name", "kind", "rect", "clipToBoard", "fps", "frames", "grid", "tiled", "currentFrameId", "locked"),
         "\$.boards[].rect" to setOf("x", "y", "w", "h"),
@@ -703,7 +703,7 @@ class DocModelTest {
         val doc = fresh().copy(paper = everyPaperField())
         val back = DocJson.decode(DocJson.encode(doc))
         assertEquals(everyPaperField(), back.paper, "a paper must come back exactly as it went in")
-        assertEquals(6, back.version, "the codec stamps the current region document version")
+        assertEquals(7, back.version, "the codec stamps the current region document version")
         assertEquals(DOC_VERSION, back.version, "and reads it from the one constant, not a literal here")
     }
 

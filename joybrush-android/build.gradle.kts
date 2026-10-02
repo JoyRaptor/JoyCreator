@@ -19,6 +19,8 @@ android {
         minSdk = 24
     }
 
+    testOptions { unitTests.isIncludeAndroidResources = true }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -34,6 +36,8 @@ kotlin {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.17")
     // core is listed alongside androidkit on purpose: androidkit hides core behind
     // `implementation`, but JbCanvasView.Brush exposes core types (TipShape, Accumulate) and the
     // Eraser control calls Brush.copy(...), which needs those types on the compile classpath.

@@ -17,6 +17,7 @@ data class ResolvedPaper(
     val show: Float, val bite: Float,
     val light: Boolean,           // light ?: look?.lightByDefault ?: true
     val tintSet: Boolean = false, // explicit tint, including one equal to the look's base
+    val screenTransparent: Boolean = false,
 )
 
 /**
@@ -64,6 +65,7 @@ object PaperState {
             // black stay black without every document having to remember to say so.
             light = p.light ?: look?.lightByDefault ?: true,
             tintSet = p.tint != null,
+            screenTransparent = p.screenTransparent,
         )
     }
 

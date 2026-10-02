@@ -42,11 +42,23 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         fun moveLayer(id: String, toIndex: Int)
         /** The mask thumbnail was tapped: paint on the mask (or back on the layer). JB-2.23 Decision 9. */
         fun maskTapped(id: String)
+        /** Paper is a document setting, never a layer or paint target. */
+        fun openPaper(anchor: View) {}
     }
 
     private val plus = PlusCell()
+    private val paper = PaperCell()
     private val rows = LinearLayout(context).apply { orientation = VERTICAL }
-    private val scroll = ScrollView(context).apply {
+    private val scroll = object : ScrollView(context) {
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            // Reserve the final swatch before a long stack consumes the column's height limit.
+            val mode = MeasureSpec.getMode(heightMeasureSpec)
+            val available = (MeasureSpec.getSize(heightMeasureSpec) - kit.dpi(PAPER_DP)).coerceAtLeast(0)
+            val capped = if (mode == MeasureSpec.UNSPECIFIED) heightMeasureSpec
+                else MeasureSpec.makeMeasureSpec(available, mode)
+            super.onMeasure(widthMeasureSpec, capped)
+        }
+    }.apply {
         isVerticalScrollBarEnabled = false
         overScrollMode = OVER_SCROLL_NEVER
         addView(rows)
@@ -70,12 +82,20 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         addView(plus, LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(PLUS_DP)))
         // WRAP, not a weight: the column is as tall as its layers, and the screen's own limit makes the list scroll.
         addView(scroll, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        addView(paper, LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(PAPER_DP)))
         kit.label(plus, "Add a layer above this one")
         plus.setOnClickListener { host.addLayer() }
+        kit.label(paper, "Paper — tap to change")
+        paper.setOnClickListener { host.openPaper(paper) }
     }
 
     /** The column's width, for the screen to keep other things clear of it. */
     val widthPx: Int get() = kit.dpi(WIDTH_DP)
+
+    val paperAnchor: View get() = paper
+
+    /** The host renders this live crop on its preview worker; the cell never owns a bitmap. */
+    fun setPaperPreview(bitmap: Bitmap?) { paper.bitmap = bitmap; paper.invalidate() }
 
     fun show(s: LayerStack, maxLayers: Int, maskEditing: Boolean = false) {
         editingMask = maskEditing
@@ -134,6 +154,28 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     }
 
     // ── ＋ and the count ──
+
+    private inner class PaperCell : View(context) {
+        var bitmap: Bitmap? = null
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        private val box = RectF()
+        private val clip = Path()
+
+        init { isClickable = true; isFocusable = true }
+
+        override fun onDraw(c: Canvas) {
+            val w = kit.dp(CELL_W_DP).coerceAtMost(width.toFloat())
+            box.set((width - w) / 2f, kit.dp(4f), (width + w) / 2f, height - kit.dp(4f))
+            clip.reset()
+            clip.addRoundRect(box, kit.dp(6f), kit.dp(6f), Path.Direction.CW)
+            c.save()
+            c.clipPath(clip)
+            paint.color = kit.p.drawerDim
+            c.drawRect(box, paint)
+            bitmap?.takeUnless { it.isRecycled }?.let { c.drawBitmap(it, null, box, paint) }
+            c.restore()
+        }
+    }
 
     private inner class PlusCell : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -374,6 +416,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         const val CELL_W_DP = 44f
         const val CELL_MAX_H_DP = 64f
         const val PLUS_DP = 44f
+        const val PAPER_DP = 36f
         const val CLIP_INDENT_DP = 10f
     }
 }

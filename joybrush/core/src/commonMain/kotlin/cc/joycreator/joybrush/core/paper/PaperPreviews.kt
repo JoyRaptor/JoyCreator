@@ -33,6 +33,10 @@ class PaperPreviews(
     fun background(look: LookEntry, catalogue: PaperCatalogue, size: Int): ByteArray =
         crop(PaperState.resolve(Paper(lookId = look.id, textureId = look.defaultSurface), catalogue), size)
 
+    /** Preview a picker colour with the current physical surface and visible controls. */
+    fun colour(current: Paper, colour: String, catalogue: PaperCatalogue, size: Int): ByteArray =
+        crop(PaperState.resolve(customColour(current, colour), catalogue), size)
+
     /** The neutral base lets a surface be judged without a look's fibres or colour clouding it. */
     fun surface(surface: SurfaceEntry?, size: Int): ByteArray = crop(
         ResolvedPaper(surface, null, SURFACE_BASE, 1f, 1f, 1f, light = true), size)
@@ -40,6 +44,12 @@ class PaperPreviews(
     fun clear() = cache.clear()
 
     companion object {
+        /** Background colour replaces the look/tint; it never changes brush tooth or export choice. */
+        fun customColour(current: Paper, colour: String): Paper {
+            require(Regex("#[0-9a-fA-F]{6}").matches(colour)) { "paper colour must be #RRGGBB" }
+            return current.copy(color = colour, lookId = null, tint = null)
+        }
+
         const val MAX_SIZE = 128
         private const val SURFACE_BASE = -0x272728 // opaque #D8D8D8
     }

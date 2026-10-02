@@ -118,7 +118,8 @@ Structural fix for the item-19 stall: long timelines (>=12 min) now export in bo
 
 - ExportManager.export(): dispatches to exportChunked() when total >= CHUNKED_THRESHOLD_MS (720s).
 - exportChunked() step machine: video chunks 0..N-1 (sequential) -> one audio pass -> ffmpeg
-  concat+mux join -> shared inalizeExportAsync (loudness + SAF). Short timelines: legacy
+  concat+mux join -> shared 
+inalizeExportAsync (loudness + SAF). Short timelines: legacy
   path unchanged (byte-identical).
 - computeChunkRanges(): cuts at clip seams near 5 min target, never straddling transitions;
   trailing runt (<60s) merges into predecessor.
@@ -127,7 +128,8 @@ Structural fix for the item-19 stall: long timelines (>=12 min) now export in bo
   chunkVideoOnly; editorTimeOffsetForChunk keeps overlay clocks absolute.
 - uiltRangeDurationMs(): measures exact composition duration per range (no encode) so
   overlay clocks stay exact across chunks.
-- Manifest resume: iles/faditor/chunks/<project>/manifest.json + chunk*.mp4 +
+- Manifest resume: 
+iles/faditor/chunks/<project>/manifest.json + chunk*.mp4 +
   udio_full.m4a. Completed chunks survive failures/restarts (resume, not redo).
 - Progress: ChunkProgressAdapter maps per-chunk Media3 progress to overall (video 85%,
   audio 7%); onChunkPhase broadcasts "Part i of n" / "Sound" / "Joining" to UI + notification.
@@ -136,7 +138,8 @@ Structural fix for the item-19 stall: long timelines (>=12 min) now export in bo
   to the driver instead of finalizing (single loudness pass runs once, on the final mux).
 - PreTrimCache.probeVideoDurationMs(): public wrapper for chunk file validation.
 - Compile fixes: Composition.sequences / EditedMediaItemSequence.editedMediaItems (public
-  fields in Media3 1.8.0, not getters); 3 aditor_font_* strings added to strings.xml.
+  fields in Media3 1.8.0, not getters); 3 
+aditor_font_* strings added to strings.xml.
 
 NOT yet device-verified: full 48:27 proof run pending. Acceptance = project 32d24e2
 exports to a complete ~48:27 file in a SINGLE user action on the Note 20.
@@ -448,3 +451,8 @@ Review: own ShippedCatalogueTest XML5/0 at2026-10-01 23:53:04 EDT; #010101 mutat
 - [x] Commit/rebase/push; hand off catalogue and custom-colour preview support to the Lead.
 
 Review: targeted core XML9/0 at2026-10-02 00:30:38 EDT; flat-linen mutation1/9 red, restored. Actual renderer contact sheet inspected. See reviews/JB-9.10__test_set.md.
+## JB-9.07 custom colour backend
+- [x] Add picker-to-document colour choice preserving surface/settings and a real-pixel preview path.
+- [x] Verify exact colour, retained relief, cache changes and stale-tint mutation; land backend only.
+
+Review: targeted core XML21/0 at2026-10-02 00:34:06 EDT; stale-tint mutation1/21 red, restored. Lead retains swatch/selector UI. See reviews/JB-9.07__custom_colour.md.

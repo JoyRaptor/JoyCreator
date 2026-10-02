@@ -1,0 +1,138 @@
+diff --git a/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt b/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt
+index ea9d4afc..6d88929b 100644
+--- a/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt
++++ b/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt
+@@ -32,6 +32,9 @@ import androidx.core.view.ViewCompat
+ import androidx.core.view.WindowCompat
+ import androidx.core.view.WindowInsetsCompat
+ import androidx.core.view.WindowInsetsControllerCompat
++import cc.joycreator.joybrush.android.board.BoardChromeView
++import cc.joycreator.joybrush.core.chrome.BoardChromeLayout
++import cc.joycreator.joybrush.core.chrome.IconInk
+ import cc.joycreator.joybrush.android.chrome.BrushDrawerView
+ import cc.joycreator.joybrush.android.chrome.ChromeKit
+ import cc.joycreator.joybrush.android.chrome.ColourPairView
+@@ -201,6 +204,54 @@ private val fileIo = Executors.newSingleThreadExecutor()
+  */
+ class JoyBrushActivity : Activity() {
+
++    internal data class BoardChromeScene(
++        val id: String,
++        val input: BoardChromeLayout.Input,
++        val host: BoardChromeView.Host,
++        val ink: IconInk,
++        val paperColour: Int
++    )
++    internal interface BoardChromeBinding {
++        fun scenes(): List<BoardChromeScene>
++        fun rawPen(event: MotionEvent)
++        fun viewMoved()
++        fun strokeEnded()
++        fun pause()
++    }
++    private lateinit var boardChromeLayer: FrameLayout
++    private val boardChromeViews = LinkedHashMap<String, BoardChromeView>()
++    private var boardChromeBinding: BoardChromeBinding? = null
++
++    internal fun bindBoardChrome(binding: BoardChromeBinding?) {
++        boardChromeViews.values.forEach { it.stopInteractions() }
++        boardChromeBinding?.pause()
++        boardChromeBinding = binding
++        refreshBoardChrome()
++    }
++
++    internal fun refreshBoardChrome() {
++        if (!::boardChromeLayer.isInitialized) return
++        val scenes = boardChromeBinding?.scenes().orEmpty()
++        val ids = scenes.map { it.id }.toSet()
++        require(ids.size == scenes.size) { "Duplicate board chrome scene ID" }
++        boardChromeViews.keys.filter { it !in ids }.toList().forEach { id ->
++            val view = boardChromeViews.remove(id)!!
++            view.stopInteractions()
++            boardChromeLayer.removeView(view)
++        }
++        for (scene in scenes) {
++            val view = boardChromeViews.getOrPut(scene.id) {
++                BoardChromeView(this).also {
++                    boardChromeLayer.addView(it, FrameLayout.LayoutParams(MATCH, MATCH))
++                }
++            }
++            view.host = scene.host
++            view.paperInk = scene.ink
++            view.paperColour = scene.paperColour
++            view.show(scene.input)
++        }
++    }
++
+     private lateinit var canvas: JbCanvasView
+     private lateinit var undoBtn: TopButton
+     private lateinit var redoBtn: TopButton
+@@ -340,6 +391,8 @@ class JoyBrushActivity : Activity() {
+             onChanged = { next, done -> guides = next; if (done) guidesChanged() }
+         }
+         root.addView(guideOverlay, FrameLayout.LayoutParams(MATCH, MATCH))
++        boardChromeLayer = FrameLayout(this)
++        root.addView(boardChromeLayer, FrameLayout.LayoutParams(MATCH, MATCH))
+         root.addView(overlays, FrameLayout.LayoutParams(MATCH, MATCH))
+         // Joy Brush's identity, as a hairline along the very top (visual language §4.2): the section colour, never a button.
+         hairline = View(this).apply { background = JbColors.roomGradient(this@JoyBrushActivity) }
+@@ -355,12 +408,16 @@ class JoyBrushActivity : Activity() {
+         canvas.onGraphicsLost = { documentId -> recoverGraphics(documentId) }
+         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
+         // The top icons re-read the picture behind them whenever it can have changed under them.
+-        canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate() }
++        canvas.onViewMoved = {
++            checkIcons(); guideOverlay.invalidate()
++            boardChromeBinding?.viewMoved()
++            refreshBoardChrome()
++        }
+         canvas.onGuideLock = { on -> guideOverlay.locked = on }
+         guides = GuideSettings.decode(prefs.getString(PREF_GUIDES, null))
+         guidesChanged()
+         reference.onMoved = { saveReferencePlace(); checkIcons() }
+-        root.post { checkIcons() }
++        root.post { checkIcons(); refreshBoardChrome() }
+         // JbCanvasView reports this on the UI thread via post(), after every committed stroke,
+         // undo, redo and clear. Undo and Redo start disabled -- there is no history yet.
+         canvas.onHistoryChanged = { canUndo, canRedo ->
+@@ -382,6 +439,8 @@ class JoyBrushActivity : Activity() {
+                 if (ColorRecents.get(this).firstOrNull()?.let { it and 0xFFFFFF } != (c and 0xFFFFFF)) ColorRecents.push(this, c)
+             }
+             recentBar.setCurrent(canvas.strokeColor)
++            boardChromeBinding?.strokeEnded()
++            refreshBoardChrome()
+         }
+         canvas.onEyedrop = { state -> ring.setState(state) }
+         canvas.onColorPicked = { argb ->
+@@ -391,7 +450,11 @@ class JoyBrushActivity : Activity() {
+         updateHistoryButtons(false, false)
+         // JB-0.06: the diagnostics overlay sees every pen event. It only stores numbers, and only
+         // while it is visible, so drawing is untouched.
+-        canvas.onRawEvent = { ev -> diag.onRawEvent(ev) }
++        canvas.onRawEvent = { ev ->
++            diag.onRawEvent(ev)
++            boardChromeBinding?.rawPen(ev)
++            refreshBoardChrome()
++        }
+         goFullScreen(overlays)
+
+         // Where the person left off, if they left off anywhere.
+@@ -408,6 +471,8 @@ class JoyBrushActivity : Activity() {
+     }
+
+     override fun onPause() {
++        boardChromeViews.values.forEach { it.stopInteractions() }
++        boardChromeBinding?.pause()
+         stopBrushLab()
+         // GLSurfaceView DEFERS a GL event that was queued before its GL thread is paused until the
+         // next resume — and after a force-stop there is no next resume, so the autosave would never
+@@ -424,6 +489,9 @@ class JoyBrushActivity : Activity() {
+     }
+
+     override fun onDestroy() {
++        boardChromeViews.values.forEach { it.stopInteractions() }
++        boardChromeBinding?.pause()
++        boardChromeBinding = null
+         destroyed = true
+         ui.removeCallbacks(idleSave)
+         recoveryTimeout?.let { ui.removeCallbacks(it) }

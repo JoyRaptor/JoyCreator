@@ -910,3 +910,11 @@ wrong rejection as a hard-won lesson.
 
 ## 2026-10-01 — Respect the owner's limited Plus usage
 Keep delegated work focused; avoid extra agents, speculative work and repeated verification. Run required checks once and repeat only after a relevant change or failure.
+
+## Route technical decisions to the delegated Lead
+
+**Pattern:** The owner is not technical and has delegated technical judgment to the parallel JoyBrush Lead chat.
+
+**Rule:** Send implementation approvals, shared-file coordination, integration choices and technical tradeoffs to that Lead. Give him concrete patches, validation and remaining gaps. Ask the owner only for product preferences or decisions outside that delegated authority. This does not remove file locks; obtain the Lead's decision before applying a locked-file proposal.
+
+**Trigger:** The owner's 2026-10-01 correction after the board specialist asked him to approve Activity wiring.

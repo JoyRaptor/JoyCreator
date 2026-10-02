@@ -53,7 +53,7 @@ object AbrImport {
     /** Descriptor entries in one file, counted across the whole tree rather than per descriptor. */
     const val MAX_DESCRIPTOR_NODES = 200_000
 
-    /** Items in one list, and tips in one `samp`, and patterns in one `patt`. */
+    /** Items in one list, and tips in one `samp`. */
     const val MAX_LIST_ITEMS = 20_000
 
     /** A key, a class id or a string, in bytes. */

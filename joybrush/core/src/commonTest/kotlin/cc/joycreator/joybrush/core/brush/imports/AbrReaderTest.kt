@@ -180,16 +180,18 @@ class AbrReaderTest {
      * A `Brsh` list that claims three brushes and holds two: the third is **refused**, and the two it
      * really has are not thrown away with it. A count is never believed, and refusing one entry is a
      * better answer than refusing the file.
+     *
+     * The list is hand-laid because [descSection] writes a count that agrees with its entries, and
+     * this is the case where they do not: `VlLs`, count 3, and then two entries and nothing. There is
+     * no length to bound the entries with — that is the point of JB-8.01b — so the third entry runs
+     * into the end of the section and says so.
      */
     @Test
     fun aBrushListCountThatDisagreesWithTheSectionIsRefused() {
         val one = brush("a", itemOf("Brsh", computedTip(itemOf("Dmtr", longV(11)))))
         val two = brush("b", itemOf("Brsh", computedTip(itemOf("Dmtr", longV(22)))))
-        // A hand-laid list: count 3, byte length only enough for the two entries that are there.
-        val body = Bytes()
-        body.raw(one); body.raw(two)
         val list = Bytes()
-        list.ascii("VlLs"); list.u32(3); list.u32(body.size.toLong()); list.raw(body.toByteArray())
+        list.ascii("VlLs"); list.u32(3); list.raw(one); list.raw(two)
         val desc = Bytes()
         desc.u32(16); desc.raw(descriptorBody("", "null", itemOf("Brsh", list.toByteArray())))
         val read = AbrReader.read(file(desc = desc.toByteArray()))
@@ -197,6 +199,52 @@ class AbrReaderTest {
         val missing = read.brushes.filterIsInstance<AbrBrush.Unreadable>().single()
         assertTrue(missing.reason.contains("brush 3"), missing.reason)
         assertTrue(missing.reason.contains("truncated"), missing.reason)
+    }
+
+    /**
+     * The sentence that goes with a refused brush after the first one: a real list's entries cannot be
+     * skipped, so the brushes after a failure are not "lost" — they are *not findable*, and the message
+     * says that rather than repeating a reason about a different brush.
+     */
+    @Test
+    fun aBrushAfterAFailedEntrySaysTheOnesAfterItCannotBeFound() {
+        val unknown = Bytes()
+        unknown.ascii("wobb"); unknown.u32(0)
+        val read = AbrReader.read(
+            file(desc = descSection(listOf(
+                brush("First", itemOf("Brsh", computedTip(itemOf("Dmtr", longV(20))))),
+                brush("Second", itemOf("K", unknown.toByteArray())),
+                brush("Third", itemOf("Brsh", computedTip(itemOf("Dmtr", longV(20))))),
+            )))
+        )
+        assertEquals(1, read.brushes.filterIsInstance<AbrBrush.Read>().size, "${read.brushes}")
+        val refused = read.brushes.filterIsInstance<AbrBrush.Unreadable>()
+        assertEquals(2, refused.size, "${refused}")
+        assertTrue(refused[0].reason.contains("brush 2"), refused[0].reason)
+        assertTrue(
+            refused[1].reason.contains("the brushes after it cannot be found without reading it"),
+            refused[1].reason,
+        )
+        assertTrue(refused[1].reason.contains("brush 3"), refused[1].reason)
+    }
+
+    /**
+     * A `VlLs` **has no byte length**, and that is asserted rather than assumed: the bytes after the
+     * count are `Objc` (`0x4f626a63`, about 1.3 GB), which is exactly what a reader that believed a
+     * length there would have to refuse. Every real `.abr` therefore depends on this.
+     */
+    @Test
+    fun aListIsACountAndThenItsItemsAndHasNoLength() {
+        // One brush, written the way the reader expects, must read. If a length were expected after the
+        // count this would consume `Objc` and fail.
+        val read = AbrReader.read(file(desc = descSection(listOf(brush("Round", itemOf("Brsh", computedTip()))))))
+        assertEquals("Round", (read.brushes.single() as AbrBrush.Read).descriptor.text("Nm  "))
+        // And the first four bytes of the list really are the first item's type tag, not a length:
+        val list = listV(brush("Round"))
+        assertEquals(0x4f626a63L, (((list[4].toInt() and 0xFF).toLong() shl 24) or
+            ((list[5].toInt() and 0xFF).toLong() shl 16) or
+            ((list[6].toInt() and 0xFF).toLong() shl 8) or
+            (list[7].toInt() and 0xFF).toLong()), "the bytes after the count are not a length")
     }
 
     /** A signature that is not `8BIM` is not an `.abr`, and it says which four bytes it found. */
@@ -287,49 +335,103 @@ class AbrReaderTest {
      * A `samp` tip reads as a gray mean, and it reads PackBits on the way. The mean of the ramp
      * 0, 85, 170, 255 is (0 + 85 + 170 + 255) / (4 × 255) = 510 / 1020 = 0.5 exactly, so the
      * assertion below is a division, not an eyeball.
+     *
+     * The payload is a 4 × 4 tip: the table of four `u16` counts, then four PackBits rows. Each row is
+     * the 4-byte ramp packed as one literal run, which is 1 header byte + 4 data bytes = 5, so the
+     * payload is 4 × 2 + 4 × 5 = 28 bytes and that is what [AbrFile.storedBytes] must return.
      */
     @Test
     fun aSampledTipReadsAsItsGrayMean() {
-        val gray = RAMP
-        val row = packLiterals(gray)
-        val payload = Bytes()
-        repeat(4) {                                            // 4 rows of the same 4-byte ramp
-            payload.u16(row.size)
-            payload.raw(row)
-        }
+        val rows = List(4) { packLiterals(RAMP) }
+        val payload = packBitsPayload(rows)
+        assertEquals(4 * 2 + 4 * 5, payload.size, "the row-count table plus four 5-byte rows")
         val file = file(
             desc = descSection(listOf(brush("S", itemOf("Brsh", sampledTip(UUID, itemOf("Angl", longV(0))))))),
-            samp = sampSection(listOf(TipEntry(UUID, bottom = 4, right = 4, payload = payload.toByteArray()))),
+            samp = sampSection(listOf(TipEntry(UUID, bottom = 4, right = 4, payload = payload))),
         )
         val read = AbrReader.read(file)
         val tip = read.tipsById.getValue(AbrReader.normaliseId(UUID))
         assertEquals(4L, tip.width)
         assertEquals(4L, tip.height)
         assertEquals(null, tip.error)
+        assertEquals(8, tip.depth)
+        assertEquals(1, tip.compression)
         assertEquals(0.5f, read.meanAlpha(tip), 1e-6f)
         // And the stored bytes are the file's own bytes, encoding and all.
-        assertContentEquals(payload.toByteArray(), read.storedBytes(tip))
+        assertContentEquals(payload, read.storedBytes(tip))
+    }
+
+    /**
+     * The entry's **own length** is what finds the next entry, and the padding inside it is not pixels.
+     *
+     * Two tips, each with 10 zero bytes of trailing padding behind its pixels — the two real entries in
+     * `testdata-local` carry 9 and 10 such bytes. A reader that found the next entry at the end of the
+     * pixels instead would read `00 00 00 00` as an entry length of zero, stop there, and lose the
+     * second tip; a reader that put the padding into the image would give the wrong mean.
+     *
+     * The two tips have different bounds so that the assertions below can tell which is which.
+     */
+    @Test
+    fun aSampEntryEndsAtItsOwnLengthAndThePaddingIsNotPixels() {
+        val first = TipEntry(UUID, bottom = 2, right = 2, compression = 0, payload = ByteArray(4) { 255 }, trailing = 10)
+        val other = "a1b2c3d4-1122-3344-5566-778899aabbdd"
+        val second = TipEntry(other, bottom = 4, right = 4, compression = 0, payload = ByteArray(16) { 0 }, trailing = 3)
+        val read = AbrReader.read(file(samp = sampSection(listOf(first, second))))
+        assertEquals(2, read.tipsById.size, "${read.tipsById.keys}")
+        // 255 × 4 / (255 × 4) = 1, and 0 × 16 / (255 × 16) = 0: the padding is not in either mean.
+        assertEquals(1f, read.meanAlpha(read.tipsById.getValue(AbrReader.normaliseId(UUID))), 1e-6f)
+        assertEquals(0f, read.meanAlpha(read.tipsById.getValue(AbrReader.normaliseId(other))), 1e-6f)
+        // …and each stored region is exactly the pixels, 4 and 16 bytes, with no padding behind it.
+        assertEquals(4, read.storedBytes(read.tipsById.getValue(AbrReader.normaliseId(UUID))).size)
+        assertEquals(16, read.storedBytes(read.tipsById.getValue(AbrReader.normaliseId(other))).size)
+    }
+
+    /**
+     * The PackBits row counts are a **table that comes first**, and this is the assertion that would
+     * fail if they were read interleaved again.
+     *
+     * The fixture is two rows of four bytes, each row PackBits-encoded as one 5-byte literal run, so
+     * the true payload is `0005 0005` then `04 00 01 02 03` twice = 18 bytes. Read as "the count is in
+     * front of the row", the first count is `0x0400` = 1024, which no payload behind it can honour, and
+     * the tip is refused; read as a table, both rows decode and the mean is exactly 0.5.
+     */
+    @Test
+    fun packBitsRowCountsAreATableThatComesFirst() {
+        val row = packLiterals(RAMP)
+        val payload = packBitsPayload(List(2) { row })
+        assertEquals(18, payload.size, "two u16 counts plus two 5-byte rows")
+        val read = AbrReader.read(
+            file(
+                desc = descSection(listOf(brush("S", itemOf("Brsh", sampledTip(UUID))))),
+                samp = sampSection(listOf(TipEntry(UUID, bottom = 2, right = 4, payload = payload))),
+            )
+        )
+        val tip = read.tipsById.getValue(AbrReader.normaliseId(UUID))
+        assertEquals(null, tip.error, "${tip.error}")
+        assertEquals(0.5f, read.meanAlpha(tip), 1e-6f)
     }
 
     /** A `depth` this build does not read is a refusal by name, never a number that looks right. */
     @Test
     fun aTipDepthOrCompressionThisBuildDoesNotReadIsRefusedByName() {
-        // 2 × 2 tips, so the raw payload is 2 × 2 = 4 bytes and the PackBits one is a `u16` count
-        // plus one literal run of the same 4 bytes.
+        // 2 × 2 tips. The raw payload is 2 × 2 × 1 = 4 bytes at 8 bit and 8 at 16 bit
+        // (`width × height × bytesPerSample`). The PackBits payload is a table of two `u16` counts
+        // (2 × 2 = 4 bytes) followed by two 3-byte literal runs (1 header byte + 2 data bytes).
         val gray = ByteArray(2) { 128.toByte() }
-        fun with(depth: Long, compression: Long, tipError: (String?) -> Unit) {
-            val payload = Bytes()
-            if (compression == 0L) {
-                for (i in 0 until 4) payload.u8(gray[i % 2].toInt())
+        val packed = packLiterals(gray)
+        assertEquals(3, packed.size, "one literal run of 2 bytes is 1 header byte + 2 data bytes")
+        fun with(depth: Int, compression: Int, tipError: (String?) -> Unit) {
+            val stored = 4 * if (depth == 16) 2 else 1
+            val payload = if (compression == 0) {
+                ByteArray(stored) { gray[it % 2] }
             } else {
-                val row = packLiterals(gray)
-                repeat(2) { payload.u16(row.size); payload.raw(row) }
+                packBitsPayload(List(2) { packed })
             }
             val read = AbrReader.read(
                 file(
                     desc = descSection(listOf(brush("S", itemOf("Brsh", sampledTip(UUID))))),
                     samp = sampSection(
-                        listOf(TipEntry(UUID, bottom = 2, right = 2, depth = depth, compression = compression, payload = payload.toByteArray()))
+                        listOf(TipEntry(UUID, bottom = 2, right = 2, depth = depth, compression = compression, payload = payload))
                     ),
                 )
             )
@@ -337,11 +439,113 @@ class AbrReaderTest {
         }
         with(8, 0) { assertEquals(null, it) }
         with(8, 1) { assertEquals(null, it) }
+        // 16-bit raw reads. The mean it produces is in the next test, which spells the bytes out.
+        with(16, 0) { assertEquals(null, it) }
         with(32, 0) { assertTrue(it.orEmpty().contains("depth is 32"), it.orEmpty()) }
+        // 1-bit is refused too (JB-8.01b): it stores ceil(width / 8) bytes per row, and reading it as one
+        // byte per pixel gives an image eight times too wide that still decodes cleanly.
+        with(1, 0) { assertTrue(it.orEmpty().contains("depth is 1"), it.orEmpty()) }
         // Compression code 2 is zlib in the newer files, and this row refuses it rather than
         // becoming the owner of an inflater.
         with(8, 2) { assertTrue(it.orEmpty().contains("compressed with code 2"), it.orEmpty()) }
     }
+
+    /** A 16-bit raw tip: the high byte of each `u16` is the sample, and the mean says so. */
+    @Test
+    fun aSixteenBitTipContributesItsHighByte() {
+        // 0x807F, 0x7F80, 0x0080, 0xFF00 read as samples 0x80, 0x7F, 0x00, 0xFF: the same ramp, reversed
+        // halves. Their mean is (128 + 127 + 0 + 255) / (4 × 255) = 510 / 1020 = 0.5 exactly, and a
+        // reader that kept both bytes would average the low bytes too and get something else.
+        val payload = Bytes().also {
+            it.u16(0x807F); it.u16(0x7F80); it.u16(0x0080); it.u16(0xFF00)
+        }.toByteArray()
+        val read = AbrReader.read(
+            file(
+                desc = descSection(listOf(brush("S", itemOf("Brsh", sampledTip(UUID))))),
+                samp = sampSection(listOf(TipEntry(UUID, bottom = 2, right = 2, depth = 16, compression = 0, payload = payload))),
+            )
+        )
+        val tip = read.tipsById.getValue(AbrReader.normaliseId(UUID))
+        assertEquals(null, tip.error, "${tip.error}")
+        assertEquals(0.5f, read.meanAlpha(tip), 1e-6f)
+    }
+
+    /**
+     * A sub-version this build does not read is a file fault in words (ag-psd `abr.ts:527` refuses it
+     * too). The two sub-versions are the only two `samp` preambles this reader knows — 10 bytes and
+     * 264 — and reading one as the other puts every tip's bounds 254 bytes off.
+     */
+    @Test
+    fun anUnknownSubVersionIsRefusedAndNamed() {
+        for (sub in listOf(0, 3, 9, 255)) {
+            val thrown = assertFailsWith<BrushException>("sub-version $sub") {
+                AbrReader.read(file(subVersion = sub, desc = descSection(listOf(brush("x")))))
+            }
+            assertTrue(thrown.message.orEmpty().contains("sub-version $sub"), thrown.message.orEmpty())
+        }
+        // Both real sub-versions read. Sub-version 2 is the 264-byte preamble, and both files in the
+        // real corpus are version 6 or 10, sub-version 2.
+        for (sub in listOf(1, 2)) {
+            AbrReader.read(
+                file(
+                    subVersion = sub,
+                    desc = descSection(listOf(brush("x", itemOf("Brsh", sampledTip(UUID))))),
+                    samp = sampSection(listOf(TipEntry(UUID, bottom = 1, right = 1, compression = 0, payload = byteArrayOf(7), preamble = if (sub == 1) 10 else 264))),
+                )
+            )
+        }
+    }
+
+    /**
+     * A Unicode string is NUL-terminated and the terminator is counted, so every name in a real file
+     * is one character longer than the name it holds. `"Round\0"` must read as `"Round"`, because a
+     * name that still carries a NUL becomes a folder name with a NUL in it.
+     *
+     * A NUL in the *middle* is the artist's character and stays: only trailing ones go.
+     */
+    @Test
+    fun aNulTerminatedNameIsReadWithoutItsTerminator() {
+        assertEquals("Round", AbrReader.readUnicode(cursorOver(nulString("Round"))))
+        assertEquals("", AbrReader.readUnicode(cursorOver(nulString(""))))
+        // Two terminators, which is what a writer that pads to a boundary would produce.
+        assertEquals("Round", AbrReader.readUnicode(cursorOver(nulString("Round", terminators = 2))))
+        // A NUL in the middle is the artist's character and stays; only trailing ones go.
+        val middle = "Ro${nulCharacter}und"
+        assertEquals(middle, AbrReader.readUnicode(cursorOver(nulString(middle))))
+        // And through the whole reader, because this is the one place ag-psd's `data.json` and this
+        // build disagree about the same bytes: it says "Soft Round" for a name stored as "Soft Round\0".
+        val read = AbrReader.read(
+            file(desc = descSection(listOf(
+                Bytes().also {
+                    it.ascii("Objc")
+                    it.raw(descriptorBody("", "null", itemOf("Nm  ", nulTerminatedText("Soft Round"))))
+                }.toByteArray()
+            )))
+        )
+        assertEquals("Soft Round", (read.brushes.single() as AbrBrush.Read).descriptor.text("Nm  "))
+    }
+
+    /** Spelled out, not written as a literal, so nothing can turn it into an invisible byte. */
+    private val nulCharacter: String = "\\u0000"
+
+    /**
+     * A Unicode string as a `samp`/`desc` entry stores it: a `u32` character count **that includes the
+     * NUL terminator**, then that many 16-bit units.
+     */
+    private fun nulString(s: String, terminators: Int = 1): ByteArray = Bytes().also {
+        it.u32((s.length + terminators).toLong())
+        for (c in s) it.u16(c.code)
+        repeat(terminators) { it.u16(0) }
+    }.toByteArray()
+
+    /** The same string as a `TEXT` descriptor value, which is what an item's value has to be. */
+    private fun nulTerminatedText(s: String, terminators: Int = 1): ByteArray =
+        Bytes().also {
+            it.ascii("TEXT")
+            it.raw(nulString(s, terminators))
+        }.toByteArray()
+
+    private fun cursorOver(bytes: ByteArray): AbrCursor = AbrCursor(bytes, 0, bytes.size, "test")
 
     // ---- the descriptor layer ------------------------------------------------------------------------
 
@@ -513,26 +717,35 @@ internal fun enumV(type: String, value: String): ByteArray = Bytes().also {
 internal fun textV(s: String): ByteArray =
     Bytes().also { it.ascii("TEXT"); it.u32(s.length.toLong()); for (c in s) it.u16(c.code) }.toByteArray()
 
-/** A `VlLs`: an item count, a byte length, then each item with its own type. */
+/**
+ * A `VlLs`: an item count, then each item with its own four-character type in front of it.
+ *
+ * **There is no byte length after the count** (ag-psd `descriptor.ts:488-499`, and the four real
+ * `.abr` files). The previous version of this builder wrote one, because the reader used to read one;
+ * every fixture built from it was a file Photoshop could not have written. The section's own end is
+ * the bound, and [AbrCursor] refuses to read past it.
+ */
 internal fun listV(vararg values: ByteArray): ByteArray {
-    val body = Bytes()
-    for (v in values) body.raw(v)
-    return Bytes().also {
-        it.ascii("VlLs"); it.u32(values.size.toLong()); it.u32(body.size.toLong()); it.raw(body.toByteArray())
-    }.toByteArray()
+    val out = Bytes()
+    out.ascii("VlLs")
+    out.u32(values.size.toLong())
+    for (v in values) out.raw(v)
+    return out.toByteArray()
 }
 
 /** A list of [n] `bool`s, the cheapest 5 bytes per node in the whole format. */
 internal fun boolList(n: Int): ByteArray {
+    val out = Bytes()
+    out.ascii("VlLs")
+    out.u32(n.toLong())
     val body = ByteArray(n * 5)
     for (i in 0 until n) {
         body[i * 5] = 'b'.code.toByte(); body[i * 5 + 1] = 'o'.code.toByte()
         body[i * 5 + 2] = 'o'.code.toByte(); body[i * 5 + 3] = 'l'.code.toByte()
         body[i * 5 + 4] = 1
     }
-    return Bytes().also {
-        it.ascii("VlLs"); it.u32(n.toLong()); it.u32(body.size.toLong()); it.raw(body)
-    }.toByteArray()
+    out.raw(body)
+    return out.toByteArray()
 }
 
 /**
@@ -583,38 +796,88 @@ internal fun descSection(brushes: List<ByteArray>, version: Long = 16): ByteArra
         it.raw(descriptorBody("", "null", itemOf("Brsh", listV(*brushes.toTypedArray()))))
     }.toByteArray()
 
-/** One `samp` entry: a Pascal id, a fixed preamble, four `i32` bounds, depth, compression, pixels. */
+/**
+ * One `samp` entry, written the way a real one is (ag-psd `abr.ts:536-582`, checked byte for byte
+ * against `testdata-local/abr/sample-and-pattern` and `…/special`):
+ *
+ *     u32 length, rounded up to a multiple of 4   ← everything behind it
+ *     u8 idLength + id
+ *     the sub-version's preamble: 10 bytes, or 264 for sub-version 2
+ *     i32 top, left, bottom, right
+ *     i16 depth, u8 compression
+ *     the payload
+ *
+ * The previous version of this builder wrote no entry length and derived the bounds' position from a
+ * hard-coded offset counted from the entry's first byte, and wrote `depth` and `compression` as two
+ * `u32`s. All three were wrong, and no real file could have been produced by them.
+ */
 internal class TipEntry(
     val id: String,
     val top: Int = 0,
     val left: Int = 0,
     val bottom: Int,
     val right: Int,
-    val depth: Long = 8,
-    val compression: Long = 1,
+    val depth: Int = 8,
+    val compression: Int = 1,
     val payload: ByteArray,
-    val preamble: Int = 47,
+    /** Preamble bytes counted from the first byte after the id: 10, or 264 for sub-version 2. */
+    val preamble: Int = 10,
+    /**
+     * Padding written behind the payload, still inside the declared length. The two real entries carry
+     * 9 and 10 such bytes, so a fixture may too; the reader must find the next entry at the declared
+     * length and not at the end of the payload.
+     */
+    val trailing: Int = 0,
 )
 
 internal fun sampSection(entries: List<TipEntry>): ByteArray = Bytes().also { section ->
     for (e in entries) {
-        val entry = Bytes()
-        entry.u8(e.id.length); entry.ascii(e.id)
-        while (entry.size < e.preamble) entry.u8(0)
-        entry.i32(e.top); entry.i32(e.left); entry.i32(e.bottom); entry.i32(e.right)
-        entry.u32(e.depth); entry.u32(e.compression)
-        entry.raw(e.payload)
-        repeat(8) { entry.u8(0) }              // R4 §B.1: some versions append 8 trailing bytes
-        section.raw(entry.toByteArray())
+        val body = Bytes()
+        body.u8(e.id.length); body.ascii(e.id)
+        body.raw(ByteArray(e.preamble))
+        body.i32(e.top); body.i32(e.left); body.i32(e.bottom); body.i32(e.right)
+        body.u16(e.depth); body.u8(e.compression)
+        body.raw(e.payload)
+        body.raw(ByteArray(e.trailing))
+        var length = body.size.toLong()
+        while ((length and 3L) != 0L) length++
+        section.u32(length)
+        section.raw(body.toByteArray())
+        // The padding the length promises but the body does not carry, so the fixture is honest about
+        // where the next entry starts.
+        section.raw(ByteArray((length - body.size).toInt()))
     }
 }.toByteArray()
 
-/** One `patt` record: a `u32` length, a `u8`-length id, then whatever the record holds. */
-internal fun patternRecord(id: String, body: ByteArray = ByteArray(0)): ByteArray = Bytes().also {
-    it.u32((1 + id.length + body.size).toLong())
-    it.u8(id.length); it.ascii(id); it.raw(body)
+/**
+ * A PackBits `samp` payload: **`height` u16 row byte counts, then that many bytes per row.**
+ *
+ * The counts form a table that comes *before* any row. The previous version of this builder put each
+ * row's count immediately in front of that row, which is the interleaved form; against the real files
+ * that reads the first row's tail as the second row's header and every row after the first decodes as
+ * noise. Checked against `sample-and-pattern`, whose table is `0008 000f 0016 001b …` and whose 105
+ * rows all decode to exactly 112 bytes.
+ */
+internal fun packBitsPayload(rows: List<ByteArray>): ByteArray = Bytes().also { out ->
+    for (r in rows) out.u16(r.size)
+    for (r in rows) out.raw(r)
 }.toByteArray()
 
+/**
+ * The bytes of one `patt` record — **deliberately not modelled**.
+ *
+ * JB-8.01b stopped parsing the `patt` section (the spec for that row says to skip it by its declared
+ * length; patterns are JB-1.05d's business, not this row's), and the previous version of this builder
+ * invented a layout for it — a `u32` length then a `u8`-length id — exactly as the reader used to
+ * invent one. No real `.abr` record has been shown to have that shape, so a fixture that writes it is
+ * a second lie about the format in the same file as the lie this row removed. What a fixture needs is
+ * only "a `patt` section this build skips", so this is [body] with a recognisable id in it.
+ */
+internal fun patternRecord(id: String, body: ByteArray = ByteArray(0)): ByteArray = Bytes().also {
+    it.raw(keyWithLength(id)); it.raw(body)
+}.toByteArray()
+
+/** A `patt` section: the records concatenated, and skipped whole by the reader. */
 internal fun pattSection(records: List<ByteArray>): ByteArray = Bytes().also {
     for (r in records) it.raw(r)
 }.toByteArray()

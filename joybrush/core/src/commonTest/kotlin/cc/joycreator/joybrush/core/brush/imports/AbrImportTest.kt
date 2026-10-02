@@ -25,14 +25,13 @@ class AbrImportTest {
     // ---- 6. the whole pack, end to end ----------------------------------------------------------------
 
     /**
-     * A pack with a computed tip, a sampled tip, a texture pattern and a `patt` record, imported in one
+     * A pack with a computed tip, a sampled tip, a texture pattern and a `patt` section, imported in one
      * `convert` call.
      *
-     * **What this test cannot do, said out loud:** the spec asks for one *real* `.abr` pasted as a
-     * base64 constant. This build has no `.abr` to paste — there is none in the repo, and the sandbox
-     * cannot fetch a binary — so the end-to-end case is a synthetic pack covering the same panels.
-     * That is a real gap and it is in the report: **the reader has not been run against a file
-     * Photoshop wrote.**
+     * **What this test cannot do, said out loud:** the bytes are still hand-built. The *real* `.abr`
+     * files are the local, git-ignored corpus, and since JB-8.01b they are read by
+     * `AbrRealFilesTest` (jvmTest) against ag-psd's own `data.json` — this test is the one that covers
+     * the panels, and that one covers the bytes.
      *
      * Non-vacuity: `brushes.isNotEmpty()`, and every preset is checked by `BrushValidate.validate`
      * returning **empty**, not "no worse than before".
@@ -609,10 +608,9 @@ class AbrImportTest {
         val pointer = Bytes()
         pointer.ascii("obj "); pointer.ascii("prop"); pointer.u32(0)
         val real = brush("Pointed", itemOf("Brsh", computedTip(itemOf("Dmtr", longV(20)))))
-        val body = Bytes()
-        body.raw(real); body.raw(pointer.toByteArray())
+        // A list is a count and then its items: no byte length (JB-8.01b).
         val list = Bytes()
-        list.ascii("VlLs"); list.u32(2); list.u32(body.size.toLong()); list.raw(body.toByteArray())
+        list.ascii("VlLs"); list.u32(2); list.raw(real); list.raw(pointer.toByteArray())
         val desc = Bytes()
         desc.u32(16); desc.raw(descriptorBody("", "null", itemOf("Brsh", list.toByteArray())))
         val library = AbrImport.convert(file(desc = desc.toByteArray()), "pack")
@@ -959,19 +957,27 @@ class AbrImportTest {
          * 0, 85, 170, 255 is 0, 1/3, 2/3, 1 of 255, so the mean of a row is exactly 0.5 — which is
          * what makes the hardness assertions elsewhere in this file arithmetic rather than an
          * eyeball.
+         *
+         * The PackBits payload is a **table of `u16` row byte counts followed by the rows** (JB-8.01b).
+         * A 4-byte row is one 5-byte literal run, so a 4 × 4 PackBits tip is 4 × 2 + 4 × 5 = 28 bytes,
+         * and a raw one is 4 × 4 = 16.
          */
-        fun packBitsTip(uuid: String, width: Int, height: Int, compression: Long = 1): TipEntry {
-            val row = packLiterals(ByteArray(width) { RAMP[it % 4] })
-            val payload = Bytes()
-            repeat(height) {
-                if (compression == 0L) {
-                    for (i in 0 until width) payload.u8(RAMP[i % 4].toInt() and 0xFF)
-                } else {
-                    payload.u16(row.size)
-                    payload.raw(row)
-                }
+        fun packBitsTip(uuid: String, width: Int, height: Int, compression: Int = 1): TipEntry {
+            val payload = if (compression == 0) {
+                Bytes().also {
+                    for (row in 0 until height) for (i in 0 until width) it.u8(RAMP[i % 4].toInt() and 0xFF)
+                }.toByteArray()
+            } else {
+                val row = packLiterals(ByteArray(width) { RAMP[it % 4] })
+                packBitsPayload(List(height) { row })
             }
-            return TipEntry(uuid, bottom = height, right = width, compression = compression, payload = payload.toByteArray())
+            return TipEntry(
+                uuid,
+                bottom = height,
+                right = width,
+                compression = compression,
+                payload = payload,
+            )
         }
 
         /**

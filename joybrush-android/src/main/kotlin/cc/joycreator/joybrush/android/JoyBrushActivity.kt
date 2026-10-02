@@ -978,7 +978,10 @@ class JoyBrushActivity : Activity() {
         paperPreviewWorker.execute {
             if (destroyed || revision != paperPreviewRevision) return@execute
             try {
-                val swatch = paperBitmap(paperPreviews.crop(resolved, 64, 32), 64, 32)
+                // Square, because LayerColumnView's paper swatch is a circle and PaperPreviews
+                // documents "the UI clips a returned square to a circle". 64x32 stretched the
+                // texture 2:1 inside the circle. Caught by the brush specialist.
+                val swatch = paperBitmap(paperPreviews.crop(resolved, 64), 64, 64)
                 ui.post {
                     if (!destroyed && revision == paperPreviewRevision) column.setPaperPreview(swatch)
                 }

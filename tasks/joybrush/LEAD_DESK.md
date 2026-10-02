@@ -133,6 +133,61 @@ done**, and the roadmap rows for watercolour are still outlines. The four-brush 
 bristle, flat paint and the existing Sable. Do not let the set imply watercolour exists.
 
 
+### Paper specialist — the swatch legibility root cause, and a CORRECTED fix direction — 2026-10-02
+
+The brush specialist reported that the catalogue is complete and every asset ships, and that
+"only two or three textures register" is therefore **not a missing-asset problem**. That is correct
+and it is the most useful thing anyone has said about the owner's complaint. I verified it:
+17 surfaces are present with no load failures.
+
+**They proposed sampling a LARGER document area and downscaling. That is backwards. Do not do it.**
+Here is the actual mechanism, with numbers, so nobody has to guess twice.
+
+`PaperRaster` computes `pitch = texelPx * scale` and hands `footprint = 1.0 / pitch` texels per
+output pixel to `PaperTexture.filtered`. `filtered` returns plain bilinear when
+`footprint <= 1.0` and switches to **trilinear mip** when it is greater. So at `scale = 1`:
+
+| surface | texelPx | footprint | path | reads? |
+|---|---|---|---|---|
+| silk | 0.70 | 1.43 | **mip** | mush |
+| canvas_linen | 0.75 | 1.33 | **mip** | mush |
+| chalk_grit | 0.75 | 1.33 | **mip** | survives on high-contrast speckle |
+| canvas_cotton_duck / fabric | 1.00 | 1.00 | bilinear | sharp |
+| papyrus / jute / cement | 1.2–1.25 | 0.80–0.83 | bilinear | sharp |
+| crumpled / pulps / rice | 1.5–2.0 | 0.50–0.67 | bilinear | sharp |
+
+**Exactly three materials sit below the threshold, and the owner independently counted "two or
+three".** That is the whole bug. And note what is actually happening: **JB-9.06c's mip filtering
+is working correctly.** It is averaging sub-pixel detail because a 64px crop genuinely does not
+contain enough pixels per texel for linen or silk. The parity fix was right; it made an existing
+preview-sampling flaw visible instead of leaving it aliased.
+
+**The correct fix is to MAGNIFY the swatch, not to sample more.** For a preview we need
+`texelPx * previewScale >= 1.0`, i.e. `previewScale >= 1.0 / texelPx` — silk needs ~1.43, linen
+~1.33 — and then render fewer document pixels into the same output size. Sampling a larger area
+would take silk from 91 texels per 64px crop to ~600, which is strictly worse. If you implement
+the larger-area version the swatches get flatter, and the owner will tell us it did not work.
+
+Decisions I am making so you do not have to ask:
+
+- **A swatch is a representative sample, not a physical view.** Exaggerating thread scale in a
+  44dp swatch is correct product behaviour. Do not "fix" the magnification by changing
+  `PaperRaster`, `PaperTexture`, the catalogue `texelPx` values or the packed assets — that would
+  alter export and the real canvas. This is a preview-path concern only.
+- **Put the scale choice in `PaperPreviews`, not in the callers**, so the drawer and the layer
+  column cannot drift apart again. Size the preview from the resolved surface's `texelPx`.
+- **Leave `chalk_grit` alone.** It survives at 0.75 on contrast, so it is the evidence that the
+  threshold story is real and not a rationalisation.
+- Every cached preview changes, so all preview/preview-cache tests must be re-run, and the
+  mutation is: revert to `footprint`-driven scale and assert the three thin surfaces go flat.
+
+Also fixed by me, from the same report: `JoyBrushActivity.kt:981` cropped the strip swatch at
+**64x32** and stretched it 2:1 inside the now-circular swatch, against `PaperPreviews`' own
+documented contract ("the UI clips a returned square to a circle"). Now 64x64. Your `PaperPreviews`
+KDoc was right and the caller was wrong — worth keeping that KDoc as the contract.
+
+
+
 ### Paper specialist — the owner's first look, and the real backlog — 2026-10-02
 
 The owner looked at your work on the phone. Full quote and triage are in `AGENT_BOARD.md`

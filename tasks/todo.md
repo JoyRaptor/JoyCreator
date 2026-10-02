@@ -443,6 +443,8 @@ Review: own ShippedCatalogueTest XML5/0 at2026-10-01 23:53:04 EDT; #010101 mutat
 - [x] Land the tooling fix (d6c43dab) and attempt main fast-forward (refused divergence; untouched).
 
 ## JB-9.10 owner test surfaces
-- [ ] Pack three existing canvas heights and two deterministic pulp grades; add neutral selectable backgrounds and source notes.
-- [ ] Verify shipped RGBA against Kotlin packing, real brush coverage and preview pixels; mutate a height map and restore.
-- [ ] Commit/rebase/push; hand off catalogue and custom-colour preview support to the Lead.
+- [x] Pack three existing canvas heights and two deterministic pulp grades; add neutral selectable backgrounds and source notes.
+- [x] Verify shipped RGBA against Kotlin packing, real brush coverage and preview pixels; mutate a height map and restore.
+- [x] Commit/rebase/push; hand off catalogue and custom-colour preview support to the Lead.
+
+Review: targeted core XML9/0 at2026-10-02 00:30:38 EDT; flat-linen mutation1/9 red, restored. Actual renderer contact sheet inspected. See reviews/JB-9.10__test_set.md.

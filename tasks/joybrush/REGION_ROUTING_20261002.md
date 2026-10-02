@@ -10,7 +10,7 @@ Claim recorded in main tasks/LANES.md; protected Activity/engine and document sc
 - [x] Partition boundary tiles into pixel-exact current-frame and shared-canvas rectangles.
 - [x] Add independent edge, negative-coordinate, multi-board, coverage and byte-preservation tests.
 - [x] Run core tests under the shared build lock; record counts and mutation proof.
-- [ ] Commit/push the core foundation and record the adapter contract for engine integration.
+- [x] Commit/push the core foundation and record the adapter contract for engine integration.
 
 ## Contract
 
@@ -46,6 +46,13 @@ zero failures/errors/skips, in 1m22s. Lock released and primary watcher restarte
 app/phone proof claimed. The redundant worktree todo entry was retained outside Git and removed
 from this source-only landing; this document holds the plan and review so shared todo edits do
 not create another integration conflict.
+
+Latest paper commits through d6c43dab merged cleanly in this isolated worktree after read-only
+merge-tree preflight. Combined core rerun passed in 1m53s: 1,458 tests, zero failures/errors/skips
+(paper added one catalogue test). No production paper/core source changed in that refresh.
+Foundation commit 15af73f5, integration commit 529a8381; backup branch codex/region-routing.
+This clean isolated integration does not resolve the primary tree's divergent board spec or
+land its legacy frame foundation. Both remain preserved separately for the later adapter work.
 
 ## Integration safety decisions
 

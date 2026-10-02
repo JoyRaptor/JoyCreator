@@ -8,7 +8,7 @@ const val DOC_FORMAT = "joybrush.document"
  * 4: the paper carries a look, a tint and two sliders (JB-9.05, R10).
  * 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48).
  */
-const val DOC_VERSION = 4
+const val DOC_VERSION = 5
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -103,6 +103,8 @@ const val TILE_SIZE = Tiles.SIZE
     val fps: Float = 12f,                   // ANIMATION only
     val frames: List<Frame> = emptyList(),  // ANIMATION only, in play order
     val grid: SpriteGrid? = null,           // SPRITE only
+    /** §K10 display identity: set by the first wrapped stroke, retained after disarm. Version 5. */
+    val tiled: Boolean = false,
 )
 
 /**

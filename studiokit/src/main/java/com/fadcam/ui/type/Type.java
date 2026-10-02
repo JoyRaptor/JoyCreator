@@ -8,7 +8,7 @@ import android.widget.TextView;
 
 import androidx.core.content.res.ResourcesCompat;
 
-import com.fadcam.R;
+import com.fadcam.studiokit.R;
 
 /**
  * JOY CREATOR'S VOICE.

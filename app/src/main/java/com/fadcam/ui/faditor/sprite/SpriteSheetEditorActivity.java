@@ -254,7 +254,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private LinearLayout filmRow;
     private TextView rollHint;
     private HorizontalScrollView filmScroll;
-    private ScrubBar scrubBar;
+    private WeightedScrubBar scrubBar;
     private TextView saveBtn;
     private final java.util.Map<String, TextView> navBtns = new java.util.LinkedHashMap<>();
     private final java.util.Set<String> openGroups =
@@ -333,7 +333,12 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
         root.addView(buildTransport(d));
 
-        scrubBar = new ScrubBar(this);
+        scrubBar = new WeightedScrubBar(this, new WeightedScrubBar.Model() {
+            public int size() { return labSeq.size(); }
+            public int holdAt(int i) { return labSeq.get(i)[1]; }
+            public int currentIndex() { return labCur; }
+            public void onScrub(int i, boolean finished) { labCur = i; focusRoll(i, finished); }
+        }, SpriteTheme.LIVE, Studio.OFF);
         LinearLayout.LayoutParams sLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, (int) (20 * d));
         sLp.leftMargin = pad; sLp.rightMargin = pad; sLp.bottomMargin = (int) (5 * d);
@@ -3179,7 +3184,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             chip.setOnClickListener(v -> focusRoll(idx, true));
             chip.setOnLongClickListener(v -> { beginRollDrag(idx, chip); return true; });
             chip.setOnTouchListener((v, e) -> {
-                if (rollDragFrom != idx) return false;   // not lifted: tap and long-press as usual
+                if (rollDrag == null || !rollDrag.isDragging(idx)) return false;   // not lifted: tap and long-press as usual
                 switch (e.getActionMasked()) {
                     case MotionEvent.ACTION_MOVE:
                         moveRollDrag(e.getRawX(), e.getRawY());
@@ -3212,103 +3217,55 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     // only way to reach the far end of one.
 
     @Nullable private FilmStrip.DropRow filmFrames;
-    private int rollDragFrom = -1;
-    private int rollDropAt = -1;
-    @Nullable private View rollDragView;
-    private float rollDragStartX, rollDragStartY;
-    private boolean rollWillRemove;
+    @Nullable private RollDragController rollDrag;
 
     private void beginRollDrag(int index, @NonNull View chip) {
-        rollDragFrom = index;
-        rollDropAt = index;
-        rollDragView = chip;
-        rollWillRemove = false;
-        int[] at = new int[2];
-        chip.getLocationOnScreen(at);
-        rollDragStartX = at[0] + chip.getWidth() / 2f;
-        rollDragStartY = at[1] + chip.getHeight() / 2f;
-        chip.setScaleX(1.12f);
-        chip.setScaleY(1.12f);
-        chip.setElevation(12 * density());
+        if (filmFrames == null || filmScroll == null) return;
+        rollDrag = new RollDragController(new RollDragController.Bounds() {
+            public int size() { return filmFrames.getChildCount(); }
+            private float[] centre(int i) {
+                View c = filmFrames.getChildAt(i);
+                int[] at = new int[2]; c.getLocationOnScreen(at);
+                return new float[] {at[0] - c.getTranslationX() + c.getWidth() / 2f,
+                    at[1] - c.getTranslationY() + c.getHeight() / 2f};
+            }
+            public float centerX(int i) { return centre(i)[0]; }
+            public float centerY(int i) { return centre(i)[1]; }
+            public float height(int i) { return filmFrames.getChildAt(i).getHeight(); }
+            public float viewportLeft() { int[] at = new int[2]; filmScroll.getLocationOnScreen(at); return at[0]; }
+            public float viewportRight() { return viewportLeft() + filmScroll.getWidth(); }
+            public void scrollBy(int pixels) { filmScroll.scrollBy(pixels, 0); }
+        }, new RollDragController.Listener() {
+            public void onLift(int i, float dx, float dy, boolean removing) {
+                boolean active = rollDrag != null && rollDrag.isDragging(i);
+                chip.setScaleX(active ? 1.12f : 1f); chip.setScaleY(active ? 1.12f : 1f);
+                chip.setElevation(active ? 12 * density() : 0);
+                chip.setTranslationX(dx); chip.setTranslationY(dy);
+                chip.setAlpha(removing ? 0.55f : 1f);
+            }
+            public void onGap(int gap) { filmFrames.setDropAt(gap); }
+            public void onHint(boolean active, boolean removing) {
+                if (rollHint == null) return;
+                rollHint.setVisibility(active ? View.VISIBLE : View.INVISIBLE);
+                rollHint.setText(removing ? "Release to remove this frame"
+                        : "Drag sideways to reorder \u00b7 up to remove");
+                tintToggle(rollHint, removing, SpriteTheme.LIVE);
+            }
+            public void onDrop(int from, int gap, boolean remove) { applyRollDrop(from, gap, remove); }
+        }, density());
+        rollDrag.begin(index);
         if (chip.getParent() != null) chip.getParent().requestDisallowInterceptTouchEvent(true);
-        if (filmFrames != null) filmFrames.setDropAt(index);
         chip.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
-        if (rollHint != null) rollHint.setVisibility(View.VISIBLE);
-        if (filmScroll != null) filmScroll.requestDisallowInterceptTouchEvent(true);
+        filmScroll.requestDisallowInterceptTouchEvent(true);
     }
-
     private void moveRollDrag(float rawX, float rawY) {
-        View chip = rollDragView;
-        if (chip == null || filmFrames == null) return;
-        chip.setTranslationX(rawX - rollDragStartX);
-        chip.setTranslationY(rawY - rollDragStartY);
-
-        // Far enough above the strip and it is a removal, not a move.
-        rollWillRemove = rawY < rollDragStartY - chip.getHeight();
-        chip.setAlpha(rollWillRemove ? 0.55f : 1f);
-        if (rollWillRemove) {
-            rollDropAt = -1;
-            filmFrames.setDropAt(-1);
-        } else {
-            // Keep it, do not merely draw it. Passing the gap straight to the view and never
-            // storing it made the drop line perfect and the reorder a no-op every time.
-            rollDropAt = dropIndexFor(rawX);
-            filmFrames.setDropAt(rollDropAt);
-        }
-        autoScrollFilm(rawX);
-        if (rollHint != null) {
-            rollHint.setText(rollWillRemove ? "Release to remove this frame"
-                    : "Drag sideways to reorder \u00b7 up to remove");
-            tintToggle(rollHint, rollWillRemove, SpriteTheme.LIVE);
-        }
+        if (rollDrag != null) rollDrag.move(rawX, rawY);
     }
-
-    /**
-     * Nudge the strip when the finger reaches its edge.
-     *
-     * <p>Without this, a roll longer than the screen cannot have a frame moved past the visible
-     * window at all — you would have to drop it, scroll, and pick it up again.</p>
-     */
-    private void autoScrollFilm(float rawX) {
-        if (filmScroll == null) return;
-        int[] at = new int[2];
-        filmScroll.getLocationOnScreen(at);
-        float edge = 44 * density();
-        float left = at[0], right = at[0] + filmScroll.getWidth();
-        if (rawX < left + edge) filmScroll.scrollBy((int) (-12 * density()), 0);
-        else if (rawX > right - edge) filmScroll.scrollBy((int) (12 * density()), 0);
-    }
-
-    /** Which gap a finger at {@code rawX} is over: 0..size, where size means "past the end". */
-    private int dropIndexFor(float rawX) {
-        if (filmFrames == null) return rollDragFrom;
-        int[] at = new int[2];
-        for (int i = 0; i < filmFrames.getChildCount(); i++) {
-            View c = filmFrames.getChildAt(i);
-            c.getLocationOnScreen(at);
-            if (rawX < at[0] + c.getWidth() / 2f) return i;
-        }
-        return filmFrames.getChildCount();
-    }
-
     private void endRollDrag(boolean commit) {
-        View chip = rollDragView;
-        int from = rollDragFrom;
-        boolean remove = rollWillRemove;
-        int to = rollDropAt;
-        rollDragFrom = -1;
-        rollDropAt = -1;
-        rollDragView = null;
-        rollWillRemove = false;
-        if (filmFrames != null) filmFrames.setDropAt(-1);
-        if (rollHint != null) rollHint.setVisibility(View.INVISIBLE);
-        if (chip != null) {
-            chip.setScaleX(1f); chip.setScaleY(1f);
-            chip.setTranslationX(0); chip.setTranslationY(0);
-            chip.setAlpha(1f);
-            chip.setElevation(0f);
-        }
-        if (!commit || from < 0 || from >= labSeq.size()) return;
+        if (rollDrag != null) rollDrag.end(commit);
+    }
+    private void applyRollDrop(int from, int to, boolean remove) {
+        if (from < 0 || from >= labSeq.size()) return;
         if (!remove && to < 0) return;
 
         if (remove) {
@@ -3563,127 +3520,6 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 ch.layout(x, y, x + ch.getMeasuredWidth(), y + ch.getMeasuredHeight());
                 x += ch.getMeasuredWidth() + gap;
                 rowH = Math.max(rowH, ch.getMeasuredHeight());
-            }
-        }
-    }
-
-    /** Weighted scrub: each frame's width is its hold, so a ×4 reads four times as wide. */
-    private class ScrubBar extends View {
-        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        ScrubBar(Context c) { super(c); }
-        @Override protected void onDraw(Canvas canvas) {
-            if (labSeq.isEmpty()) return;
-            int total = 0;
-            for (int[] f : labSeq) total += Math.max(1, f[1]);
-            float x = 0, w = getWidth();
-            for (int i = 0; i < labSeq.size(); i++) {
-                float seg = w * Math.max(1, labSeq.get(i)[1]) / (float) total;
-                p.setColor(i == labCur ? SpriteTheme.LIVE : Studio.OFF);
-                canvas.drawRect(x + 1, 2, x + seg - 1, getHeight() - 2, p);
-                x += seg;
-            }
-        }
-        @Override public boolean onTouchEvent(MotionEvent e) {
-            if (labSeq.isEmpty()) return false;
-            if (e.getActionMasked() == MotionEvent.ACTION_DOWN
-                    || e.getActionMasked() == MotionEvent.ACTION_MOVE) {
-                int total = 0;
-                for (int[] f : labSeq) total += Math.max(1, f[1]);
-                float t = Math.max(0f, Math.min(0.999f, e.getX() / Math.max(1, getWidth()))) * total;
-                int acc = 0;
-                for (int i = 0; i < labSeq.size(); i++) {
-                    acc += Math.max(1, labSeq.get(i)[1]);
-                    if (t < acc) { labCur = i; break; }
-                }
-                // Rebuilding the bench on every move event would be unusable, so the panel
-                // is retargeted once, on the way up, by onTouchEvent's ACTION_UP below.
-                focusRoll(labCur, false);
-                invalidate();
-                return true;
-            }
-            if (e.getActionMasked() == MotionEvent.ACTION_UP
-                    || e.getActionMasked() == MotionEvent.ACTION_CANCEL) {
-                focusRoll(labCur, true);
-            }
-            return true;
-        }
-    }
-
-    /**
-     * The roll: perforated stock above and below the frames. The holes are punched THROUGH,
-     * with film left either side of each one — biting the edge instead reads as castle
-     * crenellations rather than sprockets.
-     */
-    private static class FilmStrip extends LinearLayout {
-        private final DropRow frames;
-        FilmStrip(Context c) {
-            super(c);
-            setOrientation(VERTICAL);
-            setBackgroundColor(Studio.PANEL);
-            float d = c.getResources().getDisplayMetrics().density;
-            addView(new Perf(c), new LayoutParams(LayoutParams.MATCH_PARENT, (int) (9 * d)));
-            frames = new DropRow(c);
-            frames.setOrientation(HORIZONTAL);
-            int pad = (int) (3 * d);
-            frames.setPadding(pad, pad, pad, pad);
-            addView(frames);
-            addView(new Perf(c), new LayoutParams(LayoutParams.MATCH_PARENT, (int) (9 * d)));
-        }
-        DropRow frames() { return frames; }
-
-        /**
-         * The row of frames, which also draws where a dragged one would land.
-         *
-         * <p>A lifted chip with no drop line tells you something is moving but not where it is
-         * going, and on a roll of twenty frames that is the only question you have.</p>
-         */
-        static class DropRow extends LinearLayout {
-            private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
-            private final float d;
-            private int dropAt = -1;
-
-            DropRow(Context c) {
-                super(c);
-                d = c.getResources().getDisplayMetrics().density;
-                line.setColor(SpriteTheme.LIVE);
-                setWillNotDraw(false);
-            }
-
-            void setDropAt(int index) {
-                if (dropAt == index) return;
-                dropAt = index;
-                invalidate();
-            }
-
-            @Override protected void dispatchDraw(Canvas canvas) {
-                super.dispatchDraw(canvas);
-                if (dropAt < 0) return;
-                float x;
-                if (dropAt >= getChildCount()) {
-                    View last = getChildCount() == 0 ? null : getChildAt(getChildCount() - 1);
-                    x = last == null ? getPaddingLeft() : last.getRight() + 2 * d;
-                } else {
-                    x = getChildAt(dropAt).getLeft() - 2 * d;
-                }
-                canvas.drawRoundRect(x - 1.5f * d, getPaddingTop(), x + 1.5f * d,
-                        getHeight() - getPaddingBottom(), 1.5f * d, 1.5f * d, line);
-            }
-        }
-
-        private static class Perf extends View {
-            private final Paint hole = new Paint();
-            private final float d;
-            Perf(Context c) {
-                super(c);
-                d = c.getResources().getDisplayMetrics().density;
-                hole.setColor(SpriteTheme.BG);
-            }
-            @Override protected void onDraw(Canvas canvas) {
-                float pitch = 13 * d, w = 6 * d;
-                float top = getHeight() * 0.25f, bot = getHeight() * 0.75f;
-                for (float x = 4 * d; x < getWidth(); x += pitch) {
-                    canvas.drawRoundRect(new RectF(x, top, x + w, bot), 1.5f * d, 1.5f * d, hole);
-                }
             }
         }
     }

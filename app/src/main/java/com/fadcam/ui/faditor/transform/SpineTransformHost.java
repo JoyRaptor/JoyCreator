@@ -145,7 +145,7 @@ public final class SpineTransformHost implements TransformOverlayView.Host {
     @Override
     public float currentRotationDeg() {
         bridge.clip().spinePoseAt(bridge.clipLocalMs(), pose);
-        return pose[SpineTransform.ROT];
+        return TransformQuad.norm180(pose[SpineTransform.ROT]);
     }
 
     @Override
@@ -161,7 +161,7 @@ public final class SpineTransformHost implements TransformOverlayView.Host {
         startCx = pose[SpineTransform.CX];
         startCy = pose[SpineTransform.CY];
         startScale = pose[SpineTransform.SC];
-        startRot = pose[SpineTransform.ROT];
+        startRot = TransformQuad.norm180(pose[SpineTransform.ROT]);
         before = c.snapshotSpineTransform();
     }
 
@@ -172,7 +172,7 @@ public final class SpineTransformHost implements TransformOverlayView.Host {
         startCx = pose[SpineTransform.CX];
         startCy = pose[SpineTransform.CY];
         startScale = pose[SpineTransform.SC];
-        startRot = pose[SpineTransform.ROT];
+        startRot = TransformQuad.norm180(pose[SpineTransform.ROT]);
     }
 
     @Override
@@ -192,14 +192,14 @@ public final class SpineTransformHost implements TransformOverlayView.Host {
         // for the same reason: the centre is quoted against a picture whose size this gesture is
         // in the middle of changing.
         c.setSpineScale(startScale * factor);
-        c.setSpineRotationDeg(startRot + deltaDeg);
+        c.setSpineRotationDeg(TransformQuad.norm180(startRot + deltaDeg));
         c.setSpineCenter((cxPx - r.left) / r.width(), (cyPx - r.top) / r.height());
         bridge.onSpineTransformChanged();
     }
 
     @Override
     public void writeRotation(float deg) {
-        bridge.clip().setSpineRotationDeg(deg);
+        bridge.clip().setSpineRotationDeg(TransformQuad.norm180(deg));
         bridge.onSpineTransformChanged();
     }
 

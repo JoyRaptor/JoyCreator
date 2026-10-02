@@ -108,16 +108,35 @@ public class TransformOverlayView extends View {
         /**
          * Similarity: multiply size by {@code factor}, add {@code deltaDeg} of turn, and land the
          * object's centre on {@code (cxPx, cyPx)} — all measured from the gesture's start pose.
+         *
+         * <p>{@code deltaDeg} arrives canonical, in {@code (-180, 180]} — a host adds it to its
+         * own canonical start angle and stores the canonical sum, so no gesture can leave an
+         * unwrapped turn in storage. A {@link #writeRotation} the caller passes raw (the HUD's
+         * number field is not this door) still has to be folded by the host before it stores.</p>
          */
         void writeSimilarity(float factor, float deltaDeg, float cxPx, float cyPx);
 
-        /** Pure rotation to an ABSOLUTE angle in degrees. */
+        /**
+         * Pure rotation to an ABSOLUTE angle in degrees.
+         *
+         * <p>What this surface writes is always already folded into {@code (-180, 180]}
+         * ({@link TransformQuad#storedRotationDeg}); the fold is repeated here so that a host is
+         * correct even if it is handed something else — a wrong angle is silent: nothing crashes,
+         * the pose renders identically, and the damage only shows up later as a keyframe
+         * interpolating the long way round.</p>
+         */
         void writeRotation(float deg);
 
         /** The gesture ended cleanly and changed something: record ONE undo step. */
         void commitGesture(@NonNull String what);
 
-        /** The object's absolute rotation right now, in degrees. */
+        /**
+         * The object's absolute rotation right now, in degrees.
+         *
+         * <p>Canonical, in {@code (-180, 180]}. The model is allowed to hold a raw winding — SPEC A
+         * wants a typed 720 to survive as 720 — so a host that returns the stored number verbatim
+         * hands this gesture a 205 that the owner never asked for. Fold it.</p>
+         */
         float currentRotationDeg();
 
         /**
@@ -2066,7 +2085,10 @@ public class TransformOverlayView extends View {
                 rotLastRad = rotStartAngleRad;
                 rotAccumRad = 0f;
                 rotDetentBroken = false;
-                rotStartDeg = h.currentRotationDeg();
+                // Folded on the way IN as well as out: a project saved by a build that stored the
+                // long way round holds 205, and this gesture must be measured from -155 or the very
+                // first move writes back a number that is 360 out of step with the HUD.
+                rotStartDeg = TransformQuad.norm180(h.currentRotationDeg());
             } else {
                 postDelayed(longPress, LONG_PRESS_MS);
                 loupeShowing = loupeEnabled;
@@ -2307,6 +2329,11 @@ public class TransformOverlayView extends View {
                 // D.02a T4: unwrap. Differencing against the START angle stores the long way round once the handle crosses the
                 // +-180 seam (turn 100 degrees anticlockwise from the top and the stored angle is +260, which a keyframe then
                 // spins the wrong way). Add each move's step, wrapped to +-PI, to a running total instead.
+                // T4 was only HALF of it, and the half that shipped unwrapped the DELTA while leaving the STORED angle
+                // unwrapped too: at 175 + 30 the model got 205 while the HUD showed -155, so a key made from it interpolated
+                // the long way round. The detent and the snap hook below still run on the unwrapped number (they are pose
+                // maths and do not care which turn they are on); the fold into (-180, 180] happens once, at the very end,
+                // in storedRotationDeg.
                 rotAccumRad += TransformQuad.wrapRad(ang - rotLastRad);
                 rotLastRad = ang;
                 float deltaDeg = (float) Math.toDegrees(rotAccumRad);
@@ -2331,15 +2358,19 @@ public class TransformOverlayView extends View {
                 }
                 float snapAbs = snapRotation(TransformQuad.detentCardinalDeg(
                         rawAbs, ROT_DETENT_ENTER_DEG, ROT_DETENT_EXIT_DEG, rotDetentBroken));
-                float snapDelta = snapAbs - rotStartDeg;
+                // THE last step before the number is stored, and the only place the gesture's turn
+                // count meets the model's one spelling: sr.deg goes to the model AND to the HUD, so
+                // the two can no longer report different angles for one pose (they used to: 205
+                // stored, -155 shown). sr.deltaDeg is the same rotation as a transform, so folding
+                // it costs the quad nothing.
+                TransformQuad.StoredRotation sr =
+                        TransformQuad.storedRotationDeg(rotStartDeg, snapAbs);
                 h.readFoldPivot(scratch2);
                 TransformQuad.rotateAbout(quad, quadAtGrab, scratch2[0], scratch2[1],
-                        (float) Math.toRadians(snapDelta));
-                float abs = snapAbs;
-                deltaDeg = snapDelta;
-                h.writeRotation(abs);
+                        (float) Math.toRadians(sr.deltaDeg));
+                h.writeRotation(sr.deg);
                 shapeChanged = false;
-                setHud(Math.round(norm180(abs)) + "° (" + signedDeg(norm180(deltaDeg)) + ")",
+                setHud(Math.round(sr.deg) + "° (" + signedDeg(sr.deltaDeg) + ")",
                         tx, ty);
                 return;
             }
@@ -2499,7 +2530,7 @@ public class TransformOverlayView extends View {
         pinchPivotY = scratch2[1];
         pinchFactor = 1f;
         pinchDeg = 0f;
-        pinchStartDeg = h.currentRotationDeg();
+        pinchStartDeg = TransformQuad.norm180(h.currentRotationDeg());
         pinchLastRad = (float) Math.atan2(pinchBy - pinchAy, pinchBx - pinchAx);
         pinchAccumRad = 0f;
         pinchRotating = false;
@@ -2537,7 +2568,7 @@ public class TransformOverlayView extends View {
         pinchPivotY = scratch2[1];
         pinchFactor = 1f;
         pinchDeg = 0f;
-        pinchStartDeg = h.currentRotationDeg();
+        pinchStartDeg = TransformQuad.norm180(h.currentRotationDeg());
         pinchLastRad = (float) Math.atan2(pinchBy - pinchAy, pinchBx - pinchAx);
         pinchAccumRad = 0f;
         // The twist is measured from the new pair, so the dead-zone starts again: keeping it unlocked would subtract the
@@ -2593,7 +2624,10 @@ public class TransformOverlayView extends View {
             }
             float snapAbs = snapRotation(TransformQuad.detentCardinalDeg(
                     rawAbs, ROT_DETENT_ENTER_DEG, ROT_DETENT_EXIT_DEG, pinchDetentBroken));
-            deg = snapAbs - pinchStartDeg;
+            // Same fold as the one-finger arc, same helper, same reason: the twist is a pose delta
+            // and a pose has one spelling. The host re-adds it to its own canonical startRot and
+            // stores the canonical sum, so a full turn lands on 0 and not on 360.
+            deg = TransformQuad.storedRotationDeg(pinchStartDeg, snapAbs).deltaDeg;
         }
         th = Math.toRadians(deg);
         pinchFactor = f;
@@ -2639,12 +2673,6 @@ public class TransformOverlayView extends View {
     private static String signedDeg(float v) {
         int i = Math.round(v);
         return (i >= 0 ? "+" : "") + i + "°";
-    }
-
-    private static float norm180(float deg) {
-        while (deg > 180f) deg -= 360f;
-        while (deg < -180f) deg += 360f;
-        return deg;
     }
 
     @Override

@@ -251,7 +251,9 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
     public void readFoldPivot(@NonNull float[] outXY) { readPivot(outXY); }
 
     @Override
-    public float currentRotationDeg() { return target.rotationDeg(now()); }
+    public float currentRotationDeg() {
+        return TransformQuad.norm180(target.rotationDeg(now()));
+    }
 
     // ── Gesture lifecycle ────────────────────────────────────────────────
 
@@ -261,7 +263,7 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
         startCx = target.centerX(t);
         startCy = target.centerY(t);
         startSize = target.sizeFraction(t);
-        startRot = target.rotationDeg(t);
+        startRot = TransformQuad.norm180(target.rotationDeg(t));
         if (readBox(t)) {
             startW = box.width();
             startH = box.height();
@@ -278,7 +280,7 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
         startCx = target.centerX(t);
         startCy = target.centerY(t);
         startSize = target.sizeFraction(t);
-        startRot = target.rotationDeg(t);
+        startRot = TransformQuad.norm180(target.rotationDeg(t));
         if (readBox(t)) {
             startW = box.width();
             startH = box.height();
@@ -347,9 +349,12 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
 
         float newAngle = (float) Math.toDegrees(Math.atan2(topY, topX));
         // atan2 returns (-180, 180], so a gesture crossing the branch cut would otherwise jump a
-        // full turn. Choose the equivalent angle nearest where the gesture started.
+        // full turn. Choose the equivalent angle nearest where the gesture started, then fold it:
+        // "nearest the start" is only a tie-break, and with a canonical startRot the winner can
+        // still sit up to a half turn outside (-180, 180] (startRot -90, quad at +95 -> +265).
         while (newAngle - startRot > 180f) newAngle -= 360f;
         while (newAngle - startRot < -180f) newAngle += 360f;
+        newAngle = TransformQuad.norm180(newAngle);
 
         RectF v = target.videoRect();
         if (v.width() <= 0f || v.height() <= 0f) return false;
@@ -421,14 +426,14 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
         if (v.width() <= 0f || v.height() <= 0f) return;
         // Same order as writeQuad, for the same reason.
         target.scaleTo(Math.max(minSizeFraction, startSize * factor), t);
-        target.rotateTo(startRot + deltaDeg, t);
+        target.rotateTo(TransformQuad.norm180(startRot + deltaDeg), t);
         target.moveTo((cxPx - v.left) / v.width(), (cyPx - v.top) / v.height(), t);
         onChanged.run();
     }
 
     @Override
     public void writeRotation(float deg) {
-        target.rotateTo(deg, now());
+        target.rotateTo(TransformQuad.norm180(deg), now());
         onChanged.run();
     }
 

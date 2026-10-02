@@ -133,7 +133,79 @@ done**, and the roadmap rows for watercolour are still outlines. The four-brush 
 bristle, flat paint and the existing Sable. Do not let the set imply watercolour exists.
 
 
-### Paper specialist — the swatch legibility root cause, and a CORRECTED fix direction — 2026-10-02
+### Paper specialist — swatch sampling, CORRECTED after adversarial verification — 2026-10-02
+
+I put the previous section's claim through an adversarial read and **six of my statements were wrong
+or unsafe.** Corrected record below; the earlier section above is superseded, do not implement from
+it. The core mechanism held, but my framing of it did not.
+
+**What held.** `PaperRaster.kt:73-74, 79-80` computes `pitch = texelPx * scale` and passes
+`footprint = 1.0/pitch` as a named argument, unclamped and unrecomputed;
+`PaperTexture.filtered` (`:79-93`) takes plain bilinear at `footprint <= 1.0` and trilinear mip
+above it; `HexTile` threads `footprint` through with a default of 1.0 and never drops it.
+
+**What I got wrong.**
+
+1. **The affected set is 7, not 3.** Looks carry their own `texelPx` and go through the identical
+   `1.0/pitch` path via `sampleLook`. `chalkboard_black` and `chalkboard_green` are at 0.75 **and**
+   their `defaultSurface` is `chalk_grit` at 0.75 — so those two mip twice per swatch, colour and
+   relief both. That is the worst case in the catalogue and I missed it entirely.
+2. **"Reads flat" is overstated and "loses sub-texel detail" is a category error.** The sampler is
+   texel-addressed, so there is no sub-texel content to lose. lod 0.415 / 0.515 is a real blend, but
+   2×2 area averaging attenuates **period-2 content only** (by 41.5% / 51.5% of amplitude); period-4
+   and coarser passes at full amplitude, and paper structure lives at period 4–40. The correct
+   statement is that the preview is **1.43× below Nyquist**, so it is provably lossy — not that the
+   texture is destroyed.
+3. **This is not a bug in the filter, and the word "bug" was wrong.** It is correct filtering of a
+   correct minification, at GPU parity, and it is what removed the recorded linen-17-byte /
+   silk-12-byte export drift. **Nobody removes or weakens the mip.** If you do, the on-screen and
+   exported paper diverge again and the JB-9.06c evidence is undone.
+4. **The GPU is a live counter-example to my claim.** `jb_paper_bg.frag:26,47` gives the shader a
+   zoom-aware footprint, so at 2× zoom silk is bilinear and sharp **on the canvas today**. My claim
+   described a property of the 1:1 CPU preview, not of silk. The Scale slider is likewise an
+   existing escape hatch.
+5. **My "leave `chalk_grit` alone" contradicted my own rule** — at 0.75 it *requires* 1.333×. It
+   cannot be excluded under the floor. Withdrawn.
+6. **The layer strip already honours the Scale slider** (`JoyBrushActivity.kt:984` renders the
+   document's own `resolved`). A floor inside `PaperPreviews.crop` would therefore **freeze the
+   strip's feedback** when the user drags Scale down — at `textureScale 0.25` silk's lod is 2.51 and
+   the swatch is genuinely near-flat, which is *correct*, because that is what the canvas shows.
+
+**The fix, precisely.** `PaperRaster.render` hardcodes 1 output px = 1 doc px and exposes no
+supersampling lever, so there are exactly two moves: raise `scale`, or enlarge the rect. Enlarging
+the rect is the rejected version. Therefore:
+
+- **Use a floor on pitch, never a division by texelPx.** `1/texelPx` applied unconditionally would
+  take `pulp_artisan` (2.0) to 0.5 and **soften 14 of 17 surfaces** in pursuit of matching silk.
+- **Do not ship `previewScale = 1f/texelPx`.** In float it leaves ~7×10⁻⁹ of headroom on silk and
+  ~3×10⁻⁸ on the 0.75s — it lands under the inclusive boundary by luck, and any `ceil`, any
+  round-trip through a Float field, or any change in how pitch is formed flips it back into the
+  mip. Safer: cap the pitch in Double, `pitch' = max(texelPx * scale, 1.0)`, so `footprint` is
+  **exactly** 1.0 and the inclusive `<= 1.0` takes bilinear with zero ulp of risk.
+- **Apply it to catalogue swatches only**, which are scale 1.0 by construction and are
+  representative samples by my earlier ruling. The document's own strip swatch keeps its true
+  pitch so Scale feedback stays live.
+- Cache correctness is free: `PaperPreviews` keys on `Key(paper: ResolvedPaper, …)` and
+  `ResolvedPaper` carries `scale`, so a rewritten scale invalidates itself.
+
+**Two consequences I am deciding, not asking you to decide.**
+
+- **Magnifying weakens the lit relief by 25–30% for the thin materials**, because
+  `nx = -slopes[0]/pitch * RELIEF_GAIN * relief` and slopes are height *per texel*. This is
+  physically honest and invisible in the look rows. In the **surface-only row** — flat grey, no
+  look, `light = true` — relief is the *entire* signal, so accept the weakening there and say so in
+  your review notes. Do not silently compensate by raising `RELIEF_GAIN`, which would change the
+  canvas.
+- **Make the layer-strip crop density-derived.** It is hardcoded 64 px while the drawer uses
+  `dpi(40f)`; the strip shows 28 dp and the drawer 40 dp, so on a 3× phone they already show
+  different physical areas of paper. If the fix lands in `PaperPreviews`, fix this too or the
+  "callers cannot drift apart" goal is unmet on arrival.
+
+Mutation to prove it: revert the pitch floor and assert silk, linen, chalk_grit and both chalkboard
+looks change while the other 14 surfaces stay **byte-identical**. That last half is the point —
+byte-identical is how you prove you did not soften everything to make silk legible.
+
+
 
 The brush specialist reported that the catalogue is complete and every asset ships, and that
 "only two or three textures register" is therefore **not a missing-asset problem**. That is correct

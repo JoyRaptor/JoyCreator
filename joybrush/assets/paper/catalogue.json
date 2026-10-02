@@ -77,7 +77,7 @@
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": true,
-      "relief": 0.8
+      "relief": 1.6
     },
     {
       "id": "crumpled_flattened",
@@ -88,7 +88,7 @@
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": true,
-      "relief": 0.8
+      "relief": 1.6
     },
     {
       "id": "rice_fibres",

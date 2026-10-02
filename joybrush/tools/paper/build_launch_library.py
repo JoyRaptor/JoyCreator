@@ -112,8 +112,8 @@ def main(directory):
     # Broad facets and narrow real crease troughs; same mesh, physically flattened.
     folds,creases=folded_sheet()
     tooth=formation(922,.6)-.5
-    for id,name,span,crease_strength in [('crumpled','Crumpled paper',.55,.035),('crumpled_flattened','Flattened crumpled paper',.12,.012)]:
-        s,h=surface(id,name,np.clip(folds+.025*tooth,0,1),span,pitch=1.5,relief=.8)
+    for id,name,span,crease_strength in [('crumpled','Crumpled paper',.75,.035),('crumpled_flattened','Flattened crumpled paper',.16,.012)]:
+        s,h=surface(id,name,np.clip(folds+.025*tooth,0,1),span,pitch=1.5,relief=1.6)
         look(id,name,'#F1F0EC',s,h,.035,pigment=creases,pigment_strength=-crease_strength)
     # Rice opacity/filaments are independent of gentle relief; dark inclusions are never pits.
     rice=fibres(930,1800,55,.65); rice_relief=.7*formation(931,4)+.3*fibres(932,3200,18,.5)
@@ -137,7 +137,11 @@ def main(directory):
     look('blueprint','Blueprint','#245B7C',factory,h,.045,pigment=formation(961,35),pigment_strength=.07)
     s,h=surface('parchment_skin','Parchment skin',.7*formation(970,2.5)+.3*formation(971,12),.16,relief=.45)
     look('parchment','Aged parchment','#DCD1BC',s,h,.03,pigment=formation(972,22),pigment_strength=.17)
-    s,h=surface('papyrus_strips','Papyrus strips',source_height(directory,'papyrus_strips'),.45,pitch=1.2,rotate=False)
+    # Flattened plant strips, not cylindrical reeds: broad pressed tops, narrow joins.
+    strip_h=source_height(directory,'papyrus_strips')
+    pressed=norm(np.minimum(strip_h,.63)+.12*np.maximum(strip_h-.63,0))
+    long_fibres=.7*fibres(975,1500,140,.45,angle=0)+.3*fibres(976,1200,130,.45,angle=np.pi/2)
+    s,h=surface('papyrus_strips','Papyrus strips',np.clip(.94*pressed+.06*long_fibres,0,1),.38,pitch=1.2,rotate=False)
     strip=(np.cos(TAU*X*9/N)+np.cos(TAU*Y*8/N))*.25+.5
     look('papyrus','Papyrus','#CEBE9C',s,h,.1,pigment=strip,pigment_strength=.08)
     for id,name,span,pitch,base in [('silk','Silk',.16,.7,'#EAEAE8'),('fabric','Woven fabric',.42,1.,'#DFE0DE')]:

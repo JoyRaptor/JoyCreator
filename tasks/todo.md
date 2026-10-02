@@ -459,10 +459,12 @@ Review: targeted core XML21/0 at2026-10-02 00:34:06 EDT; stale-tint mutation1/21
 
 ## Paper/background completion — owner request, 2026-10-02
 - [ ] Coordinate Lead-owned sheet, transparency, imports/export UI and board-specialist overlay; keep one build lock.
-- [ ] Finish JB-9.10 launch materials: crumpled/full and flattened/subtle, rice cool/cream, sugarcane, chalk black/green, construction, blueprint, parchment, papyrus, cement, fabric and silk alongside canvases/pulp/black.
-- [ ] Pair structural albedo and surface with matching dimensions, pitch, hex size, rotation/hash; preserve independent pigment/opacity where appropriate.
-- [ ] Prove periodic seams, height/slopes, geometry/albedo alignment, dry/wet and directional deposition; mutation checks and actual-renderer comparison sheets.
+- [x] Finish JB-9.10 launch materials: crumpled/full and flattened/subtle, rice cool/cream, sugarcane, chalk black/green, construction, blueprint, parchment, papyrus, cement, fabric and silk alongside canvases/pulp/black.
+- [x] Pair structural albedo and surface with matching dimensions, pitch, hex size, rotation/hash; preserve independent pigment/opacity where appropriate.
+- [x] Prove periodic seams, height/slopes, geometry/albedo alignment, dry/wet and directional deposition; mutation checks and actual-renderer comparison sheets.
 - [ ] Audit remaining paper rows including screen/export blend parity, brush overrides and visible knobs; build relevant APK in a locked row worktree, never install.
 - [ ] Integrate Lead changes, verify document save/reopen/undo/export paths and mark each spec accurately; phone/owner acceptance stays explicitly pending until observed.
 
 Review: in progress; quality is measured, no market-superiority claim.
+
+Paper library review:17/0 own XML2026-10-02 07:41:39 EDT;7 guard mutations red/restored. GPU upload0 and bilinear parity≤1 byte; real mip-filter CPU mismatch found (linen17/silk12), needs JB-9.06c. Owner/phone polish acceptance pending. See reviews/JB-9.10__launch_materials.md.

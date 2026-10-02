@@ -44,7 +44,7 @@ class LaunchMaterialsTest {
             val t=texture(s.file)
             val height=ByteArray(t.w*t.h) { t.rgba[it*4+2] }
             assertContentEquals(t.rgba, SurfaceMaps.pack(height,t.w,t.h,s.slopeRange),s.id)
-            assertTrue(std(channel(t,2)) > 2., "${s.id} is physically flat")
+            assertTrue(std(channel(t,2)) > 2.0, "${s.id} is physically flat")
         }
     }
     @Test fun picturedLooksAndTheirDefaultSurfacesUseIdenticalSamplingGeometryAndMeasuredMeans() {
@@ -70,7 +70,7 @@ class LaunchMaterialsTest {
             edges.sort(); interior.sort()
             val edge95=edges[(edges.size*.95).toInt()]
             val ordinary95=interior[(interior.size*.95).toInt()]
-            assertTrue(edge95 <= max(1.,ordinary95)*1.65, "$file channel$q has a wrap join: $edge95 vs $ordinary95")
+            assertTrue(edge95 <= max(1.0,ordinary95)*1.65, "$file channel$q has a wrap join: $edge95 vs $ordinary95")
         }
         for (s in c.surfaces) check(s.file,2)
         for (l in c.looks) l.file?.let { check(it,0) }
@@ -92,8 +92,8 @@ class LaunchMaterialsTest {
             val a=DoubleArray(512); val b=DoubleArray(512)
             for (i in a.indices) {
                 val x=(i%32)*7.13; val y=(i/32)*13.27
-                HexTile.sampleLook(look,x,y,l.hexTexels.toDouble(),l.rotatable,colour)
-                HexTile.sampleSurface(surface,x,y,s.hexTexels.toDouble(),s.rotatable,s.slopeRange,height)
+                HexTile.sampleLook(look,x/l.texelPx,y/l.texelPx,l.hexTexels.toDouble(),l.rotatable,colour)
+                HexTile.sampleSurface(surface,x/s.texelPx,y/s.texelPx,s.hexTexels.toDouble(),s.rotatable,s.slopeRange,height)
                 a[i]=colour[0].toDouble(); b[i]=height[2].toDouble()
             }
             assertTrue(corr(a,b)>.94,"$id visible weave drifted away from brush height: ${corr(a,b)}")

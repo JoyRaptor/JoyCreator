@@ -916,3 +916,6 @@ Rice paper has subtle real relief, but opacity/brightness is not a 1:1 height pr
 
 ## 2026-10-01 - Prioritize functional paper before expanding assets
 When the owner pauses generation, start no new image calls. Finish saving already-running outputs and focus on rendering, export and brush response. Candidate abundance is not a substitute for a working paper system.
+
+## 2026-10-02 — Crumpled and flattened paper are high priority
+Prioritize crumpled paper and slightly crumpled-then-flattened paper ahead of decorative looks. Physical surfaces must change brush deposition, not only lighting. Preserve 16-bit height data when packing; do not normalize a subtle height span back to full contrast. Use a shared physical slope range when comparing full and flattened versions so directional normalization does not erase their amplitude difference.

@@ -432,3 +432,12 @@ JB-9.08 review: core1440/0 at19:05:31 EDT and Android-kit225/0 at19:07:44 EDT; s
 - [x] Worker-owned, bounded PaperRaster preview cache and real-pixel regression tests; verify mutation/core, then land the backend handoff. App UI remains with the Lead (reviews/JB-9.07__paper_plan.md).
 
 Review: own core XML1444/0 at2026-10-01 23:46:36 EDT; light-key mutation red1/1, restored. Backend25d3494f landed. Main ff refused divergence, left alone. Screen transparency question and UI integration remain with the Lead.
+## JB-9.10 flat black option
+- [x] Add the specified true AMOLED black catalogue option with no texture image; pin actual opaque black output, verify shipped catalogue and colour mutation, then land. No broader candidate selection or generation.
+
+Review: own ShippedCatalogueTest XML5/0 at2026-10-01 23:53:04 EDT; #010101 mutation red1/1/restored. Asset87e82b8b landed. Main ff refused divergence; left alone. No new images, no phone installation, broader library still awaiting review.
+
+## JB-9.10 physical surface priority
+- [x] Record the owner's crumpled/flattened priority; fix 16-bit clipping and zero-range packing; preserve subtle physical amplitude.
+- [x] Verify numerical height/slope bytes, actual CLI and mutation; record own tool XML (6/0 at2026-10-02 00:05:12 EDT). No new candidate images or unreviewed crumples shipped.
+- [x] Land the tooling fix (d6c43dab) and attempt main fast-forward (refused divergence; untouched).

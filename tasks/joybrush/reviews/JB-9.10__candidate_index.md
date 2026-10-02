@@ -29,5 +29,5 @@ Files in surfaces/, authored independently of look brightness:
 - crumpled_01.png and crumpled_02.png: two folded-sheet candidates requiring refinement.
 - papyrus_strips.png: crossed plant-strip geometry.
 
-Suggested first review priorities: rice, sugarcane, linen and cotton duck. These are suggestions, not selections.
+Owner's first priorities: crumpled, slightly crumpled-then-flattened paper, and physical surfaces that affect brush deposition. Decorative look selection follows those. Existing crumples need folded facets before selection.
 All repeat previews and creation notes remain in candidates/qa/ and candidates/NOTES.md.

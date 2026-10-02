@@ -34,11 +34,13 @@ Every scene contains the pure core Input and the Android Host callbacks. Input r
 
 ## Verification
 
-Core command: `./gradlew --no-watch-fs -p joybrush :core:jvmTest` (Windows wrapper equivalent). BUILD SUCCESSFUL. XML: 98 suites, 1,471 tests, zero failures/errors/skips; BoardChromeLayoutTest: 28 tests. Includes the original layout/state/model tests plus bounded raster planning, preview/identity/input contracts and K6 presentation geometry.
+Core command: `./gradlew --no-watch-fs -p joybrush :core:jvmTest` (Windows wrapper equivalent). BUILD SUCCESSFUL. XML: 99 suites, 1,477 tests, zero failures/errors/skips; BoardChromeLayoutTest: 28 tests. Includes the original layout/state/model tests plus bounded raster planning, preview/identity/input contracts, K6 presentation geometry and interrupted pen fades.
 
-Android check: `:joybrush-android:testDebugUnitTest :app:compileDefaultDebugJavaWithJavac`. BUILD SUCCESSFUL. Native Robolectric API 28 XML: 2 suites, 14 tests, zero failures/errors/skips. Checks transparent gaps/passive boards, overlapping targets, cancellation, host replacement, coalescing, shadow reuse, frame wheel and stable export gestures. Shared RollDragController javac harness: 20 checks passed previously, independent of the XML counts.
+Android check: `:joybrush-android:testDebugUnitTest :app:compileDefaultDebugJavaWithJavac`. BUILD SUCCESSFUL. Native Robolectric API 28 XML: 2 suites, 17 tests, zero failures/errors/skips. Checks transparent gaps/passive boards, overlapping targets, cancellation, host replacement, coalescing, shadow reuse, frame wheel, stable export gestures, slide-away cancellation, hold-play without a release tap and hover restoration/lifecycle exit. Shared RollDragController javac harness: 20 checks passed previously, independent of the XML counts.
 
 ## Lead follow-up contracts
+
+Owner-requested polish follow-up: see POLISH_ACCEPTANCE.md for the state-by-state acceptance matrix. BoardChromePenFade now carries actual opacity through interrupted strokes while keeping 120 ms out / 300 ms back and 12% endpoints. Use one ephemeral clock per scene; reset on pause/disposal. This avoids the quick-tap lift darkening jump and the restart flash during a return fade. The host still supplies scheduled UI frames; this helper owns no timer or painting sample.
 
 BoardChromeView uses ordinary hardware rendering and a 4 MiB bounded cache of small shadow rasters. The pure render plan splits each surface into at most 256×256 px patches and only rasterizes the perimeter of stroked rectangles. Test fixture: selected 548×1126 px outline uses 153,024 bytes versus 2,468,192 bytes for a full-window ARGB surface; passive fixture uses under 4,096 bytes. These are source/test measurements, not a Note 9 performance claim. Strip fades use bounded layers. `show` coalesces chrome state to one UI frame and ignores selected-board pen-coordinate changes that cannot change layout; painting pen samples must remain untouched.
 

@@ -2,6 +2,14 @@
 
 Scope: §K and §K10, owner words win. Source inspection substituted for browser by owner approval after file: security rejection. Worktree codex/jb-board-chrome; main staged files untouched. tasks/todo.md is locked, so this checklist is local to this row.
 
+## Owner-requested polish follow-up
+
+- [x] Review interrupted drawing fades and interaction edges against the locked design.
+- [x] Preserve actual opacity on short-stroke lift and repeated interrupted fades with a pure per-scene clock; no duration/geometry changes.
+- [x] Add meaningful regression checks for rapid taps, reset, long-hold play, hover restoration and slide-away cancellation.
+- [x] Write POLISH_ACCEPTANCE.md with every §K state and the remaining Lead/device gates.
+- [x] Verify final XML/build: core 99 suites / 1477 tests; native Android 2 suites / 17 tests; zero failures/errors/skips. Both builds successful. Isolated handoff commit and Lead evidence follow these checks.
+
 - [x] Step 1: pure Kotlin layout/state rules, numeric §K tests; core:jvmTest XML totals; commit.
 - [x] Step 2 renderer: views consume layout; HTML tooltip text; shared SpriteLab strip extraction; Android compile and review; commit.
 - [x] Step 3 proposal: exact Activity wiring hunks in Activity-wiring.patch and INTEGRATION.md; original git apply --check passed. Lead decision supersedes this historical patch: do not apply. Lead owns actual wiring.

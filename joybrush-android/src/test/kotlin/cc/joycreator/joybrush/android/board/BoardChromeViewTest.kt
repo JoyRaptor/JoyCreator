@@ -159,4 +159,47 @@ class BoardChromeViewTest {
         assertFalse(touch(view,MotionEvent.ACTION_UP,73f,119f))
         frame();assertEquals(0,oldActions);assertEquals(0,newActions)
     }
+
+    @Test fun slidingAwayFromAButtonDoesNotActivateItOnRelease() {
+        val view=view();var actions=0
+        view.host=object:BoardChromeView.Host {override fun action(id:String,held:Boolean){actions++}}
+        view.show(input());frame()
+        touch(view,MotionEvent.ACTION_DOWN,73f,119f)
+        touch(view,MotionEvent.ACTION_MOVE,400f,500f)
+        touch(view,MotionEvent.ACTION_UP,73f,119f)
+        frame();assertEquals(0,actions)
+    }
+
+    @Test fun holdingPlayRequestsFpsWithoutTogglingPlaybackOnRelease() {
+        val view=view();val actions=mutableListOf<Pair<String,Boolean>>()
+        view.host=object:BoardChromeView.Host {override fun action(id:String,held:Boolean){actions+=id to held}}
+        val state=input().copy(kind=BoardKind.ANIMATION,selected=true)
+        view.show(state);frame()
+        val play=Chrome.layout(state).controls.first {it.id=="play"}.visual
+        touch(view,MotionEvent.ACTION_DOWN,play.cx,play.cy)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(700))
+        touch(view,MotionEvent.ACTION_UP,play.cx,play.cy)
+        frame();assertEquals(listOf("play" to true),actions)
+    }
+
+    @Test fun mouseHoverStartsOnceRestoresPriorFrameAndStopsOnLifecycleExit() {
+        val view=view();val events=mutableListOf<Pair<Boolean,Int?>>()
+        view.host=object:BoardChromeView.Host {override fun hoverLoop(playing:Boolean,restoreFrame:Int?){events+=playing to restoreFrame}}
+        val state=input().copy(kind=BoardKind.ANIMATION,currentFrame=2,holds=listOf(1,1,1))
+        view.show(state);frame()
+        fun hover(action:Int,tool:Int) {
+            val properties=MotionEvent.PointerProperties().also {it.id=0;it.toolType=tool}
+            val coords=MotionEvent.PointerCoords().also {it.x=73f;it.y=119f}
+            val event=MotionEvent.obtain(0,10,action,1,arrayOf(properties),arrayOf(coords),0,0,1f,1f,0,0,android.view.InputDevice.SOURCE_MOUSE,0)
+            try {view.dispatchGenericMotionEvent(event)} finally {event.recycle()}
+        }
+        hover(MotionEvent.ACTION_HOVER_ENTER,MotionEvent.TOOL_TYPE_FINGER)
+        assertTrue(events.isEmpty())
+        hover(MotionEvent.ACTION_HOVER_MOVE,MotionEvent.TOOL_TYPE_MOUSE)
+        hover(MotionEvent.ACTION_HOVER_MOVE,MotionEvent.TOOL_TYPE_MOUSE)
+        assertEquals(listOf(true to null),events)
+        view.stopInteractions()
+        assertEquals(listOf(true to null,false to 2),events)
+        view.stopInteractions();assertEquals(2,events.size)
+    }
 }

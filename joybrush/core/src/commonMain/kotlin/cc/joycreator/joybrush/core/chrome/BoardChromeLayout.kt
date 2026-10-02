@@ -47,7 +47,9 @@ object BoardChromeLayout {
         val cellWidth: Int = 128, val cellHeight: Int = 128, val titleWidthPx: Float? = null,
         val subGrid: Int = 2, val gridByPixels: Boolean = false, val spriteOrder: List<Int> = emptyList(),
         val playingCell: Int? = null, val liftedCell: Int? = null, val targetCell: Int? = null,
-        val reducedMotion: Boolean = false, val wiggleElapsedMs: Long = 0)
+        val reducedMotion: Boolean = false, val wiggleElapsedMs: Long = 0,
+        /** Actual alpha at the last pen transition; supplied by BoardChromePenFade for rapid strokes. */
+        val penFadeStartAlpha: Float? = null)
 
     const val CHROME_ALPHA = .90f
     const val GLASS_ALPHA = .55f
@@ -62,9 +64,11 @@ object BoardChromeLayout {
     const val WHEEL_DP = 9f
     const val WIGGLE_MS = 300L
     const val STRIP_FADE_FRACTION = .18f
-    fun drawingAlpha(down: Boolean, elapsedMs: Long): Float {
+    fun drawingAlpha(down: Boolean, elapsedMs: Long, startAlpha: Float = if (down) 1f else DRAWING_ALPHA): Float {
+        require(startAlpha.isFinite() && startAlpha in DRAWING_ALPHA..1f)
         val t=(elapsedMs.toFloat()/(if(down) FADE_OUT_MS else FADE_BACK_MS)).coerceIn(0f,1f)
-        return if(down) 1f-(1f-DRAWING_ALPHA)*t else DRAWING_ALPHA+(1f-DRAWING_ALPHA)*t
+        val target = if (down) DRAWING_ALPHA else 1f
+        return startAlpha + (target-startAlpha)*t
     }
     fun wheelFrame(start: Int, dragPx: Float, density: Float, count: Int): Int {
         require(density.isFinite() && density>0)
@@ -166,7 +170,8 @@ object BoardChromeLayout {
             return Layout(e,c,false,false,false)
         }
         ring()
-        val a=drawingAlpha(i.penDown,if(i.penDown)i.penDownElapsedMs else i.penLiftElapsedMs)
+        val startAlpha=i.penFadeStartAlpha ?: if(i.penDown)1f else drawingAlpha(true,i.penDownElapsedMs)
+        val a=drawingAlpha(i.penDown,if(i.penDown)i.penDownElapsedMs else i.penLiftElapsedMs,startAlpha)
         val folded=i.kind==BoardKind.ANIMATION && (i.penDown || i.penLiftElapsedMs<FADE_BACK_MS)
         val pillH=if(i.kind==BoardKind.ANIMATION)148f else 128f
         add("pill",rect(b.left-44*d,b.top,34f,pillH),col=Colour.CHROME,a=CHROME_ALPHA*a,radius=17f)

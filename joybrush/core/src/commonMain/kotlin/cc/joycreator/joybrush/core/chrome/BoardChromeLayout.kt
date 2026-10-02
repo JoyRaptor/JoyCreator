@@ -16,7 +16,7 @@ object BoardChromeLayout {
         fun intersects(other: Rect) = right>other.left && left<other.right && bottom>other.top && top<other.bottom
         fun distance(p: Point): Float = hypot(max(max(left-p.x, 0f), p.x-right), max(max(top-p.y, 0f), p.y-bottom))
     }
-    enum class Colour { PAPER, CHROME, GLASS, INK, DIM, CYAN, PINK, AMBER, GREY, ON_GRADIENT, SPRITE_ON, PAPER_SURFACE }
+    enum class Colour { PAPER, CHROME, GLASS, INK, DIM, CYAN, PINK, AMBER, GREY, ON_GRADIENT, SPRITE_ON, PAPER_SURFACE, ANIMATION_ON }
     enum class Shape { ROUND_RECT, LINE, TEXT, GLYPH }
     enum class Font { ARCHIVO, MONO, SANS }
     enum class Align { LEFT, CENTRE, RIGHT }
@@ -30,7 +30,7 @@ object BoardChromeLayout {
         val baselinePx: Float = rect.bottom, val fadeStartPx: Float? = null,
         val fadeEndPx: Float? = null, val shadowPx: Float = 0f, val artSlot: Boolean = false,
         val transformOrigin: Point? = null)
-    data class Control(val id: String, val visual: Rect, val hit: Rect, val tooltip: String)
+    data class Control(val id: String, val visual: Rect, val hit: Rect, val tooltip: String, val enabled: Boolean = true)
     data class Layout(val elements: List<Element>, val controls: List<Control>, val tileCanvas: Boolean,
         val suppressOtherBoards: Boolean, val folded: Boolean, val stripFadeStartPx: Float? = null)
     data class Input(val board: Rect, val density: Float, val kind: BoardKind, val name: String = "Board",
@@ -78,6 +78,17 @@ object BoardChromeLayout {
     fun afterWrappedStroke(board: Board, armed: Boolean): Board =
         if(armed && board.kind==BoardKind.CANVAS && !board.tiled) board.copy(tiled=true) else board
 
+    /** Only visual pen state belongs in the redraw key. Painting keeps every raw sample itself. */
+    fun visualInput(i: Input): Input {
+        val near = i.pen?.let { i.board.distance(it) <= APPROACH_DP * i.density } == true
+        return i.copy(pen = if (!i.selected && near) Point(i.board.cx, i.board.cy) else null,
+            penDownElapsedMs = i.penDownElapsedMs.coerceIn(0, FADE_OUT_MS),
+            penLiftElapsedMs = i.penLiftElapsedMs.coerceIn(0, FADE_BACK_MS),
+            approachExitElapsedMs = i.approachExitElapsedMs.coerceIn(0, FADE_BACK_MS),
+            wiggleElapsedMs = if (i.selected && i.kind == BoardKind.SPRITE && i.armed && !i.reducedMotion)
+                i.wiggleElapsedMs % (2 * WIGGLE_MS) else 0)
+    }
+
     fun layout(i: Input): Layout {
         require(i.density.isFinite() && i.density>0 && i.board.width>0 && i.board.height>0)
         require(i.columns>0 && i.rows>0 && i.columns.toLong()*i.rows<=SpriteGridMath.MAX_CELLS && i.holds.all { it>0 })
@@ -96,7 +107,8 @@ object BoardChromeLayout {
             e+=Element(id,shape,r,col,a,stroke*d,radius*d,text,font,size,weight,glyph,gradient,
                 (if(col==Colour.PAPER)max(halo,1f) else halo)*d,dashed,rotation,scale,clip?:stripClip,corners,alignment,baseline,
                 if(stripPart)b.left+b.width*.82f else null,if(stripPart)b.right else null,
-                if(rotation!=0f)10*d else if(col==Colour.PAPER)1*d else 0f,id=="preview-art")
+                if(id=="sprite-lift" || id.startsWith("cell-") && !id.startsWith("cell-number-") && i.liftedFrame!=null && id=="cell-${i.liftedFrame-1}")10*d
+                else if(col==Colour.PAPER)1*d else 0f,id=="preview-art")
         }
         fun control(id:String,r:Rect,tip:String) {
             val stripPart=id.startsWith("cell-")||id=="add"
@@ -208,9 +220,11 @@ object BoardChromeLayout {
             }else add("ruler-line",Rect(b.left, b.bottom+28*d,b.right-22*d,b.bottom+28*d),Shape.LINE,Colour.PAPER,RULER_ALPHA*.55f,stroke=1f)
             val model=Board("chrome",i.name,i.kind,RectPx(0,0,1,1),frames=i.holds.mapIndexed { n,h->Frame("$n",h) })
             val film=FilmStrip(model,d)
+            var heldTicks=0L
             for(n in i.holds.indices){
                 val firstElement=e.size
-                val x=b.left+(if(folded)4*d+film.cellLeft(n)*14/44 else 8*d+film.cellLeft(n))-i.stripScrollPx
+                val cellLeft=heldTicks*film.tickPx
+                val x=b.left+(if(folded)4*d+cellLeft*14/44 else 8*d+cellLeft)-i.stripScrollPx
                 val y=if(folded)b.bottom+16*d else sy+7*d
                 val r=if(folded)rect(x,y,if(n+1==i.currentFrame)2f else 1f,if(n+1==i.currentFrame)12f else 6f) else rect(x,y,(film.cellWidth(n)/d)-4f,26f)
                 val col=if(i.liftedFrame==n+1)Colour.AMBER else if(n+1==i.currentFrame)Colour.PINK else Colour.PAPER
@@ -222,12 +236,14 @@ object BoardChromeLayout {
                 if(!folded && i.liftedFrame==n+1)for(index in firstElement until e.size){
                     e[index]=e[index].copy(rotationDeg=-2f,scale=1.1f,transformOrigin=Point(r.cx,r.cy))
                 }
+                heldTicks+=i.holds[n].toLong()
             }
             if(!folded){
-                val ar=rect(b.left+8*d+film.stripWidth()-i.stripScrollPx,sy+7*d,26f,26f)
+                val ar=rect(b.left+8*d+heldTicks*film.tickPx-i.stripScrollPx,sy+7*d,26f,26f)
                 add("add-cell",ar,col=Colour.PAPER,a=.55f,stroke=1f,radius=5f,dashed=true,clip=strip)
                 glyph("add",centre(ar.cx,ar.cy,11f,11f),"plus",BoardChromeLabels.ADD,Colour.PAPER)
-                i.insertionIndex?.let {n->add("insertion",rect(b.left+8*d+film.cellLeft(n)-i.stripScrollPx-2*d,sy+3*d,2f,34f),col=Colour.CYAN,radius=1f,halo=3f,clip=strip)}
+                i.insertionIndex?.let {n->val ticks=i.holds.take(n.coerceIn(0,i.holds.size)).sumOf {it.toLong()}
+                    add("insertion",rect(b.left+8*d+ticks*film.tickPx-i.stripScrollPx-2*d,sy+3*d,2f,34f),col=Colour.CYAN,radius=1f,halo=3f,clip=strip)}
             }
         }
         if(i.kind==BoardKind.SPRITE){
@@ -282,7 +298,11 @@ object BoardChromeLayout {
         return Layout(listOf(Element("layer-marker",Shape.GLYPH,r,if(animated)Colour.INK else Colour.GREY,glyph=if(animated)"runner" else "mountain",gradient=if(animated)BoardKind.ANIMATION else null)),listOf(Control("layer-marker",r,hit,tip)),false,false,false)
     }
     /** Nearest visual centre resolves enlarged, overlapping touch targets deterministically. */
-    fun hit(layout: Layout, point: Point): Control? = layout.controls.filter {
+    fun containsHit(layout: Layout, id: String, point: Point): Boolean = layout.controls.firstOrNull { it.id == id }?.let {
+        point.x >= it.hit.left && point.x <= it.hit.right && point.y >= it.hit.top && point.y <= it.hit.bottom
+    } == true
+    fun hit(layout: Layout, point: Point, enabledOnly: Boolean = true): Control? = layout.controls.filter {
+        (!enabledOnly || it.enabled) &&
         point.x>=it.hit.left && point.x<=it.hit.right && point.y>=it.hit.top && point.y<=it.hit.bottom
     }.minByOrNull { hypot(point.x-it.visual.cx,point.y-it.visual.cy) }
 }

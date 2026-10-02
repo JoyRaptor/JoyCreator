@@ -1,8 +1,8 @@
 # JB-3.00a: Lead integration handoff
 
-Status: core and standalone Android chrome compile. JoyBrushActivity.kt has NOT been edited. The adjacent Activity-wiring.patch contains the exact proposed Activity hunks; approval is required before applying them. This is an attachment/data-flow boundary, not a claim that board painting or export has been connected.
+Status: core, standalone Android chrome and reusable export presentation compile and pass tests. JoyBrushActivity.kt has NOT been edited. The adjacent Activity-wiring.patch is a historical proposal: DO NOT APPLY. The Lead's BOARD_INTEGRATION_DECISION_20261002.md supersedes it and assigns the live adapter and final Activity wiring to the Lead. Board painting and export dispatch are not connected here.
 
-R30 says `JoyBrushActivity.kt` is a shared hot file with a lock order. The owner explicitly required stopping before editing it. Main also contains another lane's staged Activity and engine changes. Reconcile those changes before applying this proposal; never overwrite their file with this worktree's version.
+R30 says `JoyBrushActivity.kt` is a shared hot file with a lock order. The owner explicitly required stopping before editing it. Main also contains another lane's staged Activity and engine changes. Never overwrite their file with this worktree's version.
 
 The owner has delegated technical judgment to the parallel JoyBrush Lead chat and directed this lane to route technical approval questions there. Activity approval, shared export extraction and landing coordination now go to that Lead, not to the owner.
 
@@ -26,7 +26,7 @@ Every scene contains the pure core Input and the Android Host callbacks. Input r
 
 ## Gaps against §K
 
-1. **K6 shared export sheet is not implemented here.** FaditorEditorActivity.showExportConfirmation is a private, approximately 400-line video-project dialog: filename, audio cleanup/LUFS, resolution/quality, keep-awake, audio-only, single-frame/timecode, range validation, queue/export service. It is an AlertDialog, not the specified 236 dp glass board sheet. Board chrome resolves the existing app ic_export_studio.xml and exposes export callbacks. A Lead-owned extraction must provide one shared sheet/presenter, add board all/range/current scopes plus GIF/PNG frames/sprite sheet/Send to Studio, memory line and gradient button, preserve Studio's existing exports, and obey 55% glass plus Frost. No sheet was copied.
+1. **K6 presentation exists; operational sharing/export remains incomplete.** BoardExportLayout and ExportChoiceSheet provide the 236 dp, 55% glass sheet with typed animation/range/current-frame choices, format chips, memory line and gradient button. Geometry follows source CSS flex sizing; shared font measurement supplies intrinsic text widths. Unsupported actions default to disabled. Studio can reuse the component through its existing joybrush-android dependency, but its private export flow was not copied or restructured. Lead owns Studio adaptation, actual dispatch and range validation. Image/sprite presets remain host responsibilities.
 2. **Real playback, tiling, frame/layer switching, swaps and the one-time wrap warning require the host/engine rows.** The committed canvas in this base accepts a single CANVAS board; another lane's staged projection work is deliberately excluded. This branch implements chrome layout/state output and event callbacks only. It does not prove pixel behavior.
 3. **Board menu and text-entry panels are host actions.** Their view attachment is not implemented in this standalone renderer. The title and size affordances/typing ring/caret are drawn by core; rename/type actions need the Lead's existing panel cluster.
 4. **Loop mode is a host state/action.** The picture supplies the loop path only; the renderer uses that source glyph. A different ping-pong/once glyph has not been invented. The host can cycle the existing loop mode while keeping the picture's loop mark.
@@ -34,8 +34,16 @@ Every scene contains the pure core Input and the Android Host callbacks. Input r
 
 ## Verification
 
-Core command: `./gradlew --no-watch-fs -p joybrush :core:jvmTest` (Windows wrapper equivalent). BUILD SUCCESSFUL. XML: 95 suites, 1,449 tests, zero failures/errors/skips; BoardChromeLayoutTest: 28 tests. Covers the implemented K1–K5/K7–K10 numbers and rules, including density, touch size, edge docking, lifted group transforms, fades, hover restoration and v4 default/v5 tile serialization. K6 sheet geometry has no test because it is not implemented.
+Core command: `./gradlew --no-watch-fs -p joybrush :core:jvmTest` (Windows wrapper equivalent). BUILD SUCCESSFUL. XML: 98 suites, 1,471 tests, zero failures/errors/skips; BoardChromeLayoutTest: 28 tests. Includes the original layout/state/model tests plus bounded raster planning, preview/identity/input contracts and K6 presentation geometry.
 
-Android check: `:joybrush-android:compileDebugKotlin :app:compileDefaultDebugJavaWithJavac`. This compiles the board view, shared typography/fonts, extracted strip and SpriteLab adapters. Shared RollDragController javac harness: 20 checks passed. The harness is independent of the XML suite count.
+Android check: `:joybrush-android:testDebugUnitTest :app:compileDefaultDebugJavaWithJavac`. BUILD SUCCESSFUL. Native Robolectric API 28 XML: 2 suites, 14 tests, zero failures/errors/skips. Checks transparent gaps/passive boards, overlapping targets, cancellation, host replacement, coalescing, shadow reuse, frame wheel and stable export gestures. Shared RollDragController javac harness: 20 checks passed previously, independent of the XML counts.
+
+## Lead follow-up contracts
+
+BoardChromeView uses ordinary hardware rendering and a 4 MiB bounded cache of small shadow rasters. The pure render plan splits each surface into at most 256×256 px patches and only rasterizes the perimeter of stroked rectangles. Test fixture: selected 548×1126 px outline uses 153,024 bytes versus 2,468,192 bytes for a full-window ARGB surface; passive fixture uses under 4,096 bytes. These are source/test measurements, not a Note 9 performance claim. Strip fades use bounded layers. `show` coalesces chrome state to one UI frame and ignores selected-board pen-coordinate changes that cannot change layout; painting pen samples must remain untouched.
+
+Use a stable Host instance per live scene. Freeze BoardChromeIdentity from that scene before translating strip indices or committing actions; reject stale IDs/order. Call stopInteractions on scene/graphics loss and pause. Hover-loop callbacks are preview-only and must restore the prior frame without persisted selection. Host.acceptsPointer can reserve stylus input for painting; touch gaps and passive chrome pass through.
+
+BoardLayerPreview.scope implements owner §G7a: active board bounds, current animation frame ID, normal page scope when passive. Cache keys include scope, layer ID and content revision, not pen events. Lead owns actual GPU reads and held-layer resolution; do not capture thumbnail pixels for each pen sample. ExportChoiceSheet freezes frame IDs for the gesture and supplies typed choices only; the host validates capabilities and performs export.
 
 No changes to the protected paths, no Gradle execution in main, no merge into joy-creator, no phone install. Worktree: `C:/Users/JoyRaptor/AppData/Local/Temp/jb-board-chrome`, branch `codex/jb-board-chrome`, based on joy-creator `7bc60742`.

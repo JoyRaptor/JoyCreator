@@ -4,12 +4,16 @@ import android.content.Context
 import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.os.Build
+import android.util.LruCache
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import cc.joycreator.joybrush.core.chrome.BoardChromeLayout as Chrome
 import cc.joycreator.joybrush.core.chrome.BoardHoverLoop
+import cc.joycreator.joybrush.core.chrome.BoardChromeFrameQueue
+import cc.joycreator.joybrush.core.chrome.BoardChromePointerCapture
+import cc.joycreator.joybrush.core.chrome.BoardChromeRenderPlan
 import cc.joycreator.joybrush.core.chrome.IconInk
 import cc.joycreator.joybrush.core.doc.BoardKind
 import com.fadcam.ui.type.Type
@@ -25,6 +29,9 @@ import kotlin.math.roundToInt
 class BoardChromeView(context: Context) : ViewGroup(context) {
     interface Host {
         fun action(id: String, held: Boolean) {}
+        /** The live adapter may reserve a stylus gesture for painting even over a cell target. */
+        fun acceptsPointer(id: String, event: MotionEvent): Boolean = true
+        fun cancel(id: String) {}
         fun drag(id: String, from: Chrome.Point, to: Chrome.Point, finished: Boolean) {}
         fun frame(frame: Int) {}
         fun stripScrollBy(pixels: Int) {}
@@ -40,20 +47,36 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
     }
 
     var host: Host = object : Host {}
+        set(value) { if (field !== value) { stopInteractions(); field = value } }
     var paperInk: IconInk = IconInk.LIGHT
-        set(value) { field = value; invalidate() }
+        set(value) { if (field != value) { field = value; invalidate() } }
     var paperColour: Int = Color.TRANSPARENT
-        set(value) { field = value; invalidate() }
+        set(value) { if (field != value) { field = value; invalidate() } }
     /** Optional injection of the ONE app ic_export_studio asset. */
     var exportDrawable: Drawable? = null
         set(value) { field = value?.mutate(); invalidate() }
 
     private var layout = Chrome.Layout(emptyList(), emptyList(), false, false, false)
     private var input: Chrome.Input? = null
+    private val inputQueue = BoardChromeFrameQueue<Chrome.Input>()
+    private val renderPending = Runnable { inputQueue.take()?.let { applyInput(it) } }
+    private val capture = BoardChromePointerCapture()
     private val targets = linkedMapOf<String, View>()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val outline = Path()
+    private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private data class RasterKey(val element: Chrome.Element, val ink: IconInk, val viewport: Chrome.Rect)
+    private data class RasterPatch(val bounds: BoardChromeRenderPlan.Patch, val bitmap: Bitmap)
+    private val shadows = object : LruCache<RasterKey, List<RasterPatch>>(4 * 1024 * 1024) {
+        override fun sizeOf(key: RasterKey, value: List<RasterPatch>) = value.sumOf { it.bitmap.allocationByteCount }
+    }
+    /** Measurable cache footprint; no window-sized software layer is allocated by this view. */
+    val cachedShadowBytes: Int get() = shadows.size()
+    var layoutBuildCount: Long = 0
+        private set
+    var shadowRasterizations: Long = 0
+        private set
     private var activeTarget: View? = null
     private var hoveredTarget: View? = null
     private var hover = BoardHoverLoop()
@@ -69,17 +92,22 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         setWillNotDraw(false)
         clipChildren = false
         clipToPadding = false
-        // Canvas shadows must work on the owner's API 28 device as well as newer releases.
-        setLayerType(LAYER_TYPE_SOFTWARE, null)
+        // Only bounded shadow patches use software Canvas. The transparent scene keeps the
+        // normal hardware pipeline, including on API 28 where non-text shadows need software.
     }
 
     fun show(input: Chrome.Input) {
+        if (inputQueue.offer(Chrome.visualInput(input))) postOnAnimation(renderPending)
+    }
+
+    private fun applyInput(input: Chrome.Input) {
         val previous = this.input
         if (previous != null && (previous.density != input.density || previous.selected != input.selected || previous.kind != input.kind || previous.holds != input.holds)) {
             stopInteractions()
         }
         this.input = input
-        submit(Chrome.layout(input))
+        layoutBuildCount++
+        applyLayout(Chrome.layout(input))
         if (roll == null || rollDensity != input.density) {
             rollDensity = input.density
             roll = RollDragController(object : RollDragController.Bounds {
@@ -103,6 +131,16 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
 
     /** Also accepts core layerMarker output, without inventing another marker layout. */
     fun submit(value: Chrome.Layout) {
+        removeCallbacks(renderPending)
+        inputQueue.clear()
+        input = null
+        applyLayout(value)
+    }
+
+    private fun applyLayout(value: Chrome.Layout) {
+        if (layout == value) return
+        val controlsChanged = layout.controls != value.controls
+        if (!capture.retain(value)) stopInteractions()
         layout = value
         val ids = value.controls.map { it.id }.toSet()
         targets.keys.filter { it !in ids && targets[it] !== activeTarget }.toList().forEach {
@@ -110,15 +148,16 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         }
         value.controls.forEach { control ->
             val target = targets.getOrPut(control.id) { Target(control.id).also { addView(it) } }
-            target.contentDescription = control.tooltip
+            target.isEnabled = control.enabled
+            if (target.contentDescription != control.tooltip) target.contentDescription = control.tooltip
             // Compat tooltips take the long-click listener on API 24–25. Native hover tooltips
             // preserve the board menu, FPS and add-frame holds on API 26+ (including Note 9).
-            if (Build.VERSION.SDK_INT >= 26) target.tooltipText = control.tooltip
+            if (Build.VERSION.SDK_INT >= 26 && target.tooltipText != control.tooltip) target.tooltipText = control.tooltip
             else (target as Target).hoverLabel = control.tooltip
-            target.layout(control.hit.left.roundToInt(), control.hit.top.roundToInt(),
+            if (controlsChanged) target.layout(control.hit.left.roundToInt(), control.hit.top.roundToInt(),
                 control.hit.right.roundToInt(), control.hit.bottom.roundToInt())
         }
-        requestLayout()
+        if (controlsChanged) requestLayout()
         invalidate()
     }
 
@@ -135,13 +174,62 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
     }
 
     override fun onDraw(canvas: Canvas) {
-        layout.elements.forEach { draw(canvas, it) }
+        layout.elements.forEach { e ->
+            if (e.shadowPx > 0 || e.haloPx > 0 && e.colour == Chrome.Colour.PAPER) drawShadowPatch(canvas, e)
+            else draw(canvas, e)
+        }
     }
 
-    private fun draw(canvas: Canvas, e: Chrome.Element) {
+    private fun drawShadowPatch(canvas: Canvas, e: Chrome.Element) {
+        val viewport = Chrome.Rect(0f, 0f, width.toFloat(), height.toFloat())
+        val rasterViewport = BoardChromeRenderPlan.rasterViewport(e, viewport)
+        val key = RasterKey(e.copy(alpha = 1f, rotationDeg = 0f, scale = 1f, transformOrigin = null,
+            clip = null, fadeStartPx = null, fadeEndPx = null), paperInk, rasterViewport)
+        val patches = shadows[key] ?: BoardChromeRenderPlan.patches(key.element, rasterViewport).map { bounds ->
+            val bitmap = Bitmap.createBitmap(bounds.width, bounds.height, Bitmap.Config.ARGB_8888)
+            val software = Canvas(bitmap)
+            software.translate(-bounds.left.toFloat(), -bounds.top.toFloat())
+            draw(software, key.element, artwork = false)
+            RasterPatch(bounds, bitmap)
+        }.also { shadowRasterizations++; shadows.put(key, it) }
         val save = canvas.save()
         e.clip?.let { canvas.clipRect(it.left, it.top, it.right, it.bottom) }
-        val fadeLayer = if (e.fadeStartPx != null && e.fadeEndPx != null) canvas.saveLayer(null, null) else -1
+        val fadeLayer = if (e.fadeStartPx != null && e.fadeEndPx != null) {
+            val r = e.clip ?: e.rect
+            canvas.saveLayer(r.left, r.top, r.right, r.bottom, null)
+        } else -1
+        val transformSave = canvas.save()
+        val pivot = e.transformOrigin ?: Chrome.Point(e.rect.cx, e.rect.cy)
+        canvas.rotate(e.rotationDeg, pivot.x, pivot.y)
+        canvas.scale(e.scale, e.scale, pivot.x, pivot.y)
+        bitmapPaint.alpha = (e.alpha * 255).roundToInt().coerceIn(0, 255)
+        for (patch in patches) canvas.drawBitmap(patch.bitmap, patch.bounds.left.toFloat(), patch.bounds.top.toFloat(), bitmapPaint)
+        canvas.restoreToCount(transformSave)
+        if (fadeLayer >= 0) fadeMask(canvas, e)
+        canvas.restoreToCount(save)
+        if (hasArt(e)) drawArt(canvas, e)
+    }
+
+    private fun hasArt(e: Chrome.Element) = e.artSlot || e.id == "sprite-lift" || e.id.startsWith("sprite-cell-")
+
+    private fun drawArt(canvas: Canvas, e: Chrome.Element) {
+        val save = canvas.save()
+        e.clip?.let { canvas.clipRect(it.left, it.top, it.right, it.bottom) }
+        val pivot = e.transformOrigin ?: Chrome.Point(e.rect.cx, e.rect.cy)
+        canvas.rotate(e.rotationDeg, pivot.x, pivot.y)
+        canvas.scale(e.scale, e.scale, pivot.x, pivot.y)
+        shape(e)
+        clipped(canvas, outline) { host.art(canvas, e) }
+        canvas.restoreToCount(save)
+    }
+
+    private fun draw(canvas: Canvas, e: Chrome.Element, artwork: Boolean = true) {
+        val save = canvas.save()
+        e.clip?.let { canvas.clipRect(it.left, it.top, it.right, it.bottom) }
+        val fadeLayer = if (e.fadeStartPx != null && e.fadeEndPx != null) {
+            val r = e.clip ?: e.rect
+            canvas.saveLayer(r.left, r.top, r.right, r.bottom, null)
+        } else -1
         val transformSave = canvas.save()
         val pivot = e.transformOrigin ?: Chrome.Point(e.rect.cx, e.rect.cy)
         canvas.rotate(e.rotationDeg, pivot.x, pivot.y)
@@ -193,7 +281,7 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
                     paint.clearShadowLayer()
                     canvas.drawPath(outline, paint)
                 }
-                if (e.artSlot || e.id == "sprite-lift" || e.id.startsWith("sprite-cell-")) clipped(canvas, outline) { host.art(canvas, e) }
+                if (artwork && hasArt(e)) clipped(canvas, outline) { host.art(canvas, e) }
             }
             Chrome.Shape.TEXT -> {
                 paint.typeface = when (e.font) {
@@ -216,13 +304,18 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         canvas.restoreToCount(transformSave)
         if (fadeLayer >= 0) {
             // Restore transforms before applying the core's screen-space strip mask.
-            maskPaint.reset()
-            maskPaint.shader = LinearGradient(e.fadeStartPx!!, 0f, e.fadeEndPx!!, 0f,
-                Color.BLACK, Color.TRANSPARENT, Shader.TileMode.CLAMP)
-            maskPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
-            e.clip?.let { canvas.drawRect(it.left, it.top, it.right, it.bottom, maskPaint) }
+            fadeMask(canvas, e)
         }
         canvas.restoreToCount(save)
+    }
+
+    private fun fadeMask(canvas: Canvas, e: Chrome.Element) {
+        maskPaint.reset()
+        maskPaint.shader = LinearGradient(e.fadeStartPx!!, 0f, e.fadeEndPx!!, 0f,
+            Color.BLACK, Color.TRANSPARENT, Shader.TileMode.CLAMP)
+        maskPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+        val r = e.clip ?: e.rect
+        canvas.drawRect(r.left, r.top, r.right, r.bottom, maskPaint)
     }
 
     private fun shape(e: Chrome.Element) {
@@ -279,26 +372,32 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         Chrome.Colour.GREY -> 0xffa1a1aa.toInt()
         Chrome.Colour.ON_GRADIENT -> 0xff050507.toInt()
         Chrome.Colour.SPRITE_ON -> 0xffff008c.toInt()
+        Chrome.Colour.ANIMATION_ON -> 0xff35f6bf.toInt()
     }
     private fun contrastColour() = if (paperInk == IconInk.DARK) Color.WHITE else Color.BLACK
 
     /** Core chooses among overlapping >=40dp targets. No child z order steals a neighbour. */
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-            activeTarget = Chrome.hit(layout, Chrome.Point(event.x, event.y))?.let { targets[it.id] }
+            val id = capture.down(layout, Chrome.Point(event.x, event.y))
+            activeTarget = id?.takeIf { host.acceptsPointer(it, event) }?.let { targets[it] }
+            if (activeTarget == null) capture.cancel()
         }
         val target = activeTarget ?: return false
         val local = MotionEvent.obtain(event)
         local.offsetLocation(-target.left.toFloat(), -target.top.toFloat())
         val handled = target.dispatchTouchEvent(local)
         local.recycle()
-        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) activeTarget = null
+        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            capture.release()
+            activeTarget = null
+        }
         return handled
     }
 
     override fun dispatchHoverEvent(event: MotionEvent): Boolean {
         val target = if (event.actionMasked == MotionEvent.ACTION_HOVER_EXIT) null
-            else Chrome.hit(layout, Chrome.Point(event.x, event.y))?.let { targets[it.id] }
+            else Chrome.hit(layout, Chrome.Point(event.x, event.y), enabledOnly = false)?.let { targets[it.id] }
         if (hoveredTarget !== target) {
             hoveredTarget?.let { deliverHover(it, event, MotionEvent.ACTION_HOVER_EXIT) }
             target?.let { deliverHover(it, event, MotionEvent.ACTION_HOVER_ENTER) }
@@ -329,13 +428,16 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
     }
     /** The Activity calls this before pausing; a hover loop never survives leaving the screen. */
     fun stopInteractions() {
+        removeCallbacks(renderPending)
+        inputQueue.clear()
+        capture.cancel()
         targets.values.forEach { (it as Target).stopInteraction() }
         activeTarget = null
         hoveredTarget = null
         stopHover()
         roll?.end(false)
     }
-    override fun onDetachedFromWindow() { stopInteractions(); super.onDetachedFromWindow() }
+    override fun onDetachedFromWindow() { stopInteractions(); shadows.evictAll(); super.onDetachedFromWindow() }
 
     private inner class Target(private val id: String) : View(context) {
         fun deliverHover(event: MotionEvent): Boolean = dispatchHoverEvent(event)
@@ -343,19 +445,31 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         private var from = Chrome.Point(0f, 0f)
         private var startFrame = 1
         private var dragging = false
+        private var held = false
+        private var tapEligible = false
         private var lastPoint = Chrome.Point(0f, 0f)
         private var hoverToast: Toast? = null
         private val showLabel = Runnable {
             if (hoverLabel.isNotEmpty()) hoverToast = Toast.makeText(context, hoverLabel, Toast.LENGTH_LONG).also { it.show() }
         }
         fun stopInteraction() {
+            if (dragging && !id.startsWith("cell-")) host.cancel(id)
+            clearNativeTouch()
             cancelLongPress(); isPressed = false; dragging = false
+            tapEligible = false
             removeCallbacks(showLabel); hoverToast?.cancel(); hoverToast = null
+        }
+        private fun clearNativeTouch(event: MotionEvent? = null) {
+            val cancel = event?.let { MotionEvent.obtain(it) }
+                ?: MotionEvent.obtain(0, android.os.SystemClock.uptimeMillis(), MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+            cancel.action = MotionEvent.ACTION_CANCEL
+            try { super.onTouchEvent(cancel) } finally { cancel.recycle() }
         }
         init {
             isClickable = true; isFocusable = true
             setOnClickListener { host.action(id, false) }
             setOnLongClickListener {
+                held = true
                 val frameIndex = if (id.startsWith("cell-")) id.removePrefix("cell-").toIntOrNull() else null
                 if (frameIndex != null && !layout.folded) roll?.begin(frameIndex)
                 else host.action(id, true)
@@ -375,8 +489,9 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         override fun onTouchEvent(event: MotionEvent): Boolean {
             val point = Chrome.Point(event.x + left, event.y + top)
             when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { from = point; lastPoint = point; startFrame = input?.currentFrame ?: 1; dragging = false }
+                MotionEvent.ACTION_DOWN -> { from = point; lastPoint = point; startFrame = input?.currentFrame ?: 1; dragging = false; held = false; tapEligible = true }
                 MotionEvent.ACTION_MOVE -> {
+                    if (!Chrome.containsHit(layout, id, point)) tapEligible = false
                     val frameIndex = if (id.startsWith("cell-")) id.removePrefix("cell-").toIntOrNull() else null
                     if (frameIndex != null && roll?.isDragging(frameIndex) == true) {
                         dragging = true; roll?.move(point.x, point.y)
@@ -392,10 +507,21 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
                     if (dragging) { cancelLongPress(); isPressed = false; return true }
                 }
                 MotionEvent.ACTION_UP -> if (dragging || id.removePrefix("cell-").toIntOrNull()?.let { roll?.isDragging(it) } == true) {
-                    if (id.startsWith("cell-")) roll?.end(true) else host.drag(id, from, point, true)
+                    if (id.startsWith("cell-")) roll?.end(true) else if(id!="wheel") host.drag(id, from, point, true)
+                    clearNativeTouch(event); tapEligible = false
                     dragging = false; return true
+                } else {
+                    // Finish synchronously against the displayed scene. View's posted click
+                    // runnable could otherwise fire after that scene or its host was replaced.
+                    val click = isEnabled && tapEligible && !held
+                    clearNativeTouch(event); tapEligible = false
+                    if (click) performClick()
+                    return true
                 }
-                MotionEvent.ACTION_CANCEL -> { roll?.end(false); dragging = false; isPressed = false }
+                MotionEvent.ACTION_CANCEL -> {
+                    if (dragging && !id.startsWith("cell-")) host.cancel(id)
+                    roll?.end(false); dragging = false; isPressed = false; tapEligible = false
+                }
             }
             return super.onTouchEvent(event)
         }

@@ -408,6 +408,23 @@ A slim column outside the board's left edge, top to bottom:
     animated … that would be in the layer tool itself.") **"Omitted" is not a third state** for now: the owner was
     unsure it is needed, and two states read faster.
 
+### G7a. Layer previews follow the selected board — owner clarification, 2026-10-02
+
+Owner's direction, verbatim:
+
+> almost forgot a detail: when a bord is selected/active the layer selector previews just show the bounds inside that board. when its passive the layers go back to normal functioning
+
+When any board is selected/active, each layer-selector thumbnail previews only that board's
+rectangle, using the same document bounds for every layer. For an Animation board, previews
+show its current frame; layers held on every frame show their shared content in that rectangle.
+When the board becomes passive/unselected, restore the normal layer previews. Switching the
+selected board updates the previews to the new board's bounds. This is preview framing; it
+does not crop or mutate stored layer pixels. The ordinary layer controls remain available.
+
+Acceptance: select a board over artwork that extends outside it; thumbnails show only the
+inside portion. Change animation frame; thumbnails follow that frame. Make the board passive;
+normal thumbnails return. Selecting another board uses its rectangle without changing artwork.
+
 ### G8. The Sprite board
 12. **Reuse SpriteLab's mechanics, by REFERENCE where possible**, so improving SpriteLab improves the Sprite board.
     (F: "reuse a lot of the same mechanics that were developed by [Sprite Lab] … Maybe even have some of the mechanisms

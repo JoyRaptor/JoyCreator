@@ -1005,3 +1005,8 @@ status: IDLE (foundation tested; region adaptation held for JB-3.00a/R50)
 files: none. Evidence: tasks/joybrush/INTEGRATION_20260930.md. Shared handoff: AGENT_BOARD.md.
 DEVICE: none. Fresh owner artwork restored, 1835 entries exact; newer sample preserved.
 Backup: codex/frame-projection-foundation. No main merge: board-spec preflight conflict.
+
+## JOYBRUSH_BOARD_PREVIEW_RULE_20261002
+status: IDLE (owner clarification recorded; implementation owed)
+files: tasks/joybrush/specs/JB-3.00a_boards_owner_model.md (append-only owner clarification); tasks/joybrush/AGENT_BOARD.md.
+DEVICE: none. Documentation only.

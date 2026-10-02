@@ -1,5 +1,12 @@
 # Joy Brush shared agent board
 
+## Owner clarification to Boards Specialist — 2026-10-02
+
+Selected/active board: layer-selector previews show only that board's bounds. Passive/unselected
+board: normal layer previews return. Applies to every board kind; animation previews follow the
+board's current frame. Spec: JB-3.00a §G7a, with the owner's words preserved. Documentation only;
+not implemented or phone-verified. Please include this in the board chrome/integration handoff.
+
 Working handoff for Codex, OpenCode and other harnesses. Lead: Codex while Claude is on cooldown,
 per JoyRaptor. Priority: dependable painting first, then board-region animation. Read
 `START_HERE.md`, `ROADMAP.md`, `LEAD_RULINGS.md` and `specs/JB-3.00a_boards_owner_model.md`.

@@ -51,7 +51,8 @@ tasks.named("jvmTest") {
     // "...FadCam\joybrush\testdata-local", which that parse rejects with
     // "Trailing char < > at index 58" — so :core:jvmTest FAILED at execution instead of registering the
     // input, and the guarantee R44 item 1 buys (an edited corpus re-runs the probe) was not in force.
-    // `dir()` resolves the same string as a literal filesystem directory and parses no pattern at all.
+    // `inputs.dir(...)` takes the value as a literal filesystem directory and parses no pattern at all —
+    // the same call the three lines above already use.
     // `.optional()` keeps an ABSENT folder as an empty input rather than a failure: testdata-local is
     // git-ignored (.gitignore:90), so a fresh worktree has none — the common case, and R44 item 4's
     // "with the folder empty it skips".
@@ -59,6 +60,6 @@ tasks.named("jvmTest") {
     // fixed for the build, so the file tree, the property below and the tests (RealFilesProbeTest and
     // AbrRealFilesTest read the same variable themselves) all work from one resolved path.
     val corpus = providers.environmentVariable("JOYBRUSH_TESTDATA").getOrElse(rootDir.resolve("testdata-local").path)
-    inputs.files(fileTree(dir(corpus))).withPropertyName("realCorpus").optional()
+    inputs.dir(corpus).withPropertyName("realCorpus").optional()
     inputs.property("realCorpusPath", corpus)
 }

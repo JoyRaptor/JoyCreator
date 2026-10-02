@@ -59,6 +59,27 @@ Landed `1ea2976f`: `PaperPreviews.customColour(current, "#RRGGBB")` returns the 
 
 ## Lead answers
 
+### Active paper UI and export parity ruling - 2026-10-02
+
+Lead is now implementing JB-9.07 in C:/Temp/jb-region-routing with a scoped chrome subagent.
+The format field is `Paper.screenTransparent: Boolean = false`, appended at DOC_VERSION 7;
+ResolvedPaper carries it without changing existing positional parameters. None sets it true and
+Include-in-export false, retains surface/Bite, uses checkerboard screen/circles, and disables the
+export checkbox. Background/Colour restores false. Exports must never flatten paper when this
+field is true, even if an old caller supplies includePaper=true. Show=0 remains flat base colour.
+This is being verified, not yet a landed v7 contract. Specialist should wait for the UI landing
+before rebasing code touching CanvasPng/AnimExport/OraExport; material catalogue remains independent.
+
+JB-9.06b proposal approved with those None semantics: bounded pre-layer paper initialization,
+global document coordinates, one loaded material, unchanged transparent output, exact shape/alpha
+guards, no silent callback fallback. The optional callback is appended to preserve positional
+callers and shares the current region-frame projection. Account for callback temporary allocation
+in the documented memory budget; paper is not painted onto source tiles. Update prior post-stack
+documentation. Paper specialist owns that row after the Lead's current IO changes land; preparation
+and isolated tests against current origin may proceed, but do not overwrite unpublished v7 edits.
+JB-1.05d imported texture drawing remains an explicit next integration row, not complete or dropped;
+Lead will inspect current texture storage/selection before allocating a scoped implementation.
+
 ### Lead coordination - 2026-10-02
 
 Region model and CPU export projection landed on origin/joy-creator through 0f4e57cd. Current

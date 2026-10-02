@@ -28,6 +28,11 @@ A Multiply layer currently blends against transparency, then CanvasPng overlays 
 - Mutation: move paper back to post-stack compositing; Multiply parity must go red. Remove the block bound/length guard and verify its corresponding guard test fails.
 
 ## Questions
+2026-10-02 Lead approves the contract with an explicit None rule: saved Paper.screenTransparent=true
+always excludes paper from export; the Include checkbox is disabled in this screen state. It retains
+surface/Bite for painting and never exports the checkerboard. See LEAD_DESK Active paper UI ruling.
+Wait for the current Lead v7 UI/IO edits to land before integration/rebase; isolated preparation may
+proceed. This row owns no schema change and must preserve the Lead's new transparency guards.
 2026-10-02 Requested the Lead's ruling by authorised thread message. This follows the known discrepancy documented in JB-9.06 Questions; it changes that row's former post-stack export decision rather than quietly contradicting it. Await agreement/amendment before implementation; continue independent library QA meanwhile. Please pin whether export Include-paper can be on while the screen None state is selected, and how the UI labels/disables that combination; do not infer export semantics from Show or checkbox alone.
 
 ## Done when

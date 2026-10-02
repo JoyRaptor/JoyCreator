@@ -433,4 +433,6 @@ JB-9.08 review: core1440/0 at19:05:31 EDT and Android-kit225/0 at19:07:44 EDT; s
 
 Review: own core XML1444/0 at2026-10-01 23:46:36 EDT; light-key mutation red1/1, restored. Backend25d3494f landed. Main ff refused divergence, left alone. Screen transparency question and UI integration remain with the Lead.
 ## JB-9.10 flat black option
-- [ ] Add the specified true AMOLED black catalogue option with no texture image; pin actual opaque black output, verify shipped catalogue and colour mutation, then land. No broader candidate selection or generation.
+- [x] Add the specified true AMOLED black catalogue option with no texture image; pin actual opaque black output, verify shipped catalogue and colour mutation, then land. No broader candidate selection or generation.
+
+Review: own ShippedCatalogueTest XML5/0 at2026-10-01 23:53:04 EDT; #010101 mutation red1/1/restored. Asset87e82b8b landed. Main ff refused divergence; left alone. No new images, no phone installation, broader library still awaiting review.

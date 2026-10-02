@@ -10,4 +10,4 @@ Own shipped-catalogue XML: 5 tests, 0 failures/errors/skipped, one suite; newest
 
 Mutation: replace black #000000 with #010101 in the shipped catalogue; actual-RGBA test failed1/1 (expected0, actual1); restored. Command: same no-daemon/JVM flags, `-p joybrush :core:jvmTest --tests '*ShippedCatalogueTest.shippedAmoledBlackRendersExactOpaqueBlackWithoutRelief' --rerun-tasks`. The final class filter and restored asset are declared jvmTest inputs, so the final check runs afresh without forcing recompilation of unchanged sources.
 
-Landing/main fast-forward: pending.
+Landed as87e82b8b after rebase on origin/joy-creator and push HEAD:joy-creator. Main --ff-only refused because the branch has diverged; left it untouched.

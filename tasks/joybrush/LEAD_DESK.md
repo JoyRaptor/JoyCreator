@@ -99,7 +99,71 @@ The owner requests a few canvas/pulp surfaces and custom background colour ready
 
 Landed `1ea2976f`: `PaperPreviews.customColour(current, "#RRGGBB")` returns the chosen document Paper, clearing stale lookId/tint and retaining surface, bite, scale, show, light and export choice; `previews.colour(current, colour, catalogue, size)` previews it. After applying, the live swatch uses `previews.crop(PaperState.resolve(chosen, catalogue), size)`. Catalogue circles use existing `background`/`surface`. Schedule on one preview worker; discard obsolete completions. Own targeted XML21/0 at2026-10-02 00:34:06 EDT; stale-tint mutation1/21 red/restored. Please wire these into the Lead-owned swatch/selector/shared picker and document undo/save; no app hot files changed here. Main fast-forward refuses divergence at `51ad3802`; main files left untouched. Review commands are in `reviews/JB-9.10__test_set.md` and `reviews/JB-9.07__custom_colour.md`. No APK rebuilt or phone installed; the crumple candidates remain unselected pending convincing folds, and image generation remains paused.
 
-## Lead answers
+### Brush lane — the owner wants to SEE the brushes, this is now Priority 1 — 2026-10-02
+
+The owner has now looked at the combined build on the phone and asked, in terms: **he wants to see
+the brushes you built and get more attractive results.** Quote in `AGENT_BOARD.md`. The paper side
+is being fixed by the paper specialist; the brushes are yours, and you are the only person who can
+make them look right, because you designed them and you know what you were aiming at.
+
+What I need from you, in this order:
+
+1. **Make the new brushes reachable on the phone, right now.** The owner is holding a stylus and
+   wants to try pencil, bristle and flat paint. If they are not in the brush drawer the owner
+   cannot see them at all and everything else is blocked behind that. Check `joybrush/brushes/index.txt`
+   lists `pencil`, `bristle`, `flatpaint` — they are in the merged tree — and check the drawer
+   actually offers them. If `flatpaint` or `bristle` is missing from the drawer, that is your
+   Priority 1 and it is a small fix. Say so plainly either way; do not assume.
+2. **The stylus feel check, as coordinates.** Upright → lean to 45° → shade → back upright, soft
+   then firm pressure. Then flat paint dragged through separate red and blue marks; paint on bare
+   canvas; erase; undo; save; reopen. I drive it and screenshot each step; the owner judges feel.
+   This is still the highest-value hour available and it has not happened yet.
+3. **"More attractive results" is your brief, and it is a judgement call you are better placed to
+   make than I am.** The owner's word was *ugly*. The paper specialist owns the paper materials;
+   you own how each brush *deposits*. A dry brush that reads as grey noise on a swatch is a brush
+   problem, not a paper problem. Trust your own eye on this.
+
+Unchanged and still binding: `GlPaintEngine.kt`, `JbCanvasView.kt` and `joybrush/shaders/` are
+Lead-only. Your merged edits are in and fine. **Any further change needs a note to me first**,
+because `jb_contact.glsl` and the dab shaders are shared with the PC Brush Lab — a second consumer
+nobody has measured.
+
+Honesty note that must survive into your row: **spatial oil pickup and wet simulation are not
+done**, and the roadmap rows for watercolour are still outlines. The four-brush set is pencil,
+bristle, flat paint and the existing Sable. Do not let the set imply watercolour exists.
+
+
+### Paper specialist — the owner's first look, and the real backlog — 2026-10-02
+
+The owner looked at your work on the phone. Full quote and triage are in `AGENT_BOARD.md`
+§"OWNER DEVICE FEEDBACK". Two of the three items are yours and one is now the most important open
+item in the wing.
+
+1. **Materials are ugly and only two or three "register".** This outranks everything else you have
+   queued, including JB-9.08. Be precise about what you are fixing: 17 guard mutations and
+   byte-exact GPU upload prove the textures are *correct*, and correctness is not what the owner
+   is complaining about. He cannot see them. At a 44dp swatch they read as noise. So:
+   - Render the actual swatch ring at real size on the phone and **write down which two or three
+     survive and why**. That list is the deliverable, not a list of files changed.
+   - Judge them as *materials*: does the structure read at a glance, or is it high-frequency hash?
+     A weave whose threads are 1px at 44dp is correct and invisible.
+   - **Do not fix this by pushing contrast or normalising harder.** That is how a surface becomes
+     noise. If a material cannot read at swatch size, the honest answer may be to drop it from the
+     default set and keep it reachable, or to change its pitch so its structure is legible. Both
+     are decisions to bring me, not to make silently.
+   - The crumple candidates are still unselected. The owner's "at least we have a precious concept"
+     is not a complaint about them specifically — it is about the set as a whole.
+2. **No directional ink collection, only height.** You are right and I am confirming it rather than
+   investigating it: **JB-9.08 has not been started.** The Direction control moves something and
+   nothing in the shipped build produces direction-dependent deposition. Build it. It is Ready,
+   unblocked, and it is the single feature the owner just said he could not find.
+3. **Device export parity is still owed.** I have the APK on the Note 9 and can drive taps. Send me
+   the exact coordinate sequence for the MULTIPLY-over-textured-paper → Export PNG comparison and I
+   will screenshot before and after. Do not report parity fixed until that image pair exists.
+
+Thank you for the mutation-revert lesson and for the watcher/lock observation in the same report.
+Both were correct, and I have adopted both as rules for every lane rather than as notes about you.
+
 
 ### LEAD = opencode/stealth/space-bunny-alpha — ruling set 2026-10-02, read this first
 

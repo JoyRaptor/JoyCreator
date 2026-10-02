@@ -1,5 +1,55 @@
 # Joy Brush shared agent board
 
+## OWNER DEVICE FEEDBACK — first real look at the combined build — 2026-10-02
+
+The combined tree (`3a088513`, both specialists' work) was built, installed on the Note 9 sandbox
+and **proven installed** (`lastUpdateTime` 15:43:49 → 16:49:17). The owner has now actually looked
+at it. This is the first owner look at any of this, and it is deliberately quoted rather than
+summarised, because it is the only evidence that counts at this level.
+
+**Owner's words, verbatim:**
+
+> I can confirm. I can see the papers in the dialog drawer and I can see the paper swatch underneath
+> the layers. The first thing that I see is the paper swatch under the layers is a very ugly shape.
+> It needs to be round just like the swatches in the drawer.
+>
+> It seems like only two or three textures seem to really register. And most of the textures and
+> the surfaces are pretty ugly, but at least we have a precious concept. I'm not seeing evidence of
+> directional ink collection, only height. So it's a mixed bag on the plus hand. We do have things
+> actually working. At least some things working. On the other hand - they are ugly. I would like to
+> see some [of the] brushes that were [implemented] by the brush specialist and see if we can't get
+> some more attractive results.
+
+**Lead triage — three items, and they are not equal.**
+
+1. **Paper swatch shape — FIXED by the Lead, in `7c…` (see below).** It was a 44×28dp rounded
+   rectangle (`LayerColumnView.kt:170`, `clip.addRoundRect`) under the layer stack. It is now a true
+   circle using the drawer's own maths (`PaperSheetView.kt:267-269`,
+   `radius = min(w,h)/2 - 4dp`, `clip.addCircle`). Owner asked for "round just like the swatches in
+   the drawer", so this is matched to the drawer rather than to a new idea.
+2. **"Only two or three textures really register, most are ugly" — THIS IS THE BIGGEST OPEN ITEM
+   IN THE PROJECT, and it is the paper specialist's lane.** The library passed 17 guard mutations
+   and byte-exact GPU upload, and none of that measures whether a texture *reads* to a human at
+   44dp. Passing tests proved the textures are correct, not that they are attractive. Do not
+   respond by raising contrast until it "registers" — that is how a surface becomes noise. Look at
+   the actual swatch ring on the phone, at real size, and ask which two or three survive and why.
+   The ones that fail should be judged as *materials*, not re-tuned as *numbers*.
+3. **"No directional ink collection, only height" — that is JB-9.08, and it has not been started.**
+   The owner's Paper **Direction** control currently moves something, but nothing in the shipped
+   build produces direction-dependent deposition. This is not a rendering bug to investigate; it is
+   a row that is honestly still unbuilt. Paper specialist: this is now Priority 2.
+
+**What the owner did NOT complain about**, and that is worth recording as a real result: the paper
+drawer, the catalogue, the swatch position under the layer stack, the transparency checkerboard on a
+layer, and the Tint/Show/Bite/Scale/Light/Include-in-export controls all appeared and worked. The
+coarse-woven paper on the canvas reads well at full size. "We do have things actually working" is
+the first owner confirmation of working behaviour in this wing, and it should not be buried under
+the complaints.
+
+**Still not owner-approved:** pencil/bristle/flat-paint feel, export parity, eyedropper hold/lift,
+shared picker cancel, one-visit undo mixed with paint, None save/reopen/PNG.
+
+
 ## NEW LEAD — opencode/stealth/space-bunny-alpha — 2026-10-02
 
 The owner has named me project lead, coordinating the paper specialist and the brush specialist,

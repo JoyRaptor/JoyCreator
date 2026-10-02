@@ -164,10 +164,14 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         init { isClickable = true; isFocusable = true }
 
         override fun onDraw(c: Canvas) {
-            val w = kit.dp(CELL_W_DP).coerceAtMost(width.toFloat())
-            box.set((width - w) / 2f, kit.dp(4f), (width + w) / 2f, height - kit.dp(4f))
+            // A circle, matching PaperSheetView's swatch (radius = min(w,h)/2 - 4dp). It was a
+            // 44x28dp rounded rectangle, which read as a squashed slab under the layer stack.
+            val cx = width / 2f
+            val cy = height / 2f
+            val radius = minOf(width, height) / 2f - kit.dp(4f)
+            box.set(cx - radius, cy - radius, cx + radius, cy + radius)
             clip.reset()
-            clip.addRoundRect(box, kit.dp(6f), kit.dp(6f), Path.Direction.CW)
+            clip.addCircle(cx, cy, radius, Path.Direction.CW)
             c.save()
             c.clipPath(clip)
             paint.color = kit.p.drawerDim

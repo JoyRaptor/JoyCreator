@@ -16,4 +16,4 @@ Existing-crumple data probe: old clipped8-bit height std5.599748; correctly scal
 
 No Gradle run, APK rebuild or phone installation for this Python tooling fix. Screen/deposit integration remains the already verified engine; new crumple appearance requires refinement and the owner's judgement after the Lead's Paper sheet integration.
 
-Landing/main fast-forward: pending.
+Landed asd6c43dab after rebase on origin/joy-creator and push HEAD:joy-creator. Main --ff-only refused branch divergence; left it untouched.

@@ -440,4 +440,4 @@ Review: own ShippedCatalogueTest XML5/0 at2026-10-01 23:53:04 EDT; #010101 mutat
 ## JB-9.10 physical surface priority
 - [x] Record the owner's crumpled/flattened priority; fix 16-bit clipping and zero-range packing; preserve subtle physical amplitude.
 - [x] Verify numerical height/slope bytes, actual CLI and mutation; record own tool XML (6/0 at2026-10-02 00:05:12 EDT). No new candidate images or unreviewed crumples shipped.
-- [ ] Land the tooling fix and attempt main fast-forward.
+- [x] Land the tooling fix (d6c43dab) and attempt main fast-forward (refused divergence; untouched).

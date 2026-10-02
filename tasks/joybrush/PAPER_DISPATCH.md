@@ -77,3 +77,5 @@ Codex has image generation and strong 3D. **The specialist keeps taste and the f
 
 ## Owner update, 2026-10-01
 Codex heads paper/textures while the specialist is out of usage; the owner retains final visual judgement. Image generation is paused: prioritize paper rendering, export and brush response before populating more. Rice has gentle independent relief; use neutral D65 white balance, not a global yellow/amber grade. Existing candidates still need seam review before selection.
+
+Priority update, 2026-10-02: crumpled paper and subtly crumpled-then-flattened paper are high priority, followed by physical surfaces that affect brush deposition. Keep the subtle variant's height/slope amplitude physically smaller, not merely its lighting. Correct16-bit packing is verified; existing pebbly crumple candidates remain unselected. No new image generation.

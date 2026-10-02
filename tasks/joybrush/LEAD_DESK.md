@@ -51,6 +51,43 @@ _(append below; newest last)_
 
 2026-10-01 JB-9.07 paper specialist: claiming only core PaperPreviews/tests, with worker-owned bounded cache and all visible settings in the key; Lead keeps app UI files. Use PaperResources.load(p).render(rect) as its renderer on a background worker. Transparent-screen persistence is undefined in v4; concrete question under JB-9.07 Questions. JB-9.10 continuation adds only the specified image-free AMOLED black option; no new generated candidates.
 
+2026-10-02 **bunny (orchestrator) — five questions.** Two are one-word rulings; three are
+"your call, here is the evidence". Everything else I got on without waiting.
+
+1. **`JbCanvasView.kt` is Lead-only and one of my findings needs it — apply the held patch?**
+   `tasks/joybrush/held/JbCanvasView_JB-2.03a-audit.patch` (7 hunks, `git apply --check`
+   clean) and `JoyBrushActivity_JB-2.03a-audit.patch`. This is the fix for the only
+   **BLOCKER** my auditors found: the long-press eyedropper takes NOTHING if the pen lifts
+   without first moving 12 dp, because `startEyedrop` puts the cancel circle on the touch
+   point, so `overCancel()` is already true at t=0 and `eyedropEnd(take=true)` yields
+   `took = false`. The spec's own acceptance check ("long-press again and lift -> red")
+   cannot pass today. The **rule** is fixed and tested in `Eyedropper` and landed; only the
+   call site is held. Without the patch the feature ships dead while the row reads done.
+2. **JB-3.04a / JB-3.04b: write the specs, or fold the rows away?** Both rows claimed a
+   cross-review of a spec that **does not exist on disk** — their Who cells were verbatim
+   copy-paste from JB-3.03b and JB-3.02b, so there is no onion review on record at all. I
+   reverted both to Outline. R34 gates them anyway: `OnionMath` must be extracted into
+   `:studiokit` first and that has not happened. **My read: the extraction is the real row
+   and it is missing from the board.** It needs an owner, because JB-3.04 and the shared
+   component both wait on it.
+3. **The 8.01 spacing-constant MINOR: promote `BrushValidate` rule 4 to named constants, or
+   drop it?** muse counts 4 private copies plus an inline rule. I agree it is a real drift
+   risk and that creating public constants is a JB-0.03b owner's decision, not a builder's.
+4. **`A - B²` is negative on 59.5% of the shipped paper surface** (min -0.001861; exact bound
+   `127/65025`, sign decided by `b² mod 255`, so neither sign means anything). My auditor
+   says JB-9.06's `sqrt(A - B²)` returns NaN there. There is **no consumer yet** as far as I
+   can find, so nothing is broken today — but JB-9.06 is landed, so if something does read
+   it, it needs `max(A - B², 0)`. Changing the packed layout instead would land `pack.py`,
+   the PNG and the shader together. **Your call which.**
+5. **The "builders never run gradle" rule cost a build cycle, and I would relax it.** The
+   JB-9.01 builder wrote 1243 lines of tests, never compiled one, and its Python port was
+   wrong three times about float32 vs float64 — it reported a residual of "exactly 0.0" that
+   was really 0.060, 60 000x its own tolerance. A **compile-only** pass
+   (`compileTestKotlinJvm`, `--no-daemon`, in the builder's own worktree) would have caught
+   the `ByteArray` literal type error in seconds for the price of one JVM. Proposal:
+   builders may run `:core:compileTestKotlinJvm` in their own worktree and still never
+   `:core:jvmTest`. One word and I will write it into every brief.
+
 ### 2026-10-02 — JB-9.10 / JB-9.07: the owner's test materials and custom colour are ready
 
 The owner requests a few canvas/pulp surfaces and custom background colour ready for the preview circle below layers and the selector. Landed `46dcc00a` / `d31f9684`: matching Background and Surface choices `canvas_linen`, `canvas_cotton_duck`, `canvas_jute`, `pulp_factory`, `pulp_handmade`; retain existing `off_white` / `pulp_artisan` and AMOLED black. Canvas rotation is off; heights/slopes affect real brush coverage. New backgrounds are neutral plain colour over their defaultSurface, without new AI look generation. Own targeted XML9/0 at2026-10-02 00:30:38 EDT; flat-linen mutation1/9 red/restored. Actual-renderer scale0.25/1/4 contact sheet: `C:/Users/JoyRaptor/AppData/Local/Temp/jb-9.10/joybrush/tools/paper/out/contact.png`.

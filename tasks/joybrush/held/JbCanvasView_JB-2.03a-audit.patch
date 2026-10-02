@@ -1,0 +1,107 @@
+JB-2.03a — the eyedropper's cancel rule, for the owner of JbCanvasView.kt to apply.
+
+Written by the JB-2.03a audit-fix pass, which does not edit this file (LEAD_DESK rule 3, ROADMAP R30
+item 2). It applies to the tree as it stands after the branch bunny/JB-2.03a-audit-fixes, i.e. it needs
+Eyedropper.armsCancel / Eyedropper.overCancel / Eyedropper.cancelRadiusPx to exist (they are in the same
+branch, in androidkit/tools/Eyedropper.kt). Apply with:
+
+    git apply tasks/joybrush/held/JbCanvasView_JB-2.03a-audit.patch
+
+WHAT IS WRONG, in one paragraph. A long-press eyedropper takes NOTHING if the pen lifts without first
+moving 12 dp. startEyedrop puts the cancel circle on the touch point and eyedropMove puts the finger on
+that same point, so the touch is inside the circle from the instant the ring appears; eyedropEnd computes
+took = take && !overCancel, so the spec's own check "long-press again and lift → red" cannot pass. The
+circle is a way BACK to where the hold began, and a touch that has never left it has nothing to go back
+from, so the circle is not a cancel until it has been outside once. That second piece of state is what
+hunks 2, 4, 5 and 6 add.
+
+THE SEVEN HUNKS. 1 and 7: a second stroke-ended signal, onStrokeCommitted, which fires only for a stroke
+that was committed — the recent-colours bar's rule (D.02c Decision 3) and nothing else; the push moves in
+the Activity patch. 2, 4, 5, 6: the cancel rule. 3: the lift's own point reaches overCancel(), so a slide
+back into the circle that happens inside one frame is still a cancel. 3 is not in the audit's list; I
+found it while verifying the rest, and it is the one hunk I would not drop.
+
+THE EVIDENCE, since none of this can be run off-device: EyedropperTest.aHoldThatLiftsWhereItBeganTakesTheColour
+and EyedropperTest.slidingBackToTheStartCircleAfterLeavingItCancels pin the rule the hunks call. They go
+red if `armed &&` is dropped from Eyedropper.overCancel, if the `!insideCircle` is dropped from
+Eyedropper.armsCancel, or if insideCircle's boundary changes from <= to <. They do NOT prove the view
+calls them — that is the owner's check on the Note 9: long-press, ring appears, lift without moving → the
+colour is taken; long-press, slide 13 dp out, slide back, lift → unchanged.
+
+diff --git a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
+@@ -248,6 +248,14 @@ class JbCanvasView(context: Context) : SurfaceView(context), SurfaceHolder.Callback {
+      */
+     var onStrokeEnded: (() -> Unit)? = null
+
++    /**
++     * Called on the UI thread when a stroke was COMMITTED (the pen lifted) rather than thrown away (a long-press that became the
++     * eyedropper, a second finger). [onStrokeEnded] cannot tell those apart and must not: R26 makes it the level-triggered release
++     * of a save that was waiting for the pen, and a cancelled stroke owes that release exactly as much. D.02c Decision 3 wants the
++     * other half — a colour joins the recent-colours history when a stroke is FINISHED with it, not when a hold painted nothing.
++     */
++    var onStrokeCommitted: (() -> Unit)? = null
++
+     // ── colour (JB-2.03a) ────────────────────────────────────────────────────
+
+     /** The colour strokes are drawn in, or null for the brush's own. UI thread. Read when a stroke begins. */
+@@ -677,6 +685,8 @@ class JbCanvasView(context: Context) : SurfaceView(context), SurfaceHolder.Callback {
+     private var cancelX = 0f
+     private var cancelY = 0f
+     private var cancelR = 0f
++    /** The cancel circle has been left once. Until it has, it is a circle drawn on the touch point, not a way out. */
++    private var cancelArmed = false
+     private var sampleSeq = 0
+
+     /** The eyedropper is being driven by a finger: big ring, lifted off the fingertip (owner, 2026-09-30). */
+@@ -716,9 +726,11 @@ class JbCanvasView(context: Context) : SurfaceView(context), SurfaceHolder.Callback {
+         if (eyedropping) {
+             when (action) {
+                 MotionEvent.ACTION_MOVE -> eyedropMove(ev.x, ev.y)
+-                MotionEvent.ACTION_UP -> eyedropEnd(take = true)
++                // The lift decides the cancel where the pen actually was, not where the last move left it: a slide back into the
++                // circle can happen entirely inside one frame, and overCancel() reads the touch's place.
++                MotionEvent.ACTION_UP -> { fingerX = ev.x; fingerY = ev.y; eyedropEnd(take = true) }
+                 // A second finger is the other way out.
+                 MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> eyedropEnd(take = false)
+             }
+             return true
+         }
+@@ -757,7 +769,8 @@ class JbCanvasView(context: Context) : SurfaceView(context), SurfaceHolder.Callback {
+         eyedropOld = strokeColor
+         eyedropNew = eyedropOld
+         cancelX = x; cancelY = y
+-        cancelR = if (withCancelCircle) Eyedropper.CANCEL_CIRCLE_DP * resources.displayMetrics.density / 2f else 0f
++        cancelR = if (withCancelCircle) Eyedropper.cancelRadiusPx(resources.displayMetrics.density) else 0f
++        cancelArmed = false
+         eyedropMove(x, y)
+     }
+
+@@ -764,6 +777,7 @@ class JbCanvasView(context: Context) : SurfaceView(context), SurfaceHolder.Callback {
+     /** The touch is at ([x], [y]); the eyedropper samples there (a pen) or off the fingertip (a finger). */
+     private fun eyedropMove(x: Float, y: Float) {
+         fingerX = x; fingerY = y
++        cancelArmed = Eyedropper.armsCancel(fingerX, fingerY, cancelX, cancelY, cancelR, cancelArmed)
+         val (sx, sy) = Eyedropper.samplePoint(x, y, eyedropFinger, resources.displayMetrics.density)
+         eyedropX = sx; eyedropY = sy
+         publishEyedrop()
+@@ -772,8 +786,8 @@ class JbCanvasView(context: Context) : SurfaceView(context), SurfaceHolder.Callback {
+     }
+
+-    /** Cancel is where the TOUCH went back to, not where the lifted ring is. */
++    /** Cancel is where the TOUCH went back to, not where the lifted ring is — and only after it has been away once. */
+     private fun overCancel(): Boolean =
+-        cancelR > 0f && Eyedropper.insideCircle(fingerX, fingerY, cancelX, cancelY, cancelR)
++        Eyedropper.overCancel(fingerX, fingerY, cancelX, cancelY, cancelR, cancelArmed)
+
+     private fun publishEyedrop() {
+         onEyedrop?.invoke(EyedropState(eyedropX, eyedropY, eyedropNew, eyedropOld, cancelX, cancelY, cancelR, overCancel(),
+@@ -984,6 +998,7 @@ class JbCanvasView(context: Context) : SurfaceView(context), SurfaceHolder.Callback {
+         strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null
+         onGl { engine.endStroke(); reportHistory() }
+         onStrokeEnded?.invoke()
++        onStrokeCommitted?.invoke()
+     }
+
+     private fun cancelStroke() {

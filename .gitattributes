@@ -1,1 +1,5 @@
 * text=auto
+
+# A patch file must reach git apply with LF endings whatever the checkout's core.autocrlf is. With CRLF it is
+# refused outright ("corrupt patch"), which is how tasks/joybrush/held/ patches stop applying on Windows.
+*.patch -text

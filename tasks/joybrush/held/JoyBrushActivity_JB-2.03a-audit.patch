@@ -1,0 +1,85 @@
+JB-2.03a — the eyedropper's pill hit test, the ring's place in the view order, and the recent-colours
+rule, for the owner of JoyBrushActivity.kt to apply.
+
+Written by the JB-2.03a audit-fix pass, which does not edit this file (LEAD_DESK rule 3: it is Lead-owned,
+and another lane is holding it). Apply AFTER that lane has landed, together with
+JbCanvasView_JB-2.03a-audit.patch, which adds the `onStrokeCommitted` this file's last hunk uses:
+
+    git apply tasks/joybrush/held/JoyBrushActivity_JB-2.03a-audit.patch
+
+HUNKS 1 AND 2 together move the ring above the chrome. Today `root.addView(ring, ...)` sits before the
+reference, the guides and the tool strip, so a ring under the strip is a ring nobody can see — and the
+finger's own ring, lifted 76 dp above a fingertip near the bottom of the screen, is exactly there. The
+ring is drawn last instead, under the 2 dp hairline, which is the app's own rule and stays on top of
+everything. The trade: for the second or two the eyedropper is up, its ring is over an open popover.
+That is the owner's call, not mine.
+
+HUNK 4 is the pill's own hit test. `ev.x <= v.width` counts a point one pixel past the last column of the
+swatch as being on it, and a pick that should be taken is thrown away. The rule is Eyedropper.overPill
+and EyedropperTest.thePillHitTestStopsOnePixelBeforeTheEdge pins it; the two call sites at 1419 and 1424
+do not change.
+
+HUNK 3 moves the recents push off `onStrokeEnded` and onto `onStrokeCommitted`. `onStrokeEnded` fires for
+a CANCELLED stroke as well, and a long-press that becomes the eyedropper cancels its stroke (R26 makes
+that signal the save queue's release, so it must not be narrowed), which put a colour in the bar that had
+never painted anything. D.02c Decision 3: a colour joins the history when a stroke is FINISHED with it.
+Nothing in this file or the canvas can be tested off-device, so this one is a device check: long-press and
+lift, and the recent-colours bar must not grow.
+
+diff --git a/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt b/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt
+--- a/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt
++++ b/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoyBrushActivity.kt
+@@ -332,6 +332,4 @@ class JoyBrushActivity : Activity() {
+         root.addView(canvas, FrameLayout.LayoutParams(MATCH, MATCH))
+-        // The eyedropper's ring is drawn over the canvas and is exactly its size, so the canvas's own coordinates are the ring's.
+-        root.addView(ring, FrameLayout.LayoutParams(MATCH, MATCH))
+         // The pinned reference floats over the drawing, full-bleed like it, under the chrome. It is a view, never a layer.
+         reference = ReferenceView(kit)
+         root.addView(reference, FrameLayout.LayoutParams(MATCH, MATCH))
+@@ -340,7 +338,11 @@ class JoyBrushActivity : Activity() {
+             onChanged = { next, done -> guides = next; if (done) guidesChanged() }
+         }
+         root.addView(guideOverlay, FrameLayout.LayoutParams(MATCH, MATCH))
+         root.addView(overlays, FrameLayout.LayoutParams(MATCH, MATCH))
++        // The eyedropper's ring is LAST (JB-2.03a): it is the one overlay that has to be visible while the chrome is up, and a ring
++        // under the tool strip is a ring nobody can see. It is exactly the canvas's size, so the canvas's own coordinates are the
++        // ring's. It stays under the hairline, which is the app's own rule.
++        root.addView(ring, FrameLayout.LayoutParams(MATCH, MATCH))
+         // Joy Brush's identity, as a hairline along the very top (visual language §4.2): the section colour, never a button.
+         hairline = View(this).apply { background = JbColors.roomGradient(this@JoyBrushActivity) }
+         root.addView(hairline, FrameLayout.LayoutParams(MATCH, kit.dpi(2f), Gravity.TOP))
+@@ -373,15 +375,19 @@ class JoyBrushActivity : Activity() {
+         // The one thing that releases a save that was waiting for the pen (JB-2.15). An undo, a redo
+         // and a clear are history events, NOT this: they must not be able to pay — or cancel — a
+         // debt a stroke owes.
+         canvas.onStrokeEnded = {
+             saves.strokeFinished()
+-            // D.02c Decision 3: a colour joins the history when a stroke is FINISHED with it (not on every live change in the
+-            // picker). An eraser stroke used no colour. The history is only written when this colour is not already first.
++            recentBar.setCurrent(canvas.strokeColor)
++        }
++        // D.02c Decision 3: a colour joins the history when a stroke is FINISHED with it (not on every live change in the picker,
++        // and not when a hold painted nothing). onStrokeEnded fires for a cancelled stroke too — R26 makes it the save queue's
++        // release — so the push belongs on the committed signal. An eraser stroke used no colour. The history is only written when
++        // this colour is not already first.
++        canvas.onStrokeCommitted = {
+             if (!erasing) {
+                 val c = canvas.strokeColor
+                 if (ColorRecents.get(this).firstOrNull()?.let { it and 0xFFFFFF } != (c and 0xFFFFFF)) ColorRecents.push(this, c)
+             }
+-            recentBar.setCurrent(canvas.strokeColor)
+         }
+         canvas.onEyedrop = { state -> ring.setState(state) }
+         canvas.onColorPicked = { argb ->
+@@ -1398,8 +1403,9 @@ class JoyBrushActivity : Activity() {
+             return Pair(ev.rawX - loc[0], ev.rawY - loc[1])
+         }
+ 
+-        private fun overPill(v: View, ev: MotionEvent): Boolean =
+-            ev.x >= 0f && ev.y >= 0f && ev.x <= v.width && ev.y <= v.height
++        /** The lift landed on the pill, and that is a cancel. The rule is [Eyedropper.overPill]: the right and bottom edges are outside. */
++        private fun overPill(v: View, ev: MotionEvent): Boolean =
++            Eyedropper.overPill(ev.x, ev.y, v.width, v.height)
+ 
+         override fun onTouch(v: View, ev: MotionEvent): Boolean {
+             when (ev.actionMasked) {

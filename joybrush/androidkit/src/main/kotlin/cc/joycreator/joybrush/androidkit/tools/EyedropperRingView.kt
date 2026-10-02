@@ -12,6 +12,11 @@ import android.view.View
  * crosshair, for a finger), 6 dp thick, the top half the NEW colour and the
  * bottom half the colour it would replace (the convention every painter knows), plus a faint circle at the place a hold began, which
  * is where you slide back to cancel. Draws nothing when there is no state. It takes no touches: it only shows.
+ *
+ * The faint circle is drawn whenever a hold has one, and it brightens only when [EyedropState.overCancel] is true — the touch is inside
+ * it AND has already been outside it once ([Eyedropper.overCancel]). So the ring shows the new colour in its top half from the frame
+ * after the first screen read, not from the moment it appears: at that moment the sampled colour is not known yet and
+ * [EyedropState.newArgb] carries the old colour, which the top half then matches the bottom half for one frame.
  */
 class EyedropperRingView(context: Context) : View(context) {
 
@@ -39,8 +44,12 @@ class EyedropperRingView(context: Context) : View(context) {
         val r = (if (s.finger) Eyedropper.FINGER_RING_DP else Eyedropper.RING_DP) * d / 2f
         val thick = (if (s.finger) Eyedropper.FINGER_RING_THICK_DP else Eyedropper.RING_THICK_DP) * d
 
-        // The cancel circle, drawn faintly: the way out.
+        // The cancel circle, drawn faintly: the way out. A dark hairline under the white one, as the main ring has, or a white circle
+        // vanishes into white paper and there is no way out to see.
         if (s.cancelR > 0f) {
+            rim.strokeWidth = 3.5f * d
+            rim.color = Color.argb(0x60, 0, 0, 0)
+            c.drawCircle(s.cancelCx, s.cancelCy, s.cancelR, rim)
             rim.strokeWidth = 1.5f * d
             rim.color = Color.argb(if (s.overCancel) 0xB0 else 0x60, 255, 255, 255)
             c.drawCircle(s.cancelCx, s.cancelCy, s.cancelR, rim)
@@ -65,7 +74,8 @@ class EyedropperRingView(context: Context) : View(context) {
 
         box.set(s.x - r + thick / 2f, s.y - r + thick / 2f, s.x + r - thick / 2f, s.y + r - thick / 2f)
         paint.strokeWidth = thick
-        // Top half: what you would take (or, over the cancel circle, what you already have).
+        // Top half: what you would take — or, once the touch is back inside a circle it has already left, what you already have,
+        // which is the cancel. Both halves then read the same, and that is the tell.
         paint.color = if (s.overCancel) s.oldArgb else s.newArgb
         c.drawArc(box, 180f, 180f, false, paint)
         // Bottom half: what you have now.

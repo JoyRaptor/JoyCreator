@@ -473,3 +473,10 @@ Paper library review:17/0 own XML2026-10-02 07:41:39 EDT;7 guard mutations red/r
 - [x] Verify CPU mip filtering: 32/0 core; 21 GPU fixtures <=1 byte; GPU min-filter mutation red/restored green (CPU mutation blocked by lock).
 - [x] Prepare fix and OpenCode handoff; stop broader implementation.
 Review: JB-9.06c__cpu_mip_filtering.md records exact command/XML time and mutation limits.
+
+## Lead combined integration run, 2026-10-02
+- [x] Fast-forward clean integration checkout codex/region-routing 017cd4ed..0dd712ed (JB-9.06c CPU mip filtering); zero conflicts, no Paper code edited by the Lead.
+- [x] Confirm the optional real-corpus Gradle input repair (inputs.files(fileTree(file(corpus)))) is present, so :core:jvmTest no longer fails before tests.
+- [x] Run the full serial suite: core 1517/0 (4 skips), androidkit 237/0, joybrush-android UI 5/0, all BUILD SUCCESSFUL.
+
+Review: runs C:/Temp/jb-integration-final-tests.ps1 -SkipMutation -IncludeAndroid under pwsh 7.6.5, exit 0. XML newest 2026-10-02 15:13-15:18. The 4 skips are AbrRealFilesTest oracle tests only (no JOYBRUSH_TESTDATA, no testdata-local); PaperMipTest 4/0 included. Mutation deliberately not run. Primary watcher tree paused during the run and exactly one hidden watcher restored; lock released. No APK build, no install, no phone or artwork restore.

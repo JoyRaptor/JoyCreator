@@ -62,12 +62,18 @@ object RegionDocumentOps {
     /** Held regions deliberately use the shared plane; frame mappings remain available for unhold. */
     fun paintPlan(doc: JbDocument, layerId: String): RegionPaintPlan {
         valid(doc)
+        return paintPlanUnchecked(doc, layerId)
+    }
+
+    /** For render callers which validated on open; override only the board owning that frame. */
+    internal fun paintPlanUnchecked(doc: JbDocument, layerId: String, frameId: String? = null): RegionPaintPlan {
         val layer = doc.layers.firstOrNull { it.id == layerId } ?: throw DocException("No such layer")
         if (layer.animatedIn != null) throw DocException("Whole-layer animation is an obsolete test format")
         val shared = layer.sharedCelId ?: layer.cels.singleOrNull()?.id ?: throw DocException("No shared paint")
         val frames = layer.regions.filterNot { it.held }.map { region ->
-            val board = board(doc,region.boardId)
-            val current = board.currentFrameId!!
+            val board = doc.boards.first { it.id == region.boardId }
+            val current = frameId?.takeIf { requested -> board.frames.any { it.id == requested } }
+                ?: board.currentFrameId ?: throw DocException("Select a frame first")
             RegionFrame(board.id,board.rect,current,region.frameCel.getValue(current))
         }
         return RegionPaintPlan(shared,frames)

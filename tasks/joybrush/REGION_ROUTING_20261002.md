@@ -82,3 +82,21 @@ exercise the saved addresses and operations. No phone install or working region 
 - The runtime paint-plan helper remains non-Serializable; only the document fields serialize.
   GPU undo/paint, CPU region rendering and save/load integration remain the next slice. Until then
   these schema operations are not exposed as working phone controls.
+
+## Region export projection — 2026-10-02
+
+RegionRenderer now projects region layers through RegionTileSource: shared canvas outside boards,
+each board's saved cursor inside. An explicit export frame overrides only its owning board; unknown
+or ambiguous frame ownership is refused. Blank frame tiles cannot reveal old shared paint. Held
+regions still read shared paint. Masks remain separate stores; a clipping base is projected using
+its own layer addresses at the same document pixel. Sources are never modified, each physical cel
+is fetched once per projected tile, and full shared tiles take the direct path. No image-wide cache.
+Six new tests cover exact boundaries, independent boards, held/blank frames, mask/clipping, negative
+tiles, source isolation and malformed requests. Focused checks: 75 tests, zero failures/errors/skips.
+Full combined verification: core 1,481 tests and Android export/file suite 225 tests, zero failures,
+errors or skips; build successful in 2m5s. Painting GPU/undo and phone controls remain
+unfinished; this slice connects the CPU renderer used by exports, not the live GL compositor.
+
+Paper refresh after the model landing passed 34 combined region/paper checks, zero failures/errors/
+skips. Board specialist e0b1ea9f handoff received: bounded shadows, coalesced scene updates, selected
+board thumbnail scope and reusable export presentation remain isolated pending Lead source review.

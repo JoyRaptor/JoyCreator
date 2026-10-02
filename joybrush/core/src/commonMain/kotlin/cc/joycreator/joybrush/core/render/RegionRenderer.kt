@@ -3,6 +3,7 @@ package cc.joycreator.joybrush.core.render
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.JbDocument
 import cc.joycreator.joybrush.core.doc.Layer
+import cc.joycreator.joybrush.core.doc.Cel
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.doc.TILE_SIZE
 import kotlin.math.floor
@@ -130,8 +131,9 @@ private val MAX_REGION_PEAK_MIB = MAX_REGION_PX * BYTES_PER_PX / (1024L * 1024L)
  * in `RegionRendererTest` lists the GPU's modes BY NAME and checks they partition the enum, so a
  * twenty-eighth mode turns the suite red instead of quietly turning this paragraph into a lie.
  *
- * WHICH CEL. Not derived here: [DocOps.celFor] owns the frame-to-cel rule, so a renderer can never
- * grow its own, slightly different, idea of which cel a frame shows.
+ * WHICH CEL. Legacy layers use [DocOps.celFor]. Region layers use [RegionTileSource], which
+ * assembles exact board slices using the shared paint plan. A requested frame overrides only
+ * its owning board; other boards keep their saved cursors.
  *
  * A LOCKED layer still renders. Locking stops a person editing a layer; it is not an instruction to
  * hide the layer, and treating it as one would make a locked layer vanish from exports while
@@ -248,6 +250,7 @@ object RegionRenderer {
         // One scratch pixel for the whole image: a source, the running result, and the result of
         // one blend. Allocated here rather than per pixel so a large region does not allocate a
         // quarter of a million short-lived arrays.
+        val projectedTiles = RegionTileSource(doc, tiles, frameId)
         val s = FloatArray(4)
         val d = FloatArray(4)
         val o = FloatArray(4)
@@ -265,7 +268,7 @@ object RegionRenderer {
             if (!layer.visible) continue
             // The frame-to-cel rule belongs to DocOps; a layer with no cel on this frame (a static
             // layer asked for an animation frame, or a mapping the document has lost) shows nothing.
-            val cel = DocOps.celFor(layer, frameId) ?: continue
+            val cel = renderCel(layer, frameId) ?: continue
             val opacity = opacityOf(layer)
             if (opacity <= 0f) continue
             val mode = layer.blend
@@ -275,7 +278,7 @@ object RegionRenderer {
             val baseIndex = LayerMask.clipBaseOf(index, doc.layers)
             val base = baseIndex?.let { doc.layers[it] }
             if (base != null && !base.visible) continue
-            val baseCel = base?.let { DocOps.celFor(it, frameId) }
+            val baseCel = base?.let { renderCel(it, frameId) }
             if (base != null && baseCel == null) continue
             val baseMask = base?.mask
 
@@ -283,15 +286,15 @@ object RegionRenderer {
                 val ry0 = maxOf(ty * TILE_SIZE, rect.y)
                 val ry1 = minOf(ty * TILE_SIZE + TILE_SIZE - 1, yLast)
                 for (tx in tx0..tx1) {
-                    val bytes = tiles.tile(layer.id, cel.id, tx, ty) ?: continue
+                    val bytes = projectedTiles.tile(layer.id, cel.id, tx, ty) ?: continue
                     require(bytes.size == TILE_BYTES) {
                         "tile $tx,$ty of layer \"${layer.id}\" cel \"${cel.id}\" is ${bytes.size} bytes, not $TILE_BYTES"
                     }
-                    val maskTile = mask?.let { m -> tiles.tile(layer.id, m.id, tx, ty)?.also { requireTile(it, layer.id, m.id, tx, ty) } }
+                    val maskTile = mask?.let { m -> projectedTiles.tile(layer.id, m.id, tx, ty)?.also { requireTile(it, layer.id, m.id, tx, ty) } }
                     // Where the clip base has no tile, a clipped layer shows nothing there.
-                    val baseTile = if (base == null) null else (tiles.tile(base.id, baseCel!!.id, tx, ty) ?: continue)
+                    val baseTile = if (base == null) null else (projectedTiles.tile(base.id, baseCel!!.id, tx, ty) ?: continue)
                     baseTile?.let { requireTile(it, base!!.id, baseCel!!.id, tx, ty) }
-                    val baseMaskTile = baseMask?.let { m -> tiles.tile(base!!.id, m.id, tx, ty)?.also { requireTile(it, base.id, m.id, tx, ty) } }
+                    val baseMaskTile = baseMask?.let { m -> projectedTiles.tile(base!!.id, m.id, tx, ty)?.also { requireTile(it, base.id, m.id, tx, ty) } }
                     val rx0 = maxOf(tx * TILE_SIZE, rect.x)
                     val rx1 = minOf(tx * TILE_SIZE + TILE_SIZE - 1, xLast)
                     for (y in ry0..ry1) {
@@ -354,6 +357,10 @@ object RegionRenderer {
      * against the constant, which is where a claim like that belongs — it can be checked in
      * microseconds there instead of by allocating 160 MiB.
      */
+    private fun renderCel(layer: Layer, frameId: String?): Cel? =
+        if (layer.regions.isEmpty()) DocOps.celFor(layer, frameId)
+        else layer.cels.firstOrNull { it.id == layer.sharedCelId }
+
     private fun requireSize(rect: RectPx) {
         require(rect.w >= 0 && rect.h >= 0) { "a region cannot be ${rect.w} by ${rect.h}" }
         // Long, not Int — see above. Both sides are widened BEFORE multiplying, so this cannot

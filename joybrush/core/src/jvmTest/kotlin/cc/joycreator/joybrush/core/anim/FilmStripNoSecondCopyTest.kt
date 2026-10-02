@@ -14,6 +14,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 /**
  * A type variable, which is the only way this file can talk about a GENERIC class at all — and the
@@ -320,7 +321,15 @@ class FilmStripNoSecondCopyTest {
             val (owner, node) = pending.removeFirst()
             if (!expanded.add(node)) continue
             if (node is Class<*>) {
-                parent[node] = owner
+                // Never record a SELF-parent. The seed is enqueued as `(from to from)`, so the
+                // first pop has `owner == node == from` and an unconditional store writes
+                // `parent[from] = from` — and the unwind below (`at = parent[step]`, breaking only
+                // on null) then walks `from -> from -> ...` forever, growing `chain` without
+                // bound. The green path never reaches the unwind, so the suite stays green while
+                // the first red hangs CI instead of failing. Skipping the self-edge leaves `from`
+                // parentless, which is exactly right: it is the START of every route, so the
+                // unwind ends there and the red path FAILS instead of hanging.
+                if (node != owner) parent[node] = owner
                 if (node.simpleName == targetSimpleName) {
                     val chain = ArrayList<Class<*>>()
                     var at: Class<*>? = node
@@ -459,6 +468,53 @@ class FilmStripNoSecondCopyTest {
             typesReachableFrom(smuggled::class.java).none { it.simpleName == CLOCK },
             "a Provider<PlaybackClock> must be REJECTED, or the walk is not looking where the seam is",
         )
+    }
+
+    /**
+     * The route to the clock TERMINATES, so the red path fails instead of hanging.
+     *
+     * The previously-hanging path: the seed is enqueued as `(from to from)`, so the first pop
+     * wrote `parent[from] = from` and the unwind (`at = parent[step]`, breaking only on null)
+     * walked `from -> from -> ...` forever on ANY route that reaches the clock — including the
+     * two seeds below, a one-edge type graph (`Provider<PlaybackClock>`) and the clock itself.
+     * The green path never enters the unwind, so the suite was green while the first red would
+     * have hung CI rather than failing.
+     *
+     * The bound is a 10-second join on a daemon worker, and reaching it means the bug: a correct
+     * unwind visits each class at most once and both seeds finish in milliseconds (1 step for the
+     * clock itself, 2 for the smuggled provider), so a worker still alive after 10 s is spinning
+     * on a parent cycle. The worker is daemon so a spinning unwind cannot wedge the suite or the
+     * JVM exit — the test FAILS instead. `routeTo` returning a NON-EMPTY route is the assertion,
+     * because that is what makes `assertNoClock` fail in words rather than hang in silence.
+     */
+    @Test
+    fun aRouteToTheClockTerminatesInsteadOfHanging() {
+        val smuggled = object : Provider<PlaybackClock> {}
+        assertClockRouteTerminates(smuggled::class.java)
+        assertClockRouteTerminates(PlaybackClock::class.java)
+    }
+
+    /** `routeTo(seed, "PlaybackClock")` must come back holding the clock, within the bound above. */
+    private fun assertClockRouteTerminates(seed: Class<*>) {
+        var route: List<Class<*>>? = null
+        val worker = Thread { route = routeTo(seed, CLOCK) }
+        worker.isDaemon = true
+        worker.start()
+        worker.join(10_000)
+        if (worker.isAlive) {
+            fail(
+                "routeTo(${seed.simpleName}, $CLOCK) still running after 10 s: the parent-chain " +
+                    "unwind is spinning instead of terminating",
+            )
+        }
+        val found = route ?: emptyList()
+        assertFalse(
+            found.isEmpty(),
+            "routeTo(${seed.simpleName}, $CLOCK) came back empty: the seed reaches the clock, " +
+                "so an empty route is the walk not looking where the seam is",
+        )
+        assertEquals(seed, found.first(), "every route starts where it was seeded")
+        assertEquals(CLOCK, found.last().simpleName, "and this one must end at the clock: $found")
     }
 
     /** A member as a line of text, so a failure says WHICH member and not just which class. */

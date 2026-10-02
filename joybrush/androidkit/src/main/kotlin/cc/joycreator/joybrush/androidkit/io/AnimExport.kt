@@ -131,7 +131,6 @@ object AnimExportRunner {
         checkExportFits(boardId, format, plan, cols)
         val paper = if (includePaper && !doc.paper.screenTransparent) checkedPaper(doc.paper.color) else null
         val renderer = CanvasPng.paperRendererFor(contents, includePaper, paperRenderer, onWarning)
-        val backdrop = renderer?.invoke(plan.rect)
 
         // **THE LIST STAYS, AND IT IS NOT AN OVERSIGHT (Decision 3).** It reads like the obvious
         // memory fix — hold every frame at once, encode as you go instead — and it would move no
@@ -146,8 +145,17 @@ object AnimExportRunner {
         // both numbers before a single frame exists.
         val cells = ArrayList<ByteArray>(plan.frameCount)
         plan.frameIds.forEachIndexed { i, frameId ->
-            val pixels = RegionRenderer.render(doc, tileSource(contents), plan.rect, frameId, if (backdrop == null) paper else null)
-            cells.add(if (backdrop == null) pixels else CanvasPng.overPaper(pixels, backdrop))
+            // ONE CALL, ONE TRUTH. A textured paper is the floor of the stack now, not a sheet
+            // pasted over a transparent one, so a MULTIPLY layer multiplies the paper here exactly
+            // as it does on screen. The renderer is asked per frame in bounded blocks rather than
+            // once for the whole region, which costs a re-rasterisation per frame and buys back the
+            // region-sized paper array that used to sit beside every frame in `cells` — for a GIF
+            // that list holds the whole animation, so the saving is the larger of the two.
+            val pixels = RegionRenderer.render(
+                doc, tileSource(contents), plan.rect, frameId,
+                if (renderer == null) paper else null, renderer,
+            )
+            cells.add(pixels)
             onFrame(i + 1, plan.frameCount)
         }
 
@@ -206,7 +214,6 @@ object AnimExportRunner {
         val paper = if (includePaper && !doc.paper.screenTransparent) checkedPaper(doc.paper.color) else null
         val tiles = tileSource(contents)
         val renderer = CanvasPng.paperRendererFor(contents, includePaper, paperRenderer, onWarning)
-        val backdrop = renderer?.invoke(plan.rect)
 
         val written = ArrayList<String>(plan.frameCount + 1)
         val total = plan.frameCount
@@ -215,9 +222,10 @@ object AnimExportRunner {
             val bytes = PngWriter.encode(
                 plan.width,
                 plan.height,
-                RegionRenderer.render(doc, tiles, plan.rect, frameId, if (backdrop == null) paper else null).let {
-                    if (backdrop == null) it else CanvasPng.overPaper(it, backdrop)
-                },
+                RegionRenderer.render(
+                    doc, tiles, plan.rect, frameId,
+                    if (renderer == null) paper else null, renderer,
+                ),
             )
             try {
                 sink.write(name, AnimFormat.PNG_SEQUENCE.mime, bytes)

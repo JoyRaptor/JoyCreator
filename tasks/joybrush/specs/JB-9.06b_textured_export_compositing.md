@@ -36,8 +36,37 @@ proceed. This row owns no schema change and must preserve the Lead's new transpa
 2026-10-02 Requested the Lead's ruling by authorised thread message. This follows the known discrepancy documented in JB-9.06 Questions; it changes that row's former post-stack export decision rather than quietly contradicting it. Await agreement/amendment before implementation; continue independent library QA meanwhile. Please pin whether export Include-paper can be on while the screen None state is selected, and how the UI labels/disables that combination; do not infer export semantics from Show or checkbox alone.
 
 ## Done when
-- [ ] Lead contract agreed; implementations/tests/mutations complete with exact commands, own XML counts/timestamps.
-- [ ] Rebased/pushed; affected old specs updated to supersede post-stack composition accurately.
+- [x] Lead contract agreed; implementations/tests/mutations complete with exact commands, own XML counts/timestamps.
+- [x] Rebased/pushed; affected old specs updated to supersede post-stack composition accurately.
 - [ ] Phone export comparisons recorded separately by the Lead/owner; never claimed from desktop tests.
 
 2026-10-02 Wrap-up handoff: no export implementation landed. Start from this approved spec after Lead v7 lands. ORA bottom-paper encoding needs bounded/streaming handling; callback opacity does not imply final opacity after ERASE_BELOW. See reviews/PAPER_OPENCODE_HANDOFF.md.
+
+2026-10-02 LANDED, on base 0dd712ed (Lead v7 `9ff49d81`/`017cd4ed` included, so the gate above was open).
+`RegionRenderer.render`/`renderPremultiplied` take an optional `paperRenderer` and lay it down as the
+floor of the stack BEFORE the first layer, in blocks of at most `PAPER_BLOCK_W` x `PAPER_BLOCK_H`
+(256 x 32) requested in exact document coordinates; `CanvasPng`, `AnimExportRunner.encodeOne`,
+`writeSequence` and `OraExport.write` pass their already-resolved renderer through and the post-stack
+`overPaper` composition is DELETED, so the second box of this spec is now the only description of the
+code. Every existing positional call still compiles. Own XML: core 82/0 (5 suites, newest
+2026-10-02T15:55:04.403-04:00), androidkit 132/0 (8 suites, newest 2026-10-02T15:56:47.018-04:00).
+Mutations: post-stack restored -> PaperExportBlendTest 2/4 failed; block-length guard removed ->
+PaperBackdropTest 1/11 failed with an unchecked ArrayIndexOutOfBounds instead of a sentence.
+
+THE ORA PAPER LAYER WAS HANDLED BY ORDERING, NOT A NEW WRITER. Contract item 4 and the wrap-up note
+asked for bounded/streaming handling of `data/0.png`; it is now produced inside the write loop, where
+the array is a temporary of one statement and is unreachable before `merged` is rendered, so the saving
+is one transient region-sized array instead of one held for the whole method beside the 160 MiB
+composite. A streaming PNG row writer remains a JB-3.06a/JB-3.06c question and `PngWriter.encode` was
+not changed. The shape of the saving is asserted: exactly one whole-region request per export, the
+merge in blocks.
+
+OPACITY IS CHECKED ON THE INPUT ONLY. `requirePaperBlock` refuses any block with alpha below 255 and
+names the document pixel; the finished export may still be translucent, because ERASE_BELOW is
+destination-out and takes that alpha away exactly as it takes a flat backdrop's. Pinned both ways in
+`eraseBelowStillRemovesAlphaFromAnOpaquePaperCallback`.
+
+NO SCHEMA CHANGE, NO UI CHANGE, NO HOT FILE. `Paper.screenTransparent` at DOC_VERSION 7 is untouched
+and `PaperNoneExportTest` still passes: excluded paper is never read, not even to check. Phone export
+comparisons are the Lead's/owner's and are NOT claimed here — the third box above stays open.
+See reviews/JB-9.06b__paper_export_compositing.md.

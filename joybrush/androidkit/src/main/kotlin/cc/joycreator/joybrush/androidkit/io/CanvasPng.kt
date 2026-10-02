@@ -27,27 +27,39 @@ object CanvasPng {
             }
         }
         val source = TileSource { layer, cel, tx, ty -> contents.tiles[Triple(layer, cel, DocOps.key(tx, ty))] }
-        val pixels = RegionRenderer.render(doc, source, board.rect, null, null)
-        if (includePaper && !doc.paper.screenTransparent) {
-            val paper = paperRenderer?.invoke(board.rect) ?: PaperResources.load(doc.paper).let { loaded ->
-                loaded.warnings.forEach(onWarning); loaded.render(board.rect)
-            }
-            overPaper(pixels, paper)
-        }
+        // Paper is decided ONCE, here, and then handed to the compositor as a callback — the
+        // renderer lays it down as the floor of the stack, in bounded blocks, BEFORE the first
+        // layer. It used to be composited in this function, over the finished picture, which is the
+        // whole of the JB-9.06b defect: a MULTIPLY layer had multiplied TRANSPARENCY, and the paper
+        // was pasted over the result afterwards, so the PNG disagreed with the screen for every
+        // separable blend mode. The callback is also why no region-sized paper buffer is alive here
+        // beside the 160 MiB composite.
+        val renderer = paperRendererFor(contents, includePaper, paperRenderer, onWarning)
+            ?: flatPaperRenderer(contents, includePaper, onWarning)
+        val pixels = RegionRenderer.render(doc, source, board.rect, null, null, renderer)
         return PngWriter.encode(board.rect.w, board.rect.h, pixels)
     }
 
-    /** Both inputs are straight RGBA8; only the export buffer is changed, never a document tile. */
-    internal fun overPaper(art: ByteArray, paper: ByteArray): ByteArray {
-        require(art.size == paper.size && art.size % 4 == 0) { "paper dimensions must match the exported region" }
-        for (i in art.indices step 4) {
-            require((paper[i + 3].toInt() and 255) == 255) { "paper must be opaque" }
-            val alpha = art[i + 3].toInt() and 255
-            for (c in 0..2) art[i + c] = (((art[i + c].toInt() and 255) * alpha +
-                (paper[i + c].toInt() and 255) * (255 - alpha) + 127) / 255).toByte()
-            art[i + 3] = 255.toByte()
-        }
-        return art
+    /**
+     * The paper for a document with no look, no texture and no tint: still [PaperResources], not the
+     * bare `#RRGGBB`, and that is a deliberate difference from the animation and OpenRaster paths.
+     *
+     * [paperRendererFor] answers null for such a document, because those two exporters pass the
+     * colour to [RegionRenderer] itself and have always done so. This one never has: it has always
+     * resolved the paper through [PaperResources], and a document can carry a SURFACE with no look,
+     * no texture and no tint, in which case the resource path has relief to contribute and a bare
+     * colour would quietly drop it. Resolving the material is a separate decision from deciding
+     * WHERE it is composited, and this row changes only the second.
+     */
+    private fun flatPaperRenderer(
+        contents: JbContents,
+        includePaper: Boolean,
+        onWarning: (String) -> Unit,
+    ): ((RectPx) -> ByteArray)? {
+        if (!includePaper || contents.doc.paper.screenTransparent) return null
+        val loaded = PaperResources.load(contents.doc.paper)
+        loaded.warnings.forEach(onWarning)
+        return loaded::render
     }
 
     internal fun paperRendererFor(contents: JbContents, includePaper: Boolean,

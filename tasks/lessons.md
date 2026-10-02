@@ -926,7 +926,15 @@ When the owner requests completion, track UI, persisted transparency, imported-t
 ## 2026-10-02 — Respect usage-saving wrap-up
 When the owner narrows a broad completion request to the current fix and handoff, finish that bounded fix with targeted evidence, prepare concrete next specs and gates, then stop. Do not spend the remaining allowance on new assets or unrequested parallel work.
 
-### Merged 2026-10-02 - brush specialist lane, preserved at merge
-
 ## 2026-10-02 — Brush realism can require engine changes
 Owner explicitly authorizes revising engine contracts for realistic colour interaction. Do not treat a previous one-colour implementation as a ceiling on capability or try to deliver spatial paint pickup by tuning averages. Prefer stateless local pixel transfer or a measured richer engine with CPU/GPU parity. Benchmarks: Infinite Painter Proko for raster pencil feel; Concepts soft pencil and Waterful for vector media; Rebelle for oils; Expresii for watercolour; consider Procreate too. With usage low, finish a usable tested slice before expanding research or adding more agents.
+
+## 2026-10-02 — Mutation testing must not destroy the change under test
+`git checkout -- <file>` restores the file to HEAD, not to "before my mutation". When the mutation
+and the real fix live in the SAME file, reverting the mutation silently reverts the fix too, and the
+next `git diff` is empty rather than loud. This cost a full re-implementation of CanvasPng.kt in
+JB-9.06b. Commit the row first, or copy the file aside, before mutating; verify the revert with
+`git diff --stat` and expect it to be NON-empty. Related: the main folder's continuous
+`:app:assembleDefaultDebug` watcher does not take `jb-gradle.lock`, so a free lock does not prove the
+machine is idle - measure daemon CPU over a few seconds before starting, and never stop another
+lane's process to make room.

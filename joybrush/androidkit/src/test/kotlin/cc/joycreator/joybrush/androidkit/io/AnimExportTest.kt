@@ -14,6 +14,8 @@ import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.export.AnimExport
 import cc.joycreator.joybrush.core.export.AnimExportPlan
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
+import cc.joycreator.joybrush.core.render.PAPER_BLOCK_H
+import cc.joycreator.joybrush.core.render.PAPER_BLOCK_W
 import cc.joycreator.joybrush.core.render.RegionException
 import cc.joycreator.joybrush.core.render.RegionRenderer
 import cc.joycreator.joybrush.core.render.TileSource
@@ -95,25 +97,49 @@ private class DecodedGifFrame(val width: Int, val height: Int, val delayCs: Int,
  * functions compiles, reports a green build and executes nothing.
  */
 class AnimExportTest {
-    @Test fun texturedPaperIsSharedBySequenceAndSheetAndIsNotLoadedWhenExcluded() {
+    /**
+     * JB-9.06b. The same contract as before, with the shape of the request changed: paper is no
+     * longer one whole-region array composited after the stack, so the renderer is asked per frame
+     * in blocks bounded by `PAPER_BLOCK_W` x `PAPER_BLOCK_H`.
+     *
+     * The re-asking is the point, not an accident of the loop. The old code held ONE paper region
+     * alive beside `cells`, and for a GIF `cells` is the whole animation; the new code holds 32 KiB.
+     * A test that pinned the old call count would be pinning the memory we came to save, so what is
+     * pinned instead is: every call is a block of [plan]'s own rect, the blocks tile that rect, and
+     * a repeated frame re-asks rather than replaying one shared array.
+     */
+    @Test fun texturedPaperIsAskedInBoundedBlocksPerFrameAndIsNotLoadedWhenExcluded() {
         val empty = contents.copy(tiles = contents.tiles.mapValues { ByteArray(TILE_BYTES) })
         val p = plan(empty)
-        var calls = 0
+        val asked = ArrayList<RectPx>()
         val renderer: (RectPx) -> ByteArray = { rect ->
-            assertEquals(p.rect, rect); calls++
+            asked += rect
             ByteArray(rect.w * rect.h * 4).also { bytes ->
                 for (i in bytes.indices step 4) { bytes[i] = 10; bytes[i + 1] = 20; bytes[i + 2] = 30; bytes[i + 3] = -1 }
             }
         }
         val sheet = AnimExportRunner.encodeOne(AnimFormat.SPRITE_SHEET, empty, BOARD, p, true, paperRenderer = renderer)
         assertEquals(0xFF0A141E.toInt(), ImageIO.read(ByteArrayInputStream(sheet[0].bytes)).getRGB(0, 0))
+        val afterSheet = asked.size
         val frames = ArrayList<ByteArray>()
         val sink = AnimFileSink { _, mime, bytes -> if (mime == "image/png") frames += bytes }
         AnimExportRunner.writeSequence(empty, BOARD, p, true, sink, paperRenderer = renderer)
         assertEquals(p.frameCount, frames.size)
         frames.forEach { assertEquals(0xFF0A141E.toInt(), ImageIO.read(ByteArrayInputStream(it)).getRGB(0, 0)) }
+
+        // Blocks tile the board, are bounded, and every call is inside the board's own rect.
+        val blocksPerFrame = ((p.rect.h + PAPER_BLOCK_H - 1) / PAPER_BLOCK_H) *
+            ((p.rect.w + PAPER_BLOCK_W - 1) / PAPER_BLOCK_W)
+        assertEquals(p.frameCount * blocksPerFrame, afterSheet, "each frame asks for its own blocks")
+        assertEquals(2 * afterSheet, asked.size, "the sequence asks again rather than replaying one array")
+        for (b in asked) {
+            assertTrue(b.w <= PAPER_BLOCK_W && b.h <= PAPER_BLOCK_H, "$b is not a bounded block")
+            assertTrue(b.x >= p.rect.x && b.y >= p.rect.y && b.x + b.w <= p.rect.x + p.rect.w && b.y + b.h <= p.rect.y + p.rect.h, "$b leaves the board")
+        }
+
+        val beforeExcluded = asked.size
         AnimExportRunner.encodeOne(AnimFormat.SPRITE_SHEET, empty, BOARD, p, false, paperRenderer = renderer)
-        assertEquals(2, calls, "render the unchanged backdrop once per export, never when excluded")
+        assertEquals(beforeExcluded, asked.size, "excluded paper is never read, not even once")
     }
 
     // ── the fixture: two PAINT layers over one ANIMATION board ──────────────────

@@ -12,6 +12,8 @@ import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.doc.Paper
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.render.Blend
+import cc.joycreator.joybrush.core.render.PAPER_BLOCK_H
+import cc.joycreator.joybrush.core.render.PAPER_BLOCK_W
 import cc.joycreator.joybrush.core.render.RegionRenderer
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
@@ -52,18 +54,36 @@ import org.w3c.dom.Node
  * functions compiles, reports a green build and executes nothing.
  */
 class OraExportTest {
+    /**
+     * JB-9.06b. Paper reaches an OpenRaster file twice, and the two arrivals are deliberately not
+     * the same request.
+     *
+     * `data/0.png` IS a whole region of paper — it is the Paper LAYER, an image in its own right,
+     * and a reader will open that file directly — so it is asked for as one full-region call.
+     * `mergedimage.png` is the stack over paper, and it gets the same bounded blocks every other
+     * composite does, so the 160 MiB merge is not sitting beside a second region-sized paper array.
+     * That is the whole of the memory claim, and it is visible here as a shape: exactly one
+     * oversized request, everything else inside the block bound.
+     */
     @Test fun texturedPaperStaysInItsOwnBottomLayerAndMergedPreview() {
         val empty = contents().let { it.copy(tiles = it.tiles.mapValues { ByteArray(256 * 256 * 4) }) }
         val output = ByteArrayOutputStream()
-        var calls = 0
+        val asked = ArrayList<RectPx>()
         OraExport.write(output, empty, BOARD, null, true, paperRenderer = { rect ->
-            calls++
+            asked += rect
             ByteArray(rect.w * rect.h * 4).also { bytes ->
                 for (i in bytes.indices step 4) { bytes[i] = 17; bytes[i + 1] = 34; bytes[i + 2] = 51; bytes[i + 3] = -1 }
             }
         })
         val archive = output.toByteArray()
-        assertEquals(1, calls)
+        val full = asked.filter { it.w > PAPER_BLOCK_W || it.h > PAPER_BLOCK_H }
+        assertEquals(listOf(empty.doc.boards.single().rect), full, "only the Paper layer's own PNG is a whole region")
+        assertEquals(
+            1 + ((W + PAPER_BLOCK_W - 1) / PAPER_BLOCK_W) *
+                ((H + PAPER_BLOCK_H - 1) / PAPER_BLOCK_H),
+            asked.size,
+            "one full region for data/0.png, then the merge in blocks",
+        )
         assertEquals(0xFF112233.toInt(), image(archive, "data/0.png").getRGB(0, 0))
         assertEquals(0xFF112233.toInt(), image(archive, "mergedimage.png").getRGB(0, 0))
         assertEquals(0, image(archive, "data/1.png").getRGB(0, 0), "paper must not enter the art layer")

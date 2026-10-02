@@ -1010,3 +1010,8 @@ Backup: codex/frame-projection-foundation. No main merge: board-spec preflight c
 status: IDLE (owner clarification recorded; implementation owed)
 files: tasks/joybrush/specs/JB-3.00a_boards_owner_model.md (append-only owner clarification); tasks/joybrush/AGENT_BOARD.md.
 DEVICE: none. Documentation only.
+
+## JOYBRUSH_BOARD_WIRING_REVIEW_20261002
+status: IDLE (scoped decision recorded; operational integration still owed)
+files: tasks/joybrush/BOARD_INTEGRATION_DECISION_20261002.md; tasks/joybrush/AGENT_BOARD.md.
+DEVICE: none. Read-only chrome review; document technical decision.

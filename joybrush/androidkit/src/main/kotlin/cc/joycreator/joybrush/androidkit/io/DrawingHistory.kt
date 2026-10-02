@@ -25,17 +25,32 @@ object DrawingHistory {
 
     data class Working(val contents: JbContents, val recoveredBackup: Boolean)
 
-    /** A interrupted rename may leave only .bak; corrupt main files also get a validated fallback. */
-    fun readWorking(file: File): Working? {
-        var failure: Exception? = null
+    /**
+     * A interrupted rename may leave only .bak; corrupt main files also get a validated fallback.
+     *
+     * Catches THROWABLE, not Exception, and that is the whole point of the method. A 28 MB working
+     * file on a 512 MB heap exhausts memory inside [open], and OutOfMemoryError is an Error, so
+     * `catch (e: Exception)` let it escape: the .bak fallback below was unreachable in exactly the
+     * case it exists for, and the error then propagated out of the caller's `catch (e: Exception)`
+     * on a background thread and killed the process. Observed on the Note 9 as Joy Brush loading,
+     * crashing four times in a row and bouncing the owner to the lobby.
+     *
+     * Reading the backup instead of dying is the intended behaviour and is now reachable. If BOTH
+     * fail we still throw, and the caller reports it in words rather than taking the process with it.
+     *
+     * [open] is a seam so the OOM path is testable: raising a real OutOfMemoryError from the zip
+     * reader needs a file large enough to exhaust a real heap, which no unit test should do.
+     */
+    fun readWorking(file: File, open: (File) -> JbContents = JbArchive::open): Working? {
+        var failure: Throwable? = null
         if (file.isFile) {
-            try { return Working(JbArchive.open(file), false) }
-            catch (e: Exception) { failure = e }
+            try { return Working(open(file), false) }
+            catch (e: Throwable) { failure = e }
         }
         val backup = File(file.path + ".bak")
         if (backup.isFile) {
-            try { return Working(JbArchive.open(backup), true) }
-            catch (e: Exception) { if (failure == null) failure = e }
+            try { return Working(open(backup), true) }
+            catch (e: Throwable) { if (failure == null) failure = e }
         }
         if (failure != null) throw JbArchiveException("the working drawing and its backup could not be read: ${failure.message}")
         return null

@@ -75,4 +75,41 @@ class DrawingHistoryTest {
         assertEquals("main", file.readText())
         assertEquals("backup", backup.readText())
     }
+
+    // The crash on the Note 9: a 28 MB working file exhausted the 512 MB heap inside JbArchive.open,
+    // OutOfMemoryError is an Error, and `catch (e: Exception)` let it through both here and in the
+    // caller. The backup fallback was unreachable in the one case it exists for and the process died.
+    @Test fun anErrorFromTheMainFileStillFallsBackToTheBackup() = inDirectory { dir ->
+        val file = File(dir, "current.joybrush")
+        JbArchive.save(file, contents("Doomed"))
+        JbArchive.save(File(file.path + ".bak"), contents("Recovered"))
+        val read = DrawingHistory.readWorking(file) { f ->
+            if (f == file) throw OutOfMemoryError("simulated: 28 MB file on a 512 MB heap") else JbArchive.open(f)
+        }!!
+        assertTrue(read.recoveredBackup)
+        assertEquals("Recovered", read.contents.doc.name)
+    }
+
+    // The control. With `catch (e: Exception)` in place this is the ONLY thing that passes, which is
+    // why the test above exists: it fails against the old code and passes against the fix.
+    @Test fun anExceptionFromTheMainFileStillFallsBackToTheBackup() = inDirectory { dir ->
+        val file = File(dir, "current.joybrush")
+        JbArchive.save(file, contents("Doomed"))
+        JbArchive.save(File(file.path + ".bak"), contents("Recovered"))
+        val read = DrawingHistory.readWorking(file) { f ->
+            if (f == file) throw IllegalStateException("ordinary failure") else JbArchive.open(f)
+        }!!
+        assertTrue(read.recoveredBackup)
+    }
+
+    // Both failing with an Error must still arrive as the ordinary refusal, never as a raw throwable
+    // that the caller's own catch could again miss.
+    @Test fun bothFilesFailingWithAnErrorStillArriveAsAnArchiveException() = inDirectory { dir ->
+        val file = File(dir, "current.joybrush")
+        file.writeText("main"); File(file.path + ".bak").writeText("backup")
+        val thrown = assertFailsWith<JbArchiveException> {
+            DrawingHistory.readWorking(file) { throw OutOfMemoryError("simulated") }
+        }
+        assertTrue(thrown.message!!.contains("could not be read"))
+    }
 }

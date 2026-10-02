@@ -1748,7 +1748,13 @@ class JoyBrushActivity : Activity() {
                 DrawingHistory.readWorking(file).also {
                     if (it != null) recovery.rememberWorking(if (it.recoveredBackup) File(file.path + ".bak") else file)
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // THROWABLE, not Exception. A working file too large for the heap raises
+                // OutOfMemoryError, which is an Error: it sailed past this catch, escaped
+                // DrawingHistory.readWorking's own catch, and killed the process from a background
+                // thread, so the owner got a crash loop instead of the sentence below. A failed
+                // restore must never take the app down — the drawing on disk is left untouched and
+                // the screen opens empty, which is recoverable; a dead process is not.
                 ui.post {
                     if (!destroyed) toast("Your last drawing could not be opened. Autosave will leave it intact: ${e.message}")
                     finishStartup(false)

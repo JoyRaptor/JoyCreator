@@ -29,7 +29,7 @@ Its `needs` were **3.02, 2.01**. Both are `🟧 Built`:
 | `Popovers` | one panel at a time beside what was tapped; `showSheet` = a bottom sheet (full width up to 600 dp); a tap outside closes it **and is consumed** | `Popovers.kt:33-94` |
 | `ValueHud` | the size/colour readout while a strip drag is in progress; a decorative `View` that takes **no** touches | `ValueHud.kt:33-40` |
 | `ReferenceView` | the pinned reference picture, full-bleed, **under** the chrome | — |
-| `JbIcon` | nine **solid** 24-unit icons: BRUSH, SMUDGE, ERASER, HOME, UNDO, REDO, PIN, MORE, LAYERS. **No PLAY, MODE, ONION, CADENCE or EXPORT.** | `JbIcon.kt:17-26` |
+| `JbIcon` | ten **solid** 24-unit icons: BRUSH, SMUDGE, ERASER, HOME, UNDO, REDO, PIN, MORE, LAYERS, GUIDES. **No PLAY, MODE, ONION, CADENCE or EXPORT.** | `JbIcon.kt:17-27` |
 | `ChromeKit` | the shared look: `dp`, `dpi`, `ink(alpha)`, `chrome()`, `chromeSurface()`, `label()`, `drawSelected()`, `TOUCH_DP = 40f`, `CHROME_ALPHA = 230` | `ChromeKit.kt:20-78` |
 
 **R30 item 1** therefore names you: you are the next claimant of `JoyBrushActivity.kt` after JB-2.01,
@@ -78,7 +78,7 @@ after each one. Do not re-type them from memory; read the file.
 // joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/anim/PaperGeometry.kt
 // JB-3.02, Built. Every constant below is DP and is multiplied by density AT THE USE SITE (R32).
 const val PEG_PITCH_DP = 44f          // PaperGeometry.kt:45
-const val PEG_RADIUS_DP = 14f         // PaperGeometry.kt:49
+const val PEG_RADIUS_DP = 14f         // PaperGeometry.kt:48
 const val PEG_HIT_RADIUS_DP = 22f     // PaperGeometry.kt:54
 const val MIN_LABEL_DP = 48f          // PaperGeometry.kt:57
 const val RULER_THICKNESS_DP = 24f    // PaperGeometry.kt:60
@@ -97,9 +97,9 @@ fun style(peg: Peg, active: Boolean): PegStyle                                  
 
 ```kotlin
 // joybrush/androidkit/.../JbCanvasView.kt — read-only for you (R30 item 2: the Lead's file)
-val view = ViewTransform()                       // :118  "Public so the screen can fit the board"
-val strokeInProgress: Boolean                    // :196
-var onViewMoved: (() -> Unit)?                   // :130
+val view = ViewTransform()                       // :147  "Public so the screen can fit the board"
+val strokeInProgress: Boolean                    // :242
+var onViewMoved: (() -> Unit)?                   // :159
 ```
 
 ```kotlin
@@ -136,7 +136,7 @@ package cc.joycreator.joybrush.core.anim
  * The measured board, in DOCUMENT px, as the HOST reports it. This is the row's whole answer to
  * "where does an animation board's paper come from": the view never learns about boards, it is
  * handed one of these or null. (`PaperFrame` is a NEW name — `doc.Paper` already exists and is the
- * document's paper *setting*, `DocModel.kt:38`; see JB-3.02's Question 2.)
+ * document's paper *setting*, `DocModel.kt:61`; see JB-3.02's Question 2.)
  */
 data class PaperFrame(
     val originXDoc: Double = 0.0,
@@ -187,7 +187,7 @@ object PaperLayout {
      */
     const val BAR_CORNER_RADIUS_DP = 14f
 
-    /** The identity line along the bar's top edge, dp. The screen's own hairline is `kit.dpi(2f)` (`JoyBrushActivity.kt:272`). */
+    /** The identity line along the bar's top edge, dp. The screen's own hairline is `kit.dpi(2f)` (`JoyBrushActivity.kt:346`). */
     const val ACCENT_LINE_DP = 2f
 
     /**
@@ -465,7 +465,7 @@ class PegBarView(private val kit: ChromeKit, private val host: Host) : LinearLay
          * It is here, and not a `panelOpen` property, for two reasons: `popovers` is **`private`** to
          * `JoyBrushActivity.kt` and a view cannot reach it, and the two hosts already exist as this
          * row's Region 3 — so this costs the Activity **one line inside a region it already owns**
-         * instead of five edits at five `Popovers` call sites (`:520`, `:576`, `:628`, `:661`, `:750`)
+         * instead of eleven edits at eleven `Popovers` call sites (`:631`, `:687`, `:741`, `:804`, `:1037`, `:1069`, `:1175`, `:1196`, `:1370`, `:1813`, `:1836`)
          * which is precisely the serialised-file churn R30 item 1 exists to prevent.
          */
         fun panelOpen(): Boolean
@@ -483,7 +483,7 @@ class PegBarView(private val kit: ChromeKit, private val host: Host) : LinearLay
      *   (`ChromeKit.kt:56-59`) gives each a **live TalkBack node and a tooltip** reading "Play",
      *   "Mode", "Onion skin", "Cadence", "Export" — over listeners that are `= Unit`.
      *
-     * That is the defect `JoyBrushActivity.kt:355` calls *"a button that does nothing is worse than
+     * That is the defect `JoyBrushActivity.kt:441` calls *"a button that does nothing is worse than
      * none"*, this project's own rule (Decision 4). So: the setter writes `visibility` itself and
      * calls `invalidate()` (the `TopButton.on` idiom, `TopButton.kt:21-22`), and `init` calls
      * `applyVisibility()` once so the bar is `GONE` from the first frame.
@@ -509,7 +509,7 @@ class PegBarView(private val kit: ChromeKit, private val host: Host) : LinearLay
      *
      * Typed, not `View`, for the same reason `PaperOverlayView.strip` is: the bar re-reads the
      * strip's **live** width and side every layout pass and re-places itself when either changed,
-     * under the landed "only if changed" guard (`JoyBrushActivity.kt:480-484`). Owner's check
+     * under the landed "only if changed" guard (`JoyBrushActivity.kt:584-589`). Owner's check
      * step 2 — *drag the strip to the other edge and the bar re-centres* — therefore works with no
      * wiring at all. Written once at construction it would not.
      */
@@ -535,14 +535,14 @@ it; a token you guessed is a build error on somebody else's machine.**
 
 | Element | Asks for | By what name | Verified at |
 |---|---|---|---|
-| A peg that is `PegStyle.IDENTITY` | the neutral raised fill | `kit.p.raised` | `JbColors.kt:143` (`jb_raised` → `s_raised`) |
-| A peg that is `PegStyle.STATE_RING` | the shared selected ring, verbatim | `kit.drawSelected(canvas, cx, cy, r, paint)` — **do not re-implement it** | `ChromeKit.kt:62-70`; uses `p.stateSelected` (`JbColors.kt:131`) and `ink(0.12f)` |
-| The peg's glyph on a neutral fill | the drawer ink, as the strip's own buttons do | `kit.p.drawerInk` | `JbColors.kt:152`; the landed precedent is `ToolStripView.kt:136,159` |
-| The peg's glyph on the ACTION fill | ground | `kit.p.ground` | `JbColors.kt:138`. The app's own ink on the GO gradient is `Studio.ON_GO = 0xFF050507` (`studiokit/.../Studio.java:143`) and `#000000` vs `#050507` is invisible on a disc; **Questions 1** asks whether a proper `s_on_go` mirror is wanted |
+| A peg that is `PegStyle.IDENTITY` | the neutral raised fill | `kit.p.raised` | `JbColors.kt:146` (`jb_raised` → `s_raised`) |
+| A peg that is `PegStyle.STATE_RING` | the shared selected ring, verbatim | `kit.drawSelected(canvas, cx, cy, r, paint)` — **do not re-implement it** | `ChromeKit.kt:62-70`; uses `p.stateSelected` (`JbColors.kt:132`) and `ink(0.12f)` |
+| The peg's glyph on a neutral fill | the drawer ink, as the strip's own buttons do | `kit.p.drawerInk` | `JbColors.kt:155`; the landed precedent is `ToolStripView.kt:136,159` |
+| The peg's glyph on the ACTION fill | ground | `kit.p.ground` | `JbColors.kt:141`. The app's own ink on the GO gradient is `Studio.ON_GO = 0xFF050507` (`studiokit/.../Studio.java:143`) and `#000000` vs `#050507` is invisible on a disc; **Questions 1** asks whether a proper `s_on_go` mirror is wanted |
 | The bar's surface | the near-solid chrome panel | `kit.chromeSurface(this, cornerRadii)` | `ChromeKit.kt:47-53`; same idiom as `ToolStripView.kt:97` |
 | The bar's **identity line**, `ACCENT_LINE_DP` along its top edge | the animation board's gradient | `JbColors.boardGradient(context, BoardKind.ANIMATION)` | `JbColors.kt:62-72`; the pixels are `jb_board_animation_start/end` (`jb_tokens.xml:58-59`) |
 | A ruler strip's veil over the picture | `ColorUtils.setAlphaComponent(kit.p.ground, PaperLayout.RULER_VEIL_ALPHA)` | **51** | black 20 %; the landed idiom is the same call at `ValueHud.kt:88` (153) and `:53` (128); the 20 % figure is `JOYBRUSH_VISUAL_LANGUAGE.md` §1.6. **Test 13 asserts 51 == round(0.20 × 255).** |
-| A tick line | `ColorUtils.setAlphaComponent(kit.p.ink, PaperLayout.RULER_TICK_ALPHA)`, `strokeWidth = kit.dp(RULER_TICK_DP)` | **89** at **1 dp** | `p.ink` is `JbColors.kt:146`. **Test 13 asserts 89 == round(0.35 × 255).** |
+| A tick line | `ColorUtils.setAlphaComponent(kit.p.ink, PaperLayout.RULER_TICK_ALPHA)`, `strokeWidth = kit.dp(RULER_TICK_DP)` | **89** at **1 dp** | `p.ink` is `JbColors.kt:149`. **Test 13 asserts 89 == round(0.35 × 255).** |
 | The **zero** tick's line | `ColorUtils.setAlphaComponent(kit.p.ink, PaperLayout.RULER_ZERO_ALPHA)`, `strokeWidth = kit.dp(RULER_ZERO_TICK_DP)` | **217** at **1.5 dp** | the house's two weights are the 1 dp hairline ring and the 1.5 dp selection, `JOYBRUSH_VISUAL_LANGUAGE.md` §1.8 `:143` and `:145`. **Test 13 asserts 217 == round(0.85 × 255) and that 1.5 > 1.** |
 | A tick's number | `kit.p.ink` at `PaperLayout.RULER_LABEL_DP` = **10 dp**, `Typeface.MONOSPACE` | **10** | `ValueHud.kt:24-30` is the landed mono-in-Joy-Brush precedent (`Typeface.MONOSPACE` at `:27`, `kit.dp(13f)` at `:29`); 10 dp vs 13 dp is **PROVISIONAL — Claude to confirm**; §1.7 puts numbers in Plex Mono (`:107`) |
 | PLAY's triangle, while playing | `PaperLayout.PLAY_TRIANGLE_DP` | **10 dp**, filled in `kit.p.ground` | Decision 17 |
@@ -599,7 +599,7 @@ value. This is the exact slip the JB-3.02 review caught in its draft.
 | Gap to the screen edge, or to the tool strip | **8** | `BAR_EDGE_GAP_DP` |
 | Surface outboard of each outer disc | **22** | `BAR_END_MARGIN_DP` = `PEG_PITCH_DP / 2` — **not** `PEG_RADIUS_DP`; see below |
 | Top corner radii (bottom two are square) | **14** | `BAR_CORNER_RADIUS_DP` — the house value, the landed strip's own (`ToolStripView.kt:95`) |
-| Identity line along the top edge | **2** | `ACCENT_LINE_DP` — the screen's own hairline is `kit.dpi(2f)` (`JoyBrushActivity.kt:272`) |
+| Identity line along the top edge | **2** | `ACCENT_LINE_DP` — the screen's own hairline is `kit.dpi(2f)` (`JoyBrushActivity.kt:346`) |
 | Width | **`5 × 44 + 2 × 14 = 248`**, or the free band if that is less | Decision 3 |
 | Horizontally | **centred on the free band**, which is the screen minus the strip's width on its own edge | Decision 4 |
 
@@ -681,7 +681,7 @@ fact.
    band runs from `stripWidth + 8 dp` to `screenWidth − 8 dp` when the strip is on the start edge, and
    the whole screen otherwise. A bar narrower than one peg (`pegBarWidthPx(1, density)` = 72 dp) is
    **not drawn at all** — a control under another control is a control that cannot be pressed, and
-   this project's rule is "no button that does nothing" (`JoyBrushActivity.kt:355`).
+   this project's rule is "no button that does nothing" (`JoyBrushActivity.kt:441`).
 
 5. **Three siblings, added to the parent in the order strip → peg bar → overlay, and the overlay and
    the bar read the others' measured bounds in their own `onLayout`.** `FrameLayout.onLayout` lays
@@ -695,7 +695,7 @@ fact.
    saturated control per screen; the animation board's identity pair is byte-equal to the app's action
    pair (see the finding above), so four gradient-filled pegs would be four saturated controls. The
    board's identity reaches the bar through a **2 dp accent line along its top edge** instead — the
-   screen's own hairline idiom, `JoyBrushActivity.kt:271-272` — which is identity without saturation.
+   screen's own hairline idiom, `JoyBrushActivity.kt:345-346` — which is identity without saturation.
    JB-3.02's own Decision 5 is honoured: a peg is a **fill**, never a ring, unless it is showing a
    state.
 
@@ -787,8 +787,8 @@ fact.
     content description, the TalkBack name *and* the tooltip; that is the hover. JB-3.02's Decision 3
     says so, and the landed `ToolStripView` is the model (`ToolStripView.kt:71-84`).
 
-17. **No glyphs except PLAY's.** `JbIcon` has nine icons and **none of the five pegs is one of them**
-    (`JbIcon.kt:17-26`); its KDoc says the icons were *"Drawn by the Joy Brush Lead for this app"*,
+17. **No glyphs except PLAY's.** `JbIcon` has ten icons and **none of the five pegs is one of them**
+    (`JbIcon.kt:17-27`); its KDoc says the icons were *"Drawn by the Joy Brush Lead for this app"*,
     so inventing five path strings here is both out of area and off-house. A peg is a plain disc —
     which is what a music-box peg is — and **PLAY carries a 10 dp triangle** (three `Path` lines,
     filled in `kit.p.ground`) while it is playing and **two 2.5 dp bars** while it is not, because a
@@ -809,9 +809,11 @@ fact.
     when `modal` (`Popovers.kt:70-75`) and `Popovers.show` puts one over the whole host
     (`:36-40`), so a peg under either could not be pressed even if it were visible.
     **The rejected alternative, and why:** the only *event* available is the `onClosed` lambda
-    `show` and `showSheet` both take and fire in `close()` (`:33`, `:66`, `:96-107`), which would
-    mean editing **five** call sites in the Activity — `:520` (brush drawer), `:576` (size and
-    opacity sliders), `:628` (⋯ menu), `:661` (tuning sheet), `:750` (reference menu) — i.e. five
+    `show` and `showSheet` both take and fire in `close()` (`:33`, `:66`, `:99-110`), which would
+    mean editing **eleven** call sites in the Activity — `:631` (brush drawer), `:687` (size and
+    opacity sliders), `:741` (⋯ menu), `:804` (tuning sheet), `:1037` (layer row menu),
+    `:1069` (blend-mode list), `:1175` (guides panel), `:1196` (reference menu), `:1370`
+    (colour picker), `:1813` (recent drawings), `:1836` (PNG export options) — i.e. eleven
     regions in a file R30 item 1 serialises, which is the exact failure that rule exists to prevent.
     **`PegBarView.Host` gains `panelOpen(): Boolean` instead.** `PegBarView.Host` is a type this row
     *creates*, in this row's file; `popovers` is `private` to the Activity, so a view cannot reach it
@@ -904,9 +906,9 @@ fact.
    the band. The end margin is already inside `pegBarRect`'s width; adding `setPadding` as well would
    make the bar 44 dp too wide and clip the outer pegs' touch targets.
    **`onLayout` then does the same computation for its position**: `x`/`y` from the rect (the landed
-   `Popovers.place` idiom, `Popovers.kt:144-145`, **not** `layoutParams` — changing layout params from
+   `Popovers.place` idiom, `Popovers.kt:153-154`, **not** `layoutParams` — changing layout params from
    inside `onLayout` is a layout loop), `GONE` when the rect is null, and the "only if changed" guard
-   that both `Popovers` and `placeStrip` already use (`JoyBrushActivity.kt:480-484`) — **keyed on the
+   that both `Popovers` and `placeStrip` already use (`JoyBrushActivity.kt:584-589`) — **keyed on the
    strip's width and edge as well**, so a dragged strip re-places the bar (Owner's check step 2) with
    no wiring. `applyVisibility()` composes `shown`, `chromeVisible` and `host.panelOpen()`; the
    accent line is a `drawRect` before the pegs.
@@ -933,10 +935,10 @@ edit sites:
 | | Anchor | What |
 |---|---|---|
 | 1a | the import block, two insertion points | four imports |
-| 1b | the chrome field block, after `:192` | two fields |
-| 2 | before `return overlays` (`:430`) | construct and add the two views |
-| 3 | after `stripHost` (`:466`) — **not in `buildOverlays()`** | the two `Host` objects |
-| 4 | `toggleChrome()` (`:718-730`) | three added lines |
+| 1b | the chrome field block, after `:232` | two fields |
+| 2 | before `return overlays` (`:532`) | construct and add the two views |
+| 3 | after `stripHost` (`:568`) — **not in `buildOverlays()`** | the two `Host` objects |
+| 4 | `toggleChrome()` (`:862-875`) | three added lines |
 
 **Touch nothing else. In particular: not `JbCanvasView.kt`, not `GlPaintEngine.kt`, not
 `buildOverlays`' existing children, not the save queue, not the top bar, not the diagnostics door, not
@@ -945,13 +947,13 @@ edit sites:
 ### Region 1a — two lines into the import block
 
 *Anchors: one line at `:34`/`:35` (immediately before
-`import cc.joycreator.joybrush.android.chrome.BrushDrawerView`, `:35`) and one at `:56`/`:57`
-(immediately before `import cc.joycreator.joybrush.core.brush.BrushPreset`, `:57`). Four lines, two
+`import cc.joycreator.joybrush.android.chrome.BrushDrawerView`, `:35`) and one at `:65`/`:66`
+(immediately before `import cc.joycreator.joybrush.core.brush.BrushPreset`, `:66`). Four lines, two
 places.*
 
 **⛔ THE IMPORT BLOCK IS NOT IN ALPHABETICAL ORDER, AND THIS SPEC IS NOT ASKING YOU TO SORT IT.**
-An earlier draft said it was, and it is not: `com.fadcam.*` sits at `:54-56`, *between*
-`cc.joycreator.joybrush.androidkit.*` (`:44-53`) and `cc.joycreator.joybrush.core.*` (`:57-70`).
+An earlier draft said it was, and it is not: `com.fadcam.*` sits at `:62-65`, *between*
+`cc.joycreator.joybrush.androidkit.*` (`:47-61`) and `cc.joycreator.joybrush.core.*` (`:66-85`).
 Sorting the block would be roughly forty lines of churn in the file R30 serialises, and churn outside
 a named region is the thing R30 item 1 exists to prevent. **Insert; do not reorder.**
 
@@ -960,17 +962,17 @@ a named region is the thing R30 item 1 exists to prevent. **Insert; do not reord
 import cc.joycreator.joybrush.android.anim.PaperOverlayView
 import cc.joycreator.joybrush.android.anim.PegBarView
 
-// at :56-57, above cc.joycreator.joybrush.core.brush.BrushPreset
+// at :65-66, above cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.anim.PaperFrame
 import cc.joycreator.joybrush.core.anim.Peg
 ```
 
-`StripPlacement` is already imported at `:62` and `ChromeKit` at `:36`; **no fifth import is needed
+`StripPlacement` is already imported at `:76` and `ChromeKit` at `:36`; **no fifth import is needed
 and none is wanted.**
 
 ### Region 1b — the paper's two fields
 
-*Anchor: the chrome field block, immediately after `private var chromeShown = true` (`:192`). Ten
+*Anchor: the chrome field block, immediately after `private var chromeShown = true` (`:232`). Ten
 lines, one place.*
 
 ```kotlin
@@ -992,8 +994,8 @@ lines, one place.*
 
 ### Region 2 — the end of `buildOverlays()`
 
-*Anchor: immediately before `return overlays` (`:430`), after the hidden diagnostics block. Twelve
-lines, one place. **The add order is load-bearing** — the strip is added at `:403`, so anything added
+*Anchor: immediately before `return overlays` (`:532`), after the hidden diagnostics block. Twelve
+lines, one place. **The add order is load-bearing** — the strip is added at `:497`, so anything added
 after it sees its final bounds.*
 
 ```kotlin
@@ -1009,7 +1011,7 @@ after it sees its final bounds.*
         paper = PaperOverlayView(kit, paperSource)
         paper.strip = strip
         paper.pegBar = pegBar
-        paper.topInsetPx = kit.dp(TOP_RESERVE_DP)     // the top bar's reserve (:127)
+        paper.topInsetPx = kit.dp(TOP_RESERVE_DP)     // the top bar's reserve (:156)
         overlays.addView(paper, FrameLayout.LayoutParams(MATCH, MATCH))
 ```
 
@@ -1020,7 +1022,7 @@ free — one line at construction would have been wrong the first time the strip
 
 ### Region 3 — the two hosts
 
-*Anchor: immediately after the `stripHost` property (which closes at `:466`), **at file scope, not
+*Anchor: immediately after the `stripHost` property (which closes at `:568`), **at file scope, not
 inside `buildOverlays()`**. Eighteen lines, one place.*
 
 ```kotlin
@@ -1033,23 +1035,23 @@ inside `buildOverlays()`**. Eighteen lines, one place.*
         override fun pegLongPressed(peg: Peg) = Unit
         // Decision 19, and the ONLY line this spec adds for it. `popovers` is private to this file,
         // which is exactly why the bar asks its host rather than reaching for it; and because the
-        // bar re-reads it every window frame, none of the five `show`/`showSheet` call sites
-        // (:520, :576, :628, :661, :750) has to be touched.
+        // bar re-reads it every window frame, none of the eleven `show`/`showSheet` call sites
+        // (:631, :687, :741, :804, :1037, :1069, :1175, :1196, :1370, :1813, :1836) has to be touched.
         override fun panelOpen() = popovers.isOpen            // Popovers.kt:26
     }
 
     /** Everything the rulers ask about the page. Four one-line answers, all read-only. */
     private val paperSource = object : PaperOverlayView.Source {
-        override fun transform() = canvas.view                    // JbCanvasView.kt:118
+        override fun transform() = canvas.view                    // JbCanvasView.kt:147
         override fun frame(): PaperFrame? = null                  // no animation board exists yet
-        override fun strokeInProgress() = canvas.strokeInProgress // JbCanvasView.kt:196
+        override fun strokeInProgress() = canvas.strokeInProgress // JbCanvasView.kt:242
         override fun panelOpen() = popovers.isOpen                // Popovers.kt:26
     }
 ```
 
 ### Region 4 — `toggleChrome()`
 
-*Anchor: `JoyBrushActivity.kt:718-730`. **Three lines added; the loop body is untouched** — it goes
+*Anchor: `JoyBrushActivity.kt:862-875`. **Three lines added; the loop body is untouched** — it goes
 back to the landed `for (v in listOf<View>(topBar, strip, hairline))` with no mutable copy, because
 the bar now fades itself.*
 
@@ -1271,7 +1273,7 @@ derivation is a number the next reader has to trust.
       constant is written rather than referenced.
     **The two the suite can only pin the literal of are `BAR_CORNER_RADIUS_DP` (14 dp because the
     landed strip's is, `ToolStripView.kt:95`) and `ACCENT_LINE_DP` (2 dp because the screen's own
-    hairline is, `JoyBrushActivity.kt:272`).** Neither has a landed *constant* to be compared
+    hairline is, `JoyBrushActivity.kt:346`).** Neither has a landed *constant* to be compared
     against — the strip re-types `14f` and the Activity re-types `2f` — so the "matches" half of
     both is an eyeball item on the Owner's check and this table does not pretend otherwise.
 
@@ -1378,7 +1380,7 @@ today — which is exactly why the setters are the contract rather than a nicety
   `PanelOpen`/`panelOpen()` on this row's own `Host` type gets it without touching either; `strip.edge`
   is already public (`ToolStripView.kt:62`) and reading it is not an edit.
 - **Do not touch any part of `JoyBrushActivity.kt` outside the five named regions**, and **do not
-  reorder its import block** — it is not alphabetical today (`com.fadcam.*` at `:54-56`, between two
+  reorder its import block** — it is not alphabetical today (`com.fadcam.*` at `:62-65`, between two
   `cc.joycreator.*` blocks) and sorting it is ~40 lines of churn in a serialised file. Not the top
   bar, not the strip, not the save queue, not `moreMenu`, not the diagnostics door, not the pinned
   reference. If something there genuinely must change, it goes in **Questions**, not in the diff.
@@ -1407,7 +1409,7 @@ today — which is exactly why the setters are the contract rather than a nicety
   layout review (JB-3.02's Decision 2); test 11 enumerates the enum so both are red.
 - **Do not build a hover menu, a transport control, a stop button or prev/next.** R33: the peg bar
   owns PLAY and MODE; the strip has prev/next. **One saturated control on the board** — test 11.
-- **Do not invent an icon.** `JbIcon` has nine and none is one of these five (Questions 8).
+- **Do not invent an icon.** `JbIcon` has ten and none is one of these five (Questions 8).
 - **Do not invent user-visible copy.** No `"— tap to …"` labels, no refusals, no toasts. The five
   labels are the five names.
 - **Do not add a field to the document, a layer, or an export.** No `DOC_VERSION` bump (R30 item 3),
@@ -1478,7 +1480,7 @@ recalled from an earlier draft. I ran no gradle and no git.)_
    mine**: two `<color>` lines in `joybrush-android/src/main/res/values/jb_tokens.xml` carrying
    `<!-- mirror: s_go -->` and `<!-- mirror: s_go_end -->`; two rows in `MIRRORS` in
    `tools/check_joybrush_tokens.py:50-75` (`EXPECTED` at `:77` is derived from it, and an unlisted
-   token is a hard failure at `:170-175`); and two fields on `Palette` in `JbColors.kt:116-155` plus
+   token is a hard failure at `:170-175`); and two fields on `Palette` in `JbColors.kt:117-158` plus
    their `load(...)` reads at `:74-108`. Say the word and it is fifteen minutes.
    - **The finding behind it:** `jb_board_animation_start/end` are already `#FF35F6BF`/`#FF97FE8B`
      (`jb_tokens.xml:58-59`) — **byte-equal to the action pair**. `Studio.java:156-162` says this
@@ -1553,7 +1555,7 @@ recalled from an earlier draft. I ran no gradle and no git.)_
    strip. The 20 % veil is `kit.p.ground` at alpha 51, the same construction as `ValueHud`'s 153 and
    128. Both are eyeball numbers; the owner's check reads them over white paper, marker paint and
    black.
-7. **`PaperFrame` is a new name in `core.anim`**, one hop from `doc.Paper` (`DocModel.kt:38`), which is
+7. **`PaperFrame` is a new name in `core.anim`**, one hop from `doc.Paper` (`DocModel.kt:61`), which is
    the document's paper *setting*. JB-3.02 renamed its own `Paper` to `PaperGeometry` for exactly
    this reason (its Question 2, still open). The animation board's host will already be touching
    `doc.paper.color`. **I would rather you renamed `doc.Paper` once than have `Paper` and `PaperFrame`
@@ -1561,8 +1563,8 @@ recalled from an earlier draft. I ran no gradle and no git.)_
 8. **What do the other four pegs look like? Decision 17 defers them and there was no Question for
    it**, which is how a deferral turns into an unowned gap. PLAY gets a triangle and two bars because
    a saturated play control with no play mark reads as decoration; MODE, ONION, CADENCE and EXPORT get
-   **nothing but a disc**, because `JbIcon` has nine icons and **none of these five is one of them**
-   (`JbIcon.kt:17-26`) and its KDoc says the icons were drawn by the Lead for this app, so five path
+    **nothing but a disc**, because `JbIcon` has ten icons and **none of these five is one of them**
+    (`JbIcon.kt:17-27`) and its KDoc says the icons were drawn by the Lead for this app, so five path
    strings are out of area as well as off-house. Five bare discs is honest and is what ships; whether
    that is what the **owner** wants is a different question and it is open. Options I can see, none of
    which I am choosing: letters (`M` `O` `C` `E`) in the drawer ink; the strip's own existing marks

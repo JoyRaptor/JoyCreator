@@ -1,10 +1,14 @@
 # JB-9.01 / JB-9.02 — fixes for the adversarial audit (bunny-fixes)
 
 Row owner: the owner of `SurfaceMaps.kt`, `HexTile.kt` and their `commonTest` files.
-Nothing was run under Gradle (R43/R44 item 6), so **no test in this branch has been executed**. Every
-number in this report and in the tests was derived by reading the landed file and, where a figure came
-from the shipped asset or from the maths, checked against a Python port of the same formulas. What is
-still unproven is listed at the end.
+Nothing was run under Gradle (R43/R44 item 6). Every number in this report and in the tests was derived by
+reading the landed file and, where a figure came from the shipped asset or from the maths, checked against
+a Python port of the same formulas.
+
+> **This branch did not compile on the orchestrator's first run.** One type error, fixed, and the fix round
+> also found three bugs in my Python port that had made a "predicted error exactly 0.0" wrong by a factor
+> of 60 000. Read **Fix round 1** before believing anything here, and read **What is still unproven** before
+> believing any of it twice. Not one assertion in this branch has ever been evaluated.
 
 The audit was **not in this worktree**. `tasks/joybrush/reviews/JB-9.01_9.02__bunny-audit.md` exists only
 in the owner's folder, uncommitted there. It was read from there and not copied, so that committing this
@@ -509,9 +513,10 @@ hash channel it reads fails here rather than passing unnoticed.
   `0, 1, …, 15, 15, …, 1, 0`. The wrap from x = 31 to x = 0 is `0 → 0`, so there is no jump at the seam.
 - `encodeSlope(m·R/127, R) = round(127 + 127·m/127) = 127 + m` exactly for integer m in 0..15, and
   `127 + m ≤ 142`, so nothing clamps. This is finding 3's rule, reused.
-- G is `encodeSlope(0, R) = 127`. `decodeFilteredSlope` maps byte 127 to exactly 0: `v·255f − 127f` for a
-  Float `v` that is the correctly rounded `127/255` is at most `255·ulp(0.498)/2 + ulp(127)/2 = 7.6e-6`,
-  which is inside the `1/65536 = 1.526e-5` alias window. So the texture really has no y-slope.
+- G is `encodeSlope(0, R) = 127`. `decodeFilteredSlope` maps byte 127 to exactly 0. Re-measured in
+  float32 after the fix round: the round trip is `v = 0.49803921580314636`, `v·255f − 127f = 0.0`
+  **exactly**, against an alias window of `1.5259e-5`, so the alias fires with room to spare and
+  `contribution[1]` is exactly `0f`. So the texture really has no y-slope.
 - m is affine on texel pairs `[0, 15]` and `[16, 31]` and flat across `[15, 16]` (m(15) = m(16) = 15), so
   the read must not land there. Filter: `x0 = floor(t.x − 0.5)` in `[8, 14] ∪ [16, 22]`, which puts the
   interpolated m in `[8, 15]` and so `f ∈ [8R/127, 15R/127] = [0.031496, 0.059055]` at `R = 0.5`.
@@ -520,23 +525,41 @@ hash channel it reads fails here rather than passing unnoticed.
   that is 28 in expectation with a spread of `sqrt(96·0.29·0.71) = 4.4`, so the assertion asks for **8**,
   about 4.5 spreads below.
 - **The gap.** A flipped sign puts the answer `2·sin θ·f` away, at least `2·0.5·8·0.5/127 = 0.031496` with
-  both filters. The tolerance is **1e-6**, so a flipped sign lands 31 496 times outside it.
+  both filters, so it is at least **31 496 times** the **1e-6** tolerance.
 
 I ported the whole of `sampleSurface` (lowbias32 hash, the shear, the gamma, the wrapping bilinear, the
-filtered decode, both rotations) to Python and ran the proposed test against it:
+filtered decode, both rotations) to Python and ran the proposed test against it. **This block is the
+float64 run and it was wrong about the residual** — the fix round below re-ran it in float32, which is
+what the code uses, and got a different answer:
 
 ```
 hexes scanned 96            min lattice top weight at a hex centre: 0.9999999999999991   (filter 0.999, all pass)
 hexes passing the filters: 27   (expectation 28, spread 4.4)
-worst |out - predicted| over dx and dy at every hex: 0.0        (tolerance 1e-6)
+worst |out - predicted| over dx and dy at every hex: 0.0        <-- WRONG: float64, and the sampler rounds to Float
 smallest sign-flip gap 2*|sin*f|: 0.034898746646612445   ->  34 899 x the tolerance
 of those 27, how many a R(+theta) back-rotation would fail: 27 of 27
 ```
 
-Note the prediction is **exact**, not within a tolerance: at a hex centre the lattice weights are
-`(1.0f, 0.0f, 0.0f)` after the gamma, because the raw weight `1 − 1e-16` rounds to `1.0f` in Float and the
-other two are `1e-48f`, below Float's smallest subnormal `1.4e-45`, so they flush to `0.0f`. That holds for
-either branch of the `fa + fb > 1` test, because hex `(i, j)` is the dominant vertex in both.
+The float32 re-run, with Float weights inside the gamma, a Double sum and division inside the bilinear,
+and the sampler's `.toFloat()` applied:
+
+```
+hexes passing the filters        : 27   (assertion asks >= 8)
+worst |out - predicted|          : 1.78e-09   -> 537 x inside the 1e-6 tolerance
+half a Float ulp at |out| ~ 0.0552: 1.86e-09   <- that IS the residual
+smallest sign-flip gap 2*|sin*f|  : 0.0349     -> 34 899 x the tolerance
+f range over the used hexes      : 0.0321189 .. 0.0578045   (derived band 0.0314961 .. 0.0590551)
+hexes a R(+theta) back-rotation would fail: 27 of 27
+```
+
+The prediction is exact in Double; the whole of the residual is the one `.toFloat()` at
+`HexTile.kt:162-163`, because `out` is a Float and the largest `|out[0]|` or `|out[1]|` over those hexes
+is 0.0552, where half a Float ulp is 1.86e-9. That is the derivation now written beside the assertion.
+
+The lattice weights being exactly `(1.0f, 0.0f, 0.0f)` after the gamma is what makes the other two reads
+contribute nothing at all: the raw weight `1 − 1e-16` rounds to `1.0f` in Float, and the other two are
+`1e-48f`, below Float's smallest subnormal `1.4e-45`, so they flush to `0.0f`. That holds for either
+branch of the `fa + fb > 1` test, because hex `(i, j)` is the dominant vertex in both.
 
 ### Mutation reasoning
 
@@ -635,41 +658,251 @@ derivation, and this one does not change at all. Say so if you would rather I ha
 
 ---
 
+## Fix round 1 — the branch did not compile
+
+### What happened
+
+The orchestrator cherry-picked `de9ca056` onto `origin/joy-creator` and ran the suite. It failed in
+`:core:compileTestKotlinJvm` with exactly one error, quoted verbatim:
+
+```
+> Task :core:compileTestKotlinJvm FAILED
+e: file:///.../joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/paper/HexTileTest.kt:505:25
+   Argument type mismatch: actual type is 'Int', but 'Byte' was expected.
+```
+
+The line was in `theBackRotationTurnsTheSlopeBackTheSameWayTheReadWasTurned`:
+
+```kotlin
+px[o + 2] = 128
+px[o + 3] = 0
+```
+
+### The diagnosis in the brief is wrong, and the fix follows from the right reason
+
+The brief says `px` is a `ByteArray`, so Int literals need `.toByte()`. That is not what happened, and the
+file says so. Kotlin's integer literals adapt to a `Byte` or `Short` expected type **when the value fits**,
+and the pre-existing code in this very file relies on it and compiles today:
+
+| line | written as | in signed Byte range? | compiles? |
+|---|---|---|---|
+| `HexTileTest.kt:29` | `bytes[i + 1] = 127` | yes | yes, shipped |
+| `HexTileTest.kt:385-386` | `px[o + 2] = 0`, `px[o + 3] = 0` | yes | yes, shipped |
+| mine, `:505` | `px[o + 2] = 128` | **no** — Byte is −128..127 | **no** |
+
+So the failure is that **128 is out of range for a signed Byte**, not that the literal was an Int. Two
+corollaries:
+
+- `px[o + 3] = 0` was never an error, and the line above it (`= encodeSlope(...).toByte()`) only looked
+  different because the author happened to call `.toByte()` there.
+- `(128).toByte()` and `128.toByte()` are the same value, `−128` as a signed byte, which
+  `PaperTexture` reads back as `(−128 and 0xFF) / 255 = 128/255` — the unsigned byte 128, exactly what
+  was intended. Nothing about the texture's values changed.
+
+The diagnostic reads "Argument type mismatch" rather than "type mismatch" because `a[i] = v` lowers to
+`a.set(i, v)`, and `ByteArray.set`'s second parameter is the `Byte` the Int was being offered to.
+
+**The fix** (`HexTileTest.kt:505-506`):
+
+```kotlin
+px[o + 2] = 128.toByte() // height: unused here, the slope channels are what the test reads
+px[o + 3] = 0.toByte()
+```
+
+### What I did about the rest of the file, since only the first error is reported
+
+`rg` over both test files for every indexed write, then checked each one's element type and, for literals,
+the range:
+
+| write | array type | value in range? | verdict |
+|---|---|---|---|
+| `HexTileTest.kt:505-506` | `ByteArray` | 128 **not** in −128..127 | **the error; fixed** |
+| `HexTileTest.kt:503-504` | `ByteArray` | `.toByte()` applied | fine |
+| `HexTileTest.kt:598-601` (pre-existing) | `ByteArray` | 37, 199, 88, 11 with `.toByte()` | fine |
+| `HexTileTest.kt:196-199` (pre-existing) | `ByteArray` | `.toByte()` applied | fine |
+| `HexTileTest.kt:29, 385-386` (pre-existing) | `ByteArray` | 127, 0, 0 | in range, fine |
+| `HexTileTest.kt:358-364` (pre-existing) | `DoubleArray` | `.toDouble()` applied | fine |
+| `HexTileTest.kt:444` (pre-existing) | `BooleanArray` | `true` | fine |
+| `SurfaceMapsTest.kt:120` (pre-existing) | `FloatArray` | `1f` | fine |
+| my new `SurfaceMapsTest` | `ByteArray(n*n) { (it and 0xFF).toByte() }` | `.toByte()` applied | fine |
+
+**Every other indexed write in both files is either pre-existing (and therefore already compiled) or
+carries an explicit conversion.** The only new one without a conversion was `128`, and `0` was in range.
+
+### Every symbol I inferred rather than read, re-read
+
+Each row is the declaration I read in this worktree and the call sites that depend on it.
+
+| symbol | declaration read at | my call sites | match |
+|---|---|---|---|
+| `SurfaceMaps.encodeSlope` | `SurfaceMaps.kt:100` `(s: Float, slopeRange: Float): Int` | 6 | yes, both args Float, returns Int |
+| `SurfaceMaps.decodeSlope` | `SurfaceMaps.kt:119` `(b: Int, slopeRange: Float): Float` | 7 | yes |
+| `SurfaceMaps.decodeFilteredSlope` | `SurfaceMaps.kt:125` `(v: Float, slopeRange: Float): Float` | 1 | yes |
+| `SurfaceMaps.pack` | `SurfaceMaps.kt:161` `(ByteArray, Int, Int, Float): ByteArray` | 1 | yes |
+| `HexTile.centreX` | `HexTile.kt:119` `(i: Int, j: Int, hexTexels: Double): Double` | 6 | yes |
+| `HexTile.centreY` | `HexTile.kt:122` `(i: Int, j: Int, hexTexels: Double): Double` | 6 | yes |
+| `HexTile.hash` | `HexTile.kt:50` `(i: Int, j: Int, k: Int): Float` | 3 | yes |
+| `HexTile.lattice` | `HexTile.kt:79` `(px: Double, py: Double, hexTexels: Double): Lattice` | 5 | yes |
+| `Lattice.w` | `HexTile.kt:63` `val w: FloatArray` | 3 | yes |
+| `HexTile.sampleSurface` | `HexTile.kt:131-139` `rotatable`, `slopeRange`, `out` names | 5 | yes, all named args match |
+| `HexTile.sampleLook` | `HexTile.kt:171` `rotatable`, `out` names | 4 | yes |
+| `HexTile.gammaWeights` | `HexTile.kt:202` `internal fun (w: FloatArray, gamma: Float = HEX_GAMMA): FloatArray` | 7 | yes |
+| `HexTile.HEX_GAMMA` | `HexTile.kt:35` `const val HEX_GAMMA = 3f` | 3 | yes, Float |
+| `PaperTexture` | `PaperTexture.kt:10` `(val w: Int, val h: Int, val rgba: ByteArray)` | 2 | yes |
+| `PaperTexture.bilinear` | `PaperTexture.kt:26` `(tx: Double, ty: Double, out: FloatArray)` | 1 | yes |
+| `tex.w` / `tex.h` | `PaperTexture.kt:10` both `Int` | 2 | yes, `Float * Int` is a Kotlin numeric conversion |
+
+And the numeric-type questions in the arithmetic, since Kotlin does **not** widen implicitly:
+`Int * Float` → Float, `Float * Double` → Double, `Double + Float` → Double, `Int / Double` → Double,
+`Int.unaryMinus` → Int. All are defined conversions, all used correctly.
+
+### `internal` from `commonTest` — now PROVEN, not inferred
+
+I listed this as unproven. It is now settled by the orchestrator's run, with one caveat. The Kotlin
+frontend resolves names and checks visibility in the same pass, so an inaccessible `internal` would have
+been reported as an error in the same diagnostic list. The list had exactly one entry, and it was a type
+mismatch at line 505 — not a visibility error. So `HexTile.gammaWeights` resolved from `commonTest`, and
+the fix if it had not is not needed.
+
+The caveat, stated honestly: **the compiler reports all the diagnostics it collects, and it collected
+exactly one.** That is strong evidence and not proof — a diagnostic suppressed by an earlier one would
+not appear. The `assertEquals` overloads are the place this would show up, and there are 22 of them across
+my two files.
+
+### What the run proved, and what it did not
+
+Proved:
+- `HexTile.kt` and `SurfaceMaps.kt` compiled. `:core:compileKotlinJvm` runs before
+  `:core:compileTestKotlinJvm`, so main is clean.
+- `HexTileTest.kt` **parses**. A syntax error would have stopped the compiler before it reached line 505,
+  so the braces, the class body and the 13 test functions are well-formed.
+- Names and visibility resolve (see the caveat above).
+- Nothing else in `commonTest` produced a diagnostic.
+
+Not proved:
+- That the build is green. Compilation failing means no test ran, so **not one assertion in this branch has
+  ever been evaluated.**
+
+---
+
+## Fix round 1, second half — my numbers, re-checked in float32
+
+The brief was right to push on this. My first-round port computed in float64 throughout, and when I
+re-ran it faithfully in float32 **the sign test's worst error came out at 0.060 instead of 0.0** — 60 000
+times the tolerance. Chasing that found two bugs in my port, and both had to be fixed before any of the
+float32 numbers meant anything:
+
+1. **`gammaWeights` was fed float64 weights.** My port multiplied a `float32` accumulator by the raw
+   `float64` lattice weight and rounded afterwards. Kotlin multiplies `Float * Float`, because
+   `Lattice.w` is a `FloatArray` (`HexTile.kt:63`). Multiplying float32 by float64 and rounding is a
+   **double rounding** and can differ by one ulp from a correctly rounded float32 multiply.
+2. **`PaperTexture.bilinear` was emulated in float32.** The port did `f32(f32(n)/f32(255.0))`; the code
+   sums and divides in **Double** and applies `.toFloat()` once, at `PaperTexture.kt:49`.
+3. **`sampleSurface`'s `.toFloat()` was missing entirely.** The port kept the slope in float64. That is
+   the one that produced the honest residual below, and my first-round report's "predicted error exactly
+   0.0" was simply wrong about the code.
+
+With all three corrected, the sign test over its 27 hexes:
+
+| | first-round claim | re-measured, faithful float32 |
+|---|---|---|
+| hexes passing the two filters | 27 (assertion asks ≥ 8) | **27** |
+| worst \|out − predicted\| | 0.0 | **1.78e-9** |
+| tolerance | 1e-6 | 1e-6, about **537× above** the residual |
+| smallest sign-flip gap `2·\|sin θ·f\|` | 0.0349 | **0.0349** |
+| hexes a `R(+θ)` back-rotation would fail | 27 of 27 | **27 of 27** |
+
+The residual has a derivation and is not slack: `out` is a `Float` and `HexTile.kt:162-163` rounds
+`(c·sx + sn·sy)` with `.toFloat()` on the way out. The largest `|out[0]|` or `|out[1]|` over those hexes is
+**0.0552**, where one Float ulp is **3.73e-9** and half an ulp — the whole of that rounding — is
+**1.86e-9**. The measured 1.78e-9 is just inside that. So the prediction is exact in Double and the only
+error is one final rounding, and the test's KDoc now carries that derivation instead of implying zero.
+
+Two more things the float32 re-run settled that the float64 port could not:
+
+- **The G channel really does decode to exactly 0.** The Float round trip of byte 127 is
+  `v = 0.49803921580314636`, `v·255f − 127f = 0.0` exactly, against an alias window of `1.5259e-5`. The
+  alias fires, `contribution[1]` is exactly `0f`, and `c·sy` is `±0.0`, so it cannot perturb the
+  prediction at all. Checked at ten different interpolation weights.
+- **The sign test's texture is bit-exact.** `encodeSlope(m·R/127, R)` is `127 + m` for every integer
+  m in 0..15 with no exceptions, and each decodes back to exactly `m·R/127` (difference 0.0 at all
+  sixteen). Also: none of the 96 hexes has `hash(i,j,1) == 0` or `hash(i,j,2) == 0`, so the signed-zero
+  case in `readAt`'s `±0.0 + cxp` cannot arise and the read position really is bit-identical between the
+  test and the sampler.
+
+And the other three numbers the brief named, re-checked in float32 where float32 is what the code uses:
+
+| number | verdict |
+|---|---|
+| the sign test's `1e-6` | **holds**, 537× above the one real residual and 34 899× below the sign flip |
+| the sign test's floor of 8 hexes | **holds**, 27 pass; 27 against a mean of 28 and a spread of 4.4 |
+| the centre test's `1e-13` | **holds**, and it is not even a Kotlin/Python question: `math.sqrt(3.0)` and `kotlin.math.sqrt(3.0)` are both the correctly-rounded double, so the arithmetic is bit-identical. Worst error 7.105e-15 at magnitude 43.3, two ulps, with two of the three y values exact |
+| the gamma bit-identity | **holds**, 0 mismatches over **1 000 000** random float32 weights (up from 200 000). The test's own case in float32 is `(0.125, 0.015625, 0.015625)`, total `0.15625`, giving `0.800000011920929, 0.10000000149011612, 0.10000000149011612` — which is `Float(0.8)` and `Float(0.1)`, so `assertEquals(0.8f, w[0])` and `assertEquals(0.1f, w[1])` are bit-exact with no tolerance |
+| `encodeSlope(k·r/127f, r) == 127 + k` | **holds** for all 255 values of k in float32, with the string-widened Double range, worst deviation `8.4e-6` against the 0.5 that `round` would need to change the answer |
+| `decodeSlope(127+k, r)` vs `k·r/127f` | worst difference **exactly one ulp**, 7.45e-9, and the tolerance is 1e-8 = 1.34 ulps |
+
+### Which other new test in this branch might have had the same defect, and why I believe they did not
+
+The defect class is *a literal whose type does not match the array element type, or whose value is outside
+a narrower integer type's range*. There are seven new tests across the two files:
+
+| test | array writes it makes | why I believe it is clean |
+|---|---|---|
+| `theWeightContrastIsTheOneTheConstantNames` | none | no array writes at all; every expected value is a Float literal compared with `assertEquals` against a Float, or an Int against an Int |
+| `theHexCentreIsThePointTheSpecWroteDown` | none | pure `assertEquals` on Doubles |
+| `aHexCentreLandsBackInsideItsOwnHex` | none | edited only to call `centreX`/`centreY`; same statements as before |
+| `theSamePaperOneTexturePeriodAwayIsNotTheSamePaper` | none | KDoc only |
+| `aRotatablePaperTurnsEachHexsSlopeAndKeepsItsLength` | none | edited only to call `centreX`/`centreY`; the `octants[bin] = true` write is pre-existing and `bin` is masked into 0..7 |
+| `theSlopeByteLayoutHasNoHalfByteOffset` | none | pure `assertEquals` on Ints and Floats |
+| `theAlphaChannelIsAQuauntisedSecondMomentAndNotAVariance` | one: `ByteArray(n*n) { (it and 0xFF).toByte() }` | `.toByte()` applied, and the values are exactly 0..255 by construction, so nothing can be out of Byte range |
+| `aNonFiniteSlopeIsRefusedByName` | none | pure `assertEquals`/`assertFailsWith` |
+| `aHexSizeThatCannotDivideIsRefusedByName` | none | pure `assertFailsWith`/`assertEquals` |
+| `theBackRotationTurnsTheSlopeBackTheSameWayTheReadWasTurned` | four, all `ByteArray` | **the one that failed; now all four carry `.toByte()`** |
+
+So the sign test was the only new test writing into a typed array, and it is the only one that could have
+had this defect. The other nine either write nothing or write into a `ByteArray` through `it and 0xFF`
+followed by `.toByte()`.
+
+---
+
 ## What is still unproven
 
-Everything below is unproven because nothing was executed.
+**Read this first, because it is the honest summary of the whole branch.** My first-round report was
+written in a tone that implied a level of confidence this branch never earned. It did not compile on its
+first run under the orchestrator, so **not one line of it was ever compiled and not one assertion was ever
+evaluated.** Every "goes red" in this report, every "no test can see this", every count of 27 or 148 or
+155 902, is reasoning over the code plus a Python port of it. The port was wrong three times in ways that
+only surfaced when I re-ran it in float32 — one of which would have made a test fail by a factor of 60 000
+— and I did not find any of them until the build told me the file did not even parse as far as type
+checking. Confidence like that was never earned and should not have been written as though it were.
 
-1. **No test in this branch has been run.** Not one. Every "goes red" in this report is reasoning over the
-   code plus a Python port, which is strong evidence about the assertions and is not the build's output.
-2. **The Python port is not the JVM.** It agrees with the landed code on everything I could check
-   independently, and I checked the asset figures, the hash, the shear, the gamma, the wrapping bilinear,
-   the filtered decode, the encode/decode grid and the narrowing semantics. But Kotlin's `Float`/`Double`
-   arithmetic, `Math.cos`/`Math.sin`, `Float.toString()` and `kotlin.math.round` are not the same
-   functions. The places where that could bite:
-   - the sign test's tolerance of `1e-6` on a predicted error of exactly `0.0` in the port. If the JVM's
-     `cos`/`sin` differ from the port's by even a few ulps the prediction still moves with them (the test
-     calls the same functions), so this should be safe, but I cannot show it.
-   - `theHexCentreIsThePointTheSpecWroteDown`'s `1e-13` on the y values, derived from three roundings and
-     a literal. The port's worst was 2 ulps at magnitude 43.3.
-   - `gammaWeights`'s bit-identity with the old `w*w*w`, argued from `1f·w == w` and checked over 200 000
-     random float32 weights in numpy.
-3. **`gammaWeights` being `internal` and visible from `commonTest`.** The precedent
-   (`ImportSupportTest` calling `internal fun inflateMaxOut`) is in this module and this source set, so I
-   expect it to compile. If Kotlin's friend-module setup differs for a member of an `object`, this branch
-   will not compile and the fix is to widen it to `public`.
-4. **`theAlphaChannelIsAQuauntisedSecondMomentAndNotAVariance` at 256 iterations of `pack` over a 16×16
-   field.** That is 256 texels, so it is trivial work; I have not run it, and I have not confirmed the
-   assertion count reads the way I expect.
-5. **The sign test's hex-count floor of 8.** The port says 27 pass the filters, against an expectation of
-   28 with a spread of 4.4. The floor is 4.5 spreads below the mean. If `PaperTexture`'s half-texel
-   convention ever moves, the `x0` filter selects the wrong band and this test goes red for the wrong
-   reason. The convention is pinned by `aFilteredSlopeIsDecodedWithoutByteRounding`, so a move there is
-   already someone's red.
-6. **The asset figures in the KDoc** (155902 of 262144, −1.8608e-3) are mine, measured with numpy on the
-   shipped PNG. They are a statement in a comment, not an assertion, so nothing checks them; if the asset
-   is ever regenerated they will be stale and no test will say so.
+1. **Nothing has been executed.** After this fix round the file compiles as far as the compiler's single
+   reported diagnostic can be trusted, and that is the whole of the evidence.
+2. **One diagnostic is not a clean bill of health.** The Kotlin frontend reports what it collects and it
+   collected one entry. A diagnostic suppressed behind an earlier one would not appear. The 22
+   `assertEquals` overload resolutions across my two files are where I would look first if the next run
+   reports something new.
+3. **The Python port is not the JVM**, and it was wrong three times before I re-checked it in float32 —
+   see the fix round above. What is left unbridged: `Math.cos`/`Math.sin` against numpy's (both are
+   faithfully rounded in practice and the test calls the same function on both sides, so this is a low
+   risk), and `kotlin.math.round`'s ties-towards-positive-infinity against numpy's `rint`'s
+   ties-to-even — which cannot differ here, because the fractional part of `b²/255` is a multiple of
+   `1/255` and so is never within `0.5/255 = 1.96e-3` of a `.5` tie, against a float error of `1e-15`.
+4. **`theAlphaChannelIsAQuauntisedSecondMomentAndNotAVariance` has never been run.** It packs a 16×16
+   field holding every height byte 0..255 and makes 256 iterations of three assertions each. All the
+   arithmetic is Double and independently checked (residue rule to 1.75e-16 over all 256 bytes), but no
+   assertion has been evaluated.
+5. **The sign test's floor of 8 hexes** rests on 27 passing, against a mean of 28 and a spread of 4.4, so
+   the floor is 4.5 spreads below. If `PaperTexture`'s half-texel convention ever moves, the `x0` filter
+   selects the wrong band and the test goes red for the wrong reason. The convention is pinned by
+   `aFilteredSlopeIsDecodedWithoutByteRounding`, so a move there is already someone's red.
+6. **The asset figures in the KDoc** (155 902 of 262 144, −1.8608e-3) are mine, measured with numpy on
+   the shipped PNG. They are a statement in a comment, not an assertion, so nothing checks them; if the
+   asset is ever regenerated they will be stale and no test will say so.
 7. **The forward rotation's sign is still unpinned**, as set out in the sign test's mutation table. Both
    sides of the twin compose to the identity either way, so only the GPU can break that tie.
+8. **The audit was read from the owner's folder, not from this worktree**, and it is a mixed snapshot; see
+   finding 8 and question 8.
 
 ---
 

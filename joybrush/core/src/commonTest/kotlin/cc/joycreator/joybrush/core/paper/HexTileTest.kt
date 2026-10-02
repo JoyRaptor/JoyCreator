@@ -488,9 +488,15 @@ class HexTileTest {
      * two together keep 14/32 × 2/3 = 0.29 of the hexes, so 96 scanned hexes give 28 in expectation
      * with a spread of 4.4, and the assertion asks for 8 — about 4.5 spreads below that.
      *
-     * THE GAP. A flipped sign puts the answer `2·sin θ·f` away, and with both filters in place that is
-     * at least `2 · 0.5 · 8·0.5/127 = 0.031496`. The tolerance is 1e-6, so a flipped sign lands 31 496
-     * times outside it.
+     * THE GAP, AND WHY THE TOLERANCE IS NOT ZERO. A flipped sign puts the answer `2·sin θ·f` away, and
+     * with both filters in place that is at least `2 · 0.5 · 8·0.5/127 = 0.031496`. The prediction is
+     * otherwise exact — the test evaluates the same `cos` and `sin` calls on the same doubles, and the
+     * read position is bit-identical because `p − c` is exactly `(0, 0)` and no offset hash comes out
+     * zero over these 96 hexes — except that `out` is a Float and `sampleSurface` rounds
+     * `(c·sx + sn·sy)` with `.toFloat()` on the way out. The largest `|out[0]|` or `|out[1]|` over the
+     * hexes this test uses is about 0.0552, where one Float ulp is 3.73e-9 and half an ulp — the whole
+     * of that rounding — is 1.86e-9. So the tolerance of **1e-6** sits about 537 times above the only
+     * error there is and about 34 899 times below the sign flip it has to catch.
      */
     @Test
     fun theBackRotationTurnsTheSlopeBackTheSameWayTheReadWasTurned() {
@@ -502,8 +508,8 @@ class HexTileTest {
             val o = (y * w + x) * 4
             px[o] = SurfaceMaps.encodeSlope(minOf(x, w - 1 - x) * (SLOPE_RANGE / 127f), SLOPE_RANGE).toByte()
             px[o + 1] = SurfaceMaps.encodeSlope(0f, SLOPE_RANGE).toByte()
-            px[o + 2] = 128
-            px[o + 3] = 0
+            px[o + 2] = 128.toByte() // height: unused here, the slope channels are what the test reads
+            px[o + 3] = 0.toByte()
         }
         val tex = PaperTexture(w, h, px)
         val out = FloatArray(4)

@@ -32,6 +32,16 @@ import cc.joycreator.joybrush.core.brush.Scatter
 import cc.joycreator.joybrush.core.brush.SplitMix
 import cc.joycreator.joybrush.core.doc.BoardKind
 import cc.joycreator.joybrush.core.doc.Cel
+import cc.joycreator.joybrush.core.doc.AnimOps
+import cc.joycreator.joybrush.core.doc.AnimResult
+import cc.joycreator.joybrush.core.doc.CelWork
+import cc.joycreator.joybrush.core.doc.NewFrame
+import cc.joycreator.joybrush.core.doc.Frame
+import cc.joycreator.joybrush.core.doc.Board
+import cc.joycreator.joybrush.core.doc.JbDocument
+import cc.joycreator.joybrush.core.paint.UndoLog
+import cc.joycreator.joybrush.androidkit.io.CelProjection
+import java.util.UUID
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.grain.GrainMath
@@ -256,6 +266,113 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     // the UI reads the immutable document to respect locks before starting a stroke.
     // Metadata only after upload: GPU tiles own the live pixels.
     @Volatile private var retainedContents: JbContents? = null
+    private val layerMetadataHistory = HashMap<String, cc.joycreator.joybrush.core.doc.Layer>()
+    @Volatile var currentFrameId: String? = null
+        private set
+    @Volatile var frameChangeInProgress = false
+        private set
+    var onFramesChanged: ((Board?, String?) -> Unit)? = null
+
+    fun selectFrame(id: String) {
+        if (drawing || frameChangeInProgress || contentLost) return
+        val doc = retainedContents?.doc ?: return
+        if (doc.boards.single().frames.none { it.id == id }) return
+        frameChangeInProgress = true
+        onGl {
+            currentFrameId = id
+            engine.projectCels(doc, id)
+            reportHistory(notifyEdit = false)
+            post { frameChangeInProgress = false; notifyFrames() }
+        }
+    }
+
+    fun animateActiveLayer() = changeFrames { before ->
+        val board = before.boards.single()
+        val prepared = if (board.kind == BoardKind.CANVAS) before.copy(
+            boards = listOf(board.copy(kind = BoardKind.ANIMATION, frames = listOf(Frame(UUID.randomUUID().toString())))),
+            activeBoardId = board.id) else before
+        AnimResult(AnimOps.animateLayer(prepared, activeLayer, board.id), emptyList())
+    }
+
+    fun addFrame(mode: NewFrame) = changeFrames { before ->
+        AnimOps.addFrame(before, before.boards.single().id, currentFrameId, mode) { UUID.randomUUID().toString() }
+    }
+
+    fun changeHold(frameId: String, delta: Int) = changeFrames { before ->
+        val board = before.boards.single()
+        val frame = board.frames.first { it.id == frameId }
+        AnimResult(AnimOps.setHold(before, board.id, frameId, frame.holdFrames + delta), emptyList())
+    }
+
+    private fun changeFrames(operation: (JbDocument) -> AnimResult) {
+        if (drawing || frameChangeInProgress || contentLost) return
+        frameChangeInProgress = true
+        onGl {
+            val before = try { readContents(width, height, readPixels = false).doc }
+                catch (e: Exception) {
+                    post { frameChangeInProgress = false; onRefused?.invoke(e.message ?: "The drawing could not be prepared"); notifyFrames() }
+                    return@onGl
+                }
+            val previousFrame = currentFrameId
+            try {
+                val result = operation(before)
+                val copies = result.work.filterIsInstance<CelWork.CopyCel>()
+                val extra = copies.sumOf { copy ->
+                    engine.celTileKeys(CelProjection.storeId(before.layers.first { it.id == copy.layerId }, copy.fromCelId)).size
+                }
+                if (!CelProjection.canAddTiles(engine.paintTileCount(), extra, Runtime.getRuntime().maxMemory())) {
+                    throw JbArchiveException("This drawing is too large to copy a frame on this phone. Add a blank or linked frame instead.")
+                }
+                engine.projectCels(result.doc, previousFrame)
+                for (copy in copies) {
+                    val layer = result.doc.layers.first { it.id == copy.layerId }
+                    engine.copyCel(CelProjection.storeId(layer, copy.fromCelId), CelProjection.storeId(layer, copy.toCelId))
+                }
+                val added = result.doc.boards.single().frames.firstOrNull { frame ->
+                    before.boards.single().frames.none { it.id == frame.id }
+                }?.id
+                currentFrameId = CelProjection.frameId(result.doc, added ?: previousFrame)
+                retainedContents = JbContents(result.doc, emptyMap(), emptyMap(), retainedContents?.thumbnailPng)
+                layerMetadataHistory.putAll(result.doc.layers.associateBy { it.id })
+                engine.projectCels(result.doc, currentFrameId)
+                engine.onUndoRedo = { step, redo -> applyFrameHistory(step, redo) }
+                engine.undo.push(UndoLog.Step(emptyList(), documentBefore = before, documentAfter = result.doc))
+                reportHistory()
+            } catch (e: Exception) {
+                currentFrameId = previousFrame
+                engine.projectCels(before, previousFrame)
+                engine.pruneCels(before)
+                post { onRefused?.invoke(e.message ?: "The frame could not be changed; your drawing was kept.") }
+            }
+            post { frameChangeInProgress = false; notifyFrames() }
+        }
+    }
+
+    private fun notifyFrames() {
+        val board = retainedContents?.doc?.boards?.singleOrNull()?.takeIf { it.kind == BoardKind.ANIMATION }
+        onFramesChanged?.invoke(board, currentFrameId)
+    }
+
+    private fun applyFrameHistory(step: UndoLog.Step<Int>, redo: Boolean) {
+        val restored = if (redo) step.documentAfter else step.documentBefore
+        if (restored != null) {
+            retainedContents = JbContents(restored, emptyMap(), emptyMap(), retainedContents?.thumbnailPng)
+            layerMetadataHistory.putAll(restored.layers.associateBy { it.id })
+            currentFrameId = CelProjection.frameId(restored, currentFrameId)
+        } else {
+            val doc = retainedContents?.doc ?: return
+            val address = step.changes.firstOrNull()?.layerId
+            val owner = doc.layers.firstOrNull { layer -> layer.animatedIn != null &&
+                layer.cels.any { CelProjection.storeId(layer, it.id) == address } }
+            if (owner != null) {
+                val cel = owner.cels.first { CelProjection.storeId(owner, it.id) == address }
+                if (owner.frameCel[currentFrameId] != cel.id) {
+                    currentFrameId = doc.boards.single().frames.firstOrNull { owner.frameCel[it.id] == cel.id }?.id
+                }
+            }
+        }
+        retainedContents?.doc?.let { engine.projectCels(it, currentFrameId) }
+    }
     @Volatile private var contentLost = false
     @Volatile private var graphicsEpoch = 0
 
@@ -310,6 +427,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     fun duplicateLayer(id: String): Boolean {
+        if (retainedContents?.doc?.layers?.any { it.id == id && it.animatedIn != null } == true) {
+            onRefused?.invoke("Copy or link a frame to duplicate an animated drawing.")
+            return false
+        }
         if (drawing || !roomForAnother()) return false
         val before = stackUi
         val newId = before.freshId()
@@ -321,6 +442,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** False for the last layer: a drawing always has somewhere to paint. */
     fun deleteLayer(id: String): Boolean {
+        if (retainedContents?.doc?.layers?.any { it.id == id && it.animatedIn != null } == true) {
+            onRefused?.invoke("Deleting an animated layer is not available yet; its frames were kept.")
+            return false
+        }
         if (drawing) return false
         val before = stackUi
         val after = before.delete(id)
@@ -819,6 +944,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     private fun startStroke(eraser: Boolean) {
+        if (frameChangeInProgress) return
         if (contentLost) {
             drawing = false
             onRefused?.invoke("Reopen your saved drawing before continuing.")
@@ -1160,7 +1286,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             // Iterating the map gives the ENTRY: its key is (layer, cel, "tx_ty").
             // A mask's tiles go to the mask's store (JB-2.23); every other tile to its layer.
             val layer = doc.layers.first { it.id == entry.key.first }
-            val store = if (layer.mask?.id == entry.key.second) maskStoreId(layer.id) else layer.id
+            val store = if (layer.mask?.id == entry.key.second) maskStoreId(layer.id)
+                else if (layer.animatedIn != null) CelProjection.storeId(layer, entry.key.second) else layer.id
             wanted.add(Triple(store, tileKeyOf(entry.key.third), entry.value))
         }
         val paper = paperArgbOf(doc.paper.color)
@@ -1175,9 +1302,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             // resetDocument() empties EVERY layer; the file's stack is put back whole, then its pixels.
             engine.resetDocument()
             engine.setStack(stack)
+            layerMetadataHistory.clear()
+            layerMetadataHistory.putAll(doc.layers.associateBy { it.id })
+            currentFrameId = CelProjection.frameId(doc, currentFrameId)
+            engine.projectCels(doc, currentFrameId)
+            engine.onUndoRedo = { step, redo -> applyFrameHistory(step, redo) }
             for (item in wanted) engine.writeTile(item.first, item.second, item.third)
             retainedContents = CanvasSnapshot.metadataOf(contents)
             contentLost = false
+            frameChangeInProgress = false
             paperArgb = paper
             reportHistory()
             post { onDone() }
@@ -1201,8 +1334,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             return "this drawing has ${doc.boards.size} boards, and this screen holds one"
         }
         val board = doc.boards[0]
-        if (board.kind != BoardKind.CANVAS) {
-            return "board \"${board.id}\" is ${board.kind}, and this screen shows a canvas board"
+        if (board.kind !in listOf(BoardKind.CANVAS, BoardKind.ANIMATION)) {
+            return "board \"${board.id}\" is ${board.kind}, and this screen shows canvas or animation boards"
         }
         if (board.rect.w <= 0 || board.rect.h <= 0) return "board \"${board.id}\" has no room"
         if (doc.paper.textureId != null) {
@@ -1210,16 +1343,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         val celOf = HashMap<String, String>()
         for (layer in doc.layers) {
-            if (layer.id.endsWith(MASK_SUFFIX)) {
+            if (layer.id.endsWith(MASK_SUFFIX) || '\u0000' in layer.id) {
                 return "layer \"${layer.name}\" uses a reserved mask identifier; this screen cannot open it safely"
             }
             if (layer.kind != LayerKind.PAINT) {
                 return "layer \"${layer.name}\" is ${layer.kind}, and this screen only paints pixels"
             }
-            if (layer.animatedIn != null) {
-                return "layer \"${layer.name}\" is animated, and this screen cannot play animation yet"
-            }
-            if (layer.cels.size != 1) {
+            if (layer.animatedIn == null && layer.cels.size != 1) {
                 return "layer \"${layer.name}\" has ${layer.cels.size} cels, and this screen holds one"
             }
             celOf[layer.id] = layer.cels[0].id
@@ -1250,29 +1380,48 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         return null
     }
 
-    /** Check a proposed Open before preservation starts, without changing the current drawing. */
+    /** Check a proposed Open before replacement, without changing the current drawing. */
     fun checkContents(contents: JbContents) {
+        val problems = DocOps.validate(contents.doc)
+        if (problems.isNotEmpty()) throw JbArchiveException(problems.joinToString("; "))
         refusalFor(contents)?.let { throw JbArchiveException(it) }
     }
 
     /** The GL-thread half of [snapshot]: every layer, every tile, read back, under one document. */
-    private fun readContents(w: Int, h: Int): JbContents {
+    private fun readContents(w: Int, h: Int, readPixels: Boolean = true): JbContents {
         // Read back, not guessed at: the tiles are the drawing, so the archive carries exactly the
         // bytes the engine is holding and nothing has to be rebuilt from stroke records to save.
         val stack = engine.stack(activeLayer)
+        // Layer undo may resurrect a layer removed before a frame operation. Its original cel,
+        // mask and locked metadata remain a template, without retaining any pixel arrays.
+        val retained = retainedContents?.let { saved ->
+            val ids = saved.doc.layers.map { it.id }.toSet()
+            val restored = stack.layers.filter { it.id !in ids }.mapNotNull { layerMetadataHistory[it.id] }
+            saved.copy(doc = saved.doc.copy(layers = saved.doc.layers + restored))
+        }
         val tiles = LinkedHashMap<Triple<String, String, String>, ByteArray>()
         val listed = HashMap<String, List<String>>()
         val maskListed = HashMap<String, List<String>>()
+        val animated = retained?.doc?.layers?.filter { it.animatedIn != null }.orEmpty().associateBy { it.id }
+        val animationTiles = LinkedHashMap<Triple<String, String, String>, ByteArray>()
+        if (readPixels) for (layer in animated.values) for (cel in layer.cels) {
+            val store = CelProjection.storeId(layer, cel.id)
+            for (key in engine.celTileKeys(store)) {
+                val bytes = engine.readCelTile(store, key)
+                    ?: throw JbArchiveException("An animation cel could not be read from the GPU")
+                animationTiles[Triple(layer.id, cel.id, DocOps.key(Tiles.tx(key), Tiles.ty(key)))] = bytes
+            }
+        }
         for (s in stack.layers) {
             val names = ArrayList<String>()
-            for (key in engine.tileKeys(s.id)) {
-                val bytes = engine.readTile(s.id, key)
-                if (bytes == null || bytes.size != TILE_BYTES) {
+            for (key in if (s.id in animated) emptyList() else engine.tileKeys(s.id)) {
+                val bytes = if (readPixels) engine.readTile(s.id, key) else null
+                if (readPixels && (bytes == null || bytes.size != TILE_BYTES)) {
                     throw JbArchiveException("a tile of layer \"${s.name}\" could not be read back from the GPU")
                 }
                 val name = DocOps.key(Tiles.tx(key), Tiles.ty(key))
                 names.add(name)
-                tiles[Triple(s.id, CEL_ID, name)] = bytes
+                if (bytes != null) tiles[Triple(s.id, CEL_ID, name)] = bytes
             }
             names.sort()
             listed[s.id] = names
@@ -1281,13 +1430,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 val maskNames = ArrayList<String>()
                 val store = maskStoreId(s.id)
                 for (key in engine.tileKeys(store)) {
-                    val bytes = engine.readTile(store, key)
-                    if (bytes == null || bytes.size != TILE_BYTES) {
+                    val bytes = if (readPixels) engine.readTile(store, key) else null
+                    if (readPixels && (bytes == null || bytes.size != TILE_BYTES)) {
                         throw JbArchiveException("a tile of the mask of layer \"${s.name}\" could not be read back from the GPU")
                     }
                     val name = DocOps.key(Tiles.tx(key), Tiles.ty(key))
                     maskNames.add(name)
-                    tiles[Triple(s.id, LayerMask.MASK_CEL, name)] = bytes
+                    if (bytes != null) tiles[Triple(s.id, LayerMask.MASK_CEL, name)] = bytes
                 }
                 maskNames.sort()
                 maskListed[s.id] = maskNames
@@ -1319,7 +1468,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             layers = docLayers,
             activeLayerId = stack.activeId,
         )
-        return CanvasSnapshot.merge(retainedContents, JbContents(doc = doc, tiles = tiles, strokes = emptyMap(), thumbnailPng = null))
+        return CanvasSnapshot.merge(retained, JbContents(doc = doc, tiles = tiles, strokes = emptyMap(), thumbnailPng = null), animationTiles)
     }
 
     /** `"3_-2"` → the engine's packed tile key. Signed, because the canvas has no edge. */
@@ -1461,7 +1610,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
-    private fun reportHistory() {
+    private fun reportHistory(notifyEdit: Boolean = true) {
+        retainedContents?.doc?.let { engine.pruneCels(it) }
         val u = engine.undo.canUndo
         val r = engine.undo.canRedo
         val stack = engine.stack(activeLayer)
@@ -1471,7 +1621,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             stackUi = stack
             activeLayer = stack.activeId
             onLayersChanged?.invoke(stack)
-            onHistoryChanged?.invoke(u, r)
+            if (notifyEdit) onHistoryChanged?.invoke(u, r)
+            notifyFrames()
         }
     }
 

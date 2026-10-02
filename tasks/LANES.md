@@ -999,3 +999,9 @@ Single original watch-build.ps1 loop is running.
 status: IDLE (211 tests pass; large Open/Recent and damaged-file refusal verified on Note 9)
 files: none. Evidence: tasks/joybrush/INTEGRATION_20260930.md.
 DEVICE: none. Owner drawing restored exactly; local backup kept. Paper lane remains separate.
+
+## JOYBRUSH_FRAME_PROJECTION_20261001
+status: IDLE (foundation tested; region adaptation held for JB-3.00a/R50)
+files: none. Evidence: tasks/joybrush/INTEGRATION_20260930.md. Shared handoff: AGENT_BOARD.md.
+DEVICE: none. Fresh owner artwork restored, 1835 entries exact; newer sample preserved.
+Backup: codex/frame-projection-foundation. No main merge: board-spec preflight conflict.

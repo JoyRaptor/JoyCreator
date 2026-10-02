@@ -401,4 +401,13 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 > build pass. Installed and verified on Note 9: large-to-large Open and Recent both pass, all selected
 > pixels/settings exact; damaged files leave the previous drawing intact. Owner drawing restored,
 > all 1713 entries exact. Large swaps still take tens of seconds. Next: frame/cel and host integration.
+
+> **Joy Brush frame foundation, 2026-10-01:** legacy cel GPU stores, all-cel save/load, selected-frame
+> PNG and frame-aware undo pass 227 androidkit plus 36 targeted paint tests. Note 9 checks pass for
+> copy, isolated edits, undo/redo, linked/blank frames, holds and cold reopen. Latest owner artwork
+> restored: all 1835 entries (1833 paint tiles) exact. Whole-layer animation creation shortcut removed
+> because JB-3.00a/R50 requires region animation; JB-3.01b/c adaptation is still owed. Backed up on
+> codex/frame-projection-foundation, not merged into origin/joy-creator: read-only preflight found a
+> board-spec add/add disagreement. Remote paper changes not yet integrated/phone-verified here.
+> Shared handoffs: tasks/joybrush/AGENT_BOARD.md. Detailed evidence: INTEGRATION_20260930.md.
 Details: tasks/joybrush/INTEGRATION_20260930.md.

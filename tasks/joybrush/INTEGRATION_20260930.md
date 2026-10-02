@@ -223,3 +223,42 @@ Fresh local backup retained outside Git. Temporary files created by this check r
 Note 20 untouched; no uninstall or storage clearing. Large swaps still take tens of seconds for
 snapshot/compression/load; progress feedback and reusing validated compressed checkpoints can improve
 this later. Next: frame/cel projection, then animation/Studio host wiring.
+
+## Frame storage foundation and new board-model hold — 2026-10-01
+
+Implemented cel-specific physical GPU stores, selected-frame projection without resetting undo,
+document-metadata undo for frame operations, offscreen-cel snapshot/load, selected-frame PNG,
+copy/link/blank/hold controls for existing legacy animation archives, cel pruning and allocation
+guards. GPU tile ownership includes offscreen cels and shared masks; context loss clears handles
+once. Animated layer deletion/duplication is refused until it can preserve all cels safely.
+
+Verification: 227 androidkit tests, zero failures/errors; 36 targeted existing core PaintTest tests,
+zero failures/errors. Commands: `.\gradlew.bat -p joybrush :androidkit:test --console=plain` and
+`.\gradlew.bat -p joybrush :androidkit:test :core:jvmTest --tests '*PaintTest*' --console=plain`.
+The original app watcher was paused for standalone tests and restarted once. Full app build passed;
+final shortcut-removal rebuild also passed (34s). Final Note 9 in-place installation confirmed by
+package lastUpdateTime 2026-10-01 23:30:48. Exactly one original watcher remains active.
+
+Phone proof on a separate small sample: two duplicated cels had byte-identical RGBA payloads;
+frame-2 strokes did not appear in frame 1; undo from frame 1 selected frame 2 and removed its stroke,
+redo restored it. Linked frame edits appeared in both linked frames. Blank frame displayed no paint.
+Hold-longer doubled frame width and saved holdFrames=2. A full process restart recovered the four
+frames and their drawings; cold start selects frame 1 under the legacy model. Selected-frame PNG
+was 1080x1920 and contained both controlled frame-only strokes (not an exhaustive pixel comparison).
+Owner continued testing: final sample contains seven frames, extra marks and preserved linked/hold
+mapping. Retained outside Git and in phone Downloads as JB-frame-demo.joybrush.
+
+Fresh owner artwork restored: 1833 paint tiles, all 1835 archive entries byte-identical to the fresh
+pre-test backup. Do not restore older 1711-tile backups. No uninstall or data clear; Note 20 untouched.
+
+The owner supplied JB-3.00a/R50 during finishing. This foundation projects whole-layer legacy cels,
+whereas the accepted design animates only board regions with shared outside pixels. Removed the
+"Animate this layer" menu shortcut before final installation. This is NOT completed region animation.
+Reuse storage/undo work, then implement JB-3.01b/c with saved per-board frame selection, region
+ownership/migration, boundary-split strokes and one undo, held-layer markers and CPU/GPU parity.
+One-board PAINT-only load remains; INK/texture/multiboard, playback, onion, GIF and Studio remain owed.
+
+Read-only `git merge-tree --write-tree HEAD origin/joy-creator` found an add/add conflict in the
+board-owner spec. No actual merge or conflict resolution attempted. Work backed up separately on
+codex/frame-projection-foundation; not promoted onto origin/joy-creator. Remote paper work through
+0b7546b5 remains unintegrated/unverified on this phone. Coordination: AGENT_BOARD.md.

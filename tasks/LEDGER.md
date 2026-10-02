@@ -3867,3 +3867,14 @@ Note 9 in-place install at 13:07:33: 1711-tile large Open and Recent switches pa
 exact. Damaged selection refused; owner drawing restored with all 1713 archive entries exact. Fresh
 local backup retained, Note 20 untouched. Large files still take tens of seconds. Next: frame/cel
 projection. Evidence: tasks/joybrush/INTEGRATION_20260930.md.
+
+## 2026-10-01 — Tested frame storage; held creation for the new region model
+
+Legacy frame stores now preserve offscreen drawings, frame metadata, GPU ownership and undo.
+227 androidkit tests and 36 targeted core paint tests pass; watcher builds pass. Note 9 verified
+copy, isolation, cross-frame undo/redo, links, blank frames, hold, cold reopen and selected-frame PNG.
+Original artwork restored with every one of 1835 archive entries exact; newer sample drawing kept
+separately in Downloads. Whole-layer creation shortcut removed when the owner supplied the new
+region-board spec. Region projection and saved board frame cursor still owed. Lead handoffs and
+frontier-review priorities recorded in AGENT_BOARD.md. Read-only merge preflight detected divergent
+board spec; no merge/conflict resolution. Backup branch codex/frame-projection-foundation.

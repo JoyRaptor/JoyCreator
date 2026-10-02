@@ -24,6 +24,10 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
+import cc.joycreator.joybrush.core.doc.Board
+import cc.joycreator.joybrush.core.doc.NewFrame
+import cc.joycreator.joybrush.core.anim.FilmStrip
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -227,6 +231,9 @@ class JoyBrushActivity : Activity() {
     private var iconsInked = false
     private var iconCheckPending = false
     private lateinit var overlaysView: FrameLayout
+    private lateinit var frameBar: HorizontalScrollView
+    private lateinit var frameRow: LinearLayout
+    private var frameBarState: Pair<Board?, String?>? = null
     private lateinit var prefs: SharedPreferences
     private var placement = StripPlacement.DEFAULT
     private var chromeShown = true
@@ -286,7 +293,7 @@ class JoyBrushActivity : Activity() {
      */
     private val saves = SaveQueue(object : SaveTarget<SaveDest> {
         override val strokeInProgress: Boolean get() = !destroyed &&
-            (canvas.strokeInProgress || loadingDrawing || recoveringDrawing)
+            (canvas.strokeInProgress || canvas.frameChangeInProgress || loadingDrawing || recoveringDrawing)
         override fun start(reason: SaveReason, destination: SaveDest, finished: (String?) -> Unit) {
             beginSave(destination, finished)
         }
@@ -327,7 +334,7 @@ class JoyBrushActivity : Activity() {
         val root = object : FrameLayout(this) {
             // No stroke or layer edit can race startup restore or preservation-before-Open.
             override fun dispatchTouchEvent(event: MotionEvent): Boolean =
-                if (loadingDrawing || replacingDrawing || recoveringDrawing || canvas.needsRecovery) true else super.dispatchTouchEvent(event)
+                if (loadingDrawing || replacingDrawing || recoveringDrawing || canvas.needsRecovery || canvas.frameChangeInProgress) true else super.dispatchTouchEvent(event)
         }
         root.addView(canvas, FrameLayout.LayoutParams(MATCH, MATCH))
         // The eyedropper's ring is drawn over the canvas and is exactly its size, so the canvas's own coordinates are the ring's.
@@ -341,6 +348,16 @@ class JoyBrushActivity : Activity() {
         }
         root.addView(guideOverlay, FrameLayout.LayoutParams(MATCH, MATCH))
         root.addView(overlays, FrameLayout.LayoutParams(MATCH, MATCH))
+        frameRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        frameBar = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(frameRow)
+            visibility = View.GONE
+            kit.surface(this, 12f)
+        }
+        root.addView(frameBar, FrameLayout.LayoutParams(MATCH, dp(52), Gravity.BOTTOM).apply {
+            bottomMargin = dp(18); leftMargin = dp(12); rightMargin = dp(12)
+        })
         // Joy Brush's identity, as a hairline along the very top (visual language §4.2): the section colour, never a button.
         hairline = View(this).apply { background = JbColors.roomGradient(this@JoyBrushActivity) }
         root.addView(hairline, FrameLayout.LayoutParams(MATCH, kit.dpi(2f), Gravity.TOP))
@@ -353,6 +370,10 @@ class JoyBrushActivity : Activity() {
         canvas.onLayersChanged = { stack -> layersChanged(stack) }
         canvas.onRefused = { why -> toast(why) }
         canvas.onGraphicsLost = { documentId -> recoverGraphics(documentId) }
+        canvas.onFramesChanged = { board, selected ->
+            saves.drain()
+            showFrames(board, selected)
+        }
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
         canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate() }
@@ -693,6 +714,7 @@ class JoyBrushActivity : Activity() {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         box.addView(menuRow("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() })
         box.addView(menuRow("Open…", "Open a drawing from your files") { askWhichToOpen() })
+        // Region boards (JB-3.00a) own animation. Do not expose legacy whole-layer creation.
         box.addView(menuRow("Recent drawings…", "Recover one of the last drawings kept before Open") { recentDrawings(anchor) })
         box.addView(menuRow("Export PNG…", "Export the whole canvas board as a picture") { pngOptions(anchor) })
 
@@ -861,6 +883,7 @@ class JoyBrushActivity : Activity() {
     /** Four fingers: the chrome fades out, or back in (170 ms). The drawing and the pinned reference are never touched. */
     private fun toggleChrome() {
         chromeShown = !chromeShown
+        frameBar.visibility = if (chromeShown && frameBarState?.first != null) View.VISIBLE else View.GONE
         popovers.close()
         val views = if (columnOpen) listOf<View>(topBar, strip, hairline, column) else listOf<View>(topBar, strip, hairline)
         for (v in views) {
@@ -1481,6 +1504,7 @@ class JoyBrushActivity : Activity() {
         // found the count unchanged when it finished has written everything, so a stroke made while
         // it was writing is still counted and still waiting for its own autosave.
         val from = changes
+        val exportFrame = canvas.currentFrameId
         var answered = false
         lateinit var watchdog: Runnable
         val answer: (String?) -> Unit = { problem ->
@@ -1544,7 +1568,7 @@ class JoyBrushActivity : Activity() {
                         is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)
                         is SaveDest.Png -> {
                             // Encode and validate completely before touching the chosen destination.
-                            val png = CanvasPng.encode(contents, dest.includePaper)
+                            val png = CanvasPng.encode(contents, dest.includePaper, exportFrame)
                             val output = contentResolver.openOutputStream(dest.uri, "wt")
                                 ?: throw JbArchiveException("the PNG destination could not be opened")
                             output.use { it.write(png) }
@@ -1790,6 +1814,54 @@ class JoyBrushActivity : Activity() {
         overlaysView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
         saves.drain()
         pauseViewIfDrained()
+    }
+
+    private fun showFrames(board: Board?, selected: String?) {
+        val state = board to selected
+        if (frameBarState == state) return
+        frameBarState = state
+        frameBar.visibility = if (board != null && chromeShown) View.VISIBLE else View.GONE
+        frameRow.removeAllViews()
+        if (board == null) return
+        fun cell(text: String, label: String, width: Int, selected: Boolean = false): TextView =
+            TextView(this).apply {
+                this.text = text
+                gravity = Gravity.CENTER
+                setTextColor(kit.p.drawerInk)
+                textSize = 15f
+                kit.label(this, label)
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = kit.dp(8f)
+                    setColor(kit.ink(0.1f))
+                    setStroke(kit.dpi(if (selected) 1.5f else 0.75f), if (selected) kit.p.stateSelected else kit.p.line)
+                }
+                frameRow.addView(this, LinearLayout.LayoutParams(width, dp(44)).apply {
+                    setMargins(0, dp(4), 0, dp(4))
+                })
+            }
+        val plus = cell("+", "Copy the selected frame; hold for blank or linked frame", dp(44))
+        plus.setOnClickListener { canvas.addFrame(NewFrame.DUPLICATE) }
+        plus.setOnLongClickListener {
+            val menu = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            menu.addView(menuRow("Blank frame", "Add an empty drawing after this frame") { canvas.addFrame(NewFrame.BLANK) })
+            menu.addView(menuRow("Linked frame", "Add a frame that shares this drawing; editing either changes both") { canvas.addFrame(NewFrame.LINK) })
+            popovers.show(menu, plus, Popovers.Side.ABOVE, widthDp = 260f)
+            true
+        }
+        val geometry = FilmStrip(board, resources.displayMetrics.density)
+        board.frames.forEachIndexed { index, frame ->
+            val label = "Frame ${index + 1}, held ${frame.holdFrames} ticks"
+            val item = cell(if (frame.holdFrames == 1) "${index + 1}" else "${index + 1} · ${frame.holdFrames}×",
+                label, geometry.cellWidth(index).toInt(), frame.id == selected)
+            item.setOnClickListener { canvas.selectFrame(frame.id) }
+            item.setOnLongClickListener {
+                val menu = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                menu.addView(menuRow("Hold longer", "Show this frame for one more tick") { canvas.changeHold(frame.id, 1) })
+                menu.addView(menuRow("Hold shorter", "Show this frame for one fewer tick") { canvas.changeHold(frame.id, -1) })
+                popovers.show(menu, item, Popovers.Side.ABOVE, widthDp = 260f)
+                true
+            }
+        }
     }
 
     private fun recentDrawings(anchor: View) {

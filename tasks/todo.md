@@ -403,3 +403,18 @@ Review: 211 androidkit tests pass. App watcher build passes; installed in place 
 Large Open and Recent swaps pass on Note 9 with 1711 tiles; selected pixels/document exact.
 Damaged-file refusal keeps all 1713 owner archive entries exact. Large swaps still take tens of
 seconds. Next integration: frame/cel projection before animation and Studio controls.
+
+## Joy Brush frame projection — October 1
+- [x] Keep cel-specific GPU stores and undo addresses; project the selected frame without reset.
+- [x] Preserve every legacy cel and frame mapping in snapshots; export the selected frame as PNG.
+- [x] Wire legacy frame selection and blank/copy/link creation; preserve metadata in undo.
+- [x] Test round trips and frame isolation; watcher build; Note 9 proof and owner restoration.
+- [x] Read new region-board model; remove whole-layer creation shortcut; record specialist handoff.
+- [ ] Adapt foundation to JB-3.01b/c region ownership before releasing animation creation.
+
+Review: 227 androidkit and 36 targeted PaintTest tests pass; full watcher build passes. Note 9:
+copy, isolated paint, cross-frame undo/redo, link, blank, hold, cold reopen and selected-frame PNG
+checked. Newer sample pen tests preserved separately. Owner restored: all 1835 entries exact.
+This is legacy frame storage, not completed region animation. Read-only merge preflight found a
+board-spec add/add conflict; no merge attempted. Backup branch: codex/frame-projection-foundation.
+See INTEGRATION_20260930.md and AGENT_BOARD.md. Remote paper integration remains owed.

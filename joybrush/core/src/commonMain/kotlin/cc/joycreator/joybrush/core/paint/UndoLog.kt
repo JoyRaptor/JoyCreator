@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.core.paint
 
 import cc.joycreator.joybrush.core.layers.LayerStack
+import cc.joycreator.joybrush.core.doc.JbDocument
 
 /**
  * Undo/redo of tile changes, with a memory budget — shared by the GPU engine (T = a texture) and the
@@ -38,6 +39,8 @@ class UndoLog<T : Any>(
         val changes: List<TileChange<T>>,
         val stackBefore: LayerStack? = null,
         val stackAfter: LayerStack? = null,
+        val documentBefore: JbDocument? = null,
+        val documentAfter: JbDocument? = null,
     )
 
     private val undoStack = ArrayDeque<Step<T>>()
@@ -46,6 +49,14 @@ class UndoLog<T : Any>(
     val canUndo: Boolean get() = undoStack.isNotEmpty()
     val canRedo: Boolean get() = redoStack.isNotEmpty()
     val undoDepth: Int get() = undoStack.size
+
+    /** Cel caches may release a store only when neither history direction can bring it back. */
+    fun referencedDocuments(): List<JbDocument> = (undoStack + redoStack).flatMap {
+        listOfNotNull(it.documentBefore, it.documentAfter)
+    }
+    fun referencedStores(): Set<String> = (undoStack + redoStack).flatMap { step ->
+        step.changes.map { it.layerId }
+    }.toSet()
 
     /** Bytes currently held only for undo/redo. */
     val heldBytes: Long
@@ -100,7 +111,9 @@ class UndoLog<T : Any>(
         // A layer change inside the batch (JB-2.04) is kept: the merged step goes from the first stack to the last.
         val stackBefore = steps.firstOrNull { it.stackBefore != null }?.stackBefore
         val stackAfter = steps.lastOrNull { it.stackAfter != null }?.stackAfter
-        undoStack.addLast(Step(merged.values.toList(), stackBefore, stackAfter))
+        undoStack.addLast(Step(merged.values.toList(), stackBefore, stackAfter,
+            steps.firstOrNull { it.documentBefore != null }?.documentBefore,
+            steps.lastOrNull { it.documentAfter != null }?.documentAfter))
         trim()
     }
 

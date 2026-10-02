@@ -124,7 +124,11 @@ class GlPaintEngine(
     val strokeBufferIsHalfFloat: Boolean get() = strokeInternal == GLES30.GL_R16F
 
     private class Layer(val id: String, val isMask: Boolean = false) {
-        val tiles = HashMap<Long, Int>()
+        val ownTiles = HashMap<Long, Int>()
+        var projected = false
+        var paint: Layer? = null
+        private val emptyTiles = HashMap<Long, Int>()
+        val tiles: HashMap<Long, Int> get() = if (projected) paint?.ownTiles ?: emptyTiles else ownTiles
         /** JB-2.23: this layer's mask, a second tile store whose missing tiles are WHITE (full coverage). */
         var mask: Layer? = null
         var clip = false
@@ -143,6 +147,68 @@ class GlPaintEngine(
     private var thumbH = 0
 
     private val layers = LinkedHashMap<String, Layer>()   // bottom → top
+    private val celStores = LinkedHashMap<String, Layer>()
+    var onUndoRedo: ((UndoLog.Step<Int>, Boolean) -> Unit)? = null
+
+    private fun ownedStores(): List<Layer> =
+        (layers.values.filter { !it.projected } + layers.values.mapNotNull { it.mask } + celStores.values).distinct()
+
+    /** Frame switches change references, never pixels or the undo log. GL thread only. */
+    fun projectCels(doc: cc.joycreator.joybrush.core.doc.JbDocument, frameId: String?) {
+        for (model in doc.layers) {
+            val layer = layers[model.id] ?: continue
+            if (model.animatedIn == null) {
+                if (layer.projected) {
+                    celStores.remove(model.id)?.let { layer.ownTiles.putAll(it.ownTiles); it.ownTiles.clear() }
+                    layer.projected = false
+                    layer.paint = null
+                }
+                continue
+            }
+            for (cel in model.cels) {
+                val id = cc.joycreator.joybrush.androidkit.io.CelProjection.storeId(model, cel.id)
+                celStores.getOrPut(id) {
+                    Layer(id).also { if (id == model.id) { it.ownTiles.putAll(layer.ownTiles); layer.ownTiles.clear() } }
+                }
+            }
+            layer.projected = true
+            val cel = cc.joycreator.joybrush.core.doc.DocOps.celFor(model, frameId)
+            layer.paint = cel?.let { celStores[cc.joycreator.joybrush.androidkit.io.CelProjection.storeId(model, it.id)] }
+        }
+    }
+
+    /** Copy on the GPU; the old cel and its undo textures remain untouched. */
+    fun copyCel(from: String, to: String) {
+        val source = physicalStore(from) ?: error("missing source cel")
+        val target = physicalStore(to) ?: error("missing target cel")
+        check(target.tiles.isEmpty())
+        for ((key, tex) in source.tiles) {
+            val copy = newLayerTile()
+            target.tiles[key] = copy // Own it even if the driver refuses the copy; rollback can release it.
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+            GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, tex, 0)
+            check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) {
+                "The graphics driver could not read the source frame"
+            }
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, copy)
+            GLES30.glCopyTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, 0, 0, size, size)
+            check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "The graphics driver could not copy this frame" }
+        }
+    }
+
+    fun paintTileCount(): Int = ownedStores().sumOf { it.tiles.size }
+
+    fun pruneCels(doc: cc.joycreator.joybrush.core.doc.JbDocument) {
+        val wanted = undo.referencedStores().toMutableSet()
+        for (state in undo.referencedDocuments() + doc) for (layer in state.layers) {
+            if (layer.animatedIn != null) for (cel in layer.cels) {
+                wanted.add(cc.joycreator.joybrush.androidkit.io.CelProjection.storeId(layer, cel.id))
+            }
+        }
+        for (id in celStores.keys.toList()) if (id !in wanted) {
+            celStores.remove(id)!!.tiles.values.forEach(::recycleLayerTex)
+        }
+    }
     private val freeLayerTex = ArrayDeque<Int>()
     private val freeStrokeTex = ArrayDeque<Int>()
     private val freeSmudgeTex = ArrayDeque<Int>()
@@ -309,6 +375,7 @@ class GlPaintEngine(
         // a layer, so nothing is released twice and nothing is left pointing at a dead name.
         cancelStroke()
         layers.clear()
+        celStores.clear()
         undo.clear()
         freeLayerTex.clear()
         freeStrokeTex.clear()
@@ -330,7 +397,7 @@ class GlPaintEngine(
      * [clearTex] are the driver's business and [initWith] makes new ones rather than reusing old.
      */
     internal fun heldTextureNames(): Int =
-        layers.values.sumOf { it.tiles.size + (it.mask?.tiles?.size ?: 0) } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size +
+        ownedStores().sumOf { it.tiles.size } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size +
             compositor.heldNames()
 
     /** Frees every GL object this engine owns. */
@@ -339,12 +406,12 @@ class GlPaintEngine(
         undo.clear()
         cancelStroke()
         val all = ArrayList<Int>()
-        layers.values.forEach { all.addAll(it.tiles.values); it.mask?.let { m -> all.addAll(m.tiles.values) } }
+        ownedStores().forEach { all.addAll(it.tiles.values) }
         all.addAll(freeLayerTex); all.addAll(freeStrokeTex); all.addAll(freeSmudgeTex); all.add(clearTex); all.add(whiteTex)
         if (thumbTex != 0) all.add(thumbTex)
         thumbTex = 0; thumbW = 0; thumbH = 0
         GLES30.glDeleteTextures(all.size, all.toIntArray(), 0)
-        layers.clear(); freeLayerTex.clear(); freeStrokeTex.clear(); freeSmudgeTex.clear()
+        layers.clear(); celStores.clear(); freeLayerTex.clear(); freeStrokeTex.clear(); freeSmudgeTex.clear()
         GLES30.glDeleteBuffers(3, intArrayOf(quadVbo, unitVbo, instanceVbo), 0)
         GLES30.glDeleteVertexArrays(4, intArrayOf(dabVao, tileVao, smudgeVao, tuftVao), 0)
         GLES30.glDeleteFramebuffers(1, intArrayOf(fbo), 0)
@@ -361,11 +428,17 @@ class GlPaintEngine(
     fun addLayer(id: String) { layers.getOrPut(id) { Layer(id) } }
 
     /** The tile store [id] names: a layer, or with [MASK_SUFFIX] its mask (JB-2.23). Null if it does not exist. */
-    private fun storeOf(id: String): Layer? =
-        if (id.endsWith(MASK_SUFFIX)) layers[id.removeSuffix(MASK_SUFFIX)]?.mask else layers[id]
+    private fun storeOf(id: String): Layer? {
+        if (id.endsWith(MASK_SUFFIX)) return layers[id.removeSuffix(MASK_SUFFIX)]?.mask
+        val layer = layers[id]
+        return if (layer != null) { if (layer.projected) layer.paint else layer } else celStores[id]
+    }
+
+    private fun physicalStore(id: String): Layer? = celStores[id] ?: storeOf(id)
 
     /** [storeOf], creating what is missing: loading and undo put tiles back into stores that may not exist yet. */
     private fun storeOrCreate(id: String): Layer {
+        celStores[id]?.let { return it }
         if (!id.endsWith(MASK_SUFFIX)) return layers.getOrPut(id) { Layer(id) }
         val owner = layers.getOrPut(id.removeSuffix(MASK_SUFFIX)) { Layer(id.removeSuffix(MASK_SUFFIX)) }
         return owner.mask ?: Layer(id, isMask = true).also { owner.mask = it }
@@ -587,13 +660,20 @@ class GlPaintEngine(
 
     /** Keys of every tile a layer has (sparse). */
     fun tileKeys(layerId: String): List<Long> = storeOf(layerId)?.tiles?.keys?.toList() ?: emptyList()
+    fun celTileKeys(storeId: String): List<Long> = physicalStore(storeId)?.tiles?.keys?.toList() ?: emptyList()
 
     /**
      * A tile's pixels: 256×256 premultiplied RGBA8, 262,144 bytes, row 0 = the tile's TOP document
      * row (no flip needed). Null if the tile does not exist.
      */
     fun readTile(layerId: String, key: Long): ByteArray? {
-        val tex = storeOf(layerId)?.tiles?.get(key) ?: return null
+        return readStoreTile(storeOf(layerId), key)
+    }
+
+    fun readCelTile(storeId: String, key: Long): ByteArray? = readStoreTile(physicalStore(storeId), key)
+
+    private fun readStoreTile(store: Layer?, key: Long): ByteArray? {
+        val tex = store?.tiles?.get(key) ?: return null
         val buf = tileReadback
         buf.clear()
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
@@ -681,8 +761,9 @@ class GlPaintEngine(
     fun resetDocument() {
         cancelStroke()
         undo.clear()
-        layers.values.forEach { l -> l.tiles.values.forEach(::recycleLayerTex) }
+        ownedStores().forEach { l -> l.tiles.values.forEach(::recycleLayerTex) }
         layers.clear()
+        celStores.clear()
     }
 
     fun layerOpacity(id: String): Float = layers[id]?.opacity ?: 1f
@@ -955,6 +1036,7 @@ class GlPaintEngine(
         val s = undo.undo() ?: return false
         s.changes.forEach { put(it.layerId, it.key, it.before) }
         s.stackBefore?.let { restoreStack(it) }
+        onUndoRedo?.invoke(s, false)
         return true
     }
 
@@ -962,6 +1044,7 @@ class GlPaintEngine(
         val s = undo.redo() ?: return false
         s.changes.forEach { put(it.layerId, it.key, it.after) }
         s.stackAfter?.let { restoreStack(it) }
+        onUndoRedo?.invoke(s, true)
         return true
     }
 
@@ -992,7 +1075,7 @@ class GlPaintEngine(
 
         for (layer in layers.values) {
             if (!layer.visible) continue
-            val previewing = layer === strokeLayer && strokeTiles.isNotEmpty()
+            val previewing = storeOf(layer.id) === strokeLayer && strokeTiles.isNotEmpty()
 
             tileProg.use()
             GLES30.glUniform1f(tileProg.loc("u_tileSize"), size.toFloat())
@@ -1065,7 +1148,7 @@ class GlPaintEngine(
         val live = strokeLayer
         val previews = if (live != null && strokeTiles.isNotEmpty()) renderStrokePreviews(live) else emptyMap()
         fun texOf(store: Layer?, key: Long): Int? =
-            if (store == null) null else if (store === live) previews[key] ?: store.tiles[key] else store.tiles[key]
+            if (store == null) null else if (store === live || storeOf(store.id) === live) previews[key] ?: store.tiles[key] else store.tiles[key]
 
         val list = layers.values.toList()
         for ((index, layer) in list.withIndex()) {
@@ -1074,7 +1157,7 @@ class GlPaintEngine(
             val base = LayerMask.clipBase(index) { list[it].clip }?.let { list[it] }
             if (base != null && !base.visible) continue
             val keys = LinkedHashSet<Long>(layer.tiles.keys)
-            if (layer === live) keys.addAll(previews.keys)
+            if (storeOf(layer.id) === live) keys.addAll(previews.keys)
             val rect = if (keys.isEmpty()) null else screenRect(keys, docToClip, w, h)
             if (rect != null) {
                 compositor.copyToBackdrop(rect[0], rect[1], rect[2], rect[3])

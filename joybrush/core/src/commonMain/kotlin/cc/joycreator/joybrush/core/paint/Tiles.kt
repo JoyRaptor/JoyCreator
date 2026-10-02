@@ -10,6 +10,24 @@ import kotlin.math.floor
 object Tiles {
     const val SIZE = 256
 
+    /**
+     * True when a tile holds nothing at all: every one of its four channels is zero.
+     *
+     * Tiles are stored PREMULTIPLIED, so an unpainted tile is all zeros and any painted pixel has a
+     * non-zero colour, a non-zero alpha, or both. There is no way to be non-zero in one channel and
+     * zero in the others and still be invisible, which is what makes this a safe test rather than a
+     * guess: erasing to transparent produces exactly all-zero bytes.
+     *
+     * The engine allocates a tile the moment a stroke touches it, so a drawing that was scribbled on
+     * while zoomed out keeps a ring of tiles nothing was ever drawn into. Skipping those on save is
+     * worth a lot: such a tile deflates to about 271 bytes in the archive but costs a full
+     * `SIZE*SIZE*4` array every time the drawing is opened.
+     */
+    fun isBlank(tile: ByteArray): Boolean {
+        for (b in tile) if (b.toInt() != 0) return false
+        return true
+    }
+
     fun key(tx: Int, ty: Int): Long = (tx.toLong() shl 32) or (ty.toLong() and 0xFFFF_FFFFL)
     fun tx(key: Long): Int = (key shr 32).toInt()
     fun ty(key: Long): Int = key.toInt()

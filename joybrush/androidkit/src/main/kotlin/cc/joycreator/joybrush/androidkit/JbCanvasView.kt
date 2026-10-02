@@ -1342,6 +1342,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 if (bytes == null || bytes.size != TILE_BYTES) {
                     throw JbArchiveException("a tile of layer \"${s.name}\" could not be read back from the GPU")
                 }
+                // A tile the engine allocated but nothing ever painted is not part of the drawing.
+                // Saving one costs ~271 bytes in the archive (it deflates to almost nothing) but a
+                // FULL 262144-byte array on every open, because readBounded inflates each entry into
+                // its own buffer. That asymmetry is why a two-layer scratch drawing reached 28.5 MB
+                // and then raised OutOfMemoryError on a 512 MB heap: tiles accumulated far past the
+                // visible page from scribbling while zoomed out, and the untouched ones were kept.
+                //
+                // Not listing it is the whole fix. The archive already forbids a cel from listing a
+                // tile it has no payload for (JbArchive validates both directions), so skipping the
+                // name here keeps the file self-consistent rather than inventing an "exists but empty"
+                // state the format cannot express.
+                if (Tiles.isBlank(bytes)) continue
                 val name = DocOps.key(Tiles.tx(key), Tiles.ty(key))
                 names.add(name)
                 tiles[Triple(s.id, CEL_ID, name)] = bytes
@@ -1357,6 +1369,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     if (bytes == null || bytes.size != TILE_BYTES) {
                         throw JbArchiveException("a tile of the mask of layer \"${s.name}\" could not be read back from the GPU")
                     }
+                    if (Tiles.isBlank(bytes)) continue
                     val name = DocOps.key(Tiles.tx(key), Tiles.ty(key))
                     maskNames.add(name)
                     tiles[Triple(s.id, LayerMask.MASK_CEL, name)] = bytes

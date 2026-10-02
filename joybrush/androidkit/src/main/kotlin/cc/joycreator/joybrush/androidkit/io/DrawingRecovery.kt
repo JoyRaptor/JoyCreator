@@ -6,6 +6,22 @@ import cc.joycreator.joybrush.core.doc.DocJson
 
 /** File-thread only. Keep pixels on disk, never a second full drawing in the Android heap. */
 class DrawingRecovery(private val opened: File) {
+
+    init {
+        // Sweep the previous session's leftovers. close() only runs on a clean exit, so a force-stop,
+        // a crash, or a low-memory kill leaked a FULL copy of the drawing every time - each one is
+        // the same bytes as current.joybrush. The owner's phone had accumulated 24 of them, 536 MB,
+        // in a cache directory nobody ever read again. Sweeping on construction is the only moment
+        // a leftover is provably dead: this session's own file is named with its own UUID, and a
+        // concurrent screen would have its own file that it deletes in close().
+        //
+        // Only files matching OUR prefix and not our own path are touched, so current.joybrush in the
+        // documents directory and anything else in cache is untouched.
+        opened.parentFile?.listFiles()?.forEach { stale ->
+            if (stale.name.startsWith("joybrush-recovery-") && stale.name != opened.name) stale.delete()
+        }
+    }
+
     private var backupAllowed = false
     /** A newly opened drawing may not be in current.joybrush yet. Keep it before GPU upload. */
     fun rememberOpened(contents: JbContents) {

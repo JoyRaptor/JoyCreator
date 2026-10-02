@@ -25,6 +25,8 @@ Surfaces 512² RGBA PNG (~0.8 MB). Looks 512² RGB (or 1024² where the detail n
 `texelPx` sets the physical size; the hex tiling hides the repeat.
 
 ## Order
+Owner priority update (2026-10-02): **crumpled paper, slightly crumpled then flattened paper (subtle), and physical brush-response surfaces come first**. The two crumples are two different physical strengths, not merely two decorative looks. Preserve smaller height/slope variation for the flattened version; lowering relief lighting alone is insufficient. Image generation remains paused.
+
 1. Off-white (artisan pulp; already shipped as the first entry) · 2. Rice paper (cool + cream tints of one look) · 3. Sugarcane pulp ·
 4. Pulp grades (handmade, factory) · 5. Chalkboards (black, green; two different dust looks over one chalk-grit surface) · 6. Tan construction ·
 7. Canvases (fine linen, cotton duck, rough jute; rotation off) · 8. Blueprint · 9. Parchment · 10. Papyrus (rotation off) ·
@@ -35,6 +37,8 @@ Each entry is in the catalogue and passes `ShippedCatalogueTest`. A contact shee
 goes to the owner, and the owner picks/rejects on the phone once JB-9.06 + JB-9.07 land.
 
 ## Questions
+
+2026-10-02 Physical-surface packing correction: pack.py currently uses PIL convert("L") on the unsigned16 candidate maps, clipping most values to white rather than scaling16-bit heights to8-bit. Fix the CLI conversion, preserve authored amplitude, and match SurfaceMaps' minimum slope range0.001 for flat surfaces. Existing crumple candidates remain unsuitable (rounded/pebbly instead of convincing folds); do not catalogue them just because they are high priority. This continuation corrects the physical-data pipeline without new image generation.
 
 2026-10-01 Paper specialist continuation: add only the already specified AMOLED black (flat #000000, smooth, light off) so the Paper sheet has a second background without new image generation or candidate selection. The remaining library is still unselected; rice/sugarcane/canvas candidates stay for the owner's priority review after functional integration.
 

@@ -436,3 +436,8 @@ Review: own core XML1444/0 at2026-10-01 23:46:36 EDT; light-key mutation red1/1,
 - [x] Add the specified true AMOLED black catalogue option with no texture image; pin actual opaque black output, verify shipped catalogue and colour mutation, then land. No broader candidate selection or generation.
 
 Review: own ShippedCatalogueTest XML5/0 at2026-10-01 23:53:04 EDT; #010101 mutation red1/1/restored. Asset87e82b8b landed. Main ff refused divergence; left alone. No new images, no phone installation, broader library still awaiting review.
+
+## JB-9.10 physical surface priority
+- [x] Record the owner's crumpled/flattened priority; fix 16-bit clipping and zero-range packing; preserve subtle physical amplitude.
+- [x] Verify numerical height/slope bytes, actual CLI and mutation; record own tool XML (6/0 at2026-10-02 00:05:12 EDT). No new candidate images or unreviewed crumples shipped.
+- [ ] Land the tooling fix and attempt main fast-forward.

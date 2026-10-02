@@ -56,7 +56,7 @@ JB-3.03's seam section is the model here. Three facts force this row's shape:
 1. **A GL read path is not available and not wanted.** `GlPaintEngine.kt` is R30 item 2, Lead only.
    Cut Decision C3 of JB-3.03 ruled that a GL read "means touching the engine R14 just stabilised".
 2. **`RegionRenderer` is the one way a rectangle becomes pixels on the CPU**, and its KDoc
-   (`RegionRenderer.kt:100`) already claims "thumbnail" as one of its callers by name.
+   (`RegionRenderer.kt:99`) already claims "thumbnail" as one of its callers by name.
 3. **The owner wants the core platform-neutral** (OWNER_CONSTRAINTS 2026-09-28, "keep the door open to
    iOS"). A `Bitmap` in this file would put `NoClassDefFoundError` between it and every test below it —
    `android.jar` is `compileOnly`.
@@ -99,7 +99,7 @@ object RegionRenderer {
     fun render(doc: JbDocument, tiles: TileSource, rect: RectPx, frameId: String?, paper: String?): ByteArray      // :184
     /** The same picture, PREMULTIPLIED in 0..1 floats. */
     fun renderPremultiplied(doc: JbDocument, tiles: TileSource, rect: RectPx, frameId: String?, paper: String?): FloatArray  // :221
-    // private: requireSize (:340), toByte255 (:365) — `(v * 255f + 0.5f).toInt().coerceIn(0, 255).toByte()`
+    // private: requireSize (:357), toByte255 (:386) — `(v * 255f + 0.5f).toInt().coerceIn(0, 255).toByte()`
 }
 ```
 
@@ -107,24 +107,24 @@ The three facts about `RegionRenderer` this row is built on, all read from the f
 
 - **`renderPremultiplied` allocates `rect.w * rect.h * 4` Floats** (`:230`) — so the transient cost of
   one picture is **16 bytes per board pixel**, once, no matter how many cells that picture serves.
-- **It skips tiles that are not there** (`tiles.tile(...) ?: continue`, `:277`), so its cost on a sparse
+- **It skips tiles that are not there** (`tiles.tile(...) ?: continue`, `:286`), so its cost on a sparse
   board is far below the allocation. That is why this row's cost claim is stated in **tile fetches**
   and not in milliseconds (Decision 12).
 - **`render` refuses in `RegionException`** when `w * h > MAX_REGION_PX`, with its own sentence
-  (`:346-350`). That sentence ends "Export a smaller area, or a piece of it at a time", which is
+  (`:363-366`). That sentence ends "Export a smaller area, or a piece of it at a time", which is
   **the wrong instruction for a film strip** — see Decision 8.
 
 `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/doc/DocOps.kt`:
 
 ```kotlin
-fun celFor(layer: Layer, frameId: String?): Cel? {          // :178-182
+fun celFor(layer: Layer, frameId: String?): Cel? {          // :218-222
     if (layer.animatedIn == null) return layer.cels.singleOrNull()
     val celId = frameId?.let { layer.frameCel[it] } ?: return null
     return layer.cels.firstOrNull { it.id == celId }
 }
 ```
 
-`DocOps.kt:141-146` (**validate rule 8**, quoted because Decision 7 rests on it):
+`DocOps.kt:152-157` (**validate rule 8**, quoted because Decision 7 rests on it):
 
 > `LayerKind.INK -> if (c.tiles.isNotEmpty()) out += "layer \"${l.id}\" is ink, so cel \"${c.id}\" cannot have tiles"`
 
@@ -135,15 +135,15 @@ possible outcome for a thumbnail, and Decision 7 is what stops it.
 `DocModel.kt` — the four types this row reads, all verbatim:
 
 ```kotlin
-@Serializable data class RectPx(val x: Int, val y: Int, val w: Int, val h: Int)     // :36
-@Serializable data class Frame(val id: String, val holdFrames: Int = 1)              // :62-65
-@Serializable data class Board(                                                       // :69-78
+@Serializable data class RectPx(val x: Int, val y: Int, val w: Int, val h: Int)     // :40
+@Serializable data class Frame(val id: String, val holdFrames: Int = 1)              // :90-93
+@Serializable data class Board(                                                       // :97-106
     val id: String, val name: String, val kind: BoardKind, val rect: RectPx,
     val clipToBoard: Boolean = false, val fps: Float = 12f,
     val frames: List<Frame> = emptyList(), val grid: SpriteGrid? = null,
 )
-@Serializable data class Cel(val id: String, val tiles: List<String> = emptyList(), val strokesFile: String? = null)  // :133-137
-@Serializable data class Layer(                                                        // :139-149
+@Serializable data class Cel(val id: String, val tiles: List<String> = emptyList(), val strokesFile: String? = null)  // :161-165
+@Serializable data class Layer(                                                        // :167-186
     val id: String, val name: String, val kind: LayerKind, val visible: Boolean = true,
     val locked: Boolean = false, val opacity: Float = 1f, val blend: BlendMode = BlendMode.NORMAL,
     val animatedIn: String? = null, val cels: List<Cel>, val frameCel: Map<String, String> = emptyMap(),
@@ -156,12 +156,12 @@ possible outcome for a thumbnail, and Decision 7 is what stops it.
    layer or a board that is too big.** *Why:* a paint loop on a phone must not be handed an exception
    it has to catch, and the four refusals below are all facts a person can be shown in a cell.
    **The COMPLETE list of things that do throw, and it is four, not two:**
-   - `IllegalArgumentException` from `RegionRenderer.kt:341` — a **negative** board rect. Reachable from
+    - `IllegalArgumentException` from `RegionRenderer.kt:358` — a **negative** board rect. Reachable from
      a hand-edited file, because `DocOps.kt:72` only refuses `w <= 0 || h <= 0`, not a negative side,
      and `RectPx` is four `Int`s. A caller bug, and the landed message says so.
-   - `IllegalArgumentException` from `RegionRenderer.kt:278-280` — a `TileSource` that hands back a tile
+    - `IllegalArgumentException` from `RegionRenderer.kt:287-289` — a `TileSource` that hands back a tile
      that is not `TILE_BYTES`. A storage bug, not a short read.
-   - `IllegalArgumentException` from `RegionRenderer.kt:414` — a `paper` that is not a `#RRGGBB`
+    - `IllegalArgumentException` from `RegionRenderer.kt:433-436` — a `paper` that is not a `#RRGGBB`
      colour. The landed rule is REFUSE, never default, and this row propagates it unchanged.
    - `DocException` from `keyOf` for a `frameId` that is not a frame of the strip — the landed idiom
      `FilmStrip.holdOf` uses at `FilmStrip.kt:284`.
@@ -246,7 +246,7 @@ possible outcome for a thumbnail, and Decision 7 is what stops it.
      calls one decoded picture. The multiplier is a PROVISIONAL choice — Q4.
 
 7. **A visible INK layer refuses its cell, in words, naming the layer, decided before any render.**
-   *Why:* `DocOps.kt:141-146` says an ink cel cannot have tiles, so `RegionRenderer` will silently skip
+    *Why:* `DocOps.kt:152-157` says an ink cel cannot have tiles, so `RegionRenderer` will silently skip
    it and hand back a blank rectangle. A blank thumbnail is worse than no thumbnail, because a person
    reads "the picture is empty" as a fact about their drawing. The refusal is honest and it names the
    cause. Closing it properly is a separate row (Q3).
@@ -426,7 +426,7 @@ that carry non-uniform alpha (11, 12b, 14) each go red with a specific number:
 **A premultiplied array labelled straight is the fringe. Do not "simplify" the two divisors into one.**
 
 `toByte255(v) = (v * 255f + 0.5f).toInt().coerceIn(0, 255).toByte()` — **the two lines of
-`RegionRenderer.kt:365`, spelled out and not called**, because it is `private` there. This is the same
+`RegionRenderer.kt:386`, spelled out and not called**, because it is `private` there. This is the same
 situation as `FilmStrip`'s `dragStep` against `SpriteGridMath.roundedPx`
 (`FilmStrip.kt:344-350`): a precedent, not a call. **Test 11 is what pins the two copies together** — at
 1:1 the filter is the identity, so the thumbnail must be byte-for-byte
@@ -464,7 +464,7 @@ that falls inside one source pixel gets that pixel with weight 1. Test 13 pins i
 3. `pictureKeyOf` and `undrawableLayerOf` — Decisions 5 and 7. Both walk `doc.layers` in order and both
    apply **the same** inclusion rule, which mirrors `RegionRenderer`'s three `continue`s at `:265`, `:268`
    and `:270` exactly: skip `!visible`, skip `celFor(layer, frameId) == null`, skip an opacity that is
-   `NaN` or `≤ 0` (`RegionRenderer.opacityOf`, `:372-379`). The rule errs towards **including** a layer:
+    `NaN` or `≤ 0` (`RegionRenderer.opacityOf`, `:393-399`). The rule errs towards **including** a layer:
    an extra entry in the key costs a render, a missing entry would hand back the wrong picture.
 4. `admitted` — Decision 6, and it is the **whole** predicate as one public function: pure, no document,
    no tiles, no render, so tests 6, 6b, 7, 8 and 8b run against the budget directly and in
@@ -1068,8 +1068,8 @@ A helper that has never been seen wrong is a helper nobody can rely on.
   hPx < 1`, never `.px < 1`**: a negative density gives `-44 × -44`, whose `.px` is a healthy positive
   1 936. Test 18 pins both.
 - **Do not catch `IllegalArgumentException`.** Three of them reach out of `RegionRenderer` — a negative
-  rect (`:341`, reachable from a hand-edited file), a short tile (`:278-280`) and a `paper` that is not
-  a colour (`:414`) — and all three are caller or storage bugs that must stay loud. **Only
+  rect (`:358`, reachable from a hand-edited file), a short tile (`:287-289`) and a `paper` that is not
+  a colour (`:433-436`) — and all three are caller or storage bugs that must stay loud. **Only
   `RegionException` is caught**, and only around the `renderPremultiplied` call.
 - **Do not add a field to `DocModel` or `Cel`** for a revision counter. That is R30 item 3 (versions
   assigned at landing, never in a spec) and R31, and it is Q2 — a question, not a field.
@@ -1187,7 +1187,7 @@ feature of the row before this one is the case this row refuses a picture for.
 
 **This is the row's real hole and it is a contract question, not a design preference.**
 
-`Cel` carries `tiles: List<String>` and nothing else (`DocModel.kt:133-137`). There is no revision, no
+`Cel` carries `tiles: List<String>` and nothing else (`DocModel.kt:161-165`). There is no revision, no
 counter, no timestamp. So a stroke painted into a tile that **already exists** changes no field of the
 document at all — and that is the most common event in the app. Concretely: the person draws on frame
 7, the strip is asked which cells need re-rendering, and the honest answer is "cell 7", which this row
@@ -1276,7 +1276,7 @@ one.
 
 `RegionRenderer` takes `paper` as a `#RRGGBB` string and nothing else (`RegionRenderer.kt:167`, and its
 KDoc says a colour it cannot read is **refused, never defaulted**, so there is no way to pass a
-texture). `Paper` carries `textureId` and `textureScale` (`DocModel.kt:38-44`), so **a board on a
+texture). `Paper` carries `textureId` and `textureScale` (`DocModel.kt:61-71`), so **a board on a
 textured paper gets thumbnails with the right flat colour and no grain.** Doing it properly means
 reading the grain asset, choosing a scale for a 132 px cell (at which most grain is sub-texel anyway)
 and deciding whether a thumbnail should show it at all.
@@ -1293,12 +1293,12 @@ the only one that is worth claiming:
 | Claim | How it was verified |
 |---|---|
 | `FilmStrip.tickPx`, `cellWidth`, `TICK_PX_DP`, `EDGE_GRAB_PX_DP`, the `Board` it was built with | read at `FilmStrip.kt:51, 54, 90-94, 313, 326` |
-| `RegionRenderer.render` / `renderPremultiplied` signatures, `MAX_REGION_PX = 8_388_608L`, `TileSource`, `RegionException`, `TILE_BYTES`, the 16 B/px transient, the 20 B/px peak, the 160 MiB figure, and the four refusals | read at `RegionRenderer.kt:24-26, 40, 89, 100, 164, 184, 221, 230, 277, 340-352, 365, 372-379` |
+| `RegionRenderer.render` / `renderPremultiplied` signatures, `MAX_REGION_PX = 8_388_608L`, `TileSource`, `RegionException`, `TILE_BYTES`, the 16 B/px transient, the 20 B/px peak, the 160 MiB figure, and the four refusals | read at `RegionRenderer.kt:24-26, 40, 89, 99, 164, 184, 221, 230, 286, 357-369, 386, 393-399` |
 | **`RegionRenderer.kt:197-205`'s two-divisor un-premultiply**, which is what BLOCKER 2's correction copies | read at `:198-205` — `val a = p[i + 3]` at `:198`, `val k = if (a > 0f) 1f / a else 0f` at `:201`, the three colour channels at `:202-204` and `out[i + 3] = toByte255(a)` unscaled at `:205` |
 | `toByte255`'s exact two lines, and that `InkRaster.kt:83-87` is a third copy of them | read at both |
-| `DocOps.celFor` and the three `continue`s a picture key must mirror | read at `DocOps.kt:178-182` and `RegionRenderer.kt:265, 268, 270` |
-| rule 8 (an INK cel cannot have tiles) and rule 4 (holds ≥ 1, no frame cap) | read at `DocOps.kt:77-88, 141-146` |
-| `RectPx`, `Frame`, `Board`, `Cel`, `Layer` field lists | read at `DocModel.kt:36, 62-65, 69-78, 133-149` |
+| `DocOps.celFor` and the three `continue`s a picture key must mirror | read at `DocOps.kt:218-222` and `RegionRenderer.kt:265, 268, 270` |
+| rule 8 (an INK cel cannot have tiles) and rule 4 (holds ≥ 1, no frame cap) | read at `DocOps.kt:77-88, 152-157` |
+| `RectPx`, `Frame`, `Board`, `Cel`, `Layer` field lists | read at `DocModel.kt:40, 90-93, 97-106, 161-165, 167-186` |
 | the `AnimExport` precedent for a derived budget and the 64 MiB blob ceiling | read at `AnimExport.kt:370-395` |
 | the 250 ms price of a 1024² region render, used in Q7 | read at `BenchCases.kt:99-100, 134` |
 | the fixture this row copies, and the four cell widths it is copied for | read at `FilmStripTest.kt:79-107` |

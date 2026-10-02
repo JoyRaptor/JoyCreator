@@ -790,6 +790,33 @@ class FilmStripTest {
         assertEquals(AnimOps.setHold(doc, "b-anim", "f0", 4), changed.doc)
     }
 
+    /**
+     * A preview past the `Int` range saturates instead of wrapping. `down(44f)` is f0's right
+     * edge, so the grab is `Edge(0, holdAtDown = 1)` — f0 is held for one tick. `previewHoldAt(1e11f)`
+     * is an offset of about `1e11 − 44` px, i.e. about `2.27e9` ticks at 44 px per tick — past
+     * `Int.MAX_VALUE` (**2147483647**), so `dragStep` saturates to 2147483647 (a `Float` outside
+     * `Int` range clamps on `toInt`, it does not wrap) and the raw request is `1 + 2147483647` =
+     * **2147483648**, one past what an `Int` holds. Done in `Long` and coerced back, the preview is
+     * **2147483647**; done in raw `Int`, it wraps to **−2147483648**, a negative hold drawing a
+     * negative width.
+     *
+     * The clamp is to the `Int` range and NOT to the model's 999: the preview is the raw request
+     * (the visible clamp arrives on the lift, from the document that comes back), so the number here
+     * is `Int.MAX_VALUE` and not a copy of a number this file must not hold (Decision 11).
+     */
+    @Test
+    fun aPreviewPastTheIntRangeSaturatesInsteadOfWrapping() {
+        val doc = fixture()
+        val g = gestureOn(doc)
+        assertEquals(Grab.Edge(0, 1), g.down(44f), "44 is f0's right edge, and f0 is held for one tick")
+        assertEquals(
+            Int.MAX_VALUE,
+            g.previewHoldAt(1e11f),
+            "1 + a saturated step of 2147483647 is 2147483648 in Long, coerced to 2147483647 — never the wrapped −2147483648",
+        )
+        assertEquals(heldFrames(), g.doc.board().frames, "a preview writes nothing, however far the finger went")
+    }
+
     // ---------- 23, 24, 25. the controls and the edges of the board ----------
 
     /**

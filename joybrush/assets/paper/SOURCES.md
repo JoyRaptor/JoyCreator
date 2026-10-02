@@ -11,3 +11,19 @@ Rebuild: `python joybrush/tools/paper/prepare_test_surfaces.py <candidate-surfac
 - `surface_canvas_jute.png`: candidate SHA256 5c24f8c8897237a4ae43a572d97103ca632cc3b9e6b4aef3e80fee962dc9a3f9; physical span 0.85, texelPx 1.25.
 - `surface_pulp_factory.png`: prepare_test_surfaces.pulp(seed=810, rough=0.0); physical span 0.32, texelPx 2.0.
 - `surface_pulp_handmade.png`: prepare_test_surfaces.pulp(seed=811, rough=0.9); physical span 0.9, texelPx 2.0.
+
+## Launch material authoring
+
+All additions are original numerical geometry/pigment, deterministic seeds in `build_launch_library.py`. Rebuild after the small test-set tool with the same candidate-surfaces directory. Creases are a wrapped jittered triangle sheet, full and flattened from the SAME geometry and smaller physical height/slope span. Rice opacity and plant chunks are separate pigment fields. Chalk dust is residue over common grit. Woven materials use the original geometry candidates. Every pictured look shares size, physical pitch, hex size, rotation and hash with its default surface; no baked light/shadows in albedo.
+
+- `crumpled`: periodic numerical physical model; authored height span 0.55, slopeRange0.099, pitch1.5, rotationTrue.
+- `crumpled_flattened`: periodic numerical physical model; authored height span 0.12, slopeRange0.099, pitch1.5, rotationTrue.
+- `rice_fibres`: periodic numerical physical model; authored height span 0.14, slopeRange0.099, pitch2.0, rotationTrue.
+- `sugarcane_pulp`: periodic numerical physical model; authored height span 0.38, slopeRange0.099, pitch2.0, rotationTrue.
+- `construction_pulp`: periodic numerical physical model; authored height span 0.48, slopeRange0.099, pitch2.0, rotationTrue.
+- `chalk_grit`: periodic numerical physical model; authored height span 0.52, slopeRange0.099, pitch0.75, rotationTrue.
+- `parchment_skin`: periodic numerical physical model; authored height span 0.16, slopeRange0.099, pitch2.0, rotationTrue.
+- `papyrus_strips`: periodic numerical physical model; authored height span 0.45, slopeRange0.099, pitch1.2, rotationFalse.
+- `silk`: periodic numerical physical model; authored height span 0.16, slopeRange0.099, pitch0.7, rotationFalse.
+- `fabric`: periodic numerical physical model; authored height span 0.42, slopeRange0.099, pitch1.0, rotationFalse.
+- `cement`: periodic numerical physical model; authored height span 0.7, slopeRange0.099, pitch1.25, rotationTrue.

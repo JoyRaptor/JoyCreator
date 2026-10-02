@@ -456,3 +456,13 @@ Review: targeted core XML9/0 at2026-10-02 00:30:38 EDT; flat-linen mutation1/9 r
 - [x] Verify exact colour, retained relief, cache changes and stale-tint mutation; land backend only.
 
 Review: targeted core XML21/0 at2026-10-02 00:34:06 EDT; stale-tint mutation1/21 red, restored. Lead retains swatch/selector UI. See reviews/JB-9.07__custom_colour.md.
+
+## Paper/background completion — owner request, 2026-10-02
+- [ ] Coordinate Lead-owned sheet, transparency, imports/export UI and board-specialist overlay; keep one build lock.
+- [ ] Finish JB-9.10 launch materials: crumpled/full and flattened/subtle, rice cool/cream, sugarcane, chalk black/green, construction, blueprint, parchment, papyrus, cement, fabric and silk alongside canvases/pulp/black.
+- [ ] Pair structural albedo and surface with matching dimensions, pitch, hex size, rotation/hash; preserve independent pigment/opacity where appropriate.
+- [ ] Prove periodic seams, height/slopes, geometry/albedo alignment, dry/wet and directional deposition; mutation checks and actual-renderer comparison sheets.
+- [ ] Audit remaining paper rows including screen/export blend parity, brush overrides and visible knobs; build relevant APK in a locked row worktree, never install.
+- [ ] Integrate Lead changes, verify document save/reopen/undo/export paths and mark each spec accurately; phone/owner acceptance stays explicitly pending until observed.
+
+Review: in progress; quality is measured, no market-superiority claim.

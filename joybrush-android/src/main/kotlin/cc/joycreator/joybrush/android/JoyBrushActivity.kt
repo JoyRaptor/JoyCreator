@@ -1509,7 +1509,7 @@ class JoyBrushActivity : Activity() {
         }
 
         private fun overPill(v: View, ev: MotionEvent): Boolean =
-            ev.x >= 0f && ev.y >= 0f && ev.x <= v.width && ev.y <= v.height
+            Eyedropper.overPill(ev.x, ev.y, v.width, v.height)
 
         override fun onTouch(v: View, ev: MotionEvent): Boolean {
             when (ev.actionMasked) {

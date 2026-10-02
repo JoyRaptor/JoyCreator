@@ -479,6 +479,25 @@ class AbrReaderTest {
         assertEquals(2L, tip.height)
         assertEquals(null, tip.error)
         assertContentEquals(payload, read.storedBytes(tip))
+        val expected = byteArrayOf(0x12, 0x56, 0x9A.toByte(), 0xDE.toByte())
+        assertContentEquals(expected, read.grayBytes(tip), "one high byte per 16-bit pixel")
+        assertEquals((0x12 + 0x56 + 0x9A + 0xDE) / (4f * 255f), read.meanAlpha(tip), 1e-6f)
+    }
+
+    @Test
+    fun aSingleSixteenBitSampleUsesItsHighByteNotItsLowByteOrTheirMean() {
+        val read = AbrReader.read(
+            file(
+                desc = descSection(listOf(brush("S", itemOf("Brsh", sampledTip(UUID))))),
+                samp = sampSection(listOf(TipEntry(
+                    UUID, bottom = 1, right = 1, depth = 16, compression = 0,
+                    payload = byteArrayOf(0x12, 0x34),
+                ))),
+            )
+        )
+        val tip = read.tipsById.getValue(AbrReader.normaliseId(UUID))
+        assertContentEquals(byteArrayOf(0x12), read.grayBytes(tip))
+        assertEquals(18f / 255f, read.meanAlpha(tip), 1e-6f)
     }
 
     // ---- the descriptor layer ------------------------------------------------------------------------

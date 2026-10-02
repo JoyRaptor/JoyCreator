@@ -721,6 +721,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var cancelX = 0f
     private var cancelY = 0f
     private var cancelR = 0f
+    private var cancelArmed = false
     private var sampleSeq = 0
 
     /** The eyedropper is being driven by a finger: big ring, lifted off the fingertip (owner, 2026-09-30). */
@@ -801,6 +802,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         eyedropOld = strokeColor
         eyedropNew = eyedropOld
         cancelX = x; cancelY = y
+        cancelArmed = false
         cancelR = if (withCancelCircle) Eyedropper.CANCEL_CIRCLE_DP * resources.displayMetrics.density / 2f else 0f
         eyedropMove(x, y)
     }
@@ -808,6 +810,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** The touch is at ([x], [y]); the eyedropper samples there (a pen) or off the fingertip (a finger). */
     private fun eyedropMove(x: Float, y: Float) {
         fingerX = x; fingerY = y
+        cancelArmed = Eyedropper.armsCancel(x, y, cancelX, cancelY, cancelR, cancelArmed)
         val (sx, sy) = Eyedropper.samplePoint(x, y, eyedropFinger, resources.displayMetrics.density)
         eyedropX = sx; eyedropY = sy
         publishEyedrop()
@@ -817,7 +820,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** Cancel is where the TOUCH went back to, not where the lifted ring is. */
     private fun overCancel(): Boolean =
-        cancelR > 0f && Eyedropper.insideCircle(fingerX, fingerY, cancelX, cancelY, cancelR)
+        Eyedropper.overCancel(fingerX, fingerY, cancelX, cancelY, cancelR, cancelArmed)
 
     private fun publishEyedrop() {
         onEyedrop?.invoke(EyedropState(eyedropX, eyedropY, eyedropNew, eyedropOld, cancelX, cancelY, cancelR, overCancel(),

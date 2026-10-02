@@ -90,8 +90,9 @@ internal class AbrFile(
         val width = tip.width
         val height = tip.height
         val rowBytes = width * bps
-        // `width * height * bps` is already bounded by `MAX_TIP_BYTES` in tipError, so this fits an Int.
-        val out = ByteArray((rowBytes * height).toInt())
+        // Output is one gray byte per pixel; 16-bit raw samples contribute their high byte.
+        // `width * height * bps` is already bounded by `MAX_TIP_BYTES` in tipError.
+        val out = ByteArray((width * height).toInt())
         val cur = AbrCursor(bytes, tip.dataStart, tip.dataEnd, "sampled tip \"${tip.id}\"")
         // PackBits rows are preceded by one `u16` table of row byte counts (JB-8.01b); it is read
         // once, before any row, and the rows below only consume what the table promised.
@@ -105,8 +106,14 @@ internal class AbrFile(
         for (row in 0 until height) {
             when (tip.compression) {
                 AbrReader.COMPRESSION_RAW -> {
-                    cur.copyInto(out, written, rowBytes)
-                    written += rowBytes
+                    if (bps == 1L) {
+                        cur.copyInto(out, written, width)
+                    } else {
+                        for (col in 0 until width) {
+                            out[(written + col).toInt()] = (cur.u16() ushr 8).toByte()
+                        }
+                    }
+                    written += width
                 }
                 AbrReader.COMPRESSION_PACKBITS -> {
                     val declared = counts!![row.toInt()]

@@ -162,3 +162,13 @@ Lead JB-9.07 changes now provide the last layer-column Paper swatch, catalogue s
 PaperRaster.kt, PaperTexture.kt and HexTile.kt are free for specialist JB-9.06c minification/filtering work; Lead has not edited them. Preserve the v7 None exclusion in CanvasPng/AnimExport/OraExport when rebasing JB-9.06b. Root owns these IO guards until this commit lands.
 
 Outstanding integration: textured paper must be the initial backdrop before blend modes (approved9.06b), not a post-stack flatten; measured CPU/GPU material filtering requires9.06c. Do not claim those fixed by UI exposure. Imported texture drawing JB-1.05d and board GPU routing/chrome adapters remain separate jobs. No preservation or migration of disposable test scratches.
+
+### Remaining integration defects and OpenCode handoff — 2026-10-02
+
+FilmStrip overflow/self-parent fixes already landed upstream e7e6528f; do not duplicate825b6c1c. Muse ABR recovery790cf8ef required frontier high-byte repair fromfe686adf9: 16-bit0x1234 must yield18/255, not low-byte52/255 or averaged35/255. The scoped fix and synthetic regression are in Lead integration; original repair evidence61/0 plus a low-byte sabotage caught/restored.
+
+Bunny's eyedropper helpers were tested but not called from production. Lead now wires armsCancel/overCancel and half-open pill bounds; stationary hold/lift picks, leave/re-enter cancels. Final combined validation is pending the shared build slot.
+
+Bunny corpus-input fix93804965 still failed on a fresh checkout: optional inputs.dir declares a missing directory. Lead uses inputs.files(fileTree(file(corpus))) so the File argument stays literal and an absent corpus is empty. Do not invent corpus preservation or migration; report real-fixture skips honestly.
+
+Next actionable work after validation: owner Paper sheet/device acceptance; specialist9.06b pre-layer export backdrop and9.06c filtering parity; imported texture drawingJB-1.05d; board region GPU/undo/cel routing and active-board layer-preview adapter; review brush specialist isolated commits against paper metadata/history. No inert controls or whole-canvas animation shortcut.

@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-feature android:glEsVersion="0x00030000" android:required="true" />
+    <application android:label="Joy Brush Test" android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" android:allowBackup="false">
+        <activity android:name="cc.joycreator.joybrush.android.JoyBrushActivity" android:exported="true" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

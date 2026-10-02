@@ -1,0 +1,45 @@
+{
+  "format": "joybrush.brush",
+  "version": 6,
+  "id": "joybrush.bristle",
+  "name": "Bristle",
+  "engine": "tuft",
+  "size": {
+    "base": 32
+  },
+  "opacity": {
+    "base": 1
+  },
+  "flow": {
+    "base": 1
+  },
+  "smoothing": 0.08,
+  "tuft": {
+    "tipPx": 0.8,
+    "shelf": 0.34,
+    "steady": 0.32,
+    "trail": 0.7,
+    "snap": 0.38,
+    "corner": 0.7,
+    "settle": 0.25,
+    "speedThin": 0.18,
+    "ink": 0.42,
+    "dry": 0.8,
+    "sweep": 0.75,
+    "splay": 0.7,
+    "bristles": 0.32,
+    "tooth": 0.9,
+    "spatter": 0.05,
+    "strays": 0.28,
+    "tilt": 0.85,
+    "flatten": 0.8,
+    "action": 0.62,
+    "graze": 0.88
+  },
+  "paper": {
+    "influence": 1,
+    "directional": 0.8,
+    "wet": 0.05
+  },
+  "license": "CC0"
+}

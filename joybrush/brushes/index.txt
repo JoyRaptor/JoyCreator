@@ -5,6 +5,8 @@
 ink
 sable
 pencil
+bristle
+flatpaint
 marker
 softair
 smudge

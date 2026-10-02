@@ -999,3 +999,9 @@ Single original watch-build.ps1 loop is running.
 status: IDLE (211 tests pass; large Open/Recent and damaged-file refusal verified on Note 9)
 files: none. Evidence: tasks/joybrush/INTEGRATION_20260930.md.
 DEVICE: none. Owner drawing restored exactly; local backup kept. Paper lane remains separate.
+
+## JOYBRUSH_BRUSH_CONTACT_20261002
+status: ACTIVE; owner-authorized brush specialist, isolated on latest paper integration.
+worktree: %TEMP%/jb-brush-specialist; branch codex/brush-contact.
+files: BrushPreset/Json/Validate/Dabber, Dab/DabPlacer/TipMath/Tiles/RefCanvas/InkRaster/SmudgeStroke; dab shaders, GlPaintEngine instance layout; brushes and contact tests. No Activity/UI edits or installation.
+DEVICE: none. One shared Gradle lock; core/androidkit only. Existing main/remote divergence left untouched.

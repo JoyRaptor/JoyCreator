@@ -456,3 +456,11 @@ Review: targeted core XML9/0 at2026-10-02 00:30:38 EDT; flat-linen mutation1/9 r
 - [x] Verify exact colour, retained relief, cache changes and stale-tint mutation; land backend only.
 
 Review: targeted core XML21/0 at2026-10-02 00:34:06 EDT; stale-tint mutation1/21 red, restored. Lead retains swatch/selector UI. See reviews/JB-9.07__custom_colour.md.
+
+## Brush specialist — October 2
+- [x] Audit competition, pencil/pen/Sable and landed paper engine.
+- [x] Implement live dab shape, contact anchoring and grain depth on CPU/GPU.
+- [x] Tune compact Pencil, Sable, Dry Bristle and mixing Flat Paint set (provisional phone values).
+- [x] Verify pressure/tilt matrix, grain, boundaries, version guards and shaders.
+- [x] Record brush roadmap evidence, paper handoff and remaining device acceptance.
+Review: preserve current pen and Sable; no Note 9 acceptance claimed from automation. Spatial oil pickup and wet simulation require distinct evidence from average-colour smudge.

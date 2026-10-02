@@ -24,6 +24,12 @@ data class Dab(
     val travelX: Float = 0f,
     val travelY: Float = 0f,
     val travelKnown: Boolean = false, // CPU only: true also distinguishes intentional first/dwell zero.
+    /** Live contact overrides; NaN selects the stroke uniform for old recordings. */
+    val aspect: Float = Float.NaN,
+    val hardness: Float = Float.NaN,
+    val tipDepth: Float = Float.NaN,
+    val paperDepth: Float = Float.NaN,
+    val anchor: Float = Float.NaN,
 )
 
 /**
@@ -50,4 +56,12 @@ data class TipShape(
     val taper: Float = 0f,
     val hardness: Float = 0.9f,
     val minPx: Float = 1f,
+    val anchor: Float = 0f,
+)
+
+/** Resolve live contact values; missing channels use the stroke shape. */
+fun Dab.tipShape(fallback: TipShape): TipShape = fallback.copy(
+    aspect = if (aspect.isFinite()) aspect.coerceIn(-1f, 1f) else fallback.aspect,
+    hardness = if (hardness.isFinite()) hardness.coerceIn(0f, 1f) else fallback.hardness,
+    anchor = if (anchor.isFinite()) anchor.coerceIn(0f, 1f) else fallback.anchor,
 )

@@ -56,7 +56,7 @@ class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 
 
     fun addDabs(dabs: List<Dab>) {
         checkNotNull(layerId) { "no stroke in progress" }
-        for ((key, list) in Tiles.bucket(dabs, tileSize)) {
+        for ((key, list) in Tiles.bucket(dabs.map { if (it.anchor.isFinite()) it else it.copy(anchor = tip.anchor) }, tileSize)) {
             val buf = stroke.getOrPut(key) { FloatArray(px) }
             val ox = Tiles.tx(key) * tileSize
             val oy = Tiles.ty(key) * tileSize
@@ -65,12 +65,13 @@ class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 
     }
 
     private fun stamp(buf: FloatArray, ox: Int, oy: Int, d: Dab) {
-        val e = TipMath.extent(d.radius)
+        val liveTip = d.tipShape(tip)
+        val e = TipMath.extent(d.radius, liveTip.anchor)
         val x0 = max(floor(d.x - e).toInt(), ox); val x1 = min(floor(d.x + e).toInt(), ox + tileSize - 1)
         val y0 = max(floor(d.y - e).toInt(), oy); val y1 = min(floor(d.y + e).toInt(), oy + tileSize - 1)
         for (y in y0..y1) for (x in x0..x1) {
             // Pixel centres, as the GPU samples them.
-            val cov = TipMath.coverage(x + 0.5f - d.x, y + 0.5f - d.y, d.radius, d.angle, tip) * d.flow
+            val cov = TipMath.coverage(x + 0.5f - d.x, y + 0.5f - d.y, d.radius, d.angle, liveTip) * d.flow
             if (cov <= 0f) continue
             val i = (y - oy) * tileSize + (x - ox)
             buf[i] = d.cap * cov + buf[i] * (1f - cov)

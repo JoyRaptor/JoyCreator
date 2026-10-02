@@ -20,11 +20,18 @@ out float v_cap;
 out vec4 v_carried;
 layout(location = 4) in vec2 a_travel;   // document-space unit travel, zero at a tap/dwell
 flat out vec2 v_travel;
+// Live contact attributes are appended; disabled attributes preserve legacy callers.
+layout(location = 5) in vec4 a_contact; // aspect, hardness, tip depth, paper depth
+layout(location = 6) in vec4 a_pen;     // anchor, tilt amount, lean x/y
+layout(location = 7) in float a_live;
+flat out vec4 v_contact;
+flat out vec4 v_pen;
+flat out float v_live;
 
 void main() {
     // Half-size that contains the tip at any rotation, plus an antialiasing margin
     // (must match TipMath.extent in the core).
-    float ext = a_dab.z * 1.4143 + 2.0;
+    float ext = a_dab.z * (1.4143 + (a_live > 0.5 ? abs(a_pen.x) : 0.0)) + 2.0;
     vec2 off = a_corner * ext;
     vec2 p = a_dab.xy + off;
     gl_Position = vec4((p - u_tileOrigin) / u_tileSize * 2.0 - 1.0, 0.0, 1.0);
@@ -36,4 +43,7 @@ void main() {
     v_cap = a_dab2.y;
     v_carried = a_carried;
     v_travel = a_travel;
+    v_contact = a_contact;
+    v_pen = a_pen;
+    v_live = a_live;
 }

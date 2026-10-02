@@ -111,7 +111,7 @@ class DefaultPresetsTest {
             "joybrush.ink", "joybrush.pencil", "joybrush.marker",
             "joybrush.softair", "joybrush.eraser", "fill",
             // R9: the owner's sable ink brush, the tuft engine's first brush.
-            "joybrush.sable",
+            "joybrush.sable", "joybrush.bristle", "joybrush.flatpaint",
         ) + present.map { "joybrush.$it" }
 
         assertEquals(
@@ -378,7 +378,7 @@ class DefaultPresetsTest {
     fun grainIsOnlyOnTheBrushItIsFor() {
         val grained = shipped.filter { it.second.tipTexture.enabled || it.second.paperGrain.enabled }
         // Pencil MUST have grain. Smudge MAY (the spec allows a textured smudge); nobody else.
-        val mayHave = setOf("pencil", "smudge")
+        val mayHave = setOf("pencil", "smudge", "flatpaint")
         val names = grained.map { it.first }.toSet()
         assertTrue("pencil" in names, "the Pencil is the brush grain is for, and it has none")
         assertTrue(
@@ -454,8 +454,10 @@ class DefaultPresetsTest {
     @Test
     fun everyShippedBrushSaysHowItFeelsThePaper() {
         val tuned = mapOf(
-            "pencil" to PaperResponse(influence = 1f, directional = 0.6f, wet = 0f),
+            "pencil" to PaperResponse(influence = 1f, directional = 0.35f, wet = 0f),
             "sable" to PaperResponse(influence = 1f, directional = 0.4f, wet = 0f),
+            "bristle" to PaperResponse(influence = 1f, directional = 0.8f, wet = 0.05f),
+            "flatpaint" to PaperResponse(influence = 0.8f, directional = 0.2f, wet = 0.35f),
             "ink" to PaperResponse(influence = 0.15f, directional = 0f, wet = 0f),
             "marker" to PaperResponse(influence = 0.35f, directional = 0f, wet = 0.6f),
             "softair" to PaperResponse(influence = 0.2f, directional = 0f, wet = 0.3f),
@@ -500,14 +502,14 @@ class DefaultPresetsTest {
     fun onlyTheBrushesThatFeltThePaperChangedVersion() {
         val felt = shipped.filter { !it.second.paper.isDefault }.map { it.first }.toSet()
         assertEquals(
-            setOf("pencil", "sable", "ink", "marker", "softair"), felt,
+            setOf("pencil", "sable", "bristle", "flatpaint", "ink", "marker", "softair"), felt,
             "these shipped brushes carry a non-default `paper`, and only these. A brush whose paper is " +
                 "0/0/0 says nothing a version-6 build needs, so it stays the version it was.",
         )
 
-        val atSix = shipped.filter { it.second.version == BRUSH_VERSION }.map { it.first }.toSet()
+        val atSixOrNewer = shipped.filter { it.second.version >= VERSION_PAPER }.map { it.first }.toSet()
         assertEquals(
-            felt, atSix,
+            felt, atSixOrNewer,
             "these files claim the newest version $BRUSH_VERSION. A file that claims it without needing " +
                 "it cannot be opened by an older Joy Brush; a file that needs it and does not claim it is " +
                 "refused as older than its own word. Folders and versions: " +

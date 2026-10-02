@@ -937,7 +937,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val grain = d?.strokeGrain ?: GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF)
         // JB-1.06: a smudge brush carries ONE colour from the layer under the tip (R47); how hard it presses is the
         // dab's own flow. Stamp brushes pass nothing.
-        val smudge = if (p != null && p.engine == ENGINE_SMUDGE) SmudgeParams(p.smudge.pickup, p.smudge.load) else null
+        val smudge = if (p != null && p.engine == ENGINE_SMUDGE) SmudgeParams(p.smudge.pickup, p.smudge.load, p.smudge.texturePickup, p.smudge.paint) else null
         // R9: a tuft stroke's whole-stroke shader numbers (streaks, tooth), from the file and this stroke's seed.
         val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
         val argb = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }

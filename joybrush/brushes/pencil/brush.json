@@ -1,30 +1,233 @@
 {
   "format": "joybrush.brush",
-  "version": 6,
+  "version": 7,
   "id": "joybrush.pencil",
   "name": "Pencil",
   "engine": "stamp",
   "tip": {
     "corner": 2,
     "aspect": 0,
-    "followDirection": false
+    "aspectDynamics": {
+      "base": 0,
+      "inputs": [
+        {
+          "input": "tilt",
+          "curve": [
+            [
+              0,
+              0
+            ],
+            [
+              0.15,
+              -0.45
+            ],
+            [
+              0.35,
+              -0.8
+            ],
+            [
+              0.5,
+              -0.88
+            ],
+            [
+              1,
+              -0.9
+            ]
+          ]
+        }
+      ],
+      "combine": "add"
+    },
+    "anchorDynamics": {
+      "base": 0,
+      "inputs": [
+        {
+          "input": "tilt",
+          "curve": [
+            [
+              0,
+              0
+            ],
+            [
+              0.15,
+              0.5
+            ],
+            [
+              0.35,
+              0.85
+            ],
+            [
+              0.5,
+              0.92
+            ],
+            [
+              1,
+              0.96
+            ]
+          ]
+        }
+      ],
+      "combine": "add"
+    },
+    "angle": {
+      "base": 0,
+      "inputs": [
+        {
+          "input": "lean",
+          "curve": [
+            [
+              0,
+              -180
+            ],
+            [
+              1,
+              180
+            ]
+          ]
+        }
+      ],
+      "combine": "add"
+    },
+    "hardness": {
+      "base": 1,
+      "inputs": [
+        {
+          "input": "pressure",
+          "curve": [
+            [
+              0,
+              0.55
+            ],
+            [
+              0.3,
+              0.75
+            ],
+            [
+              1,
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    "minPx": 0.6
   },
   "size": {
     "base": 3,
-    "inputs": [ { "input": "pressure", "curve": [ [0, 0.6], [1, 1] ] } ]
+    "inputs": [
+      {
+        "input": "pressure",
+        "curve": [
+          [
+            0,
+            0.8
+          ],
+          [
+            0.5,
+            1
+          ],
+          [
+            1,
+            1.4
+          ]
+        ]
+      },
+      {
+        "input": "tilt",
+        "curve": [
+          [
+            0,
+            1
+          ],
+          [
+            0.1,
+            1.7
+          ],
+          [
+            0.25,
+            9
+          ],
+          [
+            0.5,
+            24
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      }
+    ]
   },
   "opacity": {
     "base": 1,
-    "inputs": [ { "input": "pressure", "curve": [ [0, 0.1], [1, 0.9] ] } ]
+    "inputs": [
+      {
+        "input": "pressure",
+        "curve": [
+          [
+            0,
+            0.035
+          ],
+          [
+            0.15,
+            0.14
+          ],
+          [
+            0.45,
+            0.43
+          ],
+          [
+            1,
+            0.95
+          ]
+        ]
+      }
+    ]
   },
+  "flow": {
+    "base": 0.38
+  },
+  "spacing": 0.025,
   "paperGrain": {
     "enabled": true,
     "source": "cloud",
-    "depth": { "base": 1, "inputs": [ { "input": "pressure", "curve": [ [0, 0.2], [1, 0.9] ] } ] },
-    "edge": 0.25,
-    "tiltGradient": 0.6
+    "depth": {
+      "base": 1,
+      "inputs": [
+        {
+          "input": "pressure",
+          "curve": [
+            [
+              0,
+              0.12
+            ],
+            [
+              0.2,
+              0.27
+            ],
+            [
+              0.55,
+              0.6
+            ],
+            [
+              1,
+              0.95
+            ]
+          ]
+        }
+      ]
+    },
+    "edge": 0.16,
+    "tiltGradient": 0.95,
+    "radial": 0.04
   },
-  "paper": { "influence": 1, "directional": 0.6, "wet": 0 },
-  "smoothing": 0.2,
+  "paper": {
+    "influence": 1,
+    "directional": 0.35,
+    "wet": 0
+  },
+  "accumulate": "wash",
+  "smoothing": 0.12,
   "license": "CC0"
 }

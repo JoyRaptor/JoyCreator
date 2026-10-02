@@ -1,0 +1,172 @@
+{
+  "format": "joybrush.brush",
+  "version": 7,
+  "id": "joybrush.flatpaint",
+  "name": "Flat Paint",
+  "engine": "smudge",
+  "tip": {
+    "corner": 6,
+    "aspect": -0.65,
+    "aspectDynamics": {
+      "base": 0,
+      "inputs": [
+        {
+          "input": "pressure",
+          "curve": [
+            [
+              0,
+              -0.83
+            ],
+            [
+              0.5,
+              -0.65
+            ],
+            [
+              1,
+              -0.5
+            ]
+          ]
+        }
+      ],
+      "combine": "add"
+    },
+    "hardness": {
+      "base": 1,
+      "inputs": [
+        {
+          "input": "pressure",
+          "curve": [
+            [
+              0,
+              0.92
+            ],
+            [
+              0.5,
+              0.78
+            ],
+            [
+              1,
+              0.62
+            ]
+          ]
+        }
+      ]
+    },
+    "followDirection": true,
+    "minPx": 0.65
+  },
+  "size": {
+    "base": 60,
+    "inputs": [
+      {
+        "input": "pressure",
+        "curve": [
+          [
+            0,
+            0.018
+          ],
+          [
+            0.12,
+            0.06
+          ],
+          [
+            0.45,
+            0.32
+          ],
+          [
+            0.8,
+            0.7
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "input": "tilt",
+        "curve": [
+          [
+            0,
+            1
+          ],
+          [
+            0.5,
+            1.65
+          ],
+          [
+            1,
+            2.2
+          ]
+        ]
+      }
+    ]
+  },
+  "flow": {
+    "base": 1,
+    "inputs": [
+      {
+        "input": "pressure",
+        "curve": [
+          [
+            0,
+            0.12
+          ],
+          [
+            0.4,
+            0.55
+          ],
+          [
+            1,
+            0.9
+          ]
+        ]
+      }
+    ]
+  },
+  "opacity": {
+    "base": 1
+  },
+  "smudge": {
+    "pickup": 0.46,
+    "load": 0.12,
+    "texturePickup": 0.68,
+    "paint": true
+  },
+  "spacing": 0.035,
+  "paper": {
+    "influence": 0.8,
+    "directional": 0.2,
+    "wet": 0.35
+  },
+  "accumulate": "wash",
+  "smoothing": 0.1,
+  "license": "CC0",
+  "paperGrain": {
+    "enabled": true,
+    "depth": {
+      "base": 1,
+      "inputs": [
+        {
+          "input": "pressure",
+          "curve": [
+            [
+              0,
+              0.35
+            ],
+            [
+              0.4,
+              0.75
+            ],
+            [
+              1,
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    "edge": 0.28,
+    "tiltGradient": 0.15
+  }
+}

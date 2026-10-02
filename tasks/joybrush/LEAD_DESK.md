@@ -112,3 +112,5 @@ its frames. AnimOps, FilmStrip, FrameStepper, PlaybackClock and PaperGeometry st
 frame pixels live (JB-3.01b) and the one clip rule the GPU and the exporter both read (JB-3.01c). Do not start
 JB-3.01b or JB-3.01c until the Lead has written them. Lock/Arm, the Tile board and sprite rearranging are new: see §B and §D.
 
+
+2026-10-02 Brush specialist: owner requests adaptive brushes. New work on codex/brush-contact from d6110150; append live shape/depth/tilt to dab instances, retaining paper9.08 travel and shared surface. No Activity or phone changes; main/remote divergent histories left untouched.

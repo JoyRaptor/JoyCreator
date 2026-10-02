@@ -51,7 +51,7 @@ object BrushValidate {
      * second message, which every `assertSole` in the tests would notice. The trap, therefore, is
      * [paramsOf], not this set.
      */
-    private val RANGED_BASES = setOf("size", "tip.hardness")
+    private val RANGED_BASES = setOf("size", "tip.hardness", "tip.aspectDynamics", "tip.anchorDynamics")
 
     fun validate(p: BrushPreset): List<String> {
         val out = ArrayList<String>()
@@ -102,6 +102,16 @@ object BrushValidate {
         if (p.tip.aspect !in -1f..1f) out += "tip.aspect ${p.tip.aspect} is outside -1..1"
 
         // 8 — the tip never fades below minPx, and a tip wider than 16 px on screen is a mistake.
+        for ((name, param, range) in listOf(
+            Triple("tip.aspectDynamics", p.tip.aspectDynamics, -1f..1f),
+            Triple("tip.anchorDynamics", p.tip.anchorDynamics, 0f..1f),
+        )) {
+            if (param == null) continue
+            if (param.base !in range) out += "$name.base ${param.base} is outside $range"
+            if (param.inputs.any { it.curve.any { point -> point.size == 2 && point[1] !in range } }) {
+                out += "$name curve values are outside $range"
+            }
+        }
         if (p.tip.minPx !in 0.25f..16f) out += "tip.minPx ${p.tip.minPx} is outside 0.25..16"
 
         // 9 — how much the pen's samples are averaged before a dab.
@@ -285,6 +295,7 @@ object BrushValidate {
         // refused as well as +-Infinity. `strength` is not here on purpose: it is the brush's `flow`.
         val smudgeRates = ArrayList<String>()
         if (p.smudge.pickup !in 0f..1f) smudgeRates += "smudge.pickup ${p.smudge.pickup}"
+        if (p.smudge.texturePickup !in 0f..1f) smudgeRates += "smudge.texturePickup ${p.smudge.texturePickup}"
         if (p.smudge.load !in 0f..1f) smudgeRates += "smudge.load ${p.smudge.load}"
         if (smudgeRates.isNotEmpty()) out += "smudge rate is outside 0..1: " + smudgeRates.joinToString("; ")
         if (!(p.push.amount > 0f) || p.push.amount > 1f) out += "push.amount ${p.push.amount} must be above 0 and at most 1"
@@ -330,5 +341,8 @@ object BrushValidate {
         "tipTexture.depth" to p.tipTexture.depth,
         "paperGrain.depth" to p.paperGrain.depth,
         "scatter.amount" to p.scatter.amount,
+    ) + listOfNotNull(
+        p.tip.aspectDynamics?.let { "tip.aspectDynamics" to it },
+        p.tip.anchorDynamics?.let { "tip.anchorDynamics" to it },
     )
 }

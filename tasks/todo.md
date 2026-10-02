@@ -480,3 +480,13 @@ Review: JB-9.06c__cpu_mip_filtering.md records exact command/XML time and mutati
 - [x] Run the full serial suite: core 1517/0 (4 skips), androidkit 237/0, joybrush-android UI 5/0, all BUILD SUCCESSFUL.
 
 Review: runs C:/Temp/jb-integration-final-tests.ps1 -SkipMutation -IncludeAndroid under pwsh 7.6.5, exit 0. XML newest 2026-10-02 15:13-15:18. The 4 skips are AbrRealFilesTest oracle tests only (no JOYBRUSH_TESTDATA, no testdata-local); PaperMipTest 4/0 included. Mutation deliberately not run. Primary watcher tree paused during the run and exactly one hidden watcher restored; lock released. No APK build, no install, no phone or artwork restore.
+
+### Merged 2026-10-02 - brush specialist lane, preserved at merge
+
+## Brush specialist — October 2
+- [x] Audit competition, pencil/pen/Sable and landed paper engine.
+- [x] Implement live dab shape, contact anchoring and grain depth on CPU/GPU.
+- [x] Tune compact Pencil, Sable, Dry Bristle and mixing Flat Paint set (provisional phone values).
+- [x] Verify pressure/tilt matrix, grain, boundaries, version guards and shaders.
+- [x] Record brush roadmap evidence, paper handoff and remaining device acceptance.
+Review: preserve current pen and Sable; no Note 9 acceptance claimed from automation. Spatial oil pickup and wet simulation require distinct evidence from average-colour smudge.

@@ -17,12 +17,16 @@ const val BRUSH_FORMAT = "joybrush.brush"
  *  - **4** (R9, the owner's sable brush) added `engine: "tuft"` and its `tuft` section — [VERSION_TUFT].
  *  - **5** added the `response` section's curves (pressure and tilt), when they are not the straight line — [VERSION_RESPONSE].
  *  - **6** (JB-9.09, R10) added the `paper` section — how much each brush feels the document paper — [VERSION_PAPER].
+ *  - **7** added live contact aspect and anchoring, with hardness and grain depth evaluated per dab.
  *
  * A word needs the version that introduced it, NOT the newest one: a fill pen is still a version-2
  * file, so a build that predates smudge can open it. [BrushJson.wordsNeedingVersion] carries the
  * per-word number.
  */
-const val BRUSH_VERSION = 6
+const val BRUSH_VERSION = 7
+
+/** Live contact aspect and anchored pencil footprint. */
+const val VERSION_CONTACT = 7
 
 /** The brush version that introduced the fill pen's words. */
 const val VERSION_FILL = 2
@@ -156,6 +160,10 @@ object BrushJson {
         // section rather than a field means one refusal reads `paper needs brush version 6`, which is
         // what a person holding a hand-edited file needs to hear.
         if (!p.paper.isDefault) out += VersionedWord("paper", VERSION_PAPER)
+        if (p.smudge.texturePickup != 0f) out += VersionedWord("smudge.texturePickup", VERSION_CONTACT)
+        if (p.smudge.paint) out += VersionedWord("smudge.paint", VERSION_CONTACT)
+        if (p.tip.aspectDynamics != null) out += VersionedWord("tip.aspectDynamics", VERSION_CONTACT)
+        if (p.tip.anchorDynamics != null) out += VersionedWord("tip.anchorDynamics", VERSION_CONTACT)
         return out
     }
 }

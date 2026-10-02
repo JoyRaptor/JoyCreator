@@ -172,3 +172,7 @@ Bunny's eyedropper helpers were tested but not called from production. Lead now 
 Bunny corpus-input fix93804965 still failed on a fresh checkout: optional inputs.dir declares a missing directory. Lead uses inputs.files(fileTree(file(corpus))) so the File argument stays literal and an absent corpus is empty. Do not invent corpus preservation or migration; report real-fixture skips honestly.
 
 Next actionable work after validation: owner Paper sheet/device acceptance; specialist9.06b pre-layer export backdrop and9.06c filtering parity; imported texture drawingJB-1.05d; board region GPU/undo/cel routing and active-board layer-preview adapter; review brush specialist isolated commits against paper metadata/history. No inert controls or whole-canvas animation shortcut.
+
+### Merged 2026-10-02 - brush specialist lane, preserved at merge
+
+2026-10-02 Brush specialist: owner requests adaptive brushes. New work on codex/brush-contact from d6110150; append live shape/depth/tilt to dab instances, retaining paper9.08 travel and shared surface. No Activity or phone changes; main/remote divergent histories left untouched.

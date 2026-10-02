@@ -39,6 +39,10 @@ import kotlinx.serialization.Serializable
     val followDirection: Boolean = false,// tip turns with DirectionTracker's output
     val hardness: Param = Param(0.9f),
     val minPx: Float = 1f,
+    /** Optional live shape; absent keeps the scalar aspect (brush v7). */
+    val aspectDynamics: Param? = null,
+    /** 0 = centred; 1 = positive-X endpoint at the pen, long side trailing (brush v7). */
+    val anchorDynamics: Param? = null,
 )
 
 /** Paper grain image/scale are ignored since JB-9.03: the document paper decides (R10 P4).
@@ -62,8 +66,11 @@ import kotlinx.serialization.Serializable
  * in one dab — never separate reservoir and pickup stores. [pickup] is how fast the carried colour
  * forgets what it has passed over and takes up the canvas; [load] is how fast it takes up the brush's
  * own chosen colour. Both `0..1`.
+ * `texturePickup` (version 7) mixes spatial pre-stroke paint into each output pixel without another
+ * stored colour; `paint` allows deposition onto empty canvas. Both default to legacy smudge behavior.
  */
-@Serializable data class SmudgeSpec(val pickup: Float = 0.5f, val load: Float = 0.15f)
+@Serializable data class SmudgeSpec(val pickup: Float = 0.5f, val load: Float = 0.15f,
+    val texturePickup: Float = 0f, val paint: Boolean = false)
 
 /** How far a push dab moves the pixels under it: a fraction of the tip's radius, along the stroke. `0<a<=1`. */
 @Serializable data class PushSpec(val amount: Float = 0.3f)

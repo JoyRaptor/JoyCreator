@@ -10,7 +10,13 @@ import kotlin.math.max
  * [cap] overrides the placer's cap for this dab (NaN = use the placer's) — this is how a WASH brush
  * fades with pressure: each dab's ceiling is its own opacity.
  */
-data class DabLook(val radius: Float, val angle: Float = 0f, val flow: Float = 1f, val cap: Float = Float.NaN)
+data class DabLook(val radius: Float, val angle: Float = 0f, val flow: Float = 1f, val cap: Float = Float.NaN,
+    val aspect: Float = Float.NaN,
+    val hardness: Float = Float.NaN,
+    val tipDepth: Float = Float.NaN,
+    val paperDepth: Float = Float.NaN,
+    val anchor: Float = Float.NaN,
+)
 
 /**
  * Turns a stream of (smoothed) pen samples into evenly spaced dabs.
@@ -81,10 +87,16 @@ class DabPlacer(
         out.add(Dab(x = s.x, y = s.y, radius = radius, angle = if (l.angle.isFinite()) l.angle else 0f,
             flow = if (l.flow.isFinite()) l.flow.coerceIn(0f, 1f) else 0f,
             cap = if (l.cap.isNaN()) cap else l.cap.coerceIn(0f, 1f), pressure = s.pressure,
-            tilt = s.tilt, azimuth = s.azimuth, travelX = travel.x, travelY = travel.y, travelKnown = true))
+            tilt = s.tilt, azimuth = s.azimuth, travelX = travel.x, travelY = travel.y, travelKnown = true,
+            aspect = optional(l.aspect, -1f, 1f), hardness = optional(l.hardness, 0f, 1f),
+            tipDepth = optional(l.tipDepth, 0f, 1f), paperDepth = optional(l.paperDepth, 0f, 1f),
+            anchor = optional(l.anchor, 0f, 1f)))
         val step = 2f * radius * spacing
         return if (step.isFinite()) max(step, minSpacingPx) else minSpacingPx
     }
+
+    private fun optional(v: Float, lo: Float, hi: Float): Float =
+        if (v.isFinite()) v.coerceIn(lo, hi) else Float.NaN
 
     private fun lerp(a: PenSample, b: PenSample, t: Float) = PenSample(
         x = a.x + (b.x - a.x) * t,

@@ -925,3 +925,8 @@ When the owner requests completion, track UI, persisted transparency, imported-t
 
 ## 2026-10-02 — Respect usage-saving wrap-up
 When the owner narrows a broad completion request to the current fix and handoff, finish that bounded fix with targeted evidence, prepare concrete next specs and gates, then stop. Do not spend the remaining allowance on new assets or unrequested parallel work.
+
+### Merged 2026-10-02 - brush specialist lane, preserved at merge
+
+## 2026-10-02 — Brush realism can require engine changes
+Owner explicitly authorizes revising engine contracts for realistic colour interaction. Do not treat a previous one-colour implementation as a ceiling on capability or try to deliver spatial paint pickup by tuning averages. Prefer stateless local pixel transfer or a measured richer engine with CPU/GPU parity. Benchmarks: Infinite Painter Proko for raster pencil feel; Concepts soft pencil and Waterful for vector media; Rebelle for oils; Expresii for watercolour; consider Procreate too. With usage low, finish a usable tested slice before expanding research or adding more agents.

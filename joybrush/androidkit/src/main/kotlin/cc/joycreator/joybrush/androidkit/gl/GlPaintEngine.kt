@@ -44,7 +44,7 @@ fun maskStoreId(layerId: String): String = layerId + MASK_SUFFIX
  * The two rates of a smudge stroke (JB-1.06): how fast the ONE carried colour takes on the canvas ([pickup]) and the brush's
  * own colour ([load]), both 0..1. How hard a dab presses is the dab's own flow. See `core/brush/Smudge.kt` for the rule.
  */
-class SmudgeParams(val pickup: Float, val load: Float)
+class SmudgeParams(val pickup: Float, val load: Float, val texturePickup: Float = 0f, val paint: Boolean = false)
 
 /**
  * The GPU painting engine (JB-0.07). GL THREAD ONLY — every method must be called on the thread that
@@ -214,8 +214,8 @@ class GlPaintEngine(
     private val strokeTravel = DabTravel()
     private var strokePaperResponse = PaperResponse()
     private var strokePaperInfluence = 0f
-    private var instanceData: FloatBuffer = newFloats(8 * 256)
-    private var smudgeInstanceData: FloatBuffer = newFloats(10 * 256)
+    private var instanceData: FloatBuffer = newFloats(17 * 256)
+    private var smudgeInstanceData: FloatBuffer = newFloats(21 * 256)
     private var tuftInstanceData: FloatBuffer = newFloats(TuftStamp.FLOATS * 256)
 
     /** Set while a tuft stroke is in progress (R9): its whole-stroke shader numbers, and the page's tooth picture. */
@@ -224,6 +224,8 @@ class GlPaintEngine(
 
     /** Set while a smudge stroke is in progress: the ONE carried colour, and the layer as it was at pen-down. */
     private var smudge: SmudgeStroke? = null
+    private var smudgeTexturePickup = 0f
+    private var smudgePaint = false
 
     /** True while the stroke buffer holds RGBA carried paint (a smudge) instead of a single coverage channel. */
     private var strokeIsRgba = false
@@ -279,15 +281,16 @@ class GlPaintEngine(
         GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 0, 0)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
         GLES30.glEnableVertexAttribArray(1)
-        GLES30.glVertexAttribPointer(1, 4, GLES30.GL_FLOAT, false, 32, 0)
+        GLES30.glVertexAttribPointer(1, 4, GLES30.GL_FLOAT, false, 68, 0)
         GLES30.glVertexAttribDivisor(1, 1)
         GLES30.glEnableVertexAttribArray(2)
-        GLES30.glVertexAttribPointer(2, 2, GLES30.GL_FLOAT, false, 32, 16)
+        GLES30.glVertexAttribPointer(2, 2, GLES30.GL_FLOAT, false, 68, 16)
         GLES30.glVertexAttribDivisor(2, 1)
 
         GLES30.glEnableVertexAttribArray(4)
-        GLES30.glVertexAttribPointer(4, 2, GLES30.GL_FLOAT, false, 32, 24)
+        GLES30.glVertexAttribPointer(4, 2, GLES30.GL_FLOAT, false, 68, 24)
         GLES30.glVertexAttribDivisor(4, 1)
+        enableContactAttributes(68, 32)
 
         // The smudge dab: the same quad and the same instance buffer, but 10 floats per dab (the stamp's 6 plus the carried colour).
         GLES30.glBindVertexArray(smudgeVao)
@@ -296,14 +299,18 @@ class GlPaintEngine(
         GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 0, 0)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
         GLES30.glEnableVertexAttribArray(1)
-        GLES30.glVertexAttribPointer(1, 4, GLES30.GL_FLOAT, false, 40, 0)
+        GLES30.glVertexAttribPointer(1, 4, GLES30.GL_FLOAT, false, 84, 0)
         GLES30.glVertexAttribDivisor(1, 1)
         GLES30.glEnableVertexAttribArray(2)
-        GLES30.glVertexAttribPointer(2, 2, GLES30.GL_FLOAT, false, 40, 16)
+        GLES30.glVertexAttribPointer(2, 2, GLES30.GL_FLOAT, false, 84, 16)
         GLES30.glVertexAttribDivisor(2, 1)
         GLES30.glEnableVertexAttribArray(3)
-        GLES30.glVertexAttribPointer(3, 4, GLES30.GL_FLOAT, false, 40, 24)
+        GLES30.glVertexAttribPointer(3, 4, GLES30.GL_FLOAT, false, 84, 24)
         GLES30.glVertexAttribDivisor(3, 1)
+        GLES30.glEnableVertexAttribArray(4)
+        GLES30.glVertexAttribPointer(4, 2, GLES30.GL_FLOAT, false, 84, 40)
+        GLES30.glVertexAttribDivisor(4, 1)
+        enableContactAttributes(84, 48)
 
         // The tuft footprint (R9): the same quad and instance buffer, four vec4s per footprint (TuftStamp.FLOATS).
         GLES30.glBindVertexArray(tuftVao)
@@ -768,6 +775,8 @@ class GlPaintEngine(
         this.tip = tip
         // A smudge reads the layer as it stands NOW (pen-down): the stroke buffer is not the layer until pen-up, so the
         // pixels it picks up from stay put for the whole stroke. Colours are decided on the GL thread, where a tile can be read.
+        smudgeTexturePickup = smudge?.texturePickup?.coerceIn(0f, 1f) ?: 0f
+        smudgePaint = smudge?.paint ?: false
         this.smudge = if (smudge == null) null else SmudgeStroke(
             TileReader { tx, ty -> readTile(layerId, Tiles.key(tx, ty)) },
             SmudgeCarried(colR, colG, colB, 1f, smudge.pickup.coerceIn(0f, 1f), smudge.load.coerceIn(0f, 1f)),
@@ -784,7 +793,7 @@ class GlPaintEngine(
         // Old direct engine callers have grain settings but no document/response section.
         if (p == null && strokePaperResponse.isDefault && (grain.paper.enabled || (tuft?.paperPitchPx ?: 0f)>0f))
             strokePaperResponse = PaperResponse(influence=1f)
-        strokePaperInfluence = if (smudge != null) 0f else strokePaperResponse.influence*(p?.bite ?: 1f)
+        strokePaperInfluence = strokePaperResponse.influence*(p?.bite ?: 1f)
         val documentGrain = documentPaperGrain(grain.paper,p,strokePaperResponse)
         val paperTex = if (documentGrain.enabled) grains.textureFor(documentGrain.asset) else null
         this.grain = GrainMath.StrokeGrain(
@@ -839,7 +848,7 @@ class GlPaintEngine(
             GLES30.glUniform2f(dabProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
             fillInstances(list)
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
-            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * 32, instanceData, GLES30.GL_STREAM_DRAW)
+            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * 68, instanceData, GLES30.GL_STREAM_DRAW)
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
         }
         GLES30.glBindVertexArray(0)
@@ -924,21 +933,26 @@ class GlPaintEngine(
         GLES30.glUniform1f(smudgeProg.loc("u_taper"), tip.taper)
         GLES30.glUniform1f(smudgeProg.loc("u_hardness"), tip.hardness)
         GLES30.glUniform1f(smudgeProg.loc("u_minPx"), tip.minPx)
+        setGrainUniforms(dabs.last(), smudgeProg)
+        GLES30.glUniform1f(smudgeProg.loc("u_texturePickup"), smudgeTexturePickup)
         GLES30.glBindVertexArray(smudgeVao)
         for ((key, list) in buckets) {
             attach(strokeTiles.getValue(key))
             GLES30.glUniform2f(smudgeProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
-            val need = list.size * 10
+            if (smudgeTexturePickup > 0f) bindPickupTiles(key)
+            val need = list.size * 21
             if (smudgeInstanceData.capacity() < need) smudgeInstanceData = newFloats(need * 2)
             smudgeInstanceData.clear()
             for (d in list) {
                 val c = (at[d] ?: 0) * 4
                 smudgeInstanceData.put(d.x).put(d.y).put(d.radius).put(d.angle).put(d.flow).put(d.cap)
                     .put(colours[c]).put(colours[c + 1]).put(colours[c + 2]).put(colours[c + 3])
+                smudgeInstanceData.put(d.travelX).put(d.travelY)
+                putContact(smudgeInstanceData, d)
             }
             smudgeInstanceData.flip()
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
-            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * 40, smudgeInstanceData, GLES30.GL_STREAM_DRAW)
+            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * 84, smudgeInstanceData, GLES30.GL_STREAM_DRAW)
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
         }
         GLES30.glBindVertexArray(0)
@@ -973,10 +987,10 @@ class GlPaintEngine(
         GLES30.glUniform1f(program.loc("u_paperWet"),strokePaperResponse.wet)
     }
 
-    private fun setGrainUniforms(newest: Dab) {
-        setPaperResponseUniforms(dabProg)
-        GLES30.glUniform1i(dabProg.loc("u_tipGrain"), 0)
-        setPaperSurfaceUniforms(dabProg)
+    private fun setGrainUniforms(newest: Dab, program: GlProgram = dabProg) {
+        setPaperResponseUniforms(program)
+        GLES30.glUniform1i(program.loc("u_tipGrain"), 0)
+        setPaperSurfaceUniforms(program)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tipGrainTex)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
@@ -984,18 +998,18 @@ class GlPaintEngine(
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         val tg = grain.tip
         val pg = grain.paper
-        GLES30.glUniform1f(dabProg.loc("u_tipGrainPitchPx"), tg.pitchPx)
-        GLES30.glUniform1f(dabProg.loc("u_tipDepth"), tg.depth)
-        GLES30.glUniform1f(dabProg.loc("u_tipEdge"), tg.edge)
-        GLES30.glUniform1f(dabProg.loc("u_tipTiltGradient"), tg.tiltGradient)
-        GLES30.glUniform1f(dabProg.loc("u_tipRadial"), tg.radial)
-        GLES30.glUniform1f(dabProg.loc("u_paperGrainPitchPx"), pg.pitchPx)
-        GLES30.glUniform1f(dabProg.loc("u_paperDepth"), pg.depth)
-        GLES30.glUniform1f(dabProg.loc("u_paperEdge"), pg.edge)
-        GLES30.glUniform1f(dabProg.loc("u_paperTiltGradient"), pg.tiltGradient)
-        GLES30.glUniform1f(dabProg.loc("u_paperRadial"), pg.radial)
-        GLES30.glUniform1f(dabProg.loc("u_tiltAmount"), GrainMath.tiltAmount(newest.tilt))
-        GLES30.glUniform2f(dabProg.loc("u_leanDir"), GrainMath.leanX(newest.azimuth), GrainMath.leanY(newest.azimuth))
+        GLES30.glUniform1f(program.loc("u_tipGrainPitchPx"), tg.pitchPx)
+        GLES30.glUniform1f(program.loc("u_tipDepth"), tg.depth)
+        GLES30.glUniform1f(program.loc("u_tipEdge"), tg.edge)
+        GLES30.glUniform1f(program.loc("u_tipTiltGradient"), tg.tiltGradient)
+        GLES30.glUniform1f(program.loc("u_tipRadial"), tg.radial)
+        GLES30.glUniform1f(program.loc("u_paperGrainPitchPx"), pg.pitchPx)
+        GLES30.glUniform1f(program.loc("u_paperDepth"), pg.depth)
+        GLES30.glUniform1f(program.loc("u_paperEdge"), pg.edge)
+        GLES30.glUniform1f(program.loc("u_paperTiltGradient"), pg.tiltGradient)
+        GLES30.glUniform1f(program.loc("u_paperRadial"), pg.radial)
+        GLES30.glUniform1f(program.loc("u_tiltAmount"), GrainMath.tiltAmount(newest.tilt))
+        GLES30.glUniform2f(program.loc("u_leanDir"), GrainMath.leanX(newest.azimuth), GrainMath.leanY(newest.azimuth))
     }
 
     /** Commits the active stroke into its layer as one undoable step. Returns tiles changed. */
@@ -1273,7 +1287,7 @@ class GlPaintEngine(
         GLES30.glUniform3f(commitProg.loc("u_color"), colR, colG, colB)
         GLES30.glUniform1f(commitProg.loc("u_strokeScale"), if (accumulate == Accumulate.BUILD_UP) opacity else 1f)
         GLES30.glUniform1i(commitProg.loc("u_erase"), if (blend == StrokeBlend.ERASE) 1 else 0)
-        GLES30.glUniform1i(commitProg.loc("u_smudge"), if (smudge != null) 1 else 0)
+        GLES30.glUniform1i(commitProg.loc("u_smudge"), if (smudge == null) 0 else if (smudgePaint) 2 else 1)
         GLES30.glUniform1f(commitProg.loc("u_layerOpacity"), layerOpacity)
     }
 
@@ -1352,12 +1366,47 @@ class GlPaintEngine(
         return t[0]
     }
 
+    // The destination's 3x3 pen-down neighbourhood. Pixel pickup is capped at half a tile,
+    // so every displaced source lies here, including negative coordinates and tile crossings.
+    private fun bindPickupTiles(key: Long) {
+        val layer = strokeLayer ?: return
+        for (dy in -1..1) for (dx in -1..1) {
+            val slot = (dy + 1) * 3 + dx + 1
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0 + 2 + slot)
+            val source = layer.tiles[Tiles.key(Tiles.tx(key) + dx, Tiles.ty(key) + dy)] ?: emptyTexOf(layer)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, source)
+            GLES30.glUniform1i(smudgeProg.loc("u_pickup${dx + 1}${dy + 1}"), 2 + slot)
+        }
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+    }
+
+    private fun enableContactAttributes(stride: Int, offset: Int) {
+        for (i in 0..1) {
+            GLES30.glEnableVertexAttribArray(5 + i)
+            GLES30.glVertexAttribPointer(5 + i, 4, GLES30.GL_FLOAT, false, stride, offset + i * 16)
+            GLES30.glVertexAttribDivisor(5 + i, 1)
+        }
+        GLES30.glEnableVertexAttribArray(7)
+        GLES30.glVertexAttribPointer(7, 1, GLES30.GL_FLOAT, false, stride, offset + 32)
+        GLES30.glVertexAttribDivisor(7, 1)
+    }
+
+    private fun putContact(buffer: FloatBuffer, d: Dab) {
+        fun resolved(value: Float, fallback: Float) = if (value.isFinite()) value else fallback
+        val live = d.aspect.isFinite() || d.hardness.isFinite() || d.tipDepth.isFinite() || d.paperDepth.isFinite() || d.anchor.isFinite()
+        buffer.put(resolved(d.aspect, tip.aspect)).put(resolved(d.hardness, tip.hardness))
+            .put(resolved(d.tipDepth, grain.tip.depth)).put(resolved(d.paperDepth, grain.paper.depth))
+            .put(resolved(d.anchor, 0f)).put(GrainMath.tiltAmount(d.tilt))
+            .put(GrainMath.leanX(d.azimuth)).put(GrainMath.leanY(d.azimuth)).put(if (live) 1f else 0f)
+    }
+
     private fun fillInstances(list: List<Dab>) {
-        val need = list.size * 8
+        val need = list.size * 17
         if (instanceData.capacity() < need) instanceData = newFloats(need * 2)
         instanceData.clear()
         for (d in list) {
             instanceData.put(d.x).put(d.y).put(d.radius).put(d.angle).put(d.flow).put(d.cap).put(d.travelX).put(d.travelY)
+            putContact(instanceData, d)
         }
         instanceData.flip()
     }

@@ -38,6 +38,7 @@ object TipMath {
 
     /** The tip's normalised superellipse distance field (the part of jb_tipCoverage before antialiasing). */
     private class Geometry(radiusPx: Float, angle: Float, private val tip: TipShape) {
+        private val shift = radiusPx * (if (tip.anchor.isFinite()) tip.anchor.coerceIn(0f, 1f) else 0f)
         private val c = cos(angle)
         private val s = sin(angle)
         private val hx: Float
@@ -56,7 +57,7 @@ object TipMath {
         }
 
         fun d(dx: Float, dy: Float): Float {
-            val qx = c * dx + s * dy
+            val qx = c * dx + s * dy + shift
             val qy = -s * dx + c * dy
             val along = (qy / hy * 0.5f + 0.5f).coerceIn(0f, 1f)
             val widthScale = max(1f - tip.taper.coerceIn(0f, 1f) * along, 1e-3f)
@@ -65,7 +66,8 @@ object TipMath {
     }
 
     /** Half-size of a square, centred on the dab, that contains the tip at any rotation (+ AA margin). */
-    fun extent(radiusPx: Float): Float = radiusPx * 1.4143f + 2f
+    fun extent(radiusPx: Float, anchor: Float = 0f): Float =
+        radiusPx * (1.4143f + if (anchor.isFinite()) abs(anchor.coerceIn(0f, 1f)) else 0f) + 2f
 
     private fun smoothstep(e0: Float, e1: Float, x: Float): Float {
         if (e1 <= e0) return if (x < e0) 0f else 1f

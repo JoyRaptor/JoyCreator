@@ -181,9 +181,9 @@ S.paperFixtures = ['paper-raster-fixture.json', 'paper-raster-large-fixture.json
     out.paperSurfaceCorrelation = correlation(0); out.paperSurfaceControlCorrelation = correlation(1);
     // Fill the same strip with a paper-on dab using the production fragment shader.
     const paperDabV = `#version 300 es\nprecision highp float; layout(location=0) in vec2 a;
-      out vec2 v_offset; out vec2 v_dabCentre; out float v_radius; out float v_angle; out float v_flow; out float v_cap; flat out vec2 v_travel;
+      out vec2 v_offset; out vec2 v_dabCentre; out float v_radius; out float v_angle; out float v_flow; out float v_cap; flat out vec2 v_travel; flat out vec4 v_contact; flat out vec4 v_pen; flat out float v_live;
       void main(){gl_Position=vec4(a,0,1);v_offset=a*vec2(1024,128);v_dabCentre=vec2(1024,128);
-        v_radius=2048.0;v_angle=0.0;v_flow=1.0;v_cap=1.0;v_travel=vec2(0);}`;
+        v_radius=2048.0;v_angle=0.0;v_flow=1.0;v_cap=1.0;v_travel=vec2(0);v_contact=vec4(0);v_pen=vec4(0);v_live=0.0;}`;
     function dabCorrelation(control) {
       const fragment = control ? S['jb_dab.frag'].replace('return jb_paperHeight(docPx);',
         'return texture(u_paperSurface, docPx / 1024.0).b;') : S['jb_dab.frag'];

@@ -145,7 +145,12 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
         }
         dabCount++
 
-        return DabLook(radius = radius, angle = angle, flow = flow, cap = cap)
+        return DabLook(radius = radius, angle = angle, flow = flow, cap = cap,
+            aspect = preset.tip.aspectDynamics?.let { finite(Dynamics.eval(it, inputs), preset.tip.aspect).coerceIn(-1f, 1f) } ?: Float.NaN,
+            anchor = preset.tip.anchorDynamics?.let { unit(Dynamics.eval(it, inputs), 0f) } ?: Float.NaN,
+            hardness = if (preset.version >= VERSION_CONTACT) unit(Dynamics.eval(preset.tip.hardness, inputs), unit(preset.tip.hardness.base, 0.9f)) else Float.NaN,
+            tipDepth = if (preset.version >= VERSION_CONTACT) unit(Dynamics.eval(preset.tipTexture.depth, inputs), unit(preset.tipTexture.depth.base, 1f)) else Float.NaN,
+            paperDepth = if (preset.version >= VERSION_CONTACT) unit(Dynamics.eval(preset.paperGrain.depth, inputs), unit(preset.paperGrain.depth.base, 1f)) else Float.NaN)
     }
 
     /**
@@ -178,7 +183,8 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
     }
 
     /** 0..1, with [fallback] standing in for a NaN the file could not answer. */
-    private fun unit(v: Float, fallback: Float): Float = if (v.isNaN()) fallback else v.coerceIn(0f, 1f)
+    private fun unit(v: Float, fallback: Float): Float = if (v.isFinite()) v.coerceIn(0f, 1f) else fallback
+    private fun finite(v: Float, fallback: Float): Float = if (v.isFinite()) v else fallback
 
     private companion object {
         /** The speed filter's time constant, in milliseconds. */

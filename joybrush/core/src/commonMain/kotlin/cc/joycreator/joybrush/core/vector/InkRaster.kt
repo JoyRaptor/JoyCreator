@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.core.fill.MaskPaint
 import cc.joycreator.joybrush.core.fill.MaskPaintMode
 import cc.joycreator.joybrush.core.paint.Accumulate
 import cc.joycreator.joybrush.core.paint.Dab
+import cc.joycreator.joybrush.core.paint.tipShape
 import cc.joycreator.joybrush.core.paint.TipMath
 import cc.joycreator.joybrush.core.paint.TipShape
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
@@ -225,7 +226,8 @@ object InkRaster {
         val cx = (d.x - docX) * scale
         val cy = (d.y - docY) * scale
         if (!cx.isFinite() || !cy.isFinite()) return
-        val e = TipMath.extent(radius)
+        val liveTip = d.tipShape(tip)
+        val e = TipMath.extent(radius, liveTip.anchor)
         val x0 = max(floor(cx - e).toInt(), 0)
         val x1 = min(floor(cx + e).toInt(), width - 1)
         val y0 = max(floor(cy - e).toInt(), 0)
@@ -242,7 +244,7 @@ object InkRaster {
                 // ONE PIXEL, and a pixel at 0.25x is four document pixels wide. Feeding it document
                 // offsets with a destination radius would make the edge four times too soft and the
                 // "same tip, finer grid" claim false.
-                val cov = TipMath.coverage(x + 0.5f - cx, y + 0.5f - cy, radius, d.angle, tip) * d.flow
+                val cov = TipMath.coverage(x + 0.5f - cx, y + 0.5f - cy, radius, d.angle, liveTip) * d.flow
                 if (cov <= 0f) continue
                 // The stroke's own running value `s` LIVES in the destination's alpha slot, which is
                 // where the commit reads it from a few lines later. `RefCanvas` keeps it in a

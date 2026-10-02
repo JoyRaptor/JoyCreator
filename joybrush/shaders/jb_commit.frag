@@ -18,14 +18,18 @@ out vec4 o_color;
 
 void main() {
     vec4 dst = texture(u_layer, v_uv);
-    if (u_smudge == 1) {
+    if (u_smudge > 0) {
         // A smudge only moves paint that is already there: where the layer has no alpha the stroke leaves it alone
         // (Smudge Decision 4). The stroke buffer is the accumulated carried paint, so this is "over", masked.
         // Scale all four premultiplied channels, as for an ordinary build-up stroke. Scaling
         // RGB alone would still replace the backdrop at full strength; ignoring this scale
         // made the smudge tool's opacity control ineffective.
         vec4 s = texture(u_stroke, v_uv) * u_strokeScale;
-        float m = dst.a > 0.0 ? 1.0 : 0.0;
+        if (u_erase == 1) {
+            o_color = dst * (1.0 - s.a) * u_layerOpacity;
+            return;
+        }
+        float m = u_smudge == 2 || dst.a > 0.0 ? 1.0 : 0.0;
         o_color = (s * m + dst * (1.0 - s.a * m)) * u_layerOpacity;
         return;
     }

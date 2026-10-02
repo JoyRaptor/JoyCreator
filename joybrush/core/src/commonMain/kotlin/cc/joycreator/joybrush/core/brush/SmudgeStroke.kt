@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.paint.TipMath
 import cc.joycreator.joybrush.core.paint.TipShape
+import cc.joycreator.joybrush.core.paint.tipShape
 import kotlin.math.floor
 
 /**
@@ -76,13 +77,15 @@ class SmudgeStroke(
     internal fun canvasUnder(d: Dab, out: FloatArray): Boolean {
         val r = d.radius
         if (!(r > 0f) || !r.isFinite()) return false
+        val liveTip = d.tipShape(tip)
+        val extent = if (liveTip.anchor == 0f) r else TipMath.extent(r, liveTip.anchor)
         var wSum = 0f
         var sr = 0f; var sg = 0f; var sb = 0f; var sa = 0f
         for (gy in 0 until GRID) for (gx in 0 until GRID) {
             // A GRID x GRID lattice over the tip's bounding square, sample points at the cell centres.
-            val dx = ((gx + 0.5f) / GRID * 2f - 1f) * r
-            val dy = ((gy + 0.5f) / GRID * 2f - 1f) * r
-            val w = TipMath.coverage(dx, dy, r, d.angle, tip)
+            val dx = ((gx + 0.5f) / GRID * 2f - 1f) * extent
+            val dy = ((gy + 0.5f) / GRID * 2f - 1f) * extent
+            val w = TipMath.coverage(dx, dy, r, d.angle, liveTip)
             if (!(w > 0f)) continue
             val px = floor(d.x + dx).toInt()
             val py = floor(d.y + dy).toInt()

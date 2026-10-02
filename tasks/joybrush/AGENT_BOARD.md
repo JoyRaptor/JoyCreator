@@ -47,6 +47,66 @@ say *which* check a claim rests on. I did exactly that and it changed the answer
 
 
 
+## OWNER REVIEW 2 — the brush verdict. Read this before writing any brush code — 2026-10-02
+
+The owner has now drawn with the ten brushes on the Note 9. **This is the most important piece of
+evidence in the project and it is not good.** Quoted, because paraphrase would soften it:
+
+> I do see the 10 brushes, and almost none of them work as advertised. The soft brush is terrible.
+> Almost all the brushes are absolutely awful, except for the sable and bristle brush. But the
+> bristle brush, while it doesn't look that bad, it just looks like the Sable brush with different
+> sliders. And the pencil brush doesn't look like a pencil brush. It actually acts more like a
+> marker... it makes a semi decent markerish, and a terrible pencil.
+
+> The smudge brush does not work. It doesn't smudge. The fill pen, which is supposed to work similar
+> to Lasso to draw a shaped fill, does not work like that. It just looks like a regular line drawing.
+
+A reference sample from a competitor's pencil was supplied: strokes with **visible grain and tooth,
+soft-to-hard falloff along a single stroke, irregular granular edges, and a wide tonal range from
+faint grey whisper to dense black.** That is the bar.
+
+### Triage — these are FOUR DIFFERENT KINDS of failure and must not be treated as one
+
+| Brush | Verdict | Class of defect |
+|---|---|---|
+| Sable | **good** | — |
+| Bristle | acceptable look, **but it is Sable with different sliders** | **not a distinct brush.** A preset that differs only in numbers is not a new instrument |
+| Pencil | **acts like a marker** | **wrong behaviour**, not a taste issue. Grain and tooth are not being applied |
+| Soft air | **terrible** | wrong behaviour |
+| Smudge | **does not smudge** | **functionally broken.** Not ugly — broken |
+| Fill pen | **draws a line instead of a shaped fill** | **functionally broken.** Not ugly — broken |
+
+**Rule for both lanes, effective now: a brush that does not do its advertised job is a BLOCKER, not
+a polish item, and it outranks every new feature on either board.** Symmetry, the parametric pen and
+boards are all *after* four brushes that do not work. Two brushes ship that work and two that are
+distinct; that is the bar before new instruments are started.
+
+**Why I am ranking broken-brushes above the owner's own feature requests.** The owner asked for
+symmetry, a parametric pen and boards, and I am not refusing them — they are queued and specified
+below. But shipping a symmetry tool across a fill pen that draws a line is building on sand. I will
+say this plainly to the owner rather than quietly reordering their list, and they can overrule me.
+
+### Owner feature requests, queued and NOT dropped — 2026-10-02
+
+1. **One parametric pen: square that becomes a circle or a trapezoid, direction that changes, and a
+   hard-to-soft gradient, all in one pen.** This is blueprint §1 item 1, and it is *already partly
+   built*: `TipMath`/superellipse/taper/aspect exist as core maths. The owner's version asks for the
+   **gradient** (tip hardness varying along the stroke) and **direction** as first-class per-brush
+   controls. That is the row, and it is the flagship instrument, not a nice-to-have.
+2. **Symmetry, under Helpers, reusing the ruler helper** — a movable median line the brush mirrors
+   around, with the existing helper's memory and never-exports behaviour. New row, and the owner's
+   framing (reuse the ruler, do not invent a second helper) is the design constraint.
+3. **Boards: "I don't see the ability to access boards anywhere."** **Verified and confirmed — the
+   owner is right and this is not a discovery problem.** `JoyBrushActivity.kt` contains no
+   `BoardKind`, no `addBoard`, no `createBoard`, no `ANIMATION`, no `SPRITE`. There is no board
+   creation UI anywhere in the shipped app. The unlanded `c5e00346` boards-chrome commit is
+   **polish** (preserving interrupted fades) and its dry-run merge conflicts in `DocModel.kt` and
+   `DocModelTest.kt`, which is where DOC_VERSION 7 transparency lives — so it cannot be merged
+   without a schema decision, and it would not give the owner a board anyway. **Making boards
+   reachable is new work, not a merge**, and it is third in the queue.
+
+
+
 ## OWNER DEVICE FEEDBACK — first real look at the combined build — 2026-10-02
 
 The combined tree (`3a088513`, both specialists' work) was built, installed on the Note 9 sandbox

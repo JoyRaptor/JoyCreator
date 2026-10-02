@@ -99,7 +99,72 @@ The owner requests a few canvas/pulp surfaces and custom background colour ready
 
 Landed `1ea2976f`: `PaperPreviews.customColour(current, "#RRGGBB")` returns the chosen document Paper, clearing stale lookId/tint and retaining surface, bite, scale, show, light and export choice; `previews.colour(current, colour, catalogue, size)` previews it. After applying, the live swatch uses `previews.crop(PaperState.resolve(chosen, catalogue), size)`. Catalogue circles use existing `background`/`surface`. Schedule on one preview worker; discard obsolete completions. Own targeted XML21/0 at2026-10-02 00:34:06 EDT; stale-tint mutation1/21 red/restored. Please wire these into the Lead-owned swatch/selector/shared picker and document undo/save; no app hot files changed here. Main fast-forward refuses divergence at `51ad3802`; main files left untouched. Review commands are in `reviews/JB-9.10__test_set.md` and `reviews/JB-9.07__custom_colour.md`. No APK rebuilt or phone installed; the crumple candidates remain unselected pending convincing folds, and image generation remains paused.
 
-### Brush lane — the owner wants to SEE the brushes, this is now Priority 1 — 2026-10-02
+### Brush lane — THE OWNER'S VERDICT: four brushes are broken, not ugly — 2026-10-02
+
+Full quote and the competitor pencil reference are in `AGENT_BOARD.md` §"OWNER REVIEW 2". Read that
+first. Summary of what you have to fix, in order, and **not one of these is a taste question**:
+
+**Priority 1 — Smudge does not smudge. This is functionally broken.** The owner dragged it and
+nothing moved paint. `Smudge.kt`/`SmudgeStroke.kt` exist and the GPU rule matches the CPU rule on a
+real driver, so the maths is not obviously wrong — which means look for the *door*, not the formula:
+is `SmudgeStroke` actually constructed on the live path, is the GL pass actually bound, is the
+dab mode reaching the shader? A feature that passes its own unit tests and does nothing on the phone
+is almost always never called. The earlier eyedropper had exactly this shape: correct tested helper,
+no production call site. **Find the missing call site before you touch any maths.**
+
+**Priority 2 — Fill pen draws a line instead of a shaped fill.** The owner expects Lasso-like
+behaviour: draw a closed shape, it fills. `FillPen.kt` and the v2 brush format ship, so again the
+question is whether the *fill* path is reached from the view. Related known gap from the board: the
+`region "behind"` blend and the outline-fill maths need to actually run on a stroke.
+
+**Priority 3 — Pencil behaves like a marker.** This is the one you own and it is the flagship of
+your four-brush direction. The owner's reference shows: grain and tooth, **soft-to-hard falloff
+along a single stroke**, irregular granular edges, and a wide tonal range from faint grey to dense
+black. Yours produces a fairly uniform marker line. Your `ContactDynamics` and `jb_contact.glsl`
+work is the right mechanism — the question is whether **grain/tooth is actually bound and sampled**
+on the pencil preset, or whether the preset is silently taking a path that skips it. Check the
+shader is receiving a real texture and that hardness varies per dab, not just per brush.
+
+**Priority 4 — Soft air is terrible** and **Bristle is Sable with different sliders.** The second
+one is a design failure worth naming precisely: a preset that differs only in numbers is not a new
+instrument. Bristle should differ *structurally* — displaced or broken bristle tips, gaps where the
+tooth skips, deposit that catches on the paper's high points. If it cannot be made structurally
+different from Sable, say so and we cut it rather than ship a clone.
+
+**Order matters: 1 and 2 are broken functions, 3 and 4 are craft.** Fix the broken ones first; a
+beautiful pencil over a fill pen that draws a line is not progress.
+
+**Your bar is now explicit: two brushes ship that work (Sable, and a Bristle that is structurally
+distinct), and two that are broken. Nothing new starts until that is true.** Symmetry, the
+parametric pen and boards are all behind this.
+
+### The parametric pen the owner asked for — specified, not yet written — 2026-10-02
+
+The owner asked for **one pen that is a square which can become a circle or a trapezoid, whose
+direction can change, with a hard-to-soft gradient, and all of it in a single instrument.** This is
+blueprint §1 item 1 and the maths is *already built*: superellipse corners, taper to
+trapezoid/triangle, aspect to razor, initial rotation, all in `TipMath` and `jb_tip.glsl`, reviewed
+and cleared. What is missing is the **gradient** (tip hardness varying *along* the stroke, not just
+per brush) and **direction** as owner-facing controls.
+
+So this row is **controls and gradient, not new tip maths.** Write the spec: expose the existing
+tip parameters through the brush settings UI, and add a per-stroke hardness ramp driven by pressure
+or speed. Do not re-derive the superellipse; it is done and tested. Your `BrushKnobs`/
+`BrushSettingsView` are the natural home. This is queued immediately after Priorities 1–4.
+
+### Symmetry — new row, owner's framing is the design constraint — 2026-10-02
+
+The owner: *a symmetry option under Helpers, reusing the ruler helper, so there is a movable median
+line and the brush mirrors around it.* The constraint that matters: **reuse the existing helper
+component** (grid/ruler/perspective already ship as views with remembered settings and never-export
+behaviour) rather than building a second helper system. `GuideSettingsTest` and the violet overlay
+are the precedent. Mirror at draw time in `JbCanvasView` against the chosen axis, and it must not
+enter history as two independent strokes.
+
+**This is third in the queue.** Symmetry, the parametric pen and boards all sit behind four brushes
+that work. I have told the owner this explicitly and offered them the chance to overrule me.
+
+
 
 The owner has now looked at the combined build on the phone and asked, in terms: **he wants to see
 the brushes you built and get more attractive results.** Quote in `AGENT_BOARD.md`. The paper side
@@ -260,7 +325,66 @@ KDoc was right and the caller was wrong — worth keeping that KDoc as the contr
 
 
 
-### Paper specialist — the owner's first look, and the real backlog — 2026-10-02
+### Paper specialist — BLOCKER accepted, and more work, as the owner asked — 2026-10-02
+
+**The BLOCKER is the best bug report anyone has filed in this wing, and I am accepting it whole.**
+An unreadable `.ora` left at the path the user had just chosen in the save dialog is the worst
+possible failure shape, because **it looks saved** — the owner believes their work is safe and it is
+not. And it is a regression *this row introduced*: before JB-9.06b the paper was resolved before the
+zip stream opened. You found your own regression, named it, and fixed it rather than reporting the
+row green. That is the whole job.
+
+The three findings are each correct and each is a class of bug worth naming:
+
+- **BLOCKER — the partial-file bug.** Confirmed by reading the fix: the Paper layer's whole-region
+  PNG is now resolved above `ZipOutputStream(out)` so a failure aborts while the stream is
+  untouched. Two tests asserting the stream is left byte-for-byte empty is the right shape.
+- **MAJOR — the ORA Paper layer skipped validation**, so a translucent paper was written silently
+  while the *same renderer's* merged image refused to exist one line later: a file disagreeing with
+  itself. Lifting the rule once into `RegionRenderer.requireOpaquePaper` rather than duplicating it
+  in the exporter is exactly right and is this project's own documented rule.
+- **MAJOR — `CanvasPng` decoded both paper textures before the `MAX_REGION_PX` refusal**, making a
+  KDoc claim false, and no test caught it because both guard tests pass an explicit lambda so the
+  early return fires. That is a subtle and valuable observation about test coverage, not just a bug.
+- **The block bound pinned by nothing.** `PaperBackdropTest` derived its expectations *from*
+  `PAPER_BLOCK_W`/`H`, so setting `PAPER_BLOCK_H = 4096` left everything green while blocks grew
+  from 32 KiB to 4 MiB. A test that computes its own expectation from the constant it is testing
+  is not a test. Pinning it in digits is the fix.
+
+**Your four "still open" items are all accepted as work, in this order.**
+
+1. **The paper fixture varying in X only** — a vertical block bug is currently undetectable. That is
+   a test-coverage hole in a row whose whole subject is block layout. Fix it first; it is cheap and
+   it may immediately find a real bug in the code you just shipped.
+2. **`writeSequence` letting a paper failure escape unwrapped.** This is the *same shape* as the
+   BLOCKER you just fixed, in a sibling path. A failure that escapes as the wrong exception type is
+   the same "looks handled, isn't" family. Fix it before the optimisation work.
+3. **`requirePaperBlock`'s two integer divisions per pixel, computed eagerly for a lazy message.**
+   Agreed, and the fix is to make the message lazy rather than to drop it — a refusal the owner
+   cannot understand is a support cost.
+4. **Per-frame paper re-rasterisation in AnimExport.** Real, and you are right about the shape of
+   the win: the pixel cost is unchanged and `HexTile` allocating ~8 arrays per pixel dominates, so a
+   block cache keyed by `RectPx` is the actual lever, not the N× call setups. **Do this last**, and
+   measure it — a cache that misses on every frame because the key includes a changing light
+   direction is worse than no cache.
+
+**Your `STYLUS_FEEL_CHECK.md` is the right call and I am acting on it.** The finding that **adb
+cannot do this hour** — `input swipe` injects a FINGER at pressure 1.0 with tilt NaN, and once a
+pen has been seen fingers navigate instead of drawing — is correct and it retires my plan to
+screenshot drawing strokes myself. I will drive navigation and the owner supplies every stroke.
+The 1080×2220-at-density-1.96875 override and the 4-second `dispatchTouchEvent` swallow are both
+now in my runbook. I have stopped attempting to fake pen input.
+
+**Your brush-test APK: yes, install it.** `cc.joycreator.joybrush.brushtest`, 18.4 MB. It is the
+right instrument for the feel check because it isolates brushes from documents. Install on the
+**Note 9 sandbox only**, never the Note 20, and confirm `lastUpdateTime` moved as usual. Then the
+owner can hold a stylus against brushes without risking a drawing.
+
+**Your next row is unchanged and still Priority 1: the swatch sampling fix** (`LEAD_DESK.md`,
+"swatch sampling, CORRECTED"), then JB-9.08 directional deposit, which the owner reported as absent.
+Neither waits on anything you have told me.
+
+
 
 The owner looked at your work on the phone. Full quote and triage are in `AGENT_BOARD.md`
 §"OWNER DEVICE FEEDBACK". Two of the three items are yours and one is now the most important open

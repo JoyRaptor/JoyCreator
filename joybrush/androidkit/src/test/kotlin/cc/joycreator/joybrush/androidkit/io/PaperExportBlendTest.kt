@@ -21,6 +21,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 /**
  * JB-9.06b at the level the defect was actually visible in: a decoded FILE.
@@ -128,6 +129,59 @@ class PaperExportBlendTest {
         assertEquals(0, calls, "a refused export must not have decoded a pixel of paper")
     }
 
+    /**
+     * JB-9.06b, found by cross-review: A PAPER FAILURE MUST NOT LEAVE A HALF-WRITTEN `.ora`.
+     *
+     * `ZipOutputStream` only writes its central directory at `finish()`. Anything that throws after
+     * the first `put` therefore leaves bytes in the caller's stream that no reader can open — a
+     * corrupt file sitting at the exact path the user chose in the save dialog, which is the worst
+     * possible failure shape: it looks saved, and it is not.
+     *
+     * The paper is now resolved BEFORE `ZipOutputStream` exists, precisely so a renderer that cannot
+     * produce a whole region of paper throws into a stream nobody has written to yet. Before this
+     * test there was no test anywhere in the repository where a `paperRenderer` fails during an
+     * OpenRaster write, which is why the regression got through: every existing test hands the
+     * exporter a renderer that always succeeds.
+     *
+     * The renderer here fails on its FIRST call, which is the paper layer's. It must abort with the
+     * caller's stream untouched — byte-for-byte empty, because the contract is "a refused export
+     * leaves `out` as it was found", not merely "not a valid archive".
+     */
+    @Test
+    fun aPaperThatCannotBeRenderedAbortsTheOraBeforeAnyByteIsWritten() {
+        val out = ByteArrayOutputStream()
+        val failure = assertFailsWith<JbArchiveException> {
+            OraExport.write(out, contents(), BOARD_ID, null, true, paperRenderer = { error("this texture is unreadable") })
+        }
+        assertTrue(
+            failure.message!!.contains("could not be written") || failure.message!!.contains("unreadable"),
+            "the failure must reach a person in words: ${failure.message}",
+        )
+        assertEquals(0, out.size(), "a refused export must leave the caller's stream exactly as it was found")
+    }
+
+    /**
+     * The same invariant for the *second* arrival of paper: the merged image asks the renderer again,
+     * in blocks, and that second arrival is where a bad ALPHA or a wrong LENGTH is caught. The paper
+     * layer has already been written by then, so this is the case that used to corrupt the archive.
+     *
+     * The renderer succeeds for the whole-region request (it is only ever asked for one block at a
+     * time afterwards, so it cannot tell the two apart by size) and returns a translucent block, which
+     * `RegionRenderer` refuses by name. Refused rather than silently written: a translucent "paper" is
+     * a contradiction, and a Paper layer that is translucent while its own preview refuses to exist is
+     * a file that disagrees with itself.
+     */
+    @Test
+    fun aTranslucentPaperBlockAbortsTheOraRatherThanWritingAPaperThatDisagreesWithItself() {
+        val out = ByteArrayOutputStream()
+        assertFailsWith<JbArchiveException> {
+            OraExport.write(out, contents(), BOARD_ID, null, true, paperRenderer = { block ->
+                solidPaper(block, 254)
+            })
+        }
+        assertEquals(0, out.size(), "nothing at all may be written when the paper cannot be honoured")
+    }
+
     // ── fixtures ────────────────────────────────────────────────────────────────
 
     private val BOARD_ID = "b1"
@@ -182,7 +236,14 @@ class PaperExportBlendTest {
      * comparison. The split is NOT on a block boundary, so a renderer that answered blocks in the
      * wrong order or the wrong place would still be caught here.
      */
-    private fun paperOf(block: RectPx): ByteArray {
+    private fun paperOf(block: RectPx): ByteArray = solidPaper(block)
+
+    /**
+     * The same two-tone paper, with its alpha settable, because the abort tests need a renderer that
+     * is opaque in shape and translucent in fact — the only way to make `RegionRenderer` refuse a
+     * block the same renderer happily produced a whole region from.
+     */
+    private fun solidPaper(block: RectPx, alpha: Int = 255): ByteArray {
         val out = ByteArray(block.w * block.h * 4)
         var i = 0
         for (y in 0 until block.h) {
@@ -191,7 +252,7 @@ class PaperExportBlendTest {
                 out[i] = (if (east) 20 else 200).toByte()
                 out[i + 1] = (if (east) 80 else 40).toByte()
                 out[i + 2] = (if (east) 220 else 60).toByte()
-                out[i + 3] = 255.toByte()
+                out[i + 3] = alpha.toByte()
                 i += 4
             }
         }
@@ -209,4 +270,5 @@ class PaperExportBlendTest {
         }
     }
 }
+
 

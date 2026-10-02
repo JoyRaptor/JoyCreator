@@ -226,22 +226,40 @@ object OraExport {
             )
         }
 
+        // THE PAPER LAYER'S OWN PNG IS RENDERED HERE, BEFORE THE FIRST BYTE IS WRITTEN, and this is
+        // load-bearing rather than tidy. `data/0.png` is a real whole region of paper — a reader
+        // opens that file directly — so it is asked for in one call instead of in blocks. Doing it
+        // here, above `ZipOutputStream(out)`, means a paper that cannot be produced fails while the
+        // caller's stream is still untouched: JB-9.06b's contract is that a renderer failure ABORTS
+        // the export and never leaves a partial file, and a `ZipOutputStream` that has already had
+        // `mimetype`, `stack.xml` and every layer PNG pushed into it cannot be un-written — the
+        // central directory only appears at `finish()`, so a throw after that point leaves a corrupt
+        // archive sitting at the path the user chose. One transient region-sized array is the price;
+        // it is unreachable by the time `merged` is rendered below.
+        //
+        // IT IS STILL WRAPPED, because it now happens outside the `try` below and this function's
+        // promise is that every refusal arrives as a `JbArchiveException` — one `catch` at the export
+        // button has to be enough, and a raw `IllegalArgumentException` from a texture decoder would
+        // be an unexplained crash on the way out.
+        val paperEntryPixels = try {
+            entries.firstOrNull { it.isPaper }?.pixels(rect, frameId)
+        } catch (e: JbArchiveException) {
+            throw e
+        } catch (e: Exception) {
+            throw JbArchiveException("the OpenRaster file could not be written: ${brief(e)}")
+        }
+
         val zos = ZipOutputStream(out)
         zos.setLevel(ARCHIVE_DEFLATE_LEVEL)
         try {
             writeMimetype(zos)
             put(zos, STACK_NAME, stackXml(rect, entries, omitted).toByteArray(Charsets.UTF_8))
             for (entry in entries) {
-                // The Paper entry's own `data/0.png` IS a whole region of paper, and it is written
-                // HERE, inside the loop, so that array is a temporary of this statement and is
-                // unreachable by the time `merged` is rendered below. The alternative — one paper
-                // buffer alive for the whole method — is a second region-sized array beside the
-                // 160 MiB composite, which is the memory this row is trying not to spend. A
-                // streaming PNG row writer would avoid even this, but `PngWriter.encode` needs the
-                // finished region and adding that API is a JB-3.06c file's to change, not this
-                // row's; one temporary is the honest trade and the sequencing is what makes it cost
-                // nothing but the write.
-                put(zos, entry.src, PngWriter.encode(rect.w, rect.h, entry.pixels(rect, frameId)))
+                // The Paper entry reuses the array resolved above rather than asking again, so the
+                // renderer is called exactly once for it and a mid-loop failure cannot change the
+                // paper between `data/0.png` and `mergedimage.png`.
+                val pixels = if (entry.isPaper) paperEntryPixels!! else entry.pixels(rect, frameId)
+                put(zos, entry.src, PngWriter.encode(rect.w, rect.h, pixels))
             }
             // Paper is the floor of the stack, not a sheet over it: a MULTIPLY layer in `merged`
             // multiplies this paper exactly as it does on screen, and in Krita, because the Paper
@@ -286,6 +304,15 @@ object OraExport {
         private val paperRenderer: ((RectPx) -> ByteArray)? = null,
     ) {
         /**
+         * Whether this entry's pixels come from the paper rather than from a layer render.
+         *
+         * A property rather than an exposed [paperRenderer], because the only thing the caller needs
+         * to know is WHICH entry is the Paper one: it has to pre-resolve that entry's pixels above the
+         * first written byte and then reuse them in the loop. Handing out the renderer as well would
+         * invite a second invocation and a second, possibly different, answer.
+         */
+        val isPaper: Boolean get() = paperRenderer != null
+        /**
          * `rect.w * rect.h * 4` bytes of straight RGBA8 for this entry.
          *
          * `paper = null` and always: paper is a LAYER in this file, not a backdrop, so baking it in
@@ -306,7 +333,13 @@ object OraExport {
                 else listOf(doc.layers[baseIndex].copy(opacity = 0f, blend = BlendMode.NORMAL, clip = false), own)
                 return RegionRenderer.render(doc.copy(layers = layers), tiles, rect, frameId, null)
             }
-            return paperRenderer?.invoke(rect) ?: paperPixels(rect, requireNotNull(paper) { "a Paper entry with no paper colour" })
+            // The whole-region arrival goes through [RegionRenderer.requireOpaquePaper] — the SAME check the
+            // block path applies — so a translucent or wrong-length paper is refused here, while the
+            // caller's stream is still untouched, instead of producing a `data/0.png` that disagrees
+            // with the `mergedimage.png` written on the next line.
+            val paper = paperRenderer?.invoke(rect)
+            if (paper != null) RegionRenderer.requireOpaquePaper(paper, rect)
+            return paper ?: paperPixels(rect, requireNotNull(this.paper) { "a Paper entry with no paper colour" })
         }
     }
 

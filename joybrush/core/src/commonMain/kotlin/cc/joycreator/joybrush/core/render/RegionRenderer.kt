@@ -543,6 +543,27 @@ object RegionRenderer {
     }
 
     /**
+ * The public half of [requirePaperBlock], for the one caller that asks for a WHOLE REGION of paper
+ * rather than a block.
+ *
+ * `OraExport` writes `data/0.png` — the OpenRaster Paper LAYER — as one full-region image, because
+ * that file is a picture a reader opens directly and cannot be a mosaic of 32 KiB blocks. That makes
+ * it the single place outside this object that receives raw paper pixels, and it had no check at
+ * all: a wrong-length array became a `PngWriter` failure *inside the write loop*, and a TRANSLUCENT
+ * one was written silently — producing a file whose Paper layer is see-through while its own
+ * `mergedimage.png` refuses to exist on the next line, i.e. a file that disagrees with itself.
+ *
+ * So the rule lives here once and both arrivals go through it. Duplicating the check in the exporter
+ * would be the project's own documented failure mode: two copies of one fact, and the second one
+ * drifts.
+ *
+ * @throws IllegalArgumentException naming the byte count, or the document pixel, exactly as a block
+ *   would — the message must be recognisable whether the bad pixels arrived in one piece or 1020 of
+ *   them.
+ */
+fun requireOpaquePaper(bytes: ByteArray, rect: RectPx) = requirePaperBlock(bytes, rect)
+
+    /**
      * One block's contract, checked rather than assumed: exactly the bytes asked for, and opaque.
      *
      * THE LENGTH IS NOT PADDED AND NOT TRUNCATED. A renderer that answers 32 KiB for a 17x32 block

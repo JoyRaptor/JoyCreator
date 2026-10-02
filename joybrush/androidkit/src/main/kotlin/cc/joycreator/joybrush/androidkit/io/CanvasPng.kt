@@ -3,6 +3,8 @@ package cc.joycreator.joybrush.androidkit.io
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.doc.RectPx
+import cc.joycreator.joybrush.core.render.MAX_REGION_PX
+import cc.joycreator.joybrush.core.render.RegionException
 import cc.joycreator.joybrush.core.render.RegionRenderer
 import cc.joycreator.joybrush.core.render.TileSource
 
@@ -34,6 +36,20 @@ object CanvasPng {
         // was pasted over the result afterwards, so the PNG disagreed with the screen for every
         // separable blend mode. The callback is also why no region-sized paper buffer is alive here
         // beside the 160 MiB composite.
+        // THE REGION IS REFUSED BEFORE THE PAPER IS EVEN NAMED. `paperRendererFor` and
+        // `flatPaperRenderer` both call `PaperResources.load`, which decodes the look and surface
+        // textures — two 1024² images and the arrays they decode into — and a board that
+        // `RegionRenderer` is going to refuse must not pay for that on its way to being told no.
+        // `RegionRenderer.render` is where `requireSize` throws, i.e. AFTER the decode, so the check
+        // is repeated here in the one door that lacked it; `AnimExport.checkRegionFits` and
+        // `OraExport.boardOf` already refuse before resolving their paper.
+        val regionPx = board.rect.w.toLong() * board.rect.h.toLong()
+        if (regionPx > MAX_REGION_PX) {
+            throw RegionException(
+                "a ${board.rect.w} by ${board.rect.h} region is $regionPx pixels, and the most this " +
+                    "renderer will allocate is $MAX_REGION_PX. Export a smaller area, or a piece of it at a time.",
+            )
+        }
         val renderer = paperRendererFor(contents, includePaper, paperRenderer, onWarning)
             ?: flatPaperRenderer(contents, includePaper, onWarning)
         val pixels = RegionRenderer.render(doc, source, board.rect, null, null, renderer)

@@ -138,6 +138,23 @@ class PaperBackdropTest {
      * pixel. The expected start positions come from the rect, so a change to either constant is a
      * red test here instead of a slower phone.
      */
+    /**
+     * THE BOUND IS A NUMBER, NOT A CONSTANT. `RegionRenderer`'s KDoc claims the pair "is what
+     * `RegionRendererTest` asserts, so raising either one is a red test" — and the tests below
+     * derived their expectation FROM the constants, which means setting `PAPER_BLOCK_H = 4096` left
+     * every one of them green while each block allocation grew from 32 KiB to 4 MiB. That is the
+     * whole memory argument resting on a pin that did not bite, so it is pinned in digits here.
+     *
+     * 256 x 32 is the tile edge by the short side: a block never straddles more tile seams than it has
+     * to, and 32 rows is small enough that a phone rasterises one without a visible pause.
+     */
+    @Test
+    fun theBlockBoundIsTheDocumentedNumberAndNotMerelyAConstant() {
+        assertEquals(256, PAPER_BLOCK_W, "the block is one tile wide")
+        assertEquals(32, PAPER_BLOCK_H, "the block is 32 rows tall: 8192 px, 32 KiB of straight RGBA8")
+        assertEquals(32_768, PAPER_BLOCK_W * PAPER_BLOCK_H * 4, "32 KiB, which is the number the whole memory argument quotes")
+    }
+
     @Test
     fun blocksAreBoundedTiledAndInDocumentCoordinates() {
         val rect = RectPx(-37, -11, 300, 100)

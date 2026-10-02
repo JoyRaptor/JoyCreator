@@ -3891,3 +3891,7 @@ Evidence in that branch: tasks/joybrush/REGION_ROUTING_20261002.md. No phone ins
 ## 2026-10-02 — Saved region ownership
 
 Version 6 region metadata and core board/frame operations landed 82a16eba (b5ec6811). Core 1470 plus Android file tests 225 pass with no failures/errors/skips; no phone install. Clean paper refresh merged after preflight. GPU transaction and preview/export integration remain next. Owner says all test art is disposable: no preservation or migration work. Evidence: tasks/joybrush/REGION_ROUTING_20261002.md in codex/region-routing.
+
+## 2026-10-02 - CPU region export projection landed
+
+0f4e57cd: saved board cursors and explicit per-board export frame resolve through bounded tile slices. Blank frames cannot reveal shared paint; masks remain separate, clip bases use their own region addresses. Six new tests; focused75/0, full core1481/0, Android225/0. No failures/errors/skips. Shared agent handoff published. No phone install; GPU painting/undo next.

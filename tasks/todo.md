@@ -431,3 +431,10 @@ No phone/schema changes in this slice. Evidence: codex/region-routing tasks/joyb
 - [x] Core 1470/0 plus Android file tests 225/0; clean paper merge; pushed 82a16eba.
 - [ ] Connect bounded pixel copies, paint, undo, preview and export before exposing phone controls.
 Review: saved frame selection and independent boards survive JSON; invalid ownership refused. No scratch-file migration. See REGION_ROUTING_20261002.md.
+
+## Region CPU export projection - October 2
+- [x] Connect RegionRenderer to bounded board frame/shared tile projection.
+- [x] Holds, blank frames, independent boards, masks/clip bases and negative edges checked.
+- [x] Full core1481/0 + Android225/0; landed origin/joy-creator 0f4e57cd.
+- [ ] Connect live GPU paint/undo and preview before enabling region controls.
+Review: no source tile modification or image-wide cache. Region export frame changes only its owner board; other cursors retained. No phone proof.

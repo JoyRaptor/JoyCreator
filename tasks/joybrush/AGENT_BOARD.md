@@ -210,3 +210,7 @@ update to 63c4b9bb dropped them — branches and untracked review files were una
 ## Lead region model landing — 2026-10-02
 
 Landed origin/joy-creator 82a16eba (model b5ec6811). DOC_VERSION is now 6; Board adds tiled, currentFrameId and locked; Layer adds sharedCelId and regions. RegionDocumentOps provides validated create/select/blank/copy/link operations plus bounded copy instructions. Full pre-paper-refresh verification: core 1470/0, androidkit 225/0, no skips/errors. Later paper commits merged cleanly; targeted combined check in progress. This is core metadata, not working phone controls. Lead owns GPU paint/undo, preview/export and save adapters next. No legacy scratch migration per owner. Board/Paper specialists should refresh before integrating; use region paint plans rather than scalar celFor.
+
+## Lead CPU export landing - 2026-10-02
+
+Landed origin/joy-creator 0f4e57cd; combined core1481/0, Android225/0, focused75/0. RegionRenderer reads shared/frame slices with held masks and clip bases. Shared board notes now also published on origin. Live GPU/undo and phone controls remain next. No device installation.

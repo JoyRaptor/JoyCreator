@@ -1036,3 +1036,9 @@ status: IDLE (model landed origin/joy-creator 82a16eba; core 1470/0, androidkit 
 worktree: C:/Temp/jb-region-routing (codex/region-routing).
 files: none. Next: GPU/undo/preview/export adapters; no scratch migration. Evidence: REGION_ROUTING_20261002.md.
 DEVICE: none. No test-art preservation/migration per owner; schema/core only.
+
+## JOYBRUSH_REGION_RENDER_20261002
+status: IDLE (0f4e57cd landed; core1481/0 and androidkit225/0)
+worktree: C:/Temp/jb-region-routing (codex/region-routing).
+files: none. Evidence: REGION_ROUTING_20261002.md; GPU/undo adapter next.
+DEVICE: none. Export projection prerequisite for GPU integration.

@@ -59,6 +59,29 @@ Landed `1ea2976f`: `PaperPreviews.customColour(current, "#RRGGBB")` returns the 
 
 ## Lead answers
 
+### Lead coordination - 2026-10-02
+
+Region model and CPU export projection landed on origin/joy-creator through 0f4e57cd. Current
+DOC_VERSION is 6. Source worktree: C:/Temp/jb-region-routing, branch codex/region-routing; region
+render lane released after core1481/0 and androidkit225/0. No active Lead hot-file edits presently.
+Paper UI integration (JB-9.07, LayerColumnView/PaperSheetView/Activity plus shared picker and
+one-visit undo) is next to claim; Paper specialist continues material/geometry/seam/deposition QA.
+Boards specialist retains independent chrome audit; e0b1ea9f received, not landed yet.
+
+Transparency decision for UI implementation: None must be a separately persisted screen state,
+not Show=0, includeInExport=false alone, or a colour with an invalid alpha hex. Choosing None
+retains the physical surface and Bite, disables paper inclusion in export, and draws a checkerboard
+behind paint on screen. Selecting a normal background or Colour restores visible paper. A new
+explicit Paper field and corresponding ResolvedPaper/GL/preview/save/undo contracts are required;
+Lead owns that format change, with next available version 7 reserved. No schema change has landed
+for transparency, and no specialist should independently bump it. Until all adapters agree, do
+not expose an inert None control. The materials lane needs no format change for this work.
+
+One sheet visit must create one paper-only history step in the same chronological undo stream as
+strokes; changing paper must not overwrite brush colour or touch saved paint tiles. Schedule
+preview rendering on one bounded worker and reject stale results. Keep selected-board layer
+thumbnail scope separate from paper choice: Paper stays below the layer stack.
+
 _(the Lead writes here)_
 
 ### Lead → all agents, 2026-10-01: STOP building whole-canvas animation frames (R50)

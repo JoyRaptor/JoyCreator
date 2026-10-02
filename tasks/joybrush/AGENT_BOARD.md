@@ -383,3 +383,59 @@ are the Lead's, and I have put them in one place below instead.
     all** — 1243 lines of tests, never once built — and its Python port was wrong three times about
     float32 vs float64. That is the cost of the "builders never run gradle" rule, and it argues for
     letting a builder run one compile-only pass when it is cheap and the worktree is its own.
+## Bunny — wave 2: two more audits and one silent-corruption fix, 2026-10-02
+
+**Landed `73ea73f2` — D.02a rotation normalisation. This is the worst class of bug I have found in
+this project and it was on the board as DONE.** An object at 175 deg, dragged +30 deg, stored
+**205** in the model while the HUD showed -155. Key 205 with 0 one second earlier and
+`KeyframeTrack.valueAt` turns the long way round. A full 360 turn stored 360 and the detent pinned
+it there. **Nothing normalised on read either.** D.02a had satisfied the letter of its spec
+(unwrapping the *delta*) without the substance, and its own test file only ever called
+`TransformQuad.wrapRad`, so reverting any of the four fixes still printed 15/15.
+
+The fix: a pure `TransformQuad.StoredRotation` folds into (-180,180] on the way **into** the model
+and on the way **out of it** - both ends, because write-only leaves an already-stored 205 poisoning
+every later keyframe. It is a **fold, never a clamp** (205 clamped to 180 is a different pose 25
+deg away). Applied at 19 sites across `TransformOverlayView`, `AffineTransformHost`,
+`SpineTransformHost`, `CornerPinTransformHost`; a **duplicate private `norm180` was deleted** - it
+was not even equivalent, returning -180 where the real one returns +180.
+
+**Evidence (run by me, not by the builder):** `GestureAngleTest` **54/54 green**, and the mutation
+check is the part that matters - removing the one fold turns **15 of 54 red**, including a
+**3689-pair property sweep** asserting every stored angle lands in (-180,180]. Restored, 54/54.
+
+**Three things I did NOT do, on purpose:**
+1. **`PreviewHandlesOverlay.java:932,808` has the identical live defect** (still
+   `startRot + (angle - startAngle)`). It is outside D.02a's owner area, so it is **left alone and
+   referred**, not fixed. Four one-line folds, no new maths. **It needs an owner.**
+2. **The builder found a genuine conflict with SPEC A and stopped to ask rather than deciding.**
+   SPEC A says "720 stores 720" for a *typed* angle; folding means a typed winding now collapses
+   in-range on the next gesture. That is a **ruling, not a choice a builder should make** - it is
+   now question 6 in LEAD_DESK. The same hazard SPEC A's F1 already accepted for sliders, but this
+   widens it from one door to three.
+3. Findings 3 and 4 (five mesh/puppet harness scripts dead on an `androidx.annotation` grep trip;
+   the `fx` harness dying before its last suite) are other rows - reported, changed nothing.
+
+**New audits filed, both 0 BLOCKER:**
+- `reviews/JB-9.03_9.09__bunny-audit.md` - **8 MAJOR, 6 MINOR.** The sharpest: **R31's unknown-key
+  hole is re-opened by `paper`** - an older build re-saving a tuned pencil silently writes
+  `paper: 0/0/0` and keeps claiming version 6, because the Lead lifted R31's freeze in **DocJson**
+  and `BrushJson` has no unknown-key walk at all. Also: **"never shows its grid" is tested at one
+  of two periods and the untested one is the stronger** (measured +0.224 at the 360 doc-px hex
+  pitch vs -0.105 at the tested 1024); the CPU/GPU twin equality the spec asks for is **still a
+  `TODO(JB-9.02)`** and nothing would notice if it broke (I measured the twins: height agrees to
+  0.007/255, so they are fine *today*); R10's `fwidth` fix is undone and **owned by no row**; and
+  **three shipped dead sliders** against R39's "a dead control is worse than a missing one" -
+  `BrushTuningTest` names the dead-knob rule and checks only that a preset field moved.
+- `reviews/D02_STUDIOKIT__bunny-audit.md` - **4 MAJOR, 8 MINOR.** The move itself is **clean**:
+  zero duplicate class names across `app/` and `studiokit/` (737 vs 38), no kit-to-app classpath
+  break, `GradientRampEditorView` correctly left behind, and the 3 `fx` failures genuinely
+  pre-existing on a 0-line diff. But `GestureAngleTest` had **no test that goes red on revert** for
+  3 of the 4 gesture bugs, and `:studiokit` **never declares `androidx.annotation`** though 33 of
+  38 files import it - it compiles only because another library re-exports it.
+
+**Method note, since it will recur:** the `.sh` harnesses **cannot run on this machine at all** -
+`bash.exe` is only the WSL stub and no distro is installed, so D.04 is not a nicety, it is the
+reason I ran `javac`/`java` by hand with a forward-slash argfile. The argfile detail matters: a
+backslash path in a `javac` argfile is silently eaten and javac reports an `InvalidPathException`
+naming a path you never typed.

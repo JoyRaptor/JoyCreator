@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | **Tier** | T2 |
-| **Status** | 📝 Draft spec — **ruling R38 is applied in full and closes the question the row was stuck on: Q1 is withdrawn as WRONG, `SUBTRACT`/`DIVIDE` write their keys, `ERASE_BELOW` refuses with an offer, INK layers are omitted with a warning naming them, Decision 6's stream-of-consciousness is replaced with a decision, and the contract now imports what it uses and types every parameter.** Two questions remain, both **file-format** decisions R38 does not cover, both of which a builder would have to guess: **Q4** the merged image's alpha, and **Q5** whether a `luni`/`lsct` resource block is written. Each has a one-line recommended answer at the foot. Nothing else is open. |
-| **Who** | spec writer `openrouter/stealth/space-bunny-alpha` 2026-09-29 · **xr: openrouter/stealth/space-bunny-alpha 2026-09-29** — R38 applied; **restructured: `PsdLayer` is gone entirely** (the writer now picks the layers itself, exactly as `OraExport` does), which removes the `strokes` field with no Decision using it *and* `rect` *and* the caller-assembled `tiles` map *and* the duplicated tile-size check, all in one move. Verified against the landed code: `OraExport.write(out, contents, boardId, frameId, includePaper): Unit` (`OraExport.kt:168`) is the sibling this row now matches shape for shape; `OraExport.omittedBecause` (`:346-355`) already owns the "INK / hidden / 0 % / no cel" rule, so this row reuses that rule instead of inventing one; `BlendRgb.kt:296` really is `max(b - s, 0)` for SUBTRACT and `:302` `min(b / max(s, EPS), 1)` for DIVIDE, which is what R38 says Photoshop's are — so the divergence the previous draft was built on does not exist. |
+| **Status** | 📝 Draft spec — **ruling R39 is applied in full and closes the question the row was stuck on: Q1 is withdrawn as WRONG, `SUBTRACT`/`DIVIDE` write their keys, `ERASE_BELOW` refuses with an offer, INK layers are omitted with a warning naming them, Decision 6's stream-of-consciousness is replaced with a decision, and the contract now imports what it uses and types every parameter.** Two questions remain, both **file-format** decisions R39 does not cover, both of which a builder would have to guess: **Q4** the merged image's alpha, and **Q5** whether a `luni`/`lsct` resource block is written. Each has a one-line recommended answer at the foot. Nothing else is open. |
+| **Who** | spec writer `openrouter/stealth/space-bunny-alpha` 2026-09-29 · **xr: openrouter/stealth/space-bunny-alpha 2026-09-29** — R39 applied; **restructured: `PsdLayer` is gone entirely** (the writer now picks the layers itself, exactly as `OraExport` does), which removes the `strokes` field with no Decision using it *and* `rect` *and* the caller-assembled `tiles` map *and* the duplicated tile-size check, all in one move. Verified against the landed code: `OraExport.write(out, contents, boardId, frameId, includePaper): Unit` (`OraExport.kt:164`) is the sibling this row now matches shape for shape; `OraExport.omittedBecause` (`:346-355`) already owns the "INK / hidden / 0 % / no cel" rule, so this row reuses that rule instead of inventing one; `BlendRgb.kt:296` really is `max(b - s, 0)` for SUBTRACT and `:302` `min(b / max(s, EPS), 1)` for DIVIDE, which is what R39 says Photoshop's are — so the divergence the previous draft was built on does not exist. |
 | **Needs** | JB-2.13a (`RegionRenderer`, `Blend`), JB-2.14a (`PngWriter`), JB-0.08a (`JbArchive`/`JbContents`) |
-| **Owner area** | NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/PsdWriter.kt` · NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/PsdBlend.kt` (the mode → PSD 4-character table, and **nothing else in this file**) · NEW `joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/io/PsdWriterTest.kt` · NEW `joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/io/PsdReaderForTest.kt` (test source only, never `main` — Decision 9) |
+| **Owner area** | NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/PsdWriter.kt` · NEW `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/PsdBlend.kt` (the mode → PSD 4-character table, and **nothing else in this file**) · NEW `joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/io/PsdWriterTest.kt` · NEW `joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/io/PsdReaderForTest.kt` (test source only, never `main` — Decision 15) |
 | **Estimated size** | ~300 lines + ~260 lines of tests + ~110 lines of the test reader |
 | **Command** | `./gradlew -p joybrush :androidkit:compileKotlin :androidkit:test` — BUILD SUCCESSFUL, 0 failures |
 
@@ -110,7 +110,7 @@ import cc.joycreator.joybrush.core.doc.BlendMode
  * **THE KEY SET IN `keyFor` IS PROVISIONAL — see *Questions* Q1.** It is transcribed from the
  * published Photoshop/PDF blend-mode list, which is **not in this repo** and could not be checked
  * from here. The Lead's ruling settled the only question that was ever open about the *meanings*
- * (R38: Photoshop's Subtract is `base − blend` and Divide is `base ÷ blend`, clipped, the same as
+ * (R39: Photoshop's Subtract is `base − blend` and Divide is `base ÷ blend`, clipped, the same as
  * ours), and said "write the keys" — so the keys are written here and the owner check in Krita is
  * what verifies them. Verify before trusting them.
  */
@@ -138,28 +138,28 @@ number checked in the tree on 2026-09-29):
 
 ```kotlin
 // ---- cc.joycreator.joybrush.core.doc.DocJson.kt ---------------------------------------------
-class DocException(message: String) : Exception(message)                        // :8
+class DocException(message: String) : Exception(message)                        // :15
 
 // ---- cc.joycreator.joybrush.core.doc.DocModel.kt --------------------------------------------
-@Serializable data class RectPx(val x: Int, val y: Int, val w: Int, val h: Int)  // :36
-@Serializable enum class LayerKind { PAINT, INK }                                 // :92
-@Serializable data class Board(                                                  // :69
+@Serializable data class RectPx(val x: Int, val y: Int, val w: Int, val h: Int)  // :40
+@Serializable enum class LayerKind { PAINT, INK }                                 // :120
+@Serializable data class Board(                                                  // :97-106
     val id: String, val name: String, val kind: BoardKind, val rect: RectPx,
     val clipToBoard: Boolean = false, val fps: Float = 12f,
     val frames: List<Frame> = emptyList(), val grid: SpriteGrid? = null,
 )
 
-/** `DocModel.kt:124-131` — TWENTY-SEVEN entries, in this order. APPEND-ONLY (R3). */
+/** `DocModel.kt:152-159` — TWENTY-SEVEN entries, in this order. APPEND-ONLY (R3). */
 @Serializable enum class BlendMode {
     NORMAL, MULTIPLY, SCREEN, OVERLAY, ADD, DARKEN, LIGHTEN, ERASE_BELOW,
     // ---- appended, in `BlendModes.ALL` / modeCode order. FROZEN (R3, DOC_VERSION 2) ----
     DIFFERENCE, COLOR, COLOR_DODGE, COLOR_BURN, LINEAR_BURN,
     HARD_LIGHT, SOFT_LIGHT, VIVID_LIGHT, LINEAR_LIGHT, PIN_LIGHT, HARD_MIX,
-    EXCLUSION, SUBTRACT, DIVIDE, DARKER_COLOR, LIGHDER_COLOR,
+    EXCLUSION, SUBTRACT, DIVIDE, DARKER_COLOR, LIGHTER_COLOR,
     HUE, SATURATION, LUMINOSITY,
 }
 
-/** `DocModel.kt:139-150`. Note `opacity` is a **Float 0..1**, not a byte. */
+/** `DocModel.kt:167-186`. Note `opacity` is a **Float 0..1**, not a byte. */
 @Serializable data class Layer(
     val id: String, val name: String, val kind: LayerKind,
     val visible: Boolean = true, val locked: Boolean = false,
@@ -167,45 +167,45 @@ class DocException(message: String) : Exception(message)                        
     val animatedIn: String? = null, val cels: List<Cel>, val frameCel: Map<String, String> = emptyMap(),
 )
 
-/** `DocModel.kt:152-162`. **`val layers` is at line 159** — `bottom -> top`. Line 160 is
+/** `DocModel.kt:152-162`. **`val layers` is at line 195** — `bottom -> top`. Line 196 is
  *  `activeLayerId`, which is where the earlier draft's `:160` citation came from and why it was
  *  wrong. */
 @Serializable data class JbDocument(
     val format: String = DOC_FORMAT, val version: Int = DOC_VERSION,
     val id: String, val name: String, val paper: Paper = Paper(),
     val boards: List<Board>,
-    val layers: List<Layer>,                // bottom -> top      <-- DocModel.kt:159
+    val layers: List<Layer>,                // bottom -> top      <-- DocModel.kt:195
     val activeLayerId: String? = null, val activeBoardId: String? = null,
 )
 
 // ---- cc.joycreator.joybrush.core.doc.DocOps.kt ---------------------------------------------
 /** The frame-to-cel rule. **This row never derives it a second way.** */
-fun celFor(layer: Layer, frameId: String?): Cel?                               // :178
-fun key(tx: Int, ty: Int): String = "${tx}_$ty"                                 // :185
+fun celFor(layer: Layer, frameId: String?): Cel?                               // :218
+fun key(tx: Int, ty: Int): String = "${tx}_$ty"                                 // :225
 
-// ---- cc.joycreator.joybrush.core.doc.BlendRgb.kt -- the two modes R38 ruled on -----------------
+// ---- cc.joycreator.joybrush.core.doc.BlendRgb.kt -- the two modes R39 ruled on -----------------
 // SUBTRACT:  for (i in 0..2) out[i] = max(b[i] - s[i], 0f)                        // :294-298
 // DIVIDE:    for (i in 0..2) out[i] = min(b[i] / max(s[i], EPS), 1f)              // :300-304
-// i.e. base - blend and base / blend (clipped) — which is what R38 says Photoshop's are.
+// i.e. base - blend and base / blend (clipped) — which is what R39 says Photoshop's are.
 
 // ---- cc.joycreator.joybrush.core.render.RegionRenderer.kt ------------------------------------
 fun interface TileSource { fun tile(layerId: String, celId: String, tx: Int, ty: Int): ByteArray? } // :24
 const val MAX_REGION_PX = 8_388_608L                                              // :89
-const val REGION_TILE_BYTES = RegionRenderer.TILE_BYTES   // 256*256*4 = 262_144   // :176
+const val REGION_TILE_BYTES = RegionRenderer.TILE_BYTES   // 256*256*4 = 262_144   // :164
 
 fun RegionRenderer.render(
     doc: JbDocument, tiles: TileSource, rect: RectPx, frameId: String?, paper: String?,
-): ByteArray                                                                   // :196
+): ByteArray                                                                   // :184
 // -> STRAIGHT (un-premultiplied) RGBA8, `rect.w * rect.h * 4` bytes, row 0 = TOP.
 // -> RegionException over MAX_REGION_PX. A paper string that is neither null nor `#RRGGBB`
-//    throws IllegalArgumentException at RegionRenderer.kt:426, and a tile of the wrong size at
-//    :290. **Both of those are strictly downstream of this writer's own checks (which are
-//    strictly smaller numbers), which is the argument `OraExport.kt:134-139` makes.**
+//    throws IllegalArgumentException at RegionRenderer.kt:435, and a tile of the wrong size at
+//    :287-289. **Both of those are strictly downstream of this writer's own checks (which are
+//    strictly smaller numbers), which is the argument `OraExport.kt:130-136` makes.**
 
 // ---- cc.joycreator.joybrush.androidkit.io.JbArchive.kt --------------------------------------
-class JbArchiveException(message: String) : Exception(message)                  // :34
+class JbArchiveException(message: String) : Exception(message)                  // :47
 const val TILE_BYTES = TILE_SIZE * TILE_SIZE * 4   // :31 -- the SAME number as RegionRenderer's
-data class JbContents(                                                          // :44-51
+data class JbContents(                                                          // :57-64
     val doc: JbDocument,
     val tiles: Map<Triple<String, String, String>, ByteArray>,   // (layerId, celId, "tx_ty")
     val strokes: Map<Pair<String, String>, List<StrokeRecord>>,
@@ -214,7 +214,7 @@ data class JbContents(                                                          
 
 // ---- cc.joycreator.joybrush.androidkit.io.OraExport.kt -- THE SIBLING THIS ROW MATCHES -------
 fun write(out: OutputStream, contents: JbContents, boardId: String, frameId: String?,
-          includePaper: Boolean)                                                 // :168
+          includePaper: Boolean)                                                 // :164
 private fun omittedBecause(layer: Layer, frameId: String?): String? = when {    // :346-355
     layer.kind != LayerKind.PAINT -> "an INK layer; its strokes are drawn by JB-5.01, not exported as pixels yet"
     !layer.visible -> "it is hidden"
@@ -258,12 +258,12 @@ private fun tileSource(contents: JbContents) = TileSource { layerId, celId, tx, 
 | `LINEAR_LIGHT` | `lLit` | capital L |
 | `PIN_LIGHT` | `pLit` | capital L |
 | `HARD_MIX` | `hMix` | capital M |
-| `SUBTRACT` | `sub` | **R38: the same meaning as ours. Written.** |
-| `DIVIDE` | `div` | **R38: the same meaning as ours. Written.** |
+| `SUBTRACT` | `sub` | **R39: the same meaning as ours. Written.** |
+| `DIVIDE` | `div` | **R39: the same meaning as ours. Written.** |
 | `HUE` | `hue` | |
 | `SATURATION` | `sat` | |
 | `LUMINOSITY` | `"lum "` | **four characters, trailing space** |
-| `ERASE_BELOW` | **null** | refused in words, with the flattened-export offer (R38) |
+| `ERASE_BELOW` | **null** | refused in words, with the flattened-export offer (R39) |
 | `EXCLUSION` | **null** | PSD has no exclusion blend |
 | `DARKER_COLOR` | **null** | PSD has no key |
 | `LIGHTER_COLOR` | **null** | PSD has no key |
@@ -286,13 +286,13 @@ private fun tileSource(contents: JbContents) = TileSource { layerId, celId, tx, 
    that no Decision used** — a field the writer would have had to decide what to do with, which is a
    design decision left in a contract. *Why it is not just a deletion:* taking `JbContents` also
    removes the caller's tile-map assembly, removes a **second copy** of the tile-size check
-   (`RegionRenderer.kt:290` already refuses a wrong-sized tile, loudly and by name), and removes any
+   (`RegionRenderer.kt:287-289` already refuses a wrong-sized tile, loudly and by name), and removes any
    chance of two callers producing two different PSDs for one document. `JbContents` is the type
    `JbArchive` and `OraExport` already pass around, so this is sharing, not copying (R23).
 4. **The blend-key table is a TABLE, exhaustive over all twenty-seven names, with no `else`, and a
    mode PSD cannot express is `null`.** *(This replaces the draft's Decision 6, which was a
    paragraph of thinking-out-loud about whether Photoshop's Subtract meant the same thing as ours.
-   R38 answered it: it does. `BlendRgb.kt:296` is `max(b - s, 0)` and `:302` is
+   R39 answered it: it does. `BlendRgb.kt:296` is `max(b - s, 0)` and `:302` is
    `min(b / max(s, EPS), 1)` — `base − blend` and `base ÷ blend`, clipped — which is what the ruling
    says Photoshop's are. So `SUBTRACT` is `sub` and `DIVIDE` is `div`, and the divergence the old
    text was built on does not exist.)* *Why the table and not the arithmetic:* the arithmetic is
@@ -303,18 +303,18 @@ private fun tileSource(contents: JbContents) = TileSource { layerId, celId, tx, 
 5. **A mode with no key REFUSES THE WHOLE EXPORT, in words, naming the layer and the mode** — and
    for `ERASE_BELOW` the message offers the two ways out: *"this drawing has layer \"X\" in Erase
    Below mode, which PSD cannot express — export it flattened, or change that layer's mode."*
-   *(R38: "`ERASE_BELOW` refuses, with an offer of a flattened export.")* *Why a refusal and not an
+   *(R39: "`ERASE_BELOW` refuses, with an offer of a flattened export.")* *Why a refusal and not an
    approximation:* a PSD that opens and composites differently is the failure this row exists to
    prevent, and "refuse rather than approximate" applied to a format limit is the same rule as
    applied to bad input. **What this row does not do is implement "flattened":** flattening is a
    render, this row writes a container and changes no arithmetic (Decision 2 of the old draft, kept),
-   and the wording of the offer is R38's, not an invented second button. See *Questions* Q3.
+   and the wording of the offer is R39's, not an invented second button. See *Questions* Q3.
 6. **INK layers, hidden layers, layers at 0 % opacity and layers with no cel for this frame are
-   OMITTED, and every one of them is named in a returned warning** *(R38: "INK layers are OMITTED
+   OMITTED, and every one of them is named in a returned warning** *(R39: "INK layers are OMITTED
    with a warning naming them — an empty layer confuses")*. The rule and the four reasons are
    **verbatim `OraExport.omittedBecause`** (`OraExport.kt:346-355`), so the two exporters agree
    about one document. *Why omitted rather than written empty:* an empty layer in Photoshop is
-   something a person deletes without knowing why, which is R38's point and the previous draft's
+   something a person deletes without knowing why, which is R39's point and the previous draft's
    error. *Why hidden layers go too, given PSD can express them:* consistency with the sibling
    exporter, and because expressing "hidden" needs an `lsct` block — which is Q5, and this row does
    not wait on Q5 to omit a layer it cannot describe.
@@ -332,7 +332,7 @@ private fun tileSource(contents: JbContents) = TileSource { layerId, celId, tx, 
    said the table was "`2 + width` bytes each"; that is wrong on both counts — it is two bytes per
    row, and there are `height` rows, not `width`.)*
 9. **Layer records are written TOP FIRST, so `doc.layers` is reversed.** `doc.layers` is bottom → top
-   (`DocModel.kt:159`); PSD's layer records start with the topmost. Asserted, not assumed — Test 2.
+   (`DocModel.kt:195`); PSD's layer records start with the topmost. Asserted, not assumed — Test 2.
 10. **A layer with no pixels writes a record with zero channel data, not a skipped record.** *Why:*
     a layer nobody has drawn on yet is a real layer in the real stack and the next thing the person
     does is draw on it — the same reasoning as `OraExport`'s.
@@ -349,7 +349,7 @@ private fun tileSource(contents: JbContents) = TileSource { layerId, celId, tx, 
     see *Questions*.
 14. **Every refusal is checked before the first byte, so a refused export leaves `out` untouched.**
     The board, the room, both size ceilings and the paper colour are all checked up front, for the
-    same reason `OraExport` checks them (`OraExport.kt:134-141`): a refusal that leaves a half file
+    same reason `OraExport` checks them (`OraExport.kt:130-136`): a refusal that leaves a half file
     at a name the person chose is the outcome R11 exists to prevent.
 15. **The tests read the file back with a reader written for the tests**, in test source and never in
     `main`. A writer tested only against itself proves nothing; a writer tested against an
@@ -398,10 +398,10 @@ each of the twenty-three expressible modes — and `tiles` keyed
    `RegionRenderer.render(doc, tiles, rect, frameId, paper)` for the same arguments. This is the most
    valuable assertion in the file. *(Gated on Q4 only as to the alpha channel — see *Questions*.)*
 6. **Opacity and visibility:** a layer at `opacity 0.4` is written as `102` (0.4 × 255, and the test
-   says so — `Layer.opacity` is a **Float**, `DocModel.kt:145`), and the merged image still matches
+   says so — `Layer.opacity` is a **Float**, `DocModel.kt:173`), and the merged image still matches
    `RegionRenderer`'s.
 7. **Blend keys:** `keyFor` is non-null for twenty-three modes and `null` for exactly
-   `{ERASE_BELOW, EXCLUSION, DARKER_COLOR, LIGHDER_COLOR}`; every non-null key is **exactly four
+   `{ERASE_BELOW, EXCLUSION, DARKER_COLOR, LIGHTER_COLOR}`; every non-null key is **exactly four
    characters**; `"lum "` keeps its **trailing space**; and `COLOR_DODGE != DIVIDE`. The `when` has
    no `else`, so the 28th-mode guard is the **compiler**; the test guards the *content* by walking
    `BlendMode.entries` and asserting the partition above.
@@ -409,7 +409,7 @@ each of the twenty-three expressible modes — and `tiles` keyed
    missing board, a `paper.color` of `"white"`, and a layer in `ERASE_BELOW` — each throws
    `PsdException` whose message **names the offending thing**, and **the output stream has had zero
    bytes written** (D14). The `ERASE_BELOW` message is additionally asserted to contain `flattened`
-   (R38's offer).
+   (R39's offer).
 9. **Long arithmetic:** a rect at `Int.MAX_VALUE` is refused, and the test's comment says why `w * h`
    in `Int` would have wrapped (D11).
 10. **An empty layer** writes a record with zero channels, a name and a rect — not skipped (D10).
@@ -437,7 +437,7 @@ cannot prove its own tests.
 
 ## Owner check (Note 9) — **📱 the owner's, not the builder's**
 
-**Open the exported file in Krita, with one layer per blend mode, and confirm.** R38's instruction,
+**Open the exported file in Krita, with one layer per blend mode, and confirm.** R39's instruction,
 and it is the **oracle for the one thing this spec could not verify** — the 4-character key table
 above (Q1). So: a 300 × 200 board, one layer per expressible mode, each a recognisable colour,
 Export → PSD → open in Krita → every layer is there, in the right order, each compositing as it does
@@ -448,7 +448,7 @@ layer's absence must have been **said** before the export started. A 4000 × 300
 30 000-px board says why not.
 
 **And the ruling's own caveat, kept in front of the owner: *verify before trusting this ruling*.**
-R38's claim about Photoshop's Subtract and Divide could not be checked from this repo — there is no
+R39's claim about Photoshop's Subtract and Divide could not be checked from this repo — there is no
 PSD writer, no Photoshop and no PSD specification document in the tree — and the key spellings came
 from the same published list. If Krita shows `subtract` or `divide` compositing differently from the
 screen, **that is the finding**, and it is filed against the table in `PsdBlend`, not worked around
@@ -496,16 +496,16 @@ happens. Two questions are the Lead's (Q4, Q5) and the stop rule names them.
 
 ## Questions
 
-_(Spec writer: `openrouter/stealth/space-bunny-alpha`, 2026-09-29. R38 is applied above and Q1 is
+_(Spec writer: `openrouter/stealth/space-bunny-alpha`, 2026-09-29. R39 is applied above and Q1 is
 withdrawn as wrong-premise. **Two questions are left, and they are the whole of why this row is
-still Draft.** Both are **file-format** decisions R38 does not cover, and both change bytes, so
+still Draft.** Both are **file-format** decisions R39 does not cover, and both change bytes, so
 neither is mine or a cross-reviewer's.)_
 
 ### ⛔ For the Lead — the two that hold the row
 
 **Q4. What is the merged image's alpha?** Decision 7 says the composite is
 `RegionRenderer.render`'s bytes and nothing else. `render` with `paper = null` returns a **STRAIGHT
-RGBA8 image whose empty pixels are `0,0,0,0`** (`RegionRenderer.kt:207-219`: alpha 0 takes `k = 0` and
+RGBA8 image whose empty pixels are `0,0,0,0`** (`RegionRenderer.kt:197-206`: alpha 0 takes `k = 0` and
 stays transparent, by design, and the `.ora` writer writes exactly those bytes as `mergedimage.png`).
 So "the merged image" is either transparent or black, and PSD colour mode 3 permits either four or
 five channels:
@@ -532,9 +532,9 @@ is to write `luni` always and not to write `lsct`** — one block, uniform, and 
 omitted anyway (Decision 6) so `lsct` would have nothing to say. **Is that right?** Tests 12 and 13
 are the only ones waiting on it, and they are written.
 
-### Also for the Lead — the part R38 settled but the Krita check has to confirm
+### Also for the Lead — the part R39 settled but the Krita check has to confirm
 
-**Q1. The blend-key table is PROVISIONAL and I could not verify it here.** R38 settled the
+**Q1. The blend-key table is PROVISIONAL and I could not verify it here.** R39 settled the
 *meanings* (`SUBTRACT` is `base − blend`, `DIVIDE` is `base ÷ blend` clipped — and `BlendRgb.kt:296`
 and `:302` confirm ours is exactly that, so the divergence the previous draft was built on does not
 exist). What I could not verify is the **spelling** of twenty-three 4-character keys, because the
@@ -545,7 +545,7 @@ oracle; **verify before trusting this ruling** is the Lead's own caveat and it a
 much as to the meaning. If a key is wrong, the fix is one line in `PsdBlend` and nothing else —
 which is why the table is its own file with nothing else in it.
 
-**Q3. "Export it flattened" is an offer in a sentence, not a button.** R38 says `ERASE_BELOW` refuses
+**Q3. "Export it flattened" is an offer in a sentence, not a button.** R39 says `ERASE_BELOW` refuses
 *with an offer of a flattened export*, and this row writes the offer into the message (Test 8 asserts
 the word is there). It does **not** implement the flattened path, because flattening is a render and
 Decision 7 forbids a second renderer. If you want the button to exist, say so and I will add it as a
@@ -557,14 +557,14 @@ stands alone) — that is what the previous draft proposed and it is *your* call
 
 | This spec says | The tree says |
 |---|---|
-| `doc.layers` is bottom → top at `DocModel.kt:159` | **True. Line 159** is `val layers: List<Layer>,  // bottom -> top`; line 160 is `activeLayerId`, which is where the earlier `:160` came from. Corrected here. |
-| `BlendMode` has 27 entries, `ERASE_BELOW` is Joy Brush's own | **True.** `DocModel.kt:124-131`: 8 + 19 = 27. `ERASE_BELOW` is ordinal 7. |
-| `SUBTRACT` is `max(b - s, 0)` and `DIVIDE` is `min(b / max(s, EPS), 1)` | **True.** `BlendRgb.kt:294-304`. This is what makes R38's ruling land: ours *is* `base − blend` and `base ÷ blend` clipped. |
-| `Layer.opacity` is 0..1 | **True.** `DocModel.kt:145` — a `Float`, so the byte in the file is `(o * 255 + 0.5)` and Test 6 pins 0.4 → 102. |
-| `LayerKind { PAINT, INK }` | **True.** `DocModel.kt:92`. |
-| `RegionRenderer.render(doc, tiles, rect, frameId, paper)` returns straight RGBA8, row 0 = top | **True.** `RegionRenderer.kt:196-221`, and the un-premultiply with `k = 0` at alpha 0 is at `:213`. |
-| `MAX_REGION_PX = 8_388_608` | **True.** `RegionRenderer.kt:89`; `RegionRenderer.TILE_BYTES = 262_144` at `:176`. **There is a second `TILE_BYTES` at `JbArchive.kt:31` with the same value** — name which one you mean if you import it. |
+| `doc.layers` is bottom → top at `DocModel.kt:195` | **True. Line 195** is `val layers: List<Layer>,  // bottom -> top`; line 196 is `activeLayerId`, which is where the earlier `:160` came from. Corrected here. |
+| `BlendMode` has 27 entries, `ERASE_BELOW` is Joy Brush's own | **True.** `DocModel.kt:152-159`: 8 + 19 = 27. `ERASE_BELOW` is ordinal 7. |
+| `SUBTRACT` is `max(b - s, 0)` and `DIVIDE` is `min(b / max(s, EPS), 1)` | **True.** `BlendRgb.kt:294-304`. This is what makes R39's ruling land: ours *is* `base − blend` and `base ÷ blend` clipped. |
+| `Layer.opacity` is 0..1 | **True.** `DocModel.kt:173` — a `Float`, so the byte in the file is `(o * 255 + 0.5)` and Test 6 pins 0.4 → 102. |
+| `LayerKind { PAINT, INK }` | **True.** `DocModel.kt:120`. |
+| `RegionRenderer.render(doc, tiles, rect, frameId, paper)` returns straight RGBA8, row 0 = top | **True.** `RegionRenderer.kt:184-209`, and the un-premultiply with `k = 0` at alpha 0 is at `:201`. |
+| `MAX_REGION_PX = 8_388_608` | **True.** `RegionRenderer.kt:89`; `RegionRenderer.TILE_BYTES = 262_144` at `:164`. **There is a second `TILE_BYTES` at `JbArchive.kt:31` with the same value** — name which one you mean if you import it. |
 | `BlendMode` names are appended at the END and a new one needs a `DOC_VERSION` bump | **True.** R30 item 3: **the version number is assigned AT LANDING, never in a spec** — this row adds no serialised field, so it needs no bump at all. |
-| `JbContents(doc, tiles, strokes, thumbnailPng)` | **True.** `JbArchive.kt:44-51`. |
-| `OraExport.write(out, contents, boardId, frameId, includePaper)` | **True.** `OraExport.kt:168`. Its `omittedBecause` (`:346-355`), `opacityOf` (`:508-514`) and `tileSource` (`:358-360`) are pasted above and reused verbatim. |
+| `JbContents(doc, tiles, strokes, thumbnailPng)` | **True.** `JbArchive.kt:57-64`. |
+| `OraExport.write(out, contents, boardId, frameId, includePaper)` | **True.** `OraExport.kt:164`. Its `omittedBecause` (`:346-355`), `opacityOf` (`:508-514`) and `tileSource` (`:358-360`) are pasted above and reused verbatim. |
 | The row's test command | `./gradlew -p joybrush :androidkit:compileKotlin :androidkit:test`, which is also the one ROADMAP §2 rule 2 permits. `local.properties` exists in the repo, so `findAndroidJar()` resolves without the property. |

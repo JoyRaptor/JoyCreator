@@ -3878,3 +3878,12 @@ separately in Downloads. Whole-layer creation shortcut removed when the owner su
 region-board spec. Region projection and saved board frame cursor still owed. Lead handoffs and
 frontier-review priorities recorded in AGENT_BOARD.md. Read-only merge preflight detected divergent
 board spec; no merge/conflict resolution. Backup branch codex/frame-projection-foundation.
+
+## 2026-10-02 — Pixel ownership foundation for region animation landed
+
+RegionPaintPlan assigns each touched tile pixel to shared paint or a board's current-frame cel;
+partial tiles, negatives and separate boards within a tile are exact. Runtime only, no schema or
+GPU changes. 13 new tests; combined latest-paper core suite 1458/0. A deliberate one-pixel boundary
+error failed two tests; restored code passed. Landed origin/joy-creator 0a46f811 via isolated branch
+codex/region-routing after clean merge preflight. Primary dirty tree/spec divergence untouched.
+Evidence in that branch: tasks/joybrush/REGION_ROUTING_20261002.md. No phone install this slice.

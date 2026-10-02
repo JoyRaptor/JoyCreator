@@ -410,4 +410,10 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 > codex/frame-projection-foundation, not merged into origin/joy-creator: read-only preflight found a
 > board-spec add/add disagreement. Remote paper changes not yet integrated/phone-verified here.
 > Shared handoffs: tasks/joybrush/AGENT_BOARD.md. Detailed evidence: INTEGRATION_20260930.md.
+
+> **Region ownership foundation, 2026-10-02:** RegionPaintPlan landed on origin/joy-creator through
+> 0a46f811 from isolated codex/region-routing. Pixel-exact shared/frame tile partition, multi-board
+> and negative-coordinate edges; 13 new tests. Combined latest-paper core suite: 1458/0; boundary
+> sabotage caught, original restored. Runtime helper only: saved region model, GPU commit/undo,
+> preview/export adapters and phone proof still owed. Primary tree's divergent spec is preserved.
 Details: tasks/joybrush/INTEGRATION_20260930.md.

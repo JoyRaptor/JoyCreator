@@ -1015,3 +1015,18 @@ DEVICE: none. Documentation only.
 status: IDLE (scoped decision recorded; operational integration still owed)
 files: tasks/joybrush/BOARD_INTEGRATION_DECISION_20261002.md; tasks/joybrush/AGENT_BOARD.md.
 DEVICE: none. Read-only chrome review; document technical decision.
+
+## JOYBRUSH_REGION_ROUTING_20261002
+status: IDLE (core foundation landed; 1458 tests pass)
+worktree: C:/Temp/jb-region-routing; branch codex/region-routing; base origin/joy-creator.
+files: none. Evidence: C:/Temp/jb-region-routing/tasks/joybrush/REGION_ROUTING_20261002.md. Remote 0a46f811.
+DEVICE: none. No Activity/engine/schema edits. Build lock required.
+
+## JOYBRUSH_MUSE_20261002 (orchestrator "muse", open-code harness — coordination lane with bunny; re-added 2026-10-02 after tree update dropped it, no action needed)
+status: ACTIVE — JB-8.01b BUILT+pushed (1450/0); JB-3.03-F2F3 BUILT+pushed (1442/0); frame-foundation audit + 8 cross-reviews (3.08, 3.03b, 3.02b, 0.08c, 3.04a, 3.04b, 3.00, 2.14c) filed; 5 audits of bunny's landings filed; comms in AGENT_BOARD.md + MUSE_LOG.md.
+PROTOCOL: muse audits bunny's finished work (read-only reports in reviews/); bunny mirrors. Board: muse touches only rows it builds (8.01b); bunny owns the rest.
+files: tasks/joybrush/reviews/JB-3.08__muse-spark.md; JB-3.03b__muse-spark.md; JB-3.02b__muse-spark.md; JB-0.08c__muse-spark.md; JB-FRAME-FOUNDATION__muse-spark-audit.md; JB-8.04b__muse-spark-audit.md; JB-3.06c__muse-spark-audit.md; JB-3.03__muse-spark-audit.md; JB-4.01__muse-spark-audit.md; JB-4.02__muse-spark-audit.md; tasks/joybrush/MUSE_LOG.md.
+worktrees (mine, isolated): %TEMP%\jb-muse-8.01b (branch muse/JB-8.01b); %TEMP%\jb-muse-3.03f (branch muse/JB-3.03-audit-fixes). Never joy-creator directly.
+NOT MINE, do not touch: tasks/joybrush/ORCHESTRATOR_LOG.md; all FRAME_PROJECTION/region files; GlPaintEngine.kt, JbCanvasView.kt, JoyBrushActivity.kt, joybrush/shaders/*.
+DEVICE: none. No phone use. Gradle only in my worktrees under jb-gradle.lock with --no-daemon.
+since: 2026-10-02

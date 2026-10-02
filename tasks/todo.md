@@ -418,3 +418,10 @@ checked. Newer sample pen tests preserved separately. Owner restored: all 1835 e
 This is legacy frame storage, not completed region animation. Read-only merge preflight found a
 board-spec add/add conflict; no merge attempted. Backup branch: codex/frame-projection-foundation.
 See INTEGRATION_20260930.md and AGENT_BOARD.md. Remote paper integration remains owed.
+
+## Lead region ownership foundation — October 2
+- [x] Build pixel-exact shared/frame tile partition in isolated region-routing worktree.
+- [x] Full core 1458/0; sabotage detected; original restored; latest paper combined cleanly.
+- [x] Land origin/joy-creator 0a46f811; record cross-harness handoff.
+- [ ] Saved region model, migration and GPU/undo/preview/export adapter next.
+No phone/schema changes in this slice. Evidence: codex/region-routing tasks/joybrush/REGION_ROUTING_20261002.md.

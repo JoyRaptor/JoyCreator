@@ -441,3 +441,8 @@ Review: own ShippedCatalogueTest XML5/0 at2026-10-01 23:53:04 EDT; #010101 mutat
 - [x] Record the owner's crumpled/flattened priority; fix 16-bit clipping and zero-range packing; preserve subtle physical amplitude.
 - [x] Verify numerical height/slope bytes, actual CLI and mutation; record own tool XML (6/0 at2026-10-02 00:05:12 EDT). No new candidate images or unreviewed crumples shipped.
 - [x] Land the tooling fix (d6c43dab) and attempt main fast-forward (refused divergence; untouched).
+
+## JB-9.10 owner test surfaces
+- [ ] Pack three existing canvas heights and two deterministic pulp grades; add neutral selectable backgrounds and source notes.
+- [ ] Verify shipped RGBA against Kotlin packing, real brush coverage and preview pixels; mutate a height map and restore.
+- [ ] Commit/rebase/push; hand off catalogue and custom-colour preview support to the Lead.

@@ -15,3 +15,5 @@ Actual production WebGL shader vs fresh Kotlin material fixtures: 21/21 pass, ma
 Mutation: forcing the GPU checker to GL.LINEAR makes linen17/silk12 and exits1; restoring LINEAR_MIPMAP_LINEAR returns all21 to <=1 and exits0. A CPU-hook-removal mutation was prepared but its Gradle run was refused by another valid build lock; source was restored immediately. It was NOT run and is not claimed. No CPU changes followed the successful XML run. OpenCode may run that additional mutation under the lock if desired.
 
 General blend-order export parity remains JB-9.06b. Lead-owned version7 UI and phone acceptance remain separate. See PAPER_OPENCODE_HANDOFF.md for precise next work and gates. The owner requested wrap-up to conserve weekly usage.
+
+Final publication: filtering commit fbcd48fd rebased onto Lead upstream017cd4ed, whose v7 UI/IO landed during the tests. XML and GPU evidence are pre-rebase (base379782ab); no post-rebase verification claimed under the owner usage-stop. Main fast-forward refused divergence and was left unchanged.

@@ -922,3 +922,6 @@ Prioritize crumpled paper and slightly crumpled-then-flattened paper ahead of de
 
 ## 2026-10-02 — A test set is not the completed material experience
 When the owner requests completion, track UI, persisted transparency, imported-texture drawing, material alignment/seams and phone acceptance separately from core tests. Visual structural detail must share sampling geometry with brush height; brightness and pigment alone must not become height. Do not call all paper specs complete after landing only preview/data helpers.
+
+## 2026-10-02 — Respect usage-saving wrap-up
+When the owner narrows a broad completion request to the current fix and handoff, finish that bounded fix with targeted evidence, prepare concrete next specs and gates, then stop. Do not spend the remaining allowance on new assets or unrequested parallel work.

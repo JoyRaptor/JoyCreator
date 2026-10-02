@@ -22,7 +22,7 @@ A Multiply layer currently blends against transparency, then CanvasPng overlays 
 ## Tests and proof
 - Layer Multiply over a two-colour backdrop equals per-pixel BlendModes results and differs from the old post-stack composition. Normal/semi-transparent, Screen and Erase-below branches pinned too; compare all supported blend modes against a flat backdrop already supported by RegionRenderer.
 - Nonuniform paper with negative document origin and board/frame projection matches expected global-coordinate sampling; block boundaries introduce no seam and block sizes never exceed256x32.
-- Include-paper false yields the same RGBA bytes as before and makes zero paper calls; included output is opaque; changing paper cannot mutate any source tile.
+- Include-paper false yields the same RGBA bytes as before and makes zero paper calls; the background callback returns opaque pixels (ERASE_BELOW may subsequently change final alpha); changing paper cannot mutate any source tile.
 - Wrong renderer length, nonopaque paper, conflicting arguments and callback exceptions are refused. Oversized/negative/empty region behaviours retain their existing contracts and do not call the paper renderer unnecessarily.
 - PNG decoded pixels, animation frame pixels and ORA mergedimage use identical paper-aware compositing. Existing region/export suites pass; APK builds from this row worktree under jb-gradle.lock and --no-daemon, never installed.
 - Mutation: move paper back to post-stack compositing; Multiply parity must go red. Remove the block bound/length guard and verify its corresponding guard test fails.
@@ -39,3 +39,5 @@ proceed. This row owns no schema change and must preserve the Lead's new transpa
 - [ ] Lead contract agreed; implementations/tests/mutations complete with exact commands, own XML counts/timestamps.
 - [ ] Rebased/pushed; affected old specs updated to supersede post-stack composition accurately.
 - [ ] Phone export comparisons recorded separately by the Lead/owner; never claimed from desktop tests.
+
+2026-10-02 Wrap-up handoff: no export implementation landed. Start from this approved spec after Lead v7 lands. ORA bottom-paper encoding needs bounded/streaming handling; callback opacity does not imply final opacity after ERASE_BELOW. See reviews/PAPER_OPENCODE_HANDOFF.md.

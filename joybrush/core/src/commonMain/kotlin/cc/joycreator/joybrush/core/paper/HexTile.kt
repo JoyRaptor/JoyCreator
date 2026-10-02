@@ -137,6 +137,7 @@ object HexTile {
         slopeRange: Float,
         out: FloatArray,
         seed: Int = 0,
+        footprint: Double = 1.0,
     ) {
         require(out.size >= 4) { "sampleSurface needs an output array of at least 4 floats, got ${out.size}" }
         val l = lattice(px, py, hexTexels)
@@ -147,7 +148,7 @@ object HexTile {
         // overwritten rather than added to, so a second call cannot inherit the first one's answer.
         for (q in 0..3) out[q] = 0f
         for (n in 0..2) {
-            readAt(tex, px, py, hexTexels, l.vi[n], l.vj[n], rotatable, s, seed)
+            readAt(tex, px, py, hexTexels, l.vi[n], l.vj[n], rotatable, s, seed, footprint)
             contribution[0] = SurfaceMaps.decodeFilteredSlope(s[0], slopeRange)
             contribution[1] = SurfaceMaps.decodeFilteredSlope(s[1], slopeRange)
             if (rotatable) {
@@ -168,14 +169,14 @@ object HexTile {
     }
 
     /** Same lattice, offsets and weights, for a LOOK texture (RGB colour; A ignored). Returns r,g,b 0..1 into [out]. */
-    fun sampleLook(tex: PaperTexture, px: Double, py: Double, hexTexels: Double, rotatable: Boolean, out: FloatArray, seed: Int = 0) {
+    fun sampleLook(tex: PaperTexture, px: Double, py: Double, hexTexels: Double, rotatable: Boolean, out: FloatArray, seed: Int = 0, footprint: Double = 1.0) {
         require(out.size >= 3) { "sampleLook needs an output array of at least 3 floats, got ${out.size}" }
         val l = lattice(px, py, hexTexels)
         val w = gammaWeights(l.w)
         val s = FloatArray(4)
         for (q in 0..2) out[q] = 0f
         for (n in 0..2) {
-            readAt(tex, px, py, hexTexels, l.vi[n], l.vj[n], rotatable, s, seed)
+            readAt(tex, px, py, hexTexels, l.vi[n], l.vj[n], rotatable, s, seed, footprint)
             for (q in 0..2) out[q] += w[n] * s[q]
         }
     }
@@ -231,13 +232,14 @@ object HexTile {
         rotatable: Boolean,
         out: FloatArray,
         seed: Int,
+        footprint: Double,
     ) {
         val cxp = centreX(i, j, hexTexels)
         val cyp = centreY(i, j, hexTexels)
         val ox = hash(i, j, 1 + seed) * tex.w
         val oy = hash(i, j, 2 + seed) * tex.h
         if (!rotatable) {
-            tex.bilinear(px + ox, py + oy, out)
+            tex.filtered(px + ox, py + oy, footprint, out)
             return
         }
         val theta = rotation(i, j, seed)
@@ -245,7 +247,7 @@ object HexTile {
         val s = sin(theta)
         val dx = px - cxp
         val dy = py - cyp
-        tex.bilinear(c * dx - s * dy + cxp + ox, s * dx + c * dy + cyp + oy, out)
+        tex.filtered(c * dx - s * dy + cxp + ox, s * dx + c * dy + cyp + oy, footprint, out)
     }
 
     /** A hex's own turn: [rotatable] papers get one, weaves and laid lines do not. */

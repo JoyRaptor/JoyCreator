@@ -84,6 +84,6 @@ const input={vertex:fs.readFileSync(path.join(root,'shaders/jb_paper_bg.vert'),'
  fs.writeFileSync(path.join(__dirname,'out/material-gpu-contact.png'),Buffer.from(sheet,'base64'));
  fs.writeFileSync(path.join(__dirname,'out/material-gpu-check.json'),JSON.stringify(result,null,2));
  console.log(JSON.stringify(result));
- if(result.glError!==0||result.checks.some(c=>c.rawError!==0||c.bilinearError>4))process.exitCode=1;
+ if(result.glError!==0||result.checks.some(c=>c.rawError!==0||c.mipError>3))process.exitCode=1;
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

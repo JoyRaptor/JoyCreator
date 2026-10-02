@@ -20,7 +20,7 @@ The design is `research/R10_paper_and_canvas.md`.
 | JB-9.06 | paper on screen + export + zoom | 🟧 Built and landed (`2c746d3c`) — awaiting the Note 9 |
 | JB-9.08 | directional + wet deposit | 🟧 Built and landed (`15df2664`) — awaiting the Note 9 |
 | JB-9.07 | the Paper swatch + sheet | Preview backend landed (`25d3494f`); UI gate open; **Joy Brush Lead only** |
-| JB-9.10 | picture candidates (Codex) → library (specialist) | Full numerical library:17 surfaces/21 looks built; CPU17/0 and7 guard mutations; GPU minification correction/phone acceptance pending |
+| JB-9.10 | picture candidates (Codex) → library (specialist) | Full numerical library:17 surfaces/21 looks built; CPU17/0 and7 guard mutations; GPU minification corrected by JB-9.06c (21 fixtures <=1 byte); phone acceptance pending |
 
 ## The lanes
 

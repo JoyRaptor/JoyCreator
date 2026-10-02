@@ -468,3 +468,8 @@ Review: targeted core XML21/0 at2026-10-02 00:34:06 EDT; stale-tint mutation1/21
 Review: in progress; quality is measured, no market-superiority claim.
 
 Paper library review:17/0 own XML2026-10-02 07:41:39 EDT;7 guard mutations red/restored. GPU upload0 and bilinear parity≤1 byte; real mip-filter CPU mismatch found (linen17/silk12), needs JB-9.06c. Owner/phone polish acceptance pending. See reviews/JB-9.10__launch_materials.md.
+
+## JB-9.06c wrap-up plan
+- [x] Verify CPU mip filtering: 32/0 core; 21 GPU fixtures <=1 byte; GPU min-filter mutation red/restored green (CPU mutation blocked by lock).
+- [x] Prepare fix and OpenCode handoff; stop broader implementation.
+Review: JB-9.06c__cpu_mip_filtering.md records exact command/XML time and mutation limits.

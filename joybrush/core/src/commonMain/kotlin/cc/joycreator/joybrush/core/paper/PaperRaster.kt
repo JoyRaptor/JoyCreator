@@ -71,13 +71,13 @@ object PaperRaster {
             val dx = rect.x.toDouble() + x + 0.5; val dy = rect.y.toDouble() + y + 0.5
             if (look != null && lookEntry != null) {
                 val pitch = lookEntry.texelPx.toDouble() * p.scale
-                HexTile.sampleLook(look, dx / pitch, dy / pitch, lookEntry.hexTexels.toDouble(), lookEntry.rotatable, sampled)
+                HexTile.sampleLook(look, dx / pitch, dy / pitch, lookEntry.hexTexels.toDouble(), lookEntry.rotatable, sampled, footprint = 1.0 / pitch)
                 if (tint && mean != null) for (q in 0..2) sampled[q] *= base[q] / mean[q].coerceAtLeast(1f / 255f)
             } else for (q in 0..2) sampled[q] = base[q]
             var shade = 1f
             if (p.light && surface != null && surfEntry != null) {
                 val pitch = surfEntry.texelPx.toDouble() * p.scale
-                HexTile.sampleSurface(surface, dx / pitch, dy / pitch, surfEntry.hexTexels.toDouble(), surfEntry.rotatable, surfEntry.slopeRange, slopes)
+                HexTile.sampleSurface(surface, dx / pitch, dy / pitch, surfEntry.hexTexels.toDouble(), surfEntry.rotatable, surfEntry.slopeRange, slopes, footprint = 1.0 / pitch)
                 val nx = -slopes[0] / pitch.toFloat() * RELIEF_GAIN * surfEntry.relief
                 val ny = -slopes[1] / pitch.toFloat() * RELIEF_GAIN * surfEntry.relief
                 val lit = ((nx * lx + ny * ly + lz) / sqrt(nx * nx + ny * ny + 1f) / lz).coerceIn(0.6f, 1.4f)

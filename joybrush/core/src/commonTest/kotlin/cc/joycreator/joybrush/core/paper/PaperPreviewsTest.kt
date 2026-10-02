@@ -9,6 +9,30 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PaperPreviewsTest {
+    @Test fun customColourClearsTheOldLookAndTintButKeepsPhysicalAndExportSettings() {
+        val current = Paper(lookId = look.id, tint = "#FF0000", textureId = surface.id,
+            textureScale = 2f, show = .7f, bite = .4f, light = false, includeInExport = true)
+        val chosen = PaperPreviews.customColour(current, "#306090")
+        assertEquals(current.copy(color = "#306090", lookId = null, tint = null), chosen)
+        val cache = previews()
+        val pixels = cache.colour(current, "#306090", catalogue, 20)
+        assertContentEquals(render(PaperState.resolve(chosen, catalogue), RectPx(0, 0, 20, 20)), pixels)
+        for (i in pixels.indices) assertEquals(listOf(48, 96, 144, 255)[i % 4], pixels[i].toInt() and 255)
+        assertFalse(pixels.contentEquals(cache.colour(current, "#903060", catalogue, 20)))
+        assertTrue(PaperState.resolve(chosen, catalogue).surface != null)
+    }
+
+    @Test fun customColourKeepsReliefInThePreviewWhenLightIsOnAndRejectsInvalidColours() {
+        val current = Paper(textureId = surface.id, light = true)
+        val chosen = PaperPreviews.customColour(current, "#306090")
+        val cache = previews()
+        assertContentEquals(render(PaperState.resolve(chosen, catalogue), RectPx(0, 0, 16, 16)),
+            cache.colour(current, "#306090", catalogue, 16))
+        assertFalse(cache.colour(current, "#306090", catalogue, 16).contentEquals(
+            cache.colour(current.copy(light = false), "#306090", catalogue, 16)))
+        kotlin.test.assertFailsWith<IllegalArgumentException> { PaperPreviews.customColour(current, "#123") }
+    }
+
     private val surface = SurfaceEntry("ridge", "Ridge", "ridge.png", 64, 1f, 0.1f, 16f, false)
     private val look = LookEntry("coloured", "Coloured", "#808080", "look.png", "#808080",
         texelPx = 1f, hexTexels = 16f, rotatable = false, defaultSurface = surface.id)

@@ -51,6 +51,12 @@ _(append below; newest last)_
 
 2026-10-01 JB-9.07 paper specialist: claiming only core PaperPreviews/tests, with worker-owned bounded cache and all visible settings in the key; Lead keeps app UI files. Use PaperResources.load(p).render(rect) as its renderer on a background worker. Transparent-screen persistence is undefined in v4; concrete question under JB-9.07 Questions. JB-9.10 continuation adds only the specified image-free AMOLED black option; no new generated candidates.
 
+### 2026-10-02 — JB-9.10 / JB-9.07: the owner's test materials and custom colour are ready
+
+The owner requests a few canvas/pulp surfaces and custom background colour ready for the preview circle below layers and the selector. Landed `46dcc00a` / `d31f9684`: matching Background and Surface choices `canvas_linen`, `canvas_cotton_duck`, `canvas_jute`, `pulp_factory`, `pulp_handmade`; retain existing `off_white` / `pulp_artisan` and AMOLED black. Canvas rotation is off; heights/slopes affect real brush coverage. New backgrounds are neutral plain colour over their defaultSurface, without new AI look generation. Own targeted XML9/0 at2026-10-02 00:30:38 EDT; flat-linen mutation1/9 red/restored. Actual-renderer scale0.25/1/4 contact sheet: `C:/Users/JoyRaptor/AppData/Local/Temp/jb-9.10/joybrush/tools/paper/out/contact.png`.
+
+Landed `1ea2976f`: `PaperPreviews.customColour(current, "#RRGGBB")` returns the chosen document Paper, clearing stale lookId/tint and retaining surface, bite, scale, show, light and export choice; `previews.colour(current, colour, catalogue, size)` previews it. After applying, the live swatch uses `previews.crop(PaperState.resolve(chosen, catalogue), size)`. Catalogue circles use existing `background`/`surface`. Schedule on one preview worker; discard obsolete completions. Own targeted XML21/0 at2026-10-02 00:34:06 EDT; stale-tint mutation1/21 red/restored. Please wire these into the Lead-owned swatch/selector/shared picker and document undo/save; no app hot files changed here. Main fast-forward refuses divergence at `51ad3802`; main files left untouched. Review commands are in `reviews/JB-9.10__test_set.md` and `reviews/JB-9.07__custom_colour.md`. No APK rebuilt or phone installed; the crumple candidates remain unselected pending convincing folds, and image generation remains paused.
+
 ## Lead answers
 
 _(the Lead writes here)_

@@ -12,6 +12,61 @@
       "hexTexels": 180,
       "rotatable": true,
       "relief": 1.0
+    },
+    {
+      "id": "canvas_linen",
+      "name": "Fine linen",
+      "file": "surface_canvas_linen.png",
+      "size": 512,
+      "texelPx": 0.75,
+      "slopeRange": 0.099,
+      "hexTexels": 180,
+      "rotatable": false,
+      "relief": 1.0
+    },
+    {
+      "id": "canvas_cotton_duck",
+      "name": "Cotton duck",
+      "file": "surface_canvas_cotton_duck.png",
+      "size": 512,
+      "texelPx": 1.0,
+      "slopeRange": 0.099,
+      "hexTexels": 180,
+      "rotatable": false,
+      "relief": 1.0
+    },
+    {
+      "id": "canvas_jute",
+      "name": "Rough jute",
+      "file": "surface_canvas_jute.png",
+      "size": 512,
+      "texelPx": 1.25,
+      "slopeRange": 0.099,
+      "hexTexels": 180,
+      "rotatable": false,
+      "relief": 1.0
+    },
+    {
+      "id": "pulp_factory",
+      "name": "Factory pulp",
+      "file": "surface_pulp_factory.png",
+      "size": 512,
+      "texelPx": 2.0,
+      "slopeRange": 0.099,
+      "hexTexels": 180,
+      "rotatable": true,
+      "relief": 1.0
+    },
+    {
+      "id": "pulp_handmade",
+      "name": "Handmade pulp",
+      "file": "surface_pulp_handmade.png",
+      "size": 512,
+      "texelPx": 2.0,
+      "slopeRange": 0.099,
+      "hexTexels": 180,
+      "rotatable": true,
+      "relief": 1.0
     }
   ],
   "looks": [
@@ -32,6 +87,41 @@
       "file": null,
       "defaultSurface": null,
       "lightByDefault": false
+    },
+    {
+      "id": "canvas_linen",
+      "name": "Fine linen",
+      "base": "#F2F1ED",
+      "file": null,
+      "defaultSurface": "canvas_linen"
+    },
+    {
+      "id": "canvas_cotton_duck",
+      "name": "Cotton duck",
+      "base": "#F0EFEB",
+      "file": null,
+      "defaultSurface": "canvas_cotton_duck"
+    },
+    {
+      "id": "canvas_jute",
+      "name": "Rough jute",
+      "base": "#E7E4DE",
+      "file": null,
+      "defaultSurface": "canvas_jute"
+    },
+    {
+      "id": "pulp_factory",
+      "name": "Factory pulp",
+      "base": "#F5F4F1",
+      "file": null,
+      "defaultSurface": "pulp_factory"
+    },
+    {
+      "id": "pulp_handmade",
+      "name": "Handmade pulp",
+      "base": "#F2F0EC",
+      "file": null,
+      "defaultSurface": "pulp_handmade"
     }
   ]
 }

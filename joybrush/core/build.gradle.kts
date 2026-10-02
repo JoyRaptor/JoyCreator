@@ -44,9 +44,20 @@ tasks.named("jvmTest") {
     inputs.dir(rootDir.resolve("brushes")).withPropertyName("shippedBrushes")
     inputs.dir(rootDir.resolve("assets")).withPropertyName("shippedAssets")
     inputs.dir(rootDir.resolve("shaders")).withPropertyName("shippedShaders")
-    // JB-8.05 (R44): the real-files probe reads a git-ignored local corpus of third-party brush files.
-    // Declared so adding or changing a file re-runs the probe; an absent folder is simply empty.
-    val corpus = providers.environmentVariable("JOYBRUSH_TESTDATA").orElse(rootDir.resolve("testdata-local").path)
-    inputs.files(fileTree(corpus)).withPropertyName("realCorpus").optional()
+    // JB-8.05 (R44 item 1): the corpus must go in as a DIRECTORY, not as a pattern. `fileTree(<String>)`
+    // takes the value as an Ant-style include pattern, and this checkout's path ends in
+    // "...FadCam\joybrush\testdata-local", which that parse rejects with
+    // "Trailing char < > at index 58" — so :core:jvmTest FAILED at execution instead of registering the
+    // input, and the guarantee R44 item 1 buys (an edited corpus re-runs the probe) was not in force.
+    // `inputs.dir(...)` takes the value as a literal filesystem directory and parses no pattern at all —
+    // the same call the three lines above already use.
+    // `.optional()` keeps an ABSENT folder as an empty input rather than a failure: testdata-local is
+    // git-ignored (.gitignore:90), so a fresh worktree has none — the common case, and R44 item 4's
+    // "with the folder empty it skips".
+    // Read the env var ONCE, here, into a String rather than leaving it a lazy Provider: the value is
+    // fixed for the build, so the file tree, the property below and the tests (RealFilesProbeTest and
+    // AbrRealFilesTest read the same variable themselves) all work from one resolved path.
+    val corpus = providers.environmentVariable("JOYBRUSH_TESTDATA").getOrElse(rootDir.resolve("testdata-local").path)
+    inputs.dir(corpus).withPropertyName("realCorpus").optional()
     inputs.property("realCorpusPath", corpus)
 }

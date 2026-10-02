@@ -12,8 +12,9 @@ class PaperTestSetTest {
     private val dir = File(joybrushRoot(), "assets/paper")
     private val catalogue get() = PaperCatalogues.parse(File(dir, "catalogue.json").readText())
     private val ids = listOf("canvas_linen", "canvas_cotton_duck", "canvas_jute", "pulp_factory", "pulp_handmade")
-    private fun texture(s: SurfaceEntry): PaperTexture {
-        val img = ImageIO.read(File(dir, s.file))
+    private fun texture(s: SurfaceEntry): PaperTexture = texture(s.file)
+    private fun texture(file: String): PaperTexture {
+        val img = ImageIO.read(File(dir, file))
         val bytes = ByteArray(img.width * img.height * 4)
         for (y in 0 until img.height) for (x in 0 until img.width) {
             val argb = img.getRGB(x, y); val i = (y * img.width + x) * 4
@@ -35,7 +36,7 @@ class PaperTestSetTest {
             for ((col, scale) in listOf(.25f, 1f, 4f).withIndex()) {
                 val paper = PaperState.resolve(cc.joycreator.joybrush.core.doc.Paper(
                     lookId = lookId, textureId = id, textureScale = scale), c)
-                val rgba = PaperRaster.render(paper, null, tex, RectPx(0, 0, 128, 128))
+                val rgba = PaperRaster.render(paper, look.file?.let(::texture), tex, RectPx(0, 0, 128, 128))
                 for (y in 0 until 128) for (x in 0 until 128) {
                     val i = (y*128+x)*4
                     sheet.setRGB(col*144+x, row*152+y, ((rgba[i].toInt() and 255) shl 16) or
@@ -84,7 +85,7 @@ class PaperTestSetTest {
             }
             assertTrue(samples.max() - samples.min() > .15f, "$id must affect deposition, not be flat")
             coverage.add(samples)
-            val cache = PaperPreviews { p, rect -> PaperRaster.render(p, null, tex, rect) }
+            val cache = PaperPreviews { p, rect -> PaperRaster.render(p, p.look?.file?.let(::texture), tex, rect) }
             val look = assertNotNull(PaperCatalogues.look(c, id))
             assertEquals(s.id, look.defaultSurface)
             val pixels = cache.background(look, c, 64)

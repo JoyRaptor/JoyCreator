@@ -170,7 +170,7 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
     }
 
     @Override
-    public float currentRotationDeg() { return target.rotationDeg(now()); }
+    public float currentRotationDeg() { return TransformQuad.norm180(target.rotationDeg(now())); }
 
     // ── Writing ──────────────────────────────────────────────────────────
 
@@ -180,7 +180,7 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         startCx = target.centerX(t);
         startCy = target.centerY(t);
         startSize = target.sizeFraction(t);
-        startRot = target.rotationDeg(t);
+        startRot = TransformQuad.norm180(target.rotationDeg(t));
         hadPinKeys = false;
         KeyframeSet ks = item.getKeyframes();
         if (ks != null) {
@@ -197,7 +197,7 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         startCx = target.centerX(t);
         startCy = target.centerY(t);
         startSize = target.sizeFraction(t);
-        startRot = target.rotationDeg(t);
+        startRot = TransformQuad.norm180(target.rotationDeg(t));
     }
 
     @Override
@@ -336,7 +336,7 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         // Size and angle first, position last: moveTo is the one that reads the object's CURRENT
         // rendered size to clamp its travel, so it must see the size this gesture just set.
         target.scaleTo(Math.max(0.01f, startSize * factor), t);
-        target.rotateTo(startRot + deltaDeg, t);
+        target.rotateTo(TransformQuad.norm180(startRot + deltaDeg), t);
         // SPEC B — the pivot fold, pinch side. cxPx/cyPx is where the PRESENTED centre lands
         // under the fingers (the view computes it from readPivot, which returns the folded
         // centre); the pose centre to write is that point UN-FOLDED at the new pose:
@@ -364,7 +364,7 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
 
     @Override
     public void writeRotation(float deg) {
-        target.rotateTo(deg, now());
+        target.rotateTo(TransformQuad.norm180(deg), now());
         onChanged.run();   // SPEC J — every write path ends in onChanged (coalesced)
     }
 
@@ -393,7 +393,7 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
                     || Math.abs(target.centerY(t) - startCy) > 1e-4f
                     || Math.abs(target.sizeFraction(t) - startSize)
                             > 1e-4f * Math.max(1f, Math.abs(startSize))
-                    || Math.abs(target.rotationDeg(t) - startRot) > 1e-3f) {
+                    || Math.abs(TransformQuad.norm180(target.rotationDeg(t)) - startRot) > 1e-3f) {
                 FLog.d("PinBake", "drift-walkaway id=" + item.getId() + " what=" + what);
                 TransformDiag.log("drift-walkaway id=" + item.getId() + " what=" + what);
                 target.commit(what);
@@ -482,7 +482,7 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         if (mirChange && item.hasMesh()) return;
         RectF v = target.videoRect();
         if (v.width() <= 0f || v.height() <= 0f) return;
-        float rot0 = target.rotationDeg(t);
+        float rot0 = TransformQuad.norm180(target.rotationDeg(t));
         // SPEC P — THE ANCHOR IS THE POSE CENTRE, AND IT IS NOT box.centerX().
         //
         // `box` comes from Target.frame(), which ends in TextOverlayLayer.foldRotationPivotIntoBox:
@@ -521,7 +521,9 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
                 split = true;
             }
         }
-        // Rotation ADDS (SPEC A raw storage: 720 stays 720) — never folded into a window.
+        // Rotation ADDS (SPEC A raw storage: 720 stays 720) — never folded into a window. The BASE is
+        // canonical (rot0, read folded) so a pose an older build stored as 205 cannot be carried
+        // into the new one; the delta above it is left raw, which is the part SPEC A is about.
         float newRot = rot0 + fit.rotDeltaDeg;
         // New pose centre: the fit's translation, plus the pivot-anchor compensation. The
         // render turns about the stored pivot, whose pin-aware offset is redefined by the new
@@ -784,7 +786,7 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         // writes the static pose); skipped at exactly 0 so a flat flip writes no rotation.
         // (Armed/meshed keeps the pose-frame permutation above — an approximation for
         // animated pins at nonzero rotation, unchanged.)
-        float curRot = target.rotationDeg(t);
+        float curRot = TransformQuad.norm180(target.rotationDeg(t));
         if (curRot != 0f) target.rotateTo(-curRot, t);
         FLog.d("PinFlip", "flip id=" + item.getId() + (horizontal ? " H" : " V")
                 + " armed=" + item.isArmed() + " mesh=" + item.hasMesh()

@@ -56,6 +56,104 @@ files and the 32 untracked files stay exactly as they are. Do **not** use `--har
 
 ---
 
+## SESSION 3 — 2026-10-02, orchestrator "bunny" (this session)
+
+`:core:jvmTest` **1508 / 0 / 0** (104 suites) · `:androidkit:test` **231 / 0** (20 suites).
+Landed on `joy-creator`: **`93804965`**, **`2ae29249`**, **`6d6d670f`**.
+
+**The one that mattered most was not a row at all.** `joybrush/core/build.gradle.kts` passed a
+**String** to `fileTree(...)`, and Gradle reads a String as an **Ant include pattern**, not a
+directory. With `JOYBRUSH_TESTDATA` set — *the only way to reach the real `.abr` corpus* — the
+task died at execution with `Trailing char < > at index 58`. So **R44 item 1's guarantee (an
+edited corpus re-runs the probe) was never in force, and no worktree could have run the real-file
+test at all.** Fixed with `inputs.dir(...)`, the same call the three lines above already use.
+After the fix `AbrRealFilesTest` went from **4 skipped** to **4 executed**. The lesson is not
+"Do check your build files"; it is that **a build input declaration is code, and it had never
+been executed on the path that matters.**
+
+### Landed
+
+| Commit | What | Result |
+|---|---|---|
+| `93804965` | muse's `JB-8.01b` (`.abr` vs four real files) + the `build.gradle.kts` fix | 1499/0/0, real probe executes; row → `🟩 Reviewed (xr)` |
+| `2ae29249` | board: duplicate `JB-3.00` row deleted, `JB-3.04a/b` reverted to Outline, stale "no spec exists" corrected | 5 lines |
+| `6d6d670f` | muse's `JB-3.03` F2+F3, bunny's `JB-9.01` audit fixes, `JB-2.03a` cancel rule | core 1508/0/0, `HexTileTest` 15/15, androidkit 231/0 |
+
+### Audits filed (read-only, nothing committed by the auditors)
+
+`JB-9.01_9.02` **0 BLOCKER, 4 MAJOR, 5 MINOR** · `JB-9.04_9.05` **0 BLOCKER, 3 MAJOR, 9 MINOR**
+· `JB-2.02c_2.03a` **1 BLOCKER, 4 MAJOR, 11 MINOR**.
+
+The BLOCKER is the best find of the session and it is a **degenerate predicate**: the long-press
+eyedropper's cancel circle is drawn *on the touch point*, so `overCancel()` is true at t=0 and a
+plain long-press-then-lift takes **nothing**. The spec's own acceptance check cannot pass. The fix
+is a rule — *a cancel circle is a way back, so it is not a cancel until the touch has left it* —
+and the rule landed in `Eyedropper` with tests. **The call site is in `JbCanvasView.kt`, a
+Lead-only hot file, so both patches sit in `tasks/joybrush/held/` and the feature is still dead in
+the app.** Question 1 in `LEAD_DESK.md`.
+
+### Two auditors disagreed with the audit, and the builder was right
+
+Worth recording as a ratio, not a story. The `JB-9.01` builder **disputed two findings with
+reasoning** — the audit had quoted a *pre-`JB-9.03b`* snapshot, so its findings 3 and 8 described
+an encoding that had already been replaced. It also corrected **my** diagnosis of its own compile
+error: I said "an `Int` literal in a `ByteArray` needs `.toByte()`", and it pointed at three
+pre-existing lines in the same file that do exactly that and ship today, because Kotlin adapts an
+integer literal when the value fits — `128` was outside `Byte`'s range, and `= 0` was never an
+error. **A reviewer that never runs anything is still a reader, and a builder that reads its own
+compiler output carefully is worth more than either of us.**
+
+### The no-gradle rule, measured
+
+The `JB-9.01` branch **did not compile at all** — 1243 lines of tests, never built — and its
+Python port was wrong three times about float32 vs float64: it reported a residual of "exactly
+0.0" that was really **0.060**, 60 000× its own tolerance. One `compileTestKotlinJvm` in its own
+worktree would have caught the type error in seconds. Question 5 in `LEAD_DESK.md` proposes
+letting builders compile but never test.
+
+---
+
+## THE LESSONS THIS SESSION PAID FOR
+
+**14. `fileTree(<String>)` is a PATTERN, not a directory.** It cost the real-file corpus
+entirely, and it was invisible because the suite is green when the variable is unset. **The
+symptom is a build that is red only on the path nobody takes.**
+
+**15. I collided with Muse on JB-8.01b** by dispatching a builder before fetching the other
+orchestrator's branches. My duplicate never compiled; Muse's was proven. Fix: *fetch the other
+lane's branches before dispatching, not after.*
+
+**16. Two overlapping Gradle runs in one worktree produce a plausible red that is not red** —
+`Unable to delete ...\test-results\jvmTest\binary\output.bin`. I caused it myself. Also observed a
+**822 MB daemon already resident from 07:17** (the owner's watcher), so the real headroom is
+tighter than the nominal 2.5 GB.
+
+**17. A board's Who cell is a CLAIM, not evidence.** `JB-3.04a/b` carried detailed, plausible
+review verdicts for spec files that **do not exist on disk** — copy-pasted from `JB-3.03b` and
+`JB-3.02b`. Muse made the same mistake independently (reviewing non-existent specs). New rule:
+*the review file must exist on disk before a verdict is triaged.*
+
+**18. Editing a CRLF + UTF-8 file from PowerShell corrupts it, and the corruption is invisible in
+a diff summary.** `[System.IO.File]::WriteAllLines` silently normalised 319 CRLF endings and once
+dropped an emoji entirely (`代` U+4EE3 replaced 🟧). Three false "the diff shows other rows
+changed" scares followed. **Use the edit tool for repo files; never PowerShell text cmdlets.**
+This is the same accident class as lesson 12, and it is now twice paid for.
+
+---
+
+## OPEN QUESTIONS FOR THE LEAD
+
+Five, all in `LEAD_DESK.md`: the held `JbCanvasView` BLOCKER patch · whether to write the
+onion specs or fold the rows away (the `OnionMath` extraction has **no owner**) · the 8.01
+spacing constant · the `A - B²` clamp consumer · whether builders may compile.
+
+**Also flagged, not asked of anyone:** the owner's main folder is **diverged — 7 commits ahead,
+34 behind** (the 7 are Codex's region work). `git merge --ff-only` refuses. Per R8 I did not
+rebase, reset, merge or resolve anything, and I ran no gradle there. All my work is on
+`origin/joy-creator` and in worktrees, so nothing is stranded.
+
+---
+
 ## LANDED THIS SESSION (all pushed)
 
 | Row | What | Result |

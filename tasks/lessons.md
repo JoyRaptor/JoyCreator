@@ -919,3 +919,6 @@ When the owner pauses generation, start no new image calls. Finish saving alread
 
 ## 2026-10-02 — Crumpled and flattened paper are high priority
 Prioritize crumpled paper and slightly crumpled-then-flattened paper ahead of decorative looks. Physical surfaces must change brush deposition, not only lighting. Preserve 16-bit height data when packing; do not normalize a subtle height span back to full contrast. Use a shared physical slope range when comparing full and flattened versions so directional normalization does not erase their amplitude difference.
+
+## 2026-10-02 — A test set is not the completed material experience
+When the owner requests completion, track UI, persisted transparency, imported-texture drawing, material alignment/seams and phone acceptance separately from core tests. Visual structural detail must share sampling geometry with brush height; brightness and pigment alone must not become height. Do not call all paper specs complete after landing only preview/data helpers.

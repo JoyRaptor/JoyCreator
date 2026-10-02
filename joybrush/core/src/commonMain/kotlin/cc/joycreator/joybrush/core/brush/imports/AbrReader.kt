@@ -40,11 +40,13 @@
  *  - **The brush key schema (`Brsh`, `Dmtr`, `szVr`, `bVTy`, …) is not documented by anyone.** R4
  *    §A.2 marks it [O2]: read out of real files by the parsers above. The keys are read by name and a
  *    key this build has never heard of is kept raw in `extensions` rather than guessed at.
- *  - **The width of the two `u32` fields that follow a `samp` entry's bounds** (`depth`,
- *    `compression`) is not recorded in R4 §B.1. They are read here as big-endian `u32`, which is the
- *    width the rest of this container uses, and an entry whose `depth` is not one of 1/8/16/32 or
- *    whose `compression` is not 0/1 is **not read at all**: the brush that names it is refused with
- *    a sentence. A wrong width must cost a brush and a warning, never a number that looks right.
+ *  - **The `samp` entry layout is ag-psd's, verified byte for byte against real files
+ *    (JB-8.01b).** Each entry is framed by its own `u32` length (padded to 4): a Pascal id with no
+ *    padding, 10 bytes of preamble for minor version 1 or 264 for minor 2, bounds as top, left,
+ *    bottom, right `int32`, then `depth` as `int16` and `compression` as one byte. An entry whose
+ *    `depth` is not 8 or 16, whose compression is not 0/1, or whose 16-bit pixels are
+ *    RLE-compressed is **not read at all**: the brush that names it is refused with a sentence. A
+ *    wrong width must cost a brush and a warning, never a number that looks right.
  */
 
 package cc.joycreator.joybrush.core.brush.imports
@@ -59,7 +61,6 @@ internal class AbrFile(
     val subVersion: Int,
     val brushes: List<AbrBrush>,
     private val tips: List<AbrTip>,
-    val patterns: List<AbrPattern>,
     private val bytes: ByteArray,
 ) {
     /** The tips by their id, normalised once. See [AbrReader.normaliseId]. */
@@ -79,9 +80,9 @@ internal class AbrFile(
      *
      * Not an image: no PNG, no inflate, no colour, no scaling. PackBits RLE is undone because
      * Decision 4's hardness stand-in is `0.25 + 0.7 × meanAlpha` and a mean is one pass over the
-     * decoded samples. `depth` 1, 8 and 16 are read (a 16-bit sample contributes its high byte);
-     * 32 is refused, because "what does a 32-bit tip's alpha mean" is not a question an importer
-     * should answer on a stranger's file.
+     * decoded samples. `depth` 8 and 16 are read (a 16-bit sample contributes its high byte);
+     * anything else is refused, because "what does a 32-bit tip's alpha mean" is not a question an
+     * importer should answer on a stranger's file.
      */
     fun grayBytes(tip: AbrTip): ByteArray {
         tip.error?.let { throw BrushException("its sampled tip cannot be read: $it") }
@@ -92,6 +93,14 @@ internal class AbrFile(
         // `width * height * bps` is already bounded by `MAX_TIP_BYTES` in tipError, so this fits an Int.
         val out = ByteArray((rowBytes * height).toInt())
         val cur = AbrCursor(bytes, tip.dataStart, tip.dataEnd, "sampled tip \"${tip.id}\"")
+        // PackBits rows are preceded by one `u16` table of row byte counts (JB-8.01b); it is read
+        // once, before any row, and the rows below only consume what the table promised.
+        val counts: IntArray? = if (tip.compression == AbrReader.COMPRESSION_PACKBITS) {
+            val rows = height.toInt()
+            IntArray(rows) { cur.u16() }
+        } else {
+            null
+        }
         var written = 0L
         for (row in 0 until height) {
             when (tip.compression) {
@@ -100,7 +109,7 @@ internal class AbrFile(
                     written += rowBytes
                 }
                 AbrReader.COMPRESSION_PACKBITS -> {
-                    val declared = cur.u16()
+                    val declared = counts!![row.toInt()]
                     if (declared.toLong() > cur.remaining()) {
                         throw BrushException(
                             "sampled tip \"${tip.id}\" row ${row + 1} claims $declared bytes, " +
@@ -158,9 +167,6 @@ internal class AbrTip(
     /** `bottom - top`, in Long. */
     val height: Long get() = bottom - top
 }
-
-/** One `patt` record. [details] is empty when the record is not a Virtual Memory Array List we read. */
-internal class AbrPattern(val id: String, val byteLength: Int, val details: String)
 
 /** One Action Descriptor: a class and a list of keyed values. */
 internal class AbrDescriptor(val name: String, val classId: String, val items: List<AbrItem>) {
@@ -221,12 +227,9 @@ internal object AbrReader {
 
     private const val SIG_8BIM = "8BIM"
 
-    /** `samp` entries carry a fixed preamble counted from the entry's first byte (R4 §B.1). */
-    private const val PREAMBLE_SUB1 = 47
-    private const val PREAMBLE_SUB2 = 301
-
-    /** R4 §B.1: "Some versions append 8 trailing bytes" after a `samp` entry's pixels. */
-    private const val TIP_TRAILER = 8
+    /** Bytes ag-psd skips after a `samp` entry's Pascal id: 10 for minor version 1, 264 for 2. */
+    private const val SAMP_SKIP_SUB1 = 10
+    private const val SAMP_SKIP_SUB2 = 264
 
     /**
      * Read one `.abr`.
@@ -255,9 +258,15 @@ internal object AbrReader {
                 "a .abr of version $version cannot be read; this build reads 6, 7, 9 and 10"
             )
         }
+        // ag-psd reads the minor version only on the 6/7/9/10 path and refuses anything but 1/2:
+        // the `samp` preamble is 10 bytes for 1 and 264 for 2, so any other number has no layout.
+        if (subVersion != 1 && subVersion != 2) {
+            throw BrushException(
+                "a .abr of minor version $subVersion cannot be read; this build reads 1 and 2"
+            )
+        }
 
         val tips = ArrayList<AbrTip>()
-        val patterns = ArrayList<AbrPattern>()
         var brushes: List<AbrBrush>? = null
         var sections = 0
 
@@ -290,12 +299,10 @@ internal object AbrReader {
             // R4 §B.1 describes and one writer's capital P must not read as "no brushes".
             when (key.lowercase()) {
                 "samp" -> readTips(section, tips, subVersion)
-                "patt" -> readPatterns(section, patterns)
                 "desc" -> brushes = readBrushes(section)
-                // `phry` is the preset group hierarchy — another descriptor, and this importer reads
-                // nothing out of it, so it is skipped by its own declared length and not parsed. A
-                // declared length is not trusted for anything that is used; skipping a payload is
-                // the one use of it that cannot invent a number.
+                // `patt` (patterns, JB-1.05d) and `phry` (the preset group hierarchy) are skipped by
+                // their own declared length: this importer reads nothing out of either, and skipping
+                // a payload is the one use of a declared length that cannot invent a number.
                 else -> {}
             }
             cur.seek(end)
@@ -308,46 +315,60 @@ internal object AbrReader {
         if (brushes.size > AbrImport.MAX_BRUSHES) {
             throw AbrCap("a .abr carries at most ${AbrImport.MAX_BRUSHES} brushes, this one claims ${brushes.size}")
         }
-        return AbrFile(version, subVersion, brushes, tips, patterns, bytes)
+        return AbrFile(version, subVersion, brushes, tips, bytes)
     }
 
     // ---- `samp` -------------------------------------------------------------------------------------
 
+    /**
+     * The `samp` section, entry by entry against ag-psd's `readAbr` (`case 'samp'`).
+     *
+     * Each entry is framed by its own `u32` length (padded to 4): a Pascal id with no padding, then
+     * 10 bytes of preamble for minor version 1 or 264 for minor 2, then the bounds as **top, left,
+     * bottom, right** `int32`, then `depth` as `int16` and `compression` as one byte. The section
+     * cursor is put at the end of the entry whatever the pixels did, so no trailer is assumed and
+     * no entry can run into the next.
+     */
     private fun readTips(cur: AbrCursor, into: MutableList<AbrTip>, subVersion: Int) {
-        val preamble = if (subVersion == 1) PREAMBLE_SUB1 else PREAMBLE_SUB2
+        val skip = if (subVersion == 1) SAMP_SKIP_SUB1 else SAMP_SKIP_SUB2
         while (cur.remaining() > 0) {
-            val entryStart = cur.at
-            val idLength = cur.u8()
-            if (idLength > cur.remaining() || idLength > AbrImport.MAX_STRING_BYTES) {
+            if (cur.remaining() < 4) {
+                // Fewer than four bytes cannot hold another entry's length: trailing padding inside
+                // the section. Everything read so far is kept (see the `idLength` break below).
+                break
+            }
+            val brushLength = cur.u32()
+            var padded = brushLength
+            while ((padded and 3L) != 0L) padded++
+            if (padded > cur.remaining().toLong()) {
+                throw BrushException(
+                    "a sampled tip claims $brushLength bytes, only ${cur.remaining()} are left: " +
+                        "the file is truncated"
+                )
+            }
+            val brushEnd = cur.at + padded.toInt()
+            val entry = cur.region(brushEnd)
+            val idLength = entry.u8()
+            if (idLength > entry.remaining() || idLength > AbrImport.MAX_STRING_BYTES) {
                 // The entry after the last one is not there. Everything read so far is kept and every
                 // brush that wanted a later tip is refused with "not in this file" — a shorter list
                 // is a visible loss, a wrong list is not.
                 break
             }
-            val id = cur.ascii(idLength)
-            val fixed = entryStart.toLong() + preamble
-            if (fixed > cur.end.toLong()) {
-                throw BrushException("sampled tip \"$id\" is truncated before its bounds")
-            }
-            cur.seek(fixed.toInt())
-            val top = cur.i32().toLong()
-            val left = cur.i32().toLong()
-            val bottom = cur.i32().toLong()
-            val right = cur.i32().toLong()
-            val depth = cur.u32()
-            val compression = cur.u32()
-            val dataStart = cur.at
-            // The pixel region is bounded by the section, and its own size is computed from bounds
+            val id = entry.ascii(idLength)
+            entry.skip(skip.toLong())
+            val top = entry.i32().toLong()
+            val left = entry.i32().toLong()
+            val bottom = entry.i32().toLong()
+            val right = entry.i32().toLong()
+            val depth = entry.i16()
+            val compression = entry.u8()
+            val dataStart = entry.at
+            // The pixel region is bounded by the entry, and its own size is computed from bounds
             // that have been range-checked, so nothing below is an allocation a file chose freely.
-            val error = tipError(top, left, bottom, right, depth, compression, cur.remaining())
-            val dataEnd = pixelEnd(cur, top, left, bottom, right, depth, compression, error)
-            into += AbrTip(id, top, left, bottom, right, depth.toInt(), compression.toInt(), dataStart, dataEnd, error)
-            if (dataEnd > cur.end) {
-                throw BrushException("sampled tip \"$id\" claims pixels past the end of the section: the file is truncated")
-            }
-            cur.seek(dataEnd)
-            // The documented 8-byte trailer, when the section still has it.
-            if (cur.remaining() >= TIP_TRAILER) cur.skip(TIP_TRAILER.toLong())
+            val error = tipError(top, left, bottom, right, depth.toLong(), compression.toLong(), entry.remaining())
+            val dataEnd = pixelEnd(entry, top, left, bottom, right, depth.toLong(), compression.toLong(), error)
+            into += AbrTip(id, top, left, bottom, right, depth, compression, dataStart, dataEnd, error)
             if (into.size > AbrImport.MAX_LIST_ITEMS) {
                 throw AbrCap("a .abr carries at most ${AbrImport.MAX_LIST_ITEMS} sampled tips")
             }
@@ -386,7 +407,7 @@ internal object AbrReader {
         }
         val bps = AbrReader.bytesPerSample(depth)
         if (bps == 0L) {
-            return "its depth is $depth bits; this build reads 1, 8 and 16 bit gray"
+            return "its depth is $depth bits; this build reads 8 and 16 bit gray"
         }
         if (width * height * bps > AbrImport.MAX_TIP_BYTES) {
             return "it decodes to ${width * height * bps} bytes, at most ${AbrImport.MAX_TIP_BYTES}"
@@ -394,6 +415,11 @@ internal object AbrReader {
         if (compression != COMPRESSION_RAW.toLong() && compression != COMPRESSION_PACKBITS.toLong()) {
             return "its pixels are compressed with code $compression (zlib in the newer files), " +
                 "which this build does not decode"
+        }
+        // ag-psd throws on 16-bit RLE ("not implemented"), so a 16-bit PackBits row has no oracle:
+        // refusing it is the only answer that cannot silently draw the wrong tip.
+        if (depth == 16L && compression == COMPRESSION_PACKBITS.toLong()) {
+            return "its 16-bit pixels are RLE-compressed, which this build does not decode"
         }
         val rowBytes = width * bps
         if (compression == COMPRESSION_PACKBITS.toLong() && remaining < rowBytes) {
@@ -422,20 +448,30 @@ internal object AbrReader {
         val bps = bytesPerSample(depth)
         val rowBytes = width * bps
         val total = if (compression == COMPRESSION_PACKBITS.toLong()) {
-            // Each row is a `u16` byte count and then that many RLE bytes, so the region is walked
-            // two bytes at a time from the first row's own count — the same walk `grayBytes` does.
+            // The row byte counts come first as one `u16` table, then the PackBits rows back to
+            // back — the same layout Photoshop uses for RLE image data, verified against real
+            // files (JB-8.01b). The table is walked before a single row is, so a count can never
+            // be read out of another row's bytes.
             var at = cur.at
-            for (row in 0 until height) {
+            val rows = height.toInt()
+            val counts = LongArray(rows)
+            for (row in 0 until rows) {
                 if (at + 2 > cur.end) {
                     throw BrushException("sampled tip pixel row ${row + 1} is truncated")
                 }
-                val n = ((cur.data[at].toInt() and 0xFF) shl 8) or (cur.data[at + 1].toInt() and 0xFF)
-                if (n > cur.end - (at + 2)) {
+                counts[row] = (((cur.data[at].toInt() and 0xFF) shl 8) or (cur.data[at + 1].toInt() and 0xFF)).toLong()
+                at += 2
+            }
+            var sum = (at - cur.at).toLong()
+            for (row in counts.indices) {
+                val n = counts[row]
+                if (n > cur.end - at) {
                     throw BrushException("sampled tip pixel row ${row + 1} claims $n bytes, the section ends first")
                 }
-                at += 2 + n
+                at += n.toInt()
+                sum += n
             }
-            at - cur.at
+            sum
         } else {
             rowBytes * height
         }
@@ -448,7 +484,7 @@ internal object AbrReader {
 
     /** Bytes per sample for a bit depth, or 0 for a depth this build does not read. */
     fun bytesPerSample(depth: Long): Long = when (depth) {
-        1L, 8L -> 1L
+        8L -> 1L
         16L -> 2L
         else -> 0L
     }
@@ -504,85 +540,17 @@ internal object AbrReader {
         return o - outAt
     }
 
-    // ---- `patt` -------------------------------------------------------------------------------------
-
-    /**
-     * One `patt` record: a `u32` length, then a Virtual Memory Array List holding one pattern.
-     *
-     * Only the pattern's own id and the fields that are **Adobe-documented** (R4 §B.1: the VMA header
-     * and the `Pattern` struct) are read, and they are read behind a guard: anything that does not
-     * line up leaves [AbrPattern.details] empty, which is strictly *less* information, never a wrong
-     * number. Nothing here decodes a pattern's pixels.
-     */
-    private fun readPatterns(cur: AbrCursor, into: MutableList<AbrPattern>) {
-        while (cur.remaining() > 0) {
-            val length = cur.u32()
-            if (length == 0L) return
-            if (length > AbrImport.MAX_SECTION_BYTES) {
-                throw AbrCap("a pattern record is at most ${AbrImport.MAX_SECTION_BYTES} bytes, this one claims $length")
-            }
-            if (length > cur.remaining().toLong()) {
-                throw BrushException(
-                    "a pattern record claims $length bytes, only ${cur.remaining()} are left: the file is truncated"
-                )
-            }
-            val start = cur.at
-            val end = start + length.toInt()
-            val record = cur.region(end)
-            val idLength = record.u8()
-            if (idLength > record.remaining() || idLength > AbrImport.MAX_STRING_BYTES) {
-                return
-            }
-            val id = record.ascii(idLength)
-            into += AbrPattern(id, length.toInt(), patternDetails(record))
-            cur.seek(end)
-            if (into.size > AbrImport.MAX_LIST_ITEMS) {
-                throw AbrCap("a .abr carries at most ${AbrImport.MAX_LIST_ITEMS} patterns")
-            }
-        }
-    }
-
-    /** Best-effort VMA + `Pattern` header. Empty string when the record is not the shape described. */
-    private fun patternDetails(cur: AbrCursor): String = try {
-        val vmaVersion = cur.u32()
-        cur.u32() // the VMA's own length
-        val top = cur.i32()
-        val left = cur.i32()
-        val bottom = cur.i32()
-        val right = cur.i32()
-        val channels = cur.u16()
-        if (vmaVersion != 1L || channels !in 1..56) {
-            ""
-        } else {
-            repeat(channels) { cur.u32(); cur.u32(); cur.u16() }   // written, length, pixel depth
-            val patternVersion = cur.u16()
-            val imageMode = cur.u16()
-            cur.u16(); cur.u16()                                    // the point, unused
-            val name = readUnicode(cur)
-            if (patternVersion !in 1..2 || imageMode !in 0..9) {
-                ""
-            } else {
-                "vma ${vmaVersion}, pattern $patternVersion, image mode $imageMode, " +
-                    "$top,$left to $right,$bottom, name \"$name\""
-            }
-        }
-    } catch (e: BrushException) {
-        ""
-    }
-
     // ---- `desc` --------------------------------------------------------------------------------------
 
     /**
      * The `desc` section: a `u32` descriptor version, then one Action Descriptor whose `Brsh` list
-     * holds the presets (R4 §B.1).
+     * holds the presets (R4 §B.1, ag-psd `readVersionAndDescriptor`).
      *
-     * **A count is never believed.** The list's own count is read, the region it claims is bounded,
-     * and every entry is then read out of that region — so a list that claims more entries than its
-     * bytes hold runs out of bytes and says so. An entry that will not parse refuses *itself and
-     * every entry after it*, because the entries in a list are self-delimiting only once they have
-     * been parsed: there is no way to find where the next one starts, and inventing a place is how a
-     * file turns into a different brush. The brushes before it still convert, which is the whole of
-     * D1.
+     * **A count is never believed.** The `Brsh` list is an ordinary `VlLs` — a count and then that
+     * many self-describing values — so its entries are read one at a time and the first entry that
+     * will not parse refuses *itself and every entry after it*: without the invented byte length
+     * there is no way to find where the next entry starts, and inventing a place is how a file
+     * turns into a different brush. The brushes before it still convert, which is the whole of D1.
      */
     private fun readBrushes(cur: AbrCursor): List<AbrBrush> {
         val descriptorVersion = cur.u32()
@@ -605,23 +573,31 @@ internal object AbrReader {
             throw AbrCap("a descriptor carries at most ${AbrImport.MAX_LIST_ITEMS} items, this one claims $itemCount")
         }
         val items = ArrayList<AbrItem>(if (itemCount < 64L) itemCount.toInt() else 64)
-        var brushList: BrushListHeader? = null
+        var raw: RawBrushList? = null
         repeat(itemCount.toInt()) {
             val key = readKey(cur)
-            if (key == "Brsh" && brushList == null) {
-                brushList = readBrushListHeader(cur)
+            if (key == "Brsh" && raw == null) {
+                raw = readBrushEntries(cur, budget)
             } else {
                 items += AbrItem(key, readValue(cur, budget, 1))
             }
         }
-        val header = brushList ?: throw BrushException("the brush descriptor has no \"Brsh\" list")
-        return readBrushList(cur, header, resolve(AbrDescriptor("", "", items)), budget)
+        val list = raw ?: throw BrushException("the brush descriptor has no \"Brsh\" list")
+        return toBrushes(list, resolve(AbrDescriptor("", "", items)))
     }
 
-    /** The `Brsh` list's own header, read off the main cursor: its type, its count, and its extent. */
-    private class BrushListHeader(val count: Int, val start: Int, val end: Int)
+    /** The `Brsh` list's entries as values, with the first entry that would not parse, if any. */
+    private class RawBrushList(val count: Int, val values: List<AbrValue>, val failedAt: Int?, val failedReason: String?)
 
-    private fun readBrushListHeader(cur: AbrCursor): BrushListHeader {
+    /**
+     * The `Brsh` list: `VlLs`, a count, then that many entries read straight off the section
+     * cursor — there is no byte length to seek past in a real file.
+     *
+     * The first entry that will not parse stops the read: the cursor is then at an unknown place
+     * inside the entry, so the entries after it cannot be found without reading it. Where they are
+     * is said in [toBrushes], not guessed here.
+     */
+    private fun readBrushEntries(cur: AbrCursor, budget: NodeBudget): RawBrushList {
         val type = cur.ascii(4)
         if (type != "VlLs") {
             throw BrushException("\"Brsh\" is a \"$type\", not a list of brushes")
@@ -630,46 +606,61 @@ internal object AbrReader {
         if (count > AbrImport.MAX_BRUSHES) {
             throw AbrCap("a .abr carries at most ${AbrImport.MAX_BRUSHES} brushes, this one claims $count")
         }
-        val byteLength = cur.u32()
-        if (byteLength > AbrImport.MAX_SECTION_BYTES) {
-            throw AbrCap("a list is at most ${AbrImport.MAX_SECTION_BYTES} bytes, this one claims $byteLength")
+        val values = ArrayList<AbrValue>(if (count < 64L) count.toInt() else 64)
+        var failedAt: Int? = null
+        var failedReason: String? = null
+        for (index in 0 until count.toInt()) {
+            try {
+                values += readValue(cur, budget, 2)
+            } catch (e: BrushException) {
+                failedAt = index
+                failedReason = e.message
+                break
+            }
         }
-        if (byteLength > cur.remaining().toLong()) {
-            throw BrushException(
-                "the \"Brsh\" list claims $byteLength bytes, only ${cur.remaining()} are left: the file is truncated"
-            )
-        }
-        val start = cur.at
-        val end = start + byteLength.toInt()
-        cur.seek(end)
-        return BrushListHeader(count.toInt(), start, end)
+        return RawBrushList(count.toInt(), values, failedAt, failedReason)
     }
 
     /**
-     * The brushes themselves, one entry at a time inside the list's own byte range.
+     * The brushes themselves, one value at a time.
      *
      * A `prop` reference is resolved against [root] — the root's items, which is what a pointer in
      * this position means — and a pointer that does not resolve refuses the brush with a sentence
-     * rather than handing the caller a null it would read as "this brush has no tip".
+     * rather than handing the caller a null it would read as "this brush has no tip". The first
+     * refusal, parse or resolve, refuses every entry after it too: without a length there is no way
+     * to find them, and the message says so outright.
      */
-    private fun readBrushList(
-        cur: AbrCursor,
-        header: BrushListHeader,
-        root: AbrDescriptor,
-        budget: NodeBudget,
-    ): List<AbrBrush> {
-        val region = AbrCursor(cur.data, header.start, header.end, "the \"Brsh\" list")
-        val out = ArrayList<AbrBrush>(header.count)
-        var failure: String? = null
-        for (index in 0 until header.count) {
-            if (failure != null) {
-                out += AbrBrush.Unreadable("brush ${index + 1} cannot be read: $failure")
+    private fun toBrushes(raw: RawBrushList, root: AbrDescriptor): List<AbrBrush> {
+        val out = ArrayList<AbrBrush>(raw.count)
+        var failedAt = raw.failedAt
+        var failedReason = raw.failedReason
+        for (index in 0 until raw.count) {
+            if (failedAt != null && index > failedAt) {
+                out += AbrBrush.Unreadable(
+                    "brush ${index + 1} cannot be read: it comes after brush ${failedAt + 1}, " +
+                        "which cannot be read ($failedReason), and the brushes after it " +
+                        "cannot be found without reading it"
+                )
+                continue
+            }
+            if (failedAt != null && index == failedAt) {
+                // The entry the read stopped on. Anything before it parsed and is resolved below;
+                // this is the one failure, said once.
+                out += AbrBrush.Unreadable("brush ${index + 1} cannot be read: $failedReason")
+                continue
+            }
+            if (index >= raw.values.size) {
+                // Unreachable: the read stops only on a failure, which sets failedAt. Refused
+                // anyway, so a file that ends mid-list still says where rather than indexing air.
+                failedAt = index
+                failedReason = "the file ends before it"
+                out += AbrBrush.Unreadable("brush ${index + 1} cannot be read: $failedReason")
                 continue
             }
             val descriptor: AbrDescriptor = try {
-                when (val value = readValue(region, budget, 2)) {
+                when (val value = raw.values[index]) {
                     is AbrValue.Desc -> value.descriptor
-                    is AbrValue.Ref -> (resolve(root).items.getOrNull(value.index)?.value as? AbrValue.Desc)
+                    is AbrValue.Ref -> (root.items.getOrNull(value.index)?.value as? AbrValue.Desc)
                         ?.descriptor
                         ?: throw BrushException(
                             "the list's entry ${index + 1} points at item ${value.index + 1} of the " +
@@ -678,8 +669,9 @@ internal object AbrReader {
                     else -> throw BrushException("the list's entry ${index + 1} is a ${value.javaClass.simpleName}, not a brush")
                 }
             } catch (e: BrushException) {
-                failure = "brush ${index + 1} cannot be read: ${e.message}"
-                out += AbrBrush.Unreadable(failure)
+                failedAt = index
+                failedReason = e.message
+                out += AbrBrush.Unreadable("brush ${index + 1} cannot be read: $failedReason")
                 continue
             }
             out += AbrBrush.Read(descriptor)
@@ -744,23 +736,12 @@ internal object AbrReader {
                 if (count > AbrImport.MAX_LIST_ITEMS) {
                     throw AbrCap("a list carries at most ${AbrImport.MAX_LIST_ITEMS} items, this one claims $count")
                 }
-                val byteLength = cur.u32()
-                if (byteLength > AbrImport.MAX_SECTION_BYTES) {
-                    throw AbrCap("a list is at most ${AbrImport.MAX_SECTION_BYTES} bytes, this one claims $byteLength")
-                }
-                if (byteLength > cur.remaining().toLong()) {
-                    throw BrushException(
-                        "a list claims $byteLength bytes, only ${cur.remaining()} are left: the file is truncated"
-                    )
-                }
-                // The list's own byte length is the bound every entry is read inside, so a list whose
-                // count and whose bytes disagree cannot walk off the end of the section.
-                val start = cur.at
-                val end = start + byteLength.toInt()
-                val region = cur.region(end)
+                // A real list is the count and then `count` self-describing values, each carrying
+                // its own type tag — ag-psd reads exactly this, with no byte length in between. The
+                // section cursor bounds every read; the count cap and the node budget are the bomb
+                // defence and stay.
                 val values = ArrayList<AbrValue>(if (count < 64L) count.toInt() else 64)
-                repeat(count.toInt()) { values += readValue(region, budget, depth) }
-                cur.seek(end)
+                repeat(count.toInt()) { values += readValue(cur, budget, depth) }
                 AbrValue.Items(values)
             }
             "doub" -> AbrValue.Num(cur.f64())
@@ -811,7 +792,14 @@ internal object AbrReader {
         return cur.ascii(length.toInt())
     }
 
-    /** A Unicode string: a `u32` **character** count, then that many big-endian 16-bit units. */
+    /**
+     * A Unicode string: a `u32` **character** count, then that many big-endian 16-bit units.
+     *
+     * Real files count a trailing NUL terminator in the length ("Soft Round" is stored as 11
+     * units, the name and a NUL — JB-8.01b), while the oracle the acceptance tests read was parsed
+     * without it — so trailing NULs are not part of the string. Interior ones are kept: dropping
+     * bytes from the middle of a name would be a different name, not a cleaner one.
+     */
     fun readUnicode(cur: AbrCursor): String {
         val chars = cur.u32()
         if (chars * 2L > AbrImport.MAX_STRING_BYTES) {
@@ -819,6 +807,7 @@ internal object AbrReader {
         }
         val sb = StringBuilder(chars.toInt())
         repeat(chars.toInt()) { sb.append(cur.u16().toChar()) }
+        while (sb.isNotEmpty() && sb.last() == '\u0000') sb.deleteCharAt(sb.length - 1)
         return sb.toString()
     }
 

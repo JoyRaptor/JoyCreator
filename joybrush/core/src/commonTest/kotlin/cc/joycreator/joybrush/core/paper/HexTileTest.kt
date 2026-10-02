@@ -3,16 +3,23 @@ package cc.joycreator.joybrush.core.paper
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
  * JB-9.02: the hex-tile paper sampler. The maths here is the contract; `joybrush/shaders/jb_paper.glsl`
  * is its twin, and the tests are what pin the two together.
+ *
+ * Where the twin cannot be pinned, this file says so out loud. The shader's copy of the hex-centre
+ * formula is inline in GLSL with no JVM test able to reach it, so the Kotlin side is the one that is
+ * pinned and the Lead has to carry the other half.
  */
 class HexTileTest {
     @Test fun aFilteredSlopeIsDecodedWithoutByteRounding() {
@@ -126,6 +133,56 @@ class HexTileTest {
         }
     }
 
+    /**
+     * The weight contrast is `w^HEX_GAMMA`, read from the constant rather than written out as `w*w*w`.
+     * The spec's contract names `HEX_GAMMA` as the knob (JB-9.02 line 30) and its maths block uses the
+     * name, so a public constant that nothing reads is a knob that lies to the next reader.
+     *
+     * Hand-derived, with `HEX_GAMMA = 3` and the raw weights `(1/2, 1/4, 1/4)`:
+     * ```
+     *   w^3   = (1/8, 1/64, 1/64) = (8, 1, 1)/64
+     *   Σ w^3 = 10/64
+     *   w'    = (8/10, 1/10, 1/10) = (0.8, 0.1, 0.1)
+     * ```
+     * Both 1/8 and 10/64 are binary fractions (2^-3 and 5·2^-7), so the Float cubing and the Float
+     * division are exact and 0.8f / 0.1f on the right-hand side are the same Floats the code produces.
+     * A gamma of 1 is the plain weights (total = 1 exactly for a partition of unity) and a gamma of 0 is
+     * a flat 1/3 each, both by the same arithmetic.
+     *
+     * THE REFUSAL IS THE PIN. While `HEX_GAMMA` is 3, a `w*w*w` and a `w^HEX_GAMMA` produce identical
+     * bytes, so no assertion about a blended value can tell them apart — not this one, not any other. The
+     * only thing that can is a gamma that is not a whole number of multiplies, which a hard-coded cube
+     * would accept silently and a read constant must reject; that is why the exponent is a parameter with
+     * the constant as its default. Change the implementation back to `w*w*w` and this test goes red on
+     * the refusal, not on a number.
+     */
+    @Test
+    fun theWeightContrastIsTheOneTheConstantNames() {
+        assertEquals(3f, HexTile.HEX_GAMMA, "the contract fixes the contrast at 3 (JB-9.02 Decision 2)")
+        val raw = floatArrayOf(0.5f, 0.25f, 0.25f)
+        val w = HexTile.gammaWeights(raw)
+        assertEquals(0.8f, w[0]); assertEquals(0.1f, w[1]); assertEquals(0.1f, w[2])
+        assertTrue(w.contentEquals(HexTile.gammaWeights(raw, HexTile.HEX_GAMMA)), "the default gamma is the constant")
+        assertTrue(raw.contentEquals(HexTile.gammaWeights(raw, 1f)), "gamma 1 is the plain weights")
+        val flat = HexTile.gammaWeights(raw, 0f)
+        for (k in 0..2) assertEquals(1f / 3f, flat[k], "gamma 0 weight $k")
+        val e = assertFailsWith<IllegalArgumentException> { HexTile.gammaWeights(raw, 2.5f) }
+        assertTrue(e.message.orEmpty().contains("HEX_GAMMA"), "the message should name the knob: ${e.message}")
+        assertFailsWith<IllegalArgumentException> { HexTile.gammaWeights(raw, -1f) }
+        assertFailsWith<IllegalArgumentException> { HexTile.gammaWeights(raw, Float.NaN) }
+        // over the family the sampler actually sees, the contrast keeps a partition of unity
+        val rng = Lcg(0x6A44AL)
+        var n = 0
+        while (n < 200) {
+            val px = (rng.nextUnit() - 0.5) * 5000.0
+            val py = (rng.nextUnit() - 0.5) * 5000.0
+            val g = HexTile.gammaWeights(HexTile.lattice(px, py, 37.0).w)
+            assertEquals(1f, g[0] + g[1] + g[2], 1e-6f, "contrast weights at ($px, $py)")
+            for (k in 0..2) assertTrue(g[k] >= 0f, "contrast weight $k at ($px, $py) is ${g[k]}")
+            n++
+        }
+    }
+
     // ---- 3. no seam: the height never jumps as the read walks across hex edges --------------------
 
     /** A 16x16 surface whose height is a smooth function that wraps: `0.5 + 0.2·sin(2π(x + 2y)/16)`. */
@@ -171,13 +228,57 @@ class HexTileTest {
 
     // ---- 4. a hex's own centre belongs to that hex -----------------------------------------------
 
+    /**
+     * The centre formula the spec writes down — `c = H·(i + j/2, j·√3/2)` (JB-9.02 maths block line 66)
+     * — pinned as numbers rather than as a copy of the formula inside some other test. The other tests in
+     * this file now CALL [HexTile.centreX] and [HexTile.centreY]; without a test that states the value,
+     * a change to either function would be followed along by every caller and nothing would say so.
+     *
+     * Worked at H = 10, with √3 = 1.7320508075688772935…:
+     * - `(2, −3)`: x is `10·(2 + (−3)/2.0)` = `10·(2 − 1.5)` = 5.0, and y is `10·(−3·√3/2)` = −15√3 =
+     *   −25.98076211353316. This pair is here for `j / 2.0`: an INTEGER `j / 2` truncates −3/2 towards
+     *   zero to −1 and gives x = 10.0, so the assertion fails by 5.0 if the `2.0` is ever dropped.
+     * - `(0, 1)`: x is `10·0.5` = 5.0 and y is `10·(√3/2)` = 5√3 = 8.660254037844386.
+     * - `(−1, 0)`: x is `10·(−1)` = −10.0 and y is 0.0, the row where the √3 term vanishes.
+     * - `(3, 5)`: x is `10·(3 + 2.5)` = 55.0 and y is `10·(5·√3/2)` = 25√3 = 43.301270189221932.
+     *
+     * Every x value is a sum of halves and tens, so it is exact in Double and is asserted with no
+     * tolerance at all. Every y value carries a Double √3, so it picks up up to half an ulp of the √3,
+     * half an ulp of `j·√3` and half an ulp of the final scale — about 3·1.11e-16 of relative error —
+     * plus half an ulp of the decimal literal written above, which at magnitude 43 (one ulp 7.11e-15) is
+     * about 1.8e-14. The tolerance is 1e-13, roughly six times that worst case and still four orders of
+     * magnitude below every mutation the next comment names.
+     */
+    @Test
+    fun theHexCentreIsThePointTheSpecWroteDown() {
+        assertEquals(5.0, HexTile.centreX(2, -3, 10.0), "x of hex (2,-3) at H=10")
+        assertEquals(-25.98076211353316, HexTile.centreY(2, -3, 10.0), 1e-13, "y of hex (2,-3) at H=10")
+        assertEquals(5.0, HexTile.centreX(0, 1, 10.0), "x of hex (0,1) at H=10")
+        assertEquals(8.660254037844386, HexTile.centreY(0, 1, 10.0), 1e-13, "y of hex (0,1) at H=10")
+        assertEquals(-10.0, HexTile.centreX(-1, 0, 10.0), "x of hex (-1,0) at H=10")
+        assertEquals(0.0, HexTile.centreY(-1, 0, 10.0), "y of hex (-1,0) at H=10")
+        assertEquals(55.0, HexTile.centreX(3, 5, 10.0), "x of hex (3,5) at H=10")
+        assertEquals(43.301270189221932, HexTile.centreY(3, 5, 10.0), 1e-13, "y of hex (3,5) at H=10")
+        // and the mutations this pins, by how far off each one lands:
+        //   `j / 2` as Int          -> x(2,-3) = 10.0                (5.0 off)
+        //   the H multiply dropped  -> y(2,-3) = -2.598076211353316  (23.4 off)
+        //   SQRT3 replaced by 1     -> y(2,-3) = -15.0               (11.0 off)
+        //   `i + j/2` as `i - j/2`  -> x(2,-3) = 35.0                (30.0 off)
+        //   `j * (SQRT3 / 2.0)` is the same value, not a mutation: halving a Double only drops an
+        //   exponent, so `j * RN(SQRT3/2)` and `RN(j * SQRT3)/2` are one rounding either way.
+    }
+
     @Test
     fun aHexCentreLandsBackInsideItsOwnHex() {
         for (j in -3..3) {
             for (i in -3..3) {
-                val cx = HexTile.SQRT3.let { 12.0 * (i + j / 2.0) }
-                val cy = 12.0 * (j * HexTile.SQRT3 / 2.0)
-                val l = HexTile.lattice(cx + 0.001, cy, 12.0)
+                // The real functions, not the formula written out again: the round trip below is only a
+                // guard on the centres if the centres it walks into are the ones the sampler uses.
+                val cx = HexTile.centreX(i, j, 12.0)
+                val cy = HexTile.centreY(i, j, 12.0)
+                val l = HexTile.lattice(cx + 0.001, cy, 12.0) // the nudge is the spec's "tiny"; the
+                // unflipped centre lands inside its own hex as well, and the new test above is what pins
+                // the value rather than the nudge
                 var found = false
                 for (k in 0..2) {
                     if (l.vi[k] == i && l.vj[k] == j) {
@@ -215,6 +316,26 @@ class HexTileTest {
         return num / sqrt(da * db)
     }
 
+    /**
+     * The no-repeat property, on a texture with grain at every scale: a 32×32 field of random bytes, so
+     * the field being compared against its own copy one texture period away carries no low-frequency
+     * content for the hex blend to line up with. That is the right instrument for the property — if two
+     * fields this far apart still match, the tiling is back — and the plain-tiling control below proves
+     * the instrument reads 1.0 when there IS a repeat, so a small number here means the hex read broke
+     * it rather than that the measurement was blind.
+     *
+     * WHAT THE NUMBER IS NOT. The board's row for JB-9.02 quotes "one texture period apart the read
+     * correlates 0.004". That number describes THIS texture, not the property, and it is quoted as
+     * though it described the shipped paper. It does not. The same measurement on the shipped
+     * `assets/paper/surface_pulp_artisan.png` — which is a smooth, low-frequency sheet — reads about
+     * +0.95, because on a texture with little content at the texel scale a two-dimensional
+     * field-against-field number mostly measures how smooth the paper is. The tiling is still broken
+     * there: the hex read's autocorrelation along a line at the texture period is about −0.037, where a
+     * single plain read's is about −0.0003, so the hex read decorrelates FASTER than the texture's own
+     * smoothness. Those figures are the auditor's, measured on the asset, and they are not asserted here
+     * because the asset is a file and this test is commonTest. Correcting the board's number is a
+     * question for the Lead, in `tasks/joybrush/reviews/JB-9.01_9.02__bunny-fixes.md`.
+     */
     @Test
     fun theSamePaperOneTexturePeriodAwayIsNotTheSamePaper() {
         val n = 32
@@ -283,6 +404,17 @@ class HexTileTest {
         }
     }
 
+    /**
+     * The rotation HAPPENS — the slope keeps its length and lands in at least 6 of 8 octants. This is
+     * the row's own mutation check: drop `R(-θ)` altogether and every hex reads the texture's fixed +x
+     * direction, so all 40 land in one octant and the spread assertion goes red.
+     *
+     * What it deliberately does NOT do is pin WHICH WAY the turn goes. `R(+θ)` and `R(-θ)` are mirror
+     * images of one another, so a rotation and its mirror have the same length and, over 40 samples, the
+     * same octant spread. Flipping only the sign of this rotation leaves this test green. That is not a
+     * flaw in the test; it is a property of the measurement, and
+     * [theBackRotationTurnsTheSlopeBackTheSameWayTheReadWasTurned] is the test that closes the gap.
+     */
     @Test
     fun aRotatablePaperTurnsEachHexsSlopeAndKeepsItsLength() {
         val tex = uniformSlopeTexture()
@@ -293,9 +425,10 @@ class HexTileTest {
         while (counted < 40) {
             var i = -6
             while (i <= 6 && counted < 40) {
-                // A hex centre, where one gamma weight is 1 and the other two are 0.
-                val cx = 11.0 * (i + j / 2.0)
-                val cy = 11.0 * (j * HexTile.SQRT3 / 2.0)
+                // A hex centre, where one gamma weight is 1 and the other two are 0 — the real
+                // centre functions, so this test walks into the same centres the sampler turns about.
+                val cx = HexTile.centreX(i, j, 11.0)
+                val cy = HexTile.centreY(i, j, 11.0)
                 val l = HexTile.lattice(cx, cy, 11.0)
                 val sum = l.w[0] + l.w[1] + l.w[2]
                 val top = maxOf(l.w[0] * l.w[0] * l.w[0], l.w[1] * l.w[1] * l.w[1], l.w[2] * l.w[2] * l.w[2]) / sum
@@ -317,6 +450,148 @@ class HexTileTest {
         assertEquals(40, counted)
         val spread = octants.count { it }
         assertTrue(spread >= 6, "the 40 slopes fell in only $spread of 8 directions, so they are not being turned")
+    }
+
+    /**
+     * The SIGN of the back-rotation, which length and octant spread cannot see: `R(+θ)` and `R(−θ)` are
+     * mirror images, so a measurement of how long the slope is and how many of eight directions it falls
+     * in stays green when one of them turns into the other. This is the only test in either row that
+     * does, and it is here because the CPU and the shader must agree on which way a hex turns — the
+     * shader does `slope = mat2(c, -s, s, c) * slope` against this file's `R(−θ)`.
+     *
+     * HOW IT DISTINGUISHES THEM. The texture's slope field points along +x and nowhere else, so at a hex
+     * centre the sampler reads `slope_tex = (f, 0)` and then
+     * ```
+     *   R(-θ)·(f, 0) = ( cos θ · f , −sin θ · f )     <- the spec's maths block, line 71
+     *   R(+θ)·(f, 0) = ( cos θ · f , +sin θ · f )
+     * ```
+     * The two agree on `dx` and disagree on `dy`, and a texture with no y-slope at all is the cheapest
+     * thing that can show it. Sampling at a hex centre also makes `p − c` exactly `(0, 0)`, so the
+     * forward rotation moves nothing and the texel the read lands on is `centre + offset` — which this
+     * test can state exactly, from [HexTile.centreX], [HexTile.centreY] and [HexTile.hash].
+     * `HexTile.rotation` is private, so θ is rebuilt here as `hash(i, j, 3)·2π`, the same expression;
+     * a change to the hash channel it reads would fail here rather than pass unnoticed.
+     *
+     * THE TEXTURE. Byte `127 + m(x)` in R on a 32-wide texture, with `m(x) = min(x, 31 − x)`, so m runs
+     * 0, 1, …, 15, 15, …, 1, 0 and the wrap from x = 31 back to x = 0 is 0 → 0, with no jump at the seam.
+     * `encodeSlope(m·R/127, R)` is `round(127 + 127·m/127)` = `127 + m` exactly for every integer m in
+     * 0..15, and `127 + m ≤ 142`, so nothing clamps. G is `encodeSlope(0, R)` = 127, which
+     * [SurfaceMaps.decodeFilteredSlope] maps to exactly 0, so the texture really has no y-slope at all.
+     * m is affine on texel pairs `[0, 15]` and `[16, 31]` and flat across `[15, 16]`, so the read must
+     * not land there; that is the first filter below.
+     *
+     * WHICH HEXES. A read at `t.x` lands between texel centres `x0 = floor(t.x − 0.5)` and `x0 + 1`
+     * (the half-texel convention `PaperTexture.bilinear` uses, and which
+     * [aFilteredSlopeIsDecodedWithoutByteRounding] pins). The filter keeps `x0 ∈ [8, 14] ∪ [16, 22]`,
+     * which puts the interpolated m in `[8, 15]` and so `f ∈ [8R/127, 15R/127]` = `[0.031496,
+     * 0.059055]` at R = 0.5. The second filter, `|sin θ| ≥ 0.5`, holds for 2/3 of a uniform hash. The
+     * two together keep 14/32 × 2/3 = 0.29 of the hexes, so 96 scanned hexes give 28 in expectation
+     * with a spread of 4.4, and the assertion asks for 8 — about 4.5 spreads below that.
+     *
+     * THE GAP, AND WHY THE TOLERANCE IS NOT ZERO. A flipped sign puts the answer `2·sin θ·f` away, and
+     * with both filters in place that is at least `2 · 0.5 · 8·0.5/127 = 0.031496`. The prediction is
+     * otherwise exact — the test evaluates the same `cos` and `sin` calls on the same doubles, and the
+     * read position is bit-identical because `p − c` is exactly `(0, 0)` and no offset hash comes out
+     * zero over these 96 hexes — except that `out` is a Float and `sampleSurface` rounds
+     * `(c·sx + sn·sy)` with `.toFloat()` on the way out. The largest `|out[0]|` or `|out[1]|` over the
+     * hexes this test uses is about 0.0552, where one Float ulp is 3.73e-9 and half an ulp — the whole
+     * of that rounding — is 1.86e-9. So the tolerance of **1e-6** sits about 537 times above the only
+     * error there is and about 34 899 times below the sign flip it has to catch.
+     */
+    @Test
+    fun theBackRotationTurnsTheSlopeBackTheSameWayTheReadWasTurned() {
+        val hexTexels = 16.0
+        val w = 32
+        val h = 16
+        val px = ByteArray(w * h * 4)
+        for (y in 0 until h) for (x in 0 until w) {
+            val o = (y * w + x) * 4
+            px[o] = SurfaceMaps.encodeSlope(minOf(x, w - 1 - x) * (SLOPE_RANGE / 127f), SLOPE_RANGE).toByte()
+            px[o + 1] = SurfaceMaps.encodeSlope(0f, SLOPE_RANGE).toByte()
+            px[o + 2] = 128.toByte() // height: unused here, the slope channels are what the test reads
+            px[o + 3] = 0.toByte()
+        }
+        val tex = PaperTexture(w, h, px)
+        val out = FloatArray(4)
+        val probe = FloatArray(4)
+        var used = 0
+        for (j in 0..7) {
+            for (i in 0..11) {
+                val cx = HexTile.centreX(i, j, hexTexels)
+                val cy = HexTile.centreY(i, j, hexTexels)
+                // A centre really is a centre — one weight 1, the others 0. That family is what
+                // aHexCentreLandsBackInsideItsOwnHex pins; here it is only a filter, and a hex that
+                // failed it would be skipped, which is why the count at the end is asserted.
+                val lw = HexTile.lattice(cx, cy, hexTexels).w
+                if (maxOf(lw[0], lw[1], lw[2]) < 0.999f) continue
+                val tx = HexTile.centreX(i, j, hexTexels) + HexTile.hash(i, j, 1) * tex.w
+                val ty = HexTile.centreY(i, j, hexTexels) + HexTile.hash(i, j, 2) * tex.h
+                val x0 = ((floor(tx - 0.5).toInt() % w) + w) % w
+                if (!(x0 in 8..14 || x0 in 16..22)) continue
+                val theta = HexTile.hash(i, j, 3) * (2.0 * PI)
+                val sn = sin(theta)
+                if (abs(sn) < 0.5) continue
+                used++
+                // What the texture says where this hex read, with no rotation because p − c is zero.
+                tex.bilinear(tx, ty, probe)
+                val f = SurfaceMaps.decodeFilteredSlope(probe[0], SLOPE_RANGE)
+                HexTile.sampleSurface(tex, cx, cy, hexTexels, rotatable = true, slopeRange = SLOPE_RANGE, out = out)
+                assertEquals(cos(theta) * f.toDouble(), out[0].toDouble(), 1e-6, "dx at hex ($i, $j)")
+                assertEquals(-sn * f.toDouble(), out[1].toDouble(), 1e-6, "dy at hex ($i, $j)")
+            }
+        }
+        assertTrue(used >= 8, "only $used of the 96 hexes passed the two filters, so the sign is barely pinned")
+    }
+
+    /**
+     * `hexTexels` is the divisor, so it is the argument that has to be checked, and it had none.
+     * [HexTile] guarded `out.size` and, through `decodeFilteredSlope`, `slopeRange` — and divided by
+     * this without a word.
+     *
+     * What each bad value did before the guard, with `px = 3.0`, `py = 5.0`. The narrowing in play is
+     * `Double.toInt()` (JLS 5.1.3): a NaN becomes 0, `+Infinity` becomes `Int.MAX_VALUE`, `−Infinity`
+     * becomes `Int.MIN_VALUE`, and anything else truncates. None of those throw, which is the whole
+     * problem:
+     * - `0.0`: `px / 0.0` and `py / 0.0` are both `+Infinity`, so `a` is `Infinity − Infinity` = NaN and
+     *   `b` is `+Infinity`. The hex indices came out `(0, Int.MAX_VALUE)`, `centreX`/`centreY` then
+     *   multiplied by 0 and gave 0, and `PaperTexture.bilinear` — which wraps — returned a finite,
+     *   plausible sample of a patch nobody asked for.
+     * - `−16.0`: a finite negative divisor. Nothing overflows at all; the lattice is quietly mirrored,
+     *   which is nonsense for a cell size and looked exactly like working code.
+     * - `Double.NaN`: every quotient is a NaN, both indices narrow to 0, and the read sampled hexes
+     *   around the origin with no complaint. (The audit filed this one as throwing a bare
+     *   `IllegalArgumentException`; it does not — Kotlin's narrowing returns 0 for a NaN.)
+     * - `+Infinity`: both quotients are 0, so every point collapses onto hex (0, 0) and the read
+     *   returned the origin's patch forever, again without a word.
+     *
+     * Either way nothing was raised, the result was a plausible number, and the caller had no way to
+     * tell. `PaperCatalogue` validates the shipped value (16..size) and `PaperRaster.localFrame`
+     * requires a positive one, so neither is the way in; a direct call was.
+     *
+     * The guard is on the VALUE and not on the call: the last three lines are a legal size going through
+     * every entry point, which is what says the guard rejects the argument rather than the argument list.
+     */
+    @Test
+    fun aHexSizeThatCannotDivideIsRefusedByName() {
+        val tex = smoothWrap16()
+        val out = FloatArray(4)
+        val look = FloatArray(3)
+        for (bad in listOf(0.0, -16.0, Double.NaN, Double.POSITIVE_INFINITY)) {
+            val e = assertFailsWith<IllegalArgumentException> { HexTile.lattice(3.0, 5.0, bad) }
+            assertTrue(
+                e.message.orEmpty().contains("hexTexels"),
+                "the message should say which argument: ${e.message}",
+            )
+            assertFailsWith<IllegalArgumentException> {
+                HexTile.sampleSurface(tex, 3.0, 5.0, bad, rotatable = false, slopeRange = 0.5f, out = out)
+            }
+            assertFailsWith<IllegalArgumentException> {
+                HexTile.sampleLook(tex, 3.0, 5.0, bad, rotatable = false, out = look)
+            }
+        }
+        assertEquals(3, HexTile.lattice(3.0, 5.0, 16.0).w.size)
+        HexTile.sampleSurface(tex, 3.0, 5.0, 16.0, rotatable = true, slopeRange = 0.5f, out = out)
+        HexTile.sampleLook(tex, 3.0, 5.0, 16.0, rotatable = true, out = look)
     }
 
     // ---- 8. the look read -------------------------------------------------------------------------

@@ -612,7 +612,7 @@ class AbrImportTest {
         val body = Bytes()
         body.raw(real); body.raw(pointer.toByteArray())
         val list = Bytes()
-        list.ascii("VlLs"); list.u32(2); list.u32(body.size.toLong()); list.raw(body.toByteArray())
+        list.ascii("VlLs"); list.u32(2); list.raw(body.toByteArray())
         val desc = Bytes()
         desc.u32(16); desc.raw(descriptorBody("", "null", itemOf("Brsh", list.toByteArray())))
         val library = AbrImport.convert(file(desc = desc.toByteArray()), "pack")
@@ -960,16 +960,15 @@ class AbrImportTest {
          * what makes the hardness assertions elsewhere in this file arithmetic rather than an
          * eyeball.
          */
-        fun packBitsTip(uuid: String, width: Int, height: Int, compression: Long = 1): TipEntry {
+        fun packBitsTip(uuid: String, width: Int, height: Int, compression: Int = 1): TipEntry {
             val row = packLiterals(ByteArray(width) { RAMP[it % 4] })
             val payload = Bytes()
-            repeat(height) {
-                if (compression == 0L) {
-                    for (i in 0 until width) payload.u8(RAMP[i % 4].toInt() and 0xFF)
-                } else {
-                    payload.u16(row.size)
-                    payload.raw(row)
-                }
+            if (compression == 0) {
+                for (r in 0 until height) for (i in 0 until width) payload.u8(RAMP[i % 4].toInt() and 0xFF)
+            } else {
+                // Table-first like the real files: every row's `u16` count, then every row.
+                repeat(height) { payload.u16(row.size) }
+                repeat(height) { payload.raw(row) }
             }
             return TipEntry(uuid, bottom = height, right = width, compression = compression, payload = payload.toByteArray())
         }

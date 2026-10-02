@@ -18,10 +18,20 @@ import kotlin.math.sin
  * show the same patch, and the period the eye could latch onto is gone. Blending SLOPES rather than
  * normals is what makes this work: slopes are linear, so a convex blend of three rotated, offset
  * patches is still a slope field, with no crease at the hex borders.
+ *
+ * Why the hex centre is a named function here and not a literal: the same `H·(i + j/2, j·√3/2)` appears
+ * in this row twice, once in [centreX]/[centreY] and once written out inline in
+ * `joybrush/shaders/jb_paper.glsl`. Only this side can be tested without a GPU — `HexTileTest` calls
+ * [centreX] and [centreY] rather than writing the formula out a third time — so if the two ever drift,
+ * this side is the one that notices and says so.
  */
 object HexTile {
 
-    /** Weight contrast: `w^3`, renormalised. High enough to keep the paper crisp, low enough to leave no seam. */
+    /**
+     * Weight contrast: `w^HEX_GAMMA`, renormalised. High enough to keep the paper crisp, low enough to
+     * leave no seam. It is a WHOLE NUMBER, because [gammaWeights] applies it as a count of multiplies
+     * and refuses anything else rather than truncating it to one.
+     */
     const val HEX_GAMMA = 3f
 
     /** = sqrt(3.0): the hex lattice is only regular at this value, and it is the shader's constant too. */
@@ -55,8 +65,21 @@ object HexTile {
     /**
      * `lattice(p, H)` in the spec's notation: a shear that turns the hex lattice into the unit square's
      * triangulation, so the three neighbours are the same three for every point.
+     *
+     * [hexTexels] is the divisor, so it is the one argument that has to be checked. At 0 each quotient
+     * is an infinity where the numerator is non-zero and a NaN where it is not, `floor` of an infinity
+     * saturates, and `Double.toInt()` of it is `Int.MAX_VALUE` or `Int.MIN_VALUE` while `Double.toInt()`
+     * of a NaN is 0 (JLS 5.1.3). None of those throw. So this used to hand back hexes with indices at
+     * the ends of the integer range, or all three at the origin, and the read went on to return a
+     * plausible finite sample of the wrong place. A NaN divisor and the two infinities get in the same
+     * way. Every path into the division arrives here first — [sampleSurface] and [sampleLook] both call
+     * this before anything else — so the guard is one `require` and it names the argument, as the guards
+     * in `SurfaceMaps` do.
      */
     fun lattice(px: Double, py: Double, hexTexels: Double): Lattice {
+        require(hexTexels.isFinite() && hexTexels > 0.0) {
+            "hexTexels must be a positive finite number, it is what the lattice divides by, was $hexTexels"
+        }
         val qx = px / hexTexels
         val qy = py / hexTexels
         val a = qx - qy / SQRT3
@@ -85,16 +108,24 @@ object HexTile {
         }
     }
 
-    /** The centre of hex (i, j), in texels: `H · (i + j/2, j·√3/2)`. */
+    /**
+     * The centre of hex (i, j), in texels: `H · (i + j/2, j·√3/2)`, the x half of the spec's maths block
+     * line 66. `j / 2.0` and not `j / 2`, so a negative odd j keeps its half.
+     *
+     * The same formula is written out inline in `joybrush/shaders/jb_paper.glsl`, which no JVM test can
+     * reach. `HexTileTest` calls this function rather than restating it, so the value is pinned here and
+     * a change to the shader alone is the one that can go unnoticed.
+     */
     fun centreX(i: Int, j: Int, hexTexels: Double): Double = hexTexels * (i + j / 2.0)
 
+    /** The y half of the same centre: `H · (j·√3/2)`. */
     fun centreY(i: Int, j: Int, hexTexels: Double): Double = hexTexels * (j * SQRT3 / 2.0)
 
     /**
      * Sample [tex] at TEXEL point (px, py), no visible repeat.
      * Returns, into [out]: [0] = dh/dx, [1] = dh/dy  (height per TEXEL, in the PAPER's frame, i.e. un-rotated),
      *                      [2] = height 0..1,   [3] = height² 0..1.
-     * [slopeRange] decodes R,G (SurfaceMaps.decodeSlope). [rotatable] = false → no per-hex rotation
+     * [slopeRange] decodes R,G (SurfaceMaps.decodeFilteredSlope). [rotatable] = false → no per-hex rotation
      * (weaves, laid lines, papyrus: a weave that turned on its own would lose its grain direction).
      */
     fun sampleSurface(
@@ -150,16 +181,36 @@ object HexTile {
     }
 
     /**
-     * `w^HEX_GAMMA`, renormalised. A convex blend of all four channels, with no variance-preserving
-     * formula: A - B² has to stay a real variance, because the zoom maths in JB-9.06 reads roughness
-     * out of it.
+     * `w^gamma`, renormalised, which is the spec's `w'_k = w_k^HEX_GAMMA / Σ w^HEX_GAMMA`.
+     *
+     * [gamma] is READ, not written out as `w*w*w`. The spec's contract names `HEX_GAMMA` as the
+     * weight-contrast knob (JB-9.02 line 30) and its maths block uses the name, so a public constant
+     * that nothing reads is a knob that lies to the next reader. It is applied as a whole number of
+     * multiplies rather than through `Math.pow`, so gamma 3 comes out bit-for-bit as the `w*w*w` this
+     * row shipped with — `1f·w` is exactly `w`, so the loop is `(w·w)·w` — and the blend does not drift
+     * by an ulp when nobody has touched the knob. A gamma that is not a whole number is refused rather
+     * than truncated, because a knob that silently rounds is worse than a knob that is dead.
+     *
+     * This is a CONVEX blend of all four channels, with no variance-preserving formula, because that is
+     * Decision 2 of JB-9.02. Note what that does and does not give: a convex blend keeps A and B a
+     * valid mean and a valid second moment, but `A − B²` is NOT a local variance and must not be read as
+     * one — see `SurfaceMaps.pack` for the arithmetic and for the sign a consumer has to clamp.
+     *
+     * Visible to this module's tests so the contrast can be pinned. It is not part of the paper read's
+     * contract and nothing outside this object should call it.
      */
-    private fun gammaWeights(w: FloatArray): FloatArray {
+    internal fun gammaWeights(w: FloatArray, gamma: Float = HEX_GAMMA): FloatArray {
+        val steps = gamma.toInt()
+        require(steps >= 0 && steps.toFloat() == gamma) {
+            "HEX_GAMMA must be a whole number of multiplies, was $gamma"
+        }
         val out = FloatArray(3)
         var total = 0f
         for (k in 0..2) {
-            out[k] = w[k] * w[k] * w[k]
-            total += out[k]
+            var g = 1f
+            for (n in 0 until steps) g *= w[k]
+            out[k] = g
+            total += g
         }
         for (k in 0..2) out[k] = if (total > 0f) out[k] / total else 1f / 3f
         return out

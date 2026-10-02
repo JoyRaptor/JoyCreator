@@ -475,6 +475,12 @@ class FilmStripGesture(
      * back (Decision 13). A preview beyond the limit is therefore a cell drawn a little too wide for
      * as long as the finger is still down, and exactly the right width the moment it lifts.
      *
+     * Saturated into `Int` range on the way there, for the same overflow reason as [withHoldStep]:
+     * `dragStep` saturates to `INT_MAX` on an enormous drag, so `holdAtDown + step` in raw `Int`
+     * wraps negative (`1 + INT_MAX` is `INT_MIN`) and a negative hold would draw a negative width.
+     * The sum is done in `Long` and coerced back, so a preview past the range is `INT_MAX` — still
+     * the raw request, and NOT the model's clamp, which this preview must not hold a copy of.
+     *
      * A gesture that is not an edge drag has no edge to preview, so the answer is the model's own
      * hold of the frame under the finger: a real number rather than an exception in a paint loop.
      * With no frame there, the answer is 0 px, which means "no cell here" and is NOT a hold of 0.
@@ -485,7 +491,10 @@ class FilmStripGesture(
             val id = strip.board.frames.getOrNull(lastPublished)?.id ?: return 0
             return strip.holdOf(doc, boardId, id)
         }
-        return taken.holdAtDown + dragStep(strip.tickPx, xPx - downX)
+        val step = dragStep(strip.tickPx, xPx - downX)
+        return (taken.holdAtDown.toLong() + step.toLong())
+            .coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong())
+            .toInt()
     }
 
     /**

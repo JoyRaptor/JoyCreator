@@ -45,11 +45,53 @@ _(append below; newest last)_
 
 2026-10-01 JB-9.03b: Updated only paper shader lines for exact-zero slope encoding, seed offsets, high precision and height-only reads; safe un-premultiplied RGBA uploads and hidden inactive knobs are verified with CPU/GPU checks.
 
+6. **D.02a: fold or preserve a typed winding? A SPEC A conflict, and I stopped rather than decide.** The landed fix folds any rotation entering through a **gesture** into (-180,180] on the way into the model *and* out of it (`73ea73f2`, 54/54 green; mutation turns 15 red including a 3 689-pair sweep). The drawer's **typed** field is left raw, so SPEC A's "720 stores 720" still holds - **until** the next gesture, which now collapses a typed 720 in-range. SPEC A's F1 already accepted this hazard for sliders; it now widens from one door to three. Options: (a) accept it; (b) make `AffineTransformHost:350-355` stay relative to the **raw** value so a typed winding survives any gesture - which means `startRot` cannot be folded, and the store side must fold only what a gesture contributes. **I recommend (b):** the owner's typed number is the one thing they can see and verify.
+7. **`PreviewHandlesOverlay.java:932,808` needs an owner.** The identical rotation defect, live, in the Studio's **second** transform surface - still `startRot + (angle - startAngle)`. Four one-line folds, no new maths, no new tests needed (the pure helper exists now). Outside D.02a's owner area, so it was **left alone rather than fixed** (`reviews/D02_STUDIOKIT__bunny-audit.md` finding 5). **Same class of silent keyframe corruption as question 6.**
+8. **R31's freeze was lifted in `DocJson` only; `BrushJson` has no unknown-key walk.** An older build re-saving a tuned pencil writes `paper: 0/0/0` and keeps claiming version 6 (`BrushJson.kt:63,136-138`; `reviews/JB-9.03_9.09__bunny-audit.md` finding 1). Small T2 row; DocJson's existing answer ports directly. Say the word and it is dispatchable.
+9. **The `.sh` harnesses cannot run on this machine.** `bash.exe` is the WSL stub and no distro is installed, so **D.04 ("make the harnesses pick `:` or `;` by `uname`") is not a nicety - it is the reason I had to run `javac`/`java` by hand.** Related, and both dead right now: **five mesh/puppet harness scripts** (`run-mesh.sh`, `run-puppet.sh`, `run-specq.sh`, `run-specr.sh`, `run-spect.sh`) trip on an `androidx.annotation` import before the test runs - D.02a added that exact carve-out to `run-spech.sh` and shipped the other five broken; and **`run-fx.sh` dies before its last suite** (`|| exit 1` after a pre-existing `GradientRamp` default failure), so "fx 137 pass + 3 failures" cannot have come from that script.
+
 2026-10-01 JB-9.06: checked latest five hot-file commits and rebased to b1b30633; editing GlPaintEngine/JbCanvasView and paper background shaders for the gated screen/export row; no installation.
 
 2026-10-01 JB-9.08: checked five hot-file commits and rebased after 2c746d3c; editing GlPaintEngine and deposit shaders, extending shared paper read for coarse derivatives; no view/app UI edits or installation.
 
 2026-10-01 JB-9.07 paper specialist: claiming only core PaperPreviews/tests, with worker-owned bounded cache and all visible settings in the key; Lead keeps app UI files. Use PaperResources.load(p).render(rect) as its renderer on a background worker. Transparent-screen persistence is undefined in v4; concrete question under JB-9.07 Questions. JB-9.10 continuation adds only the specified image-free AMOLED black option; no new generated candidates.
+
+2026-10-02 **bunny (orchestrator) — five questions.** Two are one-word rulings; three are
+"your call, here is the evidence". Everything else I got on without waiting.
+
+1. **`JbCanvasView.kt` is Lead-only and one of my findings needs it — apply the held patch?**
+   `tasks/joybrush/held/JbCanvasView_JB-2.03a-audit.patch` (7 hunks, `git apply --check`
+   clean) and `JoyBrushActivity_JB-2.03a-audit.patch`. This is the fix for the only
+   **BLOCKER** my auditors found: the long-press eyedropper takes NOTHING if the pen lifts
+   without first moving 12 dp, because `startEyedrop` puts the cancel circle on the touch
+   point, so `overCancel()` is already true at t=0 and `eyedropEnd(take=true)` yields
+   `took = false`. The spec's own acceptance check ("long-press again and lift -> red")
+   cannot pass today. The **rule** is fixed and tested in `Eyedropper` and landed; only the
+   call site is held. Without the patch the feature ships dead while the row reads done.
+2. **JB-3.04a / JB-3.04b: write the specs, or fold the rows away?** Both rows claimed a
+   cross-review of a spec that **does not exist on disk** — their Who cells were verbatim
+   copy-paste from JB-3.03b and JB-3.02b, so there is no onion review on record at all. I
+   reverted both to Outline. R34 gates them anyway: `OnionMath` must be extracted into
+   `:studiokit` first and that has not happened. **My read: the extraction is the real row
+   and it is missing from the board.** It needs an owner, because JB-3.04 and the shared
+   component both wait on it.
+3. **The 8.01 spacing-constant MINOR: promote `BrushValidate` rule 4 to named constants, or
+   drop it?** muse counts 4 private copies plus an inline rule. I agree it is a real drift
+   risk and that creating public constants is a JB-0.03b owner's decision, not a builder's.
+4. **`A - B²` is negative on 59.5% of the shipped paper surface** (min -0.001861; exact bound
+   `127/65025`, sign decided by `b² mod 255`, so neither sign means anything). My auditor
+   says JB-9.06's `sqrt(A - B²)` returns NaN there. There is **no consumer yet** as far as I
+   can find, so nothing is broken today — but JB-9.06 is landed, so if something does read
+   it, it needs `max(A - B², 0)`. Changing the packed layout instead would land `pack.py`,
+   the PNG and the shader together. **Your call which.**
+5. **The "builders never run gradle" rule cost a build cycle, and I would relax it.** The
+   JB-9.01 builder wrote 1243 lines of tests, never compiled one, and its Python port was
+   wrong three times about float32 vs float64 — it reported a residual of "exactly 0.0" that
+   was really 0.060, 60 000x its own tolerance. A **compile-only** pass
+   (`compileTestKotlinJvm`, `--no-daemon`, in the builder's own worktree) would have caught
+   the `ByteArray` literal type error in seconds for the price of one JVM. Proposal:
+   builders may run `:core:compileTestKotlinJvm` in their own worktree and still never
+   `:core:jvmTest`. One word and I will write it into every brief.
 
 ### 2026-10-02 — JB-9.10 / JB-9.07: the owner's test materials and custom colour are ready
 

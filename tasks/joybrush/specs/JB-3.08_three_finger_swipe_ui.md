@@ -339,7 +339,7 @@ class SwipeGesture(val swipe: ThreeFingerSwipe) {
      * the way an axis is fixed at 12 dp of travel (JB-2.16a Decision 1) and a strip gesture is fixed
      * at finger-down (JB-3.03 Decision 8) — the same house rule three times, for the same reason.
      */
-    val latched: SwipeMode? = null
+    var latched: SwipeMode? = null
         private set
 
     /**
@@ -556,10 +556,10 @@ object SwipeBadge {
    `kind != BoardKind.ANIMATION` (`ThreeFingerSwipe.kt:125`), and it asks that **before** it looks at
    `board.frames.size` (line 126). So:
    - a **SPRITE** board with 5 cells → **BRUSH**. Its cells are not `Board.frames` at all: they are
-     `Board.grid: SpriteGrid(cols, rows, cellW, cellH)` (`DocModel.kt:67`, `:77`), a **spatial** grid
+     `Board.grid: SpriteGrid(cols, rows, cellW, cellH)` (`DocModel.kt:95`, `:105`), a **spatial** grid
      addressed by column and row. A `Frame` is a **temporal** thing — it has an `id` and a
      `holdFrames` and it sits in a play order on a board with an `fps`. The model's own comments say
-     "ANIMATION only" (`DocModel.kt:76`) and "SPRITE only" (`:77`), and `DocOps.validate` checks the
+     "ANIMATION only" (`DocModel.kt:103-104`) and "SPRITE only" (`:105`), and `DocOps.validate` checks the
      two lists under two different rules (rule 4 for `ANIMATION` frames, `DocOps.kt:78-88`; rule 5 for
      the `SPRITE` grid, `:91-98`). One timeline, two vocabularies, never mixed.
    - a **SPRITE** board that *also* carries 5 `Frame`s (fixture `b4`) → **still BRUSH**, because line
@@ -659,7 +659,7 @@ object SwipeBadge {
    language's floor ("Floor | nothing below 28dp; almost everything 40 or 44",
    `JOYBRUSH_VISUAL_LANGUAGE.md:155`) and its round-icon-button circle (`:189`). The gap is **derived,
    not declared**: `(TOUCH_DP − DRAWN_DP) / 2` = 8 dp. It coincides with `Eyedropper.DRAG_OFF_DP = 8f`
-   (`Eyedropper.kt:42`), which is a coincidence of value and **not** the derivation — the derivation is
+   (`Eyedropper.kt:49`), which is a coincidence of value and **not** the derivation — the derivation is
    the rule, and the rule stands on its own. The inset is derived too: the drawn circle's centre sits
    half a touch target in from the safe edge, so the 44 dp target ends up **flush with the safe area**
    and the whole thing is reachable. Density is applied **at the use site** (R32), and a density that is
@@ -864,7 +864,7 @@ the rule in Step 5 three lines later.
   host calling `begin` twice has begun twice.*
 - **T4d `nothingIsShownBeforeTheFirstStepAndNothingAfterTheEnd`** — `begin` on `doc1` at index 4 →
   `frameShown` is 0 (`SwipeBadge.readout(FRAMES, 0, 10) == ""`), the first `ShowFrame(5)` makes the
-  readout `"5 / 10"`, and after `end()` the host's `displayed` is back to the document's answer.
+  readout `"6 / 10"` (`SwipeBadge.readout(FRAMES, 6, 10) == "6 / 10"`, 1-based: index 5 is the 6th frame), and after `end()` the host's `displayed` is back to the document's answer.
 - **T5a `theGestureIsExactlyThreeFingerSwipesMaths`** — FRAMES: begin at 4, `move(−36)` → `ShowFrame(5)`,
   `move(−37)` → `Nothing`, `move(−72)` → `ShowFrame(6)` (3.08a's numbers, so a drift in either row
   shows up here). BRUSH on `doc0`: begin at size 10, opacity 0.5; `move(11, 0)` → `Nothing`,
@@ -917,7 +917,7 @@ the rule in Step 5 three lines later.
 - **T6d `aSafeAreaSmallerThanTheBadgeClampsAndNeverGoesNegative`** — `place(Rect(0, 0, 10, 10), 1f)` →
   `Rect(0, 8, 10, 2)`: `w >= 0` and `h >= 0`. Derivation: half-target 22 puts the centre at
   `10 − 22 = −12`, half-drawn 14 puts the drawn rect at `(−26, 8, 28, 28)`, and the clamp into
-  `(0, 0, 10, 10)` gives `x = 0`, `right = 10` ⇒ `w = 10`, `y = 8`, `bottom = 10` ⇒ `h = 2`. This is the
+  `(0, 0, 10, 10)` gives `x = 0`, `right = 10` ⇒ `w = 10`, `y = 8`, `bottom = 10` ⇒ `h = 2` — the clamp rule is `w = min(w, safe.w − x)`, `h = min(h, safe.h − y)`. This is the
   R19 failure (a negative width, or an `Int` overflow on `x + w`) and it is why every intermediate is a
   `Float`.
 - **T6h `thePushIsOnePassAndAnUnclearableRegionDoesNotHang`** — Decision 10, the termination rule, with
@@ -975,7 +975,7 @@ the rule in Step 5 three lines later.
 `commonTest`; `FilmStripNoSecondCopyTest.kt:41-45` says so and names the eight rows that have got it
 wrong. **The census of classes to scan, in both halves of T3a, is:**
 `SwipeFrames`, `SwipeFramesKt` (the file facade — fetched with `runCatching { Class.forName(...) }` so an
-absent facade skips rather than fails, `FilmStripNoSecondCopyTest.kt:247-265`), `Move`, `Move.PlayheadTo`,
+absent facade skips rather than fails, `FilmStripNoSecondCopyTest.kt:248-264`), `Move`, `Move.PlayheadTo`,
 `Move.EndTick`, `Move.WrapTick`, and `Move.Nothing`. **`ThreeFingerSwipe` and its nested types are NOT
 in either list** — an earlier draft of this spec wrote "and `Step`'s referents", which would have pulled
 `ThreeFingerSwipe`'s own `STEP_DP` / `WRAP_PUSH_STEPS` / `MIN_FLIPPABLE_FRAMES` into a census whose
@@ -1015,8 +1015,8 @@ expected answer is "no numbers", and failed.
   thing this file is *supposed* to receive and ignore. `Brush` is **not** on any forbidden list in this
   spec, for that reason. As fields, `Move.PlayheadTo` holds two `String`s and `Move.EndTick` a
   `Boolean`, and the walk is exact.
-  **How to reach the types:** copy the walk from `FilmStripNoSecondCopyTest.kt:239-262` (`routeTo` /
-  `edgesOf`, a BFS over owner/`Type` pairs with a `Type`-keyed `expanded` set — the class-keyed set
+  **How to reach the types:** copy the walk from `FilmStripNoSecondCopyTest.kt:307-344` (`routeTo` +
+  `edgesOf` at `:347-365`, a BFS over owner/`Type` pairs with a `Type`-keyed `expanded` guard — the class-keyed set
   hangs on `Enum<E extends E>`). Copy it as **this file's own** helper: the precedent's copy is
   `private`, so it cannot be called, and re-deriving it is the one thing this project has been bitten
   by (R34: "two hand-written transcriptions compared with each other; neither reads the real code" —
@@ -1049,7 +1049,7 @@ expected answer is "no numbers", and failed.
   every other test in the project.*
 - **T8b `noSourceLineInThisRowNamesAnotherRowsConstant`** — read the three source files from
   `joybrushRoot()` (`cc.joycreator.joybrush.core.brush.joybrushRoot`, `internal` in `jvmTest`, the one
-  root-finder for the source set — `DefaultPresetsTest.kt:460`; `FilmStripNoSecondCopyTest.kt:123` reads
+  root-finder for the source set — `DefaultPresetsTest.kt:538`; `FilmStripNoSecondCopyTest.kt:122` reads
   a sibling file the same way) and assert that **no non-comment line** in any of the three contains:
 
   ```

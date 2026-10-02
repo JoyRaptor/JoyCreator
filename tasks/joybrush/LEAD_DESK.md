@@ -49,6 +49,8 @@ _(append below; newest last)_
 
 2026-10-01 JB-9.08: checked five hot-file commits and rebased after 2c746d3c; editing GlPaintEngine and deposit shaders, extending shared paper read for coarse derivatives; no view/app UI edits or installation.
 
+2026-10-01 JB-9.07 paper specialist: claiming only core PaperPreviews/tests, with worker-owned bounded cache and all visible settings in the key; Lead keeps app UI files. Use PaperResources.load(p).render(rect) as its renderer on a background worker. Transparent-screen persistence is undefined in v4; concrete question under JB-9.07 Questions. JB-9.10 continuation adds only the specified image-free AMOLED black option; no new generated candidates.
+
 ## Lead answers
 
 _(the Lead writes here)_

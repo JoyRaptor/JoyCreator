@@ -49,3 +49,7 @@ Do not put the paper in the layer stack model. Do not install without the Lead +
 - [ ] tests pass (paste) · [ ] screenshots from the Note 9 (`adb exec-out screencap -p`) of the swatch and the sheet · [ ] pushed · [ ] ROADMAP → 🟧 Built — awaiting the owner
 
 ## Questions
+
+2026-10-01 Paper specialist handoff: the owner asked to continue the remaining paper work. This lane builds only the listed pure PaperPreviews helper/tests; Lead retains all app UI files and the row is not marked done. The cache key must include all visible resolved settings and dimensions, beyond just (look,surface,tint), or Show/Scale/Light changes can leave the swatch stale. The cache is owned by one preview worker; UI wiring must schedule calls off the main thread and discard outdated completions. Surface choices get neutral upper-left-lit previews; background choices use their catalogue default surface.
+
+2026-10-01 Implementation question for the Lead: "None / transparent" must show a checkerboard and survive save/reopen, but v4 Paper stores only opaque #RRGGBB colour, and ResolvedPaper/PaperRaster are opaque. includeInExport=false is already independent of the visible paper, so it cannot also mean checkerboard. Please define the persisted screen-transparency state before that control is wired; do not overload Show=0 (which means flat base colour) or silently add a format field. Continuing the independent preview helper; this question does not block normal paper previews.

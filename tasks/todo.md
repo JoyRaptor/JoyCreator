@@ -427,3 +427,6 @@ JB-9.06 review: core1433/0 and Android-kit224/0; GPU/tint mutation/APK pass. See
 - [x] Directional/wet deposit, travel and live controls; gated tests/mutation/APK and landing (reviews/JB-9.08__plan.md).
 
 JB-9.08 review: core1440/0 at19:05:31 EDT and Android-kit225/0 at19:07:44 EDT; sign mutation red1/1/restored; GPU direction and exact zero-influence pass; APK built, never installed. Code15df2664 landed. Main ff refuses local view/engine/export/todo edits; leave them intact. Images remain paused. See reviews/JB-9.08__codex.md for exact commands.
+
+## JB-9.07 paper preview support
+- [ ] Worker-owned, bounded PaperRaster preview cache and real-pixel regression tests; verify mutation/core, then land the backend handoff. App UI remains with the Lead (reviews/JB-9.07__paper_plan.md).

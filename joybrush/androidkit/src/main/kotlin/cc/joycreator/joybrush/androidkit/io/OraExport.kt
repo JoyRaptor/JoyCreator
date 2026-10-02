@@ -175,7 +175,6 @@ object OraExport {
         val paper = if (includePaper && !doc.paper.screenTransparent) checkedPaper(doc) else null
         val tiles = tileSource(contents)
         val renderer = CanvasPng.paperRendererFor(contents, includePaper, paperRenderer, onWarning)
-        val backdrop = renderer?.invoke(rect)
 
         // Which layers, and which are not. Both decided before a byte is written, so a document that
         // cannot be exported costs nothing to find out.
@@ -208,7 +207,7 @@ object OraExport {
                     layer = null,
                     doc = doc,
                     tiles = tiles,
-                    paperRgba = backdrop,
+                    paperRenderer = renderer,
                 ),
             )
         }
@@ -233,11 +232,25 @@ object OraExport {
             writeMimetype(zos)
             put(zos, STACK_NAME, stackXml(rect, entries, omitted).toByteArray(Charsets.UTF_8))
             for (entry in entries) {
+                // The Paper entry's own `data/0.png` IS a whole region of paper, and it is written
+                // HERE, inside the loop, so that array is a temporary of this statement and is
+                // unreachable by the time `merged` is rendered below. The alternative — one paper
+                // buffer alive for the whole method — is a second region-sized array beside the
+                // 160 MiB composite, which is the memory this row is trying not to spend. A
+                // streaming PNG row writer would avoid even this, but `PngWriter.encode` needs the
+                // finished region and adding that API is a JB-3.06c file's to change, not this
+                // row's; one temporary is the honest trade and the sequencing is what makes it cost
+                // nothing but the write.
                 put(zos, entry.src, PngWriter.encode(rect.w, rect.h, entry.pixels(rect, frameId)))
             }
-            val merged = RegionRenderer.render(doc, tiles, rect, frameId, if (backdrop == null) paper else null).let {
-                if (backdrop == null) it else CanvasPng.overPaper(it, backdrop)
-            }
+            // Paper is the floor of the stack, not a sheet over it: a MULTIPLY layer in `merged`
+            // multiplies this paper exactly as it does on screen, and in Krita, because the Paper
+            // LAYER above it is the same pixels at NORMAL and opacity 1. The two halves of the file
+            // agreeing is what `theLayersAndTheXmlReproduceTheMergedImage` checks.
+            val merged = RegionRenderer.render(
+                doc, tiles, rect, frameId,
+                if (renderer == null) paper else null, renderer,
+            )
             val thumb = thumbnail(merged, rect.w, rect.h)
             put(zos, THUMBNAIL_NAME, PngWriter.encode(thumb.w, thumb.h, thumb.pixels))
             put(zos, MERGED_NAME, PngWriter.encode(rect.w, rect.h, merged))
@@ -256,8 +269,9 @@ object OraExport {
     /**
      * One `<layer>` in the stack, and the pixels that go in its `data/<n>.png`.
      *
-     * A LAYER entry renders that one layer alone; a PAPER entry fills the board with the paper
-     * colour. Two kinds rather than one kind with a nullable layer, so there is no `!!` in the write
+     * A LAYER entry renders that one layer alone; a PAPER entry fills the board with the paper —
+     * the textured renderer's pixels when the document has a material, the flat colour when it does
+     * not. Two kinds rather than one kind with a nullable layer, so there is no `!!` in the write
      * path and no way to write the paper's pixels into somebody's layer.
      */
     private class Entry(
@@ -269,7 +283,7 @@ object OraExport {
         private val layer: Layer?,
         private val doc: JbDocument,
         private val tiles: TileSource,
-        private val paperRgba: ByteArray? = null,
+        private val paperRenderer: ((RectPx) -> ByteArray)? = null,
     ) {
         /**
          * `rect.w * rect.h * 4` bytes of straight RGBA8 for this entry.
@@ -292,7 +306,7 @@ object OraExport {
                 else listOf(doc.layers[baseIndex].copy(opacity = 0f, blend = BlendMode.NORMAL, clip = false), own)
                 return RegionRenderer.render(doc.copy(layers = layers), tiles, rect, frameId, null)
             }
-            return paperRgba ?: paperPixels(rect, requireNotNull(paper) { "a Paper entry with no paper colour" })
+            return paperRenderer?.invoke(rect) ?: paperPixels(rect, requireNotNull(paper) { "a Paper entry with no paper colour" })
         }
     }
 

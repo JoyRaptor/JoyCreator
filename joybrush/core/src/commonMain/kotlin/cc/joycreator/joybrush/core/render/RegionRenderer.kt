@@ -92,6 +92,26 @@ const val MAX_REGION_PX = 8_388_608L
 /** The live footprint of one [RegionRenderer.render] per pixel: 4 result bytes + 16 scratch bytes. */
 private const val BYTES_PER_PX = 20L
 
+/**
+ * The largest block of textured paper asked for in one call: 256 x 32 pixels, so 32 KiB of
+ * straight RGBA8 and nothing like a second region.
+ *
+ * WHY A BOUNDED BLOCK RATHER THAN THE WHOLE REGION. Paper used to reach an export as one
+ * `rect.w * rect.h * 4` array composited AFTER the layer stack, which is both a second full-region
+ * buffer held alive beside the composite and the wrong arithmetic — see [render]'s paper paragraph.
+ * Laying the paper down as the floor of the stack in bounded blocks removes the second buffer, and
+ * the bound is what keeps the temporary cost constant: a 4K board is 1012 calls of 32 KiB, never one
+ * call of 33 MiB. It is also the honest number to put in the 160 MiB claim above, which is about the
+ * REGION, not about the paper.
+ *
+ * The shape is wide-and-short on purpose. 256 is the tile edge, so a block never straddles more
+ * tile seams than it has to; 32 rows is small enough that a phone rasterises it without a visible
+ * pause, and the pair is what `RegionRendererTest` asserts, so raising either one is a red test
+ * rather than a silent memory regression.
+ */
+const val PAPER_BLOCK_W = 256
+const val PAPER_BLOCK_H = 32
+
 /** [MAX_REGION_PX] in mebibytes, for the refusal message. Derived, so it cannot contradict it. */
 private val MAX_REGION_PEAK_MIB = MAX_REGION_PX * BYTES_PER_PX / (1024L * 1024L)
 
@@ -102,7 +122,13 @@ private val MAX_REGION_PEAK_MIB = MAX_REGION_PX * BYTES_PER_PX / (1024L * 1024L)
  *
  * WHAT IT AGREES WITH. Paper is a `glClearColor` backdrop rather than a layer —
  * `GlPaintEngine.draw` clears to it and composites over it — so a region no layer covers is
- * TRANSPARENT, not black, unless paper was asked for, and the phone agrees about that.
+ * TRANSPARENT, not black, unless paper was asked for, and the phone agrees about that. A TEXTURED
+ * paper (JB-9.06b) is the same backdrop in a different form: it arrives as a callback, it is laid
+ * down in exactly this place as the floor of the stack, and it is asked for in bounded blocks
+ * ([PAPER_BLOCK_W] by [PAPER_BLOCK_H]) rather than as one region-sized array. That is the point of
+ * the row. The screen has always composited over paper before the layers; an export that composited
+ * a transparent stack and pasted the paper over the top gave MULTIPLY and the other separable modes
+ * a different backdrop from the one the artist was looking at.
  *
  * The CPU side implements ALL TWENTY-SEVEN [BlendMode]s: the seven separable ones per channel,
  * [BlendMode.ERASE_BELOW] as destination-out, and the nineteen the Studio's arithmetic brought in
@@ -151,6 +177,9 @@ private val MAX_REGION_PEAK_MIB = MAX_REGION_PX * BYTES_PER_PX / (1024L * 1024L)
  * this renderer cannot read throws [IllegalArgumentException] too, because a document whose paper
  * is not a colour is a document nobody wants to export and guessing one would silently paint a
  * black background. Both doors check both, so a guard cannot be walked around by calling the other.
+ * A TEXTURED paper adds refusals of the same kind and the same placement — two backdrops at once, a
+ * block of the wrong length, a block that is not opaque — and they are checked BEFORE the region is
+ * allocated and before the first block is asked for, so an impossible request never costs a decode.
  *
  * THE DOCUMENT ITSELF IS NOT VALIDATED, and that is the caller's half of the deal. These functions
  * read [doc] as given: they do not call [DocOps.validate], they do not check that a cel exists, and
@@ -172,16 +201,36 @@ object RegionRenderer {
      * The picture inside [rect], composited bottom to top through each layer's opacity and blend
      * mode, optionally over [paper] as an opaque `#RRGGBB` backdrop.
      *
+     * [paperRenderer] is the TEXTURED form of the same idea, for a paper that is a picture rather
+     * than a colour (JB-9.06b). It is a function rather than an array precisely so that it need not
+     * be one: this renderer asks it for one [PAPER_BLOCK_W] x [PAPER_BLOCK_H] block at a time, in
+     * DOCUMENT coordinates, and lays those down as the floor of the stack before the first layer —
+     * so a MULTIPLY layer multiplies the paper, exactly as it does on screen, instead of multiplying
+     * transparency and having the paper pasted over the result afterwards.
+     *
+     * OPAQUE IS A REQUIREMENT OF THE CALLBACK, NOT A PROMISE ABOUT THE OUTPUT. Paper arrives alpha
+     * 255; the picture that leaves may still be translucent, because ERASE_BELOW is destination-out
+     * and takes the paper's alpha with it exactly as it takes a flat backdrop's. That is the same
+     * arithmetic the flat [paper] path has always done, and a test that demanded a fully opaque
+     * export would be demanding that ERASE_BELOW stop working.
+     *
+     * @param paperRenderer returns STRAIGHT opaque RGBA8 for the exact [RectPx] it is handed, row 0
+     *   = that rectangle's top document row. Every returned shape and alpha is checked rather than
+     *   padded or truncated, and a block that fails is a refusal, not a partial region.
      * @return STRAIGHT (un-premultiplied) RGBA8, `rect.w * rect.h * 4` bytes, row 0 = top. The
      *   straight form is what every exporter writes, so the un-premultiply happens here, once,
      *   instead of in each of the five exporters that would otherwise each get it slightly wrong.
-     * @throws IllegalArgumentException if a side is negative, which is a caller bug, or if [paper]
-     *   is neither null nor a `#RRGGBB` colour. Checked HERE, before the [ByteArray] is allocated,
-     *   because a 4K export is 160 MiB of scratch to spend on a request that is going to be
-     *   refused anyway.
+     * @throws IllegalArgumentException if a side is negative, which is a caller bug, if [paper]
+     *   is neither null nor a `#RRGGBB` colour, if [paper] and [paperRenderer] are both given —
+     *   two backdrops is one too many and silently preferring either would export a paper the caller
+     *   did not ask for — or if a block comes back the wrong length or not opaque. All of these are
+     *   decided before the [ByteArray] is allocated, because a 4K export is 160 MiB of scratch to
+     *   spend on a request that is going to be refused anyway.
      * @throws RegionException if the region holds more than [MAX_REGION_PX] pixels. This is the
      *   refusal an exporter shows instead of dying: every exporter calls this, so every exporter
-     *   can catch this one type and say what it wanted in a sentence.
+     *   can catch this one type and say what it wanted in a sentence. The [paperRenderer] is NOT
+     *   called for a refused region: the guard is cheaper than the question, and a caller whose
+     *   region is impossible has not earned a texture decode.
      */
     fun render(
         doc: JbDocument,
@@ -189,12 +238,14 @@ object RegionRenderer {
         rect: RectPx,
         frameId: String?,
         paper: String?,
+        paperRenderer: ((RectPx) -> ByteArray)? = null,
     ): ByteArray {
         requireSize(rect)
         requirePaperIfAny(paper)
+        requireOneBackdrop(paper, paperRenderer)
         val out = ByteArray(rect.w * rect.h * 4)
         if (rect.w == 0 || rect.h == 0) return out
-        val p = renderPremultiplied(doc, tiles, rect, frameId, paper)
+        val p = renderPremultiplied(doc, tiles, rect, frameId, paper, paperRenderer)
         var i = 0
         while (i < p.size) {
             val a = p[i + 3]
@@ -214,11 +265,16 @@ object RegionRenderer {
      * The same picture, left PREMULTIPLIED in 0..1 floats — for compositing onward, and for tests
      * that care about the arithmetic rather than about the bytes.
      *
-     * @throws IllegalArgumentException if a side is negative, which is a caller bug, or if [paper]
-     *   is neither null nor a `#RRGGBB` colour.
+     * @param paperRenderer see [render]. The blocks are laid down here, under the layers, which is
+     *   the whole of JB-9.06b: the floor of the stack is decided once, before the first layer is
+     *   read, so no blend mode can see a different backdrop here than on the screen.
+     * @throws IllegalArgumentException if a side is negative, which is a caller bug, if [paper] is
+     *   neither null nor a `#RRGGBB` colour, if both [paper] and [paperRenderer] are given, or if a
+     *   block comes back the wrong length or not opaque.
      * @throws RegionException if the region holds more than [MAX_REGION_PX] pixels. The same
      *   refusal as [render] and for the same reason: this door allocates from the same rect, so a
-     *   guard on one door and not the other would be a guard that can be walked around.
+     *   guard on one door and not the other would be a guard that can be walked around. The
+     *   [paperRenderer] is not called for a refused region here either.
      */
     fun renderPremultiplied(
         doc: JbDocument,
@@ -226,9 +282,11 @@ object RegionRenderer {
         rect: RectPx,
         frameId: String?,
         paper: String?,
+        paperRenderer: ((RectPx) -> ByteArray)? = null,
     ): FloatArray {
         requireSize(rect)
         requirePaperIfAny(paper)
+        requireOneBackdrop(paper, paperRenderer)
         val px = FloatArray(rect.w * rect.h * 4)
         if (rect.w == 0 || rect.h == 0) return px
 
@@ -245,6 +303,10 @@ object RegionRenderer {
                 px[i + 3] = 1f
                 i += 4
             }
+        } else if (paperRenderer != null) {
+            // AFTER the allocation and after every guard above, which is the ordering the whole row
+            // turns on: a refused or empty region must cost a sentence, not a texture decode.
+            layPaperBlocks(px, rect, paperRenderer)
         }
 
         // One scratch pixel for the whole image: a source, the running result, and the result of
@@ -403,6 +465,115 @@ object RegionRenderer {
         if (o < 0f) return 0f
         if (o > 1f) return 1f
         return o
+    }
+
+    /**
+     * Two backdrops is one too many, and the refusal is deliberate rather than a convenience.
+     *
+     * A caller that passes both has said two contradictory things — "the paper is this colour" and
+     * "the paper is whatever that function returns" — and there is no tie-break that is not a guess:
+     * preferring the colour silently drops a texture somebody spent an asset pipeline on, and
+     * preferring the renderer silently exports a flat sheet for a document that is textured. Either
+     * would be a wrong file that looks fine, which is why this is a refusal with a sentence in it
+     * rather than a precedence rule. The exporters pick one and say which: a textured paper goes in
+     * as a renderer and a flat one as a colour, never both.
+     */
+    private fun requireOneBackdrop(paper: String?, paperRenderer: ((RectPx) -> ByteArray)?) {
+        require(paper == null || paperRenderer == null) {
+            "paper was given both as a colour and as a renderer; pass one, because two backdrops is " +
+                "one too many and there is no honest way to choose between them"
+        }
+    }
+
+    /**
+     * Fills the floor of the stack with textured paper, one bounded block at a time.
+     *
+     * DOCUMENT COORDINATES, EXACTLY, is the part that is not negotiable. Each block is asked for as
+     * a [RectPx] in the same space as [rect] itself, so a paper renderer that tiles by
+     * `x mod width` samples the same paper for the same document pixel whether it is answering a
+     * block, a whole board or a strip — and a board at a negative origin (the canvas is unbounded)
+     * gets its paper shifted with it rather than pinned to zero. Passing region-relative
+     * coordinates here instead would make every board below or left of the origin show the wrong
+     * part of the sheet, and would do it only on exports, which is the worst possible place to be
+     * wrong quietly.
+     *
+     * BLOCKS TILE THE RECT EXACTLY, with no overlap and no gap, and the last block in each
+     * direction is short rather than clipped — the renderer is handed a rectangle it can honour
+     * exactly, so there is no seam for a rounding difference to open. Walking the short edge
+     * (`minOf`) rather than padding is also what keeps the last call honest: a renderer that
+     * answers a 256-wide request with 256 columns of data for a 17-wide block would otherwise be
+     * truncated silently here.
+     *
+     * The straight RGBA8 is written into the premultiplied float array directly, and that is not a
+     * shortcut: [requirePaperBlock] has already refused any block with an alpha below 255, so
+     * premultiplying by alpha is multiplying by exactly 1. The un-premultiply on the way out is
+     * therefore the identity for paper, and a paper pixel comes back out the byte it went in as.
+     */
+    private fun layPaperBlocks(px: FloatArray, rect: RectPx, paperRenderer: (RectPx) -> ByteArray) {
+        val xEnd = rect.x + rect.w
+        val yEnd = rect.y + rect.h
+        var by = rect.y
+        while (by < yEnd) {
+            val bh = minOf(PAPER_BLOCK_H, yEnd - by)
+            var bx = rect.x
+            while (bx < xEnd) {
+                val bw = minOf(PAPER_BLOCK_W, xEnd - bx)
+                val block = RectPx(bx, by, bw, bh)
+                val bytes = paperRenderer(block)
+                requirePaperBlock(bytes, block)
+                // Row by row, because a block is bw wide and the region is rect.w wide: copying the
+                // block as one run would lay every row down at the region's row stride and shear
+                // the paper. The seam between two blocks is therefore an ordinary row boundary.
+                var row = 0
+                while (row < bh) {
+                    val from = row * bw * 4
+                    val to = ((by + row - rect.y) * rect.w + (bx - rect.x)) * 4
+                    var i = 0
+                    val run = bw * 4
+                    while (i < run) {
+                        px[to + i] = unit(bytes, from + i)
+                        i++
+                    }
+                    row++
+                }
+                bx += bw
+            }
+            by += bh
+        }
+    }
+
+    /**
+     * One block's contract, checked rather than assumed: exactly the bytes asked for, and opaque.
+     *
+     * THE LENGTH IS NOT PADDED AND NOT TRUNCATED. A renderer that answers 32 KiB for a 17x32 block
+     * has either misread the rectangle or ignored it, and both are worth a sentence at the call
+     * site: truncating would put a band of the wrong paper along one edge, and padding would put a
+     * band of nothing there, and neither would fail a test that only looked at the middle.
+     *
+     * THE ALPHA IS REFUSED, NOT COMPOSED, because a translucent "paper" is a contradiction this API
+     * cannot honour. Laying one down would mean a Multiply layer blending against a partly see-
+     * through floor, and the honest reading of that floor is a question for the caller, not a guess
+     * here. It is worth being precise about what this does NOT claim: the refused alpha is the
+     * BLOCK's, and the finished picture may still be translucent afterwards, because ERASE_BELOW
+     * removes the very alpha this check insisted on. The check is about the input, never the output.
+     */
+    private fun requirePaperBlock(bytes: ByteArray, block: RectPx) {
+        val want = block.w * block.h * 4
+        require(bytes.size == want) {
+            "the paper renderer answered ${bytes.size} bytes for a ${block.w} by ${block.h} block at " +
+                "${block.x},${block.y}, which is $want; paper blocks are never padded or truncated"
+        }
+        var i = 3
+        while (i < bytes.size) {
+            val pixel = i / 4
+            val x = block.x + pixel % block.w
+            val y = block.y + pixel / block.w
+            require((bytes[i].toInt() and 0xFF) == 255) {
+                "the paper renderer answered alpha ${bytes[i].toInt() and 0xFF} at document pixel " +
+                    "$x,$y in a ${block.w} by ${block.h} block; paper is a backdrop and is always opaque"
+            }
+            i += 4
+        }
     }
 
     /**

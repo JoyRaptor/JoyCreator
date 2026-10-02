@@ -4,6 +4,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -13,10 +14,15 @@ import kotlin.test.assertTrue
  * The surface map's own arithmetic (JB-9.01), test for test from the spec's list.
  *
  * `SurfaceMaps` is the Kotlin twin of `joybrush/tools/paper/pack.py`, and the shipped
- * `assets/paper/surface_pulp_artisan.png` is the golden: [SurfaceAssetTest] (jvmTest) checks this
- * code reproduces that file. These eight tests are what make the twin's *conventions* pinned, so
- * that a well-meaning change to a weight, a sign or a division goes red here first, with a name
- * that says which convention moved, instead of red over in the asset comparison.
+ * `assets/paper/surface_pulp_artisan.png` is the golden: `SurfaceAssetTest` (jvmTest) checks this
+ * code reproduces that file. These tests are what make the twin's *conventions* pinned, so that a
+ * well-meaning change to a weight, a sign or a division goes red here first, with a name that says which
+ * convention moved, instead of red over in the asset comparison.
+ *
+ * Three of them go past the spec's list, because the audit of this row found three things the list did
+ * not ask about and the spec's own text got wrong: that the slope byte layout has no half-byte offset,
+ * that a non-finite slope used to pack as the opposite rail, and that `A − B²` is quantisation error
+ * rather than the local variance JB-9.01 Decision 3 promised.
  *
  * Every expected number below is derived in its own comment.
  */
@@ -153,6 +159,40 @@ class SurfaceMapsTest {
         assertEquals(254, SurfaceMaps.encodeSlope(10f * r, r), "past the rail it clamps, it does not wrap")
     }
 
+    /**
+     * The byte layout has no half-byte offset: 127 is flat and the two rails are 0 and 254.
+     *
+     * The encode is `round(127 + 127·clamp(s/r, −1, 1))`, so for an integer k in −127..127 — already
+     * inside the clamp — `encodeSlope(k·r/127, r)` is exactly `127 + k`. Every one of the 255 bytes the
+     * encoder can write therefore names the slope `k·r/127` with k = b − 127, which puts
+     * ```
+     *   byte 127 -> 0 exactly      byte 126 -> -r/127      byte 128 -> +r/127
+     * ```
+     * so 126 and 128 are the two encode steps either side of flat and not a bias towards one end, and
+     * [SurfaceMaps.decodeSlope] is the exact inverse of [SurfaceMaps.encodeSlope] rather than an
+     * approximation of it. Byte 255 is never written; read one and it decodes to 128r/127, past the rail.
+     *
+     * The six anchors below are asserted with NO tolerance because each side reduces to a value both
+     * sides can hold exactly: 0/127f·r is 0, ±127/127f·r is ±r, and `1/127f·r` and `r/127f` are the same
+     * Float at r = 0.099. The loop over all 255 bytes cannot be exact, because the code computes
+     * `(k/127f)·r` while the grid value is `k·r/127` and the two associations differ by up to one ulp;
+     * one ulp of 0.099 is 7.45e-9, so 1e-8 is about 1.3 ulps and nothing more.
+     */
+    @Test
+    fun theSlopeByteLayoutHasNoHalfByteOffset() {
+        val r = 0.099f
+        assertEquals(0f, SurfaceMaps.decodeSlope(127, r))
+        assertEquals(r / 127f, SurfaceMaps.decodeSlope(128, r))
+        assertEquals(-(r / 127f), SurfaceMaps.decodeSlope(126, r))
+        assertEquals(-r, SurfaceMaps.decodeSlope(0, r))
+        assertEquals(r, SurfaceMaps.decodeSlope(254, r))
+        assertEquals(128f * (r / 127f), SurfaceMaps.decodeSlope(255, r))
+        for (k in -127..127) {
+            assertEquals(127 + k, SurfaceMaps.encodeSlope(k * r / 127f, r), "byte for k = $k")
+            assertEquals(k * r / 127f, SurfaceMaps.decodeSlope(127 + k, r), 1e-8f, "slope for byte ${127 + k}")
+        }
+    }
+
     /** Exact-zero encoding has 254 intervals; the worst round-trip error is r/254. */
     @Test
     fun aSlopeSurvivesTheByteRoundTrip() {
@@ -195,11 +235,104 @@ class SurfaceMapsTest {
         }
     }
 
+    /**
+     * `A − B²` is what a consumer reading "variance = A − B²" gets, measured from the bytes `pack`
+     * actually wrote. It is the rounding error of a byte and nothing else.
+     *
+     * With b the height byte, `u = b²/255`, `A = round(u)` and `B² = b²/65025 = u/255`, so
+     * ```
+     *   A − B² = (round(u) − u)/255 = e/255,   e ∈ [-1/2, +1/2]
+     * ```
+     * Put `r = b² mod 255`. Then `e` is `−r/255` when `r ≤ 127` and `(255 − r)/255` when `r ≥ 128`, so
+     * ```
+     *   A − B² = -r/65025          for b² mod 255 <= 127
+     *   A − B² = (255 - r)/65025   for b² mod 255 >= 128
+     * ```
+     * The bound is therefore 127/65025 = 1.95309e-3 (the coarser 1/510 = 1.96078e-3 is the same bound
+     * without the mod), the SIGN is decided by `b² mod 255` and not by the surface, and both signs occur
+     * over the byte range: the rule above pins each of the 256 bytes, and it is 1.75e-16 or better
+     * everywhere, so the assertion carries 1e-12.
+     *
+     * Two probes, worked by hand, and they are neighbours on the same dark sheet:
+     * - b = 1: u = 1/255, A = 0, so A − B² = −1/65025 = −1.53787e-5.
+     * - b = 12: u = 144/255, A = 1, so A − B² = 111/65025 = +1.70704e-3, which is 87.4% of the bound.
+     * One is a "negative variance" and one is a "positive variance", and both carry the same single bit
+     * of A (0 against 1), so nothing downstream can tell "dark" from "flat" in that channel.
+     */
+    @Test
+    fun theAlphaChannelIsAQuauntisedSecondMomentAndNotAVariance() {
+        val n = 16
+        val heightBytes = ByteArray(n * n) { (it and 0xFF).toByte() } // every height byte, 0..255
+        val packed = SurfaceMaps.pack(heightBytes, n, n, 0.099f)
+        var negative = 0
+        for (b in 0..255) {
+            assertEquals(
+                (b * b / 255.0).roundToInt(), packed[b * 4 + 3].toInt() and 0xFF,
+                "A for height byte $b: 255·(b/255)² is b²/255 and no float step reaches a .5 tie",
+            )
+            val residue = (b * b) % 255
+            val want = if (residue <= 127) -residue / 65025.0 else (255 - residue) / 65025.0
+            val got = aMinusBSquared(packed, b)
+            assertEquals(want, got, 1e-12, "A − B² for height byte $b, residue $residue")
+            assertTrue(abs(got) <= 127.0 / 65025.0, "A − B² = $got at height byte $b, over 127/65025")
+            if (got < 0.0) negative++
+        }
+        assertTrue(negative > 0, "no height byte gave a negative A − B², so the sign rule is not exercised")
+        assertEquals(-1.0 / 65025.0, aMinusBSquared(packed, 1), 1e-12)
+        assertEquals(111.0 / 65025.0, aMinusBSquared(packed, 12), 1e-12)
+        // what JB-9.06's zoom maths is named to do with it
+        assertTrue(sqrt(aMinusBSquared(packed, 1)).isNaN(), "sqrt of a negative A − B² must be NaN, not 0")
+        assertTrue(!sqrt(aMinusBSquared(packed, 12)).isNaN())
+        // and twenty height bytes carry no signal in A at all: b² < 127.5 gives 0, b² < 382.5 gives 1
+        for (b in 0..11) assertEquals(0, packed[b * 4 + 3].toInt() and 0xFF, "A for height byte $b")
+        for (b in 12..19) assertEquals(1, packed[b * 4 + 3].toInt() and 0xFF, "A for height byte $b")
+        assertEquals(2, packed[20 * 4 + 3].toInt() and 0xFF, "A for height byte 20")
+    }
+
+    /** `A/255 − (b/255)²`, read back out of packed bytes, i.e. exactly what a consumer of the layout sees. */
+    private fun aMinusBSquared(packed: ByteArray, b: Int): Double {
+        val a = packed[b * 4 + 3].toInt() and 0xFF
+        val h = b / 255.0
+        return a / 255.0 - h * h
+    }
+
     // ---- 8. a range that cannot divide ----------------------------------------------------------------
 
     @Test
     fun aZeroSlopeRangeIsRefusedByName() {
         val e = assertFailsWith<IllegalArgumentException> { SurfaceMaps.pack(ByteArray(64), 8, 8, 0f) }
         assertTrue(e.message.orEmpty().contains("slopeRange"), "the message should say which argument: ${e.message}")
+    }
+
+    /**
+     * A slope that is not a number is refused by name, instead of packing as the opposite rail.
+     *
+     * What it did before the guard, step by step. `coerceIn(-1.0, 1.0)` returns its argument whenever
+     * neither `this < min` nor `this > max` holds, and for a NaN neither holds, so the NaN survived the
+     * clamp. `round` of a NaN is a NaN. `Double.toInt()` narrows NaN to 0 (JLS 5.1.3). Byte 0 is the
+     * −`slopeRange` rail, so one NaN in a hand-built slope array became a texel tilted as hard downhill
+     * as the format can express, with no exception and no message. An infinity gets the same treatment
+     * by the opposite route: `+∞` clamps to 1 and packs as 254, `−∞` as 0.
+     *
+     * [SurfaceMaps.defaultSlopeRange] does not always notice first, either: its percentile index is
+     * `0.999·(n − 1)`, well below the last element, so on a field large enough that the non-finite
+     * values sort to the end the range comes back finite and legal and `pack` proceeds. On a field small
+     * enough that the percentile index itself lands on one, the range check throws and the same input
+     * looks like a different bug. `pack` itself cannot reach any of this: its heights come from bytes.
+     *
+     * The guard is on the VALUE and not on the call: with a valid range, the legal anchors either side of
+     * it still encode, which is what the last two assertions are for.
+     */
+    @Test
+    fun aNonFiniteSlopeIsRefusedByName() {
+        for (bad in listOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+            val e = assertFailsWith<IllegalArgumentException> { SurfaceMaps.encodeSlope(bad, 0.099f) }
+            assertTrue(
+                e.message.orEmpty().contains("slope must be"),
+                "the message should say the slope is the problem, not the range: ${e.message}",
+            )
+        }
+        assertEquals(127, SurfaceMaps.encodeSlope(0f, 0.099f))
+        assertEquals(254, SurfaceMaps.encodeSlope(0.099f, 0.099f))
     }
 }

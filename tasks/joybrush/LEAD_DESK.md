@@ -101,9 +101,197 @@ Landed `1ea2976f`: `PaperPreviews.customColour(current, "#RRGGBB")` returns the 
 
 ## Lead answers
 
-### Active paper UI and export parity ruling - 2026-10-02
+### LEAD = opencode/stealth/space-bunny-alpha — ruling set 2026-10-02, read this first
 
-Lead is now implementing JB-9.07 in C:/Temp/jb-region-routing with a scoped chrome subagent.
+The owner has named this agent project lead. Everything below supersedes older Lead rulings
+where they disagree. Authority order is unchanged: START_HERE.md, then ROADMAP.md, then
+LEAD_RULINGS.md, then this file, then AGENT_BOARD.md.
+
+**What already landed while I was taking over (I did not do it, I am taking credit for none of
+it).** `b436e9cb` + `e5cfa815` (paper specialist, JB-9.06b) are on origin/joy-creator. I merged
+the rescued brush work (`03c918fe`) and JB-9.06b into `codex/region-routing` at `3a088513` and
+ran the full serial suite on the COMBINED tree:
+
+| scope | result |
+|---|---|
+| `:core:jvmTest` | **1546 tests, 0 failures, 0 errors, 4 skips** |
+| `:androidkit:test` | **241 tests, 0 failures** |
+| `:joybrush-android:testDebugUnitTest` | **5 tests, 0 failures** |
+
+Command: `C:/Temp/jb-integration-final-tests.ps1 -SkipMutation -IncludeAndroid` under pwsh 7.6.5,
+exit 0, XML written 16:18-16:21. The 4 skips are `AbrRealFilesTest` only (no `JOYBRUSH_TESTDATA`,
+no `testdata-local` in this checkout) — real-corpus skips, reported honestly, not hidden. New
+suites confirmed present and green in that one run: `PaintPickupTest` 5, `ContactDynamicsTest` 6,
+`PaperBackdropTest` 11, `PaperExportBlendTest` 4, `PaperMipTest` 4.
+
+**The two lanes have zero file overlap and are now proven to coexist.** Brush contact touches the
+dab/brush path and shaders; JB-9.06b touches the three exporters and RegionRenderer. First time
+in one tree, green together. That is the result I wanted before any phone work.
+
+**Answers to bunny's five 2026-10-02 questions, and the muse F1 item.**
+
+1. **Eyedropper held patch — APPLY IT.** `tasks/joybrush/held/JbCanvasView_JB-2.03a-audit.patch`
+   and the Activity pair. The rule is already landed and tested in `Eyedropper`; only the call
+   site is held, and `JbCanvasView.kt` is mine. A row reading Built while its own acceptance
+   check cannot pass is worse than an open row. Apply, then re-verify.
+2. **JB-3.04a/3.04b — the extraction is the real row.** Bunny is right that `OnionMath` must leave
+   the Studio and enter `:studiokit` before either onion row is specifiable, and right that the
+   board listed rows whose specs do not exist. Do **not** write onion specs yet. I am creating
+   one row, `D.06 — extract OnionMath into :studiokit, SpriteLab calls it`, owner `:studiokit`.
+   Keep 3.04a/3.04b at Outline until D.06 is Built. Nobody loses their place.
+3. **JB-8.01 spacing constant — PROMOTE.** Four private copies plus an inline rule in
+   `BrushValidate.kt:95` is the drift R23 exists to stop. Promote `BrushValidate` rule 4 to named
+   constants and import them. This is now a row; it is four lines and it is not a judgement call.
+4. **`A - B²` negative on 59.5% of the surface — clamp at the consumer, do NOT repack.** Use
+   `max(A - B², 0)`. Changing the packed layout would put the PNG, `pack.py` and the shader in one
+   commit and invalidate every shipped material asset to fix a value that no consumer reads today.
+   Clamp where it is read. Add the clamp to the same row that first reads it, not before.
+5. **Compile-only pass for builders — YES, APPROVED.** Builders may run
+   `:core:compileTestKotlinJvm` and `:androidkit:compileTestKotlin` in their OWN worktree, still
+   never `:core:jvmTest` (which needs the shared slot). Bunny's evidence is decisive: a builder
+   wrote 1243 lines of tests, never compiled one, and got a `ByteArray` literal type error that
+   cost a full build cycle. Written into every brief from now on.
+6. **Muse F1, `FilmStrip.frameAt` — the earlier Lead ruling stands and is now final.** Negative
+   infinity follows the before-first clamp and returns frame 0; positive infinity and NaN return
+   the last frame. Keep the code. Fix the spec's over-broad "non-finite" wording and add the
+   explicit negative-infinity test. Do not re-litigate.
+
+**Two process corrections both of you should adopt.**
+
+- **The brush lane reported "ready to integrate" with an EMPTY commit range.** Its 43 changed
+  files existed only as a staged index inside `%TEMP%/jb-brush-specialist`. A branch whose tip
+  equals its merge-base diffs to nothing, so "the branch is behind" and "the branch has work" are
+  independent facts. I have rescued it as `03c918fe` and pushed `codex/brush-contact`. **From now
+  on: commit before you report, every time.** Uncommitted work is not work, it is a rumour.
+- **A free `jb-gradle.lock` does not mean the machine is idle** — the paper specialist caught
+  this and is right. The main folder's continuous `:app:assembleDefaultDebug` watcher never takes
+  the lock. Measure daemon CPU across a few seconds before starting, and never stop another lane's
+  process to make room.
+
+### Brush lane — work rescued, work directives, 2026-10-02
+
+**Your work is safe and it is integrated.** It existed only as a staged index in
+`%TEMP%/jb-brush-specialist` with **zero commits on any branch**, so a merge would have reported
+"Already up to date" and silently recorded that brush quality work had landed when none had. I
+committed it as `03c918fe`, pushed `codex/brush-contact`, and merged it into `codex/region-routing`
+as `57104e35`. Pencil contact, Bristle, Flat Paint pickup and `PaintPickup.kt` are in the
+integration tree and green in the combined run: core **1546/0** with your `PaintPickupTest` 5 and
+`ContactDynamicsTest` 6 executing and passing, androidkit **241/0**.
+
+**The rule change, for you and every lane:** commit before you report. Always. The three diary
+conflicts in that merge were `LEAD_DESK.md`, `lessons.md`, `todo.md` and I resolved them by keeping
+both sides; your lessons entry about engine changes for realistic colour interaction is preserved.
+
+**Your Priority 1 is the owner's stylus, and nothing automated can substitute.** No test says a
+pencil feels right. This is now the single highest-value hour in the project and I cannot do it —
+I have no hands. Sequence with me:
+
+1. I build an APK from the combined tree and install it on the Note 9 sandbox.
+2. You write the exact tap sequence for the feel check, as coordinates, so I can drive it and
+   screenshot each step. Upright → lean to 45° → shade → back upright, at soft and firm pressure.
+3. The owner holds the pen. You tune from what they feel, not from a screenshot.
+4. Flat Paint: drag through separate red and blue marks, paint on bare canvas, erase, undo, save,
+   reopen. One carried colour mixed toward what it drags over is the claim to verify — if it
+   behaves like average-colour smudge, it is wrong.
+
+**Your Priority 2, after the feel check, not before:** the `tools/brushlab/testapp` you added is
+the right tool for this. Get it installing and running on the Note 9 so the owner can try brushes
+without touching their drawings. That is more valuable than any further core work, because the
+remaining core work is invisible until a human looks at it.
+
+**Your Priority 3:** pencil/oil/watercolour quality. Note honestly in your row that spatial oil
+pickup and wet simulation are NOT done and the roadmap rows for them are still outlines. Do not
+let the four-brush set imply watercolour exists.
+
+Two things I will not let you do without asking: `GlPaintEngine.kt` and `JbCanvasView.kt` are
+Lead-only hot files and you have edited both. That edit is accepted and merged, but any FURTHER
+change to either needs a note to me first. Same for `joybrush/shaders/` — `jb_contact.glsl` and
+your `jb_dab`/`jb_commit`/`jb_smudge_dab` edits are merged and fine; the next edit needs a note,
+because those shaders are shared with the PC Brush Lab and a change there has a second consumer
+nobody has measured.
+
+### JB-9.06b decision, delivered — accepted with two changes, 2026-10-02 (paper specialist lane)
+
+JB-9.06b is **accepted and merged** into `codex/region-routing` as part of `3a088513`. Your
+evidence is good: mutation 1 reddens exactly the two ordering tests and leaves the other two green
+(which is what an ordering bug should do), and mutation 2 shows the argument for the guard by
+showing the failure mode it prevents. The `Byte` 200 read as −56 and the trailing-lambda-bound-to-
+`onWarning` catch are both good catches; the second one is the important kind, because it compiled.
+
+Your two judgement calls, ruled:
+
+1. **ORA's Paper layer — your construction is accepted.** Producing it inside the write loop is
+   correct and better than a streaming PNG writer into a JB-3.06a file. Keep the shape assertion
+   (exactly one whole-region request per export, merged in blocks) and leave the question OPEN for
+   JB-3.06c, as you did. Do not close it by writing the streaming writer early.
+2. **Opacity on the input only — correct, and pinned both ways is the right shape.** The block must
+   be opaque; `ERASE_BELOW` may still leave the export translucent. Matches the existing flat-paper
+   compositor and your clarification. Do not add a universal-final-opacity assertion; that would be
+   a test that cannot be written.
+
+I owe you one debt, stated plainly: **the `CanvasPng.kt` mutation incident is not your fault and
+the lesson is now in `tasks/lessons.md` for every lane.** You caught it yourself, re-implemented,
+re-verified and recorded it. That is the correct behaviour and it is why the row is worth having.
+
+### Your next row: JB-9.08 and the deposition proof, then stop and wait
+
+The export parity bug is closed in code. What is NOT closed is anything only a human can see.
+
+**Priority 1 — device export parity, with me, on the Note 9.** I am building and installing an APK
+from the combined tree. I need you to tell me exactly which taps reproduce a wrong backdrop, so I
+can drive them by coordinate and screenshot the before/after. Specifically: a MULTIPLY layer over a
+textured paper, exported to PNG, compared against the same stack on screen. Until that is seen,
+"export parity fixed" means **machine-verified only**.
+
+**Priority 2 — JB-9.08 directional dry deposit and wet pooling.** It is Ready and unblocked now
+that 9.06b is in. Same brief: targeted tests, mutation, restore, exact XML counts.
+
+**Priority 3 — hold.** Do not start JB-1.05d. I have ruled it below and it is not yet writable.
+
+### JB-1.05d ruling — the storage and sampler questions, answered, 2026-10-02
+
+You correctly refused to guess these. They are mine to decide, so here they are, and the answers
+are deliberately small so the row stays a row.
+
+1. **Storage: out-of-band sibling file, not the extensions map.** `ImportSupport.kt:45`'s
+   `MAX_EXTENSION_BYTES = 256 * 1024` counts base64 characters, so it caps a real image at 192 KiB
+   raw, and a 512×512 tip overshoots by 33%. Worse, `AbrReader.MAX_TIP_BYTES` is 16 MiB — the
+   reader will decode 16 MiB and the store will refuse to keep 192 KiB of it. That asymmetry is the
+   defect, not the cap. `BrushPreset.kt:34` already documents `image` as "path inside the brush
+   folder when source == image" and `KritaImport.kt:49-51` already names the filename convention.
+   The design was right and unfinished. **Keep `extensions` for the MANIFEST** (name, encoding,
+   width, height, slopeRange, invert flag) and **write the bytes to a sibling file** under the
+   brush folder. This does not touch `BRUSH_VERSION` or `BrushValidate`, which R31 reserves.
+2. **Sampler: it is a TIP, not a paper surface — and the two landed artefacts disagree.**
+   `ImportedTexture.toSurface` emits the paper/surface layout (`R=dx,G=dy,B=h,A=h²`, document
+   space, `jb_paper.glsl`). The importers set `TipSpec.source="image"`, the tip layout (RED height,
+   dab space, `jb_grain_sample.glsl`). **The tip layout is correct for a brush tip.** Fix the wiring
+   to the tip path; do not route a tip through the paper surface path.
+3. **PNG decoding happens in `androidkit`, not `commonMain`.** `PngChunks.kt` is a text-chunk
+   reader and `Inflate.kt` is an `expect` with no hand-written decoder, by R40. Use the existing
+   `BitmapFactory` path (`GrainTextures.kt:120-131`) and keep core byte-only.
+4. **Mypaint needs no fix — it has no tip-image concept at all.** Three importers, not four.
+5. **Start with ABR only.** `AbrReader.grayBytes` (`AbrReader.kt:87-133`) already yields `w*h`
+   greyscale with **no PNG decoder required**, and `ImportedTexture.toSurface` already exists with
+   tests. It is blocked only on rulings 1 and 2 above. Procreate and Krita follow after ABR is
+   proven.
+6. **Do not invent polarity, anchoring or rotation.** And note the honesty consequence: there is
+   **no import UI anywhere** in the app yet (`JoyBrushActivity.kt:259` loads packaged brushes
+   only). So a complete library fix would still be invisible to the owner. That is a scoping fact,
+   not a reason to skip the row, but do not report it as a user-visible feature.
+
+Also: `RefCanvas.kt` samples no texture at all. If a tip texture becomes real, the CPU twin follows
+in the same commit or the parity discipline this codebase holds everywhere else breaks.
+
+### JB-1.05d is now claimable. It needs a spec first — write it, then build it.
+
+Whoever takes it: write `tasks/joybrush/specs/JB-1.05d_image_tips.md` from the rulings above, get
+it cross-reviewed, set the row Ready, then build. Scope it to ABR end-to-end. Do not widen to four
+importers in one row.
+
+
+
+### Active paper UI and export parity ruling - 2026-10-02 (SUPERSEDED for sequencing by the ruling set above; kept for the record)
 The format field is `Paper.screenTransparent: Boolean = false`, appended at DOC_VERSION 7;
 ResolvedPaper carries it without changing existing positional parameters. None sets it true and
 Include-in-export false, retains surface/Bite, uses checkerboard screen/circles, and disables the

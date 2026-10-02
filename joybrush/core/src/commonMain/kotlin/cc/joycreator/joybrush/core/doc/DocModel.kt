@@ -5,10 +5,12 @@ import kotlinx.serialization.Serializable
 
 const val DOC_FORMAT = "joybrush.document"
 /**
+ * 6: board-local region frame addresses and a saved current frame for each board.
+ * 5: board chrome's tiled display flag.
  * 4: the paper carries a look, a tint and two sliders (JB-9.05, R10).
  * 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48).
  */
-const val DOC_VERSION = 4
+const val DOC_VERSION = 6
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -103,6 +105,16 @@ const val TILE_SIZE = Tiles.SIZE
     val fps: Float = 12f,                   // ANIMATION only
     val frames: List<Frame> = emptyList(),  // ANIMATION only, in play order
     val grid: SpriteGrid? = null,           // SPRITE only
+    val tiled: Boolean = false,            // v5 board chrome's saved tiling-display flag
+    val currentFrameId: String? = null,    // v6: independent saved cursor for each Animation board
+    val locked: Boolean = false,          // v6: explicit frame lock; multi-frame animation is fixed regardless
+)
+
+/** Per-board frame addresses in a layer; pixels outside all regions use Layer.sharedCelId. */
+@Serializable data class RegionFrames(
+    val boardId: String,
+    val frameCel: Map<String, String>,
+    val held: Boolean = false,             // held region reads/writes the shared canvas
 )
 
 /**
@@ -183,6 +195,8 @@ const val TILE_SIZE = Tiles.SIZE
     val mask: Cel? = null,
     /** Clipped (Photoshop's clipping mask): shown only where the nearest unclipped layer below has paint. */
     val clip: Boolean = false,
+    val sharedCelId: String? = null,        // v6: base paint, independent of region frame cels
+    val regions: List<RegionFrames> = emptyList(),
 )
 
 @Serializable data class JbDocument(

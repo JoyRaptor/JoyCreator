@@ -54,11 +54,23 @@ Foundation commit 15af73f5, integration commit 529a8381; backup branch codex/reg
 This clean isolated integration does not resolve the primary tree's divergent board spec or
 land its legacy frame foundation. Both remain preserved separately for the later adapter work.
 
-## Integration safety decisions
+## Owner policy update and region model — 2026-10-02
 
-- Do not silently convert v4 whole-layer animation at Open. Outside pixels may differ across its
-  old frames; choosing one frame as the shared outside would hide other artwork. Keep legacy
-  reading isolated and require a reversible, explicit conversion with the original retained.
+Owner confirms all current artwork is disposable scratches and there is no user base. No old
+test-file backups/restoration or conversion will be built. This overrides earlier migration plans.
+Version 6 adds Board.currentFrameId, Layer.sharedCelId and per-board RegionFrames; includes the
+specialist's v5 Board.tiled flag. RegionDocumentOps creates boards across paint layers, adds
+blank/copy/link frames, selects saved frames and produces per-layer paint plans. Operations return
+bounded pixel-copy instructions for the future engine transaction; no pixel work occurs in core.
+The old scalar celFor refuses region layers so unwired exports cannot silently paint the wrong cel.
+Codec canonicalizes per-region maps, and validation checks real frame/cel addresses, unique
+region ownership and non-overlap. Final combined verification: 1,470 core tests and 225 Android
+file/codec tests, zero failures/errors/skips; build successful in 4m58s. Twelve new model tests
+exercise the saved addresses and operations. No phone install or working region UI claimed.
+
+## Integration safety decisions (updated for disposable test data)
+
+- Do not convert old whole-layer test animations; start a fresh region drawing.
 - A new region document has a distinct shared pixel store; a frame must never alias it. Frame
   links alias only within that board's frame sequence. Store namespaces still include layer ID.
 - Capture all participating regions once per stroke. Frame/board changes wait for stroke completion.
@@ -67,5 +79,6 @@ land its legacy frame foundation. Both remain preserved separately for the later
   planeAt serves picking/reference reads; clips serve batched rendering and commit passes.
 - Treat masks as their own stores under R48; do not duplicate a shared layer mask on every frame.
   Clipping base reads must use the base layer's region plan at the same document pixel.
-- No schema bump is made here. Coordinate tiled metadata, saved currentFrameId and region tracks
-  in one reviewed schema change; new runtime helper types are deliberately not Serializable.
+- The runtime paint-plan helper remains non-Serializable; only the document fields serialize.
+  GPU undo/paint, CPU region rendering and save/load integration remain the next slice. Until then
+  these schema operations are not exposed as working phone controls.

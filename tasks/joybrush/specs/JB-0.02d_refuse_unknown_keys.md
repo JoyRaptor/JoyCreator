@@ -174,13 +174,15 @@ const val DOC_VERSION = 2
 | Class | Keys, in declaration order |
 |---|---|
 | root (`JbDocument`) | `format` `version` `id` `name` `paper` `boards` `layers` `activeLayerId` `activeBoardId` |
-| `paper` (`Paper`) | `color` `textureId` `textureScale` `includeInExport` |
-| `boards[]` (`Board`) | `id` `name` `kind` `rect` `clipToBoard` `fps` `frames` `grid` |
+| `paper` (`Paper`) | `color` `textureId` `textureScale` `includeInExport` `lookId` `tint` `show` `bite` `light` |
+| `boards[]` (`Board`) | `id` `name` `kind` `rect` `clipToBoard` `fps` `frames` `grid` `tiled` `currentFrameId` `locked` |
 | `boards[].rect` (`RectPx`) | `x` `y` `w` `h` |
 | `boards[].frames[]` (`Frame`) | `id` `holdFrames` |
 | `boards[].grid` (`SpriteGrid`) | `cols` `rows` `cellW` `cellH` |
-| `layers[]` (`Layer`) | `id` `name` `kind` `visible` `locked` `opacity` `blend` `animatedIn` `cels` `frameCel` |
+| `layers[]` (`Layer`) | `id` `name` `kind` `visible` `locked` `opacity` `blend` `animatedIn` `cels` `frameCel` `mask` `clip` `sharedCelId` `regions` |
+| `layers[].regions[]` (`RegionFrames`, v6) | `boardId` `frameCel` `held` |
 | `layers[].cels[]` (`Cel`) | `id` `tiles` `strokesFile` |
+| `layers[].mask` (`Cel`) | `id` `tiles` `strokesFile` |
 
 `kind` and `blend` are enums, `tiles` and `frames` and `cels` and `boards` and `layers` are lists,
 `frameCel` is a map whose KEYS are free-form frame ids (its VALUES are cel ids — a value, not a key,

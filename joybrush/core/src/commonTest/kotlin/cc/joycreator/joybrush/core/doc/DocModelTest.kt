@@ -162,13 +162,13 @@ class DocModelTest {
             // v4 (JB-9.05): the owner's paper controls. The first four are v3 and keep their names.
             "lookId", "tint", "show", "bite", "light",
         ),
-        "\$.boards[]" to setOf("id", "name", "kind", "rect", "clipToBoard", "fps", "frames", "grid"),
+        "\$.boards[]" to setOf("id", "name", "kind", "rect", "clipToBoard", "fps", "frames", "grid", "tiled", "currentFrameId", "locked"),
         "\$.boards[].rect" to setOf("x", "y", "w", "h"),
         "\$.boards[].frames[]" to setOf("id", "holdFrames"),
         "\$.boards[].grid" to setOf("cols", "rows", "cellW", "cellH"),
         "\$.layers[]" to setOf(
             "id", "name", "kind", "visible", "locked", "opacity", "blend", "animatedIn",
-            "cels", "frameCel", "mask", "clip",
+            "cels", "frameCel", "mask", "clip", "sharedCelId", "regions",
         ),
         "\$.layers[].cels[]" to setOf("id", "tiles", "strokesFile"),
         "\$.layers[].mask" to setOf("id", "tiles", "strokesFile"),
@@ -703,7 +703,7 @@ class DocModelTest {
         val doc = fresh().copy(paper = everyPaperField())
         val back = DocJson.decode(DocJson.encode(doc))
         assertEquals(everyPaperField(), back.paper, "a paper must come back exactly as it went in")
-        assertEquals(4, back.version, "the codec stamps the current version, which is 4 from JB-9.05")
+        assertEquals(6, back.version, "the codec stamps the current region document version")
         assertEquals(DOC_VERSION, back.version, "and reads it from the one constant, not a literal here")
     }
 

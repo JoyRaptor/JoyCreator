@@ -201,6 +201,7 @@ class SpriteBoardHoldsNoGridArithmeticTest {
                 "JbDocument.layers",
                 "Layer.cels",
                 "Layer.frameCel",
+                "Layer.regions", // v6 board-region frame mapping; never the derived sprite `used`
             ),
             collections,
             "a NEW collection or map field is where a stored 'used' would go",

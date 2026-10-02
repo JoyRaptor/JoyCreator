@@ -95,7 +95,7 @@ class EnumFreezeTest {
         // 4 is the paper look/surface (JB-9.05): `Paper` gained lookId, tint, show, bite and light.
         // The bump is R31's — any new serialised field bumps — and the Lead accepted its cost (an old
         // build refuses a v4 file) for one owner and one phone (R38).
-        assertEquals(4, DOC_VERSION)
+        assertEquals(6, DOC_VERSION)
         // 6 is `paper` (JB-9.09): the three numbers each brush carries about how it feels the document
         // paper. Read as BRUSH_VERSION rather than typed, so the bump is one edit here and one there.
         assertEquals(6, BRUSH_VERSION)

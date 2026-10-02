@@ -58,11 +58,11 @@ object DocJson {
      * are already stable, because kotlinx writes properties in declaration order.
      */
     private fun canonical(doc: JbDocument): JbDocument {
-        if (doc.layers.none { it.frameCel.size > 1 }) return doc
         return doc.copy(
             layers = doc.layers.map { l ->
-                if (l.frameCel.size < 2) l
-                else l.copy(frameCel = l.frameCel.entries.sortedBy { it.key }.associate { it.key to it.value })
+                l.copy(frameCel = l.frameCel.entries.sortedBy { it.key }.associate { it.key to it.value }, regions = l.regions.map { region ->
+                    region.copy(frameCel = region.frameCel.entries.sortedBy { it.key }.associate { it.key to it.value })
+                })
             },
         )
     }

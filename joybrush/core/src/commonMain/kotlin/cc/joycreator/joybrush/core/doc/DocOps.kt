@@ -99,8 +99,49 @@ object DocOps {
 
         val boardsById = doc.boards.associateBy { it.id }
 
+        val regional = doc.layers.any { it.regions.isNotEmpty() }
+        if (regional) {
+            if (doc.version < 6) out += "region animation needs document version 6"
+            val animated = doc.boards.filter { it.kind == BoardKind.ANIMATION }
+            for ((i, a) in animated.withIndex()) for (b in animated.take(i)) {
+                if (a.rect.x.toLong() < b.rect.x.toLong()+b.rect.w && b.rect.x.toLong() < a.rect.x.toLong()+a.rect.w &&
+                    a.rect.y.toLong() < b.rect.y.toLong()+b.rect.h && b.rect.y.toLong() < a.rect.y.toLong()+a.rect.h) {
+                    out += "animation boards \"${a.id}\" and \"${b.id}\" overlap"
+                }
+            }
+            for (board in animated) if (board.currentFrameId == null || board.frames.none { it.id == board.currentFrameId }) {
+                out += "animation board \"${board.id}\" has no valid current frame"
+            }
+        }
+
         // 6 & 7 — a layer is either static (one cel) or animated in exactly one ANIMATION board.
         for (l in doc.layers) {
+            if (l.regions.isNotEmpty()) {
+                val celIds = l.cels.mapTo(HashSet()) { it.id }
+                if (l.kind != LayerKind.PAINT) out += "region animation requires paint layers"
+                if (l.animatedIn != null || l.frameCel.isNotEmpty()) out += "layer \"${l.id}\" mixes legacy and region animation"
+                if (l.sharedCelId == null || l.sharedCelId !in celIds) out += "layer \"${l.id}\" has no shared canvas cel"
+                out += duplicateIds(l.regions.map { it.boardId }) { "layer \"${l.id}\" has two regions for board \"$it\"" }
+                val owner = HashMap<String,String>()
+                for (region in l.regions) {
+                    val board = boardsById[region.boardId]
+                    if (board == null || board.kind != BoardKind.ANIMATION) {
+                        out += "layer \"${l.id}\" has a region without an animation board"
+                        continue
+                    }
+                    val frameIds = board.frames.mapTo(HashSet()) { it.id }
+                    if (region.frameCel.keys != frameIds) out += "layer \"${l.id}\" region \"${board.id}\" does not map every frame exactly"
+                    for (cel in region.frameCel.values) {
+                        if (cel !in celIds || cel == l.sharedCelId) out += "layer \"${l.id}\" region \"${board.id}\" has an invalid frame cel \"$cel\""
+                        val previous = owner.put(cel,board.id)
+                        if (previous != null && previous != board.id) out += "layer \"${l.id}\" shares a frame cel between boards"
+                    }
+                }
+                continue
+            }
+            if (l.sharedCelId != null && (l.cels.size != 1 || l.cels.single().id != l.sharedCelId)) {
+                out += "layer \"${l.id}\" has an invalid shared canvas cel"
+            }
             val anim = l.animatedIn
             if (anim == null) {
                 if (l.cels.size != 1) {
@@ -216,6 +257,7 @@ object DocOps {
 
     /** The cel a layer shows on a frame: static → its only cel; animated → what the frame maps to. */
     fun celFor(layer: Layer, frameId: String?): Cel? {
+        if (layer.regions.isNotEmpty()) throw DocException("region pixels require a board-aware paint plan")
         if (layer.animatedIn == null) return layer.cels.singleOrNull()
         val celId = frameId?.let { layer.frameCel[it] } ?: return null
         return layer.cels.firstOrNull { it.id == celId }

@@ -19,8 +19,8 @@ The design is `research/R10_paper_and_canvas.md`.
 | JB-9.05 | document paper v4 | ✅ landed (`5a5abc4b`) |
 | JB-9.06 | paper on screen + export + zoom | 🟧 Built and landed (`2c746d3c`) — awaiting the Note 9 |
 | JB-9.08 | directional + wet deposit | 🟧 Built and landed (`15df2664`) — awaiting the Note 9 |
-| JB-9.07 | the Paper swatch + sheet | 🟦 gate open: 9.06 landed; **Joy Brush Lead only** |
-| JB-9.10 | picture candidates (Codex) → library (specialist) | 27 looks + 8 surfaces handed off; generation paused by the owner |
+| JB-9.07 | the Paper swatch + sheet | Preview backend landed (`25d3494f`); UI gate open; **Joy Brush Lead only** |
+| JB-9.10 | picture candidates (Codex) → library (specialist) | 27 looks + 8 surfaces handed off; image-free AMOLED black added; generation paused by the owner |
 
 ## The lanes
 

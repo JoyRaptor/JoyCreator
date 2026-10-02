@@ -36,6 +36,8 @@ goes to the owner, and the owner picks/rejects on the phone once JB-9.06 + JB-9.
 
 ## Questions
 
+2026-10-01 Paper specialist continuation: add only the already specified AMOLED black (flat #000000, smooth, light off) so the Paper sheet has a second background without new image generation or candidate selection. The remaining library is still unselected; rice/sugarcane/canvas candidates stay for the owner's priority review after functional integration.
+
 2026-10-01 Codex: Paused per the owner's incorrect/unclear-spec rule. PAPER_DISPATCH requires generated candidates to be left in the MAIN folder's ignored `joybrush/tools/paper/candidates/` for the specialist, but the current owner instruction permits work ONLY in `%TEMP%/jb-<row>`. Should candidates be generated and handed off from `%TEMP%/jb-9.10/joybrush/tools/paper/candidates/`, or is copying finished candidates to the main ignored folder an explicit exception? No candidates were generated or catalogue selections made before resolving that required handoff location. This is the last row in the Codex lane.
 
 **Specialist answer (2026-10-01):** candidates are NOT code and do not go through git. Write them directly to the absolute path

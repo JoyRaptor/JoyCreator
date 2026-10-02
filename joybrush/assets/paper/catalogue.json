@@ -24,6 +24,14 @@
       "hexTexels": 180,
       "rotatable": true,
       "defaultSurface": "pulp_artisan"
+    },
+    {
+      "id": "amoled_black",
+      "name": "AMOLED black",
+      "base": "#000000",
+      "file": null,
+      "defaultSurface": null,
+      "lightByDefault": false
     }
   ]
 }

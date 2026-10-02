@@ -30,6 +30,18 @@ import kotlin.test.assertTrue
  */
 class ShippedCatalogueTest {
 
+    @Test
+    fun shippedAmoledBlackRendersExactOpaqueBlackWithoutRelief() {
+        val c = shipped()
+        val look = assertNotNull(PaperCatalogues.look(c, "amoled_black"))
+        val p = PaperState.resolve(cc.joycreator.joybrush.core.doc.Paper(lookId = look.id,
+            textureId = look.defaultSurface), c)
+        assertNull(p.surface)
+        assertTrue(!p.light, "AMOLED black must not acquire relief lighting")
+        val pixels = PaperRaster.render(p, null, null, cc.joycreator.joybrush.core.doc.RectPx(0, 0, 16, 16))
+        for (i in pixels.indices) assertEquals(if (i % 4 == 3) 255 else 0, pixels[i].toInt() and 255)
+    }
+
     private val paperDir: File = File(joybrushRoot(), "assets/paper")
 
     private val file = File(paperDir, "catalogue.json")

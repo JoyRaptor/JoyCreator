@@ -423,5 +423,11 @@ See INTEGRATION_20260930.md and AGENT_BOARD.md. Remote paper integration remains
 - [x] Build pixel-exact shared/frame tile partition in isolated region-routing worktree.
 - [x] Full core 1458/0; sabotage detected; original restored; latest paper combined cleanly.
 - [x] Land origin/joy-creator 0a46f811; record cross-harness handoff.
-- [ ] Saved region model, migration and GPU/undo/preview/export adapter next.
+- [ ] GPU/undo/preview/export adapter next; no scratch migration per owner.
 No phone/schema changes in this slice. Evidence: codex/region-routing tasks/joybrush/REGION_ROUTING_20261002.md.
+
+## Saved region model — October 2
+- [x] Board cursors, shared/region cel addresses and validated create/select/blank/copy/link metadata.
+- [x] Core 1470/0 plus Android file tests 225/0; clean paper merge; pushed 82a16eba.
+- [ ] Connect bounded pixel copies, paint, undo, preview and export before exposing phone controls.
+Review: saved frame selection and independent boards survive JSON; invalid ownership refused. No scratch-file migration. See REGION_ROUTING_20261002.md.

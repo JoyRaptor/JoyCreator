@@ -1030,3 +1030,9 @@ worktrees (mine, isolated): %TEMP%\jb-muse-8.01b (branch muse/JB-8.01b); %TEMP%\
 NOT MINE, do not touch: tasks/joybrush/ORCHESTRATOR_LOG.md; all FRAME_PROJECTION/region files; GlPaintEngine.kt, JbCanvasView.kt, JoyBrushActivity.kt, joybrush/shaders/*.
 DEVICE: none. No phone use. Gradle only in my worktrees under jb-gradle.lock with --no-daemon.
 since: 2026-10-02
+
+## JOYBRUSH_REGION_MODEL_20261002
+status: IDLE (model landed origin/joy-creator 82a16eba; core 1470/0, androidkit 225/0)
+worktree: C:/Temp/jb-region-routing (codex/region-routing).
+files: none. Next: GPU/undo/preview/export adapters; no scratch migration. Evidence: REGION_ROUTING_20261002.md.
+DEVICE: none. No test-art preservation/migration per owner; schema/core only.

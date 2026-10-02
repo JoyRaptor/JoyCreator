@@ -417,3 +417,5 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 > sabotage caught, original restored. Runtime helper only: saved region model, GPU commit/undo,
 > preview/export adapters and phone proof still owed. Primary tree's divergent spec is preserved.
 Details: tasks/joybrush/INTEGRATION_20260930.md.
+
+> **Saved region model, 2026-10-02:** origin/joy-creator 82a16eba adds v6 board cursors and per-layer shared/region cels. Core 1470/0 and Android file tests 225/0 before latest clean paper merge. Blank/copy/link operations return bounded pixel instructions; GPU/undo/preview/export adapters and phone proof remain owed. Existing test art is disposable; no conversion work.

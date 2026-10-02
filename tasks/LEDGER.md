@@ -3887,3 +3887,7 @@ GPU changes. 13 new tests; combined latest-paper core suite 1458/0. A deliberate
 error failed two tests; restored code passed. Landed origin/joy-creator 0a46f811 via isolated branch
 codex/region-routing after clean merge preflight. Primary dirty tree/spec divergence untouched.
 Evidence in that branch: tasks/joybrush/REGION_ROUTING_20261002.md. No phone install this slice.
+
+## 2026-10-02 — Saved region ownership
+
+Version 6 region metadata and core board/frame operations landed 82a16eba (b5ec6811). Core 1470 plus Android file tests 225 pass with no failures/errors/skips; no phone install. Clean paper refresh merged after preflight. GPU transaction and preview/export integration remain next. Owner says all test art is disposable: no preservation or migration work. Evidence: tasks/joybrush/REGION_ROUTING_20261002.md in codex/region-routing.

@@ -910,3 +910,6 @@ wrong rejection as a hard-won lesson.
 
 ## 2026-10-01 — Respect the owner's limited Plus usage
 Keep delegated work focused; avoid extra agents, speculative work and repeated verification. Run required checks once and repeat only after a relevant change or failure.
+
+## 2026-10-02 - Test artwork is disposable
+Owner confirms all existing Joy Brush drawings are test scratches; no user base exists. Stop backups, restoration and migration work for them. Build the correct region model directly. Future saving and undo must remain dependable.

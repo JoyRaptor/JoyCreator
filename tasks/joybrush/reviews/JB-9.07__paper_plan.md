@@ -4,6 +4,6 @@
 - [x] Add bounded worker-owned preview cache using PaperRaster, including all visible settings and dimensions.
 - [x] Add look/default-surface and lit surface thumbnails; keep pure helpers independent of app UI and tiles.
 - [x] Verify actual pixels, stale-preview regression, cache bounds, and mutation under shared build lock/no-daemon.
-- [ ] Record own XML counts/time and commands; rebase/push, hand off to Lead without marking the UI row done.
+- [x] Record own XML counts/time and commands; rebase/push, hand off to Lead without marking the UI row done. Main ff refused divergence; left untouched.
 
 No images generated; no phone installation. Lead retains PaperSheetView, LayerColumnView and JoyBrushActivity ownership.

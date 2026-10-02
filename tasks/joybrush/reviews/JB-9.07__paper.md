@@ -14,4 +14,4 @@ Mutation: key all previews with light=false, making Light-on and Light-off colli
 
 No APK rebuild is needed for this unused pure helper; the verified paper engine APK remains at C:/Users/JoyRaptor/AppData/Local/Temp/jb-9.08/app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk. Lead integration will build its own app.
 
-Landing/main update: pending.
+Backend landed as25d3494f after rebase on origin/joy-creator and push HEAD:joy-creator. Main --ff-only refused because its branch has diverged (the Lead has a separate local commit); left it untouched. The full UI row stays Ready for the Lead.

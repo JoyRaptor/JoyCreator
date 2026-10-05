@@ -2,13 +2,18 @@ package cc.joycreator.joybrush.core.doc
 
 /** Caller performs bounded copies before publishing the new metadata as one undoable edit. */
 data class RegionCopy(val layerId: String, val fromCelId: String, val toCelId: String, val rect: RectPx)
-data class RegionChange(val doc: JbDocument, val copies: List<RegionCopy> = emptyList())
+data class RegionDrop(val layerId: String, val celId: String)
+data class RegionChange(val doc: JbDocument, val copies: List<RegionCopy> = emptyList(), val drops: List<RegionDrop> = emptyList())
 
 /** Region metadata operations. No legacy conversion, pixel buffers, GPU or history owned here. */
 object RegionDocumentOps {
     fun create(doc: JbDocument, name: String, rect: RectPx, ids: () -> String): RegionChange {
         valid(doc)
+        BoardDocumentOps.checkRect(rect)
+        if (name.isBlank()) throw DocException("Give this board a name")
         if (doc.layers.isEmpty()) throw DocException("Add a paint layer before creating an animation board")
+        // Current region-copy backend supports raster paint. This is a backend capability limit,
+        // not a restriction on passive board creation or future vector region ownership.
         if (doc.layers.any { it.animatedIn != null || it.kind != LayerKind.PAINT }) {
             throw DocException("Start a new paint drawing to use region animation")
         }
@@ -57,6 +62,73 @@ object RegionDocumentOps {
         })
         valid(next)
         return RegionChange(next,copies)
+    }
+
+    /** Last-frame deletion is refused; linked cels survive while another frame names them. */
+    fun deleteFrame(doc: JbDocument, boardId: String, frameId: String): RegionChange {
+        valid(doc)
+        val target = board(doc, boardId)
+        val index = target.frames.indexOfFirst { it.id == frameId }
+        if (index < 0) throw DocException("That frame is not in this board")
+        if (target.frames.size == 1) throw DocException("Keep at least one animation frame")
+        val frames = target.frames.filterNot { it.id == frameId }
+        val cursor = if (target.currentFrameId == frameId) frames[minOf(index, frames.lastIndex)].id else target.currentFrameId
+        val drops = ArrayList<RegionDrop>()
+        val layers = doc.layers.map { layer ->
+            val region = layer.regions.firstOrNull { it.boardId == boardId } ?: return@map layer
+            val mappings = region.frameCel - frameId
+            val removed = region.frameCel.getValue(frameId)
+            val survives = removed in mappings.values
+            if (!survives) drops += RegionDrop(layer.id, removed)
+            layer.copy(cels = if (survives) layer.cels else layer.cels.filterNot { it.id == removed },
+                regions = layer.regions.map { if (it.boardId == boardId) it.copy(frameCel = mappings) else it })
+        }
+        val next = doc.copy(layers = layers, boards = doc.boards.map {
+            if (it.id == boardId) it.copy(frames = frames, currentFrameId = cursor) else it
+        })
+        valid(next)
+        return RegionChange(next, drops = drops)
+    }
+
+    fun reorderFrames(doc: JbDocument, boardId: String, frameIds: List<String>): JbDocument {
+        valid(doc)
+        val target = board(doc, boardId)
+        if (frameIds.size != target.frames.size || frameIds.toSet() != target.frames.mapTo(HashSet()) { it.id }) {
+            throw DocException("Reorder must contain every frame exactly once")
+        }
+        val byId = target.frames.associateBy { it.id }
+        val next = doc.copy(boards = doc.boards.map {
+            if (it.id == boardId) it.copy(frames = frameIds.map { id -> byId.getValue(id) }) else it
+        })
+        valid(next)
+        return next
+    }
+
+    fun setHold(doc: JbDocument, boardId: String, frameId: String, ticks: Int): JbDocument {
+        valid(doc)
+        val target = board(doc, boardId)
+        if (target.frames.none { it.id == frameId }) throw DocException("That frame is not in this board")
+        val next = doc.copy(boards = doc.boards.map {
+            if (it.id == boardId) it.copy(frames = it.frames.map { f -> if (f.id == frameId) f.copy(holdFrames = ticks.coerceIn(1, 999)) else f }) else it
+        })
+        valid(next)
+        return next
+    }
+
+    /** Apply the current-frame/shared copy before publishing the new marker; other frames stay intact. */
+    fun setHeld(doc: JbDocument, boardId: String, layerId: String, held: Boolean): RegionChange {
+        valid(doc)
+        val target = board(doc, boardId)
+        val layer = doc.layers.firstOrNull { it.id == layerId } ?: throw DocException("No such layer")
+        val region = layer.regions.firstOrNull { it.boardId == boardId } ?: throw DocException("Layer is not in this animation board")
+        if (region.held == held) return RegionChange(doc)
+        val current = region.frameCel.getValue(requireNotNull(target.currentFrameId))
+        val shared = requireNotNull(layer.sharedCelId)
+        val copy = if (held) RegionCopy(layerId, current, shared, target.rect) else RegionCopy(layerId, shared, current, target.rect)
+        val next = doc.copy(layers = doc.layers.map { l -> if (l.id == layerId) l.copy(
+            regions = l.regions.map { if (it.boardId == boardId) it.copy(held = held) else it }) else l })
+        valid(next)
+        return RegionChange(next, listOf(copy))
     }
 
     /** Held regions deliberately use the shared plane; frame mappings remain available for unhold. */

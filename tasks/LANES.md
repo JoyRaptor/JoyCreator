@@ -1005,3 +1005,7 @@ status: ACTIVE; owner-authorized brush specialist, isolated on latest paper inte
 worktree: %TEMP%/jb-brush-specialist; branch codex/brush-contact.
 files: BrushPreset/Json/Validate/Dabber, Dab/DabPlacer/TipMath/Tiles/RefCanvas/InkRaster/SmudgeStroke; dab shaders, GlPaintEngine instance layout; brushes and contact tests. No Activity/UI edits or installation.
 DEVICE: none. One shared Gradle lock; core/androidkit only. Existing main/remote divergence left untouched.
+## JOYBRUSH_LEAD_AUDIT_20261005
+status: IDLE; read-only source audit complete, report only.
+files: tasks/joybrush/reviews/LEAD_AUDIT_20261005.md
+DEVICE: none. No source edits, builds, installs, resets or merges.

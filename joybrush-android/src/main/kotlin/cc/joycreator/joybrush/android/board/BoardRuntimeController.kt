@@ -22,6 +22,7 @@ import cc.joycreator.joybrush.core.chrome.BoardChromePenFade
 import cc.joycreator.joybrush.core.chrome.BoardChromeLayout as Chrome
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.view.ViewTransform
+import cc.joycreator.joybrush.core.sprite.SpriteBoard
 import java.util.UUID
 import kotlin.math.*
 
@@ -45,6 +46,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private val scroll = mutableMapOf<String, Int>()
     private val modes = mutableMapOf<String, PlayMode>()
     private val fpsPanels = mutableSetOf<String>()
+    private val spritePixels = mutableMapOf<String, Boolean>()
+    private val spriteSubGrids = mutableMapOf<String, Int>()
     private var epoch = 0L
     private var artEpoch = 0L
     private var contentRevision = Long.MIN_VALUE
@@ -95,6 +98,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             cancelInteractions()
             session = BoardSession(); pendingSelection = null
             scroll.clear(); modes.clear(); fpsPanels.clear(); lifted = null; gap = null
+            spritePixels.clear(); spriteSubGrids.clear()
             penFades.clear(); nearBoards.clear(); approachExit.clear()
             views.values.forEach { parent.removeView(it) }; views.clear()
         }
@@ -109,6 +113,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             session = session.select(value, it); pendingSelection = null
         }
         views.keys.filter { id -> value.boards.none { it.id == id } }.toList().forEach {
+            spritePixels.remove(it); spriteSubGrids.remove(it)
             views.remove(it)?.let { view -> view.stopInteractions(); parent.removeView(view) }
         }
         value.boards.forEach { board ->
@@ -242,7 +247,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                 insertionIndex = gap?.takeIf { session.selectedBoardId == b.id }, playing = playingBoard == b.id,
                 loopGlyph = when (modes[b.id] ?: PlayMode.LOOP) { PlayMode.LOOP -> "loop"; PlayMode.PING_PONG -> "ping-pong"; PlayMode.ONCE -> "once" },
                 showFps = b.id in fpsPanels, fps = b.fps.roundToInt(), columns = b.grid?.cols ?: 1,
-                rows = b.grid?.rows ?: 1, cellWidth = b.grid?.cellW ?: b.rect.w, cellHeight = b.grid?.cellH ?: b.rect.h)
+                rows = b.grid?.rows ?: 1, cellWidth = b.grid?.cellW ?: b.rect.w, cellHeight = b.grid?.cellH ?: b.rect.h,
+                gridByPixels = spritePixels[b.id] == true, subGrid = spriteSubGrids[b.id] ?: 2)
             v.show(penFades.getOrPut(b.id) { BoardChromePenFade() }.apply(input, now))
             if (b.kind == BoardKind.ANIMATION && session.selectedBoardId == b.id) requestArt(b, rect.width, density)
         }
@@ -272,6 +278,49 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     }
 
     private fun board(id: String) = doc?.boards?.firstOrNull { it.id == id }
+    private fun changeSpriteGrid(expected: Board, expectedDocumentId: String, grid: SpriteGrid) {
+        if (!active || expected.kind != BoardKind.SPRITE) return
+        edit { live ->
+            if (live.id != expectedDocumentId || live.boards.firstOrNull { it.id == expected.id } != expected)
+                throw DocException("The Sprite board changed; choose its grid again")
+            RegionChange(BoardDocumentOps.setSpriteGrid(live, expected.id, grid))
+        }
+    }
+    private fun spriteGridAction(b: Board, control: String) {
+        if (!active || b.kind != BoardKind.SPRITE) return
+        val documentId = doc?.id ?: return
+        val pixels = spritePixels[b.id] == true
+        when(control) {
+            "grid-count", "grid-px" -> { spritePixels[b.id] = control == "grid-px"; refreshTransform() }
+            "subgrid" -> { spriteSubGrids[b.id] = ((spriteSubGrids[b.id] ?: 2)-1)%7+2; refreshTransform() }
+            "cols", "rows" -> {
+                val grid = b.grid ?: return
+                val horizontal = control == "cols"
+                val current = if(pixels) { if(horizontal) grid.cellW else grid.cellH } else { if(horizontal) grid.cols else grid.rows }
+                val title = if(pixels) { if(horizontal) "Cell width in pixels" else "Cell height in pixels" } else { if(horizontal) "Columns" else "Rows" }
+                textForm(title,listOf(title to "$current")) { values ->
+                    val value = values.single().toIntOrNull()
+                    if(value == null || value < 1) { host.refusal("Enter a positive whole number"); return@textForm }
+                    val model = SpriteBoard(b)
+                    val next = if(pixels) model.bySize(if(horizontal)value else grid.cellW,if(horizontal)grid.cellH else value)
+                        else model.byCount(if(horizontal)value else grid.cols,if(horizontal)grid.rows else value)
+                    changeSpriteGrid(b,documentId,next)
+                }
+            }
+            else -> {
+                val axis = if(control.startsWith("cols")) { if(pixels) SpriteBoard.Axis.CELL_W else SpriteBoard.Axis.COLS }
+                    else { if(pixels) SpriteBoard.Axis.CELL_H else SpriteBoard.Axis.ROWS }
+                val delta = if(control.endsWith("plus"))1 else -1
+                // Each queued tap steps the live grid. Rapid taps must not collapse into one value.
+                edit { live ->
+                    if(live.id != documentId) throw DocException("The drawing changed; choose its grid again")
+                    val target = live.boards.firstOrNull { it.id == b.id && it.kind == BoardKind.SPRITE }
+                        ?: throw DocException("The Sprite board no longer exists")
+                    RegionChange(BoardDocumentOps.setSpriteGrid(live,b.id,SpriteBoard(target).stepped(axis,delta)))
+                }
+            }
+        }
+    }
     private fun edit(change: (JbDocument) -> RegionChange) { stopPreview(); host.edit(change) }
     private fun metadata(change: (JbDocument) -> JbDocument) = edit { RegionChange(change(it)) }
     private fun chooseFrame(id: String, index: Int) { val b = board(id) ?: return; b.frames.getOrNull(index)?.let { stopPreview(); host.selectFrame(id, it.id) } }
@@ -298,6 +347,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                 "feature" -> host.refusal(if (b.kind == BoardKind.SPRITE) "Sprite rearrangement is not connected yet" else "Wrapped tile painting is not connected yet")
                 "onion" -> host.refusal("Onion skin rendering is not connected yet")
                 "export" -> { stopPreview(); host.export(id) }
+                "grid-count", "grid-px", "cols-minus", "cols-plus", "rows-minus", "rows-plus", "cols", "rows", "subgrid" -> spriteGridAction(b,control)
             }
         }
         override fun frame(frame: Int) = chooseFrame(id, frame - 1)

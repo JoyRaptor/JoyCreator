@@ -2,6 +2,16 @@ package cc.joycreator.joybrush.core.doc
 
 /** Immutable board edits. Passive boards never move or duplicate paint. */
 object BoardDocumentOps {
+    /** Sprite frames describe the shared canvas; changing their grid never moves or deletes artwork. */
+    fun setSpriteGrid(doc: JbDocument, boardId: String, grid: SpriteGrid): JbDocument =
+        update(doc, boardId) {
+            if (it.kind != BoardKind.SPRITE) throw DocException("Only a Sprite board has a cell grid")
+            geometryAllowed(it)
+            val rect = cc.joycreator.joybrush.core.sprite.SpriteGridMath.fitRect(it.rect, grid)
+            checkRect(rect); checkGrid(rect, grid)
+            it.copy(rect = rect, grid = grid)
+        }
+
     fun createImage(doc: JbDocument, name: String, rect: RectPx, ids: () -> String): RegionChange =
         createPassive(doc, name, rect, BoardKind.CANVAS, null, ids)
 

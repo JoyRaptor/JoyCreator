@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.android.board
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Looper
@@ -26,6 +27,77 @@ import java.util.UUID
 @Config(sdk = [28], qualifiers = "w548dp-h1126dp-mdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class BoardRuntimeControllerTest {
+    private fun spriteHost(): Host {
+        var serial = 0
+        val base = document()
+        return Host(BoardDocumentOps.createSprite(base,"Sprites",RectPx(100,300,120,100),SpriteGrid(4,2,30,50)) { "sprite-${serial++}" }.doc)
+    }
+    private fun spriteView(controller: BoardRuntimeController, parent: FrameLayout, host: Host): BoardChromeView {
+        val id = host.document.boards.last().id
+        controller.select(id)
+        return (0 until parent.childCount).map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>().single { it.sceneIdentity?.boardId == id }
+    }
+    @Test fun spriteCountAndPixelSteppersFitWholeCellsWithoutContentCopies() {
+        val host = spriteHost(); val (controller,parent) = setup(host); val view = spriteView(controller,parent,host)
+        val layers = host.document.layers
+        view.host.action("cols-plus",false)
+        assertEquals(SpriteGrid(5,2,24,50),host.document.boards.last().grid)
+        controller.documentChanged(host.document)
+        view.host.action("grid-px",false); view.host.action("cols-plus",false)
+        assertEquals(SpriteGrid(4,2,25,50),host.document.boards.last().grid)
+        assertEquals(RectPx(100,300,100,100),host.document.boards.last().rect)
+        assertEquals(layers,host.document.layers)
+    }
+    @Test fun rapidQueuedGridStepsUseLatestGridAndOldDrawingCannotReceiveThem() {
+        val host = spriteHost(); val (controller,parent) = setup(host); val view = spriteView(controller,parent,host)
+        host.deferEdits = true
+        view.host.action("cols-plus",false); view.host.action("cols-plus",false)
+        val first = host.queued[0](host.document)
+        val second = host.queued[1](first.doc)
+        assertEquals(6,second.doc.boards.last().grid!!.cols)
+        assertTrue(first.copies.isEmpty()); assertTrue(second.copies.isEmpty())
+        assertFailsDoc { host.queued.first()(host.document.copy(id="other-drawing")) }
+    }
+    private fun assertFailsDoc(block: () -> Unit) {
+        try { block(); fail("Expected a board refusal") } catch(_: DocException) { }
+    }
+    @Test fun typedGridRefusesChangedBoardRatherThanResizingFromAnOldDialog() {
+        val host = spriteHost(); val (controller,parent) = setup(host); val view = spriteView(controller,parent,host)
+        view.host.action("cols",false)
+        val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        val field = dialog.findViewById<android.widget.EditText>(android.R.id.edit) ?: findEdit(dialog.window!!.decorView)
+        field.setText("3")
+        host.deferEdits = true
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
+        val changed = BoardDocumentOps.rename(host.document,host.document.boards.last().id,"Changed")
+        assertFailsDoc { host.queued.single()(changed) }
+    }
+    private fun findEdit(view: View): android.widget.EditText {
+        if(view is android.widget.EditText) return view
+        if(view is android.view.ViewGroup) for(n in 0 until view.childCount) {
+            try { return findEdit(view.getChildAt(n)) } catch(_: NoSuchElementException) { }
+        }
+        throw NoSuchElementException()
+    }
+    @Test fun spriteGuideAndGridModeAreSessionOnlyAndResetForAnotherDrawing() {
+        val host = spriteHost(); val (controller,parent) = setup(host); val view = spriteView(controller,parent,host)
+        val original = host.document
+        view.host.action("grid-px",false)
+        repeat(6) { view.host.action("subgrid",false) }
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(30))
+        fun input(v: BoardChromeView) = BoardChromeView::class.java.getDeclaredField("input").apply { isAccessible=true }.get(v) as Chrome.Input
+        assertTrue(input(view).gridByPixels); assertEquals(8,input(view).subGrid)
+        view.host.action("subgrid",false)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(30))
+        assertEquals(2,input(view).subGrid)
+        assertEquals(original,host.document); assertTrue(host.queued.isEmpty())
+        val replacement = original.copy(id="another-drawing")
+        host.document = replacement; controller.documentChanged(replacement)
+        val newView = spriteView(controller,parent,host)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(30))
+        assertFalse(input(newView).gridByPixels); assertEquals(2,input(newView).subGrid)
+    }
     private fun document(): JbDocument {
         val base = JbDocument(id="drawing",name="Drawing",boards=listOf(Board("page","Page",BoardKind.CANVAS,RectPx(0,0,548,1126))),
             layers=listOf(Layer("paint","Paint",LayerKind.PAINT,cels=listOf(Cel("shared")))))

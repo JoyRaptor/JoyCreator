@@ -13,6 +13,28 @@ class BoardDocumentOpsTest {
         boards = listOf(Board("root", "Root", BoardKind.CANVAS, RectPx(0, 0, 100, 100))),
         layers = listOf(Layer("layer", "Paint", LayerKind.PAINT, cels = listOf(Cel("shared")))))
 
+    @Test fun `sprite grid fits whole cells at the same origin and keeps every content address`() {
+        val source = BoardDocumentOps.createSprite(base(),"Sheet",RectPx(-9,7,100,50),SpriteGrid(4,2,25,25),::ids).doc
+        val id = source.boards.last().id
+        val grid = cc.joycreator.joybrush.core.sprite.SpriteGridMath.byCount(source.boards.last().rect,3,2)
+        val changed = BoardDocumentOps.setSpriteGrid(source,id,grid)
+        assertEquals(RectPx(-9,7,99,50),changed.boards.last().rect)
+        assertEquals(grid,changed.boards.last().grid)
+        assertEquals(source.layers,changed.layers)
+        assertEquals(source.boards.first(),changed.boards.first())
+        assertTrue(DocOps.validate(changed).isEmpty())
+        assertEquals(changed,DocJson.decode(DocJson.encode(changed)))
+    }
+    @Test fun `grid edits refuse locked wrong kind invalid cells and overflow before publishing`() {
+        val source = BoardDocumentOps.createSprite(base(),"Sheet",RectPx(Int.MAX_VALUE-20,7,20,20),SpriteGrid(1,1,20,20),::ids).doc
+        val id = source.boards.last().id
+        assertFailsWith<DocException> { BoardDocumentOps.setSpriteGrid(BoardDocumentOps.setLocked(source,id,true),id,SpriteGrid(2,1,10,20)) }
+        assertFailsWith<DocException> { BoardDocumentOps.setSpriteGrid(source,"root",SpriteGrid(1,1,1,1)) }
+        assertFailsWith<DocException> { BoardDocumentOps.setSpriteGrid(source,id,SpriteGrid(0,1,1,1)) }
+        assertFailsWith<DocException> { BoardDocumentOps.setSpriteGrid(source,id,SpriteGrid(2,1,20,20)) }
+        assertEquals(RectPx(Int.MAX_VALUE-20,7,20,20),source.boards.last().rect)
+    }
+
     @Test fun `passive creation and duplication keep all paint and number names`() {
         val source = base()
         val first = BoardDocumentOps.createImage(source, "Hero", RectPx(-5, 8, 20, 30), ::ids)

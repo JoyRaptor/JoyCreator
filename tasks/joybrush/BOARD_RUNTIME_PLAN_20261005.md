@@ -17,9 +17,10 @@ Root owns live engine/view/Activity/IO/history; helpers own model ops and specia
 
 Owner confirms boundary painting and animation on Note9. Claude owns paper engine and paint brushes; do not edit those engines, shaders, presets or paper UI. Root continues isolated integration, shared LANES announcement published.
 
-- [ ] Connect one K6 export presentation to Image, Animation and Sprite boards.
-- [ ] Stable board/frame/range targets through picker recreation; stage complete outputs before writing destinations.
-- [ ] Connect existing GIF, PNG sequence/timing, sheet/JSON encoders and batch Image PNG.
-- [ ] Connect K9 per-layer held/animated toggles with bounded content transactions and one undo.
+- [x] Connect one K6 export presentation to Image, Animation and Sprite boards. Studio/SpriteLab receivers still owed.
+- [x] Stable board/frame/range targets through picker recreation; stage complete outputs before writing destinations.
+- [x] Connect existing GIF, PNG sequence/timing, sheet/JSON encoders and batch Image PNG.
+- [x] Connect K9 per-layer held/animated toggles with bounded content transactions and one undo.
 - [ ] Verify targeted tests, serial watcher build, install and exercise connected controls on Note9.
 - [ ] Record remaining tiling, onion, Sprite cell interactions and app receiver gaps without declaring completion.
+- [x] Connect K8 Sprite count/pixel grid controls and session-only sub-grid; verify whole-cell edits and rapid queued steps. Phone acceptance pending next APK.

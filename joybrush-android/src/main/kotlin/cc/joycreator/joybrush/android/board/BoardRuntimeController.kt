@@ -235,9 +235,11 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         visible.forEach { requested += b.id to it.id }
         host.thumbnails(b.id, visible.map { it.id }, 80, 80) { pixels ->
             if (stamp != artEpoch || sceneId != doc?.id || doc?.boards?.none { it.id == b.id } != false) return@thumbnails
-            visible.forEach { requested.remove(b.id to it.id) }
-            pixels.forEach { (frame, data) -> if (b.frames.any { it.id == frame } && data.size == 6400)
-                { art.put(b.id to frame, Bitmap.createBitmap(data, 80, 80, Bitmap.Config.ARGB_8888)) } }
+            pixels.forEach { (frame, data) -> if (visible.any { it.id == frame } && data.size == 6400)
+                {
+                    art.put(b.id to frame, Bitmap.createBitmap(data, 80, 80, Bitmap.Config.ARGB_8888))
+                    requested.remove(b.id to frame)
+                } }
             views[b.id]?.invalidate()
             // A wide visible strip may need multiple bounded batches. Failed entries remain
             // requested until the next content revision, preventing an empty-response loop.
@@ -253,7 +255,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         override fun acceptsPointer(control: String, event: MotionEvent): Boolean {
             if (!active) return false
             val pen = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS || event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
-            return !pen || !control.startsWith("cell-") || board(id)?.kind != BoardKind.SPRITE
+            return !pen || !control.startsWith("sprite-cell-") || board(id)?.kind != BoardKind.SPRITE
         }
         override fun action(control: String, held: Boolean) {
             val b = board(id) ?: return

@@ -122,8 +122,8 @@ class BoardRuntimeControllerTest {
         assertNull(controller.selectedBoardId)
         assertNull(host.scope)
     }
-    private fun penTouch(view:View,action:Int,x:Float,y:Float): Boolean {
-        val property = MotionEvent.PointerProperties().apply { id=0; toolType=MotionEvent.TOOL_TYPE_STYLUS }
+    private fun penTouch(view:View,action:Int,x:Float,y:Float,tool:Int=MotionEvent.TOOL_TYPE_STYLUS): Boolean {
+        val property = MotionEvent.PointerProperties().apply { id=0; toolType=tool }
         val coords = MotionEvent.PointerCoords().apply { this.x=x; this.y=y; pressure=1f }
         val event = MotionEvent.obtain(0,20,action,1,arrayOf(property),arrayOf(coords),0,0,1f,1f,0,0,0,0)
         return try { view.dispatchTouchEvent(event) } finally { event.recycle() }
@@ -132,17 +132,38 @@ class BoardRuntimeControllerTest {
         val host = Host(document())
         host.document = BoardDocumentOps.createSprite(host.document,"Sprite",RectPx(300,300,100,100),SpriteGrid(1,1,100,100)) { "sprite" }.doc
         val (controller,parent) = setup(host)
+        val painted = mutableListOf<Int>()
+        val canvas = object : View(parent.context) {
+            override fun onTouchEvent(event: MotionEvent): Boolean { painted += event.actionMasked; return true }
+        }
+        parent.addView(canvas,0,FrameLayout.LayoutParams(-1,-1))
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
-        val animation = host.document.boards.last()
-        val view = (0 until parent.childCount).map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>().first { it.sceneIdentity?.boardId == animation.id }
-        // Test the real native pointer dispatcher with bounded targets, independent of rotation.
-        val kind = Chrome.Rect(0f,0f,40f,40f); val cell = Chrome.Rect(60f,0f,100f,40f)
-        view.submit(Chrome.Layout(emptyList(),listOf(Chrome.Control("kind",kind,kind,"Select"),Chrome.Control("cell-0",cell,cell,"Frame")),false,false,false))
-        assertTrue(penTouch(view,MotionEvent.ACTION_DOWN,20f,20f))
-        assertTrue(penTouch(view,MotionEvent.ACTION_UP,20f,20f))
-        assertEquals(animation.id,controller.selectedBoardId)
-        assertFalse(penTouch(view,MotionEvent.ACTION_DOWN,80f,20f))
-        assertFalse(penTouch(view,MotionEvent.ACTION_UP,80f,20f))
+        parent.measure(View.MeasureSpec.makeMeasureSpec(548,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1126,View.MeasureSpec.EXACTLY))
+        parent.layout(0,0,548,1126)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(60))
+        val sprite = host.document.boards.last()
+        val view = (0 until parent.childCount).map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>().first { it.sceneIdentity?.boardId == sprite.id }
+        fun point(target: View): FloatArray = floatArrayOf(target.left + target.width/2f,target.top + target.height/2f).also {
+            view.matrix.mapPoints(it); it[0] += view.left; it[1] += view.top
+        }
+        // Use the actual layout's kind button and Sprite cell, not synthetic control IDs.
+        val kind = point(view.getChildAt(0))
+        assertTrue(penTouch(parent,MotionEvent.ACTION_DOWN,kind[0],kind[1]))
+        assertTrue(penTouch(parent,MotionEvent.ACTION_UP,kind[0],kind[1]))
+        assertEquals(sprite.id,controller.selectedBoardId)
+        assertTrue(painted.isEmpty())
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(60))
+        val cell = point((0 until view.childCount).map { view.getChildAt(it) }.single {
+            it.contentDescription?.toString()?.startsWith("Cell 1.") == true
+        })
+        for (tool in listOf(MotionEvent.TOOL_TYPE_STYLUS,MotionEvent.TOOL_TYPE_ERASER)) {
+            painted.clear()
+            assertTrue(penTouch(parent,MotionEvent.ACTION_DOWN,cell[0],cell[1],tool))
+            assertTrue(penTouch(parent,MotionEvent.ACTION_MOVE,cell[0]+1,cell[1]+1,tool))
+            assertTrue(penTouch(parent,MotionEvent.ACTION_UP,cell[0]+1,cell[1]+1,tool))
+            assertEquals(listOf(MotionEvent.ACTION_DOWN,MotionEvent.ACTION_MOVE,MotionEvent.ACTION_UP),painted)
+        }
+        controller.stop()
     }
     @Test fun rotatedHitSurfaceCoversViewportAndParentDoesNotClip() {
         val host = Host(document()); host.transform.rotation = (Math.PI / 4).toFloat()
@@ -195,13 +216,49 @@ class BoardRuntimeControllerTest {
         assertThrows(DocException::class.java) { host.queued.single()(changed) }
     }
 
-    @Test fun refusedThumbnailCompletesAndAllowsANewRequest() {
+    @Test fun emptyThumbnailReplyWaitsForNewContentBeforeRetrying() {
         val host = Host(document()); val (controller,_) = setup(host)
         controller.select(host.document.boards.last().id)
         val count = host.thumbnails.size
         host.thumbnails.last().second(emptyMap())
+        repeat(3) { controller.refreshTransform() }
+        controller.documentChanged(host.document)
+        assertEquals(count, host.thumbnails.size)
+        host.revision++
+        controller.documentChanged(host.document)
+        assertEquals(count + 1, host.thumbnails.size)
+        host.thumbnails.last().second(emptyMap())
         controller.refreshTransform()
         assertEquals(count + 1, host.thumbnails.size)
+    }
+
+    @Test fun partialThumbnailReplyCachesSuccessAndDefersMissingOrInvalidFrames() {
+        val source = document(); val id = source.boards.last().id
+        var next = source
+        repeat(2) { next = RegionDocumentOps.addFrame(next,id,NewFrame.BLANK) { UUID.randomUUID().toString() }.doc }
+        val host = Host(next); val (controller,parent) = setup(host)
+        controller.select(id)
+        val request = host.thumbnails.single()
+        assertEquals(3,request.first.size)
+        val first = request.first[0]
+        request.second(mapOf(first to IntArray(6400) { 0xff00ff00.toInt() },request.first[1] to IntArray(1)))
+        repeat(3) { controller.refreshTransform() }
+        assertEquals(1,host.thumbnails.size)
+        val view = (0 until parent.childCount).map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>().first { it.sceneIdentity?.boardId == id }
+        val bitmap = Bitmap.createBitmap(80,80,Bitmap.Config.ARGB_8888)
+        view.host.art(Canvas(bitmap),Chrome.Element("cell-0",Chrome.Shape.ROUND_RECT,Chrome.Rect(0f,0f,80f,80f),artSlot=true))
+        assertEquals(0xff00ff00.toInt(),bitmap.getPixel(40,40))
+        host.revision++
+        controller.documentChanged(host.document)
+        assertEquals(2,host.thumbnails.size)
+        assertEquals(request.first,host.thumbnails.last().first)
+        // A late old reply cannot clear the newer epoch's pending requests.
+        request.second(emptyMap())
+        controller.refreshTransform()
+        assertEquals(2,host.thumbnails.size)
+        host.thumbnails.last().second(request.first.associateWith { IntArray(6400) })
+        controller.refreshTransform()
+        assertEquals(2,host.thumbnails.size)
     }
 
     @Test fun hoverAlwaysLoopsAndPauseStopsAllPreviewScheduling() {

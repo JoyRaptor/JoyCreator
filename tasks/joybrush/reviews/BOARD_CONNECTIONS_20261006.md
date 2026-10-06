@@ -23,10 +23,25 @@ Actual Note9:
 - First layer runner toggles to mountain; one Undo restores runner. Selected layer thumbnail dimensions/cropping stay unchanged.
 - No new crash-buffer entries during this acceptance pass; earlier morning crash records are historical and remain in the buffer.
 
-Not yet phone-proven in this pass: Sprite sheet/JSON, batch Image PNG, current-frame PNG picker restoration, provider write failure cleanup, physical S Pen feel. These have scoped backend/native tests where applicable; do not call them device accepted.
+Not yet phone-proven in this pass: batch Image PNG, current-frame PNG picker restoration, provider write failure cleanup, physical S Pen feel. These have scoped backend/native tests where applicable; do not call them device accepted.
 
 ## Next connection
 
 Sprite grid shelf controls are connected in a separate source checkpoint: count/pixel modes, typed dimensions, steppers, whole-cell fitted geometry and session-only sub-grid 2–8. Subagent hit usage limit before any edits; root took ownership. This does not connect cell swaps or sequence preview. Eight BoardDocumentOps tests pass; 60 native Android tests pass. Rapid queued stepper taps derive from the live grid and each remain one metadata edit. Typed forms reject changed board/drawing identities. Grid edits preserve layer/cel addresses and top-left, refuse locked or overflowing geometry, and retain only complete cells. Guide/mode changes do not save or create history and reset on document identity change. Native guide tests wait for the production animation-frame publication instead of reading a view before it has published input.
 
 Remaining broad board work: fullscreen seamless tiling/wrapped commits, Sprite all-layer swaps and sequence UI, onion compositor, bounded Animation geometry/duplicate/remove/move-all transactions, Studio/SpriteLab receiver bridges, shared Studio export presentation, Frost forms/adaptive ink/reduced motion, fill pen and full device acceptance. Boards are not declared complete.
+
+## Sprite phone acceptance and input correction
+
+Grid checkpoint `d9c17d3a` APK SHA-256 `BEAFD47F8A5450A6DD7B03608D7E7C411674915FE166242A2C5D754BCDD9756B` was installed and exercised on Note9:
+
+- Sprite placement Apply creates and selects a 500×200 board. Two column-plus taps and one row-plus produce 3×2 complete cells, fitted to 498×200.
+- Pixel mode displays 166×100 cell dimensions. Sub-grid advances 2→3. Typed width 150 fits to 450×200; one Undo restores 498×200 and Redo restores 450×200.
+- Sprite export through Android Files creates a fresh folder containing `Sprite.png` (103,778 bytes) and `Sprite.sprite.json` (167 bytes). Independent PNG decode: 450×200. JSON references relative `Sprite.png`, cols 3, rows 2, fps 12. Export contains the existing paint and omits the drawing sub-grid and paper when unchecked.
+- Restart restores the Sprite board and 3×2 geometry; session-only sizing mode and sub-grid reset as designed.
+
+Read-only helper audit found the unfinished Sprite cell controls consumed every finger hit while having no action/drag implementation. Controller now passes these hits through to the canvas for finger, stylus and eraser; shelf controls remain active. Regression uses the actual parent dispatcher and verifies full DOWN/MOVE/UP delivery for all three pointer types. All 60 native tests pass, zero failures/errors. Watcher APK build: 27 seconds, 276 tasks, six executed.
+
+Corrected APK SHA-256 `E688DBEFAA22B0A59A92C5F53117E56C3567DF71CCA27681C19F9ED2B5617C8F` matches installed Note9 `base.apk`. Phone proof: selected Sprite accepts a visible finger stroke; one Undo removes it. No fresh crash records during this install/acceptance. No engine/view, brush or paper changes.
+
+Next Sprite implementation: session CellRoll selection and composited bounded cell preview, then translated all-layer swaps with all source pixels captured before writes and one Undo. Core RegionCopy currently copies only at identical coordinates, so swapping needs a real transaction rather than UI-only dispatch; PAINT and future clipped INK must share the ownership plan. K8/G8 require one swap drag per Undo. Minor export presentation gap: static Sprite currently reports one frame in the common metadata line rather than six cells; output grid itself is correct. Sequence/swap controls remain unfinished and must not be called accepted.

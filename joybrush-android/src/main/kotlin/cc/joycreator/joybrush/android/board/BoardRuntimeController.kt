@@ -327,8 +327,9 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private fun adapter(id: String) = object : BoardChromeView.Host {
         override fun acceptsPointer(control: String, event: MotionEvent): Boolean {
             if (!active) return false
-            val pen = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS || event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
-            return !pen || !control.startsWith("sprite-cell-") || board(id)?.kind != BoardKind.SPRITE
+            // Sequence and rearrangement are not connected yet: the grid must not swallow
+            // finger drawing/navigation either. Shelf controls remain interactive.
+            return !control.startsWith("sprite-cell-") || board(id)?.kind != BoardKind.SPRITE
         }
         override fun action(control: String, held: Boolean) {
             val b = board(id) ?: return

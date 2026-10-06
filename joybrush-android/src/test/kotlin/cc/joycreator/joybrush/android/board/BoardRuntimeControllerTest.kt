@@ -313,7 +313,7 @@ class BoardRuntimeControllerTest {
         ShadowAlertDialog.getLatestAlertDialog().dismiss()
         controller.stop()
     }
-    @Test fun penCanSelectBoardButtonWhileSpriteCellsPassThroughToPainting() {
+    @Test fun boardButtonRemainsInteractiveWhileSpriteCellsPassAllPaintingPointersThrough() {
         val host = Host(document())
         host.document = BoardDocumentOps.createSprite(host.document,"Sprite",RectPx(300,300,100,100),SpriteGrid(1,1,100,100)) { "sprite" }.doc
         val (controller,parent) = setup(host)
@@ -341,7 +341,7 @@ class BoardRuntimeControllerTest {
         val cell = point((0 until view.childCount).map { view.getChildAt(it) }.single {
             it.contentDescription?.toString()?.startsWith("Cell 1.") == true
         })
-        for (tool in listOf(MotionEvent.TOOL_TYPE_STYLUS,MotionEvent.TOOL_TYPE_ERASER)) {
+        for (tool in listOf(MotionEvent.TOOL_TYPE_STYLUS,MotionEvent.TOOL_TYPE_ERASER,MotionEvent.TOOL_TYPE_FINGER)) {
             painted.clear()
             assertTrue(penTouch(parent,MotionEvent.ACTION_DOWN,cell[0],cell[1],tool))
             assertTrue(penTouch(parent,MotionEvent.ACTION_MOVE,cell[0]+1,cell[1]+1,tool))

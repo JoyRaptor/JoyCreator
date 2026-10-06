@@ -16,7 +16,7 @@ Phone testing caught and fixed touch/callback integration failures that compile 
 
 ## Unfinished specification work
 
-Sprite count/pixel sizing, whole-cell fitted geometry, typed grid values and sub-grid guides are now connected; these metadata edits keep existing paint/vector content addresses. Cell swaps and sequence playback still require the remaining backend/UI work.
+Sprite count/pixel sizing, whole-cell fitted geometry, typed grid values and sub-grid guides are now connected and Note9 tested, including one-step Undo/Redo and sheet/JSON export. These metadata edits keep existing paint/vector content addresses. Unfinished cell controls now pass finger/stylus/eraser through to painting, with dispatcher regression and Note9 stroke/Undo proof. Cell swaps and sequence playback still require the remaining backend/UI work; the shared export metadata line also needs a Sprite cell count label.
 
 - Full-screen seamless tiling and actual wrapped painting, saved first-wrap flag and exits.
 - Sprite cell swaps across all layers and sequences.

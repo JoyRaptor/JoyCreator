@@ -23,4 +23,6 @@ Owner confirms boundary painting and animation on Note9. Claude owns paper engin
 - [x] Connect K9 per-layer held/animated toggles with bounded content transactions and one undo.
 - [ ] Verify targeted tests, serial watcher build, install and exercise connected controls on Note9.
 - [ ] Record remaining tiling, onion, Sprite cell interactions and app receiver gaps without declaring completion.
-- [x] Connect K8 Sprite count/pixel grid controls and session-only sub-grid; verify whole-cell edits and rapid queued steps. Phone acceptance pending next APK.
+- [x] Connect K8 Sprite count/pixel grid controls and session-only sub-grid; verify whole-cell edits and rapid queued steps. Note9 placement, steppers, pixel sizing, sub-grid, Undo/Redo and sheet/JSON export passed.
+- [x] Correct unfinished Sprite cell hit handling: finger/stylus/eraser pass through to painting. Native dispatcher regression and installed Note9 finger stroke/Undo passed; see BOARD_CONNECTIONS_20261006.md for exact APK fingerprints.
+- [ ] Wire Sprite CellRoll selection/preview, then bounded all-layer translated swaps; no inert cell controls and one swap drag per Undo.

@@ -935,3 +935,20 @@ JB-9.06b. Commit the row first, or copy the file aside, before mutating; verify 
 `:app:assembleDefaultDebug` watcher does not take `jb-gradle.lock`, so a free lock does not prove the
 machine is idle - measure daemon CPU over a few seconds before starting, and never stop another
 lane's process to make room.
+
+## Media lab (2026-10-06): three silent GPU/bundle traps
+
+**1. `tanh()` of a huge argument is NaN on ANGLE/D3D11.** A Gaussian prefilter fed `mu/sigma` with sigma ~1e-6; the NaN
+pixel then spread through every later pass and showed as white blocks that grew with each layer. **Rule:** clamp the
+argument of `tanh`/`exp` in any normal-CDF fit (`jb_Phi` clamps z to ±6), and guard state-writing passes with
+`isnan` so one bad dab can never reach the layer.
+
+**2. Half floats stall slow accumulation.** Watercolour deposits pigment in thousands of tiny increments; in RGBA16F an
+increment below half an ulp is dropped, so deposits froze at exactly 1.0 and colour drifted. **Rule:** layer state that
+accumulates small steps (pigment, water) is RGBA32F; only blend targets (deltas, brush input) stay RGBA16F. On device,
+check `EXT_color_buffer_float` and refuse the medium rather than fall back.
+
+**3. A hand-rolled module bundler dropped the second name of `export const A = 1, B = 2`.** `PASTE_DEPTH` became
+undefined, a 32×undefined texture made the framebuffer incomplete, and the published lab failed at startup on the
+phone, while every unbundled test passed. **Rule:** the bundler refuses multi-name exports, and every bundle is
+checked by loading the BUNDLED page at phone size and reading `window.__error` (not by rendering the module build).

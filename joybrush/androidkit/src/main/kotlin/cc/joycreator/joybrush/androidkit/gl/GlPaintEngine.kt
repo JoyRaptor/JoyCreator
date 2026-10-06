@@ -2,7 +2,7 @@ package cc.joycreator.joybrush.androidkit.gl
 
 import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.io.PaperResources
-import cc.joycreator.joybrush.core.doc.Paper
+import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.paper.PaperState
 import cc.joycreator.joybrush.core.paper.ResolvedPaper
 import cc.joycreator.joybrush.core.paper.SurfaceEntry
@@ -31,6 +31,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.util.IdentityHashMap
+import java.util.UUID
 
 /** Layer thumbnails are drawn this many times bigger, then box-averaged down (JB-2.04). */
 private const val THUMB_SUPERSAMPLE = 4
@@ -94,6 +95,8 @@ class GlPaintEngine(
     private var unitVbo = 0
     private var instanceVbo = 0
     private var fbo = 0
+    private var readFbo = 0
+    private var copyFbo = 0
     private var clearTex = 0
 
     /** 1x1 opaque white: a mask tile that was never painted (full coverage), and "no mask" in the composite shader. */
@@ -175,6 +178,12 @@ class GlPaintEngine(
 
     private class Layer(val id: String, val isMask: Boolean = false) {
         val tiles = HashMap<Long, Int>()
+        val cels = LinkedHashMap<String, HashMap<Long, Int>>()
+        var sharedCel: String? = null
+        var plan: RegionPaintPlan? = null
+        val projected = HashMap<Long, Int>()
+        var visibleProjection: Map<Long,Int>? = null
+        fun ownedTextures(): Set<Int> = (tiles.values + cels.values.flatMap { it.values } + projected.values).toSet()
         /** JB-2.23: this layer's mask, a second tile store whose missing tiles are WHITE (full coverage). */
         var mask: Layer? = null
         var clip = false
@@ -201,6 +210,9 @@ class GlPaintEngine(
 
     // Active stroke.
     private var strokeLayer: Layer? = null
+    private var strokePlan: RegionPaintPlan? = null
+    var boardDocument: JbDocument? = null
+        private set
     private val strokeTiles = HashMap<Long, Int>()
     private var colR = 0f; private var colG = 0f; private var colB = 0f
     private var opacity = 1f
@@ -334,6 +346,8 @@ class GlPaintEngine(
         val f = IntArray(1)
         GLES30.glGenFramebuffers(1, f, 0)
         fbo = f[0]
+        GLES30.glGenFramebuffers(1, f, 0); readFbo = f[0]
+        GLES30.glGenFramebuffers(1,f,0); copyFbo = f[0]
 
         clearTex = newTexture(1, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
         whiteTex = newTexture(1, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
@@ -373,6 +387,7 @@ class GlPaintEngine(
         // a layer, so nothing is released twice and nothing is left pointing at a dead name.
         cancelStroke()
         layers.clear()
+        boardDocument = null
         undo.clear()
         freeLayerTex.clear()
         freeStrokeTex.clear()
@@ -396,7 +411,7 @@ class GlPaintEngine(
      * [clearTex] are the driver's business and [initWith] makes new ones rather than reusing old.
      */
     internal fun heldTextureNames(): Int =
-        layers.values.sumOf { it.tiles.size + (it.mask?.tiles?.size ?: 0) } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size +
+        layers.values.sumOf { it.ownedTextures().size + (it.mask?.ownedTextures()?.size ?: 0) } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size +
             compositor.heldNames()
 
     /** Frees every GL object this engine owns. */
@@ -405,7 +420,7 @@ class GlPaintEngine(
         undo.clear()
         cancelStroke()
         val all = ArrayList<Int>()
-        layers.values.forEach { all.addAll(it.tiles.values); it.mask?.let { m -> all.addAll(m.tiles.values) } }
+        layers.values.forEach { all.addAll(it.ownedTextures()); it.mask?.let { m -> all.addAll(m.ownedTextures()) } }
         all.addAll(freeLayerTex); all.addAll(freeStrokeTex); all.addAll(freeSmudgeTex); all.add(clearTex); all.add(whiteTex)
         if (thumbTex != 0) all.add(thumbTex)
         thumbTex = 0; thumbW = 0; thumbH = 0
@@ -413,7 +428,7 @@ class GlPaintEngine(
         layers.clear(); freeLayerTex.clear(); freeStrokeTex.clear(); freeSmudgeTex.clear()
         GLES30.glDeleteBuffers(3, intArrayOf(quadVbo, unitVbo, instanceVbo), 0)
         GLES30.glDeleteVertexArrays(4, intArrayOf(dabVao, tileVao, smudgeVao, tuftVao), 0)
-        GLES30.glDeleteFramebuffers(1, intArrayOf(fbo), 0)
+        GLES30.glDeleteFramebuffers(3, intArrayOf(fbo, readFbo, copyFbo), 0)
         grains.release()
         compositor.release()
         paperBackground.release()
@@ -482,16 +497,45 @@ class GlPaintEngine(
             if (!s.hasMask && l.mask?.tiles?.isEmpty() == true) l.mask = null
             next[s.id] = l
         }
-        for ((id, l) in layers) if (id !in next && l.tiles.isNotEmpty()) next[id] = l
+        for ((id, l) in layers) if (id !in next && l.ownedTextures().isNotEmpty()) next[id] = l
         layers.clear()
         layers.putAll(next)
+    }
+
+    /** Stack metadata is part of the same history step as its physical cel edits. */
+    private fun documentForStack(doc: JbDocument, target: LayerStack,
+                                 replacements: Map<String, cc.joycreator.joybrush.core.doc.Layer> = emptyMap()): JbDocument {
+        val old = doc.layers.associateBy { it.id }
+        val next = target.layers.map { state ->
+            val existing = replacements[state.id] ?: old[state.id]
+            val base = existing ?: run {
+                val shared = UUID.randomUUID().toString()
+                val cels = arrayListOf(Cel(shared))
+                val regions = doc.boards.filter { it.kind == BoardKind.ANIMATION }.map { board ->
+                    val mappings = board.frames.associate { it.id to UUID.randomUUID().toString() }
+                    cels.addAll(mappings.values.map { Cel(it) })
+                    RegionFrames(board.id, mappings)
+                }
+                cc.joycreator.joybrush.core.doc.Layer(state.id, state.name, LayerKind.PAINT,
+                    cels = cels, sharedCelId = shared, regions = regions)
+            }
+            base.copy(name = state.name, opacity = state.opacity, visible = state.visible,
+                blend = state.blend, clip = state.clip,
+                mask = if (state.hasMask) base.mask ?: Cel(UUID.randomUUID().toString()) else null)
+        }
+        return doc.copy(layers = next, activeLayerId = target.activeId).also {
+            require(DocOps.validate(it).isEmpty()) { "Invalid board layer stack" }
+        }
     }
 
     /** A change to the stack alone (add, move, rename, opacity, blend) as ONE undo step. */
     fun pushStackStep(before: LayerStack, after: LayerStack) {
         check(!strokeInProgress) { "a layer change during a stroke would be undone out of order" }
+        val oldDoc = boardDocument
+        val next = oldDoc?.let { documentForStack(it, after) }
         applyStack(after)
-        undo.push(UndoLog.Step(emptyList(), before, after))
+        next?.let(::setBoardDocument)
+        undo.push(UndoLog.Step(emptyList(), before, after, documentBefore = oldDoc, documentAfter = next))
     }
 
     /** The stack made [target] with NO undo step: loading a drawing. */
@@ -504,73 +548,83 @@ class GlPaintEngine(
     fun deleteLayerStep(id: String, before: LayerStack, after: LayerStack) {
         check(!strokeInProgress) { "a layer change during a stroke would be undone out of order" }
         val layer = layers[id] ?: return
-        val changes = ArrayList(layer.tiles.map { (k, tex) -> UndoLog.TileChange<Int>(id, k, tex, null) })
-        layer.tiles.clear()
+        val oldDoc=boardDocument
+        val changes=ArrayList<UndoLog.TileChange<Int>>()
+        if(layer.sharedCel==null)layer.tiles.forEach{(k,t)->changes.add(UndoLog.TileChange(id,k,t,null))}
+        else layer.cels.forEach{(cel,store)->store.forEach{(k,t)->changes.add(UndoLog.TileChange(id,k,t,null,cel))}}
+        layer.tiles.clear();layer.cels.values.forEach{it.clear()};invalidateProjection(layer)
         // The mask goes with its layer, into the same step, so one undo brings both back.
         layer.mask?.let { m ->
             m.tiles.forEach { (k, tex) -> changes.add(UndoLog.TileChange(m.id, k, tex, null)) }
             m.tiles.clear()
         }
         applyStack(after)
-        undo.push(UndoLog.Step(changes, before, after))
+        val next=oldDoc?.copy(layers=oldDoc.layers.filterNot{it.id==id},activeLayerId=after.activeId)
+        next?.let(::setBoardDocument)
+        undo.push(UndoLog.Step(changes,before,after,documentBefore=oldDoc,documentAfter=next))
     }
 
     /** Deletes [id]'s mask (as [after] says) as ONE undo step: its tiles go into the step. */
     fun deleteMaskStep(id: String, before: LayerStack, after: LayerStack) {
         check(!strokeInProgress) { "a layer change during a stroke would be undone out of order" }
         val m = layers[id]?.mask ?: return
+        val oldDoc = boardDocument
+        val next = oldDoc?.let { documentForStack(it, after) }
         val changes = m.tiles.map { (k, tex) -> UndoLog.TileChange<Int>(m.id, k, tex, null) }
         m.tiles.clear()
         applyStack(after)
-        undo.push(UndoLog.Step(changes, before, after))
+        next?.let(::setBoardDocument)
+        undo.push(UndoLog.Step(changes, before, after, documentBefore = oldDoc, documentAfter = next))
     }
 
     /** Copies [sourceId]'s pixels into the new layer [newId] that [after] adds, as ONE undo step. Copied on the GPU, tile by tile. */
     fun duplicateLayerStep(sourceId: String, newId: String, before: LayerStack, after: LayerStack) {
         check(!strokeInProgress) { "a layer change during a stroke would be undone out of order" }
         val src = layers[sourceId] ?: return
-        applyStack(after)
-        val dst = layers[newId] ?: return
+        require(newId !in layers && after.layers.any { it.id == newId })
+        val oldDoc = boardDocument
+        val sourceMeta = oldDoc?.layers?.first { it.id == sourceId }
+        val clone = sourceMeta?.let { LayerContentClone.plan(it, newId,
+            after.layers.first { it.id == newId }.name) { UUID.randomUUID().toString() } }
+        val next = oldDoc?.let { documentForStack(it, after, mapOf(newId to clone!!.layer)) }
         val changes = ArrayList<UndoLog.TileChange<Int>>()
-        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
-        GLES30.glViewport(0, 0, size, size)
-        GLES30.glDisable(GLES30.GL_BLEND)
-        tileProg.use()
-        GLES30.glUniform1f(tileProg.loc("u_tileSize"), size.toFloat())
-        GLES30.glUniform1f(tileProg.loc("u_layerOpacity"), 1f)
-        GLES30.glUniform1i(tileProg.loc("u_layer"), 0)
-        GLES30.glBindVertexArray(tileVao)
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-        for ((key, tex) in src.tiles) {
-            val copy = newLayerTile()
-            attach(copy)
-            val ox = (Tiles.tx(key) * size).toFloat()
-            val oy = (Tiles.ty(key) * size).toFloat()
-            GLES30.glUniform2f(tileProg.loc("u_tileOrigin"), ox, oy)
-            GLES30.glUniformMatrix3fv(tileProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-            dst.tiles[key] = copy
-            changes.add(UndoLog.TileChange(newId, key, null, copy))
+        var published = false
+        fun copyStore(store: Map<Long, Int>, target: String, cel: String?) {
+            for ((key, tex) in store) {
+                val copy = newLayerTile()
+                changes.add(UndoLog.TileChange(target, key, null, copy, cel))
+                initializeTile(copy, tex, false)
+            }
         }
-        // And its mask, tile for tile (the stack already gave the copy an empty one).
-        val srcMask = src.mask
-        val dstMask = dst.mask
-        if (srcMask != null && dstMask != null) for ((key, tex) in srcMask.tiles) {
-            val copy = newLayerTile()
-            attach(copy)
-            val ox = (Tiles.tx(key) * size).toFloat()
-            val oy = (Tiles.ty(key) * size).toFloat()
-            GLES30.glUniform2f(tileProg.loc("u_tileOrigin"), ox, oy)
-            GLES30.glUniformMatrix3fv(tileProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-            dstMask.tiles[key] = copy
-            changes.add(UndoLog.TileChange(dstMask.id, key, null, copy))
+        try {
+            if (clone == null) copyStore(src.tiles, newId, null)
+            else for (copy in clone.copies) {
+                if (copy.fromCelId == sourceMeta!!.mask?.id) {
+                    copyStore(src.mask?.tiles.orEmpty(), maskStoreId(newId), null)
+                } else copyStore(src.cels[copy.fromCelId].orEmpty(), newId, copy.toCelId)
+            }
+            if (clone == null) src.mask?.let { copyStore(it.tiles, maskStoreId(newId), null) }
+            // Publish only after every GPU copy succeeds; failures leave the original stack intact.
+            applyStack(after)
+            published = true
+            changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
+            next?.let(::setBoardDocument)
+            undo.push(UndoLog.Step(changes, before, after, documentBefore = oldDoc, documentAfter = next))
+        } catch (e: Throwable) {
+            if (published) {
+                changes.forEach { put(it.layerId, it.key, null, it.celId) }
+                applyStack(before)
+                oldDoc?.let(::setBoardDocument)
+            }
+            changes.forEach { it.after?.let(::recycleLayerTex) }
+            throw e
+        } finally {
+            // An empty clone changes metadata only; no graphics state was touched.
+            if (changes.isNotEmpty()) {
+                GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+            }
         }
-        GLES30.glBindVertexArray(0)
-        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
-        undo.push(UndoLog.Step(changes, before, after))
     }
 
     /**
@@ -607,7 +661,7 @@ class GlPaintEngine(
         GLES30.glUniform1i(tileProg.loc("u_layer"), 0)
         GLES30.glBindVertexArray(tileVao)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-        for ((key, tex) in layer.tiles) {
+        for ((key, tex) in visibleTiles(layer)) {
             GLES30.glUniform2f(tileProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
@@ -634,10 +688,7 @@ class GlPaintEngine(
     /** Empties a layer as one undoable step. */
     fun clearLayer(id: String) {
         val layer = storeOf(id) ?: return
-        if (layer.tiles.isEmpty()) return
-        val changes = layer.tiles.map { (k, t) -> UndoLog.TileChange<Int>(layer.id, k, t, null) }
-        layer.tiles.clear()
-        undo.push(UndoLog.Step(changes))
+        replaceTiles(id,visibleTiles(layer).keys.associateWith{null})
     }
 
     // ── tile I/O (save, open, export — JB-0.08) ─────────────────────────────
@@ -660,7 +711,8 @@ class GlPaintEngine(
      * row (no flip needed). Null if the tile does not exist.
      */
     fun readTile(layerId: String, key: Long): ByteArray? {
-        val tex = storeOf(layerId)?.tiles?.get(key) ?: return null
+        val store=storeOf(layerId) ?: return null
+        val tex = visibleTiles(store)[key] ?: return null
         val buf = tileReadback
         buf.clear()
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
@@ -688,7 +740,8 @@ class GlPaintEngine(
     fun readPixel(layerId: String, docX: Int, docY: Int): ByteArray? {
         val tx = Math.floorDiv(docX, size)
         val ty = Math.floorDiv(docY, size)
-        val tex = storeOf(layerId)?.tiles?.get(Tiles.key(tx, ty)) ?: return null
+        val store=storeOf(layerId) ?: return null
+        val tex = visibleTiles(store)[Tiles.key(tx,ty)] ?: return null
         val buf = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         attach(tex)
@@ -722,15 +775,37 @@ class GlPaintEngine(
         for (rgba in tiles.values) {
             require(rgba == null || rgba.size == size * size * 4) { "tile must be ${size * size * 4} bytes" }
         }
-        val changes = ArrayList<UndoLog.TileChange<Int>>()
-        for ((key, rgba) in tiles) {
-            val before = layer.tiles[key]
-            if (rgba == null && before == null) continue
-            val after = rgba?.let { uploadTile(newLayerTile(), it) }
-            if (after == null) layer.tiles.remove(key) else layer.tiles[key] = after
-            changes.add(UndoLog.TileChange(layer.id, key, before, after))
-        }
-        if (changes.isNotEmpty()) undo.push(UndoLog.Step(changes))
+        val changes=ArrayList<UndoLog.TileChange<Int>>()
+        try {
+            for((key,rgba) in tiles) {
+                val source=rgba?.let{uploadTile(newLayerTile(),it)}
+                try {
+                    val slices=layer.plan?.tileSlices(key) ?: listOf(RegionTileSlice(RegionPlane(""),RegionTileRect(0,0,size,size)))
+                    for((plane,owned) in slices.groupBy{it.plane.celId}) {
+                        val cel=layer.sharedCel?.let{plane}
+                        val before=planeTiles(layer,cel)[key]
+                        if(before==null && rgba==null)continue
+                        val full=owned.size==1 && owned[0].rect==RegionTileRect(0,0,size,size)
+                        if(rgba==null && full) {changes.add(UndoLog.TileChange(layer.id,key,before,null,cel));continue}
+                        val after=newLayerTile()
+                        changes.add(UndoLog.TileChange(layer.id,key,before,after,cel))
+                        initializeTile(after,before,layer.isMask)
+                        for(slice in owned) {
+                            if(source!=null)copyTextureRect(source,after,slice.rect)else {
+                                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,copyFbo);attach(after)
+                                GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+                                val r=slice.rect;GLES30.glScissor(r.x,r.y,r.w,r.h)
+                                val bg=if(layer.isMask)1f else 0f;GLES30.glClearColor(bg,bg,bg,bg);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+                                GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+                            }
+                        }
+                    }
+                }finally{source?.let(::recycleLayerTex)}
+            }
+        }catch(e:Throwable){changes.forEach{it.after?.let(::recycleLayerTex)};throw e}
+        finally{GLES30.glDisable(GLES30.GL_SCISSOR_TEST);GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0)}
+        changes.forEach{put(it.layerId,it.key,it.after,it.celId)}
+        if(changes.isNotEmpty())undo.push(UndoLog.Step(changes))
         return changes.size
     }
 
@@ -748,12 +823,175 @@ class GlPaintEngine(
     fun resetDocument() {
         cancelStroke()
         undo.clear()
-        layers.values.forEach { l -> l.tiles.values.forEach(::recycleLayerTex) }
+        layers.values.forEach { l -> l.ownedTextures().forEach(::recycleLayerTex); l.mask?.ownedTextures()?.forEach(::recycleLayerTex) }
         layers.clear()
+        boardDocument = null
     }
 
     fun layerOpacity(id: String): Float = layers[id]?.opacity ?: 1f
     fun layerVisible(id: String): Boolean = layers[id]?.visible ?: true
+
+    /** Metadata is renderer-independent. This backend implements PAINT planes; vectors use the same board model. */
+    fun setBoardDocument(doc: JbDocument) {
+        check(!strokeInProgress) { "A board cannot change during a stroke" }
+        val errors=DocOps.validate(doc); require(errors.isEmpty()) { errors.joinToString("; ") }
+        require(doc.layers.all { it.kind==LayerKind.PAINT && it.animatedIn==null }) { "This renderer paints raster layers" }
+        for (meta in doc.layers) {
+            val layer=layers[meta.id] ?: error("No live layer ${meta.id}")
+            val shared=meta.sharedCelId ?: meta.cels.single().id
+            if (layer.sharedCel==null) { layer.sharedCel=shared; layer.cels[shared]?.let { layer.tiles.putAll(it) }; layer.cels[shared]=layer.tiles }
+            check(layer.sharedCel==shared) { "Shared paint identity cannot silently change" }
+            meta.cels.forEach { layer.cels.getOrPut(it.id) { HashMap() } }
+            val plan=RegionDocumentOps.paintPlan(doc,meta.id)
+            if(layer.plan?.frames!=plan.frames)invalidateProjection(layer)
+            layer.plan=plan
+        }
+        boardDocument=doc
+    }
+
+    /** Execute bounded physical copies/drops, then publish metadata and all pixels as ONE history step. */
+    fun applyBoardChange(change: RegionChange) {
+        check(!strokeInProgress)
+        val before=boardDocument ?: error("No board document is attached")
+        val errors=DocOps.validate(change.doc); require(errors.isEmpty()){errors.joinToString("; ")}
+        require(change.doc.layers.map{it.id}==before.layers.map{it.id}) { "Board edits cannot replace the layer stack" }
+        val pending=LinkedHashMap<Pair<String,Pair<String,Long>>,UndoLog.TileChange<Int>>()
+        var published=false
+        fun stage(layer: Layer,cel: String,key: Long,source: Int?,rect: RegionTileRect) {
+            val address=layer.id to (cel to key)
+            val old=pending[address]
+            val original=old?.before ?: layer.cels[cel]?.get(key)
+            val made=newLayerTile()
+            try {
+                initializeTile(made,old?.after ?: original,false)
+                if(source==null) {
+                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,copyFbo); attach(made)
+                    GLES30.glEnable(GLES30.GL_SCISSOR_TEST); GLES30.glScissor(rect.x,rect.y,rect.w,rect.h)
+                    GLES30.glClearColor(0f,0f,0f,0f); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+                    GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+                } else copyTextureRect(source,made,rect)
+                old?.after?.let(::recycleLayerTex)
+                pending[address]=UndoLog.TileChange(layer.id,key,original,made,cel)
+            } catch(e:Throwable){recycleLayerTex(made); throw e}
+        }
+        try {
+            for(copy in change.copies) {
+                val layer=layers[copy.layerId] ?: error("No layer ${copy.layerId}")
+                val source=layer.cels[copy.fromCelId] ?: error("No source cel ${copy.fromCelId}")
+                val destination=layer.cels.getOrPut(copy.toCelId){HashMap()}
+                // Include destination keys: copying blank source must clear existing owned pixels too.
+                val keys=(source.keys+destination.keys+pending.keys.filter {
+                    it.first==copy.layerId && (it.second.first==copy.fromCelId || it.second.first==copy.toCelId)
+                }.map{it.second.second}).toSet()
+                val plan=RegionPaintPlan("copy-shared",listOf(RegionFrame("copy-board",copy.rect,"copy-frame","copy-target")))
+                for(key in keys) for(slice in plan.tileSlices(key)) if(slice.plane.celId=="copy-target") {
+                    val sourceAddress=copy.layerId to (copy.fromCelId to key)
+                    val texture=if(sourceAddress in pending)pending.getValue(sourceAddress).after else source[key]
+                    stage(layer,copy.toCelId,key,texture,slice.rect)
+                }
+            }
+            for(drop in change.drops) {
+                val layer=layers[drop.layerId] ?: error("No layer ${drop.layerId}")
+                val keys=(layer.cels[drop.celId].orEmpty().keys+pending.keys.filter{
+                    it.first==drop.layerId && it.second.first==drop.celId
+                }.map{it.second.second}).toSet()
+                for(key in keys) {
+                    val tex=layer.cels[drop.celId]?.get(key)
+                    val address=layer.id to (drop.celId to key)
+                    val old=pending[address]; old?.after?.let(::recycleLayerTex)
+                    pending[address]=UndoLog.TileChange(layer.id,key,old?.before ?: tex,null,drop.celId)
+                }
+            }
+            pending.values.forEach { c->put(c.layerId,c.key,c.after,c.celId) }
+            published=true
+            setBoardDocument(change.doc)
+            if(before!=change.doc || pending.isNotEmpty()) undo.push(UndoLog.Step(pending.values.toList(),
+                documentBefore=before,documentAfter=change.doc))
+        } catch(e:Throwable) {
+            // Restore every published address before releasing prepared textures.
+            if(published) { pending.values.forEach{c->put(c.layerId,c.key,c.before,c.celId)}; setBoardDocument(before) }
+            pending.values.forEach { c->c.after?.let(::recycleLayerTex) }
+            throw e
+        } finally { GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) }
+    }
+
+    fun celTileKeys(layerId: String,celId: String): List<Long> = layers[layerId]?.cels?.get(celId)?.keys?.toList().orEmpty()
+    fun writeCelTile(layerId: String,celId: String,key: Long,rgba: ByteArray) {
+        require(rgba.size==size*size*4)
+        val layer=layers[layerId] ?: error("No live layer $layerId")
+        val store=layer.cels[celId] ?: error("No live cel $celId")
+        uploadTile(store.getOrPut(key){newLayerTile()},rgba); invalidateProjection(layer)
+    }
+    fun readCelTile(layerId: String,celId: String,key: Long): ByteArray? = readTextureTile(layers[layerId]?.cels?.get(celId)?.get(key))
+
+    private fun readTextureTile(tex: Int?): ByteArray? {
+        if(tex==null)return null
+        val buf=tileReadback; buf.clear()
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo); attach(tex)
+        try {
+            check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)==GLES30.GL_FRAMEBUFFER_COMPLETE)
+            GLES30.glReadPixels(0,0,size,size,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,buf)
+            check(GLES30.glGetError()==GLES30.GL_NO_ERROR)
+        } finally { GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) }
+        return ByteArray(size*size*4).also { buf.rewind(); buf.get(it) }
+    }
+
+    private fun planeTiles(layer: Layer,celId: String?): HashMap<Long,Int> =
+        if(celId==null)layer.tiles else layer.cels.getOrPut(celId){HashMap()}
+    private fun invalidateProjection(layer: Layer) {
+        layer.projected.values.forEach(::recycleLayerTex); layer.projected.clear(); layer.visibleProjection=null
+    }
+    private fun visibleTiles(layer: Layer): Map<Long,Int> {
+        if (layer.plan?.frames.isNullOrEmpty()) return layer.tiles
+        layer.visibleProjection?.let { return it }
+        val bindings=IntArray(2)
+        GLES30.glGetIntegerv(GLES30.GL_DRAW_FRAMEBUFFER_BINDING,bindings,0)
+        GLES30.glGetIntegerv(GLES30.GL_READ_FRAMEBUFFER_BINDING,bindings,1)
+        val scissor=GLES30.glIsEnabled(GLES30.GL_SCISSOR_TEST)
+        try { return projectedTiles(layer) } finally {
+            GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER,bindings[0])
+            GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER,bindings[1])
+            if(scissor)GLES30.glEnable(GLES30.GL_SCISSOR_TEST) else GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        }
+    }
+    private fun projectedTiles(layer: Layer): Map<Long,Int> {
+        val plan=layer.plan ?: return layer.tiles
+        if(plan.frames.isEmpty())return layer.tiles
+        layer.visibleProjection?.let{return it}
+        val keys=LinkedHashSet<Long>()
+        keys.addAll(layer.tiles.keys)
+        plan.frames.forEach { keys.addAll(layer.cels[it.celId]?.keys.orEmpty()) }
+        val result=LinkedHashMap<Long,Int>()
+        for(key in keys) {
+            val slices=plan.tileSlices(key)
+            if(slices.size==1) { layer.cels[slices[0].plane.celId]?.get(key)?.let{result[key]=it}; continue }
+            val sources=slices.mapNotNull { slice -> layer.cels[slice.plane.celId]?.get(key)?.let{slice.rect to it} }
+            if(sources.isEmpty())continue
+            val tex=layer.projected.getOrPut(key) {
+                val made=newLayerTile()
+                try { initializeTile(made,null,false); sources.forEach { (rect,source)->copyTextureRect(source,made,rect) }; made }
+                catch(e:Throwable) { recycleLayerTex(made); throw e }
+            }
+            result[key]=tex
+        }
+        layer.visibleProjection=result
+        return result
+    }
+    private fun initializeTile(target: Int,source: Int?,white: Boolean) {
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,copyFbo); attach(target)
+        val bg=if(white)1f else 0f; GLES30.glClearColor(bg,bg,bg,bg); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+        if(source!=null)copyTextureRect(source,target,RegionTileRect(0,0,size,size))
+    }
+    private fun copyTextureRect(source: Int,target: Int,r: RegionTileRect) {
+        GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER,readFbo)
+        GLES30.glFramebufferTexture2D(GLES30.GL_READ_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,GLES30.GL_TEXTURE_2D,source,0)
+        GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER,copyFbo)
+        GLES30.glFramebufferTexture2D(GLES30.GL_DRAW_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,GLES30.GL_TEXTURE_2D,target,0)
+        GLES30.glBlitFramebuffer(r.x,r.y,r.right,r.bottom,r.x,r.y,r.right,r.bottom,GLES30.GL_COLOR_BUFFER_BIT,GLES30.GL_NEAREST)
+        check(GLES30.glGetError()==GLES30.GL_NO_ERROR) { "Board tile copy failed" }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo)
+    }
 
     // ── strokes ──────────────────────────────────────────────────────────────
 
@@ -765,6 +1003,7 @@ class GlPaintEngine(
         cancelStroke()
         strokeTravel.reset()
         strokeLayer = storeOf(layerId) ?: error("no layer $layerId")
+        strokePlan = strokeLayer?.plan
         strokeIsRgba = smudge != null
         colR = ((argb shr 16) and 0xFF) / 255f
         colG = ((argb shr 8) and 0xFF) / 255f
@@ -1022,24 +1261,46 @@ class GlPaintEngine(
         commitProg.use()
         setCommitUniforms(layerOpacity = 1f)
         GLES30.glBindVertexArray(tileVao)
-        for ((key, strokeTex) in strokeTiles) {
-            val before = layer.tiles[key]
-            if (before == null && blend == StrokeBlend.ERASE && !layer.isMask) continue
-            val after = newLayerTile()
-            attach(after)
-            val ox = (Tiles.tx(key) * size).toFloat()
-            val oy = (Tiles.ty(key) * size).toFloat()
-            GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), ox, oy)
-            GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
-            bindTextures(before ?: emptyTexOf(layer), strokeTex)
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-            layer.tiles[key] = after
-            changes.add(UndoLog.TileChange(layer.id, key, before, after))
-        }
+        // The stroke owns one frozen region plan; every physical plane joins this one history step.
+        val pending = ArrayList<UndoLog.TileChange<Int>>()
+        try {
+            for ((key, strokeTex) in strokeTiles) {
+                val slices = strokePlan?.tileSlices(key) ?: listOf(RegionTileSlice(
+                    RegionPlane(layer.sharedCel ?: ""), RegionTileRect(0,0,size,size)))
+                for ((planeId, ownedSlices) in slices.groupBy { it.plane.celId }) {
+                    val celId = layer.sharedCel?.let { planeId }
+                    val store = planeTiles(layer, celId)
+                    val before = store[key]
+                    if (before == null && blend == StrokeBlend.ERASE && !layer.isMask) continue
+                    val after = newLayerTile()
+                    pending.add(UndoLog.TileChange(layer.id,key,before,after,celId))
+                    initializeTile(after,before,layer.isMask)
+                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo); attach(after)
+                    GLES30.glViewport(0,0,size,size)
+                    GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+                    val ox=(Tiles.tx(key)*size).toFloat(); val oy=(Tiles.ty(key)*size).toFloat()
+                    for(slice in ownedSlices) {
+                    val r=slice.rect; GLES30.glScissor(r.x,r.y,r.w,r.h)
+                    GLES30.glUniform2f(commitProg.loc("u_tileOrigin"),ox,oy)
+                    GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"),1,false,tileToClip(ox,oy),0)
+                    bindTextures(before ?: emptyTexOf(layer),strokeTex)
+                    GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP,0,4)
+                    }
+                    GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+                }
+            }
+            for (c in pending) { planeTiles(layer,c.celId)[c.key]=c.after!! }
+            changes.addAll(pending)
+            invalidateProjection(layer)
+        } catch (e: Throwable) {
+            pending.forEach { it.after?.let(::recycleLayerTex) }
+            throw e
+        } finally { GLES30.glDisable(GLES30.GL_SCISSOR_TEST) }
         GLES30.glBindVertexArray(0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         releaseStrokeTiles()
         strokeLayer = null
+        strokePlan = null
         smudge = null
         tuft = null
         if (changes.isNotEmpty()) undo.push(UndoLog.Step(changes))
@@ -1049,23 +1310,26 @@ class GlPaintEngine(
     fun cancelStroke() {
         releaseStrokeTiles()
         strokeLayer = null
+        strokePlan = null
         smudge = null
         tuft = null
     }
 
     fun undoStep(): Boolean {
         val s = undo.undo() ?: return false
-        s.changes.forEach { put(it.layerId, it.key, it.before) }
+        s.changes.forEach { put(it.layerId, it.key, it.before, it.celId) }
         s.stackBefore?.let { restoreStack(it) }
         s.paperBefore?.let { setDocumentPaper(it) }
+        s.documentBefore?.let { setBoardDocument(it) }
         return true
     }
 
     fun redoStep(): Boolean {
         val s = undo.redo() ?: return false
-        s.changes.forEach { put(it.layerId, it.key, it.after) }
+        s.changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
         s.stackAfter?.let { restoreStack(it) }
         s.paperAfter?.let { setDocumentPaper(it) }
+        s.documentAfter?.let { setBoardDocument(it) }
         return true
     }
 
@@ -1099,7 +1363,7 @@ class GlPaintEngine(
             GLES30.glUniformMatrix3fv(tileProg.loc("u_docToClip"), 1, false, docToClip, 0)
             GLES30.glUniform1f(tileProg.loc("u_layerOpacity"), layer.opacity)
             GLES30.glUniform1i(tileProg.loc("u_layer"), 0)
-            for ((key, tex) in layer.tiles) {
+            for ((key, tex) in visibleTiles(layer)) {
                 if (previewing && strokeTiles.containsKey(key)) continue
                 GLES30.glUniform2f(tileProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
                 GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
@@ -1112,7 +1376,7 @@ class GlPaintEngine(
                 setCommitUniforms(layerOpacity = layer.opacity)
                 GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, docToClip, 0)
                 for ((key, strokeTex) in strokeTiles) {
-                    val base = layer.tiles[key]
+                    val base = visibleTiles(layer)[key]
                     if (base == null && blend == StrokeBlend.ERASE) continue
                     GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
                     bindTextures(base ?: clearTex, strokeTex)
@@ -1161,7 +1425,7 @@ class GlPaintEngine(
         val live = strokeLayer
         val previews = if (live != null && strokeTiles.isNotEmpty()) renderStrokePreviews(live) else emptyMap()
         fun texOf(store: Layer?, key: Long): Int? =
-            if (store == null) null else if (store === live) previews[key] ?: store.tiles[key] else store.tiles[key]
+            if (store == null) null else if (store === live) previews[key] ?: visibleTiles(store)[key] else visibleTiles(store)[key]
 
         val list = layers.values.toList()
         for ((index, layer) in list.withIndex()) {
@@ -1169,7 +1433,7 @@ class GlPaintEngine(
             // Clipping by core's LayerMask rules, the same function RegionRenderer asks. A hidden base hides the clip.
             val base = LayerMask.clipBase(index) { list[it].clip }?.let { list[it] }
             if (base != null && !base.visible) continue
-            val keys = LinkedHashSet<Long>(layer.tiles.keys)
+            val keys = LinkedHashSet<Long>(visibleTiles(layer).keys)
             if (layer === live) keys.addAll(previews.keys)
             val rect = if (keys.isEmpty()) null else screenRect(keys, docToClip, w, h)
             if (rect != null) {
@@ -1229,7 +1493,7 @@ class GlPaintEngine(
         setCommitUniforms(layerOpacity = 1f)
         GLES30.glBindVertexArray(tileVao)
         for ((key, strokeTex) in strokeTiles) {
-            val base = layer.tiles[key]
+            val base = visibleTiles(layer)[key]
             if (base == null && blend == StrokeBlend.ERASE && !layer.isMask) continue
             val after = newLayerTile()
             attach(after)
@@ -1305,9 +1569,11 @@ class GlPaintEngine(
         return floatArrayOf(s, 0f, 0f, 0f, s, 0f, -ox * s - 1f, -oy * s - 1f, 1f)
     }
 
-    private fun put(layerId: String, key: Long, tex: Int?) {
+    private fun put(layerId: String, key: Long, tex: Int?, celId: String? = null) {
         val layer = storeOrCreate(layerId)
-        if (tex == null) layer.tiles.remove(key) else layer.tiles[key] = tex
+        val store = planeTiles(layer,celId)
+        if (tex == null) store.remove(key) else store[key] = tex
+        invalidateProjection(layer)
     }
 
     private fun attach(tex: Int) {
@@ -1373,7 +1639,7 @@ class GlPaintEngine(
         for (dy in -1..1) for (dx in -1..1) {
             val slot = (dy + 1) * 3 + dx + 1
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0 + 2 + slot)
-            val source = layer.tiles[Tiles.key(Tiles.tx(key) + dx, Tiles.ty(key) + dy)] ?: emptyTexOf(layer)
+            val source = visibleTiles(layer)[Tiles.key(Tiles.tx(key) + dx, Tiles.ty(key) + dy)] ?: emptyTexOf(layer)
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, source)
             GLES30.glUniform1i(smudgeProg.loc("u_pickup${dx + 1}${dy + 1}"), 2 + slot)
         }

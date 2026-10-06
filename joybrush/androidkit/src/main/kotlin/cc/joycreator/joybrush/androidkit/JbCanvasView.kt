@@ -6,6 +6,7 @@ import cc.joycreator.joybrush.androidkit.io.PaperResources
 import cc.joycreator.joybrush.core.paper.ResolvedPaper
 import cc.joycreator.joybrush.core.paper.PaperState
 import cc.joycreator.joybrush.core.doc.Paper
+import cc.joycreator.joybrush.core.doc.JbDocument
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Looper
@@ -24,6 +25,7 @@ import cc.joycreator.joybrush.core.input.PenAction
 import cc.joycreator.joybrush.core.input.PenButton
 import cc.joycreator.joybrush.core.input.PenButtonMap
 import cc.joycreator.joybrush.androidkit.io.JbContents
+import cc.joycreator.joybrush.androidkit.io.BoardSnapshot
 import cc.joycreator.joybrush.androidkit.io.CanvasSnapshot
 import cc.joycreator.joybrush.androidkit.io.TILE_BYTES
 import cc.joycreator.joybrush.core.brush.BrushDabber
@@ -1224,13 +1226,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val states = doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend, it.mask != null, it.clip) }
         val active = doc.activeLayerId?.takeIf { id -> doc.layers.any { it.id == id } } ?: doc.layers.last().id
         val stack = LayerStack(states, active)
-        val wanted = ArrayList<Triple<String, Long, ByteArray>>(contents.tiles.size)
+        val wanted = ArrayList<Pair<Triple<String,String,Long>,ByteArray>>(contents.tiles.size)
         for (entry in contents.tiles) {
             // Iterating the map gives the ENTRY: its key is (layer, cel, "tx_ty").
             // A mask's tiles go to the mask's store (JB-2.23); every other tile to its layer.
             val layer = doc.layers.first { it.id == entry.key.first }
             val store = if (layer.mask?.id == entry.key.second) maskStoreId(layer.id) else layer.id
-            wanted.add(Triple(store, tileKeyOf(entry.key.third), entry.value))
+            wanted.add(Triple(store,entry.key.second,tileKeyOf(entry.key.third)) to entry.value)
         }
         val resolved = PaperState.resolve(doc.paper,PaperResources.catalogue)
         val name = doc.name
@@ -1246,7 +1248,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             // resetDocument() empties EVERY layer; the file's stack is put back whole, then its pixels.
             engine.resetDocument()
             engine.setStack(stack)
-            for (item in wanted) engine.writeTile(item.first, item.second, item.third)
+            engine.setBoardDocument(doc)
+            for ((address,rgba) in wanted) {
+                if(address.first.endsWith(MASK_SUFFIX))engine.writeTile(address.first,address.third,rgba)
+                else engine.writeCelTile(address.first,address.second,address.third,rgba)
+            }
             retainedContents = CanvasSnapshot.metadataOf(contents)
             contentLost = false
             paper = resolved
@@ -1272,15 +1278,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             return "this drawing has ink strokes in it, and this screen cannot show ink yet"
         }
         if (doc.layers.isEmpty()) return "this drawing has no layers"
-        if (doc.boards.size != 1) {
-            return "this drawing has ${doc.boards.size} boards, and this screen holds one"
-        }
-        val board = doc.boards[0]
-        if (board.kind != BoardKind.CANVAS) {
-            return "board \"${board.id}\" is ${board.kind}, and this screen shows a canvas board"
-        }
-        if (board.rect.w <= 0 || board.rect.h <= 0) return "board \"${board.id}\" has no room"
-        val celOf = HashMap<String, String>()
+        if(doc.boards.any{it.kind !in listOf(BoardKind.CANVAS,BoardKind.ANIMATION,BoardKind.SPRITE)})
+            return "This renderer does not show puppet or character boards yet"
         for (layer in doc.layers) {
             if (layer.id.endsWith(MASK_SUFFIX)) {
                 return "layer \"${layer.name}\" uses a reserved mask identifier; this screen cannot open it safely"
@@ -1288,13 +1287,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             if (layer.kind != LayerKind.PAINT) {
                 return "layer \"${layer.name}\" is ${layer.kind}, and this screen only paints pixels"
             }
-            if (layer.animatedIn != null) {
-                return "layer \"${layer.name}\" is animated, and this screen cannot play animation yet"
-            }
-            if (layer.cels.size != 1) {
-                return "layer \"${layer.name}\" has ${layer.cels.size} cels, and this screen holds one"
-            }
-            celOf[layer.id] = layer.cels[0].id
+            if(layer.animatedIn!=null)return "Whole-layer animation is an obsolete test format"
+            if(layer.regions.isEmpty() && layer.cels.size!=1)return "A layer has no shared paint address"
         }
         for (key in contents.tiles.keys) {
             val owner = doc.layers.firstOrNull { it.id == key.first }
@@ -1329,6 +1323,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** The GL-thread half of [snapshot]: every layer, every tile, read back, under one document. */
     private fun readContents(w: Int, h: Int): JbContents {
+        engine.boardDocument?.let { doc ->
+            val current=syncBoardLayers(doc)
+            engine.setBoardDocument(current)
+            return BoardSnapshot.capture(current,
+                keys={layer,cel->
+                    val mask=current.layers.first{it.id==layer}.mask
+                    if(mask?.id==cel)engine.tileKeys(maskStoreId(layer)) else engine.celTileKeys(layer,cel)
+                }, read={layer,cel,key->
+                    val mask=current.layers.first{it.id==layer}.mask
+                    if(mask?.id==cel)engine.readTile(maskStoreId(layer),key) else engine.readCelTile(layer,cel,key)
+                },paper=documentPaperState)
+        }
         // Read back, not guessed at: the tiles are the drawing, so the archive carries exactly the
         // bytes the engine is holding and nothing has to be rebuilt from stroke records to save.
         val stack = engine.stack(activeLayer)
@@ -1405,6 +1411,32 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             activeLayerId = stack.activeId,
         )
         return CanvasSnapshot.merge(retainedContents, JbContents(doc = doc, tiles = tiles, strokes = emptyMap(), thumbnailPng = null), documentPaperState)
+    }
+
+    private fun syncBoardLayers(doc: JbDocument): JbDocument {
+        val old=doc.layers.associateBy{it.id}
+        val stack=engine.stack(activeLayer)
+        val next=stack.layers.map { state ->
+            val base=old[state.id] ?: error("Layer metadata is missing for ${state.id}")
+            base.copy(name=state.name,opacity=state.opacity,visible=state.visible,blend=state.blend,
+                clip=state.clip,mask=if(state.hasMask)base.mask ?: error("Mask metadata is missing")else null)
+        }
+        return doc.copy(layers=next,activeLayerId=stack.activeId,paper=documentPaperState)
+    }
+
+    val boardDocument: JbDocument? get() = retainedContents?.doc
+    var onBoardsChanged: ((JbDocument)->Unit)? = null
+    /** One serialized metadata/pixel transaction; no board changes while a brush owns its frame plan. */
+    fun editBoards(edit: (JbDocument)->cc.joycreator.joybrush.core.doc.RegionChange) {
+        onBeforeHistoryChange?.invoke()
+        if(drawing)finishStroke()
+        onGl {
+            try {
+                val current=engine.boardDocument ?: readContents(viewW,viewH).doc.also{engine.setBoardDocument(it)}
+                val synced=syncBoardLayers(current); engine.setBoardDocument(synced)
+                engine.applyBoardChange(edit(synced)); reportHistory()
+            } catch(e:Exception) { post{onRefused?.invoke(e.message ?: "That board change could not be applied")} }
+        }
     }
 
     /** `"3_-2"` → the engine's packed tile key. Signed, because the canvas has no edge. */
@@ -1547,6 +1579,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     private fun reportHistory(restorePaperRevision: Long? = null, historyRevision: Long? = null) {
+        engine.boardDocument?.let{doc->
+            val current=syncBoardLayers(doc)
+            engine.setBoardDocument(current)
+            retainedContents=JbContents(current,emptyMap(),emptyMap(),null)
+            post{onBoardsChanged?.invoke(current)}
+        }
         val u = engine.undo.canUndo
         val r = engine.undo.canRedo
         val stack = engine.stack(activeLayer)

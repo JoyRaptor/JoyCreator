@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  JOY CREATOR'S DISPLAY FACE — Archivo.
+
+  This is the face the lobby was mocked up in, and it is here because JoyRaptor
+  said "Make sure for the lobby you use the font you actually had for the mockup.
+  Don't cheap out. You make it look good. Stock android is boring."
+
+  He is right, and the reason is structural rather than a matter of taste.
+  Roboto (which is what sans-serif-black actually gives you) is the system voice.
+  Every notification, every settings screen, every other app on the phone speaks
+  in it. A product that wants to be a place rather than a utility cannot share
+  its voice with the operating system.
+
+  Archivo is a grotesque with very tight apertures and a near-flat top to the
+  lowercase 'a' and 's'. At display weights it goes DENSE rather than merely
+  large, which is what makes a short word like STUDIO hold a whole hero without
+  needing to be enormous.
+
+  ── WHY ONE FILE AND SIX ENTRIES ──────────────────────────────────────────────
+  archivo_variable.ttf is a VARIABLE font: a single outline with a 'wght' axis
+  that can be interpolated anywhere from 100 to 900. Declaring each weight as its
+  own <font> entry pointing at the same file, differing only in the variation
+  setting, is how Android exposes that axis to android:textFontWeight and to
+  Typeface.create(family, weight, italic).
+
+  fontVariationSettings landed in API 26. minSdk here is 24, so on Android 7.0
+  and 7.1 the axis is ignored and every weight renders at Archivo Regular. That
+  is a graceful fall: still Archivo, still not the system voice, just flatter.
+  It is not worth shipping six static files to fix two API levels.
+-->
+<font-family xmlns:app="http://schemas.android.com/apk/res-auto">
+    <font app:fontStyle="normal" app:fontWeight="400"
+          app:font="@font/archivo_variable" app:fontVariationSettings="'wght' 400" />
+    <font app:fontStyle="normal" app:fontWeight="500"
+          app:font="@font/archivo_variable" app:fontVariationSettings="'wght' 500" />
+    <font app:fontStyle="normal" app:fontWeight="600"
+          app:font="@font/archivo_variable" app:fontVariationSettings="'wght' 600" />
+    <font app:fontStyle="normal" app:fontWeight="700"
+          app:font="@font/archivo_variable" app:fontVariationSettings="'wght' 700" />
+    <font app:fontStyle="normal" app:fontWeight="800"
+          app:font="@font/archivo_variable" app:fontVariationSettings="'wght' 800" />
+    <font app:fontStyle="normal" app:fontWeight="900"
+          app:font="@font/archivo_variable" app:fontVariationSettings="'wght' 900" />
+</font-family>

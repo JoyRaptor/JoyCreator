@@ -1,0 +1,1208 @@
+<title>Joy Brush Boards</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="JB-3.00a Part 2: four design directions for boards on the Joy Brush infinite canvas, with every part swappable and four paper colours.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: the app's own dark ground; every scene is a sheet of the chosen paper drawn at true size (1 CSS px = 1 dp). */
+:root{
+  color-scheme:dark;
+  --ground:#000;--surface:#0d0d10;--panel:#111114;--raised:#1c1c22;--pressed:#26262e;--line:#2c2c35;
+  --ink:#e4e4e7;--dim:#a1a1aa;--faint:#71717a;--off:#4b4b55;
+  --dink:#f2f2f5;--ddim:#c9c9d3;
+  --sel:#22d3ee;--sel28:rgba(34,211,238,.28);--live:#f43f8e;--care:#fbbf24;--bad:#fa3d5d;--guide:#a78bfa;--ongo:#050507;
+  --g-anim:linear-gradient(90deg,#35F6BF,#97FE8B);
+  --g-sprite:linear-gradient(90deg,#FF008C,#CC27FF);
+  --g-image:linear-gradient(90deg,#5C43FD,#4397FD);
+  --glass:rgba(6,6,8,.55);--chrome:rgba(12,12,15,.9);--glass-ring:rgba(242,242,245,.13);
+  --f-disp:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  /* paper: black is the default */
+  --paper:#070709;--ci:#F2F2F5;--cc:#000;--cca:rgba(0,0,0,.7);
+  --k1:rgba(242,242,245,.55);--k2:rgba(0,0,0,.5);
+  --art:#E8E3D8;--grid:rgba(242,242,245,.17);--spot:rgba(0,0,0,.55);
+}
+html[data-paper="white"]{--paper:#F6F5F1;--ci:#0B0B0E;--cc:#fff;--cca:rgba(255,255,255,.85);--k1:rgba(11,11,14,.55);--k2:rgba(255,255,255,.75);--art:#1E1B18;--grid:rgba(11,11,14,.13);--spot:rgba(24,24,28,.22)}
+html[data-paper="grey"]{--paper:#8B8B90;--ci:#0B0B0E;--cc:#fff;--cca:rgba(255,255,255,.6);--k1:rgba(11,11,14,.62);--k2:rgba(255,255,255,.45);--art:#121214;--grid:rgba(11,11,14,.2);--spot:rgba(10,10,12,.32)}
+html[data-paper="tan"]{--paper:#D8C59F;--ci:#17120B;--cc:#FFF9EC;--cca:rgba(255,249,236,.75);--k1:rgba(23,18,11,.55);--k2:rgba(255,249,236,.6);--art:#2B2013;--grid:rgba(23,18,11,.15);--spot:rgba(30,20,8,.26)}
+
+*{box-sizing:border-box}
+html,body{background:var(--ground)}
+body{margin:0;color:var(--ink);font:14px/1.55 var(--f-body);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+button:focus-visible,[role="button"]:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:0 72px}
+h1,h2,h3{font-family:var(--f-disp);text-wrap:balance;margin:0}
+.eyebrow{font:500 10px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+p{margin:0}
+.lede{max-width:64ch;color:var(--dim);font-size:15px}
+.lede b{color:var(--ink);font-weight:600}
+
+/* sticky bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:60;background:rgba(0,0,0,.74);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1180px;margin:0 auto;padding:8px 16px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+.ctl{display:flex;align-items:center;gap:8px}
+.ctl>.eyebrow{min-width:44px}
+.sw{width:30px;height:30px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(242,242,245,.25);position:relative}
+.sw[aria-pressed="true"]{box-shadow:inset 0 0 0 1px rgba(242,242,245,.25),0 0 0 2px var(--ground),0 0 0 3.5px var(--sel),0 0 0 6.5px var(--sel28)}
+.seg{display:inline-flex;background:var(--raised);border-radius:999px;padding:2px;gap:2px;box-shadow:inset 0 0 0 1px var(--line)}
+.seg button{min-width:34px;height:30px;border-radius:999px;font:700 12px/1 var(--f-disp);color:var(--dim);padding:0 10px}
+.seg button[aria-pressed="true"]{color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 2px var(--sel28)}
+.seg button.custom{font:500 10px/1 var(--f-mono);letter-spacing:.06em}
+
+section{padding-top:44px}
+.sh{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.sh h2{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.sh p{color:var(--dim);max-width:70ch}
+header.top{padding-top:34px;display:flex;flex-direction:column;gap:12px}
+header.top h1{font-size:52px;font-weight:900;letter-spacing:-.045em;line-height:.95}
+header.top h1 span{background:linear-gradient(90deg,#35F6BF,#97FE8B);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* direction cards */
+.dirs{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.dir{cursor:pointer;background:var(--panel);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px;box-shadow:inset 0 0 0 1px var(--line);text-align:left;min-width:0}
+.dir[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 3px var(--sel28)}
+.dir .nm{display:flex;align-items:baseline;gap:8px}
+.dir .nm b{font:900 22px/1 var(--f-disp);color:var(--ink)}
+.dir .nm span{font:800 15px/1 var(--f-disp)}
+.dir .tg{font-size:12.5px;color:var(--dim)}
+.dir .tr{font-size:12px;color:var(--faint);display:grid;gap:4px}
+.dir .tr em{font-style:normal;color:var(--ddim);font-weight:600}
+.dir .crop{align-self:center}
+
+/* gallery */
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(352px,1fr));gap:26px 22px;justify-items:center}
+figure{margin:0;display:flex;flex-direction:column;gap:9px;width:352px;max-width:100%}
+figcaption{display:flex;flex-direction:column;gap:3px}
+figcaption b{font:800 14px/1.25 var(--f-disp);color:var(--ink)}
+figcaption b i{font-style:normal;font-family:var(--f-mono);font-weight:500;color:var(--faint);font-size:11px;margin-right:6px}
+figcaption span{font-size:12.5px;color:var(--dim);line-height:1.5}
+
+/* paper */
+.paper{position:relative;background:var(--paper);overflow:hidden;border-radius:14px;flex:0 0 auto;max-width:100%;transition:background .2s}
+.paper::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:soft-light;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.paper svg.art{position:absolute;left:0;top:0;overflow:visible}
+.ab{position:absolute}
+.layer{position:absolute;inset:0;pointer-events:none;transition:opacity .12s}
+.layer>*{pointer-events:auto}
+.crop{position:relative;overflow:hidden;border-radius:10px;flex:0 0 auto}
+.crop .paper{position:absolute;left:0;top:0;transform-origin:0 0;border-radius:0;max-width:none}
+.crop *{pointer-events:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+
+/* glyphs */
+svg.gl{display:block;flex:0 0 auto}
+.onpaper{color:var(--ci);filter:drop-shadow(0 0 .7px var(--cc)) drop-shadow(0 1px 1.6px var(--cca))}
+.halo{filter:drop-shadow(0 0 .7px var(--cc)) drop-shadow(0 1px 1.5px var(--cca))}
+
+/* outline */
+.bd{position:absolute;pointer-events:none;box-shadow:0 0 0 1px var(--k1),0 0 0 2px var(--k2)}
+.bd.strong{box-shadow:0 0 0 1.5px var(--ci),0 0 0 2.5px var(--k2)}
+.bd.sel{box-shadow:0 0 0 1px var(--k1),0 0 0 2.5px var(--sel),0 0 0 5.5px var(--sel28)}
+.bd.spot{box-shadow:0 0 0 1px var(--k1),0 0 0 2.5px var(--sel),0 0 0 5.5px var(--sel28),0 0 0 3000px var(--spot)}
+.cm{position:absolute;width:11px;height:11px;pointer-events:none;border:0 solid var(--ci);filter:drop-shadow(0 0 .8px var(--cc))}
+.cm.soft{width:14px;height:14px;opacity:.45}
+.hoverdot{width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 1px var(--ci),0 0 0 2px var(--cc);opacity:.7;pointer-events:none}
+.loopnote{font:500 8.5px/1 var(--f-mono);color:var(--live);text-shadow:0 0 2px var(--cc);pointer-events:none}
+
+/* tabs */
+.tb{width:40px;height:40px;display:grid;place-items:center}
+.tbg{width:30px;height:30px;border-radius:9px;background:var(--chrome);box-shadow:inset 0 0 0 1px var(--glass-ring);display:grid;place-items:center;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.slant{width:32px;height:21px;clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);background:var(--chrome);display:grid;place-items:center}
+.mark{width:26px;height:32px;clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%);background:var(--chrome);display:flex;justify-content:center;padding-top:6px;position:relative}
+.mark i{position:absolute;left:0;right:0;top:0;height:3px}
+.tabchip{height:21px;display:flex;align-items:center;gap:5px;padding:0 9px 0 7px;border-radius:999px;font:700 11px/1 var(--f-disp);color:var(--ongo);white-space:nowrap}
+.fmark{font:800 11px/1 var(--f-disp);color:var(--ci);text-shadow:0 0 2px var(--cc),0 0 1px var(--cc);font-variant-numeric:tabular-nums;pointer-events:none}
+.fbadge{height:14px;min-width:14px;padding:0 4px;border-radius:999px;font:600 9px/14px var(--f-mono);color:var(--ongo);text-align:center;pointer-events:none}
+
+/* title */
+.ttl{font:700 12px/1 var(--f-disp);letter-spacing:-.005em;color:var(--ci);white-space:nowrap;text-shadow:0 0 2px var(--cc),0 0 1px var(--cc),0 1px 2px var(--cca)}
+.ttlg{font:700 11px/1 var(--f-disp);color:var(--dink);white-space:nowrap;height:19px;display:flex;align-items:center;padding:0 8px;border-radius:999px;background:var(--chrome);box-shadow:inset 0 0 0 1px var(--glass-ring)}
+
+/* column / bubbles / ribbon / satellite */
+.colg,.satg{width:30px;border-radius:10px;background:var(--chrome);box-shadow:inset 0 0 0 1px var(--glass-ring);display:flex;flex-direction:column;align-items:center;padding:2px 0;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.satg{width:34px;border-radius:17px;padding:4px 0;gap:1px}
+.it{width:30px;height:30px;display:grid;place-items:center;color:var(--dink);position:relative;flex:0 0 auto}
+.it::after{content:"";position:absolute;inset:-5px}
+.cell{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;position:relative}
+.cell.armed{box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 3px var(--sel28)}
+.cell.careful{box-shadow:inset 0 0 0 1.5px var(--care)}
+.cell .nail{position:absolute;right:2px;bottom:2px;width:5px;height:5px;border-radius:1px;background:var(--dink)}
+.gt{background-clip:text;-webkit-background-clip:text;color:transparent;font-variant-numeric:tabular-nums}
+.fnum{height:38px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.fnum b{font:900 19px/1 var(--f-disp)}
+.fnum small{font:500 8px/1 var(--f-mono);color:var(--ddim)}
+.wheel{height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:ns-resize;touch-action:none}
+.wheel i{font:500 8.5px/1 var(--f-mono);font-style:normal;color:var(--ddim);opacity:.45;height:9px}
+.wheel b{font:900 18px/1 var(--f-disp)}
+.lever{height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.lever .swt{width:22px;height:11px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(242,242,245,.4);position:relative}
+.lever .swt i{position:absolute;left:2px;top:2px;width:7px;height:7px;border-radius:50%;background:var(--ddim);transition:left .12s}
+.lever.on .swt{box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 2px var(--sel28)}
+.lever.on .swt i{left:13px;background:var(--dink)}
+.bub{width:30px;height:30px;border-radius:50%;background:var(--chrome);box-shadow:inset 0 0 0 1px var(--glass-ring);display:grid;place-items:center;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.bub.tall{height:50px;border-radius:15px}
+.bub .it{width:30px;height:30px}
+.bub .fnum,.bub .wheel{height:auto}
+.bub .fnum b{font-size:15px}
+.bub .fnum small{display:none}
+.rib{height:26px;border-radius:8px 8px 4px 4px;background:var(--chrome);box-shadow:inset 0 0 0 1px var(--glass-ring);display:flex;align-items:center;gap:1px;padding:0 3px 0 9px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.rib .rt{font:700 11.5px/1 var(--f-disp);color:var(--dink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.rib .rs{margin-left:auto;font:500 9px/1 var(--f-mono);color:var(--ddim);padding:0 6px;white-space:nowrap}
+.rib .it{width:26px;height:26px}
+.rib .cell{width:22px;height:22px;border-radius:7px}
+.rib .lever{height:26px;gap:2px}
+
+/* sizes */
+.dim{position:absolute;pointer-events:none;color:var(--ci)}
+.dim.h{height:1px;background:var(--k1)}
+.dim.h::before,.dim.h::after{content:"";position:absolute;top:-3px;width:1px;height:7px;background:var(--k1)}
+.dim.h::before{left:0}.dim.h::after{right:0}
+.dim.v{width:1px;background:var(--k1)}
+.dim.v::before,.dim.v::after{content:"";position:absolute;left:-3px;height:1px;width:7px;background:var(--k1)}
+.dim.v::before{top:0}.dim.v::after{bottom:0}
+.num{position:absolute;font:500 9px/1 var(--f-mono);color:var(--ci);white-space:nowrap;padding:1px 3px;text-shadow:0 0 2px var(--cc),0 0 1px var(--cc);font-variant-numeric:tabular-nums}
+.num.ed{text-decoration:underline dotted 1px;text-underline-offset:2px}
+.num.typing{color:var(--dink);background:rgba(6,6,8,.7);border-radius:4px;text-shadow:none;box-shadow:0 0 0 1.5px var(--sel),0 0 0 3px var(--sel28);text-decoration:none}
+.num.typing::after{content:"";display:inline-block;width:1px;height:9px;background:var(--sel);margin-left:1px;vertical-align:-1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.num.dimtxt{opacity:.6}
+.num.vert{transform:rotate(90deg);transform-origin:0 0}
+.chipn{height:18px;padding:0 7px;border-radius:999px;background:var(--chrome);box-shadow:inset 0 0 0 1px var(--glass-ring);font:500 9px/18px var(--f-mono);color:var(--dink);white-space:nowrap}
+
+/* handles, pins */
+.hd{width:8px;height:8px;border-radius:2px;background:var(--dink);box-shadow:0 0 0 1.5px var(--sel),0 1px 3px rgba(0,0,0,.5)}
+.pin{width:14px;height:14px;display:grid;place-items:center}
+.pin::after{content:"";position:absolute;inset:-13px}
+
+/* pegs + strip */
+.pegtab{border-radius:4px 4px 13px 13px;background:var(--chrome);box-shadow:inset 0 0 0 1px var(--glass-ring);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.pegtab.rail{border-radius:11px 11px 3px 3px}
+.pegtab.decor{border-radius:3px 3px 8px 8px;display:flex;align-items:center;justify-content:center;gap:12px;opacity:.75}
+.pegtab.decor i{display:block;height:5px;width:18px;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(242,242,245,.55)}
+.pegtab.decor i.r{width:7px;height:7px;border-radius:50%}
+.peg{display:grid;place-items:center;color:var(--dink);box-shadow:inset 0 0 0 1.5px rgba(242,242,245,.8)}
+.peg.flat{width:32px;height:12px;border-radius:6px}
+.peg.rnd{width:17px;height:17px;border-radius:50%}
+.peg::after{content:"";position:absolute;inset:-14px -4px}
+.peg.rnd::after{inset:-12px}
+.peg.on{box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 2.5px var(--sel28);color:var(--sel)}
+.peg.live{box-shadow:inset 0 0 0 1.5px var(--live),0 0 0 2.5px rgba(244,63,142,.3);color:var(--live)}
+.strip{height:40px;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,#000 82%,transparent);mask-image:linear-gradient(90deg,#000 82%,transparent)}
+.strip.outline{filter:drop-shadow(0 0 .8px var(--cc))}
+.strip.glass{background:var(--glass);border-radius:8px;box-shadow:inset 0 0 0 1px var(--glass-ring)}
+.rail{position:absolute;left:0;right:0;height:7px;background:var(--k1);
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='7'%3E%3Crect x='2.5' y='1.5' width='4' height='4' rx='1' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E");-webkit-mask-size:9px 7px;-webkit-mask-repeat:repeat-x;
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='7'%3E%3Crect x='2.5' y='1.5' width='4' height='4' rx='1' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E");mask-size:9px 7px;mask-repeat:repeat-x}
+.strip.glass .rail{background:rgba(242,242,245,.5)}
+.rail.t{top:0}.rail.b{bottom:0}
+.fc{position:absolute;top:7px;height:26px;border-radius:5px;box-shadow:inset 0 0 0 1px var(--k1);color:var(--ci);font:600 9px/1 var(--f-mono);display:flex;align-items:center;justify-content:center;gap:4px;overflow:hidden}
+.fc .hold{position:absolute;right:3px;top:2px;font:600 7px/1 var(--f-mono);color:var(--care);font-style:normal}
+.fc.cur{box-shadow:inset 0 0 0 1.5px var(--live);color:var(--live)}
+.fc.slot{box-shadow:none;background-image:linear-gradient(90deg,var(--k1) 50%,transparent 0),linear-gradient(90deg,var(--k1) 50%,transparent 0),linear-gradient(0deg,var(--k1) 50%,transparent 0),linear-gradient(0deg,var(--k1) 50%,transparent 0);background-size:6px 1px,6px 1px,1px 6px,1px 6px;background-position:0 0,0 100%,0 0,100% 0;background-repeat:repeat-x,repeat-x,repeat-y,repeat-y;opacity:.7}
+.fc.add{box-shadow:none;border:1px dashed var(--k1);color:var(--ci)}
+.strip.glass .fc{color:var(--dink);box-shadow:inset 0 0 0 1px rgba(242,242,245,.3)}
+.strip.glass .fc.cur{box-shadow:inset 0 0 0 1.5px var(--live);color:var(--live)}
+.strip.glass .fc.add{border-color:rgba(242,242,245,.4);color:var(--dink)}
+.fc svg.th{position:absolute;inset:3px;width:calc(100% - 6px);height:calc(100% - 6px);opacity:.9}
+.strip.glass .fc b{position:absolute;left:3px;bottom:2px;font-size:7.5px}
+.lift{height:26px;border-radius:5px;background:rgba(6,6,8,.72);box-shadow:inset 0 0 0 1.5px var(--care),0 10px 22px rgba(0,0,0,.55);color:var(--dink);font:600 9px/26px var(--f-mono);text-align:center;transform:scale(1.1) rotate(-2deg);pointer-events:none}
+.caret{width:2px;border-radius:1px;background:var(--sel);box-shadow:0 0 0 2px var(--sel28);pointer-events:none}
+.ruler{height:22px;filter:drop-shadow(0 0 .8px var(--cc))}
+.ruler::before{content:"";position:absolute;left:0;right:22px;bottom:4px;height:1px;background:var(--k1)}
+.tk{position:absolute;bottom:4px;height:12px}
+.tk::before{content:"";position:absolute;left:0;bottom:0;width:1px;height:6px;background:var(--k1)}
+.tk.cur::before{width:2px;height:12px;background:var(--live)}
+.tk em{position:absolute;left:4px;top:-2px;font:600 9px/1 var(--f-mono);font-style:normal;color:var(--live)}
+.rl-end{position:absolute;right:0;bottom:0;font:500 8px/1 var(--f-mono);color:var(--ci);opacity:.7}
+.tbtn{width:26px;height:26px;border-radius:8px;background:var(--chrome);box-shadow:inset 0 0 0 1px var(--glass-ring);display:grid;place-items:center;color:var(--dink)}
+.tbtn.on{box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 2.5px var(--sel28);color:var(--sel)}
+.tbtn.live{box-shadow:inset 0 0 0 1.5px var(--live);color:var(--live)}
+
+/* sprite */
+.shelf{height:30px;border-radius:9px;background:var(--chrome);box-shadow:inset 0 0 0 1px var(--glass-ring);display:flex;align-items:center;gap:6px;padding:0 5px;color:var(--dink);font:600 10px/1 var(--f-mono);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);white-space:nowrap}
+.mseg{display:inline-flex;border-radius:999px;box-shadow:inset 0 0 0 1px var(--glass-ring);padding:1px}
+.mseg b{height:20px;min-width:24px;padding:0 6px;border-radius:999px;display:grid;place-items:center;font:600 9.5px/1 var(--f-mono);color:var(--ddim)}
+.mseg b.on{background:rgba(255,0,140,.7);color:#fff}
+.stp{display:inline-flex;align-items:center;border-radius:999px;box-shadow:inset 0 0 0 1px var(--glass-ring);height:22px}
+.stp i{font-style:normal;width:20px;text-align:center;color:var(--ddim);font:500 13px/22px var(--f-mono)}
+.stp b{font:600 10.5px/1 var(--f-mono);min-width:14px;text-align:center}
+.stp em{font-style:normal;font:400 8px/1 var(--f-mono);color:var(--ddim);margin-right:2px}
+.stp.v{flex-direction:column;height:auto;width:24px;padding:2px 0}
+.stp.v i{height:20px;line-height:20px}
+.subg{display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 7px;border-radius:999px;box-shadow:inset 0 0 0 1px var(--glass-ring);color:var(--ddim)}
+.subg.on{background:rgba(255,0,140,.7);color:#fff;box-shadow:none}
+.liftcell{border-radius:4px;background:var(--paper);box-shadow:0 0 0 1.5px var(--care),0 12px 24px rgba(0,0,0,.5);transform:scale(1.08) rotate(-3deg);pointer-events:none}
+.tgt{border-radius:3px;box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 3px var(--sel28);pointer-events:none}
+.ord{width:15px;height:15px;border-radius:50%;background:var(--sel);color:var(--ongo);font:700 9px/15px var(--f-mono);text-align:center;pointer-events:none}
+.ord.now{background:var(--live);color:#fff}
+.nowring{border-radius:3px;box-shadow:inset 0 0 0 2.5px var(--live);pointer-events:none}
+.pv{width:84px;border-radius:12px;background:var(--chrome);box-shadow:inset 0 0 0 1px var(--glass-ring);padding:4px;display:flex;flex-direction:column;gap:3px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.pv .win{height:56px;border-radius:8px;background:var(--paper);position:relative;overflow:hidden}
+.pv .row{display:flex;align-items:center;justify-content:space-between;color:var(--dink);font:500 8.5px/1 var(--f-mono);padding:0 2px}
+.pv .row button{width:20px;height:20px;display:grid;place-items:center;border-radius:6px;color:var(--dink)}
+@keyframes jig{from{transform:rotate(-2.2deg)}to{transform:rotate(2.2deg)}}
+.jig{transform-box:fill-box;transform-origin:center;animation:jig .3s ease-in-out infinite alternate}
+
+/* glass panels */
+.gpanel{background:rgba(6,6,8,.62);box-shadow:inset 0 0 0 1px var(--glass-ring);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:var(--dink)}
+.sheet{border-radius:20px 20px 0 0;padding:6px 14px 12px;display:flex;flex-direction:column;gap:8px}
+.grab{width:38px;height:3.5px;border-radius:2px;background:rgba(242,242,245,.3);align-self:center}
+.shead{display:flex;align-items:baseline;gap:8px}
+.shead b{font:800 14.5px/1 var(--f-disp)}
+.shead span{font:500 8.5px/1 var(--f-mono);color:var(--ddim)}
+.opt{display:flex;align-items:center;gap:9px;height:32px;padding:0 10px;border-radius:10px;background:rgba(242,242,245,.06);font-size:12px}
+.opt .rd{width:13px;height:13px;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(242,242,245,.5);flex:0 0 auto}
+.opt.on{box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 2.5px var(--sel28)}
+.opt.on .rd{box-shadow:inset 0 0 0 4px var(--sel)}
+.opt b{font-weight:600}
+.opt span{margin-left:auto;font:500 9px/1 var(--f-mono);color:var(--ddim)}
+.rng{position:relative;width:64px;height:12px;margin-left:auto}
+.rng::before{content:"";position:absolute;left:0;right:0;top:5px;height:2px;border-radius:1px;background:rgba(242,242,245,.2)}
+.rng i{position:absolute;top:5px;height:2px;background:var(--dink)}
+.rng u{position:absolute;top:1px;width:10px;height:10px;border-radius:50%;background:var(--dink)}
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chips b{height:24px;padding:0 10px;border-radius:999px;background:rgba(242,242,245,.1);font:600 10.5px/24px var(--f-body);color:var(--ddim)}
+.chips b.on{background:rgba(53,246,191,.7);color:var(--ongo)}
+.go{height:32px;border-radius:999px;background:var(--g-anim);color:var(--ongo);font:700 13px/32px var(--f-body);text-align:center}
+.budget{display:flex;align-items:center;gap:7px;font:500 8.5px/1 var(--f-mono);color:var(--ddim)}
+.budget i{flex:1;height:3px;border-radius:2px;background:rgba(242,242,245,.15);position:relative;overflow:hidden}
+.budget i::after{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--w,20%);background:var(--dink)}
+.pop{border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px}
+.pop .opt{height:28px;font-size:11px}
+.menu{border-radius:14px;padding:5px;display:flex;flex-direction:column;gap:1px}
+.mrow{display:flex;align-items:center;gap:9px;height:34px;padding:0 9px;border-radius:9px;font-size:12px;color:var(--dink)}
+.mrow:hover{background:rgba(242,242,245,.08)}
+.mrow span{margin-left:auto;font:500 9px/1 var(--f-mono);color:var(--ddim)}
+.mrow .dot{width:6px;height:6px;border-radius:50%;background:var(--bad)}
+.mhead{font:500 8px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ddim);padding:7px 9px 5px}
+.kbar{background:var(--chrome)!important;height:34px;border-radius:999px;padding:3px;display:flex;gap:3px}
+.kbar b{height:28px;display:flex;align-items:center;gap:5px;padding:0 10px 0 8px;border-radius:999px;font:600 10.5px/1 var(--f-body);color:var(--ddim)}
+.kbar b.on{color:var(--ongo);font-weight:700}
+.field{display:flex;flex-direction:column;gap:3px}
+.field small{font:500 7.5px/1 var(--f-mono);letter-spacing:.12em;color:var(--ddim)}
+.field b{height:22px;border-radius:6px;background:rgba(242,242,245,.08);font:600 10.5px/22px var(--f-mono);padding:0 6px}
+.field b.typing{box-shadow:inset 0 0 0 1.5px var(--sel)}
+.asp{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.asp b{height:20px;border-radius:999px;font:500 8.5px/20px var(--f-mono);text-align:center;background:rgba(242,242,245,.08);color:var(--ddim)}
+.asp b.on{box-shadow:inset 0 0 0 1.5px var(--sel);color:var(--dink)}
+.lockin{width:34px;height:34px;border-radius:50%;background:var(--g-anim);display:grid;place-items:center;color:var(--ongo);box-shadow:0 4px 12px rgba(0,0,0,.35)}
+.note{display:flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font:500 9.5px/1 var(--f-body);color:var(--dink);white-space:nowrap}
+.note i{width:6px;height:6px;border-radius:50%;box-shadow:0 0 0 1.5px var(--care)}
+.zone{font:500 8px/1 var(--f-mono);color:var(--guide);pointer-events:none;text-shadow:0 0 2px var(--cc)}
+
+/* layer column */
+.lcol{background:var(--chrome)!important;width:60px;border-radius:12px;padding:5px 0 6px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.lrow{display:flex;align-items:center;gap:2px;height:34px;width:58px;position:relative}
+.lmk{width:16px;height:30px;display:grid;place-items:center}
+.lth{width:40px;height:26px;border-radius:5px;background:var(--paper);box-shadow:inset 0 0 0 1px rgba(242,242,245,.2);position:relative;overflow:hidden}
+.lrow.act .lth{box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 2px var(--sel28)}
+.perf{position:absolute;left:0;top:0;bottom:0;width:6px;background:rgba(53,246,191,.85);
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='7'%3E%3Crect width='6' height='7' fill='black'/%3E%3Crect x='1.5' y='2' width='3' height='3' rx='.7' fill='white'/%3E%3C/svg%3E");-webkit-mask-size:6px 7px;-webkit-mask-mode:luminance;
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='7'%3E%3Crect width='6' height='7' fill='white'/%3E%3Crect x='1.5' y='2' width='3' height='3' rx='.7' fill='black'/%3E%3C/svg%3E");mask-size:6px 7px;mask-mode:luminance}
+.lname{font:500 7.5px/1 var(--f-mono);color:var(--ddim);text-align:center;width:58px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:-2px}
+.lplus{width:40px;height:22px;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(242,242,245,.25);display:grid;place-items:center;color:var(--dink);margin-left:16px}
+
+/* icon sheet */
+.icosheet{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:12px}
+.ico{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 2px}
+.ico .pair{display:flex;gap:8px;align-items:center}
+.ico .gb{width:30px;height:30px;border-radius:9px;background:var(--chrome);box-shadow:inset 0 0 0 1px var(--glass-ring);display:grid;place-items:center;color:var(--dink)}
+.ico small{font:500 8px/1.25 var(--f-mono);color:var(--ci);text-align:center;opacity:.8;min-height:20px}
+.ico.pick{border-radius:10px;box-shadow:inset 0 0 0 1px var(--k1)}
+
+/* picker */
+.els{display:flex;flex-direction:column;gap:14px}
+.el{background:var(--panel);border-radius:16px;padding:14px;box-shadow:inset 0 0 0 1px var(--line);display:flex;flex-direction:column;gap:12px;min-width:0}
+.el h3{font-size:16px;font-weight:800;letter-spacing:-.01em}
+.el .rule{font-size:12.5px;color:var(--dim)}
+.el .rule b{color:var(--ddim);font-weight:600}
+.vars{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:10px}
+.var{cursor:pointer;border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:7px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);text-align:left;min-width:0}
+.var[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 3px var(--sel28)}
+.var .vn{display:flex;align-items:center;gap:6px;font:700 13px/1.2 var(--f-disp);color:var(--ink)}
+.var .vn em{margin-left:auto;font:500 9px/1 var(--f-mono);font-style:normal;color:var(--faint);letter-spacing:.06em}
+.var .vd{font-size:11.5px;color:var(--dim);line-height:1.45}
+.var .vs{font:400 10px/1.5 var(--f-mono);color:var(--faint)}
+.gmini{height:110px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:16px}
+.gmini .gb{width:30px;height:30px;border-radius:9px;background:var(--chrome);box-shadow:inset 0 0 0 1px var(--glass-ring);display:grid;place-items:center;color:var(--dink)}
+
+/* picks code, tables */
+.code{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+.code pre{flex:1 1 320px;min-width:0;margin:0;background:var(--surface);border-radius:12px;padding:12px 14px;box-shadow:inset 0 0 0 1px var(--line);font:500 11.5px/1.6 var(--f-mono);color:var(--ink);white-space:pre-wrap;word-break:break-word}
+.btn{height:40px;padding:0 18px;border-radius:999px;font:700 13px/40px var(--f-body);background:var(--raised);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);align-self:center}
+.btn.go2{background:var(--g-anim);color:var(--ongo);box-shadow:none}
+.tblw{overflow-x:auto;border-radius:14px;box-shadow:inset 0 0 0 1px var(--line)}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:12.5px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 9.5px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);background:var(--surface)}
+td:first-child{color:var(--ddim);font-weight:600}
+td.d{font:500 12px/1 var(--f-mono);color:var(--ink);letter-spacing:.12em;white-space:nowrap}
+td.d small{display:block;font:400 11px/1.4 var(--f-body);letter-spacing:0;color:var(--faint);margin-top:4px;white-space:normal}
+tr:last-child td{border-bottom:0}
+.rec{background:var(--panel);border-radius:18px;padding:18px;box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 4px var(--sel28);display:flex;flex-direction:column;gap:12px}
+.rec h3{font-size:22px;font-weight:900;letter-spacing:-.02em}
+.rec ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;color:var(--dim);max-width:75ch}
+.rec li b{color:var(--ink)}
+.rules{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.rl{background:var(--panel);border-radius:14px;padding:12px 14px;box-shadow:inset 0 0 0 1px var(--line);display:flex;flex-direction:column;gap:4px;min-width:0}
+.rl b{font:800 13.5px/1.3 var(--f-disp);color:var(--ink)}
+.rl span{font-size:12.5px;color:var(--dim)}
+.tok{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+footer{padding-top:40px;color:var(--faint);font-size:12px}
+@media (max-width:420px){header.top h1{font-size:42px}.ctl>.eyebrow{min-width:0}}
+@media (prefers-reduced-motion:reduce){.jig{animation:none}.num.typing::after{animation:none}*{transition:none!important}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <linearGradient id="gA" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#35F6BF"/><stop offset="1" stop-color="#97FE8B"/></linearGradient>
+  <linearGradient id="gS" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FF008C"/><stop offset="1" stop-color="#CC27FF"/></linearGradient>
+  <linearGradient id="gI" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7A66FF"/><stop offset="1" stop-color="#4397FD"/></linearGradient>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4C7DFF"/><stop offset="1" stop-color="#FFB27A"/></linearGradient>
+  <pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.2" height="5" style="fill:var(--art)" opacity=".38"/></pattern>
+</defs></svg>
+
+<div class="bar" role="toolbar" aria-label="Paper and direction">
+  <div class="bar-in">
+    <div class="ctl"><span class="eyebrow">Paper</span><span id="papers" style="display:flex;gap:10px"></span></div>
+    <div class="ctl"><span class="eyebrow">Option</span><span class="seg" id="dirseg"></span></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow">JB-3.00a · Part 2 · locked as §K · 2026-10-01</span>
+    <h1>Boards on the <span>canvas</span></h1>
+    <p class="lede">Four complete ways to dress a board, and every part of each one can be swapped for a part from another. <b>Everything is drawn at true size:</b> on your Note 9, 1 dp here is 1 dp in Joy Brush. Flip the paper at the top to check that each piece reads on black, white, grey and tan. Hover any control to read its label.</p>
+  </header>
+
+  <section id="locked">
+    <div class="rec">
+      <span class="eyebrow">Locked · JB-3.00a §K · 2026-10-01</span>
+      <h3>Satellite pill, crop marks, frame wheel, pen-down fade</h3>
+      <ul>
+        <li><b>Controls:</b> a floating pill 10 dp off the board's left edge holding the kind icon, then the frame wheel (animation) or the feature switch (image, tile, sprite), then lock, then export. It does not hop: while the pen is down on the board everything fades to 12% and the film strip folds to its ruler.</li>
+        <li><b>At rest:</b> an animation board is only its film icon (plus a small frame number when it is not on frame 1). Image, tile and sprite boards show crop marks and their icon. Soft brackets fade in around a resting animation board when a pen comes within 48 dp.</li>
+        <li><b>Hover to play:</b> hover the resting film icon with a pen or mouse and the board loops in place, for talking over a screen recording.</li>
+        <li><b>Tiling on:</b> the tile fills the whole canvas edge to edge. Only the switch (on) and the selection ring around the original tile remain.</li>
+        <li><b>One export icon, app-wide:</b> the Studio's film-strip export mark.</li>
+        <li><b>The rest:</b> title in halo type, size as a corner readout, pegs fused to an outline film strip, runner / mountain marks in the layer column, the grid shelf under sprite boards, the Studio's export sheet.</li>
+      </ul>
+    </div>
+  </section>
+
+
+  <section id="directions">
+    <div class="sh"><span class="eyebrow">Four directions</span><h2>Pick a starting point</h2>
+      <p>The four you chose from, kept for reference. Tapping one redraws every scene below; §K in the top bar brings back your locked set.</p></div>
+    <div class="dirs" id="dirs"></div>
+  </section>
+
+  <section id="scenes">
+    <div class="sh"><span class="eyebrow">Every board, every state</span><h2>The scenes</h2>
+      <p>Drawn with the option you picked. In scene 2, tap the round peg to play and tap a numbered cell to show that frame. Go to frame 1: the line drawn across the board stops dead at its edge, because that piece of the line lives on frame 3.</p></div>
+    <div class="gal" id="gal"></div>
+  </section>
+
+  <section id="mix">
+    <div class="sh"><span class="eyebrow">Mix and match</span><h2>Every part, every option</h2>
+      <p>Tap an option to swap it in; the scenes redraw. The letters say which direction uses it. Grey text under each option is the exact size a builder must use.</p></div>
+    <div class="els" id="els"></div>
+  </section>
+
+  <section id="picks">
+    <div class="sh"><span class="eyebrow">Your picks</span><h2>Send this line back</h2>
+      <p>When the scenes look right, copy this and paste it to the Lead. It becomes §K, the locked design that Sol or any other agent builds exactly.</p></div>
+    <div class="code"><pre id="code"></pre><button class="btn go2" id="copy" type="button" title="Copy your picks so you can paste them to the Lead">Copy picks</button></div>
+  </section>
+
+  <section id="compare">
+    <div class="sh"><span class="eyebrow">Side by side</span><h2>How the four compare</h2>
+      <p>Three dots is best. "Reach" assumes the phone is in one hand and the board is mid-screen.</p></div>
+    <div class="tblw"><table id="cmp"></table></div>
+  </section>
+
+  <section id="recommend">
+    <div class="rec">
+      <span class="eyebrow">My recommendation, before you picked</span>
+      <h3>A, Bookmark, with the frame wheel and the pen-down fade</h3>
+      <ul>
+        <li><b>It is your own layout.</b> You described an icon at the top-left with the frame number, lock and export stacked under it. A is that, and nothing ever moves, so your thumb learns where export is after a day.</li>
+        <li><b>The frame wheel (from D) makes the number do work.</b> Drag it up or down to flip frames without reaching for the strip. That is how you will check a pose one-handed.</li>
+        <li><b>The pen-down fade (from B) is the quietest rule that keeps things put.</b> Pen down anywhere on the board and everything sinks to a whisper and the strip folds to a ruler; lift, and it is all back where it was. Fading only near the tab still leaves a full film strip glowing under a board you are inking.</li>
+        <li><b>What I would avoid:</b> the spotlight dim changes how your colours look next to the board, and the hop moves controls at the moment you reach for them.</li>
+      </ul>
+      <div><button class="btn go2" type="button" data-act="dir" data-d="R" title="Show my recommended set in every scene">Show my recommendation</button></div>
+    </div>
+  </section>
+
+  <section id="rules">
+    <div class="sh"><span class="eyebrow">For builders</span><h2>Rules every option keeps</h2>
+      <p>These are not up for choice. Whatever the owner picks, a build that breaks one of these is wrong.</p></div>
+    <div class="rules" id="rules-list"></div>
+  </section>
+
+  <section id="tokens">
+    <div class="sh"><span class="eyebrow">For builders</span><h2>Tokens</h2>
+      <p>Every colour on a board comes from this list. A colour that is not here does not belong on a board.</p></div>
+    <div class="tblw"><table id="tok"></table></div>
+  </section>
+
+  <footer>Drawn for JB-3.00a (Boards: the owner's model), §F, §G, §H and §J. When an option is chosen, write it into that spec as §K and link this page.</footer>
+</div>
+
+<script>
+'use strict';
+/* ───────────── icons: solid, 24-unit, evenodd ───────────── */
+const ICONS={
+ film:'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM4.5 5.5h2v2h-2zM8.8 5.5h2v2h-2zM13.2 5.5h2v2h-2zM17.5 5.5h2v2h-2zM4.5 16.5h2v2h-2zM8.8 16.5h2v2h-2zM13.2 16.5h2v2h-2zM17.5 16.5h2v2h-2zM5 9.25h14v5.5H5z',
+ image:'M3 4h18a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM4.5 6.5v11h15v-11zM5.5 16.5l4.2-5.6 2.9 3.8 1.9-2.4 3.5 4.2zM16 7.6a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4z',
+ sprite:'M3 3h5v5H3zM9.5 3h5v5h-5zM16 3h5v5h-5zM3 9.5h5v5H3zM9.5 9.5h5v5h-5zM16 9.5h5v5h-5zM3 16h5v5H3zM9.5 16h5v5h-5zM16 16h5v5h-5z',
+ seam:'M2.5 2.5h9v9h-9zM12.5 2.5h9v9h-9zM2.5 12.5h9v9h-9zM12.5 12.5h9v9h-9zM12 5.6l6.4 6.4-6.4 6.4-6.4-6.4z',
+ hound:'',
+ tray:'M3 13h2.5v5.5h13V13H21v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 2.5l5 5h-3.25V15h-3.5V7.5H7z',
+ export:'m509.99,43.5192c1.556,-0.0342 4.848,-0.0086 5.994,1.0231c5.263,4.7385 10.268,10.3865 15.32,15.3621c38.396,38.1371 76.552,76.5146 114.466,115.1316c11.9,11.927 23.721,23.969 35.663,35.818c3.715,3.686 1.756,9.532 -1.191,12.821c-4.827,4.941 -11.849,12.313 -16.792,16.755c-6.294,5.657 -29.684,33.347 -35.538,33.911c-2.177,0.229 -4.365,-0.321 -6.176,-1.552c-4.321,-2.995 -10.683,-10.968 -14.896,-14.932c-17.489,-16.455 -34.719,-36.533 -52.616,-52.25c0.797,58.519 -0.124,97.477 0.229,156.02c0.153,25.446 -0.656,30.38 0.087,55.693l80.604,-1.883c6.032,0.023 40.116,0.165 46.145,-0.01c17.445,-0.504 15.666,-14.308 15.665,-27.029l-0.023,-3.146l-0.433,-66.248l48.436,2.071c-0.154,8.781 -2.864,25.814 3.892,32.12c1.082,1.01 4.065,3.324 5.579,3.512c6.744,0.835 13.871,0.571 20.693,0.588l12.006,0.042c10.632,-0.063 16.229,-4.081 16.411,-15.589c0.108,-6.799 -0.257,-13.711 -0.445,-20.517c6.774,-0.006 13.835,-0.067 20.661,-0.213c12.505,-0.267 29.239,-1.732 29.516,15.753c0.172,10.83 -0.191,21.88 -0.135,32.793l0.238,93.864l-0.299,272.421l-0.375,161.601l-0.048,46.546c0.006,7.985 0.199,16.299 -0.194,24.236c-0.247,4.984 -7.518,12.765 -12.925,12.936c-9.855,0.311 -19.71,-0.027 -29.578,-0.027l-67.468,0.037l-224.542,0.081l-223.354,0.117l-73.179,-0.013c-11.417,0 -23.002,0.131 -34.423,0.062c-3.431,-0.021 -7.032,-1.16 -9.812,-3.247c-3.532,-2.643 -5.818,-6.625 -6.319,-11.008c-0.624,-5.498 -0.248,-17.91 -0.223,-23.943l0.021,-43.248l0.026,-150.252l-0.017,-272.449l0.15,-88.746c0.013,-16.254 -0.052,-32.562 0.072,-48.819c0.101,-4.761 0.192,-9.458 3.46,-13.317c5.029,-5.971 11.962,-4.827 18.602,-5.161c8.494,-0.427 19.385,1.022 27.558,-0.103l0.069,26.632c3.35,5.209 7.732,9.413 14.272,9.404c20.333,-0.03 12.007,0.573 32.303,0.024c14.388,-0.389 10.967,-26.85 10.899,-36.133l42.848,1.956c0.114,7.64 -0.214,15.219 -0.235,22.846c-1.084,33.33 -0.065,20.663 -0.063,51.994c0,2.907 0.117,5.647 0.346,8.522c0.3,4.639 5.438,11.739 10.334,12.318c8.305,0.981 18.082,0.607 26.509,0.598l111.622,-2.082c-0.542,-18.437 -0.303,-15.702 -0.328,-34.232l-0.025,-76.819l0.106,-58.834c-0.053,-12.04 -0.543,-30.43 0.222,-41.971l-24.717,25.21c-7.192,7.424 -37.002,39.74 -43.879,43.142c-1.817,0.899 -3.558,0.518 -5.375,-0.195c-2.273,-0.892 -4.282,-2.387 -6.101,-3.99c-6.316,-5.565 -12.029,-12.187 -18.006,-18.159c-8.721,-8.715 -18.117,-17.282 -26.287,-26.494c-1.358,-1.532 -2.62,-3.25 -3.396,-5.156c-0.931,-2.287 -0.9,-4.274 0.063,-6.54c0.719,-1.691 1.724,-3.091 2.963,-4.432c24.457,-26.487 51.024,-51.248 76.268,-77l57.921,-58.2898c5.232,-5.2497 26.657,-28.1839 31.174,-29.932zm171.385,749.8858c13.77,0.112 16.168,-9.387 16.175,-21.044l-1.214,-225.374l0.158,-43.713c0.035,-8.031 0.186,-16.249 -0.248,-24.27c-0.286,-5.268 -5.012,-12.561 -10.763,-12.827c-10.681,-0.494 -49.577,-0.259 -60.318,-0.24l-87.013,2.037l-153.952,1.99c-16.205,-0.022 -32.497,-0.115 -48.709,0.017c-0.754,0.006 -1.704,0.119 -2.457,0.198c-10.977,1.55 -12.569,7.55 -12.786,17.796c-0.305,14.448 0.09,29.003 0.135,43.47l1.114,173.985l-0.012,52.287c-0.006,8.576 -0.357,17.296 0.455,25.829c0.682,7.16 6.456,13.117 13.711,13.456c7.807,0.366 15.797,0.288 23.642,0.283l106.955,-2.124l102.153,0.161c18.805,0.022 94.254,-2.235 112.974,-1.917zm4.5,144.201c2.965,0.042 7.486,0.495 9.917,-0.872c1.09,-1.701 0.894,-4.756 0.887,-6.854c-0.076,-23.021 -0.032,-46.029 0.125,-69.049l1.161,12.133c0.009,-5.679 0.269,-12.137 -0.534,-17.709c-0.887,-6.16 -8.339,-11.587 -14.374,-11.71c-9.663,-0.197 -47.315,-0.101 -56.971,-0.078l-89.507,2.263l-159.589,1.745c-14.35,-0.007 -29.738,-0.271 -43.992,0.095c-13.766,3.683 -11.581,19.078 -11.548,29.803l-0.924,-15.209c0.022,25.609 -0.565,53.68 0.12,79.087c9.995,0.597 21.97,0.272 32.159,0.272l118.545,-1.987l214.525,-1.93zm-451.166,-402.818c-17.582,0.615 -13.316,16.027 -13.988,27.31c-1.787,29.999 8.698,27.176 32.475,27.157c12.611,-0.085 -3.777,-0.065 8.834,0.059c4.863,0.022 8.683,-0.176 12.384,-3.964c5.706,-5.966 3.961,-15.226 4.051,-22.775c0.058,-4.882 -0.095,-9.651 0.057,-14.574c0.189,-6.111 -4.197,-12.405 -10.569,-13.108c-7.913,-0.874 -16.23,-0.275 -24.213,-0.442c-12.433,0.2 3.834,-0.356 -8.54,0.306l-0.491,0.031zm517.44,1.133c-8.805,6.578 -7.961,12.031 -7.564,22.522c0.477,12.63 -4.424,29.634 14.27,30.788c19.881,0.158 12.238,0.601 32.115,0.116c14.883,-4.153 11.973,-14.716 12.237,-27.142c0.227,-10.703 1.666,-27.067 -13.354,-26.995c-19.608,0.093 -12.041,-0.976 -31.502,-0.008c-1.933,0.185 -4.334,0.342 -6.202,0.719zm31.976,283.951c4.014,0.027 6.259,-0.048 10.239,-0.479c4.098,-2.921 8.68,-7.229 8.901,-12.699c0.397,-9.187 0.152,-19.234 -0.425,-28.366c-0.523,-8.263 -7.491,-13.239 -15.29,-13.202c-16.637,0.08 -6.532,-0.716 -23.075,0.143c-4.376,0.09 -12.927,-0.043 -16.064,3.869c-6.583,8.932 -2.878,23.592 -3.739,34.215c-0.345,4.258 0.88,8.723 3.977,11.743c6.526,6.365 18.112,4.389 27.259,4.362c12.074,-0.062 -3.852,0.076 8.217,0.414zm8.836,-346.341c4.208,-1.879 7.32,-3.948 8.964,-8.499c2.065,-5.721 2.452,-32.849 -0.216,-38.447c-1.422,-2.984 -4.346,-5.523 -7.472,-6.556c-5.592,-1.848 -28.541,-0.708 -39.12,-0.43c-3.853,1.314 -7.2,2.96 -9.018,6.816c-0.784,1.662 -1.207,3.54 -1.395,5.362c-0.54,5.223 -0.474,29.223 1.045,33.001c1.223,3.04 4.371,6.863 7.572,7.939c5.961,2.004 29.569,0.915 39.64,0.814zm-524.241,-0.058c3.661,-1.559 6.587,-3.166 8.23,-7.054c1.999,-4.73 1.92,-34.985 -0.201,-39.568c-1.45,-3.13 -4.037,-5.529 -7.314,-6.631c-5.742,-1.931 -30.244,-1.089 -39.353,-0.643c-2.858,1.499 -8.404,5.193 -8.611,8.985c-2.293,42.124 -4.832,47.34 40.343,45.016c8.365,-0.43 -3.327,0.271 6.906,-0.105zm-30.348,292.258c-14.991,0.514 -17.798,5.316 -17.89,20.283c-0.057,9.163 -2.386,32.133 10.449,32.875c19.085,1.104 11.335,0.02 30.492,0.566c18.176,0.132 17.264,-10.733 17.055,-25.292c-0.153,-10.661 2.266,-28.387 -13.166,-28.426c-18.317,-0.046 -8.639,-0.622 -26.94,-0.006zm518.506,115.456c-8.685,1.114 -12.999,8.269 -12.327,16.541c0.793,9.749 -2.551,24.479 3.401,32.401c4.836,6.436 15.35,5.003 22.644,4.992l2.889,-0.053c4.017,-0.003 13.555,-0.157 17.237,0.331c15.478,-3.466 11.905,-17.58 12.216,-28.986c0.257,-9.447 0.679,-25.258 -12.58,-25.186c-19.619,0.108 -14.024,-1.142 -33.48,-0.04zm46.088,-186.877c0.036,-7.095 0.031,-14.141 0.095,-21.447c0.09,-10.2 1.344,-20.391 -11.681,-22.546c-3.029,-0.501 -6.011,-0.311 -9.071,-0.356c-16.103,0.188 -4.208,0.095 -20.312,0.086c-1.288,-0.001 -3.447,-0.042 -4.69,0.101c-16.631,2.186 -11.887,15.053 -12.708,25.903c-2.43,32.11 8.842,28.056 34.615,28.093c13.356,-0.001 -1.288,0.102 12.067,0.31c6.437,-2.248 8.334,-4.121 11.685,-10.144zm-538.341,9.842c19.69,-0.323 12.708,-26.645 13.615,-39.639c1.24,-17.754 -21.7,-14.442 -33.717,-14.425l-8.861,0.082c-10.381,0.986 -14.472,4.093 -14.602,14.978c-0.46,38.685 -3.097,39.184 34.192,39.097c12.791,0.037 -3.418,0.006 9.373,-0.093zm-32.245,177.017c-17.117,2.239 -9.942,27.417 -11.442,39.26c-0.913,7.22 4.071,14.13 11.698,14.344c21.141,0.301 14.681,0.805 35.755,0.219c5.329,-2.259 6.696,-3.627 9.715,-8.56c0.036,-5.597 0.029,-11.817 0.109,-16.86c0.13,-8.15 2.281,-27.175 -10.093,-27.753c-20.353,-0.951 -15.484,-1.293 -35.742,-0.65z',
+ floppy:'M5 3h12l4 4v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM7.5 3.5v5h8v-5zM6.5 12.5v7h11v-7z',
+ lockC:'M5 10h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zM12 13.4a1.6 1.6 0 0 0-.8 3v2.1h1.6v-2.1a1.6 1.6 0 0 0-.8-3zM7.5 10V7.5a4.5 4.5 0 0 1 9 0V10h-2.2V7.5a2.3 2.3 0 0 0-4.6 0V10z',
+ lockO:'M5 10h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zM12 13.4a1.6 1.6 0 0 0-.8 3v2.1h1.6v-2.1a1.6 1.6 0 0 0-.8-3zM14.3 10V6.5a2.3 2.3 0 0 0-4.6 0V7H7.5v-.5a4.5 4.5 0 0 1 9 0V10z',
+ pin:'M12 2a5 5 0 0 1 3.2 8.85L16 15H8l.8-4.15A5 5 0 0 1 12 2zM11.1 15h1.8L12 22z',
+ nail:'M6.5 3h11v3.5h-11zM10.4 6.5h3.2L12 21.5z',
+ swap:'M7.5 3L3 7.5 7.5 12V9H19V6H7.5zM16.5 12l4.5 4.5-4.5 4.5V18H5v-3h11.5z',
+ runner:'M15.2 1.6a2.3 2.3 0 1 1 0 4.6 2.3 2.3 0 0 1 0-4.6zM10.6 7.2l4.4-.1c.8 0 1.4.4 1.7 1.1l1.2 2.9 2.9.9-.6 1.9-3.6-1.1-.9-1.9-1.2 4 2.6 2.6V23h-2.2v-5.2l-2.6-2.4-1.6 3.6-4.6 2.5-1-1.9 3.9-2.1 2.2-6.6-1.6.1-1.8 2.8-1.9-1.1 2.3-3.6c.4-.6.9-.9 1.6-.9z',
+ mountain:'M1.5 20l7-11 4.2 6.2 2.6-3.6L22.5 20zM17.5 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z',
+ onion:'<circle cx="9" cy="12" r="6"/><circle cx="15.5" cy="12" r="5.2" fill="none" stroke="currentColor" stroke-width="2.2"/>',
+ play:'M7 4.5v15l12.5-7.5z',
+ pause:'M6 4.5h4.2v15H6zM13.8 4.5H18v15h-4.2z',
+ loop:'M17 3.5l3.5 3.5-3.5 3.5V8.25H8a1.75 1.75 0 0 0-1.75 1.75v2H3.75v-2A4.25 4.25 0 0 1 8 5.75h9zM7 20.5L3.5 17 7 13.5v2.25h9A1.75 1.75 0 0 0 17.75 14v-2h2.5v2A4.25 4.25 0 0 1 16 18.25H7z',
+ plus:'M10.75 4h2.5v6.75H20v2.5h-6.75V20h-2.5v-6.75H4v-2.5h6.75z',
+ subgrid:'M3 3h18v18H3zM5 5h6v6H5zM13 5h6v6h-6zM5 13h6v6H5zM13 13h6v6h-6z',
+ pencil:'M15.2 3.6l5.2 5.2L9.2 20H4v-5.2z',
+ dup:'M9 2.5h10a2.5 2.5 0 0 1 2.5 2.5v10H19V5H9zM5 6.5h10A2.5 2.5 0 0 1 17.5 9v10a2.5 2.5 0 0 1-2.5 2.5H5A2.5 2.5 0 0 1 2.5 19V9A2.5 2.5 0 0 1 5 6.5z',
+ move:'M12 1.5l4 4h-2.75v5.25h5.25V8l4 4-4 4v-2.75h-5.25v5.25H16l-4 4-4-4h2.75v-5.25H5.5V16l-4-4 4-4v2.75h5.25V5.5H8z',
+ x:'M6.4 4.6L12 10.2l5.6-5.6 1.8 1.8-5.6 5.6 5.6 5.6-1.8 1.8-5.6-5.6-5.6 5.6-1.8-1.8 5.6-5.6-5.6-5.6z',
+ trash:'M9 2.5h6l1 2h4.5V7h-17V4.5H8zM5 8.5h14l-1.1 12.1a1.5 1.5 0 0 1-1.5 1.4H7.6a1.5 1.5 0 0 1-1.5-1.4z',
+};
+(function(){const u=2,P=8,pts=[[0,0],[2,0],[4,-2],[4,-1],[2,1],[2,2],[1,2],[-1,4],[-2,4],[0,2]];let d='';
+  for(let k=-1;k<=3;k++)for(let m=-1;m<=3;m++){const ox=k*P+2,oy=m*P+2;d+='M'+pts.map(([x,y])=>(ox+x*u)+' '+(oy+y*u)).join('L')+'z';}
+  ICONS.hound=d;})();
+/* the export mark is the Studio's own drawable (ic_export_studio.xml), drawn on a 1024 grid, non-zero fill */
+const VB={export:'0 0 1024 1024'};
+function gl(name,o={}){
+  const fill=o.fill||'currentColor', size=o.size||16, v=ICONS[name], vb=VB[name]||'0 0 24 24';
+  const inner=v.startsWith('<')?v:`<path fill-rule="${VB[name]?'nonzero':'evenodd'}" d="${v}"/>`;
+  return `<svg class="gl ${o.cls||''}" width="${size}" height="${size}" viewBox="${vb}" fill="${fill}" aria-hidden="true">${inner}</svg>`;
+}
+
+/* ───────────── kinds ───────────── */
+const KIND={
+ anim:{icon:'film',g:'gA',css:'linear-gradient(90deg,#35F6BF,#97FE8B)',label:'animation board'},
+ image:{icon:'image',g:'gI',css:'linear-gradient(90deg,#5C43FD,#4397FD)',label:'image board'},
+ tile:{icon:'seam',g:'gI',css:'linear-gradient(90deg,#5C43FD,#4397FD)',label:'tile board'},
+ sprite:{icon:'sprite',g:'gS',css:'linear-gradient(90deg,#FF008C,#CC27FF)',label:'sprite board'},
+};
+const tileGlyph=p=>p.tileIcon==='hound'?'hound':'seam';
+const kindIcon=(b,p)=>b.kind==='tile'?tileGlyph(p):KIND[b.kind].icon;
+
+/* ───────────── hover labels ───────────── */
+const TIP={
+ tab:b=>`${b.name}, ${KIND[b.kind].label}. Tap to show its controls; hold for the board menu.${b.kind==='anim'&&!b.sel?' Hover with a pen or mouse to play it in place.':''}`,
+ frame:'The frame this board shows. It stays on this frame until you change it.',
+ wheel:'The frame this board shows. Drag up or down to step through the frames.',
+ armTileOff:'Turn tiling on: your art repeats around the board so you can see the seams, and every stroke wraps into it.',
+ armTileOn:'Tiling is on. Tap to turn it off; it becomes a plain image board again.',
+ armSpriteOff:'Rearrange: drag one cell onto another to swap them, every layer at once.',
+ armSpriteOn:'Rearranging. Tap again to set the cells where you have put them.',
+ locked:'Locked in place: painting near the board can never move or resize it. Tap to unlock.',
+ unlocked:'Unlocked: drag an edge or type a number to resize. Tap to lock it in place.',
+ fixed:'Fixed in place because this board has frames. Hold to move the board with all its frames.',
+ pinL:'Pinned in place. Tap a pin to unlock the board.',
+ pinF:'Nailed in place because this board has frames. Hold a nail to move the board with all its frames.',
+ export_anim:'Export: the whole animation, a range of frames, or just this frame.',
+ export_image:'Export this board as a picture, or every image board at once.',
+ export_tile:'Export the tile as a picture.',
+ export_sprite:'Export the sheet and its JSON, or open it in SpriteLab.',
+ onion:'Onion skin: see the frames before and after this one.',
+ play:'Play this board.', pause:'Pause.',
+ loop:'Playback: loop. Tap for ping-pong, tap again to play once.',
+ add:'Add a frame (a copy of this one). Hold for blank, link, hold longer or delete.',
+ chip:n=>`Frame ${n}. Tap to show it; drag sideways to move it, drag up to remove it; drag its right edge to hold it longer.`,
+ w:'Width in pixels. While unlocked, tap and type; the board grows to the right.',
+ h:'Height in pixels. While unlocked, tap and type; the board grows downward.',
+};
+
+/* ───────────── state ───────────── */
+const PRESETS={
+ A:{layout:'col',outline:'key',tab:'bare',title:'halo',frame:'numeral',arm:'ring',lock:'pad',exportGlyph:'tray',size:'dim',peg:'acme',strip:'outline',marker:'runmtn',repeat:'ghost',tileIcon:'seam',grid:'shelf',quiet:'fade',exportUI:'sheet'},
+ B:{layout:'bloom',outline:'crop',tab:'slant',title:'intab',frame:'numeral',arm:'ring',lock:'pad',exportGlyph:'tray',size:'corner',peg:'rail',strip:'glass',marker:'runner',repeat:'field',tileIcon:'seam',grid:'axis',quiet:'duck',exportUI:'pop'},
+ C:{layout:'ribbon',outline:'key',tab:'mark',title:'halo',frame:'numeral',arm:'lever',lock:'pad',exportGlyph:'tray',size:'corner',peg:'decor',strip:'ruler',marker:'runner',repeat:'hatch',tileIcon:'hound',grid:'shelf',quiet:'fade',exportUI:'sheet'},
+ D:{layout:'sat',outline:'spot',tab:'bare',title:'glass',frame:'wheel',arm:'corner',lock:'pins',exportGlyph:'floppy',size:'chips',peg:'acme',strip:'outline',marker:'perf',repeat:'field',tileIcon:'seam',grid:'axis',quiet:'hop',exportUI:'pop'},
+};
+PRESETS.R={...PRESETS.A,frame:'wheel',quiet:'duck'};
+/* §K, locked by the owner 2026-10-01 */
+PRESETS.K={layout:'sat',outline:'crop',tab:'bare',title:'halo',frame:'wheel',arm:'ring',lock:'pad',exportGlyph:'export',size:'corner',peg:'rail',strip:'outline',marker:'runmtn',repeat:'fill',tileIcon:'seam',grid:'shelf',quiet:'duck',exportUI:'sheet'};
+const DIRS=[
+ {k:'A',name:'Bookmark',tag:'The column you described: icon, frame number, lock and export stacked tight against the left edge.',good:'Everything lives in one place and never moves, so your thumb learns it.',cost:'Needs about 40 dp of canvas left of the board; a board at the screen edge means a small scroll.'},
+ {k:'B',name:'Bloom',tag:'One small chip on the corner. Tap it and the controls fan out around the corner, away from your art.',good:'The quietest at rest: crop marks and one chip, nothing along an edge you draw beside.',cost:'Controls are one tap further away, and the fan needs room above and left of the corner.'},
+ {k:'C',name:'Slate',tag:'A slim ribbon along the top edge carries the name, size and controls, like the label on a film can.',good:'Every control has a wide, fixed, labelled slot, so it is the easiest to learn.',cost:'The top edge gets busy, and a board narrower than about 180 dp on screen runs out of ribbon.'},
+ {k:'D',name:'Satellite',tag:'A floating pill beside the board that hops to the far side whenever your pen comes near it.',good:'Never in your way, because it leaves wherever the pen goes.',cost:'Things move, so your hand cannot learn their place, and the hop is the most work to build and test.'},
+];
+const S={paper:'black',dir:'K',picks:{...PRESETS.K},anim:{frame:3,frames:6,playing:false,onion:true},sprite:{i:0,playing:true},restF:3};
+try{const sv=JSON.parse(localStorage.getItem('jb-boards-k')||'null');if(sv&&sv.picks){S.paper=sv.paper||'black';S.picks={...PRESETS.K,...sv.picks};S.dir=sv.dir||'custom';}}catch(e){}
+function save(){try{localStorage.setItem('jb-boards-k',JSON.stringify({paper:S.paper,picks:S.picks,dir:S.dir}))}catch(e){}}
+const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ───────────── art ───────────── */
+let UID=0;const uid=()=>'u'+(++UID);
+const BALL=[[.2,.28],[.32,.55],[.44,.8],[.56,.55],[.68,.3],[.8,.48]];
+function ball(b,f,style){
+  const [px,py]=BALL[f-1],r=b.h*.1,x=b.x+b.w*px,y=b.y+b.h*py;
+  if(style==='ghost-p')return `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="#F43F8E" stroke-width="1.4" opacity=".55"/>`;
+  if(style==='ghost-n')return `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="#22D3EE" stroke-width="1.4" opacity=".55"/>`;
+  const sq=f===3;
+  return `<ellipse cx="${x}" cy="${b.y+b.h*.9}" rx="${r*(sq?1.5:1.1)}" ry="${r*.28}" style="fill:var(--art)" opacity=".16"/>
+   <ellipse cx="${x}" cy="${y+(sq?r*.2:0)}" rx="${r*(sq?1.25:1)}" ry="${r*(sq?.78:1)}" fill="#FF6B4A" style="stroke:var(--art)" stroke-width="1.2"/>
+   <ellipse cx="${x-r*.35}" cy="${y-r*.35}" rx="${r*.28}" ry="${r*.2}" fill="#fff" opacity=".55"/>`;
+}
+function animArt(W,H,b,f,onion,attr=''){
+  const id=uid(), y0=b.y+b.h*.58;
+  const hill=`M-10 ${y0+22} C ${b.x-40} ${y0-6}, ${b.x+50} ${y0+34}, ${b.x+b.w*.5} ${y0+6} S ${b.x+b.w+30} ${y0-26}, ${W+10} ${y0+4}`;
+  let s=`<svg class="art" ${attr} width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><defs>
+   <mask id="o${id}"><rect x="-20" y="-20" width="${W+40}" height="${H+40}" fill="#fff"/><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="#000"/></mask>
+   <clipPath id="i${id}"><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}"/></clipPath></defs>
+   <g mask="url(#o${id})">
+    <path d="${hill}" fill="none" style="stroke:var(--art)" stroke-width="2" stroke-linecap="round"/>
+    <path d="M${b.x-58} ${y0+60} q4 -40 2 -64" fill="none" style="stroke:var(--art)" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="${b.x-56}" cy="${y0-12}" r="22" fill="#4FAE6A" opacity=".9"/><circle cx="${b.x-40}" cy="${y0-2}" r="14" fill="#3D9A5A" opacity=".9"/>
+    <path d="M${b.x+b.w+6} ${b.y-26} q12 -10 24 0 q10 -8 20 2" fill="none" style="stroke:var(--art)" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+    <path d="M${W*.62} ${H-12} q20 -18 46 -4 q16 8 40 -6" fill="none" stroke="#FFC341" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+   </g>
+   <g clip-path="url(#i${id})">
+    <path d="M${b.x-4} ${b.y+b.h*.9} q${b.w*.3} -3 ${b.w*.55} 1 t ${b.w*.5} -1" fill="none" style="stroke:var(--art)" stroke-width="1.6" stroke-linecap="round"/>
+    ${f===3?`<path d="${hill}" fill="none" style="stroke:var(--art)" stroke-width="2" stroke-linecap="round"/>`:''}
+    ${onion&&f>1?ball(b,f-1,'ghost-p'):''}${onion&&f<6?ball(b,f+1,'ghost-n'):''}
+    ${ball(b,f)}
+   </g>`;
+  return s;
+}
+function landscape(W,H,x0,y0,w,h){
+  return `<path d="M${x0} ${y0+h*.62} L${x0+w*.22} ${y0+h*.34} L${x0+w*.38} ${y0+h*.5} L${x0+w*.58} ${y0+h*.24} L${x0+w*.86} ${y0+h*.58} L${x0+w} ${y0+h*.5} V${y0+h} H${x0}z" fill="#5468D8" opacity=".95"/>
+   <path d="M${x0+w*.5} ${y0+h*.3} L${x0+w*.58} ${y0+h*.24} L${x0+w*.65} ${y0+h*.33} L${x0+w*.6} ${y0+h*.31} L${x0+w*.56} ${y0+h*.35}z" fill="#fff" opacity=".9"/>
+   <path d="M${x0} ${y0+h*.78} q${w*.25} -${h*.12} ${w*.5} -${h*.02} t ${w*.5} -${h*.06} V${y0+h} H${x0}z" fill="#3D9A5A"/>
+   <circle cx="${x0+w*.74}" cy="${y0+h*.2}" r="${Math.min(w,h)*.06}" fill="#FFC341"/>
+   <path d="M${x0+w*.1} ${y0+h*.16} q${w*.05} -${h*.05} ${w*.1} 0 q${w*.04} -${h*.04} ${w*.09} .5" fill="none" style="stroke:var(--art)" stroke-width="1.5" stroke-linecap="round" opacity=".7"/>`;
+}
+const POSES=[[25,-22,-35,35,0],[8,-6,-15,15,-1],[-22,25,35,-35,0],[-6,8,15,-15,-1],[30,-30,-70,70,2],[18,-18,-130,130,-3],[40,-40,-160,160,-6],[22,-22,-90,90,0]];
+function figure(cx,cy,s,i){
+  const [l1,l2,a1,a2,dy]=POSES[i%8], r=s*.12, hy=cy-s*.27+dy, sh=cy-s*.12+dy, hip=cy+s*.09+dy, L=s*.25, A=s*.2;
+  const pt=(x,y,a,len)=>[x+Math.sin(a*Math.PI/180)*len,y+Math.cos(a*Math.PI/180)*len];
+  const ln=(x1,y1,[x2,y2],c,w)=>`<line x1="${x1}" y1="${y1}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" style="stroke:${c}" stroke-width="${w}" stroke-linecap="round"/>`;
+  return ln(cx,hip,pt(cx,hip,l1,L),'var(--art)',1.5)+ln(cx,hip,pt(cx,hip,l2,L),'var(--art)',1.5)
+   +ln(cx,sh,pt(cx,sh,a1,A),'var(--art)',1.4)+ln(cx,sh,pt(cx,sh,a2,A),'var(--art)',1.4)
+   +`<line x1="${cx}" y1="${sh}" x2="${cx}" y2="${hip}" stroke="#3BA3FF" stroke-width="${(s*.11).toFixed(1)}" stroke-linecap="round"/>`
+   +`<circle cx="${cx}" cy="${hy}" r="${r.toFixed(1)}" fill="#FFD34E" style="stroke:var(--art)" stroke-width="1.1"/>`;
+}
+function spriteArt(b,cols,rows,o={}){
+  const cw=b.w/cols,ch=b.h/rows;let s='';
+  for(let c=1;c<cols;c++)s+=`<line x1="${b.x+c*cw}" y1="${b.y}" x2="${b.x+c*cw}" y2="${b.y+b.h}" style="stroke:var(--grid)" stroke-width="1"/>`;
+  for(let r=1;r<rows;r++)s+=`<line x1="${b.x}" y1="${b.y+r*ch}" x2="${b.x+b.w}" y2="${b.y+r*ch}" style="stroke:var(--grid)" stroke-width="1"/>`;
+  if(o.sub)for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){s+=`<line x1="${b.x+c*cw+cw/2}" y1="${b.y+r*ch}" x2="${b.x+c*cw+cw/2}" y2="${b.y+r*ch+ch}" style="stroke:var(--grid)" stroke-dasharray="2 2" opacity=".6"/><line x1="${b.x+c*cw}" y1="${b.y+r*ch+ch/2}" x2="${b.x+c*cw+cw}" y2="${b.y+r*ch+ch/2}" style="stroke:var(--grid)" stroke-dasharray="2 2" opacity=".6"/>`;}
+  for(let i=0;i<cols*rows;i++){
+    if(i===o.lift)continue;
+    const c=i%cols,r=Math.floor(i/cols),cx=b.x+c*cw+cw/2,cy=b.y+r*ch+ch/2;
+    s+=`<g class="${o.jig?'jig':''}" style="animation-delay:${(-i*.11).toFixed(2)}s">${figure(cx,cy,ch*.92,i)}</g>`;
+  }
+  return s;
+}
+function tileMotif(T){
+  const leaf=(x,y,r,c)=>`<path d="M0 -11 C7 -6 7 6 0 11 C-7 6 -7 -6 0 -11Z" transform="translate(${x} ${y}) rotate(${r})" fill="${c}"/><path d="M0 -9 V9" transform="translate(${x} ${y}) rotate(${r})" style="stroke:var(--art)" stroke-width=".9" opacity=".6"/>`;
+  const els=[[18,22,30,'#58B368'],[60,14,-40,'#2E8B57'],[44,52,80,'#58B368'],[80,70,20,'#3D9A5A'],[12,80,-60,'#2E8B57'],[94,40,50,'#58B368'],[2,46,10,'#3D9A5A']];
+  let s='';
+  for(const [x,y,r,c] of els)for(const dx of [-T,0,T])for(const dy of [-T,0,T])s+=leaf(x+dx,y+dy,r,c);
+  for(const [x,y] of [[34,34],[72,30],[66,88],[26,62],[95,95]])for(const dx of [-T,0,T])for(const dy of [-T,0,T])s+=`<circle cx="${x+dx}" cy="${y+dy}" r="3.2" fill="#FF6B4A"/>`;
+  // the wrapped stroke the pen painted far away (lands here, mod the tile)
+  for(const dx of [-T,0,T])for(const dy of [-T,0,T])s+=`<path d="M${58+dx} ${62+dy} q10 -9 22 -3 q8 4 14 -2" fill="none" stroke="#CC27FF" stroke-width="3" stroke-linecap="round"/>`;
+  return s;
+}
+
+/* ───────────── board chrome ───────────── */
+function tabC(b,p,side){
+  const L=p.layout;
+  if(L==='bloom')return side==='r'?[b.x+b.w+15,b.y-15]:[b.x-15,b.y-15];
+  if(L==='sat')return side==='r'?[b.x+b.w+27,b.y+19]:[b.x-27,b.y+19];
+  return side==='r'?[b.x+b.w+24,b.y+15]:[b.x-24,b.y+15];
+}
+function outlineHTML(b,p){
+  const st=`left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px`;
+  if(!b.sel){
+    /* §K: at rest only the icon. Soft brackets fade in while a pen hovers or paints within 48 dp of the board. */
+    if(!b.near)return '';
+    const c=(l,t,bs)=>`<span class="cm soft" style="left:${l}px;top:${t}px;${bs}"></span>`;
+    return c(b.x-3,b.y-3,'border-left-width:1px;border-top-width:1px')+c(b.x+b.w-8,b.y-3,'border-right-width:1px;border-top-width:1px')
+      +c(b.x-3,b.y+b.h-8,'border-left-width:1px;border-bottom-width:1px')+c(b.x+b.w-8,b.y+b.h-8,'border-right-width:1px;border-bottom-width:1px');
+  }
+  const strong=false;
+  if(b.sel)return `<div class="bd sel ${p.outline==='spot'?'spot':''}" style="${st}"></div>`;
+  if(p.outline==='crop'&&!strong){
+    const c=(l,t,bs)=>`<span class="cm" style="left:${l}px;top:${t}px;${bs}"></span>`;
+    return c(b.x-3,b.y-3,'border-left-width:1.5px;border-top-width:1.5px')+c(b.x+b.w-8,b.y-3,'border-right-width:1.5px;border-top-width:1.5px')
+      +c(b.x-3,b.y+b.h-8,'border-left-width:1.5px;border-bottom-width:1.5px')+c(b.x+b.w-8,b.y+b.h-8,'border-right-width:1.5px;border-bottom-width:1.5px');
+  }
+  return `<div class="bd ${strong?'strong':''}" style="${st}"></div>`;
+}
+function tabHTML(b,p,side){
+  const [cx,cy]=tabC(b,p,side), ic=kindIcon(b,p), K=KIND[b.kind], sel=b.sel;
+  if(sel&&p.title==='intab'&&p.layout!=='ribbon')
+    return `<button class="ab tabchip" style="left:${b.x-1}px;top:${b.y-27}px;background:${K.css}" title="${TIP.tab(b)}">${gl(ic,{fill:'#050507',size:13})}<span>${b.name}</span></button>`;
+  let inner;
+  if(p.tab==='slant')inner=`<span class="slant" style="${sel?`background:${K.css}`:''}">${gl(ic,{fill:sel?'#050507':'#F2F2F5',size:13})}</span>`;
+  else if(p.tab==='mark')inner=`<span class="mark">${sel?`<i style="background:${K.css}"></i>`:''}${gl(ic,{fill:sel?`url(#${K.g})`:'#F2F2F5',size:15})}</span>`;
+  else inner=sel?`<span class="tbg">${gl(ic,{fill:`url(#${K.g})`,size:18})}</span>`:`<span class="onpaper">${gl(ic,{size:18})}</span>`;
+  let h=`<button class="ab tb" ${b.kind==='anim'&&!sel&&b.loopable?'data-hoverloop':''} style="left:${cx-20}px;top:${cy-20}px" title="${TIP.tab(b)}">${inner}</button>`;
+  if(b.kind==='anim'&&(p.frame==='badge'?(sel||b.frame>1):(!sel&&b.frame>1))){
+    if(p.frame==='badge')h+=`<span class="ab fbadge" style="left:${cx+7}px;top:${cy+5}px;background:${K.css}">${b.frame}</span>`;
+    else h+=`<span class="ab fmark" style="left:${cx-4}px;top:${cy+12}px">${b.frame}</span>`;
+  }
+  return h;
+}
+function itemsFor(b,p){
+  const L=[];
+  if(b.kind==='anim'){if(p.frame!=='badge')L.push('frame');}
+  else if(p.arm!=='corner')L.push('arm');
+  if(p.lock==='pad')L.push('lock');
+  L.push('export');return L;
+}
+function itemHTML(k,b,p,shape){
+  if(k==='frame'){
+    const css=KIND.anim.css;
+    if(p.frame==='wheel')return `<div class="it wheel" data-wheel title="${TIP.wheel}"><i>${b.frame>1?b.frame-1:''}</i><b class="gt" style="background-image:${css}">${b.frame}</b><i>${b.frame<b.frames?b.frame+1:''}</i></div>`;
+    return `<div class="it fnum" title="${TIP.frame}"><b class="gt" style="background-image:${css}">${b.frame}</b><small>/${b.frames}</small></div>`;
+  }
+  if(k==='arm'){
+    const ic=b.kind==='sprite'?'swap':tileGlyph(p), sp=b.kind==='sprite';
+    const tip=sp?(b.armed?TIP.armSpriteOn:TIP.armSpriteOff):(b.armed?TIP.armTileOn:TIP.armTileOff);
+    if(p.arm==='lever')return `<button class="it lever ${b.armed?'on':''}" title="${tip}">${gl(ic,{size:12})}<span class="swt"><i></i></span></button>`;
+    return `<button class="it" title="${tip}"><span class="cell ${b.armed?'armed':''}">${gl(ic)}</span></button>`;
+  }
+  if(k==='lock'){
+    const tip=b.fixed?TIP.fixed:(b.locked?TIP.locked:TIP.unlocked);
+    return `<button class="it" title="${tip}"><span class="cell ${b.locked?'':'careful'}">${gl(b.locked?'lockC':'lockO')}${b.fixed?'<i class="nail"></i>':''}</span></button>`;
+  }
+  return `<button class="it" data-act="noop" title="${TIP['export_'+b.kind]}">${gl('export')}</button>`;
+}
+function clusterHTML(b,p,side){
+  const its=itemsFor(b,p), L=p.layout, noSlot=p.title==='intab'&&L!=='ribbon';
+  if(L==='col'){
+    const x=side==='r'?b.x+b.w+9:b.x-39, y=noSlot?b.y:b.y+34;
+    return `<div class="ab colg" style="left:${x}px;top:${y}px">${its.map(k=>itemHTML(k,b,p)).join('')}</div>`;
+  }
+  if(L==='sat'){
+    const x=side==='r'?b.x+b.w+10:b.x-44;
+    const head=noSlot?'':`<div class="it" title="${TIP.tab(b)}">${gl(kindIcon(b,p),{fill:`url(#${KIND[b.kind].g})`,size:18})}</div>`;
+    return `<div class="ab satg" style="left:${x}px;top:${b.y}px">${head}${its.map(k=>itemHTML(k,b,p)).join('')}</div>`;
+  }
+  if(L==='bloom'){
+    const [hx,hy]=tabC(b,p,side), R=50, n=its.length;
+    let h='';
+    its.forEach((k,i)=>{
+      const a0=side==='r'?270:180, a=(a0+(n>1?i*90/(n-1):45))*Math.PI/180, x=hx+R*Math.cos(a), y=hy+R*Math.sin(a);
+      const tall=k==='frame'&&p.frame==='wheel';
+      h+=`<div class="ab bub ${tall?'tall':''}" style="left:${(x-15).toFixed(1)}px;top:${(y-(tall?25:15)).toFixed(1)}px">${itemHTML(k,b,p)}</div>`;
+    });
+    return h;
+  }
+  // ribbon: column keeps the frame number only; everything else rides along the top edge
+  let h='';
+  if(its.includes('frame')){const x=side==='r'?b.x+b.w+9:b.x-39;h+=`<div class="ab colg" style="left:${x}px;top:${b.y+34}px">${itemHTML('frame',b,p)}</div>`;}
+  const rest=its.filter(k=>k!=='frame').map(k=>itemHTML(k,b,p)).join('');
+  h+=`<div class="ab rib" style="left:${b.x-1}px;top:${b.y-31}px;width:${b.w+2}px"><span class="rt" title="The board's name; it is also the export's file name. Tap to rename.">${b.name}</span><span class="rs" title="${TIP.w}">${b.pw}×${b.ph}</span>${rest}</div>`;
+  return h;
+}
+function titleHTML(b,p){
+  if(p.layout==='ribbon'||p.title==='intab')return '';
+  const tip='The board\'s name; it is also the export\'s file name. Tap to rename.';
+  if(p.title==='glass')return `<span class="ab ttlg" style="left:${b.x-1}px;top:${b.y-25}px" title="${tip}">${b.name}</span>`;
+  return `<span class="ab ttl" style="left:${b.x}px;top:${b.y-19}px" title="${tip}">${b.name}</span>`;
+}
+function titleW(b,p){
+  if(p.layout==='ribbon')return 0;
+  if(p.title==='intab')return b.name.length*6.3+34;
+  if(p.title==='glass')return b.name.length*6.2+18;
+  return b.name.length*6.6+4;
+}
+function sizeHTML(b,p,o={}){
+  if(p.layout==='ribbon')return '';
+  const ed=!b.locked, cls=ed?'ed':'dimtxt', wTyping=o.typeW&&ed;
+  const wt=wTyping?`${b.pw}`:b.pw;
+  const armCorner=p.arm==='corner'&&b.kind!=='anim';
+  if(p.size==='corner'){
+    return `<span class="ab num ${wTyping?'typing':cls}" style="right:calc(100% - ${b.x+b.w+3}px);top:${b.y-17}px" title="${TIP.w}">${wt} × ${b.ph}</span>`;
+  }
+  if(p.size==='chips'){
+    if(!ed)return `<span class="ab chipn" style="left:${b.x+b.w/2-26}px;top:${b.y-24}px;opacity:.8" title="${TIP.w}">${b.pw} px</span><span class="ab chipn" style="left:${b.x+b.w+(armCorner?40:6)}px;top:${b.y+b.h/2-9}px;opacity:.8" title="${TIP.h}">${b.ph}</span>`;
+    return `<span class="ab chipn ${wTyping?'num typing':''}" style="left:${b.x+b.w/2-26}px;top:${b.y-24}px${wTyping?';position:absolute;line-height:16px':''}" title="${TIP.w}">${b.pw} px</span><span class="ab chipn" style="left:${b.x+b.w+(armCorner?40:6)}px;top:${b.y+b.h/2-9}px" title="${TIP.h}">${b.ph}</span>`;
+  }
+  // dimension lines
+  const tw=titleW(b,p)+10, x1=b.x+Math.min(tw,b.w*.55), w=b.x+b.w-x1, vy=armCorner?b.y+36:b.y, vh=b.y+b.h-vy;
+  return `<span class="dim h" style="left:${x1}px;top:${b.y-9}px;width:${w}px"></span>
+    <span class="ab num ${wTyping?'typing':cls}" style="left:${x1+w/2-14}px;top:${b.y-14}px;background:${wTyping?'':'var(--paper)'}" title="${TIP.w}">${wt}</span>
+    <span class="dim v" style="left:${b.x+b.w+9}px;top:${vy}px;height:${vh}px"></span>
+    <span class="ab num vert ${cls}" style="left:${b.x+b.w+16}px;top:${vy+vh/2-12}px;background:var(--paper)" title="${TIP.h}">${b.ph}</span>`;
+}
+function handlesHTML(b){
+  const pts=[[-8,-8],[b.w/2-4,-9],[b.w,-8],[b.w+1,b.h/2-4],[b.w,b.h],[b.w/2-4,b.h+1],[-8,b.h],[-9,b.h/2-4]];
+  return pts.map(([x,y])=>`<span class="ab hd" style="left:${b.x+x}px;top:${b.y+y}px" title="Drag to resize"></span>`).join('');
+}
+function pinsHTML(b){
+  if(!b.locked)return handlesHTML(b);
+  const ic=b.fixed?'nail':'pin', tip=b.fixed?TIP.pinF:TIP.pinL;
+  return [[-12,-14],[b.w-2,-14],[-12,b.h-2],[b.w-2,b.h-2]].map(([x,y])=>`<button class="ab pin onpaper" style="left:${b.x+x}px;top:${b.y+y}px" title="${tip}">${gl(ic,{size:13})}</button>`).join('');
+}
+function armCornerHTML(b,p){
+  if(p.arm!=='corner'||b.kind==='anim')return '';
+  return `<div class="ab bub" style="left:${b.x+b.w+6}px;top:${b.y}px">${itemHTML('arm',b,{...p,arm:'ring'})}</div>`;
+}
+/* animation extension: pegs + film strip */
+const HOLDS=[1,1,2,1,1,1];
+function pegsHTML(b,p,y){
+  const cx=b.x+b.w/2, A=S.anim;
+  if(p.peg==='decor'){
+    const tx=b.x+b.w-82;
+    return {h:`<div class="ab pegtab decor" style="left:${b.x+6}px;top:${y}px;width:84px;height:14px" title="The peg bar: it lines this board up like animation paper"><i></i><i class="r"></i><i></i></div>
+      <button class="ab tbtn ${A.onion?'on':''}" data-act="onion" style="left:${tx}px;top:${y-6}px" title="${TIP.onion}">${gl('onion',{size:13})}</button>
+      <button class="ab tbtn ${A.playing?'live':''}" data-act="play" style="left:${tx+28}px;top:${y-6}px" title="${A.playing?TIP.pause:TIP.play}">${gl(A.playing?'pause':'play',{size:13})}</button>
+      <button class="ab tbtn" data-act="noop" style="left:${tx+56}px;top:${y-6}px" title="${TIP.loop}">${gl('loop',{size:13})}</button>`,hgt:26};
+  }
+  const rail=p.peg==='rail', tw=rail?136:150, th=rail?24:26, pc=y+th/2;
+  let h=`<div class="ab pegtab ${rail?'rail':''}" style="left:${cx-tw/2}px;top:${y}px;width:${tw}px;height:${th}px"></div>`;
+  h+=`<button class="ab peg flat ${A.onion?'on':''}" data-act="onion" style="left:${cx-60}px;top:${pc-6}px" title="${TIP.onion}">${gl('onion',{size:9})}</button>`;
+  h+=`<button class="ab peg rnd ${A.playing?'live':''}" data-act="play" style="left:${cx-8.5}px;top:${pc-8.5}px" title="${A.playing?TIP.pause:TIP.play}">${gl(A.playing?'pause':'play',{size:9})}</button>`;
+  h+=`<button class="ab peg flat" data-act="noop" style="left:${cx+28}px;top:${pc-6}px" title="${TIP.loop}">${gl('loop',{size:9})}</button>`;
+  return {h,hgt:rail?th-3:th+4};
+}
+function thumb(n){
+  const [px,py]=BALL[n-1];
+  return `<svg class="th" viewBox="0 0 40 22" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="40" y2="20" style="stroke:var(--dink)" stroke-width=".8" opacity=".5"/><circle cx="${px*40}" cy="${py*22}" r="2.6" fill="#FF6B4A"/></svg>`;
+}
+function stripHTML(b,p,y,mode,o={}){
+  const A=S.anim;
+  if(mode==='ruler'){
+    let h=`<div class="ab ruler" style="left:${b.x}px;top:${y}px;width:${b.w}px" title="The frames, folded. Tap or drag to open the strip.">`, x=4;
+    HOLDS.forEach((hd,i)=>{const n=i+1,cur=n===A.frame;h+=`<button class="tk ${cur?'cur':''}" data-act="frame" data-f="${n}" style="left:${x}px;width:${hd*14}px" title="${TIP.chip(n)}">${cur?`<em>${n}</em>`:''}</button>`;x+=hd*14;});
+    return h+`<span class="rl-end">${A.frames}</span></div>`;
+  }
+  let cells='',x=8,liftX=0,liftW=0;
+  HOLDS.forEach((hd,i)=>{
+    const n=i+1,cw=hd*44-4,cur=n===A.frame,lifted=o.lift&&n===5;
+    if(lifted){cells+=`<span class="fc slot" style="left:${x}px;width:${cw}px"></span>`;liftX=x;liftW=cw;}
+    else cells+=`<button class="fc ${cur?'cur':''}" data-act="frame" data-f="${n}" style="left:${x}px;width:${cw}px" title="${TIP.chip(n)}">${mode==='glass'?thumb(n):''}<b>${n}</b>${hd>1?`<i class="hold">×${hd}</i>`:''}</button>`;
+    x+=hd*44;
+  });
+  cells+=`<button class="fc add" data-act="noop" style="left:${x}px;width:26px" title="${TIP.add}">${gl('plus',{size:11})}</button>`;
+  let h=`<div class="ab strip ${mode}" style="left:${b.x}px;top:${y}px;width:${b.w}px"><div class="rail t"></div>${cells}<div class="rail b"></div></div>`;
+  if(o.lift){
+    const caret=b.x+8+4*44-2-2;
+    h+=`<span class="ab caret" style="left:${caret}px;top:${y+3}px;height:34px"></span>`;
+    h+=`<span class="ab lift" style="left:${caret+7}px;top:${y-5}px;width:${liftW}px">5</span>`;
+  }
+  return h;
+}
+function extensionHTML(b,p,o={}){
+  if(o.folded)return stripHTML(b,p,b.y+b.h+10,'ruler');
+  const pg=pegsHTML(b,p,b.y+b.h+8);
+  return pg.h+stripHTML(b,p,b.y+b.h+8+pg.hgt,p.strip,o);
+}
+/* sprite grid settings */
+function gridHTML(b,p,y){
+  if(p.grid==='shelf')return `<div class="ab shelf" style="left:${b.x}px;top:${y}px">
+    <span class="mseg"><b class="on" title="Set the grid by how many cells">#</b><b title="Set the grid by cell size in pixels">px</b></span>
+    <span class="stp" title="Columns"><i title="One column fewer">−</i><b>4</b><i title="One column more">+</i></span><span style="color:var(--ddim)">×</span>
+    <span class="stp" title="Rows"><i title="One row fewer">−</i><b>2</b><i title="One row more">+</i></span>
+    <span class="subg on" title="Sub-grid: a drawing guide inside every cell, never exported (2 to 8)">${gl('subgrid',{size:11})}<b>2</b></span></div>`;
+  return `<div class="ab shelf" style="left:${b.x+b.w/2-48}px;top:${y}px;padding:0 4px"><span class="stp" title="Columns"><i title="One column fewer">−</i><b>4</b><em>cols</em><i title="One column more">+</i></span></div>
+   <div class="ab shelf" style="left:${b.x+b.w+8}px;top:${b.y+b.h/2-44}px;height:auto;padding:3px;flex-direction:column"><span class="stp v" title="Rows"><i title="One row more">+</i><b>2</b><i title="One row fewer">−</i></span></div>
+   <div class="ab shelf" style="left:${b.x}px;top:${y}px;padding:0 4px;gap:4px"><span class="mseg"><b class="on" title="Set the grid by how many cells">#</b><b title="Set the grid by cell size in pixels">px</b></span></div>
+   <div class="ab shelf" style="left:${b.x+b.w-46}px;top:${y}px;padding:0 4px"><span class="subg on" title="Sub-grid: a drawing guide inside every cell, never exported (2 to 8)">${gl('subgrid',{size:11})}<b>2</b></span></div>`;
+}
+/* the whole board: outline, tab, and (when selected) everything that comes alive */
+function boardHTML(b,p,o={}){
+  let h=outlineHTML(b,p);
+  const quiet=o.quiet||null, side=quiet==='hop'?'r':'l';
+  if(!b.sel){return h+tabHTML(b,p,'l');}
+  const near=quiet==='fade'?.15:quiet==='duck'?.12:1, far=quiet==='duck'?.12:1;
+  let cl=tabHTML(b,p,side)+titleHTML(b,p)+clusterHTML(b,p,side);
+  let rest='';
+  if(p.lock==='pins')rest+=pinsHTML(b);
+  else if(!b.locked)rest+=handlesHTML(b);
+  rest+=armCornerHTML(b,p)+sizeHTML(b,p,o);
+  if(b.kind==='sprite')rest+=gridHTML(b,p,b.y+b.h+8);
+  h+=`<div class="layer" style="opacity:${far}">${rest}</div><div class="layer" style="opacity:${near}">${cl}</div>`;
+  if(b.kind==='anim'&&!o.noExt){
+    const fold=quiet==='duck';
+    h+=`<div class="layer" style="opacity:${fold?.35:1}">${extensionHTML(b,p,{lift:o.lift,folded:fold})}</div>`;
+  }
+  return h;
+}
+function penHTML(x,y){
+  return `<svg class="art" width="1" height="1" style="left:${x}px;top:${y}px;overflow:visible" aria-hidden="true"><g transform="rotate(38)"><path d="M0 0 L-3 -9 L3 -9 Z" fill="#E4E4E7"/><rect x="-3.4" y="-58" width="6.8" height="49" rx="3" fill="#2A2A31" stroke="#E4E4E7" stroke-width=".8"/><rect x="-3.4" y="-30" width="6.8" height="3" fill="#35F6BF"/></g></svg>`;
+}
+
+/* ───────────── scenes ───────────── */
+const animBoard=(o={})=>({kind:'anim',x:80,y:84,w:224,h:126,name:'Walk cycle',pw:1920,ph:1080,sel:true,locked:true,fixed:true,frame:S.anim.frame,frames:6,...o});
+const SCENES={
+ rest(p){
+  const W=352,H=300,
+   a={kind:'anim',x:46,y:48,w:150,h:84,name:'Walk cycle',pw:1920,ph:1080,sel:false,frame:3,frames:6,loopable:true},
+   im={kind:'image',x:226,y:118,w:104,h:130,name:'Hero',pw:1080,ph:1350,sel:false},
+   sp={kind:'sprite',x:46,y:184,w:136,h:68,name:'Run sheet',pw:512,ph:256,sel:false};
+  let art=animArt(W,H,a,S.restF,false,'data-restanim')+'</svg>'+`<svg class="art" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">`;
+  art+=landscape(W,H,196,110,156,150)+spriteArt(sp,4,2)+`<path d="M8 ${H-18} q60 -20 120 -4 t 110 -6" fill="none" style="stroke:var(--art)" stroke-width="1.4" stroke-linecap="round" opacity=".6"/></svg>`;
+  return {W,H,html:art+boardHTML(a,p)+boardHTML(im,p)+boardHTML(sp,p)};
+ },
+ restNear(p){
+  const W=352,H=230,a={kind:'anim',x:84,y:52,w:224,h:126,name:'Walk cycle',pw:1920,ph:1080,sel:false,frame:3,frames:6,near:true};
+  const hx=a.x+a.w+14, hy=a.y+a.h-30;
+  return {W,H,html:animArt(W,H,a,3,false)+'</svg>'+boardHTML(a,p)
+    +`<span class="ab hoverdot" style="left:${hx-4.5}px;top:${hy-4.5}px"></span>`+penHTML(hx+2,hy+2).replace('<g transform','<g opacity=".55" transform')};
+ },
+ animSel(p,o={}){
+  const W=352,H=300,b=animBoard();
+  return {W,H,html:animArt(W,H,b,b.frame,S.anim.onion)+'</svg>'+boardHTML(b,p,{lift:!o.nolift})};
+ },
+ draw(p){
+  const W=352,H=300,b=animBoard({frame:3}), tx=b.x+24, ty=b.y+28;
+  let art=animArt(W,H,b,3,false)+`<path d="M${b.x+120} ${b.y+76} C ${b.x+90} ${b.y+40}, ${b.x+60} ${b.y+60}, ${tx} ${ty}" fill="none" stroke="#3BA3FF" stroke-width="2.6" stroke-linecap="round"/>
+   <circle cx="${tx}" cy="${ty}" r="48" fill="none" stroke="#A78BFA" stroke-width="1" stroke-dasharray="3 3" opacity=".9"/></svg>`;
+  return {W,H,html:art+boardHTML(b,p,{quiet:p.quiet,lift:false})+`<span class="ab zone" style="left:${tx+20}px;top:${ty+44}px">48 dp</span>`+penHTML(tx,ty)};
+ },
+ image(p){
+  const W=352,H=290,b={kind:'image',x:96,y:80,w:150,h:188,name:'Hero',pw:1080,ph:1350,sel:true,locked:false,armed:false};
+  const art=`<svg class="art" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${landscape(W,H,40,70,300,214)}<path d="M20 40 q30 -16 64 -2" fill="none" style="stroke:var(--art)" stroke-width="1.6" stroke-linecap="round" opacity=".7"/></svg>`;
+  return {W,H,html:art+boardHTML(b,p,{typeW:true})};
+ },
+ tile(p){
+  /* §K: armed, the tile replaces the whole canvas, repeated edge to edge at full strength, so you judge it zoomed out
+     and paint anywhere. All that stays is the tiling switch (on) and the selection ring around the original tile. */
+  const W=352,H=340,T=80,b={kind:'tile',x:136,y:120,w:T,h:T,name:'Leaf tile',pw:1024,ph:1024,sel:true,locked:true,armed:true};
+  const id=uid();
+  let s=`<svg class="art" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><defs>
+    <clipPath id="c${id}"><rect width="${T}" height="${T}"/></clipPath>
+    <g id="t${id}"><g clip-path="url(#c${id})"><g transform="scale(${T/96})">${tileMotif(96)}</g></g></g></defs>`;
+  for(let i=Math.floor(-b.x/T)-1;i*T+b.x<W;i++)for(let j=Math.floor(-b.y/T)-1;j*T+b.y<H;j++)s+=`<use href="#t${id}" x="${b.x+i*T}" y="${b.y+j*T}"/>`;
+  s+='</svg>';
+  const fx=b.x+2*T+(94*T/96), fy=b.y+2*T+(66*T/96);
+  return {W,H,html:s+`<div class="bd sel" style="left:${b.x}px;top:${b.y}px;width:${T}px;height:${T}px"></div>`
+    +`<div class="ab colg" style="left:${b.x-44}px;top:${b.y}px;width:34px;border-radius:17px;padding:2px">${itemHTML('arm',b,p)}</div>`
+    +penHTML(fx,fy)};
+ },
+ spriteArmed(p){
+  const W=352,H=250,b={kind:'sprite',x:92,y:80,w:208,h:104,name:'Run sheet',pw:512,ph:256,sel:true,locked:true,armed:true};
+  const cw=52, lift=1, tgt=6, tx=b.x+(tgt%4)*cw, ty=b.y+Math.floor(tgt/4)*cw;
+  let s=`<svg class="art" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${spriteArt(b,4,2,{jig:!REDUCED,lift,sub:true})}
+   <rect x="${b.x+cw+3}" y="${b.y+3}" width="${cw-6}" height="${cw-6}" rx="3" fill="none" style="stroke:var(--k1)" stroke-dasharray="3 3"/></svg>`;
+  s+=boardHTML(b,p);
+  s+=`<span class="ab tgt" style="left:${tx+1}px;top:${ty+1}px;width:${cw-2}px;height:${cw-2}px"></span>`;
+  s+=`<div class="ab liftcell" style="left:${tx-10}px;top:${ty-16}px;width:${cw}px;height:${cw}px"><svg width="${cw}" height="${cw}" viewBox="0 0 ${cw} ${cw}" aria-hidden="true">${figure(cw/2,cw/2,cw*.92,lift)}</svg></div>`;
+  return {W,H,html:s};
+ },
+ spriteSeq(p){
+  const W=352,H=300,b={kind:'sprite',x:92,y:120,w:208,h:104,name:'Run sheet',pw:512,ph:256,sel:true,locked:true,armed:false};
+  const cw=52, order=[0,1,2,3], now=order[S.sprite.i%order.length];
+  let s=`<svg class="art" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${spriteArt(b,4,2,{})}</svg>`+boardHTML(b,p);
+  order.forEach((c,k)=>{const x=b.x+(c%4)*cw,y=b.y+Math.floor(c/4)*cw;
+    if(c===now)s+=`<span class="ab nowring" style="left:${x+1}px;top:${y+1}px;width:${cw-2}px;height:${cw-2}px"></span>`;
+    s+=`<span class="ab ord ${c===now?'now':''}" style="left:${x+cw/2-7.5}px;top:${y+3}px">${k+1}</span>`;});
+  s+=`<div class="ab pv" style="left:${b.x+b.w-84}px;top:6px" title="Preview: loops the cells in the order you tapped them"><div class="win"><svg width="76" height="56" viewBox="0 0 76 56" aria-hidden="true">${figure(38,30,50,now)}</svg></div>
+    <div class="row"><button data-act="spplay" title="${S.sprite.playing?'Pause the preview':'Play the preview'}">${gl(S.sprite.playing?'pause':'play',{size:11})}</button><span>12 fps</span><button data-act="noop" title="Clear the order and start again">${gl('x',{size:10})}</button></div></div>`;
+  return {W,H,html:s};
+ },
+ layers(p){
+  const W=352,H=330,b=animBoard({x:40,y:80,w:176,h:99,sel:true});
+  const L=[{n:'Ink',a:true,act:true},{n:'Colour',a:true},{n:'Shadows',a:true},{n:'Rough sketch',a:false},{n:'Background',a:false}];
+  let art=animArt(W,H,b,3,false)+'</svg>'+outlineHTML(b,p)+tabHTML(b,p,'l');
+  const mk=l=>{
+    if(p.marker==='perf')return `<span class="lmk"></span>`;
+    if(l.a)return `<button class="lmk" title="Moves in Walk cycle: its pixels change on every frame. Tap to keep it the same on every frame.">${gl('runner',{fill:'url(#gA)',size:13})}</button>`;
+    if(p.marker==='runmtn')return `<button class="lmk" style="color:#A1A1AA" title="The same on every frame of Walk cycle (a held background). Tap to make it move.">${gl('mountain',{size:13})}</button>`;
+    return `<button class="lmk" style="color:#71717A;opacity:.55" title="The same on every frame of Walk cycle (a held background). Tap to make it move.">${gl('runner',{size:13})}</button>`;
+  };
+  const th=(l,i)=>{
+    const c=['#FF6B4A','#3BA3FF','#7A6A5A','#A1A1AA','#4FAE6A'][i];
+    return `<svg width="40" height="30" viewBox="0 0 40 30" aria-hidden="true">${i===4?`<rect width="40" height="30" fill="${c}" opacity=".35"/>`:`<circle cx="${12+i*4}" cy="${16-i}" r="${5-i*.5}" fill="${i===0?'none':c}" stroke="${i===0?'var(--art)':'none'}" style="${i===0?'stroke:var(--art)':''}" stroke-width="1.3"/>`}${i===3?'<path d="M4 24 q16 -10 32 0" fill="none" stroke="#A1A1AA" stroke-width="1" stroke-dasharray="2 2"/>':''}</svg>`;
+  };
+  let col=`<div class="ab lcol gpanel" style="left:${W-66}px;top:10px" title="Layers. While an animation board is selected, each row says whether it moves in that board.">
+    <div class="it" style="height:22px" title="Walk cycle is selected">${gl('film',{fill:'url(#gA)',size:14})}</div>`;
+  L.forEach((l,i)=>{col+=`<div class="lrow ${l.act?'act':''}">${mk(l)}<div class="lth" title="${l.n}${p.marker==='perf'?(l.a?': moves in Walk cycle. Tap the film edge to hold it still.':': the same on every frame. Tap its left edge to make it move.'):''}">${th(l,i)}${p.marker==='perf'&&l.a?'<i class="perf"></i>':''}</div></div><div class="lname">${l.n}</div>`;});
+  col+=`<div class="lplus" title="Add a layer">${gl('plus',{size:12})}</div></div>`;
+  return {W,H,html:art+col};
+ },
+ export(p){
+  const W=352,H=330,b=animBoard({x:80,y:40});
+  let h=animArt(W,H,b,3,false)+'</svg>'+boardHTML(b,p,{noExt:p.exportUI==='sheet'});
+  const rows=`<div class="opt on"><i class="rd"></i><b>Animation</b><span>all 6 frames</span></div>
+    <div class="opt"><i class="rd"></i><b>A range of frames</b><span class="rng"><i style="left:20%;right:30%"></i><u style="left:calc(20% - 5px)"></u><u style="left:calc(70% - 5px)"></u></span><span style="margin-left:6px">2–5</span></div>
+    <div class="opt"><i class="rd"></i><b>This frame</b><span>frame 3 · PNG</span></div>`;
+  const chips=`<div class="chips"><b class="on">GIF</b><b>PNG frames</b><b>Sprite sheet</b><b>Send to Studio</b></div>`;
+  if(p.exportUI==='sheet'){
+    h+=`<div class="ab gpanel sheet" style="left:0;top:${H-236}px;width:${W}px;height:236px"><i class="grab"></i>
+      <div class="shead"><b>Export</b><span>Walk cycle · 1920×1080 · 12 fps</span></div>${rows}${chips}
+      <div class="budget" title="How much of this board's memory budget its frames use"><span>frames 6 × layers 3</span><i style="--w:22%"></i><span>22%</span></div>
+      <div class="go" title="Export Walk cycle as a GIF">Export</div></div>`;
+  }else{
+    const ex=p.layout==='col'?[b.x-39,b.y+34+(p.frame==='wheel'?50:p.frame==='badge'?0:38)+(p.lock==='pad'?30:0)]:[b.x-40,b.y+60];
+    h+=`<div class="ab gpanel pop" style="left:${Math.max(8,ex[0]+38)}px;top:${b.y+30}px;width:226px"><div class="shead"><b style="font-size:13px">Export</b><span>Walk cycle</span></div>${rows}${chips}<div class="go" style="height:28px;line-height:28px;font-size:12px">Export</div></div>`;
+  }
+  return {W,H,html:h};
+ },
+ place(p){
+  const W=352,H=300,b={x:100,y:96,w:200,h:112};
+  let art=`<svg class="art" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${landscape(W,H,60,80,280,170)}</svg>`;
+  let h=art+`<div class="ab bd sel" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px"></div>`+handlesHTML(b);
+  h+=`<div class="ab kbar gpanel" style="left:12px;top:10px">
+    <b class="on" style="background:${KIND.anim.css}" title="Place an animation board">${gl('film',{fill:'#050507',size:13})}Animation</b>
+    <b title="Place an image board">${gl('image',{size:13})}Image</b>
+    <b title="Place a tile board: an image board with tiling on">${gl(tileGlyph(p),{size:13})}Tile</b>
+    <b title="Place a sprite board">${gl('sprite',{size:13})}Sprite</b></div>`;
+  h+=`<span class="ab ttl" style="left:${b.x}px;top:${b.y-19}px;opacity:.85">Drag over your drawing</span>`;
+  h+=`<div class="ab gpanel" style="left:12px;top:${b.y}px;width:76px;border-radius:12px;padding:7px;display:flex;flex-direction:column;gap:6px" title="The numbers on the side: type an exact size or pick a shape">
+    <div class="field"><small>W PX</small><b class="typing">1920</b></div><div class="field"><small>H PX</small><b>1080</b></div>
+    <div class="asp"><b title="Any shape">Free</b><b title="Square">1:1</b><b title="4 by 3">4:3</b><b class="on" title="16 by 9, widescreen">16:9</b><b title="9 by 16, tall">9:16</b><b title="3 by 2">3:2</b></div></div>`;
+  h+=`<button class="ab lockin" style="left:${b.x+b.w+6}px;top:${b.y-40}px" title="Lock the board in place here. It comes alive once it is locked.">${gl('lockC',{size:16})}</button>
+    <span class="ab num" style="left:${b.x+b.w-52}px;top:${b.y-30}px">lock in</span>`;
+  h+=penHTML(b.x+b.w+4,b.y+b.h+4);
+  return {W,H,html:h};
+ },
+ menu(p){
+  const W=352,H=310,b={kind:'image',x:176,y:60,w:150,h:188,name:'Hero',pw:1080,ph:1350,sel:true,locked:true,armed:false};
+  let h=`<svg class="art" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${landscape(W,H,120,40,232,230)}</svg>`+boardHTML(b,p);
+  h+=`<div class="ab gpanel menu" style="left:10px;top:84px;width:200px"><div class="mhead">Hero · image board</div>
+    <div class="mrow" title="Rename: the export takes this name">${gl('pencil',{size:14})}Rename<span>Hero</span></div>
+    <div class="mrow" title="Duplicate the board; the copy is numbered">${gl('dup',{size:14})}Duplicate<span>→ Hero 2</span></div>
+    <div class="mrow" title="Turn this into a tile board with one tap">${gl(tileGlyph(p),{size:14})}Make it a tile board</div>
+    <div class="mrow" title="Export every image board in this drawing at once">${gl('export',{size:14})}Export all image boards<span>3</span></div>
+    <div class="mrow" title="Remove this board. Your drawing stays; only the frame goes."><span style="width:14px;display:grid;place-items:center"><i class="dot"></i></span>Delete board</div></div>`;
+  return {W,H,html:h};
+ },
+ icons(p){
+  const L=[['film','Animation'],['image','Image'],['sprite','Sprite'],['seam','Tile · seam cut',p.tileIcon==='seam'],['hound','Tile · houndstooth',p.tileIcon==='hound'],['export','Export (app-wide)',true],['lockC','Locked'],['lockO','Unlocked'],['nail','Fixed (has frames)'],['pin','Pinned'],['swap','Rearrange'],['runner','Animates'],['mountain','Held still'],['onion','Onion skin'],['loop','Loop'],['play','Play'],['subgrid','Sub-grid'],['dup','Duplicate'],['move','Move with frames']];
+  const html=`<div class="icosheet">${L.map(([n,l,pk])=>`<div class="ico ${pk?'pick':''}" title="${l}"><div class="pair"><span class="onpaper">${gl(n,{size:18})}</span><span class="gb">${gl(n)}</span></div><small>${l}</small></div>`).join('')}</div>`;
+  return {W:352,H:null,html};
+ },
+};
+const GALLERY=[
+ ['rest','The canvas at rest','Three boards, none selected: each is only its icon (the animation board adds a small 3, because it is not on frame 1). Hover the film icon with a mouse or pen: it plays in place.'],
+ ['restNear','The pen comes near a resting animation board','The board has no line at rest, so when a pen hovers or paints within 48 dp of it, soft brackets fade in. You always know where the frames start before a stroke gets split across them.'],
+ ['animSel','Animation board, selected','Tap the tab and it comes alive: title, column, sizes, the peg tab and the film strip. Frame 5 is being dragged (amber); the cyan mark shows where it lands. Tap the round peg to play, a cell to show it.'],
+ ['draw','Drawing near the tab','The pen is inside the violet 48 dp zone around the tab. Each option gets out of the way in its own manner: fade, hop, or everything sinks while the pen is down.'],
+ ['image','Image board, unlocked','Unlocked, so the handles are out and the numbers are live; the width is being typed. The pattern toggle sits in the column, off. Locked, the numbers grey out and the handles go.'],
+ ['tile','Tile board, armed','Tiling on: the tile fills the whole canvas, so you can judge it zoomed out and paint anywhere; every stroke lands in the tile. Only the switch and the ring around the original stay. Off-screen, the switch docks to the nearest screen edge.'],
+ ['spriteArmed','Sprite board, rearranging','Armed: the cells wiggle to say they can move. A cell is lifted over another (cyan); dropping swaps the two, every layer, as one undo step. Sub-grid on.'],
+ ['spriteSeq','Sprite board, playing a sequence','Disarmed: tap cells in order and the window loops them. Badges show the order; pink is the cell on screen now.'],
+ ['layers','Layers while an animation board is selected','Each layer row says whether it moves in this board or stays the same on every frame. Tap the mark to switch.'],
+ ['export','Exporting an animation board','The whole animation, a range, or just this frame. This reuses the Studio\'s export sheet; one gradient button, as everywhere in the app.'],
+ ['place','Placing a board','Pick a kind, drag over your drawing, set the numbers on the side, then tap the lock in the corner. Typed sizes grow right and down from the top-left.'],
+ ['menu','The board menu','Hold the tab. Duplicating numbers the copy: Hero becomes Hero 2. An animation board adds "Move board with all frames", behind a confirm.'],
+ ['icons','Icons at real size','Every glyph a board uses, on your paper (left) and on glass (right). The outlined ones are your current picks for the tile and export icons.'],
+];
+
+/* ───────────── elements (mix and match) ───────────── */
+const EL=[
+ {k:'layout',name:'Where the controls live',rule:'Owner: the kind icon at the top-left, the frame number under it, then arming, lock and export.',mini:['animSel',[0,0,352,300]],v:[
+  {id:'col',name:'Bookmark column',d:'A slim glass column against the left edge. Nothing moves.',s:'30 dp column, 9 dp off the edge (clear of the resize handles); tab slot 30 dp, items 30 dp, 40 dp targets.'},
+  {id:'bloom',name:'Corner bloom',d:'The tab sits on the corner; the controls fan out around it.',s:'30 dp bubbles on a 50 dp arc, 180°–270°, centred on the tab.'},
+  {id:'ribbon',name:'Top ribbon',d:'Name, size and controls along the top edge; the left keeps only icon and frame.',s:'26 dp ribbon, 5 dp above the line, full board width.'},
+  {id:'sat',name:'Satellite pill',d:'A floating pill beside the board that can dock on either side.',s:'34 dp pill, 10 dp off the edge, radius 17.'}]},
+ {k:'outline',name:'The board\'s line',rule:'The line sits outside the board, so every pixel that exports is visible inside it.',mini:['rest',[0,20,352,280]],v:[
+  {id:'key',name:'Keyline',d:'A thin ink line with a contrast line outside it. Reads on any paper and over any paint.',s:'1 dp ink 55% + 1 dp contrast 50%. Selected: + 1.5 dp cyan + 3 dp cyan 28%.'},
+  {id:'crop',name:'Crop marks',d:'At rest only four corner marks, like a print\'s crop marks. The full line returns when selected.',s:'11 dp arms, 1.5 dp, 2 dp outside. Animation past frame 1 always gets the full line.'},
+  {id:'spot',name:'Spotlight',d:'Keyline at rest; selected, the canvas outside the board dims.',s:'Dim: black 26–55% by paper, outside the line only.'}]},
+ {k:'tab',name:'The kind tab, at rest',rule:'Owner: at rest, only the line and a little tab with an icon. Selected, the icon takes the board\'s colour.',mini:['rest',[0,20,220,140]],v:[
+  {id:'bare',name:'Bare glyph',d:'Just the solid icon on the paper, white with a shadow or black with a halo.',s:'18 dp glyph. Selected: kind gradient on a 30 dp glass square, radius 9.'},
+  {id:'slant',name:'Slant chip',d:'The lobby\'s sheared chip, carrying the icon.',s:'32 × 21 dp, 6 dp shear, glass + white 13 dp glyph. Selected: gradient fill, black glyph.'},
+  {id:'mark',name:'Bookmark',d:'A small glass bookmark with a notched foot.',s:'26 × 32 dp, 15 dp glyph. Selected: 3 dp gradient cap, gradient glyph.'}]},
+ {k:'title',name:'The title',rule:'Owner: handsome text above the top-left; it is the export\'s file name. Tap to rename.',mini:['animSel',[20,30,320,90]],v:[
+  {id:'halo',name:'Halo type',d:'Bare text above the corner, inked by the paper with a soft halo.',s:'Archivo 700, 12 sp, 7 dp above the line, left-aligned.'},
+  {id:'glass',name:'Glass label',d:'The same text on a small glass pill.',s:'Archivo 700, 11 sp, pill 19 dp, 8 dp side padding.'},
+  {id:'intab',name:'Inside the tab',d:'The selected tab widens into a colour chip with the name, as drawer tabs do.',s:'Chip 21 dp, gradient fill, black 13 dp glyph + Archivo 700 11 sp.'}]},
+ {k:'frame',name:'The frame number',rule:'Owner: a handsome number in the same colour as the icon above it.',mini:['animSel',[0,40,190,190]],v:[
+  {id:'numeral',name:'Big numeral',d:'The frame in the Studio gradient, the count small under it.',s:'Archivo 900 19 sp; "/6" Plex Mono 8 sp. Slot 38 dp.'},
+  {id:'wheel',name:'Frame wheel',d:'The neighbours peek above and below. Drag the number to flip frames.',s:'Archivo 900 18 sp; neighbours Plex Mono 8.5 sp at 45%. 9 dp of drag per frame. Slot 50 dp.'},
+  {id:'badge',name:'Tab badge',d:'A small number pill on the tab\'s corner. Takes no room in the column.',s:'14 dp gradient pill, Plex Mono 600 9 sp, black.'}]},
+ {k:'arm',name:'Arming (the feature switch)',rule:'Arming is a property of the feature: tiling on an image board, rearranging on a sprite board. The animation board has none.',mini:['image',[30,30,322,250]],v:[
+  {id:'ring',name:'Ring button',d:'An icon button; armed gets the cyan ring.',s:'16 dp glyph in a 26 dp cell; armed 1.5 dp cyan + 3 dp halo.'},
+  {id:'lever',name:'Lever',d:'A tiny switch under the icon, so on and off read without colour.',s:'12 dp glyph over a 22 × 11 dp switch; on = thumb right, cyan ring.'},
+  {id:'corner',name:'Outside corner',d:'Its own button just outside the top-right corner, far from the lock.',s:'30 dp glass bubble, right of the top-right corner.'}]},
+ {k:'lock',name:'Lock / move',rule:'Locking is a property of the canvas. It never shares an icon, a row or a colour with arming.',mini:['image',[30,30,322,250]],v:[
+  {id:'pad',name:'Padlock',d:'A padlock in the column. Unlocked: open, amber ring, handles out. With frames: closed with a nail dot.',s:'16 dp glyph in a 26 dp cell; unlocked 1.5 dp amber ring.'},
+  {id:'pins',name:'Pushpins',d:'No button: pins in the corners hold the board down. Tap a pin to unlock. With frames they become nails.',s:'13 dp pins, 2 dp outside each corner; 40 dp targets.'}]},
+ {k:'size',name:'Size numbers',rule:'Owner: width along the top, height along the side, small and discreet; tap to edit while unlocked. Typing grows the board right and down.',mini:['image',[40,40,312,240]],v:[
+  {id:'dim',name:'Dimension lines',d:'Like an architect\'s drawing: a thin line with end ticks and the number on it. Height runs down the far side.',s:'Plex Mono 500 9 sp; line 1 dp ink 55%, 7 dp ticks, 9 dp off the edge.'},
+  {id:'corner',name:'Corner readout',d:'One small "1920 × 1080" at the top-right corner.',s:'Plex Mono 500 9 sp, right-aligned, 8 dp above the line.'},
+  {id:'chips',name:'Edge chips',d:'Two glass chips, one on the top edge and one on the right edge.',s:'18 dp glass chips, Plex Mono 9 sp.'}]},
+ {k:'peg',name:'The peg extension',rule:'Owner: a little extension below the board with three pegs, shown only when selected. The pegs are the board\'s buttons (R33).',mini:['animSel',[50,190,272,110]],v:[
+  {id:'acme',name:'Peg tab',d:'An animator\'s peg bar: flat, round, flat. Onion, play, loop.',s:'150 × 26 dp glass tab, 8 dp under the board; flat pegs 32 × 12, round 17; 44 dp pitch.'},
+  {id:'rail',name:'Pegs on the strip',d:'The same pegs on a smaller tab fused to the film strip.',s:'136 × 24 dp tab overlapping the strip by 3 dp.'},
+  {id:'decor',name:'Decorative pegs',d:'Pegs as a quiet picture only; play, onion and loop are plain buttons.',s:'84 × 14 dp tab at 75%; three 26 dp buttons right-aligned.'}]},
+ {k:'strip',name:'The film strip',rule:'SpriteLab\'s mechanics: a cell per frame, drag sideways to move, up to remove. Owner: outline, not solid black film.',mini:['animSel',[50,190,272,110]],v:[
+  {id:'outline',name:'Outline film',d:'No fill at all: sprocket rails and numbered cells drawn as lines.',s:'40 dp tall; rails 7 dp; cells 26 dp, 44 dp per held tick; current 1.5 dp pink.'},
+  {id:'glass',name:'Glass film',d:'The same on a glass band, each cell with a tiny picture of its frame.',s:'Glass 55%, radius 8; thumbnails inset 3 dp.'},
+  {id:'ruler',name:'Tick ruler',d:'Folded to a ruler: a tick per frame, the current one pink. Tap to open.',s:'22 dp tall; 14 dp per tick; current tick 2 × 12 dp pink.'}]},
+ {k:'marker',name:'Layer marker',rule:'Owner: a compact mark on each layer row, in the layer column, saying whether the layer moves in the selected board.',mini:['layers',[276,4,76,320]],v:[
+  {id:'runner',name:'Runner',d:'A running man in the Studio gradient, or the same man grey and dull.',s:'13 dp glyph in a 16 dp column; held = grey 55%.'},
+  {id:'runmtn',name:'Runner / mountain',d:'A running man for moving layers, a mountain for held backgrounds.',s:'13 dp; mountain in #A1A1AA.'},
+  {id:'perf',name:'Film edge',d:'No icon: a moving layer\'s thumbnail gets a sprocket edge.',s:'6 dp perforated edge in aqua at 85%.'}]},
+ {k:'tileIcon',name:'The tile icon',rule:'Used for the tile board\'s tab and the pattern toggle.',glyphs:['seam','hound'],v:[
+  {id:'seam',name:'Seam cut',d:'Four tiles with one diamond across the seams: art that meets itself. Reads at 16 dp.',s:'Solid, 16–18 dp.'},
+  {id:'hound',name:'Houndstooth',d:'A familiar pattern, but it turns to grey noise at small sizes and says "fabric".',s:'Solid, 16–18 dp.'}]},
+ {k:'grid',name:'Sprite grid settings',rule:'Owner: along the bottom, and only the grid: by count or by size, plus the sub-grid. The board resizes to whole cells.',mini:['spriteArmed',[40,30,312,200]],v:[
+  {id:'shelf',name:'Bottom shelf',d:'One glass shelf: count/size switch, two steppers and the sub-grid.',s:'30 dp shelf, 8 dp under the board; steppers 22 dp; on = sprite pink 70%.'},
+  {id:'axis',name:'On the axes',d:'Columns under the bottom edge, rows beside the right edge. Each sits on the direction it changes.',s:'Same parts split into three shelves.'}]},
+ {k:'quiet',name:'While you draw near it',rule:'Owner: it is still your art board; the UI must not steal it. Nothing ever covers the art inside the line.',mini:['draw',[0,0,352,300]],v:[
+  {id:'fade',name:'Fade near',d:'Within 48 dp of the pen, the tab and column fade to 15%.',s:'Out 120 ms; back 300 ms after the pen lifts.'},
+  {id:'hop',name:'Hop away',d:'The column jumps to the far edge while the pen is near.',s:'Hops after 120 ms within 48 dp; returns 300 ms after lift.'},
+  {id:'duck',name:'Pen-down fade',d:'Pen down anywhere on the board: everything sinks to 12% and the strip folds to its ruler.',s:'Out 120 ms; back 300 ms after lift; ruler 22 dp.'}]},
+ {k:'exportUI',name:'The export panel',rule:'Reuses the Studio\'s export wiring. "Range" and "this frame" are added to the shared sheet, not to a copy.',mini:['export',[0,0,352,330]],v:[
+  {id:'sheet',name:'Bottom sheet',d:'The Studio\'s export sheet rising from the bottom, glass.',s:'236 dp tall, 20 dp top corners, 55% + blur.'},
+  {id:'pop',name:'Anchored panel',d:'A smaller panel beside the export button; the board stays in view.',s:'226 dp wide, radius 14.'}]},
+];
+
+/* ───────────── render ───────────── */
+function paperBox(sc,id){
+  return `<div class="paper" ${id?`id="${id}"`:''} style="width:${sc.W}px;${sc.H?`height:${sc.H}px`:''}">${sc.html}</div>`;
+}
+function mini(scId,picks,crop,width=168){
+  const sc=SCENES[scId](picks,{nolift:false});const [x,y,w,h]=crop;const s=width/w;
+  return `<div class="crop" style="width:${(w*s).toFixed(0)}px;height:${(h*s).toFixed(0)}px"><div class="paper" style="width:${sc.W}px;height:${sc.H}px;transform:translate(${(-x*s).toFixed(1)}px,${(-y*s).toFixed(1)}px) scale(${s.toFixed(4)})">${sc.html}</div></div>`;
+}
+function renderScene(id){
+  const el=document.getElementById('sc-'+id); if(!el)return;
+  const sc=SCENES[id](S.picks); el.innerHTML=sc.html;
+}
+function renderGallery(){
+  document.getElementById('gal').innerHTML=GALLERY.map(([id,t,c],i)=>`<figure>${paperBox(SCENES[id](S.picks),'sc-'+id)}<figcaption><b><i>${String(i+1).padStart(2,'0')}</i>${t}</b><span>${c}</span></figcaption></figure>`).join('');
+}
+function renderDirs(){
+  document.getElementById('dirs').innerHTML=DIRS.map(d=>`<div class="dir" role="button" tabindex="0" data-act="dir" data-d="${d.k}" aria-pressed="${S.dir===d.k}" title="Show option ${d.k}, ${d.name}, in every scene">
+    <span class="nm"><b>${d.k}</b><span>${d.name}</span></span>${mini('animSel',PRESETS[d.k],[0,0,352,300],246)}
+    <span class="tg">${d.tag}</span><span class="tr"><span><em>Does well:</em> ${d.good}</span><span><em>Costs:</em> ${d.cost}</span></span></div>`).join('');
+  document.getElementById('dirseg').innerHTML=['K','A','B','C','D','R'].map(k=>`<button type="button" data-act="dir" data-d="${k}" aria-pressed="${S.dir===k}" title="${k==='K'?'The locked design (§K): your picks':k==='R'?'My recommendation before you picked: A with the frame wheel and the pen-down fade':'Option '+k+', '+DIRS.find(d=>d.k===k).name}">${k==='R'?'★':k==='K'?'§K':k}</button>`).join('')+(S.dir==='custom'?`<button type="button" class="custom" aria-pressed="true" title="Your own mix">MIX</button>`:'');
+}
+function letters(k,v){return ['A','B','C','D'].filter(d=>PRESETS[d][k]===v).join(' ')}
+function glyphMini(n){return `<div class="paper gmini" style="width:168px">${`<span class="onpaper">${gl(n,{size:18})}</span><span class="gb">${gl(n)}</span><span class="onpaper">${gl(n,{size:30})}</span>`}</div>`}
+function renderEls(){
+  document.getElementById('els').innerHTML=EL.map(e=>`<div class="el"><div><h3>${e.name}</h3></div><p class="rule"><b>Keeps:</b> ${e.rule}</p>
+    <div class="vars">${e.v.map(v=>{const pk={...S.picks,[e.k]:v.id};
+      return `<div class="var" role="button" tabindex="0" data-act="pick" data-k="${e.k}" data-v="${v.id}" aria-pressed="${S.picks[e.k]===v.id}" title="Use ${v.name} for ${e.name.toLowerCase()}">
+      ${e.glyphs?glyphMini(v.id):mini(e.mini[0],pk,e.mini[1])}
+      <span class="vn">${v.name}<em>${letters(e.k,v.id)}</em></span><span class="vd">${v.d}</span><span class="vs">${v.s}</span></div>`}).join('')}</div></div>`).join('');
+}
+function renderCode(){
+  const lab=S.dir==='custom'?'mix':S.dir==='R'?'recommended':'option '+S.dir;
+  document.getElementById('code').textContent=`JB-3.00a §K picks (${lab}): `+EL.map(e=>`${e.k}=${S.picks[e.k]}`).join(' ');
+}
+function renderPapers(){
+  const P=[['black','#070709','Black paper'],['white','#F6F5F1','White paper'],['grey','#8B8B90','Grey paper (the hardest case: right at middle grey)'],['tan','#D8C59F','Tan paper (kraft)']];
+  document.getElementById('papers').innerHTML=P.map(([k,c,t])=>`<button class="sw" type="button" data-act="paper" data-p="${k}" aria-pressed="${S.paper===k}" style="background:${c}" title="${t}"></button>`).join('');
+  document.documentElement.dataset.paper=S.paper;
+}
+function renderStatic(){
+  const dots=n=>'●'.repeat(n)+'○'.repeat(3-n);
+  const rows=[
+   ['Out of the way while drawing',[2,'Fades only near the tab'],[3,'Crop marks and one chip'],[2,'Ribbon sits where strokes start'],[3,'Leaves wherever the pen goes']],
+   ['Reach with one hand',[2,'Fixed column, left of the board'],[2,'One extra tap, then near the corner'],[1,'Top edge is the far reach'],[3,'Comes to the free side']],
+   ['Learn at a glance',[3,'One place, never moves'],[1,'Controls hidden until tapped'],[3,'Labelled slots in a row'],[2,'Same pill, two places']],
+   ['Small boards',[2,'Column is taller than tiny boards'],[3,'Arc ignores board size'],[1,'Ribbon needs ≥ 180 dp'],[2,'Pill is taller than tiny boards']],
+   ['Reads on every paper',[3,'Keyline + glass'],[2,'Crop marks are faint on grey'],[3,'Keyline + glass'],[2,'Spotlight darkens light paper']],
+   ['Cost to build',[3,'Plain stacking'],[2,'Arc layout, crop marks'],[3,'One row'],[1,'Hop logic, two docks']],
+  ];
+  document.getElementById('cmp').innerHTML=`<thead><tr><th></th>${DIRS.map(d=>`<th>${d.k} · ${d.name}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${r[0]}</td>${r.slice(1).map(([n,t])=>`<td class="d">${dots(n)}<small>${t}</small></td>`).join('')}</tr>`).join('')}</tbody>`;
+  const R=[
+   ['The line sits outside the board','Every pixel that exports is visible inside the line. No line, handle, tab, number or pin ever covers one of them.'],
+   ['A stroke always paints','A pen stroke that starts on the tab, title or numbers is paint; only a clean tap (under 8 dp of travel, under 250 ms) presses them. Things meant to be dragged (strip cells, the frame wheel, steppers) are the exceptions. Lead to confirm.'],
+   ['Ink follows the paper','Anything drawn straight on the paper (the tab at rest, title, numbers, lines, pins) uses IconContrast: black with a light halo above middle grey (L* 50), white with a shadow below it or over a mixed background. Anything on glass is drawer ink #F2F2F5.'],
+   ['Controls near-solid, panels see-through','Small controls on the paper (column, bubbles, ribbon, peg tab, shelves, layer column) use the chrome fill, black at 90%: at 50% they read as switched-off grey over white paper (found on the Note 9 in JB-2.01). Panels that cover art (export sheet, menus, the size panel) are black at 55%, plus blur where Frost is on. Never opaque. Both carry a 1 dp ring of ink at 13%.'],
+   ['One meaning per colour','Kind gradient = which kind of board, as a fill. Cyan = selected or armed, as a ring. Pink = live: current frame, playing. Amber = careful: unlocked, warnings. Violet = hints: seams, guides. Red = destroys, the only state that fills.'],
+   ['Lock and arm never meet','Different icons, different rows (or places), different colours: lock goes amber when open, arm goes cyan when on.'],
+   ['Sizes','16 dp glyphs in 26–30 dp cells, every touch target at least 40 dp. Archivo for names and the frame number; IBM Plex Mono for every other number; IBM Plex Sans for words.'],
+   ['Motion','Selecting is instant (0 ms; it happens a hundred times a day). Fades out in 120 ms and back 300 ms after the pen lifts. Reduced motion keeps the fades and drops the wiggle and the hop.'],
+   ['Hover labels everywhere','Every control says what it does for a stylus or mouse hover, written as what you get. Hover anything on this page to read them.'],
+   ['Typing grows right and down','A typed width or height pivots on the top-left corner, so the art never shifts and the numbers mean exactly what they say.'],
+   ['Frames show at rest','An animation board past frame 1 always shows its full line and its frame number, even when it is not selected.'],
+   ['One export icon, app-wide','The Studio\'s film-strip export mark (ic_export_studio.xml), in the Studio gradient on paper and drawer ink on chrome. No tray, no floppy.'],
+   ['Hover plays an animation board','A pen or mouse hovering the resting film icon loops that board in place at its own speed; leaving returns it to the frame it was on. Nothing is saved or selected.'],
+   ['Only one tile armed','Arming a second tile board disarms the first: a stroke can wrap into only one tile.'],
+  ];
+  document.getElementById('rules-list').innerHTML=R.map(([t,d])=>`<div class="rl"><b>${t}</b><span>${d}</span></div>`).join('');
+  const T=[
+   ['Paper black / white / grey / tan','#070709','#F6F5F1 · #8B8B90 · #D8C59F','Test grounds only; the real paper is the document\'s'],
+   ['Chrome (controls)','rgba(12,12,15,.9)','ring rgba(242,242,245,.13)','Column, bubbles, ribbon, pill, peg tab, shelves, layer column'],
+   ['Glass (panels)','rgba(6,6,8,.55)','+ blur when Frost is on','Export sheet or panel, board menu, size panel, notes'],
+   ['Drawer ink','#F2F2F5','dim #C9C9D3','Every glyph and word on glass'],
+   ['Animation kind','#35F6BF','→ #97FE8B','Tab, frame number, runner, perf edge'],
+   ['Image / tile kind','#5C43FD','→ #4397FD','Image and tile tabs'],
+   ['Sprite kind','#FF008C','→ #CC27FF','Sprite tab; grid controls ON at 70%'],
+   ['Selected / armed','#22D3EE','halo 28%','Ring only'],
+   ['Live','#F43F8E','','Current frame, playing peg, now-playing cell'],
+   ['Careful','#FBBF24','','Unlocked lock, lifted strip cell, warnings'],
+   ['Guide','#A78BFA','','Tile seams, wrap hint, the 48 dp zone'],
+   ['Destroys','#FA3D5D','','Delete board (dot), delete frame'],
+   ['On a gradient','#050507','','Glyphs and text on any gradient fill'],
+  ];
+  document.getElementById('tok').innerHTML=`<thead><tr><th>Token</th><th>Value</th><th>Also</th><th>Used for</th></tr></thead><tbody>${T.map(([a,b,c,d])=>`<tr><td>${a}</td><td style="font-family:var(--f-mono);font-size:11.5px;white-space:nowrap"><i class="tok" style="background:${b}"></i>${b}</td><td style="font-family:var(--f-mono);font-size:11px;color:var(--faint)">${c}</td><td>${d}</td></tr>`).join('')}</tbody>`;
+}
+function renderAll(){renderPapers();renderDirs();renderGallery();renderEls();renderCode();save();}
+
+/* ───────────── interaction ───────────── */
+const TICKS=[1,2,3,3,4,5,6];let tick=2,playT=null;
+function setPlaying(on){
+  S.anim.playing=on;clearInterval(playT);
+  if(on)playT=setInterval(()=>{tick=(tick+1)%TICKS.length;S.anim.frame=TICKS[tick];renderScene('animSel');renderScene('draw');},120);
+  renderScene('animSel');renderScene('draw');
+}
+let restT=null;
+document.addEventListener('pointerover',e=>{
+  if(restT||!e.target.closest('#sc-rest [data-hoverloop]'))return;
+  let k=0;restT=setInterval(()=>{k=(k+1)%TICKS.length;S.restF=TICKS[k];const el=document.querySelector('#sc-rest [data-restanim]');
+    if(el){const a={x:46,y:48,w:150,h:84};el.outerHTML=animArt(352,300,a,S.restF,false,'data-restanim')+'</svg>';}},120);
+});
+document.addEventListener('pointerout',e=>{
+  if(!restT||!e.target.closest('#sc-rest [data-hoverloop]'))return;
+  if(e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest('#sc-rest [data-hoverloop]'))return;
+  clearInterval(restT);restT=null;S.restF=3;renderScene('rest');
+});
+let spT=null;
+function setSprite(on){S.sprite.playing=on;clearInterval(spT);if(on)spT=setInterval(()=>{S.sprite.i++;renderScene('spriteSeq');},170);renderScene('spriteSeq');}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-act]');if(!t)return;
+  const a=t.dataset.act;
+  if(a==='paper'){S.paper=t.dataset.p;renderPapers();save();}
+  else if(a==='dir'){S.dir=t.dataset.d;S.picks={...PRESETS[S.dir]};renderAll();}
+  else if(a==='pick'){S.picks[t.dataset.k]=t.dataset.v;const m=['K','A','B','C','D','R'].find(k=>EL.every(el=>PRESETS[k][el.k]===S.picks[el.k]));S.dir=m||'custom';const y=t.getBoundingClientRect().top;renderAll();const n=document.querySelector(`[data-act="pick"][data-k="${t.dataset.k}"][data-v="${t.dataset.v}"]`);if(n)window.scrollBy(0,n.getBoundingClientRect().top-y);}
+  else if(a==='play')setPlaying(!S.anim.playing);
+  else if(a==='onion'){S.anim.onion=!S.anim.onion;renderScene('animSel');}
+  else if(a==='frame'){setPlaying(false);S.anim.frame=+t.dataset.f;tick=TICKS.indexOf(S.anim.frame);renderScene('animSel');}
+  else if(a==='spplay')setSprite(!S.sprite.playing);
+});
+document.addEventListener('keydown',e=>{const t=e.target;if((e.key==='Enter'||e.key===' ')&&t.matches&&t.matches('[role="button"][data-act]')){e.preventDefault();t.click();}});
+document.getElementById('copy').addEventListener('click',()=>{
+  const txt=document.getElementById('code').textContent, btn=document.getElementById('copy');
+  const done=()=>{btn.textContent='Copied';setTimeout(()=>btn.textContent='Copy picks',1600);};
+  const sel=()=>{const r=document.createRange();r.selectNodeContents(document.getElementById('code'));const s=getSelection();s.removeAllRanges();s.addRange(r);btn.textContent='Selected: copy it';};
+  try{navigator.clipboard.writeText(txt).then(done,sel);}catch(err){sel();}
+});
+let wheel=null;
+document.addEventListener('pointerdown',e=>{
+  const w=e.target.closest('#sc-animSel [data-wheel]');if(!w)return;
+  e.preventDefault();setPlaying(false);wheel={y:e.clientY,f:S.anim.frame};
+});
+addEventListener('pointermove',e=>{
+  if(!wheel)return;
+  const f=Math.max(1,Math.min(6,wheel.f+Math.round((wheel.y-e.clientY)/9)));
+  if(f!==S.anim.frame){S.anim.frame=f;tick=TICKS.indexOf(f);renderScene('animSel');}
+});
+addEventListener('pointerup',()=>{wheel=null;});
+
+renderStatic();renderAll();
+if(!REDUCED)setSprite(true);else S.sprite.playing=false;
+</script>

@@ -18,7 +18,11 @@ object CanvasSnapshot {
      * This is a merge template, not an archive: live readback supplies every tile when saving.
      */
     fun metadataOf(contents: JbContents): JbContents {
-        requireCanvas(contents)
+        val errors=DocOps.validate(contents.doc)
+        require(errors.isEmpty()){errors.joinToString("; ")}
+        require(contents.doc.layers.all{it.kind==LayerKind.PAINT && it.animatedIn==null} && contents.strokes.isEmpty()) {
+            "The raster renderer cannot retain vector payloads"
+        }
         return contents.copy(tiles = emptyMap(), strokes = emptyMap())
     }
 

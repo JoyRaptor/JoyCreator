@@ -119,7 +119,8 @@ object DocOps {
         for (l in doc.layers) {
             if (l.regions.isNotEmpty()) {
                 val celIds = l.cels.mapTo(HashSet()) { it.id }
-                if (l.kind != LayerKind.PAINT) out += "region animation requires paint layers"
+                // Region ownership is shared by raster and vector layers. Each renderer/exporter
+                // checks its own capabilities; document validation must not impose raster storage.
                 if (l.animatedIn != null || l.frameCel.isNotEmpty()) out += "layer \"${l.id}\" mixes legacy and region animation"
                 if (l.sharedCelId == null || l.sharedCelId !in celIds) out += "layer \"${l.id}\" has no shared canvas cel"
                 out += duplicateIds(l.regions.map { it.boardId }) { "layer \"${l.id}\" has two regions for board \"$it\"" }

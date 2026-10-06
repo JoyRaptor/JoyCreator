@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.core.paint
 
 import cc.joycreator.joybrush.core.layers.LayerStack
 import cc.joycreator.joybrush.core.doc.Paper
+import cc.joycreator.joybrush.core.doc.JbDocument
 
 /**
  * Undo/redo of tile changes, with a memory budget — shared by the GPU engine (T = a texture) and the
@@ -25,7 +26,7 @@ class UndoLog<T : Any>(
     private val sizeOf: (T) -> Long,
     private val release: (T) -> Unit,
 ) {
-    class TileChange<T : Any>(val layerId: String, val key: Long, val before: T?, val after: T?)
+    class TileChange<T : Any>(val layerId: String, val key: Long, val before: T?, val after: T?, val celId: String? = null)
 
     /**
      * One undo step: the tiles it changed and, for a change to the layers themselves (JB-2.04: add, duplicate, delete,
@@ -41,6 +42,8 @@ class UndoLog<T : Any>(
         val stackAfter: LayerStack? = null,
         val paperBefore: Paper? = null,
         val paperAfter: Paper? = null,
+        val documentBefore: JbDocument? = null,
+        val documentAfter: JbDocument? = null,
     )
 
     private val undoStack = ArrayDeque<Step<T>>()
@@ -88,16 +91,16 @@ class UndoLog<T : Any>(
         if (n < 2) return
         val steps = ArrayList<Step<T>>(n)
         repeat(n) { steps.add(0, undoStack.removeLast()) }
-        val merged = LinkedHashMap<Pair<String, Long>, TileChange<T>>()
+        val merged = LinkedHashMap<Triple<String, String?, Long>, TileChange<T>>()
         for (s in steps) for (c in s.changes) {
-            val k = c.layerId to c.key
+            val k = Triple(c.layerId, c.celId, c.key)
             val prev = merged[k]
             if (prev == null) {
                 merged[k] = c
             } else {
                 // c.before is prev.after: copy-on-write made it, and now nothing will ever put it back.
                 c.before?.let(release)
-                merged[k] = TileChange(c.layerId, c.key, prev.before, c.after)
+                merged[k] = TileChange(c.layerId, c.key, prev.before, c.after, c.celId)
             }
         }
         // A layer change inside the batch (JB-2.04) is kept: the merged step goes from the first stack to the last.
@@ -105,7 +108,9 @@ class UndoLog<T : Any>(
         val stackAfter = steps.lastOrNull { it.stackAfter != null }?.stackAfter
         undoStack.addLast(Step(merged.values.toList(), stackBefore, stackAfter,
             steps.firstOrNull { it.paperBefore != null }?.paperBefore,
-            steps.lastOrNull { it.paperAfter != null }?.paperAfter))
+            steps.lastOrNull { it.paperAfter != null }?.paperAfter,
+            steps.firstOrNull { it.documentBefore != null }?.documentBefore,
+            steps.lastOrNull { it.documentAfter != null }?.documentAfter))
         trim()
     }
 

@@ -1,6 +1,6 @@
 package cc.joycreator.joybrush.core.doc
 
-/** Caller performs bounded copies before publishing the new metadata as one undoable edit. */
+/** Caller copies the owned content (raster pixels or vector records) before publishing one edit. */
 data class RegionCopy(val layerId: String, val fromCelId: String, val toCelId: String, val rect: RectPx)
 data class RegionDrop(val layerId: String, val celId: String)
 data class RegionChange(val doc: JbDocument, val copies: List<RegionCopy> = emptyList(), val drops: List<RegionDrop> = emptyList())
@@ -11,11 +11,9 @@ object RegionDocumentOps {
         valid(doc)
         BoardDocumentOps.checkRect(rect)
         if (name.isBlank()) throw DocException("Give this board a name")
-        if (doc.layers.isEmpty()) throw DocException("Add a paint layer before creating an animation board")
-        // Current region-copy backend supports raster paint. This is a backend capability limit,
-        // not a restriction on passive board creation or future vector region ownership.
-        if (doc.layers.any { it.animatedIn != null || it.kind != LayerKind.PAINT }) {
-            throw DocException("Start a new paint drawing to use region animation")
+        if (doc.layers.isEmpty()) throw DocException("Add a layer before creating an animation board")
+        if (doc.layers.any { it.animatedIn != null }) {
+            throw DocException("Start a new drawing to use region animation")
         }
         val fresh = generator(doc, ids)
         val boardId = fresh(); val frameId = fresh()

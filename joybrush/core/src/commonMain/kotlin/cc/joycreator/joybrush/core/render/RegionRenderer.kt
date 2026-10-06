@@ -3,6 +3,7 @@ package cc.joycreator.joybrush.core.render
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.JbDocument
 import cc.joycreator.joybrush.core.doc.Layer
+import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.doc.Cel
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.doc.TILE_SIZE
@@ -183,7 +184,8 @@ private val MAX_REGION_PEAK_MIB = MAX_REGION_PX * BYTES_PER_PX / (1024L * 1024L)
  *
  * THE DOCUMENT ITSELF IS NOT VALIDATED, and that is the caller's half of the deal. These functions
  * read [doc] as given: they do not call [DocOps.validate], they do not check that a cel exists, and
- * they do not check that the layer is one this renderer can blend (it can — see the claim above).
+ * they do not validate metadata. Visible vector layers are explicitly refused until this renderer
+ * supports vector content; accepting their board metadata must never silently produce blank art.
  * An exporter's job is to validate the document at OPEN time, once, where there is a person to
  * tell; a renderer's job is to refuse loudly the specific requests it cannot answer, which is what
  * the four above are. A renderer that validated the whole document on every call would make every
@@ -243,6 +245,7 @@ object RegionRenderer {
         requireSize(rect)
         requirePaperIfAny(paper)
         requireOneBackdrop(paper, paperRenderer)
+        requireRasterContent(doc)
         val out = ByteArray(rect.w * rect.h * 4)
         if (rect.w == 0 || rect.h == 0) return out
         val p = renderPremultiplied(doc, tiles, rect, frameId, paper, paperRenderer)
@@ -287,6 +290,7 @@ object RegionRenderer {
         requireSize(rect)
         requirePaperIfAny(paper)
         requireOneBackdrop(paper, paperRenderer)
+        requireRasterContent(doc)
         val px = FloatArray(rect.w * rect.h * 4)
         if (rect.w == 0 || rect.h == 0) return px
 
@@ -419,6 +423,12 @@ object RegionRenderer {
      * against the constant, which is where a claim like that belongs — it can be checked in
      * microseconds there instead of by allocating 160 MiB.
      */
+    private fun requireRasterContent(doc: JbDocument) {
+        if (doc.layers.any { it.visible && it.opacity > 0f && it.kind == LayerKind.INK }) {
+            throw RegionException("Vector artwork rendering is not available yet")
+        }
+    }
+
     private fun renderCel(layer: Layer, frameId: String?): Cel? =
         if (layer.regions.isEmpty()) DocOps.celFor(layer, frameId)
         else layer.cels.firstOrNull { it.id == layer.sharedCelId }

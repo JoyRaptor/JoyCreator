@@ -408,6 +408,23 @@ A slim column outside the board's left edge, top to bottom:
     animated … that would be in the layer tool itself.") **"Omitted" is not a third state** for now: the owner was
     unsure it is needed, and two states read faster.
 
+### G7a. Layer previews follow the selected board — owner clarification, 2026-10-02
+
+Owner's direction, verbatim:
+
+> almost forgot a detail: when a bord is selected/active the layer selector previews just show the bounds inside that board. when its passive the layers go back to normal functioning
+
+When any board is selected/active, each layer-selector thumbnail previews only that board's
+rectangle, using the same document bounds for every layer. For an Animation board, previews
+show its current frame; layers held on every frame show their shared content in that rectangle.
+When the board becomes passive/unselected, restore the normal layer previews. Switching the
+selected board updates the previews to the new board's bounds. This is preview framing; it
+does not crop or mutate stored layer pixels. The ordinary layer controls remain available.
+
+Acceptance: select a board over artwork that extends outside it; thumbnails show only the
+inside portion. Change animation frame; thumbnails follow that frame. Make the board passive;
+normal thumbnails return. Selecting another board uses its rectangle without changing artwork.
+
 ### G8. The Sprite board
 12. **Reuse SpriteLab's mechanics, by REFERENCE where possible**, so improving SpriteLab improves the Sprite board.
     (F: "reuse a lot of the same mechanics that were developed by [Sprite Lab] … Maybe even have some of the mechanisms
@@ -522,7 +539,169 @@ one hand. End the page with a **comparison table**, then **your recommendation a
 **When the owner picks one,** write it into this file as **§K — Locked design** (option letter, dp sizes, tokens, every
 state) and link the HTML. From then on §K is what Sol or any other agent builds, exactly.
 
-## K. Locked design
+## K. Locked design (owner, 2026-10-01)
 
-_(Empty until the owner chooses an option from §J.)_
+**The picture of record:** `tasks/design/UI-Boards-options.html` (published: https://claude.ai/artifact/7xpTZazykHjrrTvJ6jRL4N,
+version 2 "Locked as §K"). Open it, press **§K** in the top bar, and every scene shows exactly this design. Where this
+section and the page disagree, **this section wins** and the page is a bug. Sizes are dp, taken literally (the Note 9 at
+548 dp is the target; do not scale up for wider screens).
 
+### K0. The owner's direction, verbatim
+
+> JB-3.00a §K picks (mix): layout=sat outline=crop tab=bare title=halo frame=wheel arm=ring lock=pad exportGlyph=tray
+> size=corner peg=rail strip=outline marker=runmtn repeat=ghost tileIcon=seam grid=shelf quiet=duck exportUI=sheet
+>
+> * a couple things when the pattern icon is armed. It completely covers and replaces your entire canvas with the tile
+>   of the art itself. And all you see is the tile icon in the on position. So that you can find it, so you can turn it
+>   back off. And the reason for this is so that you can judge how something looks zoomed out, tiled a whole bunch of
+>   times, and also so that you can freely draw anywhere and it all feels like the same canvas. Perhaps having the
+>   original tile with the highlighted selector around it, just so you can keep your bearings.
+> * for the export icon, I forgot that we actually already have an export frame, which happens to be the icon uh, that
+>   we are using in the studio in the top right corner, right next to Joybot icon. That is a single frame of animation
+>   with an arrow saying to go. So let's just use that app wide because pretty much everything is a frame or a series
+>   of frames.
+> * The animation frame when not selected should be very thin, soft, and pretty hard to see. Or it should just be the
+>   brackets. And I'd also like a feature that when you hover over the film icon without it activated, it just
+>   automatically starts looping its animation. That way, if you're screen recording the app and you're talking, to
+>   make something play, you just hover over it and the thing will start animating as kind of a fun little way to reuse
+>   the drawing board as a sort of interactive PowerPoint style thing. That way, the animation can look seamless. As a
+>   matter of fact, we may not even need the frame. When it's not selected, we could just have the icon hovering there.
+>   And you can select it if you want to continue painting while seeing the bounding box. That might be even better,
+>   but I'm willing to get your feedback or pushback if you think this is a bad idea.
+> * well done.
+
+`exportGlyph=tray` and `repeat=ghost` in the picks line are **superseded by the owner's own bullets** below them (the
+Studio export mark; the tile fills the canvas). Everything else in the line stands.
+
+### K1. Shared tokens (every board)
+
+| Token | Value | Use |
+|---|---|---|
+| Chrome (controls) | `rgba(12,12,15,.90)`, 1 dp ring `#F2F2F5` @ 13% | The pill, peg tab, grid shelf, layer column, tile switch. 90% because 50% reads as switched-off grey on white paper (JB-2.01 phone finding). |
+| Glass (panels) | `rgba(6,6,8,.55)` + blur when Frost is on, same ring | Export sheet, board menu, size panel. **Never opaque.** |
+| Drawer ink | `#F2F2F5` / dim `#C9C9D3` | Every glyph and word on chrome or glass |
+| Ink on paper | `IconContrast` (L* 50, hysteresis 4, mixed → light) | Tab at rest, title, size readout, crop marks, strip lines: black + light halo, or white + shadow |
+| Kind gradients | Animation `#35F6BF→#97FE8B` · Image/Tile `#5C43FD→#4397FD` · Sprite `#FF008C→#CC27FF` | Identity only, as a fill or a glyph fill |
+| Selected / armed | `#22D3EE` ring 1.5 dp + 3 dp halo @ 28% | Selected board, armed switch, onion peg on, insertion caret |
+| Live | `#F43F8E` | Current frame cell, playing peg, now-playing sprite cell (2.5 dp) |
+| Careful | `#FBBF24` | Lock open (1.5 dp ring), lifted strip cell, hold count |
+| Guide | `#A78BFA` | Hints only |
+| On gradient | `#050507` | Glyph or text on any gradient fill |
+| Type | Archivo (names, frame number) · IBM Plex Mono (every other number) · IBM Plex Sans (words) | |
+| Motion | select 0 ms · fade out 120 ms · back 300 ms after the pen lifts · reduced motion drops the wiggle | |
+
+Every control: visual 26–34 dp, **touch target ≥ 40 dp**, a hover label written as what you get (the page's `title`s are
+the text to use).
+
+### K2. At rest (not selected)
+
+| Board | Shows | Exact |
+|---|---|---|
+| **Animation** | **Only the film icon.** No line. A small frame number under the icon when the board is not on frame 1. | Icon 18 dp solid, ink on paper; centre 27 dp left of the board's left edge, 19 dp below its top. Frame number Archivo 800 11 sp, ink on paper with halo, 12 dp under the icon centre. |
+| Animation, pen near | **Soft brackets** fade in at the four corners while a pen hovers or paints within 48 dp of the board's rectangle; they fade out 300 ms after the pen leaves. | 14 dp arms, 1 dp, ink on paper at 45%, 2 dp outside the pixels. |
+| Animation, hovered | Hovering the film icon (S Pen hover or mouse) **plays the board in place**, looping at its own timing; leaving returns it to the frame it was on. It selects nothing and saves nothing. A finger has no hover, so on a bare touchscreen this simply never fires. | — |
+| Image, tile, sprite | Crop marks + the kind icon. | 11 dp arms, 1.5 dp, ink on paper, 2 dp outside. Icon as above. |
+
+**The Lead's answer to the owner's "feedback or pushback":** icon-only is the right call, and it is what makes the
+hover-to-play trick look seamless. It has one real risk, and K2 already carries the two guards for it. Because frames
+hot-swap the region, a stroke painted across an invisible edge while the board sits on frame 3 is split: the inside
+lands on frame 3, the outside on the shared canvas. Without a visible edge that split would feel like a bug.
+(1) The **brackets on approach** show the edge exactly when a pen could cross it, and never otherwise. (2) The **small
+frame number** shows only when it matters, when the board is not on frame 1, which is the only time a crossing stroke
+can disappear from view later. Both are cheap and neither shows up in a screen recording unless the pen goes near.
+
+### K3. Selected: the satellite pill (all boards)
+
+- Tap the icon to select. The **kind icon takes its gradient**, the selection ring appears (keyline 1 dp ink @ 55%
+  + 1.5 dp cyan + 3 dp cyan halo, all outside the pixels), and the pill, title, size and extension appear.
+- **Pill:** chrome, 34 dp wide, radius 17, 4 dp vertical padding, **10 dp left of the board's left edge**, top aligned
+  with the board's top. Items top to bottom, 30 dp each:
+  1. kind icon, 18 dp, kind gradient;
+  2. **Animation:** the **frame wheel**: current frame Archivo 900 18 sp in the Studio gradient, the previous and next
+     numbers Plex Mono 8.5 sp at 45% above and below; slot 50 dp. **Drag up or down to step frames, 9 dp of travel per
+     frame.** **Image / tile / sprite:** the feature switch: 16 dp glyph in a 26 dp cell, radius 8; armed = 1.5 dp cyan
+     ring + 3 dp halo. Image/tile glyph = the seam-cut tile icon; sprite glyph = swap arrows;
+  3. **lock:** padlock 16 dp in a 26 dp cell. Locked = closed. Unlocked = open + 1.5 dp amber ring, resize handles out.
+     Animation with ≥ 2 frames = closed with a 5 dp nail dot; holding it offers "Move board with all frames" behind a
+     confirm, one undo step;
+  4. **export:** the Studio's export mark (K6), 16 dp.
+- **The pill does not hop.** It stays on the left.
+- **Title:** Archivo 700 12 sp, ink on paper with a 2 dp halo, left-aligned with the board, baseline 7 dp above the
+  line. It is the export's file name; tap to rename.
+- **Size:** one corner readout, `1920 × 1080`, Plex Mono 500 9 sp, ink on paper with halo, right-aligned to the board's
+  right edge, 8 dp above the line. Locked: 60%. Unlocked: full ink with a dotted underline, tap to type; typing shows a
+  1.5 dp cyan ring and caret. **Typed sizes grow right and down from the top-left corner** (§H1).
+- **Resize handles** (unlocked only): 8 dp squares, radius 2, drawer ink, 1.5 dp cyan ring, entirely outside the pixels.
+
+### K4. While drawing: pen-down fade
+
+Pen down anywhere on a selected board: the pill, title and size fade to **12%** in 120 ms, and the animation extension
+folds to its **tick ruler** at 35%. All return 300 ms after the pen lifts. Nothing moves.
+
+### K5. The animation extension (selected only)
+
+- **Peg tab fused to the strip:** chrome, 136 × 24 dp, radius 11/11/3/3, centred under the board, 8 dp below the line,
+  overlapping the strip's top by 3 dp. Three pegs, 44 dp apart: **left flat peg = onion skin** (32 × 12, radius 6),
+  **centre round peg = play / pause** (17 dp), **right flat peg = loop mode** (loop → ping-pong → once). Pegs are 1.5 dp
+  drawer-ink outlines with an 9 dp glyph; onion on = cyan ring; playing = pink ring + pause glyph.
+- **Film strip, outline:** no fill. 40 dp tall: 7 dp sprocket rails top and bottom (4 × 4 dp outlined holes every 9 dp),
+  26 dp cells. A cell is **44 dp per held tick** minus a 4 dp gap; number Plex Mono 600 9 sp; outline 1 dp ink @ 55% with
+  a contrast halo. Current frame = 1.5 dp pink ring + pink number. Hold > 1 = amber `×N` at the top-right. Lifted cell
+  = ×1.1, −2°, 1.5 dp amber ring, shadow; insertion caret = 2 dp cyan. Last cell = dashed `+` (tap duplicates, hold =
+  blank / link / hold / delete, R33). Width = the board's width, scrolling, fading out over the last 18%.
+- **Folded (K4):** 22 dp tick ruler, 14 dp per tick, current tick 2 × 12 dp pink with its number.
+
+### K6. Export (app-wide)
+
+- **One export icon everywhere in Joy Creator:** the Studio's film-strip export mark,
+  `app/src/main/res/drawable/ic_export_studio.xml` (the owner's `Export-film-icon.svg`). Studio gradient when it sits on
+  the paper or the app ground; drawer ink on chrome. No tray, no floppy.
+- **Animation board:** the Studio's export sheet (`FaditorEditorActivity.showExportConfirmation`), glass, 236 dp tall,
+  20 dp top corners: *Animation (all frames)* · *A range of frames* · *This frame*, format chips (GIF, PNG frames, sprite
+  sheet, Send to Studio), the memory-budget line, one gradient Export button. "Range" and "this frame" are added to the
+  **shared** sheet, not a copy (§I).
+- **Image board:** this board, or all image boards. **Sprite board:** sheet + JSON, or open in SpriteLab (JB-4.03d).
+
+### K7. Tile board, armed (the owner's ruling replaces §B21's "repeats around it")
+
+- Arming tiling **replaces the whole visible canvas with the tile**, repeated edge to edge at full strength: no fade, no
+  seam lines, no hatch, so you judge the pattern zoomed out exactly as it will look. It is still a preview: nothing
+  outside the tile is ever paint or export (§B21–B22 unchanged).
+- **Everything else disappears** (pill, title, size, other boards' tabs). What remains: the **selection ring around the
+  original tile** (K3's ring) so you keep your bearings, and the **tiling switch, on**, in a 34 dp chrome pill at the
+  pill's place.
+- **The switch can never be lost:** when the original tile is panned off-screen, the switch docks to the nearest screen
+  edge (8 dp in) and rides there until the tile comes back. *(Lead's addition, so the one way out is always on screen.)*
+- Every stroke anywhere wraps into the tile (§B22). The first time tiling is armed, one toast says smudge, fill and
+  the eyedropper do not wrap yet (§C6), until they do.
+
+### K8. Sprite board
+
+Grid shelf under the board: chrome, 30 dp, 8 dp below the line, left-aligned: `# | px` switch (on = sprite pink @ 70%),
+columns `− 4 +`, `×`, rows `− 2 +` (22 dp steppers), sub-grid chip `▦ 2` (2–8, a drawing guide, never exported). Armed:
+cells wiggle (±2.2°, 300 ms, alternate; off under reduced motion); a lifted cell = ×1.08, −3°, amber ring, shadow; the
+target cell = cyan ring; drop swaps all layers of both cells, one undo step. Disarmed: tapped cells get cyan 15 dp order
+badges top-centre; the playing cell = 2.5 dp pink ring + pink badge; the preview window (chrome, 84 dp wide, 56 dp art
+well on paper, `12 fps`, play/pause, clear) sits above the board's top-right.
+
+### K9. Layer column (animation board selected)
+
+Each row gets a 16 dp marker column left of its thumbnail: **running man in the Studio gradient** = animates in this
+board; **grey mountain** (`#A1A1AA`) = the same on every frame. Tap toggles. 13 dp glyphs.
+
+### K10. Owner's answers (2026-10-01, verbatim)
+
+> Your guard is very clever, so let's go with it. And yes to both of your questions. Hold on the play to set Fps. And
+> also yes to your second question. It should just be the icon. And if you ever tap the pattern and then draw while its
+> armed it sets the image icon to a pattern icon.
+
+- **Guards (K2) confirmed:** brackets on pen approach, and the frame number when not on frame 1.
+- **FPS:** **hold the play peg** opens a small fps stepper (Plex Mono, `−  12 fps  +`, chrome, above the peg). Tap play
+  still plays/pauses.
+- **Every board is icon-only at rest.** Image, tile and sprite boards lose their crop marks at rest and behave like K2's
+  animation row: the icon only, and the soft brackets fade in when a pen comes within 48 dp. (The frame number applies to
+  animation boards only.)
+- **A board you have painted on while tiling was armed becomes a tile board:** its tab icon changes from the image
+  icon to the tile (seam-cut) icon, and stays so after disarming. An image board that was armed but never painted on
+  keeps the image icon. The board's data does not change (Tile is still an Image board, §B1-2); this is a display flag,
+  `Board.tiled` set by the first stroke that wraps into it (saved with the drawing).

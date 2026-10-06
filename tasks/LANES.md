@@ -1009,3 +1009,9 @@ DEVICE: none. One shared Gradle lock; core/androidkit only. Existing main/remote
 status: IDLE; read-only source audit complete, report only.
 files: tasks/joybrush/reviews/LEAD_AUDIT_20261005.md
 DEVICE: none. No source edits, builds, installs, resets or merges.
+
+## JOYBRUSH_BOARD_RUNTIME_20261005
+status: ACTIVE; owner prioritizes all locked-design boards, pauses advanced painting.
+worktree: C:/Temp/jb-region-routing; root owns GlPaintEngine/JbCanvasView/UndoLog/CanvasSnapshot/Activity/shaders/DocOps.
+helper finished_work_audit owns RegionDocumentOps and new BoardDocumentOps/BoardSession +tests; integration_audit owns isolated board chrome strip interactions.
+DEVICE: none; serial shared lock/watch-build procedure.

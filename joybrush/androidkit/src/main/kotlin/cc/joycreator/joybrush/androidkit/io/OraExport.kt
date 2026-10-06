@@ -184,6 +184,11 @@ object OraExport {
             val why = omittedBecause(layer, frameId)
             if (why == null) kept.add(layer) else omitted.add(layer to why)
         }
+        // This format already names omitted vector layers in stack.xml. Keep them out of the
+        // flattened raster preview too; the general renderer now refuses unsupported vector art.
+        val rasterDoc = doc.copy(layers = doc.layers.map {
+            if (it.kind == LayerKind.INK) it.copy(visible = false) else it
+        })
 
         // DOCUMENT ORDER, BOTTOM FIRST — which is what `asReversed` in [stackXml] turns into the
         // top-first order OpenRaster reads, and what a `data/<n>.png` number follows. So `data/0.png`
@@ -266,7 +271,7 @@ object OraExport {
             // LAYER above it is the same pixels at NORMAL and opacity 1. The two halves of the file
             // agreeing is what `theLayersAndTheXmlReproduceTheMergedImage` checks.
             val merged = RegionRenderer.render(
-                doc, tiles, rect, frameId,
+                rasterDoc, tiles, rect, frameId,
                 if (renderer == null) paper else null, renderer,
             )
             val thumb = thumbnail(merged, rect.w, rect.h)

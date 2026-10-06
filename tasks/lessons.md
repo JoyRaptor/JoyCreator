@@ -938,3 +938,7 @@ JB-9.06b. Commit the row first, or copy the file aside, before mutating; verify 
 `:app:assembleDefaultDebug` watcher does not take `jb-gradle.lock`, so a free lock does not prove the
 machine is idle - measure daemon CPU over a few seconds before starting, and never stop another
 lane's process to make room.
+
+
+## 2026-10-05 - Future vector board ownership
+The owner reminded us that vector brushes are planned alongside raster. Board/session/frame metadata and content-copy address plans must accept both PAINT and INK. Put renderer capability refusals in the concrete backend, and test mixed ownership plus explicit unsupported export rather than accepting silent blank artwork.

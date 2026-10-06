@@ -5,9 +5,9 @@ Source: isolated codex/region-routing checkpoint 1bbd3a8b. Main checkout watcher
 ## Plan
 
 - [x] Owner Home/readiness gate; install integration arm64 APK in place and verify deployed APK identity.
-- [ ] Open Joy Brush; inspect controls and GL/crash logs.
+- [x] Open Joy Brush; inspect controls and crash logs.
 - [ ] Place Image, Animation and Sprite boards through actual UI, select and clear selection.
-- [ ] Verify painting across animation boundary, blank/duplicate frames, saved navigation, playback and Undo/Redo.
+- [x] Verify painting across animation boundary, blank/duplicate frames, saved navigation, playback and Undo/Redo.
 - [ ] Verify layer preview scope, selected-board PNG, save and reopen.
 - [ ] Fix confirmed phone blockers, rerun affected tests/build and device checks.
 - [ ] Record exact observed results and remaining specification gaps for Claude.
@@ -41,3 +41,15 @@ An isolated Samsung framework NPE also occurred immediately after the first pack
 The frame identity fix publishes identity/input before synchronous cancellation callbacks and guards cancellation against reentry. Its production-controller regression then exposed an additional timing fault: a nested refresh sampled a newer timestamp before the outer pass reached the pen fade clock. Controller refreshes now finish one complete pass and coalesce nested requests into one later animation pass; stop clears queued refreshes. The monotonic pen fade contract was retained. Final native suite: 48 tests, zero failures/errors/skips; watcher app assembly passed in 23s, 276 tasks.
 
 The persisted archive read after the Add crash contained the original page, the correctly sized new Image and Animation boards, and one Animation region/two physical cels on each of the three layers. This proves placement/save metadata, but not the failed Add transaction's subsequent save.
+
+## Final installed build and phone results
+
+Final source fix checkpoint: `e1827bde`, pushed to `origin/codex/region-routing`. Final installed arm64 APK SHA-256: `24309018DD69C279F8725FC004CA57936220D9E77511E3BD46FD044536A227E8`, verified against the Note 9 package bytes. Primary watcher restored; build lock released.
+
+On that build, passive Animation selection worked; Add created and selected frame 2 without crashing. Long-press Add → Blank created frame 3. The blank frame removed earlier artwork only inside the Animation board; shared artwork outside remained visible. A finger stroke from (120,1000) to (900,1000) crossed the (240,800,540,300) board. Switching to frame 1 removed its interior segment while retaining the outside segments. Undo from frame 1 removed the outside segments; Redo restored them while retaining navigation. Returning to frame 3 restored the complete line.
+
+Playback visibly advanced the displayed frame (captures at frames 1 and 2); stopping restored saved frame 3 and its line. Exiting through app Home saved an archive with three Animation frames and four physical cels on every layer. Reopening showed passive frame number 3, the blank-frame interior and its crossing line correctly. No new crash-buffer entries were observed during the final Add/Blank/paint/navigation/history/playback/reopen pass.
+
+Phone-tested in this session: Image/Animation placement, selected controls, duplicate/blank frame creation, cross-boundary paint ownership, saved navigation, grouped Undo/Redo, playback and restoration, page PNG via SAF, board/frame save and reopen. Native regression suite: 48/0. Unverified on phone: Sprite placement and physical pen routing, held/link/delete/reorder/timing controls, layer preview contents/performance, board-scoped PNG and other export formats. Remaining specification features above are still unfinished. Physical pressure/tilt/brush feel cannot be certified from injected finger gestures.
+
+A cold `run-as am start -W` debugging launch waited until Splash was launched normally; warm same-UID debug launches worked. Use the normal Splash/lobby path for ordinary user launches. No code change or workaround was added for that test-command behavior. Device screenshots and archives are local scratch evidence under `C:/Temp/jb-note9-*`, deliberately not committed as media.

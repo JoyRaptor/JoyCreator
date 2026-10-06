@@ -62,11 +62,13 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
     /** Supply before show(). Replacing a board/order cancels gestures before their indices can move. */
     var sceneIdentity: BoardChromeIdentity? = null
         set(value) {
-            if (field?.boardId != value?.boardId || field?.frameIds != value?.frameIds) {
-                stopInteractions()
-                identityAwaitingLayout = value != null
-            }
+            val changed = field?.boardId != value?.boardId || field?.frameIds != value?.frameIds
+            // Cancellation calls the host synchronously; its refresh must already see this identity.
             field = value
+            if (changed) {
+                identityAwaitingLayout = value != null
+                stopInteractions()
+            }
         }
     private var identityAwaitingLayout = false
     var paperInk: IconInk = IconInk.LIGHT
@@ -123,11 +125,11 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
 
     private fun applyInput(input: Chrome.Input) {
         val previous = this.input
+        this.input = input
         if (previous != null && (previous.density != input.density || previous.selected != input.selected || previous.kind != input.kind ||
                     previous.holds != input.holds && (activeTarget as? Target)?.isHolding != true)) {
             stopInteractions()
         }
-        this.input = input
         identityAwaitingLayout = input.kind == BoardKind.ANIMATION &&
             sceneIdentity?.frameIds?.size?.let { it != input.holds.size } == true
         layoutBuildCount++
@@ -459,15 +461,21 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
     /** Cancel a preview without disturbing an in-flight frame scrub or duration edit. */
     fun cancelHoverPreview() { stopHover() }
     /** The Activity calls this before pausing; a hover loop never survives leaving the screen. */
+    private var stoppingInteractions = false
     fun stopInteractions() {
-        removeCallbacks(renderPending)
-        inputQueue.clear()
-        capture.cancel()
-        targets.values.forEach { (it as Target).stopInteraction() }
-        activeTarget = null
-        hoveredTarget = null
-        stopHover()
-        roll?.end(false)
+        if (stoppingInteractions) return
+        stoppingInteractions = true
+        try {
+            removeCallbacks(renderPending)
+            inputQueue.clear()
+            capture.cancel()
+            val previousTargets = targets.values.toList()
+            activeTarget = null
+            hoveredTarget = null
+            previousTargets.forEach { (it as Target).stopInteraction() }
+            stopHover()
+            roll?.end(false)
+        } finally { stoppingInteractions = false }
     }
     override fun onDetachedFromWindow() { stopInteractions(); shadows.evictAll(); super.onDetachedFromWindow() }
 

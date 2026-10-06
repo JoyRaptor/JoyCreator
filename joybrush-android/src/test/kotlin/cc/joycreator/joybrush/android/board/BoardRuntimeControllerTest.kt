@@ -18,6 +18,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadows.ShadowAlertDialog
 import java.time.Duration
 import java.util.UUID
 
@@ -84,6 +85,36 @@ class BoardRuntimeControllerTest {
         assertEquals(emptyMap<String,String>(),host.previews.last())
         assertEquals(saved,host.document)
     }
+    @Test fun addingAndReorderingFramesSurvivesSynchronousCancellationRefresh() {
+        val host = Host(document()); val (controller,parent) = setup(host)
+        val id = host.document.boards.last().id
+        controller.select(id)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(40))
+        val view = (0 until parent.childCount).map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>().first { it.sceneIdentity?.boardId == id }
+        // This is the production adapter: roll cancellation calls stripGap, which immediately
+        // refreshes sceneIdentity again. Add must publish its new identity before that callback.
+        view.host.action("add",false)
+        controller.documentChanged(host.document)
+        assertEquals(2,host.document.boards.last().frames.size)
+        assertEquals(host.document.boards.last().frames.map { it.id },view.sceneIdentity?.frameIds)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(40))
+        val reversed = host.document.boards.last().frames.map { it.id }.reversed()
+        host.document = RegionDocumentOps.reorderFrames(host.document,id,reversed)
+        controller.documentChanged(host.document)
+        assertEquals(reversed,view.sceneIdentity?.frameIds)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(40))
+        // Selection changes also cancel interactions from applyInput, with the same refreshing host.
+        controller.select(null)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(40))
+        controller.select(id)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(40))
+        val builds = view.layoutBuildCount
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(40))
+        assertEquals(builds,view.layoutBuildCount)
+        assertEquals(id,controller.selectedBoardId)
+        assertEquals(reversed,view.sceneIdentity?.frameIds)
+        controller.stop()
+    }
     @Test fun oldThumbnailCallbackCannotReplaceNewSceneArt() {
         val host = Host(document()); val (controller,parent) = setup(host)
         val b = host.document.boards.last()
@@ -127,6 +158,88 @@ class BoardRuntimeControllerTest {
         val coords = MotionEvent.PointerCoords().apply { this.x=x; this.y=y; pressure=1f }
         val event = MotionEvent.obtain(0,20,action,1,arrayOf(property),arrayOf(coords),0,0,1f,1f,0,0,0,0)
         return try { view.dispatchTouchEvent(event) } finally { event.recycle() }
+    }
+    private fun beginPlacementThroughMenu(controller: BoardRuntimeController, parent: FrameLayout): View {
+        controller.showMenu()
+        val menu = ShadowAlertDialog.getLatestAlertDialog()
+        menu.listView.performItemClick(null,0,0L) // New Image board
+        parent.measure(View.MeasureSpec.makeMeasureSpec(548,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1126,View.MeasureSpec.EXACTLY))
+        parent.layout(0,0,548,1126)
+        return parent.getChildAt(parent.childCount-1)
+    }
+    @Test fun parentDispatchedPlacementUpDetachesAfterDispatchAndCreatesOnlyOnce() {
+        for (tool in listOf(MotionEvent.TOOL_TYPE_STYLUS,MotionEvent.TOOL_TYPE_FINGER)) {
+            val host = Host(document()); val (controller,parent) = setup(host)
+            val before = parent.childCount
+            val overlay = beginPlacementThroughMenu(controller,parent)
+            assertTrue(penTouch(parent,MotionEvent.ACTION_DOWN,320f,320f,tool))
+            assertTrue(penTouch(parent,MotionEvent.ACTION_MOVE,400f,420f,tool))
+            assertTrue(penTouch(parent,MotionEvent.ACTION_UP,400f,420f,tool))
+            assertSame(parent,overlay.parent) // No ViewGroup mutation inside its touch dispatch.
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
+            assertNull(overlay.parent)
+            assertEquals(before,parent.childCount)
+            val form = ShadowAlertDialog.getLatestAlertDialog()
+            assertEquals("New board",shadowOf(form).title.toString())
+            // A reentrant or repeated terminal event must not schedule another form.
+            penTouch(overlay,MotionEvent.ACTION_CANCEL,400f,420f,tool)
+            penTouch(overlay,MotionEvent.ACTION_UP,400f,420f,tool)
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
+            assertSame(form,ShadowAlertDialog.getLatestAlertDialog())
+            val count = host.document.boards.size
+            form.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick()
+            // AlertDialog delivers its positive-button listener through the main Handler.
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
+            assertEquals(count+1,host.document.boards.size)
+            assertEquals(RectPx(320,320,80,100),host.document.boards.last().rect)
+            controller.stop()
+        }
+    }
+    @Test fun parentDispatchedPlacementCancelNeverShowsCreationForm() {
+        val host = Host(document()); val (controller,parent) = setup(host)
+        val before = parent.childCount
+        val overlay = beginPlacementThroughMenu(controller,parent)
+        val menu = ShadowAlertDialog.getLatestAlertDialog()
+        assertTrue(penTouch(parent,MotionEvent.ACTION_DOWN,320f,320f))
+        assertTrue(penTouch(parent,MotionEvent.ACTION_CANCEL,400f,420f))
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
+        assertNull(overlay.parent)
+        assertEquals(before,parent.childCount)
+        assertSame(menu,ShadowAlertDialog.getLatestAlertDialog())
+        assertEquals(document(),host.document)
+        controller.stop()
+    }
+    @Test fun stoppingBeforeDeferredPlacementCompletionSuppressesItsForm() {
+        val host = Host(document()); val (controller,parent) = setup(host)
+        val overlay = beginPlacementThroughMenu(controller,parent)
+        val menu = ShadowAlertDialog.getLatestAlertDialog()
+        penTouch(parent,MotionEvent.ACTION_DOWN,320f,320f)
+        penTouch(parent,MotionEvent.ACTION_UP,400f,420f)
+        controller.stop()
+        controller.resume()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
+        assertNull(overlay.parent)
+        assertSame(menu,ShadowAlertDialog.getLatestAlertDialog())
+        controller.stop()
+    }
+    @Test fun secondPlacementInvalidatesFirstPendingCreationForm() {
+        val host = Host(document()); val (controller,parent) = setup(host)
+        val first = beginPlacementThroughMenu(controller,parent)
+        penTouch(parent,MotionEvent.ACTION_DOWN,320f,320f)
+        penTouch(parent,MotionEvent.ACTION_UP,400f,420f)
+        val second = beginPlacementThroughMenu(controller,parent)
+        val menu = ShadowAlertDialog.getLatestAlertDialog()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
+        assertNull(first.parent)
+        assertSame(parent,second.parent)
+        assertSame(menu,ShadowAlertDialog.getLatestAlertDialog())
+        penTouch(parent,MotionEvent.ACTION_DOWN,330f,330f)
+        penTouch(parent,MotionEvent.ACTION_UP,410f,430f)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
+        assertNull(second.parent)
+        assertEquals("New board",shadowOf(ShadowAlertDialog.getLatestAlertDialog()).title.toString())
+        ShadowAlertDialog.getLatestAlertDialog().dismiss()
+        controller.stop()
     }
     @Test fun penCanSelectBoardButtonWhileSpriteCellsPassThroughToPainting() {
         val host = Host(document())

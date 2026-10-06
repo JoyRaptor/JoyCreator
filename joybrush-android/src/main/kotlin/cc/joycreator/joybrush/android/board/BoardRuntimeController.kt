@@ -54,6 +54,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     }
     private val requested = mutableSetOf<Pair<String, String>>()
     private var capture: View? = null
+    private var placementEpoch = 0L
     private var playingBoard: String? = null
     private var clock: PlaybackClock? = null
     private var started = 0L
@@ -66,6 +67,9 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private var gap: Int? = null
     private var liftScene: BoardChromeIdentity? = null
     private var active = true
+    private var refreshingTransform = false
+    private var refreshAgainNeeded = false
+    private val refreshAgain = Runnable { refreshTransform() }
     private val penFades = mutableMapOf<String, BoardChromePenFade>()
     private val nearBoards = mutableSetOf<String>()
     private val approachExit = mutableMapOf<String, Long>()
@@ -148,7 +152,13 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         views.values.forEach { it.stopInteractions() }
         holdPreview = null; lifted = null; gap = null; liftScene = null
         parent.removeCallbacks(fade)
-        capture?.let { parent.removeView(it) }; capture = null
+        parent.removeCallbacks(refreshAgain)
+        refreshAgainNeeded = false
+        placementEpoch++
+        val placement = capture
+        capture = null
+        // Removing a current touch target can dispatch CANCEL synchronously. Finish dispatch first.
+        placement?.let { parent.post { if (it.parent === parent) parent.removeView(it) } }
         penDown = false; pen = null
         penFades.values.forEach { it.reset() }
         nearBoards.clear(); approachExit.clear()
@@ -180,6 +190,20 @@ class BoardRuntimeController(private val context: Context, private val parent: F
 
     fun refreshTransform() {
         if (!active) return
+        // Scene cancellation may synchronously call stripGap/holdCancelled and refresh again.
+        // Finish this timestamp's complete pass before applying a newer one to any pen fade.
+        if (refreshingTransform) { refreshAgainNeeded = true; return }
+        parent.removeCallbacks(refreshAgain)
+        refreshAgainNeeded = false
+        refreshingTransform = true
+        try { refreshTransformNow() }
+        finally {
+            refreshingTransform = false
+            if (active && refreshAgainNeeded) parent.postOnAnimation(refreshAgain)
+        }
+    }
+
+    private fun refreshTransformNow() {
         val current = doc ?: return
         if (parent.width == 0 || parent.height == 0) return
         val t = host.transform()
@@ -360,9 +384,21 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     }
     private fun beginPlacement(kind: BoardKind) {
         cancelInteractions()
+        val placement = placementEpoch
         var start: Pair<Float, Float>? = null
         var end: Pair<Float, Float>? = null
         val overlay = object : View(context) {
+            private var finished = false
+            private fun finish(rect: RectPx? = null) {
+                if (finished) return
+                finished = true
+                if (capture === this) capture = null
+                val target = this
+                this@BoardRuntimeController.parent.post {
+                    if (target.parent === this@BoardRuntimeController.parent) this@BoardRuntimeController.parent.removeView(target)
+                    if (rect != null && active && placement == placementEpoch) creationForm(kind, rect)
+                }
+            }
             override fun onDraw(canvas: Canvas) { val a = start ?: return; val b = end ?: a
                 val t = host.transform(); val p = t.screenToDoc(a.first,a.second); val q = t.screenToDoc(b.first,b.second)
                 val path = Path(); listOf(p.first to p.second,q.first to p.second,q.first to q.second,p.first to q.second).forEachIndexed { n, point ->
@@ -370,15 +406,18 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                 }; path.close()
                 canvas.drawPath(path,Paint().apply { color = 0xff42c8ed.toInt(); style = Paint.Style.STROKE; strokeWidth = 2 * resources.displayMetrics.density }) }
             override fun onTouchEvent(event: MotionEvent): Boolean {
+                if (finished) return true
+                if (!active || placement != placementEpoch) { finish(); return true }
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> { start = event.x to event.y; end = start }
                     MotionEvent.ACTION_MOVE -> { end = event.x to event.y; invalidate() }
-                    MotionEvent.ACTION_CANCEL -> { this@BoardRuntimeController.parent.removeView(this); capture = null }
+                    MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_DOWN -> finish()
                     MotionEvent.ACTION_UP -> {
-                        this@BoardRuntimeController.parent.removeView(this); capture = null
-                        val a = start ?: return true; val t = host.transform(); val p = t.screenToDoc(a.first,a.second); val q = t.screenToDoc(event.x,event.y)
+                        val a = start
+                        if (a == null) { finish(); return true }
+                        val t = host.transform(); val p = t.screenToDoc(a.first,a.second); val q = t.screenToDoc(event.x,event.y)
                         val rect = RectPx(floor(min(p.first,q.first)).toInt(),floor(min(p.second,q.second)).toInt(),abs(q.first-p.first).roundToInt().coerceAtLeast(1),abs(q.second-p.second).roundToInt().coerceAtLeast(1))
-                        creationForm(kind, rect)
+                        finish(rect)
                     }
                 }; return true
             }

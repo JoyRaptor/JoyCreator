@@ -73,4 +73,52 @@ class GlRegionStateTest {
         assertTrue(e.undoStep());assertEquals(addedDoc,e.boardDocument)
         assertTrue(e.redoStep());assertEquals(duplicated,e.boardDocument)
     }
+
+    @Test fun playbackNeverChangesSavedCursorOrHistoryAndRejectsForeignFramesAtomically() {
+        val first = doc()
+        val boardId = first.boards.last().id
+        val next = RegionDocumentOps.addFrame(first, boardId, NewFrame.BLANK, ::ids).doc
+        val board = next.boards.last()
+        val e = GlPaintEngine()
+        e.addLayer(next.layers.single().id); e.setBoardDocument(next)
+        val preview = mapOf(boardId to board.frames.first().id)
+        e.setFramePreviews(preview)
+        assertEquals(preview, e.previewFrames)
+        assertEquals(next, e.boardDocument)
+        assertFalse(e.undo.canUndo); assertFalse(e.undo.canRedo)
+        assertFailsWith<DocException> { e.setFramePreviews(mapOf(boardId to "foreign")) }
+        assertEquals(preview, e.previewFrames)
+        assertEquals(next, e.boardDocument)
+        e.setFramePreviews(emptyMap())
+        assertTrue(e.previewFrames.isEmpty())
+        assertEquals(0, e.heldTextureNames())
+    }
+
+    @Test fun unrelatedUndoKeepsLaterNavigationAndStopsPlayback() {
+        val first = doc(); val boardId = first.boards.last().id
+        val before = RegionDocumentOps.addFrame(first, boardId, NewFrame.BLANK, ::ids).doc
+        val after = BoardDocumentOps.rename(before, boardId, "Renamed")
+        val selected = before.boards.last().frames.first().id
+        val live = RegionDocumentOps.selectFrame(after, boardId, selected)
+        val e = GlPaintEngine(); e.addLayer(before.layers.single().id); e.setBoardDocument(live)
+        e.undo.push(UndoLog.Step(emptyList(), documentBefore = before, documentAfter = after))
+        e.setFramePreviews(mapOf(boardId to before.boards.last().frames.last().id))
+        assertTrue(e.undoStep())
+        assertTrue(e.previewFrames.isEmpty())
+        assertEquals(RegionDocumentOps.selectFrame(before, boardId, selected), e.boardDocument)
+        assertTrue(e.redoStep())
+        assertEquals(live, e.boardDocument)
+    }
+
+    @Test fun deletingPreviewedFrameDropsOnlyThatTransientOverride() {
+        val first = doc(); val boardId = first.boards.last().id
+        val next = RegionDocumentOps.addFrame(first, boardId, NewFrame.BLANK, ::ids).doc
+        val board = next.boards.last()
+        val e = GlPaintEngine(); e.addLayer(next.layers.single().id); e.setBoardDocument(next)
+        e.setFramePreviews(mapOf(boardId to board.frames.first().id))
+        val removed = RegionDocumentOps.deleteFrame(next, boardId, board.frames.first().id).doc
+        e.setBoardDocument(removed)
+        assertTrue(e.previewFrames.isEmpty())
+        assertEquals(removed, e.boardDocument)
+    }
 }

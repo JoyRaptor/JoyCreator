@@ -456,6 +456,8 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         val (next, restore) = hover.exit(); hover = next
         if (restore != null) host.hoverLoop(false, restore)
     }
+    /** Cancel a preview without disturbing an in-flight frame scrub or duration edit. */
+    fun cancelHoverPreview() { stopHover() }
     /** The Activity calls this before pausing; a hover loop never survives leaving the screen. */
     fun stopInteractions() {
         removeCallbacks(renderPending)

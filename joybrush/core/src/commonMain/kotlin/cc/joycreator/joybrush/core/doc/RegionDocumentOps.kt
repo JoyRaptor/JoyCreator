@@ -135,6 +135,43 @@ object RegionDocumentOps {
         return paintPlanUnchecked(doc, layerId)
     }
 
+    /** Transient playback/onion preview: override board cursors without changing saved document state.
+     * The plan addresses content, independent of raster or vector rendering capability.
+     */
+    fun paintPlan(doc: JbDocument, layerId: String, frameOverrides: Map<String, String>): RegionPaintPlan {
+        valid(doc)
+        validateOverrides(doc, frameOverrides)
+        return previewPlanUnchecked(doc, layerId, frameOverrides)
+    }
+
+    /** Playback validates the complete document once per display tick, rather than once per layer. */
+    fun paintPlans(doc: JbDocument, frameOverrides: Map<String, String>): Map<String, RegionPaintPlan> {
+        valid(doc)
+        validateOverrides(doc, frameOverrides)
+        return doc.layers.associate { it.id to previewPlanUnchecked(doc, it.id, frameOverrides) }
+    }
+
+    private fun validateOverrides(doc: JbDocument, frameOverrides: Map<String, String>) {
+        for ((boardId, frameId) in frameOverrides) {
+            val target = doc.boards.firstOrNull { it.id == boardId } ?: throw DocException("No such preview board")
+            if (target.kind != BoardKind.ANIMATION || target.frames.none { it.id == frameId }) {
+                throw DocException("Preview frame is not in this animation board")
+            }
+        }
+    }
+
+    private fun previewPlanUnchecked(doc: JbDocument, layerId: String, frameOverrides: Map<String, String>): RegionPaintPlan {
+        val layer = doc.layers.firstOrNull { it.id == layerId } ?: throw DocException("No such layer")
+        if (layer.animatedIn != null) throw DocException("Whole-layer animation is an obsolete test format")
+        val shared = layer.sharedCelId ?: layer.cels.singleOrNull()?.id ?: throw DocException("No shared content")
+        val frames = layer.regions.filterNot { it.held }.map { region ->
+            val target = doc.boards.first { it.id == region.boardId }
+            val current = frameOverrides[target.id] ?: target.currentFrameId ?: throw DocException("Select a frame first")
+            RegionFrame(target.id, target.rect, current, region.frameCel.getValue(current))
+        }
+        return RegionPaintPlan(shared, frames)
+    }
+
     /** For render callers which validated on open; override only the board owning that frame. */
     internal fun paintPlanUnchecked(doc: JbDocument, layerId: String, frameId: String? = null): RegionPaintPlan {
         val layer = doc.layers.firstOrNull { it.id == layerId } ?: throw DocException("No such layer")

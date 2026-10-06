@@ -6,6 +6,47 @@ import javax.imageio.ImageIO
 import kotlin.test.*
 
 class CanvasPngTest {
+    @Test fun explicitImageBoardExportsItsBoundsWithoutChangingSavedSelection() {
+        val original = contents()
+        val doc = BoardDocumentOps.createImage(original.doc, "Crop", RectPx(-1, 0, 2, 1)) { "crop" }.doc
+            .copy(activeBoardId = original.doc.activeBoardId)
+        val art = original.copy(doc = doc)
+        val saved = DocJson.encode(doc)
+        val image = ImageIO.read(ByteArrayInputStream(CanvasPng.encodeBoard(art, "crop", false)))
+        assertEquals(0, image.getRGB(0, 0))
+        assertEquals(0x80FF0000.toInt(), image.getRGB(1, 0))
+        assertEquals(saved, DocJson.encode(art.doc))
+        assertFailsWith<JbArchiveException> { CanvasPng.encodeBoard(art, "missing", false) }
+        assertFailsWith<DocException> { CanvasPng.encodeBoard(art, "crop", false, "not-a-frame") }
+    }
+
+    @Test fun explicitFrameExportUsesStoredCelAndLeavesLiveNavigationUntouched() {
+        val original = contents()
+        var serial = 0
+        val first = RegionDocumentOps.create(original.doc, "Loop", RectPx(0, 0, 1, 1)) { "frame-export-${++serial}" }.doc
+        val boardId = first.boards.last().id
+        val two = RegionDocumentOps.addFrame(first, boardId, NewFrame.BLANK) { "frame-export-${++serial}" }.doc
+        val board = two.boards.last()
+        val region = two.layers.single().regions.single()
+        val firstCel = region.frameCel.getValue(board.frames.first().id)
+        val secondCel = region.frameCel.getValue(board.frames.last().id)
+        val layer = two.layers.single()
+        val metadata = two.copy(layers = listOf(layer.copy(cels = layer.cels.map {
+            if (it.id == firstCel || it.id == secondCel) it.copy(tiles = listOf("0_0")) else it
+        })))
+        val red = ByteArray(TILE_BYTES).apply { this[0] = -1; this[3] = -1 }
+        val green = ByteArray(TILE_BYTES).apply { this[1] = -1; this[3] = -1 }
+        val art = original.copy(doc = metadata, tiles = original.tiles + mapOf(
+            Triple(layer.id, firstCel, "0_0") to red, Triple(layer.id, secondCel, "0_0") to green))
+        val saved = DocJson.encode(metadata)
+        val selected = ImageIO.read(ByteArrayInputStream(CanvasPng.encodeBoard(art, boardId, false)))
+        val earlier = ImageIO.read(ByteArrayInputStream(CanvasPng.encodeBoard(art, boardId, false, board.frames.first().id)))
+        assertEquals(0xFF00FF00.toInt(), selected.getRGB(0, 0))
+        assertEquals(0xFFFF0000.toInt(), earlier.getRGB(0, 0))
+        assertEquals(saved, DocJson.encode(art.doc))
+        assertContentEquals(red, art.tiles.getValue(Triple(layer.id, firstCel, "0_0")))
+    }
+
     @Test fun texturedPaperExportUsesDocumentCoordinatesAndLeavesTilesUntouched() {
         val art = contents()
         val savedTile = art.tiles.values.single().copyOf()

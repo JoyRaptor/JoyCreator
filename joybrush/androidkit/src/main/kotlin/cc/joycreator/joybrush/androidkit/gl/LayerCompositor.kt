@@ -51,12 +51,12 @@ internal class LayerCompositor {
         GLES30.glBlitFramebuffer(x, y, x + w, y + h, x, y, x + w, y + h, GLES30.GL_COLOR_BUFFER_BIT, GLES30.GL_NEAREST)
     }
 
-    /** Copies the whole of [target] onto the default framebuffer. */
-    fun blitToScreen() {
+    /** Copies the whole of [target] onto the screen, or an equally sized preview target. */
+    fun blitToScreen(destinationFbo: Int = 0) {
         GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, targetFbo)
-        GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, 0)
+        GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, destinationFbo)
         GLES30.glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GLES30.GL_COLOR_BUFFER_BIT, GLES30.GL_NEAREST)
-        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, destinationFbo)
     }
 
     /** Context lost: the names are dead. Drop them; delete nothing. */

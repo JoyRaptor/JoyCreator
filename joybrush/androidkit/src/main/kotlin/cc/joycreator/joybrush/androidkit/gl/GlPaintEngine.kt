@@ -213,6 +213,9 @@ class GlPaintEngine(
     private var strokePlan: RegionPaintPlan? = null
     var boardDocument: JbDocument? = null
         private set
+    private var framePreviews: Map<String, String> = emptyMap()
+    /** GL-thread snapshot. Playback has no saved cursor and contributes no history step. */
+    val previewFrames: Map<String, String> get() = framePreviews.toMap()
     private val strokeTiles = HashMap<Long, Int>()
     private var colR = 0f; private var colG = 0f; private var colB = 0f
     private var opacity = 1f
@@ -388,6 +391,7 @@ class GlPaintEngine(
         cancelStroke()
         layers.clear()
         boardDocument = null
+        framePreviews = emptyMap()
         undo.clear()
         freeLayerTex.clear()
         freeStrokeTex.clear()
@@ -633,8 +637,14 @@ class GlPaintEngine(
      * [THUMB_SUPERSAMPLE] times the size and box-averaged, because a 1 px pencil line minified 30 times without it
      * sparkles or vanishes. Null for a layer that does not exist.
      */
-    fun renderThumbnail(id: String, pageW: Int, pageH: Int, outW: Int, outH: Int): IntArray? {
+    fun renderThumbnail(id: String, pageW: Int, pageH: Int, outW: Int, outH: Int): IntArray? =
+        renderThumbnail(id, RectPx(0, 0, pageW, pageH), outW, outH)
+
+    /** The same small preview, bounded to a selected board, including negative document coordinates. */
+    fun renderThumbnail(id: String, bounds: RectPx, outW: Int, outH: Int): IntArray? {
         val layer = storeOf(id) ?: return null
+        val pageW = bounds.w
+        val pageH = bounds.h
         if (outW <= 0 || outH <= 0 || pageW <= 0 || pageH <= 0) return null
         val w = outW * THUMB_SUPERSAMPLE
         val h = outH * THUMB_SUPERSAMPLE
@@ -655,7 +665,8 @@ class GlPaintEngine(
         tileProg.use()
         GLES30.glUniform1f(tileProg.loc("u_tileSize"), size.toFloat())
         // The page onto the whole target, its TOP row at row 0 of the readback (the tiles' own convention).
-        val m = floatArrayOf(2f / pageW, 0f, 0f, 0f, 2f / pageH, 0f, -1f, -1f, 1f)
+        val m = floatArrayOf(2f / pageW, 0f, 0f, 0f, 2f / pageH, 0f,
+            -1f - 2f * bounds.x / pageW, -1f - 2f * bounds.y / pageH, 1f)
         GLES30.glUniformMatrix3fv(tileProg.loc("u_docToClip"), 1, false, m, 0)
         GLES30.glUniform1f(tileProg.loc("u_layerOpacity"), 1f)
         GLES30.glUniform1i(tileProg.loc("u_layer"), 0)
@@ -673,6 +684,53 @@ class GlPaintEngine(
         val px = ByteArray(w * h * 4)
         buf.rewind(); buf.get(px)
         return Thumbnails.downsample(px, w, h, THUMB_SUPERSAMPLE)
+    }
+
+    /** A bounded, fully composited strip picture. The document cursor and history stay untouched. */
+    fun renderBoardThumbnail(boardId: String, frameId: String, outW: Int, outH: Int, paperArgb: Int): IntArray {
+        check(!strokeInProgress) { "Frame thumbnails cannot replace a live stroke's display plan" }
+        require(outW in 1..512 && outH in 1..512) { "Frame preview dimensions are out of range" }
+        val doc = boardDocument ?: error("No board document is attached")
+        val board = doc.boards.firstOrNull { it.id == boardId } ?: error("No such board")
+        val restore = framePreviews
+        // The core validates frame identity, even if every layer is held.
+        val requested = restore + (boardId to frameId)
+        RegionDocumentOps.paintPlans(doc, requested)
+        val w = outW * THUMB_SUPERSAMPLE
+        val h = outH * THUMB_SUPERSAMPLE
+        val bindings = IntArray(2)
+        val viewport = IntArray(4)
+        GLES30.glGetIntegerv(GLES30.GL_DRAW_FRAMEBUFFER_BINDING, bindings, 0)
+        GLES30.glGetIntegerv(GLES30.GL_READ_FRAMEBUFFER_BINDING, bindings, 1)
+        GLES30.glGetIntegerv(GLES30.GL_VIEWPORT, viewport, 0)
+        val scissor = GLES30.glIsEnabled(GLES30.GL_SCISSOR_TEST)
+        try {
+            setFramePreviews(requested)
+            if (thumbTex == 0 || thumbW != w || thumbH != h) {
+                if (thumbTex != 0) GLES30.glDeleteTextures(1, intArrayOf(thumbTex), 0)
+                thumbTex = newTexture(w, h, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
+                thumbW = w; thumbH = h
+            }
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+            attach(thumbTex)
+            GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+            val rect = board.rect
+            val matrix = floatArrayOf(2f / rect.w, 0f, 0f, 0f, 2f / rect.h, 0f,
+                -1f - 2f * rect.x / rect.w, -1f - 2f * rect.y / rect.h, 1f)
+            draw(w, h, matrix, paperArgb, fbo)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+            val buf = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder())
+            GLES30.glReadPixels(0, 0, w, h, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf)
+            val pixels = ByteArray(w * h * 4)
+            buf.rewind(); buf.get(pixels)
+            return Thumbnails.downsample(pixels, w, h, THUMB_SUPERSAMPLE)
+        } finally {
+            setFramePreviews(restore)
+            GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, bindings[0])
+            GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, bindings[1])
+            GLES30.glViewport(viewport[0], viewport[1], viewport[2], viewport[3])
+            if (scissor) GLES30.glEnable(GLES30.GL_SCISSOR_TEST) else GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        }
     }
     fun setLayerVisible(id: String, visible: Boolean) { layers[id]?.visible = visible }
 
@@ -826,6 +884,7 @@ class GlPaintEngine(
         layers.values.forEach { l -> l.ownedTextures().forEach(::recycleLayerTex); l.mask?.ownedTextures()?.forEach(::recycleLayerTex) }
         layers.clear()
         boardDocument = null
+        framePreviews = emptyMap()
     }
 
     fun layerOpacity(id: String): Float = layers[id]?.opacity ?: 1f
@@ -836,17 +895,39 @@ class GlPaintEngine(
         check(!strokeInProgress) { "A board cannot change during a stroke" }
         val errors=DocOps.validate(doc); require(errors.isEmpty()) { errors.joinToString("; ") }
         require(doc.layers.all { it.kind==LayerKind.PAINT && it.animatedIn==null }) { "This renderer paints raster layers" }
+        val previews = framePreviews.filter { (boardId, frameId) ->
+            doc.boards.any { it.id == boardId && it.kind == BoardKind.ANIMATION && it.frames.any { f -> f.id == frameId } }
+        }
+        // Validate all plans before changing any live layer.
+        val plans = RegionDocumentOps.paintPlans(doc, previews)
         for (meta in doc.layers) {
             val layer=layers[meta.id] ?: error("No live layer ${meta.id}")
             val shared=meta.sharedCelId ?: meta.cels.single().id
             if (layer.sharedCel==null) { layer.sharedCel=shared; layer.cels[shared]?.let { layer.tiles.putAll(it) }; layer.cels[shared]=layer.tiles }
             check(layer.sharedCel==shared) { "Shared paint identity cannot silently change" }
             meta.cels.forEach { layer.cels.getOrPut(it.id) { HashMap() } }
-            val plan=RegionDocumentOps.paintPlan(doc,meta.id)
+            val plan=plans.getValue(meta.id)
             if(layer.plan?.frames!=plan.frames)invalidateProjection(layer)
             layer.plan=plan
         }
         boardDocument=doc
+        framePreviews=previews
+    }
+
+    /** Switch display planes only. Paint always begins on the document's saved frame. */
+    fun setFramePreviews(frames: Map<String, String>) {
+        check(!strokeInProgress) { "Playback cannot change during a stroke" }
+        val doc = boardDocument
+        if (doc == null) { require(frames.isEmpty()) { "No board document is attached" }; return }
+        val requested = frames.toMap()
+        if (requested == framePreviews) return
+        val plans = RegionDocumentOps.paintPlans(doc, requested)
+        for ((id, plan) in plans) {
+            val layer = layers.getValue(id)
+            if (layer.plan?.frames != plan.frames) invalidateProjection(layer)
+            layer.plan = plan
+        }
+        framePreviews = requested
     }
 
     /** Execute bounded physical copies/drops, then publish metadata and all pixels as ONE history step. */
@@ -1001,6 +1082,7 @@ class GlPaintEngine(
                     grain: GrainMath.StrokeGrain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF),
                     smudge: SmudgeParams? = null, tuft: TuftShading? = null) {
         cancelStroke()
+        if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         strokeTravel.reset()
         strokeLayer = storeOf(layerId) ?: error("no layer $layerId")
         strokePlan = strokeLayer?.plan
@@ -1317,19 +1399,31 @@ class GlPaintEngine(
 
     fun undoStep(): Boolean {
         val s = undo.undo() ?: return false
+        val restored = s.documentBefore?.let { target ->
+            val opposite = s.documentAfter
+            val live = boardDocument
+            if (opposite != null && live != null) BoardHistory.restore(target, opposite, live) else target
+        }
+        if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         s.changes.forEach { put(it.layerId, it.key, it.before, it.celId) }
         s.stackBefore?.let { restoreStack(it) }
         s.paperBefore?.let { setDocumentPaper(it) }
-        s.documentBefore?.let { setBoardDocument(it) }
+        restored?.let { setBoardDocument(it) }
         return true
     }
 
     fun redoStep(): Boolean {
         val s = undo.redo() ?: return false
+        val restored = s.documentAfter?.let { target ->
+            val opposite = s.documentBefore
+            val live = boardDocument
+            if (opposite != null && live != null) BoardHistory.restore(target, opposite, live) else target
+        }
+        if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         s.changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
         s.stackAfter?.let { restoreStack(it) }
         s.paperAfter?.let { setDocumentPaper(it) }
-        s.documentAfter?.let { setBoardDocument(it) }
+        restored?.let { setBoardDocument(it) }
         return true
     }
 
@@ -1345,11 +1439,11 @@ class GlPaintEngine(
      * Draws paper and every visible layer (with the live stroke previewed) into the CURRENT
      * framebuffer. [docToClip] is a column-major 3×3 matrix from document px to clip space.
      */
-    fun draw(viewportW: Int, viewportH: Int, docToClip: FloatArray, paperArgb: Int) {
-        if (needsComposite()) { drawComposited(viewportW, viewportH, docToClip, paperArgb); return }
-        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+    fun draw(viewportW: Int, viewportH: Int, docToClip: FloatArray, paperArgb: Int, targetFbo: Int = 0) {
+        if (needsComposite()) { drawComposited(viewportW, viewportH, docToClip, paperArgb, targetFbo); return }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, targetFbo)
         GLES30.glViewport(0, 0, viewportW, viewportH)
-        drawPaper(viewportW,viewportH,docToClip,paperArgb,0)
+        drawPaper(viewportW,viewportH,docToClip,paperArgb,targetFbo)
         GLES30.glEnable(GLES30.GL_BLEND)
         GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
         GLES30.glBindVertexArray(tileVao)
@@ -1404,14 +1498,14 @@ class GlPaintEngine(
      * the screen. The Blend check on the phone compares this path with [draw]'s for NORMAL layers as well as
      * checking all 27 modes against the export; up to a few 1/255 apart is rounding (RGBA8 per layer), not a bug.
      */
-    private fun drawComposited(w: Int, h: Int, docToClip: FloatArray, paperArgb: Int) {
+    private fun drawComposited(w: Int, h: Int, docToClip: FloatArray, paperArgb: Int, targetFbo: Int) {
         val prog = compositeProg ?: try {
             GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_composite.frag"), "composite").also { compositeProg = it }
         } catch (e: RuntimeException) {
             // The 27-branch blend shader is the biggest one we compile. If a driver refuses it, the rest of the
             // engine must keep working: remember why, and draw this and every later frame the plain way.
             compositeError = e.message ?: e.javaClass.simpleName
-            draw(w, h, docToClip, paperArgb)
+            draw(w, h, docToClip, paperArgb, targetFbo)
             return
         }
         compositor.ensure(w, h)
@@ -1474,7 +1568,7 @@ class GlPaintEngine(
             }
         }
         previews.values.forEach(::recycleLayerTex)
-        compositor.blitToScreen()
+        compositor.blitToScreen(targetFbo)
         GLES30.glBindVertexArray(0)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
     }

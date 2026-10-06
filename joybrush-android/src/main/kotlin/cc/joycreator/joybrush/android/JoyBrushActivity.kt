@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.android
 
 import android.app.Activity
+import cc.joycreator.joybrush.android.board.BoardRuntimeController
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -245,6 +246,9 @@ class JoyBrushActivity : Activity() {
     private var iconsInked = false
     private var iconCheckPending = false
     private lateinit var overlaysView: FrameLayout
+    private lateinit var boardOverlay: FrameLayout
+    private var boardController: BoardRuntimeController? = null
+    private var boardThumbnailRevision = 0L
     private lateinit var prefs: SharedPreferences
     private var placement = StripPlacement.DEFAULT
     private var chromeShown = true
@@ -280,8 +284,11 @@ class JoyBrushActivity : Activity() {
         object Working : SaveDest()
         class Copy(val uri: Uri) : SaveDest()
         class Open(val selection: StagedDrawing) : SaveDest()
-        class Png(val uri: Uri, val includePaper: Boolean) : SaveDest()
+        class Png(val uri: Uri, val target: PngTarget) : SaveDest()
     }
+
+    private data class PngTarget(val documentId: String, val boardId: String, val frameId: String?, val includePaper: Boolean)
+    private var pendingPng: PngTarget? = null
 
     private var loadingDrawing = true
     private var replacingDrawing = false
@@ -320,6 +327,11 @@ class JoyBrushActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        savedInstanceState?.getString("png_board")?.let { board ->
+            savedInstanceState.getString("png_document")?.let { document ->
+                pendingPng = PngTarget(document, board, savedInstanceState.getString("png_frame"), savedInstanceState.getBoolean("png_paper"))
+            }
+        }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         canvas = JbCanvasView(this)
@@ -362,6 +374,23 @@ class JoyBrushActivity : Activity() {
             onChanged = { next, done -> guides = next; if (done) guidesChanged() }
         }
         root.addView(guideOverlay, FrameLayout.LayoutParams(MATCH, MATCH))
+        boardOverlay = FrameLayout(this)
+        root.addView(boardOverlay, FrameLayout.LayoutParams(MATCH, MATCH))
+        boardController = BoardRuntimeController(this, boardOverlay, object : BoardRuntimeController.Host {
+            override fun ensureDocument(ready: (cc.joycreator.joybrush.core.doc.JbDocument) -> Unit) = canvas.ensureBoardDocument(ready)
+            override fun edit(change: (cc.joycreator.joybrush.core.doc.JbDocument) -> cc.joycreator.joybrush.core.doc.RegionChange) = canvas.editBoards(change)
+            override fun selectFrame(boardId: String, frameId: String) = canvas.selectBoardFrame(boardId, frameId)
+            override fun preview(frames: Map<String, String>) = canvas.previewBoardFrames(frames)
+            override fun transform() = canvas.view
+            override fun contentRevision() = canvas.boardContentRevision
+            override fun refusal(message: String) { Toast.makeText(this@JoyBrushActivity, message, Toast.LENGTH_SHORT).show() }
+            override fun export(boardId: String) { pngOptions(layersBtn, boardId) }
+            override fun selectionChanged(bounds: cc.joycreator.joybrush.core.doc.RectPx?) { updateLayerPreviewAspect(bounds); boardThumbnailRevision++; refreshThumbs() }
+            override fun thumbnails(boardId: String, frames: List<String>, width: Int, height: Int, ready: (Map<String, IntArray>) -> Unit) =
+                canvas.boardFrameThumbnails(boardId, frames, width, height, ready)
+        })
+        canvas.onBoardsChanged = { boardController?.documentChanged(it) }
+        canvas.onBeforeStroke = { boardController?.stopPreview() }
         root.addView(overlays, FrameLayout.LayoutParams(MATCH, MATCH))
         // Joy Brush's identity, as a hairline along the very top (visual language §4.2): the section colour, never a button.
         hairline = View(this).apply { background = JbColors.roomGradient(this@JoyBrushActivity) }
@@ -374,10 +403,10 @@ class JoyBrushActivity : Activity() {
         // JB-2.04: the column follows the stack, and anything refused is said in words.
         canvas.onLayersChanged = { stack -> layersChanged(stack) }
         canvas.onRefused = { why -> toast(why) }
-        canvas.onGraphicsLost = { documentId -> recoverGraphics(documentId) }
+        canvas.onGraphicsLost = { documentId -> boardController?.stop(); recoverGraphics(documentId) }
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
-        canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate() }
+        canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate(); boardController?.refreshTransform() }
         canvas.onGuideLock = { on -> guideOverlay.locked = on }
         guides = GuideSettings.decode(prefs.getString(PREF_GUIDES, null))
         guidesChanged()
@@ -385,7 +414,7 @@ class JoyBrushActivity : Activity() {
         root.post { checkIcons() }
         // JbCanvasView reports this on the UI thread via post(), after every committed stroke,
         // undo, redo and clear. Undo and Redo start disabled -- there is no history yet.
-        canvas.onBeforeHistoryChange = { popovers.close() }
+        canvas.onBeforeHistoryChange = { popovers.close(); boardController?.stopPreview() }
         canvas.onPaperChanged = { p -> refreshPaper(p) }
         refreshPaper(canvas.documentPaper)
         canvas.onHistoryChanged = { canUndo, canRedo ->
@@ -416,7 +445,7 @@ class JoyBrushActivity : Activity() {
         updateHistoryButtons(false, false)
         // JB-0.06: the diagnostics overlay sees every pen event. It only stores numbers, and only
         // while it is visible, so drawing is untouched.
-        canvas.onRawEvent = { ev -> diag.onRawEvent(ev) }
+        canvas.onRawEvent = { ev -> diag.onRawEvent(ev); boardController?.penEvent(ev) }
         goFullScreen(overlays)
 
         // Where the person left off, if they left off anywhere.
@@ -428,11 +457,13 @@ class JoyBrushActivity : Activity() {
         viewPausePending = false
         ui.removeCallbacks(pauseView)
         canvas.onResume()
+        if (chromeShown) boardController?.resume()
         startBrushLab()
         saves.drain()
     }
 
     override fun onPause() {
+        boardController?.stop()
         popovers.close()
         stopBrushLab()
         // GLSurfaceView DEFERS a GL event that was queued before its GL thread is paused until the
@@ -449,7 +480,18 @@ class JoyBrushActivity : Activity() {
         super.onPause()
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        pendingPng?.let { target ->
+            outState.putString("png_document", target.documentId)
+            outState.putString("png_board", target.boardId)
+            outState.putString("png_frame", target.frameId)
+            outState.putBoolean("png_paper", target.includePaper)
+        }
+        super.onSaveInstanceState(outState)
+    }
+
     override fun onDestroy() {
+        boardController?.stop()
         destroyed = true
         paperPreviewRevision++
         paperPreviewWorker.shutdownNow()
@@ -719,10 +761,11 @@ class JoyBrushActivity : Activity() {
 
     private fun moreMenu(anchor: View) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        box.addView(menuRow("Boards…", "Create or select an Image, Animation or Sprite board") { popovers.close(); boardController?.showMenu() })
         box.addView(menuRow("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() })
         box.addView(menuRow("Open…", "Open a drawing from your files") { askWhichToOpen() })
         box.addView(menuRow("Recent drawings…", "Recover one of the last drawings kept before Open") { recentDrawings(anchor) })
-        box.addView(menuRow("Export PNG…", "Export the whole canvas board as a picture") { pngOptions(anchor) })
+        box.addView(menuRow("Export PNG…", "Export the selected board, or the page") { pngOptions(anchor) })
 
         // Smoothing lives here now: set once, rarely touched.
         val smoothHead = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -890,7 +933,8 @@ class JoyBrushActivity : Activity() {
     private fun toggleChrome() {
         chromeShown = !chromeShown
         popovers.close()
-        val views = if (columnOpen) listOf<View>(topBar, strip, hairline, column) else listOf<View>(topBar, strip, hairline)
+        if (chromeShown) boardController?.resume() else boardController?.stop()
+        val views = if (columnOpen) listOf<View>(topBar, strip, hairline, column, boardOverlay) else listOf<View>(topBar, strip, hairline, boardOverlay)
         for (v in views) {
             v.animate().cancel()
             if (chromeShown) {
@@ -1023,9 +1067,15 @@ class JoyBrushActivity : Activity() {
     /** The stack moved: the column shows it and its pictures are re-drawn shortly. */
     private fun layersChanged(stack: LayerStack) {
         canvas.maxLayers = budget()
-        if (canvas.pageWidth > 0 && canvas.pageHeight > 0) column.pageAspect = canvas.pageWidth.toFloat() / canvas.pageHeight
+        updateLayerPreviewAspect(boardController?.selectedBounds)
         column.show(stack, canvas.maxLayers, canvas.editingMask)
         refreshThumbs()
+    }
+
+    private fun updateLayerPreviewAspect(bounds: cc.joycreator.joybrush.core.doc.RectPx?) {
+        val width = bounds?.w ?: canvas.pageWidth
+        val height = bounds?.h ?: canvas.pageHeight
+        if (width > 0 && height > 0) column.pageAspect = width.toFloat() / height
     }
 
     /** How many layers this phone may hold, from its RAM and the page (core's [LayerBudget]). */
@@ -1045,13 +1095,17 @@ class JoyBrushActivity : Activity() {
     private val thumbsNow = Runnable {
         thumbsPending = false
         val (w, h) = column.thumbSize()
-        canvas.layerThumbnails(canvas.layers.layers.map { it.id }, w, h) { pixels ->
+        val revision = boardThumbnailRevision
+        val bounds = boardController?.selectedBounds
+        canvas.layerThumbnails(canvas.layers.layers.map { it.id }, w, h, bounds) { pixels ->
+            if (revision != boardThumbnailRevision || destroyed) return@layerThumbnails
             val bitmaps = pixels.mapValues { (_, argb) -> Bitmap.createBitmap(argb, w, h, Bitmap.Config.ARGB_8888) }
             column.setThumbnails(bitmaps)
         }
         // And the masks, keyed back to their layers (JB-2.23).
         val masked = canvas.layers.layers.filter { it.hasMask }.map { it.id }
-        if (masked.isNotEmpty()) canvas.layerThumbnails(masked.map { maskStoreId(it) }, w, h) { pixels ->
+        if (masked.isNotEmpty()) canvas.layerThumbnails(masked.map { maskStoreId(it) }, w, h, bounds) { pixels ->
+            if (revision != boardThumbnailRevision || destroyed) return@layerThumbnails
             column.setMaskThumbnails(pixels.entries.associate { (store, argb) ->
                 store.removeSuffix(maskStoreId("")) to Bitmap.createBitmap(argb, w, h, Bitmap.Config.ARGB_8888)
             })
@@ -1658,7 +1712,8 @@ class JoyBrushActivity : Activity() {
                         is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)
                         is SaveDest.Png -> {
                             // Encode and validate completely before touching the chosen destination.
-                            val png = CanvasPng.encode(contents, dest.includePaper)
+                            if (contents.doc.id != dest.target.documentId) throw JbArchiveException("the drawing changed; choose the board to export again")
+                            val png = CanvasPng.encodeBoard(contents, dest.target.boardId, dest.target.includePaper, dest.target.frameId)
                             val output = contentResolver.openOutputStream(dest.uri, "wt")
                                 ?: throw JbArchiveException("the PNG destination could not be opened")
                             output.use { it.write(png) }
@@ -1935,7 +1990,12 @@ class JoyBrushActivity : Activity() {
         }
     }
 
-    private fun pngOptions(anchor: View) {
+    private fun pngOptions(anchor: View, boardId: String? = boardController?.selectedBoardId) {
+        val doc = canvas.boardDocument
+        if (doc == null) { canvas.ensureBoardDocument { pngOptions(anchor, boardId) }; return }
+        val board = if (boardId == null) doc.boards.firstOrNull { it.kind == cc.joycreator.joybrush.core.doc.BoardKind.CANVAS }
+            else doc.boards.firstOrNull { it.id == boardId }
+        if (board == null) { toast("That board no longer exists"); return }
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val paper = android.widget.CheckBox(this).apply {
             text = "Include paper"
@@ -1945,12 +2005,13 @@ class JoyBrushActivity : Activity() {
             contentDescription = "Include the paper colour; turn off for a transparent background"
         }
         box.addView(paper)
-        box.addView(menuRow("Choose where to save…", "Save the whole board as a PNG") {
+        box.addView(menuRow("Choose where to save…", "Save ${board.name} as a PNG") {
             prefs.edit().putBoolean(PREF_EXPORT_PAPER, paper.isChecked).apply()
+            pendingPng = PngTarget(doc.id, board.id, board.currentFrameId, paper.isChecked)
             val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = "image/png"
-                putExtra(Intent.EXTRA_TITLE, copyName().removeSuffix(".joybrush") + ".png")
+                putExtra(Intent.EXTRA_TITLE, cc.joycreator.joybrush.core.export.AnimExport.safeBaseName(board.name) + ".png")
             }
             launch(intent, REQUEST_EXPORT_PNG)
         })
@@ -1987,6 +2048,7 @@ class JoyBrushActivity : Activity() {
         try {
             startActivityForResult(intent, request)
         } catch (e: ActivityNotFoundException) {
+            if (request == REQUEST_EXPORT_PNG) pendingPng = null
             toast("This device has nowhere to save or open files")
         }
     }
@@ -1998,14 +2060,16 @@ class JoyBrushActivity : Activity() {
      */
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        val pngTarget = if (requestCode == REQUEST_EXPORT_PNG) pendingPng.also { pendingPng = null } else null
         if (resultCode != Activity.RESULT_OK) return
         val uri = data?.data ?: return
         if (requestCode == REQUEST_OPEN) openFrom(uri)
         if (requestCode == REQUEST_SAVE_COPY) saveCopyTo(uri)
         if (requestCode == REQUEST_REFERENCE) pinReference(uri)
-        if (requestCode == REQUEST_EXPORT_PNG) saves.request(
-            SaveReason.EXPLICIT, SaveDest.Png(uri, prefs.getBoolean(PREF_EXPORT_PAPER, false)),
-        )
+        if (requestCode == REQUEST_EXPORT_PNG) {
+            if (pngTarget == null) toast("That export was interrupted; choose the board again")
+            else saves.request(SaveReason.EXPLICIT, SaveDest.Png(uri, pngTarget))
+        }
     }
 
     /** `Joy Brush 2026-09-28 2311.joybrush` — the default name the picker opens with. */

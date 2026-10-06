@@ -7,6 +7,8 @@ import cc.joycreator.joybrush.core.paper.ResolvedPaper
 import cc.joycreator.joybrush.core.paper.PaperState
 import cc.joycreator.joybrush.core.doc.Paper
 import cc.joycreator.joybrush.core.doc.JbDocument
+import cc.joycreator.joybrush.core.doc.RectPx
+import cc.joycreator.joybrush.core.doc.RegionDocumentOps
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Looper
@@ -476,14 +478,39 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * Small pictures of [ids], each [w] x [h] px of the whole page (ARGB, not premultiplied), rendered on the GL thread
      * and handed over on the UI thread. A layer that has gone by then is simply missing from the map.
      */
-    fun layerThumbnails(ids: List<String>, w: Int, h: Int, onReady: (Map<String, IntArray>) -> Unit) {
+    fun layerThumbnails(ids: List<String>, w: Int, h: Int, bounds: RectPx? = null,
+                        onReady: (Map<String, IntArray>) -> Unit) {
         val pw = pageW
         val ph = pageH
         if (pw <= 0 || ph <= 0) return
         onGl {
             val out = HashMap<String, IntArray>()
-            for (id in ids) engine.renderThumbnail(id, pw, ph, w, h)?.let { out[id] = it }
+            val scope = bounds ?: RectPx(0, 0, pw, ph)
+            for (id in ids) engine.renderThumbnail(id, scope, w, h)?.let { out[id] = it }
             post { onReady(out) }
+        }
+    }
+
+    /** True board/frame pictures for the visible strip only, never an archive or saved navigation. */
+    fun boardFrameThumbnails(boardId: String, frameIds: List<String>, w: Int, h: Int,
+                             onReady: (Map<String, IntArray>) -> Unit) {
+        require(frameIds.size <= 16) { "Request only the visible filmstrip frames" }
+        val captured = frameIds.distinct().toList()
+        onGl {
+            if (engine.strokeInProgress) { post { onReady(emptyMap()) }; return@onGl }
+            val board = engine.boardDocument?.boards?.firstOrNull { it.id == boardId }
+            if (board == null) { post { onReady(emptyMap()) }; return@onGl }
+            val out = HashMap<String, IntArray>()
+            try {
+                for (frameId in captured) {
+                    if (board.frames.any { it.id == frameId }) {
+                        out[frameId] = engine.renderBoardThumbnail(boardId, frameId, w, h, paperArgb)
+                    }
+                }
+                post { onReady(out) }
+            } catch (e: Exception) {
+                post { onReady(emptyMap()); onRefused?.invoke(e.message ?: "The frame previews could not be drawn") }
+            }
         }
     }
 
@@ -904,6 +931,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             onRefused?.invoke("\"${stackUi.active.name}\" is hidden. Show it to paint on it.")
             return
         }
+        onBeforeStroke?.invoke()
         val b = brush
         val p = preset
         val erase = b.erase || eraser
@@ -1425,7 +1453,52 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     val boardDocument: JbDocument? get() = retainedContents?.doc
+    /** Physical/content edits invalidate strip pictures; saved frame navigation does not. */
+    @Volatile var boardContentRevision: Long = 0L
+        private set
     var onBoardsChanged: ((JbDocument)->Unit)? = null
+    /** Stop hover/playback before a real stroke freezes its saved content addresses. UI thread. */
+    var onBeforeStroke: (() -> Unit)? = null
+
+    /** Materialize initial board metadata once, without making a paint or undo operation. */
+    fun ensureBoardDocument(onReady: (JbDocument) -> Unit) {
+        onGl {
+            try {
+                val current = engine.boardDocument ?: readContents(viewW, viewH).doc.also(engine::setBoardDocument)
+                val synced = syncBoardLayers(current)
+                engine.setBoardDocument(synced)
+                retainedContents = JbContents(synced, emptyMap(), emptyMap(), null)
+                post { onBoardsChanged?.invoke(synced); onReady(synced) }
+            } catch (e: Exception) { post { onRefused?.invoke(e.message ?: "The boards could not be opened") } }
+        }
+    }
+
+    /** Saved navigation, deliberately absent from Undo. Playback uses [previewBoardFrames] instead. */
+    fun selectBoardFrame(boardId: String, frameId: String) {
+        onBeforeHistoryChange?.invoke()
+        if (drawing) finishStroke()
+        onGl {
+            try {
+                val current = engine.boardDocument ?: error("The boards are not ready")
+                val next = RegionDocumentOps.selectFrame(syncBoardLayers(current), boardId, frameId)
+                engine.setFramePreviews(emptyMap())
+                engine.setBoardDocument(next)
+                if (next != current) reportHistory(contentChanged = false)
+            } catch (e: Exception) { post { onRefused?.invoke(e.message ?: "That frame could not be selected") } }
+        }
+    }
+
+    /** Ephemeral display planes. No metadata publication, undo step, or save callback. */
+    fun previewBoardFrames(frames: Map<String, String>) {
+        val captured = frames.toMap()
+        onGl {
+            if (!engine.strokeInProgress) {
+                try { engine.setFramePreviews(captured) }
+                catch (e: Exception) { post { onRefused?.invoke(e.message ?: "That preview could not be shown") } }
+            }
+        }
+    }
+
     /** One serialized metadata/pixel transaction; no board changes while a brush owns its frame plan. */
     fun editBoards(edit: (JbDocument)->cc.joycreator.joybrush.core.doc.RegionChange) {
         onBeforeHistoryChange?.invoke()
@@ -1434,6 +1507,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             try {
                 val current=engine.boardDocument ?: readContents(viewW,viewH).doc.also{engine.setBoardDocument(it)}
                 val synced=syncBoardLayers(current); engine.setBoardDocument(synced)
+                engine.setFramePreviews(emptyMap())
                 engine.applyBoardChange(edit(synced)); reportHistory()
             } catch(e:Exception) { post{onRefused?.invoke(e.message ?: "That board change could not be applied")} }
         }
@@ -1578,7 +1652,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
-    private fun reportHistory(restorePaperRevision: Long? = null, historyRevision: Long? = null) {
+    private fun reportHistory(restorePaperRevision: Long? = null, historyRevision: Long? = null,
+                              contentChanged: Boolean = true) {
+        if (contentChanged) boardContentRevision++
         engine.boardDocument?.let{doc->
             val current=syncBoardLayers(doc)
             engine.setBoardDocument(current)

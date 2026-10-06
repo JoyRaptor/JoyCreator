@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.io
 
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.LayerKind
+import cc.joycreator.joybrush.core.doc.RegionDocumentOps
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
 import cc.joycreator.joybrush.core.render.RegionException
@@ -10,6 +11,17 @@ import cc.joycreator.joybrush.core.render.TileSource
 
 /** Export the active board through the same document compositor used by other exports. */
 object CanvasPng {
+    /** Explicit target captured by board chrome. A frame override exists only in this export copy. */
+    fun encodeBoard(contents: JbContents, boardId: String, includePaper: Boolean, frameId: String? = null,
+        paperRenderer: ((RectPx) -> ByteArray)? = null, onWarning: (String) -> Unit = {},
+    ): ByteArray {
+        val original = contents.doc
+        if (original.boards.none { it.id == boardId }) throw JbArchiveException("that board no longer exists")
+        val selected = original.copy(activeBoardId = boardId)
+        val doc = if (frameId == null) selected else RegionDocumentOps.selectFrame(selected, boardId, frameId)
+        return encode(contents.copy(doc = doc), includePaper, paperRenderer, onWarning)
+    }
+
     fun encode(contents: JbContents, includePaper: Boolean,
         paperRenderer: ((RectPx) -> ByteArray)? = null,
         onWarning: (String) -> Unit = {},
@@ -18,7 +30,7 @@ object CanvasPng {
         val problems = DocOps.validate(doc)
         if (problems.isNotEmpty()) throw JbArchiveException(problems.joinToString("; "))
         if (doc.layers.any { it.kind != LayerKind.PAINT || it.animatedIn != null }) {
-            throw JbArchiveException("this PNG export requires static paint layers")
+            throw JbArchiveException("this PNG renderer supports raster layers; vector rendering is not connected")
         }
         val board = doc.boards.firstOrNull { it.id == doc.activeBoardId }
             ?: doc.boards.singleOrNull()

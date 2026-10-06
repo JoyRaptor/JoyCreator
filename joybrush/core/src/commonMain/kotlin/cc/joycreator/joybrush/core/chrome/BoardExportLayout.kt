@@ -6,8 +6,8 @@ import kotlin.math.*
 
 /** K6's reusable presentation model. No exporter, range validation, clock or document store. */
 object BoardExportLayout {
-    enum class Scope(val label: String) { ANIMATION("Animation"), RANGE("A range of frames"), FRAME("This frame") }
-    enum class Format(val label: String) { GIF("GIF"), PNG_FRAMES("PNG frames"), SPRITE_SHEET("Sprite sheet"), STUDIO("Send to Studio"), PNG("PNG") }
+    enum class Scope(val label: String) { ANIMATION("Animation"), RANGE("A range of frames"), FRAME("This frame"), BOARD("This board"), ALL_IMAGES("All image boards") }
+    enum class Format(val label: String) { GIF("GIF"), PNG_FRAMES("PNG frames"), SPRITE_SHEET("Sprite sheet"), STUDIO("Send to Studio"), PNG("PNG"), SPRITE_LAB("Open in SpriteLab") }
     val chipFormats = listOf(Format.GIF, Format.PNG_FRAMES, Format.SPRITE_SHEET, Format.STUDIO)
     data class Choice(val boardId: String, val scope: Scope, val format: Format,
         val currentFrameId: String, val rangeStartId: String, val rangeEndId: String)
@@ -18,7 +18,9 @@ object BoardExportLayout {
         val availableScopes: Set<Scope> = emptySet(), val availableFormats: Set<Format> = emptySet(),
         val exportEnabled: Boolean = false, val rangePreviewStart: Float = .2f, val rangePreviewEnd: Float = .7f,
         val formatTextWidthsPx: Map<Format, Float> = emptyMap(), val headerTextWidthPx: Float? = null,
-        val budgetTextWidthPx: Float? = null, val percentTextWidthPx: Float? = null) {
+        val budgetTextWidthPx: Float? = null, val percentTextWidthPx: Float? = null,
+        val displayedScopes: List<Scope> = listOf(Scope.ANIMATION, Scope.RANGE, Scope.FRAME),
+        val displayedFormats: List<Format> = chipFormats) {
         val identity = BoardChromeIdentity(boardId, frameIds)
         init {
             require(density.isFinite() && density > 0 && sheet.width > 0)
@@ -38,7 +40,7 @@ object BoardExportLayout {
         point.y >= i.sheet.top && point.y < i.sheet.top + HEIGHT_DP * i.density
 
     fun layout(i: Input): Chrome.Layout {
-        require(chipFormats.all { i.formatTextWidthsPx[it]?.let { width -> width.isFinite() && width >= 0 } == true } &&
+        require(i.displayedFormats.all { i.formatTextWidthsPx[it]?.let { width -> width.isFinite() && width >= 0 } == true } &&
             i.headerTextWidthPx != null && i.budgetTextWidthPx != null && i.percentTextWidthPx != null) {
             "Export presentation requires measured shared-font label widths"
         }
@@ -70,9 +72,9 @@ object BoardExportLayout {
         var y = 6f+grabHeight+8f
         val headerWidth=i.headerTextWidthPx!!/d
         text("export-title", rect(14f,y,headerWidth,14.5f), "Export",14.5f,Chrome.Font.ARCHIVO,800)
-        text("export-metadata",rect(14f+headerWidth+8f,y,width-36f-headerWidth,14.5f),"${i.name} · ${i.pixelWidth}×${i.pixelHeight} · ${i.fps} fps",8.5f,Chrome.Font.MONO,500,Chrome.Colour.DIM)
+        text("export-metadata",rect(14f+headerWidth+8f,y,width-36f-headerWidth,14.5f),"${i.name} · ${i.pixelWidth}×${i.pixelHeight}" + if(i.fps.isNotEmpty()) " · ${i.fps} fps" else "",8.5f,Chrome.Font.MONO,500,Chrome.Colour.DIM)
         y += 14.5f+8f
-        for (scope in Scope.entries) {
+        for (scope in i.displayedScopes) {
             val enabled = scope in i.availableScopes; val alpha = if (enabled) 1f else .35f
             val r = rect(14f,y,width-28f,rowHeight); val id = "export-scope-${scope.name.lowercase()}"
             shape(id,r,alpha=.06f,radius=10f)
@@ -88,6 +90,8 @@ object BoardExportLayout {
                     val a=i.identity.frameIds.indexOf(i.rangeStartId); val b=i.identity.frameIds.indexOf(i.rangeEndId)
                     if(a>=0 && b>=0) "${a+1}–${b+1}" else ""
                 }
+                Scope.BOARD -> i.format.label
+                Scope.ALL_IMAGES -> "PNG files"
             }
             text("$id-detail",rect(width-104f,y,80f,rowHeight),detail,9f,Chrome.Font.MONO,500,Chrome.Colour.DIM,alpha,Chrome.Align.RIGHT)
             if(scope==Scope.RANGE) {
@@ -101,7 +105,9 @@ object BoardExportLayout {
             y += rowHeight+8f
         }
         var x=14f
-        for(format in chipFormats) {
+        // Static boards keep the same 236dp sheet, with the unused scope rows as breathing room.
+        y += (3-i.displayedScopes.size).coerceAtLeast(0)*(rowHeight+8f)
+        for(format in i.displayedFormats) {
             val enabled=format in i.availableFormats; val alpha=if(enabled)1f else .35f
             val chipWidth=i.formatTextWidthsPx.getValue(format)/d+20f
             val r=rect(x,y,chipWidth,24f); val id="export-format-${format.name.lowercase()}"

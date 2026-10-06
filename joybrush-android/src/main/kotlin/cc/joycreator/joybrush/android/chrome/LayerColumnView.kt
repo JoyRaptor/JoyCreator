@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.LinearGradient
+import android.graphics.Shader
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
@@ -17,6 +19,10 @@ import androidx.core.graphics.ColorUtils
 import cc.joycreator.joybrush.core.layers.BlendNames
 import cc.joycreator.joybrush.core.layers.LayerStack
 import cc.joycreator.joybrush.core.layers.LayerState
+import cc.joycreator.joybrush.core.doc.JbDocument
+import cc.joycreator.joybrush.core.doc.BoardKind
+import cc.joycreator.joybrush.core.doc.LayerKind
+import cc.joycreator.joybrush.android.board.BoardGlyphs
 import kotlin.math.roundToInt
 
 /**
@@ -44,6 +50,8 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         fun maskTapped(id: String)
         /** Paper is a document setting, never a layer or paint target. */
         fun openPaper(anchor: View) {}
+        /** K9: the selected animation board owns this layer's held/animated state. */
+        fun setLayerHeld(boardId: String, layerId: String, held: Boolean) {}
     }
 
     private val plus = PlusCell()
@@ -68,6 +76,30 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     private val thumbs = HashMap<String, Bitmap>()
     private val maskThumbs = HashMap<String, Bitmap>()
     private var editingMask = false
+    private var animationBoardId: String? = null
+    private var heldByLayer: Map<String, Boolean> = emptyMap()
+    private val cells = linkedMapOf<String, Cell>()
+    private val markers = linkedMapOf<String, AnimationMarker>()
+
+    /** Supply saved metadata and the UI-selected board, or null to return to ordinary rows.
+     * Only PAINT/INK layers mapped to this animation board can toggle; masks remain mask controls.
+     */
+    fun setAnimationBoard(document: JbDocument?, boardId: String?) {
+        val board = document?.boards?.firstOrNull { it.id == boardId && it.kind == BoardKind.ANIMATION }
+        val next = if (board == null) emptyMap() else document?.layers.orEmpty().mapNotNull { layer ->
+            if (layer.kind != LayerKind.PAINT && layer.kind != LayerKind.INK) return@mapNotNull null
+            layer.regions.firstOrNull { it.boardId == board.id }?.let { layer.id to it.held }
+        }.toMap()
+        if (animationBoardId == board?.id && heldByLayer == next) return
+        val widthChanged = (animationBoardId == null) != (board == null)
+        animationBoardId = board?.id
+        heldByLayer = next
+        if (widthChanged) {
+            layoutParams?.let { it.width = widthPx; layoutParams = it }
+            rebuild()
+            requestLayout()
+        } else markers.values.forEach { it.refresh() }
+    }
 
     /** The page's shape, width over height: every cell is drawn in it. */
     var pageAspect = 0.5f
@@ -90,7 +122,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     }
 
     /** The column's width, for the screen to keep other things clear of it. */
-    val widthPx: Int get() = kit.dpi(WIDTH_DP)
+    val widthPx: Int get() = kit.dpi(WIDTH_DP + if (animationBoardId != null) MARKER_COLUMN_DP else 0f)
 
     val paperAnchor: View get() = paper
 
@@ -106,30 +138,28 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         max = maxLayers
         plus.invalidate()
         if (sameList && rows.childCount == s.size) {
-            for (i in 0 until rows.childCount) rows.getChildAt(i).invalidate()
+            cells.values.forEach { it.invalidate() }
+            markers.values.forEach { it.refresh() }
         } else {
             rebuild()
         }
     }
 
     /** The cell showing layer [id] right now, or null. */
-    fun cellFor(id: String): View? {
-        for (i in 0 until rows.childCount) {
-            val c = rows.getChildAt(i)
-            if (c is Cell && c.id == id) return c
-        }
-        return null
-    }
+    fun cellFor(id: String): View? = cells[id]
+
+    /** The K9 toggle, if this row has eligible content in the selected animation board. */
+    fun animationMarkerFor(id: String): View? = markers[id]?.takeIf { it.visibility == VISIBLE }
 
     fun setThumbnails(map: Map<String, Bitmap>) {
         thumbs.putAll(map)
-        for (i in 0 until rows.childCount) rows.getChildAt(i).invalidate()
+        cells.values.forEach { it.invalidate() }
     }
 
     /** Pictures of the masks, by LAYER id (white shows, black hides). */
     fun setMaskThumbnails(map: Map<String, Bitmap>) {
         maskThumbs.putAll(map)
-        for (i in 0 until rows.childCount) rows.getChildAt(i).invalidate()
+        cells.values.forEach { it.invalidate() }
     }
 
     /** The cell size in px, the page's own shape inside a [CELL_W_DP]-wide cell (capped in height so a tall page stays compact). */
@@ -143,13 +173,74 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     private fun rebuild() {
         val s = stack ?: return
         rows.removeAllViews()
+        cells.clear()
+        markers.clear()
         val ids = s.layers.map { it.id }.toSet()
         thumbs.keys.retainAll(ids)
         maskThumbs.keys.retainAll(s.layers.filter { it.hasMask }.map { it.id }.toSet())
         for (layer in s.layers.asReversed()) {
             val cell = Cell(layer.id)
+            cells[layer.id] = cell
             val h = thumbSize().second + kit.dpi(8f)
-            rows.addView(cell, LayoutParams(LayoutParams.MATCH_PARENT, h))
+            val row = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                clipChildren = false
+                clipToPadding = false
+            }
+            if (animationBoardId != null) {
+                val marker = AnimationMarker(layer.id)
+                markers[layer.id] = marker
+                marker.refresh()
+                row.addView(marker, LayoutParams(kit.dpi(MARKER_COLUMN_DP), LayoutParams.MATCH_PARENT))
+            }
+            row.addView(cell, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
+            rows.addView(row, LayoutParams(LayoutParams.MATCH_PARENT, h))
+        }
+    }
+
+    private inner class AnimationMarker(private val layerId: String) : View(context) {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private var touchState: Pair<String, Boolean>? = null
+        private fun state(): Pair<String, Boolean>? {
+            val board = animationBoardId ?: return null
+            val held = heldByLayer[layerId] ?: return null
+            return if (markers[layerId] === this && stack?.get(layerId) != null) board to held else null
+        }
+        fun refresh() {
+            val current = state()
+            visibility = if (current == null) INVISIBLE else VISIBLE
+            isClickable = current != null
+            isFocusable = current != null
+            if (current != null) kit.label(this, "${stack?.get(layerId)?.name ?: "Layer"} — " +
+                if (current.second) "Same on every frame. Tap to animate in this board."
+                else "Animates in this board. Tap for same on every frame.")
+            invalidate()
+        }
+        override fun onDraw(canvas: Canvas) {
+            val held = state()?.second ?: return
+            val size = kit.dp(MARKER_GLYPH_DP)
+            val left = (width-size)/2f; val top = (height-size)/2f
+            paint.shader = if (held) null else LinearGradient(0f,0f,24f,24f,
+                0xff35f6bf.toInt(),0xff97fe8b.toInt(),Shader.TileMode.CLAMP)
+            paint.color = if (held) 0xffa1a1aa.toInt() else android.graphics.Color.WHITE
+            canvas.save()
+            canvas.translate(left,top); canvas.scale(size/24f,size/24f)
+            BoardGlyphs.path(if (held) "mountain" else "runner")?.let { canvas.drawPath(it,paint) }
+            canvas.restore()
+        }
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) touchState = state()
+            if (event.actionMasked == MotionEvent.ACTION_CANCEL) touchState = null
+            return super.onTouchEvent(event)
+        }
+        override fun performClick(): Boolean {
+            val current = state()
+            val expected = touchState
+            touchState = null
+            if (current == null || expected != null && expected != current) return false
+            super.performClick()
+            host.setLayerHeld(current.first,layerId,!current.second)
+            return true
         }
     }
 
@@ -384,7 +475,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     removeCallbacks(lift)
-                    if (dragging) { translationY = 0f; elevation = 0f; dragging = false; invalidate() }
+                    if (dragging) { translationY = 0f; elevation = 0f; (parent as? View)?.elevation = 0f; dragging = false; invalidate() }
                     return true
                 }
             }
@@ -395,6 +486,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
             dragging = true
             parent?.requestDisallowInterceptTouchEvent(true)
             elevation = kit.dp(8f)
+            (parent as? View)?.elevation = elevation
             performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
             invalidate()
         }
@@ -404,6 +496,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
             val s = stack
             translationY = 0f
             elevation = 0f
+            (parent as? View)?.elevation = 0f
             dragging = false
             invalidate()
             if (s == null || height == 0) return
@@ -417,6 +510,8 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
 
     companion object {
         const val WIDTH_DP = 60f
+        const val MARKER_COLUMN_DP = 16f
+        const val MARKER_GLYPH_DP = 13f
         const val CELL_W_DP = 44f
         const val CELL_MAX_H_DP = 64f
         const val PLUS_DP = 44f

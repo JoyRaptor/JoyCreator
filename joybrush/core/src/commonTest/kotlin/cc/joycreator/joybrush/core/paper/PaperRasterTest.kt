@@ -32,9 +32,11 @@ class PaperRasterTest {
         val p = PaperState.resolve(Paper(lookId = look.id, tint = look.base, light = false), PaperCatalogue(surfaces = emptyList(), looks = listOf(look)))
         assertTrue(p.tintSet, "an explicit tint equal to look.base still divides the look by its mean")
         val out = PaperRaster.render(p, tex, null, RectPx(0, 0, 2, 2))
-        assertEquals(109, out[0].toInt() and 255)
-        assertEquals(149, out[1].toInt() and 255)
-        assertEquals(152, out[2].toInt() and 255)
+        // ±1: the hex blend is variance-preserving around the look's STATED mean (#808080), and this fixture's single
+        // texel is not that mean, so the blend nudges it by up to a step of rounding. A real look's mean is measured.
+        assertEquals(109.0, (out[0].toInt() and 255).toDouble(), 1.0)
+        assertEquals(149.0, (out[1].toInt() and 255).toDouble(), 1.0)
+        assertEquals(152.0, (out[2].toInt() and 255).toDouble(), 1.0)
     }
     @Test fun lightOffSurfaceDoesNotAffectAppearanceAndAmoledStaysBlack() {
         val p = paper(look = look, surface = surface, light = false)

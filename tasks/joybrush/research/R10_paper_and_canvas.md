@@ -277,3 +277,38 @@ Earlier in-repo research: R1 (Rebelle), R2 (Expresii), R3 (Krita/MyPaint), R4 (P
 | Far-field precision in dab shaders | Accepted to ±1e6 doc px for deposit; the screen pass uses the local frame (JB-9.06 Decision 5) |
 | JB-9.11 impossible as written | ✅ Rescoped to the pure core function (landed `86f1711b`); decode + polarity move to JB-1.05d; ABR patterns to a future JB-8.01c |
 | Legal conclusion in R10 | ✅ Reworded: a design choice, not a legal opinion |
+
+---
+
+## 11. Photographic papers and the contrast-keeping blend (2026-10-06, the R9/Sable session)
+
+**Owner:** the procedural papers "read as early-90s 3D graphics, not anything worth shipping". They supplied photoreal paper images they generated themselves (`tasks/joybrush/research/GBT texture sample image generations/`, not in the repo) and asked for the best paper engine in the industry. They also sent pencil feel notes; the pencil and the other media now belong to the "Realistic brush engines" session, which builds on this paper.
+
+**What was wrong (measured on the PC with `tools/paper/papersim.py`):**
+1. The looks were synthetic. The surfaces were blurred fractal noise, so a dry stroke on them was smooth, like a marker.
+2. The background lit that noise with a strong lamp (shade 0.6–1.4, relief ×6). That emboss is what reads as 90s CG.
+3. The hex blend was convex (JB-9.02 Decision 2). Where three patches meet, a plain average is flatter than any one patch, so photographic looks show soft, washed-out blotches at every seam.
+
+**What was built:**
+- `tools/paper/photo2paper.py` turns a photo into a paper:
+  - de-light (very low frequencies only);
+  - Moisan periodic + smooth decomposition, so it is seamless with no blend band;
+  - a 1024 look as JPEG, with its mean measured after decoding;
+  - a surface HEIGHT from the same picture: a tooth band of ≈5 doc px / 0.25 mm plus a pulp band, rank-equalised to uniform 0..1, with the relief span set per kind (rice paper nearly flat, owner P12);
+  - a FLUID map for the wet and impasto engines.
+
+  `install_photo_papers.py` installs 12 papers: 5 replace procedural ones under the same ids, and the green chalkboard is the black photo recoloured.
+- Surfaces may ship as height only (`packed: false`, grey PNG); the app packs the slopes at load with `SurfaceMaps.expand`. The tooth's texelPx (1.0) is finer than the look's (2.5): a photo cannot hold a 0.25 mm grain at its own scale. Library: 24 MB, of which 19.4 MB is PNG, within the 25 MB budget.
+- **Variance-preserving hex blend** (`HexTile.contrastKeep`, shaders, CPU twins). The result is `centre + Σw·(read − centre)/√Σw²`. A = E[h²] is recomposed as B² + Σw²σ²/Σw², so A − B² stays a valid local variance at every mip (the dry/wet engines prefilter on it). **This supersedes JB-9.02 Decision 2.**
+- The relief light is clamped to 0.9–1.1, and photo papers ship with the light OFF. The photograph carries what the eye sees.
+- Catalogue `SurfaceEntry` gains:
+  - `heightMean`, `packed`;
+  - `fluid` / `fluidTexelPx` / `fluidHexTexels`;
+  - the physical numbers `toothDepthMm`, `compliance`, `sizing`, `absorbency`, `capacity`, `wickSpeed`, `anisotropy`;
+  - and `PaperPhysical.DOC_PX_PER_MM = 20`.
+- `jb_paper.glsl` gains `jb_paperFluid` / `jb_paperFluidCoarse`. Fibre directions turn by 2× the hex angle, so they always agree with the slopes (test `fibresTurnWithThePaperExactlyAsItsSlopesDo`). `GlPaintEngine` binds the fluid map on unit 2.
+
+**Hand-offs:**
+- JB-9.08's directional dry deposit moves into the brush-engines session's dry-media engine.
+- JB-9.08's wet pooling is superseded by its wet engine.
+- The remaining procedural looks (canvases, papyrus, parchment, silk, fabric, cement, crumpled, blueprint, off-white, pulps) wait for owner photos or CC0 scans of the same kind. The installer takes them as new rows.

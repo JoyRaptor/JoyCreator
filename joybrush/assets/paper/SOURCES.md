@@ -1,6 +1,6 @@
 # Paper sources
 
-Original numerical materials authored for Joy Brush. No third-party scans or AI-generated look images in this test set.
+Original numerical materials authored for Joy Brush, plus (2026-10-06) photographic papers from the owner's own image generations (below). No third-party scans.
 
 Canvases: existing periodic 3D yarn candidates (alternating over/under centrelines, three helical cylindrical strands, wrapped slubs and knots). Pulp: seeded NumPy fibre/formation model in this script. 1024 heights are reduced by 2x2 area averaging, then centred physical amplitude is applied without renormalisation. Packed slopes use a shared 0.099 range and toroidal Scharr sampling. Colours are neutral material bases, without an amber grade.
 
@@ -27,3 +27,35 @@ All additions are original numerical geometry/pigment, deterministic seeds in `b
 - `silk`: periodic numerical physical model; authored height span 0.16, slopeRange0.099, pitch0.7, rotationFalse.
 - `fabric`: periodic numerical physical model; authored height span 0.42, slopeRange0.099, pitch1.0, rotationFalse.
 - `cement`: periodic numerical physical model; authored height span 0.7, slopeRange0.099, pitch1.25, rotationTrue.
+
+## Photographic papers (2026-10-06)
+
+The owner judged the numerical looks above "early-90s 3D graphics" and supplied photoreal paper images they generated
+themselves (ChatGPT image generation, owner-owned). They are converted by `joybrush/tools/paper/install_photo_papers.py`, which
+runs `photo2paper.py` on each one:
+
+1. De-light (the very lowest frequencies only; the paper's own mottling is kept).
+2. Seamless by Moisan's periodic + smooth decomposition, so there is no blend band.
+3. 1024² look as JPEG q92, with the mean measured on the decoded JPEG.
+4. Surface HEIGHT from the same picture: the tooth band (≈5 doc px, ~0.25 mm) dominates a pulp band, rank-equalised to a uniform 0..1, with the relief span set per kind. Shipped as an 8-bit grey PNG (`packed: false`); the app packs the slopes at load with `SurfaceMaps.expand`.
+5. FLUID map at a quarter of the resolution: R = absorbency/formation, G,B = fibre direction (structure tensor, double angle), A = pore capacity.
+
+Physical numbers per kind (toothDepthMm, compliance, sizing, absorbency, capacity, wickSpeed, anisotropy) are starting values for the dry, wet and impasto engines.
+
+The source images stay OUT of the repo: `tasks/joybrush/research/GBT texture sample image generations/` in the owner's folder.
+Rebuild: `python joybrush/tools/paper/install_photo_papers.py "<that folder>" joybrush/assets/paper`.
+
+| Look id | Surface id | Source image | Kind |
+|---|---|---|---|
+| construction_tan | construction_pulp | construciton-paper.png | pulp |
+| construction_blue | construction_blue_pulp | construction paper-blue.png | pulp |
+| cardboard | cardboard | cardbord01.png | board |
+| chalkboard_black | chalk_grit | chalkbord-black-…11_08_28 PM.png | chalk |
+| chalkboard_green | chalk_grit | the black chalkboard, recoloured dusty green | chalk |
+| rice_cool | rice_fibres | ricepaper01-… | rice |
+| rice_white | rice_white_fibres | ricepaper02-… | rice |
+| rice_cream | rice_cream_fibres | ricepaper03-tan-… | rice |
+| rice_lace | rice_lace_fibres | ricepaper04n-… | rice |
+| sugarcane | sugarcane_pulp | thai-…11_08_59 PM.png | chunk |
+| thai_kraft | thai_kraft_pulp | thai02-… | chunk |
+| thai_rose | thai_rose_pulp | thai03-… | chunk |

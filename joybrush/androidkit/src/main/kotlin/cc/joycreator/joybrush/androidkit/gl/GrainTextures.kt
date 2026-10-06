@@ -60,7 +60,7 @@ class GrainTextures(
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
         val pixels = IntArray(bmp.width * bmp.height)
         bmp.getPixels(pixels, 0, bmp.width, 0, 0, bmp.width, bmp.height)
-        val bytes = rgbaBytes(pixels)
+        val bytes = expandSurface(assetName, rgbaBytes(pixels), bmp.width, bmp.height)
         sizes[key] = bmp.width
         val upload = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder())
         upload.put(bytes).rewind()
@@ -97,14 +97,30 @@ class GrainTextures(
     internal fun heldNames(): Int = byName.size + (if (placeholder != 0) 1 else 0)
 
     companion object {
+        private val surfaceEntries: Map<String, cc.joycreator.joybrush.core.paper.SurfaceEntry> by lazy {
+            val stream = GrainTextures::class.java.getResourceAsStream("/joybrush/assets/paper/catalogue.json")
+            stream?.use { PaperCatalogues.parse(it.bufferedReader().readText()).surfaces.associateBy { entry -> entry.file } }
+                ?: emptyMap()
+        }
+
         private val surfaceFiles: Set<String> by lazy {
             val stream = GrainTextures::class.java.getResourceAsStream("/joybrush/assets/paper/catalogue.json")
-            stream?.use { PaperCatalogues.parse(it.bufferedReader().readText()).surfaces.map { entry -> entry.file }.toSet() }
+            stream?.use { PaperCatalogues.parse(it.bufferedReader().readText()).surfaces.flatMap { entry -> listOfNotNull(entry.file, entry.fluid) }.toSet() }
                 ?: emptySet()
         }
 
         /** The catalogue determines surface membership; arbitrary filename prefixes mean nothing. */
         internal fun folderFor(name: String): String = if (name in surfaceFiles) "paper" else "grain"
+
+        /**
+         * A surface whose file holds only its height (2026-10-06 photo papers) is packed here, once, at load — the same
+         * bytes the PC tool would have stored ([cc.joycreator.joybrush.core.paper.SurfaceMaps.expand]). Every other file
+         * passes through unchanged.
+         */
+        fun expandSurface(file: String, rgba: ByteArray, w: Int, h: Int): ByteArray {
+            val entry = surfaceEntries[file] ?: return rgba
+            return cc.joycreator.joybrush.core.paper.SurfaceMaps.expand(entry, rgba, w, h)
+        }
 
         /** Straight RGBA data: alpha never multiplies the other three channels. */
         fun rgbaBytes(argb: IntArray): ByteArray = ByteArray(argb.size * 4).also { out ->

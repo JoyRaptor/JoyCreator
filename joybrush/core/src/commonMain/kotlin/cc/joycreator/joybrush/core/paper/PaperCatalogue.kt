@@ -27,7 +27,30 @@ const val PAPER_CATALOGUE_VERSION = 1
     val hexTexels: Float,        // hex cell size in texels, 16..size
     val rotatable: Boolean,      // false for weaves, laid lines, papyrus
     val relief: Float = 1f,      // how strongly the relief is LIT on screen, 0..4
+    val heightMean: Float = 0.5f, // mean of the B (height) channel, 0..1: the centre the hex blend preserves contrast around
+    // 2026-10-06 (photo papers): `file` may hold the HEIGHT alone (8-bit grey, packed = false); the app derives the
+    // slopes and h² at load with SurfaceMaps.pack — the stored RGBA was 4x the size for nothing it could not recompute.
+    val packed: Boolean = true,
+    // The FLUID map, for the wet and impasto engines: R = absorbency/formation, G,B = fibre direction (double angle,
+    // 0.5 + 0.5·(cos2θ, sin2θ)·coherence), A = pore capacity. Its own scale (it holds only broad structure). null = none.
+    val fluid: String? = null,
+    val fluidTexelPx: Float = 5f,    // doc px per fluid texel, 0.25..16
+    val fluidHexTexels: Float = 150f, // hex cell size in fluid texels, 16..2048
+    // The paper's physical behaviour, tuned once per brush and varied per paper (all 0..1 except toothDepthMm).
+    val toothDepthMm: Float = 0.1f,  // the relief between height 0 and 1, real millimetres (PaperPhysical.DOC_PX_PER_MM), 0..2
+    val compliance: Float = 0.3f,    // how much the sheet gives under a pencil: hard board 0 … pillowy pad 1
+    val sizing: Float = 0.5f,        // water sits on top (hard-sized, 1) … soaks in at once (rice paper, 0)
+    val absorbency: Float = 0.5f,    // base soak rate
+    val capacity: Float = 0.5f,      // total water the sheet holds
+    val wickSpeed: Float = 0.4f,     // capillary spread speed
+    val anisotropy: Float = 0.2f,    // how strongly wicking follows the fibres
 )
+
+/** The paper's physical scale (R10 §4: at 1x on the Note 9 one document pixel is about 0.05 mm). */
+object PaperPhysical {
+    /** Document pixels per real millimetre. A paper's size in mm is texelPx × texels / this. */
+    const val DOC_PX_PER_MM = 20f
+}
 
 /**
  * A paper's **look** — what you SEE: a flat colour, or a re-tintable colour picture.
@@ -147,6 +170,15 @@ object PaperCatalogues {
             }
             if (s.texelPx !in 0.25f..16f) out += "$at: texelPx ${s.texelPx} is outside 0.25 to 16"
             if (s.slopeRange !in 0.001f..4f) out += "$at: slopeRange ${s.slopeRange} is outside 0.001 to 4"
+            if (s.heightMean !in 0f..1f) out += "$at: heightMean ${s.heightMean} is outside 0 to 1"
+            s.fluid?.let { f -> pngProblem(f)?.let { out += "$at: fluid $it" } }
+            if (s.fluidTexelPx !in 0.25f..16f) out += "$at: fluidTexelPx ${s.fluidTexelPx} is outside 0.25 to 16"
+            if (s.fluidHexTexels !in 16f..2048f) out += "$at: fluidHexTexels ${s.fluidHexTexels} is outside 16 to 2048"
+            if (s.toothDepthMm !in 0f..2f) out += "$at: toothDepthMm ${s.toothDepthMm} is outside 0 to 2"
+            for ((n, v) in listOf("compliance" to s.compliance, "sizing" to s.sizing, "absorbency" to s.absorbency,
+                    "capacity" to s.capacity, "wickSpeed" to s.wickSpeed, "anisotropy" to s.anisotropy)) {
+                if (v !in 0f..1f) out += "$at: $n $v is outside 0 to 1"
+            }
             // The upper bound is the surface's OWN size, so the rule reads `!in 16f..s.size`: a hex cell
             // wider than its picture is a cell that can never be assembled.
             if (s.hexTexels !in 16f..s.size.toFloat()) {
@@ -174,7 +206,7 @@ object PaperCatalogues {
                 // A flat look has no picture, so a mean on it is a number nothing reads.
                 if (l.mean != null) out += "$at: has no picture, so a mean on it is a number nobody reads"
             } else {
-                pngProblem(l.file)?.let { out += "$at: $it" }
+                imageProblem(l.file)?.let { out += "$at: $it" }
                 if (l.mean == null) {
                     out += "$at: has a picture and no mean, and a tint divides by the mean"
                 } else if (!COLOUR.matches(l.mean)) {
@@ -205,6 +237,14 @@ object PaperCatalogues {
         file.isBlank() -> "file is empty"
         '/' in file || '\\' in file -> "file \"$file\" must be a plain name inside assets/paper/, not a path"
         !file.endsWith(".png") -> "file \"$file\" does not end in .png"
+        else -> null
+    }
+
+    /** A look is a photograph: PNG or JPEG (2026-10-06; a JPEG of paper grain is a fifth of the PNG's size). */
+    private fun imageProblem(file: String): String? = when {
+        file.isBlank() -> "file is empty"
+        '/' in file || '\\' in file -> "file \"$file\" must be a plain name inside assets/paper/, not a path"
+        !(file.endsWith(".png") || file.endsWith(".jpg")) -> "file \"$file\" does not end in .png or .jpg"
         else -> null
     }
 

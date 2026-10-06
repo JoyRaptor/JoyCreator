@@ -30,14 +30,17 @@ object PaperRaster {
 
     /** Local-coordinate twin for precision tests and callers; offsets are TEXELS from the corner. */
     fun sampleLocal(frame: LocalFrame, tex: PaperTexture, offsetX: Double, offsetY: Double,
-                    hexTexels: Double, rotatable: Boolean, out: FloatArray, slopeRange: Float? = null, seed: Int = 0) {
+                    hexTexels: Double, rotatable: Boolean, out: FloatArray, slopeRange: Float? = null, seed: Int = 0,
+                    mean: FloatArray? = null, heightMean: Float = 0.5f) {
         require(out.size >= 4)
         val px = frame.localOriginX + offsetX; val py = frame.localOriginY + offsetY
         val lattice = HexTile.lattice(px, py, hexTexels)
         val weights = FloatArray(3) { lattice.w[it] * lattice.w[it] * lattice.w[it] }
         val total = weights.sum()
+        val keep = HexTile.contrastKeep(FloatArray(3) { weights[it] / total })
         out.fill(0f)
         val s = FloatArray(4)
+        var spread = 0f
         for (n in 0..2) {
             val di = lattice.vi[n]; val dj = lattice.vj[n]
             val i = frame.hexBaseX + di; val j = frame.hexBaseY + dj
@@ -52,8 +55,21 @@ object PaperRaster {
                 val sy = SurfaceMaps.decodeFilteredSlope(s[1], slopeRange)
                 s[0] = (c * sx + sn * sy).toFloat(); s[1] = (-sn * sx + c * sy).toFloat()
             }
-            for (q in 0..3) out[q] += s[q] * weights[n] / total
+            val wn = weights[n] / total
+            if (slopeRange != null) {
+                // A surface: exactly HexTile.sampleSurface's blend.
+                out[0] += wn * s[0]; out[1] += wn * s[1]; out[2] += wn * (s[2] - heightMean)
+                spread += wn * wn * (s[3] - s[2] * s[2]).coerceAtLeast(0f)
+            } else {
+                for (q in 0..3) out[q] += (s[q] - (if (q < 3) mean?.get(q) ?: 0f else 0f)) * wn
+            }
         }
+        // The same variance-preserving blend as HexTile and the shaders.
+        if (slopeRange != null) {
+            out[0] *= keep; out[1] *= keep
+            out[2] = (heightMean + out[2] * keep).coerceIn(0f, 1f)
+            out[3] = out[2] * out[2] + spread * keep * keep
+        } else if (mean != null) for (q in 0..2) out[q] = (mean[q] + out[q] * keep).coerceIn(0f, 1f)
     }
 
     /** Straight, opaque RGBA8 at document pixel centres; default lamp points upper left. */
@@ -71,16 +87,16 @@ object PaperRaster {
             val dx = rect.x.toDouble() + x + 0.5; val dy = rect.y.toDouble() + y + 0.5
             if (look != null && lookEntry != null) {
                 val pitch = lookEntry.texelPx.toDouble() * p.scale
-                HexTile.sampleLook(look, dx / pitch, dy / pitch, lookEntry.hexTexels.toDouble(), lookEntry.rotatable, sampled, footprint = 1.0 / pitch)
+                HexTile.sampleLook(look, dx / pitch, dy / pitch, lookEntry.hexTexels.toDouble(), lookEntry.rotatable, sampled, footprint = 1.0 / pitch, mean = mean)
                 if (tint && mean != null) for (q in 0..2) sampled[q] *= base[q] / mean[q].coerceAtLeast(1f / 255f)
             } else for (q in 0..2) sampled[q] = base[q]
             var shade = 1f
             if (p.light && surface != null && surfEntry != null) {
                 val pitch = surfEntry.texelPx.toDouble() * p.scale
-                HexTile.sampleSurface(surface, dx / pitch, dy / pitch, surfEntry.hexTexels.toDouble(), surfEntry.rotatable, surfEntry.slopeRange, slopes, footprint = 1.0 / pitch)
+                HexTile.sampleSurface(surface, dx / pitch, dy / pitch, surfEntry.hexTexels.toDouble(), surfEntry.rotatable, surfEntry.slopeRange, slopes, footprint = 1.0 / pitch, heightMean = surfEntry.heightMean)
                 val nx = -slopes[0] / pitch.toFloat() * RELIEF_GAIN * surfEntry.relief
                 val ny = -slopes[1] / pitch.toFloat() * RELIEF_GAIN * surfEntry.relief
-                val lit = ((nx * lx + ny * ly + lz) / sqrt(nx * nx + ny * ny + 1f) / lz).coerceIn(0.6f, 1.4f)
+                val lit = ((nx * lx + ny * ly + lz) / sqrt(nx * nx + ny * ny + 1f) / lz).coerceIn(LIT_MIN, LIT_MAX)
                 shade += (lit - 1f) * p.show
             }
             val at = (y * rect.w + x) * 4
@@ -89,5 +105,13 @@ object PaperRaster {
         }
         return bytes
     }
+    /**
+     * How far the relief light may brighten or darken the paper (2026-10-06). It was 0.6..1.4 — a lamp raking across an
+     * embossed sheet, which is exactly the "early-90s 3D graphics" look the owner rejected. Real paper under even light
+     * shows its relief only faintly; the look picture already carries what the eye sees. Matches jb_paper_bg.frag.
+     */
+    const val LIT_MIN = 0.9f
+    const val LIT_MAX = 1.1f
+
     private fun colour(argb: Int) = floatArrayOf(((argb ushr 16) and 255) / 255f, ((argb ushr 8) and 255) / 255f, (argb and 255) / 255f)
 }

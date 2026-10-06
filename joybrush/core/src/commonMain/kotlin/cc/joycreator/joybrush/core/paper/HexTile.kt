@@ -4,6 +4,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * The no-repeat read, on a hexagonal lattice. This is the CANONICAL maths for reading a paper texture
@@ -138,12 +139,15 @@ object HexTile {
         out: FloatArray,
         seed: Int = 0,
         footprint: Double = 1.0,
+        heightMean: Float = 0.5f,
     ) {
         require(out.size >= 4) { "sampleSurface needs an output array of at least 4 floats, got ${out.size}" }
         val l = lattice(px, py, hexTexels)
         val w = gammaWeights(l.w)
+        val keep = contrastKeep(w)
         val s = FloatArray(4)
         val contribution = FloatArray(4)
+        var spread = 0f
         // The shader's accumulator starts at vec4(0.0); an out array the caller has used before is
         // overwritten rather than added to, so a second call cannot inherit the first one's answer.
         for (q in 0..3) out[q] = 0f
@@ -162,23 +166,82 @@ object HexTile {
                 contribution[0] = (c * sx + sn * sy).toFloat()
                 contribution[1] = (-sn * sx + c * sy).toFloat()
             }
-            contribution[2] = s[2]
-            contribution[3] = s[3]
+            contribution[2] = s[2] - heightMean
+            contribution[3] = 0f
             for (q in 0..3) out[q] += w[n] * contribution[q]
+            spread += w[n] * w[n] * (s[3] - s[2] * s[2]).coerceAtLeast(0f)
         }
+        // Variance-preserving: slopes and height keep their contrast across the blend. A = E[h²] stays consistent with the
+        // blend's mean: B² plus the reads' leftover (mip) variance weighted as the blend weights them, so A − B² is a valid
+        // local variance at every mip — the same as jb_paper.glsl.
+        out[0] *= keep
+        out[1] *= keep
+        out[2] = (heightMean + out[2] * keep).coerceIn(0f, 1f)
+        out[3] = out[2] * out[2] + spread * keep * keep
     }
 
     /** Same lattice, offsets and weights, for a LOOK texture (RGB colour; A ignored). Returns r,g,b 0..1 into [out]. */
-    fun sampleLook(tex: PaperTexture, px: Double, py: Double, hexTexels: Double, rotatable: Boolean, out: FloatArray, seed: Int = 0, footprint: Double = 1.0) {
+    fun sampleLook(tex: PaperTexture, px: Double, py: Double, hexTexels: Double, rotatable: Boolean, out: FloatArray, seed: Int = 0,
+                   footprint: Double = 1.0, mean: FloatArray? = null) {
         require(out.size >= 3) { "sampleLook needs an output array of at least 3 floats, got ${out.size}" }
         val l = lattice(px, py, hexTexels)
         val w = gammaWeights(l.w)
+        val keep = if (mean != null) contrastKeep(w) else 1f
         val s = FloatArray(4)
         for (q in 0..2) out[q] = 0f
         for (n in 0..2) {
             readAt(tex, px, py, hexTexels, l.vi[n], l.vj[n], rotatable, s, seed, footprint)
-            for (q in 0..2) out[q] += w[n] * s[q]
+            for (q in 0..2) out[q] += w[n] * (s[q] - (mean?.get(q) ?: 0f))
         }
+        if (mean != null) for (q in 0..2) out[q] = (mean[q] + out[q] * keep).coerceIn(0f, 1f)
+    }
+
+    /**
+     * The FLUID map at TEXEL point (px, py) of the fluid texture: [0] = absorbency, [1],[2] = fibre direction as
+     * (cos2θ, sin2θ)·coherence in the DOCUMENT's frame (signed, −1..1), [3] = pore capacity. A rotated hex turns its
+     * fibres by twice its angle (the double-angle form), so a direction always means the same on the page. R and A keep
+     * their contrast around 0.5 (variance-preserving); the direction blends plainly, so where differently-turned patches
+     * meet the coherence drops — fibres crossing, which is what they do. Twin of jb_paperFluid in jb_paper.glsl.
+     */
+    fun sampleFluid(tex: PaperTexture, px: Double, py: Double, hexTexels: Double, rotatable: Boolean, out: FloatArray,
+                    seed: Int = 0, footprint: Double = 1.0) {
+        require(out.size >= 4) { "sampleFluid needs an output array of at least 4 floats, got ${out.size}" }
+        val l = lattice(px, py, hexTexels)
+        val w = gammaWeights(l.w)
+        val keep = contrastKeep(w)
+        val s = FloatArray(4)
+        for (q in 0..3) out[q] = 0f
+        for (n in 0..2) {
+            readAt(tex, px, py, hexTexels, l.vi[n], l.vj[n], rotatable, s, seed, footprint)
+            var c2 = s[1] * 2f - 1f
+            var s2 = s[2] * 2f - 1f
+            if (rotatable) {
+                // The read turned the paper by θ; turn its fibres back into the page's frame: double angle, so 2θ.
+                val t = -2.0 * rotation(l.vi[n], l.vj[n], seed)
+                val c = cos(t).toFloat(); val sn = sin(t).toFloat()
+                val rc = c * c2 - sn * s2
+                val rs = sn * c2 + c * s2
+                c2 = rc; s2 = rs
+            }
+            out[0] += w[n] * (s[0] - 0.5f)
+            out[1] += w[n] * c2
+            out[2] += w[n] * s2
+            out[3] += w[n] * (s[3] - 0.5f)
+        }
+        out[0] = (0.5f + out[0] * keep).coerceIn(0f, 1f)
+        out[3] = (0.5f + out[3] * keep).coerceIn(0f, 1f)
+    }
+
+    /**
+     * `1 / sqrt(Σ w²)`: how much a blend of three reads must be scaled about its mean to keep the contrast of ONE read
+     * (variance-preserving blending, Heitz & Neyret 2018). A plain average of three different patches of paper is flatter
+     * than any one of them, so a convex blend left soft, washed-out blotches wherever the hexes met; with photographic
+     * papers (2026-10-06) those blotches were the most visible thing on the page. This supersedes JB-9.02 Decision 2.
+     * One read alone (a weight of 1) gives exactly 1, so the middle of a hex is untouched.
+     */
+    internal fun contrastKeep(w: FloatArray): Float {
+        val s = w[0] * w[0] + w[1] * w[1] + w[2] * w[2]
+        return if (s > 0f) (1.0 / sqrt(s.toDouble())).toFloat() else 1f
     }
 
     /**

@@ -15,6 +15,9 @@
   select, button { background: var(--pill); color: var(--ink); border: 0; border-radius: 999px; padding: 5px 11px; font: inherit; }
   input[type=range] { width: 80px; }
   input[type=color] { width: 34px; height: 28px; border: 0; border-radius: 999px; padding: 0; background: none; }
+  [hidden] { display: none !important; }   /* a control the brush does not use must actually go away */
+  .group { display: inline-flex; gap: 6px; align-items: center; }
+  #wetread { color: var(--ink); min-width: 52px; text-align: center; }
   #readout { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 92px; }
   button:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
   #tiltbox { position: fixed; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: grid; justify-items: center; gap: 4px; }
@@ -35,7 +38,8 @@
   <label title="Vector: strokes are kept as pen records, redrawn sharp when you zoom in, and can be recoloured or removed"><input id="vector" type="checkbox"> Vector</label>
   <button id="recolor" title="Vector: give the last stroke the current colour (it is redrawn with the same physics)">Recolour last</button>
   <label title="Oil: keep the paint the brush picked up between strokes (off = clean, fresh load each stroke)"><input id="dirtybrush" type="checkbox"> Dirty brush</label>
-  <label title="Oil: load the belly with a second colour; press or tilt to bring it in"><input id="twotone" type="checkbox"> Belly <input id="belly" type="color" value="#f2e6c8"></label>
+  <span id="bellybox" class="group"><button id="bellymode" title="Oil: what the brush belly is loaded with. Tap to change: off, your colour, darker, lighter, warmer, cooler, your last colour, or a slight random shift">Belly: off</button><input id="belly" type="color" value="#f2e6c8" title="Belly colour (manual)"></span>
+  <span id="wetbox" class="group"><button id="drier" title="Blot the brush: less water">Drier</button><span id="wetread">wet</span><button id="wetter" title="Dip the brush: more water">Wetter</button></span>
   <button id="undo" title="Undo the last stroke">Undo</button>
   <button id="clear" title="Clear the sheet">Clear</button>
   <button id="sheet" title="Draw the fixed pencil test sheet">Test sheet</button>
@@ -48,8 +52,9 @@
   </select>
   <span id="readout"></span>
 </div>
-<div id="tiltbox" title="Tilt the paper: drag to let wet paint run; double-tap to level">
-  <div id="tiltpad"><div id="tiltknob"></div></div>
+<div id="tiltbox">
+  <button id="phonetilt" title="Let the phone's own tilt run the water. Hold it however is comfortable, switch this on, then tip the phone">Phone tilt: off</button>
+  <div id="tiltpad" title="Tilt the paper: drag to let wet paint run (the rim is upright); double-tap to level"><div id="tiltknob"></div></div>
   <span id="tiltread">level</span>
 </div>
 <script type="module" src="js/main.js"></script>

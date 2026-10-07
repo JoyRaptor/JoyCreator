@@ -1,4 +1,4 @@
-# Joy Brush Media Engine — plan, state and port guide (2026-10-06)
+# Joy Brush Media Engine — plan, state and port guide (2026-10-06, updated to lab v9 2026-10-07)
 
 Owner brief (2026-10-06, condensed): realistic **oil** (Rebelle class: impasto, soft shadows), **watercolour**
 (Expresii class), **pencil** (the owner's feel notes in §6), each in **raster and vector**, on one **paper** both use.
@@ -16,8 +16,13 @@ Added the same day:
 
 **See it:** the lab is published as a private Artifact, "Joy Brush Media Lab" (claude.ai/artifact/StiwT7wvUB3NBAcTnrt7Ut).
 Build it with `node joybrush/tools/media_lab_bundle.js <out.html>`. Render any test sheet to a PNG with
-`node joybrush/tools/media_render.js out.png "test=proto"`; the sheets are `proto pencil scribble flick wash drop swatch mingle tilt
-oil roundtwo impasto`. Add `&zoom=4&cx=..&cy=..` for a close-up, `&vector=1` for a vector replay, `&mode=1..7` for
+`node joybrush/tools/media_render.js out.png "test=proto"`. The sheets:
+- pencil: `proto pencil scribble ladder prokoside sidepro tiltladder`
+- watercolour: `wash drop swatch mingle flick tilt runny`
+- oil: `oil roundtwo impasto dabs holes blade passes`
+
+`node joybrush/tools/media_measure.js "<query>" "<js>"` prints numbers instead (`__probe`, `__row`, `__dark`). Tuning hooks:
+`&press=`, `&mat=`, `&proto=`, `&zones=`, `&wet=key:value,…` override the tables without editing them. Add `&zoom=4&cx=..&cy=..` for a close-up, `&vector=1` for a vector replay, `&mode=1..7` for
 debug views, and `PROBE='[[x,y]]'` for exact state values.
 
 ## 1. The architecture call: ONE engine, three ways of touching the paper
@@ -41,10 +46,12 @@ Each mechanism only allocates its textures when first used.
 |---|---|---|---|
 | `p0` | RGBA32F | pigment absorption K·X (rgb), body thickness (mm) | all |
 | `p1` | RGBA32F | pigment scattering S·X (rgb), openness (wet = movable) / solubility (wet media) | all |
-| `paper` | RGBA16F | R = crush (tooth flattened by hard pencil, tooth units) | dry |
+| `paper` | RGBA32F | R = crush (tooth flattened by hard pencil, tooth units), G = graphite flake volume V, B = Σ V·flake reflectance | dry |
 | `w0` | RGBA32F | surface water (mm), capillary saturation s, wet time, outflow | wet |
 | `w1` | RGBA32F | pigment still floating: K rgb, S | wet |
-| `flux` | RGBA16F | pipe outflow L R D U | wet |
+| `flux` | RGBA16F | pipe outflow L R D U (the slow levelling flow; kept step to step) | wet |
+| `run` | RGBA16F | running water's outflow this step, signed x, y (no memory) | wet, tilted |
+| `bead` | ½-res RGBA16F ×2 | the water depth Gaussian-blurred (the running bead's field) | wet, tilted |
 | bakes | RGBA16F/8 | paper height, fluid map, water-scale height at layer resolution | wet, paste |
 | brush | 32×8 RGBA32F ×2 | the paste brush's cells (lanes × tip→belly): K rgb, amount / S | paste |
 
@@ -63,25 +70,33 @@ high S is an opaque body. (This is per-channel KM, which is 1931 prior art; **no
 - **Soft self-shadows** from thick paint: a 10-tap march toward the lamp, with a penumbra that grows with distance.
 
 ### 1.2 The three mechanisms (as built)
-**Dry: pencil/graphite.** Files: `jb_dry_dab.*`, `jb_media_apply.frag`, `lab/media/js/stick.js`.
-- **The stick** is a real rounded cone: tip radius, cone angle, lead diameter, exposed length, and a worn facet. When
-  tilted, its underside height over the paper is `jb_stickZ`.
-- **Two-layer paper.** The paper is a stiff rough tooth on a soft pad (springs in series, `contactLut`). The CPU solves,
-  per dab, how deep the stick sinks for the pen's force (force balance over the footprint).
-  - A feather touch only clips tooth tips.
-  - Firm pressure flattens the tooth and sinks the pad, so the mark widens: the owner's "pillowy paper".
-  - Along a tilted lead the squeeze falls off, giving a hard tip edge and a grainy fade along the side, with no special case.
-- **Light, tilted strokes settle onto the side.** The lighter the touch, the flatter the lead lies, so the faintest
-  strokes are the widest. This gives the soft-shading sweep that fans out as it fades.
-- **Deposit.**
-  - Abrasion follows Archard with Hertzian asperity pressure, `work = δ^1.5/√T · slide`, prefiltered over each pixel's
-    height variance (`E[max(0,δ)]`), so zoomed-out deposit never shimmers.
-  - The deposit saturates in closed form: `V' = cap − (cap − V)·exp(−k·W)`, so layering only darkens toward the tooth's
-    limit.
-  - Hard pressure crushes and burnishes the tooth, and the crush is stored.
-  - Dust falls into pits the stick passes over but cannot reach.
-  - Faces that meet the stroke catch more (directional deposit, JB-9.08's dry half).
-  - Soft grades drag a little of what is already down.
+**Dry: pencil/graphite.** Files: `jb_stick.glsl`, `jb_dry_dab.*`, `jb_media_apply.frag`, `lab/media/js/stick.js`.
+The v7 cone model regressed (owner, 2026-10-07: "B tier to D tier"): its worn flats lifted the tip, inverting the
+gradient and moving the mark away from the pen. v8 replaced it:
+- **Three stacked contact zones, all anchored at the pen tip**, each with its own fade:
+  - **the point**: a disc of radius `tipR` → `tipMax` with pressure (`P^0.8`); a hard edge;
+  - **side 1, the worn face**: reaches `side1` mm behind the tip, with a strong gradient (`(1−u)^1.2`);
+  - **side 2, the whole side**: reaches `side2` mm, feathering out; near flat it becomes an even swath with soft ends.
+- **Tilt chooses the zones, not just the size.** With `t = tilt / reach` (reach = the "Side at" slider, default 68°):
+  below `ZONES.side1From` (0.5) the pencil draws with its point only, because people rarely hold a pen upright and a
+  slightly leaning pencil still draws a crisp line. Side 1 comes in over 0.5→0.78, side 2 over 0.7→0.98, and the even
+  plateau from 0.88. Firm pressure keeps some gradient even when flat.
+- **Squeeze** `D = tooth · depth · P^gamma / (1 + sideEase·(0.4·s1 + s2))`: the same force spread over a wider face
+  presses each point less.
+- **Two-layer paper** (stiff tooth on a soft pad): a 256-entry table (sqrt-spaced) maps squeeze → tooth level `a`.
+  The tooth's depth is reshaped into plateaus, `(1−h)^2.2`, so tops catch together.
+- **Deposit has two parts:**
+  - **dusting**: ∝ `a`, even, with the deepest pits shielded (they show as soft specks); a light back-and-forth
+    builds an even tone;
+  - **piling**: Archard work `T·(e/T)^2.2·slide`, only from mid pressure (smoothstep 0.12→0.75). It is directional
+    (faces meeting the stroke catch more) and clumped by the paper's coarse height: firm strokes jam dark dust
+    against the tooth.
+- **Lead softening scales with the local squeeze** (`σ = √(σh² + (leadSoft·a)²)`). A constant one gave every touched
+  pixel the same deposit, which is how v7 lost its fade.
+- **Graphite is flakes in the paper state** (G volume, B reflectance sum). Cover is `1 − exp(−V / (0.18·cap))`, so a
+  light layer greys and only piling goes to black.
+- **Smear**: soft grades push already-laid flakes downstream a little (soft dusting).
+- **Crush**: hard pressure flattens and burnishes the tooth, and the crush is stored.
 
 **Wet: watercolour.** Files: `jb_wet_*.frag`, `lab/media/js/wet.js`.
 - **Water flow.** A virtual-pipe shallow-water model over paper height + water: water runs along the paper's trenches and
@@ -101,7 +116,34 @@ high S is an opaque body. (This is per-channel KM, which is 1931 prior art; **no
   - It exchanges water by wetness: a loaded brush gives, a thirsty brush takes back.
   - It lands with a bead pool, bleeds while held still, and drops the rest on lift.
   - Hair runs stripe a drying brush, so dry-brush skips the tooth in streaks.
-- **Paper tilt** adds a gravity slope (`u_tilt`), so water runs downhill and pools on the low edge.
+- **Wetness** (Expresii's drop and napkin; owner, 2026-10-07): five levels, dry · damp · wet · loaded · runny, tapped
+  with Drier/Wetter and shown only for watercolour brushes. Each sets the brush's water load and flow. Paint
+  strength per mm of water goes as `(0.8/load)^0.6`: blotted paint skips richly over the tooth, runny paint floods
+  paler. Picking the Dry brush starts it at dry.
+- **All-round brush**: a pointed round from a hairline (0.06 mm) to a 4.5 mm belly on pressure^1.6 and tilt; the
+  hairs swing round over 1.5 mm of travel, so a dab's jitter makes a round puddle.
+- **Running water and drips** (owner: "runny with dripping down the page"). The paper's tilt is `u_slope` = sin(angle)
+  pointing downhill. The slow levelling flow alone is ~1000× too slow to ever run (it is overdamped by design so
+  edges stay put), so a tilted paper adds a second flow:
+  - **Kinematic, no memory.** Running water is stored in `run`, apart from the pipe flow's momentum: momentum on
+    an incline grows roll waves (horizontal ridges, seen).
+  - **The bead decides.** The water depth is Gaussian-blurred at half resolution (`jb_wet_bead.frag`). Speed ∝
+    `((bead − tooth hold)/runMm)²`. Only water standing above the tooth runs (hold = ½ the tooth depth), so rough
+    paper holds a wash that a smooth one lets go. Whether a bead breaks a dry edge is judged on the bead as a
+    whole, so drips come away bead-wide rather than as a one-cell comb.
+  - **A held edge turns the water along itself.** Near an edge, the part of the flow pushing out through an edge that
+    holds is removed, so a slanted edge drains to its lowest point and drips there. Without this, the edge gave way
+    along its whole length as a straight-sided curtain.
+  - **Surface tension, lightly** (`runCohere` 0.3): water runs from where the bead stands high to where it drained,
+    feeding a drip from the bead beside it.
+  - **The paper steers drips sideways** (lateral only, deep beads only): drips wander along the grain. Steering
+    along the slope trapped water in valleys as spots, and steering thin water sorted a wash into lace (both seen).
+  - **A film stays behind** (0.012 mm): a drip leaves a wet trail and never drains a spot bare.
+  - **Uneven sizing**: mm-scale noise in how hard an edge holds.
+  - **Any blur must be a Gaussian.** A slope taken from a ring of taps aliases and sorts water into stripes (seen):
+    its spectrum has negative lobes.
+- **Tilt sources**: the lab's pad (up to upright) or **Phone tilt** (the gravity sensor, relative to how the phone was
+  held when switched on, with a small dead zone).
 
 **Paste: oil, knife, scraper.** Files: `jb_paste*.{glsl,frag}`, `lab/media/js/paste.js`.
 - **The brush** is a fixed grid of 32 lanes × 8 depths, each holding ONE paint. Patent guard: one state per cell, no
@@ -124,8 +166,24 @@ high S is an opaque body. (This is per-channel KM, which is 1931 prior art; **no
   - ragged squeezed-out edges;
   - uneven hair lengths break a lifting brush into fingers;
   - per-lane shade variation.
-- **Knife and scraper.** The knife is a rigid trowel. The scraper is a cutting edge: it ploughs a groove into the weave and
-  pushes ridges up beside it.
+- **Strokes start and end like a real brush** (owner, 2026-10-07: "a perfectly sharp cutoff is a dead giveaway"):
+  - A light dab is a dot (a round) or the pressed chisel (a flat). The tail grows only as the brush travels.
+  - Splayed hairs come in after 2–6 mm of travel, never on touchdown.
+  - The direction swings round over 1.5 mm of travel, not per pen report, so jitter cannot fan a dab into straight lines.
+  - A round has a round head; a flat has a shallow, uneven arc front.
+  - Every edge ramps over the step's slide, so nothing is cut straight.
+- **All-round oil brush**: a hairline tip to a 6 mm belly (pressure^1.6, tilt), thin paint for detail, thick for impasto.
+- **Holes:** a new stroke reaches down into dips in old paint (the reach gives with pressure and load), so it no
+  longer skips over them.
+- **Belly colour modes** (tap to cycle): off · manual · darker · lighter · warmer · cooler · last colour · shift.
+  The loading tray puts the second colour in the belly on a round, side to side on a flat.
+- **Knife and scraper are rigid blades held like the pen.**
+  - The edge lies along the pen's lean (azimuth), whatever the direction of travel.
+  - **Pressure lowers the blade:** height above the canvas peaks = `Hmax·(1−P)^1.5`. A light touch shaves the peaks;
+    full pressure reaches the canvas and presses into the weave (`0.6·tooth·P²`).
+  - **Tilt lays the edge down:** upright = the point, flat = the whole edge (`tan(75°·(1−t)³)`).
+  - A bead of paint rides ahead of the blade. The knife lays and spreads paint with lumps; the scraper picks up
+    10× faster and leaves a film (0.002 mm), so the canvas comes back.
 
 ### 1.3 Raster and vector are the same physics
 The only difference is when it runs. Every pass takes `u_layerOrigin`/`u_layerScale`:
@@ -164,16 +222,18 @@ input path needs the same (§4, M5.2).
   2. cold-press watercolour;
   3. hot-press/rough.
 
-  Until they land, the lab uses LAB-ONLY stand-ins from `lab/media/papers/make_lab_papers.py` (never shipped).
+  They landed. The lab now uses only the catalogue's own papers (the bundle ships `drawing_tooth bristol_tooth
+  cold_press hot_press rough_press canvas_linen cardboard`); the lab stand-ins were deleted.
 
 ## 3. Status
 | | Piece | State |
 |---|---|---|
-| ✅ | Lab, headless renderer, single-file bundle, phone-size startup check | built, run |
-| 🔨 | Pencil (dry engine): force balance, two-layer paper, fan-out, crush, dust, directional, smear | built; owner's first try: "pretty good", fan-out added after |
+| ✅ | Lab, headless renderer, measuring tool, single-file bundle, phone-size startup check | built, run |
+| 🔨 | Pencil: stacked zones, two-layer paper, dust + piling, flakes, smear, crush | v8 rebuilt after the v7 regression; awaiting the owner |
 | 🔨 | Spline input | built in lab; app not yet |
-| 🔨 | Watercolour: flow, pinning, edges, mingle, blooms, granulation, lift, dry-brush, bead/lift pools, tilt | built; second round after the owner's references |
-| 🔨 | Oil: cells, two-way trade, swap streaks, wicking, two-colour load, canvas-relative layer, bow, lumps, fingers, knife, scraper, soft shadows | built; first round |
+| 🔨 | Watercolour: flow, pinning, edges, mingle, blooms, granulation, lift, wetness levels, all-round, running water and drips, phone tilt | v9; owner: "B tier, keep going" before drips |
+| 🔨 | Oil: cells, two-way trade, travel-grown tails, round/flat ends, all-round, belly modes, holes fix, rigid knife and scraper, soft shadows | v8–v9; owner: "approaching A tier" |
+| 🔲 | Watery oil (thinned paint pulling pigment into drips; the owner's two-stage brush) | next |
 | 🔨 | Vector replay (records, recolour, sharp zoom) | built; pencil and oil |
 | 🔨 | Rect undo (only the touched area is kept), lazy textures | built |
 | 🟢 | Port to the app (§4) | specced here, not started |
@@ -200,23 +260,39 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
   - dabs go into a tile-set delta (additive, batched);
   - one apply/update pass per frame over the dirty tiles;
   - wet tiles are simulated while wet (substeps 2–4 per frame) and sleep when dry;
+  - while the paper is tilted: the three bead passes (½ res) before each flux step, the `run` target beside `flux`,
+    and wet tiles spreading downhill into neighbours only as water reaches them (the lab grows a rectangle, capped
+    at 4 cm past the painted area; the app tracks tiles);
   - the paper bake is per tile.
 - **M5.5 Brush format (T2).** Brush version 8: `engine: "media"`, `medium: dry|wet|paste`, plus the parameter blocks
-  exactly as the lab's tables (`STICKS`, `WET_BRUSHES`, `PASTE_BRUSHES`). Every number gets a knob in
+  exactly as the lab's tables (`STICKS`, `ZONES`, `PRESS`, `WET_BRUSHES`, `WET`, `WETNESS`, `PASTE_BRUSHES`). Names
+  repeat across media (an all-round brush in watercolour and in oil), so a brush is identified by medium + name.
+  The wetness level and belly mode are brush state, tapped on the canvas bar: wetness shows only for wet brushes,
+  belly only for hair paste brushes. Every number gets a knob in
   `BrushKnobs.forBrush` (the owner's rule: holding a brush opens all its settings with a live preview).
-- **M5.6 Gravity (T2).** `TYPE_GRAVITY` sensor → low-pass → `u_tilt` in document space, with a "lock to canvas" toggle;
-  off when the phone lies flat.
+- **M5.6 Gravity (T2).** A "Phone tilt" switch. `TYPE_GRAVITY` → the in-plane component, turned by the display
+  rotation into document space → minus the reading when switched on (drawing at a comfortable angle stays level)
+  → low-pass (0.25 per frame) → dead zone 0.04 → `u_slope` (sin of the angle, ≤ 1). The canvas view's own rotation
+  must be applied too (the lab view never rotates).
 - **M5.7 Vector layers (T1).** Records are saved in the document; replayed on edit; a sharp view replay when zoomed past 1.3×.
 - **M5.8 Owner sign-off (T3).** Pencil, watercolour and oil on the Note 9 against Infinite Painter Proto, Expresii and
   Rebelle.
 
-## 5. Numbers worth keeping (lab, 2026-10-06)
-- Pencil "Proto": 5 mm woodless stick, 20° cone, tip 0.14 mm, exposed 9 mm. `PRESS.forceScale 0.085`, `gamma 1.6`,
-  `toothStiffness 9`. The tilt reach default is 68° (the owner's S Pen tops out at 71°).
-- Watercolour: dt 1/120 s × 4 substeps per frame; pin 0.22 mm × (0.4 + sizing); film 0.12 mm; edge drop-out ×5;
+## 5. Numbers worth keeping (lab v9, 2026-10-07)
+- **Pencil "Proto"**: `tipR 0.25 → tipMax 1.0, side1 5.5, side2 16 mm`; zones 0.5→0.78 / 0.7→0.98, even from 0.88;
+  `PRESS.depth 1.9, gamma 1.5`; transferExp 2.2, piling from P 0.12→0.75; tilt reach 68° (the owner's S Pen tops out
+  at 71°).
+  - Measured fade across a side swath at t 0.85: ≈7 / 20 / 43 / 68 / 79 % dark at P 0.15 / 0.3 / 0.5 / 0.75 / 1,
+    falling to 0 at the far edge.
+- **Watercolour**: dt 1/120 s × 4 substeps per frame; pin 0.22 mm × (0.4 + sizing); film 0.12 mm; edge drop-out ×5;
   mingle 12 cells²/s; settle 0.08/s; evaporation 0.003 mm/s (×4 at thin edges).
-- Oil: opaque paint S 30/mm; a full flat brush leaves 0.6 mm; knife 1.1 mm, scrape 0.99; cell capacity =
-  thick · rate · loadLen / len.
+  - Depths a stroke leaves on cold press: wet 0.17, loaded 0.22, runny 0.26 mm.
+  - Running water: `runMmPerS 8`, `runMm 0.3`, hold ½ tooth, film 0.012, cohere 0.3, steer 4 (sideways), bead 0.6 mm
+    (blur σ 0.3 mm). The step caps speed at 0.45 cell per substep (≈2.7 mm per sim second).
+  - At 45° for 8 s: dry, damp and wet hold; loaded drips twice; runny drips four times. At 15° nothing drips and
+    the bead pools at the bottom.
+- **Oil**: opaque paint S 30/mm; a full flat brush leaves 0.6 mm; cell capacity = thick · rate · loadLen / len.
+  - Knife: blade 22 × 9 mm, Hmax 0.9, paint 1.1 mm. Scraper: 14 × 0.7 mm, Hmax 1.6, film 0.002 mm, pick-up ×10.
 
 ## 6. Owner feedback log (verbatim points condensed)
 - **Pencil (pre-session, to other agents):**
@@ -242,3 +318,19 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
   - scrape off and the canvas texture takes over;
   - knife lines;
   - bristle fingers.
+- **2026-10-07, after v6 (wetness, oil ends, blades):**
+  - Expresii's water drop and napkin, dry brush to runny "with dripping down the page", shown only for brushes that
+    use them → v9 wetness levels and running water.
+  - Belly colour gets tedious to pick: manual plus auto modes, tap to cycle → v9.
+  - Holes in paint that new strokes ignore → v8 reach fix.
+  - Pencil light end must be a real fade (soft, feathery), not 100%-black dots; light = even dusting with shielded
+    specks, firm = dark piled clumps along the travel → v8.
+  - Scraper: pressure depth, wide edge scrapes, angled from tilt, oriented by the pen not the path, scrape the
+    peaks → v8 blades.
+  - Thick paint with wateriness pulling pigment into runny drips (a two-stage, loaded-then-watery brush) → next.
+- **2026-10-07, v7 regression:** "B tier to D tier". The hard edge to soft fade over several grades was gone; marks
+  jumped away from the tip at shallow angles; tilt only changed size → v8 stacked zones, softening by squeeze.
+  Watercolour B tier ("keep going"), oil approaching A; the goal is S tier for all three.
+- **2026-10-07, oil:** light dabs must be dots that only lengthen with travel; splayed hairs come in late; no
+  straight start/end edges (shallow arc, S, blobby end); the blending brush splinters too early at light pressure
+  (its slight wet look is liked) → v8.

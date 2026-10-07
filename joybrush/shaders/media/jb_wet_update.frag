@@ -19,6 +19,7 @@ precision highp int;
 uniform sampler2D u_w0;         // w (mm), s (0..1), wet time (s), -
 uniform sampler2D u_w1;         // suspended K rgb, S
 uniform sampler2D u_flux;       // outflow L, R, D, U (this step)
+uniform sampler2D u_run;        // running water's outflow this step (mm/s), signed along x and y
 uniform sampler2D u_p0;         // deposited K rgb, volume
 uniform sampler2D u_p1;         // deposited S rgb, soluble fraction
 uniform sampler2D u_paperBake;  // .b = height, .a = E[h²]
@@ -60,7 +61,8 @@ void main() {
 
     // --- move: out through own fluxes, in through neighbours' fluxes pointing here
     vec4 fo = texelFetch(u_flux, c, 0);
-    float outW = (fo.x + fo.y + fo.z + fo.w) * u_dt;
+    vec2 ro = texelFetch(u_run, c, 0).xy;
+    float outW = (fo.x + fo.y + fo.z + fo.w + abs(ro.x) + abs(ro.y)) * u_dt;
     float keep = w > 0.0 ? max(0.0, 1.0 - outW / w) : 1.0;
     float inW = 0.0;
     vec4 inP = vec4(0.0);
@@ -69,7 +71,9 @@ void main() {
     for (int i = 0; i < 4; i++) {
         ivec2 q = c + nb[i];
         if (q.x < 0 || q.y < 0 || q.x >= size.x || q.y >= size.y) continue;
-        float fq = texelFetch(u_flux, q, 0)[toMe[i]] * u_dt;
+        // The neighbour's levelling flow toward this cell, plus its running water if it runs this way.
+        float rq = max(0.0, -dot(texelFetch(u_run, q, 0).xy, vec2(nb[i])));
+        float fq = (texelFetch(u_flux, q, 0)[toMe[i]] + rq) * u_dt;
         if (fq <= 0.0) continue;
         float wq = texelFetch(u_w0, q, 0).r;
         inW += fq;

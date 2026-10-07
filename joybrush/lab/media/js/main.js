@@ -3,7 +3,7 @@ import { MediaEngine } from './engine.js';
 import { loadCatalogue, loadSurface, DOC_PX_PER_MM } from './paper.js';
 import { STICKS, DryStroke, stickMaterial, PRESS, MAT_OVERRIDE, ZONES } from './stick.js';
 import { SHEETS } from './tests.js';
-import { WET, WET_BRUSHES, WetStroke, paintFromColor, tiltUniform } from './wet.js';
+import { WET, WET_BRUSHES, WETNESS, WetStroke, paintFromColor, tiltSlope } from './wet.js';
 import { SplineFeeder } from './spline.js';
 import { PASTE_BRUSHES, PasteStroke, opaquePaint } from './paste.js';
 import { VectorDoc } from './vector.js';
@@ -18,9 +18,13 @@ const ui = id => document.getElementById(id);
 
 const state = {
   tool: qs.get('tool') || 'Proto',
+  // Which medium the tool belongs to: names repeat across media (an all-round brush in watercolour and in oil).
+  kind: qs.get('kind') || (STICKS[qs.get('tool') || 'Proto'] ? 'dry' : WET_BRUSHES[qs.get('tool')] ? 'wet' : 'paste'),
   paperId: qs.get('paper') || 'drawing_tooth',
   tiltReach: Number(qs.get('reach') || 68),    // device tilt (°) that counts as "lying on its side" (owner's S Pen tops out at 71°)
   mousePressure: 0.5,
+  bellyMode: 'off',
+  wetLevel: 3,
   color: [0.22, 0.38, 0.75],
   seed: 100,
   mouseTilt: 0,
@@ -40,6 +44,7 @@ function applyTuning() {
   Object.assign(STICKS.Proto, parse(qs.get('proto')));
   if (qs.get('texel')) globalThis.__TEXEL_SCALE = Number(qs.get('texel'));
   Object.assign(ZONES, parse(qs.get('zones')));
+  Object.assign(WET, parse(qs.get('wet')));
 }
 
 async function main() {
@@ -71,6 +76,8 @@ async function main() {
     }
     draw();
     window.__probe = (x, y) => engine.probe(x, y);
+    window.__engine = engine;
+    window.__wetSteps = (n, slope) => { engine.slope = slope; for (let f = 0; f < n; f++) engine.wetFrame(null, paper, DOC_PX_PER_MM); };
     // Measurement: mean darkness (0 = paper, 1 = black) of a doc-px box, and a darkness profile along a row.
     window.__dark = (x0, y0, x1, y1) => {
       draw();
@@ -104,7 +111,7 @@ function runSheet(sheet, offset = [0, 0]) {
   const until = Number(qs.get('until') || 1e9);
   for (const st of sheet.strokes(DOC_PX_PER_MM)) {
     if (n++ >= until) break;
-    if (st.tiltDeg !== undefined) { engine.tilt = tiltUniform(st.tiltDeg, st.tiltDir, DOC_PX_PER_MM); continue; }
+    if (st.tiltDeg !== undefined) { engine.slope = tiltSlope(st.tiltDeg, st.tiltDir); continue; }
     if (st.wait !== undefined) {   // let the water run with no brush on the paper
       const frames = Math.round(st.wait / (WET.dt * WET.substeps));
       for (let f = 0; f < frames && engine.wetActive; f++) engine.wetFrame(null, paper, DOC_PX_PER_MM);
@@ -120,7 +127,7 @@ function runSheet(sheet, offset = [0, 0]) {
       continue;
     }
     if (st.kind === 'wet') {
-      const ws = new WetStroke(WET_BRUSHES[st.tool], paintFromColor(st.color), paper, DOC_PX_PER_MM, seed++);
+      const ws = new WetStroke(WET_BRUSHES[st.tool], paintFromColor(st.color), paper, DOC_PX_PER_MM, seed++, st.wetness !== undefined ? WETNESS[st.wetness] : null);
       for (let i = 0; i < st.samples.length; i++) {
         ws.add(st.samples[i]);
         if (i === st.samples.length - 1) ws.finish();
@@ -142,6 +149,41 @@ function runSheet(sheet, offset = [0, 0]) {
 }
 
 // One live stroke into one engine (the page layer, and when a sharp zoomed view is showing, that too).
+// ---- belly colour modes (owner, 2026-10-07: choosing a second colour every stroke gets tedious) ----
+const BELLY_MODES = ['off', 'manual', 'darker', 'lighter', 'warmer', 'cooler', 'last colour', 'shift'];
+function rgbToHsl([r, g, b]) {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  if (mx === mn) return [0, 0, l];
+  const d = mx - mn, s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+  const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h / 6, s, l];
+}
+function hslToRgb([h, s, l]) {
+  if (s === 0) return [l, l, l];
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const f = t => { t = (t % 1 + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 0.5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+  return [f(h + 1 / 3), f(h), f(h - 1 / 3)];
+}
+// Toward a hue (0..1) by up to `by` of a turn, the short way round.
+function hueToward(h, target, by) { let d = target - h; d -= Math.round(d); return h + Math.sign(d) * Math.min(Math.abs(d), by); }
+function bellyFor(mode, color, seed) {
+  const [h, s, l] = rgbToHsl(color);
+  switch (mode) {
+    case 'manual': return state.bellyColor;
+    case 'darker': return hslToRgb([hueToward(h, 0.66, 0.03), Math.min(1, s * 1.1), l * 0.45]);
+    case 'lighter': return hslToRgb([h, s * 0.8, l + (1 - l) * 0.55]);
+    case 'warmer': return hslToRgb([hueToward(h, 0.08, 0.07), Math.min(1, s * 1.05), Math.min(0.95, l * 1.05)]);
+    case 'cooler': return hslToRgb([hueToward(h, 0.6, 0.07), s * 0.95, l * 0.92]);
+    case 'last colour': return state.prevColor || null;
+    case 'shift': {
+      let x = (seed * 2654435761) >>> 0;
+      const r = () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296 - 0.5);
+      return hslToRgb([h + 0.06 * r(), Math.min(1, Math.max(0, s + 0.2 * r())), Math.min(0.95, Math.max(0.05, l + 0.18 * r()))]);
+    }
+    default: return null;
+  }
+}
+
 function startStroke(eng, meta) {
   if (meta.kind === 'paste') {
     const brush = PASTE_BRUSHES[meta.tool];
@@ -150,7 +192,7 @@ function startStroke(eng, meta) {
     return { add: s => ds.add(s), flush() { for (const st of ds.take()) eng.pasteStep(st, brush, paper, DOC_PX_PER_MM, meta.seed); }, finish() { this.flush(); } };
   }
   if (meta.kind === 'wet') {
-    const ds = new WetStroke(WET_BRUSHES[meta.tool], paintFromColor(meta.color), paper, DOC_PX_PER_MM, meta.seed);
+    const ds = new WetStroke(WET_BRUSHES[meta.tool], paintFromColor(meta.color), paper, DOC_PX_PER_MM, meta.seed, meta.wetness);
     return { wet: true, add: s => ds.add(s), take: () => ds.take(), flush() {}, finish() { ds.finish(); } };
   }
   const stick = STICKS[meta.tool], ds = new DryStroke(stick, paper, DOC_PX_PER_MM), mat = stickMaterial(stick);
@@ -213,8 +255,11 @@ function hookInput() {
     if (e.pointerType === 'touch') { touches.set(e.pointerId, [e.clientX, e.clientY]); return; }
     if (e.button === 1) { touches.set(e.pointerId, [e.clientX, e.clientY]); return; }
     if (!state.vector) engine.beginStroke();
-    const kind = PASTE_BRUSHES[state.tool] ? 'paste' : WET_BRUSHES[state.tool] ? 'wet' : 'dry';
-    const meta = { kind, tool: state.tool, color: [...state.color], belly: state.belly ? [...state.belly] : null, seed: ++state.seed,
+    const kind = state.kind;
+    const seed = ++state.seed;
+    const belly = kind === 'paste' ? bellyFor(state.bellyMode, state.color, seed) : null;
+    const wetness = kind === 'wet' && !WET_BRUSHES[state.tool].clear ? WETNESS[state.wetLevel] : kind === 'wet' ? { ...WETNESS[state.wetLevel], load: Math.max(WETNESS[state.wetLevel].load, WET_BRUSHES[state.tool].load) } : null;
+    const meta = { kind, tool: state.tool, color: [...state.color], belly: belly ? [...belly] : null, seed, wetness,
       dirty: kind === 'paste' && state.dirtyBrush && state.lastPaste === state.tool };
     if (kind === 'paste') state.lastPaste = state.tool;
     const lives = [startStroke(engine, meta)];
@@ -313,23 +358,49 @@ function feed(e) {
 function buildUi() {
   const toolSel = ui('tool');
   const dryGroup = document.createElement('optgroup'); dryGroup.label = 'Pencil';
-  for (const k of Object.keys(STICKS)) dryGroup.append(new Option(k, k, false, k === state.tool));
+  const opt = (kind, k) => new Option(k, `${kind}:${k}`, false, k === state.tool && kind === state.kind);
+  for (const k of Object.keys(STICKS)) dryGroup.append(opt('dry', k));
   const wetGroup = document.createElement('optgroup'); wetGroup.label = 'Watercolour';
-  for (const k of Object.keys(WET_BRUSHES)) wetGroup.append(new Option(k, k, false, k === state.tool));
+  for (const k of Object.keys(WET_BRUSHES)) wetGroup.append(opt('wet', k));
   const pasteGroup = document.createElement('optgroup'); pasteGroup.label = 'Oil';
-  for (const k of Object.keys(PASTE_BRUSHES)) pasteGroup.append(new Option(k, k, false, k === state.tool));
+  for (const k of Object.keys(PASTE_BRUSHES)) pasteGroup.append(opt('paste', k));
   toolSel.append(dryGroup, wetGroup, pasteGroup);
   const dirty = ui('dirtybrush');
   if (dirty) dirty.onchange = () => { state.dirtyBrush = dirty.checked; };
-  toolSel.onchange = () => { state.tool = toolSel.value; };
+  // Show each brush's own controls only: wetness for watercolour, belly and dirty brush for oil.
+  const showFor = () => {
+    const isWet = state.kind === 'wet', isPaste = state.kind === 'paste', isHair = isPaste && PASTE_BRUSHES[state.tool].shape < 2;
+    ui('wetbox').hidden = !isWet;
+    ui('bellybox').hidden = !isHair;
+    ui('belly').hidden = state.bellyMode !== 'manual';
+    ui('dirtybrush').parentElement.hidden = !isPaste;
+    // A dry brush means just that: picking it sets the brush nearly dry.
+    if (isWet && state.tool === 'Dry brush' && state.lastTool !== 'wet:Dry brush') state.wetLevel = 0;
+    state.lastTool = state.kind + ':' + state.tool;
+    ui('wetread').textContent = WETNESS[state.wetLevel].name;
+  };
+  toolSel.onchange = () => { [state.kind, state.tool] = toolSel.value.split(/:(.*)/s); showFor(); };
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
   const col = ui('color');
-  const setCol = () => { const h = col.value; state.color = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255); };
+  const setCol = () => { state.color = hex(col.value); };
   setCol(); col.oninput = setCol;
-  const bellyCol = ui('belly'), twoTone = ui('twotone');
-  const setBelly = () => { state.belly = twoTone && twoTone.checked ? [1, 3, 5].map(i => parseInt(bellyCol.value.slice(i, i + 2), 16) / 255) : null; };
-  if (bellyCol) { bellyCol.oninput = setBelly; twoTone.onchange = setBelly; setBelly(); }
+  // "Your last colour": the colour you had before the one you just picked.
+  let committed = [...state.color];
+  col.onchange = () => { state.prevColor = committed; committed = hex(col.value); };
+  const bellyCol = ui('belly');
+  state.bellyColor = hex(bellyCol.value);
+  bellyCol.oninput = () => { state.bellyColor = hex(bellyCol.value); };
+  ui('bellymode').onclick = () => {
+    state.bellyMode = BELLY_MODES[(BELLY_MODES.indexOf(state.bellyMode) + 1) % BELLY_MODES.length];
+    ui('bellymode').textContent = 'Belly: ' + state.bellyMode;
+    showFor();
+  };
+  ui('wetter').onclick = () => { state.wetLevel = Math.min(WETNESS.length - 1, state.wetLevel + 1); showFor(); };
+  ui('drier').onclick = () => { state.wetLevel = Math.max(0, state.wetLevel - 1); showFor(); };
+  showFor();
   ui('dry').onclick = () => { engine.dryNow(paper); state.dirty = true; };
   hookTiltPad();
+  hookPhoneTilt();
   const paperSel = ui('paper');
   for (const s of catalogue.surfaces) paperSel.add(new Option(s.name, s.id, false, s.id === paper.id));
   paperSel.onchange = async () => { paper = await loadSurface(gl, catalogue, paperSel.value); state.look.paperColor = paperColorFor(paper.id); invalidateView(); };
@@ -354,7 +425,7 @@ function buildUi() {
   ui('sheet').onclick = () => { engine.beginStroke(); runSheet(SHEETS.proto, [40, 400]); engine.endStroke(); state.dirty = true; };
   ui('mode').onchange = e => { state.look.mode = Number(e.target.value); state.dirty = true; };
 }
-// Tilt pad: drag the knob to tilt the paper (up to 30°) toward where it points; double-tap to level it.
+// Tilt pad: drag the knob to tilt the paper (up to upright) toward where it points; double-tap to level it.
 // The app will read the phone's gravity sensor instead; this is the same physics on a thumb.
 function hookTiltPad() {
   const pad = ui('tiltpad'), knob = ui('tiltknob');
@@ -365,9 +436,10 @@ function hookTiltPad() {
     dx *= k; dy *= k;
     knob.style.transform = `translate(${dx}px, ${dy}px)`;
     const amt = Math.hypot(dx, dy) / r;
-    const deg = 30 * amt;
+    // Fine near level, upright at the rim: half way out is about 32°, three quarters about 58°.
+    const deg = 90 * Math.pow(amt, 1.5);
     const dir = amt > 0.02 ? [dx / (amt * r), -dy / (amt * r)] : [0, 0];   // screen y down → doc y up
-    engine.tilt = tiltUniform(deg, dir, DOC_PX_PER_MM);
+    engine.slope = tiltSlope(deg, dir);
     ui('tiltread').textContent = deg < 0.5 ? 'level' : `tilted ${deg.toFixed(0)}°`;
   };
   let id = null, last = 0;
@@ -382,6 +454,50 @@ function hookTiltPad() {
     set(e.clientX - b.left - b.width / 2, e.clientY - b.top - b.height / 2);
   });
   pad.addEventListener('pointerup', () => { id = null; });
+}
+
+// Phone tilt (owner, 2026-10-06: "nudge and tilt your phone ... pool and roll"): the gravity sensor, taken
+// relative to how the phone was held when it was switched on, so drawing at a comfortable angle stays level
+// and only tipping the phone runs the water. The app reads the same sensor natively.
+function hookPhoneTilt() {
+  const btn = ui('phonetilt');
+  if (!btn) return;
+  let on = false, ref = null, got = false, smooth = [0, 0];
+  const onMotion = e => {
+    const g = e.accelerationIncludingGravity;
+    if (!g || g.x === null || g.y === null) return;
+    got = true;
+    // The sensor reads the push that holds the phone up, so gravity in the screen's plane is its negative;
+    // turned by the screen's rotation into the page's axes (page y points up).
+    const a = ((screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0) * Math.PI / 180;
+    const dx = -g.x / 9.81, dy = -g.y / 9.81;
+    const v = [dx * Math.cos(a) - dy * Math.sin(a), dx * Math.sin(a) + dy * Math.cos(a)];
+    if (!ref) ref = v;
+    smooth = [smooth[0] + 0.25 * (v[0] - ref[0] - smooth[0]), smooth[1] + 0.25 * (v[1] - ref[1] - smooth[1])];
+    const m = Math.hypot(smooth[0], smooth[1]);
+    // A steady hand is level (a small dead zone), and the slope never exceeds upright.
+    const k = m > 0.04 ? Math.min(1, m - 0.04) / m : 0;
+    engine.slope = [smooth[0] * k, smooth[1] * k];
+    const deg = Math.asin(Math.min(1, m * k)) * 180 / Math.PI;
+    ui('tiltread').textContent = k === 0 ? 'phone: level' : `phone ${deg.toFixed(0)}°`;
+  };
+  btn.onclick = async () => {
+    on = !on;
+    if (on && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      try { on = (await DeviceMotionEvent.requestPermission()) === 'granted'; } catch { on = false; }
+    }
+    if (on) {
+      ref = null; got = false; smooth = [0, 0];
+      window.addEventListener('devicemotion', onMotion);
+      setTimeout(() => { if (on && !got) ui('tiltread').textContent = 'no tilt sensor here'; }, 1500);
+    } else {
+      window.removeEventListener('devicemotion', onMotion);
+      engine.slope = [0, 0];
+      ui('tiltread').textContent = 'level';
+    }
+    btn.textContent = 'Phone tilt: ' + (on ? 'on' : 'off');
+    ui('tiltpad').hidden = on;
+  };
 }
 
 // The paper's own colour: the base of the look that uses this surface (the paper session's catalogue).

@@ -978,3 +978,25 @@ gets a numeric check that must still pass.
 
 **Also:** any "softening" term must scale with the local contact strength; a constant one makes the whole footprint
 uniform and erases every gradient built upstream of it.
+
+## Running water and drips (2026-10-07): five traps, each seen once
+
+**1. A parameter that changes nothing means a second path is doing the work.** Raising how hard a dry edge holds a
+running bead did nothing at all, because the slow levelling flow seeped a trace of water across the edge first; the
+cell then counted as wet and the running water poured through it. **Rule:** when a knob has no effect, stop tuning
+and find the bypass. Every flow that crosses an edge must face the same test.
+
+**2. A slope taken from a ring (or box) of sparse taps sorts a fluid into stripes.** The kernel's spectrum has negative
+lobes, so at some wavelengths the "downhill" flow runs uphill and the pattern grows. **Rule:** any field whose
+gradient drives flow is Gaussian-blurred first (`jb_wet_bead.frag`); never estimate a driving slope from sparse taps.
+
+**3. Momentum on an incline grows roll waves.** Gravity added to the pipe flow's kept flux left horizontal ridges.
+**Rule:** running water is a memoryless (kinematic) flux in its own target; only the slow levelling keeps momentum.
+
+**4. `hidden` loses to a class's `display`.** `.group { display: inline-flex }` beat the `hidden` attribute, so every
+brush showed every control; the check passed because it read the property, not the screen. **Rule:** pages carry
+`[hidden] { display: none !important; }`, and UI checks test layout (`getBoundingClientRect`), not attributes.
+
+**5. Names repeat across media.** Watercolour and oil each have an "All-round", and a select keyed by name picked the
+wrong engine's controls. **Rule:** a brush is identified by medium + name everywhere (option values, records, files).
+Bundles also carry `<meta charset="utf-8">`: inlined scripts are read in the page's encoding, and "·" became "Â·".

@@ -51,7 +51,7 @@ export class VectorDoc {
         }
         prevEnd = rec.samples[rec.samples.length - 1].t;
         if (!meets) continue;
-        const ws = new WetStroke(WET_BRUSHES[rec.tool], paintFromColor(rec.color), paper, pxPerMm, rec.seed);
+        const ws = new WetStroke(WET_BRUSHES[rec.tool], paintFromColor(rec.color), paper, pxPerMm, rec.seed, rec.wetness || null);
         rec.samples.forEach((s, i) => {
           ws.add(s);
           if (i === rec.samples.length - 1) ws.finish();

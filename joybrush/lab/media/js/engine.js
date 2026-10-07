@@ -17,7 +17,7 @@ export class MediaEngine {
       src('media/jb_media_render.frag'), src('media/jb_media_bake.frag'), src('media/jb_wet_dab.vert'),
       src('media/jb_wet_dab.frag'), src('media/jb_wet_flux.frag'), src('media/jb_wet_update.frag'),
     ]);
-    const [pasteDabF, pasteBrushF] = await Promise.all([src('media/jb_paste_dab.frag'), src('media/jb_paste_brush.frag')]);
+    const [pasteDabF, pasteBrushF, beadF] = await Promise.all([src('media/jb_paste_dab.frag'), src('media/jb_paste_brush.frag'), src('media/jb_wet_bead.frag')]);
     const e = new MediaEngine();
     e.gl = gl;
     e.progs = {
@@ -29,6 +29,7 @@ export class MediaEngine {
       wetDab: makeProgram(gl, wdabV, wdabF, 'wet dab'),
       flux: makeProgram(gl, quadV, fluxF, 'wet flux'),
       update: makeProgram(gl, quadV, updF, 'wet update'),
+      bead: makeProgram(gl, quadV, beadF, 'wet bead'),
       pasteDab: makeProgram(gl, quadV, pasteDabF, 'paste dab'),
       pasteBrush: makeProgram(gl, quadV, pasteBrushF, 'paste brush'),
     };
@@ -123,9 +124,14 @@ export class MediaEngine {
     const gl = this.gl;
     this.ensureBake();
     this.wet = [0, 1].map(() => ({ w0: this.T(), w1: this.T(), flux: this.H() }));
-    this.fluxFbo = this.wet.map(x => makeFbo(gl, [x.flux]));
+    this.run = this.H();
+    // The running bead's field, half resolution (only computed while the paper is tilted).
+    this.beadSize = [Math.ceil(this.w / 2), Math.ceil(this.h / 2)];
+    this.bead = [0, 1].map(() => makeTexture(gl, this.beadSize[0], this.beadSize[1]));
+    this.beadFbo = this.bead.map(t => makeFbo(gl, [t]));
+    this.fluxFbo = this.wet.map(x => makeFbo(gl, [x.flux, this.run]));
     this.updFbo = this.wet.map(x => makeFbo(gl, [x.w0, x.w1, this.state[1].p0, this.state[1].p1]));
-    this.wetCopyFbo = this.wet.map(x => makeFbo(gl, [x.w0, x.w1, x.flux]));
+    this.wetCopyFbo = this.wet.map((x, i) => makeFbo(gl, i ? [x.w0, x.w1, x.flux] : [x.w0, x.w1, x.flux, this.run]));
     this.in0 = this.H(); this.in1 = this.H();
     this.inFbo = makeFbo(gl, [this.in0, this.in1]);
     for (const f of [...this.wetCopyFbo, this.inFbo]) this.clearFbo(f);
@@ -147,6 +153,7 @@ export class MediaEngine {
     if (this.deltaFbo) this.clearFbo(this.deltaFbo);
     if (this.wet) for (const f of [...this.wetCopyFbo, this.inFbo]) this.clearFbo(f);
     this.wetRect = null;
+    this.paintRect = null;
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
   }
 
@@ -381,8 +388,8 @@ export class MediaEngine {
     let useInput = false;
     if (batch && batch.count) {
       const r = this.layerRect(batch.dirty, 48);
-      if (r) this.wetRect = this.wetRect ? [Math.min(this.wetRect[0], r[0]), Math.min(this.wetRect[1], r[1]),
-        Math.max(this.wetRect[2], r[2]), Math.max(this.wetRect[3], r[3])] : r;
+      const union = (a, b) => a ? [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])] : [...b];
+      if (r) { this.wetRect = union(this.wetRect, r); this.paintRect = union(this.paintRect, r); }
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.inFbo);
       gl.viewport(0, 0, this.w, this.h);
       gl.enable(gl.BLEND);
@@ -401,22 +408,37 @@ export class MediaEngine {
       this.wetIdle = 0;
     }
     if (!this.wetRect) return;
+    // On a tilted paper running water can leave the simulated rectangle: grow it downhill as fast as water
+    // can run (the app port tracks wet tiles instead).
+    // Never further than a long drip (4 cm) from where paint was laid, so a phone held tilted all session does
+    // not end up simulating the whole page.
+    const slope = this.slope || [0, 0];
+    if (Math.hypot(slope[0], slope[1]) > 1e-4 && this.paintRect) {
+      const grow = Math.ceil((opts.substeps ?? w.substeps) * 0.45) + 2, r = this.wetRect, p = this.paintRect;
+      const reach = Math.ceil(40 * pxPerMm * this.scale);
+      if (slope[0] < -1e-4) r[0] = Math.max(0, p[0] - reach, r[0] - grow);
+      if (slope[0] > 1e-4) r[2] = Math.min(this.w, p[2] + reach, r[2] + grow);
+      if (slope[1] < -1e-4) r[1] = Math.max(0, p[1] - reach, r[1] - grow);
+      if (slope[1] > 1e-4) r[3] = Math.min(this.h, p[3] + reach, r[3] + grow);
+    }
     const rect = this.wetRect;
     this.touch(rect);
     this.wetSince = this.wetSince ? [Math.min(this.wetSince[0], rect[0]), Math.min(this.wetSince[1], rect[1]), Math.max(this.wetSince[2], rect[2]), Math.max(this.wetSince[3], rect[3])] : [...rect];
-    const U = { ...wetUniforms(paper, w), u_tilt: this.tilt || [0, 0], ...(opts.override || {}) };
+    const U = { ...wetUniforms(paper, w), u_slope: slope, u_cellMm: 1 / (pxPerMm * this.scale), u_beadCells: w.beadMm * pxPerMm * this.scale, ...(opts.override || {}) };
     gl.disable(gl.BLEND);
+    const tilted = Math.hypot(slope[0], slope[1]) > 1e-4;
     const steps = opts.substeps ?? w.substeps;
     for (let k = 0; k < steps; k++) {
       const a = this.wet[this.wc], bi = 1 - this.wc, b = this.wet[bi];
       gl.bindVertexArray(this.quadVao);
+      if (tilted) this.beadPasses(a.w0, rect, U.u_beadCells);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fluxFbo[bi]);
       gl.viewport(0, 0, this.w, this.h);
-      this.use(this.progs.flux, { ...U, u_w0: a.w0, u_flux: a.flux, u_paperBake: this.bakeTex, u_fluidBake: this.fluidBake, u_waterBake: this.waterBake, u_rect: rect, u_targetSize: [this.w, this.h] });
+      this.use(this.progs.flux, { ...U, u_bead: this.bead[0], u_w0: a.w0, u_flux: a.flux, u_paperBake: this.bakeTex, u_fluidBake: this.fluidBake, u_waterBake: this.waterBake, u_rect: rect, u_targetSize: [this.w, this.h] });
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.updFbo[bi]);
       this.use(this.progs.update, {
-        ...U, u_w0: a.w0, u_w1: a.w1, u_flux: b.flux, u_p0: this.state[0].p0, u_p1: this.state[0].p1,
+        ...U, u_w0: a.w0, u_w1: a.w1, u_flux: b.flux, u_run: this.run, u_p0: this.state[0].p0, u_p1: this.state[0].p1,
         u_paperBake: this.bakeTex, u_waterBake: this.waterBake, u_fluidBake: this.fluidBake, u_in0: this.in0, u_in1: this.in1, u_useInput: k === 0 && useInput ? 1 : 0,
         u_rect: rect, u_targetSize: [this.w, this.h],
       });
@@ -433,6 +455,25 @@ export class MediaEngine {
     if (this.wetIdle > (opts.maxWetSeconds ?? 240)) this.dryNow(paper);
   }
 
+  // The running bead's field: 2×2 average of the water, then a Gaussian along x and y (jb_wet_bead.frag).
+  // Each pass covers the half-resolution rectangle the next one reads, so nothing stale is ever blurred in.
+  beadPasses(w0, rect, beadCells) {
+    const gl = this.gl, [hw, hh] = this.beadSize;
+    const sigma = Math.min(4.8, Math.max(1, 0.25 * beadCells));
+    const R = Math.min(12, Math.ceil(2.5 * sigma)), M = 3 + 2 * R;
+    const hr = [Math.max(0, Math.floor(rect[0] / 2) - M), Math.max(0, Math.floor(rect[1] / 2) - M),
+      Math.min(hw, Math.ceil(rect[2] / 2) + M), Math.min(hh, Math.ceil(rect[3] / 2) + M)];
+    const pass = (fbo, values) => {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.viewport(0, 0, hw, hh);
+      this.use(this.progs.bead, { u_rect: hr, u_targetSize: [hw, hh], u_sigma: sigma, ...values });
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    };
+    pass(this.beadFbo[0], { u_pass: 0, u_w0: w0, u_src: this.bead[1], u_axis: [1, 0] });
+    pass(this.beadFbo[1], { u_pass: 1, u_w0: w0, u_src: this.bead[0], u_axis: [1, 0] });
+    pass(this.beadFbo[0], { u_pass: 2, u_w0: w0, u_src: this.bead[1], u_axis: [0, 1] });
+  }
+
   // Let everything dry where it lies (the Dry button, and the end of a long idle).
   dryNow(paper) {
     if (!this.wet || !this.wetRect) return;
@@ -442,6 +483,7 @@ export class MediaEngine {
       gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.viewport(0, 0, this.w, this.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     }
     this.wetRect = null;
+    this.paintRect = null;
   }
 
   copyRect(src, dstFbo, rect) {

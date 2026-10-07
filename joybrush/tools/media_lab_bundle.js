@@ -48,7 +48,9 @@ const html = fs.readFileSync(path.join(lab, 'index.html'), 'utf8');
 const title = html.match(/<title>[\s\S]*?<\/title>/)[0];
 const style = html.match(/<style>[\s\S]*?<\/style>/)[0];
 const body = html.match(/<body>([\s\S]*?)<script/)[1];
-const page = `${title}\n${style}\n${body}\n<script>globalThis.__LAB_BUNDLE = ${JSON.stringify(bundle)};</script>\n` +
+// The host wraps the page in its own document; the charset rides along anyway, because inlined scripts are
+// read in the page's encoding and the labels' · and ° would otherwise garble.
+const page = `<meta charset="utf-8">\n${title}\n${style}\n${body}\n<script>globalThis.__LAB_BUNDLE = ${JSON.stringify(bundle)};</script>\n` +
   `<script type="module">\nconst __m = {};\n${js}</script>\n`;
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(out, page);

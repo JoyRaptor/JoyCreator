@@ -29,9 +29,35 @@ export const WET = {
   edgeDep: 5.0,         // pigment drops out this much faster at the drying edge
   mingle: 12,           // pigment spreading through connected water (cells²/s; stable while ·dt ≤ 0.25)
   fullMm: 0.4,          // a puddle this deep is "as wet as a full brush" (deeper than the tooth: washes lie level)
+  runMmPerS: 8,         // a full bead running down an upright paper (mm/s; the step caps it at ~0.45 cell/step)
+  runMm: 0.3,           // a bead this deep above the tooth runs freely; thinner water clings (speed ∝ depth²)
+  runHold: 0.5,         // the tooth holds this fraction of its depth in water before any runs
+  runFilm: 0.012,       // the film running water leaves on what it crosses (mm): a drip's wet trail
+  runCohere: 0.3,       // how strongly a bead's own slope moves its water (drains the bead into its drips)
+  runCoherent: 1.0,     // a bead breaks a dry edge as a whole (bead-wide drips), not cell by cell (a comb)
+  steerScale: 1.0,      // the paper relief that steers running water, in bead sizes
+  runHoldK: 1.0,        // a dry edge holds a running bead this much harder than still water
+  runSizing: 0.45,      // how unevenly the sizing holds a bead at drip scale: drips break away irregularly
+  runPin: 0.5,          // how much a bead's weight helps it break a dry edge on a slope
+  runSteer: 4.0,        // how strongly the paper's valleys steer running water sideways (a drip wanders)
+  runAlong: 0.25,       // how much the paper's bumps slow it along the slope (more traps it in spots)
+  beadMm: 0.6,          // a running bead's size: it moves as one body over about this
 };
 
+// How wet the brush is, tapped up and down like Expresii's water drop and napkin (owner, 2026-10-07).
+// load: how full of water the brush is; flow: how much water it lets go per mm.
+export const WETNESS = [
+  { name: 'dry', load: 0.15, flow: 0.6 },
+  { name: 'damp', load: 0.4, flow: 0.8 },
+  { name: 'wet', load: 0.8, flow: 1.0 },
+  { name: 'loaded', load: 1.0, flow: 1.25 },
+  { name: 'runny', load: 1.35, flow: 1.7 },
+];
+
 export const WET_BRUSHES = {
+  // The all-rounder (owner, 2026-10-07): a pointed round from a hairline to a full belly on pressure and
+  // tilt, carrying a wash's worth of water.
+  'All-round': { allround: true, bellyMm: 4.5, tipMm: 0.06, waterPerMm: 0.09, capacityMm3: 150, load: 0.95, gran: 1.0, stain: 0.3, beadMm: 2.5, liftMm: 3, dwellMmPerS: 1.5 },
   'Round': { bellyMm: 3.0, tipMm: 0.3, waterPerMm: 0.09, capacityMm3: 120, load: 0.95, gran: 1.0, stain: 0.3, beadMm: 2.5, liftMm: 3, dwellMmPerS: 1.5 },
   'Wash': { bellyMm: 6.0, tipMm: 2.0, waterPerMm: 0.1, capacityMm3: 260, load: 1.0, gran: 1.0, stain: 0.3, beadMm: 3, liftMm: 4, dwellMmPerS: 2 },
   'Dry brush': { bellyMm: 3.5, tipMm: 0.8, waterPerMm: 0.05, capacityMm3: 90, load: 0.22, gran: 1.0, stain: 0.3, beadMm: 0, liftMm: 0, dwellMmPerS: 0.3 },
@@ -49,9 +75,9 @@ export function paintFromColor(rgb, strength = 1) {
   return { K: K.map(k => k * strength / refMm), S: 0.04 * meanK * strength / refMm };
 }
 
-// Paper tilt → per-cell gravity drop. tiltDeg along dir (unit, doc space, pointing downhill).
-export function tiltUniform(tiltDeg, dir, pxPerMm, gain = 0.6) {
-  const s = Math.tan(Math.min(60, Math.max(0, tiltDeg)) * Math.PI / 180) * gain / pxPerMm;
+// Paper tilt → the slope gravity pulls along: sin(tiltDeg) toward dir (unit, doc space, pointing downhill).
+export function tiltSlope(tiltDeg, dir) {
+  const s = Math.sin(Math.min(90, Math.max(0, tiltDeg)) * D2R);
   return [dir[0] * s, dir[1] * s];
 }
 
@@ -63,17 +89,25 @@ export function wetUniforms(paper, w = WET) {
     u_evap: w.evap, u_edgeEvap: w.edgeEvap, u_absorb: w.absorb * absorbency * 2 * (1 - 0.95 * sizing),
     u_capMm: w.capMm * capacity * 2, u_wick: Math.min(0.24 / w.dt, w.wick * wick * 2), u_sDry: w.sDry,
     u_settle: w.settle, u_lift: w.lift, u_stainCarry: w.stainCarry, u_toothMm: paper.toothMm,
+    u_runMmPerS: w.runMmPerS, u_runMm: w.runMm, u_runHoldMm: w.runHold * paper.toothMm, u_runFilmMm: w.runFilm, u_runPin: w.runPin, u_runSizing: w.runSizing, u_runHoldK: w.runHoldK, u_runCoherent: w.runCoherent, u_runCohere: w.runCohere, u_steerScale: w.steerScale, u_runSteer: w.runSteer, u_runAlong: w.runAlong,
     u_heightMean: paper.uniforms.u_paperHeightMean, u_fullMm: w.fullMm, u_filmMm: w.filmMm, u_edgeDep: w.edgeDep, u_mingle: Math.min(0.24 / w.dt, w.mingle),
   };
 }
 
 export class WetStroke {
-  constructor(brush, paint, paper, pxPerMm, seed = 1) {
+  constructor(brush, paint, paper, pxPerMm, seed = 1, wetness = null) {
     this.brush = brush;
-    this.paint = brush.clear ? { K: [0, 0, 0], S: 0 } : paint;
+    // Blotting the brush leaves the paint in it strong; dipping it in water thins it (Expresii's napkin and
+    // drop). Strength per mm of water goes as (wet ÷ load)^0.6: a dry brush skips richly over the tooth, a
+    // runny one floods paler.
+    const conc = wetness && !brush.clear ? Math.min(2.6, Math.max(0.7, Math.pow(0.8 / Math.max(0.1, wetness.load), 0.6))) : 1;
+    this.paint = brush.clear ? { K: [0, 0, 0], S: 0 } : { K: paint.K.map(k => k * conc), S: paint.S * conc };
     this.paper = paper;
     this.pxPerMm = pxPerMm;
-    this.water = brush.load;          // 0..1 of capacity
+    // A wetness level replaces the brush's own load (the dry brush keeps its own unless asked).
+    this.water = wetness ? Math.min(1.5, wetness.load) : brush.load;          // 0..1+ of capacity
+    this.flow = wetness ? wetness.flow : 1;
+    this.travelled = 0;
     this.pending = [];
     this.dirty = null;
     this.last = null;
@@ -88,8 +122,12 @@ export class WetStroke {
     if (!prev) return;
     const dx = s.x - prev.x, dy = s.y - prev.y, len = Math.hypot(dx, dy);
     if (len > 1e-6) {
+      // The hairs swing round over about a millimetre and a half of travel, not per pen report, so a dab's
+      // jitter does not smear it into several elongated marks.
       const t = [dx / len, dy / len];
-      this.dir = this.dir ? norm2(lerp2(this.dir, t, 0.4)) : t;
+      const k = this.dir ? 1 - Math.exp(-(len / this.pxPerMm) / 1.5) : 1;
+      this.dir = this.dir ? norm2(lerp2(this.dir, t, k)) : t;
+      this.travelled += len / this.pxPerMm;
     }
     if (!this.dir) this.dir = [Math.cos(s.az), Math.sin(s.az)];
     const b0 = this.halfWidth(prev), b1 = this.halfWidth(s);
@@ -120,32 +158,33 @@ export class WetStroke {
     const p = Math.max(0, Math.min(1, s.p));
     // The tip touches first; pressing lays the belly down. Tilt lays more of the belly flat.
     const t = Math.min(1, s.tilt / (60 * D2R));
-    return (b.tipMm + (b.bellyMm - b.tipMm) * Math.pow(p, 0.75)) * (1 + 0.35 * t);
+    return (b.tipMm + (b.bellyMm - b.tipMm) * Math.pow(p, b.allround ? 1.6 : 0.75)) * (1 + 0.35 * t);
   }
 
   emit(a, b, w, slideMm) {
     // The bead hanging at a loaded tip comes off over the first few millimetres: the stroke starts in a
     // pool that melts into the rest of it (not a stamped blob).
-    this.travelled = (this.travelled || 0) + slideMm;
+    this.beadTravel = (this.beadTravel || 0) + slideMm;
     const beadLen = 3;
-    slideMm *= 1 + (this.brush.beadMm / beadLen) * this.water * Math.exp(-this.travelled / beadLen);
+    slideMm *= 1 + (this.brush.beadMm / beadLen) * this.water * Math.exp(-this.beadTravel / beadLen);
     const L = (x, y) => x + (y - x) * w;
     const s = { x: L(a.x, b.x), y: L(a.y, b.y), p: L(a.p, b.p), tilt: L(a.tilt, b.tilt) };
     if (s.p <= 0.002) return;
     const half = this.halfWidth(s);
-    const along = half * (1.25 + 0.6 * Math.min(1, s.tilt / (60 * D2R)));
+    // A round puddle on touchdown; the footprint only stretches along the drag once the brush is moving.
+    const along = half * (1 + (0.25 + 0.6 * Math.min(1, s.tilt / (60 * D2R))) * smooth(0, 3, this.travelled));
     const dryness = 1 - smooth(0.05, 0.45, this.water);
     const wet = this.water;
     this.pending.push([
       s.x, s.y, this.dir[0], this.dir[1],
-      along, half, this.brush.waterPerMm, wet,
+      along, half, this.brush.waterPerMm * this.flow, wet,
       this.paint.K[0], this.paint.K[1], this.paint.K[2], this.paint.S,
       slideMm, dryness, 1 - this.brush.stain, this.seed,
       0, 0, 0, 0,
     ]);
     // Water leaves the brush roughly in proportion to what it lays down on dry paper.
     const area = Math.PI * along * half * 0.6;
-    const given = this.brush.waterPerMm * slideMm * wet * area * (1 - 0.5 * dryness);
+    const given = this.brush.waterPerMm * this.flow * slideMm * wet * area * (1 - 0.5 * dryness);
     this.water = Math.max(0, this.water - given / this.brush.capacityMm3);
     const r = (along + 0.1) * this.pxPerMm + 2;
     const box = [s.x - r, s.y - r, s.x + r, s.y + r];

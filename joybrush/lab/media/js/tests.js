@@ -45,6 +45,22 @@ const zig = (x0, x1, y, amp, n) => u => {
 };
 
 export const SHEETS = {
+  // Wetness (owner, 2026-10-07: Expresii's drop and napkin): the all-round brush at dry, damp, wet, loaded and
+  // runny, left to right; then the paper tilted toward the bottom for ?tiltS= seconds (runny paint should run).
+  runny: {
+    size: [1600, 1000],
+    paper: 'cold_press',
+    strokes() {
+      const q = new URLSearchParams(location.search), MM = 20, L = -45;
+      const s = [];
+      for (let i = 0; i < 5; i++) {
+        const st = { ...stroke('All-round', 30, bez([(6 + i * 15) * MM, 44 * MM], [(12 + i * 15) * MM, 40 * MM], [(4 + i * 15) * MM, 30 * MM], [(10 + i * 15) * MM, 22 * MM]), { p: env(0.85, 0.5), tilt: 35, az: L }, 40), kind: 'wet', color: [0.62, 0.22, 0.18], wetness: i };
+        s.push(st);
+      }
+      s.push({ tiltDeg: Number(q.get('tiltDeg') || 25), tiltDir: [0, -1] }, { wait: Number(q.get('tiltS') || 15) }, { tiltDeg: 0, tiltDir: [0, 0] }, { wait: 120 });
+      return s;
+    },
+  },
   // Dabs and stroke ends (owner, 2026-10-07): a light dab must be a dot, not straight lines squirting out;
   // tails only grow with travel; splayed hairs come in late; no straight-cut starts or ends. Each row: three
   // dabs (light, medium, firm, with a hand's jitter and no travel), then a short curved stroke, then a longer

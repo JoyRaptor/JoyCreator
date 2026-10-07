@@ -170,8 +170,8 @@ class DocModelTest {
             "id", "name", "kind", "visible", "locked", "opacity", "blend", "animatedIn",
             "cels", "frameCel", "mask", "clip", "sharedCelId", "regions",
         ),
-        "\$.layers[].cels[]" to setOf("id", "tiles", "strokesFile"),
-        "\$.layers[].mask" to setOf("id", "tiles", "strokesFile"),
+        "\$.layers[].cels[]" to setOf("id", "tiles", "strokesFile", "floatTiles"),
+        "\$.layers[].mask" to setOf("id", "tiles", "strokesFile", "floatTiles"),
     )
 
     /**
@@ -703,7 +703,7 @@ class DocModelTest {
         val doc = fresh().copy(paper = everyPaperField())
         val back = DocJson.decode(DocJson.encode(doc))
         assertEquals(everyPaperField(), back.paper, "a paper must come back exactly as it went in")
-        assertEquals(7, back.version, "the codec stamps the current region document version")
+        assertEquals(8, back.version, "the codec stamps the current document version (8: the media layer)")
         assertEquals(DOC_VERSION, back.version, "and reads it from the one constant, not a literal here")
     }
 

@@ -11,7 +11,7 @@ const val DOC_FORMAT = "joybrush.document"
  * 4: the paper carries a look, a tint and two sliders (JB-9.05, R10).
  * 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48).
  */
-const val DOC_VERSION = 7
+const val DOC_VERSION = 8
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -132,7 +132,18 @@ const val TILE_SIZE = Tiles.SIZE
  * at the END, never rename, and bump [DOC_VERSION] in the same change. A kind a build does not have
  * is refused by name (a [DocException] from [DocJson.decode]), never guessed at.
  */
-@Serializable enum class LayerKind { PAINT, INK }
+@Serializable enum class LayerKind {
+    PAINT, INK,
+    /**
+     * v8 (the media engine, MEDIA_ENGINE_PLAN §4): pencil, watercolour and oil. The truth is FLOAT state (paint
+     * body, water, graphite) in tiles listed by [Cel.floatTiles]; its [Cel.tiles] are an ordinary RGBA "look"
+     * rendered from that state, so export, thumbnails, masks and the eyedropper read it like a paint layer.
+     */
+    MEDIA,
+}
+
+/** A layer whose [Cel.tiles] are pixels a compositor draws (paint, and a media layer's look). */
+val LayerKind.hasPixels: Boolean get() = this != LayerKind.INK
 /**
  * How a layer combines with what is under it. The constant NAME is what lands in `document.json`
  * (`"blend": "MULTIPLY"`).
@@ -177,6 +188,9 @@ const val TILE_SIZE = Tiles.SIZE
     val id: String,
     val tiles: List<String> = emptyList(),  // PAINT: tile keys "tx_ty" that exist (sparse)
     val strokesFile: String? = null,        // INK: path inside the document zip
+    // MEDIA (v8): tile keys "tx_ty" holding float state, saved as layers/<id>/<cel>/<key>.<store>.f32 for each
+    // store (p0, p1, paper; w0, w1 while wet). The look for the same area is in [tiles].
+    val floatTiles: List<String> = emptyList(),
 )
 
 @Serializable data class Layer(

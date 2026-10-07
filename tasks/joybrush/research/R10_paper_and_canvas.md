@@ -312,3 +312,50 @@ Earlier in-repo research: R1 (Rebelle), R2 (Expresii), R3 (Krita/MyPaint), R4 (P
 - JB-9.08's directional dry deposit moves into the brush-engines session's dry-media engine.
 - JB-9.08's wet pooling is superseded by its wet engine.
 - The remaining procedural looks (canvases, papyrus, parchment, silk, fabric, cement, crumpled, blueprint, off-white, pulps) wait for owner photos or CC0 scans of the same kind. The installer takes them as new rows.
+
+### 11.1 Felt papers: drawing paper and watercolour cold, hot and rough (2026-10-06, same session)
+
+The brush-engines session asked for, in order: a medium-tooth drawing paper (tooth ~0.1–0.15 mm), cold-press watercolour (~1 mm felt bumps), then hot press and rough. No owner photos of these existed, so the owner gave permission to download. CC0 scans of real art papers at macro scale are rare: ambientCG's papers are "PBR approximated", the good free Arches/Saunders scans (Gumroad) do not allow redistribution in an app, and museum scans are flat-lit. One CC0 raking-lit photo of a real cold-press sheet was usable (publicdomainpictures.net #260479, 1920², `tools/paper/sources/`).
+
+**Why a new tool (`tools/paper/felt2paper.py`) and not photo2paper:**
+1. Under a raking lamp a felt paper's brightness is its SLOPE, not its height. photo2paper's "bright = high" would shift every bump by half its width.
+2. No phone or scanner photo holds the 0.02 mm fibres a pencil's dust actually catches. The photo is soft below ~0.2 mm.
+
+**What it does:**
+- **Felt** (measured): shape-from-shading in Fourier space.
+  - The lamp axis is the spectrum's strongest direction.
+  - The slope is integrated with eps·|k|² regularising the band across the lamp.
+  - A small height-in-brightness term (valleys see less light) is solved so the slope along the lamp has zero skew. A true isotropic relief climbs and falls equally; a wrong term leaves an emboss.
+  - The photo has a shallow depth of field, so the tile is cut from its sharpest square (`sharpest_square`).
+  - It is then made isotropic again by direction (`even_angles`, anisotropy 0.37 → 0.03) and stationary in strength (`even_amplitude`).
+  - The lamp is taken as up-left, the photographer's convention. That gives broad rounded tops and narrow creases (negative height skew), the profile of a felt-pressed sheet.
+- **Fibres** (modelled at true size): a random fibre network (Kallmes & Corte), the physical model of what paper is.
+  - Cotton fibres 2.5 mm long (log-normal), 0.02 mm wide, gently curled, coverage 4 layers, with a slight machine-direction bias.
+  - Fibres are laid on a torus at 0.05 mm per texel, thinned by the sheet's flocs, which are the photo's own mottling.
+  - The press evens out floc thickness on the top face, so the tooth keeps only the grain within ~1 mm. The flocs go to the fluid map as absorbency.
+- **Grades**, the same mould-made sheet finished differently:
+
+  | Grade | Felt bump | Felt : fibre | toothDepthMm | Look keeps lamp shading |
+  |---|---|---|---|---|
+  | cold press | 1.1 mm | 1 : 0.55 | 0.18 | 30%, relief light on |
+  | rough | 2.2 mm | 1 : 0.4 | 0.35 | 45%, relief light on |
+  | hot press | 1.1 mm | 0.3 : 1 | 0.03 | 8%, light off |
+  | drawing | 0.5 mm | 0.3 : 1 | 0.07 | 10%, light off |
+
+  Surfaces are all texelPx 1.0 (0.05 mm), 1024² (a 51 mm tile). The fluid G,B channels are the fibres' own directions (structure tensor of the network). A is capacity in the felt's valleys.
+- **Looks**: the whole photo at its physical scale (cold 3.0 doc px per texel, rough 6.0, drawing 1.4), with its lamp shading reduced and exposed to the sheet's real white.
+
+**Judged on the PC** (`papersim.py`, pencil threshold): drawing and hot press take graphite as granular, fibre-broken strokes, the real look of pencil on a smooth sheet. Cold and rough catch on the felt hills, with fibre-ragged edges.
+
+**Install:** `python tools/paper/install_felt_papers.py tools/paper/sources/watercolour_cold_press_cc0.jpg assets/paper`.
+
+**Ids:**
+
+| Look | Surface |
+|---|---|
+| `drawing_paper` | `drawing_tooth` |
+| `watercolour_cold` | `cold_press` |
+| `watercolour_hot` | `hot_press` |
+| `watercolour_rough` | `rough_press` |
+
+**Upgrade path:** rough is the cold-press felt scaled up. A real rough-paper scan (or an owner photo under a raking lamp) would replace its felt; the tool takes any such photo.

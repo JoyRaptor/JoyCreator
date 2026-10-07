@@ -59,3 +59,24 @@ Rebuild: `python joybrush/tools/paper/install_photo_papers.py "<that folder>" jo
 | sugarcane | sugarcane_pulp | thai-…11_08_59 PM.png | chunk |
 | thai_kraft | thai_kraft_pulp | thai02-… | chunk |
 | thai_rose | thai_rose_pulp | thai03-… | chunk |
+
+## Felt papers: drawing and watercolour (2026-10-06)
+
+One photograph: "Watercolor paper texture" by Eman Princess designs, publicdomainpictures.net image 260479, released
+CC0 (public domain). A raking-lit 1920² photo of a real cold-press watercolour sheet. Kept in the repo as the build source:
+`joybrush/tools/paper/sources/watercolour_cold_press_cc0.jpg` (not shipped in the app).
+
+`joybrush/tools/paper/install_felt_papers.py` runs `felt2paper.py` once per grade:
+
+1. The felt bumps are measured from the photo by shape-from-shading, taken from its sharpest square and made isotropic.
+2. The fibre grain is a random fibre-network model at true size: cotton fibres 2.5 mm × 0.02 mm, 0.05 mm per texel.
+3. The look is the photo with its lamp shading reduced, exposed to the sheet's white, at its physical scale.
+
+R10 §11.1 has the method and the numbers.
+
+| Look id | Surface id | Grade |
+|---|---|---|
+| drawing_paper | drawing_tooth | drawing (fibre grain over a light 0.5 mm felt) |
+| watercolour_cold | cold_press | cold press (1.1 mm felt, fibres on its hills) |
+| watercolour_hot | hot_press | hot press (felt pressed nearly flat, fibre grain) |
+| watercolour_rough | rough_press | rough (2.2 mm felt, deeper) |

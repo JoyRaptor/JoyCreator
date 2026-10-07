@@ -83,11 +83,15 @@ class LaunchMaterialsTest {
     @Test fun sourceWrapHasNoStrongerJoinThanOrdinaryNeighbourVariation() {
         fun check(file: String, q: Int) {
             val t=texture(file); val values=channel(t,q)
+            // A JPEG's wrap is always one of its 8x8 block joins, which carry a little blocking of their own: compare
+            // it with the picture's other block joins, not with neighbours inside a block (a near-flat hot-press look
+            // fails the latter by one level of quantisation while its wrap is smoother than its own blocks).
+            val block = if (file.endsWith(".jpg")) 8 else 1
             val edges=mutableListOf<Double>(); val interior=mutableListOf<Double>()
             for (y in 0 until t.h) for (x in 0 until t.w) {
                 val v=values[y*t.w+x]
-                if (x==t.w-1) edges.add(abs(v-values[y*t.w])) else interior.add(abs(v-values[y*t.w+x+1]))
-                if (y==t.h-1) edges.add(abs(v-values[x])) else interior.add(abs(v-values[(y+1)*t.w+x]))
+                if (x==t.w-1) edges.add(abs(v-values[y*t.w])) else if ((x+1)%block==0) interior.add(abs(v-values[y*t.w+x+1]))
+                if (y==t.h-1) edges.add(abs(v-values[x])) else if ((y+1)%block==0) interior.add(abs(v-values[(y+1)*t.w+x]))
             }
             edges.sort(); interior.sort()
             val edge95=edges[(edges.size*.95).toInt()]

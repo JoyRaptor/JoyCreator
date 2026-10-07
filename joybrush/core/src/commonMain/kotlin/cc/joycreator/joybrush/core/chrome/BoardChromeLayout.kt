@@ -281,7 +281,7 @@ object BoardChromeLayout {
                 for(n in 0 until i.columns*i.rows){val r=cell(n);add("sprite-cell-$n",r,col=Colour.PAPER,a=.35f,stroke=1f,rotation=angle*(if(n%2==0)1 else -1))}
                 i.targetCell?.let {add("sprite-target",cell(it),col=Colour.CYAN,stroke=1.5f,radius=3f,halo=3f)}
                 i.liftedCell?.let { val r=cell(it); val p=i.liftedCellOffset
-                    add("sprite-lift",Rect(r.left+p.x,r.top+p.y,r.right+p.x,r.bottom+p.y),col=Colour.AMBER,stroke=1.5f,radius=4f,rotation=if(i.reducedMotion)0f else -3f,scale=if(i.reducedMotion)1f else 1.08f) }
+                    add("sprite-lift",Rect(r.left+p.x,r.top+p.y,r.right+p.x,r.bottom+p.y),col=Colour.AMBER,stroke=1.5f,radius=4f,rotation=-3f,scale=1.08f) }
             }else if(i.spriteOrder.isNotEmpty()){
                 i.spriteOrder.forEachIndexed { order,n->val r=cell(n);val col=if(n==i.playingCell)Colour.PINK else Colour.CYAN
                     if(n==i.playingCell)add("sprite-playing",Rect(r.left+d,r.top+d,r.right-d,r.bottom-d),col=col,stroke=2.5f,radius=3f)

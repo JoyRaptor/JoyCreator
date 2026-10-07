@@ -936,3 +936,13 @@ is the diff that makes pencil, watercolour and oil paint on the phone. It is not
 - **4d next:** MediaPresets in the drawer, opacity meaning (check 3), the wetness/thinner/belly/edge taps, the belly
   colour picker, the gravity sensor (M5.6), then the Note 9, coordinated with you and the root lane.
 
+**4d, first part (second commit on `review/media-canvas`).**
+- `BrushLibrary.builtIn()` appends `MediaPresets.ALL`, so the 19 brushes appear on the Pencils, Watercolour and Oils
+  shelves.
+- Check 3: the strip's opacity button is hidden while a media brush is in hand (`ToolStripView.showOpacity`). Media
+  strength is physical (pressure, water, load), and a button that does nothing is the owner's dead knob.
+- The wetness, thinner, belly and edge/press/face states are reachable today as stepped knobs in the hold-brush
+  settings (step 2).
+- Still owed: the quick canvas-bar taps, the "manual" belly colour picker, and the Phone-tilt switch with the gravity
+  sensor (M5.6).
+

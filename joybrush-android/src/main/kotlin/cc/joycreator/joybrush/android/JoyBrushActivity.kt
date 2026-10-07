@@ -702,6 +702,7 @@ class JoyBrushActivity : Activity() {
     private fun showStripValues() {
         val s = tools.current
         strip.showValues(s?.sizePx ?: 12f, canvas.strokeColor, s?.opacity ?: 1f)
+        strip.showOpacity(canvas.preset?.engine != cc.joycreator.joybrush.core.brush.ENGINE_MEDIA)
     }
 
     /** The brush drawer, opened on the shelf the tool's brush is on. Picking closes it at once (0 ms). */

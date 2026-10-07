@@ -113,6 +113,15 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
         }
     }
 
+    /**
+     * Whether the opacity button is offered. A pencil, watercolour or oil brush has no opacity of its own: how strong it
+     * lays comes from pressure, water and load (the Lead's step-4 check 3: never a knob that does nothing).
+     */
+    fun showOpacity(shown: Boolean) {
+        val v = if (shown) VISIBLE else GONE
+        if (opacity.visibility != v) opacity.visibility = v
+    }
+
     /** The values the size, colour and opacity buttons show. */
     fun showValues(sizePx: Float, argb: Int, opacityValue: Float) {
         size.sizePx = sizePx

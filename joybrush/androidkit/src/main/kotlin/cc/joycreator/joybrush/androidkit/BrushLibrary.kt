@@ -44,6 +44,8 @@ object BrushLibrary {
             val preset = decode(name, json)
             if (preset != null) out.add(preset)
         }
+        // Pencil, watercolour and oil (brush version 8): built from the media lab's own tables, so the two never disagree.
+        out.addAll(cc.joycreator.joybrush.core.brush.MediaPresets.ALL)
         cache = out
         return out
     }

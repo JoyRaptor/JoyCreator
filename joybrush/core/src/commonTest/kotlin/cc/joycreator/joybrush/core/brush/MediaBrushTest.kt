@@ -141,4 +141,19 @@ class MediaBrushTest {
         assertEquals(1.0, tuned.media!!.stick!!.tipR, 1e-9)
         assertEquals(hb.media!!.wetness, tuned.media!!.wetness, "a knob this brush does not have is ignored")
     }
+
+    @Test fun halfTheSizeIsHalfTheToolAcrossTheShippedValueAtOne() {
+        val hb = byId("media:dry:HB").media!!
+        assertEquals(hb, hb.scaled(1.0))
+        val half = hb.scaled(0.5)
+        assertEquals(hb.stick!!.tipMax / 2, half.stick!!.tipMax, 1e-12)
+        assertEquals(hb.stick!!.rInf, half.stick!!.rInf, "darkness is not a length")
+        val knife = byId("media:paste:Palette knife 2").media!!.scaled(2.0).paste!!
+        assertEquals(44.0, knife.bladeLenMm, 1e-9)
+        assertEquals(1.1, knife.thickMm, 1e-9, "a bigger knife is not a thicker paint")
+        assertEquals(0.9, knife.bladeHmax, 1e-9, "nor a deeper reach")
+        val wash = byId("media:wet:Wash").media!!.scaled(2.0).wet!!
+        assertEquals(260.0 * 4, wash.capacityMm3, 1e-9, "a brush holds water by its area")
+        for (p in all) assertEquals(emptyList(), BrushValidate.validate(p.copy(media = p.media!!.scaled(3.0))), p.id)
+    }
 }

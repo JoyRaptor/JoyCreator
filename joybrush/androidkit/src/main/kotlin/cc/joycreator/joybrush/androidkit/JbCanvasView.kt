@@ -1,6 +1,14 @@
 package cc.joycreator.joybrush.androidkit
 
 import android.content.Context
+import cc.joycreator.joybrush.androidkit.gl.media.MediaCanvas
+import cc.joycreator.joybrush.core.brush.BrushRules
+import cc.joycreator.joybrush.core.brush.ENGINE_MEDIA
+import cc.joycreator.joybrush.core.brush.MEDIUM_DRY
+import cc.joycreator.joybrush.core.brush.MEDIUM_WET
+import cc.joycreator.joybrush.core.media.MediaBelly
+import cc.joycreator.joybrush.core.media.MediaInput
+import cc.joycreator.joybrush.core.media.MediaSample
 import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.io.PaperResources
 import cc.joycreator.joybrush.core.paper.ResolvedPaper
@@ -311,6 +319,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     private val engine = GlPaintEngine()
 
+    /**
+     * Pencil, watercolour and oil (MEDIA_ENGINE_PLAN step 4c), on the GL thread beside [engine]. It asks the phone how much
+     * memory is free before it makes its window (the Lead's rule: refuse in words, never fail mid-stroke).
+     */
+    private val mediaCanvas = MediaCanvas(engine, memory = {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val info = android.app.ActivityManager.MemoryInfo()
+        am.getMemoryInfo(info)
+        info.availMem to info.threshold
+    })
+
     // Metadata belongs to the opened document, not the GPU's layer projection. Written on GL;
     // the UI reads the immutable document to respect locks before starting a stroke.
     // Metadata only after upload: GPU tiles own the live pixels.
@@ -599,6 +618,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     private fun adopt(next: LayerStack) {
+        if (next.activeId != activeLayer) onGl { mediaCanvas.releaseWindow() }
         stackUi = next
         activeLayer = next.activeId
         if (!next.active.hasMask) editingMask = false
@@ -663,6 +683,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
                 if (engine.ready) graphicsEpoch += 1
                 engine.init()
+                mediaCanvas.forget()
+                engine.onMediaRestored = { layer, keys -> mediaCanvas.restored(layer, keys) }
                 engine.setDocumentPaper(documentPaperState)
                 // Never let a context-loss placeholder overwrite the person's last good file.
                 contentLost = contentLost || engine.lostContent || retainedContents != null
@@ -688,6 +710,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             override fun onDrawFrame(gl: GL10?) {
                 while (frameWork.isNotEmpty()) frameWork.removeFirst()()
+                // Media strokes and running water advance once per drawn frame, and keep frames coming while they run.
+                try {
+                    if (mediaCanvas.frame(SystemClock.uptimeMillis())) { reportMediaHistory(); super@JbCanvasView.requestRender() }
+                } catch (e: Exception) {
+                    mediaCanvas.release()
+                    post { if (drawing && (mediaStroke || mediaErase)) cancelStroke(); onRefused?.invoke(e.message ?: "The pencil, watercolour or oil stroke could not be painted") }
+                }
                 val s = viewSnapshot
                 drawView.zoom = s[0]; drawView.rotation = s[1]; drawView.panX = s[2]; drawView.panY = s[3]
                 paperWarnings = (PaperState.problems(documentPaperState,PaperResources.catalogue) + engine.paperWarnings).distinct()
@@ -1000,6 +1029,141 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         return (0xFF shl 24) or (y shl 16) or (y shl 8) or y
     }
 
+    // ── media strokes (step 4c) ──────────────────────────────────────────────
+
+    /** The stroke in progress is a media brush's, fed to [mediaCanvas] without the smoother (the Lead's step-4 check 2). */
+    private var mediaStroke = false
+    /** The stroke in progress is the eraser on a media layer: its dabs take the layer's state away. */
+    private var mediaErase = false
+    /** The media stroke has been begun on the GL thread (at its first sample, where the window is placed). */
+    private var mediaBegun = false
+    /** The stroke made its own media layer: the layer and the stroke fold into one undo step at the lift. */
+    private var mediaMadeLayer = false
+    /** GL thread: the undo depth right after the media layer was made, so only that step and the stroke's fold. */
+    private var mediaLayerMark = -1
+    /** The colour of the last media stroke: the "last colour" belly mode. */
+    private var lastMediaArgb: Int? = null
+    /** GL thread: what the history buttons last heard, so running water reports only when the undo stack changes. */
+    private var mediaHistorySeen = Pair(-1, false)
+
+    /** The active layer's kind, from the document; a layer the document has not seen yet is paint. */
+    private fun activeLayerKind(): LayerKind = boardDocument?.layers?.firstOrNull { it.id == activeLayer }?.kind ?: LayerKind.PAINT
+
+    private fun startMediaStroke(p: BrushPreset) {
+        // Painting INTO a mask with a media brush stays refused (the Lead, step 1): a mask is a grey, not a paint.
+        if (editingMask && stackUi.active.hasMask) {
+            drawing = false
+            onRefused?.invoke("A mask is painted with paint brushes. Pencil, watercolour and oil paint on the layer itself.")
+            return
+        }
+        resetSnapper(fresh = true)
+        strokeOnMask = false
+        mediaMadeLayer = false
+        if (activeLayerKind() != LayerKind.MEDIA) {
+            // Contract point 5: a media brush on a paint or ink layer makes a media layer above it, in the same undo step.
+            if (!roomForAnother(LayerKind.MEDIA)) { drawing = false; return }
+            val before = stackUi
+            val id = before.freshId()
+            val after = before.add(id, when (p.media?.medium) { MEDIUM_DRY -> "Pencil"; MEDIUM_WET -> "Watercolour"; else -> "Oil" })
+            adopt(after)
+            mediaMadeLayer = true
+            val w = viewW; val h = viewH
+            onGl {
+                try {
+                    // The Lead's check 8: a fresh drawing has no board document until its first save; make it first, so the
+                    // first autosave after this stroke takes the path that keeps media state.
+                    if (engine.boardDocument == null) engine.setBoardDocument(syncBoardLayersFor(readContents(w, h).doc, before))
+                    engine.addMediaLayerStep(id, before, after)
+                    mediaLayerMark = engine.undo.undoDepth
+                    reportHistory()
+                } catch (e: Exception) {
+                    mediaLayerMark = -1
+                    post { onRefused?.invoke(e.message ?: "A pencil, watercolour or oil layer could not be made") }
+                }
+            }
+        }
+        strokeLayerId = activeLayer
+        drawing = true
+        mediaStroke = true
+        mediaBegun = false
+        strokePreset = p
+        smoother = null; placer = null; tracker = null; strokeTuft = null; strokeDabber = null
+    }
+
+    private fun feedMedia(ev: MotionEvent, idx: Int) {
+        val p = strokePreset ?: return
+        val samples = MotionEventSamples.from(ev, idx, { x, y -> view.screenToDoc(x, y) }, view.rotation)
+        val snap = snapper
+        val out = ArrayList<MediaSample>(samples.size)
+        for (s in samples) {
+            // A predicted point is drawn for latency elsewhere; paint and water cannot be taken back, so media never uses one.
+            if (s.predicted) continue
+            val placed = snap?.map(s) ?: s
+            out += MediaInput.sample(p.response.apply(placed))
+        }
+        if (snap != null && snap.locked && !lockShown) { lockShown = true; onGuideLock?.invoke(true) }
+        if (out.isEmpty()) return
+        val target = strokeLayerId
+        if (!mediaBegun) {
+            mediaBegun = true
+            val first = out[0]
+            val argb = colorArgb ?: brush.argb
+            val now = SystemClock.uptimeMillis()
+            val belly = p.media?.let { m ->
+                MediaBelly.colorFor(m.belly, rgbOf(argb), now.toInt(), last = lastMediaArgb?.let(::rgbOf))?.let(::argbOf)
+            }
+            lastMediaArgb = argb
+            onGl {
+                mediaCanvas.begin(target, p, argb, belly, first.x, first.y, now)?.let { why -> post { onRefused?.invoke(why) } }
+            }
+        }
+        onGl { mediaCanvas.add(out) }
+    }
+
+    private fun finishMediaStroke() {
+        resetSnapper(fresh = false)
+        drawing = false
+        mediaStroke = false; mediaErase = false; mediaBegun = false
+        val made = mediaMadeLayer
+        mediaMadeLayer = false
+        smoother = null; placer = null; tracker = null
+        strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null
+        onGl {
+            mediaCanvas.end()
+            // One press, one step: the layer the stroke made and the stroke itself undo together.
+            if (made && mediaLayerMark > 0 && engine.undo.undoDepth == mediaLayerMark + 1) engine.undo.mergeNewest(2)
+            mediaLayerMark = -1
+            reportHistory()
+        }
+        flushPaperVisits()
+        onStrokeEnded?.invoke()
+    }
+
+    /** GL thread: running water changed the undo stack (a step joined or popped): tell the history buttons. */
+    private fun reportMediaHistory() {
+        val now = engine.undo.undoDepth to engine.undo.canRedo
+        if (now == mediaHistorySeen) return
+        mediaHistorySeen = now
+        reportHistory()
+    }
+
+    /** [syncBoardLayers] against an explicit stack, for a document made before the stack changes. */
+    private fun syncBoardLayersFor(doc: JbDocument, stack: LayerStack): JbDocument {
+        val old = doc.layers.associateBy { it.id }
+        val next = stack.layers.map { state ->
+            val base = old[state.id] ?: error("Layer metadata is missing for ${state.id}")
+            base.copy(name = state.name, opacity = state.opacity, visible = state.visible, blend = state.blend,
+                clip = state.clip, mask = if (state.hasMask) base.mask ?: error("Mask metadata is missing") else null)
+        }
+        return doc.copy(layers = next, activeLayerId = stack.activeId, paper = documentPaperState)
+    }
+
+    private fun rgbOf(argb: Int) = doubleArrayOf(((argb shr 16) and 0xFF) / 255.0, ((argb shr 8) and 0xFF) / 255.0, (argb and 0xFF) / 255.0)
+    private fun argbOf(c: DoubleArray): Int {
+        fun b(v: Double) = (v.coerceIn(0.0, 1.0) * 255 + 0.5).toInt()
+        return (0xFF shl 24) or (b(c[0]) shl 16) or (b(c[1]) shl 8) or b(c[2])
+    }
+
     private fun startStroke(eraser: Boolean) {
         if (contentLost) {
             drawing = false
@@ -1022,6 +1186,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val p = preset
         if(p?.engine == ENGINE_SMUDGE && refuseTileTool("smudge")) { drawing=false; return }
         val erase = b.erase || eraser
+        // A media brush paints through the media engine (step 4c), on a media layer it makes if it has to.
+        if (p?.engine == ENGINE_MEDIA && !eraser) { startMediaStroke(p); return }
+        // On a media layer only media brushes paint: anything else writes a look the next render would undo. The eraser
+        // goes to the media engine, which erases the state itself (the Lead, step-4 check 1). A mask is pixels as ever.
+        val onMediaLayer = activeLayerKind() == LayerKind.MEDIA && !(editingMask && stackUi.active.hasMask)
+        if (onMediaLayer) {
+            val erases = erase || p?.blend == "erase"
+            BrushRules.refusalFor(p?.engine ?: "stamp", LayerKind.MEDIA, erases)?.let { drawing = false; onRefused?.invoke(it); return }
+        }
+        mediaErase = onMediaLayer
+        mediaBegun = false
         // JB-2.23: on the mask, the stroke goes to the mask's store and paints GREY — white shows, black hides.
         strokeOnMask = editingMask && stackUi.active.hasMask
         strokeLayerId = if (strokeOnMask) maskStoreId(activeLayer) else activeLayer
@@ -1049,7 +1224,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             )
             glBegan = true
             val target = strokeLayerId
-            boardStrokeWork {
+            if (!mediaErase) boardStrokeWork {
                 engine.beginStroke(target, (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }, b.opacity, b.accumulate,
                     if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
             }
@@ -1113,6 +1288,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private fun feed(ev: MotionEvent) {
         val idx = ev.findPointerIndex(pointerId)
         if (idx < 0) return
+        if (mediaStroke) { feedMedia(ev, idx); return }
         val sm = smoother ?: return
         val released = ArrayList<PenSample>()
         // The pen reports SCREEN px; a stroke is recorded in DOCUMENT px, and the page's own turn
@@ -1139,6 +1315,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     private fun finishStroke() {
+        if (mediaStroke || mediaErase) {
+            if (mediaErase) smoother?.let { paint(it.finish()) }   // the eraser's last dabs, as for any eraser
+            finishMediaStroke()
+            return
+        }
         smoother?.let { paint(it.finish()) }
         resetSnapper(fresh = false)
         // R9: the lift — a fast one carries on as the bristles leave the paper — and any spatter it throws.
@@ -1152,6 +1333,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     private fun cancelStroke() {
+        // What a media stroke already painted stays, as one step (water cannot be un-run mid-flow).
+        if (mediaStroke || mediaErase) { finishMediaStroke(); return }
         resetSnapper(fresh = false)
         drawing = false
         smoother = null; placer = null; tracker = null
@@ -1166,6 +1349,16 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         strokeTuft?.let { t -> paintTuft(t.add(points)); return }
         val placed = placer?.add(points) ?: return
         if (placed.isEmpty()) return
+        if (mediaErase) {
+            val target = strokeLayerId
+            if (!mediaBegun) {
+                mediaBegun = true
+                val first = placed[0]
+                onGl { mediaCanvas.beginErase(target, first.x.toDouble(), first.y.toDouble(), SystemClock.uptimeMillis())?.let { why -> post { onRefused?.invoke(why) } } }
+            }
+            onGl { mediaCanvas.addErase(placed) }
+            return
+        }
         val p = strokePreset
         val dabs = if (p == null) placed else scattered(p, placed)
         if (!glBegan) beginStrokeNow()

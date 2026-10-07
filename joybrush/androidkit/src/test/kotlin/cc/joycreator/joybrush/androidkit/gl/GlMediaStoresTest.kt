@@ -104,4 +104,24 @@ class GlMediaStoresTest {
         val e = engine()
         assertFailsWith<IllegalArgumentException> { e.dropMediaTiles(layer, "p0", listOf(1L)) }
     }
+
+    @Test fun aMediaBrushOnAPaintLayerMakesAMediaLayerAboveItAsOneStep() {
+        // Contract point 5 and the Lead's check 8: the board document exists first, then the layer is MEDIA in it.
+        val e = GlPaintEngine().also { it.initWith { } }
+        var n = 0
+        val doc = cc.joycreator.joybrush.core.doc.DocOps.newDocument("d", "Art", 512, 512) { "id-${++n}" }
+        val paintId = doc.layers.single().id
+        val before = cc.joycreator.joybrush.core.layers.LayerStack.single(paintId, "Paint")
+        e.setStack(before)
+        e.setBoardDocument(doc)
+        val after = before.add("wc", "Watercolour")
+        e.addMediaLayerStep("wc", before, after)
+        val made = e.boardDocument!!.layers.single { it.id == "wc" }
+        assertEquals(cc.joycreator.joybrush.core.doc.LayerKind.MEDIA, made.kind)
+        assertEquals(1, made.cels.size, "one shared cel, no frames")
+        assertEquals(listOf(paintId, "wc"), e.boardDocument!!.layers.map { it.id }, "above the paint layer")
+        assertEquals(1, e.undo.undoDepth)
+        assertTrue(e.undoStep())
+        assertEquals(listOf(paintId), e.boardDocument!!.layers.map { it.id }, "one undo takes it away")
+    }
 }

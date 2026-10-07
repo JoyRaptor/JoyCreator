@@ -77,6 +77,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     private lateinit var progPasteDab: MediaProgram
     private lateinit var progPasteBrush: MediaProgram
     private lateinit var progBead: MediaProgram
+    private lateinit var progEraseDab: MediaProgram
+    private lateinit var progErase: MediaProgram
+    private var eraseWetFbo = IntArray(0)
 
     private class State(val p0: Int, val p1: Int, val paper: Int, val fbo: Int)
     private lateinit var state: Array<State>
@@ -132,6 +135,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         progPasteDab = p("jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab")
         progPasteBrush = p("jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush")
         progBead = p("jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead")
+        progEraseDab = p("jb_media_erase_dab.vert", "jb_media_erase_dab.frag", "media erase dab")
+        progErase = p("jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase")
         allocate()
         brush = Array(2) {
             val b0 = MediaTex.make(PASTE_LANES, PASTE_DEPTH, GLES30.GL_RGBA32F, GLES30.GL_RGBA, GLES30.GL_FLOAT, GLES30.GL_NEAREST)
@@ -196,8 +201,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         tex.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteTex(*it) }
         val fbos = ArrayList<Int>()
         for (s in state) fbos += s.fbo
-        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() + wetCopyFbo.toList()
+        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
+            wetCopyFbo.toList() + eraseWetFbo.toList()
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
+        eraseWetFbo = IntArray(0)
         delta = 0; deltaFbo = 0; bakeTex = 0; fluidBake = 0; waterBake = 0; bakeFbo = 0; bakedPaper = null
         wet = null; run = 0; in0 = 0; in1 = 0; inFbo = 0; lookTex = 0; lookFbo = 0
         bead = IntArray(0); beadFbo = IntArray(0); fluxFbo = IntArray(0); updFbo = IntArray(0); wetCopyFbo = IntArray(0)
@@ -529,6 +536,62 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         bc = 1 - bc
     }
 
+    // ---- the eraser on a media layer (app only; the Lead, step-4 check 1) ----
+    /**
+     * Takes paint, graphite and water out of the state under [batch]'s dabs (first four floats of each: x, y, radius in
+     * doc px, strength 0..1), so the next look agrees. Only [stores] that exist here are touched (stores stay lazy); the
+     * paper's crush is kept.
+     */
+    fun eraseFrame(batch: DabBatch, stores: Set<String>) {
+        if (batch.count == 0 || stores.isEmpty()) return
+        ensureDry()
+        val rect = layerRect(batch.dirty, 2.0) ?: return
+        touch(rect)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, deltaFbo)
+        GLES30.glViewport(0, 0, w, h)
+        GLES30.glEnable(GLES30.GL_BLEND)
+        GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE)
+        GLES30.glBlendEquation(GLES30.GL_MAX)   // overlapping dabs never take away more than one does
+        progEraseDab.use(common(mapOf("u_targetSize" to floatArrayOf(w.toFloat(), h.toFloat()))))
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, MediaTex.floats(batch.dabs), GLES30.GL_STREAM_DRAW)
+        GLES30.glBindVertexArray(dabVao)
+        GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, batch.count)
+        GLES30.glBlendEquation(GLES30.GL_FUNC_ADD)
+        GLES30.glDisable(GLES30.GL_BLEND)
+        GLES30.glBindVertexArray(quadVao)
+        val size = floatArrayOf(w.toFloat(), h.toFloat())
+        if (stores.any { it == "p0" || it == "p1" || it == "paper" }) {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, state[1].fbo)
+            progErase.use(common(mapOf("u_a" to Tex(state[0].p0), "u_b" to Tex(state[0].p1), "u_c" to Tex(state[0].paper),
+                "u_cover" to Tex(delta), "u_water" to 0, "u_targetSize" to size, "u_rect" to rect)))
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            copyRect(state[1], state[0].fbo, rect)
+            for (st in listOf("p0", "p1", "paper")) if (st in stores) this.stores += st
+        }
+        val ws = wet
+        if (ws != null && stores.any { it in WATER_STORES }) {
+            if (eraseWetFbo.isEmpty()) eraseWetFbo = IntArray(2) { MediaTex.fbo(ws[it].w0, ws[it].w1) }
+            val other = 1 - wc
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, eraseWetFbo[other])
+            GLES30.glViewport(0, 0, w, h)
+            progErase.use(common(mapOf("u_a" to Tex(ws[wc].w0), "u_b" to Tex(ws[wc].w1), "u_c" to Tex(ws[wc].w0),
+                "u_cover" to Tex(delta), "u_water" to 1, "u_targetSize" to size, "u_rect" to rect)))
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            val (x0, y0, x1, y1) = intArrayOf(floor(rect[0]).toInt(), floor(rect[1]).toInt(), ceil(rect[2]).toInt(), ceil(rect[3]).toInt()).let { listOf(it[0], it[1], it[2], it[3]) }
+            blit(ws[other].w0, x0, y0, x1, y1, ws[wc].w0, x0, y0, x1, y1)
+            blit(ws[other].w1, x0, y0, x1, y1, ws[wc].w1, x0, y0, x1, y1)
+            this.stores += "w0"; this.stores += "w1"
+        }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, deltaFbo)
+        GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+        GLES30.glScissor(floor(rect[0]).toInt(), floor(rect[1]).toInt(), ceil(rect[2] - rect[0]).toInt() + 1, ceil(rect[3] - rect[1]).toInt() + 1)
+        GLES30.glClearColor(0f, 0f, 0f, 0f)
+        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+    }
+
     // ---- wet media ----
     /** One frame of water: new dabs (if any) go into the brush input, then the water runs [WetConstants.substeps] times. */
     fun wetFrame(batch: DabBatch?, paper: MediaPaperGl, pxPerMm: Double, wc0: WetConstants = WetConstants(), substeps: Int? = null,
@@ -691,7 +754,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     }
 
     fun release() {
-        for (p in listOf(progDab, progApply, progCopy, progRender, progBake, progWetDab, progFlux, progUpdate, progPasteDab, progPasteBrush, progBead)) p.release()
+        for (p in listOf(progDab, progApply, progCopy, progRender, progBake, progWetDab, progFlux, progUpdate, progPasteDab, progPasteBrush, progBead,
+                progEraseDab, progErase)) p.release()
         val tex = ArrayList<Int>()
         for (s in state) tex += listOf(s.p0, s.p1, s.paper)
         for (b in brush) tex += listOf(b.b0, b.b1)
@@ -701,7 +765,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         val fbos = ArrayList<Int>()
         for (s in state) fbos += s.fbo
         for (b in brush) fbos += b.fbo
-        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo, readFbo, drawFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() + wetCopyFbo.toList()
+        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo, readFbo, drawFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
+            wetCopyFbo.toList() + eraseWetFbo.toList()
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
         GLES30.glDeleteBuffers(2, intArrayOf(quadBuf, dabBuf), 0)
         GLES30.glDeleteVertexArrays(3, intArrayOf(quadVao, dabVao, emptyVao), 0)
@@ -709,6 +774,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
 
     private companion object {
         val WATER_WRITES = listOf("p0", "p1", "w0", "w1")
+        val WATER_STORES = listOf("w0", "w1")
     }
 
     private fun union(a: FloatArray?, b: FloatArray): FloatArray =

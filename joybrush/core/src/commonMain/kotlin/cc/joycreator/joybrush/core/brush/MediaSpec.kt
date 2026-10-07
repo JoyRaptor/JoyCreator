@@ -68,6 +68,23 @@ val BELLY_MODES: List<String> = listOf("off", "manual", "darker", "lighter", "wa
     val isHair: Boolean get() = paste != null && !paste.blade && !paste.trowel
 }
 
+/**
+ * This spec's tool at [k] times its size: every length across the paper grows, and what is measured INTO the paper (paint
+ * thickness, a blade's reach and taper, the tooth) does not, so a bigger brush is a bigger brush and not a deeper one. A
+ * watercolour brush holds water in proportion to its area, so a big brush still carries a stroke as far.
+ */
+fun MediaSpec.scaled(k: Double): MediaSpec {
+    if (k == 1.0) return this
+    return copy(
+        stick = stick?.let { it.copy(tipR = it.tipR * k, tipMax = it.tipMax * k, side1 = it.side1 * k, side2 = it.side2 * k, face = it.face * k) },
+        wet = wet?.let { it.copy(bellyMm = it.bellyMm * k, tipMm = it.tipMm * k, beadMm = it.beadMm * k, liftMm = it.liftMm * k,
+            capacityMm3 = it.capacityMm3 * k * k) },
+        paste = paste?.let { it.copy(widthMm = it.widthMm * k, lenMm = it.lenMm * k, tipHalfMm = it.tipHalfMm * k,
+            edgeMinMm = it.edgeMinMm * k, acrossMaxMm = it.acrossMaxMm * k, bladeLenMm = it.bladeLenMm * k,
+            bladeHalfMm = it.bladeHalfMm * k) },
+    )
+}
+
 /** How much the media engine scales the tool's lengths: the brush's size against the tool's natural width. */
 fun BrushPreset.mediaScale(): Double {
     val m = media ?: return 1.0

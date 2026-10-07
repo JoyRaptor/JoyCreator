@@ -888,3 +888,51 @@ changes no painting; it makes sure a media layer is never refused, hidden or dro
 **Landed 2026-10-07 (809ea46a), approved.** The Lead's must-do for 4c, a board document before the first media
 autosave, is step-4 check 8.
 
+### Media engine port — review request, step 4c: the canvas paints media (2026-10-07, Claude media lane)
+
+For the acting Lead or the Lead: please review `review/media-canvas`. It is one commit on joy-creator d3913010. This
+is the diff that makes pencil, watercolour and oil paint on the phone. It is not in the drawer yet; that is 4d.
+- **MediaCanvas** (androidkit/gl/media), on the GL thread. It is the lab's live loop: dabs and steps run once per
+  DRAWN FRAME, never per pen report, so water runs at the same speed whatever the pen's rate.
+  - Dry is DryStroke → dryFrame. Wet is WetStroke → wetFrame; a clear brush keeps its own load. Paste is
+    reloadBrush, PasteStroke and pasteStep, with thinned paste also running thinnerStroke → wetFrame. The eraser goes
+    to eraseFrame.
+  - Water already running keeps running under a dry stroke, and after the lift `frame()` runs it on.
+  - Refusals in words come before anything is made: no float colour buffers, `windowFits` (check 7, from
+    ActivityManager), and `MediaRoomException`.
+  - The window follows the pen with the tool's reach.
+- **The media eraser** (check 1). New shaders `jb_media_erase_dab.vert/.frag` draw soft round coverage with MAX
+  blending into the dry delta target. `jb_media_erase_apply.frag` scales p0, p1, the paper's flake volume and
+  reflectance, and w0/w1, by (1 − coverage). The paper crush is kept. Only stores the layer already has are touched,
+  so stores stay lazy. The canvas places eraser dabs with its own placer (any eraser preset or the built-in eraser).
+- **JbCanvasView**:
+  - `engine == "media"` → `startMediaStroke`, `feedMedia` and `finishMediaStroke`. This is a SEPARATE branch at the top
+    of startStroke/feed/finish; the root lane's fill hooks are untouched.
+  - Check 2: no StrokeSmoother. Samples go response curves → MediaInput (the lab's 68° tilt reach) → MediaSpline.
+    Predicted points are never painted.
+  - Contract point 5 and check 8: a media brush on a paint or ink layer adds a "Pencil", "Watercolour" or "Oil" layer
+    above it. If the board document is missing, it is made first (readContents → setBoardDocument), then
+    `GlPaintEngine.addMediaLayerStep`. At the lift, the layer step and the stroke step fold into ONE step (only when
+    the stroke's step is exactly next).
+  - Painting INTO a mask with a media brush is refused in words. On a media layer every non-media brush is refused via
+    `BrushRules.refusalFor`, and the eraser (check 4, including the pen's eraser end) goes to the media erase.
+  - The frame loop calls `mediaCanvas.frame` after the queued work and keeps frames coming while it runs. The history
+    is reported only when depth or redo changes (dried water can pop a step). A throw releases the media canvas and
+    says so.
+  - `adopt()` releases the window when the active layer changes. `onSurfaceCreated` forgets the media GL names and
+    wires `onMediaRestored`.
+- **Core.**
+  - `MediaSpec.scaled(k)`: lengths scale, depths and paint thickness do not, and water capacity follows area.
+  - `MediaInput.sample` (tilt reach, default lean, NaN channels).
+  - `MediaBelly` ports the lab's belly modes; "manual" waits for 4d's colour picker.
+  - All tested.
+- **Safety.** MediaWindow.flush forgets its layer if the layer is gone (deleted, or its making undone).
+- **Tests.**
+  - GlMediaStoresTest: a media brush on paint makes a MEDIA layer above it as one step, and undo takes it away.
+  - Core 1706 and androidkit 298, 0 failed. One pre-existing flake, StagedDrawingTest pruning with same-millisecond
+    names, is outside this diff; a separate task is suggested to the owner.
+- **NOT provable off the device:** the GL paths, the "new drawing → media stroke → autosave → reopens wet" chain
+  (check 8's test needs the phone), and the look's lamp direction (flipped for the app's y-down; to confirm by eye).
+- **4d next:** MediaPresets in the drawer, opacity meaning (check 3), the wetness/thinner/belly/edge taps, the belly
+  colour picker, the gravity sensor (M5.6), then the Note 9, coordinated with you and the root lane.
+

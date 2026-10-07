@@ -85,6 +85,8 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
      */
     fun flush() {
         val id = layerId ?: return
+        // The layer went (deleted, or its making undone): nothing here has anywhere to go.
+        if (id !in paint.layerIds()) { layerId = null; dryPending = false; media.takeDirty(); media.takeDirtyStores(); media.stopWater(); return }
         if (dryPending && !paint.mediaStrokeInProgress) { dryPending = false; dropWater(id) }
         val rect = media.takeDirty() ?: return
         val keys = MediaWindowMath.keysIn(tx, ty, rect)

@@ -214,6 +214,47 @@ class GlPaintEngine(
         paperBackground.invalidate()
     }
 
+    private var mediaPaperFor: PaperResources.Loaded? = null
+    private var mediaPaperGl: cc.joycreator.joybrush.androidkit.gl.media.MediaPaperGl? = null
+
+    /**
+     * The document paper as the media passes read it (M5.4): the same surface and fluid maps the brushes bind, plus the
+     * media statistics (height histogram, tooth, compliance, fluid numbers) from the catalogue. Remade when the paper
+     * changes. A smooth paper (no surface) is a flat sheet with a hair of tooth. GL thread.
+     */
+    fun mediaPaper(): cc.joycreator.joybrush.androidkit.gl.media.MediaPaperGl {
+        val loaded = loadedPaper
+        mediaPaperGl?.let { if (mediaPaperFor === loaded) return it }
+        val p = loaded?.paper
+        val surface = p?.surface
+        val scale = p?.scale ?: 1f
+        val heights = loaded?.surface?.rgba?.let { rgba -> ByteArray(rgba.size / 4) { rgba[it * 4 + 2] } }
+        val hist = heights?.let { cc.joycreator.joybrush.core.media.MediaPaper.histogramOf(it) } ?: DoubleArray(256).also { it[255] = 1.0 }
+        val stats = cc.joycreator.joybrush.core.media.MediaPaper(hist,
+            toothMm = (surface?.toothDepthMm ?: 0.01f).toDouble(), compliance = (surface?.compliance ?: 0.3f).toDouble(),
+            sizing = (surface?.sizing ?: 0.5f).toDouble(), absorbency = (surface?.absorbency ?: 0.5f).toDouble(),
+            capacity = (surface?.capacity ?: 0.5f).toDouble(), wickSpeed = (surface?.wickSpeed ?: 0.4f).toDouble(),
+            heightMeanOverride = surface?.heightMean?.toDouble())
+        val fluid = fluidTexture
+        val made = cc.joycreator.joybrush.androidkit.gl.media.MediaPaperGl(stats,
+            surface = cc.joycreator.joybrush.androidkit.gl.media.Tex(surfaceTexture ?: grains.placeholder),
+            texelPx = (surface?.texelPx ?: GrainMath.SURFACE_TEXEL_PX) * scale,
+            size = surface?.size?.toFloat() ?: GrainMath.SURFACE_SIZE,
+            hexTexels = surface?.hexTexels ?: GrainMath.SURFACE_HEX_TEXELS,
+            slopeRange = surface?.slopeRange ?: GrainMath.SURFACE_SLOPE_RANGE,
+            rotatable = surface?.rotatable ?: GrainMath.SURFACE_ROTATABLE,
+            fluid = cc.joycreator.joybrush.androidkit.gl.media.Tex(fluid ?: grains.placeholder),
+            fluidTexelPx = if (fluid != null && surface?.fluid != null) surface.fluidTexelPx * scale else 0f,
+            fluidSize = surface?.fluid?.let { grains.sizeFor(it, "paper").toFloat() } ?: 1f,
+            fluidHexTexels = surface?.fluidHexTexels ?: 150f)
+        mediaPaperFor = loaded
+        mediaPaperGl = made
+        return made
+    }
+
+    /** The paper's colour (opaque ARGB): what a media layer's look is lit against and then removed from. */
+    val paperArgb: Int get() = loadedPaper?.paper?.baseArgb ?: 0xFFFFFFFF.toInt()
+
     fun renderPaper(rect: RectPx): ByteArray = (loadedPaper ?: PaperResources.load(
         ResolvedPaper(null,null,0xFFFFFFFF.toInt(),1f,1f,1f,false))).render(rect)
 
@@ -516,6 +557,7 @@ class GlPaintEngine(
         paperBackground.forget()
         boardPreview.forget()
         loadedPaper = null; lookTexture = null; surfaceTexture = null; fluidTexture = null
+        mediaPaperFor = null; mediaPaperGl = null
         compositeProg = null      // a name from the dead context; the new one compiles on first use
         thumbTex = 0; thumbW = 0; thumbH = 0
         compositeError = null
@@ -656,6 +698,23 @@ class GlPaintEngine(
         val next = oldDoc?.let { documentForStack(it, after) }
         applyStack(after)
         next?.let(::setBoardDocument)
+        undo.push(UndoLog.Step(emptyList(), before, after, documentBefore = oldDoc, documentAfter = next))
+    }
+
+    /**
+     * A new MEDIA layer [newId], as [after] adds it, in ONE undo step (contract point 5: a media brush on a paint layer
+     * makes a media layer above it; the canvas then folds its first stroke into this step). A media layer has one shared
+     * cel and no frames (contract point 3). Needs the board document (the Lead's step-4 check 8).
+     */
+    fun addMediaLayerStep(newId: String, before: LayerStack, after: LayerStack) {
+        check(!strokeInProgress && mediaStroke == null) { "a layer change during a stroke would be undone out of order" }
+        val oldDoc = boardDocument ?: error("A pencil, watercolour or oil layer needs the drawing's board document first")
+        val state = after.layers.first { it.id == newId }
+        val cel = UUID.randomUUID().toString()
+        val media = cc.joycreator.joybrush.core.doc.Layer(newId, state.name, LayerKind.MEDIA, cels = listOf(Cel(cel)), sharedCelId = cel)
+        val next = documentForStack(oldDoc, after, mapOf(newId to media))
+        applyStack(after)
+        setBoardDocument(next)
         undo.push(UndoLog.Step(emptyList(), before, after, documentBefore = oldDoc, documentAfter = next))
     }
 

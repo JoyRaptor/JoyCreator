@@ -1023,3 +1023,7 @@ throws, the whole stroke is lost, and that looked to the owner like "the pen doe
 - A Python patch did `open(p,'w').write(s.replace(a, b),)`. The trailing comma made a tuple, so `write` threw AFTER `open(p,'w')` had already truncated the file. BrushRules.kt was left empty, and the next patch's anchor assert failed on the empty file.
 - Rule: compute the whole new text first and assert every anchor. Only then write it with `with open(p, 'w') as f: f.write(out)`. If anything throws before that line, the file is untouched.
 - If a file reads back empty after a failed script, `git checkout -- <file>` and reapply. Never patch on top of a truncation.
+
+## Never drop a stash by index from memory (2026-10-07, media lane)
+- After a `git stash pop`, every index shifts. I ran `git stash drop stash@{1}` to remove a redundant LANES.md stash and deleted another session's autostash (paper catalogue work) instead. I recovered it with `git fsck --unreachable` and `git stash store`.
+- Rule: run `git stash show --stat stash@{N}` IMMEDIATELY before any drop, and drop only what that shows. Stashes in a shared worktree may belong to other sessions: when in doubt, leave them.

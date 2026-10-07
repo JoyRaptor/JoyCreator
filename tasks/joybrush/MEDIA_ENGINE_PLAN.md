@@ -318,6 +318,16 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
    step.
 6. **Drawer:** BrushShelf gets Pencils / Watercolour / Oils shelves by medium. Ids are `media:<medium>:<name>`; the
    knobs go through BrushKnobs.forBrush.
+8. **Window, not page** (Lead, 2026-10-07): the canvas is unbounded and sparse. MediaLayerEngine works on a tile-aligned
+   WINDOW that follows the stroke's bounds (loaded from the store tiles before, written back after), never a
+   whole-canvas allocation (a full page of RGBA32F × 5 is ~180 MB on a Note 9). Store and look tiles exist only where
+   takeDirty() touched.
+9. **Undo is copy-on-write**: snapshot each store tile a stroke will touch BEFORE its first dab (as endStroke does for
+   paint tiles), so stateRestored(rect) only reloads from the stores. Never a second history.
+10. **The look tile is the contract**: export, thumbnails, masks and the eyedropper read only it. A test pins it: a media
+    layer exported through RegionRenderer equals its look tiles byte for byte.
+11. Send each diff to whoever is acting Lead (Codex while the Lead compacts); follow the root lane's LANES.md for
+    startStroke/feed/finish (its fill branch lives there).
 7. **Diffs to JbCanvasView / GlPaintEngine / DocModel are small and rebased often** (the integration lane and the
    paper session work there too). **Installs:** ask the Lead first, and the owner presses Home first.
 

@@ -31,9 +31,39 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
     /** Water dried while a stroke was open: its tiles go at the first flush after the stroke. */
     private var dryPending = false
 
+    /** When the window last did anything (ms, the caller's clock): it is released after [IDLE_MS] asleep. */
+    private var lastActiveMs = 0L
+
+    /** The pen is down, or water is running: the window is in use. Call from every media frame. */
+    fun touched(nowMs: Long) { lastActiveMs = nowMs }
+
+    /**
+     * Releases the window once the pen has been up and the water asleep for [IDLE_MS] (the Lead's rule: the window is
+     * the tool, made for a stroke and let go after). The next stroke makes it again.
+     */
+    fun releaseIfIdle(nowMs: Long): Boolean {
+        if (layerId == null || media.asleep || media.wetActive || paint.mediaStrokeInProgress) return false
+        if (nowMs - lastActiveMs < IDLE_MS) return false
+        release()
+        return true
+    }
+
+    /** Writes back and lets the window go now: the layer or the screen changed. */
+    fun release() {
+        if (layerId == null) return
+        flush()
+        media.sleep()
+        layerId = null
+    }
+
+    companion object {
+        const val IDLE_MS = 10_000L
+    }
+
     /** Puts the window on [layer] around the pen at ([docX], [docY]): a no-op while it already holds that point. */
     fun place(layer: String, docX: Double, docY: Double, resumeWater: Boolean = true) {
         if (layer == layerId && MediaWindowMath.holds(tx, ty, doubleArrayOf(docX, docY, docX, docY))) return
+        if (layerId != null && layer != layerId) release()
         moveTo(layer, docX, docY, resumeWater)
     }
 
@@ -49,7 +79,10 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         load(layer, nx, ny, resumeWater)
     }
 
-    /** Copies what changed since the last flush into the stores and the look tiles. Call at every frame boundary. */
+    /**
+     * Copies what changed since the last flush into the stores and the look tiles. Call at every frame boundary, and tell
+     * the history buttons afterwards: dried water can change the undo stack (a step left empty is popped).
+     */
     fun flush() {
         val id = layerId ?: return
         if (dryPending && !paint.mediaStrokeInProgress) { dryPending = false; dropWater(id) }
@@ -102,6 +135,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
     }
 
     private fun load(layer: String, nx: Int, ny: Int, resumeWater: Boolean) {
+        media.wake()
         layerId = layer; tx = nx; ty = ny
         media.moveTo((nx * tile).toFloat(), (ny * tile).toFloat())
         val look = media.lookTexture()

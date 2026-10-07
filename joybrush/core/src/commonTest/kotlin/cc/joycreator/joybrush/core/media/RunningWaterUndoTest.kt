@@ -64,4 +64,16 @@ class RunningWaterUndoTest {
         log.redo()
         assertFalse(log.replaceInNewest(listOf(UndoLog.TileChange(MediaStores.id("wc", "w0"), 9, null, null))), "a tile the step does not hold")
     }
+
+    @Test fun aWetOnlyStepWhoseWaterAllDriesLeavesTheHistoryAsItWas() {
+        log.push(UndoLog.Step(listOf(tile("p0", 1, null, 10))))                            // stroke A
+        MediaStores.recordWater(log, emptyList())
+        log.push(UndoLog.Step(listOf(tile("w0", 2, null, 20), tile("w1", 2, null, 21))))  // only water (a clear-water stroke)
+        assertEquals(2, log.undoDepth)
+        assertTrue(log.replaceInNewest(listOf(
+            UndoLog.TileChange(MediaStores.id("wc", "w0"), 2, null, null),
+            UndoLog.TileChange(MediaStores.id("wc", "w1"), 2, null, null))))
+        assertEquals(1, log.undoDepth, "the empty step is gone: the next Undo undoes stroke A")
+        assertEquals(listOf(1L), assertNotNull(log.undo()).changes.map { it.key })
+    }
 }

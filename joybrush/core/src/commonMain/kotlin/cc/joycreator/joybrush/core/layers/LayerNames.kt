@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.core.layers
 
 import cc.joycreator.joybrush.core.doc.BlendMode
 import cc.joycreator.joybrush.core.doc.LayerKind
+import cc.joycreator.joybrush.core.media.MediaWindowMath
 import cc.joycreator.joybrush.core.paint.Tiles
 
 /**
@@ -141,6 +142,29 @@ object LayerBudget {
 
     /** The floor, for a phone that does not say how much memory it has: room for one 5 cm square of every store. */
     const val MIN_MEDIA_BYTES = 64L shl 20
+
+    /**
+     * The media window's own reservation (the Lead, 2026-10-07): the TOOL, kept apart from [mediaBudgetBytes] (the
+     * painting) and from the layer slots. Full-float state ×2 (96 B/px), the dry delta, the paper bakes and the look make
+     * 128 B/px; water adds its two buffers, the flow, the run and input targets and the bead field, 108 B/px more. Wet
+     * targets are made only when a wet or thinned medium first touches the window.
+     */
+    val MEDIA_WINDOW_DRY_BYTES: Long = MediaWindowMath.PX.toLong() * MediaWindowMath.PX * 128
+    val MEDIA_WINDOW_WET_BYTES: Long = MEDIA_WINDOW_DRY_BYTES + MediaWindowMath.PX.toLong() * MediaWindowMath.PX * 108
+
+    /**
+     * Whether the window (or its water) can be made now, from what the phone says is free: [availBytes] less twice its
+     * low-memory [thresholdBytes], so painting never pushes the phone into killing apps. [haveBytes] is what the window
+     * already holds (making the water on a dry window needs only the difference).
+     */
+    fun windowFits(availBytes: Long, thresholdBytes: Long, wet: Boolean, haveBytes: Long = 0L): Boolean {
+        val need = (if (wet) MEDIA_WINDOW_WET_BYTES else MEDIA_WINDOW_DRY_BYTES) - haveBytes
+        return need <= 0L || availBytes - 2 * thresholdBytes >= need
+    }
+
+    fun windowRefusal(wet: Boolean): String =
+        if (wet) "There is not enough free memory to paint with water right now. Close other apps to paint with watercolour."
+        else "There is not enough free memory for pencil and oil right now. Close other apps to paint with them."
 
     fun mediaFullMessage(budgetBytes: Long): String =
         "This phone has room for ${budgetBytes shr 20} MB of pencil, watercolour and oil paint, and this drawing has used it. " +

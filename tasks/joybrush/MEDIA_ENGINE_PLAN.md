@@ -374,6 +374,11 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
   6. **Budget wiring.** The column's n/max and `JbCanvasView`'s add-layer refusal count layers with
      `LayerBudget.slotsUsed(kinds)`, which counts a media layer as 7. `GlPaintEngine.mediaBudgetBytes` is set from
      `LayerBudget.mediaBudgetBytes(totalMem)`, and a `MediaRoomException` is shown as its sentence.
+  7. **Free memory before the window (Lead).** Before making the window, or its water, check
+     `LayerBudget.windowFits(availMem, threshold, wet, haveBytes)` against `ActivityManager.MemoryInfo`. If it does
+     not fit, refuse the stroke with `windowRefusal(wet)`; never an allocation failure mid-stroke. Call
+     `MediaWindow.touched` on every media frame and `releaseIfIdle` from the frame loop. Call `release()` when the
+     layer or the screen changes. Report the history after each `flush()`, because dried water can pop an empty step.
   4. **The Eraser slot.** `ToolMemory.slotFor` sends media brushes to BRUSH, which is fine; but tapping the strip's
      Eraser with a media layer active must take the media erase of item 1.
 - **M5.3c Stores, windows and running water (step 3; the Lead's rules, 2026-10-07).** Built as three review diffs:
@@ -384,9 +389,11 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
   - **3b, archive. ✅ bb80a380.** The stores are RGBA16F at rest (the Lead's ruling), allocated lazily by
     medium (`MediaStores.forMedium`). The media ceiling is `LayerBudget.mediaBudgetBytes`. JbArchive writes and reads `layers/<id>/<cel>/<tx>_<ty>.<store>.f16`, with the same "every declared
     tile has its file, every file is declared" checks as `.rgba`.
-  - **3c, window. Built (`review/media-window`).** `MediaWindow` + `MediaWindowMath` + `WetSpread` (the tested cap).
-    - GPU cost of the window itself at 1024 px: about 120 MB dry and about 230 MB once water has run (full-float
-      state ×2, water ×2, flux, bakes). It is not in the media budget yet; see the desk note.
+  - **3c, window. ✅ (`review/media-window`, Lead-approved).** `MediaWindow` + `MediaWindowMath` + `WetSpread` (the tested cap).
+    - The window keeps 1024 px (Lead). It is the TOOL, with its own reservation `LayerBudget.MEDIA_WINDOW_DRY_BYTES`
+      (128 MB) and `MEDIA_WINDOW_WET_BYTES` (236 MB), outside both the store budget and the slots.
+    - It is transient: water targets are made lazily; it is released (`MediaLayerEngine.sleep`, shaders kept) 10 s
+      after the pen is up and the water asleep, or when the layer or screen changes; it wakes on the next stroke.
     - A window move flushes and reloads. Water outside the new place sleeps in the stores and wakes when a window
       loads it with `resumeWater`.
   - Original 3c row: MediaLayerEngine works on a tile-aligned window (1024 px = 4×4 tiles ≈ 5 cm) placed over the

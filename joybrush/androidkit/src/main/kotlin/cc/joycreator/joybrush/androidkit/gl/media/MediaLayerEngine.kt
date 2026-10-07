@@ -132,12 +132,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         progPasteDab = p("jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab")
         progPasteBrush = p("jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush")
         progBead = p("jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead")
-        state = Array(2) {
-            val p0 = MediaTex.full(w, h); val p1 = MediaTex.full(w, h); val pp = MediaTex.full(w, h)
-            State(p0, p1, pp, MediaTex.fbo(p0, p1, pp))
-        }
-        pFbo0 = MediaTex.fbo(state[0].p0, state[0].p1)
-        pFbo1 = MediaTex.fbo(state[1].p0, state[1].p1)
+        allocate()
         brush = Array(2) {
             val b0 = MediaTex.make(PASTE_LANES, PASTE_DEPTH, GLES30.GL_RGBA32F, GLES30.GL_RGBA, GLES30.GL_FLOAT, GLES30.GL_NEAREST)
             val b1 = MediaTex.make(PASTE_LANES, PASTE_DEPTH, GLES30.GL_RGBA32F, GLES30.GL_RGBA, GLES30.GL_FLOAT, GLES30.GL_NEAREST)
@@ -167,6 +162,55 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         }
         GLES30.glBindVertexArray(0)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
+        clearAll()
+    }
+
+    /** The full-float state: the one part of the window every medium needs. */
+    private fun allocate() {
+        state = Array(2) {
+            val p0 = MediaTex.full(w, h); val p1 = MediaTex.full(w, h); val pp = MediaTex.full(w, h)
+            State(p0, p1, pp, MediaTex.fbo(p0, p1, pp))
+        }
+        pFbo0 = MediaTex.fbo(state[0].p0, state[0].p1)
+        pFbo1 = MediaTex.fbo(state[1].p0, state[1].p1)
+        asleep = false
+    }
+
+    /** True while the window's textures are released ([sleep]); the programs and the brush cells stay. */
+    var asleep = false; private set
+
+    /** Whether water targets exist: what [cc.joycreator.joybrush.core.layers.LayerBudget.windowFits] is told the window holds. */
+    val hasWater: Boolean get() = wet != null
+
+    /**
+     * Releases the window's textures (the Lead's rule: the window is transient; the pen has been up and the water asleep
+     * for a while, or the layer or screen changed). Everything worth keeping is in the stores already. [wake] makes them
+     * again for the next stroke without recompiling a shader.
+     */
+    fun sleep() {
+        if (asleep) return
+        val tex = ArrayList<Int>()
+        for (s in state) tex += listOf(s.p0, s.p1, s.paper)
+        wet?.forEach { tex += listOf(it.w0, it.w1, it.flux) }
+        tex += listOf(delta, bakeTex, fluidBake, waterBake, run, in0, in1, lookTex) + bead.toList()
+        tex.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteTex(*it) }
+        val fbos = ArrayList<Int>()
+        for (s in state) fbos += s.fbo
+        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() + wetCopyFbo.toList()
+        fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
+        delta = 0; deltaFbo = 0; bakeTex = 0; fluidBake = 0; waterBake = 0; bakeFbo = 0; bakedPaper = null
+        wet = null; run = 0; in0 = 0; in1 = 0; inFbo = 0; lookTex = 0; lookFbo = 0
+        bead = IntArray(0); beadFbo = IntArray(0); fluxFbo = IntArray(0); updFbo = IntArray(0); wetCopyFbo = IntArray(0)
+        pFbo0 = 0; pFbo1 = 0
+        wetRect = null; paintRect = null; wetSince = null; stores.clear(); dirtySinceLook = null; strokeRect = null
+        asleep = true
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+    }
+
+    /** Makes the window's state again after [sleep]; water targets follow lazily, as on first use. */
+    fun wake() {
+        if (!asleep) return
+        allocate()
         clearAll()
     }
 

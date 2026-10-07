@@ -38,4 +38,16 @@ class MediaBudgetTest {
         assertEquals(LayerBudget.MIN_MEDIA_BYTES, LayerBudget.mediaBudgetBytes(0L))
         assertTrue("256 MB" in LayerBudget.mediaFullMessage(256L shl 20))
     }
+
+    @Test fun theWindowIsItsOwnReservationAndIsCheckedBeforeItIsMade() {
+        assertEquals(128L shl 20, LayerBudget.MEDIA_WINDOW_DRY_BYTES, "about 120 MB for pencil and oil")
+        assertEquals(236L shl 20, LayerBudget.MEDIA_WINDOW_WET_BYTES, "about 230 MB once water runs")
+        val mb = 1L shl 20
+        assertTrue(LayerBudget.windowFits(availBytes = 600 * mb, thresholdBytes = 200 * mb, wet = false))
+        assertFalse(LayerBudget.windowFits(availBytes = 500 * mb, thresholdBytes = 200 * mb, wet = true), "a low-memory margin of twice the threshold")
+        assertTrue(LayerBudget.windowFits(availBytes = 520 * mb, thresholdBytes = 200 * mb, wet = true, haveBytes = LayerBudget.MEDIA_WINDOW_DRY_BYTES),
+            "adding water to a dry window needs only the difference")
+        assertTrue("watercolour" in LayerBudget.windowRefusal(wet = true))
+        assertEquals(LayerBudget.slotsFor(cc.joycreator.joybrush.core.doc.LayerKind.MEDIA), 7, "the window is not in the slots")
+    }
 }

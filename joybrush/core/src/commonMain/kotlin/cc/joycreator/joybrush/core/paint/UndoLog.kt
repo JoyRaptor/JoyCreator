@@ -138,7 +138,8 @@ class UndoLog<T : Any>(
     /**
      * Replaces changes of the newest step tile for tile (same layer, cel and key), leaving the rest of the step as it was.
      * A replacement with neither a `before` nor an `after` removes the change: the tile was made and dropped inside the
-     * step (water that came and dried). The caller releases the `after`s it replaced, which nothing else holds. Refused
+     * step (water that came and dried); a step with no change left, and nothing else to undo, is popped. The caller
+     * releases the `after`s it replaced, which nothing else holds. Refused
      * (false, nothing changed) when there is anything to redo, nothing to undo, or a replacement names a tile the step
      * does not hold.
      */
@@ -152,7 +153,12 @@ class UndoLog<T : Any>(
             val r = byTile[Triple(c.layerId, c.celId, c.key)] ?: return@mapNotNull c
             if (r.before == null && r.after == null) null else r
         }
-        undoStack[undoStack.lastIndex] = Step(changes, top.stackBefore, top.stackAfter, top.paperBefore, top.paperAfter,
+        val bare = top.stackBefore == null && top.stackAfter == null && top.paperBefore == null && top.paperAfter == null &&
+            top.documentBefore == null && top.documentAfter == null
+        // A step left with nothing in it (all its water came and dried inside it) is popped: an Undo that does nothing
+        // visible would break one press, one step. The caller tells the history buttons ([canUndo] may now be false).
+        if (changes.isEmpty() && bare) undoStack.removeLast()
+        else undoStack[undoStack.lastIndex] = Step(changes, top.stackBefore, top.stackAfter, top.paperBefore, top.paperAfter,
             top.documentBefore, top.documentAfter)
         return true
     }

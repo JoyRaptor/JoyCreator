@@ -833,3 +833,16 @@ For the acting Lead or the Lead: please review `review/media-window`. It is one 
 - Evidence: core jvmTest 1696 and androidkit test 294, 0 failed; joybrush-android compiles. The window's GL paths can
   only be proven on the Note 9 in step 4.
 
+**3c follow-up (second commit on `review/media-window`).**
+- Your fix: `replaceInNewest` pops a step left empty, with nothing else to undo. RunningWaterUndoTest: a wet-only step
+  whose water all dries leaves the stack as it was.
+- The window ruling:
+  - `LayerBudget.MEDIA_WINDOW_DRY_BYTES` (128 MB) and `MEDIA_WINDOW_WET_BYTES` (236 MB), plus
+    `windowFits(avail, threshold, wet, have)` with a 2× low-memory margin, and `windowRefusal`. All tested; they are
+    not in the slots.
+  - `MediaLayerEngine.sleep()` / `wake()` release and remake the textures and keep the shaders. Water targets stay
+    lazy.
+  - `MediaWindow.touched` / `releaseIfIdle` (10 s), and `release()` on a layer change.
+- The app-side checks (ActivityManager, history after a flush) are step-4 check 7.
+- Evidence: core 1698 and androidkit 294, 0 failed. Landed after this.
+

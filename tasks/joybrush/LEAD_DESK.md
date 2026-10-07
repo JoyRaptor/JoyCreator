@@ -704,3 +704,30 @@ Each comes as its own review branch.
 
 **Landed 2026-10-07.** The Lead approved with one change: masks key on `hasPixels`, so a media layer can have a
 mask, because a mask multiplies the look tiles (R48). The change is a test and one line. Core jvmTest is 1667, 0 failed.
+
+### Media engine port — review request, step 2: the brush format (2026-10-07, Claude media lane)
+
+For the acting Lead or the Lead: please review `review/media-brush-v8`. It is one commit on joy-creator, and it makes
+media brushes real brush presets.
+- `BRUSH_VERSION` 7 → 8 (`VERSION_MEDIA`). There is a version word for `engine "media"` and for a stray `media`
+  section. EnumFreezeTest was bumped on purpose.
+- `BrushPreset.media: MediaSpec?` (null on every other engine, so old brushes write nothing new besides `"media": null`,
+  as `aspectDynamics` already does).
+- `MediaSpec` holds the medium, the tool name and ONE block in the lab's own table form: `Stick`, `WetBrush` or
+  `PasteBrush`, now `@Serializable`, with EdgeMode/PressMode/FaceMode serialised by their ids. It also holds the
+  wetness, thinner and belly states. A brush carries its numbers, so nothing is looked up by name at paint time.
+- Rule 27 refuses each of these in words:
+  - a missing section, or a section on another engine;
+  - an unknown medium or an empty tool;
+  - a missing block or a mismatched block;
+  - a level or belly mode out of range;
+  - any tool number that is not finite or is below 0. These are walked from the encoded block, so a new lab field is
+    checked without a new line.
+- `MediaPresets.ALL`: 19 brushes built from the tables. Ids are `media:<medium>:<tool>`, and a repeated name says its
+  medium in brackets.
+- `BrushShelf` adds WATERCOLOUR and OILS; dry media go to PENCILS. The drawer's names were added to BrushDrawerView.
+- `BrushKnobs`: every tool number has a linear slider, and the stepped states snap to named levels. A test pins that
+  every slider at 0 and at 1 still validates, and that every shipped value sits inside its range.
+- NOT in the drawer yet: the presets join the library with step 4's canvas branch, so nobody can pick a brush that
+  cannot paint.
+- Evidence: core jvmTest 1678, 0 failed; androidkit and joybrush-android compile.

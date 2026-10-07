@@ -154,6 +154,8 @@ class BrushDrawerView(
             BrushShelf.Kind.INKS -> "Inks & pens"
             BrushShelf.Kind.MARKERS -> "Markers"
             BrushShelf.Kind.PAINT -> "Paint"
+            BrushShelf.Kind.WATERCOLOUR -> "Watercolour"
+            BrushShelf.Kind.OILS -> "Oils"
             BrushShelf.Kind.AIRBRUSH -> "Airbrush"
             BrushShelf.Kind.SMUDGE -> "Smudge"
             BrushShelf.Kind.FILL -> "Fill"

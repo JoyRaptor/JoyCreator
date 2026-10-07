@@ -1,5 +1,6 @@
 package cc.joycreator.joybrush.core.media
 
+import kotlinx.serialization.Serializable
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.exp
@@ -52,7 +53,8 @@ val THINNER: List<Thinner> = listOf(
     Thinner("runny", 4, 0.4),
 )
 
-data class WetBrush(
+/** A watercolour brush. Its field names are brush-file words (brush version 8, `media.wet`): rename none of them. */
+@Serializable data class WetBrush(
     val bellyMm: Double, val tipMm: Double, val waterPerMm: Double, val capacityMm3: Double, val load: Double,
     val gran: Double, val stain: Double, val beadMm: Double, val liftMm: Double, val dwellMmPerS: Double,
     val allround: Boolean = false, val clear: Boolean = false,

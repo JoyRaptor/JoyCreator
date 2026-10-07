@@ -1,5 +1,17 @@
 package cc.joycreator.joybrush.core.brush
 
+import cc.joycreator.joybrush.core.media.PasteBrush
+import cc.joycreator.joybrush.core.media.Stick
+import cc.joycreator.joybrush.core.media.THINNER
+import cc.joycreator.joybrush.core.media.WETNESS
+import cc.joycreator.joybrush.core.media.WetBrush
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.doubleOrNull
+
 /**
  * Is this brush file usable? Every problem found is one readable line, so a screen can list them and
  * a person can fix the file. One message per rule, with everything that broke that rule inside it.
@@ -13,7 +25,7 @@ package cc.joycreator.joybrush.core.brush
  */
 object BrushValidate {
 
-    private val ENGINES = setOf("stamp", ENGINE_SMUDGE, "wet", ENGINE_FILL, ENGINE_PUSH, ENGINE_TUFT)
+    private val ENGINES = setOf("stamp", ENGINE_SMUDGE, "wet", ENGINE_FILL, ENGINE_PUSH, ENGINE_TUFT, ENGINE_MEDIA)
     private val ACCUMULATES = setOf("wash", "buildup")
     private val BLENDS = setOf("normal", "erase", BLEND_BEHIND)
     private val COMBINES = setOf("multiply", "add")
@@ -311,6 +323,45 @@ object BrushValidate {
         }
         if (paperBad.isNotEmpty()) out += paperBad.joinToString("; ")
 
+        // 27 — the media section (brush version 8). A media brush has one, and only a media brush: unlike the
+        // always-written tuft section it is null when unused, so a section on another engine is a mistake to name.
+        out += mediaProblems(p)
+
+        return out
+    }
+
+    private val MEDIA_NUMBERS = Json { allowSpecialFloatingPointValues = true }
+
+    private fun mediaProblems(p: BrushPreset): List<String> {
+        val m = p.media
+        if (m == null) return if (p.engine == ENGINE_MEDIA) listOf("engine \"media\" needs a media section") else emptyList()
+        if (p.engine != ENGINE_MEDIA) return listOf("media section is only read by engine \"media\", and this brush's engine is \"${p.engine}\"")
+        val out = ArrayList<String>()
+        if (m.medium !in MEDIA_KINDS) out += "media.medium \"${m.medium}\" must be one of ${MEDIA_KINDS.joinToString(", ")}"
+        if (m.tool.isBlank()) out += "media.tool is empty; it names the tool the brush started from"
+        val blocks = listOf(MEDIUM_DRY to (m.stick != null), MEDIUM_WET to (m.wet != null), MEDIUM_PASTE to (m.paste != null))
+        val field = mapOf(MEDIUM_DRY to "stick", MEDIUM_WET to "wet", MEDIUM_PASTE to "paste")
+        for ((medium, present) in blocks) {
+            if (medium == m.medium && !present) out += "media.medium is \"$medium\" but media.${field[medium]} is missing"
+            if (medium != m.medium && present) out += "media.${field[medium]} is set but media.medium is \"${m.medium}\""
+        }
+        if (m.wetness !in WETNESS.indices) out += "media.wetness ${m.wetness} must be 0..${WETNESS.lastIndex}"
+        if (m.thinner !in THINNER.indices) out += "media.thinner ${m.thinner} must be 0..${THINNER.lastIndex}"
+        if (m.belly !in BELLY_MODES) out += "media.belly \"${m.belly}\" must be one of ${BELLY_MODES.joinToString(", ")}"
+        // Every number in the tool block is a length, a rate or a share: finite and not below 0. Walked from the encoded
+        // block, so a field added to a lab table is checked without a line here.
+        val bad = ArrayList<String>()
+        fun walk(prefix: String, e: JsonElement) {
+            if (e is JsonObject) for ((k, v) in e) walk("$prefix.$k", v)
+            else if (e is JsonPrimitive && !e.isString && e.booleanOrNull == null) {
+                val v = e.doubleOrNull ?: e.content.toDoubleOrNull() ?: return
+                if (!v.isFinite() || v < 0) bad += "$prefix $v"
+            }
+        }
+        m.stick?.let { walk("media.stick", MEDIA_NUMBERS.encodeToJsonElement(Stick.serializer(), it)) }
+        m.wet?.let { walk("media.wet", MEDIA_NUMBERS.encodeToJsonElement(WetBrush.serializer(), it)) }
+        m.paste?.let { walk("media.paste", MEDIA_NUMBERS.encodeToJsonElement(PasteBrush.serializer(), it)) }
+        if (bad.isNotEmpty()) out += "media numbers must be finite and not below 0: " + bad.joinToString("; ")
         return out
     }
 

@@ -18,12 +18,13 @@ const val BRUSH_FORMAT = "joybrush.brush"
  *  - **5** added the `response` section's curves (pressure and tilt), when they are not the straight line — [VERSION_RESPONSE].
  *  - **6** (JB-9.09, R10) added the `paper` section — how much each brush feels the document paper — [VERSION_PAPER].
  *  - **7** added live contact aspect and anchoring, with hardness and grain depth evaluated per dab.
+ *  - **8** (MEDIA_ENGINE_PLAN §4) added `engine: "media"` and its `media` section — [VERSION_MEDIA].
  *
  * A word needs the version that introduced it, NOT the newest one: a fill pen is still a version-2
  * file, so a build that predates smudge can open it. [BrushJson.wordsNeedingVersion] carries the
  * per-word number.
  */
-const val BRUSH_VERSION = 7
+const val BRUSH_VERSION = 8
 
 /** Live contact aspect and anchored pencil footprint. */
 const val VERSION_CONTACT = 7
@@ -164,6 +165,8 @@ object BrushJson {
         if (p.smudge.paint) out += VersionedWord("smudge.paint", VERSION_CONTACT)
         if (p.tip.aspectDynamics != null) out += VersionedWord("tip.aspectDynamics", VERSION_CONTACT)
         if (p.tip.anchorDynamics != null) out += VersionedWord("tip.anchorDynamics", VERSION_CONTACT)
+        if (p.engine == ENGINE_MEDIA) out += VersionedWord("engine \"$ENGINE_MEDIA\"", VERSION_MEDIA)
+        else if (p.media != null) out += VersionedWord("media", VERSION_MEDIA)
         return out
     }
 }

@@ -365,7 +365,21 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
     and wet tiles spreading downhill into neighbours only as water reaches them (the lab grows a rectangle, capped
     at 4 cm past the painted area; the app tracks tiles);
   - the paper bake is per tile.
-- **M5.5 Brush format (T2).** Brush version 8: `engine: "media"`, `medium: dry|wet|paste`, plus the parameter blocks
+- **M5.5 Brush format (T2). Built in step 2 (`review/media-brush-v8`), awaiting review.** As built:
+  - `BRUSH_VERSION` is 8, with `engine: "media"` and a nullable `media` section (`MediaSpec`).
+  - The section holds `medium` (dry/wet/paste) and `tool` (the table name), plus exactly one block: `stick`, `wet` or
+    `paste`. Each block is the lab table's data class, now `@Serializable`, so its field names are file words.
+  - It also holds the brush state: `wetness`, `thinner` and `belly`. A blade's edge, press and face live in its
+    `paste` block.
+  - `MediaPresets.ALL` builds the 19 shipped brushes from the tables (ids `media:<medium>:<tool>`).
+  - `size.base` is the tool's width in px (`referencePx`), and the engine scales the tool's lengths by
+    `mediaScale()`.
+  - Shelves: Pencils, Watercolour and Oils.
+  - Knobs: every tool number, plus stepped states. Paper sliders are left out, because the engine has its own paper.
+  - Validation rule 27.
+  - NOT yet in the drawer: step 4 adds `MediaPresets.ALL` to the library together with the canvas branch, and step 4
+    must route pressure and tilt through the brush's response curves (those knobs are shown on media brushes).
+  - Original row: Brush version 8: `engine: "media"`, `medium: dry|wet|paste`, plus the parameter blocks
   exactly as the lab's tables (`STICKS`, `ZONES`, `PRESS`, `WET_BRUSHES`, `WET`, `WETNESS`, `PASTE_BRUSHES`). Names
   repeat across media (an all-round brush in watercolour and in oil), so a brush is identified by medium + name.
   The wetness level and belly mode are brush state, tapped on the canvas bar: wetness shows only for wet brushes,

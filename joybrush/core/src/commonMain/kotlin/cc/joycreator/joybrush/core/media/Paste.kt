@@ -1,5 +1,7 @@
 package cc.joycreator.joybrush.core.media
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.exp
@@ -19,29 +21,31 @@ const val PASTE_LANES = 32
 const val PASTE_DEPTH = 8
 
 /** How a blade's edge lies (the owner's Edge toggle): along the pen's lean, across the stroke, along the stroke. */
-enum class EdgeMode(val id: String, val label: String) {
-    PEN("pen", "pen angle"), ACROSS("across", "across stroke"), ALONG("along", "along stroke");
+@Serializable enum class EdgeMode(val id: String, val label: String) {
+    @SerialName("pen") PEN("pen", "pen angle"), @SerialName("across") ACROSS("across", "across stroke"),
+    @SerialName("along") ALONG("along", "along stroke");
     companion object { fun of(id: String?) = entries.firstOrNull { it.id == id } }
 }
 
 /** What pressure means for a loaded blade: more paint comes off (LOAD), or it digs deeper (DEPTH). */
-enum class PressMode(val id: String) {
-    LOAD("load"), DEPTH("depth");
+@Serializable enum class PressMode(val id: String) {
+    @SerialName("load") LOAD("load"), @SerialName("depth") DEPTH("depth");
     companion object { fun of(id: String?) = entries.firstOrNull { it.id == id } }
 }
 
 /** What part of a loaded knife touches: its thin edge, or its flat face. */
-enum class FaceMode(val id: String) {
-    EDGE("edge"), FLAT("flat");
+@Serializable enum class FaceMode(val id: String) {
+    @SerialName("edge") EDGE("edge"), @SerialName("flat") FLAT("flat");
     companion object { fun of(id: String?) = entries.firstOrNull { it.id == id } }
 }
 
 /**
  * A paste brush. shape: 0 round, 1 flat, 2 knife, 3 scraper. Lengths in mm. thickMm = layer a full brush leaves;
  * loadLenMm = how far a full load lays a full layer. Nullable fields are "not set" in the lab table (the engine's
- * defaults apply). A [trowel] is the v6/v7 knife (Palette knife 1); a [blade] is the rigid-edge model.
+ * defaults apply). A [trowel] is the v6/v7 knife (Palette knife 1); a [blade] is the rigid-edge model. The field names
+ * are brush-file words (brush version 8, `media.paste`): rename none of them.
  */
-data class PasteBrush(
+@Serializable data class PasteBrush(
     val shape: Int,
     val widthMm: Double = 0.0, val lenMm: Double = 0.0, val thickMm: Double = 0.0,
     val scrape: Double = 0.0, val hairDepth: Double = 0.0, val ridge: Double = 0.0, val rate: Double = 1.0,

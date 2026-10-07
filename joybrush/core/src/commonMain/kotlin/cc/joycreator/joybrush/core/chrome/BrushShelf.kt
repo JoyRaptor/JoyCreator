@@ -2,6 +2,9 @@ package cc.joycreator.joybrush.core.chrome
 
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.ENGINE_FILL
+import cc.joycreator.joybrush.core.brush.ENGINE_MEDIA
+import cc.joycreator.joybrush.core.brush.MEDIUM_DRY
+import cc.joycreator.joybrush.core.brush.MEDIUM_WET
 import cc.joycreator.joybrush.core.brush.ENGINE_PUSH
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 
@@ -15,7 +18,7 @@ import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 object BrushShelf {
 
     /** In the order the drawer lists them. [ALL] is not a kind a brush has: it is the shelf that holds every brush. */
-    enum class Kind { ALL, PENCILS, INKS, MARKERS, PAINT, AIRBRUSH, SMUDGE, FILL, ERASERS, IMPORTED }
+    enum class Kind { ALL, PENCILS, INKS, MARKERS, PAINT, WATERCOLOUR, OILS, AIRBRUSH, SMUDGE, FILL, ERASERS, IMPORTED }
 
     /** Words in a built-in brush's id or name that say what it is. Checked in this order, so "pencil" wins over "pen". */
     private val WORDS: List<Pair<String, Kind>> = listOf(
@@ -36,6 +39,12 @@ object BrushShelf {
         p.blend == "erase" -> Kind.ERASERS
         p.engine == ENGINE_SMUDGE || p.engine == ENGINE_PUSH -> Kind.SMUDGE
         p.engine == ENGINE_FILL -> Kind.FILL
+        // A media brush says its medium outright (contract point 6: Pencils / Watercolour / Oils).
+        p.engine == ENGINE_MEDIA -> when (p.media?.medium) {
+            MEDIUM_DRY -> Kind.PENCILS
+            MEDIUM_WET -> Kind.WATERCOLOUR
+            else -> Kind.OILS
+        }
         p.sourceFormat != "native" -> Kind.IMPORTED
         else -> {
             val words = (p.id + " " + p.name).lowercase()

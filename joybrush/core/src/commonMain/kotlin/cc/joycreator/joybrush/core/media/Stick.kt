@@ -1,5 +1,6 @@
 package cc.joycreator.joybrush.core.media
 
+import kotlinx.serialization.Serializable
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -18,8 +19,9 @@ import kotlin.math.sqrt
 // gradient, comes in at middle tilts) and side 2 (the whole side, feathering, near flat). Pressure sets the
 // squeeze; tilt sets which zones are down. Nothing is ever placed away from the pen tip. The owner rated it A+.
 
-/** A grade. Sizes in mm: tipR → tipMax the point's radius over pressure; side1/side2 zone lengths; face the half-width. */
-data class Stick(
+/**
+ * A grade. Its field names are brush-file words (brush version 8, `media.stick`): rename none of them. Sizes in mm: tipR → tipMax the point's radius over pressure; side1/side2 zone lengths; face the half-width. */
+@Serializable data class Stick(
     val tipR: Double, val tipMax: Double, val side1: Double, val side2: Double,
     val face: Double, val soft: Double, val rInf: Double,
 )

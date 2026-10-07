@@ -29,7 +29,7 @@ Owner confirms boundary painting and animation on Note9. Claude owns paper engin
 
 ## Owner Sprite usability correction — 2026-10-06
 
-- [ ] Unlocked handle drag scales whole-pixel cell dimensions, fixed grid count, opposite edge anchor; live readouts/preview, one committed Undo on release, Cancel no mutation.
-- [ ] Editable board size and always-visible cell dimensions. Cell dimensions resize the whole grid while retaining counts; typed whole-board size snaps to the nearest exact cells.
-- [ ] Locked finger interactions build transient CellRoll/preview; pen continues painting. Separate feature arm enables all-layer exact swap, masks included, one drag/Undo.
+- [x] Unlocked handle drag scales whole-pixel cell dimensions, fixed grid count, opposite edge anchor; live readouts/preview, one committed Undo on release, Cancel no mutation.
+- [x] Editable board size and always-visible cell dimensions. Cell dimensions resize the whole grid while retaining counts; typed whole-board size snaps to the nearest exact cells.
+- [x] Locked finger interactions build transient CellRoll/preview; pen continues painting. Separate feature arm enables all-layer exact swap, masks included, one drag/Undo. Source/test checkpoint; Note9 disconnected, phone acceptance owed.
 - [ ] Verify model/core/GPU/native regression, watcher APK and Note9 resize/typed/preview/swap/Undo; coordinate Claude main-folder catch-up without overwriting other changes.

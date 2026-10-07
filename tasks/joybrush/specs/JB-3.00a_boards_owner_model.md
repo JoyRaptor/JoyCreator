@@ -684,6 +684,16 @@ target cell = cyan ring; drop swaps all layers of both cells, one undo step. Dis
 badges top-centre; the playing cell = 2.5 dp pink ring + pink badge; the preview window (chrome, 84 dp wide, 56 dp art
 well on paper, `12 fps`, play/pause, clear) sits above the board's top-right.
 
+**Owner clarification, 2026-10-07 — Sprite resizing and finger modes (extends K8/G8).**
+Unlocked corner/edge handles resize the cells together with the complete grid: retain columns/rows,
+snap each cell edge to whole pixels, and update board size and cell size live. One drag commits one
+Undo on release; Cancel commits nothing. Typing the board size uses the same fitting rule, anchored
+at top-left; typing cell dimensions resizes the whole grid while retaining its counts. Both board
+and cell dimensions are visible and tappable. Pixel steppers change cell dimensions, not counts.
+Unlocked fingers and the pen paint normally. Locking enables finger sequence selection; the separate
+rearrange switch arms finger cell swapping. The pen still paints while locked. Lock and arm remain
+distinct controls. Geometry edits preserve artwork addresses; they do not resample existing paint.
+
 ### K9. Layer column (animation board selected)
 
 Each row gets a 16 dp marker column left of its thumbnail: **running man in the Studio gradient** = animates in this

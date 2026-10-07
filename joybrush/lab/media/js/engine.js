@@ -414,12 +414,14 @@ export class MediaEngine {
     // not end up simulating the whole page.
     const slope = this.slope || [0, 0];
     if (Math.hypot(slope[0], slope[1]) > 1e-4 && this.paintRect) {
+      // Downhill as far as a long drip runs; sideways and uphill only as far as a drip wanders (1 cm).
       const grow = Math.ceil((opts.substeps ?? w.substeps) * 0.45) + 2, r = this.wetRect, p = this.paintRect;
-      const reach = Math.ceil(40 * pxPerMm * this.scale);
-      if (slope[0] < -1e-4) r[0] = Math.max(0, p[0] - reach, r[0] - grow);
-      if (slope[0] > 1e-4) r[2] = Math.min(this.w, p[2] + reach, r[2] + grow);
-      if (slope[1] < -1e-4) r[1] = Math.max(0, p[1] - reach, r[1] - grow);
-      if (slope[1] > 1e-4) r[3] = Math.min(this.h, p[3] + reach, r[3] + grow);
+      const mm = pxPerMm * this.scale, far = Math.ceil(40 * mm), near = Math.ceil(10 * mm);
+      const reachTo = d => (d > 1e-4 ? far : near);
+      r[0] = Math.max(0, p[0] - reachTo(-slope[0]), r[0] - grow);
+      r[2] = Math.min(this.w, p[2] + reachTo(slope[0]), r[2] + grow);
+      r[1] = Math.max(0, p[1] - reachTo(-slope[1]), r[1] - grow);
+      r[3] = Math.min(this.h, p[3] + reachTo(slope[1]), r[3] + grow);
     }
     const rect = this.wetRect;
     this.touch(rect);

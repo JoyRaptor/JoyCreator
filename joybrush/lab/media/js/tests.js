@@ -61,6 +61,32 @@ export const SHEETS = {
       return s;
     },
   },
+  // A flood (live test, 2026-10-07): two overlapping runny passes of the all-round brush on smooth drawing paper,
+  // then the paper tipped steeply. Real water breaks out in a few streams; it must not slide as one sheet with
+  // ruler-straight sides (v9's first live try did).
+  flood: {
+    size: [1200, 1000],
+    paper: 'drawing_tooth',
+    strokes() {
+      const q = new URLSearchParams(location.search), MM = 20, L = -60, s = [];
+      const wave = dy => u => [(8 + 40 * u) * MM, (36 + dy + 3 * Math.sin(u * 6.283)) * MM];
+      for (const dy of [0, -1.2]) s.push({ ...stroke('All-round', 42, wave(dy), { p: 0.95, tilt: 30, az: L }, 45), kind: 'wet', color: [0.2, 0.32, 0.72], wetness: 4 });
+      s.push({ tiltDeg: Number(q.get('tiltDeg') || 64), tiltDir: [0, -1] }, { wait: Number(q.get('tiltS') || 16) }, { tiltDeg: 0, tiltDir: [0, 0] }, { wait: 120 });
+      return s;
+    },
+  },
+  // The same flood as the live check: a short wave painted twice at full pressure, so the brush never runs dry.
+  flood2: {
+    size: [900, 900],
+    paper: 'drawing_tooth',
+    strokes() {
+      const q = new URLSearchParams(location.search), MM = 20, L = -60, s = [];
+      const wave = dy => u => [(8 + 22 * u) * MM, (34 + dy + 2.5 * Math.sin(u * 6.283)) * MM];
+      for (const dy of [0, -1.4]) s.push({ ...stroke('All-round', 24, wave(dy), { p: 0.95, tilt: 30, az: L }, 25), kind: 'wet', color: [0.2, 0.32, 0.72], wetness: 4 });
+      s.push({ tiltDeg: Number(q.get('tiltDeg') || 64), tiltDir: [0, -1] }, { wait: Number(q.get('tiltS') || 16) }, { tiltDeg: 0, tiltDir: [0, 0] }, { wait: 120 });
+      return s;
+    },
+  },
   // Dabs and stroke ends (owner, 2026-10-07): a light dab must be a dot, not straight lines squirting out;
   // tails only grow with travel; splayed hairs come in late; no straight-cut starts or ends. Each row: three
   // dabs (light, medium, firm, with a hand's jitter and no travel), then a short curved stroke, then a longer

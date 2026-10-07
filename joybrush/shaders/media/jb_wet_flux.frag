@@ -46,6 +46,8 @@ uniform float u_runCohere;    // how strongly a bead's own slope moves its water
 
 uniform float u_layerScale;   // layer px per doc px
 uniform float u_runSizing;    // how uneven the paper's sizing is at drip scale (0 = even)
+uniform float u_dripGapMm;    // a bead lets go only where it stands highest within about this along its edge
+uniform float u_quietMm;      // a neighbour pouring this much more (mm of bead) keeps this part of the edge shut
 in vec2 v_docPx;
 
 layout(location = 0) out vec4 o_flux;   // the slow levelling flow (kept from step to step: viscosity)
@@ -92,8 +94,8 @@ vec2 paperSlope(ivec2 c, ivec2 size) {
 // Sizing is never even across a sheet: patches a few millimetres across hold a bead harder than others, so
 // drips break away at irregular places instead of as evenly spaced icicles. In document space (the same on
 // every layer and at every zoom).
-float runSizing() {
-    vec2 mm = v_docPx * u_cellMm * u_layerScale;
+float runSizingAt(vec2 docPx) {
+    vec2 mm = docPx * u_cellMm * u_layerScale;
     float n = 0.65 * jb_vnoise2(mm / 2.4, 4099u) + 0.35 * jb_vnoise2(mm / 0.9, 4111u);
     return 1.0 + u_runSizing * (2.0 * n - 1.0);
 }
@@ -112,8 +114,41 @@ void main() {
     ivec2 nb[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
     float sl = length(u_slope);
     float tilted = smoothstep(0.0, 0.15, sl);
-    float wb = sl > 1.0e-4 ? beadAt(vec2(c)) : w;
-    float holdK = sl > 1.0e-4 ? u_runHoldK * runSizing() : 1.0;   // how hard an edge here holds running water
+    vec2 sd = sl > 1.0e-5 ? u_slope / sl : vec2(0.0);
+    // On a tilted paper: the bead here, how hard the paper holds it, and whether this part of the edge may let go.
+    float wb = w, holdK = 1.0, breakable = 1.0, edge = 0.0;
+    vec2 gb = vec2(0.0), nOut = vec2(0.0);
+    if (sl > 1.0e-4) {
+        wb = beadAt(vec2(c));
+        gb = beadSlope(vec2(c));
+        float sz = runSizingAt(v_docPx);
+        holdK = u_runHoldK * sz;
+        float gl = length(gb);
+        if (gl > 1.0e-4) {
+            nOut = -gb / gl;                      // where the bead falls away: out through its edge
+            edge = smoothstep(0.08, 0.25, gl);
+            // Fingers: a bead lets go only where it stands highest along its own edge, for how hard the paper
+            // holds there. That point breaks into a drip, the drip drains the bead beside it, and the rest of
+            // the edge holds. Without this a deep bead let go everywhere and slid down as one sheet with
+            // ruler-straight sides (v9's first live try).
+            // And while a neighbour is already pouring out (water a millimetre beyond its edge), this part holds
+            // and the bead drains into that drip, as real water does; else each drained root made its neighbour
+            // the new highest point and the edge unzipped into a wide curtain.
+            vec2 t = vec2(-nOut.y, nOut.x), out1 = nOut / u_cellMm;
+            float L = 0.5 * u_dripGapMm / u_cellMm;
+            float e0 = wb / sz, emax = 0.0, r0 = beadAt(vec2(c) + out1), rmax = 0.0;
+            for (int k = -2; k <= 2; k++) {
+                if (k == 0) continue;
+                vec2 o = t * (L * float(k));
+                emax = max(emax, beadAt(vec2(c) + o) / runSizingAt(v_docPx + o / u_layerScale));
+                rmax = max(rmax, beadAt(vec2(c) + o + out1));
+            }
+            float peak = smoothstep(-0.02, 0.02, e0 - emax);
+            float pouring = smoothstep(0.01, 0.03, r0);
+            float quiet = 1.0 - smoothstep(u_quietMm, 3.0 * u_quietMm + 1.0e-4, rmax - r0);
+            breakable = mix(1.0, max(peak, pouring) * quiet, edge);
+        }
+    }
     vec4 f;
     for (int i = 0; i < 4; i++) {
         ivec2 q = clamp(c + nb[i], ivec2(0), size - 1);
@@ -133,7 +168,9 @@ void main() {
             // levelling must not seep it over cell by cell ahead of the running water's own test).
             float hold = pinHold(q, sn) * mix(1.0, holdK, tilted);
             float head = mix(dh, wb + dot(u_slope, vec2(nb[i])) * u_cellMm, tilted * u_runCoherent);
-            fi *= smoothstep(hold, hold * 1.6 + 1.0e-4, head);
+            // Only an edge facing downhill ever lets go on a slope; a stream's sides and its upper edge hold.
+            float faces = smoothstep(0.25, 0.6, dot(sd, vec2(nb[i])));
+            fi *= smoothstep(hold, hold * 1.6 + 1.0e-4, head) * mix(1.0, breakable * faces, tilted);
         }
         if (q == c || outside(c + nb[i])) fi = 0.0;
         f[i] = fi;
@@ -151,25 +188,21 @@ void main() {
         // The paper steers running water sideways into its valleys (a drip wanders along the grain). Its bumps
         // only slow the water a little along the slope: a real valley is never deep enough to trap a running
         // bead on a tilted sheet, and letting it would sort the wash into spots.
-        vec2 ps = paperSlope(c, size), sd = u_slope / sl;
+        vec2 ps = paperSlope(c, size);
         float along = dot(ps, sd);
         // Only a deep, running bead is steered; a wash's thin sheet just slides (else it sorts into lace).
         float steer = u_runSteer * smoothstep(0.3 * u_runMm, u_runMm, wb - u_runHoldMm);
         // Surface tension levels a bead along itself: water runs from where the bead stands high to where it
         // has drained, so a drip that breaks away is fed from the bead beside it and the rest of the edge holds.
-        vec2 gb = beadSlope(vec2(c));
         vec2 drive = u_slope - steer * sl * (ps - (1.0 - u_runAlong) * along * sd) - u_runCohere * tilted * gb;
         // A held edge turns the water along itself: near a bead's edge (where the bead falls away), the part of
         // the flow pushing out through an edge that holds is taken away, and what is left slides along the
         // edge. So a slanted edge drains to its lowest point and drips THERE, instead of giving way all along
         // its length as a straight-sided curtain.
-        float gl = length(gb);
-        if (gl > 1.0e-4) {
-            vec2 nOut = -gb / gl;
-            float edge = smoothstep(0.08, 0.25, gl);
+        if (edge > 0.0) {
             float down = max(0.0, dot(sd, nOut));
             float hold = holdK * pinHold(c, 0.0) / (1.0 + u_runPin * sl * down);
-            float lets = smoothstep(hold, hold * 1.6 + 1.0e-4, wb + down * sl * u_cellMm);
+            float lets = smoothstep(hold, hold * 1.6 + 1.0e-4, wb + down * sl * u_cellMm) * breakable * smoothstep(0.25, 0.6, down);
             drive -= edge * (1.0 - lets) * max(0.0, dot(drive, nOut)) * nOut;
         }
         vec2 v = drive * (u_runMmPerS / u_cellMm) * k * k;          // cells per second
@@ -178,13 +211,14 @@ void main() {
         // Running water wets what it crosses: a thin film stays behind on the paper, so a drip leaves a wet
         // trail and a sliding wash never drains a spot bare.
         run = max(0.0, w - u_runFilmMm) * v;                        // mm/s, signed along x and y
-        vec2 downDir = u_slope / sl;
+        vec2 downDir = sd;
         for (int axis = 0; axis < 2; axis++) {
             float fa = run[axis];
             if (abs(fa) < 1.0e-9) continue;
             ivec2 step_ = axis == 0 ? ivec2(fa > 0.0 ? 1 : -1, 0) : ivec2(0, fa > 0.0 ? 1 : -1);
             ivec2 q = c + step_;
-            if (q.x < 0 || q.y < 0 || q.x >= size.x || q.y >= size.y || outside(q)) { run[axis] = 0.0; continue; }
+            if (q.x < 0 || q.y < 0 || q.x >= size.x || q.y >= size.y) continue;   // runs off the paper's edge
+            if (outside(q)) { run[axis] = 0.0; continue; }
             float wn, sn;
             float hn = H(q, wn, sn);
             // A dry edge holds the bead back; on a slope the bead's weight helps it over (downhill only). The
@@ -197,7 +231,7 @@ void main() {
                 // The bead as a whole breaks the edge (its smoothed depth), so drips come away bead-wide rather
                 // than one cell at a time.
                 float head = mix(max(h0 - hn, wb), wb, u_runCoherent) + dot(u_slope, vec2(step_)) * u_cellMm;
-                run[axis] *= smoothstep(hold, hold * 1.6 + 1.0e-4, head);
+                run[axis] *= smoothstep(hold, hold * 1.6 + 1.0e-4, head) * breakable * smoothstep(0.25, 0.6, down);
             }
         }
     }

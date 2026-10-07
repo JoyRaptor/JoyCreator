@@ -18,7 +18,7 @@ Added the same day:
 Build it with `node joybrush/tools/media_lab_bundle.js <out.html>`. Render any test sheet to a PNG with
 `node joybrush/tools/media_render.js out.png "test=proto"`. The sheets:
 - pencil: `proto pencil scribble ladder prokoside sidepro tiltladder`
-- watercolour: `wash drop swatch mingle flick tilt runny`
+- watercolour: `wash drop swatch mingle flick tilt runny flood flood2`
 - oil: `oil roundtwo impasto dabs holes blade passes`
 
 `node joybrush/tools/media_measure.js "<query>" "<js>"` prints numbers instead (`__probe`, `__row`, `__dark`). Tuning hooks:
@@ -134,8 +134,20 @@ gradient and moving the mark away from the pen. v8 replaced it:
   - **A held edge turns the water along itself.** Near an edge, the part of the flow pushing out through an edge that
     holds is removed, so a slanted edge drains to its lowest point and drips there. Without this, the edge gave way
     along its whole length as a straight-sided curtain.
+  - **Fingers: who gets to drip.** Along a bead's edge, a point may let go only:
+    - where the bead stands highest for the paper's hold there, within ±4 mm along the edge;
+    - or where it is already pouring;
+    - and never while a neighbour within that span pours more (1 mm beyond the edge, margin 0.01 mm).
+
+    The drip then drains the bead beside it and the rest of the edge holds. Without this rule, a deep bead let go
+    everywhere and slid down as one sheet with ruler-straight sides. A drained root also made its neighbour the new
+    high point, which unzipped the edge into a wide curtain (both seen on the first live try).
+  - **Only edges facing downhill let go on a slope.** A stream's sides and its upper edge hold, so streams do not
+    spread sideways.
   - **Surface tension, lightly** (`runCohere` 0.3): water runs from where the bead stands high to where it drained,
     feeding a drip from the bead beside it.
+  - **Water that reaches the page edge runs off.** The simulated area grows downhill up to 4 cm past the paint and
+    1 cm sideways.
   - **The paper steers drips sideways** (lateral only, deep beads only): drips wander along the grain. Steering
     along the slope trapped water in valleys as spots, and steering thin water sorted a wash into lace (both seen).
   - **A film stays behind** (0.012 mm): a drip leaves a wet trail and never drains a spot bare.
@@ -288,7 +300,7 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
   mingle 12 cells²/s; settle 0.08/s; evaporation 0.003 mm/s (×4 at thin edges).
   - Depths a stroke leaves on cold press: wet 0.17, loaded 0.22, runny 0.26 mm.
   - Running water: `runMmPerS 8`, `runMm 0.3`, hold ½ tooth, film 0.012, cohere 0.3, steer 4 (sideways), bead 0.6 mm
-    (blur σ 0.3 mm). The step caps speed at 0.45 cell per substep (≈2.7 mm per sim second).
+    (blur σ 0.3 mm); sizing noise ±45 % at 2.4 / 0.9 mm; drip gap 4 mm; pour margin 0.01 mm. The step caps speed at 0.45 cell per substep (≈2.7 mm per sim second).
   - At 45° for 8 s: dry, damp and wet hold; loaded drips twice; runny drips four times. At 15° nothing drips and
     the bead pools at the bottom.
 - **Oil**: opaque paint S 30/mm; a full flat brush leaves 0.6 mm; cell capacity = thick · rate · loadLen / len.

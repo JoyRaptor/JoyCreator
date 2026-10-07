@@ -37,6 +37,8 @@ export const WET = {
   runCoherent: 1.0,     // a bead breaks a dry edge as a whole (bead-wide drips), not cell by cell (a comb)
   steerScale: 1.0,      // the paper relief that steers running water, in bead sizes
   runHoldK: 1.0,        // a dry edge holds a running bead this much harder than still water
+  quiet: 0.01,          // a neighbour pouring this much more (mm) keeps this part of a bead's edge shut
+  dripGap: 4.0,         // a bead lets go only where it stands highest within about this (mm) along its edge
   runSizing: 0.45,      // how unevenly the sizing holds a bead at drip scale: drips break away irregularly
   runPin: 0.5,          // how much a bead's weight helps it break a dry edge on a slope
   runSteer: 4.0,        // how strongly the paper's valleys steer running water sideways (a drip wanders)
@@ -89,7 +91,7 @@ export function wetUniforms(paper, w = WET) {
     u_evap: w.evap, u_edgeEvap: w.edgeEvap, u_absorb: w.absorb * absorbency * 2 * (1 - 0.95 * sizing),
     u_capMm: w.capMm * capacity * 2, u_wick: Math.min(0.24 / w.dt, w.wick * wick * 2), u_sDry: w.sDry,
     u_settle: w.settle, u_lift: w.lift, u_stainCarry: w.stainCarry, u_toothMm: paper.toothMm,
-    u_runMmPerS: w.runMmPerS, u_runMm: w.runMm, u_runHoldMm: w.runHold * paper.toothMm, u_runFilmMm: w.runFilm, u_runPin: w.runPin, u_runSizing: w.runSizing, u_runHoldK: w.runHoldK, u_runCoherent: w.runCoherent, u_runCohere: w.runCohere, u_steerScale: w.steerScale, u_runSteer: w.runSteer, u_runAlong: w.runAlong,
+    u_runMmPerS: w.runMmPerS, u_runMm: w.runMm, u_runHoldMm: w.runHold * paper.toothMm, u_runFilmMm: w.runFilm, u_runPin: w.runPin, u_runSizing: w.runSizing, u_dripGapMm: w.dripGap, u_quietMm: w.quiet, u_runHoldK: w.runHoldK, u_runCoherent: w.runCoherent, u_runCohere: w.runCohere, u_steerScale: w.steerScale, u_runSteer: w.runSteer, u_runAlong: w.runAlong,
     u_heightMean: paper.uniforms.u_paperHeightMean, u_fullMm: w.fullMm, u_filmMm: w.filmMm, u_edgeDep: w.edgeDep, u_mingle: Math.min(0.24 / w.dt, w.mingle),
   };
 }

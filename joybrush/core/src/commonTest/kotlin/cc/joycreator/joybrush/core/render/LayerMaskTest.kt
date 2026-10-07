@@ -150,7 +150,7 @@ class LayerMaskTest {
         val bottomClipped = doc(layer("a", clip = true))
         assertTrue(DocOps.validate(bottomClipped).any { it.contains("clipped") && it.contains("no layer below") })
         val inkMask = doc(layer("a").copy(kind = LayerKind.INK, cels = listOf(Cel("c")), mask = Cel("m")))
-        assertTrue(DocOps.validate(inkMask).any { it.contains("only a paint layer can have a mask") })
+        assertTrue(DocOps.validate(inkMask).any { it.contains("only a layer of pixels (paint or media) can have a mask") })
         val clash = doc(layer("a").copy(mask = Cel("c")))
         assertTrue(DocOps.validate(clash).any { it.contains("a mask and a cel both called") })
     }

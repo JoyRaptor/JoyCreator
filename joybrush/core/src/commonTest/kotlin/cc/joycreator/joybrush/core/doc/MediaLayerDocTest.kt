@@ -51,6 +51,15 @@ class MediaLayerDocTest {
         assertTrue(problems.any { "is paint, so cel" in it && "cannot have media state" in it }, problems.toString())
     }
 
+    @Test fun aMediaLayerCanHaveAMask() {
+        // The mask multiplies the look tiles, which is all the compositor and the export ever read (R48).
+        val doc = withMedia()
+        val masked = doc.copy(layers = doc.layers.map {
+            if (it.kind == LayerKind.MEDIA) it.copy(mask = Cel(id = "m-media", tiles = listOf("0_0"))) else it
+        })
+        assertEquals(emptyList(), DocOps.validate(masked))
+    }
+
     @Test fun aRepeatedMediaTileIsRefused() {
         val problems = DocOps.validate(withMedia { it.copy(floatTiles = listOf("0_0", "0_0")) })
         assertTrue(problems.any { "lists a media tile twice" in it }, problems.toString())

@@ -184,7 +184,8 @@ object DocOps {
         for ((index, l) in doc.layers.withIndex()) {
             val m = l.mask
             if (m != null) {
-                if (l.kind != LayerKind.PAINT) out += "layer \"${l.id}\" is ${l.kind}, and only a paint layer can have a mask"
+                // A mask multiplies the look tiles (R48), so a media layer's mask works like a paint layer's.
+                if (!l.kind.hasPixels) out += "layer \"${l.id}\" is ${l.kind}, and only a layer of pixels (paint or media) can have a mask"
                 if (l.cels.any { it.id == m.id }) out += "layer \"${l.id}\" has a mask and a cel both called \"${m.id}\""
                 if (m.strokesFile != null) out += "the mask of layer \"${l.id}\" has strokes; a mask is pixels"
                 if (m.floatTiles.isNotEmpty()) out += "the mask of layer \"${l.id}\" has media state; a mask is pixels"

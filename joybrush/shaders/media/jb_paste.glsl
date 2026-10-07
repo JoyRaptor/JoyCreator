@@ -50,6 +50,7 @@ uniform float u_bladeTan;       // the edge's rise along its length (tilt flatte
 uniform float u_bladeBead;      // how much of what the blade carries rides ahead of it as a bead
 uniform float u_bladePressMm;   // a firm blade presses into the weave (the canvas yields): peaks come bare
 uniform float u_bladeFilm;      // mm: paint is sticky; a scraped surface keeps a thin stain
+uniform float u_bladeLoad;      // 1: pressure is the load (a light touch only catches what stands high)
 float u_hairLen = 1.0;          // set per fragment before jb_pasteCover (how long this run of hair is)
 uniform float u_seed;
 
@@ -221,6 +222,16 @@ float jb_bladeTarget(float xb, float yb, float valleyMm, float load) {
                                                                     : 1.0 - smoothstep(0.0, 0.2 * u_bladeLen, xb));
     float carried = clamp(load / max(u_cellCap, 1e-6), 0.0, 3.0);
     return base + u_bladeBead * carried * max(frontBand * (1.0 - alongEdge), endBand);
+}
+
+// A loaded blade pressed lightly only lets go of paint where the surface stands high: a skim over the canvas
+// peaks, broken. Firmer pressure squeezes its paint down into the valleys too (linear in pressure; the whole
+// weave is reached by about half pressure). surfAboveMm: the surface's height above the canvas PEAK level (paint − valley depth).
+// Measured from the peaks, not from the neighbours: a neighbour test let fresh paint from the same stroke make
+// the empty spots beside it count as dips, and they never filled (a checkerboard).
+float jb_bladeReach(float surfAboveMm, float toothMm) {
+    if (u_bladeLoad < 0.5) return 1.0;
+    return smoothstep(-0.015, 0.015, surfAboveMm + u_pressure * 2.2 * toothMm - 0.01);
 }
 
 ivec2 jb_pasteCell(float a, float b) {

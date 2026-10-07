@@ -157,6 +157,9 @@ gradient and moving the mark away from the pen. v8 replaced it:
   - **Uneven sizing**: mm-scale noise in how hard an edge holds.
   - **Any blur must be a Gaussian.** A slope taken from a ring of taps aliases and sorts water into stripes (seen):
     its spectrum has negative lobes.
+- **The lab opens at real size** on any screen (1 doc px = 0.05 mm; a CSS px is assumed 0.16 mm on touch devices
+  and 0.26 mm otherwise). Until v9.3 it opened at 1 doc px = 1 device px: real size on the Note 9, about 4× on a
+  laptop, which is why things looked big there. Pens that report no tilt fall back to the tilt slider.
 - **Tilt sources**: the lab's pad (up to upright) or **Phone tilt** (the gravity sensor, relative to how the phone was
   held when switched on, with a small dead zone).
 
@@ -203,7 +206,23 @@ gradient and moving the mark away from the pen. v8 replaced it:
     this look for the scraper over the squeegee;
   - **across stroke**: a squeegee centred on the pen, turning with the stroke; lean widens it;
   - **along stroke**: the edge trails the pen point along the path, a groove that follows the line.
-- **Palette knife 2 is the v8 rigid blade (in pen-angle mode, held like the pen):**
+- **Knife v3 (v9.4), the owner's spec of 2026-10-07**, for Palette knife 2 and the scraper:
+  - **Lean direction:** the edge lies along the pen's lean (Edge: pen angle). Lean north and stroke down: a knife
+    line along the edge. Lean west and stroke down: a band across it.
+  - **Tilt t, linear:** sets how much edge is in play (knife 3 → 22 mm, scraper 2 → 14 mm) and the gouge taper.
+    The edge rises riseMax·(1 − t) from the point over that length: deepest at the point, tapering along the edge,
+    an even scrape when flat.
+  - **What touches** (Blade toggle): the thin edge (0.6 mm, default) or the flat face (the v9 trowel underside that
+    gave the owner's liked blob).
+  - **Pressure** (toggle on knife 2):
+    - paint load (default): the underside rises with P, and a light touch only lets go of paint above the canvas peaks
+      (skim). The reach is measured from the peak level, never from neighbours (that made a checkerboard). So light
+      skims and scrapes old paint down; firm lays a blob.
+    - depth: the v8/v9 behaviour.
+  - **The scraper is an empty knife:** the same rules, pressure is depth, bladeHmax 0.6 mm so the whole pressure range
+    acts on real paint thicknesses.
+  - Everything linear; the app's curve editors shape it.
+- **The v8 blade, for the record (now Palette knife 2 in pen-angle mode with depth and flat):**
   - The edge lies along the pen's lean (azimuth), whatever the direction of travel.
   - **Pressure lowers the blade:** height above the canvas peaks = `Hmax·(1−P)^1.5`. A light touch shaves the peaks;
     full pressure reaches the canvas and presses into the weave (`0.6·tooth·P²`).
@@ -367,3 +386,12 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
     Palette knife 2 (v8 blade). The thick-paint weave grid fixed at the same time.
   - The new knife is "a little bit unwieldy" and the scraper "unintuitive". The owner preferred the pen-angle
     scraper's look to the squeegee and asked for toggles → v9.3 Edge modes.
+- **2026-10-07, knives on the Wacom:**
+  - Likes the knife's blob and the scrape to canvas, but near upright it should start thin. A long pass plopped paint
+    evenly, so light scrape-through was impossible. "Is pressure loading or scraping?"
+  - The knife is a bit large, with no smaller variation. The scraper "jumps from straight perpendicular to straight
+    side".
+  - His spec: the pen's lean sets the edge, tilt sets the size and the gouge angle, pressure may be the load, and
+    the scraper is an empty knife. Curves linear (the app dials them in).
+  - Pencil about 2× too big (the app's size knob).
+  - → v9.4 knife v3 with toggles; real-size view.

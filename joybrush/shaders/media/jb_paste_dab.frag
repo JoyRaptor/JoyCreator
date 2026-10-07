@@ -63,7 +63,7 @@ void main() {
         } else if (load > 1e-6) {
             vec3 Kb = b0.rgb / load;
             float Sb = b1.r / load;
-            float dep = min(target - t, load) * r * cov;
+            float dep = min(target - t, load) * r * cov * jb_bladeReach(t - valley, u_toothMm);
             p0.rgb += Kb * dep; p1.rgb += vec3(Sb * dep);
             open = mix(open, 1.0, dep / max(t + dep, 1e-6));
             t += dep;

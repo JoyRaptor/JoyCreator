@@ -5,7 +5,7 @@ import { STICKS, DryStroke, stickMaterial, PRESS, MAT_OVERRIDE, ZONES } from './
 import { SHEETS } from './tests.js';
 import { WET, WET_BRUSHES, WETNESS, WetStroke, paintFromColor, tiltSlope } from './wet.js';
 import { SplineFeeder } from './spline.js';
-import { PASTE_BRUSHES, PasteStroke, opaquePaint, EDGE_MODES, EDGE_LABELS } from './paste.js';
+import { PASTE_BRUSHES, PasteStroke, opaquePaint, EDGE_MODES, EDGE_LABELS, PRESS_MODES } from './paste.js';
 import { VectorDoc } from './vector.js';
 
 const qs = new URLSearchParams(location.search);
@@ -25,6 +25,8 @@ const state = {
   mousePressure: 0.5,
   bellyMode: 'off',
   edgeModes: {},
+  pressModes: {},
+  faceModes: {},
   wetLevel: 3,
   color: [0.22, 0.38, 0.75],
   seed: 100,
@@ -106,9 +108,22 @@ async function main() {
     window.__done = true;
     return;
   }
-  // Open at true size (1 doc px ≈ 0.05 mm ≈ one Note 9 pixel), showing the sample sheet.
-  state.view.zoom = Math.min(1, canvas.width / size[0]);
-  state.view.pan = [(canvas.width - size[0] * state.view.zoom) / 2, canvas.height - size[1] * state.view.zoom];
+  // Open at REAL size: 1 doc px = 0.05 mm on the screen. Browsers do not know a screen's true pixel size, so this
+  // assumes a CSS px is 0.16 mm on a touch device (phones) and 0.26 mm otherwise (96 dpi): close, not exact.
+  // (Until v9.3 the lab opened at 1 doc px = 1 device px: real size on the Note 9, but about 4× on a laptop.)
+  state.view.zoom = realZoom();
+  // Centred in the space below the panel when it fits; otherwise its top just under the panel.
+  const below = canvas.height - (ui('panel') ? ui('panel').getBoundingClientRect().bottom * devicePixelRatio : 0);
+  const sheetH = size[1] * state.view.zoom;
+  state.view.pan = [(canvas.width - size[0] * state.view.zoom) / 2, sheetH < below ? (below - sheetH) / 2 : below - sheetH];
+  showZoom();
+  ui('zoomread').onclick = () => {
+    const c = [canvas.width / 2, canvas.height / 2], v = state.view, z = realZoom(), k = z / v.zoom;
+    v.pan = [c[0] - (c[0] - v.pan[0]) * k, c[1] - (c[1] - v.pan[1]) * k];
+    v.zoom = z;
+    showZoom();
+    invalidateView();
+  };
   runSheet(SHEETS.proto, [40, 400]);
   state.dirty = true;
   hookInput();
@@ -130,7 +145,7 @@ function runSheet(sheet, offset = [0, 0]) {
     if (st.kind === 'paste') {
       const brush = PASTE_BRUSHES[st.tool];
       if (!st.dirty) engine.reloadBrush(opaquePaint(st.color), brush, seed, st.belly ? opaquePaint(st.belly) : null);
-      const ps = new PasteStroke(brush, DOC_PX_PER_MM, 1, { edge: st.edge || qs.get('edge') || undefined });
+      const ps = new PasteStroke(brush, DOC_PX_PER_MM, 1, { edge: st.edge || qs.get('edge') || undefined, press: st.press || qs.get('press') || undefined, face: st.face || qs.get('face') || undefined });
       const sd = seed++;
       for (const smp of st.samples) { ps.add(smp); for (const step of ps.take()) engine.pasteStep(step, brush, paper, DOC_PX_PER_MM, sd); }
       continue;
@@ -195,12 +210,14 @@ function bellyFor(mode, color, seed) {
 
 // Each blade tool remembers its own edge mode.
 function edgeFor(tool) { return state.edgeModes[tool] || PASTE_BRUSHES[tool].orient || 'pen'; }
+function faceFor(tool) { return PASTE_BRUSHES[tool].edgeHalfMm ? state.faceModes[tool] || PASTE_BRUSHES[tool].face || 'edge' : 'flat'; }
+function pressFor(tool) { return PASTE_BRUSHES[tool].clean ? 'depth' : state.pressModes[tool] || PASTE_BRUSHES[tool].press || 'load'; }
 
 function startStroke(eng, meta) {
   if (meta.kind === 'paste') {
     const brush = PASTE_BRUSHES[meta.tool];
     if (!meta.dirty) eng.reloadBrush(opaquePaint(meta.color), brush, meta.seed, meta.belly ? opaquePaint(meta.belly) : null);
-    const ds = new PasteStroke(brush, DOC_PX_PER_MM, eng.scale, { edge: meta.edge });
+    const ds = new PasteStroke(brush, DOC_PX_PER_MM, eng.scale, { edge: meta.edge, press: meta.press, face: meta.face });
     return { add: s => ds.add(s), flush() { for (const st of ds.take()) eng.pasteStep(st, brush, paper, DOC_PX_PER_MM, meta.seed); }, finish() { this.flush(); } };
   }
   if (meta.kind === 'wet') {
@@ -275,8 +292,10 @@ function hookInput() {
     const seed = ++state.seed;
     const belly = kind === 'paste' ? bellyFor(state.bellyMode, state.color, seed) : null;
     const wetness = kind === 'wet' && !WET_BRUSHES[state.tool].clear ? WETNESS[state.wetLevel] : kind === 'wet' ? { ...WETNESS[state.wetLevel], load: Math.max(WETNESS[state.wetLevel].load, WET_BRUSHES[state.tool].load) } : null;
-    const edge = kind === 'paste' && PASTE_BRUSHES[state.tool].blade ? edgeFor(state.tool) : undefined;
-    const meta = { kind, tool: state.tool, color: [...state.color], belly: belly ? [...belly] : null, seed, wetness, edge,
+    const isBlade = kind === 'paste' && !!PASTE_BRUSHES[state.tool].blade;
+    const edge = isBlade ? edgeFor(state.tool) : undefined, press = isBlade ? pressFor(state.tool) : undefined;
+    const face = isBlade ? faceFor(state.tool) : undefined;
+    const meta = { kind, tool: state.tool, color: [...state.color], belly: belly ? [...belly] : null, seed, wetness, edge, press, face,
       dirty: kind === 'paste' && state.dirtyBrush && state.lastPaste === state.tool };
     if (kind === 'paste') state.lastPaste = state.tool;
     const lives = [startStroke(engine, meta)];
@@ -333,6 +352,18 @@ function moveTouch(e) {
   invalidateView();
 }
 
+function realZoom() {
+  const cssMm = matchMedia('(pointer: coarse)').matches ? 0.16 : 0.26;
+  return 0.05 / (cssMm / devicePixelRatio);
+}
+
+function showZoom() {
+  const el = ui('zoomread');
+  if (!el) return;
+  const k = state.view.zoom / realZoom();
+  el.textContent = Math.abs(k - 1) < 0.04 ? 'real size' : (k > 1 ? `${k.toFixed(k < 10 ? 1 : 0)}× real size` : `${(k * 100).toFixed(0)}% of real size`);
+}
+
 function zoomAt(cx, cy, f) {
   const dpr = devicePixelRatio;
   const sx = cx * dpr, sy = canvas.height - cy * dpr;
@@ -341,6 +372,7 @@ function zoomAt(cx, cy, f) {
   const k = z / v.zoom;
   v.pan = [sx - (sx - v.pan[0]) * k, sy - (sy - v.pan[1]) * k];
   v.zoom = z;
+  showZoom();
   invalidateView();
 }
 
@@ -350,7 +382,14 @@ function feed(e) {
   const sx = (e.clientX - r.left) * dpr, sy = canvas.height - (e.clientY - r.top) * dpr;
   const x = (sx - state.view.pan[0]) / state.view.zoom, y = (sy - state.view.pan[1]) / state.view.zoom;
   let p, tilt, az;
-  if (e.pointerType === 'pen') {
+  const penHasTilt = (e.tiltX || 0) !== 0 || (e.tiltY || 0) !== 0 || (typeof e.altitudeAngle === 'number' && Math.abs(e.altitudeAngle - Math.PI / 2) > 1e-6);
+  if (penHasTilt) state.penTiltSeen = true;
+  if (e.pointerType === 'pen' && !state.penTiltSeen) {
+    p = e.pressure;
+    tilt = state.mouseTilt * Math.PI / 180;
+    az = -60 * Math.PI / 180;
+    state.rawTilt = 0; state.maxTilt = 0;
+  } else if (e.pointerType === 'pen') {
     p = e.pressure;
     if (typeof e.altitudeAngle === 'number') { tilt = Math.PI / 2 - e.altitudeAngle; az = -e.azimuthAngle; }
     else {
@@ -369,7 +408,9 @@ function feed(e) {
     az = -60 * Math.PI / 180;
   }
   state.stroke.feeder.add({ x, y, p, tilt, az, t: e.timeStamp });
-  ui('readout').textContent = e.pointerType === 'pen'
+  ui('readout').textContent = e.pointerType === 'pen' && !state.penTiltSeen
+    ? `pressure ${p.toFixed(2)} · this pen reports no tilt: using the tilt slider (${state.mouseTilt}°)`
+    : e.pointerType === 'pen'
     ? `pressure ${p.toFixed(2)} · pen tilt ${state.rawTilt.toFixed(0)}° (most ${state.maxTilt.toFixed(0)}°)`
     : `mouse · pressure ${p.toFixed(2)} · tilt ${(tilt * 180 / Math.PI).toFixed(0)}°`;
 }
@@ -395,6 +436,11 @@ function buildUi() {
     const isBlade = isPaste && !!PASTE_BRUSHES[state.tool].blade;
     ui('edgebox').hidden = !isBlade;
     if (isBlade) ui('edgemode').textContent = 'Edge: ' + EDGE_LABELS[edgeFor(state.tool)];
+    // Only a loaded blade has a choice (the scraper is empty: pressure is how deep it scrapes).
+    ui('pressmode').hidden = !isBlade || !!PASTE_BRUSHES[state.tool].clean;
+    if (isBlade) ui('pressmode').textContent = 'Pressure: ' + (pressFor(state.tool) === 'load' ? 'paint load' : 'depth');
+    ui('facemode').hidden = !isBlade || !PASTE_BRUSHES[state.tool].edgeHalfMm;
+    if (isBlade) ui('facemode').textContent = 'Blade: ' + (faceFor(state.tool) === 'edge' ? 'edge' : 'flat');
     ui('belly').hidden = state.bellyMode !== 'manual';
     ui('dirtybrush').parentElement.hidden = !isPaste;
     // A dry brush means just that: picking it sets the brush nearly dry.
@@ -416,6 +462,14 @@ function buildUi() {
   ui('bellymode').onclick = () => {
     state.bellyMode = BELLY_MODES[(BELLY_MODES.indexOf(state.bellyMode) + 1) % BELLY_MODES.length];
     ui('bellymode').textContent = 'Belly: ' + state.bellyMode;
+    showFor();
+  };
+  ui('facemode').onclick = () => {
+    state.faceModes[state.tool] = faceFor(state.tool) === 'edge' ? 'flat' : 'edge';
+    showFor();
+  };
+  ui('pressmode').onclick = () => {
+    state.pressModes[state.tool] = pressFor(state.tool) === 'load' ? 'depth' : 'load';
     showFor();
   };
   ui('edgemode').onclick = () => {

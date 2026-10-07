@@ -38,7 +38,7 @@
   <label title="Vector: strokes are kept as pen records, redrawn sharp when you zoom in, and can be recoloured or removed"><input id="vector" type="checkbox"> Vector</label>
   <button id="recolor" title="Vector: give the last stroke the current colour (it is redrawn with the same physics)">Recolour last</button>
   <label title="Oil: keep the paint the brush picked up between strokes (off = clean, fresh load each stroke)"><input id="dirtybrush" type="checkbox"> Dirty brush</label>
-  <span id="edgebox" class="group"><button id="edgemode" title="Knife 2 and scraper: which way the blade's edge lies. Tap to change: along the pen's angle, across your stroke (a squeegee), or along your stroke (a groove)">Edge: pen angle</button></span>
+  <span id="edgebox" class="group"><button id="edgemode" title="Knife 2 and scraper: which way the blade's edge lies. Tap to change: along the pen's angle, across your stroke (a squeegee), or along your stroke (a groove)">Edge: pen angle</button><button id="pressmode" title="Palette knife 2: what pressing harder does. Paint load: more paint comes off (light skims and scrapes through, firm leaves a blob). Depth: the knife digs deeper">Pressure: paint load</button><button id="facemode" title="Palette knife 2: what touches the paint. Edge: a knife (a gouge along the edge, a band across it). Flat: the blade's flat face, wide every way">Blade: edge</button></span>
   <span id="bellybox" class="group"><button id="bellymode" title="Oil: what the brush belly is loaded with. Tap to change: off, your colour, darker, lighter, warmer, cooler, your last colour, or a slight random shift">Belly: off</button><input id="belly" type="color" value="#f2e6c8" title="Belly colour (manual)"></span>
   <span id="wetbox" class="group"><button id="drier" title="Blot the brush: less water">Drier</button><span id="wetread">wet</span><button id="wetter" title="Dip the brush: more water">Wetter</button></span>
   <button id="undo" title="Undo the last stroke">Undo</button>
@@ -52,6 +52,7 @@
     <option value="0">Final</option><option value="1">Paper height</option><option value="2">Deposit</option><option value="3">Crush</option><option value="4">Water</option><option value="5">Floating pigment</option>
   </select>
   <span id="readout"></span>
+  <button id="zoomread" title="How big the paper shows compared with real life (on the phone, real size is true; elsewhere it is an estimate). Tap for real size; the mouse wheel or a pinch zooms">real size</button>
 </div>
 <div id="tiltbox">
   <button id="phonetilt" title="Let the phone's own tilt run the water. Hold it however is comfortable, switch this on, then tip the phone">Phone tilt: off</button>

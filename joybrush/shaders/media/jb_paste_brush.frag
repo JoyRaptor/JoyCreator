@@ -62,7 +62,7 @@ void main() {
                 gainK += (t > 1e-6 ? p0.rgb / t : vec3(0.0)) * pick;
                 gainS += (t > 1e-6 ? p1.r / t : 0.0) * pick;
             } else {
-                give += min(target - t, b0.a) * r;
+                give += min(target - t, b0.a) * r * jb_bladeReach(t - valley, u_toothMm);
             }
         }
         // The cell trades the AVERAGE of its strip (the same per-pixel units the canvas pass uses).

@@ -87,6 +87,32 @@ export const SHEETS = {
       return s;
     },
   },
+  // Knife v3 (owner, 2026-10-07). Top: Palette knife 2 on bare canvas, pen leaning NORTH (left three: upright,
+  // half, flat) then WEST (right three), each stroked straight down: north = a gouge along the edge, west = a
+  // band as wide as the edge in play, deepest at the point. Middle: a stroke east with the pen leaning north at
+  // half tilt while pressure climbs from a feather to full (paint load: scrape-through → blob). Bottom: the
+  // scraper over thick paint, leaning west, upright / half / flat, firm.
+  knives: {
+    size: [1600, 1500],
+    paper: 'canvas_linen',
+    strokes() {
+      const s = [], MM = 20, RED = [0.75, 0.25, 0.22], BLUE = [0.22, 0.3, 0.7];
+      const paste = (tool, color, st, extra = {}) => ({ ...st, kind: 'paste', tool, color, ...extra });
+      const down = (x, y, len) => line(x * MM, y * MM, x * MM, (y - len) * MM);
+      // Leaning north (the blade reaches up from the pen), stroked down: upright, half, flat.
+      [0.08, 0.5, 0.95].forEach((t, i) => s.push(paste('Palette knife 2', RED, stroke('Palette knife 2', 6, down(5 + i * 8, 48, 6), { p: 0.6, tilt: t * 90, az: 90 }, 30))));
+      // Leaning west (the blade reaches left from the pen), stroked down: upright, half, flat.
+      [0.08, 0.5, 0.95].forEach((t, i) => s.push(paste('Palette knife 2', RED, stroke('Palette knife 2', 6, down([36, 52, 77][i], 66, 6), { p: 0.6, tilt: t * 90, az: 180 }, 30))));
+      // Pressure light / medium / firm (paint load), moving east, leaning SOUTH at half tilt (the edge hangs below
+      // the path), over bare canvas then over a strip of blue laid first: skimming and scraping through.
+      s.push(paste('Palette knife 1', BLUE, stroke('Palette knife 1', 74, line(3 * MM, 29 * MM, 77 * MM, 29 * MM), { p: 0.35, tilt: 40, az: -60 }, 40)));
+      [0.15, 0.5, 0.95].forEach((p, i) => s.push(paste('Palette knife 2', RED, stroke('Palette knife 2', 20, line((4 + i * 25) * MM, 37 * MM, (24 + i * 25) * MM, 37 * MM), { p, tilt: 45, az: -90 }, 30))));
+      // Thick ground for the scraper, laid with the trowel knife.
+      for (let k = 0; k < 3; k++) s.push(paste('Palette knife 1', [0.85, 0.65, 0.25], stroke('Palette knife 1', 74, line(3 * MM, (16 - k * 5) * MM, 77 * MM, (16 - k * 5) * MM), { p: 0.35, tilt: 40, az: -60 }, 40)));
+      [0.08, 0.5, 0.95].forEach((t, i) => s.push(paste('Scraper', RED, stroke('Scraper', 11, down([20, 44, 74][i], 17, 11), { p: 0.75, tilt: t * 90, az: 180 }, 30))));
+      return s;
+    },
+  },
   // Dabs and stroke ends (owner, 2026-10-07): a light dab must be a dot, not straight lines squirting out;
   // tails only grow with travel; splayed hairs come in late; no straight-cut starts or ends. Each row: three
   // dabs (light, medium, firm, with a hand's jitter and no travel), then a short curved stroke, then a longer

@@ -6,11 +6,11 @@ Canvases: existing periodic 3D yarn candidates (alternating over/under centrelin
 
 Rebuild: `python joybrush/tools/paper/prepare_test_surfaces.py <candidate-surfaces-directory>`; original canvas inputs remain in the owner’s ignored candidates/surfaces directory.
 
-- `surface_canvas_linen.png`: candidate SHA256 1e9912adac9a07b7330100cf588b3b8c224c4be0b710f2e8d0129d42073bfa9e; physical span 0.3, texelPx 0.75.
-- `surface_canvas_cotton_duck.png`: candidate SHA256 1b0265219659b6174f6781b24d057db427d2d37d7d718bac5ca3548d1c46c611; physical span 0.5, texelPx 1.0.
-- `surface_canvas_jute.png`: candidate SHA256 5c24f8c8897237a4ae43a572d97103ca632cc3b9e6b4aef3e80fee962dc9a3f9; physical span 0.85, texelPx 1.25.
-- `surface_pulp_factory.png`: prepare_test_surfaces.pulp(seed=810, rough=0.0); physical span 0.32, texelPx 2.0.
-- `surface_pulp_handmade.png`: prepare_test_surfaces.pulp(seed=811, rough=0.9); physical span 0.9, texelPx 2.0.
+- `height_canvas_linen.png`: candidate SHA256 1e9912adac9a07b7330100cf588b3b8c224c4be0b710f2e8d0129d42073bfa9e; physical span 0.3, texelPx 0.75.
+- `height_canvas_cotton_duck.png`: candidate SHA256 1b0265219659b6174f6781b24d057db427d2d37d7d718bac5ca3548d1c46c611; physical span 0.5, texelPx 1.0.
+- `height_canvas_jute.png`: candidate SHA256 5c24f8c8897237a4ae43a572d97103ca632cc3b9e6b4aef3e80fee962dc9a3f9; physical span 0.85, texelPx 1.25.
+- `height_pulp_factory.png`: prepare_test_surfaces.pulp(seed=810, rough=0.0); physical span 0.32, texelPx 2.0.
+- `height_pulp_handmade.png`: prepare_test_surfaces.pulp(seed=811, rough=0.9); physical span 0.9, texelPx 2.0.
 
 ## Launch material authoring
 

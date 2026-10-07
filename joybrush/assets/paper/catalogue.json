@@ -16,79 +16,93 @@
     {
       "id": "canvas_linen",
       "name": "Fine linen",
-      "file": "surface_canvas_linen.png",
+      "file": "height_canvas_linen.png",
       "size": 512,
       "texelPx": 0.75,
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": false,
-      "relief": 1.0
+      "relief": 1.0,
+      "packed": false,
+      "heightMean": 0.5137
     },
     {
       "id": "canvas_cotton_duck",
       "name": "Cotton duck",
-      "file": "surface_canvas_cotton_duck.png",
+      "file": "height_canvas_cotton_duck.png",
       "size": 512,
       "texelPx": 1.0,
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": false,
-      "relief": 1.0
+      "relief": 1.0,
+      "packed": false,
+      "heightMean": 0.5357
     },
     {
       "id": "canvas_jute",
       "name": "Rough jute",
-      "file": "surface_canvas_jute.png",
+      "file": "height_canvas_jute.png",
       "size": 512,
       "texelPx": 1.25,
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": false,
-      "relief": 1.0
+      "relief": 1.0,
+      "packed": false,
+      "heightMean": 0.4976
     },
     {
       "id": "pulp_factory",
       "name": "Factory pulp",
-      "file": "surface_pulp_factory.png",
+      "file": "height_pulp_factory.png",
       "size": 512,
       "texelPx": 2.0,
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": true,
-      "relief": 1.0
+      "relief": 1.0,
+      "packed": false,
+      "heightMean": 0.5259
     },
     {
       "id": "pulp_handmade",
       "name": "Handmade pulp",
-      "file": "surface_pulp_handmade.png",
+      "file": "height_pulp_handmade.png",
       "size": 512,
       "texelPx": 2.0,
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": true,
-      "relief": 1.0
+      "relief": 1.0,
+      "packed": false,
+      "heightMean": 0.5187
     },
     {
       "id": "crumpled",
       "name": "Crumpled paper",
-      "file": "surface_crumpled.png",
+      "file": "height_crumpled.png",
       "size": 512,
       "texelPx": 1.5,
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": true,
-      "relief": 1.6
+      "relief": 1.6,
+      "packed": false,
+      "heightMean": 0.5058
     },
     {
       "id": "crumpled_flattened",
       "name": "Flattened crumpled paper",
-      "file": "surface_crumpled_flattened.png",
+      "file": "height_crumpled_flattened.png",
       "size": 512,
       "texelPx": 1.5,
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": true,
-      "relief": 1.6
+      "relief": 1.6,
+      "packed": false,
+      "heightMean": 0.5012
     },
     {
       "id": "rice_fibres",
@@ -185,57 +199,67 @@
     {
       "id": "parchment_skin",
       "name": "Parchment skin",
-      "file": "surface_parchment_skin.png",
+      "file": "height_parchment_skin.png",
       "size": 512,
       "texelPx": 2.0,
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": true,
-      "relief": 0.45
+      "relief": 0.45,
+      "packed": false,
+      "heightMean": 0.5004
     },
     {
       "id": "papyrus_strips",
       "name": "Papyrus strips",
-      "file": "surface_papyrus_strips.png",
+      "file": "height_papyrus_strips.png",
       "size": 512,
       "texelPx": 1.2,
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": false,
-      "relief": 0.6
+      "relief": 0.6,
+      "packed": false,
+      "heightMean": 0.6404
     },
     {
       "id": "silk",
       "name": "Silk",
-      "file": "surface_silk.png",
+      "file": "height_silk.png",
       "size": 512,
       "texelPx": 0.7,
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": false,
-      "relief": 0.5
+      "relief": 0.5,
+      "packed": false,
+      "heightMean": 0.5131
     },
     {
       "id": "fabric",
       "name": "Woven fabric",
-      "file": "surface_fabric.png",
+      "file": "height_fabric.png",
       "size": 512,
       "texelPx": 1.0,
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": false,
-      "relief": 0.5
+      "relief": 0.5,
+      "packed": false,
+      "heightMean": 0.5007
     },
     {
       "id": "cement",
       "name": "Cement",
-      "file": "surface_cement.png",
+      "file": "height_cement.png",
       "size": 512,
       "texelPx": 1.25,
       "slopeRange": 0.099,
       "hexTexels": 180,
       "rotatable": true,
-      "relief": 0.6
+      "relief": 0.6,
+      "packed": false,
+      "heightMean": 0.4979
     },
     {
       "id": "construction_blue_pulp",

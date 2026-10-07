@@ -67,6 +67,18 @@ class JbArchiveMediaTest {
         assertTrue(back.mediaTiles.keys.none { it.store == "paper" }, "watercolour made no paper tiles, and none appear")
     }
 
+    @Test fun mixedMediaOnOneTileIsTheUnionOfStoresAndAllOfItSurvives() {
+        // A pencil underdrawing, then watercolour over it (the Lead, 2026-10-07): still lazy, just both media's stores.
+        val stores = (MediaStores.forMedium(cc.joycreator.joybrush.core.brush.MEDIUM_DRY) +
+            MediaStores.forMedium(cc.joycreator.joybrush.core.brush.MEDIUM_WET)).distinct()
+        assertEquals(setOf("paper", "p0", "p1", "w0", "w1"), stores.toSet())
+        val mixed = wet().copy(mediaTiles = wet().mediaTiles.filterKeys { it.key != "0_0" } +
+            stores.associate { key("0_0", it) to state(if (it == "w0") 0.2f else 0.05f) })
+        val back = read(bytesOf(mixed))
+        assertEquals(stores.toSet(), back.mediaTiles.keys.filter { it.key == "0_0" }.map { it.store }.toSet())
+        for ((k, v) in mixed.mediaTiles) assertContentEquals(v, back.mediaTiles.getValue(k), k.toString())
+    }
+
     @Test fun storeTilesAreNamedAsTheFormatSays() {
         val names = ArrayList<String>()
         ZipInputStream(ByteArrayInputStream(bytesOf(wet()))).use { z -> while (true) names += (z.nextEntry ?: break).name }

@@ -73,4 +73,35 @@ class GlMediaStoresTest {
         assertNull(e.mediaTile(layer, "paper", 2), "nothing was swapped in")
         assertEquals(0, e.endMediaStroke(), "and nothing reached the history")
     }
+
+    @Test fun waterThatDriesInsideItsStepIsForgottenByThatStep() {
+        val e = engine()
+        e.undo.push(UndoLog.Step(listOf(
+            UndoLog.TileChange(MediaStores.id(layer, "p0"), 1, before = null, after = 901),
+            UndoLog.TileChange(MediaStores.id(layer, "w0"), 1, before = null, after = 902),
+        )))
+        assertTrue(e.undoStep() && e.redoStep(), "plants the stroke's tiles")
+        e.dropMediaTiles(layer, "w0", listOf(1L))
+        assertNull(e.mediaTile(layer, "w0", 1), "dry water has no tile")
+        assertEquals(1, e.undo.undoDepth, "no step of its own")
+        val s = e.undo.newestExtendable()!!
+        assertEquals(listOf(MediaStores.id(layer, "p0")), s.changes.map { it.layerId }, "the water came and went inside the stroke")
+    }
+
+    @Test fun waterThatWasThereBeforeComesBackOnUndo() {
+        val e = engine()
+        e.undo.push(UndoLog.Step(listOf(UndoLog.TileChange(MediaStores.id(layer, "w0"), 2, before = null, after = 911))))
+        assertTrue(e.undoStep() && e.redoStep())
+        e.undo.push(UndoLog.Step(emptyList(), stackBefore = null, paperBefore = null))   // an unrelated step on top
+        e.undo.push(UndoLog.Step(listOf(UndoLog.TileChange("other", 0, before = 1, after = 2))))
+        e.dropMediaTiles(layer, "w0", listOf(2L))
+        assertNull(e.mediaTile(layer, "w0", 2))
+        assertTrue(e.undoStep(), "the fresh water step")
+        assertEquals(911, e.mediaTile(layer, "w0", 2), "undo puts the water back")
+    }
+
+    @Test fun onlyWaterDriesAway() {
+        val e = engine()
+        assertFailsWith<IllegalArgumentException> { e.dropMediaTiles(layer, "p0", listOf(1L)) }
+    }
 }

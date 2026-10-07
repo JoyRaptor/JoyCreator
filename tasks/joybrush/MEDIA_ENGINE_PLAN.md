@@ -384,7 +384,12 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
   - **3b, archive. ✅ bb80a380.** The stores are RGBA16F at rest (the Lead's ruling), allocated lazily by
     medium (`MediaStores.forMedium`). The media ceiling is `LayerBudget.mediaBudgetBytes`. JbArchive writes and reads `layers/<id>/<cel>/<tx>_<ty>.<store>.f16`, with the same "every declared
     tile has its file, every file is declared" checks as `.rgba`.
-  - **3c, window.** MediaLayerEngine works on a tile-aligned window (1024 px = 4×4 tiles ≈ 5 cm) placed over the
+  - **3c, window. Built (`review/media-window`).** `MediaWindow` + `MediaWindowMath` + `WetSpread` (the tested cap).
+    - GPU cost of the window itself at 1024 px: about 120 MB dry and about 230 MB once water has run (full-float
+      state ×2, water ×2, flux, bakes). It is not in the media budget yet; see the desk note.
+    - A window move flushes and reloads. Water outside the new place sleeps in the stores and wakes when a window
+      loads it with `resumeWater`.
+  - Original 3c row: MediaLayerEngine works on a tile-aligned window (1024 px = 4×4 tiles ≈ 5 cm) placed over the
     stroke. It loads from the stores, writes back on a shift and at a frame boundary, and never allocates the whole
     canvas.
   - **Running water rule (Lead).**

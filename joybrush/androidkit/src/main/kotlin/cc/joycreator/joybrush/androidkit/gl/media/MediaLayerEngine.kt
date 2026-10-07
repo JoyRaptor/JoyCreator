@@ -11,6 +11,7 @@ import cc.joycreator.joybrush.core.media.PasteBrush
 import cc.joycreator.joybrush.core.media.PasteStep
 import cc.joycreator.joybrush.core.media.StickMaterial
 import cc.joycreator.joybrush.core.media.WetConstants
+import cc.joycreator.joybrush.core.media.WetSpread
 import cc.joycreator.joybrush.core.media.cellCap
 import cc.joycreator.joybrush.core.media.wetUniforms
 import kotlin.math.ceil
@@ -53,9 +54,10 @@ class MediaLook(
  * pigment in thousands of tiny steps and half floats stall it (seen 2026-10-06). The device must support
  * EXT_color_buffer_float (the Note 9 does); [init] refuses without it rather than fall back.
  *
- * The working textures cover the whole layer ([w] × [h] layer px; layerPx = (docPx − origin) · scale). Tile sync
- * with the app's stores (#p0 #p1 #paper #w0 #w1 + the RGBA8 look, one UndoLog step per stroke) goes through
- * [readRect]/[writeRect]/[renderLook]: the Lead's contract in MEDIA_ENGINE_PLAN §4. GL thread only.
+ * The working textures are a WINDOW ([w] × [h] px at document [originX], [originY]; layerPx = (docPx − origin) · scale),
+ * never the whole canvas (contract point 8). [MediaWindow] places it, loads the layer's stores into it ([loadTargets],
+ * [lookTexture]) and writes back what the passes wrote ([takeDirtyStores], [current]) through the app's stores
+ * (#p0 #p1 #paper #w0 #w1 + the RGBA8 look; MEDIA_ENGINE_PLAN M5.3c). GL thread only.
  */
 class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     var w = 0; private set
@@ -217,6 +219,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         if (wet != null) { for (f in wetCopyFbo) clearFbo(f); clearFbo(inFbo) }
         wetRect = null
         paintRect = null
+        wetIdle = 0.0
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
     }
 
@@ -246,6 +249,62 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     /** Everything touched since the last [takeDirty] (look tiles to re-render, float tiles to store). */
     private var dirtySinceLook: FloatArray? = null
     fun takeDirty(): FloatArray? = dirtySinceLook.also { dirtySinceLook = null }
+
+    /** The stores the passes since the last [takeDirtyStores] wrote: what a write-back copies (stores are lazy, M5.3c). */
+    private val stores = LinkedHashSet<String>()
+    fun takeDirtyStores(): Set<String> = LinkedHashSet(stores).also { stores.clear() }
+
+    // ---- the window (M5.3c): where this engine's textures sit on the document, and what is loaded into them ----
+
+    /**
+     * Moves the window to document px ([originX], [originY]) and empties it: the caller loads the stores for the new
+     * place. Water stops (what was outside the old place stays asleep in the stores until a window loads it again).
+     */
+    fun moveTo(originX: Float, originY: Float) {
+        this.originX = originX; this.originY = originY
+        bakedPaper = null
+        clearAll()
+        if (lookFbo != 0) clearFbo(lookFbo)
+        stores.clear(); dirtySinceLook = null; strokeRect = null
+    }
+
+    /** The textures a store loads into (both water buffers, so the next substep reads what was loaded). */
+    fun loadTargets(store: String): List<Int> = when (store) {
+        "p0" -> listOf(state[0].p0); "p1" -> listOf(state[0].p1); "paper" -> listOf(state[0].paper)
+        "w0" -> { ensureWet(); wet!!.map { it.w0 } }
+        "w1" -> { ensureWet(); wet!!.map { it.w1 } }
+        else -> throw IllegalArgumentException("unknown media store $store")
+    }
+
+    /** The texture a store's current state is read from, for a write-back. Null for water that was never made. */
+    fun current(store: String): Int? = when (store) {
+        "p0" -> state[0].p0; "p1" -> state[0].p1; "paper" -> state[0].paper
+        "w0" -> wet?.get(wc)?.w0; "w1" -> wet?.get(wc)?.w1
+        else -> throw IllegalArgumentException("unknown media store $store")
+    }
+
+    /** The look texture (window px), made on first use: the window loads stored look tiles into it and writes it back. */
+    fun lookTexture(): Int {
+        if (lookTex == 0) {
+            lookTex = MediaTex.make(w, h, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
+            lookFbo = MediaTex.fbo(lookTex)
+            clearFbo(lookFbo)
+        }
+        return lookTex
+    }
+
+    /** Stops the water where it is (undo while wet, the Lead's rule): the state stays, nothing runs until [resumeWater]. */
+    fun stopWater() {
+        wetRect = null; paintRect = null; wetIdle = 0.0
+        wet?.let { ws -> for (x in ws) { val f = MediaTex.fbo(x.flux); clearFbo(f); MediaTex.deleteFbo(f) } }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+    }
+
+    /** Lets loaded water run again over [rect] (window px): a reopened wet drawing, or a new stroke into sleeping water. */
+    fun resumeWater(rect: FloatArray) {
+        ensureWet()
+        wetRect = union(wetRect, rect); paintRect = union(paintRect, rect); wetIdle = 0.0
+    }
 
     fun beginStroke() { strokeRect = null }
     fun endStroke(): FloatArray? = strokeRect.also { strokeRect = null }
@@ -292,6 +351,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         val nxt = state[1]
         val rect = layerRect(batch.dirty, pxPerMm * mat.smearMm + 2) ?: return
         touch(rect)
+        stores += "paper"
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, deltaFbo)
         GLES30.glViewport(0, 0, w, h)
         GLES30.glEnable(GLES30.GL_BLEND)
@@ -414,6 +474,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         val rect = layerRect(doubleArrayOf(st.x - r, st.y - r, st.x + r, st.y + r), 2.0)
         if (rect != null) {
             touch(rect)
+            stores += "p0"; stores += "p1"
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, pFbo1)
             GLES30.glViewport(0, 0, w, h)
             progPasteDab.use(common(u + mapOf("u_brush0" to Tex(cur.b0), "u_brush1" to Tex(cur.b1),
@@ -451,21 +512,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             wetIdle = 0.0
         }
         val rect0 = wetRect ?: return
-        // On a tilted paper running water can leave the rectangle: grow it downhill as fast as water can run,
-        // never further than a long drip (4 cm) past the paint, and sideways 1 cm.
+        // On a tilted paper running water can leave the rectangle: it grows downhill as fast as water can run, never
+        // further than a long drip past the paint, nor past this window (WetSpread, the tested cap).
         val steps = substeps ?: wc0.substeps
-        if (hypot(slope[0].toDouble(), slope[1].toDouble()) > 1e-4 && paintRect != null) {
-            val grow = ceil(steps * 0.45).toFloat() + 2
-            val p = paintRect!!
-            val mm = (pxPerMm * scale).toFloat()
-            val far = ceil(40 * mm); val near = ceil(10 * mm)
-            fun reach(d: Float) = if (d > 1e-4f) far else near
-            rect0[0] = max(0f, max(p[0] - reach(-slope[0]), rect0[0] - grow))
-            rect0[2] = min(w.toFloat(), min(p[2] + reach(slope[0]), rect0[2] + grow))
-            rect0[1] = max(0f, max(p[1] - reach(-slope[1]), rect0[1] - grow))
-            rect0[3] = min(h.toFloat(), min(p[3] + reach(slope[1]), rect0[3] + grow))
-        }
-        val rect = rect0
+        val rect = WetSpread.grow(rect0, paintRect, slope[0], slope[1], steps, 1 / (pxPerMm * scale), w, h)
+        wetRect = rect
+        stores += WATER_WRITES
         touch(rect)
         wetSince = union(wetSince, rect)
         val beadCells = wc0.beadMm * pxPerMm * scale
@@ -533,11 +585,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     // ---- the look: what the app's layer stack composites ----
     /** Render the look (premultiplied RGBA8, paper removed) for [rect] (layer px) into the returned texture. */
     fun renderLook(rect: FloatArray, paper: MediaPaperGl, look: MediaLook, pxPerMm: Double): Int {
-        if (lookTex == 0) {
-            lookTex = MediaTex.make(w, h, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
-            lookFbo = MediaTex.fbo(lookTex)
-            clearFbo(lookFbo)
-        }
+        lookTexture()
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, lookFbo)
         GLES30.glViewport(0, 0, w, h)
         GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
@@ -613,6 +661,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
         GLES30.glDeleteBuffers(2, intArrayOf(quadBuf, dabBuf), 0)
         GLES30.glDeleteVertexArrays(3, intArrayOf(quadVao, dabVao, emptyVao), 0)
+    }
+
+    private companion object {
+        val WATER_WRITES = listOf("p0", "p1", "w0", "w1")
     }
 
     private fun union(a: FloatArray?, b: FloatArray): FloatArray =

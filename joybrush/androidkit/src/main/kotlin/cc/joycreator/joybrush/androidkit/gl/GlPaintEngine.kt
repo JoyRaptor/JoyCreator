@@ -1782,9 +1782,12 @@ class GlPaintEngine(
     fun writableMediaTiles(layerId: String, keys: Collection<Long>, stores: Collection<String>): Map<String, Map<Long, Int>> {
         val layer = layers[layerId] ?: error("no layer $layerId")
         val stroke = mediaStroke
-        val held: Set<Triple<String, String?, Long>> = stroke?.let { mediaStrokeHeld }
-            ?: undo.newestExtendable()?.takeIf { MediaStores.isMediaStep(it) }?.changes?.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
-            ?: emptySet()
+        // Outside a stroke, the newest media step's changes by tile: a tile it holds is written in place, and one it
+        // dropped (dried water, [dropMediaTiles]) is revived in that same change rather than snapshotted twice.
+        val topHeld: Map<Triple<String, String?, Long>, UndoLog.TileChange<Int>> = if (stroke != null) emptyMap() else
+            undo.newestExtendable()?.takeIf { MediaStores.isMediaStep(it) }?.changes?.associateBy { Triple(it.layerId, it.celId, it.key) } ?: emptyMap()
+        val held: Set<Triple<String, String?, Long>> = stroke?.let { mediaStrokeHeld } ?: topHeld.keys
+        val revived = ArrayList<UndoLog.TileChange<Int>>()
         // Refused before anything is swapped: past the ceiling the layer stops growing, it does not crash.
         val newFloat = stores.filter { it != MEDIA_LOOK }.sumOf { st -> keys.count { layer.floats[st]?.containsKey(it) != true } }
         if (newFloat > 0 && mediaResidentBytes() + newFloat.toLong() * MediaStores.tileBytes(size) > mediaBudgetBytes) {
@@ -1801,10 +1804,13 @@ class GlPaintEngine(
                 val texes = LinkedHashMap<Long, Int>()
                 for (key in keys) {
                     val now = tiles[key]
-                    if (now != null && Triple(storeId, null, key) in held) { texes[key] = now; continue }
+                    val tile = Triple(storeId, null, key)
+                    if (now != null && tile in held) { texes[key] = now; continue }
                     val after = if (look) newLayerTile() else newFloatTile()
                     initializeTile(after, now, false)
-                    fresh.add(UndoLog.TileChange(storeId, key, now, after))
+                    val dropped = topHeld[tile]
+                    if (now == null && dropped != null) revived.add(UndoLog.TileChange(storeId, key, dropped.before, after))
+                    else fresh.add(UndoLog.TileChange(storeId, key, now, after))
                     tiles[key] = after
                     texes[key] = after
                 }
@@ -1813,6 +1819,7 @@ class GlPaintEngine(
         } catch (e: Throwable) {
             // Put back what was swapped and free the copies: nothing half-done reaches the history.
             for (c in fresh.asReversed()) { put(c.layerId, c.key, c.before); c.after?.let(::recycleLayerTex) }
+            for (c in revived) { put(c.layerId, c.key, null); c.after?.let(::recycleLayerTex) }
             throw e
         } finally {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
@@ -1821,8 +1828,34 @@ class GlPaintEngine(
         if (stroke != null) {
             stroke.addAll(fresh)
             fresh.forEach { mediaStrokeHeld.add(Triple(it.layerId, it.celId, it.key)) }
-        } else MediaStores.recordWater(undo, fresh)
+        } else {
+            if (revived.isNotEmpty()) check(undo.replaceInNewest(revived)) { "the step that dropped this water is no longer the newest" }
+            MediaStores.recordWater(undo, fresh)
+        }
         return out
+    }
+
+    /**
+     * Forgets [keys] of a water store where the water has dried (the Lead's rule: water stores exist only where wet), as
+     * part of the newest media step, or a fresh water step. A tile that step made is simply gone from it; one that was
+     * there before comes back on undo. Never during a media stroke: water dries between strokes, and the window waits.
+     */
+    fun dropMediaTiles(layerId: String, store: String, keys: Collection<Long>) {
+        require(store in MediaStores.WATER) { "only water dries away; $store stays" }
+        check(mediaStroke == null) { "water is dropped between strokes, not during one" }
+        val tiles = layers[layerId]?.floats?.get(store) ?: return
+        val id = MediaStores.id(layerId, store)
+        val topHeld = undo.newestExtendable()?.takeIf { MediaStores.isMediaStep(it) }?.changes?.associateBy { Triple(it.layerId, it.celId, it.key) }.orEmpty()
+        val replaced = ArrayList<UndoLog.TileChange<Int>>()
+        val fresh = ArrayList<UndoLog.TileChange<Int>>()
+        for (key in keys) {
+            val now = tiles.remove(key) ?: continue
+            val held = topHeld[Triple(id, null, key)]
+            if (held != null) { replaced.add(UndoLog.TileChange(id, key, held.before, null)); recycleLayerTex(now) }
+            else fresh.add(UndoLog.TileChange(id, key, now, null))
+        }
+        if (replaced.isNotEmpty()) check(undo.replaceInNewest(replaced)) { "the newest media step changed under a drop" }
+        MediaStores.recordWater(undo, fresh)
     }
 
     /** The texture of one media tile as it stands (read only), or null where the store has none. */

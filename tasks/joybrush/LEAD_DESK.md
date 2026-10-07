@@ -797,3 +797,39 @@ follows your store-format ruling.
   on one tile give paper plus p0, p1, w0 and w1, and both survive a save.
 - MEDIA_SLOTS = 7 is the worst case. Revisit it with M5.3d paging, so a pencil-only layer does not count as seven.
 
+### Media engine port — review request, step 3c: the window (2026-10-07, Claude media lane)
+
+For the acting Lead or the Lead: please review `review/media-window`. It is one commit on joy-creator 469a3182.
+- **Core.**
+  - `MediaWindowMath`: a 4×4-tile (1024 px) window centred on the pen, `holds` with a 128 px margin, and `keysIn` /
+    `allKeys`.
+  - `WetSpread.grow`: the lab's spread rule, moved out of the GL code. MediaWindowMathTest asserts the cap you asked
+    for: 40 mm downhill and 10 mm sideways, then nothing further; never past the window; and only as fast as water
+    runs.
+  - `UndoLog.replaceInNewest`: water that came and dried inside one step leaves no trace; water that was there before
+    comes back on undo. Tested.
+- **GlPaintEngine.**
+  - `dropMediaTiles(layer, w0|w1, keys)` runs between strokes only and joins the newest media step (or a fresh water
+    step).
+  - `writableMediaTiles` revives a tile that the newest step dropped in that same change, so no tile is ever
+    snapshotted twice.
+  - GlMediaStoresTest covers drop-in-step, drop-then-undo, and "only water dries".
+- **MediaLayerEngine.**
+  - Window hooks: `moveTo`, `loadTargets` (both water buffers), `current`, `lookTexture`, `stopWater`,
+    `resumeWater`, and per-pass dirty stores (dry → paper, paste → p0/p1, water → p0/p1/w0/w1).
+  - The spread uses `WetSpread`.
+- **MediaWindow** (androidkit/gl/media).
+  - `place` / `follow` (flush, move, load) and `flush()` at each frame boundary. The flush writes the look tiles whole
+    and the dirty stores copy-on-write. Water that dried is dropped, not written; if it dries during a stroke, the drop
+    waits for the stroke to end.
+  - `restored(layer, keys)` is the `onMediaRestored` target: it stops the water and reloads, never resuming.
+    `wakeWater()` is for a new stroke into sleeping water.
+- **Your mixed-media test.** JbArchiveMediaTest: paper + p0/p1/w0/w1 on one tile all survive a save.
+- **One thing for your call.** The window's own GPU cost at 1024 px is about 120 MB dry and about 230 MB once water
+  has run. That is full-float state ×2 (96 MB), water ×2 (64 MB), flux, run, input, bakes and look. It sits outside
+  the 256 MB store budget. My recommendation: count a fixed WINDOW_BYTES against `mediaBudgetBytes`, since the window
+  exists only while a media layer is being painted. Or drop to 3×3 tiles (768 px, about 130 MB wet, 3.8 cm across),
+  which is a one-constant change.
+- Evidence: core jvmTest 1696 and androidkit test 294, 0 failed; joybrush-android compiles. The window's GL paths can
+  only be proven on the Note 9 in step 4.
+

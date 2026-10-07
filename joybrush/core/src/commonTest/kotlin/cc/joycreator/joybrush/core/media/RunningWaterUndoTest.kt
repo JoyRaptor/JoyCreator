@@ -51,4 +51,17 @@ class RunningWaterUndoTest {
         assertEquals(listOf("wc#w0"), log.newestExtendable()?.changes?.map { it.layerId })
         assertFailsWith<IllegalArgumentException> { MediaStores.recordWater(log, listOf(tile("w0", 1, 10, 11))) }
     }
+
+    @Test fun waterThatCameAndDriedInsideOneStepLeavesNoTrace() {
+        log.push(UndoLog.Step(listOf(tile("p0", 1, 5, 10), tile("w0", 1, null, 11), tile("w0", 2, 20, 21))))
+        assertTrue(log.replaceInNewest(listOf(
+            UndoLog.TileChange(MediaStores.id("wc", "w0"), 1, null, null),   // made in the step, now dry: gone
+            UndoLog.TileChange(MediaStores.id("wc", "w0"), 2, 20, null),     // was there before: undo brings it back
+        )))
+        val s = assertNotNull(log.undo())
+        assertEquals(listOf("wc#p0" to 1L, "wc#w0" to 2L), s.changes.map { it.layerId to it.key })
+        assertEquals(null, s.changes.last().after)
+        log.redo()
+        assertFalse(log.replaceInNewest(listOf(UndoLog.TileChange(MediaStores.id("wc", "w0"), 9, null, null))), "a tile the step does not hold")
+    }
 }

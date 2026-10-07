@@ -135,6 +135,28 @@ class UndoLog<T : Any>(
         return true
     }
 
+    /**
+     * Replaces changes of the newest step tile for tile (same layer, cel and key), leaving the rest of the step as it was.
+     * A replacement with neither a `before` nor an `after` removes the change: the tile was made and dropped inside the
+     * step (water that came and dried). The caller releases the `after`s it replaced, which nothing else holds. Refused
+     * (false, nothing changed) when there is anything to redo, nothing to undo, or a replacement names a tile the step
+     * does not hold.
+     */
+    fun replaceInNewest(replacements: List<TileChange<T>>): Boolean {
+        if (redoStack.isNotEmpty() || replacements.isEmpty()) return false
+        val top = undoStack.lastOrNull() ?: return false
+        val byTile = replacements.associateBy { Triple(it.layerId, it.celId, it.key) }
+        val held = top.changes.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
+        if (!held.containsAll(byTile.keys)) return false
+        val changes = top.changes.mapNotNull { c ->
+            val r = byTile[Triple(c.layerId, c.celId, c.key)] ?: return@mapNotNull c
+            if (r.before == null && r.after == null) null else r
+        }
+        undoStack[undoStack.lastIndex] = Step(changes, top.stackBefore, top.stackAfter, top.paperBefore, top.paperAfter,
+            top.documentBefore, top.documentAfter)
+        return true
+    }
+
     /** The step [extendNewest] would extend, or null when there is anything to redo or nothing to undo. */
     fun newestExtendable(): Step<T>? = if (redoStack.isNotEmpty()) null else undoStack.lastOrNull()
 

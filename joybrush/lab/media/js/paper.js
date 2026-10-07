@@ -157,7 +157,7 @@ function pickPhysical(entry) {
 // Φ(a) = E[max(0, a − u)], u = 1 − h (depth below the tooth tops, in tooth units). A flat level pushed
 // to depth a (tooth units) meets this much paper per unit area. Tabulated on [0,1]; linear beyond.
 export const PHI_N = 256;
-function makePhiTable(hist) {
+export function makePhiTable(hist) {
   const t = new Float64Array(PHI_N + 1);
   let meanU = 0;
   for (let b = 0; b < 256; b++) meanU += hist[b] * (1 - b / 255);

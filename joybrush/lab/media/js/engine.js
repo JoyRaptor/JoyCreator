@@ -62,7 +62,7 @@ export class MediaEngine {
     this.H = () => makeTexture(gl, w, h);
     this.fullFormat = full;
     this.state = [0, 1].map(() => {
-      const t = { p0: this.T(), p1: this.T(), paper: this.H() };
+      const t = { p0: this.T(), p1: this.T(), paper: this.T() };   // paper: crush + dry flakes (full float)
       t.fbo = makeFbo(gl, [t.p0, t.p1, t.paper]);
       return t;
     });
@@ -172,8 +172,7 @@ export class MediaEngine {
   }
   makeLike(name, w, h) {
     const gl = this.gl;
-    const f = name === 'paper' ? { internal: gl.RGBA16F, type: gl.HALF_FLOAT, filter: gl.NEAREST } : this.fullFormat;
-    return makeTexture(gl, w, h, f);
+    return makeTexture(gl, w, h, this.fullFormat);
   }
   syncBefore(r) {
     if (!r) return;
@@ -207,7 +206,7 @@ export class MediaEngine {
     for (const [k] of this.layerTextures()) {
       step.tex[k] = this.makeLike(k, w, h);
       this.blit(this.before[k], r, step.tex[k], [0, 0, w, h]);
-      step.bytes += w * h * (k === 'paper' ? 8 : 16);
+      step.bytes += w * h * 16;
     }
     this.syncBefore(r);
     this.undoStack.push(step);
@@ -346,7 +345,7 @@ export class MediaEngine {
       gl.deleteFramebuffer(f);
       out[name] = Array.from(px).map(v => +v.toPrecision(4));
     };
-    read('p0', this.state[0].p0); read('p1', this.state[0].p1);
+    read('p0', this.state[0].p0); read('p1', this.state[0].p1); read('paper', this.state[0].paper);
     if (this.wet) { read('w0', this.wet[this.wc].w0); read('w1', this.wet[this.wc].w1); }
     if (x < 0) {   // brush cells: probe(-1, j) reads lane 16 at depth j
       const f = makeFbo(gl, [this.brush[this.bc].b0]);
@@ -475,9 +474,11 @@ export class MediaEngine {
       u_pxPerMm: pxPerMm,
       u_toothMm: paper.toothMm,
       u_dirStrength: mat.dirStrength,
-      u_dustRate: mat.dustRate,
+      u_dustRate: mat.dustRate, u_clump: mat.clump,
       u_crushStart: mat.crushStart * paper.toothMm,
       u_conform: mat.conform,
+      u_transferExp: mat.transferExp, u_leadSoft: mat.leadSoft, u_plateau: mat.plateau,
+      u_facetBeta: mat.facetBeta, u_facetU: mat.facetU, u_facetRound: mat.facetRound,
     });
     gl.bindBuffer(gl.ARRAY_BUFFER, this.dabBuf);
     gl.bufferData(gl.ARRAY_BUFFER, batch.dabs, gl.STREAM_DRAW);
@@ -490,7 +491,7 @@ export class MediaEngine {
     this.use(this.progs.apply, {
       u_p0: cur.p0, u_p1: cur.p1, u_paperState: cur.paper, u_delta: this.delta,
       u_targetSize: [this.w, this.h], u_rect: rect,
-      u_capMm: mat.capMm, u_abrasion: mat.abrasion, u_pigK: mat.pigK, u_pigS: mat.pigS,
+      u_capMm: mat.capMm, u_abrasion: mat.abrasion, u_flakeR: mat.flakeR,
       u_crushRate: mat.crushRate, u_crushMax: mat.crushMax, u_smear: mat.smear,
       u_smearPx: [t[0] * mat.smearMm * pxPerMm * this.scale, t[1] * mat.smearMm * pxPerMm * this.scale],
     });

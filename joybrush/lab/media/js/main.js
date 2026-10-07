@@ -1,7 +1,7 @@
 // main.js — the media lab page: draw with a pen (pressure + tilt), or run a fixed test sheet.
 import { MediaEngine } from './engine.js';
 import { loadCatalogue, loadSurface, DOC_PX_PER_MM } from './paper.js';
-import { STICKS, DryStroke, stickMaterial } from './stick.js';
+import { STICKS, DryStroke, stickMaterial, PRESS, MAT_OVERRIDE, TILT_CURVE } from './stick.js';
 import { SHEETS } from './tests.js';
 import { WET, WET_BRUSHES, WetStroke, paintFromColor, tiltUniform } from './wet.js';
 import { SplineFeeder } from './spline.js';
@@ -18,7 +18,7 @@ const ui = id => document.getElementById(id);
 
 const state = {
   tool: qs.get('tool') || 'Proto',
-  paperId: qs.get('paper') || 'lab_drawing',
+  paperId: qs.get('paper') || 'drawing_tooth',
   tiltReach: Number(qs.get('reach') || 68),    // device tilt (°) that counts as "lying on its side" (owner's S Pen tops out at 71°)
   mousePressure: 0.5,
   color: [0.22, 0.38, 0.75],
@@ -32,13 +32,25 @@ const state = {
 
 let engine, paper, catalogue;
 
+// Tuning hooks (lab only): ?press=broad:0.3,gamma:1.8  ?mat=abrasion:30  ?proto=rInf:0.04
+function applyTuning() {
+  const parse = v => Object.fromEntries((v || '').split(',').filter(Boolean).map(kv => { const [k, x] = kv.split(':'); return [k, Number(x)]; }));
+  Object.assign(PRESS, parse(qs.get('press')));
+  Object.assign(MAT_OVERRIDE, parse(qs.get('mat')));
+  Object.assign(STICKS.Proto, parse(qs.get('proto')));
+  if (qs.get('texel')) globalThis.__TEXEL_SCALE = Number(qs.get('texel'));
+  Object.assign(TILT_CURVE, parse(qs.get('curve')));
+}
+
 async function main() {
+  applyTuning();
   const test = qs.get('test');
   const size = test && SHEETS[test] ? SHEETS[test].size : [1080, 1920];
   if (test && SHEETS[test] && SHEETS[test].paper && !qs.get('paper')) state.paperId = SHEETS[test].paper;
   fitCanvas(test ? size : null);
-  catalogue = await loadCatalogue([['papers/', 'lab_catalogue.json'], [ASSETS, 'catalogue.json']]);
+  catalogue = await loadCatalogue([[ASSETS, 'catalogue.json']]);
   paper = await loadSurface(gl, catalogue, state.paperId);
+  state.look.paperColor = paperColorFor(paper.id);
   engine = await MediaEngine.create(gl, SHADERS, size[0], size[1]);
   buildUi();
   if (test) {
@@ -59,6 +71,22 @@ async function main() {
     }
     draw();
     window.__probe = (x, y) => engine.probe(x, y);
+    // Measurement: mean darkness (0 = paper, 1 = black) of a doc-px box, and a darkness profile along a row.
+    window.__dark = (x0, y0, x1, y1) => {
+      draw();
+      const w = Math.max(1, Math.round(x1 - x0)), h = Math.max(1, Math.round(y1 - y0));
+      const px = new Uint8Array(w * h * 4);
+      gl.readPixels(Math.round(x0), Math.round(y0), w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      const ref = 0.2126 * state.look.paperColor[0] + 0.7152 * state.look.paperColor[1] + 0.0722 * state.look.paperColor[2];
+      let sum = 0;
+      for (let i = 0; i < w * h; i++) sum += (0.2126 * px[i * 4] + 0.7152 * px[i * 4 + 1] + 0.0722 * px[i * 4 + 2]) / 255;
+      return Math.max(0, 1 - sum / (w * h) / ref);
+    };
+    window.__row = (x0, x1, y, band = 6) => {
+      const out = [];
+      for (let x = x0; x < x1; x += 2) out.push(+window.__dark(x, y - band, x + 2, y + band).toFixed(3));
+      return out;
+    };
     window.__done = true;
     return;
   }
@@ -267,9 +295,9 @@ function feed(e) {
     state.rawTilt = tilt * 180 / Math.PI;
     state.maxTilt = Math.max(state.maxTilt || 0, state.rawTilt);
     const reach = Math.max(20, state.tiltReach) * Math.PI / 180;
-    // Input calibration, not physics: the device's reach maps to 'lying on its side'; a mild curve lets
-    // the side come in before the very end of the pen's range.
-    tilt = Math.min(Math.PI / 2 * 0.99, Math.pow(Math.min(1, tilt / reach), 0.8) * (Math.PI / 2) * 0.92);
+    // Input calibration, not physics: the device's reach counts as 'lying on its side' (t = 1). The shape of
+    // the response (point → side) is the stick's tilt curve, not this mapping.
+    tilt = Math.min(1, tilt / reach) * (Math.PI / 2);
   } else {
     p = state.mousePressure;
     tilt = state.mouseTilt * Math.PI / 180;
@@ -304,7 +332,7 @@ function buildUi() {
   hookTiltPad();
   const paperSel = ui('paper');
   for (const s of catalogue.surfaces) paperSel.add(new Option(s.name, s.id, false, s.id === paper.id));
-  paperSel.onchange = async () => { paper = await loadSurface(gl, catalogue, paperSel.value); state.dirty = true; };
+  paperSel.onchange = async () => { paper = await loadSurface(gl, catalogue, paperSel.value); state.look.paperColor = paperColorFor(paper.id); invalidateView(); };
   bindRange('reach', v => (state.tiltReach = v));
   bindRange('mp', v => (state.mousePressure = v / 100));
   bindRange('mt', v => (state.mouseTilt = v));
@@ -354,6 +382,14 @@ function hookTiltPad() {
     set(e.clientX - b.left - b.width / 2, e.clientY - b.top - b.height / 2);
   });
   pad.addEventListener('pointerup', () => { id = null; });
+}
+
+// The paper's own colour: the base of the look that uses this surface (the paper session's catalogue).
+function paperColorFor(surfaceId) {
+  const look = (catalogue.looks || []).find(l => l.defaultSurface === surfaceId && l.base);
+  if (!look) return [0.96, 0.95, 0.93];
+  const h = look.base;
+  return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
 }
 
 function bindRange(id, fn) { const el = ui(id); if (!el) return; fn(Number(el.value)); el.oninput = () => fn(Number(el.value)); }

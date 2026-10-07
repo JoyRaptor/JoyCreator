@@ -7,9 +7,9 @@ precision highp float;
 layout(location = 0) in vec2 a_corner;    // (0,0)..(1,1)
 layout(location = 1) in vec4 a_i0;        // centre.xy (doc px), lean direction u.xy (unit)
 layout(location = 2) in vec4 a_i1;        // xMin, xMax, yMax (mm, stick frame), depth d (mm)
-layout(location = 3) in vec4 a_i2;        // tanB, tanBf, tipR, wrap (z multiplier, ≤ 1)
+layout(location = 3) in vec4 a_i2;        // tanB, tanBf, tipR, conformity eps (mm, the sheet's give)
 layout(location = 4) in vec4 a_i3;        // tanA, rhoMax, xLimit, slide ds (mm)
-layout(location = 5) in vec4 a_i4;        // travel direction.xy (unit), facet (mm), dust reach (mm)
+layout(location = 5) in vec4 a_i4;        // travel direction.xy (unit), facet (mm), pen pressure 0..1
 
 uniform vec2 u_targetSize;    // doc px of the layer texture
 uniform float u_pxPerMm;
@@ -26,7 +26,7 @@ flat out vec4 v_i4;
 flat out vec2 v_lean;
 
 void main() {
-    float margin = a_i4.w;
+    const float margin = 0.06;   // mm around the footprint (soft edges)
     vec2 lo = vec2(a_i1.x - margin, -a_i1.z - margin);
     vec2 hi = vec2(a_i1.y + margin, a_i1.z + margin);
     vec2 q = mix(lo, hi, a_corner);

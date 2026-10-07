@@ -10,7 +10,7 @@ precision highp int;
 
 uniform sampler2D u_p0;          // K·X rgb, volume
 uniform sampler2D u_p1;          // S·X rgb, openness
-uniform sampler2D u_paperState;  // R crush
+uniform sampler2D u_paperState;  // R crush, G dry flake volume V (mm), B Σ V·flake reflectance
 uniform sampler2D u_w0;          // water: w (mm), s (capillary saturation)
 uniform sampler2D u_w1;          // pigment still in the water: K rgb, S
 uniform vec2 u_targetSize;       // layer size, LAYER px
@@ -48,7 +48,8 @@ void main() {
     float crush = crushAt(lp);
 
     if (u_mode == 1) { o_color = vec4(vec3(s.z), 1.0); return; }
-    if (u_mode == 2) { o_color = vec4(vec3(1.0 - clamp(p0.a / max(u_capMm, 1e-6), 0.0, 1.0)), 1.0); return; }
+    vec4 dry = jb_bilinear(u_paperState, lp);
+    if (u_mode == 2) { o_color = vec4(vec3(1.0 - clamp(dry.g / max(u_capMm, 1e-6), 0.0, 1.0)), 1.0); return; }
     if (u_mode == 3) { o_color = vec4(vec3(1.0 - clamp(crush * 2.0, 0.0, 1.0)), 1.0); return; }
     if (u_mode == 4) { o_color = vec4(clamp(wa.r / 0.3, 0.0, 1.0), clamp(wa.g, 0.0, 1.0), wa.r > 0.002 ? 0.5 : 0.0, 1.0); return; }
     if (u_mode == 6) { o_color = vec4(clamp(p0.rgb / 6.0, 0.0, 1.0), 1.0); return; }
@@ -91,9 +92,16 @@ void main() {
     // Wet paper is darker; pigment still floating reads a little deeper than when it has dried.
     vec3 Rg = jb_srgbToLinear(u_paperColor) * (1.0 - 0.10 * wa.g - 0.06 * smoothstep(0.0, 0.05, wa.r));
     vec3 R = jb_km(p0.rgb + wp.rgb * 1.15, p1.rgb + vec3(wp.a), Rg);
+    // Dry media: opaque flakes covering the paper by AREA. A little graphite covers a little paper (light
+    // grey, soft grain that builds), a full tooth covers nearly all of it (the stick's own dark). Flakes
+    // sit on top of transparent washes but are hidden under opaque paint.
+    float cover = 1.0 - exp(-dry.g / max(0.18 * u_capMm, 1e-7));
+    float flake = dry.g > 1e-8 ? dry.b / dry.g : 0.0;
+    float hide = 1.0 - exp(-0.6 * (p1.r + wp.a));
+    R = mix(R, vec3(flake), cover * (1.0 - hide));
 
     // Heavy graphite on flattened tooth reads silvery: a soft specular from the lamp off the deposit.
-    float fill = clamp(p0.a / max(u_capMm, 1e-6), 0.0, 1.0);
+    float fill = cover * (1.0 - hide);
     vec3 hv = normalize(u_lamp + vec3(0.0, 0.0, 1.0));
     float spec = pow(max(dot(n, hv), 0.0), 24.0);
     R += vec3(u_sheen * fill * fill * (0.35 + 0.65 * clamp(crush * 3.0, 0.0, 1.0)) * (0.25 + spec));

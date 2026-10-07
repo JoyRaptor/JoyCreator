@@ -4,7 +4,8 @@
 //
 //   deposit:  dV/dW = k · (cap − V)   ⇒   V' = cap − (cap − V)·exp(−k·W)   (the tooth fills up; heavy
 //             graphite stops taking more, which is why it goes smooth and shiny)
-//   pigment:  every mm of deposit adds K·X and S·X of the stick's pigment (Kubelka–Munk optics)
+//   flakes:   dry media are opaque flakes, not a film: the paper state keeps the deposit volume V and
+//             Σ V·(flake reflectance), and the display covers paper with flakes by area (see render)
 //   crush:    the tooth is flattened by hard pressure and stays flattened (paper state, shared)
 //   smear:    soft sticks drag a little of what is already down along the stroke
 precision highp float;
@@ -13,13 +14,12 @@ precision highp float;
 
 uniform sampler2D u_p0;          // K·X rgb, deposit volume V (mm)
 uniform sampler2D u_p1;          // S·X rgb, openness
-uniform sampler2D u_paperState;  // R crush (tooth units)
+uniform sampler2D u_paperState;  // R crush (tooth units), G dry volume V (mm), B Σ V·flake reflectance
 uniform sampler2D u_delta;       // from jb_dry_dab.frag
 uniform vec2 u_targetSize;
 uniform float u_capMm;           // how much dry deposit the tooth holds (mm)
 uniform float u_abrasion;        // k, 1/mm²
-uniform vec3 u_pigK;             // per mm of deposit
-uniform vec3 u_pigS;
+uniform float u_flakeR;          // linear reflectance of this stick's flakes (graphite ~0.01–0.25 by grade)
 uniform float u_crushRate;       // tooth units per mm² of crush work
 uniform float u_crushMax;
 uniform float u_smear;           // fraction moved per mm slid in contact
@@ -37,23 +37,30 @@ void main() {
     vec4 p1 = texture(u_p1, uv);
     vec4 ps = texture(u_paperState, uv);
     vec4 dl = texture(u_delta, uv);
-    vec4 keep0 = p0, keep1 = p1, keepS = ps;
+    vec4 keepS = ps;
     // A bad delta (NaN/inf from any dab) must never reach the layer: drop it for this pixel.
     if (any(isnan(dl)) || any(isinf(dl))) dl = vec4(0.0);
 
-    float sw = clamp(dl.a * u_smear, 0.0, 0.06);   // subtle: a few percent per pass
+    // Going back over graphite pushes it (the owner, 2026-10-06): the rubbing lead drags loose graphite a
+    // little along the stroke and softens it into its neighbours. That is half of why repeated light passes
+    // read as a soft dusting rather than as dots. Rate ∝ how much the lead rubbed this pixel this frame.
+    float sw = clamp(dl.a * u_smear, 0.0, 0.15);
     if (sw > 0.0) {
-        p0 = mix(p0, jb_bilinear(u_p0, v_layerPx - u_smearPx), sw);
-        p1.rgb = mix(p1.rgb, jb_bilinear(u_p1, v_layerPx - u_smearPx).rgb, sw);
+        vec2 up = jb_bilinear(u_paperState, v_layerPx - u_smearPx).gb;
+        vec2 nb = 0.25 * (jb_bilinear(u_paperState, v_layerPx + vec2(1.5, 0.0)).gb + jb_bilinear(u_paperState, v_layerPx - vec2(1.5, 0.0)).gb
+                        + jb_bilinear(u_paperState, v_layerPx + vec2(0.0, 1.5)).gb + jb_bilinear(u_paperState, v_layerPx - vec2(0.0, 1.5)).gb);
+        ps.gb = mix(ps.gb, mix(nb, up, 0.6), sw);
     }
 
-    float add = max(u_capMm - p0.a, 0.0) * (1.0 - exp(-u_abrasion * dl.r)) + dl.b;
-    p0.rgb += u_pigK * add;
-    p0.a += add;
-    p1.rgb += u_pigS * add;
+    // Pile saturates as the tooth fills; dust settles freely until the tooth is full.
+    float room = max(u_capMm - ps.g, 0.0);
+    float pile = room * (1.0 - exp(-u_abrasion * dl.r));
+    float add = pile + min(dl.b, room - pile);
+    ps.g += add;
+    ps.b += add * u_flakeR;
     ps.r = min(u_crushMax, ps.r + u_crushRate * dl.g);
 
-    if (any(isnan(p0)) || any(isnan(p1)) || any(isnan(ps))) { p0 = keep0; p1 = keep1; ps = keepS; }
+    if (any(isnan(ps))) ps = keepS;
     o_p0 = p0;
     o_p1 = p1;
     o_paper = ps;

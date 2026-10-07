@@ -35,17 +35,14 @@ const add = name => {
 };
 for (const f of fs.readdirSync(path.join(root, 'shaders', 'media'))) if (/\.(vert|frag)$/.test(f)) add('media/' + f);
 
-// Papers: the lab catalogue and its height pictures only (the app catalogue's are too big to inline).
-const cat = JSON.parse(fs.readFileSync(path.join(lab, 'papers', 'lab_catalogue.json'), 'utf8'));
+// Papers: a few of the paper session's papers (height + fluid maps; the look photos stay out).
 const files = {};
-for (const s of cat.surfaces) files['papers/' + s.heightFile] = fs.readFileSync(path.join(lab, 'papers', s.heightFile)).toString('base64');
-// Plus a few of the paper session's photo papers (height + fluid maps are small; looks stay out).
 const app = JSON.parse(fs.readFileSync(path.join(root, 'assets', 'paper', 'catalogue.json'), 'utf8'));
-const pick = ['construction_pulp', 'cardboard', 'canvas_linen'];
-const appCat = { surfaces: app.surfaces.filter(s => pick.includes(s.id)), looks: [] };
+const pick = ['drawing_tooth', 'bristol_tooth', 'cold_press', 'hot_press', 'rough_press', 'canvas_linen', 'cardboard'];
+const appCat = { surfaces: app.surfaces.filter(s => pick.includes(s.id)), looks: app.looks.filter(l => pick.includes(l.defaultSurface)).map(l => ({ ...l, file: null })) };
 for (const s of appCat.surfaces) for (const f of [s.file, s.fluid].filter(Boolean))
   files['../../assets/paper/' + f] = fs.readFileSync(path.join(root, 'assets', 'paper', f)).toString('base64');
-const bundle = { shaders, json: { 'papers/lab_catalogue.json': cat, '../../assets/paper/catalogue.json': appCat }, files };
+const bundle = { shaders, json: { '../../assets/paper/catalogue.json': appCat }, files };
 
 const html = fs.readFileSync(path.join(lab, 'index.html'), 'utf8');
 const title = html.match(/<title>[\s\S]*?<\/title>/)[0];

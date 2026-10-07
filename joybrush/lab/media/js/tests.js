@@ -45,6 +45,62 @@ const zig = (x0, x1, y, amp, n) => u => {
 };
 
 export const SHEETS = {
+  // Back and forth (owner, 2026-10-06): light passes over the same patch build an even, soft dusting;
+  // a firm pass piles dark graphite. Left: 1, 3 and 6 light passes; right: one firm pass, then one light.
+  passes: {
+    size: [1600, 700],
+    paper: 'drawing_tooth',
+    strokes() {
+      const s = [], L = 200, MM = 20;
+      const patch = (x0, n, p, tilt) => { for (let k = 0; k < n; k++) s.push(stroke('Proto', 90, zig(x0, x0 + 14 * MM, 350 + (k % 2) * 6, 120, 7), { p: env(p, 0.6), tilt, az: L }, 120)); };
+      patch(60, 1, 0.22, 78); patch(420, 3, 0.22, 78); patch(780, 6, 0.22, 78);
+      patch(1140, 1, 0.8, 74); patch(1140, 1, 0.2, 80);
+      return s;
+    },
+  },
+  // Tilt ladder (owner, 2026-10-06: test the slight angles too, not just flat): the same pressure from upright
+  // to lying flat, vertical strokes, barrel leaning straight left so the side lies across the stroke.
+  tiltladder: {
+    size: [4400, 1300],
+    paper: 'drawing_tooth',
+    strokes() {
+      const q = new URLSearchParams(location.search), MM = 20;
+      const P = Number(q.get('p') || 0.5);
+      const T = [30, 45, 55, 62, 68, 72, 76, 80, 84, 90];
+      return T.map((t, i) => stroke('Proto', 50, line((6 + i * 21) * MM, 60 * MM, (6 + i * 21) * MM, 10 * MM), { p: P, tilt: t, az: 180 }, 80));
+    },
+  },
+  // Like the owner's Proko close-up (2026-10-06, image 4): four tall side strokes drawn top to bottom with a
+  // right-handed lean, then switchback scribbles. Same pencil throughout, only pressure and tilt change.
+  prokoside: {
+    size: [1000, 2000],
+    paper: 'drawing_tooth',
+    strokes() {
+      const s = [], L = 200;   // barrel to the lower left of the hand: the tip edge is on the right
+      const vert = (x, p, tilt, lenPx = 1100) => stroke('Proto', lenPx / 20, u => [x + 30 * Math.sin(u * 2.4), 1900 - u * lenPx], { p, tilt, az: L }, 90);
+      s.push(vert(140, env(0.75, 0.6), 76));      // 3: firm, dark tip edge
+      s.push(vert(390, env(0.45, 0.6), 80));      // 2: wide, softer
+      s.push(vert(630, env(0.22, 0.6), 79));      // 1: light, soft
+      s.push(vert(870, env(0.6, 0.5), 75));       // 4: curved, darker edge
+      s.push(stroke('Proto', 120, zig(80, 700, 560, 140, 3.5), { p: env(0.55, 0.5), tilt: 74, az: L }, 110));
+      s.push(stroke('Proto', 90, zig(60, 760, 240, 90, 6), { p: env(0.9, 0.5), tilt: 30, az: L }, 110));
+      return s;
+    },
+  },
+  // Pressure ladders for measuring (2026-10-06): upright lines and side strokes, vertical, 30 mm long.
+  // Side strokes lean straight left (az 180°) so the side lies across the stroke: width = contact length.
+  ladder: {
+    size: [3200, 1500],
+    strokes() {
+      const s = [], MM = 20;
+      const P = [0.03, 0.06, 0.1, 0.2, 0.35, 0.5, 0.7, 1.0];
+      P.forEach((p, i) => s.push(stroke('Proto', 30, line((8 + i * 12) * MM, 70 * MM, (8 + i * 12) * MM, 40 * MM), { p, tilt: 6, az: 180 }, 70)));
+      const PS = [0.05, 0.15, 0.35, 0.6, 1.0];
+      const sideTilt = Number(new URLSearchParams(location.search).get('sidetilt') || 84);
+      PS.forEach((p, i) => s.push(stroke('Proto', 30, line((30 + i * 30) * MM, 34 * MM, (30 + i * 30) * MM, 4 * MM), { p, tilt: sideTilt, az: 180 }, 70)));
+      return s;
+    },
+  },
   // The owner's impasto references (2026-10-06): thick knife loads with colour variation and lumps, a
   // scraped-off area where the canvas takes over, scraper lines cut through, a flat brush pulled out of the
   // edge into broken bristle fingers, and paint piled where strokes lift.
@@ -110,7 +166,7 @@ export const SHEETS = {
   // Tilt: three washes, then the paper tilted 20° (toward the bottom) for 12 s, then levelled to dry.
   tilt: {
     size: [1200, 900],
-    paper: 'lab_coldpress',
+    paper: 'cold_press',
     strokes() {
       const s = [], L = -45, MM = 20;
       const wet = (tool, color, len, path, o, speed = 45) => ({ ...stroke(tool, len, path, o, speed), kind: 'wet', color });
@@ -124,7 +180,7 @@ export const SHEETS = {
   // doubling back over a wet stroke mingles, water dropped into a half-dry wash blooms.
   mingle: {
     size: [1400, 1100],
-    paper: 'lab_coldpress',
+    paper: 'cold_press',
     strokes() {
       const s = [], L = -45, MM = 20;
       const wet = (tool, color, len, path, o, speed = 45) => ({ ...stroke(tool, len, path, o, speed), kind: 'wet', color });
@@ -150,7 +206,7 @@ export const SHEETS = {
   // easing in and out; plus a long stroke that runs dry, and a stroke doubled back over itself.
   swatch: {
     size: [1400, 1500],
-    paper: 'lab_coldpress',
+    paper: 'cold_press',
     strokes() {
       const s = [], L = -45, MM = 20;
       const wet = (tool, color, len, path, o, speed = 45) => ({ ...stroke(tool, len, path, o, speed), kind: 'wet', color });
@@ -194,7 +250,7 @@ export const SHEETS = {
   // One stroke left to dry for ?wait= seconds: the drying sequence frame by frame.
   drop: {
     size: [700, 400],
-    paper: 'lab_coldpress',
+    paper: 'cold_press',
     strokes() {
       const q = new URLSearchParams(location.search), UB = [0.22, 0.30, 0.72];
       const wet = (tool, color, len, path, o, speed = 40) => ({ ...stroke(tool, len, path, o, speed), kind: 'wet', color });
@@ -204,7 +260,7 @@ export const SHEETS = {
   // Watercolour (2026-10-06): the classic behaviours, each from the same engine with only brush/paint changed.
   wash: {
     size: [1400, 1000],
-    paper: 'lab_coldpress',
+    paper: 'cold_press',
     strokes() {
       const s = [], L = -45, MM = 20;
       const UB = [0.22, 0.30, 0.72], SI = [0.62, 0.30, 0.16], YE = [0.96, 0.80, 0.18], AL = [0.72, 0.10, 0.22];

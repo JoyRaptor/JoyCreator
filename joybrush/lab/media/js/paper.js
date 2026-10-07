@@ -87,7 +87,9 @@ export async function loadSurface(gl, catalogue, id) {
     physical: phys,
     uniforms: {
       u_paperSurface: tex,
-      u_paperTexelPx: entry.texelPx,
+      // Lab preview until the paper session's finer drawing paper lands: the owner's Proko reference has
+      // ~1–2 px grain, so drawing_tooth is shown at half texel size (a native 0.5 px build is requested).
+      u_paperTexelPx: entry.texelPx * (globalThis.__TEXEL_SCALE || (entry.id === 'drawing_tooth' && entry.texelPx >= 1 ? 0.5 : 1)),
       u_paperSize: entry.size,
       u_paperHexTexels: entry.hexTexels,
       u_paperSlopeRange: entry.slopeRange,

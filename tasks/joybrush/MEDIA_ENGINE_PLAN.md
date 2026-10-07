@@ -360,3 +360,10 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
 - **2026-10-07, oil:** light dabs must be dots that only lengthen with travel; splayed hairs come in late; no
   straight start/end edges (shallow arc, S, blobby end); the blending brush splinters too early at light pressure
   (its slight wet look is liked) → v8.
+- **2026-10-07, after v9.1:** pencils "A+" (on the laptop they look big: the lab's 100 % is the phone's true size, so a
+  desktop screen shows about 4× enlarged), watercolour "S-tier", oils "much better overall".
+  - The Wacom pen stopped drawing (mouse fine) → v9.2: a refused pointer capture had dropped every pen stroke.
+  - "I liked the previous palette knife better … excellent texture" → v9.2: Palette knife 1 (v6/v7 trowel) and
+    Palette knife 2 (v8 blade). The thick-paint weave grid fixed at the same time.
+  - The new knife is "a little bit unwieldy" and the scraper "unintuitive". The owner preferred the pen-angle
+    scraper's look to the squeegee and asked for toggles → v9.3 Edge modes.

@@ -885,3 +885,6 @@ changes no painting; it makes sure a media layer is never refused, hidden or dro
   merge keeping saved cel ids. MediaLayerDocTest covers the media rule in BrushRules.
 - Evidence: core 1699 and androidkit 297, 0 failed; joybrush-android compiles.
 
+**Landed 2026-10-07 (809ea46a), approved.** The Lead's must-do for 4c, a board document before the first media
+autosave, is step-4 check 8.
+

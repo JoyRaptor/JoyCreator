@@ -345,7 +345,7 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
     per-tile, like the existing `UndoLog`.
   - Save format: float tiles, in a new archive entry type, with a document version bump.
   - Export composites the media layer through `jb_media_render.frag` (lit or flat).
-- **M5.3a Pixel gates (Lead review of step 1). Built in 4a (`review/media-gates`). MUST land before step 4 lets anyone save a media layer.** These
+- **M5.3a Pixel gates (Lead review of step 1). ✅ 4a 809ea46a. MUST land before step 4 lets anyone save a media layer.** These
   still read "paint" as "has pixels", and each would refuse, hide or drop a media layer. Switch each to `hasPixels`
   or handle MEDIA explicitly, with a test per gate where one exists:
   - JbCanvasView.kt ~1383, the open-file refusal (a saved media drawing would refuse to open);
@@ -379,6 +379,11 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
      not fit, refuse the stroke with `windowRefusal(wet)`; never an allocation failure mid-stroke. Call
      `MediaWindow.touched` on every media frame and `releaseIfIdle` from the frame loop. Call `release()` when the
      layer or the screen changes. Report the history after each `flush()`, because dried water can pop an empty step.
+  8. **A board document before the first media save (Lead, 4a review).** `readContents` takes the BoardSnapshot path
+     only when `engine.boardDocument != null`, and a fresh drawing has none. When 4c auto-creates a media layer, it
+     first makes sure the board document exists, using the same call as JbCanvasView ~1565
+     (`engine.setBoardDocument(readContents(...).doc)` on the GL thread). Test: new drawing → media stroke → autosave
+     succeeds and reopens wet.
   4. **The Eraser slot.** `ToolMemory.slotFor` sends media brushes to BRUSH, which is fine; but tapping the strip's
      Eraser with a media layer active must take the media erase of item 1.
 - **M5.3c Stores, windows and running water (step 3; the Lead's rules, 2026-10-07).** Built as three review diffs:

@@ -939,14 +939,12 @@ JB-9.06b. Commit the row first, or copy the file aside, before mutating; verify 
 machine is idle - measure daemon CPU over a few seconds before starting, and never stop another
 lane's process to make room.
 
-<<<<<<< HEAD
 
 ## 2026-10-05 - Future vector board ownership
 The owner reminded us that vector brushes are planned alongside raster. Board/session/frame metadata and content-copy address plans must accept both PAINT and INK. Put renderer capability refusals in the concrete backend, and test mixed ownership plus explicit unsupported export rather than accepting silent blank artwork.
 
 ## 2026-10-06 — Sprite handles resize the cells with the board
 An unlocked Sprite corner cannot change only its rectangle and then refuse the grid mismatch. Keep counts fixed, snap cell dimensions to whole pixels, update board/grid together, preview readouts during the drag and commit once on release. Typed cell dimensions grow/shrink the complete grid; typed board dimensions snap visibly to exact cells. The owner expects locking to separate resizing/painting from cell selection and rearrangement.
-=======
 ## Media lab (2026-10-06): three silent GPU/bundle traps
 
 **1. `tanh()` of a huge argument is NaN on ANGLE/D3D11.** A Gaussian prefilter fed `mu/sigma` with sigma ~1e-6; the NaN
@@ -963,4 +961,5 @@ check `EXT_color_buffer_float` and refuse the medium rather than fall back.
 undefined, a 32×undefined texture made the framebuffer incomplete, and the published lab failed at startup on the
 phone, while every unbundled test passed. **Rule:** the bundler refuses multi-name exports, and every bundle is
 checked by loading the BUNDLED page at phone size and reading `window.__error` (not by rendering the module build).
->>>>>>> origin/joy-creator
+## 2026-10-02 - Test artwork is disposable
+Owner confirms all existing Joy Brush drawings are test scratches; no user base exists. Stop backups, restoration and migration work for them. Build the correct region model directly. Future saving and undo must remain dependable.

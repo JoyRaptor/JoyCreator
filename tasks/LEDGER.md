@@ -3867,3 +3867,31 @@ Note 9 in-place install at 13:07:33: 1711-tile large Open and Recent switches pa
 exact. Damaged selection refused; owner drawing restored with all 1713 archive entries exact. Fresh
 local backup retained, Note 20 untouched. Large files still take tens of seconds. Next: frame/cel
 projection. Evidence: tasks/joybrush/INTEGRATION_20260930.md.
+
+## 2026-10-01 — Tested frame storage; held creation for the new region model
+
+Legacy frame stores now preserve offscreen drawings, frame metadata, GPU ownership and undo.
+227 androidkit tests and 36 targeted core paint tests pass; watcher builds pass. Note 9 verified
+copy, isolation, cross-frame undo/redo, links, blank frames, hold, cold reopen and selected-frame PNG.
+Original artwork restored with every one of 1835 archive entries exact; newer sample drawing kept
+separately in Downloads. Whole-layer creation shortcut removed when the owner supplied the new
+region-board spec. Region projection and saved board frame cursor still owed. Lead handoffs and
+frontier-review priorities recorded in AGENT_BOARD.md. Read-only merge preflight detected divergent
+board spec; no merge/conflict resolution. Backup branch codex/frame-projection-foundation.
+
+## 2026-10-02 — Pixel ownership foundation for region animation landed
+
+RegionPaintPlan assigns each touched tile pixel to shared paint or a board's current-frame cel;
+partial tiles, negatives and separate boards within a tile are exact. Runtime only, no schema or
+GPU changes. 13 new tests; combined latest-paper core suite 1458/0. A deliberate one-pixel boundary
+error failed two tests; restored code passed. Landed origin/joy-creator 0a46f811 via isolated branch
+codex/region-routing after clean merge preflight. Primary dirty tree/spec divergence untouched.
+Evidence in that branch: tasks/joybrush/REGION_ROUTING_20261002.md. No phone install this slice.
+
+## 2026-10-02 — Saved region ownership
+
+Version 6 region metadata and core board/frame operations landed 82a16eba (b5ec6811). Core 1470 plus Android file tests 225 pass with no failures/errors/skips; no phone install. Clean paper refresh merged after preflight. GPU transaction and preview/export integration remain next. Owner says all test art is disposable: no preservation or migration work. Evidence: tasks/joybrush/REGION_ROUTING_20261002.md in codex/region-routing.
+
+## 2026-10-02 - CPU region export projection landed
+
+0f4e57cd: saved board cursors and explicit per-board export frame resolve through bounded tile slices. Blank frames cannot reveal shared paint; masks remain separate, clip bases use their own region addresses. Six new tests; focused75/0, full core1481/0, Android225/0. No failures/errors/skips. Shared agent handoff published. No phone install; GPU painting/undo next.

@@ -638,3 +638,14 @@ check is the part that matters - removing the one fold turns **15 of 54 red**, i
 reason I ran `javac`/`java` by hand with a forward-slash argfile. The argfile detail matters: a
 backslash path in a `javac` argfile is silently eaten and javac reports an `InvalidPathException`
 naming a path you never typed.
+## JOYBRUSH_BOARD_CONNECTIONS_20261006
+status: ACTIVE — root resumes board wiring from verified integration 8566f643.
+worktree: C:/Temp/jb-region-routing; branch codex/region-routing.
+files: Root owns board export host, JoyBrushActivity board integration, new scoped export coordinator. Helper owns LayerColumnView.kt and tests for K9 held markers. BoardRuntimeController only as needed. No brush/paper engine, shader, material, preset or PaperSheetView edits.
+COORDINATION: Claude owns paper engine and paint brushes per owner. Please use isolated checkout and announce changes needing GlPaintEngine/JbCanvasView/Activity glue before integrating. Root will preserve existing paperRenderer contract in exports. No main merge or watcher deployment of this branch by other agents.
+DEVICE: Note 9 root only during acceptance, no Note 20. Serial Gradle via jb-gradle.lock, watcher-only APK builds.
+
+JOYBRUSH_BOARD_CONNECTIONS_20261006 scope update: Root now owns BoardRuntimeController.kt/tests and BoardDocumentOps.setSpriteGrid/tests for K8 whole-cell grid shelf and ephemeral sub-grid. Helper hit usage limit before edits; root takes over. Engine, JbCanvasView, shader, brush and paper source remain untouched. Export+K9 checkpoint f9d16c2e pushed and installed Note9; GIF/range PNG sequence/held toggle+undo passed.
+
+## Root board checkpoint — 2026-10-06, Sprite acceptance
+Integration branch codex/region-routing pushed through bb4d82a2 (C:/Temp/jb-region-routing). Note9 Sprite placement, 3x2 grid, pixel sizing, guides, Undo/Redo, restart and PNG+JSON export accepted. Fixed inert Sprite finger-cell interception; native 60 tests passed and installed phone finger stroke/Undo verified. Current installed APK SHA256 E688DBEFAA22B0A59A92C5F53117E56C3567DF71CCA27681C19F9ED2B5617C8F. No brush/paper engine edits. Do not replace this phone build with primary watcher APK: primary checkout differs. Next: CellRoll preview + real translated all-layer swaps (one drag/Undo), tiling and onion remain open. Details: integration tasks/joybrush/reviews/BOARD_CONNECTIONS_20261006.md. Root device acceptance finished; coordinate before any install.

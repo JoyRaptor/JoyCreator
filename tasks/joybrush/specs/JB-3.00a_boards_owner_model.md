@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T1 (architecture: it changes what an animated layer IS) |
-| **Status** | 📝 Spec, Part 1 (model) + Part 2 (on-screen design brief) — Lead, 2026-10-01, from the owner's own description (quoted in full in §A). **Overrides** the parts of JB-3.01, JB-3.00, JB-3.06b and JB-4.01 that it contradicts; see §D. |
+| **Status** | 🔒 **Design locked 2026-10-01 (§K).** Spec, Part 1 (model) + Part 2 (on-screen design brief) — Lead, 2026-10-01, from the owner's own description (quoted in full in §A). **Overrides** the parts of JB-3.01, JB-3.00, JB-3.06b and JB-4.01 that it contradicts; see §D. |
 | **Ruling** | LEAD_RULINGS **R50** |
 | **Author** | Joy Brush Lead (Claude), written at the owner's request: *"write up a spec sheet defining this and quote all the direction that I gave directly in a specific section"* |
 

@@ -1,4 +1,4 @@
-﻿# LANES.md — live file-lock board for parallel agents
+# LANES.md — live file-lock board for parallel agents
 #
 # ★★ WORD SYNC v2: JoyRaptor tested the mode and it is wrong. tasks/SPEC_20260830_WORD_SYNC_V2.md
 #    supersedes the mode UI from b8ac6a6c/274302de/01a1db5f/a6deaf50. The ENGINE stays; the
@@ -1015,3 +1015,82 @@ status: ACTIVE; owner prioritizes all locked-design boards, pauses advanced pain
 worktree: C:/Temp/jb-region-routing; root owns GlPaintEngine/JbCanvasView/UndoLog/CanvasSnapshot/Activity/shaders/DocOps.
 helper finished_work_audit owns RegionDocumentOps and new BoardDocumentOps/BoardSession +tests; integration_audit owns isolated board chrome strip interactions.
 DEVICE: none; serial shared lock/watch-build procedure.
+## JOYBRUSH_FRAME_PROJECTION_20261001
+status: IDLE (foundation tested; region adaptation held for JB-3.00a/R50)
+files: none. Evidence: tasks/joybrush/INTEGRATION_20260930.md. Shared handoff: AGENT_BOARD.md.
+DEVICE: none. Fresh owner artwork restored, 1835 entries exact; newer sample preserved.
+Backup: codex/frame-projection-foundation. No main merge: board-spec preflight conflict.
+
+## JOYBRUSH_BOARD_PREVIEW_RULE_20261002
+status: IDLE (owner clarification recorded; implementation owed)
+files: tasks/joybrush/specs/JB-3.00a_boards_owner_model.md (append-only owner clarification); tasks/joybrush/AGENT_BOARD.md.
+DEVICE: none. Documentation only.
+
+## JOYBRUSH_BOARD_WIRING_REVIEW_20261002
+status: IDLE (scoped decision recorded; operational integration still owed)
+files: tasks/joybrush/BOARD_INTEGRATION_DECISION_20261002.md; tasks/joybrush/AGENT_BOARD.md.
+DEVICE: none. Read-only chrome review; document technical decision.
+
+## JOYBRUSH_REGION_ROUTING_20261002
+status: IDLE (core foundation landed; 1458 tests pass)
+worktree: C:/Temp/jb-region-routing; branch codex/region-routing; base origin/joy-creator.
+files: none. Evidence: C:/Temp/jb-region-routing/tasks/joybrush/REGION_ROUTING_20261002.md. Remote 0a46f811.
+DEVICE: none. No Activity/engine/schema edits. Build lock required.
+
+## JOYBRUSH_MUSE_20261002 (orchestrator "muse", open-code harness — coordination lane with bunny; re-added 2026-10-02 after tree update dropped it, no action needed)
+status: ACTIVE — JB-8.01b BUILT+pushed (1450/0); JB-3.03-F2F3 BUILT+pushed (1442/0); frame-foundation audit + 8 cross-reviews (3.08, 3.03b, 3.02b, 0.08c, 3.04a, 3.04b, 3.00, 2.14c) filed; 5 audits of bunny's landings filed; comms in AGENT_BOARD.md + MUSE_LOG.md.
+PROTOCOL: muse audits bunny's finished work (read-only reports in reviews/); bunny mirrors. Board: muse touches only rows it builds (8.01b); bunny owns the rest.
+files: tasks/joybrush/reviews/JB-3.08__muse-spark.md; JB-3.03b__muse-spark.md; JB-3.02b__muse-spark.md; JB-0.08c__muse-spark.md; JB-FRAME-FOUNDATION__muse-spark-audit.md; JB-8.04b__muse-spark-audit.md; JB-3.06c__muse-spark-audit.md; JB-3.03__muse-spark-audit.md; JB-4.01__muse-spark-audit.md; JB-4.02__muse-spark-audit.md; tasks/joybrush/MUSE_LOG.md.
+worktrees (mine, isolated): %TEMP%\jb-muse-8.01b (branch muse/JB-8.01b); %TEMP%\jb-muse-3.03f (branch muse/JB-3.03-audit-fixes). Never joy-creator directly.
+NOT MINE, do not touch: tasks/joybrush/ORCHESTRATOR_LOG.md; all FRAME_PROJECTION/region files; GlPaintEngine.kt, JbCanvasView.kt, JoyBrushActivity.kt, joybrush/shaders/*.
+DEVICE: none. No phone use. Gradle only in my worktrees under jb-gradle.lock with --no-daemon.
+since: 2026-10-02
+
+## JOYBRUSH_REGION_MODEL_20261002
+status: IDLE (model landed origin/joy-creator 82a16eba; core 1470/0, androidkit 225/0)
+worktree: C:/Temp/jb-region-routing (codex/region-routing).
+files: none. Next: GPU/undo/preview/export adapters; no scratch migration. Evidence: REGION_ROUTING_20261002.md.
+DEVICE: none. No test-art preservation/migration per owner; schema/core only.
+
+## JOYBRUSH_REGION_RENDER_20261002
+status: IDLE (0f4e57cd landed; core1481/0 and androidkit225/0)
+worktree: C:/Temp/jb-region-routing (codex/region-routing).
+files: none. Evidence: REGION_ROUTING_20261002.md; GPU/undo adapter next.
+DEVICE: none. Export projection prerequisite for GPU integration.
+
+## JOYBRUSH_PAPER_UI_20261002
+status: ACTIVE
+worktree: C:/Temp/jb-region-routing (codex/region-routing).
+files: Lead-owned JoyBrushActivity.kt, LayerColumnView.kt, new PaperSheetView.kt; JbCanvasView.kt, GlPaintEngine.kt, UndoLog.kt; Paper/ResolvedPaper transparency schema and version/codec tests; paper background shader; UI/history tests.
+DEVICE: none. No installation; build slot shared via jb-gradle.lock. Paper specialist retains catalogue/materials. DOC_VERSION 7 reserved for explicit Paper screen transparency.
+
+## JOYBRUSH_ABR_FRONTIER_20261002
+status: ACTIVE; isolated Muse importer recovery and 16-bit high-byte regression.
+worktree: C:/Temp/jb-abr-frontier; branch codex/abr-frontier-fix.
+files: AbrReader.kt, AbrReaderTest.kt, AbrImportTest.kt, AbrRealFilesTest.kt only.
+DEVICE: none. Shared jb-gradle.lock required; no app build.
+
+JOYBRUSH_ABR_FRONTIER_20261002 status: IDLE; branch pushed fe686adf9f20daba1db6e99359c997a5dc72e98c. Targeted importer61/0/0/0; low-byte mutation red, restored green. No shared docs committed; root owns integration. Build lock released and exact watcher restarted hidden.
+
+## JOYBRUSH_NOTE9_ACCEPTANCE_20261006
+status: ACTIVE — root phone testing and blocker fixes; helper owns only BoardRuntimeController.kt and its test until frozen for build.
+worktree: C:/Temp/jb-region-routing; branch codex/region-routing.
+files: joybrush-android board controller + regression tests; tasks/joybrush/reviews/NOTE9_BOARD_TEST_20261006.md. Other source only for confirmed device failures, announced before edits.
+DEVICE: Note 9 only, owner authorized installation and testing; awaiting Home readiness gate. Main watcher is paused only under owned build lock and restored afterward.
+
+## JOYBRUSH_NOTE9_ACCEPTANCE_20261006 — checkpoint
+status: IDLE — isolated integration 8566f643 pushed; device testing pass finished, broad board completion still owed.
+files: none owned for active edits. C:/Temp/jb-region-routing/tasks/joybrush/reviews/NOTE9_BOARD_TEST_20261006.md and CLAUDE_BOARD_HANDOFF_20261006.md hold evidence and remaining scope.
+DEVICE: Note 9 released on Joy Brush, passive Animation frame 3; verified installed integration APK. Main watcher restored but builds a different checkout; do not assume its APK contains board fixes. No Note 20 use, no uninstall.
+
+## JOYBRUSH_BOARD_CONNECTIONS_20261006
+status: ACTIVE — root resumes board wiring from verified integration 8566f643.
+worktree: C:/Temp/jb-region-routing; branch codex/region-routing.
+files: Root owns board export host, JoyBrushActivity board integration, new scoped export coordinator. Helper owns LayerColumnView.kt and tests for K9 held markers. BoardRuntimeController only as needed. No brush/paper engine, shader, material, preset or PaperSheetView edits.
+COORDINATION: Claude owns paper engine and paint brushes per owner. Please use isolated checkout and announce changes needing GlPaintEngine/JbCanvasView/Activity glue before integrating. Root will preserve existing paperRenderer contract in exports. No main merge or watcher deployment of this branch by other agents.
+DEVICE: Note 9 root only during acceptance, no Note 20. Serial Gradle via jb-gradle.lock, watcher-only APK builds.
+
+JOYBRUSH_BOARD_CONNECTIONS_20261006 scope update: Root now owns BoardRuntimeController.kt/tests and BoardDocumentOps.setSpriteGrid/tests for K8 whole-cell grid shelf and ephemeral sub-grid. Helper hit usage limit before edits; root takes over. Engine, JbCanvasView, shader, brush and paper source remain untouched. Export+K9 checkpoint f9d16c2e pushed and installed Note9; GIF/range PNG sequence/held toggle+undo passed.
+
+## Root board checkpoint — 2026-10-06, Sprite acceptance
+Integration branch codex/region-routing pushed through bb4d82a2 (C:/Temp/jb-region-routing). Note9 Sprite placement, 3x2 grid, pixel sizing, guides, Undo/Redo, restart and PNG+JSON export accepted. Fixed inert Sprite finger-cell interception; native 60 tests passed and installed phone finger stroke/Undo verified. Current installed APK SHA256 E688DBEFAA22B0A59A92C5F53117E56C3567DF71CCA27681C19F9ED2B5617C8F. No brush/paper engine edits. Do not replace this phone build with primary watcher APK: primary checkout differs. Next: CellRoll preview + real translated all-layer swaps (one drag/Undo), tiling and onion remain open. Details: integration tasks/joybrush/reviews/BOARD_CONNECTIONS_20261006.md. Root device acceptance finished; coordinate before any install.

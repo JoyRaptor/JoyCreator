@@ -647,6 +647,9 @@ One sheet visit must create one paper-only history step in the same chronologica
 strokes; changing paper must not overwrite brush colour or touch saved paint tiles. Schedule
 preview rendering on one bounded worker and reject stale results. Keep selected-board layer
 thumbnail scope separate from paper choice: Paper stays below the layer stack.
+2026-10-02 muse (overnight orchestrator): two branches await triage — `muse/JB-8.01b` (1450/0, ledger `reviews/JB-8.01b__muse.md`) and `muse/JB-3.03-audit-fixes` (1442/0, F1 untouched); 8 cross-reviews + 6 audit reports in `reviews/` (all on AGENT_BOARD, ACKs pending). Meanwhile I am running mechanical spec refreshes (2.14c, 3.08, 3.02b, 3.03b-M1 only; no semantics, no code) on `muse/spec-*` branches in isolated worktrees. QUESTIONS: (1) merge/triage order for the two branches; (2) next BUILD assignments for muse — I can run several parallel T2 core-only builders, no hot files, no Activity/shaders/engine, isolated worktrees, single-lock gradle; (3) rulings blocking the queue: F1 `frameAt(-Inf)` (spec-last vs code-0), 2.14c Q4/Q5 one-word answers, 3.00 Q1 re-ruling under the region model, 0.08c close-as-built yes/no, 3.04a/b Who-cell truth (copy-paste found, no xr on record?). I will poll Lead answers between waves and keep building meanwhile — no work waits on this.
+
+## Lead answers
 
 _(the Lead writes here)_
 

@@ -33,3 +33,8 @@ Proof: `JbCanvasView:472-484` queues reset/write on GL, then sets `paperArgb`/`d
 
 ## Recommendation
 Fix Findings 1–3 (all three are "explicit save intent lost or misreported" — the one thing this task must not do); 4–7 are MINOR. Device check (draw → Home → force-stop → reopen) still owed to the owner.
+
+## Addendum 2026-09-29 — reworked by JB-2.15/SaveQueue (R26: `b920689b` + `7bee36ad`), verified
+- Finding 1 (MAJOR) FIXED in its primary shape: no gate, EXPLICIT never merges, own destination preserved. Finding 2 (MAJOR) FIXED including the converse (no flag; history cannot release; cancel releases). Finding 3 (MAJOR) HALF-FIXED: the queue hold works but the spec-ordered `perform`-side re-check is missing — pen-down between gate (UI) and snapshot (GL) reproduces this finding's shape; see JB-2.15 Finding 1.
+- Finding 4 (MINOR) BYPASSED at the view (UI-owned flag; engine race off the save path). Findings 5–7 still open as referred (no `onDestroy`; metadata churn — explicitly out-of-scope per 2.15 Decision 9; paper/name ordering).
+- New issues introduced by the rework (watchdog single-flight break, snapshot-fail stranding, load-completion debt wipe, spec-contract drift) are filed under JB-2.15, not here. This file's original verdicts stand as the record of what was wrong and why the rework exists.

@@ -401,4 +401,23 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 > build pass. Installed and verified on Note 9: large-to-large Open and Recent both pass, all selected
 > pixels/settings exact; damaged files leave the previous drawing intact. Owner drawing restored,
 > all 1713 entries exact. Large swaps still take tens of seconds. Next: frame/cel and host integration.
+
+> **Joy Brush frame foundation, 2026-10-01:** legacy cel GPU stores, all-cel save/load, selected-frame
+> PNG and frame-aware undo pass 227 androidkit plus 36 targeted paint tests. Note 9 checks pass for
+> copy, isolated edits, undo/redo, linked/blank frames, holds and cold reopen. Latest owner artwork
+> restored: all 1835 entries (1833 paint tiles) exact. Whole-layer animation creation shortcut removed
+> because JB-3.00a/R50 requires region animation; JB-3.01b/c adaptation is still owed. Backed up on
+> codex/frame-projection-foundation, not merged into origin/joy-creator: read-only preflight found a
+> board-spec add/add disagreement. Remote paper changes not yet integrated/phone-verified here.
+> Shared handoffs: tasks/joybrush/AGENT_BOARD.md. Detailed evidence: INTEGRATION_20260930.md.
+
+> **Region ownership foundation, 2026-10-02:** RegionPaintPlan landed on origin/joy-creator through
+> 0a46f811 from isolated codex/region-routing. Pixel-exact shared/frame tile partition, multi-board
+> and negative-coordinate edges; 13 new tests. Combined latest-paper core suite: 1458/0; boundary
+> sabotage caught, original restored. Runtime helper only: saved region model, GPU commit/undo,
+> preview/export adapters and phone proof still owed. Primary tree's divergent spec is preserved.
 Details: tasks/joybrush/INTEGRATION_20260930.md.
+
+> **Saved region model, 2026-10-02:** origin/joy-creator 82a16eba adds v6 board cursors and per-layer shared/region cels. Core 1470/0 and Android file tests 225/0 before latest clean paper merge. Blank/copy/link operations return bounded pixel instructions; GPU/undo/preview/export adapters and phone proof remain owed. Existing test art is disposable; no conversion work.
+
+> **Region CPU rendering, 2026-10-02:** origin/joy-creator 0f4e57cd connects export rendering to board-local frame/shared tile slices, including holds, masks and clip bases. Combined core1481/0, Android file/export225/0; no device proof. GPU paint/undo adapter remains next. Shared AGENT_BOARD.md now published on origin.

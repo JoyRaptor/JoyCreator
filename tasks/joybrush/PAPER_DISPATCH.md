@@ -1,5 +1,13 @@
 # Paper work: who does what (dispatch sheet), version 2
 
+> **SUPERSEDED, 2026-10-06. Do not dispatch from this sheet.** Every row in it has landed or been replaced:
+> 9.01–9.05, 9.03b, 9.07, 9.09 and the 9.11 core half are built. The paper pass landed in 9e5743de, and JB-9.06b/9.06c are built too.
+> JB-9.08 is superseded by the media engine (36c06428). Procedural papers were rejected and replaced by photo/scan papers (03f4dff8, 59978be8).
+> **Who owns what now:** the paper engine, the photo/felt pipelines, the catalogue and the PNG budget belong to the paper-engine session
+> ("Pencil/pen/watercolor shader research"; R10 §11/§11.1). Dry, wet and oil media belong to the brush-engines session
+> (`MEDIA_ENGINE_PLAN.md`). Sourcing real images for the still-procedural papers belongs to the paper specialist, once the owner says go.
+> The rest of this page is kept as history.
+
 Rewritten by the paper specialist (Claude), 2026-10-01, after an adversarial audit of round 1. Version 1 promised that rows could
 "build it first" and run "at the same time". The specs did not back that up, and six rows stopped. **Version 2 is serial by gates:
 a row starts only when every row it needs has LANDED on `origin/joy-creator`. No row ever builds another row's files.**

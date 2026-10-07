@@ -1,9 +1,12 @@
 # JB-9.06 — The paper you SEE: drawn behind every layer, swappable, exported or left out, right at every zoom
 
+
+> **SUPERSEDED IN PART (2026-10-06, paper specialist). The current record is `research/R10_paper_and_canvas.md` §11/§11.1. The paper pass landed in 9e5743de, export in JB-9.06b (b436e9cb) and CPU mips in JB-9.06c (fbcd48fd). The relief light here (shade 0.6–1.4, RELIEF_GAIN 6) is replaced by a 0.9–1.1 clamp, and photo papers ship with the light OFF.**
+
 | | |
 |---|---|
 | **Tier** | T1 + T3 phone check |
-| **Status** | 🟦 Ready (paper specialist, 2026-10-01) |
+| **Status** | 🟧 Built across 9e5743de + JB-9.06b + JB-9.06c; partly superseded, see the note above |
 | **Builder** | Codex |
 | **Depends on** | JB-9.03 + JB-9.03b, JB-9.04, JB-9.05, all LANDED first (no building other rows; see the answer under Questions) |
 | **Owner area** | NEW `joybrush/shaders/jb_paper_bg.frag` (+ `.vert` if needed); EDIT `GlPaintEngine.kt` (`draw`/`drawComposited` paper pass, paper cache, surface per document); EDIT `JbCanvasView.kt` (`refusalFor` texture clause removed; `paper` state replaces `paperArgb` as the source of truth, keeping `paperArgb` working for callers); EDIT `GrainTextures.kt` (looks); NEW `joybrush/core/.../paper/PaperRaster.kt` (CPU paper for export); EDIT `androidkit/.../io/CanvasPng.kt` (compose paper under the render; also `AnimExport.kt`/`OraExport.kt` if they take a paper colour today); tests for each. **Hot files: same rule as JB-9.03 (log check, rebase, LEAD_DESK line).** |

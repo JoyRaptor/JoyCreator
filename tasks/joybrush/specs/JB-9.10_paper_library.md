@@ -1,5 +1,8 @@
 # JB-9.10 — The launch paper library (looks + surfaces)
 
+
+> **SUPERSEDED IN PART (2026-10-06, paper specialist). The current record is `research/R10_paper_and_canvas.md` §11/§11.1. Procedural papers were rejected by the owner ("early-90s 3D graphics"). Papers now come from photos and CC0 scans via `tools/paper/install_photo_papers.py` / `felt2paper.py` (paper-engine session). Still procedural and waiting for real sources: canvases ×3, papyrus, parchment, silk, fabric, cement, crumpled ×2, blueprint, off-white, pulps. Sourcing goes to the paper specialist once the owner says go.**
+
 | | |
 |---|---|
 | **Tier** | T2 (taste) + T3 owner judgement |

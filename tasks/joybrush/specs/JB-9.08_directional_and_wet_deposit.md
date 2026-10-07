@@ -1,5 +1,8 @@
 # JB-9.08 — Paint that knows which way it came from: directional dry deposit, wet pooling
 
+
+> **SUPERSEDED (2026-10-06). The built version (15df2664) is replaced by the brush-engines session's media engine (36c06428, MEDIA_ENGINE_PLAN.md): directional dry deposit lives in its dry-media engine, and wet pooling in its wet engine. Do not build on this spec.**
+
 | | |
 |---|---|
 | **Tier** | T1 + T3 phone check |

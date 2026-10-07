@@ -44,8 +44,8 @@ class BoardRuntimeControllerTest {
         assertEquals(SpriteGrid(5,2,24,50),host.document.boards.last().grid)
         controller.documentChanged(host.document)
         view.host.action("grid-px",false); view.host.action("cols-plus",false)
-        assertEquals(SpriteGrid(4,2,25,50),host.document.boards.last().grid)
-        assertEquals(RectPx(100,300,100,100),host.document.boards.last().rect)
+        assertEquals(SpriteGrid(5,2,25,50),host.document.boards.last().grid)
+        assertEquals(RectPx(100,300,125,100),host.document.boards.last().rect)
         assertEquals(layers,host.document.layers)
     }
     @Test fun rapidQueuedGridStepsUseLatestGridAndOldDrawingCannotReceiveThem() {
@@ -79,6 +79,75 @@ class BoardRuntimeControllerTest {
             try { return findEdit(view.getChildAt(n)) } catch(_: NoSuchElementException) { }
         }
         throw NoSuchElementException()
+    }
+    private fun shownInput(view: BoardChromeView): Chrome.Input {
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(30))
+        return BoardChromeView::class.java.getDeclaredField("input").apply { isAccessible=true }.get(view) as Chrome.Input
+    }
+    @Test fun spriteHandlePreviewsCellAndBoardSizesWithoutHistoryAndCancelRestores() {
+        val host=spriteHost(); val (controller,parent)=setup(host); val view=spriteView(controller,parent,host)
+        val original=host.document
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(9f,7f),false)
+        val preview=shownInput(view)
+        assertEquals(128,preview.pixelWidth); assertEquals(108,preview.pixelHeight)
+        assertEquals(32,preview.cellWidth); assertEquals(54,preview.cellHeight)
+        assertEquals(original,host.document); assertTrue(host.queued.isEmpty())
+        view.host.cancel("handle-4")
+        assertEquals(120,shownInput(view).pixelWidth); assertEquals(original.boards.last().rect,host.scope)
+    }
+    @Test fun spriteCornerCommitsOneAtomicEditAndQueuedEditRejectsChangedGrid() {
+        val host=spriteHost(); val (controller,parent)=setup(host); val view=spriteView(controller,parent,host)
+        host.deferEdits=true
+        repeat(4) { view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(9f,7f),false) }
+        assertTrue(host.queued.isEmpty())
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(9f,7f),true)
+        assertEquals(1,host.queued.size)
+        val result=host.queued.single()(host.document)
+        assertEquals(SpriteGrid(4,2,32,54),result.doc.boards.last().grid)
+        assertEquals(host.document.layers,result.doc.layers)
+        assertFailsDoc { host.queued.single()(BoardDocumentOps.rename(host.document,host.document.boards.last().id,"Other")) }
+    }
+    @Test fun typedCellDimensionsRetainCountsAndGrowTheBoard() {
+        val host=spriteHost(); val (controller,parent)=setup(host); val view=spriteView(controller,parent,host)
+        view.host.action("grid-px",false); view.host.action("cols",false)
+        val dialog=ShadowAlertDialog.getLatestAlertDialog()
+        findEdit(dialog.window!!.decorView).setText("41")
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(30))
+        assertEquals(SpriteGrid(4,2,41,50),host.document.boards.last().grid)
+        assertEquals(164,host.document.boards.last().rect.w)
+    }
+    @Test fun lockedSpriteSequenceIsTransientAndPenStillPassesThrough() {
+        val host=spriteHost(); host.document=BoardDocumentOps.setLocked(host.document,host.document.boards.last().id,true)
+        val (controller,parent)=setup(host); val view=spriteView(controller,parent,host); val original=host.document
+        fun pointer(tool:Int)=MotionEvent.obtain(0,0,MotionEvent.ACTION_DOWN,1,arrayOf(MotionEvent.PointerProperties().apply { id=0;toolType=tool }),
+            arrayOf(MotionEvent.PointerCoords().apply { x=0f;y=0f;pressure=1f;size=1f }),0,0,1f,1f,0,0,0,0)
+        for(tool in listOf(MotionEvent.TOOL_TYPE_FINGER,MotionEvent.TOOL_TYPE_STYLUS,MotionEvent.TOOL_TYPE_ERASER)) {
+            val event=pointer(tool); try { assertEquals(tool == MotionEvent.TOOL_TYPE_FINGER,view.host.acceptsPointer("sprite-cell-0",event)) } finally { event.recycle() }
+        }
+        view.host.action("sprite-cell-2",false); view.host.action("sprite-cell-0",false); view.host.action("sprite-cell-2",false)
+        assertEquals(listOf(2,0,2),shownInput(view).spriteOrder)
+        view.host.action("preview-play",false)
+        assertTrue(shownInput(view).playing)
+        assertTrue(host.previews.isEmpty()); assertEquals(original,host.document)
+        view.host.action("preview-clear",false)
+        assertFalse(shownInput(view).playing); assertTrue(shownInput(view).spriteOrder.isEmpty())
+        assertEquals(original,host.document); controller.stop()
+    }
+    @Test fun lockedArmedSpriteDragCommitsOneSwapAndCancelCommitsNothing() {
+        val host=spriteHost(); host.document=BoardDocumentOps.setLocked(host.document,host.document.boards.last().id,true)
+        val (controller,parent)=setup(host); val view=spriteView(controller,parent,host)
+        view.host.action("feature",false)
+        val input=shownInput(view); val from=Chrome.Point(input.board.left+15,input.board.top+25); val to=Chrome.Point(input.board.left+75,input.board.top+25)
+        host.deferEdits=true
+        view.host.drag("sprite-cell-0",from,to,false); view.host.cancel("sprite-cell-0")
+        assertTrue(host.queued.isEmpty())
+        view.host.drag("sprite-cell-0",from,to,false); view.host.drag("sprite-cell-0",from,to,true)
+        assertEquals(1,host.queued.size)
+        val change=host.queued.single()(host.document)
+        assertEquals(host.document,change.doc); assertTrue(change.transfers.isNotEmpty())
+        assertEquals(RectPx(100,300,30,50),change.transfers.first().sourceRect)
+        assertEquals(RectPx(160,300,30,50),change.transfers.first().destinationRect)
     }
     @Test fun spriteGuideAndGridModeAreSessionOnlyAndResetForAnotherDrawing() {
         val host = spriteHost(); val (controller,parent) = setup(host); val view = spriteView(controller,parent,host)

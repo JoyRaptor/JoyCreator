@@ -16,6 +16,7 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import cc.joycreator.joybrush.androidkit.diag.BlendSelfCheck
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
+import cc.joycreator.joybrush.androidkit.gl.SpritePreviewRequest
 import cc.joycreator.joybrush.androidkit.gl.MASK_SUFFIX
 import cc.joycreator.joybrush.androidkit.gl.maskStoreId
 import cc.joycreator.joybrush.androidkit.gl.SmudgeParams
@@ -510,6 +511,33 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 post { onReady(out) }
             } catch (e: Exception) {
                 post { onReady(emptyMap()); onRefused?.invoke(e.message ?: "The frame previews could not be drawn") }
+            }
+        }
+    }
+
+    /** At most sixteen visible cell pictures; stale results are discarded rather than retried. */
+    fun boardSpriteThumbnails(boardId: String, cells: List<Int>, w: Int, h: Int,
+                              onReady: (Map<Int, IntArray>) -> Unit) {
+        val document = boardDocument ?: run { onReady(emptyMap()); return }
+        val request = try { SpritePreviewRequest(document, boardId, cells.toList(), w, h, boardContentRevision) }
+            catch (_: IllegalArgumentException) { onReady(emptyMap()); return }
+        onGl {
+            if (engine.strokeInProgress || !request.matches(engine.boardDocument, boardContentRevision)) {
+                post { onReady(emptyMap()) }; return@onGl
+            }
+            val out = LinkedHashMap<Int, IntArray>()
+            try {
+                for (cell in request.bounds.keys) {
+                    out[cell] = engine.renderSpriteCellThumbnail(boardId, cell, w, h, paperArgb)
+                }
+                post {
+                    onReady(if (!drawing && request.matches(boardDocument, boardContentRevision)) out else emptyMap())
+                }
+            } catch (e: Exception) {
+                post { onReady(emptyMap()); onRefused?.invoke(e.message ?: "The cell previews could not be drawn") }
+            } catch (e: OutOfMemoryError) {
+                out.clear()
+                post { onReady(emptyMap()); onRefused?.invoke("This phone could not allocate the cell previews") }
             }
         }
     }

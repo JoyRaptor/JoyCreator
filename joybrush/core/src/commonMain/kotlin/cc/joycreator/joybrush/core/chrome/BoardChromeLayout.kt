@@ -47,6 +47,7 @@ object BoardChromeLayout {
         val cellWidth: Int = 128, val cellHeight: Int = 128, val titleWidthPx: Float? = null,
         val subGrid: Int = 2, val gridByPixels: Boolean = false, val spriteOrder: List<Int> = emptyList(),
         val playingCell: Int? = null, val liftedCell: Int? = null, val targetCell: Int? = null,
+        val liftedCellOffset: Point = Point(0f,0f),
         val reducedMotion: Boolean = false, val wiggleElapsedMs: Long = 0,
         /** Actual alpha at the last pen transition; supplied by BoardChromePenFade for rapid strokes. */
         val penFadeStartAlpha: Float? = null)
@@ -105,7 +106,7 @@ object BoardChromeLayout {
             rotation:Float=0f,scale:Float=1f,clip:Rect?=null) {
             val stripPart=id.startsWith("sprocket") || id.startsWith("cell-") || id.startsWith("hold-") || id=="add-cell" || id=="add" || id=="insertion"
             val corners=if(id=="peg-tab")listOf(11f,11f,3f,3f).map { it*d } else null
-            val alignment=if(id=="title")Align.LEFT else if(id=="size"||id.startsWith("hold-"))Align.RIGHT else Align.CENTRE
+            val alignment=if(id=="title")Align.LEFT else if(id=="size"||id=="cell-size"||id.startsWith("hold-"))Align.RIGHT else Align.CENTRE
             val baseline=when(id){"title"->b.top-7*d;"size"->b.top-8*d;else->r.cy+size*d*.35f}
             val stripClip=if(stripPart)if(i.penDown || i.penLiftElapsedMs<FADE_BACK_MS)Rect(b.left,b.bottom+10*d,b.right,b.bottom+32*d) else Rect(b.left,b.bottom+29*d,b.right,b.bottom+69*d) else null
             e+=Element(id,shape,r,col,a,stroke*d,radius*d,text,font,size,weight,glyph,gradient,
@@ -272,11 +273,15 @@ object BoardChromeLayout {
             if(i.subGrid in 2..8)SpriteGridMath.subGridLines(gridModel,i.subGrid).forEachIndexed {n,l->
                 add("subgrid-$n",Rect(b.left+l[0]*cw,b.top+l[1]*ch,b.left+l[2]*cw,b.top+l[3]*ch),Shape.LINE,Colour.PAPER,.15f,stroke=.5f)
             }
+            val cellLabel="Cell ${i.cellWidth} × ${i.cellHeight} px"
+            val labelWidth=cellLabel.length*5.4f
+            text("cell-size",b.right-labelWidth*d,b.bottom+43*d,labelWidth,12f,cellLabel,9f,weight=500,tip="Cell size in whole pixels. Tap to resize every cell and the board.")
             if(i.armed){
                 val t=(i.wiggleElapsedMs%600)/300f;val angle=if(i.reducedMotion)0f else if(t<=1)-2.2f+4.4f*t else 6.6f-4.4f*t
                 for(n in 0 until i.columns*i.rows){val r=cell(n);add("sprite-cell-$n",r,col=Colour.PAPER,a=.35f,stroke=1f,rotation=angle*(if(n%2==0)1 else -1))}
                 i.targetCell?.let {add("sprite-target",cell(it),col=Colour.CYAN,stroke=1.5f,radius=3f,halo=3f)}
-                i.liftedCell?.let {add("sprite-lift",cell(it),col=Colour.AMBER,stroke=1.5f,radius=4f,rotation=-3f,scale=1.08f)}
+                i.liftedCell?.let { val r=cell(it); val p=i.liftedCellOffset
+                    add("sprite-lift",Rect(r.left+p.x,r.top+p.y,r.right+p.x,r.bottom+p.y),col=Colour.AMBER,stroke=1.5f,radius=4f,rotation=if(i.reducedMotion)0f else -3f,scale=if(i.reducedMotion)1f else 1.08f) }
             }else if(i.spriteOrder.isNotEmpty()){
                 i.spriteOrder.forEachIndexed { order,n->val r=cell(n);val col=if(n==i.playingCell)Colour.PINK else Colour.CYAN
                     if(n==i.playingCell)add("sprite-playing",Rect(r.left+d,r.top+d,r.right-d,r.bottom-d),col=col,stroke=2.5f,radius=3f)

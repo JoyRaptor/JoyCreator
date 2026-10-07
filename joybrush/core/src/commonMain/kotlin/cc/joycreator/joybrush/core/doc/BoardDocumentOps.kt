@@ -1,5 +1,7 @@
 package cc.joycreator.joybrush.core.doc
 
+import cc.joycreator.joybrush.core.sprite.SpriteGridMath
+
 /** Immutable board edits. Passive boards never move or duplicate paint. */
 object BoardDocumentOps {
     /** Sprite frames describe the shared canvas; changing their grid never moves or deletes artwork. */
@@ -39,18 +41,43 @@ object BoardDocumentOps {
         update(doc, boardId) { it.copy(locked = locked) }
 
     /** Typing dimensions anchors the top-left, per H1. */
-    fun resizeTyped(doc: JbDocument, boardId: String, width: Int, height: Int): JbDocument =
+    fun resizeTyped(doc: JbDocument, boardId: String, width: Int, height: Int): JbDocument {
+        val rect = board(doc, boardId).rect.copy(w = width, h = height)
+        return resize(doc, boardId, rect)
+    }
+
+    /**
+     * Resize the complete board in one metadata edit. Sprite counts stay fixed; each cell edge
+     * snaps to the nearest whole pixel using the existing drag maths and its 1..MAX_CELL_PX clamp.
+     * A changed left/top with an unchanged opposite edge identifies a left/top handle: snapping
+     * keeps that right/bottom edge fixed. Other changes anchor the requested top-left.
+     * No layer, cel, stroke or pixel address changes. Animation needs a content transaction.
+     */
+    fun resize(doc: JbDocument, boardId: String, requestedRect: RectPx): JbDocument =
         update(doc, boardId) {
             geometryAllowed(it)
-            val rect = it.rect.copy(w = width, h = height)
-            checkRect(rect)
-            val grid = if (it.kind == BoardKind.SPRITE) {
-                val previous = requireNotNull(it.grid)
-                if (width % previous.cellW != 0 || height % previous.cellH != 0) {
-                    throw DocException("Sprite board size must be a whole grid of cells")
-                }
-                previous.copy(cols = width / previous.cellW, rows = height / previous.cellH).also { g -> checkGrid(rect, g) }
-            } else it.grid
+            checkRect(requestedRect)
+            if (it.kind != BoardKind.SPRITE) return@update it.copy(rect = requestedRect)
+            val previous = requireNotNull(it.grid)
+            if (previous.cols.toLong() * previous.rows > SpriteGridMath.MAX_CELLS) {
+                throw DocException("This Sprite grid has too many cells to resize")
+            }
+            val previousFit = SpriteGridMath.fitRect(it.rect, previous)
+            val grid = SpriteGridMath.dragEdge(previous, SpriteGridMath.Edge.CORNER,
+                (requestedRect.w.toLong() - previousFit.w).toFloat(),
+                (requestedRect.h.toLong() - previousFit.h).toFloat())
+            val fit = SpriteGridMath.fitRect(requestedRect, grid)
+            val right = requestedRect.x.toLong() + requestedRect.w
+            val bottom = requestedRect.y.toLong() + requestedRect.h
+            val x = if (requestedRect.x != it.rect.x && right == it.rect.x.toLong() + it.rect.w)
+                right - fit.w else requestedRect.x.toLong()
+            val y = if (requestedRect.y != it.rect.y && bottom == it.rect.y.toLong() + it.rect.h)
+                bottom - fit.h else requestedRect.y.toLong()
+            if (x !in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong() || y !in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) {
+                throw DocException("Board bounds must contain addressable pixels")
+            }
+            val rect = fit.copy(x = x.toInt(), y = y.toInt())
+            checkRect(rect); checkGrid(rect, grid)
             it.copy(rect = rect, grid = grid)
         }
 

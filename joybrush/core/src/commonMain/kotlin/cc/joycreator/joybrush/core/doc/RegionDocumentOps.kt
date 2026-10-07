@@ -3,7 +3,34 @@ package cc.joycreator.joybrush.core.doc
 /** Caller copies the owned content (raster pixels or vector records) before publishing one edit. */
 data class RegionCopy(val layerId: String, val fromCelId: String, val toCelId: String, val rect: RectPx)
 data class RegionDrop(val layerId: String, val celId: String)
-data class RegionChange(val doc: JbDocument, val copies: List<RegionCopy> = emptyList(), val drops: List<RegionDrop> = emptyList())
+/**
+ * Exact replacement, including transparent source pixels. Every source is read from the state
+ * BEFORE the entire transaction, never from another transfer's staged destination. Executors
+ * split at both source and destination tile boundaries; no scaling or compositing is permitted.
+ */
+data class RegionTransfer(val layerId: String, val fromCelId: String, val toCelId: String,
+    val sourceRect: RectPx, val destinationRect: RectPx) {
+    init { checkTransferRects(sourceRect, destinationRect) }
+}
+
+/** Same snapshot/replacement contract for a layer's separate mask; absent pixels are WHITE. */
+data class RegionMaskTransfer(val layerId: String, val sourceRect: RectPx, val destinationRect: RectPx) {
+    init { checkTransferRects(sourceRect, destinationRect) }
+}
+
+private fun checkTransferRects(source: RectPx, destination: RectPx) {
+    require(source.w > 0 && source.h > 0 && source.w == destination.w && source.h == destination.h) {
+        "Region transfer rectangles must have equal positive dimensions"
+    }
+    for (rect in listOf(source, destination)) {
+        require(rect.x.toLong() + rect.w <= Int.MAX_VALUE && rect.y.toLong() + rect.h <= Int.MAX_VALUE) {
+            "Region transfer exceeds addressable canvas coordinates"
+        }
+    }
+}
+
+data class RegionChange(val doc: JbDocument, val copies: List<RegionCopy> = emptyList(), val drops: List<RegionDrop> = emptyList(),
+    val transfers: List<RegionTransfer> = emptyList(), val maskTransfers: List<RegionMaskTransfer> = emptyList())
 
 /** Region metadata operations. No legacy conversion, pixel buffers, GPU or history owned here. */
 object RegionDocumentOps {

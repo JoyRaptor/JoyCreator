@@ -401,6 +401,8 @@ class JoyBrushActivity : Activity() {
             override fun selectionChanged(bounds: cc.joycreator.joybrush.core.doc.RectPx?) { updateLayerPreviewAspect(bounds); updateAnimationLayerMarkers(); boardThumbnailRevision++; refreshThumbs() }
             override fun thumbnails(boardId: String, frames: List<String>, width: Int, height: Int, ready: (Map<String, IntArray>) -> Unit) =
                 canvas.boardFrameThumbnails(boardId, frames, width, height, ready)
+            override fun spriteThumbnails(boardId: String, cells: List<Int>, width: Int, height: Int, ready: (Map<Int, IntArray>) -> Unit) =
+                canvas.boardSpriteThumbnails(boardId, cells, width, height, ready)
         })
         canvas.onBoardsChanged = { boardController?.documentChanged(it); updateAnimationLayerMarkers() }
         canvas.onBeforeStroke = { boardController?.stopPreview() }

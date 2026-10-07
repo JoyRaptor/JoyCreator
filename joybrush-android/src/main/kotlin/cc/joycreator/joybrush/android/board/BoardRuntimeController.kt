@@ -23,6 +23,8 @@ import cc.joycreator.joybrush.core.chrome.BoardChromeLayout as Chrome
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.view.ViewTransform
 import cc.joycreator.joybrush.core.sprite.SpriteBoard
+import cc.joycreator.joybrush.core.sprite.SpriteGridMath
+import cc.joycreator.joybrush.core.sprite.CellRoll
 import java.util.UUID
 import kotlin.math.*
 
@@ -39,6 +41,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         fun export(boardId: String) {}
         fun selectionChanged(bounds: RectPx?)
         fun thumbnails(boardId: String, frames: List<String>, width: Int, height: Int, ready: (Map<String, IntArray>) -> Unit)
+        fun spriteThumbnails(boardId: String, cells: List<Int>, width: Int, height: Int, ready: (Map<Int, IntArray>) -> Unit) { ready(emptyMap()) }
     }
     private var doc: JbDocument? = null
     private var session = BoardSession()
@@ -48,6 +51,20 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private val fpsPanels = mutableSetOf<String>()
     private val spritePixels = mutableMapOf<String, Boolean>()
     private val spriteSubGrids = mutableMapOf<String, Int>()
+    private val spriteRolls = mutableMapOf<String, CellRoll>()
+    private var spritePlaying: String? = null
+    private var spriteClock: PlaybackClock? = null
+    private var spriteStarted = 0L
+    private var spritePlayingCell: Int? = null
+    private data class GeometryDrag(val documentId: String, val board: Board, val handle: Int, val zoom: Float)
+    private var geometryDrag: GeometryDrag? = null
+    private var geometryPreview: Board? = null
+    private data class SpriteDrag(val documentId: String, val board: Board, val cell: Int, val from: Chrome.Point)
+    private var spriteDrag: SpriteDrag? = null
+    private var spriteTarget: Int? = null
+    private var spriteLiftOffset = Chrome.Point(0f,0f)
+    private val armedTick = Runnable { refreshTransform() }
+    private val reducedMotion: Boolean get() = android.os.Build.VERSION.SDK_INT >= 26 && !android.animation.ValueAnimator.areAnimatorsEnabled()
     private var epoch = 0L
     private var artEpoch = 0L
     private var contentRevision = Long.MIN_VALUE
@@ -87,6 +104,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
 
     fun documentChanged(value: JbDocument) {
         stopPreview()
+        if (geometryDrag != null || spriteDrag != null) views.values.forEach { it.stopInteractions() }
+        geometryDrag = null; geometryPreview = null; spriteDrag = null; spriteTarget = null
         val previous = doc
         val newDocument = previous != null && previous.id != value.id
         val revision = host.contentRevision()
@@ -99,10 +118,15 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             session = BoardSession(); pendingSelection = null
             scroll.clear(); modes.clear(); fpsPanels.clear(); lifted = null; gap = null
             spritePixels.clear(); spriteSubGrids.clear()
+            spriteRolls.clear()
             penFades.clear(); nearBoards.clear(); approachExit.clear()
             views.values.forEach { parent.removeView(it) }; views.clear()
         }
         doc = value
+        value.boards.forEach { b ->
+            if (previous?.boards?.firstOrNull { it.id == b.id }?.grid != b.grid) spriteRolls.remove(b.id)
+            if (session.armedBoardId == b.id && !b.locked && b.kind == BoardKind.SPRITE) session = session.copy(armedBoardId = null)
+        }
         epoch++
         if (revision != contentRevision || ownershipChanged) {
             artEpoch++; art.evictAll(); requested.clear()
@@ -114,6 +138,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         }
         views.keys.filter { id -> value.boards.none { it.id == id } }.toList().forEach {
             spritePixels.remove(it); spriteSubGrids.remove(it)
+            spriteRolls.remove(it)
             views.remove(it)?.let { view -> view.stopInteractions(); parent.removeView(view) }
         }
         value.boards.forEach { board ->
@@ -136,6 +161,11 @@ class BoardRuntimeController(private val context: Context, private val parent: F
 
     fun stopPreview(cancelHover: Boolean = true) {
         parent.removeCallbacks(tick)
+        parent.removeCallbacks(spriteTick)
+        spritePlaying?.let { id -> spriteClock?.let { c -> spriteRolls[id]?.let { roll ->
+            if(!roll.isEmpty) spriteRolls[id]=roll.focused(c.frameIndexAt((SystemClock.uptimeMillis()-spriteStarted).toDouble()))
+        } } }
+        spritePlaying = null; spriteClock = null; spritePlayingCell = null
         val hadPreview = playingBoard != null
         playingBoard = null; clock = null; previewFrame = null
         if (hadPreview) host.preview(emptyMap())
@@ -156,8 +186,10 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         stopPreview()
         views.values.forEach { it.stopInteractions() }
         holdPreview = null; lifted = null; gap = null; liftScene = null
+        geometryDrag = null; geometryPreview = null; spriteDrag = null; spriteTarget = null
         parent.removeCallbacks(fade)
         parent.removeCallbacks(refreshAgain)
+        parent.removeCallbacks(armedTick)
         refreshAgainNeeded = false
         placementEpoch++
         val placement = capture
@@ -218,7 +250,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         val sizeW = parent.width + margin * 2; val sizeH = parent.height + margin * 2
         val density = context.resources.displayMetrics.density
         val now = SystemClock.uptimeMillis()
-        current.boards.forEach { b ->
+        current.boards.forEach { saved ->
+            val b = geometryPreview?.takeIf { it.id == saved.id && geometryDrag?.board == saved } ?: saved
             val v = views[b.id] ?: return@forEach
             val params = v.layoutParams as FrameLayout.LayoutParams
             if (params.width != sizeW || params.height != sizeH || params.leftMargin != -margin || params.topMargin != -margin)
@@ -237,21 +270,29 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             else if (nearBoards.remove(b.id)) approachExit[b.id] = now
             v.sceneIdentity = BoardChromeIdentity(b.id, b.frames.map { it.id })
             val input = Chrome.Input(board = rect, density = density, kind = b.kind, name = b.name,
-                selected = session.selectedBoardId == b.id, locked = b.locked, tiled = b.tiled,
+                selected = session.selectedBoardId == b.id, locked = b.locked, tiled = b.tiled, armed = session.armedBoardId == b.id,
                 currentFrame = index + 1, holds = holds.ifEmpty { listOf(1) }, pixelWidth = b.rect.w, pixelHeight = b.rect.h,
                 pen = p, penDown = penDown, penDownElapsedMs = SystemClock.uptimeMillis() - penChanged,
                 penLiftElapsedMs = SystemClock.uptimeMillis() - penChanged,
                 approachWasNear = b.id in approachExit, approachExitElapsedMs = now - (approachExit[b.id] ?: (now - 300)),
                 screen = Chrome.Rect(margin.toFloat(), margin.toFloat(), (margin + parent.width).toFloat(), (margin + parent.height).toFloat()),
                 stripScrollPx = (scroll[b.id] ?: 0).toFloat(), liftedFrame = lifted?.takeIf { session.selectedBoardId == b.id },
-                insertionIndex = gap?.takeIf { session.selectedBoardId == b.id }, playing = playingBoard == b.id,
+                insertionIndex = gap?.takeIf { session.selectedBoardId == b.id }, playing = playingBoard == b.id || spritePlaying == b.id,
                 loopGlyph = when (modes[b.id] ?: PlayMode.LOOP) { PlayMode.LOOP -> "loop"; PlayMode.PING_PONG -> "ping-pong"; PlayMode.ONCE -> "once" },
                 showFps = b.id in fpsPanels, fps = b.fps.roundToInt(), columns = b.grid?.cols ?: 1,
                 rows = b.grid?.rows ?: 1, cellWidth = b.grid?.cellW ?: b.rect.w, cellHeight = b.grid?.cellH ?: b.rect.h,
-                gridByPixels = spritePixels[b.id] == true, subGrid = spriteSubGrids[b.id] ?: 2)
+                gridByPixels = spritePixels[b.id] == true, subGrid = spriteSubGrids[b.id] ?: 2,
+                spriteOrder = if(b.locked) spriteRolls[b.id]?.entries?.map { it.cell }.orEmpty() else emptyList(),
+                playingCell = if(spritePlaying == b.id) spritePlayingCell else spriteRolls[b.id]?.let { it.entries.getOrNull(it.cursor)?.cell },
+                liftedCell = spriteDrag?.takeIf { it.board.id == b.id }?.cell, targetCell = spriteTarget?.takeIf { spriteDrag?.board?.id == b.id },
+                liftedCellOffset = spriteLiftOffset, reducedMotion = reducedMotion, wiggleElapsedMs = now)
             v.show(penFades.getOrPut(b.id) { BoardChromePenFade() }.apply(input, now))
             if (b.kind == BoardKind.ANIMATION && session.selectedBoardId == b.id) requestArt(b, rect.width, density)
+            if (b.kind == BoardKind.SPRITE && session.selectedBoardId == b.id && geometryPreview == null) requestSpriteArt(b)
         }
+        parent.removeCallbacks(armedTick)
+        if(!reducedMotion && session.selectedBoardId == session.armedBoardId && current.boards.any { it.id == session.armedBoardId && it.kind == BoardKind.SPRITE && it.locked })
+            parent.postDelayed(armedTick,80)
     }
 
     private fun requestArt(b: Board, width: Float, density: Float) {
@@ -278,6 +319,69 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     }
 
     private fun board(id: String) = doc?.boards?.firstOrNull { it.id == id }
+    private fun requestSpriteArt(b: Board) {
+        if (penDown) return
+        val count = b.grid?.let { it.cols * it.rows } ?: return
+        val wanted = if (session.armedBoardId == b.id) listOfNotNull(spriteDrag?.takeIf { it.board.id == b.id }?.cell,spriteTarget).distinct()
+            else spriteRolls[b.id]?.entries?.map { it.cell }?.distinct().orEmpty()
+        val cells = wanted.filter { art[b.id to "sprite-$it"] == null && (b.id to "sprite-$it") !in requested }.take(16)
+        if (cells.isEmpty()) return
+        val stamp = artEpoch; val scene = doc?.id
+        cells.forEach { requested += b.id to "sprite-$it" }
+        host.spriteThumbnails(b.id,cells,80,80) { pixels ->
+            if (!active || stamp != artEpoch || scene != doc?.id || board(b.id) != b) return@spriteThumbnails
+            pixels.forEach { (cell,data) -> if (cell in cells && data.size == 6400) {
+                art.put(b.id to "sprite-$cell",Bitmap.createBitmap(data,80,80,Bitmap.Config.ARGB_8888))
+                requested.remove(b.id to "sprite-$cell")
+            } }
+            views[b.id]?.invalidate(); refreshTransform()
+        }
+    }
+    private fun spriteAction(b: Board, control: String, held: Boolean) {
+        if (!b.locked) return
+        if (control == "preview-clear") { stopPreview(); spriteRolls.remove(b.id); refreshTransform(); return }
+        if (control == "preview-play") {
+            if (spritePlaying == b.id) { stopPreview(); refreshTransform(); return }
+            val roll = spriteRolls[b.id]?.takeUnless { it.isEmpty } ?: return
+            stopPreview(); spritePlaying = b.id
+            spriteClock = PlaybackClock(roll.asBoard(b.fps,b.rect)); spriteStarted = SystemClock.uptimeMillis()
+            spriteTick.run(); return
+        }
+        if (session.armedBoardId == b.id) return
+        val cell = control.removePrefix("sprite-cell-").toIntOrNull() ?: return
+        val count = b.grid?.let { it.cols * it.rows } ?: return
+        stopPreview()
+        val roll = spriteRolls[b.id] ?: CellRoll()
+        spriteRolls[b.id] = if (held) roll.untappedAll(cell).roll else if(roll.size < 4096) roll.tapped(cell,count) else roll
+        refreshTransform()
+    }
+    private val spriteTick = object : Runnable {
+        override fun run() {
+            val id = spritePlaying ?: return
+            if (!active) return
+            val roll = spriteRolls[id]?.takeUnless { it.isEmpty } ?: return
+            val c = spriteClock ?: return
+            val elapsed = (SystemClock.uptimeMillis()-spriteStarted).toDouble()
+            spritePlayingCell = roll.entries[c.frameIndexAt(elapsed)].cell
+            refreshTransform()
+            parent.postDelayed(this,(c.nextChangeMs(elapsed)-elapsed).toLong().coerceIn(16,250))
+        }
+    }
+    private fun clearGeometry() {
+        geometryDrag = null; geometryPreview = null
+        host.selectionChanged(selectedBounds); refreshTransform()
+    }
+    private fun boardSizeForm(b: Board) {
+        val documentId = doc?.id ?: return
+        textForm("Board size in pixels",listOf("Width" to "${b.rect.w}","Height" to "${b.rect.h}")) { values ->
+            val w=values[0].toIntOrNull(); val h=values[1].toIntOrNull()
+            if (w == null || h == null || w < 1 || h < 1) { host.refusal("Enter positive whole pixel dimensions"); return@textForm }
+            edit { live ->
+                if (live.id != documentId || live.boards.firstOrNull { it.id == b.id } != b) throw DocException("The board changed; choose its size again")
+                RegionChange(BoardDocumentOps.resizeTyped(live,b.id,w,h))
+            }
+        }
+    }
     private fun changeSpriteGrid(expected: Board, expectedDocumentId: String, grid: SpriteGrid) {
         if (!active || expected.kind != BoardKind.SPRITE) return
         edit { live ->
@@ -302,7 +406,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                     val value = values.single().toIntOrNull()
                     if(value == null || value < 1) { host.refusal("Enter a positive whole number"); return@textForm }
                     val model = SpriteBoard(b)
-                    val next = if(pixels) model.bySize(if(horizontal)value else grid.cellW,if(horizontal)grid.cellH else value)
+                    if(pixels && value > SpriteGridMath.MAX_CELL_PX) { host.refusal("Cell size must be 1–${SpriteGridMath.MAX_CELL_PX} pixels"); return@textForm }
+                    val next = if(pixels) grid.copy(cellW=if(horizontal)value else grid.cellW,cellH=if(horizontal)grid.cellH else value)
                         else model.byCount(if(horizontal)value else grid.cols,if(horizontal)grid.rows else value)
                     changeSpriteGrid(b,documentId,next)
                 }
@@ -316,7 +421,11 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                     if(live.id != documentId) throw DocException("The drawing changed; choose its grid again")
                     val target = live.boards.firstOrNull { it.id == b.id && it.kind == BoardKind.SPRITE }
                         ?: throw DocException("The Sprite board no longer exists")
-                    RegionChange(BoardDocumentOps.setSpriteGrid(live,b.id,SpriteBoard(target).stepped(axis,delta)))
+                    val g = target.grid!!
+                    val next = if(pixels) g.copy(cellW=if(axis == SpriteBoard.Axis.CELL_W)(g.cellW+delta).coerceIn(1,SpriteGridMath.MAX_CELL_PX) else g.cellW,
+                        cellH=if(axis == SpriteBoard.Axis.CELL_H)(g.cellH+delta).coerceIn(1,SpriteGridMath.MAX_CELL_PX) else g.cellH)
+                        else SpriteBoard(target).stepped(axis,delta)
+                    RegionChange(BoardDocumentOps.setSpriteGrid(live,b.id,next))
                 }
             }
         }
@@ -327,28 +436,41 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private fun adapter(id: String) = object : BoardChromeView.Host {
         override fun acceptsPointer(control: String, event: MotionEvent): Boolean {
             if (!active) return false
-            // Sequence and rearrangement are not connected yet: the grid must not swallow
-            // finger drawing/navigation either. Shelf controls remain interactive.
-            return !control.startsWith("sprite-cell-") || board(id)?.kind != BoardKind.SPRITE
+            if (!control.startsWith("sprite-cell-")) return true
+            val b = board(id) ?: return false
+            // Unlocked fingers and every pen keep painting. Locked fingers build the roll/swap.
+            return b.kind == BoardKind.SPRITE && b.locked && event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER
         }
         override fun action(control: String, held: Boolean) {
             val b = board(id) ?: return
             when (control) {
                 "kind" -> if (held) boardMenu(id) else select(if (session.selectedBoardId == id) null else id)
                 "title" -> textForm("Board name", listOf("Name" to b.name)) { metadata { d -> BoardDocumentOps.rename(d, id, it[0]) } }
-                "size" -> textForm("Board size", listOf("Width" to "${b.rect.w}", "Height" to "${b.rect.h}")) { values ->
-                    val w = values[0].toIntOrNull(); val h = values[1].toIntOrNull()
-                    if (w == null || h == null) host.refusal("Enter whole pixel dimensions") else metadata { BoardDocumentOps.resizeTyped(it, id, w, h) }
+                "size" -> boardSizeForm(b)
+                "cell-size" -> if(b.kind == BoardKind.SPRITE) {
+                    val g=b.grid ?: return; val documentId=doc?.id ?: return
+                    textForm("Cell size in pixels",listOf("Width" to "${g.cellW}","Height" to "${g.cellH}")) { values ->
+                        val w=values[0].toIntOrNull(); val h=values[1].toIntOrNull()
+                        if(w == null || h == null || w !in 1..SpriteGridMath.MAX_CELL_PX || h !in 1..SpriteGridMath.MAX_CELL_PX)
+                            host.refusal("Cell size must be 1–${SpriteGridMath.MAX_CELL_PX} whole pixels")
+                        else changeSpriteGrid(b,documentId,g.copy(cellW=w,cellH=h))
+                    }
                 }
                 "lock" -> if (b.kind == BoardKind.ANIMATION && b.frames.size > 1) host.refusal("Move all frames needs a content transaction") else metadata { BoardDocumentOps.setLocked(it, id, !b.locked) }
                 "add" -> if (held) frameMenu(id) else add(id, NewFrame.DUPLICATE)
                 "play" -> if (held) { if (!fpsPanels.add(id)) fpsPanels.remove(id); refreshTransform() } else togglePlay(id)
                 "loop" -> { modes[id] = PlayMode.values()[((modes[id] ?: PlayMode.LOOP).ordinal + 1) % 3]; stopPreview(); refreshTransform() }
                 "fps-minus", "fps-plus" -> metadata { d -> d.copy(boards = d.boards.map { if (it.id == id) it.copy(fps = (it.fps + if (control == "fps-plus") 1 else -1).coerceIn(1f, 60f)) else it }) }
-                "feature" -> host.refusal(if (b.kind == BoardKind.SPRITE) "Sprite rearrangement is not connected yet" else "Wrapped tile painting is not connected yet")
+                "feature" -> if(b.kind == BoardKind.SPRITE) {
+                    if(!b.locked) host.refusal("Lock the board to rearrange cells") else {
+                        stopPreview(); session=session.arm(doc!!,if(session.armedBoardId == id)null else id); refreshTransform()
+                    }
+                } else host.refusal("Wrapped tile painting is not connected yet")
                 "onion" -> host.refusal("Onion skin rendering is not connected yet")
                 "export" -> { stopPreview(); host.export(id) }
                 "grid-count", "grid-px", "cols-minus", "cols-plus", "rows-minus", "rows-plus", "cols", "rows", "subgrid" -> spriteGridAction(b,control)
+                "preview-play", "preview-clear" -> spriteAction(b,control,held)
+                else -> if(control.startsWith("sprite-cell-")) spriteAction(b,control,held)
             }
         }
         override fun frame(frame: Int) = chooseFrame(id, frame - 1)
@@ -388,13 +510,59 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             else { stopPreview(cancelHover = false); refreshTransform() }
         }
         override fun drag(control: String, from: Chrome.Point, to: Chrome.Point, finished: Boolean) {
-            if (!finished) return
-            val handle = control.removePrefix("handle-").toIntOrNull() ?: return
             val b = board(id) ?: return
-            val rect = resized(b.rect, handle, ((to.x-from.x)/host.transform().zoom).roundToInt(), ((to.y-from.y)/host.transform().zoom).roundToInt())
-            metadata { d -> BoardDocumentOps.resizeTyped(BoardDocumentOps.move(d,id,rect.x,rect.y),id,rect.w,rect.h) }
+            if(control.startsWith("sprite-cell-")) {
+                if(!b.locked || session.armedBoardId != id) return
+                val index=control.removePrefix("sprite-cell-").toIntOrNull() ?: return
+                val gesture=spriteDrag ?: SpriteDrag(doc!!.id,b,index,from).also { spriteDrag=it; stopPreview() }
+                if(gesture.board != b || gesture.documentId != doc?.id) { spriteDrag=null; spriteTarget=null; return }
+                val t=host.transform()
+                val margin=ceil(hypot(parent.width.toDouble(),parent.height.toDouble())).toInt()
+                val target=SpriteGridMath.cellAt(b,(to.x-t.panX-margin)/t.zoom,(to.y-t.panY-margin)/t.zoom).takeIf { it >= 0 }
+                spriteTarget=target
+                spriteLiftOffset=Chrome.Point(to.x-from.x,to.y-from.y)
+                if(finished) {
+                    spriteDrag=null; spriteTarget=null; refreshTransform()
+                    if(target != null && target != index) edit { live ->
+                        if(live.id != gesture.documentId || live.boards.firstOrNull { it.id == id } != b) throw DocException("The Sprite grid changed; drag again")
+                        SpriteCellOps.swap(live,id,index,target)
+                    }
+                } else refreshTransform()
+                return
+            }
+            val handle = control.removePrefix("handle-").toIntOrNull() ?: return
+            if(b.locked || b.kind == BoardKind.ANIMATION) return
+            val gesture=geometryDrag ?: GeometryDrag(doc!!.id,b,handle,host.transform().zoom).also { geometryDrag=it; stopPreview() }
+            if(gesture.board != b || gesture.documentId != doc?.id) { clearGeometry(); return }
+            try {
+                val rect=resized(gesture.board.rect,handle,((to.x-from.x)/gesture.zoom).roundToInt(),((to.y-from.y)/gesture.zoom).roundToInt())
+                val preview=BoardDocumentOps.resize(doc!!,id,rect).boards.first { it.id == id }
+                if(finished) {
+                    clearGeometry()
+                    if(preview != b) edit { live ->
+                        if(live.id != gesture.documentId || live.boards.firstOrNull { it.id == id } != b) throw DocException("The board changed; resize again")
+                        RegionChange(BoardDocumentOps.resize(live,id,rect))
+                    }
+                } else { geometryPreview=preview; host.selectionChanged(preview.rect); refreshTransform() }
+            } catch(e:IllegalArgumentException) { clearGeometry(); host.refusal(e.message ?: "Choose a smaller board size") }
+              catch(e:DocException) { clearGeometry(); host.refusal(e.message ?: "Choose a smaller board size") }
+        }
+        override fun cancel(control: String) {
+            if(control.startsWith("handle-")) clearGeometry()
+            if(control.startsWith("sprite-cell-")) { spriteDrag=null; spriteTarget=null; refreshTransform() }
         }
         override fun art(canvas: Canvas, element: Chrome.Element) {
+            val b=board(id) ?: return
+            if(b.kind == BoardKind.SPRITE) {
+                val cell=when { element.id == "preview-art" -> if(spritePlaying == id)spritePlayingCell else spriteRolls[id]?.let { it.entries.getOrNull(it.cursor)?.cell }
+                    element.id == "sprite-lift" -> spriteDrag?.cell
+                    else -> element.id.removePrefix("sprite-cell-").toIntOrNull() } ?: return
+                val bitmap=art[id to "sprite-$cell"] ?: return
+                val r=element.rect; val g=b.grid ?: return
+                val scale=min(r.width/g.cellW,r.height/g.cellH)
+                val w=g.cellW*scale; val h=g.cellH*scale
+                canvas.drawBitmap(bitmap,null,RectF(r.cx-w/2,r.cy-h/2,r.cx+w/2,r.cy+h/2),Paint(Paint.FILTER_BITMAP_FLAG)); return
+            }
             val index = element.id.removePrefix("cell-").toIntOrNull() ?: return
             val frame = board(id)?.frames?.getOrNull(index)?.id ?: return
             val bitmap = art[id to frame] ?: return
@@ -496,7 +664,13 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     }
     private fun textForm(title: String, fields: List<Pair<String,String>>, done: (List<String>) -> Unit) {
         val box = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        val inputs = fields.map { (label,value) -> EditText(context).apply { hint = label; setText(value); setSingleLine(); box.addView(this) } }
+        val inputs = fields.map { (label,value) ->
+            box.addView(android.widget.TextView(context).apply { text=label; setPadding(16,8,16,0) })
+            EditText(context).apply {
+                hint = label; if(label != "Name") inputType=android.text.InputType.TYPE_CLASS_NUMBER
+                setText(value); setSelectAllOnFocus(true); setSingleLine(); box.addView(this)
+            }
+        }
         AlertDialog.Builder(context).setTitle(title).setView(box).setNegativeButton("Cancel",null).setPositiveButton("Apply") { _, _ -> done(inputs.map { it.text.toString() }) }.show()
     }
     private fun togglePlay(id: String) { if (playingBoard == id) { stopPreview(); refreshTransform() } else startPlay(id) }
@@ -518,12 +692,13 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     companion object {
         internal fun resized(r: RectPx, handle: Int, dx: Int, dy: Int): RectPx {
             require(handle in 0..7)
-            var left = r.x; var top = r.y; var right = r.x + r.w; var bottom = r.y + r.h
+            var left = r.x.toLong(); var top = r.y.toLong(); var right = left + r.w; var bottom = top + r.h
             if (handle in listOf(0,6,7)) left = (left+dx).coerceAtMost(right-1)
             if (handle in listOf(2,3,4)) right = (right+dx).coerceAtLeast(left+1)
             if (handle in listOf(0,1,2)) top = (top+dy).coerceAtMost(bottom-1)
             if (handle in listOf(4,5,6)) bottom = (bottom+dy).coerceAtLeast(top+1)
-            return RectPx(left,top,right-left,bottom-top)
+            require(listOf(left,top,right,bottom,right-left,bottom-top).all { it in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong() }) { "Choose a smaller board size" }
+            return RectPx(left.toInt(),top.toInt(),(right-left).toInt(),(bottom-top).toInt())
         }
         /** Native drag gap addresses the original order, before removing the dragged stable ID. */
         internal fun reordered(ids: List<String>, frame: String, gap: Int): List<String> {

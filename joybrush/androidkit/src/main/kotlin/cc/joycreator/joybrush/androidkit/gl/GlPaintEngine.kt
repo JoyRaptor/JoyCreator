@@ -27,6 +27,8 @@ import cc.joycreator.joybrush.core.paint.TuftMath
 import cc.joycreator.joybrush.core.paint.TuftShading
 import cc.joycreator.joybrush.core.paint.TuftStamp
 import cc.joycreator.joybrush.core.paint.UndoLog
+import cc.joycreator.joybrush.core.sprite.SpriteGridMath
+import cc.joycreator.joybrush.core.render.MAX_REGION_PX
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -35,6 +37,68 @@ import java.util.UUID
 
 /** Layer thumbnails are drawn this many times bigger, then box-averaged down (JB-2.04). */
 private const val THUMB_SUPERSAMPLE = 4
+
+/** Immutable, bounded scene identity for asynchronous Sprite pictures. No graphics state is captured. */
+internal class SpritePreviewRequest(
+    private val document: JbDocument,
+    boardId: String,
+    cells: List<Int>,
+    val width: Int,
+    val height: Int,
+    private val revision: Long,
+) {
+    val board = document.boards.firstOrNull { it.id == boardId }
+        ?: throw IllegalArgumentException("No such Sprite board")
+    val bounds: Map<Int, RectPx>
+    init {
+        require(board.kind == BoardKind.SPRITE) { "Cell previews require a Sprite board" }
+        require(cells.size <= 16) { "Request only the visible Sprite cells" }
+        require(width in 1..256 && height in 1..256) { "Sprite preview dimensions are out of range" }
+        bounds = cells.distinct().associateWith { SpriteGridMath.cellRect(board, it) }
+    }
+    // Includes neighboring animation cursors/ownership, not only the Sprite rectangle.
+    fun matches(current: JbDocument?, currentRevision: Long): Boolean =
+        document == current && revision == currentRevision
+}
+
+internal data class TranslatedTileSlice(
+    val sourceKey: Long, val destinationKey: Long,
+    val source: RegionTileRect, val destination: RegionTileRect,
+)
+
+/** Subdivide at BOTH grids; a translated cell need not have the same tile-local origin. */
+internal object RegionTransferTiles {
+    fun slices(source: RectPx, destination: RectPx): Sequence<TranslatedTileSlice> = sequence {
+        require(source.w > 0 && source.h > 0 && source.w == destination.w && source.h == destination.h) {
+            "Transferred rectangles must have the same positive size"
+        }
+        for (r in listOf(source, destination)) {
+            require(r.x.toLong() + r.w <= Int.MAX_VALUE && r.y.toLong() + r.h <= Int.MAX_VALUE) {
+                "Transferred pixels are outside addressable canvas coordinates"
+            }
+        }
+        var y = 0
+        while (y < source.h) {
+            val sy = source.y + y; val dy = destination.y + y
+            val sourceY = Math.floorMod(sy, Tiles.SIZE); val destinationY = Math.floorMod(dy, Tiles.SIZE)
+            val height = minOf(source.h - y, Tiles.SIZE - sourceY, Tiles.SIZE - destinationY)
+            var x = 0
+            while (x < source.w) {
+                val sx = source.x + x; val dx = destination.x + x
+                val sourceX = Math.floorMod(sx, Tiles.SIZE); val destinationX = Math.floorMod(dx, Tiles.SIZE)
+                val width = minOf(source.w - x, Tiles.SIZE - sourceX, Tiles.SIZE - destinationX)
+                yield(TranslatedTileSlice(
+                    Tiles.key(Math.floorDiv(sx, Tiles.SIZE), Math.floorDiv(sy, Tiles.SIZE)),
+                    Tiles.key(Math.floorDiv(dx, Tiles.SIZE), Math.floorDiv(dy, Tiles.SIZE)),
+                    RegionTileRect(sourceX, sourceY, width, height),
+                    RegionTileRect(destinationX, destinationY, width, height),
+                ))
+                x += width
+            }
+            y += height
+        }
+    }
+}
 
 /** A layer id with this on the end names its MASK's tile store (JB-2.23): strokes, tiles, undo and thumbnails all take it. */
 const val MASK_SUFFIX = "#mask"
@@ -200,6 +264,8 @@ class GlPaintEngine(
     private var thumbTex = 0
     private var thumbW = 0
     private var thumbH = 0
+    /** Reused across a strip batch: do not allocate sixteen supersampled direct buffers. */
+    private var boardThumbReadback: ByteBuffer? = null
 
     private val layers = LinkedHashMap<String, Layer>()   // bottom → top
     private val freeLayerTex = ArrayDeque<Int>()
@@ -696,6 +762,25 @@ class GlPaintEngine(
         // The core validates frame identity, even if every layer is held.
         val requested = restore + (boardId to frameId)
         RegionDocumentOps.paintPlans(doc, requested)
+        return renderCompositedThumbnail(board.rect, outW, outH, paperArgb, requested)
+    }
+
+    /** Sprite cells contain the current saved scene, including held paint and nearby animation ownership. */
+    fun renderSpriteCellThumbnail(boardId: String, cell: Int, outW: Int, outH: Int, paperArgb: Int): IntArray {
+        check(!strokeInProgress) { "Cell thumbnails cannot replace a live stroke's display plan" }
+        require(outW in 1..256 && outH in 1..256) { "Sprite preview dimensions are out of range" }
+        val doc = boardDocument ?: error("No board document is attached")
+        val board = doc.boards.firstOrNull { it.id == boardId } ?: error("No such board")
+        require(board.kind == BoardKind.SPRITE) { "Cell previews require a Sprite board" }
+        val rect = SpriteGridMath.cellRect(board, cell)
+        // Playback is transient. Cell caches must use saved neighboring frame cursors.
+        RegionDocumentOps.paintPlans(doc, emptyMap())
+        return renderCompositedThumbnail(rect, outW, outH, paperArgb, emptyMap())
+    }
+
+    private fun renderCompositedThumbnail(rect: RectPx, outW: Int, outH: Int, paperArgb: Int,
+                                         requested: Map<String, String>): IntArray {
+        val restore = framePreviews
         val w = outW * THUMB_SUPERSAMPLE
         val h = outH * THUMB_SUPERSAMPLE
         val bindings = IntArray(2)
@@ -714,14 +799,17 @@ class GlPaintEngine(
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
             attach(thumbTex)
             GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
-            val rect = board.rect
             val matrix = floatArrayOf(2f / rect.w, 0f, 0f, 0f, 2f / rect.h, 0f,
                 -1f - 2f * rect.x / rect.w, -1f - 2f * rect.y / rect.h, 1f)
             draw(w, h, matrix, paperArgb, fbo)
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
-            val buf = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder())
+            val bytes = w * h * 4
+            val buf = boardThumbReadback?.takeIf { it.capacity() >= bytes }
+                ?: ByteBuffer.allocateDirect(bytes).order(ByteOrder.nativeOrder()).also { boardThumbReadback = it }
+            buf.clear()
             GLES30.glReadPixels(0, 0, w, h, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf)
-            val pixels = ByteArray(w * h * 4)
+            check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Board preview readback failed" }
+            val pixels = ByteArray(bytes)
             buf.rewind(); buf.get(pixels)
             return Thumbnails.downsample(pixels, w, h, THUMB_SUPERSAMPLE)
         } finally {
@@ -936,10 +1024,45 @@ class GlPaintEngine(
         val before=boardDocument ?: error("No board document is attached")
         val errors=DocOps.validate(change.doc); require(errors.isEmpty()){errors.joinToString("; ")}
         require(change.doc.layers.map{it.id}==before.layers.map{it.id}) { "Board edits cannot replace the layer stack" }
-        val pending=LinkedHashMap<Pair<String,Pair<String,Long>>,UndoLog.TileChange<Int>>()
+        require(change.doc.layers.all { it.kind == LayerKind.PAINT && it.animatedIn == null }) {
+            "This renderer paints raster layers"
+        }
+        val translated = change.transfers.isNotEmpty() || change.maskTransfers.isNotEmpty()
+        val maxTransferTiles = (MAX_REGION_PX / (size.toLong() * size)).toInt()
+        // Preflight all original plane identities and bounds before allocating or publishing anything.
+        val touched = HashSet<Pair<String, Pair<String?, Long>>>()
+        fun preflight(layer: Layer, source: Map<Long, Int>, destination: Map<Long, Int>, cel: String?,
+                      sourceRect: RectPx, destinationRect: RectPx) {
+            require(sourceRect.w.toLong() * sourceRect.h <= MAX_REGION_PX) {
+                "These cells are too large to swap on this phone"
+            }
+            for (slice in RegionTransferTiles.slices(sourceRect, destinationRect)) {
+                if (source[slice.sourceKey] != null || destination[slice.destinationKey] != null) {
+                    touched.add(layer.id to (cel to slice.destinationKey))
+                    require(touched.size <= maxTransferTiles) { "These painted cells are too large to swap on this phone" }
+                }
+            }
+        }
+        for (transfer in change.transfers) {
+            val layer = layers[transfer.layerId] ?: error("No layer ${transfer.layerId}")
+            val source = layer.cels[transfer.fromCelId] ?: error("No source cel ${transfer.fromCelId}")
+            val destination = layer.cels[transfer.toCelId] ?: error("No destination cel ${transfer.toCelId}")
+            preflight(layer, source, destination, transfer.toCelId, transfer.sourceRect, transfer.destinationRect)
+        }
+        for (transfer in change.maskTransfers) {
+            val mask = layers[transfer.layerId]?.mask ?: error("No mask on layer ${transfer.layerId}")
+            preflight(mask, mask.tiles, mask.tiles, null, transfer.sourceRect, transfer.destinationRect)
+        }
+        val pending=LinkedHashMap<Pair<String,Pair<String?,Long>>,UndoLog.TileChange<Int>>()
         var published=false
+        fun checkRoom(address: Pair<String, Pair<String?, Long>>) {
+            if (translated && address !in pending) require(pending.size < maxTransferTiles) {
+                "These painted cells are too large to swap on this phone"
+            }
+        }
         fun stage(layer: Layer,cel: String,key: Long,source: Int?,rect: RegionTileRect) {
             val address=layer.id to (cel to key)
+            checkRoom(address)
             val old=pending[address]
             val original=old?.before ?: layer.cels[cel]?.get(key)
             val made=newLayerTile()
@@ -954,6 +1077,32 @@ class GlPaintEngine(
                 old?.after?.let(::recycleLayerTex)
                 pending[address]=UndoLog.TileChange(layer.id,key,original,made,cel)
             } catch(e:Throwable){recycleLayerTex(made); throw e}
+        }
+        fun stageTranslated(layer: Layer, cel: String?, slice: TranslatedTileSlice, source: Int?) {
+            val key = slice.destinationKey
+            val address = layer.id to (cel to key)
+            val original = planeTiles(layer, cel)[key]
+            // Two absent planes are already equal; do not manufacture empty tiles across a sparse cell.
+            if (source == null && original == null && address !in pending) return
+            val old = pending[address]
+            val target = old?.after ?: run {
+                checkRoom(address)
+                val made = newLayerTile()
+                try { initializeTile(made, original, layer.isMask) }
+                catch (e: Throwable) { recycleLayerTex(made); throw e }
+                pending[address] = UndoLog.TileChange(layer.id, key, old?.before ?: original, made, cel)
+                made
+            }
+            if (source != null) copyTextureRectTranslated(source, target, slice.source, slice.destination)
+            else {
+                val rect = slice.destination
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo); attach(target)
+                GLES30.glEnable(GLES30.GL_SCISSOR_TEST); GLES30.glScissor(rect.x, rect.y, rect.w, rect.h)
+                val bg = if (layer.isMask) 1f else 0f
+                GLES30.glClearColor(bg, bg, bg, bg); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+                GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+                check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Board tile replacement failed" }
+            }
         }
         try {
             for(copy in change.copies) {
@@ -971,6 +1120,20 @@ class GlPaintEngine(
                     stage(layer,copy.toCelId,key,texture,slice.rect)
                 }
             }
+            for (transfer in change.transfers) {
+                val layer = layers.getValue(transfer.layerId)
+                // Live stores stay immutable until every reciprocal transfer is staged.
+                val source = layer.cels.getValue(transfer.fromCelId)
+                for (slice in RegionTransferTiles.slices(transfer.sourceRect, transfer.destinationRect)) {
+                    stageTranslated(layer, transfer.toCelId, slice, source[slice.sourceKey])
+                }
+            }
+            for (transfer in change.maskTransfers) {
+                val mask = requireNotNull(layers.getValue(transfer.layerId).mask)
+                for (slice in RegionTransferTiles.slices(transfer.sourceRect, transfer.destinationRect)) {
+                    stageTranslated(mask, null, slice, mask.tiles[slice.sourceKey])
+                }
+            }
             for(drop in change.drops) {
                 val layer=layers[drop.layerId] ?: error("No layer ${drop.layerId}")
                 val keys=(layer.cels[drop.celId].orEmpty().keys+pending.keys.filter{
@@ -983,8 +1146,8 @@ class GlPaintEngine(
                     pending[address]=UndoLog.TileChange(layer.id,key,old?.before ?: tex,null,drop.celId)
                 }
             }
-            pending.values.forEach { c->put(c.layerId,c.key,c.after,c.celId) }
             published=true
+            pending.values.forEach { c->put(c.layerId,c.key,c.after,c.celId) }
             setBoardDocument(change.doc)
             if(before!=change.doc || pending.isNotEmpty()) undo.push(UndoLog.Step(pending.values.toList(),
                 documentBefore=before,documentAfter=change.doc))
@@ -1065,11 +1228,16 @@ class GlPaintEngine(
         if(source!=null)copyTextureRect(source,target,RegionTileRect(0,0,size,size))
     }
     private fun copyTextureRect(source: Int,target: Int,r: RegionTileRect) {
+        copyTextureRectTranslated(source, target, r, r)
+    }
+    private fun copyTextureRectTranslated(source: Int, target: Int, from: RegionTileRect, to: RegionTileRect) {
+        require(from.w == to.w && from.h == to.h)
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER,readFbo)
         GLES30.glFramebufferTexture2D(GLES30.GL_READ_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,GLES30.GL_TEXTURE_2D,source,0)
         GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER,copyFbo)
         GLES30.glFramebufferTexture2D(GLES30.GL_DRAW_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,GLES30.GL_TEXTURE_2D,target,0)
-        GLES30.glBlitFramebuffer(r.x,r.y,r.right,r.bottom,r.x,r.y,r.right,r.bottom,GLES30.GL_COLOR_BUFFER_BIT,GLES30.GL_NEAREST)
+        GLES30.glBlitFramebuffer(from.x,from.y,from.right,from.bottom,to.x,to.y,to.right,to.bottom,GLES30.GL_COLOR_BUFFER_BIT,GLES30.GL_NEAREST)
         check(GLES30.glGetError()==GLES30.GL_NO_ERROR) { "Board tile copy failed" }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo)
     }

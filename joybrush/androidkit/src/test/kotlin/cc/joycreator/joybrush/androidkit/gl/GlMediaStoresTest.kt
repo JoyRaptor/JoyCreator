@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.paint.UndoLog
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -58,5 +59,18 @@ class GlMediaStoresTest {
         assertTrue(e.lostContent, "a media layer's state is the drawing too")
         assertEquals(0, e.heldTextureNames())
         assertNull(e.mediaTile(layer, "paper", 9))
+    }
+
+    @Test fun pastTheMediaCeilingAStrokeIsRefusedInWordsBeforeAnythingIsSwapped() {
+        val e = engine()
+        e.mediaBudgetBytes = MediaStores.tileBytes(256).toLong()   // room for one store tile
+        e.undo.push(UndoLog.Step(listOf(UndoLog.TileChange(MediaStores.id(layer, "paper"), 1, before = null, after = 801))))
+        assertTrue(e.undoStep() && e.redoStep(), "plants tile 801 in the paper store")
+        assertEquals(MediaStores.tileBytes(256).toLong(), e.mediaResidentBytes())
+        e.beginMediaStroke()
+        val refused = assertFailsWith<MediaRoomException> { e.writableMediaTiles(layer, listOf(2L), listOf("paper")) }
+        assertTrue("pencil, watercolour and oil" in refused.message!!, refused.message)
+        assertNull(e.mediaTile(layer, "paper", 2), "nothing was swapped in")
+        assertEquals(0, e.endMediaStroke(), "and nothing reached the history")
     }
 }

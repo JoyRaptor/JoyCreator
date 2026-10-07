@@ -1,5 +1,6 @@
 package cc.joycreator.joybrush.androidkit.io
 
+import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.doc.DocJson
 import cc.joycreator.joybrush.core.doc.DocException
 import cc.joycreator.joybrush.core.doc.DocOps
@@ -61,7 +62,12 @@ data class JbContents(
     /** (layerId, celId) to the stroke records of that INK cel. */
     val strokes: Map<Pair<String, String>, List<StrokeRecord>>,
     val thumbnailPng: ByteArray? = null,
+    /** A media layer's state (DocModel v8): one store tile of exactly `MediaStores.tileBytes(TILE_SIZE)` bytes each. */
+    val mediaTiles: Map<MediaTileKey, ByteArray> = emptyMap(),
 )
+
+/** One media store tile in an archive: `layers/<layerId>/<celId>/<key>.<store>.f16`. */
+data class MediaTileKey(val layerId: String, val celId: String, val key: String, val store: String)
 
 /**
  * The `.joybrush` file (JB-0.08a): a zip holding one document's everything.
@@ -72,6 +78,7 @@ data class JbContents(
  * | `document.json` | `DocJson.encode(doc)` | deflate |
  * | `layers/<layerId>/<celId>/<tx>_<ty>.rgba` | one PAINT tile, [TILE_BYTES] bytes | deflate |
  * | `layers/<layerId>/<celId>/strokes.jbs` | `StrokeCodec.encodeAll` of an INK cel | deflate |
+ * | `layers/<layerId>/<celId>/<tx>_<ty>.<store>.f16` | one MEDIA store tile, little-endian half floats (v8) | deflate |
  * | `thumbnail.png` | written by JB-0.08b | stored |
  *
  * Plain JVM only: `java.util.zip` and `java.io`, no Android, so it is testable without a phone.
@@ -125,6 +132,8 @@ object JbArchive {
 
     private val TILE_ORDER = compareBy<Triple<String, String, String>>({ it.first }, { it.second }, { it.third })
     private val CEL_ORDER = compareBy<Pair<String, String>>({ it.first }, { it.second })
+    private val MEDIA_ORDER = compareBy<MediaTileKey>({ it.layerId }, { it.celId }, { it.key }, { it.store })
+    private val MEDIA_TILE_BYTES = MediaStores.tileBytes(TILE_SIZE)
 
     /**
      * Writes the whole archive to [file] without ever leaving a half-written drawing behind.
@@ -213,6 +222,23 @@ object JbArchive {
             }
         }
 
+        // Media state, both directions, as for paint tiles: every file is declared, and every declared tile has state.
+        val mediaDeclared = declaredMediaTiles(doc)
+        val mediaEntries = ArrayList<Pair<String, ByteArray>>()
+        for (key in contents.mediaTiles.keys.sortedWith(MEDIA_ORDER)) {
+            val bytes = contents.mediaTiles.getValue(key)
+            checkMediaTile(key, bytes.size, mediaDeclared)
+            mediaEntries.add(mediaPath(key) to bytes)
+        }
+        val given = contents.mediaTiles.keys.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
+        for ((cel, keys) in mediaDeclared) for (key in keys) {
+            if (Triple(cel.first, cel.second, key) !in given) {
+                throw JbArchiveException(
+                    "the document lists media tile \"$key\" of layer \"${cel.first}\" cel \"${cel.second}\", and no state was given for it"
+                )
+            }
+        }
+
         val strokeEntries = ArrayList<Pair<String, ByteArray>>()
         for (cel in contents.strokes.keys.sortedWith(CEL_ORDER)) {
             if (declared[cel] == null) {
@@ -245,6 +271,11 @@ object JbArchive {
             zos.closeEntry()
 
             for (entry in tileEntries) {
+                zos.putNextEntry(ZipEntry(entry.first))
+                zos.write(entry.second)
+                zos.closeEntry()
+            }
+            for (entry in mediaEntries) {
                 zos.putNextEntry(ZipEntry(entry.first))
                 zos.write(entry.second)
                 zos.closeEntry()
@@ -301,6 +332,7 @@ object JbArchive {
         var thumbnail: ByteArray? = null
         val tiles = LinkedHashMap<Triple<String, String, String>, ByteArray>()
         val strokes = LinkedHashMap<Pair<String, String>, List<StrokeRecord>>()
+        val media = LinkedHashMap<MediaTileKey, ByteArray>()
         var count = 0
 
         try {
@@ -345,6 +377,25 @@ object JbArchive {
 
                     name == THUMBNAIL_NAME -> {
                         thumbnail = readBounded(zis, entry, MAX_THUMBNAIL_BYTES, budget)
+                    }
+
+                    name.startsWith("$LAYERS_DIR/") && name.endsWith(MediaStores.EXT) -> {
+                        val parts = name.split('/')
+                        val stem = parts.getOrNull(3)?.dropLast(MediaStores.EXT.length)
+                        val dot = stem?.lastIndexOf('.') ?: -1
+                        if (parts.size != 4 || stem == null || dot <= 0) {
+                            throw JbArchiveException("entry \"$name\" is a media path, but not layers/<layer>/<cel>/<tx>_<ty>.<store>${MediaStores.EXT}")
+                        }
+                        val key = MediaTileKey(parts[1], parts[2], stem.substring(0, dot), stem.substring(dot + 1))
+                        if (!isTileKey(key.key)) throw JbArchiveException("entry \"$name\" is media state, but \"${key.key}\" is not a \"tx_ty\" tile key")
+                        if (key.store !in MediaStores.ALL) {
+                            throw JbArchiveException("entry \"$name\" is media state for \"${key.store}\", which is not one of ${MediaStores.ALL.joinToString(", ")}")
+                        }
+                        val bytes = readBounded(zis, entry, MEDIA_TILE_BYTES + 1, budget)
+                        if (bytes.size != MEDIA_TILE_BYTES) {
+                            throw JbArchiveException("media tile \"$name\" is ${bytes.size} bytes, a media tile is $MEDIA_TILE_BYTES")
+                        }
+                        media[key] = bytes
                     }
 
                     name.startsWith("$LAYERS_DIR/") && name.endsWith(TILE_EXT) -> {
@@ -395,7 +446,7 @@ object JbArchive {
 
         if (!mimetypeSeen) throw JbArchiveException("this archive has no \"$MIMETYPE_NAME\" entry")
         val docBytes = document ?: throw JbArchiveException("this archive has no \"$DOCUMENT_NAME\" entry")
-        return documentFrom(docBytes, tiles, strokes, thumbnail)
+        return documentFrom(docBytes, tiles, strokes, thumbnail, media)
     }
 
     /**
@@ -409,6 +460,7 @@ object JbArchive {
         tiles: Map<Triple<String, String, String>, ByteArray>,
         strokes: Map<Pair<String, String>, List<StrokeRecord>>,
         thumbnail: ByteArray?,
+        media: Map<MediaTileKey, ByteArray> = emptyMap(),
     ): JbContents = try {
         val doc = try {
             DocJson.decode(docBytes.toString(Charsets.UTF_8))
@@ -452,7 +504,18 @@ object JbArchive {
             }
         }
 
-        JbContents(doc, tiles, strokes, thumbnail)
+        val mediaDeclared = declaredMediaTiles(doc)
+        for (key in media.keys) checkMediaTile(key, MEDIA_TILE_BYTES, mediaDeclared)
+        val present = media.keys.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
+        for ((cel, keys) in mediaDeclared) for (key in keys) {
+            if (Triple(cel.first, cel.second, key) !in present) {
+                throw JbArchiveException(
+                    "the document lists media tile \"$key\" of layer \"${cel.first}\" cel \"${cel.second}\", and this archive has no state for it"
+                )
+            }
+        }
+
+        JbContents(doc, tiles, strokes, thumbnail, media)
     } catch (e: JbArchiveException) {
         throw e
     } catch (e: RuntimeException) {
@@ -515,6 +578,33 @@ object JbArchive {
             )
         }
     }
+
+    /** (layerId, celId) to the media tile keys its cel lists ([cc.joycreator.joybrush.core.doc.Cel.floatTiles]). */
+    private fun declaredMediaTiles(doc: JbDocument): Map<Pair<String, String>, List<String>> {
+        val out = HashMap<Pair<String, String>, List<String>>()
+        for (l in doc.layers) for (c in l.cels) if (c.floatTiles.isNotEmpty()) out[Pair(l.id, c.id)] = c.floatTiles
+        return out
+    }
+
+    /**
+     * A media store tile is listed by its cel's floatTiles, names a store the engine has, and is the right size. Which
+     * stores a listed tile has is the medium's business (they are made lazily): at least one is required, not all.
+     */
+    private fun checkMediaTile(key: MediaTileKey, size: Int, declared: Map<Pair<String, String>, List<String>>) {
+        val keys = declared[Pair(key.layerId, key.celId)]
+            ?: throw JbArchiveException("media tile \"${key.key}\" is in layer \"${key.layerId}\" cel \"${key.celId}\", which lists no media state")
+        if (key.key !in keys) {
+            throw JbArchiveException("media tile \"${key.key}\" (${key.store}) is in layer \"${key.layerId}\" cel \"${key.celId}\", which does not list it")
+        }
+        if (key.store !in MediaStores.ALL) throw JbArchiveException("media store \"${key.store}\" of tile \"${key.key}\" is not one of ${MediaStores.ALL.joinToString(", ")}")
+        if (!isTileKey(key.key)) throw JbArchiveException("media tile key \"${key.key}\" of cel \"${key.celId}\" is not \"tx_ty\"")
+        if (size != MEDIA_TILE_BYTES) {
+            throw JbArchiveException("media tile \"${key.key}\" (${key.store}) of layer \"${key.layerId}\" is $size bytes, a media tile is $MEDIA_TILE_BYTES")
+        }
+    }
+
+    private fun mediaPath(key: MediaTileKey): String =
+        safeName("$LAYERS_DIR/${key.layerId}/${key.celId}/${key.key}.${key.store}${MediaStores.EXT}")
 
     private fun tilePath(key: Triple<String, String, String>): String =
         safeName("$LAYERS_DIR/${key.first}/${key.second}/${key.third}$TILE_EXT")

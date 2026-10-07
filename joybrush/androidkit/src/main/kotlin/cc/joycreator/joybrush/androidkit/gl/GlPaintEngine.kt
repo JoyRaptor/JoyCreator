@@ -27,7 +27,9 @@ import cc.joycreator.joybrush.core.paint.TuftMath
 import cc.joycreator.joybrush.core.paint.TuftShading
 import cc.joycreator.joybrush.core.paint.TuftStamp
 import cc.joycreator.joybrush.core.paint.UndoLog
+import cc.joycreator.joybrush.core.media.HalfFloat
 import cc.joycreator.joybrush.core.media.MediaStores
+import cc.joycreator.joybrush.core.layers.LayerBudget
 import cc.joycreator.joybrush.core.sprite.SpriteGridMath
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
 import java.nio.ByteBuffer
@@ -105,6 +107,9 @@ internal object RegionTransferTiles {
 const val MASK_SUFFIX = "#mask"
 
 fun maskStoreId(layerId: String): String = layerId + MASK_SUFFIX
+
+/** Refusal of a media write past [GlPaintEngine.mediaBudgetBytes]: [message] is the sentence to show. */
+class MediaRoomException(message: String) : RuntimeException(message)
 
 /** What [GlPaintEngine.writableMediaTiles] calls a media layer's RGBA8 look, which keeps the layer's own id. */
 const val MEDIA_LOOK = "look"
@@ -287,10 +292,10 @@ class GlPaintEngine(
     private val freeStrokeTex = ArrayDeque<Int>()
     private val freeSmudgeTex = ArrayDeque<Int>()
     private val freeFloatTex = ArrayDeque<Int>()
-    /** Every RGBA32F media tile name this context made: how undo sizes a texture and which pool it goes back to. */
+    /** Every RGBA16F media tile name this context made: how undo sizes a texture and which pool it goes back to. */
     private val floatNames = HashSet<Int>()
 
-    val undo = UndoLog<Int>(undoBudgetBytes, sizeOf = { size.toLong() * size * (if (it in floatNames) 16 else 4) }, release = ::recycleLayerTex)
+    val undo = UndoLog<Int>(undoBudgetBytes, sizeOf = { size.toLong() * size * (if (it in floatNames) MediaStores.BYTES_PER_TEXEL else 4) }, release = ::recycleLayerTex)
 
     // Active stroke.
     private var strokeLayer: Layer? = null
@@ -1726,7 +1731,7 @@ class GlPaintEngine(
 
     // ── media stores (MEDIA_ENGINE_PLAN §4 and M5.3c) ────────────────────────
     //
-    // A media layer's float state lives beside its RGBA8 look: `<id>#p0 #p1 #paper #w0 #w1` ([MediaStores]), RGBA32F tiles
+    // A media layer's float state lives beside its RGBA8 look: `<id>#p0 #p1 #paper #w0 #w1` ([MediaStores]), RGBA16F tiles
     // from their own pool, owned and released exactly like look tiles (UndoLog sizes and recycles each by its kind). A
     // media layer has no frames yet (contract point 3), so a float store is per layer, never per cel.
     //
@@ -1739,6 +1744,15 @@ class GlPaintEngine(
 
     /** Called after undo or redo put media tiles back, with each media layer's restored tile keys: stop its simulation and reload. */
     var onMediaRestored: ((layerId: String, keys: Set<Long>) -> Unit)? = null
+
+    /**
+     * The ceiling on resident media state (the Lead's rule, [LayerBudget.mediaBudgetBytes]); the app sets it from the phone's
+     * memory. A write that would pass it is refused in words ([MediaRoomException]) before anything is swapped.
+     */
+    var mediaBudgetBytes: Long = Long.MAX_VALUE
+
+    /** Bytes of media state the layers hold now (undo snapshots are the undo budget's business). */
+    fun mediaResidentBytes(): Long = layers.values.sumOf { l -> l.floats.values.sumOf { it.size } }.toLong() * MediaStores.tileBytes(size)
 
     private var mediaStroke: ArrayList<UndoLog.TileChange<Int>>? = null
     private val mediaStrokeHeld = HashSet<Triple<String, String?, Long>>()
@@ -1771,6 +1785,11 @@ class GlPaintEngine(
         val held: Set<Triple<String, String?, Long>> = stroke?.let { mediaStrokeHeld }
             ?: undo.newestExtendable()?.takeIf { MediaStores.isMediaStep(it) }?.changes?.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
             ?: emptySet()
+        // Refused before anything is swapped: past the ceiling the layer stops growing, it does not crash.
+        val newFloat = stores.filter { it != MEDIA_LOOK }.sumOf { st -> keys.count { layer.floats[st]?.containsKey(it) != true } }
+        if (newFloat > 0 && mediaResidentBytes() + newFloat.toLong() * MediaStores.tileBytes(size) > mediaBudgetBytes) {
+            throw MediaRoomException(LayerBudget.mediaFullMessage(mediaBudgetBytes))
+        }
         val fresh = ArrayList<UndoLog.TileChange<Int>>()
         val out = LinkedHashMap<String, Map<Long, Int>>()
         try {
@@ -1817,13 +1836,15 @@ class GlPaintEngine(
     fun hasMediaState(layerId: String): Boolean = layers[layerId]?.floats?.values?.any { it.isNotEmpty() } == true
 
     /**
-     * One float tile for saving: [MediaStores.tileBytes] bytes of little-endian RGBA32F, row 0 = the tile's TOP document row
-     * (as [readTile]). Read at a frame boundary (the Lead's rule: never mid-simulation). Null where the store has no tile.
+     * One store tile for saving: [MediaStores.tileBytes] bytes of little-endian half floats ([HalfFloat]), RGBA, row 0 = the
+     * tile's TOP document row (as [readTile]). Read back as full floats (the one readback ES 3 guarantees for a float
+     * colour buffer) and rounded on the CPU. Read at a frame boundary (the Lead's rule: never mid-simulation). Null where
+     * the store has no tile.
      */
     fun readMediaTile(layerId: String, store: String, key: Long): ByteArray? {
         require(store in MediaStores.ALL) { "unknown media store $store" }
         val tex = layers[layerId]?.floats?.get(store)?.get(key) ?: return null
-        val buf = ByteBuffer.allocateDirect(MediaStores.tileBytes(size)).order(ByteOrder.LITTLE_ENDIAN)
+        val buf = ByteBuffer.allocateDirect(size * size * 4 * 4).order(ByteOrder.nativeOrder())
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         attach(tex)
         try {
@@ -1834,7 +1855,10 @@ class GlPaintEngine(
         } finally {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         }
-        return ByteArray(buf.capacity()).also { buf.rewind(); buf.get(it) }
+        val floats = FloatArray(size * size * 4)
+        buf.rewind()
+        buf.asFloatBuffer().get(floats)
+        return HalfFloat.encode(floats)
     }
 
     /** Sets a float tile (same layout as [readMediaTile]). For loading a document: NOT undoable. Creates what is missing. */
@@ -1843,8 +1867,11 @@ class GlPaintEngine(
         require(bytes.size == MediaStores.tileBytes(size)) { "media tile must be ${MediaStores.tileBytes(size)} bytes, got ${bytes.size}" }
         val layer = storeOrCreate(layerId)
         val tex = layer.floats.getOrPut(store) { HashMap() }.getOrPut(key) { newFloatTile() }
-        val buf = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.LITTLE_ENDIAN)
-        buf.put(bytes).rewind()
+        // Uploaded as full floats (ES 3 takes FLOAT data for an RGBA16F texture) so the rounding is the one [HalfFloat] did.
+        val floats = HalfFloat.decode(bytes)
+        val buf = ByteBuffer.allocateDirect(floats.size * 4).order(ByteOrder.nativeOrder())
+        buf.asFloatBuffer().put(floats)
+        buf.rewind()
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
         GLES30.glPixelStorei(GLES30.GL_UNPACK_ALIGNMENT, 4)
         GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_FLOAT, buf)
@@ -1862,13 +1889,13 @@ class GlPaintEngine(
         for ((id, keys) in byLayer) listener(id, keys)
     }
 
-    /** A cleared RGBA32F tile, NEAREST (full floats are not linearly filterable everywhere; the media shaders filter by hand). */
+    /** A cleared RGBA16F tile, NEAREST like the window's full floats (the media shaders filter by hand). */
     private fun newFloatTile(): Int {
         val tex = freeFloatTex.removeLastOrNull() ?: run {
             val t = IntArray(1)
             GLES30.glGenTextures(1, t, 0)
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
-            GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA32F, size, size, 0, GLES30.GL_RGBA, GLES30.GL_FLOAT, null)
+            GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA16F, size, size, 0, GLES30.GL_RGBA, GLES30.GL_HALF_FLOAT, null)
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_NEAREST)
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_NEAREST)
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)

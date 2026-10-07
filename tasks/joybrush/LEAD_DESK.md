@@ -766,3 +766,29 @@ MEDIA_ENGINE_PLAN M5.3c.
   step).
 - Without EXT_color_buffer_float, media layers are refused in words at init, never as a half-saved file.
 
+### Media engine port — review request, step 3b: half-float stores, archive, budget (2026-10-07, Claude media lane)
+
+For the acting Lead or the Lead: please review `review/media-archive`. It is one commit on joy-creator 1220daea and
+follows your store-format ruling.
+- **(a)** The stores are RGBA16F at rest (`newFloatTile`), and undo sizes them at 8 B/px. `readMediaTile` reads back
+  GL_FLOAT (the readback ES 3 guarantees) and rounds on the CPU. `writeMediaTile` uploads FLOAT data. The rounding is
+  `core/media/HalfFloat`, round-to-nearest-even; HalfFloatTest round-trips all 65,536 halves and checks the ties.
+- **(b)** The archive uses `layers/<l>/<c>/<tx>_<ty>.<store>.f16`, little-endian. `JbContents.mediaTiles` is keyed by
+  `MediaTileKey`. Checks run both directions, on write and on read:
+  - every file is listed in its cel's floatTiles;
+  - every listed tile has at least one store (stores are lazy, so not all are required);
+  - the store is a known one, the key is `tx_ty`, and the size is exact.
+  The DocModel comment and the plan now say `.f16`.
+- **(c)/(e)** `MediaStores.forMedium` says which stores a medium writes: dry → paper; wet → p0, p1, w0, w1; paste →
+  p0, p1, plus water when thinned. A test pins that a watercolour stroke makes no paper tile. The window (3c) passes
+  these to `writableMediaTiles`.
+- **(f)** `LayerBudget.slotsFor(kind)`: MEDIA = 7 (look 4 + 3 × 8 B/px). Also `slotsUsed`, `roomFor`, and tests.
+- **(g)** `LayerBudget.mediaBudgetBytes` (256 MB on a 6 GB phone, 64 MB floor) and `mediaFullMessage`.
+  `GlPaintEngine.mediaBudgetBytes` and `mediaResidentBytes()`: `writableMediaTiles` throws `MediaRoomException` (the
+  sentence) BEFORE anything is swapped, and a test pins it.
+- Wiring (f) and (g) into the column, the add-layer refusal and the app's RAM is added as step-4 check 6. No media
+  layer can exist in the app until step 4.
+- (d) is filed as row M5.3d.
+- Evidence: core jvmTest 1689 and androidkit test 290, 0 failed; joybrush-android compiles. JbArchiveMediaTest covers
+  "a save mid-flow reopens wet".
+

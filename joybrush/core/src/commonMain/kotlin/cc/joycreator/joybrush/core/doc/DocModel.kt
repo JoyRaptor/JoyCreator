@@ -188,8 +188,9 @@ val LayerKind.hasPixels: Boolean get() = this != LayerKind.INK
     val id: String,
     val tiles: List<String> = emptyList(),  // PAINT: tile keys "tx_ty" that exist (sparse)
     val strokesFile: String? = null,        // INK: path inside the document zip
-    // MEDIA (v8): tile keys "tx_ty" holding float state, saved as layers/<id>/<cel>/<key>.<store>.f32 for each
-    // store (p0, p1, paper; w0, w1 while wet). The look for the same area is in [tiles].
+    // MEDIA (v8): tile keys "tx_ty" holding float state, saved as layers/<id>/<cel>/<key>.<store>.f16 (little-endian half
+    // floats) for each store the layer's media wrote there (p0, p1, paper; w0, w1 only while wet: MediaStores). The look
+    // for the same area is in [tiles].
     val floatTiles: List<String> = emptyList(),
 )
 

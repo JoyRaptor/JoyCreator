@@ -308,7 +308,7 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
    "#w1", with the look under the layer id. One stroke = one UndoLog.Step with TileChanges across them all. The
    engine-side change is the store kinds plus a float texture pool (Lead reviews).
 3. **Document:** append MEDIA to LayerKind (R3, append-only), DOC_VERSION 7 → 8. Float tiles are a new archive entry
-   (`layers/<id>/<cel>/<key>.f32`, declared beside Cel.tiles); the look tiles are saved as normal .rgba. Board
+   (`layers/<id>/<cel>/<key>.<store>.f16`, half floats per the Lead's 2026-10-07 ruling, declared beside Cel.tiles); the look tiles are saved as normal .rgba. Board
    frames are region-scoped (R50): frame cels of a media layer need float tiles inside the board rect, so ask the
    Lead first.
 4. **Stroke route:** a branch in JbCanvasView.startStroke/paint/finish on `preset.engine == "media"` (like tuft),
@@ -353,7 +353,7 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
   - CanvasPng.kt ~32; CanvasSnapshot.kt ~23/88;
   - BoardSnapshot.kt ~11; GlPaintEngine.kt ~1020/1064 (the board frames lane);
   - OraExport.kt ~410.
-  - With step 3, the archive: JbArchive writes and reads `.f32`, and "declared tile has its file" checks cover
+  - With step 3, the archive: JbArchive writes and reads `.f16`, and "declared tile has its file" checks cover
     `floatTiles`, using the same pattern as `DocOps.storedCels`.
   - A media layer may carry a mask (landed with step 1). Painting INTO a mask with a media brush stays refused, in the
     canvas branch.
@@ -371,6 +371,9 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
      meaning (pigment load or look alpha) or hide the control for media brushes. Never a silent knob.
   5. **Pixel edits without a brush.** Fill, lasso fill and move selection (`replaceTiles`) write only the look, like
      item 1. Route them through the media state, or refuse them in words on a media layer.
+  6. **Budget wiring.** The column's n/max and `JbCanvasView`'s add-layer refusal count layers with
+     `LayerBudget.slotsUsed(kinds)`, which counts a media layer as 7. `GlPaintEngine.mediaBudgetBytes` is set from
+     `LayerBudget.mediaBudgetBytes(totalMem)`, and a `MediaRoomException` is shown as its sentence.
   4. **The Eraser slot.** `ToolMemory.slotFor` sends media brushes to BRUSH, which is fine; but tapping the strip's
      Eraser with a media layer active must take the media erase of item 1.
 - **M5.3c Stores, windows and running water (step 3; the Lead's rules, 2026-10-07).** Built as three review diffs:
@@ -378,7 +381,8 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
     GlPaintEngine. They use an RGBA32F texture pool, and UndoLog sizes and releases each texture by its kind.
     Copy-on-write: a tile is snapshotted before the first write that touches it. Media layers have no frames yet
     (contract point 3: ask first), so a float store is per layer, never per cel.
-  - **3b, archive.** JbArchive writes and reads `layers/<id>/<cel>/<tx>_<ty>.<store>.f32`, with the same "every declared
+  - **3b, archive. Built (`review/media-archive`).** The stores are RGBA16F at rest (the Lead's ruling), allocated lazily by
+    medium (`MediaStores.forMedium`). The media ceiling is `LayerBudget.mediaBudgetBytes`. JbArchive writes and reads `layers/<id>/<cel>/<tx>_<ty>.<store>.f16`, with the same "every declared
     tile has its file, every file is declared" checks as `.rgba`.
   - **3c, window.** MediaLayerEngine works on a tile-aligned window (1024 px = 4×4 tiles ≈ 5 cm) placed over the
     stroke. It loads from the stores, writes back on a shift and at a frame boundary, and never allocates the whole
@@ -395,6 +399,10 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
     sim frames). `w0`/`w1` are saved while wet, so reopening resumes with wet paint.
   - **Memory cap.** Water stops spreading at the lab's cap (4 cm past the painted area) or at the window's edge,
     whichever comes first. A wet episode's step never grows past one window of tiles per store.
+  - **M5.3d Paging (after step 4 works on the phone; Lead, 2026-10-07).** Once the media ceiling is reached, page
+    p0/p1/paper out to CPU memory (deflated), least recently used first, and page them back into the window on demand.
+    Only the look then stays GPU-resident. This is the design that scales to A4 on a phone, and the seam is
+    `writableMediaTiles` / `readMediaTile` / `writeMediaTile`.
   - **Tests owed:**
     - the spread cap (a water step can outgrow the undo budget, since trim keeps the newest step; only the cap bounds
       it);

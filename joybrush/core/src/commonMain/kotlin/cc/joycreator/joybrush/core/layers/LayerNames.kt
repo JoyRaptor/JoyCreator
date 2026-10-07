@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.core.layers
 
 import cc.joycreator.joybrush.core.doc.BlendMode
+import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.paint.Tiles
 
 /**
@@ -110,4 +111,38 @@ object LayerBudget {
         val n = (totalRamBytes * RAM_SHARE / layerBytes).toLong()
         return n.coerceIn(MIN.toLong(), MAX.toLong()).toInt()
     }
+
+    /**
+     * What a layer of [kind] costs in paint-layer slots, at rest and at worst: a media layer is its RGBA8 look (4 B/px)
+     * plus p0, p1 and paper as half floats (8 B/px each), so 28 B/px against a paint layer's 4. The water stores are left
+     * out because they exist only while wet (the media budget below holds those).
+     */
+    fun slotsFor(kind: LayerKind): Int = when (kind) {
+        LayerKind.MEDIA -> MEDIA_SLOTS
+        else -> 1
+    }
+
+    const val MEDIA_SLOTS = (4 + 3 * 8) / 4
+
+    /** The "n" of the column's n/max: every layer at its real cost, so "5/32" cannot hide a phone that is out of memory. */
+    fun slotsUsed(kinds: List<LayerKind>): Int = kinds.sumOf { slotsFor(it) }
+
+    /** Whether one more layer of [kind] fits under [max] slots. */
+    fun roomFor(kind: LayerKind, kinds: List<LayerKind>, max: Int): Boolean = slotsUsed(kinds) + slotsFor(kind) <= max
+
+    /**
+     * The share of the phone's memory resident media state may take (the Lead's ceiling, 2026-10-07): 256 MB on a 6 GB
+     * phone. Past it a stroke stops growing its layer and says so ([mediaFullMessage]); it never crashes.
+     */
+    const val MEDIA_RAM_SHARE = 256.0 / (6 * 1024)
+
+    fun mediaBudgetBytes(totalRamBytes: Long): Long =
+        if (totalRamBytes <= 0L) MIN_MEDIA_BYTES else maxOf(MIN_MEDIA_BYTES, (totalRamBytes * MEDIA_RAM_SHARE).toLong())
+
+    /** The floor, for a phone that does not say how much memory it has: room for one 5 cm square of every store. */
+    const val MIN_MEDIA_BYTES = 64L shl 20
+
+    fun mediaFullMessage(budgetBytes: Long): String =
+        "This phone has room for ${budgetBytes shr 20} MB of pencil, watercolour and oil paint, and this drawing has used it. " +
+            "Clear or delete a media layer to paint further."
 }

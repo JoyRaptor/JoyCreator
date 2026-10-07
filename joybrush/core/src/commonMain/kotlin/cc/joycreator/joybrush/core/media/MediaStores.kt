@@ -1,10 +1,18 @@
 package cc.joycreator.joybrush.core.media
 
+import cc.joycreator.joybrush.core.brush.MEDIUM_DRY
+import cc.joycreator.joybrush.core.brush.MEDIUM_PASTE
+import cc.joycreator.joybrush.core.brush.MEDIUM_WET
 import cc.joycreator.joybrush.core.paint.UndoLog
 
 /**
  * A media layer's float state, as tile stores beside its RGBA8 look (MEDIA_ENGINE_PLAN §4, contract point 2): the look
- * keeps the layer's own id, and each float store is `<layerId>#<store>`. Saved as `<tx>_<ty>.<store>.f32` (DocModel v8).
+ * keeps the layer's own id, and each float store is `<layerId>#<store>`.
+ *
+ * At rest a store is RGBA16F, half floats (the Lead's ruling, 2026-10-07): 8 bytes a texel, 512 KB a tile, saved as
+ * `<tx>_<ty>.<store>.f16` (little-endian, [HalfFloat]). The window simulates in full float and rounds once per write-back.
+ * Stores are made lazily, by the medium that writes them ([forMedium]): a pencil-only layer has no paint planes, a
+ * watercolour layer no paper crush, and the water exists only where it is wet.
  */
 object MediaStores {
     /** Paint (two pigment planes), the paper's crush, and the water while wet. */
@@ -13,8 +21,26 @@ object MediaStores {
     /** The stores that only exist while the layer is wet. */
     val WATER: List<String> = listOf("w0", "w1")
 
-    /** Bytes in one saved float tile: RGBA, 32-bit float each, [TILE] × [TILE] texels. */
-    fun tileBytes(tile: Int): Int = tile * tile * 4 * 4
+    /** The archive extension of a store tile, after `<tx>_<ty>.<store>`. */
+    const val EXT = ".f16"
+
+    /** Bytes per texel at rest: RGBA, a half float each. */
+    const val BYTES_PER_TEXEL = 8
+
+    /** Bytes in one store tile at rest, [tile] × [tile] texels. */
+    fun tileBytes(tile: Int): Int = tile * tile * BYTES_PER_TEXEL
+
+    /**
+     * The stores a medium WRITES, which are the only ones a stroke of it may create (what it only reads, a missing tile
+     * gives as zero). Dry media lay graphite as flakes in the paper store (crush, flake volume, flake reflectance) and pass
+     * the paint planes through. Watercolour moves water and pigment. Paste lays paint, and thinned paste carries water too.
+     */
+    fun forMedium(medium: String, thinned: Boolean = false): List<String> = when (medium) {
+        MEDIUM_DRY -> listOf("paper")
+        MEDIUM_WET -> listOf("p0", "p1", "w0", "w1")
+        MEDIUM_PASTE -> if (thinned) listOf("p0", "p1", "w0", "w1") else listOf("p0", "p1")
+        else -> throw IllegalArgumentException("unknown medium $medium")
+    }
 
     fun id(layerId: String, store: String): String = "$layerId#$store"
 

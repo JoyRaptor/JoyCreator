@@ -497,14 +497,14 @@
       "file": "height_drawing_tooth.png",
       "packed": false,
       "size": 1024,
-      "texelPx": 1.0,
-      "slopeRange": 0.423,
+      "texelPx": 0.5,
+      "slopeRange": 0.383,
       "hexTexels": 300.0,
       "rotatable": true,
       "relief": 0.35,
       "heightMean": 0.5,
       "fluid": "fluid_drawing_tooth.png",
-      "fluidTexelPx": 4.0,
+      "fluidTexelPx": 2.0,
       "fluidHexTexels": 75.0,
       "toothDepthMm": 0.07,
       "compliance": 0.55,
@@ -513,6 +513,29 @@
       "capacity": 0.3,
       "wickSpeed": 0.35,
       "anisotropy": 0.15
+    },
+    {
+      "id": "bristol_tooth",
+      "name": "Bristol tooth",
+      "file": "height_bristol_tooth.png",
+      "packed": false,
+      "size": 1024,
+      "texelPx": 0.5,
+      "slopeRange": 0.324,
+      "hexTexels": 300.0,
+      "rotatable": true,
+      "relief": 0.35,
+      "heightMean": 0.5,
+      "fluid": "fluid_bristol_tooth.png",
+      "fluidTexelPx": 2.0,
+      "fluidHexTexels": 75.0,
+      "toothDepthMm": 0.035,
+      "compliance": 0.3,
+      "sizing": 0.85,
+      "absorbency": 0.3,
+      "capacity": 0.2,
+      "wickSpeed": 0.2,
+      "anisotropy": 0.2
     }
   ],
   "looks": [
@@ -868,6 +891,18 @@
       "hexTexels": 300.0,
       "rotatable": true,
       "defaultSurface": "drawing_tooth",
+      "lightByDefault": false
+    },
+    {
+      "id": "bristol_paper",
+      "name": "Bristol, smooth",
+      "base": "#F7F8F3",
+      "file": "look_bristol_paper.jpg",
+      "mean": "#F7F8F3",
+      "texelPx": 1.096,
+      "hexTexels": 300.0,
+      "rotatable": true,
+      "defaultSurface": "bristol_tooth",
       "lightByDefault": false
     }
   ]

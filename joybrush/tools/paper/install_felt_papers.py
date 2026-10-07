@@ -4,7 +4,7 @@ All four come from ONE raking-lit photograph of a real cold-press watercolour sh
 provenance) through felt2paper.py: the felt bumps measured from the photo, the fibre grain from a fibre-network model at
 true size, each grade finished as the mill finishes it. Requested by the brush-engines session for pencil and watercolour.
 
-python install_felt_papers.py <scan.jpg> <assets_paper_dir>
+python install_felt_papers.py <scan.jpg> <assets_paper_dir> [grade ...]     (no grades = all; each grade is ~2 min)
 """
 import json
 import os
@@ -21,6 +21,7 @@ FELT = [
     ('rough', 'watercolour_rough', 'Watercolour, rough', 'rough_press', 'Rough watercolour tooth'),
     ('hot', 'watercolour_hot', 'Watercolour, hot press', 'hot_press', 'Hot-press tooth'),
     ('drawing', 'drawing_paper', 'Drawing paper', 'drawing_tooth', 'Drawing tooth'),
+    ('bristol', 'bristol_paper', 'Bristol, smooth', 'bristol_tooth', 'Bristol tooth'),
 ]
 PHYSICS = ('toothDepthMm', 'compliance', 'sizing', 'absorbency', 'capacity', 'wickSpeed', 'anisotropy')
 
@@ -33,13 +34,15 @@ def upsert(entries, by_id, entry):
         entries.append(entry); by_id[entry['id']] = entry
 
 
-def main(scan, assets):
+def main(scan, assets, only=()):
     cat_path = os.path.join(assets, 'catalogue.json')
     cat = json.load(open(cat_path, encoding='utf-8'))
     looks = {l['id']: l for l in cat['looks']}
     surfaces = {s['id']: s for s in cat['surfaces']}
     work = os.path.join(HERE, 'out', 'felt')
     for grade, look_id, look_name, surf_id, surf_name in FELT:
+        if only and grade not in only:
+            continue
         res = subprocess.run([sys.executable, os.path.join(HERE, 'felt2paper.py'), scan, work, look_id, '--grade', grade],
                              check=True, capture_output=True, text=True)
         info = json.loads(res.stdout.strip().splitlines()[-1])
@@ -68,4 +71,4 @@ def main(scan, assets):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], tuple(sys.argv[3:]))

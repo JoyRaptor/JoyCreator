@@ -341,8 +341,15 @@ The brush-engines session asked for, in order: a medium-tooth drawing paper (too
   | rough | 2.2 mm | 1 : 0.4 | 0.35 | 45%, relief light on |
   | hot press | 1.1 mm | 0.3 : 1 | 0.03 | 8%, light off |
   | drawing | 0.5 mm | 0.3 : 1 | 0.07 | 10%, light off |
+  | bristol | 0.4 mm | 0.15 : 1 | 0.035 | 4%, light off |
 
-  Surfaces are all texelPx 1.0 (0.05 mm), 1024² (a 51 mm tile). The fluid G,B channels are the fibres' own directions (structure tensor of the network). A is capacity in the felt's valleys.
+  **Revised for drawing, plus Bristol added** (brush-engines request, matched against the owner's Infinite Painter "Proko" screenshots: fine 1–2 px speckle, a near-continuous grey body, no fibre lines). Both drawing and Bristol now:
+  - hold 0.025 mm per texel (texelPx 0.5);
+  - use a hardwood furnish: fibres 0.9 mm × 0.018 mm, coverage 8 (Bristol 10).
+
+  Pressing rounds them off: 0.025 mm for drawing, 0.04 mm for Bristol, which is calendered. The cotton-rag watercolours keep their 2.5 mm fibres at 0.05 mm per texel.
+
+  Watercolour surfaces are texelPx 1.0 (0.05 mm), 1024² (a 51 mm tile). Drawing and Bristol are texelPx 0.5 (a 25.6 mm tile). The fluid G,B channels are the fibres' own directions (structure tensor of the network). A is capacity in the felt's valleys.
 - **Looks**: the whole photo at its physical scale (cold 3.0 doc px per texel, rough 6.0, drawing 1.4), with its lamp shading reduced and exposed to the sheet's real white.
 
 **Judged on the PC** (`papersim.py`, pencil threshold): drawing and hot press take graphite as granular, fibre-broken strokes, the real look of pencil on a smooth sheet. Cold and rough catch on the felt hills, with fibre-ragged edges.
@@ -357,5 +364,6 @@ The brush-engines session asked for, in order: a medium-tooth drawing paper (too
 | `watercolour_cold` | `cold_press` |
 | `watercolour_hot` | `hot_press` |
 | `watercolour_rough` | `rough_press` |
+| `bristol_paper` | `bristol_tooth` |
 
 **Upgrade path:** rough is the cold-press felt scaled up. A real rough-paper scan (or an owner photo under a raking lamp) would replace its felt; the tool takes any such photo.

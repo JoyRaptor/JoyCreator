@@ -69,14 +69,17 @@ CC0 (public domain). A raking-lit 1920² photo of a real cold-press watercolour 
 `joybrush/tools/paper/install_felt_papers.py` runs `felt2paper.py` once per grade:
 
 1. The felt bumps are measured from the photo by shape-from-shading, taken from its sharpest square and made isotropic.
-2. The fibre grain is a random fibre-network model at true size: cotton fibres 2.5 mm × 0.02 mm, 0.05 mm per texel.
+2. The fibre grain is a random fibre-network model at true size:
+   - watercolour: cotton fibres 2.5 mm × 0.02 mm, at 0.05 mm per texel;
+   - drawing and Bristol: hardwood fibres 0.9 mm × 0.018 mm, at 0.025 mm per texel.
 3. The look is the photo with its lamp shading reduced, exposed to the sheet's white, at its physical scale.
 
 R10 §11.1 has the method and the numbers.
 
 | Look id | Surface id | Grade |
 |---|---|---|
-| drawing_paper | drawing_tooth | drawing (fibre grain over a light 0.5 mm felt) |
+| drawing_paper | drawing_tooth | drawing (hardwood fibre grain at 0.025 mm, over a light 0.5 mm felt) |
 | watercolour_cold | cold_press | cold press (1.1 mm felt, fibres on its hills) |
 | watercolour_hot | hot_press | hot press (felt pressed nearly flat, fibre grain) |
 | watercolour_rough | rough_press | rough (2.2 mm felt, deeper) |
+| bristol_paper | bristol_tooth | Bristol (hardwood fibre grain, calendered, faint 0.4 mm felt) |

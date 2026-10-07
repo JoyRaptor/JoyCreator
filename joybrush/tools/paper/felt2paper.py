@@ -9,17 +9,19 @@ the SLOPE of the relief, and it cannot hold the fibre grain at all (a phone or s
   2. FIBRES: the grain a pencil's dust catches. Paper IS a random fibre network (Kallmes & Corte 1960): cotton fibres
      ~2.5 mm long, ~0.02 mm wide, laid at random on the mould, clumped into flocs. fibre_network() lays them on a torus
      at their real size and sums their thickness; the flocs follow the photo's own formation (its mottling).
-  3. The grades are the same mould-made sheet, finished differently, so one photo gives all four:
-       cold press  the felt as photographed, fibres on its hills;
+  3. The grades are felt-pressed sheets finished differently, so one photo gives them all:
+       cold press  the felt as photographed, cotton fibres on its hills;
        rough       never pressed: the felt bumps bigger and deeper;
        hot press   pressed between hot plates: the felt ironed mostly flat, the fibre grain left;
-       drawing     a lighter, finer felt, the fibre grain dominant.
+       drawing     short hardwood fibres, densely laid and pressed, over a light fine felt: a fine even speckle;
+       bristol     the same, calendered smooth (hard-sized, for hairlines and detail).
+     Drawing and Bristol tooth is finer than a doc px, so their surfaces hold 0.025 mm per texel (texelPx 0.5).
   4. The LOOK is the photo itself, its lamp shading reduced (the app's relief light draws the bumps from the SURFACE,
      so light and pigment sit on the same hills), at the photo's physical scale.
 
 All lengths are millimetres (R10: 1 doc px = 0.05 mm, PaperPhysical.DOC_PX_PER_MM = 20).
 
-python felt2paper.py <photo> <out_dir> <id> --grade cold|rough|hot|drawing
+python felt2paper.py <photo> <out_dir> <id> --grade cold|rough|hot|drawing|bristol
 Writes look_<id>.jpg, height_<id>.png, fluid_<id>.png; prints the catalogue numbers as one JSON line.
 """
 import argparse
@@ -34,23 +36,29 @@ from photo2paper import gaussian, linear_to_srgb, periodic_component, rank_unifo
 
 DOC_PX_PER_MM = 20.0
 SIZE = 1024            # surface and look tiles; the fluid map is a quarter
-SURFACE_MM = 0.05      # one surface texel = 1 doc px: the fibre grain needs it
+
+# Fibres, by furnish: length, width, how many fibres deep the surface layer is, curl, machine-direction bias.
+COTTON = dict(length_mm=2.5, width_mm=0.02, coverage=4.0, curl=0.6, anisotropy=0.1)      # rag: watercolour papers
+HARDWOOD = dict(length_mm=0.9, width_mm=0.018, coverage=8.0, curl=0.4, anisotropy=0.15)  # eucalyptus/birch: drawing stock
 
 # Per grade. feltMm: the felt's bump wavelength. felt/fibre: their weights in the height (each normalised first).
+# texelMm: the surface's millimetres per texel. pressMm: how far wet pressing and calendering round the fibres off.
 # lookShading: how much of the photo's lamp shading the look keeps. white: the sheet's colour (the photo is an off-white
 # sheet under a dim lamp, so its exposure is set to the real paper's). The rest is physics for the engines (R10 §11).
 GRADES = {
-    'cold':    dict(feltMm=1.1, felt=1.0, fibre=0.55, lookShading=0.3, light=True, white='#F1EEE4',
+    'cold':    dict(feltMm=1.1, felt=1.0, fibre=0.55, texelMm=0.05, fibres=COTTON, pressMm=0.03, lookShading=0.3, light=True, white='#F1EEE4',
                     toothDepthMm=0.18, compliance=0.2, sizing=0.8, absorbency=0.4, capacity=0.6, wickSpeed=0.3, anisotropy=0.1),
-    'rough':   dict(feltMm=2.2, felt=1.0, fibre=0.4, lookShading=0.45, light=True, white='#F1EEE4',
+    'rough':   dict(feltMm=2.2, felt=1.0, fibre=0.4, texelMm=0.05, fibres=COTTON, pressMm=0.03, lookShading=0.45, light=True, white='#F1EEE4',
                     toothDepthMm=0.35, compliance=0.2, sizing=0.75, absorbency=0.45, capacity=0.7, wickSpeed=0.3, anisotropy=0.1),
-    'hot':     dict(feltMm=1.1, felt=0.3, fibre=1.0, lookShading=0.08, light=False, white='#F4F2EB',
+    'hot':     dict(feltMm=1.1, felt=0.3, fibre=1.0, texelMm=0.05, fibres=COTTON, pressMm=0.03, lookShading=0.08, light=False, white='#F4F2EB',
                     toothDepthMm=0.03, compliance=0.15, sizing=0.85, absorbency=0.35, capacity=0.45, wickSpeed=0.25, anisotropy=0.1),
-    'drawing': dict(feltMm=0.5, felt=0.3, fibre=1.0, lookShading=0.1, light=False, white='#F6F5F0',
+    'drawing': dict(feltMm=0.5, felt=0.3, fibre=1.0, texelMm=0.025, fibres=HARDWOOD, pressMm=0.025,
+                    lookShading=0.1, light=False, white='#F6F5F0',
                     toothDepthMm=0.07, compliance=0.55, sizing=0.6, absorbency=0.5, capacity=0.3, wickSpeed=0.35, anisotropy=0.15),
+    'bristol': dict(feltMm=0.4, felt=0.15, fibre=1.0, texelMm=0.025, fibres=dict(HARDWOOD, coverage=10.0), pressMm=0.04,
+                    lookShading=0.04, light=False, white='#F7F7F3',
+                    toothDepthMm=0.035, compliance=0.3, sizing=0.85, absorbency=0.3, capacity=0.2, wickSpeed=0.2, anisotropy=0.2),
 }
-# Cotton fibre (rag papers): length, width, how many fibres deep the surface layer is, curl, machine-direction bias.
-FIBRE = dict(length_mm=2.5, width_mm=0.02, coverage=4.0, curl=0.6, anisotropy=0.1)
 
 
 def fft_resize(img, n):
@@ -244,8 +252,9 @@ def convert(photo, grade, seed=1):
     felt_full, cavity = relief_from_shading(shade, bump_px)
     felt_full = felt_full - gaussian(felt_full, 0.8 * bump_px)         # integration's runaway lows go; the bumps stay
 
-    # SURFACE: SIZE texels of SURFACE_MM. The felt is the matching piece of the photo, upsampled smoothly.
-    tile_mm = SIZE * SURFACE_MM
+    # SURFACE: SIZE texels of texelMm. The felt is the matching piece of the photo, upsampled smoothly.
+    texel_mm = g['texelMm']
+    tile_mm = SIZE * texel_mm
     crop = int(round(tile_mm / photo_mm_per_px))
     if crop > side:
         raise SystemExit(f'{photo} holds {side * photo_mm_per_px:.0f} mm; a {tile_mm:.0f} mm surface needs more')
@@ -255,13 +264,13 @@ def convert(photo, grade, seed=1):
     # Formation (flocs, 2-8 mm): the photo's own mottling over the same piece, without the bumps.
     mottle = periodic_crop(gaussian(y, 1.5 * bump_px), crop, at)
     mottle = fft_resize(mottle, SIZE)
-    formation = norm(gaussian(mottle, 2.0 / SURFACE_MM) - gaussian(mottle, 8.0 / SURFACE_MM))
+    formation = norm(gaussian(mottle, 2.0 / texel_mm) - gaussian(mottle, 8.0 / texel_mm))
     floc = np.clip(1.0 + 0.35 * formation, 0.2, None)
-    fibres = fibre_network(SIZE, SURFACE_MM, floc, seed=seed, **FIBRE)
-    fibres = gaussian(fibres, 0.6)                                      # wet pressing rounds the fibre edges
+    fibres = fibre_network(SIZE, texel_mm, floc, seed=seed, **g['fibres'])
+    fibres = gaussian(fibres, g['pressMm'] / texel_mm)                  # pressing rounds the fibre edges
     # The press evens out the sheet's thick and thin flocs on its top face (they stay in the fluid map, as absorbency);
     # what a pencil meets is the fibre grain within a millimetre.
-    grain = fibres - gaussian(fibres, 0.5 / SURFACE_MM)
+    grain = fibres - gaussian(fibres, 0.5 / texel_mm)
     h = g['felt'] * norm(felt) + g['fibre'] * norm(grain)
     h = rank_uniform(h)
     hbytes = np.round(h * 255).astype(np.uint8)
@@ -272,12 +281,12 @@ def convert(photo, grade, seed=1):
     f4 = gaussian(fibres, 1.0)
     gx = (np.roll(f4, -1, 1) - np.roll(f4, 1, 1)) / 2
     gy = (np.roll(f4, -1, 0) - np.roll(f4, 1, 0)) / 2
-    sig = 0.5 * FIBRE['length_mm'] / SURFACE_MM
+    sig = 0.5 * g['fibres']['length_mm'] / texel_mm
     jxx = gaussian(gx * gx, sig); jyy = gaussian(gy * gy, sig); jxy = gaussian(gx * gy, sig)
     lam = np.sqrt((jxx - jyy) ** 2 + 4 * jxy ** 2)
     coherence = np.clip(lam / (jxx + jyy + 1e-12), 0, 1)
     c2 = -(jxx - jyy) / (lam + 1e-12); s2 = -(2 * jxy) / (lam + 1e-12)   # fibres run across their gradient
-    valleys = norm(-(felt - gaussian(felt, 0.5 * g['feltMm'] / SURFACE_MM)))
+    valleys = norm(-(felt - gaussian(felt, 0.5 * g['feltMm'] / texel_mm)))
     fluid = np.dstack([0.5 + 0.17 * formation, 0.5 + 0.5 * c2 * coherence, 0.5 + 0.5 * s2 * coherence,
                        0.5 + 0.12 * valleys + 0.08 * formation])
     fluid = np.dstack([fft_resize(fluid[..., k], q) for k in range(4)])
@@ -295,7 +304,7 @@ def convert(photo, grade, seed=1):
     look = Image.fromarray(np.round(linear_to_srgb(look_lin) * 255).astype(np.uint8))
     look_texel_px = side * photo_mm_per_px * DOC_PX_PER_MM / SIZE
     return dict(look=look, height=hbytes, fluid=fluid, slopeRange=slope_range, heightMean=float(hbytes.mean() / 255.0),
-                lookTexelPx=round(look_texel_px, 3), texelPx=SURFACE_MM * DOC_PX_PER_MM, bumpPx=bump_px, crop=(crop, at), cavity=cavity)
+                lookTexelPx=round(look_texel_px, 3), texelPx=texel_mm * DOC_PX_PER_MM, bumpPx=bump_px, crop=(crop, at), cavity=cavity)
 
 
 def main():

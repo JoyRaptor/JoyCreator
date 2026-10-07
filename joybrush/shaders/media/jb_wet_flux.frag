@@ -18,6 +18,7 @@ uniform sampler2D u_flux;     // outflow L, R, D, U (mm per second, per cell)
 uniform sampler2D u_paperBake;// .b = height 0..1, .a = E[h²]
 uniform sampler2D u_fluidBake;// absorbency, fibre direction (signed), capacity
 uniform sampler2D u_waterBake;// R = paper height smoothed to fibre scale
+uniform sampler2D u_p0;       // the layer's paint: .a = body thickness (mm), terrain the water runs over
 uniform float u_filmMm;       // below this depth a film clings: viscous drag ∝ 1/depth², so thin water barely moves
 uniform float u_dt;
 uniform float u_toothMm;
@@ -56,7 +57,9 @@ layout(location = 1) out vec4 o_run;    // running water this step (mm/s), signe
 float H(ivec2 q, out float w, out float s) {
     vec4 a = texelFetch(u_w0, q, 0);
     w = a.r; s = a.g;
-    return texelFetch(u_waterBake, q, 0).r * u_toothMm + w;
+    // The water's surface: paper, plus any paint body under it (water pools between impasto ridges and runs
+    // round blobs), plus the water itself.
+    return texelFetch(u_waterBake, q, 0).r * u_toothMm + texelFetch(u_p0, q, 0).a + w;
 }
 
 float pinHold(ivec2 q, float s) {
@@ -84,11 +87,14 @@ vec2 beadSlope(vec2 cell) {
 // cannot feed back on the water.
 vec2 paperSlope(ivec2 c, ivec2 size) {
     int d = max(2, int(u_steerScale * u_beadCells));
-    float l = texelFetch(u_waterBake, clamp(c - ivec2(d, 0), ivec2(0), size - 1), 0).r;
-    float r = texelFetch(u_waterBake, clamp(c + ivec2(d, 0), ivec2(0), size - 1), 0).r;
-    float b = texelFetch(u_waterBake, clamp(c - ivec2(0, d), ivec2(0), size - 1), 0).r;
-    float t = texelFetch(u_waterBake, clamp(c + ivec2(0, d), ivec2(0), size - 1), 0).r;
-    return vec2(r - l, t - b) * u_toothMm / (2.0 * float(d) * u_cellMm);
+    ivec2 ql = clamp(c - ivec2(d, 0), ivec2(0), size - 1), qr = clamp(c + ivec2(d, 0), ivec2(0), size - 1);
+    ivec2 qb = clamp(c - ivec2(0, d), ivec2(0), size - 1), qt = clamp(c + ivec2(0, d), ivec2(0), size - 1);
+    // Paper relief and paint body both steer: a drip runs round a blob of paint.
+    float l = texelFetch(u_waterBake, ql, 0).r * u_toothMm + texelFetch(u_p0, ql, 0).a;
+    float r = texelFetch(u_waterBake, qr, 0).r * u_toothMm + texelFetch(u_p0, qr, 0).a;
+    float b = texelFetch(u_waterBake, qb, 0).r * u_toothMm + texelFetch(u_p0, qb, 0).a;
+    float t = texelFetch(u_waterBake, qt, 0).r * u_toothMm + texelFetch(u_p0, qt, 0).a;
+    return vec2(r - l, t - b) / (2.0 * float(d) * u_cellMm);
 }
 
 // Sizing is never even across a sheet: patches a few millimetres across hold a bead harder than others, so

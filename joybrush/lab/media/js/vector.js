@@ -10,7 +10,7 @@
 // re-simulating at screen resolution.
 
 import { STICKS, DryStroke, stickMaterial } from './stick.js';
-import { WET, WET_BRUSHES, WetStroke, paintFromColor } from './wet.js';
+import { WET, WET_BRUSHES, WetStroke, paintFromColor, THINNER, thinnerStroke } from './wet.js';
 import { PASTE_BRUSHES, PasteStroke, opaquePaint } from './paste.js';
 
 export class VectorDoc {
@@ -64,8 +64,26 @@ export class VectorDoc {
         // The brush's own history matters (a dirty brush carries earlier strokes), so brushes reload and
         // run through every record in order, even ones outside the region: only drawing is skipped.
         if (!rec.dirty) engine.reloadBrush(opaquePaint(rec.color), brush, rec.seed, rec.belly ? opaquePaint(rec.belly) : null);
-        const ps = new PasteStroke(brush, pxPerMm, engine.scale, { edge: rec.edge, press: rec.press, face: rec.face });
-        for (const s of rec.samples) { ps.add(s); for (const step of ps.take()) if (meets) engine.pasteStep(step, brush, paper, pxPerMm, rec.seed); }
+        const ps = new PasteStroke(brush, pxPerMm, engine.scale, { edge: rec.edge, press: rec.press, face: rec.face, body: rec.thin ? THINNER[rec.thin].body : 1 });
+        // Thinned paint lays its riding water too, with the time the water really had since the last wet stroke.
+        const ws = rec.thin ? thinnerStroke(brush, rec.color, paper, pxPerMm, rec.seed, rec.thin) : null;
+        if (ws) {
+          if (prevEnd !== null && engine.wetActive) {
+            const gap = Math.min(20, Math.max(0, (rec.samples[0].t - prevEnd) / 1000));
+            const frames = Math.round(gap / (WET.dt * WET.substeps));
+            for (let f = 0; f < frames && engine.wetActive; f++) engine.wetFrame(null, paper, pxPerMm);
+          }
+          prevEnd = rec.samples[rec.samples.length - 1].t;
+        }
+        rec.samples.forEach((s, i) => {
+          ps.add(s);
+          for (const step of ps.take()) if (meets) engine.pasteStep(step, brush, paper, pxPerMm, rec.seed);
+          if (ws && meets) {
+            ws.add(s);
+            if (i === rec.samples.length - 1) ws.finish();
+            if (i % 4 === 3 || i === rec.samples.length - 1) engine.wetFrame(ws.take(), paper, pxPerMm);
+          }
+        });
         continue;
       }
       if (!meets) continue;

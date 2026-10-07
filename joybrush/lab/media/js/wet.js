@@ -56,6 +56,34 @@ export const WETNESS = [
   { name: 'runny', load: 1.35, flow: 1.7 },
 ];
 
+// Thinned paint (owner, 2026-10-06/07: "thick paint with wateriness … impasto pulling pigment into runny
+// watercolor drips … two stage, loaded then watery brush"). An oil brush can carry thinner: its stroke lays the
+// paint, thinner in body the more it is thinned, and a water stroke rides along the same path carrying the
+// paint's colour as a glaze; the fresh paint also gives pigment up to the water lying on it (lift). The water
+// then runs, pools and drips like any wash. `water` is the WETNESS level of the riding water stroke.
+export const THINNER = [
+  { name: 'neat', water: null, body: 1.0 },
+  { name: 'thinned', water: 1, body: 0.8 },
+  { name: 'watery', water: 2, body: 0.6 },
+  { name: 'runny', water: 4, body: 0.4 },
+];
+
+// The medium that runs out of thinned paint: as wide as the paint's footprint.
+export function thinnerBrush(paste) {
+  const half = paste.widthMm / 2;
+  return {
+    allround: !!paste.allround, bellyMm: half, tipMm: paste.allround ? Math.max(0.1, paste.tipHalfMm) : half * 0.55,
+    waterPerMm: 0.09, capacityMm3: 160, load: 0.9, gran: 0.6, stain: 0.25, beadMm: 1.5, liftMm: 2.5, dwellMmPerS: 1.2,
+  };
+}
+
+// The water stroke riding along a thinned paint stroke (null when the paint is neat).
+export function thinnerStroke(paste, color, paper, pxPerMm, seed, level) {
+  const t = THINNER[level];
+  if (!t || t.water === null) return null;
+  return new WetStroke(thinnerBrush(paste), paintFromColor(color, 0.55 + 0.15 * level), paper, pxPerMm, seed + 7919, WETNESS[t.water]);
+}
+
 export const WET_BRUSHES = {
   // The all-rounder (owner, 2026-10-07): a pointed round from a hairline to a full belly on pressure and
   // tilt, carrying a wash's worth of water.

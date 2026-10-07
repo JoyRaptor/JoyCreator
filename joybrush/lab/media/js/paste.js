@@ -66,6 +66,7 @@ export class PasteStroke {
     this.edge = opts.edge || brush.orient || 'pen';
     this.press = brush.clean ? 'depth' : (opts.press || brush.press || 'load');
     this.face = brush.edgeHalfMm ? (opts.face || brush.face || 'edge') : 'flat';
+    this.body = opts.body ?? 1;              // thinned paint lays a thinner body (THINNER in wet.js)
     this.half = this.face === 'edge' && brush.edgeHalfMm ? brush.edgeHalfMm : brush.bladeHalfMm;
     this.pxPerMm = pxPerMm;
     this.layerScale = layerScale;
@@ -189,7 +190,8 @@ export class PasteStroke {
     const minLen = b.shape === 0 ? 2 * halfW : 0.5 * halfW;
     const lenMax = Math.max(minLen, b.lenMm * 1.4);
     const len = Math.min(lenMax, Math.max(minLen, Math.min(lenFull, minLen + 0.8 * tr)));
-    this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax, pressure: P, slideMm, fingers, ...(thick !== undefined ? { thick } : {}) });
+    const th = (thick ?? b.thickMm) * this.body;
+    this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax, pressure: P, slideMm, fingers, ...(thick !== undefined || this.body !== 1 ? { thick: th } : {}) });
   }
 
   take() { const out = this.steps; this.steps = []; return out; }

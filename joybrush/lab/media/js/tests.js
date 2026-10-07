@@ -113,6 +113,24 @@ export const SHEETS = {
       return s;
     },
   },
+  // Watery oil (owner, 2026-10-06/07): the All-round oil brush, neat → thinned → watery → runny, left to right, on
+  // canvas; then the paper tipped toward the bottom for ?tiltS= seconds: thinned paint's medium runs and drips,
+  // carrying its colour, round the impasto. The last stroke is a two-stage brush: paint first, then thinner.
+  wateryoil: {
+    size: [1600, 1100],
+    paper: 'canvas_linen',
+    strokes() {
+      const q = new URLSearchParams(location.search), MM = 20, L = -50, s = [];
+      const paste = (tool, color, st, extra = {}) => ({ ...st, kind: 'paste', tool, color, ...extra });
+      const COL = [[0.72, 0.2, 0.16], [0.18, 0.38, 0.62], [0.85, 0.6, 0.12], [0.2, 0.5, 0.3]];
+      for (let i = 0; i < 4; i++) {
+        const st = stroke('All-round', 32, bez([(6 + i * 16) * MM, 48 * MM], [(14 + i * 16) * MM, 44 * MM], [(4 + i * 16) * MM, 32 * MM], [(10 + i * 16) * MM, 24 * MM]), { p: env(0.9, 0.6), tilt: 35, az: L }, 40);
+        s.push(paste('All-round', COL[i], st, { thin: i }));
+      }
+      s.push({ tiltDeg: Number(q.get('tiltDeg') || 45), tiltDir: [0, -1] }, { wait: Number(q.get('tiltS') || 8) }, { tiltDeg: 0, tiltDir: [0, 0] }, { wait: 120 });
+      return s;
+    },
+  },
   // Dabs and stroke ends (owner, 2026-10-07): a light dab must be a dot, not straight lines squirting out;
   // tails only grow with travel; splayed hairs come in late; no straight-cut starts or ends. Each row: three
   // dabs (light, medium, firm, with a hand's jitter and no travel), then a short curved stroke, then a longer

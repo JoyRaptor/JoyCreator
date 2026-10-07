@@ -206,6 +206,17 @@ gradient and moving the mark away from the pen. v8 replaced it:
     this look for the scraper over the squeegee;
   - **across stroke**: a squeegee centred on the pen, turning with the stroke; lean widens it;
   - **along stroke**: the edge trails the pen point along the path, a groove that follows the line.
+- **Watery oil (v9.5)** (owner: "thick paint with wateriness … impasto pulling pigment into runny drips … two stage,
+  loaded then watery brush"):
+  - Oil hair brushes take a thinner level (the Drier/Wetter buttons): neat · thinned · watery · runny.
+  - A thinned stroke lays its paint with a thinner body (×0.8 / 0.6 / 0.4). A water stroke rides along the same path
+    (`thinnerStroke` in wet.js: as wide as the paint, WETNESS level 1 / 2 / 4) carrying the paint's colour as a glaze.
+  - The fresh paint gives pigment up to water lying on it (the wet engine's lift reads p1.a, which is openness for
+    paste).
+  - The paste load runs out along the stroke while the water goes on, so a stroke goes from loaded to watery.
+  - Water treats paint body as terrain (the flux pass reads p0.a): it pools between impasto ridges, and drips run
+    round blobs.
+  - Neat paint is unchanged. Vector records keep `thin` and replay the riding water with its timing.
 - **Knife v3 (v9.4), the owner's spec of 2026-10-07**, for Palette knife 2 and the scraper:
   - **Lean direction:** the edge lies along the pen's lean (Edge: pen angle). Lean north and stroke down: a knife
     line along the edge. Lean west and stroke down: a band across it.
@@ -278,7 +289,7 @@ input path needs the same (§4, M5.2).
 | 🔨 | Spline input | built in lab; app not yet |
 | 🔨 | Watercolour: flow, pinning, edges, mingle, blooms, granulation, lift, wetness levels, all-round, running water and drips, phone tilt | v9; owner: "B tier, keep going" before drips |
 | 🔨 | Oil: cells, two-way trade, travel-grown tails, round/flat ends, all-round, belly modes, holes fix, rigid knife and scraper, soft shadows | v8–v9; owner: "approaching A tier" |
-| 🔲 | Watery oil (thinned paint pulling pigment into drips; the owner's two-stage brush) | next |
+| 🔨 | Watery oil: thinner levels, a riding water stroke, paint as terrain for water | v9.5, first round |
 | 🔨 | Vector replay (records, recolour, sharp zoom) | built; pencil and oil |
 | 🔨 | Rect undo (only the touched area is kept), lazy textures | built |
 | 🟢 | Port to the app (§4) | specced here, not started |

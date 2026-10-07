@@ -3,7 +3,7 @@ import { MediaEngine } from './engine.js';
 import { loadCatalogue, loadSurface, DOC_PX_PER_MM } from './paper.js';
 import { STICKS, DryStroke, stickMaterial, PRESS, MAT_OVERRIDE, ZONES } from './stick.js';
 import { SHEETS } from './tests.js';
-import { WET, WET_BRUSHES, WETNESS, WetStroke, paintFromColor, tiltSlope } from './wet.js';
+import { WET, WET_BRUSHES, WETNESS, WetStroke, paintFromColor, tiltSlope, THINNER, thinnerStroke } from './wet.js';
 import { SplineFeeder } from './spline.js';
 import { PASTE_BRUSHES, PasteStroke, opaquePaint, EDGE_MODES, EDGE_LABELS, PRESS_MODES } from './paste.js';
 import { VectorDoc } from './vector.js';
@@ -28,6 +28,7 @@ const state = {
   pressModes: {},
   faceModes: {},
   wetLevel: 3,
+  thinLevel: 0,          // oil: how much thinner is in the paint (THINNER)
   color: [0.22, 0.38, 0.75],
   seed: 100,
   mouseTilt: 0,
@@ -147,7 +148,17 @@ function runSheet(sheet, offset = [0, 0]) {
       if (!st.dirty) engine.reloadBrush(opaquePaint(st.color), brush, seed, st.belly ? opaquePaint(st.belly) : null);
       const ps = new PasteStroke(brush, DOC_PX_PER_MM, 1, { edge: st.edge || qs.get('edge') || undefined, press: st.press || qs.get('press') || undefined, face: st.face || qs.get('face') || undefined });
       const sd = seed++;
-      for (const smp of st.samples) { ps.add(smp); for (const step of ps.take()) engine.pasteStep(step, brush, paper, DOC_PX_PER_MM, sd); }
+      const ws = st.thin ? thinnerStroke(brush, st.color, paper, DOC_PX_PER_MM, sd, st.thin) : null;
+      if (ws) ps.body = THINNER[st.thin].body;
+      st.samples.forEach((smp, i) => {
+        ps.add(smp);
+        for (const step of ps.take()) engine.pasteStep(step, brush, paper, DOC_PX_PER_MM, sd);
+        if (ws) {
+          ws.add(smp);
+          if (i === st.samples.length - 1) ws.finish();
+          if (i % 4 === 3 || i === st.samples.length - 1) engine.wetFrame(ws.take(), paper, DOC_PX_PER_MM);
+        }
+      });
       continue;
     }
     if (st.kind === 'wet') {
@@ -217,8 +228,11 @@ function startStroke(eng, meta) {
   if (meta.kind === 'paste') {
     const brush = PASTE_BRUSHES[meta.tool];
     if (!meta.dirty) eng.reloadBrush(opaquePaint(meta.color), brush, meta.seed, meta.belly ? opaquePaint(meta.belly) : null);
-    const ds = new PasteStroke(brush, DOC_PX_PER_MM, eng.scale, { edge: meta.edge, press: meta.press, face: meta.face });
-    return { add: s => ds.add(s), flush() { for (const st of ds.take()) eng.pasteStep(st, brush, paper, DOC_PX_PER_MM, meta.seed); }, finish() { this.flush(); } };
+    const ds = new PasteStroke(brush, DOC_PX_PER_MM, eng.scale, { edge: meta.edge, press: meta.press, face: meta.face, body: meta.thin ? THINNER[meta.thin].body : 1 });
+    // Thinned paint: a water stroke rides along (the live loop runs it first, like a watercolour stroke).
+    const ws = meta.thin && eng === engine ? thinnerStroke(brush, meta.color, paper, DOC_PX_PER_MM, meta.seed, meta.thin) : null;
+    const water = ws ? { wet: true, add: s => ws.add(s), take: () => ws.take(), flush() {}, finish() { ws.finish(); } } : null;
+    return { water, add: s => ds.add(s), flush() { for (const st of ds.take()) eng.pasteStep(st, brush, paper, DOC_PX_PER_MM, meta.seed); }, finish() { this.flush(); } };
   }
   if (meta.kind === 'wet') {
     const ds = new WetStroke(WET_BRUSHES[meta.tool], paintFromColor(meta.color), paper, DOC_PX_PER_MM, meta.seed, meta.wetness);
@@ -295,12 +309,14 @@ function hookInput() {
     const isBlade = kind === 'paste' && !!PASTE_BRUSHES[state.tool].blade;
     const edge = isBlade ? edgeFor(state.tool) : undefined, press = isBlade ? pressFor(state.tool) : undefined;
     const face = isBlade ? faceFor(state.tool) : undefined;
-    const meta = { kind, tool: state.tool, color: [...state.color], belly: belly ? [...belly] : null, seed, wetness, edge, press, face,
+    const thin = kind === 'paste' && PASTE_BRUSHES[state.tool].shape < 2 ? state.thinLevel : 0;
+    const meta = { kind, tool: state.tool, color: [...state.color], belly: belly ? [...belly] : null, seed, wetness, edge, press, face, thin,
       dirty: kind === 'paste' && state.dirtyBrush && state.lastPaste === state.tool };
     if (kind === 'paste') state.lastPaste = state.tool;
-    const lives = [startStroke(engine, meta)];
-    if (state.vector && state.viewValid && kind !== 'wet') lives.push(startStroke(state.viewEngine, meta));
-    if (state.vector && kind === 'wet') state.viewValid = false;
+    const first = startStroke(engine, meta);
+    const lives = first.water ? [first.water, first] : [first];
+    if (state.vector && state.viewValid && kind !== 'wet' && !thin) lives.push(startStroke(state.viewEngine, meta));
+    if (state.vector && (kind === 'wet' || thin)) state.viewValid = false;
     const sink = s => { for (const l of lives) l.add(s); };
     state.stroke = { id: e.pointerId, lives, feeder: new SplineFeeder(state.vector ? vdoc.begin(meta, sink) : sink) };
     feed(e);
@@ -431,7 +447,7 @@ function buildUi() {
   // Show each brush's own controls only: wetness for watercolour, belly and dirty brush for oil.
   const showFor = () => {
     const isWet = state.kind === 'wet', isPaste = state.kind === 'paste', isHair = isPaste && PASTE_BRUSHES[state.tool].shape < 2;
-    ui('wetbox').hidden = !isWet;
+    ui('wetbox').hidden = !isWet && !isHair;
     ui('bellybox').hidden = !isHair;
     const isBlade = isPaste && !!PASTE_BRUSHES[state.tool].blade;
     ui('edgebox').hidden = !isBlade;
@@ -446,7 +462,9 @@ function buildUi() {
     // A dry brush means just that: picking it sets the brush nearly dry.
     if (isWet && state.tool === 'Dry brush' && state.lastTool !== 'wet:Dry brush') state.wetLevel = 0;
     state.lastTool = state.kind + ':' + state.tool;
-    ui('wetread').textContent = WETNESS[state.wetLevel].name;
+    ui('wetread').textContent = isWet ? WETNESS[state.wetLevel].name : THINNER[state.thinLevel].name;
+    ui('drier').title = isWet ? 'Blot the brush: less water' : 'Less thinner in the paint';
+    ui('wetter').title = isWet ? 'Dip the brush: more water' : 'More thinner: the paint runs and drips';
   };
   toolSel.onchange = () => { [state.kind, state.tool] = toolSel.value.split(/:(.*)/s); showFor(); };
   const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
@@ -477,8 +495,17 @@ function buildUi() {
     state.edgeModes[state.tool] = m;
     showFor();
   };
-  ui('wetter').onclick = () => { state.wetLevel = Math.min(WETNESS.length - 1, state.wetLevel + 1); showFor(); };
-  ui('drier').onclick = () => { state.wetLevel = Math.max(0, state.wetLevel - 1); showFor(); };
+  const thinning = () => state.kind === 'paste';
+  ui('wetter').onclick = () => {
+    if (thinning()) state.thinLevel = Math.min(THINNER.length - 1, state.thinLevel + 1);
+    else state.wetLevel = Math.min(WETNESS.length - 1, state.wetLevel + 1);
+    showFor();
+  };
+  ui('drier').onclick = () => {
+    if (thinning()) state.thinLevel = Math.max(0, state.thinLevel - 1);
+    else state.wetLevel = Math.max(0, state.wetLevel - 1);
+    showFor();
+  };
   showFor();
   ui('dry').onclick = () => { engine.dryNow(paper); state.dirty = true; };
   hookTiltPad();

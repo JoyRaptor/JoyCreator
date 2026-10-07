@@ -438,7 +438,7 @@ export class MediaEngine {
       if (tilted) this.beadPasses(a.w0, rect, U.u_beadCells);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fluxFbo[bi]);
       gl.viewport(0, 0, this.w, this.h);
-      this.use(this.progs.flux, { ...U, u_bead: this.bead[0], u_w0: a.w0, u_flux: a.flux, u_paperBake: this.bakeTex, u_fluidBake: this.fluidBake, u_waterBake: this.waterBake, u_rect: rect, u_targetSize: [this.w, this.h] });
+      this.use(this.progs.flux, { ...U, u_bead: this.bead[0], u_p0: this.state[0].p0, u_w0: a.w0, u_flux: a.flux, u_paperBake: this.bakeTex, u_fluidBake: this.fluidBake, u_waterBake: this.waterBake, u_rect: rect, u_targetSize: [this.w, this.h] });
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.updFbo[bi]);
       this.use(this.progs.update, {

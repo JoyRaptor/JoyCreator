@@ -357,6 +357,20 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
     `floatTiles`, using the same pattern as `DocOps.storedCels`.
   - A media layer may carry a mask (landed with step 1). Painting INTO a mask with a media brush stays refused, in the
     canvas branch.
+- **M5.3b Step 4 checks (Lead review of step 2, 2026-10-07). Each needs a test.**
+  1. **Non-media brushes on a media layer.** A stamp, tuft or fill writes only the LOOK tile, so the next
+     renderLook() would undo it.
+     - The ERASER must work, not refuse (the owner WILL erase pencil): the media engine erases its own state (p0, p1,
+       w0, w1 to zero; the paper crush is kept) and re-renders the look.
+     - Every other non-media engine on MEDIA is either refused in words (`BrushRules.refusalFor`) or auto-creates a
+       paint layer above, the mirror of contract point 5.
+  2. **Smoothing.** The SplineFeeder replaces StrokeSmoother for media. With `smoothingFromUser` on (the ⋯ slider), the
+     canvas applies `canvas.smoothing`, so `engine == "media"` must bypass StrokeSmoother entirely. Otherwise the spline
+     gets pre-smoothed, laggy samples.
+  3. **Opacity.** The strip's opacity and `ToolMemory.sized` set `opacity.base` on every brush. Either give it a media
+     meaning (pigment load or look alpha) or hide the control for media brushes. Never a silent knob.
+  4. **The Eraser slot.** `ToolMemory.slotFor` sends media brushes to BRUSH, which is fine; but tapping the strip's
+     Eraser with a media layer active must take the media erase of item 1.
 - **M5.4 GL engine (T1).** `MediaLayerEngine` runs the passes on tiles:
   - dabs go into a tile-set delta (additive, batched);
   - one apply/update pass per frame over the dirty tiles;
@@ -365,7 +379,7 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
     and wet tiles spreading downhill into neighbours only as water reaches them (the lab grows a rectangle, capped
     at 4 cm past the painted area; the app tracks tiles);
   - the paper bake is per tile.
-- **M5.5 Brush format (T2). Built in step 2 (`review/media-brush-v8`), awaiting review.** As built:
+- **M5.5 Brush format (T2). ✅ 21d8f44f (step 2, Lead-approved).** As built:
   - `BRUSH_VERSION` is 8, with `engine: "media"` and a nullable `media` section (`MediaSpec`).
   - The section holds `medium` (dry/wet/paste) and `tool` (the table name), plus exactly one block: `stick`, `wet` or
     `paste`. Each block is the lab table's data class, now `@Serializable`, so its field names are file words.

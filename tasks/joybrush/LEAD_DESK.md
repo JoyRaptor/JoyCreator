@@ -731,3 +731,6 @@ media brushes real brush presets.
 - NOT in the drawer yet: the presets join the library with step 4's canvas branch, so nobody can pick a brush that
   cannot paint.
 - Evidence: core jvmTest 1678, 0 failed; androidkit and joybrush-android compile.
+
+**Landed 2026-10-07 (21d8f44f), approved.** The Lead's four step-4 checks (non-media brushes and the eraser on a media
+layer, smoothing bypass, opacity meaning, the Eraser slot) are row M5.3b in MEDIA_ENGINE_PLAN §4.

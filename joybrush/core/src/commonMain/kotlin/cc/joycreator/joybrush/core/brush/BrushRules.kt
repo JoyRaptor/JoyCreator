@@ -20,6 +20,12 @@ object BrushRules {
     /** The sentence to show a person if [engine] may not be used on a [kind] layer, or null if it may. */
     fun refusalFor(engine: String, kind: LayerKind): String? {
         if (kind == LayerKind.PAINT || engine !in READS_PIXELS) return null
+        if (kind == LayerKind.MEDIA) {
+            // A media layer's pixels are a look rendered from its paint and water; smearing the look would not
+            // touch them. Media brushes blend media layers themselves.
+            val what = when (engine) { ENGINE_SMUDGE -> "Smudge"; ENGINE_PUSH -> "Push"; else -> "Wet paint" }
+            return "$what works on a paint layer. A pencil, watercolour or oil layer is blended with its own brushes."
+        }
         val what = when (engine) {
             ENGINE_SMUDGE -> "Smudge"
             ENGINE_PUSH -> "Push"

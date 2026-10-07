@@ -187,6 +187,7 @@ object DocOps {
                 if (l.kind != LayerKind.PAINT) out += "layer \"${l.id}\" is ${l.kind}, and only a paint layer can have a mask"
                 if (l.cels.any { it.id == m.id }) out += "layer \"${l.id}\" has a mask and a cel both called \"${m.id}\""
                 if (m.strokesFile != null) out += "the mask of layer \"${l.id}\" has strokes; a mask is pixels"
+                if (m.floatTiles.isNotEmpty()) out += "the mask of layer \"${l.id}\" has media state; a mask is pixels"
             }
             if (l.clip && index == 0) out += "layer \"${l.id}\" is clipped, and there is no layer below it to clip to"
         }
@@ -197,6 +198,15 @@ object DocOps {
                 if (c.strokesFile != null) out += "layer \"${l.id}\" is paint, so cel \"${c.id}\" cannot have strokes"
             LayerKind.INK ->
                 if (c.tiles.isNotEmpty()) out += "layer \"${l.id}\" is ink, so cel \"${c.id}\" cannot have tiles"
+            LayerKind.MEDIA ->
+                if (c.strokesFile != null) out += "layer \"${l.id}\" is media, so cel \"${c.id}\" cannot have strokes"
+        }
+        // 8b — media state belongs to media layers, one entry per tile.
+        for (l in doc.layers) for (c in l.cels) {
+            if (c.floatTiles.isNotEmpty() && l.kind != LayerKind.MEDIA) {
+                out += "layer \"${l.id}\" is ${l.kind.name.lowercase()}, so cel \"${c.id}\" cannot have media state"
+            }
+            if (c.floatTiles.size != c.floatTiles.toSet().size) out += "cel \"${c.id}\" of layer \"${l.id}\" lists a media tile twice"
         }
 
         // 9 — a saved document remembers where the person was.

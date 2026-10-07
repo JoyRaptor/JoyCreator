@@ -47,9 +47,9 @@ class EnumFreezeTest {
     @Test
     fun layerKindNamesAreFrozenInOrder() {
         assertEquals(
-            listOf("PAINT", "INK"),
+            listOf("PAINT", "INK", "MEDIA"),
             LayerKind.entries.map { it.name },
-            "PAINT/INK is the whole layer model; a third kind is a new version, not a new constant.",
+            "the on-disk layer kinds; MEDIA (v8) was appended with a version bump. Append only.",
         )
     }
 
@@ -95,7 +95,8 @@ class EnumFreezeTest {
         // 4 is the paper look/surface (JB-9.05): `Paper` gained lookId, tint, show, bite and light.
         // The bump is R31's — any new serialised field bumps — and the Lead accepted its cost (an old
         // build refuses a v4 file) for one owner and one phone (R38).
-        assertEquals(7, DOC_VERSION)
+        // 8 is the media layer (MEDIA_ENGINE_PLAN §4): LayerKind.MEDIA and Cel.floatTiles.
+        assertEquals(8, DOC_VERSION)
         // 6 is `paper` (JB-9.09): the three numbers each brush carries about how it feels the document
         // paper. Read as BRUSH_VERSION rather than typed, so the bump is one edit here and one there.
         assertEquals(7, BRUSH_VERSION)

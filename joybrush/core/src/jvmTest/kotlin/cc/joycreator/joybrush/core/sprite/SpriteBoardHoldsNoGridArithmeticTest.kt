@@ -196,6 +196,7 @@ class SpriteBoardHoldsNoGridArithmeticTest {
         assertEquals(
             listOf(
                 "Board.frames",
+                "Cel.floatTiles", // v8 media layer: the tiles holding float state; never a sprite count
                 "Cel.tiles",
                 "JbDocument.boards",
                 "JbDocument.layers",

@@ -13,6 +13,7 @@ uniform sampler2D u_p1;          // S·X rgb, openness
 uniform sampler2D u_paperState;  // R crush, G dry flake volume V (mm), B Σ V·flake reflectance
 uniform sampler2D u_w0;          // water: w (mm), s (capillary saturation)
 uniform sampler2D u_w1;          // pigment still in the water: K rgb, S
+uniform sampler2D u_paperBake;   // the layer's paper bake: .b = the normalised height paint fills against
 uniform vec2 u_targetSize;       // layer size, LAYER px
 uniform vec2 u_layerOrigin;      // layerPx = (docPx - origin) * scale
 uniform float u_layerScale;
@@ -71,21 +72,32 @@ void main() {
     vec2 gPaper = (s.xy - dC) * k;                       // paper/canvas relief, mm per mm
     vec2 gPaint = dT * u_pxPerMm;                        // paint body, mm per mm
     float bodyHere = smoothstep(0.004, 0.04, p0.a);
-    float normK = 1.0 / max(u_paperHTop - u_paperHBot, 0.05);
-    vec2 grad = mix(gPaper * u_relief, (gPaper * normK + gPaint) * u_impasto, bodyHere) + dW * u_pxPerMm * 0.35;
+    // Under paint, the paper's relief is read from the SAME baked height the paint filled against (same
+    // texels, same filtering), so thick paint that fills the weave cancels it exactly and only the paint's
+    // own ridges and lumps show. Reading it from the paper texture instead (other filtering, normalised
+    // scale ×normK) left the weave showing through thick paint as a grid (v8–v9).
+    vec2 dB = vec2(jb_bilinear(u_paperBake, lp + vec2(1, 0)).b - jb_bilinear(u_paperBake, lp - vec2(1, 0)).b,
+                   jb_bilinear(u_paperBake, lp + vec2(0, 1)).b - jb_bilinear(u_paperBake, lp - vec2(0, 1)).b) * 0.5 * u_layerScale;
+    vec2 gUnder = (dB - dC) * k;
+    vec2 grad = mix(gPaper * u_relief, (gUnder + gPaint) * u_impasto, bodyHere) + dW * u_pxPerMm * 0.35;
     vec3 n = normalize(vec3(-grad, 1.0));
     float amb = 0.55, dif = 0.45;
     float shade = (amb + dif * max(dot(n, u_lamp), 0.0)) / (amb + dif * u_lamp.z);
+    if (u_mode == 8) { o_color = vec4(0.5 + 4.0 * grad, 0.5, 1.0); return; }   // debug: the lit slope
     // Soft shadows from thick paint: march toward the lamp; a ridge that rises above the light's line
     // shades this point, softer the farther away it is (penumbra grows with distance).
+    // Heights are the paint's TOP (canvas under it + its thickness): paint that fills the weave is thicker in
+    // the valleys, and marching on thickness alone shadowed the weave as a grid under thick paint (v8–v9).
     if (u_impasto > 0.0 && u_zoom > 0.15) {
-        float t0 = p0.a * u_impasto;
+        float t0 = (p0.a + bodyHere * jb_bilinear(u_paperBake, lp).b * u_toothMm) * u_impasto;
         vec2 ldir = normalize(u_lamp.xy + vec2(1e-6));
         float tanE = u_lamp.z / max(length(u_lamp.xy), 1e-3);
         float lit = 1.0;
         for (int i = 1; i <= 10; i++) {
             float d = float(i * i) * 0.5 + 1.0;                       // doc px, spreading out
-            float tq = jb_bilinear(u_p0, lp + ldir * d * u_layerScale).a * u_impasto;
+            vec2 q = lp + ldir * d * u_layerScale;
+            float pq = jb_bilinear(u_p0, q).a;
+            float tq = (pq + smoothstep(0.004, 0.04, pq) * jb_bilinear(u_paperBake, q).b * u_toothMm) * u_impasto;
             float rise = (tq - t0) - d / u_pxPerMm * tanE;            // mm above the light's line
             lit = min(lit, clamp(1.0 - rise / (0.01 + 0.25 * d / u_pxPerMm), 0.0, 1.0));
         }

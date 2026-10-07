@@ -35,7 +35,7 @@ void main() {
     vec4 b0 = texelFetch(u_brush0, cell, 0);
     vec4 b1 = texelFetch(u_brush1, cell, 0);
 
-    if (u_shape > 1.5) {
+    if (u_blade > 0.5) {
         // Rigid blade: only row 0 is used; each lane is a stretch of the edge. It gains what it scrapes off
         // above its underside and gives paint into the lows below it (mirror of jb_paste_dab.frag).
         if (cell.y != 0 || u_active < 0.5) { o_b0 = b0; o_b1 = b1; return; }
@@ -94,7 +94,7 @@ void main() {
         float o = 8.0 * u_layerScale;
         float around = 0.25 * (surfaceAt(pos + vec2(o, 0)) + surfaceAt(pos - vec2(o, 0))
                              + surfaceAt(pos + vec2(0, o)) + surfaceAt(pos - vec2(0, o)));
-        float give = u_pressure * 0.25 + clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0) * (2.0 * u_thick + 0.2);
+        float give = u_pressure * mix(0.12, 0.25, u_fillDips) + clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0) * mix(0.3, 2.0 * u_thick + 0.2, u_fillDips);
         float c = cover * smoothstep(-0.02, 0.02, here - around + give - 0.06 * (1.0 - hair));
 
         float t = p0.a;
@@ -105,7 +105,7 @@ void main() {
         float target = jb_pasteTarget(a, load, hair, b, valley, docPos);
         float r = 1.0 - exp(-u_rate * u_slideMm / max(u_len, 0.2));
         if (target > t) {
-            float dep = min((target - t) * r * c, load);
+            float dep = min((jb_pasteFast(target, t, valley) * jb_pasteRateFast() + (target - t - jb_pasteFast(target, t, valley)) * r) * c, load);
             vec3 kv = load > 1e-6 ? b0.rgb / load : vec3(0.0);
             float sv = load > 1e-6 ? b1.r / load : 0.0;
             b0.rgb -= kv * dep; b1.r -= sv * dep; b0.a -= dep;

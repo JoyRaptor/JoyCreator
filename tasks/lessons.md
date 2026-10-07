@@ -1003,3 +1003,18 @@ brush showed every control; the check passed because it read the property, not t
 **5. Names repeat across media.** Watercolour and oil each have an "All-round", and a select keyed by name picked the
 wrong engine's controls. **Rule:** a brush is identified by medium + name everywhere (option values, records, files).
 Bundles also carry `<meta charset="utf-8">`: inlined scripts are read in the page's encoding, and "·" became "Â·".
+
+## The weave grid under thick paint (2026-10-07): a texture bound to the wrong pass
+
+**What happened:** to light the paper under paint from the paint's own height map, I added `u_paperBake` to "the render
+call" with a scripted replace of the first matching line. That line also opened the pencil pass's call, so the render
+read whatever texture was left in that unit, and the grid got WORSE. Two rounds of physics changes went in to fix a
+binding bug. A per-pixel probe of what the renderer actually read (debug look mode 8) found it in one step.
+
+**Rule:** anchor scripted edits on text unique to the function being changed. When a new uniform does not change
+what you expect, first output it raw through a debug look and compare it with a probe of the source texture,
+before touching the physics.
+
+**Also:** lighting under paint must read the same field the paint was filled against, including the soft-shadow
+march (thickness alone shadows a filled weave). A guarded `setPointerCapture` belongs in every pen handler: when it
+throws, the whole stroke is lost, and that looked to the owner like "the pen does nothing".

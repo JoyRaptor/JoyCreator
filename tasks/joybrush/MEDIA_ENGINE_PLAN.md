@@ -64,6 +64,9 @@ high S is an opaque body. (This is per-channel KM, which is 1931 prior art; **no
 
 **Lighting:**
 - One lamp across the true relief: paper tooth − crush + paint body + water surface.
+- Under paint, the paper's relief is read from the SAME baked (normalised) height the paint filled against, in the
+  slope and in the soft-shadow march, so paint that fills the weave cancels it exactly. Reading the paper texture
+  instead (other filtering, other scale) showed the weave through thick paint as a grid (v8–v9.1).
 - Wet water glint.
 - Oil gloss while open.
 - Graphite sheen on burnished tooth.
@@ -189,7 +192,13 @@ gradient and moving the mark away from the pen. v8 replaced it:
   longer skips over them.
 - **Belly colour modes** (tap to cycle): off · manual · darker · lighter · warmer · cooler · last colour · shift.
   The loading tray puts the second colour in the belly on a round, side to side on a flat.
-- **Knife and scraper are rigid blades held like the pen.**
+- **Palette knife 1 is the v6/v7 trowel, back by request** (owner, 2026-10-07: "the old one had excellent
+  texture", easier to control). It follows the stroke, its paint goes through the hair-brush trade (rigid,
+  scrape 0.99, ridge, bow, lumps), and it keeps its own step geometry (`trowel: true`). A rigid tool presses paint
+  straight into the weave (fast fill); only the layer above the peaks builds up step by step.
+- **The scraper is a squeegee:** the edge lies across the stroke and turns with it, centred on the pen. Lean lays more
+  edge down (1.5 → 10 mm); pressure sets the depth. It was pen-lean oriented in v8, which the owner found unintuitive.
+- **Palette knife 2 is the v8 rigid blade held like the pen:**
   - The edge lies along the pen's lean (azimuth), whatever the direction of travel.
   - **Pressure lowers the blade:** height above the canvas peaks = `Hmax·(1−P)^1.5`. A light touch shaves the peaks;
     full pressure reaches the canvas and presses into the weave (`0.6·tooth·P²`).

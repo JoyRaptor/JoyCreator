@@ -39,7 +39,7 @@ void main() {
     vec4 p1 = texelFetch(u_p1, ivec2(v_layerPx), 0);
     o_p0 = p0; o_p1 = p1;
     vec2 rel = (v_docPx - u_center) / u_pxPerMm;
-    if (u_shape > 1.5) {
+    if (u_blade > 0.5) {
         // Rigid blade: paint above its underside comes off onto it; below it, the blade's paint fills up to it.
         float pxB = 1.0 / (u_pxPerMm * u_layerScale);
         float xb, yb;
@@ -95,8 +95,9 @@ void main() {
     float around = 0.25 * (surfaceAt(v_layerPx + vec2(o, 0)) + surfaceAt(v_layerPx - vec2(o, 0))
                          + surfaceAt(v_layerPx + vec2(0, o)) + surfaceAt(v_layerPx - vec2(0, o)));
     float fillLoad = clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0);
-    float give = u_pressure * 0.25 + fillLoad * (2.0 * u_thick + 0.2);
-    float reach = smoothstep(-0.03, 0.03, here - around + give - 0.06 * (1.0 - hair));
+    float give = u_pressure * mix(0.12, 0.25, u_fillDips) + fillLoad * mix(0.3, 2.0 * u_thick + 0.2, u_fillDips);
+    float edgeW = mix(0.02, 0.03, u_fillDips);
+    float reach = smoothstep(-edgeW, edgeW, here - around + give - 0.06 * (1.0 - hair));
     float c = cover * reach;
 
     float t = p0.a;
@@ -110,7 +111,7 @@ void main() {
     float target = jb_pasteTarget(a, load, hair, b, valley, v_docPx);
     float r = 1.0 - exp(-u_rate * u_slideMm / max(u_len, 0.2));
     if (target > t) {
-        float dep = (target - t) * r * c;
+        float dep = (jb_pasteFast(target, t, valley) * jb_pasteRateFast() + (target - t - jb_pasteFast(target, t, valley)) * r) * c;
         p0.rgb += Kb * dep; p1.rgb += vec3(Sb * dep);
         open = mix(open, 1.0, dep / max(t + dep, 1e-6));
         t += dep;

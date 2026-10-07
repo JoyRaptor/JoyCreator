@@ -325,7 +325,8 @@ export class MediaEngine {
       u_center: [st.x, st.y], u_wDir: st.wDir, u_lDir: st.lDir, u_halfW: st.halfW, u_len: st.len, u_lenMax: st.lenMax,
       u_shape: brush.shape, u_pressure: st.pressure, u_thick: st.thick ?? brush.thickMm, u_scrape: brush.scrape,
       u_fingers: st.fingers ?? brush.fingers ?? 1, u_rag: brush.rag ?? 1, u_arc: brush.arc ?? 0.18, u_sparse: brush.sparse ?? 0,
-      u_bladeDir: st.bladeDir || [1, 0], u_travel: st.travel || [1, 0], u_bladeLen: brush.bladeLenMm || 1,
+      u_blade: brush.blade ? 1 : 0, u_fillDips: brush.fillDips ?? 1,
+      u_bladeDir: st.bladeDir || [1, 0], u_travel: st.travel || [1, 0], u_bladeLen: st.bladeLen ?? brush.bladeLenMm ?? 1,
       u_bladeHalfW: brush.bladeHalfMm || 1, u_bladeH0: st.bladeH0 ?? 0, u_bladeTan: st.bladeTan ?? 0, u_bladeBead: brush.bead || 0,
       u_bladePressMm: (brush.pressIn ?? 0.6) * paper.toothMm * st.pressure * st.pressure, u_bladeFilm: brush.film ?? 0.004,
       u_hairDepth: brush.hairDepth, u_ridge: brush.ridge, u_rate: brush.rate, u_mix: brush.mix, u_swap: brush.swap ?? 0.6,
@@ -343,7 +344,7 @@ export class MediaEngine {
       u_layerSize: [this.w, this.h], u_rect: [0, 0, PASTE_LANES, PASTE_DEPTH], u_targetSize: [PASTE_LANES, PASTE_DEPTH] });
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     // Canvas side, from the same (old) brush cells, over the footprint's rectangle.
-    const r = (brush.shape >= 2 ? brush.bladeLenMm + brush.bladeHalfMm + 1.5 : Math.hypot(st.halfW, st.lenMax) + 0.3) * pxPerMm;
+    const r = (brush.blade ? (st.bladeLen ?? brush.bladeLenMm) + brush.bladeHalfMm + 1.5 : Math.hypot(st.halfW, st.lenMax) + 0.3) * pxPerMm;
     const rect = this.layerRect([st.x - r, st.y - r, st.x + r, st.y + r], 2);
     if (rect) {
       this.touch(rect);
@@ -368,6 +369,7 @@ export class MediaEngine {
     };
     read('p0', this.state[0].p0); read('p1', this.state[0].p1); read('paper', this.state[0].paper);
     if (this.wet) { read('w0', this.wet[this.wc].w0); read('w1', this.wet[this.wc].w1); }
+    if (this.bakeTex) read('bake', this.bakeTex);
     if (x < 0) {   // brush cells: probe(-1, j) reads lane 16 at depth j
       const f = makeFbo(gl, [this.brush[this.bc].b0]);
       const px = new Float32Array(4);
@@ -573,7 +575,7 @@ export class MediaEngine {
     const cur = this.state[0];
     this.use(this.progs.render, {
       ...paper.uniforms,
-      u_p0: cur.p0, u_p1: cur.p1, u_paperState: cur.paper,
+      u_p0: cur.p0, u_p1: cur.p1, u_paperState: cur.paper, u_paperBake: this.bakeTex || this.emptyTex(),
       u_w0: this.wet ? this.wet[this.wc].w0 : this.emptyTex(), u_w1: this.wet ? this.wet[this.wc].w1 : this.emptyTex(),
       u_targetSize: [this.w, this.h],
       u_pan: view.pan, u_zoom: view.zoom,

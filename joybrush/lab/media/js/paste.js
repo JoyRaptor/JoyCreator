@@ -15,10 +15,16 @@ export const PASTE_BRUSHES = {
   'Oil round': { shape: 0, widthMm: 4.5, lenMm: 7, thickMm: 0.5, scrape: 0.5, hairDepth: 0.35, ridge: 0.35, rate: 2.2, mix: 0.12, swap: 0.6, loadLenMm: 120, wick: 0.003, bow: 0.5, lump: 0.12, rigid: 0, fingers: 0.4 },
   // A fan: hair tips on an arc, spread apart; it feathers and blends rather than lays paint.
   'Fan blender': { shape: 1, widthMm: 14, lenMm: 2.5, thickMm: 0.1, scrape: 0.3, hairDepth: 0.95, ridge: 0.0, rate: 1.2, mix: 0.45, swap: 0.3, loadLenMm: 60, wick: 0.002, bow: 0.1, lump: 0.0, rigid: 0, fingers: 0.5, arc: 0.55, sparse: 0.6 },
+  // The trowel knife of v6/v7, back by the owner's request (2026-10-07: "the old one had excellent texture" and
+  // was easier to control). It follows the stroke, skates over the dips (fillDips 0) and keeps its own geometry.
+  'Palette knife 1': { shape: 2, trowel: true, widthMm: 9, lenMm: 13, thickMm: 1.1, scrape: 0.99, hairDepth: 0.0, ridge: 1.0, rate: 4.0, mix: 0.2, swap: 0.5, loadLenMm: 70, wick: 0.0, bow: 0.9, lump: 0.25, rigid: 1, fillDips: 1 },
   // Rigid blades, held like the pen: the edge lies along the pen's lean. Pressure lowers the blade (light
   // shaves the peaks, full reaches the canvas); tilt lays more of the edge down (upright = the point).
-  'Palette knife': { shape: 2, bladeLenMm: 22, bladeHalfMm: 4.5, bladeHmax: 0.9, bead: 0.35, bladeCap: 8, thickMm: 1.1, rate: 4.0, loadLenMm: 70, mix: 0.2, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0.25, rigid: 1 },
-  'Scraper': { shape: 3, bladeLenMm: 14, bladeHalfMm: 0.35, bladeHmax: 1.6, bead: 0.5, bladeCap: 3, film: 0.002, thickMm: 0, rate: 5.0, loadLenMm: 40, mix: 0, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0, rigid: 1, clean: true },
+  'Palette knife 2': { shape: 2, blade: 1, bladeLenMm: 22, bladeHalfMm: 4.5, bladeHmax: 0.9, bead: 0.35, bladeCap: 8, thickMm: 1.1, rate: 4.0, loadLenMm: 70, mix: 0.2, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0.25, rigid: 1 },
+  // A squeegee (owner, 2026-10-07: the pen-angle scraper was unintuitive): the edge lies across the stroke and
+  // turns with it, centred on the pen. Leaning the pen lays more edge down (1.5 → 10 mm wide, finest near
+  // upright); pressure sets the depth (light skims the peaks, full reaches the canvas).
+  'Scraper': { shape: 3, blade: 1, orient: 'stroke', edgeMinMm: 1.5, bladeLenMm: 10, bladeHalfMm: 0.35, bladeHmax: 1.6, bead: 0.5, bladeCap: 3, film: 0.002, thickMm: 0, rate: 5.0, loadLenMm: 40, mix: 0, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0, rigid: 1, clean: true },
 };
 
 // Opaque paint: the colour it covers with when thick. Strong scattering; K from the KM masstone.
@@ -31,7 +37,7 @@ export function opaquePaint(rgb) {
 }
 
 export function cellCap(brush) {
-  if (brush.shape >= 2) return brush.bladeCap;
+  if (brush.blade) return brush.bladeCap;
   return brush.thickMm * brush.rate * brush.loadLenMm / brush.lenMm;
 }
 
@@ -60,7 +66,12 @@ export class PasteStroke {
     const b = this.brush;
     if (!prev) { this.lastStepT = s.t ?? 0; return; }
     const dx = s.x - prev.x, dy = s.y - prev.y, len = Math.hypot(dx, dy);
-    if (len > 1e-6) {
+    if (b.trowel) {
+      // The trowel knife steers as it did in v6/v7: it turns with each report and only lays paint as it moves.
+      if (len < 1e-6) return;
+      const t = [dx / len, dy / len];
+      this.dir = this.dir ? norm2([this.dir[0] * 0.6 + t[0] * 0.4, this.dir[1] * 0.6 + t[1] * 0.4]) : t;
+    } else if (len > 1e-6) {
       // The hairs swing round to follow the drag over about a millimetre and a half of travel, not per pen
       // report: a dab with a little jitter no longer spins the footprint into several straight lines.
       const t = [dx / len, dy / len];
@@ -69,7 +80,7 @@ export class PasteStroke {
     }
     // Small hops: a paste brush is a continuous sweep, so no step may show as an edge. A thin blade edge
     // crossing its own width needs hops finer than that width (else it leaves a zip of ribs).
-    const stepMm = b.shape >= 2 ? Math.min(0.3, 0.6 * b.bladeHalfMm * 0.35) : 0.3;
+    const stepMm = b.blade ? Math.min(0.3, 0.6 * b.bladeHalfMm * 0.35) : 0.3;
     const stepPx = Math.max(1 / this.layerScale, stepMm * this.pxPerMm / this.layerScale);
     const interp = w => ({ x: prev.x + dx * w, y: prev.y + dy * w, p: prev.p + (s.p - prev.p) * w, tilt: prev.tilt + (s.tilt - prev.tilt) * w,
       az: (prev.az ?? 0) + angleDelta(prev.az ?? 0, s.az ?? 0) * w, t: (prev.t ?? 0) + ((s.t ?? 0) - (prev.t ?? 0)) * w });
@@ -85,7 +96,7 @@ export class PasteStroke {
     this.carry = len - (pos - stepPx);
     // A brush held still (a dab, or the start of a stroke) keeps laying paint where it is.
     const now = s.t ?? 0;
-    if (!stepped && now - this.lastStepT >= 16) {
+    if (!stepped && !b.trowel && now - this.lastStepT >= 16) {
       this.push({ ...s }, 0.04 * Math.min(4, (now - this.lastStepT) / 16));
     }
     if (stepped || now - this.lastStepT >= 16) this.lastStepT = now;
@@ -101,7 +112,25 @@ export class PasteStroke {
     const lDir = [-dir[0], -dir[1]];          // the tips trail the handle
     const wDir = [-lDir[1], lDir[0]];
     const tr = this.travelled;
-    if (b.shape >= 2) {
+    if (b.trowel) {
+      // v6/v7 trowel geometry: width barely changes with pressure, length grows with it; tilt does nothing.
+      const halfW = b.widthMm / 2 * (0.9 + 0.1 * P), len = b.lenMm * (0.6 + 0.4 * P);
+      this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax: b.lenMm * 1.4, pressure: P, slideMm, fingers: 0 });
+      return;
+    }
+    if (b.blade && b.orient === 'stroke') {
+      // Squeegee: the edge lies across the travel, centred on the pen; lean lays more of it down.
+      const t = Math.min(1, Math.max(0, s.tilt / (Math.PI / 2)));
+      const L = b.edgeMinMm + (b.bladeLenMm - b.edgeMinMm) * Math.pow(t, 1.5);
+      const across = [-dir[1], dir[0]];
+      const k = 0.5 * L * this.pxPerMm;
+      this.steps.push({
+        x: s.x - across[0] * k, y: s.y - across[1] * k, wDir, lDir, halfW: b.bladeHalfMm, len: L, lenMax: L, pressure: P, slideMm,
+        bladeDir: across, bladeLen: L, travel: [...dir], bladeH0: b.bladeHmax * Math.pow(1 - P, 1.5), bladeTan: 0,
+      });
+      return;
+    }
+    if (b.blade) {
       // Rigid blade: its edge follows the pen's lean, whatever the direction of travel.
       const t = Math.min(1, Math.max(0, s.tilt / (Math.PI / 2)));
       this.steps.push({

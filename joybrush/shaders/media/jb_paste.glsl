@@ -33,6 +33,9 @@ uniform float u_cellCap;        // a full cell's amount (mm)
 uniform float u_bow;            // paint piling ahead of the brush (fraction of the layer), left as a ridge where it lifts
 uniform float u_lump;           // thick paint is never smooth: lumps in the layer (fraction)
 uniform float u_rigid;          // 1 = a blade rides the canvas peaks; 0 = hair follows the weave down
+uniform float u_blade;          // 1 = a rigid blade (Palette knife 2, scraper); 0 = hair or the trowel knife
+uniform float u_fillDips;       // how far a loaded brush's paint reaches into dips: 1 fills them (v8), 0 skates over
+                                // them catching the high points (the trowel knife's texture)
 uniform float u_fingers;        // 0..1: how much a lifting brush breaks into separate fingers of hair
 uniform float u_rag;            // 0..1: how ragged the hair's edges are (a detail brush keeps clean edges)
 uniform float u_arc;            // flat brushes: how far the middle hairs lead the corners (× half-width); a fan is a deep arc
@@ -141,6 +144,12 @@ float jb_pasteTarget(float a, float load, float hair, float b, float valleyMm, v
     // Loaded paint fills the weave (hiding it); a thin film follows the weave down.
     return max(t, 0.0) + valleyMm * mix(mix(0.5, 0.95, smoothstep(0.05, 0.3, t)), 1.0, u_rigid);
 }
+
+// A rigid blade presses its paint straight into the weave; only the layer above the canvas peaks builds up step
+// by step. (Filling the valleys at the layer's slow rate left them 10–15 % short, and that shortfall showed as
+// a grid of weave under thick knife paint.) Returns the part of a deficit that fills fast, and its rate.
+float jb_pasteFast(float target, float t, float valleyMm) { return u_rigid * clamp(valleyMm - t, 0.0, max(target - t, 0.0)); }
+float jb_pasteRateFast() { return 1.0 - exp(-8.0 * u_rate * u_slideMm / max(u_len, 0.2)); }
 
 // The brush's paint at brush coords, read SMOOTHLY between cells (no block edges in the stroke): bilinear
 // across the hair runs and along the depth.

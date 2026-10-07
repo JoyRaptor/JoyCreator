@@ -136,7 +136,7 @@ export const SHEETS = {
       const s = [], MM = 20;
       const paste = (tool, color, len, path, o, speed = 60, dirty = false) => ({ ...stroke(tool, len, path, o, speed), kind: 'paste', color, dirty });
       for (let k = 0; k < 5; k++)
-        s.push(paste('Palette knife', [0.9, 0.85, 0.75], 40, line(4 * MM, (46 - k * 7) * MM, 40 * MM, (44 - k * 7) * MM), { p: ramp(0.1, 0.5), tilt: 66, az: 90 }, 45));
+        s.push(paste('Palette knife 2', [0.9, 0.85, 0.75], 40, line(4 * MM, (46 - k * 7) * MM, 40 * MM, (44 - k * 7) * MM), { p: ramp(0.1, 0.5), tilt: 66, az: 90 }, 45));
       for (let k = 0; k < 4; k++)
         s.push(paste('Scraper', [0, 0, 0], 30, line((8 + k * 8) * MM, 46 * MM, (12 + k * 8) * MM, 14 * MM), { p: 0.6, tilt: 30, az: 0 }, 50));
       s.push(paste('Oil round', [0.75, 0.15, 0.12], 40, line(6 * MM, 38 * MM, 38 * MM, 30 * MM), { p: 0.8, tilt: 30, az: -60 }));
@@ -158,7 +158,7 @@ export const SHEETS = {
       const paste = (tool, color, len, path, o, speed = 60, dirty = false) => ({ ...stroke(tool, len, path, o, speed), kind: 'paste', color, dirty });
       const BL = [0.20, 0.32, 0.72];
       for (let k = 0; k < 7; k++)
-        s.push(paste('Palette knife', BL, 60, line(4 * MM, (50 - k * 6.5) * MM, 66 * MM, (50 - k * 6.5) * MM), { p: 0.35, tilt: 62, az: 90 }, 45));
+        s.push(paste('Palette knife 2', BL, 60, line(4 * MM, (50 - k * 6.5) * MM, 66 * MM, (50 - k * 6.5) * MM), { p: 0.35, tilt: 62, az: 90 }, 45));
       // upright gouges: same path, pressure 0.2 → 1 (left to right)
       [0.2, 0.45, 0.7, 1.0].forEach((p, i) => s.push(paste('Scraper', BL, 20, line((8 + i * 6) * MM, 50 * MM, (11 + i * 6) * MM, 32 * MM), { p, tilt: 25, az: 0 }, 50)));
       // tilted, edge along the lean (az 90° = up), dragged sideways: an angled scrape, deeper at the point
@@ -239,9 +239,9 @@ export const SHEETS = {
       const paste = (tool, color, len, path, o, speed = 60, dirty = false) => ({ ...stroke(tool, len, path, o, speed), kind: 'paste', color, dirty });
       const BL = [0.20, 0.32, 0.72];
       for (let k = 0; k < 4; k++)
-        s.push(paste('Palette knife', BL, 40, bez([(8 + k * 3) * MM, (48 - k * 7) * MM], [(22 + k * 2) * MM, (52 - k * 7) * MM], [(36 + k) * MM, (40 - k * 7) * MM], [(50 + k * 2) * MM, (44 - k * 7) * MM]), { p: 0.55, tilt: 50, az: L }, 45));
+        s.push(paste('Palette knife 1', BL, 40, bez([(8 + k * 3) * MM, (48 - k * 7) * MM], [(22 + k * 2) * MM, (52 - k * 7) * MM], [(36 + k) * MM, (40 - k * 7) * MM], [(50 + k * 2) * MM, (44 - k * 7) * MM]), { p: 0.55, tilt: 50, az: L }, 45));
       // scrape a band off, hard: the canvas weave should come up through the thin paint
-      s.push(paste('Palette knife', BL, 30, line(14 * MM, 24 * MM, 44 * MM, 27 * MM), { p: 1.0, tilt: 50, az: L }, 45, true));
+      s.push(paste('Palette knife 1', BL, 30, line(14 * MM, 24 * MM, 44 * MM, 27 * MM), { p: 1.0, tilt: 50, az: L }, 45, true));
       // scraper lines through the wet paint
       s.push(paste('Scraper', BL, 40, bez([12 * MM, 46 * MM], [24 * MM, 36 * MM], [34 * MM, 30 * MM], [48 * MM, 20 * MM]), { p: 0.8, tilt: 30, az: L }, 60));
       s.push(paste('Scraper', BL, 40, bez([20 * MM, 50 * MM], [30 * MM, 42 * MM], [42 * MM, 40 * MM], [54 * MM, 30 * MM]), { p: 0.8, tilt: 30, az: L }, 60));
@@ -249,8 +249,8 @@ export const SHEETS = {
       for (let k = 0; k < 3; k++)
         s.push(paste('Oil flat', BL, 30, line(50 * MM, (40 - k * 6) * MM, 66 * MM, (38 - k * 6) * MM), { p: ramp(0.8, 0.2), tilt: 30, az: L }, 70, true));
       // colour: orange and yellow knife strokes pulled over each other while wet
-      s.push(paste('Palette knife', [0.95, 0.55, 0.15], 30, line(8 * MM, 10 * MM, 34 * MM, 12 * MM), { p: 0.5, tilt: 50, az: L }, 45));
-      s.push(paste('Palette knife', [0.98, 0.85, 0.20], 30, line(20 * MM, 6 * MM, 46 * MM, 9 * MM), { p: 0.5, tilt: 50, az: L }, 45));
+      s.push(paste('Palette knife 1', [0.95, 0.55, 0.15], 30, line(8 * MM, 10 * MM, 34 * MM, 12 * MM), { p: 0.5, tilt: 50, az: L }, 45));
+      s.push(paste('Palette knife 1', [0.98, 0.85, 0.20], 30, line(20 * MM, 6 * MM, 46 * MM, 9 * MM), { p: 0.5, tilt: 50, az: L }, 45));
       return s;
     },
   },
@@ -277,8 +277,8 @@ export const SHEETS = {
         s.push(paste('Oil flat', c, 40, line((6 + i * 7) * MM, 44 * MM, (6 + i * 7) * MM, 14 * MM), { p: 0.7, tilt: 30, az: L })));
       s.push(paste('Oil flat', WH, 40, line(3 * MM, 38 * MM, 30 * MM, 36 * MM), { p: 0.6, tilt: 30, az: L }));
       s.push(paste('Oil flat', WH, 40, line(3 * MM, 26 * MM, 30 * MM, 24 * MM), { p: 1.0, tilt: 45, az: L }, 60, true));
-      s.push(paste('Palette knife', WH, 30, line(36 * MM, 40 * MM, 64 * MM, 34 * MM), { p: 0.8, tilt: 50, az: L }, 50));
-      s.push(paste('Palette knife', GR, 26, line(40 * MM, 26 * MM, 62 * MM, 30 * MM), { p: 0.6, tilt: 50, az: L }, 50));
+      s.push(paste('Palette knife 1', WH, 30, line(36 * MM, 40 * MM, 64 * MM, 34 * MM), { p: 0.8, tilt: 50, az: L }, 50));
+      s.push(paste('Palette knife 1', GR, 26, line(40 * MM, 26 * MM, 62 * MM, 30 * MM), { p: 0.6, tilt: 50, az: L }, 50));
       s.push(paste('Oil round', RD, 40, bez([36 * MM, 18 * MM], [44 * MM, 6 * MM], [54 * MM, 22 * MM], [64 * MM, 8 * MM]), { p: env(1.0, 0.3), tilt: 25, az: L }));
       s.push(paste('Fan blender', WH, 30, zigzag(4 * MM, 10 * MM, 26 * MM, 3 * MM, 3), { p: 0.35, tilt: 40, az: L }, 80, false));
       // Two-colour load (tip red, belly cream): a light stroke shows the tip, pressing brings the belly in.

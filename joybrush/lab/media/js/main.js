@@ -29,7 +29,7 @@ const state = {
   seed: 100,
   mouseTilt: 0,
   view: { pan: [0, 0], zoom: 1 },
-  look: { impasto: 1.4, pxPerMm: DOC_PX_PER_MM, paperColor: [0.96, 0.95, 0.93], lamp: norm([-0.55, 0.55, 0.62]), relief: Number(qs.get('relief') || 0.3), sheen: 0.06, capMm: 0.004, mode: 0 },
+  look: { impasto: Number(qs.get('impasto') || 1.4), pxPerMm: DOC_PX_PER_MM, paperColor: [0.96, 0.95, 0.93], lamp: norm([-0.55, 0.55, 0.62]), relief: Number(qs.get('relief') || 0.3), sheen: 0.06, capMm: 0.004, mode: 0 },
   stroke: null,
   dirty: true,
 };
@@ -77,6 +77,14 @@ async function main() {
     draw();
     window.__probe = (x, y) => engine.probe(x, y);
     window.__engine = engine;
+    // Debug: the rendered pixel at doc (x, y) in a look mode (8 = the lit slope).
+    window.__px = (x, y, mode = 0) => {
+      const keep = state.look.mode; state.look.mode = mode; draw();
+      const sx = Math.round(x * state.view.zoom + state.view.pan[0]), sy = Math.round(y * state.view.zoom + state.view.pan[1]);
+      const px = new Uint8Array(4); gl.readPixels(sx, sy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      state.look.mode = keep; draw();
+      return [px[0], px[1], px[2]];
+    };
     window.__wetSteps = (n, slope) => { engine.slope = slope; for (let f = 0; f < n; f++) engine.wetFrame(null, paper, DOC_PX_PER_MM); };
     // Measurement: mean darkness (0 = paper, 1 = black) of a doc-px box, and a darkness profile along a row.
     window.__dark = (x0, y0, x1, y1) => {
@@ -250,8 +258,12 @@ function draw() {
 // ---------------- input ----------------
 const touches = new Map();
 function hookInput() {
+  // Anything that breaks while drawing says so in the readout (a silent failure looked like "the pen does nothing").
+  window.addEventListener('error', e => { const r = ui('readout'); if (r) { r.textContent = 'Something broke: ' + e.message; r.style.color = 'var(--err)'; } });
   canvas.addEventListener('pointerdown', e => {
-    canvas.setPointerCapture(e.pointerId);
+    // Capture keeps a stroke going past the canvas edge. Some pens (and synthetic events) refuse it; a refusal
+    // must never cost the stroke.
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* draw without capture */ }
     if (e.pointerType === 'touch') { touches.set(e.pointerId, [e.clientX, e.clientY]); return; }
     if (e.button === 1) { touches.set(e.pointerId, [e.clientX, e.clientY]); return; }
     if (!state.vector) engine.beginStroke();
@@ -288,6 +300,9 @@ function hookInput() {
   };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
+  // Without capture (a pen that refused it) the lift can land on the panel instead: end the stroke anyway.
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const f = Math.exp(-e.deltaY * 0.0015);

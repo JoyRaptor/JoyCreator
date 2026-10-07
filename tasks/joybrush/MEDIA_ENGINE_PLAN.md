@@ -374,7 +374,7 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
   4. **The Eraser slot.** `ToolMemory.slotFor` sends media brushes to BRUSH, which is fine; but tapping the strip's
      Eraser with a media layer active must take the media erase of item 1.
 - **M5.3c Stores, windows and running water (step 3; the Lead's rules, 2026-10-07).** Built as three review diffs:
-  - **3a, stores.** The float stores `<id>#p0 #p1 #paper #w0 #w1` sit beside the layer's RGBA8 look tiles in
+  - **3a, stores. ✅ ccbe2ac6.** The float stores `<id>#p0 #p1 #paper #w0 #w1` sit beside the layer's RGBA8 look tiles in
     GlPaintEngine. They use an RGBA32F texture pool, and UndoLog sizes and releases each texture by its kind.
     Copy-on-write: a tile is snapshotted before the first write that touches it. Media layers have no frames yet
     (contract point 3: ask first), so a float store is per layer, never per cel.
@@ -396,6 +396,9 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
   - **Memory cap.** Water stops spreading at the lab's cap (4 cm past the painted area) or at the window's edge,
     whichever comes first. A wet episode's step never grows past one window of tiles per store.
   - **Tests owed:**
+    - the spread cap (a water step can outgrow the undo budget, since trim keeps the newest step; only the cap bounds
+      it);
+    - without EXT_color_buffer_float, a media layer is refused in words at init;
     - a drip after a second stroke lands in the second stroke's step;
     - undo while wet stops the sim;
     - a save mid-flow reopens wet.

@@ -761,3 +761,8 @@ MEDIA_ENGINE_PLAN M5.3c.
 - Evidence: core jvmTest 1682 and androidkit test 282, 0 failed.
 - Next, on top of this: 3b (JbArchive `.f32` and floatTiles checks), then 3c (the window).
 
+**Landed 2026-10-07 (ccbe2ac6), approved.** Notes for 3b and step 4:
+- A test must assert the 4 cm spread cap, because a water step may outgrow the undo budget (trim keeps the newest
+  step).
+- Without EXT_color_buffer_float, media layers are refused in words at init, never as a half-saved file.
+

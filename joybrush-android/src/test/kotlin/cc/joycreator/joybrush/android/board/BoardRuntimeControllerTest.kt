@@ -28,6 +28,64 @@ import java.util.UUID
 @Config(sdk = [28], qualifiers = "w548dp-h1126dp-mdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class BoardRuntimeControllerTest {
+    @Test fun lockedSpriteAcceptsUnclassifiedTouchscreenEventsButNeverPenEvents() {
+        val host=spriteHost(); host.document=BoardDocumentOps.setLocked(host.document,host.document.boards.last().id,true)
+        val (controller,parent)=setup(host); val view=spriteView(controller,parent,host)
+        val unknown=MotionEvent.obtain(0,0,MotionEvent.ACTION_DOWN,0f,0f,0)
+        try {
+            unknown.source=android.view.InputDevice.SOURCE_TOUCHSCREEN
+            assertTrue(view.host.acceptsPointer("sprite-cell-0",unknown))
+            unknown.source=android.view.InputDevice.SOURCE_STYLUS
+            assertFalse(view.host.acceptsPointer("sprite-cell-0",unknown))
+        } finally { unknown.recycle() }
+    }
+    @Test fun singleFrameAnimationHandleRoutesContentInOneEditAndMultipleFramesStayFixed() {
+        val host=Host(document()); val (controller,parent)=setup(host)
+        val id=host.document.boards.last().id; controller.select(id)
+        val view=(0 until parent.childCount).map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>().single { it.sceneIdentity?.boardId == id }
+        host.deferEdits=true
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(20f,10f),false)
+        assertTrue(host.queued.isEmpty())
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(20f,10f),true)
+        val change=host.queued.single()(host.document)
+        assertEquals(RectPx(100,100,220,110),change.doc.boards.last().rect)
+        assertTrue(change.transfers.isNotEmpty())
+        host.queued.clear()
+        host.document=RegionDocumentOps.addFrame(host.document,id,NewFrame.BLANK) { UUID.randomUUID().toString() }.doc
+        controller.documentChanged(host.document)
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(20f,10f),true)
+        assertTrue(host.queued.isEmpty())
+    }
+    @Test fun tileChromeHidesOtherBoardsAndArmingDoesNotChangeSavedMetadata() {
+        val host=Host(document()); val (controller,parent)=setup(host)
+        val saved=host.document; controller.select("page")
+        val views=(0 until parent.childCount).map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>()
+        val image=views.single { it.sceneIdentity?.boardId == "page" }
+        image.host.action("feature",false)
+        assertTrue(shownInput(image).armed)
+        assertTrue(shownInput(views.single { it !== image }).otherTileArmed)
+        assertEquals(saved,host.document)
+        image.host.action("feature",false)
+        assertFalse(shownInput(image).armed)
+    }
+    @Test fun tileToolHintAppearsOnlyAfterFirstSuccessfulArmAndSurvivesPause() {
+        val host=Host(document()); val (controller,parent)=setup(host)
+        controller.select("page")
+        val image=(0 until parent.childCount).map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>()
+            .single { it.sceneIdentity?.boardId == "page" }
+        host.tileAllowed=false
+        image.host.action("feature",false)
+        assertTrue(host.messages.isEmpty()); assertFalse(shownInput(image).armed)
+        host.tileAllowed=true
+        image.host.action("feature",false)
+        assertEquals(listOf("Smudge, fill and the eyedropper do not wrap yet."),host.messages)
+        image.host.action("feature",false)
+        image.host.action("feature",false)
+        controller.stop(); controller.resume()
+        image.host.action("feature",false)
+        assertEquals(1,host.messages.size)
+        assertFalse(host.document.boards.first().tiled)
+    }
     private fun spriteHost(): Host {
         var serial = 0
         val base = document()
@@ -257,6 +315,8 @@ class BoardRuntimeControllerTest {
         val transform = ViewTransform()
         var scope: RectPx? = null
         val previews = mutableListOf<Map<String,String>>()
+        val messages = mutableListOf<String>()
+        var tileAllowed = true
         val thumbnails = mutableListOf<Pair<List<String>,(Map<String,IntArray>)->Unit>>()
         val spriteThumbnails = mutableListOf<Pair<List<Int>,(Map<Int,IntArray>)->Unit>>()
         var deferEdits = false
@@ -267,9 +327,10 @@ class BoardRuntimeControllerTest {
         }
         override fun selectFrame(boardId:String,frameId:String) { document = RegionDocumentOps.selectFrame(document,boardId,frameId) }
         override fun preview(frames:Map<String,String>) { previews += frames }
+        override fun tile(boardId:String?,ready:(String?)->Unit) { ready(boardId.takeIf { tileAllowed }) }
         override fun transform() = transform
         override fun contentRevision() = revision
-        override fun refusal(message:String) {}
+        override fun refusal(message:String) { messages += message }
         override fun selectionChanged(bounds:RectPx?) { scope = bounds }
         override fun thumbnails(boardId:String,frames:List<String>,width:Int,height:Int,ready:(Map<String,IntArray>)->Unit) { thumbnails += frames to ready }
         override fun spriteThumbnails(boardId:String,cells:List<Int>,width:Int,height:Int,ready:(Map<Int,IntArray>)->Unit) { spriteThumbnails += cells to ready }

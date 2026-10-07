@@ -63,7 +63,7 @@ class BoardExportCoordinatorTest {
             assertEquals(Export.Format.PNG,chosen?.format); assertFalse(requireNotNull(chosen).folder)
         } finally { coordinator.dismiss() }
     }
-    @Test fun allImagesAndSpriteFilesUseFolderWhileUnavailableAppHandoffCannotExport() {
+    @Test fun allImagesUseFolderAndSpriteLabHandsOffTheCapturedGrid() {
         val doc = base(); var chosen: BoardExportRequest? = null
         val (images,imageSheet) = open(doc,doc.boards.single().id) { request,_,_ -> chosen=request }
         try { tap(imageSheet,"export-scope-all_images"); tap(imageSheet,"export-go"); assertTrue(requireNotNull(chosen).folder) }
@@ -72,11 +72,12 @@ class BoardExportCoordinatorTest {
         chosen = null
         val (sprites,spriteSheet) = open(spriteDoc,spriteDoc.boards.last().id) { request,_,_ -> chosen=request }
         try {
-            assertFalse(Export.layout(input(spriteSheet)).controls.single { it.id == "export-format-sprite_lab" }.enabled)
+            assertTrue(Export.layout(input(spriteSheet)).controls.single { it.id == "export-format-sprite_lab" }.enabled)
             tap(spriteSheet,"export-format-sprite_lab")
-            assertNull(chosen); assertEquals(Export.Format.SPRITE_SHEET,input(spriteSheet).format)
-            tap(spriteSheet,"export-go"); assertTrue(requireNotNull(chosen).folder)
+            assertNull(chosen); assertEquals(Export.Format.SPRITE_LAB,input(spriteSheet).format)
+            tap(spriteSheet,"export-go"); assertFalse(requireNotNull(chosen).folder)
             assertEquals(BoardKind.SPRITE,chosen?.kind)
+            assertEquals(Export.Format.SPRITE_LAB,chosen?.format)
         } finally { sprites.dismiss() }
     }
     @Test fun pickerRecreationPreservesExactFrameRangeAndBoardTarget() {

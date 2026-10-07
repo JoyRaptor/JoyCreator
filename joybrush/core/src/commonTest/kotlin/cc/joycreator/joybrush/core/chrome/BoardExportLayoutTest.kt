@@ -8,6 +8,10 @@ import cc.joycreator.joybrush.core.chrome.BoardChromeLayout as Chrome
 import kotlin.test.*
 
 class BoardExportLayoutTest {
+    @Test fun spriteBudgetNamesCellsInsteadOfInventingAnimationFrames() {
+        val i=input().copy(cellCount=12)
+        assertEquals("cells 12 × layers 3",element(i,"export-budget-label").text)
+    }
     private fun input() = Input(Chrome.Rect(0f,94f,352f,330f),1f,"walk","Walk cycle",
         (1..6).map {"f$it"},"f3","f2","f5",1920,1080,"12",3,.22f,
         availableScopes=Scope.entries.toSet(),availableFormats=BoardExportLayout.chipFormats.toSet(),exportEnabled=true,

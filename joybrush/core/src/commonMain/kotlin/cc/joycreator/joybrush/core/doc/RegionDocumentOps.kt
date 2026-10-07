@@ -18,6 +18,16 @@ data class RegionMaskTransfer(val layerId: String, val sourceRect: RectPx, val d
     init { checkTransferRects(sourceRect, destinationRect) }
 }
 
+/** Rectangular erase, preserving every pixel outside [rect]. Applied before snapshot transfers. */
+data class RegionClear(val layerId: String, val celId: String, val rect: RectPx) {
+    init { checkTransferRects(rect, rect) }
+}
+
+/** Rectangular reset to full coverage (white), not transparent black. */
+data class RegionMaskClear(val layerId: String, val rect: RectPx) {
+    init { checkTransferRects(rect, rect) }
+}
+
 private fun checkTransferRects(source: RectPx, destination: RectPx) {
     require(source.w > 0 && source.h > 0 && source.w == destination.w && source.h == destination.h) {
         "Region transfer rectangles must have equal positive dimensions"
@@ -30,7 +40,8 @@ private fun checkTransferRects(source: RectPx, destination: RectPx) {
 }
 
 data class RegionChange(val doc: JbDocument, val copies: List<RegionCopy> = emptyList(), val drops: List<RegionDrop> = emptyList(),
-    val transfers: List<RegionTransfer> = emptyList(), val maskTransfers: List<RegionMaskTransfer> = emptyList())
+    val transfers: List<RegionTransfer> = emptyList(), val maskTransfers: List<RegionMaskTransfer> = emptyList(),
+    val clears: List<RegionClear> = emptyList(), val maskClears: List<RegionMaskClear> = emptyList())
 
 /** Region metadata operations. No legacy conversion, pixel buffers, GPU or history owned here. */
 object RegionDocumentOps {
@@ -226,7 +237,7 @@ object RegionDocumentOps {
         if (errors.isNotEmpty()) throw DocException(errors.joinToString("; "))
     }
 
-    private fun generator(doc: JbDocument, ids: () -> String): () -> String {
+    internal fun generator(doc: JbDocument, ids: () -> String): () -> String {
         val used = HashSet<String>()
         used += doc.id
         for (b in doc.boards) { used += b.id; used += b.frames.map { it.id } }

@@ -118,14 +118,14 @@ class BoardExportCoordinator(private val activity: Activity,
             val cellPixels = board.rect.w.toLong()*board.rect.h
             val decoded = when(format) {
                 Export.Format.GIF -> cellPixels*count
-                Export.Format.SPRITE_SHEET -> if(animated) {
+                Export.Format.SPRITE_SHEET, Export.Format.STUDIO, Export.Format.SPRITE_LAB -> if(animated) {
                     val cols = AnimExport.sheetCols(count)
                     cellPixels*(count + ((count.toLong()+cols-1)/cols)*cols)
                 } else cellPixels*2
                 else -> cellPixels
             }
             val limit = if(format == Export.Format.PNG) MAX_REGION_PX else MAX_REGION_PX*2L
-            val available = formats.filter { it !in listOf(Export.Format.STUDIO,Export.Format.SPRITE_LAB) }.toSet()
+            val available = formats.toSet()
             val width = container.width.takeIf { it > 0 } ?: activity.resources.displayMetrics.widthPixels
             sheet.show(Export.Input(BoardChromeLayout.Rect(0f,0f,width.toFloat(),dp(236).toFloat()),density,
                 board.id,board.name,frames,board.currentFrameId ?: frames.first(),start,end,board.rect.w,board.rect.h,
@@ -133,7 +133,8 @@ class BoardExportCoordinator(private val activity: Activity,
                 scope,format,scopes.toSet(),available,decoded <= limit && cellPixels <= MAX_REGION_PX,
                 rangePreviewStart = frames.indexOf(start).toFloat()/frames.size,
                 rangePreviewEnd = (frames.indexOf(end)+1).toFloat()/frames.size,
-                displayedScopes = scopes,displayedFormats = formats))
+                displayedScopes = scopes,displayedFormats = formats,
+                cellCount=board.grid?.let { it.cols*it.rows }))
         }
         dialog = Dialog(activity).apply {
             setContentView(container,ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(272)))

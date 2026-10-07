@@ -490,3 +490,10 @@ Review: runs C:/Temp/jb-integration-final-tests.ps1 -SkipMutation -IncludeAndroi
 - [x] Verify pressure/tilt matrix, grain, boundaries, version guards and shaders.
 - [x] Record brush roadmap evidence, paper handoff and remaining device acceptance.
 Review: preserve current pen and Sable; no Note 9 acceptance claimed from automation. Spatial oil pickup and wet simulation require distinct evidence from average-colour smudge.
+
+## Board completion — October 7, 2026
+- [x] Implement bounded Animation transactions, seamless painting, onion preview and real app receiver handoffs.
+- [x] Correct Sprite touchscreen and short-frame tap dispatch from actual Note9 evidence.
+- [x] Run serial regression, watcher APK, device acceptance, durable reopen and independent MP4 decode.
+- [x] Document exact evidence and remaining fill/visual refinements in tasks/joybrush/reviews/BOARD_COMPLETION_20261007.md.
+Review: core1651/backend279/native74 checks plus8 disk checks; four optional corpus skips. No brush/paper algorithm changes. No blanket artwork migration. Device fingerprints and remaining scope are recorded in the review.

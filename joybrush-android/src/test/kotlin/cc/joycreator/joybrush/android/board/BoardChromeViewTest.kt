@@ -264,6 +264,47 @@ class BoardChromeViewTest {
         assertEquals(listOf("middle"), frames); assertEquals(0, actions)
     }
 
+    @Test fun tappingOneTickCellCentersAndEdgesSelectsWithoutChangingDuration() {
+        for (density in listOf(1f, 2f)) {
+            val view = view(); val selected = mutableListOf<String>(); var holds = 0; var cancellations = 0
+            view.host = object : BoardChromeView.Host {
+                override fun stripScrub(boardId: String, frameId: String) { selected += frameId }
+                override fun stripHold(boardId: String, frameId: String, holdAtDown: Int, dragPx: Float, density: Float, finished: Boolean) { holds++ }
+                override fun stripHoldCancelled(boardId: String, frameId: String) { cancellations++ }
+            }
+            val state = animation().copy(holds = listOf(1, 1, 1), density = density,
+                board = Chrome.Rect(100f, 100f, 524f, 226f))
+            attachStrip(view, state)
+            for (index in 0..2) {
+                val cell = Chrome.layout(state).elements.first { it.id == "cell-$index" }.rect
+                for (x in listOf(cell.cx, cell.right - 2f * density)) {
+                    assertTrue(touch(view, MotionEvent.ACTION_DOWN, x, cell.cy))
+                    assertTrue(touch(view, MotionEvent.ACTION_UP, x, cell.cy))
+                }
+            }
+            assertEquals(listOf("left", "left", "middle", "middle", "right", "right"), selected)
+            assertEquals(0, holds); assertEquals(0, cancellations)
+        }
+    }
+
+    @Test fun stationaryLongPressOnOneTickCenterLiftsEvenInsideDurationEdgeArea() {
+        val view = view(); val lifted = mutableListOf<Int>(); var holds = 0; var scrubs = 0
+        view.host = object : BoardChromeView.Host {
+            override fun stripLift(index: Int, dx: Float, dy: Float, removing: Boolean, active: Boolean) { if (active) lifted += index }
+            override fun stripHold(boardId: String, frameId: String, holdAtDown: Int, dragPx: Float, density: Float, finished: Boolean) { holds++ }
+            override fun stripScrub(boardId: String, frameId: String) { scrubs++ }
+        }
+        val state = animation().copy(holds = listOf(1, 1, 1))
+        attachStrip(view, state)
+        val cell = Chrome.layout(state).elements.first { it.id == "cell-1" }.rect
+        touch(view, MotionEvent.ACTION_DOWN, cell.cx, cell.cy)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(700))
+        touch(view, MotionEvent.ACTION_MOVE, cell.cx + 44f, cell.cy - 25f)
+        touch(view, MotionEvent.ACTION_CANCEL, cell.cx + 44f, cell.cy - 25f)
+        assertTrue(lifted.isNotEmpty()); assertEquals(1, lifted.first())
+        assertEquals(0, holds); assertEquals(0, scrubs)
+    }
+
     @Test fun cancelSecondFingerAndSceneReorderNeverCommitDuration() {
         for (end in listOf("cancel", "second-finger", "reorder", "host", "stop")) {
             val view = view(); val updates = mutableListOf<Hold>(); val cancelled = mutableListOf<String>()

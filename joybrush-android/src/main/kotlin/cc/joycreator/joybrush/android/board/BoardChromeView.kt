@@ -561,7 +561,9 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
             setOnLongClickListener {
                 held = true
                 val frameIndex = if (id.startsWith("cell-")) id.removePrefix("cell-").toIntOrNull() else null
-                if (isHolding) return@setOnLongClickListener true
+                // An edge is only a duration gesture once it moves. Short cells have
+                // no area outside edgeGrab, so a stationary hold must still lift them.
+                if (isHolding && dragging) return@setOnLongClickListener true
                 if (frameIndex != null && !layout.folded) { clearStrip(); roll?.begin(frameIndex) }
                 else host.action(id, true)
                 true
@@ -603,9 +605,10 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
                     if (dragging) { cancelLongPress(); isPressed = false; return true }
                 }
                 MotionEvent.ACTION_UP -> if (stripIdentity != null) {
-                    if (isHolding) {
-                        if (dragging) hold(point, true) else cancelStrip()
+                    if (isHolding && dragging) {
+                        hold(point, true)
                     } else {
+                        // Tapping selects the frame even inside its duration-edge area.
                         if (dragging || tapEligible && !held) scrub(point)
                         clearStrip()
                     }

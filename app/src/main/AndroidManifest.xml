@@ -127,6 +127,7 @@
 
         <!-- Sprite sheet setup editor (PLAN_SPRITE_ANIMATION S2) -->
         <activity android:name="com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" android:windowSoftInputMode="adjustPan" />
+        <activity android:name="com.fadcam.ui.faditor.sprite.JoyBrushBoardImportActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" />
 
         <!-- Avatar Studio matrix editor (PLAN_AVATAR_STUDIO A1-UI) -->
         <activity android:name="com.fadcam.ui.faditor.avatar.AvatarStudioActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" android:windowSoftInputMode="adjustPan" />

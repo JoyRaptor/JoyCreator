@@ -319,6 +319,37 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** UI-thread callback after GPU pixels are lost. The host restores a durable archive. */
     var onGraphicsLost: ((documentId: String) -> Unit)? = null
     val needsRecovery: Boolean get() = contentLost
+    @Volatile var tileBoardId: String? = null
+        private set
+    var onTileBoardChanged: ((String?) -> Unit)? = null
+    private val tileRefusals=mutableSetOf<String>()
+    fun setTileBoard(id: String?,ready: (String?) -> Unit = {}) {
+        if(drawing) finishStroke()
+        eyedropEnd(take=false)
+        onGl {
+            try { engine.setTileBoard(id) }
+            catch(e: Exception) { post { onRefused?.invoke(e.message ?: "Tiling could not be started") } }
+            val actual=engine.tileBoardId
+            post { tileBoardId=actual; tileRefusals.clear(); onTileBoardChanged?.invoke(actual); ready(actual) }
+        }
+    }
+    fun setOnionBoard(id: String?) {
+        onGl { try { engine.setOnionBoard(id) } catch(e: Exception) { post { onRefused?.invoke(e.message ?: "Onion preview could not be started") } } }
+    }
+    private fun refuseTileTool(tool: String): Boolean {
+        if(tileBoardId == null) return false
+        if(tileRefusals.add(tool)) onRefused?.invoke("Turn tiling off to use $tool")
+        return true
+    }
+    private fun boardStrokeWork(block: () -> Unit) {
+        onGl {
+            try { block() }
+            catch(e: Exception) {
+                engine.cancelStroke()
+                post { if(drawing) cancelStroke(); onRefused?.invoke(e.message ?: "That stroke could not be painted") }
+            }
+        }
+    }
 
     /** Stop the interrupted pen gesture without ever committing it to the replacement context. */
     fun cancelInterruptedStroke() { if (drawing) cancelStroke() }
@@ -641,7 +672,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 val s = viewSnapshot
                 drawView.zoom = s[0]; drawView.rotation = s[1]; drawView.panX = s[2]; drawView.panY = s[3]
                 paperWarnings = (PaperState.problems(documentPaperState,PaperResources.catalogue) + engine.paperWarnings).distinct()
-                engine.draw(viewW, viewH, drawView.docToClip(viewW, viewH), paperArgb)
+                try { engine.drawDisplay(viewW, viewH, drawView.docToClip(viewW, viewH), paperArgb) }
+                catch(e: Exception) {
+                    engine.cancelStroke(); engine.setTileBoard(null)
+                    engine.setOnionBoard(null)
+                    post { tileBoardId=null; onTileBoardChanged?.invoke(null); onRefused?.invoke(e.message ?: "Board preview could not be drawn") }
+                    engine.draw(viewW,viewH,drawView.docToClip(viewW,viewH),paperArgb)
+                }
                 answerScreenSample()
             }
         })
@@ -854,6 +891,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     private fun startEyedrop(x: Float, y: Float, withCancelCircle: Boolean, finger: Boolean = false) {
+        if(refuseTileTool("the eyedropper")) return
         eyedropping = true
         eyedropFinger = finger
         eyedropOld = strokeColor
@@ -906,6 +944,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * the day there were two). [onColor] arrives on the UI thread, opaque.
      */
     fun sampleAt(screenX: Float, screenY: Float, onColor: (Int) -> Unit) {
+        if(refuseTileTool("the eyedropper")) return
         sampleScreen(floatArrayOf(screenX, screenY)) { c -> onColor(c[0]) }
     }
 
@@ -962,6 +1001,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         onBeforeStroke?.invoke()
         val b = brush
         val p = preset
+        if(p?.engine == ENGINE_SMUDGE && refuseTileTool("smudge")) { drawing=false; return }
         val erase = b.erase || eraser
         // JB-2.23: on the mask, the stroke goes to the mask's store and paints GREY — white shows, black hides.
         strokeOnMask = editingMask && stackUi.active.hasMask
@@ -990,7 +1030,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             )
             glBegan = true
             val target = strokeLayerId
-            onGl {
+            boardStrokeWork {
                 engine.beginStroke(target, (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }, b.opacity, b.accumulate,
                     if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
             }
@@ -1047,7 +1087,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
         val argb = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
         val target = strokeLayerId
-        onGl { engine.beginStroke(target, argb, opacity, accumulate,
+        boardStrokeWork { engine.beginStroke(target, argb, opacity, accumulate,
             if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip, grain, smudge, tuft) }
     }
 
@@ -1087,7 +1127,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         drawing = false
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null
-        onGl { engine.endStroke(); reportHistory() }
+        boardStrokeWork { engine.endStroke(); reportHistory() }
         flushPaperVisits()
         onStrokeEnded?.invoke()
     }
@@ -1110,7 +1150,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val p = strokePreset
         val dabs = if (p == null) placed else scattered(p, placed)
         if (!glBegan) beginStrokeNow()
-        onGl { engine.addDabs(dabs) }
+        boardStrokeWork { engine.addDabs(dabs) }
     }
 
     /**
@@ -1196,7 +1236,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private fun paintTuft(stamps: List<cc.joycreator.joybrush.core.paint.TuftStamp>) {
         if (stamps.isEmpty()) return
         if (!glBegan) beginStrokeNow()
-        onGl { engine.addTuftStamps(stamps) }
+        boardStrokeWork { engine.addTuftStamps(stamps) }
     }
 
     /**
@@ -1682,6 +1722,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     private fun reportHistory(restorePaperRevision: Long? = null, historyRevision: Long? = null,
                               contentChanged: Boolean = true) {
+        val actualTile=engine.tileBoardId
+        if(actualTile != tileBoardId) post { tileBoardId=actualTile; onTileBoardChanged?.invoke(actualTile) }
         if (contentChanged) boardContentRevision++
         engine.boardDocument?.let{doc->
             val current=syncBoardLayers(doc)

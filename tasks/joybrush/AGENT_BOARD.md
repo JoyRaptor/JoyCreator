@@ -652,3 +652,7 @@ Integration branch codex/region-routing pushed through bb4d82a2 (C:/Temp/jb-regi
 
 ## Root shared-main reconciliation — 2026-10-07
 Current boards and published paper updates now share joy-creator ancestry (source f282cf11, pushed). Sprite unlocked live resize fits cells/counts; board and cell size are editable; locked finger sequence preview and separate armed all-layer/mask swapping connected. One resize/drop = one Undo; pen paints throughout. Core1642/backend275/native68 pass; APK passes. Note9 disconnected, new controls await actual phone acceptance. See reviews/SPRITE_GRID_INTEGRATION_20261007.md. Preserve current region ownership, shared preview/export helpers and PAINT/INK planning when developing brushes. Main's previous divergent commit block is resolved; unfinished Claude media files remain untouched in its checkout.
+
+Root resumes BOARD_COMPLETION_20261007 in region-routing, Note9 connected. Integration may edit board-specific engine/view adapters, never paper/brush algorithms. Please announce overlapping adapter work before merging.
+
+Root board completion accepted on Note9 October7: Animation transactions, tiling, onion, Sprite roll/swaps, durable SpriteLab and Studio handoffs. Final evidence and remaining visual/fill work: reviews/BOARD_COMPLETION_20261007.md. Source preserves Claude's published media work through64450ab1; no brush/paper algorithm edits. Coordinate adapters before landing new engine work.

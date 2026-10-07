@@ -1,6 +1,6 @@
 # Board runtime implementation — owner priority 2026-10-05
 
-Paper, pencil, watercolor and advanced brush development paused. Preserve existing painting/paper. Fill remains a real functional gap; boards first. Spec JB-3.00a K/K10/G7a is unchanged. No test-art migration.
+Current owner direction: root finishes boards; Claude owns active paper/brush development. Fill remains a real functional gap; boards first. Spec JB-3.00a K/K10/G7a is unchanged. No test-art migration. October 7 acceptance below supersedes the original implementation checklist.
 
 - [ ] One metadata/session owner, all paint cels retained; multi-board save/load and undo
 - [ ] GPU region projection plus exact crossed-edge stroke commit; one undo
@@ -33,3 +33,13 @@ Owner confirms boundary painting and animation on Note9. Claude owns paper engin
 - [x] Editable board size and always-visible cell dimensions. Cell dimensions resize the whole grid while retaining counts; typed whole-board size snaps to the nearest exact cells.
 - [x] Locked finger interactions build transient CellRoll/preview; pen continues painting. Separate feature arm enables all-layer exact swap, masks included, one drag/Undo. Source/test checkpoint; Note9 disconnected, phone acceptance owed.
 - [ ] Verify model/core/GPU/native regression, watcher APK and Note9 resize/typed/preview/swap/Undo; coordinate Claude main-folder catch-up without overwriting other changes.
+
+## Completion pass — 2026-10-07
+Claude owns active brush/paper development. Root owns board integration adapters and phone acceptance. Note9 is connected; two helper drafts recovered after their usage limits.
+- [x] Wire and verify Animation resize/move-all/duplicate/remove.
+- [x] Complete seamless preview/wrapped painting and transient controls.
+- [x] Connect scoped onion preview and app receiver handoffs.
+- [x] Run serial regression, watcher build, install and phone acceptance.
+- [x] Publish exact completed scope and remaining limitations in reviews/BOARD_COMPLETION_20261007.md.
+
+Functional board runtime accepted on Note9: Sprite live/typed sizing, locked roll/playback, all-layer swap/Undo; Animation geometry guards and all-frame operations; hold taps/drags; bounded tiling and saved first-stroke marker; onion including clipped animated layers over held bases; SpriteLab sheet and Studio timed-canvas handoff, reopened and independently decoded MP4. Earlier boundary painting/GIF/PNG-sequence/held-toggle acceptance remains in BOARD_CONNECTIONS_20261006.md. Do not treat this as exact completion of every visual spec: Frost forms, adaptive drawer ink and app-wide Studio export presentation remain refinement work. Fill pen and tiling read-tool support remain separate; tiling honestly refuses unsupported tools.

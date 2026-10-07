@@ -35,6 +35,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         fun edit(change: (JbDocument) -> RegionChange)
         fun selectFrame(boardId: String, frameId: String)
         fun preview(frames: Map<String, String>)
+        fun tile(boardId: String?, ready: (String?) -> Unit) { ready(boardId) }
+        fun onion(boardId: String?) {}
         fun transform(): ViewTransform
         fun contentRevision(): Long = 0L
         fun refusal(message: String)
@@ -49,6 +51,10 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private val scroll = mutableMapOf<String, Int>()
     private val modes = mutableMapOf<String, PlayMode>()
     private val fpsPanels = mutableSetOf<String>()
+    private val onionBoards = mutableSetOf<String>()
+    private var pendingTile: String? = null
+    private var tileEpoch = 0L
+    private var tileHintShown = false
     private val spritePixels = mutableMapOf<String, Boolean>()
     private val spriteSubGrids = mutableMapOf<String, Int>()
     private val spriteRolls = mutableMapOf<String, CellRoll>()
@@ -120,6 +126,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             scroll.clear(); modes.clear(); fpsPanels.clear(); lifted = null; gap = null
             spritePixels.clear(); spriteSubGrids.clear()
             spriteRolls.clear()
+            onionBoards.clear(); pendingTile=null; tileEpoch++; host.tile(null) {}; host.onion(null)
             penFades.clear(); nearBoards.clear(); approachExit.clear()
             views.values.forEach { parent.removeView(it) }; views.clear()
         }
@@ -139,6 +146,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         }
         contentRevision = revision
         session = session.reconcile(value)
+        onionBoards.retainAll(value.boards.filter { it.kind == BoardKind.ANIMATION }.map { it.id }.toSet())
         pendingSelection?.takeIf { id -> value.boards.any { it.id == id } }?.let {
             session = session.select(value, it); pendingSelection = null
         }
@@ -154,6 +162,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             } }
         }
         host.selectionChanged(selectedBounds)
+        pendingTile?.takeIf { id -> value.boards.any { it.id == id } }?.let { pendingTile=null; armTile(it) }
+        refreshOnion()
         refreshTransform()
     }
 
@@ -162,7 +172,27 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         stopPreview()
         session = session.select(current, id)
         host.selectionChanged(selectedBounds)
+        refreshOnion()
         refreshTransform()
+    }
+    private fun refreshOnion() = host.onion(session.selectedBoardId?.takeIf { active && it in onionBoards && playingBoard == null })
+    fun tileChanged(id: String?) {
+        if(id != null) {
+            val current=doc ?: return
+            session=session.arm(current,id)
+            if(active && !tileHintShown && current.boards.any { it.id == id && it.kind == BoardKind.CANVAS }) {
+                tileHintShown=true
+                host.refusal("Smudge, fill and the eyedropper do not wrap yet.")
+            }
+        }
+        else if(doc?.boards?.any { it.id == session.armedBoardId && it.kind == BoardKind.CANVAS } == true)
+            session=session.copy(armedBoardId=null)
+        refreshTransform()
+    }
+    private fun armTile(id: String?) {
+        stopPreview()
+        val token=++tileEpoch; val drawingId=doc?.id
+        host.tile(id) { actual -> if(active && token == tileEpoch && doc?.id == drawingId) tileChanged(actual) }
     }
 
     fun stopPreview(cancelHover: Boolean = true) {
@@ -180,12 +210,15 @@ class BoardRuntimeController(private val context: Context, private val parent: F
 
     fun stop() {
         active = false
+        tileEpoch++; host.tile(null) {}; host.onion(null)
+        if(doc?.boards?.any { it.id == session.armedBoardId && it.kind == BoardKind.CANVAS } == true) session=session.copy(armedBoardId=null)
         artEpoch++; spriteArtEpoch++; requested.clear()
         cancelInteractions()
     }
 
     fun resume() {
         active = true
+        refreshOnion()
         refreshTransform()
     }
 
@@ -278,6 +311,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             v.sceneIdentity = BoardChromeIdentity(b.id, b.frames.map { it.id })
             val input = Chrome.Input(board = rect, density = density, kind = b.kind, name = b.name,
                 selected = session.selectedBoardId == b.id, locked = b.locked, tiled = b.tiled, armed = session.armedBoardId == b.id,
+                otherTileArmed = current.boards.any { it.id == session.armedBoardId && it.kind == BoardKind.CANVAS },
+                onion = b.id in onionBoards,
                 currentFrame = index + 1, holds = holds.ifEmpty { listOf(1) }, pixelWidth = b.rect.w, pixelHeight = b.rect.h,
                 pen = p, penDown = penDown, penDownElapsedMs = SystemClock.uptimeMillis() - penChanged,
                 penLiftElapsedMs = SystemClock.uptimeMillis() - penChanged,
@@ -388,7 +423,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             if (w == null || h == null || w < 1 || h < 1) { host.refusal("Enter positive whole pixel dimensions"); return@textForm }
             edit { live ->
                 if (live.id != documentId || live.boards.firstOrNull { it.id == b.id } != b) throw DocException("The board changed; choose its size again")
-                RegionChange(BoardDocumentOps.resizeTyped(live,b.id,w,h))
+                resizeBoard(live,b.id,b.rect.copy(w=w,h=h))
             }
         }
     }
@@ -442,6 +477,9 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     }
     private fun edit(change: (JbDocument) -> RegionChange) { stopPreview(); host.edit(change) }
     private fun metadata(change: (JbDocument) -> JbDocument) = edit { RegionChange(change(it)) }
+    private fun resizeBoard(d: JbDocument, id: String, rect: RectPx): RegionChange =
+        if(d.boards.first { it.id == id }.kind == BoardKind.ANIMATION) AnimationBoardOps.resize(d,id,rect)
+        else RegionChange(BoardDocumentOps.resize(d,id,rect))
     private fun chooseFrame(id: String, index: Int) { val b = board(id) ?: return; b.frames.getOrNull(index)?.let { stopPreview(); host.selectFrame(id, it.id) } }
     private fun adapter(id: String) = object : BoardChromeView.Host {
         override fun acceptsPointer(control: String, event: MotionEvent): Boolean {
@@ -449,7 +487,10 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             if (!control.startsWith("sprite-cell-")) return true
             val b = board(id) ?: return false
             // Unlocked fingers and every pen keep painting. Locked fingers build the roll/swap.
-            return b.kind == BoardKind.SPRITE && b.locked && event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER
+            val tool=event.getToolType(0)
+            val finger=tool == MotionEvent.TOOL_TYPE_FINGER ||
+                (tool == MotionEvent.TOOL_TYPE_UNKNOWN && event.isFromSource(android.view.InputDevice.SOURCE_TOUCHSCREEN))
+            return b.kind == BoardKind.SPRITE && b.locked && finger
         }
         override fun action(control: String, held: Boolean) {
             val b = board(id) ?: return
@@ -466,7 +507,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                         else changeSpriteGrid(b,documentId,g.copy(cellW=w,cellH=h))
                     }
                 }
-                "lock" -> if (b.kind == BoardKind.ANIMATION && b.frames.size > 1) host.refusal("Move all frames needs a content transaction") else metadata { BoardDocumentOps.setLocked(it, id, !b.locked) }
+                "lock" -> if (b.kind == BoardKind.ANIMATION && b.frames.size > 1) moveBoardForm(b,allFrames=true) else metadata { BoardDocumentOps.setLocked(it, id, !b.locked) }
                 "add" -> if (held) frameMenu(id) else add(id, NewFrame.DUPLICATE)
                 "play" -> if (held) { if (!fpsPanels.add(id)) fpsPanels.remove(id); refreshTransform() } else togglePlay(id)
                 "loop" -> { modes[id] = PlayMode.values()[((modes[id] ?: PlayMode.LOOP).ordinal + 1) % 3]; stopPreview(); refreshTransform() }
@@ -475,8 +516,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                     if(!b.locked) host.refusal("Lock the board to rearrange cells") else {
                         stopPreview(); session=session.arm(doc!!,if(session.armedBoardId == id)null else id); refreshTransform()
                     }
-                } else host.refusal("Wrapped tile painting is not connected yet")
-                "onion" -> host.refusal("Onion skin rendering is not connected yet")
+                } else if(b.kind == BoardKind.CANVAS) armTile(if(session.armedBoardId == id)null else id)
+                "onion" -> { if(!onionBoards.add(id)) onionBoards.remove(id); refreshOnion(); refreshTransform() }
                 "export" -> { stopPreview(); host.export(id) }
                 "grid-count", "grid-px", "cols-minus", "cols-plus", "rows-minus", "rows-plus", "cols", "rows", "subgrid" -> spriteGridAction(b,control)
                 "preview-play", "preview-clear" -> spriteAction(b,control,held)
@@ -541,17 +582,17 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                 return
             }
             val handle = control.removePrefix("handle-").toIntOrNull() ?: return
-            if(b.locked || b.kind == BoardKind.ANIMATION) return
+            if(b.locked || (b.kind == BoardKind.ANIMATION && b.frames.size > 1)) return
             val gesture=geometryDrag ?: GeometryDrag(doc!!.id,b,handle,host.transform().zoom).also { geometryDrag=it; stopPreview() }
             if(gesture.board != b || gesture.documentId != doc?.id) { clearGeometry(); return }
             try {
                 val rect=resized(gesture.board.rect,handle,((to.x-from.x)/gesture.zoom).roundToInt(),((to.y-from.y)/gesture.zoom).roundToInt())
-                val preview=BoardDocumentOps.resize(doc!!,id,rect).boards.first { it.id == id }
+                val preview=resizeBoard(doc!!,id,rect).doc.boards.first { it.id == id }
                 if(finished) {
                     clearGeometry()
                     if(preview != b) edit { live ->
                         if(live.id != gesture.documentId || live.boards.firstOrNull { it.id == id } != b) throw DocException("The board changed; resize again")
-                        RegionChange(BoardDocumentOps.resize(live,id,rect))
+                        resizeBoard(live,id,rect)
                     }
                 } else { geometryPreview=preview; host.selectionChanged(preview.rect); refreshTransform() }
             } catch(e:IllegalArgumentException) { clearGeometry(); host.refusal(e.message ?: "Choose a smaller board size") }
@@ -592,26 +633,53 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         } }.show()
     }
     private fun boardMenu(id: String) {
-        AlertDialog.Builder(context).setTitle(board(id)?.name).setItems(arrayOf("Select", "Duplicate board", "Remove board", "Frames…", "Move…")) { _, n -> when(n) {
-            0 -> select(id); 1 -> edit { BoardDocumentOps.duplicatePassive(it, id) { UUID.randomUUID().toString() } }
-            2 -> metadata { BoardDocumentOps.remove(it, id) }; 3 -> if (board(id)?.kind == BoardKind.ANIMATION) frameMenu(id) else host.refusal("This board has no animation frames")
-            4 -> { val b = board(id) ?: return@setItems; textForm("Board position",listOf("X" to "${b.rect.x}","Y" to "${b.rect.y}")) { values ->
-                val x = values[0].toIntOrNull(); val y = values[1].toIntOrNull()
-                if (x == null || y == null) host.refusal("Enter whole pixel coordinates") else metadata { BoardDocumentOps.move(it,id,x,y) }
-            } }
+        val b=board(id) ?: return
+        AlertDialog.Builder(context).setTitle(b.name).setItems(arrayOf("Select", "Duplicate board", "Remove board", "Frames…", "Move…", "Move all frames…")) { _, n -> when(n) {
+            0 -> select(id)
+            1 -> if(b.kind == BoardKind.ANIMATION) moveBoardForm(b,duplicate=true) else edit { BoardDocumentOps.duplicatePassive(it,id) { UUID.randomUUID().toString() } }
+            2 -> if(b.kind == BoardKind.ANIMATION) AlertDialog.Builder(context).setTitle("Remove ${b.name}?")
+                .setMessage("Keep the current frame on the page and remove the other frames. You can undo this.")
+                .setNegativeButton("Cancel",null).setPositiveButton("Remove") { _,_ -> edit { AnimationBoardOps.remove(it,id) } }.show()
+                else metadata { BoardDocumentOps.remove(it,id) }
+            3 -> if(b.kind == BoardKind.ANIMATION) frameMenu(id) else host.refusal("This board has no animation frames")
+            4 -> moveBoardForm(b)
+            5 -> if(b.kind == BoardKind.ANIMATION) moveBoardForm(b,allFrames=true) else host.refusal("This board has no animation frames")
         } }.show()
+    }
+    private fun moveBoardForm(b: Board, allFrames: Boolean=false, duplicate: Boolean=false) {
+        val documentId=doc?.id ?: return
+        val suggestedX=if(duplicate) (b.rect.x.toLong()+b.rect.w+32).coerceAtMost(Int.MAX_VALUE.toLong()-b.rect.w).toInt() else b.rect.x
+        textForm(if(duplicate) "Duplicate board at" else if(allFrames) "Move all frames to" else "Board position",
+            listOf("X" to "$suggestedX","Y" to "${b.rect.y}")) { values ->
+            val x=values[0].toIntOrNull(); val y=values[1].toIntOrNull()
+            if(x == null || y == null) { host.refusal("Enter whole pixel coordinates"); return@textForm }
+            val apply = {
+                edit { live ->
+                    if(live.id != documentId || live.boards.firstOrNull { it.id == b.id } != b) throw DocException("The board changed; choose its position again")
+                    when {
+                        duplicate -> AnimationBoardOps.duplicate(live,b.id,x,y) { UUID.randomUUID().toString() }
+                        allFrames -> AnimationBoardOps.moveAll(live,b.id,x,y)
+                        b.kind == BoardKind.ANIMATION -> AnimationBoardOps.resize(live,b.id,b.rect.copy(x=x,y=y))
+                        else -> RegionChange(BoardDocumentOps.move(live,b.id,x,y))
+                    }
+                }
+            }
+            if(allFrames) AlertDialog.Builder(context).setTitle("Move every frame?").setMessage("Move this board's artwork and masks together. You can undo the whole move.")
+                .setNegativeButton("Cancel",null).setPositiveButton("Move") { _,_ -> apply() }.show() else apply()
+        }
     }
     fun showMenu() {
         host.ensureDocument { d ->
             if (doc == null || doc?.id != d.id) documentChanged(d)
-            val labels = arrayOf("New Image board…", "New Animation board…", "New Sprite board…", "Page (clear selection)") + d.boards.map { it.name }
+            val labels = arrayOf("New Image board…", "New Animation board…", "New Sprite board…", "New Tile board…", "Page (clear selection)") + d.boards.map { it.name }
             AlertDialog.Builder(context).setTitle("Boards").setItems(labels) { _, n -> when {
                 n < 3 -> beginPlacement(listOf(BoardKind.CANVAS, BoardKind.ANIMATION, BoardKind.SPRITE)[n])
-                n == 3 -> select(null); else -> select(d.boards[n - 4].id)
+                n == 3 -> beginPlacement(BoardKind.CANVAS,true)
+                n == 4 -> { armTile(null); select(null) }; else -> select(d.boards[n - 5].id)
             } }.show()
         }
     }
-    private fun beginPlacement(kind: BoardKind) {
+    private fun beginPlacement(kind: BoardKind, tile: Boolean=false) {
         cancelInteractions()
         val placement = placementEpoch
         var start: Pair<Float, Float>? = null
@@ -625,7 +693,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                 val target = this
                 this@BoardRuntimeController.parent.post {
                     if (target.parent === this@BoardRuntimeController.parent) this@BoardRuntimeController.parent.removeView(target)
-                    if (rect != null && active && placement == placementEpoch) creationForm(kind, rect)
+                    if (rect != null && active && placement == placementEpoch) creationForm(kind, rect, tile)
                 }
             }
             override fun onDraw(canvas: Canvas) { val a = start ?: return; val b = end ?: a
@@ -654,7 +722,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         capture = overlay; parent.addView(overlay, FrameLayout.LayoutParams(-1,-1))
         host.refusal("Drag a rectangle for the new board")
     }
-    private fun creationForm(kind: BoardKind, rect: RectPx) {
+    private fun creationForm(kind: BoardKind, rect: RectPx, tile: Boolean=false) {
         val fields = mutableListOf("Name" to when(kind) { BoardKind.CANVAS -> "Image"; BoardKind.ANIMATION -> "Animation"; BoardKind.SPRITE -> "Sprite"; else -> "Board" })
         if (kind == BoardKind.SPRITE) { fields += "Columns" to "1"; fields += "Rows" to "1" }
         textForm("New board", fields) { values ->
@@ -662,6 +730,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             val rows = if (kind == BoardKind.SPRITE) values[2].toIntOrNull() else 1
             if (cols == null || rows == null || cols < 1 || rows < 1 || rect.w % cols != 0 || rect.h % rows != 0) { host.refusal("Choose a whole grid of cells within this rectangle"); return@textForm }
             val id = UUID.randomUUID().toString(); pendingSelection = id
+            if(tile) pendingTile=id
             edit { d -> var first = true; val ids = { if (first) { first = false; id } else UUID.randomUUID().toString() }
                 when(kind) {
                     BoardKind.CANVAS -> BoardDocumentOps.createImage(d,values[0],rect,ids)
@@ -677,7 +746,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         val inputs = fields.map { (label,value) ->
             box.addView(android.widget.TextView(context).apply { text=label; setPadding(16,8,16,0) })
             EditText(context).apply {
-                hint = label; if(label != "Name") inputType=android.text.InputType.TYPE_CLASS_NUMBER
+                hint = label; if(label != "Name") inputType=android.text.InputType.TYPE_CLASS_NUMBER or
+                    (if(label == "X" || label == "Y") android.text.InputType.TYPE_NUMBER_FLAG_SIGNED else 0)
                 setText(value); setSelectAllOnFocus(true); setSingleLine(); box.addView(this)
             }
         }

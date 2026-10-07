@@ -304,7 +304,11 @@ public class ProjectStorage {
         if (file.exists()) {
             try (FileReader reader = new FileReader(file)) {
                 FaditorProject p = gson.fromJson(reader, FaditorProject.class);
-                if (p != null && p.getTimeline() != null && !p.getTimeline().isEmpty()) {
+                // Sprite Lab and Avatar Studio can save asset libraries before any
+                // asset is placed on the timeline. Those are real projects too.
+                if (p != null && p.getTimeline() != null
+                        && (!p.getTimeline().isEmpty() || !p.getSpriteSheets().isEmpty()
+                        || !p.getAvatarRigs().isEmpty())) {
                     // Concurrent-instance guard (Stage 1 P0 fix): this copy is now known
                     // to match the file exactly — record its lastModified as the sync
                     // point so a LATER save from this same in-memory copy can detect if

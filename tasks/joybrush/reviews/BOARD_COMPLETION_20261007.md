@@ -1,0 +1,43 @@
+# Board completion pass — October 7, 2026
+
+Owner authorizes finishing the board integration and testing Note9 now connected. Claude owns paper/brush development. Generic board transactions support PAINT/INK; the concrete raster renderer refuses INK before mutation.
+
+Implemented in this pass; actual acceptance evidence and remaining scope below:
+- Animation single-frame geometry changes ownership at exact boundaries while world paint stays put. Multiple frames stay fixed. Explicit confirmed move translates all unique cels/masks together. Duplication creates a separate board/frame/cel graph, preserves links/holds and validates nonoverlap. Removal flattens the saved current frame into shared paint. Each operation joins one Undo step.
+- Image/Tile transient arming drives a bounded fullscreen composited crop, repeated by one quad. Dabs and tuft footprints wrap from anywhere, clip to exact original tile, and retain one stroke/Undo. First successful committed wrapped stroke records the saved tiled marker in the same history step. Smudge and eyedropper refuse while armed.
+- Selected Animation onion toggle displays neighboring frame paint only inside its board, omits held layers/paper, and restores saved display plans. Playback/painting suspend ghosts; archives/exports remain unaffected.
+- Studio/SpriteLab destination chips now stage existing sheet/JSON outputs, copy assets into a new app project, save/reload exact IDs, and open the actual receiver. Animation preset weights preserve holds. Studio receives one timeline Sprite preset; SpriteLab opens the saved sheet. Receiver is internal and checks the private staging directory/grid before copying. Stage ownership passes to receiver for cleanup.
+- Sprite export budget labels show cell count, rather than an invented animation-frame count.
+
+Verification:
+- Serial full regression passed: core 1651/0 failures/0 errors/4 optional corpus skips; backend 278/0/0/0; native 70/0/0/0. One newly added TilePainting assertion initially excluded the existing antialiasing footprint margin; corrected to a footprint that fits the vertical tile interior, restored full regression green.
+- Source/phone acceptance and APK fingerprint will be recorded below after completion. Do not infer phone verification from the implementation list.
+
+Acceptance targets (see exact executed subset below):
+- Latest Sprite live handle/typed board/cell sizing, locked sequence preview, armed swapping and Undo.
+- Single-frame Animation resize; add second frame fixed behavior; move-all/duplicate/remove with Undo/Redo and exact outside preservation.
+- Tile arm/cancel without saved flag, fullscreen repetition, strokes from repeated area/boundary, disarm, first-stroke flag Undo, restart/export original bounds.
+- Onion color ghosts, selected scope, frame changes, held layers, no ghosts in exported PNG.
+- Studio/SpriteLab actual navigation, asset re-open, grid/holds and timing.
+- Crash log and save/reopen sweep.
+
+## Executed Note9 acceptance
+
+Disposable controlled two-layer fixture, 1080x2220 screen. Red and blue Sprite marks live on different layers; Animation black/blue marks plus orange shared paint outside its boundary. No artwork migration or old-user-data preservation work.
+
+- Unlocked Sprite corner drag changed board480x240/cells240x120 to560x300/cells280x150 while retaining2x2. Typed cell form restored240x120 and board480x240. No whole-grid refusal. Earlier typed whole-board sizing/count/PNG+JSON acceptance remains in BOARD_CONNECTIONS_20261006.md; not reasserted as a new phone test here.
+- Locked touchscreen picks cells, shows both-layer cropped preview, and plays a two-cell roll. Separate rearrange arm swaps both layer marks together into the other cell; one Undo restores both and clears the destination. Android shell touchscreen UNKNOWN tool dispatch initially painted instead of picking; corrected with source-qualified touchscreen fallback, stylus/eraser still bypass cell interception.
+- Single-frame Animation corner drag resized480x240 to540x280 with paint stationary; one Undo restored boundary and outside orange mark. Adding a second frame removed geometry handles. Move-all translated black and blue frame paint together, one Undo restored them. Duplicate contained both layers' marks; removal flattened only saved current paint and eliminated board controls; one Undo restored the board. Undoing duplication restored shared orange paint previously hidden underneath the duplicate, with no extra restoration step.
+- Short-frame center taps initially hit the broad hold-edge zone and did nothing. Fixed tap dispatch and stationary longpress lift. Final phone: short frame tap selects frame2; its edge drag changes hold1to2, one Undo restores1. Typed hold3 on frame1 persists through restart; weighted strip widths update.
+- Tile arming hides all other board chrome and fills screen with repetitions. A stroke drawn outside the original crop crosses repeated boundaries cleanly. Disarm shows paint confined to exact original tile edges. One Undo removes the whole wrapped stroke; Redo restores it. Saved archive after leaving JoyBrush has only Tile test.tiled=true; other boards false. Arming and Undo of first stroke return the plain image icon. Session arming does not persist. Added once-per-session first-successful-arm limitation hint.
+- Onion next-frame blue ghost and previous-frame red ghost are board-scoped; live current paint stays unchanged. Separate fixture with clipped animated paint over a held opaque base shows the next-frame ghost correctly. Held base does not draw its own ghost. Screen and crop compositors retain separate buffers to avoid reallocating screen-sized textures every ghost refresh.
+- SpriteLab bridge opens actual2x2 sheet with both layers' composited marks. Durable assets are registered under the saved project and reload without requiring a timeline placement. Fixed ProjectStorage's invalid empty-video-timeline gate; eight disk regression checks cover sheet/rig libraries and damaged-main backup fallback. Fresh stage files are cleaned after import; the one stage from the initial failed experiment is not a recurring leak.
+- Studio bridge makes a durable blank Canvas image clip plus Sprite overlay at board resolution. Actual480x240/two-frame animation opens, plays to333ms, and reopens saved project. Frame1hold3 is exported as preset sequence[0,0,0,1], 12fps. Real video export completed; pulled and independently decoded H264480x240,10frames,0.333333s,12231bytes. First/last decoded images contain expected frame paint with no onion ghosts or board chrome. Silent AAC accompanies the video through Studio's existing export path.
+
+## Verification and limits
+
+Final regression: core1651, backend279, native74; zero failures/errors, four optional real-ABR corpus skips. Eight real-disk asset-library checks pass. Native includes actual parent-dispatch touchscreen vs stylus/eraser regressions, short-cell tap/longpress and hold-edge gestures, transient arming hint, geometry guards and receiver target selection. Bounded GPU allocation cleanup and extreme finite footprint refusal audited/fixed. Watcher-only serial APK builds passed; exact installed fingerprint appended below.
+
+No claim of exact completion of every visual spec: board forms still use standard dialogs, live Frost backdrop/adaptive ink refinement and app-wide Studio export-sheet unification remain. Fill pen remains a separate functional task; smudge/fill/eyedropper wrapping remains unsupported and honestly disclosed. Current raster executor refuses future INK content before mutation; core transactions retain generic PAINT/INK ownership. Physical S Pen pressure/tilt feel and every masked/multiply/symmetry combination were not individually phone swept in this pass. Existing automated/core and earlier phone evidence apply where documented; no inferred owner sign-off. Claude's media/brush/paper lane remains untouched.
+
+Final installed APK SHA256: 3D7D881098296742FBA4C651CC2AB9437D9C717A9D1DB0A820972E4D7ABFDD37 (164511087bytes). Note9 package update2026-10-07 08:32:07; pulled installed base.apk hash equals watcher artifact. Broad final functional sweep used B32C5D868B0DCE6EED383653F0CAD05E36A1AFE5D1735C6BEE11E881054872BF; final3D differs only by first-arm hint, its74-test regression and documents. Final phone reopened saved tiled board, fullscreen preview and the new limitation toast passed, then disarmed to normal canvas. Crash-buffer sweep since07:25 had no new crash records. Final watch build40s/276tasks/6executed; native regression59s green. Stage/import/export experiments were confined to disposable Note9 test fixtures; original project assets in other lanes untouched.

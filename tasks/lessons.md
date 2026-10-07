@@ -945,6 +945,9 @@ The owner reminded us that vector brushes are planned alongside raster. Board/se
 
 ## 2026-10-06 — Sprite handles resize the cells with the board
 An unlocked Sprite corner cannot change only its rectangle and then refuse the grid mismatch. Keep counts fixed, snap cell dimensions to whole pixels, update board/grid together, preview readouts during the drag and commit once on release. Typed cell dimensions grow/shrink the complete grid; typed board dimensions snap visibly to exact cells. The owner expects locking to separate resizing/painting from cell selection and rearrangement.
+
+## 2026-10-07 — Locked Sprite input must handle unclassified touchscreen events
+Phone automation exposed a locked-cell tap reaching painting. A touchscreen event may lack a classified finger tool. Accept UNKNOWN only when the source is TOUCHSCREEN, alongside FINGER; preserve stylus/eraser/mouse painting behavior. Verify production dispatcher and actual phone taps, not only constructed FINGER events.
 ## Media lab (2026-10-06): three silent GPU/bundle traps
 
 **1. `tanh()` of a huge argument is NaN on ANGLE/D3D11.** A Gaussian prefilter fed `mu/sigma` with sigma ~1e-6; the NaN

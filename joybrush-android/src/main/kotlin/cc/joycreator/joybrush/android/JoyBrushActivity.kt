@@ -287,6 +287,9 @@ class JoyBrushActivity : Activity() {
         class Open(val selection: StagedDrawing) : SaveDest()
         class Png(val uri: Uri, val target: PngTarget) : SaveDest()
         class BoardExport(val uri: Uri, val target: cc.joycreator.joybrush.androidkit.io.BoardExportRequest) : SaveDest()
+        class BoardHandoff(val target: cc.joycreator.joybrush.androidkit.io.BoardExportRequest) : SaveDest() {
+            var bundle: File? = null
+        }
     }
 
     private data class PngTarget(val documentId: String, val boardId: String, val frameId: String?, val includePaper: Boolean)
@@ -294,6 +297,11 @@ class JoyBrushActivity : Activity() {
     private var pendingBoardExport: cc.joycreator.joybrush.androidkit.io.BoardExportRequest? = null
     private val boardExports by lazy { cc.joycreator.joybrush.android.board.BoardExportCoordinator(this,
         { target, name, mime ->
+            if(target.format in listOf(cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.STUDIO,
+                cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.SPRITE_LAB)) {
+                toast("Preparing board…"); saves.request(SaveReason.EXPLICIT,SaveDest.BoardHandoff(target))
+                return@BoardExportCoordinator
+            }
             pendingBoardExport = target
             val intent = Intent(if(target.folder) Intent.ACTION_OPEN_DOCUMENT_TREE else Intent.ACTION_CREATE_DOCUMENT).apply {
                 if(!target.folder) { addCategory(Intent.CATEGORY_OPENABLE); type = mime; putExtra(Intent.EXTRA_TITLE,name) }
@@ -394,6 +402,8 @@ class JoyBrushActivity : Activity() {
             override fun edit(change: (cc.joycreator.joybrush.core.doc.JbDocument) -> cc.joycreator.joybrush.core.doc.RegionChange) = canvas.editBoards(change)
             override fun selectFrame(boardId: String, frameId: String) = canvas.selectBoardFrame(boardId, frameId)
             override fun preview(frames: Map<String, String>) = canvas.previewBoardFrames(frames)
+            override fun tile(boardId: String?,ready: (String?) -> Unit) = canvas.setTileBoard(boardId,ready)
+            override fun onion(boardId: String?) = canvas.setOnionBoard(boardId)
             override fun transform() = canvas.view
             override fun contentRevision() = canvas.boardContentRevision
             override fun refusal(message: String) { Toast.makeText(this@JoyBrushActivity, message, Toast.LENGTH_SHORT).show() }
@@ -405,6 +415,7 @@ class JoyBrushActivity : Activity() {
                 canvas.boardSpriteThumbnails(boardId, cells, width, height, ready)
         })
         canvas.onBoardsChanged = { boardController?.documentChanged(it); updateAnimationLayerMarkers() }
+        canvas.onTileBoardChanged = { boardController?.tileChanged(it) }
         canvas.onBeforeStroke = { boardController?.stopPreview() }
         root.addView(overlays, FrameLayout.LayoutParams(MATCH, MATCH))
         // Joy Brush's identity, as a hairline along the very top (visual language §4.2): the section colour, never a button.
@@ -1698,6 +1709,7 @@ class JoyBrushActivity : Activity() {
                             is SaveDest.Open -> "Couldn't open the drawing. Your previous drawing was kept. $problem"
                             is SaveDest.Png -> "Couldn't export the PNG. Your drawing is safe. $problem"
                             is SaveDest.BoardExport -> "Couldn't export the board. Your drawing is safe. $problem"
+                            is SaveDest.BoardHandoff -> "Couldn't open the board. $problem"
                             is SaveDest.Working -> "The autosave did not work: $problem"
                         },
                     )
@@ -1714,6 +1726,13 @@ class JoyBrushActivity : Activity() {
                     toast("PNG exported")
                 } else if (problem == null && dest is SaveDest.BoardExport && !destroyed) {
                     toast(if(dest.target.folder) "Board files exported into a new folder" else "Board exported")
+                } else if(problem == null && dest is SaveDest.BoardHandoff) {
+                    val bundle=dest.bundle
+                    if(!destroyed && bundle != null) startActivity(Intent().setClassName(packageName,
+                        "com.fadcam.ui.faditor.sprite.JoyBrushBoardImportActivity")
+                        .putExtra("joybrush_board_bundle",bundle.absolutePath)
+                        .putExtra("joybrush_board_studio",dest.target.format == cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.STUDIO))
+                    else bundle?.deleteRecursively()
                 } else if (problem == null && dest is SaveDest.Working && changes == from) {
                     changes = 0
                 }
@@ -1754,6 +1773,11 @@ class JoyBrushActivity : Activity() {
                         }
                         is SaveDest.BoardExport -> cc.joycreator.joybrush.android.board.BoardExportCoordinator.write(
                             contentResolver,dest.uri,contents,dest.target,cacheDir)
+                        is SaveDest.BoardHandoff -> {
+                            val prepared=cc.joycreator.joybrush.androidkit.io.BoardExport.stage(contents,
+                                dest.target.copy(format=cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.SPRITE_SHEET),cacheDir)
+                            dest.bundle=prepared.directory
+                        }
                     }
                     null
                 } catch (e: Exception) {

@@ -209,6 +209,11 @@ class GlPaintEngine(
         ResolvedPaper(null,null,0xFFFFFFFF.toInt(),1f,1f,1f,false))).render(rect)
 
     private fun drawPaper(w: Int, h: Int, m: FloatArray, fallback: Int, target: Int) {
+        if(boardArtOnly) {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,target)
+            GLES30.glClearColor(0f,0f,0f,0f); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+            return
+        }
         val p = loadedPaper?.paper ?: ResolvedPaper(null,null,fallback,1f,1f,1f,false)
         val lookSize = p.look?.file?.let { grains.sizeFor(it,"paper") } ?: 1
         paperBackground.draw(w,h,m,p,lookTexture,surfaceTexture,lookSize,grains.placeholder,tileVao,target)
@@ -216,6 +221,7 @@ class GlPaintEngine(
 
     /** The offscreen stack the composite path builds (JB-2.20b); made on first use, dropped on a context loss. */
     internal val compositor = LayerCompositor()
+    private val boardCompositor = LayerCompositor()
 
     private var strokeInternal = GLES30.GL_R8
     private var strokeType = GLES30.GL_UNSIGNED_BYTE
@@ -283,6 +289,27 @@ class GlPaintEngine(
     var boardDocument: JbDocument? = null
         private set
     private var framePreviews: Map<String, String> = emptyMap()
+    private val boardPreview = GlBoardPreview()
+    private var boardArtOnly = false
+    private var boardCropRendering = false
+    private var ghostBoardId: String? = null
+    var tileBoardId: String? = null
+        private set
+    private var strokeTileRect: RectPx? = null
+    private var onionBoardId: String? = null
+
+    fun setTileBoard(id: String?) {
+        check(!strokeInProgress) { "Finish the stroke before switching tiling" }
+        if(id != null) {
+            val board=TilePainting.board(requireNotNull(boardDocument),id)
+            boardPreview.prepare(board.rect.w,board.rect.h)
+        }
+        tileBoardId=id
+    }
+    fun setOnionBoard(id: String?) {
+        if(id != null) require(boardDocument?.boards?.any { it.id == id && it.kind == BoardKind.ANIMATION } == true)
+        onionBoardId=id
+    }
     /** GL-thread snapshot. Playback has no saved cursor and contributes no history step. */
     val previewFrames: Map<String, String> get() = framePreviews.toMap()
     private val strokeTiles = HashMap<Long, Int>()
@@ -461,6 +488,7 @@ class GlPaintEngine(
         layers.clear()
         boardDocument = null
         framePreviews = emptyMap()
+        tileBoardId=null; onionBoardId=null; strokeTileRect=null
         undo.clear()
         freeLayerTex.clear()
         freeStrokeTex.clear()
@@ -469,7 +497,9 @@ class GlPaintEngine(
         // names are just as dead, and a brush is reloaded from its file on the next stroke.
         grains.forget()
         compositor.forget()
+        boardCompositor.forget()
         paperBackground.forget()
+        boardPreview.forget()
         loadedPaper = null; lookTexture = null; surfaceTexture = null; fluidTexture = null
         compositeProg = null      // a name from the dead context; the new one compiles on first use
         thumbTex = 0; thumbW = 0; thumbH = 0
@@ -485,7 +515,7 @@ class GlPaintEngine(
      */
     internal fun heldTextureNames(): Int =
         layers.values.sumOf { it.ownedTextures().size + (it.mask?.ownedTextures()?.size ?: 0) } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size +
-            compositor.heldNames()
+            compositor.heldNames() + boardCompositor.heldNames()
 
     /** Frees every GL object this engine owns. */
     fun release() {
@@ -504,8 +534,10 @@ class GlPaintEngine(
         GLES30.glDeleteFramebuffers(3, intArrayOf(fbo, readFbo, copyFbo), 0)
         grains.release()
         compositor.release()
+        boardCompositor.release()
         paperBackground.release()
         dabProg.release(); commitProg.release(); tileProg.release(); smudgeProg.release(); tuftProg.release()
+        boardPreview.release()
         compositeProg?.release(); compositeProg = null
         ready = false
     }
@@ -1003,6 +1035,8 @@ class GlPaintEngine(
         }
         boardDocument=doc
         framePreviews=previews
+        if(doc.boards.none { it.id == tileBoardId && it.kind == BoardKind.CANVAS }) tileBoardId=null
+        if(doc.boards.none { it.id == onionBoardId && it.kind == BoardKind.ANIMATION }) onionBoardId=null
     }
 
     /** Switch display planes only. Paint always begins on the document's saved frame. */
@@ -1030,7 +1064,8 @@ class GlPaintEngine(
         require(change.doc.layers.all { it.kind == LayerKind.PAINT && it.animatedIn == null }) {
             "This renderer paints raster layers"
         }
-        val translated = change.transfers.isNotEmpty() || change.maskTransfers.isNotEmpty()
+        val translated = change.transfers.isNotEmpty() || change.maskTransfers.isNotEmpty() ||
+            change.clears.isNotEmpty() || change.maskClears.isNotEmpty()
         val maxTransferTiles = (MAX_REGION_PX / (size.toLong() * size)).toInt()
         // Preflight all original plane identities and bounds before allocating or publishing anything.
         val touched = HashSet<Pair<String, Pair<String?, Long>>>()
@@ -1049,12 +1084,24 @@ class GlPaintEngine(
         for (transfer in change.transfers) {
             val layer = layers[transfer.layerId] ?: error("No layer ${transfer.layerId}")
             val source = layer.cels[transfer.fromCelId] ?: error("No source cel ${transfer.fromCelId}")
-            val destination = layer.cels[transfer.toCelId] ?: error("No destination cel ${transfer.toCelId}")
+            require(change.doc.layers.first { it.id == transfer.layerId }.cels.any { it.id == transfer.toCelId }) {
+                "No destination cel ${transfer.toCelId}"
+            }
+            val destination = layer.cels[transfer.toCelId].orEmpty()
             preflight(layer, source, destination, transfer.toCelId, transfer.sourceRect, transfer.destinationRect)
         }
         for (transfer in change.maskTransfers) {
             val mask = layers[transfer.layerId]?.mask ?: error("No mask on layer ${transfer.layerId}")
             preflight(mask, mask.tiles, mask.tiles, null, transfer.sourceRect, transfer.destinationRect)
+        }
+        for (clear in change.clears) {
+            val layer = layers[clear.layerId] ?: error("No layer ${clear.layerId}")
+            val store = layer.cels[clear.celId] ?: error("No cel ${clear.celId}")
+            preflight(layer, emptyMap(), store, clear.celId, clear.rect, clear.rect)
+        }
+        for (clear in change.maskClears) {
+            val mask = layers[clear.layerId]?.mask ?: error("No mask on layer ${clear.layerId}")
+            preflight(mask, emptyMap(), mask.tiles, null, clear.rect, clear.rect)
         }
         val pending=LinkedHashMap<Pair<String,Pair<String?,Long>>,UndoLog.TileChange<Int>>()
         var published=false
@@ -1108,6 +1155,14 @@ class GlPaintEngine(
             }
         }
         try {
+            for (clear in change.clears) {
+                val layer = layers.getValue(clear.layerId)
+                for (slice in RegionTransferTiles.slices(clear.rect, clear.rect)) stageTranslated(layer, clear.celId, slice, null)
+            }
+            for (clear in change.maskClears) {
+                val mask = requireNotNull(layers.getValue(clear.layerId).mask)
+                for (slice in RegionTransferTiles.slices(clear.rect, clear.rect)) stageTranslated(mask, null, slice, null)
+            }
             for(copy in change.copies) {
                 val layer=layers[copy.layerId] ?: error("No layer ${copy.layerId}")
                 val source=layer.cels[copy.fromCelId] ?: error("No source cel ${copy.fromCelId}")
@@ -1253,10 +1308,12 @@ class GlPaintEngine(
                     grain: GrainMath.StrokeGrain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF),
                     smudge: SmudgeParams? = null, tuft: TuftShading? = null) {
         cancelStroke()
+        require(smudge == null || tileBoardId == null) { "Turn tiling off to use smudge" }
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         strokeTravel.reset()
         strokeLayer = storeOf(layerId) ?: error("no layer $layerId")
         strokePlan = strokeLayer?.plan
+        strokeTileRect=tileBoardId?.let { TilePainting.board(requireNotNull(boardDocument),it).rect }
         strokeIsRgba = smudge != null
         colR = ((argb shr 16) and 0xFF) / 255f
         colG = ((argb shr 8) and 0xFF) / 255f
@@ -1322,7 +1379,10 @@ class GlPaintEngine(
             strokeTravel.update(dab.x,dab.y)
             if (dab.travelKnown) dab else dab.copy(travelX=strokeTravel.x,travelY=strokeTravel.y,travelKnown=true)
         }
-        val buckets = Tiles.bucket(directed, size)
+        val tile=strokeTileRect
+        val wrapped=if(tile == null) directed else directed.flatMap { TilePainting.dabs(tile,it) }
+        val buckets = Tiles.bucket(wrapped, size).filterKeys { tile == null || TilePainting.clip(tile,it) != null }
+        require(tile == null || (strokeTiles.keys + buckets.keys).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
         for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
         dabProg.use()
         GLES30.glUniform1f(dabProg.loc("u_tileSize"), size.toFloat())
@@ -1337,6 +1397,7 @@ class GlPaintEngine(
         for ((key, list) in buckets) {
             val tex = strokeTiles.getValue(key)
             attach(tex)
+            clipTileStroke(key)
             GLES30.glUniform2f(dabProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
             fillInstances(list)
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
@@ -1344,6 +1405,7 @@ class GlPaintEngine(
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
         }
         GLES30.glBindVertexArray(0)
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
     }
@@ -1360,7 +1422,10 @@ class GlPaintEngine(
         GLES30.glEnable(GLES30.GL_BLEND)
         GLES30.glBlendFuncSeparate(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA, GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
         // Stroke tiles first, for the reason addDabs gives: making one binds texture 0 on the active unit.
-        val buckets = TuftMath.bucket(stamps, size)
+        val tile=strokeTileRect
+        val wrapped=if(tile == null) stamps else stamps.flatMap { TilePainting.stamps(tile,it) }
+        val buckets = TuftMath.bucket(wrapped, size).filterKeys { tile == null || TilePainting.clip(tile,it) != null }
+        require(tile == null || (strokeTiles.keys + buckets.keys).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
         for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
         tuftProg.use()
         GLES30.glUniform1f(tuftProg.loc("u_tileSize"), size.toFloat())
@@ -1383,6 +1448,7 @@ class GlPaintEngine(
         GLES30.glBindVertexArray(tuftVao)
         for ((key, list) in buckets) {
             attach(strokeTiles.getValue(key))
+            clipTileStroke(key)
             GLES30.glUniform2f(tuftProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
             val need = list.size * TuftStamp.FLOATS
             if (tuftInstanceData.capacity() < need) tuftInstanceData = newFloats(need * 2)
@@ -1399,6 +1465,7 @@ class GlPaintEngine(
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
         }
         GLES30.glBindVertexArray(0)
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
     }
@@ -1518,6 +1585,8 @@ class GlPaintEngine(
     /** Commits the active stroke into its layer as one undoable step. Returns tiles changed. */
     fun endStroke(): Int {
         val layer = strokeLayer ?: return 0
+        val beforeDoc=boardDocument
+        val wrappedId=tileBoardId?.takeIf { strokeTileRect != null }
         val changes = ArrayList<UndoLog.TileChange<Int>>()
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         GLES30.glViewport(0, 0, size, size)
@@ -1529,8 +1598,12 @@ class GlPaintEngine(
         val pending = ArrayList<UndoLog.TileChange<Int>>()
         try {
             for ((key, strokeTex) in strokeTiles) {
-                val slices = strokePlan?.tileSlices(key) ?: listOf(RegionTileSlice(
+                val allSlices = strokePlan?.tileSlices(key) ?: listOf(RegionTileSlice(
                     RegionPlane(layer.sharedCel ?: ""), RegionTileRect(0,0,size,size)))
+                val clip=strokeTileRect?.let { TilePainting.clip(it,key) }
+                val slices=if(strokeTileRect == null) allSlices else allSlices.mapNotNull { s ->
+                    clip?.let { TilePainting.intersect(s.rect,it) }?.let { s.copy(rect=it) }
+                }
                 for ((planeId, ownedSlices) in slices.groupBy { it.plane.celId }) {
                     val celId = layer.sharedCel?.let { planeId }
                     val store = planeTiles(layer, celId)
@@ -1565,9 +1638,14 @@ class GlPaintEngine(
         releaseStrokeTiles()
         strokeLayer = null
         strokePlan = null
+        strokeTileRect = null
         smudge = null
         tuft = null
-        if (changes.isNotEmpty()) undo.push(UndoLog.Step(changes))
+        if (changes.isNotEmpty()) {
+            val afterDoc=if(wrappedId != null && beforeDoc != null) BoardDocumentOps.markWrappedStroke(beforeDoc,wrappedId) else beforeDoc
+            if(afterDoc != beforeDoc && afterDoc != null) setBoardDocument(afterDoc)
+            undo.push(UndoLog.Step(changes,documentBefore=beforeDoc?.takeIf { it != afterDoc },documentAfter=afterDoc?.takeIf { it != beforeDoc }))
+        }
         return changes.size
     }
 
@@ -1575,6 +1653,7 @@ class GlPaintEngine(
         releaseStrokeTiles()
         strokeLayer = null
         strokePlan = null
+        strokeTileRect = null
         smudge = null
         tuft = null
     }
@@ -1616,6 +1695,47 @@ class GlPaintEngine(
     }
 
     // ── display ──────────────────────────────────────────────────────────────
+    private fun clipTileStroke(key: Long) {
+        val tile=strokeTileRect ?: return
+        val clip=TilePainting.clip(tile,key) ?: return
+        GLES30.glEnable(GLES30.GL_SCISSOR_TEST); GLES30.glScissor(clip.x,clip.y,clip.w,clip.h)
+    }
+
+    /** Preview modes affect the screen only. Archives, thumbnails and exports always call draw. */
+    fun drawDisplay(w: Int,h: Int,m: FloatArray,paper: Int) {
+        val doc=boardDocument
+        val tile=tileBoardId?.let { id -> doc?.boards?.firstOrNull { it.id == id } }
+        if(tile != null) {
+            cropPreview(tile.rect,paper,false)
+            boardPreview.show(w,h,m,tile.rect,tileVao,true,floatArrayOf(1f,1f,1f,1f))
+            return
+        }
+        draw(w,h,m,paper)
+        if(strokeInProgress || framePreviews.isNotEmpty()) return
+        val onion=onionBoardId?.let { id -> doc?.boards?.firstOrNull { it.id == id } } ?: return
+        val index=onion.frames.indexOfFirst { it.id == onion.currentFrameId }
+        if(index < 0) return
+        val restore=framePreviews
+        try {
+            // Held layers remain available as clipping alpha, but never draw their own ghost.
+            ghostBoardId=onion.id
+            for((offset,tint) in listOf(-1 to floatArrayOf(0.95f,0.3f,0.4f,0.22f),1 to floatArrayOf(0.2f,0.65f,1f,0.22f))) {
+                val frame=onion.frames.getOrNull(index+offset) ?: continue
+                setFramePreviews(mapOf(onion.id to frame.id))
+                cropPreview(onion.rect,paper,true)
+                setFramePreviews(restore)
+                boardPreview.show(w,h,m,onion.rect,tileVao,false,tint)
+            }
+        } finally { boardArtOnly=false; ghostBoardId=null; setFramePreviews(restore) }
+    }
+    private fun cropPreview(rect: RectPx,paper: Int,artOnly: Boolean) {
+        require(rect.w.toLong()*rect.h <= MAX_REGION_PX) { "This board is too large to preview on this phone" }
+        boardPreview.prepare(rect.w,rect.h)
+        val matrix=floatArrayOf(2f/rect.w,0f,0f,0f,2f/rect.h,0f,-1f-2f*rect.x/rect.w,-1f-2f*rect.y/rect.h,1f)
+        boardArtOnly=artOnly
+        boardCropRendering=true
+        try { draw(rect.w,rect.h,matrix,paper,boardPreview.target) } finally { boardArtOnly=false; boardCropRendering=false }
+    }
 
     /**
      * Draws paper and every visible layer (with the live stroke previewed) into the CURRENT
@@ -1631,7 +1751,7 @@ class GlPaintEngine(
         GLES30.glBindVertexArray(tileVao)
 
         for (layer in layers.values) {
-            if (!layer.visible) continue
+            if (!drawsBoardLayer(layer)) continue
             val previewing = layer === strokeLayer && strokeTiles.isNotEmpty()
 
             tileProg.use()
@@ -1666,8 +1786,11 @@ class GlPaintEngine(
 
 
     /** True when any visible layer composites with something other than plain source-over. */
+    private fun drawsBoardLayer(layer: Layer): Boolean = layer.visible &&
+        (!boardArtOnly || layer.plan?.frames?.any { it.boardId == ghostBoardId } == true)
+
     private fun needsComposite(): Boolean =
-        compositeError == null && layers.values.any { it.visible && (it.blend != BlendMode.NORMAL || it.mask != null || it.clip) }
+        compositeError == null && layers.values.any { drawsBoardLayer(it) && (it.blend != BlendMode.NORMAL || it.mask != null || it.clip) }
 
     /**
      * The whole stack, one layer at a time, into an offscreen target that a shader can read (JB-2.20b).
@@ -1681,6 +1804,7 @@ class GlPaintEngine(
      * checking all 27 modes against the export; up to a few 1/255 apart is rounding (RGBA8 per layer), not a bug.
      */
     private fun drawComposited(w: Int, h: Int, docToClip: FloatArray, paperArgb: Int, targetFbo: Int) {
+        val compositor = if(boardCropRendering) boardCompositor else compositor
         val prog = compositeProg ?: try {
             GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_composite.frag"), "composite").also { compositeProg = it }
         } catch (e: RuntimeException) {
@@ -1705,7 +1829,7 @@ class GlPaintEngine(
 
         val list = layers.values.toList()
         for ((index, layer) in list.withIndex()) {
-            if (!layer.visible) continue
+            if (!drawsBoardLayer(layer)) continue
             // Clipping by core's LayerMask rules, the same function RegionRenderer asks. A hidden base hides the clip.
             val base = LayerMask.clipBase(index) { list[it].clip }?.let { list[it] }
             if (base != null && !base.visible) continue

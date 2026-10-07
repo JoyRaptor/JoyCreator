@@ -20,7 +20,7 @@ object BoardExportLayout {
         val formatTextWidthsPx: Map<Format, Float> = emptyMap(), val headerTextWidthPx: Float? = null,
         val budgetTextWidthPx: Float? = null, val percentTextWidthPx: Float? = null,
         val displayedScopes: List<Scope> = listOf(Scope.ANIMATION, Scope.RANGE, Scope.FRAME),
-        val displayedFormats: List<Format> = chipFormats) {
+        val displayedFormats: List<Format> = chipFormats, val cellCount: Int? = null) {
         val identity = BoardChromeIdentity(boardId, frameIds)
         init {
             require(density.isFinite() && density > 0 && sheet.width > 0)
@@ -119,7 +119,8 @@ object BoardExportLayout {
         }
         y += 24f+8f
         val budgetWidth=i.budgetTextWidthPx!!/d; val percentWidth=i.percentTextWidthPx!!/d
-        text("export-budget-label",rect(14f,y,budgetWidth,8.5f),"frames ${i.identity.frameIds.size} × layers ${i.layerCount}",8.5f,Chrome.Font.MONO,500,Chrome.Colour.DIM)
+        text("export-budget-label",rect(14f,y,budgetWidth,8.5f),
+            (i.cellCount?.let { "cells $it" } ?: "frames ${i.identity.frameIds.size}") + " × layers ${i.layerCount}",8.5f,Chrome.Font.MONO,500,Chrome.Colour.DIM)
         val barLeft=21f+budgetWidth; val barWidth=max(0f,width-21f-percentWidth-barLeft)
         shape("export-budget-track",rect(barLeft,y+2.75f,barWidth,3f),alpha=.15f,radius=2f)
         shape("export-budget-value",rect(barLeft,y+2.75f,barWidth*i.memoryFraction,3f),radius=2f)

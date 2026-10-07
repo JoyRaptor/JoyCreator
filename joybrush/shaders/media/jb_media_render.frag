@@ -28,6 +28,7 @@ uniform float u_sheen;           // graphite sheen on heavy, burnished deposit
 uniform float u_capMm;
 uniform int u_mode;              // 0 final, 1 paper height, 2 deposit volume, 3 crush
 uniform float u_impasto;         // paint relief shown (1 = physical)
+uniform float u_look;            // 1: render the app layer's look tile (premultiplied, paper removed)
 uniform float u_paperHBot;       // the paper's height percentiles: paint fills the NORMALISED relief (see the
 uniform float u_paperHTop;       // bake), so under paint the paper's relief is read on the same scale
 
@@ -127,5 +128,19 @@ void main() {
     // Standing water glints.
     float wet = smoothstep(0.004, 0.03, wa.r);
     R += vec3(0.12 * wet * pow(max(dot(n, hv), 0.0), 120.0));
-    o_color = vec4(jb_linearToSrgb(R * shade), 1.0);
+    vec3 final_ = jb_linearToSrgb(R * shade);
+    // The app's layer stack (u_look = 1, set by MediaLayerEngine; the lab leaves it 0): the paper is drawn by
+    // the app underneath, so hand over only what the media did to it, as premultiplied colour. The alpha is the
+    // least coverage that reproduces this pixel over the plain paper colour (darker or brighter), the colour
+    // follows from it. Exact over a flat paper colour; the app's own paper relief shows through.
+    if (u_look > 0.5) {
+        vec3 bg = u_paperColor;
+        vec3 dn = (bg - final_) / max(bg, vec3(1.0e-3));
+        vec3 up = (final_ - bg) / max(vec3(1.0) - bg, vec3(1.0e-3));
+        float a = clamp(max(max(max(dn.r, dn.g), dn.b), max(max(up.r, up.g), up.b)), 0.0, 1.0);
+        vec3 c = a > 1.0e-4 ? clamp((final_ - (1.0 - a) * bg) / a, 0.0, 1.0) : vec3(0.0);
+        o_color = vec4(c * a, a);
+        return;
+    }
+    o_color = vec4(final_, 1.0);
 }

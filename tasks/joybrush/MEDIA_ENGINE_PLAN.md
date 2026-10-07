@@ -384,6 +384,9 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
      first makes sure the board document exists, using the same call as JbCanvasView ~1565
      (`engine.setBoardDocument(readContents(...).doc)` on the GL thread). Test: new drawing → media stroke → autosave
      succeeds and reopens wet.
+  9. **The drawer's sample stroke (Lead, 4d review).** A media brush's row currently draws through SampleStroke's
+     STAMP dabber, so it lies about the brush. Either render a short media sample once per brush through
+     MediaLayerEngine offscreen and cache it, or ship a pre-rendered sample per preset from the lab.
   4. **The Eraser slot.** `ToolMemory.slotFor` sends media brushes to BRUSH, which is fine; but tapping the strip's
      Eraser with a media layer active must take the media erase of item 1.
 - **M5.3c Stores, windows and running water (step 3; the Lead's rules, 2026-10-07).** Built as three review diffs:

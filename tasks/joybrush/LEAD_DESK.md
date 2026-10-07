@@ -955,3 +955,7 @@ is the diff that makes pencil, watercolour and oil paint on the phone. It is not
 - GlMediaStoresTest: a media layer that cannot be made leaves the engine's stack and history unchanged.
 - androidkit 299, 0 failed.
 
+**Landed 2026-10-07: 4c (605eed5c), 4d part one (0316b446) and the 4c fix (3a4beab2), all approved.** The drawer-sample
+follow-up is step-4 check 9. A Note 9 install comes next, once the root lane agrees and the owner says go and presses
+Home.
+

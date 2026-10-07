@@ -2,10 +2,19 @@ package cc.joycreator.joybrush.androidkit.io
 
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 
 /** Complete safety copies made BEFORE Open replaces the drawing, separate from autosave's backup. */
 object DrawingHistory {
     const val KEEP = 5
+
+    /**
+     * Names sort by this stamp, so it must never repeat: two copies in one millisecond would tie
+     * and fall back to the random UUID, letting pruning delete a newer copy than an older one.
+     * Same digits as currentTimeMillis, so copies already on disk keep their order.
+     */
+    private val lastStamp = AtomicLong()
+    private fun nextStamp(): Long = lastStamp.updateAndGet { maxOf(System.currentTimeMillis(), it + 1) }
 
     fun list(directory: File): List<File> = directory.listFiles()?.filter {
         it.isFile && it.name.endsWith(".joybrush")
@@ -16,7 +25,7 @@ object DrawingHistory {
         if (!directory.isDirectory && !directory.mkdirs()) {
             throw JbArchiveException("there is nowhere to keep the previous drawing")
         }
-        val file = File(directory, "${System.currentTimeMillis()}-${UUID.randomUUID()}.joybrush")
+        val file = File(directory, "${nextStamp()}-${UUID.randomUUID()}.joybrush")
         JbArchive.save(file, contents)
         // Always retain this copy, even if the clock moved backwards or timestamps tied.
         list(directory).filter { it != file }.drop(KEEP - 1).forEach { it.delete() }

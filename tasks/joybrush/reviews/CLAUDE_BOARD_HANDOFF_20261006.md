@@ -16,10 +16,10 @@ Phone testing caught and fixed touch/callback integration failures that compile 
 
 ## Unfinished specification work
 
-Sprite count/pixel sizing, whole-cell fitted geometry, typed grid values and sub-grid guides are now connected and Note9 tested, including one-step Undo/Redo and sheet/JSON export. These metadata edits keep existing paint/vector content addresses. Unfinished cell controls now pass finger/stylus/eraser through to painting, with dispatcher regression and Note9 stroke/Undo proof. Cell swaps and sequence playback still require the remaining backend/UI work; the shared export metadata line also needs a Sprite cell count label.
+October 7 source adds unlocked live handle sizing, editable board/cell dimensions, locked finger CellRoll preview and separately armed translated all-layer/mask swaps. Counts remain fixed when sizing cells; typed board dimensions snap to whole cells. Generic PAINT/INK address plans are shared; raster executor refuses unsupported vector content atomically. Core 1642, Androidkit 275, native 68 tests pass; watcher APK succeeds. Note9 is disconnected, so these NEW controls still require phone acceptance. Earlier count/grid/guide and sheet/JSON tests on October 6 remain valid historical evidence. See SPRITE_GRID_INTEGRATION_20261007.md for exact APK fingerprint, limits and testing checklist. Sprite export metadata still needs a cell-count label.
 
 - Full-screen seamless tiling and actual wrapped painting, saved first-wrap flag and exits.
-- Sprite cell swaps across all layers and sequences.
+- Phone acceptance of the newly connected Sprite resizing, all-layer swaps and sequences.
 - Onion skins.
 - Exact bounded transactions for Animation geometry, duplication/removal and move-all-frames.
 - Studio/SpriteLab receiver bridges and adapting Studio to the same export presentation.

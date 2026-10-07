@@ -1,5 +1,7 @@
 # Board connection pass — October 6, 2026
 
+Later source checkpoint: [Sprite sizing, preview, swaps and main-folder repair — October 7](SPRITE_GRID_INTEGRATION_20261007.md). The acceptance evidence below describes the earlier installed phone builds; the October 7 APK awaits phone connection/testing.
+
 Claude owns the active brush and paper engine work. This pass edits board presentation, board metadata, the export adapter and Activity board glue in the isolated integration checkout. No brush/paper engine, shaders, presets, materials, PaperSheetView, GlPaintEngine or JbCanvasView changes. Shared primary LANES and AGENT_BOARD notices are appended without overwriting other agents' notes.
 
 ## Export and held-layer checkpoint

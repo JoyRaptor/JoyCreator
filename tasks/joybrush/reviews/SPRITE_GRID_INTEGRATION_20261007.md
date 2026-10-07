@@ -19,6 +19,8 @@ Final combined suites pass: core 1642 tests (four optional corpus skips), Androi
 
 Note9 is disconnected during this pass. The previous installed APK remains the October 6 acceptance build; these new resize/preview/swap controls have NOT been phone accepted or installed. Required phone pass: unlocked corner/edge resize and live readouts, typed board/cell dimensions, Undo/Redo/Cancel, pen painting while locked, ordered preview/play/pause/clear, painted/blank/all-layer/mask swaps, negative/tile-boundary cells, swapback and one-step Undo. No new artwork migration is required.
 
+Watcher APK build succeeded in 39 seconds (276 tasks, seven executed) from source f282cf11. APK: `C:/Temp/jb-region-routing/app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk`, SHA-256 `B9D793656E3D6DD8F8670967EB47F7962988E096EE0A6CA842F467888B4E73E8`. Source f282cf11 was pushed to both `origin/codex/region-routing` and `origin/joy-creator`; final later commits only record this delivery. Install only after checking the actual APK fingerprint; no new phone acceptance claim.
+
 ## Main-folder repair
 
 Main was seven divergent commits ahead and 58 behind origin, rather than seven unsent source files. Six local coordination documents were separately backed up with staged/unstaged patches, then checkpointed as 969d8126. An abandoned empty October 2 index lock was removed only after no live Git process and exclusive access were confirmed. Three incoming untracked handoff documents were hash-verified/backed up; unique brush closeout content was preserved in 16e12ee6. All other untracked files remain untouched.

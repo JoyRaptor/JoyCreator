@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.io
 
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.LayerKind
+import cc.joycreator.joybrush.core.doc.hasPixels
 import cc.joycreator.joybrush.core.doc.RegionDocumentOps
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
@@ -29,7 +30,8 @@ object CanvasPng {
         val doc = contents.doc
         val problems = DocOps.validate(doc)
         if (problems.isNotEmpty()) throw JbArchiveException(problems.joinToString("; "))
-        if (doc.layers.any { it.kind != LayerKind.PAINT || it.animatedIn != null }) {
+        // A media layer exports its look, which is all the compositor ever reads (contract point 10).
+        if (doc.layers.any { !it.kind.hasPixels || it.animatedIn != null }) {
             throw JbArchiveException("this PNG renderer supports raster layers; vector rendering is not connected")
         }
         val board = doc.boards.firstOrNull { it.id == doc.activeBoardId }

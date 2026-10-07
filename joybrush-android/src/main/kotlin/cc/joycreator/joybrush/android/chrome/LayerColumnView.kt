@@ -22,6 +22,7 @@ import cc.joycreator.joybrush.core.layers.LayerState
 import cc.joycreator.joybrush.core.doc.JbDocument
 import cc.joycreator.joybrush.core.doc.BoardKind
 import cc.joycreator.joybrush.core.doc.LayerKind
+import cc.joycreator.joybrush.core.doc.hasPixels
 import cc.joycreator.joybrush.android.board.BoardGlyphs
 import kotlin.math.roundToInt
 
@@ -73,6 +74,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     }
     private var stack: LayerStack? = null
     private var max = 0
+    private var used = 0
     private val thumbs = HashMap<String, Bitmap>()
     private val maskThumbs = HashMap<String, Bitmap>()
     private var editingMask = false
@@ -87,7 +89,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     fun setAnimationBoard(document: JbDocument?, boardId: String?) {
         val board = document?.boards?.firstOrNull { it.id == boardId && it.kind == BoardKind.ANIMATION }
         val next = if (board == null) emptyMap() else document?.layers.orEmpty().mapNotNull { layer ->
-            if (layer.kind != LayerKind.PAINT && layer.kind != LayerKind.INK) return@mapNotNull null
+            if (!layer.kind.hasPixels && layer.kind != LayerKind.INK) return@mapNotNull null
             layer.regions.firstOrNull { it.boardId == board.id }?.let { layer.id to it.held }
         }.toMap()
         if (animationBoardId == board?.id && heldByLayer == next) return
@@ -129,8 +131,10 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     /** The host renders this live crop on its preview worker; the cell never owns a bitmap. */
     fun setPaperPreview(bitmap: Bitmap?) { paper.bitmap = bitmap; paper.invalidate() }
 
-    fun show(s: LayerStack, maxLayers: Int, maskEditing: Boolean = false) {
+    /** [used] is the drawing's layer slots at their real cost (a media layer counts as several): the n of n/max. */
+    fun show(s: LayerStack, maxLayers: Int, maskEditing: Boolean = false, used: Int = s.size) {
         editingMask = maskEditing
+        this.used = used
         // Cells are only rebuilt when the LIST changes (a layer added, removed or moved). A change of opacity, blend,
         // visibility or the ringed layer redraws the same cells, so a panel anchored to one never loses its anchor.
         val sameList = stack?.layers?.map { it.id } == s.layers.map { it.id }
@@ -284,7 +288,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
 
         override fun onDraw(c: Canvas) {
             val s = stack
-            val full = s != null && s.size >= max
+            val full = s != null && used >= max
             val cx = width / 2f
             val cy = kit.dp(15f)
             paint.color = if (full) kit.ink(0.35f) else kit.p.drawerInk
@@ -296,7 +300,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
             if (s != null) {
                 // The budget, always on screen: the limit is visible before it is reached (JB-2.04 Decision 6).
                 text.color = if (full) kit.p.stateCareful else kit.p.drawerDim
-                c.drawText("${s.size}/$max", cx, height - kit.dp(4f), text)
+                c.drawText("$used/$max", cx, height - kit.dp(4f), text)
             }
         }
     }

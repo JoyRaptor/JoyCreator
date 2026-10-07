@@ -3,6 +3,7 @@ package cc.joycreator.joybrush.androidkit.io
 import cc.joycreator.joybrush.core.doc.BoardKind
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.LayerKind
+import cc.joycreator.joybrush.core.doc.hasPixels
 import cc.joycreator.joybrush.core.doc.Paper
 
 /**
@@ -20,10 +21,10 @@ object CanvasSnapshot {
     fun metadataOf(contents: JbContents): JbContents {
         val errors=DocOps.validate(contents.doc)
         require(errors.isEmpty()){errors.joinToString("; ")}
-        require(contents.doc.layers.all{it.kind==LayerKind.PAINT && it.animatedIn==null} && contents.strokes.isEmpty()) {
+        require(contents.doc.layers.all{it.kind.hasPixels && it.animatedIn==null} && contents.strokes.isEmpty()) {
             "The raster renderer cannot retain vector payloads"
         }
-        return contents.copy(tiles = emptyMap(), strokes = emptyMap())
+        return contents.copy(tiles = emptyMap(), strokes = emptyMap(), mediaTiles = emptyMap())
     }
 
     /** [livePaper] carries current paper settings; omitted for older colour-only snapshot callers. */
@@ -62,6 +63,13 @@ object CanvasSnapshot {
                 ?: throw JbArchiveException("a snapshot tile belongs to an unknown layer or cel")
             tiles[Triple(key.first, cel, key.third)] = bytes
         }
+        // A media layer's state moves with its cel id, like its look tiles.
+        val media = LinkedHashMap<MediaTileKey, ByteArray>()
+        for ((key, bytes) in fresh.mediaTiles) {
+            val cel = celIds[key.layerId to key.celId]
+                ?: throw JbArchiveException("a snapshot media tile belongs to an unknown layer or cel")
+            media[key.copy(celId = cel)] = bytes
+        }
         val doc = retained.doc.copy(
             format = fresh.doc.format,
             version = fresh.doc.version,
@@ -74,7 +82,7 @@ object CanvasSnapshot {
         if (problems.isNotEmpty()) {
             throw JbArchiveException("this snapshot cannot be saved: " + problems.joinToString("; "))
         }
-        return JbContents(doc, tiles, fresh.strokes, retained.thumbnailPng)
+        return JbContents(doc, tiles, fresh.strokes, retained.thumbnailPng, media)
     }
 
     private fun requireCanvas(contents: JbContents) {
@@ -85,7 +93,7 @@ object CanvasSnapshot {
         }
         if (doc.boards.size != 1 || doc.boards.single().kind != BoardKind.CANVAS ||
             doc.layers.isEmpty() || contents.strokes.isNotEmpty() ||
-            doc.layers.any { it.kind != LayerKind.PAINT || it.animatedIn != null || it.cels.size != 1 }
+            doc.layers.any { !it.kind.hasPixels || it.animatedIn != null || it.cels.size != 1 }
         ) {
             throw JbArchiveException("this snapshot requires one canvas board with static paint layers")
         }

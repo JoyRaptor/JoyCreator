@@ -5,6 +5,7 @@ import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.JbDocument
 import cc.joycreator.joybrush.core.doc.Layer
 import cc.joycreator.joybrush.core.doc.LayerKind
+import cc.joycreator.joybrush.core.doc.hasPixels
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
 import cc.joycreator.joybrush.core.render.LayerMask
@@ -407,7 +408,7 @@ object OraExport {
      * is draw on it.
      */
     private fun omittedBecause(layer: Layer, frameId: String?): String? = when {
-        layer.kind != LayerKind.PAINT ->
+        !layer.kind.hasPixels ->
             "an INK layer; its strokes are drawn by JB-5.01, not exported as pixels yet"
         !layer.visible -> "it is hidden"
         opacityOf(layer) <= 0f -> "it is 0% opaque"

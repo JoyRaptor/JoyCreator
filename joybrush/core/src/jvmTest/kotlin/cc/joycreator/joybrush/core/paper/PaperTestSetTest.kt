@@ -12,10 +12,23 @@ class PaperTestSetTest {
     private val dir = File(joybrushRoot(), "assets/paper")
     private val catalogue get() = PaperCatalogues.parse(File(dir, "catalogue.json").readText())
     private val ids = listOf("canvas_linen", "canvas_cotton_duck", "canvas_jute", "pulp_factory", "pulp_handmade")
-    private fun texture(s: SurfaceEntry): PaperTexture = texture(s.file)
+    /** A surface as the app holds it: a height-only file (packed = false) is expanded by SurfaceMaps, as on device. */
+    private fun texture(s: SurfaceEntry): PaperTexture {
+        val t = texture(s.file)
+        return PaperTexture(t.w, t.h, SurfaceMaps.expand(s, t.rgba, t.w, t.h))
+    }
     private fun texture(file: String): PaperTexture {
         val img = ImageIO.read(File(dir, file))
         val bytes = ByteArray(img.width * img.height * 4)
+        // A grey PNG (a height-only surface) is read from its raster: ImageIO's getRGB treats grey as LINEAR and
+        // brightens it on the way to sRGB, which Android does not do.
+        if (img.type == java.awt.image.BufferedImage.TYPE_BYTE_GRAY) {
+            for (y in 0 until img.height) for (x in 0 until img.width) {
+                val v = img.raster.getSample(x, y, 0).toByte(); val i = (y * img.width + x) * 4
+                bytes[i] = v; bytes[i+1] = v; bytes[i+2] = v; bytes[i+3] = -1
+            }
+            return PaperTexture(img.width, img.height, bytes)
+        }
         for (y in 0 until img.height) for (x in 0 until img.width) {
             val argb = img.getRGB(x, y); val i = (y * img.width + x) * 4
             bytes[i] = (argb ushr 16).toByte(); bytes[i+1] = (argb ushr 8).toByte()
@@ -54,18 +67,14 @@ class PaperTestSetTest {
     @Test fun allFiveSurfaceFilesRebuildExactlyFromTheirPhysicalHeights() {
         for (id in ids) {
             val s = assertNotNull(PaperCatalogues.surface(catalogue, id))
-            val image = ImageIO.read(File(dir, s.file))
-            val h = ByteArray(s.size*s.size) { i -> image.getRGB(i % s.size, i / s.size).toByte() }
+            // The file's height (B of a packed file; the grey of a height-only one, packed = false since 2026-10-06).
+            val file = texture(s.file)
+            val h = ByteArray(s.size*s.size) { i -> file.rgba[i*4 + 2] }
             val actual = texture(s)
             val rebuilt = SurfaceMaps.pack(h, s.size, s.size, s.slopeRange)
-            // ImageIO must preserve alpha = height squared, including semi-transparent texels.
-            val expected = ByteArray(rebuilt.size)
-            for (i in h.indices) {
-                val argb = image.getRGB(i % s.size, i / s.size)
-                expected[i*4]=(argb ushr 16).toByte(); expected[i*4+1]=(argb ushr 8).toByte()
-                expected[i*4+2]=argb.toByte(); expected[i*4+3]=(argb ushr 24).toByte()
-            }
-            assertContentEquals(expected, rebuilt, id)
+            // What the app holds is exactly the packing of that height; for a packed file ImageIO must also preserve
+            // alpha = height squared, including semi-transparent texels.
+            assertContentEquals(actual.rgba, rebuilt, id)
             assertEquals(s.size, actual.w)
             assertEquals(!id.startsWith("canvas_"), s.rotatable, "weave orientation: $id")
         }

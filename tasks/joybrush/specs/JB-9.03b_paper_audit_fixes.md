@@ -1,9 +1,12 @@
 # JB-9.03b — Paper follow-ups from the audit: exact zero slope, twins that really match, a safe upload, no dead knobs
 
+
+> **SUPERSEDED IN PART (2026-10-06, paper specialist). The current record is `research/R10_paper_and_canvas.md` §11/§11.1. Built as b1b30633. Since then: the hex blend is variance-preserving, and surfaces may ship height-only (`packed: false`, slopes made at load by `SurfaceMaps.expand`).**
+
 | | |
 |---|---|
 | **Tier** | T1 |
-| **Status** | 🟦 Ready (paper specialist, 2026-10-01, after the adversarial audit of JB-9.01/9.02/9.03/9.09) |
+| **Status** | 🟧 Built (b1b30633, Codex, 2026-10-01); partly superseded, see the note above |
 | **Builder** | Codex (one owner for every twin, so the CPU, the GPU and pack.py change in ONE commit) |
 | **Depends on** | JB-9.01, 9.02, 9.03, 9.09 (all landed) |
 | **Owner area** | `core/paper/SurfaceMaps.kt`, `core/paper/HexTile.kt`, `core/paper/PaperTexture.kt` + their tests, `ImportedTextureTest` (encoding literals only); `joybrush/tools/paper/pack.py`; `joybrush/assets/paper/surface_pulp_artisan.png` (regenerated) + `catalogue.json` (slopeRange only if it changes); `joybrush/shaders/jb_paper.glsl`, `jb_grain_sample.glsl`, `jb_tuft.frag` (paper lines only); `androidkit/.../gl/GrainTextures.kt`; `core/grain/GrainMath.kt`; `core/brush/TuftStroke.kt`; `core/brush/BrushPreset.kt` (KDoc only); `core/chrome/BrushKnobs.kt`; `joybrush/brushes/pencil/brush.json`; tests that pin these (`PencilOnAFingerTest`, `GrainWiringTest`, `BrushKnobsTest`/`BrushTuningTest`, `TuftTuningTest`) |

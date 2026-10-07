@@ -55,7 +55,8 @@ object PaperResources {
         return try {
             val pixels = IntArray(bitmap.width * bitmap.height)
             bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-            PaperTexture(bitmap.width, bitmap.height, GrainTextures.rgbaBytes(pixels))
+            PaperTexture(bitmap.width, bitmap.height,
+                GrainTextures.expandSurface(file, GrainTextures.rgbaBytes(pixels), bitmap.width, bitmap.height))
         } finally { bitmap.recycle() }
     }
 }

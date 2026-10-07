@@ -15,6 +15,16 @@ class LaunchMaterialsTest {
     private fun texture(file: String): PaperTexture {
         val image = ImageIO.read(File(dir, file))
         val rgba = ByteArray(image.width * image.height * 4)
+        // A grey PNG (the photo papers' heights) is read from its raster: ImageIO's getRGB treats grey as LINEAR and
+        // brightens it on the way to sRGB, which Android does not do.
+        if (image.type == java.awt.image.BufferedImage.TYPE_BYTE_GRAY) {
+            val r = image.raster
+            for (y in 0 until image.height) for (x in 0 until image.width) {
+                val v = r.getSample(x, y, 0).toByte(); val i = (y * image.width + x)*4
+                rgba[i]=v; rgba[i+1]=v; rgba[i+2]=v; rgba[i+3]=-1
+            }
+            return PaperTexture(image.width, image.height, rgba)
+        }
         for (y in 0 until image.height) for (x in 0 until image.width) {
             val p = image.getRGB(x, y); val i = (y * image.width + x)*4
             rgba[i]=(p ushr 16).toByte(); rgba[i+1]=(p ushr 8).toByte()
@@ -42,9 +52,18 @@ class LaunchMaterialsTest {
     @Test fun everyPhysicalTextureMatchesTheKotlinPackingTwinExactly() {
         for (s in c.surfaces) {
             val t=texture(s.file)
-            val height=ByteArray(t.w*t.h) { t.rgba[it*4+2] }
-            assertContentEquals(t.rgba, SurfaceMaps.pack(height,t.w,t.h,s.slopeRange),s.id)
+            if (s.packed) {
+                val height=ByteArray(t.w*t.h) { t.rgba[it*4+2] }
+                assertContentEquals(t.rgba, SurfaceMaps.pack(height,t.w,t.h,s.slopeRange),s.id)
+            } else {
+                // A height-only photo surface: grey, and expanded at load by the same packing twin.
+                for (i in 0 until t.w*t.h) assertTrue(t.rgba[i*4]==t.rgba[i*4+1] && t.rgba[i*4]==t.rgba[i*4+2], "${s.id} is not grey")
+                val height=ByteArray(t.w*t.h) { t.rgba[it*4] }
+                assertContentEquals(SurfaceMaps.pack(height,t.w,t.h,s.slopeRange), SurfaceMaps.expand(s,t.rgba,t.w,t.h), s.id)
+                assertEquals(height.map { it.toInt() and 255 }.average() / 255.0, s.heightMean.toDouble(), 0.01, "${s.id} heightMean")
+            }
             assertTrue(std(channel(t,2)) > 2.0, "${s.id} is physically flat")
+            s.fluid?.let { f -> val ft=texture(f); assertEquals(ft.w, ft.h, "${s.id} fluid is square") }
         }
     }
     @Test fun picturedLooksAndTheirDefaultSurfacesUseIdenticalSamplingGeometryAndMeasuredMeans() {
@@ -52,7 +71,10 @@ class LaunchMaterialsTest {
             val s=assertNotNull(PaperCatalogues.surface(c, assertNotNull(look.defaultSurface)))
             val t=texture(assertNotNull(look.file))
             assertEquals(s.size,t.w,look.id); assertEquals(s.size,t.h,look.id)
-            assertEquals(s.texelPx,look.texelPx,look.id); assertEquals(s.hexTexels,look.hexTexels,look.id)
+            // A photo paper (height-only surface, 2026-10-06) carries its tooth FINER than its look: the photograph cannot
+            // hold a 0.25 mm grain at the look's own scale. Its surface is derived from the same picture.
+            if (s.packed) assertEquals(s.texelPx,look.texelPx,look.id) else assertTrue(s.texelPx <= look.texelPx, look.id)
+            assertEquals(s.hexTexels,look.hexTexels,look.id)
             assertEquals(s.rotatable,look.rotatable,look.id)
             val mean=assertNotNull(look.mean)
             for (q in 0..2) assertTrue(abs(channel(t,q).average()-mean.substring(1+2*q,3+2*q).toInt(16)) <= .51,look.id)
@@ -61,11 +83,15 @@ class LaunchMaterialsTest {
     @Test fun sourceWrapHasNoStrongerJoinThanOrdinaryNeighbourVariation() {
         fun check(file: String, q: Int) {
             val t=texture(file); val values=channel(t,q)
+            // A JPEG's wrap is always one of its 8x8 block joins, which carry a little blocking of their own: compare
+            // it with the picture's other block joins, not with neighbours inside a block (a near-flat hot-press look
+            // fails the latter by one level of quantisation while its wrap is smoother than its own blocks).
+            val block = if (file.endsWith(".jpg")) 8 else 1
             val edges=mutableListOf<Double>(); val interior=mutableListOf<Double>()
             for (y in 0 until t.h) for (x in 0 until t.w) {
                 val v=values[y*t.w+x]
-                if (x==t.w-1) edges.add(abs(v-values[y*t.w])) else interior.add(abs(v-values[y*t.w+x+1]))
-                if (y==t.h-1) edges.add(abs(v-values[x])) else interior.add(abs(v-values[(y+1)*t.w+x]))
+                if (x==t.w-1) edges.add(abs(v-values[y*t.w])) else if ((x+1)%block==0) interior.add(abs(v-values[y*t.w+x+1]))
+                if (y==t.h-1) edges.add(abs(v-values[x])) else if ((y+1)%block==0) interior.add(abs(v-values[(y+1)*t.w+x]))
             }
             edges.sort(); interior.sort()
             val edge95=edges[(edges.size*.95).toInt()]

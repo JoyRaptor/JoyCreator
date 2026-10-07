@@ -20,7 +20,9 @@ float hashVertex(ivec2 v, int k) {
     return float(x >> 8u) / 16777216.0;
 }
 // All floating coordinates are relative to an integer lattice vertex. Hashes stay global.
-vec4 readHex(sampler2D tex, int octave, int seed, bool slopes) {
+// Variance-preserving blend (HexTile.contrastKeep): the result is centre + Σw·(read − centre)/sqrt(Σw²), so where three
+// patches meet the paper keeps the contrast of one instead of going soft and washed-out.
+vec4 readHex(sampler2D tex, int octave, int seed, bool slopes, vec4 centre4) {
     const float SQRT3 = 1.7320508075688772;
     vec2 p = u_localOrigin[octave] + u_docStep * gl_FragCoord.xy / u_pitch[octave];
     vec2 dx = dFdx(p), dy = dFdy(p);
@@ -36,6 +38,7 @@ vec4 readHex(sampler2D tex, int octave, int seed, bool slopes) {
         w=vec3(1.0-(f.x+f.y),f.x,f.y);
     }
     w=w*w*w; w/=w.x+w.y+w.z;
+    float keep=inversesqrt(dot(w,w));
     vec4 result=vec4(0);
     for (int n=0;n<3;++n) {
         ivec2 global=u_hexBase[octave]+v[n];
@@ -50,9 +53,9 @@ vec4 readHex(sampler2D tex, int octave, int seed, bool slopes) {
             delta=mix(delta,vec2(0),lessThanEqual(abs(delta),vec2(1.0/65536.0)));
             value.rg=mat2(c,-s,s,c)*delta/127.0*u_slopeRange/u_pitch[octave];
         }
-        result+=w[n]*value;
+        result+=w[n]*(value-centre4);
     }
-    return result;
+    return centre4+result*keep;
 }
 void main() {
     if (u_transparent) {
@@ -61,15 +64,16 @@ void main() {
     }
     vec3 look=u_base;
     if (u_hasLook) {
-        look=readHex(u_look,0,0,false).rgb;
+        look=clamp(readHex(u_look,0,0,false,vec4(u_mean,0)).rgb,0.0,1.0);
         if (u_tinted) look=u_base*look/max(u_mean,vec3(1.0/255.0));
     }
     vec2 slope=vec2(0);
     if (u_hasSurface && u_light) {
-        slope=readHex(u_surface,1,0,true).rg;
-        if (u_detail>0.0) slope+=u_detail*readHex(u_surface,2,10,true).rg;
+        slope=readHex(u_surface,1,0,true,vec4(0)).rg;
+        if (u_detail>0.0) slope+=u_detail*readHex(u_surface,2,10,true,vec4(0)).rg;
     }
     vec3 normal=normalize(vec3(-slope*6.0*u_relief,1));
-    float shade=u_light?mix(1.0,clamp(dot(normal,u_lamp)/u_lamp.z,0.6,1.4),u_show):1.0;
+    // Faint, as real paper under even light is (PaperRaster.LIT_MIN/MAX): the look carries what the eye sees.
+    float shade=u_light?mix(1.0,clamp(dot(normal,u_lamp)/u_lamp.z,0.9,1.1),u_show):1.0;
     color=vec4(mix(u_base,look,u_show)*shade,1);
 }

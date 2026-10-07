@@ -398,7 +398,10 @@ class HexTileTest {
             val px = rng.nextUnit() * 900.0 - 450.0
             val py = rng.nextUnit() * 900.0 - 450.0
             HexTile.sampleSurface(tex, px, py, 11.0, rotatable = false, slopeRange = SLOPE_RANGE, out = out)
-            assertEquals(R, out[0], 2f * R / 255f, "dx at ($px, $py)")
+            // The direction never turns. The LENGTH may grow by the variance-preserving factor (1..√3): this fixture's
+            // slope is the same everywhere, so the three reads agree perfectly — the one case the blend amplifies, and
+            // one no tileable paper has (its mean slope is zero). 2026-10-06, superseding JB-9.02 Decision 2.
+            assertTrue(out[0] >= R - 2f * R / 255f && out[0] <= R * 1.7321f + 2f * R / 255f, "dx at ($px, $py): ${out[0]}")
             assertEquals(0f, out[1], 2f * R / 255f, "dy at ($px, $py)")
             n++
         }

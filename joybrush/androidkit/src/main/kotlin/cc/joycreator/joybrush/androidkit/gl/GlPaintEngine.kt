@@ -173,6 +173,8 @@ class GlPaintEngine(
     private var loadedPaper: PaperResources.Loaded? = null
     private var lookTexture: Int? = null
     private var surfaceTexture: Int? = null
+    /** The paper's FLUID map (2026-10-06), for wet and impasto engines; bound on unit 2 for brush programs. */
+    private var fluidTexture: Int? = null
     private var strokeSurface: SurfaceEntry? = null
     private var strokePaperScale = 1f
     val paperWarnings: List<String> get() = loadedPaper?.warnings ?: emptyList()
@@ -199,6 +201,7 @@ class GlPaintEngine(
         val effective = loadedPaper!!.paper
         lookTexture = effective.look?.file?.let { grains.textureFor(it, "paper") }
         surfaceTexture = effective.surface?.file?.let { grains.textureFor(it, "paper") }
+        fluidTexture = effective.surface?.fluid?.let { grains.textureFor(it, "paper") }
         paperBackground.invalidate()
     }
 
@@ -467,7 +470,7 @@ class GlPaintEngine(
         grains.forget()
         compositor.forget()
         paperBackground.forget()
-        loadedPaper = null; lookTexture = null; surfaceTexture = null
+        loadedPaper = null; lookTexture = null; surfaceTexture = null; fluidTexture = null
         compositeProg = null      // a name from the dead context; the new one compiles on first use
         thumbTex = 0; thumbW = 0; thumbH = 0
         compositeError = null
@@ -1457,6 +1460,17 @@ class GlPaintEngine(
         GLES30.glUniform1f(program.loc("u_paperSize"), strokeSurface?.size?.toFloat() ?: GrainMath.SURFACE_SIZE)
         GLES30.glUniform1f(program.loc("u_paperHexTexels"), strokeSurface?.hexTexels ?: GrainMath.SURFACE_HEX_TEXELS)
         GLES30.glUniform1f(program.loc("u_paperSlopeRange"), strokeSurface?.slopeRange ?: GrainMath.SURFACE_SLOPE_RANGE)
+        GLES30.glUniform1f(program.loc("u_paperHeightMean"), strokeSurface?.heightMean ?: 0.5f)
+        // The fluid map on unit 2, always bound (an unset sampler reads unit 0, which may be the tile being drawn).
+        val fluid = fluidTexture
+        GLES30.glUniform1i(program.loc("u_paperFluid"), 2)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE2)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, fluid ?: grains.placeholder)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        val surface = strokeSurface
+        GLES30.glUniform1f(program.loc("u_paperFluidTexelPx"), if (fluid != null && surface?.fluid != null) surface.fluidTexelPx * strokePaperScale else 0f)
+        GLES30.glUniform1f(program.loc("u_paperFluidSize"), surface?.fluid?.let { grains.sizeFor(it, "paper").toFloat() } ?: 1f)
+        GLES30.glUniform1f(program.loc("u_paperFluidHexTexels"), surface?.fluidHexTexels ?: 150f)
         GLES30.glUniform1i(program.loc("u_paperRotatable"), if (strokeSurface?.rotatable ?: GrainMath.SURFACE_ROTATABLE) 1 else 0)
     }
 

@@ -277,3 +277,93 @@ Earlier in-repo research: R1 (Rebelle), R2 (Expresii), R3 (Krita/MyPaint), R4 (P
 | Far-field precision in dab shaders | Accepted to ±1e6 doc px for deposit; the screen pass uses the local frame (JB-9.06 Decision 5) |
 | JB-9.11 impossible as written | ✅ Rescoped to the pure core function (landed `86f1711b`); decode + polarity move to JB-1.05d; ABR patterns to a future JB-8.01c |
 | Legal conclusion in R10 | ✅ Reworded: a design choice, not a legal opinion |
+
+---
+
+## 11. Photographic papers and the contrast-keeping blend (2026-10-06, the R9/Sable session)
+
+**Owner:** the procedural papers "read as early-90s 3D graphics, not anything worth shipping". They supplied photoreal paper images they generated themselves (`tasks/joybrush/research/GBT texture sample image generations/`, not in the repo) and asked for the best paper engine in the industry. They also sent pencil feel notes; the pencil and the other media now belong to the "Realistic brush engines" session, which builds on this paper.
+
+**What was wrong (measured on the PC with `tools/paper/papersim.py`):**
+1. The looks were synthetic. The surfaces were blurred fractal noise, so a dry stroke on them was smooth, like a marker.
+2. The background lit that noise with a strong lamp (shade 0.6–1.4, relief ×6). That emboss is what reads as 90s CG.
+3. The hex blend was convex (JB-9.02 Decision 2). Where three patches meet, a plain average is flatter than any one patch, so photographic looks show soft, washed-out blotches at every seam.
+
+**What was built:**
+- `tools/paper/photo2paper.py` turns a photo into a paper:
+  - de-light (very low frequencies only);
+  - Moisan periodic + smooth decomposition, so it is seamless with no blend band;
+  - a 1024 look as JPEG, with its mean measured after decoding;
+  - a surface HEIGHT from the same picture: a tooth band of ≈5 doc px / 0.25 mm plus a pulp band, rank-equalised to uniform 0..1, with the relief span set per kind (rice paper nearly flat, owner P12);
+  - a FLUID map for the wet and impasto engines.
+
+  `install_photo_papers.py` installs 12 papers: 5 replace procedural ones under the same ids, and the green chalkboard is the black photo recoloured.
+- Surfaces may ship as height only (`packed: false`, grey PNG); the app packs the slopes at load with `SurfaceMaps.expand`. The tooth's texelPx (1.0) is finer than the look's (2.5): a photo cannot hold a 0.25 mm grain at its own scale. Library: 24 MB, of which 19.4 MB is PNG, within the 25 MB budget.
+- **Variance-preserving hex blend** (`HexTile.contrastKeep`, shaders, CPU twins). The result is `centre + Σw·(read − centre)/√Σw²`. A = E[h²] is recomposed as B² + Σw²σ²/Σw², so A − B² stays a valid local variance at every mip (the dry/wet engines prefilter on it). **This supersedes JB-9.02 Decision 2.**
+- The relief light is clamped to 0.9–1.1, and photo papers ship with the light OFF. The photograph carries what the eye sees.
+- Catalogue `SurfaceEntry` gains:
+  - `heightMean`, `packed`;
+  - `fluid` / `fluidTexelPx` / `fluidHexTexels`;
+  - the physical numbers `toothDepthMm`, `compliance`, `sizing`, `absorbency`, `capacity`, `wickSpeed`, `anisotropy`;
+  - and `PaperPhysical.DOC_PX_PER_MM = 20`.
+- `jb_paper.glsl` gains `jb_paperFluid` / `jb_paperFluidCoarse`. Fibre directions turn by 2× the hex angle, so they always agree with the slopes (test `fibresTurnWithThePaperExactlyAsItsSlopesDo`). `GlPaintEngine` binds the fluid map on unit 2.
+
+**Hand-offs:**
+- JB-9.08's directional dry deposit moves into the brush-engines session's dry-media engine.
+- JB-9.08's wet pooling is superseded by its wet engine.
+- The remaining procedural looks (canvases, papyrus, parchment, silk, fabric, cement, crumpled, blueprint, off-white, pulps) wait for owner photos or CC0 scans of the same kind. The installer takes them as new rows.
+
+### 11.1 Felt papers: drawing paper and watercolour cold, hot and rough (2026-10-06, same session)
+
+The brush-engines session asked for, in order: a medium-tooth drawing paper (tooth ~0.1–0.15 mm), cold-press watercolour (~1 mm felt bumps), then hot press and rough. No owner photos of these existed, so the owner gave permission to download. CC0 scans of real art papers at macro scale are rare: ambientCG's papers are "PBR approximated", the good free Arches/Saunders scans (Gumroad) do not allow redistribution in an app, and museum scans are flat-lit. One CC0 raking-lit photo of a real cold-press sheet was usable (publicdomainpictures.net #260479, 1920², `tools/paper/sources/`).
+
+**Why a new tool (`tools/paper/felt2paper.py`) and not photo2paper:**
+1. Under a raking lamp a felt paper's brightness is its SLOPE, not its height. photo2paper's "bright = high" would shift every bump by half its width.
+2. No phone or scanner photo holds the 0.02 mm fibres a pencil's dust actually catches. The photo is soft below ~0.2 mm.
+
+**What it does:**
+- **Felt** (measured): shape-from-shading in Fourier space.
+  - The lamp axis is the spectrum's strongest direction.
+  - The slope is integrated with eps·|k|² regularising the band across the lamp.
+  - A small height-in-brightness term (valleys see less light) is solved so the slope along the lamp has zero skew. A true isotropic relief climbs and falls equally; a wrong term leaves an emboss.
+  - The photo has a shallow depth of field, so the tile is cut from its sharpest square (`sharpest_square`).
+  - It is then made isotropic again by direction (`even_angles`, anisotropy 0.37 → 0.03) and stationary in strength (`even_amplitude`).
+  - The lamp is taken as up-left, the photographer's convention. That gives broad rounded tops and narrow creases (negative height skew), the profile of a felt-pressed sheet.
+- **Fibres** (modelled at true size): a random fibre network (Kallmes & Corte), the physical model of what paper is.
+  - Cotton fibres 2.5 mm long (log-normal), 0.02 mm wide, gently curled, coverage 4 layers, with a slight machine-direction bias.
+  - Fibres are laid on a torus at 0.05 mm per texel, thinned by the sheet's flocs, which are the photo's own mottling.
+  - The press evens out floc thickness on the top face, so the tooth keeps only the grain within ~1 mm. The flocs go to the fluid map as absorbency.
+- **Grades**, the same mould-made sheet finished differently:
+
+  | Grade | Felt bump | Felt : fibre | toothDepthMm | Look keeps lamp shading |
+  |---|---|---|---|---|
+  | cold press | 1.1 mm | 1 : 0.55 | 0.18 | 30%, relief light on |
+  | rough | 2.2 mm | 1 : 0.4 | 0.35 | 45%, relief light on |
+  | hot press | 1.1 mm | 0.3 : 1 | 0.03 | 8%, light off |
+  | drawing | 0.5 mm | 0.3 : 1 | 0.07 | 10%, light off |
+  | bristol | 0.4 mm | 0.15 : 1 | 0.035 | 4%, light off |
+
+  **Revised for drawing, plus Bristol added** (brush-engines request, matched against the owner's Infinite Painter "Proko" screenshots: fine 1–2 px speckle, a near-continuous grey body, no fibre lines). Both drawing and Bristol now:
+  - hold 0.025 mm per texel (texelPx 0.5);
+  - use a hardwood furnish: fibres 0.9 mm × 0.018 mm, coverage 8 (Bristol 10).
+
+  Pressing rounds them off: 0.025 mm for drawing, 0.04 mm for Bristol, which is calendered. The cotton-rag watercolours keep their 2.5 mm fibres at 0.05 mm per texel.
+
+  Watercolour surfaces are texelPx 1.0 (0.05 mm), 1024² (a 51 mm tile). Drawing and Bristol are texelPx 0.5 (a 25.6 mm tile). The fluid G,B channels are the fibres' own directions (structure tensor of the network). A is capacity in the felt's valleys.
+- **Looks**: the whole photo at its physical scale (cold 3.0 doc px per texel, rough 6.0, drawing 1.4), with its lamp shading reduced and exposed to the sheet's real white.
+
+**Judged on the PC** (`papersim.py`, pencil threshold): drawing and hot press take graphite as granular, fibre-broken strokes, the real look of pencil on a smooth sheet. Cold and rough catch on the felt hills, with fibre-ragged edges.
+
+**Install:** `python tools/paper/install_felt_papers.py tools/paper/sources/watercolour_cold_press_cc0.jpg assets/paper`.
+
+**Ids:**
+
+| Look | Surface |
+|---|---|
+| `drawing_paper` | `drawing_tooth` |
+| `watercolour_cold` | `cold_press` |
+| `watercolour_hot` | `hot_press` |
+| `watercolour_rough` | `rough_press` |
+| `bristol_paper` | `bristol_tooth` |
+
+**Upgrade path:** rough is the cold-press felt scaled up. A real rough-paper scan (or an owner photo under a raking lamp) would replace its felt; the tool takes any such photo.

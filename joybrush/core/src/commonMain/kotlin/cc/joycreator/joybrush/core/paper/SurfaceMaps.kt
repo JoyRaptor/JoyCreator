@@ -158,6 +158,16 @@ object SurfaceMaps {
      * `SurfaceAssetTest` (jvmTest) checks against the shipped file. Only the claim about what A means is
      * corrected.
      */
+    /**
+     * A surface file as the engine reads it: unchanged when [SurfaceEntry.packed], else the file holds the HEIGHT in its
+     * red channel (an 8-bit grey PNG) and this packs it — the same bytes pack.py would have written.
+     */
+    fun expand(entry: SurfaceEntry, rgba: ByteArray, w: Int, h: Int): ByteArray {
+        if (entry.packed) return rgba
+        val height = ByteArray(w * h) { rgba[it * 4] }
+        return pack(height, w, h, entry.slopeRange)
+    }
+
     fun pack(heightBytes: ByteArray, w: Int, h: Int, slopeRange: Float): ByteArray {
         require(slopeRange.isFinite() && slopeRange > 0f) { "slopeRange must be a positive finite number, was $slopeRange" }
         val height = DoubleArray(heightBytes.size) { heightBytes[it].toInt().and(0xFF) / 255.0 }

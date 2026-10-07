@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Blend clamp test</title>
+<canvas id="c" width="4" height="4"></canvas>
+<script>
+// Does additive blending into an RGBA16F target clamp to 1 on this GPU/driver?
+const gl = document.getElementById('c').getContext('webgl2');
+gl.getExtension('EXT_color_buffer_float');
+gl.getExtension('EXT_float_blend');
+const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, 4, 4, 0, gl.RGBA, gl.HALF_FLOAT, null);
+const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+const sh = (ty, s) => { const x = gl.createShader(ty); gl.shaderSource(x, s); gl.compileShader(x); return x; };
+const p = gl.createProgram();
+gl.attachShader(p, sh(gl.VERTEX_SHADER, '#version 300 es\nvoid main(){vec2 q=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Position=vec4(q*2.0-1.0,0,1);}'));
+gl.attachShader(p, sh(gl.FRAGMENT_SHADER, '#version 300 es\nprecision highp float;uniform vec4 v;out vec4 o;void main(){o=v;}'));
+gl.linkProgram(p); gl.useProgram(p);
+gl.viewport(0, 0, 4, 4); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+const res = {};
+gl.uniform4f(gl.getUniformLocation(p, 'v'), 3.0, -0.5, 0.25, 2.0);
+gl.drawArrays(gl.TRIANGLES, 0, 3);
+const a = new Float32Array(4); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, a); res.noBlend = Array.from(a);
+gl.clear(gl.COLOR_BUFFER_BIT);
+gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+gl.drawArrays(gl.TRIANGLES, 0, 3); gl.drawArrays(gl.TRIANGLES, 0, 3);
+gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, a); res.blendTwice = Array.from(a);
+document.title = JSON.stringify(res);
+window.__res = res; window.__done = true;
+</script>

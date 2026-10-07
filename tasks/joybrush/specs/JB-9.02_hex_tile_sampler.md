@@ -1,5 +1,8 @@
 # JB-9.02 — Hex-tile paper sampler: the no-repeat read, CPU twin (the canonical maths)
 
+
+> **SUPERSEDED IN PART (2026-10-06, paper specialist). The current record is `research/R10_paper_and_canvas.md` §11/§11.1. Decision 2 (convex blend) is replaced by the variance-preserving blend `HexTile.contrastKeep` (03f4dff8).**
+
 | | |
 |---|---|
 | **Tier** | T1 (pure core) |

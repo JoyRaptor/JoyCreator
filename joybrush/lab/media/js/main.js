@@ -1,7 +1,7 @@
 // main.js — the media lab page: draw with a pen (pressure + tilt), or run a fixed test sheet.
 import { MediaEngine } from './engine.js';
 import { loadCatalogue, loadSurface, DOC_PX_PER_MM } from './paper.js';
-import { STICKS, DryStroke, stickMaterial, PRESS, MAT_OVERRIDE, TILT_CURVE } from './stick.js';
+import { STICKS, DryStroke, stickMaterial, PRESS, MAT_OVERRIDE, ZONES } from './stick.js';
 import { SHEETS } from './tests.js';
 import { WET, WET_BRUSHES, WetStroke, paintFromColor, tiltUniform } from './wet.js';
 import { SplineFeeder } from './spline.js';
@@ -39,7 +39,7 @@ function applyTuning() {
   Object.assign(MAT_OVERRIDE, parse(qs.get('mat')));
   Object.assign(STICKS.Proto, parse(qs.get('proto')));
   if (qs.get('texel')) globalThis.__TEXEL_SCALE = Number(qs.get('texel'));
-  Object.assign(TILT_CURVE, parse(qs.get('curve')));
+  Object.assign(ZONES, parse(qs.get('zones')));
 }
 
 async function main() {

@@ -963,3 +963,18 @@ phone, while every unbundled test passed. **Rule:** the bundler refuses multi-na
 checked by loading the BUNDLED page at phone size and reading `window.__error` (not by rendering the module build).
 ## 2026-10-02 - Test artwork is disposable
 Owner confirms all existing Joy Brush drawings are test scratches; no user base exists. Stop backups, restoration and migration work for them. Build the correct region model directly. Future saving and undo must remain dependable.
+
+## Pencil regression (2026-10-07): check a new realism feature against the version the owner liked
+
+**What happened:** version 7 added three "physically richer" features at once (worn flats on the lead, a constant
+soft-lead spread, a softer pad). Each was plausible on its own; together they inverted the side stroke's gradient,
+moved the mark away from the pen tip, and gave every touched pixel the same deposit. The owner went from "B tier" to
+"D tier" and had to tell me.
+
+**Rule:** before publishing a change to a brush the owner already approved, render the SAME sheet with the approved
+version (check it out in a scratch worktree) and the new one side by side, and measure the stroke profiles
+(`media_measure.js`, `sidepro` sheet). A behaviour the owner named (here: hard tip edge fading to a soft far side)
+gets a numeric check that must still pass.
+
+**Also:** any "softening" term must scale with the local contact strength; a constant one makes the whole footprint
+uniform and erases every gradient built upstream of it.

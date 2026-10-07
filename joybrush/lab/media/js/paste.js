@@ -8,12 +8,17 @@ export const PASTE_DEPTH = 8;
 // shape: 0 round, 1 flat, 2 knife. Lengths in mm. thick = layer a full brush leaves. loadLen = how far a
 // full load lays a full layer before the brush starts to run dry. wick = paint creep between cells per step.
 export const PASTE_BRUSHES = {
-  'Oil flat': { shape: 1, widthMm: 7, lenMm: 6, thickMm: 0.6, scrape: 0.5, hairDepth: 0.4, ridge: 0.5, rate: 2.5, mix: 0.12, swap: 0.7, loadLenMm: 140, wick: 0.003, bow: 0.6, lump: 0.2, rigid: 0 },
-  'Oil round': { shape: 0, widthMm: 4.5, lenMm: 7, thickMm: 0.5, scrape: 0.5, hairDepth: 0.35, ridge: 0.35, rate: 2.2, mix: 0.12, swap: 0.6, loadLenMm: 120, wick: 0.003, bow: 0.5, lump: 0.12, rigid: 0 },
-  'Fan blender': { shape: 1, widthMm: 14, lenMm: 8, thickMm: 0.1, scrape: 0.3, hairDepth: 0.95, ridge: 0.0, rate: 1.2, mix: 0.45, swap: 0.3, loadLenMm: 60, wick: 0.002, bow: 0.1, lump: 0.0, rigid: 0 },
-  'Palette knife': { shape: 2, widthMm: 9, lenMm: 13, thickMm: 1.1, scrape: 0.99, hairDepth: 0.0, ridge: 1.0, rate: 4.0, mix: 0.2, swap: 0.5, loadLenMm: 70, wick: 0.0, bow: 0.9, lump: 0.25, rigid: 1 },
-  // A knife edge or a scraper: cuts a line through wet paint down to the canvas, pushing ridges up beside it.
-  'Scraper': { shape: 3, widthMm: 1.6, lenMm: 3, thickMm: 0.0, scrape: 1.0, hairDepth: 0.0, ridge: 0.0, rate: 6.0, mix: 0.0, swap: 0.0, loadLenMm: 1, wick: 0.0, bow: 0.0, lump: 0.0, rigid: 1, cut: true },
+  // The all-rounder (owner, 2026-10-06): one round that goes from a hairline tip to a full belly on pressure
+  // and tilt, like the pencil; thin paint for detail, thick for impasto.
+  'All-round': { shape: 0, allround: true, tipHalfMm: 0.08, widthMm: 6, lenMm: 8, thickMm: 0.45, thinMm: 0.04, scrape: 0.4, hairDepth: 0.2, ridge: 0.25, rate: 2.4, mix: 0.12, swap: 0.5, loadLenMm: 160, wick: 0.003, bow: 0.35, lump: 0.08, rigid: 0, fingers: 0, rag: 0.35 },
+  'Oil flat': { shape: 1, widthMm: 7, lenMm: 6, thickMm: 0.6, scrape: 0.5, hairDepth: 0.4, ridge: 0.5, rate: 2.5, mix: 0.12, swap: 0.7, loadLenMm: 140, wick: 0.003, bow: 0.6, lump: 0.2, rigid: 0, fingers: 1 },
+  'Oil round': { shape: 0, widthMm: 4.5, lenMm: 7, thickMm: 0.5, scrape: 0.5, hairDepth: 0.35, ridge: 0.35, rate: 2.2, mix: 0.12, swap: 0.6, loadLenMm: 120, wick: 0.003, bow: 0.5, lump: 0.12, rigid: 0, fingers: 0.4 },
+  // A fan: hair tips on an arc, spread apart; it feathers and blends rather than lays paint.
+  'Fan blender': { shape: 1, widthMm: 14, lenMm: 2.5, thickMm: 0.1, scrape: 0.3, hairDepth: 0.95, ridge: 0.0, rate: 1.2, mix: 0.45, swap: 0.3, loadLenMm: 60, wick: 0.002, bow: 0.1, lump: 0.0, rigid: 0, fingers: 0.5, arc: 0.55, sparse: 0.6 },
+  // Rigid blades, held like the pen: the edge lies along the pen's lean. Pressure lowers the blade (light
+  // shaves the peaks, full reaches the canvas); tilt lays more of the edge down (upright = the point).
+  'Palette knife': { shape: 2, bladeLenMm: 22, bladeHalfMm: 4.5, bladeHmax: 0.9, bead: 0.35, bladeCap: 8, thickMm: 1.1, rate: 4.0, loadLenMm: 70, mix: 0.2, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0.25, rigid: 1 },
+  'Scraper': { shape: 3, bladeLenMm: 14, bladeHalfMm: 0.35, bladeHmax: 1.6, bead: 0.5, bladeCap: 3, film: 0.002, thickMm: 0, rate: 5.0, loadLenMm: 40, mix: 0, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0, rigid: 1, clean: true },
 };
 
 // Opaque paint: the colour it covers with when thick. Strong scattering; K from the KM masstone.
@@ -26,8 +31,13 @@ export function opaquePaint(rgb) {
 }
 
 export function cellCap(brush) {
+  if (brush.shape >= 2) return brush.bladeCap;
   return brush.thickMm * brush.rate * brush.loadLenMm / brush.lenMm;
 }
+
+// Blade angle to the paper from the pen's tilt fraction t (same S-curve idea as the pencil): near upright
+// only the point reaches the paint; the edge lies down over the last part of the tilt range.
+export function bladeTan(t) { return Math.tan(75 * Math.PI / 180 * Math.pow(1 - Math.min(1, Math.max(0, t)), 3)); }
 
 export class PasteStroke {
   // layerScale: layer px per doc px of the layer this stroke paints into (a zoomed vector view is > 1);
@@ -40,43 +50,94 @@ export class PasteStroke {
     this.last = null;
     this.dir = null;
     this.carry = 0;
+    this.travelled = 0;       // mm since touchdown: the hairs can only trail over the path already drawn
+    this.lastStepT = null;
   }
 
   add(s) {
     const prev = this.last;
     this.last = s;
-    if (!prev) return;
-    const dx = s.x - prev.x, dy = s.y - prev.y, len = Math.hypot(dx, dy);
-    if (len < 1e-6) return;
-    const t = [dx / len, dy / len];
-    // The brush turns with the drag, but not instantly (hairs drag behind the handle). It touches down
-    // already facing the way the hand first moves, so the start is not a turned stamp.
-    this.dir = this.dir ? norm2([this.dir[0] * 0.6 + t[0] * 0.4, this.dir[1] * 0.6 + t[1] * 0.4]) : t;
     const b = this.brush;
-    // Small hops: a paste brush is a continuous sweep, so no step may show as an edge.
-    const stepPx = Math.max(1 / this.layerScale, 0.3 * this.pxPerMm / this.layerScale);
+    if (!prev) { this.lastStepT = s.t ?? 0; return; }
+    const dx = s.x - prev.x, dy = s.y - prev.y, len = Math.hypot(dx, dy);
+    if (len > 1e-6) {
+      // The hairs swing round to follow the drag over about a millimetre and a half of travel, not per pen
+      // report: a dab with a little jitter no longer spins the footprint into several straight lines.
+      const t = [dx / len, dy / len];
+      const k = this.dir ? 1 - Math.exp(-(len / this.pxPerMm) / 1.5) : 1;
+      this.dir = this.dir ? norm2([this.dir[0] * (1 - k) + t[0] * k, this.dir[1] * (1 - k) + t[1] * k]) : t;
+    }
+    // Small hops: a paste brush is a continuous sweep, so no step may show as an edge. A thin blade edge
+    // crossing its own width needs hops finer than that width (else it leaves a zip of ribs).
+    const stepMm = b.shape >= 2 ? Math.min(0.3, 0.6 * b.bladeHalfMm * 0.35) : 0.3;
+    const stepPx = Math.max(1 / this.layerScale, stepMm * this.pxPerMm / this.layerScale);
+    const interp = w => ({ x: prev.x + dx * w, y: prev.y + dy * w, p: prev.p + (s.p - prev.p) * w, tilt: prev.tilt + (s.tilt - prev.tilt) * w,
+      az: (prev.az ?? 0) + angleDelta(prev.az ?? 0, s.az ?? 0) * w, t: (prev.t ?? 0) + ((s.t ?? 0) - (prev.t ?? 0)) * w });
     let pos = stepPx - this.carry;
+    let stepped = false;
     while (pos <= len) {
       const w = pos / len;
-      this.push({ x: prev.x + dx * w, y: prev.y + dy * w, p: prev.p + (s.p - prev.p) * w, tilt: prev.tilt + (s.tilt - prev.tilt) * w }, stepPx / this.pxPerMm);
+      this.travelled += stepPx / this.pxPerMm;
+      this.push(interp(w), stepPx / this.pxPerMm);
+      stepped = true;
       pos += stepPx;
     }
     this.carry = len - (pos - stepPx);
+    // A brush held still (a dab, or the start of a stroke) keeps laying paint where it is.
+    const now = s.t ?? 0;
+    if (!stepped && now - this.lastStepT >= 16) {
+      this.push({ ...s }, 0.04 * Math.min(4, (now - this.lastStepT) / 16));
+    }
+    if (stepped || now - this.lastStepT >= 16) this.lastStepT = now;
   }
 
   push(s, slideMm) {
     const b = this.brush;
     const P = Math.max(0, Math.min(1, s.p));
     const tiltFrac = Math.min(1, s.tilt / (60 * Math.PI / 180));
-    const lDir = [-this.dir[0], -this.dir[1]];          // the tips trail the handle
+    // Before the brush has moved it has no direction: lean it along the pen's lean until the drag takes over.
+    const lean = [-Math.cos(s.az ?? 0), -Math.sin(s.az ?? 0)];
+    const dir = this.dir || lean;
+    const lDir = [-dir[0], -dir[1]];          // the tips trail the handle
     const wDir = [-lDir[1], lDir[0]];
-    const halfW = b.widthMm / 2 * (b.shape === 0 ? 0.55 + 0.45 * Math.sqrt(P) : 0.9 + 0.1 * P) * (b.shape === 2 ? 1 : 1 + 0.2 * tiltFrac);
-    const lenMax = b.lenMm * 1.4;
-    const len = b.shape === 2 ? b.lenMm * (0.6 + 0.4 * P) : Math.min(lenMax, b.lenMm * (0.25 + 0.75 * Math.pow(P, 0.8)) * (1 + 0.4 * tiltFrac));
-    this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax, pressure: P, slideMm });
+    const tr = this.travelled;
+    if (b.shape >= 2) {
+      // Rigid blade: its edge follows the pen's lean, whatever the direction of travel.
+      const t = Math.min(1, Math.max(0, s.tilt / (Math.PI / 2)));
+      this.steps.push({
+        x: s.x, y: s.y, wDir, lDir, halfW: b.bladeHalfMm, len: b.bladeLenMm, lenMax: b.bladeLenMm, pressure: P, slideMm,
+        bladeDir: [Math.cos(s.az ?? 0), Math.sin(s.az ?? 0)], travel: [...dir],
+        // Full pressure rides the canvas peaks (and the weave comes through); a light touch only shaves tops.
+        bladeH0: b.bladeHmax * Math.pow(1 - P, 1.5), bladeTan: bladeTan(t),
+      });
+      return;
+    }
+    // Splayed hairs come in only after the brush has travelled a little (they are further out: owner,
+    // 2026-10-07), never on touchdown.
+    const fingers = (b.fingers ?? 1) * smooth(2, 6, tr);
+    let halfW, lenFull, thick;
+    if (b.allround) {
+      // From a hairline tip to the full belly: pressure gathers the hairs down, tilt lays the belly over.
+      const k = Math.pow(P, 1.6);
+      halfW = (b.tipHalfMm + (b.widthMm / 2 - b.tipHalfMm) * k) * (1 + 0.35 * tiltFrac);
+      lenFull = (0.35 + (b.lenMm - 0.35) * k) * (1 + 0.4 * tiltFrac);
+      thick = b.thinMm + (b.thickMm - b.thinMm) * k;
+    } else {
+      halfW = b.widthMm / 2 * (b.shape === 0 ? 0.55 + 0.45 * Math.sqrt(P) : 0.9 + 0.1 * P) * (1 + 0.2 * tiltFrac);
+      lenFull = b.lenMm * (0.25 + 0.75 * Math.pow(P, 0.8)) * (1 + 0.4 * tiltFrac);
+    }
+    // On touchdown a round is a dot and a flat its pressed chisel; the hairs trail out behind only as far as
+    // the brush has actually travelled.
+    const minLen = b.shape === 0 ? 2 * halfW : 0.5 * halfW;
+    const lenMax = Math.max(minLen, b.lenMm * 1.4);
+    const len = Math.min(lenMax, Math.max(minLen, Math.min(lenFull, minLen + 0.8 * tr)));
+    this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax, pressure: P, slideMm, fingers, ...(thick !== undefined ? { thick } : {}) });
   }
 
   take() { const out = this.steps; this.steps = []; return out; }
 }
 
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
 const norm2 = v => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
+function angleDelta(a, b) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }

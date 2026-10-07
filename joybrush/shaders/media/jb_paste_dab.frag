@@ -39,6 +39,41 @@ void main() {
     vec4 p1 = texelFetch(u_p1, ivec2(v_layerPx), 0);
     o_p0 = p0; o_p1 = p1;
     vec2 rel = (v_docPx - u_center) / u_pxPerMm;
+    if (u_shape > 1.5) {
+        // Rigid blade: paint above its underside comes off onto it; below it, the blade's paint fills up to it.
+        float pxB = 1.0 / (u_pxPerMm * u_layerScale);
+        float xb, yb;
+        float cov = jb_bladeCover(rel, pxB, xb, yb);
+        if (cov <= 0.0) return;
+        vec4 b0, b1;
+        jb_bladeRead(xb, b0, b1);
+        float load = b0.a;
+        float t = p0.a;
+        float open = p1.a;
+        float valley = (1.0 - texelFetch(u_paperBake, ivec2(clamp(v_layerPx, vec2(0.0), u_targetSize - 1.0)), 0).b) * u_toothMm;
+        float target = jb_bladeTarget(xb, yb, valley, load) + (load > 1e-6 ? jb_bladeChatter(v_docPx) : 0.0);
+        float r = 1.0 - exp(-u_rate * u_slideMm / max(2.0 * jb_bladeHalf(xb), 0.3));
+        // A rigid blade moves ALL the paint above its underside as it passes (r for laying is gentler).
+        float rPick = 1.0 - exp(-10.0 * u_rate * u_slideMm / max(2.0 * jb_bladeHalf(xb), 0.3));
+        vec3 Kc = t > 1e-6 ? p0.rgb / t : vec3(0.0);
+        vec3 Sc = t > 1e-6 ? p1.rgb / t : vec3(0.0);
+        if (t > target) {
+            float pick = (t - target) * rPick * cov * max(open, 0.15);   // even set paint gives a little to a blade
+            p0.rgb -= Kc * pick; p1.rgb -= Sc * pick; t -= pick;
+        } else if (load > 1e-6) {
+            vec3 Kb = b0.rgb / load;
+            float Sb = b1.r / load;
+            float dep = min(target - t, load) * r * cov;
+            p0.rgb += Kb * dep; p1.rgb += vec3(Sb * dep);
+            open = mix(open, 1.0, dep / max(t + dep, 1e-6));
+            t += dep;
+        }
+        p0.a = max(t, 0.0);
+        if (any(isnan(p0)) || any(isnan(p1)) || isnan(open)) return;   // keep the old values (o_p0/o_p1 already set)
+        o_p0 = max(p0, vec4(0.0));
+        o_p1 = vec4(max(p1.rgb, vec3(0.0)), clamp(open, 0.0, 1.0));
+        return;
+    }
     float a = dot(rel, u_wDir) / max(u_halfW, 1e-3);
     a *= 1.0 - jb_pasteRag(v_docPx);
     float b = dot(rel, u_lDir);
@@ -52,13 +87,16 @@ void main() {
     float load = b0.a;
     float hair = jb_pasteHair(a, v_docPx);
 
-    // Scumble: only the high points are reached when the brush is light on paint or pressure.
+    // Scumble: a nearly dry brush, lightly held, only catches the high points. A loaded brush's paint flows
+    // into dips and pressure bends the hairs into them, so they fill (they used to stay empty: the owner's
+    // "holes that ignore new strokes", 2026-10-06).
     float here = surfaceAt(v_layerPx);
     float o = 8.0 * u_layerScale;
     float around = 0.25 * (surfaceAt(v_layerPx + vec2(o, 0)) + surfaceAt(v_layerPx - vec2(o, 0))
                          + surfaceAt(v_layerPx + vec2(0, o)) + surfaceAt(v_layerPx - vec2(0, o)));
-    float give = u_pressure * 0.12 + clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0) * 0.3;
-    float reach = smoothstep(-0.02, 0.02, here - around + give - 0.06 * (1.0 - hair));
+    float fillLoad = clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0);
+    float give = u_pressure * 0.25 + fillLoad * (2.0 * u_thick + 0.2);
+    float reach = smoothstep(-0.03, 0.03, here - around + give - 0.06 * (1.0 - hair));
     float c = cover * reach;
 
     float t = p0.a;
@@ -70,19 +108,6 @@ void main() {
 
     float valley = (1.0 - texelFetch(u_paperBake, ivec2(clamp(v_layerPx, vec2(0.0), u_targetSize - 1.0)), 0).b) * u_toothMm;
     float target = jb_pasteTarget(a, load, hair, b, valley, v_docPx);
-    if (u_shape > 2.5) {
-        // A cutting edge: the point ploughs a groove to the canvas and pushes the paint up beside it.
-        float r0 = 1.0 - exp(-u_rate * u_slideMm / max(u_len, 0.2));
-        float core = 1.0 - smoothstep(0.25, 0.45, abs(a));
-        float flank = smoothstep(0.3, 0.5, abs(a)) * (1.0 - smoothstep(0.7, 1.0, abs(a)));
-        float tNew = mix(t, min(t, 0.25 * valley), core * r0 * cover * open);   // down into the weave: canvas shows
-        tNew += (t - valley) * 0.9 * flank * cover * open * u_slideMm / max(u_len, 0.2);
-        float k = t > 1e-6 ? tNew / t : 0.0;
-        p0.rgb *= k; p1.rgb *= k; p0.a = tNew;
-        o_p0 = max(p0, vec4(0.0));
-        o_p1 = vec4(max(p1.rgb, vec3(0.0)), clamp(p1.a, 0.0, 1.0));
-        return;
-    }
     float r = 1.0 - exp(-u_rate * u_slideMm / max(u_len, 0.2));
     if (target > t) {
         float dep = (target - t) * r * c;
@@ -112,6 +137,7 @@ void main() {
     }
     p0.a = max(t, 0.0);
     p1.a = open;
+    if (any(isnan(p0)) || any(isnan(p1))) return;   // keep the old values (o_p0/o_p1 already set)
     o_p0 = max(p0, vec4(0.0));
     o_p1 = vec4(max(p1.rgb, vec3(0.0)), clamp(p1.a, 0.0, 1.0));
 }

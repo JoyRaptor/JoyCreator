@@ -27,6 +27,8 @@ uniform float u_sheen;           // graphite sheen on heavy, burnished deposit
 uniform float u_capMm;
 uniform int u_mode;              // 0 final, 1 paper height, 2 deposit volume, 3 crush
 uniform float u_impasto;         // paint relief shown (1 = physical)
+uniform float u_paperHBot;       // the paper's height percentiles: paint fills the NORMALISED relief (see the
+uniform float u_paperHTop;       // bake), so under paint the paper's relief is read on the same scale
 
 out vec4 o_color;
 
@@ -69,7 +71,8 @@ void main() {
     vec2 gPaper = (s.xy - dC) * k;                       // paper/canvas relief, mm per mm
     vec2 gPaint = dT * u_pxPerMm;                        // paint body, mm per mm
     float bodyHere = smoothstep(0.004, 0.04, p0.a);
-    vec2 grad = mix(gPaper * u_relief, (gPaper + gPaint) * u_impasto, bodyHere) + dW * u_pxPerMm * 0.35;
+    float normK = 1.0 / max(u_paperHTop - u_paperHBot, 0.05);
+    vec2 grad = mix(gPaper * u_relief, (gPaper * normK + gPaint) * u_impasto, bodyHere) + dW * u_pxPerMm * 0.35;
     vec3 n = normalize(vec3(-grad, 1.0));
     float amb = 0.55, dif = 0.45;
     float shade = (amb + dif * max(dot(n, u_lamp), 0.0)) / (amb + dif * u_lamp.z);

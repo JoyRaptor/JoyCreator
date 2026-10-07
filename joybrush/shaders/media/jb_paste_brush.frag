@@ -35,6 +35,47 @@ void main() {
     vec4 b0 = texelFetch(u_brush0, cell, 0);
     vec4 b1 = texelFetch(u_brush1, cell, 0);
 
+    if (u_shape > 1.5) {
+        // Rigid blade: only row 0 is used; each lane is a stretch of the edge. It gains what it scrapes off
+        // above its underside and gives paint into the lows below it (mirror of jb_paste_dab.frag).
+        if (cell.y != 0 || u_active < 0.5) { o_b0 = b0; o_b1 = b1; return; }
+        float xb = (float(cell.x) + 0.5) / JB_LANES * u_bladeLen;
+        float half_ = jb_bladeHalf(xb);
+        vec2 n = vec2(-u_bladeDir.y, u_bladeDir.x);
+        vec2 docBase = u_center + xb * u_bladeDir * u_pxPerMm;
+        float gain = 0.0, give = 0.0;
+        vec3 gainK = vec3(0.0); float gainS = 0.0;
+        for (int k = 0; k < 5; k++) {
+            float yb = ((float(k) + 0.5) / 5.0 * 2.0 - 1.0) * half_;
+            vec2 docPos = docBase + yb * n * u_pxPerMm;
+            vec2 pos = (docPos - u_layerOrigin) * u_layerScale;
+            vec4 p0 = jb_bilinear(u_p0, pos);
+            vec4 p1 = jb_bilinear(u_p1, pos);
+            float t = p0.a;
+            float valley = (1.0 - texelFetch(u_paperBake, ivec2(clamp(pos, vec2(0.0), u_layerSize - 1.0)), 0).b) * u_toothMm;
+            float target = jb_bladeTarget(xb, yb, valley, b0.a);
+            float r = 1.0 - exp(-u_rate * u_slideMm / max(2.0 * half_, 0.3));
+            float rPick = 1.0 - exp(-10.0 * u_rate * u_slideMm / max(2.0 * half_, 0.3));
+            if (t > target) {
+                float pick = (t - target) * rPick * max(p1.a, 0.15);
+                gain += pick;
+                gainK += (t > 1e-6 ? p0.rgb / t : vec3(0.0)) * pick;
+                gainS += (t > 1e-6 ? p1.r / t : 0.0) * pick;
+            } else {
+                give += min(target - t, b0.a) * r;
+            }
+        }
+        // The cell trades the AVERAGE of its strip (the same per-pixel units the canvas pass uses).
+        float strip = 0.2;
+        give = min(give * strip, b0.a);
+        float kb = b0.a > 1e-6 ? 1.0 - give / b0.a : 0.0;
+        b0.rgb *= kb; b1.r *= kb; b0.a -= give;
+        b0.rgb += gainK * strip; b1.r += gainS * strip; b0.a += gain * strip;
+        if (any(isnan(b0)) || any(isnan(b1))) { o_b0 = texelFetch(u_brush0, cell, 0); o_b1 = texelFetch(u_brush1, cell, 0); return; }
+        o_b0 = max(b0, vec4(0.0));
+        o_b1 = max(b1, vec4(0.0));
+        return;
+    }
     float a = ((float(cell.x) + 0.5) / JB_LANES) * 2.0 - 1.0;
     float delta = (float(cell.y) + 0.5) / JB_DEPTH;
     float b = u_len - delta * u_lenMax;
@@ -53,7 +94,7 @@ void main() {
         float o = 8.0 * u_layerScale;
         float around = 0.25 * (surfaceAt(pos + vec2(o, 0)) + surfaceAt(pos - vec2(o, 0))
                              + surfaceAt(pos + vec2(0, o)) + surfaceAt(pos - vec2(0, o)));
-        float give = u_pressure * 0.12 + clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0) * 0.3;
+        float give = u_pressure * 0.25 + clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0) * (2.0 * u_thick + 0.2);
         float c = cover * smoothstep(-0.02, 0.02, here - around + give - 0.06 * (1.0 - hair));
 
         float t = p0.a;
@@ -105,6 +146,7 @@ void main() {
         vec4 own1 = texelFetch(u_brush1, cell, 0);
         b1 += u_wick * ((up1 + dn1 - 2.0 * own1) + 0.25 * (lf1 + rt1 - 2.0 * own1));
     }
+    if (any(isnan(b0)) || any(isnan(b1))) { b0 = texelFetch(u_brush0, cell, 0); b1 = texelFetch(u_brush1, cell, 0); }
     o_b0 = max(b0, vec4(0.0));
     o_b1 = max(b1, vec4(0.0));
 }

@@ -44,7 +44,7 @@ void main() {
     // Going back over graphite pushes it (the owner, 2026-10-06): the rubbing lead drags loose graphite a
     // little along the stroke and softens it into its neighbours. That is half of why repeated light passes
     // read as a soft dusting rather than as dots. Rate ∝ how much the lead rubbed this pixel this frame.
-    float sw = clamp(dl.a * u_smear, 0.0, 0.15);
+    float sw = clamp(dl.a * u_smear, 0.0, 0.3);
     if (sw > 0.0) {
         vec2 up = jb_bilinear(u_paperState, v_layerPx - u_smearPx).gb;
         vec2 nb = 0.25 * (jb_bilinear(u_paperState, v_layerPx + vec2(1.5, 0.0)).gb + jb_bilinear(u_paperState, v_layerPx - vec2(1.5, 0.0)).gb

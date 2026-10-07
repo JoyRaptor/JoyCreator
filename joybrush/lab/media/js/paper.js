@@ -74,6 +74,9 @@ export async function loadSurface(gl, catalogue, id) {
   const total = bmp.width * bmp.height;
   let mean = 0;
   for (let b = 0; b < 256; b++) { hist[b] /= total; mean += hist[b] * b / 255; }
+  // 2nd and 98th height percentiles: paint and water engines normalise to them (low-contrast maps too).
+  let acc = 0, hBot = 0, hTop = 1;
+  for (let b = 0; b < 256; b++) { const prev = acc; acc += hist[b]; if (prev < 0.02 && acc >= 0.02) hBot = b / 255; if (prev < 0.98 && acc >= 0.98) hTop = b / 255; }
   const fluid = await loadFluid(gl, entry);
   const phys = { toothDepthMm: 0.08, compliance: 0.5, sizing: 0.6, absorbency: 0.5, capacity: 0.5, wickSpeed: 0.5, anisotropy: 0.3, ...(PHYSICAL_DEFAULTS[entry.id] || {}), ...pickPhysical(entry) };
   return {
@@ -95,6 +98,7 @@ export async function loadSurface(gl, catalogue, id) {
       u_paperSlopeRange: entry.slopeRange,
       u_paperRotatable: !!entry.rotatable,
       u_paperHeightMean: entry.heightMean ?? mean,
+      u_paperHBot: hBot, u_paperHTop: hTop,
       ...fluid,
     },
   };

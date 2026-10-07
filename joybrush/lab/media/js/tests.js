@@ -45,6 +45,91 @@ const zig = (x0, x1, y, amp, n) => u => {
 };
 
 export const SHEETS = {
+  // Dabs and stroke ends (owner, 2026-10-07): a light dab must be a dot, not straight lines squirting out;
+  // tails only grow with travel; splayed hairs come in late; no straight-cut starts or ends. Each row: three
+  // dabs (light, medium, firm, with a hand's jitter and no travel), then a short curved stroke, then a longer
+  // stroke that lightens toward its end. Rows: Oil round, All-round, Oil flat, Fan blender.
+  dabs: {
+    size: [1600, 1200],
+    paper: 'canvas_linen',
+    strokes() {
+      const s = [], MM = 20, L = -60;
+      const paste = (tool, color, st) => ({ ...st, kind: 'paste', tool, color });
+      const dab = (x, y, p) => {
+        const n = 40, samples = [];
+        for (let i = 0; i <= n; i++) {
+          const u = i / n, j = 0.04 * MM;
+          samples.push({ x: x + j * Math.sin(i * 2.7), y: y + j * Math.cos(i * 3.1), p: p * Math.sin(Math.PI * u), tilt: 25 * Math.PI / 180, az: L * Math.PI / 180, t: i * 6 });
+        }
+        return { tool: 'x', samples };
+      };
+      const rows = [['Oil round', [0.70, 0.18, 0.12]], ['All-round', [0.14, 0.30, 0.55]], ['Oil flat', [0.85, 0.62, 0.20]], ['Fan blender', [0.25, 0.45, 0.30]]];
+      rows.forEach(([tool, c], r) => {
+        const y = (52 - r * 13) * MM;
+        [0.2, 0.45, 0.8].forEach((p, i) => s.push(paste(tool, c, dab((6 + i * 8) * MM, y, p))));
+        s.push(paste(tool, c, stroke(tool, 10, bez([30 * MM, y - 3 * MM], [33 * MM, y + 4 * MM], [37 * MM, y + 4 * MM], [40 * MM, y - 2 * MM]), { p: env(0.4, 0.3), tilt: 25, az: L }, 50)));
+        s.push(paste(tool, c, stroke(tool, 30, bez([46 * MM, y], [56 * MM, y + 5 * MM], [64 * MM, y - 5 * MM], [76 * MM, y]), { p: u => 0.85 * (1 - 0.8 * u) * Math.min(1, u * 8), tilt: 30, az: L }, 60)));
+      });
+      return s;
+    },
+  },
+  // Isolated side strokes for measuring the fade (2026-10-07): pressures 0.15 0.3 0.5 0.75 1.0, at tilt
+  // ?t= (fraction of the pen range), 34 mm apart, barrel to the left so the tip edge is the right edge.
+  sidepro: {
+    size: [3600, 900],
+    paper: 'drawing_tooth',
+    strokes() {
+      const q = new URLSearchParams(location.search), MM = 20, t = Number(q.get('t') || 0.85);
+      return [0.15, 0.3, 0.5, 0.75, 1.0].map((p, i) =>
+        stroke('Proto', 30, line((30 + i * 34) * MM, 38 * MM, (30 + i * 34) * MM, 8 * MM), { p, tilt: t * 90, az: 180 }, 80));
+    },
+  },
+  // Holes check (owner, 2026-10-06: holes in the paint that ignore new strokes): lumpy knife paint with
+  // dips, then a loaded round and the all-round brush painted over it in another colour. Nothing should
+  // stay uncovered where a loaded brush passed. Then the all-round brush: hairline to full belly.
+  holes: {
+    size: [1400, 1000],
+    paper: 'canvas_linen',
+    strokes() {
+      const s = [], MM = 20;
+      const paste = (tool, color, len, path, o, speed = 60, dirty = false) => ({ ...stroke(tool, len, path, o, speed), kind: 'paste', color, dirty });
+      for (let k = 0; k < 5; k++)
+        s.push(paste('Palette knife', [0.9, 0.85, 0.75], 40, line(4 * MM, (46 - k * 7) * MM, 40 * MM, (44 - k * 7) * MM), { p: ramp(0.1, 0.5), tilt: 66, az: 90 }, 45));
+      for (let k = 0; k < 4; k++)
+        s.push(paste('Scraper', [0, 0, 0], 30, line((8 + k * 8) * MM, 46 * MM, (12 + k * 8) * MM, 14 * MM), { p: 0.6, tilt: 30, az: 0 }, 50));
+      s.push(paste('Oil round', [0.75, 0.15, 0.12], 40, line(6 * MM, 38 * MM, 38 * MM, 30 * MM), { p: 0.8, tilt: 30, az: -60 }));
+      s.push(paste('All-round', [0.12, 0.35, 0.6], 40, line(6 * MM, 24 * MM, 38 * MM, 18 * MM), { p: 0.9, tilt: 30, az: -60 }));
+      // all-round: pressure ramps 0 → 1 → 0 along an S curve, then tilted
+      s.push(paste('All-round', [0.15, 0.15, 0.18], 60, bez([44 * MM, 44 * MM], [70 * MM, 44 * MM], [44 * MM, 26 * MM], [68 * MM, 24 * MM]), { p: hill(0.02, 1.0), tilt: 15, az: -60 }, 70));
+      s.push(paste('All-round', [0.15, 0.15, 0.18], 30, line(44 * MM, 12 * MM, 68 * MM, 12 * MM), { p: hill(0.02, 0.7), tilt: 60, az: -60 }, 70));
+      [0.05, 0.15, 0.3].forEach((p, i) => s.push(paste('All-round', [0.15, 0.15, 0.18], 18, line((46 + i * 7) * MM, 7 * MM, (50 + i * 7) * MM, 2 * MM), { p, tilt: 15, az: -60 }, 60)));
+      return s;
+    },
+  },
+  // Blades (owner, 2026-10-06): a thick blue knife field, then the scraper: upright thin gouges at rising
+  // pressure, a tilted angled scrape, a flat wide scrape, wavy scrapes, and light shaves of the peaks.
+  blade: {
+    size: [1400, 1100],
+    paper: 'canvas_linen',
+    strokes() {
+      const s = [], MM = 20;
+      const paste = (tool, color, len, path, o, speed = 60, dirty = false) => ({ ...stroke(tool, len, path, o, speed), kind: 'paste', color, dirty });
+      const BL = [0.20, 0.32, 0.72];
+      for (let k = 0; k < 7; k++)
+        s.push(paste('Palette knife', BL, 60, line(4 * MM, (50 - k * 6.5) * MM, 66 * MM, (50 - k * 6.5) * MM), { p: 0.35, tilt: 62, az: 90 }, 45));
+      // upright gouges: same path, pressure 0.2 → 1 (left to right)
+      [0.2, 0.45, 0.7, 1.0].forEach((p, i) => s.push(paste('Scraper', BL, 20, line((8 + i * 6) * MM, 50 * MM, (11 + i * 6) * MM, 32 * MM), { p, tilt: 25, az: 0 }, 50)));
+      // tilted, edge along the lean (az 90° = up), dragged sideways: an angled scrape, deeper at the point
+      s.push(paste('Scraper', BL, 30, line(36 * MM, 40 * MM, 62 * MM, 40 * MM), { p: 1.0, tilt: 70, az: 90 }, 50));
+      // flat: an even wide scrape
+      s.push(paste('Scraper', BL, 30, line(36 * MM, 22 * MM, 62 * MM, 22 * MM), { p: 1.0, tilt: 86, az: 90 }, 50));
+      // wavy scrape pushing paint
+      s.push(paste('Scraper', BL, 40, u => [(6 + 26 * u) * MM, (16 + 4 * Math.sin(u * 9)) * MM], { p: 0.8, tilt: 72, az: 90 }, 50));
+      // light shaves: only the tops of the peaks
+      s.push(paste('Scraper', BL, 30, line(36 * MM, 8 * MM, 62 * MM, 8 * MM), { p: 0.25, tilt: 86, az: 90 }, 50));
+      return s;
+    },
+  },
   // Back and forth (owner, 2026-10-06): light passes over the same patch build an even, soft dusting;
   // a firm pass piles dark graphite. Left: 1, 3 and 6 light passes; right: one firm pass, then one light.
   passes: {

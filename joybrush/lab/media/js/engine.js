@@ -263,6 +263,7 @@ export class MediaEngine {
   // Fill every brush cell with fresh paint: what dipping into the palette does. (A tip-to-belly gradient
   // load comes from the loading tray, not from sampling the canvas: patent guard.)
   reloadBrush(paint, brush, seed = 1, belly = null) {
+    if (brush.clean) { this.clearBrush(); return; }
     // No dip loads a brush evenly: some runs of hair come out fuller than others (fixed per dip), and the
     // belly holds more than the tip.
     const gl = this.gl, cap = cellCap(brush);
@@ -299,6 +300,15 @@ export class MediaEngine {
     }
   }
 
+  clearBrush() {
+    const gl = this.gl;
+    for (const t of this.brush) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
+      gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+      gl.clearBufferfv(gl.COLOR, 1, [0, 0, 0, 0]);
+    }
+  }
+
   // One step of a paste brush: the brush trades with the canvas under it, both sides from the same state.
   pasteStep(st, brush, paper, pxPerMm, seed) {
     const gl = this.gl;
@@ -306,7 +316,11 @@ export class MediaEngine {
     const cap = cellCap(brush);
     const U = {
       u_center: [st.x, st.y], u_wDir: st.wDir, u_lDir: st.lDir, u_halfW: st.halfW, u_len: st.len, u_lenMax: st.lenMax,
-      u_shape: brush.shape, u_pressure: st.pressure, u_thick: brush.thickMm, u_scrape: brush.scrape,
+      u_shape: brush.shape, u_pressure: st.pressure, u_thick: st.thick ?? brush.thickMm, u_scrape: brush.scrape,
+      u_fingers: st.fingers ?? brush.fingers ?? 1, u_rag: brush.rag ?? 1, u_arc: brush.arc ?? 0.18, u_sparse: brush.sparse ?? 0,
+      u_bladeDir: st.bladeDir || [1, 0], u_travel: st.travel || [1, 0], u_bladeLen: brush.bladeLenMm || 1,
+      u_bladeHalfW: brush.bladeHalfMm || 1, u_bladeH0: st.bladeH0 ?? 0, u_bladeTan: st.bladeTan ?? 0, u_bladeBead: brush.bead || 0,
+      u_bladePressMm: (brush.pressIn ?? 0.6) * paper.toothMm * st.pressure * st.pressure, u_bladeFilm: brush.film ?? 0.004,
       u_hairDepth: brush.hairDepth, u_ridge: brush.ridge, u_rate: brush.rate, u_mix: brush.mix, u_swap: brush.swap ?? 0.6,
       u_bow: brush.bow ?? 0, u_lump: brush.lump ?? 0, u_rigid: brush.rigid ?? 0,
       u_slideMm: st.slideMm, u_cellCap: cap, u_seed: seed, u_pxPerMm: pxPerMm, u_toothMm: paper.toothMm,
@@ -322,7 +336,7 @@ export class MediaEngine {
       u_layerSize: [this.w, this.h], u_rect: [0, 0, PASTE_LANES, PASTE_DEPTH], u_targetSize: [PASTE_LANES, PASTE_DEPTH] });
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     // Canvas side, from the same (old) brush cells, over the footprint's rectangle.
-    const r = (Math.hypot(st.halfW, st.lenMax) + 0.3) * pxPerMm;
+    const r = (brush.shape >= 2 ? brush.bladeLenMm + brush.bladeHalfMm + 1.5 : Math.hypot(st.halfW, st.lenMax) + 0.3) * pxPerMm;
     const rect = this.layerRect([st.x - r, st.y - r, st.x + r, st.y + r], 2);
     if (rect) {
       this.touch(rect);
@@ -474,11 +488,10 @@ export class MediaEngine {
       u_pxPerMm: pxPerMm,
       u_toothMm: paper.toothMm,
       u_dirStrength: mat.dirStrength,
-      u_dustRate: mat.dustRate, u_clump: mat.clump,
+      u_dustRate: mat.dustRate, u_clump: mat.clump, u_pileRange: mat.pileRange,
       u_crushStart: mat.crushStart * paper.toothMm,
       u_conform: mat.conform,
       u_transferExp: mat.transferExp, u_leadSoft: mat.leadSoft, u_plateau: mat.plateau,
-      u_facetBeta: mat.facetBeta, u_facetU: mat.facetU, u_facetRound: mat.facetRound,
     });
     gl.bindBuffer(gl.ARRAY_BUFFER, this.dabBuf);
     gl.bufferData(gl.ARRAY_BUFFER, batch.dabs, gl.STREAM_DRAW);

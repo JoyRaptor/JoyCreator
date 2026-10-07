@@ -734,3 +734,30 @@ media brushes real brush presets.
 
 **Landed 2026-10-07 (21d8f44f), approved.** The Lead's four step-4 checks (non-media brushes and the eraser on a media
 layer, smoothing bypass, opacity meaning, the Eraser slot) are row M5.3b in MEDIA_ENGINE_PLAN §4.
+
+### Media engine port — review request, step 3a: float stores (2026-10-07, Claude media lane)
+
+For the acting Lead or the Lead: please review `review/media-stores`. It is one commit on joy-creator and follows
+MEDIA_ENGINE_PLAN M5.3c.
+- **Core.** `UndoLog.extendNewest(changes, accepts)` and `newestExtendable()`. `MediaStores` holds the store ids
+  (`<id>#p0 #p1 #paper #w0 #w1`), `parse`, `isMediaStep` and `recordWater`, which implements your running-water rule:
+  join the top media step, otherwise take a fresh water step. RunningWaterUndoTest covers the drip after a second
+  stroke, the drip after a layer change or an undo, and the no-double-snapshot guard.
+- **GlPaintEngine.**
+  - `Layer.floats` holds the RGBA32F stores (NEAREST) from their own pool. `floatNames` lets UndoLog size each texture
+    at 16 B/px versus 4, and lets `recycleLayerTex` return it to the right pool. Context loss, release and
+    resetDocument drop the stores as well.
+  - `put` routes media store ids. Delete layer, duplicate layer and clear layer carry the float state in the same step
+    as the look; without that, clear would resurrect the paint on the next render.
+  - The media API: `beginMediaStroke`, `writableMediaTiles(layer, keys, stores)` (copy-on-write; joins the stroke, or
+    after pen-up uses `recordWater`), `endMediaStroke` (one step), `mediaTile`, `mediaTileKeys` and `hasMediaState`.
+  - `readMediaTile`/`writeMediaTile` move little-endian RGBA32F, row 0 at the top, for the archive.
+  - `onMediaRestored(layer, keys)` fires after undo and redo, so the window stops its simulation and reloads (your
+    undo-while-wet rule; it never restarts by itself).
+  - GlMediaStoresTest (fake handles, as in GlContextLossTest) covers undo and redo routing plus the listener, a paint
+    step telling nobody, and a context loss dropping the float tiles.
+- Also added to M5.3b: fill, lasso fill and move selection (`replaceTiles`) on a media layer write only the look, the
+  same problem as a non-media brush. Step 4 decides those together.
+- Evidence: core jvmTest 1682 and androidkit test 282, 0 failed.
+- Next, on top of this: 3b (JbArchive `.f32` and floatTiles checks), then 3c (the window).
+

@@ -114,6 +114,30 @@ class UndoLog<T : Any>(
         trim()
     }
 
+    /**
+     * Adds [changes] to the newest step: tiles copied-on-write AFTER that step was pushed, by something that is still part of
+     * what the person saw happen while it was the last thing they did. The case is running water (MEDIA_ENGINE_PLAN M5.3c):
+     * a drip that reaches a new tile during stroke B joins B's step, so history stays in order and one press is one step.
+     *
+     * Refused (false, nothing changed) when there is anything to redo, nothing to undo, or [accepts] says the newest step
+     * is not one these changes belong in. The caller then pushes a step of its own and extends that one. A tile already in
+     * the newest step is written in place by the caller, never added twice.
+     */
+    fun extendNewest(changes: List<TileChange<T>>, accepts: (Step<T>) -> Boolean): Boolean {
+        if (redoStack.isNotEmpty()) return false
+        val top = undoStack.lastOrNull() ?: return false
+        if (!accepts(top)) return false
+        val held = top.changes.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
+        require(changes.none { Triple(it.layerId, it.celId, it.key) in held }) { "a tile already in the newest step was snapshotted again" }
+        undoStack[undoStack.lastIndex] = Step(top.changes + changes, top.stackBefore, top.stackAfter, top.paperBefore, top.paperAfter,
+            top.documentBefore, top.documentAfter)
+        trim()
+        return true
+    }
+
+    /** The step [extendNewest] would extend, or null when there is anything to redo or nothing to undo. */
+    fun newestExtendable(): Step<T>? = if (redoStack.isNotEmpty()) null else undoStack.lastOrNull()
+
     /** Releases everything held for undo/redo (document closed). */
     fun clear() {
         undoStack.forEach { s -> s.changes.forEach { c -> c.before?.let(release) } }

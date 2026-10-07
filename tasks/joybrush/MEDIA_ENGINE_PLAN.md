@@ -369,8 +369,36 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
      gets pre-smoothed, laggy samples.
   3. **Opacity.** The strip's opacity and `ToolMemory.sized` set `opacity.base` on every brush. Either give it a media
      meaning (pigment load or look alpha) or hide the control for media brushes. Never a silent knob.
+  5. **Pixel edits without a brush.** Fill, lasso fill and move selection (`replaceTiles`) write only the look, like
+     item 1. Route them through the media state, or refuse them in words on a media layer.
   4. **The Eraser slot.** `ToolMemory.slotFor` sends media brushes to BRUSH, which is fine; but tapping the strip's
      Eraser with a media layer active must take the media erase of item 1.
+- **M5.3c Stores, windows and running water (step 3; the Lead's rules, 2026-10-07).** Built as three review diffs:
+  - **3a, stores.** The float stores `<id>#p0 #p1 #paper #w0 #w1` sit beside the layer's RGBA8 look tiles in
+    GlPaintEngine. They use an RGBA32F texture pool, and UndoLog sizes and releases each texture by its kind.
+    Copy-on-write: a tile is snapshotted before the first write that touches it. Media layers have no frames yet
+    (contract point 3: ask first), so a float store is per layer, never per cel.
+  - **3b, archive.** JbArchive writes and reads `layers/<id>/<cel>/<tx>_<ty>.<store>.f32`, with the same "every declared
+    tile has its file, every file is declared" checks as `.rgba`.
+  - **3c, window.** MediaLayerEngine works on a tile-aligned window (1024 px = 4×4 tiles ≈ 5 cm) placed over the
+    stroke. It loads from the stores, writes back on a shift and at a frame boundary, and never allocates the whole
+    canvas.
+  - **Running water rule (Lead).**
+    - A tile the simulation first touches after pen-up is copy-on-write snapshotted into WHATEVER step is on top of
+      the undo stack, so history stays linear. Wet-into-wet means stroke B starts while A's water still moves, and
+      undoing B also removes the drip that happened during B.
+    - If redo is non-empty, or the top step is not a media step (a layer change, a paint stroke), take a fresh "water"
+      step and extend that one. There is one step per wet episode, never one per frame.
+  - **Undo while wet.** Undo stops the simulation on that layer, restores from the stores, and leaves it asleep. It
+    never restarts by itself. Redo restores the captured after-state, with no re-simulation.
+  - **Save while wet** is allowed. The snapshot reads the stores at a frame boundary (queued on the GL thread between
+    sim frames). `w0`/`w1` are saved while wet, so reopening resumes with wet paint.
+  - **Memory cap.** Water stops spreading at the lab's cap (4 cm past the painted area) or at the window's edge,
+    whichever comes first. A wet episode's step never grows past one window of tiles per store.
+  - **Tests owed:**
+    - a drip after a second stroke lands in the second stroke's step;
+    - undo while wet stops the sim;
+    - a save mid-flow reopens wet.
 - **M5.4 GL engine (T1).** `MediaLayerEngine` runs the passes on tiles:
   - dabs go into a tile-set delta (additive, batched);
   - one apply/update pass per frame over the dirty tiles;

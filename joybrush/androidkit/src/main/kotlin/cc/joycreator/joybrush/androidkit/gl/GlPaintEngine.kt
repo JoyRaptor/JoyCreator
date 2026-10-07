@@ -27,6 +27,7 @@ import cc.joycreator.joybrush.core.paint.TuftMath
 import cc.joycreator.joybrush.core.paint.TuftShading
 import cc.joycreator.joybrush.core.paint.TuftStamp
 import cc.joycreator.joybrush.core.paint.UndoLog
+import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.sprite.SpriteGridMath
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
 import java.nio.ByteBuffer
@@ -104,6 +105,9 @@ internal object RegionTransferTiles {
 const val MASK_SUFFIX = "#mask"
 
 fun maskStoreId(layerId: String): String = layerId + MASK_SUFFIX
+
+/** What [GlPaintEngine.writableMediaTiles] calls a media layer's RGBA8 look, which keeps the layer's own id. */
+const val MEDIA_LOOK = "look"
 
 /**
  * The two rates of a smudge stroke (JB-1.06): how fast the ONE carried colour takes on the canvas ([pickup]) and the brush's
@@ -256,7 +260,9 @@ class GlPaintEngine(
         var plan: RegionPaintPlan? = null
         val projected = HashMap<Long, Int>()
         var visibleProjection: Map<Long,Int>? = null
-        fun ownedTextures(): Set<Int> = (tiles.values + cels.values.flatMap { it.values } + projected.values).toSet()
+        /** A media layer's float state by store name ([MediaStores.ALL]); [tiles] is its look. Empty for every other layer. */
+        val floats = HashMap<String, HashMap<Long, Int>>()
+        fun ownedTextures(): Set<Int> = (tiles.values + cels.values.flatMap { it.values } + projected.values + floats.values.flatMap { it.values }).toSet()
         /** JB-2.23: this layer's mask, a second tile store whose missing tiles are WHITE (full coverage). */
         var mask: Layer? = null
         var clip = false
@@ -280,8 +286,11 @@ class GlPaintEngine(
     private val freeLayerTex = ArrayDeque<Int>()
     private val freeStrokeTex = ArrayDeque<Int>()
     private val freeSmudgeTex = ArrayDeque<Int>()
+    private val freeFloatTex = ArrayDeque<Int>()
+    /** Every RGBA32F media tile name this context made: how undo sizes a texture and which pool it goes back to. */
+    private val floatNames = HashSet<Int>()
 
-    val undo = UndoLog<Int>(undoBudgetBytes, sizeOf = { size.toLong() * size * 4 }, release = ::recycleLayerTex)
+    val undo = UndoLog<Int>(undoBudgetBytes, sizeOf = { size.toLong() * size * (if (it in floatNames) 16 else 4) }, release = ::recycleLayerTex)
 
     // Active stroke.
     private var strokeLayer: Layer? = null
@@ -493,6 +502,7 @@ class GlPaintEngine(
         freeLayerTex.clear()
         freeStrokeTex.clear()
         freeSmudgeTex.clear()
+        freeFloatTex.clear(); floatNames.clear(); mediaStroke = null; mediaStrokeHeld.clear()
         // The grain pictures are not the person's drawing, so they do not count as "had" -- but their
         // names are just as dead, and a brush is reloaded from its file on the next stroke.
         grains.forget()
@@ -514,7 +524,7 @@ class GlPaintEngine(
      * [clearTex] are the driver's business and [initWith] makes new ones rather than reusing old.
      */
     internal fun heldTextureNames(): Int =
-        layers.values.sumOf { it.ownedTextures().size + (it.mask?.ownedTextures()?.size ?: 0) } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size +
+        layers.values.sumOf { it.ownedTextures().size + (it.mask?.ownedTextures()?.size ?: 0) } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size + freeFloatTex.size +
             compositor.heldNames() + boardCompositor.heldNames()
 
     /** Frees every GL object this engine owns. */
@@ -524,11 +534,12 @@ class GlPaintEngine(
         cancelStroke()
         val all = ArrayList<Int>()
         layers.values.forEach { all.addAll(it.ownedTextures()); it.mask?.let { m -> all.addAll(m.ownedTextures()) } }
-        all.addAll(freeLayerTex); all.addAll(freeStrokeTex); all.addAll(freeSmudgeTex); all.add(clearTex); all.add(whiteTex)
+        all.addAll(freeLayerTex); all.addAll(freeStrokeTex); all.addAll(freeSmudgeTex); all.addAll(freeFloatTex); all.add(clearTex); all.add(whiteTex)
         if (thumbTex != 0) all.add(thumbTex)
         thumbTex = 0; thumbW = 0; thumbH = 0
         GLES30.glDeleteTextures(all.size, all.toIntArray(), 0)
-        layers.clear(); freeLayerTex.clear(); freeStrokeTex.clear(); freeSmudgeTex.clear()
+        layers.clear(); freeLayerTex.clear(); freeStrokeTex.clear(); freeSmudgeTex.clear(); freeFloatTex.clear(); floatNames.clear()
+        mediaStroke = null; mediaStrokeHeld.clear()
         GLES30.glDeleteBuffers(3, intArrayOf(quadVbo, unitVbo, instanceVbo), 0)
         GLES30.glDeleteVertexArrays(4, intArrayOf(dabVao, tileVao, smudgeVao, tuftVao), 0)
         GLES30.glDeleteFramebuffers(3, intArrayOf(fbo, readFbo, copyFbo), 0)
@@ -658,6 +669,9 @@ class GlPaintEngine(
         if(layer.sharedCel==null)layer.tiles.forEach{(k,t)->changes.add(UndoLog.TileChange(id,k,t,null))}
         else layer.cels.forEach{(cel,store)->store.forEach{(k,t)->changes.add(UndoLog.TileChange(id,k,t,null,cel))}}
         layer.tiles.clear();layer.cels.values.forEach{it.clear()};invalidateProjection(layer)
+        // A media layer's float state goes with its look, into the same step.
+        layer.floats.forEach { (store, tiles) -> tiles.forEach { (k, t) -> changes.add(UndoLog.TileChange(MediaStores.id(id, store), k, t, null)) } }
+        layer.floats.clear()
         // The mask goes with its layer, into the same step, so one undo brings both back.
         layer.mask?.let { m ->
             m.tiles.forEach { (k, tex) -> changes.add(UndoLog.TileChange(m.id, k, tex, null)) }
@@ -709,6 +723,11 @@ class GlPaintEngine(
                 } else copyStore(src.cels[copy.fromCelId].orEmpty(), newId, copy.toCelId)
             }
             if (clone == null) src.mask?.let { copyStore(it.tiles, maskStoreId(newId), null) }
+            for ((store, tiles) in src.floats) for ((key, tex) in tiles) {
+                val copy = newFloatTile()
+                changes.add(UndoLog.TileChange(MediaStores.id(newId, store), key, null, copy))
+                initializeTile(copy, tex, false)
+            }
             // Publish only after every GPU copy succeeds; failures leave the original stack intact.
             applyStack(after)
             published = true
@@ -869,7 +888,14 @@ class GlPaintEngine(
     /** Empties a layer as one undoable step. */
     fun clearLayer(id: String) {
         val layer = storeOf(id) ?: return
-        replaceTiles(id,visibleTiles(layer).keys.associateWith{null})
+        if (layer.floats.values.all { it.isEmpty() }) { replaceTiles(id,visibleTiles(layer).keys.associateWith{null}); return }
+        // A media layer: its float state is emptied in the same step as its look, or the next look render brings it back.
+        val changes = ArrayList<UndoLog.TileChange<Int>>()
+        layer.floats.forEach { (store, tiles) -> tiles.forEach { (k, t) -> changes.add(UndoLog.TileChange(MediaStores.id(id, store), k, t, null)) } }
+        layer.floats.clear()
+        undo.push(UndoLog.Step(changes))
+        if (replaceTiles(id, visibleTiles(layer).keys.associateWith { null }) > 0) undo.mergeNewest(2)
+        reportMediaRestored(changes)
     }
 
     // ── tile I/O (save, open, export — JB-0.08) ─────────────────────────────
@@ -1003,6 +1029,7 @@ class GlPaintEngine(
     /** Empties the whole document (all layers, all undo). For "open another document". */
     fun resetDocument() {
         cancelStroke()
+        mediaStroke = null; mediaStrokeHeld.clear()
         undo.clear()
         layers.values.forEach { l -> l.ownedTextures().forEach(::recycleLayerTex); l.mask?.ownedTextures()?.forEach(::recycleLayerTex) }
         layers.clear()
@@ -1667,6 +1694,7 @@ class GlPaintEngine(
         }
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         s.changes.forEach { put(it.layerId, it.key, it.before, it.celId) }
+        reportMediaRestored(s.changes)
         s.stackBefore?.let { restoreStack(it) }
         s.paperBefore?.let { setDocumentPaper(it) }
         restored?.let { setBoardDocument(it) }
@@ -1682,6 +1710,7 @@ class GlPaintEngine(
         }
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         s.changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
+        reportMediaRestored(s.changes)
         s.stackAfter?.let { restoreStack(it) }
         s.paperAfter?.let { setDocumentPaper(it) }
         restored?.let { setBoardDocument(it) }
@@ -1692,6 +1721,167 @@ class GlPaintEngine(
     private fun restoreStack(target: LayerStack) {
         applyStack(stack(null).restoring(target))
         activeHint = target.activeId
+    }
+
+
+    // ── media stores (MEDIA_ENGINE_PLAN §4 and M5.3c) ────────────────────────
+    //
+    // A media layer's float state lives beside its RGBA8 look: `<id>#p0 #p1 #paper #w0 #w1` ([MediaStores]), RGBA32F tiles
+    // from their own pool, owned and released exactly like look tiles (UndoLog sizes and recycles each by its kind). A
+    // media layer has no frames yet (contract point 3), so a float store is per layer, never per cel.
+    //
+    // Copy-on-write, as endStroke does for paint: [writableMediaTiles] swaps a fresh copy in before the first write to a
+    // tile, and the old texture IS the undo snapshot. During a stroke the copies join the stroke's step ([endMediaStroke]);
+    // after pen-up (running water) they join whatever media step is on top, or a fresh water step (the Lead's rule).
+
+    /** The look tiles keep the layer's own id; [writableMediaTiles] calls them this. */
+    val mediaLook: String get() = MEDIA_LOOK
+
+    /** Called after undo or redo put media tiles back, with each media layer's restored tile keys: stop its simulation and reload. */
+    var onMediaRestored: ((layerId: String, keys: Set<Long>) -> Unit)? = null
+
+    private var mediaStroke: ArrayList<UndoLog.TileChange<Int>>? = null
+    private val mediaStrokeHeld = HashSet<Triple<String, String?, Long>>()
+
+    val mediaStrokeInProgress: Boolean get() = mediaStroke != null
+
+    fun beginMediaStroke() {
+        check(mediaStroke == null && !strokeInProgress) { "a media stroke inside another stroke would be undone out of order" }
+        mediaStroke = ArrayList()
+        mediaStrokeHeld.clear()
+    }
+
+    /** Pushes the stroke's step (one press, one step). Returns how many tiles it changed. */
+    fun endMediaStroke(): Int {
+        val changes = mediaStroke ?: return 0
+        mediaStroke = null
+        mediaStrokeHeld.clear()
+        if (changes.isNotEmpty()) undo.push(UndoLog.Step(changes))
+        return changes.size
+    }
+
+    /**
+     * The textures to write for [keys] of [layerId]'s [stores] ([MediaStores.ALL] names, or [mediaLook] for the look), each
+     * copied-on-write the first time this step touches it. A missing tile starts empty: no paint, no crush, no water,
+     * transparent look. Returns store → key → texture; write only these.
+     */
+    fun writableMediaTiles(layerId: String, keys: Collection<Long>, stores: Collection<String>): Map<String, Map<Long, Int>> {
+        val layer = layers[layerId] ?: error("no layer $layerId")
+        val stroke = mediaStroke
+        val held: Set<Triple<String, String?, Long>> = stroke?.let { mediaStrokeHeld }
+            ?: undo.newestExtendable()?.takeIf { MediaStores.isMediaStep(it) }?.changes?.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
+            ?: emptySet()
+        val fresh = ArrayList<UndoLog.TileChange<Int>>()
+        val out = LinkedHashMap<String, Map<Long, Int>>()
+        try {
+            for (store in stores) {
+                val look = store == MEDIA_LOOK
+                require(look || store in MediaStores.ALL) { "unknown media store $store" }
+                val storeId = if (look) layerId else MediaStores.id(layerId, store)
+                val tiles = if (look) layer.tiles else layer.floats.getOrPut(store) { HashMap() }
+                val texes = LinkedHashMap<Long, Int>()
+                for (key in keys) {
+                    val now = tiles[key]
+                    if (now != null && Triple(storeId, null, key) in held) { texes[key] = now; continue }
+                    val after = if (look) newLayerTile() else newFloatTile()
+                    initializeTile(after, now, false)
+                    fresh.add(UndoLog.TileChange(storeId, key, now, after))
+                    tiles[key] = after
+                    texes[key] = after
+                }
+                out[store] = texes
+            }
+        } catch (e: Throwable) {
+            // Put back what was swapped and free the copies: nothing half-done reaches the history.
+            for (c in fresh.asReversed()) { put(c.layerId, c.key, c.before); c.after?.let(::recycleLayerTex) }
+            throw e
+        } finally {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        }
+        invalidateProjection(layer)
+        if (stroke != null) {
+            stroke.addAll(fresh)
+            fresh.forEach { mediaStrokeHeld.add(Triple(it.layerId, it.celId, it.key)) }
+        } else MediaStores.recordWater(undo, fresh)
+        return out
+    }
+
+    /** The texture of one media tile as it stands (read only), or null where the store has none. */
+    fun mediaTile(layerId: String, store: String, key: Long): Int? =
+        if (store == MEDIA_LOOK) layers[layerId]?.tiles?.get(key) else layers[layerId]?.floats?.get(store)?.get(key)
+
+    /** Keys of every tile a media store has (sparse): for saving, and for the window to know what exists. */
+    fun mediaTileKeys(layerId: String, store: String): List<Long> = layers[layerId]?.floats?.get(store)?.keys?.toList() ?: emptyList()
+
+    /** True when [layerId] holds any float state: a media layer that has been painted. */
+    fun hasMediaState(layerId: String): Boolean = layers[layerId]?.floats?.values?.any { it.isNotEmpty() } == true
+
+    /**
+     * One float tile for saving: [MediaStores.tileBytes] bytes of little-endian RGBA32F, row 0 = the tile's TOP document row
+     * (as [readTile]). Read at a frame boundary (the Lead's rule: never mid-simulation). Null where the store has no tile.
+     */
+    fun readMediaTile(layerId: String, store: String, key: Long): ByteArray? {
+        require(store in MediaStores.ALL) { "unknown media store $store" }
+        val tex = layers[layerId]?.floats?.get(store)?.get(key) ?: return null
+        val buf = ByteBuffer.allocateDirect(MediaStores.tileBytes(size)).order(ByteOrder.LITTLE_ENDIAN)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+        attach(tex)
+        try {
+            check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) { "media tile framebuffer is unavailable" }
+            GLES30.glReadPixels(0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_FLOAT, buf)
+            val error = GLES30.glGetError()
+            check(error == GLES30.GL_NO_ERROR) { "media tile readback failed (GL $error)" }
+        } finally {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        }
+        return ByteArray(buf.capacity()).also { buf.rewind(); buf.get(it) }
+    }
+
+    /** Sets a float tile (same layout as [readMediaTile]). For loading a document: NOT undoable. Creates what is missing. */
+    fun writeMediaTile(layerId: String, store: String, key: Long, bytes: ByteArray) {
+        require(store in MediaStores.ALL) { "unknown media store $store" }
+        require(bytes.size == MediaStores.tileBytes(size)) { "media tile must be ${MediaStores.tileBytes(size)} bytes, got ${bytes.size}" }
+        val layer = storeOrCreate(layerId)
+        val tex = layer.floats.getOrPut(store) { HashMap() }.getOrPut(key) { newFloatTile() }
+        val buf = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.LITTLE_ENDIAN)
+        buf.put(bytes).rewind()
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
+        GLES30.glPixelStorei(GLES30.GL_UNPACK_ALIGNMENT, 4)
+        GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_FLOAT, buf)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+    }
+
+    /** Media tiles a step put back, by media layer: what [onMediaRestored] is told. */
+    private fun reportMediaRestored(changes: List<UndoLog.TileChange<Int>>) {
+        val listener = onMediaRestored ?: return
+        val byLayer = LinkedHashMap<String, HashSet<Long>>()
+        for (c in changes) {
+            val owner = MediaStores.parse(c.layerId)?.first ?: c.layerId.takeIf { layers[it]?.floats?.isNotEmpty() == true } ?: continue
+            byLayer.getOrPut(owner) { HashSet() }.add(c.key)
+        }
+        for ((id, keys) in byLayer) listener(id, keys)
+    }
+
+    /** A cleared RGBA32F tile, NEAREST (full floats are not linearly filterable everywhere; the media shaders filter by hand). */
+    private fun newFloatTile(): Int {
+        val tex = freeFloatTex.removeLastOrNull() ?: run {
+            val t = IntArray(1)
+            GLES30.glGenTextures(1, t, 0)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
+            GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA32F, size, size, 0, GLES30.GL_RGBA, GLES30.GL_FLOAT, null)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_NEAREST)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_NEAREST)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+            floatNames.add(t[0])
+            t[0]
+        }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo); attach(tex)
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        GLES30.glClearColor(0f, 0f, 0f, 0f); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        return tex
     }
 
     // ── display ──────────────────────────────────────────────────────────────
@@ -1970,6 +2160,12 @@ class GlPaintEngine(
     }
 
     private fun put(layerId: String, key: Long, tex: Int?, celId: String? = null) {
+        MediaStores.parse(layerId)?.let { (owner, store) ->
+            require(celId == null) { "a media store has no cels" }
+            val tiles = storeOrCreate(owner).floats.getOrPut(store) { HashMap() }
+            if (tex == null) tiles.remove(key) else tiles[key] = tex
+            return
+        }
         val layer = storeOrCreate(layerId)
         val store = planeTiles(layer,celId)
         if (tex == null) store.remove(key) else store[key] = tex
@@ -2003,6 +2199,11 @@ class GlPaintEngine(
     }
 
     private fun recycleLayerTex(tex: Int) {
+        if (tex in floatNames) {
+            freeFloatTex.addLast(tex)
+            while (freeFloatTex.size > 16) freeFloatTex.removeFirst().let { floatNames.remove(it); GLES30.glDeleteTextures(1, intArrayOf(it), 0) }
+            return
+        }
         freeLayerTex.addLast(tex)
         trimPool(freeLayerTex, 64)
     }

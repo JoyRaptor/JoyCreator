@@ -299,7 +299,30 @@ Rule: the shaders in `joybrush/shaders/media/` are the app's shaders. The lab's 
 in `core/media/` (pure, testable on the JVM) plus GL plumbing in `androidkit/gl/MediaLayerEngine.kt`. **Never fork the
 GLSL; any change goes through the lab first and is proved by `media_render.js`.**
 
-- **M5.1 Core twins (T2, Kotlin, `core/media/`).**
+**Integration contract with the Lead (2026-10-07, agreed):**
+1. **A media layer is float state plus a baked look.** p0/p1/paper (+ w0/w1 while wet) are RGBA32F state tiles. A
+   premultiplied RGBA8 "look" tile per dirty tile is rendered by jb_media_render.frag after each apply (fixed lamp
+   when lit). Compositor, masks/clipping, the 27 blends, thumbnails, eyedropper, export and the CPU parity check see an
+   ordinary paint layer. No media branch in drawComposited.
+2. **Storage and undo go through GlPaintEngine's store convention.** Stores are "<id>#p0", "#p1", "#paper", "#w0",
+   "#w1", with the look under the layer id. One stroke = one UndoLog.Step with TileChanges across them all. The
+   engine-side change is the store kinds plus a float texture pool (Lead reviews).
+3. **Document:** append MEDIA to LayerKind (R3, append-only), DOC_VERSION 7 → 8. Float tiles are a new archive entry
+   (`layers/<id>/<cel>/<key>.f32`, declared beside Cel.tiles); the look tiles are saved as normal .rgba. Board
+   frames are region-scoped (R50): frame cels of a media layer need float tiles inside the board rect, so ask the
+   Lead first.
+4. **Stroke route:** a branch in JbCanvasView.startStroke/paint/finish on `preset.engine == "media"` (like tuft),
+   behind feed()'s MotionEventSamples, the GuideSnapper, the hidden-layer refusal and the fixed strokeLayerId. Media
+   on a mask target is refused in words.
+5. **A media brush on a paint layer** creates a media layer directly above, selects it and paints there, as ONE undo
+   step.
+6. **Drawer:** BrushShelf gets Pencils / Watercolour / Oils shelves by medium. Ids are `media:<medium>:<name>`; the
+   knobs go through BrushKnobs.forBrush.
+7. **Diffs to JbCanvasView / GlPaintEngine / DocModel are small and rebased often** (the integration lane and the
+   paper session work there too). **Installs:** ask the Lead first, and the owner presses Home first.
+
+- **M5.1 Core twins (T2, Kotlin, `core/media/`). ✅ 6f31d34c**: golden-tested against the lab (MediaGoldenTest,
+  `tools/media_golden.mjs`).
   - `Stick` and `StickGeometry`, plus `stickZ`, `contactLut` and `solveContact`, ported line by line from `stick.js`.
   - `DryStroke` (dabs as a FloatArray, 20 floats each); `WetStroke`, `wetUniforms` and `paintFromColor`; `PasteStroke`
     and `opaquePaint`; `SplineFeeder`; `VectorRecord` and replay order.

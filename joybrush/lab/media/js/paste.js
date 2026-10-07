@@ -20,11 +20,10 @@ export const PASTE_BRUSHES = {
   'Palette knife 1': { shape: 2, trowel: true, widthMm: 9, lenMm: 13, thickMm: 1.1, scrape: 0.99, hairDepth: 0.0, ridge: 1.0, rate: 4.0, mix: 0.2, swap: 0.5, loadLenMm: 70, wick: 0.0, bow: 0.9, lump: 0.25, rigid: 1, fillDips: 1 },
   // Rigid blades, held like the pen: the edge lies along the pen's lean. Pressure lowers the blade (light
   // shaves the peaks, full reaches the canvas); tilt lays more of the edge down (upright = the point).
-  'Palette knife 2': { shape: 2, blade: 1, bladeLenMm: 22, bladeHalfMm: 4.5, bladeHmax: 0.9, bead: 0.35, bladeCap: 8, thickMm: 1.1, rate: 4.0, loadLenMm: 70, mix: 0.2, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0.25, rigid: 1 },
-  // A squeegee (owner, 2026-10-07: the pen-angle scraper was unintuitive): the edge lies across the stroke and
-  // turns with it, centred on the pen. Leaning the pen lays more edge down (1.5 → 10 mm wide, finest near
-  // upright); pressure sets the depth (light skims the peaks, full reaches the canvas).
-  'Scraper': { shape: 3, blade: 1, orient: 'stroke', edgeMinMm: 1.5, bladeLenMm: 10, bladeHalfMm: 0.35, bladeHmax: 1.6, bead: 0.5, bladeCap: 3, film: 0.002, thickMm: 0, rate: 5.0, loadLenMm: 40, mix: 0, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0, rigid: 1, clean: true },
+  'Palette knife 2': { shape: 2, blade: 1, orient: 'pen', edgeMinMm: 3, acrossMaxMm: 16, bladeLenMm: 22, bladeHalfMm: 4.5, bladeHmax: 0.9, bead: 0.35, bladeCap: 8, thickMm: 1.1, rate: 4.0, loadLenMm: 70, mix: 0.2, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0.25, rigid: 1 },
+  // A thin cutting blade. Which way its edge lies is the owner's to choose (EDGE_MODES); held at the pen's angle
+  // by default. Pressure sets the depth (light skims the peaks, full reaches the canvas).
+  'Scraper': { shape: 3, blade: 1, orient: 'pen', edgeMinMm: 1.5, acrossMaxMm: 10, bladeLenMm: 14, bladeHalfMm: 0.35, bladeHmax: 1.6, bead: 0.5, bladeCap: 3, film: 0.002, thickMm: 0, rate: 5.0, loadLenMm: 40, mix: 0, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0, rigid: 1, clean: true },
 };
 
 // Opaque paint: the colour it covers with when thick. Strong scattering; K from the KM masstone.
@@ -43,13 +42,21 @@ export function cellCap(brush) {
 
 // Blade angle to the paper from the pen's tilt fraction t (same S-curve idea as the pencil): near upright
 // only the point reaches the paint; the edge lies down over the last part of the tilt range.
+// How a blade's edge lies, tapped through on the canvas bar (owner, 2026-10-07):
+//   pen     along the pen's lean, whatever the stroke does (v8/v9.1); tilt lays the edge down from the point
+//   across  a squeegee: across the stroke, turning with it, centred on the pen; lean widens it
+//   along   along the stroke, trailing the pen point: a groove that follows the line
+export const EDGE_MODES = ['pen', 'across', 'along'];
+export const EDGE_LABELS = { pen: 'pen angle', across: 'across stroke', along: 'along stroke' };
+
 export function bladeTan(t) { return Math.tan(75 * Math.PI / 180 * Math.pow(1 - Math.min(1, Math.max(0, t)), 3)); }
 
 export class PasteStroke {
   // layerScale: layer px per doc px of the layer this stroke paints into (a zoomed vector view is > 1);
   // steps stay finer than one LAYER pixel's worth of paint so no step shows as an edge at any zoom.
-  constructor(brush, pxPerMm, layerScale = 1) {
+  constructor(brush, pxPerMm, layerScale = 1, opts = {}) {
     this.brush = brush;
+    this.edge = opts.edge || brush.orient || 'pen';
     this.pxPerMm = pxPerMm;
     this.layerScale = layerScale;
     this.steps = [];
@@ -118,10 +125,10 @@ export class PasteStroke {
       this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax: b.lenMm * 1.4, pressure: P, slideMm, fingers: 0 });
       return;
     }
-    if (b.blade && b.orient === 'stroke') {
+    if (b.blade && this.edge === 'across') {
       // Squeegee: the edge lies across the travel, centred on the pen; lean lays more of it down.
       const t = Math.min(1, Math.max(0, s.tilt / (Math.PI / 2)));
-      const L = b.edgeMinMm + (b.bladeLenMm - b.edgeMinMm) * Math.pow(t, 1.5);
+      const L = b.edgeMinMm + (b.acrossMaxMm - b.edgeMinMm) * Math.pow(t, 1.5);
       const across = [-dir[1], dir[0]];
       const k = 0.5 * L * this.pxPerMm;
       this.steps.push({
@@ -131,11 +138,13 @@ export class PasteStroke {
       return;
     }
     if (b.blade) {
-      // Rigid blade: its edge follows the pen's lean, whatever the direction of travel.
+      // Rigid blade from the pen point: its edge lies along the pen's lean ('pen'), or trails along the path
+      // ('along': a groove that follows the line; before the first move it leans with the pen).
       const t = Math.min(1, Math.max(0, s.tilt / (Math.PI / 2)));
+      const bladeDir = this.edge === 'along' ? [-dir[0], -dir[1]] : [Math.cos(s.az ?? 0), Math.sin(s.az ?? 0)];
       this.steps.push({
         x: s.x, y: s.y, wDir, lDir, halfW: b.bladeHalfMm, len: b.bladeLenMm, lenMax: b.bladeLenMm, pressure: P, slideMm,
-        bladeDir: [Math.cos(s.az ?? 0), Math.sin(s.az ?? 0)], travel: [...dir],
+        bladeDir, travel: [...dir],
         // Full pressure rides the canvas peaks (and the weave comes through); a light touch only shaves tops.
         bladeH0: b.bladeHmax * Math.pow(1 - P, 1.5), bladeTan: bladeTan(t),
       });

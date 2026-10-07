@@ -64,7 +64,7 @@ export class VectorDoc {
         // The brush's own history matters (a dirty brush carries earlier strokes), so brushes reload and
         // run through every record in order, even ones outside the region: only drawing is skipped.
         if (!rec.dirty) engine.reloadBrush(opaquePaint(rec.color), brush, rec.seed, rec.belly ? opaquePaint(rec.belly) : null);
-        const ps = new PasteStroke(brush, pxPerMm, engine.scale);
+        const ps = new PasteStroke(brush, pxPerMm, engine.scale, { edge: rec.edge });
         for (const s of rec.samples) { ps.add(s); for (const step of ps.take()) if (meets) engine.pasteStep(step, brush, paper, pxPerMm, rec.seed); }
         continue;
       }

@@ -196,9 +196,14 @@ gradient and moving the mark away from the pen. v8 replaced it:
   texture", easier to control). It follows the stroke, its paint goes through the hair-brush trade (rigid,
   scrape 0.99, ridge, bow, lumps), and it keeps its own step geometry (`trowel: true`). A rigid tool presses paint
   straight into the weave (fast fill); only the layer above the peaks builds up step by step.
-- **The scraper is a squeegee:** the edge lies across the stroke and turns with it, centred on the pen. Lean lays more
-  edge down (1.5 → 10 mm); pressure sets the depth. It was pen-lean oriented in v8, which the owner found unintuitive.
-- **Palette knife 2 is the v8 rigid blade held like the pen:**
+- **Edge modes for Palette knife 2 and the scraper** (owner, 2026-10-07: "set an option to toggle these different
+  behaviors so I can figure out what works"), an Edge button that cycles, remembered per tool and stored in the
+  stroke record:
+  - **pen angle** (default): the edge lies along the pen's lean; tilt lays it down from the point. The owner preferred
+    this look for the scraper over the squeegee;
+  - **across stroke**: a squeegee centred on the pen, turning with the stroke; lean widens it;
+  - **along stroke**: the edge trails the pen point along the path, a groove that follows the line.
+- **Palette knife 2 is the v8 rigid blade (in pen-angle mode, held like the pen):**
   - The edge lies along the pen's lean (azimuth), whatever the direction of travel.
   - **Pressure lowers the blade:** height above the canvas peaks = `Hmax·(1−P)^1.5`. A light touch shaves the peaks;
     full pressure reaches the canvas and presses into the weave (`0.6·tooth·P²`).

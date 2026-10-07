@@ -5,7 +5,7 @@ import { STICKS, DryStroke, stickMaterial, PRESS, MAT_OVERRIDE, ZONES } from './
 import { SHEETS } from './tests.js';
 import { WET, WET_BRUSHES, WETNESS, WetStroke, paintFromColor, tiltSlope } from './wet.js';
 import { SplineFeeder } from './spline.js';
-import { PASTE_BRUSHES, PasteStroke, opaquePaint } from './paste.js';
+import { PASTE_BRUSHES, PasteStroke, opaquePaint, EDGE_MODES, EDGE_LABELS } from './paste.js';
 import { VectorDoc } from './vector.js';
 
 const qs = new URLSearchParams(location.search);
@@ -24,6 +24,7 @@ const state = {
   tiltReach: Number(qs.get('reach') || 68),    // device tilt (°) that counts as "lying on its side" (owner's S Pen tops out at 71°)
   mousePressure: 0.5,
   bellyMode: 'off',
+  edgeModes: {},
   wetLevel: 3,
   color: [0.22, 0.38, 0.75],
   seed: 100,
@@ -129,7 +130,7 @@ function runSheet(sheet, offset = [0, 0]) {
     if (st.kind === 'paste') {
       const brush = PASTE_BRUSHES[st.tool];
       if (!st.dirty) engine.reloadBrush(opaquePaint(st.color), brush, seed, st.belly ? opaquePaint(st.belly) : null);
-      const ps = new PasteStroke(brush, DOC_PX_PER_MM);
+      const ps = new PasteStroke(brush, DOC_PX_PER_MM, 1, { edge: st.edge || qs.get('edge') || undefined });
       const sd = seed++;
       for (const smp of st.samples) { ps.add(smp); for (const step of ps.take()) engine.pasteStep(step, brush, paper, DOC_PX_PER_MM, sd); }
       continue;
@@ -192,11 +193,14 @@ function bellyFor(mode, color, seed) {
   }
 }
 
+// Each blade tool remembers its own edge mode.
+function edgeFor(tool) { return state.edgeModes[tool] || PASTE_BRUSHES[tool].orient || 'pen'; }
+
 function startStroke(eng, meta) {
   if (meta.kind === 'paste') {
     const brush = PASTE_BRUSHES[meta.tool];
     if (!meta.dirty) eng.reloadBrush(opaquePaint(meta.color), brush, meta.seed, meta.belly ? opaquePaint(meta.belly) : null);
-    const ds = new PasteStroke(brush, DOC_PX_PER_MM, eng.scale);
+    const ds = new PasteStroke(brush, DOC_PX_PER_MM, eng.scale, { edge: meta.edge });
     return { add: s => ds.add(s), flush() { for (const st of ds.take()) eng.pasteStep(st, brush, paper, DOC_PX_PER_MM, meta.seed); }, finish() { this.flush(); } };
   }
   if (meta.kind === 'wet') {
@@ -271,7 +275,8 @@ function hookInput() {
     const seed = ++state.seed;
     const belly = kind === 'paste' ? bellyFor(state.bellyMode, state.color, seed) : null;
     const wetness = kind === 'wet' && !WET_BRUSHES[state.tool].clear ? WETNESS[state.wetLevel] : kind === 'wet' ? { ...WETNESS[state.wetLevel], load: Math.max(WETNESS[state.wetLevel].load, WET_BRUSHES[state.tool].load) } : null;
-    const meta = { kind, tool: state.tool, color: [...state.color], belly: belly ? [...belly] : null, seed, wetness,
+    const edge = kind === 'paste' && PASTE_BRUSHES[state.tool].blade ? edgeFor(state.tool) : undefined;
+    const meta = { kind, tool: state.tool, color: [...state.color], belly: belly ? [...belly] : null, seed, wetness, edge,
       dirty: kind === 'paste' && state.dirtyBrush && state.lastPaste === state.tool };
     if (kind === 'paste') state.lastPaste = state.tool;
     const lives = [startStroke(engine, meta)];
@@ -387,6 +392,9 @@ function buildUi() {
     const isWet = state.kind === 'wet', isPaste = state.kind === 'paste', isHair = isPaste && PASTE_BRUSHES[state.tool].shape < 2;
     ui('wetbox').hidden = !isWet;
     ui('bellybox').hidden = !isHair;
+    const isBlade = isPaste && !!PASTE_BRUSHES[state.tool].blade;
+    ui('edgebox').hidden = !isBlade;
+    if (isBlade) ui('edgemode').textContent = 'Edge: ' + EDGE_LABELS[edgeFor(state.tool)];
     ui('belly').hidden = state.bellyMode !== 'manual';
     ui('dirtybrush').parentElement.hidden = !isPaste;
     // A dry brush means just that: picking it sets the brush nearly dry.
@@ -408,6 +416,11 @@ function buildUi() {
   ui('bellymode').onclick = () => {
     state.bellyMode = BELLY_MODES[(BELLY_MODES.indexOf(state.bellyMode) + 1) % BELLY_MODES.length];
     ui('bellymode').textContent = 'Belly: ' + state.bellyMode;
+    showFor();
+  };
+  ui('edgemode').onclick = () => {
+    const m = EDGE_MODES[(EDGE_MODES.indexOf(edgeFor(state.tool)) + 1) % EDGE_MODES.length];
+    state.edgeModes[state.tool] = m;
     showFor();
   };
   ui('wetter').onclick = () => { state.wetLevel = Math.min(WETNESS.length - 1, state.wetLevel + 1); showFor(); };

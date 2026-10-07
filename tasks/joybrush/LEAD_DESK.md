@@ -792,3 +792,8 @@ follows your store-format ruling.
 - Evidence: core jvmTest 1689 and androidkit test 290, 0 failed; joybrush-android compiles. JbArchiveMediaTest covers
   "a save mid-flow reopens wet".
 
+**Landed 2026-10-07 (bb80a380), approved.** Notes for later:
+- Mixed media on one layer is the union of the stores, still lazy. A test is owed: a dry stroke and then a wet stroke
+  on one tile give paper plus p0, p1, w0 and w1, and both survive a save.
+- MEDIA_SLOTS = 7 is the worst case. Revisit it with M5.3d paging, so a pencil-only layer does not count as seven.
+

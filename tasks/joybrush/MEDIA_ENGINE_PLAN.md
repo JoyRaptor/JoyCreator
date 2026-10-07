@@ -381,7 +381,7 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
     GlPaintEngine. They use an RGBA32F texture pool, and UndoLog sizes and releases each texture by its kind.
     Copy-on-write: a tile is snapshotted before the first write that touches it. Media layers have no frames yet
     (contract point 3: ask first), so a float store is per layer, never per cel.
-  - **3b, archive. Built (`review/media-archive`).** The stores are RGBA16F at rest (the Lead's ruling), allocated lazily by
+  - **3b, archive. ✅ bb80a380.** The stores are RGBA16F at rest (the Lead's ruling), allocated lazily by
     medium (`MediaStores.forMedium`). The media ceiling is `LayerBudget.mediaBudgetBytes`. JbArchive writes and reads `layers/<id>/<cel>/<tx>_<ty>.<store>.f16`, with the same "every declared
     tile has its file, every file is declared" checks as `.rgba`.
   - **3c, window.** MediaLayerEngine works on a tile-aligned window (1024 px = 4×4 tiles ≈ 5 cm) placed over the
@@ -402,7 +402,8 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
   - **M5.3d Paging (after step 4 works on the phone; Lead, 2026-10-07).** Once the media ceiling is reached, page
     p0/p1/paper out to CPU memory (deflated), least recently used first, and page them back into the window on demand.
     Only the look then stays GPU-resident. This is the design that scales to A4 on a phone, and the seam is
-    `writableMediaTiles` / `readMediaTile` / `writeMediaTile`.
+    `writableMediaTiles` / `readMediaTile` / `writeMediaTile`. When it lands, revisit `MEDIA_SLOTS = 7` (the worst case),
+    so a pencil-only layer does not count as seven.
   - **Tests owed:**
     - the spread cap (a water step can outgrow the undo budget, since trim keeps the newest step; only the cap bounds
       it);

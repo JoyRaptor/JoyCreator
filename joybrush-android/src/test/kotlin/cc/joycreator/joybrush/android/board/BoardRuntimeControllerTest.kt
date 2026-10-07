@@ -11,6 +11,7 @@ import android.widget.FrameLayout
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.view.ViewTransform
 import cc.joycreator.joybrush.core.chrome.BoardChromeLayout as Chrome
+import cc.joycreator.joybrush.core.sprite.CellRoll
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -149,6 +150,84 @@ class BoardRuntimeControllerTest {
         assertEquals(RectPx(100,300,30,50),change.transfers.first().sourceRect)
         assertEquals(RectPx(160,300,30,50),change.transfers.first().destinationRect)
     }
+    @Test fun neighboringAnimationCursorInvalidatesSpritePicturesAndRejectsOldReply() {
+        val host = spriteHost()
+        val spriteId = host.document.boards.last().id
+        val animationId = host.document.boards.first { it.kind == BoardKind.ANIMATION }.id
+        host.document = RegionDocumentOps.addFrame(host.document, animationId, NewFrame.BLANK) {
+            UUID.randomUUID().toString()
+        }.doc
+        host.document = BoardDocumentOps.move(host.document, spriteId, 100, 100)
+        host.document = BoardDocumentOps.setLocked(host.document, spriteId, true)
+        val (controller, parent) = setup(host)
+        val view = spriteView(controller, parent, host)
+        view.host.action("sprite-cell-0", false)
+        val old = host.spriteThumbnails.single().second
+        val animation = host.document.boards.first { it.id == animationId }
+        val next = animation.frames.first { it.id != animation.currentFrameId }.id
+        host.document = RegionDocumentOps.selectFrame(host.document, animationId, next)
+        controller.documentChanged(host.document)
+        assertEquals("Saved frame navigation must refetch overlapping Sprite art", 2, host.spriteThumbnails.size)
+        assertEquals(0L, host.revision)
+        val fresh = host.spriteThumbnails.last()
+        assertEquals(listOf(0), fresh.first)
+        fresh.second(mapOf(0 to IntArray(6400) { 0xff00ff00.toInt() }))
+        old(mapOf(0 to IntArray(6400) { 0xffff0000.toInt() }))
+        val bitmap = Bitmap.createBitmap(80, 80, Bitmap.Config.ARGB_8888)
+        view.host.art(Canvas(bitmap), Chrome.Element("preview-art", Chrome.Shape.ROUND_RECT,
+            Chrome.Rect(0f, 0f, 80f, 80f), artSlot = true))
+        assertEquals(0xff00ff00.toInt(), bitmap.getPixel(40, 40))
+        bitmap.recycle(); controller.stop()
+    }
+
+    @Test fun pausedSpriteThumbnailReplyDoesNotPreventRefetchOnResume() {
+        val host = spriteHost()
+        host.document = BoardDocumentOps.setLocked(host.document, host.document.boards.last().id, true)
+        val (controller, parent) = setup(host)
+        val view = spriteView(controller, parent, host)
+        view.host.action("sprite-cell-0", false)
+        val old = host.spriteThumbnails.single().second
+        controller.stop()
+        old(emptyMap())
+        controller.resume()
+        assertEquals("Paused requests must not leave a cell permanently pending", 2, host.spriteThumbnails.size)
+        val fresh = host.spriteThumbnails.last()
+        fresh.second(mapOf(0 to IntArray(6400) { 0xff00ff00.toInt() }))
+        old(mapOf(0 to IntArray(6400) { 0xffff0000.toInt() }))
+        val bitmap = Bitmap.createBitmap(80, 80, Bitmap.Config.ARGB_8888)
+        view.host.art(Canvas(bitmap), Chrome.Element("preview-art", Chrome.Shape.ROUND_RECT,
+            Chrome.Rect(0f, 0f, 80f, 80f), artSlot = true))
+        assertEquals(0xff00ff00.toInt(), bitmap.getPixel(40, 40))
+        repeat(3) { controller.refreshTransform() }
+        assertEquals(2, host.spriteThumbnails.size)
+        bitmap.recycle(); controller.stop()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @Test fun longIdleSpriteSequenceFetchesOnlyCurrentWindowAndSettlesAfterSuccess() {
+        val host = spriteHost(); val spriteId = host.document.boards.last().id
+        host.document = BoardDocumentOps.setSpriteGrid(host.document, spriteId, SpriteGrid(20, 20, 6, 5))
+        host.document = BoardDocumentOps.setLocked(host.document, spriteId, true)
+        val (controller, parent) = setup(host)
+        // Seed a legitimate session roll without hundreds of native tap dispatches.
+        val rolls = BoardRuntimeController::class.java.getDeclaredField("spriteRolls").apply { isAccessible = true }
+            .get(controller) as MutableMap<String, CellRoll>
+        rolls[spriteId] = CellRoll(List(400) { CellRoll.Entry(it) }, cursor = 350)
+        val original = host.document
+        val view = spriteView(controller, parent, host)
+        val request = host.spriteThumbnails.single()
+        assertTrue(request.first.size <= 16)
+        assertTrue("The current preview cell must be fetched first", 350 in request.first)
+        assertTrue("Idle prefetch must stay within a bounded look-ahead", request.first.all { it in 350..365 })
+        request.second(request.first.associateWith { IntArray(6400) { 0xff00ff00.toInt() } })
+        repeat(40) { controller.refreshTransform() }
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50))
+        assertEquals("Completed idle previews must settle without cache eviction/refetch churn", 1, host.spriteThumbnails.size)
+        assertEquals(original, host.document); assertTrue(host.queued.isEmpty())
+        assertEquals(350, shownInput(view).playingCell ?: -1)
+        controller.stop()
+    }
+
     @Test fun spriteGuideAndGridModeAreSessionOnlyAndResetForAnotherDrawing() {
         val host = spriteHost(); val (controller,parent) = setup(host); val view = spriteView(controller,parent,host)
         val original = host.document
@@ -179,6 +258,7 @@ class BoardRuntimeControllerTest {
         var scope: RectPx? = null
         val previews = mutableListOf<Map<String,String>>()
         val thumbnails = mutableListOf<Pair<List<String>,(Map<String,IntArray>)->Unit>>()
+        val spriteThumbnails = mutableListOf<Pair<List<Int>,(Map<Int,IntArray>)->Unit>>()
         var deferEdits = false
         val queued = mutableListOf<(JbDocument) -> RegionChange>()
         override fun ensureDocument(ready:(JbDocument)->Unit) = ready(document)
@@ -192,6 +272,7 @@ class BoardRuntimeControllerTest {
         override fun refusal(message:String) {}
         override fun selectionChanged(bounds:RectPx?) { scope = bounds }
         override fun thumbnails(boardId:String,frames:List<String>,width:Int,height:Int,ready:(Map<String,IntArray>)->Unit) { thumbnails += frames to ready }
+        override fun spriteThumbnails(boardId:String,cells:List<Int>,width:Int,height:Int,ready:(Map<Int,IntArray>)->Unit) { spriteThumbnails += cells to ready }
     }
     private fun setup(host:Host): Pair<BoardRuntimeController,FrameLayout> {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()

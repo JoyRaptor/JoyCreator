@@ -67,6 +67,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private val reducedMotion: Boolean get() = android.os.Build.VERSION.SDK_INT >= 26 && !android.animation.ValueAnimator.areAnimatorsEnabled()
     private var epoch = 0L
     private var artEpoch = 0L
+    private var spriteArtEpoch = 0L
     private var contentRevision = Long.MIN_VALUE
     private var pendingSelection: String? = null
     private val art = object : LruCache<Pair<String, String>, Bitmap>(8 * 1024 * 1024) {
@@ -129,7 +130,12 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         }
         epoch++
         if (revision != contentRevision || ownershipChanged) {
-            artEpoch++; art.evictAll(); requested.clear()
+            artEpoch++; spriteArtEpoch++; art.evictAll(); requested.clear()
+        } else if(previous?.boards?.map { it.id to it.currentFrameId } != value.boards.map { it.id to it.currentFrameId }) {
+            // A Sprite crop can cross a neighboring Animation board's saved current frame.
+            spriteArtEpoch++
+            art.snapshot().keys.filter { it.second.startsWith("sprite-") }.forEach { art.remove(it) }
+            requested.removeAll { it.second.startsWith("sprite-") }
         }
         contentRevision = revision
         session = session.reconcile(value)
@@ -174,6 +180,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
 
     fun stop() {
         active = false
+        artEpoch++; spriteArtEpoch++; requested.clear()
         cancelInteractions()
     }
 
@@ -323,13 +330,16 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         if (penDown) return
         val count = b.grid?.let { it.cols * it.rows } ?: return
         val wanted = if (session.armedBoardId == b.id) listOfNotNull(spriteDrag?.takeIf { it.board.id == b.id }?.cell,spriteTarget).distinct()
-            else spriteRolls[b.id]?.entries?.map { it.cell }?.distinct().orEmpty()
+            else spriteRolls[b.id]?.takeUnless { it.isEmpty }?.let { roll ->
+                val cursor=if(spritePlaying == b.id) spriteClock?.frameIndexAt((SystemClock.uptimeMillis()-spriteStarted).toDouble()) ?: roll.cursor else roll.cursor
+                (0 until min(16,roll.size)).map { roll.entries[(cursor+it)%roll.size].cell }.distinct()
+            }.orEmpty()
         val cells = wanted.filter { art[b.id to "sprite-$it"] == null && (b.id to "sprite-$it") !in requested }.take(16)
         if (cells.isEmpty()) return
-        val stamp = artEpoch; val scene = doc?.id
+        val stamp = spriteArtEpoch; val scene = doc?.id
         cells.forEach { requested += b.id to "sprite-$it" }
         host.spriteThumbnails(b.id,cells,80,80) { pixels ->
-            if (!active || stamp != artEpoch || scene != doc?.id || board(b.id) != b) return@spriteThumbnails
+            if (!active || stamp != spriteArtEpoch || scene != doc?.id || board(b.id) != b) return@spriteThumbnails
             pixels.forEach { (cell,data) -> if (cell in cells && data.size == 6400) {
                 art.put(b.id to "sprite-$cell",Bitmap.createBitmap(data,80,80,Bitmap.Config.ARGB_8888))
                 requested.remove(b.id to "sprite-$cell")

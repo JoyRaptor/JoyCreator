@@ -1042,3 +1042,40 @@ status: IDLE (0f4e57cd landed; core1481/0 and androidkit225/0)
 worktree: C:/Temp/jb-region-routing (codex/region-routing).
 files: none. Evidence: REGION_ROUTING_20261002.md; GPU/undo adapter next.
 DEVICE: none. Export projection prerequisite for GPU integration.
+
+## JOYBRUSH_PAPER_UI_20261002
+status: ACTIVE
+worktree: C:/Temp/jb-region-routing (codex/region-routing).
+files: Lead-owned JoyBrushActivity.kt, LayerColumnView.kt, new PaperSheetView.kt; JbCanvasView.kt, GlPaintEngine.kt, UndoLog.kt; Paper/ResolvedPaper transparency schema and version/codec tests; paper background shader; UI/history tests.
+DEVICE: none. No installation; build slot shared via jb-gradle.lock. Paper specialist retains catalogue/materials. DOC_VERSION 7 reserved for explicit Paper screen transparency.
+
+## JOYBRUSH_ABR_FRONTIER_20261002
+status: ACTIVE; isolated Muse importer recovery and 16-bit high-byte regression.
+worktree: C:/Temp/jb-abr-frontier; branch codex/abr-frontier-fix.
+files: AbrReader.kt, AbrReaderTest.kt, AbrImportTest.kt, AbrRealFilesTest.kt only.
+DEVICE: none. Shared jb-gradle.lock required; no app build.
+
+JOYBRUSH_ABR_FRONTIER_20261002 status: IDLE; branch pushed fe686adf9f20daba1db6e99359c997a5dc72e98c. Targeted importer61/0/0/0; low-byte mutation red, restored green. No shared docs committed; root owns integration. Build lock released and exact watcher restarted hidden.
+
+## JOYBRUSH_NOTE9_ACCEPTANCE_20261006
+status: ACTIVE — root phone testing and blocker fixes; helper owns only BoardRuntimeController.kt and its test until frozen for build.
+worktree: C:/Temp/jb-region-routing; branch codex/region-routing.
+files: joybrush-android board controller + regression tests; tasks/joybrush/reviews/NOTE9_BOARD_TEST_20261006.md. Other source only for confirmed device failures, announced before edits.
+DEVICE: Note 9 only, owner authorized installation and testing; awaiting Home readiness gate. Main watcher is paused only under owned build lock and restored afterward.
+
+## JOYBRUSH_NOTE9_ACCEPTANCE_20261006 — checkpoint
+status: IDLE — isolated integration 8566f643 pushed; device testing pass finished, broad board completion still owed.
+files: none owned for active edits. C:/Temp/jb-region-routing/tasks/joybrush/reviews/NOTE9_BOARD_TEST_20261006.md and CLAUDE_BOARD_HANDOFF_20261006.md hold evidence and remaining scope.
+DEVICE: Note 9 released on Joy Brush, passive Animation frame 3; verified installed integration APK. Main watcher restored but builds a different checkout; do not assume its APK contains board fixes. No Note 20 use, no uninstall.
+
+## JOYBRUSH_BOARD_CONNECTIONS_20261006
+status: ACTIVE — root resumes board wiring from verified integration 8566f643.
+worktree: C:/Temp/jb-region-routing; branch codex/region-routing.
+files: Root owns board export host, JoyBrushActivity board integration, new scoped export coordinator. Helper owns LayerColumnView.kt and tests for K9 held markers. BoardRuntimeController only as needed. No brush/paper engine, shader, material, preset or PaperSheetView edits.
+COORDINATION: Claude owns paper engine and paint brushes per owner. Please use isolated checkout and announce changes needing GlPaintEngine/JbCanvasView/Activity glue before integrating. Root will preserve existing paperRenderer contract in exports. No main merge or watcher deployment of this branch by other agents.
+DEVICE: Note 9 root only during acceptance, no Note 20. Serial Gradle via jb-gradle.lock, watcher-only APK builds.
+
+JOYBRUSH_BOARD_CONNECTIONS_20261006 scope update: Root now owns BoardRuntimeController.kt/tests and BoardDocumentOps.setSpriteGrid/tests for K8 whole-cell grid shelf and ephemeral sub-grid. Helper hit usage limit before edits; root takes over. Engine, JbCanvasView, shader, brush and paper source remain untouched. Export+K9 checkpoint f9d16c2e pushed and installed Note9; GIF/range PNG sequence/held toggle+undo passed.
+
+## Root board checkpoint — 2026-10-06, Sprite acceptance
+Integration branch codex/region-routing pushed through bb4d82a2 (C:/Temp/jb-region-routing). Note9 Sprite placement, 3x2 grid, pixel sizing, guides, Undo/Redo, restart and PNG+JSON export accepted. Fixed inert Sprite finger-cell interception; native 60 tests passed and installed phone finger stroke/Undo verified. Current installed APK SHA256 E688DBEFAA22B0A59A92C5F53117E56C3567DF71CCA27681C19F9ED2B5617C8F. No brush/paper engine edits. Do not replace this phone build with primary watcher APK: primary checkout differs. Next: CellRoll preview + real translated all-layer swaps (one drag/Undo), tiling and onion remain open. Details: integration tasks/joybrush/reviews/BOARD_CONNECTIONS_20261006.md. Root device acceptance finished; coordinate before any install.

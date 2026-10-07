@@ -48,8 +48,9 @@ class MediaCanvas(
 ) {
     private var engine: MediaLayerEngine? = null
     private var window: MediaWindow? = null
-    /** Why this GPU cannot do media, once found out: said again rather than retried every stroke. */
-    private var unsupported: String? = null
+    /** Why this GPU cannot do media, once found out: said again rather than retried every stroke. Read by the UI thread. */
+    @Volatile var unsupported: String? = null
+        private set
 
     /** The paper's downhill slope in document space (the phone-tilt switch, M5.6); [0, 0] = flat. */
     var slope = floatArrayOf(0f, 0f)
@@ -76,6 +77,21 @@ class MediaCanvas(
     private var stroke: Stroke? = null
 
     val inStroke: Boolean get() = stroke != null
+
+    /**
+     * What the window holds now, for a refusal made before anything is made (the UI thread reads it; a stale read only
+     * makes the check a little stricter or looser for one stroke, and the GL-thread check in [begin] still runs).
+     */
+    @Volatile var heldBytes: Long = 0L
+        private set
+    private fun noteHeld() {
+        val e = engine
+        heldBytes = when {
+            e == null || e.asleep -> 0L
+            e.hasWater -> LayerBudget.MEDIA_WINDOW_WET_BYTES
+            else -> LayerBudget.MEDIA_WINDOW_DRY_BYTES
+        }
+    }
     /** Water is running somewhere in the window: keep drawing frames. */
     val running: Boolean get() = engine?.wetActive == true
 
@@ -99,6 +115,7 @@ class MediaCanvas(
             stroke = build(layerId, spec.scaled(preset.mediaScale()), preset.mediaScale(), argb, bellyArgb, thinned, (nowMs and 0x7FFFFFFF).toInt())
                 .also { it.penX = x; it.penY = y; it.reachPx = reachPx(spec.scaled(preset.mediaScale())) }
             w.touched(nowMs)
+            noteHeld()
             null
         } catch (r: MediaRoomException) {
             if (paint.mediaStrokeInProgress) paint.endMediaStroke()
@@ -116,6 +133,7 @@ class MediaCanvas(
         e.beginStroke()
         stroke = Stroke(layerId, 0, MediaSpline { }, erase = true).also { it.penX = x; it.penY = y }
         w.touched(nowMs)
+        noteHeld()
         return null
     }
 
@@ -154,7 +172,7 @@ class MediaCanvas(
             w.touched(nowMs)
             return true
         }
-        w.releaseIfIdle(nowMs)
+        if (w.releaseIfIdle(nowMs)) noteHeld()
         return false
     }
 
@@ -179,16 +197,17 @@ class MediaCanvas(
     fun restored(layerId: String, keys: Set<Long>) { window?.restored(layerId, keys) }
 
     /** The layer or the screen changed: write back and let the window go. */
-    fun releaseWindow() { if (stroke == null) window?.release() }
+    fun releaseWindow() { if (stroke == null) { window?.release(); noteHeld() } }
 
     /** GL context lost or the canvas closing. */
     fun release() {
         engine?.release()
         engine = null; window = null; stroke = null
+        heldBytes = 0L
     }
 
     /** The context these GL names came from is gone: forget them without deleting (they died with it). */
-    fun forget() { engine = null; window = null; stroke = null }
+    fun forget() { engine = null; window = null; stroke = null; heldBytes = 0L }
 
     // ---- inside ----
 

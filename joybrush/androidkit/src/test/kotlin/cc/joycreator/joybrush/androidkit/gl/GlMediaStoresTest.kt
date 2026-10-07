@@ -124,4 +124,15 @@ class GlMediaStoresTest {
         assertTrue(e.undoStep())
         assertEquals(listOf(paintId), e.boardDocument!!.layers.map { it.id }, "one undo takes it away")
     }
+
+    @Test fun aMediaLayerThatCannotBeMadeLeavesTheStackAndHistoryUnchanged() {
+        // The Lead's 4c fix: a failed creation must change nothing the canvas would then have to undo.
+        val e = GlPaintEngine().also { it.initWith { } }
+        val before = cc.joycreator.joybrush.core.layers.LayerStack.single("paint", "Paint")
+        e.setStack(before)
+        val after = before.add("wc", "Watercolour")
+        assertFailsWith<IllegalStateException> { e.addMediaLayerStep("wc", before, after) }   // no board document
+        assertEquals(listOf("paint"), e.stack(null).layers.map { it.id }, "no phantom layer in the engine")
+        assertEquals(0, e.undo.undoDepth, "and nothing in the history")
+    }
 }

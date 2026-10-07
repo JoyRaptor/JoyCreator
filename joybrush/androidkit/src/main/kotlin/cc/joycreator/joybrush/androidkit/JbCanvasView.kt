@@ -1041,6 +1041,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var mediaMadeLayer = false
     /** GL thread: the undo depth right after the media layer was made, so only that step and the stroke's fold. */
     private var mediaLayerMark = -1
+    /** GL thread: making this stroke's media layer failed, so the stroke must not begin. */
+    private var mediaLayerFailed = false
     /** The colour of the last media stroke: the "last colour" belly mode. */
     private var lastMediaArgb: Int? = null
     /** GL thread: what the history buttons last heard, so running water reports only when the undo stack changes. */
@@ -1056,9 +1058,22 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             onRefused?.invoke("A mask is painted with paint brushes. Pencil, watercolour and oil paint on the layer itself.")
             return
         }
+        // The common refusals come BEFORE any layer is made (the Lead, 4c review): a GPU that cannot, a phone without the
+        // free memory for the window. Said in words; nothing changes.
+        mediaCanvas.unsupported?.let { drawing = false; onRefused?.invoke(it); return }
+        val wet = p.media?.let { m -> m.medium == MEDIUM_WET || (m.thinner > 0 && m.paste?.let { it.shape < 2 && !it.clean } == true) } == true
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val info = android.app.ActivityManager.MemoryInfo()
+        am.getMemoryInfo(info)
+        if (!LayerBudget.windowFits(info.availMem, info.threshold, wet, haveBytes = mediaCanvas.heldBytes)) {
+            drawing = false
+            onRefused?.invoke(LayerBudget.windowRefusal(wet))
+            return
+        }
         resetSnapper(fresh = true)
         strokeOnMask = false
         mediaMadeLayer = false
+        mediaLayerFailed = false
         if (activeLayerKind() != LayerKind.MEDIA) {
             // Contract point 5: a media brush on a paint or ink layer makes a media layer above it, in the same undo step.
             if (!roomForAnother(LayerKind.MEDIA)) { drawing = false; return }
@@ -1077,8 +1092,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     mediaLayerMark = engine.undo.undoDepth
                     reportHistory()
                 } catch (e: Exception) {
+                    // Nothing was made, so nothing may look made: the stack goes back and the stroke stops (Lead, 4c review).
                     mediaLayerMark = -1
-                    post { onRefused?.invoke(e.message ?: "A pencil, watercolour or oil layer could not be made") }
+                    mediaLayerFailed = true
+                    post {
+                        if (stackUi === after) adopt(before)
+                        if (mediaStroke) { drawing = false; mediaStroke = false; mediaBegun = false; mediaMadeLayer = false; strokePreset = null }
+                        onRefused?.invoke(e.message ?: "A pencil, watercolour or oil layer could not be made")
+                    }
                 }
             }
         }
@@ -1114,7 +1135,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             lastMediaArgb = argb
             onGl {
-                mediaCanvas.begin(target, p, argb, belly, first.x, first.y, now)?.let { why -> post { onRefused?.invoke(why) } }
+                // The layer this stroke made could not be made: nothing to paint on (the refusal is already said).
+                if (!mediaLayerFailed) mediaCanvas.begin(target, p, argb, belly, first.x, first.y, now)?.let { why -> post { onRefused?.invoke(why) } }
             }
         }
         onGl { mediaCanvas.add(out) }

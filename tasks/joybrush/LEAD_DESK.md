@@ -946,3 +946,12 @@ is the diff that makes pencil, watercolour and oil paint on the phone. It is not
 - Still owed: the quick canvas-bar taps, the "manual" belly colour picker, and the Phone-tilt switch with the gravity
   sensor (M5.6).
 
+**4c fix (Lead review of 605eed5c).**
+- `startMediaStroke` refuses BEFORE `adopt`, so the common failures never make a layer: no float support
+  (`MediaCanvas.unsupported`, now readable) and `windowFits` with what the window already holds
+  (`MediaCanvas.heldBytes`); `roomForAnother` was already first.
+- If `addMediaLayerStep` still throws on the GL thread, it posts back `adopt(before)`, ends the stroke, and says why. A
+  GL flag stops `mediaCanvas.begin` for that stroke.
+- GlMediaStoresTest: a media layer that cannot be made leaves the engine's stack and history unchanged.
+- androidkit 299, 0 failed.
+

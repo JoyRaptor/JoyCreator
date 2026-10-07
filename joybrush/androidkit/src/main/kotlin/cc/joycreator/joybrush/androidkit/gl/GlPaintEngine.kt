@@ -1049,7 +1049,7 @@ class GlPaintEngine(
     fun setBoardDocument(doc: JbDocument) {
         check(!strokeInProgress) { "A board cannot change during a stroke" }
         val errors=DocOps.validate(doc); require(errors.isEmpty()) { errors.joinToString("; ") }
-        require(doc.layers.all { it.kind==LayerKind.PAINT && it.animatedIn==null }) { "This renderer paints raster layers" }
+        require(doc.layers.all { it.kind.hasPixels && it.animatedIn==null }) { "This renderer paints raster layers" }
         val previews = framePreviews.filter { (boardId, frameId) ->
             doc.boards.any { it.id == boardId && it.kind == BoardKind.ANIMATION && it.frames.any { f -> f.id == frameId } }
         }
@@ -1093,7 +1093,7 @@ class GlPaintEngine(
         val before=boardDocument ?: error("No board document is attached")
         val errors=DocOps.validate(change.doc); require(errors.isEmpty()){errors.joinToString("; ")}
         require(change.doc.layers.map{it.id}==before.layers.map{it.id}) { "Board edits cannot replace the layer stack" }
-        require(change.doc.layers.all { it.kind == LayerKind.PAINT && it.animatedIn == null }) {
+        require(change.doc.layers.all { it.kind.hasPixels && it.animatedIn == null }) {
             "This renderer paints raster layers"
         }
         val translated = change.transfers.isNotEmpty() || change.maskTransfers.isNotEmpty() ||

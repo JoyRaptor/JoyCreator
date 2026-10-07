@@ -846,3 +846,33 @@ For the acting Lead or the Lead: please review `review/media-window`. It is one 
 - The app-side checks (ActivityManager, history after a flush) are step-4 check 7.
 - Evidence: core 1698 and androidkit 294, 0 failed. Landed after this.
 
+### Media engine port — review request, step 4a: gates, save/open, budget (2026-10-07, Claude media lane)
+
+For the acting Lead or the Lead: please review `review/media-gates`. It is one commit on joy-creator d830c768. It
+changes no painting; it makes sure a media layer is never refused, hidden or dropped.
+- **Your M5.3a gate list → `hasPixels`.**
+  - The JbCanvasView open refusal. It also refuses, in words, a media layer on animation frames (contract point 3).
+  - LayerColumnView, CanvasPng, CanvasSnapshot (`metadataOf`/`requireCanvas`), BoardSnapshot, GlPaintEngine
+    `setBoardDocument`/`applyBoardChange`, and OraExport.
+- **Save.**
+  - `BoardSnapshot.capture(mediaKeys, mediaRead)` lists a media cel's `floatTiles` and carries `mediaTiles`. Blank
+    state is left out, as blank paint is. A media layer on frames is refused in words.
+  - `CanvasSnapshot.merge` maps media tiles to the saved cel ids; `metadataOf` keeps no second copy.
+  - The older non-board save path refuses outright if any layer has media state, so it never silently drops one.
+- **Open.** `load()` writes `contents.mediaTiles` back into the stores via `writeMediaTile`.
+- **BrushRules.** `refusalFor(engine, kind, erases)`:
+  - on MEDIA, every non-media engine is refused in words (stamp, tuft, fill, smudge, push, wet), but an eraser is let
+    through for 4c to route to the media erase;
+  - a media brush is never refused (contract point 5).
+  - PushTest's "stamp and fill work on every kind" now excludes MEDIA, on purpose. `refusalFor` has no caller in the
+    app yet; 4c calls it in startStroke.
+  - replaceTiles (your item 5) also has no caller in the app today, so the fill brush is covered by BrushRules.
+- **Budget (check 6).**
+  - `JbCanvasView.slotsUsed` and `roomForAnother(kind)` count a media layer as 7, and a duplicated media layer costs 7.
+    The refusal says why in words.
+  - The column draws `used/max`.
+  - The activity sets `canvas.mediaBudgetBytes` from `LayerBudget.mediaBudgetBytes(totalMem)`.
+- **Tests.** MediaSaveTest covers capture with blank state left out, a file round trip that reopens wet, and the
+  merge keeping saved cel ids. MediaLayerDocTest covers the media rule in BrushRules.
+- Evidence: core 1699 and androidkit 297, 0 failed; joybrush-android compiles.
+

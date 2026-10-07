@@ -1018,3 +1018,8 @@ before touching the physics.
 **Also:** lighting under paint must read the same field the paint was filled against, including the soft-shadow
 march (thickness alone shadows a filled weave). A guarded `setPointerCapture` belongs in every pen handler: when it
 throws, the whole stroke is lost, and that looked to the owner like "the pen does nothing".
+
+## Scripted edits: build the text, THEN open the file for writing (2026-10-07, media lane)
+- A Python patch did `open(p,'w').write(s.replace(a, b),)`. The trailing comma made a tuple, so `write` threw AFTER `open(p,'w')` had already truncated the file. BrushRules.kt was left empty, and the next patch's anchor assert failed on the empty file.
+- Rule: compute the whole new text first and assert every anchor. Only then write it with `with open(p, 'w') as f: f.write(out)`. If anything throws before that line, the file is untouched.
+- If a file reads back empty after a failed script, `git checkout -- <file>` and reapply. Never patch on top of a truncation.

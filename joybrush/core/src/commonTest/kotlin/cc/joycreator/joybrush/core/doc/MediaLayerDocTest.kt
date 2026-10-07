@@ -1,7 +1,10 @@
 package cc.joycreator.joybrush.core.doc
 
 import cc.joycreator.joybrush.core.brush.BrushRules
+import cc.joycreator.joybrush.core.brush.ENGINE_FILL
+import cc.joycreator.joybrush.core.brush.ENGINE_MEDIA
 import cc.joycreator.joybrush.core.brush.ENGINE_PUSH
+import cc.joycreator.joybrush.core.brush.ENGINE_TUFT
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -70,5 +73,16 @@ class MediaLayerDocTest {
             val why = assertNotNull(BrushRules.refusalFor(engine, LayerKind.MEDIA))
             assertTrue("works on a paint layer" in why, why)
         }
+    }
+
+    @Test fun onAMediaLayerOnlyMediaBrushesPaintAndTheEraserIsLetThrough() {
+        for (engine in listOf("stamp", ENGINE_FILL, ENGINE_TUFT, ENGINE_SMUDGE)) {
+            val why = assertNotNull(BrushRules.refusalFor(engine, LayerKind.MEDIA), engine)
+            assertTrue("works on a paint layer" in why, why)
+        }
+        assertEquals(null, BrushRules.refusalFor("stamp", LayerKind.MEDIA, erases = true), "the eraser goes to the media engine")
+        assertEquals(null, BrushRules.refusalFor(ENGINE_MEDIA, LayerKind.MEDIA))
+        assertEquals(null, BrushRules.refusalFor(ENGINE_MEDIA, LayerKind.PAINT), "a media brush on paint makes a media layer above")
+        assertEquals(null, BrushRules.refusalFor(ENGINE_MEDIA, LayerKind.INK))
     }
 }

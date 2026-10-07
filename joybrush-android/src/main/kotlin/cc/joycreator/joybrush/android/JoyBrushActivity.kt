@@ -1106,7 +1106,7 @@ class JoyBrushActivity : Activity() {
         canvas.maxLayers = budget()
         updateLayerPreviewAspect(boardController?.selectedBounds)
         updateAnimationLayerMarkers()
-        column.show(stack, canvas.maxLayers, canvas.editingMask)
+        column.show(stack, canvas.maxLayers, canvas.editingMask, canvas.slotsUsed)
         refreshThumbs()
     }
 
@@ -1125,6 +1125,7 @@ class JoyBrushActivity : Activity() {
         val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         val info = android.app.ActivityManager.MemoryInfo()
         am.getMemoryInfo(info)
+        canvas.mediaBudgetBytes = LayerBudget.mediaBudgetBytes(info.totalMem)
         return LayerBudget.maxLayers(info.totalMem, canvas.pageWidth, canvas.pageHeight)
     }
 

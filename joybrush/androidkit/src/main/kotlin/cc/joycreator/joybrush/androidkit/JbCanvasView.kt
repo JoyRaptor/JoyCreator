@@ -43,6 +43,8 @@ import cc.joycreator.joybrush.core.doc.BoardKind
 import cc.joycreator.joybrush.core.doc.Cel
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.LayerKind
+import cc.joycreator.joybrush.core.doc.hasPixels
+import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.guide.Guide
 import cc.joycreator.joybrush.core.guide.GuideSnapper
@@ -398,7 +400,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     fun duplicateLayer(id: String): Boolean {
-        if (drawing || !roomForAnother()) return false
+        if (drawing || !roomForAnother(boardDocument?.layers?.firstOrNull { it.id == id }?.kind ?: LayerKind.PAINT)) return false
         val before = stackUi
         val newId = before.freshId()
         val after = before.duplicate(id, newId) ?: return false
@@ -573,9 +575,26 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
-    private fun roomForAnother(): Boolean {
-        if (stackUi.size < maxLayers) return true
-        onRefused?.invoke("This phone has room for $maxLayers layers, and this drawing has ${stackUi.size}.")
+    /** Each layer's kind, in stack order; a layer the document has not seen yet is paint, as new layers are. */
+    private fun layerKinds(): List<LayerKind> {
+        val kinds = boardDocument?.layers?.associate { it.id to it.kind }.orEmpty()
+        return stackUi.layers.map { kinds[it.id] ?: LayerKind.PAINT }
+    }
+
+    /** The column's n of n/max: every layer at its real cost, a media layer as [LayerBudget.MEDIA_SLOTS] (step-4 check 6). */
+    val slotsUsed: Int get() = LayerBudget.slotsUsed(layerKinds())
+
+    /** The ceiling on resident pencil, watercolour and oil state, from the phone's memory ([LayerBudget.mediaBudgetBytes]). */
+    var mediaBudgetBytes: Long = Long.MAX_VALUE
+        set(v) { field = v; onGl { engine.mediaBudgetBytes = v } }
+
+    private fun roomForAnother(kind: LayerKind = LayerKind.PAINT): Boolean {
+        val kinds = layerKinds()
+        if (LayerBudget.roomFor(kind, kinds, maxLayers)) return true
+        onRefused?.invoke(if (LayerKind.MEDIA in kinds || kind == LayerKind.MEDIA)
+            "This phone has room for $maxLayers layers, and this drawing uses ${LayerBudget.slotsUsed(kinds)}: " +
+                "a pencil, watercolour or oil layer counts as ${LayerBudget.MEDIA_SLOTS}."
+        else "This phone has room for $maxLayers layers, and this drawing has ${stackUi.size}.")
         return false
     }
 
@@ -1349,6 +1368,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 if(address.first.endsWith(MASK_SUFFIX))engine.writeTile(address.first,address.third,rgba)
                 else engine.writeCelTile(address.first,address.second,address.third,rgba)
             }
+            // A media layer's state (DocModel v8): its stores, beside the look its tiles already put back.
+            for ((k, bytes) in contents.mediaTiles) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), bytes)
             retainedContents = CanvasSnapshot.metadataOf(contents)
             contentLost = false
             paper = resolved
@@ -1380,8 +1401,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             if (layer.id.endsWith(MASK_SUFFIX)) {
                 return "layer \"${layer.name}\" uses a reserved mask identifier; this screen cannot open it safely"
             }
-            if (layer.kind != LayerKind.PAINT) {
+            if (!layer.kind.hasPixels) {
                 return "layer \"${layer.name}\" is ${layer.kind}, and this screen only paints pixels"
+            }
+            if (layer.kind == LayerKind.MEDIA && (layer.regions.isNotEmpty() || layer.cels.size != 1)) {
+                return "layer \"${layer.name}\" is a pencil, watercolour or oil layer on animation frames, which this screen cannot show yet"
             }
             if(layer.animatedIn!=null)return "Whole-layer animation is an obsolete test format"
             if(layer.regions.isEmpty() && layer.cels.size!=1)return "A layer has no shared paint address"
@@ -1423,6 +1447,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             val current=syncBoardLayers(doc)
             engine.setBoardDocument(current)
             return BoardSnapshot.capture(current,
+                mediaKeys={layer->MediaStores.ALL.associateWith{engine.mediaTileKeys(layer,it)}},
+                mediaRead={layer,store,key->engine.readMediaTile(layer,store,key)},
                 keys={layer,cel->
                     val mask=current.layers.first{it.id==layer}.mask
                     if(mask?.id==cel)engine.tileKeys(maskStoreId(layer)) else engine.celTileKeys(layer,cel)
@@ -1434,6 +1460,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // Read back, not guessed at: the tiles are the drawing, so the archive carries exactly the
         // bytes the engine is holding and nothing has to be rebuilt from stroke records to save.
         val stack = engine.stack(activeLayer)
+        // This older path writes paint layers only: a media layer's state must never be dropped by a save.
+        stack.layers.firstOrNull { engine.hasMediaState(it.id) }?.let {
+            throw JbArchiveException("\"${it.name}\" is a pencil, watercolour or oil layer, and this save path cannot keep it; your previous save is kept")
+        }
         val tiles = LinkedHashMap<Triple<String, String, String>, ByteArray>()
         val listed = HashMap<String, List<String>>()
         val maskListed = HashMap<String, List<String>>()

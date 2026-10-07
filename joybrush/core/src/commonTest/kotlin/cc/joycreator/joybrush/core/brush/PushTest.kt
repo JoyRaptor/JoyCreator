@@ -77,6 +77,10 @@ class PushTest {
         assertEquals("Push reads the paint under it, and an ink layer has none.", BrushRules.refusalFor(ENGINE_PUSH, LayerKind.INK))
         assertEquals("Wet paint reads the paint under it, and an ink layer has none.", BrushRules.refusalFor("wet", LayerKind.INK))
         for (engine in listOf(ENGINE_SMUDGE, ENGINE_PUSH, "wet")) assertNull(BrushRules.refusalFor(engine, LayerKind.PAINT))
-        for (engine in listOf("stamp", ENGINE_FILL)) for (kind in LayerKind.entries) assertNull(BrushRules.refusalFor(engine, kind), "$engine on $kind")
+        // Stamp and fill write and read nothing, so they work on paint and ink. A media layer is the exception (the Lead,
+        // step-4 check 1): its look is rendered from its state, so only media brushes and the eraser paint there.
+        for (engine in listOf("stamp", ENGINE_FILL)) for (kind in LayerKind.entries.filter { it != LayerKind.MEDIA }) {
+            assertNull(BrushRules.refusalFor(engine, kind), "$engine on $kind")
+        }
     }
 }

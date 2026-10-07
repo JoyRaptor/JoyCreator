@@ -345,7 +345,7 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
     per-tile, like the existing `UndoLog`.
   - Save format: float tiles, in a new archive entry type, with a document version bump.
   - Export composites the media layer through `jb_media_render.frag` (lit or flat).
-- **M5.3a Pixel gates (Lead review of step 1). MUST land before step 4 lets anyone save a media layer.** These
+- **M5.3a Pixel gates (Lead review of step 1). Built in 4a (`review/media-gates`). MUST land before step 4 lets anyone save a media layer.** These
   still read "paint" as "has pixels", and each would refuse, hide or drop a media layer. Switch each to `hasPixels`
   or handle MEDIA explicitly, with a test per gate where one exists:
   - JbCanvasView.kt ~1383, the open-file refusal (a saved media drawing would refuse to open);

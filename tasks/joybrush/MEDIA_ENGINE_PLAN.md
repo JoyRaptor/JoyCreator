@@ -340,11 +340,23 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
     per mm, replay determinism).
 - **M5.2 Input (T1 review).** `SplineFeeder` sits in front of every engine in `JbCanvasView`, fed by
   `MotionEvent.getHistorical*`. Prove it with a sparse-sample test (`flick` sheet: straight-joined vs spline).
-- **M5.3 Media layer kind (T1, Lead).**
+- **M5.3 Media layer kind (T1, Lead). Doc half ✅ f996af77 + 90d8b12d (step 1).**
   - A layer gains `kind = media`, stored as tiles of p0/p1/paper (+ w0/w1 while wet) in RGBA32F. Undo snapshots stay
     per-tile, like the existing `UndoLog`.
   - Save format: float tiles, in a new archive entry type, with a document version bump.
   - Export composites the media layer through `jb_media_render.frag` (lit or flat).
+- **M5.3a Pixel gates (Lead review of step 1). MUST land before step 4 lets anyone save a media layer.** These
+  still read "paint" as "has pixels", and each would refuse, hide or drop a media layer. Switch each to `hasPixels`
+  or handle MEDIA explicitly, with a test per gate where one exists:
+  - JbCanvasView.kt ~1383, the open-file refusal (a saved media drawing would refuse to open);
+  - LayerColumnView.kt ~90 (the column would hide media layers);
+  - CanvasPng.kt ~32; CanvasSnapshot.kt ~23/88;
+  - BoardSnapshot.kt ~11; GlPaintEngine.kt ~1020/1064 (the board frames lane);
+  - OraExport.kt ~410.
+  - With step 3, the archive: JbArchive writes and reads `.f32`, and "declared tile has its file" checks cover
+    `floatTiles`, using the same pattern as `DocOps.storedCels`.
+  - A media layer may carry a mask (landed with step 1). Painting INTO a mask with a media brush stays refused, in the
+    canvas branch.
 - **M5.4 GL engine (T1).** `MediaLayerEngine` runs the passes on tiles:
   - dabs go into a tile-set delta (additive, batched);
   - one apply/update pass per frame over the dirty tiles;

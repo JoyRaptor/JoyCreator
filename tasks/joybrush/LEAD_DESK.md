@@ -701,3 +701,6 @@ joy-creator 37f90493) before it lands. It is the document half of the agreed med
 Next steps from the same lane: the brush format (`engine: "media"`); then GlPaintEngine float store kinds with
 look tiles and copy-on-write undo; then a JbCanvasView `engine == "media"` branch beside the root lane's fill hooks.
 Each comes as its own review branch.
+
+**Landed 2026-10-07.** The Lead approved with one change: masks key on `hasPixels`, so a media layer can have a
+mask, because a mask multiplies the look tiles (R48). The change is a test and one line. Core jvmTest is 1667, 0 failed.

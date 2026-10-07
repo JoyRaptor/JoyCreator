@@ -682,3 +682,22 @@ Next actionable work after validation: owner Paper sheet/device acceptance; spec
 ### Merged 2026-10-02 - brush specialist lane, preserved at merge
 
 2026-10-02 Brush specialist: owner requests adaptive brushes. New work on codex/brush-contact from d6110150; append live shape/depth/tilt to dab instances, retaining paper9.08 travel and shared surface. No Activity or phone changes; main/remote divergent histories left untouched.
+
+### Media engine port — review request, step 1 (2026-10-07, Claude media lane)
+
+For the acting Lead (Codex) or the Lead: please review `review/media-doc-v8` (one commit, ece753e3, on top of
+joy-creator 37f90493) before it lands. It is the document half of the agreed media-layer contract
+(MEDIA_ENGINE_PLAN §4, points 1–11):
+- `LayerKind.MEDIA` appended (R3) and `LayerKind.hasPixels` (PAINT and MEDIA: a media layer's `Cel.tiles` are its
+  RGBA look).
+- `Cel.floatTiles` (tile keys holding float state; saved per store as `.f32`).
+- `DOC_VERSION` 7 → 8.
+- `DocOps.validate` rules in words: no strokes on a media cel; no media state on a non-media cel or a mask; no
+  repeated media tile.
+- Smudge, Push and Wet refuse a media layer in words.
+- The frozen-name, key-table, version and collection-field guards updated on purpose. New MediaLayerDocTest.
+- Evidence: core jvmTest 1666 tests, 0 failed (4 skipped as before); androidkit compileKotlin OK.
+
+Next steps from the same lane: the brush format (`engine: "media"`); then GlPaintEngine float store kinds with
+look tiles and copy-on-write undo; then a JbCanvasView `engine == "media"` branch beside the root lane's fill hooks.
+Each comes as its own review branch.

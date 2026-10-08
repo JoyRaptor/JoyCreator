@@ -109,6 +109,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     private var quadBuf = 0; private var quadVao = 0; private var dabBuf = 0; private var dabVao = 0; private var emptyVao = 0
     private var readFbo = 0; private var drawFbo = 0
 
+    // Reusable GL-thread-only direct upload buffer for the per-frame dab batches (dry/erase/wet).
+    private val uploadBuffer = FloatUploadBuffer()
+
     /** Where water is being simulated (layer px), null = everything dry. */
     var wetRect: FloatArray? = null; private set
     private var paintRect: FloatArray? = null
@@ -210,6 +213,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         bead = IntArray(0); beadFbo = IntArray(0); fluxFbo = IntArray(0); updFbo = IntArray(0); wetCopyFbo = IntArray(0)
         pFbo0 = 0; pFbo1 = 0
         wetRect = null; paintRect = null; wetSince = null; stores.clear(); dirtySinceLook = null; strokeRect = null
+        uploadBuffer.reset()
         asleep = true
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
     }
@@ -418,7 +422,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         )))
         mediaTrace("JB.media.dry.upload") {
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
-            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, MediaTex.floats(batch.dabs), GLES30.GL_STREAM_DRAW)
+            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, uploadBuffer.upload(batch.dabs), GLES30.GL_STREAM_DRAW)
         }
         mediaTrace("JB.media.dry.delta") {
             GLES30.glBindVertexArray(dabVao)
@@ -562,7 +566,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         GLES30.glBlendEquation(GLES30.GL_MAX)   // overlapping dabs never take away more than one does
         progEraseDab.use(common(mapOf("u_targetSize" to floatArrayOf(w.toFloat(), h.toFloat()))))
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
-        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, MediaTex.floats(batch.dabs), GLES30.GL_STREAM_DRAW)
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, uploadBuffer.upload(batch.dabs), GLES30.GL_STREAM_DRAW)
         GLES30.glBindVertexArray(dabVao)
         GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, batch.count)
         GLES30.glBlendEquation(GLES30.GL_FUNC_ADD)
@@ -619,7 +623,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             progWetDab.use(common(mapOf("u_w0" to Tex(ws[wc].w0), "u_paperBake" to Tex(bakeTex),
                 "u_targetSize" to floatArrayOf(w.toFloat(), h.toFloat()), "u_pxPerMm" to pxPerMm, "u_fullMm" to wc0.fullMm)))
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
-            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, MediaTex.floats(batch.dabs), GLES30.GL_STREAM_DRAW)
+            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, uploadBuffer.upload(batch.dabs), GLES30.GL_STREAM_DRAW)
             GLES30.glBindVertexArray(dabVao)
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, batch.count)
             GLES30.glDisable(GLES30.GL_BLEND)
@@ -780,6 +784,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
         GLES30.glDeleteBuffers(2, intArrayOf(quadBuf, dabBuf), 0)
         GLES30.glDeleteVertexArrays(3, intArrayOf(quadVao, dabVao, emptyVao), 0)
+        uploadBuffer.reset()
     }
 
     private companion object {

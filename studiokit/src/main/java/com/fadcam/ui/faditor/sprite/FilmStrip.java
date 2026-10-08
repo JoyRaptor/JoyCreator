@@ -26,6 +26,36 @@ public class FilmStrip extends LinearLayout {
         for (RectF hole : holes) canvas.drawRoundRect(hole, holeRadiusPx, holeRadiusPx, ink);
         ink.setStyle(before);
     }
+    /** Host geometry mode preserves a canvas overlay's pixel-exact frame layout. */
+    public interface Overlay {
+        RectF bounds(View child);
+        void drawStock(Canvas canvas);
+        default void drawAfterFrames(Canvas canvas) {}
+        default void drawDrop(Canvas canvas, int index) {}
+    }
+    private Overlay overlay;
+    public void setOverlay(Overlay value) {
+        overlay = value;
+        frames.overlay = value;
+        setWillNotDraw(value == null);
+        setClipChildren(value == null);
+        frames.setClipChildren(value == null);
+        requestLayout(); invalidate();
+    }
+    @Override protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        if (overlay != null) overlay.drawStock(canvas);
+    }
+    @Override protected void onMeasure(int w, int h) {
+        if (overlay == null) { super.onMeasure(w, h); return; }
+        setMeasuredDimension(MeasureSpec.getSize(w), MeasureSpec.getSize(h));
+        frames.measure(MeasureSpec.makeMeasureSpec(getMeasuredWidth(), MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(getMeasuredHeight(), MeasureSpec.EXACTLY));
+    }
+    @Override protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        if (overlay == null) { super.onLayout(changed, l, t, r, b); return; }
+        frames.layout(0, 0, r - l, b - t);
+    }
     private final DropRow frames;
     public FilmStrip(Context c) {
         this(c, Style.SOLID);
@@ -57,6 +87,27 @@ public class FilmStrip extends LinearLayout {
         private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final float d;
         private int dropAt = -1;
+        private Overlay overlay;
+        /** A board can match its adaptive ink; SpriteLab keeps Studio.LIVE by default. */
+        public void setDropColor(int color) { line.setColor(color); invalidate(); }
+        @Override protected void onMeasure(int w, int h) {
+            if (overlay == null) { super.onMeasure(w, h); return; }
+            setMeasuredDimension(MeasureSpec.getSize(w), MeasureSpec.getSize(h));
+            for (int i = 0; i < getChildCount(); i++) {
+                View child = getChildAt(i);
+                RectF rect = overlay.bounds(child);
+                child.measure(MeasureSpec.makeMeasureSpec(Math.max(0, Math.round(rect.width())), MeasureSpec.EXACTLY),
+                        MeasureSpec.makeMeasureSpec(Math.max(0, Math.round(rect.height())), MeasureSpec.EXACTLY));
+            }
+        }
+        @Override protected void onLayout(boolean changed, int l, int t, int r, int b) {
+            if (overlay == null) { super.onLayout(changed, l, t, r, b); return; }
+            for (int i = 0; i < getChildCount(); i++) {
+                View child = getChildAt(i);
+                RectF rect = overlay.bounds(child);
+                child.layout(Math.round(rect.left), Math.round(rect.top), Math.round(rect.right), Math.round(rect.bottom));
+            }
+        }
 
         DropRow(Context c) {
             super(c);
@@ -73,7 +124,9 @@ public class FilmStrip extends LinearLayout {
 
         @Override protected void dispatchDraw(Canvas canvas) {
             super.dispatchDraw(canvas);
+            if (overlay != null) overlay.drawAfterFrames(canvas);
             if (dropAt < 0) return;
+            if (overlay != null) { overlay.drawDrop(canvas, dropAt); return; }
             float x;
             if (dropAt >= getChildCount()) {
                 View last = getChildCount() == 0 ? null : getChildAt(getChildCount() - 1);

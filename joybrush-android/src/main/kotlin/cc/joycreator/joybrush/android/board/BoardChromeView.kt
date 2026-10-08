@@ -24,6 +24,7 @@ import cc.joycreator.joybrush.core.doc.BoardKind
 import com.fadcam.ui.type.Type
 import com.fadcam.ui.faditor.sprite.RollDragController
 import com.fadcam.ui.faditor.sprite.FilmStrip
+import com.fadcam.ui.faditor.sprite.WeightedScrubBar
 import kotlin.math.roundToInt
 
 /**
@@ -106,6 +107,29 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
     private var roll: RollDragController? = null
     private var rollDensity = 0f
     private fun cell(index: Int) = layout.elements.first { it.id == "cell-$index" }.rect
+    /** Real shared stock/row and weighted renderer, in board-screen coordinates. */
+    private var frameElements: Map<Int, List<Chrome.Element>> = emptyMap()
+    private var stockElements: List<Chrome.Element> = emptyList()
+    private var dropElements: List<Chrome.Element> = emptyList()
+    private var frameBounds: Map<String, Chrome.Rect> = emptyMap()
+    private val sharedStrip = FilmStrip(context, FilmStrip.Style.OUTLINE)
+    private val sharedScrub = WeightedScrubBar(context, object : WeightedScrubBar.Model {
+        override fun size() = if (input?.kind == BoardKind.ANIMATION) input?.holds?.size ?: 0 else 0
+        override fun holdAt(index: Int) = input?.holds?.getOrNull(index) ?: 1
+        override fun currentIndex() = (input?.currentFrame ?: 1) - 1
+        override fun onScrub(index: Int, finished: Boolean) {
+            val identity = sceneIdentity ?: return
+            identity.frameIds.getOrNull(index)?.let { host.stripScrub(identity.boardId, it) }
+        }
+    }, 0xfff43f8e.toInt(), 0xfff2f2f5.toInt())
+    private fun usesSharedStrip() = input?.kind == BoardKind.ANIMATION
+    private fun stripFrameElement(id: String) = id.startsWith("cell-") || id.startsWith("hold-")
+    private fun stripStockElement(id: String) = id.startsWith("sprocket-") || id == "ruler-line"
+    private fun drawElement(canvas: Canvas, e: Chrome.Element) {
+        if (e.colour == Chrome.Colour.GLASS && e.shadowPx > 0) drawFrost(canvas, e)
+        if (e.shadowPx > 0 || e.haloPx > 0 && e.colour == Chrome.Colour.PAPER) drawShadowPatch(canvas, e)
+        else draw(canvas, e)
+    }
     private val resolvedExport: Drawable? by lazy {
         val id = context.resources.getIdentifier("ic_export_studio", "drawable", context.packageName)
         if (id == 0) null else context.getDrawable(id)?.mutate()
@@ -115,6 +139,29 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         setWillNotDraw(false)
         clipChildren = false
         clipToPadding = false
+        sharedStrip.setOverlay(object : FilmStrip.Overlay {
+            override fun bounds(child: View): RectF {
+                if (child === sharedScrub) return RectF(0f, 0f, width.toFloat(), height.toFloat())
+                val id = (child as? Target)?.targetId
+                val r = frameBounds[id]
+                return if (r == null) RectF() else RectF(r.left, r.top, r.right, r.bottom)
+            }
+            override fun drawStock(canvas: Canvas) {
+                stockElements.forEach { drawElement(canvas, it) }
+            }
+            override fun drawAfterFrames(canvas: Canvas) {
+                layout.elements.filter { it.id == "add-cell" || it.id == "add" }.forEach { drawElement(canvas, it) }
+            }
+            override fun drawDrop(canvas: Canvas, index: Int) {
+                dropElements.forEach { drawElement(canvas, it) }
+            }
+        })
+        sharedScrub.setPresentation { canvas, index, _ ->
+            frameElements[index]?.forEach { drawElement(canvas, it) }
+        }
+        sharedStrip.frames().addView(sharedScrub)
+        sharedStrip.visibility = View.GONE
+        addView(sharedStrip)
         // Only bounded shadow patches use software Canvas. The transparent scene keeps the
         // normal hardware pipeline, including on API 28 where non-text shadows need software.
     }
@@ -164,16 +211,31 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
     }
 
     private fun applyLayout(value: Chrome.Layout) {
-        if (layout == value) return
+        if (layout == value && (sharedStrip.visibility == View.VISIBLE) == usesSharedStrip()) return
         val controlsChanged = layout.controls != value.controls
         if (!capture.retain(value)) stopInteractions()
         layout = value
+        frameBounds = value.controls.associate { it.id to it.hit }
+        sharedStrip.visibility = if (usesSharedStrip()) View.VISIBLE else View.GONE
+        frameElements = if (usesSharedStrip()) value.elements.filter { stripFrameElement(it.id) }
+            .groupBy { it.id.substringAfterLast('-').toInt() } else emptyMap()
+        stockElements = if (usesSharedStrip()) value.elements.filter { stripStockElement(it.id) } else emptyList()
+        dropElements = if (usesSharedStrip()) value.elements.filter { it.id == "insertion" } else emptyList()
         val ids = value.controls.map { it.id }.toSet()
         targets.keys.filter { it !in ids && targets[it] !== activeTarget }.toList().forEach {
-            removeView(targets.remove(it))
+            targets.remove(it)?.let { target -> (target.parent as? ViewGroup)?.removeView(target) }
         }
         value.controls.forEach { control ->
-            val target = targets.getOrPut(control.id) { Target(control.id).also { addView(it) } }
+            val target = targets.getOrPut(control.id) { Target(control.id) }
+            val parent: ViewGroup = if (usesSharedStrip() && control.id.startsWith("cell-")) sharedStrip.frames() else this
+            if (target.parent !== parent) {
+                (target.parent as? ViewGroup)?.removeView(target)
+                // Keep direct controls in their original order; shared stock follows them.
+                // The kind button remains the first direct control after adding shared stock.
+                if (parent === this) parent.addView(target, indexOfChild(sharedStrip).coerceAtLeast(0))
+                else parent.addView(target)
+                requestLayout()
+            }
             target.isEnabled = control.enabled
             if (target.contentDescription != control.tooltip) target.contentDescription = control.tooltip
             // Compat tooltips take the long-click listener on API 24–25. Native hover tooltips
@@ -184,27 +246,32 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
                 control.hit.right.roundToInt(), control.hit.bottom.roundToInt())
         }
         if (controlsChanged) requestLayout()
+        sharedStrip.frames().setDropAt(if (usesSharedStrip()) input?.insertionIndex ?: -1 else -1)
+        sharedStrip.frames().setDropColor(colour(Chrome.Colour.CYAN))
+        sharedStrip.invalidate()
+        sharedScrub.invalidate()
         invalidate()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
+        sharedStrip.measure(MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY))
         layout.controls.forEach { c -> targets[c.id]?.measure(
             MeasureSpec.makeMeasureSpec(c.hit.width.roundToInt(), MeasureSpec.EXACTLY),
             MeasureSpec.makeMeasureSpec(c.hit.height.roundToInt(), MeasureSpec.EXACTLY)) }
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        sharedStrip.layout(0, 0, right - left, bottom - top)
         layout.controls.forEach { c -> targets[c.id]?.layout(c.hit.left.roundToInt(), c.hit.top.roundToInt(),
             c.hit.right.roundToInt(), c.hit.bottom.roundToInt()) }
     }
 
     override fun onDraw(canvas: Canvas) {
-        layout.elements.forEach { e ->
-            if(e.colour == Chrome.Colour.GLASS && e.shadowPx > 0) drawFrost(canvas,e)
-            if (e.shadowPx > 0 || e.haloPx > 0 && e.colour == Chrome.Colour.PAPER) drawShadowPatch(canvas, e)
-            else draw(canvas, e)
-        }
+        layout.elements.filterNot { usesSharedStrip() && (stripFrameElement(it.id) || stripStockElement(it.id) ||
+                it.id == "add-cell" || it.id == "add" || it.id == "insertion") }
+            .forEach { drawElement(canvas, it) }
     }
 
     private fun drawShadowPatch(canvas: Canvas, e: Chrome.Element) {
@@ -492,6 +559,7 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
     override fun onDetachedFromWindow() { stopInteractions(); shadows.evictAll(); super.onDetachedFromWindow() }
 
     private inner class Target(private val id: String) : View(context) {
+        val targetId: String get() = id
         fun deliverHover(event: MotionEvent): Boolean = dispatchHoverEvent(event)
         var hoverLabel: String = ""
         private var from = Chrome.Point(0f, 0f)
@@ -503,6 +571,9 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         private var stripIdentity: BoardChromeIdentity? = null
         private var stripGeometry: CoreFilmStrip? = null
         private var stripOrigin = 0f
+        private var gestureScrub: WeightedScrubBar? = null
+        private fun weightedFrameAt(geometry: CoreFilmStrip, x: Float): Int =
+            requireNotNull(gestureScrub).frameAt(x, stripOrigin, geometry.tickPx)
         private var stripEdge = -1
         private var lastScrub: String? = null
         val isHolding: Boolean get() = stripIdentity != null && stripEdge >= 0
@@ -518,13 +589,22 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
             // Exactly the layout's unfurled cell origin, including its 8 dp inset and current scroll.
             stripOrigin = state.board.left + 8f * state.density - state.stripScrollPx
             stripEdge = stripGeometry!!.edgeAt(point.x - stripOrigin)
+            val frozen = requireNotNull(stripGeometry)
+            gestureScrub = WeightedScrubBar(context, object : WeightedScrubBar.Model {
+                override fun size() = frozen.board.frames.size
+                override fun holdAt(index: Int) = frozen.board.frames[index].holdFrames
+                override fun currentIndex() = 0
+                override fun onScrub(index: Int, finished: Boolean) {}
+            }, Color.TRANSPARENT, Color.TRANSPARENT)
             lastScrub = null
         }
 
         private fun scrub(point: Chrome.Point) {
             val identity = stripIdentity ?: return
             val geometry = stripGeometry ?: return
-            val frameId = identity.frameIds[geometry.frameAt(point.x - stripOrigin)]
+            // Frozen holds drive the shared widget's weighting; current UI previews must not move this gesture.
+            val index = weightedFrameAt(geometry, point.x)
+            val frameId = identity.frameIds[index]
             if (frameId != lastScrub) {
                 lastScrub = frameId
                 host.stripScrub(identity.boardId, frameId)
@@ -541,7 +621,7 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
             host.stripHold(identity.boardId, frame.id, frame.holdFrames, point.x - from.x, geometry.density, finished)
         }
 
-        private fun clearStrip() { stripIdentity = null; stripGeometry = null; stripEdge = -1; lastScrub = null }
+        private fun clearStrip() { stripIdentity = null; stripGeometry = null; stripEdge = -1; lastScrub = null; gestureScrub = null }
 
         private fun cancelStrip() {
             val identity = stripIdentity

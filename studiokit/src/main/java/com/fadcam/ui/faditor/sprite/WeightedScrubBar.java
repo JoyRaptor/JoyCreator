@@ -14,6 +14,23 @@ public final class WeightedScrubBar extends View {
         int currentIndex();
         void onScrub(int index, boolean finished);
     }
+    /** Optional host presentation, e.g. an unfurled film or folded ruler with the same holds. */
+    public interface Presentation {
+        void drawFrame(Canvas canvas, int index, boolean current);
+    }
+    private Presentation presentation;
+    public void setPresentation(Presentation value) { presentation = value; invalidate(); }
+    /** Unnormalised tick geometry: board strips keep their existing 44dp/tick and scroll origin. */
+    public int frameAt(float x, float origin, float pixelsPerTick) {
+        if (model.size() == 0) return -1;
+        double tick = (x - origin) / pixelsPerTick;
+        long accumulated = 0;
+        for (int i = 0; i < model.size(); i++) {
+            accumulated += Math.max(1, model.holdAt(i));
+            if (tick < accumulated) return i;
+        }
+        return model.size() - 1;
+    }
     private final Model model;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final int nowColor, offColor;
@@ -29,6 +46,10 @@ public final class WeightedScrubBar extends View {
         return total;
     }
     @Override protected void onDraw(Canvas canvas) {
+        if (presentation != null) {
+            for (int i = 0; i < model.size(); i++) presentation.drawFrame(canvas, i, i == model.currentIndex());
+            return;
+        }
         long total = total();
         if (total == 0) return;
         float x = 0;

@@ -238,7 +238,7 @@ const tolHeight = coarse => (coarse ? 4 : 2) / 255;
         // Disabled wrapper must be BIT-IDENTICAL to the direct canonical read (same shader).
         const dis = byMode(ci, pi, 1);
         for (let ch = 0; ch < 4; ch++) {
-          if (!(dis[ch] === cgot[ch])) {
+          if (!Object.is(dis[ch], cgot[ch])) {
             res.disabledMismatches++;
             res.failures.push({ case: ci, probe: pi, kind: p.kind, channel: ch, check: 'disabled-bit-identical', got: dis[ch], want: cgot[ch] });
           }

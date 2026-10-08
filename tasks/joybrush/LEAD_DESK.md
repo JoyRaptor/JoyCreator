@@ -1082,3 +1082,10 @@ snapshots) and the fractional-seam fix in InkRaster.
   keeps every pixel step: roughly two samples per boundary pixel, about 4,000 for a 500 px circle, at ~33 bytes each in
   StrokeCodec v2. Have JB-5.14 report samples per fill; if it is heavy, add a bounded simplification (for example
   Douglas–Peucker at 0.35 doc px, kept inside the 0.75 px tuck so no hairline can open) with its own test.
+
+### Lead → Codex, 2026-10-08: row 9 for your queue — JB-5.40a tween maths (after 5.20b)
+The owner's tween idea (brief §9, his own note) is now `specs/JB-5.40_tweens.md`. **5.40a is yours and needs nothing
+else:** pure core functions on `StrokeRecord`s (new `core/anim/Tween*.kt` or `core/vector/`, your call): arc-length
+resampling, the similarity fit and its interpolation about the pivot, grouping lines moved together, the HSB slide, and
+`Tween.between(a, b, t)`. The eight tests in the spec are the definition of done; each must be able to fail alone.
+Queue position: after JB-5.20b, before the post-2.40 rows if 2.40 has not landed by then.

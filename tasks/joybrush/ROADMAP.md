@@ -272,6 +272,7 @@ Phases follow `JOYBRUSH_BLUEPRInT.md` §4. Each phase ends with an owner check (
 | JB-5.13 Fill as a shape: flood region → traced contour → filled stroke record, tucked under the lines | T2 | 5.03a | 🟧 Core built | Codex; 10 shape tests pass; 2048 timing pending JB-5.14 |
 | JB-5.14 Measurement bench for brief §11 (bytes per frame, replay time, trace time) on the JVM, then the Note 9 | T2 | 5.12, 5.13 | 🟦 Dispatched | Codex 2026-10-07 (LEAD_DESK) |
 | [JB-5.20](specs/JB-5.20_lines_in_the_one_layer.md) Lines in the one layer: a cel holds pixels and stroke records in time order; one undo; select, nudge, Rasterize Down, Flatten Lower, two smudges | T1 | 2.40, 5.12 | 📝 Design written; slices a–f inside | Claude Lead |
+| [JB-5.40](specs/JB-5.40_tweens.md) Tweens: a held frame slides its matched lines into the next frame (rigid turn about the pivot, then the bend; HSB colour) | T1 | 5.20 | 📝 Design; 5.40a dispatched | Lead; 5.40a Codex |
 
 ### Phase 5 — Ink layers
 | Task | Tier | needs | Status | Who |

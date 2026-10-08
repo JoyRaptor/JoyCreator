@@ -745,3 +745,33 @@ authority on boards and overrides the parts of JB-3.01, JB-3.00, JB-3.06b and JB
 The frame, strip, clock, peg and sprite-grid maths already built stay valid. **Any agent working on animation: do not
 build frames that span the whole canvas.** Read JB-3.00a §B3 and §D first. JB-3.01b and JB-3.01c are the next rows.
 
+
+**R51. One layer kind; the brush decides what it records (owner, 2026-10-07).** The owner brought a brief written with a
+chat assistant away from the code (`design/ONE_LAYER_MODEL_BRIEF_20261007.md`, his words quoted in its §3) and approved it
+with the Lead's five changes ("go ahead … get to getting all this done"). His model: *"just having one type of layer"*;
+*"the user doesn't have to think … I have to keep track of which brush goes on which layer? … that's a bit of a UI
+penalty."* This ruling overrides media contract points 3 and 5 (the MEDIA kind, the auto-made media layer),
+`LayerBudget.MEDIA_SLOTS` ("counts as 7"), BrushRules' MEDIA refusals, and, from Phase 3, R20's "smudge and wet are
+paint-layer brushes".
+1. **A layer is a layer.** The person never picks, sees or is refused by a kind. Any brush works on any layer.
+2. **Realistic media is a per-tile payload on an ordinary layer**, made only where a media brush or its water touched.
+   `LayerKind.MEDIA` stays in the enum (R3: append-only) but only so a v8 file opens; it is read as PAINT. The next DOC_VERSION (assigned at landing, R30.3).
+3. **Water never reaches a file** (owner: *"they're probably just going to expect that it's dry"*). A save writes the
+   payload as if its water had settled, and the live wash keeps flowing. **Lead change 1:** pigment, oil body and
+   pencil crush ARE saved for touched tiles, so lifting a dried wash, blending into yesterday's oil and burnished pencil
+   stay exact. The brief's "look tiles only" would make re-wetting a guess (the look has the lamp baked in).
+4. **Lead change 2: a plain brush over media paint acts per pixel, never per tile.** A 256 px tile that forgets it was
+   wet would leave an invisible grid where re-wetting stops. The mechanism is JB-2.40 §Q1 (the media session decides).
+5. **Editable lines join the one kind** (Phase 3, JB-5.20): a cel holds pixels and stroke records, in time order.
+   **Lead change 3:** realistic paint never picks up a line (wet paint does not lift dry ink); only the two smudges
+   (owner: *"one that ignores vectors, and one that rasterizes them on touch"*), blur and clone declare *ignores lines*
+   or *consumes lines*, and a consumed line is consumed WHOLE.
+6. **Lead change 4: one undo history.** `InkEditSession`'s own 50-step log joins `UndoLog`; one press, one step.
+7. **Lead change 5: brushes that bake to pixels wear a small badge.** There are two pencils (the realistic one remembers
+   paper crush, so it cannot be a line) as well as two watercolours; the brief's option (a) holds for both.
+8. **Flood fill makes a filled shape; Rasterize Down and Flatten Lower are the only places the line/pixel split shows**
+   (owner, decided). Their exact meaning is written in JB-5.20 against `research/R5_concepts_infinite_painter.md`.
+9. **Phases.** 1: JB-2.40, media on any layer (media session builds, Lead reviews). 2: measurements on the Note 9
+   (brief §11). 3: JB-5.20, lines in the one layer (Lead designs; JB-5.01b view capture is the Lead's). 4: boards, tweens
+   (owner's §9 note), write-on, re-inking a film. Every phase keeps: one stroke is one undo, and a layer holding only
+   pixels behaves exactly as it does today.

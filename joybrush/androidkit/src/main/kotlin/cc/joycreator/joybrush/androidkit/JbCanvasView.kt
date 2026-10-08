@@ -1084,7 +1084,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         val info = android.app.ActivityManager.MemoryInfo()
         am.getMemoryInfo(info)
-        if (!LayerBudget.windowFits(info.availMem, info.threshold, wet, haveBytes = mediaCanvas.heldBytes)) {
+        val heldMediaBytes = mediaCanvas.heldBytes
+        if (!LayerBudget.windowFits(info.availMem, info.threshold, wet, haveBytes = heldMediaBytes)) {
+            android.util.Log.w("JoyBrushMediaMemory",
+                "refused stage=ui wet=$wet available=${info.availMem} threshold=${info.threshold} held=$heldMediaBytes")
             drawing = false
             onRefused?.invoke(LayerBudget.windowRefusal(wet))
             return

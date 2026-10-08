@@ -216,9 +216,17 @@ class MediaCanvas(
         val e = engine
         val (avail, threshold) = memory()
         if (e == null || e.asleep) {
-            if (!LayerBudget.windowFits(avail, threshold, needsWater)) return null
+            if (!LayerBudget.windowFits(avail, threshold, needsWater)) {
+                android.util.Log.w("JoyBrushMediaMemory",
+                    "refused stage=gl-cold wet=$needsWater available=$avail threshold=$threshold asleep=${e?.asleep}")
+                return null
+            }
         } else if (needsWater && !e.hasWater) {
-            if (!LayerBudget.windowFits(avail, threshold, true, LayerBudget.MEDIA_WINDOW_DRY_BYTES)) return null
+            if (!LayerBudget.windowFits(avail, threshold, true, LayerBudget.MEDIA_WINDOW_DRY_BYTES)) {
+                android.util.Log.w("JoyBrushMediaMemory",
+                    "refused stage=gl-water available=$avail threshold=$threshold held=${LayerBudget.MEDIA_WINDOW_DRY_BYTES}")
+                return null
+            }
         }
         if (e != null) return e
         val made = MediaLayerEngine(shaders)

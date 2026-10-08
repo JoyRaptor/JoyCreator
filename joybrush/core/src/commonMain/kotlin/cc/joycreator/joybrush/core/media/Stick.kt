@@ -211,9 +211,13 @@ class DryStroke(
             l(ra.w0, rb.w0), l(ra.w1, rb.w1), l(ra.w2, rb.w2), slideMm,
             travelX, travelY, l(ra.even, rb.even), l(a.s.p, b.s.p),
         )
-        val r = max(max(abs(inst[4]), abs(inst[5])), inst[6]) + 0.06
-        val rp = r * pxPerMm + 2
-        out.push(inst, doubleArrayOf(cx - rp, cy - rp, cx + rp, cy + rp))
+        // Project both local axes: a rotated rectangle can extend beyond its
+        // largest local extent. Keep the existing two-pixel raster padding.
+        val along = max(abs(inst[4]), abs(inst[5])) + 0.06
+        val across = inst[6] + 0.06
+        val rx = (along * abs(lx) + across * abs(ly)) * pxPerMm + 2
+        val ry = (along * abs(ly) + across * abs(lx)) * pxPerMm + 2
+        out.push(inst, doubleArrayOf(cx - rx, cy - ry, cx + rx, cy + ry))
     }
 
     fun take(): DabBatch = out.take()

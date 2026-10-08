@@ -513,7 +513,16 @@ Review: core1706/backend312/native105; zero failures/errors, four optional corpu
 - [ ] Review media slices; post-2.40 integration only after landing.
 
 ## October8 Codex lead board follow-up
-- [ ] Row11: memory-based atomic board transaction cap and specific refusals.
-- [ ] Row12: actual shared animation strip/scrubber widgets.
+- [x] Row11: memory-based atomic board transaction cap and specific refusals; backend325 pass, successful GPU transactions still need device acceptance.
+- [x] Row12: actual shared animation strip/scrubber widgets; native70 pass, phone acceptance pending.
 - [ ] Row13: CPU grain seam proof, then tested periodic sampler decision.
 - [ ] Review/adopt media local WIP; keep doc/export integration behind completedJB-2.40.
+
+## October8 Note20 pencil follow-up
+- [x] Large fast-C desktop input/geometry benchmark: eight checks pass; no runtime input thinning.
+- [x] Armed Tile paper CPU/GPU sampler validation:112 probes/56 seam pairs pass; production hooks and phone performance pending.
+- [ ] Correct rotated dry footprint bounds and validate aligned-window placement.
+- [ ] Preserve frozen per-frame state and original travel when rendering dry batches across windows; do not sequentially apply arbitrary chunks.
+- [ ] Record actual memory admission values on Note20, distinguish tool reservation from paint payload ceiling.
+- [ ] Verify physical pencil tilt direction before applying calibrated input change.
+Review: tests integrated18c075cf; desktop benchmark findings in reviews/NOTE20_FAST_C_FINDINGS_20261008.md. No phone install or claim that the reported defects are fixed.

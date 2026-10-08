@@ -18,6 +18,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.time.Duration
+import kotlin.math.roundToInt
 
 /** Actual Android View input/render tests on the owner's API level, without installing an app. */
 @RunWith(RobolectricTestRunner::class)
@@ -47,7 +48,7 @@ class BoardChromeViewTest {
         assertEquals(0L, view.layoutBuildCount)
         frame()
         assertEquals(1L, view.layoutBuildCount)
-        assertTrue(view.getChildAt(0).contentDescription.toString().startsWith("Board 500,"))
+        assertTrue((0 until view.childCount).any { view.getChildAt(it).contentDescription?.toString()?.startsWith("Board 500,") == true })
         view.show(input().copy(name = "Board 500")); frame()
         assertEquals(1L, view.layoutBuildCount)
     }
@@ -236,6 +237,99 @@ class BoardChromeViewTest {
         view.sceneIdentity = BoardChromeIdentity("walk", listOf("left", "middle", "right"))
         view.show(state); frame()
     }
+    @Test fun animationUsesSharedOutlineStockAndWeightedRendererWithNestedTargets() {
+        val view = view(); attachStrip(view)
+        val strip = (0 until view.childCount).map { view.getChildAt(it) }
+            .filterIsInstance<com.fadcam.ui.faditor.sprite.FilmStrip>().single()
+        assertEquals(1, strip.childCount) // OUTLINE has no filled stock or solid perforation bars.
+        val row = strip.frames()
+        assertEquals(0, row.paddingLeft); assertEquals(0, row.paddingTop)
+        assertEquals(1, (0 until row.childCount).count {
+            row.getChildAt(it) is com.fadcam.ui.faditor.sprite.WeightedScrubBar
+        })
+        for (control in Chrome.layout(animation()).controls.filter { it.id.startsWith("cell-") }) {
+            val target = (0 until row.childCount).map { row.getChildAt(it) }
+                .single { it.contentDescription == control.tooltip }
+            assertSame(row, target.parent)
+            assertEquals(control.hit.left.roundToInt(), target.left)
+            assertEquals(control.hit.top.roundToInt(), target.top)
+            assertEquals(control.hit.right.roundToInt(), target.right)
+        }
+    }
+
+    @Test fun nestedFrameTargetsKeepBoardCoordinatesAtDensityAndScroll() {
+        for (density in listOf(1f, 2f)) {
+            val view = view(); val frames = mutableListOf<String>()
+            view.host = object : BoardChromeView.Host {
+                override fun stripScrub(boardId: String, frameId: String) { frames += frameId }
+            }
+            val state = animation().copy(density = density, stripScrollPx = 44f * density,
+                board = Chrome.Rect(100f, 100f, 524f, 226f))
+            attachStrip(view, state)
+            val middle = Chrome.layout(state).controls.first { it.id == "cell-1" }.visual
+            assertTrue(touch(view, MotionEvent.ACTION_DOWN, middle.cx, middle.cy))
+            assertTrue(touch(view, MotionEvent.ACTION_UP, middle.cx, middle.cy))
+            assertEquals(listOf("middle"), frames)
+        }
+    }
+
+    @Test fun foldingAndChangingKindReleaseNestedFrameTargets() {
+        val view = view(); attachStrip(view)
+        view.show(animation().copy(penDown = true)); frame()
+        val strip = (0 until view.childCount).map { view.getChildAt(it) }
+            .filterIsInstance<com.fadcam.ui.faditor.sprite.FilmStrip>().single()
+        val bar = (0 until strip.frames().childCount).map { strip.frames().getChildAt(it) }
+            .filterIsInstance<com.fadcam.ui.faditor.sprite.WeightedScrubBar>().single()
+        assertTrue(Chrome.layout(animation().copy(penDown = true)).folded)
+        assertEquals(0, bar.frameAt(0f, 0f, 14f))
+        assertEquals(1, bar.frameAt(14f, 0f, 14f))
+        assertEquals(2, bar.frameAt(42f, 0f, 14f))
+        view.show(input().copy(kind = BoardKind.SPRITE, selected = true)); frame()
+        assertEquals(1, strip.frames().childCount) // Only the shared bar; no stale animation targets.
+        assertEquals(-1, bar.frameAt(0f, 0f, 14f))
+    }
+
+    @Test fun spriteCellSizeTextAndPreviewSurviveAnimationRoundTrip() {
+        val state = input().copy(kind = BoardKind.SPRITE, selected = true,
+            spriteOrder = listOf(0, 1), board = Chrome.Rect(100f, 160f, 324f, 286f))
+        fun render(view: BoardChromeView): Bitmap = Bitmap.createBitmap(548, 1126, Bitmap.Config.ARGB_8888)
+            .also { view.draw(Canvas(it)) }
+        fun artHost() = object : BoardChromeView.Host {
+            override fun art(canvas: Canvas, element: Chrome.Element) {
+                if (element.id == "preview-art") canvas.drawColor(android.graphics.Color.GREEN)
+            }
+        }
+        val fresh = view(); fresh.host = artHost(); fresh.show(state); frame()
+        val expected = render(fresh)
+        val label = Chrome.layout(state).elements.first { it.id == "cell-size" }.rect
+        var labelPixels = 0
+        for (y in label.top.toInt() until label.bottom.toInt())
+            for (x in label.left.toInt().coerceAtLeast(0) until label.right.toInt().coerceAtMost(expected.width))
+                if (android.graphics.Color.alpha(expected.getPixel(x, y)) > 0) labelPixels++
+        assertTrue("Sprite's real cell-size text must be drawn, not swallowed as an animation frame", labelPixels > 0)
+        val preview = Chrome.layout(state).elements.first { it.id == "preview-art" }.rect
+        assertEquals(android.graphics.Color.GREEN, expected.getPixel(preview.cx.toInt(), preview.cy.toInt()))
+        val transitioned = view(); transitioned.host = artHost(); attachStrip(transitioned)
+        transitioned.show(state); frame()
+        val strip = (0 until transitioned.childCount).map { transitioned.getChildAt(it) }
+            .filterIsInstance<com.fadcam.ui.faditor.sprite.FilmStrip>().single()
+        assertEquals(View.GONE, strip.visibility)
+        val sizeTarget = (0 until transitioned.childCount).map { transitioned.getChildAt(it) }
+            .single { it.contentDescription == Chrome.layout(state).controls.first { c -> c.id == "cell-size" }.tooltip }
+        assertSame(transitioned, sizeTarget.parent)
+        val actual = render(transitioned)
+        val before = IntArray(548 * 1126); val after = IntArray(before.size)
+        expected.getPixels(before, 0, 548, 0, 0, 548, 1126)
+        actual.getPixels(after, 0, 548, 0, 0, 548, 1126)
+        assertArrayEquals("Sprite rendering must agree before and after an Animation scene", before, after)
+        attachStrip(transitioned)
+        assertEquals(View.VISIBLE, strip.visibility)
+        val frameTargets = (0 until strip.frames().childCount).map { strip.frames().getChildAt(it) }
+            .filter { it.contentDescription?.toString()?.startsWith("Frame ") == true }
+        assertEquals(3, frameTargets.size)
+        assertTrue(frameTargets.all { it.parent === strip.frames() })
+    }
+
     private data class Hold(val board: String, val frame: String, val before: Int,
                             val dx: Float, val density: Float, val finished: Boolean)
 

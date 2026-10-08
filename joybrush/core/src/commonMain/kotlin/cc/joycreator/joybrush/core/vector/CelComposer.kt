@@ -206,6 +206,23 @@ object CelComposer {
         return d.withSlabs(d.items.slabs + (key to out))
     }
 
+    /**
+     * Applies the line half of undo steps (JB-5.20 D9) to one cel: each change of [layerId]/[celId] replaces its line by
+     * the `after` side ([forward], a redo or the first doing) or the `before` side (an undo). Seqs come with the lines, so
+     * an undone delete returns to its own place in time order. The caller replays (via [draw]) only if lines changed.
+     */
+    fun applyLines(items: Items, changes: List<cc.joycreator.joybrush.core.paint.UndoLog.LineChange>, layerId: String,
+                   celId: String?, forward: Boolean): Items {
+        val mine = changes.filter { it.layerId == layerId && it.celId == celId }
+        if (mine.isEmpty()) return items
+        val out = items.lines.associateBy { it.record.id }.toMutableMap()
+        for (c in if (forward) mine else mine.asReversed()) {
+            out.remove(c.id)
+            (if (forward) c.after else c.before)?.let { out[c.id] = it }
+        }
+        return Items(out.values.toList(), items.slabs)
+    }
+
     /** The tiles [mark] can reach, from its dabs' reach (or its fill outline), checked tile by tile. */
     private fun tilesReached(mark: InkTiles.Mark): List<Long> {
         val p = mark.brush

@@ -1137,3 +1137,11 @@ your `InkTiles`** so the composer and `render` share one reach test, one per-lin
 rounding (`origin`, `reaches`, `buffer`, `applyOp`, `quantise`); every `InkTilesTest` still passes, behaviour unchanged
 (the out-of-range refusal is kept). Flatten Lower moved from 5.20b to 5.20f (it is a layer composite). Core 1750, 0
 failures. Your rows from here: finish 5.14, then 5.40a; 5.20a/c/f after JB-2.40.
+
+### Lead, 2026-10-08 ~02:40: JB-5.20c half one landed (one undo history for lines)
+`UndoLog.Step.lines: List<LineChange>` (layer, cel, id, before/after line with its seq), folded per line by
+`mergeNewest` (made-and-removed in one batch leaves nothing), counted in `heldBytes`, kept by `extendNewest` and
+`replaceInNewest` (a step with only line changes is never popped as empty). `CelComposer.applyLines` applies a step's
+line half to a cel in either direction; an undone delete returns to its seq's place. 6 tests in `LineUndoTest`. The
+new field is last and defaulted, so every existing `Step(...)` call compiles unchanged. Core 1756 / androidkit 314, 0
+failures. **Codex: 5.20c is no longer yours**; half two (InkEditSession emitting these) goes with my 5.20d.

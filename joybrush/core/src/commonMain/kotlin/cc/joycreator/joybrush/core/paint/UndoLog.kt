@@ -3,6 +3,7 @@ package cc.joycreator.joybrush.core.paint
 import cc.joycreator.joybrush.core.layers.LayerStack
 import cc.joycreator.joybrush.core.doc.Paper
 import cc.joycreator.joybrush.core.doc.JbDocument
+import cc.joycreator.joybrush.core.vector.CelComposer
 
 /**
  * Undo/redo of tile changes, with a memory budget — shared by the GPU engine (T = a texture) and the
@@ -29,6 +30,21 @@ class UndoLog<T : Any>(
     class TileChange<T : Any>(val layerId: String, val key: Long, val before: T?, val after: T?, val celId: String? = null)
 
     /**
+     * One editable line's change (JB-5.20 D9): the line before and after, each with its seq, null = it did not exist then.
+     * An undone delete therefore goes back to its own place in time order. Lines hold no texture, so a step drops them
+     * and never releases them; they count toward the budget by their samples ([bytes]).
+     */
+    class LineChange(val layerId: String, val celId: String?, val id: String, val before: CelComposer.Line?, val after: CelComposer.Line?) {
+        val bytes: Long get() = LINE_BYTES + SAMPLE_BYTES * ((before?.record?.samples?.size ?: 0) + (after?.record?.samples?.size ?: 0))
+
+        companion object {
+            /** A pen sample on the heap: ten numbers and an object header, rounded up. */
+            const val SAMPLE_BYTES = 64L
+            const val LINE_BYTES = 128L
+        }
+    }
+
+    /**
      * One undo step: the tiles it changed and, for a change to the layers themselves (JB-2.04: add, duplicate, delete,
      * move, opacity, blend, rename), the stack before and after. Null stacks = a pixels-only step, as every stroke is.
      *
@@ -44,6 +60,8 @@ class UndoLog<T : Any>(
         val paperAfter: Paper? = null,
         val documentBefore: JbDocument? = null,
         val documentAfter: JbDocument? = null,
+        /** Editable lines this step changed (JB-5.20 D9). One history: a line edit is a step like any stroke. */
+        val lines: List<LineChange> = emptyList(),
     )
 
     private val undoStack = ArrayDeque<Step<T>>()
@@ -55,8 +73,8 @@ class UndoLog<T : Any>(
 
     /** Bytes currently held only for undo/redo. */
     val heldBytes: Long
-        get() = undoStack.sumOf { s -> s.changes.sumOf { c -> c.before?.let(sizeOf) ?: 0L } } +
-            redoStack.sumOf { s -> s.changes.sumOf { c -> c.after?.let(sizeOf) ?: 0L } }
+        get() = undoStack.sumOf { s -> s.changes.sumOf { c -> c.before?.let(sizeOf) ?: 0L } + s.lines.sumOf { it.bytes } } +
+            redoStack.sumOf { s -> s.changes.sumOf { c -> c.after?.let(sizeOf) ?: 0L } + s.lines.sumOf { it.bytes } }
 
     /** Records a committed stroke. Discards (and releases) anything that could have been redone. */
     fun push(step: Step<T>) {
@@ -106,11 +124,20 @@ class UndoLog<T : Any>(
         // A layer change inside the batch (JB-2.04) is kept: the merged step goes from the first stack to the last.
         val stackBefore = steps.firstOrNull { it.stackBefore != null }?.stackBefore
         val stackAfter = steps.lastOrNull { it.stackAfter != null }?.stackAfter
+        // Lines fold the same way as tiles: per line, the oldest `before` and the newest `after`. A line made and removed
+        // inside the batch was never there for the person, so it leaves no change at all.
+        val lines = LinkedHashMap<Triple<String, String?, String>, LineChange>()
+        for (s in steps) for (c in s.lines) {
+            val k = Triple(c.layerId, c.celId, c.id)
+            val prev = lines[k]
+            lines[k] = if (prev == null) c else LineChange(c.layerId, c.celId, c.id, prev.before, c.after)
+        }
         undoStack.addLast(Step(merged.values.toList(), stackBefore, stackAfter,
             steps.firstOrNull { it.paperBefore != null }?.paperBefore,
             steps.lastOrNull { it.paperAfter != null }?.paperAfter,
             steps.firstOrNull { it.documentBefore != null }?.documentBefore,
-            steps.lastOrNull { it.documentAfter != null }?.documentAfter))
+            steps.lastOrNull { it.documentAfter != null }?.documentAfter,
+            lines.values.filter { it.before != null || it.after != null }))
         trim()
     }
 
@@ -130,7 +157,7 @@ class UndoLog<T : Any>(
         val held = top.changes.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
         require(changes.none { Triple(it.layerId, it.celId, it.key) in held }) { "a tile already in the newest step was snapshotted again" }
         undoStack[undoStack.lastIndex] = Step(top.changes + changes, top.stackBefore, top.stackAfter, top.paperBefore, top.paperAfter,
-            top.documentBefore, top.documentAfter)
+            top.documentBefore, top.documentAfter, top.lines)
         trim()
         return true
     }
@@ -154,12 +181,12 @@ class UndoLog<T : Any>(
             if (r.before == null && r.after == null) null else r
         }
         val bare = top.stackBefore == null && top.stackAfter == null && top.paperBefore == null && top.paperAfter == null &&
-            top.documentBefore == null && top.documentAfter == null
+            top.documentBefore == null && top.documentAfter == null && top.lines.isEmpty()
         // A step left with nothing in it (all its water came and dried inside it) is popped: an Undo that does nothing
         // visible would break one press, one step. The caller tells the history buttons ([canUndo] may now be false).
         if (changes.isEmpty() && bare) undoStack.removeLast()
         else undoStack[undoStack.lastIndex] = Step(changes, top.stackBefore, top.stackAfter, top.paperBefore, top.paperAfter,
-            top.documentBefore, top.documentAfter)
+            top.documentBefore, top.documentAfter, top.lines)
         return true
     }
 

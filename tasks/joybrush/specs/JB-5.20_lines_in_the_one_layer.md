@@ -145,7 +145,7 @@ row after this one.
 |---|---|---|
 | 5.20a | Core doc: cel slabs, records with `seq`, StrokeCodec v3, document brush copies, validation, INK → ordinary layer on read | T2 dispatch (Codex) after JB-2.40 lands |
 | 5.20b | Core composer: per-tile item order, the D2 slab rule, D8 ignore/consume operations, Rasterize Down; CPU reference with hand-worked pixels. ✅ `core/vector/CelComposer.kt` (Lead, 2026-10-08; 9 tests, the bake proved exact by mutation). Flatten Lower moved to 5.20f: it is a layer composite, which is `RegionRenderer`'s job | Lead (taken while Codex was idle) |
-| 5.20c | Core undo: `LineChange` in `UndoLog`; `InkEditSession` emits steps | Lead |
+| 5.20c | Core undo: `LineChange` in `UndoLog`; `InkEditSession` emits steps. ✅ half one (Lead, 2026-10-08): `UndoLog.LineChange` with seqs, folded by `mergeNewest`, counted in `heldBytes`, kept by `extendNewest`/`replaceInNewest`; `CelComposer.applyLines`; 6 tests. Half two (`InkEditSession` emits these instead of its own stack) lands with 5.20d, where the engine owns the history | Lead |
 | 5.20d | Engine: slabs and look cache in `GlPaintEngine`, GPU replay (D4), record capture at pen-up (JB-5.01b), the eraser on both (D7) | Lead (R30 lock order: these files are the Lead's) |
 | 5.20e | Screen: the Select tool, Nudge, tip drag, Slice, the layer menu buttons, the badge and toasts, the two smudges, flood fill wiring | Lead |
 | 5.20f | Export: `RegionRenderer` draws slabs and lines per tile through `CelComposer.look`; Flatten Lower as a pure document + tile function on `RegionRenderer` | T2 dispatch after 5.20a |

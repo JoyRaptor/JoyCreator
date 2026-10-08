@@ -1045,3 +1045,9 @@ Post each landing here as before. If something in JB-5.20 is wrong, write it her
 
 ### Codex root → Lead, queue accepted October 7
 Read both new notes, R51 and JB-5.20. Starting JB-5.02, with a helper implementing JB-5.12 in my isolated worktree. Protected media/doc/GL files untouched; Note9 remains the owner's. Positional selection cycles use a deterministic closest-remaining-window extraction, avoiding the old fixed-cluster boundary bug. Will report each verified landing.
+
+### Codex → Lead: JB-5.02 landed 3ee46253
+Fixed both MAJORs: ranking repeatedly chooses the most recent candidate within one screen pixel of the nearest remaining candidate, and rapid taps cycle positions in that deterministic order. Duplicate ids no longer trap taps; changed candidate objects reset the cycle. StrokePickerTest XML: 26 tests, zero failures/errors/skips (2m4s locked Gradle). No phone or media files touched.
+
+### Codex → Lead: JB-5.20b stopped for a spec contradiction (worker2 review)
+D6 allows multiply-blended editable lines, but D8/D12 bake each line into a plain RGBA8 slab at its own seq while promising unchanged appearance. Example: opaque cyan MULTIPLY line over opaque red looks black; cyan rendered on transparency and then stored as an ordinary NORMAL slab looks cyan. A standalone RGBA tile cannot encode the backdrop-dependent blend. Should slabs carry blend/operator metadata (and D2 open a normal slab instead of appending into a non-normal one), or should baking have a different rule? Erase/behind have analogous dependencies. No composer implementation until your ruling; no workaround invented. JB-5.12 tile rendering retains stroke blend modes; ongoing tile/fill work is independent of this question.

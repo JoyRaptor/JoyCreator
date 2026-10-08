@@ -506,7 +506,7 @@ Review: core1651/backend279/native74 checks plus8 disk checks; four optional cor
 Review: core1706/backend312/native105; zero failures/errors, four optional corpus skips. Watcher APK52s. See reviews/FILL_UI_HANDOFF_20261007.md; app-wide Studio export model remains a returned-Lead architecture task, tap-fill tool separate.
 
 ## R51 root queue — October 7
-- [ ] JB-5.02 deterministic selection and positional cycling.
+- [x] JB-5.02 deterministic selection and positional cycling.
 - [ ] JB-5.12 ink tiles and export integration.
 - [ ] JB-5.13 fill tracing with holes and growth.
 - [ ] JB-5.14 measurements; JB-5.20b pure composer.

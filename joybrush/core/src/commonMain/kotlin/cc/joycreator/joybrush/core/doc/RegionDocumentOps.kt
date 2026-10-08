@@ -55,11 +55,16 @@ object RegionDocumentOps {
         }
         val fresh = generator(doc, ids)
         val boardId = fresh(); val frameId = fresh()
-        val copies = ArrayList<RegionCopy>()
+        // Nothing hides under a board (Lead, 2026-10-08): the art under the rectangle MOVES into frame 1 and leaves the
+        // shared canvas, so a later Move all leaves empty canvas behind instead of bringing old art back. Transfers read
+        // their sources before any clear is staged, and the whole creation is one undo step.
+        val transfers = ArrayList<RegionTransfer>()
+        val clears = ArrayList<RegionClear>()
         val layers = doc.layers.map { layer ->
             val shared = layer.sharedCelId ?: layer.cels.single().id
             val celId = fresh()
-            copies += RegionCopy(layer.id, shared, celId, rect)
+            transfers += RegionTransfer(layer.id, shared, celId, rect, rect)
+            clears += RegionClear(layer.id, shared, rect)
             layer.copy(sharedCelId = shared, cels = layer.cels + Cel(celId),
                 regions = layer.regions + RegionFrames(boardId, mapOf(frameId to celId)))
         }
@@ -67,7 +72,7 @@ object RegionDocumentOps {
             boards = doc.boards + Board(boardId,name,BoardKind.ANIMATION,rect,
                 frames = listOf(Frame(frameId)), currentFrameId = frameId), activeBoardId = boardId)
         valid(next)
-        return RegionChange(next,copies)
+        return RegionChange(next, transfers = transfers, clears = clears)
     }
 
     fun selectFrame(doc: JbDocument, boardId: String, frameId: String): JbDocument {
@@ -160,11 +165,13 @@ object RegionDocumentOps {
         if (region.held == held) return RegionChange(doc)
         val current = region.frameCel.getValue(requireNotNull(target.currentFrameId))
         val shared = requireNotNull(layer.sharedCelId)
-        val copy = if (held) RegionCopy(layerId, current, shared, target.rect) else RegionCopy(layerId, shared, current, target.rect)
         val next = doc.copy(layers = doc.layers.map { l -> if (l.id == layerId) l.copy(
             regions = l.regions.map { if (it.boardId == boardId) it.copy(held = held) else it }) else l })
         valid(next)
-        return RegionChange(next, listOf(copy))
+        if (held) return RegionChange(next, listOf(RegionCopy(layerId, current, shared, target.rect)))
+        // Un-holding: the shared art under the board MOVES into the current frame (nothing hides under a board).
+        return RegionChange(next, transfers = listOf(RegionTransfer(layerId, shared, current, target.rect, target.rect)),
+            clears = listOf(RegionClear(layerId, shared, target.rect)))
     }
 
     /** Held regions deliberately use the shared plane; frame mappings remain available for unhold. */

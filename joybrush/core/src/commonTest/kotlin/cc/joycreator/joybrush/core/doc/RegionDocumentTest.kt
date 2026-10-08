@@ -9,16 +9,21 @@ class RegionDocumentTest {
         layers=listOf(Layer("layer","Paint",LayerKind.PAINT,cels=listOf(Cel("base")))))
     private fun create(doc:JbDocument=base(),rect:RectPx=RectPx(17,23,101,93)) = RegionDocumentOps.create(doc,"Animation",rect,::ids)
 
-    @Test fun `new board animates all paint layers while preserving shared stores`() {
+    @Test fun `new board animates all paint layers and moves the art under it into frame 1`() {
         val original=base().copy(layers=base().layers+base().layers.single().copy(id="second",cels=listOf(Cel("second-base"))))
         val change=create(original)
-        assertEquals(2,change.copies.size)
+        // The art under the rectangle MOVES into frame 1: a transfer into the new cel and a clear of the shared one.
+        assertTrue(change.copies.isEmpty())
+        assertEquals(2,change.transfers.size)
+        assertEquals(change.transfers.map { RegionClear(it.layerId, it.fromCelId, it.sourceRect) }, change.clears)
         assertEquals(listOf("base","second-base"),change.doc.layers.map{it.sharedCelId})
         assertEquals(original.layers.map{it.cels.first()},change.doc.layers.map{it.cels.first()})
         assertTrue(DocOps.validate(change.doc).isEmpty())
         assertEquals(DOC_VERSION,change.doc.version)
         assertEquals(change.doc.boards.last().frames.first().id,change.doc.boards.last().currentFrameId)
-        assertEquals(RectPx(17,23,101,93),change.copies.first().rect)
+        assertEquals(RectPx(17,23,101,93),change.transfers.first().sourceRect)
+        assertEquals(change.transfers.first().sourceRect,change.transfers.first().destinationRect)
+        assertEquals(change.doc.layers.first().regions.single().frameCel.values.single(),change.transfers.first().toCelId)
     }
 
     @Test fun `blank changes inside ownership only`() {

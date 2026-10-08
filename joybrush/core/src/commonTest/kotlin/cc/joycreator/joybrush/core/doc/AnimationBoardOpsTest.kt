@@ -14,6 +14,24 @@ class AnimationBoardOpsTest {
     private fun cel(doc: JbDocument, board: String = doc.activeBoardId!!) = doc.layers.first().regions
         .first { it.boardId == board }.frameCel.getValue(doc.boards.first { it.id == board }.currentFrameId!!)
 
+    @Test fun `art under a new board moves into frame 1, so moving the board brings nothing old back`() {
+        // The board audit's case (2026-10-08): board over a sketch, sketch cleaned off frame 1, Move all.
+        val base = JbDocument(id = "drawing", name = "Test",
+            boards = listOf(Board("image", "Image", BoardKind.CANVAS, RectPx(-100, -100, 200, 200))),
+            layers = listOf(Layer("paint", "Paint", LayerKind.PAINT, cels = listOf(Cel("shared")), mask = Cel("mask"))))
+        val change = RegionDocumentOps.create(base, "Animation", RectPx(-2, -1, 4, 3), ::ids)
+        val doc = change.doc; val frame = cel(doc)
+        val sketch = Pixels().also { it.put("shared", 0, 0, 42); it.put("shared", 8, 0, 7) }
+        val made = sketch.apply(change)
+        assertEquals(42, made.get(frame, 0, 0), "the sketch is frame 1's")
+        assertEquals(0, made.get("shared", 0, 0), "and nothing is left hidden under the board")
+        assertEquals(7, made.get("shared", 8, 0), "art outside the board is untouched")
+        made.put(frame, 0, 0, 0)
+        val moved = made.apply(AnimationBoardOps.moveAll(doc, doc.activeBoardId!!, 4, -1))
+        assertEquals(0, moved.get("shared", 0, 0), "where the board was is empty canvas: the cleaned sketch stays gone")
+        assertEquals(7, moved.get("shared", 8, 0), "shared art beside the destination is untouched")
+    }
+
     @Test fun `single frame crop changes keep world pixels stationary including entering shared and leaving frame`() {
         val doc = source(); val id = doc.activeBoardId!!; val frame = cel(doc)
         val before = Pixels()
@@ -25,6 +43,7 @@ class AnimationBoardOpsTest {
         val after = before.apply(change)
         assertEquals(11, after.get("shared", -2, 0)); assertEquals(0, after.get(frame, -2, 0))
         assertEquals(12, after.get(frame, 0, 0)); assertEquals(13, after.get(frame, 2, 0))
+        assertEquals(0, after.get("shared", 2, 0), "art the board grew over is taken in, not left hidden under it")
         assertEquals(14, after.get("shared", 8, 0)); assertEquals(15, after.get("mask", -2, 0, 255))
         assertTrue(change.maskTransfers.isEmpty() && change.maskClears.isEmpty())
         assertEquals(doc.layers, change.doc.layers)

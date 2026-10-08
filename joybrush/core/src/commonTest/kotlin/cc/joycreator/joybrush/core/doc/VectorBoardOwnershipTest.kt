@@ -17,7 +17,8 @@ class VectorBoardOwnershipTest {
         assertTrue(DocOps.validate(first).isEmpty())
         assertEquals(listOf(LayerKind.PAINT, LayerKind.INK), first.layers.map { it.kind })
         assertEquals("ink.bin", first.layers.last().cels.first().strokesFile)
-        assertEquals(2, created.copies.size)
+        // Creation moves each layer's art under the board into frame 1 (transfer + clear), paint and ink alike.
+        assertEquals(2, created.transfers.size); assertEquals(2, created.clears.size); assertTrue(created.copies.isEmpty())
         val linked = RegionDocumentOps.addFrame(first, first.boards.last().id, NewFrame.LINK, ::ids).doc
         val copied = RegionDocumentOps.addFrame(linked, linked.boards.last().id, NewFrame.DUPLICATE, ::ids)
         assertTrue(DocOps.validate(copied.doc).isEmpty())

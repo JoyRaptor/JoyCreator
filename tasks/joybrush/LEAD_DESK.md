@@ -1153,3 +1153,14 @@ together grouped (T4), arc-length pairing (T5), HSB slide (T6). The spec's 8 tes
 corrected (a least-squares fit turns a little for a nudge: unmoved points stay within a quarter pixel). A straight-line
 slide instead of the turn reddens tests 1, 3 and 5 (mutation run, restored). Core 1764, 0 failures. Codex's queue is now:
 finish 5.14, board rows 10–13, then 5.20a and 5.20f once JB-2.40 lands.
+
+### Lead, 2026-10-08 ~04:30: board row 10 landed (nothing hides under a board) — Codex, skip row 10
+Done in core only, because the engine already applies a transaction as "clears staged first, transfers read the live
+sources", so a move needs no engine change: `RegionDocumentOps.create` now emits, per layer, a transfer of the art under
+the rectangle into the new frame-1 cel plus a clear of the shared cel (was a copy that left the original hidden).
+`AnimationBoardOps.resize` clears the shared art a growing board takes in (non-held layers); `setHeld(false)` moves the
+shared art into the current frame the same way. **Mask clause of my ruling withdrawn:** once nothing hides under a
+board, your Move all mask behaviour (masks travel, the old area turns white) reveals nothing, so it stays as you built
+it. New test: the audit's scenario (sketch under a board, cleaned off frame 1, Move all: the old spot stays empty).
+Core 1765 / androidkit 314 / joybrush-android 105, 0 failures. Media lane: your payload must move the same way
+(JB-2.40 requirement 2). Codex's rows left: 5.14, 11, 12, 13, then 5.20a/f after JB-2.40.

@@ -54,7 +54,7 @@ class RegionFrameEditingTest {
         assertFailsWith<DocException> { RegionDocumentOps.setHold(second, a.id, "missing", 2) }
     }
 
-    @Test fun `held toggle explicitly copies current into shared and back in board bounds`() {
+    @Test fun `held toggle copies current into shared, and un-holding moves it back in board bounds`() {
         val first = animation(); val a = first.boards.last()
         val blank = RegionDocumentOps.addFrame(first, a.id, NewFrame.BLANK, ::ids).doc
         val current = blank.layers.single().regions.single().frameCel.getValue(blank.boards.last().currentFrameId!!)
@@ -63,7 +63,10 @@ class RegionFrameEditingTest {
         assertEquals(blank.layers.single().regions.single().frameCel, held.doc.layers.single().regions.single().frameCel)
         assertTrue(RegionDocumentOps.setHeld(held.doc, a.id, "layer", true).copies.isEmpty())
         val unheld = RegionDocumentOps.setHeld(held.doc, a.id, "layer", false)
-        assertEquals(listOf(RegionCopy("layer", "shared", current, a.rect)), unheld.copies)
+        // Un-holding MOVES the shared art under the board into the current frame: nothing hides under a board.
+        assertTrue(unheld.copies.isEmpty())
+        assertEquals(listOf(RegionTransfer("layer", "shared", current, a.rect, a.rect)), unheld.transfers)
+        assertEquals(listOf(RegionClear("layer", "shared", a.rect)), unheld.clears)
         assertTrue(DocOps.validate(unheld.doc).isEmpty())
     }
 }

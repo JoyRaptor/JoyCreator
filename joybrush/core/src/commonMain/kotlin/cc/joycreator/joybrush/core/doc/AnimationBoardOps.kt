@@ -21,13 +21,17 @@ object AnimationBoardOps {
             if (!region.held) for (rect in leaving) transfers += RegionTransfer(layer.id, cel, shared, rect, rect)
             for (rect in leaving) clears += RegionClear(layer.id, cel, rect)
             for (rect in entering) transfers += RegionTransfer(layer.id, shared, cel, rect, rect)
+            // Nothing hides under a board: art the growing board takes in leaves the shared canvas (held layers keep
+            // reading and writing the shared canvas, so theirs stays).
+            if (!region.held) for (rect in entering) clears += RegionClear(layer.id, shared, rect)
         }
         // Masks are world-space coverage: passive crop changes do not move them.
         return RegionChange(next, transfers = transfers, clears = clears)
     }
 
     /** C3: deliberate translation, permitted even when locked. Each unique linked cel moves once.
-     * Hidden shared substrate under a non-held region stays at the old location and is revealed.
+     * Nothing hides under a board (creation and growth move the art into the frames), so the old location is left
+     * empty. Shared art already at the destination stays, hidden, and shows again if the board moves away.
      * Held shared artwork and global masks travel with the board; old-only mask pixels become white. */
     fun moveAll(doc: JbDocument, boardId: String, x: Int, y: Int): RegionChange {
         val board = board(doc, boardId)

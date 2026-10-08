@@ -85,3 +85,43 @@ Targeted XML: **10 tests, zero failures/errors/skips**: R51FixturesTest5, R51Jvm
 Reproduce under the shared Gradle lock and primary watcher pause/restore protocol. Set the existing Android SDK location via ANDROID_HOME; set `JOYBRUSH_R51_REPORT` to an absolute scratch .md path; run `gradlew.bat -p joybrush :core:cleanJvmTest :core:jvmTest --tests '*R51*'` with one worker/fork and the heap limits above. The opt-in test writes progress and every result to that path. Unset the environment variable for normal tests. Do not run concurrently with the watcher or another Gradle owner.
 
 Brief section11 coverage: synthetic desktop storage comparison (item1), CPU frame rebuilding (item2), dense fill tracing (item6). **Not measured:** Note9; 80-frame cache/render-ahead; wet payload/drying; edit-under-1,000-lines rebuild; playback/proxy smoothness; wet-window feel. Those remain separate Lead/device work. No model-policy decision or automatic bake threshold is inferred from this run.
+
+## October 8 follow-up: latest composer/replay source
+
+Re-ran all cases after Lead source65682779, including the shared InkTiles reach/buffer/operator refactor and response-curve correction. Same fixtures, one warmup/three measured runs, same heap; no timing budget claimed. Targeted R51 XML11 tests, zero failures/errors/skips; opt-in run2m57s, fresh output COMPLETE. Original table above remains the October7 historical measurement; these are the October8 follow-up. Output checksums match the historical run for all cases (default fixture response curves are unchanged).
+
+| Case | Median ms | p95 ms | Retained samples ms | Output checksum |
+|---|---:|---:|---|---:|
+| r51-pen/50 prepare | 30.868 | 31.810 | 30.868, 31.810, 29.915 | -653441294282436117 |
+| r51-pen/50 prepared full 512px frame | 152.684 | 180.273 | 180.273, 152.684, 145.300 | 8381252324659936475 |
+| r51-pen/50 prepare + full 512px frame | 150.910 | 152.965 | 152.965, 148.166, 150.910 | 8381252324659936475 |
+| r51-pen/500 prepare | 121.449 | 123.830 | 123.830, 121.449, 119.534 | -6825813319743204104 |
+| r51-pen/500 prepared full 512px frame | 1315.716 | 1418.103 | 1311.226, 1315.716, 1418.103 | -363360998113477051 |
+| r51-pen/500 prepare + full 512px frame | 1538.956 | 1546.868 | 1538.956, 1529.776, 1546.868 | -363360998113477051 |
+| r51-pen/2000 prepare | 521.634 | 588.329 | 508.647, 521.634, 588.329 | -743071140003384904 |
+| r51-pen/2000 prepared full 512px frame | 5693.731 | 5880.187 | 5880.187, 5693.731, 5620.902 | 862629897210028419 |
+| r51-pen/2000 prepare + full 512px frame | 6085.949 | 6286.600 | 6078.792, 6286.600, 6085.949 | 862629897210028419 |
+| r51-pencil/50 prepare | 10.173 | 12.863 | 12.863, 8.991, 10.173 | 8164146277366309723 |
+| r51-pencil/50 prepared full 512px frame | 191.212 | 192.255 | 191.212, 192.255, 189.126 | -5676436429845570090 |
+| r51-pencil/50 prepare + full 512px frame | 209.073 | 209.693 | 209.073, 203.221, 209.693 | -5676436429845570090 |
+| r51-pencil/500 prepare | 109.260 | 111.259 | 109.260, 104.351, 111.259 | -4314841153422694501 |
+| r51-pencil/500 prepared full 512px frame | 1992.027 | 2114.273 | 2114.273, 1981.645, 1992.027 | 1238237668966798960 |
+| r51-pencil/500 prepare + full 512px frame | 2138.628 | 2240.030 | 2138.628, 2098.204, 2240.030 | 1238237668966798960 |
+| r51-pencil/2000 prepare | 455.543 | 469.227 | 469.227, 455.543, 447.548 | 680045388850788247 |
+| r51-pencil/2000 prepared full 512px frame | 8249.350 | 8414.382 | 8414.382, 8249.350, 8038.690 | 1139873696261893582 |
+| r51-pencil/2000 prepare + full 512px frame | 8902.003 | 8913.601 | 8902.003, 8513.430, 8913.601 | 1139873696261893582 |
+| FloodFill2048 only | 75.602 | 129.059 | 129.059, 70.655, 75.602 | -6941069873414295238 |
+| FillTrace2048 only (0.75px growth included) | 229.696 | 238.745 | 120.974, 238.745, 229.696 | -5350384837971289407 |
+
+## Bytes per sample and quantisation experiment
+
+Today's StrokeCodec v2 is lossless: sample payload21B minimum,29B with this fixture's tilt+azimuth,33B with barrel too. Encoded bytes below include record headers/ids as well as samples. All500-stroke cases contain16,500 samples.
+
+| Fixture | Raw encoded B/sample | Deflated B/sample | Quantised-copy deflated bytes | Reduction versus original deflate |
+|---|---:|---:|---:|---:|
+| Line art500 | 30.751 | 12.654 | 181,696 | 12.98% |
+| Painted500 | 30.812 | 12.669 | 182,088 | 12.89% |
+
+Measured an opt-in research copy, encoded by the UNCHANGED codec: x/y rounded to1/64 doc px (max error1/128px per axis), time to1ms (max .5ms), pressure/tilt/azimuth/barrel to1/1024 of their native units (max1/2048). Missing/nonfinite sensors preserved; source records untouched. Tests assert error bounds, unchanged original bytes and actual deflate sizes. Raw encoded sizes stay507,394/508,394B: this experiment changes entropy, not field widths. These savings are empirical for two synthetic fixtures, not approval to quantise artist input.
+
+An illustrative compact layout (16bit x/y deltas,16bit time delta,16bit pressure/tilt/azimuth,8bit tool) would be13B/sample versus this fixture's29B: about55% less SAMPLE payload before compression. Keeping today's headers gives243,394B raw for line art,244,394B for paint, about52% below today's raw totals. This is arithmetic only, NOT an implemented codec or measured compressed saving; range escapes, origins/scales, missing-value tags, precision and a new version still need design/tests. Today's exact recording contract remains unchanged.

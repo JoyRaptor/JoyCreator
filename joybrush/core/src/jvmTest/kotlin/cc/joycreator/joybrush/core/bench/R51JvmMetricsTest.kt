@@ -39,6 +39,32 @@ class R51JvmMetricsTest {
         assertEquals(entry.compressedSize, deflated.size.toLong())
     }
 
+    @Test fun quantisationStudyPreservesInputsAndBoundsItsLoss() {
+        val originals = R51Fixtures.lines(500)
+        val before = StrokeCodec.encodeAll(originals)
+        val quantised = R51JvmMetrics.quantisedCopies(originals)
+        assertContentEquals(before, StrokeCodec.encodeAll(originals))
+        assertEquals(originals.map { it.id }, quantised.map { it.id })
+        for (i in originals.indices) for (j in originals[i].samples.indices) {
+            val a = originals[i].samples[j]; val b = quantised[i].samples[j]
+            assertTrue(kotlin.math.abs(a.x - b.x) <= 1f / 128)
+            assertTrue(kotlin.math.abs(a.y - b.y) <= 1f / 128)
+            assertTrue(kotlin.math.abs(a.timeMs - b.timeMs) <= .5)
+            assertTrue(kotlin.math.abs(a.pressure - b.pressure) <= 1f / 2048)
+            assertTrue(kotlin.math.abs(a.tilt - b.tilt) <= 1f / 2048)
+            assertTrue(kotlin.math.abs(a.azimuth - b.azimuth) <= 1f / 2048)
+            assertTrue(b.barrel.isNaN())
+        }
+        val output = System.getenv("JOYBRUSH_R51_QUANT_REPORT")
+        for ((name, records) in listOf("line-art500" to originals, "painted500" to R51Fixtures.painted(500))) {
+            val original = StrokeCodec.encodeAll(records)
+            val quantisedBytes = StrokeCodec.encodeAll(R51JvmMetrics.quantisedCopies(records))
+            assertEquals(original.size, quantisedBytes.size)
+            assertTrue(R51JvmMetrics.deflatedEntry(quantisedBytes).size < R51JvmMetrics.deflatedEntry(original).size)
+            output?.let { java.io.File(it).appendText("$name samples=${records.sumOf { r -> r.samples.size }} raw=${original.size} originalDeflated=${R51JvmMetrics.deflatedEntry(original).size} quantisedDeflated=${R51JvmMetrics.deflatedEntry(quantisedBytes).size}\n") }
+        }
+    }
+
     @Test fun timingRunsEveryWarmupAndSampleAndObservesOutput() {
         var calls = 0
         val result = R51JvmMetrics.time(2, 3) { calls++; calls.toLong() }

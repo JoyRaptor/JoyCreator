@@ -21,6 +21,21 @@ object R51JvmMetrics {
             })
     }
 
+    /** Research only: quantised copies encoded with today's unchanged Float codec.
+     * Measures compression entropy, not a proposed on-disk format or an approved quality tradeoff.
+     * Unknown sensor channels remain unknown; original records/samples are never modified.
+     */
+    fun quantisedCopies(records: List<StrokeRecord>): List<StrokeRecord> {
+        fun q(v: Float, steps: Double): Float =
+            if (v.isFinite()) (kotlin.math.round(v.toDouble() * steps) / steps).toFloat() else v
+        return records.map { record -> record.copy(samples = record.samples.map { s -> s.copy(
+            x = q(s.x, 64.0), y = q(s.y, 64.0),
+            timeMs = if (s.timeMs.isFinite()) kotlin.math.round(s.timeMs) else s.timeMs,
+            pressure = q(s.pressure, 1024.0), tilt = q(s.tilt, 1024.0),
+            azimuth = q(s.azimuth, 1024.0), barrel = q(s.barrel, 1024.0),
+        ) }) }
+    }
+
     /** JbArchive: each tile and each cel's encodeAll stroke bundle is a ZIP entry, level 6.
      * Count raw deflate entry payloads, excluding ZIP headers, paths and document.json equally.
      * StrokeCodec.encodeAll supplies the cel bundle; tiles retain separate dictionaries.

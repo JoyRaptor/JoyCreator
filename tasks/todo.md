@@ -509,5 +509,11 @@ Review: core1706/backend312/native105; zero failures/errors, four optional corpu
 - [x] JB-5.02 deterministic selection and positional cycling.
 - [x] JB-5.12 ink tiles and export integration.
 - [x] JB-5.13 fill tracing with holes and growth (2048 timing in worker1 measurement row).
-- [ ] JB-5.14 measurements; JB-5.20b pure composer.
+- [x] JB-5.14 desktop measurements and quantisation study; composer completed by Claude.
 - [ ] Review media slices; post-2.40 integration only after landing.
+
+## October8 Codex lead board follow-up
+- [ ] Row11: memory-based atomic board transaction cap and specific refusals.
+- [ ] Row12: actual shared animation strip/scrubber widgets.
+- [ ] Row13: CPU grain seam proof, then tested periodic sampler decision.
+- [ ] Review/adopt media local WIP; keep doc/export integration behind completedJB-2.40.

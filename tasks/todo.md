@@ -515,13 +515,14 @@ Review: core1706/backend312/native105; zero failures/errors, four optional corpu
 ## October8 Codex lead board follow-up
 - [x] Row11: memory-based atomic board transaction cap and specific refusals; backend325 pass, successful GPU transactions still need device acceptance.
 - [x] Row12: actual shared animation strip/scrubber widgets; native70 pass, phone acceptance pending.
-- [ ] Row13: CPU grain seam proof, then tested periodic sampler decision.
+- [x] Row13: CPU grain seam proof and periodic sampler wired in be616a0a; CPU/GPU checks pass, phone sampling cost pending.
 - [ ] Review/adopt media local WIP; keep doc/export integration behind completedJB-2.40.
 
 ## October8 Note20 pencil follow-up
 - [x] Large fast-C desktop input/geometry benchmark: eight checks pass; no runtime input thinning.
 - [x] Armed Tile paper CPU/GPU sampler validation:112 probes/56 seam pairs pass; production hooks and phone performance pending.
 - [ ] Correct rotated dry footprint bounds and validate aligned-window placement.
+- [x] Rotated DryStroke dirty bounds regression passes (one actual test); Androidkit compile passes39s. Placement helper and multi-window integration remain pending.
 - [ ] Preserve frozen per-frame state and original travel when rendering dry batches across windows; do not sequentially apply arbitrary chunks.
 - [ ] Record actual memory admission values on Note20, distinguish tool reservation from paint payload ceiling.
 - [ ] Verify physical pencil tilt direction before applying calibrated input change.

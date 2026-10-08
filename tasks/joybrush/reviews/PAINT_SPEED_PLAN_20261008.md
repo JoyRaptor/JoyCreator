@@ -4,6 +4,8 @@ Owner target: three to four times faster painting and substantially lower visibl
 
 Current evidence: desktop large-fast-C pipeline cost changes little across raw input densities while geometry degrades sharply at lower density. Do not thin input as the first optimization.
 
+Verified root checkpoint: actual DryStrokeBoundsTest1/0failure, Androidkit compile SUCCESS39s with768m heap. Periodic Tile brush wiring committedbe616a0a after112 GPU probes/56 seam pairs and mutation checks. No phone deployment or measured speedup. Media-look conditional paper-read candidate remains uncommitted pending exact GPU output comparison.
+
 OpenCode assignments:
 - Count actual dry/wet GPU work, copies, uploads, allocations and queue/scheduling behavior. Source workload estimates must stay separate from measured timings.
 - Add disabled-by-default Android trace slices around dry upload/delta/apply/copy and look submission. These measure CPU command submission, not GPU execution.

@@ -72,14 +72,7 @@ internal data class TranslatedTileSlice(
 /** Subdivide at BOTH grids; a translated cell need not have the same tile-local origin. */
 internal object RegionTransferTiles {
     fun slices(source: RectPx, destination: RectPx): Sequence<TranslatedTileSlice> = sequence {
-        require(source.w > 0 && source.h > 0 && source.w == destination.w && source.h == destination.h) {
-            "Transferred rectangles must have the same positive size"
-        }
-        for (r in listOf(source, destination)) {
-            require(r.x.toLong() + r.w <= Int.MAX_VALUE && r.y.toLong() + r.h <= Int.MAX_VALUE) {
-                "Transferred pixels are outside addressable canvas coordinates"
-            }
-        }
+        checkRects(source, destination)
         var y = 0
         while (y < source.h) {
             val sy = source.y + y; val dy = destination.y + y
@@ -99,6 +92,42 @@ internal object RegionTransferTiles {
                 x += width
             }
             y += height
+        }
+    }
+
+    /** Visit only rectangles containing existing or staged tiles, never every empty grid cell.
+     * Overlapping source/destination candidates can repeat a slice: each reads the same original
+     * source and replaces the same pixels, so repetitions do not blend or change the result. */
+    fun sparseSlices(source: RectPx, destination: RectPx, sourceKeys: Sequence<Long>, destinationKeys: Sequence<Long>): Sequence<TranslatedTileSlice> = sequence {
+        checkRects(source, destination)
+        fun translated(rect: RectPx, from: RectPx, to: RectPx) = RectPx(
+            (rect.x.toLong() - from.x + to.x).toInt(), (rect.y.toLong() - from.y + to.y).toInt(), rect.w, rect.h)
+        for (key in sourceKeys) {
+            val rect = intersectTile(source, key) ?: continue
+            yieldAll(slices(rect, translated(rect, source, destination)))
+        }
+        for (key in destinationKeys) {
+            val rect = intersectTile(destination, key) ?: continue
+            yieldAll(slices(translated(rect, destination, source), rect))
+        }
+    }
+
+    private fun intersectTile(rect: RectPx, key: Long): RectPx? {
+        val ox = Tiles.tx(key).toLong() * Tiles.SIZE; val oy = Tiles.ty(key).toLong() * Tiles.SIZE
+        val x = maxOf(rect.x.toLong(), ox); val y = maxOf(rect.y.toLong(), oy)
+        val right = minOf(rect.x.toLong() + rect.w, ox + Tiles.SIZE)
+        val bottom = minOf(rect.y.toLong() + rect.h, oy + Tiles.SIZE)
+        return if (right <= x || bottom <= y) null else RectPx(x.toInt(), y.toInt(), (right - x).toInt(), (bottom - y).toInt())
+    }
+
+    private fun checkRects(source: RectPx, destination: RectPx) {
+        require(source.w > 0 && source.h > 0 && source.w == destination.w && source.h == destination.h) {
+            "Transferred rectangles must have the same positive size"
+        }
+        for (r in listOf(source, destination)) {
+            require(r.x.toLong() + r.w <= Int.MAX_VALUE && r.y.toLong() + r.h <= Int.MAX_VALUE) {
+                "Transferred pixels are outside addressable canvas coordinates"
+            }
         }
     }
 }
@@ -141,6 +170,7 @@ class GlPaintEngine(
     undoBudgetBytes: Long = 192L shl 20,
 ) {
     private val size = Tiles.SIZE
+    private val boardSnapshotAllowanceBytes = undoBudgetBytes.coerceAtLeast(0L)
     // GL-thread only. Reuse staging storage while a large snapshot fills its output arrays.
     private val tileReadback by lazy { ByteBuffer.allocateDirect(size * size * 4).order(ByteOrder.nativeOrder()) }
 
@@ -1155,57 +1185,78 @@ class GlPaintEngine(
         require(change.doc.layers.all { it.kind.hasPixels && it.animatedIn == null }) {
             "This renderer paints raster layers"
         }
-        val translated = change.transfers.isNotEmpty() || change.maskTransfers.isNotEmpty() ||
-            change.clears.isNotEmpty() || change.maskClears.isNotEmpty()
-        val maxTransferTiles = (MAX_REGION_PX / (size.toLong() * size)).toInt()
-        // Preflight all original plane identities and bounds before allocating or publishing anything.
-        val touched = HashSet<Pair<String, Pair<String?, Long>>>()
-        fun preflight(layer: Layer, source: Map<Long, Int>, destination: Map<Long, Int>, cel: String?,
-                      sourceRect: RectPx, destinationRect: RectPx) {
-            require(sourceRect.w.toLong() * sourceRect.h <= MAX_REGION_PX) {
-                "These cells are too large to swap on this phone"
-            }
-            for (slice in RegionTransferTiles.slices(sourceRect, destinationRect)) {
-                if (source[slice.sourceKey] != null || destination[slice.destinationKey] != null) {
-                    touched.add(layer.id to (cel to slice.destinationKey))
-                    require(touched.size <= maxTransferTiles) { "These painted cells are too large to swap on this phone" }
+        // GPU-to-GPU copies hold original + staged textures, not an image-sized CPU buffer.
+        val memory = BoardTransactionMemory<Pair<String, Pair<String?, Long>>>(
+            boardSnapshotAllowanceBytes, size.toLong() * size * 4, change.copies.isNotEmpty(),
+            BoardTransactionMemory.operation(before, change))
+        val planned = HashSet<Pair<String, Pair<String?, Long>>>()
+        fun stagedKeys(id: String, cel: String?) = planned.asSequence().filter {
+            it.first == id && it.second.first == cel
+        }.map { it.second.second }.toList() // bounded by the texture allowance; snapshot before adding keys.
+        fun preflight(layer: Layer, source: Map<Long, Int>, destination: Map<Long, Int>, sourceCel: String?, cel: String?,
+                      sourceRect: RectPx, destinationRect: RectPx, stagedSource: Boolean = false) {
+            val sourcePending = if (stagedSource) stagedKeys(layer.id, sourceCel) else emptyList()
+            val destinationPending = stagedKeys(layer.id, cel)
+            for (slice in RegionTransferTiles.sparseSlices(sourceRect, destinationRect,
+                source.keys.asSequence() + sourcePending.asSequence(), destination.keys.asSequence() + destinationPending.asSequence())) {
+                val address = layer.id to (cel to slice.destinationKey)
+                if (source[slice.sourceKey] != null || destination[slice.destinationKey] != null || address in planned ||
+                    (stagedSource && (layer.id to (sourceCel to slice.sourceKey)) in planned)) {
+                    memory.observe(address, destination[slice.destinationKey], true)
+                    planned.add(address)
                 }
             }
+        }
+        fun destinationAllowed(id: String, cel: String) {
+            require(change.doc.layers.first { it.id == id }.cels.any { it.id == cel }) { "No destination cel $cel" }
+        }
+        // Same order as execution; later copies can read a clear/copy already staged by this edit.
+        for (clear in change.clears) {
+            val layer = layers[clear.layerId] ?: error("No layer ${clear.layerId}")
+            val store = layer.cels[clear.celId] ?: error("No cel ${clear.celId}")
+            preflight(layer, emptyMap(), store, null, clear.celId, clear.rect, clear.rect)
+        }
+        for (clear in change.maskClears) {
+            val mask = layers[clear.layerId]?.mask ?: error("No mask on layer ${clear.layerId}")
+            preflight(mask, emptyMap(), mask.tiles, null, null, clear.rect, clear.rect)
+        }
+        for (copy in change.copies) {
+            val layer = layers[copy.layerId] ?: error("No layer ${copy.layerId}")
+            val source = layer.cels[copy.fromCelId] ?: error("No source cel ${copy.fromCelId}")
+            destinationAllowed(copy.layerId, copy.toCelId)
+            preflight(layer, source, layer.cels[copy.toCelId].orEmpty(), copy.fromCelId, copy.toCelId,
+                copy.rect, copy.rect, stagedSource = true)
         }
         for (transfer in change.transfers) {
             val layer = layers[transfer.layerId] ?: error("No layer ${transfer.layerId}")
             val source = layer.cels[transfer.fromCelId] ?: error("No source cel ${transfer.fromCelId}")
-            require(change.doc.layers.first { it.id == transfer.layerId }.cels.any { it.id == transfer.toCelId }) {
-                "No destination cel ${transfer.toCelId}"
-            }
-            val destination = layer.cels[transfer.toCelId].orEmpty()
-            preflight(layer, source, destination, transfer.toCelId, transfer.sourceRect, transfer.destinationRect)
+            destinationAllowed(transfer.layerId, transfer.toCelId)
+            preflight(layer, source, layer.cels[transfer.toCelId].orEmpty(), transfer.fromCelId, transfer.toCelId,
+                transfer.sourceRect, transfer.destinationRect)
         }
         for (transfer in change.maskTransfers) {
             val mask = layers[transfer.layerId]?.mask ?: error("No mask on layer ${transfer.layerId}")
-            preflight(mask, mask.tiles, mask.tiles, null, transfer.sourceRect, transfer.destinationRect)
+            preflight(mask, mask.tiles, mask.tiles, null, null, transfer.sourceRect, transfer.destinationRect)
         }
-        for (clear in change.clears) {
-            val layer = layers[clear.layerId] ?: error("No layer ${clear.layerId}")
-            val store = layer.cels[clear.celId] ?: error("No cel ${clear.celId}")
-            preflight(layer, emptyMap(), store, clear.celId, clear.rect, clear.rect)
-        }
-        for (clear in change.maskClears) {
-            val mask = layers[clear.layerId]?.mask ?: error("No mask on layer ${clear.layerId}")
-            preflight(mask, emptyMap(), mask.tiles, null, clear.rect, clear.rect)
+        for (drop in change.drops) {
+            val layer = layers[drop.layerId] ?: error("No layer ${drop.layerId}")
+            val store = layer.cels[drop.celId] ?: error("No cel ${drop.celId}")
+            for (key in store.keys.asSequence() + stagedKeys(layer.id, drop.celId).asSequence())
+                memory.observe(layer.id to (drop.celId to key), store[key], false)
         }
         val pending=LinkedHashMap<Pair<String,Pair<String?,Long>>,UndoLog.TileChange<Int>>()
         var published=false
-        fun checkRoom(address: Pair<String, Pair<String?, Long>>) {
-            if (translated && address !in pending) require(pending.size < maxTransferTiles) {
-                "These painted cells are too large to swap on this phone"
-            }
+        fun checkRoom(address: Pair<String, Pair<String?, Long>>, original: Int?) {
+            memory.observe(address, original, true)
         }
+        fun pendingKeys(id: String, cel: String?) = pending.keys.asSequence().filter {
+            it.first == id && it.second.first == cel
+        }.map { it.second.second }.toList()
         fun stage(layer: Layer,cel: String,key: Long,source: Int?,rect: RegionTileRect) {
             val address=layer.id to (cel to key)
-            checkRoom(address)
             val old=pending[address]
             val original=old?.before ?: layer.cels[cel]?.get(key)
+            checkRoom(address, original)
             val made=newLayerTile()
             try {
                 initializeTile(made,old?.after ?: original,false)
@@ -1227,7 +1278,7 @@ class GlPaintEngine(
             if (source == null && original == null && address !in pending) return
             val old = pending[address]
             val target = old?.after ?: run {
-                checkRoom(address)
+                checkRoom(address, original)
                 val made = newLayerTile()
                 try { initializeTile(made, original, layer.isMask) }
                 catch (e: Throwable) { recycleLayerTex(made); throw e }
@@ -1248,47 +1299,50 @@ class GlPaintEngine(
         try {
             for (clear in change.clears) {
                 val layer = layers.getValue(clear.layerId)
-                for (slice in RegionTransferTiles.slices(clear.rect, clear.rect)) stageTranslated(layer, clear.celId, slice, null)
+                for (slice in RegionTransferTiles.sparseSlices(clear.rect, clear.rect, emptySequence(),
+                    layer.cels.getValue(clear.celId).keys.asSequence() + pendingKeys(layer.id, clear.celId).asSequence()))
+                    stageTranslated(layer, clear.celId, slice, null)
             }
             for (clear in change.maskClears) {
                 val mask = requireNotNull(layers.getValue(clear.layerId).mask)
-                for (slice in RegionTransferTiles.slices(clear.rect, clear.rect)) stageTranslated(mask, null, slice, null)
+                for (slice in RegionTransferTiles.sparseSlices(clear.rect, clear.rect, emptySequence(),
+                    mask.tiles.keys.asSequence() + pendingKeys(mask.id, null).asSequence())) stageTranslated(mask, null, slice, null)
             }
             for(copy in change.copies) {
                 val layer=layers[copy.layerId] ?: error("No layer ${copy.layerId}")
                 val source=layer.cels[copy.fromCelId] ?: error("No source cel ${copy.fromCelId}")
                 val destination=layer.cels.getOrPut(copy.toCelId){HashMap()}
                 // Include destination keys: copying blank source must clear existing owned pixels too.
-                val keys=(source.keys+destination.keys+pending.keys.filter {
-                    it.first==copy.layerId && (it.second.first==copy.fromCelId || it.second.first==copy.toCelId)
-                }.map{it.second.second}).toSet()
-                val plan=RegionPaintPlan("copy-shared",listOf(RegionFrame("copy-board",copy.rect,"copy-frame","copy-target")))
-                for(key in keys) for(slice in plan.tileSlices(key)) if(slice.plane.celId=="copy-target") {
+                for (slice in RegionTransferTiles.sparseSlices(copy.rect, copy.rect,
+                    source.keys.asSequence() + pendingKeys(copy.layerId, copy.fromCelId).asSequence(),
+                    destination.keys.asSequence() + pendingKeys(copy.layerId, copy.toCelId).asSequence())) {
+                    val key = slice.destinationKey
                     val sourceAddress=copy.layerId to (copy.fromCelId to key)
                     val texture=if(sourceAddress in pending)pending.getValue(sourceAddress).after else source[key]
-                    stage(layer,copy.toCelId,key,texture,slice.rect)
+                    stage(layer,copy.toCelId,key,texture,slice.destination)
                 }
             }
             for (transfer in change.transfers) {
                 val layer = layers.getValue(transfer.layerId)
                 // Live stores stay immutable until every reciprocal transfer is staged.
                 val source = layer.cels.getValue(transfer.fromCelId)
-                for (slice in RegionTransferTiles.slices(transfer.sourceRect, transfer.destinationRect)) {
+                for (slice in RegionTransferTiles.sparseSlices(transfer.sourceRect, transfer.destinationRect,
+                    source.keys.asSequence(), layer.cels[transfer.toCelId].orEmpty().keys.asSequence() +
+                        pendingKeys(layer.id, transfer.toCelId).asSequence())) {
                     stageTranslated(layer, transfer.toCelId, slice, source[slice.sourceKey])
                 }
             }
             for (transfer in change.maskTransfers) {
                 val mask = requireNotNull(layers.getValue(transfer.layerId).mask)
-                for (slice in RegionTransferTiles.slices(transfer.sourceRect, transfer.destinationRect)) {
+                for (slice in RegionTransferTiles.sparseSlices(transfer.sourceRect, transfer.destinationRect,
+                    mask.tiles.keys.asSequence(), mask.tiles.keys.asSequence() + pendingKeys(mask.id, null).asSequence())) {
                     stageTranslated(mask, null, slice, mask.tiles[slice.sourceKey])
                 }
             }
             for(drop in change.drops) {
                 val layer=layers[drop.layerId] ?: error("No layer ${drop.layerId}")
-                val keys=(layer.cels[drop.celId].orEmpty().keys+pending.keys.filter{
-                    it.first==drop.layerId && it.second.first==drop.celId
-                }.map{it.second.second}).toSet()
-                for(key in keys) {
+                val keys = layer.cels[drop.celId].orEmpty().keys.asSequence() + pendingKeys(drop.layerId, drop.celId).asSequence()
+                for(key in keys.distinct()) {
                     val tex=layer.cels[drop.celId]?.get(key)
                     val address=layer.id to (drop.celId to key)
                     val old=pending[address]; old?.after?.let(::recycleLayerTex)

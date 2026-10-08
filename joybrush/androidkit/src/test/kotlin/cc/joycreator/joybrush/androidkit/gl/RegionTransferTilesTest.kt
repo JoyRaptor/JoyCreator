@@ -82,18 +82,33 @@ class RegionTransferTilesTest {
         return engine to doc
     }
 
-    @Test fun oversizedTransferRefusesBeforeMutatingDocumentOrHistory() {
-        val (engine, doc) = preparedEngine()
-        val layer = doc.layers.single(); val cel = layer.cels.single().id
-        val transfer = RegionTransfer(layer.id, cel, cel,
-            RectPx(0, 0, 3072, 3072), RectPx(3072, 0, 3072, 3072))
-        val error = assertFailsWith<IllegalArgumentException> {
-            engine.applyBoardChange(RegionChange(doc, transfers = listOf(transfer)))
+    @Test fun hugeEmptySparseGeometryVisitsNoGridCells() {
+        val rect = RectPx(-1_000_000_000, -1_000_000_000, 2_000_000_000, 2_000_000_000)
+        assertTrue(RegionTransferTiles.sparseSlices(rect, rect, emptySequence(), emptySequence()).none())
+        val slices = RegionTransferTiles.sparseSlices(rect, rect, sequenceOf(Tiles.key(-1, -1)), emptySequence()).toList()
+        assertEquals(1, slices.size)
+        assertEquals(RegionTileRect(0, 0, 256, 256), slices.single().source)
+    }
+
+    @Test fun sparseShiftVisitsAllAndOnlyOccupiedSourceOrDestinationPixels() {
+        val source = RectPx(-270, -9, 530, 280)
+        val destination = RectPx(17, 245, 530, 280)
+        val sourceKeys = setOf(Tiles.key(-1, 0))
+        val destinationKeys = setOf(Tiles.key(1, 1))
+        fun affected(s: TranslatedTileSlice) = s.sourceKey in sourceKeys || s.destinationKey in destinationKeys
+        val dense = HashSet<Pair<Int, Int>>()
+        for (s in RegionTransferTiles.slices(source, destination)) if (affected(s))
+            for (y in 0 until s.destination.h) for (x in 0 until s.destination.w)
+                dense.add((Tiles.tx(s.destinationKey) * 256 + s.destination.x + x) to
+                    (Tiles.ty(s.destinationKey) * 256 + s.destination.y + y))
+        val sparse = HashSet<Pair<Int, Int>>()
+        for (s in RegionTransferTiles.sparseSlices(source, destination, sourceKeys.asSequence(), destinationKeys.asSequence())) {
+            assertTrue(affected(s))
+            for (y in 0 until s.destination.h) for (x in 0 until s.destination.w)
+                sparse.add((Tiles.tx(s.destinationKey) * 256 + s.destination.x + x) to
+                    (Tiles.ty(s.destinationKey) * 256 + s.destination.y + y))
         }
-        assertTrue(error.message.orEmpty().contains("too large"))
-        assertEquals(doc, engine.boardDocument)
-        assertEquals(0, engine.undo.undoDepth)
-        assertEquals(0, engine.heldTextureNames())
+        assertEquals(dense, sparse)
     }
 
     @Test fun invalidCelRefusesBeforeMutatingDocumentOrHistory() {

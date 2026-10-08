@@ -32,6 +32,11 @@ import cc.joycreator.joybrush.androidkit.input.MotionEventSamples
 import cc.joycreator.joybrush.androidkit.io.JbArchiveException
 import cc.joycreator.joybrush.androidkit.tools.EyedropState
 import cc.joycreator.joybrush.androidkit.tools.Eyedropper
+import cc.joycreator.joybrush.androidkit.tools.FillPenRaster
+import cc.joycreator.joybrush.androidkit.tools.FillPenPreviewState
+import cc.joycreator.joybrush.core.brush.ENGINE_FILL
+import cc.joycreator.joybrush.core.fill.MaskPaintMode
+import cc.joycreator.joybrush.core.shape.Pt
 import cc.joycreator.joybrush.core.input.PenAction
 import cc.joycreator.joybrush.core.input.PenButton
 import cc.joycreator.joybrush.core.input.PenButtonMap
@@ -296,6 +301,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * undo, redo or clear is a history event and is NOT it (JB-0.08b review finding 2).
      */
     var onStrokeEnded: (() -> Unit)? = null
+
+    /** The fill pen's transient shape. Screen owns its transparent overlay; never saved. */
+    var onFillPreview: ((FillPenPreviewState?) -> Unit)? = null
+    private val fillSamples = ArrayList<PenSample>()
+    private val fillPoints = ArrayList<Pt>()
+    private var fillSerial = 0L
+    private var fillSmoothing = 0f
+    private var fillZoom = 1f
+    private var fillArgb = 0
+    private var fillOpacity = 1f
+    private var fillPath = 0.0
 
     // ── colour (JB-2.03a) ────────────────────────────────────────────────────
 
@@ -674,6 +690,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     // queueEvent can run before EGL is current, both at startup and after a file picker.
     // Only renderer callbacks guarantee a current context AND surface. GL-thread only.
     private val frameWork = ArrayDeque<() -> Unit>()
+    private val afterFrameWork = ArrayDeque<() -> Unit>()
 
     init {
         setEGLContextClientVersion(3)
@@ -691,6 +708,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 engine.addLayer(FIRST_LAYER)
                 engine.setLayerName(FIRST_LAYER, FIRST_LAYER_NAME)
                 post {
+                    fillSerial++; onFillPreview?.invoke(null)
                     surfaceReady = true
                     if (contentLost) {
                         val recover = onGraphicsLost
@@ -728,6 +746,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     engine.draw(viewW,viewH,drawView.docToClip(viewW,viewH),paperArgb)
                 }
                 answerScreenSample()
+                while (afterFrameWork.isNotEmpty()) afterFrameWork.removeFirst()()
             }
         })
         renderMode = RENDERMODE_WHEN_DIRTY
@@ -1207,6 +1226,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val b = brush
         val p = preset
         if(p?.engine == ENGINE_SMUDGE && refuseTileTool("smudge")) { drawing=false; return }
+        if(p?.engine == ENGINE_FILL && refuseTileTool("fill")) { drawing=false; return }
+        if(p?.engine == ENGINE_FILL && editingMask) {
+            drawing=false; onRefused?.invoke("Select the paint layer to use the fill pen; masks are not supported yet."); return
+        }
         val erase = b.erase || eraser
         // A media brush paints through the media engine (step 4c), on a media layer it makes if it has to.
         if (p?.engine == ENGINE_MEDIA && !eraser) { startMediaStroke(p); return }
@@ -1235,7 +1258,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // same thing at every zoom, and the samples stay in document px either way.
         smoother = StrokeSmoother(amount, screenPerDoc = view.zoom)
         val tr = DirectionTracker().also { tracker = it }
-        if (p == null) {
+        if (p?.engine == ENGINE_FILL && !mediaErase) {
+            fillSerial++; fillSamples.clear(); fillPoints.clear(); fillPath=0.0
+            fillSmoothing=amount; fillZoom=view.zoom
+            fillArgb=colorArgb ?: b.argb; fillOpacity=p.opacity.base
+            placer=null
+        } else if (p == null) {
             val cap = if (b.accumulate == Accumulate.WASH) b.opacity else 1f
             placer = DabPlacer(
                 spacing = b.spacing,
@@ -1318,7 +1346,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val samples = MotionEventSamples.from(ev, idx, { x, y -> view.screenToDoc(x, y) }, view.rotation)
         // JB-2.12: onto the guides first (position only; pressure and tilt pass through), then the brush's own response.
         val snap = snapper
-        for (s in samples) feedOne(sm, snap?.map(s) ?: s, released)
+        for (s in samples) {
+            if(!drawing) break
+            feedOne(sm, snap?.map(s) ?: s, released)
+        }
         if (snap != null && snap.locked && !lockShown) {
             lockShown = true
             onGuideLock?.invoke(true)
@@ -1344,6 +1375,34 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         smoother?.let { paint(it.finish()) }
         resetSnapper(fresh = false)
+        if (strokePreset?.engine == ENGINE_FILL) {
+            val samples=fillSamples.toList(); val target=strokeLayerId
+            val argb=fillArgb; val opacity=fillOpacity; val amount=fillSmoothing; val zoom=fillZoom
+            val mode=when {
+                strokeErase || strokePreset?.blend == "erase" -> MaskPaintMode.ERASE
+                strokePreset?.blend == "behind" -> MaskPaintMode.BEHIND
+                else -> MaskPaintMode.FILL
+            }
+            val serial=fillSerial
+            drawing=false; smoother=null; placer=null; tracker=null
+            strokePreset=null; strokeDabber=null; scatterRng=null; strokeErase=false; strokeTuft=null
+            boardStrokeWork {
+                try {
+                    val mask=FillPenRaster.prepare(samples,amount,zoom)
+                    val pixels=mask.tileKeys.sumOf { key -> mask.tile(key)!!.sumOf { (it.toInt() and 255).toLong() } } / 255.0
+                    if(pixels*zoom*zoom >= 4.0) {
+                        val ownership=engine.boardDocument?.let { RegionDocumentOps.paintPlans(it,emptyMap())[target] }
+                        val changes=FillPenRaster.plan(mask,argb,opacity,mode,ownership) { engine.readTile(target,it) }
+                        engine.replaceTiles(target,changes)
+                        if(changes.isNotEmpty()) reportHistory()
+                    }
+                } finally {
+                    afterFrameWork.addLast { post { if(fillSerial == serial) onFillPreview?.invoke(null) } }
+                }
+            }
+            fillSamples.clear(); fillPoints.clear()
+            flushPaperVisits(); onStrokeEnded?.invoke(); return
+        }
         // R9: the lift — a fast one carries on as the bristles leave the paper — and any spatter it throws.
         strokeTuft?.let { t -> paintTuft(t.finish()) }
         drawing = false
@@ -1358,6 +1417,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // What a media stroke already painted stays, as one step (water cannot be un-run mid-flow).
         if (mediaStroke || mediaErase) { finishMediaStroke(); return }
         resetSnapper(fresh = false)
+        fillSerial++; fillSamples.clear(); fillPoints.clear(); onFillPreview?.invoke(null)
         drawing = false
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null
@@ -1368,6 +1428,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     private fun paint(points: List<PenSample>) {
         if (points.isEmpty()) return
+        if (strokePreset?.engine == ENGINE_FILL && !mediaErase) {
+            fillPoints.addAll(points.map { Pt(it.x.toDouble(),it.y.toDouble()) })
+            onFillPreview?.invoke(FillPenPreviewState(fillPoints.toList(),fillArgb,fillOpacity))
+            return
+        }
         strokeTuft?.let { t -> paintTuft(t.add(points)); return }
         val placed = placer?.add(points) ?: return
         if (placed.isEmpty()) return
@@ -1439,6 +1504,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * ([TuftStroke.dwell]): pressing grows the blot, and turning the pen swings the belly round its point.
      */
     private fun feedOne(sm: StrokeSmoother, raw: PenSample, released: MutableList<PenSample>) {
+        if (strokePreset?.engine == ENGINE_FILL && !mediaErase) {
+            if(!raw.isPlaceable || raw.predicted) return
+            fillSamples.lastOrNull()?.let { previous ->
+                fillPath+=kotlin.math.hypot(raw.x.toDouble()-previous.x,raw.y.toDouble()-previous.y)*fillZoom
+            }
+            if(fillSamples.size >= 32768 || !fillPath.isFinite() || fillPath > 32768.0) {
+                cancelStroke(); onRefused?.invoke("Fill stroke is too long; draw a smaller shape"); return
+            }
+            fillSamples.add(raw)
+            released.addAll(sm.add(raw)); return
+        }
         val s = strokePreset?.response?.apply(raw) ?: raw
         val before = released.size
         released.addAll(sm.add(s))

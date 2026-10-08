@@ -201,6 +201,7 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
 
     override fun onDraw(canvas: Canvas) {
         layout.elements.forEach { e ->
+            if(e.colour == Chrome.Colour.GLASS && e.shadowPx > 0) drawFrost(canvas,e)
             if (e.shadowPx > 0 || e.haloPx > 0 && e.colour == Chrome.Colour.PAPER) drawShadowPatch(canvas, e)
             else draw(canvas, e)
         }
@@ -237,6 +238,17 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
     }
 
     private fun hasArt(e: Chrome.Element) = e.artSlot || e.id == "sprite-lift" || e.id.startsWith("sprite-cell-")
+
+    private fun drawFrost(canvas: Canvas,e: Chrome.Element) {
+        val save=canvas.save()
+        e.clip?.let { canvas.clipRect(it.left,it.top,it.right,it.bottom) }
+        val pivot=e.transformOrigin ?: Chrome.Point(e.rect.cx,e.rect.cy)
+        canvas.rotate(e.rotationDeg,pivot.x,pivot.y); canvas.scale(e.scale,e.scale,pivot.x,pivot.y)
+        val layer=if(e.alpha < 1f) canvas.saveLayerAlpha(e.rect.left,e.rect.top,e.rect.right,e.rect.bottom,(e.alpha*255).roundToInt()) else -1
+        shape(e); clipped(canvas,outline) { host.frost(canvas,e) }
+        if(layer >= 0) canvas.restoreToCount(layer)
+        canvas.restoreToCount(save)
+    }
 
     private fun drawArt(canvas: Canvas, e: Chrome.Element) {
         val save = canvas.save()
@@ -284,7 +296,7 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
             Chrome.Shape.LINE -> canvas.drawLine(e.rect.left, e.rect.top, e.rect.right, e.rect.bottom, paint)
             Chrome.Shape.ROUND_RECT -> {
                 shape(e)
-                if (e.colour == Chrome.Colour.GLASS) clipped(canvas, outline) { host.frost(canvas, e) }
+                if (artwork && e.colour == Chrome.Colour.GLASS) clipped(canvas, outline) { host.frost(canvas, e) }
                 if (e.haloPx > 0f && e.colour == Chrome.Colour.CYAN) {
                     val original = Paint(paint)
                     paint.clearShadowLayer()

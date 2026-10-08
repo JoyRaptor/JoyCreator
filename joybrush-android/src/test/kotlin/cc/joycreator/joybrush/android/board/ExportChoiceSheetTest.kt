@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import cc.joycreator.joybrush.core.chrome.BoardChromeIdentity
 import cc.joycreator.joybrush.core.chrome.BoardChromeLayout as Chrome
 import cc.joycreator.joybrush.core.chrome.BoardExportLayout as Export
@@ -39,6 +40,50 @@ class ExportChoiceSheetTest {
         return try {view.dispatchTouchEvent(event)} finally {event.recycle()}
     }
     private fun settle(){shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))}
+
+    private fun control(view:ExportChoiceSheet, descriptionPrefix:String):View {
+        val chrome=view.getChildAt(0) as ViewGroup
+        return (0 until chrome.childCount).map { chrome.getChildAt(it) }
+            .first { it.contentDescription?.toString()?.startsWith(descriptionPrefix)==true }
+    }
+
+    @Test fun accessibleChoicesExposeCheckedStateAndUpdateAfterSelection() {
+        val view=sheet()
+        val state=input().copy(availableScopes=Export.Scope.entries.toSet(),
+            availableFormats=Export.chipFormats.toSet(),exportEnabled=true)
+        view.show(state)
+        val animation=control(view,"Animation")
+        val range=control(view,"A range")
+        assertEquals("android.widget.RadioButton",animation.createAccessibilityNodeInfo().className)
+        assertTrue(animation.createAccessibilityNodeInfo().isChecked)
+        assertFalse(range.createAccessibilityNodeInfo().isChecked)
+        view.show(state.copy(scope=Export.Scope.RANGE,format=Export.Format.PNG_FRAMES))
+        assertFalse(animation.createAccessibilityNodeInfo().isChecked)
+        assertTrue(range.createAccessibilityNodeInfo().isChecked)
+        assertTrue(control(view,"PNG frames").createAccessibilityNodeInfo().isChecked)
+        assertFalse(control(view,"GIF").createAccessibilityNodeInfo().isChecked)
+    }
+
+    @Test fun exportAccessibilityIdentifiesExactScopeAndUnavailableChoices() {
+        val view=sheet()
+        view.show(input().copy(scope=Export.Scope.FRAME,format=Export.Format.PNG,
+            availableScopes=setOf(Export.Scope.FRAME),availableFormats=setOf(Export.Format.PNG),
+            displayedFormats=listOf(Export.Format.PNG),exportEnabled=true))
+        val export=control(view,"Export Walk cycle")
+        assertEquals("android.widget.Button",export.createAccessibilityNodeInfo().className)
+        assertTrue(export.contentDescription.toString().contains("This frame, 3"))
+        assertTrue(export.contentDescription.toString().contains("1920 by 1080 pixels"))
+        assertFalse(control(view,"Animation").createAccessibilityNodeInfo().isEnabled)
+        assertEquals("Export Walk cycle",view.accessibilityPaneTitle)
+    }
+
+    @Test fun spriteBudgetIsDescribedAsCellsRatherThanAnimationFrames() {
+        val view=sheet()
+        view.show(input().copy(cellCount=24))
+        val budget=control(view,"cells 24")
+        assertEquals("cells 24 × layers 3, 22% of memory budget",budget.contentDescription)
+        assertFalse(budget.createAccessibilityNodeInfo().isEnabled)
+    }
 
     @Test fun glassIsTranslucentAndFrostIsClippedPresentationOnly() {
         val view=sheet();var frosts=0

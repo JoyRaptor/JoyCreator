@@ -295,6 +295,7 @@ class JoyBrushActivity : Activity() {
     private data class PngTarget(val documentId: String, val boardId: String, val frameId: String?, val includePaper: Boolean)
     private var pendingPng: PngTarget? = null
     private var pendingBoardExport: cc.joycreator.joybrush.androidkit.io.BoardExportRequest? = null
+    private var boardBackdrop: cc.joycreator.joybrush.android.board.BoardBackdrop? = null
     private val boardExports by lazy { cc.joycreator.joybrush.android.board.BoardExportCoordinator(this,
         { target, name, mime ->
             if(target.format in listOf(cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.STUDIO,
@@ -308,7 +309,9 @@ class JoyBrushActivity : Activity() {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             }
             launch(intent, REQUEST_BOARD_EXPORT)
-        }, { why -> toast(why) }) }
+        }, { why -> toast(why) },
+        frost={ drawing,target -> boardBackdrop?.draw(drawing,target) },
+        refreshBackdrop={ changed -> boardBackdrop?.refresh(changed) }) }
 
     private var loadingDrawing = true
     private var replacingDrawing = false
@@ -385,6 +388,10 @@ class JoyBrushActivity : Activity() {
                 if (loadingDrawing || replacingDrawing || recoveringDrawing || canvas.needsRecovery) true else super.dispatchTouchEvent(event)
         }
         root.addView(canvas, FrameLayout.LayoutParams(MATCH, MATCH))
+        boardBackdrop=cc.joycreator.joybrush.android.board.BoardBackdrop(this,canvas)
+        val fillPreview=cc.joycreator.joybrush.android.board.FillPenPreview(this,canvas.view)
+        root.addView(fillPreview,FrameLayout.LayoutParams(MATCH,MATCH))
+        canvas.onFillPreview={ fillPreview.state=it }
         // The eyedropper's ring is drawn over the canvas and is exactly its size, so the canvas's own coordinates are the ring's.
         root.addView(ring, FrameLayout.LayoutParams(MATCH, MATCH))
         // The pinned reference floats over the drawing, full-bleed like it, under the chrome. It is a view, never a layer.
@@ -406,6 +413,9 @@ class JoyBrushActivity : Activity() {
             override fun onion(boardId: String?) = canvas.setOnionBoard(boardId)
             override fun transform() = canvas.view
             override fun contentRevision() = canvas.boardContentRevision
+            override fun sampleScreen(points: FloatArray,ready: (IntArray) -> Unit) = canvas.sampleScreen(points,ready)
+            override fun refreshBackdrop(changed: () -> Unit) { boardBackdrop?.refresh(changed) }
+            override fun frost(canvas: android.graphics.Canvas,view: View) { boardBackdrop?.draw(canvas,view) }
             override fun refusal(message: String) { Toast.makeText(this@JoyBrushActivity, message, Toast.LENGTH_SHORT).show() }
             override fun export(boardId: String) { pngOptions(layersBtn, boardId) }
             override fun selectionChanged(bounds: cc.joycreator.joybrush.core.doc.RectPx?) { updateLayerPreviewAspect(bounds); updateAnimationLayerMarkers(); boardThumbnailRevision++; refreshThumbs() }
@@ -432,7 +442,7 @@ class JoyBrushActivity : Activity() {
         canvas.onGraphicsLost = { documentId -> boardController?.stop(); recoverGraphics(documentId) }
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
-        canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate(); boardController?.refreshTransform() }
+        canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate(); fillPreview.invalidate(); boardController?.refreshTransform() }
         canvas.onGuideLock = { on -> guideOverlay.locked = on }
         guides = GuideSettings.decode(prefs.getString(PREF_GUIDES, null))
         guidesChanged()
@@ -518,6 +528,7 @@ class JoyBrushActivity : Activity() {
     }
 
     override fun onDestroy() {
+        boardBackdrop?.close(); boardBackdrop=null
         boardExports.dismiss()
         boardController?.stop()
         destroyed = true

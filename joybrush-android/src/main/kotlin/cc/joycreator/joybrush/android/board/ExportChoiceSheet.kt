@@ -3,8 +3,11 @@ package cc.joycreator.joybrush.android.board
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.os.Build
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.FrameLayout
 import cc.joycreator.joybrush.core.chrome.BoardChromeLayout
 import cc.joycreator.joybrush.core.chrome.BoardChromeIdentity
@@ -49,6 +52,8 @@ class ExportChoiceSheet(context: Context) : FrameLayout(context) {
         }
     }
 
+    fun invalidateBackdrop() { chrome.invalidate() }
+
     fun show(input: BoardExportLayout.Input) {
         // Intrinsic font measurement only. Core decides every position, padding and rectangle.
         measure.typeface = Type.body(context, 600)
@@ -59,13 +64,58 @@ class ExportChoiceSheet(context: Context) : FrameLayout(context) {
         val headerWidth = measure.measureText("Export")
         measure.typeface = Type.mono(context, 500)
         measure.textSize = 8.5f * resources.displayMetrics.scaledDensity
-        val budgetWidth = measure.measureText("frames ${input.identity.frameIds.size} × layers ${input.layerCount}")
+        val budgetWidth = measure.measureText(budgetLabel(input))
         val percentWidth = measure.measureText("${(input.memoryFraction*100).roundToInt()}%")
         val next = input.copy(frameIds = input.identity.frameIds, formatTextWidthsPx = formatWidths,
             headerTextWidthPx = headerWidth, budgetTextWidthPx = budgetWidth, percentTextWidthPx = percentWidth)
         if (shown?.boardId != next.boardId || shown?.identity?.frameIds != next.identity.frameIds) chrome.stopInteractions()
         shown = next
-        chrome.submit(BoardExportLayout.layout(next))
+        val layout = BoardExportLayout.layout(next)
+        chrome.submit(layout)
+        if (Build.VERSION.SDK_INT >= 28) accessibilityPaneTitle = "Export ${next.name}"
+        // The controls are native Views, while their labels/radio marks are drawn by chrome.
+        // Supply equivalent native semantics without adding another visible sheet or layout.
+        for (index in 0 until chrome.childCount) {
+            val target = chrome.getChildAt(index)
+            val control = layout.controls.firstOrNull { it.tooltip == target.contentDescription?.toString() } ?: continue
+            val scope = BoardExportLayout.Scope.entries.firstOrNull { control.id == "export-scope-${it.name.lowercase()}" }
+            val format = BoardExportLayout.Format.entries.firstOrNull { control.id == "export-format-${it.name.lowercase()}" }
+            val checked = scope == next.scope && scope != null || format == next.format && format != null
+            val description = when {
+                scope != null -> scopeDescription(next, scope)
+                format != null -> format.label
+                control.id == "export-budget" -> "${budgetLabel(next)}, ${(next.memoryFraction * 100).roundToInt()}% of memory budget"
+                control.id == "export-go" -> "Export ${next.name}, ${scopeDescription(next, next.scope)}, ${next.format.label}, ${next.pixelWidth} by ${next.pixelHeight} pixels"
+                else -> control.tooltip
+            }
+            target.isSelected = checked
+            target.contentDescription = description
+            target.accessibilityDelegate = object : View.AccessibilityDelegate() {
+                override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
+                    super.onInitializeAccessibilityNodeInfo(host, info)
+                    if (scope != null || format != null) {
+                        info.className = "android.widget.RadioButton"
+                        info.isCheckable = true
+                        info.isChecked = checked
+                    } else if (control.id == "export-go") info.className = "android.widget.Button"
+                }
+            }
+        }
+    }
+
+    private fun budgetLabel(input: BoardExportLayout.Input): String =
+        (input.cellCount?.let { "cells $it" } ?: "frames ${input.identity.frameIds.size}") + " × layers ${input.layerCount}"
+
+    private fun scopeDescription(input: BoardExportLayout.Input, scope: BoardExportLayout.Scope): String = when (scope) {
+        BoardExportLayout.Scope.ANIMATION -> "Animation, all ${input.identity.frameIds.size} frames"
+        BoardExportLayout.Scope.RANGE -> {
+            val start = input.identity.frameIds.indexOf(input.rangeStartId)
+            val end = input.identity.frameIds.indexOf(input.rangeEndId)
+            if (start < 0 || end < 0) scope.label else "A range of frames, ${start + 1} through ${end + 1}"
+        }
+        BoardExportLayout.Scope.FRAME -> "This frame, ${input.identity.frameIds.indexOf(input.currentFrameId) + 1}"
+        BoardExportLayout.Scope.BOARD -> "This board, ${input.name}"
+        BoardExportLayout.Scope.ALL_IMAGES -> "All image boards"
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {

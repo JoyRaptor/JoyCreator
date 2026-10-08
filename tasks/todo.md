@@ -497,3 +497,10 @@ Review: preserve current pen and Sable; no Note 9 acceptance claimed from automa
 - [x] Run serial regression, watcher APK, device acceptance, durable reopen and independent MP4 decode.
 - [x] Document exact evidence and remaining fill/visual refinements in tasks/joybrush/reviews/BOARD_COMPLETION_20261007.md.
 Review: core1651/backend279/native74 checks plus8 disk checks; four optional corpus skips. No brush/paper algorithm changes. No blanket artwork migration. Device fingerprints and remaining scope are recorded in the review.
+
+## Fill pen and board UI wrap-up — October7
+- [x] Wire bounded fill-pen preview/commit with fixed stroke layer, guides, hidden/locked/mask refusals and one Undo across board ownership.
+- [x] Finish board sizing/menu glass panels and export sheet usability without editing Claude media engine/schema.
+- [x] Verify serial tests and watcher build; publish scoped source and hand off to Claude.
+- [ ] Phone acceptance after Claude releases the Note9; root made no install in this pass.
+Review: core1706/backend312/native105; zero failures/errors, four optional corpus skips. Watcher APK52s. See reviews/FILL_UI_HANDOFF_20261007.md; app-wide Studio export model remains a returned-Lead architecture task, tap-fill tool separate.

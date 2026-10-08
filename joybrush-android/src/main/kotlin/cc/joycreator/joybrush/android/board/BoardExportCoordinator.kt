@@ -1,7 +1,6 @@
 package cc.joycreator.joybrush.android.board
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.app.Dialog
 import android.content.ContentResolver
 import android.graphics.Color
@@ -28,10 +27,13 @@ import java.util.UUID
 /** K6 host: presentation is shared; file writing remains serialized by the Activity's save queue. */
 class BoardExportCoordinator(private val activity: Activity,
     private val choose: (BoardExportRequest, String, String) -> Unit,
-    private val refusal: (String) -> Unit) {
+    private val refusal: (String) -> Unit,
+    private val frost: (android.graphics.Canvas,android.view.View) -> Unit = { _,_ -> },
+    private val refreshBackdrop: (() -> Unit) -> Unit = {}) {
     private var dialog: Dialog? = null
+    private val panels=BoardPanels(activity)
 
-    fun dismiss() { dialog?.dismiss(); dialog = null }
+    fun dismiss() { panels.close(); dialog?.dismiss(); dialog = null }
 
     fun show(doc: JbDocument, boardId: String) {
         dismiss()
@@ -53,31 +55,22 @@ class BoardExportCoordinator(private val activity: Activity,
             isEnabled = !doc.paper.screenTransparent
             contentDescription = "Include paper in exported images"
         }
+        cc.joycreator.joybrush.android.chrome.ChromeKit(activity).surface(paper,12f)
         val container = FrameLayout(activity)
         container.addView(paper, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,dp(36),Gravity.TOP).apply { leftMargin = dp(14) })
         container.addView(sheet, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(236),Gravity.BOTTOM))
         lateinit var refresh: () -> Unit
         fun editRange() {
-            val box = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
-            fun field(id: String) = EditText(activity).apply {
-                inputType = android.text.InputType.TYPE_CLASS_NUMBER
-                setText((frames.indexOf(id)+1).toString())
-                layoutParams = LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f)
+            panels.formValidated("Frames 1–${frames.size}",listOf("First frame" to "${frames.indexOf(start)+1}","Last frame" to "${frames.indexOf(end)+1}"),
+                { values ->
+                    val a=values[0].toIntOrNull(); val b=values[1].toIntOrNull()
+                    if(a == null || b == null || a !in 1..frames.size || b !in a..frames.size) "Choose a range from 1 to ${frames.size}" else null
+                }) { values ->
+                start=frames[values[0].toInt()-1]; end=frames[values[1].toInt()-1]; refresh()
             }
-            val first = field(start).also { it.contentDescription = "First frame"; box.addView(it) }
-            val last = field(end).also { it.contentDescription = "Last frame"; box.addView(it) }
-            val range = AlertDialog.Builder(activity).setTitle("Frames 1–${frames.size}")
-                .setView(box).setNegativeButton("Cancel",null).setPositiveButton("Apply",null).create()
-            range.setOnShowListener { range.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val a = first.text.toString().toIntOrNull(); val b = last.text.toString().toIntOrNull()
-                if(a == null || b == null || a !in 1..frames.size || b !in a..frames.size) {
-                    first.error = "Choose a range from 1 to ${frames.size}"; return@setOnClickListener
-                }
-                start = frames[a-1]; end = frames[b-1]; refresh(); range.dismiss()
-            } }
-            range.show()
         }
         sheet.host = object : ExportChoiceSheet.Host {
+            override fun frost(canvas: android.graphics.Canvas,element: BoardChromeLayout.Element) = frost(canvas,sheet)
             override fun scope(board: BoardChromeIdentity, scope: Export.Scope) {
                 if(board.boardId != boardId) return
                 selectScope(scope)
@@ -135,11 +128,13 @@ class BoardExportCoordinator(private val activity: Activity,
                 rangePreviewEnd = (frames.indexOf(end)+1).toFloat()/frames.size,
                 displayedScopes = scopes,displayedFormats = formats,
                 cellCount=board.grid?.let { it.cols*it.rows }))
+            refreshBackdrop { sheet.invalidateBackdrop() }
         }
         dialog = Dialog(activity).apply {
             setContentView(container,ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(272)))
             window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setOnDismissListener { sheet.stopInteractions() }
+            window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            setOnDismissListener { panels.close(); sheet.stopInteractions() }
             show()
             window?.setGravity(Gravity.BOTTOM)
             window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT)

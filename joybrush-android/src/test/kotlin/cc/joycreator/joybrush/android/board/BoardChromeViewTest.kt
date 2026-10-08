@@ -119,6 +119,33 @@ class BoardChromeViewTest {
         assertEquals(rasterizations, view.shadowRasterizations)
     }
 
+    @Test fun glassFrostRefreshesBehindCachedShadowOnEveryDraw() {
+        val view=view()
+        val element=Chrome.Element("glass",Chrome.Shape.ROUND_RECT,Chrome.Rect(20f,20f,140f,100f),
+            Chrome.Colour.GLASS,alpha=.55f,radiusPx=12f,shadowPx=3f)
+        view.submit(Chrome.Layout(listOf(element),emptyList(),false,false,false))
+        var frostCalls=0
+        var colour=android.graphics.Color.RED
+        view.host=object:BoardChromeView.Host {
+            override fun frost(canvas:Canvas,element:Chrome.Element) { frostCalls++; canvas.drawColor(colour) }
+        }
+        val image=Bitmap.createBitmap(548,1126,Bitmap.Config.ARGB_8888)
+        val canvas=Canvas(image)
+        view.draw(canvas)
+        assertEquals(1,frostCalls)
+        val first=image.getPixel(70,60)
+        val rasterizations=view.shadowRasterizations
+        image.eraseColor(android.graphics.Color.TRANSPARENT)
+        colour=android.graphics.Color.BLUE
+        view.invalidate(); view.draw(canvas)
+        assertEquals(2,frostCalls)
+        assertEquals(rasterizations,view.shadowRasterizations)
+        assertTrue(android.graphics.Color.red(first) > android.graphics.Color.blue(first))
+        val second=image.getPixel(70,60)
+        assertTrue(android.graphics.Color.blue(second) > android.graphics.Color.red(second))
+        assertEquals(0,android.graphics.Color.alpha(image.getPixel(2,2)))
+    }
+
     @Test fun selectedFadeUsesCachedShadowsAndWiggleDoesNotRasterizeWholeCellsAgain() {
         val view = view()
         val image = Bitmap.createBitmap(548, 1126, Bitmap.Config.ARGB_8888)

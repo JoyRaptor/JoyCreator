@@ -1,6 +1,5 @@
 package cc.joycreator.joybrush.android.board
 
-import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -11,14 +10,13 @@ import android.os.SystemClock
 import android.util.LruCache
 import android.view.MotionEvent
 import android.view.View
-import android.widget.EditText
 import android.widget.FrameLayout
-import android.widget.LinearLayout
 import cc.joycreator.joybrush.core.anim.PlaybackClock
 import cc.joycreator.joybrush.core.anim.PlayMode
 import cc.joycreator.joybrush.core.anim.FilmStrip
 import cc.joycreator.joybrush.core.chrome.BoardChromeIdentity
 import cc.joycreator.joybrush.core.chrome.BoardChromePenFade
+import cc.joycreator.joybrush.core.chrome.IconContrast
 import cc.joycreator.joybrush.core.chrome.BoardChromeLayout as Chrome
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.view.ViewTransform
@@ -39,12 +37,19 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         fun onion(boardId: String?) {}
         fun transform(): ViewTransform
         fun contentRevision(): Long = 0L
+        fun sampleScreen(points: FloatArray, ready: (IntArray) -> Unit) { ready(intArrayOf()) }
+        fun refreshBackdrop(changed: () -> Unit) {}
+        fun frost(canvas: Canvas, view: View) {}
         fun refusal(message: String)
         fun export(boardId: String) {}
         fun selectionChanged(bounds: RectPx?)
         fun thumbnails(boardId: String, frames: List<String>, width: Int, height: Int, ready: (Map<String, IntArray>) -> Unit)
         fun spriteThumbnails(boardId: String, cells: List<Int>, width: Int, height: Int, ready: (Map<Int, IntArray>) -> Unit) { ready(emptyMap()) }
     }
+    private val panels = BoardPanels(context)
+    private var inkSignature = ""
+    private var inkPending = false
+    private var inkEpoch = 0L
     private var doc: JbDocument? = null
     private var session = BoardSession()
     private val views = linkedMapOf<String, BoardChromeView>()
@@ -110,6 +115,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     }
 
     fun documentChanged(value: JbDocument) {
+        if(doc?.id != value.id) { inkEpoch++; inkPending=false; inkSignature="" }
         stopPreview()
         if (geometryDrag != null || spriteDrag != null) views.values.forEach { it.stopInteractions() }
         geometryDrag = null; geometryPreview = null; spriteDrag = null; spriteTarget = null
@@ -209,6 +215,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     }
 
     fun stop() {
+        panels.close()
+        inkEpoch++; inkPending=false; inkSignature=""
         active = false
         tileEpoch++; host.tile(null) {}; host.onion(null)
         if(doc?.boards?.any { it.id == session.armedBoardId && it.kind == BoardKind.CANVAS } == true) session=session.copy(armedBoardId=null)
@@ -332,6 +340,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             if (b.kind == BoardKind.ANIMATION && session.selectedBoardId == b.id) requestArt(b, rect.width, density)
             if (b.kind == BoardKind.SPRITE && session.selectedBoardId == b.id && geometryPreview == null) requestSpriteArt(b)
         }
+        requestPaperInk()
+        if(session.selectedBoardId != null) host.refreshBackdrop { views.values.forEach { it.invalidate() } }
         parent.removeCallbacks(armedTick)
         if(!reducedMotion && session.selectedBoardId == session.armedBoardId && current.boards.any { it.id == session.armedBoardId && it.kind == BoardKind.SPRITE && it.locked })
             parent.postDelayed(armedTick,80)
@@ -602,6 +612,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             if(control.startsWith("handle-")) clearGeometry()
             if(control.startsWith("sprite-cell-")) { spriteDrag=null; spriteTarget=null; refreshTransform() }
         }
+        override fun frost(canvas: Canvas, element: Chrome.Element) { views[id]?.let { host.frost(canvas,it) } }
         override fun art(canvas: Canvas, element: Chrome.Element) {
             val b=board(id) ?: return
             if(b.kind == BoardKind.SPRITE) {
@@ -622,29 +633,72 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         }
     }
 
+    private fun paperInkSignature(value: JbDocument): String {
+        val t=host.transform()
+        return "${value.id}:${host.contentRevision()}:${value.boards.map { it.id to it.rect }}:${t.zoom}:${t.rotation}:${t.panX}:${t.panY}"
+    }
+    /** Samples the actual composited surface, including paper, without reading GL from the UI thread. */
+    private fun requestPaperInk() {
+        val current=doc ?: return
+        val t=host.transform()
+        val signature=paperInkSignature(current)
+        if(inkPending || signature == inkSignature) return
+        val points=ArrayList<Float>(); val groups=ArrayList<Pair<String,Int>>()
+        val density=context.resources.displayMetrics.density
+        current.boards.forEach { b ->
+            var count=0
+            for(dy in listOf(-5f,0f,5f)) for(dx in listOf(-5f,0f,5f)) {
+                val p=t.docToScreen(b.rect.x+(-27f+dx)*density/t.zoom,b.rect.y+(19f+dy)*density/t.zoom)
+                if(p.first >= 0 && p.first < parent.width && p.second >= 0 && p.second < parent.height) {
+                    points+=p.first; points+=p.second; count++
+                }
+            }
+            if(count > 0) groups+=b.id to count
+        }
+        inkSignature=signature
+        if(points.isEmpty()) return
+        val request=inkEpoch
+        inkPending=true
+        host.sampleScreen(points.toFloatArray()) { colours ->
+            if(!active || request != inkEpoch) return@sampleScreen
+            inkPending=false
+            if(doc?.let(::paperInkSignature) != signature) { requestPaperInk(); return@sampleScreen }
+            var start=0
+            groups.forEach { (id,count) ->
+                if(start+count <= colours.size) views[id]?.let { view ->
+                    view.paperInk=IconContrast.inkFor(colours.copyOfRange(start,start+count),view.paperInk)
+                }
+                start+=count
+            }
+            // A view or artwork change while the readback was pending gets a fresh request.
+            requestPaperInk()
+        }
+    }
+
     private fun add(id: String, mode: NewFrame) = edit { RegionDocumentOps.addFrame(it, id, mode) { UUID.randomUUID().toString() } }
     private fun frameMenu(id: String) {
         val b = board(id) ?: return
-        AlertDialog.Builder(context).setTitle("Frame").setItems(arrayOf("Duplicate", "Link", "Blank", "Hold…", "Delete")) { _, n -> when(n) {
+        panels.menu("Frame",listOf("Duplicate", "Link", "Blank", "Hold…", "Delete")) { n -> when(n) {
             0 -> add(id, NewFrame.DUPLICATE); 1 -> add(id, NewFrame.LINK); 2 -> add(id, NewFrame.BLANK)
-            3 -> { val frame = b.frames.firstOrNull { it.id == b.currentFrameId } ?: return@setItems
+            3 -> { val frame = b.frames.firstOrNull { it.id == b.currentFrameId } ?: return@menu
                 textForm("Frame hold", listOf("Ticks" to "${frame.holdFrames}")) { values -> values[0].toIntOrNull()?.let { ticks -> metadata { RegionDocumentOps.setHold(it, id, frame.id, ticks) } } ?: host.refusal("Enter a whole tick count") } }
             4 -> b.currentFrameId?.let { frame -> edit { RegionDocumentOps.deleteFrame(it, id, frame) } }
-        } }.show()
+        } }
     }
     private fun boardMenu(id: String) {
         val b=board(id) ?: return
-        AlertDialog.Builder(context).setTitle(b.name).setItems(arrayOf("Select", "Duplicate board", "Remove board", "Frames…", "Move…", "Move all frames…")) { _, n -> when(n) {
+        val labels=listOf("Select","Duplicate board","Remove board","Move…") +
+            if(b.kind == BoardKind.ANIMATION) listOf("Frames…","Move all frames…") else emptyList()
+        panels.menu(b.name,labels) { n -> when(n) {
             0 -> select(id)
             1 -> if(b.kind == BoardKind.ANIMATION) moveBoardForm(b,duplicate=true) else edit { BoardDocumentOps.duplicatePassive(it,id) { UUID.randomUUID().toString() } }
-            2 -> if(b.kind == BoardKind.ANIMATION) AlertDialog.Builder(context).setTitle("Remove ${b.name}?")
-                .setMessage("Keep the current frame on the page and remove the other frames. You can undo this.")
-                .setNegativeButton("Cancel",null).setPositiveButton("Remove") { _,_ -> edit { AnimationBoardOps.remove(it,id) } }.show()
+            2 -> if(b.kind == BoardKind.ANIMATION) panels.confirm("Remove ${b.name}?",
+                "Keep the current frame on the page and remove the other frames. You can undo this.","Remove") { edit { AnimationBoardOps.remove(it,id) } }
                 else metadata { BoardDocumentOps.remove(it,id) }
-            3 -> if(b.kind == BoardKind.ANIMATION) frameMenu(id) else host.refusal("This board has no animation frames")
-            4 -> moveBoardForm(b)
-            5 -> if(b.kind == BoardKind.ANIMATION) moveBoardForm(b,allFrames=true) else host.refusal("This board has no animation frames")
-        } }.show()
+            3 -> moveBoardForm(b)
+            4 -> frameMenu(id)
+            5 -> moveBoardForm(b,allFrames=true)
+        } }
     }
     private fun moveBoardForm(b: Board, allFrames: Boolean=false, duplicate: Boolean=false) {
         val documentId=doc?.id ?: return
@@ -664,19 +718,18 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                     }
                 }
             }
-            if(allFrames) AlertDialog.Builder(context).setTitle("Move every frame?").setMessage("Move this board's artwork and masks together. You can undo the whole move.")
-                .setNegativeButton("Cancel",null).setPositiveButton("Move") { _,_ -> apply() }.show() else apply()
+            if(allFrames) panels.confirm("Move every frame?","Move this board's artwork and masks together. You can undo the whole move.","Move") { apply() } else apply()
         }
     }
     fun showMenu() {
         host.ensureDocument { d ->
             if (doc == null || doc?.id != d.id) documentChanged(d)
             val labels = arrayOf("New Image board…", "New Animation board…", "New Sprite board…", "New Tile board…", "Page (clear selection)") + d.boards.map { it.name }
-            AlertDialog.Builder(context).setTitle("Boards").setItems(labels) { _, n -> when {
+            panels.menu("Boards",labels.toList()) { n -> when {
                 n < 3 -> beginPlacement(listOf(BoardKind.CANVAS, BoardKind.ANIMATION, BoardKind.SPRITE)[n])
                 n == 3 -> beginPlacement(BoardKind.CANVAS,true)
                 n == 4 -> { armTile(null); select(null) }; else -> select(d.boards[n - 5].id)
-            } }.show()
+            } }
         }
     }
     private fun beginPlacement(kind: BoardKind, tile: Boolean=false) {
@@ -742,16 +795,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         }
     }
     private fun textForm(title: String, fields: List<Pair<String,String>>, done: (List<String>) -> Unit) {
-        val box = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        val inputs = fields.map { (label,value) ->
-            box.addView(android.widget.TextView(context).apply { text=label; setPadding(16,8,16,0) })
-            EditText(context).apply {
-                hint = label; if(label != "Name") inputType=android.text.InputType.TYPE_CLASS_NUMBER or
-                    (if(label == "X" || label == "Y") android.text.InputType.TYPE_NUMBER_FLAG_SIGNED else 0)
-                setText(value); setSelectAllOnFocus(true); setSingleLine(); box.addView(this)
-            }
-        }
-        AlertDialog.Builder(context).setTitle(title).setView(box).setNegativeButton("Cancel",null).setPositiveButton("Apply") { _, _ -> done(inputs.map { it.text.toString() }) }.show()
+        panels.form(title,fields,done)
     }
     private fun togglePlay(id: String) { if (playingBoard == id) { stopPreview(); refreshTransform() } else startPlay(id) }
     private fun startPlay(id: String, mode: PlayMode = modes[id] ?: PlayMode.LOOP, hover: Boolean = false) {

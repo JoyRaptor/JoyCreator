@@ -1,7 +1,7 @@
 package cc.joycreator.joybrush.android.board
 
 import android.app.Activity
-import android.app.AlertDialog
+import android.app.Dialog
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Looper
@@ -11,6 +11,7 @@ import android.widget.FrameLayout
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.view.ViewTransform
 import cc.joycreator.joybrush.core.chrome.BoardChromeLayout as Chrome
+import cc.joycreator.joybrush.core.chrome.IconInk
 import cc.joycreator.joybrush.core.sprite.CellRoll
 import org.junit.Assert.*
 import org.junit.Test
@@ -20,7 +21,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import org.robolectric.shadows.ShadowAlertDialog
+import org.robolectric.shadows.ShadowDialog
 import java.time.Duration
 import java.util.UUID
 
@@ -123,11 +124,11 @@ class BoardRuntimeControllerTest {
     @Test fun typedGridRefusesChangedBoardRatherThanResizingFromAnOldDialog() {
         val host = spriteHost(); val (controller,parent) = setup(host); val view = spriteView(controller,parent,host)
         view.host.action("cols",false)
-        val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        val dialog = ShadowDialog.getLatestDialog()
         val field = dialog.findViewById<android.widget.EditText>(android.R.id.edit) ?: findEdit(dialog.window!!.decorView)
         field.setText("3")
         host.deferEdits = true
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        findButton(dialog,"Apply").performClick()
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
         val changed = BoardDocumentOps.rename(host.document,host.document.boards.last().id,"Changed")
         assertFailsDoc { host.queued.single()(changed) }
@@ -138,6 +139,32 @@ class BoardRuntimeControllerTest {
             try { return findEdit(view.getChildAt(n)) } catch(_: NoSuchElementException) { }
         }
         throw NoSuchElementException()
+    }
+    private fun panelViews(view: View): List<View> = listOf(view) + if (view is android.view.ViewGroup)
+        (0 until view.childCount).flatMap { panelViews(view.getChildAt(it)) } else emptyList()
+    private fun findButton(dialog: Dialog, label: String) = panelViews(dialog.window!!.decorView)
+        .filterIsInstance<android.widget.Button>().first { it.text.toString() == label }
+    private fun hasLabel(dialog: Dialog, label: String) = panelViews(dialog.window!!.decorView)
+        .filterIsInstance<android.widget.TextView>().any { it.text.toString() == label }
+
+    @Test fun typedSpriteCellSizeStaysOpenOnInvalidInputWithoutChangingBoard() {
+        val host=spriteHost(); val (controller,parent)=setup(host); val view=spriteView(controller,parent,host)
+        view.host.action("grid-px",false); view.host.action("cols",false)
+        val dialog=ShadowDialog.getLatestDialog()
+        val field=findEdit(dialog.window!!.decorView)
+        val original=host.document
+        field.setText("0")
+        findButton(dialog,"Apply").performClick()
+        assertTrue(dialog.isShowing)
+        assertNotNull(field.error)
+        assertEquals("0",field.text.toString())
+        assertEquals(original,host.document)
+        field.setText("41")
+        findButton(dialog,"Apply").performClick()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(30))
+        assertFalse(dialog.isShowing)
+        assertEquals(SpriteGrid(4,2,41,50),host.document.boards.last().grid)
+        controller.stop()
     }
     private fun shownInput(view: BoardChromeView): Chrome.Input {
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(30))
@@ -169,9 +196,9 @@ class BoardRuntimeControllerTest {
     @Test fun typedCellDimensionsRetainCountsAndGrowTheBoard() {
         val host=spriteHost(); val (controller,parent)=setup(host); val view=spriteView(controller,parent,host)
         view.host.action("grid-px",false); view.host.action("cols",false)
-        val dialog=ShadowAlertDialog.getLatestAlertDialog()
+        val dialog=ShadowDialog.getLatestDialog()
         findEdit(dialog.window!!.decorView).setText("41")
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        findButton(dialog,"Apply").performClick()
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(30))
         assertEquals(SpriteGrid(4,2,41,50),host.document.boards.last().grid)
         assertEquals(164,host.document.boards.last().rect.w)
@@ -319,6 +346,8 @@ class BoardRuntimeControllerTest {
         var tileAllowed = true
         val thumbnails = mutableListOf<Pair<List<String>,(Map<String,IntArray>)->Unit>>()
         val spriteThumbnails = mutableListOf<Pair<List<Int>,(Map<Int,IntArray>)->Unit>>()
+        var captureScreenSamples = false
+        val screenSamples = mutableListOf<Pair<FloatArray,(IntArray)->Unit>>()
         var deferEdits = false
         val queued = mutableListOf<(JbDocument) -> RegionChange>()
         override fun ensureDocument(ready:(JbDocument)->Unit) = ready(document)
@@ -330,6 +359,9 @@ class BoardRuntimeControllerTest {
         override fun tile(boardId:String?,ready:(String?)->Unit) { ready(boardId.takeIf { tileAllowed }) }
         override fun transform() = transform
         override fun contentRevision() = revision
+        override fun sampleScreen(points:FloatArray,ready:(IntArray)->Unit) {
+            if(captureScreenSamples) screenSamples += points.copyOf() to ready else ready(intArrayOf())
+        }
         override fun refusal(message:String) { messages += message }
         override fun selectionChanged(bounds:RectPx?) { scope = bounds }
         override fun thumbnails(boardId:String,frames:List<String>,width:Int,height:Int,ready:(Map<String,IntArray>)->Unit) { thumbnails += frames to ready }
@@ -344,6 +376,76 @@ class BoardRuntimeControllerTest {
         val controller = BoardRuntimeController(activity,parent,host)
         controller.documentChanged(host.document)
         return controller to parent
+    }
+    private fun sampledBoardView(parent:FrameLayout,host:Host) = (0 until parent.childCount)
+        .map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>()
+        .single { it.sceneIdentity?.boardId == host.document.boards.last().id }
+    private fun replyInk(request:Pair<FloatArray,(IntArray)->Unit>,colour:Int) =
+        request.second(IntArray(request.first.size/2) { colour })
+
+    @Test fun sampledWhitePaperUsesDarkInkAndBlackPaintUsesLightInk() {
+        val host=Host(document()).apply { captureScreenSamples=true }
+        val (controller,parent)=setup(host)
+        val view=sampledBoardView(parent,host)
+        assertEquals(1,host.screenSamples.size)
+        assertTrue(host.screenSamples.single().first.size >= 2)
+        replyInk(host.screenSamples.single(),0xffffffff.toInt())
+        assertEquals(IconInk.DARK,view.paperInk)
+        host.revision++
+        controller.documentChanged(host.document)
+        replyInk(host.screenSamples.last(),0xff000000.toInt())
+        assertEquals(IconInk.LIGHT,view.paperInk)
+        controller.stop()
+    }
+
+    @Test fun unchangedSceneDoesNotReadAgainButContentAndTransformChangesDo() {
+        val host=Host(document()).apply { captureScreenSamples=true }
+        val (controller,_)=setup(host)
+        replyInk(host.screenSamples.single(),0xffffffff.toInt())
+        repeat(4) { controller.refreshTransform(); controller.documentChanged(host.document) }
+        assertEquals(1,host.screenSamples.size)
+        host.revision++
+        controller.documentChanged(host.document)
+        assertEquals(2,host.screenSamples.size)
+        replyInk(host.screenSamples.last(),0xff000000.toInt())
+        host.transform.panX=15f
+        controller.refreshTransform()
+        assertEquals(3,host.screenSamples.size)
+        controller.stop()
+    }
+
+    @Test fun stoppedAndResumedControllerIgnoresEarlierPaperReadback() {
+        val host=Host(document()).apply { captureScreenSamples=true }
+        val (controller,parent)=setup(host)
+        val view=sampledBoardView(parent,host)
+        val old=host.screenSamples.single()
+        controller.stop()
+        replyInk(old,0xffffffff.toInt())
+        assertEquals(IconInk.LIGHT,view.paperInk)
+        controller.resume()
+        assertEquals(2,host.screenSamples.size)
+        replyInk(host.screenSamples.last(),0xff000000.toInt())
+        replyInk(old,0xffffffff.toInt())
+        assertEquals(IconInk.LIGHT,view.paperInk)
+        assertEquals(2,host.screenSamples.size)
+        controller.stop()
+    }
+
+    @Test fun replacingDrawingInvalidatesReadbackEvenWithSameBoardIds() {
+        val host=Host(document()).apply { captureScreenSamples=true }
+        val (controller,parent)=setup(host)
+        val old=host.screenSamples.single()
+        host.document=host.document.copy(id="replacement")
+        controller.documentChanged(host.document)
+        val replacement=sampledBoardView(parent,host)
+        assertEquals(2,host.screenSamples.size)
+        replyInk(old,0xffffffff.toInt())
+        assertEquals(IconInk.LIGHT,replacement.paperInk)
+        replyInk(host.screenSamples.last(),0xff000000.toInt())
+        replyInk(old,0xffffffff.toInt())
+        assertEquals(IconInk.LIGHT,replacement.paperInk)
+        assertEquals(2,host.screenSamples.size)
+        controller.stop()
     }
     @Test fun passiveSelectionCropsAnyKindWithoutChangingSavedActiveBoard() {
         val host = Host(document()); val saved = host.document
@@ -444,8 +546,8 @@ class BoardRuntimeControllerTest {
     }
     private fun beginPlacementThroughMenu(controller: BoardRuntimeController, parent: FrameLayout): View {
         controller.showMenu()
-        val menu = ShadowAlertDialog.getLatestAlertDialog()
-        menu.listView.performItemClick(null,0,0L) // New Image board
+        val menu = ShadowDialog.getLatestDialog()
+        findButton(menu,"New Image board…").performClick()
         parent.measure(View.MeasureSpec.makeMeasureSpec(548,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1126,View.MeasureSpec.EXACTLY))
         parent.layout(0,0,548,1126)
         return parent.getChildAt(parent.childCount-1)
@@ -462,16 +564,16 @@ class BoardRuntimeControllerTest {
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
             assertNull(overlay.parent)
             assertEquals(before,parent.childCount)
-            val form = ShadowAlertDialog.getLatestAlertDialog()
-            assertEquals("New board",shadowOf(form).title.toString())
+            val form = ShadowDialog.getLatestDialog()
+            assertTrue(hasLabel(form,"New board"))
             // A reentrant or repeated terminal event must not schedule another form.
             penTouch(overlay,MotionEvent.ACTION_CANCEL,400f,420f,tool)
             penTouch(overlay,MotionEvent.ACTION_UP,400f,420f,tool)
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
-            assertSame(form,ShadowAlertDialog.getLatestAlertDialog())
+            assertSame(form,ShadowDialog.getLatestDialog())
             val count = host.document.boards.size
-            form.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick()
-            // AlertDialog delivers its positive-button listener through the main Handler.
+            findButton(form,"Apply").performClick()
+            // Let the queued board refresh finish after the synchronous panel action.
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
             assertEquals(count+1,host.document.boards.size)
             assertEquals(RectPx(320,320,80,100),host.document.boards.last().rect)
@@ -482,27 +584,27 @@ class BoardRuntimeControllerTest {
         val host = Host(document()); val (controller,parent) = setup(host)
         val before = parent.childCount
         val overlay = beginPlacementThroughMenu(controller,parent)
-        val menu = ShadowAlertDialog.getLatestAlertDialog()
+        val menu = ShadowDialog.getLatestDialog()
         assertTrue(penTouch(parent,MotionEvent.ACTION_DOWN,320f,320f))
         assertTrue(penTouch(parent,MotionEvent.ACTION_CANCEL,400f,420f))
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
         assertNull(overlay.parent)
         assertEquals(before,parent.childCount)
-        assertSame(menu,ShadowAlertDialog.getLatestAlertDialog())
+        assertSame(menu,ShadowDialog.getLatestDialog())
         assertEquals(document(),host.document)
         controller.stop()
     }
     @Test fun stoppingBeforeDeferredPlacementCompletionSuppressesItsForm() {
         val host = Host(document()); val (controller,parent) = setup(host)
         val overlay = beginPlacementThroughMenu(controller,parent)
-        val menu = ShadowAlertDialog.getLatestAlertDialog()
+        val menu = ShadowDialog.getLatestDialog()
         penTouch(parent,MotionEvent.ACTION_DOWN,320f,320f)
         penTouch(parent,MotionEvent.ACTION_UP,400f,420f)
         controller.stop()
         controller.resume()
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
         assertNull(overlay.parent)
-        assertSame(menu,ShadowAlertDialog.getLatestAlertDialog())
+        assertSame(menu,ShadowDialog.getLatestDialog())
         controller.stop()
     }
     @Test fun secondPlacementInvalidatesFirstPendingCreationForm() {
@@ -511,17 +613,17 @@ class BoardRuntimeControllerTest {
         penTouch(parent,MotionEvent.ACTION_DOWN,320f,320f)
         penTouch(parent,MotionEvent.ACTION_UP,400f,420f)
         val second = beginPlacementThroughMenu(controller,parent)
-        val menu = ShadowAlertDialog.getLatestAlertDialog()
+        val menu = ShadowDialog.getLatestDialog()
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
         assertNull(first.parent)
         assertSame(parent,second.parent)
-        assertSame(menu,ShadowAlertDialog.getLatestAlertDialog())
+        assertSame(menu,ShadowDialog.getLatestDialog())
         penTouch(parent,MotionEvent.ACTION_DOWN,330f,330f)
         penTouch(parent,MotionEvent.ACTION_UP,410f,430f)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
         assertNull(second.parent)
-        assertEquals("New board",shadowOf(ShadowAlertDialog.getLatestAlertDialog()).title.toString())
-        ShadowAlertDialog.getLatestAlertDialog().dismiss()
+        assertTrue(hasLabel(ShadowDialog.getLatestDialog(),"New board"))
+        ShadowDialog.getLatestDialog().dismiss()
         controller.stop()
     }
     @Test fun boardButtonRemainsInteractiveWhileSpriteCellsPassAllPaintingPointersThrough() {

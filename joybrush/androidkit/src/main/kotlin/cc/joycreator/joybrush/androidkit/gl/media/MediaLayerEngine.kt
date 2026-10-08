@@ -69,6 +69,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     private lateinit var progDab: MediaProgram
     private lateinit var progApply: MediaProgram
     private lateinit var progCopy: MediaProgram
+    private var progApplyPaper: MediaProgram? = null
+    private var progCopyPaper: MediaProgram? = null
     private lateinit var progRender: MediaProgram
     private lateinit var progBake: MediaProgram
     private lateinit var progWetDab: MediaProgram
@@ -91,6 +93,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
 
     // made on first use
     private var delta = 0; private var deltaFbo = 0
+    // Dry paper-only single-attachment FBOs, lazy in ensureDryPaper: [0] attaches state[0].paper, [1] attaches state[1].paper.
+    // No new textures/state; existing cur/nxt paper textures only. Reset on sleep/release/allocate (stale lifetime).
+    private var dryPaperFbo = IntArray(0)
     var bakeTex = 0; private set
     private var fluidBake = 0; private var waterBake = 0; private var bakeFbo = 0
     private var bakedPaper: MediaPaperGl? = null
@@ -126,7 +131,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         val ext = GLES30.glGetString(GLES30.GL_EXTENSIONS) ?: ""
         check("EXT_color_buffer_float" in ext) { "media layers need EXT_color_buffer_float" }
         w = width; h = height; this.originX = originX; this.originY = originY; this.scale = scale
-        fun p(v: String, f: String, l: String) = MediaProgram(shaders, "media/$v", "media/$f", l)
+        fun p(v: String, f: String, l: String, defines: Set<String> = emptySet()) = MediaProgram(shaders, "media/$v", "media/$f", l, defines)
         progDab = p("jb_dry_dab.vert", "jb_dry_dab.frag", "media dry dab")
         progApply = p("jb_media_quad.vert", "jb_media_apply.frag", "media apply")
         progCopy = p("jb_media_quad.vert", "jb_media_copy.frag", "media copy")
@@ -175,16 +180,19 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
 
     /** The full-float state: the one part of the window every medium needs. */
     private fun allocate() {
+        // Any paper-only FBOs attach old paper textures; drop them so ensureDryPaper rebuilds from the new state.
+        if (dryPaperFbo.isNotEmpty()) { MediaTex.deleteFbo(*dryPaperFbo); dryPaperFbo = IntArray(0) }
         state = Array(2) {
             val p0 = MediaTex.full(w, h); val p1 = MediaTex.full(w, h); val pp = MediaTex.full(w, h)
             State(p0, p1, pp, MediaTex.fbo(p0, p1, pp))
         }
         pFbo0 = MediaTex.fbo(state[0].p0, state[0].p1)
         pFbo1 = MediaTex.fbo(state[1].p0, state[1].p1)
+        dryPaperFbo = IntArray(0)
         asleep = false
     }
 
-    /** True while the window's textures are released ([sleep]); the programs and the brush cells stay. */
+    /** True while the window's textures are released ([sleep]); the default programs and the brush cells stay (paper-only dry variants are released, recreated lazily). */
     var asleep = false; private set
 
     /** Whether water targets exist: what [cc.joycreator.joybrush.core.layers.LayerBudget.windowFits] is told the window holds. */
@@ -193,7 +201,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     /**
      * Releases the window's textures (the Lead's rule: the window is transient; the pen has been up and the water asleep
      * for a while, or the layer or screen changed). Everything worth keeping is in the stores already. [wake] makes them
-     * again for the next stroke without recompiling a shader.
+     * again for the next stroke without recompiling a shader. Default programs stay; paper-only dry variants are the
+     * exception and are released here, recreated lazily on the next dryFrame.
      */
     fun sleep() {
         if (asleep) return
@@ -205,9 +214,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         val fbos = ArrayList<Int>()
         for (s in state) fbos += s.fbo
         fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
-            wetCopyFbo.toList() + eraseWetFbo.toList()
+            wetCopyFbo.toList() + eraseWetFbo.toList() + dryPaperFbo.toList()
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
         eraseWetFbo = IntArray(0)
+        dryPaperFbo = IntArray(0)
+        progApplyPaper?.release(); progApplyPaper = null
+        progCopyPaper?.release(); progCopyPaper = null
         delta = 0; deltaFbo = 0; bakeTex = 0; fluidBake = 0; waterBake = 0; bakeFbo = 0; bakedPaper = null
         wet = null; run = 0; in0 = 0; in1 = 0; inFbo = 0; lookTex = 0; lookFbo = 0
         bead = IntArray(0); beadFbo = IntArray(0); fluxFbo = IntArray(0); updFbo = IntArray(0); wetCopyFbo = IntArray(0)
@@ -227,8 +239,41 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
 
     // ---- textures made on first use ----
     private fun ensureDry() {
-        if (delta != 0) return
-        delta = MediaTex.make(w, h); deltaFbo = MediaTex.fbo(delta); clearFbo(deltaFbo)
+        if (delta == 0) {
+            delta = MediaTex.make(w, h); deltaFbo = MediaTex.fbo(delta); clearFbo(deltaFbo)
+        }
+    }
+
+    // Dry paper-only variants, lazy on first dryFrame (eraser keeps delta-only ensureDry): creates the paper-only
+    // programs and single-paper-attachment FBOs attaching the existing cur/nxt paper textures (no new textures/state).
+    // Reset on sleep/release/allocate (stale lifetime).
+    private fun ensureDryPaper() {
+        fun p(v: String, f: String, l: String, defines: Set<String> = emptySet()) = MediaProgram(shaders, "media/$v", "media/$f", l, defines)
+        var applyMadeHere = false
+        if (progApplyPaper == null) {
+            progApplyPaper = p("jb_media_quad.vert", "jb_media_apply.frag", "media apply paper", setOf("JB_PAPER_ONLY"))
+            applyMadeHere = true
+        }
+        try {
+            if (progCopyPaper == null) {
+                progCopyPaper = p("jb_media_quad.vert", "jb_media_copy.frag", "media copy paper", setOf("JB_PAPER_ONLY"))
+            }
+        } catch (e: RuntimeException) {
+            if (applyMadeHere) {
+                try { progApplyPaper?.release() } finally { progApplyPaper = null }
+            }
+            throw e
+        }
+        if (dryPaperFbo.isEmpty()) {
+            val f0 = MediaTex.fbo(state[0].paper)
+            try {
+                val f1 = MediaTex.fbo(state[1].paper)
+                dryPaperFbo = intArrayOf(f0, f1)
+            } catch (e: RuntimeException) {
+                MediaTex.deleteFbo(f0)
+                throw e
+            }
+        }
     }
 
     private fun ensureBake() {
@@ -398,10 +443,26 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
     }
 
+    // Dry paper-only copy: single-paper-attachment FBO, paper-only program. Same rect/quad/uniforms as copyRect;
+    // u_a/u_b are ignored by the paper-only program (missing uniforms are skipped). Wet/paste/eraser keep copyRect.
+    private fun copyPaperRect(src: State, dstPaperFbo: Int, rect: FloatArray) {
+        val copyPaper = checkNotNull(progCopyPaper)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, dstPaperFbo)
+        GLES30.glViewport(0, 0, w, h)
+        GLES30.glDisable(GLES30.GL_BLEND)
+        copyPaper.use(common(mapOf("u_a" to Tex(src.p0), "u_b" to Tex(src.p1), "u_c" to Tex(src.paper),
+            "u_targetSize" to floatArrayOf(w.toFloat(), h.toFloat()), "u_rect" to rect)))
+        GLES30.glBindVertexArray(quadVao)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+    }
+
     // ---- dry media (pencil) ----
     fun dryFrame(batch: DabBatch, travelX: Double, travelY: Double, paper: MediaPaperGl, mat: StickMaterial, pxPerMm: Double) {
         if (batch.count == 0) return
         ensureDry()
+        ensureDryPaper()
+        val applyPaper = checkNotNull(progApplyPaper)
+        checkNotNull(progCopyPaper)
         val cur = state[0]
         val nxt = state[1]
         val rect = layerRect(batch.dirty, pxPerMm * mat.smearMm + 2) ?: return
@@ -431,8 +492,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         GLES30.glDisable(GLES30.GL_BLEND)
 
         mediaTrace("JB.media.dry.apply") {
-            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, nxt.fbo)
-            progApply.use(common(mapOf(
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, dryPaperFbo[1])
+            applyPaper.use(common(mapOf(
                 "u_p0" to Tex(cur.p0), "u_p1" to Tex(cur.p1), "u_paperState" to Tex(cur.paper), "u_delta" to Tex(delta),
                 "u_targetSize" to floatArrayOf(w.toFloat(), h.toFloat()), "u_rect" to rect,
                 "u_capMm" to mat.capMm, "u_abrasion" to mat.abrasion, "u_flakeR" to mat.flakeR, "u_crushRate" to mat.crushRate,
@@ -443,7 +504,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
         mediaTrace("JB.media.dry.copy") {
-            copyRect(nxt, cur.fbo, rect)
+            copyPaperRect(nxt, dryPaperFbo[0], rect)
         }
 
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, deltaFbo)
@@ -770,6 +831,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     fun release() {
         for (p in listOf(progDab, progApply, progCopy, progRender, progBake, progWetDab, progFlux, progUpdate, progPasteDab, progPasteBrush, progBead,
                 progEraseDab, progErase)) p.release()
+        progApplyPaper?.release(); progApplyPaper = null
+        progCopyPaper?.release(); progCopyPaper = null
         val tex = ArrayList<Int>()
         for (s in state) tex += listOf(s.p0, s.p1, s.paper)
         for (b in brush) tex += listOf(b.b0, b.b1)
@@ -780,8 +843,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         for (s in state) fbos += s.fbo
         for (b in brush) fbos += b.fbo
         fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo, readFbo, drawFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
-            wetCopyFbo.toList() + eraseWetFbo.toList()
+            wetCopyFbo.toList() + eraseWetFbo.toList() + dryPaperFbo.toList()
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
+        dryPaperFbo = IntArray(0)
         GLES30.glDeleteBuffers(2, intArrayOf(quadBuf, dabBuf), 0)
         GLES30.glDeleteVertexArrays(3, intArrayOf(quadVao, dabVao, emptyVao), 0)
         uploadBuffer.reset()

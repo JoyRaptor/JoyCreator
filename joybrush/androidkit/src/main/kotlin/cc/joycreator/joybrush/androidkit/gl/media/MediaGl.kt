@@ -15,8 +15,8 @@ import java.nio.FloatBuffer
  * value maps work for both, and a misspelt or optimised-away uniform is skipped instead of crashing. Samplers get
  * texture units in declaration order. GL thread only.
  */
-class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: String) {
-    val program = GlProgram(shaders.source(vert), shaders.source(frag), label)
+class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: String, defines: Set<String> = emptySet()) {
+    val program = GlProgram(withDefines(shaders.source(vert), defines, label), withDefines(shaders.source(frag), defines, label), label)
 
     private class Uniform(val loc: Int, val type: Int, val unit: Int)
 
@@ -74,6 +74,32 @@ class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: St
         is List<*> -> FloatArray(n) { (v[it] as Number).toFloat() }
         else -> error("not a vector: $v")
     }.also { require(it.size >= n) { "vector too short" } }
+
+    companion object {
+        private val DEFINE_NAME = Regex("^[A-Za-z_][A-Za-z0-9_]*$")
+        private const val ALLOWED_DEFINE = "JB_PAPER_ONLY"
+
+        /**
+         * Validated compile-time defines, default empty (all old callers unchanged). Only JB_PAPER_ONLY
+         * identifier definitions are allowed; anything else (arbitrary source, newlines, expressions)
+         * is rejected. Injected after exactly one #version line and before any shader code/includes use,
+         * on the already-expanded ShaderLibrary source so library expansion stays valid.
+         */
+        fun withDefines(src: String, defines: Set<String>, label: String): String {
+            if (defines.isEmpty()) return src
+            for (d in defines) {
+                require(DEFINE_NAME.matches(d)) { "$label: bad define: $d" }
+                require(d == ALLOWED_DEFINE) { "$label: unsupported define: $d" }
+            }
+            val lines = src.split("\n")
+            val versionIdx = lines.indices.filter { lines[it].trimStart().startsWith("#version") }
+            require(versionIdx.size == 1) { "$label: expected exactly one #version line, found ${versionIdx.size}" }
+            val insert = defines.sorted().joinToString("\n") { "#define $it 1" }
+            val out = lines.toMutableList()
+            out.add(versionIdx[0] + 1, insert)
+            return out.joinToString("\n")
+        }
+    }
 }
 
 /** Texture and framebuffer helpers for the media engine (GL thread only). */

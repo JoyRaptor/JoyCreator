@@ -12,8 +12,10 @@ precision highp float;
 
 #include "media/jb_media_common.glsl"
 
+#ifndef JB_PAPER_ONLY
 uniform sampler2D u_p0;          // K·X rgb, deposit volume V (mm)
 uniform sampler2D u_p1;          // S·X rgb, openness
+#endif
 uniform sampler2D u_paperState;  // R crush (tooth units), G dry volume V (mm), B Σ V·flake reflectance
 uniform sampler2D u_delta;       // from jb_dry_dab.frag
 uniform vec2 u_targetSize;
@@ -27,16 +29,16 @@ uniform vec2 u_smearPx;          // how far loose deposit is dragged (LAYER px, 
 
 in vec2 v_docPx;
 in vec2 v_layerPx;
+#ifdef JB_PAPER_ONLY
+layout(location = 0) out vec4 o_paper;
+#else
 layout(location = 0) out vec4 o_p0;
 layout(location = 1) out vec4 o_p1;
 layout(location = 2) out vec4 o_paper;
+#endif
 
-void main() {
-    vec2 uv = v_layerPx / u_targetSize;
-    vec4 p0 = texture(u_p0, uv);
-    vec4 p1 = texture(u_p1, uv);
-    vec4 ps = texture(u_paperState, uv);
-    vec4 dl = texture(u_delta, uv);
+// Single canonical paper calculation shared by default and JB_PAPER_ONLY paths (no duplicated physics).
+vec4 jb_media_apply_paper(vec4 ps, vec4 dl, vec2 layerPx) {
     vec4 keepS = ps;
     // A bad delta (NaN/inf from any dab) must never reach the layer: drop it for this pixel.
     if (any(isnan(dl)) || any(isinf(dl))) dl = vec4(0.0);
@@ -46,9 +48,9 @@ void main() {
     // read as a soft dusting rather than as dots. Rate ∝ how much the lead rubbed this pixel this frame.
     float sw = clamp(dl.a * u_smear, 0.0, 0.3);
     if (sw > 0.0) {
-        vec2 up = jb_bilinear(u_paperState, v_layerPx - u_smearPx).gb;
-        vec2 nb = 0.25 * (jb_bilinear(u_paperState, v_layerPx + vec2(1.5, 0.0)).gb + jb_bilinear(u_paperState, v_layerPx - vec2(1.5, 0.0)).gb
-                        + jb_bilinear(u_paperState, v_layerPx + vec2(0.0, 1.5)).gb + jb_bilinear(u_paperState, v_layerPx - vec2(0.0, 1.5)).gb);
+        vec2 up = jb_bilinear(u_paperState, layerPx - u_smearPx).gb;
+        vec2 nb = 0.25 * (jb_bilinear(u_paperState, layerPx + vec2(1.5, 0.0)).gb + jb_bilinear(u_paperState, layerPx - vec2(1.5, 0.0)).gb
+                        + jb_bilinear(u_paperState, layerPx + vec2(0.0, 1.5)).gb + jb_bilinear(u_paperState, layerPx - vec2(0.0, 1.5)).gb);
         ps.gb = mix(ps.gb, mix(nb, up, 0.6), sw);
     }
 
@@ -61,7 +63,21 @@ void main() {
     ps.r = min(u_crushMax, ps.r + u_crushRate * dl.g);
 
     if (any(isnan(ps))) ps = keepS;
+    return ps;
+}
+
+void main() {
+    vec2 uv = v_layerPx / u_targetSize;
+#ifndef JB_PAPER_ONLY
+    vec4 p0 = texture(u_p0, uv);
+    vec4 p1 = texture(u_p1, uv);
+#endif
+    vec4 ps = texture(u_paperState, uv);
+    vec4 dl = texture(u_delta, uv);
+    ps = jb_media_apply_paper(ps, dl, v_layerPx);
+#ifndef JB_PAPER_ONLY
     o_p0 = p0;
     o_p1 = p1;
+#endif
     o_paper = ps;
 }

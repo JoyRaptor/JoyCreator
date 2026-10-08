@@ -35,7 +35,7 @@ private const val CYCLE_REACH_SCREEN_PX = 6.0
  * This extraction defines one deterministic total order without a non-transitive comparator.
  *
  * **Cycling.** Nearby rapid taps advance a position in that order, wrapping. When the ordered
- * candidate objects change, start fresh. Ids need not be unique; no id lookup drives the cycle.
+ * candidate geometry changes, start fresh. Ids need not be unique; no id lookup drives the cycle.
  * A miss forgets the cycle.
  *
  * This holds the last pick, so it belongs to one UI gesture stream and is not thread safe.
@@ -71,11 +71,11 @@ class StrokePicker {
             return null
         }
         val order = ranking.map { lines[it.index] }
-        val sameOrder = order.size == lastOrder.size && order.indices.all { order[it] === lastOrder[it] }
+        val sameOrder = order.size == lastOrder.size && order.indices.all { order[it] == lastOrder[it] }
         val position = if (sameOrder && continuesCycle(x, y, timeMs, zoom))
             (lastPosition + 1) % ranking.size else 0
         val picked = ranking[position].id
-        lastOrder = order
+        lastOrder = order.map { it.copy(xs = it.xs.copyOf(), ys = it.ys.copyOf(), halfWidths = it.halfWidths.copyOf()) }
         lastPosition = position
         lastX = x
         lastY = y

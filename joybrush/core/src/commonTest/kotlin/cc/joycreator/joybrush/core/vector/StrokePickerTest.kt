@@ -318,12 +318,41 @@ class StrokePickerTest {
     }
 
     @Test
-    fun replacingACandidateWithTheSameIdRestartsTheCycle() {
+    fun changingACandidateGeometryWithTheSameIdRestartsTheCycle() {
         val picker = StrokePicker()
         val a = hLine("a", 0.0, 1.0)
         val b = hLine("b", 0.0, 1.0)
         assertEquals("b", picker.pick(listOf(a, b), 50.0, 0.0, 0.0, 1.0))
-        assertEquals("b", picker.pick(listOf(a, hLine("b", 0.0, 1.0)), 50.0, 0.0, 10.0, 1.0))
+        assertEquals("b", picker.pick(listOf(a, hLine("b", 0.1, 1.0)), 50.0, 0.0, 10.0, 1.0))
+    }
+
+    @Test
+    fun reconstructedEqualLinesKeepCyclingByPosition() {
+        val picker = StrokePicker()
+        val got = (0..5).map { i ->
+            picker.pick(listOf(hLine("other", 0.0, 1.0), hLine("same", 0.0, 1.0),
+                hLine("same", 0.0, 1.0)), 50.0, 0.0, i * 10.0, 1.0)
+        }
+        assertEquals(listOf("same", "same", "other", "same", "same", "other"), got)
+    }
+
+    @Test
+    fun mutatingInputGeometryCannotMutateTheRememberedOrder() {
+        val picker = StrokePicker()
+        val a = hLine("a", 0.0, 1.0)
+        val b = hLine("b", 0.0, 1.0)
+        assertEquals("b", picker.pick(listOf(a, b), 50.0, 0.0, 0.0, 1.0))
+        b.ys.fill(0.1)
+        assertEquals("b", picker.pick(listOf(a, b), 50.0, 0.0, 10.0, 1.0))
+    }
+
+    @Test
+    fun nearbyTapWithAChangedRankingStartsAtTheNewBestCandidate() {
+        val picker = StrokePicker()
+        val lines = listOf(hLine("a", 0.0, 1.0), hLine("b", 3.0, 1.0))
+        assertEquals("a", picker.pick(lines, 50.0, 0.0, 0.0, 1.0))
+        assertEquals("b", picker.pick(lines, 50.0, 3.0, 10.0, 1.0))
+        assertEquals("a", picker.pick(lines, 50.0, 3.0, 20.0, 1.0))
     }
 
     // ---- helpers -----------------------------------------------------------------------------------

@@ -507,7 +507,7 @@ Review: core1706/backend312/native105; zero failures/errors, four optional corpu
 
 ## R51 root queue — October 7
 - [x] JB-5.02 deterministic selection and positional cycling.
-- [ ] JB-5.12 ink tiles and export integration.
-- [ ] JB-5.13 fill tracing with holes and growth.
+- [x] JB-5.12 ink tiles and export integration.
+- [x] JB-5.13 fill tracing with holes and growth (2048 timing in worker1 measurement row).
 - [ ] JB-5.14 measurements; JB-5.20b pure composer.
 - [ ] Review media slices; post-2.40 integration only after landing.

@@ -1027,3 +1027,6 @@ throws, the whole stroke is lost, and that looked to the owner like "the pen doe
 ## Never drop a stash by index from memory (2026-10-07, media lane)
 - After a `git stash pop`, every index shifts. I ran `git stash drop stash@{1}` to remove a redundant LANES.md stash and deleted another session's autostash (paper catalogue work) instead. I recovered it with `git fsck --unreachable` and `git stash store`.
 - Rule: run `git stash show --stat stash@{N}` IMMEDIATELY before any drop, and drop only what that shows. Stashes in a shared worktree may belong to other sessions: when in doubt, leave them.
+
+## Positional gesture cycles must survive caller reconstruction (Codex, October7)
+A picker stored candidate reference identities; its actual InkEditSession caller reconstructs InkLine values each tap, so direct picker tests passed while integrated cycling reset. Compare immutable geometry snapshots in positional order (including copied arrays), keep repeated ids as separate positions, and test the real session gesture path as well as the helper.

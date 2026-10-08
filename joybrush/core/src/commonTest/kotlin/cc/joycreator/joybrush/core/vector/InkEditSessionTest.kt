@@ -55,6 +55,16 @@ import kotlin.test.assertTrue
  */
 class InkEditSessionTest {
 
+    @Test
+    fun quickSessionTapsCycleEvenThoughReplayRebuildsTheGeometry() {
+        val session = session(listOf(rec("a", 10, 0f, 0f, 1f, 0f), rec("b", 10, 0f, 0f, 1f, 0f)))
+        val got = (0..3).map { i ->
+            session.tap(5.0, 0.0, i * 10.0, 1.0, brushOf)
+            session.selection
+        }
+        assertEquals(listOf(listOf("b"), listOf("a"), listOf("b"), listOf("a")), got)
+    }
+
     // ── fixtures ─────────────────────────────────────────────────────────────────────────────
 
     private fun brush(id: String, name: String, engine: String) = BrushPreset(

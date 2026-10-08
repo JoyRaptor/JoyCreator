@@ -48,7 +48,10 @@ void main() {
     vec4 p1 = jb_bilinear(u_p1, lp);
     vec4 wa = jb_bilinear(u_w0, lp);
     vec4 wp = jb_bilinear(u_w1, lp);
-    vec4 s = jb_paperSurface(docPx);
+    // A flat look does not use the paper's surface vector. Keep the real
+    // surface for relief and the height debug view.
+    vec4 s = vec4(0.0);
+    if (u_relief != 0.0 || u_mode == 1) s = jb_paperSurface(docPx);
     float crush = crushAt(lp);
 
     if (u_mode == 1) { o_color = vec4(vec3(s.z), 1.0); return; }

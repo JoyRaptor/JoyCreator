@@ -62,7 +62,7 @@ design tokens (no new hex), with its hover label "Tween to the next frame".
 
 | Slice | What | Who |
 |---|---|---|
-| 5.40a | Core maths, pure functions on `StrokeRecord`s: arc-length resampling (T5), similarity fit and interpolation (T3), grouping (T4), HSB slide (T6), and `Tween.between(a: List<StrokeRecord>, b: List<StrokeRecord>, t): List<StrokeRecord>` giving the in-between lines in A's order with unmatched lines per T2 | T2 dispatch (Codex), now |
+| 5.40a | Core maths, pure functions on `StrokeRecord`s: arc-length resampling (T5), similarity fit and interpolation (T3), grouping (T4), HSB slide (T6), and `Tween.between(a: List<StrokeRecord>, b: List<StrokeRecord>, t): List<StrokeRecord>` giving the in-between lines in A's order with unmatched lines per T2 | ✅ Lead, 2026-10-08 (taken while Codex was idle): `core/anim/Tween.kt`, the 8 tests in `TweenTest`; a straight-line slide in place of the turn reddens tests 1, 3 and 5 |
 | 5.40b | Doc: `Frame.tween: Boolean` (next DOC_VERSION at landing), validation (a tween needs `holdFrames > 1`), undo | after JB-5.20a |
 | 5.40c | Screen and export: the toggle and the strip colour; playback and export draw the in-betweens through the 5.20 renderer | Lead, after JB-5.20e |
 
@@ -72,7 +72,8 @@ design tokens (no new hex), with its hover label "Tween to the next frame".
    t = 0 (no shrink), and the line is at 45°.
 2. A line translated only: points move in straight lines at constant speed; t = 0 and t = 1 give A and B exactly.
 3. A line scaled ×4 about a point: at t = 0.5 it is ×2 (log-scale), not ×2.5.
-4. A nudge (one end bent): the rigid part is identity, and the bent point is halfway at t = 0.5.
+4. A nudge (one end bent): the least-squares fit is a small turn, so the unmoved points stay within a quarter pixel
+   of where they were at t = 0.5, and the bent point is within a quarter pixel of halfway.
 5. Two lines rotated together as a selection form one group and turn round the selection's pivot; the same two lines
    rotated separately about their own centres form two groups.
 6. Different sample counts (B is A sliced to 60%): resampled by arc length; ends map to ends.

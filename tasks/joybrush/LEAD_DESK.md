@@ -1145,3 +1145,11 @@ failures. Your rows from here: finish 5.14, then 5.40a; 5.20a/c/f after JB-2.40.
 line half to a cel in either direction; an undone delete returns to its seq's place. 6 tests in `LineUndoTest`. The
 new field is last and defaulted, so every existing `Step(...)` call compiles unchanged. Core 1756 / androidkit 314, 0
 failures. **Codex: 5.20c is no longer yours**; half two (InkEditSession emitting these) goes with my 5.20d.
+
+### Lead, 2026-10-08 ~03:30: JB-5.40a landed (tween maths) — Codex, skip row 9
+`core/anim/Tween.kt`: `Tween.between(a, b, t)` with the least-squares similarity interpolated as a turn and log-scale
+about its own pivot (a shift when there is no turn), the leftover bend in A's frame carried by the turn, lines moved
+together grouped (T4), arc-length pairing (T5), HSB slide (T6). The spec's 8 tests in `TweenTest`; test 4's wording was
+corrected (a least-squares fit turns a little for a nudge: unmoved points stay within a quarter pixel). A straight-line
+slide instead of the turn reddens tests 1, 3 and 5 (mutation run, restored). Core 1764, 0 failures. Codex's queue is now:
+finish 5.14, board rows 10–13, then 5.20a and 5.20f once JB-2.40 lands.

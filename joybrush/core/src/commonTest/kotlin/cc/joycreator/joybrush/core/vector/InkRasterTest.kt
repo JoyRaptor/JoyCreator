@@ -42,6 +42,36 @@ import kotlin.test.fail
  */
 class InkRasterTest {
 
+    @Test fun fractionalCoverageIsIndependentOfRectangleOriginInFloats() {
+        val dabs = listOf(Dab(253.12345f, 238.45678f, 13.3f))
+        val tip = TipShape(hardness = 0.63f)
+        for (scale in listOf(0.5f, 1f, 2f)) {
+            val side = (256 * scale).toInt()
+            val bigSide = side * 3
+            val big = assertNotNull(InkRaster.premultiplied(dabs, tip, Accumulate.WASH, 1f,
+                0xff000000.toInt(), -256, -256, bigSide, bigSide, scale))
+            val tile = assertNotNull(InkRaster.premultiplied(dabs, tip, Accumulate.WASH, 1f,
+                0xff000000.toInt(), 0, 0, side, side, scale))
+            for (y in 0 until side) for (x in 0 until side) for (c in 0..3) {
+                assertEquals(big[((y + side) * bigSide + x + side) * 4 + c], tile[(y * side + x) * 4 + c],
+                    "scale $scale pixel $x,$y channel $c")
+            }
+        }
+    }
+
+    @Test fun fractionalGlobalPixelCentresStillMatchRefCanvasExactly() {
+        val tip = TipShape(hardness = 0.63f)
+        val dabs = (0..20).map { Dab(15.12345f + it * 10.54321f, 16.45678f + it * 9.76543f, 6.65f) }
+        val reference = RefCanvas()
+        reference.beginStroke("ink", 0f, 0f, 0f, 1f, Accumulate.WASH, StrokeBlend.NORMAL, tip)
+        reference.addDabs(dabs)
+        reference.endStroke()
+        val expected = assertNotNull(reference.tiles("ink")[Tiles.key(0, 0)])
+        val actual = assertNotNull(InkRaster.premultiplied(dabs, tip, Accumulate.WASH, 1f,
+            0xff000000.toInt(), 0, 0, 256, 256, 1f))
+        assertIdentical(expected, actual, "fractional RefCanvas parity")
+    }
+
     // ── 12. parity with RefCanvas, in floats ──────────────────────────────────────────────
 
     /**

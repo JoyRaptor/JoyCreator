@@ -223,8 +223,12 @@ object InkRaster {
         val radius = radiusPx(d.radius, scale)
         if (radius <= 0f) return
 
-        val cx = (d.x - docX) * scale
-        val cy = (d.y - docY) * scale
+        // Keep the rectangle origin out of Float subtraction. Otherwise (dab - origin)
+        // rounds differently for a tile and a larger rectangle, changing edge coverage by
+        // one byte even at scale 1. Dabs are Floats, but document pixel centres are exact
+        // halves in Double; convert only the final local offset passed to TipMath.
+        val cx = (d.x.toDouble() - docX.toDouble()) * scale.toDouble()
+        val cy = (d.y.toDouble() - docY.toDouble()) * scale.toDouble()
         if (!cx.isFinite() || !cy.isFinite()) return
         val liveTip = d.tipShape(tip)
         val e = TipMath.extent(radius, liveTip.anchor)
@@ -236,6 +240,7 @@ object InkRaster {
 
         for (y in y0..y1) {
             val row = y * width
+            val dy = ((docY.toDouble() + (y + 0.5) / scale.toDouble() - d.y.toDouble()) * scale.toDouble()).toFloat()
             for (x in x0..x1) {
                 // Pixel centres, as the GPU and RefCanvas both sample them, and the same two
                 // quantities the shader forms: the tip's coverage at this offset, scaled by the
@@ -244,7 +249,8 @@ object InkRaster {
                 // ONE PIXEL, and a pixel at 0.25x is four document pixels wide. Feeding it document
                 // offsets with a destination radius would make the edge four times too soft and the
                 // "same tip, finer grid" claim false.
-                val cov = TipMath.coverage(x + 0.5f - cx, y + 0.5f - cy, radius, d.angle, liveTip) * d.flow
+                val dx = ((docX.toDouble() + (x + 0.5) / scale.toDouble() - d.x.toDouble()) * scale.toDouble()).toFloat()
+                val cov = TipMath.coverage(dx, dy, radius, d.angle, liveTip) * d.flow
                 if (cov <= 0f) continue
                 // The stroke's own running value `s` LIVES in the destination's alpha slot, which is
                 // where the commit reads it from a few lines later. `RefCanvas` keeps it in a

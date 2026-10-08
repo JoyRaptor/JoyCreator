@@ -1,5 +1,9 @@
 package cc.joycreator.joybrush.androidkit.io
 
+import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.Param
+import cc.joycreator.joybrush.core.input.PenSample
+import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.doc.BlendMode
 import cc.joycreator.joybrush.core.doc.Board
 import cc.joycreator.joybrush.core.doc.BoardKind
@@ -675,7 +679,7 @@ class OraExportTest {
     // ── nothing is dropped silently ────────────────────────────────────────────
 
     @Test
-    fun aDocumentWithNoExportableLayersIsStillAFileThatOpens() {
+    fun emptyInkAndHiddenLayersStillProduceAFileThatOpens() {
         val d = doc(
             layers = listOf(
                 ink(),
@@ -685,19 +689,18 @@ class OraExportTest {
         )
         val archive = encoded(contents(d))
 
-        // No layer, but every one of the three is named, and the file is otherwise complete.
+        // Empty ink is now a real layer; hidden and zero-opacity layers are named omissions.
         val xml = stackXml(archive)
-        assertEquals(0, layersOf(xml).size)
+        assertEquals(1, layersOf(xml).size)
         val comments = commentsOf(xml)
-        assertEquals(3, comments.size, "every omitted layer is named: $comments")
-        assertTrue(comments.any { it.contains("\"Ink line\"") && it.contains("INK") }, "$comments")
+        assertEquals(2, comments.size, "every omitted layer is named: $comments")
         assertTrue(comments.any { it.contains("\"Sketch\"") && it.contains("hidden") }, "$comments")
         assertTrue(comments.any { it.contains("\"Wash\"") && it.contains("0% opaque") }, "$comments")
 
         // An empty stack is a legal OpenRaster image. It still has a mimetype, a stack, a thumbnail
         // and a flattened image, all of the right size, all of them decodable.
         assertEquals(
-            listOf("mimetype", "stack.xml", "Thumbnails/thumbnail.png", "mergedimage.png"),
+            listOf("mimetype", "stack.xml", "data/0.png", "Thumbnails/thumbnail.png", "mergedimage.png"),
             namesOf(archive),
         )
         val merged = image(archive, "mergedimage.png")
@@ -710,24 +713,16 @@ class OraExportTest {
     }
 
     @Test
-    fun anInkLayerIsSkippedAndNamedWhileThePaintLayersBesideItAreExported() {
+    fun anEmptyInkLayerIsExportedBetweenItsPaintNeighbours() {
         val archive = encoded(contents(doc(layers = listOf(background(), ink(), gloss()))))
         val xml = stackXml(archive)
-
-        // The two PAINT layers are still there and still numbered 0 and 1: INK must not take a
-        // number, because a `src` that shifted by one would point every reader at the wrong file.
         val layers = layersOf(xml)
-        assertEquals(2, layers.size)
-        assertEquals("data/0.png", layers[1][1], "Background")
-        assertEquals("data/1.png", layers[0][1], "Gloss")
-        // Two image files, not three: the two `src` values above are the complete list, and an INK
-        // layer that is skipped must not leave a hole in the numbering. (This said 3, which is the
-        // number of LAYERS in the fixture rather than the number of files the writer produces.)
-        assertEquals(2, entriesOf(archive).count { it.first.startsWith("data/") })
-
-        val comments = commentsOf(xml)
-        assertEquals(1, comments.size)
-        assertTrue(comments[0].contains("\"Ink line\""), comments[0])
+        assertEquals(3, layers.size)
+        assertEquals("data/0.png", layers[2][1], "Background")
+        assertEquals("data/1.png", layers[1][1], "Ink line")
+        assertEquals("data/2.png", layers[0][1], "Gloss")
+        assertEquals(3, entriesOf(archive).count { it.first.startsWith("data/") })
+        assertEquals(0, commentsOf(xml).size)
     }
 
     @Test
@@ -1168,5 +1163,41 @@ class OraExportTest {
         val img = image(encoded(c), "data/1.png")
         assertEquals(listOf(255, 0, 0, 255), pixelAt(img, 10, 10), "inside the base: the layer, whole")
         assertEquals(0, pixelAt(img, 260, 10)[3], "outside the base: nothing")
+    }
+
+    @Test fun inkRecordsReachLayerPngMergedImageAndThumbnailWithBuiltinLookup() {
+        val line = StrokeRecord("line", "joybrush.ink", 123L, 0f, 1f,
+            listOf(PenSample(20f, 20f, 0.0), PenSample(100f, 20f, 10.0)), 0xffff0000.toInt())
+        val c = contents(doc(layers = listOf(ink()))).copy(strokes = mapOf(("ink" to "ink-cel") to listOf(line)))
+        val output = ByteArrayOutputStream()
+        OraExport.write(output, c, BOARD, null, false)
+        val archive = output.toByteArray()
+        val layer = image(archive, "data/0.png")
+        val merged = image(archive, "mergedimage.png")
+        assertTrue(pixelAt(layer, 50, 20)[3] > 0)
+        assertEquals(listOf(255, 0, 0), pixelAt(layer, 50, 20).take(3))
+        assertContentEquals(rgbaOf(layer), rgbaOf(merged))
+        val thumbnail = image(archive, "Thumbnails/thumbnail.png")
+        assertTrue((0 until thumbnail.height).any { y -> (0 until thumbnail.width).any { x -> pixelAt(thumbnail, x, y)[3] > 0 } })
+        assertEquals(0, commentsOf(stackXml(archive)).size)
+    }
+
+    @Test fun inkCustomLookupAndExplicitRefusalReceiverKeepGoodShapes() {
+        val fill = BrushPreset(id = "custom", name = "Custom", engine = "fill", size = Param(1f))
+        val shape = StrokeRecord("shape", "custom", 1L, 0f, 1f,
+            listOf(PenSample(10f, 10f, 0.0), PenSample(80f, 10f, 1.0), PenSample(80f, 80f, 2.0),
+                PenSample(10f, 80f, 3.0)), 0x800000ff.toInt())
+        val c = contents(doc(layers = listOf(ink()))).copy(strokes = mapOf(("ink" to "ink-cel") to
+            listOf(shape.copy(brushId = "missing"), shape)))
+        assertFailsWith<JbArchiveException> { OraExport.write(ByteArrayOutputStream(), c, BOARD, null, false,
+            brushLookup = { if (it == "custom") fill else null }) }
+        val reports = ArrayList<String>()
+        val output = ByteArrayOutputStream()
+        OraExport.write(output, c, BOARD, null, false, brushLookup = { if (it == "custom") fill else null },
+            onInkRefusal = reports::add)
+        assertEquals(1, reports.size)
+        assertTrue(reports.single().contains("missing"))
+        assertEquals(listOf(0, 0, 255, 128), pixelAt(image(output.toByteArray(), "data/0.png"), 40, 40))
+        assertEquals(listOf(0, 0, 255, 128), pixelAt(image(output.toByteArray(), "mergedimage.png"), 40, 40))
     }
 }

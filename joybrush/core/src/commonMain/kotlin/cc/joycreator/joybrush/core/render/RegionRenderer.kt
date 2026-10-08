@@ -7,6 +7,9 @@ import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.doc.Cel
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.doc.TILE_SIZE
+import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.vector.InkTiles
 import kotlin.math.floor
 
 /**
@@ -184,14 +187,23 @@ private val MAX_REGION_PEAK_MIB = MAX_REGION_PX * BYTES_PER_PX / (1024L * 1024L)
  *
  * THE DOCUMENT ITSELF IS NOT VALIDATED, and that is the caller's half of the deal. These functions
  * read [doc] as given: they do not call [DocOps.validate], they do not check that a cel exists, and
- * they do not validate metadata. Visible vector layers are explicitly refused until this renderer
- * supports vector content; accepting their board metadata must never silently produce blank art.
+ * they do not validate metadata. Vector layers require a brush lookup and external cel records; replay refusals are reported
+ * through onInkRefusal (the default throws rather than silently omitting art); accepting their board metadata must never silently produce blank art.
  * An exporter's job is to validate the document at OPEN time, once, where there is a person to
  * tell; a renderer's job is to refuse loudly the specific requests it cannot answer, which is what
  * the four above are. A renderer that validated the whole document on every call would make every
  * export pay for a check that belongs to the door before it.
  */
 object RegionRenderer {
+
+    // Keep the original trailing paperRenderer lambda contract for every existing exporter.
+    fun render(doc: JbDocument, tiles: TileSource, rect: RectPx, frameId: String?, paper: String?,
+        paperRenderer: ((RectPx) -> ByteArray)? = null): ByteArray =
+        render(doc, tiles, rect, frameId, paper, paperRenderer, brushLookup = null)
+
+    fun renderPremultiplied(doc: JbDocument, tiles: TileSource, rect: RectPx, frameId: String?, paper: String?,
+        paperRenderer: ((RectPx) -> ByteArray)? = null): FloatArray =
+        renderPremultiplied(doc, tiles, rect, frameId, paper, paperRenderer, brushLookup = null)
 
     /** Bytes in one tile: 256 x 256 x 4. */
     const val TILE_BYTES = TILE_SIZE * TILE_SIZE * 4
@@ -241,14 +253,17 @@ object RegionRenderer {
         frameId: String?,
         paper: String?,
         paperRenderer: ((RectPx) -> ByteArray)? = null,
+        brushLookup: ((String) -> BrushPreset?)?,
+        strokeSource: ((String, String) -> List<StrokeRecord>?)? = null,
+        onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) },
     ): ByteArray {
         requireSize(rect)
         requirePaperIfAny(paper)
         requireOneBackdrop(paper, paperRenderer)
-        requireRasterContent(doc)
+        requireRasterContent(doc, brushLookup)
         val out = ByteArray(rect.w * rect.h * 4)
         if (rect.w == 0 || rect.h == 0) return out
-        val p = renderPremultiplied(doc, tiles, rect, frameId, paper, paperRenderer)
+        val p = renderPremultiplied(doc, tiles, rect, frameId, paper, paperRenderer, brushLookup, strokeSource, onInkRefusal)
         var i = 0
         while (i < p.size) {
             val a = p[i + 3]
@@ -286,11 +301,14 @@ object RegionRenderer {
         frameId: String?,
         paper: String?,
         paperRenderer: ((RectPx) -> ByteArray)? = null,
+        brushLookup: ((String) -> BrushPreset?)?,
+        strokeSource: ((String, String) -> List<StrokeRecord>?)? = null,
+        onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) },
     ): FloatArray {
         requireSize(rect)
         requirePaperIfAny(paper)
         requireOneBackdrop(paper, paperRenderer)
-        requireRasterContent(doc)
+        requireRasterContent(doc, brushLookup)
         val px = FloatArray(rect.w * rect.h * 4)
         if (rect.w == 0 || rect.h == 0) return px
 
@@ -316,7 +334,28 @@ object RegionRenderer {
         // One scratch pixel for the whole image: a source, the running result, and the result of
         // one blend. Allocated here rather than per pixel so a large region does not allocate a
         // quarter of a million short-lived arrays.
-        val projectedTiles = RegionTileSource(doc, tiles, frameId)
+        // The projection sees rebuilt cel tiles too, so board ownership remains the existing rule.
+        val prepared = HashMap<Pair<String, String>, InkTiles.Prepared>()
+        val layersById = doc.layers.associateBy { it.id }
+        val content = TileSource { layerId, celId, tx, ty ->
+            val layer = layersById[layerId]
+            val cel = layer?.cels?.firstOrNull { it.id == celId }
+            if (layer?.kind != LayerKind.INK || cel == null) tiles.tile(layerId, celId, tx, ty)
+            else {
+                val key = layerId to celId
+                val replay = prepared.getOrPut(key) {
+                    val records = strokeSource?.invoke(layerId, celId)
+                    if (records == null && cel.strokesFile != null) {
+                        throw RegionException("Ink records are unavailable for layer $layerId cel $celId")
+                    }
+                    InkTiles.prepare(records ?: emptyList(), brushLookup!!).also {
+                        it.refusals.forEach(onInkRefusal)
+                    }
+                }
+                InkTiles.render(replay, tx, ty).pixels
+            }
+        }
+        val projectedTiles = RegionTileSource(doc, content, frameId)
         val s = FloatArray(4)
         val d = FloatArray(4)
         val o = FloatArray(4)
@@ -423,8 +462,8 @@ object RegionRenderer {
      * against the constant, which is where a claim like that belongs — it can be checked in
      * microseconds there instead of by allocating 160 MiB.
      */
-    private fun requireRasterContent(doc: JbDocument) {
-        if (doc.layers.any { it.visible && it.opacity > 0f && it.kind == LayerKind.INK }) {
+    private fun requireRasterContent(doc: JbDocument, brushLookup: ((String) -> BrushPreset?)?) {
+        if (brushLookup == null && doc.layers.any { it.visible && it.opacity > 0f && it.kind == LayerKind.INK }) {
             throw RegionException("Vector artwork rendering is not available yet")
         }
     }

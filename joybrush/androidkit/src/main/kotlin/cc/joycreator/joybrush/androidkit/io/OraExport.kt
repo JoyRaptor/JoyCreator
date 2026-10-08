@@ -5,7 +5,10 @@ import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.JbDocument
 import cc.joycreator.joybrush.core.doc.Layer
 import cc.joycreator.joybrush.core.doc.LayerKind
-import cc.joycreator.joybrush.core.doc.hasPixels
+import cc.joycreator.joybrush.androidkit.BrushLibrary
+import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.vector.InkTiles
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
 import cc.joycreator.joybrush.core.render.LayerMask
@@ -63,7 +66,7 @@ private class Thumb(val w: Int, val h: Int, val pixels: ByteArray)
 
 /**
  * The `.ora` file: the whole drawing, in layers, in a zip that Krita, GIMP and MyPaint all read. One
- * PNG per PAINT layer, one `stack.xml` saying how the layers go together, and nothing in the file
+ * PNG per visible layer (ink is rebuilt through InkTiles), one `stack.xml` saying how the layers go together, and nothing in the file
  * that only this app understands.
  *
  * WHY THE LAYERS ARE RENDERED ONE AT A TIME, AT FULL OPACITY, AND THE OPACITY IS IN THE XML. That
@@ -162,6 +165,12 @@ object OraExport {
      * @throws JbArchiveException for every refusal, so one `catch` at the export button is enough
      *   and a person is shown a sentence rather than a stack trace.
      */
+    // Preserve the original last-argument warning receiver for existing call sites.
+    fun write(out: OutputStream, contents: JbContents, boardId: String, frameId: String?,
+        includePaper: Boolean, paperRenderer: ((RectPx) -> ByteArray)? = null,
+        onWarning: (String) -> Unit = {}) =
+        write(out, contents, boardId, frameId, includePaper, paperRenderer, onWarning, brushLookup = null)
+
     fun write(
         out: OutputStream,
         contents: JbContents,
@@ -170,11 +179,18 @@ object OraExport {
         includePaper: Boolean,
         paperRenderer: ((RectPx) -> ByteArray)? = null,
         onWarning: (String) -> Unit = {},
+        brushLookup: ((String) -> BrushPreset?)?,
+        onInkRefusal: (String) -> Unit = { throw JbArchiveException(it) },
     ) {
         val doc = contents.doc
         val rect = boardOf(doc, boardId)
         val paper = if (includePaper && !doc.paper.screenTransparent) checkedPaper(doc) else null
         val tiles = tileSource(contents)
+        val brushes by lazy { BrushLibrary.builtIn().associateBy { it.id } }
+        val lookup: (String) -> BrushPreset? = brushLookup ?: { brushes[it] }
+        val strokes: (String, String) -> List<StrokeRecord>? = { layer, cel -> contents.strokes[layer to cel] }
+        val warned = HashSet<InkTiles.Refusal>()
+        val refusal: (InkTiles.Refusal) -> Unit = { if (warned.add(it)) onInkRefusal(it.reason) }
         val renderer = CanvasPng.paperRendererFor(contents, includePaper, paperRenderer, onWarning)
 
         // Which layers, and which are not. Both decided before a byte is written, so a document that
@@ -185,11 +201,6 @@ object OraExport {
             val why = omittedBecause(layer, frameId)
             if (why == null) kept.add(layer) else omitted.add(layer to why)
         }
-        // This format already names omitted vector layers in stack.xml. Keep them out of the
-        // flattened raster preview too; the general renderer now refuses unsupported vector art.
-        val rasterDoc = doc.copy(layers = doc.layers.map {
-            if (it.kind == LayerKind.INK) it.copy(visible = false) else it
-        })
 
         // DOCUMENT ORDER, BOTTOM FIRST — which is what `asReversed` in [stackXml] turns into the
         // top-first order OpenRaster reads, and what a `data/<n>.png` number follows. So `data/0.png`
@@ -214,6 +225,7 @@ object OraExport {
                     doc = doc,
                     tiles = tiles,
                     paperRenderer = renderer,
+                    brushLookup = lookup, strokeSource = strokes, onInkRefusal = refusal,
                 ),
             )
         }
@@ -228,6 +240,7 @@ object OraExport {
                     layer = layer,
                     doc = doc,
                     tiles = tiles,
+                    brushLookup = lookup, strokeSource = strokes, onInkRefusal = refusal,
                 ),
             )
         }
@@ -272,8 +285,8 @@ object OraExport {
             // LAYER above it is the same pixels at NORMAL and opacity 1. The two halves of the file
             // agreeing is what `theLayersAndTheXmlReproduceTheMergedImage` checks.
             val merged = RegionRenderer.render(
-                rasterDoc, tiles, rect, frameId,
-                if (renderer == null) paper else null, renderer,
+                doc, tiles, rect, frameId,
+                if (renderer == null) paper else null, renderer, lookup, strokes, refusal,
             )
             val thumb = thumbnail(merged, rect.w, rect.h)
             put(zos, THUMBNAIL_NAME, PngWriter.encode(thumb.w, thumb.h, thumb.pixels))
@@ -308,6 +321,9 @@ object OraExport {
         private val doc: JbDocument,
         private val tiles: TileSource,
         private val paperRenderer: ((RectPx) -> ByteArray)? = null,
+        private val brushLookup: (String) -> BrushPreset?,
+        private val strokeSource: (String, String) -> List<StrokeRecord>?,
+        private val onInkRefusal: (InkTiles.Refusal) -> Unit,
     ) {
         /**
          * Whether this entry's pixels come from the paper rather than from a layer render.
@@ -337,7 +353,8 @@ object OraExport {
                 val own = subject.copy(opacity = 1f, blend = BlendMode.NORMAL)
                 val layers = if (baseIndex == null) listOf(own.copy(clip = false))
                 else listOf(doc.layers[baseIndex].copy(opacity = 0f, blend = BlendMode.NORMAL, clip = false), own)
-                return RegionRenderer.render(doc.copy(layers = layers), tiles, rect, frameId, null)
+                return RegionRenderer.render(doc.copy(layers = layers), tiles, rect, frameId, null, brushLookup = brushLookup,
+                    strokeSource = strokeSource, onInkRefusal = onInkRefusal)
             }
             // The whole-region arrival goes through [RegionRenderer.requireOpaquePaper] — the SAME check the
             // block path applies — so a translucent or wrong-length paper is refused here, while the
@@ -408,13 +425,12 @@ object OraExport {
      * is draw on it.
      */
     private fun omittedBecause(layer: Layer, frameId: String?): String? = when {
-        !layer.kind.hasPixels ->
-            "an INK layer; its strokes are drawn by JB-5.01, not exported as pixels yet"
         !layer.visible -> "it is hidden"
         opacityOf(layer) <= 0f -> "it is 0% opaque"
         // The frame-to-cel rule belongs to DocOps, and a layer with no cel for this frame has nothing
         // to render. An animated layer asked for a static export shows nothing on the phone either.
-        DocOps.celFor(layer, frameId) == null -> "it has no cel for this frame"
+        (if (layer.regions.isEmpty()) DocOps.celFor(layer, frameId)
+            else layer.cels.firstOrNull { it.id == layer.sharedCelId }) == null -> "it has no cel for this frame"
         else -> null
     }
 

@@ -48,11 +48,33 @@
 // positive control + nonvacuity (varied hashes + look transparency). EXT_disjoint_timer_query_webgl2
 // via WebGL2 core API only (gl.createQuery/beginQuery/endQuery/getQueryParameter — NOT WebGL1
 // EXT createQueryEXT etc.), disjoint-valid only, honestly skipped if unsupported; CPU submit time
-// excludes readPixels/GPU wait if measured, otherwise omitted. No speedup / phone claims.
+// (labelled CPU, excludes readPixels/GPU wait) if measured, otherwise omitted. No speedup / phone
+// claims. SwiftShader software timing is not physical-GPU/phone equivalence; no 3x assertion.
+// Optional --benchmark adds paired ORIGINAL (P.orig from --source, coordinator runtime original-dir)
+// vs CANDIDATE (P.cand) GPU timing only; default 80-case exact proof + guards unchanged when absent.
+// Benchmark: few actual dry/wet/oil/mixed look1 relief0 + relief-nonzero control at 128/512/1024
+// viewport, size-specific ACTUAL physical SxS RGBA32F fixtures (benchmark-only, same seeded
+// generator with width/height args defaulting to validation 64x32; CLAMP_TO_EDGE kept, no REPEAT
+// resemanticisation), u_targetSize SxS + viewport SxS + layer origin consistent so interior is
+// physically sampled (not clamped edge), nonflat interior effect nonzero, per S/case BEFORE-warmup
+// exact draw+read proof (ALL RGBA8 incl alpha, hash/count, checkBindings both orig/cand + GL error
+// before+after read, per-proof max/variation/alpha/hash) then warmup>=8 each then >=15 valid
+// paired samples per case/size alternating order, disjoint before/after/results with bounded
+// retry/poll + finally delete, timed draw only (no fixture/uniform/readback), median/p95 +
+// paired ratios, then AFTER same exact draw/read proof mirroring BEFORE (checkBindings both
+// orig/cand + GL before+after read, same ALL RGBA8 incl alpha + per-proof stats), per-size GPU
+// actual fixture activity/nonvacuity both BEFORE and AFTER (per-proof nonblack max>16 so black
+// both/symmetric clamped-edge exact matches fail; per-size varied RGB range>4 + hash diversity
+// across dry/wet/oil/mixed excluding relief control + meaningful look1 transparency aggregate
+// transparent>0 and alpha range>10 where valid physical mode0 look1 case, single opaque proof
+// never fails alone per existing validation definition), bench fixtures+FBOs/queries disposed per
+// size, bounded memory/time with truthful OOM error, all actual samplers, per-proof stats +
+// aggregate per-size + both proof sets 15 counts + proof counts + resource
+// bounds returned. No speedup threshold, no device claim.
 // Local clean WIP checkpoint UNVERIFIED, no run claims.
 //
 // Run (coordinator executes; bundled playwright-core + Edge/SwiftShader, no npm install):
-//   node joybrush/tools/media_render_parity_check.js --candidate <candidate.frag> [--source <orig.frag>] [--chrome <exe>]
+//   node joybrush/tools/media_render_parity_check.js --candidate <candidate.frag> [--source <orig.frag>] [--chrome <exe>] [--benchmark]
 // Env: CANDIDATE_FRAG, SOURCE_FRAG, CHROME. --help prints options.
 const fs = require('fs');
 const path = require('path');
@@ -75,12 +97,13 @@ function argVal(name) {
   return null;
 }
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
-  console.log(JSON.stringify({ usage: 'node media_render_parity_check.js --candidate <frag> [--source <frag>] [--chrome <exe>]', env: ['CANDIDATE_FRAG', 'SOURCE_FRAG', 'CHROME'] }));
+  console.log(JSON.stringify({ usage: 'node media_render_parity_check.js --candidate <frag> [--source <frag>] [--chrome <exe>] [--benchmark]', env: ['CANDIDATE_FRAG', 'SOURCE_FRAG', 'CHROME'], benchmark: 'optional paired ORIGINAL vs CANDIDATE GPU timing (EXT_disjoint_timer_query_webgl2 only, no CPU fallback); default 80-case exact proof unchanged when absent' }));
   process.exit(0);
 }
 const sourcePath = path.resolve(argVal('source') || process.env.SOURCE_FRAG || DEFAULT_SOURCE);
 const candidatePath = argVal('candidate') || process.env.CANDIDATE_FRAG || null;
 const chromeEnv = argVal('chrome') || process.env.CHROME || null;
+const wantBenchmark = process.argv.includes('--benchmark');
 
 function sha256(s) { return crypto.createHash('sha256').update(s, 'utf8').digest('hex'); }
 const STRICT_INCLUDE_RE = /^#include\s+"([^"]+)"$/;
@@ -373,11 +396,15 @@ function findExe() {
 
       const rng32 = (a) => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
       // Seeded FINITE RGBA32F layer state. Oil keeps ~35% gaps so relief!=0 still moves the frame.
-      function genFixture(kind, seed) {
+      // Benchmark-only sized fixtures reuse this same generator with explicit width/height;
+      // defaults preserve validation 64x32 behaviour exactly (W,H unchanged).
+      function genFixture(kind, seed, fw, fh) {
+        fw = fw || W; fh = fh || H;
+        const NN = fw * fh;
         const r = rng32(seed);
-        const p0 = new Float32Array(N * 4), p1 = new Float32Array(N * 4), ps = new Float32Array(N * 4);
-        const w0 = new Float32Array(N * 4), w1 = new Float32Array(N * 4), bk = new Float32Array(N * 4);
-        for (let i = 0; i < N; i++) {
+        const p0 = new Float32Array(NN * 4), p1 = new Float32Array(NN * 4), ps = new Float32Array(NN * 4);
+        const w0 = new Float32Array(NN * 4), w1 = new Float32Array(NN * 4), bk = new Float32Array(NN * 4);
+        for (let i = 0; i < NN; i++) {
           const o = i * 4, q = r();
           let K = [0, 0, 0], vol = 0, S = [0, 0, 0], open = 0, crush = 0, V = 0, fl = 0, wr = 0, sat = 0, wK = [0, 0, 0], wS = 0;
           if (kind === 'dry' || (kind === 'mixed' && q < 0.4)) {
@@ -441,6 +468,15 @@ function findExe() {
       function ftex(data) {
         const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, data);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        return t;
+      }
+      // Benchmark-only sized upload: same RGBA32F/NEAREST/CLAMP_TO_EDGE semantics, physical SxS.
+      // No REPEAT substitution: clamping stays, but interior is physically present so coverage is real.
+      function ftexSized(data, sw, sh) {
+        const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sw, sh, 0, gl.RGBA, gl.FLOAT, data);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         return t;
@@ -569,7 +605,7 @@ function findExe() {
       }
       const locs = (p) => { const g = (n) => gl.getUniformLocation(p, n); return { g }; };
       const L0 = locs(pO), L1 = locs(pC), LX = locs(pX);
-      function setAll(L, prog, cs, F) {
+      function setAll(L, prog, cs, F, tw, th) {
         gl.useProgram(prog);
         const U = (n, v) => gl.uniform1i(L.g(n), v);
         const F1 = (n, v) => gl.uniform1f(L.g(n), v);
@@ -581,7 +617,7 @@ function findExe() {
         gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, F.bk); U('u_paperBake', 5);
         gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, paperTex); U('u_paperSurface', 6);
         gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, fluidTex); if (L.g('u_paperFluid')) U('u_paperFluid', 7);
-        gl.uniform2f(L.g('u_targetSize'), W, H);
+        gl.uniform2f(L.g('u_targetSize'), (tw || W), (th || H));
         gl.uniform2f(L.g('u_layerOrigin'), cs.o[0], cs.o[1]); F1('u_layerScale', 1);
         gl.uniform2f(L.g('u_pan'), cs.pan[0], cs.pan[1]); F1('u_zoom', cs.z);
         F1('u_pxPerMm', 20); F1('u_toothMm', 0.09);
@@ -736,48 +772,451 @@ function findExe() {
         if (!mode1diff || !reliefDiff) return fail('positive control missed (separate mutated shader must change RGBA where supported: need mode1 differ + relief!=0 differ; paper flat or fixture too thick?)', { controlSupported, controlDiffCases });
         if (controlDiffCases === 0) return fail('positive control never detected');
       }
+      // Validation exact proof above is the before-bench proof (80 cases, ALL RGBA8 incl alpha).
+      // Default path keeps the single-probe gpuTimer only. --benchmark adds paired ORIGINAL vs
+      // CANDIDATE GPU timing (never CPU fallback) + after-bench exact proof. No tolerance weakening.
+      const wantBench = !!P.wantBenchmark;
+      const benchMedian = (s) => { const n = s.length; if (!n) return 0; return s[Math.floor(n / 2)]; };
+      const benchP95 = (s) => { const n = s.length; if (!n) return 0; return s[Math.min(n - 1, Math.ceil(0.95 * n) - 1)]; };
+      const benchSorted = (a) => a.slice().sort((x, y) => x - y);
+      const benchGpuInfo = () => {
+        let renderer = 'unknown', vendor = 'unknown';
+        try {
+          const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+          if (dbg) {
+            renderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || renderer;
+            vendor = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || vendor;
+          }
+        } catch (e) {}
+        let version = '', slVersion = '', glRenderer = '', glVendor = '';
+        try {
+          version = gl.getParameter(gl.VERSION) || '';
+          slVersion = gl.getParameter(gl.SHADING_LANGUAGE_VERSION) || '';
+          glRenderer = gl.getParameter(gl.RENDERER) || '';
+          glVendor = gl.getParameter(gl.VENDOR) || '';
+        } catch (e) {}
+        return { renderer: String(renderer).slice(0, 256), vendor: String(vendor).slice(0, 256), version: String(version).slice(0, 256), shadingLanguageVersion: String(slVersion).slice(0, 256), glRenderer: String(glRenderer).slice(0, 256), glVendor: String(glVendor).slice(0, 256) };
+      };
       // Optional GPU timer: WebGL2 core API only (NOT WebGL1 EXT API), disjoint-valid only.
       let gpuTimer = { present: false, status: 'skipped: EXT_disjoint_timer_query_webgl2 not present' };
+      let benchmark = null;
       const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
-      if (ext) {
+      if (!wantBench) {
+        if (ext) {
+          const hasCore = (typeof gl.createQuery === 'function' && typeof gl.beginQuery === 'function' && typeof gl.endQuery === 'function' && typeof gl.getQueryParameter === 'function' && typeof gl.deleteQuery === 'function');
+          if (!hasCore) {
+            gpuTimer = { present: true, status: 'skipped: WebGL2 core query API missing (WebGL1 EXT API not used in WebGL2)' };
+          } else {
+            gpuTimer = { present: true, status: 'skipped: present, parity needs no timing' };
+            try {
+              const q = gl.createQuery();
+              gl.beginQuery(ext.TIME_ELAPSED_EXT, q);
+              setAll(L0, pO, cases[0], gpuFix[cases[0].f]); gl.drawArrays(gl.TRIANGLES, 0, 3);
+              gl.endQuery(ext.TIME_ELAPSED_EXT);
+              let spins = 0;
+              while (!gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE) && spins++ < 200) await new Promise(r => setTimeout(r, 5));
+              if (gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) {
+                const disjoint = gl.getParameter(ext.GPU_DISJOINT_EXT);
+                if (!disjoint) gpuTimer = { present: true, status: 'measured', ns: gl.getQueryParameter(q, gl.QUERY_RESULT) };
+                else gpuTimer = { present: true, status: 'skipped: disjoint true (invalid)' };
+              } else gpuTimer = { present: true, status: 'skipped: query not available' };
+              gl.deleteQuery(q);
+            } catch (e) { gpuTimer = { present: true, status: 'skipped: ' + String(e && e.message || e).slice(0, 120) }; }
+          }
+        }
+        return { rows, controlRows, probes, cases: cases.length, maxDiff, mismatchBytes, mismatchCases, controlSupported, controlDiffCases, distinctHashes: hashes.size, paperMean: +paper.mean.toFixed(4), paperHRange: +(paper.mx - paper.mn).toFixed(4), paperRawHash, look1AMin, look1AMax, look1TransparentPixels, glError: gl.getError(), gpuTimer, benchmark, cpuSubmitMs, cpuSubmitNote: 'excludes readPixels/GPU wait' };
+      }
+      // ---- --benchmark paired ORIGINAL (P.orig from --source, coordinator runtime original-dir) vs CANDIDATE (P.cand) ----
+      // Never treats the current optimized root shader as original; P.orig/P.cand are the runtime inputs.
+      {
+        const gpuInfo = benchGpuInfo();
+        const benchNote = 'SwiftShader software timing is not physical-GPU/phone equivalence; no speedup threshold asserted; no 3x requirement; measurement only, validation separate; benchmark-only size-specific ACTUAL physical SxS RGBA32F fixtures (same seeded generator, CLAMP_TO_EDGE kept, no REPEAT), viewport SxS with u_targetSize SxS + origin consistent so interior physically sampled';
+        if (!ext) {
+          gpuTimer = { present: false, status: 'unavailable: EXT_disjoint_timer_query_webgl2 not present (no CPU fallback pretending GPU)' };
+          benchmark = { status: 'unavailable', reason: 'EXT_disjoint_timer_query_webgl2 not present (actual GPU timing unavailable, no CPU fallback)', gpu: gpuInfo, source: P.benchSource || null, sizes: [128, 512, 1024], note: benchNote };
+          return { rows, controlRows, probes, cases: cases.length, maxDiff, mismatchBytes, mismatchCases, controlSupported, controlDiffCases, distinctHashes: hashes.size, paperMean: +paper.mean.toFixed(4), paperHRange: +(paper.mx - paper.mn).toFixed(4), paperRawHash, look1AMin, look1AMax, look1TransparentPixels, glError: gl.getError(), gpuTimer, benchmark, cpuSubmitMs, cpuSubmitNote: 'excludes readPixels/GPU wait' };
+        }
         const hasCore = (typeof gl.createQuery === 'function' && typeof gl.beginQuery === 'function' && typeof gl.endQuery === 'function' && typeof gl.getQueryParameter === 'function' && typeof gl.deleteQuery === 'function');
         if (!hasCore) {
-          gpuTimer = { present: true, status: 'skipped: WebGL2 core query API missing (WebGL1 EXT API not used in WebGL2)' };
-        } else {
-          gpuTimer = { present: true, status: 'skipped: present, parity needs no timing' };
-          try {
-            const q = gl.createQuery();
-            gl.beginQuery(ext.TIME_ELAPSED_EXT, q);
-            setAll(L0, pO, cases[0], gpuFix[cases[0].f]); gl.drawArrays(gl.TRIANGLES, 0, 3);
-            gl.endQuery(ext.TIME_ELAPSED_EXT);
-            let spins = 0;
-            while (!gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE) && spins++ < 200) await new Promise(r => setTimeout(r, 5));
-            if (gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) {
-              const disjoint = gl.getParameter(ext.GPU_DISJOINT_EXT);
-              if (!disjoint) gpuTimer = { present: true, status: 'measured', ns: gl.getQueryParameter(q, gl.QUERY_RESULT) };
-              else gpuTimer = { present: true, status: 'skipped: disjoint true (invalid)' };
-            } else gpuTimer = { present: true, status: 'skipped: query not available' };
-            gl.deleteQuery(q);
-          } catch (e) { gpuTimer = { present: true, status: 'skipped: ' + String(e && e.message || e).slice(0, 120) }; }
+          gpuTimer = { present: true, status: 'unavailable: WebGL2 core query API missing (WebGL1 EXT API not used in WebGL2)' };
+          benchmark = { status: 'unavailable', reason: 'WebGL2 core query API missing (WebGL1 EXT API not used in WebGL2)', gpu: gpuInfo, source: P.benchSource || null, sizes: [128, 512, 1024], note: benchNote };
+          return { rows, controlRows, probes, cases: cases.length, maxDiff, mismatchBytes, mismatchCases, controlSupported, controlDiffCases, distinctHashes: hashes.size, paperMean: +paper.mean.toFixed(4), paperHRange: +(paper.mx - paper.mn).toFixed(4), paperRawHash, look1AMin, look1AMax, look1TransparentPixels, glError: gl.getError(), gpuTimer, benchmark, cpuSubmitMs, cpuSubmitNote: 'excludes readPixels/GPU wait' };
         }
+        gpuTimer = { present: true, status: 'superseded by --benchmark paired measurement (see benchmark)' };
+        const BENCH_SIZES = [128, 512, 1024];
+        const BENCH_WARMUP = 8;
+        const BENCH_VALID = 15;
+        const BENCH_MAX_ATTEMPTS = 80;
+        const BENCH_POLL_SPINS = 400;
+        const benchCases = [
+          { id: 'dry-look1-relief0', f: 'dry', o: [-8, -4], z: 1, pan: [0, 0], mode: 0, relief: 0, look: 1, lamp: LA, imp: 1, sheen: 0.6 },
+          { id: 'wet-look1-relief0', f: 'wet', o: [-8, -4], z: 0.5, pan: [4, 2], mode: 0, relief: 0, look: 1, lamp: LB, imp: 1, sheen: 0 },
+          { id: 'oil-look1-relief0', f: 'oil', o: [5, 3], z: 1, pan: [0, 0], mode: 0, relief: 0, look: 1, lamp: LA, imp: 1, sheen: 0 },
+          { id: 'mixed-look1-relief0', f: 'mixed', o: [-12, -6], z: 0.5, pan: [0, 0], mode: 0, relief: 0, look: 1, lamp: LB, imp: 0, sheen: 0.6 },
+          { id: 'dry-look1-relief1-control', f: 'dry', o: [-8, -4], z: 1, pan: [0, 0], mode: 0, relief: 1, look: 1, lamp: LA, imp: 1, sheen: 0.6, control: 'relief-nonzero' },
+        ];
+        const benchWait = async (q) => {
+          let spins = 0;
+          while (spins++ < BENCH_POLL_SPINS) {
+            let avail = false;
+            try { avail = gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE); } catch (e) { return false; }
+            if (avail) return true;
+            await new Promise(r => setTimeout(r, 2));
+          }
+          return false;
+        };
+        const benchResults = [];
+        const benchBeforeProof = [];
+        const benchProof = [];
+        let benchError = null;
+        const benchStart = performance.now();
+        const BENCH_BUDGET_MS = 240000;
+        const BENCH_SEEDS = { dry: 0xd271, wet: 0x9e77, oil: 0x0115, mixed: 0x71ed };
+        const benchResourceBounds = { sizes: BENCH_SIZES.slice(), maxTextureDim: 1024, bytesPerTexelRGBA32F: 16, bytesPerTexelRGBA8: 4, texturesPerFixture: 6, budgetMs: BENCH_BUDGET_MS, maxAttempts: BENCH_MAX_ATTEMPTS, pollSpins: BENCH_POLL_SPINS, warmupEach: BENCH_WARMUP, validPairsEach: BENCH_VALID, perSizeBytes: {}, peakBytes: 0 };
+        for (const S of BENCH_SIZES) {
+          if (benchError) break;
+          if (performance.now() - benchStart > BENCH_BUDGET_MS) { benchError = 'benchmark timeout: exceeded 240s budget (truthful timeout, not pass/unavailable)'; break; }
+          let bTex = null, bFbo = null, benchGpuFix = null;
+          try {
+            // Benchmark-only physical fixtures: actual SxS float state via same seeded generator
+            // (defaults keep validation 64x32 untouched). u_targetSize SxS + viewport SxS + origin
+            // in layer px stays consistent, so interior texels are physically sampled (CLAMP_TO_EDGE
+            // only at true edges, no REPEAT resemanticisation).
+            const benchCpu = {};
+            for (const fk of Object.keys(BENCH_SEEDS)) {
+              try { benchCpu[fk] = genFixture(fk, BENCH_SEEDS[fk], S, S); }
+              catch (e) { benchError = 'benchmark OOM: CPU fixture alloc failed at size ' + S + ' fixture ' + fk + ': ' + String(e && e.message || e).slice(0, 120); break; }
+            }
+            if (benchError) break;
+            // Fail-closed nonflat/interior guard for sized fixtures: FINITE + nonempty + varied.
+            {
+              let bFinite = true, bAbs = 0, bAMin = 1, bAMax = 0;
+              for (const f of Object.values(benchCpu)) for (const arr of [f.p0, f.p1, f.ps, f.w0, f.w1, f.bk]) {
+                for (let i = 0; i < arr.length; i++) { if (!Number.isFinite(arr[i])) bFinite = false; bAbs += Math.abs(arr[i]); }
+              }
+              for (const fk of Object.keys(benchCpu)) { const a = benchCpu[fk].p0; for (let i = 3; i < a.length; i += 4) { bAMin = Math.min(bAMin, a[i]); bAMax = Math.max(bAMax, a[i]); } }
+              if (!bFinite) { benchError = 'benchmark sized fixtures non-finite at size ' + S; break; }
+              if (!(bAbs > 1 && (bAMax - bAMin) > 0.01)) { benchError = 'benchmark sized fixtures vacuous at size ' + S + ' (interior effect unproven)'; break; }
+            }
+            benchGpuFix = {};
+            try {
+              for (const [fk, f] of Object.entries(benchCpu)) {
+                const g = { p0: ftexSized(f.p0, S, S), p1: ftexSized(f.p1, S, S), ps: ftexSized(f.ps, S, S), w0: ftexSized(f.w0, S, S), w1: ftexSized(f.w1, S, S), bk: ftexSized(f.bk, S, S) };
+                for (const t of Object.values(g)) if (!t) throw new Error('null texture for ' + fk);
+                benchGpuFix[fk] = g;
+              }
+            } catch (e) {
+              benchError = 'benchmark OOM: sized fixture texture upload failed at size ' + S + ': ' + String(e && e.message || e).slice(0, 160);
+              break;
+            }
+            if (gl.getError() !== gl.NO_ERROR) { benchError = 'benchmark GL error after sized fixture upload at size ' + S; break; }
+            {
+              const nFix = Object.keys(benchGpuFix).length;
+              const totalFixBytes = nFix * 6 * S * S * 16;
+              const outBytes = S * S * 4;
+              const totalSize = totalFixBytes + outBytes;
+              benchResourceBounds.perSizeBytes[String(S)] = { fixtureBytes: totalFixBytes, outputBytes: outBytes, totalBytes: totalSize, fixtures: Object.keys(benchGpuFix).slice(), texel: [S, S] };
+              if (totalSize > benchResourceBounds.peakBytes) benchResourceBounds.peakBytes = totalSize;
+            }
+            // Bound CPU memory: release CPU copies after GPU upload (GPU holds physical state).
+            for (const fk of Object.keys(benchCpu)) delete benchCpu[fk];
+            bTex = gl.createTexture();
+            if (!bTex) { benchError = 'benchmark OOM: output texture creation failed at size ' + S; break; }
+            gl.bindTexture(gl.TEXTURE_2D, bTex);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, S, S, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            bFbo = gl.createFramebuffer();
+            if (!bFbo) { benchError = 'benchmark OOM: FBO creation failed at size ' + S; break; }
+            gl.bindFramebuffer(gl.FRAMEBUFFER, bFbo);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, bTex, 0);
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) { benchError = 'benchmark FBO incomplete at size ' + S + ' (GL fail gate)'; break; }
+            if (gl.getError() !== gl.NO_ERROR) { benchError = 'benchmark GL error after FBO setup at size ' + S; break; }
+            for (const bc of benchCases) {
+              if (benchError) break;
+              const F = benchGpuFix[bc.f];
+              if (!F) { benchError = 'benchmark missing sized fixture ' + bc.f + ' at size ' + S + ' (physical SxS required, 64x32 reuse forbidden)'; break; }
+              // BEFORE-warmup exact proof at physical size S: same draw+read as AFTER, ALL RGBA8
+              // incl alpha, provenance hash/count. Fail-closed on any mismatch or GL/binding error.
+              // Per-proof GPU actual activity (max/variation/alpha/hash) recorded; per-size aggregate
+              // nonvacuity checked after all sizes (both BEFORE and AFTER).
+              gl.bindFramebuffer(gl.FRAMEBUFFER, bFbo);
+              gl.viewport(0, 0, S, S);
+              setAll(L0, pO, bc, F, S, S);
+              {
+                const bErrB0 = checkBindings(L0, pO, false);
+                if (bErrB0) { benchError = 'benchmark required active binding orig before-proof: ' + bErrB0 + ' size ' + S + ' case ' + bc.id; break; }
+              }
+              gl.drawArrays(gl.TRIANGLES, 0, 3);
+              if (gl.getError() !== gl.NO_ERROR) { benchError = 'benchmark GL error drawing original for before-proof size ' + S + ' case ' + bc.id; break; }
+              {
+                const bBO = new Uint8Array(S * S * 4); gl.readPixels(0, 0, S, S, gl.RGBA, gl.UNSIGNED_BYTE, bBO);
+                if (gl.getError() !== gl.NO_ERROR) { benchError = 'benchmark GL error after before-proof orig read size ' + S + ' case ' + bc.id; break; }
+                setAll(L1, pC, bc, F, S, S);
+                {
+                  const bErrB1 = checkBindings(L1, pC, false);
+                  if (bErrB1) { benchError = 'benchmark required active binding candidate before-proof: ' + bErrB1 + ' size ' + S + ' case ' + bc.id; break; }
+                }
+                gl.drawArrays(gl.TRIANGLES, 0, 3);
+                if (gl.getError() !== gl.NO_ERROR) { benchError = 'benchmark GL error drawing candidate for before-proof size ' + S + ' case ' + bc.id; break; }
+                const bBC = new Uint8Array(S * S * 4); gl.readPixels(0, 0, S, S, gl.RGBA, gl.UNSIGNED_BYTE, bBC);
+                if (gl.getError() !== gl.NO_ERROR) { benchError = 'benchmark GL error after before-proof readback size ' + S + ' case ' + bc.id; break; }
+                let bmd = 0, bmm = 0, bpx = 0;
+                for (let i = 0; i < bBO.length; i++) { const d = Math.abs(bBO[i] - bBC[i]); if (d > bmd) bmd = d; if (d !== 0) bmm++; }
+                for (let pp = 0; pp < S * S; pp++) { if (bBO[pp * 4] !== bBC[pp * 4] || bBO[pp * 4 + 1] !== bBC[pp * 4 + 1] || bBO[pp * 4 + 2] !== bBC[pp * 4 + 2] || bBO[pp * 4 + 3] !== bBC[pp * 4 + 3]) bpx++; }
+                const bhO = fnv(bBO), bhC = fnv(bBC);
+                // GPU actual per-proof activity from orig bytes (cand must match exactly, checked above).
+                // Single-proof transparency NOT gated here: a valid single fixture may be opaque by
+                // mode/physics; look1 transparency is gated aggregate per-size as existing validation.
+                let bMax = 0, bMin = 255, bAMin = 255, bAMax = 0, bTrans = 0;
+                for (let pp = 0; pp < S * S; pp++) {
+                  const rr = bBO[pp * 4], gg = bBO[pp * 4 + 1], bb = bBO[pp * 4 + 2], aa = bBO[pp * 4 + 3];
+                  if (rr > bMax) bMax = rr; if (gg > bMax) bMax = gg; if (bb > bMax) bMax = bb;
+                  if (rr < bMin) bMin = rr; if (gg < bMin) bMin = gg; if (bb < bMin) bMin = bb;
+                  if (aa < bAMin) bAMin = aa; if (aa > bAMax) bAMax = aa;
+                  if (aa < 255) bTrans++;
+                }
+                const bRange = bMax - bMin;
+                benchBeforeProof.push({ size: S, case: bc.id, fixture: bc.f, fixtureTex: [S, S], viewport: [S, S], targetSize: [S, S], mode: bc.mode, relief: bc.relief, look: bc.look, bytesCompared: bBO.length, pixelsCompared: S * S, bytesDiffer: bmm, pixelsDiffer: bpx, maxByteDiff: bmd, hashOrig: bhO, hashCand: bhC, maxRGB: bMax, minRGB: bMin, rgbRange: bRange, aMin: bAMin, aMax: bAMax, transparentPixels: bTrans, ok: (bmm === 0) });
+                if (bmm !== 0) { benchError = 'benchmark before-proof mismatch (original vs candidate must be exact for ALL bytes incl alpha) size ' + S + ' case ' + bc.id + ' bytesDiffer ' + bmm; break; }
+                // Symmetric wrong-setup (e.g. clamped-edge-only) exact matches that render black are vacuous: fail.
+                if (!(bMax > 16)) { benchError = 'benchmark before-proof vacuous (all-black GPU render, wrong setup or clamped edges) size ' + S + ' case ' + bc.id + ' maxRGB ' + bMax; break; }
+              }
+              gl.bindFramebuffer(gl.FRAMEBUFFER, bFbo);
+              gl.viewport(0, 0, S, S);
+              for (let w = 0; w < BENCH_WARMUP; w++) {
+                setAll(L0, pO, bc, F, S, S);
+                const bErr0 = checkBindings(L0, pO, false);
+                if (bErr0) { benchError = 'benchmark required active binding orig: ' + bErr0 + ' size ' + S + ' case ' + bc.id; break; }
+                gl.drawArrays(gl.TRIANGLES, 0, 3);
+                setAll(L1, pC, bc, F, S, S);
+                const bErr1 = checkBindings(L1, pC, false);
+                if (bErr1) { benchError = 'benchmark required active binding candidate: ' + bErr1 + ' size ' + S + ' case ' + bc.id; break; }
+                gl.drawArrays(gl.TRIANGLES, 0, 3);
+                if (gl.getError() !== gl.NO_ERROR) { benchError = 'benchmark GL error during warmup size ' + S + ' case ' + bc.id; break; }
+              }
+              if (benchError) break;
+              const oNs = [], cNs = [], ratios = [];
+              let attempts = 0, discards = 0, origFirstValid = 0, candFirstValid = 0;
+              while (oNs.length < BENCH_VALID && attempts < BENCH_MAX_ATTEMPTS) {
+                attempts++;
+                if (performance.now() - benchStart > BENCH_BUDGET_MS) { benchError = 'benchmark timeout during sampling size ' + S + ' case ' + bc.id; break; }
+                let d0 = false;
+                try { d0 = gl.getParameter(ext.GPU_DISJOINT_EXT); } catch (e) { d0 = false; }
+                if (d0) { discards++; await new Promise(r => setTimeout(r, 2)); continue; }
+                const origFirst = (attempts % 2 === 1);
+                let qO = null, qC = null;
+                try { qO = gl.createQuery(); qC = gl.createQuery(); } catch (e) { benchError = 'benchmark OOM: query creation failed size ' + S + ' case ' + bc.id + ': ' + String(e && e.message || e).slice(0, 120); break; }
+                if (!qO || !qC) {
+                  try { if (qO) gl.deleteQuery(qO); } catch (e) {}
+                  try { if (qC) gl.deleteQuery(qC); } catch (e) {}
+                  benchError = 'benchmark OOM: query creation returned null size ' + S + ' case ' + bc.id;
+                  break;
+                }
+                let pairOk = false, tO = 0, tC = 0;
+                try {
+                  gl.bindFramebuffer(gl.FRAMEBUFFER, bFbo);
+                  gl.viewport(0, 0, S, S);
+                  if (origFirst) {
+                    setAll(L0, pO, bc, F, S, S); gl.beginQuery(ext.TIME_ELAPSED_EXT, qO); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.endQuery(ext.TIME_ELAPSED_EXT);
+                    setAll(L1, pC, bc, F, S, S); gl.beginQuery(ext.TIME_ELAPSED_EXT, qC); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.endQuery(ext.TIME_ELAPSED_EXT);
+                  } else {
+                    setAll(L1, pC, bc, F, S, S); gl.beginQuery(ext.TIME_ELAPSED_EXT, qC); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.endQuery(ext.TIME_ELAPSED_EXT);
+                    setAll(L0, pO, bc, F, S, S); gl.beginQuery(ext.TIME_ELAPSED_EXT, qO); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.endQuery(ext.TIME_ELAPSED_EXT);
+                  }
+                  if (gl.getError() !== gl.NO_ERROR) { discards++; continue; }
+                  const okO = await benchWait(qO);
+                  const okC = await benchWait(qC);
+                  if (!okO || !okC) { discards++; continue; }
+                  let d1 = false;
+                  try { d1 = gl.getParameter(ext.GPU_DISJOINT_EXT); } catch (e) { d1 = false; }
+                  if (d1) { discards++; continue; }
+                  try {
+                    tO = gl.getQueryParameter(qO, gl.QUERY_RESULT);
+                    tC = gl.getQueryParameter(qC, gl.QUERY_RESULT);
+                  } catch (e) { discards++; continue; }
+                  let d2 = false;
+                  try { d2 = gl.getParameter(ext.GPU_DISJOINT_EXT); } catch (e) { d2 = false; }
+                  if (d2) { discards++; continue; }
+                  if (!Number.isFinite(tO) || !Number.isFinite(tC) || !(tO > 0) || !(tC > 0)) { discards++; continue; }
+                  pairOk = true;
+                } finally {
+                  try { gl.deleteQuery(qO); } catch (e) {}
+                  try { gl.deleteQuery(qC); } catch (e) {}
+                }
+                if (pairOk) {
+                  oNs.push(tO); cNs.push(tC); ratios.push(tC / tO);
+                  if (origFirst) origFirstValid++; else candFirstValid++;
+                }
+              }
+              if (benchError) break;
+              if (oNs.length < BENCH_VALID) { benchError = 'benchmark insufficient valid paired samples size ' + S + ' case ' + bc.id + ' (valid ' + oNs.length + '/' + BENCH_VALID + ' attempts ' + attempts + ' discards ' + discards + ', invalid disjoint never accepted)'; break; }
+              if (!(origFirstValid > 0 && candFirstValid > 0)) { benchError = 'benchmark order alternation failed size ' + S + ' case ' + bc.id + ' (origFirstValid ' + origFirstValid + ' candFirstValid ' + candFirstValid + ')'; break; }
+              const so = benchSorted(oNs), sc = benchSorted(cNs), sr = benchSorted(ratios);
+              benchResults.push({ size: S, viewport: [S, S], layerFixtureTex: [S, S], fixtureTex: [S, S], targetSize: [S, S], case: bc.id, fixture: bc.f, mode: bc.mode, relief: bc.relief, look: bc.look, control: bc.control || null, warmupEach: BENCH_WARMUP, validPairs: oNs.length, attempts, discards, origFirstValid, candFirstValid, alternating: true, origNs: { median: benchMedian(so), p95: benchP95(so), min: so[0], max: so[so.length - 1] }, candNs: { median: benchMedian(sc), p95: benchP95(sc), min: sc[0], max: sc[sc.length - 1] }, ratioCandOverOrig: { median: benchMedian(sr), p95: benchP95(sr), min: sr[0], max: sr[sr.length - 1] }, timed: 'draw only (fixture create/uniform setup/readback excluded; queries surround drawArrays only)' });
+              // AFTER proof mirrors BEFORE exactly (checkBindings both orig/cand + GL before+after
+              // read, same ALL RGBA8 incl alpha + per-proof max/variation/alpha/hash). setAll per draw
+              // is the existing display path; bindings/GL asserts here are audit gates.
+              gl.bindFramebuffer(gl.FRAMEBUFFER, bFbo);
+              gl.viewport(0, 0, S, S);
+              setAll(L0, pO, bc, F, S, S);
+              {
+                const bErrA0 = checkBindings(L0, pO, false);
+                if (bErrA0) { benchError = 'benchmark required active binding orig after-proof: ' + bErrA0 + ' size ' + S + ' case ' + bc.id; break; }
+              }
+              gl.drawArrays(gl.TRIANGLES, 0, 3);
+              if (gl.getError() !== gl.NO_ERROR) { benchError = 'benchmark GL error drawing original for after-proof size ' + S + ' case ' + bc.id; break; }
+              const bO = new Uint8Array(S * S * 4); gl.readPixels(0, 0, S, S, gl.RGBA, gl.UNSIGNED_BYTE, bO);
+              if (gl.getError() !== gl.NO_ERROR) { benchError = 'benchmark GL error after after-proof orig read size ' + S + ' case ' + bc.id; break; }
+              setAll(L1, pC, bc, F, S, S);
+              {
+                const bErrA1 = checkBindings(L1, pC, false);
+                if (bErrA1) { benchError = 'benchmark required active binding candidate after-proof: ' + bErrA1 + ' size ' + S + ' case ' + bc.id; break; }
+              }
+              gl.drawArrays(gl.TRIANGLES, 0, 3);
+              if (gl.getError() !== gl.NO_ERROR) { benchError = 'benchmark GL error drawing candidate for after-proof size ' + S + ' case ' + bc.id; break; }
+              const bC = new Uint8Array(S * S * 4); gl.readPixels(0, 0, S, S, gl.RGBA, gl.UNSIGNED_BYTE, bC);
+              if (gl.getError() !== gl.NO_ERROR) { benchError = 'benchmark GL error after readback size ' + S + ' case ' + bc.id; break; }
+              let md = 0, mm = 0, pxMm = 0;
+              for (let i = 0; i < bO.length; i++) { const d = Math.abs(bO[i] - bC[i]); if (d > md) md = d; if (d !== 0) mm++; }
+              for (let p = 0; p < S * S; p++) { if (bO[p * 4] !== bC[p * 4] || bO[p * 4 + 1] !== bC[p * 4 + 1] || bO[p * 4 + 2] !== bC[p * 4 + 2] || bO[p * 4 + 3] !== bC[p * 4 + 3]) pxMm++; }
+              const hO = fnv(bO), hC = fnv(bC);
+              let aMaxRGB = 0, aMinRGB = 255, aAMin = 255, aAMax = 0, aTrans = 0;
+              for (let p = 0; p < S * S; p++) {
+                const rr = bO[p * 4], gg = bO[p * 4 + 1], bb = bO[p * 4 + 2], aa = bO[p * 4 + 3];
+                if (rr > aMaxRGB) aMaxRGB = rr; if (gg > aMaxRGB) aMaxRGB = gg; if (bb > aMaxRGB) aMaxRGB = bb;
+                if (rr < aMinRGB) aMinRGB = rr; if (gg < aMinRGB) aMinRGB = gg; if (bb < aMinRGB) aMinRGB = bb;
+                if (aa < aAMin) aAMin = aa; if (aa > aAMax) aAMax = aa;
+                if (aa < 255) aTrans++;
+              }
+              const aRange = aMaxRGB - aMinRGB;
+              benchProof.push({ size: S, case: bc.id, fixture: bc.f, fixtureTex: [S, S], viewport: [S, S], targetSize: [S, S], mode: bc.mode, relief: bc.relief, look: bc.look, bytesCompared: bO.length, pixelsCompared: S * S, bytesDiffer: mm, pixelsDiffer: pxMm, maxByteDiff: md, hashOrig: hO, hashCand: hC, maxRGB: aMaxRGB, minRGB: aMinRGB, rgbRange: aRange, aMin: aAMin, aMax: aAMax, transparentPixels: aTrans, ok: (mm === 0) });
+              if (mm !== 0) { benchError = 'benchmark after-proof mismatch (original vs candidate must be exact for ALL bytes incl alpha) size ' + S + ' case ' + bc.id + ' bytesDiffer ' + mm; break; }
+              if (!(aMaxRGB > 16)) { benchError = 'benchmark after-proof vacuous (all-black GPU render, wrong setup or clamped edges) size ' + S + ' case ' + bc.id + ' maxRGB ' + aMaxRGB; break; }
+            }
+          } finally {
+            try { if (benchGpuFix) for (const g of Object.values(benchGpuFix)) for (const t of Object.values(g)) try { gl.deleteTexture(t); } catch (e) {} } catch (e) {}
+            try { if (bFbo) gl.deleteFramebuffer(bFbo); } catch (e) {}
+            try { if (bTex) gl.deleteTexture(bTex); } catch (e) {}
+            try { gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, W, H); } catch (e) {}
+          }
+          if (benchError) break;
+        }
+        // Per-size GPU actual fixture activity/nonvacuity (both BEFORE and AFTER): mirrors existing
+        // validation definition (nonblack + varied + look1 transparency) but scoped per size.
+        // Per-proof nonblack (maxRGB>16) already gated above so black-both / symmetric clamped-edge
+        // exact matches fail. Per-size here: varied RGB (global range>4, same threshold as validation
+        // look0), hash diversity across dry/wet/oil/mixed excluding relief control (>=3 distinct orig
+        // hashes of 4, control not needed), meaningful look1 transparency aggregate (transparent>0 and
+        // alpha range>10, same thresholds as existing validation) where valid physical mode0 look1
+        // case. A single opaque proof alone never fails; the aggregate does. SxS physical fixtures
+        // unchanged; no threshold weakening, no narrowed cases.
+        let benchPerSize = {};
+        if (!benchError) {
+          for (const S of BENCH_SIZES) {
+            if (benchError) break;
+            const bPs = benchBeforeProof.filter(r => r.size === S);
+            const aPs = benchProof.filter(r => r.size === S);
+            if (bPs.length !== benchCases.length || aPs.length !== benchCases.length) {
+              benchError = 'benchmark per-size proof count incomplete size ' + S + ' (before ' + bPs.length + ' after ' + aPs.length + ' want ' + benchCases.length + ' each)';
+              break;
+            }
+            benchPerSize[String(S)] = {};
+            for (const [tag, ps] of [['before', bPs], ['after', aPs]]) {
+              let gMax = 0, gMin = 255, gAMin = 255, gAMax = 0, gTrans = 0, gPx = 0;
+              let statsOk = true;
+              for (const r of ps) {
+                if (r.maxRGB === undefined || r.minRGB === undefined || r.rgbRange === undefined || r.aMin === undefined || r.aMax === undefined || r.transparentPixels === undefined || r.hashOrig === undefined) { statsOk = false; break; }
+                if (r.maxRGB > gMax) gMax = r.maxRGB;
+                if (r.minRGB < gMin) gMin = r.minRGB;
+                if (r.aMin < gAMin) gAMin = r.aMin;
+                if (r.aMax > gAMax) gAMax = r.aMax;
+                gTrans += r.transparentPixels;
+                gPx += r.pixelsCompared;
+              }
+              if (!statsOk) { benchError = 'benchmark per-size activity stats incomplete size ' + S + ' ' + tag + ' (max/variation/alpha/hash required per proof)'; break; }
+              const nonCtrl = ps.filter(r => r.case !== 'dry-look1-relief1-control');
+              const distinct = new Set(nonCtrl.map(r => r.hashOrig)).size;
+              const gRange = gMax - gMin;
+              const aRange = gAMax - gAMin;
+              benchPerSize[String(S)][tag] = { proofs: ps.length, pixelsCompared: gPx, maxRGB: gMax, minRGB: gMin, rgbRange: gRange, distinctHashesNonControl: distinct, nonControlCases: nonCtrl.length, aMin: gAMin, aMax: gAMax, alphaRange: aRange, transparentPixels: gTrans };
+              if (!(gMax > 16)) { benchError = 'benchmark per-size activity vacuous (all-black aggregate) size ' + S + ' ' + tag + ' maxRGB ' + gMax; break; }
+              if (!(gRange > 4)) { benchError = 'benchmark per-size activity flat (no varied RGB/pixels) size ' + S + ' ' + tag + ' rgbRange ' + gRange; break; }
+              if (!(distinct >= 3)) { benchError = 'benchmark per-size hash diversity missing size ' + S + ' ' + tag + ' distinct ' + distinct + ' (dry/wet/oil/mixed orig hashes, control excluded)'; break; }
+              // Bench cases are all mode0 look1 valid physical: aggregate must show look1 transparency
+              // as existing validation (single opaque proof alone already allowed above).
+              if (!(gTrans > 0)) { benchError = 'benchmark per-size look1 transparency missing size ' + S + ' ' + tag + ' transparentPixels ' + gTrans; break; }
+              if (!((gAMax - gAMin) > 10)) { benchError = 'benchmark per-size look1 alpha never varied size ' + S + ' ' + tag + ' aMin ' + gAMin + ' aMax ' + gAMax; break; }
+            }
+          }
+        }
+        if (benchError) {
+          const benchProofCountsErr = { before: benchBeforeProof.length, after: benchProof.length, expectedEach: (BENCH_SIZES.length * benchCases.length), results: benchResults.length, perSize: benchPerSize };
+          benchmark = { status: 'error', error: benchError, gpu: gpuInfo, source: P.benchSource || null, sizes: BENCH_SIZES, results: benchResults, beforeProof: benchBeforeProof, proof: benchProof, proofCounts: benchProofCountsErr, perSize: benchPerSize, resourceBounds: benchResourceBounds, note: benchNote + '; errors fail honestly (not pass/unavailable for real error)' };
+          return { rows, controlRows, probes, cases: cases.length, maxDiff, mismatchBytes, mismatchCases, controlSupported, controlDiffCases, distinctHashes: hashes.size, paperMean: +paper.mean.toFixed(4), paperHRange: +(paper.mx - paper.mn).toFixed(4), paperRawHash, look1AMin, look1AMax, look1TransparentPixels, glError: gl.getError(), gpuTimer, benchmark, cpuSubmitMs, cpuSubmitNote: 'excludes readPixels/GPU wait', benchError };
+        }
+        const benchBeforeOk = benchBeforeProof.length === (BENCH_SIZES.length * benchCases.length) && benchBeforeProof.every(r => r.ok && r.bytesDiffer === 0);
+        const benchProofOk = benchProof.length === (BENCH_SIZES.length * benchCases.length) && benchProof.every(r => r.ok && r.bytesDiffer === 0);
+        if (!benchBeforeOk || !benchProofOk) {
+          const benchProofCountsFail = { before: benchBeforeProof.length, after: benchProof.length, expectedEach: (BENCH_SIZES.length * benchCases.length), results: benchResults.length, beforeOk: benchBeforeOk, afterOk: benchProofOk, perSize: benchPerSize };
+          benchmark = { status: 'error', error: 'benchmark before/after-proof incomplete or inexact (ALL RGBA8 incl alpha required, per S/case)', gpu: gpuInfo, source: P.benchSource || null, sizes: BENCH_SIZES, results: benchResults, beforeProof: benchBeforeProof, proof: benchProof, proofCounts: benchProofCountsFail, perSize: benchPerSize, resourceBounds: benchResourceBounds, note: benchNote };
+          return { rows, controlRows, probes, cases: cases.length, maxDiff, mismatchBytes, mismatchCases, controlSupported, controlDiffCases, distinctHashes: hashes.size, paperMean: +paper.mean.toFixed(4), paperHRange: +(paper.mx - paper.mn).toFixed(4), paperRawHash, look1AMin, look1AMax, look1TransparentPixels, glError: gl.getError(), gpuTimer, benchmark, cpuSubmitMs, cpuSubmitNote: 'excludes readPixels/GPU wait', benchError: 'before/after-proof inexact' };
+        }
+        {
+          let bBytes = 0, bPx = 0;
+          for (const r of benchBeforeProof) { bBytes += r.bytesCompared; bPx += r.pixelsCompared; }
+          let aBytes = 0, aPx = 0;
+          for (const r of benchProof) { aBytes += r.bytesCompared; aPx += r.pixelsCompared; }
+          const benchProofCounts = { before: benchBeforeProof.length, after: benchProof.length, expectedEach: (BENCH_SIZES.length * benchCases.length), results: benchResults.length, beforeBytesCompared: bBytes, beforePixelsCompared: bPx, afterBytesCompared: aBytes, afterPixelsCompared: aPx, totalBytesCompared: (bBytes + aBytes), totalPixelsCompared: (bPx + aPx), perSize: benchPerSize };
+          benchmark = { status: 'measured', gpu: gpuInfo, source: P.benchSource || null, sizes: BENCH_SIZES, warmupEach: BENCH_WARMUP, validPairsEach: BENCH_VALID, maxAttempts: BENCH_MAX_ATTEMPTS, results: benchResults, beforeProof: benchBeforeProof, proof: benchProof, proofCounts: benchProofCounts, perSize: benchPerSize, resourceBounds: benchResourceBounds, note: benchNote + '; validation (before-proof 80 cases) vs measurement (paired GPU ns) vs before/after sized proofs kept separate; paired alternating orig-first/cand-first, disjoint-invalid discarded, draw-only queries' };
+        }
+        return { rows, controlRows, probes, cases: cases.length, maxDiff, mismatchBytes, mismatchCases, controlSupported, controlDiffCases, distinctHashes: hashes.size, paperMean: +paper.mean.toFixed(4), paperHRange: +(paper.mx - paper.mn).toFixed(4), paperRawHash, look1AMin, look1AMax, look1TransparentPixels, glError: gl.getError(), gpuTimer, benchmark, cpuSubmitMs, cpuSubmitNote: 'excludes readPixels/GPU wait' };
       }
-      return { rows, controlRows, probes, cases: cases.length, maxDiff, mismatchBytes, mismatchCases, controlSupported, controlDiffCases, distinctHashes: hashes.size, paperMean: +paper.mean.toFixed(4), paperHRange: +(paper.mx - paper.mn).toFixed(4), paperRawHash, look1AMin, look1AMax, look1TransparentPixels, glError: gl.getError(), gpuTimer, cpuSubmitMs, cpuSubmitNote: 'excludes readPixels/GPU wait' };
-    }, { vert: vertN, orig: origExpanded, cand: candExpanded, ctrl: ctrlExpanded }).catch(e => ({ error: String(e) }));
+    }, { vert: vertN, orig: origExpanded, cand: candExpanded, ctrl: ctrlExpanded, wantBenchmark, benchSource: { source: sourcePath, candidate: candAbs, sourceSHA256: prov.sourceSHA256, candidateSHA256: prov.candidateSHA256, sourceExpandedSHA256: prov.sourceExpandedSHA256, candidateExpandedSHA256: prov.candidateExpandedSHA256, vertSHA256: prov.vertSHA256 } }).catch(e => ({ error: String(e) }));
     if (out.error) {
-      console.log(JSON.stringify({ pass: false, ...prov, error: out.error }));
+      console.log(JSON.stringify({ pass: false, ...prov, ...(wantBenchmark ? { benchmarkRequested: true, benchmark: out.benchmark || null } : {}), error: out.error }));
       process.exitCode = 1;
       return;
     }
     if (out.failAt !== undefined) {
-      console.log(JSON.stringify({ pass: false, ...prov, probes: out.probes, cases: out.rows.length, maxDiff: out.maxDiff, mismatchBytes: out.mismatchBytes, mismatchCases: out.mismatchCases, controlSupported: out.controlSupported, controlDiffCases: out.controlDiffCases, note: out.note, rows: out.rows, controlRows: out.controlRows }));
+      console.log(JSON.stringify({ pass: false, ...prov, ...(wantBenchmark ? { benchmarkRequested: true, benchmark: out.benchmark || null } : {}), probes: out.probes, cases: out.rows.length, maxDiff: out.maxDiff, mismatchBytes: out.mismatchBytes, mismatchCases: out.mismatchCases, controlSupported: out.controlSupported, controlDiffCases: out.controlDiffCases, note: out.note, rows: out.rows, controlRows: out.controlRows }));
       process.exitCode = 1;
       return;
     }
     // Pass requires: zero candidate mismatches + detected separate positive control + nonvacuity.
     const nonvacuity = out.distinctHashes >= 4 && out.look1TransparentPixels > 0 && ((out.look1AMax - out.look1AMin) > 10);
     const controlOk = out.controlSupported > 0 && out.controlDiffCases > 0 && out.controlRows.some(r => r.supported && r.detected);
-    const pass = out.glError === 0 && out.mismatchBytes === 0 && out.mismatchCases === 0 && out.rows.every(r => r.ok) && controlOk && nonvacuity;
-    console.log(JSON.stringify({ pass, ...prov, cases: out.cases, probes: out.probes, maxDiff: out.maxDiff, mismatchBytes: out.mismatchBytes, mismatchCases: out.mismatchCases, controlSupported: out.controlSupported, controlDiffCases: out.controlDiffCases, distinctHashes: out.distinctHashes, paperMean: out.paperMean, paperHRange: out.paperHRange, paperRawHash: out.paperRawHash, look1AMin: out.look1AMin, look1AMax: out.look1AMax, look1TransparentPixels: out.look1TransparentPixels, glError: out.glError, gpuTimer: out.gpuTimer, cpuSubmitMs: out.cpuSubmitMs, cpuSubmitNote: out.cpuSubmitNote, rows: out.rows.map(r => ({ case: r.case, fixture: r.fixture, mode: r.mode, relief: r.relief, look: r.look, expectSame: r.expectSame, bytesDiffer: r.bytesDiffer, maxByteDiff: r.maxByteDiff, hashOrig: r.hashOrig, hashCand: r.hashCand })), controlRows: out.controlRows.map(r => ({ case: r.case, supported: r.supported, bytesDiffer: r.bytesDiffer, maxByteDiff: r.maxByteDiff, hashCtrl: r.hashCtrl, detected: r.detected })) }));
+    const validationPass = out.glError === 0 && out.mismatchBytes === 0 && out.mismatchCases === 0 && out.rows.every(r => r.ok) && controlOk && nonvacuity;
+    // Optional bench errors fail honestly (OOM/timeout/GL/insufficient valid/after-proof): never
+    // pass and never reported as unavailable for a real error. Unavailable (EXT unsupported) stays separate.
+    if (wantBenchmark && (out.benchError || (out.benchmark && out.benchmark.status === 'error'))) {
+      const benchMsg = out.benchError || (out.benchmark && out.benchmark.error) || 'benchmark error';
+      console.log(JSON.stringify({ pass: false, validationPass, benchmarkRequested: true, benchError: benchMsg, benchmark: out.benchmark || null, ...prov, cases: out.cases, probes: out.probes, maxDiff: out.maxDiff, mismatchBytes: out.mismatchBytes, mismatchCases: out.mismatchCases, controlSupported: out.controlSupported, controlDiffCases: out.controlDiffCases, distinctHashes: out.distinctHashes, paperMean: out.paperMean, paperHRange: out.paperHRange, paperRawHash: out.paperRawHash, look1AMin: out.look1AMin, look1AMax: out.look1AMax, look1TransparentPixels: out.look1TransparentPixels, glError: out.glError, gpuTimer: out.gpuTimer, cpuSubmitMs: out.cpuSubmitMs, cpuSubmitNote: out.cpuSubmitNote, rows: out.rows.map(r => ({ case: r.case, fixture: r.fixture, mode: r.mode, relief: r.relief, look: r.look, expectSame: r.expectSame, bytesDiffer: r.bytesDiffer, maxByteDiff: r.maxByteDiff, hashOrig: r.hashOrig, hashCand: r.hashCand })), controlRows: out.controlRows.map(r => ({ case: r.case, supported: r.supported, bytesDiffer: r.bytesDiffer, maxByteDiff: r.maxByteDiff, hashCtrl: r.hashCtrl, detected: r.detected })) }));
+      process.exitCode = 1;
+      return;
+    }
+    if (!wantBenchmark) {
+      const pass = validationPass;
+      console.log(JSON.stringify({ pass, ...prov, cases: out.cases, probes: out.probes, maxDiff: out.maxDiff, mismatchBytes: out.mismatchBytes, mismatchCases: out.mismatchCases, controlSupported: out.controlSupported, controlDiffCases: out.controlDiffCases, distinctHashes: out.distinctHashes, paperMean: out.paperMean, paperHRange: out.paperHRange, paperRawHash: out.paperRawHash, look1AMin: out.look1AMin, look1AMax: out.look1AMax, look1TransparentPixels: out.look1TransparentPixels, glError: out.glError, gpuTimer: out.gpuTimer, cpuSubmitMs: out.cpuSubmitMs, cpuSubmitNote: out.cpuSubmitNote, rows: out.rows.map(r => ({ case: r.case, fixture: r.fixture, mode: r.mode, relief: r.relief, look: r.look, expectSame: r.expectSame, bytesDiffer: r.bytesDiffer, maxByteDiff: r.maxByteDiff, hashOrig: r.hashOrig, hashCand: r.hashCand })), controlRows: out.controlRows.map(r => ({ case: r.case, supported: r.supported, bytesDiffer: r.bytesDiffer, maxByteDiff: r.maxByteDiff, hashCtrl: r.hashCtrl, detected: r.detected })) }));
+      if (!pass) process.exitCode = 1;
+      return;
+    }
+    // --benchmark: validation (before-proof 80 cases) vs measurement/unavailable kept separate.
+    // Ratios never gate pass; no 3x assertion; SwiftShader notes live in benchmark.note.
+    const bench = out.benchmark || null;
+    let benchProofOk = true;
+    if (bench && bench.status === 'measured') {
+      const bBefore = Array.isArray(bench.beforeProof) ? bench.beforeProof : null;
+      const bAfter = Array.isArray(bench.proof) ? bench.proof : null;
+      benchProofOk = !!bBefore && !!bAfter && bBefore.length === 15 && bAfter.length === 15 && bBefore.every(r => r.ok && r.bytesDiffer === 0) && bAfter.every(r => r.ok && r.bytesDiffer === 0);
+      if (benchProofOk && bench.proofCounts) {
+        benchProofOk = bench.proofCounts.before === 15 && bench.proofCounts.after === 15;
+      }
+    }
+    const pass = validationPass && benchProofOk && (!bench || bench.status !== 'error');
+    console.log(JSON.stringify({ pass, validationPass, benchmarkRequested: true, validation: { cases: out.cases, probes: out.probes, maxDiff: out.maxDiff, mismatchBytes: out.mismatchBytes, mismatchCases: out.mismatchCases, controlSupported: out.controlSupported, controlDiffCases: out.controlDiffCases, distinctHashes: out.distinctHashes }, benchmark: bench, ...prov, cases: out.cases, probes: out.probes, maxDiff: out.maxDiff, mismatchBytes: out.mismatchBytes, mismatchCases: out.mismatchCases, controlSupported: out.controlSupported, controlDiffCases: out.controlDiffCases, distinctHashes: out.distinctHashes, paperMean: out.paperMean, paperHRange: out.paperHRange, paperRawHash: out.paperRawHash, look1AMin: out.look1AMin, look1AMax: out.look1AMax, look1TransparentPixels: out.look1TransparentPixels, glError: out.glError, gpuTimer: out.gpuTimer, cpuSubmitMs: out.cpuSubmitMs, cpuSubmitNote: out.cpuSubmitNote, rows: out.rows.map(r => ({ case: r.case, fixture: r.fixture, mode: r.mode, relief: r.relief, look: r.look, expectSame: r.expectSame, bytesDiffer: r.bytesDiffer, maxByteDiff: r.maxByteDiff, hashOrig: r.hashOrig, hashCand: r.hashCand })), controlRows: out.controlRows.map(r => ({ case: r.case, supported: r.supported, bytesDiffer: r.bytesDiffer, maxByteDiff: r.maxByteDiff, hashCtrl: r.hashCtrl, detected: r.detected })) }));
     if (!pass) process.exitCode = 1;
   } finally {
     await browser.close().catch(() => {});

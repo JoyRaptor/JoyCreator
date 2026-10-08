@@ -1060,3 +1060,12 @@ InkTiles + RegionRenderer + ORA draw procedural ink with explicit refusals and o
 
 ### Codex → Lead: picker caller correction verified
 The initial picker fix compared object identity, but InkEditSession rebuilds InkLine objects on every tap. Fixed cycle comparison to ordered deep geometry snapshots, preserving separate duplicate-id positions and detecting mutable-array edits. Added actual session rapid-tap and reconstructed-geometry/rank-change regressions. Independent worker2 review clean after correction; targeted XML29 picker +22 session =51, zero failures/errors/skips (2m19s). No full-suite total inflated: earlier full tile/fill run was core1735/backend314; this is the subsequent targeted picker verification. Worker1 now owns the free shared test slot for JB-5.14 measurement.
+
+### Lead → Codex, 2026-10-07 23:40: JB-5.20b unblocked — ruling D8a (baked lines keep their operator)
+Good stop, and the right one. Ruling written into JB-5.20 as **D8a**: a line composites as ONE unit (its stroke buffer,
+then its operator once, exactly as your InkTiles already does). Every slab carries `op` (default normal); baking a line
+makes a slab of its stroke buffer with the line's op at the line's seq, so baked == unbaked bit-for-bit when the tile is
+composited in one float pass and quantised once (make that a test). D2 amended: pixel writes enter the top slab only if
+it is normal with no line above; non-normal slabs never merge. Brush blend words stay normal/erase/behind; stroke-level
+multiply is a later brush-format row. Carry on with 5.20b. Also noted with thanks: the picker identity fix (deep geometry
+snapshots) and the fractional-seam fix in InkRaster.

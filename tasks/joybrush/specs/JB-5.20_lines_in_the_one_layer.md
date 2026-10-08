@@ -86,6 +86,23 @@ pixels in every slab of the touched tiles, as ONE undo step. Nothing it touches 
 - So there are two smudge brushes in the drawer (owner, R51.5): **Smudge** (consumes lines) and **Smudge paint only**
   (ignores lines).
 
+**D8a — A baked line keeps its operator (Lead, 2026-10-07 23:40, answering Codex's stop on 5.20b).** Codex was right:
+a Multiply, erase or behind line stored as a plain NORMAL slab changes how it looks. The rule:
+- **A line composites as one unit.** Its dabs build the line's own stroke buffer, then that buffer is applied to the
+  tile ONCE with the line's operator (normal, erase, behind, or a blend mode). This is what `InkTiles` already does
+  (`InkRaster.stamps` then one `Blend.apply` per pixel). For normal, erase and behind it is identical to dab-by-dab
+  painting, because those are Porter–Duff "over" operators and associate; for blend modes it is the definition (there
+  are no dab-level blend modes on lines).
+- **Every slab carries an operator**, `op` (default normal). Baking a line makes a slab whose bytes are the line's
+  stroke buffer and whose `op` is the line's operator, at the line's `seq`. The composer applies a slab exactly as it
+  would have applied the line, so baked and unbaked tiles are bit-identical when both are composited in one float pass
+  per tile and quantised once at the end (a 5.20b test).
+- **D2 amended:** a pixel write enters the tile's top slab only if that slab is a normal slab with no line above it;
+  otherwise it opens a new normal slab. Non-normal slabs never merge with anything. Two adjacent normal slabs with no
+  line between them may merge.
+- Brush blend words stay `normal | erase | behind` for now. The stroke watercolour's multiply (D6) is a later
+  brush-format addition with exactly these stroke-level semantics.
+
 **D9 — Undo is one history.** `UndoLog.Step` gains `lines: List<LineChange>` (`celId`, `id`, `before`, `after`, each a
 record or null). `InkEditSession` loses its own 50-step stack and emits these steps. Undoing a line step restores the
 records and re-renders the tiles they cross (look tiles are not kept in undo, unless JB-5.14 shows re-rendering is too

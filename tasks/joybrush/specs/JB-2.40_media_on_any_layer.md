@@ -40,6 +40,10 @@ shaders, the look under the layer id, the 256 MB payload ceiling (`mediaBudgetBy
    A tile gains a payload the first time a media stroke, its water or its drip writes there, and only then.
    **It must work in board frame cels:** lift the `JbCanvasView.refusalFor` line (~:1698) that refuses media on frames,
    and `BoardSnapshot`'s media special case becomes "a cel with float tiles".
+   **Seen in the Lead's board audit (2026-10-08), the case to test:** paint watercolour, then make an Animation board
+   over it. `RegionDocumentOps` gives every layer, media too, a frame cel, so `BoardSnapshot` (:23) refuses every save
+   from then on, and media writes go to the shared store while the screen shows the frame's copy. After this row both
+   must work: the save succeeds and the watercolour inside the board belongs to frame 1.
 3. **Existing pixels under a new payload are kept exactly.** The first media touch on a tile that already holds plain
    pixels must not change one untouched pixel of it, not even by a rounding step. (Rendering a fresh, empty payload over
    the tile would erase it; converting it through Kubelka–Munk and back would shift its colours.)
@@ -61,6 +65,9 @@ shaders, the look under the layer id, the 256 MB payload ceiling (`mediaBudgetBy
    owner's test drawings still open. A v9 file never writes MEDIA. `EnumFreezeTest` keeps MEDIA (R3).
 10. **Undo.** Every requirement above that changes tiles does it inside the stroke's one step; a plain stroke over media
     that touches the look, the payload and anything else is still one step.
+11. **Tiling.** While a Tile board is armed, a media stroke is refused in words, as smudge and fill are today
+    (`refuseTileTool`), until a later row teaches the media window to wrap. Today it paints where the pen really was,
+    which the repeat preview cannot show (board audit, 2026-10-08).
 
 ## §Q1 — the media session decides, and writes the answer here before building
 

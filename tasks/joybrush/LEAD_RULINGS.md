@@ -741,7 +741,8 @@ authority on boards and overrides the parts of JB-3.01, JB-3.00, JB-3.06b and JB
 - Boards are placed, then Locked (they cannot be moved by touch, but their features still work). Tile and Sprite boards
   have a separate Arm toggle.
 - The Tile board is an Image board with tiling armed: wrap-around painting, and a repeat preview that is never exported.
-- Sprite cells can be rearranged while the board is armed; disarming commits the arrangement as one undo step.
+- Sprite cells can be rearranged while the board is armed; each drop is its own undo step (corrected 2026-10-08 to
+  the owner's later word in JB-3.00a K8, "undo or just move them back"; disarming commits nothing).
 The frame, strip, clock, peg and sprite-grid maths already built stay valid. **Any agent working on animation: do not
 build frames that span the whole canvas.** Read JB-3.00a §B3 and §D first. JB-3.01b and JB-3.01c are the next rows.
 

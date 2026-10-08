@@ -2,10 +2,12 @@ package cc.joycreator.joybrush.core.chrome
 
 import cc.joycreator.joybrush.core.brush.BrushInput
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.ENGINE_MEDIA
 import cc.joycreator.joybrush.core.brush.InputCurve
 import cc.joycreator.joybrush.core.brush.Param
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -175,6 +177,19 @@ class ChromeCoreTest {
         assertEquals(listOf(BrushShelf.Kind.ALL, BrushShelf.Kind.INKS, BrushShelf.Kind.MARKERS, BrushShelf.Kind.IMPORTED), s.map { it.first })
         assertEquals(listOf(marker, ink, chalk), s[0].second)
         assertTrue(BrushShelf.shelves(emptyList()).isEmpty())
+    }
+
+    @Test
+    fun theLineSideOfTheShelvesMakesEditableLinesAndThePaintSideMakesPixels() {
+        // R51 / JB-5.20 D6: pens, inks, markers, plain pencils and the fill pen are lines.
+        for (p in listOf(ink, pencil, marker, fill)) assertTrue(BrushShelf.makesLines(p), "${p.id} makes lines")
+        // Paint, airbrush, smudge, erasers and imports are pixels.
+        for (p in listOf(air, smudge, eraser, chalk, brush("oil", "Oil"))) assertFalse(BrushShelf.makesLines(p), "${p.id} makes pixels")
+        // The engine outranks the shelf: a pencil that keeps paint state (media) or reads underneath is never a line,
+        // and an erasing pen is never a line however it is named.
+        assertFalse(BrushShelf.makesLines(pencil.copy(engine = ENGINE_MEDIA)), "a media pencil bakes")
+        assertFalse(BrushShelf.makesLines(ink.copy(engine = "tuft")), "the tuft engine is not replayable yet")
+        assertFalse(BrushShelf.makesLines(ink.copy(blend = "erase")), "an erasing pen cuts lines, it is not one")
     }
 
     // ── the sample stroke ──────────────────────────────────────────────────────

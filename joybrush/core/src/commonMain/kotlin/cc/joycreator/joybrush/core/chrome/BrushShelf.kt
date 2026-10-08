@@ -7,6 +7,7 @@ import cc.joycreator.joybrush.core.brush.MEDIUM_DRY
 import cc.joycreator.joybrush.core.brush.MEDIUM_WET
 import cc.joycreator.joybrush.core.brush.ENGINE_PUSH
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
+import cc.joycreator.joybrush.core.stroke.StrokeEdit
 
 /**
  * The brush drawer's left column (JB-2.01): brushes grouped into the kinds a painter looks for, the way Infinite
@@ -49,6 +50,22 @@ object BrushShelf {
         else -> {
             val words = (p.id + " " + p.name).lowercase()
             WORDS.firstOrNull { words.contains(it.first) }?.second ?: Kind.PAINT
+        }
+    }
+
+    /**
+     * Whether a stroke of [p] stays an editable line or bakes to pixels (R51; JB-5.20 D6). Only engines that can draw an
+     * ink line ([StrokeEdit.drawsInkLines]: stamp and fill) ever make lines: media keeps its own paint state, and smudge,
+     * push, wet and tuft read what is underneath. An eraser is never a line: it cuts lines and clears pixels (D7). Beyond
+     * that the shelf decides: pens, inks, markers, plain pencils and the fill pen are the Concepts side and make lines;
+     * paint, airbrush and imported brushes are the Infinite Painter side and make pixels, so painting stays light (the
+     * owner's JB-5.20 Q2; a per-brush "Editable lines" switch arrives with the drawer badge in 5.20e).
+     */
+    fun makesLines(p: BrushPreset): Boolean {
+        if (!StrokeEdit.drawsInkLines(p.engine) || p.blend == "erase") return false
+        return when (kindOf(p)) {
+            Kind.PENCILS, Kind.INKS, Kind.MARKERS, Kind.FILL -> true
+            else -> false
         }
     }
 

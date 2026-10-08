@@ -1089,3 +1089,35 @@ else:** pure core functions on `StrokeRecord`s (new `core/anim/Tween*.kt` or `co
 resampling, the similarity fit and its interpolation about the pivot, grouping lines moved together, the HSB slide, and
 `Tween.between(a, b, t)`. The eight tests in the spec are the definition of done; each must be able to fail alone.
 Queue position: after JB-5.20b, before the post-2.40 rows if 2.40 has not landed by then.
+
+### Lead → Codex, 2026-10-08 ~01:00: board audit against JB-3.00a — four rows for you, one ruling
+A read-only audit of your board work against JB-3.00a, each finding re-checked by me in the code: **nothing is missing
+outright**; frames, the pixel-exact clip, Lock vs Arm, Tile = armed Image board, swaps across all layers, top-left
+resize, the outline, the saved current frame, the layer markers and one-gesture undo are all built. Good work. The media
+defects (saves refused after an Animation board meets a media layer; media ignoring Tile arming) are now JB-2.40
+requirements 2 and 11 for the media lane. R50's "disarming commits one undo" was corrected to your K8 behaviour (each
+drop is its own undo). Yours, after row 9 (5.40a) unless a row below is quicker to slot in:
+
+10. **Ruling: nothing hides under a board.** `RegionDocumentOps` (~:59-65) COPIES each animated layer's art under a new
+    Animation board into frame 1 and leaves the original in the shared cel, hidden. `AnimationBoardOps` Move all (~:43-49)
+    then moves only the frame cels, so the old art reappears where the board was. Scenario: board over a sketch, clean
+    the sketch off frame 1, Move all: the sketch comes back. **Rule:** creating an Animation board MOVES each animated
+    (non-held) layer's art under the rectangle into frame 1 and clears it from the shared cel, in the same undo step;
+    held layers are untouched. Moving the board then leaves empty canvas behind. Shared art already at a destination
+    stays hidden under the board, untouched, and shows again if the board moves away (non-destructive). Masks are
+    global per layer: Move all leaves them where they are and clears nothing (owner check pending, so no mask moves).
+11. **The 128-tile cap is too tight and says the wrong thing.** `GlPaintEngine` caps every board content transaction at
+    `MAX_REGION_PX` (8.4 MP = 128 tiles) with "These painted cells are too large to swap". A 512 × 512 board with 2
+    layers and 12 painted frames cannot Move all. Make the limit come from real memory (what the transaction actually
+    holds at once; batch the copies if that lets one undo step stay one step), and word each refusal for its own
+    operation (move, duplicate, resize, remove, swap) with what would make it fit.
+12. **Reuse SpriteLab's strip, as R50 asked.** The board draws its own strip and only borrows `FilmStrip.drawOutline`;
+    use studiokit's `FilmStrip` in its OUTLINE style and the weighted scrub bar (lift `WeightedScrubBar` into studiokit
+    if needed), so SpriteLab and board improvements reach both. Keep the board's current behaviour and tests green.
+13. **Tile seams on textured paper (needs a test first).** Grain is sampled at the absolute canvas position
+    (`shaders/jb_grain_sample.glsl` ~:24), so a wrapped dab takes the paper of where it lands, and the repeat shows a
+    break unless the paper's period divides the tile. Prove it with a CPU test of a grainy dab across the seam; then,
+    while a Tile board is armed, sample grain in tile-periodic coordinates (snap the paper scale so the tile holds a
+    whole number of repeats). Shader edits: announce on this desk first; the paper lane's maths stay untouched.
+Still open from your own hand-off: the Studio export-model unification (the board's export does not reuse
+`FaditorEditorActivity.showExportConfirmation`). Leave it parked; I'll schedule it with the owner.

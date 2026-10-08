@@ -416,23 +416,31 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             "u_pileRange" to doubleArrayOf(mat.pileRangeLo, mat.pileRangeHi), "u_crushStart" to mat.crushStart * t,
             "u_conform" to mat.conform, "u_transferExp" to mat.transferExp, "u_leadSoft" to mat.leadSoft, "u_plateau" to mat.plateau,
         )))
-        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
-        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, MediaTex.floats(batch.dabs), GLES30.GL_STREAM_DRAW)
-        GLES30.glBindVertexArray(dabVao)
-        GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, batch.count)
+        mediaTrace("JB.media.dry.upload") {
+            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
+            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, MediaTex.floats(batch.dabs), GLES30.GL_STREAM_DRAW)
+        }
+        mediaTrace("JB.media.dry.delta") {
+            GLES30.glBindVertexArray(dabVao)
+            GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, batch.count)
+        }
         GLES30.glDisable(GLES30.GL_BLEND)
 
-        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, nxt.fbo)
-        progApply.use(common(mapOf(
-            "u_p0" to Tex(cur.p0), "u_p1" to Tex(cur.p1), "u_paperState" to Tex(cur.paper), "u_delta" to Tex(delta),
-            "u_targetSize" to floatArrayOf(w.toFloat(), h.toFloat()), "u_rect" to rect,
-            "u_capMm" to mat.capMm, "u_abrasion" to mat.abrasion, "u_flakeR" to mat.flakeR, "u_crushRate" to mat.crushRate,
-            "u_crushMax" to mat.crushMax, "u_smear" to mat.smear,
-            "u_smearPx" to doubleArrayOf(travelX * mat.smearMm * pxPerMm * scale, travelY * mat.smearMm * pxPerMm * scale),
-        )))
-        GLES30.glBindVertexArray(quadVao)
-        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-        copyRect(nxt, cur.fbo, rect)
+        mediaTrace("JB.media.dry.apply") {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, nxt.fbo)
+            progApply.use(common(mapOf(
+                "u_p0" to Tex(cur.p0), "u_p1" to Tex(cur.p1), "u_paperState" to Tex(cur.paper), "u_delta" to Tex(delta),
+                "u_targetSize" to floatArrayOf(w.toFloat(), h.toFloat()), "u_rect" to rect,
+                "u_capMm" to mat.capMm, "u_abrasion" to mat.abrasion, "u_flakeR" to mat.flakeR, "u_crushRate" to mat.crushRate,
+                "u_crushMax" to mat.crushMax, "u_smear" to mat.smear,
+                "u_smearPx" to doubleArrayOf(travelX * mat.smearMm * pxPerMm * scale, travelY * mat.smearMm * pxPerMm * scale),
+            )))
+            GLES30.glBindVertexArray(quadVao)
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        }
+        mediaTrace("JB.media.dry.copy") {
+            copyRect(nxt, cur.fbo, rect)
+        }
 
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, deltaFbo)
         GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
@@ -700,17 +708,19 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         GLES30.glDisable(GLES30.GL_BLEND)
         val ws = wet
         // gl_FragCoord is layer px: docPx = (frag − pan) / zoom = origin + frag / scale.
-        progRender.use(common(paper.uniforms() + mapOf(
-            "u_p0" to Tex(state[0].p0), "u_p1" to Tex(state[0].p1), "u_paperState" to Tex(state[0].paper),
-            "u_paperBake" to Tex(if (bakeTex != 0) bakeTex else emptyTex()),
-            "u_w0" to Tex(ws?.get(wc)?.w0 ?: emptyTex()), "u_w1" to Tex(ws?.get(wc)?.w1 ?: emptyTex()),
-            "u_targetSize" to floatArrayOf(w.toFloat(), h.toFloat()), "u_pan" to floatArrayOf(-originX * scale, -originY * scale),
-            "u_zoom" to scale, "u_pxPerMm" to pxPerMm, "u_toothMm" to paper.stats.toothMm, "u_paperColor" to look.paperColor,
-            "u_lamp" to look.lamp, "u_relief" to 0f, "u_sheen" to look.sheen, "u_capMm" to look.capMm, "u_mode" to 0,
-            "u_impasto" to look.impasto, "u_look" to 1f,
-        )))
-        GLES30.glBindVertexArray(emptyVao)
-        GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3)
+        mediaTrace("JB.media.look.render") {
+            progRender.use(common(paper.uniforms() + mapOf(
+                "u_p0" to Tex(state[0].p0), "u_p1" to Tex(state[0].p1), "u_paperState" to Tex(state[0].paper),
+                "u_paperBake" to Tex(if (bakeTex != 0) bakeTex else emptyTex()),
+                "u_w0" to Tex(ws?.get(wc)?.w0 ?: emptyTex()), "u_w1" to Tex(ws?.get(wc)?.w1 ?: emptyTex()),
+                "u_targetSize" to floatArrayOf(w.toFloat(), h.toFloat()), "u_pan" to floatArrayOf(-originX * scale, -originY * scale),
+                "u_zoom" to scale, "u_pxPerMm" to pxPerMm, "u_toothMm" to paper.stats.toothMm, "u_paperColor" to look.paperColor,
+                "u_lamp" to look.lamp, "u_relief" to 0f, "u_sheen" to look.sheen, "u_capMm" to look.capMm, "u_mode" to 0,
+                "u_impasto" to look.impasto, "u_look" to 1f,
+            )))
+            GLES30.glBindVertexArray(emptyVao)
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3)
+        }
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         return lookTex
     }

@@ -1121,3 +1121,10 @@ drop is its own undo). Yours, after row 9 (5.40a) unless a row below is quicker 
     whole number of repeats). Shader edits: announce on this desk first; the paper lane's maths stay untouched.
 Still open from your own hand-off: the Studio export-model unification (the board's export does not reuse
 `FaditorEditorActivity.showExportConfirmation`). Leave it parked; I'll schedule it with the owner.
+
+### Lead → Codex, 2026-10-08 ~01:10: the Lead has taken JB-5.20b
+You have been idle since ~21:35, so to keep Phase 3 moving overnight **I am building JB-5.20b myself** (the composer,
+with a small refactor of `InkTiles` so the composer and `render` share one per-line buffer and one operator step).
+**Skip row 6.** Your JB-5.14 bench (C:/Temp/jb-measure-r51, staged) is still yours; its early numbers already confirm
+D4 (CPU ink rendering is for export, not editing) and brief red team 12 (500 pen strokes: 209 KB of records vs 148 KB
+of tiles, deflated), so please report bytes per sample too, and what a quantised StrokeCodec would save.

@@ -511,3 +511,20 @@ Review: core1706/backend312/native105; zero failures/errors, four optional corpu
 - [x] JB-5.13 fill tracing with holes and growth (2048 timing in worker1 measurement row).
 - [ ] JB-5.14 measurements; JB-5.20b pure composer.
 - [ ] Review media slices; post-2.40 integration only after landing.
+## JB-2.40 media on any layer (R51 Phase 1) — media lane, October 7
+Worktree C:/Temp/jb-media, branch media/jb-2.40. Each slice is reviewed by the Lead on LEAD_DESK and leaves joy-creator safe.
+- [ ] Slice 1, the kind goes:
+  - DOC_VERSION 9: a v8 MEDIA layer decodes as PAINT with its float tiles; float tiles are legal on PAINT.
+  - BrushRules has no MEDIA branch; media on INK is refused in words.
+  - LayerBudget slots are gone.
+  - `#g` ground (RGBA8): the first media touch copies the look exactly; render(state over ground); identity test.
+  - A plain write over a payload tile drops that tile's payload at the engine funnel (endStroke, replaceTiles, applyBoardChange), in the same undo step.
+  - Requirement 5 net: a look the payload did not agree to is discarded at the next window load.
+  - Media stays refused on layers with animation frames, until slice 3.
+- [ ] Slice 2, exact plain-on-media:
+  - per-pixel bake (changed pixels: #g = new look, state zeroed, crush kept);
+  - the window reloads the baked keys and keeps its water running;
+  - the eraser decision;
+  - whole-tile operations.
+- [ ] Slice 3, frames: payloads per (layer, cel, tile), through one address helper; lift the frame refusals; BoardSnapshot handles a cel with float tiles.
+- [ ] Slice 4, dry saves: water settled into p0/p1 in the FILE only, no w0/w1; the live wash keeps running after a save.

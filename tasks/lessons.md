@@ -1030,3 +1030,6 @@ throws, the whole stroke is lost, and that looked to the owner like "the pen doe
 
 ## Positional gesture cycles must survive caller reconstruction (Codex, October7)
 A picker stored candidate reference identities; its actual InkEditSession caller reconstructs InkLine values each tap, so direct picker tests passed while integrated cycling reset. Compare immutable geometry snapshots in positional order (including copied arrays), keep repeated ids as separate positions, and test the real session gesture path as well as the helper.
+## The main folder belongs to the owner and the root lane (2026-10-07, media lane)
+- A fast-forward of the main folder stopped on a "modified" file that turned out to differ only in line endings. I restored it from git after proving it byte-identical. The Lead's ruling: even then, leave it and mention it.
+- Rule: if `git merge --ff-only` refuses in the main folder, report the file and stop. Do not checkout, restore or stash anything there.

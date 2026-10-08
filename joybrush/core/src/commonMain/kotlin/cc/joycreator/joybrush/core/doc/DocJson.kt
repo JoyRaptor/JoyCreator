@@ -75,12 +75,23 @@ object DocJson {
      */
     fun decode(text: String): JbDocument = try {
         refuseUnknownKeys(json.parseToJsonElement(text))
-        json.decodeFromString(JbDocument.serializer(), text)
+        mediaAsPaint(json.decodeFromString(JbDocument.serializer(), text))
     } catch (e: SerializationException) {
         throw DocException("document.json cannot be read: ${e.message}")
     } catch (e: IllegalArgumentException) {
         // SerializationException and JsonDecodingException both land here.
         throw DocException("document.json cannot be read: ${e.message}")
+    }
+
+    /**
+     * R51 (JB-2.40): there is one kind of pixel layer since version 9. A v8 file's MEDIA layer is read as a PAINT layer
+     * that keeps its float tiles, and the document becomes version 9, which is what it is from now on (an older build
+     * opening the next save says it is from a newer Joy Brush, rather than refusing a paint cel with media state). A
+     * file that says version 9 or later and still has MEDIA is left alone, for [DocOps.validate] to refuse in words.
+     */
+    private fun mediaAsPaint(doc: JbDocument): JbDocument {
+        if (doc.version > 8 || doc.layers.none { it.kind == LayerKind.MEDIA }) return doc
+        return doc.copy(version = 9, layers = doc.layers.map { if (it.kind == LayerKind.MEDIA) it.copy(kind = LayerKind.PAINT) else it })
     }
 
     /**

@@ -4,6 +4,7 @@
 #include "jb_tip.glsl"
 #include "jb_grain.glsl"
 #include "jb_paper.glsl"
+#include "jb_tile_paper.glsl"
 #include "jb_grain_sample.glsl"
 
 uniform float u_aspect;
@@ -63,10 +64,10 @@ float jb_contactCoverage() {
     if (paperOn) {
         vec2 docPx = v_dabCentre + v_offset;
         // Old height-only brushes retain the cheap read and exactly the existing height.
-        if (u_paperDirectional <= 0.0 && u_paperWet <= 0.0) hPaper = jb_paperGrainHeight(docPx);
+        if (u_paperDirectional <= 0.0 && u_paperWet <= 0.0) hPaper = jb_tilePaperHeight(docPx);
         else {
-            vec4 surface = jb_paperSurface(docPx);
-            float coarse = u_paperWet > 0.0 ? jb_paperCoarseHeight(docPx) : surface.z;
+            vec4 surface = jb_tilePaperSurface(docPx);
+            float coarse = u_paperWet > 0.0 ? jb_tilePaperCoarseHeight(docPx) : surface.z;
             hPaper = jb_paperEffectiveHeight(surface, coarse, v_travel,
                 u_paperSlopeRange / u_paperTexelPx, u_paperDirectional, u_paperWet);
         }

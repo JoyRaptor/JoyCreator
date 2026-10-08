@@ -14,6 +14,7 @@
 precision highp float;
 
 #include "jb_paper.glsl"
+#include "jb_tile_paper.glsl"
 #include "jb_grain.glsl"
 #include "jb_grain_sample.glsl"
 
@@ -86,10 +87,10 @@ void main() {
     float h = 1.0;
     bool paperOn = u_paperGrainPitchPx > 0.0 && u_paperInfluence > 0.0;
     if (paperOn) {
-        if (u_paperDirectional <= 0.0 && u_paperWet <= 0.0) h = jb_paperGrainHeight(v_pos);
+        if (u_paperDirectional <= 0.0 && u_paperWet <= 0.0) h = jb_tilePaperHeight(v_pos);
         else {
-            vec4 surface = jb_paperSurface(v_pos);
-            float coarse = u_paperWet > 0.0 ? jb_paperCoarseHeight(v_pos) : surface.z;
+            vec4 surface = jb_tilePaperSurface(v_pos);
+            float coarse = u_paperWet > 0.0 ? jb_tilePaperCoarseHeight(v_pos) : surface.z;
             h = jb_paperEffectiveHeight(surface, coarse, v_travel,
                 u_paperSlopeRange / u_paperTexelPx, u_paperDirectional, u_paperWet);
         }

@@ -1666,6 +1666,12 @@ class GlPaintEngine(
 
     /** JB-9.03: the fixed document surface; both brush programs bind it on unit 1. */
     private fun setPaperSurfaceUniforms(program: GlProgram) {
+        // Frozen at pen-down; translated copies must sample the same periodic surface.
+        // Always reset this uniform so a later ordinary stroke keeps the canonical paper.
+        val tilePaper = strokeTileRect
+        GLES30.glUniform4f(program.loc("u_tilePaperRect"),
+            tilePaper?.x?.toFloat() ?: 0f, tilePaper?.y?.toFloat() ?: 0f,
+            tilePaper?.w?.toFloat() ?: 0f, tilePaper?.h?.toFloat() ?: 0f)
         // Brush deposition uses document floats (accurate to +/-1e6 px); only display uses local frames.
         GLES30.glUniform1i(program.loc("u_paperSurface"), 1)
         GLES30.glUniform1f(program.loc("u_paperTexelPx"), (strokeSurface?.texelPx ?: GrainMath.SURFACE_TEXEL_PX)*strokePaperScale)

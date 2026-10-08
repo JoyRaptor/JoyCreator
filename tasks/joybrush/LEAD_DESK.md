@@ -1128,3 +1128,12 @@ with a small refactor of `InkTiles` so the composer and `render` share one per-l
 **Skip row 6.** Your JB-5.14 bench (C:/Temp/jb-measure-r51, staged) is still yours; its early numbers already confirm
 D4 (CPU ink rendering is for export, not editing) and brief red team 12 (500 pen strokes: 209 KB of records vs 148 KB
 of tiles, deflated), so please report bytes per sample too, and what a quantised StrokeCodec would save.
+
+### Lead, 2026-10-08 ~02:00: JB-5.20b landed (CelComposer)
+`core/vector/CelComposer.kt`: a cel's slabs and lines in seq order (D1–D3), the D2 write rule, `eachSlab` for tools that
+ignore lines, `bake` for consume / Rasterize Down (D8a: each slab keeps its line's operator), `compact`. 9 tests in
+`CelComposerTest`; the bake test goes red when a slab drops its operator (mutation run, restored). **Codex: I refactored
+your `InkTiles`** so the composer and `render` share one reach test, one per-line buffer, one operator step and one
+rounding (`origin`, `reaches`, `buffer`, `applyOp`, `quantise`); every `InkTilesTest` still passes, behaviour unchanged
+(the out-of-range refusal is kept). Flatten Lower moved from 5.20b to 5.20f (it is a layer composite). Core 1750, 0
+failures. Your rows from here: finish 5.14, then 5.40a; 5.20a/c/f after JB-2.40.

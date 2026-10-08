@@ -6,6 +6,7 @@ import cc.joycreator.joybrush.core.bench.Verdict
 import cc.joycreator.joybrush.core.input.PenSample
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.hypot
@@ -406,6 +407,7 @@ class MediaFastCBenchTest {
         val stick = Sticks.ALL[STICK_NAME]!!
         var worstP = 0.0
         var worstTilt = 0.0
+        var worstAz = 0.0
         var worstWidthScreenPx = 0.0
         for (screenR in SCREEN_RADII) {
             for (dur in DURATIONS_MS) {
@@ -415,6 +417,8 @@ class MediaFastCBenchTest {
                     val u = (s.t / dur).coerceIn(0.0, 1.0)
                     worstP = maxOf(worstP, abs(s.p - pressureAt(u)))
                     worstTilt = maxOf(worstTilt, abs(s.tilt - tiltMediaAt(u)))
+                    val azDelta = s.az - azimuthRadAt(u)
+                    worstAz = maxOf(worstAz, abs(atan2(sin(azDelta), cos(azDelta))))
                     val cGen = stickContact(stick, s.tilt, s.p, TOOTH_MM)
                     val cRef = stickContact(stick, tiltMediaAt(u), pressureAt(u), TOOTH_MM)
                     assertTrue(cGen != null && cRef != null, "pressure floor 0.15 keeps contact non-null")
@@ -425,8 +429,9 @@ class MediaFastCBenchTest {
                 }
             }
         }
-        println("contact-oracle-limits: production stickContact on BOTH sides; worst |dp|=%.5f worst |dtilt|=%.6f rad worst |dWidthScreenPx|=%.4f".format(worstP, worstTilt, worstWidthScreenPx))
-        assertTrue(worstP.isFinite() && worstTilt.isFinite() && worstWidthScreenPx.isFinite(), "finite channel deviations")
+        println("contact-oracle-limits: production stickContact on BOTH sides; worst |dp|=%.5f worst |dtilt|=%.6f rad worst wrapped |daz|=%.6f rad worst |dWidthScreenPx|=%.4f".format(worstP, worstTilt, worstAz, worstWidthScreenPx))
+        assertTrue(worstP.isFinite() && worstTilt.isFinite() && worstAz.isFinite() && worstWidthScreenPx.isFinite(), "finite channel deviations")
+        assertTrue(worstAz > 1e-4 && worstAz <= PI, "wrapped azimuth comparison active (worstAz=$worstAz rad)")
         // The spline linearly interpolates p/tilt between inputs while the oracle is sinusoidal+dip, so
         // subdivided points must deviate slightly: proves the channel comparison is active, not vacuous.
         assertTrue(worstP > 1e-9, "pressure interpolation deviation active (worstP=$worstP)")
@@ -453,8 +458,9 @@ class MediaFastCBenchTest {
         val c2 = combinedDabs(medias)
         assertEquals(c1.count, c2.count, "combined dab count deterministic")
         assertEquals(checksumBatch(c1), checksumBatch(c2), "combined checksum deterministic")
-        // Separated replay vs combined callback pipeline are independently reported (counts may differ
-        // only by collection order effects; both are deterministic — equality is NOT required here).
+        // Collecting then replaying the same deterministic spline output cannot change its dabs.
+        assertEquals(b1.count, c1.count, "separated and combined pipeline counts match")
+        assertEquals(checksumBatch(b1), checksumBatch(c1), "separated and combined pipeline outputs match")
         println("replay: splineOut=${out1.size} splineChecksum=${checksumSamples(out1)} dabs=${b1.count} combined=${c1.count}")
     }
 

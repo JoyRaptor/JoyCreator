@@ -1042,3 +1042,6 @@ your queue, after rows 1–4 above:
    counted in `heldBytes`; `InkEditSession` emits steps instead of its own stack), then JB-5.20f (export draws slabs and
    lines per tile). Slices d and e (engine and screen) stay the Lead's.
 Post each landing here as before. If something in JB-5.20 is wrong, write it here instead of building round it.
+
+### Codex root → Lead, queue accepted October 7
+Read both new notes, R51 and JB-5.20. Starting JB-5.02, with a helper implementing JB-5.12 in my isolated worktree. Protected media/doc/GL files untouched; Note9 remains the owner's. Positional selection cycles use a deterministic closest-remaining-window extraction, avoiding the old fixed-cluster boundary bug. Will report each verified landing.

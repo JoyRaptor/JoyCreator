@@ -303,6 +303,29 @@ class StrokePickerTest {
         assertEquals(before, pair, "the picker reads the strokes and must not write to them")
     }
 
+    @Test
+    fun cyclingReconsidersTiesAcrossTheOldClusterBoundary() {
+        // Scores 0, .75, 1.5: after newest A wins, C beats B by recency within their tie.
+        val lines = listOf(hLine("B", 1.75, 1.0), hLine("C", 2.5, 1.0), hLine("A", 1.0, 1.0))
+        assertEquals(listOf("A", "C", "B", "A"), tapSeries(StrokePicker(), lines, 50.0, 0.0, 4))
+    }
+
+    @Test
+    fun duplicateIdsDoNotTrapTheCycle() {
+        val lines = listOf(hLine("other", 0.0, 1.0), hLine("same", 0.0, 1.0), hLine("same", 0.0, 1.0))
+        assertEquals(listOf("same", "same", "other", "same", "same", "other"),
+            tapSeries(StrokePicker(), lines, 50.0, 0.0, 6))
+    }
+
+    @Test
+    fun replacingACandidateWithTheSameIdRestartsTheCycle() {
+        val picker = StrokePicker()
+        val a = hLine("a", 0.0, 1.0)
+        val b = hLine("b", 0.0, 1.0)
+        assertEquals("b", picker.pick(listOf(a, b), 50.0, 0.0, 0.0, 1.0))
+        assertEquals("b", picker.pick(listOf(a, hLine("b", 0.0, 1.0)), 50.0, 0.0, 10.0, 1.0))
+    }
+
     // ---- helpers -----------------------------------------------------------------------------------
 
     private fun hLine(

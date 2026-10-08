@@ -29,32 +29,21 @@ private const val CYCLE_REACH_SCREEN_PX = 6.0
  * means the tap landed on the ink, and the more negative it is the more the user hit the fat part
  * of the line rather than its edge.
  *
- * **Ranking.** Candidates are grouped into clusters of scores that lie within [TIE_SCREEN_PX] of
- * the cluster's BEST score, clusters are ordered best first, and inside a cluster the most recent
- * line comes first. "Within one pixel of each other" is not transitive, so a plain comparison sort
- * would leave the order of a three-way pile-up up to the sort implementation. Clustering against
- * the cluster minimum instead gives the same answer every time, and still guarantees the spec's
- * promise: no cluster ever spans more than one screen pixel, so any two lines that count as tied
- * really are tied.
+ * **Ranking.** At each position, find the closest remaining score, then choose the most
+ * recent remaining line within one screen pixel of it. Recompute that window after removing
+ * the winner: fixed clusters can put an older line before a newer tied line at a boundary.
+ * This extraction defines one deterministic total order without a non-transitive comparator.
  *
- * **Cycling.** A second tap less than [CYCLE_WINDOW_MS] after the last one and less than
- * [CYCLE_REACH_SCREEN_PX] from it returns the NEXT candidate in that ranking, wrapping, instead of
- * the first. The ranking is recomputed on every tap, so it is never stale, and a cycle can never
- * return null while any candidate exists: if the line picked last is gone from the ranking (the
- * canvas changed under the finger) or is the only candidate left, the tap starts again at the
- * first candidate, which is the same line it would have picked without cycling. A tap that finds
- * no candidates at all returns null and forgets the last pick, so the next tap starts fresh.
- *
- * **Ids** are assumed unique, as they are stroke ids. If a caller ever passes the same id twice the
- * pick is still well defined — the first occurrence in the ranking — but the cycle can then return
- * that id twice in a row, because the caller cannot tell the two lines apart anyway.
+ * **Cycling.** Nearby rapid taps advance a position in that order, wrapping. When the ordered
+ * candidate objects change, start fresh. Ids need not be unique; no id lookup drives the cycle.
+ * A miss forgets the cycle.
  *
  * This holds the last pick, so it belongs to one UI gesture stream and is not thread safe.
  */
 class StrokePicker {
 
-    /** The line the last tap picked, or null when there is no cycle to continue. */
-    private var lastId: String? = null
+    private var lastOrder: List<InkLine> = emptyList()
+    private var lastPosition = -1
     private var lastX = 0.0
     private var lastY = 0.0
     private var lastTimeMs = 0.0
@@ -81,8 +70,13 @@ class StrokePicker {
             forgetLastPick()
             return null
         }
-        val picked = if (continuesCycle(x, y, timeMs, zoom)) nextAfter(ranking) else ranking[0]
-        lastId = picked
+        val order = ranking.map { lines[it.index] }
+        val sameOrder = order.size == lastOrder.size && order.indices.all { order[it] === lastOrder[it] }
+        val position = if (sameOrder && continuesCycle(x, y, timeMs, zoom))
+            (lastPosition + 1) % ranking.size else 0
+        val picked = ranking[position].id
+        lastOrder = order
+        lastPosition = position
         lastX = x
         lastY = y
         lastTimeMs = timeMs
@@ -90,8 +84,8 @@ class StrokePicker {
     }
 
     /**
-     * The ids under a tap, in the order they would be picked by repeated taps: best cluster first,
-     * and within a cluster the most recent line first.
+     * The ids under a tap, in the order they would be picked by repeated taps: closest remaining window first,
+     * with recency deciding within each window.
      *
      * A line's score is `distance − halfWidth`, so the candidate test `score <= slop` needs no test
      * of its own: the candidates are exactly the best-scoring lines, and the slop decides how many
@@ -103,7 +97,7 @@ class StrokePicker {
         y: Double,
         slop: Double,
         tie: Double,
-    ): List<String> {
+    ): List<Candidate> {
         if (lines.isEmpty()) return emptyList()
         val scores = ArrayList<Candidate>(lines.size)
         for (i in lines.indices) {
@@ -112,21 +106,16 @@ class StrokePicker {
             if (score <= slop) scores.add(Candidate(i, line.id, score))
         }
         if (scores.isEmpty()) return emptyList()
-        // Stable, so lines of exactly equal score keep drawing order until the clustering below.
-        val byScore = scores.sortedBy { it.score }
-        val out = ArrayList<String>(scores.size)
-        var start = 0
-        while (start < byScore.size) {
-            val best = byScore[start].score
-            var end = start + 1
-            while (end < byScore.size && byScore[end].score - best <= tie) end++
-            // Inside a cluster the score cannot separate these lines, so recency does: the last one
-            // drawn is the one on top, and the one the user can see.
-            val tied = ArrayList<Candidate>(end - start)
-            for (k in start until end) tied.add(byScore[k])
-            tied.sortWith(compareByDescending<Candidate> { it.index })
-            for (k in 0 until tied.size) out.add(tied[k].id)
-            start = end
+        val remaining = scores.sortedBy { it.score }.toMutableList()
+        val out = ArrayList<Candidate>(scores.size)
+        while (remaining.isNotEmpty()) {
+            val best = remaining[0].score
+            var winner = 0
+            for (k in 1 until remaining.size) {
+                if (remaining[k].score - best > tie) break
+                if (remaining[k].index > remaining[winner].index) winner = k
+            }
+            out.add(remaining.removeAt(winner))
         }
         return out
     }
@@ -170,7 +159,7 @@ class StrokePicker {
 
     /** True when this tap is close enough, in time and space, to continue the last cycle. */
     private fun continuesCycle(x: Double, y: Double, timeMs: Double, zoom: Double): Boolean {
-        if (lastId == null) return false
+        if (lastPosition < 0) return false
         val dt = timeMs - lastTimeMs
         // A clock that went backwards (a new document reusing this picker) or that is not a number
         // at all is not a second tap: both start a new cycle rather than a nonsense one.
@@ -181,22 +170,9 @@ class StrokePicker {
         return dx * dx + dy * dy <= reach * reach
     }
 
-    /**
-     * The candidate after the one picked last, wrapping round the ranking.
-     *
-     * A line that is not in the ranking any more is treated as a fresh start rather than as an
-     * error: the finger has moved, or the canvas changed, and the honest answer is the best
-     * candidate under the finger now.
-     */
-    private fun nextAfter(ranking: List<String>): String {
-        val previous = lastId ?: return ranking[0]
-        val at = ranking.indexOf(previous)
-        if (at < 0) return ranking[0]
-        return ranking[(at + 1) % ranking.size]
-    }
-
     private fun forgetLastPick() {
-        lastId = null
+        lastOrder = emptyList()
+        lastPosition = -1
         lastX = 0.0
         lastY = 0.0
         lastTimeMs = 0.0

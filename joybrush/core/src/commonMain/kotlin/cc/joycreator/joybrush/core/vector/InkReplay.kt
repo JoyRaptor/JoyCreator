@@ -121,7 +121,7 @@ object InkReplay {
     // ── the live path, walked in the live path's own order ─────────────────────────────
 
     /**
-     * Smoothing, dabbing and placement: the first three steps of the live path and no more.
+     * The brush's response curves, smoothing, dabbing and placement: the first steps of the live path and no more.
      *
      * `add` per sample and `finish` at the end, not `StrokeSmoother.smoothAll`, because the
      * streaming form is the one `JbCanvasView.feed` uses and `smoothAll` is documented to be
@@ -133,7 +133,9 @@ object InkReplay {
     private fun placedDabs(record: StrokeRecord, preset: BrushPreset): List<Dab> {
         val smoother = StrokeSmoother(record.smoothing, record.screenPerDoc)
         val out = ArrayList<PenSample>(record.samples.size)
-        for (s in record.samples) out.addAll(smoother.add(s))
+        // The brush's own pressure and tilt curves come first, as in `JbCanvasView.feedOne`: the record keeps what the pen
+        // said, and the brush decides what it hears, so a line re-brushed to a brush with other curves is heard anew.
+        for (s in record.samples) out.addAll(smoother.add(preset.response.apply(s)))
         out.addAll(smoother.finish())
         if (out.isEmpty()) return emptyList()
         val dabber = BrushDabber(preset, record.seed)

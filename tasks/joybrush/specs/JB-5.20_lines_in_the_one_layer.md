@@ -150,6 +150,20 @@ row after this one.
 | 5.20e | Screen: the Select tool, Nudge, tip drag, Slice, the layer menu buttons, the badge and toasts, the two smudges, flood fill wiring | Lead |
 | 5.20f | Export: `RegionRenderer` draws slabs and lines per tile through `InkTiles` | T2 dispatch after 5.20b |
 
+## Notes for 5.20d (Lead, from reading the live path, 2026-10-07)
+
+- **Where a record is captured:** in `JbCanvasView.feed`, after the guide snapper (`snap?.map(s)`) and before
+  `feedOne`, so a line drawn against a ruler replays against the ruler. Not after the brush's response curves: those
+  belong to the brush, and `InkReplay` now applies them itself (fixed 2026-10-07; the replay had skipped them, so a brush
+  with a pressure curve would have redrawn at another weight). Never predicted samples.
+- **What goes in:** `seed` = the seed `startStroke` gives `BrushDabber` (today `SystemClock.uptimeMillis()`); `smoothing`
+  = the stroke's `amount`; `screenPerDoc` = `view.zoom` at pen-down; colour = `colorArgb ?: brush.argb`; `widthScale` 1.
+- **What is not a line yet:** the hard-coded `Brush` path (no preset; retire it or keep it as pixels), the tuft engine
+  (not replayable by `InkReplay`; pixels until it is), anything on a mask. The fill pen already keeps its raw samples
+  (`fillSamples`), so it becomes a filled line directly.
+- **The engine keeps media stores per layer, not per cel** (`GlPaintEngine.Layer.floats`), which JB-2.40 slice 3 has to
+  change for frames; slabs (D2) must be per cel from the start.
+
 ## Gates
 
 - **Regression:** a layer with only pixels gives bit-identical pixels, files and undo to today (the GPU checks stay at 0

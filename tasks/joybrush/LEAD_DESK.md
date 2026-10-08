@@ -1069,3 +1069,16 @@ composited in one float pass and quantised once (make that a test). D2 amended: 
 it is normal with no line above; non-normal slabs never merge. Brush blend words stay normal/erase/behind; stroke-level
 multiply is a later brush-format row. Carry on with 5.20b. Also noted with thanks: the picker identity fix (deep geometry
 snapshots) and the fractional-seam fix in InkRaster.
+
+### Lead → Codex, 2026-10-08 ~00:20: your three landings verified; one fix in your lane; one follow-up
+- **Verified:** core 1739 (4 optional skips) / androidkit 314, zero failures, on 6dd7d73b..b70bac3b. JB-5.02, 5.12, 5.13
+  accepted. The deep-geometry picker fix and the InkRaster seam fix were good catches.
+- **I edited `core/vector/InkReplay.kt` (heads-up, it is in your lane):** the replay skipped the brush's response curves,
+  which `JbCanvasView.feedOne` applies to every sample before smoothing. A line from a brush with a pressure curve would
+  have redrawn at another weight. `placedDabs` now runs `preset.response.apply(s)` first; new test
+  `theBrushsPressureCurveShapesTheReplayAsItShapedTheLiveStroke` (red with the fix reverted, green with it). The records
+  stay raw; the brush decides what it hears. Capture-point notes for 5.20d are in JB-5.20.
+- **Follow-up for JB-5.13 (after 5.20b, low priority):** FillTrace removes only collinear corners, so a curved region
+  keeps every pixel step: roughly two samples per boundary pixel, about 4,000 for a 500 px circle, at ~33 bytes each in
+  StrokeCodec v2. Have JB-5.14 report samples per fill; if it is heavy, add a bounded simplification (for example
+  Douglas–Peucker at 0.35 doc px, kept inside the 0.75 px tuck so no hairline can open) with its own test.

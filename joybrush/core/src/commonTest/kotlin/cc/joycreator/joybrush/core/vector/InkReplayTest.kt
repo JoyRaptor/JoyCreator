@@ -7,6 +7,7 @@ import cc.joycreator.joybrush.core.brush.DabInputs
 import cc.joycreator.joybrush.core.brush.FillPen
 import cc.joycreator.joybrush.core.brush.InputCurve
 import cc.joycreator.joybrush.core.brush.Param
+import cc.joycreator.joybrush.core.brush.ResponseSpec
 import cc.joycreator.joybrush.core.brush.Scatter
 import cc.joycreator.joybrush.core.brush.ScatterSpec
 import cc.joycreator.joybrush.core.brush.SplitMix
@@ -488,6 +489,33 @@ class InkReplayTest {
      * so a test's edge is predictable, and `engine`, `spacing` and the scatter are the only things
      * a test varies.
      */
+    // ── the brush's own curves ─────────────────────────────────────────────────────────────
+
+    /**
+     * THE BRUSH'S RESPONSE CURVES ARE PART OF THE REPLAY. `JbCanvasView.feedOne` runs every pen sample through
+     * `preset.response` before the smoother, so a replay that skipped it would draw a brush with a pressure curve at
+     * another weight than the pen drew it (found by the Lead, 2026-10-07, while planning record capture for JB-5.20).
+     *
+     * Non-vacuity: the same record replayed through a brush WITHOUT the curve must give different radii, so the equality
+     * half cannot pass because the curve did nothing. The fixture presses at 0.5 and the curve bends 0.5 well below
+     * itself, and the size follows pressure.
+     */
+    @Test
+    fun theBrushsPressureCurveShapesTheReplayAsItShapedTheLiveStroke() {
+        val curved = inkBrush(size = Param(6f, listOf(curve(BrushInput.pressure))))
+            .copy(response = ResponseSpec(pressure = listOf(0.9f, 0f, 1f, 0.1f)))
+        val record = line(40, 4f, 0f, pressure = 0.5f)
+
+        val replayed = InkReplay.dabs(record, curved)
+        assertTrue(replayed.isNotEmpty(), "a real stroke: ${replayed.size} dabs")
+        assertEquals(livePathDabs(record, curved), replayed, "the replay is the live path, curve included")
+
+        val straight = InkReplay.dabs(record, curved.copy(response = ResponseSpec()))
+        val mid = replayed.size / 2
+        assertTrue(replayed[mid].radius < straight[mid].radius - 0.5f,
+            "the curve really bends pressure: ${replayed[mid].radius} vs ${straight[mid].radius} without it")
+    }
+
     private fun inkBrush(
         engine: String = "stamp",
         scatter: ScatterSpec = ScatterSpec(),
@@ -565,7 +593,7 @@ class InkReplayTest {
     private fun placedDabsOf(record: StrokeRecord, brush: BrushPreset): List<Dab> {
         val smoother = StrokeSmoother(record.smoothing, record.screenPerDoc)
         val points = ArrayList<PenSample>()
-        for (s in record.samples) points.addAll(smoother.add(s))
+        for (s in record.samples) points.addAll(smoother.add(brush.response.apply(s)))
         points.addAll(smoother.finish())
         val dabber = BrushDabber(brush, record.seed)
         return DabPlacer(spacing = dabber.spacing, look = dabber::look).add(points)

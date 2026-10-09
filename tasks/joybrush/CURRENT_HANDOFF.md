@@ -42,7 +42,7 @@ Weekly allowance last reported4%. Conserve paid supervision: free workers get bo
 
 ## Durable source and current lanes
 
-- Shared branch `origin/joy-creator`, root `codex/region-routing`: published checkpoint **b16ab93e**. Root checkout `C:/Temp/jb-region-routing`; primary `C:/+Projects/Screenrecorder/FadCam` last synced **3c81b509** (newer published benchmark/planner still need primary fast-forward). Check actual Git heads before acting.
+- Shared branch `origin/joy-creator`, root `codex/region-routing`: source checkpoint before this handoff **b16ab93e**. Root checkout `C:/Temp/jb-region-routing`; primary `C:/+Projects/Screenrecorder/FadCam` fast-forwarded through handoff publication **e5b2c546**, including the benchmark/planner. Check actual Git heads before acting.
 - Protected original Claude media WIP: `C:/Temp/jb-media`, branch `media/jb-2.40`, head019739ab plus local edits. Do not reset, overwrite or edit it without coordinating its owner.
 - Root media adoption: `C:/Temp/jb-root-media-integration`, staged UNTESTED019foundation plus captured WIP on7087. Not a completed JB-2.40 implementation. Review before integrating; current main's media optimizations must be reconciled.
 - WIP capture `C:/Temp/jb-media-wip-review-20261008.patch`, SHA256665EC6A578CF414CB1B1F7ADF73804C23263E364BDBB5B85C1667EDC74D61405. Local-only patch/worktrees must be retained until reviewed work is committed; Git does not back them up automatically.

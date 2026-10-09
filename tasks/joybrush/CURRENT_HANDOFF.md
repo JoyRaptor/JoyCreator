@@ -29,19 +29,35 @@ Example (from any checkout, passing the canonical document explicitly):
 | JB-NOW-02 | frontier | Blocked | — | Dry-window architecture; depends on 01 and approved implementation slices |
 | JB-NOW-03 | frontier | Blocked | — | Physical tilt/memory diagnostic; lead must reserve device and approve measurement plan |
 | JB-NOW-04 | frontier | Blocked | — | JB-2.40 adoption; depends on architecture reconciliation and scoped ownership |
-| JB-NOW-05 | mid | Ready | — | Saved memory-refusal log reader; MID_READY_JOBS_20261009.md section 05 |
+| JB-NOW-05 | mid | Doing | opencode-coordinator-mid-05 | 2026-10-09T16:59:00Z; Isolated free-only worker; base e1c58836cdcf6d4c5e7cea610bb9c3e79b2d32c7; exact contract owned paths; tests pending |
 | JB-NOW-06 | frontier | Blocked | — | JB-5.20/5.40 product wiring; depends on JB-2.40 gates |
-| JB-NOW-07 | mid | Ready | — | Saved CPU slice CSV summary; MID_READY_JOBS_20261009.md section 07 |
-| JB-NOW-08 | mid | Ready | — | Real DrySpatialPlan workload benchmark; MID_READY_JOBS_20261009.md section 08 |
+| JB-NOW-07 | mid | Doing | opencode-coordinator-mid-07 | 2026-10-09T16:59:05Z; Isolated free-only worker; base e1c58836cdcf6d4c5e7cea610bb9c3e79b2d32c7; exact contract owned paths; tests pending |
+| JB-NOW-08 | mid | Doing | opencode-coordinator-mid-08 | 2026-10-09T16:59:10Z; Isolated free-only worker; base e1c58836cdcf6d4c5e7cea610bb9c3e79b2d32c7; exact contract owned paths; tests pending |
 | JB-NOW-09 | mid | Ready | — | Real Undo transaction sequence regression; MID_COOLDOWN_BACKLOG_20261009.md section 09 |
 | JB-NOW-10 | mid | Ready | — | Real stroke codec adversarial corpus; MID_COOLDOWN_BACKLOG_20261009.md section 10 |
 | JB-NOW-11 | mid | Ready | — | Plain-bake partition/bit preservation; MID_COOLDOWN_BACKLOG_20261009.md section 11 |
 | JB-NOW-12 | mid | Ready | — | Offline archive inspection CLI; MID_COOLDOWN_BACKLOG_20261009.md section 12 |
 | JB-NOW-13 | mid | Ready | — | Real multi-board region boundary regression; MID_COOLDOWN_BACKLOG_20261009.md section 13 |
+| JB-NOW-14 | mid | Ready | — | Board selection/arming lifecycle; MID_BOARD_BACKLOG_20261009.md section 14 |
+| JB-NOW-15 | mid | Ready | — | Exact Sprite-grid boundaries; MID_BOARD_BACKLOG_20261009.md section 15 |
+| JB-NOW-16 | mid | Ready | — | Sprite swap plan involution; MID_BOARD_BACKLOG_20261009.md section 16 |
+| JB-NOW-17 | mid | Ready | — | Animation board operation safety; MID_BOARD_BACKLOG_20261009.md section 17 |
+| JB-NOW-18 | mid | Ready | — | Region frame edit sequences; MID_BOARD_BACKLOG_20261009.md section 18 |
+| JB-NOW-19 | mid | Ready | — | Layer clone alias/link preservation; MID_BOARD_BACKLOG_20261009.md section 19 |
+| JB-NOW-20 | mid | Ready | — | Document JSON corpus; MID_BOARD_BACKLOG_20261009.md section 20 |
+| JB-NOW-21 | mid | Ready | — | Playback schedule oracle; MID_BOARD_BACKLOG_20261009.md section 21 |
+| JB-NOW-22 | mid | Ready | — | Filmstrip weighted scrub consistency; MID_BOARD_BACKLOG_20261009.md section 22 |
+| JB-NOW-23 | mid | Ready | — | Fill contour topology; MID_BOARD_BACKLOG_20261009.md section 23 |
+| JB-NOW-24 | mid | Ready | — | Flood fill barriers/growth; MID_BOARD_BACKLOG_20261009.md section 24 |
+| JB-NOW-25 | mid | Ready | — | Stroke edit attribute invariants; MID_BOARD_BACKLOG_20261009.md section 25 |
+| JB-NOW-26 | mid | Ready | — | Existing cel composer interleaving; MID_BOARD_BACKLOG_20261009.md section 26 |
+| JB-NOW-27 | mid | Ready | — | Actual ink tile translation; MID_BOARD_BACKLOG_20261009.md section 27 |
+| JB-NOW-28 | mid | Ready | — | Actual archive corruption/roundtrip; MID_BOARD_BACKLOG_20261009.md section 28 |
+| JB-NOW-29 | mid | Ready | — | Evidence artifact manifest CLI; MID_BOARD_BACKLOG_20261009.md section 29 |
 
 Mid-tier jobs 05/07/08 have independent owned paths and full contracts in [MID_READY_JOBS_20261009.md](specs/MID_READY_JOBS_20261009.md). They may be claimed in parallel, subject to coordinator resource admission; builds remain serialized. They prepare evidence for production fixes and do not themselves complete clipping, memory or latency fixes. More implementation leaves become Ready as the frontier architecture is specified; Blocked does not mean no future mid-tier work exists.
 
-Five additional independent jobs09–13 are specified in [MID_COOLDOWN_BACKLOG_20261009.md](specs/MID_COOLDOWN_BACKLOG_20261009.md). Owner wants useful mid-tier work during several frontier-free days. Total current mid-tier runway: eight Ready jobs, four reusable diagnostic/measurement jobs and four correctness-regression jobs. They do not authorize production architecture changes or make broken painting behavior fixed. Check existing coverage first, preserve blockers, and stop rather than create filler after this queue is exhausted. Frontier recovery reviews submissions as one batch and resolves remaining architecture/GPU/artistic decisions.
+Five additional independent jobs09–13 are specified in [MID_COOLDOWN_BACKLOG_20261009.md](specs/MID_COOLDOWN_BACKLOG_20261009.md). Owner wants useful mid-tier work during several frontier-free days. Initial mid-tier runway: eight jobs, four reusable diagnostic/measurement jobs and four correctness-regression jobs. They do not authorize production architecture changes or make broken painting behavior fixed. Check existing coverage first, preserve blockers, and stop rather than create filler after this queue is exhausted. Frontier recovery reviews submissions as one batch and resolves remaining architecture/GPU/artistic decisions.
 
 **JB-NOW-01 contract:** review existing 487a8453, amendment 72ae66d4 and checker 542f2482 in `C:/Temp/jb-opencode-dry-paper-only`; do not rebuild the optimization. Coordinator reports actual amendment compile PASS (50s) and source lifecycle review PASS. Independently inspect scope and cleanup/wake semantics against current main, integrate only those approved changes, record actual checks/hash and update this checkpoint. Own the four A1 production paths listed below, the new parity checker and this handoff; coordinate before any overlap with the protected media lane. Preserve existing GPU proof unless source changes invalidate it. Do not claim device speed, full clipping, Undo or JB-2.40 completion. Runtime sleep/wake remains an explicit device gate. Read build/resource guards before verification; no automatic installation/device reservation.
 
@@ -120,3 +136,6 @@ Reviews: NOTE20_FAST_C_FINDINGS_20261008.md, PAINT_OPTIMIZATION_BATCH_20261008.m
 Serialize builds via `C:/Users/JoyRaptor/AppData/Local/Temp/jb-gradle.lock`; pause only the exact primary watcher and descendants, restore it hidden. Heavy guard2800MiB; approved lightweight single-class512mTest/768mGradle and compile-only768m use2200MiB after pause. Do not run builds or browser checks alongside workers; serialize builds and browser checks. Never kill unrelated sessions. Read DEVICE_CONTROL_RUNBOOK before phone action; exact serial, install-r, APK hash/package time verification, no monkey or data wipe.
 
 Latest verified Note20 install remains7087eae4, SHA256f233a37c0dd2be5ca9a25afb5d93713f1a458944bebea0e5dedab16c953a0ed6. Published source does not mean installed app. Overall new-plan estimate about45% (range40–50), effort estimate only; do not count unmerged jobs or helpers as finished product.
+
+## Expanded cooldown runway
+Sixteen additional contracts14–29 are in [MID_BOARD_BACKLOG_20261009.md](specs/MID_BOARD_BACKLOG_20261009.md), bringing the mid-tier backlog to24 jobs including existing claims. Read common acceptance and per-job requirements. This is a finite objective backlog, not a promise of a week of work or permission to generate duplicate tests. Inspect existing coverage and submit only missing value. The lead will review scoped fixes separately; remaining production architecture/GPU integration stays gated. Prioritize board/frame/save jobs14–21 and28, then fill23–24, before future vector checks25–27. Existing assigned workers continue unchanged.

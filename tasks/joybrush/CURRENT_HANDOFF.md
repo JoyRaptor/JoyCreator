@@ -33,8 +33,15 @@ Example (from any checkout, passing the canonical document explicitly):
 | JB-NOW-06 | frontier | Blocked | — | JB-5.20/5.40 product wiring; depends on JB-2.40 gates |
 | JB-NOW-07 | mid | Ready | — | Saved CPU slice CSV summary; MID_READY_JOBS_20261009.md section 07 |
 | JB-NOW-08 | mid | Ready | — | Real DrySpatialPlan workload benchmark; MID_READY_JOBS_20261009.md section 08 |
+| JB-NOW-09 | mid | Ready | — | Real Undo transaction sequence regression; MID_COOLDOWN_BACKLOG_20261009.md section 09 |
+| JB-NOW-10 | mid | Ready | — | Real stroke codec adversarial corpus; MID_COOLDOWN_BACKLOG_20261009.md section 10 |
+| JB-NOW-11 | mid | Ready | — | Plain-bake partition/bit preservation; MID_COOLDOWN_BACKLOG_20261009.md section 11 |
+| JB-NOW-12 | mid | Ready | — | Offline archive inspection CLI; MID_COOLDOWN_BACKLOG_20261009.md section 12 |
+| JB-NOW-13 | mid | Ready | — | Real multi-board region boundary regression; MID_COOLDOWN_BACKLOG_20261009.md section 13 |
 
 Mid-tier jobs 05/07/08 have independent owned paths and full contracts in [MID_READY_JOBS_20261009.md](specs/MID_READY_JOBS_20261009.md). They may be claimed in parallel, subject to coordinator resource admission; builds remain serialized. They prepare evidence for production fixes and do not themselves complete clipping, memory or latency fixes. More implementation leaves become Ready as the frontier architecture is specified; Blocked does not mean no future mid-tier work exists.
+
+Five additional independent jobs09–13 are specified in [MID_COOLDOWN_BACKLOG_20261009.md](specs/MID_COOLDOWN_BACKLOG_20261009.md). Owner wants useful mid-tier work during several frontier-free days. Total current mid-tier runway: eight Ready jobs, four reusable diagnostic/measurement jobs and four correctness-regression jobs. They do not authorize production architecture changes or make broken painting behavior fixed. Check existing coverage first, preserve blockers, and stop rather than create filler after this queue is exhausted. Frontier recovery reviews submissions as one batch and resolves remaining architecture/GPU/artistic decisions.
 
 **JB-NOW-01 contract:** review existing 487a8453, amendment 72ae66d4 and checker 542f2482 in `C:/Temp/jb-opencode-dry-paper-only`; do not rebuild the optimization. Coordinator reports actual amendment compile PASS (50s) and source lifecycle review PASS. Independently inspect scope and cleanup/wake semantics against current main, integrate only those approved changes, record actual checks/hash and update this checkpoint. Own the four A1 production paths listed below, the new parity checker and this handoff; coordinate before any overlap with the protected media lane. Preserve existing GPU proof unless source changes invalidate it. Do not claim device speed, full clipping, Undo or JB-2.40 completion. Runtime sleep/wake remains an explicit device gate. Read build/resource guards before verification; no automatic installation/device reservation.
 

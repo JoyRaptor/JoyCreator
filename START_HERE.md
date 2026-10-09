@@ -33,6 +33,7 @@ He is often away while you work. Keep going rather than blocking.
 
 | You need | Read |
 |---|---|
+| **JoyBrush current lead handoff, verified work and delegation** | `tasks/joybrush/CURRENT_HANDOFF.md` (October9 checkpoint; read before historical notes) |
 | **What exists and how proven it is** | `tasks/STATE.md` ← start here, always |
 | What is next, in order | `tasks/ROADMAP.md` |
 | Work started and abandoned, to be finished | `tasks/ORPHANS.md` |

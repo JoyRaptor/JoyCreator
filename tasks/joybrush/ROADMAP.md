@@ -1,5 +1,7 @@
 # JOY BRUSH — ROADMAP AnD TASK BOARD (the one file to point an agent at)
 
+> **October 9 current entry point:** read [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) first. Its live queue, capability boundaries and shared claim protocol override historical readiness and Claude-only lead assignments below. Do not claim stale rows directly. This file remains the full product/spec index.
+
 > **Agent: this file is your whole briefing.** Read it top to bottom, then do what §2 says.
 > You do not need to read the rest of the repo unless your task's spec tells you to.
 

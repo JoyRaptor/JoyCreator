@@ -1,0 +1,2 @@
+# Local cross-process queue lock; never remove while another agent holds it.
+*.claim.lock

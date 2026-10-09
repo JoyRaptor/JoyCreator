@@ -20,4 +20,4 @@ Do not persist read halos as write interiors. Preserve untouched neighbouring st
 
 Before landing: actual GL comparison with a sufficiently large unclipped reference, overlapping dabs and changed crush/smear, translated and negative-coordinate windows, oversized contacts, exact untouched pixels, all-store Undo/Redo, refusal before partial publication, and allocation cleanup. Desktop geometry alone is insufficient.
 
-Status: helper in free review; production multi-window implementation not yet approved as tested. Note20 wireless connection currently undiscoverable; Note9 remains untouched.
+Status: rotated dirty bounds regression passes and is published; pure geometry/placement helper integrated95e1bdd9 after20 targeted tests pass. Production multi-window implementation remains pending. Note20 wireless connection currently undiscoverable; Note9 remains untouched.

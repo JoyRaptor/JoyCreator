@@ -94,7 +94,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     // made on first use
     private var delta = 0; private var deltaFbo = 0
     // Dry paper-only single-attachment FBOs, lazy in ensureDryPaper: [0] attaches state[0].paper, [1] attaches state[1].paper.
-    // No new textures/state; existing cur/nxt paper textures only. Reset on sleep/release/allocate (stale lifetime).
+    // No new textures/state; existing cur/nxt paper textures only. FBOs reset on sleep/release/allocate (stale lifetime);
+    // same-context paper-only programs are retained across sleep.
     private var dryPaperFbo = IntArray(0)
     var bakeTex = 0; private set
     private var fluidBake = 0; private var waterBake = 0; private var bakeFbo = 0
@@ -192,7 +193,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         asleep = false
     }
 
-    /** True while the window's textures are released ([sleep]); the default programs and the brush cells stay (paper-only dry variants are released, recreated lazily). */
+    /** True while the window's textures are released ([sleep]); all same-context programs (defaults + paper-only dry variants) and the brush cells stay, only FBOs/textures are rebuilt. */
     var asleep = false; private set
 
     /** Whether water targets exist: what [cc.joycreator.joybrush.core.layers.LayerBudget.windowFits] is told the window holds. */
@@ -201,8 +202,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     /**
      * Releases the window's textures (the Lead's rule: the window is transient; the pen has been up and the water asleep
      * for a while, or the layer or screen changed). Everything worth keeping is in the stores already. [wake] makes them
-     * again for the next stroke without recompiling a shader. Default programs stay; paper-only dry variants are the
-     * exception and are released here, recreated lazily on the next dryFrame.
+     * again for the next stroke without recompiling a shader. All same-context programs stay (defaults + paper-only dry
+     * variants); dry paper FBOs are deleted here and rebuilt from the new state paper textures on the next dryFrame.
      */
     fun sleep() {
         if (asleep) return
@@ -218,8 +219,6 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
         eraseWetFbo = IntArray(0)
         dryPaperFbo = IntArray(0)
-        progApplyPaper?.release(); progApplyPaper = null
-        progCopyPaper?.release(); progCopyPaper = null
         delta = 0; deltaFbo = 0; bakeTex = 0; fluidBake = 0; waterBake = 0; bakeFbo = 0; bakedPaper = null
         wet = null; run = 0; in0 = 0; in1 = 0; inFbo = 0; lookTex = 0; lookFbo = 0
         bead = IntArray(0); beadFbo = IntArray(0); fluxFbo = IntArray(0); updFbo = IntArray(0); wetCopyFbo = IntArray(0)
@@ -246,7 +245,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
 
     // Dry paper-only variants, lazy on first dryFrame (eraser keeps delta-only ensureDry): creates the paper-only
     // programs and single-paper-attachment FBOs attaching the existing cur/nxt paper textures (no new textures/state).
-    // Reset on sleep/release/allocate (stale lifetime).
+    // Programs persist across sleep (same context; released only in release()); FBOs reset on sleep/release/allocate.
     private fun ensureDryPaper() {
         fun p(v: String, f: String, l: String, defines: Set<String> = emptySet()) = MediaProgram(shaders, "media/$v", "media/$f", l, defines)
         var applyMadeHere = false

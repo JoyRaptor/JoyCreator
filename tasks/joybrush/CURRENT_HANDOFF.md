@@ -29,8 +29,12 @@ Example (from any checkout, passing the canonical document explicitly):
 | JB-NOW-02 | frontier | Blocked | — | Dry-window architecture; depends on 01 and approved implementation slices |
 | JB-NOW-03 | frontier | Blocked | — | Physical tilt/memory diagnostic; lead must reserve device and approve measurement plan |
 | JB-NOW-04 | frontier | Blocked | — | JB-2.40 adoption; depends on architecture reconciliation and scoped ownership |
-| JB-NOW-05 | mid | Blocked | — | No new free coding assignment ready; lead must publish owned paths plus objective acceptance for each leaf |
+| JB-NOW-05 | mid | Ready | — | Saved memory-refusal log reader; MID_READY_JOBS_20261009.md section 05 |
 | JB-NOW-06 | frontier | Blocked | — | JB-5.20/5.40 product wiring; depends on JB-2.40 gates |
+| JB-NOW-07 | mid | Ready | — | Saved CPU slice CSV summary; MID_READY_JOBS_20261009.md section 07 |
+| JB-NOW-08 | mid | Ready | — | Real DrySpatialPlan workload benchmark; MID_READY_JOBS_20261009.md section 08 |
+
+Mid-tier jobs 05/07/08 have independent owned paths and full contracts in [MID_READY_JOBS_20261009.md](specs/MID_READY_JOBS_20261009.md). They may be claimed in parallel, subject to coordinator resource admission; builds remain serialized. They prepare evidence for production fixes and do not themselves complete clipping, memory or latency fixes. More implementation leaves become Ready as the frontier architecture is specified; Blocked does not mean no future mid-tier work exists.
 
 **JB-NOW-01 contract:** review existing 487a8453, amendment 72ae66d4 and checker 542f2482 in `C:/Temp/jb-opencode-dry-paper-only`; do not rebuild the optimization. Coordinator reports actual amendment compile PASS (50s) and source lifecycle review PASS. Independently inspect scope and cleanup/wake semantics against current main, integrate only those approved changes, record actual checks/hash and update this checkpoint. Own the four A1 production paths listed below, the new parity checker and this handoff; coordinate before any overlap with the protected media lane. Preserve existing GPU proof unless source changes invalidate it. Do not claim device speed, full clipping, Undo or JB-2.40 completion. Runtime sleep/wake remains an explicit device gate. Read build/resource guards before verification; no automatic installation/device reservation.
 

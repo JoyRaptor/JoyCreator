@@ -52,6 +52,12 @@ class MediaCanvas(
     @Volatile var unsupported: String? = null
         private set
 
+    /** Debug A/B only (bench `jb_media_legacy`): the pre-2026-10-10 window placement and every-frame store copies. */
+    @Volatile var legacyWindow = false
+
+    /** The debug replay's counters, handed to each window made (null in normal use). */
+    var stats: cc.joycreator.joybrush.androidkit.bench.FrameStats? = null
+
     /** The paper's downhill slope in document space (the phone-tilt switch, M5.6); [0, 0] = flat. */
     var slope = floatArrayOf(0f, 0f)
 
@@ -162,6 +168,7 @@ class MediaCanvas(
         val w = window ?: return false
         val st = stroke
         if (st != null) {
+            stats?.let { if (it.recording) it.mediaFrames++ }
             run(e, w, st)
             w.touched(nowMs)
             return true
@@ -184,7 +191,7 @@ class MediaCanvas(
         st.spline.finish()
         st.wet?.finish()
         st.thin?.finish()
-        run(e, w, st)
+        run(e, w, st, last = true)
         e.endStroke()
         stroke = null
         paint.endMediaStroke()
@@ -237,7 +244,7 @@ class MediaCanvas(
             return null
         }
         engine = made
-        window = MediaWindow(paint, made) { r -> made.renderLook(r, paint.mediaPaper(), look, DOC_PX_PER_MM) }
+        window = MediaWindow(paint, made) { r -> made.renderLook(r, paint.mediaPaper(), look, DOC_PX_PER_MM) }.also { it.stats = stats }
         return made
     }
 
@@ -271,17 +278,31 @@ class MediaCanvas(
         }.also { if (scale <= 0.0) error("a media brush needs a size") }
     }
 
-    /** One frame of the stroke: keep the window over the pen, run what the builders made, write it back. */
-    private fun run(e: MediaLayerEngine, w: MediaWindow, st: Stroke) {
-        val r = st.reachPx + 4
-        w.follow(doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r), st.penX, st.penY)
+    /**
+     * One frame of the stroke: keep the window over what this frame paints, run what the builders made, write the look
+     * back ([last]: the stores too). A pencil's window follows the frame's actual dab batch (its rotated footprints plus
+     * the smear the apply pass reads), not a worst-case reach: 12 point-widths did not fit the window for most pencils,
+     * so it moved and reloaded every frame and clipped dabs outside it (LEAD_PLAN F1, F2).
+     */
+    private fun run(e: MediaLayerEngine, w: MediaWindow, st: Stroke, last: Boolean = false) {
         val paper = paint.mediaPaper()
-        st.dry?.let { dry ->
-            val b = dry.take()
-            if (b.count > 0) {
-                val last = (b.count - 1) * DabBatch.FLOATS
-                e.dryFrame(b, b.dabs[last + 16].toDouble(), b.dabs[last + 17].toDouble(), paper, st.mat!!, DOC_PX_PER_MM)
-            }
+        val batch = st.dry?.take()
+        w.legacyLook = legacyWindow
+        if (legacyWindow) {
+            val r = st.reachPx + 4
+            w.follow(doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r), st.penX, st.penY)
+        } else if (batch != null && batch.count > 0 && batch.dirty != null) {
+            val pad = st.mat!!.smearMm * DOC_PX_PER_MM + 4
+            val d = batch.dirty!!
+            w.follow(doubleArrayOf(d[0] - pad, d[1] - pad, d[2] + pad, d[3] + pad), (d[0] + d[2]) / 2, (d[1] + d[3]) / 2)
+        } else {
+            val r = st.reachPx + 4
+            w.follow(doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r), st.penX, st.penY)
+        }
+        w.lookHalo = if (look.impasto > 0f) MediaWindow.LOOK_HALO_MAX else MediaWindow.LOOK_HALO_FLAT
+        if (batch != null && batch.count > 0) {
+            val lastDab = (batch.count - 1) * DabBatch.FLOATS
+            e.dryFrame(batch, batch.dabs[lastDab + 16].toDouble(), batch.dabs[lastDab + 17].toDouble(), paper, st.mat!!, DOC_PX_PER_MM)
         }
         st.thin?.let { e.wetFrame(it.take(), paper, DOC_PX_PER_MM) }
         st.paste?.let { ps -> for (step in ps.take()) e.pasteStep(step, st.brush!!, paper, DOC_PX_PER_MM, st.seed) }
@@ -292,7 +313,7 @@ class MediaCanvas(
         }
         // Water that is already running in the window keeps running under a dry or paste stroke.
         if (st.wet == null && st.thin == null && e.wetActive) e.wetFrame(null, paper, DOC_PX_PER_MM)
-        w.flush()
+        w.flush(stores = last || legacyWindow)
     }
 
     private fun eraseBatch(dabs: List<Dab>): DabBatch {

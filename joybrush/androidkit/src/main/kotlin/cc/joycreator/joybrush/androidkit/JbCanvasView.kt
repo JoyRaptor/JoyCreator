@@ -346,6 +346,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         info.availMem to info.threshold
     })
 
+    /** Debug A/B only: the media window's pre-2026-10-10 placement and write-back (see MediaCanvas.legacyWindow). */
+    var mediaLegacyWindow: Boolean
+        get() = mediaCanvas.legacyWindow
+        set(v) { mediaCanvas.legacyWindow = v }
+
+    /** Frame timings for the debug stroke replay (bench/StrokeReplay); records nothing until started. */
+    val frameStats = cc.joycreator.joybrush.androidkit.bench.FrameStats().also { mediaCanvas.stats = it }
+
     // Metadata belongs to the opened document, not the GPU's layer projection. Written on GL;
     // the UI reads the immutable document to respect locks before starting a stroke.
     // Metadata only after upload: GPU tiles own the live pixels.
@@ -727,6 +735,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 if (pageW <= 0 || pageH <= 0) { pageW = width; pageH = height }
             }
             override fun onDrawFrame(gl: GL10?) {
+                frameStats.frameBegin()
+                try { drawFrame() } finally { frameStats.frameEnd() }
+            }
+            private fun drawFrame() {
                 while (frameWork.isNotEmpty()) frameWork.removeFirst()()
                 // Media strokes and running water advance once per drawn frame, and keep frames coming while they run.
                 try {
@@ -1936,6 +1948,23 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             viewSnapshot = floatArrayOf(view.zoom, view.rotation, view.panX, view.panY)
         }
         super.requestRender()
+    }
+
+    /** Debug replay: start recording on the GL thread, then run [then] on the UI thread. */
+    fun startFrameStats(then: () -> Unit) {
+        queueEvent { frameStats.start(); post { then() } }
+        requestRender()
+    }
+
+    /** Debug replay: stop recording, wait for the GPU, collect its timings, and hand the summary to the UI thread. */
+    fun finishFrameStats(ready: (cc.joycreator.joybrush.androidkit.bench.FrameStats.Summary) -> Unit) {
+        queueEvent {
+            frameStats.stop()
+            android.opengl.GLES30.glFinish()
+            frameStats.collect()
+            val s = frameStats.snapshot()
+            post { ready(s) }
+        }
     }
 
     private fun onGl(allowLost: Boolean = false, block: () -> Unit) {

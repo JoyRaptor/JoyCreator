@@ -484,6 +484,13 @@ class JoyBrushActivity : Activity() {
         canvas.onRawEvent = { ev -> diag.onRawEvent(ev); boardController?.penEvent(ev) }
         goFullScreen(overlays)
 
+        // Debug stroke replay: a fresh unsaved drawing; the working file is neither read nor ever written (bench/BenchRunner).
+        val bench = cc.joycreator.joybrush.android.bench.BenchRunner.spec(intent, applicationInfo)
+        if (bench != null) {
+            finishStartup(false)
+            cc.joycreator.joybrush.android.bench.BenchRunner(canvas, bench) {}.start()
+            return
+        }
         // Where the person left off, if they left off anywhere.
         restoreWorkingFile()
     }

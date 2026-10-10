@@ -34,6 +34,9 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
     /** When the window last did anything (ms, the caller's clock): it is released after [IDLE_MS] asleep. */
     private var lastActiveMs = 0L
 
+    /** The debug replay's counters (window moves and reloads), or null. */
+    var stats: cc.joycreator.joybrush.androidkit.bench.FrameStats? = null
+
     /** The pen is down, or water is running: the window is in use. Call from every media frame. */
     fun touched(nowMs: Long) { lastActiveMs = nowMs }
 
@@ -58,6 +61,10 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
 
     companion object {
         const val IDLE_MS = 10_000L
+        /** The look shader's widest read (impasto shadows): 51 px march + 1 px gradient + 1 px bilinear. */
+        const val LOOK_HALO_MAX = 53
+        /** Without impasto the look reads only ±1 px gradients through a bilinear tap. */
+        const val LOOK_HALO_FLAT = 2
     }
 
     /** Puts the window on [layer] around the pen at ([docX], [docY]): a no-op while it already holds that point. */
@@ -74,45 +81,123 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
     }
 
     private fun moveTo(layer: String, docX: Double, docY: Double, resumeWater: Boolean) {
+        stats?.let { if (it.recording) it.mediaWindowMoves++ }
         flush()
         val (nx, ny) = MediaWindowMath.placeFor(docX, docY)
         load(layer, nx, ny, resumeWater)
     }
 
     /**
-     * Copies what changed since the last flush into the stores and the look tiles. Call at every frame boundary, and tell
-     * the history buttons afterwards: dried water can change the undo stack (a step left empty is popped).
+     * How far (window px) the look shader reads around a pixel: the impasto shadow march reaches 51 px, gradients 1,
+     * bilinear 1 more (jb_media_render.frag). A look pixel is only right where everything it reads is loaded.
      */
-    fun flush() {
+    var lookHalo = LOOK_HALO_MAX
+
+    /** Stores written by passes but not yet copied into the layer's tiles, and where (window px): see [flush]. */
+    private val pendingStores = LinkedHashSet<String>()
+    private var pendingRect: FloatArray? = null
+
+    /**
+     * Copies what changed since the last flush into the look tiles, and (when [stores], the default) into the stores.
+     * Call at every frame boundary, and tell the history buttons afterwards: dried water can change the undo stack.
+     *
+     * While a stroke is painting, frames call this with [stores] false: the person sees the look at once, and the float
+     * stores (several RGBA32F tiles per touched tile) are copied once, at the stroke's end or when the window moves or is
+     * released, instead of every frame. Nothing reads the stores in between: saving and undo wait for the stroke
+     * (JbCanvasView finishes or cancels it first) and the display composites the look only. The tiles are still made and
+     * copied-on-write at first touch, so the memory ceiling refuses at the same moment it always did.
+     *
+     * The look is written back only where it was recomputed with all its inputs loaded (the dirty area plus the shader's
+     * reach, kept off the window's outer band), never as whole tiles: re-rendering a tile at the window's edge without its
+     * neighbours stamped a wrong band into the painting (owner's seams, 2026-10-08; LEAD_PLAN F3).
+     */
+    fun flush(stores: Boolean = true) {
         val id = layerId ?: return
         // The layer went (deleted, or its making undone): nothing here has anywhere to go.
-        if (id !in paint.layerIds()) { layerId = null; dryPending = false; media.takeDirty(); media.takeDirtyStores(); media.stopWater(); return }
+        if (id !in paint.layerIds()) {
+            layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null
+            media.takeDirty(); media.takeDirtyStores(); media.stopWater(); return
+        }
         if (dryPending && !paint.mediaStrokeInProgress) { dryPending = false; dropWater(id) }
-        val rect = media.takeDirty() ?: return
+        val rect = media.takeDirty()
+        pendingStores += media.takeDirtyStores()
+        if (rect != null) pendingRect = union(pendingRect, rect)
+        if (rect != null) writeLook(id, rect)
+        if (stores) writeStores(id) else reserveStores()
+    }
+
+    /** Debug A/B only (bench `jb_media_legacy`): the pre-2026-10-10 whole-tile look write-back. */
+    var legacyLook = false
+
+    private fun writeLook(id: String, dirty: FloatArray) {
+        val px = MediaWindowMath.PX.toFloat()
+        val h = lookHalo.toFloat()
+        // Recompute the dirty area and what it shades around it, but only where the shader's own reach stays loaded…
+        val inner = floatArrayOf(maxOf(dirty[0] - h, h), maxOf(dirty[1] - h, h), minOf(dirty[2] + h, px - h), minOf(dirty[3] + h, px - h))
+        // …except the dirty pixels themselves, which must show even near the edge (best effort there).
+        val out = if (legacyLook) MediaWindowMath.keysIn(tx, ty, dirty).let { k ->
+            if (k.isEmpty()) return
+            floatArrayOf(k.minOf { Tiles.tx(it) - tx } * tile.toFloat(), k.minOf { Tiles.ty(it) - ty } * tile.toFloat(),
+                (k.maxOf { Tiles.tx(it) - tx } + 1) * tile.toFloat(), (k.maxOf { Tiles.ty(it) - ty } + 1) * tile.toFloat())
+        } else union(if (inner[2] > inner[0] && inner[3] > inner[1]) inner else null, clamp(dirty, px))!!
+        val r = intArrayOf(kotlin.math.floor(out[0]).toInt(), kotlin.math.floor(out[1]).toInt(), kotlin.math.ceil(out[2]).toInt(), kotlin.math.ceil(out[3]).toInt())
+        val keys = MediaWindowMath.keysIn(tx, ty, floatArrayOf(r[0].toFloat(), r[1].toFloat(), r[2].toFloat(), r[3].toFloat()))
+        if (keys.isEmpty()) return
+        renderLook(floatArrayOf(r[0].toFloat(), r[1].toFloat(), r[2].toFloat(), r[3].toFloat()))
+        val targets = paint.writableMediaTiles(id, keys, listOf(MEDIA_LOOK)).getValue(MEDIA_LOOK)
+        for (key in keys) {
+            val wx = (Tiles.tx(key) - tx) * tile; val wy = (Tiles.ty(key) - ty) * tile
+            val x0 = maxOf(r[0], wx); val y0 = maxOf(r[1], wy); val x1 = minOf(r[2], wx + tile); val y1 = minOf(r[3], wy + tile)
+            if (x1 <= x0 || y1 <= y0) continue
+            media.blit(media.lookTexture(), x0, y0, x1, y1, targets.getValue(key), x0 - wx, y0 - wy, x1 - wx, y1 - wy)
+        }
+    }
+
+    private fun writeStores(id: String) {
+        val rect = pendingRect
+        pendingRect = null
+        val stores = pendingStores.toMutableList()
+        pendingStores.clear()
+        if (rect == null || stores.isEmpty()) return
         val keys = MediaWindowMath.keysIn(tx, ty, rect)
         if (keys.isEmpty()) return
-        // The look covers whole tiles: a tile is written back whole.
-        val tileRect = floatArrayOf(
-            keys.minOf { Tiles.tx(it) - tx } * tile.toFloat(), keys.minOf { Tiles.ty(it) - ty } * tile.toFloat(),
-            (keys.maxOf { Tiles.tx(it) - tx } + 1) * tile.toFloat(), (keys.maxOf { Tiles.ty(it) - ty } + 1) * tile.toFloat())
-        renderLook(tileRect)
-        val stores = media.takeDirtyStores().toMutableList()
         val water = stores.filter { it in MediaStores.WATER }
         // Water that has dried is not written back: its tiles go (water stores exist only where wet).
         val dried = water.isNotEmpty() && !media.wetActive
         if (dried && paint.mediaStrokeInProgress) dryPending = true
         val drop = dried && !dryPending
         if (drop) stores.removeAll(MediaStores.WATER)
-        val targets = paint.writableMediaTiles(id, keys, stores + MEDIA_LOOK)
-        for (key in keys) {
-            val (wx, wy) = (Tiles.tx(key) - tx) * tile to (Tiles.ty(key) - ty) * tile
-            for (store in stores) {
-                val src = media.current(store) ?: continue
-                media.blit(src, wx, wy, wx + tile, wy + tile, targets.getValue(store).getValue(key), 0, 0, tile, tile)
+        if (stores.isNotEmpty()) {
+            val targets = paint.writableMediaTiles(id, keys, stores)
+            for (key in keys) {
+                val (wx, wy) = (Tiles.tx(key) - tx) * tile to (Tiles.ty(key) - ty) * tile
+                for (store in stores) {
+                    val src = media.current(store) ?: continue
+                    media.blit(src, wx, wy, wx + tile, wy + tile, targets.getValue(store).getValue(key), 0, 0, tile, tile)
+                }
             }
-            media.blit(media.lookTexture(), wx, wy, wx + tile, wy + tile, targets.getValue(MEDIA_LOOK).getValue(key), 0, 0, tile, tile)
         }
         if (drop) dropWater(id)
+    }
+
+    /**
+     * Reserves (copy-on-write, and the memory ceiling's check) the store tiles the passes since the last call touched,
+     * without copying anything yet: [flush] with stores false calls it so a refusal still comes at the first frame.
+     */
+    fun reserveStores() {
+        val id = layerId ?: return
+        val rect = pendingRect ?: return
+        val keys = MediaWindowMath.keysIn(tx, ty, rect)
+        val stores = pendingStores.filter { it !in MediaStores.WATER || media.wetActive }
+        if (keys.isNotEmpty() && stores.isNotEmpty()) paint.writableMediaTiles(id, keys, stores)
+    }
+
+    private fun clamp(r: FloatArray, px: Float) = floatArrayOf(maxOf(r[0], 0f), maxOf(r[1], 0f), minOf(r[2], px), minOf(r[3], px))
+
+    private fun union(a: FloatArray?, b: FloatArray?): FloatArray? = when {
+        a == null -> b?.copyOf()
+        b == null -> a.copyOf()
+        else -> floatArrayOf(minOf(a[0], b[0]), minOf(a[1], b[1]), maxOf(a[2], b[2]), maxOf(a[3], b[3]))
     }
 
     private fun dropWater(id: String) {
@@ -137,6 +222,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
     }
 
     private fun load(layer: String, nx: Int, ny: Int, resumeWater: Boolean) {
+        stats?.let { if (it.recording) it.mediaWindowLoads++ }
         media.wake()
         layerId = layer; tx = nx; ty = ny
         media.moveTo((nx * tile).toFloat(), (ny * tile).toFloat())

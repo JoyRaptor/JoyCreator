@@ -14,5 +14,12 @@
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <!-- Joy Brush stroke replay benchmark (LEAD_PLAN_20261010 step 3); results: adb logcat -s JoyBrushPerf -->
+        <activity
+            android:name="com.fadcam.joybrush.JoyBrushBenchActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 </manifest>

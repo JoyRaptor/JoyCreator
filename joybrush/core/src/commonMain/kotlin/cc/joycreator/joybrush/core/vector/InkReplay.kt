@@ -170,17 +170,18 @@ object InkReplay {
     /**
      * [StrokeRecord.widthScale] applied, because it exists and nothing else applies it.
      *
-     * It is applied to each dab's RADIUS, at the very end, which is what makes
-     * `DabPlacer`'s own `step = 2r * spacing` come out of the UNSCALED radius: a re-weighted line's
-     * dabs are further apart as well as fatter, which is exactly what the live path would have done
-     * with a bigger brush. Clamped to 0..[DabPlacer.MAX_RADIUS_PX] by the same guard
-     * `DabPlacer.emit` applies and for the same reason — a file that was never validated must not
-     * make a radius that cannot be allocated.
+     * It is applied to each dab's RADIUS, at the very end, AFTER `DabPlacer` has placed the dabs —
+     * so `DabPlacer`'s own `step = 2r * spacing` comes out of the UNSCALED radius and a re-weighted
+     * line's dabs are exactly where they were, only fatter (the count is unchanged and
+     * `InkReplayTest` pins it). That is not what a bigger brush would have done live — a bigger
+     * brush steps further — so a thickened line's dabs overlap relatively more than the same width
+     * drawn fresh. Clamped to 0..[DabPlacer.MAX_RADIUS_PX] by the same guard `DabPlacer.emit`
+     * applies and for the same reason — a file that was never validated must not make a radius
+     * that cannot be allocated.
      *
      * A [StrokeRecord] is a PLAIN VALUE and its `widthScale` is not checked when the record is
-     * built, so this is the point that reads it. A `widthScale` that is not a number is read as 0
-     * (LEAD_RULINGS R1/R10: a broken number is read as a safe one, at the point that reads it), and
-     * so is any radius, before the multiply rather than after.
+     * built, so this is the point that reads it: see [widthScaleOf]. A radius that is not a number
+     * is read as 0, before the multiply rather than after.
      */
     private fun rescaled(dabs: List<Dab>, scale: Float): List<Dab> {
         if (scale == 1f) return dabs
@@ -193,6 +194,14 @@ object InkReplay {
         return out
     }
 
-    /** A `widthScale` that is not a number is read as 0, which draws the line as nothing. */
-    private fun widthScaleOf(widthScale: Float): Float = if (widthScale.isFinite()) widthScale else 0f
+    /**
+     * A `widthScale` that is not a number (NaN or +-Infinity) is read as 1, the neutral width: the
+     * line draws at its brush's own size. That is the answer `StrokeCodec.decode` and
+     * `StrokeEdit.reweight` already give, and it must be the same answer in all three — otherwise
+     * one broken record draws as nothing in memory and as a normal line after a save and reload.
+     * (This once read it as 0, following JB-5.01's test 9, which justified 0 as "the same rule as
+     * `StrokeEdit.reweight`" — and reweight reads it as 1.) A FINITE scale, however large, is a
+     * number and is clamped through the radius in [rescaled] instead (LEAD_RULINGS R44 item 3).
+     */
+    private fun widthScaleOf(widthScale: Float): Float = if (widthScale.isFinite()) widthScale else 1f
 }

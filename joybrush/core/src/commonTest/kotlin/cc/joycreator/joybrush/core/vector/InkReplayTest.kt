@@ -16,6 +16,8 @@ import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.input.StrokeSmoother
 import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.DabPlacer
+import cc.joycreator.joybrush.core.stroke.StrokeCodec
+import cc.joycreator.joybrush.core.stroke.StrokeEdit
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import kotlin.math.abs
 import kotlin.math.hypot
@@ -354,12 +356,19 @@ class InkReplayTest {
      *
      * The same dab COUNT and every radius exactly twice: the count is unchanged because the step
      * `2r x spacing` is computed inside `DabPlacer.emit` from the UNSCALED radius — `InkReplay`
-     * multiplies afterwards — so a re-weighted line's dabs are further apart as well as fatter,
-     * which is what a bigger brush would have done.
+     * multiplies afterwards — so a re-weighted line's dabs keep the SAME spacing and only get
+     * fatter. That is NOT what a bigger brush would have done live (a bigger brush steps further),
+     * and a thicker line therefore has relatively denser dabs; this test pins the count so that a
+     * change to that rule is a decision and not an accident.
      *
      * AND THE BROKEN NUMBERS. A `StrokeRecord` is a plain value and does not check `widthScale`,
-     * so this is the point that reads it, and LEAD_RULINGS R1/R10 says a broken number is read as
-     * a safe one. `NaN` and 0 are safe-zero; `1e30f` is not, and the derivation is below.
+     * so this is the point that reads it, and a broken number is read as a safe one. 0 is a real
+     * number and draws no radius. A NON-FINITE scale (NaN, +-Infinity) is read as 1, the neutral
+     * width — the SAME answer `StrokeCodec.decode` and `StrokeEdit.reweight` give, so a corrupt
+     * line draws at its brush's own size whether it came off disk, out of an edit or straight out
+     * of memory. (It was once read as 0 here, alone among the three, so the same broken record drew
+     * nothing in memory and drew normally after a save and reload.) `1e30f` is finite, and the
+     * derivation is below.
      */
     @Test
     fun widthScaleThickensTheReplay() {
@@ -375,24 +384,33 @@ class InkReplayTest {
             )
         }
 
-        // Zero and a NaN are the two answers that lay the stroke down and draw no radius at all.
-        for (bad in floatArrayOf(0f, Float.NaN)) {
-            val dabs = InkReplay.dabs(line(40, 4f, 0f, widthScale = bad), inkBrush())
-            assertEquals(thin.size, dabs.size, "widthScale=$bad still lays the stroke down")
-            assertTrue(dabs.all { it.radius == 0f }, "widthScale=$bad draws no radius: ${dabs.map { it.radius }}")
+        // Zero is a number, and it lays the stroke down with no radius at all.
+        val zero = InkReplay.dabs(line(40, 4f, 0f, widthScale = 0f), inkBrush())
+        assertEquals(thin.size, zero.size, "widthScale=0 still lays the stroke down")
+        assertTrue(zero.all { it.radius == 0f }, "widthScale=0 draws no radius: ${zero.map { it.radius }}")
+
+        // NOT A NUMBER is read as 1, the neutral width, exactly as the decoder and reweight read it.
+        for (bad in floatArrayOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+            val broken = line(40, 4f, 0f, widthScale = bad)
+            assertEquals(thin, InkReplay.dabs(broken, inkBrush()), "widthScale=$bad draws at the brush's own size")
+            // ...and the three readers agree: a save and reload, and a neutral re-weight, give
+            // the record the codec's and reweight's own answer, and the replay draws it the same.
+            assertEquals(1f, StrokeCodec.decode(StrokeCodec.encode(broken)).widthScale, "the decoder reads $bad as 1")
+            assertEquals(1f, StrokeEdit.reweight(broken, 1f).widthScale, "reweight reads $bad as 1")
         }
 
         // 1e30f is FINITE, and that is the whole of it. Decision 9 clamps the RADIUS to
         // 0..DabPlacer.MAX_RADIUS_PX: radius 3 x 1e30 = 3e30, which is a finite float, so it is
-        // clamped DOWN to MAX_RADIUS_PX rather than read as 0 — which is what Decision 9's own
-        // reason asks for ("a file that was never validated must not make a radius that cannot be
-        // allocated"). The spec's test text asked for "0f" here; the DECISION and the guard it
-        // names agree with each other and disagree with it, and the decision is what is built.
+        // clamped DOWN to MAX_RADIUS_PX rather than read as a broken number — which is what
+        // Decision 9's own reason asks for ("a file that was never validated must not make a
+        // radius that cannot be allocated"). The spec's test text asked for "0f" here; the DECISION
+        // and the guard it names agree with each other and disagree with it, and the decision is
+        // what is built (LEAD_RULINGS R44 item 3).
         val huge = InkReplay.dabs(line(40, 4f, 0f, widthScale = 1e30f), inkBrush())
         assertEquals(thin.size, huge.size, "still the same stroke")
         assertEquals(
             listOf(DabPlacer.MAX_RADIUS_PX), huge.map { it.radius }.distinct(),
-            "3 x 1e30 is finite, so the placer's own clamp is what answers, not the safe-zero rule",
+            "3 x 1e30 is finite, so the placer's own clamp is what answers, not the not-a-number rule",
         )
     }
 

@@ -3,14 +3,13 @@ package cc.joycreator.joybrush.core.media
 import cc.joycreator.joybrush.core.brush.MEDIUM_DRY
 import cc.joycreator.joybrush.core.brush.MEDIUM_PASTE
 import cc.joycreator.joybrush.core.brush.MEDIUM_WET
-import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.layers.LayerBudget
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** The Lead's store-format ruling (2026-10-07): lazy stores per medium, media layers at their real cost, a ceiling in words. */
+/** The Lead's store-format ruling (2026-10-07): lazy stores per medium, a ground beside them (R51), a ceiling in words. */
 class MediaBudgetTest {
     @Test fun eachMediumCreatesOnlyTheStoresItWrites() {
         assertEquals(listOf("paper"), MediaStores.forMedium(MEDIUM_DRY))
@@ -25,12 +24,12 @@ class MediaBudgetTest {
         assertEquals(".f16", MediaStores.EXT)
     }
 
-    @Test fun aMediaLayerCountsAtItsRealCost() {
-        assertEquals(7, LayerBudget.slotsFor(LayerKind.MEDIA), "look 4 B/px + p0, p1, paper at 8 B/px = 28 B/px")
-        assertEquals(1, LayerBudget.slotsFor(LayerKind.PAINT))
-        assertEquals(9, LayerBudget.slotsUsed(listOf(LayerKind.PAINT, LayerKind.MEDIA, LayerKind.INK)))
-        assertTrue(LayerBudget.roomFor(LayerKind.PAINT, listOf(LayerKind.MEDIA), 8))
-        assertFalse(LayerBudget.roomFor(LayerKind.MEDIA, listOf(LayerKind.MEDIA), 13), "two media layers need 14 slots")
+    @Test fun theGroundIsRgba8AndPartOfThePayload() {
+        assertEquals(256 * 1024, MediaStores.tileBytes(256, MediaStores.GROUND), "the ground is a look tile's size")
+        assertEquals(512 * 1024, MediaStores.tileBytes(256, "p0"))
+        assertEquals(MediaStores.ALL + "g", MediaStores.PAYLOAD)
+        assertEquals("L1" to "g", MediaStores.parse("L1#g"))
+        assertEquals(null, MediaStores.parse("L1#mask"), "a mask is not a payload")
     }
 
     @Test fun theMediaCeilingIs256MbOnASixGbPhoneAndSaysSo() {
@@ -40,14 +39,13 @@ class MediaBudgetTest {
     }
 
     @Test fun theWindowIsItsOwnReservationAndIsCheckedBeforeItIsMade() {
-        assertEquals(128L shl 20, LayerBudget.MEDIA_WINDOW_DRY_BYTES, "about 120 MB for pencil and oil")
-        assertEquals(236L shl 20, LayerBudget.MEDIA_WINDOW_WET_BYTES, "about 230 MB once water runs")
+        assertEquals(132L shl 20, LayerBudget.MEDIA_WINDOW_DRY_BYTES, "about 130 MB for pencil and oil")
+        assertEquals(240L shl 20, LayerBudget.MEDIA_WINDOW_WET_BYTES, "about 240 MB once water runs")
         val mb = 1L shl 20
         assertTrue(LayerBudget.windowFits(availBytes = 600 * mb, thresholdBytes = 200 * mb, wet = false))
         assertFalse(LayerBudget.windowFits(availBytes = 500 * mb, thresholdBytes = 200 * mb, wet = true), "a low-memory margin of twice the threshold")
         assertTrue(LayerBudget.windowFits(availBytes = 520 * mb, thresholdBytes = 200 * mb, wet = true, haveBytes = LayerBudget.MEDIA_WINDOW_DRY_BYTES),
             "adding water to a dry window needs only the difference")
         assertTrue("watercolour" in LayerBudget.windowRefusal(wet = true))
-        assertEquals(LayerBudget.slotsFor(cc.joycreator.joybrush.core.doc.LayerKind.MEDIA), 7, "the window is not in the slots")
     }
 }

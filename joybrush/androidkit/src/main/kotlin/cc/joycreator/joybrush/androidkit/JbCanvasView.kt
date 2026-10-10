@@ -435,7 +435,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     fun duplicateLayer(id: String): Boolean {
-        if (drawing || !roomForAnother(boardDocument?.layers?.firstOrNull { it.id == id }?.kind ?: LayerKind.PAINT)) return false
+        if (drawing || !roomForAnother()) return false
         val before = stackUi
         val newId = before.freshId()
         val after = before.duplicate(id, newId) ?: return false
@@ -610,26 +610,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
-    /** Each layer's kind, in stack order; a layer the document has not seen yet is paint, as new layers are. */
-    private fun layerKinds(): List<LayerKind> {
-        val kinds = boardDocument?.layers?.associate { it.id to it.kind }.orEmpty()
-        return stackUi.layers.map { kinds[it.id] ?: LayerKind.PAINT }
-    }
-
-    /** The column's n of n/max: every layer at its real cost, a media layer as [LayerBudget.MEDIA_SLOTS] (step-4 check 6). */
-    val slotsUsed: Int get() = LayerBudget.slotsUsed(layerKinds())
-
     /** The ceiling on resident pencil, watercolour and oil state, from the phone's memory ([LayerBudget.mediaBudgetBytes]). */
     var mediaBudgetBytes: Long = Long.MAX_VALUE
         set(v) { field = v; onGl { engine.mediaBudgetBytes = v } }
 
-    private fun roomForAnother(kind: LayerKind = LayerKind.PAINT): Boolean {
-        val kinds = layerKinds()
-        if (LayerBudget.roomFor(kind, kinds, maxLayers)) return true
-        onRefused?.invoke(if (LayerKind.MEDIA in kinds || kind == LayerKind.MEDIA)
-            "This phone has room for $maxLayers layers, and this drawing uses ${LayerBudget.slotsUsed(kinds)}: " +
-                "a pencil, watercolour or oil layer counts as ${LayerBudget.MEDIA_SLOTS}."
-        else "This phone has room for $maxLayers layers, and this drawing has ${stackUi.size}.")
+    /** Every layer counts as one (R51): pencil, watercolour and oil are paid for by [mediaBudgetBytes], not by layers. */
+    private fun roomForAnother(): Boolean {
+        if (stackUi.size < maxLayers) return true
+        onRefused?.invoke("This phone has room for $maxLayers layers, and this drawing has ${stackUi.size}.")
         return false
     }
 
@@ -702,6 +690,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 engine.init()
                 mediaCanvas.forget()
                 engine.onMediaRestored = { layer, keys -> mediaCanvas.restored(layer, keys) }
+                engine.onLookWritten = { layer, keys -> mediaCanvas.lookWritten(layer, keys) }
+                engine.onMediaWarning = { android.util.Log.w("JoyBrushMedia", it) }
                 engine.setDocumentPaper(documentPaperState)
                 // Never let a context-loss placeholder overwrite the person's last good file.
                 contentLost = contentLost || engine.lostContent || retainedContents != null
@@ -1052,16 +1042,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** The stroke in progress is a media brush's, fed to [mediaCanvas] without the smoother (the Lead's step-4 check 2). */
     private var mediaStroke = false
-    /** The stroke in progress is the eraser on a media layer: its dabs take the layer's state away. */
+    /**
+     * The stroke in progress is the media eraser: its dabs take paint and water away instead of pixels. Never set in
+     * JB-2.40 slice 1, where every eraser is the plain one and a plain write over media goes through the engine's bake;
+     * slice 2 decides whether an eraser over media comes back here.
+     */
     private var mediaErase = false
     /** The media stroke has been begun on the GL thread (at its first sample, where the window is placed). */
     private var mediaBegun = false
-    /** The stroke made its own media layer: the layer and the stroke fold into one undo step at the lift. */
-    private var mediaMadeLayer = false
-    /** GL thread: the undo depth right after the media layer was made, so only that step and the stroke's fold. */
-    private var mediaLayerMark = -1
-    /** GL thread: making this stroke's media layer failed, so the stroke must not begin. */
-    private var mediaLayerFailed = false
     /** The colour of the last media stroke: the "last colour" belly mode. */
     private var lastMediaArgb: Int? = null
     /** GL thread: what the history buttons last heard, so running water reports only when the undo stack changes. */
@@ -1089,37 +1077,28 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             onRefused?.invoke(LayerBudget.windowRefusal(wet))
             return
         }
+        // R51: the media brush paints on the active layer itself; only a layer without pixels refuses it.
+        BrushRules.refusalFor(p.engine, activeLayerKind())?.let { drawing = false; onRefused?.invoke(it); return }
+        // JB-2.40 requirement 11: the media window paints where the pen really is and cannot wrap round a tile board yet,
+        // which the repeat preview could not show; refused in words like smudge and fill.
+        if (refuseTileTool("pencil, watercolour and oil")) { drawing = false; return }
+        // Payloads are kept per layer until JB-2.40 slice 3 keys them per cel: frames refuse in words until then.
+        if (boardDocument?.layers?.firstOrNull { it.id == activeLayer }?.let { it.regions.isNotEmpty() || it.cels.size != 1 } == true) {
+            drawing = false
+            onRefused?.invoke("Pencil, watercolour and oil cannot paint on a layer with animation frames yet.")
+            return
+        }
         resetSnapper(fresh = true)
         strokeOnMask = false
-        mediaMadeLayer = false
-        mediaLayerFailed = false
-        if (activeLayerKind() != LayerKind.MEDIA) {
-            // Contract point 5: a media brush on a paint or ink layer makes a media layer above it, in the same undo step.
-            if (!roomForAnother(LayerKind.MEDIA)) { drawing = false; return }
-            val before = stackUi
-            val id = before.freshId()
-            val after = before.add(id, when (p.media?.medium) { MEDIUM_DRY -> "Pencil"; MEDIUM_WET -> "Watercolour"; else -> "Oil" })
-            adopt(after)
-            mediaMadeLayer = true
-            val w = viewW; val h = viewH
-            onGl {
-                try {
-                    // The Lead's check 8: a fresh drawing has no board document until its first save; make it first, so the
-                    // first autosave after this stroke takes the path that keeps media state.
-                    if (engine.boardDocument == null) engine.setBoardDocument(syncBoardLayersFor(readContents(w, h).doc, before))
-                    engine.addMediaLayerStep(id, before, after)
-                    mediaLayerMark = engine.undo.undoDepth
-                    reportHistory()
-                } catch (e: Exception) {
-                    // Nothing was made, so nothing may look made: the stack goes back and the stroke stops (Lead, 4c review).
-                    mediaLayerMark = -1
-                    mediaLayerFailed = true
-                    post {
-                        if (stackUi === after) adopt(before)
-                        if (mediaStroke) { drawing = false; mediaStroke = false; mediaBegun = false; mediaMadeLayer = false; strokePreset = null }
-                        onRefused?.invoke(e.message ?: "A pencil, watercolour or oil layer could not be made")
-                    }
-                }
+        val stack = stackUi
+        val w = viewW; val h = viewH
+        // The Lead's check 8: a fresh drawing has no board document until its first save. Make it first, so the first
+        // autosave after this stroke takes the path that keeps media state.
+        onGl {
+            try {
+                if (engine.boardDocument == null) engine.setBoardDocument(syncBoardLayersFor(readContents(w, h).doc, stack))
+            } catch (e: Exception) {
+                post { onRefused?.invoke(e.message ?: "This drawing could not take pencil, watercolour or oil") }
             }
         }
         strokeLayerId = activeLayer
@@ -1154,8 +1133,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             lastMediaArgb = argb
             onGl {
-                // The layer this stroke made could not be made: nothing to paint on (the refusal is already said).
-                if (!mediaLayerFailed) mediaCanvas.begin(target, p, argb, belly, first.x, first.y, now)?.let { why -> post { onRefused?.invoke(why) } }
+                // Without the board document a save would drop the media state: nothing is painted (the refusal is said).
+                if (engine.boardDocument != null) mediaCanvas.begin(target, p, argb, belly, first.x, first.y, now)?.let { why -> post { onRefused?.invoke(why) } }
             }
         }
         onGl { mediaCanvas.add(out) }
@@ -1165,15 +1144,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         resetSnapper(fresh = false)
         drawing = false
         mediaStroke = false; mediaErase = false; mediaBegun = false
-        val made = mediaMadeLayer
-        mediaMadeLayer = false
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl {
             mediaCanvas.end()
-            // One press, one step: the layer the stroke made and the stroke itself undo together.
-            if (made && mediaLayerMark > 0 && engine.undo.undoDepth == mediaLayerMark + 1) engine.undo.mergeNewest(2)
-            mediaLayerMark = -1
             reportHistory()
         }
         flushPaperVisits()
@@ -1231,16 +1205,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             drawing=false; onRefused?.invoke("Select the paint layer to use the fill pen; masks are not supported yet."); return
         }
         val erase = b.erase || eraser
-        // A media brush paints through the media engine (step 4c), on a media layer it makes if it has to.
+        // A media brush paints through the media engine (step 4c) on the active layer (R51).
         if (p?.engine == ENGINE_MEDIA && !eraser) { startMediaStroke(p); return }
-        // On a media layer only media brushes paint: anything else writes a look the next render would undo. The eraser
-        // goes to the media engine, which erases the state itself (the Lead, step-4 check 1). A mask is pixels as ever.
-        val onMediaLayer = activeLayerKind() == LayerKind.MEDIA && !(editingMask && stackUi.active.hasMask)
-        if (onMediaLayer) {
-            val erases = erase || p?.blend == "erase"
-            BrushRules.refusalFor(p?.engine ?: "stamp", LayerKind.MEDIA, erases)?.let { drawing = false; onRefused?.invoke(it); return }
-        }
-        mediaErase = onMediaLayer
+        // Every other brush, the eraser included, writes pixels; over media the engine's bake keeps the two agreeing.
+        mediaErase = false
         mediaBegun = false
         // JB-2.23: on the mask, the stroke goes to the mask's store and paints GREY — white shows, black hides.
         strokeOnMask = editingMask && stackUi.active.hasMask
@@ -1659,8 +1627,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 if(address.first.endsWith(MASK_SUFFIX))engine.writeTile(address.first,address.third,rgba)
                 else engine.writeCelTile(address.first,address.second,address.third,rgba)
             }
-            // A media layer's state (DocModel v8): its stores, beside the look its tiles already put back.
+            // Media payloads (DocModel v8, v9): their stores and grounds, beside the look the tiles already put back, which
+            // they agree with.
             for ((k, bytes) in contents.mediaTiles) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), bytes)
+            engine.agreeAllPayloads()
             retainedContents = CanvasSnapshot.metadataOf(contents)
             contentLost = false
             paper = resolved
@@ -1695,8 +1665,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             if (!layer.kind.hasPixels) {
                 return "layer \"${layer.name}\" is ${layer.kind}, and this screen only paints pixels"
             }
-            if (layer.kind == LayerKind.MEDIA && (layer.regions.isNotEmpty() || layer.cels.size != 1)) {
-                return "layer \"${layer.name}\" is a pencil, watercolour or oil layer on animation frames, which this screen cannot show yet"
+            // Payloads are kept per layer until JB-2.40 slice 3 keys them per cel.
+            if (layer.cels.any { it.floatTiles.isNotEmpty() } && (layer.regions.isNotEmpty() || layer.cels.size != 1)) {
+                return "layer \"${layer.name}\" has pencil, watercolour or oil on animation frames, which this screen cannot show yet"
             }
             if(layer.animatedIn!=null)return "Whole-layer animation is an obsolete test format"
             if(layer.regions.isEmpty() && layer.cels.size!=1)return "A layer has no shared paint address"
@@ -1738,7 +1709,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             val current=syncBoardLayers(doc)
             engine.setBoardDocument(current)
             return BoardSnapshot.capture(current,
-                mediaKeys={layer->MediaStores.ALL.associateWith{engine.mediaTileKeys(layer,it)}},
+                mediaKeys={layer->MediaStores.PAYLOAD.associateWith{engine.mediaTileKeys(layer,it)}},
                 mediaRead={layer,store,key->engine.readMediaTile(layer,store,key)},
                 keys={layer,cel->
                     val mask=current.layers.first{it.id==layer}.mask

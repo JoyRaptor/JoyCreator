@@ -1,5 +1,10 @@
 # JoyBrush lead handoff — October 9, 2026
 
+> **2026-10-10: the owner appointed Claude (session "Joybrush orchestration and completion") as lead and
+> orchestrator.** Current plan, verified findings and lanes: [LEAD_PLAN_20261010.md](LEAD_PLAN_20261010.md). It
+> supersedes the queue below. Mid-tier jobs 05–29 stay as recorded; the lead batch-reviews them. Don't start new work
+> from this file's queue without checking the plan.
+
 Read this first for the current checkpoint; ROADMAP.md and individual specs define the product. Older LEAD_DESK entries are historical and may have stale completion statuses. Update this handoff when integrating work, not when a worker merely finishes writing it.
 
 ## New agent: start here
@@ -33,27 +38,27 @@ Example (from any checkout, passing the canonical document explicitly):
 | JB-NOW-06 | frontier | Blocked | — | JB-5.20/5.40 product wiring; depends on JB-2.40 gates |
 | JB-NOW-07 | mid | Doing | opencode-coordinator-mid-07 | 2026-10-09T16:59:05Z; Isolated free-only worker; base e1c58836cdcf6d4c5e7cea610bb9c3e79b2d32c7; exact contract owned paths; tests pending |
 | JB-NOW-08 | mid | Doing | opencode-coordinator-mid-08 | 2026-10-09T16:59:10Z; Isolated free-only worker; base e1c58836cdcf6d4c5e7cea610bb9c3e79b2d32c7; exact contract owned paths; tests pending |
-| JB-NOW-09 | mid | Ready | — | Real Undo transaction sequence regression; MID_COOLDOWN_BACKLOG_20261009.md section 09 |
-| JB-NOW-10 | mid | Ready | — | Real stroke codec adversarial corpus; MID_COOLDOWN_BACKLOG_20261009.md section 10 |
-| JB-NOW-11 | mid | Ready | — | Plain-bake partition/bit preservation; MID_COOLDOWN_BACKLOG_20261009.md section 11 |
-| JB-NOW-12 | mid | Ready | — | Offline archive inspection CLI; MID_COOLDOWN_BACKLOG_20261009.md section 12 |
-| JB-NOW-13 | mid | Ready | — | Real multi-board region boundary regression; MID_COOLDOWN_BACKLOG_20261009.md section 13 |
-| JB-NOW-14 | mid | Ready | — | Board selection/arming lifecycle; MID_BOARD_BACKLOG_20261009.md section 14 |
-| JB-NOW-15 | mid | Ready | — | Exact Sprite-grid boundaries; MID_BOARD_BACKLOG_20261009.md section 15 |
-| JB-NOW-16 | mid | Ready | — | Sprite swap plan involution; MID_BOARD_BACKLOG_20261009.md section 16 |
-| JB-NOW-17 | mid | Ready | — | Animation board operation safety; MID_BOARD_BACKLOG_20261009.md section 17 |
-| JB-NOW-18 | mid | Ready | — | Region frame edit sequences; MID_BOARD_BACKLOG_20261009.md section 18 |
-| JB-NOW-19 | mid | Ready | — | Layer clone alias/link preservation; MID_BOARD_BACKLOG_20261009.md section 19 |
-| JB-NOW-20 | mid | Ready | — | Document JSON corpus; MID_BOARD_BACKLOG_20261009.md section 20 |
-| JB-NOW-21 | mid | Ready | — | Playback schedule oracle; MID_BOARD_BACKLOG_20261009.md section 21 |
-| JB-NOW-22 | mid | Ready | — | Filmstrip weighted scrub consistency; MID_BOARD_BACKLOG_20261009.md section 22 |
-| JB-NOW-23 | mid | Ready | — | Fill contour topology; MID_BOARD_BACKLOG_20261009.md section 23 |
-| JB-NOW-24 | mid | Ready | — | Flood fill barriers/growth; MID_BOARD_BACKLOG_20261009.md section 24 |
-| JB-NOW-25 | mid | Ready | — | Stroke edit attribute invariants; MID_BOARD_BACKLOG_20261009.md section 25 |
-| JB-NOW-26 | mid | Ready | — | Existing cel composer interleaving; MID_BOARD_BACKLOG_20261009.md section 26 |
-| JB-NOW-27 | mid | Ready | — | Actual ink tile translation; MID_BOARD_BACKLOG_20261009.md section 27 |
-| JB-NOW-28 | mid | Ready | — | Actual archive corruption/roundtrip; MID_BOARD_BACKLOG_20261009.md section 28 |
-| JB-NOW-29 | mid | Ready | — | Evidence artifact manifest CLI; MID_BOARD_BACKLOG_20261009.md section 29 |
+| JB-NOW-09 | mid | Blocked | opencode-orchestrator-mid-09 | 2026-10-09T17:39:33Z; commit ca3d7fc5 compiles; fuzz seed 20261009 op60 push double-releases handle 51 in prod UndoLog (39 releases vs 38 unique); regression retained on branch; no prod edit per contract |
+| JB-NOW-10 | mid | Review | opencode-orchestrator-mid-10 | 2026-10-09T17:39:24Z; commit 3c2b9935; StrokeCodecAdversarialCorpusTest 9 tests pass :core:jvmTest; limits CPU-only no GPU |
+| JB-NOW-11 | mid | Review | opencode-orchestrator-mid-11 | 2026-10-09T17:39:24Z; commit ec8e9d3c; MediaPlainBakePartitionTest 9 tests pass :core:jvmTest; limits CPU-only |
+| JB-NOW-12 | mid | Review | opencode-orchestrator-mid-12 | 2026-10-09T17:39:24Z; commit a17f88ba; 13 py unittests pass; limits inspection-only no loader proof |
+| JB-NOW-13 | mid | Review | opencode-orchestrator-mid-13 | 2026-10-09T17:39:24Z; commit 731829e5; MultiBoardRegionBoundaryTest 6 tests pass :core:jvmTest; limits CPU-only no GPU |
+| JB-NOW-14 | mid | Review | opencode-orchestrator-mid-14 | 2026-10-09T17:39:29Z; commit 2f4522f7; BoardSessionLifecycleCorpusTest 12 tests pass :core:jvmTest; limits core semantics no UI |
+| JB-NOW-15 | mid | Review | opencode-orchestrator-mid-15 | 2026-10-09T17:39:29Z; commit 7dc65770; SpriteGridBoundaryCorpusTest 14 tests pass :core:jvmTest; limits core math no view |
+| JB-NOW-16 | mid | Review | opencode-orchestrator-mid-16 | 2026-10-09T17:39:29Z; commit 927898c7; SpriteSwapPlanCorpusTest 5 tests pass :core:jvmTest; limits plan-only byte-model |
+| JB-NOW-17 | mid | Review | opencode-orchestrator-mid-17 | 2026-10-09T17:39:29Z; commit 0712b071; AnimationBoardOperationCorpusTest 9 tests pass :core:jvmTest; limits plan-only |
+| JB-NOW-18 | mid | Review | opencode-orchestrator-mid-18 | 2026-10-09T17:39:29Z; commit 02451f80; RegionFrameSequenceCorpusTest 2 tests pass :core:jvmTest; limits PAINT-only |
+| JB-NOW-19 | mid | Review | opencode-orchestrator-mid-19 | 2026-10-09T17:48:43Z; commit ca6cf8fb; LayerCloneIdentityCorpusTest 6 tests pass :core:jvmTest; limits doc-clone no payload bytes |
+| JB-NOW-20 | mid | Review | opencode-orchestrator-mid-20 | 2026-10-09T17:48:43Z; commit 55b99e99; DocJsonBoardCorpusTest 9 tests pass :core:jvmTest; limits JSON-only |
+| JB-NOW-21 | mid | Review | opencode-orchestrator-mid-21 | 2026-10-09T17:48:43Z; commit 709eec59; PlaybackSequenceCorpusTest 10 tests pass :core:jvmTest; limits CPU oracle no sound |
+| JB-NOW-22 | mid | Review | opencode-orchestrator-mid-22 | 2026-10-09T17:48:43Z; commit 1b91d42e; FilmStripScrubCorpusTest 9 tests pass :core:jvmTest; limits CPU geometry no touch |
+| JB-NOW-23 | mid | Review | opencode-orchestrator-mid-23 | 2026-10-09T17:48:43Z; commit e9070cae; FillTraceTopologyCorpusTest 9 tests pass :core:jvmTest; limits CPU foundation |
+| JB-NOW-24 | mid | Review | opencode-orchestrator-mid-24 | 2026-10-09T18:03:34Z; commit f95c3cd8; FloodFillBarrierCorpusTest 10 tests pass :core:jvmTest; limits CPU-only |
+| JB-NOW-25 | mid | Review | opencode-orchestrator-mid-25 | 2026-10-09T17:59:55Z; commit 9403ee3e; StrokeEditAttributeCorpusTest 9 tests pass :core:jvmTest; limits CPU-only |
+| JB-NOW-26 | mid | Review | opencode-orchestrator-mid-26 | 2026-10-09T18:03:34Z; commit 28760f58; CelComposerInterleaveCorpusTest 13 tests pass :core:jvmTest; limits CPU-only |
+| JB-NOW-27 | mid | Review | opencode-orchestrator-mid-27 | 2026-10-09T17:59:55Z; commit 43190964; InkTileTranslationCorpusTest 7 tests pass :core:jvmTest; limits CPU-only |
+| JB-NOW-28 | mid | Review | opencode-orchestrator-mid-28 | 2026-10-09T18:03:34Z; commit 1e37c05b; ArchiveBoardCorpusTest 13 tests pass androidkit:test; limits JVM-only |
+| JB-NOW-29 | mid | Review | opencode-orchestrator-mid-29 | 2026-10-09T18:07:53Z; commit f4c1479c; 18 py unittests pass 1 platform skip; limits collection-only no verification claim |
 
 Mid-tier jobs 05/07/08 have independent owned paths and full contracts in [MID_READY_JOBS_20261009.md](specs/MID_READY_JOBS_20261009.md). They may be claimed in parallel, subject to coordinator resource admission; builds remain serialized. They prepare evidence for production fixes and do not themselves complete clipping, memory or latency fixes. More implementation leaves become Ready as the frontier architecture is specified; Blocked does not mean no future mid-tier work exists.
 

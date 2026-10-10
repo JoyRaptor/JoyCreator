@@ -145,16 +145,19 @@ object InkReplay {
     /**
      * What [Scatter] gets to ask about one dab, and it is `JbCanvasView.dabInputsOf` VERBATIM.
      *
-     * A [Dab] carries only [Dab.pressure], so every other input is unknowable from a replay. Tilt,
-     * speed, direction, lean, distance, random, strokeRandom and barrel are all `NaN`, which the
-     * curves read as "not available" and skip — so a scatter curve on tilt contributes its BASE
-     * rather than a number invented here. Inventing real values would make a replayed stroke
-     * scatter differently from the one that was drawn, which is the one thing this file must never
-     * do. It is eight lines of deliberate duplication and `InkReplayTest` pins the answer.
+     * A [Dab] carries [Dab.pressure] and [Dab.tilt] — `DabPlacer` copies the tilt off the recorded
+     * sample, and it is NaN for a finger — so those two are passed exactly as the view passes them.
+     * Every other input is unknowable from a replay: speed, direction, lean, distance, random,
+     * strokeRandom and barrel are all `NaN`, which the curves read as "not available" and skip — so
+     * a scatter curve on speed contributes its BASE rather than a number invented here. Inventing
+     * real values, OR dropping the tilt the view used (this once passed `tilt = Float.NaN`), would
+     * make a replayed stroke scatter differently from the one that was drawn, which is the one thing
+     * this file must never do. It is eight lines of deliberate duplication and `InkReplayTest` pins
+     * the answer.
      */
     private fun dabInputsOf(dab: Dab) = DabInputs(
         pressure = dab.pressure,
-        tilt = Float.NaN,
+        tilt = dab.tilt,
         speedPxPerS = Float.NaN,
         direction = Float.NaN,
         lean = Float.NaN,

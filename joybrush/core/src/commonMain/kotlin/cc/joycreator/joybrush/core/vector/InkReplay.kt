@@ -77,22 +77,40 @@ object InkReplay {
      *
      * @throws InkReplayException if `brush` is null, or its engine cannot draw an ink line.
      */
-    fun dabs(record: StrokeRecord, brush: BrushPreset?): List<Dab> {
+    fun dabs(record: StrokeRecord, brush: BrushPreset?): List<Dab> = replay(record, brush).dabs
+
+    /**
+     * One replay: [dabs], and the two WHOLE-STROKE numbers the same [BrushDabber] fixed at the
+     * first dab — [BrushDabber.strokeHardness] (the tip's hardness for a pre-contact brush, whose
+     * dabs carry no hardness of their own) and [BrushDabber.strokeOpacity] (the commit opacity of a
+     * `buildup` brush). `JbCanvasView.beginStrokeNow` hands the GPU exactly these two, so a CPU
+     * raster that used the file's `base` values instead would draw a pressure-curved brush with the
+     * wrong edge and the wrong strength. They come from THIS dabber, the one that drew the dabs,
+     * rather than a second one asked again, so they cannot disagree with the dabs.
+     *
+     * A fill, or a recording with no surviving samples, never asks the dabber for a dab, so both are
+     * the dabber's own starting values — the bases, which is also what the view would use.
+     */
+    internal class Replayed(val dabs: List<Dab>, val strokeHardness: Float, val strokeOpacity: Float)
+
+    /** [dabs] with its whole-stroke numbers; see [Replayed]. Same refusals, same throw. */
+    internal fun replay(record: StrokeRecord, brush: BrushPreset?): Replayed {
         refusal(record, brush)?.let { throw InkReplayException(it) }
         val preset = brush!!
+        val dabber = BrushDabber(preset, record.seed)
         // A fill is a SHAPE, not a row of dabs: its raster is `InkRaster.fill` over
         // `FillPen.outline(record.samples, record.smoothing, record.screenPerDoc)`. Asking the
         // dabber for dabs here would draw the fill pen as a line of beads, which is the outline of
         // the shape and not the shape.
-        if (preset.engine == ENGINE_FILL) return emptyList()
+        if (preset.engine == ENGINE_FILL) return Replayed(emptyList(), dabber.strokeHardness, dabber.strokeOpacity)
 
-        val placed = placedDabs(record, preset)
+        val placed = placedDabs(record, preset, dabber)
         val scattered = Scatter.expand(
             placed,
             preset.scatter,
             SplitMix(record.seed xor Scatter.SALT),
         ) { dab -> dabInputsOf(dab) }
-        return rescaled(scattered, widthScaleOf(record.widthScale))
+        return Replayed(rescaled(scattered, widthScaleOf(record.widthScale)), dabber.strokeHardness, dabber.strokeOpacity)
     }
 
     /**
@@ -130,7 +148,7 @@ object InkReplay {
      * the rest of the line and says so, rather than drawing nothing or throwing away 999 good
      * samples over one bad float.
      */
-    private fun placedDabs(record: StrokeRecord, preset: BrushPreset): List<Dab> {
+    private fun placedDabs(record: StrokeRecord, preset: BrushPreset, dabber: BrushDabber): List<Dab> {
         val smoother = StrokeSmoother(record.smoothing, record.screenPerDoc)
         val out = ArrayList<PenSample>(record.samples.size)
         // The brush's own pressure and tilt curves come first, as in `JbCanvasView.feedOne`: the record keeps what the pen
@@ -138,7 +156,6 @@ object InkReplay {
         for (s in record.samples) out.addAll(smoother.add(preset.response.apply(s)))
         out.addAll(smoother.finish())
         if (out.isEmpty()) return emptyList()
-        val dabber = BrushDabber(preset, record.seed)
         return DabPlacer(spacing = dabber.spacing, look = dabber::look).add(out)
     }
 

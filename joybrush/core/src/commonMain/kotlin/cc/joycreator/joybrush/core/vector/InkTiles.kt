@@ -21,7 +21,15 @@ object InkTiles {
     data class Result(val pixels: ByteArray?, val refusals: List<Refusal>)
 
     class Prepared internal constructor(internal val marks: List<Mark>, val refusals: List<Refusal>)
-    internal class Mark(val record: StrokeRecord, val brush: BrushPreset, val dabs: List<Dab>, val outline: List<Pt>)
+
+    /**
+     * One line, replayed once. [tip] and [opacity] are the stroke's whole-stroke numbers AS THE LIVE PATH HAD THEM:
+     * `JbCanvasView.beginStrokeNow` gives the GPU the hardness and the build-up opacity `BrushDabber` evaluated at the
+     * first dab, not the file's bases, so these come from the same replay ([InkReplay.Replayed]). A dab that carries
+     * its own hardness (a contact-era brush) still wins over [tip]'s, through `Dab.tipShape`, exactly as on the GPU.
+     */
+    internal class Mark(val record: StrokeRecord, val brush: BrushPreset, val dabs: List<Dab>, val outline: List<Pt>,
+                        val tip: TipShape, val opacity: Float)
 
     /** Replay once for a cel, then rebuild several tiles without repeating smoothing and placement. */
     fun prepare(records: List<StrokeRecord>, brushLookup: (String) -> BrushPreset?): Prepared {
@@ -41,9 +49,11 @@ object InkTiles {
                 continue
             }
             val preset = brush!!
-            marks.add(Mark(record, preset, InkReplay.dabs(record, preset),
+            val replayed = InkReplay.replay(record, preset)
+            marks.add(Mark(record, preset, replayed.dabs,
                 if (preset.engine == ENGINE_FILL) FillPen.outline(record.samples, record.smoothing, record.screenPerDoc)
-                else emptyList()))
+                else emptyList(),
+                tipOf(preset, replayed.strokeHardness), replayed.strokeOpacity))
         }
         return Prepared(marks, refused)
     }
@@ -82,9 +92,8 @@ object InkTiles {
             return mark.outline.isNotEmpty() && mark.outline.maxOf { it.x } >= x && mark.outline.minOf { it.x } <= x + TILE_SIZE &&
                 mark.outline.maxOf { it.y } >= y && mark.outline.minOf { it.y } <= y + TILE_SIZE
         }
-        val tip = tipOf(p)
         return mark.dabs.any { dab ->
-            val extent = TipMath.extent(dab.radius, dab.tipShape(tip).anchor) + 1f
+            val extent = TipMath.extent(dab.radius, dab.tipShape(mark.tip).anchor) + 1f
             dab.x + extent >= x && dab.x - extent <= x + TILE_SIZE &&
                 dab.y + extent >= y && dab.y - extent <= y + TILE_SIZE
         }
@@ -99,9 +108,9 @@ object InkTiles {
         val (x, y) = origin(tx, ty)
         val p = mark.brush
         val bytes = if (p.engine == ENGINE_FILL) InkRaster.fill(mark.outline, mark.record.colorArgb, x, y, TILE_SIZE, TILE_SIZE, 1f)
-        else InkRaster.stamps(mark.dabs, tipOf(p),
+        else InkRaster.stamps(mark.dabs, mark.tip,
             if (p.accumulate == "buildup") Accumulate.BUILD_UP else Accumulate.WASH,
-            p.opacity.base, mark.record.colorArgb, x, y, TILE_SIZE, TILE_SIZE, 1f)
+            mark.opacity, mark.record.colorArgb, x, y, TILE_SIZE, TILE_SIZE, 1f)
         return checkNotNull(bytes) { "A fixed-size ink tile must fit InkRaster's budget" }
     }
 
@@ -133,5 +142,6 @@ object InkTiles {
         return if (out.indices.step(4).any { out[it + 3] != 0.toByte() }) out else null
     }
 
-    private fun tipOf(p: BrushPreset) = TipShape(p.tip.aspect, p.tip.corner, p.tip.taper, p.tip.hardness.base, p.tip.minPx)
+    /** The stroke's tip as `JbCanvasView.beginStrokeNow` builds it: the file's shape, the FIRST DAB's hardness. */
+    private fun tipOf(p: BrushPreset, hardness: Float) = TipShape(p.tip.aspect, p.tip.corner, p.tip.taper, hardness, p.tip.minPx)
 }

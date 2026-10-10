@@ -2,9 +2,12 @@ package cc.joycreator.joybrush.core.vector
 
 import cc.joycreator.joybrush.core.brush.*
 import cc.joycreator.joybrush.core.input.PenSample
+import cc.joycreator.joybrush.core.input.StrokeSmoother
 import cc.joycreator.joybrush.core.paint.Accumulate
+import cc.joycreator.joybrush.core.paint.DabPlacer
 import cc.joycreator.joybrush.core.paint.TipShape
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import kotlin.math.abs
 import kotlin.test.*
 
 class InkTilesTest {
@@ -99,6 +102,38 @@ class InkTilesTest {
             assertNull(result.pixels)
             assertEquals(1, result.refusals.size)
         }
+    }
+    /**
+     * The stroke's two whole-stroke numbers are the ones the live path EVALUATED AT THE FIRST DAB, not the file's
+     * bases: `JbCanvasView.beginStrokeNow` builds its TipShape with `dabber.strokeHardness` and passes
+     * `dabber.strokeOpacity`, and `BrushDabber` fixes both from the first dab's inputs. A pre-contact preset
+     * (version < VERSION_CONTACT) carries no per-dab hardness, so the stroke's hardness is the only one it has.
+     * Non-vacuity: pressure 0.3 on a pressure curve moves both numbers well away from their bases, and the tile
+     * drawn from the bases is a different picture.
+     */
+    @Test fun hardnessAndBuildUpOpacityAreTheFirstDabsAsLive() {
+        val pressured = listOf(InputCurve(BrushInput.pressure, listOf(listOf(0f, 0f), listOf(1f, 1f))))
+        val brush = pen.copy(version = VERSION_CONTACT - 1, accumulate = "buildup",
+            tip = pen.tip.copy(hardness = Param(0.9f, pressured)), opacity = Param(1f, pressured))
+        val record = line().let { r -> r.copy(samples = r.samples.map { it.copy(pressure = 0.3f) }) }
+        val live = liveDabber(record, brush)
+        assertTrue(abs(live.strokeHardness - brush.tip.hardness.base) > 0.3f, "hardness ${live.strokeHardness}")
+        assertTrue(abs(live.strokeOpacity - brush.opacity.base) > 0.3f, "opacity ${live.strokeOpacity}")
+        fun expected(hardness: Float, opacity: Float) = InkRaster.stamps(InkReplay.dabs(record, brush),
+            TipShape(brush.tip.aspect, brush.tip.corner, brush.tip.taper, hardness, brush.tip.minPx),
+            Accumulate.BUILD_UP, opacity, record.colorArgb, 0, 0, 256, 256, 1f)
+        val tile = InkTiles.render(listOf(record), 0, 0) { brush }.pixels
+        assertFalse(expected(brush.tip.hardness.base, brush.opacity.base).contentEquals(
+            expected(live.strokeHardness, live.strokeOpacity)), "NON-VACUITY: the bases draw a different tile")
+        assertContentEquals(expected(live.strokeHardness, live.strokeOpacity), tile, "the first dab's numbers, as live")
+    }
+    /** `JbCanvasView.startStroke` + `feed`: the dabber the live path asks for the stroke's whole-stroke numbers. */
+    private fun liveDabber(record: StrokeRecord, brush: BrushPreset): BrushDabber {
+        val smoother = StrokeSmoother(record.smoothing, record.screenPerDoc)
+        val points = ArrayList<PenSample>()
+        for (s in record.samples) points.addAll(smoother.add(brush.response.apply(s)))
+        points.addAll(smoother.finish())
+        return BrushDabber(brush, record.seed).also { DabPlacer(spacing = it.spacing, look = it::look).add(points) }
     }
     @Test fun tileCoordinatesCannotWrap() {
         assertFailsWith<IllegalArgumentException> { InkTiles.render(emptyList(), Int.MAX_VALUE, 0) { pen } }

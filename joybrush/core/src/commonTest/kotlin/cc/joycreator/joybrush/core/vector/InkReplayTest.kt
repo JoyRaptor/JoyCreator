@@ -186,12 +186,15 @@ class InkReplayTest {
     // ── 5. the scatter's DabInputs is the view's ───────────────────────────────────────────
 
     /**
-     * A replay may only tell [Scatter] what a [Dab] actually carries, and that is `pressure`.
+     * A replay may only tell [Scatter] what a [Dab] actually carries, and that is `pressure` and
+     * `tilt` — exactly what `JbCanvasView.dabInputsOf` tells it.
      *
-     * A [Dab] carries only `pressure`; every other input is unknowable from a recording, so all of
-     * them are NaN and every curve keyed on one reads its BASE. A builder who filled `tilt` — or
+     * Every other input is unknowable from a recording, so all of them are NaN and every curve keyed
+     * on one reads its BASE; and a FINGER's tilt is NaN too, so on these fixtures (no tilt in the
+     * samples) a tilt curve also reads its base. A builder who filled a NaN `tilt` — or
      * `speedPxPerS`, or `direction` — with a plausible number would draw a replayed line that
-     * scatters differently from the original, which is the one thing this file must never do.
+     * scatters differently from the original, which is the one thing this file must never do. The
+     * other direction, a REAL pen tilt thrown away, is test 5b's.
      *
      * Two fixtures, and the SECOND is the one that bites, because the first cannot. `Param.combine`
      * is "multiply", so a curve sits on top of a base: with a base of `0f` the curve is multiplied
@@ -243,6 +246,33 @@ class InkReplayTest {
         val atInventedTilt = scatteredWith(record, loud, 0f)
         assertNotEquals(atInventedTilt, atBase, "NON-VACUITY: the curve is visible, so the two differ")
         assertEquals(atBase, InkReplay.dabs(record, loud), "and the replay is the BASE, not an invented tilt")
+    }
+
+    // ── 5b. a real pen tilt reaches the scatter, as it did live ──────────────────────────────
+
+    /**
+     * The other half of test 5, and the one that was missing: when the pen DID report a tilt, the
+     * view's scatter heard it (`JbCanvasView.dabInputsOf` passes `tilt = dab.tilt`, and [Dab.tilt]
+     * is carried from the sample by `DabPlacer`), so the replay must hear it too.
+     *
+     * The replay once passed `tilt = Float.NaN` here, and so did this file's own `viewInputsOf` —
+     * the two copies agreed with each other and both disagreed with the view, so every parity test
+     * stayed green while a pen-tilted scatter line came back in a different place. That is why this
+     * test does not only compare against `livePathDabs`: it first proves the tilt is VISIBLE (the
+     * run with the tilt thrown away is a different list), so a replay that drops it cannot pass.
+     *
+     * Same `[[0, 0.5], [1, 1]]` curve and base 0.5 as 5(b), so a dropped tilt reads the base and a
+     * heard one reads the curve — document pixels apart, not a last bit.
+     */
+    @Test
+    fun aPensTiltReachesTheScatterAsItDidLive() {
+        val loud = inkBrush(scatter = ScatterSpec(amount = Param(0.5f, listOf(tiltCurve())), count = 4))
+        val record = line(30, 4f, 0f, tilt = 0.9f)
+        val live = livePathDabs(record, loud)
+        assertTrue(live.all { it.tilt == 0.9f }, "the placer carries the pen's tilt onto every dab")
+        val tiltDropped = scatteredWith(record, loud, Float.NaN)
+        assertNotEquals(tiltDropped, live, "NON-VACUITY: the tilt curve is visible, so dropping it shows")
+        assertEquals(live, InkReplay.dabs(record, loud), "the replay hears the pen's tilt, as the view did")
     }
 
     // ── 6. a fill recording draws no dabs ──────────────────────────────────────────────────
@@ -543,6 +573,7 @@ class InkReplayTest {
         id: String = "s1",
         widthScale: Float = 1f,
         pressure: Float = 1f,
+        tilt: Float = Float.NaN,
     ) = StrokeRecord(
         id = id,
         brushId = "joybrush.ink",
@@ -550,7 +581,7 @@ class InkReplayTest {
         smoothing = 0f,
         screenPerDoc = 1f,
         samples = (0 until n).map {
-            PenSample(x = it * step, y = y, timeMs = it * 8.0, pressure = pressure)
+            PenSample(x = it * step, y = y, timeMs = it * 8.0, pressure = pressure, tilt = tilt)
         },
         widthScale = widthScale,
     )
@@ -614,11 +645,13 @@ class InkReplayTest {
         }
 
     /**
-     * `JbCanvasView.dabInputsOf`, transcribed. A [Dab] carries only `pressure`; every other input
-     * is unknowable from a replay and is NaN, which the curves read as "not available" and skip.
+     * `JbCanvasView.dabInputsOf`, transcribed. A [Dab] carries `pressure` and `tilt` (the tilt is NaN
+     * for a finger); every other input is unknowable from a replay and is NaN, which the curves read
+     * as "not available" and skip. It was once `tilt = Float.NaN` here AND in `InkReplay`, which is
+     * why the two agreed with each other and both disagreed with the view.
      */
     private fun viewInputsOf(dab: Dab) = DabInputs(
-        pressure = dab.pressure, tilt = Float.NaN, speedPxPerS = Float.NaN, direction = Float.NaN,
+        pressure = dab.pressure, tilt = dab.tilt, speedPxPerS = Float.NaN, direction = Float.NaN,
         lean = Float.NaN, distancePx = Float.NaN, random = Float.NaN, strokeRandom = Float.NaN,
         barrel = Float.NaN,
     )

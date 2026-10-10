@@ -184,3 +184,31 @@ The H7 fixes:
 | V5 | SVG export |
 | V6 | Phone benches B2/B4 (needs H2–H4 and an install) |
 | V7 | Sable line (phase 2) |
+
+## 8. H1 contract: `gl/StampPass.kt` (specialist → lead, 2026-10-10)
+
+```kotlin
+/** The one instanced-dab draw. The live stroke and line rendering share it (H1). GL thread only, allocation-free per call. */
+class StampPass(programs: GlPrograms, grains: GrainTextures) {
+    /** Everything fixed for one stroke or line: tip, accumulate, grain specs and textures, paper surface/response. */
+    class StrokeLook internal constructor(/* tip: TipShape, grain: GrainMath.StrokeGrain, paper binding, … */)
+    fun lookFor(preset: BrushPreset, first: Dab, paper: DocPaper?): StrokeLook   // what beginStroke computes today
+
+    /** Draws dabs into the bound target with the stroke-buffer blend (ONE, ONE_MINUS_SRC_ALPHA). */
+    fun draw(look: StrokeLook, dabs: List<Dab>, originDocX: Float, originDocY: Float, scale: Float, targetPx: Int)
+    /** Same, from a GPU-resident instance buffer (the line renderer's dab cache). */
+    fun drawInstances(look: StrokeLook, vbo: Int, first: Int, count: Int, originDocX: Float, originDocY: Float, scale: Float, targetPx: Int)
+}
+```
+
+| # | Requirement | Why |
+|---|---|---|
+| S1 | **Tilt amount and lean direction travel per dab** (instance attributes), not per batch. Today `u_tiltAmount`/`u_leanDir` come from the batch's newest dab (`GlPaintEngine.kt:1732-1733`) | Batches follow MotionEvents, which a replay cannot know. A pencil line replayed later would grain differently from how it was drawn. This breaks D4 for every grain brush |
+| S2 | `uniform float u_scale` (target texels per doc px; 1 at level 0). Position = (dab − origin) × scale. Quad half-size = r·scale·1.4143 + 2 **target** px | Sharp levels 1–4 |
+| S3 | Tip maths (`minPx` fade, aspect, taper, anchor) in **doc** units; only the antialias band (`fwidth`) in target px | A thin line must fade the same at 8× as at 1:1, only crisper |
+| S4 | Paper grain sampled at doc position `origin + fragCoord / scale`; tip grain in dab space as now | Grain stays locked to the paper at every level |
+| S5 | Output is a function of (look, dab list, origin, scale) only: any split of a list into calls gives identical pixels | Seam-free tiles, and replay = live |
+| S6 | Instance layout written once in `StampPass` (17 floats today + S1's 3 = 20) and documented, with `fillInstances` moved there | One packer, so the line renderer's cached VBOs can't drift from the live path |
+
+Proof: extend `joybrush/tools/contact_check.js` with (a) one list drawn in one call vs in random splits, byte-equal; and (b)
+scale 2 vs level 0 downsampled, within AA tolerance. I'll write both checks once the extraction lands.

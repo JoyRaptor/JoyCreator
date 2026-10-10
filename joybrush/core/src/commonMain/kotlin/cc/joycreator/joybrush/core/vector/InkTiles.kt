@@ -15,12 +15,32 @@ import cc.joycreator.joybrush.core.render.RegionRenderer
 import cc.joycreator.joybrush.core.shape.Pt
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 
-/** CPU tile rebuild. Records keep list order; duplicate ids do not identify or reorder items. */
+/**
+ * CPU tile rebuild. Records keep list order; duplicate ids do not identify or reorder items.
+ *
+ * WHAT IT DOES NOT DRAW: PAPER GRAIN. On the phone a brush with `paperGrain.enabled` (the shipped pencil) is drawn
+ * through the stamp shader against the document's paper surface. Core has the shader's FORMULAS transcribed
+ * (`GrainMath.heightCoverage`/`grainLevel`/`grainedCoverage`) and a parity-checked paper SAMPLER (`TilePaperSampler`),
+ * but no CPU twin of the whole stamp-with-paper pass, and the paper texture, the document's surface and the per-batch
+ * tilt uniforms never reach this object — so it cannot draw the grain, and it does not invent one. Such a line is drawn
+ * with its tip alone (smooth where the screen showed it grained) and is reported in [Result.omissions]; it is NOT
+ * refused, because a refusal would drop every pencil line from an export. Tip grain, by contrast, is refused (below):
+ * it was refused before paper grain existed and that rule is unchanged.
+ */
 object InkTiles {
     data class Refusal(val index: Int, val strokeId: String, val reason: String)
-    data class Result(val pixels: ByteArray?, val refusals: List<Refusal>)
 
-    class Prepared internal constructor(internal val marks: List<Mark>, val refusals: List<Refusal>)
+    /** A line that WAS drawn, but without [what] — something the live stroke has and the CPU cannot reproduce. */
+    data class Omission(val index: Int, val strokeId: String, val what: String)
+
+    /** [omissions] are drawn lines missing something (today only paper grain); [refusals] are lines not drawn at all. */
+    data class Result(val pixels: ByteArray?, val refusals: List<Refusal>, val omissions: List<Omission> = emptyList())
+
+    class Prepared internal constructor(
+        internal val marks: List<Mark>,
+        val refusals: List<Refusal>,
+        val omissions: List<Omission> = emptyList(),
+    )
 
     /**
      * One line, replayed once. [tip] and [opacity] are the stroke's whole-stroke numbers AS THE LIVE PATH HAD THEM:
@@ -35,6 +55,7 @@ object InkTiles {
     fun prepare(records: List<StrokeRecord>, brushLookup: (String) -> BrushPreset?): Prepared {
         val marks = ArrayList<Mark>()
         val refused = ArrayList<Refusal>()
+        val omitted = ArrayList<Omission>()
         for ((index, record) in records.withIndex()) {
             val brush = brushLookup(record.brushId)
             val why = InkReplay.refusal(record, brush) ?: when {
@@ -49,14 +70,19 @@ object InkTiles {
                 continue
             }
             val preset = brush!!
+            // A fill is a polygon on the live path too, never the stamp shader, so only a line of dabs can owe grain.
+            if (preset.engine != ENGINE_FILL && preset.paperGrain.enabled) omitted.add(Omission(index, record.id, PAPER_GRAIN))
             val replayed = InkReplay.replay(record, preset)
             marks.add(Mark(record, preset, replayed.dabs,
                 if (preset.engine == ENGINE_FILL) FillPen.outline(record.samples, record.smoothing, record.screenPerDoc)
                 else emptyList(),
                 tipOf(preset, replayed.strokeHardness), replayed.strokeOpacity))
         }
-        return Prepared(marks, refused)
+        return Prepared(marks, refused, omitted)
     }
+
+    /** The words for [Omission.what] when a line's paper grain is not drawn. */
+    private const val PAPER_GRAIN = "paper grain (no CPU twin of the stamp shader's paper pass; drawn with its tip alone)"
 
     private fun blendMode(name: String): BlendMode? =
         if (name == "erase") BlendMode.ERASE_BELOW
@@ -70,7 +96,7 @@ object InkTiles {
         origin(tx, ty) // a tile outside document space is refused even when nothing would reach it
         val px = FloatArray(RegionRenderer.TILE_BYTES)
         for (mark in cel.marks) buffer(mark, tx, ty)?.let { applyOp(mark.brush.blend, it, px) }
-        return Result(quantise(px), cel.refusals)
+        return Result(quantise(px), cel.refusals, cel.omissions)
     }
 
     // ── the shared steps (JB-5.20 D8a): the composer draws lines with exactly these, so a baked line is the same pixels ──

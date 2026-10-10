@@ -135,6 +135,26 @@ class InkTilesTest {
         points.addAll(smoother.finish())
         return BrushDabber(brush, record.seed).also { DabPlacer(spacing = it.spacing, look = it::look).add(points) }
     }
+    /**
+     * Paper grain is NOT drawn on the CPU (no CPU twin of the live stamp-with-paper shader exists: GrainMath has the
+     * formulas, but the paper texture, the document surface and the per-batch uniforms never reach core), so a
+     * pencil-like line is drawn WITHOUT it and says so in [InkTiles.Result.omissions] — not refused, because refusing
+     * would drop every pencil line from an export, and not silently, because a smooth line where the screen showed a
+     * grained one is a difference somebody must be able to see. A brush with no paper grain reports nothing.
+     */
+    @Test fun paperGrainIsReportedAsNotDrawnRatherThanSilentlyDropped() {
+        val grained = pen.copy(paperGrain = GrainSpec(enabled = true))
+        val records = listOf(line(id = "plain"), line(id = "pencil", brushId = "grained"))
+        val result = InkTiles.render(records, 0, 0) { if (it == "grained") grained else pen }
+        assertNotNull(result.pixels)
+        assertTrue(result.refusals.isEmpty(), "drawn, not refused: ${result.refusals}")
+        assertEquals(listOf(1 to "pencil"), result.omissions.map { it.index to it.strokeId })
+        assertTrue("paper grain" in result.omissions.single().what, result.omissions.single().what)
+        assertEquals(InkTiles.prepare(records) { if (it == "grained") grained else pen }.omissions, result.omissions)
+        assertTrue(InkTiles.render(listOf(line()), 0, 0) { pen }.omissions.isEmpty(), "no grain, nothing to report")
+        assertTrue(InkTiles.render(listOf(shape()), 0, 0) { fill.copy(paperGrain = GrainSpec(enabled = true)) }
+            .omissions.isEmpty(), "a fill is a polygon live too, so it owes no grain")
+    }
     @Test fun tileCoordinatesCannotWrap() {
         assertFailsWith<IllegalArgumentException> { InkTiles.render(emptyList(), Int.MAX_VALUE, 0) { pen } }
     }

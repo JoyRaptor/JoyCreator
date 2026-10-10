@@ -131,10 +131,10 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     /** The host renders this live crop on its preview worker; the cell never owns a bitmap. */
     fun setPaperPreview(bitmap: Bitmap?) { paper.bitmap = bitmap; paper.invalidate() }
 
-    /** [used] is the drawing's layer slots at their real cost (a media layer counts as several): the n of n/max. */
-    fun show(s: LayerStack, maxLayers: Int, maskEditing: Boolean = false, used: Int = s.size) {
+    /** The column shows [s] against [maxLayers]; the n of n/max is a plain count of layers (R51). */
+    fun show(s: LayerStack, maxLayers: Int, maskEditing: Boolean = false) {
         editingMask = maskEditing
-        this.used = used
+        this.used = s.size
         // Cells are only rebuilt when the LIST changes (a layer added, removed or moved). A change of opacity, blend,
         // visibility or the ringed layer redraws the same cells, so a panel anchored to one never loses its anchor.
         val sameList = stack?.layers?.map { it.id } == s.layers.map { it.id }

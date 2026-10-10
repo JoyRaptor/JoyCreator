@@ -14,6 +14,7 @@ uniform sampler2D u_paperState;  // R crush, G dry flake volume V (mm), B Σ V·
 uniform sampler2D u_w0;          // water: w (mm), s (capillary saturation)
 uniform sampler2D u_w1;          // pigment still in the water: K rgb, S
 uniform sampler2D u_paperBake;   // the layer's paper bake: .b = the normalised height paint fills against
+uniform sampler2D u_ground;      // the app (u_look = 1): the pixels the media lies on, premultiplied RGBA8 (JB-2.40 §Q1)
 uniform vec2 u_targetSize;       // layer size, LAYER px
 uniform vec2 u_layerOrigin;      // layerPx = (docPx - origin) * scale
 uniform float u_layerScale;
@@ -28,7 +29,7 @@ uniform float u_sheen;           // graphite sheen on heavy, burnished deposit
 uniform float u_capMm;
 uniform int u_mode;              // 0 final, 1 paper height, 2 deposit volume, 3 crush
 uniform float u_impasto;         // paint relief shown (1 = physical)
-uniform float u_look;            // 1: render the app layer's look tile (premultiplied, paper removed)
+uniform float u_look;            // 1: render the app layer's look tile (premultiplied, over its ground, paper removed)
 uniform float u_paperHBot;       // the paper's height percentiles: paint fills the NORMALISED relief (see the
 uniform float u_paperHTop;       // bake), so under paint the paper's relief is read on the same scale
 
@@ -59,6 +60,17 @@ void main() {
     if (u_mode == 6) { o_color = vec4(clamp(p0.rgb / 6.0, 0.0, 1.0), 1.0); return; }
     if (u_mode == 7) { o_color = vec4(clamp(p1.r / 2.0, 0.0, 1.0), p1.a, 0.0, 1.0); return; }
     if (u_mode == 5) { o_color = vec4(vec3(1.0 - clamp(dot(wp.rgb, vec3(0.333)) * 0.5, 0.0, 1.0)), 1.0); return; }
+
+    // The app's layer (u_look = 1) lies on its ground: the pixels the layer had where the media first touched it. The
+    // paint is lit over the ground on the paper colour, and a pixel with no media of its own IS the ground, to the bit
+    // (JB-2.40 requirement 3; the app renders with u_relief = 0, so nothing else would shade it). The lab has no ground.
+    vec4 ground = vec4(0.0);
+    vec3 under = u_paperColor;
+    if (u_look > 0.5) {
+        ground = texelFetch(u_ground, ivec2(lp), 0);
+        if (p0 == vec4(0.0) && p1 == vec4(0.0) && wa == vec4(0.0) && wp == vec4(0.0) && dry.g == 0.0) { o_color = ground; return; }
+        under = ground.rgb + u_paperColor * (1.0 - ground.a);
+    }
 
     float T = u_toothMm;
     float k = T * u_pxPerMm;
@@ -106,7 +118,7 @@ void main() {
     }
 
     // Wet paper is darker; pigment still floating reads a little deeper than when it has dried.
-    vec3 Rg = jb_srgbToLinear(u_paperColor) * (1.0 - 0.10 * wa.g - 0.06 * smoothstep(0.0, 0.05, wa.r));
+    vec3 Rg = jb_srgbToLinear(under) * (1.0 - 0.10 * wa.g - 0.06 * smoothstep(0.0, 0.05, wa.r));
     vec3 R = jb_km(p0.rgb + wp.rgb * 1.15, p1.rgb + vec3(wp.a), Rg);
     // Dry media: opaque flakes covering the paper by AREA. A little graphite covers a little paper (light
     // grey, soft grain that builds), a full tooth covers nearly all of it (the stick's own dark). Flakes
@@ -130,16 +142,17 @@ void main() {
     R += vec3(0.12 * wet * pow(max(dot(n, hv), 0.0), 120.0));
     vec3 final_ = jb_linearToSrgb(R * shade);
     // The app's layer stack (u_look = 1, set by MediaLayerEngine; the lab leaves it 0): the paper is drawn by
-    // the app underneath, so hand over only what the media did to it, as premultiplied colour. The alpha is the
-    // least coverage that reproduces this pixel over the plain paper colour (darker or brighter), the colour
-    // follows from it. Exact over a flat paper colour; the app's own paper relief shows through.
+    // the app underneath, so hand over only what the media did to its base (the ground on the paper colour), as the
+    // least coverage that reproduces this pixel over it (darker or brighter), laid over the ground. Exact over a flat
+    // paper colour; the app's own paper relief shows through. core/media/MediaGround.kt is this arithmetic's twin.
     if (u_look > 0.5) {
-        vec3 bg = u_paperColor;
+        vec3 bg = under;
         vec3 dn = (bg - final_) / max(bg, vec3(1.0e-3));
         vec3 up = (final_ - bg) / max(vec3(1.0) - bg, vec3(1.0e-3));
         float a = clamp(max(max(max(dn.r, dn.g), dn.b), max(max(up.r, up.g), up.b)), 0.0, 1.0);
         vec3 c = a > 1.0e-4 ? clamp((final_ - (1.0 - a) * bg) / a, 0.0, 1.0) : vec3(0.0);
-        o_color = vec4(c * a, a);
+        if (a <= 1.0e-4) a = 0.0;
+        o_color = vec4(c * a, a) + ground * (1.0 - a);
         return;
     }
     o_color = vec4(final_, 1.0);

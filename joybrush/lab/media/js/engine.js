@@ -575,7 +575,7 @@ export class MediaEngine {
     const cur = this.state[0];
     this.use(this.progs.render, {
       ...paper.uniforms,
-      u_p0: cur.p0, u_p1: cur.p1, u_paperState: cur.paper, u_paperBake: this.bakeTex || this.emptyTex(),
+      u_p0: cur.p0, u_p1: cur.p1, u_paperState: cur.paper, u_paperBake: this.bakeTex || this.emptyTex(), u_ground: this.emptyTex(),
       u_w0: this.wet ? this.wet[this.wc].w0 : this.emptyTex(), u_w1: this.wet ? this.wet[this.wc].w1 : this.emptyTex(),
       u_targetSize: [this.w, this.h],
       u_pan: view.pan, u_zoom: view.zoom,

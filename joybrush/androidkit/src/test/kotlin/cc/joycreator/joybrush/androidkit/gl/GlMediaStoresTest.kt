@@ -10,7 +10,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * A media layer's float stores in the engine (MEDIA_ENGINE_PLAN M5.3c, step 3a). Handles are made-up numbers planted
+ * A layer's media payload in the engine (MEDIA_ENGINE_PLAN M5.3c, step 3a; R51 and JB-2.40 slice 1). Handles are made-up numbers planted
  * through undo, as GlContextLossTest does: what is pinned is where each name goes, not what a GPU would draw.
  */
 class GlMediaStoresTest {
@@ -105,34 +105,90 @@ class GlMediaStoresTest {
         assertFailsWith<IllegalArgumentException> { e.dropMediaTiles(layer, "p0", listOf(1L)) }
     }
 
-    @Test fun aMediaBrushOnAPaintLayerMakesAMediaLayerAboveItAsOneStep() {
-        // Contract point 5 and the Lead's check 8: the board document exists first, then the layer is MEDIA in it.
-        val e = GlPaintEngine().also { it.initWith { } }
-        var n = 0
-        val doc = cc.joycreator.joybrush.core.doc.DocOps.newDocument("d", "Art", 512, 512) { "id-${++n}" }
-        val paintId = doc.layers.single().id
-        val before = cc.joycreator.joybrush.core.layers.LayerStack.single(paintId, "Paint")
-        e.setStack(before)
-        e.setBoardDocument(doc)
-        val after = before.add("wc", "Watercolour")
-        e.addMediaLayerStep("wc", before, after)
-        val made = e.boardDocument!!.layers.single { it.id == "wc" }
-        assertEquals(cc.joycreator.joybrush.core.doc.LayerKind.MEDIA, made.kind)
-        assertEquals(1, made.cels.size, "one shared cel, no frames")
-        assertEquals(listOf(paintId, "wc"), e.boardDocument!!.layers.map { it.id }, "above the paint layer")
-        assertEquals(1, e.undo.undoDepth)
-        assertTrue(e.undoStep())
-        assertEquals(listOf(paintId), e.boardDocument!!.layers.map { it.id }, "one undo takes it away")
+    // ---- JB-2.40 slice 1 (R51): the payload on an ordinary layer, the funnel, the net ----
+
+    /** Plants a payload (p0 and the ground) on tile [key] beside look [look], as a media stroke's step would. */
+    private fun planted(key: Long = 3, look: Int = 505): GlPaintEngine {
+        val e = engine()
+        e.undo.push(UndoLog.Step(listOf(
+            UndoLog.TileChange(MediaStores.id(layer, "p0"), key, before = null, after = 502),
+            UndoLog.TileChange(MediaStores.id(layer, MediaStores.GROUND), key, before = null, after = 503),
+            UndoLog.TileChange(layer, key, before = null, after = look),
+        )))
+        assertTrue(e.undoStep() && e.redoStep(), "a step that carries look and payload together: they agree")
+        return e
     }
 
-    @Test fun aMediaLayerThatCannotBeMadeLeavesTheStackAndHistoryUnchanged() {
-        // The Lead's 4c fix: a failed creation must change nothing the canvas would then have to undo.
-        val e = GlPaintEngine().also { it.initWith { } }
-        val before = cc.joycreator.joybrush.core.layers.LayerStack.single("paint", "Paint")
-        e.setStack(before)
-        val after = before.add("wc", "Watercolour")
-        assertFailsWith<IllegalStateException> { e.addMediaLayerStep("wc", before, after) }   // no board document
-        assertEquals(listOf("paint"), e.stack(null).layers.map { it.id }, "no phantom layer in the engine")
-        assertEquals(0, e.undo.undoDepth, "and nothing in the history")
+    @Test fun theGroundIsPartOfThePayloadAndCountsAtItsOwnSize() {
+        val e = planted()
+        assertTrue(e.hasPayload(layer, 3))
+        assertEquals(503, e.mediaTile(layer, MediaStores.GROUND, 3))
+        assertEquals((MediaStores.tileBytes(256, "p0") + MediaStores.tileBytes(256, MediaStores.GROUND)).toLong(), e.mediaResidentBytes())
+    }
+
+    @Test fun aPlainWriteOverMediaDropsThatTilesPayloadInTheSameStepAndTellsTheWindow() {
+        val e = planted()
+        val told = ArrayList<Pair<String, Set<Long>>>()
+        e.onLookWritten = { id, keys -> told += id to keys }
+        val write = listOf(UndoLog.TileChange(layer, 3, before = 505, after = 506), UndoLog.TileChange(layer, 4, before = null, after = 507))
+        val settled = e.settlePlainWrites(write)
+        assertEquals(setOf(MediaStores.id(layer, "p0"), MediaStores.id(layer, MediaStores.GROUND)), settled.map { it.layerId }.toSet())
+        assertTrue(settled.all { it.key == 3L && it.after == null }, "the payload goes, ground and all; tile 4 had none")
+        assertFalse(e.hasPayload(layer, 3), "nothing is left to render the old paint over the new pixels")
+        assertEquals(listOf(layer to setOf(3L, 4L)), told, "the window reloads every tile whose pixels changed")
+    }
+
+    @Test fun undoOfThatWriteBringsThePayloadBackAgreeing() {
+        val e = planted()
+        val write = listOf(UndoLog.TileChange(layer, 3, before = 505, after = 506))
+        e.undo.push(UndoLog.Step(write + e.settlePlainWrites(write)))
+        assertTrue(e.undoStep())
+        assertEquals(502, e.mediaTile(layer, "p0", 3))
+        assertEquals(505, e.mediaTile(layer, e.mediaLook, 3))
+        assertEquals(emptySet(), e.dropStalePayload(layer, listOf(3L)), "restored together, so not stale")
+        assertTrue(e.redoStep())
+        assertFalse(e.hasPayload(layer, 3))
+    }
+
+    @Test fun aLookThatChangedBehindTheMediasBackLosesItsPayloadAtTheNextLoad() {
+        // Requirement 5: a write that did not go through the funnel (here a bare look-only step, undone and redone).
+        val e = planted()
+        val warned = ArrayList<String>()
+        e.onMediaWarning = { warned += it }
+        assertEquals(emptySet(), e.dropStalePayload(layer, listOf(3L)), "an agreeing payload stays")
+        e.undo.push(UndoLog.Step(listOf(UndoLog.TileChange(layer, 3, before = 505, after = 506))))
+        assertTrue(e.undoStep() && e.redoStep(), "the look is 506 now, and nothing told the payload")
+        val depth = e.undo.undoDepth
+        assertEquals(setOf(3L), e.dropStalePayload(layer, listOf(3L, 4L)))
+        assertFalse(e.hasPayload(layer, 3), "lossy, never wrong")
+        assertEquals(depth + 1, e.undo.undoDepth, "the drop is a step of its own outside a media stroke")
+        assertEquals(1, warned.size, "and it is said, because only a bypass gets here")
+    }
+
+    @Test fun insideAMediaStrokeAStaleDropAndTheNewPaintAreOneChange() {
+        // The stroke drops a stale payload at a window load, then paints the same tile: undo must put the OLD payload back.
+        val e = planted()
+        e.undo.push(UndoLog.Step(listOf(UndoLog.TileChange(layer, 3, before = 505, after = 506))))
+        assertTrue(e.undoStep() && e.redoStep())
+        e.beginMediaStroke()
+        assertEquals(setOf(3L), e.dropStalePayload(layer, listOf(3L)))
+        e.endMediaStroke()
+        val s = e.undo.newestExtendable()!!
+        assertEquals(setOf(502, 503), s.changes.mapNotNull { it.before }.toSet(), "undo of the stroke restores what was dropped")
+    }
+
+    @Test fun aLayerThatGainsFramesLetsItsPayloadGoUntilSlice3() {
+        val e = planted()
+        var n = 0
+        val doc = cc.joycreator.joybrush.core.doc.DocOps.newDocument("d", "Art", 512, 512) { "id-${++n}" }
+        val framed = doc.copy(layers = listOf(doc.layers.single().copy(id = layer,
+            cels = listOf(cc.joycreator.joybrush.core.doc.Cel("shared"), cc.joycreator.joybrush.core.doc.Cel("frame-1")))))
+        val reloads = ArrayList<String>()
+        e.onMediaRestored = { id, _ -> reloads += id }
+        val dropped = e.dropPayloadsOfFramedLayers(framed)
+        assertEquals(2, dropped.size, "p0 and the ground of tile 3")
+        assertFalse(e.hasMediaState(layer))
+        assertEquals(listOf(layer), reloads, "the window lets go of what it held")
+        assertEquals(emptyList(), e.dropPayloadsOfFramedLayers(doc.copy(layers = listOf(doc.layers.single().copy(id = layer)))))
     }
 }

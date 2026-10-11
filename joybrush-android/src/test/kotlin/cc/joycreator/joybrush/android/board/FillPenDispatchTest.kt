@@ -62,10 +62,10 @@ class FillPenDispatchTest {
     private fun triangle() = listOf(
         PenSample(10f,10f,0.0), PenSample(90f,10f,10.0), PenSample(90f,90f,20.0),
     )
-    private fun document(view: JbCanvasView, kind: LayerKind=LayerKind.PAINT, locked: Boolean=false) {
+    private fun document(view: JbCanvasView, kind: LayerKind=LayerKind.PAINT, locked: Boolean=false, floatTiles: List<String> = emptyList()) {
         val id = view.activeLayerId
         val doc = JbDocument(id="test", name="Test", boards=emptyList(),
-            layers=listOf(Layer(id,"Paint",kind,locked=locked,cels=listOf(Cel("shared")))), activeLayerId=id)
+            layers=listOf(Layer(id,"Paint",kind,locked=locked,cels=listOf(Cel("shared",floatTiles=floatTiles)))), activeLayerId=id)
         set(view,"retainedContents",JbContents(doc,emptyMap(),emptyMap()))
     }
 
@@ -181,24 +181,25 @@ class FillPenDispatchTest {
         assertNull(get(view,"strokePreset"))
     }
 
-    @Test fun fillOnMediaIsRefusedInsteadOfOverwritingItsBakedLook() {
-        val view=surface(); document(view,LayerKind.MEDIA)
-        var reason=""; view.onRefused={reason=it}
+    // R51 (JB-2.40): pencil, watercolour and oil are a payload on an ordinary layer's tiles, and every plain write over
+    // them goes through the engine's bake, so the fill pen and the eraser work there like anywhere else.
+    @Test fun fillOnALayerWithMediaDispatchesTheFillPen() {
+        val view=surface(); document(view, floatTiles=listOf("0_0"))
+        val reasons=ArrayList<String>(); view.onRefused={reasons.add(it)}
         begin(view)
-        assertFalse(view.strokeInProgress); assertTrue(reason.isNotBlank())
-        assertEquals(false,get(view,"mediaErase")); assertNull(get(view,"strokePreset"))
+        assertTrue(view.strokeInProgress); assertTrue(reasons.isEmpty())
+        assertEquals(false,get(view,"mediaErase")); assertNull(get(view,"placer"))
     }
 
-    @Test fun penEraserOnMediaKeepsTheExistingStateErasePathEvenWithFillSelected() {
-        val view=surface(); document(view,LayerKind.MEDIA)
-        val previews=ArrayList<FillPenPreviewState?>(); val reasons=ArrayList<String>()
-        view.onFillPreview={previews.add(it)}; view.onRefused={reasons.add(it)}
-        begin(view,eraser=true)
-        assertTrue(view.strokeInProgress); assertEquals(true,get(view,"mediaErase"))
-        assertNotNull(get(view,"placer"))
-        feed(view,triangle())
-        assertTrue(previews.isEmpty()); assertTrue(reasons.isEmpty())
-        assertTrue((get(view,"fillSamples") as List<*>).isEmpty())
-        assertEquals(true,get(view,"mediaBegun"))
+    @Test fun penEraserOverMediaDispatchesExactlyAsOnALayerWithout() {
+        fun dispatched(floatTiles: List<String>): List<Any?> {
+            val view=surface(); document(view, floatTiles=floatTiles)
+            val reasons=ArrayList<String>(); view.onRefused={reasons.add(it)}
+            begin(view,eraser=true)
+            return listOf(view.strokeInProgress, get(view,"mediaErase"), get(view,"mediaBegun"), get(view,"placer") == null, reasons)
+        }
+        val plain = dispatched(emptyList())
+        assertEquals("no media eraser route in slice 1: media changes nothing here", plain, dispatched(listOf("0_0")))
+        assertEquals(false, plain[1])
     }
 }

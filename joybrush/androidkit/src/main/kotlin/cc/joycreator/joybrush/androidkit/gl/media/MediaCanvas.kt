@@ -203,6 +203,9 @@ class MediaCanvas(
     /** [GlPaintEngine.onMediaRestored]: undo or redo stops the water and reloads (never restarting it). */
     fun restored(layerId: String, keys: Set<Long>) { window?.restored(layerId, keys) }
 
+    /** [GlPaintEngine.onLookWritten]: a plain write changed these tiles' pixels; the window reloads them. */
+    fun lookWritten(layerId: String, keys: Set<Long>) { window?.lookWritten(layerId, keys) }
+
     /** The layer or the screen changed: write back and let the window go. */
     fun releaseWindow() { if (stroke == null) { window?.release(); noteHeld() } }
 

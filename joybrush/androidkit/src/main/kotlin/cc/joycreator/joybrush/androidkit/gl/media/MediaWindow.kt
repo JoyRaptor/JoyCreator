@@ -8,8 +8,12 @@ import cc.joycreator.joybrush.core.paint.Tiles
 
 /**
  * The media window (contract point 8, MEDIA_ENGINE_PLAN M5.3c): one [MediaLayerEngine] of [MediaWindowMath.PX] square,
- * placed over the stroke on ONE media layer, loading that layer's stores from [paint] and writing them back. Never a
+ * placed over the stroke on ONE layer, loading that layer's payload from [paint] and writing it back. Never a
  * whole-canvas allocation. GL thread only.
+ *
+ * The ground (JB-2.40 §Q1): a tile with a payload lies on its `g` store (or on nothing); a tile without one lies on its
+ * own look, copied exactly into the window's ground, and the first flush that gives it a payload keeps that copy as its
+ * `g`. A plain write the engine tells the window about ([lookWritten]) reloads those tiles.
  *
  * - [place] puts the window under the pen (writing back and moving only when it has to).
  * - [follow] moves it when a stroke comes within [MediaWindowMath.MARGIN] of its edge.
@@ -30,6 +34,9 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
 
     /** Water dried while a stroke was open: its tiles go at the first flush after the stroke. */
     private var dryPending = false
+
+    /** Tiles in the window with no payload yet whose ground is a copy of their look: a first flush keeps it as `g`. */
+    private val groundFromLook = HashSet<Long>()
 
     /** When the window last did anything (ms, the caller's clock): it is released after [IDLE_MS] asleep. */
     private var lastActiveMs = 0L
@@ -167,16 +174,20 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         if (dried && paint.mediaStrokeInProgress) dryPending = true
         val drop = dried && !dryPending
         if (drop) stores.removeAll(MediaStores.WATER)
-        if (stores.isNotEmpty()) {
-            val targets = paint.writableMediaTiles(id, keys, stores)
-            for (key in keys) {
-                val (wx, wy) = (Tiles.tx(key) - tx) * tile to (Tiles.ty(key) - ty) * tile
-                for (store in stores) {
-                    val src = media.current(store) ?: continue
-                    media.blit(src, wx, wy, wx + tile, wy + tile, targets.getValue(store).getValue(key), 0, 0, tile, tile)
-                }
+        // A tile getting its first payload over pixels keeps them as its ground, exactly as loaded (requirement 3).
+        val firstTouch = if (stores.isEmpty()) emptyList() else keys.filter { it in groundFromLook }
+        val grounds = if (firstTouch.isEmpty()) emptyMap() else paint.writableMediaTiles(id, firstTouch, listOf(MediaStores.GROUND)).getValue(MediaStores.GROUND)
+        // The look is not copied here: [writeLook] wrote it, sub-tile, at every frame.
+        val targets = if (stores.isEmpty()) emptyMap() else paint.writableMediaTiles(id, keys, stores)
+        for (key in keys) {
+            val (wx, wy) = (Tiles.tx(key) - tx) * tile to (Tiles.ty(key) - ty) * tile
+            for (store in stores) {
+                val src = media.current(store) ?: continue
+                media.blit(src, wx, wy, wx + tile, wy + tile, targets.getValue(store).getValue(key), 0, 0, tile, tile)
             }
+            grounds[key]?.let { media.blit(media.groundTexture(), wx, wy, wx + tile, wy + tile, it, 0, 0, tile, tile) }
         }
+        groundFromLook.removeAll(firstTouch.toSet())
         if (drop) dropWater(id)
     }
 
@@ -189,7 +200,11 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         val rect = pendingRect ?: return
         val keys = MediaWindowMath.keysIn(tx, ty, rect)
         val stores = pendingStores.filter { it !in MediaStores.WATER || media.wetActive }
-        if (keys.isNotEmpty() && stores.isNotEmpty()) paint.writableMediaTiles(id, keys, stores)
+        if (keys.isEmpty() || stores.isEmpty()) return
+        paint.writableMediaTiles(id, keys, stores)
+        // A first payload also makes the tile's ground: count it against the ceiling now, not at the stroke's end.
+        val firstTouch = keys.filter { it in groundFromLook }
+        if (firstTouch.isNotEmpty()) paint.writableMediaTiles(id, firstTouch, listOf(MediaStores.GROUND))
     }
 
     private fun clamp(r: FloatArray, px: Float) = floatArrayOf(maxOf(r[0], 0f), maxOf(r[1], 0f), minOf(r[2], px), minOf(r[3], px))
@@ -214,6 +229,22 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         load(layer, tx, ty, resumeWater = false)
     }
 
+    /**
+     * A plain write changed the look of [keys] of [layer] ([GlPaintEngine.onLookWritten]): reload those tiles, their
+     * payload as the engine now has it (none, after slice 1's drop) and their ground, and let the water elsewhere run on.
+     */
+    fun lookWritten(layer: String, keys: Set<Long>) {
+        if (layer != layerId || media.asleep) return
+        val mine = MediaWindowMath.allKeys(tx, ty).toSet()
+        for (key in keys) {
+            if (key !in mine) continue
+            val (wx, wy) = (Tiles.tx(key) - tx) * tile to (Tiles.ty(key) - ty) * tile
+            media.clearRect(wx, wy, wx + tile, wy + tile)
+            loadKey(layer, key)
+            media.stateRestored(floatArrayOf(wx.toFloat(), wy.toFloat(), (wx + tile).toFloat(), (wy + tile).toFloat()))
+        }
+    }
+
     /** Before a new stroke into sleeping water (after an undo, or a reopened drawing): let it run again. */
     fun wakeWater() {
         val id = layerId ?: return
@@ -223,21 +254,32 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
 
     private fun load(layer: String, nx: Int, ny: Int, resumeWater: Boolean) {
         stats?.let { if (it.recording) it.mediaWindowLoads++ }
+        // Requirement 5: a payload whose look changed behind the media's back goes, rather than render over the new pixels.
+        paint.dropStalePayload(layer, MediaWindowMath.allKeys(nx, ny))
         media.wake()
         layerId = layer; tx = nx; ty = ny
         media.moveTo((nx * tile).toFloat(), (ny * tile).toFloat())
-        val look = media.lookTexture()
-        for (key in MediaWindowMath.allKeys(nx, ny)) {
-            val (wx, wy) = (Tiles.tx(key) - nx) * tile to (Tiles.ty(key) - ny) * tile
-            for (store in MediaStores.ALL) {
-                val src = paint.mediaTile(layer, store, key) ?: continue
-                for (dst in media.loadTargets(store)) media.blit(src, 0, 0, tile, tile, dst, wx, wy, wx + tile, wy + tile)
-            }
-            paint.mediaTile(layer, MEDIA_LOOK, key)?.let { media.blit(it, 0, 0, tile, tile, look, wx, wy, wx + tile, wy + tile) }
-        }
+        groundFromLook.clear()
+        for (key in MediaWindowMath.allKeys(nx, ny)) loadKey(layer, key)
         // Loading is not painting: nothing loaded is written back until a pass changes it.
         media.takeDirty(); media.takeDirtyStores()
         if (resumeWater) waterRect(layer)?.let { media.resumeWater(it) }
+    }
+
+    /** One tile of [layer] into the window: its payload, its look, and its ground (its `g`, or its look when it has no payload). */
+    private fun loadKey(layer: String, key: Long) {
+        val (wx, wy) = (Tiles.tx(key) - tx) * tile to (Tiles.ty(key) - ty) * tile
+        for (store in MediaStores.PAYLOAD) {
+            val src = paint.mediaTile(layer, store, key) ?: continue
+            for (dst in media.loadTargets(store)) media.blit(src, 0, 0, tile, tile, dst, wx, wy, wx + tile, wy + tile)
+        }
+        val look = paint.mediaTile(layer, MEDIA_LOOK, key)
+        look?.let { media.blit(it, 0, 0, tile, tile, media.lookTexture(), wx, wy, wx + tile, wy + tile) }
+        groundFromLook.remove(key)
+        if (look != null && !paint.hasPayload(layer, key)) {
+            media.blit(look, 0, 0, tile, tile, media.groundTexture(), wx, wy, wx + tile, wy + tile)
+            groundFromLook.add(key)
+        }
     }
 
     /** The window-px rectangle of the water tiles [layer] has inside the window, or null when there are none. */

@@ -1125,7 +1125,7 @@ class JoyBrushActivity : Activity() {
         canvas.maxLayers = budget()
         updateLayerPreviewAspect(boardController?.selectedBounds)
         updateAnimationLayerMarkers()
-        column.show(stack, canvas.maxLayers, canvas.editingMask, canvas.slotsUsed)
+        column.show(stack, canvas.maxLayers, canvas.editingMask)
         refreshThumbs()
     }
 

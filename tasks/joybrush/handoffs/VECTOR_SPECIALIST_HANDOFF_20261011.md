@@ -49,8 +49,8 @@ Paste this whole file into a new Opus session. You are the **vector brush specia
      shader byte-identical, unset = 1, split invariance, scale 2; both controls fail as they must); androidkit tests
      374/0.
    - **Still owed before pinging the lead:**
-     - (a) the full `:core:jvmTest` in `C:/Temp/jb-vector-h1`;
-     - (b) then `node tools/shader_check.js`;
+     - (a) DONE at session end: full `:core:jvmTest` in `C:/Temp/jb-vector-h1` passed (BUILD SUCCESSFUL);
+     - (b) `node tools/shader_check.js` (its fixtures now exist in that worktree);
      - (c) `contact_check.js`: same output as main;
      - (d) `:app:assembleDefaultDebug` via `jbgradle_root.sh`;
      - (e) rebase onto main;
@@ -97,6 +97,18 @@ Paste this whole file into a new Opus session. You are the **vector brush specia
      at commit, and a line frame in the record.
    - Samples must be ours (simulation bakes, his photos). Asked and unanswered: will he photograph real dabs and washes?
 3. **V4: the 10 line presets** (design §2) as JSON in `joybrush/brushes/lines/`, plus a picture sheet for him.
+
+## Other sessions waiting on you
+- **UI specialist ("Artist app UI/UX specialist", JB-5.20e Select).** I said YES to their own `StrokePicker.rank()` edit on
+  `ui/select-core`, and confirmed their `core/select/LineTransform` rules: x,y through the map; lean through its linear
+  part; screenPerDoc ÷ √|det|; widthScale × scale only when weights scale.
+- **Gap they found, now yours:** `anim/Tween.kt moved()` keeps `screenPerDoc` while its fit can scale. It should divide
+  by the fit's scale, as LineTransform does.
+- **Your own debt:** the speed input is doc px/s (design §3). Fix it in BrushDabber, a brush/ edit, so ask the lead first.
+- **Both helpers died on the usage limit** (resets 16:50). Their last words:
+  - line lab: "now the JS: parse `--shaders`, and set `u_grainCapacity`";
+  - SVG: waiting on a build.
+  - Resume them with SendMessage (agent ids are in this session only), or finish their checkpointed branches yourself.
 
 ## Settled findings to not re-learn
 - **Tilt lean conventions differ.**

@@ -1,6 +1,11 @@
 # Brief: Joy Brush selection & transform UI specialist (paste into a new session ONLY after the lead says "go")
 
-**Status: GO for phase 1 (lead, 2026-10-11)**: the interaction spec and the owner's design-options page. No code yet. Phase 2 (code) waits until the lead has extracted the input router from `JbCanvasView.kt`. The lead will mark it here.
+**Status: GO for both phases (lead, 2026-10-11).**
+- **Phase 1:** the interaction spec and the owner's design-options page.
+- **Phase 2:** code. It starts after the owner picks a design option. It builds on the canvas plug-in point
+  `joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/tools/CanvasTool.kt`; read its contract. Set
+  `JbCanvasView.tool` to your Select tool, and every contact you accept is yours until the gesture ends. Your tool and
+  overlay views live in new files. The lead adds any other hook you need.
 
 You are the **selection and object-manipulation UI specialist** for Joy Brush (Android, Kotlin). The lead is the
 Claude session **"Joybrush orchestration and completion"**. Reach it with SendMessage, or under a dated heading in

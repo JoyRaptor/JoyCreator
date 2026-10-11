@@ -186,4 +186,32 @@ class LineShaperTest {
         near(0.5f, LineShaper.wireRadius(0.2f, 1f), what = "never thinner than one target pixel")
         assertSame(dabs, LineShaper.wire(dabs, LineStyle(), 4f), "not a wire: untouched")
     }
+
+    // ── review M-minors (Lead, 2026-10-11) ───────────────────────────────────────────────
+
+    @Test
+    fun aDashShorterThanTheGapBetweenDabsIsStillADot() {
+        // Dabs every 12 px, dots every 20 px (on 0.5, off 1.5, diameter 10). Periods 0..12 each hold at least one dab, so
+        // there are 13 dots. The old rule kept a period's first dab only when it fell inside the dash itself, and lost
+        // the period starting at 40 (its first dab, at 48, is 8 px in).
+        val sparse = List(21) { Dab(it * 12f, 0f, 5f) }
+        val runs = LineShaper.dashRuns(sparse, LineStyle(dashOn = 0.5f, dashOff = 1.5f), 10f)
+        assertEquals(13, runs.size)
+        assertTrue(runs.all { it.size == 1 })
+        near(48f, runs[2].single().x)
+    }
+
+    @Test
+    fun aZeroTipIsDrawnAtTwoPercent() {
+        val out = LineShaper.taper(line(100f, 1f), LineStyle(taperIn = 2f, taperTip = 0f), 10f)
+        near(5f * LineShaper.MIN_TIP, out.first().radius, what = "never a radius of exactly 0")
+    }
+
+    @Test
+    fun aPositionThatIsNotANumberLeavesTheLineAlone() {
+        // NaN <= 0 is false, so a length guard written `total <= 0f` let a NaN through to every radius.
+        val broken = line(50f, 1f).toMutableList().also { it[10] = it[10].copy(x = Float.NaN) }
+        assertSame(broken, LineShaper.taper(broken, LineStyle(taperIn = 1f, taperOut = 1f), 10f))
+        assertSame(broken, LineShaper.dashRuns(broken, LineStyle(dashOn = 1f, dashOff = 1f), 10f).single())
+    }
 }

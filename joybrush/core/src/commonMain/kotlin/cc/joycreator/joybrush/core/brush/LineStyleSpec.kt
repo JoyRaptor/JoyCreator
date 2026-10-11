@@ -13,7 +13,7 @@ import kotlinx.serialization.Serializable
  *
  * @property taperIn length over which the start grows to full width; 0 = none.
  * @property taperOut length over which the end shrinks to [taperTip]; 0 = none. Drawn when the stroke ends.
- * @property taperTip width at the very tip, as a fraction of full width (0..1).
+ * @property taperTip width at the very tip, as a fraction of full width (0..1; drawn at no less than 2%).
  * @property taperShape profile exponent: 0.5 round bullet, 1 soft point, 2 needle (0.25..4).
  * @property dashOn one dash, end to end; 0 = solid. A dash of 1 or less is a dot.
  * @property dashOff the gap between dashes.

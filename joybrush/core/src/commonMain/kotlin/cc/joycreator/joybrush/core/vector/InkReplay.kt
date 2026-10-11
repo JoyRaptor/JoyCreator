@@ -106,9 +106,11 @@ object InkReplay {
 
         // The brush's whole-stroke shaping (brush version 9, `line`): taper and dashes measured along the drawn path, so
         // after placement and BEFORE the scatter. A brush with no `line` section gets its placed dabs back unchanged. A
-        // wire's width is a property of the zoom it is drawn at, so it is applied by the renderer, not here.
+        // wire's width is a property of the zoom it is drawn at, so it is applied by the renderer, not here. Lengths are
+        // measured in the line's FINAL width (the brush's size times the record's widthScale), so re-weighting a line
+        // keeps its proportions: a line made twice as heavy tapers over twice the distance (Lead review M3).
         val style = LineStyle.of(preset.line)
-        val diameter = preset.size.base
+        val diameter = preset.size.base * widthScaleOf(record.widthScale)
         val placed = LineShaper.dash(LineShaper.taper(placedDabs(record, preset, dabber), style, diameter), style, diameter)
         val scattered = Scatter.expand(
             placed,

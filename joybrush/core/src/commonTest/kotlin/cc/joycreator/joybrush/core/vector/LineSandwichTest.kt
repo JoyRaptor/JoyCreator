@@ -134,4 +134,19 @@ class LineSandwichTest {
             assertTrue(worst <= 1 && differing <= RegionRenderer.TILE_BYTES / 200, "$op: worst $worst, $differing bytes differ")
         }
     }
+
+    @Test
+    fun overATransparentTileAndWithAGlazeLineDragged() {
+        // No paint at all under the line (below is transparent), and the dragged line is itself a multiply line: the two
+        // cases the review asked for. Above it: a screen line and an erase line.
+        val glaze = dragged.copy(brushId = "multiply")
+        fun items(rec: StrokeRecord) = Items(listOf(Line(4, rec),
+            Line(5, line("c", "screen", 30f, 200f, 220f, 30f, 0xFFC03080.toInt())),
+            Line(6, line("d", "erase", 60f, 10f, 70f, 245f, 0xFF000000.toInt()))), emptyMap())
+        val tile = assertNotNull(LineSandwich.build(CelComposer.draw(items(glaze), lookup), k00, seq = 4))
+        val moved = glaze.copy(samples = glaze.samples.map { it.copy(x = it.x - 12f, y = it.y + 7f) })
+        val reference = CelComposer.look(CelComposer.draw(items(moved), lookup), k00)
+        val (worst, differing) = compare(reference, LineSandwich.look(tile, moved, brushes.getValue("multiply")))
+        assertTrue(worst <= 1 && differing <= RegionRenderer.TILE_BYTES / 200, "worst $worst, $differing bytes differ")
+    }
 }

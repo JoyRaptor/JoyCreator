@@ -80,4 +80,23 @@ class LineBrushReplayTest {
         assertEquals(3, gaps, "three gaps between four dashes")
         assertTrue(dashed.size < InkReplay.dabs(straight, pen).size)
     }
+
+    @Test
+    fun reweightingALineKeepsItsProportions() {
+        // Taper-in of 3 diameters. At widthScale 1 the 10 px pen is full width 30 px along; re-weighted to 2 it is a 20 px
+        // line and must be full width 60 px along, the same shape twice the size. Measured in the brush's own size (the
+        // bug the review found), both would reach full width at 30 px and the heavy line would look stubby.
+        val style = LineStyleSpec(taperIn = 3f)
+        val brush = pen.copy(line = style)
+        fun fullAt(scale: Float): Float {
+            val dabs = InkReplay.dabs(straight.copy(widthScale = scale), brush)
+            val full = dabs.maxOf { it.radius }
+            val s = LineShaper.arcLengths(dabs)
+            return s[dabs.indexOfFirst { it.radius >= full - 1e-4f }]
+        }
+        val light = fullAt(1f)
+        val heavy = fullAt(2f)
+        assertTrue(abs(light - 30f) <= 0.5f, "light line full width at $light")
+        assertTrue(abs(heavy - 60f) <= 0.5f, "heavy line full width at $heavy")
+    }
 }

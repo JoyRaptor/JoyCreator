@@ -36,18 +36,14 @@ class MediaBrushTest {
     @Test fun everyShippedBrushValidatesAndRoundTrips() {
         for (p in all) {
             assertEquals(emptyList(), BrushValidate.validate(p), p.id)
-            // A brush built in code carries the newest version (BrushPreset.version's default), and a file is never
-            // downgraded, so it is written with its own number, which can say media.
-            assertTrue(p.version >= VERSION_MEDIA, p.id)
             val json = BrushJson.encode(p)
-            assertTrue("\"version\": ${p.version}" in json, p.id)
-            assertEquals(p, BrushJson.decodeChecked(json), p.id)
+            assertTrue("\"version\": $VERSION_MEDIA" in json, p.id)
+            assertEquals(p.copy(version = VERSION_MEDIA), BrushJson.decodeChecked(json), p.id)
         }
     }
 
     @Test fun anOlderVersionCannotSayMedia() {
-        val hb = byId("media:dry:HB")
-        val json = BrushJson.encode(hb).replace("\"version\": ${hb.version}", "\"version\": 7")
+        val json = BrushJson.encode(byId("media:dry:HB")).replace("\"version\": 8", "\"version\": 7")
         val thrown = assertFailsWith<BrushException> { BrushJson.decode(json) }
         assertEquals("engine \"media\" needs brush version 8", thrown.message)
     }

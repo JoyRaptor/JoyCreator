@@ -96,7 +96,8 @@ object LineShaper {
         val d = LineStyle.safeLength(diameterPx)
         val s = arcLengths(dabs)
         val total = s.last()
-        if (d <= 0f || total <= 0f) return dabs
+        // `!(total > 0f)` and not `total <= 0f`: a position that is not a number makes the length NaN, and NaN <= 0 is false.
+        if (d <= 0f || !(total > 0f) || !total.isFinite()) return dabs
         var lenIn = LineStyle.safeLength(style.taperIn) * d
         var lenOut = LineStyle.safeLength(style.taperOut) * d
         if (lenIn + lenOut > total) {
@@ -104,7 +105,8 @@ object LineShaper {
             lenIn *= k
             lenOut *= k
         }
-        val tip = if (style.taperTip.isFinite()) style.taperTip.coerceIn(0f, 1f) else 0.1f
+        // A tip of 0 is drawn at 2%: a dab of radius exactly 0 is a degenerate tip some rasters do not guard against.
+        val tip = if (style.taperTip.isFinite()) style.taperTip.coerceIn(MIN_TIP, 1f) else 0.1f
         val shape = if (style.taperShape.isFinite()) style.taperShape.coerceIn(0.25f, 4f) else 1f
         val out = ArrayList<Dab>(dabs.size)
         for (i in dabs.indices) {
@@ -114,6 +116,9 @@ object LineShaper {
         }
         return out
     }
+
+    /** The thinnest a taper draws its tip, as a fraction of full width. */
+    const val MIN_TIP = 0.02f
 
     /** Width fraction at [distance] from a tip, over a taper [length]; 1 past the taper or with no taper. */
     internal fun ramp(distance: Float, length: Float, tip: Float, shape: Float): Float {
@@ -129,8 +134,8 @@ object LineShaper {
      * [dabs] cut into dashes: one list per dash, in stroke order. A solid style returns `listOf(dabs)`.
      *
      * Each dash keeps the dab centres in a window `dashOn − 1` diameters long, so with its round end caps the dash
-     * shows `dashOn` diameters end to end and the gap shows `dashOff`. A dash of one diameter or less keeps exactly one
-     * dab: the first one in its period, which makes a dotted line. The pattern starts at the stroke's first dab, so
+     * shows `dashOn` diameters end to end and the gap shows `dashOff`. The first dab of every period is always kept, so a
+     * dash of one diameter or less, or one shorter than the gap between dabs, is still a dot and never vanishes. The pattern starts at the stroke's first dab, so
      * a re-drawn line dashes in the same places. The runs are kept apart so SVG export can write one sub-path per
      * dash inside the stroke's single `<path>` (R8).
      */
@@ -141,13 +146,17 @@ object LineShaper {
         val period = on + LineStyle.safeLength(style.dashOff) * d
         val window = max(on - d, 0f)
         val s = arcLengths(dabs)
+        if (!s.last().isFinite()) return listOf(dabs)
         val runs = ArrayList<List<Dab>>()
         var run: ArrayList<Dab>? = null
         var runPeriod = -1L
+        var previousPeriod = -1L
         for (i in dabs.indices) {
             val k = floor(s[i] / period).toLong()
             val u = s[i] - k * period
-            val keep = u <= window || (k != runPeriod && u < on)
+            val firstInPeriod = k != previousPeriod
+            previousPeriod = k
+            val keep = u <= window || firstInPeriod
             if (!keep) continue
             if (k != runPeriod) {
                 run = ArrayList()

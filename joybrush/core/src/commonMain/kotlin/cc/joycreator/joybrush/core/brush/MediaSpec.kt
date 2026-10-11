@@ -102,6 +102,9 @@ object MediaPresets {
         id = "media:$medium:$tool",
         name = label,
         engine = ENGINE_MEDIA,
+        // The LOWEST version that can say a media brush, not BrushPreset's default (the newest): a shipped media brush
+        // shared from this build must still open in a version-8 build (Lead review M1, brush version 9).
+        version = VERSION_MEDIA,
         size = Param(spec.referencePx),
         smoothing = 0f,
         author = "Joy Creator",

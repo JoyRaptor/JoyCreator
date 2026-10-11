@@ -29,7 +29,7 @@ const val BRUSH_FORMAT = "joybrush.brush"
 const val BRUSH_VERSION = 9
 
 /** The brush version that introduced the `line` section and the multiply/screen blends (VECTOR_RENDER_DESIGN H6). */
-const val VERSION_LINES = 8 + 1
+const val VERSION_LINES = 8 + 1 // "current + 1": the Lead reconciles the number with JB-2.40's bump at merge
 
 /** Live contact aspect and anchored pencil footprint. */
 const val VERSION_CONTACT = 7

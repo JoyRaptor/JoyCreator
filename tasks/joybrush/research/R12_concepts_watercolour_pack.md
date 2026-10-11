@@ -19,19 +19,24 @@ they show Concepts' own textures. This note is the evidence; [OWNER] marks his w
 | F2 and A1 are harder-edged: "india ink on a wet brush" | F2, A1 | [OWNER] |
 | A "dry brush" needs a directional bristle texture, "a long stroke bent around a vector line" | (wish) | [OWNER] |
 
-## How Concepts most likely does it [INF]
+## How Concepts does it: the owner's model (2026-10-11, correcting my first reading)
 
-From his rotation and scaling tests:
-- **Textures live in STROKE space, not paper space.** u runs along the path by arc length and v runs across it. That is
-  why rotating the stroke rotates them, and why scaling it keeps their size.
-- **Samples are fitted along the path in whole tiles.** That is Illustrator's "pattern brush" fit (start tile, side
-  tiles, end tile), and it is why lengthening a stroke by nudging makes samples slide.
-- **The start and end hooks are their own cap samples.** A1's curl and H2's hook appear only at the ends.
-- **Edge = width profile × edge-alpha textures.** Multiplying two or three textures at different scales hides any repeat.
-- **Body = a wash texture modulating density.** Full saturation shows blooms and backruns, not flat colour.
-- **Tint, then composite each stroke as one unit.** Overlaps darken (glaze).
-- **F2 is a dab chain.** Round textured stamps at wide spacing show as scallops and round ends.
-- **A1 and H2 are ribbons.** They have smooth parallel edges with caps.
+My first reading (a texture "skin" bent along a ribbon, with decorative end caps) was WRONG. The owner, with the brush
+picker as evidence (the Waterful pack shows each brush's dab swatches: Watercolor A1, B1–B4, C1, D1, E1, E2, F1, F2, G1):
+- **Dabs, not a ribbon.** Each brush is a series of semi-round textured dab samples, rotated (random per dab), "multiplying
+  over" each other so the inside goes dark and the edge is an uneven, undetectable pattern. A1's hook is "a jostle in the
+  brush line", not a decorative sample. [OWNER]
+- **Several dab shapes, chosen by pressure and angle.** From hard-edged to soft and bleeding: light and upright draws a
+  small narrow dab "as if it's the tip of the brush"; hard and steep gives "big watery brushes with lots of runny
+  textures". [OWNER]
+- **Darker-colour combine.** Probably not multiply inside a stroke: "a darker colour style blend mode where it just
+  defaults to the darker colour", so overlapping dabs never pile up to black. [OWNER]
+- **The wash texture is the stroke's alpha.** "That whole thing goes through and has an alpha over the entire thing, which
+  is the wash texture … so the darkest it has is the alpha instead of a full saturation." [OWNER] It turns with the stroke
+  because it lives in the stroke's own frame (his rotation test). [INF]
+- **Each stroke then composites as its own layer** over the others, with that alpha. [OWNER]
+
+The owner is not against ribbon/skin brushes as a separate kind; they are not how these brushes work.
 
 ## Patent check (R8) [INF]
 
@@ -42,28 +47,20 @@ From his rotation and scaling tests:
 - Prior art: skeletal strokes (Hsu & Lee 1994), Illustrator art and pattern brushes, texture-mapped brush ribbons in
   NPR literature.
 
-## What Joy Brush builds from this: "skin" line brushes (VECTOR_RENDER_DESIGN §9)
+## What Joy Brush builds from this: sampled watercolour line brushes (VECTOR_RENDER_DESIGN §9)
 
-1. **A ribbon renderer.** The stroke's variable-width outline (the same envelope SVG export computes) is triangulated
-   into a strip with stroke-space UVs. Samples are fitted in whole tiles by arc length; start and end caps come from
-   their own samples.
-2. **Edge.** The width profile is multiplied by 2–3 edge-alpha samples at prime-ratio scales. A per-stroke seed picks
-   the variant and phase, so no repeat shows.
-3. **Body.** A wash sample modulates density. Paper grain stays in paper space for granulation. The result is tinted to
-   the line colour.
-4. **Composite.** Each line composites as one unit with its own operator (D8a): multiply for watercolour, normal for
-   ink.
-5. **Pressure windows the sample set.** Light pressure uses contained samples; firm pressure uses bleeding and wicking
-   ones, which is the owner's third guess. Width follows pressure across the full hairline-to-wash range.
-6. **Dry brush.** A directional bristle-streak sample runs along u, so streaks follow the stroke.
-7. **Where the samples come from: our own media engine.**
-   - Bake them offline from Joy Brush's watercolour simulation (wet edges, blooms, wicking) at high resolution.
-   - Add the owner's own scanned or photographed washes, as the photo paper engine already does for papers.
-   - We never ship Concepts' textures.
-8. **Deep zoom.** Samples are images, so they soften past their resolution. That is Concepts' known weakness ("may
-   pixelate"). We bake at 4× and add procedural fine detail at sharp levels.
+Every piece is the stamp engine, extended, so these replay exactly and stay editable lines:
+1. **A dab sample set** per brush: several image tips (an array texture), each dab picking one by seed, pressure and
+   tilt, and rotated by the existing angle jitter.
+2. **A "max" combine** in the stroke buffer (the darker dab wins), beside today's wash and build-up.
+3. **A wash texture as the stroke's capacity**: the committed stroke is the dab density times the wash alpha, sampled in
+   the line's own frame (stored with the line, turned and moved with it). The pencil's tooth-capacity mode is the same
+   idea with the paper as the capacity.
+4. **Composite per line** with its operator (D8a): multiply for a glaze, normal for ink.
+5. **Samples are ours**: baked from Joy Brush's watercolour simulation (single dabs dropped on wet and dry paper at
+   several water loads) and from the owner's photographed washes. Never Concepts' images.
+6. Ribbon "skin" brushes (a texture bent along the path, e.g. a dry-brush streak) stay a possible later kind.
 
 Open questions for the owner:
-- (a) Which four brushes to match first?
-- (b) Should A1's hooks become a choosable "end shape"?
-- (c) Can he photograph a few real wet-into-wet strokes for the sample library?
+- (a) Which four brushes to match first (he named H2, H3, F1, A1)?
+- (b) Can he photograph a few real single dabs and wet-into-wet strokes for the sample library?

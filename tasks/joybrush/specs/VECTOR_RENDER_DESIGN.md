@@ -213,24 +213,17 @@ class StampPass(programs: GlPrograms, grains: GrainTextures) {
 Proof: extend `joybrush/tools/contact_check.js` with (a) one list drawn in one call vs in random splits, byte-equal; and (b)
 scale 2 vs level 0 downsampled, within AA tolerance. I'll write both checks once the extraction lands.
 
-## 9. Skin line brushes: watercolour, ink-on-wet, dry brush (added 2026-10-11 from the owner's research, R12)
+## 9. Sampled watercolour line brushes (added 2026-10-11 from the owner's research, R12; corrected the same day)
 
-A second line technique beside the dab chain, for brushes whose look is a texture bent along the stroke:
-- **Geometry.** The stroke's variable-width outline (§4's envelope), triangulated into a strip with stroke-space UVs
-  (u = arc length fitted to whole sample tiles, v = −1..1 across).
-- **Drawing.** A fragment shader in `shaders/lines/`. Its inputs:
-  - the edge from |v| × 2–3 multiplied edge-alpha samples;
-  - the body from a wash sample;
-  - paper grain in paper space;
-  - start and end cap samples;
-  - pressure choosing between contained and bleeding sample sets;
-  - the line's operator (multiply for watercolour).
-- **Replay and pyramid.** Deterministic in (record, seed, frozen brush with its samples), so it replays and fits the
-  look pyramid (§1) like any line. A sharp level re-renders the strip at scale. A nudge re-fits the tiles, so samples
-  slide as in Concepts.
-- **Samples are ours.** They are baked from our watercolour simulation and the owner's own photographed washes, never
-  Concepts' (R12).
-- **Brush set.** The line watercolour (§2 #8) becomes a skin brush. Add an ink-on-wet (A1/F2 feel) and a dry brush with
-  streaks along u.
-- **Order.** After the stamp line set and the pencil. Needs H1 for the shared paper uniforms; the ribbon itself is all in
-  `gl/lines/`.
+Concepts' watercolours are dab samples, not ribbons (owner, R12). So a watercolour line is a stamp line with four
+additions, all deterministic in (record, seed, frozen brush with its samples):
+- **Sample set**: several image dab tips in one array texture; each dab picks one by seed, pressure and tilt (small hard
+  tips when light and upright, big bleeding ones when pressed and laid over), rotated by angle jitter.
+- **Max combine**: the stroke buffer keeps the darker of dab and buffer (blend equation MAX), so a stroke never builds to
+  black inside.
+- **Wash capacity**: at commit the stroke density is multiplied by the brush's wash texture, sampled in the line's own
+  frame (an origin and rotation stored with the line, moved by edits), so full density shows the wash, not flat colour.
+- **Per-line operator** (D8a): multiply glaze or normal.
+Engine hooks: an accumulate word "max", an image-tip array, the wash sampler in the commit pass, and a line frame in the
+record. They go to the Lead as a design note before any build. Samples are ours (simulation bakes and the owner's
+photographs). Ribbon "skin" brushes remain a possible later kind for dry-brush streaks.

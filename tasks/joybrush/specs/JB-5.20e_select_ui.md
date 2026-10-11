@@ -393,8 +393,66 @@ is complete. The two smudges and flood-fill wiring in 5.20e's row are the Lead's
 | H4 | `var strokeClip: ((docX: Float, docY: Float) -> Int)?` (coverage 0..255; 0 drops the sample) | `JbCanvasView.feed`, before `feedOne` | D12: a brush paints inside a pixel selection only (JB-2.05 D4) |
 | H5 | Engine: `liftLines(celId, ids): LiftedLines` with `setMatrix(FloatArray)`, `land(newRecords): UndoLog.Step`, `drop()`; `dimRest(alpha)`; pixel equivalents per JB-2.05 | `GlPaintEngine` | D17, D18 |
 | H6 | `:studiokit` flags, defaults unchanged for the Studio: `setPinchAnywhere(boolean)`, `setPillsVisible(boolean)` (Done, Bend) | `TransformOverlayView.java:2049`, `:781`, `:818` | D10, D11 |
-| H7 | The strip gets `ToolSlot.SELECT` and `JbIcon.SELECT`; tapping it sets `canvas.tool = selectTool`; tapping it again opens D2's popover | `ToolMemory.kt:13`, `JbIcon.kt:17–27`, `JoyBrushActivity.kt:654–657, 728–750` | D1.1 |
+| H7 | `JbIcon.SELECT` and a Select button on the strip (`ToolStripView.showSelect`, `Host.selectTapped` with an empty default so the activity still compiles), hidden until the tool exists. **Not** a `ToolSlot`: a slot is a remembered brush (brush id, size, opacity, saved by name, `ToolMemory.kt:13–28`), and Select holds no brush. The activity wires `selectTapped` to `canvas.tool = selectTool` (first tap) or D2's popover (second tap) | `JbIcon.kt`, `ToolStripView.kt`; activity wiring `JoyBrushActivity.kt:654–657` | D1.1 |
 | H8 | `CanvasTool.kt:21` says `ACTION_POINTER_DOWN` is offered to `down`; `toolTouch` offers only `ACTION_DOWN` at pointer 0 (`JbCanvasView.kt:828`). Fix the doc or the code | | Contract and code disagree; D11 works either way once the first finger is owned |
+
+### H4 and H5, the exact contract (the Lead builds to this)
+
+```kotlin
+// ── H4, JbCanvasView ───────────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * JB-5.20e D12 / JB-2.05 D4. While set, a brush or eraser stroke whose pen-DOWN lands where [paintClip] covers (> 0)
+ * paints only inside it: the engine multiplies the stroke by the mask's coverage at commit, so a soft lasso edge is a
+ * soft clip. A stroke that starts outside paints normally. A LINE-making stroke keeps only the samples with coverage > 0
+ * (a record cannot be masked; its dabs may spill a radius past the edge, accepted). Document space, the active layer's
+ * cel. Main thread; read at pen-down, so changing it mid-stroke affects the next stroke. null = no clip.
+ */
+var paintClip: cc.joycreator.joybrush.core.select.SelectionMask?
+
+// ── H5, GlPaintEngine (GL thread; the tool reaches it through JbCanvasView's queue as every edit does) ────────────────
+/**
+ * Lifts the lines [ids] of [celId] out of the cel's look into a texture of their own and re-renders the look without
+ * them (JB-5.20 D9 budget: under 100 ms for one line under 1,000). Returns null, and lifts nothing, if any id is missing
+ * or a line cannot be replayed; the Select tool then shows the box with no live preview and commits on release only.
+ * Only one lift at a time: a second call drops the first.
+ */
+fun liftLines(celId: String, ids: Set<String>): LiftedLines?
+
+interface LiftedLines {
+    /** Draw the lifted texture through [h] (document → document) until the next call. Cheap: one textured quad. */
+    fun setTransform(h: cc.joycreator.joybrush.core.select.Homography)
+    /**
+     * Replaces the lifted lines' records with [after] (same ids, same seqs) as ONE undo step pushed onto the engine's
+     * UndoLog (a `LineChange` per line), re-renders the lifted texture from [after] at identity, and stays lifted.
+     * Returns false and pushes nothing when [after] equals what is there. Undo and redo while lifted re-render the
+     * texture from whatever records the step restored.
+     */
+    fun commit(after: List<cc.joycreator.joybrush.core.stroke.StrokeRecord>): Boolean
+    /** The selection ended: the lines go back into the cel's look (their tiles re-render), no undo step. */
+    fun release()
+}
+
+/**
+ * Highlight (D17): everything drawn except the lifted lines is faded toward [paperArgb] by [alpha] (0 = off; the
+ * Select tool uses 0.66 for "Fade the rest", 0.42 for "Both, lighter"). Display only, never in export or the look.
+ */
+fun dimRest(alpha: Float, paperArgb: Int)
+
+/** Pixels, the same shape: [mask] lifted off [layerId]'s [celId] (kept in place when [keepSource], for Duplicate). */
+fun liftPixels(layerId: String, celId: String, mask: SelectionMask, keepSource: Boolean): LiftedPixels?
+
+interface LiftedPixels {
+    fun setTransform(h: Homography)
+    /** Warps the lifted pixels through the current transform back into the same layer (R38): ONE undo step; stays
+     *  lifted at identity in the new place. False when the transform is the identity and nothing else changed. */
+    fun commit(): Boolean
+    /** Popup Delete: the lifted pixels become empty, ONE undo step, then [release]. */
+    fun clear(): Boolean
+    /** Popup Fill: the selection's area, weighted by its coverage, becomes [argb] over what is there, ONE undo step. */
+    fun fill(argb: Int): Boolean
+    fun release()
+}
+```
 
 ## Build slices (phase 2, after §K is locked)
 

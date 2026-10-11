@@ -62,11 +62,11 @@ data class JbContents(
     /** (layerId, celId) to the stroke records of that INK cel. */
     val strokes: Map<Pair<String, String>, List<StrokeRecord>>,
     val thumbnailPng: ByteArray? = null,
-    /** A media layer's state (DocModel v8): one store tile of exactly `MediaStores.tileBytes(TILE_SIZE)` bytes each. */
+    /** Media payloads (DocModel v8, v9): one store tile of exactly `MediaStores.tileBytes(TILE_SIZE, store)` bytes each. */
     val mediaTiles: Map<MediaTileKey, ByteArray> = emptyMap(),
 )
 
-/** One media store tile in an archive: `layers/<layerId>/<celId>/<key>.<store>.f16`. */
+/** One media payload tile in an archive: `layers/<layerId>/<celId>/<key>.<store>.f16`, or `<key>.g.rgba` for the ground. */
 data class MediaTileKey(val layerId: String, val celId: String, val key: String, val store: String)
 
 /**
@@ -78,7 +78,8 @@ data class MediaTileKey(val layerId: String, val celId: String, val key: String,
  * | `document.json` | `DocJson.encode(doc)` | deflate |
  * | `layers/<layerId>/<celId>/<tx>_<ty>.rgba` | one PAINT tile, [TILE_BYTES] bytes | deflate |
  * | `layers/<layerId>/<celId>/strokes.jbs` | `StrokeCodec.encodeAll` of an INK cel | deflate |
- * | `layers/<layerId>/<celId>/<tx>_<ty>.<store>.f16` | one MEDIA store tile, little-endian half floats (v8) | deflate |
+ * | `layers/<layerId>/<celId>/<tx>_<ty>.<store>.f16` | one media float store tile, little-endian half floats (v8) | deflate |
+ * | `layers/<layerId>/<celId>/<tx>_<ty>.g.rgba` | one media ground tile, [TILE_BYTES] bytes like a paint tile (v9) | deflate |
  * | `thumbnail.png` | written by JB-0.08b | stored |
  *
  * Plain JVM only: `java.util.zip` and `java.io`, no Android, so it is testable without a phone.
@@ -134,6 +135,8 @@ object JbArchive {
     private val CEL_ORDER = compareBy<Pair<String, String>>({ it.first }, { it.second })
     private val MEDIA_ORDER = compareBy<MediaTileKey>({ it.layerId }, { it.celId }, { it.key }, { it.store })
     private val MEDIA_TILE_BYTES = MediaStores.tileBytes(TILE_SIZE)
+    /** A ground tile's name ends `.g.rgba`: checked before the paint tile's `.rgba`, which it also ends with. */
+    private val GROUND_SUFFIX = ".${MediaStores.GROUND}${MediaStores.GROUND_EXT}"
 
     /**
      * Writes the whole archive to [file] without ever leaving a half-written drawing behind.
@@ -398,6 +401,19 @@ object JbArchive {
                         media[key] = bytes
                     }
 
+                    name.startsWith("$LAYERS_DIR/") && name.endsWith(GROUND_SUFFIX) -> {
+                        val parts = name.split('/')
+                        val stem = parts.getOrNull(3)?.dropLast(GROUND_SUFFIX.length)
+                        if (parts.size != 4 || stem == null || !isTileKey(stem)) {
+                            throw JbArchiveException("entry \"$name\" is a media ground path, but not layers/<layer>/<cel>/<tx>_<ty>$GROUND_SUFFIX")
+                        }
+                        val bytes = readBounded(zis, entry, TILE_BYTES + 1, budget)
+                        if (bytes.size != TILE_BYTES) {
+                            throw JbArchiveException("media ground tile \"$name\" is ${bytes.size} bytes, a ground tile is $TILE_BYTES")
+                        }
+                        media[MediaTileKey(parts[1], parts[2], stem, MediaStores.GROUND)] = bytes
+                    }
+
                     name.startsWith("$LAYERS_DIR/") && name.endsWith(TILE_EXT) -> {
                         val parts = name.split('/')
                         if (parts.size != 4) {
@@ -505,7 +521,7 @@ object JbArchive {
         }
 
         val mediaDeclared = declaredMediaTiles(doc)
-        for (key in media.keys) checkMediaTile(key, MEDIA_TILE_BYTES, mediaDeclared)
+        for ((key, bytes) in media) checkMediaTile(key, bytes.size, mediaDeclared)
         val present = media.keys.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
         for ((cel, keys) in mediaDeclared) for (key in keys) {
             if (Triple(cel.first, cel.second, key) !in present) {
@@ -596,15 +612,17 @@ object JbArchive {
         if (key.key !in keys) {
             throw JbArchiveException("media tile \"${key.key}\" (${key.store}) is in layer \"${key.layerId}\" cel \"${key.celId}\", which does not list it")
         }
-        if (key.store !in MediaStores.ALL) throw JbArchiveException("media store \"${key.store}\" of tile \"${key.key}\" is not one of ${MediaStores.ALL.joinToString(", ")}")
+        if (key.store !in MediaStores.PAYLOAD) throw JbArchiveException("media store \"${key.store}\" of tile \"${key.key}\" is not one of ${MediaStores.PAYLOAD.joinToString(", ")}")
         if (!isTileKey(key.key)) throw JbArchiveException("media tile key \"${key.key}\" of cel \"${key.celId}\" is not \"tx_ty\"")
-        if (size != MEDIA_TILE_BYTES) {
-            throw JbArchiveException("media tile \"${key.key}\" (${key.store}) of layer \"${key.layerId}\" is $size bytes, a media tile is $MEDIA_TILE_BYTES")
+        val want = MediaStores.tileBytes(TILE_SIZE, key.store)
+        if (size != want) {
+            throw JbArchiveException("media tile \"${key.key}\" (${key.store}) of layer \"${key.layerId}\" is $size bytes, a ${key.store} tile is $want")
         }
     }
 
     private fun mediaPath(key: MediaTileKey): String =
-        safeName("$LAYERS_DIR/${key.layerId}/${key.celId}/${key.key}.${key.store}${MediaStores.EXT}")
+        if (key.store == MediaStores.GROUND) safeName("$LAYERS_DIR/${key.layerId}/${key.celId}/${key.key}$GROUND_SUFFIX")
+        else safeName("$LAYERS_DIR/${key.layerId}/${key.celId}/${key.key}.${key.store}${MediaStores.EXT}")
 
     private fun tilePath(key: Triple<String, String, String>): String =
         safeName("$LAYERS_DIR/${key.first}/${key.second}/${key.third}$TILE_EXT")

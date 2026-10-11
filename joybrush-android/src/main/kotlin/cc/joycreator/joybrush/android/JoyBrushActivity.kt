@@ -411,6 +411,7 @@ class JoyBrushActivity : Activity() {
             override fun preview(frames: Map<String, String>) = canvas.previewBoardFrames(frames)
             override fun tile(boardId: String?,ready: (String?) -> Unit) = canvas.setTileBoard(boardId,ready)
             override fun onion(boardId: String?) = canvas.setOnionBoard(boardId)
+            override fun tilePreviewRect(boardId: String, rect: cc.joycreator.joybrush.core.doc.RectPx?) = canvas.setTilePreviewRect(boardId, rect)
             override fun transform() = canvas.view
             override fun contentRevision() = canvas.boardContentRevision
             override fun sampleScreen(points: FloatArray,ready: (IntArray) -> Unit) = canvas.sampleScreen(points,ready)
@@ -1125,7 +1126,7 @@ class JoyBrushActivity : Activity() {
         canvas.maxLayers = budget()
         updateLayerPreviewAspect(boardController?.selectedBounds)
         updateAnimationLayerMarkers()
-        column.show(stack, canvas.maxLayers, canvas.editingMask, canvas.slotsUsed)
+        column.show(stack, canvas.maxLayers, canvas.editingMask)
         refreshThumbs()
     }
 

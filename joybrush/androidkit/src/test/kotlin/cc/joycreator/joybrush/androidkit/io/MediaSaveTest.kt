@@ -6,16 +6,16 @@ import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.paint.Tiles
 import kotlin.test.*
 
-/** Step 4a: a media layer is saved, merged and reopened whole, never refused, hidden or dropped (the Lead's gate list). */
+/** Step 4a and R51: a layer's media payload is saved, merged and reopened whole, never refused, hidden or dropped. */
 class MediaSaveTest {
     private var serial = 0
     private fun ids() = "id-${++serial}"
 
-    /** One canvas with a paint layer and a media layer, as the canvas keeps it (one shared cel per layer). */
+    /** One canvas with two ordinary layers, the second carrying media, as the canvas keeps it (one shared cel per layer). */
     private fun drawing(): JbDocument {
         val base = DocOps.newDocument("doc", "Art", 512, 512, ::ids)
         val paint = base.layers.single()
-        val media = paint.copy(id = "wc", name = "Watercolour", kind = LayerKind.MEDIA, cels = listOf(Cel("wc-cel")))
+        val media = paint.copy(id = "wc", name = "Layer 2", cels = listOf(Cel("wc-cel")))
         return base.copy(layers = listOf(paint, media))
     }
 
@@ -25,14 +25,20 @@ class MediaSaveTest {
     private fun capture(doc: JbDocument) = BoardSnapshot.capture(doc,
         keys = { layer, _ -> if (layer == "wc") listOf(Tiles.key(0, 0)) else emptyList() },
         read = { _, _, _ -> look },
-        mediaKeys = { layer -> if (layer == "wc") mapOf("p0" to listOf(Tiles.key(0, 0), Tiles.key(1, 0)), "w0" to listOf(Tiles.key(0, 0))) else emptyMap() },
-        mediaRead = { _, _, key -> if (key == Tiles.key(1, 0)) ByteArray(MediaStores.tileBytes(TILE_SIZE)) else state })
+        mediaKeys = { layer, _ -> if (layer == "wc") mapOf("p0" to listOf(Tiles.key(0, 0), Tiles.key(1, 0)), "w0" to listOf(Tiles.key(0, 0)),
+            MediaStores.GROUND to listOf(Tiles.key(0, 0))) else emptyMap() },
+        mediaRead = { _, _, store, key -> when {
+            store == MediaStores.GROUND -> look
+            key == Tiles.key(1, 0) -> ByteArray(MediaStores.tileBytes(TILE_SIZE))
+            else -> state
+        } })
 
     @Test fun aMediaLayerIsCapturedWithItsStateAndBlankStateIsLeftOut() {
         val snap = capture(drawing())
         val cel = snap.doc.layers.single { it.id == "wc" }.cels.single()
         assertEquals(listOf("0_0"), cel.floatTiles, "the all-zero tile holds nothing")
-        assertEquals(setOf("p0", "w0"), snap.mediaTiles.keys.map { it.store }.toSet())
+        assertEquals(setOf("p0", "w0", MediaStores.GROUND), snap.mediaTiles.keys.map { it.store }.toSet())
+        assertEquals(LayerKind.PAINT, snap.doc.layers.single { it.id == "wc" }.kind, "an ordinary layer")
         assertEquals(listOf("0_0"), cel.tiles, "its look is an ordinary tile")
     }
 
@@ -40,8 +46,16 @@ class MediaSaveTest {
         val snap = capture(drawing())
         val out = java.io.ByteArrayOutputStream(); JbArchive.write(out, snap)
         val back = JbArchive.read(java.io.ByteArrayInputStream(out.toByteArray()))
-        assertEquals(LayerKind.MEDIA, back.doc.layers.single { it.id == "wc" }.kind)
+        assertEquals(LayerKind.PAINT, back.doc.layers.single { it.id == "wc" }.kind)
         assertContentEquals(state, back.mediaTiles.getValue(MediaTileKey("wc", "wc-cel", "0_0", "w0")))
+        assertContentEquals(look, back.mediaTiles.getValue(MediaTileKey("wc", "wc-cel", "0_0", MediaStores.GROUND)))
+    }
+
+    @Test fun aLayerWithoutMediaSavesAsItAlwaysDid() {
+        val snap = capture(drawing())
+        val paint = snap.doc.layers.first()
+        assertTrue(paint.cels.all { it.floatTiles.isEmpty() })
+        assertTrue(snap.mediaTiles.keys.none { it.layerId == paint.id })
     }
 
     @Test fun theMergeKeepsTheStateUnderTheSavedCelIds() {

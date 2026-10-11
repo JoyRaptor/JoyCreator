@@ -46,6 +46,18 @@ class RunningWaterUndoTest {
         assertEquals(listOf(4L), assertNotNull(log.undo()).changes.map { it.key })
     }
 
+    @Test fun aPlainStrokeThatSettledAPayloadIsNeverJoinedByADrip() {
+        log.push(UndoLog.Step(listOf(tile("p0", 1, null, 10), tile("w0", 1, null, 11))))   // a wash, still running
+        // An ink line over tile 1 (JB-2.40 slice 1): its own pixels change, and the tile's payload is dropped with it.
+        log.push(UndoLog.Step(listOf(UndoLog.TileChange("wc", 1, 50, 51), UndoLog.TileChange(MediaStores.id("wc", "p0"), 1, 10, null))))
+        assertFalse(MediaStores.isMediaStep(assertNotNull(log.newestExtendable())), "dropping a payload is not writing one")
+        MediaStores.recordWater(log, listOf(tile("w0", 2, null, 20)))                         // the wash drips on elsewhere
+        assertEquals(3, log.undoDepth, "the drip takes its own step")
+        log.undo()
+        assertEquals(listOf("wc" to 1L, "wc#p0" to 1L), assertNotNull(log.undo()).changes.map { it.layerId to it.key },
+            "one Undo takes back the line alone, never the wash's progress with it")
+    }
+
     @Test fun aTileIsNeverSnapshottedTwiceInOneStep() {
         log.push(UndoLog.Step(listOf(tile("w0", 1, null, 10))))
         assertEquals(listOf("wc#w0"), log.newestExtendable()?.changes?.map { it.layerId })

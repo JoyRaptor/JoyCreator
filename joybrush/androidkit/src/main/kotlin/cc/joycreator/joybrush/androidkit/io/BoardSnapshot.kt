@@ -21,7 +21,10 @@ object BoardSnapshot {
         val media=LinkedHashMap<MediaTileKey,ByteArray>()
         fun mediaState(layer: Layer, cel: Cel): Cel {
             val stores=mediaKeys(layer.id,cel.id).filterValues{it.isNotEmpty()}
-            if(stores.isEmpty())return cel
+            // No payload now: the cel lists none either. The document's list is from the LAST save; a plain write that
+            // settled the paint since (or an undo) left it stale, and the archive rightly refuses a listed tile with no
+            // state ("the document lists media tile ... and no state was given for it", owner's autosave, 2026-10-11).
+            if(stores.isEmpty())return cel.copy(floatTiles=emptyList())
             val listed=LinkedHashSet<String>()
             for((store,storeKeys) in stores) for(key in storeKeys) {
                 val bytes=mediaRead(layer.id,cel.id,store,key) ?: throw JbArchiveException("A pencil, watercolour or oil tile could not be read")

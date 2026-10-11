@@ -95,6 +95,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     private var bead = IntArray(0); private var beadFbo = IntArray(0); private var beadW = 0; private var beadH = 0
     private var fluxFbo = IntArray(0); private var updFbo = IntArray(0); private var wetCopyFbo = IntArray(0)
     private var in0 = 0; private var in1 = 0; private var inFbo = 0
+    /** True while the brush input may hold dabs outside the last scissored area (a dab drawn with no rectangle to clip to). */
+    private var inFull = false
     private var wc = 0
     private var lutTex = 0
     private var lutSrc: Any? = null
@@ -212,7 +214,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         eraseWetFbo = IntArray(0)
         groundTex = 0; groundFbo = 0
         delta = 0; deltaFbo = 0; bakeTex = 0; fluidBake = 0; waterBake = 0; bakeFbo = 0; bakedPaper = null
-        wet = null; run = 0; in0 = 0; in1 = 0; inFbo = 0; lookTex = 0; lookFbo = 0
+        wet = null; run = 0; in0 = 0; in1 = 0; inFbo = 0; inFull = false; lookTex = 0; lookFbo = 0
         bead = IntArray(0); beadFbo = IntArray(0); fluxFbo = IntArray(0); updFbo = IntArray(0); wetCopyFbo = IntArray(0)
         pFbo0 = 0; pFbo1 = 0
         wetRect = null; paintRect = null; wetSince = null; stores.clear(); dirtySinceLook = null; strokeRect = null
@@ -237,8 +239,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     private fun ensureBake() {
         if (bakeTex != 0) return
         bakeTex = MediaTex.make(w, h)
-        fluidBake = MediaTex.make(w, h, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
-        waterBake = MediaTex.make(w, h)
+        // Only .r of the fluid and water bakes is ever read (jb_wet_flux.frag, jb_wet_update.frag: texelFetch(...).r), so they
+        // are one channel; the same value is rounded to the same 8-bit / half float, the other channels were never read.
+        fluidBake = MediaTex.make(w, h, GLES30.GL_R8, GLES30.GL_RED, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
+        waterBake = MediaTex.make(w, h, GLES30.GL_R16F, GLES30.GL_RED, GLES30.GL_HALF_FLOAT)
         bakeFbo = MediaTex.fbo(bakeTex, fluidBake, waterBake)
     }
 
@@ -247,16 +251,19 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         ensureBake()
         val ws = Array(2) { Wet(MediaTex.full(w, h), MediaTex.full(w, h), MediaTex.make(w, h)) }
         wet = ws
-        run = MediaTex.make(w, h)
+        // The running water's outflow is read as .xy only (jb_wet_update.frag), so two half-float channels.
+        run = MediaTex.make(w, h, GLES30.GL_RG16F, GLES30.GL_RG, GLES30.GL_HALF_FLOAT)
         beadW = (w + 1) / 2; beadH = (h + 1) / 2
         bead = IntArray(2) { MediaTex.make(beadW, beadH) }
         beadFbo = IntArray(2) { MediaTex.fbo(bead[it]) }
         fluxFbo = IntArray(2) { MediaTex.fbo(ws[it].flux, run) }
-        updFbo = IntArray(2) { MediaTex.fbo(ws[it].w0, ws[it].w1, state[1].p0, state[1].p1) }
+        // One per (water buffer written, state buffer written): the paint planes ping-pong with the substeps (see wetFrame).
+        updFbo = IntArray(4) { MediaTex.fbo(ws[it shr 1].w0, ws[it shr 1].w1, state[it and 1].p0, state[it and 1].p1) }
         wetCopyFbo = IntArray(2) { if (it == 0) MediaTex.fbo(ws[0].w0, ws[0].w1, ws[0].flux, run) else MediaTex.fbo(ws[1].w0, ws[1].w1, ws[1].flux) }
         in0 = MediaTex.make(w, h); in1 = MediaTex.make(w, h); inFbo = MediaTex.fbo(in0, in1)
         for (f in wetCopyFbo) clearFbo(f)
         clearFbo(inFbo)
+        inFull = false
     }
 
     private fun emptyTex(): Int {
@@ -275,7 +282,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         for (s in state) clearFbo(s.fbo)
         if (groundFbo != 0) clearFbo(groundFbo)
         if (deltaFbo != 0) clearFbo(deltaFbo)
-        if (wet != null) { for (f in wetCopyFbo) clearFbo(f); clearFbo(inFbo) }
+        if (wet != null) { for (f in wetCopyFbo) clearFbo(f); clearFbo(inFbo); inFull = false }
         wetRect = null
         paintRect = null
         wetIdle = 0.0
@@ -635,12 +642,22 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         ensureWet()
         bakePaper(paper)
         val ws = wet!!
+        val steps = substeps ?: wc0.substeps
+        // The rectangle the substeps will simulate: a pure function of the rectangles, the tilt and the step count.
+        fun simRect(): FloatArray? =
+            wetRect?.let { WetSpread.grow(it, paintRect, slope[0], slope[1], steps, 1 / (pxPerMm * scale), w, h) }
         var useInput = false
+        var inRect: FloatArray? = null
         if (batch != null && batch.count > 0) {
             val r = layerRect(batch.dirty, 48.0)
             if (r != null) { wetRect = union(wetRect, r); paintRect = union(paintRect, r) }
+            // Only the simulated rectangle ever reads the brush input, so the dabs are drawn there and the input is cleared
+            // there after the frame (the full-window clear wrote 16 B/px of nothing). Where there is no rectangle to clip to,
+            // the dabs are drawn whole and the next clear is whole too (inFull), exactly as before.
+            inRect = simRect()
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, inFbo)
             GLES30.glViewport(0, 0, w, h)
+            if (inRect != null) scissorTo(inRect) else inFull = true
             GLES30.glEnable(GLES30.GL_BLEND)
             GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE)
             GLES30.glBlendEquation(GLES30.GL_FUNC_ADD)
@@ -651,14 +668,13 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             GLES30.glBindVertexArray(dabVao)
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, batch.count)
             GLES30.glDisable(GLES30.GL_BLEND)
+            GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
             useInput = true
             wetIdle = 0.0
         }
-        val rect0 = wetRect ?: return
         // On a tilted paper running water can leave the rectangle: it grows downhill as fast as water can run, never
         // further than a long drip past the paint, nor past this window (WetSpread, the tested cap).
-        val steps = substeps ?: wc0.substeps
-        val rect = WetSpread.grow(rect0, paintRect, slope[0], slope[1], steps, 1 / (pxPerMm * scale), w, h)
+        val rect = simRect() ?: return
         wetRect = rect
         stores += WATER_WRITES
         touch(rect)
@@ -668,30 +684,74 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         wetFrameUniforms.load(wetUniforms(paper.stats, wc0), evapOverride, slope, 1 / (pxPerMm * scale), beadCells)
         val tilted = hypot(slope[0].toDouble(), slope[1].toDouble()) > 1e-4
         GLES30.glDisable(GLES30.GL_BLEND)
+        // The paint planes (p0, p1) used to be written to state[1] by every update and copied back to state[0] by a
+        // whole extra pass. The update reads them at its OWN pixel only, so instead the substeps alternate: substep k reads
+        // state[k mod 2] and writes the other, and a frame of an even number of substeps ends in state[0] with no copy.
+        // The flux pass also reads p0.a at the neighbours (the water's surface, and the paper's slope d cells away when
+        // tilted); inside the rectangle those are the previous substep's output, and beyond it the paint never changes,
+        // so state[0]'s values for the ring around the rectangle are copied into state[1] once, before the first substep.
+        if (steps > 1) copyP0Ring(rect, ringCells(wc0, beadCells))
         for (k in 0 until steps) {
             val a = ws[wc]
             val bi = 1 - wc
             val b = ws[bi]
+            val src = state[k and 1]
             GLES30.glBindVertexArray(quadVao)
             if (tilted) beadPasses(a.w0, rect, beadCells)
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fluxFbo[bi])
             GLES30.glViewport(0, 0, w, h)
             val fu = progFlux.use()
             common(fu); wetFrameUniforms.apply(fu)
-            MediaUniforms.wetFlux(fu, bead[0], state[0].p0, a.w0, a.flux, bakeTex, fluidBake, waterBake, rect, w, h)
+            MediaUniforms.wetFlux(fu, bead[0], src.p0, a.w0, a.flux, bakeTex, fluidBake, waterBake, rect, w, h)
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, updFbo[bi])
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, updFbo[bi * 2 + 1 - (k and 1)])
             val pu = progUpdate.use()
             common(pu); wetFrameUniforms.apply(pu)
-            MediaUniforms.wetUpdate(pu, a.w0, a.w1, b.flux, run, state[0].p0, state[0].p1, bakeTex, waterBake, fluidBake, in0, in1,
+            MediaUniforms.wetUpdate(pu, a.w0, a.w1, b.flux, run, src.p0, src.p1, bakeTex, waterBake, fluidBake, in0, in1,
                 if (k == 0 && useInput) 1 else 0, rect, w, h)
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-            copyRect(state[1], pFbo0, rect)
             wc = bi
         }
-        if (useInput) clearFbo(inFbo)
+        // An odd number of substeps (the dry-now frame) leaves the result in state[1]: one copy, as every substep used to make.
+        if ((steps and 1) == 1) copyRect(state[1], pFbo0, rect)
+        if (useInput) {
+            if (inFull || inRect == null) { clearFbo(inFbo); inFull = false }
+            else {
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, inFbo)
+                GLES30.glViewport(0, 0, w, h)
+                scissorTo(inRect)
+                GLES30.glClearColor(0f, 0f, 0f, 0f)
+                GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+                GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+            }
+        }
         wetIdle += steps * wc0.dt
         if (wetIdle > maxWetSeconds) dryNow(paper, pxPerMm)
+    }
+
+    /** Scissor to the whole pixels a layer-px rectangle can touch. */
+    private fun scissorTo(r: FloatArray) {
+        val x0 = max(0, floor(r[0]).toInt()); val y0 = max(0, floor(r[1]).toInt())
+        val x1 = min(w, ceil(r[2]).toInt()); val y1 = min(h, ceil(r[3]).toInt())
+        GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+        GLES30.glScissor(x0, y0, max(0, x1 - x0), max(0, y1 - y0))
+    }
+
+    /** How far beyond the rectangle the flux pass reads p0.a: one cell, or the paper-slope distance when tilted, and some margin. */
+    private fun ringCells(wc0: WetConstants, beadCells: Double): Int = max(4, ceil(wc0.steerScale * beadCells).toInt() + 3)
+
+    /** state[0].p0 -> state[1].p0 over the ring of [ring] cells around [rect] (blit: exact). */
+    private fun copyP0Ring(rect: FloatArray, ring: Int) {
+        val rx0 = max(0, floor(rect[0]).toInt()); val ry0 = max(0, floor(rect[1]).toInt())
+        val rx1 = min(w, ceil(rect[2]).toInt()); val ry1 = min(h, ceil(rect[3]).toInt())
+        val ox0 = max(0, rx0 - ring); val oy0 = max(0, ry0 - ring); val ox1 = min(w, rx1 + ring); val oy1 = min(h, ry1 + ring)
+        fun strip(x0: Int, y0: Int, x1: Int, y1: Int) {
+            if (x1 > x0 && y1 > y0) blit(state[0].p0, x0, y0, x1, y1, state[1].p0, x0, y0, x1, y1)
+        }
+        strip(ox0, oy0, ox1, ry0)      // below
+        strip(ox0, ry1, ox1, oy1)      // above
+        strip(ox0, ry0, rx0, ry1)      // left
+        strip(rx1, ry0, ox1, ry1)      // right
     }
 
     // The running bead's field: 2Ã—2 average of the water, then a Gaussian along x and y (jb_wet_bead.frag).

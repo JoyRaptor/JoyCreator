@@ -173,6 +173,13 @@ class InkReplayTest {
      * A pressure curve on `size` is carried so the dabber's per-dab state is real: with a flat size
      * the three draws per dab are still taken but every radius agrees, and half of what can go
      * wrong here would be invisible.
+     *
+     * THE LIMIT OF THIS TEST: "the live path" here is [livePathDabs], this file's TRANSCRIPTION of
+     * `JbCanvasView`, because the view is Android and cannot run in core. A transcription that
+     * drifts along with the replay keeps this green (it once did: both said `tilt = Float.NaN`).
+     * `DabInputsTripwireTest` (jvmTest) reads the three sources and pins the one piece most likely
+     * to drift, what Scatter is told about a dab; the rest of the transcription is held only by
+     * review.
      */
     @Test
     fun theReplayIsTheLivePathsArithmetic() {

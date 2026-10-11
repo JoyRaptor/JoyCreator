@@ -292,6 +292,7 @@ class MediaCanvas(
         val paper = paint.mediaPaper()
         val batch = st.dry?.take()
         w.legacyLook = legacyWindow
+        e.legacyRect = legacyWindow   // bench A/B: the old full-square paste rect too
         if (legacyWindow) {
             val r = st.reachPx + 4
             w.follow(doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r), st.penX, st.penY)

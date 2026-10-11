@@ -65,6 +65,8 @@ object BoardChromeLayout {
     const val WHEEL_DP = 9f
     const val WIGGLE_MS = 300L
     const val STRIP_FADE_FRACTION = .18f
+    /** Distance in dp from the tile switch's centre to the lock glyph's centre below it. */
+    const val LOCK_SLOT_DP = 30f
     fun drawingAlpha(down: Boolean, elapsedMs: Long, startAlpha: Float = if (down) 1f else DRAWING_ALPHA): Float {
         require(startAlpha.isFinite() && startAlpha in DRAWING_ALPHA..1f)
         val t=(elapsedMs.toFloat()/(if(down) FADE_OUT_MS else FADE_BACK_MS)).coerceIn(0f,1f)
@@ -129,10 +131,25 @@ object BoardChromeLayout {
             val r=rect(x,y,w,h); add(id,r,Shape.TEXT,col,a,text=t,font=font,size=size,weight=weight,gradient=gradient,halo=if(col==Colour.PAPER)2f else 0f)
             if(tip!=null)control(id,r,tip)
         }
+        /** Pen-down fade shared by the normal chrome and the tile board's handles. */
+        fun fadeAlpha():Float {
+            val startAlpha=i.penFadeStartAlpha ?: if(i.penDown)1f else drawingAlpha(true,i.penDownElapsedMs)
+            return drawingAlpha(i.penDown,if(i.penDown)i.penDownElapsedMs else i.penLiftElapsedMs,startAlpha)
+        }
         val tile=i.kind==BoardKind.CANVAS && i.armed
         if(i.otherTileArmed && !tile)return Layout(emptyList(),emptyList(),false,false,false)
         val fixed=i.kind==BoardKind.ANIMATION && i.holds.size>=2
         val locked=i.locked || fixed
+        /** The lock glyph (amber ring while unlocked) centred at [cx],[cy]; one definition for both the plain and the tile chrome. */
+        fun lockGlyph(cx:Float,cy:Float,a:Float){
+            if(!locked)add("lock-ring",centre(cx,cy,26f,26f),col=Colour.AMBER,a=a,stroke=1.5f,radius=8f)
+            glyph("lock",centre(cx,cy,16f,16f),if(locked)"lockC" else "lockO",if(fixed)BoardChromeLabels.FIXED else if(locked)BoardChromeLabels.LOCKED else BoardChromeLabels.UNLOCKED,a=a)
+        }
+        /** Eight resize handles round the board; one definition for both the plain and the tile chrome. */
+        fun handles(a:Float){
+            val pts=listOf(Point(b.left-9*d,b.top-9*d),Point(b.cx-4*d,b.top-9*d),Point(b.right+d,b.top-9*d),Point(b.right+d,b.cy-4*d),Point(b.right+d,b.bottom+d),Point(b.cx-4*d,b.bottom+d),Point(b.left-9*d,b.bottom+d),Point(b.left-9*d,b.cy-4*d))
+            pts.forEachIndexed { n,p->val r=rect(p.x,p.y,8f,8f);add("handle-$n",r,a=a,radius=2f);add("handle-ring-$n",r,col=Colour.CYAN,a=a,stroke=1.5f,radius=2f);control("handle-$n",r,"Drag to resize") }
+        }
         val icon=when(i.kind){BoardKind.ANIMATION->"film";BoardKind.SPRITE->"sprite";else->if(i.tiled)"seam" else "image"}
         val kindLabel=when(i.kind){BoardKind.ANIMATION->"animation";BoardKind.SPRITE->"sprite";else->if(i.tiled)"tile" else "image"}
         val tabTip="${i.name}, $kindLabel board. Tap to show its controls; hold for the board menu."+
@@ -153,9 +170,17 @@ object BoardChromeLayout {
                 r=centre(if(n==0)s.left+25*d else if(n==1)s.right-25*d else x,
                     if(n==2)s.top+27*d else if(n==3)s.bottom-27*d else y,34f,38f)
             }
-            add("tile-pill",r,col=Colour.CHROME,a=CHROME_ALPHA,radius=17f)
+            // The lock sits one slot below the switch so the owner can unlock a tile board and drag its
+            // edges while the repeat is showing (2026-10-11: reverse-engineering the tiling in finished art).
+            // A switch docked to the screen's bottom edge grows the pill upwards instead, never off-screen.
+            val below=r.bottom+LOCK_SLOT_DP*d<=i.screen.bottom
+            val lockY=if(below)r.cy+LOCK_SLOT_DP*d else r.cy-LOCK_SLOT_DP*d
+            add("tile-pill",if(below)Rect(r.left,r.top,r.right,r.bottom+LOCK_SLOT_DP*d) else Rect(r.left,r.top-LOCK_SLOT_DP*d,r.right,r.bottom),col=Colour.CHROME,a=CHROME_ALPHA,radius=17f)
             val cell=centre(r.cx,r.cy,26f,26f);add("tile-armed",cell,col=Colour.CYAN,stroke=1.5f,radius=8f,halo=3f)
             glyph("feature",centre(r.cx,r.cy,16f,16f),"seam",BoardChromeLabels.TILE_ON)
+            lockGlyph(r.cx,lockY,1f)
+            // Same handles, same rules as any unlocked board; title and size text stay hidden (K7).
+            if(!i.locked)handles(fadeAlpha())
             return Layout(e,c,true,true,false)
         }
         if(!i.selected){
@@ -171,8 +196,7 @@ object BoardChromeLayout {
             return Layout(e,c,false,false,false)
         }
         ring()
-        val startAlpha=i.penFadeStartAlpha ?: if(i.penDown)1f else drawingAlpha(true,i.penDownElapsedMs)
-        val a=drawingAlpha(i.penDown,if(i.penDown)i.penDownElapsedMs else i.penLiftElapsedMs,startAlpha)
+        val a=fadeAlpha()
         val folded=i.kind==BoardKind.ANIMATION && (i.penDown || i.penLiftElapsedMs<FADE_BACK_MS)
         val pillH=if(i.kind==BoardKind.ANIMATION)148f else 128f
         add("pill",rect(b.left-44*d,b.top,34f,pillH),col=Colour.CHROME,a=CHROME_ALPHA*a,radius=17f)
@@ -189,8 +213,7 @@ object BoardChromeLayout {
                 if(i.kind==BoardKind.SPRITE)if(i.armed)BoardChromeLabels.SPRITE_ON else BoardChromeLabels.SPRITE_OFF else BoardChromeLabels.TILE_OFF,a=a)
         }
         val offset=if(i.kind==BoardKind.ANIMATION)20f else 0f
-        if(!locked)add("lock-ring",centre(cx,b.top+(79+offset)*d,26f,26f),col=Colour.AMBER,a=a,stroke=1.5f,radius=8f)
-        glyph("lock",centre(cx,b.top+(79+offset)*d,16f,16f),if(locked)"lockC" else "lockO",if(fixed)BoardChromeLabels.FIXED else if(locked)BoardChromeLabels.LOCKED else BoardChromeLabels.UNLOCKED,a=a)
+        lockGlyph(cx,b.top+(79+offset)*d,a)
         if(fixed)add("nail",centre(cx+9*d,b.top+(70+offset)*d,5f,5f),a=a,radius=2.5f)
         glyph("export",centre(cx,b.top+(109+offset)*d,16f,16f),"export",when(i.kind){BoardKind.ANIMATION->BoardChromeLabels.EXPORT_ANIM;BoardKind.SPRITE->BoardChromeLabels.EXPORT_SPRITE;else->if(i.tiled)BoardChromeLabels.EXPORT_TILE else BoardChromeLabels.EXPORT_IMAGE},a=a)
         text("title",b.left,b.top-19*d,(i.titleWidthPx?:min(b.width,i.name.length*6.6f*d+4*d))/d,12f,i.name,12f,Font.ARCHIVO,700,a=a,tip=BoardChromeLabels.TITLE)
@@ -202,8 +225,7 @@ object BoardChromeLayout {
                 add("size-caret",Rect(b.right+1*d,b.top-16*d,b.right+1*d,b.top-8*d),Shape.LINE,Colour.CYAN,a,stroke=1.5f)
             }
             else add("size-underline",Rect(b.right-sizeW*d,b.top-6*d,b.right,b.top-6*d),Shape.LINE,Colour.PAPER,a,stroke=1f,dashed=true)
-            val pts=listOf(Point(b.left-9*d,b.top-9*d),Point(b.cx-4*d,b.top-9*d),Point(b.right+d,b.top-9*d),Point(b.right+d,b.cy-4*d),Point(b.right+d,b.bottom+d),Point(b.cx-4*d,b.bottom+d),Point(b.left-9*d,b.bottom+d),Point(b.left-9*d,b.cy-4*d))
-            pts.forEachIndexed { n,p->val r=rect(p.x,p.y,8f,8f);add("handle-$n",r,a=a,radius=2f);add("handle-ring-$n",r,col=Colour.CYAN,a=a,stroke=1.5f,radius=2f);control("handle-$n",r,"Drag to resize") }
+            handles(a)
         }
         if(i.kind==BoardKind.ANIMATION){
             val py=b.bottom+8*d; val sy=py+21*d; val strip=rect(b.left,sy,b.width/d,40f)

@@ -383,13 +383,31 @@ class GlPaintEngine(
     private var strokeTileRect: RectPx? = null
     private var onionBoardId: String? = null
 
+    /**
+     * The tile rectangle the owner is dragging, shown instead of the board's saved one while the drag lasts
+     * (2026-10-11: resize an armed tile live to find the repeat in finished art). Display only: the document,
+     * strokes and undo never see it. Set and cleared on the GL thread; null whenever no drag is in flight.
+     */
+    private var tilePreviewRect: RectPx? = null
+
     fun setTileBoard(id: String?) {
         check(!strokeInProgress) { "Finish the stroke before switching tiling" }
+        tilePreviewRect=null
         if(id != null) {
             val board=TilePainting.board(requireNotNull(boardDocument),id)
             boardPreview.prepare(board.rect.w,board.rect.h)
         }
         tileBoardId=id
+    }
+    /**
+     * Shows [rect] as the repeating tile of [id] until cleared with null. A rectangle the phone could not
+     * preview or paint into is ignored, so a stray proposal can never make [drawDisplay] throw and switch
+     * tiling off; the previous preview simply stays. Ignored for a board that is not the armed tile.
+     */
+    fun setTilePreviewRect(id: String,rect: RectPx?) {
+        if(rect == null || id != tileBoardId || strokeInProgress) { tilePreviewRect=null; return }
+        val max=boardPreview.maxSide()
+        if(TileLimits.fits(rect) && rect.w <= max && rect.h <= max) tilePreviewRect=rect
     }
     fun setOnionBoard(id: String?) {
         if(id != null) require(boardDocument?.boards?.any { it.id == id && it.kind == BoardKind.ANIMATION } == true)
@@ -573,7 +591,7 @@ class GlPaintEngine(
         layers.clear()
         boardDocument = null
         framePreviews = emptyMap()
-        tileBoardId=null; onionBoardId=null; strokeTileRect=null
+        tileBoardId=null; tilePreviewRect=null; onionBoardId=null; strokeTileRect=null
         undo.clear()
         freeLayerTex.clear()
         freeStrokeTex.clear()
@@ -1128,6 +1146,7 @@ class GlPaintEngine(
         layers.values.forEach { l -> l.ownedTextures().forEach(::recycleLayerTex); l.mask?.ownedTextures()?.forEach(::recycleLayerTex) }
         layers.clear()
         boardDocument = null
+        tilePreviewRect = null
         framePreviews = emptyMap()
     }
 
@@ -1156,7 +1175,7 @@ class GlPaintEngine(
         }
         boardDocument=doc
         framePreviews=previews
-        if(doc.boards.none { it.id == tileBoardId && it.kind == BoardKind.CANVAS }) tileBoardId=null
+        if(doc.boards.none { it.id == tileBoardId && it.kind == BoardKind.CANVAS }) { tileBoardId=null; tilePreviewRect=null }
         if(doc.boards.none { it.id == onionBoardId && it.kind == BoardKind.ANIMATION }) onionBoardId=null
     }
 
@@ -1453,6 +1472,7 @@ class GlPaintEngine(
                     grain: GrainMath.StrokeGrain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF),
                     smudge: SmudgeParams? = null, tuft: TuftShading? = null) {
         cancelStroke()
+        tilePreviewRect=null
         require(smudge == null || tileBoardId == null) { "Turn tiling off to use smudge" }
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         strokeTravel.reset()
@@ -2075,8 +2095,10 @@ class GlPaintEngine(
         val doc=boardDocument
         val tile=tileBoardId?.let { id -> doc?.boards?.firstOrNull { it.id == id } }
         if(tile != null) {
-            cropPreview(tile.rect,paper,false)
-            boardPreview.show(w,h,m,tile.rect,tileVao,true,floatArrayOf(1f,1f,1f,1f))
+            // A stroke always paints into the saved rectangle, so the drag preview yields the moment one begins.
+            val rect=tilePreviewRect?.takeUnless { strokeInProgress } ?: tile.rect
+            cropPreview(rect,paper,false)
+            boardPreview.show(w,h,m,rect,tileVao,true,floatArrayOf(1f,1f,1f,1f))
             return
         }
         draw(w,h,m,paper)

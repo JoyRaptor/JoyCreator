@@ -2,23 +2,18 @@ package cc.joycreator.joybrush.androidkit.gl
 
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.paint.*
-import cc.joycreator.joybrush.core.render.MAX_REGION_PX
 import kotlin.math.*
 
 /** Board adapter geometry only. Brush pressure, stamp shape, colour and paper response remain unchanged. */
 internal object TilePainting {
     const val MAX_COPIES = 256
-    const val MAX_TILES = 256
+    const val MAX_TILES = TileLimits.MAX_TILES
 
     fun board(document: JbDocument, id: String): Board {
         val board = document.boards.firstOrNull { it.id == id } ?: error("The tile board no longer exists")
         require(board.kind == BoardKind.CANVAS) { "Only an Image board can be tiled" }
-        val r = board.rect
-        require(r.w > 0 && r.h > 0 && r.x.toLong() + r.w <= Int.MAX_VALUE && r.y.toLong() + r.h <= Int.MAX_VALUE)
-        require(r.w.toLong() * r.h <= MAX_REGION_PX) { "This tile is too large to preview on this phone" }
-        val columns = Math.floorDiv(r.x.toLong() + r.w - 1, Tiles.SIZE.toLong()) - Math.floorDiv(r.x.toLong(), Tiles.SIZE.toLong()) + 1
-        val rows = Math.floorDiv(r.y.toLong() + r.h - 1, Tiles.SIZE.toLong()) - Math.floorDiv(r.y.toLong(), Tiles.SIZE.toLong()) + 1
-        require(columns * rows <= MAX_TILES) { "This tile touches too many painting tiles on this phone" }
+        // The size rules live in TileLimits so the live-resize drag asks exactly this question.
+        TileLimits.refusal(board.rect)?.let { throw IllegalArgumentException(it) }
         return board
     }
 

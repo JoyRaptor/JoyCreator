@@ -60,8 +60,29 @@ class BoardChromeLayoutTest {
         assertEquals(4f,element(i,"sprocket-0-0").rect.width);assertEquals(9f,element(i,"sprocket-0-1").rect.left-element(i,"sprocket-0-0").rect.left);assertEquals("×2",element(i,"hold-1").text);assertEquals(1.5f,element(i,"cell-1").strokePx);assertEquals(2f,element(i,"insertion").rect.width);assertEquals(1.1f,element(i,"cell-2").scale);assertEquals(-2f,element(i,"cell-2").rotationDeg)
         assertEquals(b.left+b.width*.82f,BoardChromeLayout.layout(i).stripFadeStartPx);assertTrue(element(i,"add-cell").dashed)}
     @Test fun fpsHoldPanelAbovePeg(){val i=input().copy(selected=true,showFps=true);assertTrue(element(i,"fps-panel").rect.bottom<element(i,"peg-tab").rect.top);assertEquals("12 fps",element(i,"fps").text)}
-    @Test fun tileModeSuppressesEverythingExceptRingAndSwitch(){val l=BoardChromeLayout.layout(input(BoardKind.CANVAS).copy(selected=true,armed=true));assertTrue(l.tileCanvas);assertTrue(l.suppressOtherBoards);assertEquals(listOf("feature"),l.controls.map {it.id});assertFalse(l.elements.any {it.id=="title"||it.id=="kind"||it.id=="size"})
+    @Test fun tileModeSuppressesEverythingExceptRingSwitchAndLock(){val l=BoardChromeLayout.layout(input(BoardKind.CANVAS).copy(selected=true,armed=true));assertTrue(l.tileCanvas);assertTrue(l.suppressOtherBoards);assertEquals(listOf("feature","lock"),l.controls.map {it.id});assertFalse(l.elements.any {it.id=="title"||it.id=="kind"||it.id=="size"||it.id.startsWith("handle")})
+        assertEquals("lockC",l.elements.first {it.id=="lock"}.glyph);assertEquals(BoardChromeLabels.LOCKED,l.controls.first {it.id=="lock"}.tooltip)
         assertTrue(BoardChromeLayout.layout(input().copy(otherTileArmed=true)).elements.isEmpty())}
+    @Test fun unlockedTileBoardOffersLockAndTheSameEightHandles(){val i=input(BoardKind.CANVAS).copy(selected=true,armed=true,locked=false);val l=BoardChromeLayout.layout(i)
+        assertEquals(listOf("feature","lock")+(0..7).map {"handle-$it"},l.controls.map {it.id});assertTrue(l.tileCanvas);assertTrue(l.suppressOtherBoards)
+        assertEquals("lockO",l.elements.first {it.id=="lock"}.glyph);assertEquals(BoardChromeLabels.UNLOCKED,l.controls.first {it.id=="lock"}.tooltip);assertTrue(l.elements.any {it.id=="lock-ring"})
+        // Byte-for-byte the plain board's handles: same rects, same labels, never over the art.
+        val plain=BoardChromeLayout.layout(input(BoardKind.CANVAS).copy(selected=true,locked=false))
+        assertEquals(plain.controls.filter {it.id.startsWith("handle-")},l.controls.filter {it.id.startsWith("handle-")})
+        assertEquals(plain.elements.filter {it.id.startsWith("handle")}.map {it.rect},l.elements.filter {it.id.startsWith("handle")}.map {it.rect})
+        l.controls.filter {it.id.startsWith("handle-")}.forEach {assertEquals("Drag to resize",it.tooltip);assertFalse(it.visual.intersects(b))}
+        assertFalse(l.elements.any {it.id=="title"||it.id=="kind"||it.id=="size"||it.id=="size-underline"||it.id=="export"})}
+    @Test fun tileLockSitsInsideItsPillAndNeverOffScreen(){val i=input(BoardKind.CANVAS).copy(armed=true)
+        val l=BoardChromeLayout.layout(i);val pill=l.elements.first {it.id=="tile-pill"}.rect;val lock=l.elements.first {it.id=="lock"}.rect;val feature=l.elements.first {it.id=="feature"}.rect
+        assertTrue(lock.top>=pill.top&&lock.bottom<=pill.bottom);assertEquals(BoardChromeLayout.LOCK_SLOT_DP,lock.cy-feature.cy)
+        val s=BoardChromeLayout.Rect(0f,0f,548f,1000f)
+        val docked=BoardChromeLayout.layout(i.copy(board=BoardChromeLayout.Rect(200f,1200f,300f,1300f),screen=s))
+        val dp=docked.elements.first {it.id=="tile-pill"}.rect;val dl=docked.elements.first {it.id=="lock"}.rect
+        assertTrue(dp.bottom<=s.bottom);assertTrue(dl.top>=dp.top&&dl.bottom<=dp.bottom)}
+    @Test fun tileHandlesFadeWithThePenButTheLockStays(){val up=BoardChromeLayout.layout(input(BoardKind.CANVAS).copy(armed=true,locked=false))
+        val down=BoardChromeLayout.layout(input(BoardKind.CANVAS).copy(armed=true,locked=false,penDown=true,penDownElapsedMs=120))
+        assertEquals(1f,up.elements.first {it.id=="handle-0"}.alpha);assertEquals(BoardChromeLayout.DRAWING_ALPHA,down.elements.first {it.id=="handle-0"}.alpha,.00001f)
+        assertEquals(1f,down.elements.first {it.id=="lock"}.alpha)}
     @Test fun tileSwitchDocksEightDpFromEachNearestEdge(){val s=BoardChromeLayout.Rect(0f,0f,548f,1000f);for((r,edge) in listOf(BoardChromeLayout.Rect(-300f,200f,-200f,300f) to 0,BoardChromeLayout.Rect(700f,200f,800f,300f) to 1,BoardChromeLayout.Rect(200f,-300f,300f,-200f) to 2,BoardChromeLayout.Rect(200f,1200f,300f,1300f) to 3)){
         val pill=element(input(BoardKind.CANVAS).copy(board=r,armed=true,screen=s),"tile-pill").rect;assertEquals(8f,when(edge){0->pill.left;1->s.right-pill.right;2->pill.top;else->s.bottom-pill.bottom})}}
     @Test fun tileFlagChangesOnlyOnWrappedStrokeAndSurvivesDisarm(){val b=Board("b","B",BoardKind.CANVAS,RectPx(0,0,20,20));assertFalse(BoardChromeLayout.afterWrappedStroke(b,false).tiled);val tiled=BoardChromeLayout.afterWrappedStroke(b,true);assertTrue(tiled.tiled);assertTrue(BoardChromeLayout.afterWrappedStroke(tiled,false).tiled);assertFalse(BoardChromeLayout.afterWrappedStroke(b.copy(kind=BoardKind.ANIMATION),true).tiled);assertEquals("seam",element(input(BoardKind.CANVAS).copy(tiled=true),"kind").glyph)}

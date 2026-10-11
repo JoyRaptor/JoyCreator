@@ -1,11 +1,11 @@
 package cc.joycreator.joybrush.androidkit.gl
 
 import android.opengl.GLES30
+import cc.joycreator.joybrush.androidkit.gl.media.GlUniformSink
 import cc.joycreator.joybrush.androidkit.io.PaperResources
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.paper.PaperState
 import cc.joycreator.joybrush.core.paper.ResolvedPaper
-import cc.joycreator.joybrush.core.paper.SurfaceEntry
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.brush.SmudgeCarried
 import cc.joycreator.joybrush.core.brush.SmudgeStroke
@@ -217,8 +217,6 @@ class GlPaintEngine(
     private var surfaceTexture: Int? = null
     /** The paper's FLUID map (2026-10-06), for wet and impasto engines; bound on unit 2 for brush programs. */
     private var fluidTexture: Int? = null
-    private var strokeSurface: SurfaceEntry? = null
-    private var strokePaperScale = 1f
     val paperWarnings: List<String> get() = loadedPaper?.warnings ?: emptyList()
 
     var documentPaper: Paper = Paper()
@@ -434,15 +432,17 @@ class GlPaintEngine(
     private var opacity = 1f
     private var accumulate = Accumulate.WASH
     private var blend = StrokeBlend.NORMAL
-    private var tip = TipShape()
-    private var grain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF)
-    private var tipGrainTex = 0
-    private var paperGrainTex = 0
+    /** The stamp draw shared with line rendering (VECTOR_RENDER_DESIGN §8, H1). */
+    private val stamp = StampPass(object : StampPass.GrainSource {
+        override val placeholder: Int get() = grains.placeholder
+        override fun textureFor(asset: String): Int? = grains.textureFor(asset)
+        override fun paperSize(asset: String): Int = grains.sizeFor(asset, "paper")
+    })
+    /** The active stroke's look, frozen at pen-down: tip, resolved grain, paper. The defaults are the old fields' own. */
+    private var look = StampPass.StrokeLook(TipShape(), GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF),
+        0, 0, null, 1f, PaperResponse(), 0f, null, null)
 
     private val strokeTravel = DabTravel()
-    private var strokePaperResponse = PaperResponse()
-    private var strokePaperInfluence = 0f
-    private var instanceData: FloatBuffer = newFloats(17 * 256)
     private var smudgeInstanceData: FloatBuffer = newFloats(21 * 256)
     private var tuftInstanceData: FloatBuffer = newFloats(TuftStamp.FLOATS * 256)
 
@@ -1494,7 +1494,6 @@ class GlPaintEngine(
         this.opacity = opacity.coerceIn(0f, 1f)
         this.accumulate = accumulate
         this.blend = blend
-        this.tip = tip
         // A smudge reads the layer as it stands NOW (pen-down): the stroke buffer is not the layer until pen-up, so the
         // pixels it picks up from stay put for the whole stroke. Colours are decided on the GL thread, where a tile can be read.
         smudgeTexturePickup = smudge?.texturePickup?.coerceIn(0f, 1f) ?: 0f
@@ -1504,32 +1503,15 @@ class GlPaintEngine(
             SmudgeCarried(colR, colG, colB, 1f, smudge.pickup.coerceIn(0f, 1f), smudge.load.coerceIn(0f, 1f)),
             tip,
         )
-        // A grain whose picture is missing is drawn as OFF: a missing picture must never read as "paint
-        // everywhere". The picture is bound per batch in addDabs, but resolved here, once per stroke.
-        val tipTex = if (grain.tip.enabled) grains.textureFor(grain.tip.asset) else null
+        // The stroke's look (tip, grain pictures, paper), resolved once per stroke: StampPass.lookFor.
         val p = loadedPaper?.paper
         val surface = p?.surface
-        strokeSurface = surface
-        strokePaperScale = p?.scale ?: 1f
-        strokePaperResponse = if (tuft != null) tuft.paperResponse else grain.paperResponse
-        // Old direct engine callers have grain settings but no document/response section.
-        if (p == null && strokePaperResponse.isDefault && (grain.paper.enabled || (tuft?.paperPitchPx ?: 0f)>0f))
-            strokePaperResponse = PaperResponse(influence=1f)
-        strokePaperInfluence = strokePaperResponse.influence*(p?.bite ?: 1f)
-        val documentGrain = documentPaperGrain(grain.paper,p,strokePaperResponse)
-        val paperTex = if (documentGrain.enabled) grains.textureFor(documentGrain.asset) else null
-        this.grain = GrainMath.StrokeGrain(
-            tip = if (tipTex != null) grain.tip else GrainMath.GrainUniforms.OFF,
-            paper = if (paperTex != null) documentGrain else GrainMath.GrainUniforms.OFF,
-            paperResponse = strokePaperResponse,
-        )
-        tipGrainTex = tipTex ?: grains.placeholder
-        paperGrainTex = paperTex ?: grains.placeholder
+        look = stamp.lookFor(tip, grain, p, tuft?.paperResponse, tuft?.paperPitchPx, strokeTileRect, fluidTexture)
         val tooth = if (tuft == null) null else if (p == null) grains.textureFor(tuft.paperAsset) else surfaceTexture
         tuftPaperTex = tooth ?: grains.placeholder
         this.tuft = tuft?.let {
             if(tooth == null) it.copy(paperPitchPx=0f) else if(p != null && surface != null)
-                it.copy(paperAsset=surface.file,paperPitchPx=if(strokePaperInfluence>0f)surface.texelPx*p.scale else 0f,tooth=it.tooth)
+                it.copy(paperAsset=surface.file,paperPitchPx=if(look.paperInfluence>0f)surface.texelPx*p.scale else 0f,tooth=it.tooth)
             else it
         }
     }
@@ -1558,24 +1540,14 @@ class GlPaintEngine(
         require(tile == null || (strokeTiles.keys + buckets.keys).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
         for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
         dabProg.use()
-        GLES30.glUniform1f(dabProg.loc("u_tileSize"), size.toFloat())
-        GLES30.glUniform1f(dabProg.loc("u_aspect"), tip.aspect)
-        GLES30.glUniform1f(dabProg.loc("u_corner"), tip.corner)
-        GLES30.glUniform1f(dabProg.loc("u_taper"), tip.taper)
-        GLES30.glUniform1f(dabProg.loc("u_hardness"), tip.hardness)
-        GLES30.glUniform1f(dabProg.loc("u_minPx"), tip.minPx)
-        setGrainUniforms(dabs[dabs.size - 1])
+        stamp.setStrokeUniforms(GlUniformSink, dabProg::loc, look, dabs[dabs.size - 1], size, 1f)
         GLES30.glBindVertexArray(dabVao)
 
         for ((key, list) in buckets) {
             val tex = strokeTiles.getValue(key)
             attach(tex)
             clipTileStroke(key)
-            GLES30.glUniform2f(dabProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
-            fillInstances(list)
-            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
-            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * 68, instanceData, GLES30.GL_STREAM_DRAW)
-            GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
+            stamp.drawInto(GlUniformSink, dabProg::loc, look, instanceVbo, (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat(), list)
         }
         GLES30.glBindVertexArray(0)
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
@@ -1609,8 +1581,8 @@ class GlPaintEngine(
         GLES30.glUniform1f(tuftProg.loc("u_action"), shading.action)
         // Both samplers get a real picture every batch: an unset sampler reads unit 0, which may be the tile being drawn.
         GLES30.glUniform1i(tuftProg.loc("u_tipGrain"), 0)
-        setPaperSurfaceUniforms(tuftProg)
-        setPaperResponseUniforms(tuftProg)
+        stamp.setPaperSurfaceUniforms(GlUniformSink, tuftProg::loc, look)
+        stamp.setPaperResponseUniforms(GlUniformSink, tuftProg::loc, look)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, grains.placeholder)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
@@ -1660,12 +1632,12 @@ class GlPaintEngine(
         for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
         smudgeProg.use()
         GLES30.glUniform1f(smudgeProg.loc("u_tileSize"), size.toFloat())
-        GLES30.glUniform1f(smudgeProg.loc("u_aspect"), tip.aspect)
-        GLES30.glUniform1f(smudgeProg.loc("u_corner"), tip.corner)
-        GLES30.glUniform1f(smudgeProg.loc("u_taper"), tip.taper)
-        GLES30.glUniform1f(smudgeProg.loc("u_hardness"), tip.hardness)
-        GLES30.glUniform1f(smudgeProg.loc("u_minPx"), tip.minPx)
-        setGrainUniforms(dabs.last(), smudgeProg)
+        GLES30.glUniform1f(smudgeProg.loc("u_aspect"), look.tip.aspect)
+        GLES30.glUniform1f(smudgeProg.loc("u_corner"), look.tip.corner)
+        GLES30.glUniform1f(smudgeProg.loc("u_taper"), look.tip.taper)
+        GLES30.glUniform1f(smudgeProg.loc("u_hardness"), look.tip.hardness)
+        GLES30.glUniform1f(smudgeProg.loc("u_minPx"), look.tip.minPx)
+        stamp.setGrainUniforms(GlUniformSink, smudgeProg::loc, look, dabs.last())
         GLES30.glUniform1f(smudgeProg.loc("u_texturePickup"), smudgeTexturePickup)
         GLES30.glBindVertexArray(smudgeVao)
         for ((key, list) in buckets) {
@@ -1680,7 +1652,7 @@ class GlPaintEngine(
                 smudgeInstanceData.put(d.x).put(d.y).put(d.radius).put(d.angle).put(d.flow).put(d.cap)
                     .put(colours[c]).put(colours[c + 1]).put(colours[c + 2]).put(colours[c + 3])
                 smudgeInstanceData.put(d.travelX).put(d.travelY)
-                putContact(smudgeInstanceData, d)
+                stamp.putContact(smudgeInstanceData, d, look)
             }
             smudgeInstanceData.flip()
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instanceVbo)
@@ -1690,75 +1662,6 @@ class GlPaintEngine(
         GLES30.glBindVertexArray(0)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
-    }
-
-    /** JB-9.03: the fixed document surface; both brush programs bind it on unit 1. */
-    private fun setPaperSurfaceUniforms(program: GlProgram) {
-        // Frozen at pen-down; translated copies must sample the same periodic surface.
-        // Always reset this uniform so a later ordinary stroke keeps the canonical paper.
-        val tilePaper = strokeTileRect
-        GLES30.glUniform4f(program.loc("u_tilePaperRect"),
-            tilePaper?.x?.toFloat() ?: 0f, tilePaper?.y?.toFloat() ?: 0f,
-            tilePaper?.w?.toFloat() ?: 0f, tilePaper?.h?.toFloat() ?: 0f)
-        // Brush deposition uses document floats (accurate to +/-1e6 px); only display uses local frames.
-        GLES30.glUniform1i(program.loc("u_paperSurface"), 1)
-        GLES30.glUniform1f(program.loc("u_paperTexelPx"), (strokeSurface?.texelPx ?: GrainMath.SURFACE_TEXEL_PX)*strokePaperScale)
-        GLES30.glUniform1f(program.loc("u_paperSize"), strokeSurface?.size?.toFloat() ?: GrainMath.SURFACE_SIZE)
-        GLES30.glUniform1f(program.loc("u_paperHexTexels"), strokeSurface?.hexTexels ?: GrainMath.SURFACE_HEX_TEXELS)
-        GLES30.glUniform1f(program.loc("u_paperSlopeRange"), strokeSurface?.slopeRange ?: GrainMath.SURFACE_SLOPE_RANGE)
-        GLES30.glUniform1f(program.loc("u_paperHeightMean"), strokeSurface?.heightMean ?: 0.5f)
-        // The fluid map on unit 2, always bound (an unset sampler reads unit 0, which may be the tile being drawn).
-        val fluid = fluidTexture
-        GLES30.glUniform1i(program.loc("u_paperFluid"), 2)
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE2)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, fluid ?: grains.placeholder)
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-        val surface = strokeSurface
-        GLES30.glUniform1f(program.loc("u_paperFluidTexelPx"), if (fluid != null && surface?.fluid != null) surface.fluidTexelPx * strokePaperScale else 0f)
-        GLES30.glUniform1f(program.loc("u_paperFluidSize"), surface?.fluid?.let { grains.sizeFor(it, "paper").toFloat() } ?: 1f)
-        GLES30.glUniform1f(program.loc("u_paperFluidHexTexels"), surface?.fluidHexTexels ?: 150f)
-        GLES30.glUniform1i(program.loc("u_paperRotatable"), if (strokeSurface?.rotatable ?: GrainMath.SURFACE_ROTATABLE) 1 else 0)
-    }
-
-    /**
-     * Everything the dab shader takes for grain (JB-1.05c). The pictures go on units 0 and 1 EVERY batch
-     * and are never left to a default: an unset sampler reads unit 0, and whatever is bound there might
-     * be the very stroke tile being drawn into -- a feedback loop, which the driver answers by dropping
-     * the draw. A grain that is OFF gets the 1x1 placeholder and a pitch of 0, and the shader ignores it.
-     *
-     * The lean is from the NEWEST dab of the batch (Decision 10): one set of numbers per draw call, and
-     * a batch is a few milliseconds of pen. It goes through [GrainMath.tiltAmount] / [GrainMath.leanX] /
-     * [GrainMath.leanY], which turn a finger's NaN into "upright, no lean" before the GPU ever sees it.
-     */
-    private fun setPaperResponseUniforms(program: GlProgram) {
-        GLES30.glUniform1f(program.loc("u_paperInfluence"),strokePaperInfluence)
-        GLES30.glUniform1f(program.loc("u_paperDirectional"),strokePaperResponse.directional)
-        GLES30.glUniform1f(program.loc("u_paperWet"),strokePaperResponse.wet)
-    }
-
-    private fun setGrainUniforms(newest: Dab, program: GlProgram = dabProg) {
-        setPaperResponseUniforms(program)
-        GLES30.glUniform1i(program.loc("u_tipGrain"), 0)
-        setPaperSurfaceUniforms(program)
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tipGrainTex)
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, paperGrainTex)
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-        val tg = grain.tip
-        val pg = grain.paper
-        GLES30.glUniform1f(program.loc("u_tipGrainPitchPx"), tg.pitchPx)
-        GLES30.glUniform1f(program.loc("u_tipDepth"), tg.depth)
-        GLES30.glUniform1f(program.loc("u_tipEdge"), tg.edge)
-        GLES30.glUniform1f(program.loc("u_tipTiltGradient"), tg.tiltGradient)
-        GLES30.glUniform1f(program.loc("u_tipRadial"), tg.radial)
-        GLES30.glUniform1f(program.loc("u_paperGrainPitchPx"), pg.pitchPx)
-        GLES30.glUniform1f(program.loc("u_paperDepth"), pg.depth)
-        GLES30.glUniform1f(program.loc("u_paperEdge"), pg.edge)
-        GLES30.glUniform1f(program.loc("u_paperTiltGradient"), pg.tiltGradient)
-        GLES30.glUniform1f(program.loc("u_paperRadial"), pg.radial)
-        GLES30.glUniform1f(program.loc("u_tiltAmount"), GrainMath.tiltAmount(newest.tilt))
-        GLES30.glUniform2f(program.loc("u_leanDir"), GrainMath.leanX(newest.azimuth), GrainMath.leanY(newest.azimuth))
     }
 
     /** Commits the active stroke into its layer as one undoable step. Returns tiles changed. */
@@ -2641,26 +2544,6 @@ class GlPaintEngine(
         GLES30.glEnableVertexAttribArray(7)
         GLES30.glVertexAttribPointer(7, 1, GLES30.GL_FLOAT, false, stride, offset + 32)
         GLES30.glVertexAttribDivisor(7, 1)
-    }
-
-    private fun putContact(buffer: FloatBuffer, d: Dab) {
-        fun resolved(value: Float, fallback: Float) = if (value.isFinite()) value else fallback
-        val live = d.aspect.isFinite() || d.hardness.isFinite() || d.tipDepth.isFinite() || d.paperDepth.isFinite() || d.anchor.isFinite()
-        buffer.put(resolved(d.aspect, tip.aspect)).put(resolved(d.hardness, tip.hardness))
-            .put(resolved(d.tipDepth, grain.tip.depth)).put(resolved(d.paperDepth, grain.paper.depth))
-            .put(resolved(d.anchor, 0f)).put(GrainMath.tiltAmount(d.tilt))
-            .put(GrainMath.leanX(d.azimuth)).put(GrainMath.leanY(d.azimuth)).put(if (live) 1f else 0f)
-    }
-
-    private fun fillInstances(list: List<Dab>) {
-        val need = list.size * 17
-        if (instanceData.capacity() < need) instanceData = newFloats(need * 2)
-        instanceData.clear()
-        for (d in list) {
-            instanceData.put(d.x).put(d.y).put(d.radius).put(d.angle).put(d.flow).put(d.cap).put(d.travelX).put(d.travelY)
-            putContact(instanceData, d)
-        }
-        instanceData.flip()
     }
 
     private fun upload(vbo: Int, data: FloatArray) {

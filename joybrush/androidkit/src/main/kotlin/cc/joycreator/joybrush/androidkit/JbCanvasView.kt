@@ -2,6 +2,8 @@ package cc.joycreator.joybrush.androidkit
 
 import android.content.Context
 import cc.joycreator.joybrush.androidkit.gl.media.MediaCanvas
+import cc.joycreator.joybrush.core.brush.BLEND_MULTIPLY
+import cc.joycreator.joybrush.core.brush.BLEND_SCREEN
 import cc.joycreator.joybrush.core.brush.BrushRules
 import cc.joycreator.joybrush.core.brush.ENGINE_MEDIA
 import cc.joycreator.joybrush.core.brush.MEDIUM_DRY
@@ -1262,6 +1264,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             drawing=false; onRefused?.invoke("Select the paint layer to use the fill pen; masks are not supported yet."); return
         }
         val erase = b.erase || eraser
+        // The glaze blends (brush version 9) composite colour over colour. A mask holds grey with missing tiles meaning
+        // white, so a screen glaze would grey out the white it should keep: refused in words, never painted as normal.
+        if ((p?.blend == BLEND_MULTIPLY || p?.blend == BLEND_SCREEN) && editingMask && !erase) {
+            drawing = false
+            onRefused?.invoke("Multiply and screen brushes don't paint on masks. Select the paint layer, or pick another brush for the mask.")
+            return
+        }
         // A media brush paints through the media engine (step 4c) on the active layer (R51).
         if (p?.engine == ENGINE_MEDIA && !eraser) { startMediaStroke(p); return }
         // Every other brush, the eraser included, writes pixels; over media the engine's bake keeps the two agreeing.
@@ -1357,7 +1366,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val argb = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
         val target = strokeLayerId
         boardStrokeWork { engine.beginStroke(target, argb, opacity, accumulate,
-            if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip, grain, smudge, tuft) }
+            when {
+                eraseBlend -> StrokeBlend.ERASE
+                p?.blend == BLEND_MULTIPLY -> StrokeBlend.MULTIPLY
+                p?.blend == BLEND_SCREEN -> StrokeBlend.SCREEN
+                else -> StrokeBlend.NORMAL
+            }, tip, grain, smudge, tuft) }
     }
 
     private fun feed(ev: MotionEvent) {

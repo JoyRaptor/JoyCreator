@@ -2524,6 +2524,8 @@ class GlPaintEngine(
         GLES30.glUniform3f(commitProg.loc("u_color"), colR, colG, colB)
         GLES30.glUniform1f(commitProg.loc("u_strokeScale"), if (accumulate == Accumulate.BUILD_UP) opacity else 1f)
         GLES30.glUniform1i(commitProg.loc("u_erase"), if (blend == StrokeBlend.ERASE) 1 else 0)
+        // Brush version 9 glazes (VECTOR_RENDER_DESIGN H6); 0 is the unchanged normal path.
+        GLES30.glUniform1i(commitProg.loc("u_blend"), when (blend) { StrokeBlend.MULTIPLY -> 1; StrokeBlend.SCREEN -> 2; else -> 0 })
         GLES30.glUniform1i(commitProg.loc("u_smudge"), if (smudge == null) 0 else if (smudgePaint) 2 else 1)
         GLES30.glUniform1f(commitProg.loc("u_layerOpacity"), layerOpacity)
     }

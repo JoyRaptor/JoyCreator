@@ -34,6 +34,25 @@ the standing brief (status **GO for both phases**, lead 2026-10-11). This file s
    `SelectionState`, JVM tests), then e2 (androidkit `select/`: `SelectTool : CanvasTool`, `SelectBoxHost`), then e3
    (joybrush-android `select/`). One Gradle at a time through `jb-gradle.lock`. Never install on the phone.
 
+## Update, 2026-10-11 evening: the lead split the hooks
+
+- **Lead does:** H1 (read-only `penSeen`), H2 (palm check before `tool.down`), H8 (offer `ACTION_POINTER_DOWN`) now, on
+  `lead/select-hooks`; H3, H4, H5 after the owner picks, to the exact contract in spec §H "H4 and H5, the exact contract".
+- **This lane does now** (branch `ui/select-core`, worktree `C:/Temp/jb-select-core`, off origin/joy-creator 6784dd76):
+  - H6: `TransformOverlayView.setPinchAnywhere(boolean)` and `setBendPillVisible(boolean)`, defaults unchanged. (The
+    Done pill needs no flag: it is drawn only when `setOnExit` is given a runnable.)
+  - H7: `JbIcon.SELECT`, and a Select button in `ToolStripView` behind `showSelect(shown, chosen)` with
+    `Host.selectTapped(anchor)` defaulted, so `JoyBrushActivity` still compiles. **Not a `ToolSlot`** (a slot is a
+    remembered brush; the lead was told why).
+  - Slice e1: `core/select/LineLasso.kt`, `LineTransform.kt`, `SelectionState.kt`, plus `StrokePicker.rank` (the vector
+    specialist said yes, 2026-10-11) and tests `select/LineLassoTest`, `LineTransformTest`, `SelectionStateTest`,
+    `vector/StrokePickerRankTest`.
+- **Vector specialist's notes on LineTransform** (in its KDoc): `BrushDabber`'s speed input is doc px/s (a known gap,
+  theirs); tapers and dashes keep proportion only when weights scale. They agreed `Tween.moved()` should also divide
+  `screenPerDoc` by its fit's scale (their successor owns that).
+- Builds: a copy of the lead's script is `<scratchpad>/select-build.ps1` (lock `%LOCALAPPDATA%/Temp/jb-gradle.lock`).
+  e2/e3 (the tool, the box host, popup, bar) wait for the owner's picks.
+
 ## Design decisions worth knowing before you touch anything
 
 - **Nudge means two things in this repo.** The owner's word "nudge" (and Concepts') is bending part of a line inside a

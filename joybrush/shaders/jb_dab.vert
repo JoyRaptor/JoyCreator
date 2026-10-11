@@ -9,7 +9,10 @@ layout(location = 2) in vec2 a_dab2;     // flow, cap
 layout(location = 3) in vec4 a_carried;  // smudge only (JB-1.06): the ONE carried colour this dab paints with, premultiplied. A stamp brush never enables it.
 
 uniform vec2 u_tileOrigin;               // document px of the tile's first texel
-uniform float u_tileSize;
+uniform float u_tileSize;                // the TARGET's size in texels
+// Target texels per document px (VECTOR_RENDER_DESIGN §8, S2): 1 for the live stroke and the document-resolution look,
+// 2^k for the sharp levels. Unset reads 0 and means 1, so every caller that never sets it draws exactly as before.
+uniform float u_scale;
 
 out vec2 v_offset;                       // this fragment's offset from the dab centre, px
 out vec2 v_dabCentre;                   // the dab centre in document px (the paper grain is sampled in canvas space)
@@ -31,10 +34,14 @@ flat out float v_live;
 void main() {
     // Half-size that contains the tip at any rotation, plus an antialiasing margin
     // (must match TipMath.extent in the core).
-    float ext = a_dab.z * (1.4143 + (a_live > 0.5 ? abs(a_pen.x) : 0.0)) + 2.0;
+    // The margin is 2 TARGET px (2 / s doc px) at every scale; at s = 1, 2.0 / 1.0 and * 1.0 are exact, so the quad and
+    // its position are bit-identical to before. Everything after this (v_offset, the tip, the grain) stays in document px:
+    // fwidth then makes the antialiasing band one target px (S3), and the paper is sampled where the paper is (S4).
+    float s = u_scale > 0.0 ? u_scale : 1.0;
+    float ext = a_dab.z * (1.4143 + (a_live > 0.5 ? abs(a_pen.x) : 0.0)) + 2.0 / s;
     vec2 off = a_corner * ext;
     vec2 p = a_dab.xy + off;
-    gl_Position = vec4((p - u_tileOrigin) / u_tileSize * 2.0 - 1.0, 0.0, 1.0);
+    gl_Position = vec4((p - u_tileOrigin) * s / u_tileSize * 2.0 - 1.0, 0.0, 1.0);
     v_offset = off;
     v_dabCentre = a_dab.xy;
     v_radius = a_dab.z;

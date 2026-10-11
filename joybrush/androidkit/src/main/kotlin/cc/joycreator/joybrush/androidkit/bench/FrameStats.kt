@@ -1,7 +1,6 @@
 package cc.joycreator.joybrush.androidkit.bench
 
 import android.opengl.GLES30
-import android.os.SystemClock
 
 /**
  * Per-frame timing of the canvas's renderer, for the debug stroke replay (LEAD_PLAN_20261010 step 3). Off unless
@@ -47,20 +46,20 @@ class FrameStats {
     fun stop() { recording = false }
 
     /** UI thread: a pen report was just dispatched. */
-    fun noteInput() { if (recording) synchronized(inputs) { inputs += SystemClock.uptimeNanos(); if (downNs == 0L) downNs = inputs.last() } }
-    fun noteUp() { synchronized(inputs) { upNs = SystemClock.uptimeNanos() } }
+    fun noteInput() { if (recording) synchronized(inputs) { inputs += System.nanoTime(); if (downNs == 0L) downNs = inputs.last() } }
+    fun noteUp() { synchronized(inputs) { upNs = System.nanoTime() } }
 
-    fun frameBegin() { if (recording) { t0 = SystemClock.uptimeNanos(); t1 = 0L; t2 = 0L; t3 = 0L } }
-    fun afterWork() { if (t0 != 0L) t1 = SystemClock.uptimeNanos() }
-    fun afterMedia() { if (t0 != 0L) t2 = SystemClock.uptimeNanos() }
-    fun afterDisplay() { if (t0 != 0L) t3 = SystemClock.uptimeNanos() }
+    fun frameBegin() { if (recording) { t0 = System.nanoTime(); t1 = 0L; t2 = 0L; t3 = 0L } }
+    fun afterWork() { if (t0 != 0L) t1 = System.nanoTime() }
+    fun afterMedia() { if (t0 != 0L) t2 = System.nanoTime() }
+    fun afterDisplay() { if (t0 != 0L) t3 = System.nanoTime() }
 
     /** Last thing in onDrawFrame (also when it threw: a frame that threw still cost what it cost). */
     fun frameEnd() {
         if (t0 == 0L) return
-        val end0 = SystemClock.uptimeNanos()
+        val end0 = System.nanoTime()
         GLES30.glFinish()
-        val end = SystemClock.uptimeNanos()
+        val end = System.nanoTime()
         fun ms(a: Long, b: Long) = if (a == 0L || b == 0L) 0.0 else (b - a) / 1e6
         starts += t0
         busy += (end - t0) / 1e6

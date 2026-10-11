@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Joy Brush Select</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="JB-5.20e: three ways to select, move and reshape lines and paint in Joy Brush, with a working true-size mockup and every part swappable.">
@@ -66,7 +67,7 @@ header.top h1 span{background:var(--room);-webkit-background-clip:text;backgroun
 .tries li i{font-style:normal;font:600 10.5px/22px var(--f-mono);color:var(--sel);text-align:center;background:rgba(34,211,238,.1);border-radius:6px;height:22px}
 .note{font-size:12.5px;color:var(--faint);max-width:62ch}
 .note b{color:var(--dim);font-weight:600}
-@media (max-width:460px){.bleed{margin-inline:-16px;max-width:none;width:calc(100% + 32px)}}
+@media (max-width:460px){.bleed{margin-inline:-16px;max-width:none;width:calc(100% + 32px)}.bar{position:relative}.bar-in{gap:8px 12px}}
 
 /* ---------- the phone ---------- */
 .ph{position:relative;width:411px;height:640px;overflow:hidden;border-radius:16px;user-select:none;-webkit-user-select:none;
@@ -79,6 +80,9 @@ header.top h1 span{background:var(--room);-webkit-background-clip:text;backgroun
 .ph .surf{position:absolute;inset:0;touch-action:none;cursor:crosshair}
 .ph.static,.ph.static *{pointer-events:none!important}
 .crop{position:relative;overflow:hidden;border-radius:14px;max-width:100%;box-shadow:0 0 0 1px var(--line)}
+.shrink{position:relative;max-width:100%}
+.shrink .crop{max-width:none}
+.dir .note{margin-top:6px;font-size:11.5px}
 .crop .ph{position:absolute;border-radius:0;box-shadow:none}
 
 .ph .ic{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
@@ -116,10 +120,10 @@ html[data-frost="1"] .fr{-webkit-backdrop-filter:blur(12px);backdrop-filter:blur
 .pp button{height:40px;min-width:40px;display:grid;place-items:center;border-radius:20px;position:relative}
 .pp button:active,.bb button:active,.pv .row:active{background:rgba(242,242,245,.14)}
 .pp .dot{width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(242,242,245,.45)}
-.pp .wv{font:600 11.5px/1 var(--f-mono);min-width:50px;display:flex;gap:4px;align-items:center;justify-content:center;touch-action:none}
+.ph .wv{font:600 11.5px/1 var(--f-mono);min-width:50px;display:flex!important;gap:4px;align-items:center;justify-content:center;touch-action:none}
 .pp .rd::after{content:"";position:absolute;right:9px;top:9px;width:5px;height:5px;border-radius:50%;background:var(--bad)}
 .pp .sep{width:1px;height:22px;background:rgba(242,242,245,.14);margin:0 2px}
-.bb{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;height:40px;border-radius:20px;padding:4px;display:flex;gap:6px;align-items:center;color:var(--dink);white-space:nowrap}
+.bb{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;height:40px;border-radius:20px;padding:4px;display:flex;gap:5px;max-width:399px;align-items:center;color:var(--dink);white-space:nowrap}
 .bb .ct{font:600 11px/1 var(--f-mono);color:var(--ddim);padding:0 6px 0 8px}
 .bb .sg{display:inline-flex;background:var(--ctl);border-radius:16px;padding:0;height:32px}
 .bb .sg button{height:32px;min-width:34px;padding:0 10px;border-radius:16px;font:600 11.5px/1 var(--f-body);color:var(--ddim);display:grid;place-items:center}
@@ -453,7 +457,8 @@ const HL={
  flipv:'Mirror the selection top to bottom',
  lock:'Lock these lines so taps and loops skip them',
  raster:'Turn the selected lines into pixels. The picture stays the same; they stop being editable',
- take:'Take the lines inside the loop, or the paint inside it',
+ take:'Take the lines inside the loop',
+ takepx:'Take the paint inside the loop instead of the lines',
  whole:'Take only lines inside the loop',
  touch:'Take every line the loop touches',
  one:'Look for lines on this layer only',
@@ -590,7 +595,8 @@ class Phone{
  build(host){
   const c=this.crop,ph=el('div','ph'+(this.live?'':' static'));this.ph=ph;ph.dataset.paper=PAPER;
   if(this.live)host.appendChild(ph);
-  else{const cr=el('div','crop');cr.style.width=c.w+'px';cr.style.height=c.h+'px';ph.style.left=-c.x+'px';ph.style.top=-c.y+'px';cr.appendChild(ph);host.appendChild(cr);}
+  else{const cr=el('div','crop');cr.style.width=c.w+'px';cr.style.height=c.h+'px';ph.style.left=-c.x+'px';ph.style.top=-c.y+'px';cr.appendChild(ph);
+   const k=this.o.scale||1;if(k!==1){const sh=el('div','shrink');sh.style.width=c.w*k+'px';sh.style.height=c.h*k+'px';cr.style.transform=`scale(${k})`;cr.style.transformOrigin='0 0';sh.appendChild(cr);host.appendChild(sh);}else host.appendChild(cr);}
   this.dpr=Math.min(2,window.devicePixelRatio||1);
   const cv=el('canvas');cv.width=Math.round(c.w*this.dpr);cv.height=Math.round(c.h*this.dpr);
   Object.assign(cv.style,{left:c.x+'px',top:c.y+'px',width:c.w+'px',height:c.h+'px'});ph.appendChild(cv);this.cv=cv;this.ctx=cv.getContext('2d');
@@ -632,14 +638,16 @@ class Phone{
   const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
   const es=[mid(cs[0],cs[1]),mid(cs[1],cs[2]),mid(cs[2],cs[3]),mid(cs[3],cs[0])];
   const cen=this.d2s(f.cx,f.cy);let nx=es[0][0]-cen[0],ny=es[0][1]-cen[1];const nl=hyp(nx,ny)||1;nx/=nl;ny/=nl;
-  return{cs,es,cen,rot:[es[0][0]+nx*46,es[0][1]+ny*46],n:[nx,ny]};
+  const sw=hyp(cs[1][0]-cs[0][0],cs[1][1]-cs[0][1]),sh=hyp(cs[3][0]-cs[0][0],cs[3][1]-cs[0][1]);
+  const eOn=[sw>=56,sh>=56,sw>=56,sh>=56];
+  return{cs,es,eOn,cen,rot:[es[0][0]+nx*46,es[0][1]+ny*46],n:[nx,ny]};
  }
  local(p){const f=this.sel.frame,F=Mx.frame({...f,fx:1,fy:1}),d=this.s2d(p[0],p[1]);return Mx.ap(Mx.inv(F),d[0],d[1]);}
  inBox(p,margin=0){if(!this.sel)return false;const f=this.sel.frame,z=this.view.z,u=this.local(p);return Math.abs(u[0])<=.5+margin/(f.w*z)&&Math.abs(u[1])<=.5+margin/(f.h*z);}
  hitHandle(p){
   if(!this.sel||this.sel.mode==='nudge')return null;const g=this.geo(),inside=this.inBox(p);let best=null,bs=1e9;
   const test=(kind,i,q,pr)=>{const d=hyp(p[0]-q[0],p[1]-q[1]);if(d<=(inside?12:22+pr*1.5)){const sc=d-pr*2.4;if(sc<bs){bs=sc;best={kind,i};}}};
-  test('rot',0,g.rot,9);g.cs.forEach((q,i)=>test('corner',i,q,8));g.es.forEach((q,i)=>test('edge',i,q,5));return best;
+  test('rot',0,g.rot,9);g.cs.forEach((q,i)=>test('corner',i,q,8));g.es.forEach((q,i)=>{if(g.eOn[i])test('edge',i,q,5);});return best;
  }
  tipList(){const s=this.sel;if(!s||s.kind!=='lines'||s.mode==='nudge'||s.ids.size>6)return[];const o=[];for(const id of s.ids){const l=this.byId(id);if(!l||l.brush==='fill'||l.pts.length<2)continue;const a=l.pts[0],b=l.pts[l.pts.length-1];if(hyp(a.x-b.x,a.y-b.y)<2)continue;o.push({id,end:0,p:this.d2s(a.x,a.y)},{id,end:1,p:this.d2s(b.x,b.y)});}return o;}
  hitTip(p){for(const t of this.tipList())if(hyp(p[0]-t.p[0],p[1]-t.p[1])<=16)return t;return null;}
@@ -778,7 +786,8 @@ class Phone{
    G('pending',{nudge:true,inBox:this.inBox(p,24)});this.ringAt=p;this.draw();return;
   }
   if(s){
-   const h=this.hitHandle(p);
+   let h=this.hitHandle(p);const tp0=this.hitTip(p);
+   if(h&&h.kind==='edge'&&tp0)h=null;/* a tip beats a mid-edge handle; corners and the rotate arc beat a tip */
    if(h){const g=G('handle',{h});const gm=this.geo();const q=h.kind==='rot'?gm.rot:h.kind==='corner'?gm.cs[h.i]:gm.es[h.i];g.off=h.kind==='rot'?[0,0]:[p[0]-q[0],p[1]-q[1]];
     if(h.kind==='rot'){const c=gm.cen;g.a0=Math.atan2(p[1]-c[1],p[0]-c[0]);}this.gStart();this.draw();return;}
    const tp=this.hitTip(p);if(tp){this.startTip(G('tip',{tp}),tp);return;}
@@ -1126,7 +1135,7 @@ class Phone{
     const held=g&&g.type==='handle'?g.h:null,sc=(k,i)=>held&&held.kind===k&&held.i===i?1.28:1;
     const ang=Math.atan2(gm.cs[1][1]-gm.cs[0][1],gm.cs[1][0]-gm.cs[0][0])*180/Math.PI;
     gm.cs.forEach((q,i)=>{const k=sc('corner',i);h+=`<g transform="translate(${q[0]},${q[1]}) rotate(${ang}) scale(${k})"><circle r="9.5" fill="#0D0D10"/><rect x="-4.6" y="-4.6" width="9.2" height="9.2" rx="1" fill="none" stroke="#FBBF24" stroke-width="1.75"/></g>`;});
-    gm.es.forEach((q,i)=>{const k=sc('edge',i);h+=`<g transform="translate(${q[0]},${q[1]}) rotate(${ang+[0,90,180,270][i]}) scale(${k})"><circle r="8.5" fill="#0D0D10"/><path d="M-4.4 -2.4 L4.4 -2.4 L0 3.6 Z" fill="none" stroke="#FBBF24" stroke-width="1.75" stroke-linejoin="round"/></g>`;});
+    gm.es.forEach((q,i)=>{if(!gm.eOn[i])return;const k=sc('edge',i);h+=`<g transform="translate(${q[0]},${q[1]}) rotate(${ang+[0,90,180,270][i]}) scale(${k})"><circle r="8.5" fill="#0D0D10"/><path d="M-4.4 -2.4 L4.4 -2.4 L0 3.6 Z" fill="none" stroke="#FBBF24" stroke-width="1.75" stroke-linejoin="round"/></g>`;});
     const rk=held&&held.kind==='rot'?1.28:1;h+=`<g transform="translate(${gm.rot[0]},${gm.rot[1]}) rotate(${ang}) scale(${rk})"><circle r="10.5" fill="#0D0D10"/><path d="M4.6 -2.2 A5.2 5.2 0 1 1 1.8 -4.9" fill="none" stroke="#FBBF24" stroke-width="1.75" stroke-linecap="round"/><path d="M1 -7.3 L2.2 -4.6 L-.6 -3.6" fill="none" stroke="#FBBF24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></g>`;
     if(g&&g.type==='handle'&&g.h.kind==='rot'&&g.deg!=null)h+=`<text x="${gm.rot[0]+16}" y="${gm.rot[1]-12}" fill="#F2F2F5" font-family="IBM Plex Mono,monospace" font-size="10.5" paint-order="stroke" stroke="#000" stroke-width="3">${Math.round(g.deg)}°</text>`;
     for(const t of this.tipList()){const k=g&&g.type==='tip'&&g.tp&&g.tp.id===t.id&&g.tp.end===t.end?1.28:1;h+=`<circle cx="${t.p[0]}" cy="${t.p[1]}" r="${7*k}" fill="#0D0D10" fill-opacity=".55" stroke="#5AA9FF" stroke-width="1.75"/>`;}
@@ -1160,7 +1169,9 @@ class Phone{
   const pp=this.pp;
   if(s&&pk.P1!=='B'&&s.mode!=='nudge'){pp.classList.toggle('hide',!!busy);const gm=this.geo();const pw=pp.offsetWidth||200,ys=gm.cs.map(q=>q[1]),xs=gm.cs.map(q=>q[0]);
    const barH=this.bb.hidden?12:60;let y=Math.max(...ys)+16;if(y+44>H-barH)y=Math.min(Math.min(...ys),gm.rot[1])-14-44-8;if(y<58)y=H-barH-44-8;
-   pp.style.left=clamp((Math.min(...xs)+Math.max(...xs))/2-pw/2,8,W-8-pw)+'px';pp.style.top=y+'px';}
+   let px=clamp((Math.min(...xs)+Math.max(...xs))/2-pw/2,8,W-8-pw);const st=this.strip,sy0=st.offsetTop,sy1=sy0+st.offsetHeight;
+   if(y<sy1&&y+44>sy0&&px<st.offsetWidth+6)px=Math.min(st.offsetWidth+6,W-8-pw);/* never under the tool strip */
+   pp.style.left=px+'px';pp.style.top=y+'px';}
   else pp.classList.add('hide');
   this.dk.classList.toggle('hide',false);
  }
@@ -1187,9 +1198,10 @@ class Phone{
   if(s&&s.mode==='nudge'){bar=`<span class="ct">Nudge</span>`+(pk.P7==='A'?`<input type="range" min="16" max="160" value="${this.ringR}" data-act="ring" title="${HL.ring}" aria-label="Nudge size">`:`<span class="ct" style="color:var(--dlabel)">${pk.P7==='B'?'drag the ring’s edge':'pinch the ring'}</span>`)+`<button type="button" class="tg" data-act="box" title="${HL.box}">${ico('i-box','ic s20')}</button>`;}
   else if(s){
    const n=s.kind==='lines'?s.ids.size:0;
-   bar=`<span class="ct">${s.kind==='lines'?`${n} line${n>1?'s':''}`:'Paint'}</span>`;
-   if(s.source==='lasso'&&s.chips&&pk.P5==='A'){const ch=s.chips,px=s.kind==='pixels';
-    bar+=`<span class="sg">${seg('take','lines',!px,'Lines'+(s.nLines?' '+s.nLines:''),HL.take,!s.nLines&&px&&ch.whole)}${seg('take','pixels',px,'Paint',HL.take)}</span>`;
+   const chips=s.source==='lasso'&&s.chips&&pk.P5==='A';
+   bar=chips?'':`<span class="ct">${s.kind==='lines'?`${n} line${n>1?'s':''}`:'Paint'}</span>`;
+   if(chips){const ch=s.chips,px=s.kind==='pixels';
+    bar+=`<span class="sg">${seg('take','lines',!px,'Lines'+(s.nLines?' '+s.nLines:''),HL.take,!s.nLines&&px&&ch.whole)}${seg('take','pixels',px,'Paint',HL.takepx)}</span>`;
     bar+=`<span class="sg">${seg('whole','1',ch.whole,ico('i-whole','ic s20'),HL.whole,false,'i')}${seg('whole','0',!ch.whole,ico('i-touch','ic s20'),HL.touch,false,'i')}</span>`;
     bar+=`<span class="sg">${seg('all','0',!ch.all,ico('i-layer1','ic s20'),HL.one,px,'i')}${seg('all','1',ch.all,ico('i-layerall','ic s20'),px?HL.allpx:HL.all,px,'i')}</span>`;}
    if(s.kind==='lines')bar+=`<button type="button" class="tg" data-act="keepw" aria-pressed="${s.keepW}" title="${HL.keepw}">${ico(s.keepW?'i-keepw':'i-scalew','ic s20')}</button>`;
@@ -1282,8 +1294,8 @@ function renderUI(){
 function bindUI(){
  document.addEventListener('click',e=>{
   const pb=e.target.closest('.sw[data-paper]');if(pb){PAPER=pb.dataset.paper;renderUI();redrawAll();save();return;}
-  const db=e.target.closest('[data-dir]');if(db){setDir(db.dataset.dir);return;}
-  const fb=e.target.closest('[data-frost]');if(fb){FROST=+fb.dataset.frost;renderUI();save();return;}
+  const db=e.target.closest('#dirseg [data-dir],.dir[data-dir]');if(db){setDir(db.dataset.dir);return;}
+  const fb=e.target.closest('#frostseg [data-frost]');if(fb){FROST=+fb.dataset.frost;renderUI();save();return;}
   const ob=e.target.closest('.opt');if(ob){setPick(ob.dataset.part,ob.dataset.opt);return;}
   const zb=e.target.closest('#zoomseg button');if(zb&&LIVE){LIVE.zoomAt(+zb.dataset.z,[W/2+20,H/2]);return;}
   const mb=e.target.closest('#mouseseg button');if(mb&&LIVE){LIVE.mouseAs=mb.dataset.m;document.querySelectorAll('#mouseseg button').forEach(b=>b.setAttribute('aria-pressed',String(b===mb)));return;}
@@ -1306,7 +1318,7 @@ const mid=(ph,id)=>{const l=ph.byId(id),m=l.pts[Math.floor(l.pts.length/2)];retu
 const loopAround=(cx,cy,rx,ry)=>ring(cx,cy,rx,ry,36).map(p=>({x:p.x,y:p.y}));
 const SCENES=[
  {k:'tap',t:'Tap a line',d:'The nose line is picked. The rest fades, the box and the actions appear, and the count says another line is under the tap.',crop:{x:59,y:200,w:352,h:280},setup:ph=>{const p=mid(ph,'nose');ph.pickId('nose',{pt:p,rank:['nose','nostril'],i:0});}},
- {k:'dense',t:'Dense hatching',d:'Second tap on the same spot took the next line. The pen hovering there glows the one a third tap would take.',crop:{x:59,y:400,w:352,h:240},penSeen:true,
+ {k:'dense',t:'Dense hatching',d:'Second tap on the same spot took the next line. The pen hovering there glows the one a third tap would take.',crop:{x:59,y:340,w:352,h:300},penSeen:true,
   setup:ph=>{const p=[236,494];const r=ph.rank(p);ph.pickId(r[1],{pt:p,rank:r,i:1});ph.glowIds=[r[2]];ph.hover=p;}},
  {k:'loop',t:'A loop around an eye',d:'The loop took four lines, enclosed whole. The chips can switch it to the paint, to every line it touches, or to all layers, without drawing it again.',crop:{x:30,y:240,w:352,h:400},
   setup:ph=>{ph.lassoDone(loopAround(211,288,30,22),false);ph.extra=1;}},
@@ -1321,7 +1333,7 @@ const SCENES=[
  {k:'layers',t:'The layer menu',d:'Select all lines, Rasterize Down and Flatten Lower join the layer menu, before Clear and Delete.',crop:{x:59,y:40,w:352,h:520},
   setup:ph=>{ph.lcolOpen=true;ph.paintChrome();ph.openPv('layer',ph.lcol.querySelector('[data-layer="ink"]'));}},
  {k:'drawer',t:'The badge and the toast',d:'Brushes that make pixels wear the badge. The first stroke with one on a layer with lines shows this once.',crop:{x:0,y:300,w:352,h:340},
-  setup:ph=>{ph.tool='brush';ph.paintChrome();ph.openPv('drawer',ph.strip.querySelector('[data-tool="brush"]'));ph.pve.style.top='350px';ph.toast('Brushes that blend with what’s underneath become pixels. Everything else stays editable.');ph.tte.style.bottom='14px';}},
+  setup:ph=>{ph.tool='brush';ph.paintChrome();ph.openPv('drawer',ph.strip.querySelector('[data-tool="brush"]'));ph.pve.style.top='350px';ph.pve.style.left='8px';ph.toast('Brushes that blend with what’s underneath become pixels. Everything else stays editable.');ph.tte.style.bottom='14px';ph.tte.style.left='176px';ph.tte.style.maxWidth='330px';}},
 ];
 
 function boot(){
@@ -1334,7 +1346,8 @@ function boot(){
   const host=el('div');b.appendChild(host);
   const ul=el('ul');ul.innerHTML=['P1','P2','P5','P6'].map(pk=>{const p=PARTS.find(x=>x.k===pk);return `<li>${p.q}: <b>${p.opts.find(o=>o.k===d.p[pk]).n}</b></li>`;}).join('');b.appendChild(ul);
   dirs.appendChild(b);
-  phones.push(new Phone(host,{crop:{x:110,y:318,w:276,h:322},picks:{...d.p},setup:ph=>{ph.lassoDone(loopAround(240,397,34,20),false);}}));
+  phones.push(new Phone(host,{crop:{x:0,y:300,w:411,h:340},scale:2/3,picks:{...d.p},setup:ph=>{ph.lassoDone(loopAround(240,397,34,20),false);}}));
+  host.appendChild(el('p','note','Shown at two-thirds size. The mockup and the scenes are true size.'));
  }
  // scenes
  const gal=document.getElementById('gal');
@@ -1342,6 +1355,7 @@ function boot(){
   phones.push(new Phone(host,{crop:sc.crop,setup:sc.setup,penSeen:sc.penSeen,ringFor:sc.ringFor}));});
  // the live phone
  LIVE=new Phone(document.getElementById('live'),{live:true});phones.unshift(LIVE);
+ window.__jbLive=LIVE; /* inspection handle for testing; reads only */
  bindUI();renderUI();redrawAll();
 }
 boot();

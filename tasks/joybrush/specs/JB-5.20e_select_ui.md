@@ -132,7 +132,7 @@ its effect is visible.
 ### Picking a line
 
 **D3 — Tap picks; the same spot cycles.** A tap (lift within 12dp of the down and within 300ms, no hold) on a line
-selects the line `StrokePicker` ranks first. A tap within **6 screen px** of the previous pick, while that pick is still
+of the **active layer** selects the line `StrokePicker` ranks first (the *All layers* chip widens loops, not taps). A tap within **6 screen px** of the previous pick, while that pick is still
 the selection, selects the next line in the ranking, wrapping. **There is no time window.** JB-5.02's 400 ms was a
 double-tap speed; the owner taps again when he sees the wrong line, which is slower than that, and a slower re-tap
 that silently restarts at the first line feels broken. Cycling ends when the selection changes any other way.
@@ -232,7 +232,9 @@ into a ring. The handles hide; the selected lines stay highlighted.
 **D14 — Tips.** When 1–6 lines are selected, each shows a blue dot (`#5AA9FF`, 7dp radius, the Studio's bend-dot
 colour: blue means fluid) at both ends; more than 6 and the dots would be noise, so none show. Dragging a dot moves that
 end; the rest of the line follows with the same falloff over **35% of the line's arc length** (never less than 24
-screen dp). Tip dots win over the box body and lose to handles. One drag = one undo step.
+screen dp). Tip dots win over the box body and the mid-edge handles (a tip often sits exactly on one); corners and the
+rotate arc win over tips. On a box side shorter than 56dp the mid-edge handles are not drawn at all. One drag = one
+undo step.
 
 **D15 — Recolour, re-brush, re-weight.** The popup carries the three, each acting on every selected line as one undo
 step (`InkEditSession.recolor / rebrush / reweight`):

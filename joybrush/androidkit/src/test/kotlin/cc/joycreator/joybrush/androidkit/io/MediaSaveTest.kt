@@ -58,6 +58,18 @@ class MediaSaveTest {
         assertTrue(snap.mediaTiles.keys.none { it.layerId == paint.id })
     }
 
+    @Test fun aCelWhosePaintWasSettledSinceTheLastSaveListsNoMediaAndStillSaves() {
+        // The owner's autosave failure (2026-10-11): the document still listed the tiles of its last save, the engine no
+        // longer had a payload there (a plain write settled it), and the archive refused the listed tile with no state.
+        val stale = drawing().let { d -> d.copy(layers = d.layers.map { l ->
+            if (l.id == "wc") l.copy(cels = l.cels.map { it.copy(floatTiles = listOf("-1_-1")) }) else l }) }
+        val snap = BoardSnapshot.capture(stale, keys = { layer, _ -> if (layer == "wc") listOf(Tiles.key(0, 0)) else emptyList() },
+            read = { _, _, _ -> look })
+        assertTrue(snap.doc.layers.single { it.id == "wc" }.cels.single().floatTiles.isEmpty(), "a stale list is dropped")
+        val out = java.io.ByteArrayOutputStream(); JbArchive.write(out, snap)   // threw before the fix
+        assertTrue(out.size() > 0)
+    }
+
     @Test fun theMergeKeepsTheStateUnderTheSavedCelIds() {
         val saved = capture(drawing())
         val retained = CanvasSnapshot.metadataOf(saved)

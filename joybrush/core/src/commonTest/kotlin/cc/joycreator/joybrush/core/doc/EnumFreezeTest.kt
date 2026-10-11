@@ -6,6 +6,7 @@ import cc.joycreator.joybrush.core.brush.BrushInput
 import cc.joycreator.joybrush.core.brush.BrushJson
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.Param
+import cc.joycreator.joybrush.core.brush.VERSION_LINES
 import cc.joycreator.joybrush.core.brush.VERSION_MEDIA
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -101,8 +102,11 @@ class EnumFreezeTest {
         // 6 is `paper` (JB-9.09): the three numbers each brush carries about how it feels the document
         // paper. Read as BRUSH_VERSION rather than typed, so the bump is one edit here and one there.
         // 8 is `engine: "media"` and its `media` section (MEDIA_ENGINE_PLAN §4).
-        assertEquals(8, BRUSH_VERSION)
-        assertEquals(VERSION_MEDIA, BRUSH_VERSION, "the newest version is the one this row added")
+        // 9 is the `line` section and `blend: "multiply"` / `"screen"` (VECTOR_RENDER_DESIGN H6). Written as 8 + 1 in
+        // VERSION_LINES: the Lead checks it against JB-2.40's bump when both land, so the two cannot claim one number.
+        assertEquals(9, BRUSH_VERSION)
+        assertEquals(VERSION_LINES, BRUSH_VERSION, "the newest version is the one this row added")
+        assertTrue(VERSION_MEDIA < VERSION_LINES)
         // BrushPreset.version is a second literal beside BRUSH_VERSION, and the file writes the
         // default — if they drift, every new brush is stamped with a version nobody validates.
         assertEquals(BRUSH_VERSION, BrushPreset(id = "b", name = "B", size = Param(1f)).version)

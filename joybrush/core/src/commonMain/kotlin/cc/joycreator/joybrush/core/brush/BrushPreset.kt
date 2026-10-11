@@ -122,13 +122,14 @@ import kotlinx.serialization.Serializable
     val push: PushSpec = PushSpec(),           // read only when engine == "push" (version 3)
     val tuft: TuftSpec = TuftSpec(),           // read only when engine == "tuft" (version 4, R9 §3B)
     val media: MediaSpec? = null,              // only and always when engine == "media" (version 8, MEDIA_ENGINE_PLAN §4)
+    val line: LineStyleSpec? = null,           // whole-stroke taper / dashes / wire (version 9; null = none, every older brush)
     val response: ResponseSpec = ResponseSpec(), // pressure and tilt curves, every engine (version 5 when not straight)
     val paper: PaperResponse = PaperResponse(), // how this brush feels the document paper (version 6 when not default, R10, JB-9.09)
     val sizeJitter: Float = 0f,
     val angleJitter: Float = 0f,         // degrees
     val color: ColorJitter = ColorJitter(),
     val accumulate: String = "wash",     // "wash" (never darker than opacity) | "buildup"
-    val blend: String = "normal",        // "normal" | "erase" | "behind" (fill under line art, JB-1.08a)
+    val blend: String = "normal",        // "normal" | "erase" | "behind" (fill under line art, JB-1.08a) | "multiply" | "screen" (lines, v9)
     val smoothing: Float = 0.3f,
     val license: String = "CC0",
     val author: String = "",

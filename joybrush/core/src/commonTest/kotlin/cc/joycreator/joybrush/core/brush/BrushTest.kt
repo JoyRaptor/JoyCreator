@@ -355,11 +355,12 @@ class BrushTest {
             BrushValidate.validate(preset { it.copy(flow = Param(1f, listOf(InputCurve(BrushInput.tilt, listOf(listOf(0f, 1f, 0f)))))) }),
             "flow input 1 (tilt)",
         )
-        // 21 — engine, accumulate, blend are one rule with three words in it.
-        val wrongWords = preset { it.copy(engine = "water", accumulate = "dry", blend = "multiply") }
+        // 21 — engine, accumulate, blend are one rule with three words in it. ("overlay", not "multiply": multiply became
+        // a real blend word in brush version 9.)
+        val wrongWords = preset { it.copy(engine = "water", accumulate = "dry", blend = "overlay") }
         val words = BrushValidate.validate(wrongWords)
         assertEquals(1, words.size, "expected one message, got $words")
-        for (w in listOf("engine \"water\"", "accumulate \"dry\"", "blend \"multiply\"")) {
+        for (w in listOf("engine \"water\"", "accumulate \"dry\"", "blend \"overlay\"")) {
             assertTrue(words.single().contains(w), "message was: ${words.single()}")
         }
         // 23 — an image source needs an image.

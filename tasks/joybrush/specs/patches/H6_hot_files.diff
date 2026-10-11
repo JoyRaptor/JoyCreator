@@ -1,0 +1,19 @@
+# H6 (VECTOR_RENDER_DESIGN): the two hot-file lines for the multiply/screen stroke blends. For the Lead to apply with H1.
+# Core, brush format and jb_commit.frag are on vector/brush-format; u_blend defaults to 0, so until these land nothing changes.
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlPaintEngine.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlPaintEngine.kt
+@@ -2322,1 +2322,3 @@
+         GLES30.glUniform1i(commitProg.loc("u_erase"), if (blend == StrokeBlend.ERASE) 1 else 0)
++        GLES30.glUniform1i(commitProg.loc("u_blend"),
++            when (blend) { StrokeBlend.MULTIPLY -> 1; StrokeBlend.SCREEN -> 2; else -> 0 })
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
+@@ -1337,2 +1337,6 @@
+         boardStrokeWork { engine.beginStroke(target, argb, opacity, accumulate,
+-            if (eraseBlend) StrokeBlend.ERASE else StrokeBlend.NORMAL, tip, grain, smudge, tuft) }
++            when {
++                eraseBlend -> StrokeBlend.ERASE
++                p?.blend == "multiply" -> StrokeBlend.MULTIPLY
++                p?.blend == "screen" -> StrokeBlend.SCREEN
++                else -> StrokeBlend.NORMAL
++            }, tip, grain, smudge, tuft) }

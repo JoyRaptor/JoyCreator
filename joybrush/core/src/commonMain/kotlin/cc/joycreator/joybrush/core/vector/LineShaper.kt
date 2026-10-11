@@ -1,5 +1,6 @@
 package cc.joycreator.joybrush.core.vector
 
+import cc.joycreator.joybrush.core.brush.LineStyleSpec
 import cc.joycreator.joybrush.core.input.Angles
 import cc.joycreator.joybrush.core.paint.Dab
 import kotlin.math.floor
@@ -41,6 +42,15 @@ data class LineStyle(
     val isWire: Boolean get() = safeLength(screenWidthPx) > 0f
 
     companion object {
+        /** No shaping at all: what a brush without a `line` section gets. */
+        val NONE = LineStyle()
+
+        /** The style a brush file's `line` section asks for; [NONE] when it has none. */
+        fun of(spec: LineStyleSpec?): LineStyle = if (spec == null) NONE else LineStyle(
+            taperIn = spec.taperIn, taperOut = spec.taperOut, taperTip = spec.taperTip, taperShape = spec.taperShape,
+            dashOn = spec.dashOn, dashOff = spec.dashOff, screenWidthPx = spec.screenWidthPx,
+        )
+
         internal fun safeLength(v: Float): Float = if (v.isFinite() && v > 0f) v else 0f
     }
 }

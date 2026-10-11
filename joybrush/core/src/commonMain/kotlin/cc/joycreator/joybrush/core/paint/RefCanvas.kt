@@ -15,7 +15,8 @@ import kotlin.math.min
  * 1. [beginStroke] — colour, opacity, accumulate mode, blend, tip.
  * 2. [addDabs] — each dab adds into the stroke buffer: `s' = cap·d + s·(1 − d)` (see [Accumulate]).
  * 3. [endStroke] — each touched tile is rebuilt as a NEW tile: with `a = s × (opacity if BUILD_UP else 1)`,
- *    NORMAL: `out = colour·a + dst·(1 − a)`; ERASE: `out = dst·(1 − a)`. Old tiles go to undo.
+ *    NORMAL: `out = colour·a + dst·(1 − a)`; ERASE: `out = dst·(1 − a)`; MULTIPLY and SCREEN: the W3C modes on the
+ *    premultiplied stroke colour `colour·a`, as `render/Blend` and `jb_commit.frag` apply them. Old tiles go to undo.
  */
 class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 64L shl 20) {
 
@@ -95,6 +96,16 @@ class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 
                 val db = before?.get(j + 2) ?: 0f; val da = before?.get(j + 3) ?: 0f
                 if (blend == StrokeBlend.ERASE) {
                     after[j] = dr * (1 - a); after[j + 1] = dg * (1 - a); after[j + 2] = db * (1 - a); after[j + 3] = da * (1 - a)
+                } else if (blend == StrokeBlend.MULTIPLY) {
+                    // W3C multiply, premultiplied: s·d + s·(1 − da) + d·(1 − a) per channel, with s = colour · a.
+                    val sr = r * a; val sg = g * a; val sb = b * a
+                    after[j] = sr * dr + sr * (1 - da) + dr * (1 - a); after[j + 1] = sg * dg + sg * (1 - da) + dg * (1 - a)
+                    after[j + 2] = sb * db + sb * (1 - da) + db * (1 - a); after[j + 3] = a + da * (1 - a)
+                } else if (blend == StrokeBlend.SCREEN) {
+                    // W3C screen, premultiplied: s + d·(1 − s) per channel.
+                    val sr = r * a; val sg = g * a; val sb = b * a
+                    after[j] = sr + dr * (1 - sr); after[j + 1] = sg + dg * (1 - sg)
+                    after[j + 2] = sb + db * (1 - sb); after[j + 3] = a + da * (1 - a)
                 } else {
                     after[j] = r * a + dr * (1 - a); after[j + 1] = g * a + dg * (1 - a)
                     after[j + 2] = b * a + db * (1 - a); after[j + 3] = a + da * (1 - a)

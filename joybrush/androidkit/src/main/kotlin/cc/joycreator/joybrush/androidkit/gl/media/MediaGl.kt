@@ -7,22 +7,143 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
-/** A GL texture name for [MediaProgram.set] (so an Int texture is never mistaken for an int uniform). */
+/** A GL texture name (so an Int texture is never mistaken for an int value where it must be one or the other). */
 @JvmInline value class Tex(val id: Int)
 
 /**
- * A media shader program that sets uniforms BY THEIR DECLARED TYPE, the way the lab's `use()` does: the same
- * value maps work for both, and a misspelt or optimised-away uniform is skipped instead of crashing. Samplers get
- * texture units in declaration order. GL thread only.
+ * Where [UniformBank] finally sends a write: GL on the device ([GlUniformSink]), a recorder in the JVM tests
+ * (MediaUniformsParityTest) - the one seam that lets the uniform logic be proved without a GPU.
+ */
+internal interface UniformSink {
+    fun uniform1f(loc: Int, a: Float)
+    fun uniform2f(loc: Int, a: Float, b: Float)
+    fun uniform3f(loc: Int, a: Float, b: Float, c: Float)
+    fun uniform4f(loc: Int, a: Float, b: Float, c: Float, d: Float)
+    fun uniform1i(loc: Int, a: Int)
+
+    /** Binds [tex] on texture [unit] and leaves unit 0 active again, exactly as the map-based `use` always did. */
+    fun bindTexture(unit: Int, tex: Int)
+}
+
+internal object GlUniformSink : UniformSink {
+    override fun uniform1f(loc: Int, a: Float) = GLES30.glUniform1f(loc, a)
+    override fun uniform2f(loc: Int, a: Float, b: Float) = GLES30.glUniform2f(loc, a, b)
+    override fun uniform3f(loc: Int, a: Float, b: Float, c: Float) = GLES30.glUniform3f(loc, a, b, c)
+    override fun uniform4f(loc: Int, a: Float, b: Float, c: Float, d: Float) = GLES30.glUniform4f(loc, a, b, c, d)
+    override fun uniform1i(loc: Int, a: Int) = GLES30.glUniform1i(loc, a)
+    override fun bindTexture(unit: Int, tex: Int) {
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0 + unit)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+    }
+}
+
+/** One active uniform of a linked program: where it lives, what the shader declared it as, and what we last wrote to it. */
+internal class UniformSlot(val loc: Int, val type: Int, val unit: Int) {
+    /** The last value written (floats in [f] for the float types, [i] for int/bool/sampler); meaningful only once [known]. */
+    val f = FloatArray(4)
+    var i = 0
+    var known = false
+}
+
+/**
+ * Typed, allocation-free uniform writes for ONE linked program, with a shadow copy of what GL holds.
+ *
+ * WHY the shadow copy is exact: a GL uniform keeps its value in the program object until it is written again (across
+ * glUseProgram, draws, and other programs' writes). Every write to this program goes through this bank, so "the value
+ * I last wrote" IS "the value GL holds"; writing the same bits again changes nothing and is skipped. That turns the
+ * per-pass set of brush / paper / layer constants into a handful of compares without anyone having to argue which
+ * uniform is constant when: a value that changed is simply written. Floats compare by raw bits, so -0f, NaN and every
+ * other pattern are written whenever they differ. A fresh program starts with nothing known, so every uniform's first
+ * set is always issued.
+ *
+ * Conversions are the ones the old map-based `MediaProgram.set` made, by the DECLARED type: a number written to a
+ * float uniform is `toFloat()`; written to an int/bool uniform it is `toFloat().toInt()` (kept even for Int input, so
+ * the rounding is the one that always happened); a Boolean is 1/0; a vector takes its components `toFloat()`. A name
+ * the program does not have (optimised away, or belonging to another pass) is skipped, as before. A name with the wrong
+ * declared type throws, as before. Textures are ALWAYS rebound (other code changes the bindings); only the sampler's
+ * unit uniform, a constant, is written once. Names are looked up in a HashMap (String hashes are cached), the one cost
+ * left per call besides the compare. GL thread only.
+ */
+internal class UniformBank(private val slots: Map<String, UniformSlot>, private val sink: UniformSink, private val label: String) {
+
+    // ---- scalars ----
+    fun f1(name: String, x: Float) {
+        val s = slots[name] ?: return
+        when (s.type) {
+            GLES30.GL_FLOAT -> {
+                if (s.known && s.f[0].toRawBits() == x.toRawBits()) return
+                sink.uniform1f(s.loc, x); s.f[0] = x; s.known = true
+            }
+            GLES30.GL_INT, GLES30.GL_BOOL -> writeInt(s, x.toInt())
+            else -> wrongType(name, "a number")
+        }
+    }
+    fun f1(name: String, x: Double) = f1(name, x.toFloat())
+    /** An Int goes through Float on purpose: the old path did `num(v).toInt()` for int uniforms, and that rounding must stay. */
+    fun f1(name: String, x: Int) = f1(name, x.toFloat())
+    fun b1(name: String, x: Boolean) = f1(name, if (x) 1f else 0f)
+
+    private fun writeInt(s: UniformSlot, x: Int) {
+        if (s.known && s.i == x) return
+        sink.uniform1i(s.loc, x); s.i = x; s.known = true
+    }
+
+    // ---- vectors ----
+    fun f2(name: String, x: Float, y: Float) {
+        val s = slots[name] ?: return
+        if (s.type != GLES30.GL_FLOAT_VEC2) wrongType(name, "a vec2")
+        val f = s.f
+        if (s.known && f[0].toRawBits() == x.toRawBits() && f[1].toRawBits() == y.toRawBits()) return
+        sink.uniform2f(s.loc, x, y); f[0] = x; f[1] = y; s.known = true
+    }
+    fun f2(name: String, x: Double, y: Double) = f2(name, x.toFloat(), y.toFloat())
+
+    fun f3(name: String, x: Float, y: Float, z: Float) {
+        val s = slots[name] ?: return
+        if (s.type != GLES30.GL_FLOAT_VEC3) wrongType(name, "a vec3")
+        val f = s.f
+        if (s.known && f[0].toRawBits() == x.toRawBits() && f[1].toRawBits() == y.toRawBits() && f[2].toRawBits() == z.toRawBits()) return
+        sink.uniform3f(s.loc, x, y, z); f[0] = x; f[1] = y; f[2] = z; s.known = true
+    }
+    fun f3(name: String, v: FloatArray) { require(v.size >= 3) { "vector too short" }; f3(name, v[0], v[1], v[2]) }
+
+    fun f4(name: String, x: Float, y: Float, z: Float, w: Float) {
+        val s = slots[name] ?: return
+        if (s.type != GLES30.GL_FLOAT_VEC4) wrongType(name, "a vec4")
+        val f = s.f
+        if (s.known && f[0].toRawBits() == x.toRawBits() && f[1].toRawBits() == y.toRawBits() &&
+            f[2].toRawBits() == z.toRawBits() && f[3].toRawBits() == w.toRawBits()) return
+        sink.uniform4f(s.loc, x, y, z, w); f[0] = x; f[1] = y; f[2] = z; f[3] = w; s.known = true
+    }
+    fun f4(name: String, v: FloatArray) { require(v.size >= 4) { "vector too short" }; f4(name, v[0], v[1], v[2], v[3]) }
+
+    // ---- samplers ----
+    /** Binds [tex] on the sampler's unit (units in declaration order, as before); the unit uniform itself is written once. */
+    fun tex(name: String, tex: Int) {
+        val s = slots[name] ?: return
+        if (s.type != GLES30.GL_SAMPLER_2D) wrongType(name, "a sampler")
+        sink.bindTexture(s.unit, tex)
+        writeInt(s, s.unit)
+    }
+
+    private fun wrongType(name: String, wanted: String): Nothing =
+        error("$label: $name is not $wanted (declared type differs)")
+}
+
+/**
+ * A media shader program. Uniforms are written by DECLARED type through a [UniformBank]: `val u = prog.use()` makes the
+ * program current and hands back its bank (see [MediaUniforms] for what each pass writes). Samplers get texture units
+ * in declaration order. The program's active uniforms and their locations are read once, here, at link time. GL thread
+ * only.
  */
 class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: String) {
     val program = GlProgram(shaders.source(vert), shaders.source(frag), label)
 
-    private class Uniform(val loc: Int, val type: Int, val unit: Int)
-
-    private val uniforms = HashMap<String, Uniform>()
+    private val bank: UniformBank
 
     init {
+        val slots = HashMap<String, UniformSlot>()
         val count = IntArray(1)
         GLES30.glGetProgramiv(program.id, GLES30.GL_ACTIVE_UNIFORMS, count, 0)
         var units = 0
@@ -31,49 +152,15 @@ class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: St
         for (i in 0 until count[0]) {
             val name = GLES30.glGetActiveUniform(program.id, i, size, 0, type, 0).substringBefore('[')
             val unit = if (type[0] == GLES30.GL_SAMPLER_2D) units++ else -1
-            uniforms[name] = Uniform(GLES30.glGetUniformLocation(program.id, name), type[0], unit)
+            slots[name] = UniformSlot(GLES30.glGetUniformLocation(program.id, name), type[0], unit)
         }
+        bank = UniformBank(slots, GlUniformSink, label)
     }
 
-    fun use(values: Map<String, Any?>) {
-        program.use()
-        for ((name, v) in values) set(name, v ?: continue)
-    }
-
-    fun set(name: String, v: Any) {
-        val u = uniforms[name] ?: return
-        when (u.type) {
-            GLES30.GL_FLOAT -> GLES30.glUniform1f(u.loc, num(v))
-            GLES30.GL_INT, GLES30.GL_BOOL -> GLES30.glUniform1i(u.loc, if (v is Boolean) (if (v) 1 else 0) else num(v).toInt())
-            GLES30.GL_FLOAT_VEC2 -> vec(v, 2).let { GLES30.glUniform2f(u.loc, it[0], it[1]) }
-            GLES30.GL_FLOAT_VEC3 -> vec(v, 3).let { GLES30.glUniform3f(u.loc, it[0], it[1], it[2]) }
-            GLES30.GL_FLOAT_VEC4 -> vec(v, 4).let { GLES30.glUniform4f(u.loc, it[0], it[1], it[2], it[3]) }
-            GLES30.GL_SAMPLER_2D -> {
-                val t = (v as? Tex)?.id ?: error("$name needs a Tex")
-                GLES30.glActiveTexture(GLES30.GL_TEXTURE0 + u.unit)
-                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t)
-                GLES30.glUniform1i(u.loc, u.unit)
-                GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-            }
-            else -> error("${program.id}: unsupported uniform type for $name")
-        }
-    }
+    /** Makes this program current and returns its uniform bank. */
+    internal fun use(): UniformBank { program.use(); return bank }
 
     fun release() = program.release()
-
-    private fun num(v: Any): Float = when (v) {
-        is Number -> v.toFloat()
-        is Boolean -> if (v) 1f else 0f
-        else -> error("not a number: $v")
-    }
-
-    private fun vec(v: Any, n: Int): FloatArray = when (v) {
-        is FloatArray -> v
-        is DoubleArray -> FloatArray(n) { v[it].toFloat() }
-        is IntArray -> FloatArray(n) { v[it].toFloat() }
-        is List<*> -> FloatArray(n) { (v[it] as Number).toFloat() }
-        else -> error("not a vector: $v")
-    }.also { require(it.size >= n) { "vector too short" } }
 }
 
 /** Texture and framebuffer helpers for the media engine (GL thread only). */

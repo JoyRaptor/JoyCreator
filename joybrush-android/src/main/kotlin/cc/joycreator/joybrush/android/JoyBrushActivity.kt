@@ -37,6 +37,8 @@ import cc.joycreator.joybrush.android.chrome.BrushDrawerView
 import cc.joycreator.joybrush.android.chrome.ChromeKit
 import cc.joycreator.joybrush.android.chrome.ColourPairView
 import cc.joycreator.joybrush.android.chrome.GuideOverlayView
+import cc.joycreator.joybrush.android.chrome.PaperTiltController
+import cc.joycreator.joybrush.android.chrome.TiltPadView
 import cc.joycreator.joybrush.android.chrome.JbIcon
 import cc.joycreator.joybrush.android.chrome.PaperSheetView
 import cc.joycreator.joybrush.androidkit.io.PaperResources
@@ -154,6 +156,9 @@ private const val PREF_REF_URI = "reference_uri"
 private const val PREF_REF_PLACE = "reference_place"
 private const val PREF_REF_SHOWN = "reference_shown"
 private const val PREF_LAYERS_OPEN = "layers_open"
+/** M5.6 (owner 2026-10-11): the tilt pad on screen, and tipping the paper with the phone. Both off until chosen. */
+private const val PREF_TILT_PAD = "tilt_pad"
+private const val PREF_TILT_PHONE = "tilt_phone"
 
 /** JB-2.12, Lead ruling R49: the guides are remembered by the app, never by the drawing. */
 private const val PREF_GUIDES = "guides"
@@ -227,6 +232,8 @@ class JoyBrushActivity : Activity() {
     private lateinit var layersBtn: TopButton
     private lateinit var guidesBtn: TopButton
     private lateinit var guideOverlay: GuideOverlayView
+    private lateinit var tiltPad: TiltPadView
+    private lateinit var paperTilt: PaperTiltController
     private lateinit var guideDone: TextView
     private var guides = GuideSettings.NONE
     private var paperPickerRevert: (() -> Unit)? = null
@@ -443,7 +450,7 @@ class JoyBrushActivity : Activity() {
         canvas.onGraphicsLost = { documentId -> boardController?.stop(); recoverGraphics(documentId) }
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
-        canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate(); fillPreview.invalidate(); boardController?.refreshTransform() }
+        canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate(); fillPreview.invalidate(); boardController?.refreshTransform(); paperTilt.viewMoved() }
         canvas.onGuideLock = { on -> guideOverlay.locked = on }
         guides = GuideSettings.decode(prefs.getString(PREF_GUIDES, null))
         guidesChanged()
@@ -501,12 +508,14 @@ class JoyBrushActivity : Activity() {
         viewPausePending = false
         ui.removeCallbacks(pauseView)
         canvas.onResume()
+        paperTilt.onResume()
         if (chromeShown) boardController?.resume()
         startBrushLab()
         saves.drain()
     }
 
     override fun onPause() {
+        paperTilt.onPause()
         boardController?.stop()
         popovers.close()
         stopBrushLab()
@@ -646,6 +655,7 @@ class JoyBrushActivity : Activity() {
             topMargin = kit.dpi(TOP_RESERVE_DP)
         })
 
+        buildTilt(overlays)
         return overlays
     }
 
@@ -704,6 +714,8 @@ class JoyBrushActivity : Activity() {
             lp.marginEnd = end
             strip.layoutParams = lp
         }
+        // The tilt pad takes the bottom corner on the side the strip is not on, and steps aside of the open layer column.
+        if (::tiltPad.isInitialized) tiltPad.dock(left = placement.edge == StripPlacement.Edge.RIGHT, endInsetPx = if (columnOpen) column.widthPx else 0)
     }
 
     /**
@@ -810,6 +822,7 @@ class JoyBrushActivity : Activity() {
     private fun moreMenu(anchor: View) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         box.addView(menuRow("Boards…", "Create or select an Image, Animation or Sprite board") { popovers.close(); boardController?.showMenu() })
+        addTiltRows(box)
         box.addView(menuRow("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() })
         box.addView(menuRow("Open…", "Open a drawing from your files") { askWhichToOpen() })
         box.addView(menuRow("Recent drawings…", "Recover one of the last drawings kept before Open") { recentDrawings(anchor) })
@@ -968,6 +981,34 @@ class JoyBrushActivity : Activity() {
         })
     }
 
+    // ── paper tilt (M5.6, owner 2026-10-11): wet paint runs downhill when the paper is tipped ──
+
+    private fun buildTilt(overlays: FrameLayout) {
+        paperTilt = PaperTiltController(this, canvas)
+        tiltPad = TiltPadView(kit).apply { onPad = { paperTilt.padMoved(it) } }
+        overlays.addView(tiltPad, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.END))
+        tiltPad.setWanted(prefs.getBoolean(PREF_TILT_PAD, false))
+        paperTilt.phoneTilt = prefs.getBoolean(PREF_TILT_PHONE, false) && paperTilt.phoneTiltAvailable
+    }
+
+    /** The two switches, in the ⋯ menu beside the other things set once and rarely touched. */
+    private fun addTiltRows(box: LinearLayout) {
+        val padOn = prefs.getBoolean(PREF_TILT_PAD, false)
+        box.addView(menuRow(if (padOn) "Tilt pad  ✓" else "Tilt pad",
+            "A small pad in the corner: drag its puck to tip the paper so wet paint runs downhill, double-tap to level it") {
+            prefs.edit().putBoolean(PREF_TILT_PAD, !padOn).apply()
+            tiltPad.setWanted(!padOn)
+        })
+        if (paperTilt.phoneTiltAvailable) {
+            val phoneOn = paperTilt.phoneTilt
+            box.addView(menuRow(if (phoneOn) "Tilt with phone  ✓" else "Tilt with phone",
+                "Tip the phone to tip the paper; the way you hold it when you switch this on counts as level") {
+                prefs.edit().putBoolean(PREF_TILT_PHONE, !phoneOn).apply()
+                paperTilt.phoneTilt = !phoneOn
+            })
+        }
+    }
+
     /** Owner decision 5: everything movable, and one way back. */
     private fun putEverythingBack() {
         placement = StripPlacement.DEFAULT
@@ -983,6 +1024,7 @@ class JoyBrushActivity : Activity() {
         popovers.close()
         if (chromeShown) boardController?.resume() else boardController?.stop()
         val views = if (columnOpen) listOf<View>(topBar, strip, hairline, column, boardOverlay) else listOf<View>(topBar, strip, hairline, boardOverlay)
+        tiltPad.setChromeShown(chromeShown)
         for (v in views) {
             v.animate().cancel()
             if (chromeShown) {

@@ -212,3 +212,25 @@ class StampPass(programs: GlPrograms, grains: GrainTextures) {
 
 Proof: extend `joybrush/tools/contact_check.js` with (a) one list drawn in one call vs in random splits, byte-equal; and (b)
 scale 2 vs level 0 downsampled, within AA tolerance. I'll write both checks once the extraction lands.
+
+## 9. Skin line brushes: watercolour, ink-on-wet, dry brush (added 2026-10-11 from the owner's research, R12)
+
+A second line technique beside the dab chain, for brushes whose look is a texture bent along the stroke:
+- **Geometry.** The stroke's variable-width outline (§4's envelope), triangulated into a strip with stroke-space UVs
+  (u = arc length fitted to whole sample tiles, v = −1..1 across).
+- **Drawing.** A fragment shader in `shaders/lines/`. Its inputs:
+  - the edge from |v| × 2–3 multiplied edge-alpha samples;
+  - the body from a wash sample;
+  - paper grain in paper space;
+  - start and end cap samples;
+  - pressure choosing between contained and bleeding sample sets;
+  - the line's operator (multiply for watercolour).
+- **Replay and pyramid.** Deterministic in (record, seed, frozen brush with its samples), so it replays and fits the
+  look pyramid (§1) like any line. A sharp level re-renders the strip at scale. A nudge re-fits the tiles, so samples
+  slide as in Concepts.
+- **Samples are ours.** They are baked from our watercolour simulation and the owner's own photographed washes, never
+  Concepts' (R12).
+- **Brush set.** The line watercolour (§2 #8) becomes a skin brush. Add an ink-on-wet (A1/F2 feel) and a dry brush with
+  streaks along u.
+- **Order.** After the stamp line set and the pencil. Needs H1 for the shared paper uniforms; the ribbon itself is all in
+  `gl/lines/`.

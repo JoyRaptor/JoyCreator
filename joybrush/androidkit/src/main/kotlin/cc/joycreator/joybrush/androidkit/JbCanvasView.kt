@@ -378,6 +378,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             post { tileBoardId=actual; tileRefusals.clear(); onTileBoardChanged?.invoke(actual); ready(actual) }
         }
     }
+    /**
+     * Live resize of the armed tile board: [rect] is shown as the repeating tile until null clears it. Queued on
+     * the GL thread behind any edit already queued, so clearing right after a commit lands after it and the
+     * screen goes straight from the dragged rectangle to the committed one with no frame of the old size.
+     */
+    fun setTilePreviewRect(id: String,rect: RectPx?) {
+        onGl { engine.setTilePreviewRect(id,rect) }
+    }
     fun setOnionBoard(id: String?) {
         onGl { try { engine.setOnionBoard(id) } catch(e: Exception) { post { onRefused?.invoke(e.message ?: "Onion preview could not be started") } } }
     }

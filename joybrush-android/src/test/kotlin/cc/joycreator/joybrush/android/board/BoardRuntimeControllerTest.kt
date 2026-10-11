@@ -8,6 +8,7 @@ import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
+import cc.joycreator.joybrush.androidkit.gl.TileLimits
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.view.ViewTransform
 import cc.joycreator.joybrush.core.chrome.BoardChromeLayout as Chrome
@@ -86,6 +87,52 @@ class BoardRuntimeControllerTest {
         image.host.action("feature",false)
         assertEquals(1,host.messages.size)
         assertFalse(host.document.boards.first().tiled)
+    }
+    private fun armedTileView(host: Host, controller: BoardRuntimeController, parent: FrameLayout): BoardChromeView {
+        controller.select("page")
+        val image=(0 until parent.childCount).map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>().single { it.sceneIdentity?.boardId == "page" }
+        image.host.action("feature",false)
+        assertTrue(shownInput(image).armed)
+        return image
+    }
+    @Test fun armedTileDragPushesEachCandidateRectCommitsOneEditAndClearsAfterIt() {
+        val host=Host(document()); val (controller,parent)=setup(host); val view=armedTileView(host,controller,parent)
+        host.deferEdits=true
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(20f,10f),false)
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(30f,12f),false)
+        assertEquals(listOf("page" to RectPx(0,0,568,1136),"page" to RectPx(0,0,578,1138)),host.tilePreviews)
+        assertEquals(RectPx(0,0,578,1138),host.scope); assertTrue(host.queued.isEmpty())
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(30f,12f),true)
+        // One edit, and the preview is cleared only after it was queued (the host's queue is first-in first-out).
+        assertEquals(1,host.queued.size); assertEquals("page" to null,host.tilePreviews.last())
+        assertEquals(listOf("edit","clear"),host.order.takeLast(2))
+        assertEquals(RectPx(0,0,578,1138),host.queued.single()(host.document).doc.boards.first { it.id=="page" }.rect)
+        assertTrue(host.messages.none { it.contains("can't be larger") })
+    }
+    @Test fun armedTileDragClampsToTheLastFittingSizeAndSaysSoOnceOnFinish() {
+        val host=Host(document()); val (controller,parent)=setup(host); val view=armedTileView(host,controller,parent)
+        host.messages.clear()   // arming says its one-time "does not wrap yet" hint
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(20f,10f),false)
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(5000f,5000f),false)
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(9000f,9000f),false)
+        val pushed=host.tilePreviews.mapNotNull { it.second }
+        assertTrue(pushed.all { TileLimits.fits(it) }); assertEquals(RectPx(0,0,568,1136),pushed.last())
+        assertTrue(host.messages.isEmpty())
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(9000f,9000f),true)
+        assertEquals(RectPx(0,0,568,1136),host.document.boards.first { it.id=="page" }.rect)
+        assertEquals(listOf("The tile can't be larger than this on this phone."),host.messages)
+        assertNull(host.tilePreviews.last().second)
+    }
+    @Test fun armedTileDragCancelAndPlainBoardsNeverTouchThePreview() {
+        val host=Host(document()); val (controller,parent)=setup(host); val view=armedTileView(host,controller,parent)
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(20f,10f),false)
+        view.host.cancel("handle-4")
+        assertEquals("page" to null,host.tilePreviews.last()); assertEquals(RectPx(0,0,548,1126),host.document.boards.first { it.id=="page" }.rect)
+        // Disarm, then drag the same board as a plain image board: no tile preview traffic at all.
+        view.host.action("feature",false); host.tilePreviews.clear()
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(20f,10f),false)
+        view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(20f,10f),true)
+        assertTrue(host.tilePreviews.isEmpty())
     }
     private fun spriteHost(): Host {
         var serial = 0
@@ -351,7 +398,11 @@ class BoardRuntimeControllerTest {
         var deferEdits = false
         val queued = mutableListOf<(JbDocument) -> RegionChange>()
         override fun ensureDocument(ready:(JbDocument)->Unit) = ready(document)
+        val tilePreviews = mutableListOf<Pair<String,RectPx?>>()
+        val order = mutableListOf<String>()
+        override fun tilePreviewRect(boardId:String,rect:RectPx?) { tilePreviews += boardId to rect; order += if(rect == null) "clear" else "show" }
         override fun edit(change:(JbDocument)->RegionChange) {
+            order += "edit"
             if (deferEdits) queued += change else document = change(document).doc
         }
         override fun selectFrame(boardId:String,frameId:String) { document = RegionDocumentOps.selectFrame(document,boardId,frameId) }

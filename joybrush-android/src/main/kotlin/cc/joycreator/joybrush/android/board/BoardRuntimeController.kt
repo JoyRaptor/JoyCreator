@@ -11,6 +11,7 @@ import android.util.LruCache
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
+import cc.joycreator.joybrush.androidkit.gl.TileLimits
 import cc.joycreator.joybrush.core.anim.PlaybackClock
 import cc.joycreator.joybrush.core.anim.PlayMode
 import cc.joycreator.joybrush.core.anim.FilmStrip
@@ -35,6 +36,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         fun preview(frames: Map<String, String>)
         fun tile(boardId: String?, ready: (String?) -> Unit) { ready(boardId) }
         fun onion(boardId: String?) {}
+        /** Shows [rect] as the armed tile board's repeating tile while it is dragged; null returns to the saved one. */
+        fun tilePreviewRect(boardId: String, rect: RectPx?) {}
         fun transform(): ViewTransform
         fun contentRevision(): Long = 0L
         fun sampleScreen(points: FloatArray, ready: (IntArray) -> Unit) { ready(intArrayOf()) }
@@ -67,9 +70,15 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private var spriteClock: PlaybackClock? = null
     private var spriteStarted = 0L
     private var spritePlayingCell: Int? = null
-    private data class GeometryDrag(val documentId: String, val board: Board, val handle: Int, val zoom: Float)
+    private data class GeometryDrag(val documentId: String, val board: Board, val handle: Int, val zoom: Float) {
+        /** Tile boards only: the newest dragged rectangle this phone can preview and paint into, and whether the latest one was held back to it. */
+        var lastFit: RectPx? = null
+        var clamped = false
+    }
     private var geometryDrag: GeometryDrag? = null
     private var geometryPreview: Board? = null
+    /** The tile board whose live preview rectangle the engine is showing; null when none is, so clearing is never spurious. */
+    private var tilePreviewShown: String? = null
     private data class SpriteDrag(val documentId: String, val board: Board, val cell: Int, val from: Chrome.Point)
     private var spriteDrag: SpriteDrag? = null
     private var spriteTarget: Int? = null
@@ -119,6 +128,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         stopPreview()
         if (geometryDrag != null || spriteDrag != null) views.values.forEach { it.stopInteractions() }
         geometryDrag = null; geometryPreview = null; spriteDrag = null; spriteTarget = null
+        clearTilePreview()
         val previous = doc
         val newDocument = previous != null && previous.id != value.id
         val revision = host.contentRevision()
@@ -235,6 +245,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         views.values.forEach { it.stopInteractions() }
         holdPreview = null; lifted = null; gap = null; liftScene = null
         geometryDrag = null; geometryPreview = null; spriteDrag = null; spriteTarget = null
+        clearTilePreview()
         parent.removeCallbacks(fade)
         parent.removeCallbacks(refreshAgain)
         parent.removeCallbacks(armedTick)
@@ -422,10 +433,13 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             parent.postDelayed(this,(c.nextChangeMs(elapsed)-elapsed).toLong().coerceIn(16,250))
         }
     }
-    private fun clearGeometry() {
+    /** [tilePreview] false keeps the live tile rectangle on screen: a finishing drag clears it only after its edit is queued. */
+    private fun clearGeometry(tilePreview: Boolean = true) {
         geometryDrag = null; geometryPreview = null
+        if(tilePreview) clearTilePreview()
         host.selectionChanged(selectedBounds); refreshTransform()
     }
+    private fun clearTilePreview() { tilePreviewShown?.let { host.tilePreviewRect(it,null) }; tilePreviewShown = null }
     private fun boardSizeForm(b: Board) {
         val documentId = doc?.id ?: return
         textForm("Board size in pixels",listOf("Width" to "${b.rect.w}","Height" to "${b.rect.h}")) { values ->
@@ -595,16 +609,32 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             if(b.locked || (b.kind == BoardKind.ANIMATION && b.frames.size > 1)) return
             val gesture=geometryDrag ?: GeometryDrag(doc!!.id,b,handle,host.transform().zoom).also { geometryDrag=it; stopPreview() }
             if(gesture.board != b || gesture.documentId != doc?.id) { clearGeometry(); return }
+            // An armed tile board resizes live: the screen repeats the proposed rectangle while the edge moves.
+            // Nothing here blocks a second finger or pen from painting mid-drag, and a stroke always paints into
+            // the SAVED rectangle; so the engine drops the preview the moment a stroke begins (setTilePreviewRect).
+            val tile = b.kind == BoardKind.CANVAS && session.armedBoardId == id
             try {
-                val rect=resized(gesture.board.rect,handle,((to.x-from.x)/gesture.zoom).roundToInt(),((to.y-from.y)/gesture.zoom).roundToInt())
+                var rect=resized(gesture.board.rect,handle,((to.x-from.x)/gesture.zoom).roundToInt(),((to.y-from.y)/gesture.zoom).roundToInt())
+                if(tile) {
+                    // Never offer a rectangle arming would refuse (and so switch tiling off): hold the last one that fits.
+                    gesture.clamped = !TileLimits.fits(rect)
+                    if(gesture.clamped) rect = gesture.lastFit ?: gesture.board.rect else gesture.lastFit = rect
+                }
                 val preview=resizeBoard(doc!!,id,rect).doc.boards.first { it.id == id }
                 if(finished) {
-                    clearGeometry()
+                    clearGeometry(tilePreview=false)
                     if(preview != b) edit { live ->
                         if(live.id != gesture.documentId || live.boards.firstOrNull { it.id == id } != b) throw DocException("The board changed; resize again")
                         resizeBoard(live,id,rect)
                     }
-                } else { geometryPreview=preview; host.selectionChanged(preview.rect); refreshTransform() }
+                    // Queued behind the edit above, so the screen moves from the dragged tile straight to the committed one.
+                    clearTilePreview()
+                    if(gesture.clamped) host.refusal("The tile can't be larger than this on this phone.")
+                } else {
+                    geometryPreview=preview; host.selectionChanged(preview.rect)
+                    if(tile) { tilePreviewShown=id; host.tilePreviewRect(id,rect) }
+                    refreshTransform()
+                }
             } catch(e:IllegalArgumentException) { clearGeometry(); host.refusal(e.message ?: "Choose a smaller board size") }
               catch(e:DocException) { clearGeometry(); host.refusal(e.message ?: "Choose a smaller board size") }
         }

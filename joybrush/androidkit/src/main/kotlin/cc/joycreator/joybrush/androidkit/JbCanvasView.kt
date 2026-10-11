@@ -796,6 +796,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     override fun onHoverEvent(event: MotionEvent): Boolean {
         onRawEvent?.invoke(event)
         reportPen(event)
+        tool?.hover(event, view)
         if (MotionEventSamples.tool(event, 0).let { it == Tool.STYLUS || it == Tool.ERASER }) {
             penSeen = true
             penHovering = event.actionMasked != MotionEvent.ACTION_HOVER_EXIT
@@ -803,10 +804,40 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         return super.onHoverEvent(event)
     }
 
+    /**
+     * The non-brush tool in use (Select, lasso, nudge: the UI lane's [CanvasTool]), or null when the brushes draw. A tool
+     * swapped mid-gesture has that gesture cancelled. Main thread.
+     */
+    var tool: cc.joycreator.joybrush.androidkit.tools.CanvasTool? = null
+        set(v) {
+            if (toolOwnsGesture) { field?.cancel(); toolOwnsGesture = false }
+            field = v
+        }
+    private var toolOwnsGesture = false
+
+    /** Routes a contact to [tool] (see [cc.joycreator.joybrush.androidkit.tools.CanvasTool]'s contract). True = consumed. */
+    private fun toolTouch(ev: MotionEvent): Boolean {
+        val t = tool ?: return false
+        val action = ev.actionMasked
+        if (toolOwnsGesture) {
+            val keep = t.event(ev, view)
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) toolOwnsGesture = false
+            else if (!keep) { toolOwnsGesture = false; gestures.handOver(); gestures.onEvent(ev) }   // the rest navigates
+            return true
+        }
+        if (action == MotionEvent.ACTION_DOWN && !drawing && t.down(ev, 0, view)) {
+            if (isPenAt(ev, 0)) penSeen = true
+            toolOwnsGesture = true
+            return true
+        }
+        return false
+    }
+
     override fun onTouchEvent(ev: MotionEvent): Boolean {
         onRawEvent?.invoke(ev)
         reportPen(ev)
         if (eyedropTouch(ev)) return true
+        if (toolTouch(ev)) return true
         val action = ev.actionMasked
         if (action == MotionEvent.ACTION_DOWN) {
             if (isPenAt(ev, 0) && (ev.buttonState and PenButton.BIT_STYLUS_PRIMARY) != 0) {

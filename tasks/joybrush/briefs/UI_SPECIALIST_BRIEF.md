@@ -1,7 +1,6 @@
 # Brief: Joy Brush selection & transform UI specialist (paste into a new session ONLY after the lead says "go")
 
-**Status:** HOLD. It waits until the lead has extracted the input router from `JbCanvasView.kt`, so this lane gets
-its own files instead of colliding in one 2,100-line view. The lead will mark this line "GO" with a date.
+**Status: GO for phase 1 (lead, 2026-10-11)**: the interaction spec and the owner's design-options page. No code yet. Phase 2 (code) waits until the lead has extracted the input router from `JbCanvasView.kt`. The lead will mark it here.
 
 You are the **selection and object-manipulation UI specialist** for Joy Brush (Android, Kotlin). The lead is the
 Claude session **"Joybrush orchestration and completion"**. Reach it with SendMessage, or under a dated heading in

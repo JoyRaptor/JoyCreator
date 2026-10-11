@@ -10,6 +10,7 @@ uniform sampler2D u_stroke;    // stroke buffer, R channel
 uniform vec3 u_color;          // brush colour, straight (not premultiplied)
 uniform float u_strokeScale;   // opacity for BUILD_UP strokes, 1 for WASH
 uniform int u_erase;           // 1 = erase
+uniform int u_blend;           // 0 = normal (default), 1 = multiply, 2 = screen (brush v9, VECTOR_RENDER_DESIGN H6); erase wins
 uniform int u_smudge;          // 1 = the stroke buffer holds PREMULTIPLIED RGBA carried paint, not a coverage (JB-1.06)
 uniform float u_layerOpacity;
 
@@ -35,5 +36,13 @@ void main() {
     }
     float a = texture(u_stroke, v_uv).r * u_strokeScale;
     vec4 outc = (u_erase == 1) ? dst * (1.0 - a) : vec4(u_color * a, a) + dst * (1.0 - a);
+    // The glaze blends: W3C multiply and screen on premultiplied colour, matching RefCanvas.endStroke and
+    // render/Blend. Callers that never set u_blend get 0, so the line above is untouched for every existing stroke.
+    if (u_erase != 1 && u_blend != 0) {
+        vec3 sp = u_color * a;
+        vec3 rgb = (u_blend == 1) ? sp * dst.rgb + sp * (1.0 - dst.a) + dst.rgb * (1.0 - a)
+                                  : sp + dst.rgb * (1.0 - sp);
+        outc = vec4(rgb, a + dst.a * (1.0 - a));
+    }
     o_color = outc * u_layerOpacity;
 }

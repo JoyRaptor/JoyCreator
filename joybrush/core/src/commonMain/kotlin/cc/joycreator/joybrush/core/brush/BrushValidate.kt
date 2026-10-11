@@ -27,7 +27,7 @@ object BrushValidate {
 
     private val ENGINES = setOf("stamp", ENGINE_SMUDGE, "wet", ENGINE_FILL, ENGINE_PUSH, ENGINE_TUFT, ENGINE_MEDIA)
     private val ACCUMULATES = setOf("wash", "buildup")
-    private val BLENDS = setOf("normal", "erase", BLEND_BEHIND)
+    private val BLENDS = setOf("normal", "erase", BLEND_BEHIND, BLEND_MULTIPLY, BLEND_SCREEN)
     private val COMBINES = setOf("multiply", "add")
     private val TIP_SOURCES = setOf("procedural", "image")
     private val GRAIN_SOURCES = setOf("cloud", "image")
@@ -327,7 +327,27 @@ object BrushValidate {
         // always-written tuft section it is null when unused, so a section on another engine is a mistake to name.
         out += mediaProblems(p)
 
+        // 28 — the line section and the two glaze blends (brush version 9, VECTOR_RENDER_DESIGN §3/H6). Every number
+        // is ranged with `!in`, so NaN and the infinities are refused by name. The blends are stamp-only: the commit
+        // shader composites a stamp stroke buffer with them, and the fill pen, smudge, push, tuft and media paths do not
+        // read the word, so on those engines it would be a promise nothing keeps.
+        out += lineProblems(p)
+
         return out
+    }
+
+    private fun lineProblems(p: BrushPreset): List<String> {
+        val bad = ArrayList<String>()
+        if ((p.blend == BLEND_MULTIPLY || p.blend == BLEND_SCREEN) && p.engine != "stamp") {
+            bad += "blend \"${p.blend}\" works only on a stamp brush, not engine \"${p.engine}\""
+        }
+        val l = p.line ?: return bad
+        val lengths = listOf("taperIn" to l.taperIn, "taperOut" to l.taperOut, "dashOn" to l.dashOn, "dashOff" to l.dashOff)
+        for ((n, v) in lengths) if (v !in 0f..1000f) bad += "line.$n $v is outside 0..1000"
+        if (l.taperTip !in 0f..1f) bad += "line.taperTip ${l.taperTip} is outside 0..1"
+        if (l.taperShape !in 0.25f..4f) bad += "line.taperShape ${l.taperShape} is outside 0.25..4"
+        if (l.screenWidthPx !in 0f..64f) bad += "line.screenWidthPx ${l.screenWidthPx} is outside 0..64"
+        return bad
     }
 
     private val MEDIA_NUMBERS = Json { allowSpecialFloatingPointValues = true }

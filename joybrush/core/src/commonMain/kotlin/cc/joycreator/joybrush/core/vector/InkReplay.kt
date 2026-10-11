@@ -86,7 +86,12 @@ object InkReplay {
         // the shape and not the shape.
         if (preset.engine == ENGINE_FILL) return emptyList()
 
-        val placed = placedDabs(record, preset)
+        // The brush's whole-stroke shaping (brush version 9, `line`): taper and dashes measured along the drawn path, so
+        // after placement and BEFORE the scatter. A brush with no `line` section gets its placed dabs back unchanged. A
+        // wire's width is a property of the zoom it is drawn at, so it is applied by the renderer, not here.
+        val style = LineStyle.of(preset.line)
+        val diameter = preset.size.base
+        val placed = LineShaper.dash(LineShaper.taper(placedDabs(record, preset), style, diameter), style, diameter)
         val scattered = Scatter.expand(
             placed,
             preset.scatter,

@@ -46,8 +46,11 @@ data class Dab(
  */
 enum class Accumulate { WASH, BUILD_UP }
 
-/** What a committed stroke does to its layer. */
-enum class StrokeBlend { NORMAL, ERASE }
+/**
+ * What a committed stroke does to its layer. [MULTIPLY] and [SCREEN] (brush version 9) are the W3C separable modes
+ * applied to the WHOLE stroke buffer once (JB-5.20 D8a), so a stroke never darkens itself, only what lay under it.
+ */
+enum class StrokeBlend { NORMAL, ERASE, MULTIPLY, SCREEN }
 
 /** The tip shape, mirroring `JbTip` in `joybrush/shaders/jb_tip.glsl` (radius and angle live on each [Dab]). */
 data class TipShape(

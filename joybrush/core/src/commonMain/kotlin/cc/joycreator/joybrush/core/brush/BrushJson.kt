@@ -19,12 +19,17 @@ const val BRUSH_FORMAT = "joybrush.brush"
  *  - **6** (JB-9.09, R10) added the `paper` section — how much each brush feels the document paper — [VERSION_PAPER].
  *  - **7** added live contact aspect and anchoring, with hardness and grain depth evaluated per dab.
  *  - **8** (MEDIA_ENGINE_PLAN §4) added `engine: "media"` and its `media` section — [VERSION_MEDIA].
+ *  - **9** (VECTOR_RENDER_DESIGN §3, H6) added the `line` section and `blend: "multiply"` / `"screen"` — [VERSION_LINES].
+ *    Written as "the version before + 1": the Lead checks the number against JB-2.40's bump when both land.
  *
  * A word needs the version that introduced it, NOT the newest one: a fill pen is still a version-2
  * file, so a build that predates smudge can open it. [BrushJson.wordsNeedingVersion] carries the
  * per-word number.
  */
-const val BRUSH_VERSION = 8
+const val BRUSH_VERSION = 9
+
+/** The brush version that introduced the `line` section and the multiply/screen blends (VECTOR_RENDER_DESIGN H6). */
+const val VERSION_LINES = 8 + 1
 
 /** Live contact aspect and anchored pencil footprint. */
 const val VERSION_CONTACT = 7
@@ -53,6 +58,12 @@ const val ENGINE_FILL = "fill"
 
 /** Paints only where the layer is not already opaque, so a fill can go UNDER line art on its layer. */
 const val BLEND_BEHIND = "behind"
+
+/** Darkens what is under it, so overlapping strokes build up like glazes (the line watercolour, JB-5.20 D6/D8a). */
+const val BLEND_MULTIPLY = "multiply"
+
+/** Lightens what is under it: the inverse of [BLEND_MULTIPLY], for light lines on dark paper. */
+const val BLEND_SCREEN = "screen"
 
 /**
  * brush.json — one brush, the smallest thing a person can share. It is written by Joy Brush, by the
@@ -167,6 +178,8 @@ object BrushJson {
         if (p.tip.anchorDynamics != null) out += VersionedWord("tip.anchorDynamics", VERSION_CONTACT)
         if (p.engine == ENGINE_MEDIA) out += VersionedWord("engine \"$ENGINE_MEDIA\"", VERSION_MEDIA)
         else if (p.media != null) out += VersionedWord("media", VERSION_MEDIA)
+        if (p.line != null) out += VersionedWord("line", VERSION_LINES)
+        if (p.blend == BLEND_MULTIPLY || p.blend == BLEND_SCREEN) out += VersionedWord("blend \"${p.blend}\"", VERSION_LINES)
         return out
     }
 }

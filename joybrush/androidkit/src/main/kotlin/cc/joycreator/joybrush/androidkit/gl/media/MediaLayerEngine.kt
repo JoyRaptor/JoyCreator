@@ -9,6 +9,7 @@ import cc.joycreator.joybrush.core.media.OpaquePaint
 import cc.joycreator.joybrush.core.media.PASTE_DEPTH
 import cc.joycreator.joybrush.core.media.PASTE_LANES
 import cc.joycreator.joybrush.core.media.PasteBrush
+import cc.joycreator.joybrush.core.media.PasteFootprint
 import cc.joycreator.joybrush.core.media.PasteStep
 import cc.joycreator.joybrush.core.media.StickMaterial
 import cc.joycreator.joybrush.core.media.WetConstants
@@ -529,6 +530,13 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         }
     }
 
+    /**
+     * Debug/A-B switch: true = every paste step shades and copies the whole old square (half-size hypot(halfW, lenMax)
+     * + 0.3 mm) instead of scissoring it to [PasteFootprint]'s tight oriented box. Both give identical pixels (the dab
+     * shader passes its input through outside the footprint); only the fill cost differs. Default false.
+     */
+    var legacyRect = false
+
     /** One step of a paste brush: the brush trades with the canvas under it, both sides from the same state. */
     fun pasteStep(st: PasteStep, b: PasteBrush, paper: MediaPaperGl, pxPerMm: Double, seed: Int) {
         bakePaper(paper)
@@ -561,17 +569,28 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             "u_layerSize" to floatArrayOf(w.toFloat(), h.toFloat()), "u_rect" to floatArrayOf(0f, 0f, PASTE_LANES.toFloat(), PASTE_DEPTH.toFloat()),
             "u_targetSize" to floatArrayOf(PASTE_LANES.toFloat(), PASTE_DEPTH.toFloat()))))
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-        // Canvas side, from the same (old) brush cells, over the footprint's rectangle.
-        val r = (if (b.blade) (st.bladeLen ?: b.bladeLenMm) + b.bladeHalfMm + 1.5 else hypot(st.halfW, st.lenMax) + 0.3) * pxPerMm
-        val rect = layerRect(doubleArrayOf(st.x - r, st.y - r, st.x + r, st.y + r), 2.0)
-        if (rect != null) {
+        // Canvas side, from the same (old) brush cells. The dab shader hands back its input untouched wherever the brush
+        // has no coverage (jb_paste_dab.frag lines 40/47/83), so only the oriented box around the real footprint
+        // ([PasteFootprint], ~7-10x smaller than the old square for Oil round) has to be shaded and copied back.
+        // The quad is STILL the old square and the box is a scissor on it: a smaller quad would interpolate v_docPx /
+        // v_layerPx with different rounding, and the noise inside the shader would shift by an ulp (measured:
+        // tools/media_paste_rect_parity_check.js). Same primitive + scissor = the same fragments, bit for bit.
+        val square = layerRect(PasteFootprint.legacyBounds(st, b, pxPerMm), 2.0)
+        val rect = if (legacyRect) square else layerRect(PasteFootprint.docBounds(st, b, scale.toDouble(), pxPerMm), 2.0)
+        if (square != null && rect != null) {
             touch(rect)
             stores += "p0"; stores += "p1"
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, pFbo1)
             GLES30.glViewport(0, 0, w, h)
+            val tight = rect !== square
+            if (tight) {
+                GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+                GLES30.glScissor(rect[0].toInt(), rect[1].toInt(), (rect[2] - rect[0]).toInt(), (rect[3] - rect[1]).toInt())
+            }
             progPasteDab.use(common(u + mapOf("u_brush0" to Tex(cur.b0), "u_brush1" to Tex(cur.b1),
-                "u_targetSize" to floatArrayOf(w.toFloat(), h.toFloat()), "u_rect" to rect)))
+                "u_targetSize" to floatArrayOf(w.toFloat(), h.toFloat()), "u_rect" to square)))
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            if (tight) GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
             copyRect(state[1], pFbo0, rect)
         }
         bc = 1 - bc

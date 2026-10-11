@@ -353,6 +353,16 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         get() = mediaCanvas.legacyWindow
         set(v) { mediaCanvas.legacyWindow = v }
 
+    /** Debug comparison only: the water's coarser time step (see MediaCanvas.wetQuality); null = shipped. */
+    var mediaWetQuality: cc.joycreator.joybrush.core.media.WetConstants?
+        get() = mediaCanvas.wetQuality
+        set(v) { mediaCanvas.wetQuality = v }
+
+    /** The paper's downhill slope for pencil, watercolour and oil, document space ([0, 0] = flat). Main thread. */
+    fun setMediaSlope(x: Float, y: Float) {
+        onGl { mediaCanvas.slope = floatArrayOf(x, y) }
+    }
+
     /** Frame timings for the debug stroke replay (bench/StrokeReplay); records nothing until started. */
     val frameStats = cc.joycreator.joybrush.androidkit.bench.FrameStats().also { mediaCanvas.stats = it }
 

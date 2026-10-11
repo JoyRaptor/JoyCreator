@@ -23,6 +23,7 @@ import cc.joycreator.joybrush.core.media.PasteStroke
 import cc.joycreator.joybrush.core.media.StickMaterial
 import cc.joycreator.joybrush.core.media.THINNER
 import cc.joycreator.joybrush.core.media.WETNESS
+import cc.joycreator.joybrush.core.media.WetConstants
 import cc.joycreator.joybrush.core.media.WetStroke
 import cc.joycreator.joybrush.core.media.opaquePaint
 import cc.joycreator.joybrush.core.media.paintFromColor
@@ -54,6 +55,12 @@ class MediaCanvas(
 
     /** Debug A/B only (bench `jb_media_legacy`): the pre-2026-10-10 window placement and every-frame store copies. */
     @Volatile var legacyWindow = false
+
+    /**
+     * Debug comparison only (bench `jb_wet_substeps`): the water's time step, coarser for fewer, longer substeps per frame
+     * (the same simulated time, less accuracy). Null = the shipped constants.
+     */
+    @Volatile var wetQuality: cc.joycreator.joybrush.core.media.WetConstants? = null
 
     /** The debug replay's counters, handed to each window made (null in normal use). */
     var stats: cc.joycreator.joybrush.androidkit.bench.FrameStats? = null
@@ -175,7 +182,7 @@ class MediaCanvas(
             return true
         }
         if (e.wetActive) {
-            e.wetFrame(null, paint.mediaPaper(), DOC_PX_PER_MM)
+            e.wetFrame(null, paint.mediaPaper(), DOC_PX_PER_MM, wetQuality ?: WetConstants())
             w.flush()
             w.touched(nowMs)
             return true
@@ -314,15 +321,15 @@ class MediaCanvas(
             val lastDab = (batch.count - 1) * DabBatch.FLOATS
             e.dryFrame(batch, batch.dabs[lastDab + 16].toDouble(), batch.dabs[lastDab + 17].toDouble(), paper, st.mat!!, DOC_PX_PER_MM)
         }
-        st.thin?.let { e.wetFrame(it.take(), paper, DOC_PX_PER_MM) }
+        st.thin?.let { e.wetFrame(it.take(), paper, DOC_PX_PER_MM, wetQuality ?: WetConstants()) }
         st.paste?.let { ps -> for (step in ps.take()) e.pasteStep(step, st.brush!!, paper, DOC_PX_PER_MM, st.seed) }
-        st.wet?.let { e.wetFrame(it.take(), paper, DOC_PX_PER_MM) }
+        st.wet?.let { e.wetFrame(it.take(), paper, DOC_PX_PER_MM, wetQuality ?: WetConstants()) }
         if (st.erase && st.eraseDabs.isNotEmpty()) {
             e.eraseFrame(eraseBatch(st.eraseDabs), existingStores(st.layerId, w))
             st.eraseDabs.clear()
         }
         // Water that is already running in the window keeps running under a dry or paste stroke.
-        if (st.wet == null && st.thin == null && e.wetActive) e.wetFrame(null, paper, DOC_PX_PER_MM)
+        if (st.wet == null && st.thin == null && e.wetActive) e.wetFrame(null, paper, DOC_PX_PER_MM, wetQuality ?: WetConstants())
         if (timing != null) android.opengl.GLES30.glFinish()
         val t1 = System.nanoTime()
         w.flush(stores = last || legacyWindow)

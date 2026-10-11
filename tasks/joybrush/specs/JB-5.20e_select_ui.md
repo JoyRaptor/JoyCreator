@@ -424,8 +424,9 @@ interface LiftedLines {
     /**
      * Replaces the lifted lines' records with [after] (same ids, same seqs) as ONE undo step pushed onto the engine's
      * UndoLog (a `LineChange` per line), re-renders the lifted texture from [after] at identity, and stays lifted.
-     * Returns false and pushes nothing when [after] equals what is there. Undo and redo while lifted re-render the
-     * texture from whatever records the step restored.
+     * Returns false and pushes nothing when [after] equals what is there. Undo and redo while lifted go through the
+     * engine's normal undo-step path (never a parallel one: one press, one step across every tool); the lift only
+     * re-renders its texture from whatever records that step restored. (Lead, 2026-10-11.)
      */
     fun commit(after: List<cc.joycreator.joybrush.core.stroke.StrokeRecord>): Boolean
     /** The selection ended: the lines go back into the cel's look (their tiles re-render), no undo step. */

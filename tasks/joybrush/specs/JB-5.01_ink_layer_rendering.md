@@ -267,6 +267,17 @@ parity test is then a transcription of a test that already exists, not a design.
     - **FINITE but out of range** → **clamped** to `0f..MAX_RADIUS_PX`. `3e30` is a real number that
       is merely too big, and the honest answer is the biggest radius that can exist.
 
+    **Amended 2026-10-11 (vector specialist H7 b+c, merged @ 76188061; Lead decision).** Two sentences above are
+    superseded by the code:
+    - A **non-finite `widthScale`** is now read as **1**, the neutral weight, not 0. `StrokeCodec` decode and
+      `StrokeEdit.reweight` always read it as 1, and decode is the only way a line comes off disk, so the replay drawing
+      that line as nothing was the one reader that disagreed. A non-finite **radius** (after the multiply) still goes
+      to 0, and a finite but huge one is still clamped to `MAX_RADIUS_PX`: those two rules stand.
+    - Re-weighting does **not** space the dabs further apart. `widthScale` multiplies each radius AFTER `DabPlacer` has
+      placed the dabs, so the count and the positions are unchanged (test 9 always asserted the same count). A line
+      re-weighted ×2 is therefore slightly denser than the same line drawn fresh with a brush twice the size; for the
+      saturating line brushes this cannot be seen.
+
 10. **The replay walks the live path's own steps, in the live path's own order.** A `StrokeSmoother`
     (not `StrokeSmoother.smoothAll` — the class, so `droppedSamples` is readable and the batching is
     the same as `JbCanvasView.feed`'s) driven with `add` per sample and `finish` at the end; then one
@@ -390,7 +401,8 @@ predictable. `scatterBrush()` = the same with `scatter = ScatterSpec(amount = Pa
    NON-FINITE ones go to `0f` and the finite-but-huge one is CLAMPED, not zeroed:**
    - `widthScale = 0f` → radii of `0f`.
    - `widthScale = Float.NaN` and `Float.POSITIVE_INFINITY` → radii of `0f`. These are not numbers,
-     so there is nothing to clamp them to.
+     so there is nothing to clamp them to. **Superseded 2026-10-11 (Decision 9 amendment):** they read as a
+     `widthScale` of 1, so the radii are the brush's own; `InkReplayTest.widthScaleThickensTheReplay` pins it.
    - `widthScale = 1e30f` → radii of **`DabPlacer.MAX_RADIUS_PX` (2048)**, not `0f`. `3 × 1e30` is
      finite; the honest answer is the largest radius that can be allocated. This is what the shipped
      `InkReplayTest` already asserted, and the test was right where this spec's prose was not.

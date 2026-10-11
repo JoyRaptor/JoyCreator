@@ -212,3 +212,18 @@ class StampPass(programs: GlPrograms, grains: GrainTextures) {
 
 Proof: extend `joybrush/tools/contact_check.js` with (a) one list drawn in one call vs in random splits, byte-equal; and (b)
 scale 2 vs level 0 downsampled, within AA tolerance. I'll write both checks once the extraction lands.
+
+## 9. Sampled watercolour line brushes (added 2026-10-11 from the owner's research, R12; corrected the same day)
+
+Concepts' watercolours are dab samples, not ribbons (owner, R12). So a watercolour line is a stamp line with four
+additions, all deterministic in (record, seed, frozen brush with its samples):
+- **Sample set**: several image dab tips in one array texture; each dab picks one by seed, pressure and tilt (small hard
+  tips when light and upright, big bleeding ones when pressed and laid over), rotated by angle jitter.
+- **Max combine**: the stroke buffer keeps the darker of dab and buffer (blend equation MAX), so a stroke never builds to
+  black inside.
+- **Wash capacity**: at commit the stroke density is multiplied by the brush's wash texture, sampled in the line's own
+  frame (an origin and rotation stored with the line, moved by edits), so full density shows the wash, not flat colour.
+- **Per-line operator** (D8a): multiply glaze or normal.
+Engine hooks: an accumulate word "max", an image-tip array, the wash sampler in the commit pass, and a line frame in the
+record. They go to the Lead as a design note before any build. Samples are ours (simulation bakes and the owner's
+photographs). Ribbon "skin" brushes remain a possible later kind for dry-brush streaks.

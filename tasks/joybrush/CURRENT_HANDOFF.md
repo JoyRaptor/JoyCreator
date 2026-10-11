@@ -1,5 +1,7 @@
 # JoyBrush lead handoff — October 9, 2026
 
+> **NEWEST: read [HANDOFF_20261011.md](HANDOFF_20261011.md) first (2026-10-11, Claude lead).**
+
 > **2026-10-10: the owner appointed Claude (session "Joybrush orchestration and completion") as lead and
 > orchestrator.** Current plan, verified findings and lanes: [LEAD_PLAN_20261010.md](LEAD_PLAN_20261010.md). It
 > supersedes the queue below. Mid-tier jobs 05–29 stay as recorded; the lead batch-reviews them. Don't start new work

@@ -56,7 +56,6 @@ void main() {
     vec4 pig = texelFetch(u_w1, c, 0);
     vec4 p0 = texelFetch(u_p0, c, 0);
     vec4 p1 = texelFetch(u_p1, c, 0);
-    float h = texelFetch(u_paperBake, c, 0).b;
     float w = a.r, s = a.g, age = a.b;
 
     // --- move: out through own fluxes, in through neighbours' fluxes pointing here
@@ -117,7 +116,13 @@ void main() {
     if (wet) age += u_dt;
 
     // --- dry: faster where the wet area is thin and near its edge
+    // A cell with no water left (w == 0 here) is dry whatever its surroundings say: the ring below only feeds the edge
+    // drying (evap), and with the edge factor >= 1 the water it would take away is none, so w stays 0 and nothing else
+    // uses wetN / wMax / sizingVar on that path (the dry-out branch below). Skipping the ring changes no output bit.
+    // The uniform tests are what make "edge factor >= 1, evaporation >= 0" true for every constant set.
+    bool idle = w == 0.0 && u_minMm > 0.0 && u_evap >= 0.0 && u_edgeEvap >= 0.0 && u_dt >= 0.0;
     float wetN = 0.0, wMax = w;
+    if (!idle) {
     for (int i = 0; i < 8; i++) {
         float ang = float(i) * 0.785398;
         ivec2 q = clamp(c + ivec2(round(3.0 * vec2(cos(ang), sin(ang)))), ivec2(0), size - 1);
@@ -125,11 +130,13 @@ void main() {
         wetN += 0.125 * smoothstep(u_minMm, u_minMm * 6.0, wq);
         wMax = max(wMax, wq);
     }
+    }
     // A rim needs water to flow to the edge. Paint laid almost dry (dry brush) dries where it touches.
     float rimWater = smoothstep(0.03, 0.12, wMax);
     // Uneven sizing and air: some spots dry a little sooner, so pigment migrates toward the slower spots,
     // the soft mottling of a real wash (from the paper's own absorbency map).
-    float sizingVar = 0.65 + 0.7 * texelFetch(u_fluidBake, c, 0).r;
+    float sizingVar = 1.0;
+    if (!idle) sizingVar = 0.65 + 0.7 * texelFetch(u_fluidBake, c, 0).r;
     float evap = u_evap * u_dt * sizingVar * (1.0 + rimWater * u_edgeEvap * (1.0 - wetN));
     float before = w;
     w = max(0.0, w - evap);
@@ -155,6 +162,7 @@ void main() {
     } else {
         // Granulation: pigment grains lodge in the paper's FINE tooth (height minus its fibre-scale mean),
         // not in the big bumps, which only shape where the water pools.
+        float h = texelFetch(u_paperBake, c, 0).b;   // (fetched only where it is used: dry cells never reach here)
         float hs = texelFetch(u_waterBake, c, 0).r;
         float g = clamp(1.0 + u_gran * (hs - h) * 5.0, 0.3, 2.5);
         float edge = 1.0 + rimWater * (u_edgeDep * (1.0 - wetN) + u_edgeDep * 0.5 * smoothstep(0.06, 0.01, w));

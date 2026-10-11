@@ -367,7 +367,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     @Volatile var tileBoardId: String? = null
         private set
     var onTileBoardChanged: ((String?) -> Unit)? = null
-    private val tileRefusals=mutableSetOf<String>()
     fun setTileBoard(id: String?,ready: (String?) -> Unit = {}) {
         if(drawing) finishStroke()
         eyedropEnd(take=false)
@@ -375,7 +374,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             try { engine.setTileBoard(id) }
             catch(e: Exception) { post { onRefused?.invoke(e.message ?: "Tiling could not be started") } }
             val actual=engine.tileBoardId
-            post { tileBoardId=actual; tileRefusals.clear(); onTileBoardChanged?.invoke(actual); ready(actual) }
+            post { tileBoardId=actual; onTileBoardChanged?.invoke(actual); ready(actual) }
         }
     }
     /**
@@ -389,9 +388,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     fun setOnionBoard(id: String?) {
         onGl { try { engine.setOnionBoard(id) } catch(e: Exception) { post { onRefused?.invoke(e.message ?: "Onion preview could not be started") } } }
     }
+    /**
+     * A tool that cannot wrap round an armed tile board says so EVERY time it is tried (once per stroke, which is when
+     * this runs). It used to say it once per arming and then do nothing at all, which read as a broken brush (owner's
+     * report: "brushes not working on all the boards", LEAD_PLAN F6).
+     */
     private fun refuseTileTool(tool: String): Boolean {
         if(tileBoardId == null) return false
-        if(tileRefusals.add(tool)) onRefused?.invoke("Turn tiling off to use $tool")
+        onRefused?.invoke("Turn tiling off to use $tool")
         return true
     }
     private fun boardStrokeWork(block: () -> Unit) {

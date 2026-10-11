@@ -23,6 +23,11 @@ class FrameStats {
     private val media = ArrayList<Double>()
     private val display = ArrayList<Double>()
     private val finish = ArrayList<Double>()
+    private val sim = ArrayList<Double>()
+    private val flush = ArrayList<Double>()
+    /** Media phase time inside the current frame (bench only; the media canvas adds to these with glFinish brackets). */
+    var simAcc = 0.0
+    var flushAcc = 0.0
     private val inputs = ArrayList<Long>()       // pen reports dispatched, uptime ns
     private var downNs = 0L
     private var upNs = 0L
@@ -37,7 +42,7 @@ class FrameStats {
 
     /** GL thread. */
     fun start() {
-        starts.clear(); busy.clear(); work.clear(); media.clear(); display.clear(); finish.clear()
+        starts.clear(); busy.clear(); work.clear(); media.clear(); display.clear(); finish.clear(); sim.clear(); flush.clear(); simAcc = 0.0; flushAcc = 0.0
         synchronized(inputs) { inputs.clear(); downNs = 0L; upNs = 0L }
         mediaWindowMoves = 0; mediaWindowLoads = 0; mediaFrames = 0
         recording = true
@@ -64,11 +69,13 @@ class FrameStats {
         starts += t0
         busy += (end - t0) / 1e6
         work += ms(t0, t1); media += ms(t1, t2); display += ms(t2, t3); finish += (end - end0) / 1e6
+        sim += simAcc; flush += flushAcc; simAcc = 0.0; flushAcc = 0.0
         t0 = 0L
     }
 
     data class Summary(
         val frames: Int, val strokeFrames: Int, val busy: Pct, val work: Pct, val media: Pct, val display: Pct, val finish: Pct,
+        val sim: Pct, val flush: Pct,
         val gap: Pct, val latency: Pct, val firstFrameMs: Double, val over17: Int, val over34: Int,
         val mediaWindowMoves: Int, val mediaWindowLoads: Int, val mediaFrames: Int,
     )
@@ -83,7 +90,7 @@ class FrameStats {
         val lat = ins.mapNotNull { t -> starts.firstOrNull { it >= t }?.let { (it - t) / 1e6 } }
         val first = starts.firstOrNull { it >= down }?.let { (it - down) / 1e6 } ?: -1.0
         fun sel(v: List<Double>) = pct(inStroke.map { v[it] })
-        return Summary(starts.size, inStroke.size, sel(busy), sel(work), sel(media), sel(display), sel(finish),
+        return Summary(starts.size, inStroke.size, sel(busy), sel(work), sel(media), sel(display), sel(finish), sel(sim), sel(flush),
             pct(gaps), pct(lat), first, gaps.count { it > 17.5 }, gaps.count { it > 34.0 },
             mediaWindowMoves, mediaWindowLoads, mediaFrames)
     }

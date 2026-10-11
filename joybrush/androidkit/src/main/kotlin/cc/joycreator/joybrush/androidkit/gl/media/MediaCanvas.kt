@@ -305,6 +305,11 @@ class MediaCanvas(
             w.follow(doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r), st.penX, st.penY)
         }
         w.lookHalo = if (look.impasto > 0f) MediaWindow.LOOK_HALO_MAX else MediaWindow.LOOK_HALO_FLAT
+        // Bench only: split the frame's media cost into the simulation (dabs, steps, water) and the write-back (look
+        // render, tile copies), each finished on the GPU so the split is real time, not command submission.
+        val timing = stats?.takeIf { it.recording }
+        if (timing != null) android.opengl.GLES30.glFinish()
+        val t0 = System.nanoTime()
         if (batch != null && batch.count > 0) {
             val lastDab = (batch.count - 1) * DabBatch.FLOATS
             e.dryFrame(batch, batch.dabs[lastDab + 16].toDouble(), batch.dabs[lastDab + 17].toDouble(), paper, st.mat!!, DOC_PX_PER_MM)
@@ -318,7 +323,14 @@ class MediaCanvas(
         }
         // Water that is already running in the window keeps running under a dry or paste stroke.
         if (st.wet == null && st.thin == null && e.wetActive) e.wetFrame(null, paper, DOC_PX_PER_MM)
+        if (timing != null) android.opengl.GLES30.glFinish()
+        val t1 = System.nanoTime()
         w.flush(stores = last || legacyWindow)
+        if (timing != null) {
+            android.opengl.GLES30.glFinish()
+            timing.simAcc += (t1 - t0) / 1e6
+            timing.flushAcc += (System.nanoTime() - t1) / 1e6
+        }
     }
 
     private fun eraseBatch(dabs: List<Dab>): DabBatch {

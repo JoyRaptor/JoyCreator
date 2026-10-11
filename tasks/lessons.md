@@ -1030,3 +1030,9 @@ throws, the whole stroke is lost, and that looked to the owner like "the pen doe
 
 ## Positional gesture cycles must survive caller reconstruction (Codex, October7)
 A picker stored candidate reference identities; its actual InkEditSession caller reconstructs InkLine values each tap, so direct picker tests passed while integrated cycling reset. Compare immutable geometry snapshots in positional order (including copied arrays), keep repeated ids as separate positions, and test the real session gesture path as well as the helper.
+
+## The owner's competitor forensics outrank my theory of them (vector specialist, October11)
+I read the owner's Concepts watercolour tests as a ribbon "skin" with decorative end caps and wrote it into R12 and the
+design. He corrected it with evidence I had not asked for (the brush picker's dab swatches): rotated dab samples chosen by
+pressure and angle, darker-wins inside the stroke, a wash texture as the stroke's alpha. Rule: restate his mechanism
+back before designing; treat any alternative I prefer as a lab hypothesis, never as "how X works" in a spec.

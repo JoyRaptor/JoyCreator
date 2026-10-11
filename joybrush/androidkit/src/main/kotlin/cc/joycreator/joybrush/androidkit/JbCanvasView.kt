@@ -837,13 +837,28 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             else if (!keep) { toolOwnsGesture = false; gestures.handOver(); gestures.onEvent(ev) }   // the rest navigates
             return true
         }
-        if (action == MotionEvent.ACTION_DOWN && !drawing && t.down(ev, 0, view)) {
-            if (isPenAt(ev, 0)) penSeen = true
+        if (action == MotionEvent.ACTION_DOWN && !drawing) {
+            val pen = isPenAt(ev, 0)
+            // A palm (a contact while the pen hovers or just after it lifted) is offered to nobody, as with a brush (H2).
+            if (!pen && (penHovering || SystemClock.uptimeMillis() - penUpAt < PALM_GRACE_MS)) return false
+            if (t.down(ev, 0, view)) {
+                if (pen) penSeen = true
+                toolOwnsGesture = true
+                return true
+            }
+        }
+        // A pen landing while fingers navigate is offered too (H8): as with a brush, the pen wins the gesture.
+        if (action == MotionEvent.ACTION_POINTER_DOWN && !drawing && isPenAt(ev, ev.actionIndex) && t.down(ev, ev.actionIndex, view)) {
+            penSeen = true
+            gestures.reset()
             toolOwnsGesture = true
             return true
         }
         return false
     }
+
+    /** True once a pen has touched or hovered this canvas: from then on fingers navigate or use the tool finger (H1). */
+    val penHasBeenSeen: Boolean get() = penSeen
 
     override fun onTouchEvent(ev: MotionEvent): Boolean {
         onRawEvent?.invoke(ev)

@@ -41,8 +41,21 @@ object StrokeReplay {
             val r = w * (0.08f + 0.36f * t.toFloat())
             (w * 0.5f + (r * cos(a)).toFloat()) to (h * 0.5f + (r * sin(a)).toFloat())
         }
+        // The owner's watercolour comparison (2026-10-11): a dense scribble across the upper half…
+        "topScribble" -> sweep(3500.0) { t ->
+            val x = w * (0.12f + 0.76f * tri(t * 3.2))
+            val y = h * (0.14f + 0.22f * t.toFloat())
+            x to y
+        }
+        // …then lines that start on dry paper and run into it, crossing it a little.
+        "blue1" -> line(w * 0.05f, h * 0.55f, w * 0.45f, h * 0.30f, 900.0)
+        "blue2" -> line(w * 0.95f, h * 0.50f, w * 0.60f, h * 0.27f, 900.0)
+        "blue3" -> line(w * 0.25f, h * 0.62f, w * 0.75f, h * 0.48f, 900.0)
         else -> null
     }
+
+    private fun line(x0: Float, y0: Float, x1: Float, y1: Float, ms: Double): List<Sample> =
+        sweep(ms) { t -> (x0 + (x1 - x0) * t.toFloat()) to (y0 + (y1 - y0) * t.toFloat()) }
 
     private fun arc(cx: Float, cy: Float, r: Float, fromDeg: Double, toDeg: Double, ms: Double): List<Sample> = sweep(ms) { t ->
         val a = (fromDeg + (toDeg - fromDeg) * t) * PI / 180

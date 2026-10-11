@@ -316,6 +316,8 @@ class JoyBrushActivity : Activity() {
     private var loadingDrawing = true
     private var replacingDrawing = false
     private var workingSaveAllowed = false
+    /** The debug stroke replay owns this screen: it never saves the working file, and says nothing about not saving. */
+    private var benchMode = false
     private var destroyed = false
     private var recoveringDrawing = false
     private var drawingLoadVersion = 0
@@ -488,6 +490,7 @@ class JoyBrushActivity : Activity() {
         // Debug stroke replay: a fresh unsaved drawing; the working file is neither read nor ever written (bench/BenchRunner).
         val bench = cc.joycreator.joybrush.android.bench.BenchRunner.spec(intent, applicationInfo)
         if (bench != null) {
+            benchMode = true
             finishStartup(false)
             cc.joycreator.joybrush.android.bench.BenchRunner(canvas, bench) { finish() }.start()
             return
@@ -1700,6 +1703,8 @@ class JoyBrushActivity : Activity() {
             finished("the drawing screen has closed")
             return
         }
+        // The bench screen's drawing is a disposable test: never saved, and no "autosave did not work" toast for it.
+        if (dest is SaveDest.Working && benchMode) { finished(null); return }
         if (dest is SaveDest.Working && !workingSaveAllowed) {
             finished("the previous drawing needs recovery before autosave can replace it")
             return

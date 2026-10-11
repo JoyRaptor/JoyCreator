@@ -580,6 +580,8 @@ overlapping runs); the build output was deleted and rebuilt (47 classes) and the
 3. **JB-5.01 Decision 9 vs its test 9 (`widthScale = 1e30`).** Test wins: a finite value is CLAMPED (the dab radius
    clamp, 2048), the safe-zero rule is for non-finite values only. Fix the Decision's sentence. The scallop number in
    Decision 3 was 4.4× optimistic (0.167 screen px at 16×, not 0.038) — the conclusion stands and is stronger; fix the number.
+   *Amended 2026-10-11 (Lead):* a non-finite `widthScale` now reads as 1, like decode and reweight; the safe-zero rule
+   applies to a non-finite RADIUS only (JB-5.01 Decision 9 amendment, merged @ 76188061).
 4. **No real brush file has ever been read** (JB-8.01, 8.02, 8.04 — every fixture is hand-built from the research notes).
    That is the audit's MAJOR and it is right: the importers are proven self-consistent, not proven against Photoshop's,
    Procreate's or Krita's real bytes. Ruling: none of the three is signed off (🟧 Built, "real-file check owed").

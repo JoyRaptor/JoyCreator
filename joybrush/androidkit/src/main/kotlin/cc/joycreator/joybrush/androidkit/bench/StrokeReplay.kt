@@ -66,7 +66,7 @@ object StrokeReplay {
      * Plays [samples] into [view] in real time on the main thread, one event per report (as with unbuffered dispatch).
      * [onDown] runs just before the first event; [onUp] just after the last.
      */
-    fun play(view: View, samples: List<Sample>, onDown: () -> Unit, onUp: () -> Unit) {
+    fun play(view: View, samples: List<Sample>, stats: FrameStats?, onDown: () -> Unit, onUp: () -> Unit) {
         val handler = Handler(Looper.getMainLooper())
         val base = SystemClock.uptimeMillis() + 50
         val props = arrayOf(MotionEvent.PointerProperties().apply { id = 0; toolType = MotionEvent.TOOL_TYPE_STYLUS })
@@ -82,8 +82,9 @@ object StrokeReplay {
                 val ev = MotionEvent.obtain(base, at, action, 1, props, arrayOf(c), 0, 0, 1f, 1f, 0, 0,
                     InputDevice.SOURCE_STYLUS or InputDevice.SOURCE_TOUCHSCREEN, 0)
                 view.dispatchTouchEvent(ev)
+                stats?.noteInput()
                 ev.recycle()
-                if (i == samples.lastIndex) onUp()
+                if (i == samples.lastIndex) { stats?.noteUp(); onUp() }
             }, at)
         }
     }

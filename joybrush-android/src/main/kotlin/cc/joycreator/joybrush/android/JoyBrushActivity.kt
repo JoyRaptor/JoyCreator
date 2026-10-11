@@ -488,7 +488,7 @@ class JoyBrushActivity : Activity() {
         val bench = cc.joycreator.joybrush.android.bench.BenchRunner.spec(intent, applicationInfo)
         if (bench != null) {
             finishStartup(false)
-            cc.joycreator.joybrush.android.bench.BenchRunner(canvas, bench) {}.start()
+            cc.joycreator.joybrush.android.bench.BenchRunner(canvas, bench) { finish() }.start()
             return
         }
         // Where the person left off, if they left off anywhere.

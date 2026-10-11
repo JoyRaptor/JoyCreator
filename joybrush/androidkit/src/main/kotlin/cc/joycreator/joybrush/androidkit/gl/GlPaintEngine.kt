@@ -2130,6 +2130,7 @@ class GlPaintEngine(
             GLES30.glUniform1i(tileProg.loc("u_layer"), 0)
             for ((key, tex) in visibleTiles(layer)) {
                 if (previewing && strokeTiles.containsKey(key)) continue
+                if (!tileOnScreen(key, docToClip)) continue
                 GLES30.glUniform2f(tileProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
                 GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
                 GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
@@ -2204,6 +2205,7 @@ class GlPaintEngine(
             if (base != null && !base.visible) continue
             val keys = LinkedHashSet<Long>(visibleTiles(layer).keys)
             if (layer === live) keys.addAll(previews.keys)
+            keys.retainAll { tileOnScreen(it, docToClip) }
             val rect = if (keys.isEmpty()) null else screenRect(keys, docToClip, w, h)
             if (rect != null) {
                 compositor.copyToBackdrop(rect[0], rect[1], rect[2], rect[3])
@@ -2284,6 +2286,28 @@ class GlPaintEngine(
      * the tiles [keys] can touch under [m] (the document-to-clip matrix); null if none of it is on screen.
      * Uses all four corners of every tile, so a rotated view is covered.
      */
+    /**
+     * Whether tile [key] can show through [m] (document px → clip): false only when all four corners lie beyond one edge
+     * of clip space. Tiles off screen are skipped before any uniform, bind or draw (H8, 2026-10-10): on a large drawing
+     * zoomed in, most tiles of every layer are off screen, and each cost CPU work every frame for no pixels.
+     */
+    private fun tileOnScreen(key: Long, m: FloatArray): Boolean {
+        val ox = (Tiles.tx(key) * size).toFloat()
+        val oy = (Tiles.ty(key) * size).toFloat()
+        var left = 0; var right = 0; var below = 0; var above = 0
+        for (corner in 0 until 4) {
+            val dx = ox + (corner and 1) * size
+            val dy = oy + (corner shr 1) * size
+            val cw = m[2] * dx + m[5] * dy + m[8]
+            if (cw <= 0f) return true   // a projective view behind the eye: never cull on a guess
+            val cx = (m[0] * dx + m[3] * dy + m[6]) / cw
+            val cy = (m[1] * dx + m[4] * dy + m[7]) / cw
+            if (cx < -1f) left++ else if (cx > 1f) right++
+            if (cy < -1f) below++ else if (cy > 1f) above++
+        }
+        return left < 4 && right < 4 && below < 4 && above < 4
+    }
+
     private fun screenRect(keys: Collection<Long>, m: FloatArray, w: Int, h: Int): IntArray? {
         var x0 = Float.MAX_VALUE
         var y0 = Float.MAX_VALUE

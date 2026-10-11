@@ -55,7 +55,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         canvas.preset = preset
         ui.postDelayed({
             canvas.startFrameStats {
-                StrokeReplay.play(canvas, samples, onDown = {}, onUp = {
+                StrokeReplay.play(canvas, samples, canvas.frameStats, onDown = {}, onUp = {
                     // Keep recording the frames that finish the stroke (the last batch, its write-back).
                     ui.postDelayed({
                         canvas.finishFrameStats { s -> report(preset, case, run, samples.size, s); ui.postDelayed({ next() }, SETTLE_MS) }
@@ -68,9 +68,11 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
     private fun report(p: BrushPreset, case: String, run: Int, samples: Int, s: FrameStats.Summary) {
         fun f(v: Double) = "%.2f".format(v)
         fun pct(x: FrameStats.Pct?) = if (x == null) "null" else "{\"p50\":${f(x.p50)},\"p95\":${f(x.p95)},\"max\":${f(x.max)},\"mean\":${f(x.mean)}}"
-        Log.i(TAG, "{\"legacy\":${spec.legacy},\"brush\":\"${p.id}\",\"case\":\"$case\",\"run\":$run,\"samples\":$samples,\"frames\":${s.frames}," +
-            "\"cpuMs\":${pct(s.cpu)},\"gapMs\":${pct(s.gap)},\"gpuMs\":${pct(s.gpu)},\"gpuFrames\":${s.gpuFrames}," +
-            "\"gapsOver8\":${s.over8},\"gapsOver16\":${s.over16},\"mediaFrames\":${s.mediaFrames}," +
+        Log.i(TAG, "{\"legacy\":${spec.legacy},\"brush\":\"${p.id}\",\"case\":\"$case\",\"run\":$run,\"samples\":$samples," +
+            "\"frames\":${s.frames},\"strokeFrames\":${s.strokeFrames},\"firstFrameMs\":${f(s.firstFrameMs)}," +
+            "\"busyMs\":${pct(s.busy)},\"workMs\":${pct(s.work)},\"mediaMs\":${pct(s.media)},\"displayMs\":${pct(s.display)}," +
+            "\"finishMs\":${pct(s.finish)},\"gapMs\":${pct(s.gap)},\"latencyMs\":${pct(s.latency)}," +
+            "\"gapsOver17\":${s.over17},\"gapsOver34\":${s.over34},\"mediaFrames\":${s.mediaFrames}," +
             "\"windowMoves\":${s.mediaWindowMoves},\"windowLoads\":${s.mediaWindowLoads}}")
     }
 

@@ -740,6 +740,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             private fun drawFrame() {
                 while (frameWork.isNotEmpty()) frameWork.removeFirst()()
+                frameStats.afterWork()
                 // Media strokes and running water advance once per drawn frame, and keep frames coming while they run.
                 try {
                     if (mediaCanvas.frame(SystemClock.uptimeMillis())) { reportMediaHistory(); super@JbCanvasView.requestRender() }
@@ -747,6 +748,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     mediaCanvas.release()
                     post { if (drawing && (mediaStroke || mediaErase)) cancelStroke(); onRefused?.invoke(e.message ?: "The pencil, watercolour or oil stroke could not be painted") }
                 }
+                frameStats.afterMedia()
                 val s = viewSnapshot
                 drawView.zoom = s[0]; drawView.rotation = s[1]; drawView.panX = s[2]; drawView.panY = s[3]
                 paperWarnings = (PaperState.problems(documentPaperState,PaperResources.catalogue) + engine.paperWarnings).distinct()
@@ -757,6 +759,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     post { tileBoardId=null; onTileBoardChanged?.invoke(null); onRefused?.invoke(e.message ?: "Board preview could not be drawn") }
                     engine.draw(viewW,viewH,drawView.docToClip(viewW,viewH),paperArgb)
                 }
+                frameStats.afterDisplay()
                 answerScreenSample()
                 while (afterFrameWork.isNotEmpty()) afterFrameWork.removeFirst()()
             }
@@ -1960,8 +1963,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     fun finishFrameStats(ready: (cc.joycreator.joybrush.androidkit.bench.FrameStats.Summary) -> Unit) {
         queueEvent {
             frameStats.stop()
-            android.opengl.GLES30.glFinish()
-            frameStats.collect()
             val s = frameStats.snapshot()
             post { ready(s) }
         }

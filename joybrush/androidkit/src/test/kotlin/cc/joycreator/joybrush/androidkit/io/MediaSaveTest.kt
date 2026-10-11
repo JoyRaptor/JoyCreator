@@ -25,9 +25,9 @@ class MediaSaveTest {
     private fun capture(doc: JbDocument) = BoardSnapshot.capture(doc,
         keys = { layer, _ -> if (layer == "wc") listOf(Tiles.key(0, 0)) else emptyList() },
         read = { _, _, _ -> look },
-        mediaKeys = { layer -> if (layer == "wc") mapOf("p0" to listOf(Tiles.key(0, 0), Tiles.key(1, 0)), "w0" to listOf(Tiles.key(0, 0)),
+        mediaKeys = { layer, _ -> if (layer == "wc") mapOf("p0" to listOf(Tiles.key(0, 0), Tiles.key(1, 0)), "w0" to listOf(Tiles.key(0, 0)),
             MediaStores.GROUND to listOf(Tiles.key(0, 0))) else emptyMap() },
-        mediaRead = { _, store, key -> when {
+        mediaRead = { _, _, store, key -> when {
             store == MediaStores.GROUND -> look
             key == Tiles.key(1, 0) -> ByteArray(MediaStores.tileBytes(TILE_SIZE))
             else -> state

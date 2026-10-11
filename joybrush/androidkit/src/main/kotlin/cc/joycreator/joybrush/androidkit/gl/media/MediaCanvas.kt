@@ -112,7 +112,8 @@ class MediaCanvas(
         val e = ensure(needsWater) ?: return unsupported ?: LayerBudget.windowRefusal(needsWater)
         val w = window!!
         return try {
-            w.place(layerId, x, y)
+            // JB-2.40 slice 3: the stroke paints the plane under its first touch (an animation frame, or the shared plane).
+            w.place(layerId, paint.mediaPlaneAt(layerId, x, y), x, y)
             w.wakeWater()
             e.slope = slope
             look = MediaLook(rgb(paint.paperArgb).map { it.toFloat() }.toFloatArray(), lamp = look.lamp)
@@ -134,7 +135,7 @@ class MediaCanvas(
     fun beginErase(layerId: String, x: Double, y: Double, nowMs: Long): String? {
         val e = ensure(false) ?: return unsupported ?: LayerBudget.windowRefusal(false)
         val w = window!!
-        w.place(layerId, x, y)
+        w.place(layerId, paint.mediaPlaneAt(layerId, x, y), x, y)
         paint.beginMediaStroke()
         e.beginStroke()
         stroke = Stroke(layerId, 0, MediaSpline { }, erase = true).also { it.penX = x; it.penY = y }
@@ -201,10 +202,10 @@ class MediaCanvas(
     fun cancel() = end()
 
     /** [GlPaintEngine.onMediaRestored]: undo or redo stops the water and reloads (never restarting it). */
-    fun restored(layerId: String, keys: Set<Long>) { window?.restored(layerId, keys) }
+    fun restored(layerId: String, plane: String?, keys: Set<Long>) { window?.restored(layerId, plane, keys) }
 
     /** [GlPaintEngine.onLookWritten]: a plain write changed these tiles' pixels; the window reloads them. */
-    fun lookWritten(layerId: String, keys: Set<Long>) { window?.lookWritten(layerId, keys) }
+    fun lookWritten(layerId: String, plane: String?, keys: Set<Long>) { window?.lookWritten(layerId, plane, keys) }
 
     /** The layer or the screen changed: write back and let the window go. */
     fun releaseWindow() { if (stroke == null) { window?.release(); noteHeld() } }
@@ -335,7 +336,7 @@ class MediaCanvas(
     /** The stores this layer has inside the window: the eraser writes only those (stores stay lazy). */
     private fun existingStores(layerId: String, w: MediaWindow): Set<String> {
         val keys = MediaWindowMath.allKeys(w.tx, w.ty)
-        return MediaStores.ALL.filter { st -> keys.any { paint.mediaTile(layerId, st, it) != null } }.toSet()
+        return MediaStores.ALL.filter { st -> keys.any { paint.mediaTile(layerId, st, it, w.plane) != null } }.toSet()
     }
 
     /** How far from the pen the tool reaches, in document px: the window keeps that much room around it. */

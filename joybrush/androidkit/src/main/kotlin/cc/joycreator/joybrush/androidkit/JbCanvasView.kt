@@ -697,8 +697,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 if (engine.ready) graphicsEpoch += 1
                 engine.init()
                 mediaCanvas.forget()
-                engine.onMediaRestored = { layer, keys -> mediaCanvas.restored(layer, keys) }
-                engine.onLookWritten = { layer, keys -> mediaCanvas.lookWritten(layer, keys) }
+                engine.onMediaRestored = { layer, plane, keys -> mediaCanvas.restored(layer, plane, keys) }
+                engine.onLookWritten = { layer, plane, keys -> mediaCanvas.lookWritten(layer, plane, keys) }
                 engine.onMediaWarning = { android.util.Log.w("JoyBrushMedia", it) }
                 engine.setDocumentPaper(documentPaperState)
                 // Never let a context-loss placeholder overwrite the person's last good file.
@@ -1100,12 +1100,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // JB-2.40 requirement 11: the media window paints where the pen really is and cannot wrap round a tile board yet,
         // which the repeat preview could not show; refused in words like smudge and fill.
         if (refuseTileTool("pencil, watercolour and oil")) { drawing = false; return }
-        // Payloads are kept per layer until JB-2.40 slice 3 keys them per cel: frames refuse in words until then.
-        if (boardDocument?.layers?.firstOrNull { it.id == activeLayer }?.let { it.regions.isNotEmpty() || it.cels.size != 1 } == true) {
-            drawing = false
-            onRefused?.invoke("Pencil, watercolour and oil cannot paint on a layer with animation frames yet.")
-            return
-        }
+        // JB-2.40 slice 3: on a layer with animation frames the stroke paints the plane under its first touch (the current
+        // frame inside a board, the shared plane outside), chosen on the GL thread by GlPaintEngine.mediaPlaneAt.
         resetSnapper(fresh = true)
         strokeOnMask = false
         val stack = stackUi
@@ -1647,7 +1643,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             // Media payloads (DocModel v8, v9): their stores and grounds, beside the look the tiles already put back, which
             // they agree with.
-            for ((k, bytes) in contents.mediaTiles) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), bytes)
+            for ((k, bytes) in contents.mediaTiles) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), bytes, k.celId)
             engine.agreeAllPayloads()
             retainedContents = CanvasSnapshot.metadataOf(contents)
             contentLost = false
@@ -1682,10 +1678,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             if (!layer.kind.hasPixels) {
                 return "layer \"${layer.name}\" is ${layer.kind}, and this screen only paints pixels"
-            }
-            // Payloads are kept per layer until JB-2.40 slice 3 keys them per cel.
-            if (layer.cels.any { it.floatTiles.isNotEmpty() } && (layer.regions.isNotEmpty() || layer.cels.size != 1)) {
-                return "layer \"${layer.name}\" has pencil, watercolour or oil on animation frames, which this screen cannot show yet"
             }
             if(layer.animatedIn!=null)return "Whole-layer animation is an obsolete test format"
             if(layer.regions.isEmpty() && layer.cels.size!=1)return "A layer has no shared paint address"
@@ -1727,8 +1719,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             val current=syncBoardLayers(doc)
             engine.setBoardDocument(current)
             return BoardSnapshot.capture(current,
-                mediaKeys={layer->MediaStores.PAYLOAD.associateWith{engine.mediaTileKeys(layer,it)}},
-                mediaRead={layer,store,key->engine.readMediaTile(layer,store,key)},
+                mediaKeys={layer,cel->val p=engine.mediaPlaneOfCel(layer,cel); MediaStores.PAYLOAD.associateWith{engine.mediaTileKeys(layer,it,p)}},
+                mediaRead={layer,cel,store,key->engine.readMediaTile(layer,store,key,engine.mediaPlaneOfCel(layer,cel))},
                 keys={layer,cel->
                     val mask=current.layers.first{it.id==layer}.mask
                     if(mask?.id==cel)engine.tileKeys(maskStoreId(layer)) else engine.celTileKeys(layer,cel)

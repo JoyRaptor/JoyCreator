@@ -21,7 +21,7 @@ class GlMediaStoresTest {
     @Test fun undoAndRedoPutFloatTilesBackAndSayWhichLayerToReload() {
         val e = engine()
         val told = ArrayList<Pair<String, Set<Long>>>()
-        e.onMediaRestored = { id, keys -> told += id to keys }
+        e.onMediaRestored = { id, _, keys -> told += id to keys }
         e.undo.push(UndoLog.Step(listOf(
             UndoLog.TileChange(MediaStores.id(layer, "p0"), 3, before = 501, after = 502),
             UndoLog.TileChange(MediaStores.id(layer, "w0"), 4, before = null, after = 503),
@@ -43,7 +43,7 @@ class GlMediaStoresTest {
     @Test fun aPaintOnlyStepTellsNobody() {
         val e = engine()
         var calls = 0
-        e.onMediaRestored = { _, _ -> calls++ }
+        e.onMediaRestored = { _, _, _ -> calls++ }
         e.undo.push(UndoLog.Step(listOf(UndoLog.TileChange(layer, 1, before = 601, after = 602))))
         assertTrue(e.undoStep())
         assertEquals(0, calls, "a paint layer has no simulation to stop")
@@ -129,7 +129,7 @@ class GlMediaStoresTest {
     @Test fun aPlainWriteOverMediaDropsThatTilesPayloadInTheSameStepAndTellsTheWindow() {
         val e = planted()
         val told = ArrayList<Pair<String, Set<Long>>>()
-        e.onLookWritten = { id, keys -> told += id to keys }
+        e.onLookWritten = { id, _, keys -> told += id to keys }
         val write = listOf(UndoLog.TileChange(layer, 3, before = 505, after = 506), UndoLog.TileChange(layer, 4, before = null, after = 507))
         val settled = e.settlePlainWrites(write)
         assertEquals(setOf(MediaStores.id(layer, "p0"), MediaStores.id(layer, MediaStores.GROUND)), settled.map { it.layerId }.toSet())
@@ -177,18 +177,63 @@ class GlMediaStoresTest {
         assertEquals(setOf(502, 503), s.changes.mapNotNull { it.before }.toSet(), "undo of the stroke restores what was dropped")
     }
 
-    @Test fun aLayerThatGainsFramesLetsItsPayloadGoUntilSlice3() {
+
+
+    // ---- JB-2.40 slice 3: a payload per plane (an animation frame keeps its own pencil, watercolour and oil) ----
+
+    private val frame = "frame-1"
+
+    /** [planted]'s shared payload on tile 3, plus a frame plane's own payload and look on the same tile. */
+    private fun plantedWithFrame(): GlPaintEngine {
         val e = planted()
-        var n = 0
-        val doc = cc.joycreator.joybrush.core.doc.DocOps.newDocument("d", "Art", 512, 512) { "id-${++n}" }
-        val framed = doc.copy(layers = listOf(doc.layers.single().copy(id = layer,
-            cels = listOf(cc.joycreator.joybrush.core.doc.Cel("shared"), cc.joycreator.joybrush.core.doc.Cel("frame-1")))))
-        val reloads = ArrayList<String>()
-        e.onMediaRestored = { id, _ -> reloads += id }
-        val dropped = e.dropPayloadsOfFramedLayers(framed)
-        assertEquals(2, dropped.size, "p0 and the ground of tile 3")
-        assertFalse(e.hasMediaState(layer))
-        assertEquals(listOf(layer), reloads, "the window lets go of what it held")
-        assertEquals(emptyList(), e.dropPayloadsOfFramedLayers(doc.copy(layers = listOf(doc.layers.single().copy(id = layer)))))
+        e.undo.push(UndoLog.Step(listOf(
+            UndoLog.TileChange(MediaStores.id(layer, "p0"), 3, before = null, after = 601, celId = frame),
+            UndoLog.TileChange(layer, 3, before = null, after = 602, celId = frame),
+        )))
+        assertTrue(e.undoStep() && e.redoStep())
+        return e
+    }
+
+    @Test fun aFramesPayloadIsItsOwnAndTheSharedPlaneIsUntouched() {
+        val e = plantedWithFrame()
+        assertEquals(601, e.mediaTile(layer, "p0", 3, frame))
+        assertEquals(602, e.mediaTile(layer, e.mediaLook, 3, frame), "the frame's look is its own cel")
+        assertEquals(502, e.mediaTile(layer, "p0", 3), "the shared plane keeps its own paint")
+        assertEquals(505, e.mediaTile(layer, e.mediaLook, 3))
+        assertTrue(e.hasPayload(layer, 3, frame) && e.hasPayload(layer, 3))
+        assertEquals(listOf(frame), e.mediaFramePlanes(layer))
+        assertEquals(listOf(3L), e.mediaTileKeys(layer, "p0", frame))
+        assertEquals((2 * MediaStores.tileBytes(256, "p0") + MediaStores.tileBytes(256, MediaStores.GROUND)).toLong(), e.mediaResidentBytes(),
+            "the ceiling counts every plane")
+    }
+
+    @Test fun undoOnAFrameTellsTheWindowWhichPlane() {
+        val e = plantedWithFrame()
+        val told = ArrayList<Triple<String, String?, Set<Long>>>()
+        e.onMediaRestored = { id, plane, keys -> told += Triple(id, plane, keys) }
+        assertTrue(e.undoStep())
+        assertNull(e.mediaTile(layer, "p0", 3, frame))
+        assertEquals(502, e.mediaTile(layer, "p0", 3), "undoing the frame's stroke leaves the shared paint")
+        assertEquals(listOf(Triple(layer, frame as String?, setOf(3L))), told)
+    }
+
+    @Test fun aPlainWriteOnAFrameSettlesOnlyThatFramesPayload() {
+        val e = plantedWithFrame()
+        val told = ArrayList<Triple<String, String?, Set<Long>>>()
+        e.onLookWritten = { id, plane, keys -> told += Triple(id, plane, keys) }
+        val settled = e.settlePlainWrites(listOf(UndoLog.TileChange(layer, 3, before = 602, after = 603, celId = frame)))
+        assertEquals(listOf(MediaStores.id(layer, "p0") to frame as String?), settled.map { it.layerId to it.celId })
+        assertFalse(e.hasPayload(layer, 3, frame))
+        assertTrue(e.hasPayload(layer, 3), "another frame's (or the shared plane's) paint is not this write's business")
+        assertEquals(listOf(Triple(layer, frame as String?, setOf(3L))), told)
+    }
+
+    @Test fun aStalePayloadOnAFrameIsJudgedAgainstThatFramesLook() {
+        val e = plantedWithFrame()
+        assertEquals(emptySet(), e.dropStalePayload(layer, listOf(3L), frame), "frame payload and frame look agree")
+        e.undo.push(UndoLog.Step(listOf(UndoLog.TileChange(layer, 3, before = 602, after = 604, celId = frame))))
+        assertTrue(e.undoStep() && e.redoStep(), "the frame's look changed behind its payload's back")
+        assertEquals(emptySet(), e.dropStalePayload(layer, listOf(3L)), "the shared plane still agrees")
+        assertEquals(setOf(3L), e.dropStalePayload(layer, listOf(3L), frame))
     }
 }

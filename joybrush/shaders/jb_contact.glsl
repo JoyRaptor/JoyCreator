@@ -40,7 +40,9 @@ flat in vec4 v_contact;
 flat in vec4 v_pen;
 flat in float v_live;
 
-float jb_contactCoverage() {
+// The two halves of one dab's contact at this fragment: [tipCov] is the tip's own coverage (antialiased shape, no
+// grain); [g] is the grain's answer, 0..1 (1 when no grain is on); [grained] says whether any grain spoke.
+void jb_contactParts(out float tipCov, out float g, out bool grained) {
     bool live = v_live > 0.5;
     float aspect = live ? v_contact.x : u_aspect;
     float hardness = live ? v_contact.y : u_hardness;
@@ -50,8 +52,8 @@ float jb_contactCoverage() {
     vec2 lean = live ? v_pen.zw : u_leanDir;
     vec2 contactOffset = v_offset + (live ? v_pen.x : 0.0) * v_radius * vec2(cos(v_angle), sin(v_angle));
     JbTip t = JbTip(v_radius, v_angle, aspect, u_corner, u_taper, hardness, u_minPx);
-    float tipCov = jb_tipCoverage(contactOffset, t);
-    float d = tipCov * v_flow;
+    tipCov = jb_tipCoverage(contactOffset, t);
+    g = 1.0;
 
     bool tipOn = u_tipGrainPitchPx > 0.0;
     bool paperOn = u_paperGrainPitchPx > 0.0 && u_paperInfluence > 0.0;
@@ -78,7 +80,6 @@ float jb_contactCoverage() {
         // both into the tip's frame, as the spec's Decision 4 describes, changes nothing: a dot product
         // is invariant under a common rotation. Not doing it is the same answer for less work.)
         vec2 localN = contactOffset / max(v_radius, 1e-3);
-        float g = 1.0;
         if (tipOn) {
             float level = jb_grainLevel(tipDepth, tipCov, localN, lean, tilt, u_tipTiltGradient, u_tipRadial);
             g = min(g, jb_heightCoverage(hTip, level, u_tipEdge));
@@ -87,7 +88,22 @@ float jb_contactCoverage() {
             float level = jb_grainLevel(paperDepth, tipCov, localN, lean, tilt, u_paperTiltGradient, u_paperRadial);
             g = min(g, mix(1.0, jb_heightCoverage(hPaper, level, u_paperEdge), u_paperInfluence));
         }
-        d = jb_grainedCoverage(tipCov, g) * v_flow;
     }
-    return d;
+    grained = tipOn || paperOn;
+}
+
+// Coverage times flow (JB-1.05c): grain decides HOW MUCH OF EACH DAB LANDS. Unchanged arithmetic for every caller.
+float jb_contactCoverage() {
+    float tipCov; float g; bool grained;
+    jb_contactParts(tipCov, g, grained);
+    return grained ? jb_grainedCoverage(tipCov, g) * v_flow : tipCov * v_flow;
+}
+
+// Tooth capacity (VECTOR_RENDER_DESIGN pencil): x = how fast this dab deposits (tip coverage × flow, no grain), y = how
+// much this spot of paper can hold (the grain, 0..1). A stroke buffer fed `cap·y·x` over `x` converges, pixel by pixel,
+// to cap·y however many dabs overlap, so the grain stays a continuous grey instead of saturating to on/off.
+vec2 jb_contactRateAndTooth() {
+    float tipCov; float g; bool grained;
+    jb_contactParts(tipCov, g, grained);
+    return vec2(tipCov * v_flow, grained ? g : 1.0);
 }

@@ -1030,3 +1030,13 @@ throws, the whole stroke is lost, and that looked to the owner like "the pen doe
 
 ## Positional gesture cycles must survive caller reconstruction (Codex, October7)
 A picker stored candidate reference identities; its actual InkEditSession caller reconstructs InkLine values each tap, so direct picker tests passed while integrated cycling reset. Compare immutable geometry snapshots in positional order (including copied arrays), keep repeated ids as separate positions, and test the real session gesture path as well as the helper.
+
+## On-canvas tools: copy Concepts' placement, and never grey out an intent (2026-10-12, UI specialist)
+- I put the selection's action row UNDER the box (to stay off a rotate arc above it) and gave it a dark frosted pill.
+  The owner reversed both: actions ABOVE the selection, the rotate handle BELOW ("your finger covers it", app-wide),
+  and an unintrusive row in the paper's own colour with white/black icons by brightness.
+- I greyed out the Lines chip when a loop enclosed no whole line. He hit it and called it frustrating: a chip that
+  only means something for lines must switch to lines (with a Touching fallback), never sit disabled.
+- Rule: for any control that floats over the art, start from where the finger and pen are (handles below, actions
+  above) and from the paper (not a dark slab). For any smart default, keep the correction on screen and make every
+  chip that implies a mode switch into it. Memory: on-canvas-tools-concepts-placement, automatic-guess-keeps-a-way-back.

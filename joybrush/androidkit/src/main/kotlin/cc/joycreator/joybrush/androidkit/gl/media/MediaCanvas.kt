@@ -174,6 +174,9 @@ class MediaCanvas(
     fun frame(nowMs: Long): Boolean {
         val e = engine ?: return false
         val w = window ?: return false
+        // The paper's tilt is read every frame, so running water turns as the pad or the phone turns (it was read only
+        // at a stroke's start: owner, 2026-10-12).
+        e.slope = slope
         val st = stroke
         if (st != null) {
             stats?.let { if (it.recording) it.mediaFrames++ }

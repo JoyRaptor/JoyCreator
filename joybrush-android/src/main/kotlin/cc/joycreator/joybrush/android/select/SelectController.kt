@@ -1,0 +1,355 @@
+package cc.joycreator.joybrush.android.select
+
+import android.graphics.RectF
+import android.view.MotionEvent
+import android.view.View
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.SeekBar
+import android.widget.TextView
+import cc.joycreator.joybrush.android.chrome.ChromeKit
+import cc.joycreator.joybrush.android.chrome.JbIcon
+import cc.joycreator.joybrush.android.chrome.Popovers
+import cc.joycreator.joybrush.androidkit.JbCanvasView
+import cc.joycreator.joybrush.androidkit.select.SelectOverlayView
+import cc.joycreator.joybrush.androidkit.select.SelectTool
+import cc.joycreator.joybrush.androidkit.select.SelectionHost
+import cc.joycreator.joybrush.core.chrome.IconContrast
+import cc.joycreator.joybrush.core.chrome.IconInk
+import cc.joycreator.joybrush.core.select.SelectRouter
+import cc.joycreator.joybrush.core.select.SelectionState
+import com.fadcam.ui.faditor.transform.HandleModel
+import com.fadcam.ui.faditor.transform.TransformOverlayView
+
+/**
+ * JB-5.20e — puts the Select tool on the screen and keeps its pieces in step (spec §K, the owner's locked design):
+ * - the [tool] is the canvas's [JbCanvasView.tool] for good; [selectToolInHand] says whether the strip's Select is chosen
+ *   (with a brush chosen, only the S Pen button selects, R42, and the pen paints, D12);
+ * - the Studio box (`TransformOverlayView`, R16) in its clean style (K5/K6), the rotate handle below (K4), no pills, no
+ *   loupe (the canvas is GL), two fingers anywhere (P8 B), with [SelectRouter.boxTakes] as its touch gate;
+ * - the [SelectOverlayView] for the loop, glow, crosshair, nudge ring, tip dots and marching ants;
+ * - the row ABOVE the selection and the bar at the bottom, both on the paper with icon ink by brightness (K2, K3);
+ * - the count scrubber beside a tap in dense lines (K11).
+ *
+ * The activity creates one and calls [attach]; the few lines that need are the Lead's (spec §H).
+ */
+class SelectController(
+    private val kit: ChromeKit,
+    /** The FrameLayout that holds the canvas: the box and the overlay go directly above it (so a declined contact reaches it). */
+    private val root: FrameLayout,
+    private val canvas: JbCanvasView,
+    private val host: SelectionHost,
+    private val popovers: Popovers,
+    private val app: App,
+) {
+    /** What only the activity knows or owns. */
+    interface App {
+        /** The paper's colour (K3: the row and bar wear it). */
+        fun paperArgb(): Int
+        /** The strip's colour picker, opened for the selection; [onPicked] recolours (ONE step). */
+        fun openColour(anchor: View, current: Int, onPicked: (Int) -> Unit)
+        /** The line brushes only (a pixel brush cannot take a line); [onPicked] re-brushes (ONE step). */
+        fun openLineBrushes(anchor: View, onPicked: (String) -> Unit)
+        /** The icon a brush shows on the row's brush chip. */
+        fun brushIcon(brushId: String): JbIcon
+        /** A fresh line id (Duplicate). */
+        fun newLineId(): String
+        /** Copy: a picture for other apps, and the lines for pasting here. */
+        fun copySelection(selection: SelectionState.Selection)
+        /** K8: the strip's colour and brush wear the cyan ring while lines are selected; [pulse] the first time. */
+        fun restyleRing(on: Boolean, pulse: Boolean)
+    }
+
+    /** The owner's picks and Settings (spec §K). */
+    class Picks(
+        val chipsInRow: Boolean = true,       // P3 B (false = C, the strip only)
+        val crosshair: Boolean = true,        // P4 B
+        val chipsReRead: Boolean = true,      // P5 A
+        val plusChip: Boolean = true,         // P6 A
+        val fadeRest: Float = 0.66f,          // P2 A
+        val fingerSelects: Boolean = false,   // K18 (P10 B default)
+    )
+
+    var picks = Picks()
+        set(value) { field = value; applyPicks(); refresh() }
+
+    val tool = SelectTool(host, kit.dp(1f), { canvas.penHasBeenSeen })
+    private val overlay = SelectOverlayView(kit.context, tool)
+    private val box = TransformOverlayView(kit.context)
+    private val boxHost = SelectBoxHost(tool, { canvas.view }, { RectF(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat()) })
+    private val row = SelectRowView(kit, RowActions())
+    private val bar = SelectBarView(kit, BarChips())
+    private val count = TextView(kit.context)
+    private var rowInk: IconInk? = null
+    private var barInk: IconInk? = null
+    private var ringWasOn = false
+
+    /** Whether the strip's Select tool is the one in the hand. */
+    var selectToolInHand: Boolean
+        get() = tool.selectToolInHand
+        set(value) { tool.selectToolInHand = value; refresh() }
+
+    fun attach() {
+        val at = root.indexOfChild(canvas) + 1
+        val match = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        root.addView(overlay, at, match)
+        root.addView(box, at + 1, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        box.setHost(boxHost, HandleModel())
+        box.setCleanStyle(true)
+        box.setRotateKnobBelow(true)
+        box.setBendPillVisible(false)
+        box.setLoupeEnabled(false)
+        box.setPinchAnywhere(true)
+        box.setTouchGate { e, kind -> gate(e, kind) }
+        box.visibility = View.GONE
+        boxHost.onGesture = { moving -> if (moving) row.fadeOut() else { place(); row.fadeIn() } }
+        root.addView(row, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, kit.dpi(44f)))
+        root.addView(bar, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, kit.dpi(40f)))
+        root.addView(count, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, kit.dpi(22f)))
+        styleCount()
+        row.visibility = View.GONE; bar.visibility = View.GONE; count.visibility = View.GONE
+        tool.listener = object : SelectTool.Listener {
+            override fun selectionChanged() = refresh()
+            override fun overlayChanged() { overlay.invalidate() }
+        }
+        canvas.tool = tool
+        applyPicks()
+    }
+
+    fun detach() {
+        tool.end()
+        if (canvas.tool === tool) canvas.tool = null
+        listOf<View>(overlay, box, row, bar, count).forEach { root.removeView(it) }
+    }
+
+    /** The paper changed: the row, bar and box ink follow. */
+    fun paperChanged() { rowInk = null; barInk = null; refresh() }
+
+    // ── the touch gate (D12, P8 B) ──
+
+    private fun gate(e: MotionEvent, kind: HandleModel.Kind?): Boolean {
+        val pen = e.getToolType(0).let { it == MotionEvent.TOOL_TYPE_STYLUS || it == MotionEvent.TOOL_TYPE_ERASER }
+        val button = pen && (e.buttonState and MotionEvent.BUTTON_STYLUS_PRIMARY) != 0
+        val hit = when {
+            kind == null -> SelectRouter.BoxHit.OFF
+            kind == HandleModel.Kind.BODY -> if (tool.tipDots().any { kotlin.math.hypot(it[0] - e.x, it[1] - e.y) <= kit.dp(16f) }) SelectRouter.BoxHit.TIP else SelectRouter.BoxHit.BODY
+            else -> SelectRouter.BoxHit.HANDLE
+        }
+        return SelectRouter.boxTakes(hit, if (pen) SelectRouter.Kind.PEN else SelectRouter.Kind.FINGER, button, tool.selectToolInHand)
+    }
+
+    // ── keeping everything in step ──
+
+    private fun applyPicks() {
+        tool.crosshair = picks.crosshair
+        tool.fingerSelects = picks.fingerSelects
+    }
+
+    private fun refresh() {
+        boxHost.settle()
+        val s = tool.selection
+        host.dimRest(if (s is SelectionState.Lines) picks.fadeRest else 0f)
+        box.visibility = if (s != null && !tool.nudging) View.VISIBLE else View.GONE
+        box.refresh()
+        val paper = app.paperArgb()
+        row.setPaper(paper); bar.setPaper(paper)
+        when (s) {
+            is SelectionState.Lines -> {
+                val recs = host.visibleLines().filter { it.id in s.ids }
+                val colours = recs.map { it.record.colorArgb }.distinct().take(2)
+                val icon = recs.firstOrNull()?.let { app.brushIcon(it.record.brushId) } ?: JbIcon.BRUSH
+                row.showLines(colours, icon, 1f, picks.chipsInRow)
+            }
+            is SelectionState.Pixels -> row.showPixels(canvas.strokeColor)
+            null -> {}
+        }
+        row.visibility = if (s != null && !tool.nudging) View.VISIBLE else View.GONE
+        if (row.visibility == View.VISIBLE) { row.alpha = 1f; row.isEnabled = true }
+        bar.visibility = if (s != null) View.VISIBLE else View.GONE
+        if (s != null) bar.show(barModel(s))
+        val ringOn = s is SelectionState.Lines && picks.chipsInRow.not().or(true)
+        if (ringOn != ringWasOn) { app.restyleRing(ringOn, pulse = ringOn); ringWasOn = ringOn }
+        overlay.invalidate()
+        root.post { place(); readInk() }
+    }
+
+    private fun barModel(s: SelectionState.Selection): SelectBarView.Model {
+        val lines = s is SelectionState.Lines
+        val reading = (s as? SelectionState.Lines)?.reading ?: (s as? SelectionState.Pixels)?.reading
+        val n = when (s) { is SelectionState.Lines -> s.ids.size; is SelectionState.Pixels -> s.linesInLoop }
+        return SelectBarView.Model(
+            lines = lines,
+            count = n,
+            fromLoop = picks.chipsReRead && reading != null,
+            whole = reading?.reach != cc.joycreator.joybrush.core.select.LineLasso.Reach.TOUCHING,
+            allLayers = reading?.allLayers == true,
+            keepWeights = tool.keepWeights,
+            addArmed = tool.addArmed,
+            offerAdd = picks.plusChip,
+            nudging = tool.nudging,
+            ringDp = tool.nudgeRadiusDp,
+        )
+    }
+
+    /** K2: the row 12 dp above the box; below it (past the rotate handle) only when there is no room above. */
+    private fun place() {
+        val q = FloatArray(8)
+        if (!boxHost.readQuad(q)) return
+        val top = minOf(q[1], q[3], q[5], q[7])
+        val bottom = maxOf(q[1], q[3], q[5], q[7])
+        val cx = (q[0] + q[2] + q[4] + q[6]) / 4f
+        val rw = row.width.takeIf { it > 0 } ?: row.measuredWidth
+        val rh = kit.dp(44f)
+        var y = top - kit.dp(12f) - rh
+        if (y < kit.dp(TOP_RESERVE_DP)) y = bottom + kit.dp(46f + 10f + 12f)
+        y = y.coerceAtMost(root.height - kit.dp(60f) - rh)
+        row.x = (cx - rw / 2f).coerceIn(kit.dp(6f), root.width - rw - kit.dp(6f))
+        row.y = y
+        val bw = bar.width.takeIf { it > 0 } ?: bar.measuredWidth
+        bar.x = (root.width - bw) / 2f
+        bar.y = root.height - kit.dp(12f) - kit.dp(40f)
+        placeCount()
+    }
+
+    private fun placeCount() {
+        val s = tool.selection as? SelectionState.Lines
+        val pick = s?.pick
+        if (s == null || pick == null || !picks.crosshair && false) { count.visibility = View.GONE; return }
+        count.visibility = View.GONE // shown by the count scrubber once the tap's order is known (K11): see countFor()
+    }
+
+    /** K3: white or black icons by the brightness behind the row and the bar (IconContrast, the top bar's sampler). */
+    private fun readInk() {
+        val views = listOf<View>(row, bar).filter { it.visibility == View.VISIBLE && it.width > 0 }
+        if (views.isEmpty()) return
+        val pts = FloatArray(views.size * 18)
+        var k = 0
+        for (v in views) for (j in -1..1) for (i in -1..1) {
+            pts[k++] = v.x + v.width / 2f + i * v.width / 3f
+            pts[k++] = v.y + v.height / 2f + j * v.height / 3f
+        }
+        canvas.sampleScreen(pts) { colours ->
+            for ((n, v) in views.withIndex()) {
+                val samples = IntArray(9) { colours[n * 9 + it] }
+                if (v === row) { rowInk = IconContrast.inkFor(samples, rowInk); row.ink = rowInk!! }
+                if (v === bar) { barInk = IconContrast.inkFor(samples, barInk); bar.ink = barInk!! }
+            }
+            box.setGuideInk(if ((rowInk ?: IconInk.LIGHT) == IconInk.DARK) 0xFF121214.toInt() else 0xFFF7F7F9.toInt())
+        }
+    }
+
+    private fun styleCount() {
+        count.textSize = 11f
+        count.typeface = android.graphics.Typeface.MONOSPACE
+        count.setPadding(kit.dpi(9f), 0, kit.dpi(9f), 0)
+        count.gravity = android.view.Gravity.CENTER_VERTICAL
+        kit.label(count, "Drag to step through the lines under this spot")
+    }
+
+    // ── the row ──
+
+    private inner class RowActions : SelectRowView.Actions {
+        override fun colour(anchor: View) {
+            app.openColour(anchor, canvas.strokeColor) { argb -> tool.recolour(argb); refresh() }
+        }
+        override fun brush(anchor: View) { app.openLineBrushes(anchor) { id -> tool.rebrush(id); refresh() } }
+        override fun weight(factor: Float, done: Boolean) { tool.reweight(factor, done); if (done) refresh() }
+        override fun weightSlider(anchor: View) {
+            val seek = SeekBar(kit.context).apply { max = 200; progress = 100 }
+            var last = 1f
+            seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    last = Math.pow(2.0, (p - 100) / 50.0).toFloat(); tool.reweight(last, done = false); row.showWeight(last)
+                }
+                override fun onStartTrackingTouch(s: SeekBar) {}
+                override fun onStopTrackingTouch(s: SeekBar) { tool.reweight(last, done = true) }
+            })
+            kit.label(seek, "Line weight")
+            popovers.show(seek, anchor, Popovers.Side.BELOW, widthDp = 220f)
+        }
+        override fun nudge() { tool.nudging = true; refresh() }
+        override fun duplicate() { tool.duplicate { app.newLineId() }; refresh() }
+        override fun delete() { tool.deleteSelection(); refresh() }
+        override fun flip(horizontal: Boolean) { tool.flip(horizontal); refresh() }
+        override fun more(anchor: View) = showMore(anchor)
+        override fun fill() { /* Fill: LiftedPixels.fill, through the tool once H5 lands; until then the row offers it and says so. */
+            host.toast("Fill works once the paint lift is in (H5).")
+        }
+    }
+
+    private fun showMore(anchor: View) {
+        val s = tool.selection ?: return
+        val list = LinearLayout(kit.context).apply { orientation = LinearLayout.VERTICAL }
+        fun item(icon: JbIcon, text: String, label: String, run: () -> Unit) {
+            val t = TextView(kit.context).apply {
+                this.text = text
+                textSize = 14f
+                setPadding(kit.dpi(10f), 0, kit.dpi(10f), 0)
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                minHeight = kit.dpi(40f)
+                setTextColor(kit.p.drawerInk)
+                val d = icon.drawable(kit.p.drawerInk)
+                d.setBounds(0, 0, kit.dpi(20f), kit.dpi(20f))
+                setCompoundDrawables(d, null, null, null)
+                compoundDrawablePadding = kit.dpi(10f)
+                setOnClickListener { popovers.close(); run() }
+            }
+            kit.label(t, label)
+            list.addView(t)
+        }
+        item(JbIcon.PAPERCLIP, "Copy", "Copy: a picture for other apps, and the lines for pasting here") { app.copySelection(s) }
+        item(JbIcon.ADJUST, "Adjust colour", "Adjust colour: hue, saturation and brightness") { showAdjust(anchor) }
+        if (s is SelectionState.Lines) {
+            item(JbIcon.RASTER, "Rasterize Down", "Turn the selected lines into pixels. The picture stays the same; they stop being editable") { tool.rasterizeDown(); refresh() }
+        }
+        // Lock and Group arrive with 5.20a's StrokeRecord.locked / groupId; Invert with H5's paint lift. Not shown before
+        // they work (a control that does nothing is worse than a missing one).
+        popovers.show(list, anchor, Popovers.Side.BELOW, widthDp = 220f)
+    }
+
+    /** K17: hue, saturation and brightness, live, ONE step on release. */
+    private fun showAdjust(anchor: View) {
+        val list = LinearLayout(kit.context).apply { orientation = LinearLayout.VERTICAL }
+        val values = floatArrayOf(0f, 1f, 1f)
+        fun slider(name: String, max: Int, start: Int, map: (Int) -> Float, i: Int) {
+            val label = TextView(kit.context).apply { text = name; textSize = 12f; setTextColor(kit.p.drawerInk) }
+            val seek = SeekBar(kit.context).apply { this.max = max; progress = start }
+            seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    values[i] = map(p); host.adjustColour(values[0], values[1], values[2], done = false)
+                }
+                override fun onStartTrackingTouch(s: SeekBar) {}
+                override fun onStopTrackingTouch(s: SeekBar) { host.adjustColour(values[0], values[1], values[2], done = true) }
+            })
+            kit.label(seek, name)
+            list.addView(label); list.addView(seek)
+        }
+        slider("Hue", 360, 180, { (it - 180).toFloat() }, 0)
+        slider("Saturation", 200, 100, { it / 100f }, 1)
+        slider("Brightness", 200, 100, { it / 100f }, 2)
+        popovers.show(list, anchor, Popovers.Side.BELOW, widthDp = 240f)
+    }
+
+    // ── the bar ──
+
+    private inner class BarChips : SelectBarView.Chips {
+        private fun reading(): SelectionState.Reading =
+            (tool.selection as? SelectionState.Lines)?.reading ?: (tool.selection as? SelectionState.Pixels)?.reading ?: SelectionState.Reading()
+
+        // K13: a line filter on paint means lines; the core falls back to Touching when none is whole.
+        override fun take(lines: Boolean) { tool.reread(reading().copy(take = if (lines) SelectionState.Take.LINES else SelectionState.Take.PIXELS, allLayers = if (lines) reading().allLayers else false)) }
+        override fun whole(whole: Boolean) { tool.reread(reading().copy(take = SelectionState.Take.LINES, reach = if (whole) cc.joycreator.joybrush.core.select.LineLasso.Reach.WHOLE else cc.joycreator.joybrush.core.select.LineLasso.Reach.TOUCHING)) }
+        override fun allLayers(all: Boolean) { tool.reread(reading().copy(take = SelectionState.Take.LINES, allLayers = all)) }
+        override fun keepWeights(keep: Boolean) { tool.keepWeights = keep; refresh() }
+        override fun add(on: Boolean) { tool.addArmed = on; refresh() }
+        override fun ringSize(dp: Float) { tool.nudgeRadiusDp = dp; overlay.invalidate() }
+        override fun backToBox() { tool.nudging = false; refresh() }
+    }
+
+    private companion object {
+        /** The top bar's reserve (JoyBrushActivity.TOP_RESERVE_DP): the row never sits under it. */
+        const val TOP_RESERVE_DP = 54f
+    }
+}

@@ -77,6 +77,43 @@ class SelectTool(
     /** Where the pen hovers (for the nudge ring and the tip dots, K16); null when it is not hovering. */
     var hoverAt: FloatArray? = null
         private set
+    /** Where the nudge ring is while a nudge drags (screen px); null otherwise (then it follows [hoverAt]). */
+    var ringAt: FloatArray? = null
+        private set
+
+    /** The canvas's view, as of the last event (the overlays draw through it). */
+    val viewTransform: cc.joycreator.joybrush.core.view.ViewTransform get() = view
+
+    /** The glowing lines in screen px: each a polyline (x, y pairs) and its half-width in px. */
+    fun glowScreen(): List<Pair<FloatArray, Float>> {
+        if (glowIds.isEmpty()) return emptyList()
+        val out = ArrayList<Pair<FloatArray, Float>>(glowIds.size)
+        for (l in lines) if (l.id in glowIds) {
+            val g = l.geometry
+            val pts = FloatArray(g.xs.size * 2)
+            var half = 0.0
+            for (i in g.xs.indices) {
+                val (x, y) = view.docToScreen(g.xs[i].toFloat(), g.ys[i].toFloat())
+                pts[i * 2] = x; pts[i * 2 + 1] = y
+                half = maxOf(half, g.halfWidths[i])
+            }
+            out.add(pts to (half * view.zoom).toFloat())
+        }
+        return out
+    }
+
+    /** A paint selection's loop in screen px, following the box while it moves (the marching ants); null otherwise. */
+    fun loopScreen(): FloatArray? {
+        val s = state.current as? SelectionState.Pixels ?: return null
+        val h = quad0?.let { q -> boxDoc?.let { homography(q, it) } }
+        val out = FloatArray(s.loop.size * 2)
+        for ((i, p) in s.loop.withIndex()) {
+            val m = h?.apply(p) ?: p
+            val (x, y) = view.docToScreen(m.x.toFloat(), m.y.toFloat())
+            out[i * 2] = x; out[i * 2 + 1] = y
+        }
+        return out
+    }
 
     val state = SelectionState(items = object : SelectionState.Items {
         override fun locked(id: String) = lineById(id)?.locked ?: false
@@ -376,11 +413,14 @@ class SelectTool(
                 startRecords = selectedRecords()
                 tipGrab = tip
                 bendGrab = if (tip != null) tipPoint(tip) else floatArrayOf(dx, dy)
+                if (tip == null) ringAt = floatArrayOf(x, y)
             }
             SelectRouter.Phase.MOVE -> {
-                liftedLines?.preview(bent(dx, dy)); host.invalidate()
+                if (tipGrab == null) ringAt = floatArrayOf(x, y)
+                liftedLines?.preview(bent(dx, dy)); host.invalidate(); listener?.overlayChanged()
             }
             SelectRouter.Phase.END -> {
+                ringAt = null
                 val gap = 2f * density / view.zoom
                 commitLines(bent(dx, dy).map { LineDensify.densify(it, gap) })
                 bendGrab = null; tipGrab = null; startRecords = emptyList()

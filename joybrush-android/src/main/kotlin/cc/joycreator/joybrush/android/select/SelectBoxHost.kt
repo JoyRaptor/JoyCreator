@@ -24,6 +24,13 @@ class SelectBoxHost(
 
     private val scratch = FloatArray(8)
 
+    /**
+     * Told when the box starts MOVING (true) and when the move is written (false): the row fades out and back (K1). Not
+     * on touch-down: the box begins a gesture on every down, and a tap on a corner (a pin) never moves or commits.
+     */
+    var onGesture: ((Boolean) -> Unit)? = null
+    private var moving = false
+
     override fun readQuad(outQuad8: FloatArray): Boolean {
         val q = tool.boxDoc ?: return false
         val v = view()
@@ -47,6 +54,7 @@ class SelectBoxHost(
     override fun videoRect(): RectF = bounds()
 
     override fun writeQuad(quad8: FloatArray): Boolean {
+        if (!moving) { moving = true; onGesture?.invoke(true) }
         val v = view()
         val doc = FloatArray(8)
         for (i in 0 until 4) {
@@ -82,7 +90,14 @@ class SelectBoxHost(
         writeSimilarity(1f, deg - now, cx, cy)
     }
 
-    override fun commitGesture(what: String) { tool.commitBox() }
+    override fun commitGesture(what: String) {
+        tool.commitBox()
+        moving = false
+        onGesture?.invoke(false)
+    }
+
+    /** The controller calls this when a selection changes or ends, so a move that was taken away never leaves the row hidden. */
+    fun settle() { if (moving) { moving = false; onGesture?.invoke(false) } }
 
     override fun currentRotationDeg(): Float {
         if (!readQuad(scratch)) return 0f

@@ -669,3 +669,17 @@ New hooks from §K:
 - Modify `:studiokit` beyond H6's two default-preserving flags.
 - Install on the phone. One Gradle at a time through `jb-gradle.lock`.
 - Ship a control that does nothing (Lock before its field exists; Bend on pixels before JB-2.05c).
+
+### K20 and K18 confirmed (owner, 2026-10-12)
+
+> A note on the buttons. Instead of a ring or an outlined square on the plus to add to selection, it should be a solid.
+> There's a couple other areas where instead of a cyan outline, it should be a solid cyan with a punch out of the icon or
+> the text, just so you are very clear which one it is.
+>
+> pan is the good behavior, swappable in settings.
+
+- **K20:** every ON state of a chip, toggle or segmented choice is SOLID cyan (#22D3EE) with its icon or word cut out of
+  it (you see the paper through the cut), never a cyan outline. Covers the + add chip, keep-weights, Lines/Paint,
+  Whole/Touch, This layer/Every layer, and the page's own segmented controls. Still to ask him: the strip's active-tool
+  ring, paper swatches, layer cells, the page's option cards (their content is a picture).
+- **K18 confirmed:** one finger PANS by default; Settings switches it to selecting.

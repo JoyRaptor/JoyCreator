@@ -148,3 +148,45 @@ scrubber (K11), `SelectToast`. The activity wiring (a few lines) is the lead's f
 - Lines are drawn more simply than Joy Brush draws them. The Studio role ring, Tilt, Free and Bend appear in a scene
   only, not in the live phone. Two-finger rotate of the page is not built (pinch zoom and pan are).
 - Home, Guides, Pin, More, the strip grip, Opacity and most layer-panel rows say "not part of this mockup".
+
+---
+
+## 2026-10-12 STOP: weekly usage at 98%. Next agent starts here.
+
+**Where the code is.** Worktree `C:/Temp/jb-select-core`, branch `ui/select-e2`. e1 + e2 part 1 are MERGED to
+joy-creator (lead, fc30baaf, suite green). The e3 view layer is committed on `ui/select-e2` as WIP and has NEVER BEEN
+COMPILED: `SelectOverlayView.kt` (androidkit), `SelectRowView.kt`, `SelectBarView.kt`, `SelectController.kt`,
+`SelectBoxHost.kt` edits, `JbIcon.kt` new icons (joybrush-android), `SelectTool.kt` additions. Build ONLY through the
+lock script (see above); never raw gradle, never install on the phone, never edit JbCanvasView/GlPaintEngine/
+JoyBrushActivity (the lead applies activity lines).
+
+**Owner's two new notes (spec K20, K18):** ON = solid cyan with the icon or word cut out, never an outline. This is done
+in `SelectBarView.ChipView` with a DST_OUT layer, but NOT yet in the design page. Pan is confirmed as the default for one
+finger, switchable in Settings.
+
+**Lead's answer on placement:** the box (TransformOverlayView) goes into JoyBrushActivity's root at INDEX 1, right after
+`root.addView(canvas)`, below fillPreview/ring/reference/guides/board/overlays/hairline. The overlay view goes with it.
+The lead wants the exact activity lines with e3 and applies them himself.
+
+### Job list, by the model tier each job needs (roughly in this order)
+
+Tiers: **T1 cheap** = Haiku 5.5 / Luna / a small Codex (mechanical, exact instructions given). **T2 near-frontier** =
+Sonnet 5.5 / Codex standard (compile-fix, small features with a clear contract). **T3 frontier** = Opus 5.5 / top Codex
+(judgment, gesture feel, cross-file design). **T4 frontier, high effort** = the same with thinking on high
+(engine-touching, input arbitration, anything that can break a drawing).
+
+| # | Job | Tier | Notes |
+|---|-----|------|-------|
+| 1 | Design page K20: in `tasks/design/UI-Select-options.html` change the ON rules at CSS lines ~45 (`.seg`), ~90 (`.tb`), ~130 (`.bb .sg`), ~132 (`.bb .tg`) to `background:var(--sel);color:<the paper colour behind>;box-shadow:none;opacity:1`. For the bar add `--pko` = the solid paper rgb, set beside `--pbk` in the ink loop (~line 1193). Change the K18 text (~line 1303) to "confirmed". Republish to the same artifact URL (needs a Claude session with the Artifact tool) | T1 | Pure CSS. A true cut-out isn't needed in the page; paper-coloured ink looks identical over the 88% paper backing |
+| 2 | Tidy `SelectController.kt`: the redundant `picks.chipsInRow.not().or(true)` and the dead `!picks.crosshair && false` | T1 | Read the intent around them first; keep behaviour |
+| 3 | Compile e3: `-p joybrush :androidkit:compileKotlin`, then root `:joybrush-android:compileDebugKotlin`, through the lock script. Fix errors; `git add` each file; commit; push | T2 | Logs are UTF-16: `tr -d '\000'`. Don't change behaviour while fixing types |
+| 4 | Fill action: add `SelectTool.fill(argb)`, which calls the lifted pixels' `fill`, and wire `RowActions.fill`; or hide the bucket until H5 lands | T2 | Today it only toasts a placeholder |
+| 5 | SelectToast: a small paper-coloured toast with an optional action word (contract `SelectionHost.toast(text, action, onAction)`) | T2 | Same backing and ink rules as the row (K3) |
+| 6 | Settings entries for P10 (one finger pans or selects; default PANS) and Q2 (Paint makes pixels or air lines; default pixels), in the Select tool's menu (tap Select again) | T2 | `SelectTool.fingerSelects`; the Picks defaults already match |
+| 7 | Hover labels: confirm every new button calls `kit.label` with plain words | T1 | Owner rule: every button gets a hover label |
+| 8 | Count scrubber K11 (`placeCount()` is a stub): the "2 / 5" pill beside a tapped spot. Drag sideways to step through the overlapping lines; tap to cycle | T3 | Feel matters; copy the page's `.cp` behaviour |
+| 9 | Write the exact JoyBrushActivity lines for the lead: create `SelectController(kit, ..., root, canvas, host, popovers, app)` with an App implementation; `attach()` with the box at root index 1; `canvas.tool = selectTool`; strip Select tap -> `selectToolInHand` plus the settings popover; `restyleRing(on, pulse)`; `showSelect(true)` | T3 | Send by SendMessage to the "Joybrush orchestration and completion" session |
+| 10 | Bind SelectionHost to the real document types once 5.20a (seq/locked/groupId) and 5.20d land: liftLines/liftPixels with preview, paintClip, dimRest, adjustColour | T4 | Touches the GL engine side; one undo step per gesture |
+| 11 | Lock, Group and Invert actions (after 5.20a and H5) | T3 | Spec D-items and the K list |
+| 12 | Device pass with the owner: pen-vs-finger arbitration (SelectRouter and the `boxTakes` gate), tip dots on hover, nudge smoothness, fades | T4 | Ask the lead before any install; the owner presses Home first |
+| 13 | Ask the owner the K20 open items: the strip's active-tool ring, swatches, layer cells | T1 | One plain-words question |

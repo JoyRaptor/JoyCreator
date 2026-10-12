@@ -17,7 +17,7 @@ paper/grain. It diagnoses the plan's intentional full-resolution GPU treatment.
 It never replaces or relaxes the original POC comparison and is not source POC
 appearance parity. No reference file is written.
 For a filtering/accumulation A/B, append `--dab-filter both --band-precision both`.
-Defaults remain `mipmap` and `half` to match the current production loader/pass;
+Defaults are `linear` and `half` to match the current production loader/pass;
 the alternatives only affect this checker, and every case keeps the same DeltaE
 threshold. Shader CPU/seam gates always use half-float deposition.
 

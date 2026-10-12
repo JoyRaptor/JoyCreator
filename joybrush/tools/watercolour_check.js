@@ -188,7 +188,7 @@ async function gpuChecks({ vert, frag, finishVert, finishFrag, assets, perceptua
 (async () => {
   const assetsDir = path.join(root,'assets/watercolour/poc25'), manifest=JSON.parse(fs.readFileSync(path.join(assetsDir,'manifest.json'),'utf8')), backdrop=png(path.join(assetsDir,'backdrop.png'));
   const paperSpec=JSON.parse(fs.readFileSync(path.join(root,'assets/paper/catalogue.json'),'utf8')).surfaces.find(p=>p.id==='pulp_artisan'),paperImage=png(path.join(root,'assets/paper',paperSpec.file));
-  const dabFilter=option('--dab-filter')||'mipmap';if(!['mipmap','linear','both'].includes(dabFilter))throw Error('--dab-filter must be mipmap, linear or both');
+  const dabFilter=option('--dab-filter')||'linear';if(!['mipmap','linear','both'].includes(dabFilter))throw Error('--dab-filter must be mipmap, linear or both');
   const bandPrecision=option('--band-precision')||'half';if(!['half','byte','both'].includes(bandPrecision))throw Error('--band-precision must be half, byte or both');
   const assets={dabFilter,bandPrecision,paper:{width:paperImage.width,height:paperImage.height,b64:Buffer.from(paperImage.rgba).toString('base64'),spec:paperSpec},backdrop:{width:backdrop.width,height:backdrop.height,b64:Buffer.from(backdrop.red).toString('base64')},dabs:{width:manifest.width,height:manifest.height,count:manifest.count,b64:Buffer.concat(manifest.dabs.map(file=>Buffer.from(png(path.join(assetsDir,file)).red))).toString('base64')}};
   const browser = await chromium.launch({ executablePath:process.env.CHROME || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', args:['--use-angle=swiftshader','--enable-unsafe-swiftshader'] });

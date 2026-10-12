@@ -34,6 +34,34 @@ the standing brief (status **GO for both phases**, lead 2026-10-11). This file s
    `SelectionState`, JVM tests), then e2 (androidkit `select/`: `SelectTool : CanvasTool`, `SelectBoxHost`), then e3
    (joybrush-android `select/`). One Gradle at a time through `jb-gradle.lock`. Never install on the phone.
 
+## Update, 2026-10-12 (later): e2 under way on `ui/select-e2`
+
+Worktree `C:/Temp/jb-select-core`, branch `ui/select-e2` (off joy-creator bfab94da, where e1/H6/H7/H9, §K and the v2
+page are merged). Lead decisions this round: paint path to the phone first (lines need 5.20a, dispatched, then 5.20d,
+next week); extend the Studio box (one box); SelectRouter as pure core; `SelectionHost.kt` IS the contract the lead builds
+to; Lock/Group fields go into 5.20a (`StrokeRecord.locked`, `StrokeRecord.groupId`); dab spacing vs widthScale stays as
+is (vector successor's owner A/B); H9 Studio default is the lead's question to the owner; reuse `IconContrast` +
+`JbCanvasView.sampleScreen` for K3.
+
+Built on `ui/select-e2` (compiles; core select tests green except where noted at the commit):
+- core `select/SelectRouter.kt` (+11 tests): who owns a contact and what it means (D3–D8, D12, K11–K19) and the box gate
+  `boxTakes(hit, kind, button, selectToolInHand)`.
+- core `SelectionState`: lock (skipped unless `pickLocked`) and group (a member brings its group) via `Items` (+2 tests).
+- core `select/LineDensify.kt` (+4 tests): K15, pushed lines filled in on a Catmull–Rom curve, repeated passes.
+- studiokit `TransformOverlayView`: `setCleanStyle` (K5/K6: extended edge lines, corner rings only, tap-to-pin = FREE,
+  two pins move as a pair, centre reticle), `setGuideInk`, `setTouchGate` (the host may decline a contact). Defaults
+  keep the Studio unchanged. `HandleModel.fill(..., withEdges)`.
+- androidkit `select/SelectionHost.kt` (the contract, incl. `LiftedLines.preview`), `select/SelectTool.kt` (CanvasTool:
+  router + state + host; box API beginBox/boxTo/commitBox/cancelBox/resetBox/flip; recolour/rebrush/reweight/
+  duplicate/delete/rasterizeDown/reread/chooseFromOrder; nudge and tips with densify; hover glow; tip dots).
+- joybrush-android `select/SelectBoxHost.kt`: the Studio box's Host over SelectTool (screen quads ↔ doc quads).
+
+Next (e3): `SelectController` (puts TransformOverlayView over the canvas with clean style, rotate below, no pills, no
+loupe, pinch anywhere, the gate from `SelectRouter.boxTakes`, guide ink from IconContrast; a `SelectOverlayView` for the
+loop, glow, crosshair, nudge ring, tip dots; `canvas.tool = selectTool` always, `selectToolInHand` from the strip), the
+actions row and bar views (K2/K3/K9/K10: paper backing, IconContrast ink, solid icons in JbIcon style), the count
+scrubber (K11), `SelectToast`. The activity wiring (a few lines) is the lead's file: send them the exact lines.
+
 ## Update, 2026-10-12: the owner locked §K; e1 landed on ui/select-core
 
 - **§K is locked** (spec `JB-5.20e_select_ui.md`, his picks and notes verbatim, K1–K19). Read it before anything else;

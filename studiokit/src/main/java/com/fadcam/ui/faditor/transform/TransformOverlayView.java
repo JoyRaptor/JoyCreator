@@ -534,7 +534,7 @@ public class TransformOverlayView extends View {
 
     private void rebuildHandles() {
         computeRotateHandle();
-        handleCount = handles.fill(handleBuf, quad, rotateHandle);
+        handleCount = handles.fill(handleBuf, quad, rotateHandle, !cleanStyle);
     }
 
     // ── Drawing ──────────────────────────────────────────────────────────
@@ -551,7 +551,9 @@ public class TransformOverlayView extends View {
         if (!haveQuad) return;
         rebuildHandles();
         drawSnapGuides(c);
-
+        if (cleanStyle) {
+            drawCleanBox(c);
+        } else {
         // The stalk first, so the arc's glyph sits on top of its own tether.
         TransformQuad.edgeMid(quad, rotateEdge, scratch2);
         stroke.setColor(withAlpha(HandleModel.COLOR_ROTATE, 0x60));
@@ -580,6 +582,7 @@ public class TransformOverlayView extends View {
                     : h.kind == HandleModel.Kind.CORNER ? dp(19f) : dp(17f);
             if (grabbed) size *= 1.28f;
             drawGlyph(c, h.shape, h.color, h.x, h.y, size, h.rotationDeg);
+        }
         }
 
         // SPEC H — the net, over the top. Dots re-project through the CURRENT quad every
@@ -1334,6 +1337,139 @@ public class TransformOverlayView extends View {
         invalidate();
     }
 
+    // -- The clean style (Joy Brush's Select box, JB-5.20e section K, K5-K6; default off, the Studio is unchanged) --------
+    //
+    // The owner's picks: Concepts' look with the Studio's power. Thin edge lines run past the box (alignment, and the
+    // trajectory a moved corner takes, for lining up perspective); corners are small rings and the only corner handles;
+    // no edge handles; a tiny reticle at the perspective centre turns with the box. A TAP on a corner pins it (its FREE
+    // role: it moves alone); with two pinned, dragging either moves both as a pair. Long-press still opens the ring.
+
+    private boolean cleanStyle = false;
+
+    /**
+     * Lets the host decline a contact before the box takes it: return false and the contact goes on to the views beneath
+     * (as an off-box tap does). [kind] is the handle hit, BODY inside the box, or null off it. Null gate (the default):
+     * the box decides alone, as the Studio always has.
+     */
+    public interface TouchGate {
+        boolean takes(@NonNull MotionEvent e, @Nullable HandleModel.Kind kind);
+    }
+
+    @Nullable private TouchGate touchGate;
+
+    public void setTouchGate(@Nullable TouchGate gate) { touchGate = gate; }
+    /** The neutral ink of the clean style's lines and rings, chosen by the host for the paper (white or near-black). */
+    private int guideInk = Studio.INK;
+    /** Pinned corners, oldest first, so a third pin lets go of the oldest. */
+    private final int[] pinOrder = {-1, -1};
+
+    public void setCleanStyle(boolean on) {
+        if (cleanStyle == on) return;
+        cleanStyle = on;
+        invalidate();
+    }
+
+    /** The clean style's ink, white or near-black by the brightness behind the box (the host samples it). */
+    public void setGuideInk(int argb) {
+        if (guideInk == argb) return;
+        guideInk = argb;
+        invalidate();
+    }
+
+    private int pinnedCount() {
+        if (handles == null) return 0;
+        int n = 0;
+        for (int j = 0; j < 4; j++) if (handles.corner(j) == HandleModel.Role.FREE) n++;
+        return n;
+    }
+
+    /** Role changes are chrome, never undo steps (as the ring's are). */
+    private void togglePin(int i) {
+        if (handles == null || i < 0 || i > 3) return;
+        if (handles.corner(i) == HandleModel.Role.FREE) {
+            handles.setCorner(i, HandleModel.Role.SCALE);
+            if (pinOrder[0] == i) { pinOrder[0] = pinOrder[1]; pinOrder[1] = -1; } else if (pinOrder[1] == i) pinOrder[1] = -1;
+        } else {
+            if (pinnedCount() >= 2) {
+                int oldest = pinOrder[0] >= 0 && handles.corner(pinOrder[0]) == HandleModel.Role.FREE ? pinOrder[0] : -1;
+                if (oldest < 0) for (int j = 0; j < 4; j++) if (handles.corner(j) == HandleModel.Role.FREE) { oldest = j; break; }
+                handles.setCorner(oldest, HandleModel.Role.SCALE);
+                pinOrder[0] = pinOrder[1] == oldest ? -1 : pinOrder[1];
+                pinOrder[1] = -1;
+            }
+            handles.setCorner(i, HandleModel.Role.FREE);
+            if (pinOrder[0] < 0) pinOrder[0] = i; else pinOrder[1] = i;
+        }
+        invalidate();
+    }
+
+    private void drawCleanBox(@NonNull Canvas c) {
+        boolean live = dragKind != null && moved;
+        int ink = guideInk;
+        boolean lightInk = ((ink >> 16 & 0xFF) * 0.2126f + (ink >> 8 & 0xFF) * 0.7152f + (ink & 0xFF) * 0.0722f) > 128f;
+        // The edges, carried past the box to the edges of the view.
+        stroke.setStrokeWidth(dp(1f));
+        stroke.setColor(withAlpha(ink, live ? 0x8C : 0x52));
+        for (int e = 0; e < 4; e++) {
+            float ax = quad[e * 2], ay = quad[e * 2 + 1], bx = quad[((e + 1) % 4) * 2], by = quad[((e + 1) % 4) * 2 + 1];
+            float dx = bx - ax, dy = by - ay, l = (float) Math.hypot(dx, dy);
+            if (l < 1e-3f) continue;
+            float ex = dx / l * 4000f, ey = dy / l * 4000f;
+            c.drawLine(ax - ex, ay - ey, bx + ex, by + ey, stroke);
+        }
+        // The box: neutral at rest, the Studio's snap tint while a corner scales.
+        path.reset();
+        path.moveTo(quad[0], quad[1]);
+        for (int i = 1; i < 4; i++) path.lineTo(quad[i * 2], quad[i * 2 + 1]);
+        path.close();
+        boolean scaling = live && dragKind == HandleModel.Kind.CORNER && handles.corner(dragIndex) == HandleModel.Role.SCALE;
+        stroke.setColor(scaling ? withAlpha(snapTintNow(), 0xE6) : withAlpha(ink, 0xD9));
+        c.drawPath(path, stroke);
+        // The reticle at the perspective centre, turned with the top edge.
+        float[] m = TransformQuad.unitToQuad(quad);
+        if (m != null && TransformQuad.applyHomography(m, 0.5f, 0.5f, scratch2)) {
+            float a = (float) Math.atan2(quad[3] - quad[1], quad[2] - quad[0]);
+            for (int pass = 0; pass < 2; pass++) {
+                stroke.setStrokeWidth(dp(pass == 0 ? 2.6f : 1.2f));
+                stroke.setColor(pass == 0 ? withAlpha(lightInk ? 0xFF000000 : 0xFFFFFFFF, 0x66) : ink);
+                for (int k = 0; k < 4; k++) {
+                    double t = a + k * Math.PI / 2;
+                    float cx = (float) Math.cos(t), sy = (float) Math.sin(t);
+                    c.drawLine(scratch2[0] + cx * dp(3f), scratch2[1] + sy * dp(3f), scratch2[0] + cx * dp(7f), scratch2[1] + sy * dp(7f), stroke);
+                }
+            }
+        }
+        // The spin arc on its stalk (below the box when rotateKnobBelow is set).
+        TransformQuad.edgeMid(quad, rotateEdge, scratch2);
+        stroke.setStrokeWidth(dp(0.9f));
+        stroke.setColor(withAlpha(ink, 0x66));
+        c.drawLine(scratch2[0], scratch2[1], rotateHandle[0], rotateHandle[1], stroke);
+        boolean spinning = dragKind == HandleModel.Kind.ROTATE;
+        drawGlyph(c, HandleModel.Shape.ROTATE_ARC, ink, rotateHandle[0], rotateHandle[1], dp(20f) * (spinning ? 1.28f : 1f), rotateHandle[2]);
+        // The corners: small rings; pinned ones filled, with the state ring.
+        for (int i = 0; i < 4; i++) {
+            float x = quad[i * 2], y = quad[i * 2 + 1];
+            boolean pinned = handles.corner(i) == HandleModel.Role.FREE;
+            boolean grabbed = dragKind == HandleModel.Kind.CORNER && dragIndex == i && moved;
+            float r = dp(5f) * (grabbed ? 1.28f : 1f);
+            fill.setColor(pinned ? 0xFFF7F7F9 : (lightInk ? withAlpha(Studio.SURFACE, 0x99) : 0xD9F7F7F9));
+            c.drawCircle(x, y, r, fill);
+            stroke.setStrokeWidth(dp(pinned ? 2f : 1.3f));
+            stroke.setColor(pinned ? Studio.ARMED : ink);
+            c.drawCircle(x, y, r, stroke);
+            if (pinned) {
+                fill.setColor(Studio.SURFACE);
+                c.drawCircle(x, y, dp(1.8f), fill);
+            } else if (handles.corner(i) == HandleModel.Role.TILT) {
+                fill.setColor(HandleModel.COLOR_TILT);
+                c.save();
+                c.rotate(45f, x, y);
+                c.drawRect(x - dp(2f), y - dp(2f), x + dp(2f), y + dp(2f), fill);
+                c.restore();
+            }
+        }
+    }
+
     public void setBendAvailable(boolean on) {
         ringBendEnabled = on;
         if (!on) {
@@ -2085,6 +2221,12 @@ public class TransformOverlayView extends View {
             }
         }
 
+        if (touchGate != null) {
+            // The host's say over a contact (JB-5.20e D12): a pen with a brush paints inside the box, a pen off the box is
+            // never held, a tip dot belongs to the Select tool. Declined here, the contact goes to the views beneath.
+            HandleModel.Kind k = hit != null ? hit.kind : (TransformQuad.contains(quad, x, y) ? HandleModel.Kind.BODY : null);
+            if (!touchGate.takes(e, k)) return false;
+        }
         if (hit == null && !TransformQuad.contains(quad, x, y)) {
             // Nothing of ours — but maybe the first finger of a pinch on the selected object.
             // HOLD it briefly (see beginHold); if no second finger follows, the stream goes to
@@ -2196,6 +2338,7 @@ public class TransformOverlayView extends View {
         boolean was = dragKind != null;
         HandleModel.Kind kind = dragKind;
         boolean didMove = moved;
+        int tapIndex = dragIndex;
         cancelGesture();
         if (was && didMove && clean) {
             // A completed drag breaks any pending tap pairing (TEXT_REPAIR_PASS, 2026-09-23).
@@ -2203,6 +2346,8 @@ public class TransformOverlayView extends View {
             h.commitGesture(kind == HandleModel.Kind.BODY ? "Move"
                     : kind == HandleModel.Kind.ROTATE ? "Rotate"
                     : "Distort");
+        } else if (cleanStyle && was && !didMove && clean && kind == HandleModel.Kind.CORNER && !affineOnly) {
+            togglePin(tapIndex); // K6: a tap pins a corner (its FREE role); tapped again, it lets go
         } else if (was && !didMove && clean && kind == HandleModel.Kind.BODY) {
             // A tap on the picture that moved nothing. Pair it with the previous one and forward
             // the double-tap; a single tap deliberately does nothing at all. downX/downY is
@@ -2466,7 +2611,17 @@ public class TransformOverlayView extends View {
                     hud = signed(tx - quadAtGrab[dragIndex * 2])
                             + ", " + signed(ty - quadAtGrab[dragIndex * 2 + 1]);
                 } else {
-                    TransformQuad.freeCorner(quad, dragIndex, tx, ty);
+                    if (cleanStyle && pinnedCount() == 2) {
+                        // K6: two pinned corners move as a pair, by the dragged one's travel, from where they were at the grab.
+                        float dx = tx - quadAtGrab[dragIndex * 2], dy = ty - quadAtGrab[dragIndex * 2 + 1];
+                        for (int j = 0; j < 4; j++) {
+                            if (handles.corner(j) == HandleModel.Role.FREE) {
+                                TransformQuad.freeCorner(quad, j, quadAtGrab[j * 2] + dx, quadAtGrab[j * 2 + 1] + dy);
+                            }
+                        }
+                    } else {
+                        TransformQuad.freeCorner(quad, dragIndex, tx, ty);
+                    }
                     hud = signed(tx - quadAtGrab[dragIndex * 2])
                             + ", " + signed(ty - quadAtGrab[dragIndex * 2 + 1]);
                 }

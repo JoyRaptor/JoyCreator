@@ -643,7 +643,8 @@ His notes, verbatim:
 - **K15 — Nudge keeps the curve smooth (D13).** The falloff is already C1-smooth. After a push, any stretch between two
   samples longer than 2 screen px is subdivided along a Catmull–Rom curve through its neighbours, and the in-between
   samples get interpolated pressure, tilt, lean and time, so a pushed line replays as a curve, never a polygon. Test: a
-  straight 100-sample line pushed by 3× the ring radius turns by less than 6° per sample everywhere.
+  straight line pushed by 3× the ring radius, filled in (`core/select/LineDensify`), has no gap over 2 px and no turn
+  sharper than the push itself made. (A fixed degrees-per-sample bound was wrong: a tight push is a tight curve.)
 - **K16 — Tip dots on pen hover (D14).** With a pen seen, a tip's blue dot appears only while the pen hovers within
   24dp of that tip, and only that tip's. With no pen seen (finger only), the dots show as before, for 1–6 lines. Tips
   never draw within 16dp of a corner point; the corner wins there.

@@ -12,7 +12,38 @@ import cc.joycreator.joybrush.core.vector.StrokePicker
  * order, the most recent last. Coordinates are document px; [screenPerDoc] is the zoom, because every distance a finger
  * aims at is a SCREEN distance.
  */
-class SelectionState(private val picker: StrokePicker = StrokePicker()) {
+class SelectionState(
+    private val picker: StrokePicker = StrokePicker(),
+    private val items: Items = Items.NONE,
+) {
+
+    /**
+     * What a line is besides its geometry (JB-5.20a: `StrokeRecord.locked`, `StrokeRecord.groupId`). A LOCKED line is
+     * skipped by taps, loops and choices unless [pickLocked] is on; a line in a GROUP brings its whole group (within the
+     * lines given) into or out of the selection with it.
+     */
+    interface Items {
+        fun locked(id: String): Boolean = false
+        fun group(id: String): String? = null
+
+        companion object {
+            val NONE: Items = object : Items {}
+        }
+    }
+
+    /** The Select menu's "Pick locked lines too". */
+    var pickLocked: Boolean = false
+
+    private fun pickable(lines: List<InkLine>): List<InkLine> = if (pickLocked) lines else lines.filter { !items.locked(it.id) }
+
+    /** [ids] with every member of their groups among [scope]. */
+    private fun withGroups(ids: Collection<String>, scope: List<InkLine>): Set<String> {
+        val groups = ids.mapNotNull { items.group(it) }.toSet()
+        if (groups.isEmpty()) return ids.toSet()
+        val out = ids.toMutableSet()
+        for (l in scope) if (items.group(l.id) in groups) out.add(l.id)
+        return out
+    }
 
     /** How a kept loop is read (D9): the three chips on the bar. */
     data class Reading(
@@ -53,7 +84,7 @@ class SelectionState(private val picker: StrokePicker = StrokePicker()) {
     fun tap(x: Double, y: Double, screenPerDoc: Double, lines: List<InkLine>, adding: Boolean, insideBox: (Double, Double) -> Boolean): Boolean {
         if (!x.isFinite() || !y.isFinite()) return false
         val zoom = if (screenPerDoc.isFinite() && screenPerDoc > 0.0) screenPerDoc else 1.0
-        val order = picker.rank(lines, x, y, zoom)
+        val order = picker.rank(pickable(lines), x, y, zoom)
         val cur = current
         if (cur is Lines && cur.ids.size == 1 && cur.pick != null && !adding && order.size > 1) {
             val reach = CYCLE_REACH_SCREEN_PX / zoom
@@ -61,19 +92,20 @@ class SelectionState(private val picker: StrokePicker = StrokePicker()) {
             if (dx * dx + dy * dy <= reach * reach) {
                 val at = order.indexOf(cur.ids.first())
                 val next = order[(at + 1).mod(order.size)]
-                current = Lines(setOf(next), null, null, Pick(cur.pick.x, cur.pick.y))
+                current = Lines(withGroups(listOf(next), lines), null, null, Pick(cur.pick.x, cur.pick.y))
                 return true
             }
         }
         if (order.isNotEmpty()) {
             val id = order[0]
             if (adding && cur is Lines) {
-                val ids = if (id in cur.ids) cur.ids - id else cur.ids + id
+                val unit = withGroups(listOf(id), lines)
+                val ids = if (id in cur.ids) cur.ids - unit else cur.ids + unit
                 current = if (ids.isEmpty()) null else Lines(ids, null, null, null)
                 return true
             }
             val was = current
-            current = Lines(setOf(id), null, null, Pick(x, y))
+            current = Lines(withGroups(listOf(id), lines), null, null, Pick(x, y))
             return was != current
         }
         if (cur == null || insideBox(x, y)) return false
@@ -86,14 +118,16 @@ class SelectionState(private val picker: StrokePicker = StrokePicker()) {
      * The owner's K12: with [adding], it is added (or taken back out), exactly as a tap would be; without, it is the whole
      * new selection. [at] is where the pick happened, so a later tap on that spot keeps cycling from it.
      */
-    fun choose(id: String, adding: Boolean, at: Pick?) {
+    fun choose(id: String, adding: Boolean, at: Pick?, lines: List<InkLine> = emptyList()) {
+        if (!pickLocked && items.locked(id)) return
+        val unit = withGroups(listOf(id), lines)
         val cur = current
         if (adding && cur is Lines) {
-            val ids = if (id in cur.ids) cur.ids - id else cur.ids + id
+            val ids = if (id in cur.ids) cur.ids - unit else cur.ids + unit
             current = if (ids.isEmpty()) null else Lines(ids, null, null, null)
             return
         }
-        current = Lines(setOf(id), null, null, at)
+        current = Lines(unit, null, null, at)
     }
 
     /**
@@ -106,7 +140,8 @@ class SelectionState(private val picker: StrokePicker = StrokePicker()) {
         if (loop.size < 3) return false
         val cur = current
         if (adding && cur is Lines) {
-            val taken = LineLasso.take(if (reading.allLayers) everywhere else here, loop, reading.reach)
+            val scope = if (reading.allLayers) everywhere else here
+            val taken = withGroups(LineLasso.take(pickable(scope), loop, reading.reach), scope).toList()
             if (taken.isEmpty()) return false
             val ids = if (taken.all { it in cur.ids }) cur.ids - taken.toSet() else cur.ids + taken
             current = if (ids.isEmpty()) null else Lines(ids, null, null, null)
@@ -150,7 +185,7 @@ class SelectionState(private val picker: StrokePicker = StrokePicker()) {
 
     private fun read(loop: List<Pt>, here: List<InkLine>, everywhere: List<InkLine>, reading: Reading): Selection {
         val scope = if (reading.allLayers) everywhere else here
-        val lines = LineLasso.take(scope, loop, reading.reach)
+        val lines = withGroups(LineLasso.take(pickable(scope), loop, reading.reach), scope).toList()
         if (reading.take != Take.PIXELS && lines.isNotEmpty()) return Lines(lines.toSet(), loop, reading, null)
         return Pixels(loop, reading, lines.size)
     }

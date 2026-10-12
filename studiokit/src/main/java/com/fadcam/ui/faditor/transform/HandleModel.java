@@ -183,6 +183,15 @@ public final class HandleModel {
      * @return how many entries of {@code out} were filled
      */
     public int fill(Handle[] out, float[] quad, float[] rotateHandle) {
+        return fill(out, quad, rotateHandle, true);
+    }
+
+    /**
+     * As {@link #fill(Handle[], float[], float[])}; {@code withEdges = false} leaves the four edge handles out entirely
+     * (not drawn, not hit-tested): the overlay's clean style (JB-5.20e section K, K5), where corners and the spin arc are
+     * the only handles.
+     */
+    public int fill(Handle[] out, float[] quad, float[] rotateHandle, boolean withEdges) {
         int n = 0;
         for (int i = 0; i < 4; i++) {
             Role r = corners[i];
@@ -198,7 +207,7 @@ public final class HandleModel {
             h.rotationDeg = s == Shape.CIRCLE ? 0f : TransformQuad.cornerAngleDeg(quad, i);
         }
         float[] mid = new float[2];
-        for (int e = 0; e < 4; e++) {
+        if (withEdges) for (int e = 0; e < 4; e++) {
             Role r = edges[e];
             Shape s = edgeShape(r);
             TransformQuad.edgeMid(quad, e, mid);

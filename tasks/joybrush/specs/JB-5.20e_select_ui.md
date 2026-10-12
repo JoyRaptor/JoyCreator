@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T1 design (UI specialist). Phase 2 slices below say who builds each |
-| **Status** | 📝 Design, UI specialist, 2026-10-11. **Phase 1:** this spec + the owner's options page `tasks/design/UI-Select-options.html`. **Phase 2 (code)** starts when the owner sends back his picks; they become §K |
+| **Status** | 🔒 §K locked by the owner 2026-10-12. Phase 2 (code) under way: e1 core on `ui/select-core`. Where a decision above and §K disagree, §K wins |
 | **Needs** | JB-5.20 a–d (lines in the one layer: records with `seq`, slabs, look cache, one undo history). The canvas plug-in point `androidkit/tools/CanvasTool.kt` (landed 7db941d3). The Studio transform surface in `:studiokit` (D.02, landed) |
 | **Reads** | `research/concepts-app-interaction-reference.md` (CR below), `research/R5_concepts_infinite_painter.md` §1.6, §3.2–3.4 (R5), `specs/JB-5.20_lines_in_the_one_layer.md` D11–D12, `specs/JB-2.05_selection_transform_ui.md`, `specs/JB-5.02_stroke_picking.md`, `OWNER_CONSTRAINTS.md`, `LEAD_RULINGS.md` R16, R38, R42, R47, R51 |
 | **Owner area** | NEW `joybrush/core/.../core/select/` (pure maths, JVM-tested), NEW `joybrush/androidkit/.../androidkit/select/` (the tool, the box host, overlays), NEW `joybrush-android/.../android/select/` (popup, bar, layer-menu rows, badge, toasts). The Lead owns `JbCanvasView.kt`, `GlPaintEngine.kt`, `JoyBrushActivity.kt`: every change there is a **hook request** in §H, never an edit by this lane |
@@ -424,8 +424,9 @@ interface LiftedLines {
     /**
      * Replaces the lifted lines' records with [after] (same ids, same seqs) as ONE undo step pushed onto the engine's
      * UndoLog (a `LineChange` per line), re-renders the lifted texture from [after] at identity, and stays lifted.
-     * Returns false and pushes nothing when [after] equals what is there. Undo and redo while lifted re-render the
-     * texture from whatever records the step restored.
+     * Returns false and pushes nothing when [after] equals what is there. Undo and redo while lifted go through the
+     * engine's normal undo-step path (never a parallel one: one press, one step across every tool); the lift only
+     * re-renders its texture from whatever records that step restored. (Lead, 2026-10-11.)
      */
     fun commit(after: List<cc.joycreator.joybrush.core.stroke.StrokeRecord>): Boolean
     /** The selection ended: the lines go back into the cel's look (their tiles re-render), no undo step. */
@@ -480,25 +481,186 @@ interface LiftedPixels {
 7. Drag a tip of the eyebrow. Swap its brush pen → pencil → fill pen and back. Re-weight by dragging the chip.
 8. Rasterize Down, then Undo. Flatten Lower, then Undo. The badge on Watercolour; the toast once, never twice.
 
-## §K — The owner's picks (locked when he sends the line back from the options page)
+## §K — The owner's picks (LOCKED, 2026-10-12)
 
-_Empty until the owner replies. The options page `tasks/design/UI-Select-options.html` offers these parts; his picks
-and his words go here verbatim, and every "§K-Pn" above then reads from this section._
+The owner tried the options page on his own devices and sent this back. His words are kept exactly; §K overrides any
+decision above it, and K1–K19 below say how.
 
-| Part | Question | Options on the page |
+> JB-5.20e picks: P1 A (Under the box) · P2 A (Fade the rest) · P3 C (The strip only) · P4 B (Count + finger
+> crosshair) · P5 A (Chips re-read it) · P6 A (Tap replaces; ＋ adds) · P7 A (Slider in the bar) · P8 B (Anywhere moves
+> it) · P9 C (Dotted corner) · P10 A (It selects) · Q1 A (This and every layer below) · Q2 A (Pixels by default)
+>
+> on p3 i chose C but i could be persuaded to B, lets try B.
+
+His notes, verbatim:
+
+> observation is that when I am dragging, uh, let's say, a corner of a selection, the menu fades out while I drag, and
+> it looks like it does with what you have as well. But the concepts fade out is a little bit smoother, fading out and
+> fading in. It takes a little bit more time. So it looks less poppy.
+>
+> I like how dragging line width changes the line width so I can scrub with my hand or tap to get a slider. That's
+> great.
+>
+> there's a scenario that would frustrate me where I would draw a selection that was not a complete bounding box around
+> a line but intersected a line and so it decided to take the paint but then when I asked it to take a line I couldn't
+> I couldn't take any lines it was grayed out I had to change to select every line the loop touches, and then lines
+> would happen. But what should happen, instead of making it so I can't click lines, is if I have Take only lines
+> inside the loop selected. And so it defaults to taking the paint. If I click lines, it should ask, is there any lines
+> connected? And it should just select lines and automatically Take every line the loop touches. As a fallback,
+> because that's what I was meaning anyway, and I would get flustered and frustrated having to then search out the
+> other option that I should have clicked. Likewise, if I have paint selected and I click take every line that the loop
+> touches, it should automatically shift to selecting the lines. Instead of just having the toggle do nothing. So the
+> inclusive or exclusive toggles only really work on paths. And so if I'm clicking the toggle between inclusive or
+> exclusive, it should automatically go to selecting Paths.
+>
+> in Concepts, "copy" is a paperclip that reads clearer then a clipbord, "duplicate" which is clearer text then "copy
+> and select new"
+>
+> When I had the concept setting turned on and I had add taps and loops, etc. And then I long pressed for the color
+> picker. I thought that the behavior would be when I selected the new thing that it would add to what was already
+> selected, but instead the selection focus just moved. That's counterintuitive. If I have add turned on, and I'm doing
+> my color picker, it should add to it. [...] if I wanted to be exact and use the long hold drag to pick a specific
+> line, that shouldn't deselect all the other lines if I have the add plus button active. Now, if it's NOT active, then
+> it makes perfect sense to make a whole new selection.
+>
+> with "quiet" i keep wondering how to do things like if I missed the toast because i was thinking did i loose my
+> chance? or if i took the lines but i really wanted paint, how could i go back? [...] I like how in a lot of instances
+> it just "knows" what I want. the trouble is when it dosnt I dont have a clear way back. or where does selecting
+> across layers live?
+>
+> the paint bucket icon for filling a selected region with paint should have the paint in the bucket and the paint in
+> the drip/pouring part contain the color of the fill color as a nice little touch.
+>
+> when having selected a region, under more ellipsis we can have a shortcut to adjust HSB/etc
+>
+> this is an app wide gripe, but i thing the rotate handle needs to be at the bottom not the top, the reason being
+> because your finger covers it. the only time it should be at the top is if the bottom is out of frame it should move
+> to appear at the top. this may fight with the bar belore or perhaps its better to have the adjustments bar just
+> appear lower, but rotating small objects you just cant see clearly what your doing
+>
+> thumb is a no go, it just takes away too much of the canvas.
+>
+> Recolour and re-brush should be in strip only, but the cyan ring should pulse to help with discovery to show they
+> are real options, a person could mos the ring appearing.
+>
+> p8 your choice is tempting, but small selections become difficult to manipulate
+>
+> p10 behavior should be changable in settings but default b
+>
+> q2 should also be user changable in settings default a
+>
+> Bow should be ABOVE selection and only below if no room up top, so reverse of currently.
+>
+> box should be unintrusive. see my concepts screenshot attachment. they have the icons change with a threshold of
+> brightness from white/black and there backing is the canvas color
+>
+> 02 dense hatching if we have a number i should be able to scrub that number to change selection
+>
+> 05 nudge needs to make sure it keeps the curve smooth it was getting course in the sample you gave but that could be
+> because your not useing the real engine.
+>
+> 06 drag a tip - blue dots should appear only on hover with pen. only display like you had it if no pen for finger
+> access. careful blue dots often fought with corner pins.
+>
+> studio rings i couldnt get working in your sample, i like the idea. its powerful and ties things together. concepts
+> has a differnt system (and no bend) but its really clean and unintrusive [...] they have very thing lines that extend
+> past the selection box so you can visually see alighnment to other things and tapping a corner puts a dot into it
+> that makes it behave similar to our free, but when any two dots are tapped they move as a pair. move one dot or a
+> combination and the lines that extend out change to show trajectory so for instance it can help you line up
+> perspective [...] it also has a tiny target rectical that shows center and rotation if you have warped or perspective
+> tweaked it to keep with the taper
+>
+> flip horazontal and verticla should not be hidden options behind an elipsis. that was my reason for being hesitent
+> about p3 because of how many options present, but lets try it
+
+### The locked parts
+
+| Part | Locked | Note |
 |---|---|---|
-| P1 | Where the actions live | Over the box (Concepts) · Bottom dock (thumb) · A pill on the box |
-| P2 | How selected lines show | Fade the rest · Cyan halo · Both, lighter |
-| P3 | Recolour / re-brush from | Popup chips only · Popup chips and the strip's own buttons · The strip's buttons only |
-| P4 | Dense picking help | Count only · Count + finger crosshair · Count + candidate fan |
-| P5 | Lasso filters | Chips re-read the loop · A toast offers the other reading · Set before you lasso |
-| P6 | Adding and removing | Tap replaces; ＋ chip or a resting thumb adds · Tap adds; tap empty space to finish |
-| P7 | Nudge size | Slider in the bar · Drag the ring's edge · Pinch the ring |
-| P8 | Two fingers | Inside the box transforms, outside moves the page · Anywhere transforms |
-| P9 | The "makes pixels" badge | Pixel grid · "px" tag · Dotted corner |
-| P10 | One finger after the pen | Selects (tap picks, drag lassos) · Pans, as today; selects only in the Select tool |
-| Q1 | Flatten Lower means (JB-5.20 Q1) | This layer and every layer below · This layer and the one below |
-| Q2 | Paint and Airbrush make (JB-5.20 Q2) | Pixels by default, switch per brush · Lines by default |
+| P1 | **A, amended: the actions row sits ABOVE the selection**, below only when there is no room above | K2, K3 |
+| P2 | **A, fade the rest** | |
+| P3 | **B, on trial**: chips in the row AND the strip's colour and brush act on the selection, the strip's ring pulsing | His first instinct was C; "lets try B". K8 |
+| P4 | **B, count + finger crosshair**, and the count is a scrubber | K11, K12 |
+| P5 | **A, chips re-read the loop**, with the line-filter rule | K13 |
+| P6 | **A, tap replaces; ＋ (or a resting thumb) adds**, for every way of picking | K12 |
+| P7 | **A, slider in the bar** | |
+| P8 | **B, two fingers anywhere move the selection** ("small selections become difficult to manipulate") | D11 replaced by K19 |
+| P9 | **C, dotted corner** | |
+| P10 | **B by default (one finger pans), switchable in Settings** | His note "p10 … default b" is taken over the picks line's "P10 A"; flagged to him in the reply |
+| Q1 | **A, this layer and every layer below** | Closes JB-5.20 Q1 |
+| Q2 | **A, Paint and Airbrush make pixels by default, switchable in Settings** | Closes JB-5.20 Q2 |
+| Thumb direction | **Rejected**: "it just takes away too much of the canvas" | |
+
+### What changes in the decisions above
+
+- **K1 — Fades are slower and smoother (D10.8).** On the first move of a drag the row fades out over 220 ms
+  (ease-out `(0.23,1,0.32,1)`); 120 ms after the lift it fades back in over 300 ms. Never a pop.
+- **K2 — The row sits above the selection (D16, P1).** 12dp above the box's top edge; below the box only when there
+  is no room above (under the top bar's 54dp); pinned inside the screen in both cases.
+- **K3 — The row and the bar look like Concepts' (D16, D9).** No dark frosted pill: the backing is the PAPER colour
+  (the canvas colour), a 14dp-radius rounded rect at about 88% so the drawing reads faintly through, with thin 1dp
+  separators. Icons and labels are white or black, chosen by the brightness of what is behind them (the same sampling
+  the top bar already does, `JoyBrushActivity.kt:1518–1562`), with a threshold, not a blend. Selected state stays a cyan
+  ring.
+- **K4 — The rotate handle goes BELOW the box** (D10.1), 46dp under the bottom edge, and moves above only when the
+  bottom is out of frame. A finger on a handle above covers the thing being turned. The owner calls this an app-wide
+  gripe, so the same rule is proposed for the Studio's box (hook H9).
+- **K5 — The box's look is Concepts', its power is the Studio's (D10).** Thin 1dp lines along each edge, extended past
+  the box to the screen edges (alignment guides, brightness-adaptive like K3). Corner points are small rings (10dp,
+  touch radius 22dp). No edge handles are drawn (they crowded small boxes and fought the tip dots); one-axis stretch
+  stays on the role ring. A tiny centre reticle (four 4dp ticks) shows the centre and turns with the box, following the
+  perspective centre when the box is warped.
+- **K6 — Corners, Concepts' way.** Drag a corner: scale (the Studio's uniform-until-15%-breakout rule). **Tap** a
+  corner: it fills (active), and then it moves on its own (the Studio's Free, a corner-pin). Tap a second corner: the two
+  active corners move as a pair (skew). Tap an active corner again to release it. While any corner moves, the extended
+  edge lines follow it and show the trajectory, which is how perspective gets lined up with the scene.
+- **K7 — Long-press a corner: the Studio's role ring** (Scale / Free / Tilt / Bend, flips and reset on the diagonals),
+  unchanged. It is the way into Tilt and Bend. Bend is lines-only until JB-2.05c. It must work in the mockup, which it
+  did not.
+- **K8 — Restyle from the row and the strip, and the strip says so (P3 B, D15).** When lines become selected, the
+  strip's colour swatch and brush button get the cyan ring and it pulses twice (0.6 s each, scale 1 → 1.15 → 1, alpha
+  1 → 0.4 → 1), then holds steady. Reduced motion: no pulse, a steady ring.
+- **K9 — The row shows the flips (D16).** Lines: Colour · Brush · Weight │ Nudge · Duplicate · Delete │ Flip
+  horizontal · Flip vertical │ More (Copy, Lock, Adjust colour, Rasterize Down). Pixels: Fill · Duplicate · Delete │
+  Flip horizontal · Flip vertical │ More (Copy, Invert selection, Adjust colour). Cells are 40dp and the weight chip
+  52dp; the lines row is 391dp, which fits a 411dp phone.
+- **K10 — Names and icons.** Copy is a **paperclip**. Duplicate's label is **"Duplicate"**. Fill's bucket is drawn
+  with the paint in the bucket and in the pour in the actual fill colour.
+- **K11 — The count is a scrubber (D4).** The "2 / 7" pill stays while the selection came from a tap, and dragging
+  along it (12dp per step) walks through the lines under that spot, live, each one shown as the selection. It is the
+  same order a tap-again cycle uses (`StrokePicker.rank`).
+- **K12 — Add applies to every way of picking (D7, P6).** With ＋ on (or a thumb resting), a tap, the finger crosshair,
+  the fan and the count scrubber all ADD (or remove) instead of replacing. With ＋ off, each makes a new selection.
+- **K13 — Line filters imply lines (D9, P5).** The Lines chip is never greyed out.
+  - On paint, tap **Lines**: take the lines the loop encloses whole. If there are none, take the lines it touches
+    and switch the reach chip to Touching. Only if the loop touches no line at all does it stay on paint, saying
+    "This loop doesn't touch any lines."
+  - On paint, tap **Whole**, **Touching** or **All layers**: switch to lines with that reading (with the same
+    fallback to Touching for Whole).
+  - The reading chips only mean something for lines, so touching one always means lines.
+- **K14 — Every guess keeps a visible way back** (the Quiet direction's lesson). A loop's reading stays on the bar for
+  as long as the selection lives. Nothing that decides for the owner is a toast that can be missed.
+- **K15 — Nudge keeps the curve smooth (D13).** The falloff is already C1-smooth. After a push, any stretch between two
+  samples longer than 2 screen px is subdivided along a Catmull–Rom curve through its neighbours, and the in-between
+  samples get interpolated pressure, tilt, lean and time, so a pushed line replays as a curve, never a polygon. Test: a
+  straight 100-sample line pushed by 3× the ring radius turns by less than 6° per sample everywhere.
+- **K16 — Tip dots on pen hover (D14).** With a pen seen, a tip's blue dot appears only while the pen hovers within
+  24dp of that tip, and only that tip's. With no pen seen (finger only), the dots show as before, for 1–6 lines. Tips
+  never draw within 16dp of a corner point; the corner wins there.
+- **K17 — Adjust colour (More).** Hue, saturation and brightness of the selection: on pixels, the selected pixels; on
+  lines, each line's colour shifted the same way. Live while dragging, one undo step on release. It reuses the colour
+  adjustment the "Adjustment layer feature" session builds, when that lands (hook H10).
+- **K18 — Settings.** "One finger, after the pen is seen: Pans / Selects" (default Pans), and "Paint and Airbrush make:
+  Pixels / Editable lines" (default Pixels), in Joy Brush's settings. Each brush's own *Editable lines* switch still
+  overrides the shelf default.
+- **K19 — Two fingers anywhere (P8 B).** With a selection live, two fingers anywhere move, scale and turn it (the
+  Studio's pinch, `setPinchAnywhere(true)`, its default). Once the selection ends, two fingers move the page again.
+
+New hooks from §K:
+- **H9** — `TransformOverlayView.setRotateKnobBelow(boolean)`: the knob below the bottom edge, flipping above when
+  clipped. Joy Brush sets true. The owner wants it app-wide, so flipping the Studio's default is the lead's call.
+- **H10** — an engine "adjust the colour of the masked pixels / of these lines" operation, one undo step, shared with
+  the adjustment-layer work.
 
 ## Do not
 

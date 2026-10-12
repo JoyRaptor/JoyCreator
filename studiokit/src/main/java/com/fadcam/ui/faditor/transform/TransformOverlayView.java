@@ -823,7 +823,7 @@ public class TransformOverlayView extends View {
     /** Shown whenever the selected object can bend and no gesture is in flight. */
     private boolean showBendPill() {
         Host h = host;
-        if (h == null || !haveQuad || !ringBendEnabled || !h.supportsBend()) return false;
+        if (!bendPillVisible || h == null || !haveQuad || !ringBendEnabled || !h.supportsBend()) return false;
         return dragKind == null && bendDragIndex < 0 && !pinching && !ringOpen;
     }
 
@@ -1284,6 +1284,31 @@ public class TransformOverlayView extends View {
      * options to close the gap would have to be undone when bend lands.
      */
     private boolean ringBendEnabled = false;
+
+    /**
+     * Whether a first finger that lands OFF the box is held for a possible pinch on the selected object (the Studio's
+     * "anywhere on the preview" rule, default true). Joy Brush's Select tool sets false: there, two fingers outside the
+     * box move the page (JB-5.20e D11), so an off-box finger is declined at once and never delayed.
+     */
+    private boolean pinchAnywhere = true;
+
+    public void setPinchAnywhere(boolean on) {
+        pinchAnywhere = on;
+        if (!on && holding) releaseHold();
+    }
+
+    /**
+     * Whether the top-right Bend switch is drawn and hit (default true). Joy Brush sets false: its own top bar sits there,
+     * and a tap outside the box ends the selection, so the switch is not needed as a way out (JB-5.20e D10). Bend stays
+     * reachable through the long-press ring.
+     */
+    private boolean bendPillVisible = true;
+
+    public void setBendPillVisible(boolean on) {
+        if (bendPillVisible == on) return;
+        bendPillVisible = on;
+        invalidate();
+    }
 
     public void setBendAvailable(boolean on) {
         ringBendEnabled = on;
@@ -2046,7 +2071,7 @@ public class TransformOverlayView extends View {
             // view is a child of player_container, so the timeline — its own two-finger zoom and
             // scroll — never reaches here at all. The strip an open top drawer covers
             // (chromeTopInset) is excluded too: a finger there belongs to the drawer.
-            if (!inForward && y >= chromeTopInset) return beginHold(e);
+            if (pinchAnywhere && !inForward && y >= chromeTopInset) return beginHold(e);
             return false;
         }
         dragPointerId = e.getPointerId(0);

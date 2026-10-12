@@ -40,6 +40,8 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
         fun opacityTapped(anchor: View)
         /** The strip was let go of with its centre at ([cx], [cy]) in its parent's coordinates. */
         fun stripDropped(cx: Float, cy: Float)
+        /** JB-5.20e: the Select button was tapped (first tap: the Select tool; again: its menu). Shown only via [showSelect]. */
+        fun selectTapped(anchor: View) {}
     }
 
     private val column = LinearLayout(context).apply {
@@ -55,6 +57,8 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
         ToolSlot.SMUDGE to Item(Kind.TOOL, JbIcon.SMUDGE),
         ToolSlot.ERASER to Item(Kind.TOOL, JbIcon.ERASER),
     )
+    /** JB-5.20e D1.1. Not a [ToolSlot]: a slot remembers a brush, and Select holds none. Hidden until the tool exists. */
+    private val select = Item(Kind.TOOL, JbIcon.SELECT).apply { visibility = GONE }
     private val size = Item(Kind.SIZE)
     val swatch: View = Item(Kind.SWATCH)
     private val opacity = Item(Kind.OPACITY)
@@ -75,6 +79,9 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
             })
             item.setOnClickListener { host.toolTapped(slot, item) }
         }
+        column.addView(select, LayoutParams(touch, touch))
+        kit.label(select, "Select — tap a line to pick it, tap again for the one under it, or draw a loop around things")
+        select.setOnClickListener { host.selectTapped(select) }
         column.addView(size, LayoutParams(touch, touch))
         column.addView(swatch, LayoutParams(touch, touch))
         column.addView(opacity, LayoutParams(touch, touch))
@@ -111,6 +118,14 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
             item.chosen = slot == active
             item.invalidate()
         }
+    }
+
+    /** JB-5.20e: whether the Select button is offered, and whether it is the tool in the hand (the brush buttons then
+     *  show unchosen through [showTools]). */
+    fun showSelect(shown: Boolean, chosen: Boolean) {
+        select.visibility = if (shown) VISIBLE else GONE
+        select.chosen = chosen
+        select.invalidate()
     }
 
     /**

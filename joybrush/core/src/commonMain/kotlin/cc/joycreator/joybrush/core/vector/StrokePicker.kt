@@ -84,6 +84,16 @@ class StrokePicker {
     }
 
     /**
+     * JB-5.20e: the ids under ([x], [y]) doc px in the order [pick] would take them by repeated taps, with no cycle state
+     * read or changed. For the pen's hover glow, the live lasso preview, and the Select tool, which cycles taps itself
+     * with no time window (the owner re-taps slower than [CYCLE_WINDOW_MS]). Same slop, tie and zoom guard as [pick].
+     */
+    fun rank(lines: List<InkLine>, x: Double, y: Double, screenPerDoc: Double): List<String> {
+        val zoom = if (screenPerDoc.isFinite() && screenPerDoc > 0.0) screenPerDoc else 1.0
+        return rankingOf(lines, x, y, TAP_SLOP_SCREEN_PX / zoom, TIE_SCREEN_PX / zoom).map { it.id }
+    }
+
+    /**
      * The ids under a tap, in the order they would be picked by repeated taps: closest remaining window first,
      * with recency deciding within each window.
      *

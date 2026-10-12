@@ -1,8 +1,11 @@
 # Watercolour phone checkpoint — 2026-10-12
 
 Branch `vector/watercolour-phone`, isolated checkout `C:/Temp/jb-watercolour-phone`.
-Started at 71e8ffea; rebased cleanly onto `origin/joy-creator` f58bf202 before
-the final regression. Source checkpoint 63c86026 (published). The lead merges
+Started at 71e8ffea; rebased cleanly onto f58bf202 before the full regression.
+After atlas A1 landed, reviewed source was re-authored on c7b630e3; only LANES
+and todo append conflicts existed, and no merge conflicts were resolved. Prior
+ac7c51c1 is preserved in vector/watercolour-phone-before-a1. Current source
+checkpoint c8c01ece is published. The lead merges
 and installs; no phone accessed.
 Reference POC and approved settings in Downloads are unchanged.
 
@@ -82,8 +85,43 @@ An initial full run found the old two-engine INK_ENGINES pin; it was updated to
 include the explicitly replayable watercolour engine and all tests rerun green.
 
 Shared lock released normally, no persistent daemon left by this final run.
-Lead priority hold is respected. Browser checks and root APK build are queued;
-the browser runner also exclusively acquires jb-gradle.lock so SwiftShader
-cannot overlap a build. It runs stamp, RGBA commit, shader, contact against a
-saved 71e8ffea baseline, and final watercolour diagnostic in sequence, closing
-each browser. Evidence goes to C:/Temp/jb-watercolour-evidence/.
+Lead priority hold was respected; long waiting APK/backend wrappers timed out
+and the owned waiting browser wrapper was stopped. Followups now defer promptly
+when admission/slot is unavailable. The owner authorized direct lead coordination.
+
+## GPU terminal evidence — October12 17:26EDT
+
+One admitted sequential browser batch, exclusive jb-gradle.lock, every browser
+closed and lock released. No concurrent build or phone access.
+
+- stamp_pass_check: all gates pass; both deliberately broken controls fail.
+- shader_check: passes the actual shaders and current generated paper fixtures.
+- commit_blend_check: 59 result cases, zero mismatches/GL errors. Existing
+  coverage/smudge modes are bit-exact against saved pre-change 71e8ffea shader;
+  new RGBA normal/multiply/screen/erase with source/layer opacity pass.
+- contact_check current and saved71e8ffea fail identically, as expected:
+  light=0.72900390625, firm=1. This pre-existing failure was not hidden or fixed.
+- Watercolour: CPU optics at pooling0/.37/1 byte-exact; independent band
+  accumulation exact; actual cached mix endpoints/clamps exact and .37 at most
+  one byte. Wrong alpha/tint/mix amount/mix alpha/neighbour controls fail.
+- All eight sparse tile corner comparisons: zero mismatches with constant or
+  actual Artisan paper, scale1/2, origins[-64,-64] and[-128,-128]. This does not
+  prove periodic Tile-board boundaries; the engine refuses that mode for now.
+- Original half-res POC appearance: approved painted DeltaE13.12/11.52/6.61;
+  paper/grain-disabled isolation7.71/6.12/3.51. All fail the strict <3 gate.
+- Additional full-resolution reference (loaded-copy only) passes1.94/1.99/2.03.
+  Shape and unpooled comparisons all pass <3. The extra diagnostic isolates the
+  planned crisp rim difference; it does not replace original appearance approval.
+
+Report/PNG pairs: C:/Temp/jb-watercolour-check-final/report.json.
+Logs: C:/Temp/jb-watercolour-evidence/{stamp,commit,shader,contact-current,
+contact-base,watercolour}.log. Visual review: pooling-comparison.html in that
+evidence directory (same dabs/tint/wash, no procedural paper/grain in either).
+
+The save boundary now refreshes Undo after settling the cosmetic tail. All
+board/layer transaction guards settle the finished watercolor before checking
+for an actual active stroke; key enumeration settles before collecting new keys.
+Physical in-progress strokes and old brushes retain their existing guards.
+Latest snapshot/transaction hooks and LineLab port still need final backend/APK
+checks. Backend/LineLab/APK defer until lead's explicit next slot after UX and
+JB-5.20a suites; no waiting wrappers or persistent owned JVM remain.

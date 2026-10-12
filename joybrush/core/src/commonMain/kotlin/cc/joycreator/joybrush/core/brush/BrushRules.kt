@@ -7,7 +7,8 @@ import cc.joycreator.joybrush.core.doc.LayerKind
  *
  * `smudge`, `push` and `wet` READ the pixels underneath, so they are paint-layer brushes: an ink layer is a
  * recording of strokes and has no pixels to read, and re-rendering it at another zoom would smear
- * differently every time. `stamp` and `fill` write and read nothing, so they work anywhere.
+ * differently every time. `stamp`, `fill` and `watercolour` write without picking up layer pixels,
+ * so they work anywhere. Watercolour's paper height is immutable document data, not paint pickup.
  *
  * It lives in `core` rather than in a picker so that the keyboard, a stroke re-brush (JB-5.03a) and a file
  * cannot walk past it: a refusal that only exists in a menu is not a refusal.

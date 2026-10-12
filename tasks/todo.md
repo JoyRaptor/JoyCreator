@@ -539,3 +539,15 @@ Review: tests integrated18c075cf; desktop benchmark findings in reviews/NOTE20_F
 - [ ] Push scoped tested checkpoints and publish current lead assignments for incoming peers.
 
 Review: atlas foundation is separate from A2–A6 rendering integration. No phone acceptance or crease/Tile fix is claimed from A1 JVM results.
+
+## Watercolour phone integration — 2026-10-12
+- [x] Read owner-approved integration plan; create isolated vector/watercolour-phone at 71e8ffea.
+- [x] W1: pure deterministic dabber, v10 format and approved preset; golden POC and determinism gates.
+- [x] W2: centered R8 dab assets, backdrop, provenance and transparent-boundary gate.
+- [x] W3 source: live GPU/paper/pooling/commit/fade hooks; Android compile and StampPass parity green.
+- [ ] W3: array dab/three-band GPU path, real paper, neighbor-aware pooling, RGBA commit/fade; shader parity, seam and perceptual gates.
+- [x] W4 adapter: deterministic line replay/recolour, render-scale support; waiting for lead JB-5.20d host.
+- [ ] W4: editable line replay and recolour integration; existing brush parity.
+- [x] Full core regression after clean rebase: 2171 tests, zero failures/errors, four optional corpus skips; source published63c86026.
+- [ ] Compile APK through shared lock; final GPU evidence and lead handoff.
+- [ ] W5/phone acceptance: lead installs and owner judges; never claim a desktop timing is Note 9 evidence.

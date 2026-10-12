@@ -112,6 +112,7 @@ class DefaultPresetsTest {
             "joybrush.softair", "joybrush.eraser", "fill",
             // R9: the owner's sable ink brush, the tuft engine's first brush.
             "joybrush.sable", "joybrush.bristle", "joybrush.flatpaint",
+            "joybrush.watercolour",
         ) + present.map { "joybrush.$it" }
 
         assertEquals(
@@ -508,8 +509,13 @@ class DefaultPresetsTest {
         )
 
         val atSixOrNewer = shipped.filter { it.second.version >= VERSION_PAPER }.map { it.first }.toSet()
+        // Later engines can need a newer format without the generic paper section: watercolour
+        // uses its own dryness bands against the same document height. Do not equate v6+ with paper.
+        val laterWords = shipped.filter { p ->
+            BrushJson.wordsNeedingVersion(p.second).any { it.minVersion > VERSION_PAPER }
+        }.map { it.first }.toSet()
         assertEquals(
-            felt, atSixOrNewer,
+            felt + laterWords, atSixOrNewer,
             "these files claim the newest version $BRUSH_VERSION. A file that claims it without needing " +
                 "it cannot be opened by an older Joy Brush; a file that needs it and does not claim it is " +
                 "refused as older than its own word. Folders and versions: " +

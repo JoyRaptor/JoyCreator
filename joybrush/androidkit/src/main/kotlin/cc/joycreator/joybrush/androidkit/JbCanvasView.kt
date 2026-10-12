@@ -47,6 +47,9 @@ import cc.joycreator.joybrush.androidkit.io.BoardSnapshot
 import cc.joycreator.joybrush.androidkit.io.CanvasSnapshot
 import cc.joycreator.joybrush.androidkit.io.TILE_BYTES
 import cc.joycreator.joybrush.core.brush.BrushDabber
+import cc.joycreator.joybrush.core.brush.WatercolourDabber
+import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
+import cc.joycreator.joybrush.core.brush.watercolourRuntime
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 import cc.joycreator.joybrush.core.brush.ENGINE_TUFT
@@ -699,6 +702,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     // JB-1.05b: the file-driven stroke's own state, all of it one stroke long.
     private var strokePreset: BrushPreset? = null
     private var strokeDabber: BrushDabber? = null
+    private var strokeWatercolour: WatercolourDabber? = null
     private var scatterRng: SplitMix? = null
     private var strokeErase = false
     private var glBegan = false
@@ -763,6 +767,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     post { if (drawing && (mediaStroke || mediaErase)) cancelStroke(); onRefused?.invoke(e.message ?: "The pencil, watercolour or oil stroke could not be painted") }
                 }
                 frameStats.afterMedia()
+                if(engine.watercolourFrame(SystemClock.uptimeMillis())) reportHistory()
+                if(engine.watercolourAnimating) super@JbCanvasView.requestRender()
                 val s = viewSnapshot
                 drawView.zoom = s[0]; drawView.rotation = s[1]; drawView.panX = s[2]; drawView.panY = s[3]
                 paperWarnings = (PaperState.problems(documentPaperState,PaperResources.catalogue) + engine.paperWarnings).distinct()
@@ -1229,7 +1235,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         drawing = false
         mediaStroke = false; mediaErase = false; mediaBegun = false
         smoother = null; placer = null; tracker = null
-        strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null
+        strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl {
             mediaCanvas.end()
             reportHistory()
@@ -1298,6 +1304,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         // A media brush paints through the media engine (step 4c) on the active layer (R51).
         if (p?.engine == ENGINE_MEDIA && !eraser) { startMediaStroke(p); return }
+        if(p?.engine == ENGINE_WATERCOLOUR && !erase && refuseTileTool("watercolor")) { drawing=false; return }
         // Every other brush, the eraser included, writes pixels; over media the engine's bake keeps the two agreeing.
         mediaErase = false
         mediaBegun = false
@@ -1309,6 +1316,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         glBegan = false
         strokePreset = p
         strokeDabber = null
+        strokeWatercolour = null
         scatterRng = null
         strokeTuft = null
         strokeErase = erase
@@ -1337,6 +1345,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 engine.beginStroke(target, (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }, b.opacity, b.accumulate,
                     if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
             }
+        } else if (p.engine == ENGINE_WATERCOLOUR && !erase) {
+            strokeSeed=SystemClock.uptimeMillis()
+            strokeWatercolour=WatercolourDabber(p.watercolourRuntime(),strokeSeed)
+            placer=null
         } else if (p.engine == ENGINE_TUFT) {
             // R9: the tuft brush lays footprints, not dabs. Its speed is judged in screen px, so it is told the zoom.
             // Begun on the GL thread with its first footprints, like a file brush.
@@ -1371,7 +1383,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         else if (p.accumulate == "buildup") Accumulate.BUILD_UP
         else Accumulate.WASH
         val eraseBlend = strokeErase || (p != null && p.blend == "erase")
-        val opacity = if (p == null) b.opacity else if (d == null) p.opacity.base else d.strokeOpacity
+        val opacity = strokeWatercolour?.strokeOpacity ?: if (p == null) b.opacity else if (d == null) p.opacity.base else d.strokeOpacity
         val tip = if (p == null) b.tip else TipShape(
             aspect = p.tip.aspect,
             corner = p.tip.corner,
@@ -1390,13 +1402,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
         val argb = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
         val target = strokeLayerId
+        val watercolorOptions=strokeWatercolour?.spec
+        val watercolorSeed=strokeSeed
         boardStrokeWork { engine.beginStroke(target, argb, opacity, accumulate,
             when {
                 eraseBlend -> StrokeBlend.ERASE
                 p?.blend == BLEND_MULTIPLY -> StrokeBlend.MULTIPLY
                 p?.blend == BLEND_SCREEN -> StrokeBlend.SCREEN
                 else -> StrokeBlend.NORMAL
-            }, tip, grain, smudge, tuft) }
+            }, tip, grain, smudge, tuft, watercolorOptions, watercolorSeed) }
     }
 
     private fun feed(ev: MotionEvent) {
@@ -1437,7 +1451,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             finishMediaStroke()
             return
         }
-        smoother?.let { paint(it.finish()) }
+        if(strokeWatercolour == null) smoother?.let { paint(it.finish()) }
+        else paintWatercolourDabs(strokeWatercolour!!.finish())
         resetSnapper(fresh = false)
         if (strokePreset?.engine == ENGINE_FILL) {
             val samples=fillSamples.toList(); val target=strokeLayerId
@@ -1449,7 +1464,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             val serial=fillSerial
             drawing=false; smoother=null; placer=null; tracker=null
-            strokePreset=null; strokeDabber=null; scatterRng=null; strokeErase=false; strokeTuft=null
+            strokePreset=null; strokeDabber=null; strokeWatercolour=null; scatterRng=null; strokeErase=false; strokeTuft=null
             boardStrokeWork {
                 try {
                     val mask=FillPenRaster.prepare(samples,amount,zoom)
@@ -1471,7 +1486,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         strokeTuft?.let { t -> paintTuft(t.finish()) }
         drawing = false
         smoother = null; placer = null; tracker = null
-        strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null
+        strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
         boardStrokeWork { engine.endStroke(); reportHistory() }
         flushPaperVisits()
         onStrokeEnded?.invoke()
@@ -1484,7 +1499,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         fillSerial++; fillSamples.clear(); fillPoints.clear(); onFillPreview?.invoke(null)
         drawing = false
         smoother = null; placer = null; tracker = null
-        strokePreset = null; strokeDabber = null; scatterRng = null; strokeErase = false; strokeTuft = null
+        strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl { engine.cancelStroke() }
         flushPaperVisits()
         onStrokeEnded?.invoke()
@@ -1492,6 +1507,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     private fun paint(points: List<PenSample>) {
         if (points.isEmpty()) return
+        strokeWatercolour?.let { wc ->
+            val dabs=points.flatMap { wc.add(it) }
+            paintWatercolourDabs(dabs)
+            return
+        }
         if (strokePreset?.engine == ENGINE_FILL && !mediaErase) {
             fillPoints.addAll(points.map { Pt(it.x.toDouble(),it.y.toDouble()) })
             onFillPreview?.invoke(FillPenPreviewState(fillPoints.toList(),fillArgb,fillOpacity))
@@ -1516,6 +1536,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         boardStrokeWork { engine.addDabs(dabs) }
     }
 
+    private fun paintWatercolourDabs(dabs: List<Dab>) {
+        if(dabs.isEmpty()) return
+        if(!glBegan) beginStrokeNow()
+        boardStrokeWork { engine.addDabs(dabs) }
+        if(strokeWatercolour?.capped == true) onRefused?.invoke("Watercolor stroke reached its dab budget; lift the pen and continue")
+    }
+
     /**
      * Lays [strokes] with the brush in hand, as if drawn, and makes them ONE undo step (R9: the tuning sheet's "Test"). The
      * samples are SCREEN px of this view; they are put on the page where they appear. Ignored while a stroke is drawn.
@@ -1535,7 +1562,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             paint(released)
             finishStroke()
         }
-        onGl { engine.undo.mergeNewest(engine.undo.undoDepth - mark); reportHistory() }
+        onGl { engine.settleWatercolourFade(); engine.undo.mergeNewest(engine.undo.undoDepth - mark); reportHistory() }
     }
 
     /** Called on the UI thread once the GL surface exists and strokes can be laid (and again after a context loss). */
@@ -1568,6 +1595,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * ([TuftStroke.dwell]): pressing grows the blot, and turning the pen swings the belly round its point.
      */
     private fun feedOne(sm: StrokeSmoother, raw: PenSample, released: MutableList<PenSample>) {
+        // The watercolor dabber owns the POC's pressure/tilt/path filters. Never smooth or curve it twice.
+        if(strokeWatercolour != null) { if(raw.isPlaceable && !raw.predicted) released.add(raw); return }
         if (strokePreset?.engine == ENGINE_FILL && !mediaErase) {
             if(!raw.isPlaceable || raw.predicted) return
             fillSamples.lastOrNull()?.let { previous ->
@@ -1797,6 +1826,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** The GL-thread half of [snapshot]: every layer, every tile, read back, under one document. */
     private fun readContents(w: Int, h: Int): JbContents {
+        // Pen-up already released UI drawing state; the cosmetic fade must finish before
+        // capturing metadata or enumerating keys, otherwise newly painted tiles are absent.
+        engine.settleWatercolourFade()
         engine.boardDocument?.let { doc ->
             val current=syncBoardLayers(doc)
             engine.setBoardDocument(current)

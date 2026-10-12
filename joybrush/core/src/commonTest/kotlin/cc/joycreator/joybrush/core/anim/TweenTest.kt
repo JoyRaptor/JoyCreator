@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.core.anim
 
 import cc.joycreator.joybrush.core.input.PenSample
+import cc.joycreator.joybrush.core.input.StrokeSmoother
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import kotlin.math.PI
 import kotlin.math.abs
@@ -8,6 +9,7 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -63,6 +65,52 @@ class TweenTest {
         val q = Tween.between(listOf(rec("l", a)), listOf(rec("l", b)), 0.5f).single()
         for ((i, s) in q.samples.withIndex()) {
             near(10f + 2f * (a[i].first - 10f), s.x, 1e-3f, "x$i"); near(10f + 2f * (a[i].second - 10f), s.y, 1e-3f, "y$i")
+        }
+    }
+
+    @Test
+    fun aTwiceScaledTweenKeepsTheDrawnSmoothingThroughTurnAndTranslation() {
+        val points = (0..80).map { i -> (i * 3f) to (6 * sin(i * 0.6)).toFloat() }
+        val a = rec("scaled", points).copy(smoothing = 0.7f, screenPerDoc = 2f, widthScale = 1.25f)
+        // B = 2 R(90 degrees) A + (30, -17). Its recorded zoom already follows Select's rule.
+        val b = a.copy(samples = a.samples.map { it.copy(x = 30f - 2f * it.y, y = -17f + 2f * it.x) },
+            screenPerDoc = 1f, widthScale = 2.5f)
+        val one = Tween.between(listOf(a), listOf(b), 1f).single()
+        near(1f, one.screenPerDoc, 1e-6f, "x2 needs half the recorded screen zoom")
+        near(2.5f, one.widthScale, 1e-6f, "existing width interpolation is kept")
+        assertEquals(a.seed, one.seed)
+        val original = StrokeSmoother.smoothAll(a.samples, a.smoothing, a.screenPerDoc)
+        val replayed = StrokeSmoother.smoothAll(one.samples, one.smoothing, one.screenPerDoc)
+        assertEquals(original.size, replayed.size, "scale must not change smoothing sample density")
+        for ((i, s) in replayed.withIndex()) {
+            near(30f - 2f * original[i].y, s.x, 2e-3f, "smoothed transformed x$i")
+            near(-17f + 2f * original[i].x, s.y, 2e-3f, "smoothed transformed y$i")
+            near(original[i].pressure, s.pressure, 1e-6f, "pressure$i")
+        }
+        val half = Tween.between(listOf(a), listOf(b), 0.5f).single()
+        near(2f / sqrt(2f), half.screenPerDoc, 1e-6f, "halfway follows log scale, not full or linear scale")
+        near(a.screenPerDoc, Tween.between(listOf(a), listOf(b), 0f).single().screenPerDoc, 1e-6f, "t=0 zoom")
+    }
+
+    @Test
+    fun aShiftOrTurnDoesNotChangeTheRecordedSmoothingZoom() {
+        val points = seg(-40f, 0f, 40f, 0f)
+        val a = rec("unscaled", points).copy(screenPerDoc = 3f)
+        val b = rec("unscaled", turned(points, 90.0, 0f, 0f).map { (x, y) -> (x + 13f) to (y - 6f) })
+        for (t in listOf(0f, 0.25f, 0.5f, 1f)) {
+            near(a.screenPerDoc, Tween.between(listOf(a), listOf(b), t).single().screenPerDoc, 1e-6f, "rotation/shift t=$t")
+        }
+    }
+
+    @Test
+    fun aCollapsedDestinationUsesTheFitFallbackWithoutDividingByZero() {
+        val a = rec("collapsed", seg(0f, 0f, 100f, 0f)).copy(screenPerDoc = 2.75f)
+        val b = a.copy(samples = a.samples.map { it.copy(x = 17f, y = -5f) })
+        val result = Tween.between(listOf(a), listOf(b), 1f).single()
+        assertEquals(a.screenPerDoc, result.screenPerDoc)
+        for (s in result.samples) {
+            near(17f, s.x, 1e-5f, "collapsed x")
+            near(-5f, s.y, 1e-5f, "collapsed y")
         }
     }
 

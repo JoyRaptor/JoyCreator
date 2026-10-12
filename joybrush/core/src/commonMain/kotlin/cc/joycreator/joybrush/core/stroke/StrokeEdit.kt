@@ -41,7 +41,7 @@ object StrokeEdit {
      * returns `InkEditResult.Refused` with a sentence), because deciding WHEN to say it needs the
      * brush picker; this set is the one place that says WHICH brushes may.
      */
-    val INK_ENGINES: Set<String> = setOf("stamp", ENGINE_FILL)
+    val INK_ENGINES: Set<String> = setOf("stamp", ENGINE_FILL, cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR)
 
     /** Whether a brush with this `engine` can draw an ink line. See [INK_ENGINES]. */
     fun drawsInkLines(engine: String): Boolean = engine in INK_ENGINES

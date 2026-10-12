@@ -482,16 +482,18 @@ class StrokeEditTest {
     // ---- 7. R20: which brushes may draw an ink line -------------------------------------------
 
     @Test
-    fun onlyStampAndFillCanDrawAnInkLine() {
+    fun onlyReplayableEnginesCanDrawAnInkLine() {
         assertTrue(StrokeEdit.drawsInkLines("stamp"), "an ordinary pen draws an ink line")
         assertTrue(StrokeEdit.drawsInkLines(ENGINE_FILL), "the fill pen is a BRUSH (R21) and draws an ink shape")
+        assertTrue(StrokeEdit.drawsInkLines(cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR),
+            "watercolor replays its raw samples and seed without reading underlying paint")
         for (engine in listOf("smudge", "wet", "", "Stamp", "STAMP", "fill ")) {
             assertTrue(
                 !StrokeEdit.drawsInkLines(engine),
                 "\"$engine\" reads the pixels underneath, and an ink layer has none",
             )
         }
-        assertEquals(setOf("stamp", ENGINE_FILL), StrokeEdit.INK_ENGINES)
+        assertEquals(setOf("stamp", ENGINE_FILL,cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR), StrokeEdit.INK_ENGINES)
     }
 
     // ---- 8. the record is still the contract JB-0.01 wrote ------------------------------------

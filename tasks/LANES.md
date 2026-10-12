@@ -1118,3 +1118,7 @@ files: new core/media/MediaAtlas*.kt and tests; new androidkit/gl/media atlas re
 Scope: media atlas A1 architecture, allocator and transactional fake-backed load/write-back. Current shaders/MediaWindow/MediaLayerEngine remain unmodified until A2 contract and GPU proof. Root sequences shared hot-file edits and all builds.
 Delegation: Luna source trace completed; Sol 6.1 assessing existing C:/Temp/jb-520a before resuming slice a. No overlap with vector renderer/UI brush presets; coordinate new assignments with this lead.
 DEVICE: none reserved; no installation authorized by this onboarding turn. One machine-wide jb-gradle.lock, resource admission before builds.
+
+## WATERCOLOUR_PHONE_20261012 — Codex implementation claim
+ACTIVE: vector/watercolour-phone, isolated checkout C:/Temp/jb-watercolour-phone, base origin/joy-creator 71e8ffea.
+Owner requested GO BUILD against WATERCOLOUR_LINE_BRUSH_PLAN_20261012.md. Root owns W3/W4: new gl/watercolour files, shaders/lines, scoped GlPaintEngine/JbCanvasView dispatch and InkReplay/StrokeEdit hooks. Helper owns W1 core brush format/math/tests and approved preset; another owns W2 extraction/asset gate. All work uses this one branch. No media engine dependencies or global tilt changes. Only root builds, under jb-gradle.lock and RAM admission; no phone installation. Lead integrates and runs Note 9 acceptance. Reference Watercolor-POC is read-only.

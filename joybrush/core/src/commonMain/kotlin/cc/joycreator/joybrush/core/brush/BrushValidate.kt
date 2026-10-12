@@ -25,7 +25,7 @@ import kotlinx.serialization.json.doubleOrNull
  */
 object BrushValidate {
 
-    private val ENGINES = setOf("stamp", ENGINE_SMUDGE, "wet", ENGINE_FILL, ENGINE_PUSH, ENGINE_TUFT, ENGINE_MEDIA)
+    private val ENGINES = setOf("stamp", ENGINE_SMUDGE, "wet", ENGINE_FILL, ENGINE_PUSH, ENGINE_TUFT, ENGINE_MEDIA, ENGINE_WATERCOLOUR)
     private val ACCUMULATES = setOf("wash", "buildup")
     private val BLENDS = setOf("normal", "erase", BLEND_BEHIND, BLEND_MULTIPLY, BLEND_SCREEN)
     private val COMBINES = setOf("multiply", "add")
@@ -332,13 +332,15 @@ object BrushValidate {
         // shader composites a stamp stroke buffer with them, and the fill pen, smudge, push, tuft and media paths do not
         // read the word, so on those engines it would be a promise nothing keeps.
         out += lineProblems(p)
+        out += watercolourProblems(p)
 
         return out
     }
 
     private fun lineProblems(p: BrushPreset): List<String> {
         val bad = ArrayList<String>()
-        if ((p.blend == BLEND_MULTIPLY || p.blend == BLEND_SCREEN) && p.engine != "stamp") {
+        if ((p.blend == BLEND_MULTIPLY || p.blend == BLEND_SCREEN) && p.engine != "stamp" &&
+            !(p.engine == ENGINE_WATERCOLOUR && p.blend == BLEND_MULTIPLY)) {
             bad += "blend \"${p.blend}\" works only on a stamp brush, not engine \"${p.engine}\""
         }
         val l = p.line ?: return bad
@@ -347,6 +349,57 @@ object BrushValidate {
         if (l.taperTip !in 0f..1f) bad += "line.taperTip ${l.taperTip} is outside 0..1"
         if (l.taperShape !in 0.25f..4f) bad += "line.taperShape ${l.taperShape} is outside 0.25..4"
         if (l.screenWidthPx !in 0f..64f) bad += "line.screenWidthPx ${l.screenWidthPx} is outside 0..64"
+        return bad
+    }
+
+    private fun watercolourProblems(p: BrushPreset): List<String> {
+        val w = p.watercolour
+        if (w == null) return if (p.engine == ENGINE_WATERCOLOUR)
+            listOf("engine \"watercolour\" needs a watercolour section") else emptyList()
+        if (p.engine != ENGINE_WATERCOLOUR) return listOf("watercolour section is only read by engine \"watercolour\"")
+        val bad = ArrayList<String>()
+        if (p.line != null) bad += "watercolour does not support the line shaping section"
+        fun range(name: String, value: Double, lo: Double, hi: Double) {
+            if (value !in lo..hi) bad += "watercolour.$name $value is outside $lo..$hi"
+        }
+        if (p.blend !in setOf("normal", BLEND_MULTIPLY)) bad += "watercolour blend must be normal or multiply"
+        if (w.dabImages.size !in 1..256) bad += "watercolour.dabImages needs 1..256 layers"
+        if (w.window !in 1..w.dabImages.size) bad += "watercolour.window must be 1..dabImages.size"
+        fun validAsset(path: String) = path.isNotBlank() && !path.startsWith('/') && !path.contains(':') &&
+            !path.contains('\\') && path.split('/').none { it == ".." || it == "." || it.isEmpty() }
+        if (w.dabImages.any { !validAsset(it) } || !validAsset(w.backdrop))
+            bad += "watercolour assets must be relative paths inside assets"
+        if (w.dabImages.distinct().size != w.dabImages.size) bad += "watercolour.dabImages has duplicate layers"
+        for ((name, value) in listOf(
+            "taper" to w.taper, "tiltMinimum" to w.tiltMinimum, "scatter" to w.scatter,
+            "opacity" to w.opacity, "texture" to w.texture, "tipWidth" to w.tipWidth,
+            "edgeAlpha" to w.edgeAlpha, "gravityPool" to w.gravityPool, "backdropOffset" to w.backdropOffset,
+            "paperCut" to w.paperCut, "dryness" to w.dryness, "dryBuildup" to w.dryBuildup,
+            "strokeOpacity" to w.strokeOpacity, "edgePool" to w.edgePool, "grain" to w.grain,
+            "depletion" to w.depletion, "variation" to w.variation, "rotation" to w.rotation,
+            "follow" to w.follow, "smoothPressure" to w.smoothPressure, "smoothTilt" to w.smoothTilt,
+            "smoothPath" to w.smoothPath, "previewPressure" to w.previewPressure,
+        )) range(name, value, 0.0, 1.0)
+        range("size", w.size, .25, MAX_SIZE_PX.toDouble())
+        range("minimum", w.minimum, .25, w.size)
+        range("spacing", w.spacing, .005, 5.0)
+        range("tipAngle", w.tipAngle, 0.0, 59.99)
+        range("edgeWidth", w.edgeWidth, 0.0, 64.0)
+        range("gravityWidth", w.gravityWidth, 0.0, 256.0)
+        range("travel", w.travel, 1.0, 1000000.0)
+        range("variationLength", w.variationLength, 1.0, 1000000.0)
+        range("textureScale", w.textureScale, .01, 64.0)
+        range("textureContrast", w.textureContrast, 0.0, 4.0)
+        range("previewTilt", w.previewTilt, 0.0, 90.0)
+        range("renderScale", w.renderScale, .1, 1.0)
+        for ((name, curve) in listOf("pressureBezier" to w.pressureBezier, "tiltBezier" to w.tiltBezier)) {
+            if (curve.size != 4 || curve.any { it !in 0.0..1.0 } || (curve.size == 4 && curve[0] > curve[2]))
+                bad += "watercolour.$name must contain four 0..1 handles with x1 <= x2"
+        }
+        if (w.poolingFadeMilliseconds !in 0..5000) bad += "watercolour.poolingFadeMilliseconds must be 0..5000"
+        if (w.worldPixels.size != 2 || w.worldPixels.any { it !in 1..65536 }) bad += "watercolour.worldPixels needs two 1..65536 dimensions"
+        if (w.sampleSeeds.size !in 1..16 || w.sampleSeeds.any { it !in 0L..0xffffffffL }) bad += "watercolour.sampleSeeds needs 1..16 uint32 seeds"
+        if (!Regex("#[0-9a-fA-F]{6}").matches(w.approvedTint)) bad += "watercolour.approvedTint must be #rrggbb"
         return bad
     }
 

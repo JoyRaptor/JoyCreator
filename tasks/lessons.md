@@ -1036,3 +1036,13 @@ I read the owner's Concepts watercolour tests as a ribbon "skin" with decorative
 design. He corrected it with evidence I had not asked for (the brush picker's dab swatches): rotated dab samples chosen by
 pressure and angle, darker-wins inside the stroke, a wash texture as the stroke's alpha. Rule: restate his mechanism
 back before designing; treat any alternative I prefer as a lab hypothesis, never as "how X works" in a spec.
+
+## On-canvas tools: copy Concepts' placement, and never grey out an intent (2026-10-12, UI specialist)
+- I put the selection's action row UNDER the box (to stay off a rotate arc above it) and gave it a dark frosted pill.
+  The owner reversed both: actions ABOVE the selection, the rotate handle BELOW ("your finger covers it", app-wide),
+  and an unintrusive row in the paper's own colour with white/black icons by brightness.
+- I greyed out the Lines chip when a loop enclosed no whole line. He hit it and called it frustrating: a chip that
+  only means something for lines must switch to lines (with a Touching fallback), never sit disabled.
+- Rule: for any control that floats over the art, start from where the finger and pen are (handles below, actions
+  above) and from the paper (not a dark slab). For any smart default, keep the correction on screen and make every
+  chip that implies a mode switch into it. Memory: on-canvas-tools-concepts-placement, automatic-guess-keeps-a-way-back.

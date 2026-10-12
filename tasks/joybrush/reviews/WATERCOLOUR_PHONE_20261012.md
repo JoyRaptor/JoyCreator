@@ -1,7 +1,9 @@
 # Watercolour phone checkpoint — 2026-10-12
 
 Branch `vector/watercolour-phone`, isolated checkout `C:/Temp/jb-watercolour-phone`.
-Base `origin/joy-creator` 71e8ffea. The lead merges and installs; no phone accessed.
+Started at 71e8ffea; rebased cleanly onto `origin/joy-creator` f58bf202 before
+the final regression. Source checkpoint 63c86026 (published). The lead merges
+and installs; no phone accessed.
 Reference POC and approved settings in Downloads are unchanged.
 
 ## Implemented
@@ -30,8 +32,11 @@ Reference POC and approved settings in Downloads are unchanged.
 ## Acceptance and dependencies
 
 Android compilation and StampPassUniformsParityTest succeeded (one test, zero
-failures/errors; the test compares 600 random stroke uniform sets). A targeted
-core build reported success; the final full core run and APK build are pending.
+failures/errors; the test compares 600 random stroke uniform sets). Final full
+core regression after rebase: 2,171 tests, zero failures/errors, four optional
+corpus skips; BUILD SUCCESSFUL in 5m24s. Watercolour18, line-preset2, tween11,
+SVG29 and outline8 tests are included. The sample SVG was emitted to
+joybrush/core/build/vector_svg_sample.svg. APK build is queued.
 Builds use the shared lock with RAM admission. Next builds use one worker,
 in-process compiler and --no-daemon; owned idle build daemons are released.
 
@@ -63,3 +68,22 @@ are not a Proko comparison. Line lab already contains --shaders and tooth capaci
 Evidence scratch directories: C:/Temp/jb-watercolour-check/ and
 C:/Temp/jb-watercolour-check-ab/ (reports and PNG pairs). Final commands/results
 will be appended before handoff. No install, merge or existing-artwork migration.
+
+## Serial verification commands
+
+`jbgradle2.sh C:/Temp/jb-watercolour-phone :androidkit:test --tests
+'*StampPassUniformsParityTest'` passed, 1m42s; XML test1/failures0/errors0.
+
+`jbgradle2.sh C:/Temp/jb-watercolour-phone :core:jvmTest --no-daemon
+--max-workers=1 -Pkotlin.compiler.execution.strategy=in-process` passed,
+2,171/0/0 (four skips), 5m24s, October12 12:29EDT.
+
+An initial full run found the old two-engine INK_ENGINES pin; it was updated to
+include the explicitly replayable watercolour engine and all tests rerun green.
+
+Shared lock released normally, no persistent daemon left by this final run.
+Lead priority hold is respected. Browser checks and root APK build are queued;
+the browser runner also exclusively acquires jb-gradle.lock so SwiftShader
+cannot overlap a build. It runs stamp, RGBA commit, shader, contact against a
+saved 71e8ffea baseline, and final watercolour diagnostic in sequence, closing
+each browser. Evidence goes to C:/Temp/jb-watercolour-evidence/.

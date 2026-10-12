@@ -527,3 +527,14 @@ Review: core1706/backend312/native105; zero failures/errors, four optional corpu
 - [ ] Record actual memory admission values on Note20, distinguish tool reservation from paint payload ceiling.
 - [ ] Verify physical pencil tilt direction before applying calibrated input change.
 Review: tests integrated18c075cf; desktop benchmark findings in reviews/NOTE20_FAST_C_FINDINGS_20261008.md. No phone install or claim that the reported defects are fixed.
+
+## UX takeover — October 12, 2026
+- [x] Read STOP, locked owner picks and standing brief; notify lead and claim lane.
+- [x] Bring design page to K18/K20/K21/K22; compare selected palettes and verify floating pills/width pulse in the browser. Claude Artifact republish still requires its publishing tool.
+- [x] Tidy controller without behavior changes; confirm plain hover labels on all new controls.
+- [x] Compile preserved e3 modules through shared lock: Androidkit and root Joybrush UI PASS; corrected toast Float properties before compile.
+- [x] Wire lifted-pixel Fill with readiness gate; implement paper-backed SelectToast with optional one-shot action.
+- [x] Add Select-menu preferences: persist finger choice locally; Q2 shelf get/set App callbacks per lead, preserving brush override.
+- [x] Verify both compile gates and 5 focused behavior tests (0 failures/errors/skips), review all diffs; scoped checkpoint prepared for commit/push.
+- [x] Report integration hooks/remaining prerequisites and actual checks to lead; capture owner K21/K22/K23 creative revisions. No phone/engine acceptance claim.
+Review: no phone/engine acceptance claimed; engine, count scrubber and phone pass remain later jobs.

@@ -13,7 +13,7 @@
   --ground:#000;--surface:#0d0d10;--panel:#111114;--raised:#1c1c22;--pressed:#26262e;--line:#2c2c35;
   --ink:#e4e4e7;--dim:#a1a1aa;--faint:#71717a;--off:#4b4b55;
   --dink:#f2f2f5;--ddim:#c9c9d3;--dlabel:#c4c4ce;
-  --sel:#22d3ee;--sel28:rgba(34,211,238,.28);--selgrad:linear-gradient(135deg,#4397FD,#5C43FD);--live:#f43f8e;--care:#fbbf24;--bad:#fa3d5d;--guide:#a78bfa;--ongo:#050507;
+  --sel:#22d3ee;--sel28:rgba(34,211,238,.28);--selgrad:#22D3EE;--live:#f43f8e;--care:#fbbf24;--bad:#fa3d5d;--guide:#a78bfa;--ongo:#050507;
   --go:linear-gradient(90deg,#35F6BF,#97FE8B);
   --room:linear-gradient(90deg,#5C43FD,#4397FD);
   --ctl:rgba(242,242,245,.1);
@@ -91,13 +91,13 @@ header.top h1 span{background:var(--room);-webkit-background-clip:text;backgroun
 .tb button[data-on="1"]{background:var(--selgrad);color:var(--pko);box-shadow:none;opacity:1}
 .tb button:disabled{opacity:.35}
 .strip{position:absolute;left:0;top:96px;width:46px;padding:2px 2px 6px 4px;display:flex;flex-direction:column;align-items:center;
-  background:rgba(17,17,20,.9);box-shadow:inset 0 0 0 .75px var(--line);border-radius:0 14px 14px 0;color:var(--dink)}
+  background:rgba(17,17,20,.9);box-shadow:inset 0 0 0 .75px var(--line);border-radius:0 23px 23px 0;color:var(--dink)}
 .strip .grip{width:40px;height:18px;display:grid;place-items:center}
 .strip .grip i{display:block;width:16px;height:3px;border-radius:2px;background:rgba(242,242,245,.3)}
 .strip button{width:40px;height:40px;display:grid;place-items:center;border-radius:50%;position:relative}
 .strip button[data-on="1"]::after{content:"";position:absolute;inset:5px;border-radius:50%;padding:1.5px;background:var(--selgrad);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 @keyframes ringpulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.15);opacity:.4}}
-.strip button.pulse::after{animation:ringpulse .6s ease-in-out 2}
+.strip button.pulse::after{content:"";position:absolute;inset:5px;border-radius:50%;padding:1.5px;background:var(--selgrad);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;animation:ringpulse .6s ease-in-out 2}
 .strip .swc{width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(242,242,245,.35)}
 .strip .szr{width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(242,242,245,.7);display:grid;place-items:center}
 .strip .szr i{display:block;border-radius:50%;background:var(--dink)}
@@ -105,36 +105,36 @@ header.top h1 span{background:var(--room);-webkit-background-clip:text;backgroun
 .strip button.new::before{content:"new";position:absolute;right:-26px;top:12px;font:600 8.5px/14px var(--f-mono);color:var(--ongo);background:var(--sel);border-radius:4px;padding:0 3px;letter-spacing:.04em}
 
 .lcol{position:absolute;right:0;top:54px;width:60px;padding:6px 8px;display:flex;flex-direction:column;gap:6px;align-items:center;background:rgba(17,17,20,.9);box-shadow:inset 0 0 0 .75px var(--line);border-radius:14px 0 0 14px;color:var(--dink)}
-.lcol button{width:44px;border-radius:8px;position:relative}
+.lcol button{width:44px;border-radius:999px;position:relative}
 .lcol .add{height:32px;display:grid;place-items:center;background:var(--ctl)}
 .lcol .cell{height:56px;background:var(--paper);box-shadow:inset 0 0 0 1px rgba(242,242,245,.18)}
 .lcol .cell[data-on="1"]{box-shadow:none}
-.lcol .cell[data-on="1"]::after{content:"";position:absolute;inset:-2.5px;border-radius:10px;padding:1.5px;background:var(--selgrad);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
-.lcol .cell span{position:absolute;left:0;right:0;bottom:-1px;font:600 8px/12px var(--f-mono);color:var(--ddim);text-align:center;background:rgba(0,0,0,.55);border-radius:0 0 8px 8px}
+.lcol .cell[data-on="1"]::after{content:"";position:absolute;inset:-2.5px;border-radius:24px;padding:1.5px;background:var(--selgrad);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.lcol .cell span{position:absolute;left:0;right:0;bottom:-1px;font:600 8px/12px var(--f-mono);color:var(--ddim);text-align:center;background:rgba(0,0,0,.55);border-radius:0 0 22px 22px}
 .lcol .papr{height:30px;font:600 8.5px/30px var(--f-mono);color:var(--ddim);background:var(--ctl)}
 
 /* drawers and popovers stay see-through dark (house rule); the on-canvas row and bar wear the paper (owner, K3) */
-.fr{background:rgba(0,0,0,.5);box-shadow:inset 0 0 0 1px rgba(242,242,245,.1),0 6px 18px rgba(0,0,0,.35)}
-.paperish{background:var(--pbk);color:var(--pin);box-shadow:inset 0 0 0 1px var(--pline)}
-.pp{position:absolute;height:44px;border-radius:14px;padding:2px 4px;display:flex;align-items:center;transition:opacity .3s cubic-bezier(.23,1,.32,1) .12s}
+.fr{background:rgba(0,0,0,.5);box-shadow:inset 0 0 0 1px rgba(242,242,245,.1),0 6px 18px rgba(0,0,0,.35);border-radius:18px}
+.paperish{background:var(--pbk);color:var(--pin);box-shadow:none}
+.pp{position:absolute;height:44px;border-radius:22px;padding:2px 4px;display:flex;align-items:center;transition:opacity .3s cubic-bezier(.23,1,.32,1) .12s}
 .pp.hide{opacity:0;pointer-events:none;transition:opacity .22s cubic-bezier(.23,1,.32,1) 0s}
-.pp button{height:40px;min-width:40px;display:grid;place-items:center;border-radius:12px;position:relative}
+.pp button{height:40px;min-width:40px;display:grid;place-items:center;border-radius:20px;position:relative}
 .pp button:active,.bb button:active{background:var(--ppress)}
 .pp .dot{width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--pline),0 0 0 1px rgba(0,0,0,.25)}
 .ph .wv{font:600 11.5px/1 var(--f-mono);min-width:52px;display:flex!important;gap:4px;align-items:center;justify-content:center;touch-action:none}
 .pp .rd::after{content:"";position:absolute;right:9px;top:9px;width:5px;height:5px;border-radius:50%;background:var(--bad)}
 .pp .sep{width:1px;height:22px;background:var(--pline);margin:0 2px}
-.bb{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;height:40px;border-radius:14px;padding:4px;display:flex;gap:5px;max-width:399px;align-items:center;white-space:nowrap}
+.bb{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;height:40px;border-radius:20px;padding:4px;display:flex;gap:5px;max-width:399px;align-items:center;white-space:nowrap}
 .bb .ct{font:600 11px/1 var(--f-mono);padding:0 6px 0 8px;opacity:.8}
-.bb .sg{display:inline-flex;border-radius:12px;height:32px;box-shadow:inset 0 0 0 1px var(--pline)}
-.bb .sg button{height:32px;min-width:34px;padding:0 10px;border-radius:12px;font:600 11.5px/1 var(--f-body);opacity:.75;display:grid;place-items:center}
+.bb .sg{display:inline-flex;border-radius:16px;height:32px;box-shadow:inset 0 0 0 1px var(--pline)}
+.bb .sg button{height:32px;min-width:34px;padding:0 10px;border-radius:16px;font:600 11.5px/1 var(--f-body);opacity:.75;display:grid;place-items:center}
 .bb .sg button.i{padding:0 7px}
 .bb .sg button[aria-pressed="true"]{background:var(--selgrad);color:var(--pko);box-shadow:none;opacity:1}
-.bb .tg{height:32px;min-width:32px;border-radius:12px;display:grid;place-items:center;box-shadow:inset 0 0 0 1px var(--pline);padding:0 8px;font:600 11.5px/1 var(--f-body)}
+.bb .tg{height:32px;min-width:32px;border-radius:16px;display:grid;place-items:center;box-shadow:inset 0 0 0 1px var(--pline);padding:0 8px;font:600 11.5px/1 var(--f-body)}
 .bb .tg[aria-pressed="true"]{background:var(--selgrad);color:var(--pko);box-shadow:none;opacity:1}
 .bb input[type=range]{width:120px;accent-color:#22d3ee}
-.pv{position:absolute;border-radius:14px;padding:8px;color:var(--dink);min-width:180px;display:flex;flex-direction:column;gap:2px;z-index:5}
-.pv .row{min-height:40px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:10px;font-size:14px;text-align:left;width:100%}
+.pv{position:absolute;border-radius:18px;padding:8px;color:var(--dink);min-width:180px;display:flex;flex-direction:column;gap:2px;z-index:5}
+.pv .row{min-height:40px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:14px;font-size:14px;text-align:left;width:100%}
 .pv .row:active{background:rgba(242,242,245,.14)}
 .pv .row.mute{color:var(--faint)}
 .pv .row .rdot{width:7px;height:7px;border-radius:50%;background:var(--bad);margin-left:auto}
@@ -143,25 +143,25 @@ header.top h1 span{background:var(--room);-webkit-background-clip:text;backgroun
 .pv .sws{display:grid;grid-template-columns:repeat(5,30px);gap:8px;padding:6px}
 .pv .sws button{width:30px;height:30px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(242,242,245,.3)}
 .pv .tiles{display:grid;grid-template-columns:repeat(4,72px);gap:6px;padding:4px}
-.pv .tile{height:64px;border-radius:10px;background:var(--ctl);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:6px;font:600 9.5px/1.1 var(--f-body);color:var(--ddim)}
+.pv .tile{height:64px;border-radius:16px;background:var(--ctl);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:6px;font:600 9.5px/1.1 var(--f-body);color:var(--ddim)}
 .pv .tile[data-on="1"]{box-shadow:none}
-.pv .tile[data-on="1"]::after{content:"";position:absolute;inset:0;border-radius:10px;padding:1.5px;background:var(--selgrad);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.pv .tile[data-on="1"]::after{content:"";position:absolute;inset:0;border-radius:16px;padding:1.5px;background:var(--selgrad);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 .pv .tile svg{position:absolute;left:8px;right:8px;top:8px;width:56px;height:30px}
 .badge{position:absolute;right:5px;bottom:20px;width:14px;height:12px;display:grid;place-items:center}
 .pv .slider{display:grid;grid-template-columns:76px 1fr 40px;align-items:center;gap:6px;padding:2px 8px;font-size:12px;color:var(--ddim)}
 .pv .slider input{width:100%;accent-color:#22d3ee}
 .pv .slider output{font:600 11px/1 var(--f-mono);text-align:right;color:var(--dink)}
-.tt{position:absolute;left:50%;transform:translateX(-50%);bottom:64px;max-width:380px;width:max-content;border-radius:11px;padding:9px 12px;display:flex;gap:10px;align-items:center;font-size:11.5px;line-height:1.35;color:var(--dink);z-index:6;transition:opacity .2s}
+.tt{position:absolute;left:50%;transform:translateX(-50%);bottom:64px;max-width:380px;width:max-content;border-radius:18px;padding:9px 12px;display:flex;gap:10px;align-items:center;font-size:11.5px;line-height:1.35;color:var(--dink);z-index:6;transition:opacity .2s}
 .tt.hide{opacity:0;pointer-events:none}
 .tt button{color:var(--sel);font-weight:700;font-size:11.5px;padding:2px 2px}
 .cp{position:absolute;height:22px;border-radius:11px;padding:0 9px;font:600 11px/22px var(--f-mono);box-shadow:inset 0 0 0 1.5px var(--sel);white-space:nowrap;cursor:ew-resize;touch-action:none;z-index:3}
 .cp::before{content:"\2039  ";opacity:.6}.cp::after{content:"  \203A";opacity:.6}
-.fan{position:absolute;display:flex;gap:6px;padding:4px;border-radius:18px}
+.fan{position:absolute;display:flex;gap:6px;padding:4px;border-radius:20px}
 .fan button{width:28px;height:28px;border-radius:50%;font:600 11px/28px var(--f-mono);color:var(--dink);background:rgba(242,242,245,.08)}
 .hud{position:absolute;left:50%;top:62px;transform:translateX(-50%);font:600 10.5px/1 var(--f-mono);color:var(--chi);opacity:.7;filter:drop-shadow(0 0 1px var(--chs))}
 @keyframes ants{to{stroke-dashoffset:-20}}
 .ants{animation:ants .6s linear infinite}
-@media (prefers-reduced-motion:reduce){.ants,.strip button.pulse::after{animation:none}.pp,.pp.hide,.tt{transition:none}}
+@media (prefers-reduced-motion:reduce){.ants,.strip button.pulse::after,.pp button.pulse::after{animation:none}.pp,.pp.hide,.tt{transition:none}}
 
 /* changes list */
 .changes{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
@@ -250,6 +250,7 @@ figcaption span{font-size:12.5px;color:var(--dim);line-height:1.5}
 
 <div class="bar"><div class="bar-in">
   <div class="ctl"><span class="eyebrow">Paper</span><span id="papers" style="display:flex;gap:10px"></span></div>
+  <div class="ctl"><span class="eyebrow">Selection colour</span><span class="seg" id="selcolorseg" role="group" aria-label="Selection colour"></span></div>
   <button class="btn" id="tolocked" type="button" title="Put every part back to your locked picks">Back to my picks</button>
   <button class="btn go" id="copytop" type="button" title="Copy the line to send back, with your notes">Copy changes</button>
 </div></div>
@@ -325,7 +326,7 @@ figcaption span{font-size:12.5px;color:var(--dim);line-height:1.5}
       <div class="card"><h3>Look</h3><ul>
         <li><b>On the canvas, controls wear the paper</b>: white or black icons by brightness, thin lines, no dark pills.</li>
         <li><b>Rotate below, actions above.</b> A finger never covers what it turns.</li>
-        <li><b>Selected controls use the Joybrush gradient.</b> Delete is the one red mark.</li>
+        <li><b>Selected controls stay clearly marked.</b> Compare their colour above; Delete is the one red mark.</li>
         <li><b>Every control has a hover label</b>, so the S Pen can explain the screen.</li>
         <li><b>Fades are slow and smooth</b>, never a pop.</li>
       </ul></div>
@@ -392,9 +393,9 @@ const PARTS=[
  {k:'Q1',q:'Flatten Lower means',why:'In the layer panel.',opts:[
    {k:'A',n:'This and every layer below',d:'All the layers under it become one pixel layer.'},
    {k:'B',n:'This and the one below',d:'Only the layer directly under it.'}]},
- {k:'Q2',q:'Paint and Airbrush brushes make',why:'Your note: “user changable in settings default a” (K18).',opts:[
-   {k:'A',n:'Pixels by default',d:'Light and fast; switch in Settings or per brush.'},
-   {k:'B',n:'Lines by default',d:'Every soft stroke stays editable.'}]},
+ {k:'Q2',q:'Paint and Airbrush brushes make',why:'Provisional: prefer editable vector if its appearance is superb. Raster must earn its larger file size with a visible quality gain. Proko pencil is a candidate starting brush.',opts:[
+   {k:'A',n:'Try pixels',d:'Use raster when its appearance is meaningfully better.'},
+   {k:'B',n:'Try editable lines',d:'Prefer vector when the appearance matches. Aim for S-tier pencil in both forms.'}]},
 ];
 let PICKS={...LOCKED};
 const HL={
@@ -968,7 +969,7 @@ class Phone{
      if(t===this.tool){if(t==='brush')this.openPv('drawer',src);else if(t==='select')this.openPv('settings',src);break;}
      this.tool=t;this.closePv();this.glowIds=null;break;}
    case 'swatch':this.openPv('colour',src,s&&s.kind==='lines'&&pk.P3!=='A'?'sel':'brush');break;
-   case 'size':this.size=this.size>=2?.6:Math.round((this.size+.35)*100)/100;this.flash('Size '+this.size.toFixed(2));break;
+   case 'size':if(s&&s.kind==='lines'&&pk.P3!=='A')this.openPv('weight',src,'sel');else{this.size=this.size>=2?.6:Math.round((this.size+.35)*100)/100;this.flash('Size '+this.size.toFixed(2));}break;
    case 'colour':this.openPv('colour',src,'sel');break;
    case 'brushsel':this.openPv('brush',src,'sel');break;
    case 'weight':this.openPv('weight',src);break;
@@ -1170,10 +1171,10 @@ class Phone{
  paintChrome(){
   const s=this.sel,pk=this.pk(),g=this.g;
   this.strip.querySelectorAll('[data-tool]').forEach(b=>b.dataset.on=b.dataset.tool===this.tool?1:0);
-  const swc=this.strip.querySelector('.swc'),restyle=s&&s.kind==='lines'&&pk.P3!=='A',sb=swc.parentElement,bb=this.strip.querySelector('[data-tool="brush"]');
-  swc.style.background=this.col||inkCol();sb.dataset.on=restyle?1:0;bb.dataset.on=(this.tool==='brush'||restyle)?1:0;
-  if(restyle&&!this.pulsed){this.pulsed=true;for(const e of [sb,bb]){e.classList.remove('pulse');void e.offsetWidth;e.classList.add('pulse');}}
-  if(!restyle)this.pulsed=false;
+  const swc=this.strip.querySelector('.swc'),restyle=s&&s.kind==='lines'&&pk.P3!=='A',sb=swc.parentElement,bb=this.strip.querySelector('[data-tool="brush"]'),sizeBtn=this.strip.querySelector('[data-act="size"]');
+  swc.style.background=this.col||inkCol();sb.dataset.on=restyle?1:0;bb.dataset.on=(this.tool==='brush'||restyle)?1:0;sizeBtn.dataset.on=restyle?1:0;
+  sizeBtn.title=restyle?'Line weight: adjust the selected lines':'Size: tap to step the brush size';
+  sizeBtn.setAttribute('aria-label',sizeBtn.title);
   const dot=this.strip.querySelector('.szr i'),ds=Math.round(4+this.size*5);dot.style.width=ds+'px';dot.style.height=ds+'px';
   this.tb.querySelector('[data-act="undo"]').disabled=!this.undoS.length;this.tb.querySelector('[data-act="redo"]').disabled=!this.redoS.length;
   this.tb.querySelector('[data-act="layers"]').dataset.on=this.lcolOpen?1:0;this.lcol.hidden=!this.lcolOpen;
@@ -1182,6 +1183,8 @@ class Phone{
   const busy=g&&(['move','rot','two','nudge','tip','lasso','tool','ringsize','cross','net'].includes(g.type)||(g.type==='corner'&&g.moved));
   const key=[s?s.kind:'-',s&&s.mode,s&&s.ids&&[...s.ids].join(','),s&&s.source,s&&s.chips&&JSON.stringify(s.chips),s&&s.keepW,s&&s.nLines,s&&s.inverted,pk.P1,pk.P3,pk.P5,pk.P6,pk.P7,this.addArm,this.pillOpen,this.tool,this.layer,this.ringR>>0,this.col].join('|');
   if(key!==this.ckey){this.ckey=key;this.buildActs();}
+  if(!restyle){this.pulsed=false;for(const e of [sb,bb,sizeBtn])e.classList.remove('pulse');}
+  else if(!this.pulsed){this.pulsed=true;for(const e of [sb,bb,sizeBtn]){e.classList.remove('pulse');void e.offsetWidth;e.classList.add('pulse');}}
   // the row: ABOVE the selection, below only without room (K2)
   const pp=this.pp;
   if(s&&s.mode!=='nudge'&&!this.ring){pp.classList.toggle('hide',!!busy);const gm=this.geo(),pw=pp.offsetWidth||200,ys=gm.cs.map(q=>q[1]),xs=gm.cs.map(q=>q[0]),barTop=this.bb.hidden?H-12:H-58;
@@ -1294,7 +1297,7 @@ const CHANGES=[
  ['K4','the rotate handle needs to be at the bottom','The rotate handle hangs below the box, and moves up only when the bottom is off screen. I proposed the same for the Studio, since you called it app-wide.'],
  ['K5, K6','very thin lines that extend past the selection box … tapping a corner puts a dot into it','Thin edge lines run across the screen. Tap a corner to pin it and drag it alone. Pin two and they move as a pair, while the lines show the trajectory. A small reticle marks the centre and turns with the box.'],
  ['K7','studio rings i couldnt get working','Long-press a corner: the Studio’s ring works now. Scale, Free, Tilt, Bend (lines), the flips, Reset and Clear pins.'],
- ['K8','the cyan ring should pulse','When lines get selected, the strip’s colour and brush rings pulse twice, then stay.'],
+ ['K8','the cyan ring should pulse','When lines are newly selected, the strip’s colour, brush and width rings pulse twice, then settle. Those controls act on the selected lines too.'],
  ['K9','flip horazontal and verticla should not be hidden','Flip horizontal and Flip vertical sit in the row. Copy, Lock, Adjust colour and Rasterize Down are behind ⋯.'],
  ['K10','copy is a paperclip … duplicate … paint bucket','Copy is a paperclip, Duplicate is called Duplicate, and the Fill bucket holds and pours your actual fill colour.'],
  ['K11','i should be able to scrub that number','The count ‹ 1 / 7 › stays beside a tap in dense lines. Drag it sideways to walk through every line under that spot.'],
@@ -1304,25 +1307,29 @@ const CHANGES=[
  ['K15','nudge needs to make sure it keeps the curve smooth','A pushed line is filled in along a smooth curve, and lines are drawn as curves. Try a nudge at 4×.'],
  ['K16','blue dots should appear only on hover with pen','With a pen seen, a tip’s dot shows only while the pen hovers near that tip. With only fingers, the dots show. They never sit on a corner.'],
  ['K17','under more ellipsis … adjust HSB','⋯ → Adjust colour: hue, saturation and brightness, live, one undo when you let go.'],
- ['K18','p10 … default b · q2 … default a','Confirmed: one finger pans by default, and Paint and Airbrush make pixels by default. Both settings can be changed from the Select tool.'],
+ ['K18, K23','Q2 is not a hard fast rule','One finger pans by default. The pixels/lines starting choice is provisional: aim for superb Proko pencil in both forms, preferring editable vector when its appearance matches. Use raster only for a worthwhile visible quality gain. Both remain switchable, with each brush’s choice taking priority.'],
  ['K19','p8 … small selections become difficult','Two fingers anywhere move the selection while it lives.'],
- ['K20, K21','the solids can be the Joybrush gradient … outlines also … bluer being on the upper left','Enabled switches use a blue-to-violet diagonal gradient with the icon or word cut out. Tools, swatches and layers keep their contents visible inside a matching gradient outline.'],
+ ['K20, K21','the solids can be the Joybrush gradient … outlines also … bluer being on the upper left','Try the three Selection colour choices above. Cyan gradient is the recommended trial: it keeps selection states in the shared cyan family. Joybrush gradient carries the app’s blue and violet identity. The owner has not locked a palette.'],
  ['—','thumb is a no go','The Thumb direction is gone.'],
 ];
 const phones=[];let LIVE=null;
 function syncZoom(){const z=LIVE&&LIVE.view.z;document.querySelectorAll('#zoomseg button').forEach(b=>b.setAttribute('aria-pressed',String(Math.abs(+b.dataset.z-z)<.01)));}
 function redrawAll(){for(const p of phones){p.ckey='';p.inkKey='';p.draw();}}
-function save(){store.set('jb-select-v2',{picks:PICKS,paper:PAPER});}
-function picksLine(){return 'JB-5.20e v2: '+PARTS.map(p=>{const o=p.opts.find(o=>o.k===PICKS[p.k]);return `${p.k} ${PICKS[p.k]}${PICKS[p.k]!==LOCKED[p.k]?' (changed)':''}`;}).join(' · ');}
+const SELECTION_COLOURS={cyan:'#22D3EE','cyan-gradient':'linear-gradient(135deg,#22D3EE,#1DB3CA)','joybrush-gradient':'linear-gradient(135deg,#4397FD,#5C43FD)'};
+let SELECTION_COLOUR='cyan-gradient';
+function applySelectionColour(){document.documentElement.style.setProperty('--selgrad',SELECTION_COLOURS[SELECTION_COLOUR]);}
+function save(){store.set('jb-select-v2',{picks:PICKS,paper:PAPER,selectionColour:SELECTION_COLOUR});}
+function picksLine(){return 'JB-5.20e v2: '+PARTS.map(p=>{const o=p.opts.find(o=>o.k===PICKS[p.k]);return `${p.k} ${PICKS[p.k]}${p.k==='Q2'?' (provisional)':PICKS[p.k]!==LOCKED[p.k]?' (changed)':''}`;}).join(' · ')+'\nSelection colour trial: '+({'cyan':'Cyan','cyan-gradient':'Cyan gradient','joybrush-gradient':'Joybrush gradient'}[SELECTION_COLOUR]);}
 function updCode(){const n=document.getElementById('noteta').value.trim();document.getElementById('code').textContent=picksLine()+(n?'\nNotes: '+n:'');}
 function setPick(k,v){PICKS[k]=v;if(LIVE){if(k==='P10')LIVE.fingerSelects=v==='A';if(k==='Q2')LIVE.airLines=v==='B';}renderUI();redrawAll();save();}
 function renderUI(){
  document.getElementById('papers').innerHTML=Object.entries(PAPERS).map(([k,p])=>`<button type="button" class="sw" style="background:${p.paper}" aria-pressed="${PAPER===k}" data-paper="${k}" title="${p.label}" aria-label="${p.label}"></button>`).join('');
- document.getElementById('parts').innerHTML=PARTS.map(p=>`<div class="part"><div class="q"><b><i>${p.k}</i>${p.q}</b><span>${p.why}</span></div><div class="opts">${p.opts.map(o=>`<button type="button" class="opt" data-part="${p.k}" data-opt="${o.k}" aria-pressed="${PICKS[p.k]===o.k}" title="${p.k} ${o.k}: ${o.n}">${mini(p.k,o.k)}<span style="margin:0"><b><i>${o.k}</i>${o.n}</b><span>${o.d}</span>${LOCKED[p.k]===o.k?'<em>Your pick</em>':''}${o.no?`<em class="no">${o.no}</em>`:''}</span></button>`).join('')}</div></div>`).join('');
+ document.getElementById('parts').innerHTML=PARTS.map(p=>`<div class="part"><div class="q"><b><i>${p.k}</i>${p.q}</b><span>${p.why}</span></div><div class="opts">${p.opts.map(o=>`<button type="button" class="opt" data-part="${p.k}" data-opt="${o.k}" aria-pressed="${PICKS[p.k]===o.k}" title="${p.k} ${o.k}: ${o.n}">${mini(p.k,o.k)}<span style="margin:0"><b><i>${o.k}</i>${o.n}</b><span>${o.d}</span>${p.k==='Q2'?'<em>Provisional trial</em>':LOCKED[p.k]===o.k?'<em>Your pick</em>':''}${o.no?`<em class="no">${o.no}</em>`:''}</span></button>`).join('')}</div></div>`).join('');
  updCode();
 }
 function bindUI(){
  document.addEventListener('click',e=>{
+  const sc=e.target.closest('#selcolorseg [data-sel-color]');if(sc){SELECTION_COLOUR=sc.dataset.selColor;applySelectionColour();document.querySelectorAll('#selcolorseg [data-sel-color]').forEach(b=>b.setAttribute('aria-pressed',String(b===sc)));updCode();save();return;}
   const pb=e.target.closest('.sw[data-paper]');if(pb){PAPER=pb.dataset.paper;renderUI();redrawAll();save();return;}
   const ob=e.target.closest('.opt');if(ob){setPick(ob.dataset.part,ob.dataset.opt);return;}
   const zb=e.target.closest('#zoomseg button');if(zb&&LIVE){LIVE.zoomAt(+zb.dataset.z,[W/2+20,H/2]);return;}
@@ -1337,6 +1344,7 @@ function bindUI(){
  document.getElementById('copy').onclick=copy;
  document.getElementById('copytop').onclick=()=>{document.getElementById('picks').scrollIntoView({behavior:'smooth'});copy();};
  document.getElementById('zoomseg').innerHTML=[1,2,4].map(z=>`<button type="button" data-z="${z}" aria-pressed="${z===1}" title="Zoom to ${z}× (two fingers or the mouse wheel also zoom)">${z}×</button>`).join('');
+ document.getElementById('selcolorseg').innerHTML=[['cyan','Cyan','Use flat cyan for selected controls'],['cyan-gradient','Cyan gradient','Try cyan with a subtle darker edge'],['joybrush-gradient','Joybrush gradient','Try Joybrush blue and violet for selected controls']].map(([v,n,t])=>`<button type="button" data-sel-color="${v}" aria-pressed="${SELECTION_COLOUR===v}" title="${t}">${n}</button>`).join('');
  document.getElementById('mouseseg').innerHTML=`<button type="button" data-m="pen" aria-pressed="true" title="The mouse acts as the S Pen: it hovers">Pen</button><button type="button" data-m="finger" aria-pressed="false" title="The mouse acts as a finger: no hover, finger rules">Finger</button>`;
  document.getElementById('chg').innerHTML=CHANGES.map(([k,q,d])=>`<div class="chg"><span class="k">${k}</span><q>${q}</q><p>${d}</p></div>`).join('');
 }
@@ -1367,7 +1375,7 @@ const SCENES=[
 ];
 
 function boot(){
- const sv=store.get('jb-select-v2');if(sv){if(sv.picks)PICKS={...PICKS,...sv.picks};if(sv.paper&&PAPERS[sv.paper])PAPER=sv.paper;}
+ const sv=store.get('jb-select-v2');if(sv){if(sv.picks)PICKS={...PICKS,...sv.picks};if(sv.paper&&PAPERS[sv.paper])PAPER=sv.paper;if(sv.selectionColour&&SELECTION_COLOURS[sv.selectionColour])SELECTION_COLOUR=sv.selectionColour;}applySelectionColour();
  const gal=document.getElementById('gal');
  SCENES.forEach((sc,i)=>{const f=el('figure'),host=el('div');f.appendChild(host);f.appendChild(el('figcaption','',`<b><i>${String(i+1).padStart(2,'0')}</i>${sc.t}</b><span>${sc.d}</span>`));gal.appendChild(f);
   phones.push(new Phone(host,{crop:sc.crop,setup:sc.setup,penSeen:sc.penSeen}));});

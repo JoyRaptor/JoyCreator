@@ -1109,3 +1109,10 @@ Root FILL_UI verification: core1706/backend312/native105, zero failures/errors, 
 
 ## JOYBRUSH_R51_QUEUE_20261007
 Claude is Lead again (owner, 2026-10-07: Codex takes over fully only when the owner says Claude is out of weekly usage). R51 (one layer kind) approved. Lanes: media session → JB-2.40 (media on any layer). Codex (root) → JB-5.02 fix, JB-5.12, JB-5.13, JB-5.14, then the post-2.40 items; details in tasks/joybrush/LEAD_DESK.md "welcome back to the queue". Lead → review of root's fill/board hand-off, JB-5.20 design, JB-5.01b view capture. DEVICE: Note 9 is the owner's (testing the combined build installed 20:44); no installs or adb input without the Lead.
+
+## JOYBRUSH_UX_CODEX_20261012
+status: IDLE; green/yellow checkpoint verified October12 (both compile gates + 5 focused tests); user appointed UX specialist during Claude cooldown.
+worktree: C:/Temp/jb-select-core; branch ui/select-e2; source ed914bc3.
+files: none reserved; checkpoint contains tasks/design/UI-Select-options.html, select/* in androidkit and joybrush-android, focused tests and scoped handoff/spec/todo notes.
+Scope: STOP jobs 1–7 and 13, preserving locked K1–K20. Luna handles page CSS and mechanical label audit. Root owns compile, Fill, SelectToast, Select settings. No engine/View/Activity/studiokit changes; Lead owns those and real document integration.
+Coordination: JoyBrush Lead Coordinator chat 01a130dc-639a-7292-9372-52f672b011a0 informed. Builds serialized through jb-gradle.lock; no phone commands/install.

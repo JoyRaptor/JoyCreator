@@ -1050,3 +1050,9 @@ back before designing; treat any alternative I prefer as a lab hypothesis, never
 ## Selected-control styling follows the latest owner direction (October12, UX takeover)
 - Owner refined flat cyan switches to the Joybrush diagonal gradient, blue at upper-left, violet at lower-right; outlined tools/swatches/layers trial the same gradient while keeping contents visible.
 - Preserve historical quotes, append the revised ruling, and update the working preview and new controls. Do not freeze a colour choice as a universal rule after the owner revises it. Token mirrors remain unchanged; the room pair supplies the new selected gradient.
+
+## Gradient polish must preserve selection meaning and discoverability (October12, owner refinement)
+Owner likes room-gradient styling but needs cyan's shared selected language across JoyBrush, Sprite Lab and Studio. Keep palette experiments reversible, never call a suggested compromise locked. Full-pill paper backings have no grey outer stroke; relevant strip width/colour/brush controls pulse briefly on entering line selection and must actually act on that selection.
+
+## Defaults follow demonstrated brush quality (October12, owner correction)
+Q2 pixels-by-default is provisional, not a hard rule. Proko pencil may become the starting brush; both raster and vector must aim S tier, with vector preferred when appearance matches. Raster earns default only with a visible quality gain worth the larger files. Keep this conditional and report the owner's A-to-B+ raster regression to the pencil owner rather than assuming today's appearance is accepted.

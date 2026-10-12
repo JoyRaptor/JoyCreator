@@ -695,3 +695,30 @@ Then revised the colour:
 - Tools, swatches and layer cells retain their contents within thin outlines, with the same gradient as a trial. The design page includes option-card outlines in the trial.
 - New Select controls read `kit.p.roomEnd` → `kit.p.roomStart`; do not change mirrored global state-colour tokens. Lead sequences the shared strip/layer/ChromeKit follow-through after owner preview.
 - K18 remains confirmed: one finger pans; Paint/Airbrush make pixels by default; both switchable in the Select menu.
+
+### K22 — Floating pills and a shared selected language (owner, October12; revises the K21 trial)
+
+Owner is of two minds: likes the Joybrush gradient, but cyan already means selected in Sprite Lab and Video Studio. The selection palette is NOT locked. The revised working preview offers Flat cyan / Cyan gradient / Joybrush gradient on the same drawing. Codex recommends the subtle cyan gradient for selected states, retaining blue/violet for Joybrush identity. Native SelectAccent keeps all three reversible; Cyan gradient is a trial default, not an owner ruling.
+
+Owner's shape/backing direction is definite:
+- Full pills rather than rounded squares for controls and floating rows/bars.
+- The side strip can stay flat against its docked screen edge, with larger outer corners toward the canvas.
+- Paper-coloured translucent backings on the canvas have NO grey perimeter stroke: they should blend into blank paper and read as floating icons, while still protecting controls over busy art.
+- Width, colour and brush controls that can act on the selected line pulse the selection accent briefly when a line becomes selected, then settle. The palette does not change this discovery behavior. A pulsing width control must actually change the selected line, not merely the next brush size.
+
+Owner's words:
+> In general, instead of rounded square edges, I like things to be full pills, so larger roundovers, with the exception being the sidebar, which can have a roundover, but to be flat against the other side because that way it looks like it's actually coming out from the side.
+>
+> ideally they should look like they just kind of blend in and the buttons just pop up, all animated and smooth, instead of it looking like a toolbar box.
+>
+> Don't forget that whether it is the Joy Brush gradient or the Cyan gradient, the toolbar chips on the strip, when they can affect a stroke, they should be pulsing that selection color.
+
+### K23 — Quality decides the default; Q2 is provisional (owner, October12)
+
+> Q2 is not a hard fast rule. i am thinking of making the Proko pencil the default, and vector would be ideal if we can get it looking supurb. So far it WAS a tier as a raster, then regressed to b+ when i tried to add a few needed tweaks, we need the raster AND vector to b S tier. and if so then I prefer Vector. i would only go raster if raster looks enough better to warrent the extra file size
+
+- Supersedes the claim that Q2 pixels-by-default is an owner-locked rule. Finger pan remains confirmed.
+- Proko pencil is a candidate starting brush, not a finalized default. Target S-tier quality in BOTH raster and vector; prefer editable vector when visual quality is comparable/superb.
+- Use raster as default only if a meaningful visible quality improvement justifies its larger file size. Do not claim that either implementation currently meets S tier.
+- Owner reports raster formerly A tier and now B+ after needed tweaks: preserve this regression history for the pencil owner; compare against the earlier accepted appearance rather than treating B+ as the baseline target.
+- UI keeps explicit shelf get/set choices and per-brush overrides; Lead/vector owner determine the eventual starting brush and mode after quality comparison. No engine changes in this lane.

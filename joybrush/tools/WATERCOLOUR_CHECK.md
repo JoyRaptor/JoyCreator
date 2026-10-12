@@ -33,6 +33,12 @@ Gates:
 - Canonical constant paper height isolates the CPU coverage/linear-light optical
   formula. Completed, unpooled and intermediate fade results allow at most one
   byte of framebuffer quantization error.
+- The actual cached-image `jb_wc_mix.frag` is compiled with the finish vertex
+  shader and compared against premultiplied RGBA interpolation at amounts 0,
+  0.37 and 1 (plus out-of-range clamping). Cached inputs differ in both colour
+  and alpha, including transparent/opaque endpoints; tolerance is at most one
+  byte. Fixed-amount and source-over-alpha mutations must fail. This verifies
+  the production fade pass separately from finish's analytical fade.
 - Nine real dab-pass tiles versus one monolithic target require **zero byte
   mismatches** after finishing; strokes cross a tile corner at both zero and
   negative document coordinates at scale 1 and 2, using actual extracted dab alpha with both

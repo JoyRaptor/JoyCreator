@@ -37,7 +37,7 @@ function png(file) {
   return { width, height, red, rgba };
 }
 
-async function gpuChecks({ vert, frag, finishVert, finishFrag, assets, perceptual }) {
+async function gpuChecks({ vert, frag, finishVert, finishFrag, mixFrag, assets, perceptual }) {
   const canvas = document.createElement('canvas'), gl = canvas.getContext('webgl2', { antialias: false });
   if (!gl || !gl.getExtension('EXT_color_buffer_float')) throw Error('Float WebGL2 required');
   const failures = [], results = {};
@@ -45,6 +45,9 @@ async function gpuChecks({ vert, frag, finishVert, finishFrag, assets, perceptua
   const compile = (type, code) => { const s = gl.createShader(type); gl.shaderSource(s, code); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw Error(gl.getShaderInfoLog(s)); return s; };
   const program = (vs, fs) => { const p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(p)); return p; };
   const dab = program(vert, frag), finish = program(finishVert, finishFrag);
+  const fade = program(finishVert, mixFrag);
+  const fadeWrongAmount = program(finishVert, mixFrag.replace('clamp(u_amount,0.0,1.0)', '1.0'));
+  const fadeWrongAlpha = program(finishVert, mixFrag.replace('clamp(u_amount,0.0,1.0));', 'clamp(u_amount,0.0,1.0)); o_color.a=1.0-(1.0-texture(u_plain,uv).a)*(1.0-texture(u_pooled,uv).a);'));
   const mutantAlpha = program(finishVert, finishFrag.replace('1.0+4.0*u_edgeAlpha*edge', '1.0'));
   const mutantTint = program(finishVert, finishFrag.replace('vec3(concentration)', 'vec3(1.0)'));
   const mutantNeighbour = program(finishVert, finishFrag.replace('ivec2 q=p-tile*u_bandTileSize;', 'ivec2 q=p-tile*u_bandTileSize; if(any(notEqual(tile,ivec2(0)))) return vec3(0.0);'));
@@ -113,6 +116,26 @@ async function gpuChecks({ vert, frag, finishVert, finishFrag, assets, perceptua
   for (const [name, mutant] of [['alpha', mutantAlpha], ['tint', mutantTint]]) {
     const diff = difference(finished(mutant, [0,0], N, near, N), expected(config)); check('mutation_' + name + '_red', diff.maxByteError > 8, diff);
   }
+  // Exercise the ACTUAL cached-image fade program, independent of finish's optical fade.
+  // Channels are already premultiplied; different alpha/colour and transparent/opaque
+  // endpoints expose accidental source-over, straight-colour interpolation or alpha buildup.
+  const plainBytes=new Uint8Array(N*N*4),pooledBytes=new Uint8Array(N*N*4);
+  for(let i=0;i<N*N;i++){
+    const a=i%N===0?0:i%N===1?255:(i*73+19)%256,b=i%N===0?255:i%N===1?0:(i*41+127)%256;
+    for(let c=0;c<3;c++){plainBytes[i*4+c]=Math.floor(a*((i*11+c*79+13)%256)/255);pooledBytes[i*4+c]=Math.floor(b*((i*17+c*31+91)%256)/255);}plainBytes[i*4+3]=a;pooledBytes[i*4+3]=b;
+  }
+  const plainTexture=texture(N,N,plainBytes),pooledTexture=texture(N,N,pooledBytes);
+  function fadeResult(p,amount){
+    const out=target(N,false);gl.disable(gl.BLEND);gl.useProgram(p);gl.bindVertexArray(vao);
+    // Shared finish/dab quad storage must always be restored before finish/mix draws.
+    gl.bindBuffer(gl.ARRAY_BUFFER,quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([0,0,1,0,0,1,1,1]),gl.STATIC_DRAW);
+    bind(p,'u_plain',0,plainTexture);bind(p,'u_pooled',1,pooledTexture);gl.uniform1f(gl.getUniformLocation(p,'u_amount'),amount);gl.uniform2f(gl.getUniformLocation(p,'u_tileOrigin'),-128,-64);gl.uniform1f(gl.getUniformLocation(p,'u_outputDocSize'),N);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+    const pixels=new Uint8Array(N*N*4);gl.readPixels(0,0,N,N,gl.RGBA,gl.UNSIGNED_BYTE,pixels);gl.deleteFramebuffer(out.fb);gl.deleteTexture(out.t);return pixels;
+  }
+  const fadeExpected=amount=>{const t=Math.max(0,Math.min(1,amount));return Uint8Array.from(plainBytes,(v,i)=>Math.round(v*(1-t)+pooledBytes[i]*t));};
+  for(const amount of [0,.37,1,-.25,1.25]){const diff=difference(fadeResult(fade,amount),fadeExpected(amount));check('cached_mix_amount_'+amount,diff.maxByteError<=1,diff);}
+  for(const [name,p] of [['amount',fadeWrongAmount],['alpha',fadeWrongAlpha]]){const diff=difference(fadeResult(p,.37),fadeExpected(.37));check('mutation_cached_mix_'+name+'_red',diff.maxByteError>8,diff);}
+  gl.deleteTexture(plainTexture);gl.deleteTexture(pooledTexture);
   // Exact 3-channel source-over. White scalar shape removes filter/geometry ambiguity.
   const array = gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D_ARRAY, array);
   gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.R8, 1, 1, 1, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array([255])); gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -207,7 +230,7 @@ async function gpuChecks({ vert, frag, finishVert, finishFrag, assets, perceptua
       const diagnostic=process.argv.includes('--diagnostic'),ref=await referencePage.evaluate(({paths,approved,diagnostic})=>watercolorPOC.__renderReference(paths,approved,diagnostic),{paths:fixture.paths,approved,diagnostic});
       perceptual={...ref,paths:fixture.paths,settings:fixture.settings,diagnostic,saveImages:!!option('--out')};await referencePage.close();
     }
-    const page=await browser.newPage(); const report=await page.evaluate(gpuChecks,{vert:source('lines/jb_wc_dab.vert'),frag:source('lines/jb_wc_dab.frag'),finishVert:source('lines/jb_wc_finish.vert'),finishFrag:source('lines/jb_wc_finish.frag'),assets,perceptual});
+    const page=await browser.newPage(); const report=await page.evaluate(gpuChecks,{vert:source('lines/jb_wc_dab.vert'),frag:source('lines/jb_wc_dab.frag'),finishVert:source('lines/jb_wc_finish.vert'),finishFrag:source('lines/jb_wc_finish.frag'),mixFrag:source('lines/jb_wc_mix.frag'),assets,perceptual});
     if(option('--out')){fs.mkdirSync(option('--out'),{recursive:true});for(const [key,result] of Object.entries(report.results))for(const name of ['referencePng','actualPng'])if(result[name]){fs.writeFileSync(path.join(option('--out'),key+'_'+name+'.png'),Buffer.from(result[name].split(',')[1],'base64'));delete result[name];}fs.writeFileSync(path.join(option('--out'),'report.json'),JSON.stringify(report,null,2));}
     console.log(JSON.stringify(report,null,2)); if(report.failures.length) process.exitCode=1;
   } finally { await browser.close(); }

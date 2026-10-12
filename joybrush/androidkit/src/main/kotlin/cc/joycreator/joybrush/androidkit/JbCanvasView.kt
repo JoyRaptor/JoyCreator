@@ -1828,7 +1828,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private fun readContents(w: Int, h: Int): JbContents {
         // Pen-up already released UI drawing state; the cosmetic fade must finish before
         // capturing metadata or enumerating keys, otherwise newly painted tiles are absent.
-        engine.settleWatercolourFade()
+        if(engine.settleWatercolourFade()) reportHistory()
         engine.boardDocument?.let { doc ->
             val current=syncBoardLayers(doc)
             engine.setBoardDocument(current)

@@ -1618,11 +1618,11 @@ class GlPaintEngine(
         return endStroke()>0
     }
     /** Finish immediately for replay/preview/history operations; physical pen-up still animates. */
-    fun settleWatercolourFade() {
-        if(!wcFading) return
+    fun settleWatercolourFade(): Boolean {
+        if(!wcFading) return false
         wcPass?.fadeInto(strokeTiles,1f)
         wcFading=false
-        endStroke()
+        return endStroke()>0
     }
     /** A cosmetic tail cannot block the next board/layer transaction or reverse its Undo order. */
     private fun checkStrokeEnded(why: String) {

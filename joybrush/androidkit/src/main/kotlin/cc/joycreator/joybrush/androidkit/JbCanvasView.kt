@@ -1304,6 +1304,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         // A media brush paints through the media engine (step 4c) on the active layer (R51).
         if (p?.engine == ENGINE_MEDIA && !eraser) { startMediaStroke(p); return }
+        if(p?.engine == ENGINE_WATERCOLOUR && !erase && refuseTileTool("watercolor")) { drawing=false; return }
         // Every other brush, the eraser included, writes pixels; over media the engine's bake keeps the two agreeing.
         mediaErase = false
         mediaBegun = false
@@ -1825,6 +1826,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** The GL-thread half of [snapshot]: every layer, every tile, read back, under one document. */
     private fun readContents(w: Int, h: Int): JbContents {
+        // Pen-up already released UI drawing state; the cosmetic fade must finish before
+        // capturing metadata or enumerating keys, otherwise newly painted tiles are absent.
+        engine.settleWatercolourFade()
         engine.boardDocument?.let { doc ->
             val current=syncBoardLayers(doc)
             engine.setBoardDocument(current)

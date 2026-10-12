@@ -1,0 +1,289 @@
+{
+  "format": "joybrush.brush",
+  "version": 7,
+  "id": "lab.pencil_p2",
+  "name": "Pencil P2 (Proko+)",
+  "engine": "stamp",
+  "tip": {
+    "corner": 2,
+    "aspect": 0,
+    "aspectDynamics": {
+      "base": 0,
+      "inputs": [
+        {
+          "input": "tilt",
+          "curve": [
+            [
+              0,
+              0
+            ],
+            [
+              0.2,
+              0
+            ],
+            [
+              0.35,
+              -0.35
+            ],
+            [
+              0.5,
+              -0.62
+            ],
+            [
+              0.7,
+              -0.72
+            ],
+            [
+              1,
+              -0.75
+            ]
+          ]
+        }
+      ],
+      "combine": "add"
+    },
+    "anchorDynamics": {
+      "base": 0,
+      "inputs": [
+        {
+          "input": "tilt",
+          "curve": [
+            [
+              0,
+              0
+            ],
+            [
+              0.2,
+              0.1
+            ],
+            [
+              0.35,
+              0.6
+            ],
+            [
+              0.5,
+              0.85
+            ],
+            [
+              0.7,
+              0.93
+            ],
+            [
+              1,
+              0.95
+            ]
+          ]
+        }
+      ],
+      "combine": "add"
+    },
+    "angle": {
+      "base": 0,
+      "inputs": [
+        {
+          "input": "lean",
+          "curve": [
+            [
+              0,
+              -180
+            ],
+            [
+              1,
+              180
+            ]
+          ]
+        }
+      ],
+      "combine": "add"
+    },
+    "hardness": {
+      "base": 1,
+      "inputs": [
+        {
+          "input": "pressure",
+          "curve": [
+            [
+              0,
+              0.7
+            ],
+            [
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "input": "tilt",
+          "curve": [
+            [
+              0,
+              1
+            ],
+            [
+              0.3,
+              0.9
+            ],
+            [
+              0.5,
+              0.45
+            ],
+            [
+              1,
+              0.3
+            ]
+          ]
+        }
+      ],
+      "combine": "multiply"
+    },
+    "minPx": 0.6
+  },
+  "size": {
+    "base": 3,
+    "inputs": [
+      {
+        "input": "pressure",
+        "curve": [
+          [
+            0,
+            0.85
+          ],
+          [
+            0.5,
+            1
+          ],
+          [
+            1,
+            1.25
+          ]
+        ]
+      },
+      {
+        "input": "tilt",
+        "curve": [
+          [
+            0,
+            1
+          ],
+          [
+            0.2,
+            1.15
+          ],
+          [
+            0.35,
+            4
+          ],
+          [
+            0.5,
+            13
+          ],
+          [
+            0.7,
+            24
+          ],
+          [
+            1,
+            30
+          ]
+        ]
+      }
+    ]
+  },
+  "opacity": {
+    "base": 1,
+    "inputs": [
+      {
+        "input": "pressure",
+        "curve": [
+          [
+            0,
+            0.05
+          ],
+          [
+            0.2,
+            0.22
+          ],
+          [
+            0.5,
+            0.55
+          ],
+          [
+            1,
+            0.9
+          ]
+        ]
+      }
+    ]
+  },
+  "flow": {
+    "base": 1,
+    "inputs": [
+      {
+        "input": "tilt",
+        "curve": [
+          [
+            0,
+            0.3
+          ],
+          [
+            0.35,
+            0.2
+          ],
+          [
+            0.6,
+            0.1
+          ],
+          [
+            1,
+            0.08
+          ]
+        ]
+      }
+    ]
+  },
+  "spacing": 0.025,
+  "paperGrain": {
+    "enabled": true,
+    "source": "cloud",
+    "depth": {
+      "base": 1,
+      "inputs": [
+        {
+          "input": "pressure",
+          "curve": [
+            [
+              0,
+              0.15
+            ],
+            [
+              0.25,
+              0.32
+            ],
+            [
+              0.6,
+              0.62
+            ],
+            [
+              1,
+              0.92
+            ]
+          ]
+        }
+      ]
+    },
+    "edge": 0.22,
+    "tiltGradient": 0.7,
+    "radial": 0.06
+  },
+  "paper": {
+    "influence": 1,
+    "directional": 0.35,
+    "wet": 0
+  },
+  "accumulate": "wash",
+  "smoothing": 0.12,
+  "license": "CC0",
+  "extensions": {
+    "deposit": "tooth"
+  }
+}

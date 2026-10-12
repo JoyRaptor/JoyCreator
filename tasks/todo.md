@@ -527,3 +527,15 @@ Review: core1706/backend312/native105; zero failures/errors, four optional corpu
 - [ ] Record actual memory admission values on Note20, distinguish tool reservation from paint payload ceiling.
 - [ ] Verify physical pencil tilt direction before applying calibrated input change.
 Review: tests integrated18c075cf; desktop benchmark findings in reviews/NOTE20_FAST_C_FINDINGS_20261008.md. No phone install or claim that the reported defects are fixed.
+
+## JoyBrush lead takeover — October 12, 2026
+- [x] Read dated October12 and October11 handoffs, repository rules, lane history and current remote source.
+- [x] Confirm origin/joy-creator f58bf202; protect stale primary checkout and existing partial worktrees.
+- [x] Allocate frontier ownership: Media atlas A1 in isolated media/atlas-a1; delegate bounded source trace to Luna and slice-a recovery to Sol6.1.
+- [x] Write A1 acceptance contract, including all-store slot identity, exact working bytes, failure-safe residency and unaligned periodic boards.
+- [x] Verify A1 pure allocator/page table and fake-backed residency adapter; focused JVM 12/12 and core/Androidkit module compilation passed.
+- [x] Independently review recovered JB-5.20a scope, then assign implementation with exact owned paths.
+- [x] Run A1 appropriate checks under shared build lock/resource admission; actual counts and limits in MEDIA_ATLAS_A1_20261012.md.
+- [ ] Push scoped tested checkpoints and publish current lead assignments for incoming peers.
+
+Review: atlas foundation is separate from A2–A6 rendering integration. No phone acceptance or crease/Tile fix is claimed from A1 JVM results.

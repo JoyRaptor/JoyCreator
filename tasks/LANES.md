@@ -1109,3 +1109,12 @@ Root FILL_UI verification: core1706/backend312/native105, zero failures/errors, 
 
 ## JOYBRUSH_R51_QUEUE_20261007
 Claude is Lead again (owner, 2026-10-07: Codex takes over fully only when the owner says Claude is out of weekly usage). R51 (one layer kind) approved. Lanes: media session → JB-2.40 (media on any layer). Codex (root) → JB-5.02 fix, JB-5.12, JB-5.13, JB-5.14, then the post-2.40 items; details in tasks/joybrush/LEAD_DESK.md "welcome back to the queue". Lead → review of root's fill/board hand-off, JB-5.20 design, JB-5.01b view capture. DEVICE: Note 9 is the owner's (testing the combined build installed 20:44); no installs or adb input without the Lead.
+
+## JOYBRUSH_CODEX_LEAD_20261012
+status: ACTIVE; owner appoints Codex chat 01a130dc-639a-7292-9372-52f672b011a0 lead during Claude cooldown.
+source: origin/joy-creator f58bf202; dated handoffs are in C:/Temp/jb-merge, not the stale primary folder.
+worktree: C:/Temp/jb-atlas-a1; branch media/atlas-a1.
+files: new core/media/MediaAtlas*.kt and tests; new androidkit/gl/media atlas residency adapter and tests; lead plan/docs.
+Scope: media atlas A1 architecture, allocator and transactional fake-backed load/write-back. Current shaders/MediaWindow/MediaLayerEngine remain unmodified until A2 contract and GPU proof. Root sequences shared hot-file edits and all builds.
+Delegation: Luna source trace completed; Sol 6.1 assessing existing C:/Temp/jb-520a before resuming slice a. No overlap with vector renderer/UI brush presets; coordinate new assignments with this lead.
+DEVICE: none reserved; no installation authorized by this onboarding turn. One machine-wide jb-gradle.lock, resource admission before builds.

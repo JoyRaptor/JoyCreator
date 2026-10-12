@@ -67,6 +67,9 @@ interface SelectionHost {
     /** H10: hue (degrees), saturation and brightness (1 = unchanged) of the lifted selection, live; [done] = ONE step. */
     fun adjustColour(hueDeg: Float, saturation: Float, brightness: Float, done: Boolean)
 
+    /** The More menu offers colour adjustment only after H10 has a real preview/undo backing. */
+    val canAdjustColour: Boolean get() = false
+
     /** R42's tap action for the S Pen button (the eyedropper by default), at a screen point. */
     fun penButtonTap(screenX: Float, screenY: Float)
 

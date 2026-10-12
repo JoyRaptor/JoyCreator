@@ -56,24 +56,33 @@ class SelectController(
         fun newLineId(): String
         /** Copy: a picture for other apps, and the lines for pasting here. */
         fun copySelection(selection: SelectionState.Selection)
-        /** K8: the strip's colour and brush wear the cyan ring while lines are selected; [pulse] the first time. */
+        /** K8/K22: strip width, colour and brush affect selected lines; pulse their selection rings briefly on entry. */
         fun restyleRing(on: Boolean, pulse: Boolean)
+        /** K18/Q2: persisted shelf default; a brush's own Editable lines setting takes priority. */
+        fun paintMakesLines(): Boolean
+        fun setPaintMakesLines(on: Boolean)
     }
 
     /** The owner's picks and Settings (spec §K). */
-    class Picks(
+    data class Picks(
         val chipsInRow: Boolean = true,       // P3 B (false = C, the strip only)
         val crosshair: Boolean = true,        // P4 B
         val chipsReRead: Boolean = true,      // P5 A
         val plusChip: Boolean = true,         // P6 A
         val fadeRest: Float = 0.66f,          // P2 A
         val fingerSelects: Boolean = false,   // K18 (P10 B default)
+        val accent: SelectAccent = SelectAccent.CYAN_GRADIENT, // Reversible trial; owner has not locked a palette.
     )
 
-    var picks = Picks()
+    private val preferences = SelectPreferences(kit.context)
+    var picks = Picks(fingerSelects = preferences.fingerSelects)
         set(value) { field = value; applyPicks(); refresh() }
 
-    val tool = SelectTool(host, kit.dp(1f), { canvas.penHasBeenSeen })
+    private val toast = SelectToast(kit, root, app::paperArgb, canvas::sampleScreen)
+    private val toolHost = object : SelectionHost by host {
+        override fun toast(text: String, action: String?, onAction: (() -> Unit)?) = toast.show(text, action, onAction)
+    }
+    val tool = SelectTool(toolHost, kit.dp(1f), { canvas.penHasBeenSeen })
     private val overlay = SelectOverlayView(kit.context, tool)
     private val box = TransformOverlayView(kit.context)
     private val boxHost = SelectBoxHost(tool, { canvas.view }, { RectF(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat()) })
@@ -118,12 +127,27 @@ class SelectController(
 
     fun detach() {
         tool.end()
+        toast.dispose()
         if (canvas.tool === tool) canvas.tool = null
         listOf<View>(overlay, box, row, bar, count).forEach { root.removeView(it) }
     }
 
     /** The paper changed: the row, bar and box ink follow. */
     fun paperChanged() { rowInk = null; barInk = null; refresh() }
+
+    /** The activity's SelectionHost.toast forwards notes here, including optional Undo actions. */
+    fun showToast(text: String, action: String? = null, onAction: (() -> Unit)? = null) = toast.show(text, action, onAction)
+
+    /** The strip's pulsing width control opens the same selection-weight slider as the floating row. */
+    fun showWeightSlider(anchor: View) = RowActions().weightSlider(anchor)
+
+    /** K18: the strip calls this when Select is tapped while it is already in the hand. */
+    fun showSettings(anchor: View) {
+        val settings = SelectSettingsView(kit, picks.fingerSelects, app.paintMakesLines(),
+            onFingerSelects = { on -> preferences.fingerSelects = on; picks = picks.copy(fingerSelects = on) },
+            onPaintMakesLines = app::setPaintMakesLines, accent = picks.accent)
+        popovers.show(settings, anchor, Popovers.Side.BESIDE, widthDp = 260f)
+    }
 
     // ── the touch gate (D12, P8 B) ──
 
@@ -143,6 +167,7 @@ class SelectController(
     private fun applyPicks() {
         tool.crosshair = picks.crosshair
         tool.fingerSelects = picks.fingerSelects
+        bar.accent = picks.accent
     }
 
     private fun refresh() {
@@ -160,14 +185,14 @@ class SelectController(
                 val icon = recs.firstOrNull()?.let { app.brushIcon(it.record.brushId) } ?: JbIcon.BRUSH
                 row.showLines(colours, icon, 1f, picks.chipsInRow)
             }
-            is SelectionState.Pixels -> row.showPixels(canvas.strokeColor)
+            is SelectionState.Pixels -> row.showPixels(canvas.strokeColor, canFill = tool.canFill)
             null -> {}
         }
         row.visibility = if (s != null && !tool.nudging) View.VISIBLE else View.GONE
         if (row.visibility == View.VISIBLE) { row.alpha = 1f; row.isEnabled = true }
         bar.visibility = if (s != null) View.VISIBLE else View.GONE
         if (s != null) bar.show(barModel(s))
-        val ringOn = s is SelectionState.Lines && picks.chipsInRow.not().or(true)
+        val ringOn = s is SelectionState.Lines
         if (ringOn != ringWasOn) { app.restyleRing(ringOn, pulse = ringOn); ringWasOn = ringOn }
         overlay.invalidate()
         root.post { place(); readInk() }
@@ -203,7 +228,8 @@ class SelectController(
         var y = top - kit.dp(12f) - rh
         if (y < kit.dp(TOP_RESERVE_DP)) y = bottom + kit.dp(46f + 10f + 12f)
         y = y.coerceAtMost(root.height - kit.dp(60f) - rh)
-        row.x = (cx - rw / 2f).coerceIn(kit.dp(6f), root.width - rw - kit.dp(6f))
+        val minX = kit.dp(6f)
+        row.x = (cx - rw / 2f).coerceIn(minX, maxOf(minX, root.width - rw - minX))
         row.y = y
         val bw = bar.width.takeIf { it > 0 } ?: bar.measuredWidth
         bar.x = (root.width - bw) / 2f
@@ -214,7 +240,7 @@ class SelectController(
     private fun placeCount() {
         val s = tool.selection as? SelectionState.Lines
         val pick = s?.pick
-        if (s == null || pick == null || !picks.crosshair && false) { count.visibility = View.GONE; return }
+        if (s == null || pick == null) { count.visibility = View.GONE; return }
         count.visibility = View.GONE // shown by the count scrubber once the tap's order is known (K11): see countFor()
     }
 
@@ -273,9 +299,7 @@ class SelectController(
         override fun delete() { tool.deleteSelection(); refresh() }
         override fun flip(horizontal: Boolean) { tool.flip(horizontal); refresh() }
         override fun more(anchor: View) = showMore(anchor)
-        override fun fill() { /* Fill: LiftedPixels.fill, through the tool once H5 lands; until then the row offers it and says so. */
-            host.toast("Fill works once the paint lift is in (H5).")
-        }
+        override fun fill() { tool.fill(canvas.strokeColor) }
     }
 
     private fun showMore(anchor: View) {
@@ -299,7 +323,7 @@ class SelectController(
             list.addView(t)
         }
         item(JbIcon.PAPERCLIP, "Copy", "Copy: a picture for other apps, and the lines for pasting here") { app.copySelection(s) }
-        item(JbIcon.ADJUST, "Adjust colour", "Adjust colour: hue, saturation and brightness") { showAdjust(anchor) }
+        if (host.canAdjustColour) item(JbIcon.ADJUST, "Adjust colour", "Adjust colour: hue, saturation and brightness") { showAdjust(anchor) }
         if (s is SelectionState.Lines) {
             item(JbIcon.RASTER, "Rasterize Down", "Turn the selected lines into pixels. The picture stays the same; they stop being editable") { tool.rasterizeDown(); refresh() }
         }

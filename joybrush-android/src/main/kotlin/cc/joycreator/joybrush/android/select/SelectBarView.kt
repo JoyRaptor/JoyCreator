@@ -50,6 +50,9 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
     var ink: IconInk = IconInk.LIGHT
         set(value) { field = value; repaint() }
 
+    var accent: SelectAccent = SelectAccent.CYAN_GRADIENT
+        set(value) { field = value; repaint() }
+
     private val back = GradientDrawable()
     private val segBacks = ArrayList<GradientDrawable>()
 
@@ -57,7 +60,7 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
         orientation = HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(kit.dpi(4f), kit.dpi(4f), kit.dpi(4f), kit.dpi(4f))
-        back.cornerRadius = kit.dp(14f)
+        back.cornerRadius = kit.dp(20f)
         background = back
     }
 
@@ -105,7 +108,7 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
         if (m.lines) {
             chip(if (m.keepWeights) JbIcon.KEEP_WEIGHTS else JbIcon.SCALE_WEIGHTS, null, m.keepWeights,
                 "Keep line thickness when you resize, or let it grow and shrink with the box") { chips.keepWeights(!m.keepWeights) }
-            if (m.offerAdd) chip(JbIcon.PLUS, null, m.addArmed, "Add: taps, the crosshair and the count add lines, or remove ones already selected") { chips.add(!m.addArmed) }
+            if (m.offerAdd) chip(JbIcon.PLUS, null, m.addArmed, "Add: taps, loops, the crosshair, fan and count add lines, or remove ones already selected") { chips.add(!m.addArmed) }
         }
         repaint()
     }
@@ -114,7 +117,7 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
 
     private fun repaint() {
         val c = inkColour()
-        back.setStroke(kit.dpi(1f), ColorUtils.setAlphaComponent(c, 0x29))
+        // No perimeter: on blank paper the backing disappears and only the controls read.
         for (g in segBacks) g.setStroke(kit.dpi(1f), ColorUtils.setAlphaComponent(c, 0x29))
         for (i in 0 until childCount) getChildAt(i).invalidate()
         for (i in 0 until childCount) (getChildAt(i) as? LinearLayout)?.let { g -> for (j in 0 until g.childCount) g.getChildAt(j).invalidate() }
@@ -133,7 +136,7 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
 
     private fun seg(vararg cs: Chip) {
         val g = LinearLayout(context).apply { orientation = HORIZONTAL }
-        val outline = GradientDrawable().apply { cornerRadius = kit.dp(12f) }
+        val outline = GradientDrawable().apply { cornerRadius = kit.dp(16f) }
         outline.setStroke(kit.dpi(1f), ColorUtils.setAlphaComponent(inkColour(), 0x29))
         segBacks.add(outline)
         g.background = outline
@@ -147,7 +150,7 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
         override fun onDraw(c: Canvas) { p.color = ColorUtils.setAlphaComponent(inkColour(), 0xCC); c.drawText(t, kit.dp(7f), height / 2f + kit.dp(4f), p) }
     }
 
-    /** One chip: an icon or a word; ON wears the cyan ring (state colour), OFF is dimmer. */
+    /** One chip: ON is the chosen selection accent with the word or icon cut out; OFF is dimmer. */
     private inner class ChipView(val c: Chip, val alone: Boolean) : View(context) {
         private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = kit.dp(11.5f) }
 
@@ -164,10 +167,12 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
         override fun onDraw(cv: Canvas) {
             val ink = inkColour()
             if (c.on) {
-                // Owner 2026-10-12 (K20): ON is solid cyan with the icon or word CUT OUT of it, never a cyan outline
-                p.style = Paint.Style.FILL; p.color = 0xFF22D3EE.toInt()
+                // K20's cut-out icon or word; the colour trial can retain shared cyan or use the room pair.
+                p.style = Paint.Style.FILL
+                p.shader = accent.shader(kit, width.toFloat(), height.toFloat())
                 val base = cv.saveLayer(null, null)
-                cv.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), kit.dp(12f), kit.dp(12f), p)
+                cv.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), kit.dp(16f), kit.dp(16f), p)
+                p.shader = null
                 cv.saveLayer(null, cut)
                 content(cv, 0xFF000000.toInt())
                 cv.restoreToCount(base)
@@ -178,7 +183,7 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
                 p.strokeWidth = kit.dp(1f)
                 p.color = ColorUtils.setAlphaComponent(ink, 0x29)
                 val inset = p.strokeWidth / 2
-                cv.drawRoundRect(inset, inset, width - inset, height - inset, kit.dp(12f), kit.dp(12f), p)
+                cv.drawRoundRect(inset, inset, width - inset, height - inset, kit.dp(16f), kit.dp(16f), p)
                 p.style = Paint.Style.FILL
             }
             content(cv, ColorUtils.setAlphaComponent(ink, 0xBF))

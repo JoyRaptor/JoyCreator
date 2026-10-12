@@ -266,6 +266,21 @@ class SelectTool(
 
     fun rebrush(brushId: String): Boolean = editRecords { StrokeEdit.rebrush(it, brushId) }
 
+    /** No Fill control is offered when the engine refused this lift. */
+    val canFill: Boolean get() = state.current is SelectionState.Pixels && liftedPixels != null
+
+    /** Fill the lifted paint through its coverage mask, ONE step, keeping the selection and paint clip. */
+    fun fill(argb: Int): Boolean {
+        if (state.current !is SelectionState.Pixels) return false
+        val pixels = liftedPixels ?: return false
+        val changed = pixels.fill(argb)
+        if (changed) {
+            host.invalidate()
+            listener?.overlayChanged()
+        }
+        return changed
+    }
+
     /** Live while the weight chip is dragged; [done] writes the one step. */
     fun reweight(factor: Float, done: Boolean): Boolean {
         if (startRecords.isEmpty()) startRecords = selectedRecords()

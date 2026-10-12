@@ -58,7 +58,7 @@ class SelectRowView(private val kit: ChromeKit, private val actions: Actions) : 
         gravity = Gravity.CENTER_VERTICAL
         val pad = kit.dpi(3f)
         setPadding(pad, kit.dpi(2f), pad, kit.dpi(2f))
-        back.cornerRadius = kit.dp(14f)
+        back.cornerRadius = kit.dp(22f)
         background = back
         elevation = 0f
     }
@@ -94,10 +94,10 @@ class SelectRowView(private val kit: ChromeKit, private val actions: Actions) : 
     }
 
     /** A paint selection's row. [fillArgb] colours the bucket's paint (K10). */
-    fun showPixels(fillArgb: Int) {
+    fun showPixels(fillArgb: Int, canFill: Boolean = true) {
         removeAllViews(); items.clear()
-        add(Item(Kind.FILL).also { it.colours = listOf(fillArgb) }, "Fill the selection with the current colour") { actions.fill() }
-        add(Item(Kind.ICON, JbIcon.DUPLICATE), "Duplicate") { actions.duplicate() }
+        if (canFill) add(Item(Kind.FILL).also { it.colours = listOf(fillArgb) }, "Fill the selection with the current colour") { actions.fill() }
+        // Pixel duplication needs an engine-backed copy/lift transaction; the tool currently duplicates lines only.
         add(Item(Kind.ICON, JbIcon.DELETE).also { it.danger = true }, "Delete") { actions.delete() }
         sep()
         add(Item(Kind.ICON, JbIcon.FLIP_H), "Flip horizontal") { actions.flip(true) }
@@ -150,7 +150,7 @@ class SelectRowView(private val kit: ChromeKit, private val actions: Actions) : 
             val v = getChildAt(i)
             if (v.tag == SEP) v.setBackgroundColor(ColorUtils.setAlphaComponent(c, 0x29))
         }
-        back.setStroke(kit.dpi(1f), ColorUtils.setAlphaComponent(c, 0x29))
+        // Paper-coloured backing only: a border makes these floating actions look like a toolbar box.
         items.forEach { it.invalidate() }
     }
 

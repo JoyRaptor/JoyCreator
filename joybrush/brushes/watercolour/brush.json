@@ -1,0 +1,126 @@
+{
+  "format": "joybrush.brush",
+  "version": 10,
+  "id": "joybrush.watercolour",
+  "name": "Watercolour line",
+  "engine": "watercolour",
+  "size": {
+    "base": 300
+  },
+  "opacity": {
+    "base": 0.8
+  },
+  "flow": {
+    "base": 0.89
+  },
+  "spacing": 0.15,
+  "accumulate": "buildup",
+  "blend": "multiply",
+  "smoothing": 0,
+  "watercolour": {
+    "window": 8,
+    "spacing": 0.15,
+    "size": 300,
+    "taper": 1,
+    "tiltMinimum": 0.55,
+    "scatter": 0.36,
+    "opacity": 0.89,
+    "previewPressure": 0.71,
+    "previewTilt": 25,
+    "texture": 1,
+    "tipAngle": 40,
+    "tipWidth": 0.08,
+    "edgeAlpha": 0.72,
+    "gravityPool": 0.57,
+    "gravityWidth": 36,
+    "backdropOffset": 1,
+    "paperCut": 0.5,
+    "dryness": 0,
+    "dryBuildup": 0.32,
+    "strokeOpacity": 0.8,
+    "edgePool": 0.65,
+    "edgeWidth": 3,
+    "grain": 0.4,
+    "depletion": 0.2,
+    "travel": 2569,
+    "variation": 0.47,
+    "variationLength": 227,
+    "textureScale": 1,
+    "textureContrast": 1.5,
+    "minimum": 1,
+    "rotation": 1,
+    "follow": 0,
+    "smoothPressure": 0.15,
+    "smoothTilt": 0.2,
+    "smoothPath": 0,
+    "dabImages": [
+      "watercolour/poc25/dab_00.png",
+      "watercolour/poc25/dab_01.png",
+      "watercolour/poc25/dab_02.png",
+      "watercolour/poc25/dab_03.png",
+      "watercolour/poc25/dab_04.png",
+      "watercolour/poc25/dab_05.png",
+      "watercolour/poc25/dab_06.png",
+      "watercolour/poc25/dab_07.png",
+      "watercolour/poc25/dab_08.png",
+      "watercolour/poc25/dab_09.png",
+      "watercolour/poc25/dab_10.png",
+      "watercolour/poc25/dab_11.png",
+      "watercolour/poc25/dab_12.png",
+      "watercolour/poc25/dab_13.png",
+      "watercolour/poc25/dab_14.png",
+      "watercolour/poc25/dab_15.png",
+      "watercolour/poc25/dab_16.png",
+      "watercolour/poc25/dab_17.png",
+      "watercolour/poc25/dab_18.png",
+      "watercolour/poc25/dab_19.png",
+      "watercolour/poc25/dab_20.png",
+      "watercolour/poc25/dab_21.png",
+      "watercolour/poc25/dab_22.png",
+      "watercolour/poc25/dab_23.png",
+      "watercolour/poc25/dab_24.png"
+    ],
+    "backdrop": "watercolour/poc25/backdrop.png",
+    "pressureBezier": [
+      0.33,
+      0.33,
+      0.67,
+      0.67
+    ],
+    "tiltBezier": [
+      0.33,
+      0.33,
+      0.67,
+      0.67
+    ],
+    "scatterInputs": {
+      "pressure": true,
+      "tilt": true,
+      "invertPressure": false,
+      "invertTilt": false
+    },
+    "spacingInputs": {
+      "pressure": true,
+      "tilt": false,
+      "invertPressure": false,
+      "invertTilt": false
+    },
+    "spacingCompensation": true,
+    "backdropInverted": false,
+    "poolingFadeMilliseconds": 1000,
+    "renderScale": 0.65,
+    "worldPixels": [
+      1400,
+      900
+    ],
+    "seedLock": false,
+    "sampleSeeds": [
+      78234,
+      78235,
+      78236
+    ],
+    "approvedTint": "#94f92f"
+  },
+  "license": "Owner-provided AI-generated reference assets",
+  "author": "JoyRaptor"
+}

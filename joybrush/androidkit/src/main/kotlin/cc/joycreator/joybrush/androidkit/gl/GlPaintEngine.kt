@@ -1,6 +1,9 @@
 package cc.joycreator.joybrush.androidkit.gl
 
 import android.opengl.GLES30
+import android.os.SystemClock
+import cc.joycreator.joybrush.core.brush.WatercolourSpec
+import cc.joycreator.joybrush.androidkit.gl.watercolour.WatercolourPass
 import cc.joycreator.joybrush.androidkit.gl.media.GlUniformSink
 import cc.joycreator.joybrush.androidkit.io.PaperResources
 import cc.joycreator.joybrush.core.doc.*
@@ -457,6 +460,12 @@ class GlPaintEngine(
 
     /** True while the stroke buffer holds RGBA carried paint (a smudge) instead of a single coverage channel. */
     private var strokeIsRgba = false
+    private var wcPass: WatercolourPass? = null
+    private var wcSpec: WatercolourSpec? = null
+    private var wcPrepared = false
+    private var wcFading = false
+    private var wcFadeStart = 0L
+    val watercolourAnimating: Boolean get() = wcFading
 
     // ── lifecycle ────────────────────────────────────────────────────────────
 
@@ -599,6 +608,7 @@ class GlPaintEngine(
         // what the caller needs to be told is that the DRAWING did not survive — not that init ran
         // twice. An engine with nothing in it has nothing to announce.
         val had = heldTextureNames() > 0 || undo.canUndo || undo.canRedo
+        wcPass?.forget(); wcPass = null; wcSpec = null; wcFading = false; wcPrepared = false
         // The stroke goes with its buffer, and the layers with their tiles: the stroke was never in
         // a layer, so nothing is released twice and nothing is left pointing at a dead name.
         cancelStroke()
@@ -652,6 +662,7 @@ class GlPaintEngine(
         GLES30.glDeleteBuffers(3, intArrayOf(quadVbo, unitVbo, instanceVbo), 0)
         GLES30.glDeleteVertexArrays(4, intArrayOf(dabVao, tileVao, smudgeVao, tuftVao), 0)
         GLES30.glDeleteFramebuffers(3, intArrayOf(fbo, readFbo, copyFbo), 0)
+        wcPass?.release(); wcPass = null
         grains.release()
         compositor.release()
         boardCompositor.release()
@@ -1036,6 +1047,7 @@ class GlPaintEngine(
      * row (no flip needed). Null if the tile does not exist.
      */
     fun readTile(layerId: String, key: Long): ByteArray? {
+        settleWatercolourFade()
         val store=storeOf(layerId) ?: return null
         val tex = visibleTiles(store)[key] ?: return null
         val buf = tileReadback
@@ -1478,7 +1490,9 @@ class GlPaintEngine(
     fun beginStroke(layerId: String, argb: Int, opacity: Float, accumulate: Accumulate,
                     blend: StrokeBlend, tip: TipShape,
                     grain: GrainMath.StrokeGrain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF),
-                    smudge: SmudgeParams? = null, tuft: TuftShading? = null) {
+                    smudge: SmudgeParams? = null, tuft: TuftShading? = null,
+                    watercolour: WatercolourSpec? = null, watercolourSeed: Long = 0L) {
+        settleWatercolourFade()
         cancelStroke()
         tilePreviewRect=null
         require(smudge == null || tileBoardId == null) { "Turn tiling off to use smudge" }
@@ -1487,7 +1501,8 @@ class GlPaintEngine(
         strokeLayer = storeOf(layerId) ?: error("no layer $layerId")
         strokePlan = strokeLayer?.plan
         strokeTileRect=tileBoardId?.let { TilePainting.board(requireNotNull(boardDocument),it).rect }
-        strokeIsRgba = smudge != null
+        strokeIsRgba = smudge != null || watercolour != null
+        wcSpec = watercolour; wcPrepared = false; wcFading = false
         colR = ((argb shr 16) and 0xFF) / 255f
         colG = ((argb shr 8) and 0xFF) / 255f
         colB = (argb and 0xFF) / 255f
@@ -1514,6 +1529,19 @@ class GlPaintEngine(
                 it.copy(paperAsset=surface.file,paperPitchPx=if(look.paperInfluence>0f)surface.texelPx*p.scale else 0f,tooth=it.tooth)
             else it
         }
+        if (watercolour != null) {
+            this.accumulate = Accumulate.BUILD_UP
+            val frozenLook = look
+            val frozenSurface = surfaceTexture ?: grains.placeholder
+            val pass = wcPass ?: WatercolourPass(shaders, size).also { wcPass = it }
+            try {
+                pass.begin(watercolour, watercolourSeed, floatArrayOf(colR,colG,colB), surfaceTexture != null && surface != null) { program ->
+                    stamp.setPaperSurfaceUniforms(GlUniformSink,program::loc,frozenLook)
+                    GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
+                    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,frozenSurface)
+                }
+            } catch (e: Throwable) { cancelStroke(); throw e }
+        }
     }
 
     /** The cap every dab of the active stroke should carry (see Accumulate). */
@@ -1522,6 +1550,7 @@ class GlPaintEngine(
     /** Renders dabs into the stroke buffer. */
     fun addDabs(dabs: List<Dab>) {
         if (strokeLayer == null || dabs.isEmpty()) return
+        if (wcSpec != null) { addWatercolourDabs(dabs); return }
         smudge?.let { addSmudgeDabs(it, dabs); return }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         GLES30.glViewport(0, 0, size, size)
@@ -1553,6 +1582,37 @@ class GlPaintEngine(
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+    }
+
+    /** The new engine owns only its band/finish targets; existing dab packing and draws stay untouched. */
+    private fun addWatercolourDabs(dabs: List<Dab>) {
+        val tile = strokeTileRect
+        val wrapped = if(tile == null) dabs else dabs.flatMap { TilePainting.dabs(tile,it) }
+        val buckets = Tiles.bucket(wrapped,size).filterKeys { tile == null || TilePainting.clip(tile,it) != null }
+        require(tile == null || (strokeTiles.keys+buckets.keys).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo)
+        for(key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
+        val pass = requireNotNull(wcPass)
+        pass.add(buckets) { key -> tile?.let { TilePainting.clip(it,key) } }
+        pass.finishInto(strokeTiles,0f,buckets.keys)
+    }
+
+    /** Cosmetic cached-image fade. Return true only when its final commit changes undo/history. */
+    fun watercolourFrame(nowMs: Long): Boolean {
+        val options = wcSpec ?: return false
+        if(!wcFading) return false
+        val t=((nowMs-wcFadeStart).toFloat()/options.poolingFadeMilliseconds.coerceAtLeast(1)).coerceIn(0f,1f)
+        wcPass?.fadeInto(strokeTiles,t*t*(3f-2f*t))
+        if(t < 1f) return false
+        wcFading=false
+        return endStroke()>0
+    }
+    /** Finish immediately for replay/preview/history operations; physical pen-up still animates. */
+    fun settleWatercolourFade() {
+        if(!wcFading) return
+        wcPass?.fadeInto(strokeTiles,1f)
+        wcFading=false
+        endStroke()
     }
 
     /**
@@ -1667,6 +1727,17 @@ class GlPaintEngine(
     /** Commits the active stroke into its layer as one undoable step. Returns tiles changed. */
     fun endStroke(): Int {
         val layer = strokeLayer ?: return 0
+        val options = wcSpec
+        if(options != null && !wcPrepared) {
+            wcPrepared=true
+            if(options.poolingFadeMilliseconds>0 && strokeTiles.isNotEmpty() &&
+                (options.edgePool>0.0 || options.edgeAlpha>0.0 || options.gravityPool>0.0)) {
+                wcPass?.prepareFade(strokeTiles)
+                wcFadeStart=SystemClock.uptimeMillis(); wcFading=true
+                return 0
+            }
+            wcPass?.finishInto(strokeTiles,1f)
+        }
         val beforeDoc=boardDocument
         val wrappedId=tileBoardId?.takeIf { strokeTileRect != null }
         val changes = ArrayList<UndoLog.TileChange<Int>>()
@@ -1718,6 +1789,7 @@ class GlPaintEngine(
         GLES30.glBindVertexArray(0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         releaseStrokeTiles()
+        wcPass?.clearStroke(); wcSpec=null; wcPrepared=false; wcFading=false
         strokeLayer = null
         strokePlan = null
         strokeTileRect = null
@@ -1732,6 +1804,7 @@ class GlPaintEngine(
     }
 
     fun cancelStroke() {
+        wcPass?.clearStroke(); wcSpec=null; wcPrepared=false; wcFading=false
         releaseStrokeTiles()
         strokeLayer = null
         strokePlan = null
@@ -1741,6 +1814,7 @@ class GlPaintEngine(
     }
 
     fun undoStep(): Boolean {
+        settleWatercolourFade()
         val s = undo.undo() ?: return false
         val restored = s.documentBefore?.let { target ->
             val opposite = s.documentAfter
@@ -1758,6 +1832,7 @@ class GlPaintEngine(
     }
 
     fun redoStep(): Boolean {
+        settleWatercolourFade()
         val s = undo.redo() ?: return false
         val restored = s.documentAfter?.let { target ->
             val opposite = s.documentBefore
@@ -2421,6 +2496,7 @@ class GlPaintEngine(
     // ── internals ────────────────────────────────────────────────────────────
 
     private fun setCommitUniforms(layerOpacity: Float) {
+        GLES30.glUniform1i(commitProg.loc("u_rgbaStroke"),if(wcSpec != null)1 else 0)
         GLES30.glUniform1f(commitProg.loc("u_tileSize"), size.toFloat())
         GLES30.glUniform1i(commitProg.loc("u_layer"), 0)
         GLES30.glUniform1i(commitProg.loc("u_stroke"), 1)

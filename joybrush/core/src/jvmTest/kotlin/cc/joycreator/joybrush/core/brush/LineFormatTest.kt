@@ -27,6 +27,9 @@ class LineFormatTest {
     fun everyShippedBrushDecodesAsBeforeAndRoundTrips() {
         for ((name, json) in shipped()) {
             val p = BrushJson.decode(json)
+            // This gate pins the pre-v9 brushes. The newly shipped v10 watercolor engine has
+            // its own approved-preset/golden tests and legitimately uses multiply.
+            if (p.engine == ENGINE_WATERCOLOUR) continue
             assertNull(p.line, "$name: an older brush has no line section")
             assertTrue(p.blend in setOf("normal", "erase", BLEND_BEHIND), "$name: blend word unchanged (${p.blend})")
             assertTrue(p.version < VERSION_LINES, "$name: shipped as version ${p.version}")
@@ -50,10 +53,10 @@ class LineFormatTest {
     @Test
     fun anOlderVersionCannotUseTheNewWords() {
         // A version-8 build would draw these as a plain pen, which is the mistake the number exists to stop.
-        val withLine = BrushJson.encode(BrushPreset(id = "a", name = "A", size = Param(4f), line = LineStyleSpec(taperIn = 1f)))
+        val withLine = BrushJson.encode(BrushPreset(version = 1, id = "a", name = "A", size = Param(4f), line = LineStyleSpec(taperIn = 1f)))
             .replace("\"version\": $VERSION_LINES", "\"version\": 8")
         assertTrue("line needs brush version $VERSION_LINES" in assertFailsWith<BrushException> { BrushJson.decode(withLine) }.message!!)
-        val multiply = BrushJson.encode(BrushPreset(id = "b", name = "B", size = Param(4f), blend = BLEND_SCREEN))
+        val multiply = BrushJson.encode(BrushPreset(version = 1, id = "b", name = "B", size = Param(4f), blend = BLEND_SCREEN))
             .replace("\"version\": $VERSION_LINES", "\"version\": 8")
         assertTrue("blend \"screen\" needs brush version" in assertFailsWith<BrushException> { BrushJson.decode(multiply) }.message!!)
     }

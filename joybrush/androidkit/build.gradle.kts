@@ -56,4 +56,5 @@ tasks.processResources {
     // GrainTextures from /joybrush/assets/grain.
     from(rootDir.resolve("assets/grain")) { into("joybrush/assets/grain") }
     from(rootDir.resolve("assets/paper")) { into("joybrush/assets/paper") }
+    from(rootDir.resolve("assets/watercolour")) { into("joybrush/assets/watercolour") }
 }

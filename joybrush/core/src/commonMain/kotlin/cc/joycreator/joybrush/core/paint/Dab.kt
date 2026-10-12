@@ -30,6 +30,14 @@ data class Dab(
     val tipDepth: Float = Float.NaN,
     val paperDepth: Float = Float.NaN,
     val anchor: Float = Float.NaN,
+    /** Watercolour CPU fields, uploaded by its separate pass; the legacy packed dab ABI is unchanged. */
+    val sampleIndex: Int = -1,
+    val band0: Float = 0f,
+    val band1: Float = 0f,
+    val band2: Float = 0f,
+    val bandWeight0: Float = 0f,
+    val bandWeight1: Float = 0f,
+    val bandWeight2: Float = 0f,
 )
 
 /**

@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.core.vector
 
 import cc.joycreator.joybrush.core.brush.BrushDabber
+import cc.joycreator.joybrush.core.brush.watercolourRuntime
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.DabInputs
 import cc.joycreator.joybrush.core.brush.ENGINE_FILL
@@ -66,14 +67,16 @@ object InkReplay {
      * Each dab's radius is multiplied by [StrokeRecord.widthScale] (Decision 9).
      *
      * `engine == "fill"` records draw NO dabs — a fill is a shape, and its raster is
-     * [InkRaster.fill]'s business. Every other engine than "stamp" or "fill" is REFUSED by name
-     * (Decision 6).
+     * [InkRaster.fill]'s business. "watercolour" replays its own image-dab engine; every other
+     * engine is REFUSED by name (Decision 6).
      *
-     * There is **no dab cap** (Decision 14). Capping dabs means refusing a stroke somebody drew, and
+     * Stamp brushes have **no dab cap** (Decision 14). Capping dabs means refusing a stroke somebody drew, and
      * that belongs on `spacing` if it belongs anywhere, not on the ink path. The count is bounded by
      * the placer instead: `DabPlacer.emit` returns `max(2r * spacing, minSpacingPx)` and
      * `minSpacingPx` defaults to 0.5 doc px, so a stroke of `L` doc px can never place more than
      * `L / 0.5` dabs however small the brush is.
+     * Watercolour uses the same 6,000-stamp phone budget as its live path and the approved POC;
+     * its own distance filtering/curves/scatter replace the generic smoother and line shaping.
      *
      * @throws InkReplayException if `brush` is null, or its engine cannot draw an ink line.
      */
@@ -97,6 +100,12 @@ object InkReplay {
     internal fun replay(record: StrokeRecord, brush: BrushPreset?): Replayed {
         refusal(record, brush)?.let { throw InkReplayException(it) }
         val preset = brush!!
+        if(preset.engine == cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR) {
+            val options=preset.watercolourRuntime()
+            val watercolor=cc.joycreator.joybrush.core.brush.WatercolourDabber(options,record.seed)
+            val dabs=watercolor.replay(record.samples)
+            return Replayed(rescaled(dabs,widthScaleOf(record.widthScale)),preset.tip.hardness.base,watercolor.strokeOpacity)
+        }
         val dabber = BrushDabber(preset, record.seed)
         // A fill is a SHAPE, not a row of dabs: its raster is `InkRaster.fill` over
         // `FillPen.outline(record.samples, record.smoothing, record.screenPerDoc)`. Asking the
@@ -140,6 +149,10 @@ object InkReplay {
         !StrokeEdit.drawsInkLines(brush.engine) ->
             "stroke \"${record.id}\" was drawn with a \"${brush.engine}\" brush, which cannot draw " +
                 "an ink line: it reads the pixels underneath, and an ink layer has none"
+        brush.engine == cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR && brush.watercolour == null ->
+            "stroke \"${record.id}\" has missing watercolor settings"
+        brush.engine == cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR && brush.line != null ->
+            "stroke \"${record.id}\" uses line shaping that the watercolor engine does not support"
         else -> null
     }
 

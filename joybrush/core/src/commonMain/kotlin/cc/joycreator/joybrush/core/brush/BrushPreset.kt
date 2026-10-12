@@ -109,7 +109,7 @@ import kotlinx.serialization.Serializable
     val version: Int = BRUSH_VERSION,
     val id: String,
     val name: String,
-    val engine: String = "stamp",        // "stamp" | "smudge" | "push" (JB-1.06) | "wet" | "fill" (the fill pen, JB-1.08a) | "tuft" (R9) | "media" (v8)
+    val engine: String = "stamp",        // stamp | smudge | push | wet | fill | tuft | media (v8) | watercolour (v10)
     val tip: TipSpec = TipSpec(),
     val size: Param,                     // diameter in px
     val opacity: Param = Param(1f),      // ceiling for the whole stroke
@@ -123,6 +123,7 @@ import kotlinx.serialization.Serializable
     val tuft: TuftSpec = TuftSpec(),           // read only when engine == "tuft" (version 4, R9 §3B)
     val media: MediaSpec? = null,              // only and always when engine == "media" (version 8, MEDIA_ENGINE_PLAN §4)
     val line: LineStyleSpec? = null,           // whole-stroke taper / dashes / wire (version 9; null = none, every older brush)
+    val watercolour: WatercolourSpec? = null,  // replayable dab-array wash (version 10; never media)
     val response: ResponseSpec = ResponseSpec(), // pressure and tilt curves, every engine (version 5 when not straight)
     val paper: PaperResponse = PaperResponse(), // how this brush feels the document paper (version 6 when not default, R10, JB-9.09)
     val sizeJitter: Float = 0f,

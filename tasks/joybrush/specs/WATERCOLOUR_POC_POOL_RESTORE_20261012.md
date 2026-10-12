@@ -1,4 +1,13 @@
-# Bounded POC pooling restore proposal
+# Superseded: bounded POC pooling restore proposal
+
+**STOP — not implemented.** Direct owner ruling in JoyBrush Lead Coordinator
+on October12 supersedes the restore direction: “the pooling being higher
+resolution is preferable” and “it looks good overall.” Owner considers the
+slightly darker pooling, grain and whiteness differences tunable parameters.
+Keep full-resolution pooling as default; verify its controls and missing
+behaviours. Original comparison failures remain recorded diagnostics, not a
+reported pass. Seam/optics/commit/mutation gates remain required, and W4/W5
+phone gates remain open. This proposal is retained only as historical analysis.
 
 Requested by the JoyBrush Lead after frontier review of the original and GPU
 images. **Proposal only: do not change the default shaders/driver until approved.**

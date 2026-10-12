@@ -125,3 +125,30 @@ Physical in-progress strokes and old brushes retain their existing guards.
 Latest snapshot/transaction hooks and LineLab port still need final backend/APK
 checks. Backend/LineLab/APK defer until lead's explicit next slot after UX and
 JB-5.20a suites; no waiting wrappers or persistent owned JVM remain.
+
+## Owner appearance ruling and follow-up
+
+October12, direct owner message in JoyBrush Lead Coordinator (verified from
+the user turn): “the pooling being higher resolution is preferable” and “it
+looks good overall.” The slightly darker pooling, grain and whiteness can be
+tuned in parameters. Full-resolution finish remains default. The proposed
+half-resolution restore is superseded and was never implemented.
+
+Original DeltaE failures stay in the report as actual diagnostic failures;
+pooling-resolution difference alone no longer blocks the owner's accepted
+appearance. This does not waive optics, seam, commit, mutation, W4 or W5 gates.
+
+Control audit: WatercolourPass forwards edgePool/edgeAlpha/gravityPool/widths,
+grain, paperCut, texture strength/contrast/invert to the actual finish shader.
+The shader independently changes absorption concentration, exponential edge
+alpha, lower-side concentration and grain/wash coverage. The prior perceptual
+checker omitted actual fine grain and used constant paper; next control checks
+must include the production fine-grain bytes and canonical real paper.
+
+Native UI gap: BrushKnobs.forBrush falls through to generic stamp/paper/smoothing
+controls for the new engine; response handles edit p.response rather than the
+watercolour Bézier fields. Only generic flow/spacing (and external size/opacity
+base controls) are mapped by watercolourRuntime. Dedicated watercolor registry
+and curve routing are needed so its advanced sheet has meaningful controls.
+No defaults have been blindly retuned. Pencil comparisons require exact raster
+snapshots and owner Proko references from the lead before aesthetic changes.

@@ -498,14 +498,38 @@ public class TransformOverlayView extends View {
         }
     }
 
-    /** Where the floating spin arc sits: outside the TOP edge, on that edge's OUTWARD normal. */
+    /**
+     * Owner, 2026-10-12 (JB-5.20e §K, K4; "an app wide gripe"): the spin arc belongs BELOW the box, because a finger on a
+     * handle above covers the thing being turned. Default false keeps the Studio as it is until its own call is made;
+     * Joy Brush's Select box sets true. When the arc would land off the bottom of this view, it goes above instead.
+     */
+    private boolean rotateKnobBelow = false;
+    /** The edge the arc currently hangs from (TOP or BOTTOM), for its stalk. */
+    private int rotateEdge = TransformQuad.TOP;
+
+    public void setRotateKnobBelow(boolean on) {
+        if (rotateKnobBelow == on) return;
+        rotateKnobBelow = on;
+        invalidate();
+    }
+
+    /** Where the floating spin arc sits: outside the TOP edge (or the BOTTOM, see [rotateKnobBelow]), on its OUTWARD normal. */
     private void computeRotateHandle() {
-        TransformQuad.edgeMid(quad, TransformQuad.TOP, scratch2);
-        double inward = Math.toRadians(TransformQuad.edgeInwardNormalDeg(quad, TransformQuad.TOP));
+        rotateEdge = rotateKnobBelow ? TransformQuad.BOTTOM : TransformQuad.TOP;
+        placeRotateHandle(rotateEdge);
+        if (rotateKnobBelow && (rotateHandle[1] > getHeight() - dp(8f) || rotateHandle[1] < dp(8f))) {
+            rotateEdge = TransformQuad.TOP;
+            placeRotateHandle(rotateEdge);
+        }
+    }
+
+    private void placeRotateHandle(int edge) {
+        TransformQuad.edgeMid(quad, edge, scratch2);
+        double inward = Math.toRadians(TransformQuad.edgeInwardNormalDeg(quad, edge));
         float off = rotateStandoffPx();
         rotateHandle[0] = scratch2[0] - (float) Math.cos(inward) * off;
         rotateHandle[1] = scratch2[1] - (float) Math.sin(inward) * off;
-        rotateHandle[2] = TransformQuad.edgeAngleDeg(quad, TransformQuad.TOP);
+        rotateHandle[2] = TransformQuad.edgeAngleDeg(quad, edge);
     }
 
     private void rebuildHandles() {
@@ -529,7 +553,7 @@ public class TransformOverlayView extends View {
         drawSnapGuides(c);
 
         // The stalk first, so the arc's glyph sits on top of its own tether.
-        TransformQuad.edgeMid(quad, TransformQuad.TOP, scratch2);
+        TransformQuad.edgeMid(quad, rotateEdge, scratch2);
         stroke.setColor(withAlpha(HandleModel.COLOR_ROTATE, 0x60));
         stroke.setStrokeWidth(dp(0.9f));
         c.drawLine(scratch2[0], scratch2[1], rotateHandle[0], rotateHandle[1], stroke);

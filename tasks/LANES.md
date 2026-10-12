@@ -1109,3 +1109,7 @@ Root FILL_UI verification: core1706/backend312/native105, zero failures/errors, 
 
 ## JOYBRUSH_R51_QUEUE_20261007
 Claude is Lead again (owner, 2026-10-07: Codex takes over fully only when the owner says Claude is out of weekly usage). R51 (one layer kind) approved. Lanes: media session → JB-2.40 (media on any layer). Codex (root) → JB-5.02 fix, JB-5.12, JB-5.13, JB-5.14, then the post-2.40 items; details in tasks/joybrush/LEAD_DESK.md "welcome back to the queue". Lead → review of root's fill/board hand-off, JB-5.20 design, JB-5.01b view capture. DEVICE: Note 9 is the owner's (testing the combined build installed 20:44); no installs or adb input without the Lead.
+
+## WATERCOLOUR_PHONE_20261012 — Codex implementation claim
+ACTIVE: vector/watercolour-phone, isolated checkout C:/Temp/jb-watercolour-phone, base origin/joy-creator 71e8ffea.
+Owner requested GO BUILD against WATERCOLOUR_LINE_BRUSH_PLAN_20261012.md. Root owns W3/W4: new gl/watercolour files, shaders/lines, scoped GlPaintEngine/JbCanvasView dispatch and InkReplay/StrokeEdit hooks. Helper owns W1 core brush format/math/tests and approved preset; another owns W2 extraction/asset gate. All work uses this one branch. No media engine dependencies or global tilt changes. Only root builds, under jb-gradle.lock and RAM admission; no phone installation. Lead integrates and runs Note 9 acceptance. Reference Watercolor-POC is read-only.

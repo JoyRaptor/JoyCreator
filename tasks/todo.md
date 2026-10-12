@@ -527,3 +527,12 @@ Review: core1706/backend312/native105; zero failures/errors, four optional corpu
 - [ ] Record actual memory admission values on Note20, distinguish tool reservation from paint payload ceiling.
 - [ ] Verify physical pencil tilt direction before applying calibrated input change.
 Review: tests integrated18c075cf; desktop benchmark findings in reviews/NOTE20_FAST_C_FINDINGS_20261008.md. No phone install or claim that the reported defects are fixed.
+
+## Watercolour phone integration — 2026-10-12
+- [x] Read owner-approved integration plan; create isolated vector/watercolour-phone at 71e8ffea.
+- [ ] W1: pure deterministic dabber, v10 format and approved preset; golden POC and determinism gates.
+- [ ] W2: centered R8 dab assets, backdrop, provenance and transparent-boundary gate.
+- [ ] W3: array dab/three-band GPU path, real paper, neighbor-aware pooling, RGBA commit/fade; shader parity, seam and perceptual gates.
+- [ ] W4: editable line replay and recolour integration; existing brush parity.
+- [ ] Compile APK through shared lock; checkpoint/rebase without conflicts; publish lead handoff.
+- [ ] W5/phone acceptance: lead installs and owner judges; never claim a desktop timing is Note 9 evidence.

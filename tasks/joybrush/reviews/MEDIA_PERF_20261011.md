@@ -68,3 +68,22 @@ Owner A/B before shipping #8: the look he judged "S-tier" may have been seen at 
 - Partial redraw: redraw only the damaged screen rect, plus an EGL partial update / buffer age.
 - Front-buffer low-latency stroke tip, plus motion prediction.
 - The off-screen tile cull is done (a02012be).
+
+## 2026-10-12: watercolour time-step comparison on the Note 9 (owner-requested)
+Setup: Round, runny wetness, paper slope 0.866 (60°). A dark red scribble across the top, then 3 blue lines from dry paper
+into it. Picture: `watercolour_quality_compare_20261012.png`.
+
+| Water steps/frame (dt scaled to keep simulated time) | Gap between frames, p50 | Sim/frame | Look |
+|---|---|---|---|
+| 4 (shipped, dt = 1/120) | 136 ms | 95 ms | correct |
+| 2 (dt = 1/60) | 92 ms | 54 ms | **numerically unstable**: garbage colours, grey sludge |
+| 1 (dt = 1/30) | 75 ms | 34 ms | unstable |
+
+**Conclusion:** dt cannot be coarsened. Watercolour speed must come from exact work reduction (done: `wet-exact`) and the
+media atlas (simulate only tiles where water moves, no window). The owner leans to Option A: the brush stays instant and
+water may lag on slow phones.
+
+The same runs showed the window artifacts clearly: whole tiles update late or freeze as the window moves, and drips stop
+at straight lines. How much of a wide scribble survives depends on where the window was when its water stopped. One
+"legacy" run that looked better was this randomness, not the 10-10 change (re-tested with the legacy behaviour forced for
+wet). Fix: `specs/MEDIA_ATLAS_DESIGN.md`.

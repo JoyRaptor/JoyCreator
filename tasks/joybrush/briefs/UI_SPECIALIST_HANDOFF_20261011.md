@@ -34,6 +34,27 @@ the standing brief (status **GO for both phases**, lead 2026-10-11). This file s
    `SelectionState`, JVM tests), then e2 (androidkit `select/`: `SelectTool : CanvasTool`, `SelectBoxHost`), then e3
    (joybrush-android `select/`). One Gradle at a time through `jb-gradle.lock`. Never install on the phone.
 
+## Update, 2026-10-12: the owner locked §K; e1 landed on ui/select-core
+
+- **§K is locked** (spec `JB-5.20e_select_ui.md`, his picks and notes verbatim, K1–K19). Read it before anything else;
+  it overrides the decisions above it. Highlights: actions row ABOVE the selection in the paper's colour with
+  white/black icons; rotate handle BELOW (app-wide wish); Concepts corners (tap to pin, two pins move as a pair,
+  extended trajectory lines, centre reticle) plus the Studio role ring on long-press; line filters imply lines
+  (never grey out Lines); scrubbable count; ＋ adds for every way of picking; P3 B on trial; P8 B; P10 default B and
+  Q2 default A, both in Settings; Thumb rejected.
+- **One open question for him:** his picks line said P10 A but his note said "default b"; §K follows the note.
+- **One design trade-off to show him:** with P3 B the lines row is 391dp, so beside the tool strip it can cover part
+  of it; without the colour/brush chips (his first instinct, C) it is 311dp and sits beside the strip.
+- **Code on `ui/select-core`:** 0c19adcc (e1 core + H6 + H7, tests green), then H9
+  `TransformOverlayView.setRotateKnobBelow(boolean)` (default false; Joy Brush sets true; the Studio default is the
+  lead's call).
+- **Mockup v2** (same Artifact URL) is the locked design working: browser-tested, see "How it was tested" below.
+- **Next:** e2 (androidkit `select/`: `SelectTool : CanvasTool`, `SelectBoxHost`, overlays) once the lead's H1/H2/H8
+  (`lead/select-hooks` 1d2010b2) land on joy-creator; the lead builds H3–H5 after that, then H10 (adjust colour).
+  The box for Joy Brush must follow K5/K6 (thin lines, corner pins, reticle, no edge handles), which is a different
+  look from the Studio's handles: either a `HandleModel` style flag in studiokit or Joy Brush's own overlay drawing on
+  the same `TransformQuad` maths. Decide with the lead before e2.
+
 ## Update, 2026-10-11 evening: the lead split the hooks
 
 - **Lead does:** H1 (read-only `penSeen`), H2 (palm check before `tool.down`), H8 (offer `ACTION_POINTER_DOWN`) now, on

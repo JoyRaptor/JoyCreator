@@ -13,7 +13,7 @@
   --ground:#000;--surface:#0d0d10;--panel:#111114;--raised:#1c1c22;--pressed:#26262e;--line:#2c2c35;
   --ink:#e4e4e7;--dim:#a1a1aa;--faint:#71717a;--off:#4b4b55;
   --dink:#f2f2f5;--ddim:#c9c9d3;--dlabel:#c4c4ce;
-  --sel:#22d3ee;--sel28:rgba(34,211,238,.28);--live:#f43f8e;--care:#fbbf24;--bad:#fa3d5d;--guide:#a78bfa;--ongo:#050507;
+  --sel:#22d3ee;--sel28:rgba(34,211,238,.28);--selgrad:linear-gradient(135deg,#4397FD,#5C43FD);--live:#f43f8e;--care:#fbbf24;--bad:#fa3d5d;--guide:#a78bfa;--ongo:#050507;
   --go:linear-gradient(90deg,#35F6BF,#97FE8B);
   --room:linear-gradient(90deg,#5C43FD,#4397FD);
   --ctl:rgba(242,242,245,.1);
@@ -38,11 +38,12 @@ p{margin:0}
 .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:60;background:rgba(0,0,0,.76);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
 .bar-in{max-width:1180px;margin:0 auto;padding:8px 16px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
 .ctl{display:flex;align-items:center;gap:8px}
-.sw{width:28px;height:28px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(242,242,245,.25)}
-.sw[aria-pressed="true"]{box-shadow:inset 0 0 0 1px rgba(242,242,245,.25),0 0 0 2px var(--ground),0 0 0 3.5px var(--sel),0 0 0 6.5px var(--sel28)}
+.sw{width:28px;height:28px;border-radius:50%;position:relative;box-shadow:inset 0 0 0 1px rgba(242,242,245,.25)}
+.sw[aria-pressed="true"]{box-shadow:inset 0 0 0 1px rgba(242,242,245,.25)}
+.sw[aria-pressed="true"]::after{content:"";position:absolute;inset:-5px;border-radius:50%;padding:1.5px;background:var(--selgrad);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 .seg{display:inline-flex;background:var(--raised);border-radius:999px;padding:2px;gap:2px;box-shadow:inset 0 0 0 1px var(--line);flex-wrap:wrap}
 .seg button{min-width:34px;height:30px;border-radius:999px;font:700 12px/1 var(--f-disp);color:var(--dim);padding:0 11px}
-.seg button[aria-pressed="true"]{color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 2px var(--sel28)}
+.seg button[aria-pressed="true"]{background:var(--selgrad);color:var(--pko,var(--ground));box-shadow:none;opacity:1}
 .btn{height:32px;border-radius:999px;padding:0 14px;font:700 12.5px/1 var(--f-disp);background:var(--raised);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink)}
 .btn.go{background:var(--go);color:var(--ongo);box-shadow:none}
 
@@ -87,14 +88,14 @@ header.top h1 span{background:var(--room);-webkit-background-clip:text;backgroun
 .tb{position:absolute;left:0;right:0;top:0;height:54px;display:flex;align-items:center;padding:0 6px;color:var(--chi);filter:drop-shadow(0 0 1.2px var(--chs))}
 .tb button{width:40px;height:40px;display:grid;place-items:center;border-radius:50%}
 .tb .sp{flex:1}
-.tb button[data-on="1"]{box-shadow:inset 0 0 0 1.5px var(--sel)}
+.tb button[data-on="1"]{background:var(--selgrad);color:var(--pko);box-shadow:none;opacity:1}
 .tb button:disabled{opacity:.35}
 .strip{position:absolute;left:0;top:96px;width:46px;padding:2px 2px 6px 4px;display:flex;flex-direction:column;align-items:center;
   background:rgba(17,17,20,.9);box-shadow:inset 0 0 0 .75px var(--line);border-radius:0 14px 14px 0;color:var(--dink)}
 .strip .grip{width:40px;height:18px;display:grid;place-items:center}
 .strip .grip i{display:block;width:16px;height:3px;border-radius:2px;background:rgba(242,242,245,.3)}
 .strip button{width:40px;height:40px;display:grid;place-items:center;border-radius:50%;position:relative}
-.strip button[data-on="1"]::after{content:"";position:absolute;inset:5px;border-radius:50%;box-shadow:0 0 0 1.5px var(--sel)}
+.strip button[data-on="1"]::after{content:"";position:absolute;inset:5px;border-radius:50%;padding:1.5px;background:var(--selgrad);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 @keyframes ringpulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.15);opacity:.4}}
 .strip button.pulse::after{animation:ringpulse .6s ease-in-out 2}
 .strip .swc{width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(242,242,245,.35)}
@@ -107,7 +108,8 @@ header.top h1 span{background:var(--room);-webkit-background-clip:text;backgroun
 .lcol button{width:44px;border-radius:8px;position:relative}
 .lcol .add{height:32px;display:grid;place-items:center;background:var(--ctl)}
 .lcol .cell{height:56px;background:var(--paper);box-shadow:inset 0 0 0 1px rgba(242,242,245,.18)}
-.lcol .cell[data-on="1"]{box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 2.5px var(--sel28)}
+.lcol .cell[data-on="1"]{box-shadow:none}
+.lcol .cell[data-on="1"]::after{content:"";position:absolute;inset:-2.5px;border-radius:10px;padding:1.5px;background:var(--selgrad);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 .lcol .cell span{position:absolute;left:0;right:0;bottom:-1px;font:600 8px/12px var(--f-mono);color:var(--ddim);text-align:center;background:rgba(0,0,0,.55);border-radius:0 0 8px 8px}
 .lcol .papr{height:30px;font:600 8.5px/30px var(--f-mono);color:var(--ddim);background:var(--ctl)}
 
@@ -127,9 +129,9 @@ header.top h1 span{background:var(--room);-webkit-background-clip:text;backgroun
 .bb .sg{display:inline-flex;border-radius:12px;height:32px;box-shadow:inset 0 0 0 1px var(--pline)}
 .bb .sg button{height:32px;min-width:34px;padding:0 10px;border-radius:12px;font:600 11.5px/1 var(--f-body);opacity:.75;display:grid;place-items:center}
 .bb .sg button.i{padding:0 7px}
-.bb .sg button[aria-pressed="true"]{opacity:1;box-shadow:inset 0 0 0 1.5px var(--sel)}
+.bb .sg button[aria-pressed="true"]{background:var(--selgrad);color:var(--pko);box-shadow:none;opacity:1}
 .bb .tg{height:32px;min-width:32px;border-radius:12px;display:grid;place-items:center;box-shadow:inset 0 0 0 1px var(--pline);padding:0 8px;font:600 11.5px/1 var(--f-body)}
-.bb .tg[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--sel)}
+.bb .tg[aria-pressed="true"]{background:var(--selgrad);color:var(--pko);box-shadow:none;opacity:1}
 .bb input[type=range]{width:120px;accent-color:#22d3ee}
 .pv{position:absolute;border-radius:14px;padding:8px;color:var(--dink);min-width:180px;display:flex;flex-direction:column;gap:2px;z-index:5}
 .pv .row{min-height:40px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:10px;font-size:14px;text-align:left;width:100%}
@@ -142,7 +144,8 @@ header.top h1 span{background:var(--room);-webkit-background-clip:text;backgroun
 .pv .sws button{width:30px;height:30px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(242,242,245,.3)}
 .pv .tiles{display:grid;grid-template-columns:repeat(4,72px);gap:6px;padding:4px}
 .pv .tile{height:64px;border-radius:10px;background:var(--ctl);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:6px;font:600 9.5px/1.1 var(--f-body);color:var(--ddim)}
-.pv .tile[data-on="1"]{box-shadow:inset 0 0 0 1.5px var(--sel)}
+.pv .tile[data-on="1"]{box-shadow:none}
+.pv .tile[data-on="1"]::after{content:"";position:absolute;inset:0;border-radius:10px;padding:1.5px;background:var(--selgrad);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 .pv .tile svg{position:absolute;left:8px;right:8px;top:8px;width:56px;height:30px}
 .badge{position:absolute;right:5px;bottom:20px;width:14px;height:12px;display:grid;place-items:center}
 .pv .slider{display:grid;grid-template-columns:76px 1fr 40px;align-items:center;gap:6px;padding:2px 8px;font-size:12px;color:var(--ddim)}
@@ -185,8 +188,9 @@ figcaption span{font-size:12.5px;color:var(--dim);line-height:1.5}
 .part .q b i{font:500 11px/1 var(--f-mono);font-style:normal;color:var(--faint);margin-right:6px}
 .part .q span{font-size:12.5px;color:var(--faint)}
 .opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
-.opt{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start;text-align:left;background:var(--raised);border-radius:12px;padding:8px;box-shadow:inset 0 0 0 1px var(--line);min-width:0}
-.opt[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 3px var(--sel28)}
+.opt{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start;text-align:left;background:var(--raised);border-radius:12px;padding:8px;box-shadow:inset 0 0 0 1px var(--line);min-width:0;position:relative}
+.opt[aria-pressed="true"]{box-shadow:none}
+.opt[aria-pressed="true"]::after{content:"";position:absolute;inset:0;border-radius:12px;padding:1.5px;background:var(--selgrad);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 .opt svg{width:96px;height:64px;border-radius:8px;background:var(--surface)}
 .opt b{display:block;font:700 13px/1.25 var(--f-disp);color:var(--ink)}
 .opt b i{font:500 10px/1 var(--f-mono);font-style:normal;color:var(--faint);margin-right:5px}
@@ -321,7 +325,7 @@ figcaption span{font-size:12.5px;color:var(--dim);line-height:1.5}
       <div class="card"><h3>Look</h3><ul>
         <li><b>On the canvas, controls wear the paper</b>: white or black icons by brightness, thin lines, no dark pills.</li>
         <li><b>Rotate below, actions above.</b> A finger never covers what it turns.</li>
-        <li><b>Selected means cyan.</b> Delete is the one red mark.</li>
+        <li><b>Selected controls use the Joybrush gradient.</b> Delete is the one red mark.</li>
         <li><b>Every control has a hover label</b>, so the S Pen can explain the screen.</li>
         <li><b>Fades are slow and smooth</b>, never a pop.</li>
       </ul></div>
@@ -1190,7 +1194,7 @@ class Phone{
   const cp=this.cpe;if(s&&s.kind==='lines'&&s.source==='tap'&&s.pick&&s.pick.rank.length>1&&this.pk().P4!=='C'&&!busy&&s.ids.size>=1){cp.hidden=false;cp.textContent=`${s.pick.i+1} / ${s.pick.rank.length}`;const pt=s.pick.pt;cp.style.left=clamp(pt[0]+18,6,W-80)+'px';cp.style.top=clamp(pt[1]-36,58,H-80)+'px';}else cp.hidden=true;
   // icons white or black by the brightness behind (K3): the paper here, sampled under the row in the app
   const light=this.lightPaper(),ik=PAPER+light;if(ik!==this.inkKey){this.inkKey=ik;const P=PAPERS[PAPER],n=P.paper.replace('#',''),rgb=[0,2,4].map(i=>parseInt(n.substr(i,2),16)).join(',');
-   for(const e of [this.pp,this.bb,this.cpe]){e.style.setProperty('--pbk',`rgba(${rgb},.88)`);e.style.setProperty('--pin',light?'#121214':'#F7F7F9');e.style.setProperty('--pline',light?'rgba(18,18,20,.16)':'rgba(247,247,249,.16)');e.style.setProperty('--ppress',light?'rgba(18,18,20,.1)':'rgba(247,247,249,.14)');}}
+   for(const e of [this.pp,this.bb,this.cpe,this.tb]){e.style.setProperty('--pbk',`rgba(${rgb},.88)`);e.style.setProperty('--pko',`rgb(${rgb})`);e.style.setProperty('--pin',light?'#121214':'#F7F7F9');e.style.setProperty('--pline',light?'rgba(18,18,20,.16)':'rgba(247,247,249,.16)');e.style.setProperty('--ppress',light?'rgba(18,18,20,.1)':'rgba(247,247,249,.14)');}}
  }
  buildActs(){
   const s=this.sel,pk=this.pk(),b=(act,icon,title,cls='',inner)=>`<button type="button" data-act="${act}" class="${cls}" title="${title}" aria-label="${title}">${inner||ico(icon,'ic s20')}</button>`,sep='<span class="sep"></span>';
@@ -1300,8 +1304,9 @@ const CHANGES=[
  ['K15','nudge needs to make sure it keeps the curve smooth','A pushed line is filled in along a smooth curve, and lines are drawn as curves. Try a nudge at 4×.'],
  ['K16','blue dots should appear only on hover with pen','With a pen seen, a tip’s dot shows only while the pen hovers near that tip. With only fingers, the dots show. They never sit on a corner.'],
  ['K17','under more ellipsis … adjust HSB','⋯ → Adjust colour: hue, saturation and brightness, live, one undo when you let go.'],
- ['K18','p10 … default b · q2 … default a','One finger pans by default and Paint makes pixels by default. Tap Select again for both settings. Your picks line said P10 A, but your note said default B, so I went with the note. Tell me if that is wrong.'],
+ ['K18','p10 … default b · q2 … default a','Confirmed: one finger pans by default, and Paint and Airbrush make pixels by default. Both settings can be changed from the Select tool.'],
  ['K19','p8 … small selections become difficult','Two fingers anywhere move the selection while it lives.'],
+ ['K20, K21','the solids can be the Joybrush gradient … outlines also … bluer being on the upper left','Enabled switches use a blue-to-violet diagonal gradient with the icon or word cut out. Tools, swatches and layers keep their contents visible inside a matching gradient outline.'],
  ['—','thumb is a no go','The Thumb direction is gone.'],
 ];
 const phones=[];let LIVE=null;

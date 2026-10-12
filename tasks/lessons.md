@@ -1046,3 +1046,7 @@ back before designing; treat any alternative I prefer as a lab hypothesis, never
 - Rule: for any control that floats over the art, start from where the finger and pen are (handles below, actions
   above) and from the paper (not a dark slab). For any smart default, keep the correction on screen and make every
   chip that implies a mode switch into it. Memory: on-canvas-tools-concepts-placement, automatic-guess-keeps-a-way-back.
+
+## Selected-control styling follows the latest owner direction (October12, UX takeover)
+- Owner refined flat cyan switches to the Joybrush diagonal gradient, blue at upper-left, violet at lower-right; outlined tools/swatches/layers trial the same gradient while keeping contents visible.
+- Preserve historical quotes, append the revised ruling, and update the working preview and new controls. Do not freeze a colour choice as a universal rule after the owner revises it. Token mirrors remain unchanged; the room pair supplies the new selected gradient.

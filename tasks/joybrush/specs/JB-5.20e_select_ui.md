@@ -683,3 +683,15 @@ New hooks from §K:
   Whole/Touch, This layer/Every layer, and the page's own segmented controls. Still to ask him: the strip's active-tool
   ring, paper swatches, layer cells, the page's option cards (their content is a picture).
 - **K18 confirmed:** one finger PANS by default; Settings switches it to selecting.
+
+### K21 — Selected-state gradient trial (owner, October 12, 2026; supersedes K20 colour only)
+
+Owner first confirmed: "Keep rings around tools, swatches, and layers; use solid cyan for switches (Recommended)".
+Then revised the colour:
+
+> Actually, the solids can be the Joybrush gradient, because that will look pretty stylish. Shoot, might even— let's even try making the outlines also have the same gradient. Perhaps diagonal, with the bluer being on the upper left.
+
+- Selected switch/segment fills use the Joybrush room pair, diagonally: bright blue upper left (#4397FD), violet lower right (#5C43FD). The icon/word remains cut out per K20.
+- Tools, swatches and layer cells retain their contents within thin outlines, with the same gradient as a trial. The design page includes option-card outlines in the trial.
+- New Select controls read `kit.p.roomEnd` → `kit.p.roomStart`; do not change mirrored global state-colour tokens. Lead sequences the shared strip/layer/ChromeKit follow-through after owner preview.
+- K18 remains confirmed: one finger pans; Paint/Airbrush make pixels by default; both switchable in the Select menu.

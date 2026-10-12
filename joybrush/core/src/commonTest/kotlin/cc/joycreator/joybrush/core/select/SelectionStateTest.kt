@@ -118,6 +118,35 @@ class SelectionStateTest {
     }
 
     @Test
+    fun lockedLinesAreSkippedUntilPickLockedIsOn() {
+        val items = object : SelectionState.Items { override fun locked(id: String) = id == "b" }
+        val s = SelectionState(items = items)
+        s.tap(40.0, 53.0, 1.0, lines, false, noBox)
+        assertTrue("b" !in ids(s), "a tap right on the locked line takes the next one instead")
+        s.loop(square(-10.0, 45.0, 110.0, 60.0), lines, lines, SelectionState.Reading(), adding = false)
+        assertEquals(setOf("a", "c"), ids(s), "a loop skips it too")
+        s.choose("b", adding = false, at = null, lines = lines)
+        assertEquals(setOf("a", "c"), ids(s), "and so does a crosshair or the fan")
+        s.pickLocked = true
+        s.tap(40.0, 53.0, 1.0, lines, false, noBox)
+        assertEquals(setOf("b"), ids(s), "with Pick locked lines too, it can be picked (to unlock it)")
+    }
+
+    @Test
+    fun aGroupComesTogether() {
+        val items = object : SelectionState.Items { override fun group(id: String) = if (id == "a" || id == "far") "g1" else null }
+        val s = SelectionState(items = items)
+        s.tap(40.0, 300.0, 1.0, lines, false, noBox)
+        assertEquals(setOf("far", "a"), ids(s), "touching one member takes the whole group")
+        s.tap(40.0, 56.0, 1.0, lines, adding = true, insideBox = noBox)
+        assertEquals(setOf("far", "a", "c"), ids(s))
+        s.tap(40.0, 300.0, 1.0, lines, adding = true, insideBox = noBox)
+        assertEquals(setOf("c"), ids(s), "and taking one back out takes the group out")
+        s.loop(square(-10.0, 290.0, 110.0, 310.0), lines, lines, SelectionState.Reading(), adding = false)
+        assertEquals(setOf("far", "a"), ids(s), "a loop around one member takes the group")
+    }
+
+    @Test
     fun allLayersCannotApplyToPaint() {
         val s = SelectionState()
         s.loop(square(-10.0, 100.0, 50.0, 200.0), lines, lines, SelectionState.Reading(), adding = false)

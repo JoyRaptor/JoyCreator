@@ -155,3 +155,21 @@ Rules for every task:
 - never resolve a merge conflict (re-apply your change on the new base);
 - never install on the phone (the lead does, after the owner presses Home);
 - never flip pen tilt globally (only the media brushes are 180° off, and that fix is the lead's).
+
+## 5. Lead's sequencing and conditions (2026-10-12; plan merged at f7bae061)
+
+W1, W2 and W3 may all start now, off the latest `joy-creator`. Nobody else is editing GlPaintEngine or JbCanvasView.
+Conditions:
+1. **One branch** for the work, rebased on `joy-creator` just before handoff. **Send the lead the branch name when you
+   start** (SendMessage to "Joybrush orchestration and completion", or a line in `tasks/joybrush/AGENT_BOARD.md`) so
+   other engine work is sequenced around it.
+2. **Engine edits stay in a few hook points** in GlPaintEngine and JbCanvasView. All new code goes in new files under
+   `gl/lines/` or `gl/watercolour/` (shaders in `shaders/lines/`).
+3. **Every existing brush stays bit-identical.** Prove it with `tools/stamp_pass_check.js`, `tools/shader_check.js` and
+   `StampPassUniformsParityTest` (once H1 / `vector/stamp-pass` has merged; until then, compare the old and new
+   `jb_dab.vert` as stamp_pass_check does).
+4. **The 3×3 neighbour-tile binding for the finish pass is proven seam-free** in a headless check: one stroke across a
+   tile corner, rendered tiled vs as one big target, 0 mismatches.
+5. **Nothing is installed on a phone.** The lead runs the Note 9 A/B.
+6. **No dependence on the media engine.** It is a different engine, and its window is being replaced by an atlas
+   (`specs/MEDIA_ATLAS_DESIGN.md`). The line watercolour must not use MediaWindow or any `gl/media/` class.

@@ -12,6 +12,9 @@ import cc.joycreator.joybrush.core.select.SelectionMask
 import cc.joycreator.joybrush.core.select.SelectionState
 import cc.joycreator.joybrush.core.shape.Pt
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.LineAddress
+import cc.joycreator.joybrush.core.stroke.AddressedStroke
+import cc.joycreator.joybrush.core.select.SelectionLine
 import cc.joycreator.joybrush.core.vector.InkLine
 import cc.joycreator.joybrush.core.view.ViewTransform
 import org.junit.Assert.*
@@ -37,24 +40,24 @@ class SelectCountToolTest {
         private fun lines() = records.map { record ->
             val xs = record.samples.map { it.x.toDouble() }.toDoubleArray()
             val ys = record.samples.map { it.y.toDouble() }.toDoubleArray()
-            SelectionHost.Line(record.id, "layer", InkLine(record.id, xs, ys, DoubleArray(xs.size) { 2.0 }),
+            SelectionHost.Line(LineAddress("layer", null, record.id), InkLine(record.id, xs, ys, DoubleArray(xs.size) { 2.0 }),
                 record, record.locked, record.groupId)
         }
         override fun activeLines() = lines()
         override fun visibleLines() = lines()
-        override fun liftLines(ids: Set<String>): LiftedLines {
+        override fun liftLines(ids: Set<LineAddress>): LiftedLines {
             liftCount++
             return object : LiftedLines {
                 override fun setTransform(h: Homography) {}
-                override fun preview(records: List<StrokeRecord>) {}
-                override fun commit(after: List<StrokeRecord>): Boolean { lineCommits++; return false }
+                override fun preview(records: List<AddressedStroke>) {}
+                override fun commit(after: List<AddressedStroke>): Boolean { lineCommits++; return false }
                 override fun release() {}
             }
         }
-        override fun replaceLines(after: List<StrokeRecord>): Boolean { replacements++; return false }
-        override fun addLines(records: List<StrokeRecord>): Boolean { additions++; return false }
-        override fun deleteLines(ids: Set<String>): Boolean { deletions++; return false }
-        override fun bakeLines(ids: Set<String>): Boolean { bakes++; return false }
+        override fun replaceLines(after: List<AddressedStroke>): Boolean { replacements++; return false }
+        override fun addLines(records: List<AddressedStroke>): Boolean { additions++; return false }
+        override fun deleteLines(ids: Set<LineAddress>): Boolean { deletions++; return false }
+        override fun bakeLines(ids: Set<LineAddress>): Boolean { bakes++; return false }
         override fun liftPixels(mask: SelectionMask, keepSource: Boolean): LiftedPixels? = null
         override fun dimRest(alpha: Float) {}
         override fun adjustColour(hueDeg: Float, saturation: Float, brightness: Float, done: Boolean) {}
@@ -97,21 +100,23 @@ class SelectCountToolTest {
 
     private fun choose(tool: SelectTool, order: List<String>, index: Int = 0, adding: Boolean = false,
                        at: SelectionState.Pick = SelectionState.Pick(50.0, 50.0)) {
-        tool.chooseFromOrder(order, index, adding, at)
+        tool.chooseFromOrder(order.map { LineAddress("layer", null, it) }, index, adding, at)
     }
 
-    private fun ids(tool: SelectTool): Set<String> = (tool.selection as SelectionState.Lines).ids
+    private fun addresses(vararg ids: String) = ids.map { LineAddress("layer", null, it) }.toSet()
+
+    private fun ids(tool: SelectTool): Set<LineAddress> = (tool.selection as SelectionState.Lines).ids
 
     @Test fun repeatedRealTapsKeepTheRankOrdinalAnchorAndNeverWriteDrawingHistory() {
         val (tool, host) = fixture(record("a"), record("b"), record("c"))
         tap(tool)
-        assertEquals(setOf("c"), ids(tool))
+        assertEquals(addresses("c"), ids(tool))
         assertEquals(SelectTool.CountPick(SelectionState.Pick(50.0, 50.0), 0, 3), tool.countPick)
         tap(tool, time = 30L)
-        assertEquals(setOf("b"), ids(tool))
+        assertEquals(addresses("b"), ids(tool))
         assertEquals(SelectTool.CountPick(SelectionState.Pick(50.0, 50.0), 1, 3), tool.countPick)
         tap(tool, time = 50L)
-        assertEquals(setOf("a"), ids(tool))
+        assertEquals(addresses("a"), ids(tool))
         assertEquals(SelectTool.CountPick(SelectionState.Pick(50.0, 50.0), 2, 3), tool.countPick)
         host.assertNoDrawingWrites()
     }
@@ -120,26 +125,26 @@ class SelectCountToolTest {
         val (tool, host) = fixture(record("a", group = "pair"), record("b", group = "pair"), record("c"), record("other", 150f))
         choose(tool, listOf("other"))
         choose(tool, listOf("c", "b", "a"), index = 2, adding = true)
-        assertEquals(setOf("other", "a", "b"), ids(tool))
+        assertEquals(addresses("other", "a", "b"), ids(tool))
         val session = tool.beginCountScrub(adding = true)!!
         assertTrue(tool.scrubCount(session, 0))
-        assertEquals(setOf("other", "c"), ids(tool))
+        assertEquals(addresses("other", "c"), ids(tool))
         assertTrue(tool.scrubCount(session, 2))
-        assertEquals(setOf("other", "a", "b"), ids(tool))
+        assertEquals(addresses("other", "a", "b"), ids(tool))
         assertTrue(tool.scrubCount(session, 0))
-        assertEquals(setOf("other", "c"), ids(tool))
+        assertEquals(addresses("other", "c"), ids(tool))
         host.assertNoDrawingWrites()
     }
 
     @Test fun groupCandidateIsRemovedAndRestoredAsItsWholeUnit() {
         val (tool, host) = fixture(record("a", group = "pair"), record("b", group = "pair"), record("c"))
         choose(tool, listOf("c", "b", "a"), index = 2)
-        assertEquals(setOf("a", "b"), ids(tool))
+        assertEquals(addresses("a", "b"), ids(tool))
         val session = tool.beginCountScrub(adding = false)!!
         assertTrue(tool.scrubCount(session, 0))
-        assertEquals(setOf("c"), ids(tool))
+        assertEquals(addresses("c"), ids(tool))
         assertTrue(tool.scrubCount(session, 2))
-        assertEquals(setOf("a", "b"), ids(tool))
+        assertEquals(addresses("a", "b"), ids(tool))
         host.assertNoDrawingWrites()
     }
 
@@ -200,14 +205,14 @@ class SelectCountToolTest {
     @Test fun changedGroupMembershipInvalidatesScrubEvenWhenRankIsUnchanged() {
         val (tool, host) = fixture(record("a", group = "pair"), record("b", group = "pair"), record("c"))
         choose(tool, listOf("c", "b", "a"), index = 2, adding = true)
-        assertEquals(setOf("a", "b"), ids(tool))
+        assertEquals(addresses("a", "b"), ids(tool))
         val session = tool.beginCountScrub(adding = true)!!
         val bIndex = host.records.indexOfFirst { it.id == "b" }
         host.records[bIndex] = host.records[bIndex].copy(groupId = null)
 
         assertFalse(tool.scrubCount(session, 0))
         assertNull(tool.countPick)
-        assertEquals("stale group data must not alter the live selection", setOf("a", "b"), ids(tool))
+        assertEquals("stale group data must not alter the live selection", addresses("a", "b"), ids(tool))
         host.assertNoDrawingWrites()
     }
 
@@ -231,7 +236,7 @@ class SelectCountToolTest {
         assertTrue(tool.scrubCount(session, 1))
         val afterChoice = host.liftCount
         tool.endCountScrub(session)
-        assertEquals(setOf("b"), ids(tool))
+        assertEquals(addresses("b"), ids(tool))
         assertEquals(SelectTool.CountPick(SelectionState.Pick(50.0, 50.0), 1, 3), tool.countPick)
         assertEquals(afterChoice, host.liftCount)
         assertFalse(tool.scrubCount(session, 2))

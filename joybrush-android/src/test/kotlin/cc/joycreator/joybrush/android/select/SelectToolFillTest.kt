@@ -4,6 +4,8 @@ import cc.joycreator.joybrush.androidkit.select.*
 import cc.joycreator.joybrush.core.select.*
 import cc.joycreator.joybrush.core.shape.Pt
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.AddressedStroke
+import cc.joycreator.joybrush.core.stroke.LineAddress
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,11 +31,11 @@ class SelectToolFillTest {
         var redraws = 0
         override fun activeLines() = emptyList<SelectionHost.Line>()
         override fun visibleLines() = activeLines()
-        override fun liftLines(ids: Set<String>): LiftedLines? = null
-        override fun replaceLines(after: List<StrokeRecord>) = false
-        override fun addLines(records: List<StrokeRecord>) = false
-        override fun deleteLines(ids: Set<String>) = false
-        override fun bakeLines(ids: Set<String>) = false
+        override fun liftLines(ids: Set<LineAddress>): LiftedLines? = null
+        override fun replaceLines(after: List<AddressedStroke>) = false
+        override fun addLines(records: List<AddressedStroke>) = false
+        override fun deleteLines(ids: Set<LineAddress>) = false
+        override fun bakeLines(ids: Set<LineAddress>) = false
         override fun liftPixels(mask: SelectionMask, keepSource: Boolean): LiftedPixels? = pixels
         override fun dimRest(alpha: Float) {}
         override fun adjustColour(hueDeg: Float, saturation: Float, brightness: Float, done: Boolean) {}

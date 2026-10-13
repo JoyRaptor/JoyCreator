@@ -5,6 +5,9 @@ import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.select.*
 import cc.joycreator.joybrush.core.shape.Pt
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.LineAddress
+import cc.joycreator.joybrush.core.stroke.AddressedStroke
+import cc.joycreator.joybrush.core.select.SelectionLine
 import cc.joycreator.joybrush.core.vector.InkLine
 import org.junit.Assert.*
 import org.junit.Test
@@ -48,8 +51,8 @@ class SelectToolEditTest {
         var releases = 0
         var commitResult = true
         override fun setTransform(h: Homography) {}
-        override fun preview(records: List<StrokeRecord>) { previews++ }
-        override fun commit(after: List<StrokeRecord>): Boolean {
+        override fun preview(records: List<AddressedStroke>) { previews++ }
+        override fun commit(after: List<AddressedStroke>): Boolean {
             commits++
             return commitResult && host.replaceLines(after)
         }
@@ -68,23 +71,23 @@ class SelectToolEditTest {
         private fun lines() = records.map { r ->
             val xs = r.samples.map { it.x.toDouble() }.toDoubleArray()
             val ys = r.samples.map { it.y.toDouble() }.toDoubleArray()
-            SelectionHost.Line(r.id, "layer", InkLine(r.id, xs, ys, DoubleArray(xs.size) { 1.0 }), r, false, null)
+            SelectionHost.Line(LineAddress("layer", null, r.id), InkLine(r.id, xs, ys, DoubleArray(xs.size) { 1.0 }), r, false, null)
         }
         override fun activeLines() = lines()
         override fun visibleLines() = lines()
-        override fun liftLines(ids: Set<String>): LiftedLines? {
+        override fun liftLines(ids: Set<LineAddress>): LiftedLines? {
             if (!provideLineLift) return null
             return Lines(this).also { lineLift = it }
         }
-        override fun replaceLines(after: List<StrokeRecord>): Boolean {
+        override fun replaceLines(after: List<AddressedStroke>): Boolean {
             if (after.isEmpty() || rejectReplacements) return false
-            val changed = after.any { next -> records.firstOrNull { it.id == next.id } != next }
-            records = records.map { old -> after.firstOrNull { it.id == old.id } ?: old }.toMutableList()
+            val changed = after.any { next -> records.firstOrNull { LineAddress("layer", null, it.id) == next.address } != next.record }
+            records = records.map { old -> after.firstOrNull { it.address == LineAddress("layer", null, old.id) }?.record ?: old }.toMutableList()
             return changed
         }
-        override fun addLines(records: List<StrokeRecord>): Boolean { this.records.addAll(records); return records.isNotEmpty() }
-        override fun deleteLines(ids: Set<String>): Boolean { val before = records.size; records.removeAll { it.id in ids }; return before != records.size }
-        override fun bakeLines(ids: Set<String>) = false
+        override fun addLines(records: List<AddressedStroke>): Boolean { this.records.addAll(records.map { it.record }); return records.isNotEmpty() }
+        override fun deleteLines(ids: Set<LineAddress>): Boolean { val before = records.size; records.removeAll { LineAddress("layer", null, it.id) in ids }; return before != records.size }
+        override fun bakeLines(ids: Set<LineAddress>) = false
         override fun liftPixels(mask: SelectionMask, keepSource: Boolean): LiftedPixels? {
             pixelLifts++
             pixels?.let { lifted ->
@@ -110,7 +113,7 @@ class SelectToolEditTest {
     )
 
     private fun selectLines(tool: SelectTool, host: Host, left: Double = 0.0, right: Double = 50.0) {
-        val lines = host.activeLines().map { it.geometry }
+        val lines = host.activeLines().map { SelectionLine(it.address, it.geometry) }
         tool.state.loop(
             listOf(Pt(left, 0.0), Pt(right, 0.0), Pt(right, 40.0), Pt(left, 40.0)),
             lines, lines, SelectionState.Reading(take = SelectionState.Take.LINES), adding = false,
@@ -193,7 +196,7 @@ class SelectToolEditTest {
         val tool = SelectTool(host, 1f) { true }
         selectLines(tool, host)
         assertTrue(tool.reweight(1.5f, done = false))
-        tool.chooseFromOrder(listOf("b"), 0, adding = false, at = SelectionState.Pick(110.0, 10.0))
+        tool.chooseFromOrder(listOf(LineAddress("layer", null, "b")), 0, adding = false, at = SelectionState.Pick(110.0, 10.0))
         assertTrue(tool.reweight(2f, done = true))
         assertEquals(1f, host.records.first { it.id == "a" }.widthScale, 0.001f)
         assertEquals(2f, host.records.first { it.id == "b" }.widthScale, 0.001f)

@@ -203,7 +203,7 @@ class SelectController(
             count.visibility = View.GONE
         when (s) {
             is SelectionState.Lines -> {
-                val recs = host.visibleLines().filter { it.id in s.ids }
+                val recs = host.visibleLines().filter { it.address in s.ids }
                 val colours = recs.map { it.record.colorArgb }.distinct().take(2)
                 val icon = recs.firstOrNull()?.let { app.brushIcon(it.record.brushId) } ?: JbIcon.BRUSH
                 row.showLines(colours, icon, 1f, picks.chipsInRow)

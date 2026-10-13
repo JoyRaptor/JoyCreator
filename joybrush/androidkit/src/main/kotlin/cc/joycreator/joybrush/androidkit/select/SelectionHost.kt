@@ -3,6 +3,8 @@ package cc.joycreator.joybrush.androidkit.select
 import cc.joycreator.joybrush.core.select.Homography
 import cc.joycreator.joybrush.core.select.SelectionMask
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.LineAddress
+import cc.joycreator.joybrush.core.stroke.AddressedStroke
 import cc.joycreator.joybrush.core.vector.InkLine
 
 /**
@@ -20,13 +22,21 @@ interface SelectionHost {
      * `InkEditSession.lines` builds it), and the two fields 5.20a adds for this lane.
      */
     class Line(
-        val id: String,
-        val layerId: String,
+        val address: LineAddress,
         val geometry: InkLine,
         val record: StrokeRecord,
         val locked: Boolean,
         val groupId: String?,
-    )
+    ) {
+        init {
+            require(address.recordId == record.id && address.recordId == geometry.id) {
+                "Selection geometry and record must match their address"
+            }
+        }
+        val id: String get() = address.recordId
+        val layerId: String get() = address.layerId
+        val celId: String? get() = address.celId
+    }
 
     /** The active layer's current cel's lines, in drawing order (seq). Empty until 5.20a/5.20d land. */
     fun activeLines(): List<Line>
@@ -37,19 +47,20 @@ interface SelectionHost {
     // ── lines (H5) ──
 
     /** Lifts [ids] into their own texture for a live, cheap preview while the box moves; null = no live preview. */
-    fun liftLines(ids: Set<String>): LiftedLines?
+    fun liftLines(ids: Set<LineAddress>): LiftedLines?
 
-    /** Replaces records by id (recolour, re-brush, re-weight, flip, nudge, tip), ONE step. False = nothing changed. */
-    fun replaceLines(after: List<StrokeRecord>): Boolean
+    /** Replaces at each exact address, preserving seq (recolour, re-brush, re-weight, flip, nudge, tip), ONE step. */
+    fun replaceLines(after: List<AddressedStroke>): Boolean
 
-    /** Adds records at new seqs on top (Duplicate, Paste), ONE step. */
-    fun addLines(records: List<StrokeRecord>): Boolean
+    /** Adds at each addressed destination (Duplicate, Paste), assigning new seqs on top, ONE step.
+     * Every address must be vacant; validate the whole batch before writing. Input seq is not reused. */
+    fun addLines(records: List<AddressedStroke>): Boolean
 
-    /** Deletes by id, ONE step. */
-    fun deleteLines(ids: Set<String>): Boolean
+    /** Deletes at each exact layer/cel/record address, ONE step. */
+    fun deleteLines(ids: Set<LineAddress>): Boolean
 
     /** Rasterize Down: the lines become pixels at their own seqs (JB-5.20 D12), ONE step. */
-    fun bakeLines(ids: Set<String>): Boolean
+    fun bakeLines(ids: Set<LineAddress>): Boolean
 
     // ── paint (H4, H5) ──
 
@@ -86,15 +97,15 @@ interface LiftedLines {
     fun setTransform(h: Homography)
 
     /**
-     * Re-render the lifted texture from [records] (same ids) with NO undo step: the live view of a nudge, a tip drag, a
+     * Re-render the lifted texture from [records] (same addresses) with NO undo step: the live view of a nudge, a tip drag, a
      * weight scrub or a colour being picked. The drawing itself is unchanged until [commit]. It may run every frame of a
-     * drag, so it reuses the lifted texture (no allocation per call). Records whose ids are not the lifted set are refused
+     * drag, so it reuses the lifted texture (no allocation per call). Addresses outside the lifted set are refused
      * in words (Lead, 2026-10-12), never silently added.
      */
-    fun preview(records: List<StrokeRecord>)
+    fun preview(records: List<AddressedStroke>)
 
-    /** [after] (same ids, same seqs) replaces them as ONE step; stays lifted at identity. False when nothing changed. */
-    fun commit(after: List<StrokeRecord>): Boolean
+    /** [after] (same addresses, same seqs) replaces them as ONE step; stays lifted at identity. */
+    fun commit(after: List<AddressedStroke>): Boolean
 
     /** The selection ended: the lines go back into the cel's look, no step. */
     fun release()

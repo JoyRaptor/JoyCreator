@@ -12,10 +12,12 @@ import cc.joycreator.joybrush.core.select.LineTransform
 import cc.joycreator.joybrush.core.select.SelectRouter
 import cc.joycreator.joybrush.core.select.SelectionMask
 import cc.joycreator.joybrush.core.select.SelectionState
+import cc.joycreator.joybrush.core.select.SelectionLine
+import cc.joycreator.joybrush.core.stroke.LineAddress
+import cc.joycreator.joybrush.core.stroke.AddressedStroke
 import cc.joycreator.joybrush.core.shape.Pt
 import cc.joycreator.joybrush.core.stroke.StrokeEdit
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
-import cc.joycreator.joybrush.core.vector.InkLine
 import cc.joycreator.joybrush.core.vector.StrokePicker
 import kotlin.math.hypot
 
@@ -69,7 +71,7 @@ class SelectTool(
     var lassoScreen: FloatArray? = null
         private set
     /** Lines that glow: the pen's hover target, the loop's preview, the crosshair's target. */
-    var glowIds: List<String> = emptyList()
+    var glowIds: List<LineAddress> = emptyList()
         private set
     /** Where the crosshair is; null when it is not up. */
     var crosshairAt: FloatArray? = null
@@ -88,7 +90,7 @@ class SelectTool(
     fun glowScreen(): List<Pair<FloatArray, Float>> {
         if (glowIds.isEmpty()) return emptyList()
         val out = ArrayList<Pair<FloatArray, Float>>(glowIds.size)
-        for (l in lines) if (l.id in glowIds) {
+        for (l in lines) if (l.address in glowIds) {
             val g = l.geometry
             val pts = FloatArray(g.xs.size * 2)
             var half = 0.0
@@ -116,8 +118,8 @@ class SelectTool(
     }
 
     val state = SelectionState(items = object : SelectionState.Items {
-        override fun locked(id: String) = lineById(id)?.locked ?: false
-        override fun group(id: String) = lineById(id)?.groupId
+        override fun locked(id: LineAddress) = lineById(id)?.locked ?: false
+        override fun group(id: LineAddress) = lineById(id)?.groupId
     })
 
     /** The selection the box works on, or null. */
@@ -125,17 +127,17 @@ class SelectTool(
 
     /** The ordinal beside the last tap/crosshair pick; ids remain an internal, current-contract snapshot. */
     data class CountPick(val at: SelectionState.Pick, val index: Int, val total: Int)
-    internal data class CountStamp(val id: String, val layerId: String, val locked: Boolean,
+    internal data class CountStamp(val address: LineAddress, val locked: Boolean,
                                    val groupId: String?, val record: StrokeRecord)
     class CountSession internal constructor(
         val pick: CountPick,
-        internal val order: List<String>,
-        internal val base: Set<String>,
+        internal val order: List<LineAddress>,
+        internal val base: Set<LineAddress>,
         internal val stamp: List<CountStamp>,
     )
     var countPick: CountPick? = null
         private set
-    private var countOrder: List<String> = emptyList()
+    private var countOrder: List<LineAddress> = emptyList()
     private var countSession: CountSession? = null
 
     /** The box's four corners in DOCUMENT px (top-left, top-right, bottom-right, bottom-left), or null. */
@@ -148,11 +150,11 @@ class SelectTool(
     private var liftedLines: LiftedLines? = null
     private var liftedPixels: LiftedPixels? = null
     private var mask: SelectionMask? = null
-    private var startRecords: List<StrokeRecord> = emptyList()
+    private var startRecords: List<AddressedStroke> = emptyList()
     /** A weight drag starts from current records, never a preceding box/bend gesture. */
-    private var weightRecords: List<StrokeRecord>? = null
+    private var weightRecords: List<AddressedStroke>? = null
     /** The selected lines as they were when the selection was made (the ring's Reset). */
-    private var selectionStart: List<StrokeRecord> = emptyList()
+    private var selectionStart: List<AddressedStroke> = emptyList()
     private var lastPreviewAt = 0L
     private val handler = Handler(Looper.getMainLooper())
     private val tick = Runnable { router.tick() }
@@ -249,7 +251,9 @@ class SelectTool(
         val ok = when (state.current) {
             is SelectionState.Lines -> {
                 val weight = if (keepWeights) LineTransform.Weight.KEEP else LineTransform.Weight.SCALE
-                val after = startRecords.map { LineTransform.apply(it, h, weight) }
+                val after = startRecords.map { entry ->
+                    LineTransform.apply(entry.record, h, weight)?.let { AddressedStroke(entry.address, it) }
+                }
                 if (after.any { it == null }) {
                     host.toast("This move is too large to make.")
                     false
@@ -330,7 +334,7 @@ class SelectTool(
         if (state.current !is SelectionState.Lines) return false
         val before = weightRecords ?: selectedRecords().also { weightRecords = it }
         if (before.isEmpty()) { weightRecords = null; return false }
-        val after = before.map { StrokeEdit.reweight(it, factor) }
+        val after = before.map { it.copy(record = StrokeEdit.reweight(it.record, factor)) }
         if (!done) { liftedLines?.preview(after); host.invalidate(); return true }
         weightRecords = null
         val ok = commitLines(after)
@@ -360,13 +364,17 @@ class SelectTool(
     fun duplicate(newId: () -> String): Boolean {
         val s = state.current as? SelectionState.Lines ?: return false
         val o = 16f * density / view.zoom
-        val copies = selectedRecords().map { r -> r.copy(id = newId(), samples = r.samples.map { it.copy(x = it.x + o, y = it.y + o) }) }
+        val copies = selectedRecords().map { entry ->
+            val r = entry.record
+            val record = r.copy(id = newId(), seq = 0L, samples = r.samples.map { it.copy(x = it.x + o, y = it.y + o) })
+            AddressedStroke(entry.address.copy(recordId = record.id), record)
+        }
         if (!host.addLines(copies)) return false
         lines = host.visibleLines()
         releaseLift()
         state.clear()
-        copies.forEach { state.choose(it.id, adding = true, at = null, lines = geometries(lines)) }
-        if (state.current == null && copies.isNotEmpty()) state.choose(copies[0].id, adding = false, at = null, lines = geometries(lines))
+        copies.forEach { state.choose(it.address, adding = true, at = null, lines = geometries(lines)) }
+        if (state.current == null && copies.isNotEmpty()) state.choose(copies[0].address, adding = false, at = null, lines = geometries(lines))
         onSelectionChanged()
         return s.ids.isNotEmpty()
     }
@@ -402,7 +410,7 @@ class SelectTool(
     }
 
     /** Step the selection to candidate [i] of the tap's order (the count scrubber, K11), adding when ＋ is on (K12). */
-    fun chooseFromOrder(order: List<String>, i: Int, adding: Boolean, at: SelectionState.Pick) {
+    fun chooseFromOrder(order: List<LineAddress>, i: Int, adding: Boolean, at: SelectionState.Pick) {
         if (i !in order.indices) return
         lines = host.visibleLines()
         state.choose(order[i], adding, at, geometries(activeLines()))
@@ -441,7 +449,7 @@ class SelectTool(
     /** Cancellation keeps the last chosen line, as in the approved count mock; it never cycles once more. */
     fun endCountScrub(session: CountSession) { if (countSession === session) countSession = null }
 
-    private fun countContext(order: List<String>, index: Int, at: SelectionState.Pick): CountPick? =
+    private fun countContext(order: List<LineAddress>, index: Int, at: SelectionState.Pick): CountPick? =
         if (order.size > 1 && index in order.indices && state.current is SelectionState.Lines)
             CountPick(at, index, order.size) else null
 
@@ -453,11 +461,13 @@ class SelectTool(
         listener?.selectionChanged()
     }
 
-    private fun rankFor(at: SelectionState.Pick): List<String> = picker.rank(
-        geometries(activeLines().filter { !it.locked || state.pickLocked }), at.x, at.y, view.zoom.toDouble())
+    private fun rankFor(at: SelectionState.Pick): List<LineAddress> {
+        val pickable = activeLines().filter { !it.locked || state.pickLocked }
+        return picker.rankIndices(pickable.map { it.geometry }, at.x, at.y, view.zoom.toDouble()).map { pickable[it].address }
+    }
 
     private fun countStamp(): List<CountStamp> = activeLines().map {
-        CountStamp(it.id, it.layerId, it.locked, it.groupId, it.record)
+        CountStamp(it.address, it.locked, it.groupId, it.record)
     }
 
     /** The selection ends: lifts go back, the clip and the fade are cleared. */
@@ -487,7 +497,9 @@ class SelectTool(
             val now = SystemClock.uptimeMillis()
             if (now - lastPreviewAt >= PREVIEW_MS && points.size >= 6) {
                 lastPreviewAt = now
-                glowIds = LineLasso.take(geometries(activeLines()), toDoc(points), LineLasso.Reach.WHOLE)
+                val candidates = activeLines()
+                glowIds = LineLasso.takeIndices(candidates.map { it.geometry }, toDoc(points), LineLasso.Reach.WHOLE)
+                    .map { candidates[it].address }
             }
             listener?.overlayChanged()
         }
@@ -534,7 +546,7 @@ class SelectTool(
 
     // ── nudge and tips (D13, D14, K15, K16) ──
 
-    private class Tip(val id: String, val end: Boolean)
+    private class Tip(val id: LineAddress, val end: Boolean)
     private var tipGrab: Tip? = null
     private var bendGrab: FloatArray? = null
 
@@ -555,28 +567,32 @@ class SelectTool(
             SelectRouter.Phase.END -> {
                 ringAt = null
                 val gap = 2f * density / view.zoom
-                commitLines(bent(dx, dy).map { LineDensify.densify(it, gap) })
+                commitLines(bent(dx, dy).mapIndexed { i, entry ->
+                    if (entry == startRecords[i]) entry
+                    else entry.copy(record = LineDensify.densify(entry.record, gap))
+                })
                 bendGrab = null; tipGrab = null; startRecords = emptyList()
                 refitBox()
             }
         }
     }
 
-    private fun bent(dx: Float, dy: Float): List<StrokeRecord> {
+    private fun bent(dx: Float, dy: Float): List<AddressedStroke> {
         val g = bendGrab ?: return startRecords
         val t = tipGrab
-        return startRecords.map { r ->
-            if (t != null && r.id != t.id) return@map r
+        return startRecords.map { entry ->
+            val r = entry.record
+            if (t != null && entry.address != t.id) return@map entry
             val radius = if (t != null) maxOf(0.35f * arcLength(r), 24f * density / view.zoom) else nudgeRadiusDp * density / view.zoom
             // D13: only the selected lines the ring reaches bend; the rest stay exactly as they are.
-            if (t == null && r.samples.none { hypot(it.x - g[0], it.y - g[1]) <= radius }) return@map r
-            StrokeEdit.reshape(r, g[0], g[1], dx - g[0], dy - g[1], radius)
+            if (t == null && r.samples.none { hypot(it.x - g[0], it.y - g[1]) <= radius }) return@map entry
+            entry.copy(record = StrokeEdit.reshape(r, g[0], g[1], dx - g[0], dy - g[1], radius))
         }
     }
 
     // ── what changes when the selection does ──
 
-    private fun onSelectionChanged(pick: CountPick? = null, order: List<String> = emptyList(), session: CountSession? = null) {
+    private fun onSelectionChanged(pick: CountPick? = null, order: List<LineAddress> = emptyList(), session: CountSession? = null) {
         countPick = if (state.current is SelectionState.Lines) pick else null
         countOrder = if (countPick != null) order.toList() else emptyList()
         countSession = if (countPick != null) session else null
@@ -613,7 +629,7 @@ class SelectTool(
         boxDoc = when (val s = state.current) {
             is SelectionState.Lines -> {
                 var x0 = Double.MAX_VALUE; var y0 = Double.MAX_VALUE; var x1 = -Double.MAX_VALUE; var y1 = -Double.MAX_VALUE
-                for (l in lines) if (l.id in s.ids) for (i in l.geometry.xs.indices) {
+                for (l in lines) if (l.address in s.ids) for (i in l.geometry.xs.indices) {
                     val h = l.geometry.halfWidths[i]
                     x0 = minOf(x0, l.geometry.xs[i] - h); x1 = maxOf(x1, l.geometry.xs[i] + h)
                     y0 = minOf(y0, l.geometry.ys[i] - h); y1 = maxOf(y1, l.geometry.ys[i] + h)
@@ -640,7 +656,7 @@ class SelectTool(
 
     // ── helpers ──
 
-    private fun commitLines(after: List<StrokeRecord>): Boolean {
+    private fun commitLines(after: List<AddressedStroke>): Boolean {
         val l = liftedLines
         val ok = if (l != null) l.commit(after) else host.replaceLines(after)
         lines = host.visibleLines()
@@ -651,32 +667,32 @@ class SelectTool(
     private fun editRecords(edit: (StrokeRecord) -> StrokeRecord): Boolean {
         if (state.current !is SelectionState.Lines) return false
         cancelWeight()
-        return commitLines(selectedRecords().map(edit))
+        return commitLines(selectedRecords().map { it.copy(record = edit(it.record)) })
     }
 
-    private fun selectedRecords(): List<StrokeRecord> {
+    private fun selectedRecords(): List<AddressedStroke> {
         val s = state.current as? SelectionState.Lines ?: return emptyList()
-        return lines.filter { it.id in s.ids }.map { it.record }
+        return lines.filter { it.address in s.ids }.map { AddressedStroke(it.address, it.record) }
     }
 
     private fun activeLines(): List<SelectionHost.Line> = host.activeLines()
 
-    private fun geometries(ls: List<SelectionHost.Line>): List<InkLine> = ls.map { it.geometry }
+    private fun geometries(ls: List<SelectionHost.Line>): List<SelectionLine> = ls.map { SelectionLine(it.address, it.geometry) }
 
-    private fun lineById(id: String): SelectionHost.Line? = lines.firstOrNull { it.id == id }
+    private fun lineById(id: LineAddress): SelectionHost.Line? = lines.firstOrNull { it.address == id }
 
     private fun toDoc(points: FloatArray): List<Pt> = (0 until points.size / 2).map {
         val (x, y) = view.screenToDoc(points[it * 2], points[it * 2 + 1]); Pt(x.toDouble(), y.toDouble())
     }
 
-    private fun rankAt(x: Float, y: Float): List<String> {
+    private fun rankAt(x: Float, y: Float): List<LineAddress> {
         val (dx, dy) = view.screenToDoc(x, y)
         val pickable = activeLines().filter { !it.locked || state.pickLocked }
-        return picker.rank(geometries(pickable), dx.toDouble(), dy.toDouble(), view.zoom.toDouble())
+        return picker.rankIndices(pickable.map { it.geometry }, dx.toDouble(), dy.toDouble(), view.zoom.toDouble()).map { pickable[it].address }
     }
 
     /** D5: the line a tap would take, or the NEXT one when hovering the spot just picked. */
-    private fun hoverTarget(x: Float, y: Float): List<String> {
+    private fun hoverTarget(x: Float, y: Float): List<LineAddress> {
         val order = rankAt(x, y)
         if (order.isEmpty()) return emptyList()
         val s = state.current as? SelectionState.Lines
@@ -708,10 +724,10 @@ class SelectTool(
         val s = state.current as? SelectionState.Lines ?: return null
         if (s.ids.size > 6 || nudging) return null
         val reach = TIP_REACH_DP * density
-        for (l in lines) if (l.id in s.ids) for (end in listOf(false, true)) {
-            val p = tipPoint(Tip(l.id, end)) ?: continue
+        for (l in lines) if (l.address in s.ids) for (end in listOf(false, true)) {
+            val p = tipPoint(Tip(l.address, end)) ?: continue
             val (sx, sy) = view.docToScreen(p[0], p[1])
-            if (hypot(sx - x, sy - y) <= reach) return Tip(l.id, end)
+            if (hypot(sx - x, sy - y) <= reach) return Tip(l.address, end)
         }
         return null
     }
@@ -722,8 +738,8 @@ class SelectTool(
         if (s.ids.size > 6 || nudging) return emptyList()
         val out = ArrayList<FloatArray>()
         val hv = hoverAt
-        for (l in lines) if (l.id in s.ids) for (end in listOf(false, true)) {
-            val p = tipPoint(Tip(l.id, end)) ?: continue
+        for (l in lines) if (l.address in s.ids) for (end in listOf(false, true)) {
+            val p = tipPoint(Tip(l.address, end)) ?: continue
             val (sx, sy) = view.docToScreen(p[0], p[1])
             if (penSeen() && (hv == null || hypot(hv[0] - sx, hv[1] - sy) > TIP_SHOW_DP * density)) continue
             if (nearCorner(sx, sy)) continue

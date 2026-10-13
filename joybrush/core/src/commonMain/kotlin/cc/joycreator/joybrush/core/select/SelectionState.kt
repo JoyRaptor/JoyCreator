@@ -1,14 +1,14 @@
 package cc.joycreator.joybrush.core.select
 
 import cc.joycreator.joybrush.core.shape.Pt
-import cc.joycreator.joybrush.core.vector.InkLine
+import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.core.vector.StrokePicker
 
 /**
  * JB-5.20e — what is selected, and the rules that change it (spec D3, D6, D9, and the owner's pick P6). Pure: no view,
  * no engine, no undo. Selecting, cycling and re-reading a loop are never undo steps (D20); the edits that follow are.
  *
- * Lines are given as [InkLine]s (the picker's and the eraser's view of a line: centreline plus half-widths), in drawing
+ * Lines are given as [SelectionLine]s (the picker's and the eraser's view of a line: centreline plus half-widths), in drawing
  * order, the most recent last. Coordinates are document px; [screenPerDoc] is the zoom, because every distance a finger
  * aims at is a SCREEN distance.
  */
@@ -23,8 +23,8 @@ class SelectionState(
      * lines given) into or out of the selection with it.
      */
     interface Items {
-        fun locked(id: String): Boolean = false
-        fun group(id: String): String? = null
+        fun locked(id: LineAddress): Boolean = false
+        fun group(id: LineAddress): String? = null
 
         companion object {
             val NONE: Items = object : Items {}
@@ -34,15 +34,21 @@ class SelectionState(
     /** The Select menu's "Pick locked lines too". */
     var pickLocked: Boolean = false
 
-    private fun pickable(lines: List<InkLine>): List<InkLine> = if (pickLocked) lines else lines.filter { !items.locked(it.id) }
+    private fun pickable(lines: List<SelectionLine>): List<SelectionLine> = if (pickLocked) lines else lines.filter { !items.locked(it.address) }
 
     /** [ids] with every member of their groups among [scope]. */
-    private fun withGroups(ids: Collection<String>, scope: List<InkLine>): Set<String> {
+    private fun withGroups(ids: Collection<LineAddress>, scope: List<SelectionLine>): Set<LineAddress> {
         val groups = ids.mapNotNull { items.group(it) }.toSet()
         if (groups.isEmpty()) return ids.toSet()
         val out = ids.toMutableSet()
-        for (l in scope) if (items.group(l.id) in groups) out.add(l.id)
+        for (l in scope) if (items.group(l.address) in groups) out.add(l.address)
         return out
+    }
+
+    /** Map geometry ordinals immediately, while ownership remains paired in candidate order. */
+    private fun taken(scope: List<SelectionLine>, loop: List<Pt>, reach: LineLasso.Reach): List<LineAddress> {
+        val candidates = pickable(scope)
+        return LineLasso.takeIndices(candidates.map { it.geometry }, loop, reach).map { candidates[it].address }
     }
 
     /** How a kept loop is read (D9): the three chips on the bar. */
@@ -61,7 +67,7 @@ class SelectionState(
     sealed interface Selection
 
     /** Lines by id. [loop] and [reading] are present when a loop made it (so the chips can re-read it). */
-    data class Lines(val ids: Set<String>, val loop: List<Pt>?, val reading: Reading?, val pick: Pick?) : Selection
+    data class Lines(val ids: Set<LineAddress>, val loop: List<Pt>?, val reading: Reading?, val pick: Pick?) : Selection
 
     /** Paint inside [loop] on one layer. [linesInLoop] is what the Lines chip would take, for its count. */
     data class Pixels(val loop: List<Pt>, val reading: Reading, val linesInLoop: Int) : Selection
@@ -81,10 +87,11 @@ class SelectionState(
      * - On nothing, inside the box: nothing changes (the likeliest mis-tap while working the handles).
      * - On nothing, outside the box: the selection ends.
      */
-    fun tap(x: Double, y: Double, screenPerDoc: Double, lines: List<InkLine>, adding: Boolean, insideBox: (Double, Double) -> Boolean): Boolean {
+    fun tap(x: Double, y: Double, screenPerDoc: Double, lines: List<SelectionLine>, adding: Boolean, insideBox: (Double, Double) -> Boolean): Boolean {
         if (!x.isFinite() || !y.isFinite()) return false
         val zoom = if (screenPerDoc.isFinite() && screenPerDoc > 0.0) screenPerDoc else 1.0
-        val order = picker.rank(pickable(lines), x, y, zoom)
+        val candidates = pickable(lines)
+        val order = picker.rankIndices(candidates.map { it.geometry }, x, y, zoom).map { candidates[it].address }
         val cur = current
         if (cur is Lines && cur.ids.size == 1 && cur.pick != null && !adding && order.size > 1) {
             val reach = CYCLE_REACH_SCREEN_PX / zoom
@@ -118,7 +125,7 @@ class SelectionState(
      * The owner's K12: with [adding], it is added (or taken back out), exactly as a tap would be; without, it is the whole
      * new selection. [at] is where the pick happened, so a later tap on that spot keeps cycling from it.
      */
-    fun choose(id: String, adding: Boolean, at: Pick?, lines: List<InkLine> = emptyList()) {
+    fun choose(id: LineAddress, adding: Boolean, at: Pick?, lines: List<SelectionLine> = emptyList()) {
         if (!pickLocked && items.locked(id)) return
         val unit = withGroups(listOf(id), lines)
         val cur = current
@@ -131,12 +138,12 @@ class SelectionState(
     }
 
     /** The additive count browses one unit while keeping the other selected units unchanged. */
-    fun countBaseWithout(id: String, lines: List<InkLine>): Set<String> =
+    fun countBaseWithout(id: LineAddress, lines: List<SelectionLine>): Set<LineAddress> =
         ((current as? Lines)?.ids ?: emptySet()) - withGroups(listOf(id), lines)
 
     /** Atomically choose against the count gesture's fixed base. Picking never writes drawing/history. */
-    fun chooseFromBase(id: String, base: Set<String>, at: Pick, lines: List<InkLine>): Boolean {
-        if (lines.none { it.id == id } || (!pickLocked && items.locked(id))) return false
+    fun chooseFromBase(id: LineAddress, base: Set<LineAddress>, at: Pick, lines: List<SelectionLine>): Boolean {
+        if (lines.none { it.address == id } || (!pickLocked && items.locked(id))) return false
         current = Lines(base.toSet() + withGroups(listOf(id), lines), null, null, at)
         return true
     }
@@ -147,12 +154,12 @@ class SelectionState(
      * them is already selected (Concepts' "lasso again to subtract", which here cannot mean "drag inside the box": that
      * moves it). Fewer than three points selects nothing and changes nothing.
      */
-    fun loop(loop: List<Pt>, here: List<InkLine>, everywhere: List<InkLine>, reading: Reading, adding: Boolean): Boolean {
+    fun loop(loop: List<Pt>, here: List<SelectionLine>, everywhere: List<SelectionLine>, reading: Reading, adding: Boolean): Boolean {
         if (loop.size < 3) return false
         val cur = current
         if (adding && cur is Lines) {
             val scope = if (reading.allLayers) everywhere else here
-            val taken = withGroups(LineLasso.take(pickable(scope), loop, reading.reach), scope).toList()
+            val taken = withGroups(taken(scope, loop, reading.reach), scope).toList()
             if (taken.isEmpty()) return false
             val ids = if (taken.all { it in cur.ids }) cur.ids - taken.toSet() else cur.ids + taken
             current = if (ids.isEmpty()) null else Lines(ids, null, null, null)
@@ -171,7 +178,7 @@ class SelectionState(
      * resulting [Lines.reading] says Touching, so the chip follows), "because that's what I was meaning anyway" (owner).
      * Only a loop that touches no line at all stays on paint, with [NO_LINES].
      */
-    fun reread(reading: Reading, here: List<InkLine>, everywhere: List<InkLine>): String? {
+    fun reread(reading: Reading, here: List<SelectionLine>, everywhere: List<SelectionLine>): String? {
         val cur = current
         val loop = when (cur) { is Lines -> cur.loop; is Pixels -> cur.loop; null -> null } ?: return null
         var next = read(loop, here, everywhere, reading)
@@ -194,9 +201,9 @@ class SelectionState(
         }
     }
 
-    private fun read(loop: List<Pt>, here: List<InkLine>, everywhere: List<InkLine>, reading: Reading): Selection {
+    private fun read(loop: List<Pt>, here: List<SelectionLine>, everywhere: List<SelectionLine>, reading: Reading): Selection {
         val scope = if (reading.allLayers) everywhere else here
-        val lines = withGroups(LineLasso.take(pickable(scope), loop, reading.reach), scope).toList()
+        val lines = withGroups(taken(scope, loop, reading.reach), scope).toList()
         if (reading.take != Take.PIXELS && lines.isNotEmpty()) return Lines(lines.toSet(), loop, reading, null)
         return Pixels(loop, reading, lines.size)
     }

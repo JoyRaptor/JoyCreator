@@ -183,6 +183,19 @@ row after this one.
 6. Watercolour over a line: the line shows through, glazed; it does not bleed.
 7. Save, close, reopen: everything still editable, and it opens as fast as before.
 
+## Scoped identity prerequisite for 5.20d (Lead, October13)
+
+A record ID is unique within its cel, not across the drawing. Runtime selection and edits
+use `LineAddress(layerId, celId, recordId)`; a null cel identifies the shared layer plane,
+and a frame uses its actual cel ID. This matches the existing `UndoLog.LineChange` scope.
+`SelectionLine` pairs that address with canonical-ID geometry; picker/lasso ordinals map
+directly back to the paired candidates. `AddressedStroke` carries address and record together
+through snapshots, preview and commit. Never re-pair a separately sorted record list.
+Replacement preserves each record's seq. Addition validates vacant destination addresses
+and assigns new seqs at the top of each destination. These runtime types do not change the
+saved format. The prerequisite does not activate editable capture, engine history or Select
+Activity routing; those still require the live 5.20d implementation and its proofs.
+
 ## Questions for the owner
 
 - **Q1:** Flatten Lower = "this layer and everything below it become one pixel layer". Right, or did you mean only this

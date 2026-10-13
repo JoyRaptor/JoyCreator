@@ -29,12 +29,17 @@ object LineLasso {
 
     /** The ids of [lines] the loop takes, in [lines] order. */
     fun take(lines: List<InkLine>, loop: List<Pt>, reach: Reach): List<String> {
+        return takeIndices(lines, loop, reach).map { lines[it].id }
+    }
+
+    /** Input ordinals of the taken lines; duplicate record ids remain separate candidates. */
+    fun takeIndices(lines: List<InkLine>, loop: List<Pt>, reach: Reach): List<Int> {
         val poly = usable(loop) ?: return emptyList()
-        val out = ArrayList<String>()
-        for (line in lines) {
+        val out = ArrayList<Int>()
+        for ((index, line) in lines.withIndex()) {
             if (!overlaps(line, poly)) continue
             val f = fractionOf(line, poly)
-            if (if (reach == Reach.WHOLE) f >= WHOLE_FRACTION else f > 0.0) out.add(line.id)
+            if (if (reach == Reach.WHOLE) f >= WHOLE_FRACTION else f > 0.0) out.add(index)
         }
         return out
     }

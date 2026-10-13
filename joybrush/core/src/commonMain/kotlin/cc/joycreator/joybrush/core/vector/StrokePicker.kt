@@ -89,8 +89,13 @@ class StrokePicker {
      * with no time window (the owner re-taps slower than [CYCLE_WINDOW_MS]). Same slop, tie and zoom guard as [pick].
      */
     fun rank(lines: List<InkLine>, x: Double, y: Double, screenPerDoc: Double): List<String> {
+        return rankIndices(lines, x, y, screenPerDoc).map { lines[it].id }
+    }
+
+    /** Ranked input ordinals, preserving ownership when several lines have the same record id. */
+    fun rankIndices(lines: List<InkLine>, x: Double, y: Double, screenPerDoc: Double): List<Int> {
         val zoom = if (screenPerDoc.isFinite() && screenPerDoc > 0.0) screenPerDoc else 1.0
-        return rankingOf(lines, x, y, TAP_SLOP_SCREEN_PX / zoom, TIE_SCREEN_PX / zoom).map { it.id }
+        return rankingOf(lines, x, y, TAP_SLOP_SCREEN_PX / zoom, TIE_SCREEN_PX / zoom).map { it.index }
     }
 
     /**

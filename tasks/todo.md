@@ -563,3 +563,9 @@ tests (7WC +13existing tuning +2native sheet), Androidkit/native compile green.
 First compile caught/fixed a required-size omission in a new test fixture only.
 Serial slot released to lead. Actualgrain/paper GPU, LineLab4PNGs, integrationAPK
 and W4/W5 remain pending; no phone or browser was used for these checks.
+
+October13 GPU slot: actual grain/Artisan and all37 nonperceptual shader/seam/
+mutation gates pass. Full-resolution diagnostic<3 passes; six originalhalf-res
+appearance failures remain truthful, checkerexit1. Evidence JSON pushed with
+source54cf9c41; browserclosed/lockreleased. LineLab4PNGs, integrationAPK and
+W4/W5 remain pending; no otherjob or phone was run in that GPU slot.

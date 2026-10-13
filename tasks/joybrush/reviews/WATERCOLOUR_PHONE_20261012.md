@@ -277,3 +277,38 @@ This completes the controls compile/tuning/native construction gates that were
 pending above. GPU actual grain/Artisan checks, LineLab four PNGs, integration
 APK, JB-5.20d host/W4 and physical W5 remain open. No GPU, browser, app assembly
 or phone command was launched in this slot. The slot was released to the lead.
+
+## Actual grain and Artisan GPU run — October13, completed
+
+ONE authorized watercolor checker job, source54cf9c41e9ee48898f3d6de7e70e8cb0c9726505,
+admitted4790MiB against a3200MiB minimum, exclusive shared lock. Actual shader
+finish, production Mulberry32/R8 grain bytes and canonical Artisan height were
+used. No LineLab, other GPU checker, build, server, benchmark or phone was run.
+
+- All37 nonperceptual gates pass, including deliberately broken mutation controls.
+- Edge/gravity pigment sliders change RGB by up to73/60 bytes, with zero alpha
+  changes. EdgeAlpha increases summed coverage182874->216597 with no decreases.
+- Grain increases breakup: summed coverage254565->154618, no pixel increases.
+  Paper height decreases227430->205088 and changes interior alpha range0->30.
+  Grain/paper-cut mutant errors187/42 bytes prove those controls were exercised.
+- CPU pooling0/.37/1 is byte-exact. Bands accumulate exactly. Cached fade
+  endpoints/clamps are exact; intermediate .37 differs by at most one byte.
+- All8 seam cases (constant/actual paper, scales1/2, two negative origins) have
+  zero mismatches. Neighbour mutants fail by up to118/119 bytes. GLerror0.
+- Full-resolution reference painted DeltaE1.936/1.985/2.032 passes<3. Original
+  half-res approved13.120/11.519/6.612 and isolated7.715/6.116/3.515 still FAIL.
+  Unpooled and shape comparisons pass. All15 appearance checks retain their
+  original thresholds; six historical differences remain reported failures.
+
+Checker exit1 reflects those six original appearance failures, not a fully green
+command. Full-resolution owner approval stands separately; no threshold or
+production/default shader change was made. POC loaded-copy reference quality1
+remains distinct from the approved UI preview renderScale.65. The new grain and
+actual paper tests are separate from the unchanged perceptual fixture.
+
+Raw report/source/terminal/exit and30 PNG pairs:
+`C:/Temp/jb-watercolour-gpu-20261013/`. Numeric source-matched evidence is pushed
+at `tasks/joybrush/reviews/evidence/WATERCOLOUR_GPU_20261013.json`. Browser finally
+closed normally; post-run owned SwiftShader Edge process count0 and shared lock
+absent. Original POC SHA256004B563B6467ED5775D56496EE05EAF56D4A5F187D2321799664146BDE60AF6E
+is unchanged. W4 host, LineLab sheets, integration APK and actual W5 remain open.

@@ -1,0 +1,320 @@
+{
+  "metadata": {
+    "minimumFreeMiB": 3200,
+    "admittedFreeMiB": 4790.0,
+    "source": "54cf9c41e9ee48898f3d6de7e70e8cb0c9726505",
+    "files": [
+      {
+        "path": "joybrush/tools/watercolour_check.js",
+        "sha256": "22DF82352522FBBF64A61CD2F1FF93FAA3865716C9329E6E78E1B76E087EF656"
+      },
+      {
+        "path": "joybrush/shaders/lines/jb_wc_finish.frag",
+        "sha256": "D8BBC284DEE7A6DE50959DF1DB5E3280AED4C3002FF9E1E4A93DE821F5158882"
+      },
+      {
+        "path": "C:/Users/JoyRaptor/Downloads/Watercolor-POC/index.html",
+        "sha256": "004B563B6467ED5775D56496EE05EAF56D4A5F187D2321799664146BDE60AF6E"
+      },
+      {
+        "path": "C:/Users/JoyRaptor/Downloads/Watercolor-POC/approved-watercolor-settings.json",
+        "sha256": "4BB1D089DE40CB5A7421E20B23DA928CD01D73486FA488B1B34FC903EB45E836"
+      }
+    ]
+  },
+  "checkerExitCode": 1,
+  "nonPerceptualChecksPassed": 37,
+  "appearanceChecks": 15,
+  "retainedAppearanceFailures": 6,
+  "ownedSwiftShaderBrowsersAfter": 0,
+  "sharedLockReleased": true,
+  "referenceQuality": 1,
+  "ownerDefault": "Full-resolution pooling accepted; original half-resolution diagnostics retained",
+  "report": {
+    "results": {
+      "finish_cpu_pooling_0": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "finish_cpu_pooling_0.37": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "finish_cpu_pooling_1": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "mutation_alpha_red": {
+        "mismatches": 1608,
+        "maxByteError": 95
+      },
+      "mutation_tint_red": {
+        "mismatches": 3990,
+        "maxByteError": 93
+      },
+      "cached_mix_amount_0": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "cached_mix_amount_0.37": {
+        "mismatches": 32,
+        "maxByteError": 1
+      },
+      "cached_mix_amount_1": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "cached_mix_amount_-0.25": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "cached_mix_amount_1.25": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "mutation_cached_mix_amount_red": {
+        "mismatches": 16272,
+        "maxByteError": 161
+      },
+      "mutation_cached_mix_alpha_red": {
+        "mismatches": 4128,
+        "maxByteError": 161
+      },
+      "independent_band_source_over": {
+        "sample": [
+          0.625,
+          0.625,
+          0.34375,
+          0
+        ],
+        "wanted": [
+          0.625,
+          0.625,
+          0.34375,
+          0
+        ]
+      },
+      "knob_edgePool_color_only_real_paper_grain": {
+        "maxAlphaChange": 0,
+        "maxColorChange": 73
+      },
+      "knob_gravityPool_color_only_real_paper_grain": {
+        "maxAlphaChange": 0,
+        "maxColorChange": 60
+      },
+      "knob_edgeAlpha_independent_buildup": {
+        "decreased": 0,
+        "low": {
+          "sum": 182874,
+          "count": 1330,
+          "range": 48
+        },
+        "high": {
+          "sum": 216597,
+          "count": 1330,
+          "range": 130
+        }
+      },
+      "knob_actual_grain_breakup": {
+        "increased": 0,
+        "low": {
+          "sum": 254565,
+          "count": 1330,
+          "range": 100
+        },
+        "high": {
+          "sum": 154618,
+          "count": 1330,
+          "range": 188
+        },
+        "fixture": "Mulberry32 seed521932 R8 128x128 / world256px"
+      },
+      "knob_actual_paper_height_breakup": {
+        "low": {
+          "sum": 227430,
+          "count": 1330,
+          "range": 0
+        },
+        "high": {
+          "sum": 205088,
+          "count": 1330,
+          "range": 30
+        },
+        "paper": "pulp_artisan canonical height"
+      },
+      "mutation_actual_grain_red": {
+        "mismatches": 5288,
+        "maxByteError": 187
+      },
+      "mutation_actual_paper_cut_red": {
+        "mismatches": 5320,
+        "maxByteError": 42
+      },
+      "seam_constant_scale1_-64_-64": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "mutation_neighbour_red_constant_scale1_-64_-64": {
+        "mismatches": 5368,
+        "maxByteError": 118
+      },
+      "seam_constant_scale2_-64_-64": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "mutation_neighbour_red_constant_scale2_-64_-64": {
+        "mismatches": 21431,
+        "maxByteError": 119
+      },
+      "seam_real_paper_scale1_-64_-64": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "mutation_neighbour_red_real_paper_scale1_-64_-64": {
+        "mismatches": 5382,
+        "maxByteError": 118
+      },
+      "seam_real_paper_scale2_-64_-64": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "mutation_neighbour_red_real_paper_scale2_-64_-64": {
+        "mismatches": 21444,
+        "maxByteError": 119
+      },
+      "seam_constant_scale1_-128_-128": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "mutation_neighbour_red_constant_scale1_-128_-128": {
+        "mismatches": 5368,
+        "maxByteError": 118
+      },
+      "seam_constant_scale2_-128_-128": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "mutation_neighbour_red_constant_scale2_-128_-128": {
+        "mismatches": 21431,
+        "maxByteError": 119
+      },
+      "seam_real_paper_scale1_-128_-128": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "mutation_neighbour_red_real_paper_scale1_-128_-128": {
+        "mismatches": 5382,
+        "maxByteError": 118
+      },
+      "seam_real_paper_scale2_-128_-128": {
+        "mismatches": 0,
+        "maxByteError": 0
+      },
+      "mutation_neighbour_red_real_paper_scale2_-128_-128": {
+        "mismatches": 21447,
+        "maxByteError": 119
+      },
+      "perceptual_note": "Full-resolution shader pooling vs POC half-resolution/LUT pooling; source R8 wash vs POC downsampled512 mask. Approved includes procedural paper/grain; engine test uses canonical constant-height paper and no placeholder grain. Isolated disables paper cut/grain in both. All deltas are reported without relaxing threshold3.",
+      "poc_linear_half_approved_seed_78234": {
+        "fullFrameMeanDeltaE": 0.201604516883873,
+        "paintedMeanDeltaE": 13.120039619510738,
+        "paintedPixels": 19297,
+        "maxDeltaE": 79.19831274974624
+      },
+      "poc_linear_half_approved_seed_78235": {
+        "fullFrameMeanDeltaE": 0.25547883495367557,
+        "paintedMeanDeltaE": 11.518953359592603,
+        "paintedPixels": 27826,
+        "maxDeltaE": 85.11130233071269
+      },
+      "poc_linear_half_approved_seed_78236": {
+        "fullFrameMeanDeltaE": 1.9784007827496013,
+        "paintedMeanDeltaE": 6.612358258796421,
+        "paintedPixels": 376021,
+        "maxDeltaE": 51.39279589580478
+      },
+      "poc_linear_half_isolated_seed_78234": {
+        "fullFrameMeanDeltaE": 0.11915117484992836,
+        "paintedMeanDeltaE": 7.7149708059522935,
+        "paintedPixels": 19365,
+        "maxDeltaE": 89.67096183735217
+      },
+      "poc_linear_half_isolated_seed_78235": {
+        "fullFrameMeanDeltaE": 0.13647780784929212,
+        "paintedMeanDeltaE": 6.1156067862894306,
+        "paintedPixels": 27908,
+        "maxDeltaE": 93.46052086312945
+      },
+      "poc_linear_half_isolated_seed_78236": {
+        "fullFrameMeanDeltaE": 1.0558353019816102,
+        "paintedMeanDeltaE": 3.5148543850854344,
+        "paintedPixels": 376763,
+        "maxDeltaE": 46.889975113228545
+      },
+      "poc_linear_half_full_resolution_reference_seed_78234": {
+        "fullFrameMeanDeltaE": 0.024288434145832375,
+        "paintedMeanDeltaE": 1.9363873674541938,
+        "paintedPixels": 15714,
+        "maxDeltaE": 58.94549195034777
+      },
+      "poc_linear_half_full_resolution_reference_seed_78235": {
+        "fullFrameMeanDeltaE": 0.03943379676039168,
+        "paintedMeanDeltaE": 1.9852322428049678,
+        "paintedPixels": 24885,
+        "maxDeltaE": 81.67006833180207
+      },
+      "poc_linear_half_full_resolution_reference_seed_78236": {
+        "fullFrameMeanDeltaE": 0.6053058106251697,
+        "paintedMeanDeltaE": 2.031943985774111,
+        "paintedPixels": 374050,
+        "maxDeltaE": 38.24535244424067
+      },
+      "poc_linear_half_unpooled_seed_78234": {
+        "fullFrameMeanDeltaE": 0.022989491658632125,
+        "paintedMeanDeltaE": 1.859546654172088,
+        "paintedPixels": 15497,
+        "maxDeltaE": 20.00449767733121
+      },
+      "poc_linear_half_unpooled_seed_78235": {
+        "fullFrameMeanDeltaE": 0.038128340321202756,
+        "paintedMeanDeltaE": 1.9479539882630565,
+        "paintedPixels": 24568,
+        "maxDeltaE": 31.933862606318016
+      },
+      "poc_linear_half_unpooled_seed_78236": {
+        "fullFrameMeanDeltaE": 0.5033003352496201,
+        "paintedMeanDeltaE": 1.714888106171108,
+        "paintedPixels": 368258,
+        "maxDeltaE": 29.84840821115583
+      },
+      "poc_linear_half_shape_seed_78234": {
+        "fullFrameMeanDeltaE": 0.008861652141603817,
+        "paintedMeanDeltaE": 0.7103612836051372,
+        "paintedPixels": 15520,
+        "maxDeltaE": 40.709638028644726
+      },
+      "poc_linear_half_shape_seed_78235": {
+        "fullFrameMeanDeltaE": 0.012491561789266763,
+        "paintedMeanDeltaE": 0.6325956381003282,
+        "paintedPixels": 24612,
+        "maxDeltaE": 30.532955730860355
+      },
+      "poc_linear_half_shape_seed_78236": {
+        "fullFrameMeanDeltaE": 0.49965799016391976,
+        "paintedMeanDeltaE": 1.692463025577885,
+        "paintedPixels": 371197,
+        "maxDeltaE": 7.00433084659693
+      },
+      "gl_error": 0
+    },
+    "failures": [
+      "poc_linear_half_approved_seed_78234",
+      "poc_linear_half_approved_seed_78235",
+      "poc_linear_half_approved_seed_78236",
+      "poc_linear_half_isolated_seed_78234",
+      "poc_linear_half_isolated_seed_78235",
+      "poc_linear_half_isolated_seed_78236"
+    ],
+    "perceptual": "See approved + isolated painted/full-frame gates"
+  }
+}

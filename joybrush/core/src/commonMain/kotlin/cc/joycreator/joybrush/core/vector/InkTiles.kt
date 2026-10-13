@@ -59,7 +59,9 @@ object InkTiles {
         for ((index, record) in records.withIndex()) {
             val brush = brushLookup(record.brushId)
             val why = InkReplay.refusal(record, brush) ?: when {
-                brush!!.tip.source != "procedural" -> "stroke \"${record.id}\" uses an image tip; CPU ink rendering has no image source"
+                brush!!.engine == cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR ->
+                    "stroke \"${record.id}\" needs the watercolor GPU look; CPU ink rendering has no image/pooling pass"
+                brush.tip.source != "procedural" -> "stroke \"${record.id}\" uses an image tip; CPU ink rendering has no image source"
                 brush.tipTexture.enabled -> "stroke \"${record.id}\" uses tip grain; CPU ink rendering cannot reproduce it"
                 blendMode(brush.blend) == null && brush.blend != "behind" ->
                     "stroke \"${record.id}\" uses unsupported blend \"${brush.blend}\""

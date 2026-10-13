@@ -83,8 +83,13 @@ object Tween {
                 tool = sa.tool,
             )
         }
+        // Match LineTransform: the replay smoother works in screen px. Carry the drawing zoom
+        // inversely with the interpolated geometry scale, including halfway log-scale tweens.
+        val scale = exp(t * ln(g.scale))
+        val replayScale = if (scale.isFinite() && scale > 0.0) scale else 1.0
         return p.a.copy(
             samples = samples,
+            screenPerDoc = (p.a.screenPerDoc / replayScale).toFloat(),
             colorArgb = hsbSlide(p.a.colorArgb, p.b.colorArgb, t.toFloat()),
             widthScale = (p.a.widthScale + t * (p.b.widthScale - p.a.widthScale)).toFloat(),
         )

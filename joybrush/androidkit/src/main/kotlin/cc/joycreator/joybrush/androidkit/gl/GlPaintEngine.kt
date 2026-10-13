@@ -1,6 +1,9 @@
 package cc.joycreator.joybrush.androidkit.gl
 
 import android.opengl.GLES30
+import android.os.SystemClock
+import cc.joycreator.joybrush.core.brush.WatercolourSpec
+import cc.joycreator.joybrush.androidkit.gl.watercolour.WatercolourPass
 import cc.joycreator.joybrush.androidkit.gl.media.GlUniformSink
 import cc.joycreator.joybrush.androidkit.io.PaperResources
 import cc.joycreator.joybrush.core.doc.*
@@ -229,7 +232,7 @@ class GlPaintEngine(
 
     /** Same undo stream as paint; no tiles or texture ownership involved. */
     fun recordPaperChange(before: Paper, after: Paper) {
-        check(!strokeInProgress) { "Finish the stroke before closing a paper edit" }
+        checkStrokeEnded("Finish the stroke before closing a paper edit")
         if (before != after) undo.push(UndoLog.Step(emptyList(), paperBefore=before, paperAfter=after))
     }
 
@@ -403,7 +406,7 @@ class GlPaintEngine(
     private var tilePreviewRect: RectPx? = null
 
     fun setTileBoard(id: String?) {
-        check(!strokeInProgress) { "Finish the stroke before switching tiling" }
+        checkStrokeEnded("Finish the stroke before switching tiling")
         tilePreviewRect=null
         if(id != null) {
             val board=TilePainting.board(requireNotNull(boardDocument),id)
@@ -457,6 +460,12 @@ class GlPaintEngine(
 
     /** True while the stroke buffer holds RGBA carried paint (a smudge) instead of a single coverage channel. */
     private var strokeIsRgba = false
+    private var wcPass: WatercolourPass? = null
+    private var wcSpec: WatercolourSpec? = null
+    private var wcPrepared = false
+    private var wcFading = false
+    private var wcFadeStart = 0L
+    val watercolourAnimating: Boolean get() = wcFading
 
     // ── lifecycle ────────────────────────────────────────────────────────────
 
@@ -599,6 +608,7 @@ class GlPaintEngine(
         // what the caller needs to be told is that the DRAWING did not survive — not that init ran
         // twice. An engine with nothing in it has nothing to announce.
         val had = heldTextureNames() > 0 || undo.canUndo || undo.canRedo
+        wcPass?.forget(); wcPass = null; wcSpec = null; wcFading = false; wcPrepared = false
         // The stroke goes with its buffer, and the layers with their tiles: the stroke was never in
         // a layer, so nothing is released twice and nothing is left pointing at a dead name.
         cancelStroke()
@@ -652,6 +662,7 @@ class GlPaintEngine(
         GLES30.glDeleteBuffers(3, intArrayOf(quadVbo, unitVbo, instanceVbo), 0)
         GLES30.glDeleteVertexArrays(4, intArrayOf(dabVao, tileVao, smudgeVao, tuftVao), 0)
         GLES30.glDeleteFramebuffers(3, intArrayOf(fbo, readFbo, copyFbo), 0)
+        wcPass?.release(); wcPass = null
         grains.release()
         compositor.release()
         boardCompositor.release()
@@ -755,7 +766,7 @@ class GlPaintEngine(
 
     /** A change to the stack alone (add, move, rename, opacity, blend) as ONE undo step. */
     fun pushStackStep(before: LayerStack, after: LayerStack) {
-        check(!strokeInProgress) { "a layer change during a stroke would be undone out of order" }
+        checkStrokeEnded("a layer change during a stroke would be undone out of order")
         val oldDoc = boardDocument
         val next = oldDoc?.let { documentForStack(it, after) }
         applyStack(after)
@@ -771,7 +782,7 @@ class GlPaintEngine(
 
     /** Deletes [id] (as [after] says) as ONE undo step: its tiles go into the step, so undo brings the pixels back. */
     fun deleteLayerStep(id: String, before: LayerStack, after: LayerStack) {
-        check(!strokeInProgress) { "a layer change during a stroke would be undone out of order" }
+        checkStrokeEnded("a layer change during a stroke would be undone out of order")
         val layer = layers[id] ?: return
         val oldDoc=boardDocument
         val changes=ArrayList<UndoLog.TileChange<Int>>()
@@ -795,7 +806,7 @@ class GlPaintEngine(
 
     /** Deletes [id]'s mask (as [after] says) as ONE undo step: its tiles go into the step. */
     fun deleteMaskStep(id: String, before: LayerStack, after: LayerStack) {
-        check(!strokeInProgress) { "a layer change during a stroke would be undone out of order" }
+        checkStrokeEnded("a layer change during a stroke would be undone out of order")
         val m = layers[id]?.mask ?: return
         val oldDoc = boardDocument
         val next = oldDoc?.let { documentForStack(it, after) }
@@ -808,7 +819,7 @@ class GlPaintEngine(
 
     /** Copies [sourceId]'s pixels into the new layer [newId] that [after] adds, as ONE undo step. Copied on the GPU, tile by tile. */
     fun duplicateLayerStep(sourceId: String, newId: String, before: LayerStack, after: LayerStack) {
-        check(!strokeInProgress) { "a layer change during a stroke would be undone out of order" }
+        checkStrokeEnded("a layer change during a stroke would be undone out of order")
         val src = layers[sourceId] ?: return
         require(newId !in layers && after.layers.any { it.id == newId })
         val oldDoc = boardDocument
@@ -925,7 +936,7 @@ class GlPaintEngine(
 
     /** A bounded, fully composited strip picture. The document cursor and history stay untouched. */
     fun renderBoardThumbnail(boardId: String, frameId: String, outW: Int, outH: Int, paperArgb: Int): IntArray {
-        check(!strokeInProgress) { "Frame thumbnails cannot replace a live stroke's display plan" }
+        checkStrokeEnded("Frame thumbnails cannot replace a live stroke's display plan")
         require(outW in 1..512 && outH in 1..512) { "Frame preview dimensions are out of range" }
         val doc = boardDocument ?: error("No board document is attached")
         val board = doc.boards.firstOrNull { it.id == boardId } ?: error("No such board")
@@ -938,7 +949,7 @@ class GlPaintEngine(
 
     /** Sprite cells contain the current saved scene, including held paint and nearby animation ownership. */
     fun renderSpriteCellThumbnail(boardId: String, cell: Int, outW: Int, outH: Int, paperArgb: Int): IntArray {
-        check(!strokeInProgress) { "Cell thumbnails cannot replace a live stroke's display plan" }
+        checkStrokeEnded("Cell thumbnails cannot replace a live stroke's display plan")
         require(outW in 1..256 && outH in 1..256) { "Sprite preview dimensions are out of range" }
         val doc = boardDocument ?: error("No board document is attached")
         val board = doc.boards.firstOrNull { it.id == boardId } ?: error("No such board")
@@ -1029,13 +1040,17 @@ class GlPaintEngine(
     fun layerIds(): List<String> = layers.keys.toList()
 
     /** Keys of every tile a layer has (sparse). */
-    fun tileKeys(layerId: String): List<Long> = storeOf(layerId)?.tiles?.keys?.toList() ?: emptyList()
+    fun tileKeys(layerId: String): List<Long> {
+        settleWatercolourFade()
+        return storeOf(layerId)?.tiles?.keys?.toList() ?: emptyList()
+    }
 
     /**
      * A tile's pixels: 256×256 premultiplied RGBA8, 262,144 bytes, row 0 = the tile's TOP document
      * row (no flip needed). Null if the tile does not exist.
      */
     fun readTile(layerId: String, key: Long): ByteArray? {
+        settleWatercolourFade()
         val store=storeOf(layerId) ?: return null
         val tex = visibleTiles(store)[key] ?: return null
         val buf = tileReadback
@@ -1095,7 +1110,7 @@ class GlPaintEngine(
      * becomes the undo snapshot, so nothing is copied. Returns how many tiles changed.
      */
     fun replaceTiles(layerId: String, tiles: Map<Long, ByteArray?>): Int {
-        check(!strokeInProgress) { "replaceTiles during a stroke would be undone out of order" }
+        checkStrokeEnded("replaceTiles during a stroke would be undone out of order")
         val layer = storeOf(layerId) ?: error("no layer $layerId")
         for (rgba in tiles.values) {
             require(rgba == null || rgba.size == size * size * 4) { "tile must be ${size * size * 4} bytes" }
@@ -1161,7 +1176,7 @@ class GlPaintEngine(
 
     /** Metadata is renderer-independent. This backend implements PAINT planes; vectors use the same board model. */
     fun setBoardDocument(doc: JbDocument) {
-        check(!strokeInProgress) { "A board cannot change during a stroke" }
+        checkStrokeEnded("A board cannot change during a stroke")
         val errors=DocOps.validate(doc); require(errors.isEmpty()) { errors.joinToString("; ") }
         require(doc.layers.all { it.kind.hasPixels && it.animatedIn==null }) { "This renderer paints raster layers" }
         val previews = framePreviews.filter { (boardId, frameId) ->
@@ -1187,7 +1202,7 @@ class GlPaintEngine(
 
     /** Switch display planes only. Paint always begins on the document's saved frame. */
     fun setFramePreviews(frames: Map<String, String>) {
-        check(!strokeInProgress) { "Playback cannot change during a stroke" }
+        checkStrokeEnded("Playback cannot change during a stroke")
         val doc = boardDocument
         if (doc == null) { require(frames.isEmpty()) { "No board document is attached" }; return }
         val requested = frames.toMap()
@@ -1203,7 +1218,7 @@ class GlPaintEngine(
 
     /** Execute bounded physical copies/drops, then publish metadata and all pixels as ONE history step. */
     fun applyBoardChange(change: RegionChange) {
-        check(!strokeInProgress)
+        checkStrokeEnded("Check failed.")
         val before=boardDocument ?: error("No board document is attached")
         val errors=DocOps.validate(change.doc); require(errors.isEmpty()){errors.joinToString("; ")}
         require(change.doc.layers.map{it.id}==before.layers.map{it.id}) { "Board edits cannot replace the layer stack" }
@@ -1389,14 +1404,20 @@ class GlPaintEngine(
         } finally { GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) }
     }
 
-    fun celTileKeys(layerId: String,celId: String): List<Long> = layers[layerId]?.cels?.get(celId)?.keys?.toList().orEmpty()
+    fun celTileKeys(layerId: String,celId: String): List<Long> {
+        settleWatercolourFade()
+        return layers[layerId]?.cels?.get(celId)?.keys?.toList().orEmpty()
+    }
     fun writeCelTile(layerId: String,celId: String,key: Long,rgba: ByteArray) {
         require(rgba.size==size*size*4)
         val layer=layers[layerId] ?: error("No live layer $layerId")
         val store=layer.cels[celId] ?: error("No live cel $celId")
         uploadTile(store.getOrPut(key){newLayerTile()},rgba); invalidateProjection(layer)
     }
-    fun readCelTile(layerId: String,celId: String,key: Long): ByteArray? = readTextureTile(layers[layerId]?.cels?.get(celId)?.get(key))
+    fun readCelTile(layerId: String,celId: String,key: Long): ByteArray? {
+        settleWatercolourFade()
+        return readTextureTile(layers[layerId]?.cels?.get(celId)?.get(key))
+    }
 
     private fun readTextureTile(tex: Int?): ByteArray? {
         if(tex==null)return null
@@ -1478,16 +1499,20 @@ class GlPaintEngine(
     fun beginStroke(layerId: String, argb: Int, opacity: Float, accumulate: Accumulate,
                     blend: StrokeBlend, tip: TipShape,
                     grain: GrainMath.StrokeGrain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF),
-                    smudge: SmudgeParams? = null, tuft: TuftShading? = null) {
+                    smudge: SmudgeParams? = null, tuft: TuftShading? = null,
+                    watercolour: WatercolourSpec? = null, watercolourSeed: Long = 0L) {
+        settleWatercolourFade()
         cancelStroke()
         tilePreviewRect=null
         require(smudge == null || tileBoardId == null) { "Turn tiling off to use smudge" }
+        require(watercolour == null || tileBoardId == null) { "Turn tiling off to use watercolor" }
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         strokeTravel.reset()
         strokeLayer = storeOf(layerId) ?: error("no layer $layerId")
         strokePlan = strokeLayer?.plan
         strokeTileRect=tileBoardId?.let { TilePainting.board(requireNotNull(boardDocument),it).rect }
-        strokeIsRgba = smudge != null
+        strokeIsRgba = smudge != null || watercolour != null
+        wcSpec = watercolour; wcPrepared = false; wcFading = false
         colR = ((argb shr 16) and 0xFF) / 255f
         colG = ((argb shr 8) and 0xFF) / 255f
         colB = (argb and 0xFF) / 255f
@@ -1514,6 +1539,19 @@ class GlPaintEngine(
                 it.copy(paperAsset=surface.file,paperPitchPx=if(look.paperInfluence>0f)surface.texelPx*p.scale else 0f,tooth=it.tooth)
             else it
         }
+        if (watercolour != null) {
+            this.accumulate = Accumulate.BUILD_UP
+            val frozenLook = look
+            val frozenSurface = surfaceTexture ?: grains.placeholder
+            val pass = wcPass ?: WatercolourPass(shaders, size).also { wcPass = it }
+            try {
+                pass.begin(watercolour, watercolourSeed, floatArrayOf(colR,colG,colB), surfaceTexture != null && surface != null) { program ->
+                    stamp.setPaperSurfaceUniforms(GlUniformSink,program::loc,frozenLook)
+                    GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
+                    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,frozenSurface)
+                }
+            } catch (e: Throwable) { cancelStroke(); throw e }
+        }
     }
 
     /** The cap every dab of the active stroke should carry (see Accumulate). */
@@ -1522,6 +1560,7 @@ class GlPaintEngine(
     /** Renders dabs into the stroke buffer. */
     fun addDabs(dabs: List<Dab>) {
         if (strokeLayer == null || dabs.isEmpty()) return
+        if (wcSpec != null) { addWatercolourDabs(dabs); return }
         smudge?.let { addSmudgeDabs(it, dabs); return }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         GLES30.glViewport(0, 0, size, size)
@@ -1553,6 +1592,42 @@ class GlPaintEngine(
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+    }
+
+    /** The new engine owns only its band/finish targets; existing dab packing and draws stay untouched. */
+    private fun addWatercolourDabs(dabs: List<Dab>) {
+        val tile = strokeTileRect
+        val wrapped = if(tile == null) dabs else dabs.flatMap { TilePainting.dabs(tile,it) }
+        val buckets = Tiles.bucket(wrapped,size).filterKeys { tile == null || TilePainting.clip(tile,it) != null }
+        require(tile == null || (strokeTiles.keys+buckets.keys).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo)
+        for(key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
+        val pass = requireNotNull(wcPass)
+        pass.add(buckets) { key -> tile?.let { TilePainting.clip(it,key) } }
+        pass.finishInto(strokeTiles,0f,buckets.keys)
+    }
+
+    /** Cosmetic cached-image fade. Return true only when its final commit changes undo/history. */
+    fun watercolourFrame(nowMs: Long): Boolean {
+        val options = wcSpec ?: return false
+        if(!wcFading) return false
+        val t=((nowMs-wcFadeStart).toFloat()/options.poolingFadeMilliseconds.coerceAtLeast(1)).coerceIn(0f,1f)
+        wcPass?.fadeInto(strokeTiles,t*t*(3f-2f*t))
+        if(t < 1f) return false
+        wcFading=false
+        return endStroke()>0
+    }
+    /** Finish immediately for replay/preview/history operations; physical pen-up still animates. */
+    fun settleWatercolourFade(): Boolean {
+        if(!wcFading) return false
+        wcPass?.fadeInto(strokeTiles,1f)
+        wcFading=false
+        return endStroke()>0
+    }
+    /** A cosmetic tail cannot block the next board/layer transaction or reverse its Undo order. */
+    private fun checkStrokeEnded(why: String) {
+        settleWatercolourFade()
+        check(!strokeInProgress) { why }
     }
 
     /**
@@ -1667,6 +1742,17 @@ class GlPaintEngine(
     /** Commits the active stroke into its layer as one undoable step. Returns tiles changed. */
     fun endStroke(): Int {
         val layer = strokeLayer ?: return 0
+        val options = wcSpec
+        if(options != null && !wcPrepared) {
+            wcPrepared=true
+            if(options.poolingFadeMilliseconds>0 && strokeTiles.isNotEmpty() &&
+                (options.edgePool>0.0 || options.edgeAlpha>0.0 || options.gravityPool>0.0)) {
+                wcPass?.prepareFade(strokeTiles)
+                wcFadeStart=SystemClock.uptimeMillis(); wcFading=true
+                return 0
+            }
+            wcPass?.finishInto(strokeTiles,1f)
+        }
         val beforeDoc=boardDocument
         val wrappedId=tileBoardId?.takeIf { strokeTileRect != null }
         val changes = ArrayList<UndoLog.TileChange<Int>>()
@@ -1718,6 +1804,7 @@ class GlPaintEngine(
         GLES30.glBindVertexArray(0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         releaseStrokeTiles()
+        wcPass?.clearStroke(); wcSpec=null; wcPrepared=false; wcFading=false
         strokeLayer = null
         strokePlan = null
         strokeTileRect = null
@@ -1732,6 +1819,7 @@ class GlPaintEngine(
     }
 
     fun cancelStroke() {
+        wcPass?.clearStroke(); wcSpec=null; wcPrepared=false; wcFading=false
         releaseStrokeTiles()
         strokeLayer = null
         strokePlan = null
@@ -1741,6 +1829,7 @@ class GlPaintEngine(
     }
 
     fun undoStep(): Boolean {
+        settleWatercolourFade()
         val s = undo.undo() ?: return false
         val restored = s.documentBefore?.let { target ->
             val opposite = s.documentAfter
@@ -1758,6 +1847,7 @@ class GlPaintEngine(
     }
 
     fun redoStep(): Boolean {
+        settleWatercolourFade()
         val s = undo.redo() ?: return false
         val restored = s.documentAfter?.let { target ->
             val opposite = s.documentBefore
@@ -1942,6 +2032,7 @@ class GlPaintEngine(
     val mediaStrokeInProgress: Boolean get() = mediaStroke != null
 
     fun beginMediaStroke() {
+        settleWatercolourFade()
         check(mediaStroke == null && !strokeInProgress) { "a media stroke inside another stroke would be undone out of order" }
         mediaStroke = ArrayList()
         mediaStrokeHeld.clear()
@@ -2421,6 +2512,7 @@ class GlPaintEngine(
     // ── internals ────────────────────────────────────────────────────────────
 
     private fun setCommitUniforms(layerOpacity: Float) {
+        GLES30.glUniform1i(commitProg.loc("u_rgbaStroke"),if(wcSpec != null)1 else 0)
         GLES30.glUniform1f(commitProg.loc("u_tileSize"), size.toFloat())
         GLES30.glUniform1i(commitProg.loc("u_layer"), 0)
         GLES30.glUniform1i(commitProg.loc("u_stroke"), 1)

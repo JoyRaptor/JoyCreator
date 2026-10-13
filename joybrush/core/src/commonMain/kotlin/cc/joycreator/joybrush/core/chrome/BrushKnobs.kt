@@ -8,6 +8,7 @@ import cc.joycreator.joybrush.core.brush.ENGINE_MEDIA
 import cc.joycreator.joybrush.core.brush.ENGINE_PUSH
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 import cc.joycreator.joybrush.core.brush.ENGINE_TUFT
+import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
 import cc.joycreator.joybrush.core.brush.InputCurve
 import cc.joycreator.joybrush.core.brush.MediaSpec
 import cc.joycreator.joybrush.core.brush.PaperResponse
@@ -75,20 +76,38 @@ object BrushKnobs {
         ENGINE_FILL -> SMOOTHING
         // The media engine feels the paper through its own physics, so the three paper sliders would do nothing here.
         ENGINE_MEDIA -> media(p) + SMOOTHING
+        ENGINE_WATERCOLOUR -> WatercolourKnobs.forBrush(p)
         else -> STAMP + (if (p.paperGrain.enabled) listOf(GRAIN) else emptyList()) + livePaper + SMOOTHING
     } + RESPONSE
 
     /** The keys of a response curve's four handle numbers, `response.<curve>.0` … `.3` ([x1, y1, x2, y2]). */
     fun curveKeys(curve: String): List<String> = (0 until 4).map { "response.$curve.$it" }
 
+    /** The curve editor's handles; watercolour owns its POC curves rather than generic response. */
+    fun curveHandles(p: BrushPreset, curve: String): List<Float> =
+        if (p.engine == ENGINE_WATERCOLOUR && p.watercolour != null)
+            (if (curve == "pressure") p.watercolour.pressureBezier else p.watercolour.tiltBezier).map { it.toFloat() }
+        else if (curve == "pressure") p.response.pressure else p.response.tilt
+
+    /** Raw sensor reading on the curve editor's x axis. NaN remains an unavailable channel. */
+    fun tiltCurveInput(p: BrushPreset, radians: Float): Float {
+        if (!radians.isFinite()) return Float.NaN
+        val wc = p.watercolour?.takeIf { p.engine == ENGINE_WATERCOLOUR }
+        return if (wc == null) radians / (kotlin.math.PI.toFloat() / 2f)
+        else ((radians.toDouble() * 180 / kotlin.math.PI - wc.tipAngle) / (60 - wc.tipAngle)).coerceIn(0.0, 1.0).toFloat()
+    }
+
     private fun handle(curve: String, i: Int) = Knob("response.$curve.$i", "$curve curve", "The $curve curve's handle",
-        get = { p -> (if (curve == "pressure") p.response.pressure else p.response.tilt).getOrElse(i) { 0.5f }.coerceIn(0f, 1f) },
+        get = { p -> curveHandles(p, curve).getOrElse(i) { 0.5f }.coerceIn(0f, 1f) },
         set = { p, v ->
-            val r = p.response
-            val out = if (curve == "pressure") p.copy(response = r.copy(pressure = r.pressure.toMutableList().also { if (i < it.size) it[i] = v }))
-            else p.copy(response = r.copy(tilt = r.tilt.toMutableList().also { if (i < it.size) it[i] = v }))
-            // A bent curve is a version-5 word: the tuned brush says so, as its file would.
-            if (!out.response.isDefault && out.version < VERSION_RESPONSE) out.copy(version = VERSION_RESPONSE) else out
+            if (p.engine == ENGINE_WATERCOLOUR) WatercolourKnobs.setCurveHandle(p, curve, i, v)
+            else {
+                val r = p.response
+                val out = if (curve == "pressure") p.copy(response = r.copy(pressure = r.pressure.toMutableList().also { if (i < it.size) it[i] = v }))
+                else p.copy(response = r.copy(tilt = r.tilt.toMutableList().also { if (i < it.size) it[i] = v }))
+                // A bent curve is a version-5 word: the tuned brush says so, as its file would.
+                if (!out.response.isDefault && out.version < VERSION_RESPONSE) out.copy(version = VERSION_RESPONSE) else out
+            }
         },
         show = { "" }, slider = false)
 

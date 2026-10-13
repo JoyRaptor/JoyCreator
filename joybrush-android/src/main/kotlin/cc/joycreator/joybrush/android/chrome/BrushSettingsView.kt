@@ -13,6 +13,7 @@ import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
 import cc.joycreator.joybrush.core.chrome.BrushKnobs
 import cc.joycreator.joybrush.core.chrome.BrushTuning
 
@@ -40,9 +41,12 @@ class BrushSettingsView(
 
     private var positions = start
     private val rows = ArrayList<Triple<BrushKnobs.Knob, SeekBar, TextView>>()
+    private val checks = ArrayList<Pair<BrushKnobs.Knob, android.widget.CheckBox>>()
+    /** True while Reset sets the controls, so it is not heard as the owner ticking them. */
+    private var refreshing = false
     private val penDot = PenReadingView(kit)
-    private val pressureCurve = CurveEditorView(kit, "Pressure", tuned().response.pressure) { h, done -> curveMoved("pressure", h, done) }
-    private val tiltCurve = CurveEditorView(kit, "Tilt", tuned().response.tilt) { h, done -> curveMoved("tilt", h, done) }
+    private val pressureCurve = CurveEditorView(kit, "Pressure", BrushKnobs.curveHandles(tuned(), "pressure")) { h, done -> curveMoved("pressure", h, done) }
+    private val tiltCurve = CurveEditorView(kit, "Tilt", BrushKnobs.curveHandles(tuned(), "tilt")) { h, done -> curveMoved("tilt", h, done) }
 
     /**
      * What the pen reads now, from the drawing or the preview: the pen dot, and the markers on the two curves. [tilt] in
@@ -51,12 +55,19 @@ class BrushSettingsView(
     fun showReading(pressure: Float, tilt: Float, orientation: Float) {
         penDot.show(pressure, tilt, orientation)
         pressureCurve.showReading(if (pressure > 0f) pressure else Float.NaN)
-        tiltCurve.showReading(if (tilt.isFinite()) tilt / (Math.PI.toFloat() / 2f) else Float.NaN)
+        tiltCurve.showReading(BrushKnobs.tiltCurveInput(tuned(), tilt))
     }
 
     private fun curveMoved(curve: String, handles: List<Float>, done: Boolean) {
         val keys = BrushKnobs.curveKeys(curve)
         positions = positions + keys.zip(handles)
+        if (base.engine == ENGINE_WATERCOLOUR) {
+            // Watercolor's lookup table requires ordered x handles. Show the clamped
+            // handle position as it is applied, including while a handle is dragged.
+            val actual = BrushKnobs.curveHandles(tuned(), curve)
+            positions = positions + keys.zip(actual)
+            (if (curve == "pressure") pressureCurve else tiltCurve).setHandles(actual)
+        }
         onChange(positions, done)
     }
 
@@ -105,8 +116,8 @@ class BrushSettingsView(
         refreshing = true
         for ((knob, box) in checks) box.isChecked = knob.get(p) >= 0.5f
         refreshing = false
-        pressureCurve.setHandles(p.response.pressure)
-        tiltCurve.setHandles(p.response.tilt)
+        pressureCurve.setHandles(BrushKnobs.curveHandles(p, "pressure"))
+        tiltCurve.setHandles(BrushKnobs.curveHandles(p, "tilt"))
         for ((knob, seek, value) in rows) {
             seek.progress = Math.round(knob.get(p) * STEPS)
             value.text = knob.show(p)
@@ -147,11 +158,6 @@ class BrushSettingsView(
         box.addView(seek, LayoutParams(MATCH, kit.dpi(34f)))
         return box
     }
-
-    private val checks = ArrayList<Pair<BrushKnobs.Knob, android.widget.CheckBox>>()
-
-    /** True while [refresh] sets the controls, so putting a checkbox back is not heard as the owner ticking it. */
-    private var refreshing = false
 
     /** An on/off setting as a checkbox, in the chrome's ink. */
     private fun checkRow(knob: BrushKnobs.Knob): android.widget.CheckBox = android.widget.CheckBox(context).apply {

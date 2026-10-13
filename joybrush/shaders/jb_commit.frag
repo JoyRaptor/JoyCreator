@@ -11,6 +11,7 @@ uniform vec3 u_color;          // brush colour, straight (not premultiplied)
 uniform float u_strokeScale;   // opacity for BUILD_UP strokes, 1 for WASH
 uniform int u_erase;           // 1 = erase
 uniform int u_blend;           // 0 = normal (default), 1 = multiply, 2 = screen (brush v9, VECTOR_RENDER_DESIGN H6); erase wins
+uniform int u_rgbaStroke; // 1 = colour-varying watercolor, 0 leaves every existing branch unchanged
 uniform int u_smudge;          // 1 = the stroke buffer holds PREMULTIPLIED RGBA carried paint, not a coverage (JB-1.06)
 uniform float u_layerOpacity;
 
@@ -19,6 +20,15 @@ out vec4 o_color;
 
 void main() {
     vec4 dst = texture(u_layer, v_uv);
+    if(u_rgbaStroke == 1) {
+        vec4 src=texture(u_stroke,v_uv)*u_strokeScale;
+        if(u_erase == 1) { o_color=dst*(1.0-src.a)*u_layerOpacity; return; }
+        vec3 rgb=src.rgb+dst.rgb*(1.0-src.a);
+        if(u_blend == 1) rgb=src.rgb*dst.rgb+src.rgb*(1.0-dst.a)+dst.rgb*(1.0-src.a);
+        if(u_blend == 2) rgb=src.rgb+dst.rgb*(1.0-src.rgb);
+        o_color=vec4(rgb,src.a+dst.a*(1.0-src.a))*u_layerOpacity;
+        return;
+    }
     if (u_smudge > 0) {
         // A smudge only moves paint that is already there: where the layer has no alpha the stroke leaves it alone
         // (Smudge Decision 4). The stroke buffer is the accumulated carried paint, so this is "over", masked.

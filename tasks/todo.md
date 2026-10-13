@@ -545,5 +545,5 @@ Review: no phone/engine acceptance claimed; engine, count scrubber and phone pas
 - [x] Finish ToolStrip selected rings/discovery pulses and docked corner shape after lane coordination.
 - [x] Repair lead-reviewed edit snapshot, cancelled gesture, refused pixel lift and moved paint-clip defects; test actual gesture dispatch and multi-frame/rebased moves.
 - [x] Verify native compile and focused controls/pulse tests through shared runner: included Androidkit1m9; final native compile/test1m41; XML34/0/0/0.
-- [ ] Push scoped app checkpoint and give lead exact integration calls/remaining engine prerequisites.
+- [x] Push scoped app checkpoint and give lead exact integration calls/remaining engine prerequisites: source e2369b2b on origin/ui/select-e2, native compile and XML34/0/0/0; source lane released.
 Review: source tested October13. A fixture JVM setter clash was repaired; bitmap regression found layer ring overwriting mask preview and verified the corrected draw order. Q2 remains quality-dependent; no phone/brush-quality/live-engine claim from styling checks. Logs: C:/Temp/jb-ux-ops/locked-androidkit-compile.log and locked-native-tests-repair2.log.

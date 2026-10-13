@@ -195,3 +195,45 @@ Kubelka–Munk adds scattering/absorption and pigment-aware mixture/layer optics
 but requires calibrated pigments or an RGB-to-pigment approximation. A LUT is
 plausible on a phone; Note9 cost is unmeasured. Neither proposed feature was
 implemented as part of this control fix.
+
+## Continuation: resource audit and pending acceptance — October13
+
+Pushed controls source251beb972f2c6835bf3a9ffb312fd6a4f6ff4517 is clean.
+The lead retains the shared slot for core/native/app regression checks before
+assigning this lane's narrow core/kit/native control checks. No queued wrapper
+or browser was started. Owned scratch runner `C:/Temp/jb-watercolour-ops/
+jbgradle_now.ps1` checks RAM, lead hold and exclusive shared lock once and
+defers immediately; it never waits while holding the lock. Its PowerShell
+syntax was checked without launching a build.
+
+Static GPU payload accounting from production allocation formats (not measured
+phone memory or frame timing):
+
+| Allocation at256² pixels | Payload |
+|---|---:|
+| One RGBA16F band/cached tile | 512KiB |
+| Bands + plain + pooled + engine stroke output when half-float is enabled | 2MiB per touched tile during fade |
+| Pass free pool, capped at32 half-float textures | 16MiB |
+| Engine freeSmudge pool, capped at16, when half-float is enabled | 8MiB |
+|25×251² R8 tips including allocated mip levels |2,092,875 bytes |
+|1254² R8 wash including mip levels |2,096,018 bytes |
+|128² R8 grain including mip levels |21,845 bytes |
+
+One image set totals4,210,738 bytes (about4.02MiB), excluding driver alignment,
+bitmap decode/upload transients, paper, document layers and Undo. The current
+pass has a four-set cap. At renderScale2 the tile payload is four times larger.
+The separate look renderer and live pass each own their resources. The fade
+reads two cached images per pixel and does not rerun optics or read back pixels.
+If device measurements justify a later change, RGBA8 cached fade targets and
+pool budgets are candidates; no formats or pool limits were changed by this
+audit. Owner-approved sharp pooling remains the default.
+
+Next runtime gates in authorized serial slots: seven new core tuning cases plus
+existing tuning regression where admitted; Androidkit/native controls compile;
+actual grain/Artisan knob and mutant GPU results; LineLab four sheets and APK.
+W4 remains dependent on the lead's recorded-line capture/ordered slab/look
+cache/selection host. W5 requires actual Note9 timings and owner drawing feel.
+The existing6000-dab cap reports a refusal asking the user to lift and continue;
+long thin strokes should explicitly exercise this limit on the phone. Verify
+pen-down/up fade, rapid next stroke, Undo/Redo, save during fade, reopen, real
+paper dryness, same-seed live previews and recolour/move after W4 integration.

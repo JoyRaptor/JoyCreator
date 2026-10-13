@@ -36,9 +36,11 @@ Read-only audit checked own b3a4fd7c and integrated c8d3f2f8. Exact trace:
   has no deposit-mode field/binding. Its callers in JbCanvasView/GlPaintEngine
   do not route the extension, so a shader-only port would not enable it live.
 - `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/paint/RefCanvas.kt`
-  and `core/vector/InkRaster.kt` accumulate tip coverage; neither has the full
-  CPU paper-contact pass. `core/vector/InkTiles.kt` explicitly reports paper
-  grain omission and refuses tip grain. They are not full-paper golden oracles.
+  and `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/vector/InkRaster.kt`
+  accumulate tip coverage; neither has the full CPU paper-contact pass.
+  `joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/vector/InkTiles.kt`
+  explicitly reports paper grain omission and refuses tip grain. They are not
+  full-paper golden oracles.
 
 Current grained rate is d=g*smoothstep(0,.06,t)*flow, where t is tip coverage
 and g the combined pressure/tilt-aware grain. Fragment RED=cap*d, source A=d;

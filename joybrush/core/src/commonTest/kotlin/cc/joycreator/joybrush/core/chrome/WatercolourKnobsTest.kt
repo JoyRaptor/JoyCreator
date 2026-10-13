@@ -108,7 +108,7 @@ class WatercolourKnobsTest {
         assertEquals(1f, BrushKnobs.tiltCurveInput(p, radians(70.0)))
         assertTrue(BrushKnobs.tiltCurveInput(p, Float.NaN).isNaN())
         assertTrue(BrushKnobs.tiltCurveInput(p, Float.POSITIVE_INFINITY).isNaN())
-        val generic = BrushPreset(id = "ink", name = "Ink")
+        val generic = BrushPreset(id = "ink", name = "Ink", size = Param(6f))
         val angle = radians(120.0)
         assertEquals(angle / (PI.toFloat() / 2f), BrushKnobs.tiltCurveInput(generic, angle))
         val out = tune(generic, "response.pressure.1", .8f)

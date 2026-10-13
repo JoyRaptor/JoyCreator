@@ -123,6 +123,21 @@ class SelectTool(
     /** The selection the box works on, or null. */
     val selection: SelectionState.Selection? get() = state.current
 
+    /** The ordinal beside the last tap/crosshair pick; ids remain an internal, current-contract snapshot. */
+    data class CountPick(val at: SelectionState.Pick, val index: Int, val total: Int)
+    internal data class CountStamp(val id: String, val layerId: String, val locked: Boolean,
+                                   val groupId: String?, val record: StrokeRecord)
+    class CountSession internal constructor(
+        val pick: CountPick,
+        internal val order: List<String>,
+        internal val base: Set<String>,
+        internal val stamp: List<CountStamp>,
+    )
+    var countPick: CountPick? = null
+        private set
+    private var countOrder: List<String> = emptyList()
+    private var countSession: CountSession? = null
+
     /** The box's four corners in DOCUMENT px (top-left, top-right, bottom-right, bottom-left), or null. */
     var boxDoc: FloatArray? = null
         private set
@@ -207,6 +222,7 @@ class SelectTool(
 
     /** A box gesture starts: one snapshot of what it moves. */
     fun beginBox() {
+        countSession = null
         cancelWeight()
         quad0 = if (canTransform) boxDoc?.copyOf() else null
         startRecords = selectedRecords()
@@ -244,6 +260,7 @@ class SelectTool(
         }
         startRecords = emptyList()
         if (ok) {
+            clearCount()
             state.moved(h)
             val pixels = state.current as? SelectionState.Pixels
             if (pixels != null) {
@@ -386,9 +403,61 @@ class SelectTool(
 
     /** Step the selection to candidate [i] of the tap's order (the count scrubber, K11), adding when ＋ is on (K12). */
     fun chooseFromOrder(order: List<String>, i: Int, adding: Boolean, at: SelectionState.Pick) {
+        if (i !in order.indices) return
         lines = host.visibleLines()
         state.choose(order[i], adding, at, geometries(activeLines()))
-        onSelectionChanged()
+        onSelectionChanged(countContext(order, i, at), order)
+    }
+
+    /** Capture once per count gesture. A changed drawing/rank must be picked again, never silently reinterpreted. */
+    fun beginCountScrub(adding: Boolean, view: cc.joycreator.joybrush.core.view.ViewTransform = this.view): CountSession? {
+        val pick = countPick ?: return null
+        if (state.current !is SelectionState.Lines || nudging || quad0 != null) return null
+        this.view = view
+        lines = host.visibleLines()
+        if (rankFor(pick.at) != countOrder) { staleCount(); return null }
+        cancelWeight()
+        val base = if (adding) state.countBaseWithout(countOrder[pick.index], geometries(activeLines())) else emptySet()
+        return CountSession(pick, countOrder.toList(), base.toSet(), countStamp()).also { countSession = it }
+    }
+
+    /** One live ordinal choice from a fixed base: passing another candidate does not accumulate selections. */
+    fun scrubCount(session: CountSession, index: Int): Boolean {
+        if (countSession !== session || index !in session.order.indices || state.current !is SelectionState.Lines ||
+            nudging || quad0 != null) return false
+        lines = host.visibleLines()
+        if (rankFor(session.pick.at) != session.order || countStamp() != session.stamp) { staleCount(); return false }
+        if (countPick?.index == index) return true
+        val before = state.current
+        if (!state.chooseFromBase(session.order[index], session.base, session.pick.at, geometries(activeLines()))) {
+            staleCount(); return false
+        }
+        val pick = session.pick.copy(index = index)
+        if (before != state.current) onSelectionChanged(pick, session.order, session)
+        else { countPick = pick; listener?.selectionChanged() }
+        return true
+    }
+
+    /** Cancellation keeps the last chosen line, as in the approved count mock; it never cycles once more. */
+    fun endCountScrub(session: CountSession) { if (countSession === session) countSession = null }
+
+    private fun countContext(order: List<String>, index: Int, at: SelectionState.Pick): CountPick? =
+        if (order.size > 1 && index in order.indices && state.current is SelectionState.Lines)
+            CountPick(at, index, order.size) else null
+
+    private fun clearCount() { countPick = null; countOrder = emptyList(); countSession = null }
+
+    private fun staleCount() {
+        clearCount()
+        host.toast("Those lines changed. Tap again to choose.")
+        listener?.selectionChanged()
+    }
+
+    private fun rankFor(at: SelectionState.Pick): List<String> = picker.rank(
+        geometries(activeLines().filter { !it.locked || state.pickLocked }), at.x, at.y, view.zoom.toDouble())
+
+    private fun countStamp(): List<CountStamp> = activeLines().map {
+        CountStamp(it.id, it.layerId, it.locked, it.groupId, it.record)
     }
 
     /** The selection ends: lifts go back, the clip and the fade are cleared. */
@@ -401,9 +470,16 @@ class SelectTool(
 
     private inner class Intents : SelectRouter.Sink {
         override fun tap(x: Float, y: Float, adding: Boolean) {
+            lines = host.visibleLines()
             val (dx, dy) = view.screenToDoc(x, y)
+            val order = rankAt(x, y)
             val changed = state.tap(dx.toDouble(), dy.toDouble(), view.zoom.toDouble(), geometries(activeLines()), adding) { px, py -> insideBox(px, py) }
-            if (changed) onSelectionChanged()
+            if (changed) {
+                val s = state.current as? SelectionState.Lines
+                val index = if (!adding && s?.ids?.size == 1) order.indexOf(s.ids.first()) else 0
+                val at = s?.pick ?: SelectionState.Pick(dx.toDouble(), dy.toDouble())
+                onSelectionChanged(countContext(order, index, at), order)
+            }
         }
 
         override fun lassoMoved(points: FloatArray) {
@@ -436,7 +512,7 @@ class SelectTool(
             if (order.isNotEmpty()) {
                 val (dx, dy) = view.screenToDoc(x, y)
                 state.choose(order[0], adding, SelectionState.Pick(dx.toDouble(), dy.toDouble()), geometries(activeLines()))
-                onSelectionChanged()
+                onSelectionChanged(countContext(order, 0, SelectionState.Pick(dx.toDouble(), dy.toDouble())), order)
             } else listener?.overlayChanged()
         }
 
@@ -500,7 +576,10 @@ class SelectTool(
 
     // ── what changes when the selection does ──
 
-    private fun onSelectionChanged() {
+    private fun onSelectionChanged(pick: CountPick? = null, order: List<String> = emptyList(), session: CountSession? = null) {
+        countPick = if (state.current is SelectionState.Lines) pick else null
+        countOrder = if (countPick != null) order.toList() else emptyList()
+        countSession = if (countPick != null) session else null
         weightRecords = null
         startRecords = emptyList()
         quad0 = null

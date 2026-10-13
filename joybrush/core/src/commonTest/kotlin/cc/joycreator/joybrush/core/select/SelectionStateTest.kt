@@ -7,6 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** JB-5.20e D3, D6, D9 and P6 — what a tap and a loop select. Zoom 1, so screen px are doc px. */
@@ -192,5 +193,67 @@ class SelectionStateTest {
         assertFalse(s.tap(Double.NaN, 1.0, 1.0, lines, false, noBox))
         assertFalse(s.loop(listOf(Pt(0.0, 0.0), Pt(1.0, 1.0)), lines, lines, SelectionState.Reading(), false))
         assertNull(s.current)
+    }
+
+    @Test
+    fun countChoicesReplaceTheCandidateGroupAgainstOneFixedBase() {
+        val grouped = listOf(
+            hline("a", 0.0, 100.0, 50.0), hline("b", 0.0, 100.0, 53.0),
+            hline("c", 0.0, 100.0, 56.0), hline("other", 0.0, 100.0, 300.0),
+        )
+        val items = object : SelectionState.Items {
+            override fun group(id: String) = if (id == "a" || id == "b") "pair" else null
+        }
+        val s = SelectionState(items = items)
+        val at = SelectionState.Pick(40.0, 50.0)
+        s.choose("other", adding = false, at = at, lines = grouped)
+        s.choose("a", adding = true, at = at, lines = grouped)
+        assertEquals(setOf("other", "a", "b"), ids(s))
+
+        val base = s.countBaseWithout("a", grouped)
+        assertEquals(setOf("other"), base)
+        assertTrue(s.chooseFromBase("c", base, at, grouped))
+        assertEquals(setOf("other", "c"), ids(s))
+        assertTrue(s.chooseFromBase("a", base, at, grouped))
+        assertEquals(setOf("other", "a", "b"), ids(s))
+        assertTrue(s.chooseFromBase("c", base, at, grouped))
+        assertEquals(setOf("other", "c"), ids(s), "moving back to c drops the prior group choice")
+    }
+
+    @Test
+    fun countBaseIsAnIndependentSnapshotOfTheOtherSelectedUnits() {
+        val grouped = listOf(
+            hline("a", 0.0, 100.0, 50.0), hline("b", 0.0, 100.0, 53.0),
+            hline("c", 0.0, 100.0, 56.0), hline("other", 0.0, 100.0, 300.0),
+        )
+        val items = object : SelectionState.Items {
+            override fun group(id: String) = if (id == "a" || id == "b") "pair" else null
+        }
+        val s = SelectionState(items = items)
+        val at = SelectionState.Pick(40.0, 50.0)
+        s.choose("other", adding = false, at = at, lines = grouped)
+        s.choose("a", adding = true, at = at, lines = grouped)
+        val base = s.countBaseWithout("a", grouped)
+
+        s.chooseFromBase("c", base, at, grouped)
+        s.chooseFromBase("a", base, at, grouped)
+        assertEquals(setOf("other"), base, "later candidate choices do not mutate the captured base")
+        assertEquals(setOf("other", "a", "b"), ids(s))
+    }
+
+    @Test
+    fun countChoiceRejectsMissingAndLockedCandidatesWithoutChangingSelection() {
+        val grouped = listOf(a, b, c, far)
+        val items = object : SelectionState.Items { override fun locked(id: String) = id == "b" }
+        val s = SelectionState(items = items)
+        s.choose("far", adding = false, at = SelectionState.Pick(40.0, 300.0), lines = grouped)
+        val before = s.current
+        val base = setOf("far")
+
+        assertFalse(s.chooseFromBase("b", base, SelectionState.Pick(40.0, 53.0), grouped))
+        assertSame(before, s.current)
+        assertFalse(s.chooseFromBase("missing", base, SelectionState.Pick(40.0, 53.0), grouped))
+        assertSame(before, s.current)
+        assertEquals(setOf("far"), ids(s))
     }
 }

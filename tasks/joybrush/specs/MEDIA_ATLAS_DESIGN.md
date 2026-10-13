@@ -24,11 +24,17 @@ Making the window bigger does not scale: a wet window is about 236 MB at 1024².
 - **A halo exchange runs before each pass that reads neighbours.** For every resident tile, copy the 8 neighbour edge
   strips (width H) from the neighbours' slot interiors into this slot's halo (blits or one instanced copy pass).
   - A missing neighbour is zero: no water, no paint, which is what the stores hold there now.
-  - H = the widest per-pass read radius: flux/update about 1–2 cells, the drying ring, bead blur ≤ 12 on tilted paper,
-    look render 53 (the look gets its own wider exchange or a separate look halo).
+  - H = the widest actual per-pass read radius, including bilinear support. DRY smear is NOT limited to 1–2 cells:
+    `u_smearPx = travel * smearMm * pxPerMm * scale`; use at least
+    `max(2, ceil(max(abs(smearPx.x), abs(smearPx.y))) + 1)` conservatively. The fixed axial smear taps reach 2 texels.
+    Wet flux/update, the drying ring and bead blur each need a separate source-derived bound. Look's shadow march
+    reaches 51 document pixels; use `ceil(51 * scale) + 2` layer pixels conservatively (53 at unit scale), or a separate
+    look gather. Never choose all halos from the old 1–2-cell estimate.
   - Exchange cost is perimeter (4·256·H per tile), small next to the interior.
 - **Tile boards wrap for free**: the neighbour of the board's rightmost tile is its leftmost, modulo the board's tile grid.
-  Every media brush then paints and flows seamlessly across the repeat. That is the owner's "every brush works in Tile mode".
+  This modulo rule applies only to aligned, whole-tile board extents. General boards need pixel-space wrapped rectangles
+  split across global tiles; their origins and sizes need not be multiples of256. Every media brush must ultimately
+  paint and flow across the repeat. That is the owner's "every brush works in Tile mode".
 - **Activity**: a tile is resident while the stroke touches it, or while it holds moving water (a per-tile max-|Δw| reduction
   read back asynchronously, as in the perf plan). Settled tiles leave the atlas.
   - This is also the "only simulate where water is moving" speed-up. It is exact when the threshold is 0 (water exactly

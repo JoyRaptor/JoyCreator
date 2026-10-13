@@ -232,3 +232,16 @@ Verification October13: included `:androidkit:compileKotlin` PASS1m9. Root nativ
 No phone acceptance or live drawing-engine acceptance. Source released to Lead; its standalone app packaging retry follows this lane's normal lock release. #8/#9/#10/#11/#12 remain separate prerequisites/jobs.
 
 Published source: e2369b2b on origin/ui/select-e2. Preserve full e3 ancestry (ed914bc3 → 3e817d5a and later checkpoints) when taking these controls; do not apply the final delta to a branch missing the original e3 views. The later handoff closure only changes documentation. Source files and shared build slot are released to Lead.
+
+## October13 — Count source completed
+
+Job8 source13c05efe is frozen on ui/select-count-main, C:/Temp/jb-select-count,
+base a16059d6; documentation closure58c65392 changes no tested source. Original UI tree
+remains preserved. Standalone core32/native56 checks pass with no failures/errors/skips.
+Lead integration4dfe0f48 applies only the seven source/test files to combined sourceeb4eb531.
+Read reviews/UX_COUNT_20261013.md for current integrated evidence.
+
+Activity still must supply accepted resting-finger context to App.hasRestingThumbForCount()
+and chain controller.viewMoved() into existing onViewMoved sampling. Current count string
+IDs migrate with LineAddress before all-layer live edits. Real Activity/engine binding,
+Lock/Group/Invert and phone acceptance remain open. No preview/pencil/default/engine edits.

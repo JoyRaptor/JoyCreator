@@ -554,4 +554,14 @@ Fill helper signature; repaired without changing assertions or production. Fresh
 APK contains all25 watercolor dabs, brush and source-matching pooling/commit shaders. Exact logs/limits/hashes and
 unfinished engine contracts are in FEATURE_INTEGRATION_20261013.md; newest entry is HANDOFF_20261013.md.
 
+## October13 count scrubber integration
+- [x] Freeze peer source13c05efe and read standalone focused proof32 core/56 native; retain clean original worktree.
+- [x] Apply seven-file count delta on latest combined source and independently review cancellation/stale/group behavior. Source4dfe0f48; Luna found no material issue and verified standalone32/56 XML counts.
+- [x] Compile current backend/native and run affected core selection tests plus native regression under one serial lock: core32/0/0/0 PASS3m43; native168/0/0/0 PASS2m29.
+- [x] Publish verified source and update handoff; real accepted-thumb context, Activity wiring and scoped addresses remain open.
+
+Review: source4dfe0f48 preserves complete peer count behavior on combined sourceeb4eb531. Independent XML inspection
+confirms all affected checks and full native regression. No source repair or app/device run required in this bounded slice.
+The prior combined APK predates count. Exact evidence and live-host boundaries are in UX_COUNT_20261013.md.
+
 Review: atlas foundation is separate from A2–A6 rendering integration. No phone acceptance or crease/Tile fix is claimed from A1 JVM results.

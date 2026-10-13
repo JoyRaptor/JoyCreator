@@ -733,3 +733,18 @@ Owner's words:
 - Strip width, colour and brush rings pulse twice over 1200ms on entry to line selection, then stay steady; reduced motion stays steady. `ToolStripView.setSelectionRestyle(on, pulse)` supplies this presentation. Lead must route the highlighted controls to real selected-line edits when wiring Activity.
 - Web preview work is finished at the owner's request. Do not keep changing or republishing it. K23's quality-dependent pencil/mode preference remains provisional.
 - Lead explicitly approved a backward-compatible `TransformOverlayView.Host.cancelGesture()` default no-op on October13. Ordinary uncommitted drag/tap and cancelled/unmoved pinch notify once before re-reading the host; Select rolls back its preview and restores the row. Existing Studio hosts keep their default behavior, and bend cancellation is unchanged.
+
+### October13 — K11/K12 count implementation
+
+The bounded count scrubber now uses tap-next and wrapped12dp horizontal steps over one
+captured rank. Add keeps one group-aware base, replacing only the browsed candidate unit;
+count selection never writes drawing/history. A22dp cyan-outline paper pill has a44dp
+contact target, plain label and keyboard/accessibility actions. Cancel preserves the last
+accepted choice; stale records/rank/flags, hidden controls and secondary contacts are guarded.
+
+The owner-locked K24 styling and provisional K23 quality/default decisions remain intact.
+Lead must supply App.hasRestingThumbForCount() from accepted cross-child contact context
+and chain controller.viewMoved() alongside existing canvas.onViewMoved handling. No raw
+palm inference or false default thumb provider. The current string candidates must migrate
+with the rest of Select to ranked LineAddress entries before all-layer live binding.
+Exact standalone32 core/56 native proof and integrated review are in reviews/UX_COUNT_20261013.md.

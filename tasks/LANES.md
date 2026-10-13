@@ -1,4 +1,7 @@
 # LANES.md — live file-lock board for parallel agents
+# October13 count integration: IDLE, no source files owned in C:/Temp/jb-count-integration.
+# Source4dfe0f48 on eb4eb531; integrated core32/0 and full native168/0/0/0 PASS. Shared slot released.
+# No Activity/engine/shader/device source; combined watercolor/save/atlas and all-layer address gate preserved.
 # October13 combined feature integration: IDLE, no source files owned in C:/Temp/jb-feature-integration.
 # Source c8d3f2f8 + test-only df8df716; core2201/backend408/native146 green, four optional core skips,
 # app assembly PASS4m33, no phone installation. Report FEATURE_INTEGRATION_20261013.md.

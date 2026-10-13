@@ -51,6 +51,8 @@ async function gpuChecks({ vert, frag, finishVert, finishFrag, mixFrag, assets, 
   const mutantAlpha = program(finishVert, finishFrag.replace('1.0+4.0*u_edgeAlpha*edge', '1.0'));
   const mutantTint = program(finishVert, finishFrag.replace('vec3(concentration)', 'vec3(1.0)'));
   const mutantNeighbour = program(finishVert, finishFrag.replace('ivec2 q=p-tile*u_bandTileSize;', 'ivec2 q=p-tile*u_bandTileSize; if(any(notEqual(tile,ivec2(0)))) return vec3(0.0);'));
+  const mutantGrain = program(finishVert, finishFrag.replace('u_grain*0.8*texture(u_fineGrain,v_docPx/256.0).r', '0.0'));
+  const mutantPaperCut = program(finishVert, finishFrag.replace('bands*=mix(vec3(1.0),cut,u_paperCut);', 'bands*=vec3(1.0);'));
   function texture(w, h, values, floating = false) {
     const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texImage2D(gl.TEXTURE_2D, 0, floating ? gl.RGBA16F : gl.RGBA8, w, h, 0, gl.RGBA, floating ? gl.FLOAT : gl.UNSIGNED_BYTE, values);
@@ -154,6 +156,59 @@ async function gpuChecks({ vert, frag, finishVert, finishFrag, mixFrag, assets, 
   gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([0,0,1,0,0,1,1,1]),gl.STATIC_DRAW);
   const bytes = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
   const realPaper=texture(assets.paper.width,assets.paper.height,bytes(assets.paper.b64));gl.bindTexture(gl.TEXTURE_2D,realPaper);gl.generateMipmap(gl.TEXTURE_2D);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  // Exact production Mulberry32/R8 bytes, not the POC's procedural placeholder.
+  const grainBytes = new Uint8Array(128 * 128 * 4); let grainSeed = 521932;
+  for (let i = 0; i < 128 * 128; i++) {
+    grainSeed = (grainSeed + 0x6D2B79F5) | 0;
+    let t = Math.imul(grainSeed ^ (grainSeed >>> 15), grainSeed | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    const value = Math.floor(((t ^ (t >>> 14)) >>> 0) / 4294967296 * 255 + .5);
+    grainBytes[i * 4] = grainBytes[i * 4 + 1] = grainBytes[i * 4 + 2] = value;
+    grainBytes[i * 4 + 3] = 255;
+  }
+  const fineGrain = texture(128, 128, grainBytes);
+  gl.bindTexture(gl.TEXTURE_2D, fineGrain); gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  const realConfig = { ...config, paperTexture: realPaper, paperSpec: assets.paper.spec, fineGrain, grain: .4 };
+  const renderKnob = (s, p = finish) => finished(p, [0, 0], N, near, N, s);
+  const alphaStats = data => {
+    let sum = 0, count = 0, min = 255, max = 0;
+    for (let i = 3; i < data.length; i += 4) {
+      sum += data[i]; if (data[i]) { count++; min = Math.min(min, data[i]); max = Math.max(max, data[i]); }
+    }
+    return { sum, count, range: max - min };
+  };
+  const channelDiff = (a, b, alpha) => {
+    let max = 0; for (let i = 0; i < a.length; i++) if ((i % 4 === 3) === alpha) max = Math.max(max, Math.abs(a[i] - b[i]));
+    return max;
+  };
+  for (const key of ['edgePool', 'gravityPool']) {
+    const low = renderKnob({ ...realConfig, [key]: 0 }), high = renderKnob({ ...realConfig, [key]: 1 });
+    const detail = { maxAlphaChange: channelDiff(low, high, true), maxColorChange: channelDiff(low, high, false) };
+    check('knob_' + key + '_color_only_real_paper_grain', detail.maxAlphaChange === 0 && detail.maxColorChange > 2, detail);
+  }
+  const edgeLow = renderKnob({ ...realConfig, edgeAlpha: 0 }), edgeHigh = renderKnob({ ...realConfig, edgeAlpha: 1 });
+  let decreased = 0; for (let i = 3; i < edgeLow.length; i += 4) if (edgeHigh[i] < edgeLow[i]) decreased++;
+  check('knob_edgeAlpha_independent_buildup', decreased === 0 && alphaStats(edgeHigh).sum > alphaStats(edgeLow).sum,
+    { decreased, low: alphaStats(edgeLow), high: alphaStats(edgeHigh) });
+  const grainLow = renderKnob({ ...realConfig, grain: 0 }), grainHigh = renderKnob({ ...realConfig, grain: 1 });
+  let increased = 0; for (let i = 3; i < grainLow.length; i += 4) if (grainHigh[i] > grainLow[i]) increased++;
+  check('knob_actual_grain_breakup', increased === 0 && alphaStats(grainHigh).sum < alphaStats(grainLow).sum * .9,
+    { increased, low: alphaStats(grainLow), high: alphaStats(grainHigh), fixture: 'Mulberry32 seed521932 R8 128x128 / world256px' });
+  const paperLow = renderKnob({ ...realConfig, paperCut: 0, grain: 0, pooling: 0 });
+  const paperHighConfig = { ...realConfig, paperCut: 1, grain: 0, pooling: 0 };
+  const paperHigh = renderKnob(paperHighConfig);
+  check('knob_actual_paper_height_breakup', alphaStats(paperHigh).sum < alphaStats(paperLow).sum && alphaStats(paperHigh).range > alphaStats(paperLow).range,
+    { low: alphaStats(paperLow), high: alphaStats(paperHigh), paper: 'pulp_artisan canonical height' });
+  for (const [key, p, s, reference] of [
+    ['grain', mutantGrain, { ...realConfig, grain: 1 }, grainHigh],
+    ['paper_cut', mutantPaperCut, paperHighConfig, paperHigh],
+  ]) {
+    const diff = difference(renderKnob(s, p), reference);
+    check('mutation_actual_' + key + '_red', diff.maxByteError > 2, diff);
+  }
+  gl.deleteTexture(fineGrain);
   function loadDabs(){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D_ARRAY,array);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);gl.texImage3D(gl.TEXTURE_2D_ARRAY,0,gl.R8,assets.dabs.width,assets.dabs.height,assets.dabs.count,0,gl.RED,gl.UNSIGNED_BYTE,bytes(assets.dabs.b64));gl.generateMipmap(gl.TEXTURE_2D_ARRAY);gl.texParameteri(gl.TEXTURE_2D_ARRAY,gl.TEXTURE_MIN_FILTER,assets.dabFilter==='linear'?gl.LINEAR:gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D_ARRAY,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D_ARRAY,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D_ARRAY,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);}
   loadDabs();
   for (const origin of [[-64,-64],[-128,-128]]) for(const kind of ['constant','real_paper']) for(const scale of [1,2]) {

@@ -152,3 +152,46 @@ base controls) are mapped by watercolourRuntime. Dedicated watercolor registry
 and curve routing are needed so its advanced sheet has meaningful controls.
 No defaults have been blindly retuned. Pencil comparisons require exact raster
 snapshots and owner Proko references from the lead before aesthetic changes.
+
+## Backend checkpoint and native controls — October13
+
+Authorized serial `:androidkit:test --no-daemon --max-workers=1
+-Pkotlin.compiler.execution.strategy=in-process` finished successfully in
+4m56s: XML393 tests, zero failures/errors/skips. The shared lock was released
+normally. This verifies source through ed2b1464, including snapshot/transaction
+settling hooks and the LineLab production port; it does not verify subsequent
+native control edits. No APK, LineLab fixture rendering, additional GPU run or
+phone commands were launched after this check; the lead owns the next slot.
+
+The lead approved a bounded control fix and UX explicitly cleared overlapping
+ownership. Dedicated watercolor sliders/toggles now replace unused generic
+stamp/paper/smoothing controls. Existing pressure/tilt curve editors read and
+edit the engine's own curves; tilt markers account for the tip-angle allowance.
+Automated preview strokes keep approved sample seeds as parameters change;
+freehand stroke seeds remain time-based. Preset defaults and full-resolution
+pooling are retained. The checkbox list is initialized before the settings
+sheet constructs toggle rows, fixing a constructor-order null access exposed
+by the new controls. Core tuning checks and actual grain/paper shader control
+checks accompany the source; these new changes await their authorized runtime
+checks. Earlier passing totals must not be claimed for this source revision.
+
+Follow-up source checks: seven focused core tests cover persisted no-op tuning,
+actual pressure/tilt dab changes with fixed seeds, monotone/corrupt handles,
+finish-field independence, runtime/HUD synchronization, quarter-pixel minimum
+range and unchanged generic markers. The checker adds production Mulberry32
+grain (seed521932, 128² R8 at256 world px) and actual Artisan height tests with
+grain/paper-cut mutants. `node --check` and `git diff --check` pass; runtime
+results remain pending. Helpers stopped at their usage limit; root completed
+the missing tests/checker and degenerate-range repair. No extra worker or
+resource-consuming job was launched.
+
+Owner optics question: pooling measures relative drops in assembled coverage,
+with four cardinal edge taps and four downward gravity taps. It is not a blur
+or a linear distance gradient. Pigment is darkened by linear-light reflectance
+raised to concentration; edge opacity has independent exponential buildup.
+A seeded dendritic texture could cheaply modulate concentration inside the
+existing alpha. This would imitate branching, not simulate capillary growth.
+Kubelka–Munk adds scattering/absorption and pigment-aware mixture/layer optics,
+but requires calibrated pigments or an RGB-to-pigment approximation. A LUT is
+plausible on a phone; Note9 cost is unmeasured. Neither proposed feature was
+implemented as part of this control fix.

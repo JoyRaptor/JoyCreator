@@ -551,3 +551,9 @@ Review: atlas foundation is separate from A2–A6 rendering integration. No phon
 - [x] Full core regression after clean rebase: 2171 tests, zero failures/errors, four optional corpus skips; source published63c86026.
 - [ ] Compile APK through shared lock; final GPU evidence and lead handoff.
 - [ ] W5/phone acceptance: lead installs and owner judges; never claim a desktop timing is Note 9 evidence.
+
+October13 checkpoint: latest backend393/0/0/0 passes; lock released to lead.
+Approved full-resolution appearance remains default. Bounded native WC knobs,
+curve routing and deterministic automated previews are source-only follow-up;
+their tests/APK and new actual grain/paper checker await the next serial slot.
+No branching or Kubelka–Munk feature expansion in this fix.

@@ -1269,7 +1269,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         return (0xFF shl 24) or (b(c[0]) shl 16) or (b(c[1]) shl 8) or b(c[2])
     }
 
-    private fun startStroke(eraser: Boolean) {
+    private fun startStroke(eraser: Boolean, watercolourPreviewSeed: Long? = null) {
         if (contentLost) {
             drawing = false
             onRefused?.invoke("Reopen your saved drawing before continuing.")
@@ -1346,7 +1346,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
             }
         } else if (p.engine == ENGINE_WATERCOLOUR && !erase) {
-            strokeSeed=SystemClock.uptimeMillis()
+            strokeSeed=watercolourPreviewSeed ?: SystemClock.uptimeMillis()
             strokeWatercolour=WatercolourDabber(p.watercolourRuntime(),strokeSeed)
             placer=null
         } else if (p.engine == ENGINE_TUFT) {
@@ -1551,8 +1551,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         if (drawing || strokes.isEmpty()) return
         var mark = 0
         onGl { mark = engine.undo.undoDepth }
-        for (samples in strokes) {
-            startStroke(eraser = false)
+        for ((index, samples) in strokes.withIndex()) {
+            // Automated previews keep the same dabs while controls change. Freehand starts
+            // still use the clock; a new test stroke can have its own random pattern.
+            val seeds = preset?.takeIf { it.engine == ENGINE_WATERCOLOUR }?.watercolour?.sampleSeeds
+            val previewSeed = seeds?.getOrNull(index) ?: seeds?.firstOrNull()?.plus(index.toLong())
+            startStroke(eraser = false, watercolourPreviewSeed = previewSeed)
             val sm = smoother ?: continue
             val released = ArrayList<PenSample>()
             for (s in samples) {

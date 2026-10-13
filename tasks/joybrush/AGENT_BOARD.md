@@ -666,3 +666,13 @@ Root reserves W3/W4 scoped engine/view hooks and new GL code; helpers handle W1 
 Watercolour progress October12: W1/W2 and scoped W3 source ready; Android compilation plus StampPassUniformsParityTest passed. Root's backend build finished and released the shared lock; verified OWN idle Gradle13156/Kotlin57400 daemons released. Full core (includes SVG/presets/tween) now running serially with --no-daemon, one worker, in-process compiler through RAM/lock runner. No browser concurrently. Root owns GlPaintEngine/JbCanvasView hook changes until checkpoint reviewed; all new GL work under gl/watercolour. Full-res pooling source-POC appearance gate remains open; tile seams/CPU optics pass. W4 needs lead JB-5.20d recording/look-cache hooks. Exact files/dependencies in reviews/WATERCOLOUR_PHONE_20261012.md. No media engine/atlas edits or device reservation.
 
 Watercolour source checkpoint63c86026 published after clean rebase onto f58bf202. FINAL full core2171/0/0, four optional corpus skips, BUILD SUCCESSFUL5m24s; backend StampPass parity1/0/0 and Androidcompile passed earlier. Latest single-use/in-process build finished, sharedlock released normally; no persistent owned daemon to stop. Respecting new lead vector-hold. Queued GPU runner acquires sameexclusive lock (all browsers serialized/closed), and queued APK usesroot runner one worker/in-process/--no-daemon. No overlapping engine/atlas source. W3 fullres source-POC appearance parity stillunmet; W4 phonehooks/W5physicalmeasurements remainlead dependencies.
+
+October13 watercolor lane is IDLE and released to JoyBrush Lead. Full-resolution
+appearance is owner-approved; six original half-res comparison failures remain
+diagnostics. Scoped controls22/0/0/0 and compilation pass, actual grain/paper
+GPU37 nonperceptual gates pass, LineLab fixture1/0/0/0 +4 sheets rendered and
+inspected. Source/evidence through b3a4fd7c pushed; lead integration c8d3f2f8 owns
+next packaging/phone steps. No local build/browser/reservation or source edits
+remain. Read-only capacity contract audit saved in LINE_LAB_PORT_20261012.md;
+no capacity/P1 shader port authorized. W4 host/opacity/replay policy and actual
+W5 remain separate gates, not completed by the desktop checks.

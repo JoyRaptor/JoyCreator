@@ -557,3 +557,9 @@ Approved full-resolution appearance remains default. Bounded native WC knobs,
 curve routing and deterministic automated previews are source-only follow-up;
 their tests/APK and new actual grain/paper checker await the next serial slot.
 No branching or Kubelka–Munk feature expansion in this fix.
+
+October13 controls verification: source4de4fe1a has22/0/0/0 focused core/native
+tests (7WC +13existing tuning +2native sheet), Androidkit/native compile green.
+First compile caught/fixed a required-size omission in a new test fixture only.
+Serial slot released to lead. Actualgrain/paper GPU, LineLab4PNGs, integrationAPK
+and W4/W5 remain pending; no phone or browser was used for these checks.

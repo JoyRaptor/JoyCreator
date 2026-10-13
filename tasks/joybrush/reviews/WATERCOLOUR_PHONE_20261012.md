@@ -244,3 +244,36 @@ keeps the live preview outside its scrolling controls, and edits an actual
 checkbox through persisted tuning without changing seeds/curves. Reset restores
 checkboxes without extra tuning callbacks. This class awaits the same authorized
 narrow native slot; production controls source remains251beb97.
+
+## Controls runtime verification — October13, completed
+
+Lead authorized one serial sequence: core7 + existing BrushTuningTest,
+Androidkit compile, native compile + focused settings2. Tested source is
+4de4fe1a8a54c928e5cc1221bed75395538688b9; production controls still251beb97.
+No main-ref update changed this checkout's source during the tests.
+
+The first core run stopped at test compilation (1m18s): the newly added generic
+brush fixture omitted required `size`. Commit4de4fe1a supplies Param(6f).
+No production change was needed; no failing runtime result is hidden.
+
+| Check | Actual result |
+|---|---|
+|Core focused rerun |BUILD SUCCESSFUL1m3s; WatercolourKnobsTest7/0/0/0 + BrushTuningTest13/0/0/0 |
+|Androidkit compileKotlin |BUILD SUCCESSFUL31s |
+|Native compileDebugKotlin + WatercolourBrushSettingsTest |BUILD SUCCESSFUL1m13s; XML2/0/0/0 |
+
+All22 focused tests passed without skips. Native XML also emits an unrelated
+BoardBackdropTest suite with zero selected tests; it adds zero to the total.
+These are source/JVM checks, not phone drawing or hardware performance evidence.
+
+All jobs used no-daemon, one worker, in-process Kotlin and CPU2. Gradle heap
+1536MiB, test heap512MiB. Initial run admitted5401MiB; focused rerun5373MiB,
+kit5404MiB, native5172MiB. The lead clarified that1536+512 jobs require at least
+2800MiB, so every job after the initial run used that threshold. Each runner
+checked RAM once, acquired the shared lock exclusively, and released it normally
+on terminal. Final shared lock absent, clean checkout, about5189MiB free.
+
+This completes the controls compile/tuning/native construction gates that were
+pending above. GPU actual grain/Artisan checks, LineLab four PNGs, integration
+APK, JB-5.20d host/W4 and physical W5 remain open. No GPU, browser, app assembly
+or phone command was launched in this slot. The slot was released to the lead.

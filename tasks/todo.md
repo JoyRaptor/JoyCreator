@@ -544,3 +544,13 @@ Review: tests integrated18c075cf; desktop benchmark findings in reviews/NOTE20_F
 - [ ] Continue frontier atlas A2 and live-line engine contracts; reuse scoped UndoLog history and preserve current renderer until proofs pass.
 
 Review: atlas foundation is separate from A2–A6 rendering integration. No phone acceptance or crease/Tile fix is claimed from A1 JVM results.
+
+## UX count scrubber — October13, job8
+- [x] Read K11/K12 and approved 12dp wrap/immutable additive base behavior; coordinate with Lead; preserve frozen source.
+- [x] Expose tap/crosshair ranked pick context and guarded count sessions; atomic group-aware choices from a fixed base, no history writes.
+- [x] Implement labelled paper-backed cyan-outline count view: tap cycles, horizontal drag wraps live, cancel/secondary pointer lifecycle, accessible input and safe touch target.
+- [x] Bind visibility, placement and sampled ink to controller; explicit accepted resting-thumb input seam, no guessed palm support.
+- [x] Verify focused model/tool/view tests, then native regression through resource-admitted shared runner after Root release.
+- [ ] Publish exact scoped source and handoff to Lead; document current string contract pending LineAddress migration and physical input acceptance.
+Review: no preview, engine/Activity/View hot-file edits or device work. Existing integrated144 gate is baseline evidence, not proof of these new count changes.
+Review October13: count core32/native56 pass, zero failures/errors/skips; exact logs, first-run fixture repairs and remaining integration contracts in tasks/joybrush/reviews/UX_COUNT_20261013.md.

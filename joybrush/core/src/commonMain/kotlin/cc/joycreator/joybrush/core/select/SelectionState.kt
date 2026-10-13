@@ -130,6 +130,17 @@ class SelectionState(
         current = Lines(unit, null, null, at)
     }
 
+    /** The additive count browses one unit while keeping the other selected units unchanged. */
+    fun countBaseWithout(id: String, lines: List<InkLine>): Set<String> =
+        ((current as? Lines)?.ids ?: emptySet()) - withGroups(listOf(id), lines)
+
+    /** Atomically choose against the count gesture's fixed base. Picking never writes drawing/history. */
+    fun chooseFromBase(id: String, base: Set<String>, at: Pick, lines: List<InkLine>): Boolean {
+        if (lines.none { it.id == id } || (!pickLocked && items.locked(id))) return false
+        current = Lines(base.toSet() + withGroups(listOf(id), lines), null, null, at)
+        return true
+    }
+
     /**
      * A finished loop (D8, D9). [here] is the active layer's lines, [everywhere] every visible layer's (for the
      * All layers chip). With [adding] and a line selection live, the loop's lines are added, or removed when every one of

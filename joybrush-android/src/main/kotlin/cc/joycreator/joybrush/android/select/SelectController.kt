@@ -61,6 +61,8 @@ class SelectController(
         /** K18/Q2: persisted shelf default; a brush's own Editable lines setting takes priority. */
         fun paintMakesLines(): Boolean
         fun setPaintMakesLines(on: Boolean)
+        /** Accepted resting finger across canvas/chrome while the pen owns the count; exclude rejected palms. */
+        fun hasRestingThumbForCount(): Boolean
     }
 
     /** The owner's picks and Settings (spec §K). */
@@ -87,9 +89,13 @@ class SelectController(
     private val boxHost = SelectBoxHost(tool, { canvas.view }, { RectF(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat()) })
     private val row = SelectRowView(kit, RowActions())
     private val bar = SelectBarView(kit, BarChips())
-    private val count = TextView(kit.context)
+    private val count = SelectCountView(kit, CountChoices())
+    private var countSession: SelectTool.CountSession? = null
     private var rowInk: IconInk? = null
     private var barInk: IconInk? = null
+    private var countInk: IconInk? = null
+    private var inkGeneration = 0L
+    private var boxMoving = false
     private var ringWasOn = false
 
     /** Whether the strip's Select tool is the one in the hand. */
@@ -110,11 +116,16 @@ class SelectController(
         box.setPinchAnywhere(true)
         box.setTouchGate { e, kind -> gate(e, kind) }
         box.visibility = View.GONE
-        boxHost.onGesture = { moving -> if (moving) row.fadeOut() else { place(); row.fadeIn() } }
+        boxHost.onGesture = { moving ->
+            inkGeneration++
+            countInk = null
+            boxMoving = moving
+            if (moving) { row.fadeOut(); count.visibility = View.GONE }
+            else { place(); readInk(); row.fadeIn() }
+        }
         root.addView(row, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, kit.dpi(44f)))
         root.addView(bar, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, kit.dpi(40f)))
-        root.addView(count, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, kit.dpi(22f)))
-        styleCount()
+        root.addView(count, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, kit.dpi(44f)))
         row.visibility = View.GONE; bar.visibility = View.GONE; count.visibility = View.GONE
         tool.listener = object : SelectTool.Listener {
             override fun selectionChanged() = refresh()
@@ -125,6 +136,7 @@ class SelectController(
     }
 
     fun detach() {
+        inkGeneration++
         tool.end()
         toast.dispose()
         if (canvas.tool === tool) canvas.tool = null
@@ -132,7 +144,16 @@ class SelectController(
     }
 
     /** The paper changed: the row, bar and box ink follow. */
-    fun paperChanged() { rowInk = null; barInk = null; refresh() }
+    fun paperChanged() { rowInk = null; barInk = null; countInk = null; refresh() }
+
+    /** Chain from canvas.onViewMoved alongside existing chrome sampling; keep picks anchored to the drawing. */
+    fun viewMoved() {
+        inkGeneration++
+        box.refresh()
+        overlay.invalidate()
+        place()
+        readInk()
+    }
 
     /** The activity's SelectionHost.toast forwards notes here, including optional Undo actions. */
     fun showToast(text: String, action: String? = null, onAction: (() -> Unit)? = null) = toast.show(text, action, onAction)
@@ -169,13 +190,17 @@ class SelectController(
     }
 
     private fun refresh() {
+        inkGeneration++
         boxHost.settle()
         val s = tool.selection
         host.dimRest(if (s is SelectionState.Lines) picks.fadeRest else 0f)
         box.visibility = if (tool.canTransform && !tool.nudging) View.VISIBLE else View.GONE
         box.refresh()
         val paper = app.paperArgb()
-        row.setPaper(paper); bar.setPaper(paper)
+        row.setPaper(paper); bar.setPaper(paper); count.setPaper(paper)
+        if (countInk == null) count.ink = IconContrast.inkFor(intArrayOf(paper), null)
+        if (s !is SelectionState.Lines || tool.countPick == null || tool.nudging || boxMoving)
+            count.visibility = View.GONE
         when (s) {
             is SelectionState.Lines -> {
                 val recs = host.visibleLines().filter { it.id in s.ids }
@@ -216,6 +241,7 @@ class SelectController(
 
     /** K2: the row 12 dp above the box; below it (past the rotate handle) only when there is no room above. */
     private fun place() {
+        placeCount()
         val q = FloatArray(8)
         if (!boxHost.readQuad(q)) return
         val top = minOf(q[1], q[3], q[5], q[7])
@@ -232,20 +258,33 @@ class SelectController(
         val bw = bar.width.takeIf { it > 0 } ?: bar.measuredWidth
         bar.x = (root.width - bw) / 2f
         bar.y = root.height - kit.dp(12f) - kit.dp(40f)
-        placeCount()
     }
 
     private fun placeCount() {
-        val s = tool.selection as? SelectionState.Lines
-        val pick = s?.pick
-        if (s == null || pick == null) { count.visibility = View.GONE; return }
-        count.visibility = View.GONE // shown by the count scrubber once the tap's order is known (K11): see countFor()
+        val pick = tool.countPick
+        if (tool.selection !is SelectionState.Lines || pick == null || pick.total < 2 || tool.nudging || boxMoving) {
+            count.visibility = View.GONE
+            return
+        }
+        count.show(pick.index, pick.total)
+        if (countInk == null) count.ink = IconContrast.inkFor(intArrayOf(app.paperArgb()), null)
+        count.measure(View.MeasureSpec.makeMeasureSpec(root.width, View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(kit.dpi(44f), View.MeasureSpec.EXACTLY))
+        val (px, py) = canvas.view.docToScreen(pick.at.x.toFloat(), pick.at.y.toFloat())
+        val margin = kit.dp(6f)
+        count.x = (px + kit.dp(18f)).coerceIn(margin, maxOf(margin, root.width - count.measuredWidth - margin))
+        val minY = kit.dp(TOP_RESERVE_DP + 4f)
+        // The 22dp visible pill is centred in a 44dp contact target; keep both clear of the top/footer.
+        count.y = (py - kit.dp(36f + 11f)).coerceIn(minY,
+            maxOf(minY, root.height - kit.dp(58f) - count.measuredHeight))
     }
 
     /** K3: white or black icons by the brightness behind the row and the bar (IconContrast, the top bar's sampler). */
     private fun readInk() {
-        val views = listOf<View>(row, bar).filter { it.visibility == View.VISIBLE && it.width > 0 }
+        val views = listOf<View>(row, bar, count).filter { it.visibility == View.VISIBLE && it.width > 0 }
         if (views.isEmpty()) return
+        val generation = inkGeneration
+        val bounds = views.map { RectF(it.x, it.y, it.x + it.width, it.y + it.height) }
         val pts = FloatArray(views.size * 18)
         var k = 0
         for (v in views) for (j in -1..1) for (i in -1..1) {
@@ -253,21 +292,29 @@ class SelectController(
             pts[k++] = v.y + v.height / 2f + j * v.height / 3f
         }
         canvas.sampleScreen(pts) { colours ->
+            if (generation != inkGeneration || colours.size < views.size * 9) return@sampleScreen
             for ((n, v) in views.withIndex()) {
+                if (v.visibility != View.VISIBLE || bounds[n] != RectF(v.x, v.y, v.x + v.width, v.y + v.height)) continue
                 val samples = IntArray(9) { colours[n * 9 + it] }
                 if (v === row) { rowInk = IconContrast.inkFor(samples, rowInk); row.ink = rowInk!! }
                 if (v === bar) { barInk = IconContrast.inkFor(samples, barInk); bar.ink = barInk!! }
+                if (v === count) { countInk = IconContrast.inkFor(samples, countInk); count.ink = countInk!! }
             }
             box.setGuideInk(if ((rowInk ?: IconInk.LIGHT) == IconInk.DARK) 0xFF121214.toInt() else 0xFFF7F7F9.toInt())
         }
     }
 
-    private fun styleCount() {
-        count.textSize = 11f
-        count.typeface = android.graphics.Typeface.MONOSPACE
-        count.setPadding(kit.dpi(9f), 0, kit.dpi(9f), 0)
-        count.gravity = android.view.Gravity.CENTER_VERTICAL
-        kit.label(count, "Drag to step through the lines under this spot")
+    private inner class CountChoices : SelectCountView.Callbacks {
+        override fun begin(pen: Boolean): SelectCountView.Model? {
+            countSession?.let(tool::endCountScrub)
+            countSession = tool.beginCountScrub(tool.addArmed || (pen && app.hasRestingThumbForCount()), canvas.view)
+            return countSession?.pick?.let { SelectCountView.Model(it.index, it.total) }
+        }
+        override fun choose(index: Int): Boolean = countSession?.let { tool.scrubCount(it, index) } ?: false
+        override fun end() {
+            countSession?.let(tool::endCountScrub)
+            countSession = null
+        }
     }
 
     // ── the row ──

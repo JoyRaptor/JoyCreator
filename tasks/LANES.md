@@ -1131,3 +1131,10 @@ failed D8. Original partials remain preserved; document/archive safety source is
 UX sourcee2369b2b/docsb9647c1c is independently verified34/0/0/0; scoped integration is next (including earlier e3 ancestry).
 Vector controls source251beb97/native-test7d079729 has the next narrow check slot; no parallel Gradle/GPU or waiting wrappers.
 Root retains frontier atlas/engine binding ownership. No device reservation or installation.
+
+## JOYBRUSH_UX_COUNT_20261013
+status: VERIFIED, frozen for scoped publication; bounded job8 authorized by owner continuation and Lead.
+worktree: C:/Temp/jb-select-count; branch ui/select-count-main; baseline a16059d6 (integrated UI and v10 fixture). C:/Temp/jb-select-core/ui/select-e2 stays frozen.
+files: new select/SelectCountView.kt and focused tests; SelectController.kt count placement/render/input binding; androidkit SelectTool.kt ephemeral ordered pick/session; narrow core SelectionState.kt atomic base-choice helper and relevant tests. No Activity, JbCanvasView, GlPaintEngine, shared overlay, preview or device changes.
+Scope: 12dp per step, wrapped tap/drag cycling, stable add base, current string candidate contract pending Lead's addressed migration, no drawing/history edits; explicit accepted resting-thumb input contract for later real Activity binding. Keep physical arbitration and drawing engine support unclaimed.
+Build: Root explicitly released one sequential checker slot at minimum2800MiB. Core32/native56 pass, zero failures/errors/skips; no core/kit changes after their green gate. Exact evidence and integration seams in tasks/joybrush/reviews/UX_COUNT_20261013.md. Shared build lock released; no next UX heavy job.

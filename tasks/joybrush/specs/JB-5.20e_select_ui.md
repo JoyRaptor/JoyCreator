@@ -663,6 +663,25 @@ New hooks from §K:
 - **H10** — an engine "adjust the colour of the masked pixels / of these lines" operation, one undo step, shared with
   the adjustment-layer work.
 
+## October13 owner authority and count implementation
+
+The owner's later locked direction supersedes the earlier presentation trials: cyan gradient
+(bluer upper-left), full pills, borderless paper backings; tools/swatches/layers retain outlines
+and visible contents, switches retain solid fills with cut-out glyphs. The strip's width,
+colour and brush ring pulse briefly when they affect selected lines. No more web-preview edits.
+
+K18/Q2's Pixels shelf default remains provisional. The owner is considering Proko pencil
+as the default and wants S-tier raster AND vector; prefer vector when appearance matches,
+choose raster only for enough visible improvement to justify the extra file size. No quality
+or final default acceptance is implied by UI implementation.
+
+Bounded #8 implements K11/K12 in ui/select-count-main on integrated UI base a16059d6.
+The count uses wrapped12dp live steps, tap-next, one stable additive base with whole-group
+replacement,44dp contact target and22dp pill. Count picks do not edit drawing/history.
+An explicit accepted-thumb App contract and controller.viewMoved() await Lead's Activity
+wiring. All-layer identity migration and physical arbitration remain prerequisites.
+Exact32 core and56 native check evidence: reviews/UX_COUNT_20261013.md.
+
 ## Do not
 
 - Edit `JbCanvasView.kt`, `GlPaintEngine.kt` or `JoyBrushActivity.kt`. Ask for the hook.

@@ -148,3 +148,20 @@ scrubber (K11), `SelectToast`. The activity wiring (a few lines) is the lead's f
 - Lines are drawn more simply than Joy Brush draws them. The Studio role ring, Tilt, Free and Bend appear in a scene
   only, not in the live phone. Two-finger rotate of the page is not built (pinch zoom and pan are).
 - Home, Guides, Pin, More, the strip grip, Opacity and most layer-panel rows say "not part of this mockup".
+
+## October13 Codex count checkpoint
+
+Green/yellow source and locked styling were verified on ui/select-e2 (e2369b2b), then
+integrated by Lead as a16059d6. Original C:/Temp/jb-select-core stays frozen. The owner's
+cyan-gradient/full-pill/borderless direction is locked; Q2 and Proko remain quality-dependent,
+with vector preferred when it matches. Browser preview work is finished.
+
+Job8 count now has isolated source on ui/select-count-main, C:/Temp/jb-select-count,
+base a16059d6 with the document-v10 fixture preserved. Tap-next, wrapped horizontal scrub,
+stable group-aware Add, labelled/accessibility input and guarded touch endings are implemented.
+Core32 and native56 focused tests pass, zero failures/errors/skips. Read
+../reviews/UX_COUNT_20261013.md for exact logs, initial fixture repairs and source boundaries.
+Lead must provide App.hasRestingThumbForCount() from accepted contact state and chain
+controller.viewMoved() into existing canvas.onViewMoved handling during Activity integration.
+No Activity/engine binding, addressed all-layer migration, Lock/Group/Invert menu rollout
+or phone acceptance is claimed. Shared checker lock is released; source is frozen for publication.

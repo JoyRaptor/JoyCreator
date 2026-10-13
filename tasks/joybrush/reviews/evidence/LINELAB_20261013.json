@@ -1,0 +1,110 @@
+{
+  "metadata": {
+    "minimumFreeMiB": 3200,
+    "admittedFreeMiB": 4798.0,
+    "source": "965192e36843fc57f8e6b8bc5db92aecf63a2ba0",
+    "paper": "pulp_artisan"
+  },
+  "fixtureTests": 1,
+  "failures": 0,
+  "errors": 0,
+  "skips": 0,
+  "fixtureBuildSeconds": 9,
+  "sheetDimensions": [
+    2048,
+    1280
+  ],
+  "ownedSwiftShaderBrowserCountAfter": 0,
+  "sharedLockReleased": true,
+  "visualQa": "All four sheets inspected",
+  "limits": [
+    "Desktop SwiftShader timings are not Note9 performance",
+    "No approved raster or Proko comparison",
+    "u_grainCapacity inactive in current shader; P1 and Pencil PNG hashes identical",
+    "No app assembly or phone in this job"
+  ],
+  "sheets": [
+    {
+      "name": "pencil",
+      "pngPath": "C:\\Temp\\jb-linelab-20261013\\pencil.png",
+      "width": 2048,
+      "height": 1280,
+      "pngSha256": "FD589475CB0701C05B37071374FEB7BA7F216C7106F54EB49C7F14FC3BCEFAEC",
+      "fixtureSha256": "27EA4C56FF97F4B045B33D270B074A48081C3A771A6D7A5E2CC7DDA20B5DB788",
+      "presetSha256": "1BB2C33278162B492D267E915838F2E8E8E603DAC0AEDBFFD39D90842F2BCD7C",
+      "strokes": 34,
+      "dabs": 25718.0,
+      "grainCapacity": 0,
+      "renderExit": 0,
+      "terminal": [
+        "  uniforms the shader does not use (optimised out): u_paperFluid, u_grainCapacity, u_paperFluidTexelPx, u_paperFluidSize, u_paperFluidHexTexels",
+        "shaders: C:\\Temp\\jb-watercolour-phone\\joybrush\\shaders",
+        "C:\\Temp\\jb-linelab-20261013/pencil.png: 34 strokes, 25718 dabs; GL 45491 ms, browser start 275 ms (incl. pictures), total 47771 ms (page 47494 ms)"
+      ]
+    },
+    {
+      "name": "ink",
+      "pngPath": "C:\\Temp\\jb-linelab-20261013\\ink.png",
+      "width": 2048,
+      "height": 1280,
+      "pngSha256": "AA31DEA8D2DA0D91D8AC4021BA11DE6F657633F9729E3D77D3BA4DFEAA4571ED",
+      "fixtureSha256": "6B7BCE151AC7845A20772CB5A9B5E3C50B51739DDE82A07F8EFF712498C21D3C",
+      "presetSha256": "5746E71CA3CC7A7CE6C418F691F7B9FF7BACBD22BCDB2CCFE91E32A1568227F6",
+      "strokes": 34,
+      "dabs": 36648.0,
+      "grainCapacity": 0,
+      "renderExit": 0,
+      "terminal": [
+        "  uniforms the shader does not use (optimised out): u_paperFluid, u_grainCapacity, u_paperFluidTexelPx, u_paperFluidSize, u_paperFluidHexTexels",
+        "shaders: C:\\Temp\\jb-watercolour-phone\\joybrush\\shaders",
+        "C:\\Temp\\jb-linelab-20261013/ink.png: 34 strokes, 36648 dabs; GL 6818 ms, browser start 300 ms (incl. pictures), total 9948 ms (page 9646 ms)"
+      ]
+    },
+    {
+      "name": "pencil_p1",
+      "pngPath": "C:\\Temp\\jb-linelab-20261013\\pencil_p1.png",
+      "width": 2048,
+      "height": 1280,
+      "pngSha256": "FD589475CB0701C05B37071374FEB7BA7F216C7106F54EB49C7F14FC3BCEFAEC",
+      "fixtureSha256": "75F340E094622E67BC28D1258D78D3F6CC4319E07E3745F825B5BE2B72B3F717",
+      "presetSha256": "4583654A8EB6F77D04B529D622680E88B1781CE5C0C59350BCF18C7A5E907CA5",
+      "strokes": 34,
+      "dabs": 25718.0,
+      "grainCapacity": 1,
+      "renderExit": 0,
+      "terminal": [
+        "  uniforms the shader does not use (optimised out): u_paperFluid, u_grainCapacity, u_paperFluidTexelPx, u_paperFluidSize, u_paperFluidHexTexels",
+        "shaders: C:\\Temp\\jb-watercolour-phone\\joybrush\\shaders",
+        "C:\\Temp\\jb-linelab-20261013/pencil_p1.png: 34 strokes, 25718 dabs; GL 51839 ms, browser start 293 ms (incl. pictures), total 54803 ms (page 54509 ms)"
+      ]
+    },
+    {
+      "name": "pencil_p2",
+      "pngPath": "C:\\Temp\\jb-linelab-20261013\\pencil_p2.png",
+      "width": 2048,
+      "height": 1280,
+      "pngSha256": "9463A6C4419D9C6FC8EBF4192A29CD55E11AE06BF7A5A88082A65D7D932C3A6A",
+      "fixtureSha256": "991850DEB4E0F4032E611BE70B20A0178ADFFDB0E969E3E032A7F33296691078",
+      "presetSha256": "4B7C3AA9BE412F06EE06709B47FCBD68205FB2EB8A966D08A421D804767CA88D",
+      "strokes": 34,
+      "dabs": 30308.0,
+      "grainCapacity": 1,
+      "renderExit": 0,
+      "terminal": [
+        "  uniforms the shader does not use (optimised out): u_paperFluid, u_grainCapacity, u_paperFluidTexelPx, u_paperFluidSize, u_paperFluidHexTexels",
+        "shaders: C:\\Temp\\jb-watercolour-phone\\joybrush\\shaders",
+        "C:\\Temp\\jb-linelab-20261013/pencil_p2.png: 34 strokes, 30308 dabs; GL 31846 ms, browser start 285 ms (incl. pictures), total 34764 ms (page 34477 ms)"
+      ]
+    }
+  ],
+  "sourceFiles": [
+    {
+      "sha256": "27726C7D95EAD1EBACCCD6144FABC79BD4F2E5C3F79888E065873AFE81FE883A",
+      "path": "joybrush/lab/lines/render_sheet.js"
+    },
+    {
+      "sha256": "351D41EA184B6B782F424EC37B2ACA8DD1476D16CF9427D16DC837A073EEE443",
+      "path": "joybrush/shaders/jb_dab.frag"
+    }
+  ]
+}

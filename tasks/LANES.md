@@ -1,4 +1,8 @@
 # LANES.md — live file-lock board for parallel agents
+# October13 combined feature integration: IDLE, no source files owned in C:/Temp/jb-feature-integration.
+# Source c8d3f2f8 + test-only df8df716; core2201/backend408/native146 green, four optional core skips,
+# app assembly PASS4m33, no phone installation. Report FEATURE_INTEGRATION_20261013.md.
+# Root keeps frontier atlas/live-engine coordination. UX count scrubber source is separate; build slot released.
 #
 # ★★ WORD SYNC v2: JoyRaptor tested the mode and it is wrong. tasks/SPEC_20260830_WORD_SYNC_V2.md
 #    supersedes the mode UI from b8ac6a6c/274302de/01a1db5f/a6deaf50. The ENGINE stays; the
@@ -1129,5 +1133,5 @@ October13 checkpoint: JB-5.20a source32062efc, atlas constraints464cc023; core21
 four optional core skips. App-only assembly passed45s at the repository2048MiB heap/CPU2 after the small scratch heap
 failed D8. Original partials remain preserved; document/archive safety source is released after root publication.
 UX sourcee2369b2b/docsb9647c1c is independently verified34/0/0/0; scoped integration is next (including earlier e3 ancestry).
-Vector controls source251beb97/native-test7d079729 has the next narrow check slot; no parallel Gradle/GPU or waiting wrappers.
+Vector controls/GPU/LineLab evidence is now integrated; next builds are sequenced by normal lock admission, no waiting wrappers.
 Root retains frontier atlas/engine binding ownership. No device reservation or installation.

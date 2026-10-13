@@ -539,8 +539,19 @@ Review: tests integrated18c075cf; desktop benchmark findings in reviews/NOTE20_F
 - [x] Push atlas A1 checkpoint c7b630e3 to media/atlas-a1 and joy-creator; publish lane assignments for incoming peers.
 - [x] Verify recovered JB-5.20a: core2140/backend408/native115, zero failures/errors, four optional core skips; app assembly passed45s after matching repository heap.
 - [x] Back up scoped source32062efc and atlas constraints/owner direction464cc023; publish checked source from clean jb-merge.
-- [ ] Integrate reviewed full Select e3 ancestry and locked styling after its source34-test checkpoint; preserve the v10 LayerColumn fixture.
-- [ ] Verify watercolor controls checkpoint core7/legacy tuning/native2, then its new grain/Artisan GPU gates under the shared slot.
+- [x] Integrate reviewed full Select e3 source and locked styling; preserve the v10 LayerColumn fixture. Published source a16059d6, full native144/0/0/0 PASS4m45.
+- [x] Verify watercolor controls core20/native2 and actual grain/Artisan GPU checks; evidence965192e3 preserved in combined integration. Higher-resolution pooling retained; historical appearance differences recorded.
 - [ ] Continue frontier atlas A2 and live-line engine contracts; reuse scoped UndoLog history and preserve current renderer until proofs pass.
+
+## October13 combined watercolor/Select integration
+- [x] Prepare complete Select source a16059d6 and vector965192e3 patch from their actual merge bases.
+- [x] Apply reviewed vector source on the document v10 foundation; retain separate document/brush version pins and all save/export guards. Source c8d3f2f8 backed up remotely.
+- [x] Run integrated core/backend/native regression and app assembly, sequentially under the shared lock: core2201/backend408/native146, zero failures/errors, four optional core skips; APK PASS4m33.
+- [x] Publish passing source and evidence, distinguishing live raster WC from future record replay/export/phone acceptance.
+
+Review: complete source c8d3f2f8 and test-only df8df716. All eleven initial native failures came from the old reflective
+Fill helper signature; repaired without changing assertions or production. Fresh native146/0/0/0 PASS1m9.
+APK contains all25 watercolor dabs, brush and source-matching pooling/commit shaders. Exact logs/limits/hashes and
+unfinished engine contracts are in FEATURE_INTEGRATION_20261013.md; newest entry is HANDOFF_20261013.md.
 
 Review: atlas foundation is separate from A2–A6 rendering integration. No phone acceptance or crease/Tile fix is claimed from A1 JVM results.

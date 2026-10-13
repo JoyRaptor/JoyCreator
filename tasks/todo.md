@@ -539,8 +539,18 @@ Review: tests integrated18c075cf; desktop benchmark findings in reviews/NOTE20_F
 - [x] Push atlas A1 checkpoint c7b630e3 to media/atlas-a1 and joy-creator; publish lane assignments for incoming peers.
 - [x] Verify recovered JB-5.20a: core2140/backend408/native115, zero failures/errors, four optional core skips; app assembly passed45s after matching repository heap.
 - [x] Back up scoped source32062efc and atlas constraints/owner direction464cc023; publish checked source from clean jb-merge.
-- [ ] Integrate reviewed full Select e3 ancestry and locked styling after its source34-test checkpoint; preserve the v10 LayerColumn fixture.
-- [ ] Verify watercolor controls checkpoint core7/legacy tuning/native2, then its new grain/Artisan GPU gates under the shared slot.
+- [x] Integrate reviewed full Select e3 source and locked styling; preserve the v10 LayerColumn fixture. Source a16059d6 published, integrated native144/0/0/0 PASS4m45.
+- [x] Verify watercolor controls core20/native2 and actual grain/Artisan GPU checks; evidence965192e3 remains on vector branch pending integration. Full-resolution pooling is retained; six historical appearance diagnostics remain recorded.
 - [ ] Continue frontier atlas A2 and live-line engine contracts; reuse scoped UndoLog history and preserve current renderer until proofs pass.
+
+## October13 Select checkpoint integration
+- [x] Freeze complete source b9647c1c and audit its merge-base f1bfc967; preserve document-v10 test metadata from c99a25be.
+- [x] Apply scoped production/test patch without importing stale task/palette documents.
+- [x] Compile and run the integrated native suite under one shared build slot after LineLab releases it: 144 tests, zero failures/errors/skips, 16 suites.
+- [x] Publish verified UI foundation and updated locked owner decisions; controller Activity/engine binding remains separate.
+
+Review: source a16059d6 published to joy-creator and lead/jb-ui-integration. Log C:/Temp/jb-lead-ops/ui-integrated-native.log,
+BUILD SUCCESSFUL4m45; actual XML144/0/0/0. Includes new Select tests and existing native board/chrome regressions.
+No Activity/engine source change, APK assembly or phone installation in this UI-only slot.
 
 Review: atlas foundation is separate from A2–A6 rendering integration. No phone acceptance or crease/Tile fix is claimed from A1 JVM results.

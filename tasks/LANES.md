@@ -1,4 +1,7 @@
 # LANES.md — live file-lock board for parallel agents
+# October13 Select integration: IDLE, no source files owned in C:/Temp/jb-ui-integration.
+# Source a16059d6 is published on joy-creator; native144/0/0/0 PASS4m45. No phone acceptance.
+# Root continues combined watercolor regression in C:/Temp/jb-feature-integration; UX owns count scrubber separately.
 #
 # ★★ WORD SYNC v2: JoyRaptor tested the mode and it is wrong. tasks/SPEC_20260830_WORD_SYNC_V2.md
 #    supersedes the mode UI from b8ac6a6c/274302de/01a1db5f/a6deaf50. The ENGINE stays; the

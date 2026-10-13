@@ -1,4 +1,7 @@
 # LANES.md — live file-lock board for parallel agents
+# October13 watercolor device smoke: IDLE/released, Note9 verified back at Home after both debug runs completed.
+# APKdf8df716 installed in place and device SHA256 verified; visible render smoke passed, full performance remains open.
+# No Note20/uninstall/owner-project drawing/working save/source edit. Report NOTE9_WATERCOLOUR_SMOKE_20261013.md.
 # October13 count integration: IDLE, no source files owned in C:/Temp/jb-count-integration.
 # Source4dfe0f48 on eb4eb531; integrated core32/0 and full native168/0/0/0 PASS. Shared slot released.
 # No Activity/engine/shader/device source; combined watercolor/save/atlas and all-layer address gate preserved.

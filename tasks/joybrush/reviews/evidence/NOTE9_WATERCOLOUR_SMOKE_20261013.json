@@ -1,0 +1,157 @@
+{
+  "date": "2026-10-13",
+  "device": "Note 9 sandbox",
+  "model": "SM-N960U",
+  "source": "df8df716",
+  "apkSha256": "AE90642B3FB07202AE29DD36963E2DACFB3FE61894D0615EA7EA8D2B0AFF16BA",
+  "installedHashMatches": true,
+  "lastUpdateTime": "2026-10-13 13:28:55",
+  "preInstallForeground": "launcher",
+  "runs": [
+    {
+      "legacy": false,
+      "brush": "joybrush.watercolour",
+      "case": "scribble",
+      "run": 1,
+      "samples": 721,
+      "frames": 70,
+      "strokeFrames": 68,
+      "firstFrameMs": 1513.47,
+      "busyMs": {
+        "p50": 15.53,
+        "p95": 22.86,
+        "max": 421.42,
+        "mean": 26.55
+      },
+      "workMs": {
+        "p50": 3.38,
+        "p95": 7.44,
+        "max": 297.13,
+        "mean": 8.61
+      },
+      "mediaMs": {
+        "p50": 0.02,
+        "p95": 0.02,
+        "max": 0.13,
+        "mean": 0.02
+      },
+      "displayMs": {
+        "p50": 3.84,
+        "p95": 6.58,
+        "max": 9.22,
+        "mean": 3.85
+      },
+      "finishMs": {
+        "p50": 7.33,
+        "p95": 15.27,
+        "max": 404.98,
+        "mean": 14.04
+      },
+      "simMs": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      "flushMs": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      "gapMs": {
+        "p50": 16.74,
+        "p95": 21.51,
+        "max": 318.92,
+        "mean": 22.03
+      },
+      "latencyMs": {
+        "p50": 181.27,
+        "p95": 1392.85,
+        "max": 1513.47,
+        "mean": 417.93
+      },
+      "gapsOver17": 21,
+      "gapsOver34": 2,
+      "mediaFrames": 0,
+      "windowMoves": 0,
+      "windowLoads": 0
+    },
+    {
+      "legacy": false,
+      "brush": "joybrush.watercolour",
+      "case": "scribble",
+      "run": 1,
+      "samples": 721,
+      "frames": 151,
+      "strokeFrames": 150,
+      "firstFrameMs": 0.42,
+      "busyMs": {
+        "p50": 15.86,
+        "p95": 28.8,
+        "max": 399.11,
+        "mean": 21.23
+      },
+      "workMs": {
+        "p50": 3.06,
+        "p95": 7.76,
+        "max": 185.07,
+        "mean": 4.95
+      },
+      "mediaMs": {
+        "p50": 0.02,
+        "p95": 0.03,
+        "max": 0.16,
+        "mean": 0.02
+      },
+      "displayMs": {
+        "p50": 1.52,
+        "p95": 4.14,
+        "max": 6.39,
+        "mean": 1.94
+      },
+      "finishMs": {
+        "p50": 10.7,
+        "p95": 21.22,
+        "max": 378.0,
+        "mean": 14.29
+      },
+      "simMs": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      "flushMs": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      "gapMs": {
+        "p50": 17.38,
+        "p95": 30.19,
+        "max": 195.19,
+        "mean": 20.15
+      },
+      "latencyMs": {
+        "p50": 10.6,
+        "p95": 64.27,
+        "max": 193.08,
+        "mean": 16.94
+      },
+      "gapsOver17": 72,
+      "gapsOver34": 5,
+      "mediaFrames": 0,
+      "windowMoves": 0,
+      "windowLoads": 0
+    }
+  ],
+  "limits": [
+    "Only two single scribble smoke runs, not full performance acceptance",
+    "Benchmark captures only250ms tail, shorter than watercolor pooling fade",
+    "Physical pen, settings, save/reopen and W4 editable host acceptance remain open",
+    "Installed combined APK predates count control"
+  ],
+  "screenshot": "C:/Temp/jb-phone-20261013/watercolour-render.png"
+}

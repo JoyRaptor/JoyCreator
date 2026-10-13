@@ -47,11 +47,11 @@ class FillPenDispatchTest {
     private fun set(view: JbCanvasView, name: String, value: Any?) {
         JbCanvasView::class.java.getDeclaredField(name).also { it.isAccessible=true }.set(view,value)
     }
-    private fun call(view: JbCanvasView, name: String, vararg args: Any) {
+    private fun call(view: JbCanvasView, name: String, vararg args: Any?) {
         JbCanvasView::class.java.declaredMethods.single { it.name == name && it.parameterCount == args.size }
             .also { it.isAccessible=true }.invoke(view,*args)
     }
-    private fun begin(view: JbCanvasView, eraser: Boolean=false) { call(view,"startStroke",eraser) }
+    private fun begin(view: JbCanvasView, eraser: Boolean=false) { call(view,"startStroke",eraser,null) }
     private fun feed(view: JbCanvasView, points: List<PenSample>) {
         val smoother = get(view,"smoother") as StrokeSmoother
         val released = ArrayList<PenSample>()

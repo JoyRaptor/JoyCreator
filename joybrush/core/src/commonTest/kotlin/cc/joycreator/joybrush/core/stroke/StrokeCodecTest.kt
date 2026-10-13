@@ -35,25 +35,25 @@ class StrokeCodecTest {
         (bytes[6].toInt() and 0xFF) or ((bytes[7].toInt() and 0xFF) shl 8)
 
     /**
-     * Where `sampleCount` sits in a VERSION 2 recording, straight from the layout table above.
-     * Version 2 put `colorArgb` (u32) and `widthScale` (f32) between `screenPerDoc` and the count.
+     * Where `sampleCount` sits in a VERSION 3 recording without a group, straight from the layout table above.
+     * Version 3 adds seq (i64) after the version-2 colour and width fields.
      */
     private fun countOffset(id: String, brush: String) =
-        4 + 2 + 2 + (2 + id.encodeToByteArray().size) + (2 + brush.encodeToByteArray().size) + 8 + 4 + 4 + 4 + 4
+        4 + 2 + 2 + (2 + id.encodeToByteArray().size) + (2 + brush.encodeToByteArray().size) + 8 + 4 + 4 + 4 + 4 + 8
 
     /** Where `colorArgb` sits in a version 2 recording: the 8 bytes before the count. */
-    private fun colorOffset(id: String, brush: String) = countOffset(id, brush) - 8
+    private fun colorOffset(id: String, brush: String) = countOffset(id, brush) - 16
 
     /**
-     * A VERSION 1 recording, written here rather than by the encoder, because the encoder is v2 and
+     * A VERSION 1 recording, written here rather than by the encoder, because the encoder is v3 and
      * patching its version field to 1 would not produce a v1 file — it would produce a v1 header on a
-     * v2 body, and the reader would read the colour and the weight as the sample count. This is the
+     * v3 body, and the reader would read the colour and the weight as the sample count. This is the
      * only honest way to be given a file from before JB-5.03a.
      */
-    private fun encodeV1(record: StrokeRecord): ByteArray {
+    private fun encodeLegacy(record: StrokeRecord, version: Int): ByteArray {
         val w = ByteWriter()
         w.bytes(StrokeCodec.MAGIC.encodeToByteArray())
-        w.u16(1)
+        w.u16(version)
         var flags = 0
         if (record.samples.any { it.hasTilt }) flags = flags or 1
         if (record.samples.any { it.hasAzimuth }) flags = flags or 2
@@ -64,6 +64,7 @@ class StrokeCodecTest {
         w.i64(record.seed)
         w.f32(record.smoothing)
         w.f32(record.screenPerDoc)
+        if (version == 2) { w.u32(record.colorArgb.toLong() and 0xFFFF_FFFFL); w.f32(record.widthScale) }
         w.u32(record.samples.size.toLong())
         for (s in record.samples) {
             w.f64(s.timeMs)
@@ -203,10 +204,10 @@ class StrokeCodecTest {
         val wrongMagic = good.copyOf().also { "XXXX".encodeToByteArray().copyInto(it, 0) }
         assertTrue(messageOf { StrokeCodec.decode(wrongMagic) }.contains("magic"))
 
-        // Version 2 is what this build writes, so it is of course not refused. A version from the
+        // Version 3 is what this build writes, so it is of course not refused. A version from the
         // future is, by number, because its layout is not this one.
-        val v3 = good.copyOf().also { it[4] = 3; it[5] = 0 }
-        assertEquals("unsupported stroke version 3", messageOf { StrokeCodec.decode(v3) })
+        val v4 = good.copyOf().also { it[4] = 4; it[5] = 0 }
+        assertEquals("unsupported stroke version 4", messageOf { StrokeCodec.decode(v4) })
         val v0 = good.copyOf().also { it[4] = 0; it[5] = 0 }
         assertEquals("unsupported stroke version 0", messageOf { StrokeCodec.decode(v0) })
         val far = good.copyOf().also { it[4] = 0xFF.toByte(); it[5] = 0xFF.toByte() }
@@ -246,7 +247,7 @@ class StrokeCodecTest {
         val bytes = StrokeCodec.encode(r)
         val expected = 4 + 2 + 2 +
             (2 + id.encodeToByteArray().size) + (2 + brush.encodeToByteArray().size) +
-            8 + 4 + 4 + 4 + 4 + 4 +
+            8 + 4 + 4 + 4 + 4 + 8 + 4 +
             1000 * (8 + 4 + 4 + 4 + 1)
         assertEquals(expected, bytes.size)
         assertEquals(0, flagsOf(bytes))
@@ -256,12 +257,12 @@ class StrokeCodecTest {
     // --- 11. version 2: the colour and the weight -----------------------------------------------
 
     @Test
-    fun aV2RecordingCarriesItsColourAndItsWeight() {
+    fun aV3RecordingKeepsTheV2ColourAndWeightLayout() {
         val r = record(List(60) { sample(it, allChannels = true) })
             .copy(colorArgb = 0x80FF8000.toInt(), widthScale = 2.5f)
         val bytes = StrokeCodec.encode(r)
-        assertEquals(2, bytes[4].toInt() and 0xFF, "the writer stamps its own version")
-        assertEquals(2, StrokeCodec.VERSION)
+        assertEquals(3, bytes[4].toInt() and 0xFF, "the writer stamps its own version")
+        assertEquals(3, StrokeCodec.VERSION)
         assertEquals(r, StrokeCodec.decode(bytes))
 
         // The two fields sit exactly where the layout says: colour then weight, between
@@ -270,7 +271,7 @@ class StrokeCodecTest {
         val reader = ByteReader(bytes.copyOfRange(at, at + 8))
         assertEquals(0x80FF8000L, reader.u32())
         assertEquals(2.5f, reader.f32())
-        assertEquals(countOffset("s1", "ink"), at + 8, "and the sample count starts right after them")
+        assertEquals(countOffset("s1", "ink"), at + 16, "seq precedes the sample count in v3")
 
         // A transparent colour and a fractional weight are ordinary values, not extremes to fear.
         for (argb in listOf(0, -1, 1, Int.MIN_VALUE, 0x00FFFFFF.toInt())) {
@@ -286,9 +287,9 @@ class StrokeCodecTest {
     @Test
     fun aV1RecordingReadsAsBlackAtItsOwnSize() {
         val original = record(List(40) { sample(it, allChannels = true) }, id = "old", brush = "pencil")
-        val v1 = encodeV1(original)
+        val v1 = encodeLegacy(original, 1)
         assertEquals(1, v1[4].toInt() and 0xFF, "this is a version 1 file, built by hand in the v1 layout")
-        assertEquals(v1.size + 8, StrokeCodec.encode(original).size, "v2 is eight bytes longer")
+        assertEquals(v1.size + 16, StrokeCodec.encode(original).size, "v3 adds colour, width and seq")
 
         val back = StrokeCodec.decode(v1)
         assertEquals(original, back, "same id, brush, seed, smoothing, zoom and samples, byte for bit")
@@ -296,10 +297,10 @@ class StrokeCodecTest {
         assertEquals(0xFF000000.toInt(), back.colorArgb)
         assertEquals(1f, back.widthScale, "…and at the brush's own size")
 
-        // And the moment it is saved again it is a v2 recording, defaults and all — so the next save
+        // And the moment it is saved again it is a v3 recording, defaults and all — so the next save
         // makes the file readable by a build that has never heard of version 1.
         val resaved = StrokeCodec.encode(back)
-        assertEquals(2, resaved[4].toInt() and 0xFF)
+        assertEquals(3, resaved[4].toInt() and 0xFF)
         assertEquals(back, StrokeCodec.decode(resaved))
 
         // Several at once, through the archive's own entry point.
@@ -326,6 +327,51 @@ class StrokeCodecTest {
         // The two bounds are the ones the EDIT uses: one number, in one place (R19).
         assertEquals(0.05f, StrokeEdit.MIN_WIDTH_SCALE)
         assertEquals(20f, StrokeEdit.MAX_WIDTH_SCALE)
+    }
+
+    @Test fun v3CarriesSequenceLockAndUnicodeGroupWithoutChangingSamples() {
+        val base = record(List(7) { sample(it, allChannels = true) })
+        for (seq in listOf(0L, 1L, Long.MAX_VALUE)) for (locked in listOf(false, true)) {
+            for (group in listOf(null, "groupe-星")) {
+                val r = base.copy(seq = seq, locked = locked, groupId = group)
+                val bytes = StrokeCodec.encode(r)
+                assertEquals(r, StrokeCodec.decode(bytes))
+                assertEquals(7 or (if (locked) 8 else 0) or (if (group != null) 16 else 0), flagsOf(bytes))
+                assertEquals(StrokeCodec.encode(base).size + (group?.let { 2 + it.encodeToByteArray().size } ?: 0), bytes.size)
+            }
+        }
+    }
+
+    private fun recordingFile(vararg bytes: ByteArray): ByteArray = ByteWriter().let { w ->
+        w.u32(bytes.size.toLong())
+        for (b in bytes) { w.u32(b.size.toLong()); w.bytes(b) }
+        w.toByteArray()
+    }
+
+    @Test fun genuineV1AndV2BodiesGetFileOrderOnlyWhenReadAsAList() {
+        val first = record(List(3) { sample(it, true) }, id = "first")
+        val second = first.copy(id = "second", colorArgb = 0x88776655.toInt(), widthScale = 3f)
+        val v1 = encodeLegacy(first, 1)
+        val v2 = encodeLegacy(second, 2)
+        assertEquals(first, StrokeCodec.decode(v1))
+        assertEquals(second, StrokeCodec.decode(v2))
+        assertEquals(listOf(first.copy(seq = 1), second.copy(seq = 2)), StrokeCodec.decodeAll(recordingFile(v1, v2)))
+        val modern = first.copy(id = "modern", seq = 50, locked = true, groupId = "g")
+        assertEquals(listOf(first.copy(seq = 1), modern, second.copy(seq = 3)),
+            StrokeCodec.decodeAll(recordingFile(v1, StrokeCodec.encode(modern), v2)))
+        for (old in listOf(v1, v2)) for (bit in listOf(8, 16)) {
+            assertTrue(messageOf { StrokeCodec.decode(old.copyOf().also { it[6] = (it[6].toInt() or bit).toByte() }) }.contains("flags"))
+        }
+    }
+
+    @Test fun malformedV3SequenceAndGroupFailInWords() {
+        val r = record(emptyList())
+        assertTrue(messageOf { StrokeCodec.encode(r.copy(seq = -1)) }.contains("seq"))
+        val bytes = StrokeCodec.encode(r)
+        val seqAt = countOffset("s1", "ink") - 8
+        assertTrue(messageOf { StrokeCodec.decode(bytes.copyOf().also { it[seqAt + 7] = 0x80.toByte() }) }.contains("seq"))
+        val group = StrokeCodec.encode(r.copy(groupId = "group"))
+        assertTrue(messageOf { StrokeCodec.decode(group.copyOf(countOffset("s1", "ink") + 1)) }.contains("truncated"))
     }
 
     // --- the primitives themselves ---------------------------------------------------------------

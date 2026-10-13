@@ -1,5 +1,8 @@
 package cc.joycreator.joybrush.androidkit.io
 
+import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.BrushJson
+import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.doc.Board
 import cc.joycreator.joybrush.core.doc.BoardKind
 import cc.joycreator.joybrush.core.doc.Cel
@@ -102,7 +105,7 @@ class ArchiveBoardCorpusTest {
                 regions = listOf(RegionFrames(boardAnim, mapOf(frame0 to frameCel0, frame1 to frameCel1))),
             ),
             Layer(
-                id = inkLayer, name = "Ink", kind = LayerKind.INK,
+                id = inkLayer, name = "Ink", kind = LayerKind.PAINT,
                 cels = listOf(Cel(id = inkCel, strokesFile = strokesEntry)),
             ),
             // JB-2.40: MEDIA is legacy and refused at version 9; media state lives on a PAINT layer.
@@ -113,12 +116,13 @@ class ArchiveBoardCorpusTest {
         ),
         activeLayerId = paintLayer,
         activeBoardId = boardImg,
+        brushes = listOf("brush-ink", "brush-pencil"),
     )
 
     /** Same boards with raster layers only: the shape [BoardSnapshot.capture] accepts. */
     private fun rasterDoc(): JbDocument {
         val full = mixedDoc()
-        return full.copy(layers = full.layers.filter { it.kind.hasPixels })
+        return full.copy(brushes = emptyList(), layers = full.layers.filter { it.id != inkLayer })
     }
 
     private fun tileBytes(seed: Int): ByteArray {
@@ -133,14 +137,14 @@ class ArchiveBoardCorpusTest {
 
     private fun strokeRecords(): List<StrokeRecord> = listOf(
         StrokeRecord(
-            id = "i1", brushId = "brush-ink", seed = 7L, smoothing = 0.5f, screenPerDoc = 1.25f,
+            id = "i1", seq = 1, brushId = "brush-ink", seed = 7L, smoothing = 0.5f, screenPerDoc = 1.25f,
             samples = listOf(
                 PenSample(1f, 2f, 0.0, 1f, 0.25f, -1.5f, 0.1f),
                 PenSample(3f, 4f, 16.0, 0.5f, 0.5f, 1.5f, -0.2f),
             ),
         ),
         StrokeRecord(
-            id = "i2", brushId = "brush-pencil", seed = 9L, smoothing = 0f, screenPerDoc = 0.5f,
+            id = "i2", seq = 2, brushId = "brush-pencil", seed = 9L, smoothing = 0f, screenPerDoc = 0.5f,
             samples = listOf(PenSample(0f, 0f, 1.0, 1f, 0f, 0f, 0f)),
         ),
     )
@@ -156,6 +160,7 @@ class ArchiveBoardCorpusTest {
         strokes = mapOf(Pair(inkLayer, inkCel) to strokeRecords()),
         thumbnailPng = ByteArray(32) { (it * 5 + 1).toByte() },
         mediaTiles = mapOf(MediaTileKey(mediaLayer, mediaCel, "0_0", "p0") to mediaState()),
+        brushes = listOf("brush-ink", "brush-pencil").associateWith { BrushPreset(id = it, name = it, size = Param(4f)) },
     )
 
     // ---------------------------------------------------------------- helpers
@@ -189,6 +194,9 @@ class ArchiveBoardCorpusTest {
         }
         for (cel in c.strokes.keys.sortedWith(celOrder)) {
             out.add("layers/${cel.first}/${cel.second}/strokes.jbs" to StrokeCodec.encodeAll(c.strokes.getValue(cel)))
+        }
+        for ((index, id) in c.doc.brushes.sorted().withIndex()) {
+            out.add("brushes/${(index + 1).toString().padStart(3, '0')}-$id.json" to BrushJson.encode(c.brushes.getValue(id)).toByteArray(Charsets.UTF_8))
         }
         val thumb = c.thumbnailPng
         if (thumb != null) out.add("thumbnail.png" to thumb)
@@ -352,11 +360,14 @@ class ArchiveBoardCorpusTest {
     }
 
     @Test
-    fun snapshotRefusesInkInsteadOfDroppingStrokes() {
+    fun snapshotRefusesOrdinaryLayerLineMetadataInsteadOfDroppingStrokes() {
+        var reads = 0
         val message = assertFailsWith<IllegalArgumentException> {
-            BoardSnapshot.capture(mixedDoc(), { _, _ -> emptyList() }, { _, _, _ -> null })
+            BoardSnapshot.capture(mixedDoc(), { _, _ -> reads++; emptyList() }, { _, _, _ -> reads++; null })
         }.message.orEmpty()
-        assertEquals("Raster snapshot cannot drop vector strokes", message)
+        assertTrue(message.contains("cannot be exported by this renderer yet"), message)
+        assertTrue(message.contains(inkLayer) && message.contains(inkCel), message)
+        assertEquals(0, reads, "snapshot capability refusal must precede payload lookup")
     }
 
     // ---------------------------------------------------------------- corruption matrix

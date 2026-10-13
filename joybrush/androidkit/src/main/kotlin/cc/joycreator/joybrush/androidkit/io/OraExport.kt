@@ -183,6 +183,7 @@ object OraExport {
         onInkRefusal: (String) -> Unit = { throw JbArchiveException(it) },
     ) {
         val doc = contents.doc
+        RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
         val rect = boardOf(doc, boardId)
         val paper = if (includePaper && !doc.paper.screenTransparent) checkedPaper(doc) else null
         val tiles = tileSource(contents)

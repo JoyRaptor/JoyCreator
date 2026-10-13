@@ -35,7 +35,7 @@ class LayerColumnAnimationTest {
         val base = JbDocument(id="drawing",name="Drawing",
             boards=listOf(Board("page","Page",BoardKind.CANVAS,RectPx(0,0,400,400))),
             layers=listOf(Layer("paint","Paint",LayerKind.PAINT,cels=listOf(Cel("shared-paint")),mask=Cel("mask")),
-                Layer("ink","Ink",LayerKind.INK,cels=listOf(Cel("shared-ink")))))
+                Layer("ink","Lines",LayerKind.PAINT,cels=listOf(Cel("shared-ink",strokesFile="lines.jbs")))))
         var serial = 0
         return RegionDocumentOps.create(base,"Animation",RectPx(20,20,100,100)) { "id-${++serial}" }.doc
     }

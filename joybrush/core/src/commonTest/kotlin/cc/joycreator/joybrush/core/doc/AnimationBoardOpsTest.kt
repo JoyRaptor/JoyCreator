@@ -145,11 +145,15 @@ class AnimationBoardOpsTest {
         assertTrue(DocOps.validate(change.doc).isEmpty())
     }
 
-    @Test fun `remove held board retains shared and neighboring regions including ink plans`() {
+    @Test fun `remove held board retains shared and neighboring regions including migrated line plans`() {
         var doc = source(); val id = doc.activeBoardId!!
-        doc = doc.copy(layers = doc.layers + doc.layers.first().copy(id = "ink", kind = LayerKind.INK,
-            mask = null, cels = doc.layers.first().cels.map { Cel("ink-${it.id}") }, sharedCelId = "ink-shared",
+        // Exercise the real v9 INK -> v10 PAINT migration before board operations.
+        val legacy = doc.copy(version = 9, layers = doc.layers + doc.layers.first().copy(id = "ink", kind = LayerKind.INK,
+            mask = null, cels = doc.layers.first().cels.map { Cel("ink-${it.id}", strokesFile = "ink.bin") }, sharedCelId = "ink-shared",
             regions = doc.layers.first().regions.map { r -> r.copy(frameCel = r.frameCel.mapValues { "ink-${it.value}" }) }))
+        doc = DocJson.decode(DocJson.encode(legacy))
+        assertEquals(LayerKind.PAINT, doc.layers.last().kind)
+        assertEquals("ink.bin", doc.layers.last().cels.first().strokesFile)
         doc = RegionDocumentOps.setHeld(doc, id, "paint", true).doc
         doc = RegionDocumentOps.create(doc, "Neighbor", RectPx(20, 0, 3, 3), ::ids).doc
         val neighbor = doc.activeBoardId!!

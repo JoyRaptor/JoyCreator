@@ -268,7 +268,7 @@ class LayerCloneIdentityCorpusTest {
             cels = listOf(Cel("media-cel", tiles = listOf("0_0"), floatTiles = listOf("0_0"))),
         )
         val doc = JbDocument(
-            id = "doc-static",
+            id = "doc-static", version = 9,
             name = "Static",
             boards = listOf(Board("root", "Root", BoardKind.CANVAS, RectPx(0, 0, 64, 64))),
             layers = listOf(paint, ink, media),

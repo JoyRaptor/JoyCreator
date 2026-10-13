@@ -193,13 +193,19 @@ object DocOps {
             if (l.clip && index == 0) out += "layer \"${l.id}\" is clipped, and there is no layer below it to clip to"
         }
 
-        // 8 — pixels and strokes are different truths; a cel is one or the other.
+        // 8 — before version 10 pixels and strokes were different truths and a cel was one or the other (INK or PAINT).
+        // Since version 10 (R51 Phase 3) a pixel cel may hold lines too, and there is no INK layer at all.
         for (l in doc.layers) for (c in l.cels) when (l.kind) {
             LayerKind.PAINT, LayerKind.MEDIA ->
-                if (c.strokesFile != null) out += "layer \"${l.id}\" is paint, so cel \"${c.id}\" cannot have strokes"
-            LayerKind.INK ->
-                if (c.tiles.isNotEmpty()) out += "layer \"${l.id}\" is ink, so cel \"${c.id}\" cannot have tiles"
+                if (c.strokesFile != null && doc.version < 10) out += "layer \"${l.id}\" is paint, so cel \"${c.id}\" cannot have strokes before document version 10"
+            LayerKind.INK -> {
+                if (doc.version >= 10) out += "layer \"${l.id}\" is INK, a kind version 10 reads as paint"
+                else if (c.tiles.isNotEmpty()) out += "layer \"${l.id}\" is ink, so cel \"${c.id}\" cannot have tiles"
+            }
         }
+        // 8c — slabs, looks and frozen brushes (JB-5.20 D2, D3, D5, D14). What needs the line RECORDS to check (a brush id
+        // that resolves, record and slab seqs that do not collide, a look on a tile lines cross) is LineRules'.
+        out += slabAndLookProblems(doc)
         // 8b — realistic media is a payload on the tiles of a pixel cel (R51), one entry per tile. MEDIA is a v8 kind only.
         for (l in doc.layers) {
             if (l.kind == LayerKind.MEDIA && doc.version >= 9) {
@@ -269,6 +275,55 @@ object DocOps {
         if (doc.layers.isEmpty()) out += "this document has no layers"
 
         return out
+    }
+
+    /**
+     * JB-5.20a rule 8c: the parts of the lines-in-one-layer format that `document.json` can check on its own.
+     * One message per problem. See [Cel] for the shape these rules protect.
+     */
+    private fun slabAndLookProblems(doc: JbDocument): List<String> {
+        val out = ArrayList<String>()
+        if (doc.brushes.isNotEmpty() && doc.version < 10) out += "frozen brush copies need document version 10"
+        out += duplicateIds(doc.brushes) { "the drawing keeps two frozen copies of brush \"$it\"" }
+        for (id in doc.brushes) if (id.isBlank()) out += "the drawing keeps a frozen brush copy with no id"
+
+        for (l in doc.layers) for (c in l.cels + listOfNotNull(l.mask)) {
+            val where = "cel \"${c.id}\" of layer \"${l.id}\""
+            val isMask = l.mask === c
+            if ((c.slabs.isNotEmpty() || c.looks.isNotEmpty()) && doc.version < 10) {
+                out += "$where has pixel slabs or saved looks, which need document version 10"
+            }
+            if (isMask && (c.slabs.isNotEmpty() || c.looks.isNotEmpty())) {
+                out += "the mask of layer \"${l.id}\" has pixel slabs or looks; a mask is one plain tile per place"
+                continue
+            }
+            if ((c.slabs.isNotEmpty() || c.looks.isNotEmpty()) && !l.kind.hasPixels) {
+                out += "layer \"${l.id}\" is ${l.kind.name.lowercase()}, so $where cannot have slabs or looks"
+            }
+            val tiles = c.tiles.toHashSet()
+            val seen = HashSet<Pair<String, Long>>()
+            for (s in c.slabs) {
+                when {
+                    !isTileKey(s.key) -> out += "a slab of $where is on \"${s.key}\", which is not a \"tx_ty\" tile key"
+                    s.key !in tiles -> out += "a slab of $where is on tile \"${s.key}\", which the cel does not list as having pixels"
+                }
+                if (s.seq < 0) out += "a slab of $where on tile \"${s.key}\" has seq ${s.seq} (a seq is 0 or more)"
+                if (!SlabOps.known(s.op)) out += "a slab of $where on tile \"${s.key}\" is applied with \"${s.op}\", which nothing composites"
+                if (!seen.add(s.key to s.seq)) out += "tile \"${s.key}\" of $where has two slabs at seq ${s.seq}"
+            }
+            out += duplicateIds(c.looks) { "$where keeps a look for tile \"$it\" twice" }
+            for (k in c.looks) if (!isTileKey(k)) out += "$where keeps a look for \"$k\", which is not a \"tx_ty\" tile key"
+            if (c.looks.isNotEmpty() && c.strokesFile == null) {
+                out += "$where keeps looks, and has no lines; a look is only saved for a tile that lines cross"
+            }
+        }
+        return out
+    }
+
+    /** `"3_-2"` is a tile key, `"3"` and `"3_4_5"` are not. Signed, because the canvas is unbounded. */
+    internal fun isTileKey(key: String): Boolean {
+        val xy = key.split('_', limit = 2)
+        return xy.size == 2 && xy[0].toIntOrNull() != null && xy[1].toIntOrNull() != null
     }
 
     /** Every cel of a layer that holds tiles in the archive: its [Layer.cels] and its mask (JB-2.23, R48). */

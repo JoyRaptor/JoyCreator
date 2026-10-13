@@ -1118,3 +1118,9 @@ files: new core/media/MediaAtlas*.kt and tests; new androidkit/gl/media atlas re
 Scope: media atlas A1 architecture, allocator and transactional fake-backed load/write-back. Current shaders/MediaWindow/MediaLayerEngine remain unmodified until A2 contract and GPU proof. Root sequences shared hot-file edits and all builds.
 Delegation: Luna source trace completed; Sol 6.1 assessing existing C:/Temp/jb-520a before resuming slice a. No overlap with vector renderer/UI brush presets; coordinate new assignments with this lead.
 DEVICE: none reserved; no installation authorized by this onboarding turn. One machine-wide jb-gradle.lock, resource admission before builds.
+
+Codex lead recovery scope: C:/Temp/jb-520a-integration on c7b630e3, branch lead/jb-5.20a-integration.
+Owns JB-5.20a core doc/stroke/LineRules, backend archive/lifecycle, and early export/snapshot capability guards with tests.
+Luna fixture repairs and Sol safety guards are frozen for root verification. Original partial/recovery worktrees are kept.
+Live GlPaintEngine/JbCanvasView/Activity record and selection binding remain slice d; no phone work or UI ownership claimed.
+Full-resolution watercolor pooling is owner-approved; vector owns its existing renderer and meaningful settings controls.

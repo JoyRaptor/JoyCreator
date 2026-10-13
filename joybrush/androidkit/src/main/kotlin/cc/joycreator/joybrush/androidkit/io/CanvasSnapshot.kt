@@ -15,10 +15,23 @@ import cc.joycreator.joybrush.core.doc.Paper
  * enable animation or other board types: those require a renderer that can retain every cel.
  */
 object CanvasSnapshot {
+    /** Until JB-5.20d, the raster renderer must refuse the whole drawing before replacing its live payload. */
+    internal fun requireSupportedPayload(contents: JbContents) {
+        if (contents.strokes.values.any { it.isNotEmpty() } || contents.slabs.isNotEmpty() || contents.looks.isNotEmpty() ||
+            contents.doc.layers.any { layer -> DocOps.storedCels(layer).any {
+                it.strokesFile != null || it.slabs.isNotEmpty() || it.looks.isNotEmpty()
+            } }
+        ) throw JbArchiveException("This drawing has editable lines or pixel slabs that this screen cannot show yet; your saved drawing was kept")
+        if (contents.doc.brushes.isNotEmpty() || contents.brushes.isNotEmpty()) {
+            throw JbArchiveException("This drawing keeps frozen brush copies that this screen cannot retain yet; your saved drawing was kept")
+        }
+    }
+
     /** After GPU upload, keep identities/settings only. A second pixel copy can exhaust the heap.
      * This is a merge template, not an archive: live readback supplies every tile when saving.
      */
     fun metadataOf(contents: JbContents): JbContents {
+        requireSupportedPayload(contents)
         val errors=DocOps.validate(contents.doc)
         require(errors.isEmpty()){errors.joinToString("; ")}
         require(contents.doc.layers.all{it.kind.hasPixels && it.animatedIn==null} && contents.strokes.isEmpty()) {
@@ -29,6 +42,8 @@ object CanvasSnapshot {
 
     /** [livePaper] carries current paper settings; omitted for older colour-only snapshot callers. */
     fun merge(retained: JbContents?, fresh: JbContents, livePaper: Paper? = null): JbContents {
+        retained?.let { requireSupportedPayload(it) }
+        requireSupportedPayload(fresh)
         if (retained == null) return if (livePaper == null) fresh else fresh.copy(doc = fresh.doc.copy(paper = livePaper))
         requireCanvas(retained)
         requireCanvas(fresh)

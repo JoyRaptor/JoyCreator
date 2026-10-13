@@ -17,6 +17,10 @@ object BoardSnapshot {
         val errors=DocOps.validate(doc)
         require(errors.isEmpty()){errors.joinToString("; ")}
         require(doc.layers.all{it.kind.hasPixels && it.animatedIn==null}) { "Raster snapshot cannot drop vector strokes" }
+        cc.joycreator.joybrush.core.render.RegionRenderer.unsupportedContentReason(doc)?.let { reason ->
+            throw IllegalArgumentException(reason)
+        }
+        require(doc.brushes.isEmpty()) { "Raster snapshot cannot drop frozen brush copies" }
         val payload=LinkedHashMap<Triple<String,String,String>,ByteArray>()
         val media=LinkedHashMap<MediaTileKey,ByteArray>()
         fun mediaState(layer: Layer, cel: Cel): Cel {

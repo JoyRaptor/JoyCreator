@@ -1,5 +1,8 @@
 package cc.joycreator.joybrush.androidkit.io
 
+import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.BrushJson
+import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.doc.Board
 import cc.joycreator.joybrush.core.doc.BoardKind
 import cc.joycreator.joybrush.core.doc.Cel
@@ -75,18 +78,19 @@ class JbArchiveTest {
             Layer(
                 id = INK_LAYER,
                 name = "Ink",
-                kind = LayerKind.INK,
-                cels = listOf(Cel(id = INK_CEL)),
+                kind = LayerKind.PAINT,
+                cels = listOf(Cel(id = INK_CEL, strokesFile = STROKES_PATH)),
             ),
         ),
         activeLayerId = PAINT_LAYER,
         activeBoardId = BOARD,
+        brushes = listOf("brush-ink", "brush-pencil"),
     )
 
     /** Every channel stated outright: a NaN does not survive `==` in a data class equals. */
     private fun strokeRecords(): List<StrokeRecord> = listOf(
         StrokeRecord(
-            id = "s1",
+            id = "s1", seq = 1,
             brushId = "brush-ink",
             seed = 7L,
             smoothing = 0.5f,
@@ -97,7 +101,7 @@ class JbArchiveTest {
             ),
         ),
         StrokeRecord(
-            id = "s2",
+            id = "s2", seq = 2,
             brushId = "brush-pencil",
             seed = 9L,
             smoothing = 0f,
@@ -112,6 +116,8 @@ class JbArchiveTest {
         return b
     }
 
+    private fun frozenBrushes() = listOf("brush-ink", "brush-pencil").associateWith { BrushPreset(id = it, name = it, size = Param(4f)) }
+
     private fun contents(): JbContents = JbContents(
         doc = doc(),
         tiles = mapOf(
@@ -120,6 +126,7 @@ class JbArchiveTest {
             Triple(PAINT_LAYER, PAINT_CEL, "-1_-2") to tileBytes(3),
         ),
         strokes = mapOf(Pair(INK_LAYER, INK_CEL) to strokeRecords()),
+        brushes = frozenBrushes(),
     )
 
     /** The same document with an ink cel that says where its strokes are. */
@@ -180,6 +187,9 @@ class JbArchiveTest {
         }
         for (cel in c.strokes.keys.sortedWith(celOrder)) {
             out.add("layers/${cel.first}/${cel.second}/strokes.jbs" to StrokeCodec.encodeAll(c.strokes.getValue(cel)))
+        }
+        for ((index, id) in c.doc.brushes.sorted().withIndex()) {
+            out.add("brushes/${(index + 1).toString().padStart(3, '0')}-$id.json" to BrushJson.encode(c.brushes.getValue(id)).toByteArray(Charsets.UTF_8))
         }
         return out
     }
@@ -307,7 +317,7 @@ class JbArchiveTest {
                     kind = LayerKind.PAINT,
                     cels = listOf(Cel(id = PAINT_CEL, tiles = listOf("0_0"))),
                 ),
-                Layer(id = INK_LAYER, name = "Ink", kind = LayerKind.INK, cels = listOf(Cel(id = INK_CEL))),
+                Layer(id = INK_LAYER, name = "Ink", kind = LayerKind.PAINT, cels = listOf(Cel(id = INK_CEL))),
             ),
             activeLayerId = null,
         )
@@ -561,6 +571,7 @@ class JbArchiveTest {
             doc = docWithDeclaredStrokes(),
             tiles = contents().tiles,
             strokes = emptyMap(),
+            brushes = frozenBrushes(),
         )
         val message = assertFailsWith<JbArchiveException> { JbArchive.write(ByteArrayOutputStream(), bad) }
             .message.orEmpty()

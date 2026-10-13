@@ -196,6 +196,25 @@ private val MAX_REGION_PEAK_MIB = MAX_REGION_PX * BYTES_PER_PX / (1024L * 1024L)
  */
 object RegionRenderer {
 
+    /**
+     * Until JB-5.20d/f binds cel composition, this renderer cannot consume ordinary-layer lines or slab/look storage.
+     * Check the whole document, including hidden layers and noncurrent frame cels, before callbacks or output:
+     * rendering a plausible subset is not an export of that drawing. Legacy INK callback replay remains supported.
+     * An unused frozen-brush list alone changes no exported pixels, so it is not a rendering capability refusal.
+     */
+    fun unsupportedContentReason(doc: JbDocument): String? {
+        for (layer in doc.layers) for (cel in DocOps.storedCels(layer)) {
+            if (cel.slabs.isNotEmpty() || cel.looks.isNotEmpty() ||
+                ((layer.kind != LayerKind.INK || cel === layer.mask) && cel.strokesFile != null)
+            ) return "Editable lines or pixel slabs in layer \"${layer.id}\" cel \"${cel.id}\" cannot be exported by this renderer yet"
+        }
+        return null
+    }
+
+    fun requireSupportedContent(doc: JbDocument) {
+        unsupportedContentReason(doc)?.let { throw RegionException(it) }
+    }
+
     // Keep the original trailing paperRenderer lambda contract for every existing exporter.
     fun render(doc: JbDocument, tiles: TileSource, rect: RectPx, frameId: String?, paper: String?,
         paperRenderer: ((RectPx) -> ByteArray)? = null): ByteArray =
@@ -463,6 +482,7 @@ object RegionRenderer {
      * microseconds there instead of by allocating 160 MiB.
      */
     private fun requireRasterContent(doc: JbDocument, brushLookup: ((String) -> BrushPreset?)?) {
+        requireSupportedContent(doc)
         if (brushLookup == null && doc.layers.any { it.visible && it.opacity > 0f && it.kind == LayerKind.INK }) {
             throw RegionException("Vector artwork rendering is not available yet")
         }

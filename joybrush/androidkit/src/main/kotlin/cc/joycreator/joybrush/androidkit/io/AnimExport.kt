@@ -124,6 +124,7 @@ object AnimExportRunner {
         onFrame: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): List<AnimFile> {
         val doc = contents.doc
+        RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
         val board = doc.boards.firstOrNull { it.id == boardId }
             ?: throw DocException("this document has no board called \"$boardId\"")
         checkPlanFitsBoard(boardId, board.frames.map { it.id }, plan.frameIds)
@@ -201,6 +202,7 @@ object AnimExportRunner {
         onFrame: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): List<String> {
         val doc = contents.doc
+        RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
         val board = doc.boards.firstOrNull { it.id == boardId }
             ?: throw DocException("this document has no board called \"$boardId\"")
         checkPlanFitsBoard(boardId, board.frames.map { it.id }, plan.frameIds)

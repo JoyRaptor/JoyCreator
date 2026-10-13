@@ -20,13 +20,16 @@ class AnimationBoardOperationCorpusTest {
     private fun ids() = "anim-op-corpus-${++serial}"
 
     private fun baseDoc(): JbDocument = JbDocument(
+        version = DOC_VERSION,
         id = "drawing",
         name = "Test",
         boards = listOf(Board("image", "Image", BoardKind.CANVAS, RectPx(-100, -100, 200, 200))),
         layers = listOf(
             Layer("paint", "Paint", LayerKind.PAINT, cels = listOf(Cel("shared")), mask = Cel("mask")),
             Layer("second", "Second", LayerKind.PAINT, cels = listOf(Cel("shared2")), mask = Cel("mask2")),
-            Layer("ink", "Ink", LayerKind.INK, cels = listOf(Cel("ink-shared")))
+            // v10 stores editable lines as ordinary PAINT-cel metadata. These operations
+            // plan raster addresses only; metadata remains on the same cel identities.
+            Layer("ink", "Lines", LayerKind.PAINT, cels = listOf(Cel("ink-shared", strokesFile = "lines.bin")))
         )
     )
 
@@ -140,7 +143,7 @@ class AnimationBoardOperationCorpusTest {
             assertEquals(dest, transfers.single().destinationRect)
             assertEquals(origin, movedOne.clears.first { it.layerId == layer.id }.rect)
         }
-        // Two paint masks travel independently; ink has no mask.
+        // Two paint masks travel independently; the line-record layer has no mask.
         assertEquals(2, movedOne.maskTransfers.size)
         assertEquals(2, movedOne.maskClears.size)
         for (t in movedOne.maskTransfers) {
@@ -246,7 +249,7 @@ class AnimationBoardOperationCorpusTest {
         assertTrue(change.transfers.any {
             it.layerId == "paint" && it.fromCelId == sharedCel(doc, "paint") && it.toCelId == sharedCel(doc, "paint")
         })
-        // Two paint masks copy independently; ink carries no mask plan.
+        // The two masked paint layers copy independently; the line-record layer has no mask.
         assertEquals(2, change.maskTransfers.size)
         for (t in change.maskTransfers) {
             assertEquals(RectPx(-4, -2, 8, 4), t.sourceRect)

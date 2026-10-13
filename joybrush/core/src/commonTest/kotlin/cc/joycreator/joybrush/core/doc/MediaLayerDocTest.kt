@@ -28,13 +28,14 @@ class MediaLayerDocTest {
         return doc.copy(version = version, layers = doc.layers + media)
     }
 
-    @Test fun aPaintLayerWithMediaIsValidAndRoundTrips() {
-        val doc = withMedia()
+    @Test fun aPaintLayerWithMediaAndLinesIsValidAndRoundTrips() {
+        val doc = withMedia { it.copy(strokesFile = "lines.bin") }
         assertEquals(emptyList(), DocOps.validate(doc))
         val back = DocJson.decode(DocJson.encode(doc))
         assertEquals(doc, back)
         assertEquals(listOf("0_0", "1_0"), back.layers.last().cels.single().floatTiles)
-        assertEquals(9, DOC_VERSION, "R51 took version 9 at landing (R30.3)")
+        assertEquals("lines.bin", back.layers.last().cels.single().strokesFile)
+        assertEquals(10, DOC_VERSION, "R51 took version 9 at landing (R30.3)")
     }
 
     @Test fun aVersion8MediaLayerOpensAsPaintWithItsPayload() {
@@ -69,9 +70,9 @@ class MediaLayerDocTest {
         assertTrue(problems.any { "is ink, so cel" in it && "cannot have media state" in it }, problems.toString())
     }
 
-    @Test fun aCelWithMediaCannotHaveStrokes() {
-        val problems = DocOps.validate(withMedia { it.copy(strokesFile = "s.bin") })
-        assertTrue(problems.any { "is paint, so cel" in it && "cannot have strokes" in it }, problems.toString())
+    @Test fun aPreVersion10CelWithMediaAndStrokesIsRefused() {
+        val problems = DocOps.validate(withMedia(version = 9) { it.copy(strokesFile = "s.bin") })
+        assertTrue(problems.any { "cannot have strokes before document version 10" in it }, problems.toString())
     }
 
     @Test fun aLayerWithMediaCanHaveAMaskButTheMaskHasNone() {

@@ -45,6 +45,7 @@ object BoardExport {
     fun stage(contents: JbContents, request: BoardExportRequest, cache: File,
         onWarning: (String) -> Unit = {}, onFrame: (Int, Int) -> Unit = { _, _ -> }): StagedBoardExport {
         val doc = contents.doc
+        RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
         DocOps.validate(doc).takeIf { it.isNotEmpty() }?.let { throw JbArchiveException(it.joinToString("; ")) }
         if (doc.id != request.documentId) throw JbArchiveException("the drawing changed; choose the board again")
         val board = doc.boards.singleOrNull { it.id == request.boardId }

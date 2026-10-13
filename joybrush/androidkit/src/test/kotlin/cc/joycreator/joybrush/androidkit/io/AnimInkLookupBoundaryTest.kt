@@ -84,6 +84,7 @@ class AnimInkLookupBoundaryTest {
     private fun doc(): JbDocument {
         val b = board()
         return JbDocument(
+            version = 9, // legacy INK renderer lookup contract
             id = "doc-1",
             name = "Ink boundary",
             paper = Paper(color = "#FFFFFF", includeInExport = false),

@@ -9,10 +9,17 @@ class BoardPreviewHistoryTest {
     private var serial = 0
     private fun ids() = "preview-${++serial}"
     private fun fixture(kind: LayerKind = LayerKind.PAINT): JbDocument {
-        val base = JbDocument(id = "doc", name = "Drawing",
+        val base = JbDocument(id = "doc", name = "Drawing", version = if (kind == LayerKind.INK) 9 else DOC_VERSION,
             boards = listOf(Board("root", "Root", BoardKind.CANVAS, RectPx(0, 0, 100, 100))),
-            layers = listOf(Layer("layer", "Content", kind, cels = listOf(Cel("shared")))))
-        val first = RegionDocumentOps.create(base, "A", RectPx(0, 0, 10, 10), ::ids).doc
+            layers = listOf(Layer("layer", "Content", kind, cels = listOf(
+                Cel("shared", strokesFile = if (kind == LayerKind.INK) "legacy-lines.bin" else null)))))
+        // Historical INK inputs are migrated at the serialization boundary before v10 operations.
+        val opened = if (kind == LayerKind.INK) DocJson.decode(DocJson.encode(base)) else base
+        if (kind == LayerKind.INK) {
+            assertEquals(LayerKind.PAINT, opened.layers.single().kind)
+            assertEquals("legacy-lines.bin", opened.layers.single().cels.single().strokesFile)
+        }
+        val first = RegionDocumentOps.create(opened, "A", RectPx(0, 0, 10, 10), ::ids).doc
         val a = first.boards.last().id
         val linked = RegionDocumentOps.addFrame(first, a, NewFrame.LINK, ::ids).doc
         val second = RegionDocumentOps.create(linked, "B", RectPx(20, 0, 10, 10), ::ids).doc
@@ -31,7 +38,7 @@ class BoardPreviewHistoryTest {
         assertEquals(original.frames, RegionDocumentOps.paintPlan(doc, "layer", emptyMap()).frames)
     }
 
-    @Test fun `overrides validate even held boards and keep held content shared for INK`() {
+    @Test fun `overrides validate even held boards and keep migrated line content shared`() {
         val doc = fixture(LayerKind.INK); val a = doc.boards[1]; val b = doc.boards[2]
         val held = RegionDocumentOps.setHeld(doc, a.id, "layer", true).doc
         val preview = RegionDocumentOps.paintPlan(held, "layer", mapOf(a.id to a.frames.first().id, b.id to b.frames.first().id))
@@ -45,11 +52,11 @@ class BoardPreviewHistoryTest {
 
     @Test fun `bulk preview returns complete mixed content ownership without saved edits`() {
         val paint = fixture()
-        val ink = paint.layers.single().copy(id = "ink", kind = LayerKind.INK,
+        val ink = paint.layers.single().copy(id = "ink", kind = LayerKind.PAINT, mask = null,
             sharedCelId = "ink-shared", cels = paint.layers.single().cels.map { it.copy(id = "ink-${it.id}") },
             regions = paint.layers.single().regions.map { r -> r.copy(frameCel = r.frameCel.mapValues { "ink-${it.value}" }) })
         // The original shared cel is called shared; make its prefixed identity agree as well.
-        val mixed = paint.copy(layers = paint.layers + ink)
+        val mixed = paint.copy(layers = paint.layers + ink.copy(cels = ink.cels.map { it.copy(strokesFile = "ink.bin") }))
         val overrides = mixed.boards.filter { it.kind == BoardKind.ANIMATION }
             .associate { it.id to it.frames.first().id }
         val saved = DocJson.encode(mixed)

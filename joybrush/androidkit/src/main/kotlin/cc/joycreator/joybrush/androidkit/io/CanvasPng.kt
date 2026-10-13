@@ -28,6 +28,7 @@ object CanvasPng {
         onWarning: (String) -> Unit = {},
     ): ByteArray {
         val doc = contents.doc
+        RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
         val problems = DocOps.validate(doc)
         if (problems.isNotEmpty()) throw JbArchiveException(problems.joinToString("; "))
         // A media layer exports its look, which is all the compositor ever reads (contract point 10).

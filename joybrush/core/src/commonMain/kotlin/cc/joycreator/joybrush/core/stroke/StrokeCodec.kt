@@ -29,19 +29,25 @@ import cc.joycreator.joybrush.core.io.ByteWriter
  * |---|---|
  * | 1 | …`screenPerDoc`, `sampleCount`, samples. Reads back as black, scale 1. |
  * | 2 | …`screenPerDoc`, **`colorArgb`, `widthScale`**, `sampleCount`, samples. |
+ * | 3 | …`widthScale`, **`seq` (i64), [`groupId` (utf8) only when the group flag is set]**, `sampleCount`, samples. Header flag bit 3 = locked (no payload), bit 4 = has a groupId. |
  *
- * [VERSION] is 2 and [OLDEST_VERSION] is 1: the writer always writes the newest, and the reader
+ * v3 (JB-5.20 D1, 5.20a) puts a line in its cel's time order (`seq`) and carries the two owner/UI fields. `locked` and
+ * `groupId` cost nothing when they are not used: the flag bits are 0 and no bytes are written. A v1/v2 recording read
+ * by [decodeAll] gets `seq` from FILE ORDER (1, 2, 3...), `locked = false`, `groupId = null`; read alone by [decode]
+ * it has no neighbours to be ordered among, so its `seq` is 0 ("not in a cel yet").
+ *
+ * [VERSION] is 3 and [OLDEST_VERSION] is 1: the writer always writes the newest, and the reader
  * accepts every version in between, because a recording written by the build that drew it must
  * still open. The magic stays [MAGIC] — it names the FORMAT FAMILY ("a Joy Brush stroke"), and a
- * v2 recording is still one. A version outside the range is refused by number, as JB-0.04's
- * decision 4 says: this build does not know what a v3 recording means, and guessing is how a
+ * v3 recording is still one. A version outside the range is refused by number, as JB-0.04's
+ * decision 4 says: this build does not know what a v4 recording means, and guessing is how a
  * drawing is destroyed.
  */
 object StrokeCodec {
     const val MAGIC = "JBS1"
 
     /** The newest recording this build writes, and the newest it reads. */
-    const val VERSION: Int = 2
+    const val VERSION: Int = 3
 
     /** The oldest recording this build reads. See the table above. */
     const val OLDEST_VERSION: Int = 1
@@ -52,7 +58,10 @@ object StrokeCodec {
     private const val FLAG_TILT = 1
     private const val FLAG_AZIMUTH = 1 shl 1
     private const val FLAG_BARREL = 1 shl 2
-    private const val KNOWN_FLAGS = FLAG_TILT or FLAG_AZIMUTH or FLAG_BARREL
+    private const val FLAG_LOCKED = 1 shl 3   // v3
+    private const val FLAG_GROUP = 1 shl 4    // v3
+    private const val SAMPLE_FLAGS = FLAG_TILT or FLAG_AZIMUTH or FLAG_BARREL
+    private const val V3_FLAGS = FLAG_LOCKED or FLAG_GROUP
 
     private val MAGIC_BYTES = MAGIC.encodeToByteArray()
 
@@ -61,6 +70,8 @@ object StrokeCodec {
 
     /** Writes [VERSION]. Always the newest layout — an old recording is upgraded by being re-saved. */
     fun encode(record: StrokeRecord): ByteArray {
+        // Decode refuses a negative seq, so a recording that said one would be a drawing that cannot be reopened.
+        if (record.seq < 0) throw StrokeCodecException("stroke \"${record.id}\" has seq ${record.seq}; a seq is never negative")
         val w = ByteWriter()
         w.bytes(MAGIC_BYTES)
         w.u16(VERSION)
@@ -69,6 +80,8 @@ object StrokeCodec {
         if (record.samples.any { it.hasTilt }) flags = flags or FLAG_TILT
         if (record.samples.any { it.hasAzimuth }) flags = flags or FLAG_AZIMUTH
         if (record.samples.any { it.hasBarrel }) flags = flags or FLAG_BARREL
+        if (record.locked) flags = flags or FLAG_LOCKED
+        if (record.groupId != null) flags = flags or FLAG_GROUP
         w.u16(flags)
 
         w.utf8(record.id)
@@ -78,6 +91,8 @@ object StrokeCodec {
         w.f32(record.screenPerDoc)
         w.u32(record.colorArgb.toLong() and 0xFFFF_FFFFL)
         w.f32(record.widthScale)
+        w.i64(record.seq)
+        record.groupId?.let { w.utf8(it) }
         w.u32(record.samples.size.toLong())
 
         val tilt = flags and FLAG_TILT != 0
@@ -108,7 +123,9 @@ object StrokeCodec {
         val flags = r.u16()
         // A bit we do not know means the sample layout we are about to read is not this one, so the
         // samples would come back as plausible rubbish. Refuse rather than guess.
-        if (flags and KNOWN_FLAGS.inv() != 0) {
+        // The locked / group bits exist from version 3; in a v1/v2 recording they are as unknown as any other.
+        val known = if (version >= 3) SAMPLE_FLAGS or V3_FLAGS else SAMPLE_FLAGS
+        if (flags and known.inv() != 0) {
             throw StrokeCodecException("unsupported stroke flags 0x${flags.toString(16)}")
         }
 
@@ -136,6 +153,17 @@ object StrokeCodec {
             }
         }
 
+        // Version 3: the line's place in time, then its group when the flag says it has one. A v1/v2 recording is
+        // not in any order of its own (decodeAll gives it its file position); locked is a v3 word, so it is false.
+        var seq = 0L
+        var groupId: String? = null
+        if (version >= 3) {
+            seq = r.i64()
+            if (seq < 0) throw StrokeCodecException("stroke \"$id\" has seq $seq; a seq is never negative")
+            if (flags and FLAG_GROUP != 0) groupId = r.utf8()
+        }
+        val locked = version >= 3 && flags and FLAG_LOCKED != 0
+
         val count = r.u32()
         if (count > Int.MAX_VALUE || count * MIN_SAMPLE_BYTES > r.remaining) {
             throw StrokeCodecException("truncated: $count samples do not fit in ${r.remaining} bytes")
@@ -155,7 +183,14 @@ object StrokeCodec {
             val tool = toolOf(r.u8())
             samples.add(PenSample(x, y, timeMs, pressure, t, a, b, tool))
         }
-        return StrokeRecord(id, brushId, seed, smoothing, screenPerDoc, samples, colorArgb, widthScale)
+        return StrokeRecord(id, brushId, seed, smoothing, screenPerDoc, samples, colorArgb, widthScale, seq, locked, groupId)
+    }
+
+    /** The version a recording says it is, without decoding the rest; for [decodeAll]'s file-order rule. */
+    private fun versionOf(bytes: ByteArray): Int {
+        val r = ByteReader(bytes)
+        r.bytes(MAGIC_BYTES.size)
+        return r.u16()
     }
 
     /** One u32 count, then each recording prefixed with its own byte length. */
@@ -181,7 +216,10 @@ object StrokeCodec {
             // Checked before the read, so a corrupt length is "truncated" and not a negative count.
             val n = r.u32()
             if (n > r.remaining) throw StrokeCodecException("truncated: a record of $n bytes, ${r.remaining} left")
-            out.add(decode(r.bytes(n.toInt())))
+            val bytes = r.bytes(n.toInt())
+            val record = decode(bytes)
+            // v1/v2 recordings are numbered by where they sit in the file: that WAS their time order (JB-5.20 D1).
+            out.add(if (versionOf(bytes) < 3) record.copy(seq = (out.size + 1).toLong()) else record)
         }
         return out
     }

@@ -25,6 +25,7 @@ class DrawingRecovery(private val opened: File) {
     private var backupAllowed = false
     /** A newly opened drawing may not be in current.joybrush yet. Keep it before GPU upload. */
     fun rememberOpened(contents: JbContents) {
+        CanvasSnapshot.requireSupportedPayload(contents)
         JbArchive.save(opened, contents)
         // This is a selected drawing, not another revision of the previous one. Its backup
         // may share the same default document ID, so it must not be used as its fallback.
@@ -51,7 +52,10 @@ class DrawingRecovery(private val opened: File) {
             } catch (_: Exception) { null }
             if (id != documentId) continue
             val contents = try { JbArchive.open(file) } catch (_: Exception) { continue }
-            if (contents.doc.id == documentId) return contents
+            if (contents.doc.id == documentId) {
+                CanvasSnapshot.requireSupportedPayload(contents)
+                return contents
+            }
         }
         throw JbArchiveException("no readable saved copy of this drawing is available; your files were kept")
     }

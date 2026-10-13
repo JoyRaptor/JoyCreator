@@ -25,6 +25,15 @@ import cc.joycreator.joybrush.core.input.PenSample
  * Both new fields are last, with defaults, so every existing call site (JB-0.01's contract, the
  * androidkit archive, JB-5.02's fixtures) still compiles unchanged.
  *
+ * @property seq (record version 3, JB-5.20 D1) the line's place in its cel's time order: pixels and lines share one
+ *   increasing sequence, and what was made later covers what was made earlier. Editing a line keeps it (every edit is a
+ *   `copy`). **1 or more once a line is in a cel** and unique within the cel ([cc.joycreator.joybrush.core.vector.LineRules]
+ *   says so in words); 0 means "not in a cel yet", which is what a hand-built record and a lone v1/v2 recording read
+ *   as. A v1/v2 file read as a list ([StrokeCodec.decodeAll]) takes its seqs from file order, 1, 2, 3...
+ * @property locked (v3, owner/UI) the line cannot be selected or edited until it is unlocked. Written only when true.
+ * @property groupId (v3, owner/UI) lines with the same id move and select together; a group of one is legal. Written
+ *   only when set; null = ungrouped. Never blank (validation says so).
+ *
  * The record stays a PLAIN VALUE: `widthScale` is not checked or clamped here. [StrokeEdit] and
  * [StrokeCodec] both put it in range, so a record read off disk or come out of an edit is always
  * usable, but a record built by hand in a test can hold anything and `copy` can put it anywhere.
@@ -40,6 +49,9 @@ data class StrokeRecord(
     val samples: List<PenSample>,
     val colorArgb: Int = 0xFF000000.toInt(),
     val widthScale: Float = 1f,
+    val seq: Long = 0L,
+    val locked: Boolean = false,
+    val groupId: String? = null,
 ) {
     init {
         require(samples.none { it.predicted }) { "predicted points are never recorded" }

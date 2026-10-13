@@ -105,12 +105,15 @@ class SpriteCellOpsTest {
         assertEquals(doc.paper, change.doc.paper)
     }
 
-    @Test fun `ink participates in ownership plan without converting its content`() {
+    @Test fun `legacy ink participates in ownership plan after genuine v10 migration`() {
         val source = base()
         val ink = Layer("ink", "Ink", LayerKind.INK, visible = false,
             cels = listOf(Cel("ink-shared", strokesFile = "ink.bin")))
-        val doc = RegionDocumentOps.create(source.copy(layers = source.layers + ink),
-            "Region", RectPx(-250, -1, 4, 2), ::ids).doc
+        val legacy = source.copy(version = 9, layers = source.layers + ink)
+        val opened = DocJson.decode(DocJson.encode(legacy))
+        assertEquals(LayerKind.PAINT, opened.layers.last().kind)
+        assertEquals("ink.bin", opened.layers.last().cels.single().strokesFile)
+        val doc = RegionDocumentOps.create(opened, "Region", RectPx(-250, -1, 4, 2), ::ids).doc
         val change = SpriteCellOps.swap(doc, "sprite", 0, 1)
         assertSame(doc, change.doc)
         assertTrue(change.transfers.any { it.layerId == "ink" && it.fromCelId != "ink-shared" })

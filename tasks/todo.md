@@ -551,6 +551,7 @@ Review: atlas foundation is separate from A2–A6 rendering integration. No phon
 - [x] Implement labelled paper-backed cyan-outline count view: tap cycles, horizontal drag wraps live, cancel/secondary pointer lifecycle, accessible input and safe touch target.
 - [x] Bind visibility, placement and sampled ink to controller; explicit accepted resting-thumb input seam, no guessed palm support.
 - [x] Verify focused model/tool/view tests, then native regression through resource-admitted shared runner after Root release.
-- [ ] Publish exact scoped source and handoff to Lead; document current string contract pending LineAddress migration and physical input acceptance.
+- [x] Publish exact scoped source and handoff to Lead; document current string contract pending LineAddress migration and physical input acceptance.
 Review: no preview, engine/Activity/View hot-file edits or device work. Existing integrated144 gate is baseline evidence, not proof of these new count changes.
 Review October13: count core32/native56 pass, zero failures/errors/skips; exact logs, first-run fixture repairs and remaining integration contracts in tasks/joybrush/reviews/UX_COUNT_20261013.md.
+Published source13c05efe on origin/ui/select-count-main; technical handoff sent to Lead Coordinator. Source frozen; app/engine/addressed binding and physical acceptance remain Lead's later work.

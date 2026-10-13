@@ -165,3 +165,5 @@ Lead must provide App.hasRestingThumbForCount() from accepted contact state and 
 controller.viewMoved() into existing canvas.onViewMoved handling during Activity integration.
 No Activity/engine binding, addressed all-layer migration, Lock/Group/Invert menu rollout
 or phone acceptance is claimed. Shared checker lock is released; source is frozen for publication.
+Published source13c05efe on origin/ui/select-count-main; exact technical handoff sent to
+Lead Coordinator. The following closure is documentation only. No further UX checker is reserved.

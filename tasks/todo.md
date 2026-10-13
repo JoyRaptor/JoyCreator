@@ -564,4 +564,17 @@ Review: source4dfe0f48 preserves complete peer count behavior on combined source
 confirms all affected checks and full native regression. No source repair or app/device run required in this bounded slice.
 The prior combined APK predates count. Exact evidence and live-host boundaries are in UX_COUNT_20261013.md.
 
-Review: atlas foundation is separate from A2–A6 rendering integration. No phone acceptance or crease/Tile fix is claimed from A1 JVM results.
+## October13 scoped identity prerequisite for live lines
+- [x] Add explicit LineAddress(layerId, nullable engine celId, recordId) and paired AddressedStroke; preserve saved IDs/seqs.
+- [x] Route picker/lasso ordinal results through addressed geometry, state flags/groups/count and selection references.
+- [x] Carry paired addresses through transform/weight/colour/brush/nudge/tips/duplicate/delete/bake and lifted previews.
+- [x] Preserve existing gesture tests and add same-record-ID cross-layer/cel isolation and ordering regressions.
+- [x] Compile and run affected core/backend/native checks under one admitted build slot; sourcef8e9454d verified prerequisite.
+
+Contract: geometry retains the true record ID. No composite-ID encoding/global-ID assumptions or ordinal re-sorting of
+after-record edits. Shared engine plane is null; frame engine plane is its cel ID. This changes runtime selection APIs,
+not saved schema. Live record rendering/Activity capability remains disabled until the complete slice-d transaction is ready.
+
+Review: core61 focused checks/backend compile and full native175/0/0/0 pass. Two initial new fake-geometry failures
+were repaired without weakening assertions. Root completed usage-limited partials. See SCOPED_LINES_20261013.md.
+Next is live capture/frozen brush identities/ordered replay/Step.lines history and the actual Select host.

@@ -1,4 +1,9 @@
 # LANES.md — live file-lock board for parallel agents
+# October13 scoped line identity: IDLE/released in C:/Temp/jb-scoped-lines, lead/jb-scoped-lines, sourcef8e9454d.
+# Explicit addresses now carry geometry/state and edit snapshots through Select; saved IDs/seqs retained.
+# Core61 focused checks/backend compile and full native175/0/0/0 PASS. SCOPED_LINES_20261013.md.
+# Sol/Luna helpers hit usage limits after partial edits; root completed/reviewed/tested the migration.
+# No GlPaintEngine/View/Activity/schema/shader/preset/device edits; root keeps next JB-5.20d/atlas coordination.
 # October13 watercolor device smoke: IDLE/released, Note9 verified back at Home after both debug runs completed.
 # APKdf8df716 installed in place and device SHA256 verified; visible render smoke passed, full performance remains open.
 # No Note20/uninstall/owner-project drawing/working save/source edit. Report NOTE9_WATERCOLOUR_SMOKE_20261013.md.

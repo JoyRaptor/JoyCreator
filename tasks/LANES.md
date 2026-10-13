@@ -1124,3 +1124,10 @@ Owns JB-5.20a core doc/stroke/LineRules, backend archive/lifecycle, and early ex
 Luna fixture repairs and Sol safety guards are frozen for root verification. Original partial/recovery worktrees are kept.
 Live GlPaintEngine/JbCanvasView/Activity record and selection binding remain slice d; no phone work or UI ownership claimed.
 Full-resolution watercolor pooling is owner-approved; vector owns its existing renderer and meaningful settings controls.
+
+October13 checkpoint: JB-5.20a source32062efc, atlas constraints464cc023; core2140/backend408/native115 green,
+four optional core skips. App-only assembly passed45s at the repository2048MiB heap/CPU2 after the small scratch heap
+failed D8. Original partials remain preserved; document/archive safety source is released after root publication.
+UX sourcee2369b2b/docsb9647c1c is independently verified34/0/0/0; scoped integration is next (including earlier e3 ancestry).
+Vector controls source251beb97/native-test7d079729 has the next narrow check slot; no parallel Gradle/GPU or waiting wrappers.
+Root retains frontier atlas/engine binding ownership. No device reservation or installation.

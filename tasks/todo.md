@@ -536,6 +536,11 @@ Review: tests integrated18c075cf; desktop benchmark findings in reviews/NOTE20_F
 - [x] Verify A1 pure allocator/page table and fake-backed residency adapter; focused JVM 12/12 and core/Androidkit module compilation passed.
 - [x] Independently review recovered JB-5.20a scope, then assign implementation with exact owned paths.
 - [x] Run A1 appropriate checks under shared build lock/resource admission; actual counts and limits in MEDIA_ATLAS_A1_20261012.md.
-- [ ] Push scoped tested checkpoints and publish current lead assignments for incoming peers.
+- [x] Push atlas A1 checkpoint c7b630e3 to media/atlas-a1 and joy-creator; publish lane assignments for incoming peers.
+- [x] Verify recovered JB-5.20a: core2140/backend408/native115, zero failures/errors, four optional core skips; app assembly passed45s after matching repository heap.
+- [x] Back up scoped source32062efc and atlas constraints/owner direction464cc023; publish checked source from clean jb-merge.
+- [ ] Integrate reviewed full Select e3 ancestry and locked styling after its source34-test checkpoint; preserve the v10 LayerColumn fixture.
+- [ ] Verify watercolor controls checkpoint core7/legacy tuning/native2, then its new grain/Artisan GPU gates under the shared slot.
+- [ ] Continue frontier atlas A2 and live-line engine contracts; reuse scoped UndoLog history and preserve current renderer until proofs pass.
 
 Review: atlas foundation is separate from A2–A6 rendering integration. No phone acceptance or crease/Tile fix is claimed from A1 JVM results.

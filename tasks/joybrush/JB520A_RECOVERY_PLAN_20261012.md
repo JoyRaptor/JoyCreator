@@ -16,8 +16,8 @@ Existing composer and undo changes are retained. Engine capture/replay and scree
 - [x] Add lifecycle refusal before unsupported line/slab/look content can enter the raster renderer.
 - [x] Add meaningful binary/archive/document/layout regression tests and update obsolete current-writer fixtures.
 - [x] Inspect scoped diff and stage owned edits; report exact build tasks to root.
-- [ ] Root-controlled serialized tests/build pass; repair within scope as needed.
-- [ ] Root review and scoped branch commit after permitted checks; no shared-main push.
+- [x] Root-controlled serialized tests/build pass; repair within scope as needed.
+- [x] Root review and scoped branch commit after permitted checks; worker does not publish shared main.
 
 Owned source: core/doc/DocModel.kt, DocJson.kt, DocOps.kt; core/stroke/StrokeRecord.kt, StrokeCodec.kt;
 core/vector/LineRules.kt; androidkit/io/JbArchive.kt, CanvasSnapshot.kt, StagedDrawing.kt, DrawingRecovery.kt
@@ -41,4 +41,6 @@ Slab composition requires every declared slab's bytes; partial composition is re
 
 October13 continuation: repair2 backend 408/0/0/0 passed. One BoardPreviewHistory fixture parenthesis was corrected;
 focused core 83/0/0/0 then full core 2140/0/0 with four optional skips passed (7m25s). XML independently counted.
-Native full unit tests and app assembly are running; no main publication or device acceptance yet.
+Native full unit tests 115/0/0/0 passed. Initial app packaging failed under the scratch768MiB heap; app-only retry using
+the repository2048MiB heap and CPU2 passed45s. Source checkpoint32062efc and source-constraints docs464cc023 are backed up.
+Root publishes the checked checkpoint from clean jb-merge; no device acceptance or live-line support is claimed.

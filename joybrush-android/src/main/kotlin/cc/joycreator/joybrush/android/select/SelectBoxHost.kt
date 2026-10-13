@@ -23,6 +23,14 @@ class SelectBoxHost(
 ) : TransformOverlayView.Host {
 
     private val scratch = FloatArray(8)
+    private var gestureQuad: FloatArray? = null
+
+    /**
+     * Told when the box starts MOVING (true) and when the move is written (false): the row fades out and back (K1). Not
+     * on touch-down: the box begins a gesture on every down, and a tap on a corner (a pin) never moves or commits.
+     */
+    var onGesture: ((Boolean) -> Unit)? = null
+    private var moving = false
 
     override fun readQuad(outQuad8: FloatArray): Boolean {
         val q = tool.boxDoc ?: return false
@@ -42,7 +50,15 @@ class SelectBoxHost(
 
     override fun readFoldPivot(outXY: FloatArray) = readPivot(outXY)
 
-    override fun beginGesture() = tool.beginBox()
+    override fun beginGesture() {
+        gestureQuad = FloatArray(8).takeIf { readQuad(it) }
+        tool.beginBox()
+    }
+
+    /** A pinch can absorb a moved drag without taking a second undo snapshot. */
+    override fun rebaseGesture() {
+        gestureQuad = FloatArray(8).takeIf { readQuad(it) }
+    }
 
     override fun videoRect(): RectF = bounds()
 
@@ -53,36 +69,56 @@ class SelectBoxHost(
             val (x, y) = v.screenToDoc(quad8[i * 2], quad8[i * 2 + 1])
             doc[i * 2] = x; doc[i * 2 + 1] = y
         }
-        return tool.boxTo(doc)
+        val ok = tool.boxTo(doc)
+        if (ok && !moving) { moving = true; onGesture?.invoke(true) }
+        return ok
     }
 
     override fun writeTranslate(dxPx: Float, dyPx: Float) {
-        if (!readQuad(scratch)) return
-        for (i in 0 until 4) { scratch[i * 2] += dxPx; scratch[i * 2 + 1] += dyPx }
-        writeQuad(scratch)
+        val q = gestureQuad ?: return
+        val next = q.copyOf()
+        for (i in 0 until 4) { next[i * 2] += dxPx; next[i * 2 + 1] += dyPx }
+        writeQuad(next)
     }
 
     override fun writeSimilarity(factor: Float, deltaDeg: Float, cxPx: Float, cyPx: Float) {
-        if (!readQuad(scratch)) return
+        val q = gestureQuad ?: return
+        val oldCx = (q[0] + q[2] + q[4] + q[6]) / 4f
+        val oldCy = (q[1] + q[3] + q[5] + q[7]) / 4f
+        val next = q.copyOf()
         val a = Math.toRadians(deltaDeg.toDouble())
         val c = cos(a).toFloat(); val s = sin(a).toFloat()
         for (i in 0 until 4) {
-            val dx = scratch[i * 2] - cxPx; val dy = scratch[i * 2 + 1] - cyPx
-            scratch[i * 2] = cxPx + (dx * c - dy * s) * factor
-            scratch[i * 2 + 1] = cyPx + (dx * s + dy * c) * factor
+            val dx = q[i * 2] - oldCx; val dy = q[i * 2 + 1] - oldCy
+            next[i * 2] = cxPx + (dx * c - dy * s) * factor
+            next[i * 2 + 1] = cyPx + (dx * s + dy * c) * factor
         }
-        writeQuad(scratch)
+        writeQuad(next)
     }
 
     override fun writeRotation(deg: Float) {
-        val now = currentRotationDeg()
-        if (!readQuad(scratch)) return
-        val cx = (scratch[0] + scratch[2] + scratch[4] + scratch[6]) / 4f
-        val cy = (scratch[1] + scratch[3] + scratch[5] + scratch[7]) / 4f
+        val q = gestureQuad ?: return
+        val now = Math.toDegrees(atan2((q[3] - q[1]).toDouble(), (q[2] - q[0]).toDouble())).toFloat()
+        val cx = (q[0] + q[2] + q[4] + q[6]) / 4f
+        val cy = (q[1] + q[3] + q[5] + q[7]) / 4f
         writeSimilarity(1f, deg - now, cx, cy)
     }
 
-    override fun commitGesture(what: String) { tool.commitBox() }
+    override fun commitGesture(what: String) {
+        tool.commitBox()
+        gestureQuad = null
+        moving = false
+        onGesture?.invoke(false)
+    }
+
+    override fun cancelGesture() {
+        tool.cancelBox()
+        gestureQuad = null
+        settle()
+    }
+
+    /** The controller calls this when a selection changes or ends, so a move that was taken away never leaves the row hidden. */
+    fun settle() { gestureQuad = null; if (moving) { moving = false; onGesture?.invoke(false) } }
 
     override fun currentRotationDeg(): Float {
         if (!readQuad(scratch)) return 0f

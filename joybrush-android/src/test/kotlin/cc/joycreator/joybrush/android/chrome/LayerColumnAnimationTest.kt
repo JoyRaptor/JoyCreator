@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.android.chrome
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
@@ -142,5 +143,67 @@ class LayerColumnAnimationTest {
         assertTrue(pixels().all { ((it ushr 8) and 255) > ((it ushr 16) and 255) })
         column.setAnimationBoard(RegionDocumentOps.setHeld(doc,board,"paint",true).doc,board)
         assertTrue(pixels().all { kotlin.math.abs(((it ushr 16) and 255)-161) <= 1 && kotlin.math.abs((it and 255)-170) <= 1 })
+    }
+
+    @Test fun selectedLayerUsesDiagonalAccentPillWithoutChangingThumbnailOrTapTarget() {
+        val doc = document(); val host = Host(); val column = column(host, doc)
+        column.pageAspect = 1f
+        layout(column)
+        val thumb = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.MAGENTA) }
+        column.setThumbnails(mapOf("paint" to thumb))
+        fun render(activeId: String): Bitmap {
+            column.show(LayerStack(doc.layers.map { LayerState(it.id, it.name, hasMask = it.mask != null) }, activeId), 16)
+            layout(column)
+            val cell = column.cellFor("paint")!!
+            return Bitmap.createBitmap(cell.width, cell.height, Bitmap.Config.ARGB_8888).also { cell.draw(Canvas(it)) }
+        }
+
+        val selected = render("paint")
+        val unselected = render("ink")
+        assertEquals(Color.MAGENTA, selected.getPixel(selected.width / 2, selected.height / 2))
+        assertEquals(0, Color.alpha(selected.getPixel(0, 0)))
+        assertEquals(0, Color.alpha(unselected.getPixel(0, 0)))
+
+        val accent = column.context.getColor(cc.joycreator.joybrush.android.R.color.jb_state_selected)
+        val changed = mutableListOf<Pair<Int, Int>>()
+        for (y in 0 until selected.height) for (x in 0 until selected.width) {
+            if (selected.getPixel(x, y) != unselected.getPixel(x, y)) changed += x to y
+        }
+        assertTrue("selected outline should alter visible border pixels", changed.size > 20)
+        val byDiagonal = changed.sortedBy { it.first + it.second }
+        fun meanAccentDistance(points: List<Pair<Int, Int>>): Double = points.map { (x, y) ->
+            val color = selected.getPixel(x, y)
+            val dr = Color.red(color) - Color.red(accent)
+            val dg = Color.green(color) - Color.green(accent)
+            val db = Color.blue(color) - Color.blue(accent)
+            kotlin.math.sqrt((dr * dr + dg * dg + db * db).toDouble())
+        }.average()
+        val quarter = (byDiagonal.size / 4).coerceAtLeast(1)
+        assertTrue("lower-right outline should be deeper than upper-left",
+            meanAccentDistance(byDiagonal.take(quarter)) + 2.0 < meanAccentDistance(byDiagonal.takeLast(quarter)))
+
+        val maskThumb = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.GREEN) }
+        column.setMaskThumbnails(mapOf("paint" to maskThumb))
+        column.show(LayerStack(doc.layers.map { LayerState(it.id, it.name, hasMask = it.mask != null) }, "paint"), 16)
+        layout(column)
+        val maskCell = column.cellFor("paint")!!
+        val maskImage = Bitmap.createBitmap(maskCell.width, maskCell.height, Bitmap.Config.ARGB_8888)
+        maskCell.draw(Canvas(maskImage))
+        val (thumbWidth, thumbHeight) = column.thumbSize()
+        val boxLeft = (maskCell.width - thumbWidth) / 2f
+        val boxTop = (maskCell.height - thumbHeight) / 2f
+        val maskWidth = thumbWidth * 0.46f
+        val maskHeight = thumbHeight * 0.46f
+        val maskLeft = boxLeft + thumbWidth - maskWidth * 0.55f
+        val maskTop = boxTop + thumbHeight - maskHeight + column.context.resources.displayMetrics.density * 3f
+        assertEquals(Color.GREEN, maskImage.getPixel((maskLeft + maskWidth * 0.5f).toInt(), (maskTop + maskHeight * 0.5f).toInt()))
+        assertEquals(selected.getPixel((maskLeft + 1f).toInt(), (maskTop + 1f).toInt()),
+            maskImage.getPixel((maskLeft + 1f).toInt(), (maskTop + 1f).toInt()))
+
+        render("paint")
+        val paint = column.cellFor("paint")!!
+        touch(paint, MotionEvent.ACTION_DOWN, paint.width / 2f, paint.height / 2f)
+        touch(paint, MotionEvent.ACTION_UP, paint.width / 2f, paint.height / 2f)
+        assertEquals(1, host.layerActions)
     }
 }

@@ -77,6 +77,43 @@ class SelectTool(
     /** Where the pen hovers (for the nudge ring and the tip dots, K16); null when it is not hovering. */
     var hoverAt: FloatArray? = null
         private set
+    /** Where the nudge ring is while a nudge drags (screen px); null otherwise (then it follows [hoverAt]). */
+    var ringAt: FloatArray? = null
+        private set
+
+    /** The canvas's view, as of the last event (the overlays draw through it). */
+    val viewTransform: cc.joycreator.joybrush.core.view.ViewTransform get() = view
+
+    /** The glowing lines in screen px: each a polyline (x, y pairs) and its half-width in px. */
+    fun glowScreen(): List<Pair<FloatArray, Float>> {
+        if (glowIds.isEmpty()) return emptyList()
+        val out = ArrayList<Pair<FloatArray, Float>>(glowIds.size)
+        for (l in lines) if (l.id in glowIds) {
+            val g = l.geometry
+            val pts = FloatArray(g.xs.size * 2)
+            var half = 0.0
+            for (i in g.xs.indices) {
+                val (x, y) = view.docToScreen(g.xs[i].toFloat(), g.ys[i].toFloat())
+                pts[i * 2] = x; pts[i * 2 + 1] = y
+                half = maxOf(half, g.halfWidths[i])
+            }
+            out.add(pts to (half * view.zoom).toFloat())
+        }
+        return out
+    }
+
+    /** A paint selection's loop in screen px, following the box while it moves (the marching ants); null otherwise. */
+    fun loopScreen(): FloatArray? {
+        val s = state.current as? SelectionState.Pixels ?: return null
+        val h = quad0?.let { q -> boxDoc?.let { homography(q, it) } }
+        val out = FloatArray(s.loop.size * 2)
+        for ((i, p) in s.loop.withIndex()) {
+            val m = h?.apply(p) ?: p
+            val (x, y) = view.docToScreen(m.x.toFloat(), m.y.toFloat())
+            out[i * 2] = x; out[i * 2 + 1] = y
+        }
+        return out
+    }
 
     val state = SelectionState(items = object : SelectionState.Items {
         override fun locked(id: String) = lineById(id)?.locked ?: false
@@ -97,6 +134,8 @@ class SelectTool(
     private var liftedPixels: LiftedPixels? = null
     private var mask: SelectionMask? = null
     private var startRecords: List<StrokeRecord> = emptyList()
+    /** A weight drag starts from current records, never a preceding box/bend gesture. */
+    private var weightRecords: List<StrokeRecord>? = null
     /** The selected lines as they were when the selection was made (the ring's Reset). */
     private var selectionStart: List<StrokeRecord> = emptyList()
     private var lastPreviewAt = 0L
@@ -168,12 +207,14 @@ class SelectTool(
 
     /** A box gesture starts: one snapshot of what it moves. */
     fun beginBox() {
-        quad0 = boxDoc?.copyOf()
+        cancelWeight()
+        quad0 = if (canTransform) boxDoc?.copyOf() else null
         startRecords = selectedRecords()
     }
 
     /** The box is now [quadDoc] (document px). Live: the lifted preview follows; nothing is written yet. */
     fun boxTo(quadDoc: FloatArray): Boolean {
+        if (!canTransform || quad0 == null) return false
         val h = homographyTo(quadDoc) ?: return false
         boxDoc = quadDoc.copyOf()
         liftedLines?.setTransform(h)
@@ -185,31 +226,47 @@ class SelectTool(
     /** The box gesture ended: ONE step. False (and the box goes back) when the move cannot be made. */
     fun commitBox(): Boolean {
         val q0 = quad0 ?: return false
-        val q = boxDoc ?: return false
+        val q = boxDoc
+        val h = q?.let { homography(q0, it) }
+        if (h == null) { cancelBox(); return false }
         quad0 = null
-        val h = homography(q0, q) ?: return false
         val ok = when (state.current) {
             is SelectionState.Lines -> {
                 val weight = if (keepWeights) LineTransform.Weight.KEEP else LineTransform.Weight.SCALE
                 val after = startRecords.map { LineTransform.apply(it, h, weight) }
                 if (after.any { it == null }) {
                     host.toast("This move is too large to make.")
-                    revertBox(q0); false
+                    false
                 } else commitLines(after.filterNotNull())
             }
             is SelectionState.Pixels -> liftedPixels?.commit() ?: false
             null -> false
         }
-        if (ok) state.moved(h)
+        startRecords = emptyList()
+        if (ok) {
+            state.moved(h)
+            val pixels = state.current as? SelectionState.Pixels
+            if (pixels != null) {
+                mask = SelectionMask.polygon(pixels.loop)
+                host.paintClip = mask
+            }
+        } else revertBox(q0)
         listener?.selectionChanged()
         return ok
     }
 
-    fun cancelBox() { quad0?.let { revertBox(it) }; quad0 = null }
+    fun cancelBox() {
+        quad0?.let { revertBox(it) }
+        quad0 = null
+        startRecords = emptyList()
+        cancelWeight()
+        listener?.overlayChanged()
+    }
 
     /** The ring's Reset: the selected lines back to how they were when the selection was made, ONE step. */
     fun resetBox(): Boolean {
         if (state.current !is SelectionState.Lines || selectionStart.isEmpty()) return false
+        cancelWeight()
         val ok = commitLines(selectionStart)
         refitBox()
         listener?.selectionChanged()
@@ -229,22 +286,56 @@ class SelectTool(
 
     fun rebrush(brushId: String): Boolean = editRecords { StrokeEdit.rebrush(it, brushId) }
 
+    /** No Fill control is offered when the engine refused this lift. */
+    val canFill: Boolean get() = state.current is SelectionState.Pixels && liftedPixels != null
+
+    /** Lines can commit without a preview; paint must have an actual lift before it can move. */
+    val canTransform: Boolean get() = when (state.current) {
+        is SelectionState.Lines -> selectedRecords().isNotEmpty()
+        is SelectionState.Pixels -> liftedPixels != null
+        null -> false
+    }
+
+    /** Fill the lifted paint through its coverage mask, ONE step, keeping the selection and paint clip. */
+    fun fill(argb: Int): Boolean {
+        if (state.current !is SelectionState.Pixels) return false
+        val pixels = liftedPixels ?: return false
+        val changed = pixels.fill(argb)
+        if (changed) {
+            host.invalidate()
+            listener?.overlayChanged()
+        }
+        return changed
+    }
+
     /** Live while the weight chip is dragged; [done] writes the one step. */
     fun reweight(factor: Float, done: Boolean): Boolean {
-        if (startRecords.isEmpty()) startRecords = selectedRecords()
-        val after = startRecords.map { StrokeEdit.reweight(it, factor) }
+        if (state.current !is SelectionState.Lines) return false
+        val before = weightRecords ?: selectedRecords().also { weightRecords = it }
+        if (before.isEmpty()) { weightRecords = null; return false }
+        val after = before.map { StrokeEdit.reweight(it, factor) }
         if (!done) { liftedLines?.preview(after); host.invalidate(); return true }
-        startRecords = emptyList()
-        return commitLines(after)
+        weightRecords = null
+        val ok = commitLines(after)
+        if (!ok) { liftedLines?.preview(before); host.invalidate() }
+        return ok
+    }
+
+    private fun cancelWeight() {
+        val before = weightRecords ?: return
+        weightRecords = null
+        liftedLines?.preview(before)
+        host.invalidate()
     }
 
     fun deleteSelection(): Boolean {
+        cancelWeight()
         val ok = when (val s = state.current) {
             is SelectionState.Lines -> host.deleteLines(s.ids)
             is SelectionState.Pixels -> liftedPixels?.clear() ?: false
             null -> false
         }
-        end()
+        if (ok) end()
         return ok
     }
 
@@ -264,16 +355,17 @@ class SelectTool(
     }
 
     fun flip(horizontal: Boolean): Boolean {
+        if (!canTransform) return false
         val q = boxDoc ?: return false
         beginBox()
         val cx = (q[0] + q[2] + q[4] + q[6]) / 4f
         val cy = (q[1] + q[3] + q[5] + q[7]) / 4f
         val m = q.copyOf()
         for (i in 0 until 4) if (horizontal) m[i * 2] = 2 * cx - q[i * 2] else m[i * 2 + 1] = 2 * cy - q[i * 2 + 1]
-        boxTo(m)
+        if (!boxTo(m)) { cancelBox(); return false }
         val ok = commitBox()
         // The box keeps its corner order on screen (top-left stays top-left).
-        boxDoc?.let { b -> boxDoc = if (horizontal) floatArrayOf(b[2], b[3], b[0], b[1], b[6], b[7], b[4], b[5]) else floatArrayOf(b[6], b[7], b[4], b[5], b[2], b[3], b[0], b[1]) }
+        if (ok) boxDoc?.let { b -> boxDoc = if (horizontal) floatArrayOf(b[2], b[3], b[0], b[1], b[6], b[7], b[4], b[5]) else floatArrayOf(b[6], b[7], b[4], b[5], b[2], b[3], b[0], b[1]) }
         return ok
     }
 
@@ -358,7 +450,8 @@ class SelectTool(
 
         override fun cancelled() {
             lassoScreen = null; crosshairAt = null; glowIds = emptyList()
-            if (bendGrab != null) { liftedLines?.preview(startRecords); bendGrab = null }
+            if (bendGrab != null) { liftedLines?.preview(startRecords); bendGrab = null; host.invalidate() }
+            startRecords = emptyList(); tipGrab = null; ringAt = null
             listener?.overlayChanged()
         }
     }
@@ -373,14 +466,18 @@ class SelectTool(
         val (dx, dy) = view.screenToDoc(x, y)
         when (phase) {
             SelectRouter.Phase.START -> {
+                cancelWeight()
                 startRecords = selectedRecords()
                 tipGrab = tip
                 bendGrab = if (tip != null) tipPoint(tip) else floatArrayOf(dx, dy)
+                if (tip == null) ringAt = floatArrayOf(x, y)
             }
             SelectRouter.Phase.MOVE -> {
-                liftedLines?.preview(bent(dx, dy)); host.invalidate()
+                if (tipGrab == null) ringAt = floatArrayOf(x, y)
+                liftedLines?.preview(bent(dx, dy)); host.invalidate(); listener?.overlayChanged()
             }
             SelectRouter.Phase.END -> {
+                ringAt = null
                 val gap = 2f * density / view.zoom
                 commitLines(bent(dx, dy).map { LineDensify.densify(it, gap) })
                 bendGrab = null; tipGrab = null; startRecords = emptyList()
@@ -404,6 +501,10 @@ class SelectTool(
     // ── what changes when the selection does ──
 
     private fun onSelectionChanged() {
+        weightRecords = null
+        startRecords = emptyList()
+        quad0 = null
+        bendGrab = null; tipGrab = null; ringAt = null
         releaseLift()
         when (val s = state.current) {
             is SelectionState.Lines -> liftedLines = host.liftLines(s.ids)
@@ -412,6 +513,7 @@ class SelectTool(
                 mask = m
                 liftedPixels = host.liftPixels(m, keepSource = false)
                 host.paintClip = m
+                if (liftedPixels == null) host.toast("You can paint inside this selection, but it can’t be moved or edited right now.")
             }
             null -> {}
         }
@@ -469,6 +571,7 @@ class SelectTool(
 
     private fun editRecords(edit: (StrokeRecord) -> StrokeRecord): Boolean {
         if (state.current !is SelectionState.Lines) return false
+        cancelWeight()
         return commitLines(selectedRecords().map(edit))
     }
 

@@ -24,6 +24,7 @@ import cc.joycreator.joybrush.core.doc.BoardKind
 import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.doc.hasPixels
 import cc.joycreator.joybrush.android.board.BoardGlyphs
+import cc.joycreator.joybrush.android.select.SelectAccent
 import kotlin.math.roundToInt
 
 /**
@@ -346,33 +347,42 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
                 c.drawText("↳", box.left - kit.dp(10f), box.top + kit.dp(12f), text)
                 text.textSize = kit.dp(8f)
             }
+            // The mask preview sits above the layer's outline, so the ring never paints over its contents.
+            if (layer.id == s.activeId && !(editingMask && layer.hasMask)) {
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = kit.dp(2f)
+                drawSelectedOutline(c, box)
+                paint.shader = null
+                paint.style = Paint.Style.FILL
+            }
             hasMaskBox = layer.hasMask
             if (layer.hasMask) {
                 // The mask, as a small second thumbnail over the cell's lower right corner: white shows, black hides.
                 val mw = tw * 0.46f
                 val mh = th * 0.46f
                 maskBox.set(box.right - mw * 0.55f, box.bottom - mh + kit.dp(3f), box.right + mw * 0.45f, box.bottom + kit.dp(3f))
+                val maskRadius = minOf(maskBox.width(), maskBox.height()) / 2f
                 paint.style = Paint.Style.FILL
                 paint.color = kit.p.drawerInk
+                clip.reset()
+                clip.addRoundRect(maskBox, maskRadius, maskRadius, Path.Direction.CW)
+                c.save()
+                c.clipPath(clip)
                 c.drawRect(maskBox, paint)
                 maskThumbs[id]?.let { m -> paint.alpha = 255; c.drawBitmap(m, null, maskBox, paint) }
+                c.restore()
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = kit.dp(1f)
                 paint.color = kit.p.line
-                c.drawRect(maskBox, paint)
+                c.drawRoundRect(maskBox, maskRadius, maskRadius, paint)
                 paint.style = Paint.Style.FILL
             }
-            if (layer.id == s.activeId) {
+            if (layer.id == s.activeId && editingMask && layer.hasMask) {
                 // The ring is on whatever the brush paints: the layer, or its mask.
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = kit.dp(2f)
-                paint.color = kit.p.stateSelected
-                if (editingMask && layer.hasMask) {
-                    c.drawRect(maskBox.left - kit.dp(2f), maskBox.top - kit.dp(2f), maskBox.right + kit.dp(2f), maskBox.bottom + kit.dp(2f), paint)
-                } else {
-                    c.drawRoundRect(box.left - kit.dp(2f), box.top - kit.dp(2f), box.right + kit.dp(2f), box.bottom + kit.dp(2f),
-                        kit.dp(7f), kit.dp(7f), paint)
-                }
+                drawSelectedOutline(c, maskBox)
+                paint.shader = null
                 paint.style = Paint.Style.FILL
             }
             if (dragging) {
@@ -385,7 +395,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         }
 
         private fun drawCell(c: Canvas, layer: LayerState, r: RectF, bmp: Bitmap?) {
-            val radius = kit.dp(6f)
+            val radius = minOf(r.width(), r.height()) / 2f
             clip.reset()
             clip.addRoundRect(r, radius, radius, Path.Direction.CW)
             c.save()
@@ -415,6 +425,16 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
             if (layer.opacity < 0.995f) corner(c, "${(layer.opacity * 100).roundToInt()}%", r.left + kit.dp(3f), r.bottom - kit.dp(3f), left = true)
             val short = BlendNames.short(layer.blend)
             if (short.isNotEmpty()) corner(c, short, r.right - kit.dp(3f), r.bottom - kit.dp(3f), left = false)
+        }
+
+        /** The active paint target gets the shared cyan gradient around a full-pill outline. */
+        private fun drawSelectedOutline(c: Canvas, r: RectF) {
+            val inset = kit.dp(2f)
+            val outline = RectF(r).apply { inset(-inset, -inset) }
+            paint.alpha = 255
+            paint.shader = SelectAccent.shader(kit, width.toFloat(), height.toFloat())
+            val radius = minOf(outline.width(), outline.height()) / 2f
+            c.drawRoundRect(outline, radius, radius, paint)
         }
 
         /** A tiny label on a dark pill, so it reads on any paint. */

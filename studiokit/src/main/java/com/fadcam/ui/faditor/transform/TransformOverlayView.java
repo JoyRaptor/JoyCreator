@@ -130,6 +130,9 @@ public class TransformOverlayView extends View {
         /** The gesture ended cleanly and changed something: record ONE undo step. */
         void commitGesture(@NonNull String what);
 
+        /** A begun geometry gesture ended without committing. Hosts may discard their preview/snapshot. */
+        default void cancelGesture() { }
+
         /**
          * The object's absolute rotation right now, in degrees.
          *
@@ -2346,7 +2349,10 @@ public class TransformOverlayView extends View {
             h.commitGesture(kind == HandleModel.Kind.BODY ? "Move"
                     : kind == HandleModel.Kind.ROTATE ? "Rotate"
                     : "Distort");
-        } else if (cleanStyle && was && !didMove && clean && kind == HandleModel.Kind.CORNER && !affineOnly) {
+        } else {
+            if (was) h.cancelGesture();
+        }
+        if (cleanStyle && was && !didMove && clean && kind == HandleModel.Kind.CORNER && !affineOnly) {
             togglePin(tapIndex); // K6: a tap pins a corner (its FREE role); tapped again, it lets go
         } else if (was && !didMove && clean && kind == HandleModel.Kind.BODY) {
             // A tap on the picture that moved nothing. Pair it with the previous one and forward
@@ -2859,6 +2865,7 @@ public class TransformOverlayView extends View {
         cornerSnapBroken = false;
         setSnapTint(HandleModel.COLOR_SELECTION);
         if (clean && moved) h.commitGesture("Transform");
+        else h.cancelGesture();
         hudEndedAtMs = SystemClock.uptimeMillis();
         moved = false;
         syncFromHost();

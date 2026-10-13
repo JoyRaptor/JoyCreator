@@ -1,21 +1,29 @@
 package cc.joycreator.joybrush.android.chrome
 
 import android.annotation.SuppressLint
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.os.Build
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.animation.LinearInterpolator
 import android.widget.LinearLayout
 import androidx.core.graphics.ColorUtils
 import cc.joycreator.joybrush.core.chrome.StripPlacement
 import cc.joycreator.joybrush.core.chrome.ToolSlot
 import cc.joycreator.joybrush.core.tool.SizeOpacityDrag
+import cc.joycreator.joybrush.android.select.SelectAccent
 import com.fadcam.ui.faditor.tools.RecentColorsBar
 import kotlin.math.hypot
 import kotlin.math.ln
+import kotlin.math.cos
+import kotlin.math.PI
 
 /**
  * The tool strip (JB-2.01, owner decision 1): one slim column hugging a side edge with everything a painter touches a
@@ -60,8 +68,12 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
     /** JB-5.20e D1.1. Not a [ToolSlot]: a slot remembers a brush, and Select holds none. Hidden until the tool exists. */
     private val select = Item(Kind.TOOL, JbIcon.SELECT).apply { visibility = GONE }
     private val size = Item(Kind.SIZE)
-    val swatch: View = Item(Kind.SWATCH)
+    private val swatchItem = Item(Kind.SWATCH)
+    val swatch: View get() = swatchItem
     private val opacity = Item(Kind.OPACITY)
+    private var selectionRestyle = false
+    private var selectionPulse: ValueAnimator? = null
+    private val selectionTargets get() = listOf(size, swatchItem, tools.getValue(ToolSlot.BRUSH))
 
     var edge: StripPlacement.Edge = StripPlacement.Edge.LEFT
         set(value) { field = value; arrange() }
@@ -80,14 +92,13 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
             item.setOnClickListener { host.toolTapped(slot, item) }
         }
         column.addView(select, LayoutParams(touch, touch))
-        kit.label(select, "Select — tap a line to pick it, tap again for the one under it, or draw a loop around things")
+        kit.label(select, "Select — tap a line to pick it, tap again for the one under it, draw a loop, or tap again for Settings")
         select.setOnClickListener { host.selectTapped(select) }
         column.addView(size, LayoutParams(touch, touch))
-        column.addView(swatch, LayoutParams(touch, touch))
+        column.addView(swatchItem, LayoutParams(touch, touch))
         column.addView(opacity, LayoutParams(touch, touch))
         kit.label(grip, "Move the tool strip — drag it to either edge")
-        kit.label(size, "Size — drag up or down, or tap for a slider")
-        kit.label(swatch, "Colour — tap to pick, or drag onto the drawing to take a colour from it")
+        updateRestyleLabels()
         kit.label(opacity, "Opacity — drag up or down, or tap for a slider")
         grip.setOnTouchListener(GripTouch())
         size.setOnTouchListener(ValueTouch(sizeAxis = true))
@@ -99,7 +110,7 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
     private fun arrange() {
         removeAllViews()
         val left = edge == StripPlacement.Edge.LEFT
-        val r = kit.dp(14f)
+        val r = kit.dp(23f)
         val radii = if (left) floatArrayOf(0f, 0f, r, r, r, r, 0f, 0f) else floatArrayOf(r, r, 0f, 0f, 0f, 0f, r, r)
         kit.chromeSurface(column, radii)
         // The bar's 32 dp touch strip centres a 6 dp hair; pulled in so the hair sits just off the column, as drawn.
@@ -118,6 +129,90 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
             item.chosen = slot == active
             item.invalidate()
         }
+    }
+
+    /** Highlight the strip controls that edit the current selection; only their rings pulse. */
+    fun setSelectionRestyle(on: Boolean, pulse: Boolean) {
+        if (!on) {
+            selectionRestyle = false
+            cancelSelectionPulse()
+            selectionTargets.forEach { it.isActivated = false; it.ringScale = 1f; it.ringAlpha = 1f; it.invalidate() }
+            updateRestyleLabels()
+            return
+        }
+        val wasOn = selectionRestyle
+        selectionRestyle = true
+        selectionTargets.forEach { it.isActivated = true; it.invalidate() }
+        updateRestyleLabels()
+        if (!pulse) {
+            if (!wasOn) cancelSelectionPulse()
+            return
+        }
+        if (animationsReduced()) {
+            cancelSelectionPulse()
+            return
+        }
+        startSelectionPulse()
+    }
+
+    private fun updateRestyleLabels() {
+        kit.label(size, if (selectionRestyle)
+            "Selected line weight — drag up or down, or tap for a slider"
+        else "Size — drag up or down, or tap for a slider")
+        kit.label(swatchItem, if (selectionRestyle)
+            "Colour — change the selected lines’ colour"
+        else "Colour — tap to pick, or drag onto the drawing to take a colour from it")
+        kit.label(tools.getValue(ToolSlot.BRUSH), if (selectionRestyle)
+            "Brush — change the selected lines’ brush"
+        else "Brush — tap again for the brushes")
+    }
+
+    private fun startSelectionPulse() {
+        selectionPulse?.cancel()
+        selectionTargets.forEach { it.ringScale = 1f; it.ringAlpha = 1f }
+        lateinit var animator: ValueAnimator
+        animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = PULSE_CYCLE_MS * PULSE_COUNT
+            interpolator = LinearInterpolator()
+            addUpdateListener { a ->
+                val phase = (a.animatedFraction * PULSE_COUNT) % 1f
+                val rise = (0.5 - 0.5 * cos(phase * 2.0 * PI)).toFloat()
+                val scale = 1f + 0.15f * rise
+                val alpha = 1f - 0.6f * rise
+                selectionTargets.forEach { it.ringScale = scale; it.ringAlpha = alpha; it.invalidate() }
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (selectionPulse === animator) {
+                        selectionTargets.forEach { it.ringScale = 1f; it.ringAlpha = 1f; it.invalidate() }
+                        selectionPulse = null
+                    }
+                }
+            })
+        }
+        selectionPulse = animator
+        animator.start()
+    }
+
+    private fun cancelSelectionPulse() {
+        selectionPulse?.cancel()
+        selectionPulse = null
+        selectionTargets.forEach { it.ringScale = 1f; it.ringAlpha = 1f }
+    }
+
+    private fun animationsReduced(): Boolean {
+        if (Build.VERSION.SDK_INT >= 26 && !ValueAnimator.areAnimatorsEnabled()) return true
+        val resolver = context.contentResolver
+        return android.provider.Settings.Global.getFloat(resolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f ||
+            android.provider.Settings.Global.getFloat(resolver, android.provider.Settings.Global.TRANSITION_ANIMATION_SCALE, 1f) == 0f
+    }
+
+    override fun onDetachedFromWindow() {
+        selectionRestyle = false
+        cancelSelectionPulse()
+        selectionTargets.forEach { it.isActivated = false; it.invalidate() }
+        updateRestyleLabels()
+        super.onDetachedFromWindow()
     }
 
     /** JB-5.20e: whether the Select button is offered, and whether it is the tool in the hand (the brush buttons then
@@ -140,7 +235,7 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
     /** The values the size, colour and opacity buttons show. */
     fun showValues(sizePx: Float, argb: Int, opacityValue: Float) {
         size.sizePx = sizePx
-        (swatch as Item).argb = argb
+        swatchItem.argb = argb
         opacity.argb = argb
         opacity.opacity = opacityValue
         size.invalidate(); swatch.invalidate(); opacity.invalidate()
@@ -152,6 +247,9 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
     /** One strip button: a 40 dp target drawing a small mark. */
     private inner class Item(val kind: Kind, val icon: JbIcon? = null) : View(context) {
         var chosen = false
+            set(value) { field = value; isSelected = value; invalidate() }
+        var ringScale = 1f
+        var ringAlpha = 1f
         var sizePx = 12f
         var argb = 0
         var opacity = 1f
@@ -172,7 +270,6 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
                     c.drawRoundRect(box, kit.dp(1.5f), kit.dp(1.5f), paint)
                 }
                 Kind.TOOL -> {
-                    if (chosen) kit.drawSelected(c, cx, cy, kit.dp(15f), paint)
                     val h = kit.dpi(10f)
                     drawable?.setBounds(Math.round(cx) - h, Math.round(cy) - h, Math.round(cx) + h, Math.round(cy) + h)
                     drawable?.draw(c)
@@ -220,6 +317,18 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
                     c.restore()
                 }
             }
+            if (chosen || isActivated) drawAccentRing(c, cx, cy)
+        }
+
+        private fun drawAccentRing(c: Canvas, cx: Float, cy: Float) {
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = kit.dp(1.5f)
+            paint.shader = SelectAccent.shader(kit, width.toFloat(), height.toFloat())
+            paint.alpha = (ringAlpha * 255).toInt().coerceIn(0, 255)
+            c.drawCircle(cx, cy, kit.dp(15f) * ringScale, paint)
+            paint.shader = null
+            paint.alpha = 255
+            paint.style = Paint.Style.FILL
         }
 
         /** The size dot: 1 px → 2 dp, 256 px and up → 9 dp, on a log scale so small brushes are told apart. */
@@ -291,5 +400,10 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
             if (sizeAxis) { d.move(-dy, 0f); host.sizeDragged(d.size, done) }
             else { d.move(0f, dy); host.opacityDragged(d.opacity, done) }
         }
+    }
+
+    private companion object {
+        const val PULSE_CYCLE_MS = 600L
+        const val PULSE_COUNT = 2
     }
 }

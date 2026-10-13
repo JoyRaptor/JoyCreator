@@ -569,3 +569,9 @@ mutation gates pass. Full-resolution diagnostic<3 passes; six originalhalf-res
 appearance failures remain truthful, checkerexit1. Evidence JSON pushed with
 source54cf9c41; browserclosed/lockreleased. LineLab4PNGs, integrationAPK and
 W4/W5 remain pending; no otherjob or phone was run in that GPU slot.
+
+October13 LineLab: fixture1/0/0/0 passes9s; four planned2048×1280 PNGs render
+exit0 and are visually inspected. Source/preset/artifact hashes pushed. Capacity
+uniform is inactive on current shader: P1 PNG identical to shippedPencil; P2
+differs via other parameters. No tooth-mode/S-tier/Proko or phoneproof claimed.
+Sharedslot released; W4 host, integrationAPK and actualW5 remain open.

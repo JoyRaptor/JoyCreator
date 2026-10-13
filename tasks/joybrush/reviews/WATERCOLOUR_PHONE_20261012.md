@@ -312,3 +312,43 @@ at `tasks/joybrush/reviews/evidence/WATERCOLOUR_GPU_20261013.json`. Browser fina
 closed normally; post-run owned SwiftShader Edge process count0 and shared lock
 absent. Original POC SHA256004B563B6467ED5775D56496EE05EAF56D4A5F187D2321799664146BDE60AF6E
 is unchanged. W4 host, LineLab sheets, integration APK and actual W5 remain open.
+
+## LineLab fixture and four sheets — October13, completed
+
+ONE separately authorized serial slot at4798MiB (minimum3200MiB), frozen source
+965192e36843fc57f8e6b8bc5db92aecf63a2ba0. Fixture target LineLabSheetTest rerun
+with task-only `--rerun`, Test512MiB/Gradle1536MiB/CPU2/no-daemon/in-process:
+BUILD SUCCESSFUL9s, actual XML1/0/0/0. The parser validates brush files and
+17-float instance counts, and all four planned fixtures are present.
+
+Four renders use explicit `--shaders C:/Temp/jb-watercolour-phone/joybrush/shaders`
+and the fixture's actual pulp_artisan material, sequentially with one browser.
+Rechecked free RAM before each: pencil4706MiB, ink4762MiB, P14844MiB, P24855MiB.
+Each renderer exited0, every stroke had nonzero coverage/change, no GL error or
+NaN. Each PNG is2048×1280 with34 test strokes. Visual QA inspected all four.
+
+| Sheet | Dabs | PNG |
+|---|---:|---|
+|Shipped Pencil |25,718 |C:/Temp/jb-linelab-20261013/pencil.png |
+|Shipped Ink |36,648 |C:/Temp/jb-linelab-20261013/ink.png |
+|Pencil P1 |25,718 |C:/Temp/jb-linelab-20261013/pencil_p1.png |
+|Pencil P2 |30,308 |C:/Temp/jb-linelab-20261013/pencil_p2.png |
+
+Important proof limit: both P1/P2 fixtures set grainCapacity1 from
+extensions.deposit=tooth; baseline Pencil/Ink set0. The current production
+shader does not use u_grainCapacity (reported as inactive/optimized out).
+Pencil and P1 PNG SHA256 are IDENTICAL, FD589475CB0701C05B37071374FEB7BA7F216C7106F54EB49C7F14FC3BCEFAEC.
+P2 differs through its other existing parameters; this does not prove the extra
+capacity mode. The renderer routes the value and accepts explicit shader paths,
+but a shader implementing that mode needs its own scoped validation. No pencil
+physics/default/preset was changed to conceal this result. Proko/raster refs
+remain required before aesthetic tuning or owner S-tier choice.
+
+Source/preset/fixture/PNG hashes, dimensions and terminal lines are preserved in
+`tasks/joybrush/reviews/evidence/LINELAB_20261013.json`. Raw four logs, PNGs,
+fixture terminal and exits are in C:/Temp/jb-linelab-20261013. Fixture JSON and
+summary are joybrush/core/build/linelab. Desktop SwiftShader timings include
+test readbacks and are not Note9 performance evidence. No additional benchmark,
+app assembly or phone was run. Browser finally blocks closed every browser;
+post-run owned SwiftShader Edge count0 and shared lock absent. W4 host,
+integration APK and actual W5 remain open.

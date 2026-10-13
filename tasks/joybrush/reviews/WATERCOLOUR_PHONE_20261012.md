@@ -237,3 +237,10 @@ The existing6000-dab cap reports a refusal asking the user to lift and continue;
 long thin strokes should explicitly exercise this limit on the phone. Verify
 pen-down/up fade, rapid next stroke, Undo/Redo, save during fade, reopen, real
 paper dryness, same-seed live previews and recolour/move after W4 integration.
+
+Native source follow-up adds `WatercolourBrushSettingsTest` (two Robolectric
+SDK28 cases): opening the real sheet catches the pre-init checkbox-list crash,
+keeps the live preview outside its scrolling controls, and edits an actual
+checkbox through persisted tuning without changing seeds/curves. Reset restores
+checkboxes without extra tuning callbacks. This class awaits the same authorized
+narrow native slot; production controls source remains251beb97.

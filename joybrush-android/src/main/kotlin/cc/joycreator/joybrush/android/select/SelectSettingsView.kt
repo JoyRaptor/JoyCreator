@@ -10,7 +10,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import cc.joycreator.joybrush.android.chrome.ChromeKit
 
-/** K18: tap Select again for the two choices; selected words are cut out of the room gradient (owner October12). */
+/** K18: tap Select again for the two choices; selected words are cut out of the locked cyan gradient. */
 @SuppressLint("ViewConstructor")
 class SelectSettingsView(
     private val kit: ChromeKit,
@@ -18,7 +18,6 @@ class SelectSettingsView(
     paintMakesLines: Boolean,
     private val onFingerSelects: (Boolean) -> Unit,
     private val onPaintMakesLines: (Boolean) -> Unit,
-    private val accent: SelectAccent = SelectAccent.CYAN_GRADIENT,
 ) : LinearLayout(kit.context) {
     init {
         orientation = VERTICAL
@@ -70,7 +69,8 @@ class SelectSettingsView(
             paint.shader = null
             if (chosen) {
                 val layer = canvas.saveLayer(null, null)
-                paint.shader = accent.shader(kit, width.toFloat(), height.toFloat())
+                paint.alpha = 255
+                paint.shader = SelectAccent.shader(kit, width.toFloat(), height.toFloat())
                 canvas.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), kit.dp(20f), kit.dp(20f), paint)
                 paint.shader = null
                 canvas.saveLayer(null, cut)

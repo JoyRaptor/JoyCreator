@@ -1056,3 +1056,9 @@ Owner likes room-gradient styling but needs cyan's shared selected language acro
 
 ## Defaults follow demonstrated brush quality (October12, owner correction)
 Q2 pixels-by-default is provisional, not a hard rule. Proko pencil may become the starting brush; both raster and vector must aim S tier, with vector preferred when appearance matches. Raster earns default only with a visible quality gain worth the larger files. Keep this conditional and report the owner's A-to-B+ raster regression to the pencil owner rather than assuming today's appearance is accepted.
+
+## Close an approved styling trial (October13, UX continuation)
+Owner locked the cyan gradient, full pills and borderless backing and said to build it with no further web preview updates. Remove native trial controls and implement the approved choice. Keep historical design notes, append the final ruling, and carry the still-conditional pencil/vector preference separately. Do not keep soliciting palette choices after acceptance.
+
+## Rounded selection outlines must preserve attached previews (October13, native render regression)
+A full-pill layer ring crossed the center of its overlapping mask thumbnail. Draw the layer ring beneath that preview; draw the mask ring only for the active mask target. Reset Paint alpha before a selected gradient so neutral border alpha cannot leak into it. Test bitmap contents and hit targets as well as the outline's colour and shape.

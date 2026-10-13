@@ -722,3 +722,14 @@ Owner's words:
 - Use raster as default only if a meaningful visible quality improvement justifies its larger file size. Do not claim that either implementation currently meets S tier.
 - Owner reports raster formerly A tier and now B+ after needed tweaks: preserve this regression history for the pencil owner; compare against the earlier accepted appearance rather than treating B+ as the baseline target.
 - UI keeps explicit shelf get/set choices and per-brush overrides; Lead/vector owner determine the eventual starting brush and mode after quality comparison. No engine changes in this lane.
+
+### K24 — Selected styling locked (owner, October12; implemented October13)
+
+> Cyan gradient works, rounded and borderless changes look great. build it. no more need to update the web preview. we got it locked in
+
+- Supersedes the K21/K22 palette trial: native selected fills and outlines use cyan at upper left, subtly deeper cyan at lower right. `SelectAccent` now exposes this one approved diagonal shader; no palette trial option remains in native controls. Global token mirrors stay unchanged.
+- Switches/segments keep cut-out words/icons. Tools, swatches and layer targets retain visible contents inside a thin cyan-gradient ring. Lead released LayerColumn presentation for this checkpoint: full-pill thumbnail/mask backings and clips match their outlined shape; bitmap scaling, hit rectangles and animation markers remain unchanged. Global colour token mirrors stay unchanged.
+- Full pills and borderless paper-at-88% floating backings remain approved. The docked strip is flat against the screen, with 23dp canvas-facing corners.
+- Strip width, colour and brush rings pulse twice over 1200ms on entry to line selection, then stay steady; reduced motion stays steady. `ToolStripView.setSelectionRestyle(on, pulse)` supplies this presentation. Lead must route the highlighted controls to real selected-line edits when wiring Activity.
+- Web preview work is finished at the owner's request. Do not keep changing or republishing it. K23's quality-dependent pencil/mode preference remains provisional.
+- Lead explicitly approved a backward-compatible `TransformOverlayView.Host.cancelGesture()` default no-op on October13. Ordinary uncommitted drag/tap and cancelled/unmoved pinch notify once before re-reading the host; Select rolls back its preview and restores the row. Existing Studio hosts keep their default behavior, and bend cancellation is unchanged.

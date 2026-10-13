@@ -5,17 +5,12 @@ import android.graphics.Shader
 import androidx.core.graphics.ColorUtils
 import cc.joycreator.joybrush.android.chrome.ChromeKit
 
-/** Reversible colour trial: cyan retains the shared selection meaning; room colours remain an alternative. */
-enum class SelectAccent {
-    CYAN, CYAN_GRADIENT, ROOM_GRADIENT;
+/** Owner-approved selected accent: shared cyan, subtly deeper toward the lower-right. */
+object SelectAccent {
 
     fun shader(kit: ChromeKit, width: Float, height: Float): Shader {
         val cyan = kit.p.stateSelected
-        val colours = when (this) {
-            CYAN -> intArrayOf(cyan, cyan)
-            CYAN_GRADIENT -> intArrayOf(cyan, ColorUtils.blendARGB(cyan, kit.p.ground, 0.15f))
-            ROOM_GRADIENT -> intArrayOf(kit.p.roomEnd, kit.p.roomStart)
-        }
+        val colours = intArrayOf(cyan, ColorUtils.blendARGB(cyan, kit.p.ground, 0.15f))
         // A true 45-degree diagonal, also on wide pills (same as CSS 135deg).
         val reach = (width + height) / 4f
         return LinearGradient(width / 2f - reach, height / 2f - reach,

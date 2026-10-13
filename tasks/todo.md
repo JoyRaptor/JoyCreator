@@ -538,3 +538,12 @@ Review: tests integrated18c075cf; desktop benchmark findings in reviews/NOTE20_F
 - [x] Verify both compile gates and 5 focused behavior tests (0 failures/errors/skips), review all diffs; scoped checkpoint prepared for commit/push.
 - [x] Report integration hooks/remaining prerequisites and actual checks to lead; capture owner K21/K22/K23 creative revisions. No phone/engine acceptance claim.
 Review: no phone/engine acceptance claimed; engine, count scrubber and phone pass remain later jobs.
+
+## Locked Select styling — October12
+- [x] Owner approved cyan gradient, full pills and borderless paper backings; stop web preview work.
+- [x] Make native selected accent fixed to approved cyan gradient, remove alternative trial knobs.
+- [x] Finish ToolStrip selected rings/discovery pulses and docked corner shape after lane coordination.
+- [x] Repair lead-reviewed edit snapshot, cancelled gesture, refused pixel lift and moved paint-clip defects; test actual gesture dispatch and multi-frame/rebased moves.
+- [x] Verify native compile and focused controls/pulse tests through shared runner: included Androidkit1m9; final native compile/test1m41; XML34/0/0/0.
+- [ ] Push scoped app checkpoint and give lead exact integration calls/remaining engine prerequisites.
+Review: source tested October13. A fixture JVM setter clash was repaired; bitmap regression found layer ring overwriting mask preview and verified the corrected draw order. Q2 remains quality-dependent; no phone/brush-quality/live-engine claim from styling checks. Logs: C:/Temp/jb-ux-ops/locked-androidkit-compile.log and locked-native-tests-repair2.log.

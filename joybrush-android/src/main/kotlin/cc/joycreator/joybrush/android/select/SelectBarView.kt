@@ -50,9 +50,6 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
     var ink: IconInk = IconInk.LIGHT
         set(value) { field = value; repaint() }
 
-    var accent: SelectAccent = SelectAccent.CYAN_GRADIENT
-        set(value) { field = value; repaint() }
-
     private val back = GradientDrawable()
     private val segBacks = ArrayList<GradientDrawable>()
 
@@ -167,9 +164,10 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
         override fun onDraw(cv: Canvas) {
             val ink = inkColour()
             if (c.on) {
-                // K20's cut-out icon or word; the colour trial can retain shared cyan or use the room pair.
+                // K20's cut-out icon or word, in the owner's locked cyan gradient.
                 p.style = Paint.Style.FILL
-                p.shader = accent.shader(kit, width.toFloat(), height.toFloat())
+                p.alpha = 255
+                p.shader = SelectAccent.shader(kit, width.toFloat(), height.toFloat())
                 val base = cv.saveLayer(null, null)
                 cv.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), kit.dp(16f), kit.dp(16f), p)
                 p.shader = null

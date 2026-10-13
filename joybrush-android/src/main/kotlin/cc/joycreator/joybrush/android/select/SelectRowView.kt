@@ -89,21 +89,23 @@ class SelectRowView(private val kit: ChromeKit, private val actions: Actions) : 
         add(Item(Kind.ICON, JbIcon.FLIP_H), "Flip horizontal") { actions.flip(true) }
         add(Item(Kind.ICON, JbIcon.FLIP_V), "Flip vertical") { actions.flip(false) }
         sep()
-        add(Item(Kind.ICON, JbIcon.MORE), "More: copy, lock, adjust colour, or turn the lines into pixels") { actions.more(it) }
+        add(Item(Kind.ICON, JbIcon.MORE), "More actions for the selected lines") { actions.more(it) }
         recolour()
     }
 
     /** A paint selection's row. [fillArgb] colours the bucket's paint (K10). */
-    fun showPixels(fillArgb: Int, canFill: Boolean = true) {
+    fun showPixels(fillArgb: Int, canFill: Boolean = true, canEdit: Boolean = true) {
         removeAllViews(); items.clear()
         if (canFill) add(Item(Kind.FILL).also { it.colours = listOf(fillArgb) }, "Fill the selection with the current colour") { actions.fill() }
         // Pixel duplication needs an engine-backed copy/lift transaction; the tool currently duplicates lines only.
-        add(Item(Kind.ICON, JbIcon.DELETE).also { it.danger = true }, "Delete") { actions.delete() }
-        sep()
-        add(Item(Kind.ICON, JbIcon.FLIP_H), "Flip horizontal") { actions.flip(true) }
-        add(Item(Kind.ICON, JbIcon.FLIP_V), "Flip vertical") { actions.flip(false) }
-        sep()
-        add(Item(Kind.ICON, JbIcon.MORE), "More: copy, invert, or adjust colour") { actions.more(it) }
+        if (canEdit) {
+            add(Item(Kind.ICON, JbIcon.DELETE).also { it.danger = true }, "Delete") { actions.delete() }
+            sep()
+            add(Item(Kind.ICON, JbIcon.FLIP_H), "Flip horizontal") { actions.flip(true) }
+            add(Item(Kind.ICON, JbIcon.FLIP_V), "Flip vertical") { actions.flip(false) }
+            sep()
+        }
+        add(Item(Kind.ICON, JbIcon.MORE), "More actions for the selected paint") { actions.more(it) }
         recolour()
     }
 

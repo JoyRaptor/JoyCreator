@@ -71,7 +71,6 @@ class SelectController(
         val plusChip: Boolean = true,         // P6 A
         val fadeRest: Float = 0.66f,          // P2 A
         val fingerSelects: Boolean = false,   // K18 (P10 B default)
-        val accent: SelectAccent = SelectAccent.CYAN_GRADIENT, // Reversible trial; owner has not locked a palette.
     )
 
     private val preferences = SelectPreferences(kit.context)
@@ -145,7 +144,7 @@ class SelectController(
     fun showSettings(anchor: View) {
         val settings = SelectSettingsView(kit, picks.fingerSelects, app.paintMakesLines(),
             onFingerSelects = { on -> preferences.fingerSelects = on; picks = picks.copy(fingerSelects = on) },
-            onPaintMakesLines = app::setPaintMakesLines, accent = picks.accent)
+            onPaintMakesLines = app::setPaintMakesLines)
         popovers.show(settings, anchor, Popovers.Side.BESIDE, widthDp = 260f)
     }
 
@@ -167,14 +166,13 @@ class SelectController(
     private fun applyPicks() {
         tool.crosshair = picks.crosshair
         tool.fingerSelects = picks.fingerSelects
-        bar.accent = picks.accent
     }
 
     private fun refresh() {
         boxHost.settle()
         val s = tool.selection
         host.dimRest(if (s is SelectionState.Lines) picks.fadeRest else 0f)
-        box.visibility = if (s != null && !tool.nudging) View.VISIBLE else View.GONE
+        box.visibility = if (tool.canTransform && !tool.nudging) View.VISIBLE else View.GONE
         box.refresh()
         val paper = app.paperArgb()
         row.setPaper(paper); bar.setPaper(paper)
@@ -185,7 +183,7 @@ class SelectController(
                 val icon = recs.firstOrNull()?.let { app.brushIcon(it.record.brushId) } ?: JbIcon.BRUSH
                 row.showLines(colours, icon, 1f, picks.chipsInRow)
             }
-            is SelectionState.Pixels -> row.showPixels(canvas.strokeColor, canFill = tool.canFill)
+            is SelectionState.Pixels -> row.showPixels(canvas.strokeColor, canFill = tool.canFill, canEdit = tool.canTransform)
             null -> {}
         }
         row.visibility = if (s != null && !tool.nudging) View.VISIBLE else View.GONE

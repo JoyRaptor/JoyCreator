@@ -1116,3 +1116,13 @@ worktree: C:/Temp/jb-select-core; branch ui/select-e2; source ed914bc3.
 files: none reserved; checkpoint contains tasks/design/UI-Select-options.html, select/* in androidkit and joybrush-android, focused tests and scoped handoff/spec/todo notes.
 Scope: STOP jobs 1–7 and 13, preserving locked K1–K20. Luna handles page CSS and mechanical label audit. Root owns compile, Fill, SelectToast, Select settings. No engine/View/Activity/studiokit changes; Lead owns those and real document integration.
 Coordination: JoyBrush Lead Coordinator chat 01a130dc-639a-7292-9372-52f672b011a0 informed. Builds serialized through jb-gradle.lock; no phone commands/install.
+
+## JOYBRUSH_UX_LOCKED_STYLE_20261012
+status: SOURCE VERIFIED / publishing; owner locked cyan gradient/full pills/borderless paper backing and requested app implementation. Native compile + XML34/0/0/0 passed October13; no further builds reserved.
+worktree: C:/Temp/jb-select-core; branch ui/select-e2; baseline c5ff8aef.
+files: select/SelectAccent.kt, SelectBarView.kt, SelectSettingsView.kt, SelectController.kt, SelectRowView.kt, SelectBoxHost.kt; ToolStripView.kt (lead released); androidkit SelectTool.kt/SelectionHost.kt; focused strip/edit/cancel tests; owned spec/handoff/todo/lessons notes. Lead explicitly released TransformOverlayView.java only for default Host.cancelGesture and uncommitted ordinary/pinch terminal callbacks on October13; bend/Studio geometry unchanged.
+Scope: remove native palette experiment; selected cyan-gradient outlines and finite discovery pulses for width/colour/brush; larger docked strip outer corners. No HTML edits, engine/Activity/View edits, BrushSettingsView edits or phone commands.
+Review repairs: separate weight/box snapshots; restore cancelled/refused previews; prevent null pixel lift actions; move paintClip with a successful pixel transform. No real SelectionHost backing in this lane.
+October13 release: Lead also approved narrowly scoped LayerColumnView selected-ring gradient/full-pill rendering, with rendering regression in existing LayerColumnAnimationTest; preserve layer/mask/animation behavior and hit targets.
+Build: shared lead-build.ps1 runner only; coordinate next slot with lead.
+Verification: included Androidkit compile1m9 PASS; final root native compile/focused tests1m41 PASS. Lead app-only packaging retry has next resource slot. No app APK/phone/real-host acceptance from this lane.

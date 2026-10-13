@@ -104,7 +104,8 @@ interface LiftedLines {
 interface LiftedPixels {
     fun setTransform(h: Homography)
 
-    /** Warps the lifted paint through the current transform back into the same layer, ONE step; stays lifted. */
+    /** Warps the lifted paint back into the same layer, ONE step; stays lifted at identity in the new place.
+     * False leaves its source/coverage unchanged. */
     fun commit(): Boolean
 
     /** Delete: the lifted paint becomes empty, ONE step. */

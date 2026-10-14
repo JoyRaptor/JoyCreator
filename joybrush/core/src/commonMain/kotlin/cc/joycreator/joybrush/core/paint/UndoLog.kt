@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.core.layers.LayerStack
 import cc.joycreator.joybrush.core.doc.Paper
 import cc.joycreator.joybrush.core.doc.JbDocument
 import cc.joycreator.joybrush.core.vector.CelComposer
+import cc.joycreator.joybrush.core.vector.InkTiles
 
 /**
  * Undo/redo of tile changes, with a memory budget — shared by the GPU engine (T = a texture) and the
@@ -21,6 +22,8 @@ import cc.joycreator.joybrush.core.vector.CelComposer
  * stroke after undoing) releases the redo steps' `after`s.
  *
  * The newest undo step is always kept, even over budget, so one undo always works.
+ * [release] must not throw. Publication callbacks must only assign one already-prepared scene
+ * reference, without allocation or history re-entry; that assignment must not throw.
  */
 class UndoLog<T : Any>(
     private val budgetBytes: Long,
@@ -28,6 +31,34 @@ class UndoLog<T : Any>(
     private val release: (T) -> Unit,
 ) {
     class TileChange<T : Any>(val layerId: String, val key: Long, val before: T?, val after: T?, val celId: String? = null)
+
+    /** An ordered pixel slab's texture and the operator used to composite it (JB-5.20 D8a). */
+    class SlabValue<T : Any>(val texture: T, val op: String) {
+        init { require(InkTiles.knowsOp(op)) { "unsupported slab operator \"$op\"" } }
+    }
+
+    /**
+     * A slab is identified by layer, cel, tile and seq; null means it did not exist.
+     * Both endpoints require distinct copy-on-write textures, even for an operator-only change:
+     * history owns the before while the live slab owns the after, so trimming must not release the live texture.
+     */
+    class SlabChange<T : Any>(
+        val layerId: String,
+        val celId: String?,
+        val key: Long,
+        val seq: Long,
+        val before: SlabValue<T>?,
+        val after: SlabValue<T>?,
+    ) {
+        init {
+            require(seq >= 0L) { "slab seq must be nonnegative" }
+            require(before == null || after == null || before.texture != after.texture) {
+                "a changed slab requires distinct copy-on-write textures"
+            }
+        }
+    }
+
+    private data class SlabKey(val layerId: String, val celId: String?, val key: Long, val seq: Long)
 
     /**
      * One editable line's change (JB-5.20 D9): the line before and after, each with its seq, null = it did not exist then.
@@ -53,7 +84,7 @@ class UndoLog<T : Any>(
      * place; undoing a duplicate takes its tiles away and then the stack removes the now-empty layer.
      */
     class Step<T : Any>(
-        val changes: List<TileChange<T>>,
+        changes: List<TileChange<T>>,
         val stackBefore: LayerStack? = null,
         val stackAfter: LayerStack? = null,
         val paperBefore: Paper? = null,
@@ -61,11 +92,47 @@ class UndoLog<T : Any>(
         val documentBefore: JbDocument? = null,
         val documentAfter: JbDocument? = null,
         /** Editable lines this step changed (JB-5.20 D9). One history: a line edit is a step like any stroke. */
-        val lines: List<LineChange> = emptyList(),
-    )
+        lines: List<LineChange> = emptyList(),
+        /** Ordered pixel slabs, with the same copy-on-write ownership as [changes]. */
+        slabs: List<SlabChange<T>> = emptyList(),
+    ) {
+        // Snapshot caller-owned collection backing, including the samples used by line replay.
+        val changes: List<TileChange<T>> = changes.toList()
+        val lines: List<LineChange> = lines.map { c ->
+            LineChange(c.layerId, c.celId, c.id, snapshot(c.before), snapshot(c.after))
+        }
+        val slabs: List<SlabChange<T>> = slabs.toList()
 
-    private val undoStack = ArrayDeque<Step<T>>()
-    private val redoStack = ArrayDeque<Step<T>>()
+        init {
+            val before = HashSet<T>()
+            val after = HashSet<T>()
+            for (c in this.changes) {
+                require(c.before == null || before.add(c.before)) { "duplicate before texture ownership" }
+                require(c.after == null || after.add(c.after)) { "duplicate after texture ownership" }
+            }
+            // Same-family chains can share an intermediate after/before, and legacy tile no-ops
+            // can share their two endpoints. A tile/slab alias cannot be owned by both families.
+            val tileBefore = before.toSet()
+            val tileAfter = after.toSet()
+            for (c in this.slabs) {
+                c.before?.texture?.let {
+                    require(it !in tileAfter) { "tile/slab cross-endpoint texture ownership" }
+                    require(before.add(it)) { "duplicate before texture ownership" }
+                }
+                c.after?.texture?.let {
+                    require(it !in tileBefore) { "tile/slab cross-endpoint texture ownership" }
+                    require(after.add(it)) { "duplicate after texture ownership" }
+                }
+            }
+        }
+
+        private fun snapshot(line: CelComposer.Line?): CelComposer.Line? = line?.let {
+            CelComposer.Line(it.seq, it.record.copy(samples = it.record.samples.toList()))
+        }
+    }
+
+    private var undoStack = ArrayDeque<Step<T>>()
+    private var redoStack = ArrayDeque<Step<T>>()
 
     val canUndo: Boolean get() = undoStack.isNotEmpty()
     val canRedo: Boolean get() = redoStack.isNotEmpty()
@@ -73,29 +140,94 @@ class UndoLog<T : Any>(
 
     /** Bytes currently held only for undo/redo. */
     val heldBytes: Long
-        get() = undoStack.sumOf { s -> s.changes.sumOf { c -> c.before?.let(sizeOf) ?: 0L } + s.lines.sumOf { it.bytes } } +
-            redoStack.sumOf { s -> s.changes.sumOf { c -> c.after?.let(sizeOf) ?: 0L } + s.lines.sumOf { it.bytes } }
+        get() = heldBytes(undoStack, redoStack)
+
+    private fun heldBytes(undo: Collection<Step<T>>, redo: Collection<Step<T>>): Long =
+        undo.sumOf { s -> s.changes.sumOf { c -> c.before?.let(sizeOf) ?: 0L } +
+            s.slabs.sumOf { c -> c.before?.texture?.let(sizeOf) ?: 0L } + s.lines.sumOf { it.bytes } } +
+            redo.sumOf { s -> s.changes.sumOf { c -> c.after?.let(sizeOf) ?: 0L } +
+                s.slabs.sumOf { c -> c.after?.texture?.let(sizeOf) ?: 0L } + s.lines.sumOf { it.bytes } }
 
     /** Records a committed stroke. Discards (and releases) anything that could have been redone. */
     fun push(step: Step<T>) {
-        while (redoStack.isNotEmpty()) redoStack.removeLast().changes.forEach { c -> c.after?.let(release) }
-        undoStack.addLast(step)
-        trim()
+        pushAndPublish(step) {}
+    }
+
+    /**
+     * Records [step] and publishes its prepared scene as one transaction. Capacity and budget
+     * work happen before [publish]; a callback failure keeps both histories and ownership intact.
+     * The callback must follow the nonthrowing scene-assignment contract in [UndoLog].
+     */
+    fun pushAndPublish(step: Step<T>, publish: () -> Unit) {
+        val nextUndo = copyWithCapacity(undoStack, 1)
+        nextUndo.addLast(step)
+        val nextRedo = ArrayDeque<Step<T>>()
+        val dropped = prepareTrim(nextUndo, nextRedo)
+        val discarded = redoStack
+        publish()
+        undoStack = nextUndo
+        redoStack = nextRedo
+        while (discarded.isNotEmpty()) releaseAfter(discarded.removeLast())
+        dropped.forEach(::releaseBefore)
     }
 
     /** Pops the newest step. The caller puts each change's `before` back into its layer. */
     fun undo(): Step<T>? {
-        val s = undoStack.removeLastOrNull() ?: return null
-        redoStack.addLast(s)
-        return s
+        val s = peekUndo() ?: return null
+        return if (undoAndPublish(s) {}) s else null
     }
+
+    /**
+     * Publishes a prepared undo scene only if [expectedStep] is still the newest step by identity.
+     * Returns false before calling [publish] for a stale preflight. Callback failure changes nothing.
+     */
+    fun undoAndPublish(expectedStep: Step<T>, publish: () -> Unit): Boolean {
+        if (peekUndo() !== expectedStep) return false
+        val nextUndo = copyWithCapacity(undoStack)
+        nextUndo.removeLast()
+        val nextRedo = copyWithCapacity(redoStack, 1)
+        nextRedo.addLast(expectedStep)
+        publish()
+        undoStack = nextUndo
+        redoStack = nextRedo
+        return true
+    }
+
+    /** The next undo step, without changing history or ownership, for render preflight. */
+    fun peekUndo(): Step<T>? = undoStack.lastOrNull()
+
+    /** The next redo step, without changing history or ownership, for render preflight. */
+    fun peekRedo(): Step<T>? = redoStack.lastOrNull()
 
     /** Pops the newest undone step. The caller puts each change's `after` back into its layer. */
     fun redo(): Step<T>? {
-        val s = redoStack.removeLastOrNull() ?: return null
-        undoStack.addLast(s)
-        trim()
-        return s
+        val s = peekRedo() ?: return null
+        return if (redoAndPublish(s) {}) s else null
+    }
+
+    /** Like [undoAndPublish], including stale-step refusal, with redo's budget trimming. */
+    fun redoAndPublish(expectedStep: Step<T>, publish: () -> Unit): Boolean {
+        if (peekRedo() !== expectedStep) return false
+        val nextUndo = copyWithCapacity(undoStack, 1)
+        nextUndo.addLast(expectedStep)
+        val nextRedo = copyWithCapacity(redoStack)
+        nextRedo.removeLast()
+        val dropped = prepareTrim(nextUndo, nextRedo)
+        publish()
+        undoStack = nextUndo
+        redoStack = nextRedo
+        dropped.forEach(::releaseBefore)
+        return true
+    }
+
+    private fun copyWithCapacity(source: Collection<Step<T>>, extra: Int = 0): ArrayDeque<Step<T>> =
+        ArrayDeque<Step<T>>(source.size + extra).also { it.addAll(source) }
+
+    /** Only the prepared deque changes here; no owned resources are released during preflight. */
+    private fun prepareTrim(undo: ArrayDeque<Step<T>>, redo: Collection<Step<T>>): List<Step<T>> {
+        val dropped = ArrayList<Step<T>>()
+        while (undo.size > 1 && heldBytes(undo, redo) > budgetBytes) dropped.add(undo.removeFirst())
+        return dropped
     }
 
     /**
@@ -121,6 +253,18 @@ class UndoLog<T : Any>(
                 merged[k] = TileChange(c.layerId, c.key, prev.before, c.after, c.celId)
             }
         }
+        val slabs = LinkedHashMap<SlabKey, SlabChange<T>>()
+        for (s in steps) for (c in s.slabs) {
+            val k = SlabKey(c.layerId, c.celId, c.key, c.seq)
+            val prev = slabs[k]
+            if (prev == null) {
+                slabs[k] = c
+            } else {
+                // The intermediate slab is owned only by this newer step's before.
+                c.before?.texture?.let(release)
+                slabs[k] = SlabChange(c.layerId, c.celId, c.key, c.seq, prev.before, c.after)
+            }
+        }
         // A layer change inside the batch (JB-2.04) is kept: the merged step goes from the first stack to the last.
         val stackBefore = steps.firstOrNull { it.stackBefore != null }?.stackBefore
         val stackAfter = steps.lastOrNull { it.stackAfter != null }?.stackAfter
@@ -137,7 +281,8 @@ class UndoLog<T : Any>(
             steps.lastOrNull { it.paperAfter != null }?.paperAfter,
             steps.firstOrNull { it.documentBefore != null }?.documentBefore,
             steps.lastOrNull { it.documentAfter != null }?.documentAfter,
-            lines.values.filter { it.before != null || it.after != null }))
+            lines.values.filter { it.before != null || it.after != null },
+            slabs.values.filter { it.before != null || it.after != null }))
         trim()
     }
 
@@ -157,7 +302,7 @@ class UndoLog<T : Any>(
         val held = top.changes.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
         require(changes.none { Triple(it.layerId, it.celId, it.key) in held }) { "a tile already in the newest step was snapshotted again" }
         undoStack[undoStack.lastIndex] = Step(top.changes + changes, top.stackBefore, top.stackAfter, top.paperBefore, top.paperAfter,
-            top.documentBefore, top.documentAfter, top.lines)
+            top.documentBefore, top.documentAfter, top.lines, top.slabs)
         trim()
         return true
     }
@@ -181,12 +326,12 @@ class UndoLog<T : Any>(
             if (r.before == null && r.after == null) null else r
         }
         val bare = top.stackBefore == null && top.stackAfter == null && top.paperBefore == null && top.paperAfter == null &&
-            top.documentBefore == null && top.documentAfter == null && top.lines.isEmpty()
+            top.documentBefore == null && top.documentAfter == null && top.lines.isEmpty() && top.slabs.isEmpty()
         // A step left with nothing in it (all its water came and dried inside it) is popped: an Undo that does nothing
         // visible would break one press, one step. The caller tells the history buttons ([canUndo] may now be false).
         if (changes.isEmpty() && bare) undoStack.removeLast()
         else undoStack[undoStack.lastIndex] = Step(changes, top.stackBefore, top.stackAfter, top.paperBefore, top.paperAfter,
-            top.documentBefore, top.documentAfter, top.lines)
+            top.documentBefore, top.documentAfter, top.lines, top.slabs)
         return true
     }
 
@@ -195,14 +340,24 @@ class UndoLog<T : Any>(
 
     /** Releases everything held for undo/redo (document closed). */
     fun clear() {
-        undoStack.forEach { s -> s.changes.forEach { c -> c.before?.let(release) } }
-        redoStack.forEach { s -> s.changes.forEach { c -> c.after?.let(release) } }
+        undoStack.forEach(::releaseBefore)
+        redoStack.forEach(::releaseAfter)
         undoStack.clear(); redoStack.clear()
     }
 
     private fun trim() {
         while (undoStack.size > 1 && heldBytes > budgetBytes) {
-            undoStack.removeFirst().changes.forEach { c -> c.before?.let(release) }
+            releaseBefore(undoStack.removeFirst())
         }
+    }
+
+    private fun releaseBefore(step: Step<T>) {
+        step.changes.forEach { c -> c.before?.let(release) }
+        step.slabs.forEach { c -> c.before?.texture?.let(release) }
+    }
+
+    private fun releaseAfter(step: Step<T>) {
+        step.changes.forEach { c -> c.after?.let(release) }
+        step.slabs.forEach { c -> c.after?.texture?.let(release) }
     }
 }

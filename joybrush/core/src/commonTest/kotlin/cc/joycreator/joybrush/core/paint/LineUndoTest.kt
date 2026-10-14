@@ -9,6 +9,7 @@ import cc.joycreator.joybrush.core.vector.CelComposer.Line
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -34,7 +35,10 @@ class LineUndoTest {
         // a: made then moved = made at its moved place. b: made then deleted inside the batch = no change at all.
         assertEquals(listOf("a"), step.lines.map { it.id })
         assertNull(step.lines.single().before)
-        assertSame(a2, step.lines.single().after)
+        val saved = step.lines.single().after!!
+        assertEquals(a2.seq, saved.seq)
+        assertEquals(a2.record, saved.record)
+        assertNotSame(a2.record.samples, saved.record.samples)
     }
 
     @Test

@@ -1,0 +1,177 @@
+{
+  "precision": {
+    "target": "RGBA32F",
+    "source": "RGBA8",
+    "look": "RGBA8",
+    "mantissaBits": 23,
+    "exponentRange": [
+      127,
+      127
+    ]
+  },
+  "sequenceCount": 14,
+  "drawCount": 151,
+  "feedbackChecks": 151,
+  "positiveGates": 12,
+  "brokenControls": 3,
+  "results": {
+    "operator_normal": {
+      "pass": true,
+      "float": {
+        "mismatches": 1419,
+        "maxError": 1.1920928955078125e-7,
+        "channels": 4096
+      },
+      "bytes": {
+        "mismatches": 0,
+        "maxError": 0,
+        "channels": 4096
+      }
+    },
+    "operator_erase": {
+      "pass": true,
+      "float": {
+        "mismatches": 1869,
+        "maxError": 5.960464477539063e-8,
+        "channels": 4096
+      },
+      "bytes": {
+        "mismatches": 0,
+        "maxError": 0,
+        "channels": 4096
+      }
+    },
+    "operator_behind": {
+      "pass": true,
+      "float": {
+        "mismatches": 1389,
+        "maxError": 1.1920928955078125e-7,
+        "channels": 4096
+      },
+      "bytes": {
+        "mismatches": 0,
+        "maxError": 0,
+        "channels": 4096
+      }
+    },
+    "operator_multiply": {
+      "pass": true,
+      "float": {
+        "mismatches": 1664,
+        "maxError": 1.1920928955078125e-7,
+        "channels": 4096
+      },
+      "bytes": {
+        "mismatches": 0,
+        "maxError": 0,
+        "channels": 4096
+      }
+    },
+    "operator_screen": {
+      "pass": true,
+      "float": {
+        "mismatches": 1211,
+        "maxError": 1.1920928955078125e-7,
+        "channels": 4096
+      },
+      "bytes": {
+        "mismatches": 0,
+        "maxError": 0,
+        "channels": 4096
+      }
+    },
+    "ordered_seq_interleaves": {
+      "pass": true,
+      "units": 10,
+      "float": {
+        "mismatches": 1286,
+        "maxError": 1.1920928955078125e-7,
+        "channels": 4096
+      },
+      "bytes": {
+        "mismatches": 0,
+        "maxError": 0,
+        "channels": 4096
+      }
+    },
+    "coordinate_-256_-512": {
+      "pass": true,
+      "mismatches": 0,
+      "maxError": 0,
+      "channels": 4096
+    },
+    "coordinate_-1048576_1048320": {
+      "pass": true,
+      "mismatches": 0,
+      "maxError": 0,
+      "channels": 4096
+    },
+    "bake_same_source_op_seq": {
+      "pass": true,
+      "units": 10,
+      "float": {
+        "mismatches": 0,
+        "maxError": 0,
+        "channels": 4096
+      },
+      "bytes": {
+        "mismatches": 0,
+        "maxError": 0,
+        "channels": 4096
+      }
+    },
+    "broken_wrong_order_detected": {
+      "pass": true,
+      "mismatches": 3119,
+      "maxError": 238,
+      "channels": 4096
+    },
+    "broken_dropped_behind_detected": {
+      "pass": true,
+      "mismatches": 2876,
+      "maxError": 12,
+      "channels": 4096
+    },
+    "low_alpha_quantize_once": {
+      "pass": true,
+      "units": 32,
+      "mismatches": 0,
+      "maxError": 0,
+      "channels": 4096,
+      "alpha": 30
+    },
+    "broken_per_item_rgba8_detected": {
+      "pass": true,
+      "mismatches": 2048,
+      "maxError": 2,
+      "channels": 4096,
+      "correctAlpha": 30,
+      "brokenAlpha": 32
+    },
+    "scissor_preserves_slab_outside_line": {
+      "pass": true,
+      "clip": [
+        5,
+        7,
+        19,
+        13
+      ],
+      "bytes": {
+        "mismatches": 0,
+        "maxError": 0,
+        "channels": 4096
+      },
+      "outsideChannels": 3108,
+      "outsideMismatches": 0,
+      "insideChangedChannels": 900
+    },
+    "gl_error": {
+      "pass": true,
+      "value": 0
+    }
+  },
+  "failures": [],
+  "glError": 0,
+  "sourceSha256": "2ed5cdb89f05ffe7a8ddbaa06cff05ea9b8bd37c9a59b03bd53a7de1b072a5d1",
+  "vertexSha256": "61389d3826a3e456e18e97ee44f5d83b86ae1dba17a98bcc09c4c4c39d5e4494"
+}

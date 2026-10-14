@@ -578,3 +578,13 @@ not saved schema. Live record rendering/Activity capability remains disabled unt
 Review: core61 focused checks/backend compile and full native175/0/0/0 pass. Two initial new fake-geometry failures
 were repaired without weakening assertions. Root completed usage-limited partials. See SCOPED_LINES_20261013.md.
 Next is live capture/frozen brush identities/ordered replay/Step.lines history and the actual Select host.
+
+## October13 JB-5.20d live records and selection
+- [ ] Design per-cel GPU slab/look ownership and all-or-nothing edit/save/history transactions.
+- [ ] Freeze brush definitions under immutable document identities, capturing post-guide raw samples and live seed.
+- [ ] Replay records through the actual GL stroke pipeline with ordered slabs/looks and pixel-only parity.
+- [ ] Connect addressed selection edits and Step.lines to one engine history; erasure/bake honor record operators.
+- [ ] Persist/load/recover records, slabs, saved looks and frozen brushes without fallback loss.
+- [ ] Bind Select Activity and accepted pen/finger routing, retaining approved UI styling.
+- [ ] Run focused/full regressions, real GPU replay/order controls, save/recovery evidence and admitted APK/device checks.
+- [ ] Publish verified checkpoints; leave unverified physical acceptance explicit; then progress Atlas A2.

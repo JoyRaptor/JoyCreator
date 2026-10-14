@@ -286,6 +286,7 @@ class JoyBrushActivity : Activity() {
     // the working file yet, and zero means it is all there.
     private val ui = Handler(Looper.getMainLooper())
     private var changes = 0
+    private val strokeSaveClock = StrokeSaveClock(android.os.SystemClock.elapsedRealtime())
 
     /** Where a save goes. Working is the autosave; Copy is a person's "Save a copy…". */
     private sealed class SaveDest {
@@ -475,6 +476,7 @@ class JoyBrushActivity : Activity() {
         // debt a stroke owes.
         canvas.onStrokeEnded = {
             saves.strokeFinished()
+            requestOverdueStrokeSave()
             // D.02c Decision 3: a colour joins the history when a stroke is FINISHED with it (not on every live change in the
             // picker). An eraser stroke used no colour. The history is only written when this colour is not already first.
             if (!erasing) {
@@ -1729,6 +1731,16 @@ class JoyBrushActivity : Activity() {
         changes += 1
         ui.removeCallbacks(idleSave)
         ui.postDelayed(idleSave, AUTOSAVE_AFTER_MS)
+        // GL history notification can arrive after onStrokeEnded. Ask at that confirmed boundary
+        // too, so a first stroke after the minute cannot miss the continuous-paint deadline.
+        if (!canvas.strokeInProgress) requestOverdueStrokeSave()
+    }
+
+    private fun requestOverdueStrokeSave() {
+        if (strokeSaveClock.due(android.os.SystemClock.elapsedRealtime(), changes > 0,
+                !destroyed && workingSaveAllowed && !benchMode && !loadingDrawing &&
+                    !recoveringDrawing && !replacingDrawing,
+                saves.busy || saves.pending > 0)) saves.request(SaveReason.IDLE, SaveDest.Working)
     }
 
     /**
@@ -1751,6 +1763,7 @@ class JoyBrushActivity : Activity() {
             finished("the previous drawing needs recovery before autosave can replace it")
             return
         }
+        if (dest is SaveDest.Working) strokeSaveClock.attempted(android.os.SystemClock.elapsedRealtime())
         if (dest is SaveDest.Open) {
             replacingDrawing = true
             overlaysView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
@@ -1801,8 +1814,9 @@ class JoyBrushActivity : Activity() {
                         .putExtra("joybrush_board_bundle",bundle.absolutePath)
                         .putExtra("joybrush_board_studio",dest.target.format == cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.STUDIO))
                     else bundle?.deleteRecursively()
-                } else if (problem == null && dest is SaveDest.Working && changes == from) {
-                    changes = 0
+                } else if (problem == null && dest is SaveDest.Working) {
+                    strokeSaveClock.saved(android.os.SystemClock.elapsedRealtime())
+                    if (changes == from) changes = 0
                 }
                 finished(problem)
                 pauseViewIfDrained()
@@ -1958,6 +1972,7 @@ class JoyBrushActivity : Activity() {
     private fun finishStartup(loaded: Boolean) {
         workingSaveAllowed = loaded
         loadingDrawing = false
+        strokeSaveClock.reset(android.os.SystemClock.elapsedRealtime())
         saves.drain()
     }
 
@@ -2033,6 +2048,7 @@ class JoyBrushActivity : Activity() {
             changes = 0
             ui.removeCallbacks(idleSave)
             workingSaveAllowed = true
+            strokeSaveClock.reset(android.os.SystemClock.elapsedRealtime())
             onLoaded(!destroyed)
         }
     }

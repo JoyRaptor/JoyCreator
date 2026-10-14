@@ -27,7 +27,10 @@ class RecordedSceneTest {
         var failLine: String? = null
         var failLayer: String? = null
         var failLook: Long? = null
+        var blankLook: Long? = null
         var alias: Int? = null
+        var liveContext = true
+        override fun contextCurrent(): Boolean = liveContext
         override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): RecordedScene.Unit<Int> {
             rendered += address
             if (address.recordId == failLine && (failLayer == null || address.layerId == failLayer)) error("injected replay failure")
@@ -38,6 +41,7 @@ class RecordedSceneTest {
             composed += plane to key
             assertTrue(sources.zipWithNext().all { (a, b) -> a.seq < b.seq })
             if (key == failLook) error("injected composition failure")
+            if (key == blankLook) return null
             return alias ?: next++
         }
         override fun release(texture: Int) { released += texture }
@@ -214,6 +218,7 @@ class RecordedSceneTest {
     @Test fun noDabLineRetainsRecordWithExplicitEmptyAuthoritativeLookIndex() {
         val f = fixture(mapOf(plane to cel(listOf(record().copy(samples = emptyList())))))
         assertTrue(f.scene.lookKeys(plane).isEmpty())
+        assertTrue(f.scene.savedLookKeys(plane).isEmpty())
         assertEquals(1, f.scene.planes.getValue(plane).records.size)
         assertTrue(f.driver.composed.isEmpty())
         f.scene.close()
@@ -250,5 +255,47 @@ class RecordedSceneTest {
         assertEquals(oldLooks, f.scene.lookKeys(plane).associateWith { f.scene.look(plane, it) })
         assertEquals(listOf(104, 105, 106), f.driver.released)
         assertFalse(f.history.canUndo)
+    }
+
+    @Test fun savedLookIndexExcludesPlainSlabTilesAndUsesTheWholePhysicalAddress() {
+        val frame: Pair<String, String?> = "paint" to "frame"
+        val sources = RecordedCel<Int>("paint", null, listOf(record()), mapOf(999L to listOf(
+            RecordedCel.PixelSlab(0, UndoLog.SlabValue(7, "normal")))))
+        val f = fixture(mapOf(plane to sources, frame to cel(listOf(record(x = 5f)), frame = "frame")))
+        assertEquals(setOf(0L, 999L), f.scene.lookKeys(plane))
+        assertEquals(setOf(0L), f.scene.savedLookKeys(plane))
+        assertEquals(setOf(5L), f.scene.savedLookKeys(frame))
+    }
+
+    @Test fun omittingTransparentLookForALineRefusesInsteadOfCreatingAnIncompleteSaveIndex() {
+        val f = fixture()
+        val before = f.scene.planes
+        f.driver.blankLook = 2
+        assertFailsWith<IllegalArgumentException> { f.scene.stage(replacement(f)) }
+        assertSame(before, f.scene.planes)
+        assertFalse(f.history.canUndo)
+        assertEquals(listOf(102), f.driver.released)
+    }
+
+    @Test fun changedPaperOrClipContextRefusesBeforeReusingOrRenderingUnits() {
+        val f = fixture()
+        f.driver.liveContext = false
+        assertFailsWith<IllegalStateException> { f.scene.stage(replacement(f)) }
+        assertTrue(f.driver.rendered.isEmpty())
+        assertTrue(f.driver.composed.isEmpty())
+        assertTrue(f.driver.released.isEmpty())
+        assertFalse(f.history.canUndo)
+    }
+
+    @Test fun changedPaperOrClipContextCannotPublishAnOutstandingProposal() {
+        val f = fixture()
+        val before = f.scene.planes
+        f.scene.stage(replacement(f)).use { staged ->
+            f.driver.liveContext = false
+            assertFalse(staged.commit())
+        }
+        assertSame(before, f.scene.planes)
+        assertFalse(f.history.canUndo)
+        assertEquals(listOf(102, 103), f.driver.released)
     }
 }

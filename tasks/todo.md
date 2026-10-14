@@ -601,3 +601,11 @@ October14 verified checkpoints (full milestone below remains incomplete):
 - [ ] Run focused/full regressions, real GPU replay/order controls, save/recovery evidence and admitted APK/device checks.
 - [ ] Publish verified checkpoints; leave unverified physical acceptance explicit; then progress Atlas A2.
 - [x] Joint scene staging preserves complete mixed Step identity and cache ownership; backend575/0/0/0 including44 new contracts PASS1m56. Actual engine publisher/lifecycle remains next.
+- [x] Implement opt-in actual engine root and complete mixed native/recorded undo publication; atomic empty reset/context-loss handoff and writer guards. Full core2309/backend613/native193 independently counted green; four optional core skips only.
+- [ ] Assemble exact joint-root APK and verify eager/cold Ink/WC GPU probes, public undo/redo and unchanged owner archives on freshly ready sandbox Note9.
+- [ ] Promote existing native bases into recorded seq0 source ownership without changing saved appearance or legacy history identity; then wire physical display and committed live raw capture.
+
+Review: latest lifecycle source passes all three suites. Concrete recorded replay now uses
+private stroke-buffer preparation so bound public-paint guards do not block replay.
+Debug joint GPU cases compile but remain unexecuted. Production capture/Select/save
+are still gated; these passing contracts do not complete JB-5.20d.

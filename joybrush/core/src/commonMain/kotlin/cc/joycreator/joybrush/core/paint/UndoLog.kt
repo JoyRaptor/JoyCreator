@@ -170,6 +170,12 @@ class UndoLog<T : Any>(
 
     enum class Direction { NEW, UNDO, REDO }
 
+    /** The actual immutable joint root, shared with other bound facades; lookup is readonly. */
+    interface CursorPublication<T : Any> {
+        val cursor: Cursor<T>
+        val graphicsEpoch: Long
+    }
+
     /**
      * Pure prepared values, NOT a resource-owning lease or a separate commit operation. The engine
      * publishes [cursor] inside its one artwork root only while [expectedCursor] is still current.
@@ -191,8 +197,10 @@ class UndoLog<T : Any>(
     private val cursorIdentity = Any()
     private var localCursor = Cursor<T>(cursorIdentity, emptyList(), emptyList())
     private var boundRead: (() -> Cursor<T>)? = null
+    private var bindingVersion = 0L
     private var binding = false
     private var publishing = false
+    private var resetPreparing = false
 
     val isCursorBound: Boolean get() = boundRead != null
     val canUndo: Boolean get() = snapshotCursor().canUndo
@@ -223,17 +231,97 @@ class UndoLog<T : Any>(
      * unconverted mutators refuse before callbacks, work or resource release.
      */
     fun bindCursor(read: () -> Cursor<T>) {
-        checkWriteAllowed()
+        checkCursorBindingAllowed()
         val expected = localCursor
-        check(!binding)
         binding = true
         try {
             val supplied = read()
             require(supplied.belongsTo(cursorIdentity)) { "A history cursor belongs to a different source log" }
             check(localCursor === expected && supplied === expected) { "History changed during cursor binding" }
             boundRead = read
+            bindingVersion++
         } finally {
             binding = false
+        }
+    }
+
+    /** Readonly preflight for an engine binding several facades before installing its root. */
+    fun checkCursorBindingAllowed() {
+        checkWriteAllowed()
+        check(!binding && !resetPreparing) { "History is already preparing a cursor binding or reset" }
+    }
+
+    /**
+     * Prepared reset values borrow old ownership. The engine validates its other slices, publishes
+     * the EXACT resetPublication once, then acknowledges this handoff. No arbitrary unbind exists.
+     * Caller owns retiring/abandoning retiredHistoryTextures after accepted joint publication.
+     */
+    inner class ResetHandoff internal constructor(
+        val expectedPublication: CursorPublication<T>,
+        val resetPublication: CursorPublication<T>,
+        val expectedCursor: Cursor<T>,
+        val resetCursor: Cursor<T>,
+        val expectedEpoch: Long,
+        val resetEpoch: Long,
+        private val expectedReader: () -> Cursor<T>,
+        private val expectedBinding: Long,
+        private val readPublication: () -> CursorPublication<T>,
+        retirements: List<T>,
+    ) {
+        private val retired = retirements.toList()
+        private var acknowledged = false
+        /** Same chronological undo-before then redo-after ownership order as legacy clear(). */
+        val retiredHistoryTextures: List<T> get() = retired.toList()
+
+        /** External readers can reenter: recheck root and local binding identities afterwards. */
+        fun isCurrent(): Boolean {
+            if (acknowledged || binding || publishing || resetPreparing || boundRead !== expectedReader ||
+                bindingVersion != expectedBinding) return false
+            if (readPublication() !== expectedPublication || snapshotCursor() !== expectedCursor) return false
+            return readPublication() === expectedPublication && !binding && !publishing && !resetPreparing &&
+                boundRead === expectedReader && bindingVersion == expectedBinding
+        }
+
+        /**
+         * CALL ONLY AFTER the engine installed resetPublication, after final isCurrent checks.
+         * The object argument must be that exact prevalidated root. No external lookup, allocation,
+         * publication or release occurs here. Correct caller sequencing makes all guards succeed.
+         */
+        fun acknowledgeAfterResetPublication(published: CursorPublication<T>) {
+            check(!acknowledged && published === resetPublication && !binding && !publishing && !resetPreparing &&
+                boundRead === expectedReader && bindingVersion == expectedBinding) { "Stale or incorrect history reset acknowledgement" }
+            localCursor = resetCursor
+            boundRead = null
+            bindingVersion++
+            acknowledged = true
+        }
+    }
+
+    /** Pure preflight; validates owners/emptiness before provider callbacks and releases nothing. */
+    fun prepareResetHandoff(expectedPublication: CursorPublication<T>, resetPublication: CursorPublication<T>,
+                            readPublication: () -> CursorPublication<T>): ResetHandoff {
+        check(!binding && !publishing && !resetPreparing) { "History is already binding, publishing or preparing a reset" }
+        val reader = boundRead ?: error("History reset handoff requires bound storage")
+        val token = bindingVersion
+        val expected = expectedPublication.cursor
+        val empty = resetPublication.cursor
+        requireOwned(expected)
+        requireOwned(empty)
+        require(!empty.canUndo && !empty.canRedo) { "Reset history must be truly empty" }
+        require(empty !== expected && resetPublication !== expectedPublication &&
+            resetPublication.graphicsEpoch > expectedPublication.graphicsEpoch) { "Reset requires a new empty cursor, root and advancing epoch" }
+        val oldEpoch = expectedPublication.graphicsEpoch
+        val newEpoch = resetPublication.graphicsEpoch
+        resetPreparing = true
+        try {
+            check(readPublication() === expectedPublication && snapshotCursor() === expected &&
+                readPublication() === expectedPublication && boundRead === reader && bindingVersion == token &&
+                !binding && !publishing) { "History or joint root changed during reset preflight" }
+            val retired = expected.undoSteps.flatMap(::beforeHandles) + expected.redoSteps.flatMap(::afterHandles)
+            return ResetHandoff(expectedPublication, resetPublication, expected, empty, oldEpoch, newEpoch,
+                reader, token, readPublication, retired)
+        } finally {
+            resetPreparing = false
         }
     }
 

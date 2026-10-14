@@ -234,22 +234,28 @@ class GlPaintEngine(
     private var fluidTexture: Int? = null
     val paperWarnings: List<String> get() = loadedPaper?.warnings ?: emptyList()
 
-    var documentPaper: Paper = Paper()
-        private set
+    private var localDocumentPaper: Paper = Paper()
+    @set:JvmName("assignDocumentPaper")
+    var documentPaper: Paper
+        get() = publishedPaint?.paper ?: localDocumentPaper
+        private set(value) { localDocumentPaper = value }
 
     fun setDocumentPaper(value: Paper) {
+        requireLocalPaint()
         documentPaper = value
         setPaper(PaperState.resolve(value, PaperResources.catalogue))
     }
 
     /** Same undo stream as paint; no tiles or texture ownership involved. */
     fun recordPaperChange(before: Paper, after: Paper) {
+        requireLocalPaint()
         checkStrokeEnded("Finish the stroke before closing a paper edit")
         if (before != after) undo.push(UndoLog.Step(emptyList(), paperBefore=before, paperAfter=after))
     }
 
     /** GL thread: switching paper invalidates only the background, never painted tiles. */
     fun setPaper(p: ResolvedPaper) {
+        requireLocalPaint()
         if (resolvedPaper == p && loadedPaper != null) return
         loadedPaper = PaperResources.update(p, resolvedPaper, loadedPaper)
         resolvedPaper = p
@@ -345,8 +351,9 @@ class GlPaintEngine(
     /** Which stroke-buffer precision this GPU got (for the diagnostics overlay). */
     val strokeBufferIsHalfFloat: Boolean get() = strokeInternal == GLES30.GL_R16F
 
-    private class Layer(val id: String, val isMask: Boolean = false) {
-        val tiles = HashMap<Long, Int>()
+    private class Layer(val id: String, val isMask: Boolean = false,
+                        val tiles: HashMap<Long, Int> = HashMap(),
+                        val ownershipIdentity: Any = Any()) {
         val cels = LinkedHashMap<String, HashMap<Long, Int>>()
         var sharedCel: String? = null
         var plan: RegionPaintPlan? = null
@@ -385,7 +392,32 @@ class GlPaintEngine(
     /** Reused across a strip batch: do not allocate sixteen supersampled direct buffers. */
     private var boardThumbReadback: ByteBuffer? = null
 
-    private val layers = LinkedHashMap<String, Layer>()   // bottom → top
+    private var localLayers = LinkedHashMap<String, Layer>()   // bottom → top
+    private val layers: LinkedHashMap<String, Layer> get() = publishedPaint?.nativeLayers ?: localLayers
+    private var localGraphicsEpoch = 0L
+    private val graphicsEpoch: Long get() = publishedPaint?.graphicsEpoch ?: localGraphicsEpoch
+    private var physicalContextEpoch = 0L
+    private var forgettingGraphicsContext = false
+    private var resettingJointPaint = false
+
+    /** Persistent maps change only by replacement while bound; projection caches remain disposable. */
+    private class PublishedPaintState(
+        val nativeLayers: LinkedHashMap<String, Layer>,
+        val agreements: HashMap<Triple<String, String?, Long>, Int>,
+        val document: JbDocument?,
+        val paper: Paper,
+        override val recorded: RecordedScene.State<Int>,
+        override val cursor: UndoLog.Cursor<Int>,
+        override val graphicsEpoch: Long,
+        override val protectedTextures: Set<Int>,
+    ) : RecordedScene.Publication<Int>
+
+    private var publishedPaint: PublishedPaintState? = null
+    internal val hasJointPaintPublication: Boolean get() = publishedPaint != null
+
+    private fun requireLocalPaint() {
+        check(publishedPaint == null && !resettingJointPaint) { "This writer needs the joint recorded artwork publisher" }
+    }
     private var recordedScene: RecordedScene<Int>? = null
     /** GL-thread diagnostic attempt counts; used to prove cold acceptance does no source rendering. */
     internal var recordedLinePreparationCalls = 0L
@@ -404,8 +436,14 @@ class GlPaintEngine(
     // Active stroke.
     private var strokeLayer: Layer? = null
     private var strokePlan: RegionPaintPlan? = null
-    var boardDocument: JbDocument? = null
-        private set
+    private var localBoardDocument: JbDocument? = null
+    @set:JvmName("assignBoardDocument")
+    var boardDocument: JbDocument?
+        get() {
+            val root = publishedPaint
+            return if (root == null) localBoardDocument else root.document
+        }
+        private set(value) { localBoardDocument = value }
     private var framePreviews: Map<String, String> = emptyMap()
     private val boardPreview = GlBoardPreview()
     private var boardArtOnly = false
@@ -424,6 +462,7 @@ class GlPaintEngine(
     private var tilePreviewRect: RectPx? = null
 
     fun setTileBoard(id: String?) {
+        requireLocalPaint()
         checkStrokeEnded("Finish the stroke before switching tiling")
         tilePreviewRect=null
         if(id != null) {
@@ -438,11 +477,13 @@ class GlPaintEngine(
      * tiling off; the previous preview simply stays. Ignored for a board that is not the armed tile.
      */
     fun setTilePreviewRect(id: String,rect: RectPx?) {
+        requireLocalPaint()
         if(rect == null || id != tileBoardId || strokeInProgress) { tilePreviewRect=null; return }
         val max=boardPreview.maxSide()
         if(TileLimits.fits(rect) && rect.w <= max && rect.h <= max) tilePreviewRect=rect
     }
     fun setOnionBoard(id: String?) {
+        requireLocalPaint()
         if(id != null) require(boardDocument?.boards?.any { it.id == id && it.kind == BoardKind.ANIMATION } == true)
         onionBoardId=id
     }
@@ -499,6 +540,8 @@ class GlPaintEngine(
      * context must never meet a name the old one minted.
      */
     internal fun initWith(create: () -> Unit) {
+        physicalContextEpoch = Math.addExact(physicalContextEpoch, 1L)
+        localGraphicsEpoch = Math.addExact(localGraphicsEpoch, 1L)
         lostContent = forgetEverythingFromTheLastContext()
         create()
         ready = true
@@ -626,10 +669,16 @@ class GlPaintEngine(
         // what the caller needs to be told is that the DRAWING did not survive — not that init ran
         // twice. An engine with nothing in it has nothing to announce.
         val had = heldTextureNames() > 0 || undo.canUndo || undo.canRedo || recordedScene?.hasContent == true
+        val alreadyForgetting = forgettingGraphicsContext
+        forgettingGraphicsContext = true
+        try {
+        resetJointPaint(RecordedScene.ResetMode.CONTEXT_LOST)
         recordedScene?.forget(); recordedScene = null
         wcPass?.forget(); wcPass = null; wcSpec = null; wcFading = false; wcPrepared = false
         // The stroke goes with its buffer, and the layers with their tiles: the stroke was never in
         // a layer, so nothing is released twice and nothing is left pointing at a dead name.
+        // Dead stroke names are abandoned, not returned to a pool that can trim/delete them.
+        strokeTiles.clear()
         cancelStroke()
         layers.clear()
         boardDocument = null
@@ -654,6 +703,7 @@ class GlPaintEngine(
         thumbTex = 0; thumbW = 0; thumbH = 0
         compositeError = null
         return had
+        } finally { forgettingGraphicsContext = alreadyForgetting }
     }
 
     /**
@@ -668,7 +718,9 @@ class GlPaintEngine(
 
     /** Frees every GL object this engine owns. */
     fun release() {
+        check(!resettingJointPaint) { "Finish joint retirement before releasing the drawing" }
         if (!ready) return
+        resetJointPaint(RecordedScene.ResetMode.SAME_CONTEXT)
         releaseRecordedScene()
         undo.clear()
         cancelStroke()
@@ -698,7 +750,9 @@ class GlPaintEngine(
     // ── layers ───────────────────────────────────────────────────────────────
 
     /** Adds an empty layer on top (no-op if it exists). */
-    fun addLayer(id: String) { layers.getOrPut(id) { Layer(id) } }
+    fun addLayer(id: String) {
+        requireLocalPaint()
+        layers.getOrPut(id) { Layer(id) } }
 
     /** The tile store [id] names: a layer, or with [MASK_SUFFIX] its mask (JB-2.23). Null if it does not exist. */
     private fun storeOf(id: String): Layer? =
@@ -714,8 +768,12 @@ class GlPaintEngine(
     /** What a tile the store does not have looks like: transparent for a layer, WHITE for a mask. */
     private fun emptyTexOf(store: Layer): Int = if (store.isMask) whiteTex else clearTex
 
-    fun setLayerOpacity(id: String, opacity: Float) { layers[id]?.opacity = opacity.coerceIn(0f, 1f) }
-    fun setLayerName(id: String, name: String) { layers[id]?.name = name }
+    fun setLayerOpacity(id: String, opacity: Float) {
+        requireLocalPaint()
+        layers[id]?.opacity = opacity.coerceIn(0f, 1f) }
+    fun setLayerName(id: String, name: String) {
+        requireLocalPaint()
+        layers[id]?.name = name }
     fun layerName(id: String): String = layers[id]?.name ?: id
 
     // ── the layer stack (JB-2.04) ────────────────────────────────────────────
@@ -788,6 +846,7 @@ class GlPaintEngine(
 
     /** A change to the stack alone (add, move, rename, opacity, blend) as ONE undo step. */
     fun pushStackStep(before: LayerStack, after: LayerStack) {
+        requireLocalPaint()
         checkStrokeEnded("a layer change during a stroke would be undone out of order")
         val oldDoc = boardDocument
         val next = oldDoc?.let { documentForStack(it, after) }
@@ -798,12 +857,14 @@ class GlPaintEngine(
 
     /** The stack made [target] with NO undo step: loading a drawing. */
     fun setStack(target: LayerStack) {
+        requireLocalPaint()
         applyStack(target)
         activeHint = target.activeId
     }
 
     /** Deletes [id] (as [after] says) as ONE undo step: its tiles go into the step, so undo brings the pixels back. */
     fun deleteLayerStep(id: String, before: LayerStack, after: LayerStack) {
+        requireLocalPaint()
         checkStrokeEnded("a layer change during a stroke would be undone out of order")
         val layer = layers[id] ?: return
         val oldDoc=boardDocument
@@ -828,6 +889,7 @@ class GlPaintEngine(
 
     /** Deletes [id]'s mask (as [after] says) as ONE undo step: its tiles go into the step. */
     fun deleteMaskStep(id: String, before: LayerStack, after: LayerStack) {
+        requireLocalPaint()
         checkStrokeEnded("a layer change during a stroke would be undone out of order")
         val m = layers[id]?.mask ?: return
         val oldDoc = boardDocument
@@ -841,6 +903,7 @@ class GlPaintEngine(
 
     /** Copies [sourceId]'s pixels into the new layer [newId] that [after] adds, as ONE undo step. Copied on the GPU, tile by tile. */
     fun duplicateLayerStep(sourceId: String, newId: String, before: LayerStack, after: LayerStack) {
+        requireLocalPaint()
         checkStrokeEnded("a layer change during a stroke would be undone out of order")
         val src = layers[sourceId] ?: return
         require(newId !in layers && after.layers.any { it.id == newId })
@@ -1024,19 +1087,24 @@ class GlPaintEngine(
             if (scissor) GLES30.glEnable(GLES30.GL_SCISSOR_TEST) else GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         }
     }
-    fun setLayerVisible(id: String, visible: Boolean) { layers[id]?.visible = visible }
+    fun setLayerVisible(id: String, visible: Boolean) {
+        requireLocalPaint()
+        layers[id]?.visible = visible }
 
     /**
      * How a layer composites over the ones beneath it (JB-2.20b). All 27 [BlendMode]s are supported;
      * a stack in which every visible layer is NORMAL stays on the fixed-function path, and one
      * non-NORMAL layer sends the whole stack down [drawComposited].
      */
-    fun setLayerBlend(id: String, mode: BlendMode) { layers[id]?.blend = mode }
+    fun setLayerBlend(id: String, mode: BlendMode) {
+        requireLocalPaint()
+        layers[id]?.blend = mode }
     fun layerBlend(id: String): BlendMode = layers[id]?.blend ?: BlendMode.NORMAL
     fun tileCount(id: String): Int = layers[id]?.tiles?.size ?: 0
 
     /** Empties a layer as one undoable step. */
     fun clearLayer(id: String) {
+        requireLocalPaint()
         val layer = storeOf(id) ?: return
         if (layer.planes().all { (_, p) -> p.values.all { it.isEmpty() } }) { replaceTiles(id,visibleTiles(layer).keys.associateWith{null}); return }
         // A layer with media: its payload is emptied in the same step as its look, or the next look render brings it back.
@@ -1120,6 +1188,7 @@ class GlPaintEngine(
      * clears nothing else. Creates the layer and the tile if needed.
      */
     fun writeTile(layerId: String, key: Long, rgba: ByteArray) {
+        requireLocalPaint()
         require(rgba.size == size * size * 4) { "tile must be ${size * size * 4} bytes, got ${rgba.size}" }
         val layer = storeOrCreate(layerId)
         uploadTile(layer.tiles.getOrPut(key) { newLayerTile() }, rgba)
@@ -1132,6 +1201,7 @@ class GlPaintEngine(
      * becomes the undo snapshot, so nothing is copied. Returns how many tiles changed.
      */
     fun replaceTiles(layerId: String, tiles: Map<Long, ByteArray?>): Int {
+        requireLocalPaint()
         checkStrokeEnded("replaceTiles during a stroke would be undone out of order")
         val layer = storeOf(layerId) ?: error("no layer $layerId")
         for (rgba in tiles.values) {
@@ -1183,6 +1253,8 @@ class GlPaintEngine(
 
     /** Empties the whole document (all layers, all undo). For "open another document". */
     fun resetDocument() {
+        check(!resettingJointPaint) { "Finish joint retirement before resetting the drawing" }
+        resetJointPaint(RecordedScene.ResetMode.SAME_CONTEXT)
         cancelStroke()
         releaseRecordedScene()
         mediaStroke = null; mediaStrokeHeld.clear(); agreedLook.clear()
@@ -1199,6 +1271,7 @@ class GlPaintEngine(
 
     /** Metadata is renderer-independent. This backend implements PAINT planes; vectors use the same board model. */
     fun setBoardDocument(doc: JbDocument) {
+        requireLocalPaint()
         checkStrokeEnded("A board cannot change during a stroke")
         val errors=DocOps.validate(doc); require(errors.isEmpty()) { errors.joinToString("; ") }
         require(doc.layers.all { it.kind.hasPixels && it.animatedIn==null }) { "This renderer paints raster layers" }
@@ -1225,6 +1298,7 @@ class GlPaintEngine(
 
     /** Switch display planes only. Paint always begins on the document's saved frame. */
     fun setFramePreviews(frames: Map<String, String>) {
+        requireLocalPaint()
         checkStrokeEnded("Playback cannot change during a stroke")
         val doc = boardDocument
         if (doc == null) { require(frames.isEmpty()) { "No board document is attached" }; return }
@@ -1241,6 +1315,7 @@ class GlPaintEngine(
 
     /** Execute bounded physical copies/drops, then publish metadata and all pixels as ONE history step. */
     fun applyBoardChange(change: RegionChange) {
+        requireLocalPaint()
         checkStrokeEnded("Check failed.")
         val before=boardDocument ?: error("No board document is attached")
         val errors=DocOps.validate(change.doc); require(errors.isEmpty()){errors.joinToString("; ")}
@@ -1432,6 +1507,7 @@ class GlPaintEngine(
         return layers[layerId]?.cels?.get(celId)?.keys?.toList().orEmpty()
     }
     fun writeCelTile(layerId: String,celId: String,key: Long,rgba: ByteArray) {
+        requireLocalPaint()
         require(rgba.size==size*size*4)
         val layer=layers[layerId] ?: error("No live layer $layerId")
         val store=layer.cels[celId] ?: error("No live cel $celId")
@@ -1559,7 +1635,7 @@ class GlPaintEngine(
         val targets = LinkedHashMap<Long, Int>()
         var succeeded = false
         try {
-            beginStroke(layerId, record.colorArgb, replay.strokeOpacity,
+            beginStrokeBuffer(layerId, record.colorArgb, replay.strokeOpacity,
                 if (preset.accumulate == "buildup") Accumulate.BUILD_UP else Accumulate.WASH,
                 StrokeBlend.NORMAL, tip, replay.strokeGrain,
                 watercolour = if (preset.engine == ENGINE_WATERCOLOUR) preset.watercolourRuntime() else null,
@@ -1615,6 +1691,7 @@ class GlPaintEngine(
     /** Eager source replay, with the same concrete renderer used by saved cold scenes. */
     internal fun createRecordedScene(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
                                      frozen: Map<String, BrushPreset>): RecordedScene<Int> {
+        requireLocalPaint()
         checkStrokeEnded("Finish the stroke before opening recorded cels")
         val scene = RecordedScene.create(planes, frozen, undo, recordedRenderer(planes))
         registerRecordedScene(scene)
@@ -1633,6 +1710,7 @@ class GlPaintEngine(
                                           frozen: Map<String, BrushPreset>,
                                           savedLookKeys: Map<Pair<String, String?>, Set<Long>>,
                                           uploadedLooks: Map<Pair<String, String?>, Map<Long, Int>>): RecordedScene<Int> {
+        requireLocalPaint()
         // Unlike eager opening, cold acceptance must not finish/publish existing paint on refusal.
         check(!strokeInProgress && !wcFading && !mediaStrokeInProgress) { "Finish paint/media before accepting saved recorded cels" }
         val renderer = recordedRenderer(planes)
@@ -1687,7 +1765,7 @@ class GlPaintEngine(
         }) { "Recorded cels must address existing canonical physical paint planes" }
         val physicalOwners = planes.keys.associateWith { plane ->
             val layer = layers.getValue(plane.first)
-            Triple(layer, layer.plan, planeTiles(layer, plane.second))
+            Triple(layer.ownershipIdentity, layer.plan, planeTiles(layer, plane.second))
         }
         fun clips(plane: Pair<String, String?>, key: Long): List<RegionTileRect>? {
             val layer = layers.getValue(plane.first)
@@ -1697,9 +1775,9 @@ class GlPaintEngine(
             override fun contextCurrent(): Boolean = ready && boardDocument == capturedDocument &&
                 documentPaper == capturedPaper && resolvedPaper == capturedResolvedPaper &&
                 framePreviews.isEmpty() && tileBoardId == null && physicalOwners.all { (plane, captured) ->
-                    val (owner, plan, store) = captured
-                    layers[plane.first] === owner && owner.plan == plan &&
-                        (if (plane.second == null) owner.tiles else owner.cels[plane.second]) === store
+                    val (identity, plan, store) = captured
+                    layers[plane.first]?.let { owner -> owner.ownershipIdentity === identity && owner.plan == plan &&
+                        (if (plane.second == null) owner.tiles else owner.cels[plane.second]) === store } == true
                 }
 
             override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): RecordedScene.Unit<Int> {
@@ -1747,11 +1825,13 @@ class GlPaintEngine(
 
     /** Engine-owned lifecycle; also used by no-GL context-loss regression fixtures. */
     internal fun registerRecordedScene(scene: RecordedScene<Int>) {
+        requireLocalPaint()
         check(recordedScene == null) { "A recorded scene is already registered" }
         recordedScene = scene
     }
 
     internal fun releaseRecordedScene() {
+        check(publishedPaint == null) { "Reset the complete artwork before releasing its bound recorded scene" }
         val scene = recordedScene ?: return
         recordedScene = null
         scene.close()
@@ -1851,6 +1931,17 @@ class GlPaintEngine(
                     grain: GrainMath.StrokeGrain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF),
                     smudge: SmudgeParams? = null, tuft: TuftShading? = null,
                     watercolour: WatercolourSpec? = null, watercolourSeed: Long = 0L) {
+        requireLocalPaint()
+        beginStrokeBuffer(layerId, argb, opacity, accumulate, blend, tip, grain, smudge, tuft, watercolour, watercolourSeed)
+    }
+
+    /** Scratch replay shares dab setup, but cannot enter any public pixel/history commit route. */
+    private fun beginStrokeBuffer(layerId: String, argb: Int, opacity: Float, accumulate: Accumulate,
+                                  blend: StrokeBlend, tip: TipShape,
+                                  grain: GrainMath.StrokeGrain,
+                                  smudge: SmudgeParams? = null, tuft: TuftShading? = null,
+                                  watercolour: WatercolourSpec? = null, watercolourSeed: Long = 0L) {
+        check(!resettingJointPaint && !forgettingGraphicsContext) { "Finish graphics retirement before preparing stroke buffers" }
         settleWatercolourFade()
         cancelStroke()
         tilePreviewRect=null
@@ -2091,6 +2182,7 @@ class GlPaintEngine(
 
     /** Commits the active stroke into its layer as one undoable step. Returns tiles changed. */
     fun endStroke(): Int {
+        requireLocalPaint()
         val layer = strokeLayer ?: return 0
         val options = wcSpec
         if(options != null && !wcPrepared) {
@@ -2179,6 +2271,10 @@ class GlPaintEngine(
     }
 
     fun undoStep(): Boolean {
+        if (publishedPaint != null) {
+            val step = undo.peekUndo() ?: return false
+            return publishJointPaintStep(step, RecordedScene.Direction.UNDO)
+        }
         settleWatercolourFade()
         val pending = undo.peekUndo() ?: return false
         if (pending.lines.isNotEmpty() || pending.slabs.isNotEmpty()) return recordedHistory(pending, false)
@@ -2200,6 +2296,10 @@ class GlPaintEngine(
     }
 
     fun redoStep(): Boolean {
+        if (publishedPaint != null) {
+            val step = undo.peekRedo() ?: return false
+            return publishJointPaintStep(step, RecordedScene.Direction.REDO)
+        }
         settleWatercolourFade()
         val pending = undo.peekRedo() ?: return false
         if (pending.lines.isNotEmpty() || pending.slabs.isNotEmpty()) return recordedHistory(pending, true)
@@ -2226,6 +2326,237 @@ class GlPaintEngine(
         val edit = RecordedEdits.prepare(scene.planes, step, forward)
         return scene.stage(edit, if (forward) RecordedScene.Direction.REDO else RecordedScene.Direction.UNDO)
             .use { it.commit() }
+    }
+
+    /** Opt-in engine connection. The view/loader must not activate it before their own gates pass. */
+    internal fun bindRecordedPaintPublication() {
+        requireLocalPaint()
+        check(ready && !strokeInProgress && !wcFading && !mediaStrokeInProgress) {
+            "Finish paint and media before binding recorded artwork"
+        }
+        val scene = checkNotNull(recordedScene) { "A joint publication needs its recorded source scene" }
+        check(!scene.isStateBound && !undo.isCursorBound)
+        scene.checkStateBindingAllowed()
+        undo.checkCursorBindingAllowed()
+        scene.checkBindingContext()
+        undo.checkCursorBindingAllowed()
+        val sourceState = scene.snapshotState()
+        require(sourceState.planes.keys.all { (owner, cel) ->
+            layers[owner]?.let { layer ->
+                val pixels = if (cel == null) layer.tiles else layer.cels[cel]
+                val payload = if (cel == null) layer.floats else layer.celFloats[cel]
+                pixels != null && pixels.isEmpty() && payload.orEmpty().values.all { it.isEmpty() }
+            } == true
+        }) { "Plain pixels and media on recorded planes must transfer to physical sources before binding" }
+        val slabs = sourceState.planes.values.flatMap { cel ->
+            cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } }
+        }
+        val alreadyOwned = activeTextureOwners()
+        require(slabs.distinct().size == slabs.size && slabs.none { it == 0 || it in alreadyOwned }) {
+            "Recorded physical slabs need distinct caller-owned sources before engine adoption"
+        }
+        val root = PublishedPaintState(LinkedHashMap(layers), HashMap(agreedLook), boardDocument, documentPaper,
+            sourceState, undo.snapshotCursor(), graphicsEpoch, persistentNativeTextures(layers))
+        // These accessors are engine-owned readonly field lookups. All identities were prepared
+        // before binding, so there is no external callback or fallible native work between them.
+        publishedPaint = root
+        scene.bindState { checkNotNull(publishedPaint) }
+        undo.bindCursor { checkNotNull(publishedPaint).cursor }
+    }
+
+    private fun persistentNativeTextures(source: Map<String, Layer>): Set<Int> = buildSet {
+        fun include(layer: Layer) {
+            addAll(layer.tiles.values)
+            layer.cels.values.forEach { addAll(it.values) }
+            layer.planes().forEach { (_, stores) -> stores.values.forEach { addAll(it.values) } }
+            layer.mask?.let(::include)
+        }
+        source.values.forEach(::include)
+        remove(0)
+        // Free pools, floating-name registries and disposable viewport/projection caches are
+        // not persistent owners. Free RGBA8 names can legitimately become fresh renderer output.
+    }
+
+    /** One empty artwork publication, followed by handoff of those exact empty values. */
+    private fun resetJointPaint(mode: RecordedScene.ResetMode) {
+        val expected = publishedPaint ?: return
+        check(mode == RecordedScene.ResetMode.CONTEXT_LOST || !resettingJointPaint) {
+            "Finish joint retirement before another live reset"
+        }
+        val scene = checkNotNull(recordedScene)
+        val alreadyResetting = resettingJointPaint
+        resettingJointPaint = true
+        try {
+            val physical = physicalContextEpoch
+            val physicalAlive = { physicalContextEpoch == physical && !forgettingGraphicsContext }
+            val next = PublishedPaintState(LinkedHashMap(), HashMap(), null, expected.paper,
+                scene.emptyState(), undo.emptyCursor(), Math.addExact(expected.graphicsEpoch, 1L), emptySet())
+            val ticket = scene.prepareResetHandoff(expected, next, mode)
+            val physicalSources = persistentNativeTextures(expected.nativeLayers) + expected.recorded.planes.values.flatMap { cel ->
+                cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } }
+            }
+            val retiredSources = (physicalSources + ticket.retiredHistoryTextures).toList()
+            check(ticket.isCurrent() && publishedPaint === expected && physicalContextEpoch == physical) {
+                "Artwork or graphics context changed before joint reset"
+            }
+            publishedPaint = next // Only artwork publication; every source and history slice is empty together.
+            ticket.acknowledgeAfterResetPublication(next)
+            localLayers = next.nativeLayers
+            localAgreedLook = next.agreements
+            localGraphicsEpoch = next.graphicsEpoch
+            localBoardDocument = next.document
+            localDocumentPaper = next.paper
+            recordedScene = null
+            // Storage handoff preserves the exact empty values; it does not publish another edit.
+            publishedPaint = null
+            if (mode == RecordedScene.ResetMode.SAME_CONTEXT) {
+                ticket.releaseRetiredCachesAfterPublication(physicalAlive)
+                for (texture in retiredSources) {
+                    if (!physicalAlive()) break
+                    recycleLayerTex(texture)
+                }
+            }
+            // CONTEXT_LOST abandons all old current/history/pending names; no old GL deletion.
+        } finally {
+            resettingJointPaint = alreadyResetting
+        }
+    }
+
+    /** Current adoption inventory: a format registry alone does not own a newly staged float tile. */
+    private fun activeTextureOwners(): Set<Int> {
+        val ownedFloats = persistentNativeTextures(layers) + undo.heldTextures() + freeFloatTex +
+            mediaStroke.orEmpty().flatMap { listOfNotNull(it.before, it.after) }
+        return protectedRecordedTextureHandles() - (floatNames - ownedFloats)
+    }
+
+    private fun detachedNativeLayer(source: Layer, recordedCels: Set<String?>): Layer =
+        Layer(source.id, source.isMask, if (null in recordedCels) source.tiles else HashMap(source.tiles),
+            source.ownershipIdentity).also { copy ->
+        source.cels.forEach { (id, tiles) ->
+            copy.cels[id] = if (tiles === source.tiles) copy.tiles
+                else if (id in recordedCels) tiles else HashMap(tiles)
+        }
+        copy.sharedCel = source.sharedCel
+        copy.plan = source.plan
+        source.floats.forEach { (store, tiles) -> copy.floats[store] = HashMap(tiles) }
+        source.celFloats.forEach { (cel, stores) ->
+            copy.celFloats[cel] = HashMap<String, HashMap<Long, Int>>().also { detached ->
+                stores.forEach { (store, tiles) -> detached[store] = HashMap(tiles) }
+            }
+        }
+        copy.mask = source.mask
+        copy.clip = source.clip; copy.name = source.name; copy.opacity = source.opacity
+        copy.visible = source.visible; copy.blend = source.blend
+        // Disposable projections are rebuilt against these new physical stores after publication.
+    }
+
+    private fun nativeStepOwner(change: UndoLog.TileChange<Int>, root: PublishedPaintState): Layer {
+        val ownerId = MediaStores.parse(change.layerId)?.first ?: change.layerId
+        require(!ownerId.endsWith(MASK_SUFFIX)) { "Recorded clipping masks need the joint clipping adapter" }
+        val layer = root.nativeLayers[ownerId] ?: error("No native owner $ownerId")
+        require(change.celId == null || (change.celId != layer.sharedCel && change.celId in layer.cels)) {
+            "Native history must address a canonical existing physical cel"
+        }
+        require((ownerId to change.celId) !in root.recorded.planes) {
+            "Native writes on recorded planes need the physical slab adapter"
+        }
+        require(change.before != change.after) { "A native no-op cannot publish artwork history" }
+        require(change.before != 0 && change.after != 0) { "Native source textures must be nonzero" }
+        return layer
+    }
+
+    private fun nativeStepTiles(layer: Layer, change: UndoLog.TileChange<Int>): Map<Long, Int> {
+        val cel = change.celId
+        return MediaStores.parse(change.layerId)?.let { (_, store) ->
+            (if (cel == null) layer.floats else layer.celFloats[cel])?.get(store).orEmpty()
+        } ?: (if (cel == null) layer.tiles else layer.cels.getValue(cel))
+    }
+
+    /** Complete native projection is validated and copied before any source replay or publication. */
+    internal fun publishJointPaintStep(step: UndoLog.Step<Int>,
+                                       direction: RecordedScene.Direction = RecordedScene.Direction.NEW,
+                                       frozen: Map<String, BrushPreset>? = null): Boolean {
+        require(step.stackBefore == null && step.stackAfter == null && step.paperBefore == null &&
+            step.paperAfter == null && step.documentBefore == null && step.documentAfter == null) {
+            "Structural and paper changes need their joint renderer adapter"
+        }
+        check(!resettingJointPaint) { "Cannot publish paint during joint retirement" }
+        val expected = checkNotNull(publishedPaint) { "Joint artwork is not bound" }
+        val scene = checkNotNull(recordedScene)
+        check(!strokeInProgress && !wcFading && !mediaStrokeInProgress && framePreviews.isEmpty() && tileBoardId == null) {
+            "A joint edit requires settled stable paint context"
+        }
+        require(step.slabs.all { (it.layerId to it.celId) in expected.recorded.planes }) {
+            "Native slab changes need a physical slab owner adapter"
+        }
+        val nextLayers = LinkedHashMap(expected.nativeLayers)
+        val changedOwners = LinkedHashSet<String>()
+        val targets = HashSet<Triple<String, String?, Long>>()
+        val retiredProjection = LinkedHashSet<Int>()
+        val currentOwners = activeTextureOwners() + expected.recorded.planes.values.flatMap { cel ->
+            cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } }
+        }
+        if (direction == RecordedScene.Direction.NEW) require(step.slabs.all { change ->
+            change.after?.texture?.let { it != 0 && it !in currentOwners } ?: true
+        }) { "A new physical slab must be a fresh caller-owned source" }
+        for (change in step.changes) {
+            val owner = nativeStepOwner(change, expected)
+            require(targets.add(Triple(change.layerId, change.celId, change.key))) {
+                "A joint native batch cannot repeat a physical target"
+            }
+            val before = if (direction == RecordedScene.Direction.UNDO) change.after else change.before
+            require(nativeStepTiles(owner, change)[change.key] == before) {
+                "Native history no longer matches its physical source endpoint"
+            }
+            if (direction == RecordedScene.Direction.NEW) {
+                require(change.after == null || change.after !in currentOwners) {
+                    "A new native endpoint must be a fresh caller-owned source"
+                }
+            }
+            val target = if (changedOwners.add(owner.id)) {
+                retiredProjection.addAll(owner.projected.values)
+                detachedNativeLayer(owner, expected.recorded.planes.keys.filter { it.first == owner.id }
+                    .map { it.second }.toSet()).also { nextLayers[owner.id] = it }
+            } else nextLayers.getValue(owner.id)
+            val store = MediaStores.parse(change.layerId)?.let { (_, name) -> payload(target, name, change.celId) }
+                ?: planeTiles(target, change.celId)
+            val after = if (direction == RecordedScene.Direction.UNDO) change.before else change.after
+            if (after == null) store.remove(change.key) else store[change.key] = after
+        }
+        val nextAgreements = HashMap(expected.agreements)
+        val payloadTargets = step.changes.mapNotNull { change ->
+            MediaStores.parse(change.layerId)?.let { Triple(it.first, change.celId, change.key) }
+        }.toSet()
+        for (change in step.changes) {
+            val ownerId = MediaStores.parse(change.layerId)?.first ?: change.layerId
+            val target = nextLayers.getValue(ownerId)
+            val at = Triple(ownerId, change.celId, change.key)
+            val stores = if (change.celId == null) target.floats else target.celFloats[change.celId]
+            if (stores?.values?.any { change.key in it } == true && at in payloadTargets) {
+                nextAgreements[at] = (if (change.celId == null) target.tiles else target.cels[change.celId])?.get(change.key) ?: NO_LOOK
+            } else nextAgreements.remove(at)
+        }
+        val protected = persistentNativeTextures(nextLayers)
+        val residentMedia = nextLayers.values.sumOf { layer -> layer.planes().sumOf { (_, stores) ->
+            stores.entries.sumOf { (name, tiles) -> tiles.size.toLong() * MediaStores.tileBytes(size, name) }
+        } }
+        if (direction == RecordedScene.Direction.NEW && residentMedia > mediaBudgetBytes)
+            throw MediaRoomException("There is no room for these media tiles")
+        scene.stageJoint(step, direction, frozen).use { proposal ->
+            val next = PublishedPaintState(nextLayers, nextAgreements, expected.document, expected.paper, proposal.candidateState,
+                proposal.historyProposal.cursor, expected.graphicsEpoch, protected)
+            val retiredNative = (retiredProjection + proposal.historyProposal.retirements).toList()
+            if (!proposal.canPublish() || publishedPaint !== expected || graphicsEpoch != expected.graphicsEpoch ||
+                (direction == RecordedScene.Direction.NEW && residentMedia > mediaBudgetBytes)) return false
+            publishedPaint = next // One publication for native sources, records, agreements and the complete cursor.
+            proposal.adoptAfterPublication()
+            proposal.releaseRetiredAfterPublication()
+            for (texture in retiredNative) {
+                if (graphicsEpoch != expected.graphicsEpoch) break
+                recycleLayerTex(texture)
+            }
+            return true
+        }
     }
 
     /** Undo's half of a stack step: back to [target], every layer that survives keeping how it is shown or hidden. */
@@ -2318,6 +2649,7 @@ class GlPaintEngine(
      * puts the per-pixel bake in its place. Returns the changes to add to the write's step.
      */
     internal fun settlePlainWrites(changes: Collection<UndoLog.TileChange<Int>>): List<UndoLog.TileChange<Int>> {
+        requireLocalPaint()
         val out = ArrayList<UndoLog.TileChange<Int>>()
         val written = LinkedHashMap<Pair<String, String?>, HashSet<Long>>()
         for (c in changes) {
@@ -2339,7 +2671,9 @@ class GlPaintEngine(
     // Requirement 5, the net under the funnel: the look texture each payload tile last agreed with, per plane. Media and
     // look written together agree (a media write, a load, a step that carries both); a look that changed any other way did
     // not, and its payload goes at the next window load ([dropStalePayload]) rather than render over the new pixels.
-    private val agreedLook = HashMap<Triple<String, String?, Long>, Int>()
+    private var localAgreedLook = HashMap<Triple<String, String?, Long>, Int>()
+    private val agreedLook: HashMap<Triple<String, String?, Long>, Int>
+        get() = publishedPaint?.agreements ?: localAgreedLook
 
     private fun agree(layerId: String, key: Long, plane: String? = null) {
         val layer = layers[layerId]
@@ -2350,6 +2684,7 @@ class GlPaintEngine(
 
     /** After a load: every payload agrees with the look the file put beside it. */
     fun agreeAllPayloads() {
+        requireLocalPaint()
         agreedLook.clear()
         for (l in layers.values) for ((plane, p) in l.planes()) for (key in p.values.flatMap { it.keys }.toSet()) agree(l.id, key, plane)
     }
@@ -2375,6 +2710,7 @@ class GlPaintEngine(
      * the drop joins its step; otherwise it is a step of its own. Returns the keys dropped.
      */
     fun dropStalePayload(layerId: String, keys: Collection<Long>, plane: String? = null): Set<Long> {
+        requireLocalPaint()
         val layer = layers[layerId] ?: return emptySet()
         val looks = if (plane == null) layer.tiles else layer.cels[plane].orEmpty()
         val stale = keys.filter { k -> hasPayload(layerId, k, plane) && agreedLook[Triple(layerId, plane, k)] != (looks[k] ?: NO_LOOK) }
@@ -2396,6 +2732,7 @@ class GlPaintEngine(
     val mediaStrokeInProgress: Boolean get() = mediaStroke != null
 
     fun beginMediaStroke() {
+        requireLocalPaint()
         settleWatercolourFade()
         check(mediaStroke == null && !strokeInProgress) { "a media stroke inside another stroke would be undone out of order" }
         mediaStroke = ArrayList()
@@ -2404,6 +2741,7 @@ class GlPaintEngine(
 
     /** Pushes the stroke's step (one press, one step). Returns how many tiles it changed. */
     fun endMediaStroke(): Int {
+        requireLocalPaint()
         val changes = mediaStroke ?: return 0
         mediaStroke = null
         mediaStrokeHeld.clear()
@@ -2417,6 +2755,7 @@ class GlPaintEngine(
      * transparent look. Returns store → key → texture; write only these.
      */
     fun writableMediaTiles(layerId: String, keys: Collection<Long>, stores: Collection<String>, plane: String? = null): Map<String, Map<Long, Int>> {
+        requireLocalPaint()
         val layer = layers[layerId] ?: error("no layer $layerId")
         val stroke = mediaStroke
         // Outside a stroke, the newest media step's changes by tile: a tile it holds is written in place, and one it
@@ -2487,6 +2826,7 @@ class GlPaintEngine(
      * there before comes back on undo. Never during a media stroke: water dries between strokes, and the window waits.
      */
     fun dropMediaTiles(layerId: String, store: String, keys: Collection<Long>, plane: String? = null) {
+        requireLocalPaint()
         require(store in MediaStores.WATER) { "only water dries away; $store stays" }
         check(mediaStroke == null) { "water is dropped between strokes, not during one" }
         val tiles = layers[layerId]?.let { (if (plane == null) it.floats else it.celFloats[plane])?.get(store) } ?: return
@@ -2548,6 +2888,7 @@ class GlPaintEngine(
 
     /** Sets a float tile (same layout as [readMediaTile]). For loading a document: NOT undoable. Creates what is missing. */
     fun writeMediaTile(layerId: String, store: String, key: Long, bytes: ByteArray, plane: String? = null) {
+        requireLocalPaint()
         require(store in MediaStores.PAYLOAD) { "unknown media store $store" }
         require(bytes.size == MediaStores.tileBytes(size, store)) { "media tile must be ${MediaStores.tileBytes(size, store)} bytes, got ${bytes.size}" }
         val layer = storeOrCreate(layerId)
@@ -2943,6 +3284,7 @@ class GlPaintEngine(
     }
 
     private fun recycleLayerTex(tex: Int) {
+        if (forgettingGraphicsContext) return
         if (tex in floatNames) {
             freeFloatTex.addLast(tex)
             while (freeFloatTex.size > 16) freeFloatTex.removeFirst().let { floatNames.remove(it); GLES30.glDeleteTextures(1, intArrayOf(it), 0) }

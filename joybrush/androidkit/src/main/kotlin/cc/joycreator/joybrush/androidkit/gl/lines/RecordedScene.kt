@@ -78,10 +78,8 @@ internal class RecordedScene<T : Any> private constructor(
     }
 
     /** The actual immutable engine root implements this interface; accessor reads allocate nothing. */
-    internal interface Publication<T : Any> {
+    internal interface Publication<T : Any> : UndoLog.CursorPublication<T> {
         val recorded: State<T>
-        val cursor: UndoLog.Cursor<T>
-        val graphicsEpoch: Long
         /** Borrowed sibling/native/global owners, including masks/media/display caches. */
         val protectedTextures: Set<T>
     }
@@ -90,9 +88,14 @@ internal class RecordedScene<T : Any> private constructor(
     private var localState = State<T>(sceneIdentity, emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap())
     private var localGeneration = 0L
     private var boundRead: (() -> Publication<T>)? = null
+    private var bindingVersion = 0L
     private var binding = false
     private var openLocalLeases = 0
     private var localPreparations = 0
+    private var jointPreparations = 0
+    private val jointLeases = LinkedHashSet<JointStaged>()
+    private var jointOwnershipRevision = 0L
+    private var resetPreparing = false
     private val state: State<T> get() = snapshotState()
     private val generation: Long get() = boundRead?.invoke()?.graphicsEpoch ?: localGeneration
     val isStateBound: Boolean get() = boundRead != null
@@ -114,10 +117,7 @@ internal class RecordedScene<T : Any> private constructor(
      * this storage transition. The external callback may reenter before binding; recheck afterwards.
      */
     fun bindState(read: () -> Publication<T>) {
-        checkUnbound()
-        check(!binding && openLocalLeases == 0 && localPreparations == 0) {
-            "Cannot bind while local scene preparation or a proposal is outstanding"
-        }
+        checkStateBindingAllowed()
         val before = localState
         val epoch = localGeneration
         val cursor = history.snapshotCursor()
@@ -132,6 +132,34 @@ internal class RecordedScene<T : Any> private constructor(
                 "Recorded scene or history changed during binding"
             }
             boundRead = read
+            bindingVersion++
+        } finally {
+            binding = false
+        }
+    }
+
+    /** Readonly engine preflight; no provider callback runs before local leases are excluded. */
+    fun checkStateBindingAllowed() {
+        checkUnbound()
+        check(!binding && !resetPreparing && openLocalLeases == 0 && localPreparations == 0 &&
+            jointPreparations == 0 && jointLeases.isEmpty()) {
+            "Cannot bind while local scene preparation or a proposal is outstanding"
+        }
+    }
+
+    /** Validate replay context while still local; a provider cannot sneak a mutation into binding. */
+    fun checkBindingContext() {
+        checkStateBindingAllowed()
+        val before = localState
+        val epoch = localGeneration
+        val cursor = history.snapshotCursor()
+        binding = true
+        try {
+            check(renderer.contextCurrent()) { "Recorded rendering context changed before engine binding" }
+            check(boundRead == null && openLocalLeases == 0 && localPreparations == 0 &&
+                localState === before && localGeneration == epoch && history.snapshotCursor() === cursor) {
+                "Recorded state or history changed while validating engine binding"
+            }
         } finally {
             binding = false
         }
@@ -181,6 +209,150 @@ internal class RecordedScene<T : Any> private constructor(
 
     enum class Direction { NEW, UNDO, REDO }
 
+    enum class ResetMode {
+        /** Same physical context: all joint preparation/lease/retirement must already be quiescent. */
+        SAME_CONTEXT,
+        /** Actual dead-context transition: old joint names and in-flight outputs are abandoned. */
+        CONTEXT_LOST,
+    }
+
+    /**
+     * Pure preflight for one exact empty engine root and both facade handoffs. Current cache and
+     * history ownership is borrowed until publication, then caller-owned for retirement/abandonment.
+     * Physical slabs/native sources stay outside these ledgers and belong to the engine plan.
+     */
+    inner class ResetHandoff internal constructor(
+        val expectedPublication: Publication<T>,
+        val resetPublication: Publication<T>,
+        val mode: ResetMode,
+        private val historyHandoff: UndoLog<T>.ResetHandoff,
+        private val empty: State<T>,
+        val resetEpoch: Long,
+        private val expectedReader: () -> Publication<T>,
+        private val expectedBinding: Long,
+        private val ownershipRevision: Long,
+        private val preparationCount: Int,
+        private val leases: List<JointStaged>,
+        caches: List<T>,
+        pending: Set<T>,
+    ) {
+        private val caches = caches.toList()
+        private val pending = pending.toSet()
+        private var acknowledged = false
+        private var cacheRetirementFinished = false
+        /** ONLY current derived cache ownership; no source/history endpoints. */
+        val retiredCacheTextures: List<T> get() = caches.toList()
+        val retiredHistoryTextures: List<T> get() = historyHandoff.retiredHistoryTextures
+        /** Dead-context-only outstanding cache ownership; never execute as a live retirement ledger. */
+        val abandonedJointCacheTextures: Set<T> get() = pending.toSet()
+
+        /**
+         * Caller supplies a PURE physical-context-token check, not the advanced logical scene
+         * epoch. Cache ownership uses this scene's renderer even when the engine owns the other
+         * ledgers. Dead-context mode invokes neither checker nor release. Stop once and abandon
+         * remaining names if the physical context changes during one renderer release.
+         */
+        fun releaseRetiredCachesAfterPublication(contextAlive: () -> Boolean) {
+            check(acknowledged) { "Cache retirement requires acknowledged empty-root publication" }
+            if (cacheRetirementFinished) return
+            cacheRetirementFinished = true
+            if (mode == ResetMode.CONTEXT_LOST) return
+            var i = 0
+            while (i < caches.size) {
+                if (!contextAlive()) return
+                renderer.release(caches[i])
+                i++
+            }
+        }
+
+        /** Use only if the exported cache ledger was externally retired/abandoned exactly once. */
+        fun acknowledgeRetiredCachesExternallyAfterPublication() {
+            check(acknowledged && !cacheRetirementFinished) { "Reset cache retirement is already finished or was not acknowledged" }
+            cacheRetirementFinished = true
+        }
+
+        fun isCurrent(): Boolean {
+            if (acknowledged || resetPreparing || !resetLocallyAllowed(mode) || boundRead !== expectedReader ||
+                bindingVersion != expectedBinding || jointOwnershipRevision != ownershipRevision ||
+                jointPreparations != preparationCount) return false
+            if (!samePublication(expectedPublication) || !historyHandoff.isCurrent()) return false
+            return samePublication(expectedPublication) && !resetPreparing && resetLocallyAllowed(mode) &&
+                boundRead === expectedReader && bindingVersion == expectedBinding &&
+                jointOwnershipRevision == ownershipRevision && jointPreparations == preparationCount
+        }
+
+        /**
+         * CALL ONLY AFTER one exact resetPublication assignment, after final isCurrent checks.
+         * No root lookup, renderer, allocation, publication or release. The core ticket acknowledges
+         * that same object, then every old context-loss lease is invalidated without deleting names.
+         */
+        fun acknowledgeAfterResetPublication(published: Publication<T>) {
+            check(!acknowledged && published === resetPublication && !resetPreparing && resetLocallyAllowed(mode) &&
+                boundRead === expectedReader && bindingVersion == expectedBinding &&
+                jointOwnershipRevision == ownershipRevision && jointPreparations == preparationCount) {
+                "Stale or incorrect recorded reset acknowledgement"
+            }
+            historyHandoff.acknowledgeAfterResetPublication(published)
+            localState = empty
+            localGeneration = resetEpoch
+            boundRead = null
+            bindingVersion++
+            var i = 0
+            while (i < leases.size) {
+                leases[i].invalidateAfterContextReset()
+                i++
+            }
+            jointLeases.clear()
+            jointOwnershipRevision++
+            acknowledged = true
+        }
+    }
+
+    private fun resetLocallyAllowed(mode: ResetMode): Boolean =
+        !binding && openLocalLeases == 0 && localPreparations == 0 &&
+            (mode == ResetMode.CONTEXT_LOST || (jointPreparations == 0 && jointLeases.isEmpty()))
+
+    private fun trulyEmpty(state: State<T>): Boolean = state.planes.isEmpty() && state.brushes.isEmpty() &&
+        state.units.isEmpty() && state.plans.isEmpty() && state.looks.isEmpty() && state.savedKeys.isEmpty()
+
+    fun prepareResetHandoff(expectedPublication: Publication<T>, resetPublication: Publication<T>,
+                            mode: ResetMode = ResetMode.SAME_CONTEXT): ResetHandoff {
+        check(!resetPreparing && resetLocallyAllowed(mode)) { "Recorded reset requires quiescent local/joint work for this mode" }
+        val reader = boundRead ?: error("Recorded reset handoff requires bound storage")
+        val token = bindingVersion
+        val before = expectedPublication.recorded
+        val empty = resetPublication.recorded
+        require(before.belongsTo(sceneIdentity) && empty.belongsTo(sceneIdentity)) { "Recorded reset state belongs to another scene" }
+        require(trulyEmpty(empty) && empty !== before && resetPublication.protectedTextures.isEmpty()) {
+            "Reset requires a new truly empty recorded state and persistent ownership set"
+        }
+        require(resetPublication !== expectedPublication && resetPublication.graphicsEpoch > expectedPublication.graphicsEpoch) {
+            "Reset requires a new root and advancing epoch"
+        }
+        val revision = jointOwnershipRevision
+        val preparing = jointPreparations
+        resetPreparing = true
+        try {
+            // Core checks cursor source/emptiness before invoking any external root reader.
+            val core = history.prepareResetHandoff(expectedPublication, resetPublication, reader)
+            check(samePublication(expectedPublication) && resetLocallyAllowed(mode) && boundRead === reader &&
+                bindingVersion == token && jointOwnershipRevision == revision && jointPreparations == preparing) {
+                "Recorded ownership or root changed during reset preflight"
+            }
+            val leases = jointLeases.toList()
+            val pending = leases.flatMap { it.pendingCacheOwnership() }.toSet()
+            val caches = before.cacheTextures().toList()
+            check(samePublication(expectedPublication) && core.isCurrent() && resetLocallyAllowed(mode) &&
+                boundRead === reader && bindingVersion == token && jointOwnershipRevision == revision &&
+                jointPreparations == preparing) { "Recorded reset ownership changed before ticket acceptance" }
+            return ResetHandoff(expectedPublication, resetPublication, mode, core, empty,
+                resetPublication.graphicsEpoch, reader, token, revision, preparing, leases,
+                caches, pending)
+        } finally {
+            resetPreparing = false
+        }
+    }
+
     /**
      * Derived-cache lease for a complete engine transaction. It never publishes scene or history.
      * The full Step lives in historyProposal; only its recorded projection was rendered here.
@@ -200,6 +372,20 @@ internal class RecordedScene<T : Any> private constructor(
         private var finished = false
         private var adopted = false
         private var retiredReleased = false
+        private var invalidated = false
+        init {
+            jointLeases.add(this)
+            jointOwnershipRevision++
+        }
+        internal fun pendingCacheOwnership(): Collection<T> = if (adopted) retired else fresh
+        internal fun invalidateAfterContextReset() {
+            invalidated = true
+            finished = true
+            retiredReleased = true
+        }
+        private fun untrack() {
+            if (jointLeases.remove(this)) jointOwnershipRevision++
+        }
         /** All freshly minted caches, including transient warm units in the retirement ledger. */
         val freshCacheTextures: Set<T> get() = fresh.toSet()
         /** Old replaced caches plus transient warm units; no native/history-owned source handles. */
@@ -211,6 +397,7 @@ internal class RecordedScene<T : Any> private constructor(
          * also verify any separately staged native plan's expected root and epoch.
          */
         fun canPublish(): Boolean {
+            if (invalidated) return false
             check(!finished) { "This joint recorded proposal is already finished" }
             if (generation != epoch || !samePublication(expectedPublication) || !history.isCurrent(historyProposal)) return false
             if (!renderer.contextCurrent()) return false
@@ -225,24 +412,36 @@ internal class RecordedScene<T : Any> private constructor(
          * its finished guard detects publisher misuse. The publisher owns this invariant.
          */
         fun adoptAfterPublication() {
-            check(!finished) { "This joint recorded proposal is already finished" }
+            check(!finished && !invalidated) { "This joint recorded proposal is already finished" }
             finished = true
             adopted = true
+            jointOwnershipRevision++
         }
 
         /** Optional scene-cache ledger executor; native/history retirement remains engine-owned. */
         fun releaseRetiredAfterPublication() {
+            if (invalidated) return
             check(adopted) { "Retirement requires successful joint publication and adoption" }
             if (retiredReleased) return
             retiredReleased = true
-            releaseInEpoch(retired, epoch)
+            jointOwnershipRevision++
+            try { releaseInEpoch(retired, epoch) } finally { untrack() }
+        }
+
+        /** Use only if the engine executed the exported cache ledger itself, exactly once. */
+        fun acknowledgeRetiredExternallyAfterPublication() {
+            if (invalidated) return
+            check(adopted && !retiredReleased) { "External cache retirement is already finished or was not adopted" }
+            retiredReleased = true
+            untrack()
         }
 
         override fun close() {
             if (finished) return
             finished = true
+            jointOwnershipRevision++
             // Cancellation owns only newly rendered caches, never borrowed Step endpoints.
-            releaseInEpoch(fresh, epoch)
+            try { releaseInEpoch(fresh, epoch) } finally { untrack() }
         }
     }
 
@@ -261,6 +460,13 @@ internal class RecordedScene<T : Any> private constructor(
         require(step.changes.isNotEmpty() || step.lines.isNotEmpty() || step.slabs.isNotEmpty()) {
             "An empty edit cannot publish a joint undo step"
         }
+        check(!resetPreparing) { "Cannot stage recorded work during reset preflight" }
+        jointPreparations++
+        try { return stageJointPrepared(step, direction, frozen) } finally { jointPreparations-- }
+    }
+
+    private fun stageJointPrepared(step: UndoLog.Step<T>, direction: Direction,
+                                   frozen: Map<String, BrushPreset>?): JointStaged {
         val read = boundRead ?: error("Joint recorded staging requires an engine publication binding")
         check(history.isCursorBound) { "Joint recorded staging requires history bound to the same root" }
         val publication = read()

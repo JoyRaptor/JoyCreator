@@ -26,7 +26,7 @@ class GlSavedRecordedFactoryTest {
         .also { it.isAccessible = true }.get(owner) as T
     private fun put(owner: Any, name: String, value: Any?) = owner.javaClass.getDeclaredField(name)
         .also { it.isAccessible = true }.set(owner, value)
-    private fun layer(engine: GlPaintEngine): Any = field<MutableMap<String, Any>>(engine, "layers").getValue("paint")
+    private fun layer(engine: GlPaintEngine): Any = field<MutableMap<String, Any>>(engine, "localLayers").getValue("paint")
     private fun pool(engine: GlPaintEngine) = field<ArrayDeque<Int>>(engine, "freeLayerTex").toList()
     private fun renderer(scene: RecordedScene<Int>) = field<RecordedScene.Renderer<Int>>(scene, "renderer")
     private fun open(engine: GlPaintEngine, looks: Map<Long, Int> = mapOf(0L to 900),
@@ -44,6 +44,50 @@ class GlSavedRecordedFactoryTest {
         assertEquals(beforePool, pool(engine), "Rejection recycled protected handles or fresh upload siblings")
         assertEquals(owned, engine.protectedRecordedTextureHandles())
         assertSame(undoHead, engine.undo.peekUndo()); assertSame(redoHead, engine.undo.peekRedo())
+    }
+
+    @Test fun jointNativeFrameReplacementPreservesConcreteRecordedSharedOwnership() {
+        val e = engine()
+        field<MutableMap<String, HashMap<Long, Int>>>(layer(e), "cels")["native-frame"] = hashMapOf(0L to 11)
+        val noDab = record().copy(samples = emptyList())
+        val scene = open(e, emptyMap(), RecordedCel("paint", null, listOf(noDab)))
+        val actualRenderer = renderer(scene)
+        assertTrue(actualRenderer.contextCurrent())
+        e.bindRecordedPaintPublication()
+        val step = UndoLog.Step(listOf(UndoLog.TileChange("paint", 0L, 11, 12, "native-frame")))
+        assertTrue(e.publishJointPaintStep(step))
+        assertEquals(12, e.mediaTile("paint", MEDIA_LOOK, 0L, "native-frame"))
+        assertTrue(actualRenderer.contextCurrent())
+        assertEquals(0L, e.recordedLinePreparationCalls)
+        assertEquals(0L, e.recordedCompositionCalls)
+        assertTrue(e.undoStep())
+        assertEquals(11, e.mediaTile("paint", MEDIA_LOOK, 0L, "native-frame"))
+        assertTrue(actualRenderer.contextCurrent())
+        assertTrue(e.redoStep())
+        assertEquals(12, e.mediaTile("paint", MEDIA_LOOK, 0L, "native-frame"))
+        assertTrue(actualRenderer.contextCurrent())
+    }
+
+    @Test fun jointNativeSharedReplacementPreservesConcreteRecordedFrameOwnership() {
+        val e = engine()
+        val owner = layer(e)
+        field<MutableMap<Long, Int>>(owner, "tiles")[0L] = 11
+        field<MutableMap<String, HashMap<Long, Int>>>(owner, "cels")["recorded-frame"] = hashMapOf()
+        val frame: Pair<String, String?> = "paint" to "recorded-frame"
+        val scene = e.createSavedRecordedScene(
+            mapOf(frame to RecordedCel("paint", frame.second, listOf(record().copy(samples = emptyList())))),
+            mapOf(pen.id to pen), mapOf(frame to emptySet()), mapOf(frame to emptyMap()))
+        val actualRenderer = renderer(scene)
+        e.bindRecordedPaintPublication()
+        val step = UndoLog.Step(listOf(UndoLog.TileChange("paint", 0L, 11, 12)))
+        assertTrue(e.publishJointPaintStep(step))
+        assertEquals(12, e.mediaTile("paint", MEDIA_LOOK, 0L))
+        assertTrue(actualRenderer.contextCurrent())
+        assertTrue(e.undoStep())
+        assertEquals(11, e.mediaTile("paint", MEDIA_LOOK, 0L))
+        assertTrue(actualRenderer.contextCurrent())
+        assertEquals(0L, e.recordedLinePreparationCalls)
+        assertEquals(0L, e.recordedCompositionCalls)
     }
 
     @Test fun acceptsActualConcreteColdSceneWithoutInvokingGlReplayOrComposition() {
@@ -105,8 +149,9 @@ class GlSavedRecordedFactoryTest {
         field<MutableMap<String, HashMap<Long, Int>>>(owner, "floats")["paper"] = hashMapOf(0L to 15)
         field<MutableMap<String, HashMap<String, HashMap<Long, Int>>>>(owner, "celFloats")["frame"] =
             hashMapOf("w0" to hashMapOf(0L to 16))
-        val mask = owner.javaClass.getDeclaredConstructor(String::class.java, java.lang.Boolean.TYPE)
-            .also { it.isAccessible = true }.newInstance("paint#mask", true)
+        val mask = owner.javaClass.getDeclaredConstructor(String::class.java, java.lang.Boolean.TYPE,
+            HashMap::class.java, Any::class.java)
+            .also { it.isAccessible = true }.newInstance("paint#mask", true, HashMap<Long, Int>(), Any())
         field<MutableMap<Long, Int>>(mask, "tiles")[0] = 17
         put(owner, "mask", mask)
         for (texture in 11..17) rejectAlias(e, texture)
@@ -217,7 +262,7 @@ class GlSavedRecordedFactoryTest {
     @Test fun changingCapturedPaperRefusesFirstColdEditAndKeepsAcceptedUploadAndHistory() {
         val e = engine()
         val scene = open(e)
-        put(e, "documentPaper", Paper(color = "#C0C0C0"))
+        put(e, "localDocumentPaper", Paper(color = "#C0C0C0"))
         assertFalse(renderer(scene).contextCurrent())
         assertFailsWith<IllegalStateException> { scene.stageBake(setOf(LineAddress("paint", null, "line"))) }
         assertFalse(scene.isMaterialized(plane)); assertEquals(900, scene.look(plane, 0))
@@ -230,7 +275,7 @@ class GlSavedRecordedFactoryTest {
         val oldOwner = layer(e)
         // No public removeLayer exists. Simulate a direct loader replacing the physical owner,
         // while ready=true, boardDocument=null, paper and legacy history remain identical.
-        field<MutableMap<String, Any>>(e, "layers").remove("paint")
+        field<MutableMap<String, Any>>(e, "localLayers").remove("paint")
         e.addLayer("paint")
         assertNotSame(oldOwner, layer(e))
         assertFalse(renderer(scene).contextCurrent(), "Paper/document equality alone cannot protect physical ownership")

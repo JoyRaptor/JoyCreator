@@ -73,21 +73,25 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             "recordedBakeScreenProbe" -> "screen"
             else -> null
         }
-        if (case == "recordedProbe" || bakeOperator != null) {
-            val probePreset = if (bakeOperator == null) preset else preset.copy(
+        val jointProbe = case == "recordedJointProbe" || case == "recordedJointColdProbe"
+        if (case == "recordedProbe" || bakeOperator != null || jointProbe) {
+            val probePreset = if (jointProbe) preset.copy(
+                opacity = cc.joycreator.joybrush.core.brush.Param(0.55f), blend = "normal")
+            else if (bakeOperator == null) preset else preset.copy(
                 version = if (bakeOperator == "multiply" || bakeOperator == "screen") maxOf(9, preset.version) else preset.version,
                 opacity = cc.joycreator.joybrush.core.brush.Param(0.55f), blend = bakeOperator)
             val record = cc.joycreator.joybrush.core.stroke.StrokeRecord("recorded-probe", preset.id, 19L,
                 0.2f, 1f, (0 until 24).map { i -> cc.joycreator.joybrush.core.input.PenSample(
-                    if (bakeOperator == null) 64f + i * 4f else 232f + i * 6f,
-                    if (bakeOperator == null) 96f + (i % 6) * 2f else 240f + (i % 6) * 5f, i * 16.0,
+                    if (bakeOperator == null && !jointProbe) 64f + i * 4f else 232f + i * 6f,
+                    if (bakeOperator == null && !jointProbe) 96f + (i % 6) * 2f else 240f + (i % 6) * 5f, i * 16.0,
                     pressure = 0.7f, tilt = 0.4f, azimuth = 0.3f) }, colorArgb = 0xFF205CA9.toInt(), seq = 1)
             canvas.runRecordedReplayProbe(probePreset, record, bake = bakeOperator != null,
-                openCold = case == "recordedSavedProbe") { result ->
+                openCold = case == "recordedSavedProbe" || case == "recordedJointColdProbe", joint = jointProbe) { result ->
                 val report = org.json.JSONObject(result).put("brush", preset.id).put("case", case).put("run", run)
                     .put("fixtureOpacity", probePreset.opacity.base)
                     .put("fixtureBrushVersion", probePreset.version)
-                    .put("proofScope", if (bakeOperator == null) "Android replay adapter and ordered arithmetic; no live wiring or physical quality claim"
+                    .put("proofScope", if (jointProbe) "Actual joint engine root/public undo/redo and canonical GPU sources/looks; no live recording, Select, save, quality or performance claim"
+                        else if (bakeOperator == null) "Android replay adapter and ordered arithmetic; no live wiring or physical quality claim"
                         else "GPU source bake and public undo/redo on throwaway engine; no live display, save or physical quality claim")
                 logRecordedReport(report, preset.id, case, run)
                 ui.postDelayed({ next() }, spec.settleMs)

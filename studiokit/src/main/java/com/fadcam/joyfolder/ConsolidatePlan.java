@@ -68,8 +68,14 @@ public final class ConsolidatePlan {
         String workDir = Placement.parentOf(workRel);
         String workName = Placement.nameOf(workRel);
         String base = FileKind.baseOf(workName);
-        p.boxDir = Placement.join(workDir, ReadableNames.sanitize(base));
-        p.boxExists = existingDirs.contains(p.boxDir);
+        if (!workDir.isEmpty() && Placement.nameOf(workDir).equalsIgnoreCase(ReadableNames.sanitize(base))) {
+            // Already in a folder of its own name: gather into that one, never a folder inside it.
+            p.boxDir = workDir;
+            p.boxExists = true;
+        } else {
+            p.boxDir = Placement.join(workDir, ReadableNames.sanitize(base));
+            p.boxExists = existingDirs.contains(p.boxDir);
+        }
 
         String recordings = roles.get(FolderRoles.Role.RECORDINGS);
         String assets = roles.get(FolderRoles.Role.ASSETS);
@@ -81,7 +87,7 @@ public final class ConsolidatePlan {
         for (String d : existingDirs) takenIn(taken, Placement.parentOf(d)).add(Placement.nameOf(d).toLowerCase(Locale.ROOT));
 
         Set<String> toMove = new LinkedHashSet<>();
-        toMove.add(workRel);
+        if (!Placement.parentOf(workRel).equals(p.boxDir)) toMove.add(workRel);
         for (String f : usedFiles) {
             if (Placement.isInside(f, p.boxDir)) continue;
             if (usage.usedByOthers(f, workRel)) {

@@ -14,6 +14,7 @@ import com.fadcam.joyfolder.JoyFolder;
 import com.fadcam.joyfolder.JoyFs;
 import com.fadcam.joyfolder.Placement;
 import com.fadcam.joyfolder.ReadableNames;
+import com.fadcam.joyfolder.UsageMap;
 import com.fadcam.joyfolder.android.JoyFolderHome;
 import com.fadcam.joyfolder.android.SafJoyFs;
 import com.google.gson.Gson;
@@ -454,6 +455,177 @@ public final class StudioMirror {
         return ReadableNames.sanitize(projectName + " " + word + FileKind.endingOf(name));
     }
 
+    // ── Gather into one folder (the folder's Consolidate) ────────────────
+
+    /** What gathering a project would do, worked out before anything moves (for the dialog). */
+    public static final class Gather {
+        public com.fadcam.joyfolder.ConsolidatePlan plan;
+        public String projectName;
+        /** True when the user already has an Assets folder (shared files default to it). */
+        public boolean hasAssets;
+        /** Recordings the project uses inside the Recordings folder (the "also move recordings" box). */
+        public int recordingsUsed;
+        Map<String, String> idByWork = new HashMap<>();
+        java.util.List<String> allFiles;
+        java.util.Set<String> dirs;
+        UsageMap usage;
+        String workRel;
+    }
+
+    /**
+     * Plan "Gather <project> into one folder". Mirrors the project first so its folder copy is
+     * current. Folder I/O: call on {@link JoyFolderHome#io()}. Null when the folder isn't reachable.
+     */
+    public static Gather planGather(Context context, String projectId,
+                                    com.fadcam.joyfolder.ConsolidatePlan.Options opts) throws IOException {
+        JoyFolder jf = JoyFolderHome.open(context);
+        if (jf == null) return null;
+        mirror(context, projectId);
+        State st = State.load(jf);
+        String workRel = st.projectPath(projectId);
+        if (workRel == null || jf.fs.stat(workRel) == null) workRel = findById(jf, projectId);
+        if (workRel == null) return null;
+
+        Gather g = new Gather();
+        g.workRel = workRel;
+        g.projectName = FileKind.baseOf(Placement.nameOf(workRel));
+        g.hasAssets = jf.roles.get(com.fadcam.joyfolder.FolderRoles.Role.ASSETS) != null;
+        jf.index.scan(jf.fs);
+        g.allFiles = new ArrayList<>();
+        for (FolderIndex.Item it : jf.index.items()) g.allFiles.add(it.path);
+        g.dirs = new java.util.HashSet<>();
+        for (String d : new String[]{"", Placement.parentOf(workRel)}) {
+            for (JoyFs.Entry e : jf.fs.list(d)) if (e.dir) g.dirs.add(Placement.join(d, e.name));
+        }
+        java.util.List<String> used = readUsage(jf, st, g);
+        String recordings = jf.roles.get(com.fadcam.joyfolder.FolderRoles.Role.RECORDINGS);
+        if (recordings != null) for (String f : used) if (Placement.isInside(f, recordings)) g.recordingsUsed++;
+        g.plan = com.fadcam.joyfolder.ConsolidatePlan.plan(workRel, used, g.allFiles, g.dirs, g.usage, jf.roles, opts);
+        return g;
+    }
+
+    /**
+     * Which works use which files, from every project's folder copy, into {@code g}.
+     * @return the files {@code g.workRel} uses
+     */
+    private static java.util.List<String> readUsage(JoyFolder jf, State st, Gather g) {
+        g.usage = new UsageMap();
+        java.util.List<String> used = new ArrayList<>();
+        for (Map.Entry<String, State.Project> p : st.projects.entrySet()) g.idByWork.put(p.getValue().path, p.getKey());
+        for (FolderIndex.Item it : jf.index.items()) {
+            if (FileKind.of(Placement.nameOf(it.path)) != FileKind.PROJECT) continue;
+            for (String f : filesOfCopy(jf, it.path)) {
+                g.usage.add(it.path, f);
+                if (it.path.equals(g.workRel)) used.add(f);
+            }
+        }
+        return used;
+    }
+
+    // ── Earned folders ───────────────────────────────────────────────────
+
+    /**
+     * A folder worth offering now ("38 recordings at the top: put them in a Recordings folder?"),
+     * or null. Recordings are known by the recorder's names. Folder I/O: call on {@link JoyFolderHome#io()}.
+     */
+    public static com.fadcam.joyfolder.Suggestions.Suggestion suggestion(
+            Context context, java.util.Set<com.fadcam.joyfolder.FolderRoles.Role> dismissed) throws IOException {
+        JoyFolder jf = JoyFolderHome.open(context);
+        if (jf == null) return null;
+        if (jf.roles.reconcile(jf.fs)) jf.saveRoles();
+        jf.index.scan(jf.fs);
+        java.util.List<com.fadcam.joyfolder.Suggestions.Suggestion> all = com.fadcam.joyfolder.Suggestions.check(
+                jf.index, jf.roles, dismissed,
+                name -> com.fadcam.utils.RecordingStoragePaths.JoyKind.ofName(name) != null);
+        return all.isEmpty() ? null : all.get(0);
+    }
+
+    /**
+     * "Yes" to a suggestion: make the folder, move the pile in, give the folder its role so new
+     * recordings (or exports) go there too, and keep every project pointing at its files.
+     *
+     * @return how many files moved
+     */
+    public static int fileAway(Context context, com.fadcam.joyfolder.Suggestions.Suggestion s) throws IOException {
+        JoyFolder jf = JoyFolderHome.open(context);
+        if (jf == null || s == null) return 0;
+        jf.index.scan(jf.fs);
+        Gather g = new Gather();
+        g.allFiles = new ArrayList<>();
+        for (FolderIndex.Item it : jf.index.items()) g.allFiles.add(it.path);
+        g.plan = com.fadcam.joyfolder.Suggestions.plan(s, g.allFiles);
+        readUsage(jf, State.load(jf), g);
+        jf.fs.mkdirs(g.plan.boxDir);
+        jf.roles.set(s.role, g.plan.boxDir);
+        jf.saveRoles();
+        return applyGather(context, g);
+    }
+
+    /** The folder files a project's folder copy points at (its joy: references). */
+    private static java.util.List<String> filesOfCopy(JoyFolder jf, String rel) {
+        java.util.List<String> out = new ArrayList<>();
+        try {
+            JsonObject copy = JsonParser.parseString(new String(jf.readAll(rel), StandardCharsets.UTF_8)).getAsJsonObject();
+            if (copy.has("joyFolder") && copy.getAsJsonObject("joyFolder").has("files")) {
+                for (Map.Entry<String, JsonElement> e : copy.getAsJsonObject("joyFolder").getAsJsonObject("files").entrySet()) {
+                    if (jf.fs.stat(e.getKey()) != null) out.add(e.getKey());
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return out;
+    }
+
+    /**
+     * Carry out a gather plan: move the files, then bring every affected project's records up to
+     * date (its folder copy, and the app's own copy for projects that point into the folder).
+     *
+     * @return how many files moved
+     */
+    public static int applyGather(Context context, Gather g) throws IOException {
+        JoyFolder jf = JoyFolderHome.open(context);
+        if (jf == null || g == null) return 0;
+        State st = State.load(jf);
+        int moved = 0;
+        java.util.Set<String> touchedWorks = new java.util.HashSet<>();
+        for (com.fadcam.joyfolder.ConsolidatePlan.Move m : g.plan.moves) {
+            String toDir = Placement.parentOf(m.to);
+            String toName = Placement.nameOf(m.to);
+            String fromName = Placement.nameOf(m.from);
+            jf.fs.mkdirs(toDir);
+            // Rename first when the name changes, so the move can't collide in the target folder.
+            String source = m.from;
+            if (!fromName.equals(toName)) {
+                if (!jf.fs.rename(m.from, toName)) throw new IOException("Couldn't rename " + fromName);
+                source = Placement.join(Placement.parentOf(m.from), toName);
+            }
+            if (!Placement.parentOf(source).equals(toDir) && !jf.fs.move(source, toDir)) {
+                throw new IOException("Couldn't move " + fromName + " into " + toDir);
+            }
+            moved++;
+            // Keep the bookkeeping pointing at where things are now.
+            for (Map.Entry<String, State.Media> e : st.media.entrySet()) {
+                if (e.getValue().path.equals(m.from)) e.setValue(new State.Media(m.to, e.getValue().fp));
+            }
+            for (Map.Entry<String, State.Project> e : st.projects.entrySet()) {
+                if (e.getValue().path.equals(m.from)) e.setValue(new State.Project(m.to, null));
+            }
+            for (String w : g.usage.worksUsing(m.from)) touchedWorks.add(w);
+            if (m.from.equals(g.workRel)) touchedWorks.add(g.workRel);
+        }
+        st.save(jf);
+        jf.index.scan(jf.fs);
+        jf.saveIndex();
+        // Rewrite each affected project: the app copy (if it points into the folder) and the folder copy.
+        for (String w : touchedWorks) {
+            String id = g.idByWork.get(w);
+            if (id == null) continue;
+            healMovedFiles(context, id, new File(new File(projectsRoot(context), id), "project.json"));
+            mirror(context, id);
+        }
+        return moved;
+    }
+
     // ── Restore after a reinstall ────────────────────────────────────────
 
     /**
@@ -619,6 +791,109 @@ public final class StudioMirror {
             }
         }
         return total;
+    }
+
+    // ── "Not used in any project" ────────────────────────────────────────
+
+    /**
+     * Every file any Studio project points at, as {@link #usageKey} keys, for the asset browser's
+     * "not used in any project" filter. Reads each project's saved file; call off the main thread.
+     */
+    public static java.util.Set<String> usedByAnyProject(Context context) {
+        java.util.Set<String> used = new java.util.HashSet<>();
+        File[] dirs = projectsRoot(context).listFiles();
+        if (dirs == null) return used;
+        for (File d : dirs) {
+            File json = new File(d, "project.json");
+            if (!json.isFile()) continue;
+            try {
+                rewrite(JsonParser.parseString(readText(json)), value -> {
+                    used.add(usageKey(value));
+                    return value;
+                });
+            } catch (Exception ignored) {
+            }
+        }
+        // The folder's own copies count too: media copied in so a project survives an uninstall is
+        // linked only from the project's folder copy (the app keeps working from its own copy).
+        try {
+            JoyFolder jf = JoyFolderHome.open(context);
+            SafJoyFs saf = JoyFolderHome.fsOf(jf);
+            if (jf != null && saf != null) {
+                jf.index.scan(jf.fs);
+                for (FolderIndex.Item it : jf.index.items()) {
+                    if (FileKind.of(Placement.nameOf(it.path)) != FileKind.PROJECT) continue;
+                    for (String f : filesOfCopy(jf, it.path)) used.add(usageKey(saf.documentUri(f).toString()));
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return used;
+    }
+
+    /**
+     * Where each link sits in the Joy Creator folder ("Clips/x.mp4"), or null for links outside
+     * it. Folder I/O: call on {@link JoyFolderHome#io()}.
+     */
+    public static java.util.List<String> folderPathsOf(Context context, java.util.List<Uri> uris) {
+        java.util.List<String> out = new ArrayList<>();
+        SafJoyFs saf = JoyFolderHome.fsOf(JoyFolderHome.open(context));
+        for (Uri u : uris) out.add(saf == null ? null : saf.relOf(u));
+        return out;
+    }
+
+    /**
+     * Move folder files to the one Trash (restorable from "Recently deleted").
+     * Folder I/O: call on {@link JoyFolderHome#io()}.
+     *
+     * @return how many went
+     */
+    public static int trashFiles(Context context, java.util.List<String> rels) throws IOException {
+        JoyFolder jf = JoyFolderHome.open(context);
+        if (jf == null) return 0;
+        int n = 0;
+        long now = System.currentTimeMillis();
+        for (String rel : rels) {
+            if (rel == null || jf.fs.stat(rel) == null) continue;
+            jf.trash(rel, now);
+            n++;
+        }
+        jf.saveIndex();
+        return n;
+    }
+
+    /**
+     * One spelling for one file, whichever way a project linked it: a folder-picker link
+     * ({@code content://…/document/primary%3AJoy%20Creator%2Fx.mp4}), a {@code file://} link or a
+     * plain path all become {@code /storage/emulated/0/Joy Creator/x.mp4}. Other links stay as they are.
+     */
+    public static String usageKey(String ref) {
+        if (ref.startsWith("content://")) {
+            Uri uri = parse(ref);
+            if (uri != null && "com.android.externalstorage.documents".equals(uri.getAuthority())) {
+                try {
+                    String docId;
+                    try {
+                        docId = android.provider.DocumentsContract.getDocumentId(uri);
+                    } catch (IllegalArgumentException folderOnly) {
+                        docId = android.provider.DocumentsContract.getTreeDocumentId(uri);
+                    }
+                    int c = docId.indexOf(':');
+                    if (c > 0) {
+                        String volume = docId.substring(0, c);
+                        return ("primary".equalsIgnoreCase(volume) ? "/storage/emulated/0" : "/storage/" + volume)
+                                + "/" + docId.substring(c + 1);
+                    }
+                } catch (RuntimeException ignored) {
+                }
+            }
+            return ref;
+        }
+        if (ref.startsWith("file://")) {
+            Uri uri = parse(ref);
+            return uri != null && uri.getPath() != null ? uri.getPath() : ref;
+        }
+        return ref;
     }
 
     // ── helpers ──────────────────────────────────────────────────────────

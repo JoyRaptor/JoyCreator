@@ -91,6 +91,10 @@ public class StorageSettingsFragment extends Fragment {
         if (group != null && group.getParent() instanceof ViewGroup) {
             ViewGroup host = (ViewGroup) group.getParent();
             joyFolderRow = com.fadcam.joyfolder.studio.JoyFolderBanner.attachSettingsRow(host, host.indexOfChild(group));
+            // The app's Trash ("Recently deleted") is otherwise reached only by long-pressing the Lobby logo.
+            com.fadcam.joyfolder.studio.JoyFolderBanner.attachLinkRow(host, host.indexOfChild(group),
+                    "Recently deleted", "Put back recordings and projects you deleted.",
+                    v -> OverlayNavUtil.show(requireActivity(), new TrashFragment(), "trash"));
         }
         refreshValue();
     }

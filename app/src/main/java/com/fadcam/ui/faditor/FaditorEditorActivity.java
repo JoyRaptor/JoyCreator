@@ -1895,6 +1895,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         checkRunningExportState();
+        takeSharedFiles(0);
 
         // A sequence offer parked by the picker's result callback (see the field's doc).
         if (pendingSequenceOffer != null) {
@@ -2028,6 +2029,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (project != null) com.fadcam.joyfolder.studio.ShareInbox.clearOpenProject(project.getId());
         playheadHandler.removeCallbacks(playheadUpdater);
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
         if (silenceDetector != null) silenceDetector.shutdown();
@@ -4910,6 +4912,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                 })
                 .setNegativeButton(R.string.studio_ui_cancel, null)
+                // The project's file actions (relink, gather into one folder, bundles) live here too:
+                // their old button only shows when media is missing.
+                .setNeutralButton("More\u2026", (d, w) -> showLinkOptions())
                 .show();
     }
 
@@ -19608,15 +19613,120 @@ public class FaditorEditorActivity extends AppCompatActivity {
         showLinkOptions();
     }
     private void showLinkOptions() {
-        String[] opts = {"Link selected", "Unlink selected", "Relink media", "Consolidate project", "Export bundle", "Import bundle"};
+        // With a Joy Creator folder, "consolidate" means gathering the project into its own folder
+        // there (the owner's design); without one it keeps copying media into the app's project.
+        boolean joy = com.fadcam.joyfolder.android.JoyFolderHome.isReachable(this);
+        String[] opts = {"Link selected", "Unlink selected", "Relink media",
+                joy ? "Gather into one folder" : "Consolidate project", "Export bundle", "Import bundle"};
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle(R.string.studio_ui_project).setItems(opts, (d,which)-> {
             if (which==0) android.widget.Toast.makeText(this, R.string.studio_toast_pick_target_to_link, android.widget.Toast.LENGTH_SHORT).show();
             else if (which==1) android.widget.Toast.makeText(this, R.string.studio_toast_unlinked, android.widget.Toast.LENGTH_SHORT).show();
             else if (which==2) showRelinkCatalog();
-            else if (which==3) showConsolidateDialog();
+            else if (which==3) { if (joy) showGatherDialog(); else showConsolidateDialog(); }
             else if (which==4) startBundleExport();
             else if (which==5) startBundleImport();
         }).setNegativeButton(android.R.string.cancel,null).show();
+    }
+
+    /**
+     * "Gather into one folder": everything this project uses moves into a folder named after it,
+     * inside the Joy Creator folder. Files other projects also use: leave them, or move them to
+     * Assets (preselected when the user has an Assets folder). Recordings come along if ticked.
+     * Nothing breaks: every project finds its files again.
+     */
+    private void showGatherDialog() {
+        if (project == null) return;
+        saveProjectNow();
+        final android.content.Context app = getApplicationContext();
+        final String id = project.getId();
+        com.fadcam.joyfolder.ConsolidatePlan.Options probe = new com.fadcam.joyfolder.ConsolidatePlan.Options();
+        probe.moveRecordings = true;
+        probe.shared = com.fadcam.joyfolder.ConsolidatePlan.SharedChoice.LEAVE;
+        com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+            com.fadcam.joyfolder.studio.StudioMirror.Gather g;
+            try {
+                g = com.fadcam.joyfolder.studio.StudioMirror.planGather(app, id, probe);
+            } catch (Exception e) {
+                g = null;
+            }
+            final com.fadcam.joyfolder.studio.StudioMirror.Gather first = g;
+            runOnUiThread(() -> {
+                if (isFinishing()) return;
+                if (first == null) {
+                    Toast.makeText(this, "Your Joy Creator folder can't be reached right now.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                int own = first.plan.moves.size();
+                int pad = Math.round(16 * getResources().getDisplayMetrics().density);
+                android.widget.LinearLayout box = new android.widget.LinearLayout(this);
+                box.setOrientation(android.widget.LinearLayout.VERTICAL);
+                box.setPadding(pad + pad / 2, pad / 2, pad + pad / 2, 0);
+                android.widget.TextView msg = new android.widget.TextView(this);
+                msg.setText(own == 0 && first.plan.sharedFiles.isEmpty()
+                        ? "Everything this project uses is already in “" + first.plan.boxDir + "”."
+                        : "Moves " + own + (own == 1 ? " file" : " files") + " into “" + first.plan.boxDir
+                        + "”, next to where the project is now. Every project still finds its files.");
+                box.addView(msg);
+                final android.widget.CheckBox recs = new android.widget.CheckBox(this);
+                if (first.recordingsUsed > 0) {
+                    recs.setText(first.recordingsUsed == 1 ? "Also move the recording it uses"
+                            : "Also move the " + first.recordingsUsed + " recordings it uses");
+                    recs.setChecked(true);
+                    box.addView(recs);
+                }
+                final android.widget.RadioGroup shared = new android.widget.RadioGroup(this);
+                final android.widget.RadioButton leave = new android.widget.RadioButton(this);
+                final android.widget.RadioButton assets = new android.widget.RadioButton(this);
+                leave.setId(android.view.View.generateViewId());
+                assets.setId(android.view.View.generateViewId());
+                if (!first.plan.sharedFiles.isEmpty()) {
+                    android.widget.TextView s2 = new android.widget.TextView(this);
+                    int n = first.plan.sharedFiles.size();
+                    s2.setText(n == 1 ? "1 file is also used by another project:" : n + " files are also used by other projects:");
+                    s2.setPadding(0, pad / 2, 0, 0);
+                    box.addView(s2);
+                    leave.setText("Leave them where they are");
+                    assets.setText(first.hasAssets ? "Move them to Assets" : "Make an Assets folder for them");
+                    shared.addView(leave);
+                    shared.addView(assets);
+                    shared.check(first.hasAssets ? assets.getId() : leave.getId());
+                    box.addView(shared);
+                }
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle("Gather “" + first.projectName + "” into one folder")
+                        .setView(box)
+                        .setPositiveButton("Gather", (d, w) -> {
+                            com.fadcam.joyfolder.ConsolidatePlan.Options chosen = new com.fadcam.joyfolder.ConsolidatePlan.Options();
+                            chosen.moveRecordings = first.recordingsUsed > 0 && recs.isChecked();
+                            chosen.shared = shared.getCheckedRadioButtonId() == assets.getId()
+                                    ? com.fadcam.joyfolder.ConsolidatePlan.SharedChoice.ASSETS
+                                    : com.fadcam.joyfolder.ConsolidatePlan.SharedChoice.LEAVE;
+                            runGather(app, id, chosen);
+                        })
+                        .setNegativeButton(R.string.studio_ui_cancel, null)
+                        .show();
+            });
+        });
+    }
+
+    private void runGather(android.content.Context app, String id,
+                           com.fadcam.joyfolder.ConsolidatePlan.Options chosen) {
+        Toast.makeText(this, "Gathering…", Toast.LENGTH_SHORT).show();
+        com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+            String result;
+            try {
+                com.fadcam.joyfolder.studio.StudioMirror.Gather g =
+                        com.fadcam.joyfolder.studio.StudioMirror.planGather(app, id, chosen);
+                int moved = g == null ? 0 : com.fadcam.joyfolder.studio.StudioMirror.applyGather(app, g);
+                result = g == null ? "Your Joy Creator folder can't be reached right now."
+                        : moved == 0 ? "Already gathered in “" + g.plan.boxDir + "”."
+                        : "Gathered into “" + g.plan.boxDir + "” (" + moved + (moved == 1 ? " file)." : " files).");
+            } catch (Exception e) {
+                result = "Couldn't finish gathering: " + e.getMessage() + ". Nothing was lost.";
+            }
+            final String r = result;
+            runOnUiThread(() -> Toast.makeText(this, r, Toast.LENGTH_LONG).show());
+        });
     }
 
     // ── Project bundling: consolidate / export / import ─────────────────
@@ -45188,6 +45298,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
             case IMAGE: return ".jpg";
             case AUDIO: return ".m4a";
             default: return ".mp4";
+        }
+    }
+
+    /**
+     * "Share to Joy Creator" while this project is open: say which project is open, and insert any
+     * files shared for it at the playhead through the same path as the asset browser. A project
+     * still loading is retried for a few seconds.
+     */
+    private void takeSharedFiles(int attempt) {
+        if (isFinishing() || isDestroyed()) return;
+        if (project == null || editorTimeline == null) {
+            if (attempt < 12) playheadHandler.postDelayed(() -> takeSharedFiles(attempt + 1), 500);
+            return;
+        }
+        com.fadcam.joyfolder.studio.ShareInbox.setOpenProject(project.getId(), project.getName());
+        com.fadcam.joyfolder.studio.JoyFolderBanner.maybeNudge(this);
+        java.util.List<Uri> shared = com.fadcam.joyfolder.studio.ShareInbox.take(project.getId());
+        for (Uri uri : shared) {
+            String mime = getContentResolver().getType(uri);
+            com.fadcam.ui.faditor.assetbrowser.AssetItem.Type type =
+                    mime != null && mime.startsWith("image/") ? com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE
+                    : mime != null && mime.startsWith("audio/") ? com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.AUDIO
+                    : com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.VIDEO;
+            String name = uri.getLastPathSegment() == null ? "Shared" : new File(uri.getLastPathSegment()).getName();
+            insertAssetAtPlayhead(new com.fadcam.ui.faditor.assetbrowser.AssetItem(
+                    uri, name, type, mime == null ? "" : mime));
         }
     }
 

@@ -246,7 +246,13 @@ public class TrashAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
         }
 
         void bind(final TrashItem item) {
-            tvOriginalName.setText(item.getOriginalDisplayName());
+            String shownName = item.getOriginalDisplayName();
+            // A deleted project reads as its name ("Lecture 3"), not its file ("Lecture 3.joyproject").
+            if (shownName != null && com.fadcam.joyfolder.studio.JoyTrashBridge.isFolderItem(item)
+                    && com.fadcam.joyfolder.FileKind.of(shownName) == com.fadcam.joyfolder.FileKind.PROJECT) {
+                shownName = com.fadcam.joyfolder.FileKind.baseOf(shownName);
+            }
+            tvOriginalName.setText(shownName);
             // Use relative time (e.g., "2 days ago") matching Records style
             CharSequence relativeDate = android.text.format.DateUtils.getRelativeTimeSpanString(
                     item.getDateTrashed(),
@@ -322,9 +328,19 @@ public class TrashAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
                 imageViewThumbnail.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
                 int pad = Math.round(28 * context.getResources().getDisplayMetrics().density);
                 imageViewThumbnail.setPadding(pad, pad, pad, pad);
-                imageViewThumbnail.setImageResource(
-                        com.fadcam.joyfolder.FileKind.of(original) == com.fadcam.joyfolder.FileKind.PROJECT
-                                ? R.drawable.movie_edit_24px : R.drawable.ic_folder_closed);
+                com.fadcam.joyfolder.FileKind kind = com.fadcam.joyfolder.FileKind.of(original);
+                int icon = kind == com.fadcam.joyfolder.FileKind.PROJECT
+                        ? R.drawable.movie_edit_24px : R.drawable.ic_folder_closed;
+                Uri preview = kind == com.fadcam.joyfolder.FileKind.IMAGE || kind == com.fadcam.joyfolder.FileKind.VIDEO
+                        ? com.fadcam.joyfolder.studio.JoyTrashBridge.previewUri(context, item) : null;
+                if (preview != null) {
+                    // A picture or clip: show it, as the recordings do.
+                    imageViewThumbnail.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+                    imageViewThumbnail.setPadding(0, 0, 0, 0);
+                    Glide.with(context).load(preview).error(icon).into(imageViewThumbnail);
+                } else {
+                    imageViewThumbnail.setImageResource(icon);
+                }
             } else if (imageViewThumbnail != null && context != null) {
                 // Rows are recycled: undo the folder-item icon layout before showing a video frame.
                 imageViewThumbnail.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);

@@ -97,13 +97,13 @@ Detail and history: tasks/todo.md "NEXT: export speed".
 
 | # | Item | Why now |
 |---|---|---|
-| 2.1 | **THE VAULT** — projects move out of app-private storage into a folder the user picks | Today it has to work on one phone. After launch it has to work on every phone, forever. |
-| 2.2 | Vault picker in first-run, with "I already have one" | The restore path is what proves the ownership promise |
-| 2.3 | Migrate existing projects into the vault on first run | One-time, while JoyRaptor is the only user |
-| 2.4 | Recordings land in the vault by default | Ends "where the hell is my screen recording" |
+| 2.1 | ✅ **DONE 2026-10-13/14** — the Joy Creator folder (Studio side); JoyBrush side briefed. See SPEC_20261013_FILE_MANAGEMENT §4 | Today it has to work on one phone. After launch it has to work on every phone, forever. |
+| 2.2 | ✅ **DONE 2026-10-14** — choosing the folder is a required first step (owner: no fractured body of work); "I already have one" restores | The restore path is what proves the ownership promise |
+| 2.3 | ✅ **DONE** — choosing the folder copies every project in, with media after a size-showing consent | One-time, while JoyRaptor is the only user |
+| 2.4 | ✅ **DONE** — recordings and exports land in the folder, readable names | Ends "where the hell is my screen recording" |
 | 2.5 | Always copy on import, silently. No question. | The alternative breaks projects weeks later |
-| 2.6 | Graceful "vault unavailable" state | SD card popped out must not look like data loss |
-| 2.7 | Fix audio clip IDs regenerating on save (STATE section 9, defect 1) | Data integrity, and it undermines portability |
+| 2.6 | ✅ **DONE** — "can't reach this folder, nothing has been lost" + reconnect; recordings fall back inside the app | SD card popped out must not look like data loss |
+| 2.7 | ✅ **DONE 2026-09-23** — audio clip ids survive save/load (re-proved 2026-10-14) | Data integrity, and it undermines portability |
 | 2.8 | Agree the pack folder contract (contract only, no manager UI) | Free now. Four asset systems later if we skip it. |
 
 ## Lane 3 — The AI, tightened
@@ -111,13 +111,13 @@ Detail and history: tasks/todo.md "NEXT: export speed".
 | # | Item | Size |
 |---|---|---|
 | 3.1 | ✅ **DONE 2026-10-13 (compile owed — watcher was off)** — default is now `openrouter/free`, the free router (owner: "their first experience is free and they can set to whatever later"). ChatAssistantActivity DEFAULT_MODEL + both AIToolExecutor reads. Users who already saved a model keep it. | One line. |
-| 3.2 | Cap the tool-calling loop; raise the reply limit to 4096 | Small |
-| 3.3 | Encrypt the stored API key | Small |
-| 3.4 | Rename ai_merge_transcript | Trivial |
+| 3.2 | ✅ **DONE 2026-10-14** — 8 tool steps per message; replies up to 4096 tokens | Small |
+| 3.3 | ✅ **DONE 2026-10-14** — `ai/AiKey`, Android Keystore AES-GCM; old plain key migrated | Small |
+| 3.4 | ✅ **DONE 2026-10-14** — merge_transcripts (old name still accepted) | Trivial |
 | 3.5 | **One-tap buttons for tools that already exist** — Clean up audio, Make chapters, Cut the ums | Small, and the highest value-per-hour item on this page |
-| 3.6 | Streaming replies instead of a frozen "Thinking…" | Most of what makes an AI feel good |
-| 3.7 | Fix the three tools that only see the video track | One file, three functions, one at a time |
-| 3.8 | Split the AI networking behind one seam | Needed for everything after. Ship two providers: OpenRouter and a custom URL box. |
+| 3.6 | ✅ **BUILT 2026-10-14 (compiles; needs a phone with an AI key to try)** — replies stream into the bubble; a tool command shows "Working…" instead of code | Most of what makes an AI feel good |
+| 3.7 | ✅ **DONE** (d0fecd60) — found already fixed 2026-10-14 | One file, three functions, one at a time |
+| 3.8 | ✅ **DONE 2026-10-14** — `ai/AiService`: one address for chat + tools; settings has "Service address" for any OpenAI-compatible server (https, or http://localhost on the phone); no key needed for a custom one. Tested on the Note 9 against a local address. Was: Split the AI networking behind one seam | Needed for everything after. Ship two providers: OpenRouter and a custom URL box. |
 | 3.9 | **Share-in** — accept an image or video from the Android share sheet, straight onto the timeline | The headline. Works with any AI app, no key. **Owner, 2026-10-13: implement "as soon as we have the perfect place to put things" — i.e. it lands right after the file home (Lane 2), not before.** |
 | 3.10 | generate_image through OpenRouter, into the project | Same pipeline as 3.9. Endpoint verified. |
 

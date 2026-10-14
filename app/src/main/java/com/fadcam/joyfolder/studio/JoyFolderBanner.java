@@ -103,30 +103,6 @@ public final class JoyFolderBanner {
         return card;
     }
 
-    private static final String NUDGE_PREFS = "joy_folder_nudge";
-    private static final long NUDGE_EVERY_MS = 3L * 24 * 60 * 60 * 1000;
-
-    /**
-     * In the editor, for someone who has never chosen a Joy Creator folder: one quiet line, at most
-     * every three days, with a way straight to the setup screen. Nothing once a folder is chosen.
-     */
-    public static void maybeNudge(android.app.Activity activity) {
-        if (JoyFolderHome.isChosen(activity)) return;
-        android.content.SharedPreferences p = activity.getSharedPreferences(NUDGE_PREFS, Context.MODE_PRIVATE);
-        long now = System.currentTimeMillis();
-        if (now - p.getLong("last", 0) < NUDGE_EVERY_MS) return;
-        p.edit().putLong("last", now).apply();
-        View root = activity.findViewById(android.R.id.content);
-        if (root == null) return;
-        com.google.android.material.snackbar.Snackbar.make(root,
-                        "Keep this project safe even if the app is removed: choose a Joy Creator folder.",
-                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
-                .setDuration(8000)
-                .setActionTextColor(0xFF22D3EE)
-                .setAction("Choose", v -> activity.startActivity(JoyFolderSetupActivity.intent(activity)))
-                .show();
-    }
-
     /** Show or hide the card for the folder's current state. */
     public static void refresh(View card) {
         if (card == null) return;

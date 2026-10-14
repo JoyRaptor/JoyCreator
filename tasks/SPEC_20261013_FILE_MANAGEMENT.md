@@ -15,9 +15,11 @@
 - **One folder the user chooses, as close to the top of storage as possible.** Not `Documents/…`.
 - **Folders you earn.** Work sits at the top; the app never makes a folder in advance. Few folders, readable names, no code-like names. "Let users organize; give good tools and hints."
 - **The Obsidian model:** it is just your folder; brushes, styles, projects are plain files you can open and edit.
-- **Share-in:** with a project open → wherever that project's file lives; with nothing open → the Assets folder if the user has one, else the top. (Not built yet; see §6.)
+- **Share-in:** with a project open → wherever that project's file lives; with nothing open → the Assets folder if the user has one, else the top.
 - **Consolidate** = gather a project into a folder named after it; files other projects also use → leave them or move them to Assets.
 - **Terms he likes:** Assets, Exports / Finished, Recordings, Supplies (over "Kit").
+- **2026-10-14: choosing the folder is a required first step**, not a reminder. "Its important that they actually choose a folder at the beginning and stick with it … so they dont get a fractured body of work rather then trying to manage a migration afterwards." No "keep it inside the app" options in the folder screen.
+- **2026-10-14: earned folders only for clutter.** "If the majority is recordings then thats their main workflow. Folders are only helpful if things are cluttered and disorganized."
 - **Reuse before building:** for every major piece, extend what already exists (the Library, the Trash, the recorder's storage setting…) instead of a parallel one.
 
 Design page with his picks: `tasks/design/Joy-Creator-folder-options.html` ("Folders you earn").
@@ -45,7 +47,7 @@ Joy Creator/                         (user-chosen; suggested at the top of phone
 
 ## 4. What is built, and how proven
 
-Legend: **📱** driven on the Note 9 by the agent · **🔨** compiles (watcher BUILD SUCCESSFUL), not yet on a phone · **🧪** unit-tested (`bash tools/joyfolder-tests/run.sh`, 20 tests).
+Legend: **📱** driven on the Note 9 by the agent · **🔨** compiles (watcher BUILD SUCCESSFUL), not yet on a phone · **🧪** unit-tested (`bash tools/joyfolder-tests/run.sh`, 21 tests).
 
 | Piece | Where | Proof |
 |---|---|---|
@@ -67,9 +69,9 @@ Legend: **📱** driven on the Note 9 by the agent · **🔨** compiles (watcher
 | Library also lists exports and recordings inside gathered folders (scans the folders that hold them) | `FastFileScanner.scanJoyFolder` | 📱 |
 | **"Recently deleted"** row under Settings → Storage Location opens the one Trash | `StorageSettingsFragment` | 📱 |
 | **Not used by any project:** the editor asset browser's filter cycles All → this project uses → this project doesn't use → **no project uses** (link-off icon, a one-line toast names each mode). Counts every Studio project's links *and* the files the folder's project copies point at, so the uninstall safety copies are never shown as unused | `AssetBrowserPanel`, `StudioMirror.usedByAnyProject/usageKey` | 📱 |
-| **Earned folders:** at 20 recordings (known by their recorder names) or 20 exports at the top, the folder screen offers "Make Recordings folder" / "Not now" (remembered). Yes = make it, move the pile in, give it the role so new ones follow, re-point every project; refused while a recording runs | `Suggestions.check/plan`, `StudioMirror.suggestion/fileAway`, `JoyFolderSetupActivity` | 🧪 + 🔨 (not yet triggered on a phone: needs 20 loose recordings) |
+| **Earned folders:** at 20+ recordings (known by their recorder names) or exports at the top **that are fewer than half of everything at the top** (clutter, not the main work), the folder screen offers "Make Recordings folder" / "Not now" (remembered). Yes = make it, move the pile in, give it the role so new ones follow, re-point every project; refused while a recording runs | `Suggestions.check/plan`, `StudioMirror.suggestion/fileAway`, `JoyFolderSetupActivity` | 🧪 + 🔨 (not yet triggered on a phone: needs 20 loose recordings) |
 | Camera recorder whose Joy Creator folder is unreachable (SD card out, folder renamed, permission revoked) keeps that recording inside the app, with a notice, instead of refusing to start | `RecordingService.effectiveStorageMode` | 🔨 |
-| Studio nudge: a project list / editor snackbar pointing at the folder when none is chosen, at most every 3 days | `JoyFolderBanner.maybeNudge` | 🔨 |
+| **Required first step:** the main screen opens the folder screen ("First, choose where your work lives") until a folder is chosen; Back leaves the app; "Start creating" once chosen. Covers new installs (after onboarding) and existing users alike. Skipped only on devices with no folder picker. Replaced the 3-day reminder | `JoyFolderSetupActivity.requireChoice`, one line in `MainActivity.onResume` | 📱 |
 | fsync before the project file rename; uninstall offers "keep app data?" (`hasFragileUserData`); AI chat defaults to the free router | `ProjectStorage`, manifest, AI files | 🔨 |
 
 ## 5. Existing parts this extends (do not duplicate)
@@ -85,8 +87,8 @@ Legend: **📱** driven on the Note 9 by the agent · **🔨** compiles (watcher
 
 ## 6. Still to do (in this order)
 
-- [ ] Device-check screen recording and photo names, and their Library categories; the camera fallback; the nudge; the earned-folder card (needs 20 loose recordings).
-- [ ] **Entry point in onboarding:** the folder step in first-run onboarding (`Onboarding*` — another session has edits open there; coordinate).
+- [ ] Device-check screen recording and photo names, and their Library categories; the camera fallback; the earned-folder card (needs 20+ loose recordings that are under half of the top).
+- [ ] Owner's call: copy media picked from the gallery into the folder too (roadmap 2.5 "always copy on import")? Today only media that lives inside the app is copied in; a gallery clip stays where it is, so deleting it from the gallery breaks the project and a new phone won't have it. Copying makes the folder complete at the cost of a second copy of big videos.
 - [ ] Asset browser: select several "no project uses" files and send them to Trash in one step (today: filter shows them; delete one by one in Files).
 - [ ] JoyBrush half (JoyBrush lanes): drawings in the folder, thumbnails, multiple drawings, autosave while drawing.
 - [ ] Later: presets/settings into the folder; storage screen ("free up space"); version history; the application ID change only after the folder ships (the folder is the bridge to a new ID).

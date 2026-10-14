@@ -57,6 +57,7 @@ public final class JoyFolderTests {
         run("consolidate: gathering twice never nests", JoyFolderTests::consolidateTwice);
         run("usage: unused and shared", JoyFolderTests::usage);
         run("suggestions: earned folders", JoyFolderTests::suggestions);
+        run("suggestions: never for the main work (half or more)", JoyFolderTests::suggestionsNotForMainWork);
         run("suggestions: recordings known by name, moved into Recordings", JoyFolderTests::suggestionsByName);
         run("folder: prepareDir and addFile", JoyFolderTests::prepareAndAdd);
         System.out.println();
@@ -414,7 +415,7 @@ public final class JoyFolderTests {
     static void suggestions() {
         FolderIndex idx = new FolderIndex();
         for (int i = 1; i <= 19; i++) idx.put("Screen recording " + i + ".mp4", 10, 1, null, "recording");
-        idx.put("Clip.mp4", 10, 1, null, null);
+        for (int i = 1; i <= 25; i++) idx.put("Clip " + i + ".mp4", 10, 1, null, null);
         FolderRoles roles = new FolderRoles();
         Set<FolderRoles.Role> dismissed = new HashSet<>();
         eq(0, Suggestions.check(idx, roles, dismissed).size());
@@ -430,10 +431,25 @@ public final class JoyFolderTests {
         eq(0, Suggestions.check(idx, roles, dismissed).size());
     }
 
+    static void suggestionsNotForMainWork() {
+        // Someone who mostly records: recordings are their work, not clutter. No folder offered.
+        FolderIndex idx = new FolderIndex();
+        for (int i = 1; i <= 60; i++) idx.put("Screen recording " + i + ".mp4", 10, 1, null, "recording");
+        for (int i = 1; i <= 10; i++) idx.put("Clip " + i + ".mp4", 10, 1, null, null);
+        Set<FolderRoles.Role> none = new HashSet<>();
+        eq(0, Suggestions.check(idx, new FolderRoles(), none).size());
+        // Exactly half is still their main work.
+        for (int i = 11; i <= 60; i++) idx.put("Clip " + i + ".mp4", 10, 1, null, null);
+        eq(0, Suggestions.check(idx, new FolderRoles(), none).size());
+        idx.put("Clip 61.mp4", 10, 1, null, null);
+        eq(1, Suggestions.check(idx, new FolderRoles(), none).size());
+    }
+
     static void suggestionsByName() {
         // The recorder writes straight into the folder, so its files are known by name, not origin.
         FolderIndex idx = new FolderIndex();
         for (int i = 1; i <= 20; i++) idx.put("Camera 2026-10-13 23." + (10 + i) + ".mp4", 10, 1, null, null);
+        for (int i = 1; i <= 21; i++) idx.put("Picture " + i + ".png", 10, 1, null, null);
         idx.put("Old/Camera 2026-01-01 10.00.mp4", 10, 1, null, null);
         idx.put("Recordings/Camera 2026-10-13 23.11.mp4", 10, 1, null, null);
         Set<FolderRoles.Role> none = new HashSet<>();

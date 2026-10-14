@@ -45313,7 +45313,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         com.fadcam.joyfolder.studio.ShareInbox.setOpenProject(project.getId(), project.getName());
-        com.fadcam.joyfolder.studio.JoyFolderBanner.maybeNudge(this);
         java.util.List<Uri> shared = com.fadcam.joyfolder.studio.ShareInbox.take(project.getId());
         for (Uri uri : shared) {
             String mime = getContentResolver().getType(uri);

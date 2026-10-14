@@ -114,7 +114,9 @@ public class AIToolExecutor {
                 case "retime_words": return toolRetimeWords(args);
                 case "synthesize_transcript": return toolSynthesizeTranscript(args);
                 case "cut_all_fillers": return toolCutAllFillers(args);
-                case "ai_merge_transcript": return toolAIMergeTranscript(args);
+                case "merge_transcripts":
+                case "ai_merge_transcript":   // old name: it uses no AI, so the model now sees merge_transcripts
+                    return toolMergeTranscripts(args);
                 case "ai_enhance": return toolAIEnhance(args);
                 // set_clip_duck removed per C5.X — field deleted, reintroduce with C5.E when mixer can honour it.
                 case "set_clip_zoom": return toolSetClipZoom(args);
@@ -224,7 +226,7 @@ public class AIToolExecutor {
                 args: {"clipId":"...", "runSilence":true, "sensitivity":0.5}
             22. cut_all_fillers — Cut all pre-marked filler words (struck) from a clip's transcript. Run synthesize_transcript first.
                 args: {"clipId":"..."}
-            23. ai_merge_transcript — Merge Vosk + Whisper transcripts algorithmically (LCS alignment, picks better word per position)
+            23. merge_transcripts — Merge Vosk + Whisper transcripts algorithmically (LCS alignment, picks better word per position)
                 args: {"clipId":"..."}
             24. ai_enhance — One-button enhance: generates missing transcripts, detects silence, synthesizes, and cuts fillers for ALL clips
                 args: {}
@@ -702,10 +704,10 @@ public class AIToolExecutor {
                                      @NonNull String styleHint, long durationMs,
                                      int w, int h) {
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(context);
-        String apiKey = prefs.sharedPreferences.getString("ai_api_key", "");
+        String apiKey = AiKey.get(context);
         String model = prefs.sharedPreferences.getString("ai_model", "openrouter/free");
 
-        if (apiKey == null || apiKey.isEmpty()) {
+        if (!AiService.ready(context, apiKey)) {
             return new String[]{SlideContract.buildFallbackHtml(w, h, mode, text, durationMs), null};
         }
 
@@ -750,7 +752,7 @@ public class AIToolExecutor {
                     .writeTimeout(30, TimeUnit.SECONDS)
                     .build();
             Request request = new Request.Builder()
-                    .url("https://openrouter.ai/api/v1/chat/completions")
+                    .url(AiService.chatUrl(context))
                     .addHeader("Authorization", "Bearer " + apiKey)
                     .addHeader("Content-Type", "application/json")
                     .post(RequestBody.create(body.toString(),
@@ -1229,9 +1231,9 @@ public class AIToolExecutor {
     @Nullable
     private String[] apiKeyModel() {
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(context);
-        String apiKey = prefs.sharedPreferences.getString("ai_api_key", "");
+        String apiKey = AiKey.get(context);
         String model = prefs.sharedPreferences.getString("ai_model", "openrouter/free");
-        if (apiKey == null || apiKey.isEmpty()) return null;
+        if (!AiService.ready(context, apiKey)) return null;
         return new String[]{apiKey, model};
     }
 
@@ -1384,7 +1386,7 @@ public class AIToolExecutor {
                     .writeTimeout(30, TimeUnit.SECONDS)
                     .build();
             Request request = new Request.Builder()
-                    .url("https://openrouter.ai/api/v1/chat/completions")
+                    .url(AiService.chatUrl(context))
                     .addHeader("Authorization", "Bearer " + apiKey)
                     .addHeader("Content-Type", "application/json")
                     .post(RequestBody.create(body.toString(),
@@ -2752,7 +2754,7 @@ public class AIToolExecutor {
      * produce the best merged version. Unlike the algorithmic merge, the AI
      * can read the sentence context and pick whichever word is better.
      */
-    private String toolAIMergeTranscript(@NonNull JSONObject args) {
+    private String toolMergeTranscripts(@NonNull JSONObject args) {
         String clipId = args.optString("clipId", "");
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";

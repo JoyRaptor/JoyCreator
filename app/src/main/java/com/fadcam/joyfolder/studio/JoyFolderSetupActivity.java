@@ -60,6 +60,22 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
         return new Intent(c, JoyFolderSetupActivity.class);
     }
 
+    private static final String EXTRA_REQUIRED = "required";
+    /** Opened as the first step before using the app: no way past it but choosing a folder. */
+    private boolean required;
+
+    /**
+     * Choosing the folder comes first (the owner's ruling, 2026-10-14): one body of work from day
+     * one, instead of work piling up inside the app and a migration later. Call from the main
+     * screen; opens this screen as a required step when no folder has been chosen yet. Skipped
+     * only where Android has no folder picker (some TVs and watches): work then stays in the app.
+     */
+    public static void requireChoice(android.app.Activity from) {
+        if (JoyFolderHome.isChosen(from)) return;
+        if (JoyFolderHome.pickerIntent().resolveActivity(from.getPackageManager()) == null) return;
+        from.startActivity(new Intent(from, JoyFolderSetupActivity.class).putExtra(EXTRA_REQUIRED, true));
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -72,15 +88,29 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
         col.setPadding(dp(20), dp(20), dp(20), dp(32));
         scroll.addView(col);
 
-        TextView close = text("‹ Back", 15, MUTED, false);
-        close.setPadding(0, dp(4), 0, dp(12));
-        close.setOnClickListener(v -> finish());
-        tooltip(close, "Back");
-        col.addView(close);
+        required = getIntent().getBooleanExtra(EXTRA_REQUIRED, false);
+        if (required) {
+            // Back leaves the app rather than slipping past the choice.
+            getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+                @Override
+                public void handleOnBackPressed() {
+                    if (JoyFolderHome.isChosen(JoyFolderSetupActivity.this)) finish();
+                    else finishAffinity();
+                }
+            });
+        } else {
+            TextView close = text("‹ Back", 15, MUTED, false);
+            close.setPadding(0, dp(4), 0, dp(12));
+            close.setOnClickListener(v -> finish());
+            tooltip(close, "Back");
+            col.addView(close);
+        }
 
-        col.addView(text("Your Joy Creator folder", 26, TEXT, true));
-        TextView why = text("Everything you make is kept in a folder you choose, so removing the app never loses "
-                + "your work. You can open it in any file manager, back it up, or move it to a new phone.", 15, MUTED, false);
+        col.addView(text(required ? "First, choose where your work lives" : "Your Joy Creator folder", 26, TEXT, true));
+        TextView why = text("Everything you make is kept in one folder you choose: projects, drawings, recordings and "
+                + "exports. Removing the app never loses your work. You can open it in any file manager, back it up, "
+                + "or move it to a new phone." + (required ? " You can move it later in Settings → Storage Location." : ""),
+                15, MUTED, false);
         why.setPadding(0, dp(8), 0, dp(16));
         col.addView(why);
 
@@ -139,6 +169,10 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
             return;
         }
         where.setText(JoyFolderHome.describe(tree));
+        if (required) {
+            actions.addView(pill("Start creating", true, v -> finish()));
+            actions.addView(spacer());
+        }
         if (!JoyFolderHome.isReachable(this)) {
             where.setTextColor(CAREFUL);
             detail.setText("Joy Creator can't reach this folder right now. Nothing has been lost. If it's on an SD card, "
@@ -359,14 +393,16 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
                 14, here ? MUTED : CAREFUL, false);
         line.setPadding(0, dp(4), 0, 0);
         box.addView(line);
-        LinearLayout buttons = row();
-        buttons.addView(pill(here ? "Keep them inside the app instead" : "Save them here", !here, v -> {
-            setRecordingsHere(!here);
-            progress.setText(!here ? "New recordings and exports will be saved in your Joy Creator folder."
-                    : "New recordings and exports will be kept inside the app.");
-            refresh();
-        }));
-        box.addView(buttons);
+        // One body of work (owner, 2026-10-14): there is a way in, never a way back into the app.
+        if (!here) {
+            LinearLayout buttons = row();
+            buttons.addView(pill("Save them here", true, v -> {
+                setRecordingsHere(true);
+                progress.setText("New recordings and exports will be saved in your Joy Creator folder.");
+                refresh();
+            }));
+            box.addView(buttons);
+        }
         LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) box.getLayoutParams();
         lp.topMargin = 0;
         lp.bottomMargin = dp(12);

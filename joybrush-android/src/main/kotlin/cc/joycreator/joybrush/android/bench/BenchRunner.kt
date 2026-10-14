@@ -63,14 +63,27 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             return
         }
         val (preset, case, run) = job
-        if (case == "recordedProbe") {
+        val bakeOperator = when (case) {
+            "recordedBakeProbe" -> "normal"
+            "recordedBakeEraseProbe" -> "erase"
+            "recordedBakeBehindProbe" -> "behind"
+            "recordedBakeMultiplyProbe" -> "multiply"
+            "recordedBakeScreenProbe" -> "screen"
+            else -> null
+        }
+        if (case == "recordedProbe" || bakeOperator != null) {
+            val probePreset = if (bakeOperator == null) preset else preset.copy(
+                opacity = cc.joycreator.joybrush.core.brush.Param(0.55f), blend = bakeOperator)
             val record = cc.joycreator.joybrush.core.stroke.StrokeRecord("recorded-probe", preset.id, 19L,
                 0.2f, 1f, (0 until 24).map { i -> cc.joycreator.joybrush.core.input.PenSample(
-                    64f + i * 4f, 96f + (i % 6) * 2f, i * 16.0,
+                    if (bakeOperator == null) 64f + i * 4f else 232f + i * 6f,
+                    if (bakeOperator == null) 96f + (i % 6) * 2f else 240f + (i % 6) * 5f, i * 16.0,
                     pressure = 0.7f, tilt = 0.4f, azimuth = 0.3f) }, colorArgb = 0xFF205CA9.toInt(), seq = 1)
-            canvas.runRecordedReplayProbe(preset, record) { result ->
+            canvas.runRecordedReplayProbe(probePreset, record, bake = bakeOperator != null) { result ->
                 val report = org.json.JSONObject(result).put("brush", preset.id).put("case", case).put("run", run)
-                    .put("proofScope", "Android replay adapter and ordered arithmetic; no live wiring or physical quality claim")
+                    .put("fixtureOpacity", probePreset.opacity.base)
+                    .put("proofScope", if (bakeOperator == null) "Android replay adapter and ordered arithmetic; no live wiring or physical quality claim"
+                        else "GPU source bake and public undo/redo on throwaway engine; no live display, save or physical quality claim")
                 Log.i(TAG, report.toString())
                 ui.postDelayed({ next() }, spec.settleMs)
             }

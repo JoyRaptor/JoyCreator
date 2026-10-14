@@ -580,6 +580,14 @@ were repaired without weakening assertions. Root completed usage-limited partial
 Next is live capture/frozen brush identities/ordered replay/Step.lines history and the actual Select host.
 
 ## October13 JB-5.20d live records and selection
+
+October14 verified checkpoints (full milestone below remains incomplete):
+- [x] Scoped canonical-source bake leases and undo/redo-only texture alias guards; core2273/backend471 green,4 core optional skips, source15dd32180 published.
+- [x] Note9source3993 ink/WC fixed-record source identity and all5 operators exactRGBA8, wrong-order controls detected; WC Working preserved.
+- [x] Bind post-guide raw/actualseed/effectivebrush diagnostic capture, defaultoff; full native193 green,12 capture lifecycle tests. Persistent live capture/publication remains pending.
+- [ ] Execute new all-tile GPU bake/undo/redo/archive probe on exact APK source, after fresh Home/identity gate.
+- [ ] Review zero-replay saved-look load factory with unresolved footprints; activate only after joint engine ownership/host/save gates.
+
 - [ ] Design per-cel GPU slab/look ownership and all-or-nothing edit/save/history transactions.
 - [ ] Freeze brush definitions under immutable document identities, capturing post-guide raw samples and live seed.
 - [ ] Replay records through the actual GL stroke pipeline with ordered slabs/looks and pixel-only parity.

@@ -51,6 +51,8 @@ import cc.joycreator.joybrush.core.brush.WatercolourDabber
 import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
 import cc.joycreator.joybrush.core.brush.watercolourRuntime
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
+import cc.joycreator.joybrush.core.brush.FrozenBrushResult
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 import cc.joycreator.joybrush.core.brush.ENGINE_TUFT
 import cc.joycreator.joybrush.core.brush.TuftStroke
@@ -75,6 +77,8 @@ import cc.joycreator.joybrush.core.input.DirectionTracker
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.input.StrokeSmoother
 import cc.joycreator.joybrush.core.input.Tool
+import cc.joycreator.joybrush.core.stroke.StrokeCapture
+import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.paint.Accumulate
 import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.DabPlacer
@@ -306,6 +310,82 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * undo, redo or clear is a history event and is NOT it (JB-0.08b review finding 2).
      */
     var onStrokeEnded: (() -> Unit)? = null
+
+    /**
+     * Opt-in UI-thread diagnostic source, never a document/history/save transaction. The observer
+     * present at contact receives that contact's result. Null avoids freezing and raw buffering.
+     * A refusal concerns capture only: the existing drawing tool continues normally.
+     * Completion follows queuing endStroke, before any GPU commit confirmation: it is not save truth.
+     */
+    var onDiagnosticStrokeCapture: ((DiagnosticStrokeCaptureResult) -> Unit)? = null
+
+    /** The values actually handed to beginStroke, after the live dabber evaluates its first dab. */
+    data class DiagnosticStrokeStart(val colorArgb: Int, val opacity: Float, val hardness: Float)
+
+    sealed class DiagnosticStrokeCaptureResult {
+        /**
+         * [physicalCelId] is the known document Cel.id, unknown on a fresh canvas. It is not the
+         * engine's null-for-shared-plane address; no engine mapping, cel or sequence is allocated.
+         */
+        data class Captured(val layerId: String, val physicalCelId: String?, val blend: StrokeBlend,
+                            val brush: FrozenBrushResult, val record: StrokeRecord,
+                            val start: DiagnosticStrokeStart) : DiagnosticStrokeCaptureResult()
+        data class Refused(val reason: String) : DiagnosticStrokeCaptureResult()
+    }
+
+    private class DiagnosticContact(val observer: (DiagnosticStrokeCaptureResult) -> Unit,
+                                    val layerId: String, val physicalCelId: String?, val blend: StrokeBlend,
+                                    val brush: FrozenBrushResult, val capture: StrokeCapture) {
+        var sampleCount = 0
+        var start: DiagnosticStrokeStart? = null
+    }
+    private var diagnosticContact: DiagnosticContact? = null
+    private var diagnosticSerial = 0L
+
+    private fun refuseDiagnosticCapture(reason: String) {
+        val contact = diagnosticContact ?: return
+        diagnosticContact = null
+        contact.capture.cancel()
+        contact.observer(DiagnosticStrokeCaptureResult.Refused(reason))
+    }
+
+    private fun finishDiagnosticCapture(): Pair<(DiagnosticStrokeCaptureResult) -> Unit, DiagnosticStrokeCaptureResult>? {
+        val contact = diagnosticContact ?: return null
+        diagnosticContact = null
+        if (strokeWatercolour?.capped == true) {
+            contact.capture.cancel()
+            return contact.observer to DiagnosticStrokeCaptureResult.Refused("Diagnostic capture cannot replay a capped watercolor stroke")
+        }
+        val record = contact.capture.finish() ?: return null
+        val start = contact.start ?: return contact.observer to DiagnosticStrokeCaptureResult.Refused(
+            "Diagnostic contact did not produce live dabs")
+        return contact.observer to DiagnosticStrokeCaptureResult.Captured(contact.layerId, contact.physicalCelId,
+            contact.blend, contact.brush, record.copy(colorArgb=start.colorArgb), start)
+    }
+
+    private fun diagnosticCaptureRefusal(p: BrushPreset?, erase: Boolean, amount: Float): String? {
+        val layer = boardDocument?.layers?.firstOrNull { it.id == activeLayer }
+        return when {
+            p == null -> "Diagnostic capture needs a brush preset; the built-in round brush is unsupported"
+            editingMask -> "Diagnostic capture does not support masks"
+            p.engine !in setOf("stamp", ENGINE_WATERCOLOUR) -> "Diagnostic capture does not support the ${p.engine} engine"
+            p.line != null -> "Diagnostic capture does not support line shaping"
+            p.engine == ENGINE_WATERCOLOUR && (erase || p.blend == "erase") -> "Diagnostic capture does not support watercolor erasers"
+            p.blend !in setOf("normal", "erase", BLEND_MULTIPLY, BLEND_SCREEN) -> "Diagnostic capture does not support the ${p.blend} blend"
+            p.tip.source != "procedural" || (p.tipTexture.enabled && p.tipTexture.source == "image") ||
+                (p.paperGrain.enabled && p.paperGrain.source == "image") -> "Diagnostic capture does not freeze image brush assets"
+            tileBoardId != null -> "Diagnostic capture does not support tiling"
+            layer != null && layer.kind != LayerKind.PAINT -> "Diagnostic capture needs a paint layer"
+            layer?.animatedIn != null || layer?.regions?.isNotEmpty() == true -> "Diagnostic capture does not resolve region or animated cel ownership"
+            layer?.cels?.any { it.floatTiles.isNotEmpty() } == true -> "Diagnostic capture does not support a layer with media payload"
+            layer != null && (layer.cels.singleOrNull() == null ||
+                layer.cels.singleOrNull()?.id != (layer.sharedCelId ?: layer.cels.singleOrNull()?.id)) ->
+                "Diagnostic capture cannot resolve the physical shared cel"
+            !amount.isFinite() || amount !in 0f..1f || !view.zoom.isFinite() || view.zoom <= 0f ->
+                "Diagnostic capture needs valid live smoothing and zoom"
+            else -> null
+        }
+    }
 
     /** The fill pen's transient shape. Screen owns its transparent overlay; never saved. */
     var onFillPreview: ((FillPenPreviewState?) -> Unit)? = null
@@ -1288,13 +1368,31 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         onBeforeStroke?.invoke()
         val b = brush
-        val p = preset
+        var p = preset
         if(p?.engine == ENGINE_SMUDGE && refuseTileTool("smudge")) { drawing=false; return }
         if(p?.engine == ENGINE_FILL && refuseTileTool("fill")) { drawing=false; return }
         if(p?.engine == ENGINE_FILL && editingMask) {
             drawing=false; onRefused?.invoke("Select the paint layer to use the fill pen; masks are not supported yet."); return
         }
         val erase = b.erase || eraser
+        val diagnosticObserver = onDiagnosticStrokeCapture
+        val amount = if (p != null && !smoothingFromUser) p.smoothing else smoothing
+        var frozen: FrozenBrushResult? = null
+        if (diagnosticObserver != null) {
+            val reason = diagnosticCaptureRefusal(p, erase, amount)
+            if (reason != null) diagnosticObserver(DiagnosticStrokeCaptureResult.Refused(reason))
+            else try {
+                // Stamp dab evaluation never reads blend. Freeze the runtime eraser override too,
+                // so a record replayed from this definition uses the actual live stroke operator.
+                val effective = if (erase) p!!.copy(blend="erase") else p!!
+                frozen = FrozenBrushRegistry.freeze(emptyMap(), effective) { "diagnostic-brush-${++diagnosticSerial}" }
+                // Use the same detached definition for the live dabber and its diagnostic record.
+                p = frozen.preset
+            } catch (e: Exception) {
+                frozen = null
+                diagnosticObserver(DiagnosticStrokeCaptureResult.Refused("Diagnostic brush could not be frozen: ${e.message}"))
+            }
+        }
         // The glaze blends (brush version 9) composite colour over colour. A mask holds grey with missing tiles meaning
         // white, so a screen glaze would grey out the white it should keep: refused in words, never painted as normal.
         if ((p?.blend == BLEND_MULTIPLY || p?.blend == BLEND_SCREEN) && editingMask && !erase) {
@@ -1320,7 +1418,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         scatterRng = null
         strokeTuft = null
         strokeErase = erase
-        val amount = if (p != null && !smoothingFromUser) p.smoothing else smoothing
         // Smoothing is measured in SCREEN px, so it is told the zoom: the slider then means the
         // same thing at every zoom, and the samples stay in document px either way.
         smoother = StrokeSmoother(amount, screenPerDoc = view.zoom)
@@ -1360,6 +1457,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             // direction, and the placer asks it exactly once per dab. The placer's own cap stays 1
             // -- a WASH dab carries its own opacity as its cap, and a BUILD_UP dab wants 1.
             val seed = SystemClock.uptimeMillis()
+            strokeSeed = seed
             val d = BrushDabber(p, seed)
             strokeDabber = d
             scatterRng = SplitMix(seed xor SCATTER_SALT)
@@ -1368,6 +1466,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             // first dab exists, so the tip's hardness and the stroke's opacity are the ones the
             // file evaluated AT that dab rather than the base values the file happens to carry.
         }
+        if (frozen != null && diagnosticObserver != null) {
+            val layer = boardDocument?.layers?.firstOrNull { it.id == strokeLayerId }
+            val argb = colorArgb ?: b.argb
+            diagnosticContact = DiagnosticContact(diagnosticObserver, strokeLayerId,
+                layer?.let { it.sharedCelId ?: it.cels.singleOrNull()?.id }, strokeBlend(p, erase), frozen,
+                StrokeCapture("diagnostic-stroke-$diagnosticSerial", frozen.id, strokeSeed, amount, view.zoom, argb))
+        }
+    }
+
+    private fun strokeBlend(p: BrushPreset?, erase: Boolean): StrokeBlend = when {
+        erase || p?.blend == "erase" -> StrokeBlend.ERASE
+        p?.blend == BLEND_MULTIPLY -> StrokeBlend.MULTIPLY
+        p?.blend == BLEND_SCREEN -> StrokeBlend.SCREEN
+        else -> StrokeBlend.NORMAL
     }
 
     /**
@@ -1401,16 +1513,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // R9: a tuft stroke's whole-stroke shader numbers (streaks, tooth), from the file and this stroke's seed.
         val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
         val argb = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
+        diagnosticContact?.let { it.start = DiagnosticStrokeStart(argb, opacity, tip.hardness) }
         val target = strokeLayerId
         val watercolorOptions=strokeWatercolour?.spec
         val watercolorSeed=strokeSeed
         boardStrokeWork { engine.beginStroke(target, argb, opacity, accumulate,
-            when {
-                eraseBlend -> StrokeBlend.ERASE
-                p?.blend == BLEND_MULTIPLY -> StrokeBlend.MULTIPLY
-                p?.blend == BLEND_SCREEN -> StrokeBlend.SCREEN
-                else -> StrokeBlend.NORMAL
-            }, tip, grain, smudge, tuft, watercolorOptions, watercolorSeed) }
+            strokeBlend(p, eraseBlend), tip, grain, smudge, tuft, watercolorOptions, watercolorSeed) }
     }
 
     private fun feed(ev: MotionEvent) {
@@ -1484,15 +1592,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         // R9: the lift — a fast one carries on as the bristles leave the paper — and any spatter it throws.
         strokeTuft?.let { t -> paintTuft(t.finish()) }
+        val diagnosticResult = finishDiagnosticCapture()
         drawing = false
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
         boardStrokeWork { engine.endStroke(); reportHistory() }
         flushPaperVisits()
         onStrokeEnded?.invoke()
+        diagnosticResult?.let { (observer, result) -> observer(result) }
     }
 
     private fun cancelStroke() {
+        diagnosticContact?.capture?.cancel()
+        diagnosticContact = null
         // What a media stroke already painted stays, as one step (water cannot be un-run mid-flow).
         if (mediaStroke || mediaErase) { finishMediaStroke(); return }
         resetSnapper(fresh = false)
@@ -1599,6 +1711,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * ([TuftStroke.dwell]): pressing grows the blot, and turning the pen swings the belly round its point.
      */
     private fun feedOne(sm: StrokeSmoother, raw: PenSample, released: MutableList<PenSample>) {
+        // Feed supplies post-guide coordinates; capture before response and smoothing alter them.
+        if (raw.isPlaceable && !raw.predicted) diagnosticContact?.let { contact ->
+            if (contact.sampleCount >= 32768) refuseDiagnosticCapture("Diagnostic capture reached its 32768 raw sample budget")
+            else { contact.capture.add(raw); contact.sampleCount++ }
+        }
         // The watercolor dabber owns the POC's pressure/tilt/path filters. Never smooth or curve it twice.
         if(strokeWatercolour != null) { if(raw.isPlaceable && !raw.predicted) released.add(raw); return }
         if (strokePreset?.engine == ENGINE_FILL && !mediaErase) {
@@ -2051,6 +2168,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** Debug adapter arithmetic check on a throwaway engine; it never reads/writes the drawing. */
     fun runRecordedReplayProbe(preset: BrushPreset, record: cc.joycreator.joybrush.core.stroke.StrokeRecord,
+                               bake: Boolean = false,
                                ready: (String) -> Unit) {
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
             ready("{\"passed\":false,\"failure\":\"Recorded replay probe is debug only\"}")
@@ -2064,9 +2182,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 probe.setDocumentPaper(paper)
                 probe.addLayer("recorded-probe")
                 val frozen = cc.joycreator.joybrush.core.brush.FrozenBrushRegistry.freeze(emptyMap(), preset) { "probe-frozen" }
-                val result = cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.run(probe, "recorded-probe",
-                    frozen.preset, record.copy(brushId = frozen.id))
-                val value = cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.json(result)
+                val value = if (bake) cc.joycreator.joybrush.androidkit.gl.RecordedBakeProbe.json(
+                    cc.joycreator.joybrush.androidkit.gl.RecordedBakeProbe.run(probe, "recorded-probe",
+                        frozen.preset, record.copy(brushId = frozen.id)))
+                else cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.json(
+                    cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.run(probe, "recorded-probe",
+                        frozen.preset, record.copy(brushId = frozen.id)))
                 probe.release()
                 val error = android.opengl.GLES30.glGetError()
                 value.put("engineReleaseGlError", error)

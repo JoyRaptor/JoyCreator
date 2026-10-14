@@ -73,6 +73,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         }
         if (case == "recordedProbe" || bakeOperator != null) {
             val probePreset = if (bakeOperator == null) preset else preset.copy(
+                version = if (bakeOperator == "multiply" || bakeOperator == "screen") maxOf(9, preset.version) else preset.version,
                 opacity = cc.joycreator.joybrush.core.brush.Param(0.55f), blend = bakeOperator)
             val record = cc.joycreator.joybrush.core.stroke.StrokeRecord("recorded-probe", preset.id, 19L,
                 0.2f, 1f, (0 until 24).map { i -> cc.joycreator.joybrush.core.input.PenSample(
@@ -82,9 +83,10 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             canvas.runRecordedReplayProbe(probePreset, record, bake = bakeOperator != null) { result ->
                 val report = org.json.JSONObject(result).put("brush", preset.id).put("case", case).put("run", run)
                     .put("fixtureOpacity", probePreset.opacity.base)
+                    .put("fixtureBrushVersion", probePreset.version)
                     .put("proofScope", if (bakeOperator == null) "Android replay adapter and ordered arithmetic; no live wiring or physical quality claim"
                         else "GPU source bake and public undo/redo on throwaway engine; no live display, save or physical quality claim")
-                Log.i(TAG, report.toString())
+                logRecordedReport(report, preset.id, case, run)
                 ui.postDelayed({ next() }, spec.settleMs)
             }
             return
@@ -104,6 +106,20 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 })
             }
         }, 300)
+    }
+
+    /** Android truncates large single log messages. Preserve the exact UTF8 report across chunks. */
+    private fun logRecordedReport(report: org.json.JSONObject, brush: String, case: String, run: Int) {
+        val json = report.toString()
+        val bytes = json.toByteArray(Charsets.UTF_8)
+        if (bytes.size <= 3000) { Log.i(TAG, json); return }
+        val parts = (bytes.size + 999) / 1000
+        repeat(parts) { part ->
+            val data = bytes.copyOfRange(part * 1000, minOf(bytes.size, (part + 1) * 1000))
+            Log.i(TAG, org.json.JSONObject().put("recordedProbeChunk", true).put("brush", brush)
+                .put("case", case).put("run", run).put("part", part).put("parts", parts)
+                .put("dataBase64", android.util.Base64.encodeToString(data, android.util.Base64.NO_WRAP)).toString())
+        }
     }
 
     private fun report(p: BrushPreset, case: String, run: Int, samples: Int, s: FrameStats.Summary) {

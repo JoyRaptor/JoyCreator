@@ -585,7 +585,7 @@ October14 verified checkpoints (full milestone below remains incomplete):
 - [x] Scoped canonical-source bake leases and undo/redo-only texture alias guards; core2273/backend471 green,4 core optional skips, source15dd32180 published.
 - [x] Note9source3993 ink/WC fixed-record source identity and all5 operators exactRGBA8, wrong-order controls detected; WC Working preserved.
 - [x] Bind post-guide raw/actualseed/effectivebrush diagnostic capture, defaultoff; full native193 green,12 capture lifecycle tests. Persistent live capture/publication remains pending.
-- [ ] Execute new all-tile GPU bake/undo/redo/archive probe on exact APK source, after fresh Home/identity gate.
+- [x] Execute all-tile GPU bake/undo/redo/archive probe after fresh Home/identity gate:6 cases/4 tiles each/12 roundtrips,144 exactRGBA8 comparisons and zero external GL/FBO/ownership failures. Exact testedtreecffb66ab/APKFEAD... documented.
 - [ ] Review zero-replay saved-look load factory with unresolved footprints; activate only after joint engine ownership/host/save gates.
 
 - [ ] Design per-cel GPU slab/look ownership and all-or-nothing edit/save/history transactions.

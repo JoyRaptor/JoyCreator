@@ -1,0 +1,262 @@
+[
+  {
+    "probe": "recordedBake",
+    "comparison": "Exact RGBA8 on every actual tile: bake, undo, redo and raw source copy",
+    "coverage": "Concrete createRecordedScene/stageBake/public engine undoStep/redoStep; continuous empty plane",
+    "archiveRoundtripExecuted": true,
+    "archiveCoverage": "In-memory synthetic document metadata + actual physical GPU source/look readback",
+    "archiveByteOrder": "Raw glReadPixels RGBA8 preserved verbatim, including row/tile coordinate order",
+    "workingOrRecoveryInstalled": false,
+    "internalEngineChecksCounted": false,
+    "feedbackCheckMeaning": "External ownership/alias checks only; no per-draw internal count",
+    "glVendor": "Qualcomm",
+    "glRenderer": "Adreno (TM) 630",
+    "glVersion": "OpenGL ES 3.2 V@415.0 (GIT@fdd61e0, I20154638fb, 1602078382) (Date:10/07/20)",
+    "operator": "normal",
+    "brushId": "probe-frozen",
+    "brushOpacity": 0.55,
+    "recordId": "recorded-probe",
+    "recordSeq": 1,
+    "passed": true,
+    "snapshotCaptureCalls": 2,
+    "archiveWriteCalls": 2,
+    "archiveReadCalls": 2,
+    "archiveRoundtripsCompleted": 2,
+    "archiveExactCpuPayloadComparisons": 20,
+    "archives": [
+      {
+        "phase": "before bake",
+        "passed": true,
+        "archiveBytes": 21480,
+        "physicalLayerId": "recorded-probe",
+        "physicalCelId": "archive-probe-3",
+        "rawRecordCount": 1,
+        "bottomPixelTileCount": 4,
+        "upperSlabTileCount": 0,
+        "savedLookTileCount": 4,
+        "frozenBrushCount": 1,
+        "rawGpuBytesPreserved": true,
+        "metadataAndPhysicalIdsExact": true
+      },
+      {
+        "phase": "after bake",
+        "passed": true,
+        "archiveBytes": 17475,
+        "physicalLayerId": "recorded-probe",
+        "physicalCelId": "archive-probe-3",
+        "rawRecordCount": 0,
+        "bottomPixelTileCount": 4,
+        "upperSlabTileCount": 4,
+        "savedLookTileCount": 0,
+        "frozenBrushCount": 1,
+        "rawGpuBytesPreserved": true,
+        "metadataAndPhysicalIdsExact": true
+      }
+    ],
+    "archivalBottomPixelsPreservedAcrossBake": true,
+    "failure": null,
+    "cleanupComplete": true,
+    "tileSize": 256,
+    "sourceTileCount": 4,
+    "sourceNonzeroAlphaPixels": 3212,
+    "cpuSecondOpacityMutantDifferentChannels": 8781,
+    "bakeCommitted": true,
+    "undoAccepted": true,
+    "redoAccepted": true,
+    "sequenceOperatorPreserved": true,
+    "recordRemoved": true,
+    "recordRestoredByUndo": true,
+    "recordRemovedByRedo": true,
+    "rawPreparationCalls": 1,
+    "createSceneCalls": 1,
+    "stageBakeCalls": 1,
+    "publicUndoCalls": 1,
+    "publicRedoCalls": 1,
+    "readbackCalls": 40,
+    "glErrorChecks": 53,
+    "observedGlErrors": 0,
+    "framebufferChecks": 40,
+    "incompleteFramebuffers": 0,
+    "feedbackChecks": 48,
+    "feedbackFailures": 0,
+    "liveBakedSlabsRecycled": 4,
+    "heldSlabsClosedByHistory": 0,
+    "comparisons": [
+      {
+        "phase": "before bake snapshot actual saved look",
+        "tileKey": 0,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "before bake snapshot actual saved look",
+        "tileKey": 4294967297,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "before bake snapshot actual saved look",
+        "tileKey": 1,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "before bake snapshot actual saved look",
+        "tileKey": 4294967296,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "bake look",
+        "tileKey": 0,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "opacity-once canonical copy",
+        "tileKey": 0,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "bake look",
+        "tileKey": 4294967297,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "opacity-once canonical copy",
+        "tileKey": 4294967297,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "bake look",
+        "tileKey": 1,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "opacity-once canonical copy",
+        "tileKey": 1,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "bake look",
+        "tileKey": 4294967296,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "opacity-once canonical copy",
+        "tileKey": 4294967296,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "after bake archive canonical slab vs original raw",
+        "tileKey": 0,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "after bake archive canonical slab vs original raw",
+        "tileKey": 4294967297,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "after bake archive canonical slab vs original raw",
+        "tileKey": 1,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "after bake archive canonical slab vs original raw",
+        "tileKey": 4294967296,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "undo look",
+        "tileKey": 0,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "undo look",
+        "tileKey": 4294967297,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "undo look",
+        "tileKey": 1,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "undo look",
+        "tileKey": 4294967296,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "redo look",
+        "tileKey": 0,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "redo look",
+        "tileKey": 4294967297,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "redo look",
+        "tileKey": 1,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      },
+      {
+        "phase": "redo look",
+        "tileKey": 4294967296,
+        "differentChannels": 0,
+        "differentPixels": 0,
+        "maxByteDelta": 0
+      }
+    ],
+    "engineReleaseGlError": 0,
+    "brush": "joybrush.watercolour",
+    "case": "recordedBakeProbe",
+    "run": 1,
+    "fixtureOpacity": 0.55,
+    "fixtureBrushVersion": 10,
+    "proofScope": "GPU source bake and public undo/redo on throwaway engine; no live display, save or physical quality claim"
+  }
+]

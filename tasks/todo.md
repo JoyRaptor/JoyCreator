@@ -603,8 +603,10 @@ October14 verified checkpoints (full milestone below remains incomplete):
 - [x] Joint scene staging preserves complete mixed Step identity and cache ownership; backend575/0/0/0 including44 new contracts PASS1m56. Actual engine publisher/lifecycle remains next.
 - [x] Implement opt-in actual engine root and complete mixed native/recorded undo publication; atomic empty reset/context-loss handoff and writer guards. Full core2309/backend613/native193 independently counted green; four optional core skips only.
 - [ ] Assemble exact joint-root APK and verify eager/cold Ink/WC GPU probes, public undo/redo and unchanged owner archives on freshly ready sandbox Note9.
+- [x] Exact combined5b3ebdca APK and eager/cold Ink/WC GPU proof: all4 expected cases,556 exactRGBA8 rows zero differences; native/source/sibling/history/reset checks and unchanged archive hashes.
 - [ ] Promote existing native bases into recorded seq0 source ownership without changing saved appearance or legacy history identity; then wire physical display and committed live raw capture.
 - [x] Review and verify native-base transfer proof and exact-cursor legacy projection support: 23 new contracts, full backend636/0/0/0 PASS3m8. Engine transfer, physical display and activation remain pending.
+- [x] Repair caller-thread Open/load whole-payload and metadata preflight before UI/GL replacement; native199/0/0/0 PASS1m10, six actual admission regressions. Final artifact assembly next.
 
 Review: latest lifecycle source passes all three suites. Concrete recorded replay now uses
 private stroke-buffer preparation so bound public-paint guards do not block replay.

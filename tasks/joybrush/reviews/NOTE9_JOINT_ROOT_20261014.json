@@ -1,0 +1,47 @@
+{
+  "source": "5b3ebdcaf355801cc58c07db1dddf0d5347e7ae5",
+  "installedSha256": "6f1176ac8e3d28ba60b6aaa87375ec01225d498ed9f230a358ad23be34cdd40b",
+  "apkSha256": "6F1176AC8E3D28BA60B6AAA87375EC01225D498ED9F230A358AD23BE34CDD40B",
+  "apkHashMatches": true,
+  "casePairs": [
+    {
+      "case": "recordedJointProbe",
+      "brush": "joybrush.ink",
+      "openCold": false
+    },
+    {
+      "case": "recordedJointProbe",
+      "brush": "joybrush.watercolour",
+      "openCold": false
+    },
+    {
+      "case": "recordedJointColdProbe",
+      "brush": "joybrush.ink",
+      "openCold": true
+    },
+    {
+      "case": "recordedJointColdProbe",
+      "brush": "joybrush.watercolour",
+      "openCold": true
+    }
+  ],
+  "uniqueCasePairs": 4,
+  "reportCount": 4,
+  "allPassed": true,
+  "allRowsMatch": true,
+  "totalComparisonRows": 556.0,
+  "totalReportedComparisonCount": 556.0,
+  "totalCheckedChannels": 145752064.0,
+  "totalCheckedPixels": 36438016.0,
+  "totalReadbackCalls": 572.0,
+  "totalGlErrorChecks": 676.0,
+  "totalFramebufferChecks": 572.0,
+  "totalFeedbackChecks": 744.0,
+  "allRowsNoDiff": true,
+  "allZeroGlFboFeedbackFailures": true,
+  "allExpectedRootHistoryNativeSiblingCounts": true,
+  "archiveFilesChecked": 3,
+  "archiveHashesUnchanged": true,
+  "archiveRoundtripPerformed": false,
+  "gpuExecutedInApkAssembly": false
+}

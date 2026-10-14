@@ -1841,7 +1841,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      */
     fun load(contents: JbContents, onDone: () -> Unit) {
         val doc = contents.doc
-        checkContents(contents)
+        val retained = validatedLoadMetadata(contents)
 
         val states = doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend, it.mask != null, it.clip) }
         val active = doc.activeLayerId?.takeIf { id -> doc.layers.any { it.id == id } } ?: doc.layers.last().id
@@ -1877,7 +1877,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             // they agree with.
             for ((k, bytes) in contents.mediaTiles) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), bytes, k.celId)
             engine.agreeAllPayloads()
-            retainedContents = CanvasSnapshot.metadataOf(contents)
+            retainedContents = retained
             contentLost = false
             paper = resolved
             documentPaperState = doc.paper
@@ -1942,7 +1942,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** Check a proposed Open before preservation starts, without changing the current drawing. */
     fun checkContents(contents: JbContents) {
+        validatedLoadMetadata(contents)
+    }
+
+    /** Prepare every format/payload refusal on the caller thread, before UI or GL replacement. */
+    private fun validatedLoadMetadata(contents: JbContents): JbContents {
         refusalFor(contents)?.let { throw JbArchiveException(it) }
+        return try {
+            CanvasSnapshot.metadataOf(contents)
+        } catch (error: IllegalArgumentException) {
+            throw JbArchiveException(error.message ?: "This drawing cannot be retained safely")
+        }
     }
 
     /** The GL-thread half of [snapshot]: every layer, every tile, read back, under one document. */

@@ -4,7 +4,7 @@ import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.vector.RecordedCel
 import kotlin.test.*
 
-/** Authored/unrun proposal tests; actual engine transfer/GPU activation is deliberately separate. */
+/** Pure legacy projection contracts; actual engine transfer/GPU activation is deliberately separate. */
 class PromotedBaseProjectionTest {
     private val shared: Pair<String, String?> = "paint" to null
     private val frame: Pair<String, String?> = "paint" to "frame1"

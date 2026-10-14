@@ -1,31 +1,20 @@
-<!-- 
-FORMAT GUIDELINES:
+<!--
+FORMAT GUIDELINES (read by the app's update sheet):
 - Use # for section headers (# New Features, # Fixes)
 - Use bullet points with - for individual changes
 - Comments like this won't be displayed in the app
+FadCam's own history (the app this grew out of) is kept in docs/FADCAM_CHANGELOG.md.
 -->
 
-# Patch Note
-- This version is a patch update to v3.0.0, addressing critical bug regarding MIC and F-Droid compatibility.
+# Joy Creator beta
 
-# ⚠️ Breaking Change ⚠️
-- FadCam now uses fragmented MP4 format for video files. It is better to backup your existing videos before updating, just in case.
+# New Features
+- Your Joy Creator folder: everything you make lives in one folder you choose, and removing the app never loses it
+- JoyBrush drawings: as many as you like, with pictures in the lobby and a gallery to open, rename or delete them
+- Share to Joy Creator from any app; recordings and exports land in your folder with readable names
+- Big files from elsewhere are linked, with Copy, Move or Leave whenever you like; a yellow dot shows what's outside
+- One Trash for projects, drawings and files, and Undo right after deleting a project
+- Joybot replies as he types, works with any OpenAI-compatible service, and keeps your key encrypted
 
----
-
-# ✨ New Features  
-
-- **FadCam Pro**: Free until December 23, 2025 only. Get customized builds with custom notification icons.
-- **FadRec**: New screen recorder with annotation tools (pen, eraser, text, shapes) and layer management.
-- **FadCam Remote**: Stream your camera live over local network with remote control and real-time monitoring.
-- **Custom Watermark**: Add personalized text to your videos (license plate, location, etc.).
-- **In-App What's New**: New feature highlights after updates, no external links needed.
-
-# 🐞 Bug Fixes & Improvements
-- Fixed video corruption—videos now playable even if app crashes.
-- Standalone Beta Installation with isolated storage.
-- 45-50% CPU reduction, 28-33% better battery life during recording.
-- Smart debug logging—pauses during recording, active for troubleshooting.
-- Improved UI and reordered settings for faster access.  
-
-
+# Fixes
+- Projects find their files again after you move or rename them in the folder

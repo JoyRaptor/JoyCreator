@@ -60,7 +60,7 @@ is the whole point of it. If an idea arrives, it goes to INBOX.md.
 | 1.3 | Resolve MANAGE_EXTERNAL_STORAGE for the Play build | Usually refused for editors |
 | 1.4 | Remove cloud / streaming / privacy-black-screen from the Play build | LAUNCH_STRATEGY sections 3 and 5 |
 | 1.5 | Decide and set the application ID | **Permanent.** Changing it later loses every user. |
-| 1.6 | Rewrite README and PRIVACY | They describe FadCam today and would be false about the AI |
+| 1.6 | 📝 **DRAFTED 2026-10-14, owner to review** — README.md and PRIVACY.md rewritten from a code audit (every server the app talks to, when, and that location/weather are off by default); blanks: contact email, publish date. Also: the update sheet no longer shows FadCam's release notes (CHANGELOG.md is now Joy Creator's; FadCam's moved to docs/). Still FadCam: the bundled What's New text (assets/changelog/main.md) and the streaming server's notice fetch from anonfaded/FadCam (full build only). | They describe FadCam today and would be false about the AI |
 | 1.7 | Privacy policy hosted at a public URL | Required before you can submit |
 | 1.8 | Rewrite the "verify you are a human" screen | Currently written for a covert recorder |
 | 1.9 | **Export: long projects finish in one tap, fast** (owner, 2026-09-23) | The 48-min lecture exported end to end for the first time today. Speed stages below. |

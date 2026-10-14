@@ -18,7 +18,10 @@ import java.util.regex.Pattern;
  */
 public class ChangelogParser {
     private static final String TAG = "ChangelogParser";
-    private static final String CHANGELOG_URL = "https://raw.githubusercontent.com/anonfaded/FadCam/refs/heads/master/CHANGELOG.md";
+    // Joy Creator's own notes, from the same place its updates come from (UpdateCheckService).
+    // This was anonfaded/FadCam's CHANGELOG, so the update sheet showed another app's release notes.
+    // Missing file = no notes shown, never the wrong ones.
+    private static final String CHANGELOG_URL = "https://raw.githubusercontent.com/JoyRaptor/JoyCreator/joy-creator/CHANGELOG.md";
     private static final String HEADER_COLOR = "#E43C3C"; // Red color for headers
 
     /**

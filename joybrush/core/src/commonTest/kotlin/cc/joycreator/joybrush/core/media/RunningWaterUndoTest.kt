@@ -3,6 +3,10 @@ package cc.joycreator.joybrush.core.media
 import cc.joycreator.joybrush.core.layers.LayerStack
 import cc.joycreator.joybrush.core.layers.LayerState
 import cc.joycreator.joybrush.core.paint.UndoLog
+import cc.joycreator.joybrush.core.doc.DocOps
+import cc.joycreator.joybrush.core.doc.Paper
+import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.vector.CelComposer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -56,6 +60,47 @@ class RunningWaterUndoTest {
         log.undo()
         assertEquals(listOf("wc" to 1L, "wc#p0" to 1L), assertNotNull(log.undo()).changes.map { it.layerId to it.key },
             "one Undo takes back the line alone, never the wash's progress with it")
+    }
+
+    @Test fun aDripAfterAMixedRecordedLineEditTakesASeparateWaterStep() {
+        val line = CelComposer.Line(1, StrokeRecord("line", "frozen", 1, 0f, 1f, emptyList(), seq = 1))
+        log.push(UndoLog.Step(listOf(tile("p0", 1, null, 10)), lines = listOf(
+            UndoLog.LineChange("wc", null, "line", null, line))))
+        MediaStores.recordWater(log, listOf(tile("w0", 2, null, 20)))
+        assertEquals(2, log.undoDepth)
+        val drip = assertNotNull(log.undo())
+        assertEquals(listOf(2L), drip.changes.map { it.key }); assertTrue(drip.lines.isEmpty())
+        val edit = assertNotNull(log.undo())
+        assertEquals(listOf("line"), edit.lines.map { it.id }); assertEquals(listOf(1L), edit.changes.map { it.key })
+    }
+
+    @Test fun aDripAfterAMixedSlabEditTakesASeparateWaterStep() {
+        val slab = UndoLog.SlabChange("wc", null, 4, 0,
+            UndoLog.SlabValue(1, "normal"), UndoLog.SlabValue(2, "normal"))
+        log.push(UndoLog.Step(listOf(tile("p0", 1, null, 10)), slabs = listOf(slab)))
+        MediaStores.recordWater(log, listOf(tile("w0", 2, null, 20)))
+        assertEquals(2, log.undoDepth)
+        val drip = assertNotNull(log.undo())
+        assertEquals(listOf(2L), drip.changes.map { it.key }); assertTrue(drip.slabs.isEmpty())
+        val edit = assertNotNull(log.undo())
+        assertEquals(listOf(4L), edit.slabs.map { it.key }); assertEquals(listOf(1L), edit.changes.map { it.key })
+    }
+
+    @Test fun afterOnlyPaperOrDocumentMetadataCannotAbsorbRunningWater() {
+        var serial = 0
+        val doc = DocOps.newDocument("doc", "Art", 64, 64) { "id-${++serial}" }
+        val steps = listOf(
+            UndoLog.Step(listOf(tile("p0", 1, null, 10)), paperAfter = Paper()),
+            UndoLog.Step(listOf(tile("p0", 2, null, 20)), documentAfter = doc))
+        steps.forEachIndexed { index, step ->
+            log.push(step)
+            val dripKey = 10L + index
+            MediaStores.recordWater(log, listOf(tile("w0", dripKey, null, 30 + index)))
+            assertEquals(2, log.undoDepth)
+            assertEquals(listOf(dripKey), assertNotNull(log.undo()).changes.map { it.key })
+            val edit = assertNotNull(log.undo())
+            assertTrue(if (index == 0) edit.paperAfter != null else edit.documentAfter != null)
+        }
     }
 
     @Test fun aTileIsNeverSnapshottedTwiceInOneStep() {

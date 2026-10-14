@@ -76,7 +76,8 @@ object MediaStores {
      * progress (owner's rule: one press, one step).
      */
     fun <T : Any> isMediaStep(s: UndoLog.Step<T>): Boolean =
-        s.stackBefore == null && s.stackAfter == null && s.paperBefore == null && s.documentBefore == null &&
+        s.stackBefore == null && s.stackAfter == null && s.paperBefore == null && s.paperAfter == null &&
+            s.documentBefore == null && s.documentAfter == null && s.lines.isEmpty() && s.slabs.isEmpty() &&
             s.changes.any { isMediaStore(it.layerId) && it.after != null }
 
     /**

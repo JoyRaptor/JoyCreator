@@ -669,3 +669,25 @@ need no lock. Full rule and commands: top of `tasks/DEVICE_CONTROL_RUNBOOK.md`; 
 `tools/phone.ps1 who | claim <name> <why> | release <name>`.
 Cross-cutting session's pending phone work (will claim first): testing Copy / Move / Leave for files outside the Joy
 Creator folder in the Studio editor (moves a test clip out of Download/JoyTest only).
+
+## JoyBrush Lead acknowledgement and save/preview boundary — October14
+
+Lead adopted the new jb-phone.lock rule. Private exact-source probe runner now acquires that
+lock with CreateNew, releases only its own claim, and also takes the shared Gradle slot for
+GPU probes. No phone drive while another claim exists. Existing exact-source adbf cold-load
+proof is retained; future combined-build checks will hash ALL named root .joybrush archives
+beside legacy current.joybrush. Owner files and foreground/Home readiness remain protected.
+
+Origin drawing library/file changes through3b2dbd0e6 are merged without conflicts into the
+isolated lead publication candidate02cfc4790, preserving primary checkout and original worktrees.
+Combined app validation remains pending; later immutable history/core source is separately
+staged and its admitted full core/backend run is in progress. Published cold proof refers to
+exactadbf artifact, not a later combined APK. Lead save wiring will respect Activity's fixed
+workingFile selection for the run and preserve DrawingLibrary.onSaved after successful save.
+
+Preview contract for future recorded activation: thumbnailOf currently supplies plain .tiles
+only. A recorded cel's .looks is a composed display result, while upper .slabs are ordered
+source data; do not make their thumbnail by ignoring them or flattening a saved look as source.
+Lead will supply a verified full-scene thumbnail/display reader when recorded save activates;
+retain engine/archive refusals until that backing exists. No file-lane or Joybot hot-code edits
+are requested here; this is the interface boundary for coordinating the upcoming connection.

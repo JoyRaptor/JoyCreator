@@ -199,8 +199,8 @@ Until then, treat cloud/streaming as OFF for anything we publish.
 | 3 | Send letter | ⬜ Not started | Highest leverage, ~5 min, do first |
 | 4 | Strip Play blockers (aliases, MEDIA, a11y, FGS) | ⬜ Not started | Required either way |
 | 5 | Remove cloud/streaming from Play build | ⬜ Not started | See §5 |
-| 6 | Rewrite `README.md` | ⬜ Not started | Currently FadCam's |
-| 7 | Rewrite `PRIVACY.md` | ⬜ Not started | Currently FadCam's, and false |
+| 6 | Rewrite `README.md` | 📝 Drafted 2026-10-14 | Owner review |
+| 7 | Rewrite `PRIVACY.md` | 📝 Drafted 2026-10-14 | From a code audit; fill contact email + date |
 | 8 | Replace `fastlane/` listing assets | ⬜ Not started | Currently FadCam's |
 | 9 | Register domain + put up site | ⬜ Not started | Needed for Play privacy URL |
 | 10 | Set up Ko-fi / GitHub Sponsors | ⬜ Not started | $0, do early |

@@ -1521,6 +1521,7 @@ class GlPaintEngine(
      * Caller owns every returned texture until it is committed or discarded. Final cel clipping is the composer's job.
      */
     internal fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset): RecordedLineUnit {
+        check(ready) { "The drawing context is not ready for recorded replay" }
         check(!strokeInProgress && !wcFading) { "Finish the current stroke before replaying a line" }
         check(framePreviews.isEmpty()) { "Stop playback before editing lines" }
         require(tileBoardId == null) { "Recorded line replay on a periodic board is not connected yet" }
@@ -1531,6 +1532,7 @@ class GlPaintEngine(
         require(preset.engine != "stamp" || preset.tip.source == "procedural") { "Image tips are not connected to recorded GPU stamping yet" }
         require(preset.line == null) { "Whole-stroke shaping is not connected to live recording yet" }
         require(preset.blend in setOf("normal", "erase", "behind", "multiply", "screen")) { "This line operator is not connected to GPU composition yet" }
+        require(paperWarnings.isEmpty()) { "Recorded replay needs the document's actual paper resources" }
         val replay = InkReplay.replay(record, preset)
         // Older grain brushes used the newest contact of each native event batch as a uniform.
         // Raw samples alone do not retain those batch boundaries, so varying legacy pose cannot
@@ -1555,6 +1557,7 @@ class GlPaintEngine(
                 StrokeBlend.NORMAL, tip, replay.strokeGrain,
                 watercolour = if (preset.engine == ENGINE_WATERCOLOUR) preset.watercolourRuntime() else null,
                 watercolourSeed = record.seed)
+            requireRecordedGrainAssets(replay.strokeGrain, look, loadedPaper?.paper)
             addDabs(replay.dabs)
             if (wcSpec != null) wcPass?.finishInto(strokeTiles, 1f)
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
@@ -1610,7 +1613,11 @@ class GlPaintEngine(
     internal fun createRecordedScene(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
                                      frozen: Map<String, BrushPreset>): RecordedScene<Int> {
         checkStrokeEnded("Finish the stroke before opening recorded cels")
+        check(ready) { "The drawing context is not ready for recorded cels" }
         check(recordedScene == null) { "Release the previous recorded scene before opening another" }
+        val capturedDocument = boardDocument
+        val capturedPaper = documentPaper
+        val capturedResolvedPaper = resolvedPaper
         require(planes.keys.all { (id, cel) ->
             layers[id]?.let { layer -> !layer.isMask && (cel == null || cel in layer.cels) } == true
         }) { "Recorded cels must address existing physical paint planes" }
@@ -1619,6 +1626,10 @@ class GlPaintEngine(
             return layer.plan?.tileSlices(key)?.filter { planeOf(layer, it.plane.celId) == plane.second }?.map { it.rect }
         }
         val scene = RecordedScene.create(planes, frozen, undo, object : RecordedScene.Renderer<Int> {
+            override fun contextCurrent(): Boolean = ready && boardDocument == capturedDocument &&
+                documentPaper == capturedPaper && resolvedPaper == capturedResolvedPaper &&
+                framePreviews.isEmpty() && tileBoardId == null
+
             override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): RecordedScene.Unit<Int> {
                 val rendered = prepareRecordedLine(address.layerId, record, preset)
                 var accepted = false

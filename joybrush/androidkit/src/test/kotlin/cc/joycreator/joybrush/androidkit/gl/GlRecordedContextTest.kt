@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.gl
 
 import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.stroke.AddressedStroke
 import cc.joycreator.joybrush.core.stroke.LineAddress
@@ -24,7 +25,7 @@ class GlRecordedContextTest {
         val record = StrokeRecord("line", "frozen", 19, 0f, 1f,
             if (noDab) emptyList() else listOf(PenSample(0f, 0f, 0.0)), seq = 1)
         return RecordedScene.create(mapOf(plane to RecordedCel<Int>("paint", null, listOf(record))),
-            mapOf("frozen" to BrushPreset(id = "frozen", name = "Pen")), engine.undo, driver).also(engine::registerRecordedScene)
+            mapOf("frozen" to BrushPreset(id = "frozen", name = "Pen", size = Param(8f))), engine.undo, driver).also(engine::registerRecordedScene)
     }
 
     @Test fun engineContextLossInvalidatesCurrentAndStagedSceneCachesWithoutDeletingStaleNames() {

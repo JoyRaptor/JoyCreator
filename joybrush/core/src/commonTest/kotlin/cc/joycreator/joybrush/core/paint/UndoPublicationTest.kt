@@ -55,7 +55,9 @@ class UndoPublicationTest {
         val first = step(1, 2)
         log.push(first)
         failSize = true
-        assertFailsWith<IllegalStateException> { log.pushAndPublish(step(2, 3)) { error("publication must not run") } }
+        var published = false
+        assertFailsWith<IllegalStateException> { log.pushAndPublish(step(2, 3)) { published = true } }
+        assertFalse(published)
         assertSame(first, log.peekUndo())
         assertEquals(1, log.undoDepth)
         assertTrue(released.isEmpty())
@@ -117,6 +119,6 @@ class UndoPublicationTest {
         log.undo()
         log.clear(); log.clear()
         assertEquals(listOf(2, 4), released)
-        assertEquals(0, log.heldBytes)
+        assertEquals(0L, log.heldBytes)
     }
 }

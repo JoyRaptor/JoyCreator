@@ -6,7 +6,7 @@ import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
 import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
-import cc.joycreator.joybrush.core.vector.InkTiles
+import cc.joycreator.joybrush.core.doc.SlabOps
 import cc.joycreator.joybrush.core.vector.RecordedCel
 import cc.joycreator.joybrush.core.vector.RecordedEdits
 import cc.joycreator.joybrush.core.vector.RecordedTilePlan
@@ -23,12 +23,14 @@ internal class RecordedScene<T : Any> private constructor(
 ) {
     class Unit<T : Any>(val op: String, tiles: Map<Long, T>) {
         val tiles: Map<Long, T> = tiles.toMap()
-        init { require(InkTiles.knowsOp(op)) { "Unsupported recorded source operator" } }
+        init { require(SlabOps.known(op)) { "Unsupported recorded source operator" } }
     }
 
     class Source<T : Any>(val seq: Long, val texture: T, val op: String)
 
     interface Renderer<T : Any> {
+        /** Scene clipping/paper/playback context must still match the one its cache was built for. */
+        fun contextCurrent(): Boolean = true
         /** Atomic result: fresh owned textures; on throw the renderer cleans its own partial work. */
         fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Unit<T>
         /** Borrowed ordered sources. Apply the physical cel's clipping while composing. */
@@ -56,6 +58,10 @@ internal class RecordedScene<T : Any> private constructor(
     val planes: Map<Pair<String, String?>, RecordedCel<T>> get() = state.planes
     val brushes: Map<String, BrushPreset> get() = state.brushes.mapValues { BrushJson.decodeChecked(it.value) }
     fun lookKeys(plane: Pair<String, String?>): Set<Long> = state.looks[plane]?.keys?.toSet().orEmpty()
+    /** Archive indexes list line-crossed tiles only; plain slab tiles stay in the pixel payload. */
+    fun savedLookKeys(plane: Pair<String, String?>): Set<Long> = state.units.entries
+        .filter { (address, _) -> address.layerId == plane.first && address.celId == plane.second }
+        .flatMap { it.value.unit.tiles.keys }.toSet()
     fun look(plane: Pair<String, String?>, key: Long): T? = state.looks[plane]?.get(key)
     val hasContent: Boolean get() = state.planes.values.any { it.records.isNotEmpty() || it.slabs.isNotEmpty() }
     fun heldCacheTextures(): Set<T> = state.cacheTextures()
@@ -80,7 +86,7 @@ internal class RecordedScene<T : Any> private constructor(
         fun commit(): Boolean {
             check(!finished) { "This recorded scene proposal is already finished" }
             if (generation != epoch || state !== before || history.peekUndo() !== undoHead ||
-                history.peekRedo() !== redoHead) return false
+                history.peekRedo() !== redoHead || !renderer.contextCurrent()) return false
             val publish = { state = after }
             val accepted = when (direction) {
                 Direction.NEW -> { history.pushAndPublish(step, publish); true }
@@ -103,6 +109,7 @@ internal class RecordedScene<T : Any> private constructor(
 
     fun stage(edit: RecordedEdits.Prepared<T>, direction: Direction = Direction.NEW,
               frozen: Map<String, BrushPreset> = brushes): Staged {
+        check(renderer.contextCurrent()) { "The recorded renderer's paper or clipping context changed" }
         require(edit.isCurrent(state.planes)) { "The recorded scene changed before staging" }
         val step = edit.step
         // Legacy tiles, media payloads and structural changes require their own joint publisher.
@@ -143,6 +150,7 @@ internal class RecordedScene<T : Any> private constructor(
 
     private fun render(before: State<T>, after: Map<Pair<String, String?>, RecordedCel<T>>,
                        frozen: Map<String, BrushPreset>): Rendered<T> {
+        check(renderer.contextCurrent()) { "The recorded renderer context is unavailable" }
         val saved = FrozenBrushRegistry.validate(frozen).mapValues { BrushJson.encode(it.value) }
         require(before.brushes.all { (id, json) -> saved[id] == json }) { "Frozen brushes cannot be replaced or removed while history can reference them" }
         val borrowed = after.values.flatMap { cel -> cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } } }
@@ -186,7 +194,8 @@ internal class RecordedScene<T : Any> private constructor(
                 if (plane !in after) { looks.remove(plane); continue }
                 val next = before.looks[plane].orEmpty().toMutableMap()
                 for (key in keys) {
-                    val sources = plans.getValue(plane).itemsOn(key).map { item -> when (item) {
+                    val items = plans.getValue(plane).itemsOn(key)
+                    val sources = items.map { item -> when (item) {
                         is RecordedTilePlan.Pixel -> Source(item.seq, item.value.texture, item.value.op)
                         is RecordedTilePlan.Line -> {
                             val unit = units.getValue(item.address).unit
@@ -194,6 +203,9 @@ internal class RecordedScene<T : Any> private constructor(
                         }
                     } }
                     val output = if (sources.isEmpty()) null else renderer.look(plane, key, sources)
+                    require(output != null || items.none { it is RecordedTilePlan.Line }) {
+                        "A line-crossed tile requires a saved look, including fully transparent paint"
+                    }
                     if (output == null) next.remove(key) else { own(listOf(output)); next[key] = output }
                 }
                 looks[plane] = next.toMap()

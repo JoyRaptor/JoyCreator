@@ -596,3 +596,9 @@ October14 verified checkpoints (full milestone below remains incomplete):
 - [ ] Bind Select Activity and accepted pen/finger routing, retaining approved UI styling.
 - [ ] Run focused/full regressions, real GPU replay/order controls, save/recovery evidence and admitted APK/device checks.
 - [ ] Publish verified checkpoints; leave unverified physical acceptance explicit; then progress Atlas A2.
+## UX Select host contract review — October14
+- [x] Read current addressed host/tool/scene and actual routing callbacks at ccb4913bf; distinguish unbound adapter from staging groundwork.
+- [x] Review immediate Boolean results, asynchronous GL acceptance/cancel/release and immutable UI snapshot publication.
+- [x] Write smallest host failure-race and accepted-thumb/pen/finger/view-movement plan in UX handoff; preserve approved UI/count.
+- [x] Verify cited source lines, publish documentation-only review for Lead; no builds/device/root source edits.
+Review: SELECT_HOST_UX_REVIEW_20261014.md and UI specialist handoff record the unbound-host limit, callbacks, Boolean/cancellation barrier, current caller hazards and six planned integration cases. No new executable verification or phone claim; source/UI frozen.

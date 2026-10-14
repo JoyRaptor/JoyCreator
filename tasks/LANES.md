@@ -1160,3 +1160,9 @@ failed D8. Original partials remain preserved; document/archive safety source is
 UX sourcee2369b2b/docsb9647c1c is independently verified34/0/0/0; scoped integration is next (including earlier e3 ancestry).
 Vector controls/GPU/LineLab evidence is now integrated; next builds are sequenced by normal lock admission, no waiting wrappers.
 Root retains frontier atlas/engine binding ownership. No device reservation or installation.
+
+## JOYBRUSH_UX_HOST_REVIEW_20261014
+status: COMPLETE, documentation-only bounded review for Lead; no source/build/device reservation.
+worktree: C:/Temp/jb-select-host-review; branch ui/select-host-review-current; reviewed base ccb4913bf.
+files: tasks/joybrush/reviews/SELECT_HOST_UX_REVIEW_20261014.md, UI specialist handoff, this lane and tasks/todo.md only.
+Outcome: required concrete-host callbacks, immediate Boolean/async GL cancellation barrier, current caller hazards and six routing/acceptance test groups documented. No concrete host was found to approve. Original UI/count source and approved appearance frozen; Root retains engine/View/Activity activation.

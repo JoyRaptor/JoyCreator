@@ -245,3 +245,28 @@ Activity still must supply accepted resting-finger context to App.hasRestingThum
 and chain controller.viewMoved() into existing onViewMoved sampling. Current count string
 IDs migrate with LineAddress before all-layer live edits. Real Activity/engine binding,
 Lock/Group/Invert and phone acceptance remain open. No preview/pencil/default/engine edits.
+
+## October14 — Read-only Select host integration review
+
+Reviewed current addressed contracts and actual canvas/box/count routing at ccb4913bf.
+Report: tasks/joybrush/reviews/SELECT_HOST_UX_REVIEW_20261014.md, in isolated
+C:/Temp/jb-select-host-review on ui/select-host-review-current. Original UI/count trees
+and approved cyan/full-pill/borderless style remain frozen. This branch changes docs only.
+
+No concrete production SelectionHost adapter or SelectController construction exists yet.
+The review records callback requirements and the essential Boolean barrier: true means
+canonical data/history/immediately visible host snapshot agree; false/cancel cannot be
+followed by a late queued GL publication. Current RecordedScene protects scene/history/
+context identity but supplies no per-UI-request cancellation handshake. The view's onGl
+helper may drop work on epoch loss without an acknowledgement; queue acceptance is not
+completion. Resolve the synchronous interface versus Pending before activation.
+
+Six bounded test groups cover completed/refused operations, cancellation/publication races,
+preview/lease/context retirement, accepted cross-child thumb versus rejected palm, real
+pen/finger/box ownership, and view/history/picker lifecycle. Existing fake/native/GPU proofs
+are not treated as these integration tests. Also flagged failed bake clearing selection,
+failed nudge/tip retaining a preview unless restored by the adapter, and stale picker
+callbacks targeting a changed selection. All are concrete current caller constraints.
+
+Root retains implementation, build lock and device ownership. No new tests/builds or
+phone actions were performed; no message to another chat was required for this report.

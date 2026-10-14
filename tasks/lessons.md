@@ -1047,5 +1047,8 @@ back before designing; treat any alternative I prefer as a lab hypothesis, never
   above) and from the paper (not a dark slab). For any smart default, keep the correction on screen and make every
   chip that implies a mode switch into it. Memory: on-canvas-tools-concepts-placement, automatic-guess-keeps-a-way-back.
 
+## October14 — Verify missing diagnostics and current usage independently
+On the Note9, `dumpsys window windows` omits focused-window fields. Treat an absent field as unknown; use full `dumpsys window` and Android's registered Home activity before claiming another app is foreground. The owner correctly reported Home. Also inspect current account usage when a persistent goal reports usageLimited: the account allowed ordinary usage with32% remaining, and the owner explicitly resumed work. Do not consume reset credits or invent a second goal to work around state.
+
 ## October 12 — Preserve owner-approved resolution changes when comparing prototypes
 The owner prefers the sharper full-resolution watercolor pooling and judges it good overall; darker pooling and grain can be tuned with parameters. An old lower-resolution prototype's perceptual threshold is a useful diagnostic, but it cannot veto an explicitly approved resolution change. Record the actual comparison failure and the owner ruling separately; keep seam, numerical, compositing and mutation gates unchanged. Verify grain and darkness controls against rendered output before tuning. Do not infer missing behavior from a resolution mismatch alone.

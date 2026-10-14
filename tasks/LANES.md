@@ -3,7 +3,8 @@
 # Prior C:/Temp/jb-live-lines is frozen/backed-up b203e760; original owner folder/worktrees preserved.
 # Core2272/backend447 source blobs unchanged; combined native181/0/0/0 PASS5m2s on current integration.
 # Root next owns real engine recorded history routing, joint pixel/media publication, capture/host/save wiring and device probe.
-# One shared admitted job only; latest probe is scratch-only/uncompiled/unexecuted. Goal and04:39:49Eastern wakeup ACTIVE.
+# One shared admitted job only; source3993de74 ink/WC phone GPU probes passed exactRGBA8 and wrong-order controls.
+# Root owns recorded bake integration/history alias guards and serial checks. Sol capture helper owns only C:/Temp/jb-capture-current View/test delta; root adopts after review. Luna bake ownership review completed.04:39:49Eastern wakeup retained.
 # October13 JB-5.20d: ACTIVE Lead in C:/Temp/jb-live-lines, lead/jb-live-lines, base27bedba9.
 # Latest scene/history/footprint helpers reached usage limit; root retained partials and completed missing test source.
 # Latest source WIP, not test-verified or app-activated. Recorded scene lifecycle reviewed; no heavy job active.

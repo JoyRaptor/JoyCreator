@@ -16,6 +16,30 @@ import kotlin.test.assertTrue
 
 /** Ordered slab history owns textures independently of legacy tiles and composed looks. */
 class SlabUndoTest {
+    @Test
+    fun borrowedHistoryHandlesFollowUndoRedoAndReleaseOwnershipAcrossFamilies() {
+        val released = mutableListOf<Int>()
+        val log = UndoLog<Int>(100, { 1L }, released::add)
+        val edit = UndoLog.Step(listOf(UndoLog.TileChange("plain", 0, 1, 2)), slabs = listOf(
+            SlabChange("paint", null, 0, 1, SlabValue(3, "normal"), SlabValue(4, "erase"))))
+        assertTrue(log.heldTextures().isEmpty())
+        log.push(edit)
+        val detached = log.heldTextures()
+        assertEquals(setOf(1, 3), detached)
+        log.undo()
+        assertEquals(setOf(2, 4), log.heldTextures())
+        assertEquals(setOf(1, 3), detached)
+        log.redo()
+        assertEquals(setOf(1, 3), log.heldTextures())
+        assertTrue(released.isEmpty())
+        log.undo()
+        log.push(UndoLog.Step(listOf(UndoLog.TileChange("plain", 1, null, 5))))
+        assertTrue(log.heldTextures().isEmpty())
+        assertEquals(listOf(2, 4), released)
+        log.clear()
+        assertTrue(log.heldTextures().isEmpty())
+    }
+
     private fun value(texture: Int, op: String = "normal") = SlabValue(texture, op)
 
     private fun slab(before: SlabValue<Int>?, after: SlabValue<Int>?, layer: String = "L", cel: String? = "c",

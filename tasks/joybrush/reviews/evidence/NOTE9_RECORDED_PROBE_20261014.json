@@ -1,0 +1,91 @@
+{
+  "date": "2026-10-14",
+  "device": "Note9",
+  "source": "3993de74ac6bd11eead6b631158b207d758cc455",
+  "apk": {
+    "path": "C:/Temp/jb-lead-ops/apk-3993de74/joybrush-3993de74-arm64.apk",
+    "sha256": "a67b5c411ffc318f68a3c679bf0e6c981f0f7b3c045fa1c9b6acbef58fec2b40",
+    "installedSha256Verified": true,
+    "initialInkInstallUpdateTimeChanged": {
+      "verifiedByScript": true,
+      "receiptOverwritten": true,
+      "timestamp": null
+    },
+    "laterWatercolourInstallReceipt": {
+      "source": "3993de74",
+      "installedSha256MatchesApk": true,
+      "updateTimeChanged": false
+    }
+  },
+  "probe": {
+    "case": "recordedProbe",
+    "tileKey": 0,
+    "tileSize": 256,
+    "preparedTileCount": 1,
+    "operations": ["normal", "normal", "erase", "behind", "multiply", "screen"],
+    "comparison": "Exact RGBA8; CPU floats quantized once",
+    "runs": [
+      {
+        "brush": "joybrush.ink",
+        "passed": true,
+        "identityDifferentChannels": 0,
+        "orderedDifferentChannels": 0,
+        "orderedDifferentPixels": 0,
+        "orderedMaxByteDelta": 0,
+        "wrongOrderDifferentChannels": 2007,
+        "wrongOrderDifferentPixels": 666,
+        "wrongOrderMaxByteDelta": 46,
+        "glErrorChecks": 12,
+        "observedGlErrors": 0,
+        "framebufferChecks": 4,
+        "incompleteFramebuffers": 0,
+        "feedbackChecks": 8,
+        "feedbackFailures": 0,
+        "cleanupComplete": true
+      },
+      {
+        "brush": "joybrush.watercolour",
+        "passed": true,
+        "identityDifferentChannels": 0,
+        "orderedDifferentChannels": 0,
+        "orderedDifferentPixels": 0,
+        "orderedMaxByteDelta": 0,
+        "wrongOrderDifferentChannels": 6879,
+        "wrongOrderDifferentPixels": 1725,
+        "wrongOrderMaxByteDelta": 149,
+        "glErrorChecks": 12,
+        "observedGlErrors": 0,
+        "framebufferChecks": 4,
+        "incompleteFramebuffers": 0,
+        "feedbackChecks": 8,
+        "feedbackFailures": 0,
+        "cleanupComplete": true
+      }
+    ],
+    "proofScope": "Android replay adapter and ordered arithmetic; not live capture or live pipeline; first actual tile only"
+  },
+  "benchRuns": {
+    "count": 2,
+    "freshUnsaved": true,
+    "finished": true,
+    "returnedToAutoHome": true
+  },
+  "workingFile": {
+    "watercolourPresent": true,
+    "watercolourUnchanged": true,
+    "inkChecked": false
+  },
+  "assets": {
+    "wcShaderEntries": 5,
+    "recordedComposeShader": "joybrush/shaders/jb_recorded_compose.frag",
+    "packagedMatchesSource": true,
+    "wcAssetCount25Claim": false
+  },
+  "notEstablished": [
+    "live pen capture",
+    "live recorded drawing pipeline",
+    "visual appearance or quality",
+    "performance",
+    "actual Select interaction"
+  ]
+}

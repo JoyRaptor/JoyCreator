@@ -1646,6 +1646,25 @@ class GlPaintEngine(
                 }
             }
 
+            override fun copyForBake(address: LineAddress,
+                                     unit: RecordedScene.Unit<Int>): RecordedScene.Unit<Int> {
+                val copied = linkedMapOf<Long, Int>()
+                try {
+                    val plane = address.layerId to address.celId
+                    for ((key, texture) in unit.tiles) {
+                        // Copy the canonical source after pooling, then clip to its physical cel.
+                        // The source already includes opacity; preserve its original operator on
+                        // the slab instead of applying it while copying or baking the final look.
+                        copied[key] = checkNotNull(composeRecordedTile(listOf(
+                            OrderedRecordedUnit(0, texture, "normal", clips(plane, key)))))
+                    }
+                    return RecordedScene.Unit(unit.op, copied)
+                } catch (failure: Throwable) {
+                    copied.values.forEach(::recycleLayerTex)
+                    throw failure
+                }
+            }
+
             override fun look(plane: Pair<String, String?>, key: Long,
                               sources: List<RecordedScene.Source<Int>>): Int? = composeRecordedTile(sources.map {
                 OrderedRecordedUnit(it.seq, it.texture, it.op, clips(plane, key))

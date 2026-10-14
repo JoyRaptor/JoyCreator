@@ -10,6 +10,7 @@ import cc.joycreator.joybrush.core.doc.SlabOps
 import cc.joycreator.joybrush.core.vector.RecordedCel
 import cc.joycreator.joybrush.core.vector.RecordedEdits
 import cc.joycreator.joybrush.core.vector.RecordedTilePlan
+import cc.joycreator.joybrush.core.vector.CelComposer
 
 /**
  * GL-thread coordinator for physical recorded cels and their derived caches. Slab textures are
@@ -33,9 +34,18 @@ internal class RecordedScene<T : Any> private constructor(
         fun contextCurrent(): Boolean = true
         /** Atomic result: fresh owned textures; on throw the renderer cleans its own partial work. */
         fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Unit<T>
+        /**
+         * Clone EVERY cached canonical source tile through normal copy and physical-cel clipping,
+         * after full WC pooling. Its pixels already include brush opacity exactly once: do not
+         * replay, apply opacity again, bake a composed look, or transfer any cached texture.
+         * Return the same operator and exact tile keys, with NEW caller-owned textures. An empty
+         * authoritative unit stays empty. On throw, clean all partial copies in this context.
+         */
+        fun copyForBake(address: LineAddress, unit: Unit<T>): Unit<T> =
+            throw UnsupportedOperationException("This renderer cannot clone recorded sources for bake")
         /** Borrowed ordered sources. Apply the physical cel's clipping while composing. */
         fun look(plane: Pair<String, String?>, key: Long, sources: List<Source<T>>): T?
-        /** Must not throw; release a valid cache texture in the CURRENT context only. */
+        /** Must not throw; release a valid owned cache or uncommitted bake source in this context. */
         fun release(texture: T)
     }
 
@@ -82,16 +92,23 @@ internal class RecordedScene<T : Any> private constructor(
     ) : AutoCloseable {
         private var finished = false
 
-        /** False means no publication. Caller closes this lease to release its staged caches. */
+        /** False means no publication. Caller closes this lease to release caches and bake sources. */
         fun commit(): Boolean {
             check(!finished) { "This recorded scene proposal is already finished" }
             if (generation != epoch || state !== before || history.peekUndo() !== undoHead ||
                 history.peekRedo() !== redoHead || !renderer.contextCurrent()) return false
             val publish = { state = after }
-            val accepted = when (direction) {
-                Direction.NEW -> { history.pushAndPublish(step, publish); true }
-                Direction.UNDO -> history.undoAndPublish(step, publish)
-                Direction.REDO -> history.redoAndPublish(step, publish)
+            val accepted = try {
+                when (direction) {
+                    Direction.NEW -> { history.pushAndPublish(step, publish); true }
+                    Direction.UNDO -> history.undoAndPublish(step, publish)
+                    Direction.REDO -> history.redoAndPublish(step, publish)
+                }
+            } catch (failure: Throwable) {
+                // History does capacity/budget work before its nonthrowing scene publication.
+                // A refused publication still leaves both caches and bake sources in this lease.
+                close()
+                throw failure
             }
             if (!accepted) return false
             finished = true
@@ -108,7 +125,73 @@ internal class RecordedScene<T : Any> private constructor(
     }
 
     fun stage(edit: RecordedEdits.Prepared<T>, direction: Direction = Direction.NEW,
-              frozen: Map<String, BrushPreset> = brushes): Staged {
+              frozen: Map<String, BrushPreset> = brushes): Staged =
+        stagePrepared(edit, direction, frozen, emptySet())
+
+    /**
+     * Rasterize only these complete physical addresses at their original seqs, in ONE shared
+     * history step. Until commit, this lease owns both derived caches and fresh slab sources.
+     * After commit, the physical scene/history owns the slabs; close() still owns caches only.
+     */
+    fun stageBake(addresses: Set<LineAddress>): Staged {
+        check(renderer.contextCurrent()) { "The recorded renderer's paper or clipping context changed" }
+        require(addresses.isNotEmpty()) { "An empty bake cannot publish an undo step" }
+        val before = state
+        val epoch = generation
+        val existing = before.cacheTextures() + slabTextures(before.planes) + history.heldTextures()
+        val sources = LinkedHashSet<T>()
+        // Resolve and validate the ENTIRE scope before the first renderer copy call.
+        val baking = addresses.map { address ->
+            val cel = before.planes[address.layerId to address.celId]
+                ?: error("No physical cel for this line")
+            require(cel.layerId == address.layerId && cel.celId == address.celId) {
+                "A physical cel has mismatched ownership"
+            }
+            val record = cel.records.firstOrNull { it.id == address.recordId }
+                ?: error("This line no longer exists")
+            require(!record.locked) { "Unlock the line before baking it" }
+            val cached = before.units[address] ?: error("This line has no cached canonical source")
+            require(cached.record == record) { "This line's cached canonical source is stale" }
+            require(cached.unit.tiles.values.all { sources.add(it) }) {
+                "Cached canonical sources cannot share texture ownership"
+            }
+            Triple(address, record, cached.unit)
+        }
+        val freshSources = LinkedHashSet<T>()
+        try {
+            val slabs = ArrayList<UndoLog.SlabChange<T>>()
+            for ((address, record, unit) in baking) {
+                val copy = renderer.copyForBake(address, unit)
+                var valid = true
+                // Visit every returned handle, including fresh siblings of an invalid alias.
+                for (texture in copy.tiles.values) {
+                    if (texture in existing || !freshSources.add(texture)) valid = false
+                }
+                require(valid) { "A bake copy must return distinct fresh owned textures" }
+                require(copy.op == unit.op && copy.tiles.keys == unit.tiles.keys) {
+                    "A bake copy must preserve its canonical operator and exact tile keys"
+                }
+                for ((key, texture) in copy.tiles) slabs += UndoLog.SlabChange(
+                    address.layerId, address.celId, key, record.seq, null,
+                    UndoLog.SlabValue(texture, copy.op))
+            }
+            val lines = baking.map { (address, record, _) -> UndoLog.LineChange(
+                address.layerId, address.celId, address.recordId,
+                CelComposer.Line(record.seq, record), null)
+            }
+            val step = UndoLog.Step<T>(emptyList(), lines = lines, slabs = slabs)
+            val edit = RecordedEdits.prepare(before.planes, step, true)
+            // Render owns only its own new derived caches on failure. This catch owns the slab
+            // copies until stagePrepared successfully transfers them into the returned lease.
+            return stagePrepared(edit, Direction.NEW, brushes, freshSources.toSet())
+        } catch (failure: Throwable) {
+            if (generation == epoch) freshSources.forEach(renderer::release)
+            throw failure
+        }
+    }
+
+    private fun stagePrepared(edit: RecordedEdits.Prepared<T>, direction: Direction,
+                              frozen: Map<String, BrushPreset>, freshSources: Set<T>): Staged {
         check(renderer.contextCurrent()) { "The recorded renderer's paper or clipping context changed" }
         require(edit.isCurrent(state.planes)) { "The recorded scene changed before staging" }
         val step = edit.step
@@ -128,7 +211,7 @@ internal class RecordedScene<T : Any> private constructor(
         val undoHead = history.peekUndo()
         val redoHead = history.peekRedo()
         val rendered = render(before, edit.after, frozen)
-        return Staged(before, rendered.state, rendered.fresh, before.cacheTextures() - rendered.state.cacheTextures(),
+        return Staged(before, rendered.state, rendered.fresh + freshSources, before.cacheTextures() - rendered.state.cacheTextures(),
             epoch, step, direction, undoHead, redoHead, rendered.affected)
     }
 
@@ -148,16 +231,20 @@ internal class RecordedScene<T : Any> private constructor(
     private class Rendered<T : Any>(val state: State<T>, val fresh: Set<T>,
                                     val affected: Map<Pair<String, String?>, Set<Long>>)
 
+    private fun slabTextures(planes: Map<Pair<String, String?>, RecordedCel<T>>): List<T> =
+        planes.values.flatMap { cel -> cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } } }
+
     private fun render(before: State<T>, after: Map<Pair<String, String?>, RecordedCel<T>>,
                        frozen: Map<String, BrushPreset>): Rendered<T> {
         check(renderer.contextCurrent()) { "The recorded renderer context is unavailable" }
+        val epoch = generation
         val saved = FrozenBrushRegistry.validate(frozen).mapValues { BrushJson.encode(it.value) }
         require(before.brushes.all { (id, json) -> saved[id] == json }) { "Frozen brushes cannot be replaced or removed while history can reference them" }
         val borrowed = after.values.flatMap { cel -> cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } } }
         require(borrowed.distinct().size == borrowed.size) { "Physical cels cannot share ownership of a slab texture" }
         val existing = before.cacheTextures() + before.planes.values.flatMap { cel ->
             cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } }
-        } + borrowed
+        } + borrowed + history.heldTextures()
         for ((plane, cel) in after) {
             require(plane == (cel.layerId to cel.celId)) { "Physical cel ownership does not match its scene address" }
             require(cel.records.all { it.brushId in saved }) { "A recorded line has no frozen document brush" }
@@ -212,7 +299,7 @@ internal class RecordedScene<T : Any> private constructor(
             }
             return Rendered(State(after.toMap(), saved, units.toMap(), plans, looks.toMap()), fresh.toSet(), affected.toMap())
         } catch (failure: Throwable) {
-            fresh.forEach(renderer::release)
+            if (generation == epoch) fresh.forEach(renderer::release)
             throw failure
         }
     }

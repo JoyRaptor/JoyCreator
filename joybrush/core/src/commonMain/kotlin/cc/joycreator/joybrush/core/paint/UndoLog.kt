@@ -142,6 +142,18 @@ class UndoLog<T : Any>(
     val heldBytes: Long
         get() = heldBytes(undoStack, redoStack)
 
+    /** Borrowed handles owned exclusively by history, for fresh-render alias validation. */
+    fun heldTextures(): Set<T> = buildSet {
+        undoStack.forEach { step ->
+            step.changes.forEach { it.before?.let(::add) }
+            step.slabs.forEach { it.before?.texture?.let(::add) }
+        }
+        redoStack.forEach { step ->
+            step.changes.forEach { it.after?.let(::add) }
+            step.slabs.forEach { it.after?.texture?.let(::add) }
+        }
+    }
+
     private fun heldBytes(undo: Collection<Step<T>>, redo: Collection<Step<T>>): Long =
         undo.sumOf { s -> s.changes.sumOf { c -> c.before?.let(sizeOf) ?: 0L } +
             s.slabs.sumOf { c -> c.before?.texture?.let(sizeOf) ?: 0L } + s.lines.sumOf { it.bytes } } +

@@ -73,6 +73,7 @@ public class FaditorMiniFragment extends BaseFragment {
     private LinearLayout recentProjectsSection;
     private LinearLayout recentProjectsList;
     private View emptyStateContainer;
+    @Nullable private View joyFolderBanner;
 
     // ── Selection mode ───────────────────────────────────────────────
     private boolean selectionMode = false;
@@ -237,6 +238,13 @@ public class FaditorMiniFragment extends BaseFragment {
         recentProjectsList = view.findViewById(R.id.recent_projects_list);
         emptyStateContainer = view.findViewById(R.id.empty_state_container);
 
+        // "Keep your work safe": shown only until a Joy Creator folder is chosen and reachable.
+        if (recentProjectsSection != null && recentProjectsSection.getParent() instanceof ViewGroup) {
+            ViewGroup host = (ViewGroup) recentProjectsSection.getParent();
+            joyFolderBanner = com.fadcam.joyfolder.studio.JoyFolderBanner.attach(
+                    host, host.indexOfChild(recentProjectsSection), 16);
+        }
+
         // Selection UI
         selectionActionBar = view.findViewById(R.id.selection_action_bar);
         tvSelectionCount = view.findViewById(R.id.tv_selection_count);
@@ -383,6 +391,7 @@ public class FaditorMiniFragment extends BaseFragment {
         super.onResume();
         FLog.d("FaditorMiniFragment", "onResume called");
         refreshRecentProjects();
+        com.fadcam.joyfolder.studio.JoyFolderBanner.refresh(joyFolderBanner);
     }
 
     @Override

@@ -82,7 +82,7 @@
 
 
 
-    <application android:name=".FadCamApplication" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:fullBackupContent="@xml/backup_rules" android:icon="@mipmap/ic_launcher" android:label="@string/app_name" android:roundIcon="@mipmap/ic_launcher_round" android:supportsRtl="true" android:theme="@style/Base.Theme.FadCam" android:requestLegacyExternalStorage="true" android:networkSecurityConfig="@xml/network_security_config" android:enableOnBackInvokedCallback="true" android:largeHeap="true" tools:targetApi="q">
+    <application android:name=".FadCamApplication" android:allowBackup="false" android:hasFragileUserData="true" android:dataExtractionRules="@xml/data_extraction_rules" android:fullBackupContent="@xml/backup_rules" android:icon="@mipmap/ic_launcher" android:label="@string/app_name" android:roundIcon="@mipmap/ic_launcher_round" android:supportsRtl="true" android:theme="@style/Base.Theme.FadCam" android:requestLegacyExternalStorage="true" android:networkSecurityConfig="@xml/network_security_config" android:enableOnBackInvokedCallback="true" android:largeHeap="true" tools:targetApi="q">
 
         <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
 
@@ -137,6 +137,11 @@
         <activity android:name="cc.joycreator.joybrush.android.JoyBrushActivity"
             android:theme="@style/Theme.FadCam.FaditorEditor"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:exported="false" />
+
+        <!-- The Joy Creator folder: choose, reconnect, bring projects back (SPEC_20261013_FILE_MANAGEMENT). -->
+        <activity android:name="com.fadcam.joyfolder.studio.JoyFolderSetupActivity"
+            android:theme="@style/Theme.FadCam.FaditorEditor"
             android:exported="false" />
 
         <!-- M-COMP-2 decoder-budget probe (PLAN_LAYERS_V2 Part 10 #1) — adb-driven debug tool -->

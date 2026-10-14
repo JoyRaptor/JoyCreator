@@ -35,6 +35,7 @@ public class StorageSettingsFragment extends Fragment {
 
     private SharedPreferencesManager prefs;
     private TextView valueStorageMode;
+    @Nullable private View joyFolderRow;
 
     private ActivityResultLauncher<Uri> openDocumentTreeLauncher;
 
@@ -85,7 +86,19 @@ public class StorageSettingsFragment extends Fragment {
         if (back != null) {
             back.setOnClickListener(v -> OverlayNavUtil.dismiss(requireActivity()));
         }
+        // The Joy Creator folder, above the recorder's own location setting.
+        View group = view.findViewById(R.id.group_card_storage);
+        if (group != null && group.getParent() instanceof ViewGroup) {
+            ViewGroup host = (ViewGroup) group.getParent();
+            joyFolderRow = com.fadcam.joyfolder.studio.JoyFolderBanner.attachSettingsRow(host, host.indexOfChild(group));
+        }
         refreshValue();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        com.fadcam.joyfolder.studio.JoyFolderBanner.refreshSettingsRow(joyFolderRow);
     }
 
     // Removed duplicate manual back handling; centralized via OverlayNavUtil

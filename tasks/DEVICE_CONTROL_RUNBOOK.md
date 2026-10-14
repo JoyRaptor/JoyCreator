@@ -205,12 +205,9 @@ outright.
 adb install -r -d app/build/outputs/apk/default/debug/app-default-universal-debug.apk
 #   -r = reinstall/keep data (update in place)   -d = allow version downgrade
 ```
-If `adb install` fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE` (signature/version mismatch), uninstall first
-(this wipes the app's data/projects — only do it if you must):
-```bash
-adb uninstall com.fadcam.beta
-adb install app/build/outputs/apk/default/debug/app-default-universal-debug.apk
-```
+If `adb install` fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE` (signature/version mismatch): **STOP and ask
+JoyRaptor. Never `adb uninstall`.** Uninstalling wipes every project in app storage with no prompt and no
+recovery — on 2026-08-29 it destroyed 23 of his 24 projects. Report the error and wait.
 
 ### 2c. Confirm what's actually installed
 ```bash
@@ -471,7 +468,7 @@ both). The user's watcher can die silently while `build.log` keeps showing an ol
 | App is in landscape and coords are wrong | Force portrait: `adb shell settings put system user_rotation 0`. |
 | Can't get into the editor (stuck on Welcome Back) | Tap **New Project**, or `am force-stop` + `am start` fresh (§3). |
 | Tapped but nothing changed | Re-screenshot; your coordinate was off (layout shifts with content). Recompute from the fresh PNG. Confirm the front activity with §4b. |
-| `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | Signature/version mismatch — `adb uninstall com.fadcam.beta` then install (wipes app data). |
+| `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | Signature/version mismatch — **STOP and ask JoyRaptor. Never uninstall** (it wipes every project, with no prompt and no recovery). |
 | Can't verify audio | You can't hear it — inspect `dumpsys audio` player states (§4d). |
 | Gradle errors with a network/loopback error when YOU run it | The sandbox blocks it; let the user's watcher build, or just `adb install` the last APK (§2b). |
 

@@ -86,6 +86,15 @@ Detail and history: tasks/todo.md "NEXT: export speed".
 
 ## Lane 2 — The foundation that gets expensive after users arrive
 
+> **2026-10-13: superseded in scope by `tasks/SPEC_20261013_FILE_MANAGEMENT.md`** — the owner asked
+> for best-in-class file management across the WHOLE studio (Studio, JoyBrush, SpriteLab, VisLab),
+> not just Studio projects. The items below map into that spec's Phase 1. Key ordering from it: the
+> folder ships BEFORE the application ID changes (1.5), because the folder is the only bridge a new
+> ID can read.
+>
+> **2026-10-13 build:** the folder core, the Studio mirror/restore and the setup screen are built and compile
+> (17 core tests pass). Device test owed. Recordings/exports into the folder are next. See the spec's build log.
+
 | # | Item | Why now |
 |---|---|---|
 | 2.1 | **THE VAULT** — projects move out of app-private storage into a folder the user picks | Today it has to work on one phone. After launch it has to work on every phone, forever. |
@@ -101,7 +110,7 @@ Detail and history: tasks/todo.md "NEXT: export speed".
 
 | # | Item | Size |
 |---|---|---|
-| 3.1 | Default model off openrouter/auto | One line. Currently bills every new user on message one. |
+| 3.1 | ✅ **DONE 2026-10-13 (compile owed — watcher was off)** — default is now `openrouter/free`, the free router (owner: "their first experience is free and they can set to whatever later"). ChatAssistantActivity DEFAULT_MODEL + both AIToolExecutor reads. Users who already saved a model keep it. | One line. |
 | 3.2 | Cap the tool-calling loop; raise the reply limit to 4096 | Small |
 | 3.3 | Encrypt the stored API key | Small |
 | 3.4 | Rename ai_merge_transcript | Trivial |
@@ -109,7 +118,7 @@ Detail and history: tasks/todo.md "NEXT: export speed".
 | 3.6 | Streaming replies instead of a frozen "Thinking…" | Most of what makes an AI feel good |
 | 3.7 | Fix the three tools that only see the video track | One file, three functions, one at a time |
 | 3.8 | Split the AI networking behind one seam | Needed for everything after. Ship two providers: OpenRouter and a custom URL box. |
-| 3.9 | **Share-in** — accept an image or video from the Android share sheet, straight onto the timeline | The headline. Works with any AI app, no key. |
+| 3.9 | **Share-in** — accept an image or video from the Android share sheet, straight onto the timeline | The headline. Works with any AI app, no key. **Owner, 2026-10-13: implement "as soon as we have the perfect place to put things" — i.e. it lands right after the file home (Lane 2), not before.** |
 | 3.10 | generate_image through OpenRouter, into the project | Same pipeline as 3.9. Endpoint verified. |
 
 ## Lane 4 — What a stranger meets
@@ -125,6 +134,7 @@ Detail and history: tasks/todo.md "NEXT: export speed".
 | 4.7 | Store listing copy (generated from STATE.md) |
 | 4.8 | Website — GitHub Pages is free and sufficient |
 | 4.9 | 60–120 second demo video |
+| 4.10 | **The Lobby, fully polished** — added by the owner 2026-10-13 ("needs to be fully polished before we launch"). Known gap: it cannot open a different drawing; "New drawing" reopens the same one, and drawings have no thumbnails. Overlaps SPEC_20261013_FILE_MANAGEMENT Phase 2. Owner is scoping it. |
 
 ---
 

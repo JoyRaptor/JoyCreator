@@ -1,0 +1,576 @@
+<title>Joy Creator Folder Names</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column of decisions; the builder pairs controls with a live file-manager listing (side by side when wide). Joy Creator's own language: old black, zinc greys, flat pills, cyan only for "chosen". */
+:root {
+  color-scheme: dark;
+  --ground: #050507;
+  --panel: #111114;
+  --panel-2: #1C1C22;
+  --line: #26262E;
+  --line-2: #2C2C35;
+  --text: #E9E9EE;
+  --muted: #A1A1AC;
+  --faint: #6A6A76;
+  --chosen: #22D3EE;
+  --chosen-ink: #050507;
+  --careful: #FBBF24;
+  --display: "Bricolage Grotesque", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { background: var(--ground); color: var(--text); font-family: var(--body); font-size: 16px; line-height: 1.55; }
+.wrap { max-width: 1000px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; display: grid; gap: 44px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(30px, 6vw, 46px); line-height: 1.05; }
+h2 { font-size: 24px; }
+h3 { font-size: 17px; }
+p { margin: 0; max-width: 66ch; }
+.lede { color: var(--muted); font-size: 17px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+section { display: grid; gap: 16px; }
+.head { display: grid; gap: 10px; }
+
+/* the owner's rules as flat pills */
+.rules { display: flex; flex-wrap: wrap; gap: 8px; }
+.rule { background: var(--panel-2); border-radius: 999px; padding: 6px 12px; font-size: 14px; color: var(--muted); }
+
+/* direction cards */
+.dirs { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+.dir { background: var(--panel); border-radius: 14px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.dir .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.dir .from { font-size: 13px; color: var(--faint); }
+.dir p { font-size: 14px; color: var(--muted); }
+.pick { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--panel-2); color: var(--text); border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+.use { justify-self: start; font: inherit; font-size: 14px; font-weight: 700; color: var(--text); background: var(--panel-2); border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+.use:hover { background: var(--line-2); }
+.use[aria-pressed="true"] { background: var(--chosen); color: var(--chosen-ink); }
+
+/* file-manager listing */
+.fm { font-family: var(--mono); font-size: 13.5px; line-height: 1.5; background: var(--ground); border-radius: 10px; padding: 10px 12px; overflow-x: auto; }
+.fm ul { list-style: none; margin: 0; padding: 0; }
+.fm ul ul { padding-left: 22px; border-left: 1px solid var(--line); margin-left: 7px; }
+.fm li { white-space: nowrap; display: flex; flex-direction: column; }
+.row { display: flex; align-items: center; gap: 8px; padding: 1px 0; }
+.ico { width: 15px; height: 15px; flex: none; }
+.ico.folder { fill: var(--muted); }
+.ico.file { fill: none; stroke: var(--faint); stroke-width: 1.5; }
+.fm .is-folder > .row .nm { color: var(--text); font-weight: 500; }
+.fm .nm { color: var(--muted); }
+.fm .end { color: var(--faint); }
+.fm .count { color: var(--faint); font-size: 12px; }
+.fm .hidden-row { opacity: 0.45; }
+.fm .rootname { color: var(--text); font-weight: 500; }
+
+/* builder */
+.builder { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 860px) { .builder { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } .preview { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); } }
+.slots { display: grid; gap: 14px; min-width: 0; }
+.slot { background: var(--panel); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; }
+.slot .q { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.slot .q span { font-size: 13px; color: var(--faint); }
+.opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.opt { font: inherit; font-size: 14px; color: var(--muted); background: var(--panel-2); border: 0; border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.opt:hover { color: var(--text); background: var(--line-2); }
+.opt[aria-pressed="true"] { background: var(--chosen); color: var(--chosen-ink); font-weight: 700; }
+.opt.none { font-style: italic; }
+.note { font-size: 14px; color: var(--muted); min-height: 1.5em; }
+button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+.preview { background: var(--panel); border-radius: 14px; padding: 14px 16px; display: grid; gap: 12px; min-width: 0; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px; font-size: 14px; }
+.stat { background: var(--panel-2); border-radius: 999px; padding: 4px 11px; color: var(--muted); }
+.stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+.stat.warn { color: var(--careful); }
+.share { font-size: 14px; color: var(--muted); }
+.share code, .tip code { font-family: var(--mono); font-size: 13px; color: var(--text); }
+
+.copy { background: var(--panel); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; }
+.copy output { font-family: var(--mono); font-size: 13.5px; color: var(--text); background: var(--ground); border-radius: 10px; padding: 10px 12px; overflow-wrap: anywhere; user-select: all; }
+.copy .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.copied { font-size: 14px; color: var(--muted); }
+
+/* ideas + philosophies */
+.ideas { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
+.ideas li { background: var(--panel); border-radius: 12px; padding: 12px 16px; display: grid; gap: 4px; }
+.ideas li p { font-size: 15px; color: var(--muted); }
+.people { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.person { background: var(--panel); border-radius: 12px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.person .who { font-size: 13px; color: var(--faint); }
+.person p { font-size: 15px; color: var(--muted); }
+.person .take { color: var(--text); }
+.person.no .take { color: var(--careful); }
+.sources { font-size: 14px; color: var(--faint); display: grid; gap: 4px; }
+code { font-family: var(--mono); font-size: 0.9em; color: var(--text); }
+.rulebox { display: grid; gap: 10px; }
+.law { background: var(--panel); border-radius: 12px; padding: 12px 16px; display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; }
+.law .n { font-family: var(--mono); font-size: 12px; color: var(--chosen-ink); background: var(--text); border-radius: 999px; padding: 2px 9px; margin-top: 3px; white-space: nowrap; }
+.law p { font-size: 15px; color: var(--muted); }
+.law b { color: var(--text); }
+.pair { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+.mock { display: grid; gap: 8px; min-width: 0; }
+.dialog { background: rgba(28, 28, 34, 0.72); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-radius: 16px; padding: 16px; display: grid; gap: 10px; }
+.dialog p { font-size: 15px; color: var(--muted); }
+.dialog .sub { font-size: 14px; }
+.dialog .sub b { color: var(--text); }
+.dialog .end { justify-content: flex-end; }
+.opt.fake { cursor: default; }
+.opt.fake:hover { color: var(--muted); background: var(--panel-2); }
+.opt.fake[aria-pressed="true"], .opt.fake[aria-pressed="true"]:hover { background: var(--chosen); color: var(--chosen-ink); font-weight: 700; }
+.opt.strong, .opt.strong:hover { background: var(--text); color: var(--chosen-ink); font-weight: 700; }
+.check { display: flex; gap: 10px; align-items: center; font-size: 15px; color: var(--text); }
+.box { width: 18px; height: 18px; border-radius: 5px; background: var(--panel-2); flex: none; }
+.box.on { background: var(--chosen); box-shadow: inset 0 0 0 4px var(--chosen), inset 0 0 0 9px var(--chosen-ink); }
+.notes { display: grid; gap: 10px; min-width: 0; }
+.notes p { font-size: 15px; color: var(--muted); }
+.notes b { color: var(--text); }
+.fm .use-note { color: var(--faint); font-size: 12px; font-family: var(--body); }
+.persona .fm { margin-top: 4px; }
+.sources a { color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .opt, .use { transition: background-color .12s, color .12s; } }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <div class="eyebrow">Joy Creator · file home · 2026-10-13</div>
+    <h1>What should the folders be called?</h1>
+    <p class="lede">Six whole structures, then a builder to mix your own. Tap a name and the listing on the right shows exactly what a file manager would show. When you like it, copy the picks line and paste it back.</p>
+    <div class="rules" aria-label="Your rules">
+      <span class="rule">At the top of storage</span>
+      <span class="rule">You pick where</span>
+      <span class="rule">Fewest folders</span>
+      <span class="rule">Readable names</span>
+      <span class="rule">Just a folder, like Obsidian</span>
+      <span class="rule">Editable brush JSON</span>
+      <span class="rule">Uninstall loses nothing</span>
+    </div>
+  </header>
+
+  <section id="earned">
+    <div class="head">
+      <div class="eyebrow">Version 2 · from your notes</div>
+      <h2>Folders you earn</h2>
+      <p class="lede">The app starts with an empty Joy Creator folder and never makes a folder in advance. Your work goes at the top. A folder appears when you make one, or when you say yes to a suggestion once things pile up. A screen-recording-only user never sees a Recordings folder. A painter never sees Exports.</p>
+    </div>
+    <div class="rulebox">
+      <div class="law"><span class="n">Rule 1</span><p><b>Anything that belongs to a piece of work goes wherever that work lives.</b> Share-ins while a project is open, its exports, and its gathered files all follow the project file. A project at the top means the top. A project in <code>Client A/</code> means <code>Client A/</code>.</p></div>
+      <div class="law"><span class="n">Rule 2</span><p><b>Anything that belongs to no work goes to its folder if you have one, otherwise the top.</b> Share-ins with nothing open go to <code>Assets/</code> if it exists. Recordings go to <code>Recordings/</code> if it exists. Otherwise both go to the top.</p></div>
+      <div class="law"><span class="n">Rule 3</span><p><b>Nothing breaks when you move things.</b> The app keeps track of every file by its contents, not only its path. Move, rename or rearrange in any file manager and every project still finds its files. That's what lets you organize however you want.</p></div>
+    </div>
+
+    <h3>A month later, six different people</h3>
+    <div class="people" id="personas"></div>
+
+    <div class="pair">
+      <div class="mock">
+        <div class="eyebrow">The Consolidate button</div>
+        <div class="dialog" role="img" aria-label="Mock of the Gather into one folder dialog">
+          <h3>Gather Lecture 3 into one folder</h3>
+          <p>Moves 12 files into <code>Lecture 3/</code>, next to where the project is now. Other projects still find their files wherever they end up.</p>
+          <label class="check"><span class="box on" aria-hidden="true"></span>Also move the 6 recordings it uses</label>
+          <p class="sub"><b>4 files are also used by Lecture 2 and Dino walk.</b> Where should they go?</p>
+          <div class="opts"><span class="opt fake">Leave them where they are</span><span class="opt fake" aria-pressed="true">Move to Assets/</span></div>
+          <p class="sub">Move to Assets is already chosen because you have an Assets folder. Without one, the button reads "Make an Assets folder".</p>
+          <div class="opts end"><span class="opt fake">Cancel</span><span class="opt fake strong">Gather</span></div>
+        </div>
+      </div>
+      <div class="mock">
+        <div class="eyebrow">Finding things in the gallery</div>
+        <div class="dialog" role="img" aria-label="Mock of gallery filters">
+          <h3>Show</h3>
+          <div class="opts"><span class="opt fake" aria-pressed="true">Everything</span><span class="opt fake">Not used in any project</span><span class="opt fake">Used by 2+ projects</span><span class="opt fake">Used by this project</span><span class="opt fake">Loose recordings</span></div>
+          <p class="sub">Every file also shows where it's used, for example "used in Lecture 3, Dino walk". Select all, then move, gather or trash in one step.</p>
+          <h3>A suggestion, shown once</h3>
+          <p>You have 38 recordings at the top. Put them in a Recordings folder? New recordings will go there too.</p>
+          <div class="opts end"><span class="opt fake">Not now</span><span class="opt fake strong">Make Recordings folder</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <h2>Supplies: the things you make art with</h2>
+      <p class="lede">The built-in brushes, papers and fonts live inside the app, so they add no files. When you make, import or want to edit one, a copy lands here, in a folder named for its kind. Each kind folder appears only once you have one of that kind.</p>
+    </div>
+    <div class="pair">
+      <div class="fm" id="supplies"></div>
+      <div class="notes">
+        <p><b>One brush is one readable file.</b> The pictures it needs sit beside it and start with the same name, so they sort together: <code>Soft pencil.brush.json</code>, <code>Soft pencil.grain.png</code>, <code>Soft pencil.tip.png</code>. Open the JSON in any text editor and change it.</p>
+        <p><b>A set of brushes is a folder.</b> A downloaded set stays together, like <code>Inky set/</code>. The app also accepts one folder per brush, so nothing anyone shares gets refused.</p>
+        <p><b>Plugins are always a folder each.</b> They're bundles with their own pieces.</p>
+        <p><b>Want fonts or brushes at the top?</b> Drag the folder out. Rule 3 means the app still finds it.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <h2>Or start from a fixed structure</h2>
+      <p class="lede">The earlier six, for comparison. Each keeps your work one tap from the top.</p>
+    </div>
+    <div class="dirs" id="dirs"></div>
+  </section>
+
+  <section id="build">
+    <div class="head">
+      <h2>Mix your own</h2>
+      <p class="lede">Every slot is one folder. Options in italics mean "no folder at all".</p>
+    </div>
+    <div class="builder">
+      <div class="slots" id="slots"></div>
+      <div class="preview">
+        <div class="stats" id="stats"></div>
+        <div class="fm" id="tree" aria-live="polite"></div>
+        <p class="share" id="share"></p>
+      </div>
+    </div>
+    <div class="copy">
+      <h3>Your picks</h3>
+      <output id="line"></output>
+      <div class="bar">
+        <button class="use" id="copyBtn" type="button">Copy picks</button>
+        <span class="copied" id="copied" role="status"></span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <h2>Ideas that need no extra folders</h2>
+    </div>
+    <ul class="ideas">
+      <li><h3>Exports beside their work</h3><p><code>Lecture 3.mp4</code> sits next to <code>Lecture 3.joyproject</code>. Sort by name and each project lines up with everything it made. Sort by type and all the videos group together.</p></li>
+      <li><h3>Every kind of file has its own ending</h3><p><code>.joybrush</code>, <code>.brush.json</code>, <code>.palette.json</code>, <code>.sprite.json</code>. Sorting by type stays clean even in one flat folder, which is what lets the folder count stay this low.</p></li>
+      <li><h3>Dates written year, month, day</h3><p><code>Screen recording 2026-10-13 14.32.mp4</code>. Name order is then time order, without a "by date" folder.</p></li>
+      <li><h3>The gallery sorts; the folders don't have to</h3><p>Inside the app you get views like "by wing", "this week", "used in Lecture 3". They are views of the same files, so none of them adds a folder.</p></li>
+      <li><h3>Make a box whenever you want one</h3><p>The app reads the whole folder. Make <code>Client A/</code> or <code>Dinosaur series/</code> anywhere and it keeps working. The structure is a starting point you're free to rearrange.</p></li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="head">
+      <h2>How people with many moving parts organize</h2>
+      <p class="lede">What each approach contributes, and the one this page leaves out.</p>
+    </div>
+    <div class="people">
+      <div class="person"><h3>Your own work at the top</h3><div class="who">Steph Ango, CEO of Obsidian</div><p>Keeps his own notes in the vault's root, with only a few support folders (Attachments, Clippings, References). He avoids nesting because one note often belongs to several areas.</p><p class="take">Your work goes at the top. Side folders only for support material.</p></div>
+      <div class="person"><h3>First-order retrievability</h3><div class="who">Adam Savage, maker</div><p>The things you use most should be reachable without moving anything else out of the way. His tool carts are built around it.</p><p class="take">Nothing you use often sits more than one folder deep.</p></div>
+      <div class="person"><h3>Always Be Knolling</h3><div class="who">Tom Sachs, sculptor</div><p>Lay like things out side by side so you can see everything at once and spot what's missing.</p><p class="take">One ending per kind, so "sort by type" works like knolling.</p></div>
+      <div class="person"><h3>A box per project</h3><div class="who">Twyla Tharp, choreographer</div><p>Every dance starts with a labelled box that gathers everything that fed it. Movin' Out filled twelve boxes.</p><p class="take">"A box per project" is a choice in the builder, and anyone can make boxes later.</p></div>
+      <div class="person"><h3>Sort by how active it is</h3><div class="who">Tiago Forte, PARA</div><p>Projects, Areas, Resources, Archives, running from active to dormant. Finished things move out of sight but stay kept.</p><p class="take">An optional Archive folder.</p></div>
+      <div class="person"><h3>Start simple, earn structure</h3><div class="who">Nick Milo, ACE for Obsidian</div><p>Atlas, Calendar, Efforts. His advice is to start with the defaults and only customize once real use shows the need.</p><p class="take">Ship few folders. Let people add their own.</p></div>
+      <div class="person"><h3>One inbox, emptied later</h3><div class="who">David Allen, Getting Things Done</div><p>Everything new lands in one place first and gets sorted when you have a moment.</p><p class="take">An optional Inbox for things shared in.</p></div>
+      <div class="person"><h3>Mise en place</h3><div class="who">Professional kitchens</div><p>Ingredients are prepped and within reach before cooking starts, kept apart from finished plates.</p><p class="take">"What goes in" kept apart from "what comes out", and the kitchen names.</p></div>
+      <div class="person"><h3>Bins by media type</h3><div class="who">Film editors</div><p>Footage, Audio, Music, Graphics, Exports. It's familiar, but it breaks when a PDF, a script or a brush file arrives. That's the problem you raised with "Media".</p><p class="take">The in / out split, without sorting by media type.</p></div>
+      <div class="person"><h3>Stacks, one level deep</h3><div class="who">Procreate</div><p>The gallery groups drawings into stacks, and a stack can't hold another stack. People find things because it never gets deep.</p><p class="take">The app's gallery stays one level deep too.</p></div>
+      <div class="person no"><h3>Numbered everything</h3><div class="who">Johnny.Decimal</div><p>Areas, categories and IDs like <code>15.52 Trip to NYC</code>. It's powerful for paperwork.</p><p class="take">Left out: it's the code-number feel you don't want. Its one useful lesson, fewer and broader categories, is already here.</p></div>
+    </div>
+    <div class="sources">
+      <span>Sources:</span>
+      <a href="https://stephango.com/vault">Steph Ango, Obsidian vault template</a>
+      <a href="https://dcmp.org/media/19197-adam-savage-s-tested-one-day-builds-first-order-retrievability-tool-cart">Adam Savage's Tested, First Order Retrievability Tool Cart</a>
+      <a href="https://austinkleon.com/2018/03/05/a-new-bankers-box/">Austin Kleon on Twyla Tharp's box</a>
+      <a href="https://shop.buildingasecondbrain.com/products/the-para-method">Tiago Forte, The PARA Method</a>
+      <a href="https://blog.linkingyourthinking.com/notes/ace-folder-framework">Nick Milo, ACE folder framework</a>
+      <a href="https://johnnydecimal.com/documentation/areas-and-categories">Johnny.Decimal, areas and categories</a>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- options (word list with plain meanings) ----------
+  var SLOTS = [
+    { key: "top", q: "The folder itself", hint: "what you see at the top of storage", opts: [
+      ["Joy Creator", "The product's name. Easy to find by scrolling or searching."],
+      ["JoyCreator", "One word. Some file managers handle names without spaces more neatly."],
+      ["Joy", "Shortest. Easy to mistake for someone's personal folder."]
+    ]},
+    { key: "work", q: "Your work", hint: "projects, drawings, sprite sheets", opts: [
+      ["top", "At the top", "Your work is the first thing you see. Steph Ango and Adam Savage both point here."],
+      ["Work", "Work", "One plain folder. One more tap."],
+      ["Projects", "Projects", "Familiar from every editor. A drawing isn't really a project, though."],
+      ["Desk", "Desk", "Whatever's on your desk right now. Short and friendly."],
+      ["Bench", "Bench", "A workshop word for what's being built."],
+      ["boxes", "A box per project", "Twyla Tharp's way. Each piece gets its own folder, with its exports inside."]
+    ]},
+    { key: "in", q: "What goes in", hint: "recordings, imports, share-ins, sounds, PDFs", opts: [
+      ["Assets", "Assets", "Your pick. The word pros use for anything that goes into a piece. Not tied to media."],
+      ["Sources", "Sources", "Where things came from. Neutral, and it still fits files that aren't media."],
+      ["Materials", "Materials", "An artist's word for paint, paper and footage. 3D users may read it as surface shaders."],
+      ["Stock", "Stock", "Workshop word for raw material. Can also suggest stock footage."],
+      ["Stash", "Stash", "Friendly and loose. It reads as a pile more than a system."],
+      ["Pantry", "Pantry", "Ingredients waiting to be used. Best paired with Recipes and Served."],
+      ["Attachments", "Attachments", "Obsidian's own name for these files. Sounds a bit like email."],
+      ["Shared", "Shared", "Says what it's for: things more than one project uses. Pairs with boxes."],
+      ["top", "At the top", "No folder. Incoming files sit with your work. Fewest folders, busiest top."]
+    ]},
+    { key: "out", q: "What comes out", hint: "videos, GIFs, PNGs you exported", opts: [
+      ["Exports", "Exports", "The universal word. Everyone knows it."],
+      ["Finished", "Finished", "Plain English. But an export can be a rough draft."],
+      ["Shelf", "Shelf", "Workshop: finished pieces set aside. Short."],
+      ["Served", "Served", "Part of the kitchen set. Only makes sense with Pantry and Recipes."],
+      ["Made", "Made", "Short and warm, but a little vague."],
+      ["Out", "Out", "The shortest. Reads best with an In-style folder."],
+      ["beside", "Beside the work", "No folder. Lecture 3.mp4 sits next to Lecture 3.joyproject, so name order pairs them."]
+    ]},
+    { key: "kit", q: "Tools and looks", hint: "brushes, papers, palettes, looks, fonts, mods", opts: [
+      ["Supplies", "Supplies", "Art-store word: the things you make art with. Brushes, papers, palettes, fonts, looks, plugins."],
+      ["Gear", "Gear", "Short and friendly. Can suggest hardware, like cameras and mics."],
+      ["Kit", "Kit", "Short, but it doesn't say what's inside. Your concern, and a fair one."],
+      ["Tools", "Tools", "Plain. Palettes and colour looks aren't quite tools, though."],
+      ["Toolbox", "Toolbox", "A familiar picture, a little longer."],
+      ["Recipes", "Recipes", "Brush and style files really are recipes you can edit. Part of the kitchen set."],
+      ["Library", "Library", "Common in apps. Easy to confuse with a media library."]
+    ]}
+  ];
+  var ADDONS = [
+    ["inbox", "Inbox", "From Getting Things Done. Things shared in wait here until you place them."],
+    ["archive", "Archive", "From PARA. Finished work moves out of sight without being deleted."],
+    ["rec", "Recordings", "Recordings get their own folder instead of mixing with other incoming files."]
+  ];
+
+  var DIRS = [
+    { id: "plain", name: "Assets · Exports · Supplies", from: "Your words",
+      text: "Work at the top, three side folders named for what they hold. The fixed version of Folders you earn.",
+      s: { top: "Joy Creator", work: "top", in: "Assets", out: "Exports", kit: "Supplies", inbox: false, archive: false, rec: true } },
+    { id: "workshop", name: "Workshop", from: "Adam Savage", text: "Raw stock comes in, finished pieces go on the shelf, tools hang on the wall.",
+      s: { top: "Joy Creator", work: "top", in: "Stock", out: "Shelf", kit: "Tools", inbox: false, archive: false, rec: false } },
+    { id: "kitchen", name: "Kitchen", from: "Mise en place", text: "Pantry, Recipes, Served. Brush files really are recipes you can open and tweak.",
+      s: { top: "Joy Creator", work: "top", in: "Pantry", out: "Served", kit: "Recipes", inbox: false, archive: false, rec: false } },
+    { id: "obsidian", name: "Obsidian way", from: "Steph Ango", text: "Work at the top, Attachments for everything else, exports right beside what made them.",
+      s: { top: "Joy Creator", work: "top", in: "Attachments", out: "beside", kit: "Kit", inbox: false, archive: false, rec: false } },
+    { id: "flat", name: "Almost flat", from: "Knolling", text: "One folder for tools, and that's all. Every file's ending keeps type-sorting clean.",
+      s: { top: "Joy Creator", work: "top", in: "top", out: "beside", kit: "Kit", inbox: false, archive: false, rec: false } },
+    { id: "boxes", name: "Boxes", from: "Twyla Tharp", text: "A folder per piece, holding its exports. Shared holds what several projects use.",
+      s: { top: "Joy Creator", work: "boxes", in: "Shared", out: "beside", kit: "Kit", inbox: false, archive: false, rec: false } }
+  ];
+
+  var state = Object.assign({}, DIRS[0].s);
+
+  // ---------- sample files ----------
+  var WORK = [
+    { n: "Dino walk.joybrush", w: "Dino walk" },
+    { n: "Lecture 3.joyproject", w: "Lecture 3" },
+    { n: "Star guy.png", w: "Star guy" },
+    { n: "Star guy.sprite.json", w: "Star guy" }
+  ];
+  var IN = [
+    { n: "From ChatGPT 2026-10-13 14.40.png", share: true },
+    { n: "Rain loop.wav" },
+    { n: "Screen recording 2026-10-13 14.32.mp4", rec: true },
+    { n: "Script notes.pdf" }
+  ];
+  var OUT = [
+    { n: "Dino walk.gif", w: "Dino walk" },
+    { n: "Lecture 3 720p.mp4", w: "Lecture 3" },
+    { n: "Lecture 3.mp4", w: "Lecture 3" }
+  ];
+  var KIT = ["Autumn.palette.json", "Bold yellow.caption.json", "Cold press.paper.json", "Inter.ttf",
+    "Neon bars.waveform.json", { folder: "Retro pack", kids: ["mod.json", "Chalk.brush.json"] }, "Soft pencil.brush.json", "Warm film.grade.json"];
+
+  function labelOf(slotKey, val) {
+    var slot = SLOTS.filter(function (s) { return s.key === slotKey; })[0];
+    for (var i = 0; i < slot.opts.length; i++) {
+      var o = slot.opts[i];
+      if (o.length === 2 ? o[0] === val : o[0] === val) return o.length === 2 ? o[0] : o[1];
+    }
+    return val;
+  }
+
+  // ---------- build the listing ----------
+  function build(s) {
+    var root = { folders: {}, files: [] };
+    function folder(parent, name) { if (!parent.folders[name]) parent.folders[name] = { folders: {}, files: [] }; return parent.folders[name]; }
+    function workHome(w) {
+      if (s.work === "top") return root;
+      if (s.work === "boxes") return folder(root, w);
+      return folder(root, s.work);
+    }
+    WORK.forEach(function (f) { workHome(f.w).files.push(f.n); });
+    IN.forEach(function (f) {
+      var home;
+      if (f.share && s.inbox) home = folder(root, "Inbox");
+      else if (f.rec && s.rec) home = folder(root, "Recordings");
+      else home = s.in === "top" ? root : folder(root, s.in);
+      home.files.push(f.n);
+    });
+    OUT.forEach(function (f) { (s.out === "beside" ? workHome(f.w) : folder(root, s.out)).files.push(f.n); });
+    var kit = folder(root, s.kit);
+    KIT.forEach(function (k) { if (typeof k === "string") kit.files.push(k); else { var sub = folder(kit, k.folder); sub.files = k.kids.slice(); } });
+    if (s.archive) {
+      if (s.work === "boxes") folder(folder(root, "Archive"), "Lecture 2").files.push("Lecture 2.joyproject");
+      else folder(root, "Archive").files.push("Lecture 2.joyproject");
+    }
+    return root;
+  }
+
+  var FOLDER_SVG = '<svg class="ico folder" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 3.5a1 1 0 0 1 1-1h3.6l1.5 1.6h5.9a1 1 0 0 1 1 1v7.4a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/></svg>';
+  var FILE_SVG = '<svg class="ico file" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 1.75h6l3 3v9.5h-9z"/><path d="M9.5 1.75v3h3"/></svg>';
+
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function fileRow(f) {
+    var n = typeof f === "string" ? f : f.n, note = typeof f === "string" ? "" : f.note;
+    var dot = n.indexOf(".");
+    var base = dot > 0 ? n.slice(0, dot) : n, end = dot > 0 ? n.slice(dot) : "";
+    return '<li><span class="row">' + FILE_SVG + '<span class="nm">' + esc(base) + '<span class="end">' + esc(end) + "</span></span>" + (note ? ' <span class="use-note">' + esc(note) + "</span>" : "") + "</span></li>";
+  }
+  function nameOf(f) { return typeof f === "string" ? f : f.n; }
+  function sortNames(a, b) { a = nameOf(a); b = nameOf(b); return a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }); }
+
+  // Android file managers list folders A→Z, then files A→Z.
+  function listHtml(node, depth, maxDepth, cap) {
+    var out = "<ul>";
+    Object.keys(node.folders).sort(sortNames).forEach(function (name) {
+      var kid = node.folders[name];
+      var n = Object.keys(kid.folders).length + kid.files.length;
+      out += '<li class="is-folder"><span class="row">' + FOLDER_SVG + '<span class="nm">' + esc(name) + "/</span>";
+      if (depth >= maxDepth || (cap && n > cap)) out += ' <span class="count">' + n + (n === 1 ? " item" : " items") + "</span></span></li>";
+      else out += "</span>" + listHtml(kid, depth + 1, maxDepth, cap) + "</li>";
+    });
+    node.files.slice().sort(sortNames).forEach(function (f) { out += fileRow(f); });
+    if (depth === 0 && !node.noHidden) out += '<li class="is-folder hidden-row"><span class="row">' + FOLDER_SVG + '<span class="nm">.joycreator/</span> <span class="count">hidden: Trash, versions, settings</span></span></li>';
+    return out + "</ul>";
+  }
+  function treeHtml(s, maxDepth) {
+    return '<div class="row"><span class="rootname">/ ' + esc(s.top) + "</span></div>" + listHtml(build(s), 0, maxDepth);
+  }
+
+  // ---------- direction cards ----------
+  var dirsEl = document.getElementById("dirs");
+  function renderDirs() {
+    dirsEl.innerHTML = DIRS.map(function (d) {
+      var same = SLOTS.every(function (sl) { return state[sl.key] === d.s[sl.key]; }) && ADDONS.every(function (a) { return state[a[0]] === d.s[a[0]]; });
+      return '<article class="dir"><div class="top"><h3>' + esc(d.name) + "</h3>" + (d.pick ? '<span class="pick">Lead’s pick</span>' : "") + "</div>" +
+        '<div class="from">' + esc(d.from) + "</div><p>" + esc(d.text) + "</p>" +
+        '<div class="fm">' + treeHtml(d.s, 0) + "</div>" +
+        '<button class="use" type="button" data-dir="' + d.id + '" aria-pressed="' + same + '">' + (same ? "In the builder" : "Use this one") + "</button></article>";
+    }).join("");
+  }
+  dirsEl.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-dir]"); if (!b) return;
+    var d = DIRS.filter(function (x) { return x.id === b.getAttribute("data-dir"); })[0];
+    state = Object.assign({}, d.s);
+    renderAll();
+    document.getElementById("build").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  });
+
+  // ---------- slots ----------
+  var slotsEl = document.getElementById("slots");
+  function renderSlots() {
+    var html = SLOTS.map(function (sl) {
+      var note = "";
+      var btns = sl.opts.map(function (o) {
+        var val = o.length === 2 ? o[0] : o[0];
+        var label = o.length === 2 ? o[0] : o[1];
+        var desc = o.length === 2 ? o[1] : o[2];
+        var on = state[sl.key] === val;
+        if (on) note = desc;
+        var none = (val === "top" && sl.key !== "work") || val === "beside";
+        return '<button type="button" class="opt' + (none ? " none" : "") + '" data-slot="' + sl.key + '" data-val="' + esc(val) + '" aria-pressed="' + on + '">' + esc(label) + "</button>";
+      }).join("");
+      return '<div class="slot"><div class="q"><h3>' + esc(sl.q) + "</h3><span>" + esc(sl.hint) + '</span></div><div class="opts" role="group" aria-label="' + esc(sl.q) + '">' + btns + '</div><p class="note">' + esc(note) + "</p></div>";
+    }).join("");
+    var addNotes = [];
+    var addBtns = ADDONS.map(function (a) {
+      if (state[a[0]]) addNotes.push(a[1] + ": " + a[2]);
+      return '<button type="button" class="opt" data-addon="' + a[0] + '" aria-pressed="' + !!state[a[0]] + '">+ ' + esc(a[1]) + "</button>";
+    }).join("");
+    html += '<div class="slot"><div class="q"><h3>Optional extra folders</h3><span>off unless you want them</span></div><div class="opts">' + addBtns +
+      '</div><p class="note">' + esc(addNotes.length ? addNotes.join(" ") : "None on. Each one adds a folder at the top.") + "</p></div>";
+    slotsEl.innerHTML = html;
+  }
+  slotsEl.addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    if (b.hasAttribute("data-slot")) {
+      var k = b.getAttribute("data-slot"), v = b.getAttribute("data-val");
+      state[k] = v;
+    } else if (b.hasAttribute("data-addon")) {
+      var a = b.getAttribute("data-addon"); state[a] = !state[a];
+    }
+    renderAll();
+  });
+
+  // ---------- preview, stats, picks ----------
+  function renderPreview() {
+    var root = build(state);
+    var top = Object.keys(root.folders).length;
+    var loose = root.files.length;
+    var deepest = state.work === "top" ? 1 : 2;
+    document.getElementById("stats").innerHTML =
+      '<span class="stat' + (top > 5 ? " warn" : "") + '"><b>' + top + "</b> folder" + (top === 1 ? "" : "s") + " at the top</span>" +
+      '<span class="stat"><b>' + loose + "</b> loose file" + (loose === 1 ? "" : "s") + " at the top</span>" +
+      '<span class="stat">work is <b>' + deepest + "</b> tap" + (deepest === 1 ? "" : "s") + " in</span>";
+    document.getElementById("tree").innerHTML = treeHtml(state, 2);
+    var dest = state.inbox ? "Inbox/" : (state.in === "top" ? "the top of " + state.top + "/" : state.in + "/");
+    document.getElementById("share").innerHTML = "Share to Joy Creator lands in <code>" + esc(dest) + "</code>. With the Studio open it also goes onto the timeline.";
+    var adds = ADDONS.filter(function (a) { return state[a[0]]; }).map(function (a) { return a[1]; });
+    document.getElementById("line").textContent = "Folder picks: " + state.top +
+      " · work " + labelOf("work", state.work) + " · in " + labelOf("in", state.in) +
+      " · out " + labelOf("out", state.out) + " · tools " + labelOf("kit", state.kit) +
+      " · extras " + (adds.length ? adds.join(", ") : "none");
+  }
+  function renderAll() { renderSlots(); renderPreview(); renderDirs(); }
+
+  document.getElementById("copyBtn").addEventListener("click", function () {
+    var line = document.getElementById("line"), msg = document.getElementById("copied");
+    var text = line.textContent;
+    function selectIt() { var r = document.createRange(); r.selectNodeContents(line); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); msg.textContent = "Selected. Copy it from here."; }
+    try {
+      navigator.clipboard.writeText(text).then(function () { msg.textContent = "Copied. Paste it into the chat."; }, selectIt);
+    } catch (err) { selectIt(); }
+  });
+
+  // ---------- folders you earn: six people, a month in ----------
+  function F(files, folders) { return { files: files || [], folders: folders || {} }; }
+  function many(prefix, ext, count) { var a = []; for (var i = 1; i <= count; i++) a.push(prefix + " " + i + ext); return a; }
+  var PERSONAS = [
+    { who: "Only screen recording", what: "No folders at all. Their recordings are their work, so they sit at the top.",
+      root: F(["Screen recording 2026-10-02 09.15.mp4", "Screen recording 2026-10-07 16.40.mp4", "Screen recording 2026-10-13 14.32.mp4"]) },
+    { who: "Only painting", what: "Drawings with their PNGs beside them. Supplies appeared the day they tuned a brush.",
+      root: F(["Dino walk.joybrush", "Dino walk.png", "Fox study.joybrush", "Fox study.png"],
+        { Supplies: F([], { Brushes: F(["Soft pencil.brush.json", "Soft pencil.grain.png"]) }) }) },
+    { who: "Video, with lots of takes", what: "Said yes to the Recordings suggestion. Range exports for remixing sit beside the project.",
+      root: F(["Lecture 3 0.45-2.10.mp4", "Lecture 3.joyproject", "Lecture 3.mp4"],
+        { Assets: F([{ n: "Intro music.mp3", note: "used in 4" }, { n: "Logo.png", note: "used in 6" }]), Recordings: F(many("Take", ".mp4", 38)) }) },
+    { who: "Makes art for videos", what: "Sprites and drawings at the top next to the project that uses them. The gallery shows where each is used.",
+      root: F([{ n: "Lecture 3.joyproject" }, { n: "Lecture 3.mp4" }, { n: "Rex.joybrush", note: "used in 2" }, { n: "Star guy.png", note: "used in 3" }, { n: "Star guy.sprite.json", note: "used in 3" }]) },
+    { who: "Audio only", what: "Podcast projects and their exports at the top, voice takes in Recordings, a jingle in Assets.",
+      root: F(["Podcast 12.joyproject", "Podcast 12.m4a", "Podcast 13.joyproject"],
+        { Assets: F([{ n: "Jingle.wav", note: "used in 13" }]), Recordings: F(many("Mic take", ".m4a", 9)) }) },
+    { who: "Power user", what: "Gathered each client into a box, keeps shared music in Assets and final cuts in Finished, and has every kind of supply.",
+      root: F([], {
+        "Client A": F(["Promo.joyproject", "Promo.mp4", "Promo 15s.mp4"]),
+        "Client B": F(["Explainer.joyproject", "Explainer.mp4"]),
+        Assets: F(many("Track", ".wav", 12)), Finished: F(["Promo final.mp4", "Explainer final.mp4"]),
+        Supplies: F([], { Brushes: F([], { "Inky set": F() }), Fonts: F(["Inter.ttf"]), Palettes: F(["Autumn.palette.json"]), Plugins: F([], { "Beat sync": F() }) })
+      }) }
+  ];
+  document.getElementById("personas").innerHTML = PERSONAS.map(function (p) {
+    return '<div class="person persona"><h3>' + esc(p.who) + '</h3><p>' + esc(p.what) + '</p><div class="fm"><div class="row"><span class="rootname">/ Joy Creator</span></div>' + listHtml(p.root, 0, 2, 6) + "</div></div>";
+  }).join("");
+
+  var SUP = F([], {
+    Supplies: F([], {
+      Brushes: F(["Chalk.brush.json", "Soft pencil.brush.json", "Soft pencil.grain.png", "Soft pencil.tip.png"], { "Inky set": F(["Dry ink.brush.json", "Wet ink.brush.json"]) }),
+      Fonts: F(["Inter.ttf"]),
+      Looks: F(["Bold yellow.caption.json", "Neon bars.waveform.json", "Warm film.grade.json"]),
+      Palettes: F(["Autumn.palette.json"]),
+      Papers: F(["Cold press.paper.json", "Cold press.png"]),
+      Plugins: F([], { "Beat sync": F(["plugin.json", "beat-sync.js"]) })
+    })
+  });
+  SUP.noHidden = true;
+  document.getElementById("supplies").innerHTML = '<div class="row"><span class="rootname">/ Joy Creator</span></div>' + listHtml(SUP, 0, 3);
+
+  renderAll();
+})();
+</script>

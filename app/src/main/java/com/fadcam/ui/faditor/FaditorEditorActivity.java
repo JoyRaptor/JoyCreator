@@ -1896,6 +1896,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         super.onResume();
         checkRunningExportState();
         takeSharedFiles(0);
+        refreshOutsideDot();
 
         // A sequence offer parked by the picker's result callback (see the field's doc).
         if (pendingSequenceOffer != null) {
@@ -2193,6 +2194,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Long-press too: JoyRaptor remembers renaming by holding the title, and a rename that
         // only answers one of the two presses people try is a rename that seems broken.
         editorTitle.setOnLongClickListener(v -> { showRenameProjectDialog(); return true; });
+        addOutsideDot();
         editorTimeline.setOnTrackHeaderActionListener(this::onTrackHeaderAction);
         editorTimeline.setOnTrackHeaderLongPressListener(this::onTrackHeaderLongPress);
         editorTimeline.setLayerGestureCallback(layerGestureCallback());
@@ -4869,6 +4871,170 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (editorTimeline != null) editorTimeline.setBookmarks(marks);
         com.fadcam.ui.faditor.project.BookmarkStore.save(
                 projectStorage.projectDir(project.getId()), marks);
+    }
+
+    // ── Files outside the Joy Creator folder ─────────────────────────────
+    //
+    // The owner, 2026-10-14: a really large file is LINKED where it is (copying a 2 GB recording
+    // doubles it), with a warning and a Copy button; the project can be gathered into the folder at
+    // any time; and a yellow dot shows a project still uses files from outside it. Tap the dot to
+    // bring them in. Small files are already copied (copyUriToInternalStorage, then the folder mirror).
+
+    /** The yellow dot after the title: this project links to files outside the folder. */
+    private TextView outsideDot;
+    /** Large files already warned about this session, so one file is one warning. */
+    private final java.util.Set<String> largeWarned = new java.util.HashSet<>();
+
+    private void addOutsideDot() {
+        if (editorTitle == null || !(editorTitle.getParent() instanceof ViewGroup)) return;
+        ViewGroup bar = (ViewGroup) editorTitle.getParent();
+        outsideDot = new TextView(this);
+        outsideDot.setText("\u25CF");
+        outsideDot.setTextColor(Studio.CAREFUL);
+        outsideDot.setTextSize(14);
+        outsideDot.setGravity(android.view.Gravity.CENTER);
+        int d = Math.round(36 * getResources().getDisplayMetrics().density);
+        outsideDot.setLayoutParams(new LinearLayout.LayoutParams(d, d));
+        String what = "Some files are outside your Joy Creator folder";
+        outsideDot.setContentDescription(what);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) outsideDot.setTooltipText(what);
+        outsideDot.setVisibility(View.GONE);
+        outsideDot.setOnClickListener(v -> showOutsideDialog());
+        bar.addView(outsideDot, bar.indexOfChild(editorTitle) + 1);
+    }
+
+    /** The outside files the project in memory uses. Main thread (string checks and a stat). */
+    @NonNull
+    private java.util.List<String> outsideRefs() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        if (project == null || !com.fadcam.joyfolder.android.JoyFolderHome.isChosen(this)) return out;
+        java.util.Set<String> refs = new java.util.LinkedHashSet<>(
+                com.fadcam.ui.faditor.project.ProjectIntegrity.collectMediaUris(project).keySet());
+        // Pictures placed as image overlays (the IMG track) keep their link on the overlay.
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : project.getTimeline().getTextOverlays()) {
+            if (o != null && o.getImageUri() != null && !o.getImageUri().isEmpty()) refs.add(o.getImageUri());
+        }
+        for (String ref : refs) {
+            if (com.fadcam.joyfolder.studio.StudioMirror.isOutside(this, ref)) out.add(ref);
+        }
+        return out;
+    }
+
+    private void refreshOutsideDot() {
+        if (outsideDot == null) return;
+        outsideDot.setVisibility(outsideRefs().isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
+    private void noteLargeLinked(@NonNull Uri uri, long size) {
+        if (!com.fadcam.joyfolder.android.JoyFolderHome.isChosen(this)
+                || !com.fadcam.joyfolder.studio.StudioMirror.isOutside(this, uri.toString())
+                || !largeWarned.add(uri.toString())) return;
+        runOnUiThread(() -> {
+            if (isFinishing()) return;
+            View root = findViewById(android.R.id.content);
+            if (root == null) return;
+            com.google.android.material.snackbar.Snackbar.make(root,
+                            "This is a large file (" + android.text.format.Formatter.formatShortFileSize(this, size)
+                                    + "), so it's linked where it is, not copied. Copy it into your Joy Creator folder?",
+                            com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
+                    .setDuration(10_000)
+                    .setActionTextColor(0xFF22D3EE)
+                    .setAction("Copy", v -> bringInOutside(java.util.Collections.singletonList(uri.toString())))
+                    .show();
+            // The clip lands just after this returns: show the dot once it has.
+            if (outsideDot != null) outsideDot.postDelayed(this::refreshOutsideDot, 600);
+        });
+    }
+
+    private void showOutsideDialog() {
+        final java.util.List<String> refs = outsideRefs();
+        if (refs.isEmpty()) { refreshOutsideDot(); return; }
+        final android.content.Context app = getApplicationContext();
+        com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+            long bytes = 0;
+            for (String r : refs) bytes += Math.max(0, com.fadcam.joyfolder.studio.StudioMirror.sizeOf(app, r));
+            final long total = bytes;
+            runOnUiThread(() -> {
+                if (isFinishing()) return;
+                int n = refs.size();
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle(n == 1 ? "1 file is outside your folder" : n + " files are outside your folder")
+                        .setMessage((n == 1 ? "It's" : "They're") + " linked where " + (n == 1 ? "it is" : "they are")
+                                + " (" + android.text.format.Formatter.formatShortFileSize(this, total) + "), not copied. "
+                                + "If " + (n == 1 ? "it's" : "one is") + " moved or deleted there, the project loses it, "
+                                + "and a new phone won't have it.\n\nBring " + (n == 1 ? "it" : "them")
+                                + " in to keep the project whole: "
+                                + (n == 1 ? "it's" : "they're") + " copied beside the project in your Joy Creator folder.")
+                        .setPositiveButton("Bring " + (n == 1 ? "it" : "them") + " in", (d, w) -> bringInOutside(refs))
+                        .setNegativeButton("Not now", null)
+                        .show();
+            });
+        });
+    }
+
+    /** Copy outside files into the folder and point the project at the copies. */
+    private void bringInOutside(@NonNull java.util.List<String> refs) {
+        if (project == null || refs.isEmpty()) return;
+        saveProjectNow();
+        final String id = project.getId();
+        final android.content.Context app = getApplicationContext();
+        Toast.makeText(this, refs.size() == 1 ? "Copying into your Joy Creator folder\u2026"
+                : "Copying " + refs.size() + " files into your Joy Creator folder\u2026", Toast.LENGTH_SHORT).show();
+        com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+            java.util.Map<String, Uri> copied = new java.util.HashMap<>();
+            String problem = null;
+            for (String ref : refs) {
+                try {
+                    copied.put(ref, com.fadcam.joyfolder.studio.StudioMirror.bringIn(app, id, ref));
+                } catch (Exception e) {
+                    problem = e.getMessage();
+                }
+            }
+            final String why = problem;
+            runOnUiThread(() -> {
+                if (isFinishing() || project == null) return;
+                int n = replaceMediaSources(copied);
+                if (n > 0) saveProjectNow();
+                refreshOutsideDot();
+                Toast.makeText(this, why == null
+                                ? (copied.size() == 1 ? "Copied into your Joy Creator folder." : "Copied " + copied.size() + " files into your Joy Creator folder.")
+                                : "Copied " + copied.size() + " of " + refs.size() + ". The rest stay linked: " + why,
+                        Toast.LENGTH_LONG).show();
+            });
+        });
+    }
+
+    /**
+     * Point every clip, overlay and audio clip that uses one of these files at its copy. Same
+     * picture, same trims: only where it is read from changes, so there is nothing to undo.
+     */
+    private int replaceMediaSources(@NonNull java.util.Map<String, Uri> copies) {
+        if (copies.isEmpty() || project == null) return 0;
+        Timeline tl = project.getTimeline();
+        int n = 0;
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            Uri to = c == null ? null : copies.get(c.getSourceUri().toString());
+            if (to != null) { c.setSourceUri(to); n++; }
+        }
+        for (Clip c : tl.getOverlayClips()) {
+            Uri to = c == null ? null : copies.get(c.getSourceUri().toString());
+            if (to != null) { c.setSourceUri(to); n++; }
+        }
+        for (AudioClip ac : tl.getAudioClips()) {
+            Uri to = ac == null || ac.getSourceUri() == null ? null : copies.get(ac.getSourceUri().toString());
+            if (to != null) { ac.setSourceUri(to); n++; }
+        }
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
+            Uri to = o == null || o.getImageUri() == null ? null : copies.get(o.getImageUri());
+            if (to != null) { o.setImageUri(to.toString()); n++; }
+        }
+        if (n > 0) {
+            resolvableCache.clear();
+            if (editorTimeline != null) editorTimeline.setTimeline(tl, selectedClipIndex);
+            syncTimelineOverlays();
+        }
+        return n;
     }
 
     private void updateEditorTitle() {
@@ -10784,6 +10950,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             } catch (Exception ignored) {}
             if (size > 10_000_000) {
                 FLog.d(TAG, "Skipping copy for large file (" + (size / 1024 / 1024) + "MB): " + uri);
+                noteLargeLinked(uri, size);
                 return uri;
             }
             java.io.File dir = new java.io.File(getFilesDir(), subDir);
@@ -45246,7 +45413,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             boolean isImage = type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE;
             long size = queryAssetSize(src);
             boolean shouldCopy = isImage || (size >= 0 && size <= ASSET_COPY_MAX_BYTES);
-            if (!shouldCopy) return src;
+            if (!shouldCopy) {
+                noteLargeLinked(src, size);
+                return src;
+            }
             File assetsDir = new File(projectStorage.projectDir(project.getId()), "assets");
             if (!assetsDir.exists() && !assetsDir.mkdirs()) return src;
             File dest = new File(assetsDir,

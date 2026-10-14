@@ -1323,6 +1323,20 @@ public class LobbyFragment extends BaseFragment {
         FrameLayout.LayoutParams cutLp = new FrameLayout.LayoutParams(dp(24), dp(24));
         cutLp.gravity = Gravity.BOTTOM | Gravity.END;
         thumbWrap.addView(cut, cutLp);
+        // The yellow dot: this project links to files outside the Joy Creator folder (the project
+        // list's dot brings them in; here it only says so).
+        if (item.projectId != null
+                && com.fadcam.joyfolder.studio.StudioMirror.outside(requireContext(), item.projectId) != null) {
+            TextView dot = new TextView(requireContext());
+            dot.setText("●");
+            dot.setTextColor(Studio.CAREFUL);
+            dot.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+            FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            dlp.gravity = Gravity.TOP | Gravity.END;
+            dlp.setMargins(0, dp(4), dp(7), 0);
+            thumbWrap.addView(dot, dlp);
+        }
         card.addView(thumbWrap);
 
         TextView name = new TextView(requireContext());

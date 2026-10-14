@@ -63,6 +63,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             return
         }
         val (preset, case, run) = job
+        if (case == "recordedCaptureProbe") { runRecordedCaptureCase(preset, case, run); return }
         val bakeOperator = when (case) {
             "recordedBakeProbe" -> "normal"
             "recordedBakeEraseProbe" -> "erase"
@@ -107,6 +108,118 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             }
         }, 300)
     }
+
+    private fun runRecordedCaptureCase(preset: BrushPreset, case: String, run: Int) {
+        val terminal = java.util.concurrent.atomic.AtomicBoolean(false)
+        val priorObserver = canvas.onDiagnosticStrokeCapture
+        val priorPreset = canvas.preset
+        val priorColor = canvas.colorArgb
+        val priorBrush = canvas.brush
+        val diagnosticBrush = priorBrush.copy(erase = false)
+        val diagnosticColor = spec.colors.getOrNull(spec.cases.indexOf(case)) ?: 0xFF356DAB.toInt()
+        var observer: ((JbCanvasView.DiagnosticStrokeCaptureResult) -> Unit)? = null
+        var latched: JbCanvasView.DiagnosticStrokeCaptureResult? = null
+        var captureCallbacks = 0
+        var upDispatched = false
+        var phase = "admission"
+        fun restoreObserver() {
+            if (canvas.onDiagnosticStrokeCapture === observer) canvas.onDiagnosticStrokeCapture = priorObserver
+        }
+        fun restoreBrushUi() {
+            restoreObserver()
+            if (canvas.preset === preset) canvas.preset = priorPreset
+            if (canvas.colorArgb == diagnosticColor) canvas.colorArgb = priorColor
+            if (canvas.brush == diagnosticBrush) canvas.brush = priorBrush
+        }
+        lateinit var timeout: Runnable
+        fun finish(report: org.json.JSONObject, abort: Boolean = false) {
+            if (!terminal.compareAndSet(false, true)) return
+            ui.removeCallbacks(timeout)
+            restoreBrushUi()
+            report.put("brush", preset.id).put("case", case).put("run", run)
+                .put("motionEventFixtureSampleCount", 24).put("motionEventFixtureDurationMs", 384)
+                .put("motionEventFixturePressure", 0.7).put("motionEventFixtureTilt", 0.4)
+                .put("motionEventFixtureOrientation", 0.3).put("captureCallbackCount", captureCallbacks)
+                .put("upDispatchCompleted", upDispatched)
+                .put("proofScope", "Synthetic MotionEvent dispatch through actual live raw capture and legacy GPU commit; exact captured replay parity only, no recording/Select/save activation")
+            logRecordedReport(report, preset.id, case, run)
+            if (abort) {
+                // A timed-out GL operation might already be executing. Stop this bench sequence so
+                // another synthetic stroke is not started while its eventual cleanup is pending.
+                jobs.clear()
+                Log.i(TAG, "done (inconclusive captured parity timeout; remaining jobs aborted)")
+                onDone()
+            } else ui.postDelayed({ next() }, spec.settleMs)
+        }
+        fun inconclusive(reason: String, abort: Boolean = false) {
+            finish(org.json.JSONObject().put("probe", "recordedCaptureParity").put("passed", false)
+                .put("inconclusive", true).put("phase", phase).put("failure", reason), abort)
+        }
+        timeout = Runnable { inconclusive("Captured parity bench timed out while waiting for $phase", abort = true) }
+        ui.postDelayed(timeout, 30_000L)
+        try {
+            // An ordinary clear is queued first. Admission subsequently checks the actual EMPTY
+            // physical target on GL before any DOWN; a fixed delay alone never grants admission.
+            canvas.preset = preset
+            canvas.brush = diagnosticBrush
+            canvas.colorArgb = diagnosticColor
+            canvas.clearCanvas()
+            canvas.prepareRecordedCaptureProbe { ticket, reason ->
+                try {
+                if (!terminal.get()) {
+                    if (ticket == null) {
+                        inconclusive(reason ?: "No actual empty-plane admission", abort = reason?.contains("timed out") == true)
+                    } else {
+                        phase = "actual MotionEvent DOWN/MOVE/UP capture"
+                        observer = { result ->
+                            if (!terminal.get()) {
+                                captureCallbacks++
+                                latched = if (captureCallbacks == 1) result else
+                                    JbCanvasView.DiagnosticStrokeCaptureResult.Refused("Diagnostic contact delivered multiple results")
+                            }
+                        }
+                        canvas.onDiagnosticStrokeCapture = observer
+                        val cx = canvas.width * 0.5f
+                        val cy = canvas.height * 0.5f
+                        val samples = (0 until 24).map { i ->
+                            val t = i / 23f
+                            StrokeReplay.Sample(cx + (t - 0.5f) * 92f, cy + (t - 0.5f) * 12f,
+                                0.7f, 0.4f, 0.3f, i * (384.0 / 23.0))
+                        }
+                        StrokeReplay.play(canvas, samples, null, onDown = {}, onUp = {
+                            upDispatched = true
+                            // Completion result is latched by the contact's original observer during
+                            // dispatch of UP. Restore it only AFTER that dispatch, then queue GL parity
+                            // behind endStroke. No assertion mistakes a raw UI callback for GPU truth.
+                            restoreBrushUi()
+                            if (!terminal.get()) when (val result = latched) {
+                                is JbCanvasView.DiagnosticStrokeCaptureResult.Captured -> {
+                                    phase = "queued actual legacy GPU commit/settlement/parity"
+                                    canvas.runRecordedCaptureProbe(ticket, result) { json ->
+                                        if (!terminal.get()) {
+                                            val report = try { org.json.JSONObject(json) } catch (e: Exception) {
+                                                org.json.JSONObject().put("passed", false).put("inconclusive", true)
+                                                    .put("failure", "Captured parity returned invalid JSON: ${e.message}")
+                                            }
+                                            finish(report, abort = report.optBoolean("callbackTimeout", false))
+                                        }
+                                    }
+                                }
+                                is JbCanvasView.DiagnosticStrokeCaptureResult.Refused -> inconclusive(result.reason)
+                                null -> inconclusive("Actual UP produced no latched captured record; no parity/activation claimed")
+                            }
+                        })
+                    }
+                }
+                } catch (e: Exception) {
+                    inconclusive("Captured parity admission callback ${e.javaClass.simpleName}: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            inconclusive("Captured parity bench ${e.javaClass.simpleName}: ${e.message}")
+        }
+    }
+
 
     /** Android truncates large single log messages. Preserve the exact UTF8 report across chunks. */
     private fun logRecordedReport(report: org.json.JSONObject, brush: String, case: String, run: Int) {

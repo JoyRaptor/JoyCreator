@@ -2202,6 +2202,206 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
+    class RecordedCaptureAdmission internal constructor()
+
+    private class RecordedCaptureAdmissionState(
+        val ticket: RecordedCaptureAdmission,
+        val epoch: Int,
+        val layerId: String,
+        val physicalDocumentCelId: String?,
+        val nextSerial: Long,
+        val engineDoc: cc.joycreator.joybrush.core.doc.JbDocument?,
+        val uiDoc: cc.joycreator.joybrush.core.doc.JbDocument?,
+        val paper: cc.joycreator.joybrush.core.doc.Paper,
+        val effectivePresetJson: String,
+        val stack: cc.joycreator.joybrush.core.layers.LayerStack,
+        val contentRevision: Long,
+        val paperRevision: Long,
+        val paperHistoryRevision: Long,
+        val undoHead: cc.joycreator.joybrush.core.paint.UndoLog.Step<Int>?,
+        val undoDepth: Int,
+        val heldTextures: Set<Int>,
+        val heldBytes: Long,
+        val otherLayerKeys: Map<String, Set<Long>>,
+    )
+
+    // GL-queue owned. A subsequent admission invalidates its predecessor; run consumes it once.
+    private var recordedCaptureAdmissionState: RecordedCaptureAdmissionState? = null
+
+    /** UI entry: returns only after an actual GL empty-plane check BEFORE MotionEvent DOWN. */
+    fun prepareRecordedCaptureProbe(ready: (RecordedCaptureAdmission?, String?) -> Unit) {
+        check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper())
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val terminal = java.util.concurrent.atomic.AtomicBoolean(false)
+        val timeout = Runnable {
+            if (terminal.compareAndSet(false, true)) ready(null, "Inconclusive: GL admission callback timed out")
+        }
+        fun answer(ticket: RecordedCaptureAdmission?, reason: String?) {
+            handler.post {
+                if (terminal.compareAndSet(false, true)) {
+                    handler.removeCallbacks(timeout)
+                    ready(ticket, reason)
+                }
+            }
+        }
+        handler.postDelayed(timeout, 10_000L)
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            answer(null, "Recorded capture parity admission is debug only")
+            return
+        }
+        val epoch = graphicsEpoch
+        val target = activeLayer
+        val serial = diagnosticSerial
+        val uiDocument = boardDocument
+        val uiPaper = documentPaperState
+        val admittedPreset = preset
+        val admittedErase = brush.erase
+        val admittedAmount = if (admittedPreset != null && !smoothingFromUser) admittedPreset.smoothing else smoothing
+        // allowLost prevents onGl's epoch filter silently dropping the result. The body explicitly
+        // refuses loss/epoch change, and timeout still resolves a missing/paused frame-work drain.
+        onGl(allowLost = true) {
+            if (terminal.get()) return@onGl
+            try {
+                recordedCaptureAdmissionState = null
+                check(engine.ready && !contentLost && graphicsEpoch == epoch) { "Graphics are unavailable/restarted" }
+                check(!drawing && !engine.strokeInProgress && !mediaStroke && !mediaErase && !editingMask) { "Finish the stroke/media/mask operation first" }
+                check(activeLayer == target && diagnosticSerial == serial && diagnosticContact == null) { "Diagnostic contact/layer changed before admission" }
+                check(tileBoardId == null && engine.tileBoardId == null) { "Periodic target cannot be admitted" }
+                val doc = engine.boardDocument
+                check(doc == uiDocument && boardDocument == uiDocument && documentPaperState == uiPaper && engine.documentPaper == uiPaper) { "Document/paper changed before admission" }
+                val layer = doc?.layers?.firstOrNull { it.id == target }
+                check(doc == null || layer != null) { "No physical target in current document" }
+                check(layer == null || (layer.kind == cc.joycreator.joybrush.core.doc.LayerKind.PAINT &&
+                    layer.animatedIn == null && layer.regions.isEmpty() && layer.cels.size == 1 &&
+                    (layer.sharedCelId == null || layer.sharedCelId == layer.cels.single().id))) { "Admission requires a static continuous shared paint plane" }
+                check(!engine.hasMediaState(target)) { "Admission requires a target without media payload" }
+                check(preset == admittedPreset && brush.erase == admittedErase) { "Brush changed before admission" }
+                check(diagnosticCaptureRefusal(admittedPreset, admittedErase, admittedAmount) == null) { "Current brush/contact cannot be captured by this diagnostic" }
+                val effective = checkNotNull(admittedPreset).let { if (admittedErase) it.copy(blend = "erase") else it }
+                val effectiveJson = cc.joycreator.joybrush.core.brush.BrushJson.encode(effective)
+                check(target in engine.layerIds() && engine.tileKeys(target).isEmpty()) { "Actual pre-stroke physical target is not empty" }
+                check(!engine.undo.canRedo) { "Admission requires no detached redo branch" }
+                check(serial < Long.MAX_VALUE) { "Diagnostic serial is exhausted" }
+                val ticket = RecordedCaptureAdmission()
+                recordedCaptureAdmissionState = RecordedCaptureAdmissionState(ticket, epoch, target,
+                    layer?.cels?.single()?.id, serial + 1L, doc, uiDocument, uiPaper, effectiveJson, engine.stack(target),
+                    boardContentRevision, paperRevision, paperHistoryRevision, engine.undo.peekUndo(),
+                    engine.undo.undoDepth, engine.undo.heldTextures(), engine.undo.heldBytes,
+                    engine.layerIds().filter { it != target }.associateWith { engine.tileKeys(it).toSet() })
+                answer(ticket, null)
+            } catch (e: Exception) {
+                answer(null, "Inconclusive admission: ${e.javaClass.simpleName}: ${e.message}")
+            }
+        }
+    }
+
+    /** UI entry AFTER UP's endStroke is queued. Captured means raw UI completion, not GPU commit. */
+    fun runRecordedCaptureProbe(ticket: RecordedCaptureAdmission,
+                                captured: DiagnosticStrokeCaptureResult.Captured,
+                                ready: (String) -> Unit) {
+        check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper())
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val terminal = java.util.concurrent.atomic.AtomicBoolean(false)
+        fun refusal(reason: String) = org.json.JSONObject().put("probe", "recordedCaptureParity")
+            .put("passed", false).put("inconclusive", true).put("failure", reason)
+            .put("originalEngineReleased", false).toString()
+        val timeout = Runnable {
+            if (terminal.compareAndSet(false, true)) ready(org.json.JSONObject(refusal(
+                "GL captured parity callback timed out; no activation claimed")).put("callbackTimeout", true).toString())
+        }
+        fun answer(result: String) {
+            handler.post {
+                if (terminal.compareAndSet(false, true)) { handler.removeCallbacks(timeout); ready(result) }
+            }
+        }
+        handler.postDelayed(timeout, 15_000L)
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            answer(refusal("Recorded capture parity is debug only")); return
+        }
+        val callbackEpoch = graphicsEpoch
+        val callbackSerial = diagnosticSerial
+        onGl(allowLost = true) {
+            if (terminal.get()) return@onGl
+            try {
+                val admission = checkNotNull(recordedCaptureAdmissionState) { "No current capture admission" }
+                check(admission.ticket === ticket) { "This capture admission was superseded" }
+                recordedCaptureAdmissionState = null // One use, including refusal.
+                check(engine.ready && !contentLost && callbackEpoch == admission.epoch && graphicsEpoch == admission.epoch) { "Graphics epoch changed" }
+                check(!drawing && !mediaStroke && !mediaErase && !editingMask && diagnosticContact == null) { "Another contact/tool is active" }
+                check(activeLayer == admission.layerId && captured.layerId == admission.layerId) { "Captured physical layer changed" }
+                check(callbackSerial == admission.nextSerial && diagnosticSerial == admission.nextSerial &&
+                    captured.record.id == "diagnostic-stroke-${admission.nextSerial}" &&
+                    captured.brush.id == "diagnostic-brush-${admission.nextSerial}" && captured.record.brushId == captured.brush.id) {
+                    "Captured header/serial does not match the admitted next contact"
+                }
+                // Document Cel.id in the capture header is NOT engine celId=null for the shared plane.
+                check(captured.physicalCelId == admission.physicalDocumentCelId) { "Captured document cel ownership changed" }
+                check(captured.record.seq == 0L && !captured.record.locked && captured.record.samples.isNotEmpty()) { "Unexpected captured raw record header" }
+                val admittedDefinition = cc.joycreator.joybrush.core.brush.BrushJson.decodeChecked(admission.effectivePresetJson)
+                val frozenDefinition = captured.brush.preset
+                check(cc.joycreator.joybrush.core.brush.BrushJson.encode(frozenDefinition.copy(id = admittedDefinition.id)) == admission.effectivePresetJson &&
+                    captured.record.colorArgb == captured.start.colorArgb && captured.record.samples.none { it.predicted }) {
+                    "Captured frozen definition/start colour/raw prediction header disagrees with admission"
+                }
+                val expectedBlend = when (frozenDefinition.blend) {
+                    "normal" -> StrokeBlend.NORMAL
+                    "erase" -> StrokeBlend.ERASE
+                    "multiply" -> StrokeBlend.MULTIPLY
+                    "screen" -> StrokeBlend.SCREEN
+                    else -> error("Unsupported captured operator")
+                }
+                check(captured.blend == expectedBlend) { "Captured live engine blend disagrees with frozen definition" }
+                check(engine.boardDocument == admission.engineDoc && boardDocument == admission.uiDoc &&
+                    engine.documentPaper == admission.paper && documentPaperState == admission.paper &&
+                    paperRevision == admission.paperRevision && paperHistoryRevision == admission.paperHistoryRevision &&
+                    engine.stack(admission.layerId) == admission.stack && tileBoardId == null && engine.tileBoardId == null) {
+                    "Document/paper/shared-plane/stack scope changed since admission"
+                }
+                val revisionsBeforeSettle = boardContentRevision - admission.contentRevision
+                val capturedIsWc = captured.brush.preset.engine == ENGINE_WATERCOLOUR
+                check(revisionsBeforeSettle == 1L || (capturedIsWc && revisionsBeforeSettle == 2L)) {
+                    "Expected one ordinary UP request and at most its already-completed WC fade"
+                }
+                // May legitimately finish a WC fade started by that queued UP. Its report is additional
+                // completion of this SAME stroke, not a new source capture or permission to paint.
+                val settledWc = engine.settleWatercolourFade()
+                if (settledWc) reportHistory()
+                check(!engine.strokeInProgress) { "Legacy stroke still active after settlement" }
+                check(!settledWc || revisionsBeforeSettle == 1L) { "WC fade was counted twice before host settlement" }
+                check(boardContentRevision == admission.contentRevision + revisionsBeforeSettle + (if (settledWc) 1L else 0L)) { "Unexpected content publication count" }
+                check(engine.boardDocument == admission.engineDoc && boardDocument == admission.uiDoc &&
+                    engine.documentPaper == admission.paper && documentPaperState == admission.paper &&
+                    engine.stack(admission.layerId) == admission.stack) { "Settlement changed the admitted document/paper/stack scope" }
+                check(!engine.hasMediaState(admission.layerId)) { "Target acquired an unsupported media payload" }
+                check(engine.undo.undoDepth == admission.undoDepth + 1 && !engine.undo.canRedo) { "Legacy history did not commit exactly one stroke" }
+                val step = checkNotNull(engine.undo.peekUndo()) { "Captured legacy stroke produced no history" }
+                check(step !== admission.undoHead && step.changes.isNotEmpty() && step.lines.isEmpty() && step.slabs.isEmpty() &&
+                    step.stackBefore == null && step.stackAfter == null && step.paperBefore == null && step.paperAfter == null &&
+                    step.documentBefore == null && step.documentAfter == null) { "Unexpected mixed/structural captured history step" }
+                val keys = engine.tileKeys(admission.layerId).toSet()
+                check(step.changes.all { it.layerId == admission.layerId && it.celId == null && it.before == null && it.after != null } &&
+                    step.changes.map { it.key }.toSet() == keys && step.changes.size == keys.size) {
+                    "Legacy history is not precisely one admitted empty-target/shared-plane stroke"
+                }
+                check(engine.undo.heldTextures() == admission.heldTextures && engine.undo.heldBytes == admission.heldBytes) { "Earlier history ownership changed" }
+                check(engine.layerIds().filter { it != admission.layerId }.associateWith { engine.tileKeys(it).toSet() } == admission.otherLayerKeys) { "Other physical layer tile scope changed" }
+                val frozen = captured.brush.preset
+                val result = cc.joycreator.joybrush.androidkit.gl.RecordedCaptureProbe.json(
+                    cc.joycreator.joybrush.androidkit.gl.RecordedCaptureProbe.run(engine, admission.layerId,
+                        frozen, captured.record.copy(seq = 1L)))
+                    .put("preStrokeEmptyPlaneVerifiedOnGl", true).put("admittedDiagnosticSerial", admission.nextSerial)
+                    .put("admittedGraphicsEpoch", admission.epoch).put("capturedDocumentCelId", captured.physicalCelId ?: org.json.JSONObject.NULL)
+                    .put("enginePhysicalCelAddress", org.json.JSONObject.NULL).put("hostCapturePublicationTokenVerified", true)
+                    .put("exactOneScopedLegacyStrokeVerified", true).put("hostSettledCapturedWc", settledWc)
+                    .put("originalEngineReleased", false)
+                answer(result.toString())
+            } catch (e: Exception) {
+                answer(refusal("Capture admission guard ${e.javaClass.simpleName}: ${e.message}"))
+            }
+        }
+    }
+
+
     private fun onGl(allowLost: Boolean = false, block: () -> Unit) {
         val epoch = graphicsEpoch
         queueEvent {

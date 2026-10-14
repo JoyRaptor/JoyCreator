@@ -589,7 +589,7 @@ October14 verified checkpoints (full milestone below remains incomplete):
 - [x] Review zero-replay saved-look factory with unresolved footprints and callback/input ownership guards:43 contract cases/backend514. Concrete GL loader, display and budgets remain open.
 - [x] Actual Note9 capture→legacy GPU→replay diagnostic exactRGBA8 for Ink/WC,2 tiles each; sourceccb4913bf, native193 and combinedAPK green. Real recording/Select/save remain unactivated.
 - [x] Concrete saved-engine factory source: shared GL renderer, complete engine texture protection and physical owner guards; backend531 passes17 new no-GL cases.
-- [ ] Verify concrete cold scene zero replay/composition and first-edit bake/undo/redo/archive on combined native/APK/Note9; real loader/display/save still separate.
+- [x] Verify concrete cold scene zero replay/composition and first-edit bake/undo/redo/archive on combined native/APK/Note9: sourceadbf3eb5,56 exactRGBA8 rows zero differences, Working unchanged. Real loader/display/save still separate.
 
 - [ ] Design per-cel GPU slab/look ownership and all-or-nothing edit/save/history transactions.
 - [ ] Freeze brush definitions under immutable document identities, capturing post-guide raw samples and live seed.

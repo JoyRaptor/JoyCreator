@@ -16,6 +16,15 @@
 #   .\tools\phone.ps1 log AudioLayerSync  dump logcat for one tag
 #   .\tools\phone.ps1 audio               our app's AudioTracks + allocation count
 #   .\tools\phone.ps1 build               last BUILD line from build.log, with its date
+#   .\tools\phone.ps1 who                 who holds the phone right now (the shared phone lock)
+#   .\tools\phone.ps1 claim <name> <why>  take the phone; refresh it the same way while you work
+#   .\tools\phone.ps1 release <name>      give it back
+#
+# ONE AGENT DRIVES THE PHONE AT A TIME (owner, 2026-10-14). The lock is the file
+# %TEMP%\jb-phone.lock (beside Codex's jb-gradle.lock): line 1 the holder, line 2 when, line 3 why.
+# install / launch / tap / swipe refuse while someone else holds it; set $env:PHONE_OWNER to the
+# name you claimed with. A lock untouched for 30 minutes is stale and may be taken over.
+# Screenshots, logcat and dumpsys only look, so they don't need the lock.
 #
 # Multi-device: $env:PHONE = "<serial>" to pin one. Otherwise the first is used.
 
@@ -50,7 +59,57 @@ function Adb {
     & $adb -s $s @args
 }
 
+$phoneLock = Join-Path $env:TEMP "jb-phone.lock"
+
+function Get-PhoneLock {
+    if (-not (Test-Path $phoneLock)) { return $null }
+    $age = (Get-Date) - (Get-Item $phoneLock).LastWriteTime
+    [pscustomobject]@{
+        Holder = (Get-Content $phoneLock -TotalCount 1)
+        Text   = (Get-Content $phoneLock -Raw)
+        Stale  = $age.TotalMinutes -gt 30
+    }
+}
+
+function Assert-PhoneFree {
+    $l = Get-PhoneLock
+    if ($l -and -not $l.Stale -and $l.Holder -ne $env:PHONE_OWNER) {
+        Write-Output "PHONE IN USE by $($l.Holder):"
+        Write-Output $l.Text
+        Write-Output "Wait for 'phone.ps1 who' to say free, or ask on tasks/joybrush/AGENT_BOARD.md."
+        exit 3
+    }
+}
+
 switch ($Cmd) {
+    "who" {
+        $l = Get-PhoneLock
+        if ($null -eq $l) { Write-Output "free" }
+        elseif ($l.Stale) { Write-Output "free (stale lock by $($l.Holder), over 30 minutes old)" }
+        else { Write-Output $l.Text }
+    }
+
+    "claim" {
+        $name = $Rest[0]
+        if (-not $name) { Write-Output "usage: phone.ps1 claim <name> <why>"; exit 1 }
+        $l = Get-PhoneLock
+        if ($l -and -not $l.Stale -and $l.Holder -ne $name) {
+            Write-Output "PHONE IN USE by $($l.Holder):"; Write-Output $l.Text; exit 3
+        }
+        $why = ($Rest | Select-Object -Skip 1) -join " "
+        Set-Content -Path $phoneLock -Encoding utf8 -Value @($name, (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $why)
+        Write-Output "phone claimed by $name. Set `$env:PHONE_OWNER = '$name' for install/launch/tap/swipe."
+    }
+
+    "release" {
+        $name = $Rest[0]
+        $l = Get-PhoneLock
+        if ($null -eq $l) { Write-Output "already free"; break }
+        if ($l.Holder -ne $name -and -not $l.Stale) { Write-Output "held by $($l.Holder), not $name; not released"; exit 3 }
+        Remove-Item $phoneLock
+        Write-Output "phone released"
+    }
+
     "devices" { & $adb devices -l }
 
     "size" {
@@ -59,12 +118,14 @@ switch ($Cmd) {
     }
 
     "install" {
+        Assert-PhoneFree
         if (-not (Test-Path $apk)) { Write-Output "no APK at $apk - has the watcher built yet?"; exit 1 }
         Adb install -r $apk
         Adb shell dumpsys package $pkg | Select-String "lastUpdateTime" | Select-Object -First 1
     }
 
     "launch" {
+        Assert-PhoneFree
         Adb shell am force-stop $pkg
         # SplashActivity is the ONLY launchable entry point; the editor is not exported.
         Adb shell am start -n "$pkg/com.fadcam.SplashActivity" | Out-Null
@@ -95,9 +156,10 @@ switch ($Cmd) {
         }
     }
 
-    "tap" { Adb shell input tap $Rest[0] $Rest[1] }
+    "tap" { Assert-PhoneFree; Adb shell input tap $Rest[0] $Rest[1] }
 
     "swipe" {
+        Assert-PhoneFree
         $ms = if ($Rest.Count -ge 5) { $Rest[4] } else { "300" }
         Adb shell input swipe $Rest[0] $Rest[1] $Rest[2] $Rest[3] $ms
     }

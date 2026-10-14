@@ -950,23 +950,86 @@ public final class StudioMirror {
      * Folder I/O: call on {@link JoyFolderHome#io()}.
      */
     public static int bringInAll(Context context, String projectId, Progress progress) throws IOException {
-        File json = new File(new File(projectsRoot(context), projectId), "project.json");
-        Map<String, String> moved = new HashMap<>();
-        for (String ref : outsideFiles(context, projectId)) {
-            if (progress != null) progress.onStep(displayName(context, Uri.parse(ref)));
-            moved.put(ref, bringIn(context, projectId, ref).toString());
+        return bringInSome(context, projectId, outsideFiles(context, projectId), progress).size();
+    }
+
+    /**
+     * Copy these outside files of a closed project into the folder and point the project at the copies.
+     * Returns original link to its copy's link, for the files that made it. Folder I/O.
+     */
+    public static Map<String, String> bringInSome(Context context, String projectId,
+                                                  java.util.Collection<String> refs, Progress progress) throws IOException {
+        Map<String, String> copied = new HashMap<>();
+        for (String ref : refs) {
+            if (progress != null) progress.onStep(nameOf(context, ref));
+            copied.put(ref, bringIn(context, projectId, ref).toString());
         }
-        if (moved.isEmpty()) return 0;
+        if (copied.isEmpty()) return copied;
+        rewriteProject(context, projectId, copied);
+        return copied;
+    }
+
+    /** A file's name as a person would know it ("IMG_2041.jpg"), from any kind of link. */
+    public static String nameOf(Context context, String ref) {
+        Uri uri = parse(ref);
+        if (uri == null) return ref;
+        if ("content".equals(uri.getScheme())) return displayName(context, uri);
+        String path = ref.startsWith("file://") ? uri.getPath() : ref;
+        return path == null ? ref : new File(path).getName();
+    }
+
+    /**
+     * After a MOVE: every other saved project that linked to one of these originals now links to its copy, so
+     * removing the original breaks nothing. Matched by the file, not the spelling of the link. Folder I/O.
+     *
+     * @param moved original link to the copy's link
+     * @return how many projects were re-pointed
+     */
+    public static int repointOthers(Context context, Map<String, String> moved, String exceptProjectId) {
+        Map<String, String> byKey = new HashMap<>();
+        for (Map.Entry<String, String> e : moved.entrySet()) byKey.put(usageKey(e.getKey()), e.getValue());
+        File[] dirs = projectsRoot(context).listFiles();
+        if (dirs == null) return 0;
+        int n = 0;
+        for (File d : dirs) {
+            if (d.getName().equals(exceptProjectId)) continue;
+            File json = new File(d, "project.json");
+            if (!json.isFile()) continue;
+            try {
+                final boolean[] hit = {false};
+                JsonElement root = JsonParser.parseString(readText(json));
+                rewrite(root, value -> {
+                    String to = byKey.get(usageKey(value));
+                    if (to == null) return value;
+                    hit[0] = true;
+                    return to;
+                });
+                if (!hit[0]) continue;
+                writeProjectJson(json, root);
+                mirror(context, d.getName());
+                n++;
+            } catch (Exception e) {
+                Log.w(TAG, "Could not re-point " + d.getName(), e);
+            }
+        }
+        return n;
+    }
+
+    private static void rewriteProject(Context context, String projectId, Map<String, String> copied) throws IOException {
+        File json = new File(new File(projectsRoot(context), projectId), "project.json");
         JsonElement root = JsonParser.parseString(readText(json));
-        rewrite(root, value -> moved.containsKey(value) ? moved.get(value) : value);
+        rewrite(root, value -> copied.containsKey(value) ? copied.get(value) : value);
+        writeProjectJson(json, root);
+        mirror(context, projectId);
+    }
+
+    private static void writeProjectJson(File json, JsonElement root) throws IOException {
         File tmp = new File(json.getPath() + ".joytmp");
         try (FileOutputStream out = new FileOutputStream(tmp)) {
             out.write(GSON.toJson(root).getBytes(StandardCharsets.UTF_8));
             out.getFD().sync();
         }
         if (!tmp.renameTo(json)) throw new IOException("couldn't update the project file");
-        mirror(context, projectId);
-        return moved.size();
     }
 
     // ── "Not used in any project" ────────────────────────────────────────

@@ -4935,11 +4935,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (root == null) return;
             com.google.android.material.snackbar.Snackbar.make(root,
                             "This is a large file (" + android.text.format.Formatter.formatShortFileSize(this, size)
-                                    + "), so it's linked where it is, not copied. Copy it into your Joy Creator folder?",
+                                    + "), so it's linked where it is, not copied. Copy or move it into your Joy Creator folder?",
                             com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
                     .setDuration(10_000)
                     .setActionTextColor(0xFF22D3EE)
-                    .setAction("Copy", v -> bringInOutside(java.util.Collections.singletonList(uri.toString())))
+                    .setAction("Copy or move\u2026", v -> com.fadcam.joyfolder.studio.BringInDialog.show(
+                            this, java.util.Collections.singletonList(uri.toString()), this::bringInOutside))
                     .show();
             // The clip lands just after this returns: show the dot once it has.
             if (outsideDot != null) outsideDot.postDelayed(this::refreshOutsideDot, 600);
@@ -4949,41 +4950,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void showOutsideDialog() {
         final java.util.List<String> refs = outsideRefs();
         if (refs.isEmpty()) { refreshOutsideDot(); return; }
-        final android.content.Context app = getApplicationContext();
-        com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
-            long bytes = 0;
-            for (String r : refs) bytes += Math.max(0, com.fadcam.joyfolder.studio.StudioMirror.sizeOf(app, r));
-            final long total = bytes;
-            runOnUiThread(() -> {
-                if (isFinishing()) return;
-                int n = refs.size();
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                        .setTitle(n == 1 ? "1 file is outside your folder" : n + " files are outside your folder")
-                        .setMessage((n == 1 ? "It's" : "They're") + " linked where " + (n == 1 ? "it is" : "they are")
-                                + " (" + android.text.format.Formatter.formatShortFileSize(this, total) + "), not copied. "
-                                + "If " + (n == 1 ? "it's" : "one is") + " moved or deleted there, the project loses it, "
-                                + "and a new phone won't have it.\n\nBring " + (n == 1 ? "it" : "them")
-                                + " in to keep the project whole: "
-                                + (n == 1 ? "it's" : "they're") + " copied beside the project in your Joy Creator folder.")
-                        .setPositiveButton("Bring " + (n == 1 ? "it" : "them") + " in", (d, w) -> bringInOutside(refs))
-                        .setNegativeButton("Not now", null)
-                        .show();
-            });
-        });
+        com.fadcam.joyfolder.studio.BringInDialog.show(this, refs, this::bringInOutside);
     }
 
-    /** Copy outside files into the folder and point the project at the copies. */
-    private void bringInOutside(@NonNull java.util.List<String> refs) {
-        if (project == null || refs.isEmpty()) return;
+    /**
+     * Carry out the person's Copy / Move / Leave per file: copy into the folder and point the project
+     * at the copies; for a MOVE, also re-point every other project that used the file, then remove
+     * the original. An original is only ever removed after its copy has landed.
+     */
+    private void bringInOutside(@NonNull java.util.Map<String, com.fadcam.joyfolder.studio.BringInDialog.Choice> choices) {
+        if (project == null) return;
+        final java.util.List<String> take = new java.util.ArrayList<>();
+        final java.util.Set<String> moving = new java.util.HashSet<>();
+        for (java.util.Map.Entry<String, com.fadcam.joyfolder.studio.BringInDialog.Choice> e : choices.entrySet()) {
+            if (e.getValue() == com.fadcam.joyfolder.studio.BringInDialog.Choice.LEAVE) continue;
+            take.add(e.getKey());
+            if (e.getValue() == com.fadcam.joyfolder.studio.BringInDialog.Choice.MOVE) moving.add(e.getKey());
+        }
+        if (take.isEmpty()) return;
         saveProjectNow();
         final String id = project.getId();
         final android.content.Context app = getApplicationContext();
-        Toast.makeText(this, refs.size() == 1 ? "Copying into your Joy Creator folder\u2026"
-                : "Copying " + refs.size() + " files into your Joy Creator folder\u2026", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, take.size() == 1 ? "Bringing it into your Joy Creator folder\u2026"
+                : "Bringing " + take.size() + " files into your Joy Creator folder\u2026", Toast.LENGTH_SHORT).show();
         com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
             java.util.Map<String, Uri> copied = new java.util.HashMap<>();
             String problem = null;
-            for (String ref : refs) {
+            for (String ref : take) {
                 try {
                     copied.put(ref, com.fadcam.joyfolder.studio.StudioMirror.bringIn(app, id, ref));
                 } catch (Exception e) {
@@ -4996,12 +4989,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 int n = replaceMediaSources(copied);
                 if (n > 0) saveProjectNow();
                 refreshOutsideDot();
-                Toast.makeText(this, why == null
-                                ? (copied.size() == 1 ? "Copied into your Joy Creator folder." : "Copied " + copied.size() + " files into your Joy Creator folder.")
-                                : "Copied " + copied.size() + " of " + refs.size() + ". The rest stay linked: " + why,
-                        Toast.LENGTH_LONG).show();
+                // MOVE: other projects follow the file, then the original goes.
+                java.util.Map<String, String> moved = new java.util.HashMap<>();
+                for (String ref : moving) if (copied.containsKey(ref)) moved.put(ref, copied.get(ref).toString());
+                com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+                    java.util.List<String> notRemoved = new java.util.ArrayList<>();
+                    if (!moved.isEmpty()) {
+                        com.fadcam.joyfolder.studio.StudioMirror.repointOthers(app, moved, id);
+                        notRemoved = com.fadcam.joyfolder.studio.OriginalsRemover.remove(this, new java.util.ArrayList<>(moved.keySet()));
+                    }
+                    final java.util.List<String> left = notRemoved;
+                    runOnUiThread(() -> Toast.makeText(this, outcome(copied.size() - moved.size(), moved.size(), take.size(), why, left),
+                            Toast.LENGTH_LONG).show());
+                });
             });
         });
+    }
+
+    /** "Copied 2 and moved 1 into your Joy Creator folder." plus what didn't happen, in words. */
+    @NonNull
+    private static String outcome(int copied, int moved, int asked, @Nullable String why, @NonNull java.util.List<String> notRemoved) {
+        StringBuilder sb = new StringBuilder();
+        if (copied > 0) sb.append("Copied ").append(copied == 1 ? "1 file" : copied + " files");
+        if (moved > 0) sb.append(sb.length() > 0 ? " and moved " : "Moved ").append(moved == 1 ? "1 file" : moved + " files");
+        if (sb.length() == 0) sb.append("Nothing was brought in");
+        sb.append(" into your Joy Creator folder.");
+        if (copied + moved < asked && why != null) sb.append(" The rest stay linked: ").append(why).append('.');
+        if (!notRemoved.isEmpty()) {
+            sb.append(" Couldn't remove the original of ").append(TextUtils.join(", ", notRemoved))
+                    .append(": it's safely copied, so you can delete the original yourself.");
+        }
+        return sb.toString();
     }
 
     /**

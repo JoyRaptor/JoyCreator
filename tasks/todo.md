@@ -604,6 +604,7 @@ October14 verified checkpoints (full milestone below remains incomplete):
 - [x] Implement opt-in actual engine root and complete mixed native/recorded undo publication; atomic empty reset/context-loss handoff and writer guards. Full core2309/backend613/native193 independently counted green; four optional core skips only.
 - [ ] Assemble exact joint-root APK and verify eager/cold Ink/WC GPU probes, public undo/redo and unchanged owner archives on freshly ready sandbox Note9.
 - [ ] Promote existing native bases into recorded seq0 source ownership without changing saved appearance or legacy history identity; then wire physical display and committed live raw capture.
+- [x] Review and verify native-base transfer proof and exact-cursor legacy projection support: 23 new contracts, full backend636/0/0/0 PASS3m8. Engine transfer, physical display and activation remain pending.
 
 Review: latest lifecycle source passes all three suites. Concrete recorded replay now uses
 private stroke-buffer preparation so bound public-paint guards do not block replay.

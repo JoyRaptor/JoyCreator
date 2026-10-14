@@ -115,7 +115,7 @@ Detail and history: tasks/todo.md "NEXT: export speed".
 | 3.3 | ✅ **DONE 2026-10-14** — `ai/AiKey`, Android Keystore AES-GCM; old plain key migrated | Small |
 | 3.4 | ✅ **DONE 2026-10-14** — merge_transcripts (old name still accepted) | Trivial |
 | 3.5 | **One-tap buttons for tools that already exist** — Clean up audio, Make chapters, Cut the ums | Small, and the highest value-per-hour item on this page |
-| 3.6 | Streaming replies instead of a frozen "Thinking…" | Most of what makes an AI feel good |
+| 3.6 | ✅ **BUILT 2026-10-14 (compiles; needs a phone with an AI key to try)** — replies stream into the bubble; a tool command shows "Working…" instead of code | Most of what makes an AI feel good |
 | 3.7 | ✅ **DONE** (d0fecd60) — found already fixed 2026-10-14 | One file, three functions, one at a time |
 | 3.8 | Split the AI networking behind one seam | Needed for everything after. Ship two providers: OpenRouter and a custom URL box. |
 | 3.9 | **Share-in** — accept an image or video from the Android share sheet, straight onto the timeline | The headline. Works with any AI app, no key. **Owner, 2026-10-13: implement "as soon as we have the perfect place to put things" — i.e. it lands right after the file home (Lane 2), not before.** |

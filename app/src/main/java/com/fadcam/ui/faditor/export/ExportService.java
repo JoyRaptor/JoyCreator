@@ -777,9 +777,8 @@ public class ExportService extends Service {
     private File resolvePreTrimInputFile(@NonNull Clip clip,
                                          @NonNull FragmentedMp4Remuxer remuxer) {
         Uri uri = clip.getSourceUri();
-        if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) return null;
-        File raw = new File(uri.getPath());
-        if (!raw.exists()) return null;
+        File raw = com.fadcam.utils.SafPaths.fileOf(uri);
+        if (raw == null || !raw.exists()) return null;
         try {
             if (remuxer.needsRemux(raw) && remuxer.hasRemuxedVersion(raw)) {
                 File remuxed = remuxer.getRemuxedFile(raw);
@@ -799,9 +798,8 @@ public class ExportService extends Service {
     @Nullable
     private File resolveReverseInputFile(@NonNull Clip clip, @NonNull FragmentedMp4Remuxer remuxer) {
         Uri uri = clip.getSourceUri();
-        if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) return null;
-        File raw = new File(uri.getPath());
-        if (!raw.exists()) return null;
+        File raw = com.fadcam.utils.SafPaths.fileOf(uri);
+        if (raw == null || !raw.exists()) return null;
         try {
             if (remuxer.needsRemux(raw) && remuxer.hasRemuxedVersion(raw)) {
                 File remuxed = remuxer.getRemuxedFile(raw);
@@ -833,12 +831,14 @@ public class ExportService extends Service {
         for (Clip clip : clips) {
             if (clip.isImageClip()) continue;
             Uri uri = clip.getSourceUri();
-            if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) {
+            // A file in a picked folder (the Joy Creator folder) is a file too: same remux.
+            File src = com.fadcam.utils.SafPaths.fileOf(uri);
+            if (src == null) {
                 continue;
             }
-            if (!seen.add(uri.getPath())) continue; // dedupe
+            if (!seen.add(src.getPath())) continue; // dedupe
             try {
-                File f = new File(uri.getPath());
+                File f = src;
                 if (remuxer.needsRemux(f) && !remuxer.hasRemuxedVersion(f)) {
                     result.add(f);
                 }
@@ -850,10 +850,11 @@ public class ExportService extends Service {
         // an audio clip starting mid-file cannot seek there either.
         for (com.fadcam.ui.faditor.model.AudioClip ac : project.getTimeline().getAudioClips()) {
             Uri uri = ac.getSourceUri();
-            if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) continue;
-            if (!seen.add(uri.getPath())) continue;
+            File src = com.fadcam.utils.SafPaths.fileOf(uri);
+            if (src == null) continue;
+            if (!seen.add(src.getPath())) continue;
             try {
-                File f = new File(uri.getPath());
+                File f = src;
                 if (remuxer.needsRemux(f) && !remuxer.hasRemuxedVersion(f)) result.add(f);
             } catch (Exception e) {
                 FLog.w(TAG, "collectSourcesNeedingRemux: skip " + uri, e);

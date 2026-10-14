@@ -6308,6 +6308,13 @@ public class RecordingService extends Service {
                 String segmentSuffix = String.format(Locale.US, "_part%d", nextSegmentNumber);
                 String filenamePrefix = isStreamAndSave ? "Stream_" : Constants.RECORDING_DIRECTORY + "_";
                 String baseFilename = filenamePrefix + timestamp + segmentSuffix + ".mp4";
+                // In the Joy Creator folder: "Camera 2026-10-13 14.32 part 2.mp4".
+                String joySegment = RecordingStoragePaths.joyRecordingName(RecordingService.this, customUriString,
+                        isStreamAndSave ? com.fadcam.utils.RecordingStoragePaths.JoyKind.STREAM
+                        : recordingSessionCameraSource == RecordingStoragePaths.CameraSource.FRONT
+                        ? com.fadcam.utils.RecordingStoragePaths.JoyKind.FRONT_CAMERA
+                        : com.fadcam.utils.RecordingStoragePaths.JoyKind.CAMERA, nextSegmentNumber, ".mp4");
+                if (joySegment != null) baseFilename = joySegment;
                 FLog.d(TAG, "Creating new segment file: " + baseFilename);
                 androidx.documentfile.provider.DocumentFile videoFile = pickedDir.createFile("video/mp4", baseFilename);
                 if (videoFile == null) {
@@ -6562,6 +6569,13 @@ public class RecordingService extends Service {
                 String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
                 String filenamePrefix = isStreamAndSave ? "Stream_" : Constants.RECORDING_DIRECTORY + "_";
                 String baseFilename = filenamePrefix + timestamp + ".mp4";
+                // In the Joy Creator folder: "Camera 2026-10-13 14.32.mp4".
+                String joyName = RecordingStoragePaths.joyRecordingName(this, customUriString,
+                        isStreamAndSave ? com.fadcam.utils.RecordingStoragePaths.JoyKind.STREAM
+                        : recordingSessionCameraSource == RecordingStoragePaths.CameraSource.FRONT
+                        ? com.fadcam.utils.RecordingStoragePaths.JoyKind.FRONT_CAMERA
+                        : com.fadcam.utils.RecordingStoragePaths.JoyKind.CAMERA, 0, ".mp4");
+                if (joyName != null) baseFilename = joyName;
                 androidx.documentfile.provider.DocumentFile videoFile = pickedDir.createFile("video/mp4", baseFilename);
                 if (videoFile == null) {
                     FLog.e(TAG, "Failed to create SAF file");

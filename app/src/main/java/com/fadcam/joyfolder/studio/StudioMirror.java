@@ -115,6 +115,23 @@ public final class StudioMirror {
         });
     }
 
+    /**
+     * Where the project's own file is in the Joy Creator folder ("Client A/Promo.joyproject"), or
+     * null when it hasn't been saved there yet. Exports go beside it. Folder I/O: not the main thread.
+     */
+    public static String folderPathOf(Context context, String projectId) {
+        JoyFolder jf = JoyFolderHome.open(context);
+        if (jf == null) return null;
+        State st = State.load(jf);
+        String rel = st.projectPath(projectId);
+        try {
+            if (rel != null && jf.fs.stat(rel) != null) return rel;
+            return findById(jf, projectId);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     /** Project id → its name in the folder's Trash, for the Undo right after a delete. */
     private static final Map<String, String> RECENTLY_TRASHED = new HashMap<>();
 

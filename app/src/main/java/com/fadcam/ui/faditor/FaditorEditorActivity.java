@@ -4778,30 +4778,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     @Nullable
     private String resolveSafPath(@NonNull Uri uri) {
-        String uriPath = uri.getPath();
-        if (uriPath == null || !uriPath.contains(":")) return null;
-        try {
-            int lastColon = uriPath.lastIndexOf(':');
-            String encodedRel = uriPath.substring(lastColon + 1);
-            String relativePath = java.net.URLDecoder.decode(encodedRel, "UTF-8");
-
-            String beforeColon = uriPath.substring(0, lastColon);
-            int lastSlash = beforeColon.lastIndexOf('/');
-            String encodedId = lastSlash >= 0
-                    ? beforeColon.substring(lastSlash + 1) : beforeColon;
-            String storageId = java.net.URLDecoder.decode(encodedId, "UTF-8");
-
-            String mountPoint = "primary".equalsIgnoreCase(storageId)
-                    ? "/storage/emulated/0"
-                    : "/storage/" + storageId;
-
-            String fullPath = mountPoint + "/" + relativePath;
-            FLog.d(TAG, "resolveSafPath: storageId='" + storageId + "' → " + fullPath);
-            return fullPath;
-        } catch (Exception e) {
-            FLog.w(TAG, "resolveSafPath failed for " + uri, e);
-            return null;
-        }
+        // The rule now lives in SafPaths so export resolves exactly what preview does.
+        String shared = com.fadcam.utils.SafPaths.pathOf(uri);
+        if (shared != null) FLog.d(TAG, "resolveSafPath: " + uri + " → " + shared);
+        return shared;
     }
 
     private void showRemuxProgress() {
@@ -12693,7 +12673,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             root.addView(fileNameLabel);
 
             // Named after the product, not the legacy fork (drawer audit 2026-09-24, ExportConf-1).
-            final String defaultExportBaseName = getString(R.string.export_default_basename)
+            // Into the Joy Creator folder, an export is named after its project ("Lecture 3"), the way
+            // the folder names everything; elsewhere the timestamped name stays.
+            com.fadcam.SharedPreferencesManager exportPrefs = com.fadcam.SharedPreferencesManager.getInstance(this);
+            boolean intoJoyFolder = com.fadcam.SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(exportPrefs.getStorageMode())
+                    && com.fadcam.utils.RecordingStoragePaths.isJoyFolder(this, exportPrefs.getCustomStorageUri())
+                    && project.getName() != null && !project.getName().trim().isEmpty();
+            final String defaultExportBaseName = intoJoyFolder
+                    ? com.fadcam.joyfolder.ReadableNames.sanitize(project.getName())
+                    : getString(R.string.export_default_basename)
                     + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
                             .format(new java.util.Date());
 

@@ -612,7 +612,12 @@ public class ScreenRecordingService extends Service {
                                     String timestamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss",
                                             java.util.Locale.US).format(new java.util.Date());
                                     String segmentSuffix = "_part" + nextSegmentNumber;
-                                    String baseFilename = Constants.RECORDING_FILE_PREFIX_FADREC + timestamp
+                                    String joySegment = RecordingStoragePaths.joyRecordingName(
+                                            ScreenRecordingService.this, customUriString,
+                                            RecordingStoragePaths.JoyKind.SCREEN, nextSegmentNumber,
+                                            "." + Constants.RECORDING_FILE_EXTENSION);
+                                    String baseFilename = joySegment != null ? joySegment
+                                            : Constants.RECORDING_FILE_PREFIX_FADREC + timestamp
                                             + segmentSuffix + "." + Constants.RECORDING_FILE_EXTENSION;
 
                                     androidx.documentfile.provider.DocumentFile videoFile =
@@ -1029,8 +1034,9 @@ public class ScreenRecordingService extends Service {
                     ? new java.io.File(safRecordingUri.getPath()).getName()
                     : (Constants.RECORDING_FILE_PREFIX_FADREC + "webcam");
             int dot = screenName.lastIndexOf('.');
+            boolean joy = com.fadcam.utils.RecordingStoragePaths.isJoyFolder(this, customUriString);
             String webcamName = (dot > 0 ? screenName.substring(0, dot) : screenName)
-                    + "_webcam." + Constants.RECORDING_FILE_EXTENSION;
+                    + (joy ? " webcam." : "_webcam.") + Constants.RECORDING_FILE_EXTENSION;
             androidx.documentfile.provider.DocumentFile f =
                     dir.createFile("video/" + Constants.RECORDING_FILE_EXTENSION, webcamName);
             if (f == null) {
@@ -1398,8 +1404,12 @@ public class ScreenRecordingService extends Service {
                         // Fall through to internal storage
                     } else {
                         // Create file in custom location using SAF
+                        // (in the Joy Creator folder it gets a readable name: "Screen recording 2026-10-13 14.32.mp4")
+                        String joyName = RecordingStoragePaths.joyRecordingName(this, customUriString,
+                                RecordingStoragePaths.JoyKind.SCREEN, 0, "." + Constants.RECORDING_FILE_EXTENSION);
                         androidx.documentfile.provider.DocumentFile videoFile = 
-                            pickedDir.createFile("video/" + Constants.RECORDING_FILE_EXTENSION, baseFilename);
+                            pickedDir.createFile("video/" + Constants.RECORDING_FILE_EXTENSION,
+                                    joyName != null ? joyName : baseFilename);
                         
                         if (videoFile == null) {
                             FLog.e(TAG, "Failed to create SAF file");

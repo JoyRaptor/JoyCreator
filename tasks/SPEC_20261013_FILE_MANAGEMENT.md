@@ -45,7 +45,7 @@ Joy Creator/                         (user-chosen; suggested at the top of phone
 
 ## 4. What is built, and how proven
 
-Legend: **📱** driven on the Note 9 by the agent · **🔨** compiles (watcher BUILD SUCCESSFUL), not yet on a phone · **🧪** unit-tested (`bash tools/joyfolder-tests/run.sh`, 18 tests).
+Legend: **📱** driven on the Note 9 by the agent · **🔨** compiles (watcher BUILD SUCCESSFUL), not yet on a phone · **🧪** unit-tested (`bash tools/joyfolder-tests/run.sh`, 20 tests).
 
 | Piece | Where | Proof |
 |---|---|---|
@@ -63,6 +63,13 @@ Legend: **📱** driven on the Note 9 by the agent · **🔨** compiles (watcher
 | **Exports into the folder:** named after the project (the export dialog pre-fills it), beside the project or in Exports/, recorded so the Library shows them | `ExportManager.copyTempToJoyFolder`; dialog default in `FaditorEditorActivity` | 📱 |
 | Raw camera/screen recordings inside a picked folder can be clipped and exported: export resolves picked-folder files to real paths exactly as preview does (the first device export failed with "Illegal clipping: not seekable to start" before this) | `utils/SafPaths` (moved out of the editor), used by `ExportService` / `ExportManager` | 📱 |
 | **Share-in:** "Share to Joy Creator" for pictures, clips and sounds; saved per the owner's rule (beside the open project, else Assets, else the top), readable names ("From ChatGPT …"), no duplicate copies; "Add to <open project>" inserts at the playhead through the asset browser's insert path (one undo); "Start a project with it" for a video; asks for the folder first when none is chosen | `ShareInActivity`, `ShareInbox`, two hooks in `FaditorEditorActivity` (`takeSharedFiles`) | 📱 |
+| **Gather into one folder:** project rename dialog → "More…" (the revived link-options menu) → "Gather into one folder" when the folder is reachable (else the old "Consolidate project"). Moves the project, its media and its exports into a folder named after it; files other projects use: leave, or move to Assets (preselected if Assets exists); "also move the recordings it uses" box. Gathering twice never nests. Every project is re-pointed | `ConsolidatePlan`, `StudioMirror.planGather/applyGather`, `FaditorEditorActivity.showGatherDialog` | 📱 |
+| Library also lists exports and recordings inside gathered folders (scans the folders that hold them) | `FastFileScanner.scanJoyFolder` | 📱 |
+| **"Recently deleted"** row under Settings → Storage Location opens the one Trash | `StorageSettingsFragment` | 📱 |
+| **Not used by any project:** the editor asset browser's filter cycles All → this project uses → this project doesn't use → **no project uses** (link-off icon, a one-line toast names each mode). Counts every Studio project's links *and* the files the folder's project copies point at, so the uninstall safety copies are never shown as unused | `AssetBrowserPanel`, `StudioMirror.usedByAnyProject/usageKey` | 📱 |
+| **Earned folders:** at 20 recordings (known by their recorder names) or 20 exports at the top, the folder screen offers "Make Recordings folder" / "Not now" (remembered). Yes = make it, move the pile in, give it the role so new ones follow, re-point every project; refused while a recording runs | `Suggestions.check/plan`, `StudioMirror.suggestion/fileAway`, `JoyFolderSetupActivity` | 🧪 + 🔨 (not yet triggered on a phone: needs 20 loose recordings) |
+| Camera recorder whose Joy Creator folder is unreachable (SD card out, folder renamed, permission revoked) keeps that recording inside the app, with a notice, instead of refusing to start | `RecordingService.effectiveStorageMode` | 🔨 |
+| Studio nudge: a project list / editor snackbar pointing at the folder when none is chosen, at most every 3 days | `JoyFolderBanner.maybeNudge` | 🔨 |
 | fsync before the project file rename; uninstall offers "keep app data?" (`hasFragileUserData`); AI chat defaults to the free router | `ProjectStorage`, manifest, AI files | 🔨 |
 
 ## 5. Existing parts this extends (do not duplicate)
@@ -73,19 +80,17 @@ Legend: **📱** driven on the Note 9 by the agent · **🔨** compiles (watcher
 | Trash | `TrashFragment` / `TrashManager` ("Recently Deleted") | folder items added through `JoyTrashBridge` |
 | Where recordings go | the recorder's "Storage Location" custom-folder mode | set to the Joy folder by the setup screen |
 | Missing media | `ProjectIntegrity` + `RelinkCatalogBottomSheet` | still the fallback when a file is truly gone |
-| Project zip / consolidate into the app | `ProjectBundle`, `ProjectConsolidator` (entry hidden: `btnRelinkMedia` is GONE) | to be revived as the Consolidate entry (§6) |
-| Used / unused filter | editor asset browser `AssetBrowserPanel` (ALL / USED / UNUSED, current project) | to be extended across projects (§6) |
+| Project zip / consolidate into the app | `ProjectBundle`, `ProjectConsolidator` (old entry `btnRelinkMedia` only shows when media is missing) | menu reached from the rename dialog's "More…"; Consolidate becomes "Gather into one folder" when the Joy folder is reachable |
+| Used / unused filter | editor asset browser `AssetBrowserPanel` (ALL / USED / UNUSED, current project) | fourth mode added: no project uses |
 
 ## 6. Still to do (in this order)
 
-- [ ] Device-check screen recording and photo names, and their Library categories.
-- [ ] **Entry points:** the folder step in first-run onboarding (`Onboarding*` — another session has edits open there; coordinate); a visible way into Trash.
-- [ ] **Consolidate:** revive the hidden link-options menu (Consolidate / Export bundle / Import bundle) and add "Gather into one folder" using `ConsolidatePlan`.
-- [ ] **Suggestions** ("38 recordings at the top — make a Recordings folder?") using `Suggestions`; "not used in any project" via `UsageMap` in the asset browser.
-- [ ] Camera recorder refuses to start when its custom folder is missing (pre-existing): fall back to inside the app with a notice.
+- [ ] Device-check screen recording and photo names, and their Library categories; the camera fallback; the nudge; the earned-folder card (needs 20 loose recordings).
+- [ ] **Entry point in onboarding:** the folder step in first-run onboarding (`Onboarding*` — another session has edits open there; coordinate).
+- [ ] Asset browser: select several "no project uses" files and send them to Trash in one step (today: filter shows them; delete one by one in Files).
 - [ ] JoyBrush half (JoyBrush lanes): drawings in the folder, thumbnails, multiple drawings, autosave while drawing.
 - [ ] Later: presets/settings into the folder; storage screen ("free up space"); version history; the application ID change only after the folder ships (the folder is the bridge to a new ID).
 
 ## 7. Test leftovers on the Note 9
 
-`/sdcard/Joy Creator (first test)` (pre-dedupe run) and the project "Restore video test" (a copy of ZA_CONTROL) — both safe to delete. "Restore test" is in Trash.
+`/sdcard/Joy Creator (first test)` (pre-dedupe run) and the project "Restore video test" (a copy of ZA_CONTROL) — both safe to delete. "Restore test" is in Trash. Also from the 10-13/14 runs: `Camera 2026-10-13 23.51.mp4` and `z1.png` at the top of the folder (both "no project uses"), and the "Restore video test/" folder made by the Gather test.

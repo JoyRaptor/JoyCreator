@@ -5365,8 +5365,33 @@ public class RecordingService extends Service {
         return RecordingStoragePaths.getSafCameraSourceDir(this, customUriString, recordingSessionCameraSource, true);
     }
 
+    /**
+     * True for the length of one recording whose Joy Creator folder could not be reached when it
+     * started (SD card out, folder renamed or deleted, permission revoked). That recording, and every
+     * piece it is split into, is kept inside the app instead of failing to start.
+     */
+    private volatile boolean joyFolderFallback;
+
+    private void decideJoyFolderFallback() {
+        joyFolderFallback = false;
+        if (!SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(sharedPreferencesManager.getStorageMode())) return;
+        String custom = sharedPreferencesManager.getCustomStorageUri();
+        if (!RecordingStoragePaths.isJoyFolder(this, custom)) return;
+        if (com.fadcam.joyfolder.android.JoyFolderHome.isReachable(this)) return;
+        joyFolderFallback = true;
+        FLog.w(TAG, "Joy Creator folder unavailable: keeping this recording inside the app");
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> Toast.makeText(this,
+                "Joy Creator folder unavailable. This recording is kept inside the app.", Toast.LENGTH_LONG).show());
+    }
+
+    /** The storage mode this recording uses: the user's setting, unless the Joy folder fallback applies. */
+    private String effectiveStorageMode() {
+        return joyFolderFallback ? SharedPreferencesManager.STORAGE_MODE_INTERNAL
+                : sharedPreferencesManager.getStorageMode();
+    }
+
     private File createNextSegmentOutputFile(int nextSegmentNumber) {
-        String storageMode = sharedPreferencesManager.getStorageMode();
+        String storageMode = effectiveStorageMode();
         
         // Use "Stream_" prefix only if streaming is actually enabled (server running)
         boolean isStreamingActive = com.fadcam.streaming.RemoteStreamManager.getInstance().isStreamingEnabled();
@@ -6281,7 +6306,7 @@ public class RecordingService extends Service {
         @Override
         public void onSegmentRollover(int nextSegmentNumber) {
             FLog.d(TAG, "GLSegmentCallback.onSegmentRollover called for segment " + nextSegmentNumber);
-            String storageMode = sharedPreferencesManager.getStorageMode();
+            String storageMode = effectiveStorageMode();
             VideoCodec selectedCodec = sharedPreferencesManager.getVideoCodec();
             if (SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(storageMode)) {
                 FLog.d(TAG, "Using custom storage mode (SAF) for segment rollover");
@@ -6543,7 +6568,8 @@ public class RecordingService extends Service {
             int initialSegmentNumber = 1;
             GLSegmentCallback segmentCallback = new GLSegmentCallback();
 
-            String storageMode = sharedPreferencesManager.getStorageMode();
+            decideJoyFolderFallback();
+            String storageMode = effectiveStorageMode();
             VideoCodec selectedCodec = sharedPreferencesManager.getVideoCodec();
             if (SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(storageMode)) {
                 String customUriString = sharedPreferencesManager.getCustomStorageUri();

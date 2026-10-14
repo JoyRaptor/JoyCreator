@@ -617,7 +617,14 @@ public class FastFileScanner {
         com.fadcam.joyfolder.JoyFolder jf = com.fadcam.joyfolder.android.JoyFolderHome.open(context);
         if (jf != null) {
             for (com.fadcam.joyfolder.FolderIndex.Item it : jf.index.items()) {
-                if ("export".equals(it.origin)) exports.add(com.fadcam.joyfolder.Placement.nameOf(it.path));
+                String name = com.fadcam.joyfolder.Placement.nameOf(it.path);
+                boolean export = "export".equals(it.origin);
+                if (export) exports.add(name);
+                // Recordings and exports the user (or Gather) moved into folders of their own.
+                if (export || com.fadcam.utils.RecordingStoragePaths.JoyKind.ofName(name) != null) {
+                    String parent = com.fadcam.joyfolder.Placement.parentOf(it.path);
+                    if (!dirs.contains(parent)) dirs.add(parent);
+                }
             }
             for (com.fadcam.joyfolder.FolderRoles.Role role : new com.fadcam.joyfolder.FolderRoles.Role[]{
                     com.fadcam.joyfolder.FolderRoles.Role.RECORDINGS, com.fadcam.joyfolder.FolderRoles.Role.EXPORTS}) {

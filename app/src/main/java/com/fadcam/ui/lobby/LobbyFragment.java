@@ -373,6 +373,8 @@ public class LobbyFragment extends BaseFragment {
         // projects he opens with no context, which the chat already handles — every use of
         // the project id in there is null-guarded.
         joybot.setOnClickListener(b -> { joybot.react(); openAssistant(); });
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(joybot,
+                "Joybot, your helper — he glows green when he has an idea for your project");
 
         View libraryDoor = v.findViewById(R.id.lobby_library_door);
         libraryDoor.setOnClickListener(b -> routeTab(TAB_LIBRARY));
@@ -1186,7 +1188,19 @@ public class LobbyFragment extends BaseFragment {
             i.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_PROJECT_ID,
                     projects.get(0).id);
         }
+        i.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "LOBBY");
+        // Tapped while glowing: he opens by saying the idea he had.
+        i.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_FROM_PULSE, joybot.hasIdea());
+        joybot.setHasIdea(false);
         startActivity(i);
+    }
+
+    /** Joybot breathes when he has an idea about your newest project that you haven't seen. */
+    private void refreshJoybotIdea() {
+        if (joybot == null) return;
+        com.fadcam.ui.faditor.ai.joybot.JoybotPulse.light(joybot,
+                projects.isEmpty() ? null : projects.get(0).id,
+                com.fadcam.ui.faditor.ai.joybot.IdeaEngine.Room.LOBBY);
     }
 
     private void routeTab(int position) {
@@ -1444,6 +1458,7 @@ public class LobbyFragment extends BaseFragment {
         recents = immediate;
         paintRecents();
         paintBotLine();
+        refreshJoybotIdea();
 
         THUMB_IO.execute(() -> {
             final List<Recent> merged = new ArrayList<>(immediate);

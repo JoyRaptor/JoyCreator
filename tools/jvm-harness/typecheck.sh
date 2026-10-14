@@ -51,8 +51,19 @@ SRCS=$(mktemp); ARGS=$(mktemp)
 # BuildConfig is GENERATED, so it is not under src/ — include the generated tree or ~40
 # files fail on a symbol that exists in every real build.
 BCFG="app/build/generated/source/buildConfig/default/debug"
-{ find app/src/main/java -name '*.java'; find "$BCFG" -name '*.java' 2>/dev/null; } \
+# studiokit is a module of its own since the Studio split (colours, type, the Joy Creator folder);
+# compile it alongside. A class present in BOTH trees keeps the studiokit copy, as the module's
+# own javac would only ever see that one.
+{ find studiokit/src/main/java -name '*.java'
+  find app/src/main/java -name '*.java' | while read -r f; do
+    [ -f "studiokit/src/main/java/${f#app/src/main/java/}" ] || echo "$f"; done
+  find "$BCFG" -name '*.java' 2>/dev/null; } \
   | sed 's|^|"|; s|$|"|' > "$SRCS"
+# JoyBrush is Kotlin; its last Gradle build left a classes jar the app's Java can resolve against.
+for J in joybrush-android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar \
+         joybrush/core/build/libs/*.jar studiokit/build/intermediates/compile_r_class_jar/debug/*/R.jar; do
+  [ -f "$J" ] && CP="$CP;$J"
+done
 COUNT=$(wc -l < "$SRCS")
 { echo "-nowarn"; echo "-encoding UTF-8"; echo "-d $OUT"; echo "-proc:none";
   printf -- '-cp "%s"\n' "$CP";

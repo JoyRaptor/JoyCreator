@@ -148,12 +148,17 @@
             android:fillViewport="true"
             android:scrollbarStyle="insideOverlay">
 
+            <!-- paddingBottom leaves room for Joybot hovering in the corner, so the newest
+                 message never sits under him. -->
             <LinearLayout
                 android:id="@+id/chat_messages"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="8dp" />
+                android:paddingStart="8dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="80dp" />
         </ScrollView>
 
         <LinearLayout
@@ -166,7 +171,47 @@
             android:background="#44000000"
             android:paddingTop="4dp"
             android:paddingBottom="4dp" />
+
+        <!-- Joybot's stage: he flies down from the header into this corner and hovers there,
+             and flies to whatever he just made to show it off (owner, 2026-10-14). -->
+        <FrameLayout
+            android:id="@+id/chat_stage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipChildren="false"
+            android:clipToPadding="false">
+
+            <com.fadcam.ui.lobby.JoybotView
+                android:id="@+id/chat_actor"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_gravity="bottom|end"
+                android:layout_marginEnd="26dp"
+                android:layout_marginBottom="8dp"
+                android:contentDescription="Joybot"
+                android:visibility="invisible" />
+        </FrameLayout>
     </RelativeLayout>
+
+    <!-- Joybot's idea buttons: the next likely step, a tap away. -->
+    <HorizontalScrollView
+        android:id="@+id/chat_chips_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:overScrollMode="never"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/chat_chips"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp" />
+    </HorizontalScrollView>
 
     <!-- Input bar -->
     <LinearLayout
@@ -207,6 +252,20 @@
             android:src="@android:drawable/ic_btn_speak_now"
             android:tint="#FF4CAF50"
             android:contentDescription="Voice input" />
+
+        <!-- Shown instead of mic + send while Joybot is answering or working. -->
+        <TextView
+            android:id="@+id/chat_stop"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:fontFamily="@font/materialicons"
+            android:text="stop_circle"
+            android:textSize="26sp"
+            android:textColor="@color/s_ink"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Stop"
+            android:visibility="gone" />
 
         <ImageButton
             android:id="@+id/chat_send"

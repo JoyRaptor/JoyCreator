@@ -37,6 +37,18 @@ import androidx.core.content.res.ResourcesCompat;
 
 import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
+import com.fadcam.ui.faditor.ai.joybot.DirectRunner;
+import com.fadcam.ui.faditor.ai.joybot.HelpBook;
+import com.fadcam.ui.faditor.ai.joybot.Idea;
+import com.fadcam.ui.faditor.ai.joybot.IdeaEngine;
+import com.fadcam.ui.faditor.ai.joybot.IdeaMemory;
+import com.fadcam.ui.faditor.ai.joybot.JoybotChatViews;
+import com.fadcam.ui.faditor.ai.joybot.JoybotPictures;
+import com.fadcam.ui.faditor.ai.joybot.JoybotPulse;
+import com.fadcam.ui.faditor.ai.joybot.JoybotVoice;
+import com.fadcam.ui.faditor.ai.joybot.ProjectFactsReader;
+import com.fadcam.ui.faditor.ai.joybot.SlideFlow;
+import com.fadcam.ui.lobby.JoybotView;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -46,6 +58,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -71,6 +84,36 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private static final String TAG = "ChatAssistant";
 
     public static final String EXTRA_PROJECT_ID = "chat_project_id";
+    /** Where Joybot was opened from: an {@link IdeaEngine.Room} name ("LOBBY", "STUDIO", …). */
+    public static final String EXTRA_ROOM = "chat_room";
+    /** True when he was tapped while glowing: open by saying the idea he had. */
+    public static final String EXTRA_FROM_PULSE = "chat_from_pulse";
+
+    // ── Joybot's own parts of the chat (plan B2) ──────────────────────────────
+    private JoybotView actor;
+    @Nullable private View headerIcon;
+    private android.widget.HorizontalScrollView chipsScroll;
+    private LinearLayout chipsRow;
+    private TextView stopButton;
+    private IdeaEngine.Room room = IdeaEngine.Room.STUDIO;
+    private IdeaMemory ideaMemory;
+    @Nullable private IdeaEngine.Offer currentOffer;
+    /** The best idea shown this visit, and whether it was tapped: two ignores make it quiet. */
+    @Nullable private String shownBestId;
+    private boolean bestTapped;
+    /** Joybot is answering or working: the Stop button shows and the idea buttons wait. */
+    private volatile boolean busy;
+    private volatile boolean cancelled;
+    @Nullable private volatile okhttp3.Call currentCall;
+    @Nullable private SlideFlow slideFlow;
+    /** The undo-history label for the request in flight, and whether it has parked its step. */
+    private volatile String requestLabel = "Joybot";
+    private volatile boolean requestStepPushed;
+    /** The card showing each live Joybot step, so "undo that" can retire the right one. */
+    private final java.util.Map<AIChatState.Step, JoybotChatViews.Card> cardForStep =
+            new java.util.IdentityHashMap<>();
+    /** The opener last said per project, so reopening the chat doesn't repeat itself. */
+    private static final java.util.Map<String, String> LAST_OPENER = new java.util.HashMap<>();
 
     private static final String PREF_MODEL = "ai_model";
     private static final String PREF_PROVIDER = "ai_provider";
@@ -124,6 +167,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
     // and reopens the chat window.
     private static final List<JSONObject> conversationHistory = new ArrayList<>();
 
+    /** The project the kept conversation is about. */
+    @Nullable private static String lastChatProjectId;
+
     /** Clear the static conversation (called when the editor opens a different project). */
     public static void resetConversation() {
         conversationHistory.clear();
@@ -152,6 +198,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
         overridePendingTransition(R.anim.slide_down_in, R.anim.fade_out_quick);
 
         projectId = getIntent().getStringExtra(EXTRA_PROJECT_ID);
+        if (projectId != null && projectId.isEmpty()) projectId = null;
+        try {
+            String r = getIntent().getStringExtra(EXTRA_ROOM);
+            if (r != null) room = IdeaEngine.Room.valueOf(r);
+        } catch (IllegalArgumentException ignored) { }
+        ideaMemory = new IdeaMemory(this);
+        // The conversation is kept while the app is open, but it belongs to ONE project: opening
+        // Joybot from the lobby about a different project must not carry the last one's talk.
+        if (!java.util.Objects.equals(projectId, lastChatProjectId)) resetConversation();
+        lastChatProjectId = projectId;
 
         AIChatState.chatActive = true;
 
@@ -180,6 +236,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
         } else if (jobStore.isJobActive()) {
             jobStore.clearJob();
         }
+
+        setupActor();
+        refreshIdeas(true);
     }
 
     private void restoreMessages() {
@@ -227,10 +286,38 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         ImageButton btnMic = findViewById(R.id.chat_mic);
         btnMic.setOnClickListener(v -> startVoiceInput());
+        voice = new JoybotVoice(this);
+        // Hold to talk: press, speak, let go — it sends. No dialog over the chat.
+        btnMic.setOnLongClickListener(v -> { startHoldToTalk(); return true; });
+        btnMic.setOnTouchListener((v, ev) -> {
+            int a = ev.getActionMasked();
+            if ((a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL)
+                    && voice.isListening()) {
+                voice.stopListening();
+            }
+            return false;
+        });
+
+        actor = findViewById(R.id.chat_actor);
+        chipsScroll = findViewById(R.id.chat_chips_scroll);
+        chipsRow = findViewById(R.id.chat_chips);
+        stopButton = findViewById(R.id.chat_stop);
+        stopButton.setOnClickListener(v -> stopWorking());
+
+        // Every button says what it does when pointed at (owner rule: stylus and mouse users
+        // learn the app by hovering).
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(sendButton, "Send your message to Joybot");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnMic,
+                "Talk to Joybot: tap, or hold while you talk and let go to send");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnAttach, "Show Joybot a picture or the frame you're on");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnSettings, "AI service, key and model");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.chat_back), "Close Joybot");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(stopButton, "Stop what Joybot is doing");
 
         // Mascot bounces in when the chat window lands. scaleX animates 0 -> -1 (not
         // 0 -> 1) to preserve the inward-facing horizontal flip set in the layout.
         View headerIcon = findViewById(R.id.chat_header_ai_icon);
+        this.headerIcon = headerIcon;
         if (headerIcon != null) {
             headerIcon.setScaleX(0f);
             headerIcon.setScaleY(0f);
@@ -377,7 +464,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
             Intent intent = new Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
             intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                     android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            intent.putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Speak your request");
+            intent.putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Tell Joybot what you'd like");
+            actor.setMood(JoybotView.Mood.LISTEN);
             startActivityForResult(intent, VOICE_REQUEST_CODE);
         } catch (Exception e) {
             addBotMessage("Voice input not available: " + e.getMessage());
@@ -394,13 +482,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == VOICE_REQUEST_CODE && actor != null) actor.setMood(JoybotView.Mood.IDLE);
         if (requestCode == VOICE_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
             java.util.ArrayList<String> results = data
                     .getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS);
             if (results != null && !results.isEmpty()) {
+                // Spoken words send themselves, the way talking to an assistant should work. If
+                // the phone misheard, the bubble shows exactly what it heard, and the next message
+                // can correct it.
                 inputField.setText(results.get(0));
-                inputField.setSelection(inputField.getText().length());
-                inputField.requestFocus();
+                sendMessage();
             }
         } else if (requestCode == IMAGE_PICK_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
             Uri imageUri = data.getData();
@@ -672,9 +763,13 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // View state must be read on the main thread — capture the prompt here,
         // before the work is handed to the background executor.
         final String userText = inputField.getText().toString().trim();
+        inputField.setText("");
 
-        addBotMessage("Thinking...");
+        addBotMessage("Looking…");
         toolRounds = 0;
+        cancelled = false;
+        setBusy(true);
+        actor.setMood(JoybotView.Mood.THINK);
 
         aiExecutor.execute(() -> {
             try {
@@ -723,9 +818,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
                 // Build the request body: prior history (with placeholders) plus
                 // this turn's full multimodal message.
-                JSONArray messages = new JSONArray();
-                for (JSONObject msg : conversationHistory) {
-                    messages.put(msg == retainedUserMsg ? outgoingUserMsg : msg);
+                JSONArray messages = messagesForRequest();
+                for (int i = 0; i < messages.length(); i++) {
+                    if (messages.opt(i) == retainedUserMsg) messages.put(i, outgoingUserMsg);
                 }
 
                 body.put("messages", messages);
@@ -737,13 +832,17 @@ public class ChatAssistantActivity extends AppCompatActivity {
                         .post(RequestBody.create(body.toString(), JSON))
                         .build();
 
-                Response response = httpClient.newCall(request).execute();
+                okhttp3.Call call = httpClient.newCall(request);
+                currentCall = call;
+                Response response = call.execute();
                 String responseBody = response.body() != null ? response.body().string() : "";
+                if (cancelled) return;
 
                 if (!response.isSuccessful()) {
-                    runOnUiThread(() -> updateLastBotMessage(
-                            "API error " + response.code() + ": "
-                                    + responseBody.substring(0, Math.min(200, responseBody.length()))));
+                    final String err = friendlyApiError("API error " + response.code() + ": "
+                            + responseBody.substring(0, Math.min(200, responseBody.length())));
+                    runOnUiThread(() -> updateLastBotMessage(err));
+                    doneTalking(false);
                     return;
                 }
 
@@ -754,7 +853,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 ModelCapabilities.noteServedModel(json.optString("model", null));
                 JSONArray choices = json.optJSONArray("choices");
                 if (choices == null || choices.length() == 0) {
-                    runOnUiThread(() -> updateLastBotMessage("Empty response from AI."));
+                    runOnUiThread(() -> updateLastBotMessage("I got an empty reply. Try again."));
+                    doneTalking(false);
                     return;
                 }
 
@@ -767,9 +867,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 aiMsg.put("content", aiText);
                 conversationHistory.add(aiMsg);
 
-                runOnUiThread(() -> updateLastBotMessage(aiText));
+                final String shown = proseOf(aiText).isEmpty() ? aiText : proseOf(aiText);
+                runOnUiThread(() -> updateLastBotMessage(shown));
+                doneTalking(true);
             } catch (Exception e) {
-                runOnUiThread(() -> updateLastBotMessage("Vision error: " + e.getMessage()));
+                if (cancelled) return;
+                runOnUiThread(() -> updateLastBotMessage(e instanceof IOException
+                        ? friendlyNetworkError((IOException) e) : "I couldn't look at that: " + e.getMessage()));
+                doneTalking(false);
             }
         });
     }
@@ -788,17 +893,15 @@ public class ChatAssistantActivity extends AppCompatActivity {
             // not a label on a screen, it is what the model believes it is. Told it was
             // FadCam AI, it introduced itself as FadCam in answers nobody had reviewed —
             // a brand leak that regenerates itself on every reply.
-            sb.append("You are Joybot, the assistant inside Joy Creator, ");
-            sb.append("a video editing and animation studio for Android. ");
-            sb.append("You help users with video editing tasks. ");
-            sb.append("You can suggest edits, explain features, and guide users. ");
-            sb.append("Be concise and practical.\n\n");
+            sb.append(PERSONA);
+            sb.append(HelpBook.forModel()).append('\n');
 
             sb.append(AIToolExecutor.getToolDescriptions());
             sb.append("\nWhen you want to DO something, call a tool. ");
             sb.append("When you want to EXPLAIN something, just reply normally.\n\n");
 
-            sb.append("When suggesting edits, you can emit an EditScript as JSON:\n");
+            sb.append("For a batch of edits in one step, call apply_edit_script with a script like this"
+                    + " (as the \"script\" argument, a JSON string):\n");
             sb.append("```json\n");
             sb.append("{\"version\":1,\"description\":\"...\",\"operations\":[");
             sb.append("{\"type\":\"REMOVE_SPAN\",\"clipId\":\"...\",\"startMs\":0,\"endMs\":0},");
@@ -816,112 +919,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
             sb.append("SET_EXPORT_SETTING, MOVE_KEYFRAME, ADD_KEYFRAME, ");
             sb.append("ADD_OPACITY_KEYFRAME, CLEAR_KEYFRAMES.\n\n");
 
-            // Include project context if available
-            if (projectId != null && !projectId.isEmpty()) {
-                sb.append("Current project context:\n");
-                try {
-                    com.fadcam.ui.faditor.project.ProjectStorage storage =
-                            new com.fadcam.ui.faditor.project.ProjectStorage(this);
-                    com.fadcam.ui.faditor.model.FaditorProject proj = storage.load(projectId);
-                    if (proj != null) {
-                        sb.append("Project: ").append(proj.getName()).append("\n");
-                        sb.append("Project folder: ").append(
-                                new java.io.File(getFilesDir(), "faditor/projects/" + projectId).getAbsolutePath()
-                        ).append("\n");
-                        sb.append("Clips: ").append(proj.getTimeline().getClipCount()).append("\n");
-                        com.fadcam.ui.faditor.model.Timeline tl = proj.getTimeline();
-                        for (int i = 0; i < tl.getClipCount(); i++) {
-                            com.fadcam.ui.faditor.model.Clip c = tl.getClip(i);
-                            sb.append("  Clip ").append(i)
-                                    .append(" id=").append(c.getId())
-                                    .append(" dur=").append(c.getTrimmedDurationMs()).append("ms")
-                                    .append(" speed=").append(c.getSpeedMultiplier())
-                                    .append(" muted=").append(c.isAudioMuted());
-                            if (c.isCaptionsEnabled()) {
-                                sb.append(" captions=").append(c.getCaptionStyleId());
-                            }
-                            if (!c.getRemovedSpans().isEmpty()) {
-                                sb.append(" cuts=").append(c.getRemovedSpans().size());
-                            }
-                            sb.append("\n");
-
-                            // Include transcript text with word-level timestamps
-                            // so the AI can reason about content and suggest cuts.
-                            java.util.List<com.fadcam.ui.faditor.transcript.NamedTranscript> versions =
-                                    c.getTranscripts();
-                            if (!versions.isEmpty()) {
-                                com.fadcam.ui.faditor.transcript.NamedTranscript active =
-                                        c.getActiveNamedTranscript();
-                                if (active == null) active = versions.get(0);
-                                sb.append("  Transcript (").append(active.engine)
-                                        .append("):\n");
-                                for (com.fadcam.ui.faditor.transcript.TranscriptWord w
-                                        : active.transcript.words) {
-                                    sb.append("    [").append(w.startMs).append("-")
-                                            .append(w.endMs).append("ms] ");
-                                    sb.append(w.text);
-                                    if (w.struck) sb.append(" [CUT]");
-                                    sb.append("\n");
-                                }
-                            } else {
-                                sb.append("  (No transcript yet — user may ask you about content)\n");
-                            }
-                        }
-                        if (tl.hasAudioClips()) {
-                            sb.append("Audio clips: ").append(tl.getAudioClipCount()).append("\n");
-                            for (int ai = 0; ai < tl.getAudioClipCount(); ai++) {
-                                com.fadcam.ui.faditor.model.AudioClip ac = tl.getAudioClips().get(ai);
-                                sb.append("  AudioClip ").append(ai)
-                                        .append(" id=").append(ac.getId())
-                                        .append(" dur=").append(ac.getTrimmedDurationMs()).append("ms")
-                                        .append(" muted=").append(ac.isMuted());
-                                if (ac.isCaptionsEnabled()) {
-                                    sb.append(" captions=").append(ac.getCaptionStyleId());
-                                }
-                                sb.append("\n");
-                                java.util.List<com.fadcam.ui.faditor.transcript.NamedTranscript> aVersions =
-                                        ac.getTranscripts();
-                                if (!aVersions.isEmpty()) {
-                                    com.fadcam.ui.faditor.transcript.NamedTranscript aActive =
-                                            ac.getActiveNamedTranscript();
-                                    if (aActive == null) aActive = aVersions.get(0);
-                                    sb.append("  Transcript (").append(aActive.engine)
-                                            .append("):\n");
-                                    for (com.fadcam.ui.faditor.transcript.TranscriptWord w
-                                            : aActive.transcript.words) {
-                                        sb.append("    [").append(w.startMs).append("-")
-                                                .append(w.endMs).append("ms] ");
-                                        sb.append(w.text);
-                                        if (w.struck) sb.append(" [CUT]");
-                                        sb.append("\n");
-                                    }
-                                } else {
-                                    sb.append("  (No transcript yet)\n");
-                                }
-                            }
-                        }
-                        if (tl.hasTextOverlays()) {
-                            sb.append("Overlays: ").append(tl.getTextOverlays().size()).append("\n");
-                            for (com.fadcam.ui.faditor.model.TextOverlayItem o
-                                    : tl.getTextOverlays()) {
-                                sb.append("  Overlay id=").append(o.getId())
-                                        .append(" text=\"").append(o.getText(), 0, Math.min(30, o.getText().length())).append("\"")
-                                        .append(" start=").append(o.getStartMs())
-                                        .append(" end=").append(o.getEndMs() == Long.MAX_VALUE ? "end" : o.getEndMs())
-                                        .append(" armed=").append(o.isArmed())
-                                        .append("\n");
-                            }
-                        }
-                        sb.append("Canvas: ").append(proj.getCanvasPreset()).append("\n");
-
-                        // Include B-roll bucket contents
-                        BRollBucket bucket = new BRollBucket(this);
-                        sb.append("\n").append(bucket.getAssetsSummary());
-                    }
-                } catch (Exception e) {
-                    sb.append("(Could not load project context: ").append(e.getMessage()).append(")\n");
-                }
-            }
+            // The project itself is NOT written here any more. It used to be, once, when the chat
+            // opened — so after the first tool the model was reasoning about a project that no
+            // longer existed, and every word of every transcript (with timings) rode along on
+            // every request. A fresh, compact context is now added to each request instead
+            // (freshContext); full word timings come from get_transcript when needed.
 
             systemMsg.put("content", sb.toString());
             conversationHistory.add(systemMsg);
@@ -930,24 +932,91 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     private void showWelcome() {
         if (!AiService.ready(this, apiKey)) {
-            addBotMessage("Hi, I'm Joybot. "
-                    + "I can help you discover features, answer questions, and suggest edits.\n\n"
-                    + "To unlock full AI power, add an API key in Settings (top-right icon). "
-                    + "Until then, I can still help with quick answers about the app!");
+            // Offline is not a lesser Joybot: everything the buttons do runs on the phone.
+            addBotMessage("Hi, I'm Joybot. Right here on the phone I can transcribe, add captions, "
+                    + "cut the ums and silences, add transitions and make slides — tap a button "
+                    + "below or tell me what you'd like.\n\nConnect an AI in ⚙ (there's a "
+                    + "free one) and I can take on anything you can describe.");
         } else {
-            addBotMessage("Hi, I'm Joybot, connected to " + model + ". "
-                    + "Ask me anything about your project, or tell me what you want to do!");
+            addBotMessage("Hi, I'm Joybot. Tap a button below, or tell me what you'd like to make.");
         }
     }
+
+    /** Who Joybot is, for the model. The project itself arrives fresh with every request. */
+    private static final String PERSONA = """
+            You are Joybot, the friendly helper inside Joy Creator, a creative studio for Android \
+            phones and tablets. Its wings: Studio (the video and sound editor: timeline, clips, \
+            transcripts, captions, text and picture layers, keyframes, transitions, visualizers, \
+            animated slides, export), JoyBrush (painting, illustration and frame-by-frame \
+            animation), SpriteLab (cut sprite sheets into named cells and animations), Avatar \
+            Studio (puppet characters driven by face tracking and the mic), Capture (screen and \
+            camera recording) and the Library (recordings and exports). People often use it \
+            one-handed and in a hurry.
+
+            How you talk: short, warm, plain words. No jargon, no code, no ids in what you say — \
+            call a clip by its name. Never invent a number: quote only numbers that appear in the \
+            project context or in a tool result. If something can't be done, say so in one \
+            sentence and offer the nearest thing that can.
+
+            How you act: when the person wants something DONE to the project, do it with a tool. \
+            To call a tool, reply with ONLY one JSON object, {"tool":"name","args":{...}}, and \
+            nothing else. After a tool result, say in one or two sentences what changed. Call \
+            several tools one at a time. For big or destructive changes (deleting clips, \
+            reordering, dropping parts) propose first and wait for a yes, unless they asked for \
+            exactly that. Every request you carry out is one undo step for them.
+
+            """;
 
     private void sendMessage() {
         String text = inputField.getText().toString().trim();
         if (text.isEmpty()) return;
+        if (busy) {
+            Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
+        voice.hush();
         addUserMessage(text);
         inputField.setText("");
 
-        if (!AiService.ready(this, apiKey)) {
+        // Mid-slide: typing answers the question on screen.
+        if (slideFlow != null) {
+            answerSlide(text);
+            return;
+        }
+        if (awaitingPictureSubject) {
+            awaitingPictureSubject = false;
+            offerPictureWays(text);
+            return;
+        }
+        String pic = pictureSubject(text);
+        if (pic != null) {
+            startPictureFlow(pic);
+            return;
+        }
+        // "Undo that" means Joybot's newest change, online or off.
+        if (norm(text).matches("(please )?(undo|undo that|undo it|take (that|it) back|put it back|revert( that)?)( please)?")) {
+            undoByWords();
+            return;
+        }
+        boolean online = AiService.ready(this, apiKey);
+        // A sentence that IS one of the buttons runs it directly (free, instant, offline). Online,
+        // only an exact match does — anything with more to it deserves the model's reading.
+        Idea match = matchIdea(text, !online);
+        if (match != null) {
+            runIdea(match, false);
+            return;
+        }
+        // "Help me make a slide" with nothing more to go on gets the four questions; a detailed
+        // request ("a bold title that says Beach Day") goes to the model, which can build it.
+        if (projectId != null && wantsSlide(text) && (!online || text.split("\\s+").length <= 6)) {
+            startSlideFlow(null);
+            return;
+        }
+        // "How do I…" with a known answer: instant and free, online or off.
+        // Online, only plain "how do I / where is" questions: anything else deserves the model.
+        if ((online ? HelpBook.isHowTo(text) : HelpBook.isQuestion(text)) && answerFromHelpBook(text)) return;
+        if (!online) {
             handleOfflineQuery(text);
         } else {
             handleAiQuery(text);
@@ -956,60 +1025,58 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     // ── Offline helper (no API key) ────────────────────────────────
 
-    private void handleOfflineQuery(@NonNull String query) {
-        String lower = query.toLowerCase();
-        String response;
-
-        if (lower.contains("transcript") || lower.contains("subtitle")) {
-            response = "Transcripts: Tap the Transcript tool to transcribe your video. "
-                    + "Joy Creator supports Vosk (fast) and Whisper (accurate) offline. "
-                    + "Word-level timing is saved so you can edit by tapping words to cut.";
-        } else if (lower.contains("silence") || lower.contains("dead air")) {
-            response = "Silence detection: Tap the Silence tool to find quiet spots. "
-                    + "They appear as yellow bands on the timeline. "
-                    + "Tap one to convert it to a cut — non-destructive and reversible.";
-        } else if (lower.contains("overlay") || lower.contains("text") || lower.contains("sticker")) {
-            response = "Overlays: Use the Text or Sticker tools to add overlays. "
-                    + "Drag to move, pinch to scale, tap to edit. "
-                    + "Add keyframes to animate position/scale/rotation over time. "
-                    + "Layer bars below the timeline show visible ranges and keyframes.";
-        } else if (lower.contains("export") || lower.contains("save") || lower.contains("render")) {
-            response = "Export: Tap Export to render your project. "
-                    + "Captions, overlays, and keyframes are baked into the output. "
-                    + "Enable 'Clean Audio v2' for denoise, dynamic smoothing, and two-pass loudness correction.";
-        } else if (lower.contains("cut") || lower.contains("trim") || lower.contains("split")) {
-            response = "Cutting: Drag the green handles on a selected clip to trim. "
-                    + "Tap Split to cut at the playhead. "
-                    + "Deleted spans are non-destructive — ghost footage remains visible.";
-        } else if (lower.contains("caption")) {
-            response = "Captions: Generate a transcript first, then tap Captions to enable. "
-                    + "Choose from Pop, Zoom, Bounce, Boxed, and Hot styles. "
-                    + "Drag to reposition. Captions are baked into export.";
-        } else if (lower.contains("audio") || lower.contains("sound") || lower.contains("noise")) {
-            response = "Audio: You can import external audio, mute clips, adjust volume, "
-                    + "and enable Clean Audio v2 on export for denoise, dynamic smoothing, "
-                    + "and two-pass loudness correction.";
-        } else if (lower.contains("keyframe") || lower.contains("animate")) {
-            response = "Keyframes: Open an overlay's editor, then tap 'Add Keyframe' at the playhead. "
-                    + "Move the playhead, reposition the overlay, and add another keyframe. "
-                    + "The timeline shows keyframe diamonds on layer bars — drag them to adjust timing.";
-        } else if (lower.contains("api") || lower.contains("key") || lower.contains("model")) {
-            response = "To connect an AI: Tap the Settings icon (top-right) and paste your API key. "
-                    + "OpenRouter gives access to many models with free tiers. "
-                    + "Once connected, I can suggest edits, answer questions, and (soon) apply edit scripts.";
-        } else if (lower.contains("help") || lower.contains("what can you do")) {
-            response = "I can help you:\n"
-                    + "- Discover features (transcripts, silence, captions, overlays)\n"
-                    + "- Explain how tools work\n"
-                    + "- Suggest edit workflows\n"
-                    + "- Answer questions about your project\n\n"
-                    + "Add an API key in Settings for full AI assistance!";
-        } else {
-            response = "I can help with transcripts, silence detection, captions, overlays, "
-                    + "keyframes, audio, trimming, and export. "
-                    + "What would you like to know? (Add an API key for full AI assistance.)";
+    /**
+     * A "how do I…" with a known answer: said instantly (no AI, no cost), with a way to act —
+     * Joybot does it, or takes them there. True when it answered.
+     */
+    private boolean answerFromHelpBook(@NonNull String text) {
+        HelpBook.Topic t = HelpBook.find(text);
+        if (t == null) return false;
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this, t.answer, null);
+        Idea doIt = null;
+        if (t.doIt != null && currentOffer != null) {
+            for (Idea i : currentOffer.ideas) if (i.key.equals(t.doIt)) { doIt = i; break; }
         }
-        addBotMessage(response);
+        if (doIt != null) {
+            final Idea run = doIt;
+            card.buttons.addView(JoybotChatViews.cardButton(this, "Do it for me", run.hint,
+                    v -> runIdea(run, true)));
+        } else if ("slide".equals(t.doIt) && projectId != null) {
+            card.buttons.addView(JoybotChatViews.cardButton(this, "Make one with me",
+                    "Four quick questions and I'll build it", v -> { addUserMessage("Help me make a slide"); startSlideFlow(null); }));
+        } else if ("picture".equals(t.doIt)) {
+            card.buttons.addView(JoybotChatViews.cardButton(this, "Make a picture",
+                    "Describe it and I'll get it made", v -> { addUserMessage("Help me make a picture"); startPictureFlow(null); }));
+        }
+        if (t.route != null && !(room == IdeaEngine.Room.STUDIO && "studio".equals(t.route))) {
+            card.buttons.addView(JoybotChatViews.cardButton(this, "Take me there",
+                    "Open the part of the app this is in", v -> route(t.route)));
+        }
+        if (card.buttons.getChildCount() == 0) card.root.removeView(card.buttons);
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        addTickerTick(false);
+        scrollToBottom();
+        synchronized (messageLog) { messageLog.add(new String[]{"bot", t.answer}); trimMessageLog(); }
+        voice.speak(t.answer);
+        actor.setMood(JoybotView.Mood.TALK);
+        actor.postDelayed(() -> actor.setMood(JoybotView.Mood.IDLE), 1200L);
+        try {
+            conversationHistory.add(new JSONObject().put("role", "user").put("content", text));
+            conversationHistory.add(new JSONObject().put("role", "assistant").put("content", t.answer));
+        } catch (Exception ignored) { }
+        return true;
+    }
+
+    private void handleOfflineQuery(@NonNull String query) {
+        if (answerFromHelpBook(query)) return;
+        // Not something the help book or the buttons cover. Say so plainly and point at what does
+        // work offline, rather than a canned paragraph that may not be about their question.
+        addBotMessage("I can't work that one out without an AI connected. Right here I can do "
+                + "anything on the buttons below, and answer “how do I…” questions about "
+                + "the app. Connect an AI in ⚙ (there's a free one) for everything else.");
+        actor.setMood(JoybotView.Mood.OOPS);
+        actor.postDelayed(() -> actor.setMood(JoybotView.Mood.IDLE), 700L);
     }
 
     // ── Online AI query ────────────────────────────────────────────
@@ -1025,15 +1092,29 @@ public class ChatAssistantActivity extends AppCompatActivity {
             return;
         }
 
-        addBotMessage("Thinking...");
+        addBotMessage("Thinking…");
         toolRounds = 0;
+        cancelled = false;
+        requestLabel = requestLabelFor(userText);
+        requestStepPushed = false;
+        setBusy(true);
+        actor.setMood(JoybotView.Mood.THINK);
 
         aiExecutor.execute(() -> {
             try {
-                Completion done = streamCompletion(
-                        partial -> runOnUiThread(() -> updateLastBotMessage(shownWhileStreaming(partial))));
+                final boolean[] talking = {false};
+                Completion done = streamCompletion(partial -> runOnUiThread(() -> {
+                    String shown = shownWhileStreaming(partial);
+                    updateLastBotMessage(shown);
+                    if (!talking[0] && !shown.equals("Working…")) {
+                        talking[0] = true;
+                        actor.setMood(JoybotView.Mood.TALK);
+                    }
+                }));
+                if (cancelled) return;
                 if (done.error != null) {
-                    runOnUiThread(() -> updateLastBotMessage(done.error));
+                    runOnUiThread(() -> updateLastBotMessage(friendlyApiError(done.error)));
+                    doneTalking(false);
                     return;
                 }
                 // A completion names the model that ACTUALLY served it, which for a router
@@ -1041,7 +1122,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 // it turns the eye indicator's prediction into an observation.
                 ModelCapabilities.noteServedModel(done.servedModel);
                 if (done.text.isEmpty()) {
-                    runOnUiThread(() -> updateLastBotMessage("Empty response from AI."));
+                    runOnUiThread(() -> updateLastBotMessage("I got an empty reply. Try asking again."));
+                    doneTalking(false);
                     return;
                 }
 
@@ -1052,41 +1134,48 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 aiMsg.put("content", aiText);
                 conversationHistory.add(aiMsg);
 
-                // Check if the AI response is a tool call
                 String toolResult = tryExecuteTool(aiText);
                 if (toolResult != null) {
-                    // Show the tool call + result, then continue the conversation
+                    // Show the words (never the command), the tool line, then continue.
                     final String toolMsg = toolResult;
+                    final String prose = proseOf(aiText);
                     runOnUiThread(() -> {
-                        updateLastBotMessage(aiText + "\n\n⏳ Executing tool...");
+                        updateLastBotMessage(prose.isEmpty() ? "On it…" : prose);
                         addToolResultMessage(toolMsg);
                     });
-
-                    // Feed tool result back to AI for a natural-language response
-                    JSONObject toolResponseMsg = new JSONObject();
-                    toolResponseMsg.put("role", "user");
-                    toolResponseMsg.put("content",
-                            "Tool result:\n" + toolResult
-                            + "\n\nNow respond to the user with a summary of what happened.");
-                    conversationHistory.add(toolResponseMsg);
-
-                    // Make a follow-up AI call
+                    conversationHistory.add(toolFollowUp(toolResult));
                     continueAiConversation();
-                } else {
-                    runOnUiThread(() -> updateLastBotMessage(aiText));
+                } else if (!pendingAsyncTool) {
+                    final String shown = proseOf(aiText).isEmpty() ? aiText : proseOf(aiText);
+                    runOnUiThread(() -> { updateLastBotMessage(shown); voice.speak(shown); });
+                    doneTalking(true);
                 }
             } catch (IOException e) {
-                runOnUiThread(() -> updateLastBotMessage("Network error: " + e.getMessage()));
+                if (cancelled) return;
+                runOnUiThread(() -> updateLastBotMessage(friendlyNetworkError(e)));
+                doneTalking(false);
             } catch (Exception e) {
-                runOnUiThread(() -> updateLastBotMessage("Error: " + e.getMessage()));
+                if (cancelled) return;
+                runOnUiThread(() -> updateLastBotMessage("Something went wrong: " + e.getMessage()));
+                doneTalking(false);
             }
         });
     }
 
+    /** The message that hands a tool's result back to the model. */
+    @NonNull
+    private static JSONObject toolFollowUp(@NonNull String toolResult) throws Exception {
+        return new JSONObject().put("role", "user").put("content", "Tool result:\n" + toolResult
+                + "\n\nNow tell the person what changed, in one or two plain sentences"
+                + " (or call the next tool if the request needs another step).");
+    }
+
     private void continueAiConversation() {
+        if (cancelled) return;
         if (++toolRounds > MAX_TOOL_ROUNDS) {
             runOnUiThread(() -> addBotMessage("I stopped after " + MAX_TOOL_ROUNDS
                     + " steps in a row so nothing runs away. Say \"keep going\" if you want me to continue."));
+            doneTalking(true);
             return;
         }
         aiExecutor.execute(() -> {
@@ -1094,25 +1183,27 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 // The follow-up gets its own bubble, opened by the first words that arrive.
                 final boolean[] opened = {false};
                 Completion done = streamCompletion(partial -> runOnUiThread(() -> {
-                    if (opened[0]) updateLastBotMessage(shownWhileStreaming(partial));
+                    String shown = shownWhileStreaming(partial);
+                    if (opened[0]) updateLastBotMessage(shown);
                     else {
                         opened[0] = true;
-                        addBotMessage(shownWhileStreaming(partial));
+                        addBotMessage(shown);
+                        actor.setMood(JoybotView.Mood.TALK);
                     }
                 }));
+                if (cancelled) return;
                 if (done.error != null) {
-                    runOnUiThread(() -> addBotMessage("Follow-up " + done.error));
+                    runOnUiThread(() -> addBotMessage(friendlyApiError(done.error)));
+                    doneTalking(false);
                     return;
                 }
-                // A completion names the model that ACTUALLY served it, which for a router
-                // (openrouter/free, openrouter/auto) is only knowable after the fact. Recording
-                // it turns the eye indicator's prediction into an observation.
                 ModelCapabilities.noteServedModel(done.servedModel);
                 if (done.text.isEmpty()) {
                     runOnUiThread(() -> {
                         if (opened[0]) updateLastBotMessage("Done.");
                         else addBotMessage("Done.");
                     });
+                    doneTalking(true);
                     return;
                 }
 
@@ -1123,32 +1214,64 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 aiMsg.put("content", aiText);
                 conversationHistory.add(aiMsg);
 
-                // Check for chained tool calls
+                // Chained tool calls
                 String toolResult = tryExecuteTool(aiText);
                 if (toolResult != null) {
                     final String toolMsg = toolResult;
+                    final String prose = proseOf(aiText);
                     runOnUiThread(() -> {
-                        if (opened[0]) updateLastBotMessage(aiText);
+                        if (opened[0]) updateLastBotMessage(prose.isEmpty() ? "Next step…" : prose);
                         addToolResultMessage(toolMsg);
                     });
-
-                    JSONObject toolResponseMsg = new JSONObject();
-                    toolResponseMsg.put("role", "user");
-                    toolResponseMsg.put("content",
-                            "Tool result:\n" + toolResult
-                            + "\n\nNow respond to the user with a summary.");
-                    conversationHistory.add(toolResponseMsg);
+                    conversationHistory.add(toolFollowUp(toolResult));
                     continueAiConversation();
-                } else {
+                } else if (!pendingAsyncTool) {
+                    final String shown = proseOf(aiText).isEmpty() ? aiText : proseOf(aiText);
                     runOnUiThread(() -> {
-                        if (opened[0]) updateLastBotMessage(aiText);
-                        else addBotMessage(aiText);
+                        if (opened[0]) updateLastBotMessage(shown);
+                        else addBotMessage(shown);
+                        voice.speak(shown);
                     });
+                    doneTalking(true);
                 }
             } catch (Exception e) {
-                runOnUiThread(() -> addBotMessage("Follow-up error: " + e.getMessage()));
+                if (cancelled) return;
+                runOnUiThread(() -> addBotMessage(e instanceof IOException
+                        ? friendlyNetworkError((IOException) e) : "Something went wrong: " + e.getMessage()));
+                doneTalking(false);
             }
         });
+    }
+
+    /** The service's error, said plainly; the free tier's limits get their own sentence. */
+    @NonNull
+    private static String friendlyApiError(@NonNull String raw) {
+        String l = raw.toLowerCase(java.util.Locale.US);
+        if (l.contains("429") || l.contains("rate limit") || l.contains("rate-limit")) {
+            return "The AI service is busy, or I've hit its limit for now (free models allow a few "
+                    + "requests a minute). Try again in a minute, or pick another model in ⚙.";
+        }
+        if (l.contains("401") || l.contains("unauthorized") || l.contains("invalid api key")
+                || l.contains("no auth")) {
+            return "The AI service didn't accept the key. Check it in ⚙.";
+        }
+        if (l.contains("402") || l.contains("credit") || l.contains("insufficient")) {
+            return "That model needs credit on your AI account. Pick a free one in ⚙, or add credit.";
+        }
+        return raw;
+    }
+
+    @NonNull
+    private static String friendlyNetworkError(@NonNull IOException e) {
+        String m = String.valueOf(e.getMessage());
+        if (e instanceof java.net.UnknownHostException || m.contains("Unable to resolve host")) {
+            return "I can't reach the AI service — check the internet, or the address in ⚙. "
+                    + "The buttons below still work offline.";
+        }
+        if (e instanceof java.net.SocketTimeoutException) {
+            return "The AI service took too long to answer. Try again in a moment.";
+        }
+        return "Network problem: " + m;
     }
 
     // ── Streaming replies ────────────────────────────────────────────
@@ -1174,7 +1297,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private Completion streamCompletion(@Nullable PartialText partial) throws Exception {
         JSONObject body = new JSONObject();
         body.put("model", model);
-        body.put("messages", new JSONArray(conversationHistory));
+        body.put("messages", messagesForRequest());
         body.put("max_tokens", REPLY_TOKENS);
         body.put("temperature", 0.7);
         body.put("stream", true);
@@ -1185,7 +1308,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 .post(RequestBody.create(body.toString(), JSON))
                 .build();
         Completion c = new Completion();
-        try (Response response = httpClient.newCall(request).execute()) {
+        okhttp3.Call call = httpClient.newCall(request);
+        currentCall = call;   // the Stop button cancels this
+        try (Response response = call.execute()) {
             if (!response.isSuccessful() || response.body() == null) {
                 String err = response.body() != null ? response.body().string() : "";
                 c.error = "API error " + response.code() + ": " + err.substring(0, Math.min(200, err.length()));
@@ -1242,79 +1367,1055 @@ public class ChatAssistantActivity extends AppCompatActivity {
     /** A reply that is a tool command (JSON) shows as "Working..." while it streams, not as code. */
     @NonNull
     private static String shownWhileStreaming(@NonNull String soFar) {
-        String t = soFar.trim();
-        return t.startsWith("{") || t.startsWith("```") ? "Working\u2026" : soFar;
+        String prose = proseOf(soFar);
+        return prose.isEmpty() ? "Working\u2026" : prose;
     }
+
+    /** True while a tool runs on its own thread and will continue the conversation itself. */
+    private volatile boolean pendingAsyncTool;
 
     @Nullable
     private String tryExecuteTool(@NonNull String aiText) {
-        String trimmed = aiText.trim();
-
-        // Remove markdown code fences if present
-        if (trimmed.startsWith("```")) {
-            int start = trimmed.indexOf('\n');
-            int end = trimmed.lastIndexOf("```");
-            if (start >= 0 && end > start) {
-                trimmed = trimmed.substring(start + 1, end).trim();
-            }
-        }
-
+        pendingAsyncTool = false;
+        JSONObject json = findToolCall(aiText);
+        if (json == null) return null;
         try {
-            JSONObject json = new JSONObject(trimmed);
-            if (json.has("tool")) {
-                String toolName = json.getString("tool");
-                JSONObject args = json.optJSONObject("args");
-                if (args == null) args = new JSONObject();
+            String toolName = json.getString("tool");
+            JSONObject args = json.optJSONObject("args");
+            if (args == null) args = json.optJSONObject("arguments");
+            if (args == null) args = new JSONObject();
 
-                // Show status bar with tool name
-                showStatus(toolName);
-                startAiJob(humanizeToolName(toolName));
-                updateAiJob(humanizeToolName(toolName), 0);
+            showStatus(humanizeToolName(toolName));
+            startAiJob(humanizeToolName(toolName));
+            updateAiJob(humanizeToolName(toolName), 0);
+            runOnUiThread(() -> actor.setMood(JoybotView.Mood.WORK));
 
-                // Show checklist for multi-step tools
-                if ("ai_enhance".equals(toolName)) {
-                    showChecklist(new String[]{
-                            "Generate Vosk transcript", "Generate Whisper transcript",
-                            "Detect silence", "Synthesize transcripts", "Cut fillers"});
-
-                    // Run in background so the UI updates
-                    final String fnToolName = toolName;
-                    final JSONObject fnArgs = args;
-                    aiExecutor.execute(() -> {
-                        AIToolExecutor executor = createExecutor();
-                        String result = executor.executeTool(fnToolName, fnArgs);
-                        runOnUiThread(() -> {
-                            for (int i = 0; i < 5; i++) checkChecklistItem(i, true);
-                            hideStatus();
-                        });
-                        finishAiJob();
-                        final String toolMsg = fnToolName + " → " + result;
-                        runOnUiThread(() -> addBotMessage("🔧 " + toolMsg));
-
-                        // Feed result back to AI
-                        try {
-                            JSONObject toolResponseMsg = new JSONObject();
-                            toolResponseMsg.put("role", "user");
-                            toolResponseMsg.put("content",
-                                    "Tool result:\n" + result
-                                    + "\n\nNow respond to the user with a summary.");
-                            conversationHistory.add(toolResponseMsg);
-                        } catch (Exception ignored) { }
-                        continueAiConversation();
+            // The long multi-step tool runs on its own and continues the conversation itself.
+            if ("ai_enhance".equals(toolName)) {
+                showChecklist(new String[]{
+                        "Generate Vosk transcript", "Generate Whisper transcript",
+                        "Detect silence", "Synthesize transcripts", "Cut fillers"});
+                pendingAsyncTool = true;
+                final String fnToolName = toolName;
+                final JSONObject fnArgs = args;
+                aiExecutor.execute(() -> {
+                    String result = runToolRecorded(fnToolName, fnArgs);
+                    runOnUiThread(() -> {
+                        for (int i = 0; i < 5; i++) checkChecklistItem(i, true);
+                        hideStatus();
                     });
-                    return null; // handled async
-                }
-
-                AIToolExecutor executor = createExecutor();
-                String result = executor.executeTool(toolName, args);
-                finishAiJob();
-                hideStatus();
-                return toolName + " → " + result;
+                    finishAiJob();
+                    final String toolMsg = fnToolName + " → " + result;
+                    runOnUiThread(() -> addToolResultMessage(toolMsg));
+                    try {
+                        conversationHistory.add(toolFollowUp(result));
+                    } catch (Exception ignored) { }
+                    continueAiConversation();
+                });
+                return null;
             }
-        } catch (Exception ignored) {
-            // Not a tool call — normal text response
+
+            String result = runToolRecorded(toolName, args);
+            finishAiJob();
+            hideStatus();
+            return toolName + " → " + result;
+        } catch (Exception e) {
+            finishAiJob();
+            hideStatus();
+            return null;
+        }
+    }
+
+    /**
+     * The tool command in a reply, if there is one. Models are told to reply with ONLY the JSON,
+     * and many add a sentence first ("Sure! {...}") or wrap it in a code fence; the old parser
+     * then treated the whole reply as chat and the edit silently never happened.
+     */
+    @Nullable
+    private static JSONObject findToolCall(@NonNull String aiText) {
+        String t = aiText.trim();
+        int from = 0;
+        while (true) {
+            int i = t.indexOf('{', from);
+            if (i < 0) return null;
+            String obj = extractJsonObject(t.substring(i));
+            if (obj == null) return null;
+            try {
+                JSONObject j = new JSONObject(obj);
+                if (j.has("tool") && j.optString("tool", "").length() > 0) return j;
+            } catch (Exception ignored) { }
+            from = i + 1;
+        }
+    }
+
+    // ══ JOYBOT: ideas, direct runs, results, undo, the slide flow ═══════════════════════
+    // Plan: tasks/joybot/JOYBOT_PLAN_20261014.md (Phase 1 + the slide flow). The ideas come from a
+    // local decision tree (IdeaEngine) — instant, free, honest — and a tapped idea that can run on
+    // the phone does so without the model at all.
+
+    /** He flies down from his seat in the header into the corner, and hovers there. */
+    private void setupActor() {
+        actor.setOrb(com.fadcam.ui.faditor.Studio.ROOM_AVATAR, com.fadcam.ui.faditor.Studio.ORB_DEEP);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(actor, "Joybot: tap for ideas");
+        JoybotPulse.dressWhenReady(actor);
+        actor.setOnClickListener(v -> {
+            actor.react();
+            if (busy) return;
+            LAST_OPENER.remove(projectId == null ? "" : projectId);
+            refreshIdeas(true);
+        });
+        // He drops in from the top edge of the message area, under his seat in the header. Not from
+        // the header itself: that needs clipping switched off up the tree, and then the message
+        // list scrolls over the title bar (seen on the Note 9, 2026-10-14).
+        View stage = (View) actor.getParent();
+
+        actor.post(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            if (headerIcon == null || com.fadcam.ui.motion.Motion.reduced(this)) {
+                actor.setVisibility(View.VISIBLE);
+                if (headerIcon != null) headerIcon.setAlpha(0f);
+                return;
+            }
+            int[] h = new int[2], s = new int[2];
+            headerIcon.getLocationInWindow(h);
+            stage.getLocationInWindow(s);
+            float hx = Math.max(actor.getWidth() / 2f, h[0] - s[0] + headerIcon.getWidth() / 2f);
+            float hy = actor.getHeight() / 2f;
+            actor.setTranslationX(hx - (actor.getLeft() + actor.getWidth() / 2f));
+            actor.setTranslationY(hy - (actor.getTop() + actor.getHeight() / 2f));
+            // Wait for the header's own bounce, then he leaves his seat.
+            actor.postDelayed(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                headerIcon.animate().alpha(0f).setDuration(160L).start();
+                actor.setVisibility(View.VISIBLE);
+                actor.flyHome(null);
+            }, 640L);
+        });
+    }
+
+    /**
+     * Work out what Joybot would suggest now and show it as buttons; when {@code speak}, also
+     * say the "I noticed…" sentence (once per new idea, not every time the chat opens).
+     */
+    private void refreshIdeas(boolean speak) {
+        if (projectId == null) {
+            currentOffer = null;
+            showChips(noProjectIdeas());
+            return;
+        }
+        final boolean fromPulse = getIntent().getBooleanExtra(EXTRA_FROM_PULSE, false);
+        JoybotPulse.check(this, projectId, room, (offer, fresh) -> {
+            if (isFinishing() || isDestroyed()) return;
+            currentOffer = offer;
+            if (offer == null) { hideChips(); return; }
+            if (speak && offer.opener != null
+                    && (fromPulse || !offer.opener.equals(LAST_OPENER.get(projectId)))) {
+                LAST_OPENER.put(projectId, offer.opener);
+                addBotMessage(offer.opener);
+                voice.speak(offer.opener);
+                actor.setMood(JoybotView.Mood.TALK);
+                actor.postDelayed(() -> { if (!busy) actor.setMood(JoybotView.Mood.IDLE); }, 1400L);
+            }
+            if (!busy && slideFlow == null) showChips(offer.ideas);
+            Idea best = offer.best();
+            if (best != null) {
+                ideaMemory.markSeen(projectId, best.quietId());
+                if (!best.quietId().equals(shownBestId)) {
+                    shownBestId = best.quietId();
+                    bestTapped = false;
+                }
+            }
+        });
+    }
+
+    /** Without a project there is nothing to notice, so the buttons are ways to start one. */
+    @NonNull
+    private List<Idea> noProjectIdeas() {
+        List<Idea> l = new ArrayList<>();
+        l.add(Idea.of("start_project", Idea.Kind.ROUTE, "Start a project").flow("studio")
+                .say("I want to start a project")
+                .hint("Go to the Studio to make a new project").build());
+        l.add(Idea.of("record", Idea.Kind.ROUTE, "Record something").flow(IdeaEngine.ROUTE_RECORD)
+                .say("I want to record something")
+                .hint("Go to Capture to film your screen or your camera").build());
+        l.add(IdeaEngine.SOMETHING_ELSE);
+        return l;
+    }
+
+    private void showChips(@NonNull List<Idea> ideas) {
+        JoybotChatViews.fillChips(chipsRow, ideas, new JoybotChatViews.OnChip() {
+            @Override public void onTap(@NonNull Idea idea) { runIdea(idea, true); }
+            @Override public void onDismiss(@NonNull Idea idea) { dismissIdea(idea); }
+        });
+        chipsScroll.scrollTo(0, 0);
+        if (chipsScroll.getVisibility() != View.VISIBLE) {
+            chipsScroll.setVisibility(View.VISIBLE);
+            com.fadcam.ui.motion.Motion.enter(chipsScroll, 0);
+        }
+    }
+
+    private void hideChips() {
+        chipsScroll.setVisibility(View.GONE);
+    }
+
+    private void dismissIdea(@NonNull Idea idea) {
+        if (projectId == null) return;
+        ideaMemory.quieten(projectId, idea.quietId());
+        addBotMessage("Okay — I won't suggest “" + idea.label + "” for this project again.");
+        refreshIdeas(false);
+    }
+
+    /** A tapped idea (or a typed sentence that matched one). */
+    private void runIdea(@NonNull Idea idea, boolean sayIt) {
+        if (busy) {
+            Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (idea.kind == Idea.Kind.TYPE) {
+            inputField.requestFocus();
+            android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null) imm.showSoftInput(inputField, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+            return;
+        }
+        if (projectId != null) {
+            ideaMemory.markTapped(projectId, idea.quietId());
+            if (idea.quietId().equals(shownBestId)) bestTapped = true;
+        }
+        if (sayIt) addUserMessage(idea.say);
+        switch (idea.kind) {
+            case DIRECT:
+                runDirect(idea);
+                break;
+            case ASK:
+                if (AiService.ready(this, apiKey)) {
+                    handleAiQuery(idea.say);
+                } else {
+                    addBotMessage("That one needs an AI to think it through. Connect one in ⚙ "
+                            + "(the free one works) and tap it again.");
+                }
+                break;
+            case FLOW:
+                if (IdeaEngine.FLOW_PICTURE.equals(idea.flow)) {
+                    startPictureFlow(null);
+                } else if (IdeaEngine.FLOW_SLIDE.equals(idea.flow)) {
+                    startSlideFlow("title".equals(idea.key) ? "title"
+                            : "intro_slide".equals(idea.key) ? "title" : null);
+                }
+                break;
+            case ROUTE:
+                route(idea.flow);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /** Run an idea's steps on the phone, then show what changed with Undo and Show me. */
+    private void runDirect(@NonNull Idea idea) {
+        if (projectId == null) return;
+        setBusy(true);
+        cancelled = false;
+        actor.setMood(JoybotView.Mood.WORK);
+        showStatus(idea.label);
+        final String pid = projectId;
+        aiExecutor.execute(() -> {
+            DirectRunner.Result r = DirectRunner.run(this, pid, idea,
+                    (task, percent) -> runOnUiThread(() -> showStatusProgress(task, percent)),
+                    () -> cancelled);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                hideStatus();
+                setBusy(false);
+                showDirectResult(idea, r);
+                rememberForModel(idea.say, r);
+                refreshIdeas(false);
+            });
+        });
+    }
+
+    private void showDirectResult(@NonNull Idea idea, @NonNull DirectRunner.Result r) {
+        boolean changed = r.step != null;
+        String title;
+        String details = null;
+        if (r.error != null && !changed) {
+            title = plainError(r.error);
+        } else if (r.summary != null) {
+            title = r.summary + (r.error != null ? "\n\nThen I hit a snag: " + plainError(r.error) : "");
+        } else if (changed) {
+            title = "Done.";
+        } else {
+            // Information rather than a change (chapters, say): show it, in its own words.
+            title = idea.kind == Idea.Kind.DIRECT && "chapters".equals(idea.key)
+                    ? "Here's where the topics change:" : "Nothing needed changing.";
+            details = r.details;
+        }
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this, title, details);
+        if (changed) {
+            final AIChatState.Step step = r.step;
+            card.buttons.addView(JoybotChatViews.cardButton(this, "Undo",
+                    "Put the project back the way it was before this", v -> undoStep(card, step)));
+            cardForStep.put(step, card);
+        }
+        if (!idea.target.isEmpty() && isSpineClip(r, idea.target)) {
+            card.buttons.addView(JoybotChatViews.cardButton(this, "Show me",
+                    "Go to this clip in the editor", v -> showMe(idea.target)));
+        }
+        if (card.buttons.getChildCount() == 0) card.root.removeView(card.buttons);
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        addTickerTick(false);
+        scrollToBottom();
+        synchronized (messageLog) { messageLog.add(new String[]{"bot", title}); trimMessageLog(); }
+        voice.speak(title);
+
+        if (changed && r.error == null) {
+            showOff(card.root);
+        } else if (r.error != null) {
+            actor.setMood(JoybotView.Mood.OOPS);
+            actor.postDelayed(() -> actor.setMood(JoybotView.Mood.IDLE), 700L);
+        } else {
+            actor.setMood(JoybotView.Mood.IDLE);
+        }
+    }
+
+    private static boolean isSpineClip(@NonNull DirectRunner.Result r, @NonNull String id) {
+        if (r.after == null) return false;
+        for (com.fadcam.ui.faditor.ai.joybot.ProjectFacts.ClipFacts c : r.after.spine) {
+            if (c.id.equals(id)) return true;
+        }
+        return false;
+    }
+
+    /** He flies up to what he just did, shows it off, and flies back. */
+    private void showOff(@NonNull View target) {
+        target.post(() -> {
+            if (isFinishing() || isDestroyed() || actor.getVisibility() != View.VISIBLE) return;
+            View stage = (View) actor.getParent();
+            int[] t = new int[2], s = new int[2];
+            target.getLocationInWindow(t);
+            stage.getLocationInWindow(s);
+            float x = t[0] - s[0] + target.getWidth() - actor.getWidth() * 0.15f;
+            float y = Math.max(actor.getHeight() / 2f, t[1] - s[1] + actor.getHeight() * 0.1f);
+            actor.setMood(JoybotView.Mood.SHOW);
+            actor.flyTo(Math.min(x, stage.getWidth() - actor.getWidth() / 2f), y, () ->
+                    actor.postDelayed(() -> actor.flyHome(() -> actor.setMood(JoybotView.Mood.IDLE)), 900L));
+        });
+    }
+
+    /** Tell the model what Joybot did by himself, so a later question can build on it. */
+    private void rememberForModel(@NonNull String said, @NonNull DirectRunner.Result r) {
+        try {
+            conversationHistory.add(new JSONObject().put("role", "user").put("content", said));
+            String what = r.summary != null ? r.summary
+                    : r.error != null ? "That didn't work: " + r.error
+                    : r.details != null ? r.details : "Nothing needed changing.";
+            conversationHistory.add(new JSONObject().put("role", "assistant").put("content", what));
+        } catch (Exception ignored) { }
+    }
+
+    /** Joybot's tool vocabulary turned into something a person would say. */
+    @NonNull
+    private static String plainError(@NonNull String raw) {
+        String t = raw.replaceFirst("^(Error|Apply failed|Validation failed|Synthesis failed|Fix failed):?\\s*", "").trim();
+        if (t.toLowerCase(java.util.Locale.US).contains("timed out")) {
+            return "That took longer than I can wait. Try a shorter clip, or run it from the editor's tools.";
+        }
+        if (t.toLowerCase(java.util.Locale.US).contains("unknownhost")
+                || t.toLowerCase(java.util.Locale.US).contains("unable to resolve")) {
+            return "I need the internet once to download the speech model. Connect and try again.";
+        }
+        return t.isEmpty() ? "Something went wrong." : Character.toUpperCase(t.charAt(0)) + t.substring(1);
+    }
+
+    /** Undo the newest Joybot change. Older cards say so instead of undoing out of order. */
+    private void undoStep(@NonNull JoybotChatViews.Card card, @NonNull AIChatState.Step step) {
+        if (projectId == null) return;
+        if (AIChatState.peekStep(projectId) != step) {
+            Toast.makeText(this, "Undo the newer change first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (busy) return;
+        setBusy(true);
+        final String pid = projectId;
+        aiExecutor.execute(() -> {
+            boolean ok = DirectRunner.undo(this, pid);
+            runOnUiThread(() -> {
+                setBusy(false);
+                if (ok) {
+                    card.retire("Undone.");
+                    cardForStep.remove(step);
+                    addBotMessage("Undone — it's back how it was.");
+                    try {
+                        conversationHistory.add(new JSONObject().put("role", "user")
+                                .put("content", "[The person pressed Undo on: " + step.label + ". That change is gone now.]"));
+                    } catch (Exception ignored) { }
+                } else {
+                    addBotMessage("I couldn't undo that one. The editor's undo button still can.");
+                }
+                refreshIdeas(false);
+            });
+        });
+    }
+
+    private void undoByWords() {
+        AIChatState.Step step = projectId == null ? null : AIChatState.peekStep(projectId);
+        if (step == null) {
+            addBotMessage("There's nothing of mine to undo here. The editor's undo button undoes your own edits.");
+            return;
+        }
+        JoybotChatViews.Card card = cardForStep.get(step);
+        if (card == null) {
+            card = JoybotChatViews.resultCard(this, step.label.replaceFirst("^Joybot: ", ""), null);
+            card.root.removeView(card.buttons);
+            messagesContainer.addView(card.root);
+        }
+        undoStep(card, step);
+    }
+
+    /** Go to the clip in the editor. From the lobby, open the editor first. */
+    private void showMe(@NonNull String clipId) {
+        AIChatState.showClipId = clipId;
+        if (room != IdeaEngine.Room.STUDIO && projectId != null) {
+            startActivity(new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class)
+                    .putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, projectId));
+        }
+        finish();
+    }
+
+    /** "Take me there": a tab of the main screen. */
+    private void route(@NonNull String where) {
+        int tab;
+        switch (where) {
+            case IdeaEngine.ROUTE_RECORD: tab = 0; break;
+            case "library": tab = 1; break;
+            case "studio": tab = 3; break;
+            case "setup": tab = 4; break;
+            case "joybrush":
+                startActivity(new Intent(this, cc.joycreator.joybrush.android.library.DrawingsActivity.class));
+                finish();
+                return;
+            default: return;
+        }
+        startActivity(new Intent(this, com.fadcam.MainActivity.class)
+                .putExtra("navigate_to_tab", tab)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        finish();
+    }
+
+    // ── voice ──────────────────────────────────────────────────────────────
+
+    private JoybotVoice voice;
+    private static final int MIC_PERMISSION_REQUEST = 1003;
+
+    private void startHoldToTalk() {
+        if (busy) return;
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, MIC_PERMISSION_REQUEST);
+            return;
+        }
+        if (!JoybotVoice.canListenInBackground(this)) { startVoiceInput(); return; }
+        voice.hush();
+        actor.setMood(JoybotView.Mood.LISTEN);
+        final CharSequence hint = inputField.getHint();
+        inputField.setHint("Listening… let go to send");
+        inputField.setText("");
+        try {
+            findViewById(R.id.chat_mic).performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+        } catch (Exception ignored) { }
+        voice.startListening(new JoybotVoice.Ears() {
+            @Override public void onPartial(@NonNull String soFar) {
+                inputField.setText(soFar);
+                inputField.setSelection(inputField.getText().length());
+            }
+
+            @Override public void onFinal(@Nullable String text) {
+                inputField.setHint(hint);
+                actor.setMood(JoybotView.Mood.IDLE);
+                if (text == null) {
+                    Toast.makeText(ChatAssistantActivity.this, "I didn't catch that", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                inputField.setText(text);
+                sendMessage();
+            }
+
+            @Override public void onProblem(@NonNull String message) {
+                inputField.setHint(hint);
+                actor.setMood(JoybotView.Mood.IDLE);
+                Toast.makeText(ChatAssistantActivity.this, message, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == MIC_PERMISSION_REQUEST && grantResults.length > 0
+                && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "Thanks — now hold the mic and talk", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // ── the slide flow ─────────────────────────────────────────────────────
+
+    /** Start "help me make a slide"; {@code kind} skips the first question when already known. */
+    private void startSlideFlow(@Nullable String kind) {
+        if (projectId == null) return;
+        final String pid = projectId;
+        aiExecutor.execute(() -> {
+            String name = "";
+            int clips = 0, here = -1;
+            try {
+                com.fadcam.ui.faditor.model.FaditorProject p =
+                        new com.fadcam.ui.faditor.project.ProjectStorage(this).load(pid);
+                if (p != null) {
+                    name = p.getName() == null ? "" : p.getName();
+                    clips = p.getTimeline().getClipCount();
+                    if (room == IdeaEngine.Room.STUDIO) here = clipIndexAt(p, getIntent().getLongExtra(EXTRA_PLAYHEAD_MS, -1));
+                }
+            } catch (Exception ignored) { }
+            final SlideFlow f = new SlideFlow(name, clips, here);
+            if (kind != null) f.startingWith(kind);
+            runOnUiThread(() -> {
+                slideFlow = f;
+                askSlide();
+            });
+        });
+    }
+
+    private static int clipIndexAt(@NonNull com.fadcam.ui.faditor.model.FaditorProject p, long ms) {
+        if (ms < 0) return -1;
+        com.fadcam.ui.faditor.model.Timeline tl = p.getTimeline();
+        long acc = 0;
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            long d = Math.max(1, tl.getClip(i).getVisualDurationMs());
+            if (ms < acc + d) return i;
+            acc += d;
+        }
+        return -1;
+    }
+
+    private void askSlide() {
+        SlideFlow f = slideFlow;
+        if (f == null) return;
+        SlideFlow.Question q = f.question();
+        addBotMessage(q.text);
+        voice.speak(q.text);
+        actor.setMood(JoybotView.Mood.TALK);
+        actor.postDelayed(() -> { if (!busy) actor.setMood(JoybotView.Mood.IDLE); }, 900L);
+        JoybotChatViews.fillChoices(chipsRow, q.choices, "Never mind", c -> {
+            if (c == null) { cancelSlideFlow(); return; }
+            addUserMessage(c.label);
+            answerSlide(c.id);
+        });
+        chipsScroll.setVisibility(View.VISIBLE);
+        chipsScroll.scrollTo(0, 0);
+        if (q.wantsTyping) {
+            if (q.prefill != null && inputField.getText().toString().trim().isEmpty()) {
+                inputField.setText(q.prefill);
+                inputField.setSelection(inputField.getText().length());
+            }
+            inputField.requestFocus();
+        }
+    }
+
+    private void answerSlide(@NonNull String answer) {
+        SlideFlow f = slideFlow;
+        if (f == null) return;
+        SlideFlow.Stage was = f.stage();
+        if (!f.answer(answer)) {
+            addBotMessage("Sorry, I didn't catch that — pick one of the buttons, or say it another way.");
+            return;
+        }
+        // The words are in; whatever was pre-filled for them must not linger into the next answer.
+        if (was == SlideFlow.Stage.TEXT) inputField.setText("");
+        if (f.stage() != SlideFlow.Stage.DONE) { askSlide(); return; }
+        slideFlow = null;
+        inputField.setText("");
+        Map<String, Object> args = f.toolArgs();
+        Idea build = Idea.of("slide_built", Idea.Kind.DIRECT, "Make the slide")
+                .say(f.summary())
+                .undo(f.summary().replace(".", ""))
+                .step(new Idea.Step("generate_slide", args))
+                .build();
+        if (!AiService.ready(this, apiKey)) {
+            addBotMessage("Building it with my built-in design (connect an AI in ⚙ for a custom one)…");
+        } else {
+            addBotMessage("Designing it now — this takes a few seconds…");
+        }
+        runDirect(build);
+    }
+
+    private void cancelSlideFlow() {
+        slideFlow = null;
+        awaitingPictureSubject = false;
+        addBotMessage("No problem.");
+        if (currentOffer != null) showChips(currentOffer.ideas); else refreshIdeas(false);
+    }
+
+    // ── pictures (roadmap 3.10) ─────────────────────────────────────────────
+
+    /** Waiting for "what should the picture show?". */
+    private boolean awaitingPictureSubject;
+
+    /** "Make a picture", optionally already knowing what of. */
+    private void startPictureFlow(@Nullable String subject) {
+        if (subject == null || subject.trim().length() < 3) {
+            awaitingPictureSubject = true;
+            addBotMessage("What should the picture show?");
+            voice.speak("What should the picture show?");
+            JoybotChatViews.fillChoices(chipsRow, new ArrayList<>(), "Never mind", c -> {
+                awaitingPictureSubject = false;
+                cancelSlideFlow();
+            });
+            chipsScroll.setVisibility(View.VISIBLE);
+            inputField.requestFocus();
+            return;
+        }
+        awaitingPictureSubject = false;
+        offerPictureWays(subject.trim());
+    }
+
+    /** The ways to get it: here (priced), or free through their own AI app. */
+    private void offerPictureWays(@NonNull String subject) {
+        hideChips();
+        final boolean canPay = JoybotPictures.canGenerate(this);
+        aiExecutor.execute(() -> {
+            String price = canPay ? JoybotPictures.priceWords(JoybotPictures.model(this)) : null;
+            runOnUiThread(() -> {
+                List<SlideFlow.Choice> ways = new ArrayList<>();
+                if (canPay) {
+                    ways.add(choice("make", "Make it here" + (price != null ? " — " + price : ""),
+                            "Joybot makes it with your OpenRouter key"
+                                    + (price != null ? "; OpenRouter lists it at " + price : "")));
+                }
+                ways.add(choice("handoff", "Ask my ChatGPT or Gemini (free)",
+                        "I write the request; you make it in your own AI app and share it back"));
+                addBotMessage(canPay
+                        ? "I can make it here, or you can make it free in your own AI app and share it back."
+                        : "Make it free in your own AI app (ChatGPT, Gemini…) and share it back — "
+                          + "I'll write the request for you." + (AiService.isCustom(this) ? ""
+                          : " With an OpenRouter key I can also make it right here."));
+                JoybotChatViews.fillChoices(chipsRow, ways, "Never mind", c -> {
+                    if (c == null) { cancelSlideFlow(); return; }
+                    addUserMessage(c.label);
+                    if ("make".equals(c.id)) makePicture(subject); else handOffPicture(subject);
+                });
+                chipsScroll.setVisibility(View.VISIBLE);
+                chipsScroll.scrollTo(0, 0);
+            });
+        });
+    }
+
+    @NonNull
+    private static SlideFlow.Choice choice(String id, String label, String hint) {
+        return SlideFlow.choiceOf(id, label, hint);
+    }
+
+    /** The canvas shape for pictures, read from the project. Blocking. */
+    @NonNull
+    private String canvasPreset() {
+        if (projectId == null) return "16:9";
+        try {
+            com.fadcam.ui.faditor.model.FaditorProject p =
+                    new com.fadcam.ui.faditor.project.ProjectStorage(this).load(projectId);
+            return p == null || p.getCanvasPreset() == null ? "16:9" : p.getCanvasPreset();
+        } catch (Exception e) {
+            return "16:9";
+        }
+    }
+
+    private void makePicture(@NonNull String subject) {
+        setBusy(true);
+        actor.setMood(JoybotView.Mood.WORK);
+        addBotMessage("Making it — this usually takes 5 to 30 seconds…");
+        final String pid = projectId;
+        aiExecutor.execute(() -> {
+            String err = null;
+            Uri saved = null;
+            Bitmap thumb = null;
+            try {
+                JoybotPictures.Picture pic = JoybotPictures.generate(this, subject, canvasPreset());
+                saved = JoybotPictures.save(this, pid, pic, subject);
+                BitmapFactory.Options o = new BitmapFactory.Options();
+                o.inSampleSize = 2;
+                thumb = BitmapFactory.decodeByteArray(pic.bytes, 0, pic.bytes.length, o);
+            } catch (JoybotPictures.Problem p) {
+                err = p.getMessage();
+            } catch (Exception | OutOfMemoryError e) {
+                err = "Making the picture failed.";
+            }
+            final String e = err;
+            final Uri u = saved;
+            final Bitmap b = thumb;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                setBusy(false);
+                if (e != null) {
+                    addBotMessage(e);
+                    voice.speak(e);
+                    actor.setMood(JoybotView.Mood.OOPS);
+                    actor.postDelayed(() -> actor.setMood(JoybotView.Mood.IDLE), 700L);
+                    refreshIdeas(false);
+                    return;
+                }
+                showPictureCard(subject, u, b);
+            });
+        });
+    }
+
+    /** The new picture in the chat, with a way onto the timeline; Joybot flies up to show it off. */
+    private void showPictureCard(@NonNull String subject, @NonNull Uri uri, @Nullable Bitmap thumb) {
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this,
+                "Here it is — saved in your Joy Creator folder.", null);
+        if (thumb != null) {
+            ImageView iv = new ImageView(this);
+            iv.setImageBitmap(thumb);
+            iv.setAdjustViewBounds(true);
+            iv.setMaxHeight(dp(260));
+            iv.setPadding(0, dp(8), 0, 0);
+            card.root.addView(iv, 1);
+        }
+        if (projectId != null) {
+            card.buttons.addView(JoybotChatViews.cardButton(this, "Put it in my video",
+                    "Add it at the playhead as a picture clip (one undo)", v -> putInVideo(uri)));
+        }
+        card.buttons.addView(JoybotChatViews.cardButton(this, "Another one",
+                "Make a new version of the same picture", v -> makePicture(subject)));
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        addTickerTick(false);
+        scrollToBottom();
+        voice.speak("Here it is.");
+        refreshIdeas(false);
+        try {
+            conversationHistory.add(new JSONObject().put("role", "assistant")
+                    .put("content", "I made a picture of: " + subject + ". It is saved in the Joy Creator folder."));
+        } catch (Exception ignored) { }
+        showOff(card.root);
+    }
+
+    /** Onto the timeline through the share hand-off: the editor inserts it at the playhead. */
+    private void putInVideo(@NonNull Uri uri) {
+        if (projectId == null) return;
+        java.util.List<Uri> one = new ArrayList<>();
+        one.add(uri);
+        com.fadcam.joyfolder.studio.ShareInbox.put(projectId, one);
+        if (room != IdeaEngine.Room.STUDIO) {
+            startActivity(new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class)
+                    .putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, projectId));
+        }
+        finish();
+    }
+
+    /** The free route: their own AI app makes it; Share to Joy Creator brings it back. */
+    private void handOffPicture(@NonNull String subject) {
+        aiExecutor.execute(() -> {
+            String p = JoybotPictures.handoffPrompt(subject, canvasPreset());
+            runOnUiThread(() -> {
+                ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("Picture request", p));
+                addBotMessage("I copied this request:\n\n“" + p + "”\n\nPick your AI app, make the "
+                        + "picture there, then tap Share → Joy Creator and it lands in this project.");
+                Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain")
+                        .putExtra(Intent.EXTRA_TEXT, p);
+                try {
+                    startActivity(Intent.createChooser(send, "Make it with…"));
+                } catch (Exception ignored) { }
+                refreshIdeas(false);
+            });
+        });
+    }
+
+    /** "Make a picture of a red fox" → "a red fox"; null when it isn't a picture request. */
+    @Nullable
+    static String pictureSubject(@NonNull String text) {
+        String t = text.trim();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                "(?i)^(please\\s+)?(can you\\s+)?(make|generate|create|draw|paint)\\s+(me\\s+)?(a|an)?\\s*"
+                        + "(picture|image|photo|illustration|drawing|thumbnail|background)\\s*(of|showing|with)?\\s*(.*)$")
+                .matcher(t);
+        if (!m.find()) return null;
+        return m.group(8) == null ? "" : m.group(8).replaceAll("[.!?]+$", "").trim();
+    }
+
+    // ── busy, stop, and what a typed sentence might mean ─────────────────────
+
+    private void setBusy(boolean b) {
+        busy = b;
+        runOnUiThread(() -> {
+            stopButton.setVisibility(b ? View.VISIBLE : View.GONE);
+            sendButton.setVisibility(b ? View.GONE : View.VISIBLE);
+            View mic = findViewById(R.id.chat_mic);
+            if (mic != null) mic.setVisibility(b ? View.GONE : View.VISIBLE);
+            if (b) hideChips();
+        });
+    }
+
+    /** Stop button: end the reply being written; tool runs stop between steps. */
+    private void stopWorking() {
+        cancelled = true;
+        voice.hush();
+        okhttp3.Call c = currentCall;
+        if (c != null) c.cancel();
+        addBotMessage("Stopped.");
+        actor.setMood(JoybotView.Mood.IDLE);
+        setBusy(false);
+        refreshIdeas(false);
+    }
+
+    /** End of a model reply (or chain): buttons back, Joybot settles. */
+    private void doneTalking(boolean ok) {
+        runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            setBusy(false);
+            if (ok) {
+                actor.setMood(JoybotView.Mood.IDLE);
+            } else {
+                actor.setMood(JoybotView.Mood.OOPS);
+                actor.postDelayed(() -> actor.setMood(JoybotView.Mood.IDLE), 700L);
+            }
+            refreshIdeas(false);
+        });
+    }
+
+    /**
+     * A typed sentence that is plainly one of the buttons runs that button, so "cut the ums"
+     * works offline and needs no model online. Anything with more to it goes to the model.
+     */
+    @Nullable
+    private Idea matchIdea(@NonNull String text, boolean loose) {
+        String t = norm(text);
+        if (t.isEmpty()) return null;
+        List<Idea> pool = currentOffer != null ? currentOffer.ideas : noProjectIdeas();
+        for (Idea i : pool) {
+            if (i.kind == Idea.Kind.TYPE) continue;
+            if (t.equals(norm(i.label)) || t.equals(norm(i.say))) return i;
+        }
+        if (!loose) return null;
+        String[][] words = {
+                {"transcri", "transcribe", "captions_new"}, {"caption", "captions_on", "captions_new"},
+                {"um", "cut_ums", "find_ums"}, {"ums", "cut_ums", "find_ums"},
+                {"uh", "cut_ums", "find_ums"}, {"filler", "cut_ums", "find_ums"},
+                {"silen", "silences", "tighten"}, {"pause", "silences", "tighten"},
+                {"chapter", "chapters"}, {"transition", "transitions"}, {"crossfade", "transitions"},
+                {"visuali", "visualizer"}, {"b roll", "broll"}, {"broll", "broll"}};
+        for (String[] w : words) {
+            // Short keys only as whole words: "ums" must not match "drums".
+            if (!(" " + t + " ").contains(w[0].length() <= 3 ? " " + w[0] + " " : w[0])) continue;
+            for (int k = 1; k < w.length; k++) {
+                for (Idea i : pool) if (i.key.equals(w[k])) return i;
+            }
         }
         return null;
+    }
+
+    @NonNull
+    private static String norm(@NonNull String s) {
+        return s.toLowerCase(java.util.Locale.US).replaceAll("[“”\"'.,!?]", "")
+                .replaceAll("\\s+", " ").trim();
+    }
+
+    private static boolean wantsSlide(@NonNull String text) {
+        String t = norm(text);
+        return t.contains("slide") || t.contains("title card") || t.contains("make a title")
+                || t.contains("intro card") || t.contains("end card") || t.contains("credits");
+    }
+
+    // ── what the model is told about the project, fresh for every request ────────
+
+    /** The conversation as sent: the system message carries a just-read project context. */
+    @NonNull
+    private JSONArray messagesForRequest() {
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < conversationHistory.size(); i++) {
+            JSONObject m = conversationHistory.get(i);
+            if (i == 0 && "system".equals(m.optString("role"))) {
+                try {
+                    out.put(new JSONObject().put("role", "system")
+                            .put("content", m.optString("content") + "\n" + freshContext()));
+                    continue;
+                } catch (Exception ignored) { }
+            }
+            out.put(m);
+        }
+        return out;
+    }
+
+    private static final int CONTEXT_CAP = 14_000;
+    private static final int TRANSCRIPT_PREVIEW = 900;
+
+    /** A compact, just-read picture of the project. Blocking (reads the project file). */
+    @NonNull
+    private String freshContext() {
+        StringBuilder sb = new StringBuilder("CURRENT PROJECT (read just now; trust it over anything earlier in the chat)\n");
+        sb.append("Joybot was opened from: ").append(room.name().toLowerCase(java.util.Locale.US)).append('\n');
+        if (projectId == null) return sb.append("No project is open.\n").toString();
+        try {
+            com.fadcam.ui.faditor.project.ProjectStorage st = new com.fadcam.ui.faditor.project.ProjectStorage(this);
+            com.fadcam.ui.faditor.model.FaditorProject p = st.load(projectId);
+            if (p == null) return sb.append("The project could not be read.\n").toString();
+            com.fadcam.ui.faditor.model.Timeline tl = p.getTimeline();
+            sb.append("Project \"").append(p.getName()).append("\": ").append(tl.getClipCount())
+                    .append(" clips, ").append(formatClock(tl.getTotalDurationMs()))
+                    .append(" long, canvas ").append(p.getCanvasPreset()).append('\n');
+            long ph = getIntent().getLongExtra(EXTRA_PLAYHEAD_MS, -1);
+            if (room == IdeaEngine.Room.STUDIO && ph >= 0) sb.append("Playhead: ").append(formatClock(ph)).append('\n');
+            for (int i = 0; i < tl.getClipCount(); i++) {
+                com.fadcam.ui.faditor.model.Clip c = tl.getClip(i);
+                sb.append("Clip ").append(i).append(" id=").append(c.getId()).append(" \"")
+                        .append(ProjectFactsReader.nameOf(c)).append("\" ")
+                        .append(c.isGeneratedSlide() ? "slide" : c.isImageClip() ? "picture" : "video")
+                        .append(' ').append(formatClock(c.getTrimmedDurationMs()));
+                if (c.isAudioMuted()) sb.append(" muted");
+                if (c.getSpeedMultiplier() != 1f) sb.append(" speed=").append(c.getSpeedMultiplier());
+                if (c.isCaptionsEnabled()) sb.append(" captions=").append(c.getCaptionStyleId());
+                if (!c.getRemovedSpans().isEmpty()) sb.append(" cuts=").append(c.getRemovedSpans().size());
+                sb.append('\n');
+                appendTranscript(sb, c.getActiveNamedTranscript(), c.getTranscripts(), c.getRemovedSpans());
+            }
+            for (com.fadcam.ui.faditor.model.AudioClip ac : tl.getAudioClips()) {
+                sb.append("AudioClip id=").append(ac.getId()).append(" \"").append(ProjectFactsReader.nameOf(ac))
+                        .append("\" at ").append(formatClock(ac.getOffsetMs())).append(", ")
+                        .append(formatClock(ac.getTrimmedDurationMs()));
+                if (ac.isMuted()) sb.append(" muted");
+                if (ac.isCaptionsEnabled()) sb.append(" captions=").append(ac.getCaptionStyleId());
+                sb.append('\n');
+                appendTranscript(sb, ac.getActiveNamedTranscript(), ac.getTranscripts(), ac.getRemovedSpans());
+            }
+            int shown = 0;
+            for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
+                if (shown++ == 8) { sb.append("  …").append(tl.getTextOverlays().size() - 8).append(" more layers\n"); break; }
+                String txt = o.isImage() ? "[picture]" : o.getText();
+                if (txt != null && txt.length() > 30) txt = txt.substring(0, 30) + "…";
+                sb.append("Layer id=").append(o.getId()).append(" \"").append(txt).append("\" ")
+                        .append(formatClock(o.getStartMs())).append('-')
+                        .append(o.getEndMs() == Long.MAX_VALUE ? "end" : formatClock(o.getEndMs())).append('\n');
+            }
+            sb.append("Transitions: ").append(tl.getTransitions().size())
+                    .append(", visualizers: ").append(tl.getWaveformOverlays().size()).append('\n');
+            for (com.fadcam.ui.faditor.sprite.SpriteSheet s : p.getSpriteSheets()) {
+                sb.append("Sprite sheet id=").append(s.getId()).append(" \"").append(s.getName()).append("\" ")
+                        .append(s.cellCount()).append(s.isSequence() ? " frames" : " cells, ")
+                        .append(s.isSequence() ? "" : s.getCellNames().size() + " named, ")
+                        .append(s.getPresets().size()).append(" animations\n");
+            }
+            try {
+                int b = new BRollBucket(this).listAssets().size();
+                if (b > 0) sb.append("B-roll bucket: ").append(b).append(" files (list_broll for names)\n");
+            } catch (Exception ignored) { }
+            IdeaEngine.Offer o = currentOffer;
+            if (o != null && o.hasIdea()) {
+                sb.append("Joybot's suggestions on screen now: ");
+                for (Idea i : o.ideas) if (i.kind != Idea.Kind.TYPE) sb.append('"').append(i.label).append("\" ");
+                sb.append('\n');
+            }
+        } catch (Exception e) {
+            sb.append("(Could not read the project: ").append(e.getMessage()).append(")\n");
+        }
+        if (sb.length() > CONTEXT_CAP) sb.setLength(CONTEXT_CAP);
+        return sb.toString();
+    }
+
+    private static void appendTranscript(@NonNull StringBuilder sb,
+                                         @Nullable com.fadcam.ui.faditor.transcript.NamedTranscript nt,
+                                         @NonNull List<com.fadcam.ui.faditor.transcript.NamedTranscript> all,
+                                         @NonNull List<long[]> removed) {
+        if (nt == null && !all.isEmpty()) nt = all.get(0);
+        if (nt == null || nt.transcript == null) { sb.append("  (no transcript)\n"); return; }
+        StringBuilder words = new StringBuilder();
+        int kept = 0, fillers = 0;
+        for (com.fadcam.ui.faditor.transcript.TranscriptWord w : nt.transcript.words) {
+            if (com.fadcam.ui.faditor.ai.joybot.Fillers.isCut(w.startMs, w.endMs, removed)) continue;
+            if (w.struck || com.fadcam.ui.faditor.ai.joybot.Fillers.isFiller(w.text)) { fillers++; continue; }
+            kept++;
+            if (words.length() < TRANSCRIPT_PREVIEW) words.append(w.text).append(' ');
+        }
+        sb.append("  Transcript (").append(nt.engine).append(", ").append(kept).append(" words, ")
+                .append(fillers).append(" filler words still in): \"").append(words.toString().trim())
+                .append(words.length() >= TRANSCRIPT_PREVIEW ? "…\" (get_transcript for all words with timings)" : "\"")
+                .append('\n');
+    }
+
+    /** What the person sees of a reply that contains a tool command: the words, never the JSON. */
+    @NonNull
+    private static String proseOf(@NonNull String soFar) {
+        String t = soFar.trim();
+        if (t.startsWith("{")) return "";
+        int cut = -1;
+        for (String marker : new String[]{"{\"tool\"", "```", "{ \"tool\""}) {
+            int i = t.indexOf(marker);
+            if (i >= 0 && (cut < 0 || i < cut)) cut = i;
+        }
+        if (cut < 0) return t;
+        return t.substring(0, cut).trim();
+    }
+
+    /** Read the project as the undo snapshot format. Null when there is no project. */
+    @Nullable
+    private String snapshotJson() {
+        if (projectId == null) return null;
+        try {
+            com.fadcam.ui.faditor.project.ProjectStorage st = new com.fadcam.ui.faditor.project.ProjectStorage(this);
+            com.fadcam.ui.faditor.model.FaditorProject p = st.load(projectId);
+            return p == null ? null : st.toJson(p);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Run a model-requested tool, parking the request's undo step at its first real change: later
+     * tools in the same request share that step (one request, one undo).
+     */
+    @NonNull
+    private String runToolRecorded(@NonNull String toolName, @NonNull JSONObject args) {
+        String before = snapshotJson();
+        String result = createExecutor().executeTool(toolName, args);
+        if (before != null && !requestStepPushed) {
+            String after = snapshotJson();
+            if (after != null && !after.equals(before)) {
+                requestStepPushed = true;
+                AIChatState.pushStep(projectId, requestLabel, before);
+                final AIChatState.Step step = AIChatState.peekStep(projectId);
+                runOnUiThread(() -> addUndoRow(step));
+            }
+        }
+        return result;
+    }
+
+    /** A slim Undo for a request the model carried out. */
+    private void addUndoRow(@Nullable AIChatState.Step step) {
+        if (step == null) return;
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this,
+                "Changed: " + step.label.replaceFirst("^Joybot: ", ""), null);
+        card.title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12);
+        card.title.setTextColor(com.fadcam.ui.faditor.Studio.INK_FAINT);
+        card.buttons.addView(JoybotChatViews.cardButton(this, "Undo",
+                "Put the project back the way it was before this request", v -> undoStep(card, step)));
+        cardForStep.put(step, card);
+        messagesContainer.addView(card.root);
+        scrollToBottom();
+    }
+
+    /** A short quote of the person's words for the undo history. */
+    @NonNull
+    private static String requestLabelFor(@NonNull String userText) {
+        String t = userText.trim().replaceAll("\\s+", " ");
+        if (t.length() > 40) t = t.substring(0, 39).trim() + "…";
+        return "Joybot: “" + t + "”";
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Shown, not tapped, and now leaving: one ignore. Two and that idea goes quiet.
+        if (isFinishing() && projectId != null && shownBestId != null && !bestTapped) {
+            ideaMemory.markIgnored(projectId, shownBestId);
+        }
     }
 
     // ── Settings dialog ────────────────────────────────────────────
@@ -1338,8 +2439,37 @@ public class ChatAssistantActivity extends AppCompatActivity {
         inputKey.setText(currentKey);
         inputKey.setHint("sk-or-v1-...");
         inputKey.setTextColor(Studio.INK);
-        inputKey.setSingleLine(false);
-        root.addView(inputKey);
+        // Hidden like a password: the settings screen gets screenshotted and screen-recorded, and a
+        // key on screen is a key someone else can spend (found while testing on the Note 9,
+        // 2026-10-14). Hold the eye to check what was pasted.
+        inputKey.setSingleLine(true);
+        inputKey.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        LinearLayout keyRow = new LinearLayout(this);
+        keyRow.setOrientation(LinearLayout.HORIZONTAL);
+        keyRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        keyRow.addView(inputKey, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView eye = new TextView(this);
+        eye.setTypeface(ResourcesCompat.getFont(this, R.font.materialicons));
+        eye.setText("visibility");
+        eye.setTextSize(20);
+        eye.setTextColor(Studio.INK_DIM);
+        eye.setPadding(dp(10), dp(8), dp(4), dp(8));
+        eye.setContentDescription("Hold to show the key");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(eye, "Hold to show the key");
+        eye.setOnTouchListener((v, ev) -> {
+            int a = ev.getActionMasked();
+            if (a == android.view.MotionEvent.ACTION_DOWN) {
+                inputKey.setTransformationMethod(null);
+            } else if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL) {
+                inputKey.setTransformationMethod(android.text.method.PasswordTransformationMethod.getInstance());
+            }
+            inputKey.setSelection(inputKey.getText().length());
+            return true;
+        });
+        keyRow.addView(eye);
+        root.addView(keyRow);
 
         TextView labelModel = new TextView(this);
         labelModel.setText("Model:");
@@ -1352,6 +2482,20 @@ public class ChatAssistantActivity extends AppCompatActivity {
         inputModel.setHint(DEFAULT_MODEL);
         inputModel.setTextColor(Studio.INK);
         root.addView(inputModel);
+
+        TextView labelPic = new TextView(this);
+        labelPic.setText("Picture model (for pictures Joybot makes):");
+        labelPic.setTextColor(Studio.INK_DIM);
+        labelPic.setPadding(0, pad, 0, 0);
+        root.addView(labelPic);
+
+        EditText inputPic = new EditText(this);
+        String curPic = JoybotPictures.model(this);
+        inputPic.setText(JoybotPictures.DEFAULT_MODEL.equals(curPic) ? "" : curPic);
+        inputPic.setHint(JoybotPictures.DEFAULT_MODEL);
+        inputPic.setTextColor(Studio.INK);
+        inputPic.setSingleLine(true);
+        root.addView(inputPic);
 
         TextView labelBase = new TextView(this);
         labelBase.setText("Service address (optional):");
@@ -1376,6 +2520,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
         hint.setTextSize(12);
         hint.setPadding(0, pad, 0, 0);
         root.addView(hint);
+
+        // Joybot's voice: off unless asked for (it is a phone in a quiet room as often as not).
+        CheckBox readAloud = new CheckBox(this);
+        readAloud.setText("Read Joybot's replies aloud");
+        readAloud.setTextColor(Studio.INK_DIM);
+        readAloud.setChecked(JoybotVoice.readAloud(this));
+        readAloud.setPadding(0, pad / 2, 0, 0);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(readAloud,
+                "Joybot speaks his answers with the phone's voice");
+        root.addView(readAloud);
 
         // Custom title: mascot icon (flipped inward, facing right toward the label) + text.
         int titlePad = (int) (16 * getResources().getDisplayMetrics().density);
@@ -1412,7 +2566,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 .create();
 
         // A key and an address are not a username and password: keep password managers out.
-        for (EditText f : new EditText[]{inputKey, inputModel, inputBase}) {
+        for (EditText f : new EditText[]{inputKey, inputModel, inputBase, inputPic}) {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 f.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
             }
@@ -1434,6 +2588,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 final String finalMdl = mdl.isEmpty() ? DEFAULT_MODEL : mdl;
                 AiKey.set(this, key);
                 AiService.setBase(this, inputBase.getText().toString());
+                JoybotVoice.setReadAloud(this, readAloud.isChecked());
+                JoybotPictures.setModel(this, inputPic.getText().toString());
                 prefs.sharedPreferences.edit()
                         .putString(PREF_MODEL, finalMdl)
                         .apply();
@@ -1554,7 +2710,47 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void addToolResultMessage(@NonNull String toolMsg) {
         int idx = toolMsg.indexOf("@@PROPOSAL:");
         if (idx >= 0 && renderProposalCard(toolMsg.substring(idx))) return;
-        addBotMessage("🔧 " + toolMsg);
+        // One quiet line per tool: what Joybot did, not the tool's report (which is written for
+        // the model and full of ids). Tap it to read the whole thing.
+        int arrow = toolMsg.indexOf(" → ");
+        String name = arrow > 0 ? toolMsg.substring(0, arrow) : "tool";
+        String body = arrow > 0 ? toolMsg.substring(arrow + 3) : toolMsg;
+        boolean failed = DirectRunner.isFailure(body);
+        String line = (failed ? "✗ " : "✓ ") + friendlyToolName(name)
+                + (failed ? " — " + plainError(body).split("\n")[0] : "");
+        TextView tv = new TextView(this);
+        tv.setText(line);
+        tv.setTextSize(12);
+        tv.setTextColor(failed ? com.fadcam.ui.faditor.Studio.CAREFUL : com.fadcam.ui.faditor.Studio.INK_FAINT);
+        tv.setPadding(dp(16), dp(2), dp(60), dp(2));
+        tv.setOnClickListener(v -> tv.setText(tv.getText().toString().equals(line) ? line + "\n" + body : line));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(tv, "Tap to see the details");
+        messagesContainer.addView(tv);
+        synchronized (messageLog) { messageLog.add(new String[]{"bot", line}); trimMessageLog(); }
+        scrollToBottom();
+    }
+
+    /** Tool names in the words a person would use. */
+    @NonNull
+    private static String friendlyToolName(@NonNull String tool) {
+        switch (tool) {
+            case "generate_transcript": return "Transcribed";
+            case "cut_all_fillers": return "Cut the ums";
+            case "toggle_captions": return "Captions";
+            case "set_caption_style": return "Caption style";
+            case "detect_silence": return "Found the quiet parts";
+            case "remove_silence": return "Cut the silences";
+            case "generate_slide": return "Made a slide";
+            case "add_transition": return "Added a transition";
+            case "add_text_overlay": return "Added text";
+            case "add_visualizer": return "Added a visualizer";
+            case "get_project_state": case "get_transcript": case "describe_clip": return "Read the project";
+            case "apply_edit_script": return "Made the edits";
+            case "ai_enhance": return "Cleaned up the speech";
+            default:
+                String t = tool.replace('_', ' ');
+                return t.isEmpty() ? "Done" : Character.toUpperCase(t.charAt(0)) + t.substring(1);
+        }
     }
 
     private boolean renderProposalCard(@NonNull String s) {
@@ -1740,10 +2936,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     private void applyProposal(@NonNull String tool, @NonNull JSONObject args) {
         addBotMessage("⏳ Applying…");
+        // Applying a card is its own request: its own undo step.
+        requestLabel = "Joybot: " + friendlyToolName(tool).toLowerCase(java.util.Locale.US)
+                .replace("apply ", "apply the ");
+        requestStepPushed = false;
         aiExecutor.execute(() -> {
-            AIToolExecutor ex = createExecutor();
-            String res = ex.executeTool(tool, args);
-            runOnUiThread(() -> addBotMessage("🔧 " + res));
+            String res = runToolRecorded(tool, args);
+            runOnUiThread(() -> {
+                addToolResultMessage(tool + " → " + res);
+                refreshIdeas(false);
+            });
         });
     }
 
@@ -1909,6 +3111,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         AIChatState.chatActive = false;
+        if (voice != null) voice.release();
         aiExecutor.shutdownNow();
     }
 

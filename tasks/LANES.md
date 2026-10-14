@@ -1166,3 +1166,13 @@ physical display, native-base full-history validation and engine tests. Sol sour
 owns ONLY isolated RecordedScene.kt internal projected staging/new tests in
 C:/Temp/jb-promotion-inventory. No concurrent engine edits or helper builds/device/Git.
 Claude independent reviewer: AUDIT_CHECKPOINT_20261014.md; storage/Joybot files untouched.
+
+## JOYBOT_20261014 (Claude, JoyBot specialist — cross-cutting account)
+status: ACTIVE (2026-10-14 16:00) — phases 1–3 committed and tested on the Note 9 (ledger + device results in plan B6). Plan: tasks/joybot/JOYBOT_PLAN_20261014.md.
+files (also, small): MainActivity (onNewIntent) · tools/jvm-harness/typecheck.sh (studiokit + JoyBrush jars) · new slides/SlideDesigns.java
+files (owned): app/.../ui/faditor/ai/** (ChatAssistantActivity, AIToolExecutor, AIChatState, new ai/joybot/**) ·
+  app/.../ui/lobby/JoybotView.java, JoybotFilm.java · res/layout/activity_chat_assistant.xml · tools/jvm-harness/IdeaEngineTest.java, run-ideas.sh
+files (small hooks only, announced): FaditorEditorActivity (AIChatState reload block + AI button pulse) ·
+  LobbyFragment (Joybot lines only) · ui/faditor/undo/UndoManager (one overload)
+NOT touching: joybrush/, joybrush-android/, joyfolder/ (reuses ShareInbox as-is).
+DEVICE: none reserved; asks the owner before any install.

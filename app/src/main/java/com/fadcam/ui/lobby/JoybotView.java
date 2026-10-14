@@ -316,6 +316,230 @@ public final class JoybotView extends FrameLayout {
         if (getWidth() > 0) { fit(neutral, getWidth(), getHeight()); fit(smile, getWidth(), getHeight()); }
     }
 
+    // ── "he's got a good idea" ──────────────────────────────────────────────
+    //
+    // Owner, 2026-10-14: when Joybot has a suggestion you haven't seen, his orb BREATHES — the
+    // studio green behind him, slow and calm, easy to ignore. No sound, no vibration, no badge.
+    // A separate disc under the faces so it works with or without an orb, and so the owner's
+    // sprite films can play over it later. Reduced motion: a still tint instead of a breath.
+
+    private static final long IDEA_BREATH_MS = 4000L;
+    /** Peak opacity of the breath. Low on purpose: noticed when you look, ignorable when you don't. */
+    private static final float IDEA_PEAK = 0.55f;
+
+    @Nullable private View ideaGlow;
+    @Nullable private ValueAnimator ideaBreath;
+    private boolean hasIdea = false;
+
+    /** Breathe the studio green behind him while there is an idea you haven't seen. */
+    public void setHasIdea(boolean has) {
+        if (has == hasIdea) return;
+        hasIdea = has;
+        if (has) {
+            if (ideaGlow == null) {
+                ideaGlow = new View(getContext());
+                android.graphics.drawable.GradientDrawable d =
+                        new android.graphics.drawable.GradientDrawable(
+                                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                                new int[]{com.fadcam.ui.faditor.Studio.GO,
+                                        com.fadcam.ui.faditor.Studio.GO_END});
+                d.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+                ideaGlow.setBackground(d);
+                ideaGlow.setLayoutParams(new LayoutParams(
+                        LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT, Gravity.CENTER));
+                ideaGlow.setAlpha(0f);
+                addView(ideaGlow, 0);    // under both faces and any film
+            }
+            startIdeaBreath();
+        } else {
+            stopIdeaBreath();
+            if (ideaGlow != null) ideaGlow.animate().alpha(0f).setDuration(400L).start();
+        }
+    }
+
+    public boolean hasIdea() { return hasIdea; }
+
+    private void startIdeaBreath() {
+        if (!hasIdea || ideaGlow == null || ideaBreath != null) return;
+        if (Motion.reduced(getContext())) {
+            ideaGlow.setAlpha(IDEA_PEAK * 0.8f);
+            return;
+        }
+        ideaBreath = ValueAnimator.ofFloat(0f, (float) (Math.PI * 2));
+        ideaBreath.setDuration(IDEA_BREATH_MS);
+        ideaBreath.setRepeatCount(ValueAnimator.INFINITE);
+        ideaBreath.setInterpolator(null);
+        ideaBreath.addUpdateListener(a -> {
+            if (ideaGlow == null) return;
+            // 0 → peak → 0 on a cosine: it fades in from nothing, so it never "switches on".
+            float t = (float) a.getAnimatedValue();
+            ideaGlow.setAlpha(IDEA_PEAK * 0.5f * (1f - (float) Math.cos(t)));
+        });
+        ideaBreath.start();
+    }
+
+    private void stopIdeaBreath() {
+        if (ideaBreath != null) { ideaBreath.cancel(); ideaBreath = null; }
+    }
+
+    // ── moods ───────────────────────────────────────────────────────────────
+    //
+    // Owner, 2026-10-14: he will load a LABELLED sprite sheet of Joybot (talking, thinking,
+    // excited…). So everything that wants Joybot to look a certain way asks for a MOOD, never for
+    // frames. Today a mood is played with the two stills and motion; once a film is registered
+    // under the same name, that mood plays the film instead. No call site changes on the day the
+    // art arrives.
+
+    public enum Mood {
+        IDLE("idle"), LISTEN("listen"), THINK("think"), WORK("work"),
+        TALK("talk"), EXCITED("excited"), SHOW("show"), OOPS("oops");
+
+        /** The animation name to look for in his sprite sheet. */
+        public final String sheetName;
+        Mood(String n) { sheetName = n; }
+    }
+
+    private Mood mood = Mood.IDLE;
+    private final java.util.Map<Mood, JoybotFilm> moodFilms = new java.util.EnumMap<>(Mood.class);
+    @Nullable private ValueAnimator moodAnim;
+
+    /** Register the film a mood plays (from his sprite sheet). Null removes it. */
+    public void setMoodFilm(@NonNull Mood m, @Nullable JoybotFilm f) {
+        if (f == null) moodFilms.remove(m); else moodFilms.put(m, f);
+        if (m == mood) setMood(mood);
+    }
+
+    @NonNull public Mood getMood() { return mood; }
+
+    public void setMood(@NonNull Mood m) {
+        mood = m;
+        if (moodAnim != null) { moodAnim.cancel(); moodAnim = null; }
+        JoybotFilm f = moodFilms.get(m);
+        if (f != null) { setFilm(f); return; }
+        if (film != null) setFilm(null);
+        boolean still = Motion.reduced(getContext());
+        switch (m) {
+            case LISTEN:
+            case EXCITED:
+                react();
+                removeCallbacks(settle);            // hold the smile while the mood lasts
+                if (m == Mood.EXCITED && !still) hop(2);
+                break;
+            case SHOW:
+                react();
+                removeCallbacks(settle);
+                if (!still) hop(1);
+                break;
+            case TALK:
+                // Two stills can still TALK: neutral and smile alternate like a mouth.
+                stopSmiling();
+                if (still) break;
+                moodAnim = ValueAnimator.ofInt(0, 1);
+                moodAnim.setDuration(190L);
+                moodAnim.setRepeatCount(ValueAnimator.INFINITE);
+                moodAnim.setRepeatMode(ValueAnimator.REVERSE);
+                moodAnim.addUpdateListener(a -> {
+                    boolean open = (int) a.getAnimatedValue() == 1;
+                    neutral.setAlpha(open ? 0f : 1f);
+                    smile.setAlpha(open ? 1f : 0f);
+                });
+                moodAnim.start();
+                break;
+            case THINK:
+            case WORK:
+                stopSmiling();
+                if (still) break;
+                // A slow tilt while he thinks, a quicker one while he works.
+                moodAnim = ValueAnimator.ofFloat(-1f, 1f);
+                moodAnim.setDuration(m == Mood.THINK ? 1400L : 700L);
+                moodAnim.setRepeatCount(ValueAnimator.INFINITE);
+                moodAnim.setRepeatMode(ValueAnimator.REVERSE);
+                moodAnim.setInterpolator(Motion.EASE_IN_OUT);
+                moodAnim.addUpdateListener(a -> {
+                    float r = (float) a.getAnimatedValue() * (m == Mood.THINK ? 6f : 3f);
+                    neutral.setRotation(r);
+                    smile.setRotation(r);
+                });
+                moodAnim.start();
+                break;
+            case OOPS:
+                stopSmiling();
+                if (still) break;
+                moodAnim = ValueAnimator.ofFloat(0f, 1f);
+                moodAnim.setDuration(420L);
+                moodAnim.addUpdateListener(a -> {
+                    float t = a.getAnimatedFraction();
+                    float x = (float) Math.sin(t * Math.PI * 6) * (1f - t) * getWidth() * 0.05f;
+                    neutral.setTranslationX(x);
+                    smile.setTranslationX(x);
+                });
+                moodAnim.start();
+                break;
+            case IDLE:
+            default:
+                stopSmiling();
+                break;
+        }
+        if (m != Mood.THINK && m != Mood.WORK) { neutral.setRotation(0f); smile.setRotation(0f); }
+        if (m != Mood.OOPS) { neutral.setTranslationX(0f); smile.setTranslationX(0f); }
+        if (m != Mood.TALK && !smiling) { neutral.setAlpha(1f); smile.setAlpha(0f); }
+    }
+
+    /** A little jump of delight, {@code n} times. Rides the dip offset so hover keeps working. */
+    private void hop(int n) {
+        if (dipAnim != null) dipAnim.cancel();
+        float h = -getHeight() * 0.12f;
+        float[] keys = new float[n * 2 + 1];
+        for (int i = 0; i < n; i++) { keys[i * 2] = 0f; keys[i * 2 + 1] = h; }
+        keys[n * 2] = 0f;
+        dipAnim = ValueAnimator.ofFloat(keys);
+        dipAnim.setDuration(320L * n);
+        dipAnim.setInterpolator(Motion.EASE_IN_OUT);
+        dipAnim.addUpdateListener(a -> {
+            dipOffset = (float) a.getAnimatedValue();
+            applyOffsets();
+        });
+        dipAnim.start();
+    }
+
+    // ── places ──────────────────────────────────────────────────────────────
+
+    /**
+     * Fly so his centre lands on {@code x, y} (in his parent's coordinates), then run {@code then}.
+     * An arc, not a straight slide: he is a character going somewhere, not a panel moving.
+     */
+    public void flyTo(float x, float y, @Nullable Runnable then) {
+        final float sx = getTranslationX(), sy = getTranslationY();
+        final float tx = sx + (x - (getLeft() + sx + getWidth() / 2f));
+        final float ty = sy + (y - (getTop() + sy + getHeight() / 2f));
+        if (Motion.reduced(getContext())) {
+            setTranslationX(tx);
+            setTranslationY(ty);
+            if (then != null) then.run();
+            return;
+        }
+        final float lift = -Math.min(getHeight() * 1.2f, Math.abs(tx - sx) * 0.25f + getHeight() * 0.3f);
+        ValueAnimator fly = ValueAnimator.ofFloat(0f, 1f);
+        fly.setDuration(560L);
+        fly.setInterpolator(Motion.EASE_IN_OUT);
+        fly.addUpdateListener(a -> {
+            float t = (float) a.getAnimatedValue();
+            setTranslationX(sx + (tx - sx) * t);
+            setTranslationY(sy + (ty - sy) * t + lift * (float) Math.sin(Math.PI * t));
+        });
+        fly.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(android.animation.Animator animation) {
+                if (then != null) then.run();
+            }
+        });
+        fly.start();
+    }
+
+    /** Back to where his layout put him. */
+    public void flyHome(@Nullable Runnable then) {
+        flyTo(getLeft() + getWidth() / 2f, getTop() + getHeight() / 2f, then);
+    }
+
     // ── expressions ─────────────────────────────────────────────────────────
 
     /**
@@ -414,6 +638,8 @@ public final class JoybotView extends FrameLayout {
     protected void onDetachedFromWindow() {
         removeCallbacks(settle);
         if (dipAnim != null) dipAnim.cancel();
+        if (moodAnim != null) { moodAnim.cancel(); moodAnim = null; }
+        stopIdeaBreath();
         stopHover();
         super.onDetachedFromWindow();
     }
@@ -424,7 +650,7 @@ public final class JoybotView extends FrameLayout {
         // Covers the cases onDetachedFromWindow does not: the fragment behind another
         // fragment, the screen off, the app in the background. All of those leave the view
         // attached, and without this he would keep animating into a surface nobody sees.
-        if (visible) startHover(); else stopHover();
+        if (visible) { startHover(); startIdeaBreath(); } else { stopHover(); stopIdeaBreath(); }
     }
 
     private long lastReactMs = 0L;

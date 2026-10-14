@@ -538,6 +538,40 @@ public class FaditorMiniFragment extends BaseFragment {
     /**
      * Populate the recent projects list from saved projects.
      */
+    /** The dot's question: bring this project's outside files into the Joy Creator folder? */
+    private void offerBringIn(@NonNull String projectId,
+                              @NonNull com.fadcam.joyfolder.studio.StudioMirror.Outside outside) {
+        int n = outside.count;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle(n == 1 ? "1 file is outside your folder" : n + " files are outside your folder")
+                .setMessage((n == 1 ? "It's" : "They're") + " linked where " + (n == 1 ? "it is" : "they are") + " ("
+                        + android.text.format.Formatter.formatShortFileSize(requireContext(), outside.bytes)
+                        + "), not copied. If " + (n == 1 ? "it's" : "one is") + " moved or deleted there, the project "
+                        + "loses it, and a new phone won't have it.\n\nBring " + (n == 1 ? "it" : "them")
+                        + " in to keep the project whole.")
+                .setPositiveButton("Bring " + (n == 1 ? "it" : "them") + " in", (d, w) -> {
+                    final android.content.Context app = requireContext().getApplicationContext();
+                    Toast.makeText(app, "Copying into your Joy Creator folder…", Toast.LENGTH_SHORT).show();
+                    com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+                        String msg;
+                        try {
+                            int done = com.fadcam.joyfolder.studio.StudioMirror.bringInAll(app, projectId, null);
+                            msg = done == 1 ? "Copied into your Joy Creator folder." : "Copied " + done + " files into your Joy Creator folder.";
+                        } catch (Exception e) {
+                            msg = "Couldn't copy them all: " + e.getMessage() + ". Nothing was lost.";
+                        }
+                        final String m = msg;
+                        android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
+                        h.post(() -> {
+                            Toast.makeText(app, m, Toast.LENGTH_LONG).show();
+                            if (isAdded()) refreshRecentProjects();
+                        });
+                    });
+                })
+                .setNegativeButton("Not now", null)
+                .show();
+    }
+
     private void refreshRecentProjects() {
         if (recentProjectsList == null || recentProjectsSection == null) return;
 
@@ -736,6 +770,27 @@ public class FaditorMiniFragment extends BaseFragment {
         textSection.addView(cacheRow);
 
         row.addView(textSection);
+
+        // ── Yellow dot: files outside the Joy Creator folder ─────
+        // Owner, 2026-10-14: an easy way to see that a project still links to files outside its
+        // folder, and to bring them in by tapping the dot. The count comes from the project's last
+        // save (StudioMirror), so drawing the list reads no files.
+        com.fadcam.joyfolder.studio.StudioMirror.Outside outside =
+                com.fadcam.joyfolder.studio.StudioMirror.outside(requireContext(), summary.id);
+        if (outside != null) {
+            TextView dot = new TextView(requireContext());
+            dot.setText("●");
+            dot.setTextColor(com.fadcam.ui.faditor.Studio.CAREFUL);
+            dot.setTextSize(14);
+            dot.setGravity(Gravity.CENTER);
+            dot.setLayoutParams(new LinearLayout.LayoutParams((int) (36 * dp), (int) (36 * dp)));
+            String what = outside.count == 1 ? "1 file is outside your Joy Creator folder"
+                    : outside.count + " files are outside your Joy Creator folder";
+            dot.setContentDescription(what);
+            if (android.os.Build.VERSION.SDK_INT >= 26) dot.setTooltipText(what);
+            dot.setOnClickListener(v -> offerBringIn(summary.id, outside));
+            row.addView(dot);
+        }
 
         // ── Arrow icon ───────────────────────────────────────────
         if (!selectionMode) {

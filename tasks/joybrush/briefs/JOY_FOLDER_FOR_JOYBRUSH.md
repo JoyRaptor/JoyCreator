@@ -8,6 +8,33 @@ I don't think there's any way to load different drawings in from the lobby."
 The full design is `tasks/SPEC_20261013_FILE_MANAGEMENT.md` §3 and §3.6 ("Folders you earn"); the owner's picks are
 on the page `tasks/design/Joy-Creator-folder-options.html`. Read §3.6 first: it is short.
 
+## 0. STATUS 2026-10-14 — done by the cross-cutting account while the JoyBrush lanes were on cooldown (owner asked)
+
+Built and on the Note 9 (commit "JoyBrush: many drawings, thumbnails…"):
+- `joybrush-android/.../library/DrawingLibrary.kt` — list (library.json beside the working copies), create, rename,
+  delete-to-Trash, thumbnails (`thumbs/<file>.png`, rendered a row at a time), the folder copy `<Name>.joybrush`
+  (found again by doc id if moved), restore from the folder (`syncFromFolder`).
+- `JoyBrushActivity`: **two hooks only** — `workingFile()` asks `DrawingLibrary.fileToOpen(intent)` (fixed per run);
+  after a working save, `DrawingLibrary.onSaved(...)`. Nothing else in saving/recovery/history changed.
+- `library/DrawingsActivity.kt` (gallery) and the Lobby's Joy Brush room (hero = last drawing, row = drawings).
+
+Owed to the JoyBrush lanes (not touched):
+1. **"Open…" still replaces the current drawing's content** in its working file. With a library it should probably
+   import as a NEW drawing (`DrawingLibrary.create` then open). Your call.
+2. **The owner's `current.joybrush` (10-12, media layers) can't be read by this branch's `JbArchive`**
+   ("1_3.g is not a tx_ty tile key"): the media-tile reader isn't merged here yet. The drawing screen correctly
+   refuses to overwrite it. Thumbnails for it will appear once the reader lands.
+3. Thumbnails use the paper's flat `color`; a textured look (kraft) shows white. Use `CanvasPng.paperRendererFor` if
+   you want the look.
+3b. **Thumbnail framing — owner asked, cross-cutting account recommends (2026-10-14):** like Concepts, the picture
+   is **the last view the person was looking at, clipped to the board** (that's what they recognise; a whole huge
+   canvas is a smudge). Fall back to the whole board when that view is mostly empty paper; for an animation board, the
+   frame they were on; later, "Use this view as the cover". Needs one hook from the canvas: pass the current view
+   rectangle (document coordinates) to `DrawingLibrary.onSaved`, and render that rect in `thumbnailOf` instead of
+   `board.rect`. Today it renders the whole active board.
+4. A drawing's `doc.name` isn't updated on rename (the library's name is). Decide whether the document name follows.
+5. §3 below (autosave during continuous drawing) is still open.
+
 ## 1. What already exists (use it, don't copy it)
 
 `studiokit` (JoyBrush already depends on it) has the folder, in plain Java:

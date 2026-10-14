@@ -1721,10 +1721,16 @@ class JoyBrushActivity : Activity() {
      * documents move to the vault later. Never `adb uninstall` this app (START_HERE rule 3).
      */
     private fun workingFile(): File? {
+        openedDrawing?.let { return it }
         val dir = getExternalFilesDir(WORKING_DIR) ?: return null
         if (!dir.isDirectory && !dir.mkdirs()) return null
-        return File(dir, WORKING_FILE)
+        // Which drawing this run works on: the lobby's choice, else the last one (DrawingLibrary). Fixed for the run.
+        return (cc.joycreator.joybrush.android.library.DrawingLibrary.fileToOpen(this, intent) ?: File(dir, WORKING_FILE))
+            .also { openedDrawing = it }
     }
+
+    /** The working file this run settled on; see [workingFile]. */
+    private var openedDrawing: File? = null
 
     /** Something changed on the canvas: (re)start the 30 s clock before the autosave. */
     private fun noteChange() {
@@ -1842,6 +1848,8 @@ class JoyBrushActivity : Activity() {
                         is SaveDest.Working -> {
                             JbArchive.save(file!!, contents)
                             recovery.rememberWorking(file)
+                            // Thumbnail and the Joy Creator folder copy; never fails the save.
+                            cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents)
                         }
                         is SaveDest.Copy -> writeCopy(dest.uri, contents)
                         is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)

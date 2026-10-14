@@ -238,6 +238,7 @@ public final class StudioMirror {
 
         boolean copyMedia = JoyFolderHome.copyMediaAllowed(context);
         Map<String, String> files = new LinkedHashMap<>();
+        final java.util.Set<String> outside = new java.util.LinkedHashSet<>();
         final java.util.concurrent.atomic.AtomicReference<Map<String, String>> known =
                 new java.util.concurrent.atomic.AtomicReference<>();
         rewrite(root, value -> {
@@ -259,6 +260,7 @@ public final class StudioMirror {
                 }
             }
             if (value.startsWith(JOY)) return value;
+            if (isOutside(context, value)) outside.add(value);
             if (!copyMedia) return value;
             Source src = atRisk(context, projectDir, value, uri);
             if (src == null) return value;
@@ -285,6 +287,7 @@ public final class StudioMirror {
         st.projects.put(projectId, new State.Project(workRel, hash));
         st.save(jf);
         if (res.filesCopied > 0) jf.saveIndex();
+        rememberOutside(context, projectId, outside);
         return res;
     }
 
@@ -791,6 +794,242 @@ public final class StudioMirror {
             }
         }
         return total;
+    }
+
+    // ── Files outside the folder ─────────────────────────────────────────
+    //
+    // The owner, 2026-10-14: really large files are linked where they are rather than copied, with a
+    // warning and a Copy button; a project can be gathered into the folder at any time; and there's an
+    // easy way to see which projects still use files from outside it (the yellow dot).
+
+    private static final String OUTSIDE_PREFS = "joy_outside";
+
+    /** How much of a project lives outside the Joy Creator folder (and outside the app). */
+    public static final class Outside {
+        public final int count;
+        public final long bytes;
+
+        Outside(int count, long bytes) {
+            this.count = count;
+            this.bytes = bytes;
+        }
+    }
+
+    /**
+     * A link to a file that is neither in the Joy Creator folder nor inside the app: the gallery, Downloads, another
+     * app's folder. Removing it there breaks the project, and a new phone won't have it. Main thread is fine.
+     */
+    public static boolean isOutside(Context context, String ref) {
+        if (ref == null || ref.startsWith(JOY) || ref.startsWith("project://")) return false;
+        Uri uri = parse(ref);
+        if (uri == null) return false;
+        if ("content".equals(uri.getScheme())) {
+            String auth = uri.getAuthority();
+            if (auth == null || auth.startsWith(context.getPackageName())) return false;
+            // A folder link (the asset browser's pinned folder, its history) is not a file.
+            String p = uri.getPath();
+            if (p != null && p.startsWith("/tree/") && !p.contains("/document/")) return false;
+            return !inJoyFolder(context, usageKey(ref));
+        }
+        String path = ref.startsWith("file://") ? uri.getPath() : ref.startsWith("/") ? ref : null;
+        if (path == null) return false;
+        File f = new File(path);
+        return !insideApp(context, f) && !inJoyFolder(context, path) && f.isFile();
+    }
+
+    private static boolean inJoyFolder(Context context, String key) {
+        Uri tree = JoyFolderHome.treeUri(context);
+        if (tree == null || key == null) return false;
+        String root = usageKey(tree.toString());
+        return key.equals(root) || key.startsWith(root + "/");
+    }
+
+    /** The last count for a project's outside files, from its last save; null when there are none. */
+    public static Outside outside(Context context, String projectId) {
+        String v = context.getSharedPreferences(OUTSIDE_PREFS, Context.MODE_PRIVATE).getString(projectId, null);
+        if (v == null) return null;
+        try {
+            int bar = v.indexOf('|');
+            int n = Integer.parseInt(v.substring(0, bar));
+            return n > 0 ? new Outside(n, Long.parseLong(v.substring(bar + 1))) : null;
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static void rememberOutside(Context context, String projectId, java.util.Collection<String> refs) {
+        long bytes = 0;
+        for (String r : refs) bytes += Math.max(0, sizeOf(context, r));
+        android.content.SharedPreferences.Editor ed =
+                context.getSharedPreferences(OUTSIDE_PREFS, Context.MODE_PRIVATE).edit();
+        if (refs.isEmpty()) ed.remove(projectId);
+        else ed.putString(projectId, refs.size() + "|" + bytes);
+        ed.apply();
+    }
+
+    /** A file's size in bytes, or -1 when it can't be told. */
+    public static long sizeOf(Context context, String ref) {
+        Uri uri = parse(ref);
+        if (uri == null) return -1;
+        if ("content".equals(uri.getScheme())) {
+            try (android.content.res.AssetFileDescriptor fd = context.getContentResolver().openAssetFileDescriptor(uri, "r")) {
+                return fd == null ? -1 : fd.getLength();
+            } catch (Exception e) {
+                return -1;
+            }
+        }
+        String path = ref.startsWith("file://") ? uri.getPath() : ref;
+        return path == null ? -1 : new File(path).length();
+    }
+
+    /** The outside files a saved project links to, read fresh from its file. Not the main thread. */
+    public static java.util.List<String> outsideFiles(Context context, String projectId) {
+        java.util.Set<String> out = new java.util.LinkedHashSet<>();
+        File json = new File(new File(projectsRoot(context), projectId), "project.json");
+        try {
+            rewrite(JsonParser.parseString(readText(json)), value -> {
+                if (isOutside(context, value)) out.add(value);
+                return value;
+            });
+        } catch (Exception ignored) {
+        }
+        return new ArrayList<>(out);
+    }
+
+    /**
+     * Copy one outside file into the folder, beside the project (the owner's rule for things that belong to a
+     * work), named as it was. The same file brought in twice is one copy. Returns its link in the folder.
+     * Folder I/O: call on {@link JoyFolderHome#io()}.
+     */
+    public static Uri bringIn(Context context, String projectId, String ref) throws IOException {
+        JoyFolder jf = JoyFolderHome.open(context);
+        SafJoyFs saf = JoyFolderHome.fsOf(jf);
+        if (jf == null || saf == null) throw new IOException("your Joy Creator folder can't be reached");
+        Uri uri = parse(ref);
+        if (uri == null) throw new IOException("not a file link");
+        String workRel = null;
+        try {
+            workRel = folderPathOf(context, projectId);
+        } catch (Exception ignored) {
+        }
+        String name;
+        InputStream in;
+        if ("content".equals(uri.getScheme())) {
+            name = displayName(context, uri);
+            in = context.getContentResolver().openInputStream(uri);
+        } else {
+            File f = new File(ref.startsWith("file://") ? uri.getPath() : ref);
+            name = f.getName();
+            in = new FileInputStream(f);
+        }
+        if (in == null) throw new IOException("can't read " + name);
+        String rel;
+        try (InputStream src = in) {
+            String dir = jf.prepareDir(Placement.What.IMPORT, workRel, null, null);
+            rel = jf.addFile(dir, name, src, "import");
+        }
+        // Already there under another name? Keep the first copy.
+        FolderIndex.Item it = jf.index.get(rel);
+        if (it != null && it.fingerprint != null) {
+            for (FolderIndex.Item other : jf.index.items()) {
+                if (!other.path.equals(rel) && it.fingerprint.equals(other.fingerprint) && jf.fs.stat(other.path) != null) {
+                    jf.fs.delete(rel);
+                    jf.index.remove(rel);
+                    rel = other.path;
+                    break;
+                }
+            }
+        }
+        jf.saveIndex();
+        return saf.documentUri(rel);
+    }
+
+    /**
+     * Gather a closed project's outside files into the folder: each is copied in and the project's links are
+     * pointed at the copies. The editor does the same for an open project in memory. Returns how many.
+     * Folder I/O: call on {@link JoyFolderHome#io()}.
+     */
+    public static int bringInAll(Context context, String projectId, Progress progress) throws IOException {
+        return bringInSome(context, projectId, outsideFiles(context, projectId), progress).size();
+    }
+
+    /**
+     * Copy these outside files of a closed project into the folder and point the project at the copies.
+     * Returns original link to its copy's link, for the files that made it. Folder I/O.
+     */
+    public static Map<String, String> bringInSome(Context context, String projectId,
+                                                  java.util.Collection<String> refs, Progress progress) throws IOException {
+        Map<String, String> copied = new HashMap<>();
+        for (String ref : refs) {
+            if (progress != null) progress.onStep(nameOf(context, ref));
+            copied.put(ref, bringIn(context, projectId, ref).toString());
+        }
+        if (copied.isEmpty()) return copied;
+        rewriteProject(context, projectId, copied);
+        return copied;
+    }
+
+    /** A file's name as a person would know it ("IMG_2041.jpg"), from any kind of link. */
+    public static String nameOf(Context context, String ref) {
+        Uri uri = parse(ref);
+        if (uri == null) return ref;
+        if ("content".equals(uri.getScheme())) return displayName(context, uri);
+        String path = ref.startsWith("file://") ? uri.getPath() : ref;
+        return path == null ? ref : new File(path).getName();
+    }
+
+    /**
+     * After a MOVE: every other saved project that linked to one of these originals now links to its copy, so
+     * removing the original breaks nothing. Matched by the file, not the spelling of the link. Folder I/O.
+     *
+     * @param moved original link to the copy's link
+     * @return how many projects were re-pointed
+     */
+    public static int repointOthers(Context context, Map<String, String> moved, String exceptProjectId) {
+        Map<String, String> byKey = new HashMap<>();
+        for (Map.Entry<String, String> e : moved.entrySet()) byKey.put(usageKey(e.getKey()), e.getValue());
+        File[] dirs = projectsRoot(context).listFiles();
+        if (dirs == null) return 0;
+        int n = 0;
+        for (File d : dirs) {
+            if (d.getName().equals(exceptProjectId)) continue;
+            File json = new File(d, "project.json");
+            if (!json.isFile()) continue;
+            try {
+                final boolean[] hit = {false};
+                JsonElement root = JsonParser.parseString(readText(json));
+                rewrite(root, value -> {
+                    String to = byKey.get(usageKey(value));
+                    if (to == null) return value;
+                    hit[0] = true;
+                    return to;
+                });
+                if (!hit[0]) continue;
+                writeProjectJson(json, root);
+                mirror(context, d.getName());
+                n++;
+            } catch (Exception e) {
+                Log.w(TAG, "Could not re-point " + d.getName(), e);
+            }
+        }
+        return n;
+    }
+
+    private static void rewriteProject(Context context, String projectId, Map<String, String> copied) throws IOException {
+        File json = new File(new File(projectsRoot(context), projectId), "project.json");
+        JsonElement root = JsonParser.parseString(readText(json));
+        rewrite(root, value -> copied.containsKey(value) ? copied.get(value) : value);
+        writeProjectJson(json, root);
+        mirror(context, projectId);
+    }
+
+    private static void writeProjectJson(File json, JsonElement root) throws IOException {
+        File tmp = new File(json.getPath() + ".joytmp");
+        try (FileOutputStream out = new FileOutputStream(tmp)) {
+            out.write(GSON.toJson(root).getBytes(StandardCharsets.UTF_8));
+            out.getFD().sync();
+        }
+        if (!tmp.renameTo(json)) throw new IOException("couldn't update the project file");
     }
 
     // ── "Not used in any project" ────────────────────────────────────────

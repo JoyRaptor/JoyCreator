@@ -658,3 +658,14 @@ Root resumes BOARD_COMPLETION_20261007 in region-routing, Note9 connected. Integ
 Root board completion accepted on Note9 October7: Animation transactions, tiling, onion, Sprite roll/swaps, durable SpriteLab and Studio handoffs. Final evidence and remaining visual/fill work: reviews/BOARD_COMPLETION_20261007.md. Source preserves Claude's published media work through64450ab1; no brush/paper algorithm edits. Coordinate adapters before landing new engine work.
 
 Root FILL_UI source complete October7: fill pen PAINT preview/oneUndo via existing ownership, glass forms/ranges, adaptive icon ink, bounded optional Frost and accessible export choices. Integrated published Claude media through4fdb608d; core1706/backend312/native105 green, watcher APK52s. Source released; Claude owns Note9 install/testing. No root phone commands. See reviews/FILL_UI_HANDOFF_20261007.md and published LEAD_DESK answer A.
+
+## PHONE LOCK — all lanes, from the cross-cutting Claude session — 2026-10-14
+Owner: "coordinate … for who uses the phone when, so you aren't walking on top of each other." Codex and two Claude
+sessions were driving the Note 9 at once this morning. From now on **one agent drives the phone at a time**, through the
+file `C:/Users/JoyRaptor/AppData/Local/Temp/jb-phone.lock` (beside jb-gradle.lock): line 1 holder, line 2 time, line 3 why.
+Check it before any install/launch/tap/swipe/text/key; if it's someone else's and under 30 minutes old, wait or ask here.
+Claim it with your lane name, refresh it while you work, delete it (yours only) when done. Screenshots/logcat/dumpsys
+need no lock. Full rule and commands: top of `tasks/DEVICE_CONTROL_RUNBOOK.md`; PowerShell helper:
+`tools/phone.ps1 who | claim <name> <why> | release <name>`.
+Cross-cutting session's pending phone work (will claim first): testing Copy / Move / Leave for files outside the Joy
+Creator folder in the Studio editor (moves a test clip out of Download/JoyTest only).

@@ -87,6 +87,8 @@ public class AssetBrowserPanel extends FrameLayout {
     private TextView btnNextDir;
     private TextView btnFilter;
     private TextView btnTrash;
+    /** "Move files no project uses to Trash": only in the no-project-uses filter, in the Joy Creator folder. */
+    private TextView btnTidy;
 
     // Content
     private RecyclerView recyclerView;
@@ -102,8 +104,14 @@ public class AssetBrowserPanel extends FrameLayout {
     private FilterMode filterMode = FilterMode.ALL;
 
     private enum FilterMode {
-        ALL, USED, UNUSED
+        ALL, USED, UNUSED,
+        /** Not used by any project at all: what's safe to tidy away. */
+        NOWHERE
     }
+
+    /** Files any project uses ({@link com.fadcam.joyfolder.studio.StudioMirror#usageKey} keys); null until loaded. */
+    @Nullable
+    private java.util.Set<String> usedAnywhere;
 
     // Animation
     private boolean isExpanded = false;
@@ -238,12 +246,18 @@ public class AssetBrowserPanel extends FrameLayout {
                 R.string.lane_d_asset_forget);
         btnTrash.setOnClickListener(v -> confirmDeleteFromHistory());
 
+        btnTidy = createIconButton("delete_sweep", Studio.CAREFUL, 28, R.string.lane_d_asset_filter);
+        SheetKit.label(btnTidy, "Move files no project uses to Trash");
+        btnTidy.setOnClickListener(v -> offerTidy());
+        btnTidy.setVisibility(GONE);
+
         header.addView(folderIcon);
         header.addView(pathScroll);
         header.addView(btnPrevDir);
         header.addView(btnNextDir);
         header.addView(btnChangeDir);
         header.addView(btnFilter);
+        header.addView(btnTidy);
         header.addView(btnTrash);
         panel.addView(header);
 
@@ -525,19 +539,14 @@ public class AssetBrowserPanel extends FrameLayout {
         new Thread(() -> {
             AssetScanner scanner = new AssetScanner(getContext());
             List<AssetItem> items = scanner.scan(dir, project.getTimeline());
+            java.util.Set<String> used = filterMode == FilterMode.NOWHERE
+                    ? com.fadcam.joyfolder.studio.StudioMirror.usedByAnyProject(getContext()) : null;
             mainHandler.post(() -> {
                 allItems.clear();
                 allItems.addAll(items);
-                applyFilter();
+                if (used != null) usedAnywhere = used;
                 loadingBar.setVisibility(GONE);
-                if (filteredItems().isEmpty()) {
-                    emptyText.setText(R.string.faditor_asset_browser_empty);
-                    emptyText.setVisibility(VISIBLE);
-                    recyclerView.setVisibility(GONE);
-                } else {
-                    emptyText.setVisibility(GONE);
-                    recyclerView.setVisibility(VISIBLE);
-                }
+                showFiltered();
             });
         }, "AssetScanner").start();
     }
@@ -588,8 +597,30 @@ public class AssetBrowserPanel extends FrameLayout {
                 btnFilter.setText("radio_button_unchecked");
                 btnFilter.setTextColor(Studio.CAREFUL);
                 break;
+            case NOWHERE:
+                btnFilter.setText("link_off");
+                btnFilter.setTextColor(Studio.CAREFUL);
+                break;
         }
-        applyFilter();
+        String what = filterMode == FilterMode.ALL ? "Showing all files"
+                : filterMode == FilterMode.USED ? "Showing files this project uses"
+                : filterMode == FilterMode.UNUSED ? "Showing files this project doesn't use"
+                : "Showing files no project uses";
+        SheetKit.label(btnFilter, what);
+        Toast.makeText(getContext(), what, Toast.LENGTH_SHORT).show();
+        if (filterMode == FilterMode.NOWHERE) {
+            // Every project's links, read fresh each time this mode is picked (projects change).
+            final Context app = getContext().getApplicationContext();
+            new Thread(() -> {
+                java.util.Set<String> used = com.fadcam.joyfolder.studio.StudioMirror.usedByAnyProject(app);
+                mainHandler.post(() -> {
+                    usedAnywhere = used;
+                    if (filterMode == FilterMode.NOWHERE) showFiltered();
+                });
+            }, "AssetUsage").start();
+            return;
+        }
+        showFiltered();
     }
 
     /**
@@ -604,28 +635,39 @@ public class AssetBrowserPanel extends FrameLayout {
     public AssetItem findDualStreamPartner(@NonNull AssetItem item) {
         if (item.type != AssetItem.Type.VIDEO) return null;
         String base = item.shortLabel(); // name without extension
-        final String wantName;
-        if (base.endsWith(WEBCAM_SUFFIX)) {
+        final java.util.List<String> wantNames = new ArrayList<>();
+        String suffix = webcamSuffixOf(base);
+        if (suffix != null) {
             // item is the webcam half → partner is the screen file (strip suffix)
-            wantName = base.substring(0, base.length() - WEBCAM_SUFFIX.length());
+            wantNames.add(base.substring(0, base.length() - suffix.length()));
         } else {
-            // item is the screen half → partner is <base>_webcam
-            wantName = base + WEBCAM_SUFFIX;
+            // item is the screen half → partner is <base>_webcam, or "<base> webcam" in the Joy Creator folder
+            wantNames.add(base + WEBCAM_SUFFIX);
+            wantNames.add(base + WEBCAM_SUFFIX_READABLE);
         }
         for (AssetItem other : allItems) {
             if (other == item || other.type != AssetItem.Type.VIDEO) continue;
-            if (wantName.equals(other.shortLabel())) return other;
+            if (wantNames.contains(other.shortLabel())) return other;
         }
         return null;
     }
 
     /** True when {@code item}'s name ends with the recorder's raw-webcam suffix. */
     public static boolean isWebcamSibling(@NonNull AssetItem item) {
-        return item.type == AssetItem.Type.VIDEO && item.shortLabel().endsWith(WEBCAM_SUFFIX);
+        return item.type == AssetItem.Type.VIDEO && webcamSuffixOf(item.shortLabel()) != null;
     }
 
     /** The dual-stream recorder's raw-webcam filename suffix (WebcamEncoderPipeline). */
     public static final String WEBCAM_SUFFIX = "_webcam";
+    /** The same suffix in the Joy Creator folder, where names are readable ("Screen recording … webcam"). */
+    public static final String WEBCAM_SUFFIX_READABLE = " webcam";
+
+    @Nullable
+    private static String webcamSuffixOf(@NonNull String base) {
+        if (base.endsWith(WEBCAM_SUFFIX)) return WEBCAM_SUFFIX;
+        if (base.endsWith(WEBCAM_SUFFIX_READABLE)) return WEBCAM_SUFFIX_READABLE;
+        return null;
+    }
 
     private List<AssetItem> filteredItems() {
         if (filterMode == FilterMode.ALL) return allItems;
@@ -633,12 +675,87 @@ public class AssetBrowserPanel extends FrameLayout {
         for (AssetItem item : allItems) {
             if (filterMode == FilterMode.USED && item.isUsed) filtered.add(item);
             else if (filterMode == FilterMode.UNUSED && !item.isUsed) filtered.add(item);
+            else if (filterMode == FilterMode.NOWHERE && usedAnywhere != null && !item.isUsed
+                    && !usedAnywhere.contains(com.fadcam.joyfolder.studio.StudioMirror.usageKey(item.uri.toString()))) {
+                filtered.add(item);
+            }
         }
         return filtered;
     }
 
     private void applyFilter() {
         adapter.setItems(filteredItems());
+    }
+
+    /** Apply the filter and swap the grid for the "nothing here" line when it comes up empty. */
+    private void showFiltered() {
+        applyFilter();
+        boolean empty = filteredItems().isEmpty();
+        if (empty) {
+            emptyText.setText(filterMode == FilterMode.NOWHERE && !allItems.isEmpty()
+                    ? "Every file here is used by a project."
+                    : getContext().getString(R.string.faditor_asset_browser_empty));
+        }
+        emptyText.setVisibility(empty ? VISIBLE : GONE);
+        recyclerView.setVisibility(empty ? GONE : VISIBLE);
+        btnTidy.setVisibility(filterMode == FilterMode.NOWHERE && !empty
+                && com.fadcam.joyfolder.android.JoyFolderHome.isChosen(getContext()) ? VISIBLE : GONE);
+    }
+
+    /**
+     * The owner's "select things that aren't used in any project": every file the filter shows,
+     * ticked, untick what to keep, and the rest go to the one Trash (restorable from Recently
+     * deleted). Only files inside the Joy Creator folder; other folders are the user's own.
+     */
+    private void offerTidy() {
+        final List<AssetItem> shown = new ArrayList<>(filteredItems());
+        final Context app = getContext().getApplicationContext();
+        final java.util.List<Uri> uris = new ArrayList<>();
+        for (AssetItem it : shown) uris.add(it.uri);
+        com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+            java.util.List<String> rels = com.fadcam.joyfolder.studio.StudioMirror.folderPathsOf(app, uris);
+            mainHandler.post(() -> {
+                final List<String> names = new ArrayList<>();
+                final List<String> paths = new ArrayList<>();
+                for (int i = 0; i < shown.size(); i++) {
+                    if (rels.get(i) == null) continue;
+                    names.add(shown.get(i).displayName);
+                    paths.add(rels.get(i));
+                }
+                if (paths.isEmpty()) {
+                    Toast.makeText(getContext(), "Only files in your Joy Creator folder can go to Trash from here.",
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+                final boolean[] ticked = new boolean[paths.size()];
+                java.util.Arrays.fill(ticked, true);
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(getContext())
+                        .setTitle("Files no project uses")
+                        .setMultiChoiceItems(names.toArray(new String[0]), ticked, (d, which, on) -> ticked[which] = on)
+                        .setPositiveButton("Move to Trash", (d, w) -> {
+                            final List<String> chosen = new ArrayList<>();
+                            for (int i = 0; i < paths.size(); i++) if (ticked[i]) chosen.add(paths.get(i));
+                            if (chosen.isEmpty()) return;
+                            com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+                                String msg;
+                                try {
+                                    int n = com.fadcam.joyfolder.studio.StudioMirror.trashFiles(app, chosen);
+                                    msg = (n == 1 ? "1 file moved to Trash. Put it back" : n + " files moved to Trash. Put them back")
+                                            + " from Settings → Storage Location → Recently deleted.";
+                                } catch (Exception e) {
+                                    msg = "Couldn't move them all: " + e.getMessage() + ". Nothing was lost.";
+                                }
+                                final String done = msg;
+                                mainHandler.post(() -> {
+                                    Toast.makeText(app, done, Toast.LENGTH_LONG).show();
+                                    loadAssets();
+                                });
+                            });
+                        })
+                        .setNegativeButton(R.string.studio_ui_cancel, null)
+                        .show();
+            });
+        });
     }
 
     private void showRenameDialog(@NonNull AssetItem item) {

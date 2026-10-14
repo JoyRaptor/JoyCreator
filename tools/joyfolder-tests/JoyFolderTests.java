@@ -54,8 +54,10 @@ public final class JoyFolderTests {
         run("trash: listing newest first, empty", JoyFolderTests::trashList);
         run("consolidate: box, exports, shared, recordings", JoyFolderTests::consolidate);
         run("consolidate: leave shared, name clashes", JoyFolderTests::consolidateClash);
+        run("consolidate: gathering twice never nests", JoyFolderTests::consolidateTwice);
         run("usage: unused and shared", JoyFolderTests::usage);
         run("suggestions: earned folders", JoyFolderTests::suggestions);
+        run("suggestions: recordings known by name, moved into Recordings", JoyFolderTests::suggestionsByName);
         run("folder: prepareDir and addFile", JoyFolderTests::prepareAndAdd);
         System.out.println();
         System.out.println(passed + " passed, " + failed + " failed");
@@ -383,6 +385,20 @@ public final class JoyFolderTests {
         check(!p.createsAssets, "left where it is");
     }
 
+    static void consolidateTwice() {
+        FolderRoles roles = new FolderRoles();
+        UsageMap usage = new UsageMap();
+        String work = "Lecture 3/Lecture 3.joyproject";
+        usage.add(work, "Lecture 3/Board.png");
+        usage.add(work, "Late.png");
+        List<String> all = Arrays.asList(work, "Lecture 3/Board.png", "Late.png");
+        Set<String> dirs = new HashSet<>(Collections.singletonList("Lecture 3"));
+        ConsolidatePlan p = ConsolidatePlan.plan(work, Arrays.asList("Lecture 3/Board.png", "Late.png"),
+                all, dirs, usage, roles, new ConsolidatePlan.Options());
+        eq("Lecture 3", p.boxDir);
+        eq(Collections.singletonList("Late.png -> Lecture 3/Late.png"), moveStrings(p));
+    }
+
     static void usage() {
         UsageMap u = new UsageMap();
         u.add("A.joyproject", "x.png");
@@ -412,6 +428,30 @@ public final class JoyFolderTests {
         dismissed.clear();
         roles.set(FolderRoles.Role.RECORDINGS, "Recordings");
         eq(0, Suggestions.check(idx, roles, dismissed).size());
+    }
+
+    static void suggestionsByName() {
+        // The recorder writes straight into the folder, so its files are known by name, not origin.
+        FolderIndex idx = new FolderIndex();
+        for (int i = 1; i <= 20; i++) idx.put("Camera 2026-10-13 23." + (10 + i) + ".mp4", 10, 1, null, null);
+        idx.put("Old/Camera 2026-01-01 10.00.mp4", 10, 1, null, null);
+        idx.put("Recordings/Camera 2026-10-13 23.11.mp4", 10, 1, null, null);
+        Set<FolderRoles.Role> none = new HashSet<>();
+        eq(0, Suggestions.check(idx, new FolderRoles(), none).size());
+        List<Suggestions.Suggestion> s = Suggestions.check(idx, new FolderRoles(), none, n -> n.startsWith("Camera "));
+        eq(1, s.size());
+        eq(20, s.get(0).files.size());
+        List<String> all = new ArrayList<>();
+        for (FolderIndex.Item it : idx.items()) all.add(it.path);
+        ConsolidatePlan p = Suggestions.plan(s.get(0), all);
+        eq("Recordings", p.boxDir);
+        eq(20, p.moves.size());
+        boolean clashRenamed = false;
+        for (ConsolidatePlan.Move m : p.moves) {
+            check(m.to.startsWith("Recordings/"), "into Recordings: " + m);
+            if (m.from.equals("Camera 2026-10-13 23.11.mp4")) clashRenamed = !m.to.equals("Recordings/Camera 2026-10-13 23.11.mp4");
+        }
+        check(clashRenamed, "a name already in Recordings gets a number");
     }
 
     static void prepareAndAdd() throws IOException {

@@ -151,9 +151,17 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
         JoyFolderHome.io().execute(() -> {
             int inFolder = countProjects();
             long atRisk = JoyFolderHome.copyMediaAllowed(this) ? 0 : StudioMirror.bytesAtRisk(this);
+            com.fadcam.joyfolder.Suggestions.Suggestion offer;
+            try {
+                offer = StudioMirror.suggestion(this, dismissedSuggestions());
+            } catch (Exception e) {
+                offer = null;
+            }
+            final com.fadcam.joyfolder.Suggestions.Suggestion earned = offer;
             runOnUiThread(() -> {
                 detail.setText(inFolder == 1 ? "1 project is kept here." : inFolder + " projects are kept here.");
                 if (atRisk > 0 && consent.getVisibility() != View.VISIBLE) showConsent(atRisk, inFolder == 0);
+                if (earned != null && !isFinishing()) addSuggestionRow(earned);
             });
         });
         addRecordingsRow();
@@ -363,6 +371,85 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
         lp.topMargin = 0;
         lp.bottomMargin = dp(12);
         actions.addView(box);
+    }
+
+    // ── Earned folders ───────────────────────────────────────────────────
+    // Folders are earned: once 20 recordings (or exports) pile up at the top, offer their folder
+    // once. "Not now" is remembered per kind and never asked again.
+
+    private static final String PREFS = "joy_folder";
+    private static final String DISMISSED = "dismissed_suggestions";
+
+    private java.util.Set<com.fadcam.joyfolder.FolderRoles.Role> dismissedSuggestions() {
+        java.util.Set<com.fadcam.joyfolder.FolderRoles.Role> out =
+                java.util.EnumSet.noneOf(com.fadcam.joyfolder.FolderRoles.Role.class);
+        for (String n : getSharedPreferences(PREFS, MODE_PRIVATE).getStringSet(DISMISSED, java.util.Collections.emptySet())) {
+            try {
+                out.add(com.fadcam.joyfolder.FolderRoles.Role.valueOf(n));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return out;
+    }
+
+    private void dismissSuggestion(com.fadcam.joyfolder.FolderRoles.Role role) {
+        java.util.Set<String> names = new java.util.HashSet<>(
+                getSharedPreferences(PREFS, MODE_PRIVATE).getStringSet(DISMISSED, java.util.Collections.emptySet()));
+        names.add(role.name());
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putStringSet(DISMISSED, names).apply();
+    }
+
+    private void addSuggestionRow(com.fadcam.joyfolder.Suggestions.Suggestion s) {
+        boolean recordings = s.role == com.fadcam.joyfolder.FolderRoles.Role.RECORDINGS;
+        String folder = s.role.defaultName;
+        String kind = recordings ? "recordings" : "exports";
+        if (actions.findViewWithTag("earned") != null) return;   // two refreshes raced
+        LinearLayout box = panel();
+        box.setTag("earned");
+        box.addView(text(s.files.size() + " " + kind + " at the top", 15, TEXT, true));
+        TextView line = text("Put them in a " + folder + " folder? New " + kind + " will go there too. "
+                + "Every project still finds its files.", 14, MUTED, false);
+        line.setPadding(0, dp(4), 0, 0);
+        box.addView(line);
+        LinearLayout buttons = row();
+        buttons.addView(pill("Not now", false, v -> {
+            dismissSuggestion(s.role);
+            actions.removeView(box);
+        }));
+        View gap = new View(this);
+        gap.setLayoutParams(new LinearLayout.LayoutParams(dp(8), 1));
+        buttons.addView(gap);
+        buttons.addView(pill("Make " + folder + " folder", true, v -> {
+            com.fadcam.SharedPreferencesManager p = recorderPrefs();
+            if (p.isRecordingInProgress() || p.isScreenRecordingInProgress()) {
+                progress.setText("Finish the recording that's running first, then try again.");
+                return;
+            }
+            busy = true;
+            progress.setText("Moving " + s.files.size() + " " + kind + " into " + folder + "…");
+            JoyFolderHome.io().execute(() -> {
+                String msg;
+                try {
+                    int moved = StudioMirror.fileAway(this, s);
+                    msg = "Moved " + moved + " " + kind + " into " + folder + ". New " + kind + " will go there too.";
+                } catch (Exception e) {
+                    msg = "Couldn't finish moving: " + e.getMessage() + ". Nothing was lost.";
+                }
+                // The Library and the recorder pick the new folder up.
+                sendBroadcast(new Intent(com.fadcam.Constants.ACTION_STORAGE_LOCATION_CHANGED));
+                final String done = msg;
+                runOnUiThread(() -> {
+                    busy = false;
+                    progress.setText(done);
+                    refresh();
+                });
+            });
+        }));
+        box.addView(buttons);
+        LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) box.getLayoutParams();
+        lp.topMargin = 0;
+        lp.bottomMargin = dp(12);
+        actions.addView(box, 0);
     }
 
     private static boolean isStorageRoot(Uri tree) {

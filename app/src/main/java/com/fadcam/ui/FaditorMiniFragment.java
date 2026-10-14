@@ -538,38 +538,56 @@ public class FaditorMiniFragment extends BaseFragment {
     /**
      * Populate the recent projects list from saved projects.
      */
-    /** The dot's question: bring this project's outside files into the Joy Creator folder? */
+    /** The dot's question, per file: Copy, Move or Leave (BringInDialog), for a closed project. */
     private void offerBringIn(@NonNull String projectId,
                               @NonNull com.fadcam.joyfolder.studio.StudioMirror.Outside outside) {
-        int n = outside.count;
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-                .setTitle(n == 1 ? "1 file is outside your folder" : n + " files are outside your folder")
-                .setMessage((n == 1 ? "It's" : "They're") + " linked where " + (n == 1 ? "it is" : "they are") + " ("
-                        + android.text.format.Formatter.formatShortFileSize(requireContext(), outside.bytes)
-                        + "), not copied. If " + (n == 1 ? "it's" : "one is") + " moved or deleted there, the project "
-                        + "loses it, and a new phone won't have it.\n\nBring " + (n == 1 ? "it" : "them")
-                        + " in to keep the project whole.")
-                .setPositiveButton("Bring " + (n == 1 ? "it" : "them") + " in", (d, w) -> {
-                    final android.content.Context app = requireContext().getApplicationContext();
-                    Toast.makeText(app, "Copying into your Joy Creator folder…", Toast.LENGTH_SHORT).show();
+        final android.app.Activity activity = requireActivity();
+        final android.content.Context app = activity.getApplicationContext();
+        final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+        com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+            java.util.List<String> refs = com.fadcam.joyfolder.studio.StudioMirror.outsideFiles(app, projectId);
+            main.post(() -> {
+                if (!isAdded()) return;
+                if (refs.isEmpty()) { refreshRecentProjects(); return; }
+                com.fadcam.joyfolder.studio.BringInDialog.show(activity, refs, choices -> {
+                    java.util.List<String> take = new java.util.ArrayList<>();
+                    java.util.Set<String> moving = new java.util.HashSet<>();
+                    for (java.util.Map.Entry<String, com.fadcam.joyfolder.studio.BringInDialog.Choice> e : choices.entrySet()) {
+                        if (e.getValue() == com.fadcam.joyfolder.studio.BringInDialog.Choice.LEAVE) continue;
+                        take.add(e.getKey());
+                        if (e.getValue() == com.fadcam.joyfolder.studio.BringInDialog.Choice.MOVE) moving.add(e.getKey());
+                    }
+                    if (take.isEmpty()) return;
+                    Toast.makeText(app, "Bringing them into your Joy Creator folder\u2026", Toast.LENGTH_SHORT).show();
                     com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
                         String msg;
                         try {
-                            int done = com.fadcam.joyfolder.studio.StudioMirror.bringInAll(app, projectId, null);
-                            msg = done == 1 ? "Copied into your Joy Creator folder." : "Copied " + done + " files into your Joy Creator folder.";
+                            java.util.Map<String, String> copied =
+                                    com.fadcam.joyfolder.studio.StudioMirror.bringInSome(app, projectId, take, null);
+                            java.util.Map<String, String> moved = new java.util.HashMap<>();
+                            for (String r : moving) if (copied.containsKey(r)) moved.put(r, copied.get(r));
+                            java.util.List<String> left = new java.util.ArrayList<>();
+                            if (!moved.isEmpty()) {
+                                com.fadcam.joyfolder.studio.StudioMirror.repointOthers(app, moved, projectId);
+                                left = com.fadcam.joyfolder.studio.OriginalsRemover.remove(activity, new java.util.ArrayList<>(moved.keySet()));
+                            }
+                            int c = copied.size() - moved.size();
+                            msg = (c > 0 ? "Copied " + c + (moved.isEmpty() ? "" : " and moved " + moved.size())
+                                    : "Moved " + moved.size()) + " into your Joy Creator folder."
+                                    + (left.isEmpty() ? "" : " Couldn't remove the original of " + android.text.TextUtils.join(", ", left)
+                                    + ": it's safely copied, so you can delete the original yourself.");
                         } catch (Exception e) {
-                            msg = "Couldn't copy them all: " + e.getMessage() + ". Nothing was lost.";
+                            msg = "Couldn't bring them all in: " + e.getMessage() + ". Nothing was lost.";
                         }
                         final String m = msg;
-                        android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
-                        h.post(() -> {
+                        main.post(() -> {
                             Toast.makeText(app, m, Toast.LENGTH_LONG).show();
                             if (isAdded()) refreshRecentProjects();
                         });
                     });
-                })
-                .setNegativeButton("Not now", null)
-                .show();
+                });
+            });
+        });
     }
 
     private void refreshRecentProjects() {

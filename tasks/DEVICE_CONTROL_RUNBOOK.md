@@ -6,6 +6,24 @@ nothing but the launcher home screen is showing. This is platform-agnostic: it's
 commands. If you can run a terminal, you can do everything here. **Read this top-to-bottom once; then keep it
 open as a reference.**
 
+## 🔒 THE PHONE LOCK — before you install, launch or tap (owner, 2026-10-14)
+
+Several agents (Claude sessions and Codex lanes) share the Note 9. **One drives it at a time.** The lock is the file
+`%TEMP%\jb-phone.lock` (`C:/Users/JoyRaptor/AppData/Local/Temp/jb-phone.lock`), beside `jb-gradle.lock`:
+line 1 who holds it, line 2 when, line 3 why.
+
+- **Before** any install, launch, tap, swipe, text or key: if the file exists, is under 30 minutes old and isn't
+  yours, **wait** (or ask on `tasks/joybrush/AGENT_BOARD.md`). Otherwise write it with your lane name.
+- **While working:** rewrite it (refresh the time) at least every 20 minutes.
+- **When done:** delete it, and only if it is yours. Leave the phone where the owner can use it (Home or the app).
+- Screenshots, logcat and `dumpsys` only look and need no lock. Never drive the phone while the owner is on it.
+- PowerShell: `.\tools\phone.ps1 who` / `claim <name> <why>` / `release <name>` (install/launch/tap/swipe refuse while
+  someone else holds it; set `$env:PHONE_OWNER` to your name). Bash:
+  `L="$LOCALAPPDATA/Temp/jb-phone.lock"; [ -f "$L" ] && cat "$L"` to check;
+  `printf '%s\n%s\n%s\n' "<lane>" "$(date '+%F %T')" "<why>" > "$L"` to claim; `rm "$L"` to release.
+
+---
+
 Golden rule: **you cannot see the screen unless you take a screenshot, and you cannot tap unless you compute
 coordinates from that screenshot.** There is no accessibility tree on these devices (`uiautomator dump`
 returns a null root — see Troubleshooting). So the core loop is always: **screenshot → read pixels → tap by

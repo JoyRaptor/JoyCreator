@@ -26,6 +26,12 @@ Owed to the JoyBrush lanes (not touched):
    refuses to overwrite it. Thumbnails for it will appear once the reader lands.
 3. Thumbnails use the paper's flat `color`; a textured look (kraft) shows white. Use `CanvasPng.paperRendererFor` if
    you want the look.
+3b. **Thumbnail framing — owner asked, cross-cutting account recommends (2026-10-14):** like Concepts, the picture
+   is **the last view the person was looking at, clipped to the board** (that's what they recognise; a whole huge
+   canvas is a smudge). Fall back to the whole board when that view is mostly empty paper; for an animation board, the
+   frame they were on; later, "Use this view as the cover". Needs one hook from the canvas: pass the current view
+   rectangle (document coordinates) to `DrawingLibrary.onSaved`, and render that rect in `thumbnailOf` instead of
+   `board.rect`. Today it renders the whole active board.
 4. A drawing's `doc.name` isn't updated on rename (the library's name is). Decide whether the document name follows.
 5. §3 below (autosave during continuous drawing) is still open.
 

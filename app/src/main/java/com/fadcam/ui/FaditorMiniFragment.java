@@ -496,7 +496,12 @@ public class FaditorMiniFragment extends BaseFragment {
 
         new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.faditor_delete_projects_title)
-                .setMessage(getString(R.string.faditor_delete_projects_message, count))
+                .setMessage(com.fadcam.joyfolder.android.JoyFolderHome.isReachable(requireContext())
+                        // With a Joy Creator folder, deleting is no longer final: the folder copy goes to Trash.
+                        ? (count == 1
+                                ? "Delete this project? Its copy in your Joy Creator folder is kept in Trash for 30 days."
+                                : "Delete " + count + " projects? Their copies in your Joy Creator folder are kept in Trash for 30 days.")
+                        : getString(R.string.faditor_delete_projects_message, count))
                 .setPositiveButton(R.string.faditor_delete_confirm, (dialog, which) -> {
                     for (String id : selectedIds) {
                         projectStorage.delete(id);

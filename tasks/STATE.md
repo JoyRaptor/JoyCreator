@@ -282,7 +282,7 @@ as four separate chips two could be armed at once with reorder silently winning.
 | Relink by content hash and filename | 🟢 ~ | One relink resolves a whole folder |
 | Asset browser (scans a chosen folder) | 🟢 ~ | assetbrowser/AssetScanner |
 | B-roll bucket + .broll_tags.json | 🟢 ✔ | Lives in Pictures/FadCam/assets — **outside the project** |
-| **THE VAULT** (now "the Joy Creator folder") | 🟡 | ✔ **BUILT 2026-10-13, never driven on a phone.** Studio projects are mirrored to a user-picked folder after every save, with media that only lives inside the app copied in (after consent); restore after reinstall; Trash. Recordings/exports not yet. `tasks/SPEC_20261013_FILE_MANAGEMENT.md` |
+| **THE VAULT** (now "the Joy Creator folder") | 🟡 | ✔ **BUILT 2026-10-13; agent-driven on the Note 9 the same evening (mirror, dedupe, unavailable/reconnect, restore + open in editor, save→folder, delete→Trash all passed). Owner has not used it yet.** Studio projects are mirrored to a user-picked folder after every save, with media that only lives inside the app copied in (after consent); restore after reinstall; Trash. Recordings/exports not yet. `tasks/SPEC_20261013_FILE_MANAGEMENT.md` |
 
 ### 🚨 The storage finding
 

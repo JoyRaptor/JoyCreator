@@ -130,6 +130,14 @@ public final class StudioMirror {
         File root = projectsRoot(context);
         File[] dirs = root.listFiles();
         if (dirs == null) return res;
+        JoyFolder folder = JoyFolderHome.open(context);
+        if (folder != null) {
+            try {
+                folder.index.scan(folder.fs);   // so files already in the folder are reused, not copied again
+            } catch (IOException e) {
+                res.problems.add("Couldn't read the folder: " + e.getMessage());
+            }
+        }
         for (File d : dirs) {
             if (!new File(d, "project.json").isFile()) continue;
             try {
@@ -332,6 +340,19 @@ public final class StudioMirror {
                 if (now != null) {
                     if (!now.equals(known.path)) st.media.put(key, new State.Media(now, known.fp));
                     return now;
+                }
+            }
+            // One copy per file: the same picture or clip used by several projects (each of which
+            // may hold its own copy inside the app) is stored in the folder once.
+            if (src.file != null) {
+                String fp;
+                try (InputStream in = new FileInputStream(src.file)) {
+                    fp = com.fadcam.joyfolder.Fingerprint.of(in, src.size);
+                }
+                String same = jf.index.find(jf.fs, null, fp);
+                if (same != null) {
+                    st.media.put(key, new State.Media(same, fp));
+                    return same;
                 }
             }
             String dir = jf.prepareDir(Placement.What.IMPORT, workRel, null, null);

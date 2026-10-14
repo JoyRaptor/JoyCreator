@@ -153,9 +153,12 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
             long atRisk = JoyFolderHome.copyMediaAllowed(this) ? 0 : StudioMirror.bytesAtRisk(this);
             runOnUiThread(() -> {
                 detail.setText(inFolder == 1 ? "1 project is kept here." : inFolder + " projects are kept here.");
-                if (atRisk > 0) showConsent(atRisk, false);
+                if (atRisk > 0 && consent.getVisibility() != View.VISIBLE) showConsent(atRisk, inFolder == 0);
             });
         });
+        actions.addView(pill("Save all projects into the folder now", false,
+                v -> startSync(JoyFolderHome.copyMediaAllowed(this))));
+        actions.addView(spacer());
         actions.addView(pill("Bring back projects from the folder", false, v -> restoreOnly()));
         actions.addView(spacer());
         actions.addView(pill("Use a different folder", false, v -> pick(
@@ -211,8 +214,9 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
             }
             long atRisk = StudioMirror.bytesAtRisk(this);
             runOnUiThread(() -> {
-                refresh();
                 if (atRisk > 0 && !JoyFolderHome.copyMediaAllowed(this)) {
+                    busy = false;   // the consent buttons must answer
+                    refresh();
                     showConsent(atRisk, true);
                     progress.setText("");
                 } else {
@@ -274,7 +278,7 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
             try {
                 n = StudioMirror.restoreMissing(this, name -> runOnUiThread(() -> progress.setText("Bringing back " + name + "…")));
                 msg = n == 0 ? "Every project in the folder is already in the app."
-                        : n == 1 ? "1 project brought back. It's in your Studio list." : n + " projects brought back. They're in your Studio list.";
+                        : n == 1 ? "1 project brought back. It's with your other projects." : n + " projects brought back. They're with your other projects.";
             } catch (Exception e) {
                 msg = "Couldn't read the folder: " + e.getMessage();
             }

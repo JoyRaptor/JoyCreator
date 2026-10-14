@@ -17,4 +17,4 @@ The working receipt says the Working archive was present and unchanged, all thre
 
 Scope limits: these results exercise actual joint engine root and public undo/redo with canonical GPU line/look comparisons for the listed Ink and Watercolour fixtures. They do not establish optional native-media execution, native-base promotion/projection in a live engine path (the support proof classes are pure support only), view activation, Select, save activation, archive roundtrip, general brush compatibility, quality, or performance. A later caller-thread load-admission fix is outside this exact APK and is checked separately by the native regression.
 
-The independent machine-readable recount is in `NOTE9_JOINT_ROOT_20261014-summary.json`.
+The independent machine-readable recount is in `NOTE9_JOINT_ROOT_20261014.json`.

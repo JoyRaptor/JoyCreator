@@ -19,7 +19,11 @@ class StagedDrawingTest {
     }
     @Test fun selectedRecentSurvivesPruningBeforeDecode() = inDirectory { dir ->
         val history = File(dir, "recent")
-        val selected = DrawingHistory.preserve(history, contents("Selected"))
+        val saved = DrawingHistory.preserve(history, contents("Selected"))
+        // History sorts names, and same-millisecond timestamps have random UUID tie order.
+        // Make this fixture explicitly oldest so the test exercises actual pruning every run.
+        val selected = File(history, "0-selected.joybrush")
+        assertTrue(saved.renameTo(selected))
         val staged = selected.inputStream().use { StagedDrawing.stage(File(dir, "stage"), it) }
         staged.use {
             repeat(DrawingHistory.KEEP) { DrawingHistory.preserve(history, contents("Previous $it")) }

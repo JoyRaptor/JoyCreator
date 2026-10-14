@@ -22,6 +22,9 @@ internal class GlBoardPreview {
     private var allocH = 0
     val target: Int get() = framebuffer
 
+    /** Borrowed ownership inventory for saved-look adoption; no allocation or draw. */
+    internal fun heldTextureHandles(): Set<Int> = if (texture == 0) emptySet() else setOf(texture)
+
     fun forget() { program=null; texture=0; framebuffer=0; width=0; height=0; allocW=0; allocH=0 }
     fun release() {
         if(texture != 0) GLES30.glDeleteTextures(1,intArrayOf(texture),0)

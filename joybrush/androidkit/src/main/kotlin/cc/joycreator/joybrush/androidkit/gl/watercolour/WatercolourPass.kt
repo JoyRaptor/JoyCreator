@@ -176,6 +176,10 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
         bands.clear(); plain.clear(); pooled.clear(); paper=null
         while(free.size>32) GLES30.glDeleteTextures(1,intArrayOf(free.removeFirst()),0)
     }
+    /** Borrowed coverage, finish pools and image ownership; no GL calls. */
+    internal fun heldTextureHandles(): Set<Int> = (bands.values + plain.values + pooled.values + free +
+        listOf(empty) + textures.heldTextureHandles()).filter { it != 0 }.toSet()
+
     fun forget() { bands.clear(); plain.clear(); pooled.clear(); free.clear(); textures.forget(); empty=0; fbo=0; quad=0; instance=0; vao=0; finishVao=0; unitVbo=0; dab=null; finish=null; mix=null; images=null; paper=null }
     fun release() {
         val names=(bands.values+plain.values+pooled.values+free+listOf(empty)).filter { it!=0 }.distinct().toIntArray()

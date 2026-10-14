@@ -2169,6 +2169,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** Debug adapter arithmetic check on a throwaway engine; it never reads/writes the drawing. */
     fun runRecordedReplayProbe(preset: BrushPreset, record: cc.joycreator.joybrush.core.stroke.StrokeRecord,
                                bake: Boolean = false,
+                               openCold: Boolean = false,
                                ready: (String) -> Unit) {
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
             ready("{\"passed\":false,\"failure\":\"Recorded replay probe is debug only\"}")
@@ -2184,7 +2185,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 val frozen = cc.joycreator.joybrush.core.brush.FrozenBrushRegistry.freeze(emptyMap(), preset) { "probe-frozen" }
                 val value = if (bake) cc.joycreator.joybrush.androidkit.gl.RecordedBakeProbe.json(
                     cc.joycreator.joybrush.androidkit.gl.RecordedBakeProbe.run(probe, "recorded-probe",
-                        frozen.preset, record.copy(brushId = frozen.id)))
+                        frozen.preset, record.copy(brushId = frozen.id), openCold = openCold))
                 else cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.json(
                     cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.run(probe, "recorded-probe",
                         frozen.preset, record.copy(brushId = frozen.id)))

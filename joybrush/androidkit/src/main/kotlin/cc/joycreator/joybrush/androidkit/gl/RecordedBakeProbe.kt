@@ -43,7 +43,7 @@ internal object RecordedBakeProbe {
     internal fun json(result: Result): JSONObject = result.details
 
     internal fun run(engine: GlPaintEngine, layerId: String,
-                     preset: BrushPreset, input: StrokeRecord): Result {
+                     preset: BrushPreset, input: StrokeRecord, openCold: Boolean = false): Result {
         val report = JSONObject().put("probe", "recordedBake")
             .put("comparison", "Exact RGBA8 on every actual tile: bake, undo, redo and raw source copy")
             .put("coverage", "Concrete createRecordedScene/stageBake/public engine undoStep/redoStep; continuous empty plane")
@@ -61,6 +61,11 @@ internal object RecordedBakeProbe {
         val backdrops = linkedMapOf<Long, Int>()
         var raw: GlPaintEngine.RecordedLineUnit? = null
         var scene: RecordedScene<Int>? = null
+        val unadoptedSavedLooks = linkedMapOf<Long, Int>()
+        var coldAccepted = false
+        var coldOpeningLineCalls = -1L
+        var coldOpeningCompositionCalls = -1L
+        var coldFirstEditLineCalls = -1L
         var readFbo = 0
         var reads = 0
         var glChecks = 0
@@ -334,9 +339,37 @@ internal object RecordedBakeProbe {
             })
             stageLabel = "scene creation"
             createSceneCalls++
-            val current = engine.createRecordedScene(mapOf(plane to original), mapOf(record.brushId to preset))
+            var current = engine.createRecordedScene(mapOf(plane to original), mapOf(record.brushId to preset))
                 .also { scene = it }
             errors(stageLabel)
+            if (openCold) {
+                stageLabel = "clone uploaded saved looks"
+                for (key in keys) {
+                    val oldLook = checkNotNull(current.look(plane, key))
+                    unadoptedSavedLooks[key] = checkNotNull(engine.composeRecordedTile(listOf(
+                        GlPaintEngine.OrderedRecordedUnit(0, oldLook, "normal"))))
+                }
+                feedback(unadoptedSavedLooks.values.toSet().size == keys.size &&
+                    unadoptedSavedLooks.values.none { it in current.heldCacheTextures() ||
+                        it in source.tiles.values || it in backdrops.values }, "cold upload ownership")
+                val expectedSaved = looks(current, keys, "warm saved baseline")
+                engine.releaseRecordedScene(); scene = null
+                val lineCalls = engine.recordedLinePreparationCalls
+                val compositionCalls = engine.recordedCompositionCalls
+                stageLabel = "cold saved scene acceptance"
+                current = engine.createSavedRecordedScene(mapOf(plane to original), mapOf(record.brushId to preset),
+                    mapOf(plane to keys), mapOf(plane to unadoptedSavedLooks.toMap())).also { scene = it }
+                coldAccepted = true
+                unadoptedSavedLooks.clear() // Only a successful engine factory return transfers uploads.
+                coldOpeningLineCalls = engine.recordedLinePreparationCalls - lineCalls
+                coldOpeningCompositionCalls = engine.recordedCompositionCalls - compositionCalls
+                check(coldOpeningLineCalls == 0L && coldOpeningCompositionCalls == 0L) { "Cold opening rendered source/looks" }
+                check(!current.isMaterialized(plane) && current.savedLookKeys(plane) == keys)
+                check(current.heldCacheTextures().size == keys.size && !engine.undo.canUndo && !engine.undo.canRedo)
+                val coldBytes = looks(current, keys, "cold uploaded looks")
+                for (key in keys) compare(expectedSaved.getValue(key), coldBytes.getValue(key), "cold uploaded look identity", key)
+                errors(stageLabel)
+            }
             val originalCaches = current.heldCacheTextures()
             feedback(originalCaches.intersect(source.tiles.values.toSet() + backdrops.values).isEmpty(), "scene cache vs raw/base")
             val before = looks(current, keys, "before")
@@ -345,10 +378,17 @@ internal object RecordedBakeProbe {
 
             stageLabel = "stage bake"
             stageBakeCalls++
+            val beforeBakeLineCalls = engine.recordedLinePreparationCalls
             current.stageBake(setOf(LineAddress(layerId, null, record.id))).use { proposal ->
                 check(current.planes.getValue(plane) === original && !engine.undo.canUndo) { "Staging published early" }
                 check(proposal.commit()) { "Bake publication refused" }
                 bakeCommitted = true
+            }
+            if (openCold) {
+                coldFirstEditLineCalls = engine.recordedLinePreparationCalls - beforeBakeLineCalls
+                check(coldFirstEditLineCalls == 1L && current.isMaterialized(plane)) {
+                    "Cold first edit must materialize its one old record exactly once"
+                }
             }
             errors(stageLabel)
             val baked = current.planes.getValue(plane)
@@ -426,6 +466,8 @@ internal object RecordedBakeProbe {
                 val reclaimLive = live - held
                 // Defensive de-duplication also on failure: an invalid alias must not recycle raw twice.
                 val reclaimRaw = raw?.tiles.orEmpty().filterValues { it !in live && it !in held && it !in caches }
+                val reclaimUploads = unadoptedSavedLooks.values.toSet() - live - held - caches -
+                    raw?.tiles.orEmpty().values.toSet() - backdrops.values.toSet()
                 heldSlabsClosed = held.size
                 engine.releaseRecordedScene() // Derived caches only; borrowed sources untouched.
                 engine.undo.clear()           // Releases HELD sources through the engine pool API.
@@ -436,6 +478,8 @@ internal object RecordedBakeProbe {
                 }
                 if (reclaimRaw.isNotEmpty()) engine.discardRecordedLine(
                     GlPaintEngine.RecordedLineUnit(raw?.op ?: "normal", reclaimRaw))
+                if (reclaimUploads.isNotEmpty()) engine.discardRecordedLine(
+                    GlPaintEngine.RecordedLineUnit("normal", reclaimUploads.mapIndexed { i, texture -> i.toLong() to texture }.toMap()))
                 if (readFbo != 0) GLES30.glDeleteFramebuffers(1, intArrayOf(readFbo), 0)
                 if (backdrops.isNotEmpty()) GLES30.glDeleteTextures(backdrops.size, backdrops.values.toIntArray(), 0)
                 engine.release() // Deletes engine pool entries exactly once, including newly recycled slabs.
@@ -459,6 +503,10 @@ internal object RecordedBakeProbe {
             .put("recordRemoved", recordRemoved).put("recordRestoredByUndo", recordRestored)
             .put("recordRemovedByRedo", recordRemovedAgain)
             .put("rawPreparationCalls", rawPrepCalls).put("createSceneCalls", createSceneCalls)
+            .put("coldOpeningRequested", openCold).put("coldSceneAccepted", coldAccepted)
+            .put("coldOpeningLinePreparationCalls", coldOpeningLineCalls)
+            .put("coldOpeningCompositionCalls", coldOpeningCompositionCalls)
+            .put("coldFirstEditLinePreparationCalls", coldFirstEditLineCalls)
             .put("stageBakeCalls", stageBakeCalls).put("publicUndoCalls", undoCalls).put("publicRedoCalls", redoCalls)
             .put("readbackCalls", reads).put("glErrorChecks", glChecks).put("observedGlErrors", glErrors)
             .put("framebufferChecks", fboChecks).put("incompleteFramebuffers", badFbos)

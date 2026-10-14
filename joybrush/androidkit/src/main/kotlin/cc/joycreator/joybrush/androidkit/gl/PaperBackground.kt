@@ -15,6 +15,9 @@ internal class PaperBackground(private val shaders: ShaderLibrary) {
     private var view: FloatArray? = null
     private var paper: ResolvedPaper? = null
 
+    /** Borrowed ownership inventory for saved-look adoption; no allocation or draw. */
+    internal fun heldTextureHandles(): Set<Int> = if (texture == 0) emptySet() else setOf(texture)
+
     fun invalidate() { view = null }
     fun forget() { program = null; texture = 0; fbo = 0; width = 0; height = 0; view = null; paper = null }
     fun release() {

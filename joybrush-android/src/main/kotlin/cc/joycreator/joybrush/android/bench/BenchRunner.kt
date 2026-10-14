@@ -66,6 +66,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         if (case == "recordedCaptureProbe") { runRecordedCaptureCase(preset, case, run); return }
         val bakeOperator = when (case) {
             "recordedBakeProbe" -> "normal"
+            "recordedSavedProbe" -> "normal"
             "recordedBakeEraseProbe" -> "erase"
             "recordedBakeBehindProbe" -> "behind"
             "recordedBakeMultiplyProbe" -> "multiply"
@@ -81,7 +82,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                     if (bakeOperator == null) 64f + i * 4f else 232f + i * 6f,
                     if (bakeOperator == null) 96f + (i % 6) * 2f else 240f + (i % 6) * 5f, i * 16.0,
                     pressure = 0.7f, tilt = 0.4f, azimuth = 0.3f) }, colorArgb = 0xFF205CA9.toInt(), seq = 1)
-            canvas.runRecordedReplayProbe(probePreset, record, bake = bakeOperator != null) { result ->
+            canvas.runRecordedReplayProbe(probePreset, record, bake = bakeOperator != null,
+                openCold = case == "recordedSavedProbe") { result ->
                 val report = org.json.JSONObject(result).put("brush", preset.id).put("case", case).put("run", run)
                     .put("fixtureOpacity", probePreset.opacity.base)
                     .put("fixtureBrushVersion", probePreset.version)

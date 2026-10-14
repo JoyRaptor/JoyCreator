@@ -93,6 +93,9 @@ class GrainTextures(
         forget()
     }
 
+    /** Borrowed ownership inventory; no GL calls and no asset loading. */
+    internal fun heldTextureHandles(): Set<Int> = (byName.values + listOf(placeholder)).filter { it != 0 }.toSet()
+
     /** How many texture names are held (a test seam, like [GlPaintEngine.heldTextureNames]). */
     internal fun heldNames(): Int = byName.size + (if (placeholder != 0) 1 else 0)
 

@@ -80,6 +80,10 @@ internal class WatercolourTextures(private val load: (String) -> Bitmap? = ::pac
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
         }
     }
+    /** Includes every cached image set, not only the currently selected brush. */
+    internal fun heldTextureHandles(): kotlin.collections.Set<Int> = sets.values.flatMap { listOf(it.dabs, it.backdrop, it.grain) }
+        .filter { it != 0 }.toSet()
+
     fun forget() = sets.clear()
     fun release() {
         val names = sets.values.flatMap { listOf(it.dabs, it.backdrop, it.grain) }.toIntArray()

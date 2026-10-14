@@ -387,6 +387,11 @@ class GlPaintEngine(
 
     private val layers = LinkedHashMap<String, Layer>()   // bottom → top
     private var recordedScene: RecordedScene<Int>? = null
+    /** GL-thread diagnostic attempt counts; used to prove cold acceptance does no source rendering. */
+    internal var recordedLinePreparationCalls = 0L
+        private set
+    internal var recordedCompositionCalls = 0L
+        private set
     private val freeLayerTex = ArrayDeque<Int>()
     private val freeStrokeTex = ArrayDeque<Int>()
     private val freeSmudgeTex = ArrayDeque<Int>()
@@ -1522,6 +1527,7 @@ class GlPaintEngine(
      * Caller owns every returned texture until it is committed or discarded. Final cel clipping is the composer's job.
      */
     internal fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset): RecordedLineUnit {
+        recordedLinePreparationCalls++
         check(ready) { "The drawing context is not ready for recorded replay" }
         check(!strokeInProgress && !wcFading) { "Finish the current stroke before replaying a line" }
         check(framePreviews.isEmpty()) { "Stop playback before editing lines" }
@@ -1606,30 +1612,95 @@ class GlPaintEngine(
 
     internal fun discardRecordedLine(unit: RecordedLineUnit) { unit.tiles.values.forEach(::recycleLayerTex) }
 
-    /**
-     * Concrete renderer for the recorded-scene staging coordinator. It does not install a scene
-     * on the view: legacy writes, media epochs, structural history and save must join publication first.
-     * Watercolor finishes with its whole neighboring band before physical-cel clipping is applied.
-     */
+    /** Eager source replay, with the same concrete renderer used by saved cold scenes. */
     internal fun createRecordedScene(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
                                      frozen: Map<String, BrushPreset>): RecordedScene<Int> {
         checkStrokeEnded("Finish the stroke before opening recorded cels")
+        val scene = RecordedScene.create(planes, frozen, undo, recordedRenderer(planes))
+        registerRecordedScene(scene)
+        return scene
+    }
+
+    /**
+     * Accept uploaded LINE-CROSSED saved looks without replay, composition, GL allocation or
+     * pixel/history mutation. Caller owns all supplied uploads until this function RETURNS;
+     * rejection leaves every upload with caller for rollback. Physical slabs stay borrowed.
+     * No layer/view/save/load activation is performed, and slab-only display is not composed.
+     * Caller must supply valid new RGBA8 tile uploads in this current context, not pooled names.
+     * A changed cel's first edit privately materializes and verifies its declared footprint.
+     */
+    internal fun createSavedRecordedScene(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
+                                          frozen: Map<String, BrushPreset>,
+                                          savedLookKeys: Map<Pair<String, String?>, Set<Long>>,
+                                          uploadedLooks: Map<Pair<String, String?>, Map<Long, Int>>): RecordedScene<Int> {
+        // Unlike eager opening, cold acceptance must not finish/publish existing paint on refusal.
+        check(!strokeInProgress && !wcFading && !mediaStrokeInProgress) { "Finish paint/media before accepting saved recorded cels" }
+        val renderer = recordedRenderer(planes)
+        require(uploadedLooks.values.all { tiles -> tiles.values.all { it != 0 } }) { "A saved look needs a nonzero uploaded texture" }
+        require(planes.values.all { cel -> cel.slabs.values.all { stack -> stack.all { it.value.texture != 0 } } }) {
+            "A physical saved slab needs a nonzero borrowed texture"
+        }
+        val scene = RecordedScene.createSaved(planes, frozen, undo, renderer,
+            savedLookKeys, uploadedLooks, protectedRecordedTextureHandles())
+        // No throwing operation/reentrant callback between ownership acceptance and publication.
+        // recordedRenderer checked registration, and createSaved's actual callbacks only read
+        // captured engine state. The GL-thread assignment therefore completes the transfer once.
+        recordedScene = scene
+        return scene
+    }
+
+    /** Borrowed read-only inventory for adoption checks. Never count FBO/program/buffer ids here. */
+    internal fun protectedRecordedTextureHandles(): Set<Int> = buildSet {
+        layers.values.forEach { layer ->
+            addAll(layer.ownedTextures())
+            addAll(layer.visibleProjection?.values.orEmpty())
+            layer.mask?.let { addAll(it.ownedTextures()); addAll(it.visibleProjection?.values.orEmpty()) }
+        }
+        addAll(strokeTiles.values)
+        mediaStroke?.forEach { change -> change.before?.let(::add); change.after?.let(::add) }
+        addAll(undo.heldTextures())
+        addAll(recordedScene?.heldCacheTextures().orEmpty())
+        addAll(freeLayerTex); addAll(freeStrokeTex); addAll(freeSmudgeTex); addAll(freeFloatTex)
+        addAll(floatNames)
+        add(clearTex); add(whiteTex); add(thumbTex)
+        lookTexture?.let(::add); surfaceTexture?.let(::add); fluidTexture?.let(::add)
+        addAll(agreedLook.values)
+        add(compositor.target); add(compositor.backdrop)
+        add(boardCompositor.target); add(boardCompositor.backdrop)
+        addAll(grains.heldTextureHandles())
+        addAll(boardPreview.heldTextureHandles())
+        addAll(paperBackground.heldTextureHandles())
+        addAll(wcPass?.heldTextureHandles().orEmpty())
+        remove(0)
+    }
+
+    /** Concrete paper/clipping renderer shared by eager replay and no-replay cold adoption. */
+    private fun recordedRenderer(planes: Map<Pair<String, String?>, RecordedCel<Int>>): RecordedScene.Renderer<Int> {
         check(ready) { "The drawing context is not ready for recorded cels" }
         check(recordedScene == null) { "Release the previous recorded scene before opening another" }
         val capturedDocument = boardDocument
         val capturedPaper = documentPaper
         val capturedResolvedPaper = resolvedPaper
         require(planes.keys.all { (id, cel) ->
-            layers[id]?.let { layer -> !layer.isMask && (cel == null || cel in layer.cels) } == true
-        }) { "Recorded cels must address existing physical paint planes" }
+            layers[id]?.let { layer -> !layer.isMask &&
+                (cel == null || (cel in layer.cels && planeOf(layer, cel) == cel)) } == true
+        }) { "Recorded cels must address existing canonical physical paint planes" }
+        val physicalOwners = planes.keys.associateWith { plane ->
+            val layer = layers.getValue(plane.first)
+            Triple(layer, layer.plan, planeTiles(layer, plane.second))
+        }
         fun clips(plane: Pair<String, String?>, key: Long): List<RegionTileRect>? {
             val layer = layers.getValue(plane.first)
             return layer.plan?.tileSlices(key)?.filter { planeOf(layer, it.plane.celId) == plane.second }?.map { it.rect }
         }
-        val scene = RecordedScene.create(planes, frozen, undo, object : RecordedScene.Renderer<Int> {
+        return object : RecordedScene.Renderer<Int> {
             override fun contextCurrent(): Boolean = ready && boardDocument == capturedDocument &&
                 documentPaper == capturedPaper && resolvedPaper == capturedResolvedPaper &&
-                framePreviews.isEmpty() && tileBoardId == null
+                framePreviews.isEmpty() && tileBoardId == null && physicalOwners.all { (plane, captured) ->
+                    val (owner, plan, store) = captured
+                    layers[plane.first] === owner && owner.plan == plan &&
+                        (if (plane.second == null) owner.tiles else owner.cels[plane.second]) === store
+                }
 
             override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): RecordedScene.Unit<Int> {
                 val rendered = prepareRecordedLine(address.layerId, record, preset)
@@ -1671,9 +1742,7 @@ class GlPaintEngine(
             })
 
             override fun release(texture: Int) = recycleLayerTex(texture)
-        })
-        registerRecordedScene(scene)
-        return scene
+        }
     }
 
     /** Engine-owned lifecycle; also used by no-GL context-loss regression fixtures. */
@@ -1697,6 +1766,7 @@ class GlPaintEngine(
      * Source textures are borrowed; the caller owns the returned RGBA8 look. No layer/history mutation occurs.
      */
     internal fun composeRecordedTile(items: List<OrderedRecordedUnit>): Int? {
+        recordedCompositionCalls++
         if (items.isEmpty()) return null
         check(!strokeInProgress && !wcFading) { "Finish the current stroke before composing recorded content" }
         val operators = mapOf("normal" to 0, "erase" to 1, "behind" to 2, "multiply" to 3, "screen" to 4)

@@ -60,8 +60,9 @@ Legend: **📱** driven on the Note 9 by the agent · **🔨** compiles (watcher
 | Delete a project → "Moved to Trash · Undo" (8 s); delete also removes the app copy's subfolders | `FaditorMiniFragment`, `ProjectStorage.delete` | 📱 |
 | **Recordings into the folder:** choosing the folder points the recorder's existing Storage Location at it; recordings land at the top (or Recordings/), readable names, split pieces "… part 2", webcam side file "… webcam.mp4" | `RecordingStoragePaths` (central), name hooks in `RecordingService`, `ScreenRecordingService`, `DualCameraRecordingService`, `PhotoStorageHelper`, `BatchMediaActionService` | 📱 camera · 🔨 the rest |
 | **Library (Records tab) reads the folder:** recordings by readable name, exports by the folder's record, older in-app recordings still listed, project media copies kept out | `FastFileScanner` | 📱 |
-| **Exports into the folder:** named after the project (the export dialog pre-fills it), beside the project or in Exports/, recorded so the Library shows them | `ExportManager.copyTempToJoyFolder`; dialog default in `FaditorEditorActivity` | 🔨 |
-| Raw camera/screen recordings inside a picked folder can be clipped and exported: export resolves picked-folder files to real paths exactly as preview does (the first device export failed with "Illegal clipping: not seekable to start" before this) | `utils/SafPaths` (moved out of the editor), used by `ExportService` / `ExportManager` | 🔨 |
+| **Exports into the folder:** named after the project (the export dialog pre-fills it), beside the project or in Exports/, recorded so the Library shows them | `ExportManager.copyTempToJoyFolder`; dialog default in `FaditorEditorActivity` | 📱 |
+| Raw camera/screen recordings inside a picked folder can be clipped and exported: export resolves picked-folder files to real paths exactly as preview does (the first device export failed with "Illegal clipping: not seekable to start" before this) | `utils/SafPaths` (moved out of the editor), used by `ExportService` / `ExportManager` | 📱 |
+| **Share-in:** "Share to Joy Creator" for pictures, clips and sounds; saved per the owner's rule (beside the open project, else Assets, else the top), readable names ("From ChatGPT …"), no duplicate copies; "Add to <open project>" inserts at the playhead through the asset browser's insert path (one undo); "Start a project with it" for a video; asks for the folder first when none is chosen | `ShareInActivity`, `ShareInbox`, two hooks in `FaditorEditorActivity` (`takeSharedFiles`) | 📱 |
 | fsync before the project file rename; uninstall offers "keep app data?" (`hasFragileUserData`); AI chat defaults to the free router | `ProjectStorage`, manifest, AI files | 🔨 |
 
 ## 5. Existing parts this extends (do not duplicate)
@@ -77,9 +78,7 @@ Legend: **📱** driven on the Note 9 by the agent · **🔨** compiles (watcher
 
 ## 6. Still to do (in this order)
 
-- [ ] Device-check the export into the folder after the SafPaths fix (Note 9: "Restore video test" draft export → `Restore video test.mp4` beside its project).
 - [ ] Device-check screen recording and photo names, and their Library categories.
-- [ ] **Share-in** (nothing exists): an exported share target; place per the owner's rule; with a project open, add to its timeline.
 - [ ] **Entry points:** the folder step in first-run onboarding (`Onboarding*` — another session has edits open there; coordinate); a visible way into Trash.
 - [ ] **Consolidate:** revive the hidden link-options menu (Consolidate / Export bundle / Import bundle) and add "Gather into one folder" using `ConsolidatePlan`.
 - [ ] **Suggestions** ("38 recordings at the top — make a Recordings folder?") using `Suggestions`; "not used in any project" via `UsageMap` in the asset browser.

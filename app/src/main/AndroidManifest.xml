@@ -144,6 +144,27 @@
             android:theme="@style/Theme.FadCam.FaditorEditor"
             android:exported="false" />
 
+        <!-- "Share to Joy Creator": pictures, clips and sounds from any app land in the Joy Creator folder. -->
+        <activity android:name="com.fadcam.joyfolder.studio.ShareInActivity"
+            android:theme="@style/Theme.FadCam.ChatAssistant"
+            android:excludeFromRecents="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="audio/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="audio/*" />
+            </intent-filter>
+        </activity>
+
         <!-- M-COMP-2 decoder-budget probe (PLAN_LAYERS_V2 Part 10 #1) — adb-driven debug tool -->
         <activity android:name="com.fadcam.ui.faditor.compositor.DecoderBudgetProbeActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:exported="false" />
 

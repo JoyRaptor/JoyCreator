@@ -1895,6 +1895,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         checkRunningExportState();
+        takeSharedFiles(0);
 
         // A sequence offer parked by the picker's result callback (see the field's doc).
         if (pendingSequenceOffer != null) {
@@ -2028,6 +2029,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (project != null) com.fadcam.joyfolder.studio.ShareInbox.clearOpenProject(project.getId());
         playheadHandler.removeCallbacks(playheadUpdater);
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
         if (silenceDetector != null) silenceDetector.shutdown();
@@ -45188,6 +45190,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
             case IMAGE: return ".jpg";
             case AUDIO: return ".m4a";
             default: return ".mp4";
+        }
+    }
+
+    /**
+     * "Share to Joy Creator" while this project is open: say which project is open, and insert any
+     * files shared for it at the playhead through the same path as the asset browser. A project
+     * still loading is retried for a few seconds.
+     */
+    private void takeSharedFiles(int attempt) {
+        if (isFinishing() || isDestroyed()) return;
+        if (project == null || editorTimeline == null) {
+            if (attempt < 12) playheadHandler.postDelayed(() -> takeSharedFiles(attempt + 1), 500);
+            return;
+        }
+        com.fadcam.joyfolder.studio.ShareInbox.setOpenProject(project.getId(), project.getName());
+        java.util.List<Uri> shared = com.fadcam.joyfolder.studio.ShareInbox.take(project.getId());
+        for (Uri uri : shared) {
+            String mime = getContentResolver().getType(uri);
+            com.fadcam.ui.faditor.assetbrowser.AssetItem.Type type =
+                    mime != null && mime.startsWith("image/") ? com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE
+                    : mime != null && mime.startsWith("audio/") ? com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.AUDIO
+                    : com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.VIDEO;
+            String name = uri.getLastPathSegment() == null ? "Shared" : new File(uri.getLastPathSegment()).getName();
+            insertAssetAtPlayhead(new com.fadcam.ui.faditor.assetbrowser.AssetItem(
+                    uri, name, type, mime == null ? "" : mime));
         }
     }
 

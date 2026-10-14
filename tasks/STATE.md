@@ -282,7 +282,7 @@ as four separate chips two could be armed at once with reorder silently winning.
 | Relink by content hash and filename | 🟢 ~ | One relink resolves a whole folder |
 | Asset browser (scans a chosen folder) | 🟢 ~ | assetbrowser/AssetScanner |
 | B-roll bucket + .broll_tags.json | 🟢 ✔ | Lives in Pictures/FadCam/assets — **outside the project** |
-| **THE VAULT** | 🔵 | ✔ **Not built. Projects live in getFilesDir() — wiped on uninstall.** |
+| **THE VAULT** (now "the Joy Creator folder") | 🟡 | ✔ **BUILT 2026-10-13, never driven on a phone.** Studio projects are mirrored to a user-picked folder after every save, with media that only lives inside the app copied in (after consent); restore after reinstall; Trash. Recordings/exports not yet. `tasks/SPEC_20261013_FILE_MANAGEMENT.md` |
 
 ### 🚨 The storage finding
 
@@ -337,7 +337,7 @@ demo project, a display typeface. All listed in design record 07 with sizes.
 | Permission screen (all up front) | 🟢 ✔ | Recommend deferring to point of use |
 | "Verify you are a human" + privacy link | 🟢 ✔ | **Copy is written for a covert recorder. Must be rewritten for Play.** |
 | New intro copy | 🔵 | Drafted 2026-09-09, approved by JoyRaptor |
-| Vault picker screen | 🔵 | |
+| Vault picker screen ("Your Joy Creator folder") | 🟡 | Built 2026-10-13: setup screen, Studio-list banner, Storage settings row. Not in first-run onboarding yet. |
 | Demo project | ⚪ | INBOX.md |
 | New landing screen / studio funnel | ⚪ | INBOX.md — its own session |
 

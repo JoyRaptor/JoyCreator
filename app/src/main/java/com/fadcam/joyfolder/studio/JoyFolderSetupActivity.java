@@ -1,0 +1,380 @@
+package com.fadcam.joyfolder.studio;
+
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Environment;
+import android.os.StatFs;
+import android.provider.DocumentsContract;
+import android.text.format.Formatter;
+import android.util.TypedValue;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.fadcam.joyfolder.FileKind;
+import com.fadcam.joyfolder.FolderIndex;
+import com.fadcam.joyfolder.JoyFolder;
+import com.fadcam.joyfolder.Placement;
+import com.fadcam.joyfolder.android.JoyFolderHome;
+
+/**
+ * "Your Joy Creator folder": choose it, reconnect it, bring projects back from it.
+ *
+ * <p>One screen, three states: not chosen yet; chosen and working; chosen but unreachable (SD
+ * card out, permission revoked). Built in code in the app's own language (old black, zinc greys,
+ * flat pills) so it needs no layout or string resources.</p>
+ */
+public class JoyFolderSetupActivity extends AppCompatActivity {
+
+    private static final int GROUND = 0xFF050507;
+    private static final int PANEL = 0xFF111114;
+    private static final int PANEL_2 = 0xFF1C1C22;
+    private static final int TEXT = 0xFFE9E9EE;
+    private static final int MUTED = 0xFFA1A1AC;
+    private static final int CAREFUL = 0xFFFBBF24;
+
+    private TextView where, detail, progress;
+    private LinearLayout consent, actions;
+    private TextView consentText;
+    private boolean busy;
+
+    private final ActivityResultLauncher<Intent> picker = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), result -> {
+                Uri tree = result.getData() == null ? null : result.getData().getData();
+                if (result.getResultCode() == RESULT_OK && tree != null) onPicked(tree);
+            });
+
+    public static Intent intent(Context c) {
+        return new Intent(c, JoyFolderSetupActivity.class);
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        getWindow().setStatusBarColor(GROUND);
+        ScrollView scroll = new ScrollView(this);
+        scroll.setBackgroundColor(GROUND);
+        scroll.setFillViewport(true);
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setPadding(dp(20), dp(20), dp(20), dp(32));
+        scroll.addView(col);
+
+        TextView close = text("‹ Back", 15, MUTED, false);
+        close.setPadding(0, dp(4), 0, dp(12));
+        close.setOnClickListener(v -> finish());
+        tooltip(close, "Back");
+        col.addView(close);
+
+        col.addView(text("Your Joy Creator folder", 26, TEXT, true));
+        TextView why = text("Everything you make is kept in a folder you choose, so removing the app never loses "
+                + "your work. You can open it in any file manager, back it up, or move it to a new phone.", 15, MUTED, false);
+        why.setPadding(0, dp(8), 0, dp(16));
+        col.addView(why);
+
+        LinearLayout status = panel();
+        where = text("", 16, TEXT, true);
+        detail = text("", 14, MUTED, false);
+        detail.setPadding(0, dp(4), 0, 0);
+        status.addView(where);
+        status.addView(detail);
+        col.addView(status);
+
+        consent = panel();
+        consentText = text("", 14, TEXT, false);
+        consent.addView(consentText);
+        LinearLayout consentButtons = row();
+        consentButtons.addView(pill("Just the projects", false, v -> startSync(false)));
+        View gap = new View(this);
+        gap.setLayoutParams(new LinearLayout.LayoutParams(dp(8), 1));
+        consentButtons.addView(gap);
+        consentButtons.addView(pill("Copy them too", true, v -> startSync(true)));
+        consent.addView(consentButtons);
+        consent.setVisibility(View.GONE);
+        col.addView(consent);
+
+        progress = text("", 14, MUTED, false);
+        progress.setPadding(0, dp(12), 0, 0);
+        col.addView(progress);
+
+        actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.VERTICAL);
+        actions.setPadding(0, dp(16), 0, 0);
+        col.addView(actions);
+
+        setContentView(scroll);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!busy) refresh();
+    }
+
+    // ── States ───────────────────────────────────────────────────────────
+
+    private void refresh() {
+        actions.removeAllViews();
+        Uri tree = JoyFolderHome.treeUri(this);
+        if (tree == null) {
+            where.setText("Not chosen yet");
+            detail.setText("Right now your projects only live inside the app. If the app is removed, they go with it.");
+            actions.addView(pill("Make my Joy Creator folder", true, v -> pick(
+                    "In the next screen, tap the new-folder button, name it Joy Creator, then tap Use this folder.")));
+            actions.addView(spacer());
+            actions.addView(pill("I already have one", false, v -> pick(
+                    "Find your Joy Creator folder, open it, then tap Use this folder.")));
+            return;
+        }
+        where.setText(JoyFolderHome.describe(tree));
+        if (!JoyFolderHome.isReachable(this)) {
+            where.setTextColor(CAREFUL);
+            detail.setText("Joy Creator can't reach this folder right now. Nothing has been lost. If it's on an SD card, "
+                    + "put the card back; otherwise reconnect it below.");
+            actions.addView(pill("Reconnect the folder", true, v -> pick("Find your Joy Creator folder and tap Use this folder.")));
+            return;
+        }
+        where.setTextColor(TEXT);
+        detail.setText("Checking…");
+        JoyFolderHome.io().execute(() -> {
+            int inFolder = countProjects();
+            long atRisk = JoyFolderHome.copyMediaAllowed(this) ? 0 : StudioMirror.bytesAtRisk(this);
+            runOnUiThread(() -> {
+                detail.setText(inFolder == 1 ? "1 project is kept here." : inFolder + " projects are kept here.");
+                if (atRisk > 0) showConsent(atRisk, false);
+            });
+        });
+        actions.addView(pill("Bring back projects from the folder", false, v -> restoreOnly()));
+        actions.addView(spacer());
+        actions.addView(pill("Use a different folder", false, v -> pick(
+                "Pick the folder to use from now on. Files in the old folder stay where they are.")));
+    }
+
+    private int countProjects() {
+        JoyFolder jf = JoyFolderHome.open(this);
+        if (jf == null) return 0;
+        try {
+            jf.index.scan(jf.fs);
+        } catch (Exception e) {
+            return 0;
+        }
+        int n = 0;
+        for (FolderIndex.Item it : jf.index.items()) {
+            if (FileKind.of(Placement.nameOf(it.path)) == FileKind.PROJECT) n++;
+        }
+        return n;
+    }
+
+    private void pick(String hint) {
+        progress.setText(hint);
+        try {
+            picker.launch(JoyFolderHome.pickerIntent());
+        } catch (android.content.ActivityNotFoundException e) {
+            progress.setText("This phone has no folder picker, so a folder can't be chosen here.");
+        }
+    }
+
+    private void onPicked(Uri tree) {
+        if (isStorageRoot(tree)) {
+            progress.setText("That's the top of your storage itself. Make a folder there called Joy Creator, then pick that folder.");
+            return;
+        }
+        try {
+            JoyFolderHome.choose(this, tree);
+        } catch (SecurityException e) {
+            progress.setText("Android didn't allow Joy Creator to keep using that folder. Try another one.");
+            return;
+        }
+        busy = true;
+        progress.setText("Setting up your folder…");
+        JoyFolderHome.io().execute(() -> {
+            JoyFolder jf = JoyFolderHome.open(this);
+            if (jf == null) {
+                runOnUiThread(() -> {
+                    busy = false;
+                    progress.setText("Couldn't write to that folder. Pick one on your phone's storage or SD card.");
+                    refresh();
+                });
+                return;
+            }
+            long atRisk = StudioMirror.bytesAtRisk(this);
+            runOnUiThread(() -> {
+                refresh();
+                if (atRisk > 0 && !JoyFolderHome.copyMediaAllowed(this)) {
+                    showConsent(atRisk, true);
+                    progress.setText("");
+                } else {
+                    startSync(JoyFolderHome.copyMediaAllowed(this));
+                }
+            });
+        });
+    }
+
+    private void showConsent(long bytes, boolean firstTime) {
+        String free = freeSpace();
+        consentText.setText("Your projects use " + Formatter.formatShortFileSize(this, bytes)
+                + " of pictures, clips and sounds that only exist inside the app. Copy them into your folder too, "
+                + "so nothing is missing if the app is removed?"
+                + (free == null ? "" : " You have " + free + " free.")
+                + (firstTime ? "" : "\n\nYour projects are already in the folder; this only adds their media."));
+        consent.setVisibility(View.VISIBLE);
+    }
+
+    private void startSync(boolean copyMedia) {
+        consent.setVisibility(View.GONE);
+        JoyFolderHome.setCopyMediaAllowed(this, copyMedia);
+        busy = true;
+        progress.setText("Copying your projects into the folder…");
+        JoyFolderHome.io().execute(() -> {
+            int restored = 0;
+            String problem = null;
+            try {
+                restored = StudioMirror.restoreMissing(this, name -> runOnUiThread(() -> progress.setText("Bringing back " + name + "…")));
+            } catch (Exception e) {
+                problem = e.getMessage();
+            }
+            StudioMirror.Result r = StudioMirror.mirrorAll(this, name -> runOnUiThread(() -> progress.setText("Saving " + name + "…")));
+            final int back = restored;
+            final String err = problem;
+            runOnUiThread(() -> {
+                busy = false;
+                StringBuilder sb = new StringBuilder("Done. ");
+                sb.append(r.projects == 1 ? "1 project is" : r.projects + " projects are").append(" in your folder.");
+                if (back > 0) sb.append(back == 1 ? " 1 project was brought back from it." : " " + back + " projects were brought back from it.");
+                if (r.filesCopied > 0) sb.append(" Copied ").append(r.filesCopied).append(r.filesCopied == 1 ? " file (" : " files (")
+                        .append(Formatter.formatShortFileSize(this, r.bytesCopied)).append(").");
+                if (err != null || !r.problems.isEmpty()) {
+                    sb.append("\n\n").append(r.problems.size() + (err == null ? 0 : 1))
+                            .append(" item(s) couldn't be copied. They are still safe inside the app; the next save tries again.");
+                }
+                progress.setText(sb.toString());
+                refresh();
+            });
+        });
+    }
+
+    private void restoreOnly() {
+        busy = true;
+        progress.setText("Looking for projects in your folder…");
+        JoyFolderHome.io().execute(() -> {
+            int n;
+            String msg;
+            try {
+                n = StudioMirror.restoreMissing(this, name -> runOnUiThread(() -> progress.setText("Bringing back " + name + "…")));
+                msg = n == 0 ? "Every project in the folder is already in the app."
+                        : n == 1 ? "1 project brought back. It's in your Studio list." : n + " projects brought back. They're in your Studio list.";
+            } catch (Exception e) {
+                msg = "Couldn't read the folder: " + e.getMessage();
+            }
+            final String m = msg;
+            runOnUiThread(() -> {
+                busy = false;
+                progress.setText(m);
+                refresh();
+            });
+        });
+    }
+
+    private static boolean isStorageRoot(Uri tree) {
+        try {
+            String id = DocumentsContract.getTreeDocumentId(tree);
+            return id.endsWith(":");
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private String freeSpace() {
+        Uri tree = JoyFolderHome.treeUri(this);
+        if (tree == null) return null;
+        try {
+            if (!DocumentsContract.getTreeDocumentId(tree).startsWith("primary:")) return null;
+            StatFs fs = new StatFs(Environment.getExternalStorageDirectory().getPath());
+            return Formatter.formatShortFileSize(this, fs.getAvailableBytes());
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    // ── Views ────────────────────────────────────────────────────────────
+
+    private int dp(int v) {
+        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, getResources().getDisplayMetrics()));
+    }
+
+    private TextView text(String s, int sp, int color, boolean bold) {
+        TextView t = new TextView(this);
+        t.setText(s);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+        t.setTextColor(color);
+        t.setLineSpacing(0, 1.2f);
+        if (bold) t.setTypeface(Typeface.DEFAULT_BOLD);
+        return t;
+    }
+
+    private LinearLayout panel() {
+        LinearLayout p = new LinearLayout(this);
+        p.setOrientation(LinearLayout.VERTICAL);
+        p.setPadding(dp(16), dp(14), dp(16), dp(14));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(PANEL);
+        bg.setCornerRadius(dp(14));
+        p.setBackground(bg);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(12);
+        p.setLayoutParams(lp);
+        return p;
+    }
+
+    private LinearLayout row() {
+        LinearLayout r = new LinearLayout(this);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setGravity(Gravity.END);
+        r.setPadding(0, dp(12), 0, 0);
+        return r;
+    }
+
+    private View spacer() {
+        View v = new View(this);
+        v.setLayoutParams(new LinearLayout.LayoutParams(1, dp(10)));
+        return v;
+    }
+
+    /** A flat pill. Primary is light on dark; secondary is a zinc grey. */
+    private TextView pill(String label, boolean primary, View.OnClickListener onClick) {
+        TextView b = text(label, 15, primary ? GROUND : TEXT, true);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(dp(18), dp(12), dp(18), dp(12));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(primary ? TEXT : PANEL_2);
+        bg.setCornerRadius(dp(999));
+        b.setBackground(bg);
+        b.setOnClickListener(v -> {
+            if (!busy) onClick.onClick(v);
+        });
+        b.setClickable(true);
+        b.setFocusable(true);
+        tooltip(b, label);
+        b.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        return b;
+    }
+
+    private static void tooltip(View v, String label) {
+        v.setContentDescription(label);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) v.setTooltipText(label);
+    }
+}

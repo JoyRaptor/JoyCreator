@@ -703,7 +703,7 @@ public class AIToolExecutor {
                                      int w, int h) {
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(context);
         String apiKey = prefs.sharedPreferences.getString("ai_api_key", "");
-        String model = prefs.sharedPreferences.getString("ai_model", "openrouter/auto");
+        String model = prefs.sharedPreferences.getString("ai_model", "openrouter/free");
 
         if (apiKey == null || apiKey.isEmpty()) {
             return new String[]{SlideContract.buildFallbackHtml(w, h, mode, text, durationMs), null};
@@ -1230,7 +1230,7 @@ public class AIToolExecutor {
     private String[] apiKeyModel() {
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(context);
         String apiKey = prefs.sharedPreferences.getString("ai_api_key", "");
-        String model = prefs.sharedPreferences.getString("ai_model", "openrouter/auto");
+        String model = prefs.sharedPreferences.getString("ai_model", "openrouter/free");
         if (apiKey == null || apiKey.isEmpty()) return null;
         return new String[]{apiKey, model};
     }

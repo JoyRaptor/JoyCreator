@@ -265,9 +265,14 @@ public class ProjectStorage {
         File tmp = new File(projectDir, PROJECT_FILE + ".tmp");
         File bak = new File(projectDir, PROJECT_FILE + ".bak");
 
-        try (FileWriter writer = new FileWriter(tmp)) {
+        // sync() before the rename: without it a power cut or hard reboot can leave the renamed
+        // file empty, because the rename reaches the disk before the bytes do.
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(tmp);
+             java.io.Writer writer = new java.io.OutputStreamWriter(
+                     out, java.nio.charset.StandardCharsets.UTF_8)) {
             writer.write(json);
             writer.flush();
+            out.getFD().sync();
         } catch (IOException e) {
             FLog.e(TAG, "Failed to write temp project: " + projectId, e);
             tmp.delete();
@@ -287,6 +292,8 @@ public class ProjectStorage {
             tmp.delete();
             return false;
         }
+        // Keep the copy in the user's Joy Creator folder current (a few seconds later, off this thread).
+        com.fadcam.joyfolder.studio.StudioMirror.onProjectSaved(context, projectId);
         return true;
     }
 
@@ -678,18 +685,22 @@ public class ProjectStorage {
         File dir = getProjectDir(projectId);
         if (!dir.exists()) return false;
 
-        // Delete all files in the directory
-        File[] files = dir.listFiles();
-        if (files != null) {
-            for (File f : files) {
-                f.delete();
-            }
-        }
-        boolean deleted = dir.delete();
+        // The copy in the user's Joy Creator folder goes to its Trash, restorable for 30 days.
+        com.fadcam.joyfolder.studio.StudioMirror.onProjectDeleted(context, projectId);
+
+        // Delete everything in the directory, subfolders included (assets/, media/, backups/…).
+        // Deleting only the top-level files left every subfolder, and the media in it, on disk forever.
+        boolean deleted = deleteTree(dir);
         if (deleted) {
             FLog.i(TAG, "Project deleted: " + projectId);
         }
         return deleted;
+    }
+
+    private static boolean deleteTree(@NonNull File file) {
+        File[] kids = file.listFiles();
+        if (kids != null) for (File k : kids) deleteTree(k);
+        return file.delete();
     }
     
     /**

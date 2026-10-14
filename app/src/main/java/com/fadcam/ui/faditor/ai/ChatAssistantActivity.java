@@ -78,7 +78,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     private static final String DEFAULT_ENDPOINT =
             "https://openrouter.ai/api/v1/chat/completions";
-    private static final String DEFAULT_MODEL = "openrouter/auto";
+    /** The free router: a new user's first experience costs nothing. They pick a paid model later. */
+    private static final String DEFAULT_MODEL = "openrouter/free";
 
     private LinearLayout messagesContainer;
     private EditText inputField;

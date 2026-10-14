@@ -71,5 +71,5 @@ Fixes applied:
 - `.\tools\phone.ps1 install` → `.\tools\phone.ps1 launch`
 - Acceptance 1: open three pre-change projects, screenshot
 - Acceptance 2-6: consolidate synthetic project (video+image+audio+imported font), verify folder listing, second consolidate instant, dedup file count, cancel test
-- Acceptance 7: export to zip, `adb uninstall com.fadcam.beta`, `.\tools\phone.ps1 install`, import zip, verify font renders (typefaceFor succeeds, no fallback)
+- Acceptance 7: **ONLY on a device JoyRaptor confirms has nothing on it — never his phone; uninstall wipes every project (23 of 24 lost on 2026-08-29).** Export to zip, uninstall, install, import zip, verify font renders (typefaceFor succeeds, no fallback)
 - Report sizes/timings

@@ -75,8 +75,6 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private static final String PREF_MODEL = "ai_model";
     private static final String PREF_PROVIDER = "ai_provider";
 
-    private static final String DEFAULT_ENDPOINT =
-            "https://openrouter.ai/api/v1/chat/completions";
     /** The free router: a new user's first experience costs nothing. They pick a paid model later. */
     private static final String DEFAULT_MODEL = "openrouter/free";
 
@@ -589,7 +587,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             inputField.setText("What do you see in this frame?");
         }
 
-        if (apiKey == null || apiKey.isEmpty()) {
+        if (!AiService.ready(this, apiKey)) {
             addBotMessage("Connect an API key (top-right settings) and I can look at this.");
             return;
         }
@@ -599,7 +597,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 baos.toByteArray(), android.util.Base64.NO_WRAP);
         // Say so plainly when the connected model has no eyes, rather than sending an image into
         // a text-only model and reporting whatever it hallucinates about a picture it never saw.
-        if (ModelCapabilities.visionFor(model) == ModelCapabilities.Vision.NO) {
+        if (visionOf(model) == ModelCapabilities.Vision.NO) {
             addBotMessage("Heads up: \"" + model + "\" doesn't accept images, so I'll be "
                     + "answering without actually seeing this. Pick a model with the 👁 for a "
                     + "real look.");
@@ -660,7 +658,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         String base64 = android.util.Base64.encodeToString(imageBytes, android.util.Base64.NO_WRAP);
 
         // Send as a multimodal vision message if API key is set
-        if (apiKey != null && !apiKey.isEmpty()) {
+        if (AiService.ready(this, apiKey)) {
             sendVisionMessage(base64, bitmap.getWidth(), bitmap.getHeight());
         } else {
             addBotMessage("I can see an image is attached. "
@@ -733,7 +731,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 body.put("messages", messages);
 
                 Request request = new Request.Builder()
-                        .url(DEFAULT_ENDPOINT)
+                        .url(AiService.chatUrl(this))
                         .addHeader("Authorization", "Bearer " + apiKey)
                         .addHeader("Content-Type", "application/json")
                         .post(RequestBody.create(body.toString(), JSON))
@@ -931,7 +929,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     private void showWelcome() {
-        if (apiKey == null || apiKey.isEmpty()) {
+        if (!AiService.ready(this, apiKey)) {
             addBotMessage("Hi, I'm Joybot. "
                     + "I can help you discover features, answer questions, and suggest edits.\n\n"
                     + "To unlock full AI power, add an API key in Settings (top-right icon). "
@@ -949,7 +947,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         addUserMessage(text);
         inputField.setText("");
 
-        if (apiKey == null || apiKey.isEmpty()) {
+        if (!AiService.ready(this, apiKey)) {
             handleOfflineQuery(text);
         } else {
             handleAiQuery(text);
@@ -1181,7 +1179,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         body.put("temperature", 0.7);
         body.put("stream", true);
         Request request = new Request.Builder()
-                .url(DEFAULT_ENDPOINT)
+                .url(AiService.chatUrl(this))
                 .addHeader("Authorization", "Bearer " + apiKey)
                 .addHeader("Content-Type", "application/json")
                 .post(RequestBody.create(body.toString(), JSON))
@@ -1230,6 +1228,15 @@ public class ChatAssistantActivity extends AppCompatActivity {
             c.text = text.toString();
         }
         return c;
+    }
+
+    /**
+     * Whether the model takes pictures. Answered from OpenRouter's catalogue, which says nothing
+     * about a model on another service: there it is unknown, never a wrong "no".
+     */
+    @NonNull
+    private ModelCapabilities.Vision visionOf(@Nullable String modelId) {
+        return AiService.isCustom(this) ? ModelCapabilities.Vision.UNKNOWN : ModelCapabilities.visionFor(modelId);
     }
 
     /** A reply that is a tool command (JSON) shows as "Working..." while it streams, not as code. */
@@ -1346,9 +1353,25 @@ public class ChatAssistantActivity extends AppCompatActivity {
         inputModel.setTextColor(Studio.INK);
         root.addView(inputModel);
 
+        TextView labelBase = new TextView(this);
+        labelBase.setText("Service address (optional):");
+        labelBase.setTextColor(Studio.INK_DIM);
+        labelBase.setPadding(0, pad, 0, 0);
+        root.addView(labelBase);
+
+        EditText inputBase = new EditText(this);
+        inputBase.setText(AiService.isCustom(this) ? AiService.base(this) : "");
+        inputBase.setHint(AiService.DEFAULT_BASE);
+        inputBase.setTextColor(Studio.INK);
+        inputBase.setSingleLine(true);
+        inputBase.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        root.addView(inputBase);
+
         TextView hint = new TextView(this);
         hint.setText("Free tiers available on OpenRouter for lower-end models.\n"
-                + "Leave empty for offline helper mode.");
+                + "Any OpenAI-compatible service works: put its address above (https, or http://localhost "
+                + "for one running on this phone). Leave it empty for OpenRouter.\n"
+                + "No key and no address: offline helper mode.");
         hint.setTextColor(Studio.INK_FAINT);
         hint.setTextSize(12);
         hint.setPadding(0, pad, 0, 0);
@@ -1388,6 +1411,13 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 .setNegativeButton("Cancel", null)
                 .create();
 
+        // A key and an address are not a username and password: keep password managers out.
+        for (EditText f : new EditText[]{inputKey, inputModel, inputBase}) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                f.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
+            }
+        }
+
         dialog.setOnShowListener(d -> {
             titleIcon.animate()
                     .scaleX(-1f)
@@ -1403,6 +1433,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 String mdl = inputModel.getText().toString().trim();
                 final String finalMdl = mdl.isEmpty() ? DEFAULT_MODEL : mdl;
                 AiKey.set(this, key);
+                AiService.setBase(this, inputBase.getText().toString());
                 prefs.sharedPreferences.edit()
                         .putString(PREF_MODEL, finalMdl)
                         .apply();
@@ -1416,7 +1447,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                         .setInterpolator(new android.view.animation.AccelerateInterpolator())
                         .withEndAction(() -> {
                             addBotMessage("Settings updated. Model: " + finalMdl
-                                    + (key.isEmpty() ? " (offline mode)" : " (connected)"));
+                                    + (AiService.ready(this, key) ? " (connected" + (AiService.isCustom(this) ? " to " + AiService.base(this) : "") + ")" : " (offline mode)"));
                             dialog.dismiss();
                         })
                         .start();
@@ -1895,14 +1926,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
      */
     private void updateModelLabel() {
         if (modelLabel == null) return;
-        boolean hasKey = apiKey != null && !apiKey.isEmpty();
+        boolean hasKey = AiService.ready(this, apiKey);
         if (!hasKey) {
             modelLabel.setVisibility(View.GONE);
             return;
         }
         boolean named = model != null && !model.isEmpty() && !DEFAULT_MODEL.equals(model);
         String base = named ? model : "connected";
-        ModelCapabilities.Vision v = ModelCapabilities.visionFor(named ? model : DEFAULT_MODEL);
+        ModelCapabilities.Vision v = visionOf(named ? model : DEFAULT_MODEL);
         String marker = v == ModelCapabilities.Vision.YES ? "  👁"
                 : (v == ModelCapabilities.Vision.NO ? "  ⃠" : "");
         modelLabel.setText(base + marker);

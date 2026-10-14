@@ -1160,3 +1160,10 @@ failed D8. Original partials remain preserved; document/archive safety source is
 UX sourcee2369b2b/docsb9647c1c is independently verified34/0/0/0; scoped integration is next (including earlier e3 ancestry).
 Vector controls/GPU/LineLab evidence is now integrated; next builds are sequenced by normal lock admission, no waiting wrappers.
 Root retains frontier atlas/engine binding ownership. No device reservation or installation.
+
+JOYBRUSH_LIVE_PROMOTION_20261014: Root C:/Temp/jb-live-current owns GlPaintEngine transfer,
+physical display, native-base full-history validation and engine tests. Sol source_promotion
+owns ONLY isolated RecordedScene.kt internal projected staging/new tests in
+C:/Temp/jb-promotion-inventory. No concurrent engine edits or helper builds/device/Git.
+Claude independent reviewer: AUDIT_CHECKPOINT_20261014.md; storage/Joybot files untouched.
+

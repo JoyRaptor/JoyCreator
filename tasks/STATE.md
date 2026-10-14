@@ -347,13 +347,13 @@ demo project, a display typeface. All listed in design record 07 with sizes.
 
 | # | Defect | Severity | Source |
 |---|---|---|---|
-| 1 | **Audio clip IDs regenerate on every load and save.** AudioClip has no setId, so the id on disk is write-only. Anything outliving a session that names an audio clip is unreliable. Fix shape fully diagnosed. | High — data integrity, undermines portability | LEDGER 2c |
-| 2 | Three AI tools resolve only against the video track — they fail on projects where the transcript sits on an audio clip (music / lyric projects). The one-path resolver already exists; three functions need to use it. | Medium | SPEC_20260828_AI_AUDIO_TOOLS |
-| 3 | Default AI model is openrouter/auto — the **paid** router. Every new user is billed on message one. | High — first impression | ✔ 4 code sites |
-| 4 | AI API key stored in plaintext preferences while unused Keystore machinery exists | Medium — security | ✔ |
-| 5 | AI tool-calling loop has no depth cap | Medium — can hang | Reports, plausible |
-| 6 | AI reply limit of 1024 tokens truncates edit instructions | Low, trivial fix | Reports |
-| 7 | ai_merge_transcript has "ai" in the name and uses no AI | Cosmetic honesty | ✔ |
+| 1 | ✅ **FIXED 2026-09-23** (LEDGER "audio clips kept getting new ids"): the loader keeps the saved id. Proof `bash tools/jvm-harness/run-audioid.sh` 14/14 — re-run 2026-10-14 after the harness got a StudioMirror stand-in (the folder hooks had broken its compile). | ~~High~~ | LEDGER 2c |
+| 2 | ✅ **FIXED** (d0fecd60): narrative analyse works on audio; apply-narrative and b-roll refuse audio with a reason; no tool defaults to the auto-blank. Was: three AI tools resolve only against the video track — they fail on projects where the transcript sits on an audio clip (music / lyric projects). The one-path resolver already exists; three functions need to use it. | Medium | SPEC_20260828_AI_AUDIO_TOOLS |
+| 3 | ✅ **FIXED 2026-10-13**: default is openrouter/free. Was: default AI model is openrouter/auto — the **paid** router. Every new user is billed on message one. | High — first impression | ✔ 4 code sites |
+| 4 | ✅ **FIXED 2026-10-14**: `ai/AiKey` keeps it AES-GCM encrypted under an Android Keystore key; an old plain key is moved in on first read. Was: AI API key stored in plaintext preferences | Medium — security | ✔ |
+| 5 | ✅ **FIXED 2026-10-14**: 8 tool steps per message, then it stops and says so. Was: AI tool-calling loop has no depth cap | Medium — can hang | Reports, plausible |
+| 6 | ✅ **FIXED 2026-10-14**: 4096. Was: AI reply limit of 1024 tokens truncates edit instructions | Low, trivial fix | Reports |
+| 7 | ✅ **FIXED 2026-10-14**: now merge_transcripts (old name still accepted). Was: ai_merge_transcript has "ai" in the name and uses no AI | Cosmetic honesty | ✔ |
 | 8 | remove_silence is report-only for audio clips | Low | |
 | 9 | Stranded drag-latch, second path — self-heals, fires occasionally | Low, watch only | LEDGER 2b |
 | 10 | No automated tests at all — app/src/test does not exist | Structural risk | ✔ |

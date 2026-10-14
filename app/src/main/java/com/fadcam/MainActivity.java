@@ -1323,6 +1323,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Choosing the Joy Creator folder comes first, so all work lives in one place from day one.
+        com.fadcam.joyfolder.studio.JoyFolderSetupActivity.requireChoice(this);
         // state)-----------
         applyCloakIfNeeded(false); // hide decoy overlay while active
         try {

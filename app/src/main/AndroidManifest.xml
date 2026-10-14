@@ -134,6 +134,9 @@
 
         <!-- Joy Brush drawing screen (JB-0.05) -->
         <!-- Reached from the lobby's Joy Brush room (JB-0.09). Not exported: `adb shell am start -n` can still open it. -->
+        <activity android:name=".joyfolder.studio.SpaceActivity"
+            android:theme="@style/Theme.FadCam.FaditorEditor"
+            android:exported="false" />
         <activity android:name="cc.joycreator.joybrush.android.library.DrawingsActivity"
             android:theme="@style/Theme.FadCam.FaditorEditor"
             android:exported="false" />

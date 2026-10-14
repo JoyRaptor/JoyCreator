@@ -95,6 +95,9 @@ public class StorageSettingsFragment extends Fragment {
             com.fadcam.joyfolder.studio.JoyFolderBanner.attachLinkRow(host, host.indexOfChild(group),
                     "Recently deleted", "Put back recordings and projects you deleted.",
                     v -> OverlayNavUtil.show(requireActivity(), new TrashFragment(), "trash"));
+            com.fadcam.joyfolder.studio.JoyFolderBanner.attachLinkRow(host, host.indexOfChild(group),
+                    "Space", "See what takes room on your phone, and free some up.",
+                    v -> startActivity(com.fadcam.joyfolder.studio.SpaceActivity.intent(requireContext())));
         }
         refreshValue();
     }

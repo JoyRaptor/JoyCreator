@@ -156,6 +156,7 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
                 if (atRisk > 0 && consent.getVisibility() != View.VISIBLE) showConsent(atRisk, inFolder == 0);
             });
         });
+        addRecordingsRow();
         actions.addView(pill("Save all projects into the folder now", false,
                 v -> startSync(JoyFolderHome.copyMediaAllowed(this))));
         actions.addView(spacer());
@@ -194,12 +195,14 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
             progress.setText("That's the top of your storage itself. Make a folder there called Joy Creator, then pick that folder.");
             return;
         }
+        Uri previous = JoyFolderHome.treeUri(this);
         try {
             JoyFolderHome.choose(this, tree);
         } catch (SecurityException e) {
             progress.setText("Android didn't allow Joy Creator to keep using that folder. Try another one.");
             return;
         }
+        carryRecorderAlong(previous);
         busy = true;
         progress.setText("Setting up your folder…");
         JoyFolderHome.io().execute(() -> {
@@ -289,6 +292,77 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
                 refresh();
             });
         });
+    }
+
+    // ── Recordings and exports ───────────────────────────────────────────
+    //
+    // The recorder's own "Storage Location" setting already saves recordings into a folder the user
+    // picks, and the Library already lists that folder. Choosing the Joy Creator folder points that
+    // same setting here, so recordings and exports land in the folder (and survive an uninstall).
+
+    private com.fadcam.SharedPreferencesManager recorderPrefs() {
+        return com.fadcam.SharedPreferencesManager.getInstance(this);
+    }
+
+    private boolean recordingsHere() {
+        com.fadcam.SharedPreferencesManager p = recorderPrefs();
+        return com.fadcam.SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(p.getStorageMode())
+                && com.fadcam.utils.RecordingStoragePaths.isJoyFolder(this, p.getCustomStorageUri());
+    }
+
+    private void setRecordingsHere(boolean here) {
+        com.fadcam.SharedPreferencesManager p = recorderPrefs();
+        Uri tree = JoyFolderHome.treeUri(this);
+        if (here && tree != null) {
+            p.setCustomStorageUri(tree.toString());
+            p.setStorageMode(com.fadcam.SharedPreferencesManager.STORAGE_MODE_CUSTOM);
+        } else {
+            p.setCustomStorageUri(null);
+            p.setStorageMode(com.fadcam.SharedPreferencesManager.STORAGE_MODE_INTERNAL);
+        }
+        sendBroadcast(new Intent(com.fadcam.Constants.ACTION_STORAGE_LOCATION_CHANGED));
+    }
+
+    /**
+     * After a folder is chosen: a recorder still saving inside the app (the default) or into the
+     * previous Joy Creator folder follows the new one. A different place the user picked on purpose
+     * is left alone; the screen offers to switch.
+     */
+    private void carryRecorderAlong(Uri previousJoy) {
+        com.fadcam.SharedPreferencesManager p = recorderPrefs();
+        String custom = p.getCustomStorageUri();
+        boolean internal = !com.fadcam.SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(p.getStorageMode())
+                || custom == null || custom.isEmpty();
+        boolean wasOldJoy = previousJoy != null && previousJoy.toString().equals(custom);
+        if (internal || wasOldJoy) setRecordingsHere(true);
+    }
+
+    private void addRecordingsRow() {
+        LinearLayout box = panel();
+        boolean here = recordingsHere();
+        com.fadcam.SharedPreferencesManager p = recorderPrefs();
+        String elsewhere = com.fadcam.SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(p.getStorageMode())
+                && p.getCustomStorageUri() != null && !here
+                ? JoyFolderHome.describe(Uri.parse(p.getCustomStorageUri())) : null;
+        box.addView(text("Recordings and exports", 15, TEXT, true));
+        TextView line = text(here ? "New recordings and exports are saved here."
+                : elsewhere != null ? "New recordings are saved in " + elsewhere + "."
+                : "New recordings and exports are kept inside the app, and are lost if the app is removed.",
+                14, here ? MUTED : CAREFUL, false);
+        line.setPadding(0, dp(4), 0, 0);
+        box.addView(line);
+        LinearLayout buttons = row();
+        buttons.addView(pill(here ? "Keep them inside the app instead" : "Save them here", !here, v -> {
+            setRecordingsHere(!here);
+            progress.setText(!here ? "New recordings and exports will be saved in your Joy Creator folder."
+                    : "New recordings and exports will be kept inside the app.");
+            refresh();
+        }));
+        box.addView(buttons);
+        LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) box.getLayoutParams();
+        lp.topMargin = 0;
+        lp.bottomMargin = dp(12);
+        actions.addView(box);
     }
 
     private static boolean isStorageRoot(Uri tree) {

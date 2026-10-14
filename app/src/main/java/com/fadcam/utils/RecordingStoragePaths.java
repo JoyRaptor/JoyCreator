@@ -212,6 +212,8 @@ public final class RecordingStoragePaths {
             @NonNull Category category,
             boolean createIfMissing
     ) {
+        DocumentFile joy = joyRecordingsDir(context, treeUriString);
+        if (joy != null) return joy;
         DocumentFile base = getSafBaseDir(context, treeUriString);
         if (base == null) return null;
         String folderName = folderNameForCategory(category);
@@ -226,6 +228,8 @@ public final class RecordingStoragePaths {
             @Nullable ShotSource source,
             boolean createIfMissing
     ) {
+        DocumentFile joy = joyRecordingsDir(context, treeUriString);
+        if (joy != null) return joy;
         DocumentFile shotRoot = getSafCategoryDir(context, treeUriString, Category.SHOT, createIfMissing);
         if (shotRoot == null) return null;
         return findOrCreateChildDirectory(shotRoot, folderNameForShotSource(source), createIfMissing);
@@ -238,6 +242,8 @@ public final class RecordingStoragePaths {
             @Nullable CameraSource source,
             boolean createIfMissing
     ) {
+        DocumentFile joy = joyRecordingsDir(context, treeUriString);
+        if (joy != null) return joy;
         DocumentFile cameraRoot = getSafCategoryDir(context, treeUriString, Category.CAMERA, createIfMissing);
         if (cameraRoot == null) return null;
         return findOrCreateChildDirectory(cameraRoot, folderNameForCameraSource(source), createIfMissing);
@@ -250,6 +256,8 @@ public final class RecordingStoragePaths {
             @Nullable FaditorOutputType outputType,
             boolean createIfMissing
     ) {
+        DocumentFile joy = joyRecordingsDir(context, treeUriString);
+        if (joy != null) return joy;
         DocumentFile faditorRoot = getSafCategoryDir(context, treeUriString, Category.FADITOR, createIfMissing);
         if (faditorRoot == null) return null;
         return findOrCreateChildDirectory(faditorRoot, folderNameForFaditorOutput(outputType), createIfMissing);
@@ -268,5 +276,103 @@ public final class RecordingStoragePaths {
         }
         if (!createIfMissing) return null;
         return parent.createDirectory(childName);
+    }
+
+    // ── The Joy Creator folder ──────────────────────────────────────────
+    //
+    // When the recorder's custom location is the user's Joy Creator folder, recordings follow the
+    // folder's rules instead of the old layout: no Camera/Back, Screen/, FadShot/… subfolders, just
+    // the folder itself (or its Recordings folder, once the user has one), and names a person can
+    // read: "Screen recording 2026-10-13 14.32.mp4". Everywhere else nothing changes.
+
+    /** What a recording is, and the words its file name starts with in the Joy Creator folder. */
+    public enum JoyKind {
+        CAMERA("Camera"),
+        FRONT_CAMERA("Front camera"),
+        DUAL_CAMERA("Dual camera"),
+        SCREEN("Screen recording"),
+        STREAM("Stream"),
+        PHOTO("Photo"),
+        SELFIE("Selfie"),
+        SCREENSHOT("Screenshot"),
+        CONVERTED("Converted"),
+        MERGED("Merged");
+
+        public final String label;
+
+        JoyKind(String label) {
+            this.label = label;
+        }
+
+        /** The kind a readable name starts with ("Screen recording 2026-…"), or null for any other name. */
+        @Nullable
+        public static JoyKind ofName(@Nullable String fileName) {
+            if (fileName == null) return null;
+            JoyKind best = null;
+            for (JoyKind k : values()) {
+                if (fileName.startsWith(k.label + " ") && (best == null || k.label.length() > best.label.length())) {
+                    best = k;
+                }
+            }
+            return best;
+        }
+    }
+
+    /** True when {@code treeUriString} is the user's Joy Creator folder. */
+    public static boolean isJoyFolder(@NonNull Context context, @Nullable String treeUriString) {
+        if (treeUriString == null || treeUriString.isEmpty()) return false;
+        Uri joy = com.fadcam.joyfolder.android.JoyFolderHome.treeUri(context);
+        return joy != null && joy.toString().equals(treeUriString);
+    }
+
+    /** Where recordings go inside the Joy Creator folder: its Recordings folder if the user has one, else the top. */
+    @NonNull
+    private static String joyRecordingsRel(@NonNull Context context) {
+        com.fadcam.joyfolder.JoyFolder jf = com.fadcam.joyfolder.android.JoyFolderHome.open(context);
+        if (jf == null) return "";
+        try {
+            if (jf.roles.reconcile(jf.fs)) jf.saveRoles();   // a Recordings folder made a moment ago counts
+        } catch (Exception ignored) {
+        }
+        String rel = jf.roles.get(com.fadcam.joyfolder.FolderRoles.Role.RECORDINGS);
+        return rel == null ? "" : rel;
+    }
+
+    @Nullable
+    private static DocumentFile joyRecordingsDir(@NonNull Context context, @Nullable String treeUriString) {
+        if (!isJoyFolder(context, treeUriString)) return null;
+        DocumentFile dir = getSafBaseDir(context, treeUriString);
+        if (dir == null) return null;
+        String rel = joyRecordingsRel(context);
+        if (rel.isEmpty()) return dir;
+        for (String part : rel.split("/")) {
+            DocumentFile child = findOrCreateChildDirectory(dir, part, false);
+            if (child == null) return getSafBaseDir(context, treeUriString);   // gone: back to the top
+            dir = child;
+        }
+        return dir;
+    }
+
+    /**
+     * The file name for a new recording when it goes into the Joy Creator folder, or null when it
+     * doesn't (the caller keeps its usual name). Unique in its folder: a second take in the same
+     * minute becomes "… 14.32 2.mp4".
+     *
+     * @param part   0 or 1 for the first piece of a recording, 2+ for the pieces after a split
+     * @param ending including its dot, e.g. ".mp4"
+     */
+    @Nullable
+    public static String joyRecordingName(@NonNull Context context, @Nullable String treeUriString,
+                                          @NonNull JoyKind kind, int part, @NonNull String ending) {
+        if (!isJoyFolder(context, treeUriString)) return null;
+        String name = com.fadcam.joyfolder.ReadableNames.recording(kind.label, System.currentTimeMillis(),
+                java.util.TimeZone.getDefault(), (part > 1 ? " part " + part : "") + ending);
+        com.fadcam.joyfolder.JoyFolder jf = com.fadcam.joyfolder.android.JoyFolderHome.open(context);
+        if (jf == null) return name;
+        try {
+            return jf.freeName(joyRecordingsRel(context), name);
+        } catch (Exception e) {
+            return name;
+        }
     }
 }

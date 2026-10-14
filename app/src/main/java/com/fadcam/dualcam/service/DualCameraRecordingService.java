@@ -1508,6 +1508,10 @@ public class DualCameraRecordingService extends Service {
                     FLog.e(TAG, "Cannot write to custom storage location");
                     return null;
                 }
+                String joyName = com.fadcam.utils.RecordingStoragePaths.joyRecordingName(this, treeUriString,
+                        com.fadcam.utils.RecordingStoragePaths.JoyKind.DUAL_CAMERA, 0,
+                        "." + Constants.RECORDING_FILE_EXTENSION);
+                if (joyName != null) filename = joyName;   // "Dual camera 2026-10-13 14.32.mp4"
                 DocumentFile videoFile = treeDoc.createFile("video/mp4", filename);
                 if (videoFile == null) {
                     FLog.e(TAG, "Failed to create SAF file: " + filename);

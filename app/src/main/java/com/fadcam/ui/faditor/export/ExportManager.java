@@ -131,6 +131,8 @@ public class ExportManager {
     /** The display filename used for the SAF DocumentFile. */
     @Nullable
     private String safExportFileName = null;
+    /** The project being exported, when the export goes into the user's Joy Creator folder. */
+    @Nullable private String joyExportProjectId = null;
 
     /** C4 — pending loudness target for the next export (set by the export dialog, not persisted in model/). */
     @NonNull
@@ -378,9 +380,9 @@ public class ExportManager {
      */
     @Nullable
     private android.net.Uri seekableUriFor(@Nullable android.net.Uri uri) {
-        if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) return uri;
+        java.io.File f = com.fadcam.utils.SafPaths.fileOf(uri);
+        if (f == null) return uri;
         try {
-            java.io.File f = new java.io.File(uri.getPath());
             if (exportRemuxer == null) exportRemuxer = new FragmentedMp4Remuxer(context);
             if (exportRemuxer.needsRemux(f) && exportRemuxer.hasRemuxedVersion(f)) {
                 java.io.File r = exportRemuxer.getRemuxedFile(f);
@@ -395,12 +397,12 @@ public class ExportManager {
     @Nullable
     private android.net.Uri resolveSeekableSourceUri(@NonNull Clip clip) {
         android.net.Uri uri = clip.getSourceUri();
-        if (clip.isImageClip() || uri == null
-                || !"file".equals(uri.getScheme()) || uri.getPath() == null) {
+        java.io.File src = clip.isImageClip() ? null : com.fadcam.utils.SafPaths.fileOf(uri);
+        if (src == null) {
             return uri;
         }
         try {
-            java.io.File f = new java.io.File(uri.getPath());
+            java.io.File f = src;
             if (exportRemuxer == null) exportRemuxer = new FragmentedMp4Remuxer(context);
             java.io.File input = f;
             boolean remuxed = false;
@@ -7167,6 +7169,17 @@ public class ExportManager {
         String fileName = baseName + "." + extension;
 
         String storageMode = prefsManager.getStorageMode();
+        joyExportProjectId = null;
+        if (SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(storageMode)
+                && RecordingStoragePaths.isJoyFolder(context, prefsManager.getCustomStorageUri())) {
+            // Into the Joy Creator folder: named after the project ("Lecture 3.mp4"), not a timestamp.
+            joyExportProjectId = project.getId();
+            if (customBaseName == null || customBaseName.isEmpty()) {
+                fileName = com.fadcam.joyfolder.ReadableNames.sanitize(
+                        project.getName() == null || project.getName().trim().isEmpty() ? "Export" : project.getName())
+                        + "." + extension;
+            }
+        }
 
         if (SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(storageMode)) {
             // SAF/Custom mode — Transformer only accepts file paths, so write to
@@ -7236,6 +7249,10 @@ public class ExportManager {
             return null;
         }
 
+        if (RecordingStoragePaths.isJoyFolder(context, customUriString)) {
+            return copyTempToJoyFolder(tempFile);
+        }
+
         try {
             Uri treeUri = Uri.parse(customUriString);
             DocumentFile pickedDir = DocumentFile.fromTreeUri(context, treeUri);
@@ -7302,6 +7319,39 @@ public class ExportManager {
 
         } catch (Exception e) {
             FLog.e(TAG, "SAF copy failed", e);
+            return null;
+        }
+    }
+
+    /**
+     * Export into the Joy Creator folder: beside the project's own file there (or into the user's
+     * Exports folder, if they have one), under the project's name, made unique ("Lecture 3 2.mp4").
+     * Written atomically and recorded as an export, so the Library lists it with the Studio's work.
+     *
+     * @return the file's name in the folder, or null on failure
+     */
+    @Nullable
+    private String copyTempToJoyFolder(@NonNull File tempFile) {
+        com.fadcam.joyfolder.JoyFolder jf = com.fadcam.joyfolder.android.JoyFolderHome.open(context);
+        if (jf == null) {
+            FLog.e(TAG, "Joy Creator folder unavailable for export");
+            return null;
+        }
+        try {
+            String workRel = joyExportProjectId == null ? null
+                    : com.fadcam.joyfolder.studio.StudioMirror.folderPathOf(context, joyExportProjectId);
+            String dir = jf.prepareDir(com.fadcam.joyfolder.Placement.What.EXPORT, workRel, null, null);
+            String name = safExportFileName != null ? safExportFileName : tempFile.getName();
+            String rel;
+            try (InputStream in = new FileInputStream(tempFile)) {
+                rel = jf.addFile(dir, name, in, "export");
+            }
+            jf.saveIndex();
+            if (tempFile.delete()) FLog.d(TAG, "Joy export: temp file deleted");
+            FLog.i(TAG, "Exported into the Joy Creator folder: " + rel);
+            return com.fadcam.joyfolder.Placement.nameOf(rel);
+        } catch (Exception e) {
+            FLog.e(TAG, "Export into the Joy Creator folder failed", e);
             return null;
         }
     }

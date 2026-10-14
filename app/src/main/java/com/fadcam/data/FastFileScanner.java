@@ -47,6 +47,11 @@ public class FastFileScanner {
 
     private final Context context;
 
+    /** True while scanning the user's Joy Creator folder (see {@link #scanSaf}). */
+    private volatile boolean joyMode;
+    /** Names of files the app exported into the Joy Creator folder; shown as Studio exports. */
+    @Nullable private volatile java.util.Set<String> joyExportNames;
+
     public FastFileScanner(@NonNull Context context) {
         this.context = context.getApplicationContext();
     }
@@ -79,6 +84,11 @@ public class FastFileScanner {
             }
             if (hasPermission) {
                 List<VideoIndexEntity> safResults = scanSaf(safUri);
+                if (com.fadcam.utils.RecordingStoragePaths.isJoyFolder(context, safUriString)) {
+                    // Recordings made before the Joy Creator folder was chosen stay in the app's own
+                    // storage; keep them in the Library alongside the new ones.
+                    safResults.addAll(scanInternal());
+                }
                 long elapsed = System.currentTimeMillis() - start;
                 FLog.i(TAG, "SAF scan complete: " + safResults.size() + " files in " + elapsed + "ms");
                 return safResults;
@@ -345,6 +355,12 @@ public class FastFileScanner {
                 return results;
             }
 
+            joyMode = com.fadcam.utils.RecordingStoragePaths.isJoyFolder(context, treeUri.toString());
+            if (joyMode) {
+                scanJoyFolder(results, treeDoc);
+                return results;
+            }
+
             // Use the tree root directly as the recording root.
             // Fallback: check if there's a "FadCam" subdirectory (some setups may
             // point to a parent directory containing a FadCam folder).
@@ -497,7 +513,27 @@ public class FastFileScanner {
                 VideoItem.CameraSubtype effectiveCam = cameraSubtype;
                 VideoItem.FaditorSubtype effectiveFad = faditorSubtype;
 
-                if (legacyInfer && category == VideoItem.Category.UNKNOWN && name != null) {
+                if (joyMode && legacyInfer && category == VideoItem.Category.UNKNOWN && name != null) {
+                    // The Joy Creator folder: recordings are known by their readable names, exports by
+                    // the app's own record of them. Anything else there (pictures and clips copied in
+                    // for projects, files the user dropped in) is not a recording, so it stays out.
+                    com.fadcam.utils.RecordingStoragePaths.JoyKind kind = com.fadcam.utils.RecordingStoragePaths.JoyKind.ofName(name);
+                    java.util.Set<String> exports = joyExportNames;
+                    if (kind != null) {
+                        effectiveCategory = joyCategory(kind);
+                        effectiveCam = kind == com.fadcam.utils.RecordingStoragePaths.JoyKind.FRONT_CAMERA ? VideoItem.CameraSubtype.FRONT
+                                : kind == com.fadcam.utils.RecordingStoragePaths.JoyKind.DUAL_CAMERA ? VideoItem.CameraSubtype.DUAL : VideoItem.CameraSubtype.BACK;
+                        effectiveShot = kind == com.fadcam.utils.RecordingStoragePaths.JoyKind.SELFIE ? VideoItem.ShotSubtype.SELFIE
+                                : kind == com.fadcam.utils.RecordingStoragePaths.JoyKind.SCREENSHOT ? VideoItem.ShotSubtype.FADREC : VideoItem.ShotSubtype.BACK;
+                        effectiveFad = kind == com.fadcam.utils.RecordingStoragePaths.JoyKind.MERGED ? VideoItem.FaditorSubtype.MERGE
+                                : kind == com.fadcam.utils.RecordingStoragePaths.JoyKind.CONVERTED ? VideoItem.FaditorSubtype.CONVERTED : VideoItem.FaditorSubtype.OTHER;
+                    } else if (exports != null && exports.contains(name)) {
+                        effectiveCategory = VideoItem.Category.FADITOR;
+                        effectiveFad = VideoItem.FaditorSubtype.OTHER;
+                    } else {
+                        continue;
+                    }
+                } else if (legacyInfer && category == VideoItem.Category.UNKNOWN && name != null) {
                     effectiveCategory = inferCategoryFromLegacyName(name);
                     if (effectiveCategory == VideoItem.Category.SHOT) {
                         effectiveShot = resolveShotSubtype(name);
@@ -568,6 +604,58 @@ public class FastFileScanner {
             return "IMAGE";
         }
         return null;
+    }
+
+    /**
+     * The Joy Creator folder: its top and, if the user has one, its Recordings folder (and their
+     * Exports folder, for exports). No category subfolders exist there.
+     */
+    private void scanJoyFolder(@NonNull List<VideoIndexEntity> results, @NonNull DocumentFile root) {
+        java.util.Set<String> exports = new java.util.HashSet<>();
+        java.util.List<String> dirs = new java.util.ArrayList<>();
+        dirs.add("");
+        com.fadcam.joyfolder.JoyFolder jf = com.fadcam.joyfolder.android.JoyFolderHome.open(context);
+        if (jf != null) {
+            for (com.fadcam.joyfolder.FolderIndex.Item it : jf.index.items()) {
+                if ("export".equals(it.origin)) exports.add(com.fadcam.joyfolder.Placement.nameOf(it.path));
+            }
+            for (com.fadcam.joyfolder.FolderRoles.Role role : new com.fadcam.joyfolder.FolderRoles.Role[]{
+                    com.fadcam.joyfolder.FolderRoles.Role.RECORDINGS, com.fadcam.joyfolder.FolderRoles.Role.EXPORTS}) {
+                String rel = jf.roles.get(role);
+                if (rel != null && !dirs.contains(rel)) dirs.add(rel);
+            }
+        }
+        joyExportNames = exports;
+        for (String rel : dirs) {
+            DocumentFile dir = root;
+            for (String part : rel.isEmpty() ? new String[0] : rel.split("/")) {
+                dir = dir == null ? null : dir.findFile(part);
+            }
+            if (dir == null || !dir.isDirectory()) continue;
+            scanSafDirectoryFiles(results, dir.getUri(), VideoItem.Category.UNKNOWN,
+                    VideoItem.ShotSubtype.UNKNOWN, VideoItem.CameraSubtype.UNKNOWN, VideoItem.FaditorSubtype.UNKNOWN,
+                    true);
+        }
+    }
+
+    @NonNull
+    private static VideoItem.Category joyCategory(@NonNull com.fadcam.utils.RecordingStoragePaths.JoyKind kind) {
+        switch (kind) {
+            case CAMERA:
+            case FRONT_CAMERA:
+            case DUAL_CAMERA:
+                return VideoItem.Category.CAMERA;
+            case SCREEN:
+                return VideoItem.Category.SCREEN;
+            case STREAM:
+                return VideoItem.Category.STREAM;
+            case PHOTO:
+            case SELFIE:
+            case SCREENSHOT:
+                return VideoItem.Category.SHOT;
+            default:
+                return VideoItem.Category.FADITOR;
+        }
     }
 
     @NonNull

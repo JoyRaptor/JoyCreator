@@ -483,6 +483,12 @@ public class BatchMediaActionService extends Service {
                         true
                 );
                 if (safDir != null && safDir.canWrite()) {
+                    // In the Joy Creator folder: "Converted 2026-10-13 14.32.mp4" / "Merged …".
+                    String joyName = RecordingStoragePaths.joyRecordingName(this, customUri,
+                            outputType == RecordingStoragePaths.FaditorOutputType.MERGE
+                                    ? RecordingStoragePaths.JoyKind.MERGED : RecordingStoragePaths.JoyKind.CONVERTED,
+                            0, ".mp4");
+                    if (joyName != null) fileName = joyName;
                     DocumentFile safFile = createUniqueSafFile(safDir, fileName);
                     if (safFile != null) {
                         File temp = new File(getCacheDir(), "batch_tmp_" + System.currentTimeMillis() + "_" + fileName);

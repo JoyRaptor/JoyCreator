@@ -158,7 +158,13 @@ public final class PhotoStorageHelper {
             return null;
         }
 
-        DocumentFile doc = shotDir.createFile("image/jpeg", fileName);
+        // In the Joy Creator folder: "Photo 2026-10-13 14.32.jpg", "Selfie …", "Screenshot …".
+        String joyName = RecordingStoragePaths.joyRecordingName(context, customTreeUri,
+                shotSource == ShotSource.SELFIE ? RecordingStoragePaths.JoyKind.SELFIE
+                        : shotSource == ShotSource.FADREC ? RecordingStoragePaths.JoyKind.SCREENSHOT
+                        : RecordingStoragePaths.JoyKind.PHOTO,
+                0, "." + Constants.RECORDING_IMAGE_EXTENSION);
+        DocumentFile doc = shotDir.createFile("image/jpeg", joyName != null ? joyName : fileName);
         if (doc == null) {
             FLog.e(TAG, "saveToSaf: createFile returned null for fileName=" + fileName);
             return null;

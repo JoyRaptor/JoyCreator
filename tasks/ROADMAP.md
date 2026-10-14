@@ -117,7 +117,7 @@ Detail and history: tasks/todo.md "NEXT: export speed".
 | 3.5 | **One-tap buttons for tools that already exist** — Clean up audio, Make chapters, Cut the ums | Small, and the highest value-per-hour item on this page |
 | 3.6 | ✅ **BUILT 2026-10-14 (compiles; needs a phone with an AI key to try)** — replies stream into the bubble; a tool command shows "Working…" instead of code | Most of what makes an AI feel good |
 | 3.7 | ✅ **DONE** (d0fecd60) — found already fixed 2026-10-14 | One file, three functions, one at a time |
-| 3.8 | Split the AI networking behind one seam | Needed for everything after. Ship two providers: OpenRouter and a custom URL box. |
+| 3.8 | ✅ **DONE 2026-10-14** — `ai/AiService`: one address for chat + tools; settings has "Service address" for any OpenAI-compatible server (https, or http://localhost on the phone); no key needed for a custom one. Tested on the Note 9 against a local address. Was: Split the AI networking behind one seam | Needed for everything after. Ship two providers: OpenRouter and a custom URL box. |
 | 3.9 | **Share-in** — accept an image or video from the Android share sheet, straight onto the timeline | The headline. Works with any AI app, no key. **Owner, 2026-10-13: implement "as soon as we have the perfect place to put things" — i.e. it lands right after the file home (Lane 2), not before.** |
 | 3.10 | generate_image through OpenRouter, into the project | Same pipeline as 3.9. Endpoint verified. |
 

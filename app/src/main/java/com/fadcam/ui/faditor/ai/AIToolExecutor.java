@@ -707,7 +707,7 @@ public class AIToolExecutor {
         String apiKey = AiKey.get(context);
         String model = prefs.sharedPreferences.getString("ai_model", "openrouter/free");
 
-        if (apiKey == null || apiKey.isEmpty()) {
+        if (!AiService.ready(context, apiKey)) {
             return new String[]{SlideContract.buildFallbackHtml(w, h, mode, text, durationMs), null};
         }
 
@@ -752,7 +752,7 @@ public class AIToolExecutor {
                     .writeTimeout(30, TimeUnit.SECONDS)
                     .build();
             Request request = new Request.Builder()
-                    .url("https://openrouter.ai/api/v1/chat/completions")
+                    .url(AiService.chatUrl(context))
                     .addHeader("Authorization", "Bearer " + apiKey)
                     .addHeader("Content-Type", "application/json")
                     .post(RequestBody.create(body.toString(),
@@ -1233,7 +1233,7 @@ public class AIToolExecutor {
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(context);
         String apiKey = AiKey.get(context);
         String model = prefs.sharedPreferences.getString("ai_model", "openrouter/free");
-        if (apiKey == null || apiKey.isEmpty()) return null;
+        if (!AiService.ready(context, apiKey)) return null;
         return new String[]{apiKey, model};
     }
 
@@ -1386,7 +1386,7 @@ public class AIToolExecutor {
                     .writeTimeout(30, TimeUnit.SECONDS)
                     .build();
             Request request = new Request.Builder()
-                    .url("https://openrouter.ai/api/v1/chat/completions")
+                    .url(AiService.chatUrl(context))
                     .addHeader("Authorization", "Bearer " + apiKey)
                     .addHeader("Content-Type", "application/json")
                     .post(RequestBody.create(body.toString(),

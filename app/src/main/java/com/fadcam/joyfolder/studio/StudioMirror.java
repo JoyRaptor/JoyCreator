@@ -101,12 +101,51 @@ public final class StudioMirror {
                 if (jf == null) return;
                 State st = State.load(jf);
                 String rel = st.projectPath(projectId);
-                if (rel != null && jf.fs.stat(rel) != null) jf.trash(rel, System.currentTimeMillis());
+                if (rel != null && jf.fs.stat(rel) != null) {
+                    String trashed = jf.trash(rel, System.currentTimeMillis());
+                    synchronized (RECENTLY_TRASHED) {
+                        RECENTLY_TRASHED.put(projectId, trashed);
+                    }
+                }
                 st.projects.remove(projectId);
                 st.save(jf);
             } catch (Exception e) {
                 Log.w(TAG, "Could not move the folder copy of " + projectId + " to Trash", e);
             }
+        });
+    }
+
+    /** Project id → its name in the folder's Trash, for the Undo right after a delete. */
+    private static final Map<String, String> RECENTLY_TRASHED = new HashMap<>();
+
+    /**
+     * Undo a delete just made: put the projects' folder copies back and bring them into the app.
+     * Runs on the folder thread; {@code onDone} is called on the main thread with how many came back.
+     */
+    public static void undoDelete(Context context, java.util.Collection<String> projectIds,
+                                  java.util.function.IntConsumer onDone) {
+        final Context app = context.getApplicationContext();
+        final List<String> ids = new ArrayList<>(projectIds);
+        JoyFolderHome.io().execute(() -> {   // queued after the deletes, so their Trash names exist
+            int back = 0;
+            try {
+                JoyFolder jf = JoyFolderHome.open(app);
+                if (jf != null) {
+                    for (String id : ids) {
+                        String name;
+                        synchronized (RECENTLY_TRASHED) {
+                            name = RECENTLY_TRASHED.remove(id);
+                        }
+                        if (name == null) continue;
+                        jf.restore(name);
+                    }
+                    back = restoreMissing(app, null);
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Undo delete failed", e);
+            }
+            final int n = back;
+            MAIN.post(() -> onDone.accept(n));
         });
     }
 
@@ -181,13 +220,23 @@ public final class StudioMirror {
 
         boolean copyMedia = JoyFolderHome.copyMediaAllowed(context);
         Map<String, String> files = new LinkedHashMap<>();
+        final java.util.concurrent.atomic.AtomicReference<Map<String, String>> known =
+                new java.util.concurrent.atomic.AtomicReference<>();
         rewrite(root, value -> {
             Uri uri = parse(value);
             // Already in the folder (a restored project): keep it as a folder path.
             if (saf != null && uri != null && "content".equals(uri.getScheme())) {
                 String rel = saf.relOf(uri);
                 if (rel != null) {
-                    files.put(rel, jf.index.fingerprintOf(jf.fs, rel));
+                    String fp;
+                    if (jf.fs.stat(rel) != null) {
+                        fp = jf.index.fingerprintOf(jf.fs, rel);
+                    } else {
+                        // Moved since the project loaded: keep what we knew, so it can still be found.
+                        if (known.get() == null) known.set(knownFingerprints(jf, projectId));
+                        fp = known.get().get(rel);
+                    }
+                    files.put(rel, fp);
                     return JOY + rel;
                 }
             }
@@ -445,6 +494,87 @@ public final class StudioMirror {
         }
         st.save(jf);
         return restored;
+    }
+
+    // ── Rule 3: moving things never breaks anything ─────────────────────
+
+    /**
+     * Before a project loads: any of its files the user moved or renamed inside the Joy Creator
+     * folder (with a file manager, or by gathering a project into its own folder) is found again
+     * by its contents, and the project is pointed at where it is now. Projects that use nothing
+     * inside the folder return straight away.
+     *
+     * @return true when the project file was updated
+     */
+    public static boolean healMovedFiles(Context context, String projectId, File projectJson) {
+        Context app = context.getApplicationContext();
+        if (!JoyFolderHome.isChosen(app) || !projectJson.isFile()) return false;
+        try {
+            String text = readText(projectJson);
+            Uri tree = JoyFolderHome.treeUri(app);
+            String treeId = tree == null ? null : android.provider.DocumentsContract.getTreeDocumentId(tree);
+            // Fast path: a project pointing at nothing inside the folder needs no folder access at all.
+            if (treeId == null || !text.contains(Uri.encode(treeId))) return false;
+            JoyFolder jf = JoyFolderHome.open(app);
+            SafJoyFs saf = JoyFolderHome.fsOf(jf);
+            if (jf == null || saf == null) return false;
+            final Map<String, String> fps = knownFingerprints(jf, projectId);
+            final boolean[] scanned = {false};
+            final boolean[] changed = {false};
+            JsonObject root = JsonParser.parseString(text).getAsJsonObject();
+            rewrite(root, value -> {
+                Uri u = parse(value);
+                String rel = saf.relOf(u);
+                if (rel == null || rel.isEmpty() || jf.fs.stat(rel) != null) return value;
+                String fp = fps.get(rel);
+                if (fp == null) return value;
+                if (!scanned[0]) {
+                    jf.index.scan(jf.fs);
+                    scanned[0] = true;
+                }
+                String now = jf.index.find(jf.fs, null, fp);
+                Uri doc = now == null ? null : saf.documentUri(now);
+                if (doc == null) return value;   // truly gone: the relink screen takes it from here
+                changed[0] = true;
+                return doc.toString();
+            });
+            if (!changed[0]) return false;
+            File tmp = new File(projectJson.getParentFile(), projectJson.getName() + ".heal.tmp");
+            try (FileOutputStream out = new FileOutputStream(tmp)) {
+                out.write(GSON.toJson(root).getBytes(StandardCharsets.UTF_8));
+                out.getFD().sync();
+            }
+            if (!tmp.renameTo(projectJson)) {
+                tmp.delete();
+                return false;
+            }
+            Log.i(TAG, "Found moved files again for " + projectId);
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "Could not check " + projectId + " for moved files", e);
+            return false;
+        }
+    }
+
+    /** Folder path → fingerprint for every folder file this project is known to use. */
+    private static Map<String, String> knownFingerprints(JoyFolder jf, String projectId) {
+        Map<String, String> fps = new HashMap<>();
+        State st = State.load(jf);
+        for (State.Media m : st.media.values()) if (m.fp != null) fps.put(m.path, m.fp);
+        try {
+            String rel = st.projectPath(projectId);
+            if (rel == null || jf.fs.stat(rel) == null) rel = findById(jf, projectId);
+            if (rel != null) {
+                JsonObject copy = JsonParser.parseString(new String(jf.readAll(rel), StandardCharsets.UTF_8)).getAsJsonObject();
+                if (copy.has("joyFolder") && copy.getAsJsonObject("joyFolder").has("files")) {
+                    for (Map.Entry<String, JsonElement> e : copy.getAsJsonObject("joyFolder").getAsJsonObject("files").entrySet()) {
+                        if (!e.getValue().isJsonNull()) fps.put(e.getKey(), e.getValue().getAsString());
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return fps;
     }
 
     // ── Consent: how much would be copied ────────────────────────────────

@@ -247,12 +247,78 @@ public final class JoyFolder {
     /** Names in Trash, oldest first. */
     public synchronized List<String> trashed() {
         List<String> out = new ArrayList<>();
-        for (JsonElement el : trashLog().getAsJsonArray("items")) out.add(el.getAsJsonObject().get("name").getAsString());
+        for (TrashItem t : trashItems()) out.add(t.name);
         return out;
+    }
+
+    /** One thing in Trash: its name there, where it came from, and when it was trashed. */
+    public static final class TrashItem {
+        public final String name;
+        public final String from;
+        public final long at;
+
+        TrashItem(String name, String from, long at) {
+            this.name = name;
+            this.from = from;
+            this.at = at;
+        }
+
+        /** The name it had before it was trashed, e.g. "Lecture 3.joyproject". */
+        public String originalName() {
+            return Placement.nameOf(from);
+        }
+    }
+
+    /** Everything in Trash, newest first, for the Trash screen. */
+    public synchronized List<TrashItem> trashItems() {
+        List<TrashItem> out = new ArrayList<>();
+        for (JsonElement el : trashLog().getAsJsonArray("items")) {
+            JsonObject e = el.getAsJsonObject();
+            out.add(0, new TrashItem(e.get("name").getAsString(), e.get("from").getAsString(), e.get("at").getAsLong()));
+        }
+        return out;
+    }
+
+    /** Remove one Trash item for good. False when it isn't in Trash. */
+    public synchronized boolean deleteFromTrash(String trashName) throws IOException {
+        JsonObject log = trashLog();
+        JsonArray items = log.getAsJsonArray("items");
+        for (int i = 0; i < items.size(); i++) {
+            if (!trashName.equals(items.get(i).getAsJsonObject().get("name").getAsString())) continue;
+            fs.delete(Placement.join(TRASH, trashName));
+            items.remove(i);
+            writeJson(TRASH_FILE, log);
+            return true;
+        }
+        return false;
+    }
+
+    /** Size in bytes of a Trash item (a folder counts as 0), or -1 when it is gone. */
+    public long trashSize(String trashName) throws IOException {
+        JoyFs.Entry e = fs.stat(Placement.join(TRASH, trashName));
+        return e == null ? -1 : e.size;
+    }
+
+    /** Remove everything in Trash for good. Returns how many items went. */
+    public synchronized int emptyTrash() throws IOException {
+        JsonObject log = trashLog();
+        int n = 0;
+        for (JsonElement el : log.getAsJsonArray("items")) {
+            fs.delete(Placement.join(TRASH, el.getAsJsonObject().get("name").getAsString()));
+            n++;
+        }
+        log.add("items", new JsonArray());
+        writeJson(TRASH_FILE, log);
+        return n;
     }
 
     /** Remove for good whatever has been in Trash longer than {@link #TRASH_DAYS}. */
     public synchronized int emptyOld(long now) throws IOException {
+        return emptyOlderThan(now, TRASH_DAYS * 24L * 60 * 60 * 1000);
+    }
+
+    /** Remove for good whatever has been in Trash longer than {@code maxAgeMillis} (the user's Trash setting). */
+    public synchronized int emptyOlderThan(long now, long maxAgeMillis) throws IOException {
         JsonObject log = trashLog();
         JsonArray items = log.getAsJsonArray("items");
         JsonArray keep = new JsonArray();
@@ -260,7 +326,7 @@ public final class JoyFolder {
         for (JsonElement el : items) {
             JsonObject e = el.getAsJsonObject();
             long at = e.get("at").getAsLong();
-            if (now - at > TRASH_DAYS * 24L * 60 * 60 * 1000) {
+            if (now - at > maxAgeMillis) {
                 fs.delete(Placement.join(TRASH, e.get("name").getAsString()));
                 removed++;
             } else {

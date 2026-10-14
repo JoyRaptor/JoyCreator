@@ -147,7 +147,8 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
         // Auto-delete old items first, then load
         if (getContext() != null) {
             int autoDeleteMinutes = sharedPreferencesManager.getTrashAutoDeleteMinutes();
-            int autoDeletedCount = TrashManager.autoDeleteExpiredItems(getContext(), autoDeleteMinutes);
+            int autoDeletedCount = TrashManager.autoDeleteExpiredItems(getContext(), autoDeleteMinutes)
+                    + com.fadcam.joyfolder.studio.JoyTrashBridge.autoDelete(getContext(), autoDeleteMinutes);
             if (autoDeletedCount > 0) {
                 Toast.makeText(getContext(), getString(R.string.trash_auto_deleted_toast, autoDeletedCount),
                         Toast.LENGTH_LONG).show();
@@ -353,7 +354,13 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
                         .show();
                 return;
             }
-            showRestoreDestinationPicker(selectedItems);
+            List<TrashItem> folderItems = new ArrayList<>();
+            List<TrashItem> recordings = new ArrayList<>();
+            for (TrashItem item : selectedItems) {
+                (com.fadcam.joyfolder.studio.JoyTrashBridge.isFolderItem(item) ? folderItems : recordings).add(item);
+            }
+            if (!folderItems.isEmpty()) restoreFolderItems(folderItems, recordings.isEmpty());
+            if (!recordings.isEmpty()) showRestoreDestinationPicker(recordings);
         });
 
         buttonDeleteSelectedPermanently.setOnClickListener(v -> {
@@ -383,6 +390,10 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
         List<TrashItem> loadedItems = TrashManager.loadTrashMetadata(getContext());
         allTrashItems.clear();
         allTrashItems.addAll(loadedItems);
+        // One Trash: things deleted from the Joy Creator folder (projects…) sit in the same list.
+        allTrashItems.addAll(com.fadcam.joyfolder.studio.JoyTrashBridge.items(getContext()));
+        java.util.Collections.sort(allTrashItems, (a, b) -> Long.compare(
+                b == null ? 0 : b.getDateTrashed(), a == null ? 0 : a.getDateTrashed()));
         applyTrashFilter();
     }
 
@@ -398,7 +409,7 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
                     trashItems.add(item);
                 }
             } else {
-                if (!item.isForensicsEvidence()) {
+                if (!item.isForensicsEvidence() && !com.fadcam.joyfolder.studio.JoyTrashBridge.isFolderItem(item)) {
                     trashItems.add(item);
                 }
             }
@@ -425,6 +436,10 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
         long totalBytes = 0L;
         for (TrashItem item : allTrashItems) {
             if (item == null) continue;
+            if (com.fadcam.joyfolder.studio.JoyTrashBridge.isFolderItem(item)) {
+                totalBytes += item.getSizeBytes();
+                continue;
+            }
             if (item.isForensicsEvidence()) {
                 evidence++;
             } else {
@@ -450,7 +465,11 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
         for (TrashItem item : allTrashItems) {
             if (item != null && item.isForensicsEvidence()) evidence++;
         }
-        int videos = Math.max(0, total - evidence);
+        int folderItems = 0;
+        for (TrashItem item : allTrashItems) {
+            if (com.fadcam.joyfolder.studio.JoyTrashBridge.isFolderItem(item)) folderItems++;
+        }
+        int videos = Math.max(0, total - evidence - folderItems);
         if (chipAll != null) chipAll.setText(makeChipLabel(getString(R.string.forensics_filter_all), total));
         if (chipVideos != null) chipVideos.setText(makeChipLabel(getString(R.string.nav_records), videos));
         if (chipEvidence != null) chipEvidence.setText(makeChipLabel(getString(R.string.forensics_gallery_title), evidence));
@@ -930,7 +949,8 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
 
             boolean itemsWereAutoDeleted = false;
             if (getContext() != null) {
-                int autoDeletedCount = TrashManager.autoDeleteExpiredItems(getContext(), newMinutes);
+                int autoDeletedCount = TrashManager.autoDeleteExpiredItems(getContext(), newMinutes)
+                        + com.fadcam.joyfolder.studio.JoyTrashBridge.autoDelete(getContext(), newMinutes);
                 if (autoDeletedCount > 0) {
                     Toast.makeText(getContext(), getString(R.string.trash_auto_deleted_toast, autoDeletedCount), Toast.LENGTH_LONG).show();
                     itemsWereAutoDeleted = true;
@@ -1035,7 +1055,8 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
                         FLog.d(TAG, "Auto-delete setting updated to: " + selectedMinutes + " minutes.");
                         boolean itemsWereAutoDeleted = false;
                         if (getContext() != null) {
-                            int autoDeletedCount = TrashManager.autoDeleteExpiredItems(getContext(), selectedMinutes);
+                            int autoDeletedCount = TrashManager.autoDeleteExpiredItems(getContext(), selectedMinutes)
+                        + com.fadcam.joyfolder.studio.JoyTrashBridge.autoDelete(getContext(), selectedMinutes);
                             if (autoDeletedCount > 0) {
                                 Toast.makeText(getContext(),
                                         getString(R.string.trash_auto_deleted_toast, autoDeletedCount),
@@ -1409,6 +1430,31 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
     }
 
     /**
+     * Put back things deleted from the Joy Creator folder: each goes back where it was (no
+     * destination to pick), and a project also comes back into the app.
+     */
+    private void restoreFolderItems(List<TrashItem> items, boolean onlyFolderItems) {
+        if (getContext() == null) return;
+        final android.content.Context app = getContext().getApplicationContext();
+        if (executorService == null || executorService.isShutdown()) {
+            executorService = java.util.concurrent.Executors.newSingleThreadExecutor();
+        }
+        executorService.submit(() -> {
+            int n = com.fadcam.joyfolder.studio.JoyTrashBridge.restore(app, items);
+            if (getActivity() == null) return;
+            getActivity().runOnUiThread(() -> {
+                String what = items.size() == 1 ? items.get(0).getOriginalDisplayName() : n + " items";
+                Toast.makeText(app, n == items.size()
+                                ? "Put back " + what + " in your Joy Creator folder."
+                                : "Put back " + n + " of " + items.size() + ". The rest couldn't be found.",
+                        Toast.LENGTH_SHORT).show();
+                if (onlyFolderItems) exitSelectionMode();
+                loadTrashItems();
+            });
+        });
+    }
+
+    /**
      * Performs the actual restore operation with the selected destination
      * 
      * @param selectedItems The list of items to restore
@@ -1575,7 +1621,13 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
         }
         
         executorService.submit(() -> {
-            boolean success = TrashManager.permanentlyDeleteItems(getContext(), selectedItems);
+            List<TrashItem> recordings = new ArrayList<>();
+            List<TrashItem> folderItems = new ArrayList<>();
+            for (TrashItem item : selectedItems) {
+                (com.fadcam.joyfolder.studio.JoyTrashBridge.isFolderItem(item) ? folderItems : recordings).add(item);
+            }
+            boolean success = (recordings.isEmpty() || TrashManager.permanentlyDeleteItems(getContext(), recordings))
+                    & com.fadcam.joyfolder.studio.JoyTrashBridge.delete(getContext(), folderItems) == folderItems.size();
             
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
@@ -1723,6 +1775,7 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
                 sheet.dismiss();
                 
                 // When DELETE is typed correctly, proceed with emptying all trash
+                com.fadcam.joyfolder.studio.JoyTrashBridge.emptyAll(getContext());
                 if (TrashManager.emptyAllTrash(getContext())) {
                     Toast.makeText(getContext(), getString(R.string.trash_emptied_toast), Toast.LENGTH_SHORT)
                             .show();

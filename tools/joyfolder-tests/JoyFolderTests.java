@@ -51,6 +51,7 @@ public final class JoyFolderTests {
         run("index: plugin folder is one item", JoyFolderTests::indexPlugin);
         run("atomic write and crash recovery", JoyFolderTests::atomic);
         run("trash: trash, restore, clash, expiry", JoyFolderTests::trash);
+        run("trash: listing newest first, empty", JoyFolderTests::trashList);
         run("consolidate: box, exports, shared, recordings", JoyFolderTests::consolidate);
         run("consolidate: leave shared, name clashes", JoyFolderTests::consolidateClash);
         run("usage: unused and shared", JoyFolderTests::usage);
@@ -294,6 +295,34 @@ public final class JoyFolderTests {
         eq(0, jf.emptyOld(T + 29L * 24 * 3600 * 1000));
         eq(2, jf.emptyOld(T + 31L * 24 * 3600 * 1000));
         eq(0, jf.trashed().size());
+    }
+
+    static void trashList() throws IOException {
+        FileJoyFs fs = tempFs();
+        JoyFolder jf = JoyFolder.open(fs);
+        write(fs, "Old.joyproject", "1");
+        write(fs, "Client A/New.png", "2");
+        jf.trash("Old.joyproject", T);
+        jf.trash("Client A/New.png", T + 60_000);
+        List<JoyFolder.TrashItem> items = jf.trashItems();
+        eq(2, items.size());
+        eq("New.png", items.get(0).originalName());       // newest first
+        eq("Client A/New.png", items.get(0).from);
+        eq(T + 60_000, items.get(0).at);
+        eq(1L, jf.trashSize(items.get(0).name));
+        // The user's own Trash setting: anything older than a minute goes, the newest stays.
+        eq(1, jf.emptyOlderThan(T + 90_000, 60_000));
+        eq(1, jf.trashItems().size());
+        check(jf.deleteFromTrash(items.get(0).name), "deleted one for good");
+        check(!jf.deleteFromTrash(items.get(0).name), "already gone");
+        eq(-1L, jf.trashSize(items.get(0).name));
+        write(fs, "Again.png", "3");
+        jf.trash("Again.png", T);
+        write(fs, "More.png", "4");
+        jf.trash("More.png", T);
+        eq(2, jf.emptyTrash());
+        eq(0, jf.trashItems().size());
+        eq(0, fs.list(JoyFolder.TRASH).size());
     }
 
     // ── consolidate ──────────────────────────────────────────────────────

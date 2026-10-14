@@ -308,6 +308,10 @@ public class ProjectStorage {
         File file = new File(getProjectDir(projectId), PROJECT_FILE);
         File bak = new File(getProjectDir(projectId), PROJECT_FILE + ".bak");
 
+        // Files this project uses inside the user's Joy Creator folder may have been moved or
+        // renamed there; point the project at where they are now before reading it.
+        com.fadcam.joyfolder.studio.StudioMirror.healMovedFiles(context, projectId, file);
+
         if (file.exists()) {
             try (FileReader reader = new FileReader(file)) {
                 FaditorProject p = gson.fromJson(reader, FaditorProject.class);

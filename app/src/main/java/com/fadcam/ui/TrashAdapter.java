@@ -256,7 +256,11 @@ public class TrashAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
             tvDateTrashed.setText(relativeDate);
 
             // Compute file size from disk
-            if (tvFileSize != null && context != null) {
+            boolean inJoyFolder = com.fadcam.joyfolder.studio.JoyTrashBridge.isFolderItem(item);
+            if (tvFileSize != null && context != null && inJoyFolder) {
+                // Lives in the Joy Creator folder's Trash; its size came with the item.
+                tvFileSize.setText(android.text.format.Formatter.formatShortFileSize(context, item.getSizeBytes()));
+            } else if (tvFileSize != null && context != null) {
                 File trashDirectory = TrashManager.getTrashDirectory(context);
                 if (trashDirectory != null && item.getTrashFileName() != null) {
                     File trashedFile = new File(trashDirectory, item.getTrashFileName());
@@ -311,7 +315,20 @@ public class TrashAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
                 if(tvRemainingTime != null) tvRemainingTime.setVisibility(View.GONE);
             }
 
-            if (imageViewThumbnail != null && context != null) {
+            if (imageViewThumbnail != null && context != null && inJoyFolder) {
+                // A project (or other file) from the Joy Creator folder: no video frame to show.
+                String original = item.getOriginalDisplayName() == null ? "" : item.getOriginalDisplayName();
+                Glide.with(context).clear(imageViewThumbnail);
+                imageViewThumbnail.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
+                int pad = Math.round(28 * context.getResources().getDisplayMetrics().density);
+                imageViewThumbnail.setPadding(pad, pad, pad, pad);
+                imageViewThumbnail.setImageResource(
+                        com.fadcam.joyfolder.FileKind.of(original) == com.fadcam.joyfolder.FileKind.PROJECT
+                                ? R.drawable.movie_edit_24px : R.drawable.ic_folder_closed);
+            } else if (imageViewThumbnail != null && context != null) {
+                // Rows are recycled: undo the folder-item icon layout before showing a video frame.
+                imageViewThumbnail.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+                imageViewThumbnail.setPadding(0, 0, 0, 0);
                 File trashDirectory = TrashManager.getTrashDirectory(context);
                 if (trashDirectory != null && item.getTrashFileName() != null) {
                     File trashedVideoFile = new File(trashDirectory, item.getTrashFileName());
@@ -366,7 +383,10 @@ public class TrashAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
             
             // Set up click listeners
             itemView.setOnClickListener(v -> {
-                if (selectedItems.isEmpty()) {
+                if (selectedItems.isEmpty() && inJoyFolder) {
+                    // Nothing to play: say how to bring it back instead.
+                    Toast.makeText(context, "Press and hold to select it, then Restore.", Toast.LENGTH_SHORT).show();
+                } else if (selectedItems.isEmpty()) {
                     if (interactionListener != null) {
                         File trashDirectory = TrashManager.getTrashDirectory(context);
                         if (trashDirectory != null && item.getTrashFileName() != null) {

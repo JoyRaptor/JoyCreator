@@ -490,6 +490,24 @@ public class FaditorMiniFragment extends BaseFragment {
         }
     }
 
+    /** With a Joy Creator folder, a delete is one tap from undone: "Moved to Trash · Undo". */
+    private void offerUndoDelete(@NonNull java.util.List<String> deletedIds) {
+        View root = getView();
+        if (root == null || deletedIds.isEmpty()
+                || !com.fadcam.joyfolder.android.JoyFolderHome.isReachable(requireContext())) return;
+        String msg = deletedIds.size() == 1 ? "Project moved to Trash" : deletedIds.size() + " projects moved to Trash";
+        com.google.android.material.snackbar.Snackbar.make(root, msg, com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
+                .setDuration(8000)   // long enough to notice and reach; the item is in Trash either way
+                .setActionTextColor(0xFF22D3EE)
+                .setAction("Undo", v -> com.fadcam.joyfolder.studio.StudioMirror.undoDelete(requireContext(), deletedIds, n -> {
+                    if (!isAdded()) return;
+                    refreshRecentProjects();
+                    Toast.makeText(requireContext(), n == 1 ? "Project put back" : n + " projects put back",
+                            Toast.LENGTH_SHORT).show();
+                }))
+                .show();
+    }
+
     private void confirmDeleteSelected() {
         int count = selectedIds.size();
         if (count == 0) return;
@@ -499,15 +517,17 @@ public class FaditorMiniFragment extends BaseFragment {
                 .setMessage(com.fadcam.joyfolder.android.JoyFolderHome.isReachable(requireContext())
                         // With a Joy Creator folder, deleting is no longer final: the folder copy goes to Trash.
                         ? (count == 1
-                                ? "Delete this project? Its copy in your Joy Creator folder is kept in Trash for 30 days."
-                                : "Delete " + count + " projects? Their copies in your Joy Creator folder are kept in Trash for 30 days.")
+                                ? "Delete this project? You can put it back from Trash."
+                                : "Delete " + count + " projects? You can put them back from Trash.")
                         : getString(R.string.faditor_delete_projects_message, count))
                 .setPositiveButton(R.string.faditor_delete_confirm, (dialog, which) -> {
+                    final java.util.List<String> deletedIds = new java.util.ArrayList<>(selectedIds);
                     for (String id : selectedIds) {
                         projectStorage.delete(id);
                     }
                     exitSelectionMode();
                     refreshRecentProjects();
+                    offerUndoDelete(deletedIds);
                 })
                 .setNegativeButton(R.string.faditor_cancel, null)
                 .show();

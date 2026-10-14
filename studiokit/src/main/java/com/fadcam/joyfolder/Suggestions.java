@@ -5,8 +5,12 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Folders are earned. When one kind of thing piles up at the top, offer its folder once:
- * "You have 38 recordings at the top. Put them in a Recordings folder?"
+ * Folders are earned. When one kind of thing piles up at the top among lots of other things,
+ * offer its folder once: "You have 38 recordings at the top. Put them in a Recordings folder?"
+ *
+ * <p>Only when it is clutter (the owner's ruling, 2026-10-14): if most of what's at the top is
+ * recordings, recording is this person's main work and a folder would only hide it. A folder
+ * helps when the kind is a minority mixed in with everything else.</p>
  *
  * <p>A dismissed suggestion is never shown again for that kind. Nothing here moves a file; the
  * caller asks, and on yes makes the folder, moves the pile and records the role.</p>
@@ -56,11 +60,14 @@ public final class Suggestions {
                               NameTest byName) {
         if (roles.get(role) != null || dismissed.contains(role)) return;
         List<String> loose = new ArrayList<>();
+        int atTop = 0;
         for (FolderIndex.Item it : index.items()) {
             if (it.path.contains("/")) continue;
+            atTop++;
             if (origin.equals(it.origin) || (byName != null && byName.matches(it.path))) loose.add(it.path);
         }
-        if (loose.size() >= THRESHOLD) out.add(new Suggestion(role, loose));
+        // Enough of them, and fewer than half of what's at the top: clutter, not the main work.
+        if (loose.size() >= THRESHOLD && loose.size() * 2 < atTop) out.add(new Suggestion(role, loose));
     }
 
     /**

@@ -72,7 +72,6 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     public static final String EXTRA_PROJECT_ID = "chat_project_id";
 
-    private static final String PREF_API_KEY = "ai_api_key";
     private static final String PREF_MODEL = "ai_model";
     private static final String PREF_PROVIDER = "ai_provider";
 
@@ -101,6 +100,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private boolean aiJobRunning;
 
     private String apiKey;
+    /**
+     * Tool steps run since the user last spoke. A model can answer every tool result with another
+     * tool call; without a limit that loops forever (and on a paid model, bills forever).
+     */
+    private volatile int toolRounds;
+    private static final int MAX_TOOL_ROUNDS = 8;
+    /** Room for a full edit plan; 1024 cut long instructions off mid-sentence. */
+    private static final int REPLY_TOKENS = 4096;
     private String model;
     private String projectId;
 
@@ -151,7 +158,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         AIChatState.chatActive = true;
 
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(this);
-        apiKey = prefs.sharedPreferences.getString(PREF_API_KEY, "");
+        apiKey = AiKey.get(this);
         model = prefs.sharedPreferences.getString(PREF_MODEL, DEFAULT_MODEL);
 
         initViews();
@@ -669,12 +676,13 @@ public class ChatAssistantActivity extends AppCompatActivity {
         final String userText = inputField.getText().toString().trim();
 
         addBotMessage("Thinking...");
+        toolRounds = 0;
 
         aiExecutor.execute(() -> {
             try {
                 JSONObject body = new JSONObject();
                 body.put("model", model);
-                body.put("max_tokens", 1024);
+                body.put("max_tokens", REPLY_TOKENS);
                 body.put("temperature", 0.7);
 
                 // Build multimodal content: text + image (text part first —
@@ -1020,13 +1028,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
         }
 
         addBotMessage("Thinking...");
+        toolRounds = 0;
 
         aiExecutor.execute(() -> {
             try {
                 JSONObject body = new JSONObject();
                 body.put("model", model);
                 body.put("messages", new JSONArray(conversationHistory));
-                body.put("max_tokens", 1024);
+                body.put("max_tokens", REPLY_TOKENS);
                 body.put("temperature", 0.7);
 
                 Request request = new Request.Builder()
@@ -1098,12 +1107,17 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     private void continueAiConversation() {
+        if (++toolRounds > MAX_TOOL_ROUNDS) {
+            runOnUiThread(() -> addBotMessage("I stopped after " + MAX_TOOL_ROUNDS
+                    + " steps in a row so nothing runs away. Say \"keep going\" if you want me to continue."));
+            return;
+        }
         aiExecutor.execute(() -> {
             try {
                 JSONObject body = new JSONObject();
                 body.put("model", model);
                 body.put("messages", new JSONArray(conversationHistory));
-                body.put("max_tokens", 1024);
+                body.put("max_tokens", REPLY_TOKENS);
                 body.put("temperature", 0.7);
 
                 Request request = new Request.Builder()
@@ -1238,7 +1252,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     private void showSettingsDialog() {
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(this);
-        String currentKey = prefs.sharedPreferences.getString(PREF_API_KEY, "");
+        String currentKey = AiKey.get(this);
         String currentModel = prefs.sharedPreferences.getString(PREF_MODEL, DEFAULT_MODEL);
 
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
@@ -1326,8 +1340,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 String key = inputKey.getText().toString().trim();
                 String mdl = inputModel.getText().toString().trim();
                 final String finalMdl = mdl.isEmpty() ? DEFAULT_MODEL : mdl;
+                AiKey.set(this, key);
                 prefs.sharedPreferences.edit()
-                        .putString(PREF_API_KEY, key)
                         .putString(PREF_MODEL, finalMdl)
                         .apply();
                 apiKey = key;

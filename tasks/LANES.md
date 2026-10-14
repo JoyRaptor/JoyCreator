@@ -1,14 +1,14 @@
 # LANES.md — live file-lock board for parallel agents
-# October14 ACTIVE Lead: C:/Temp/jb-live-current, lead/jb-live-current, reviewed Joy source2ec7e1a6 on JoyFolderc9eb5a21.
+# October14 ACTIVE Lead: C:/Temp/jb-live-current, lead/jb-live-current, sourceccb4913bf includes originbb4df6c64.
 # Prior C:/Temp/jb-live-lines is frozen/backed-up b203e760; original owner folder/worktrees preserved.
-# Core2272/backend447 source blobs unchanged; combined native181/0/0/0 PASS5m2s on current integration.
+# Core2273/backend514/native193 green; sourceccbAPK PASS1m33 with current Note9 capture/bake diagnostics. Later factory guards backend-verified only.
 # Root next owns real engine recorded history routing, joint pixel/media publication, capture/host/save wiring and device probe.
 # One shared admitted job only; source3993de74 ink/WC phone GPU probes passed exactRGBA8 and wrong-order controls.
-# Root owns recorded bake integration/history alias guards and serial checks. Sol capture helper owns only C:/Temp/jb-capture-current View/test delta; root adopts after review. Luna bake ownership review completed.04:39:49Eastern wakeup retained.
+# Root owns saved-factory callback hardening, joint live history/display/capture/host/save integration and serial checks. Sol helpers have scratch-only joint publisher and concrete saved-engine proposals. Luna audits docs/evidence. One-shot wakeup fired and deleted.
 # October13 JB-5.20d: ACTIVE Lead in C:/Temp/jb-live-lines, lead/jb-live-lines, base27bedba9.
 # Latest scene/history/footprint helpers reached usage limit; root retained partials and completed missing test source.
 # Latest source WIP, not test-verified or app-activated. Recorded scene lifecycle reviewed; no heavy job active.
-# Same-chat wakeup ACTIVE October14 04:39:49 Eastern. Persistent goal remains ACTIVE.
+# Historical wakeup below superseded: fired/deleted October14. Objective unfinished; persistent goal reports stale usageLimited, ordinary account usage permits owner-resumed direct work.
 # Root owns GlPaintEngine/JbCanvasView/live selection host/Activity binding and integration tests.
 # Sol helper owns new FrozenBrushRegistry core helper/tests only. Luna audits save/recovery routes read-only.
 # Sol replay helper audits exact GL/replay gates read-only. No worker builds, commits, phone actions or shader changes.

@@ -586,7 +586,8 @@ October14 verified checkpoints (full milestone below remains incomplete):
 - [x] Note9source3993 ink/WC fixed-record source identity and all5 operators exactRGBA8, wrong-order controls detected; WC Working preserved.
 - [x] Bind post-guide raw/actualseed/effectivebrush diagnostic capture, defaultoff; full native193 green,12 capture lifecycle tests. Persistent live capture/publication remains pending.
 - [x] Execute all-tile GPU bake/undo/redo/archive probe after fresh Home/identity gate:6 cases/4 tiles each/12 roundtrips,144 exactRGBA8 comparisons and zero external GL/FBO/ownership failures. Exact testedtreecffb66ab/APKFEAD... documented.
-- [ ] Review zero-replay saved-look load factory with unresolved footprints; activate only after joint engine ownership/host/save gates.
+- [x] Review zero-replay saved-look factory with unresolved footprints and callback/input ownership guards:43 contract cases/backend514. Concrete GL loader, display and budgets remain open.
+- [x] Actual Note9 capture→legacy GPU→replay diagnostic exactRGBA8 for Ink/WC,2 tiles each; sourceccb4913bf, native193 and combinedAPK green. Real recording/Select/save remain unactivated.
 
 - [ ] Design per-cel GPU slab/look ownership and all-or-nothing edit/save/history transactions.
 - [ ] Freeze brush definitions under immutable document identities, capturing post-guide raw samples and live seed.

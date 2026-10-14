@@ -465,29 +465,38 @@ internal class RecordedScene<T : Any> private constructor(
                                  savedLookKeys: Map<Pair<String, String?>, Set<Long>>,
                                  uploadedLooks: Map<Pair<String, String?>, Map<Long, T>>,
                                  protectedTextures: Set<T> = emptySet()): RecordedScene<T> {
-            check(renderer.contextCurrent()) { "The recorded renderer context is unavailable" }
             val scene = RecordedScene(history, renderer)
-            val saved = scene.validateRender(scene.state, planes, brushes)
-            require(savedLookKeys.keys == planes.keys && uploadedLooks.keys == planes.keys) {
+            // Detach and validate before calling external context providers. A provider can
+            // reenter history or mutate caller collection backing while answering readiness.
+            val undoHead = history.peekUndo()
+            val redoHead = history.peekRedo()
+            val physical = planes.toMap()
+            val looks = uploadedLooks.mapValues { it.value.toMap() }
+            val keys = savedLookKeys.mapValues { it.value.toSet() }
+            val protected = protectedTextures.toSet()
+            val saved = scene.validateRender(scene.state, physical, brushes)
+            check(renderer.contextCurrent()) { "The recorded renderer context is unavailable" }
+            require(keys.keys == physical.keys && looks.keys == physical.keys) {
                 "Every physical cel needs an explicit saved look index and uploaded look map"
             }
-            for ((plane, cel) in planes) {
-                require(uploadedLooks.getValue(plane).keys == savedLookKeys.getValue(plane)) {
+            for ((plane, cel) in physical) {
+                require(looks.getValue(plane).keys == keys.getValue(plane)) {
                     "Uploaded saved looks do not match their declared index"
                 }
-                require(cel.records.isNotEmpty() || savedLookKeys.getValue(plane).isEmpty()) {
+                require(cel.records.isNotEmpty() || keys.getValue(plane).isEmpty()) {
                     "A physical cel without records cannot have line-crossed saved looks"
                 }
             }
-            val textures = uploadedLooks.values.flatMap { it.values }
+            val textures = looks.values.flatMap { it.values }
             require(textures.distinct().size == textures.size) { "Saved looks cannot share texture ownership" }
-            val borrowed = scene.slabTextures(planes) + history.heldTextures()
+            val borrowed = scene.slabTextures(physical) + history.heldTextures()
             require(textures.none { it in borrowed }) { "Saved looks cannot own physical source or history textures" }
-            require(textures.none { it in protectedTextures }) { "Saved looks cannot own protected old or global textures" }
-            val looks = uploadedLooks.mapValues { it.value.toMap() }
-            val keys = savedLookKeys.mapValues { it.value.toSet() }
+            require(textures.none { it in protected }) { "Saved looks cannot own protected old or global textures" }
             check(renderer.contextCurrent()) { "The recorded renderer context changed before saved-look acceptance" }
-            scene.state = State(planes.toMap(), saved, emptyMap(), emptyMap(), looks, keys)
+            check(history.peekUndo() === undoHead && history.peekRedo() === redoHead) {
+                "Recorded history changed before saved-look acceptance"
+            }
+            scene.state = State(physical, saved, emptyMap(), emptyMap(), looks, keys)
             return scene
         }
 

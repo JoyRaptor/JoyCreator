@@ -590,6 +590,51 @@ class RecordedSceneSavedTest {
         assertOnce(f.renderer,f.renderer.minted); assertFalse(70 in f.renderer.released)
     }
 
+    @Test fun factoryContextCallbackCannotAdoptAnUploadTransferredToHistory() {
+        for (at in listOf(1, 2)) {
+            val driver=Driver()
+            val history=UndoLog<Int>(1_000_000,{ 4 },driver.released::add)
+            val external=UndoLog.Step(listOf(UndoLog.TileChange("legacy",0,10,11)))
+            driver.afterContext={ if(driver.contextChecks == at) history.push(external) }
+            assertFails { RecordedScene.createSaved(mapOf(shared to cel()),brushes,history,driver,
+                mapOf(shared to setOf(0L)),mapOf(shared to mapOf(0L to 10))) }
+            assertSame(external,history.peekUndo()); assertNull(history.peekRedo())
+            assertEquals(setOf(10),history.heldTextures())
+            assertTrue(driver.released.isEmpty()); assertTrue(driver.lines.isEmpty()); assertTrue(driver.looks.isEmpty())
+        }
+    }
+
+    @Test fun factorySnapshotsAllCallerCollectionsBeforeContextCallbacks() {
+        for (at in listOf(1, 2)) {
+            val driver=Driver()
+            val history=UndoLog<Int>(1_000_000,{ 4 },driver.released::add)
+            val physical=mutableMapOf(shared to cel())
+            val declared=mutableSetOf(0L)
+            val keys=mutableMapOf(shared to declared)
+            val tiles=mutableMapOf(0L to 10)
+            val uploads=mutableMapOf(shared to tiles)
+            val definitions=brushes.toMutableMap()
+            driver.afterContext={ if(driver.contextChecks == at) {
+                physical.clear(); declared.clear(); keys.clear(); tiles.clear(); uploads.clear(); definitions.clear()
+            } }
+            val scene=RecordedScene.createSaved(physical,definitions,history,driver,keys,uploads)
+            assertEquals(setOf(shared),scene.planes.keys); assertEquals(listOf(record()),scene.planes.getValue(shared).records)
+            assertEquals(setOf(0L),scene.savedLookKeys(shared)); assertEquals(10,scene.look(shared,0))
+            assertEquals(brushes,scene.brushes); assertTrue(driver.lines.isEmpty()); assertTrue(driver.looks.isEmpty())
+            scene.close(); assertEquals(listOf(10),driver.released)
+        }
+    }
+
+    @Test fun factoryContextCallbackCannotRemoveProtectedUploadOwnership() {
+        val driver=Driver()
+        val history=UndoLog<Int>(1_000_000,{ 4 },driver.released::add)
+        val protected=mutableSetOf(10)
+        driver.afterContext={ protected.clear() }
+        assertFailsWith<IllegalArgumentException> { RecordedScene.createSaved(mapOf(shared to cel()),brushes,history,driver,
+            mapOf(shared to setOf(0L)),mapOf(shared to mapOf(0L to 10)),protected) }
+        assertTrue(driver.released.isEmpty()); assertFalse(history.canUndo)
+    }
+
     @Test fun factoryContextRefusalNeverAdoptsOrDeletesUploadHandles() {
         for (late in listOf(false,true)) {
             val driver=Driver().also { if(late) it.failContextCheckAt=2 else it.context=false }

@@ -2049,6 +2049,38 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
+    /** Debug adapter arithmetic check on a throwaway engine; it never reads/writes the drawing. */
+    fun runRecordedReplayProbe(preset: BrushPreset, record: cc.joycreator.joybrush.core.stroke.StrokeRecord,
+                               ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"passed\":false,\"failure\":\"Recorded replay probe is debug only\"}")
+            return
+        }
+        val paper = documentPaperState
+        onGl {
+            val probe = GlPaintEngine()
+            val report = try {
+                probe.init()
+                probe.setDocumentPaper(paper)
+                probe.addLayer("recorded-probe")
+                val frozen = cc.joycreator.joybrush.core.brush.FrozenBrushRegistry.freeze(emptyMap(), preset) { "probe-frozen" }
+                val result = cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.run(probe, "recorded-probe",
+                    frozen.preset, record.copy(brushId = frozen.id))
+                val value = cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.json(result)
+                probe.release()
+                val error = android.opengl.GLES30.glGetError()
+                value.put("engineReleaseGlError", error)
+                if (error != android.opengl.GLES30.GL_NO_ERROR) value.put("passed", false)
+                value.toString()
+            } catch (error: Exception) {
+                org.json.JSONObject().put("passed", false).put("failure", error.message ?: error.javaClass.simpleName).toString()
+            } finally {
+                if (probe.ready) probe.release()
+            }
+            post { ready(report) }
+        }
+    }
+
     private fun onGl(allowLost: Boolean = false, block: () -> Unit) {
         val epoch = graphicsEpoch
         queueEvent {

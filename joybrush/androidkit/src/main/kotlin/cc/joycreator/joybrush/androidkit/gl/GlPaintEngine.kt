@@ -11,6 +11,7 @@ import cc.joycreator.joybrush.core.brush.watercolourRuntime
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.vector.InkReplay
 import cc.joycreator.joybrush.core.vector.RecordedCel
+import cc.joycreator.joybrush.core.vector.RecordedEdits
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
 import cc.joycreator.joybrush.androidkit.gl.watercolour.WatercolourPass
@@ -2090,6 +2091,9 @@ class GlPaintEngine(
 
     fun undoStep(): Boolean {
         settleWatercolourFade()
+        val pending = undo.peekUndo() ?: return false
+        if (pending.lines.isNotEmpty() || pending.slabs.isNotEmpty()) return recordedHistory(pending, false)
+        check(recordedScene?.hasContent != true) { "Recorded artwork needs the joint pixel/media/structural history publisher" }
         val s = undo.undo() ?: return false
         val restored = s.documentBefore?.let { target ->
             val opposite = s.documentAfter
@@ -2108,6 +2112,9 @@ class GlPaintEngine(
 
     fun redoStep(): Boolean {
         settleWatercolourFade()
+        val pending = undo.peekRedo() ?: return false
+        if (pending.lines.isNotEmpty() || pending.slabs.isNotEmpty()) return recordedHistory(pending, true)
+        check(recordedScene?.hasContent != true) { "Recorded artwork needs the joint pixel/media/structural history publisher" }
         val s = undo.redo() ?: return false
         val restored = s.documentAfter?.let { target ->
             val opposite = s.documentBefore
@@ -2122,6 +2129,14 @@ class GlPaintEngine(
         s.paperAfter?.let { setDocumentPaper(it) }
         restored?.let { setBoardDocument(it) }
         return true
+    }
+
+    /** Actual engine history route: render/validate before moving its one shared undo stack. */
+    private fun recordedHistory(step: UndoLog.Step<Int>, forward: Boolean): Boolean {
+        val scene = checkNotNull(recordedScene) { "Recorded history has no physical source scene" }
+        val edit = RecordedEdits.prepare(scene.planes, step, forward)
+        return scene.stage(edit, if (forward) RecordedScene.Direction.REDO else RecordedScene.Direction.UNDO)
+            .use { it.commit() }
     }
 
     /** Undo's half of a stack step: back to [target], every layer that survives keeping how it is shown or hidden. */

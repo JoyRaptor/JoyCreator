@@ -68,7 +68,13 @@ public final class ProjectIntegrity {
         if (project == null || project.getTimeline() == null) return out;
         Timeline tl = project.getTimeline();
         for (int i = 0; i < tl.getClipCount(); i++) {
-            put(out, tl.getClip(i) != null ? tl.getClip(i).getSourceUri() : null, "Clip " + (i + 1));
+            Clip c = tl.getClip(i);
+            // A generated slide's video is MADE from its HTML (the editor renders it in the
+            // background and on export), so until then it is not a missing file. Every other
+            // missing-media check in the editor already skips slides; this one reported a
+            // just-made Joybot title as "1 file is missing" (Note 9, 2026-10-14).
+            if (c != null && c.isGeneratedSlide()) continue;
+            put(out, c != null ? c.getSourceUri() : null, "Clip " + (i + 1));
         }
         int n = 1;
         for (Clip oc : tl.getOverlayClips()) {

@@ -1109,3 +1109,13 @@ Root FILL_UI verification: core1706/backend312/native105, zero failures/errors, 
 
 ## JOYBRUSH_R51_QUEUE_20261007
 Claude is Lead again (owner, 2026-10-07: Codex takes over fully only when the owner says Claude is out of weekly usage). R51 (one layer kind) approved. Lanes: media session → JB-2.40 (media on any layer). Codex (root) → JB-5.02 fix, JB-5.12, JB-5.13, JB-5.14, then the post-2.40 items; details in tasks/joybrush/LEAD_DESK.md "welcome back to the queue". Lead → review of root's fill/board hand-off, JB-5.20 design, JB-5.01b view capture. DEVICE: Note 9 is the owner's (testing the combined build installed 20:44); no installs or adb input without the Lead.
+
+## JOYBOT_20261014 (Claude, JoyBot specialist — cross-cutting account)
+status: ACTIVE (2026-10-14 16:00) — phases 1–3 committed and tested on the Note 9 (ledger + device results in plan B6). Plan: tasks/joybot/JOYBOT_PLAN_20261014.md.
+files (also, small): MainActivity (onNewIntent) · tools/jvm-harness/typecheck.sh (studiokit + JoyBrush jars) · new slides/SlideDesigns.java
+files (owned): app/.../ui/faditor/ai/** (ChatAssistantActivity, AIToolExecutor, AIChatState, new ai/joybot/**) ·
+  app/.../ui/lobby/JoybotView.java, JoybotFilm.java · res/layout/activity_chat_assistant.xml · tools/jvm-harness/IdeaEngineTest.java, run-ideas.sh
+files (small hooks only, announced): FaditorEditorActivity (AIChatState reload block + AI button pulse) ·
+  LobbyFragment (Joybot lines only) · ui/faditor/undo/UndoManager (one overload)
+NOT touching: joybrush/, joybrush-android/, joyfolder/ (reuses ShareInbox as-is).
+DEVICE: none reserved; asks the owner before any install.

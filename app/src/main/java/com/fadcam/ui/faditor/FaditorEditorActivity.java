@@ -1933,9 +1933,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // from the state we are still holding — i.e. BEFORE the swap below.
                     // Snapshot-based on purpose: the AI edited a separate copy on disk, so
                     // no EditAction can describe it against the live object graph.
-                    boolean aiStepRecorded = undoManager.recordAiCheckpoint(
-                            (aiWhat == null || aiWhat.isEmpty())
-                                    ? getString(R.string.faditor_undo_ai_edits) : aiWhat);
+                    // Joybot parks one entry per REQUEST (one press, one step), each carrying the
+                    // project as it was on disk just before that request — right whether this
+                    // editor was open behind the chat or was opened after it (when the state we
+                    // hold is already the changed one). Other writers (SpriteLab, Avatar Studio)
+                    // park none and keep the single-step path. All undone in the chat: nothing.
+                    java.util.List<com.fadcam.ui.faditor.ai.AIChatState.Step> jbSteps =
+                            com.fadcam.ui.faditor.ai.AIChatState.drainSteps(project.getId());
+                    boolean jbAllUndone =
+                            com.fadcam.ui.faditor.ai.AIChatState.takeUndoneToStart(project.getId());
+                    boolean aiStepRecorded = false;
+                    if (!jbSteps.isEmpty()) {
+                        for (com.fadcam.ui.faditor.ai.AIChatState.Step s : jbSteps) {
+                            aiStepRecorded |= undoManager.recordAiCheckpoint(s.label, s.before);
+                        }
+                    } else if (jbAllUndone) {
+                        aiStepRecorded = false;
+                    } else {
+                        aiStepRecorded = undoManager.recordAiCheckpoint(
+                                (aiWhat == null || aiWhat.isEmpty())
+                                        ? getString(R.string.faditor_undo_ai_edits) : aiWhat);
+                    }
                     // Everything already on the stacks closes over the model objects we are
                     // about to discard; replaying one would silently mutate an orphan and
                     // report success. Keep what can still be honoured (the snapshots), drop
@@ -1980,6 +1998,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // path, so this is the moment to let it be re-asked — lazily, on the next thing that needs
         // it, not by re-statting anything here.
         invalidateSpriteMissingState();
+
+        // Joybot glows when he has an idea for this project that hasn't been seen yet.
+        if (project != null) {
+            com.fadcam.ui.faditor.ai.joybot.JoybotPulse.lightButton(findViewById(R.id.btn_ai_assistant),
+                    project.getId(), com.fadcam.ui.faditor.ai.joybot.IdeaEngine.Room.STUDIO);
+        }
+
+        // Joybot's "Show me": select the clip his last change was about.
+        String jbShow = com.fadcam.ui.faditor.ai.AIChatState.showClipId;
+        com.fadcam.ui.faditor.ai.AIChatState.showClipId = null;
+        if (jbShow != null && project != null) {
+            for (int i = 0; i < project.getTimeline().getClipCount(); i++) {
+                if (jbShow.equals(project.getTimeline().getClip(i).getId())) {
+                    selectSegment(i);
+                    break;
+                }
+            }
+        }
 
         playheadHandler.post(playheadUpdater);
     }
@@ -3461,8 +3497,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // So "show the assistant this frame" means the frame the user is looking at.
             intent.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_PLAYHEAD_MS,
                     Math.max(0, lastPlayheadAbsoluteMs));
+            intent.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "STUDIO");
+            intent.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_FROM_PULSE,
+                    com.fadcam.ui.faditor.ai.joybot.JoybotPulse.isBreathing(v));
+            com.fadcam.ui.faditor.ai.joybot.JoybotPulse.breathe(v, false);
             startActivity(intent);
         });
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.btn_ai_assistant),
+                "Joybot, your helper — he glows green when he has an idea for this project");
     }
 
     /**

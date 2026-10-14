@@ -39,6 +39,13 @@ public final class JoybotFilm {
     private final int cellW, cellH;
     private final long framePeriodMs;
     private final boolean loop;
+    /**
+     * A SpriteLab animation instead of a straight run: each frame's source rectangle (so margins,
+     * spacing and any frame order work) and how many ticks it is held. Null for the simple form.
+     */
+    @Nullable private final Rect[] cellRects;
+    @Nullable private final int[] holds;
+    private final int totalTicks;
 
     private final Rect src = new Rect();
     private final RectF dst = new RectF();
@@ -65,6 +72,35 @@ public final class JoybotFilm {
         this.cellH = sheet.getHeight() / this.rows;
         this.framePeriodMs = (long) (1000f / Math.max(1f, fps));
         this.loop = loop;
+        this.cellRects = null;
+        this.holds = null;
+        this.totalTicks = this.frames;
+    }
+
+    /**
+     * Play a named animation from a sprite sheet: {@code rects[i]} is frame i's place on the sheet
+     * and {@code weights[i]} how many ticks it holds (1 = one tick; "on twos" = 2).
+     */
+    public JoybotFilm(@NonNull Bitmap sheet, @NonNull Rect[] rects, @Nullable int[] weights,
+                      float fps, boolean loop) {
+        this.sheet = sheet;
+        this.cols = 1;
+        this.rows = 1;
+        this.frames = Math.max(1, rects.length);
+        Rect first = rects.length > 0 ? rects[0] : new Rect(0, 0, sheet.getWidth(), sheet.getHeight());
+        this.cellW = Math.max(1, first.width());
+        this.cellH = Math.max(1, first.height());
+        this.framePeriodMs = (long) (1000f / Math.max(1f, fps));
+        this.loop = loop;
+        this.cellRects = rects.length > 0 ? rects : new Rect[]{first};
+        int[] h = new int[this.cellRects.length];
+        int sum = 0;
+        for (int i = 0; i < h.length; i++) {
+            h[i] = weights != null && i < weights.length ? Math.max(1, weights[i]) : 1;
+            sum += h[i];
+        }
+        this.holds = h;
+        this.totalTicks = Math.max(1, sum);
     }
 
     public void start(long nowMs) {
@@ -90,17 +126,24 @@ public final class JoybotFilm {
                      long nowMs) {
         if (sheet.isRecycled()) return;
         long elapsed = Math.max(0L, nowMs - startedAtMs);
-        int i = (int) (elapsed / framePeriodMs);
-        if (i >= frames) {
+        int tick = (int) (elapsed / framePeriodMs);
+        if (tick >= totalTicks) {
             if (loop) {
-                i %= frames;
+                tick %= totalTicks;
             } else {
-                i = frames - 1;
+                tick = totalTicks - 1;
                 finished = true;
             }
         }
-        int cx = i % cols, cy = i / cols;
-        src.set(cx * cellW, cy * cellH, (cx + 1) * cellW, (cy + 1) * cellH);
+        if (cellRects != null && holds != null) {
+            int i = 0;
+            while (i < holds.length - 1 && tick >= holds[i]) { tick -= holds[i]; i++; }
+            src.set(cellRects[i]);
+        } else {
+            int i = tick;
+            int cx = i % cols, cy = i / cols;
+            src.set(cx * cellW, cy * cellH, (cx + 1) * cellW, (cy + 1) * cellH);
+        }
         dst.set(into);
         canvas.drawBitmap(sheet, src, dst, paint);
     }

@@ -1,0 +1,208 @@
+# JoyBot — the plan (2026-10-14)
+
+**Owner:** JoyRaptor. **Lane:** JoyBot specialist (Claude, cross-cutting account). **Brief:** `JOYBOT_SPECIALIST_BRIEF_20261014.md`.
+This file is the source of truth for JoyBot. Part A is for JoyRaptor; Part B is for the agents building it.
+
+---
+
+# PART A — what JoyBot becomes (plain words)
+
+## The one-sentence version
+
+JoyBot is the studio's helper who **notices what you're doing, offers the next step as a button, does it
+instantly when he can (even offline, even free), shows you exactly what changed with a one-tap Undo, and only
+reaches for a paid AI when the job really needs one — and tells you the price first.**
+
+## What it feels like
+
+1. **He has an idea.** You finish a recording and go back to the lobby. JoyBot's green glow slowly breathes —
+   no sound, no badge, easy to ignore. Tap him.
+2. **He flies down and says it.** "Hey, I noticed *Interview 3* has speech but no words yet. Want me to transcribe
+   it?" Under it: **[Transcribe this]** **[Add captions]** **[Something else?]** — the first one green because
+   it's his best guess.
+3. **One tap does it.** Transcribing runs on the phone (no internet, no key). When it's done he shows a card:
+   what changed, **[Undo]**, **[Show me]**. The next buttons are already there: **[Cut the ums]** **[Make chapters]**.
+4. **You can always just talk.** Hold the mic, say "make the music quieter under my voice", let go — it sends.
+   Or type. Or tap a button. All three land in the same place.
+5. **He makes things.** "Help me make a title" → he asks three quick button questions (what kind, what it says,
+   what mood) and builds an animated title card. Pictures can be *designed* (free), *generated* (paid, price
+   shown first, about 1½¢), or *made in your ChatGPT/Gemini app* and brought back with Share. When a picture lands
+   he flies up to it, shows it off, and flies back.
+6. **He knows the whole studio.** Ask "how do I key out a green screen?" and he answers for whichever wing it lives
+   in, with a **[Take me there]** button.
+7. **Every JoyBot change is its own undo step.** Three requests = three undo steps, each named in plain words.
+
+## The rules he lives by
+
+- **He never invents a number.** Every "I noticed…" is computed from your project, not guessed.
+- **Buttons first, AI second.** If something can be done on the phone, a button does it directly: instant,
+  free, works on a plane. The AI is called only for things that need judgment or writing.
+- **Quiet.** At most 3 ideas + "Something else?". A waved-away idea stays quiet for that project. Ignored twice →
+  quiet. No sounds, no vibration, no badges. Reduced-motion → a still tint instead of a breath.
+- **Honest about money and limits.** Paid things show the price before they run. If the free service is busy he
+  says so in one plain sentence and offers to try again.
+- **Your art is the brightest thing.** Old black, zinc greys, flat pills; colour only to guide. Every button has
+  a hover label.
+
+## Offline, free, and paid — what works where
+
+| | No internet / no key | Free key (openrouter/free) | Paid model / picture model |
+|---|---|---|---|
+| Idea buttons (transcribe, cut ums, silences, captions, chapters, transitions, reframe, export draft) | ✅ all | ✅ all | ✅ all |
+| Undo / Show me | ✅ | ✅ | ✅ |
+| "How do I…" help with Take-me-there | ✅ built-in answers | ✅ smarter answers | ✅ |
+| Typed requests ("cut the first 10 seconds") | ✅ common ones understood | ✅ anything | ✅ |
+| Title / chapter / quote / list / credits slides | ✅ built-in designs | ✅ AI-designed | ✅ better designs |
+| Pictures | ↗ hand off to your ChatGPT/Gemini app | ✅ designed graphics (HTML/SVG) + hand-off | ✅ generated pictures (~1½¢ each) |
+| Look at a frame / find matching b-roll | — | ✅ (max 2–3 pictures per ask) | ✅ |
+
+## JoyBot as a character (your sprite sheet)
+
+He is built as **moods** — idle, listening, thinking, working, talking, excited, showing-off, oops — and
+**places** — his corner, beside a new picture, home. Today each mood is played with the two stills you drew
+(breath, dip, smile). When you load his labelled sprite sheet, a mood plays the animation with the same name
+automatically. Name your animations with those words (or tell me yours and I'll map them).
+
+## Build order (each phase is usable on its own)
+
+| Phase | What you get | Status |
+|---|---|---|
+| **1. He notices** | Idea buttons in chat, the breathing glow (lobby + editor), buttons that run instantly (offline OK), result cards with Undo + Show me, one undo step per JoyBot change, sturdier chat (no stuck "Thinking", a Stop button, always-fresh project info), moods/places with the stills | 🔨 building now |
+| **2. He builds with you** | Slide wizard (5 kinds × 5 moods, offline designs), offline understanding of common requests, studio-wide "how do I" help with Take me there, hold-to-talk mic | 🟢 next |
+| **3. He makes pictures** | Design / generate / hand-off, lands in your Joy Creator folder + timeline as one undo, b-roll finder that reads what you say, show-off flight | 🟢 after 2 |
+| **4. He's everywhere** | SpriteLab, Avatar, Library and JoyBrush (via the JoyBrush lane) with their own ideas; optional read-aloud; your sprite sheet loader | 🟢 after 3 |
+
+## Questions only you can answer (no rush — I picked a default for each)
+
+1. **Read replies aloud?** Default: **off**, one switch in JoyBot settings.
+2. **Default picture model when paying:** FLUX.2 Klein (~1½¢, fast) vs Gemini "Nano Banana" (~4¢, better at
+   lettering in pictures). Default: **Klein**, changeable.
+3. **Price check:** always ask before a paid picture? Default: **yes**, with a "don't ask under 5¢" switch.
+4. **Animation names** for your sprite sheet: idle · listen · think · work · talk · excited · show · oops — OK?
+
+---
+
+# PART B — engineering
+
+## B1. What exists (verified 2026-10-14, see the three scout reports in this session)
+
+- `ai/ChatAssistantActivity` (1,960 lines): streaming SSE chat; tool calls are a reply that IS a JSON object
+  `{"tool":…,"args":…}` (fragile: prose + JSON is not executed); project context is written ONCE into the system
+  prompt at chat open (stale after the first tool; whole word-level transcripts inlined = huge prompts); vision is
+  a separate non-streaming path; offline = keyword FAQ; proposal cards (narrative, b-roll, avatar rig).
+- `ai/AIToolExecutor` (3,542 lines, ~55 tools): load → mutate → `storage.save` → `AIChatState.signalModified`.
+  Results are technical strings ("clip 1a2b…"). `export_project` does not export. `generate_slide` has an offline
+  template fallback (`SlideContract.buildFallbackHtml`).
+- Undo: editor saves on pause (`saveProjectNow(true)`), so disk == editor state when chat opens. On resume, if
+  `AIChatState.projectModifiedByAI`, it records **one** `UndoManager.recordAiCheckpoint` (whole chat session =
+  one step), swaps the project, `invalidateActionsForProjectSwap`, `resetBaseline`. Snapshot format is
+  `ProjectStorage.toJson(project)` — the chat can produce the same string from disk.
+- Share-in: `joyfolder/studio/ShareInActivity` saves into the Joy Creator folder (`JoyFolder.prepareDir`,
+  `addFile`, `Fingerprint` de-dupe) and `ShareInbox.put(projectId, uris)`; the editor's `takeSharedFiles` inserts
+  at the playhead with the asset-browser path = one undo. **Generated pictures reuse this exactly.**
+- On device: Vosk (2 models) + whisper.cpp (base.en), English only; SilenceDetector, BeatDetector, OnsetDetector,
+  LoudnessAnalyzer, MediaPipe face landmarker, TFLite EfficientDet. No TTS, no on-device LLM (parked on roadmap).
+- Joybot: `ui/lobby/JoybotView` (stills, hover, react/smile, orb, `JoybotFilm` contiguous-range sheet player).
+  Lobby: `openAssistant()` passes the newest project; `paintBotLine()` already embodies "never invent a number".
+- OpenRouter: no free image models. `POST /api/v1/images` {model, prompt, aspect_ratio, …} → `data[].b64_json`.
+  Cheapest `black-forest-labs/flux.2-klein-4b` $0.014/MP. Gemini image models also via chat completions.
+
+## B2. Architecture
+
+New package `com.fadcam.ui.faditor.ai.joybot` (pure logic first, Android glue second):
+
+| Class | Pure? | Job |
+|---|---|---|
+| `ProjectFacts` | ✅ | Plain snapshot of what JoyBot may say about a project (counts, durations, flags). Built by `ProjectFactsReader` (Android) from `FaditorProject`. Every field is a measurement, never an estimate. |
+| `Idea` | ✅ | id, label (chip), say (the user-bubble text), opener ("I noticed…"), hint (tooltip), `Action` (DIRECT tool chain / ASK the model / WIZARD), priority. |
+| `IdeaEngine` | ✅ | `List<Idea> ideasFor(ProjectFacts, Room, Quiet)` — the brief §1 decision tree, ranked, ≤3. JVM-tested. |
+| `IdeaMemory` | Android | Per-project seen / dismissed / ignored counts (SharedPreferences). Drives the pulse and quieting. |
+| `JoybotSteps` | Android | Before-snapshot + plain label per JoyBot change; chat Undo pops one; editor replays the rest as N undo entries. |
+| `DirectRunner` | Android | Runs an Idea's tool chain through `AIToolExecutor` without the model, then writes a plain-words result. |
+| `JoybotMood` / `JoybotActor` | Android | Moods + places on `JoybotView`; `setHasIdea` pulse; sprite-preset lookup by mood name. |
+
+Chat changes (`ChatAssistantActivity`): chip row above the input; opener message when launched from a pulse
+(`EXTRA_OPEN_IDEA`); result card (what changed · Undo · Show me); Stop button; tolerant tool-call parsing (JSON
+object with a `tool` key anywhere in the reply, prose kept); project context sent as a **fresh compact summary
+each turn** (transcripts only via `get_transcript`, or inline when short); `EXTRA_ROOM`.
+
+Editor change (`FaditorEditorActivity`, other lanes active — keep to the AIChatState block + one pulse hook):
+replay `JoybotSteps` as one undo entry per step; pulse on `btn_ai_assistant`.
+UndoManager: `recordAiCheckpoint(description, snapshotBefore)` overload.
+
+## B3. Idea table v1 (refine with JoyRaptor)
+
+| Signal (ProjectFacts) | Idea → action |
+|---|---|
+| empty project | Start from a recording (route) · Make an intro slide (wizard) · Make a picture (phase 3) |
+| speech-capable clip (has audio, not muted, ≥5 s), no transcript | **Transcribe this** → `generate_transcript` (whisper if downloaded else vosk) · Add captions → transcribe + `toggle_captions` |
+| transcript exists, captions off | Turn on captions → `toggle_captions` · Pick a caption style (ask) |
+| transcript exists, fillers not cut (struck words or um/uh tokens outside removed spans) | **Cut the ums** → `cut_all_fillers`; when nothing is marked yet → `ai_enhance` |
+| silence candidates not cut / long gaps | Remove silences → `remove_silence` |
+| transcript total > 3 min | Make chapters → `auto_chapters` · Find the best 60 seconds (ask, phase 2) |
+| ≥3 clips, 0 transitions | Add gentle transitions → `add_transition` CROSS_DISSOLVE between each |
+| no title (first clip not a slide, no text overlay in first 3 s) | Make a title card → wizard |
+| canvas 9:16 but footage landscape | Reframe for vertical → ask |
+| audio-only project | Make a visualizer (ADD_VISUALIZER) · Lyric captions (ask) |
+| b-roll bucket has assets, none placed | Suggest b-roll spots → `suggest_broll_placements` (needs key) |
+| sprite sheet without names / animations | Name the cells · Make a walk cycle (ask, key) |
+| never exported (no record) | Export a draft (720p) → route to export |
+Always last: **Something else?** (focuses the text box). At most 3 ideas before it.
+
+## B4. Test plan
+
+- JVM: `tools/jvm-harness/IdeaEngineTest.java` (+ `run-ideas.sh`) — every row of B3, ranking, cap of 3,
+  quieting, "never a number that isn't in the facts". Pure `JoybotIntent` (phase 2) tests likewise.
+- Parse check: `tools/javacheck.sh` on every touched file; the watcher builds (`.\tools\phone.ps1 build`).
+- Device (Note 9, only after asking JoyRaptor): brief §4 script + chips + pulse + undo per step.
+
+## B5. Coordination
+
+- `FaditorEditorActivity`, `LobbyFragment`, `StudioMirror` have other lanes' uncommitted work (Joy folder lane).
+  Touch only the AIChatState reload block, the AI-button hook and Joybot lines; stage exact paths only.
+- JoyBrush: no edits under `joybrush/` or `joybrush-android/`. Phase 4 ships a brief to the JoyBrush lane.
+- Claimed in `tasks/LANES.md` as `JOYBOT_20261014`.
+
+## B6. Ledger
+
+### 2026-10-14 — built (compiles; whole-app typecheck OK; real Gradle build OK 15:36; 108/108 JVM tests). NOT yet tried on the phone.
+
+| Item | State | Where |
+|---|---|---|
+| Idea engine (decision tree, ≤3 + Something else, quiet, offline filter, never-invent test) | 🔨 built, tested off-device | `ai/joybot/IdeaEngine`, `ProjectFacts`, `ProjectFactsReader`, `Idea`, `IdeaMemory` |
+| Idea buttons in chat; tap runs on the phone (no model) with a plain-words result card | 🔨 | `ChatAssistantActivity` (JOYBOT section), `DirectRunner`, `Outcome`, `JoybotChatViews` |
+| One undo step per Joybot request (chat Undo, "undo that", editor gets N named steps) | 🔨 | `AIChatState` steps, `UndoManager.recordAiCheckpoint(desc, snapshot)`, editor reload block |
+| Glow when he has an unseen idea (lobby Joybot + editor button), reduced-motion still tint | 🔨 | `JoybotView.setHasIdea`, `JoybotPulse` |
+| Moods + places (fly from header to corner, fly to results, back); sprite sheet loader | 🔨 | `JoybotView` moods/flyTo, `JoybotFilm` frame lists, `JoybotSheet` (`<Joy folder>/Joybot/joybot.png` + `.sprite.json`) |
+| Sturdier chat: tool command anywhere in a reply, words shown never JSON, Stop, fresh compact project context each request, plain errors (429/401/402/offline), per-project conversation | 🔨 | `ChatAssistantActivity` |
+| Slide wizard (4 questions) + 25 offline designs (5 kinds × 5 moods), previewed in a browser | 🔨 | `SlideFlow`, `slides/SlideDesigns`, `AIToolExecutor.builtInSlide` |
+| Tools fixed: transcribe downloads its model + scales timeout; remove_silence really cuts; cut_all_fillers also cuts plain um/uh; new add_visualizer; chapters ≤12 real breaks; vision tagging paced on free models | 🔨 | `AIToolExecutor` |
+| Hold-to-talk (speak, let go to send), tap-mic auto-sends, optional read-aloud (off by default) | 🔨 | `JoybotVoice`, settings checkbox |
+| Studio-wide help with Do it for me / Take me there (labels from FaditorToolRegistry) | 🔨 | `HelpBook`; routes incl. JoyBrush library, Setup |
+| Pictures: make here (price from OpenRouter catalogue on the button), or free via your ChatGPT/Gemini app + Share back; saved in the Joy folder; "Put it in my video" = share hand-off (one undo) | 🔨 | `JoybotPictures`, picture flow in chat, settings "Picture model" |
+| MainActivity.onNewIntent → tab switching works when the app is open | 🔨 | `MainActivity` |
+| typecheck.sh now compiles studiokit + resolves JoyBrush jars | ✅ verified (822 sources) | `tools/jvm-harness/typecheck.sh` |
+| JoyBrush hook | 📝 brief written | `BRIEF_FOR_JOYBRUSH_LANE_20261014.md` |
+
+### 2026-10-14 15:41–15:56 — Note 9 test (owner approved; phone lock claimed/released; project "Restore video test" left as it was)
+
+| Check | Seen on the phone |
+|---|---|
+| ✅ Lobby → Joybot opens with an opener | "4 of your clips have sound but no words yet. Want me to transcribe them?" + Transcribe all 4 (green) · Add captions · Turn on captions · Something else? |
+| ✅ Brief §4.1 "hi" streams | "Thinking…" with Stop, then "Hey there! … 'Restore video test' with 7 clips and a few sprite sheets…" (fresh context) |
+| ✅ Direct button + result card | Turn on captions → "Captions are on." [Undo] [Show me]; next ideas updated (Add gentle transitions) |
+| ✅ Chat Undo | "Undone." card retired, "Undone — it's back how it was.", Turn on captions offered again |
+| ✅ Help book | "how do I add captions" → instant answer naming Captions in the tool strip + Do it for me / Take me there |
+| ✅ Slide wizard | What's it for → Title → Use "Restore video test" → Cinematic → "Added … The video is 4 s longer (3:16 → 3:20)"; preview shows the wide-spaced serif title |
+| ✅ Editor undo history | "Joybot: Make a cinematic title…" as its own violet step; editor Undo → "Undid: Joybot: Make a cinematic title slide at the start", 3:16 |
+| ✅ Picture (≈1½¢ spent) | "Make it here — about 1½¢" / "Ask my ChatGPT or Gemini (free)"; cat astronaut over the moon in ~20 s, saved in the Joy folder; Put it in my video → 5 s picture clip at the playhead (3:21), editor Undo → 3:16 |
+| ✅ Brief §4.4 vision | frame at 1.50 s → "I see a white cat with black spots curled up and sleeping soundly on a brown textured couch…" |
+| ✅ Brief §4.5 bad address | "I can't reach the AI service — check the internet, or the address in ⚙. The buttons below still work offline."; cleared → "Hello! How can I help you today?" |
+| ⏳ Brief §4.2/4.3 transcribe + chained tools | not run (transcribing 4 long clips takes minutes); Transcribe button untested on device |
+| 🐞→✅ fixed after the test | messages scrolled over the title bar (fly-in clipping); key shown in plain text in settings (now dots + hold-to-show, verified); "1 file is missing" for a just-made slide (ProjectIntegrity now skips slides); prefilled words lingered after wizard/vision; no buttons after a picture; "Added 1 clip" → "Added a slide" |
+| 🐞 handed off | editor preview keeps showing a removed slide after a snapshot undo (task chip spawned; editor lane) |
+
+**Known limits:** a long tool run (e.g. transcribing a long clip) stops if the chat is closed mid-run (the chat's
+own worker owns it; moving tool runs into `AIJobService` is the next robustness step). SpriteLab / Avatar don't yet
+open Joybot with their room. "Design a picture" (free HTML/SVG graphic) is not built — the picture flow offers make
+here / your own AI app.

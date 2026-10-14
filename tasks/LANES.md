@@ -1,4 +1,9 @@
 # LANES.md — live file-lock board for parallel agents
+# October14 ACTIVE Lead: C:/Temp/jb-live-current, lead/jb-live-current, reviewed Joy source2ec7e1a6 on JoyFolderc9eb5a21.
+# Prior C:/Temp/jb-live-lines is frozen/backed-up b203e760; original owner folder/worktrees preserved.
+# Core2272/backend447 source blobs unchanged; combined native181/0/0/0 PASS5m2s on current integration.
+# Root next owns real engine recorded history routing, joint pixel/media publication, capture/host/save wiring and device probe.
+# One shared admitted job only; latest probe is scratch-only/uncompiled/unexecuted. Goal and04:39:49Eastern wakeup ACTIVE.
 # October13 JB-5.20d: ACTIVE Lead in C:/Temp/jb-live-lines, lead/jb-live-lines, base27bedba9.
 # Latest scene/history/footprint helpers reached usage limit; root retained partials and completed missing test source.
 # Latest source WIP, not test-verified or app-activated. Recorded scene lifecycle reviewed; no heavy job active.

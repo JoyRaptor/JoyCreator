@@ -7,6 +7,7 @@ import cc.joycreator.joybrush.core.brush.DabInputs
 import cc.joycreator.joybrush.core.brush.ENGINE_FILL
 import cc.joycreator.joybrush.core.brush.Scatter
 import cc.joycreator.joybrush.core.brush.SplitMix
+import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.input.StrokeSmoother
 import cc.joycreator.joybrush.core.paint.Dab
@@ -76,42 +77,52 @@ object InkReplay {
      * `minSpacingPx` defaults to 0.5 doc px, so a stroke of `L` doc px can never place more than
      * `L / 0.5` dabs however small the brush is.
      * Watercolour uses the same 6,000-stamp phone budget as its live path and the approved POC;
-     * its own distance filtering/curves/scatter replace the generic smoother and line shaping.
+     * a recording that needs another stamp is refused, never returned as a truncated editable line.
+     * Its own distance filtering/curves/scatter replace the generic smoother and line shaping.
      *
-     * @throws InkReplayException if `brush` is null, or its engine cannot draw an ink line.
+     * @throws InkReplayException if `brush` is null, its engine cannot draw an ink line,
+     * or watercolor replay exceeds its dab budget.
      */
     fun dabs(record: StrokeRecord, brush: BrushPreset?): List<Dab> = replay(record, brush).dabs
 
     /**
-     * One replay: [dabs], and the two WHOLE-STROKE numbers the same [BrushDabber] fixed at the
+     * One replay: [Replayed.dabs], and the WHOLE-STROKE values the same [BrushDabber] fixed at the
      * first dab — [BrushDabber.strokeHardness] (the tip's hardness for a pre-contact brush, whose
      * dabs carry no hardness of their own) and [BrushDabber.strokeOpacity] (the commit opacity of a
      * `buildup` brush). `JbCanvasView.beginStrokeNow` hands the GPU exactly these two, so a CPU
      * raster that used the file's `base` values instead would draw a pressure-curved brush with the
-     * wrong edge and the wrong strength. They come from THIS dabber, the one that drew the dabs,
+     * wrong edge and the wrong strength. [Replayed.strokeGrain] retains that dabber's first-dab
+     * grain depths too, rather than trying to recover them from shaped or scattered marks.
+     * They come from THIS dabber, the one that drew the dabs,
      * rather than a second one asked again, so they cannot disagree with the dabs.
      *
-     * A fill, or a recording with no surviving samples, never asks the dabber for a dab, so both are
+     * A fill, or a recording with no surviving samples, never asks the dabber for a dab, so these are
      * the dabber's own starting values — the bases, which is also what the view would use.
      */
-    internal class Replayed(val dabs: List<Dab>, val strokeHardness: Float, val strokeOpacity: Float)
+    class Replayed(val dabs: List<Dab>, val strokeHardness: Float, val strokeOpacity: Float,
+                   val strokeGrain: GrainMath.StrokeGrain)
 
     /** [dabs] with its whole-stroke numbers; see [Replayed]. Same refusals, same throw. */
-    internal fun replay(record: StrokeRecord, brush: BrushPreset?): Replayed {
+    fun replay(record: StrokeRecord, brush: BrushPreset?): Replayed {
         refusal(record, brush)?.let { throw InkReplayException(it) }
         val preset = brush!!
         if(preset.engine == cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR) {
             val options=preset.watercolourRuntime()
             val watercolor=cc.joycreator.joybrush.core.brush.WatercolourDabber(options,record.seed)
             val dabs=watercolor.replay(record.samples)
-            return Replayed(rescaled(dabs,widthScaleOf(record.widthScale)),preset.tip.hardness.base,watercolor.strokeOpacity)
+            if (watercolor.capped) throw InkReplayException(
+                "stroke \"${record.id}\" needs more than ${watercolor.maxDabs} watercolor dabs; " +
+                    "cannot replay it as an editable line without truncating it",
+            )
+            return Replayed(rescaled(dabs,widthScaleOf(record.widthScale)),preset.tip.hardness.base,watercolor.strokeOpacity,
+                GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF))
         }
         val dabber = BrushDabber(preset, record.seed)
         // A fill is a SHAPE, not a row of dabs: its raster is `InkRaster.fill` over
         // `FillPen.outline(record.samples, record.smoothing, record.screenPerDoc)`. Asking the
         // dabber for dabs here would draw the fill pen as a line of beads, which is the outline of
         // the shape and not the shape.
-        if (preset.engine == ENGINE_FILL) return Replayed(emptyList(), dabber.strokeHardness, dabber.strokeOpacity)
+        if (preset.engine == ENGINE_FILL) return Replayed(emptyList(), dabber.strokeHardness, dabber.strokeOpacity, dabber.strokeGrain)
 
         // The brush's whole-stroke shaping (brush version 9, `line`): taper and dashes measured along the drawn path, so
         // after placement and BEFORE the scatter. A brush with no `line` section gets its placed dabs back unchanged. A
@@ -126,7 +137,7 @@ object InkReplay {
             preset.scatter,
             SplitMix(record.seed xor Scatter.SALT),
         ) { dab -> dabInputsOf(dab) }
-        return Replayed(rescaled(scattered, widthScaleOf(record.widthScale)), dabber.strokeHardness, dabber.strokeOpacity)
+        return Replayed(rescaled(scattered, widthScaleOf(record.widthScale)), dabber.strokeHardness, dabber.strokeOpacity, dabber.strokeGrain)
     }
 
     /**

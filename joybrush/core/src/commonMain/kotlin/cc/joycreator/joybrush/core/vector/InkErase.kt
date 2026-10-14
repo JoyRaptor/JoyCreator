@@ -23,8 +23,8 @@ enum class InkEraseMode { PARTIAL, WHOLE_STROKE, TO_INTERSECTION }
  * A line the eraser could NOT erase, and why, in one sentence a screen can show.
  *
  * The gesture still happened: every other line it touched was erased, and this one was left exactly
- * as it was found. Two of the three reasons are [InkReplay.refusal]'s own words, so the sentence a
- * person reads and the sentence a test catches are the same string.
+ * as it was found. Replay refusals keep [InkReplay]'s own words, so the sentence a person reads
+ * and the sentence a test catches are the same string.
  */
 data class NotReplayed(
     val strokeId: String,
@@ -252,7 +252,7 @@ object InkErase {
     /**
      * The line this record is, or the sentence saying why it is not one.
      *
-     * Three answers, in this order, and the order matters:
+     * Four answers, in this order, and the order matters:
      *  1. [InkReplay.refusal] is not null — no brush, or one whose engine cannot draw an ink line.
      *     Reported with that function's own words, so the sentence exists in one place.
      *  2. the brush is the fill pen — it draws a shape and its raster is `InkRaster.fill`'s
@@ -260,7 +260,9 @@ object InkErase {
      *     (draw a closed shape, rub the eraser over it) and silence is the one answer that is
      *     certainly wrong. The sentence is THIS file's, and it is the only sentence in the engine
      *     about erasing a fill, which is why it is named and not inlined.
-     *  3. the replay produced no dabs — the recording has no samples, or none of them has a place in
+     *  3. geometry replay refuses the record, such as watercolor beyond its dab budget. Reported
+     *     with the replay exception's own words; other records still reach the eraser.
+     *  4. the replay produced no dabs — the recording has no samples, or none of them has a place in
      *     the world. That is not a line at all (JB-5.01), it is not erased, and it is NOT reported:
      *     there is no brush to complain about and nothing the eraser did to it.
      */
@@ -275,8 +277,13 @@ object InkErase {
                 "draws a filled shape with no line to cut: the ink eraser cannot erase part of a fill"
             return Candidate(record, null, EMPTY_ARC, EMPTY_ARC, NotReplayed(record.id, record.brushId, reason))
         }
-        // The refusal is known to be null, so this cannot throw the refusal it was just asked about.
-        val dabs = InkReplay.dabs(record, brush)
+        // The cheap brush check cannot detect a geometry-dependent refusal, such as the dab cap.
+        val dabs = try {
+            InkReplay.dabs(record, brush)
+        } catch (e: InkReplayException) {
+            return Candidate(record, null, EMPTY_ARC, EMPTY_ARC,
+                NotReplayed(record.id, record.brushId, e.message.orEmpty()))
+        }
         if (dabs.isEmpty()) return Candidate(record, null, EMPTY_ARC, EMPTY_ARC, null)
         return Candidate(
             record,

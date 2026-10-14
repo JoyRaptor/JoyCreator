@@ -1,4 +1,12 @@
 # LANES.md — live file-lock board for parallel agents
+# October13 JB-5.20d: ACTIVE Lead in C:/Temp/jb-live-lines, lead/jb-live-lines, base27bedba9.
+# Latest scene/history/footprint helpers reached usage limit; root retained partials and completed missing test source.
+# Latest source WIP, not test-verified or app-activated. Recorded scene lifecycle reviewed; no heavy job active.
+# Same-chat wakeup ACTIVE October14 04:39:49 Eastern. Persistent goal remains ACTIVE.
+# Root owns GlPaintEngine/JbCanvasView/live selection host/Activity binding and integration tests.
+# Sol helper owns new FrozenBrushRegistry core helper/tests only. Luna audits save/recovery routes read-only.
+# Sol replay helper audits exact GL/replay gates read-only. No worker builds, commits, phone actions or shader changes.
+# Root serializes admitted checks under shared lock. Full-res watercolor and locked UI styling retained.
 # October13 scoped line identity: IDLE/released in C:/Temp/jb-scoped-lines, lead/jb-scoped-lines, sourcef8e9454d.
 # Explicit addresses now carry geometry/state and edit snapshots through Select; saved IDs/seqs retained.
 # Core61 focused checks/backend compile and full native175/0/0/0 PASS. SCOPED_LINES_20261013.md.

@@ -3,6 +3,16 @@ package cc.joycreator.joybrush.androidkit.gl
 import android.opengl.GLES30
 import android.os.SystemClock
 import cc.joycreator.joybrush.core.brush.WatercolourSpec
+import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.BrushValidate
+import cc.joycreator.joybrush.core.brush.VERSION_CONTACT
+import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
+import cc.joycreator.joybrush.core.brush.watercolourRuntime
+import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.vector.InkReplay
+import cc.joycreator.joybrush.core.vector.RecordedCel
+import cc.joycreator.joybrush.core.stroke.LineAddress
+import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
 import cc.joycreator.joybrush.androidkit.gl.watercolour.WatercolourPass
 import cc.joycreator.joybrush.androidkit.gl.media.GlUniformSink
 import cc.joycreator.joybrush.androidkit.io.PaperResources
@@ -182,6 +192,7 @@ class GlPaintEngine(
 
     private lateinit var dabProg: GlProgram
     private lateinit var commitProg: GlProgram
+    private var recordedComposeProg: GlProgram? = null
     private lateinit var tileProg: GlProgram
     private lateinit var smudgeProg: GlProgram
     private lateinit var tuftProg: GlProgram
@@ -374,6 +385,7 @@ class GlPaintEngine(
     private var boardThumbReadback: ByteBuffer? = null
 
     private val layers = LinkedHashMap<String, Layer>()   // bottom → top
+    private var recordedScene: RecordedScene<Int>? = null
     private val freeLayerTex = ArrayDeque<Int>()
     private val freeStrokeTex = ArrayDeque<Int>()
     private val freeSmudgeTex = ArrayDeque<Int>()
@@ -607,7 +619,8 @@ class GlPaintEngine(
         // in the question: init is also how a second init on a live context is recovered from, and
         // what the caller needs to be told is that the DRAWING did not survive — not that init ran
         // twice. An engine with nothing in it has nothing to announce.
-        val had = heldTextureNames() > 0 || undo.canUndo || undo.canRedo
+        val had = heldTextureNames() > 0 || undo.canUndo || undo.canRedo || recordedScene?.hasContent == true
+        recordedScene?.forget(); recordedScene = null
         wcPass?.forget(); wcPass = null; wcSpec = null; wcFading = false; wcPrepared = false
         // The stroke goes with its buffer, and the layers with their tiles: the stroke was never in
         // a layer, so nothing is released twice and nothing is left pointing at a dead name.
@@ -631,6 +644,7 @@ class GlPaintEngine(
         loadedPaper = null; lookTexture = null; surfaceTexture = null; fluidTexture = null
         mediaPaperFor = null; mediaPaperGl = null
         compositeProg = null      // a name from the dead context; the new one compiles on first use
+        recordedComposeProg = null
         thumbTex = 0; thumbW = 0; thumbH = 0
         compositeError = null
         return had
@@ -644,11 +658,12 @@ class GlPaintEngine(
      */
     internal fun heldTextureNames(): Int =
         layers.values.sumOf { it.ownedTextures().size + (it.mask?.ownedTextures()?.size ?: 0) } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size + freeFloatTex.size +
-            compositor.heldNames() + boardCompositor.heldNames()
+            compositor.heldNames() + boardCompositor.heldNames() + (recordedScene?.heldCacheTextures()?.size ?: 0)
 
     /** Frees every GL object this engine owns. */
     fun release() {
         if (!ready) return
+        releaseRecordedScene()
         undo.clear()
         cancelStroke()
         val all = ArrayList<Int>()
@@ -670,6 +685,7 @@ class GlPaintEngine(
         dabProg.release(); commitProg.release(); tileProg.release(); smudgeProg.release(); tuftProg.release()
         boardPreview.release()
         compositeProg?.release(); compositeProg = null
+        recordedComposeProg?.release(); recordedComposeProg = null
         ready = false
     }
 
@@ -1162,6 +1178,7 @@ class GlPaintEngine(
     /** Empties the whole document (all layers, all undo). For "open another document". */
     fun resetDocument() {
         cancelStroke()
+        releaseRecordedScene()
         mediaStroke = null; mediaStrokeHeld.clear(); agreedLook.clear()
         undo.clear()
         layers.values.forEach { l -> l.ownedTextures().forEach(::recycleLayerTex); l.mask?.ownedTextures()?.forEach(::recycleLayerTex) }
@@ -1494,6 +1511,238 @@ class GlPaintEngine(
     }
 
     // ── strokes ──────────────────────────────────────────────────────────────
+
+    /** A staged line's premultiplied source unit; its operator is applied by the ordered composer. */
+    internal class RecordedLineUnit(val op: String, val tiles: Map<Long, Int>)
+
+    /**
+     * Replay through this context's live stamping and watercolor paths, without publishing pixels or history.
+     * The returned RGBA8 units include stroke opacity once and retain the brush's operator separately.
+     * Caller owns every returned texture until it is committed or discarded. Final cel clipping is the composer's job.
+     */
+    internal fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset): RecordedLineUnit {
+        check(!strokeInProgress && !wcFading) { "Finish the current stroke before replaying a line" }
+        check(framePreviews.isEmpty()) { "Stop playback before editing lines" }
+        require(tileBoardId == null) { "Recorded line replay on a periodic board is not connected yet" }
+        require(storeOf(layerId)?.isMask == false) { "Recorded lines require a paint layer" }
+        require(record.brushId == preset.id) { "A line must resolve its own frozen brush" }
+        require(BrushValidate.validate(preset).isEmpty()) { "This frozen brush cannot be replayed" }
+        require(preset.engine == "stamp" || preset.engine == ENGINE_WATERCOLOUR) { "This line engine is not connected to GPU replay yet" }
+        require(preset.engine != "stamp" || preset.tip.source == "procedural") { "Image tips are not connected to recorded GPU stamping yet" }
+        require(preset.line == null) { "Whole-stroke shaping is not connected to live recording yet" }
+        require(preset.blend in setOf("normal", "erase", "behind", "multiply", "screen")) { "This line operator is not connected to GPU composition yet" }
+        val replay = InkReplay.replay(record, preset)
+        // Older grain brushes used the newest contact of each native event batch as a uniform.
+        // Raw samples alone do not retain those batch boundaries, so varying legacy pose cannot
+        // be transcribed as one draw without changing the grain. Modern contacts carry it per dab.
+        if (preset.version < VERSION_CONTACT &&
+            (replay.strokeGrain.tip.enabled || replay.strokeGrain.paper.enabled || !replay.strokeGrain.paperResponse.isDefault)) {
+            replay.dabs.firstOrNull()?.let { first ->
+                require(replay.dabs.all { dab ->
+                    GrainMath.tiltAmount(dab.tilt) == GrainMath.tiltAmount(first.tilt) &&
+                        GrainMath.leanX(dab.azimuth) == GrainMath.leanX(first.azimuth) &&
+                        GrainMath.leanY(dab.azimuth) == GrainMath.leanY(first.azimuth)
+                }) { "This older brush's changing tilt needs its original event batches to replay exactly" }
+            }
+        }
+        val tip = TipShape(aspect = preset.tip.aspect, corner = preset.tip.corner, taper = preset.tip.taper,
+            hardness = replay.strokeHardness, minPx = preset.tip.minPx)
+        val targets = LinkedHashMap<Long, Int>()
+        var succeeded = false
+        try {
+            beginStroke(layerId, record.colorArgb, replay.strokeOpacity,
+                if (preset.accumulate == "buildup") Accumulate.BUILD_UP else Accumulate.WASH,
+                StrokeBlend.NORMAL, tip, replay.strokeGrain,
+                watercolour = if (preset.engine == ENGINE_WATERCOLOUR) preset.watercolourRuntime() else null,
+                watercolourSeed = record.seed)
+            addDabs(replay.dabs)
+            if (wcSpec != null) wcPass?.finishInto(strokeTiles, 1f)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+            GLES30.glViewport(0, 0, size, size)
+            GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+            GLES30.glDisable(GLES30.GL_BLEND)
+            commitProg.use()
+            setCommitUniforms(layerOpacity = 1f)
+            GLES30.glBindVertexArray(tileVao)
+            for ((key, source) in strokeTiles) {
+                val output = newLayerTile()
+                check(output != 0) { "Could not allocate a recorded line tile" }
+                targets[key] = output
+                initializeTile(output, null, false)
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+                attach(output)
+                check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) {
+                    "Recorded line framebuffer is unavailable"
+                }
+                val ox = Tiles.tx(key).toFloat() * size
+                val oy = Tiles.ty(key).toFloat() * size
+                GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), ox, oy)
+                GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
+                bindTextures(clearTex, source)
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+                check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Recorded line rendering failed" }
+            }
+            val unit = RecordedLineUnit(preset.blend, targets.toMap())
+            succeeded = true
+            return unit
+        } finally {
+            if (!succeeded) {
+                // Failed allocation/storage is not suitable for reuse from either pool.
+                if (targets.isNotEmpty()) GLES30.glDeleteTextures(targets.size, targets.values.toIntArray(), 0)
+                if (strokeTiles.isNotEmpty()) {
+                    GLES30.glDeleteTextures(strokeTiles.size, strokeTiles.values.toIntArray(), 0)
+                    strokeTiles.clear()
+                }
+            }
+            cancelStroke()
+            GLES30.glBindVertexArray(0)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        }
+    }
+
+    internal fun discardRecordedLine(unit: RecordedLineUnit) { unit.tiles.values.forEach(::recycleLayerTex) }
+
+    /**
+     * Concrete renderer for the recorded-scene staging coordinator. It does not install a scene
+     * on the view: legacy writes, media epochs, structural history and save must join publication first.
+     * Watercolor finishes with its whole neighboring band before physical-cel clipping is applied.
+     */
+    internal fun createRecordedScene(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
+                                     frozen: Map<String, BrushPreset>): RecordedScene<Int> {
+        checkStrokeEnded("Finish the stroke before opening recorded cels")
+        check(recordedScene == null) { "Release the previous recorded scene before opening another" }
+        require(planes.keys.all { (id, cel) ->
+            layers[id]?.let { layer -> !layer.isMask && (cel == null || cel in layer.cels) } == true
+        }) { "Recorded cels must address existing physical paint planes" }
+        fun clips(plane: Pair<String, String?>, key: Long): List<RegionTileRect>? {
+            val layer = layers.getValue(plane.first)
+            return layer.plan?.tileSlices(key)?.filter { planeOf(layer, it.plane.celId) == plane.second }?.map { it.rect }
+        }
+        val scene = RecordedScene.create(planes, frozen, undo, object : RecordedScene.Renderer<Int> {
+            override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): RecordedScene.Unit<Int> {
+                val rendered = prepareRecordedLine(address.layerId, record, preset)
+                var accepted = false
+                try {
+                    val plane = address.layerId to address.celId
+                    val kept = rendered.tiles.filterKeys { key -> clips(plane, key)?.isNotEmpty() != false }
+                    val unit = RecordedScene.Unit(rendered.op, kept)
+                    rendered.tiles.filterKeys { it !in kept }.values.forEach(::recycleLayerTex)
+                    accepted = true
+                    return unit
+                } finally {
+                    if (!accepted) discardRecordedLine(rendered)
+                }
+            }
+
+            override fun look(plane: Pair<String, String?>, key: Long,
+                              sources: List<RecordedScene.Source<Int>>): Int? = composeRecordedTile(sources.map {
+                OrderedRecordedUnit(it.seq, it.texture, it.op, clips(plane, key))
+            })
+
+            override fun release(texture: Int) = recycleLayerTex(texture)
+        })
+        registerRecordedScene(scene)
+        return scene
+    }
+
+    /** Engine-owned lifecycle; also used by no-GL context-loss regression fixtures. */
+    internal fun registerRecordedScene(scene: RecordedScene<Int>) {
+        check(recordedScene == null) { "A recorded scene is already registered" }
+        recordedScene = scene
+    }
+
+    internal fun releaseRecordedScene() {
+        val scene = recordedScene ?: return
+        recordedScene = null
+        scene.close()
+    }
+
+    /** One source at its original sequence; null clips means full tile, empty clips means no contribution. */
+    internal class OrderedRecordedUnit(val seq: Long, val texture: Int, val op: String,
+                                      val clips: List<RegionTileRect>? = null)
+
+    /**
+     * Stage a look from already-rendered source units. RGBA32F ping/pong avoids rounding after each item.
+     * Source textures are borrowed; the caller owns the returned RGBA8 look. No layer/history mutation occurs.
+     */
+    internal fun composeRecordedTile(items: List<OrderedRecordedUnit>): Int? {
+        if (items.isEmpty()) return null
+        check(!strokeInProgress && !wcFading) { "Finish the current stroke before composing recorded content" }
+        val operators = mapOf("normal" to 0, "erase" to 1, "behind" to 2, "multiply" to 3, "screen" to 4)
+        require(items.all { it.seq >= 0 && it.texture != 0 && it.op in operators }) { "This recorded tile has an unsupported source" }
+        require(items.zipWithNext().all { (a, b) -> a.seq < b.seq }) { "Recorded sources must retain strict sequence order" }
+        val program = recordedComposeProg ?: GlProgram(shaders.source("jb_tile.vert"),
+            shaders.source("jb_recorded_compose.frag"), "recorded composition").also { recordedComposeProg = it }
+        val scratch = ArrayList<Int>(2)
+        var output = 0
+        var succeeded = false
+        fun attachChecked(texture: Int) {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+            attach(texture)
+            check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) {
+                "This GPU cannot render recorded content at the required precision"
+            }
+        }
+        fun draw(destination: Int, source: Int, target: Int, op: Int, clips: List<RegionTileRect>?) {
+            check(target != destination && target != source) { "Recorded composition cannot sample its render target" }
+            attachChecked(target)
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, destination)
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE1); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, source)
+            GLES30.glUniform1i(program.loc("u_operator"), op)
+            if (clips == null) {
+                GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            } else {
+                GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+                for (rect in clips) {
+                    GLES30.glScissor(rect.x, rect.y, rect.w, rect.h)
+                    GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+                }
+            }
+            check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Recorded composition failed" }
+        }
+        try {
+            GLES30.glViewport(0, 0, size, size)
+            GLES30.glDisable(GLES30.GL_BLEND)
+            GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+            repeat(2) {
+                val texture = newTexture(size, GLES30.GL_RGBA32F, GLES30.GL_RGBA, GLES30.GL_FLOAT)
+                check(texture != 0) { "Could not allocate recorded composition scratch" }
+                scratch.add(texture)
+                // Float filtering is optional on ES; every lookup here addresses one exact texel.
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_NEAREST)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_NEAREST)
+                attachChecked(texture)
+                GLES30.glClearColor(0f, 0f, 0f, 0f); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+            }
+            program.use()
+            GLES30.glUniform1i(program.loc("u_destination"), 0)
+            GLES30.glUniform1i(program.loc("u_source"), 1)
+            GLES30.glUniform1f(program.loc("u_tileSize"), size.toFloat())
+            GLES30.glUniform2f(program.loc("u_tileOrigin"), 0f, 0f)
+            GLES30.glUniformMatrix3fv(program.loc("u_docToClip"), 1, false, tileToClip(0f, 0f), 0)
+            GLES30.glBindVertexArray(tileVao)
+            var front = scratch[0]
+            var back = scratch[1]
+            for (item in items) {
+                if (item.clips != null) draw(clearTex, front, back, 0, null)
+                draw(front, item.texture, back, operators.getValue(item.op), item.clips)
+                val previous = front; front = back; back = previous
+            }
+            output = newLayerTile()
+            check(output != 0) { "Could not allocate a recorded look" }
+            draw(clearTex, front, output, 0, null)
+            succeeded = true
+            return output
+        } finally {
+            if (scratch.isNotEmpty()) GLES30.glDeleteTextures(scratch.size, scratch.toIntArray(), 0)
+            if (!succeeded && output != 0) GLES30.glDeleteTextures(1, intArrayOf(output), 0)
+            GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+            GLES30.glBindVertexArray(0)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        }
+    }
 
     /** Starts a stroke. [argb] is the brush colour (alpha ignored — [opacity] is the stroke's opacity). */
     fun beginStroke(layerId: String, argb: Int, opacity: Float, accumulate: Accumulate,

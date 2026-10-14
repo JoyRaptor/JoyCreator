@@ -226,8 +226,7 @@ class RecordedSceneBakeTest {
     @Test fun missingCachedSourceAlsoRefusesWholeScopeBeforeCopy() {
         val f = fixture(mapOf(plane to cel(listOf(record(), record("later", 2, 2f)))))
         // Fault injection only: normal APIs always publish complete immutable source indexes.
-        val stateField = f.scene.javaClass.getDeclaredField("state").also { it.isAccessible = true }
-        val state = stateField.get(f.scene)
+        val state = f.scene.snapshotState()
         val unitsField = state.javaClass.getDeclaredField("units").also { it.isAccessible = true }
         @Suppress("UNCHECKED_CAST")
         val units = unitsField.get(state) as Map<LineAddress, RecordedScene.Cached<Int>>

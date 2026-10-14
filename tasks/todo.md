@@ -600,3 +600,4 @@ October14 verified checkpoints (full milestone below remains incomplete):
 - [ ] Bind Select Activity and accepted pen/finger routing, retaining approved UI styling.
 - [ ] Run focused/full regressions, real GPU replay/order controls, save/recovery evidence and admitted APK/device checks.
 - [ ] Publish verified checkpoints; leave unverified physical acceptance explicit; then progress Atlas A2.
+- [x] Joint scene staging preserves complete mixed Step identity and cache ownership; backend575/0/0/0 including44 new contracts PASS1m56. Actual engine publisher/lifecycle remains next.

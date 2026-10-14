@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.core.brush.BrushJson
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
 import cc.joycreator.joybrush.core.paint.UndoLog
+import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.doc.SlabOps
@@ -17,7 +18,8 @@ import cc.joycreator.joybrush.core.vector.CelComposer
  * borrowed from the engine/history; this object owns line units, composed looks and accepted
  * uploaded saved looks. A cold saved cel retains declared looks without pretending they identify
  * individual lines; its first edit measures and validates the old complete cel privately.
- * Rendering is staged before history moves. Publication assigns one prepared scene reference.
+ * Rendering is staged before history moves. Unbound publication assigns one prepared scene
+ * reference; bound staging exports values for the engine's one complete artwork root assignment.
  * This coordinator does not activate recording on a view or replace the legacy pixel path.
  */
 internal class RecordedScene<T : Any> private constructor(
@@ -58,7 +60,9 @@ internal class RecordedScene<T : Any> private constructor(
     }
 
     internal class Cached<T : Any>(val record: StrokeRecord, val unit: Unit<T>)
+    /** Readonly borrowed slice. Retaining a retired State does not retain cache ownership/lifetime. */
     internal class State<T : Any>(
+        private val owner: Any,
         val planes: Map<Pair<String, String?>, RecordedCel<T>>,
         val brushes: Map<String, String>,
         val units: Map<LineAddress, Cached<T>>,
@@ -68,12 +72,97 @@ internal class RecordedScene<T : Any> private constructor(
         // per-line footprints, not that every line has an authoritative empty footprint.
         val savedKeys: Map<Pair<String, String?>, Set<Long>>,
     ) {
+        internal fun belongsTo(identity: Any): Boolean = owner === identity
         fun cacheTextures(): Set<T> = (units.values.flatMap { it.unit.tiles.values } +
             looks.values.flatMap { it.values }).toSet()
     }
 
-    private var state = State<T>(emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap())
-    private var generation = 0L
+    /** The actual immutable engine root implements this interface; accessor reads allocate nothing. */
+    internal interface Publication<T : Any> {
+        val recorded: State<T>
+        val cursor: UndoLog.Cursor<T>
+        val graphicsEpoch: Long
+        /** Borrowed sibling/native/global owners, including masks/media/display caches. */
+        val protectedTextures: Set<T>
+    }
+
+    private val sceneIdentity = Any()
+    private var localState = State<T>(sceneIdentity, emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap())
+    private var localGeneration = 0L
+    private var boundRead: (() -> Publication<T>)? = null
+    private var binding = false
+    private var openLocalLeases = 0
+    private var localPreparations = 0
+    private val state: State<T> get() = snapshotState()
+    private val generation: Long get() = boundRead?.invoke()?.graphicsEpoch ?: localGeneration
+    val isStateBound: Boolean get() = boundRead != null
+
+    /** Borrowed state value for initial root construction, or the current bound root's scene slice. */
+    fun snapshotState(): State<T> {
+        val current = boundRead?.invoke()?.recorded ?: localState
+        require(current.belongsTo(sceneIdentity)) { "Recorded state belongs to a different scene" }
+        return current
+    }
+
+    /** Pure same-scene reset value for a future joint lifecycle adapter; releases nothing. */
+    fun emptyState(): State<T> = State(sceneIdentity, emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap())
+
+    /**
+     * Attach once without publishing anything. Root lookup must be readonly, must return the
+     * actual same root instance on each read, and must not recursively call scene/history getters.
+     * Bind history to that root's cursor too before stageJoint. No outstanding local lease may cross
+     * this storage transition. The external callback may reenter before binding; recheck afterwards.
+     */
+    fun bindState(read: () -> Publication<T>) {
+        checkUnbound()
+        check(!binding && openLocalLeases == 0 && localPreparations == 0) {
+            "Cannot bind while local scene preparation or a proposal is outstanding"
+        }
+        val before = localState
+        val epoch = localGeneration
+        val cursor = history.snapshotCursor()
+        binding = true
+        try {
+            val supplied = read()
+            require(supplied.recorded.belongsTo(sceneIdentity)) { "Recorded state belongs to a different scene" }
+            check(localState === before && localGeneration == epoch && openLocalLeases == 0 && localPreparations == 0 &&
+                supplied.recorded === before && supplied.cursor === cursor && history.snapshotCursor() === cursor &&
+                read() === supplied && history.snapshotCursor() === cursor && localState === before &&
+                localGeneration == epoch && openLocalLeases == 0 && localPreparations == 0) {
+                "Recorded scene or history changed during binding"
+            }
+            boundRead = read
+        } finally {
+            binding = false
+        }
+    }
+
+    private fun checkUnbound() {
+        check(boundRead == null) { "Bound recorded state mutates only through its joint artwork publisher" }
+    }
+
+    private inline fun <R> prepareLocal(block: () -> R): R {
+        checkUnbound()
+        localPreparations++
+        try { return block() } finally { localPreparations-- }
+    }
+
+    private fun samePublication(expected: Publication<T>): Boolean {
+        val read = boundRead ?: return false
+        val current = read()
+        if (current !== expected || !current.recorded.belongsTo(sceneIdentity)) return false
+        if (history.snapshotCursor() !== expected.cursor) return false
+        // The history accessor is also external. Catch a root switch while it answered.
+        return read() === expected
+    }
+
+    /** Cache release never proceeds to another old name after a reset during one release. */
+    private fun releaseInEpoch(textures: Collection<T>, epoch: Long) {
+        for (texture in textures) {
+            if (generation != epoch) break
+            renderer.release(texture)
+        }
+    }
 
     /** Borrowed read-only cel identities used by RecordedEdits; mutation stays on the GL thread. */
     val planes: Map<Pair<String, String?>, RecordedCel<T>> get() = state.planes
@@ -92,6 +181,147 @@ internal class RecordedScene<T : Any> private constructor(
 
     enum class Direction { NEW, UNDO, REDO }
 
+    /**
+     * Derived-cache lease for a complete engine transaction. It never publishes scene or history.
+     * The full Step lives in historyProposal; only its recorded projection was rendered here.
+     * Native tile/media/slab outputs remain the caller's responsibility until joint publication.
+     */
+    inner class JointStaged internal constructor(
+        val expectedPublication: Publication<T>,
+        val candidateState: State<T>,
+        val historyProposal: UndoLog.PreparedCursor<T>,
+        fresh: Set<T>,
+        retired: Set<T>,
+        val affected: Map<Pair<String, String?>, Set<Long>>,
+    ) : AutoCloseable {
+        private val fresh = fresh.toSet()
+        private val retired = retired.toList()
+        private val epoch = expectedPublication.graphicsEpoch
+        private var finished = false
+        private var adopted = false
+        private var retiredReleased = false
+        /** All freshly minted caches, including transient warm units in the retirement ledger. */
+        val freshCacheTextures: Set<T> get() = fresh.toSet()
+        /** Old replaced caches plus transient warm units; no native/history-owned source handles. */
+        val retiredCacheTextures: List<T> get() = retired.toList()
+
+        /**
+         * Check immediately before one engine root assignment. Context lookup is external, so
+         * root/scene/cursor/epoch identities are checked again after it answers. The engine must
+         * also verify any separately staged native plan's expected root and epoch.
+         */
+        fun canPublish(): Boolean {
+            check(!finished) { "This joint recorded proposal is already finished" }
+            if (generation != epoch || !samePublication(expectedPublication) || !history.isCurrent(historyProposal)) return false
+            if (!renderer.contextCurrent()) return false
+            return generation == epoch && samePublication(expectedPublication) && history.isCurrent(historyProposal) &&
+                samePublication(expectedPublication)
+        }
+
+        /**
+         * CALL ONLY AFTER the engine assigned its complete prebuilt root containing candidateState
+         * and historyProposal.cursor. This is ownership acknowledgement, not publication. It does
+         * no external lookup, allocation, rendering or release. Correct sequencing cannot fail;
+         * its finished guard detects publisher misuse. The publisher owns this invariant.
+         */
+        fun adoptAfterPublication() {
+            check(!finished) { "This joint recorded proposal is already finished" }
+            finished = true
+            adopted = true
+        }
+
+        /** Optional scene-cache ledger executor; native/history retirement remains engine-owned. */
+        fun releaseRetiredAfterPublication() {
+            check(adopted) { "Retirement requires successful joint publication and adoption" }
+            if (retiredReleased) return
+            retiredReleased = true
+            releaseInEpoch(retired, epoch)
+        }
+
+        override fun close() {
+            if (finished) return
+            finished = true
+            // Cancellation owns only newly rendered caches, never borrowed Step endpoints.
+            releaseInEpoch(fresh, epoch)
+        }
+    }
+
+    /**
+     * First bounded joint adapter: stable document/paper/stack/clip, native planes disjoint from
+     * recorded planes. Reject unsupported structural metadata before root/context/budget/render
+     * callbacks. The engine owns native target validation and staging. Bake/loader/lifecycle joint
+     * adapters are intentionally not activated by this method.
+     */
+    fun stageJoint(step: UndoLog.Step<T>, direction: Direction = Direction.NEW,
+                   frozen: Map<String, BrushPreset>? = null): JointStaged {
+        require(step.stackBefore == null && step.stackAfter == null && step.paperBefore == null &&
+            step.paperAfter == null && step.documentBefore == null && step.documentAfter == null) {
+            "Joint recorded staging does not yet support structural, paper or document metadata"
+        }
+        require(step.changes.isNotEmpty() || step.lines.isNotEmpty() || step.slabs.isNotEmpty()) {
+            "An empty edit cannot publish a joint undo step"
+        }
+        val read = boundRead ?: error("Joint recorded staging requires an engine publication binding")
+        check(history.isCursorBound) { "Joint recorded staging requires history bound to the same root" }
+        val publication = read()
+        val before = publication.recorded
+        require(before.belongsTo(sceneIdentity)) { "Recorded state belongs to a different scene" }
+        require(step.changes.none {
+            val owner = MediaStores.parse(it.layerId)?.first ?: it.layerId
+            (owner to it.celId) in before.planes
+        }) {
+            "Legacy tile edits on recorded planes need a physical-source adapter"
+        }
+        require(step.lines.all { (it.layerId to it.celId) in before.planes }) {
+            "Every recorded line change needs a known physical cel"
+        }
+        val endpoints = stepTextures(step)
+        val cacheOwned = before.cacheTextures()
+        require(endpoints.none { it in cacheOwned }) {
+            "Joint source/history endpoints cannot take ownership of recorded cache textures"
+        }
+        val protected = publication.protectedTextures.toSet() + endpoints
+        val basis = Basis(before, publication.graphicsEpoch, publication.cursor.peekUndo(),
+            publication.cursor.peekRedo(), publication.cursor, publication, protected)
+        checkEpoch(basis.epoch, publication)
+        // Prepare the COMPLETE step before GL allocation, including native source byte budget.
+        val cursor = when (direction) {
+            Direction.NEW -> history.prepareNew(step, publication.cursor)
+            Direction.UNDO -> history.prepareUndo(publication.cursor, step)
+            Direction.REDO -> history.prepareRedo(publication.cursor, step)
+        } ?: error("This joint history step is no longer current")
+        checkEpoch(basis.epoch, publication)
+        val projection = UndoLog.Step<T>(emptyList(), lines = step.lines,
+            slabs = step.slabs.filter { (it.layerId to it.celId) in before.planes })
+        val edit = RecordedEdits.prepare(before.planes, projection, direction != Direction.UNDO)
+        val presets = frozen ?: before.brushes.mapValues { BrushJson.decodeChecked(it.value) }
+        val saved = validateRender(before, edit.after, presets)
+        if (edit.changedPlanes.isEmpty()) {
+            val candidate = if (saved == before.brushes) before else State(sceneIdentity, before.planes,
+                saved, before.units, before.plans, before.looks, before.savedKeys)
+            checkEpoch(basis.epoch, publication)
+            return JointStaged(publication, candidate, cursor, emptySet(), emptySet(), emptyMap())
+        }
+        // Freeze newly added definitions too before external callbacks can mutate caller backing.
+        val canonicalPresets = saved.mapValues { BrushJson.decodeChecked(it.value) }
+        val warmed = warm(before, edit.changedPlanes, saved, basis.epoch, publication, protected)
+        var built: Built<T>? = null
+        try {
+            val ready = buildStage(basis, warmed, edit, canonicalPresets, emptySet())
+            built = ready
+            checkEpoch(basis.epoch, publication)
+            return JointStaged(publication, ready.state, cursor, ready.fresh, ready.retired, ready.affected)
+        } catch (failure: Throwable) {
+            releaseInEpoch(built?.fresh ?: warmed.fresh, basis.epoch)
+            throw failure
+        }
+    }
+
+    private fun stepTextures(step: UndoLog.Step<T>): Set<T> = buildSet {
+        step.changes.forEach { it.before?.let(::add); it.after?.let(::add) }
+        step.slabs.forEach { it.before?.texture?.let(::add); it.after?.texture?.let(::add) }
+    }
+
     inner class Staged internal constructor(
         private val before: State<T>,
         private val after: State<T>,
@@ -102,20 +332,30 @@ internal class RecordedScene<T : Any> private constructor(
         private val direction: Direction,
         private val undoHead: UndoLog.Step<T>?,
         private val redoHead: UndoLog.Step<T>?,
+        private val cursor: UndoLog.Cursor<T>,
         val affected: Map<Pair<String, String?>, Set<Long>>,
     ) : AutoCloseable {
         private var finished = false
+        init { openLocalLeases++ }
 
         /** False means no publication. Caller closes this lease to release caches and bake sources. */
         fun commit(): Boolean {
+            checkUnbound()
             check(!finished) { "This recorded scene proposal is already finished" }
             if (generation != epoch || state !== before || history.peekUndo() !== undoHead ||
-                history.peekRedo() !== redoHead || !renderer.contextCurrent()) return false
+                history.peekRedo() !== redoHead || history.snapshotCursor() !== cursor || !renderer.contextCurrent()) return false
             // A context provider may invalidate the scene/history while answering. Recheck
             // identities after that final callback before publishing into a replacement context.
             if (generation != epoch || state !== before || history.peekUndo() !== undoHead ||
-                history.peekRedo() !== redoHead) return false
-            val publish = { state = after }
+                history.peekRedo() !== redoHead || history.snapshotCursor() !== cursor) return false
+            val publish = {
+                // Budget callbacks run after commit's preflight. Refuse a reentrant scene reset
+                // before assigning old names into a replacement context; UndoLog retains its cursor.
+                check(localGeneration == epoch && localState === before && history.snapshotCursor() === cursor) {
+                    "Recorded scene or history changed during publication preparation"
+                }
+                localState = after
+            }
             val accepted = try {
                 when (direction) {
                     Direction.NEW -> { history.pushAndPublish(step, publish); true }
@@ -130,28 +370,33 @@ internal class RecordedScene<T : Any> private constructor(
             }
             if (!accepted) return false
             finished = true
-            retired.forEach(renderer::release)
+            openLocalLeases--
+            releaseInEpoch(retired, epoch)
             return true
         }
 
         override fun close() {
             if (finished) return
             finished = true
+            openLocalLeases--
             // A name minted by the dead context may name unrelated artwork in the new one.
-            if (generation == epoch) fresh.forEach(renderer::release)
+            releaseInEpoch(fresh, epoch)
         }
     }
 
     fun stage(edit: RecordedEdits.Prepared<T>, direction: Direction = Direction.NEW,
-              frozen: Map<String, BrushPreset> = brushes): Staged =
-        stagePrepared(edit, direction, frozen, emptySet())
+              frozen: Map<String, BrushPreset> = brushes): Staged {
+        return prepareLocal { stagePrepared(edit, direction, frozen, emptySet()) }
+    }
 
     /**
      * Rasterize only these complete physical addresses at their original seqs, in ONE shared
      * history step. Until commit, this lease owns both derived caches and fresh slab sources.
      * After commit, the physical scene/history owns the slabs; close() still owns caches only.
      */
-    fun stageBake(addresses: Set<LineAddress>): Staged {
+    fun stageBake(addresses: Set<LineAddress>): Staged = prepareLocal { stageBakeLocal(addresses) }
+
+    private fun stageBakeLocal(addresses: Set<LineAddress>): Staged {
         check(renderer.contextCurrent()) { "The recorded renderer's paper or clipping context changed" }
         require(addresses.isNotEmpty()) { "An empty bake cannot publish an undo step" }
         val before = state
@@ -212,8 +457,8 @@ internal class RecordedScene<T : Any> private constructor(
             return staged(basis, warmed, edit, Direction.NEW, frozen, freshSources.toSet())
         } catch (failure: Throwable) {
             if (generation == basis.epoch) {
-                warmed.fresh.forEach(renderer::release)
-                freshSources.forEach(renderer::release)
+                releaseInEpoch(warmed.fresh, basis.epoch)
+                releaseInEpoch(freshSources, basis.epoch)
             }
             throw failure
         }
@@ -241,48 +486,63 @@ internal class RecordedScene<T : Any> private constructor(
         try {
             return staged(basis, warmed, edit, direction, frozen, freshSources)
         } catch (failure: Throwable) {
-            if (generation == basis.epoch) warmed.fresh.forEach(renderer::release)
+            releaseInEpoch(warmed.fresh, basis.epoch)
             throw failure
         }
     }
 
     private class Basis<T : Any>(val before: State<T>, val epoch: Long,
-                                val undoHead: UndoLog.Step<T>?, val redoHead: UndoLog.Step<T>?)
-    private fun basis(before: State<T>): Basis<T> = Basis(before, generation, history.peekUndo(), history.peekRedo())
+                                val undoHead: UndoLog.Step<T>?, val redoHead: UndoLog.Step<T>?,
+                                val cursor: UndoLog.Cursor<T>, val publication: Publication<T>? = null,
+                                val protected: Set<T> = emptySet())
+    private fun basis(before: State<T>): Basis<T> {
+        val cursor = history.snapshotCursor()
+        return Basis(before, generation, cursor.peekUndo(), cursor.peekRedo(), cursor)
+    }
 
-    private fun checkEpoch(epoch: Long) {
+    private fun checkGraphicsEpoch(epoch: Long, joint: Boolean) {
+        check(joint || boundRead == null) { "Local preparation cannot cross a scene storage binding" }
         check(generation == epoch) { "The recorded scene context restarted during staging" }
+    }
+
+    private fun checkEpoch(epoch: Long, publication: Publication<T>? = null) {
+        checkGraphicsEpoch(epoch, publication != null)
+        check(publication == null || samePublication(publication)) { "The joint artwork root changed during staging" }
     }
 
     private class Warmed<T : Any>(val state: State<T>, val fresh: Set<T>)
 
     /** Materialize the OLD cel in a private baseline before changing its raw records or sources. */
-    private fun warm(before: State<T>, touched: Set<Pair<String, String?>>, saved: Map<String, String>, epoch: Long): Warmed<T> {
-        checkEpoch(epoch)
+    private fun warm(before: State<T>, touched: Set<Pair<String, String?>>, saved: Map<String, String>, epoch: Long,
+                     publication: Publication<T>? = null, protected: Set<T> = emptySet()): Warmed<T> {
+        checkEpoch(epoch, publication)
         check(renderer.contextCurrent()) { "The recorded renderer context is unavailable" }
-        checkEpoch(epoch)
-        val existing = before.cacheTextures() + slabTextures(before.planes) + history.heldTextures()
+        checkEpoch(epoch, publication)
+        val existing = before.cacheTextures() + slabTextures(before.planes) + history.heldTextures() + protected
         val fresh = LinkedHashSet<T>()
         try {
             val units = before.units.toMutableMap()
             val plans = before.plans.toMutableMap()
             for (plane in touched) {
-                checkEpoch(epoch)
+                checkEpoch(epoch, publication)
                 val cel = before.planes[plane] ?: error("No physical cel to materialize")
                 if (plane in plans) continue
                 for (record in cel.records) {
                     val address = LineAddress(cel.layerId, cel.celId, record.id)
-                    checkEpoch(epoch)
+                    checkEpoch(epoch, publication)
                     val unit = renderer.line(address, record, BrushJson.decodeChecked(saved.getValue(record.brushId)))
-                    checkEpoch(epoch)
+                    // Epoch loss makes returned names unsafe to delete. A same-epoch root switch
+                    // still permits collecting/releasing genuinely fresh output before refusal.
+                    checkGraphicsEpoch(epoch, publication != null)
                     var valid = true
                     for (texture in unit.tiles.values) {
                         if (texture in existing || !fresh.add(texture)) valid = false
                     }
                     require(valid) { "A renderer returned a texture already owned by this scene" }
+                    checkEpoch(epoch, publication)
                     units[address] = Cached(record, unit)
                 }
-                checkEpoch(epoch)
+                checkEpoch(epoch, publication)
                 val footprints = cel.records.associate { record ->
                     val address = LineAddress(cel.layerId, cel.celId, record.id)
                     address to units.getValue(address).unit.tiles.keys.toSet()
@@ -290,47 +550,64 @@ internal class RecordedScene<T : Any> private constructor(
                 require(footprints.values.flatMap { it }.toSet() == before.savedKeys.getValue(plane)) {
                     "The materialized recorded-line tile union does not match the declared saved look index"
                 }
-                checkEpoch(epoch)
+                checkEpoch(epoch, publication)
                 plans[plane] = RecordedTilePlan(cel, footprints)
             }
-            checkEpoch(epoch)
+            checkEpoch(epoch, publication)
             check(renderer.contextCurrent()) { "The recorded renderer context changed during materialization" }
-            checkEpoch(epoch)
-            return Warmed(State(before.planes, before.brushes, units.toMap(), plans.toMap(), before.looks, before.savedKeys), fresh.toSet())
+            checkEpoch(epoch, publication)
+            return Warmed(State(sceneIdentity, before.planes, before.brushes, units.toMap(), plans.toMap(), before.looks, before.savedKeys), fresh.toSet())
         } catch (failure: Throwable) {
-            if (generation == epoch) fresh.forEach(renderer::release)
+            releaseInEpoch(fresh, epoch)
             throw failure
         }
     }
 
     private fun staged(basis: Basis<T>, warmed: Warmed<T>, edit: RecordedEdits.Prepared<T>,
                        direction: Direction, frozen: Map<String, BrushPreset>, freshSources: Set<T>): Staged {
-        checkEpoch(basis.epoch)
-        val rendered = render(warmed.state, edit.after, frozen, basis.epoch)
+        val built = buildStage(basis, warmed, edit, frozen, freshSources)
         try {
-            checkEpoch(basis.epoch)
+            return Staged(basis.before, built.state, built.fresh, built.retired,
+                basis.epoch, edit.step, direction, basis.undoHead, basis.redoHead, basis.cursor, built.affected)
+        } catch (failure: Throwable) {
+            releaseInEpoch(built.fresh - warmed.fresh - freshSources, basis.epoch)
+            throw failure
+        }
+    }
+
+    private class Built<T : Any>(val state: State<T>, val fresh: Set<T>, val retired: Set<T>,
+                                 val affected: Map<Pair<String, String?>, Set<Long>>)
+
+    private fun buildStage(basis: Basis<T>, warmed: Warmed<T>, edit: RecordedEdits.Prepared<T>,
+                           frozen: Map<String, BrushPreset>, freshSources: Set<T>): Built<T> {
+        checkEpoch(basis.epoch, basis.publication)
+        val rendered = render(warmed.state, edit.after, frozen, basis.epoch, basis.publication, basis.protected)
+        try {
+            checkEpoch(basis.epoch, basis.publication)
             val transientWarm = warmed.fresh - rendered.state.cacheTextures()
-            return Staged(basis.before, rendered.state, warmed.fresh + rendered.fresh + freshSources,
+            return Built(rendered.state, warmed.fresh + rendered.fresh + freshSources,
                 (basis.before.cacheTextures() - rendered.state.cacheTextures()) + transientWarm,
-                basis.epoch, edit.step, direction, basis.undoHead, basis.redoHead, rendered.affected)
+                rendered.affected)
         } catch (failure: Throwable) {
             // The caller still owns warm units/bake copies; only this render's additions are ours.
-            if (generation == basis.epoch) rendered.fresh.forEach(renderer::release)
+            releaseInEpoch(rendered.fresh, basis.epoch)
             throw failure
         }
     }
 
     /** Context loss forgets names without issuing deletes on the replacement context. */
     fun forget() {
-        generation++
-        state = State(emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap())
+        checkUnbound()
+        localGeneration++
+        localState = State(sceneIdentity, emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap())
     }
 
     /** The engine/history still owns the slabs. Closing releases only this scene's derived caches. */
     fun close() {
+        checkUnbound()
         val owned = state.cacheTextures()
         forget()
-        owned.forEach(renderer::release)
+        releaseInEpoch(owned, generation)
     }
 
     private class Rendered<T : Any>(val state: State<T>, val fresh: Set<T>,
@@ -354,12 +631,13 @@ internal class RecordedScene<T : Any> private constructor(
     }
 
     private fun render(before: State<T>, after: Map<Pair<String, String?>, RecordedCel<T>>,
-                       frozen: Map<String, BrushPreset>, epoch: Long = generation): Rendered<T> {
-        checkEpoch(epoch)
+                       frozen: Map<String, BrushPreset>, epoch: Long = generation,
+                       publication: Publication<T>? = null, protected: Set<T> = emptySet()): Rendered<T> {
+        checkEpoch(epoch, publication)
         check(renderer.contextCurrent()) { "The recorded renderer context is unavailable" }
-        checkEpoch(epoch)
+        checkEpoch(epoch, publication)
         val saved = validateRender(before, after, frozen)
-        val existing = before.cacheTextures() + slabTextures(before.planes) + slabTextures(after) + history.heldTextures()
+        val existing = before.cacheTextures() + slabTextures(before.planes) + slabTextures(after) + history.heldTextures() + protected
         val fresh = LinkedHashSet<T>()
         fun own(textures: Collection<T>) {
             var valid = true
@@ -385,16 +663,17 @@ internal class RecordedScene<T : Any> private constructor(
                     val previous = before.units[address]
                     val unit = if (previous != null && renderingRecord(previous.record) == renderingRecord(record)) previous.unit
                     else {
-                        checkEpoch(epoch)
+                        checkEpoch(epoch, publication)
                         val rendered = renderer.line(address, record, BrushJson.decodeChecked(saved.getValue(record.brushId)))
-                        checkEpoch(epoch)
+                        checkGraphicsEpoch(epoch, publication != null)
                         own(rendered.tiles.values)
+                        checkEpoch(epoch, publication)
                         rendered
                     }
                     units[address] = Cached(record, unit)
                 }
             }
-            checkEpoch(epoch)
+            checkEpoch(epoch, publication)
             val footprints = units.mapValues { it.value.unit.tiles.keys.toSet() }
             val plans = after.filterKeys { it in materialized }.mapValues { RecordedTilePlan(it.value, footprints) }
             val savedKeys = after.mapValues { (plane, cel) ->
@@ -420,22 +699,23 @@ internal class RecordedScene<T : Any> private constructor(
                         }
                     } }
                     val output = if (sources.isEmpty()) null else {
-                        checkEpoch(epoch)
+                        checkEpoch(epoch, publication)
                         val rendered = renderer.look(plane, key, sources)
-                        checkEpoch(epoch)
+                        checkGraphicsEpoch(epoch, publication != null)
                         rendered
                     }
                     require(output != null || items.none { it is RecordedTilePlan.Line }) {
                         "A line-crossed tile requires a saved look, including fully transparent paint"
                     }
                     if (output == null) next.remove(key) else { own(listOf(output)); next[key] = output }
+                    checkEpoch(epoch, publication)
                 }
                 looks[plane] = next.toMap()
             }
-            checkEpoch(epoch)
-            return Rendered(State(after.toMap(), saved, units.toMap(), plans, looks.toMap(), savedKeys), fresh.toSet(), affected.toMap())
+            checkEpoch(epoch, publication)
+            return Rendered(State(sceneIdentity, after.toMap(), saved, units.toMap(), plans, looks.toMap(), savedKeys), fresh.toSet(), affected.toMap())
         } catch (failure: Throwable) {
-            if (generation == epoch) fresh.forEach(renderer::release)
+            releaseInEpoch(fresh, epoch)
             throw failure
         }
     }
@@ -468,8 +748,7 @@ internal class RecordedScene<T : Any> private constructor(
             val scene = RecordedScene(history, renderer)
             // Detach and validate before calling external context providers. A provider can
             // reenter history or mutate caller collection backing while answering readiness.
-            val undoHead = history.peekUndo()
-            val redoHead = history.peekRedo()
+            val cursor = history.snapshotCursor()
             val physical = planes.toMap()
             val looks = uploadedLooks.mapValues { it.value.toMap() }
             val keys = savedLookKeys.mapValues { it.value.toSet() }
@@ -493,10 +772,10 @@ internal class RecordedScene<T : Any> private constructor(
             require(textures.none { it in borrowed }) { "Saved looks cannot own physical source or history textures" }
             require(textures.none { it in protected }) { "Saved looks cannot own protected old or global textures" }
             check(renderer.contextCurrent()) { "The recorded renderer context changed before saved-look acceptance" }
-            check(history.peekUndo() === undoHead && history.peekRedo() === redoHead) {
+            check(history.snapshotCursor() === cursor) {
                 "Recorded history changed before saved-look acceptance"
             }
-            scene.state = State(physical, saved, emptyMap(), emptyMap(), looks, keys)
+            scene.localState = State(scene.sceneIdentity, physical, saved, emptyMap(), emptyMap(), looks, keys)
             return scene
         }
 
@@ -504,8 +783,8 @@ internal class RecordedScene<T : Any> private constructor(
         fun <T : Any> create(planes: Map<Pair<String, String?>, RecordedCel<T>>, brushes: Map<String, BrushPreset>,
                             history: UndoLog<T>, renderer: Renderer<T>): RecordedScene<T> {
             val scene = RecordedScene(history, renderer)
-            val rendered = scene.render(scene.state, planes, brushes)
-            scene.state = rendered.state
+            val rendered = scene.prepareLocal { scene.render(scene.state, planes, brushes) }
+            scene.localState = rendered.state
             return scene
         }
     }

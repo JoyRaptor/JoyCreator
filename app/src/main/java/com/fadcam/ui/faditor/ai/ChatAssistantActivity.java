@@ -1032,43 +1032,22 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         aiExecutor.execute(() -> {
             try {
-                JSONObject body = new JSONObject();
-                body.put("model", model);
-                body.put("messages", new JSONArray(conversationHistory));
-                body.put("max_tokens", REPLY_TOKENS);
-                body.put("temperature", 0.7);
-
-                Request request = new Request.Builder()
-                        .url(DEFAULT_ENDPOINT)
-                        .addHeader("Authorization", "Bearer " + apiKey)
-                        .addHeader("Content-Type", "application/json")
-                        .post(RequestBody.create(body.toString(), JSON))
-                        .build();
-
-                Response response = httpClient.newCall(request).execute();
-                String responseBody = response.body() != null ? response.body().string() : "";
-
-                if (!response.isSuccessful()) {
-                    runOnUiThread(() -> updateLastBotMessage(
-                            "API error " + response.code() + ": "
-                                    + responseBody.substring(0, Math.min(200, responseBody.length()))));
+                Completion done = streamCompletion(
+                        partial -> runOnUiThread(() -> updateLastBotMessage(shownWhileStreaming(partial))));
+                if (done.error != null) {
+                    runOnUiThread(() -> updateLastBotMessage(done.error));
                     return;
                 }
-
-                JSONObject json = new JSONObject(responseBody);
                 // A completion names the model that ACTUALLY served it, which for a router
                 // (openrouter/free, openrouter/auto) is only knowable after the fact. Recording
                 // it turns the eye indicator's prediction into an observation.
-                ModelCapabilities.noteServedModel(json.optString("model", null));
-                JSONArray choices = json.optJSONArray("choices");
-                if (choices == null || choices.length() == 0) {
+                ModelCapabilities.noteServedModel(done.servedModel);
+                if (done.text.isEmpty()) {
                     runOnUiThread(() -> updateLastBotMessage("Empty response from AI."));
                     return;
                 }
 
-                String aiText = choices.getJSONObject(0)
-                        .getJSONObject("message")
-                        .getString("content");
+                String aiText = done.text;
 
                 JSONObject aiMsg = new JSONObject();
                 aiMsg.put("role", "assistant");
@@ -1114,41 +1093,32 @@ public class ChatAssistantActivity extends AppCompatActivity {
         }
         aiExecutor.execute(() -> {
             try {
-                JSONObject body = new JSONObject();
-                body.put("model", model);
-                body.put("messages", new JSONArray(conversationHistory));
-                body.put("max_tokens", REPLY_TOKENS);
-                body.put("temperature", 0.7);
-
-                Request request = new Request.Builder()
-                        .url(DEFAULT_ENDPOINT)
-                        .addHeader("Authorization", "Bearer " + apiKey)
-                        .addHeader("Content-Type", "application/json")
-                        .post(RequestBody.create(body.toString(), JSON))
-                        .build();
-
-                Response response = httpClient.newCall(request).execute();
-                String responseBody = response.body() != null ? response.body().string() : "";
-
-                if (!response.isSuccessful()) {
-                    runOnUiThread(() -> addBotMessage("Follow-up API error " + response.code()));
+                // The follow-up gets its own bubble, opened by the first words that arrive.
+                final boolean[] opened = {false};
+                Completion done = streamCompletion(partial -> runOnUiThread(() -> {
+                    if (opened[0]) updateLastBotMessage(shownWhileStreaming(partial));
+                    else {
+                        opened[0] = true;
+                        addBotMessage(shownWhileStreaming(partial));
+                    }
+                }));
+                if (done.error != null) {
+                    runOnUiThread(() -> addBotMessage("Follow-up " + done.error));
                     return;
                 }
-
-                JSONObject json = new JSONObject(responseBody);
                 // A completion names the model that ACTUALLY served it, which for a router
                 // (openrouter/free, openrouter/auto) is only knowable after the fact. Recording
                 // it turns the eye indicator's prediction into an observation.
-                ModelCapabilities.noteServedModel(json.optString("model", null));
-                JSONArray choices = json.optJSONArray("choices");
-                if (choices == null || choices.length() == 0) {
-                    runOnUiThread(() -> addBotMessage("Done."));
+                ModelCapabilities.noteServedModel(done.servedModel);
+                if (done.text.isEmpty()) {
+                    runOnUiThread(() -> {
+                        if (opened[0]) updateLastBotMessage("Done.");
+                        else addBotMessage("Done.");
+                    });
                     return;
                 }
 
-                String aiText = choices.getJSONObject(0)
-                        .getJSONObject("message")
-                        .getString("content");
+                String aiText = done.text;
 
                 JSONObject aiMsg = new JSONObject();
                 aiMsg.put("role", "assistant");
@@ -1159,7 +1129,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 String toolResult = tryExecuteTool(aiText);
                 if (toolResult != null) {
                     final String toolMsg = toolResult;
-                    runOnUiThread(() -> addToolResultMessage(toolMsg));
+                    runOnUiThread(() -> {
+                        if (opened[0]) updateLastBotMessage(aiText);
+                        addToolResultMessage(toolMsg);
+                    });
 
                     JSONObject toolResponseMsg = new JSONObject();
                     toolResponseMsg.put("role", "user");
@@ -1169,12 +1142,101 @@ public class ChatAssistantActivity extends AppCompatActivity {
                     conversationHistory.add(toolResponseMsg);
                     continueAiConversation();
                 } else {
-                    runOnUiThread(() -> addBotMessage(aiText));
+                    runOnUiThread(() -> {
+                        if (opened[0]) updateLastBotMessage(aiText);
+                        else addBotMessage(aiText);
+                    });
                 }
             } catch (Exception e) {
                 runOnUiThread(() -> addBotMessage("Follow-up error: " + e.getMessage()));
             }
         });
+    }
+
+    // ── Streaming replies ────────────────────────────────────────────
+    // Words appear as the model writes them instead of a frozen "Thinking..." (roadmap 3.6).
+
+    private static final class Completion {
+        String text = "";
+        @Nullable String servedModel;
+        /** What to show instead of a reply, or null when it worked. */
+        @Nullable String error;
+    }
+
+    /** Text arrived so far; called on the request thread, at most every ~80 ms. */
+    private interface PartialText {
+        void onText(@NonNull String soFar);
+    }
+
+    /**
+     * One chat completion over the conversation so far, streamed (server-sent events). Returns the
+     * whole reply; {@code partial} sees it grow. Blocking: call on {@link #aiExecutor}.
+     */
+    @NonNull
+    private Completion streamCompletion(@Nullable PartialText partial) throws Exception {
+        JSONObject body = new JSONObject();
+        body.put("model", model);
+        body.put("messages", new JSONArray(conversationHistory));
+        body.put("max_tokens", REPLY_TOKENS);
+        body.put("temperature", 0.7);
+        body.put("stream", true);
+        Request request = new Request.Builder()
+                .url(DEFAULT_ENDPOINT)
+                .addHeader("Authorization", "Bearer " + apiKey)
+                .addHeader("Content-Type", "application/json")
+                .post(RequestBody.create(body.toString(), JSON))
+                .build();
+        Completion c = new Completion();
+        try (Response response = httpClient.newCall(request).execute()) {
+            if (!response.isSuccessful() || response.body() == null) {
+                String err = response.body() != null ? response.body().string() : "";
+                c.error = "API error " + response.code() + ": " + err.substring(0, Math.min(200, err.length()));
+                return c;
+            }
+            okio.BufferedSource src = response.body().source();
+            StringBuilder text = new StringBuilder();
+            long lastShown = 0;
+            String line;
+            while ((line = src.readUtf8Line()) != null) {
+                // Lines are "data: {json}", ": keep-alive" comments, or blank separators.
+                if (!line.startsWith("data:")) continue;
+                String data = line.substring(5).trim();
+                if ("[DONE]".equals(data)) break;
+                JSONObject chunk;
+                try {
+                    chunk = new JSONObject(data);
+                } catch (Exception notJson) {
+                    continue;
+                }
+                if (chunk.has("error")) {
+                    JSONObject e = chunk.optJSONObject("error");
+                    c.error = "API error: " + (e != null ? e.optString("message", "unknown") : chunk.optString("error"));
+                    return c;
+                }
+                if (c.servedModel == null && chunk.has("model")) c.servedModel = chunk.optString("model", null);
+                JSONArray choices = chunk.optJSONArray("choices");
+                if (choices == null || choices.length() == 0) continue;
+                JSONObject delta = choices.getJSONObject(0).optJSONObject("delta");
+                if (delta == null || delta.isNull("content")) continue;
+                String piece = delta.optString("content", "");
+                if (piece.isEmpty()) continue;
+                text.append(piece);
+                long now = android.os.SystemClock.uptimeMillis();
+                if (partial != null && now - lastShown >= 80) {
+                    lastShown = now;
+                    partial.onText(text.toString());
+                }
+            }
+            c.text = text.toString();
+        }
+        return c;
+    }
+
+    /** A reply that is a tool command (JSON) shows as "Working..." while it streams, not as code. */
+    @NonNull
+    private static String shownWhileStreaming(@NonNull String soFar) {
+        String t = soFar.trim();
+        return t.startsWith("{") || t.startsWith("```") ? "Working\u2026" : soFar;
     }
 
     @Nullable

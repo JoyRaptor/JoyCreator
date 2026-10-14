@@ -3,6 +3,8 @@ package com.fadcam.joyfolder.studio;
 import android.content.Context;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
+
 import com.fadcam.SharedPreferencesManager;
 import com.fadcam.joyfolder.FileKind;
 import com.fadcam.joyfolder.JoyFolder;
@@ -36,6 +38,24 @@ public final class JoyTrashBridge {
 
     private static String nameOf(TrashItem item) {
         return item.getTrashFileName().substring(PREFIX.length());
+    }
+
+    /**
+     * A link the Trash screen can draw a picture or video frame from, or null. Built from the
+     * folder's own path (phone storage and SD cards name documents by path), so no folder I/O.
+     */
+    @Nullable
+    public static android.net.Uri previewUri(Context context, TrashItem item) {
+        android.net.Uri tree = JoyFolderHome.treeUri(context);
+        if (tree == null || !isFolderItem(item)
+                || !"com.android.externalstorage.documents".equals(tree.getAuthority())) return null;
+        try {
+            String docId = android.provider.DocumentsContract.getTreeDocumentId(tree)
+                    + "/" + JoyFolder.TRASH + "/" + nameOf(item);
+            return android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, docId);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /** Folder Trash items as Trash-screen items, newest first. Empty when no folder is reachable. */

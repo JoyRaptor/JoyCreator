@@ -289,6 +289,23 @@ Cloud: none of ours. Because the folder is yours, any sync app backs it up.
 | Setup screen, Studio-list banner, Storage settings row | `app/.../joyfolder/studio/` | watcher BUILD SUCCESSFUL |
 | Project delete now removes its subfolders (was leaking media forever) | `ProjectStorage.delete` | watcher BUILD SUCCESSFUL |
 
+**Device-verified on the Note 9 (2026-10-13 20:24–20:45):**
+
+| Check | Result |
+|---|---|
+| Storage settings row; setup screen; picker opens at the top of storage; "Joy Creator" made there | ✅ |
+| Consent shows the real size (103 MB) and free space; "Copy them too" | ✅ (after fixing a stuck-button bug found here) |
+| 9 projects mirrored as `<name>.joyproject` with readable media names; identical files stored once | ✅ 21 files / 64 MB (first run, before content dedupe, made 35 files / 103 MB) |
+| References inside the folder copy are `joy:<file>`; the user's own gallery files stay as their originals | ✅ |
+| Folder renamed away → amber "unavailable, tap to reconnect"; reconnect via the picker | ✅ (after adding a real existence check found here) |
+| "Bring back projects": a copy with a new id restored; opened in the editor with video, filmstrip, waveform, sprites, images and font all loading from the folder | ✅ |
+| An edit saves → folder copy rewritten ~4 s later, still `joy:` paths | ✅ |
+| Delete → app copy fully removed (subfolders too); folder copy in `.joycreator/Trash` as "2026-10-13 20.44 Restore test.joyproject" | ✅ |
+| New delete-dialog wording ("kept in Trash for 30 days") | compile-verified only |
+
+Test leftovers on the Note 9: `/sdcard/Joy Creator (first test)` (the pre-dedupe run; safe to delete) and the
+project "Restore video test" (a copy of ZA_CONTROL; safe to delete).
+
 Not yet: recordings and exports writing straight into the folder (the Records tab reads the recorder's own folder
 layout, so this needs its own careful step); the Consolidate dialog and gallery filters (UI belongs with the Lobby
 polish); share-in (lands after the folder is proven on the phone).

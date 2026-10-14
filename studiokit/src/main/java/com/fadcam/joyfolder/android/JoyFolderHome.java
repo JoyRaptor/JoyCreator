@@ -63,10 +63,20 @@ public final class JoyFolderHome {
     public static boolean isReachable(Context c) {
         Uri tree = treeUri(c);
         if (tree == null) return false;
+        boolean granted = false;
         for (UriPermission p : c.getContentResolver().getPersistedUriPermissions()) {
-            if (p.getUri().equals(tree) && p.isReadPermission() && p.isWritePermission()) return true;
+            if (p.getUri().equals(tree) && p.isReadPermission() && p.isWritePermission()) granted = true;
         }
-        return false;
+        if (!granted) return false;
+        // The permission outlives the folder: an SD card taken out, or the folder renamed or deleted
+        // in a file manager. Ask for the folder itself. One small query.
+        try (android.database.Cursor cur = c.getContentResolver().query(
+                DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree)),
+                new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID}, null, null, null)) {
+            return cur != null && cur.moveToFirst();
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     /**

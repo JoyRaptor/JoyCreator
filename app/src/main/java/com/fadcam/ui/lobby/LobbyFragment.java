@@ -406,10 +406,19 @@ public class LobbyFragment extends BaseFragment {
         paintMarquee();
         paintHero();
         loadRecentsAsync();
+        syncDrawingsOnce();
+        // A drawing just left is still saving: repaint when its picture lands.
+        cc.joycreator.joybrush.android.library.DrawingLibrary.setOnChange(() -> ui.post(() -> {
+            if (!isAdded()) return;
+            reloadDrawings();
+            paintHero();
+            loadRecentsAsync();
+        }));
     }
 
     @Override
     public void onPause() {
+        cc.joycreator.joybrush.android.library.DrawingLibrary.setOnChange(null);
         unregisterExportWatch();
         super.onPause();
     }
@@ -1001,12 +1010,21 @@ public class LobbyFragment extends BaseFragment {
             // project's, and the empty state is honest too when there is none.
             // Room 4 (Viz Lab) has no room yet, and room 5 (Joy Brush) is not inside a project at all: a drawing has its
             // own store, so putting "IN <LAST VIDEO>" under it would be a lie (JB-0.09 Decision 4).
-            hasContent = !projects.isEmpty() && rooms.indexOf(r) != 4 && rooms.indexOf(r) != 5;
+            hasContent = !projects.isEmpty() && rooms.indexOf(r) != 4 && rooms.indexOf(r) != ROOM_JOYBRUSH;
             name = hasContent ? projects.get(0).name : "";
             sub  = hasContent ? "IN " + projects.get(0).name.toUpperCase(Locale.US) : "";
         }
+        // Joy Brush: the last drawing, with its picture.
+        cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing lastDrawing = null;
+        if (rooms.indexOf(r) == ROOM_JOYBRUSH && !drawings.isEmpty()) {
+            lastDrawing = drawings.get(0);
+            hasContent = true;
+            name = lastDrawing.name;
+            sub = drawings.size() == 1 ? "DRAWING \u00b7 " + ago(lastDrawing.modified).toUpperCase(Locale.US)
+                    : drawings.size() + " DRAWINGS \u00b7 " + ago(lastDrawing.modified).toUpperCase(Locale.US);
+        }
 
-        heroTag.setText(r.tag);
+        heroTag.setText(lastDrawing != null ? "LAST DRAWING" : r.tag);
         heroTag.setBackground(pill(Studio.alpha(Studio.ON_GO, 0x8C), dp(999)));
         heroTag.setVisibility(hasContent ? View.VISIBLE : View.GONE);
 
@@ -1036,7 +1054,9 @@ public class LobbyFragment extends BaseFragment {
         heroArt.setTag(R.id.lobby_thumb_tag, null);
         if (hasContent) {
             heroArt.setBackgroundColor(Studio.SURFACE);
-            if (!projects.isEmpty() && r.tab != TAB_CAPTURE) {
+            if (lastDrawing != null) {
+                loadThumbInto(heroArt, lastDrawing.thumbPath);
+            } else if (!projects.isEmpty() && r.tab != TAB_CAPTURE) {
                 loadThumbInto(heroArt, projects.get(0).videoUri);
             }
         } else {
@@ -1060,7 +1080,8 @@ public class LobbyFragment extends BaseFragment {
         heroSub.setText(sub);
         heroSub.setVisibility(hasContent ? View.VISIBLE : View.INVISIBLE);
 
-        heroAction.setText(hasContent || rooms.indexOf(r) == 5 ? r.action : getString(R.string.lobby_act_start));
+        heroAction.setText(lastDrawing != null ? getString(R.string.lobby_act_carry_on)
+                : hasContent || rooms.indexOf(r) == ROOM_JOYBRUSH ? r.action : getString(R.string.lobby_act_start));
         heroAction.setTextColor(r.onGrad);
         heroAction.setBackground(pillGradient(r.gradA, r.gradB, dp(999)));
         heroAction.setOnClickListener(v -> enterRoom());
@@ -1075,6 +1096,7 @@ public class LobbyFragment extends BaseFragment {
         // state. Horizontal drags on it are handed to the strip, so the two behave as one
         // control; a tap still enters, because a tap was never ambiguous.
         hero.setOnTouchListener(heroSwipe());
+        if (recentsRow != null && drawingRowShown != (rooms.indexOf(r) == ROOM_JOYBRUSH)) paintRecents();
         // Motion.press is NOT called on the hero, and must not be: it installs its own
         // OnTouchListener, and a View has room for exactly one. It was being set five lines
         // after heroSwipe() and silently replacing it, which is why dragging the hero kept
@@ -1093,6 +1115,7 @@ public class LobbyFragment extends BaseFragment {
      */
     private void startNewInRoom() {
         Room r = room();
+        if (rooms.indexOf(r) == ROOM_JOYBRUSH) { openDrawing(null); return; }
         if (r.tab == TAB_CAPTURE) { routeTab(TAB_CAPTURE); return; }
         routeTab(TAB_STUDIO);
     }
@@ -1122,9 +1145,9 @@ public class LobbyFragment extends BaseFragment {
 
         String projectId = projects.isEmpty() ? null : projects.get(0).id;
         int idx = rooms.indexOf(r);
-        if (idx == 5) {                                              // Joy Brush: one screen, no project, no extras
+        if (idx == ROOM_JOYBRUSH) {                                  // Joy Brush: the last drawing, or a new one
             try {
-                startActivity(new Intent(requireContext(), cc.joycreator.joybrush.android.JoyBrushActivity.class));
+                openDrawing(cc.joycreator.joybrush.android.library.DrawingLibrary.lastOpened(requireContext()));
                 return;
             } catch (Exception e) {
                 FLog.w("Lobby", "enterRoom failed for " + r.title, e);
@@ -1198,9 +1221,34 @@ public class LobbyFragment extends BaseFragment {
      * the order you touched them. That is what makes it fast, and it is also what makes it
      * unreadable without a tell, which is what the corner cut is for.
      */
+    /** Whether the row is showing drawings (the Joy Brush room) rather than the mixed recents. */
+    private boolean drawingRowShown;
+
     private void paintRecents() {
         if (recentsRow == null) return;
         recentsRow.removeAllViews();
+        drawingRowShown = !rooms.isEmpty() && rooms.indexOf(room()) == ROOM_JOYBRUSH;
+        View door = getView() == null ? null : getView().findViewById(R.id.lobby_library_door);
+        TextView label = getView() == null ? null : getView().findViewById(R.id.lobby_library_label);
+        if (drawingRowShown) {
+            if (label != null) label.setText("Drawings");
+            if (door != null) door.setOnClickListener(b -> openAllDrawings());
+            libraryCount.setText(String.format(Locale.US, "%d DRAWING%s", drawings.size(), drawings.size() == 1 ? "" : "S"));
+            int jbA = rooms.get(ROOM_JOYBRUSH).gradA, jbB = rooms.get(ROOM_JOYBRUSH).gradB;
+            recentsRow.addView(newDrawingCard(jbA, jbB));
+            int n = Math.min(drawings.size(), 10);
+            for (int i = 0; i < n; i++) {
+                cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing d = drawings.get(i);
+                Recent item = new Recent(d.name, "DRAWING", d.thumbPath, d.modified, jbA, jbB, null);
+                item.drawingFile = d.file;
+                View card = recentCard(item);
+                recentsRow.addView(card);
+                Motion.enter(card, i + 1);
+            }
+            return;
+        }
+        if (label != null) label.setText(R.string.lobby_library);
+        if (door != null) door.setOnClickListener(b -> routeTab(TAB_LIBRARY));
 
         if (recents.isEmpty()) {
             TextView none = new TextView(requireContext());
@@ -1222,6 +1270,28 @@ public class LobbyFragment extends BaseFragment {
             recentsRow.addView(card);
             Motion.enter(card, i);
         }
+    }
+
+    /** "+ New drawing", first in the Joy Brush row, in the room's own gradient. */
+    private View newDrawingCard(int gradA, int gradB) {
+        FrameLayout card = new FrameLayout(requireContext());
+        card.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{gradA, gradB}));
+        ((GradientDrawable) card.getBackground()).setCornerRadius(dp(12));
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(dp(RECENT_CARD_DP), dp(RECENT_THUMB_DP));
+        clp.setMarginEnd(dp(9));
+        card.setLayoutParams(clp);
+        TextView plus = new TextView(requireContext());
+        plus.setText("+ New");
+        plus.setTextColor(Color.WHITE);
+        plus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
+        Type.body(plus, Type.SEMIBOLD);
+        plus.setGravity(Gravity.CENTER);
+        card.addView(plus, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        card.setContentDescription("New drawing");
+        if (android.os.Build.VERSION.SDK_INT >= 26) card.setTooltipText("New drawing");
+        card.setOnClickListener(v -> openDrawing(null));
+        Motion.press(card);
+        return card;
     }
 
     private View recentCard(Recent item) {
@@ -1285,6 +1355,7 @@ public class LobbyFragment extends BaseFragment {
         card.setContentDescription(getString(R.string.lobby_a11y_recent,
                 item.name, item.kindLabel, ago(item.when)));
         card.setOnClickListener(v -> {
+            if (item.drawingFile != null) { openDrawing(item.drawingFile); return; }
             if (item.projectId != null) { openProject(item.projectId); return; }
             // A recording is not a project: opening it in the editor would silently CREATE
             // one. Sending the user to the Library is the honest action until "start a
@@ -1310,6 +1381,8 @@ public class LobbyFragment extends BaseFragment {
         final long when;
         final int gradA, gradB;
         @Nullable final String projectId;
+        /** A Joy Brush drawing's file, when this card is one. */
+        @Nullable String drawingFile;
 
         Recent(String name, String kindLabel, String thumbUri, long when,
                int gradA, int gradB, @Nullable String projectId) {
@@ -1344,6 +1417,15 @@ public class LobbyFragment extends BaseFragment {
         for (ProjectStorage.ProjectSummary p : projects) {
             immediate.add(new Recent(p.name, "PROJECT", p.videoUri, p.lastModified,
                     G_STUDIO_A, G_STUDIO_B, p.id));
+        }
+        if (rooms.size() > ROOM_JOYBRUSH) {
+            Room jb = rooms.get(ROOM_JOYBRUSH);
+            for (cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing d : drawings) {
+                Recent item = new Recent(d.name, "DRAWING", d.thumbPath, d.modified, jb.gradA, jb.gradB, null);
+                item.drawingFile = d.file;
+                immediate.add(item);
+            }
+            java.util.Collections.sort(immediate, (x, y) -> Long.compare(y.when, x.when));
         }
         recents = immediate;
         paintRecents();
@@ -1853,6 +1935,70 @@ public class LobbyFragment extends BaseFragment {
             FLog.w("Lobby", "listProjects failed", e);
             projects = new ArrayList<>();
         }
+        reloadDrawings();
+    }
+
+    // ── Joy Brush drawings ──────────────────────────────────────────────────
+    // The owner, 2026-10-14: the lobby "doesn't show any previews of your most recent work, or the
+    // ability to organize or navigate files or even create new ones." The Joy Brush room now shows
+    // the last drawing (its picture, Carry on, New), its row is the drawings, and the row's door
+    // opens every drawing (DrawingsActivity: open, rename, delete to Trash).
+
+    /** Read once per resume: paintHero runs on every marquee tick and must not touch the disk. */
+    private List<cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing> drawings = new ArrayList<>();
+
+    private static final int ROOM_JOYBRUSH = 5;
+
+    private void reloadDrawings() {
+        try {
+            drawings = new ArrayList<>(cc.joycreator.joybrush.android.library.DrawingLibrary.list(requireContext()));
+            // A thumbnail is redrawn in place as the drawing changes: forget the old picture.
+            for (cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing d : drawings) {
+                if (d.thumbPath != null) THUMBS.remove(d.thumbPath);
+            }
+        } catch (Exception e) {
+            FLog.w("Lobby", "drawing list failed", e);
+            drawings = new ArrayList<>();
+        }
+    }
+
+    /** Drawings in the Joy Creator folder the app doesn't have yet (a reinstall, Trash): once per visit. */
+    private boolean drawingsSynced;
+
+    private void syncDrawingsOnce() {
+        if (drawingsSynced) return;
+        drawingsSynced = true;
+        final android.content.Context app = requireContext().getApplicationContext();
+        final boolean folder = com.fadcam.joyfolder.android.JoyFolderHome.isChosen(app);
+        com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+            int added = 0;
+            try {
+                if (folder) added = cc.joycreator.joybrush.android.library.DrawingLibrary.syncFromFolder(app);
+                added += cc.joycreator.joybrush.android.library.DrawingLibrary.fillMissingThumbnails(app);
+            } catch (Exception e) {
+                FLog.w("Lobby", "drawing sync failed", e);
+            }
+            if (added > 0) ui.post(() -> {
+                if (!isAdded()) return;
+                reloadDrawings();
+                paintHero();
+                loadRecentsAsync();
+            });
+        });
+    }
+
+    private void openDrawing(@Nullable String file) {
+        android.content.Context c = requireContext();
+        String f = file != null ? file : cc.joycreator.joybrush.android.library.DrawingLibrary.create(c);
+        if (f == null) {
+            android.widget.Toast.makeText(c, "This phone has nowhere to keep a drawing.", android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
+        startActivity(cc.joycreator.joybrush.android.library.DrawingLibrary.openIntent(c, f));
+    }
+
+    private void openAllDrawings() {
+        startActivity(new Intent(requireContext(), cc.joycreator.joybrush.android.library.DrawingsActivity.class));
     }
 
     private void openProject(String id) {
@@ -1917,6 +2063,8 @@ public class LobbyFragment extends BaseFragment {
                 Uri u = Uri.parse(uriString);
                 String path = u.getPath();
                 if (u.getScheme() == null && new File(uriString).exists()) {
+                    // A drawing's own thumbnail is already small: full size, or the hero blurs.
+                    if (new File(uriString).length() < 1_500_000L) o.inSampleSize = 1;
                     return android.graphics.BitmapFactory.decodeFile(uriString, o);
                 }
                 if (path != null && new File(path).exists()) {

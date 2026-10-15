@@ -89,24 +89,53 @@ export function stickMaterial(stick) {
 
 function smoothstep(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
+// The app's response curve (core ResponseSpec / ResponseCurve): a cubic Bezier from (0, 0) to (1, 1) through two handles
+// [x1, y1, x2, y2]. A missing curve is the straight line: the pencil as it was.
+export const LINEAR_CURVE = [1 / 3, 1 / 3, 2 / 3, 2 / 3];
+export function curveEval(h, x) {
+  if (!h || h.length !== 4) return x;
+  const x1 = Math.min(1, Math.max(0, h[0])), y1 = h[1], x2 = Math.min(1, Math.max(0, h[2])), y2 = h[3];
+  const bez = (a, b, t) => { const u = 1 - t; return 3 * u * u * t * a + 3 * u * t * t * b + t * t * t; };
+  const target = Math.min(1, Math.max(0, x));
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (bez(x1, x2, mid) < target) lo = mid; else hi = mid; }
+  return Math.min(1, Math.max(0, bez(y1, y2, (lo + hi) / 2)));
+}
+
 // The contact for one pen sample: how hard at the tip (D, mm of squeeze), the zone sizes (mm) and how much
 // of the squeeze each zone carries (weights sum to 1), plus the extents of the footprint.
+//
+// Four shaping curves (the owner, 2026-10-15), each the straight line unless the stick says otherwise:
+//   sizeCurve  — pressure → how far the point has grown (upright size);
+//   darkCurve  — pressure → how hard it presses into the tooth (upright darkness). A sharp point cuts in and
+//                darkens early while it stays small: the two need not rise together;
+//   sideCurve  — tilt → how far the side has come down;
+//   pointCurve — tilt → how far the hard point has given way. Bent below the line, the point holds on while the
+//                side comes in: more overlap, a longer ramp into the tilt.
 export function stickContact(stick, tilt, pressure, paper, press = PRESS, zones = ZONES) {
   const P = Math.max(0, Math.min(1, pressure));
   if (P <= 0) return null;
   const t = Math.max(0, Math.min(1, tilt / (Math.PI / 2)));
-  const s1 = smoothstep(zones.side1From, zones.side1Full, t);
-  const s2 = smoothstep(zones.side2From, zones.side2Full, t);
-  // Near flat and lightly held, the side lies down evenly and the tip no longer dominates ("if it is an
-  // even pressure or the tilt is close to flat, then you won't have the hard edge at the tip").
-  const even = smoothstep(zones.evenFrom, 1.0, t) * (1 - 0.6 * P);
-  const R0 = stick.tipR + (stick.tipMax - stick.tipR) * Math.pow(P, 0.8);
+  const ts = curveEval(stick.sideCurve, t), tp = curveEval(stick.pointCurve, t);
+  // The zones at a tilt: how far each side is down, and the near-flat evening (light and flat: no hard tip edge,
+  // "if it is an even pressure or the tilt is close to flat, then you won't have the hard edge at the tip").
+  const zonesAt = u => {
+    const a = smoothstep(zones.side1From, zones.side1Full, u), b = smoothstep(zones.side2From, zones.side2Full, u);
+    const ev = smoothstep(zones.evenFrom, 1.0, u) * (1 - 0.6 * P);
+    return { s1: a, s2: b, even: ev, w0: 1 - 0.8 * ev, w1: 0.9 * a * (1 - 0.35 * b), w2: 0.8 * b };
+  };
+  const side = zonesAt(ts), pt = ts === tp ? side : zonesAt(tp);
+  const { s1, s2, even } = side;
+  const R0 = stick.tipR + (stick.tipMax - stick.tipR) * Math.pow(curveEval(stick.sizeCurve, P), 0.8);
   const L1 = R0 + (stick.side1 - R0) * s1;
   const L2 = L1 + (stick.side2 - L1) * s2;
-  let w0 = 1 - 0.8 * even, w1 = 0.9 * s1 * (1 - 0.35 * s2), w2 = 0.8 * s2;
-  const sum = w0 + w1 + w2;
-  w0 /= sum; w1 /= sum; w2 /= sum;
-  const D = paper.toothMm * press.depth * Math.pow(P, press.gamma) / (1 + press.sideEase * (0.4 * s1 + s2));
+  // The point's share comes from the point's tilt, the side's split of the rest from the side's: with both curves
+  // straight this is exactly w / Σw. A point cannot give way where no side is down to take the pressure.
+  const share0 = pt.w0 / (pt.w0 + pt.w1 + pt.w2), sideSum = side.w1 + side.w2;
+  let w0 = 1, w1 = 0, w2 = 0;
+  if (sideSum > 1e-9) { w0 = share0; w1 = (1 - share0) * side.w1 / sideSum; w2 = (1 - share0) * side.w2 / sideSum; }
+  else if (side.w0 > 0) w0 = 1;
+  const D = paper.toothMm * press.depth * Math.pow(curveEval(stick.darkCurve, P), press.gamma) / (1 + press.sideEase * (0.4 * s1 + s2));
   const sideOn = w1 + w2 > 0.005;
   // A blended point is a soft bell that reaches a little past R0: the footprint grows to hold it.
   const blend = stick.blend ?? 0, reach = R0 * (1 + SHAPE.bellReach * blend);

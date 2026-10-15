@@ -6,7 +6,7 @@
 // fixed pen readings sent through the same pipeline a real pen is: the pressure and tilt curves, then the tilt reach.
 import { MediaEngine } from './engine.js';
 import { loadCatalogue, loadSurface, DOC_PX_PER_MM } from './paper.js';
-import { STICKS, DryStroke, stickMaterial, PRESS, ZONES, SHAPE } from './stick.js';
+import { STICKS, DryStroke, stickMaterial, PRESS, ZONES, SHAPE, curveEval, LINEAR_CURVE } from './stick.js';
 import { SplineFeeder } from './spline.js';
 
 const qs = new URLSearchParams(location.search);
@@ -15,7 +15,23 @@ const ASSETS = qs.get('assets') || '../../assets/paper/';
 const MM = DOC_PX_PER_MM;
 const SHEET = [1600, 1900];             // doc px: 80 × 95 mm
 const STORE = 'jb.pencilTuner.v1';
-const LINEAR = [1 / 3, 1 / 3, 2 / 3, 2 / 3];
+const LINEAR = LINEAR_CURVE;
+const STICK_CURVES = ['sizeCurve', 'darkCurve', 'sideCurve', 'pointCurve'];
+// Whole tuner settings saved as a starting point (the owner's own, pasted back).
+const PRESETS = {
+  'Proto 3': { base: 'Proto 2', settings: {
+    stick: { soft: 0.53 },
+    press: { depth: 1.5, sideEase: 0.46 },
+    mat: { capMm: 0.006, plateau: 2.3, crushStart: 0.58, crushMax: 0.45, clump: 0.46, pileLo: 0.11, pileHi: 0.44, dirStrength: 1.31,
+           abrasion: 1.39, leadSoft: 1.98, dustRate: 2, smear: 1.5, smearMm: 1.6, crushRate: 0.56, sheen: 1.12 },
+    response: { pressure: [0.754175, 0.240418, 0.551931, 1], tilt: [0.627869, 0.222495, 0.555964, 0.950523] },
+    pen: { tiltReach: 61 },
+    paper: 'cardboard',
+  } },
+};
+// Android reports the S Pen's lean turned half a turn (the owner, 2026-10-15: "x and y of the tilt are flipped …
+// a graphite spray airbrush"). A desktop pen tablet reports it the right way round.
+const ANDROID = /Android/i.test(navigator.userAgent);
 
 const canvas = document.getElementById('c');
 const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
@@ -31,6 +47,7 @@ const MAT_ABS = ['capMm', 'transferExp', 'plateau', 'crushStart', 'crushMax', 'c
 const MAT_MUL = ['abrasion', 'leadSoft', 'dustRate', 'smear', 'smearMm', 'crushRate', 'sheen'];
 
 function defaultsFor(base) {
+  if (PRESETS[base]) { const p = PRESETS[base]; const d = defaultsFor(p.base); d.base = base; return merge(d, structuredClone(p.settings)); }
   const st = STICKS[base];
   const m = stickMaterial({ ...st, build: 1 });
   const mat = {};
@@ -39,13 +56,15 @@ function defaultsFor(base) {
   return {
     base, size: 1,
     stick: { tipR: st.tipR, tipMax: st.tipMax, side1: st.side1, side2: st.side2, face: st.face, soft: st.soft, rInf: st.rInf,
-             blend: st.blend ?? 0, build: st.build ?? 1 },
+             blend: st.blend ?? 0, build: st.build ?? 1,
+             sizeCurve: [...(st.sizeCurve || LINEAR)], darkCurve: [...(st.darkCurve || LINEAR)],
+             sideCurve: [...(st.sideCurve || LINEAR)], pointCurve: [...(st.pointCurve || LINEAR)] },
     shape: { ...SHAPE0 },
     zones: { ...ZONES0 },
     press: { depth: PRESS0.depth, gamma: PRESS0.gamma, sideEase: PRESS0.sideEase, toothStiffness: PRESS0.toothStiffness, padSoft: PRESS0.padSoft },
     mat,
     response: { pressure: [...LINEAR], tilt: [...LINEAR] },
-    pen: { tiltReach: 68, mousePressure: 0.5, mouseTilt: 0 },
+    pen: { tiltReach: 68, mousePressure: 0.5, mouseTilt: 0, leanFlip: ANDROID ? 1 : 0 },
     paper: 'drawing_tooth',
   };
 }
@@ -110,6 +129,15 @@ const GROUPS = [
     ['mat.sheen', 'Graphite shine', 'The silvery shine of heavy graphite (× softness).', 0, 3, 0.02, '×'],
   ]],
 ];
+const box = (id, title, label, hint) =>
+  `<div class="curve"><canvas id="curve${id}" title="${hint}"></canvas><div class="cap"><span>${label}</span><span id="curve${id}read"></span></div></div>`;
+const CURVE_BOXES = {
+  'Point (pen upright)': `<p class="note">Upright, how the point grows and how dark it gets as you press, each on its own curve. A sharp point cuts into the tooth and darkens early while it stays small: lift the darkness curve and keep the size curve low. Double-tap a box to make it straight.</p>
+    <div class="curves">${box('S', 'size', 'Size with pressure', 'Across: pressure. Up: how far the point has grown. Drag the handles; double-tap to reset')}${box('D', 'dark', 'Darkness with pressure', 'Across: pressure. Up: how hard the point presses into the tooth. Drag the handles; double-tap to reset')}</div>`,
+  'When tilt kicks in': `<p class="note">As you tilt, the soft side comes in and the hard point gives way. Bend the point curve below the line and the point holds on longer while the side comes in: more overlap, a longer ramp into the tilt.</p>
+    <div class="curves">${box('I', 'side', 'Side comes in', 'Across: tilt. Up: how far the side has come down. Drag the handles; double-tap to reset')}${box('O', 'point', 'Point gives way', 'Across: tilt. Up: how far the hard point has given way. Drag the handles; double-tap to reset')}</div>`,
+};
+
 const PEN = [
   ['pen.tiltReach', 'Pen tilt that counts as flat', 'The S Pen tops out near 70°: that much tilt counts as lying on its side.', 30, 90, 1, '°'],
   ['pen.mousePressure', 'Mouse pressure', 'For a mouse or a pen without pressure.', 0.01, 1, 0.01, ''],
@@ -158,15 +186,6 @@ function liveMaterial(stick) {
 }
 
 // ---- the pen pipeline: what a real pen goes through, and the test strokes too ----
-function curveEval(h, x) {
-  if (!h || h.length !== 4) return x;
-  const [x1, y1, x2, y2] = [Math.min(1, Math.max(0, h[0])), h[1], Math.min(1, Math.max(0, h[2])), h[3]];
-  const bez = (a, b, t) => { const u = 1 - t; return 3 * u * u * t * a + 3 * u * t * t * b + t * t * t; };
-  let lo = 0, hi = 1;
-  const target = Math.min(1, Math.max(0, x));
-  for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (bez(x1, x2, mid) < target) lo = mid; else hi = mid; }
-  return Math.min(1, Math.max(0, bez(y1, y2, (lo + hi) / 2)));
-}
 /** A pen reading (pressure 0..1, tilt in degrees from upright) to what the pencil feels: curves, then the tilt reach. */
 function felt(p, tiltDeg) {
   const pp = curveEval(cfg.response.pressure, p);
@@ -380,6 +399,7 @@ function penReading(e) {
       const tx = Math.tan((e.tiltX || 0) * Math.PI / 180), ty = Math.tan((e.tiltY || 0) * Math.PI / 180);
       tilt = Math.atan(Math.hypot(tx, ty)); az = Math.atan2(-ty, tx);
     }
+    if (cfg.pen.leanFlip) az += Math.PI;
     return { p, tiltDeg: tilt * 180 / Math.PI, az };
   }
   return { p: cfg.pen.mousePressure, tiltDeg: cfg.pen.mouseTilt, az: AZ, mouse: true };
@@ -393,6 +413,7 @@ function feed(e) {
   state.stroke.feeder.add({ x, y, p: f.p, tilt: f.tilt, az: pr.az, t: e.timeStamp });
   readout();
   markCurves();
+  drawCompass();
 }
 function hover(e) {
   if (e.pointerType !== 'pen') return;
@@ -400,6 +421,23 @@ function hover(e) {
   state.raw = { ...pr, felt: felt(pr.p, pr.tiltDeg) };
   readout();
   markCurves();
+  drawCompass();
+}
+/** Where the tuner thinks the pen's barrel points, seen from above the screen: it should point the way the pen leans. */
+function drawCompass() {
+  const c = ui('compass'), dpr = devicePixelRatio, w = Math.round(c.clientWidth * dpr);
+  if (!w) return;
+  if (c.width !== w) { c.width = w; c.height = w; }
+  const g = c.getContext('2d'), r = w / 2;
+  g.clearRect(0, 0, w, w);
+  g.fillStyle = 'rgba(24,24,27,0.86)'; g.beginPath(); g.arc(r, r, r - 1, 0, Math.PI * 2); g.fill();
+  const raw = state.raw;
+  if (!raw || raw.mouse || raw.noTilt) { g.fillStyle = '#a1a1aa'; g.beginPath(); g.arc(r, r, 3 * dpr, 0, Math.PI * 2); g.fill(); return; }
+  const k = Math.min(1, raw.tiltDeg / Math.max(20, cfg.pen.tiltReach));
+  const dx = Math.cos(raw.az) * (r - 5 * dpr) * k, dy = -Math.sin(raw.az) * (r - 5 * dpr) * k;   // doc y up → screen y down
+  g.strokeStyle = '#22d3ee'; g.lineWidth = 3 * dpr; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(r, r); g.lineTo(r + dx, r + dy); g.stroke();
+  g.fillStyle = '#e8e6e3'; g.beginPath(); g.arc(r, r, 3 * dpr, 0, Math.PI * 2); g.fill();
 }
 function readout() {
   const el = ui('readout');
@@ -439,7 +477,12 @@ function showRow(path) {
   r.val.textContent = fmt(path, v, r.unit);
   r.row.classList.toggle('changed', Math.abs(v - get(baseCfg, path)) > 1e-9);
 }
-function showAll() { for (const p of rows.keys()) showRow(p); drawCurve('P'); drawCurve('T'); ui('paper').value = cfg.paper; ui('base').value = cfg.base; }
+function showAll() {
+  for (const p of rows.keys()) showRow(p);
+  for (const k of Object.keys(CURVES)) drawCurve(k);
+  ui('paper').value = cfg.paper; ui('base').value = cfg.base;
+  if (ui('leanflip')) ui('leanflip').checked = !!cfg.pen.leanFlip;
+}
 
 function buildPanel() {
   const groups = ui('groups');
@@ -448,10 +491,12 @@ function buildPanel() {
     d.open = open;
     d.innerHTML = `<summary>${title}</summary>`;
     for (const k of knobs) makeRow(d, k);
+    if (CURVE_BOXES[title]) d.insertAdjacentHTML('beforeend', CURVE_BOXES[title]);
     groups.append(d);
   }
   for (const k of PEN) makeRow(ui('pengroup'), k);
   const base = ui('base');
+  for (const k of Object.keys(PRESETS)) base.add(new Option(k + ' (your settings)', k));
   for (const k of Object.keys(STICKS)) base.add(new Option(k, k));
   base.onchange = () => {
     const keepPaper = cfg.paper;
@@ -496,7 +541,7 @@ function buildPanel() {
     try {
       const got = JSON.parse(ui('in').value);
       if (got.format !== 'JoyBrush pencil tuner settings') throw new Error('this is not a pencil tuner settings block');
-      if (!STICKS[got.base]) throw new Error(`no pencil called "${got.base}" here`);
+      if (!STICKS[got.base] && !PRESETS[got.base]) throw new Error(`no pencil called "${got.base}" here`);
       baseCfg = defaultsFor(got.base);
       cfg = merge(structuredClone(baseCfg), got.settings || {});
       showAll();
@@ -505,8 +550,9 @@ function buildPanel() {
       msg.textContent = 'Loaded.';
     } catch (err) { msg.textContent = 'Could not load: ' + err.message; }
   };
-  hookCurve('P', 'pressure');
-  hookCurve('T', 'tilt');
+  for (const k of Object.keys(CURVES)) hookCurve(k);
+  ui('leanflip').checked = !!cfg.pen.leanFlip;
+  ui('leanflip').onchange = () => { cfg.pen.leanFlip = ui('leanflip').checked ? 1 : 0; save(); writeOut(); drawCompass(); };
 }
 
 /** Only the keys the defaults have, with numbers that are numbers: a hand-edited block cannot plant anything else. */
@@ -549,23 +595,35 @@ function save() { try { localStorage.setItem(STORE, JSON.stringify(cfg)); } catc
 function restore() {
   try {
     const got = JSON.parse(localStorage.getItem(STORE) || 'null');
-    if (got && STICKS[got.base] && !qs.has('fresh')) { baseCfg = defaultsFor(got.base); cfg = merge(structuredClone(baseCfg), got); return; }
+    if (got && (STICKS[got.base] || PRESETS[got.base]) && !qs.has('fresh')) { baseCfg = defaultsFor(got.base); cfg = merge(structuredClone(baseCfg), got); return; }
   } catch { /* fall through to the default */ }
-  baseCfg = defaultsFor(STICKS['Proto 2'] ? 'Proto 2' : 'Proto');
+  baseCfg = defaultsFor('Proto 3');
   cfg = structuredClone(baseCfg);
 }
 
 // ---- the curve boxes (the app's ResponseSpec: [x1, y1, x2, y2], a cubic from (0,0) to (1,1)) ----
-const curveMark = { P: null, T: null };
+// Every curve box: which canvas, which setting, and where the live pen sits on it (x in, y out).
+const CURVES = {
+  P: { path: 'response.pressure', mark: r => r.p },
+  T: { path: 'response.tilt', mark: r => Math.min(1, r.tiltDeg / 90) },
+  S: { path: 'stick.sizeCurve', mark: r => r.felt.p },
+  D: { path: 'stick.darkCurve', mark: r => r.felt.p },
+  I: { path: 'stick.sideCurve', mark: r => r.felt.tilt / (Math.PI / 2) },
+  O: { path: 'stick.pointCurve', mark: r => r.felt.tilt / (Math.PI / 2) },
+};
+const curveMark = {};
 function markCurves() {
   const r = state.raw;
-  curveMark.P = r ? [r.p, curveEval(cfg.response.pressure, r.p)] : null;
-  curveMark.T = r ? [Math.min(1, r.tiltDeg / 90), curveEval(cfg.response.tilt, Math.min(1, r.tiltDeg / 90))] : null;
-  drawCurve('P'); drawCurve('T');
+  for (const [k, c] of Object.entries(CURVES)) {
+    const x = r ? c.mark(r) : null;
+    curveMark[k] = x === null ? null : [x, curveEval(get(cfg, c.path), x)];
+    drawCurve(k);
+  }
 }
 function curveCanvas(which) { return ui('curve' + which); }
 function drawCurve(which) {
-  const c = curveCanvas(which), key = which === 'P' ? 'pressure' : 'tilt';
+  const c = curveCanvas(which);
+  if (!c) return;
   const dpr = devicePixelRatio, w = Math.round(c.clientWidth * dpr) || 140 * dpr;
   if (c.width !== w) { c.width = w; c.height = w; }
   const g = c.getContext('2d'), pad = 12 * dpr, s = w - 2 * pad;
@@ -575,7 +633,7 @@ function drawCurve(which) {
   for (let i = 0; i <= 4; i++) { g.beginPath(); g.moveTo(X(i / 4), Y(0)); g.lineTo(X(i / 4), Y(1)); g.moveTo(X(0), Y(i / 4)); g.lineTo(X(1), Y(i / 4)); g.stroke(); }
   g.strokeStyle = 'rgba(255,255,255,0.18)'; g.setLineDash([4 * dpr, 4 * dpr]);
   g.beginPath(); g.moveTo(X(0), Y(0)); g.lineTo(X(1), Y(1)); g.stroke(); g.setLineDash([]);
-  const h = cfg.response[key];
+  const h = get(cfg, CURVES[which].path);
   g.strokeStyle = 'rgba(34,211,238,0.5)'; g.lineWidth = 1.2 * dpr;
   g.beginPath(); g.moveTo(X(0), Y(0)); g.lineTo(X(h[0]), Y(h[1])); g.moveTo(X(1), Y(1)); g.lineTo(X(h[2]), Y(h[3])); g.stroke();
   g.strokeStyle = '#e8e6e3'; g.lineWidth = 2 * dpr;
@@ -586,8 +644,8 @@ function drawCurve(which) {
   if (m) { g.fillStyle = '#fca5a5'; g.beginPath(); g.arc(X(m[0]), Y(m[1]), 4 * dpr, 0, Math.PI * 2); g.fill(); }
   ui('curve' + which + 'read').textContent = h.map(v => v.toFixed(2)).join(' ');
 }
-function hookCurve(which, key) {
-  const c = curveCanvas(which);
+function hookCurve(which) {
+  const c = curveCanvas(which), path = CURVES[which].path;
   let drag = -1, lastTap = 0;
   const at = e => {
     const r = c.getBoundingClientRect(), pad = 12, s = r.width - 2 * pad;
@@ -596,15 +654,15 @@ function hookCurve(which, key) {
   c.addEventListener('pointerdown', e => {
     e.preventDefault();
     try { c.setPointerCapture(e.pointerId); } catch { /* fine */ }
-    if (e.timeStamp - lastTap < 320) { cfg.response[key] = [...LINEAR]; drawCurve(which); scheduleRebuild(); lastTap = 0; return; }
+    if (e.timeStamp - lastTap < 320) { set(cfg, path, [...LINEAR]); drawCurve(which); scheduleRebuild(); lastTap = 0; return; }
     lastTap = e.timeStamp;
-    const [x, y] = at(e), h = cfg.response[key];
+    const [x, y] = at(e), h = get(cfg, path);
     const d0 = Math.hypot(x - h[0], y - h[1]), d1 = Math.hypot(x - h[2], y - h[3]);
     drag = d0 <= d1 ? 0 : 2;
   });
   c.addEventListener('pointermove', e => {
     if (drag < 0) return;
-    const [x, y] = at(e), h = cfg.response[key];
+    const [x, y] = at(e), h = get(cfg, path);
     h[drag] = x; h[drag + 1] = y;
     drawCurve(which);
     scheduleRebuild();

@@ -20,6 +20,9 @@
   #bar { position: fixed; top: 8px; right: 8px; left: calc(var(--panel-w) + 16px); display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
          justify-content: flex-end; pointer-events: none; }
   #bar > * { pointer-events: auto; }
+  #compass { width: 34px; height: 34px; }
+  .flip { display: flex; gap: 8px; align-items: center; padding: 6px 0; }
+  .flip input { width: 18px; height: 18px; accent-color: var(--pill-on); }
   #readout { background: var(--panel); border-radius: 999px; padding: 5px 11px; color: var(--muted); font-variant-numeric: tabular-nums; backdrop-filter: blur(8px); }
   body { --panel-w: min(340px, 88vw); }
   body.collapsed { --panel-w: 0px; }
@@ -79,6 +82,7 @@
       <div class="curve"><canvas id="curveT" title="Tilt curve: drag the handles; double-tap to reset"></canvas><div class="cap"><span>Tilt</span><span id="curveTread"></span></div></div>
     </div>
     <div id="pengroup"></div>
+    <label class="flip" title="Turn the pen's lean round half a turn. Android reports the S Pen this way round; the round dial at the top should point the way your pen leans."><input id="leanflip" type="checkbox"> Flip pen lean (x and y)</label>
   </details>
   <details open>
     <summary>Settings to send back</summary>
@@ -91,6 +95,7 @@
 </aside>
 <button id="toggle" title="Hide or show the settings">◀ Settings</button>
 <div id="bar">
+  <canvas id="compass" title="Where the tuner thinks your pen's barrel points. Lean the pen to the right: this should point right. If it points the other way, switch Flip pen lean."></canvas>
   <span id="readout">starting…</span>
   <button id="tests" class="on" title="Test strokes on: every change redraws them. Off: draw yourself">Test strokes: on</button>
   <button id="undo" title="Take back your last stroke" hidden>Undo</button>

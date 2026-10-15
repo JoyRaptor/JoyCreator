@@ -93,18 +93,19 @@ Legend: **📱** driven on the Note 9 by the agent · **🔨** compiles (watcher
 
 Everything in §4 is pushed. This is the complete open list; nothing else is half-done in a working copy.
 
-**A. Needs only a phone check (built, compiles, tests pass):**
-- [ ] Redo after undoing past the session start (UndoManager fix, JVM-proven 54/54) and undo after a Move (moved-originals ledger).
-- [ ] Screen-recording and photo file names in the folder, and their Library categories.
-- [ ] Camera recording when the folder is unreachable (falls back inside the app with a notice).
-- [ ] Earned-folder card (needs 20+ loose recordings that are under half of the top).
-- [ ] JoyBrush gallery screen (DrawingsActivity: rename, delete to Trash) and restoring drawings from the folder.
-- [ ] Space → Clear (the sizes screen is phone-tested; the Clear button was not pressed).
+**A. Phone checks — run 2026-10-15 on the Note 9 (Haiku tester, evidence verified by the lead):**
+- [x] Redo after undoing past the session start: undo ×6 then redo ×5, "Redid: Add clip", logcat has no "Redo skipped". ✅
+- [x] Screen-recording and photo names: "Screen recording 2026-10-15 17.50.mp4", "Photo 2026-10-15 17.50.jpg". ✅
+- [x] JoyBrush gallery: rename (folder file renamed too), delete → Recently deleted → Restore. ✅
+- [x] Space → Clear: rebuildable 105 MB → 0 B. ✅
+- [ ] Undo after a Move: not exercised (the test clip was 20 MB, under the 25 MB copy limit, so it was copied, not linked). Needs a >25 MB outside file. The Move itself is proven (10-14).
+- [ ] Camera recording with the folder unreachable, and the earned-folder card: left for real use (testing either means renaming or littering the owner's real folder).
+- [ ] Space "Move unused to Trash…" (multi-select, added 10-15): compiles, not yet on the phone.
 
 **B. Small, unbuilt, in this lane:**
-- [ ] Asset browser: tidy (multi-select → Trash) exists; also offer it in Space's biggest-files list as a multi-select.
+- [x] Space multi-select → Trash (5a0a3a4a).
 - [ ] Share-in of a large file: today copied whatever the size; should follow the Copy/Move/Leave rule (link + warning above 25 MB).
-- [ ] "What's new" text in the app is still FadCam's (`app/src/main/assets/changelog/main.md`).
+- [x] "What's new" text is Joy Creator's (5a0a3a4a).
 
 **C. Needs the owner:**
 - [ ] Application ID (decided: not tied to the domain; candidates `studio.joycreator.app`, `cc.joycreator.app`). Switch only after he picks; the folder is the bridge (the new app restores from it).

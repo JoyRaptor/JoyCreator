@@ -4903,21 +4903,42 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bar.addView(outsideDot, bar.indexOfChild(editorTitle) + 1);
     }
 
+    /** Every media link the project in memory holds: clips, overlays, audio, image overlays. */
+    @NonNull
+    private java.util.Set<String> mediaRefs() {
+        java.util.Set<String> refs = new java.util.LinkedHashSet<>();
+        if (project == null) return refs;
+        refs.addAll(com.fadcam.ui.faditor.project.ProjectIntegrity.collectMediaUris(project).keySet());
+        // Pictures placed as image overlays (the IMG track) keep their link on the overlay.
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : project.getTimeline().getTextOverlays()) {
+            if (o != null && o.getImageUri() != null && !o.getImageUri().isEmpty()) refs.add(o.getImageUri());
+        }
+        return refs;
+    }
+
     /** The outside files the project in memory uses. Main thread (string checks and a stat). */
     @NonNull
     private java.util.List<String> outsideRefs() {
         java.util.List<String> out = new java.util.ArrayList<>();
         if (project == null || !com.fadcam.joyfolder.android.JoyFolderHome.isChosen(this)) return out;
-        java.util.Set<String> refs = new java.util.LinkedHashSet<>(
-                com.fadcam.ui.faditor.project.ProjectIntegrity.collectMediaUris(project).keySet());
-        // Pictures placed as image overlays (the IMG track) keep their link on the overlay.
-        for (com.fadcam.ui.faditor.model.TextOverlayItem o : project.getTimeline().getTextOverlays()) {
-            if (o != null && o.getImageUri() != null && !o.getImageUri().isEmpty()) refs.add(o.getImageUri());
-        }
-        for (String ref : refs) {
+        for (String ref : mediaRefs()) {
             if (com.fadcam.joyfolder.studio.StudioMirror.isOutside(this, ref)) out.add(ref);
         }
         return out;
+    }
+
+    /**
+     * After undo or redo: a link to an original that a MOVE took away (the history kept a copy of
+     * the project from before the move) points at the file's new home again.
+     */
+    private void healMovedInEditor() {
+        if (project == null || !com.fadcam.joyfolder.studio.StudioMirror.anyMoved(this)) return;
+        java.util.Map<String, Uri> copies = new java.util.HashMap<>();
+        for (String ref : mediaRefs()) {
+            String to = com.fadcam.joyfolder.studio.StudioMirror.movedTo(this, ref);
+            if (to != null && !to.equals(ref)) copies.put(ref, Uri.parse(to));
+        }
+        if (replaceMediaSources(copies) > 0) scheduleAutoSave();
     }
 
     private void refreshOutsideDot() {
@@ -4995,6 +5016,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
                     java.util.List<String> notRemoved = new java.util.ArrayList<>();
                     if (!moved.isEmpty()) {
+                        com.fadcam.joyfolder.studio.StudioMirror.rememberMoved(app, moved);
                         com.fadcam.joyfolder.studio.StudioMirror.repointOthers(app, moved, id);
                         notRemoved = com.fadcam.joyfolder.studio.OriginalsRemover.remove(this, new java.util.ArrayList<>(moved.keySet()));
                     }
@@ -14258,6 +14280,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean clipMembershipChanged;
 
     private void refreshEditorAfterUndoRedo() {
+        // A history step from before a MOVE may bring back the original's link: point it at the copy.
+        healMovedInEditor();
         // Clamp selected index in case clip count changed (e.g. after snapshot restore)
         int clipCount = project.getTimeline().getClipCount();
         if (clipCount == 0) return;

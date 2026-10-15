@@ -568,6 +568,7 @@ public class FaditorMiniFragment extends BaseFragment {
                             for (String r : moving) if (copied.containsKey(r)) moved.put(r, copied.get(r));
                             java.util.List<String> left = new java.util.ArrayList<>();
                             if (!moved.isEmpty()) {
+                                com.fadcam.joyfolder.studio.StudioMirror.rememberMoved(app, moved);
                                 com.fadcam.joyfolder.studio.StudioMirror.repointOthers(app, moved, projectId);
                                 left = com.fadcam.joyfolder.studio.OriginalsRemover.remove(activity, new java.util.ArrayList<>(moved.keySet()));
                             }

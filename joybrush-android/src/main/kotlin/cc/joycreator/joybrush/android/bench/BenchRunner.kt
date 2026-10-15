@@ -76,25 +76,32 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         val jointProbe = case == "recordedJointProbe" || case == "recordedJointColdProbe"
         val promotionProbe = case == "recordedPromotionProbe" || case == "recordedPromotionRegionProbe" ||
             case == "recordedPromotionColdProbe"
-        if (case == "recordedProbe" || bakeOperator != null || jointProbe || promotionProbe) {
-            val probePreset = if (jointProbe || promotionProbe) preset.copy(
+        val capturedCopy = case == "recordedCapturedCopyProbe"
+        if (case == "recordedProbe" || bakeOperator != null || jointProbe || promotionProbe || capturedCopy) {
+            val probePreset = if (jointProbe || promotionProbe || capturedCopy) preset.copy(
                 opacity = cc.joycreator.joybrush.core.brush.Param(0.55f), blend = "normal")
             else if (bakeOperator == null) preset else preset.copy(
                 version = if (bakeOperator == "multiply" || bakeOperator == "screen") maxOf(9, preset.version) else preset.version,
                 opacity = cc.joycreator.joybrush.core.brush.Param(0.55f), blend = bakeOperator)
             val record = cc.joycreator.joybrush.core.stroke.StrokeRecord("recorded-probe", preset.id, 19L,
                 0.2f, 1f, (0 until 24).map { i -> cc.joycreator.joybrush.core.input.PenSample(
-                    if (bakeOperator == null && !jointProbe && !promotionProbe) 64f + i * 4f else 232f + i * 6f,
-                    if (bakeOperator == null && !jointProbe && !promotionProbe) 96f + (i % 6) * 2f else 240f + (i % 6) * 5f, i * 16.0,
-                    pressure = 0.7f, tilt = 0.4f, azimuth = 0.3f) }, colorArgb = 0xFF205CA9.toInt(), seq = 1)
+                    if (bakeOperator == null && !jointProbe && !promotionProbe && !capturedCopy) 64f + i * 4f else 232f + i * 6f,
+                    if (bakeOperator == null && !jointProbe && !promotionProbe && !capturedCopy) 96f + (i % 6) * 2f else 240f + (i % 6) * 5f, i * 16.0,
+                    pressure = 0.7f, tilt = 0.4f, azimuth = 0.3f) }, colorArgb = 0xFF205CA9.toInt(), seq = 1,
+                capturedPhysicalSource = if (capturedCopy) cc.joycreator.joybrush.core.stroke.CapturedPhysicalSource(
+                    cc.joycreator.joybrush.core.stroke.CaptureDomain(
+                        cc.joycreator.joybrush.core.stroke.CaptureRect(210,220,220,90),
+                        listOf(cc.joycreator.joybrush.core.stroke.CaptureRect(256,256,200,40))),
+                    cc.joycreator.joybrush.core.stroke.SourcePlacement(-257,513)) else null)
             canvas.runRecordedReplayProbe(probePreset, record, bake = bakeOperator != null,
                 openCold = case == "recordedSavedProbe" || case == "recordedJointColdProbe", joint = jointProbe,
                 promotion = promotionProbe, regional = case == "recordedPromotionRegionProbe",
-                coldLoad = case == "recordedPromotionColdProbe") { result ->
+                coldLoad = case == "recordedPromotionColdProbe", capturedCopy = capturedCopy) { result ->
                 val report = org.json.JSONObject(result).put("brush", preset.id).put("case", case).put("run", run)
                     .put("fixtureOpacity", probePreset.opacity.base)
                     .put("fixtureBrushVersion", probePreset.version)
-                    .put("proofScope", if (promotionProbe) "Actual native-base transfer, physical display and raw/legacy history; no live capture, Select, save/recovery, quality or performance claim"
+                    .put("proofScope", if (capturedCopy) "Disposable complete recipe pooling then captured-domain integer texel copy; no source Scene, live capture, Select, save/recovery, quality or performance claim"
+                        else if (promotionProbe) "Actual native-base transfer, physical display and raw/legacy history; no live capture, Select, save/recovery, quality or performance claim"
                         else if (jointProbe) "Actual joint engine root/public undo/redo and canonical GPU sources/looks; no live recording, Select, save, quality or performance claim"
                         else if (bakeOperator == null) "Android replay adapter and ordered arithmetic; no live wiring or physical quality claim"
                         else "GPU source bake and public undo/redo on throwaway engine; no live display, save or physical quality claim")

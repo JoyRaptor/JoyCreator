@@ -1744,6 +1744,254 @@ class GlPaintEngine(
         }
     }
 
+    /** A complete unmasked recipe image; only this engine can construct the captured lease. */
+    private class CapturedRecipeLease(val record: StrokeRecord, val unit: RecordedLineUnit,
+                                      val physical: Long, val graphics: Long)
+
+    private class CapturedCopyMetrics {
+        var allocations = 0
+        var copies = 0
+        var framebufferChecks = 0
+        var glChecks = 0
+    }
+
+    /** Diagnostic profile only. No Scene, live input, save or recovery capability is granted. */
+    private fun capturedRecipeLease(layerId: String, input: StrokeRecord, preset: BrushPreset): CapturedRecipeLease {
+        val record = cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.snapshot(input)
+        require(record.capturedPhysicalSource != null &&
+            cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.problems(record).isEmpty()) { "Invalid captured recipe" }
+        require(record.brushId == preset.id && BrushValidate.validate(preset).isEmpty()) { "Captured diagnostic needs its valid frozen brush" }
+        require(preset.engine == "stamp" || preset.engine == ENGINE_WATERCOLOUR) { "Unsupported captured diagnostic engine" }
+        require((preset.engine != "stamp" || preset.tip.source == "procedural") && preset.line == null) {
+            "Captured diagnostic needs a procedural unshaped recipe"
+        }
+        require(record.samples.size in 1..64 && record.samples.all { kotlin.math.abs(it.x) <= 4096f && kotlin.math.abs(it.y) <= 4096f } &&
+            record.widthScale <= 2f && record.screenPerDoc in 0.125f..8f && preset.size.base in 1f..64f) {
+            "This diagnostic accepts only its bounded small recipe profile"
+        }
+        val length = record.samples.zipWithNext().sumOf { (a,b) ->
+            kotlin.math.hypot((b.x-a.x).toDouble(), (b.y-a.y).toDouble()) }
+        require(length <= 2048.0) { "Captured diagnostic path budget exceeded" }
+        require(preset.blend == "normal") { "Captured diagnostic supports NORMAL source units" }
+        requireLocalPaint()
+        check(ready && recordedScene == null && !mediaStrokeInProgress && !strokeInProgress && !wcFading) {
+            "Captured diagnostic needs an initialized idle unbound engine"
+        }
+        require(framePreviews.isEmpty() && tileBoardId == null && storeOf(layerId)?.isMask == false) {
+            "Captured diagnostic needs a physical paint owner without playback or periodic state"
+        }
+        require(ownedNativeTextures(layers).isEmpty() && !undo.canUndo && !undo.canRedo &&
+            freeLayerTex.isEmpty() && freeStrokeTex.isEmpty() && freeSmudgeTex.isEmpty() && freeFloatTex.isEmpty()) {
+            "Captured diagnostic needs a fresh empty engine, history and pixel pools"
+        }
+        val paper = checkNotNull(resolvedPaper) { "Captured diagnostic needs resolved paper" }
+        require(paperWarnings.isEmpty() &&
+            (paper.look?.file == null || lookTexture?.let { it != 0 } == true) &&
+            (paper.surface?.file == null || surfaceTexture?.let { it != 0 } == true) &&
+            (paper.surface?.fluid == null || fluidTexture?.let { it != 0 } == true)) { "Captured diagnostic needs actual paper textures" }
+        val physical = physicalContextEpoch
+        val graphics = graphicsEpoch
+        // Private evaluate-recipe boundary. All recipe/sample bits are retained. The temporary
+        // ordinary view never enters source/history/archive or escapes as a captured appearance.
+        val recipe = record.copy(capturedPhysicalSource = null)
+        // This CPU admission uses the SAME dab generator and tile allocator geometry as replay.
+        // It bounds even WC's own size/dynamics/scatter before the first source GPU allocation.
+        // The diagnostic evaluates the CPU recipe twice; this is not a performance claim.
+        val replay = InkReplay.replay(recipe, preset)
+        val admittedKeys = capturedDiagnosticSourceKeys(replay.dabs)
+        var cleanupProtected = protectedRecordedTextureHandles()
+        val discardName = IntArray(1)
+        val unit = prepareRecordedLine(layerId, recipe, preset)
+        var handedOff = false
+        fun current() = ready && !forgettingGraphicsContext && physicalContextEpoch == physical && graphicsEpoch == graphics
+        try {
+            check(current()) { "Captured recipe context changed; old names are abandoned" }
+            val owners = protectedRecordedTextureHandles()
+            cleanupProtected = owners
+            require(unit.tiles.keys == admittedKeys && unit.tiles.values.all { it != 0 && it !in owners && it !in floatNames } &&
+                unit.tiles.values.distinct().size == unit.tiles.size) { "Captured recipe escaped its admitted fresh tile owners" }
+            val lease = CapturedRecipeLease(record, unit, physical, graphics)
+            handedOff = true
+            return lease
+        } finally {
+            if (!handedOff && current()) {
+                // Rejected aliases stay borrowed, and failed outputs never enter a pool.
+                for (name in unit.tiles.values) if (name != 0 && name !in cleanupProtected) {
+                    discardName[0] = name
+                    GLES30.glDeleteTextures(1, discardName, 0)
+                }
+            }
+        }
+    }
+
+    /** Exact allocation keys, with range/count checks BEFORE the old unbounded enumerator. */
+    internal fun capturedDiagnosticSourceKeys(dabs: List<Dab>): Set<Long> {
+        require(dabs.size <= 16384) { "Captured diagnostic dab budget exceeded" }
+        val keys = LinkedHashSet<Long>()
+        val minTile = -((-Int.MIN_VALUE.toLong()) / size).toDouble()
+        val maxTile = ((Int.MAX_VALUE.toLong()+1-size).floorDiv(size.toLong())).toDouble()
+        for (dab in dabs) {
+            val extent = cc.joycreator.joybrush.core.paint.TipMath.extent(dab.radius, dab.anchor)
+            require(dab.x.isFinite() && dab.y.isFinite() && extent.isFinite() && extent >= 0f) { "Invalid captured dab extent" }
+            // Retain Tiles.touchedBy's Float arithmetic, then check before narrowing/enumeration.
+            val x0 = kotlin.math.floor((dab.x-extent)/size).toDouble()
+            val x1 = kotlin.math.floor((dab.x+extent)/size).toDouble()
+            val y0 = kotlin.math.floor((dab.y-extent)/size).toDouble()
+            val y1 = kotlin.math.floor((dab.y+extent)/size).toDouble()
+            require(listOf(x0,x1,y0,y1).all { it.isFinite() && it >= minTile && it <= maxTile }) {
+                "Captured diagnostic dab exceeds addressable source tiles"
+            }
+            val width = x1.toLong()-x0.toLong()+1
+            val height = y1.toLong()-y0.toLong()+1
+            require(width in 1..64 && height in 1..64 && width*height <= 64) { "Captured diagnostic source tile budget exceeded" }
+            for (key in Tiles.touchedBy(dab,size)) {
+                require(key in keys || keys.size < 64) { "Captured diagnostic source tile budget exceeded" }
+                keys.add(key)
+            }
+        }
+        return keys.toSet()
+    }
+
+    /** Pool completely first; only then intersect the persisted domain and copy exact texels. */
+    private fun copyCapturedRecipe(lease: CapturedRecipeLease, metrics: CapturedCopyMetrics): RecordedLineUnit {
+        fun current() = ready && !forgettingGraphicsContext && physicalContextEpoch == lease.physical && graphicsEpoch == lease.graphics
+        check(current()) { "Captured copy context changed" }
+        val plan = cc.joycreator.joybrush.core.stroke.CapturedSourceCopyPlan.prepare(
+            lease.unit.tiles.keys, checkNotNull(lease.record.capturedPhysicalSource), size)
+        val protected = protectedRecordedTextureHandles() + lease.unit.tiles.values
+        require(lease.unit.tiles.values.all { it != 0 && it !in floatNames } &&
+            lease.unit.tiles.values.distinct().size == lease.unit.tiles.size &&
+            lease.unit.tiles.values.none { it in protectedRecordedTextureHandles() }) { "Captured canonical source ownership is invalid" }
+        // Primitive rollback ledger exists before glGen/storage or map insertion can fail.
+        val names = IntArray(plan.destinationKeys.size)
+        val discardName = IntArray(1)
+        val outputs = LinkedHashMap<Long, Int>(names.size)
+        val drawBuffer = intArrayOf(GLES30.GL_COLOR_ATTACHMENT0)
+        var succeeded = false
+        fun checkedGl() { metrics.glChecks++; check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Captured copy GL error" } }
+        fun complete(target: Int) {
+            metrics.framebufferChecks++
+            check(GLES30.glCheckFramebufferStatus(target) == GLES30.GL_FRAMEBUFFER_COMPLETE) { "Captured copy framebuffer is incomplete" }
+        }
+        try {
+            checkedGl()
+            if (names.isNotEmpty()) GLES30.glGenTextures(names.size, names, 0)
+            metrics.allocations = names.count { it != 0 }
+            check(names.all { it != 0 && it !in protected } && names.distinct().size == names.size) { "Captured output aliases an owner" }
+            checkedGl()
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+            GLES30.glBindBuffer(GLES30.GL_PIXEL_UNPACK_BUFFER, 0)
+            GLES30.glPixelStorei(GLES30.GL_UNPACK_ALIGNMENT, 1)
+            GLES30.glPixelStorei(GLES30.GL_UNPACK_ROW_LENGTH, 0)
+            GLES30.glPixelStorei(GLES30.GL_UNPACK_SKIP_ROWS, 0)
+            GLES30.glPixelStorei(GLES30.GL_UNPACK_SKIP_PIXELS, 0)
+            for ((i,key) in plan.destinationKeys.withIndex()) {
+                check(current()) { "Captured allocation context changed" }
+                val texture = names[i]
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
+                GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8, size, size, 0, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, null)
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo)
+                attach(texture)
+                GLES30.glDrawBuffers(1, drawBuffer, 0)
+                complete(GLES30.GL_FRAMEBUFFER)
+                GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+                GLES30.glColorMask(true,true,true,true)
+                GLES30.glClearColor(0f,0f,0f,0f)
+                GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+                checkedGl()
+                outputs[key] = texture
+            }
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+            for (copy in plan.copies) {
+                check(current()) { "Captured blit context changed" }
+                val from = lease.unit.tiles.getValue(copy.sourceKey)
+                val to = outputs.getValue(copy.destinationKey)
+                check(from != to && to !in protected) { "Captured copy feedback or borrowed target" }
+                GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, readFbo)
+                GLES30.glFramebufferTexture2D(GLES30.GL_READ_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, from, 0)
+                GLES30.glReadBuffer(GLES30.GL_COLOR_ATTACHMENT0)
+                complete(GLES30.GL_READ_FRAMEBUFFER)
+                GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, copyFbo)
+                GLES30.glFramebufferTexture2D(GLES30.GL_DRAW_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, to, 0)
+                complete(GLES30.GL_DRAW_FRAMEBUFFER)
+                copyTextureRectTranslated(from, to,
+                    RegionTileRect(copy.from.x,copy.from.y,copy.from.w,copy.from.h),
+                    RegionTileRect(copy.to.x,copy.to.y,copy.to.w,copy.to.h))
+                metrics.copies++
+                checkedGl()
+            }
+            check(current()) { "Captured handoff context changed" }
+            val result = RecordedLineUnit(lease.unit.op, outputs.toMap())
+            succeeded = true
+            return result
+        } finally {
+            if (current()) {
+                GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, readFbo)
+                GLES30.glFramebufferTexture2D(GLES30.GL_READ_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, 0, 0)
+                GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, copyFbo)
+                GLES30.glFramebufferTexture2D(GLES30.GL_DRAW_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, 0, 0)
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+                if (!succeeded) for (name in names) if (name != 0 && name !in protected) {
+                    discardName[0] = name
+                    GLES30.glDeleteTextures(1, discardName, 0)
+                }
+            }
+        }
+    }
+
+    /** Borrow-free JSON result only: both source and placed leases remain engine-owned throughout. */
+    internal fun runCapturedCopyDiagnostic(layerId: String, input: StrokeRecord, preset: BrushPreset): org.json.JSONObject {
+        val root = publishedPaint
+        val cursor = undo.snapshotCursor()
+        val native = ownedNativeTextures(layers)
+        val physical = physicalContextEpoch
+        val graphics = graphicsEpoch
+        val metrics = CapturedCopyMetrics()
+        val deleteName = IntArray(1)
+        var canonical: CapturedRecipeLease? = null
+        var placed: RecordedLineUnit? = null
+        var report = org.json.JSONObject().put("passed", false)
+        fun current() = ready && !forgettingGraphicsContext && physicalContextEpoch == physical && graphicsEpoch == graphics
+        fun deleteUnit(unit: RecordedLineUnit?) {
+            if (unit != null) for (name in unit.tiles.values) {
+                deleteName[0] = name
+                GLES30.glDeleteTextures(1,deleteName,0)
+            }
+        }
+        try {
+            val lease = capturedRecipeLease(layerId, input, preset)
+            canonical = lease
+            report = RecordedCapturedCopyProbe.compare(lease.unit.tiles, checkNotNull(lease.record.capturedPhysicalSource), ::current) {
+                copyCapturedRecipe(lease,metrics).also { placed = it }.tiles
+            }
+            check(current() && publishedPaint === root && undo.snapshotCursor() === cursor && ownedNativeTextures(layers) == native) {
+                "Captured diagnostic changed native ownership or history"
+            }
+            report.put("nativeOwnershipUnchanged",true).put("historyCursorUnchanged",true).put("publishedRootUnchanged",true)
+        } catch (failure: Exception) {
+            report.put("passed",false).put("failure",failure.message ?: failure.javaClass.simpleName)
+        } finally {
+            try {
+                check(current()) { "Captured diagnostic context lost; old names abandoned" }
+                deleteUnit(placed)
+                deleteUnit(canonical?.unit)
+                check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Captured lease cleanup failed" }
+                report.put("engineLeasesReleased",true)
+            } catch (failure: Exception) {
+                report.put("passed",false).put("engineLeasesReleased",false).put("cleanupFailure",failure.message)
+            }
+            report.put("adapterAllocations",metrics.allocations).put("adapterCopyCalls",metrics.copies)
+                .put("adapterFramebufferChecks",metrics.framebufferChecks).put("adapterGlChecks",metrics.glChecks)
+                .put("adapterScope","Private diagnostic only; no Scene/live/save/recovery activation")
+        }
+        return report
+    }
+
     internal fun discardRecordedLine(unit: RecordedLineUnit) { unit.tiles.values.forEach(::recycleLayerTex) }
 
     /** Eager source replay, with the same concrete renderer used by saved cold scenes. */

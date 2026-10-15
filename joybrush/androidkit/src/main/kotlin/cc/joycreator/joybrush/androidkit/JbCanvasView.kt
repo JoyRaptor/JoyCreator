@@ -2186,7 +2186,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                                promotion: Boolean = false,
                                coldLoad: Boolean = false,
                                regional: Boolean = false,
+                               capturedCopy: Boolean = false,
                                ready: (String) -> Unit) {
+        require(!capturedCopy || (!bake && !openCold && !joint && !promotion && !coldLoad && !regional)) {
+            "Captured copy requires its independent disposable diagnostic"
+        }
         require(!coldLoad || (promotion && !regional && !joint && !bake)) {
             "Cold root loading requires the flat promotion diagnostic"
         }
@@ -2202,7 +2206,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 probe.setDocumentPaper(paper)
                 probe.addLayer("recorded-probe")
                 val frozen = cc.joycreator.joybrush.core.brush.FrozenBrushRegistry.freeze(emptyMap(), preset) { "probe-frozen" }
-                val value = if (promotion) cc.joycreator.joybrush.androidkit.gl.RecordedPromotionProbe.run(
+                val value = if (capturedCopy) probe.runCapturedCopyDiagnostic(
+                    "recorded-probe", record.copy(brushId = frozen.id), frozen.preset)
+                else if (promotion) cc.joycreator.joybrush.androidkit.gl.RecordedPromotionProbe.run(
                     probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id), regional, coldLoad)
                 else if (joint) cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.json(
                     cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.run(probe, "recorded-probe",

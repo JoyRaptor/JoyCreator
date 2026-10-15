@@ -138,4 +138,17 @@ class RecordedTilePlanTest {
         val frame = plan(emptyList(), emptyMap())
         assertFailsWith<IllegalArgumentException> { RecordedTilePlan.affectedTiles(shared, frame) }
     }
+
+    @Test fun capturedRecipeBitsInvalidateAndPlanRecordsCannotBeMutated() {
+        val r = record().copy(capturedPhysicalSource = cc.joycreator.joybrush.core.stroke.CapturedPhysicalSource(
+            cc.joycreator.joybrush.core.stroke.CaptureDomain()), samples = listOf(
+            PenSample(10f, 10f, 0.0, tilt = Float.fromBits(0x7fc00001))))
+        val changed = r.copy(samples = listOf(r.samples.single().copy(tilt = Float.fromBits(0x7fc00002))))
+        val before = plan(listOf(r), mapOf(address() to setOf(1L)))
+        val after = plan(listOf(changed), mapOf(address() to setOf(1L)))
+        assertEquals(setOf(1L), RecordedTilePlan.affectedTiles(before, after))
+        val borrowed = (before.itemsOn(1L).single() as RecordedTilePlan.Line).record
+        assertFails { (borrowed.samples as MutableList<PenSample>).clear() }
+        assertEquals(0x7fc00001, borrowed.samples.single().tilt.toRawBits())
+    }
 }

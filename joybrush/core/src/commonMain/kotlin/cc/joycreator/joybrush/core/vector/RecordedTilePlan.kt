@@ -3,6 +3,7 @@ package cc.joycreator.joybrush.core.vector
 import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.CapturedStrokeRules
 
 /** A missing authoritative footprint is a render refusal, never a guessed rectangle or CPU look. */
 class RecordedTilePlanException(val address: LineAddress) : IllegalArgumentException(
@@ -42,7 +43,7 @@ class RecordedTilePlan<T : Any>(cel: RecordedCel<T>, footprints: Map<LineAddress
         lines = cel.records.associate { record ->
             val address = LineAddress(layerId, celId, record.id)
             val keys = footprints[address] ?: throw RecordedTilePlanException(address)
-            address to CapturedLine(Line(address, record.copy(samples = record.samples.toList())), keys.toSet())
+            address to CapturedLine(Line(address, CapturedStrokeRules.snapshot(record)), keys.toSet())
         }
         pixels = cel.slabs.mapValues { (_, slabs) ->
             slabs.map { Pixel(it.seq, UndoLog.SlabValue(it.value.texture, it.value.op)) }
@@ -77,7 +78,7 @@ class RecordedTilePlan<T : Any>(cel: RecordedCel<T>, footprints: Map<LineAddress
             for (address in before.lines.keys + after.lines.keys) {
                 val old = before.lines[address]
                 val new = after.lines[address]
-                if (old?.line?.record != new?.line?.record || old?.keys != new?.keys) {
+                if (!CapturedStrokeRules.sameRecord(old?.line?.record, new?.line?.record) || old?.keys != new?.keys) {
                     old?.let { out.addAll(it.keys) }
                     new?.let { out.addAll(it.keys) }
                 }

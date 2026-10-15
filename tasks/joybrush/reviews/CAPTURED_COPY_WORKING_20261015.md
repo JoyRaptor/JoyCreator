@@ -7,7 +7,17 @@ under C:/Temp/jb-lead-ops/live-captured-copy-*-focused-xml.json. This is no GPU 
 Later455560178 detaches recipe/read/copy FBOs before deleting private leases.
 Further current fixes preserve stock WC300, pre-admit generated source/destination
 working bytes, keep JSON out of JVM method signatures and add one admission test.
-These later changes are awaiting compilation and broader checks.
+Exact later source caae13b4efe3a1386bf030706f2c5fd64522a369 now passes full
+core2429/213suites (four existing optional skips), backend792/74suites, zero
+failures/errors. Full job1994 PASS4m23; independent fresh XML receipts are
+live-captured-copy-{core,backend}-full-final-xml.json in the private ops folder.
+Native app regression also passes203/24suites,0 failures/errors/skips (2m10),
+independent live-captured-copy-native-xml.json. Exact source APK PASS57s;
+preserved167527819bytes, SHA82851161e334a97bc81b53eabf878f4a37dc838fcdf674b5a7aa232556ed21c7,
+private apk-caae13b4e/artifact.json. All owned jobs1994/32134/43952 finished and
+released their claims; primary watcher restored hidden. Device copy comparison is
+UNRUN: last fresh Note9 read showed awake/locked, Home request pending. No install
+or launch attempted; old unlock/Home messages are not current readiness.
 
 - [x] Review/adopt handle-free copy plan from actual source allocation keys; immutable
   descriptors, canonical physical domain, checked integer translation, disjoint local
@@ -27,11 +37,13 @@ These later changes are awaiting compilation and broader checks.
 - [x] Execute27 pure planner tests (200 small oracle fixtures) and5 no-GL admission
   tests plus4 captured source-consumer refusal controls at d32d7fb6e. Focused job
   C:/Temp/jb-lead-ops/live-captured-copy-focused.log, session85685, finished PASS.
-- [ ] Verify later cleanup/stock-WC/budget/JVM-signature fixes and sixth admission
+- [x] Verify later cleanup/stock-WC/budget/JVM-signature fixes and sixth admission
   test. Full check admission deferred at1602MiB after owned watcher pause, below2800.
   No Gradle job launched; runner restored the watcher and released its claim.
+  Later fresh admission succeeded and full core/backend checks passed at caae13b4e.
 - [ ] Review/repair any concrete failure, retain failed proof; run appropriate broader
   backend/native checks and exact-source APK once source stabilizes.
+  Full core/backend/native and APK now pass at caae13b4e; physical GPU proof remains.
 - [ ] Fresh sandbox identity/Home, Working/all-archive hashes, device copy/oracle
   controls and independently counted GL/readback/key/pixel/cleanup evidence.
 

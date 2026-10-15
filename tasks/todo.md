@@ -628,3 +628,17 @@ are still gated; these passing contracts do not complete JB-5.20d.
 - [x] Owned cold-load plan and internal flat fresh engine source/edit/history slice:6d8651b49, backend772/native201, exact APK all10 GPU cases PASS2082 exact rows/0 differences;16 in-memory archive roundtrips/186 payload comparisons. Public View/recovery gates retained.
 - [ ] Prove fresh-loader runtime masks/media/upper slabs, allocation failure cleanup and inherited unpack/PBO state before any View replacement contract.
 - [ ] Complete captured regional source contract, committed live capture, Select, structural/media history and Working/save/recovery before Atlas A2.
+
+## October15 captured source and copy checkpoint
+- [x] Persist immutable captured physical clipping/integer placement in document11/JBSv4;
+  unsupported consumers refuse. Published628424db/d1dd5c637, core2402/backend786/native203
+  and10 ordinary Note9 cases pass; these are not captured-kind GPU execution.
+- [x] Private post-pooling captured copy plan/kernel/oracle and bounded admission;
+  exact caae13b4e full core2429/backend792 pass,4 existing optional core skips.
+- [x] Exact caae13b4e native203/24suites and APK57s pass; artifact preserved/hash recorded.
+- [ ] Finish captured Ink/WC GPU comparison with independent key/pixel/control/ownership
+  counts and unchanged owner archive hashes; fresh unlocked/Home readiness pending.
+- [ ] Retain production source-kind guards until real Scene/live/Select/history/save
+  integrations and their device/recovery evidence replace them.
+- [ ] Atlas follow-on remains staged: A2 dry stitching, A3 wet propagation, A5 periodic
+  pixel-space Tile behavior. A2 alone cannot complete all three.

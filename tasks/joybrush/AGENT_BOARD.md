@@ -7,10 +7,16 @@ APK47s/Note9 ALL10 cases,2082 zero-difference RGBA8 rows,16 archive roundtrips.
 Owner Working/all3 archives unchanged. CAPTURED_FORMAT_DEVICE_20261015.md/.json.
 Doc11/JBSv4 values/history and unsupported-consumer guards are verified. GPU rows
 remain ORDINARY source cases; captured-kind rendering/live/save is still gated.
-Root now owns UNCOMMITTED private captured-copy engine/oracle/plan work, UNBUILT.
+Root now owns private captured-copy engine/oracle/plan work. Exact caae13b4e passes
+full core2429/backend792,0 failures/errors (4 existing optional core skips). Native
+app203/24suites and exact APK57s also pass. Captured-copy GPU execution remains
+pending fresh unlocked/Home readiness. No owned build/phone job remains from this
+batch. Root continues domain-freeze prerequisite in isolated jb-captured-domains;
+six tests are UNRUN and not part of the caae13b4e APK.
 Helpers only bounded new test/review work; no peer hot-file edits. Preserve unrelated
 Studio/Space/media organization/Joybot work and all primary/helper worktrees. Current
-handoff first section has exact pending source/jobs; remote publication may await DNS.
+handoff first section has exact pending source/jobs. DNS recovered; verified main is
+d1dd5c637, newer copy source remains private. No parallel engine/View/Scene edits.
 
 ## Current Root frontier lane — October15 cold source checkpoint
 

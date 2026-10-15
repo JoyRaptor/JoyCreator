@@ -19,14 +19,40 @@ its undo list has one extra "remove" entry, because the test slide's own add ste
 | P0-4 Show me for layers | 🟢 built, 🟡 not phone-tested: editor selects the layer, scrolls its row into view, parks the playhead in it. |
 | Request spanning chat-open → chat-closed | 🟢 built: `AIChatState.Step.request` token; the editor's drained step adopts later live writes (one press, one step). Not phone-tested. |
 
-**New P0 (next):**
-5. ~~Chat shows `JoybotAgent.takeWaiting`~~ DONE in the same commit (`showFinishedWhileAway`); not phone-tested.
-6. Phone-test: picture staging + `look` on a sprite sheet (needs a vision model — ask the owner which; free router
-   may pick one), Show me on a layer, an in-line slide preview with the new fit.
-7. "Added 1 layer." card after an On-top slide has no Show me — add one (the slide's id is known).
-8. Export check: a slide UNDER a blending picture — does `ExportManager`'s below-blend pass (also fed by
-   `plainTextsBelowBlend`) draw it? Preview was fixed without touching export; export may have the same hole.
-9. "Remove text overlay?" dialog says "text" for a slide.
+**Afternoon (12:00–13:00), commits 5e897f772 + af897d1f9:** `look` phone-tested 🟢 (free router saw "Starguy",
+15/16 cells right); "While you were away" 🟢; a request that only DESCRIBED a change now gets one push to apply it
+(`HelpBook.wantsChange`); no false Undo card when the editor takes over mid-request; saved AI accounts
+(`ai/AiAccounts`, key shape → service in `joybot/AiProviders`, one-tap switch in "Talk to…"); services that refuse
+`max_tokens`/`temperature`/streaming are adapted to (`JoybotAgent.Quirks`); chat renders bold/bullets, hides leaked
+`<dots_function_call>` tokens, no longer doubles messages on reopen; Show me on anything a job ADDED; picture models
+badged when they take reference pictures (`input_references`, read from OpenRouter) and an attached picture rides
+along as the reference; "Remove this slide?" wording; hover labels on copy/Apply/Discard/ticks. Export check (old
+item 8) done by another session: **no export bug**. 142 harness tests pass.
+
+### Phone checklist — grunt work (any careful agent; follow tasks/LANES.md + tools/phone.ps1 rules)
+
+Setup each time: ask the owner before installing; `bash tools/build-install.sh`; claim the phone lock as `joybot`;
+open "Restore video test" (Lobby → Carry on), open Joybot (top-right). Note the editor's undo count first and put it
+back after (editor's undo button); never leave a test layer. Screenshot every result; report as 🟢/🔴 with the shot.
+Long typed messages grow the text box — the Send button moves up; screenshot before tapping Send.
+
+| # | Do | Expect |
+|---|---|---|
+| 1 | Tap 🖼 (attach), pick any photo | Bubble "Picture attached"; Joybot: "What should I do with it?"; nothing sent yet |
+| 2 | Then type "what colours are in this?" → Send | A real answer about THAT picture (vision model) |
+| 3 | Attach a photo, then Send with the box empty | Answers "what do you see"; no error |
+| 4 | "this is my Starguy sprite sheet of expressions. Look at it and name every cell with its expression", close the chat at once, wait 90 s, reopen | "While you were away I finished…"; a ✓ Look line; ✓ Label sprite cells line; the sheet's cells named (SpriteLab shows names). Undo it after |
+| 5 | Help me make a slide → Title → Use name → Bold → On top, from the start | Card "Added 1 layer." has **Show me** → editor selects the slide row, scrolls to it, playhead inside it; the slide is visible over the video, whole (not cut off) |
+| 6 | Same flow, but **In line, at the start** | The in-line slide preview shows the WHOLE slide (fit fix), not its left 70 % |
+| 7 | Long-press the new slide row → delete | Dialog says "Remove this slide?" |
+| 8 | With a stylus/mouse hover: copy icon, Apply/Discard on a proposal card, the scroll ticks on the right | Each shows a label |
+| 9 | Close and reopen the chat twice | No doubled messages; tool lines stay small grey lines |
+| 10 | Talk to a picture model (tap model name → 🎨 one), attach a sketch, type "make this a finished cover" | Price shown first (owner OKs any paid call!); result uses the sketch |
+
+**OpenAI / several accounts (needs the owner's key — never type a real key yourself):** owner adds the account
+(model name → + Add another AI account… → paste → Save) → model list shows THEIR OpenAI models → pick a cheap one →
+ask "make the hello 2 text fade in over 2 seconds" (expect one undo step), then the sprite labelling (#4) — compare
+with the free router. Switch back to OpenRouter in one tap ("⇄ Use your OpenRouter account"). Keep calls few.
 
 ## Where it stood this morning (all committed in the commit that adds this file)
 

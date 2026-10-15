@@ -1746,7 +1746,7 @@ class GlPaintEngine(
 
     /** A complete unmasked recipe image; only this engine can construct the captured lease. */
     private class CapturedRecipeLease(val record: StrokeRecord, val unit: RecordedLineUnit,
-                                      val physical: Long, val graphics: Long)
+                                      val physical: Long, val graphics: Long, val admittedTileBytes: Long)
 
     private class CapturedCopyMetrics {
         var allocations = 0
@@ -1766,7 +1766,8 @@ class GlPaintEngine(
             "Captured diagnostic needs a procedural unshaped recipe"
         }
         require(record.samples.size in 1..64 && record.samples.all { kotlin.math.abs(it.x) <= 4096f && kotlin.math.abs(it.y) <= 4096f } &&
-            record.widthScale <= 2f && record.screenPerDoc in 0.125f..8f && preset.size.base in 1f..64f) {
+            record.widthScale <= 2f && record.screenPerDoc in 0.125f..8f &&
+            (preset.engine == ENGINE_WATERCOLOUR || preset.size.base in 1f..64f)) {
             "This diagnostic accepts only its bounded small recipe profile"
         }
         val length = record.samples.zipWithNext().sumOf { (a,b) ->
@@ -1799,6 +1800,13 @@ class GlPaintEngine(
         // The diagnostic evaluates the CPU recipe twice; this is not a performance claim.
         val replay = InkReplay.replay(recipe, preset)
         val admittedKeys = capturedDiagnosticSourceKeys(replay.dabs)
+        val admittedPlan = cc.joycreator.joybrush.core.stroke.CapturedSourceCopyPlan.prepare(
+            admittedKeys, checkNotNull(record.capturedPhysicalSource), size)
+        // This fresh replay uses band + stroke + RGBA8 canonical targets (<=20 bytes/texel
+        // for WC). Reserve32 bytes per source texel, plus every planned4-byte destination.
+        // Fixed paper/image resources are independently required above and remain engine-owned.
+        val admittedTileBytes = (admittedKeys.size.toLong()*32 + admittedPlan.destinationKeys.size.toLong()*4)*size*size
+        require(admittedTileBytes <= boardSnapshotAllowanceBytes) { "Captured diagnostic working tile budget exceeded" }
         var cleanupProtected = protectedRecordedTextureHandles()
         val discardName = IntArray(1)
         val unit = prepareRecordedLine(layerId, recipe, preset)
@@ -1810,7 +1818,7 @@ class GlPaintEngine(
             cleanupProtected = owners
             require(unit.tiles.keys == admittedKeys && unit.tiles.values.all { it != 0 && it !in owners && it !in floatNames } &&
                 unit.tiles.values.distinct().size == unit.tiles.size) { "Captured recipe escaped its admitted fresh tile owners" }
-            val lease = CapturedRecipeLease(record, unit, physical, graphics)
+            val lease = CapturedRecipeLease(record, unit, physical, graphics, admittedTileBytes)
             handedOff = true
             return lease
         } finally {
@@ -1945,7 +1953,7 @@ class GlPaintEngine(
     }
 
     /** Borrow-free JSON result only: both source and placed leases remain engine-owned throughout. */
-    internal fun runCapturedCopyDiagnostic(layerId: String, input: StrokeRecord, preset: BrushPreset): org.json.JSONObject {
+    internal fun runCapturedCopyDiagnostic(layerId: String, input: StrokeRecord, preset: BrushPreset): String {
         val root = publishedPaint
         val cursor = undo.snapshotCursor()
         val native = ownedNativeTextures(layers)
@@ -1973,6 +1981,7 @@ class GlPaintEngine(
                 "Captured diagnostic changed native ownership or history"
             }
             report.put("nativeOwnershipUnchanged",true).put("historyCursorUnchanged",true).put("publishedRootUnchanged",true)
+                .put("admittedWorkingTileBytes",lease.admittedTileBytes)
         } catch (failure: Exception) {
             report.put("passed",false).put("failure",failure.message ?: failure.javaClass.simpleName)
         } finally {
@@ -1998,7 +2007,7 @@ class GlPaintEngine(
                 .put("adapterFramebufferChecks",metrics.framebufferChecks).put("adapterGlChecks",metrics.glChecks)
                 .put("adapterScope","Private diagnostic only; no Scene/live/save/recovery activation")
         }
-        return report
+        return report.toString()
     }
 
     internal fun discardRecordedLine(unit: RecordedLineUnit) { unit.tiles.values.forEach(::recycleLayerTex) }

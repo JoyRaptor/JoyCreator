@@ -100,6 +100,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 val report = org.json.JSONObject(result).put("brush", preset.id).put("case", case).put("run", run)
                     .put("fixtureOpacity", probePreset.opacity.base)
                     .put("fixtureBrushVersion", probePreset.version)
+                    .put("fixtureBrushSize", probePreset.size.base)
+                    .put("fixtureWatercolourSize", probePreset.watercolour?.size ?: org.json.JSONObject.NULL)
                     .put("proofScope", if (capturedCopy) "Disposable complete recipe pooling then captured-domain integer texel copy; no source Scene, live capture, Select, save/recovery, quality or performance claim"
                         else if (promotionProbe) "Actual native-base transfer, physical display and raw/legacy history; no live capture, Select, save/recovery, quality or performance claim"
                         else if (jointProbe) "Actual joint engine root/public undo/redo and canonical GPU sources/looks; no live recording, Select, save, quality or performance claim"

@@ -2,13 +2,34 @@ package cc.joycreator.joybrush.androidkit.gl
 
 import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.Tiles
+import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.Param
+import cc.joycreator.joybrush.core.input.PenSample
+import cc.joycreator.joybrush.core.stroke.CaptureDomain
+import cc.joycreator.joybrush.core.stroke.CapturedPhysicalSource
+import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import java.lang.reflect.InvocationTargetException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 /** Pure admission tests: this API must reject unsafe source footprints before GL allocation. */
 class CapturedDiagnosticAdmissionTest {
     private fun engine() = GlPaintEngine()
+
+    @Test fun invalidBrushIsRefusedBeforeReplayOrGraphicsReadiness() {
+        val valid = BrushPreset(id="frozen", name="Pen", size=Param(8f))
+        val invalid = valid.copy(scatter=valid.scatter.copy(count=17))
+        val record = StrokeRecord("line",valid.id,19L,0f,1f,listOf(PenSample(2f,3f,0.0)),seq=1,
+            capturedPhysicalSource=CapturedPhysicalSource(CaptureDomain()))
+        val lease = GlPaintEngine::class.java.getDeclaredMethod("capturedRecipeLease",
+            String::class.java,StrokeRecord::class.java,BrushPreset::class.java).apply { isAccessible=true }
+        val failure = assertFailsWith<InvocationTargetException> { lease.invoke(engine(),"paint",record,invalid) }
+        val refusal = assertIs<IllegalArgumentException>(failure.cause)
+        assertTrue(refusal.message.orEmpty().contains("valid frozen brush"))
+    }
 
     @Test fun sparseAndAnchoredDabsMatchExistingTileAllocator() {
         val dabs = listOf(

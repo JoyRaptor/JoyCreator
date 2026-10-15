@@ -624,5 +624,6 @@ are still gated; these passing contracts do not complete JB-5.20d.
 - [x] Actual native-base transfer, physical flat/regional display and projected original legacy-Step undo/redo: backend712/native201, exact674d02f1 Note9 all8 cases pass.
 - [x] Physical-root source snapshots and in-memory archive gate:8 roundtrips/90 payload byte checks,1468 total exactRGBA8 rows/0 differences; no Working/recovery activation.
 - [x] Pure captured pixel-domain/integer placement prerequisite: focused28 tests; no record/codec integration.
-- [ ] Verify shared structural archive preflight, then fresh cold whole-source loading with rollback; preserve public View/recovery gates.
+- [x] Shared structural archive preflight: dc940101, full backend735/68suites, zero failures/errors/skips.
+- [ ] Verify owned cold-load plan and fresh engine loader/rollback independently; preserve public View/recovery gates. Current full backend run: live-cold-root-backend.log, source uncommitted and not accepted yet.
 - [ ] Complete captured regional source contract, committed live capture, Select, structural/media history and Working/save/recovery before Atlas A2.

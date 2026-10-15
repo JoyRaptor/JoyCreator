@@ -74,7 +74,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             else -> null
         }
         val jointProbe = case == "recordedJointProbe" || case == "recordedJointColdProbe"
-        val promotionProbe = case == "recordedPromotionProbe" || case == "recordedPromotionRegionProbe"
+        val promotionProbe = case == "recordedPromotionProbe" || case == "recordedPromotionRegionProbe" ||
+            case == "recordedPromotionColdProbe"
         if (case == "recordedProbe" || bakeOperator != null || jointProbe || promotionProbe) {
             val probePreset = if (jointProbe || promotionProbe) preset.copy(
                 opacity = cc.joycreator.joybrush.core.brush.Param(0.55f), blend = "normal")
@@ -88,7 +89,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                     pressure = 0.7f, tilt = 0.4f, azimuth = 0.3f) }, colorArgb = 0xFF205CA9.toInt(), seq = 1)
             canvas.runRecordedReplayProbe(probePreset, record, bake = bakeOperator != null,
                 openCold = case == "recordedSavedProbe" || case == "recordedJointColdProbe", joint = jointProbe,
-                promotion = promotionProbe, regional = case == "recordedPromotionRegionProbe") { result ->
+                promotion = promotionProbe, regional = case == "recordedPromotionRegionProbe",
+                coldLoad = case == "recordedPromotionColdProbe") { result ->
                 val report = org.json.JSONObject(result).put("brush", preset.id).put("case", case).put("run", run)
                     .put("fixtureOpacity", probePreset.opacity.base)
                     .put("fixtureBrushVersion", probePreset.version)

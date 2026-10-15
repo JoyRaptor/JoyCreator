@@ -20,6 +20,7 @@ import cc.joycreator.joybrush.androidkit.gl.watercolour.WatercolourPass
 import cc.joycreator.joybrush.androidkit.gl.media.GlUniformSink
 import cc.joycreator.joybrush.androidkit.io.PaperResources
 import cc.joycreator.joybrush.androidkit.io.JbContents
+import cc.joycreator.joybrush.androidkit.io.ColdRecordedLoadPlan
 import cc.joycreator.joybrush.androidkit.io.RecordedSnapshot
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.paper.PaperState
@@ -58,6 +59,14 @@ import java.util.UUID
 
 /** Layer thumbnails are drawn this many times bigger, then box-averaged down (JB-2.04). */
 private const val THUMB_SUPERSAMPLE = 4
+
+/** Internal engine adoption evidence; not a View, Working or recovery installation receipt. */
+internal data class ColdRecordedLoadReceipt(
+    val nativeTiles: Int, val maskTiles: Int, val mediaTiles: Int,
+    val sourceSlabs: Int, val savedLooks: Int, val recordedPlanes: Int,
+    val unresolvedLinePlanes: Int,
+    val linePreparationCalls: Long = 0L, val compositionCalls: Long = 0L,
+)
 
 /** Immutable, bounded scene identity for asynchronous Sprite pictures. No graphics state is captured. */
 internal class SpritePreviewRequest(
@@ -559,6 +568,8 @@ class GlPaintEngine(
      * context must never meet a name the old one minted.
      */
     internal fun initWith(create: () -> Unit) {
+        // A failed re-init must not leave a previous context's readiness receipt behind.
+        ready = false
         physicalContextEpoch = Math.addExact(physicalContextEpoch, 1L)
         localGraphicsEpoch = Math.addExact(localGraphicsEpoch, 1L)
         lostContent = forgetEverythingFromTheLastContext()
@@ -1774,6 +1785,210 @@ class GlPaintEngine(
         return scene
     }
 
+    /**
+     * Diagnostic fresh-engine loader. Never resets an occupied engine to make it qualify, and
+     * never changes the View/Open/Working/recovery gates. Uploads are fresh, separately tracked
+     * allocations; cold acceptance does not replay lines or compose their saved appearance.
+     * First edit still validates the real footprint and all dynamic replay restrictions.
+     */
+    internal fun loadFreshRecordedArtwork(plan: ColdRecordedLoadPlan.Prepared): ColdRecordedLoadReceipt {
+        requireLocalPaint()
+        check(ready && !forgettingGraphicsContext && recordedScene == null && !undo.isCursorBound &&
+            layers.isEmpty() && boardDocument == null && !undo.canUndo && !undo.canRedo &&
+            !strokeInProgress && !wcFading && !mediaStrokeInProgress && strokeTiles.isEmpty() &&
+            mediaStrokeHeld.isEmpty() && agreedLook.isEmpty() && framePreviews.isEmpty() &&
+            tileBoardId == null && tilePreviewRect == null && onionBoardId == null && strokeTileRect == null) {
+            "Cold source loading needs an initialized empty idle engine without playback or periodic state"
+        }
+        undo.checkCursorBindingAllowed()
+        require(plan.recordedPlanes.isNotEmpty()) { "Use the native loader for an entirely native drawing" }
+        require(plan.summary.uploadBytes <= boardSnapshotAllowanceBytes) { "Cold source upload budget exceeded" }
+        val mediaBytes = plan.uploads.filter { it.store != null }.sumOf { it.byteCount.toLong() }
+        require(mediaBytes <= mediaBudgetBytes) { "Cold source media budget exceeded" }
+        val doc = plan.metadataCopy()
+        require(PaperState.problems(doc.paper, PaperResources.catalogue).isEmpty()) {
+            "Cold recorded sources require the document's actual paper resources"
+        }
+        val stack = LayerStack(doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible,
+            it.blend, it.mask != null, it.clip) }, doc.activeLayerId ?: doc.layers.last().id)
+        val frozen = plan.frozenBrushesCopy()
+        val records = plan.recordedPlanes.associate { it.address to plan.recordsCopy(it.address) }
+        val receipt = ColdRecordedLoadReceipt(
+            plan.uploads.count { it.kind == ColdRecordedLoadPlan.Kind.NATIVE_RGBA8 },
+            plan.uploads.count { it.kind == ColdRecordedLoadPlan.Kind.MASK_RGBA8 },
+            plan.uploads.count { it.store != null },
+            plan.recordedPlanes.sumOf { it.slabs.size }, plan.recordedPlanes.sumOf { it.savedLooks.size },
+            plan.recordedPlanes.size, plan.summary.unresolvedLinePlanes)
+        val physical = physicalContextEpoch
+        val preparationCalls = recordedLinePreparationCalls
+        val compositionCalls = recordedCompositionCalls
+        val priorPaper = documentPaper
+        val priorResolved = resolvedPaper
+        val priorLoaded = loadedPaper
+        val priorLook = lookTexture; val priorSurface = surfaceTexture; val priorFluid = fluidTexture
+        // Indexed primitive ledgers are allocated BEFORE glGen. Every generated name is registered
+        // by glGen itself, before storage/upload/map allocation can fail. 1=caller,2=native,3=scene,4=root.
+        val names = IntArray(plan.uploads.size)
+        val ownership = ByteArray(names.size)
+        val glState = ColdUploadGlState.capture()
+        var restoredGl = false
+        var priorOwners: Set<Int> = emptySet()
+        fun current() = ready && physicalContextEpoch == physical && !forgettingGraphicsContext
+        fun checkedGl() { check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Cold source GL upload failed" } }
+        try {
+            checkedGl()
+            glState.unpackTightly()
+            setDocumentPaper(doc.paper)
+            require(paperWarnings.isEmpty()) { "Cold recorded sources could not load the actual paper" }
+            val actualPaper = checkNotNull(resolvedPaper)
+            require((actualPaper.look?.file == null || lookTexture?.let { it != 0 } == true) &&
+                (actualPaper.surface?.file == null || surfaceTexture?.let { it != 0 } == true) &&
+                (actualPaper.surface?.fluid == null || fluidTexture?.let { it != 0 } == true)) {
+                "Cold recorded sources need every requested paper GPU texture, including fluid"
+            }
+            checkedGl()
+            setStack(stack)
+            setBoardDocument(doc)
+            val protected = protectedRecordedTextureHandles()
+            priorOwners = protected
+            for (upload in plan.uploads) {
+                check(current()) { "Graphics context changed during cold loading" }
+                val bytes = plan.copyPayload(upload.id)
+                val isFloat = upload.kind == ColdRecordedLoadPlan.Kind.MEDIA_RGBA16F
+                val buffer = if (isFloat) {
+                    val floats = HalfFloat.decode(bytes)
+                    ByteBuffer.allocateDirect(floats.size * 4).order(ByteOrder.nativeOrder()).also {
+                        it.asFloatBuffer().put(floats)
+                    }
+                } else ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder()).also { it.put(bytes); it.rewind() }
+                GLES30.glGenTextures(1, names, upload.id)
+                ownership[upload.id] = 1
+                val texture = names[upload.id]
+                check(texture != 0 && texture !in protected && (0 until upload.id).none { names[it] == texture }) {
+                    "Cold source allocation needs an exclusive fresh texture"
+                }
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture)
+                GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, if (isFloat) GLES30.GL_RGBA16F else GLES30.GL_RGBA8,
+                    size, size, 0, GLES30.GL_RGBA, if (isFloat) GLES30.GL_HALF_FLOAT else GLES30.GL_UNSIGNED_BYTE, null)
+                // Match ordinary native allocation, including later pool reuse and zoom sampling.
+                val filter = if (isFloat) GLES30.GL_NEAREST else GLES30.GL_LINEAR
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, filter)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, filter)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
+                GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, size, size, GLES30.GL_RGBA,
+                    if (isFloat) GLES30.GL_FLOAT else GLES30.GL_UNSIGNED_BYTE, buffer)
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+                attach(texture)
+                check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) {
+                    "Cold source texture is not framebuffer complete"
+                }
+                checkedGl()
+                when (upload.kind) {
+                    ColdRecordedLoadPlan.Kind.NATIVE_RGBA8 -> {
+                        val at = checkNotNull(upload.address)
+                        checkNotNull(if (at.celId == null) layers.getValue(at.layerId).tiles
+                            else layers.getValue(at.layerId).cels[at.celId])[upload.key] = texture
+                        ownership[upload.id] = 2
+                    }
+                    ColdRecordedLoadPlan.Kind.MASK_RGBA8 -> {
+                        checkNotNull(layers.getValue(upload.layerId).mask).tiles[upload.key] = texture
+                        ownership[upload.id] = 2
+                    }
+                    ColdRecordedLoadPlan.Kind.MEDIA_RGBA16F, ColdRecordedLoadPlan.Kind.GROUND_RGBA8 -> {
+                        val at = checkNotNull(upload.address)
+                        if (isFloat) floatNames.add(texture)
+                        payload(layers.getValue(at.layerId), checkNotNull(upload.store), at.celId)[upload.key] = texture
+                        ownership[upload.id] = 2
+                    }
+                    else -> Unit // Slabs and saved looks stay separately caller-owned until their handoff.
+                }
+            }
+            agreeAllPayloads()
+            check(current())
+            // Restore fallible GL state BEFORE accepting scene/root ownership. Factory/binding are CPU-only.
+            glState.restore(); restoredGl = true
+            checkedGl()
+            val planes = plan.recordedPlanes.associate { plane ->
+                val at = plane.address
+                (at.layerId to at.celId) to RecordedCel(at.layerId, at.celId, records.getValue(at),
+                    plane.slabs.groupBy { it.key }.mapValues { (_, uploads) -> uploads.map { upload ->
+                        RecordedCel.PixelSlab(checkNotNull(upload.seq), UndoLog.SlabValue(names[upload.id], checkNotNull(upload.op)))
+                    } })
+            }
+            val keys = plan.recordedPlanes.associate { (it.address.layerId to it.address.celId) to it.savedLookKeys.toSet() }
+            val looks = plan.recordedPlanes.associate { (it.address.layerId to it.address.celId) to
+                it.savedLooks.associate { upload -> upload.key to names[upload.id] } }
+            createSavedRecordedScene(planes, frozen, keys, looks)
+            plan.recordedPlanes.forEach { plane -> plane.savedLooks.forEach { ownership[it.id] = 3 } }
+            bindRecordedPaintPublication()
+            plan.recordedPlanes.forEach { plane -> plane.slabs.forEach { ownership[it.id] = 4 } }
+            check(current() && hasJointPaintPublication && !undo.canUndo && !undo.canRedo &&
+                boardDocument === doc && recordedLinePreparationCalls == preparationCalls &&
+                recordedCompositionCalls == compositionCalls) { "Cold loading changed source rendering or publication" }
+            return receipt
+        } catch (failure: Throwable) {
+            fun cleanup(action: () -> Unit) { try { action() } catch (secondary: Throwable) { failure.addSuppressed(secondary) } }
+            if (current()) {
+                val wasBound = publishedPaint != null
+                if (!wasBound) cleanup { releaseRecordedScene() }
+                cleanup { resetDocument() }
+                if (!wasBound && current()) cleanup {
+                    for (upload in plan.uploads) if (ownership[upload.id] == 1.toByte() &&
+                        upload.kind == ColdRecordedLoadPlan.Kind.MEDIA_RGBA16F && names[upload.id] !in priorOwners)
+                        floatNames.remove(names[upload.id])
+                    // A failed scene close may have released only some looks. Preserve all names
+                    // still in real caches/pools/native owners; delete only this attempt's leftovers.
+                    val protected = protectedRecordedTextureHandles()
+                    for (id in names.indices) if ((ownership[id] == 1.toByte() || ownership[id] == 3.toByte()) &&
+                        names[id] != 0 && names[id] !in protected) {
+                        floatNames.remove(names[id])
+                        GLES30.glDeleteTextures(1, names, id)
+                    }
+                }
+                if (current()) {
+                    localDocumentPaper = priorPaper; resolvedPaper = priorResolved; loadedPaper = priorLoaded
+                    lookTexture = priorLook; surfaceTexture = priorSurface; fluidTexture = priorFluid
+                    paperBackground.invalidate()
+                    if (!restoredGl) cleanup { glState.restore() }
+                }
+            }
+            // On context retirement no old ledger name may be deleted/restored in the new epoch.
+            throw failure
+        }
+    }
+
+    /** Pixel unpack state belongs to the caller, including a PBO and strided/subimage uploads. */
+    private class ColdUploadGlState private constructor(private val unpack: IntArray,
+        private val active: Int, private val texture0: Int, private val drawFbo: Int, private val readFbo: Int) {
+        fun unpackTightly() {
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+            GLES30.glBindBuffer(GLES30.GL_PIXEL_UNPACK_BUFFER, 0)
+            for (i in PIXEL_NAMES.indices) GLES30.glPixelStorei(PIXEL_NAMES[i], if (i == 0) 4 else 0)
+        }
+        fun restore() {
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture0)
+            GLES30.glActiveTexture(active)
+            for (i in PIXEL_NAMES.indices) GLES30.glPixelStorei(PIXEL_NAMES[i], unpack[i])
+            GLES30.glBindBuffer(GLES30.GL_PIXEL_UNPACK_BUFFER, unpack.last())
+            GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, drawFbo)
+            GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, readFbo)
+        }
+        companion object {
+            private val PIXEL_NAMES = intArrayOf(GLES30.GL_UNPACK_ALIGNMENT, GLES30.GL_UNPACK_ROW_LENGTH,
+                GLES30.GL_UNPACK_SKIP_PIXELS, GLES30.GL_UNPACK_SKIP_ROWS, GLES30.GL_UNPACK_IMAGE_HEIGHT, GLES30.GL_UNPACK_SKIP_IMAGES)
+            fun capture(): ColdUploadGlState {
+                fun get(name: Int) = IntArray(1).also { GLES30.glGetIntegerv(name, it, 0) }[0]
+                val unpack = IntArray(PIXEL_NAMES.size + 1) { if (it < PIXEL_NAMES.size) get(PIXEL_NAMES[it]) else get(GLES30.GL_PIXEL_UNPACK_BUFFER_BINDING) }
+                val active = get(GLES30.GL_ACTIVE_TEXTURE)
+                GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+                val texture0 = try { get(GLES30.GL_TEXTURE_BINDING_2D) } finally { GLES30.glActiveTexture(active) }
+                return ColdUploadGlState(unpack, active, texture0, get(GLES30.GL_DRAW_FRAMEBUFFER_BINDING), get(GLES30.GL_READ_FRAMEBUFFER_BINDING))
+            }
+        }
+    }
+
     /** Borrowed read-only inventory for adoption checks. Never count FBO/program/buffer ids here. */
     internal fun protectedRecordedTextureHandles(): Set<Int> = buildSet {
         layers.values.forEach { layer ->
@@ -2800,11 +3015,13 @@ class GlPaintEngine(
         }
         val root = PublishedPaintState(LinkedHashMap(layers), HashMap(agreedLook), boardDocument, documentPaper,
             sourceState, undo.snapshotCursor(), graphicsEpoch, persistentNativeTextures(layers), scene)
+        val stateRead: () -> RecordedScene.Publication<Int> = { checkNotNull(publishedPaint) }
+        val cursorRead: () -> UndoLog.Cursor<Int> = { checkNotNull(publishedPaint).cursor }
         // These accessors are engine-owned readonly field lookups. All identities were prepared
         // before binding, so there is no external callback or fallible native work between them.
         publishedPaint = root
-        scene.bindState { checkNotNull(publishedPaint) }
-        undo.bindCursor { checkNotNull(publishedPaint).cursor }
+        scene.bindState(stateRead)
+        undo.bindCursor(cursorRead)
     }
 
     private fun persistentNativeTextures(source: Map<String, Layer>): Set<Int> = buildSet {

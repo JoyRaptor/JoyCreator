@@ -3,6 +3,8 @@ package cc.joycreator.joybrush.androidkit.gl
 import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
 import cc.joycreator.joybrush.androidkit.io.JbArchive
+import cc.joycreator.joybrush.androidkit.io.JbContents
+import cc.joycreator.joybrush.androidkit.io.ColdRecordedLoadPlan
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.paint.Tiles
@@ -22,7 +24,7 @@ import kotlin.math.roundToInt
 /** Consumes ONLY a fresh unsaved diagnostic engine. No live View, save/recovery or quality claim. */
 internal object RecordedPromotionProbe {
     fun run(engine: GlPaintEngine, owner: String, preset: BrushPreset,
-            input: StrokeRecord, regional: Boolean): JSONObject {
+            input: StrokeRecord, regional: Boolean, coldLoad: Boolean = false): JSONObject {
         val n = Tiles.SIZE; val length = n * n * 4; val empty = ByteArray(length)
         val at: Pair<String, String?> = owner to null
         val old = input.copy(samples = input.samples.toList(), seq = 1)
@@ -37,6 +39,7 @@ internal object RecordedPromotionProbe {
         var lineAlphaPixels = 0L; var planeCount = 0; var emptyPlanes = 0
         var wrongOrderChannels = 0L; var badPremultiplied = 0L
         var archiveRoundtrips = 0; var archiveComparisons = 0; val archives = JSONArray()
+        val coldProof = JSONObject().put("requested", coldLoad).put("completed", false)
         fun gl(label: String) {
             glChecks++; var code = GLES30.glGetError(); var first = 0
             while (code != GLES30.GL_NO_ERROR) { errors++; if (first == 0) first = code; code = GLES30.glGetError() }
@@ -94,6 +97,7 @@ internal object RecordedPromotionProbe {
         val before = swatch(17,35,49,97); val after = swatch(43,97,113,167); val sibling = swatch(7,13,19,31)
         try {
             gl("entry"); check(engine.ready && preset.blend == "normal" && input.brushId == preset.id)
+            require(!coldLoad || !regional) { "Regional cold lines need persisted captured physical clipping" }
             check(engine.tileKeys(owner).isEmpty() && !engine.undo.canUndo && !engine.undo.canRedo)
             var ids = 0
             var doc = DocOps.newDocument("promotion-doc", "Throwaway", n*8, n*8) {
@@ -150,7 +154,7 @@ internal object RecordedPromotionProbe {
                 units.forEachIndexed { i,unit -> unit.tiles.forEach { (key,texture) -> compare(raw[i].getValue(key),read(texture),"$label-independent-$i",key) } }
                 compare(sibling,engine.readTile(nativeId,nativeKey),"$label-native",nativeKey)
             }
-            fun archive(label:String, expected:Map<Long,ByteArray>, record:StrokeRecord?) {
+            fun archive(label:String, expected:Map<Long,ByteArray>, record:StrokeRecord?): JbContents {
                 phase="$label source snapshot/archive"
                 val beforeRoot=root(); val beforeCursor=engine.undo.snapshotCursor()
                 val snapshot=engine.snapshotJointRecordedArtwork()
@@ -186,6 +190,7 @@ internal object RecordedPromotionProbe {
                     .put("archiveBytes",output.size()).put("bottomPixelTiles",loaded.tiles.size)
                     .put("savedLookTiles",loaded.looks.size).put("rawRecords",loaded.strokes.values.sumOf { it.size }))
                 gl("$label source snapshot/archive")
+                return loaded
             }
             fun checkpoint(label:String, pixels:Map<Long,ByteArray>, record:StrokeRecord?) {
                 phase=label; checkRoot(); historyChecks++
@@ -251,8 +256,88 @@ internal object RecordedPromotionProbe {
             check(engine.redoStep()); check(engine.undo.peekUndo()===add); checkpoint("redo-add",expectedOld,old)
             check(engine.redoStep()); check(engine.undo.peekUndo()===edit); checkpoint("redo-move",expectedMoved,moved)
             retainedSources("final"); gl("final")
-            if(!regional) archive("final",expectedMoved,moved)
+            val finalArchive = if(!regional) archive("final",expectedMoved,moved) else null
             check(archiveRoundtrips==if(regional) 1 else 3)
+            if(coldLoad) {
+                phase="owned cold source plan"
+                val loaded = checkNotNull(finalArchive)
+                val plan = ColdRecordedLoadPlan.prepare(loaded)
+                check(plan.summary.recordCount == 1L && !plan.summary.dynamicReplayValidated)
+                engine.resetDocument()
+                check(!engine.hasJointPaintPublication && engine.layerIds().isEmpty())
+                val counts = engine.recordedLinePreparationCalls to engine.recordedCompositionCalls
+                phase="fresh cold root load"
+                val receipt = engine.loadFreshRecordedArtwork(plan)
+                val cold = scene()
+                check(engine.recordedLinePreparationCalls == counts.first && engine.recordedCompositionCalls == counts.second)
+                check(receipt.linePreparationCalls == 0L && receipt.compositionCalls == 0L)
+                check(receipt.recordedPlanes == 1 && receipt.unresolvedLinePlanes == 1)
+                check(!cold.isMaterialized(at) && !engine.undo.canUndo && !engine.undo.canRedo)
+                check(cold.planes.getValue(at).records == listOf(moved))
+                var filterChecks = 0
+                fun coldCheckpoint(label: String, pixels: Map<Long,ByteArray>) {
+                    phase=label
+                    val state=cold.snapshotState()
+                    check(field(root(),"recorded") === state && field(root(),"cursor") === engine.undo.snapshotCursor())
+                    for(key in allKeys) compare(pixels.getValue(key),engine.readTile(owner,key),"$label-public",key)
+                    compare(sibling,engine.readTile(nativeId,nativeKey),"$label-native",nativeKey)
+                    val sources=state.planes.values.flatMap { cel -> cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } } }
+                    val caches=state.units.values.flatMap { it.unit.tiles.values } + state.looks.values.flatMap { it.values }
+                    if(label == "cold-open") {
+                        // Actual allocation parameters, since identical tile bytes alone miss zoom/pool regressions.
+                        val nativeTexture=checkNotNull(engine.mediaTile(nativeId,MEDIA_LOOK,nativeKey))
+                        for(texture in sources + caches + nativeTexture) {
+                            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,texture)
+                            for(parameter in listOf(GLES30.GL_TEXTURE_MIN_FILTER,GLES30.GL_TEXTURE_MAG_FILTER)) {
+                                val actual=IntArray(1); GLES30.glGetTexParameteriv(GLES30.GL_TEXTURE_2D,parameter,actual,0)
+                                filterChecks++; check(actual[0] == GLES30.GL_LINEAR)
+                            }
+                        }
+                        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0)
+                    }
+                    own(RecordedPromotionExternalTextureInventory.check(engine,sources,caches,units.flatMap { it.tiles.values }).passed,
+                        "$label cold source/cache/native/pool/global families")
+                    val physical=cold.planes.getValue(at)
+                    for(upload in plan.recordedPlanes.single().slabs) {
+                        val texture=physical.slabs.getValue(upload.key).single { it.seq == upload.seq }.value.texture
+                        compare(plan.copyPayload(upload.id),read(texture),"$label-source",upload.key)
+                    }
+                    gl(label)
+                }
+                coldCheckpoint("cold-open",expectedMoved)
+                check(!cold.isMaterialized(at)) // Display reads must not secretly warm replay.
+                val coldEdit=RecordedEdits.replace(cold.planes,
+                    listOf(AddressedStroke(LineAddress(owner,null,old.id),old)),setOf(preset.id)).step
+                check(engine.publishJointPaintStep(coldEdit))
+                val firstEditLines=engine.recordedLinePreparationCalls-counts.first
+                val firstEditLooks=engine.recordedCompositionCalls-counts.second
+                check(firstEditLines > 0L && firstEditLooks > 0L)
+                check(cold.isMaterialized(at) && engine.undo.peekUndo() === coldEdit && engine.undo.undoDepth == 1)
+                coldCheckpoint("cold-first-edit",expectedOld)
+                check(engine.undoStep() && !engine.undo.canUndo && engine.undo.peekRedo() === coldEdit)
+                coldCheckpoint("cold-undo",expectedMoved)
+                check(engine.redoStep() && engine.undo.peekUndo() === coldEdit)
+                coldCheckpoint("cold-redo",expectedOld)
+                phase="cold edit source snapshot/archive"
+                val snapshot=engine.snapshotJointRecordedArtwork()
+                val output=ByteArrayOutputStream(); JbArchive.write(output,snapshot)
+                val back=JbArchive.read(ByteArrayInputStream(output.toByteArray()))
+                check(snapshot.doc == back.doc && snapshot.strokes == back.strokes && snapshot.brushes == back.brushes)
+                fun <K> exact(a:Map<K,ByteArray>,b:Map<K,ByteArray>) {
+                    check(a.keys == b.keys)
+                    a.forEach { (key,bytes) -> archiveComparisons++; check(bytes.contentEquals(b.getValue(key))) }
+                }
+                exact(snapshot.tiles,back.tiles); exact(snapshot.slabs,back.slabs)
+                exact(snapshot.looks,back.looks); exact(snapshot.mediaTiles,back.mediaTiles)
+                archiveRoundtrips++
+                coldProof.put("completed",true).put("openingLinePreparationCalls",receipt.linePreparationCalls)
+                    .put("openingCompositionCalls",receipt.compositionCalls).put("sourceSlabs",receipt.sourceSlabs)
+                    .put("savedLooks",receipt.savedLooks).put("nativeTiles",receipt.nativeTiles)
+                    .put("unresolvedLinePlanesAtOpen",receipt.unresolvedLinePlanes)
+                    .put("firstEditLinePreparationCalls",firstEditLines)
+                    .put("firstEditCompositionCalls",firstEditLooks).put("actualFilterChecks",filterChecks)
+                    .put("coldHistoryUndoRedoPassed",true).put("postEditArchivePassed",true)
+            }
         } catch (e:Exception) { failure="$phase ${e.javaClass.simpleName}: ${e.message}" }
         finally {
             try {
@@ -265,6 +350,7 @@ internal object RecordedPromotionProbe {
             } catch(e:Exception) { failure=listOfNotNull(failure,"cleanup ${e.message}").joinToString("; ") }
         }
         return JSONObject().put("probe","recordedPromotion").put("schemaVersion",1).put("regional",regional)
+            .put("coldLoad",coldProof)
             .put("proofScope","Actual native base transfer, physical display, raw/legacy history and root-source in-memory archive roundtrip; no live capture, Select, Working/recovery, performance or quality claim")
             .put("passed",failure==null && cleanup && errors==0 && badFbos==0 && aliases==0)
             .put("failure",failure?:JSONObject.NULL).put("phase",phase).put("cleanupComplete",cleanup)

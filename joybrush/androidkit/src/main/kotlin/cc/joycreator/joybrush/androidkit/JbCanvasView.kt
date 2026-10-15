@@ -2184,8 +2184,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                                openCold: Boolean = false,
                                joint: Boolean = false,
                                promotion: Boolean = false,
+                               coldLoad: Boolean = false,
                                regional: Boolean = false,
                                ready: (String) -> Unit) {
+        require(!coldLoad || (promotion && !regional && !joint && !bake)) {
+            "Cold root loading requires the flat promotion diagnostic"
+        }
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
             ready("{\"passed\":false,\"failure\":\"Recorded replay probe is debug only\"}")
             return
@@ -2199,7 +2203,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 probe.addLayer("recorded-probe")
                 val frozen = cc.joycreator.joybrush.core.brush.FrozenBrushRegistry.freeze(emptyMap(), preset) { "probe-frozen" }
                 val value = if (promotion) cc.joycreator.joybrush.androidkit.gl.RecordedPromotionProbe.run(
-                    probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id), regional)
+                    probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id), regional, coldLoad)
                 else if (joint) cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.json(
                     cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.run(probe, "recorded-probe",
                         frozen.preset, record.copy(brushId = frozen.id), openCold = openCold))

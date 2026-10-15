@@ -37,6 +37,8 @@ class ColdPayloadProbeFixtureTest {
         val prepared = ColdPayloadProbeFixture.enrich(input)
         val enriched = prepared.contentsCopy()
         val back = roundTrip(enriched)
+        assertEquals(listOf(1L,3L),enriched.strokes.getValue("l" to "c").map { it.seq })
+        assertEquals(listOf(3L,1L),input.strokes.getValue("l" to "c").map { it.seq })
         assertEquals(enriched.doc, back.doc)
         assertEquals(enriched.strokes, back.strokes)
         for ((key, bytes) in enriched.tiles) assertContentEquals(bytes, back.tiles.getValue(key))

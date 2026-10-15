@@ -2187,12 +2187,16 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                                coldLoad: Boolean = false,
                                regional: Boolean = false,
                                capturedCopy: Boolean = false,
+                               coldPayload: Boolean = false,
                                ready: (String) -> Unit) {
-        require(!capturedCopy || (!bake && !openCold && !joint && !promotion && !coldLoad && !regional)) {
+        require(!capturedCopy || (!bake && !openCold && !joint && !promotion && !coldLoad && !regional && !coldPayload)) {
             "Captured copy requires its independent disposable diagnostic"
         }
         require(!coldLoad || (promotion && !regional && !joint && !bake)) {
             "Cold root loading requires the flat promotion diagnostic"
+        }
+        require(!coldPayload || (promotion && !regional && !joint && !bake && !coldLoad && !openCold)) {
+            "Cold payload loading requires its independent flat promotion diagnostic"
         }
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
             ready("{\"passed\":false,\"failure\":\"Recorded replay probe is debug only\"}")
@@ -2209,7 +2213,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 val value = if (capturedCopy) org.json.JSONObject(probe.runCapturedCopyDiagnostic(
                     "recorded-probe", record.copy(brushId = frozen.id), frozen.preset))
                 else if (promotion) cc.joycreator.joybrush.androidkit.gl.RecordedPromotionProbe.run(
-                    probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id), regional, coldLoad)
+                    probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id), regional, coldLoad, coldPayload)
                 else if (joint) cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.json(
                     cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.run(probe, "recorded-probe",
                         frozen.preset, record.copy(brushId = frozen.id), openCold = openCold))

@@ -24,7 +24,7 @@ import kotlin.math.roundToInt
 /** Consumes ONLY a fresh unsaved diagnostic engine. No live View, save/recovery or quality claim. */
 internal object RecordedPromotionProbe {
     fun run(engine: GlPaintEngine, owner: String, preset: BrushPreset,
-            input: StrokeRecord, regional: Boolean, coldLoad: Boolean = false): JSONObject {
+            input: StrokeRecord, regional: Boolean, coldLoad: Boolean = false, coldPayload: Boolean = false): JSONObject {
         val n = Tiles.SIZE; val length = n * n * 4; val empty = ByteArray(length)
         val at: Pair<String, String?> = owner to null
         val old = input.copy(samples = input.samples.toList(), seq = 1)
@@ -40,6 +40,7 @@ internal object RecordedPromotionProbe {
         var wrongOrderChannels = 0L; var badPremultiplied = 0L
         var archiveRoundtrips = 0; var archiveComparisons = 0; val archives = JSONArray()
         val coldProof = JSONObject().put("requested", coldLoad).put("completed", false)
+        var payloadProof = JSONObject().put("requested",coldPayload).put("passed",false)
         fun gl(label: String) {
             glChecks++; var code = GLES30.glGetError(); var first = 0
             while (code != GLES30.GL_NO_ERROR) { errors++; if (first == 0) first = code; code = GLES30.glGetError() }
@@ -98,6 +99,7 @@ internal object RecordedPromotionProbe {
         try {
             gl("entry"); check(engine.ready && preset.blend == "normal" && input.brushId == preset.id)
             require(!coldLoad || !regional) { "Regional cold lines need persisted captured physical clipping" }
+            require(!coldPayload || (!regional && !coldLoad)) { "Cold payload probe needs the independent flat fixture" }
             check(engine.tileKeys(owner).isEmpty() && !engine.undo.canUndo && !engine.undo.canRedo)
             var ids = 0
             var doc = DocOps.newDocument("promotion-doc", "Throwaway", n*8, n*8) {
@@ -258,6 +260,11 @@ internal object RecordedPromotionProbe {
             retainedSources("final"); gl("final")
             val finalArchive = if(!regional) archive("final",expectedMoved,moved) else null
             check(archiveRoundtrips==if(regional) 1 else 3)
+            if(coldPayload) {
+                phase="cold payload source uploads"
+                payloadProof=RecordedColdPayloadProbe.run(engine,checkNotNull(finalArchive)).put("requested",true)
+                check(payloadProof.optBoolean("passed")) { payloadProof.optString("failure","Cold payload probe failed") }
+            }
             if(coldLoad) {
                 phase="owned cold source plan"
                 val loaded = checkNotNull(finalArchive)
@@ -351,6 +358,7 @@ internal object RecordedPromotionProbe {
         }
         return JSONObject().put("probe","recordedPromotion").put("schemaVersion",1).put("regional",regional)
             .put("coldLoad",coldProof)
+            .put("coldPayload",payloadProof)
             .put("proofScope","Actual native base transfer, physical display, raw/legacy history and root-source in-memory archive roundtrip; no live capture, Select, Working/recovery, performance or quality claim")
             .put("passed",failure==null && cleanup && errors==0 && badFbos==0 && aliases==0)
             .put("failure",failure?:JSONObject.NULL).put("phase",phase).put("cleanupComplete",cleanup)

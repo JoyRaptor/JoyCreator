@@ -84,7 +84,7 @@ internal object ColdPayloadProbeFixture {
         media[MediaTileKey(MEDIA_LAYER, MEDIA_CEL, MEDIA_TILE, "p0")] = p0.copyOf()
         media[MediaTileKey(MEDIA_LAYER, MEDIA_CEL, MEDIA_TILE, MediaStores.GROUND)] = ground.copyOf()
         val contents = input.copy(doc = doc, tiles = tiles.toMap(), slabs = slabs.toMap(), looks = looks.toMap(),
-            mediaTiles = media.toMap(), strokes = input.strokes.mapValues { (_, records) -> records.map { it.copy(samples = it.samples.map { s -> s.copy() }) } },
+            mediaTiles = media.toMap(), strokes = input.strokes.mapValues { (_, records) -> records.sortedBy { it.seq }.map { it.copy(samples = it.samples.map { s -> s.copy() }) } },
             thumbnailPng = input.thumbnailPng?.copyOf(), brushes = input.brushes.mapValues { BrushJson.decodeChecked(BrushJson.encode(it.value)) })
         val expected = listOf(
             ExpectedPayload("MASK_RGBA8", Address(nativeLayer.id, MASK_CEL, MASK_TILE), mask),

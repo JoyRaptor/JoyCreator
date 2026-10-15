@@ -75,7 +75,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         }
         val jointProbe = case == "recordedJointProbe" || case == "recordedJointColdProbe"
         val promotionProbe = case == "recordedPromotionProbe" || case == "recordedPromotionRegionProbe" ||
-            case == "recordedPromotionColdProbe"
+            case == "recordedPromotionColdProbe" || case == "recordedColdPayloadProbe"
         val capturedCopy = case == "recordedCapturedCopyProbe"
         if (case == "recordedProbe" || bakeOperator != null || jointProbe || promotionProbe || capturedCopy) {
             val probePreset = if (jointProbe || promotionProbe || capturedCopy) preset.copy(
@@ -96,7 +96,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             canvas.runRecordedReplayProbe(probePreset, record, bake = bakeOperator != null,
                 openCold = case == "recordedSavedProbe" || case == "recordedJointColdProbe", joint = jointProbe,
                 promotion = promotionProbe, regional = case == "recordedPromotionRegionProbe",
-                coldLoad = case == "recordedPromotionColdProbe", capturedCopy = capturedCopy) { result ->
+                coldLoad = case == "recordedPromotionColdProbe", capturedCopy = capturedCopy,
+                coldPayload = case == "recordedColdPayloadProbe") { result ->
                 val report = org.json.JSONObject(result).put("brush", preset.id).put("case", case).put("run", run)
                     .put("fixtureOpacity", probePreset.opacity.base)
                     .put("fixtureBrushVersion", probePreset.version)

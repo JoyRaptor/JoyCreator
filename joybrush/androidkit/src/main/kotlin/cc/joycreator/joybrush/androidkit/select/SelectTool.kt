@@ -352,7 +352,7 @@ class SelectTool(
     fun deleteSelection(): Boolean {
         cancelWeight()
         val ok = when (val s = state.current) {
-            is SelectionState.Lines -> host.deleteLines(s.ids)
+            is SelectionState.Lines -> if (selectionSourcesAvailable(s.ids)) host.deleteLines(s.ids) else false
             is SelectionState.Pixels -> liftedPixels?.clear() ?: false
             null -> false
         }
@@ -396,6 +396,7 @@ class SelectTool(
 
     fun rasterizeDown(): Boolean {
         val s = state.current as? SelectionState.Lines ?: return false
+        if (!selectionSourcesAvailable(s.ids)) return false
         val ok = host.bakeLines(s.ids)
         end()
         return ok
@@ -413,7 +414,9 @@ class SelectTool(
     fun chooseFromOrder(order: List<LineAddress>, i: Int, adding: Boolean, at: SelectionState.Pick) {
         if (i !in order.indices) return
         lines = visibleLines()
-        state.choose(order[i], adding, at, geometries(activeLines()))
+        val active = geometries(activeLines())
+        if (active.none { it.address == order[i] }) return
+        state.choose(order[i], adding, at, active)
         onSelectionChanged(countContext(order, i, at), order)
     }
 
@@ -678,6 +681,11 @@ class SelectTool(
     // Raw centreline geometry cannot describe a clipped/placed source's visible pixels.
     private fun visibleLines(): List<SelectionHost.Line> = host.visibleLines().filter { it.record.capturedPhysicalSource == null }
     private fun activeLines(): List<SelectionHost.Line> = host.activeLines().filter { it.record.capturedPhysicalSource == null }
+
+    private fun selectionSourcesAvailable(ids: Set<LineAddress>): Boolean {
+        val current = host.visibleLines().filter { it.record.capturedPhysicalSource == null }.map { it.address }.toSet()
+        return ids.all { it in current }
+    }
 
     private fun geometries(ls: List<SelectionHost.Line>): List<SelectionLine> = ls.map { SelectionLine(it.address, it.geometry) }
 

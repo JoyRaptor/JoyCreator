@@ -642,3 +642,11 @@ are still gated; these passing contracts do not complete JB-5.20d.
   integrations and their device/recovery evidence replace them.
 - [ ] Atlas follow-on remains staged: A2 dry stitching, A3 wet propagation, A5 periodic
   pixel-space Tile behavior. A2 alone cannot complete all three.
+
+## October15 isolated controlled cold rollback plan
+- [x] Specify21 fault targets over six actual upload categories and scene/root/retirement.
+- [x] Review reserved GL names, dangling ownership and suppressed cleanup exceptions;
+  retain full measured rows and resource ledgers in the debug-only disposable host.
+- [ ] Compile and independently count full backend, then native host and APK checks.
+- [ ] Execute exact-source Ink/WC device matrix with owner archive hashes unchanged.
+- [ ] Continue captured/live/Select/undo/save connection; production gates remain.

@@ -2057,7 +2057,19 @@ class GlPaintEngine(
      * allocations; cold acceptance does not replay lines or compose their saved appearance.
      * First edit still validates the real footprint and all dynamic replay restrictions.
      */
-    internal fun loadFreshRecordedArtwork(plan: ColdRecordedLoadPlan.Prepared): ColdRecordedLoadReceipt {
+    internal fun loadFreshRecordedArtwork(plan: ColdRecordedLoadPlan.Prepared): ColdRecordedLoadReceipt =
+        loadFreshRecordedArtworkImpl(plan,null)
+
+    private class ColdInjectedFailure(val target: ColdUploadFailureTarget) :
+        IllegalStateException("Controlled cold upload failure at $target")
+    private class ColdInjectedRetirementFailure : IllegalStateException("Controlled failure after cold root retirement")
+    private class ColdFailureAttempt(val target: ColdUploadFailureTarget, count: Int) {
+        val names=IntArray(count)
+        var reached=false
+    }
+
+    private fun loadFreshRecordedArtworkImpl(plan: ColdRecordedLoadPlan.Prepared,
+                                             attempt: ColdFailureAttempt?): ColdRecordedLoadReceipt {
         requireLocalPaint()
         check(ready && !forgettingGraphicsContext && recordedScene == null && !undo.isCursorBound &&
             layers.isEmpty() && boardDocument == null && !undo.canUndo && !undo.canRedo &&
@@ -2094,12 +2106,24 @@ class GlPaintEngine(
         val priorLook = lookTexture; val priorSurface = surfaceTexture; val priorFluid = fluidTexture
         // Indexed primitive ledgers are allocated BEFORE glGen. Every generated name is registered
         // by glGen itself, before storage/upload/map allocation can fail. 1=caller,2=native,3=scene,4=root.
-        val names = IntArray(plan.uploads.size)
+        val names = attempt?.names ?: IntArray(plan.uploads.size)
         val ownership = ByteArray(names.size)
         val glState = ColdUploadGlState.capture()
         var priorOwners: Set<Int> = emptySet()
         fun current() = ready && physicalContextEpoch == physical && !forgettingGraphicsContext
         fun checkedGl() { check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Cold source GL upload failed" } }
+        fun faultPoint(phase: ColdUploadFailurePhase, id: Int? = null) {
+            val fault=attempt ?: return
+            val matched=fault.target == ColdUploadFailureTarget(phase,id) ||
+                (phase == ColdUploadFailurePhase.AFTER_ROOT_BIND &&
+                    fault.target.phase == ColdUploadFailurePhase.AFTER_ROOT_BIND_WITH_RETIRE_FAILURE)
+            if(matched) {
+                check(current()) { "Cold context retired before controlled failure" }
+                checkedGl()
+                fault.reached=true
+                throw ColdInjectedFailure(fault.target)
+            }
+        }
         try {
             checkedGl()
             glState.unpackTightly()
@@ -2133,8 +2157,12 @@ class GlPaintEngine(
                     "Cold source allocation needs an exclusive fresh texture"
                 }
                 GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture)
+                // Instantiate the reserved name before the diagnostic fault so glIsTexture
+                // can distinguish an undeleted allocation from an actually released object.
+                faultPoint(ColdUploadFailurePhase.AFTER_GENERATE,upload.id)
                 GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, if (isFloat) GLES30.GL_RGBA16F else GLES30.GL_RGBA8,
                     size, size, 0, GLES30.GL_RGBA, if (isFloat) GLES30.GL_HALF_FLOAT else GLES30.GL_UNSIGNED_BYTE, null)
+                faultPoint(ColdUploadFailurePhase.AFTER_STORAGE,upload.id)
                 // Match ordinary native allocation, including later pool reuse and zoom sampling.
                 val filter = if (isFloat) GLES30.GL_NEAREST else GLES30.GL_LINEAR
                 GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, filter)
@@ -2143,6 +2171,7 @@ class GlPaintEngine(
                 GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
                 GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, size, size, GLES30.GL_RGBA,
                     if (isFloat) GLES30.GL_FLOAT else GLES30.GL_UNSIGNED_BYTE, buffer)
+                faultPoint(ColdUploadFailurePhase.AFTER_UPLOAD,upload.id)
                 GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
                 attach(texture)
                 check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) {
@@ -2186,8 +2215,10 @@ class GlPaintEngine(
                 it.savedLooks.associate { upload -> upload.key to names[upload.id] } }
             createSavedRecordedScene(planes, frozen, keys, looks)
             plan.recordedPlanes.forEach { plane -> plane.savedLooks.forEach { ownership[it.id] = 3 } }
+            faultPoint(ColdUploadFailurePhase.AFTER_SAVED_SCENE)
             bindRecordedPaintPublication()
             plan.recordedPlanes.forEach { plane -> plane.slabs.forEach { ownership[it.id] = 4 } }
+            faultPoint(ColdUploadFailurePhase.AFTER_ROOT_BIND)
             check(current() && hasJointPaintPublication && !undo.canUndo && !undo.canRedo &&
                 boardDocument === doc && recordedLinePreparationCalls == preparationCalls &&
                 recordedCompositionCalls == compositionCalls) { "Cold loading changed source rendering or publication" }
@@ -2197,6 +2228,8 @@ class GlPaintEngine(
             if (current()) {
                 val wasBound = publishedPaint != null
                 if (!wasBound) cleanup { releaseRecordedScene() }
+                if(wasBound && attempt?.target?.phase == ColdUploadFailurePhase.AFTER_ROOT_BIND_WITH_RETIRE_FAILURE)
+                    cleanup { resetJointPaint(RecordedScene.ResetMode.SAME_CONTEXT,true) }
                 cleanup { resetDocument() }
                 if (current()) cleanup {
                     // Partial reset/scene-close failure can orphan caller, native or look uploads.
@@ -2227,6 +2260,85 @@ class GlPaintEngine(
             // On context retirement no old ledger name may be deleted/restored in the new epoch.
             throw failure
         }
+    }
+
+    /** Names remain private to this engine; only independently checked counts leave the probe. */
+    internal fun runColdUploadFailureProbe(plan: ColdRecordedLoadPlan.Prepared,
+                                          target: ColdUploadFailureTarget): String {
+        require(target in ColdUploadFailureMatrix.targets(plan)) { "Use an admitted bounded fault target" }
+        val alive=coldUploadProbeContext()
+        val beforeGl=ColdUploadGlState.capture()
+        val beforePaper=documentPaper; val beforeResolved=resolvedPaper; val beforeLoaded=loadedPaper
+        val beforeLook=lookTexture; val beforeSurface=surfaceTexture; val beforeFluid=fluidTexture
+        val beforePixels=renderPaper(RectPx(0,0,8,8))
+        val preparations=recordedLinePreparationCalls; val compositions=recordedCompositionCalls
+        val attempt=ColdFailureAttempt(target,plan.uploads.size)
+        var expectedFailure: ColdInjectedFailure? = null
+        var unexpected: String? = null
+        var glChecks=0; var generated=0; var owned=0; var deleted=0; var orphaned=0; var dangling=0
+        var empty=false; var restored=false; var paperRestored=false; var cpuPaperRestored=false
+        var paperTexturesValid=false
+        try {
+            loadFreshRecordedArtworkImpl(plan,attempt)
+            unexpected="Controlled failure target was not reached"
+        } catch(error: ColdInjectedFailure) {
+            expectedFailure=error
+        } catch(error: Exception) {
+            unexpected="${error.javaClass.simpleName}: ${error.message}"
+        }
+        val current=alive()
+        if(current) try {
+            empty=publishedPaint == null && recordedScene == null && layers.isEmpty() &&
+                boardDocument == null && !undo.canUndo && !undo.canRedo
+            restored=beforeGl.sameValues(ColdUploadGlState.capture())
+            paperRestored=documentPaper == beforePaper && resolvedPaper === beforeResolved && loadedPaper === beforeLoaded &&
+                lookTexture == beforeLook && surfaceTexture == beforeSurface && fluidTexture == beforeFluid
+            cpuPaperRestored=beforePixels.contentEquals(renderPaper(RectPx(0,0,8,8)))
+            val protected=activeTextureOwners() + publishedPaint?.recorded?.planes?.values.orEmpty().flatMap { cel ->
+                cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } }
+            }
+            for(name in attempt.names.filter { it != 0 }.distinct()) {
+                check(alive()) { "Context retired during failed-upload inventory" }
+                val exists=GLES30.glIsTexture(name)
+                check(alive()) { "Context retired after failed-upload query" }
+                generated++
+                if(name in protected) {
+                    if(exists) owned++ else dangling++
+                } else if(!exists) deleted++ else orphaned++
+                glChecks++; check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Failed-upload texture query GL error" }
+            }
+            paperTexturesValid=true
+            for(name in listOfNotNull(beforeLook,beforeSurface,beforeFluid).filter { it != 0 }.distinct()) {
+                check(alive())
+                if(!GLES30.glIsTexture(name)) paperTexturesValid=false
+                check(alive()); glChecks++
+                check(GLES30.glGetError() == GLES30.GL_NO_ERROR)
+            }
+            check(recordedLinePreparationCalls == preparations && recordedCompositionCalls == compositions)
+            glChecks++; check(GLES30.glGetError() == GLES30.GL_NO_ERROR)
+        } catch(error: Exception) { unexpected=listOfNotNull(unexpected,error.message).joinToString("; ") }
+        val suppressed=expectedFailure?.suppressed.orEmpty()
+        val retirementFailures=suppressed.count { it is ColdInjectedRetirementFailure }
+        val injectedRetire=retirementFailures == 1
+        val retireExpected=target.phase == ColdUploadFailurePhase.AFTER_ROOT_BIND_WITH_RETIRE_FAILURE
+        val unexpectedCleanup=suppressed.filterNot { retireExpected && it is ColdInjectedRetirementFailure }
+        val passed=unexpected == null && alive() && attempt.reached && expectedFailure?.target == target &&
+            empty && restored && paperRestored && cpuPaperRestored && paperTexturesValid && orphaned == 0 && dangling == 0 &&
+            generated > 0 && owned+deleted == generated && injectedRetire == retireExpected &&
+            unexpectedCleanup.isEmpty() && retirementFailures == if(retireExpected) 1 else 0
+        return org.json.JSONObject().put("passed",passed).put("phase",target.phase.name)
+            .put("uploadId",target.uploadId ?: org.json.JSONObject.NULL)
+            .put("kind",target.uploadId?.let { plan.uploads[it].kind.name } ?: org.json.JSONObject.NULL)
+            .put("expectedFaultReached",attempt.reached).put("retirementFailureObserved",injectedRetire)
+            .put("candidateEmpty",empty).put("callerGlStateRestored",restored).put("paperFieldsRestored",paperRestored)
+            .put("cpuPaperRestored",cpuPaperRestored).put("priorPaperTexturesValid",paperTexturesValid)
+            .put("generatedTextures",generated).put("ownedAfterRollback",owned).put("deletedAfterRollback",deleted)
+            .put("orphanedAfterRollback",orphaned).put("actualTextureGlChecks",glChecks)
+            .put("danglingOwnersAfterRollback",dangling).put("unexpectedCleanupFailures",unexpectedCleanup.size)
+            .put("cleanupFailures",org.json.JSONArray(suppressed.map { "${it.javaClass.simpleName}: ${it.message}" }))
+            .put("linePreparationCalls",recordedLinePreparationCalls-preparations)
+            .put("compositionCalls",recordedCompositionCalls-compositions)
+            .put("contextCurrent",alive()).put("failure",unexpected ?: org.json.JSONObject.NULL).toString()
     }
 
     /** Physical context token for a disposable, empty-engine cold-upload diagnostic only. */
@@ -2311,6 +2423,8 @@ class GlPaintEngine(
     /** Pixel unpack state belongs to the caller, including a PBO and strided/subimage uploads. */
     private class ColdUploadGlState private constructor(private val unpack: IntArray,
         private val active: Int, private val texture0: Int, private val drawFbo: Int, private val readFbo: Int) {
+        fun sameValues(other: ColdUploadGlState): Boolean = unpack.contentEquals(other.unpack) &&
+            active == other.active && texture0 == other.texture0 && drawFbo == other.drawFbo && readFbo == other.readFbo
         fun unpackTightly() {
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
             GLES30.glBindBuffer(GLES30.GL_PIXEL_UNPACK_BUFFER, 0)
@@ -3389,7 +3503,9 @@ class GlPaintEngine(
     }
 
     /** One empty artwork publication, followed by handoff of those exact empty values. */
-    private fun resetJointPaint(mode: RecordedScene.ResetMode) {
+    private fun resetJointPaint(mode: RecordedScene.ResetMode) = resetJointPaint(mode,false)
+
+    private fun resetJointPaint(mode: RecordedScene.ResetMode, failAfterRetirement: Boolean) {
         val expected = publishedPaint ?: return
         check(mode == RecordedScene.ResetMode.CONTEXT_LOST || !resettingJointPaint) {
             "Finish joint retirement before another live reset"
@@ -3420,6 +3536,7 @@ class GlPaintEngine(
             recordedScene = null
             // Storage handoff preserves the exact empty values; it does not publish another edit.
             publishedPaint = null
+            if(failAfterRetirement) throw ColdInjectedRetirementFailure()
             if (mode == RecordedScene.ResetMode.SAME_CONTEXT) {
                 ticket.releaseRetiredCachesAfterPublication(physicalAlive)
                 for (texture in retiredSources) {

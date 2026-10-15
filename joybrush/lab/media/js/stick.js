@@ -36,6 +36,11 @@ export const STICKS = {
       sideCurve: [0.340697, 0.377986, 0.682266, 0.607197], pointCurve: [0.533494, 0.112884, 0.470578, 0.890346],
       tiltReachDeg: 61,
     } },
+  // Proto Mix (the owner, 2026-10-15: "average the values of the proto proto2 and proto pencil"): every number the
+  // mean of the three; where only Proto Pencil has a number, the other two count with the shared value.
+  'Proto Mix': { tipR: 0.183333, tipMax: 0.7, side1: 4.166667, side2: 11.733333, face: 1.266667, soft: 0.676667,
+    rInf: 0.008143, blend: 0.666667, build: 0.653333,
+    tuning: { pressDepth: 1.733333, pressGamma: 1.56, sideEase: 0.543333, toothStiffness: 9.066667, padSoft: 0.966667, side1From: 0.523333, side1Full: 0.793333, side2From: 0.713333, side2Full: 0.97, evenFrom: 0.913333, grad1: 1.2, grad2: 1.266667, bell: 2.95, bellReach: 0.6, acrossSoft: 1.6, tipYield: 0.5, tail: 2.866667, capMm: 0.0045, transferExp: 2.2, plateau: 2.15, crushStart: 0.493333, crushMax: 0.55, clump: 0.386667, pileLo: 0.116667, pileHi: 0.646667, dirStrength: 1.036667, conform: 0.8, abrasionX: 1.13, leadSoftX: 1.326667, dustRateX: 1.333333, smearX: 1.166667, smearMmX: 1.333333, crushRateX: 0.853333, sheenX: 1.04, sizeCurve: [0.331294, 0.282722, 0.703326, 0.647265], darkCurve: [0.278716, 0.435538, 0.676204, 0.602334], sideCurve: [0.335788, 0.348218, 0.671866, 0.646843], pointCurve: [0.400054, 0.25985, 0.601304, 0.741226], tiltReachDeg: 65.666667 } },
   // Proto: a soft woodless stick, the owner's Infinite Painter "Proko" reference.
   'Proto': { tipR: 0.25, tipMax: 1.0, side1: 5.5, side2: 16, face: 1.6, soft: 0.75, rInf: 0.006 },
   // Proto 2 (the owner, 2026-10-14): finer point, smaller side, one blended footprint, black that builds slower.

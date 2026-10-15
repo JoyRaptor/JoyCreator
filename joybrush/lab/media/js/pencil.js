@@ -89,6 +89,7 @@ function tunedDefaults(base, st) {
 // The flagship's pressure and tilt curves live on the brush (the app's ResponseSpec), not on the stick.
 const FLAGSHIP_RESPONSE = {
   'Proto Pencil': { pressure: [0.754175, 0.240418, 0.551931, 1], tilt: [0.749207, 0.29791, 0.524506, 0.954035] },
+  'Proto Mix': { pressure: [0.473614, 0.302362, 0.628421, 0.777778], tilt: [0.471958, 0.321526, 0.61928, 0.762456] },
 };
 
 // ---- every knob: [path, label, what it does, min, max, step, unit] ----

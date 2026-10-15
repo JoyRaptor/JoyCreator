@@ -124,6 +124,7 @@ object MediaPresets {
             pressure = listOf(0.754175f, 0.240418f, 0.551931f, 1f),
             tilt = listOf(0.749207f, 0.29791f, 0.524506f, 0.954035f),
         ),
+        "Proto Mix" to ResponseSpec(pressure = listOf(0.473614f, 0.302362f, 0.628421f, 0.777778f), tilt = listOf(0.471958f, 0.321526f, 0.61928f, 0.762456f)),
     )
 
     val ALL: List<BrushPreset> by lazy {

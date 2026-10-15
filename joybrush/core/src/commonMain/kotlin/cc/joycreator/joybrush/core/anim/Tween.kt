@@ -31,6 +31,8 @@ object Tween {
      * A's (T7).
      */
     fun between(a: List<StrokeRecord>, b: List<StrokeRecord>, t: Float): List<StrokeRecord> {
+        cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(a)
+        cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(b)
         val tt = t.toDouble()
         val bById = HashMap<String, StrokeRecord>()
         for (r in b) if (r.id !in bById) bById[r.id] = r

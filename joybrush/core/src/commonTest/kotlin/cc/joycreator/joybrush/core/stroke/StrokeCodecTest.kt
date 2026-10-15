@@ -204,10 +204,10 @@ class StrokeCodecTest {
         val wrongMagic = good.copyOf().also { "XXXX".encodeToByteArray().copyInto(it, 0) }
         assertTrue(messageOf { StrokeCodec.decode(wrongMagic) }.contains("magic"))
 
-        // Version 3 is what this build writes, so it is of course not refused. A version from the
+        // Version 4 is what this build writes, so it is of course not refused. A version from the
         // future is, by number, because its layout is not this one.
-        val v4 = good.copyOf().also { it[4] = 4; it[5] = 0 }
-        assertEquals("unsupported stroke version 4", messageOf { StrokeCodec.decode(v4) })
+        val v5 = good.copyOf().also { it[4] = 5; it[5] = 0 }
+        assertEquals("unsupported stroke version 5", messageOf { StrokeCodec.decode(v5) })
         val v0 = good.copyOf().also { it[4] = 0; it[5] = 0 }
         assertEquals("unsupported stroke version 0", messageOf { StrokeCodec.decode(v0) })
         val far = good.copyOf().also { it[4] = 0xFF.toByte(); it[5] = 0xFF.toByte() }
@@ -257,12 +257,12 @@ class StrokeCodecTest {
     // --- 11. version 2: the colour and the weight -----------------------------------------------
 
     @Test
-    fun aV3RecordingKeepsTheV2ColourAndWeightLayout() {
+    fun aV4OrdinaryRecordingKeepsTheV2ColourAndWeightLayout() {
         val r = record(List(60) { sample(it, allChannels = true) })
             .copy(colorArgb = 0x80FF8000.toInt(), widthScale = 2.5f)
         val bytes = StrokeCodec.encode(r)
-        assertEquals(3, bytes[4].toInt() and 0xFF, "the writer stamps its own version")
-        assertEquals(3, StrokeCodec.VERSION)
+        assertEquals(4, bytes[4].toInt() and 0xFF, "the writer stamps its own version")
+        assertEquals(4, StrokeCodec.VERSION)
         assertEquals(r, StrokeCodec.decode(bytes))
 
         // The two fields sit exactly where the layout says: colour then weight, between
@@ -300,7 +300,7 @@ class StrokeCodecTest {
         // And the moment it is saved again it is a v3 recording, defaults and all — so the next save
         // makes the file readable by a build that has never heard of version 1.
         val resaved = StrokeCodec.encode(back)
-        assertEquals(3, resaved[4].toInt() and 0xFF)
+        assertEquals(4, resaved[4].toInt() and 0xFF)
         assertEquals(back, StrokeCodec.decode(resaved))
 
         // Several at once, through the archive's own entry point.

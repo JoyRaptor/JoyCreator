@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.core.select
 
 import cc.joycreator.joybrush.core.input.PenSample
+import cc.joycreator.joybrush.core.stroke.StrokeEdit
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import kotlin.math.PI
 import kotlin.math.floor
@@ -25,6 +26,7 @@ object LineDensify {
      * can leave a chord a little over the limit on a tight bend: passes repeat (at most [MAX_PASSES]) until none is.
      */
     fun densify(r: StrokeRecord, maxGapDoc: Float): StrokeRecord {
+        StrokeEdit.requireLegacyEditAllowed(r, "densify")
         var out = r
         repeat(MAX_PASSES) {
             val next = pass(out, maxGapDoc)

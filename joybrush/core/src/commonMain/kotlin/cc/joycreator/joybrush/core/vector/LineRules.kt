@@ -2,11 +2,13 @@ package cc.joycreator.joybrush.core.vector
 
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.doc.Cel
+import cc.joycreator.joybrush.core.doc.Layer
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.SlabOps
 import cc.joycreator.joybrush.core.doc.SlabRef
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.CapturedStrokeRules
 
 /**
  * JB-5.20a: what must hold of a cel's line records, in words. [DocOps.validate] checks what `document.json` can say on
@@ -16,6 +18,20 @@ import cc.joycreator.joybrush.core.stroke.StrokeRecord
  * Every rule returns one sentence per problem, never a crash, and the whole list, like `DocOps.validate`.
  */
 object LineRules {
+
+    /** Source-kind structure only; never derive a historical domain from today's board geometry. */
+    fun sourceProblems(documentVersion: Int, layer: Layer, cel: Cel, records: List<StrokeRecord>): List<String> {
+        val out = ArrayList<String>()
+        for(record in records) {
+            val captured = record.capturedPhysicalSource
+            if(captured != null && documentVersion < 11) out += "Captured physical source requires document version11"
+            if(layer.mask?.id == cel.id) out += "A mask cannot own recorded lines"
+            if(documentVersion >= 11 && layer.regions.isNotEmpty() && captured == null)
+                out += "Regional line ${record.id} needs its captured physical source"
+            out += CapturedStrokeRules.problems(record)
+        }
+        return out
+    }
 
     /**
      * Structural rules for one cel's [records] against its [cel] and the ids of the document's frozen brush copies:
@@ -72,6 +88,10 @@ object LineRules {
      * @param brushLookup resolves a brush id to its frozen copy.
      */
     fun lookProblems(layerId: String, cel: Cel, records: List<StrokeRecord>, brushLookup: (String) -> BrushPreset?): List<String> {
+        // A generic CPU replay refusal is not geometric proof. This new kind must never use
+        // the legacy GPU-only/unknown shortcut, including a cel whose saved look index is empty.
+        if(records.any { it.capturedPhysicalSource != null })
+            return listOf("Captured physical source needs a clipping-aware saved-look validator")
         if (cel.looks.isEmpty()) return emptyList()
         val where = "cel \"${cel.id}\" of layer \"$layerId\""
         if (records.isEmpty()) return emptyList() // [problems] says a look with no lines is wrong

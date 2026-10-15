@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.core.vector
 
 import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.CapturedStrokeRules
 
 /**
  * Physical cel metadata beside GPU textures. Null celId denotes the engine's shared plane.
@@ -17,11 +18,12 @@ class RecordedCel<T : Any>(
 ) {
     class PixelSlab<T : Any>(val seq: Long, val value: UndoLog.SlabValue<T>)
 
-    val records: List<StrokeRecord> = records.map { it.copy(samples = it.samples.toList()) }.sortedBy { it.seq }
+    val records: List<StrokeRecord> = CapturedStrokeRules.snapshots(records.sortedBy { it.seq })
     val slabs: Map<Long, List<PixelSlab<T>>> = slabs.filterValues { it.isNotEmpty() }
         .mapValues { (_, list) -> list.toList().sortedBy { it.seq } }
 
     init {
+        this.records.forEach { record -> require(CapturedStrokeRules.problems(record).isEmpty()) { "Invalid captured source recipe" } }
         require(layerId.isNotBlank() && (celId == null || celId.isNotBlank())) { "A physical cel needs its full address" }
         require(this.records.map { it.id }.toSet().size == this.records.size) { "Two records share an id within a cel" }
         require(this.records.all { it.seq > 0L }) { "A stored record needs a positive sequence" }
@@ -63,7 +65,7 @@ class RecordedCel<T : Any>(
             for (line in listOfNotNull(expected, after)) {
                 require(line.record.id == change.id && line.seq == line.record.seq) { "Line history has mismatched identity or sequence" }
             }
-            require(lines[change.id] == expected?.record) { "Line history does not match the current cel" }
+            require(CapturedStrokeRules.sameRecord(lines[change.id], expected?.record)) { "Line history does not match the current cel" }
             lines.remove(change.id)
             after?.record?.let { lines[change.id] = it }
         }

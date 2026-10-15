@@ -5,6 +5,7 @@ import cc.joycreator.joybrush.core.doc.Paper
 import cc.joycreator.joybrush.core.doc.JbDocument
 import cc.joycreator.joybrush.core.vector.CelComposer
 import cc.joycreator.joybrush.core.vector.InkTiles
+import cc.joycreator.joybrush.core.stroke.CapturedStrokeRules
 
 /**
  * Undo/redo of tile changes, with a memory budget — shared by the GPU engine (T = a texture) and the
@@ -97,11 +98,11 @@ class UndoLog<T : Any>(
         slabs: List<SlabChange<T>> = emptyList(),
     ) {
         // Snapshot caller-owned collection backing, including the samples used by line replay.
-        val changes: List<TileChange<T>> = changes.toList()
-        val lines: List<LineChange> = lines.map { c ->
+        val changes: List<TileChange<T>> = FrozenStepList(changes)
+        val lines: List<LineChange> = FrozenStepList(lines.map { c ->
             LineChange(c.layerId, c.celId, c.id, snapshot(c.before), snapshot(c.after))
-        }
-        val slabs: List<SlabChange<T>> = slabs.toList()
+        })
+        val slabs: List<SlabChange<T>> = FrozenStepList(slabs)
 
         init {
             val before = HashSet<T>()
@@ -127,7 +128,13 @@ class UndoLog<T : Any>(
         }
 
         private fun snapshot(line: CelComposer.Line?): CelComposer.Line? = line?.let {
-            CelComposer.Line(it.seq, it.record.copy(samples = it.record.samples.toList()))
+            CelComposer.Line(it.seq, CapturedStrokeRules.snapshot(it.record))
+        }
+
+        private class FrozenStepList<E>(values: List<E>) : AbstractList<E>() {
+            private val values = values.toList()
+            override val size: Int get() = values.size
+            override fun get(index: Int): E = values[index]
         }
     }
 
@@ -333,6 +340,7 @@ class UndoLog<T : Any>(
     /** No state changes, publication callbacks or releases; budget callbacks run during preparation. */
     fun prepareNew(step: Step<T>, expectedCursor: Cursor<T> = snapshotCursor()): PreparedCursor<T> {
         requireOwned(expectedCursor)
+        CapturedStrokeRules.requireNewStep(step)
         val nextUndo = expectedCursor.copyUndo(1).also { it.addLast(step) }
         val nextRedo = ArrayDeque<Step<T>>()
         val dropped = prepareTrim(nextUndo, nextRedo)

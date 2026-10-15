@@ -53,6 +53,7 @@ object InkTiles {
 
     /** Replay once for a cel, then rebuild several tiles without repeating smoothing and placement. */
     fun prepare(records: List<StrokeRecord>, brushLookup: (String) -> BrushPreset?): Prepared {
+        cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(records)
         val marks = ArrayList<Mark>()
         val refused = ArrayList<Refusal>()
         val omitted = ArrayList<Omission>()

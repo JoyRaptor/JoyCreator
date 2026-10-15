@@ -33,10 +33,14 @@ import cc.joycreator.joybrush.core.input.PenSample
  * @property locked (v3, owner/UI) the line cannot be selected or edited until it is unlocked. Written only when true.
  * @property groupId (v3, owner/UI) lines with the same id move and select together; a group of one is legal. Written
  *   only when set; null = ungrouped. Never blank (validation says so).
+ * @property capturedPhysicalSource (v4) an immutable capture-space pixel domain and exact integer
+ *   placement. Null retains ordinary stroke semantics. A captured record keeps the FULL original
+ *   recipe and samples; the domain clips the resulting source image, never the trajectory.
  *
  * The record stays a PLAIN VALUE: `widthScale` is not checked or clamped here. [StrokeEdit] and
- * [StrokeCodec] both put it in range, so a record read off disk or come out of an edit is always
- * usable, but a record built by hand in a test can hold anything and `copy` can put it anywhere.
+ * [StrokeCodec] put ordinary widths in range. Captured records instead require valid original
+ * recipe values through [CapturedStrokeRules], without repair. A record built by hand in a test
+ * can hold anything and `copy` can put it anywhere.
  * Clamping in `init` would make the type hostile to the plain-value rule the rest of the engine uses
  * (cf. LEAD_RULINGS R1/R10: a broken number is read as a safe one at the point that reads it).
  */
@@ -52,6 +56,7 @@ data class StrokeRecord(
     val seq: Long = 0L,
     val locked: Boolean = false,
     val groupId: String? = null,
+    val capturedPhysicalSource: CapturedPhysicalSource? = null,
 ) {
     init {
         require(samples.none { it.predicted }) { "predicted points are never recorded" }

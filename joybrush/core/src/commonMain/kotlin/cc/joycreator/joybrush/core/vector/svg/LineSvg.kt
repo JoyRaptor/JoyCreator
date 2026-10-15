@@ -71,6 +71,7 @@ object LineSvg {
         slabs: List<SvgWriter.Slab> = emptyList(),
         runsOf: (record: StrokeRecord, brush: BrushPreset, dabs: List<Dab>) -> List<List<Dab>> = ::shapedRuns,
     ): Result {
+        cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(records)
         val items = ArrayList<SvgWriter.Item>(records.size + slabs.size)
         val skipped = ArrayList<Skipped>()
         val approximated = ArrayList<Skipped>()

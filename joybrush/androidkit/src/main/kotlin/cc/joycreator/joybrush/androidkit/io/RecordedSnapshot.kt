@@ -54,6 +54,7 @@ object RecordedSnapshot {
             require(listed.distinct().size == listed.size) { "A look tile is listed twice" }
             require(listed.isEmpty() || planes.getValue(address).records.isNotEmpty()) { "Looks need lines" }
         }
+        planes.values.forEach { cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(it.records) }
         val frozen = FrozenBrushRegistry.validate(brushes)
         if (planes.isEmpty() && frozen.isEmpty() && expectedLookKeys.isEmpty()) {
             return BoardSnapshot.capture(doc, keys, read, paper, mediaKeys, mediaRead)

@@ -149,6 +149,8 @@ object InkReplay {
      * would grow two opinions about the same fact.
      */
     fun refusal(record: StrokeRecord, brush: BrushPreset?): String? = when {
+        record.capturedPhysicalSource != null ->
+            "stroke \"${record.id}\" needs physical capture clipping and integer placement"
         // Not drawn as a default nib. A line that suddenly appears in the wrong brush is worse than
         // a line that is visibly missing and says why.
         brush == null ->

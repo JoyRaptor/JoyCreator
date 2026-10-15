@@ -78,6 +78,7 @@ object CelComposer {
     }
 
     fun draw(items: Items, brushLookup: (String) -> BrushPreset?): Drawn {
+        cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(items.lines.map { it.record })
         val prepared = InkTiles.prepare(items.lines.map { it.record }, brushLookup)
         val refused = prepared.refusals.map { it.index }.toSet()
         val marks = HashMap<Long, InkTiles.Mark>()

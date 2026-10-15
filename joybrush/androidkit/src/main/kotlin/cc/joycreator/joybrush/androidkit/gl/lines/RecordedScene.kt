@@ -510,10 +510,13 @@ internal class RecordedScene<T : Any> private constructor(
     private fun stageJointPrepared(step: UndoLog.Step<T>, direction: Direction,
                                    frozen: Map<String, BrushPreset>?,
                                    expectedPromotion: PromotedPublication<T>? = null): JointStaged {
+        if(direction == Direction.NEW) cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireNewStep(step)
+        requireOrdinaryStep(step)
         val read = boundRead ?: error("Joint recorded staging requires an engine publication binding")
         check(history.isCursorBound) { "Joint recorded staging requires history bound to the same root" }
         val publication = read()
         val before = publication.recorded
+        requireOrdinaryPlanes(before.planes)
         require(before.belongsTo(sceneIdentity)) { "Recorded state belongs to a different scene" }
         val projectedEdit = if (expectedPromotion == null) {
             // The public route keeps its existing native-disjoint refusal and callback ordering.
@@ -730,6 +733,9 @@ internal class RecordedScene<T : Any> private constructor(
 
     private fun stagePrepared(edit: RecordedEdits.Prepared<T>, direction: Direction,
                               frozen: Map<String, BrushPreset>, freshSources: Set<T>): Staged {
+        if(direction == Direction.NEW) cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireNewStep(edit.step)
+        requireOrdinaryPlanes(edit.before)
+        requireOrdinaryPlanes(edit.after)
         check(renderer.contextCurrent()) { "The recorded renderer's paper or clipping context changed" }
         require(edit.isCurrent(state.planes)) { "The recorded scene changed before staging" }
         val step = edit.step
@@ -880,8 +886,21 @@ internal class RecordedScene<T : Any> private constructor(
     private fun slabTextures(planes: Map<Pair<String, String?>, RecordedCel<T>>): List<T> =
         planes.values.flatMap { cel -> cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } } }
 
+    private fun requireOrdinaryPlanes(planes: Map<Pair<String, String?>, RecordedCel<T>>) {
+        planes.values.forEach { cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(it.records) }
+    }
+
+    private fun requireOrdinaryStep(step: UndoLog.Step<T>) {
+        step.lines.forEach { change ->
+            cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(
+                listOfNotNull(change.before?.record, change.after?.record))
+        }
+    }
+
     private fun validateRender(before: State<T>, after: Map<Pair<String, String?>, RecordedCel<T>>,
                                frozen: Map<String, BrushPreset>): Map<String, String> {
+        requireOrdinaryPlanes(before.planes)
+        requireOrdinaryPlanes(after)
         val saved = FrozenBrushRegistry.validate(frozen).mapValues { BrushJson.encode(it.value) }
         require(before.brushes.all { (id, json) -> saved[id] == json }) { "Frozen brushes cannot be replaced or removed while history can reference them" }
         val borrowed = after.values.flatMap { cel -> cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } } }
@@ -897,6 +916,8 @@ internal class RecordedScene<T : Any> private constructor(
     private fun render(before: State<T>, after: Map<Pair<String, String?>, RecordedCel<T>>,
                        frozen: Map<String, BrushPreset>, epoch: Long = generation,
                        publication: Publication<T>? = null, protected: Set<T> = emptySet()): Rendered<T> {
+        requireOrdinaryPlanes(before.planes)
+        requireOrdinaryPlanes(after)
         checkEpoch(epoch, publication)
         check(renderer.contextCurrent()) { "The recorded renderer context is unavailable" }
         checkEpoch(epoch, publication)

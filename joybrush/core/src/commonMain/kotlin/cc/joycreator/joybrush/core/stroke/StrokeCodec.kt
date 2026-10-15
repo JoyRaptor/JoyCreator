@@ -30,24 +30,32 @@ import cc.joycreator.joybrush.core.io.ByteWriter
  * | 1 | …`screenPerDoc`, `sampleCount`, samples. Reads back as black, scale 1. |
  * | 2 | …`screenPerDoc`, **`colorArgb`, `widthScale`**, `sampleCount`, samples. |
  * | 3 | …`widthScale`, **`seq` (i64), [`groupId` (utf8) only when the group flag is set]**, `sampleCount`, samples. Header flag bit 3 = locked (no payload), bit 4 = has a groupId. |
+ * | 4 | v3 fields, then an optional captured-source block (flag bit 5), then `sampleCount`, samples. |
  *
  * v3 (JB-5.20 D1, 5.20a) puts a line in its cel's time order (`seq`) and carries the two owner/UI fields. `locked` and
  * `groupId` cost nothing when they are not used: the flag bits are 0 and no bytes are written. A v1/v2 recording read
  * by [decodeAll] gets `seq` from FILE ORDER (1, 2, 3...), `locked = false`, `groupId = null`; read alone by [decode]
  * it has no neighbours to be ordered among, so its `seq` is 0 ("not in a cel yet").
  *
- * [VERSION] is 3 and [OLDEST_VERSION] is 1: the writer always writes the newest, and the reader
+ * The captured block is u8 source-version (1), u8 domain flags (bit 0 = window), optional window
+ * x/y/w/h (signed i32), u16 exclusion count, canonical y/x/h/w ordered exclusion rectangles
+ * (signed i32 x/y/w/h), then signed i32 dx/dy. Exclusions may overlap, but cannot repeat.
+ * Captured records store all sensor channels, including raw NaN bits when every reading is NaN.
+ * v4 records reject trailers; lists containing any v4 record also reject outer trailers. Legacy
+ * v1-v3 records and legacy-only lists retain their historical trailer policy.
+ *
+ * [VERSION] is 4 and [OLDEST_VERSION] is 1: the writer always writes the newest, and the reader
  * accepts every version in between, because a recording written by the build that drew it must
  * still open. The magic stays [MAGIC] — it names the FORMAT FAMILY ("a Joy Brush stroke"), and a
- * v3 recording is still one. A version outside the range is refused by number, as JB-0.04's
- * decision 4 says: this build does not know what a v4 recording means, and guessing is how a
+ * v4 recording is still one. A version outside the range is refused by number, as JB-0.04's
+ * decision 4 says: this build does not know what a v5 recording means, and guessing is how a
  * drawing is destroyed.
  */
 object StrokeCodec {
     const val MAGIC = "JBS1"
 
     /** The newest recording this build writes, and the newest it reads. */
-    const val VERSION: Int = 3
+    const val VERSION: Int = 4
 
     /** The oldest recording this build reads. See the table above. */
     const val OLDEST_VERSION: Int = 1
@@ -60,6 +68,7 @@ object StrokeCodec {
     private const val FLAG_BARREL = 1 shl 2
     private const val FLAG_LOCKED = 1 shl 3   // v3
     private const val FLAG_GROUP = 1 shl 4    // v3
+    private const val FLAG_CAPTURED = 1 shl 5 // v4
     private const val SAMPLE_FLAGS = FLAG_TILT or FLAG_AZIMUTH or FLAG_BARREL
     private const val V3_FLAGS = FLAG_LOCKED or FLAG_GROUP
 
@@ -72,6 +81,7 @@ object StrokeCodec {
     fun encode(record: StrokeRecord): ByteArray {
         // Decode refuses a negative seq, so a recording that said one would be a drawing that cannot be reopened.
         if (record.seq < 0) throw StrokeCodecException("stroke \"${record.id}\" has seq ${record.seq}; a seq is never negative")
+        requireCaptured(record)
         val w = ByteWriter()
         w.bytes(MAGIC_BYTES)
         w.u16(VERSION)
@@ -82,6 +92,7 @@ object StrokeCodec {
         if (record.samples.any { it.hasBarrel }) flags = flags or FLAG_BARREL
         if (record.locked) flags = flags or FLAG_LOCKED
         if (record.groupId != null) flags = flags or FLAG_GROUP
+        if (record.capturedPhysicalSource != null) flags = flags or FLAG_CAPTURED or SAMPLE_FLAGS
         w.u16(flags)
 
         w.utf8(record.id)
@@ -93,6 +104,7 @@ object StrokeCodec {
         w.f32(record.widthScale)
         w.i64(record.seq)
         record.groupId?.let { w.utf8(it) }
+        record.capturedPhysicalSource?.let { writeCaptured(w, it) }
         w.u32(record.samples.size.toLong())
 
         val tilt = flags and FLAG_TILT != 0
@@ -124,7 +136,8 @@ object StrokeCodec {
         // A bit we do not know means the sample layout we are about to read is not this one, so the
         // samples would come back as plausible rubbish. Refuse rather than guess.
         // The locked / group bits exist from version 3; in a v1/v2 recording they are as unknown as any other.
-        val known = if (version >= 3) SAMPLE_FLAGS or V3_FLAGS else SAMPLE_FLAGS
+        val known = SAMPLE_FLAGS or (if (version >= 3) V3_FLAGS else 0) or
+            (if (version >= 4) FLAG_CAPTURED else 0)
         if (flags and known.inv() != 0) {
             throw StrokeCodecException("unsupported stroke flags 0x${flags.toString(16)}")
         }
@@ -144,9 +157,10 @@ object StrokeCodec {
             // The record is a plain value, so a hand-built or corrupt one can hold a scale that is
             // not a number or is out of range (see JB-5.03a decision 2). It is brought into range
             // HERE, on the way in, so everything downstream of a decode — replay, the ink renderer,
-            // a re-weight — can multiply by it without re-checking.
+            // a re-weight — can multiply by it without re-checking. A captured original is instead
+            // retained raw here and refused by CapturedStrokeRules when it is invalid.
             val raw = r.f32()
-            widthScale = if (raw.isFinite()) {
+            widthScale = if (flags and FLAG_CAPTURED != 0) raw else if (raw.isFinite()) {
                 raw.coerceIn(StrokeEdit.MIN_WIDTH_SCALE, StrokeEdit.MAX_WIDTH_SCALE)
             } else {
                 1f
@@ -163,9 +177,12 @@ object StrokeCodec {
             if (flags and FLAG_GROUP != 0) groupId = r.utf8()
         }
         val locked = version >= 3 && flags and FLAG_LOCKED != 0
+        val captured = if (flags and FLAG_CAPTURED != 0) readCaptured(r, bytes) else null
 
         val count = r.u32()
-        if (count > Int.MAX_VALUE || count * MIN_SAMPLE_BYTES > r.remaining) {
+        val sampleBytes = MIN_SAMPLE_BYTES + (if (flags and FLAG_TILT != 0) 4 else 0) +
+            (if (flags and FLAG_AZIMUTH != 0) 4 else 0) + (if (flags and FLAG_BARREL != 0) 4 else 0)
+        if (count > Int.MAX_VALUE || count * sampleBytes > r.remaining) {
             throw StrokeCodecException("truncated: $count samples do not fit in ${r.remaining} bytes")
         }
         val samples = ArrayList<PenSample>(count.toInt())
@@ -183,7 +200,9 @@ object StrokeCodec {
             val tool = toolOf(r.u8())
             samples.add(PenSample(x, y, timeMs, pressure, t, a, b, tool))
         }
-        return StrokeRecord(id, brushId, seed, smoothing, screenPerDoc, samples, colorArgb, widthScale, seq, locked, groupId)
+        if (version >= 4 && r.remaining != 0) throw StrokeCodecException("trailing bytes in v4 stroke")
+        return StrokeRecord(id, brushId, seed, smoothing, screenPerDoc, samples, colorArgb, widthScale, seq, locked, groupId, captured)
+            .also { requireCaptured(it) }
     }
 
     /** The version a recording says it is, without decoding the rest; for [decodeAll]'s file-order rule. */
@@ -212,17 +231,85 @@ object StrokeCodec {
         // one byte each at the very least. This stops a corrupt count from asking for a huge list.
         if (count > r.remaining) throw StrokeCodecException("truncated: count $count, ${r.remaining} bytes left")
         val out = ArrayList<StrokeRecord>(count.toInt())
+        var hasV4 = false
         repeat(count.toInt()) {
             // Checked before the read, so a corrupt length is "truncated" and not a negative count.
             val n = r.u32()
             if (n > r.remaining) throw StrokeCodecException("truncated: a record of $n bytes, ${r.remaining} left")
             val bytes = r.bytes(n.toInt())
             val record = decode(bytes)
+            val version = versionOf(bytes)
+            if (version >= 4) hasV4 = true
             // v1/v2 recordings are numbered by where they sit in the file: that WAS their time order (JB-5.20 D1).
-            out.add(if (versionOf(bytes) < 3) record.copy(seq = (out.size + 1).toLong()) else record)
+            out.add(if (version < 3) record.copy(seq = (out.size + 1).toLong()) else record)
         }
+        if (hasV4 && r.remaining != 0) throw StrokeCodecException("trailing bytes in list containing v4 strokes")
         return out
     }
+
+    private fun requireCaptured(record: StrokeRecord) {
+        val problems = CapturedStrokeRules.problems(record)
+        if (problems.isNotEmpty()) throw StrokeCodecException(problems.joinToString("; "))
+    }
+
+    private fun writeCaptured(w: ByteWriter, source: CapturedPhysicalSource) {
+        w.u8(1)
+        w.u8(if (source.domain.window != null) 1 else 0)
+        source.domain.window?.let { writeRect(w, it) }
+        w.u16(source.domain.excluded.size)
+        for (rect in source.domain.excluded) writeRect(w, rect)
+        writeInt(w, source.placement.dx)
+        writeInt(w, source.placement.dy)
+    }
+
+    private fun readCaptured(r: ByteReader, bytes: ByteArray): CapturedPhysicalSource {
+        val version = r.u8()
+        if (version != 1) throw StrokeCodecException("unsupported captured source version $version")
+        val flags = r.u8()
+        if (flags and 1.inv() != 0) throw StrokeCodecException("unsupported captured domain flags $flags")
+        val window = if (flags and 1 != 0) readRect(r) else null
+        val count = r.u16()
+        if (count > CAPTURE_DOMAIN_MAX_EXCLUSIONS) throw StrokeCodecException("captured source has too many exclusions")
+        // Bound allocation by count and available bytes, including placement and sample count.
+        if (count * 16L + 8L + 4L > r.remaining) throw StrokeCodecException("truncated captured source exclusions")
+        // Inspect wire order and all rectangle bounds before allocating the exclusion collection.
+        // A second bounded reader borrows the same bytes; it does not copy payload arrays.
+        val scan = ByteReader(bytes, r.position)
+        var previous: CaptureRect? = null
+        repeat(count) {
+            val rect = readRect(scan)
+            previous?.let {
+                if (rectOrder.compare(it, rect) >= 0) {
+                    throw StrokeCodecException("captured source exclusions are not in canonical order")
+                }
+            }
+            previous = rect
+        }
+        val excluded = ArrayList<CaptureRect>(count)
+        repeat(count) { excluded.add(readRect(r)) }
+        return CapturedPhysicalSource(CaptureDomain(window, excluded), SourcePlacement(r.u32().toInt(), r.u32().toInt()))
+    }
+
+    private val rectOrder = compareBy<CaptureRect>({ it.y }, { it.x }, { it.h }, { it.w })
+
+    private fun readRect(r: ByteReader): CaptureRect {
+        val x = r.u32().toInt()
+        val y = r.u32().toInt()
+        val w = r.u32().toInt()
+        val h = r.u32().toInt()
+        return try { CaptureRect(x, y, w, h) } catch (e: IllegalArgumentException) {
+            throw StrokeCodecException("invalid captured rectangle: ${e.message}")
+        }
+    }
+
+    private fun writeRect(w: ByteWriter, rect: CaptureRect) {
+        writeInt(w, rect.x)
+        writeInt(w, rect.y)
+        writeInt(w, rect.w)
+        writeInt(w, rect.h)
+    }
+
+    private fun writeInt(w: ByteWriter, value: Int) = w.u32(value.toLong() and 0xFFFF_FFFFL)
 
     private fun toolOf(ordinal: Int): Tool = Tool.entries.getOrNull(ordinal)
         ?: throw StrokeCodecException("unknown tool $ordinal")

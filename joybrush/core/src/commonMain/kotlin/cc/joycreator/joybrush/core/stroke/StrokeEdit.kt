@@ -25,6 +25,13 @@ import kotlin.math.hypot
  */
 object StrokeEdit {
 
+    /** Captured records retain source pixels; legacy sample edits cannot preserve that meaning. */
+    internal fun requireLegacyEditAllowed(r: StrokeRecord, operation: String) {
+        require(r.capturedPhysicalSource == null) {
+            "Cannot $operation a captured-source stroke until source-aware editing is supported"
+        }
+    }
+
     /** The narrowest a re-weighted line may get: below this it is a scratch, not a line. */
     const val MIN_WIDTH_SCALE = 0.05f
 
@@ -71,6 +78,7 @@ object StrokeEdit {
         dy: Float,
         radius: Float,
     ): StrokeRecord {
+        requireLegacyEditAllowed(r, "reshape")
         if (!dx.isFinite() || !dy.isFinite() || !grabX.isFinite() || !grabY.isFinite()) return r
         val n = r.samples.size
         if (n == 0) return r
@@ -107,6 +115,7 @@ object StrokeEdit {
      * make every later edit of that line a no-op forever.
      */
     fun reweight(r: StrokeRecord, factor: Float): StrokeRecord {
+        requireLegacyEditAllowed(r, "reweight")
         if (!factor.isFinite()) return r
         return r.copy(widthScale = (finiteOr(r.widthScale, 1f) * factor).coerceIn(MIN_WIDTH_SCALE, MAX_WIDTH_SCALE))
     }
@@ -135,10 +144,16 @@ object StrokeEdit {
      * that has the [cc.joycreator.joybrush.core.brush.BrushPreset] asks [drawsInkLines] and says the
      * refusal in words (R20).
      */
-    fun rebrush(r: StrokeRecord, brushId: String): StrokeRecord = r.copy(brushId = brushId)
+    fun rebrush(r: StrokeRecord, brushId: String): StrokeRecord {
+        requireLegacyEditAllowed(r, "rebrush")
+        return r.copy(brushId = brushId)
+    }
 
     /** Recolour: straight sRGB, exactly as [StrokeRecord.colorArgb] stores it. */
-    fun recolor(r: StrokeRecord, argb: Int): StrokeRecord = r.copy(colorArgb = argb)
+    fun recolor(r: StrokeRecord, argb: Int): StrokeRecord {
+        requireLegacyEditAllowed(r, "recolor")
+        return r.copy(colorArgb = argb)
+    }
 
     // ── the arithmetic ────────────────────────────────────────────────────────────────────────
 

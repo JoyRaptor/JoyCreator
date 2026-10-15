@@ -3,6 +3,8 @@ package cc.joycreator.joybrush.core.select
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.shape.Pt
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.SourcePlacement
+import cc.joycreator.joybrush.core.stroke.CapturedStrokeRules
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -41,6 +43,16 @@ object LineTransform {
      * the caller refuses that move in words rather than drawing half a line.
      */
     fun apply(r: StrokeRecord, h: Homography, weight: Weight): StrokeRecord? {
+        if (r.capturedPhysicalSource != null) {
+            val m = h.m.copyOf()
+            if (m.any { !it.isFinite() } || m[8] == 0.0 || m[0] != m[8] || m[4] != m[8] ||
+                m[1] != 0.0 || m[3] != 0.0 || m[6] != 0.0 || m[7] != 0.0) return null
+            val dx = m[2] / m[8]; val dy = m[5] / m[8]
+            if (!dx.isFinite() || !dy.isFinite() || dx < Int.MIN_VALUE.toDouble() || dx > Int.MAX_VALUE.toDouble() ||
+                dy < Int.MIN_VALUE.toDouble() || dy > Int.MAX_VALUE.toDouble() ||
+                dx != dx.toInt().toDouble() || dy != dy.toInt().toDouble()) return null
+            return translateCaptured(r, dx.toInt(), dy.toInt())
+        }
         if (r.samples.isEmpty()) return r
         val out = ArrayList<PenSample>(r.samples.size)
         for (s in r.samples) {
@@ -63,6 +75,15 @@ object LineTransform {
             screenPerDoc = (r.screenPerDoc / s).toFloat(),
             widthScale = if (weight == Weight.SCALE) (r.widthScale * s).toFloat() else r.widthScale,
         )
+    }
+
+    /** Exact appearance translation: raw positions, all sensor bits and brush recipe stay untouched. */
+    fun translateCaptured(r: StrokeRecord, dx: Int, dy: Int): StrokeRecord? {
+        val source = r.capturedPhysicalSource ?: return null
+        if (CapturedStrokeRules.problems(r).isNotEmpty()) return null
+        val placement = try { source.placement.then(SourcePlacement(dx, dy)) }
+            catch (_: IllegalArgumentException) { return null }
+        return CapturedStrokeRules.snapshot(r.copy(capturedPhysicalSource = source.copy(placement = placement)))
     }
 
     /**

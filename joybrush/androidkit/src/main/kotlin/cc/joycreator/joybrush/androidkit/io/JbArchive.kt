@@ -253,6 +253,14 @@ object JbArchive {
         if (problems.isNotEmpty()) {
             throw JbArchiveException("this document cannot be saved: " + problems.joinToString("; "))
         }
+        // New source-kind diagnostics must precede encoding, which has its own checked exception.
+        // Keep ordinary codec/legacy behavior while reporting invalid captured recipes as archive
+        // admission failures, before retaining encoded payloads or touching an output stream.
+        for(layer in doc.layers) for(cel in DocOps.storedCels(layer)) {
+            val sourceProblems = LineRules.sourceProblems(doc.version, layer, cel,
+                contents.strokes[layer.id to cel.id].orEmpty())
+            if(sourceProblems.isNotEmpty()) throw JbArchiveException(sourceProblems.joinToString("; "))
+        }
 
         val declared = declaredTiles(doc)
 
@@ -383,8 +391,14 @@ object JbArchive {
      * it was found instead of half a file long.
      */
     fun write(out: OutputStream, contents: JbContents) {
-        val doc = contents.doc
         val entries = prepareStructure(contents, retainEntries = true)
+        // The codec writes v4. Upgrade only the prepared output header of stroke-bearing saves,
+        // never caller metadata or ordinary raster/media-only legacy archives. Historical regional
+        // null-source records cannot be relabelled as v11 physical truth by this upgrade.
+        val doc = if(contents.strokes.isNotEmpty() && contents.doc.version < 11)
+            contents.doc.copy(version = 11) else contents.doc
+        val sourceProblems = lineProblems(doc, contents.strokes, contents.brushes.keys, null)
+        if(sourceProblems.isNotEmpty()) throw JbArchiveException(sourceProblems.joinToString("; "))
         // Save-only geometry remains outside structural admission: this may replay CPU-supported
         // lines, and is deliberately not called by requireStructure or the reader.
         val lookProblems = ArrayList<String>()
@@ -776,7 +790,9 @@ object JbArchive {
                     copies[id] = copy
                 }
                 frozen = copies
-                doc = doc.copy(version = DOC_VERSION, brushes = used.toList())
+                // Frozen brush migration introduced v10, not a historical physical capture domain.
+                // Raising an old regional source to v11 here would wrongly refuse a valid read.
+                doc = doc.copy(version = maxOf(10, doc.version), brushes = used.toList())
             }
         }
         if (frozen.keys != doc.brushes.toSet()) {
@@ -941,6 +957,7 @@ object JbArchive {
             val records = strokes[Pair(l.id, c.id)] ?: emptyList()
             if (records.isEmpty() && c.looks.isEmpty()) continue
             out += LineRules.problems(l.id, c, records, frozenIds)
+            out += LineRules.sourceProblems(doc.version, l, c, records)
             if (exactLooks != null) out += LineRules.lookProblems(l.id, c, records, exactLooks)
         }
         return out

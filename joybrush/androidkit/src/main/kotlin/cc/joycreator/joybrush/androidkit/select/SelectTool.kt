@@ -184,7 +184,7 @@ class SelectTool(
         val id = ev.getPointerId(pointerIndex)
         val kind = kindOf(ev, pointerIndex)
         if (router.busy) return router.otherDown(id, kind)
-        lines = host.visibleLines()
+        lines = visibleLines()
         val button = kind == SelectRouter.Kind.PEN && (ev.buttonState and MotionEvent.BUTTON_STYLUS_PRIMARY) != 0
         val owned = router.down(id, ev.getX(pointerIndex), ev.getY(pointerIndex), kind, button)
         if (owned && kind == SelectRouter.Kind.FINGER && crosshair) handler.postDelayed(tick, SelectRouter.CROSSHAIR_HOLD_MS)
@@ -370,7 +370,7 @@ class SelectTool(
             AddressedStroke(entry.address.copy(recordId = record.id), record)
         }
         if (!host.addLines(copies)) return false
-        lines = host.visibleLines()
+        lines = visibleLines()
         releaseLift()
         state.clear()
         copies.forEach { state.choose(it.address, adding = true, at = null, lines = geometries(lines)) }
@@ -403,7 +403,7 @@ class SelectTool(
 
     /** Re-read the kept loop with new chips (D9, K13). A sentence when it cannot apply. */
     fun reread(reading: SelectionState.Reading): String? {
-        lines = host.visibleLines()
+        lines = visibleLines()
         val said = state.reread(reading, geometries(activeLines()), geometries(lines))
         if (said == null) onSelectionChanged() else host.toast(said)
         return said
@@ -412,7 +412,7 @@ class SelectTool(
     /** Step the selection to candidate [i] of the tap's order (the count scrubber, K11), adding when ＋ is on (K12). */
     fun chooseFromOrder(order: List<LineAddress>, i: Int, adding: Boolean, at: SelectionState.Pick) {
         if (i !in order.indices) return
-        lines = host.visibleLines()
+        lines = visibleLines()
         state.choose(order[i], adding, at, geometries(activeLines()))
         onSelectionChanged(countContext(order, i, at), order)
     }
@@ -422,7 +422,7 @@ class SelectTool(
         val pick = countPick ?: return null
         if (state.current !is SelectionState.Lines || nudging || quad0 != null) return null
         this.view = view
-        lines = host.visibleLines()
+        lines = visibleLines()
         if (rankFor(pick.at) != countOrder) { staleCount(); return null }
         cancelWeight()
         val base = if (adding) state.countBaseWithout(countOrder[pick.index], geometries(activeLines())) else emptySet()
@@ -433,7 +433,7 @@ class SelectTool(
     fun scrubCount(session: CountSession, index: Int): Boolean {
         if (countSession !== session || index !in session.order.indices || state.current !is SelectionState.Lines ||
             nudging || quad0 != null) return false
-        lines = host.visibleLines()
+        lines = visibleLines()
         if (rankFor(session.pick.at) != session.order || countStamp() != session.stamp) { staleCount(); return false }
         if (countPick?.index == index) return true
         val before = state.current
@@ -480,7 +480,7 @@ class SelectTool(
 
     private inner class Intents : SelectRouter.Sink {
         override fun tap(x: Float, y: Float, adding: Boolean) {
-            lines = host.visibleLines()
+            lines = visibleLines()
             val (dx, dy) = view.screenToDoc(x, y)
             val order = rankAt(x, y)
             val changed = state.tap(dx.toDouble(), dy.toDouble(), view.zoom.toDouble(), geometries(activeLines()), adding) { px, py -> insideBox(px, py) }
@@ -612,7 +612,7 @@ class SelectTool(
             }
             null -> {}
         }
-        lines = host.visibleLines()
+        lines = visibleLines()
         selectionStart = selectedRecords()
         refitBox()
         listener?.selectionChanged()
@@ -659,7 +659,7 @@ class SelectTool(
     private fun commitLines(after: List<AddressedStroke>): Boolean {
         val l = liftedLines
         val ok = if (l != null) l.commit(after) else host.replaceLines(after)
-        lines = host.visibleLines()
+        lines = visibleLines()
         host.invalidate()
         return ok
     }
@@ -675,7 +675,9 @@ class SelectTool(
         return lines.filter { it.address in s.ids }.map { AddressedStroke(it.address, it.record) }
     }
 
-    private fun activeLines(): List<SelectionHost.Line> = host.activeLines()
+    // Raw centreline geometry cannot describe a clipped/placed source's visible pixels.
+    private fun visibleLines(): List<SelectionHost.Line> = host.visibleLines().filter { it.record.capturedPhysicalSource == null }
+    private fun activeLines(): List<SelectionHost.Line> = host.activeLines().filter { it.record.capturedPhysicalSource == null }
 
     private fun geometries(ls: List<SelectionHost.Line>): List<SelectionLine> = ls.map { SelectionLine(it.address, it.geometry) }
 

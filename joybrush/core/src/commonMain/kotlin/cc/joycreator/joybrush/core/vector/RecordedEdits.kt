@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.stroke.AddressedStroke
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.CapturedStrokeRules
 
 /** Prepare the complete addressed edit before the engine allocates a look or publishes history. */
 object RecordedEdits {
@@ -26,8 +27,9 @@ object RecordedEdits {
             require(allowLocked || !old.locked) { "Unlock the line before editing it" }
             require(entry.record.seq == old.seq) { "Editing a line cannot change its sequence" }
             require(entry.record.brushId in frozenIds) { "A line must use a frozen document brush" }
-            val next = entry.record.copy(samples = entry.record.samples.toList())
-            if (old == next) null else change(entry.address, old, next)
+            CapturedStrokeRules.requireSupportedReplacement(old, entry.record)
+            val next = CapturedStrokeRules.snapshot(entry.record)
+            if (CapturedStrokeRules.sameRecord(old, next)) null else change(entry.address, old, next)
         }
         return prepare(planes, UndoLog.Step(emptyList(), lines = changes), true)
     }
@@ -46,7 +48,8 @@ object RecordedEdits {
             // MAX_VALUE is a valid final stored sequence; any further addition refuses the batch.
             require(seq > 0L) { "This cel has no sequence numbers left" }
             sequences[key] = if (seq == Long.MAX_VALUE) 0L else seq + 1L
-            val record = entry.record.copy(seq = seq, samples = entry.record.samples.toList())
+            val record = CapturedStrokeRules.snapshot(entry.record.copy(seq = seq))
+            CapturedStrokeRules.requireSupportedReplacement(null, record)
             change(address, null, record)
         }
         return prepare(planes, UndoLog.Step(emptyList(), lines = changes), true)

@@ -177,6 +177,9 @@ object InkErase {
         mode: InkEraseMode,
         brushOf: (StrokeRecord) -> BrushPreset?,
     ): InkEraseOutcome {
+        // Refuse before empty-path / no-op shortcuts: an eraser result must never certify that a
+        // captured record was considered when this implementation only understands raw samples.
+        records.forEach { cc.joycreator.joybrush.core.stroke.StrokeEdit.requireLegacyEditAllowed(it, "erase") }
         // A gesture with no samples yet, a half-built path, and a radius that is not a usable
         // number: all of them are real states mid-gesture, and all of them touch nothing. Not an
         // exception — [VectorEraser] is already tolerant of the empty path, and a NaN radius would

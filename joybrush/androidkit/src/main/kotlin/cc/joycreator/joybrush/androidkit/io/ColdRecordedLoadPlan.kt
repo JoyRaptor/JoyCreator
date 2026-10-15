@@ -190,6 +190,7 @@ internal object ColdRecordedLoadPlan {
     private val OPERATORS = setOf("normal", "erase", "behind", "multiply", "screen")
     private val builtInWc = WatercolourSpec()
     private fun validateReferenced(record: StrokeRecord, brush: BrushPreset) {
+        need(record.capturedPhysicalSource == null, "Captured physical sources need a clipping-aware cold loader")
         need(record.id.isNotBlank(), "A cold line needs its full identity")
         need(record.smoothing.isFinite() && record.smoothing in 0f..1f && record.screenPerDoc.isFinite() && record.screenPerDoc > 0 &&
             record.widthScale.isFinite() && record.widthScale in 0.05f..20f && record.samples.all { it.isPlaceable && !it.predicted },

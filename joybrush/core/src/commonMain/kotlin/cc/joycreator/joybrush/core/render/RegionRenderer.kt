@@ -280,9 +280,9 @@ object RegionRenderer {
         requirePaperIfAny(paper)
         requireOneBackdrop(paper, paperRenderer)
         requireRasterContent(doc, brushLookup)
-        val out = ByteArray(rect.w * rect.h * 4)
-        if (rect.w == 0 || rect.h == 0) return out
+        if (rect.w == 0 || rect.h == 0) return ByteArray(0)
         val p = renderPremultiplied(doc, tiles, rect, frameId, paper, paperRenderer, brushLookup, strokeSource, onInkRefusal)
+        val out = ByteArray(rect.w * rect.h * 4)
         var i = 0
         while (i < p.size) {
             val a = p[i + 3]
@@ -328,6 +328,12 @@ object RegionRenderer {
         requirePaperIfAny(paper)
         requireOneBackdrop(paper, paperRenderer)
         requireRasterContent(doc, brushLookup)
+        // Preflight the new source kind before paper/tile traversal: an empty current footprint
+        // and a warning callback must not turn it into a successful partial export.
+        if(strokeSource != null) for(layer in doc.layers) for(cel in DocOps.storedCels(layer)) {
+            if(strokeSource(layer.id, cel.id).orEmpty().any { it.capturedPhysicalSource != null })
+                throw RegionException("Captured physical sources need clipping-aware rendering")
+        }
         val px = FloatArray(rect.w * rect.h * 4)
         if (rect.w == 0 || rect.h == 0) return px
 

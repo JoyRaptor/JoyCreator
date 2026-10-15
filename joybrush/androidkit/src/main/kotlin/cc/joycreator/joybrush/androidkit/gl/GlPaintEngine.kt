@@ -2378,6 +2378,7 @@ class GlPaintEngine(
     /** Concrete paper/clipping renderer shared by eager replay and no-replay cold adoption. */
     private fun recordedRenderer(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
                                  transfer: NativeBaseTransferProof? = null): RecordedScene.Renderer<Int> {
+        planes.values.forEach { cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(it.records) }
         check(ready) { "The drawing context is not ready for recorded cels" }
         check(recordedScene == null) { "Release the previous recorded scene before opening another" }
         val capturedDocument = boardDocument

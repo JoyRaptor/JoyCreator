@@ -39,6 +39,7 @@ import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
 import com.fadcam.ui.faditor.ai.joybot.DirectRunner;
 import com.fadcam.ui.faditor.ai.joybot.HelpBook;
+import com.fadcam.ui.faditor.ai.joybot.JoybotAgent;
 import com.fadcam.ui.faditor.ai.joybot.Idea;
 import com.fadcam.ui.faditor.ai.joybot.IdeaEngine;
 import com.fadcam.ui.faditor.ai.joybot.IdeaMemory;
@@ -57,7 +58,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,11 +65,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
 
 /**
  * AI Assistant chat shell for Faditor.
@@ -109,13 +104,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
     /** Joybot is answering or working: the Stop button shows and the idea buttons wait. */
     private volatile boolean busy;
     private volatile boolean cancelled;
-    @Nullable private volatile okhttp3.Call currentCall;
     @Nullable private SlideFlow slideFlow;
     /** The undo-history label for the request in flight, and whether it has parked its step. */
     private volatile String requestLabel = "Joybot";
     private volatile boolean requestStepPushed;
-    /** This request: asked the model once to actually call the tool it described; a tool ran. */
-    private volatile boolean nudgedForTool, toolRanThisRequest;
     /** The card showing each live Joybot step, so "undo that" can retire the right one. */
     private final java.util.Map<AIChatState.Step, JoybotChatViews.Card> cardForStep =
             new java.util.IdentityHashMap<>();
@@ -145,23 +137,15 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private LinearLayout checklistContainer;
     private final Handler statusHandler = new Handler(Looper.getMainLooper());
     private final Runnable hideStatusRunnable = () -> statusBar.setVisibility(View.GONE);
-    private boolean aiJobRunning;
 
     private String apiKey;
-    /**
-     * Tool steps run since the user last spoke. A model can answer every tool result with another
-     * tool call; without a limit that loops forever (and on a paid model, bills forever).
-     */
-    private volatile int toolRounds;
-    private static final int MAX_TOOL_ROUNDS = 8;
-    /** Room for a full edit plan; 1024 cut long instructions off mid-sentence. */
-    private static final int REPLY_TOKENS = 4096;
+    /** A picture attached and waiting for the person to say what to do with it ("data:" URL). */
+    @Nullable private String stagedImage;
+    private int stagedW, stagedH;
     private String model;
     private String projectId;
 
     private final ExecutorService aiExecutor = Executors.newSingleThreadExecutor();
-    private final OkHttpClient httpClient = new OkHttpClient();
-    private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
     // Static message log — survives Activity recreation so the user sees
     // their conversation when they reopen the chat. Capped at 200 entries
@@ -172,7 +156,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
     // Static conversation history — survives Activity recreation so the
     // conversation persists while the app is open, even if the user closes
     // and reopens the chat window.
-    private static final List<JSONObject> conversationHistory = new ArrayList<>();
+    // It lives in JoybotAgent: a request the model is carrying out outlives this screen.
+    private static final List<JSONObject> conversationHistory = JoybotAgent.HISTORY;
 
     /** The project the kept conversation is about. */
     @Nullable private static String lastChatProjectId;
@@ -250,6 +235,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
             setBusy(true);
             actor.setMood(JoybotView.Mood.WORK);
             showStatus("Still working…");
+        }
+        // A request the model is carrying out keeps going with the chat closed: pick it back up.
+        JoybotAgent.attach(agentListener);
+        JoybotAgent.Ask running = JoybotAgent.current();
+        if (running != null && java.util.Objects.equals(running.projectId, projectId)) {
+            setBusy(true);
+            actor.setMood(JoybotView.Mood.WORK);
+            addBotMessage("Still working on \u201c" + JoybotAgent.shortOf(running.text) + "\u201d\u2026");
         }
         showFinishedWhileAway();
         refreshIdeas(true);
@@ -416,28 +409,6 @@ public class ChatAssistantActivity extends AppCompatActivity {
         });
     }
 
-    private void startAiJob(@NonNull String task) {
-        aiJobRunning = true;
-        AIJobService.start(this, task);
-        // Persist job state so it can be resumed after process death
-        new AIJobStore(this).saveJob(task, projectId != null ? projectId : "", null, task);
-    }
-
-    private void updateAiJob(@NonNull String task, int percent) {
-        if (aiJobRunning) {
-            AIJobService.update(this, task, percent);
-            new AIJobStore(this).updateProgress(percent, task);
-        }
-    }
-
-    private void finishAiJob() {
-        if (aiJobRunning) {
-            aiJobRunning = false;
-            AIJobService.stop(this);
-            new AIJobStore(this).clearJob();
-        }
-    }
-
     private void markChecklistFromTask(@NonNull String task) {
         String lower = task.toLowerCase();
         if (lower.contains("vosk")) checkChecklistItem(0, true);
@@ -453,16 +424,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 showStatusProgress(task, percent);
                 markChecklistFromTask(task);
             });
-            updateAiJob(task, percent);
         });
     }
 
     private static int clampPercent(int percent) {
         return Math.max(0, Math.min(100, percent));
-    }
-
-    private String humanizeToolName(@NonNull String toolName) {
-        return toolName.replace('_', ' ');
     }
 
     private static final int VOICE_REQUEST_CODE = 1001;
@@ -740,7 +706,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         // Caption text
         TextView caption = new TextView(this);
-        caption.setText("[Attached image] Describe what you see.");
+        caption.setText("Picture attached");
         caption.setTextColor(Studio.INK_FAINT);
         caption.setTextSize(12);
         wrapper.addView(caption);
@@ -750,144 +716,51 @@ public class ChatAssistantActivity extends AppCompatActivity {
         addTickerTick(true);
         scrollToBottom();
 
-        // Reset input to "describe this image" context
-        inputField.setText("Describe what's in this image.");
-
-        // Encode the full-size bitmap as base64 for the AI vision API
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos);
-        byte[] imageBytes = baos.toByteArray();
-        String base64 = android.util.Base64.encodeToString(imageBytes, android.util.Base64.NO_WRAP);
-
-        // Send as a multimodal vision message if API key is set
-        if (AiService.ready(this, apiKey)) {
-            sendVisionMessage(base64, bitmap.getWidth(), bitmap.getHeight());
-        } else {
-            addBotMessage("I can see an image is attached. "
-                    + "Connect an API key (top-right settings) for AI vision analysis.");
+        if (!AiService.ready(this, apiKey)) {
+            addBotMessage("I can see a picture is attached. Connect an AI in ⚙ (there's a free"
+                    + " one) and I can look at it and work with it.");
+            bitmap.recycle();
+            return;
         }
+        // STAGED, NOT SENT. Attaching used to send "Describe what's in this image." at once, so
+        // the person never got to say what the picture was FOR ("label these expressions", "use
+        // this as the thumbnail"). Now the picture waits and rides along with the next message.
+        // Long edge capped at 2048: plenty for a sprite sheet's cells, and a 12 MP photo would
+        // otherwise be ~4 MB of base64 on one request.
+        int longEdge = Math.max(bitmap.getWidth(), bitmap.getHeight());
+        Bitmap send = bitmap;
+        if (longEdge > 2048) {
+            float k = 2048f / longEdge;
+            send = Bitmap.createScaledBitmap(bitmap, Math.max(1, Math.round(bitmap.getWidth() * k)),
+                    Math.max(1, Math.round(bitmap.getHeight() * k)), true);
+        }
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        send.compress(Bitmap.CompressFormat.JPEG, 88, baos);
+        stagedImage = "data:image/jpeg;base64,"
+                + android.util.Base64.encodeToString(baos.toByteArray(), android.util.Base64.NO_WRAP);
+        stagedW = send.getWidth();
+        stagedH = send.getHeight();
+        if (send != bitmap) send.recycle();
         bitmap.recycle();
+        if (visionOf(model) == ModelCapabilities.Vision.NO) {
+            addBotMessage("Got it. Heads up: \"" + model + "\" can't see pictures — pick a model"
+                    + " with the 👁 at the top first. Then tell me what to do with it.");
+        } else {
+            addBotMessage("Got it. What should I do with it? (Send with nothing typed and I'll just"
+                    + " tell you what I see.)");
+        }
+        inputField.setText("");
+        inputField.setHint("What should I do with this picture?");
+        inputField.requestFocus();
     }
 
-    /** Send a multimodal vision message to the AI with an image (base64 JPEG). */
+    /** Send the frame (base64 JPEG) with whatever is typed, to the model, which can act on it. */
     private void sendVisionMessage(@NonNull String base64Image, int imgW, int imgH) {
-        // View state must be read on the main thread — capture the prompt here,
-        // before the work is handed to the background executor.
-        final String userText = inputField.getText().toString().trim();
+        // View state must be read on the main thread — capture the prompt here.
+        String typed = inputField.getText().toString().trim();
         inputField.setText("");
-
-        addBotMessage("Looking…");
-        toolRounds = 0;
-        cancelled = false;
-        setBusy(true);
-        actor.setMood(JoybotView.Mood.THINK);
-
-        aiExecutor.execute(() -> {
-            try {
-                JSONObject body = new JSONObject();
-                body.put("model", model);
-                body.put("max_tokens", REPLY_TOKENS);
-                body.put("temperature", 0.7);
-
-                // Build multimodal content: text + image (text part first —
-                // OpenRouter parses the parts in order).
-                JSONArray content = new JSONArray();
-
-                JSONObject textPart = new JSONObject();
-                textPart.put("type", "text");
-                textPart.put("text", userText);
-                content.put(textPart);
-
-                JSONObject imagePart = new JSONObject();
-                JSONObject imageUrl = new JSONObject();
-                imageUrl.put("url", "data:image/jpeg;base64," + base64Image);
-                imagePart.put("type", "image_url");
-                imagePart.put("image_url", imageUrl);
-                content.put(imagePart);
-
-                // The image travels in THIS turn's outgoing request only. What is
-                // retained in the static history is a compact textual placeholder —
-                // keeping the data URL would re-send megabytes of base64 on every
-                // subsequent turn (cost, bandwidth and memory).
-                JSONObject outgoingUserMsg = new JSONObject();
-                outgoingUserMsg.put("role", "user");
-                outgoingUserMsg.put("content", content);
-
-                JSONObject retainedUserMsg = new JSONObject();
-                retainedUserMsg.put("role", "user");
-                // Worded as a FACT ABOUT THE PAST, not as an attachment. The first wording said
-                // "[image attached: …]", which is true of that turn and false of every turn
-                // after it — and a model reading it on turn 2, with no image present, replies
-                // "I can't see the image you attached, I don't have image analysis
-                // capabilities". That denial then reads to the user as vision being broken when
-                // it is the history being honest. Measured on device 2026-08-06.
-                retainedUserMsg.put("content", userText
-                        + "\n[The user showed you a " + imgW + "x" + imgH + " video frame at this"
-                        + " point in the conversation. It was visible to you then and is not"
-                        + " re-attached now; ask them to share it again if you need another look.]");
-                conversationHistory.add(retainedUserMsg);
-
-                // Build the request body: prior history (with placeholders) plus
-                // this turn's full multimodal message.
-                JSONArray messages = messagesForRequest();
-                for (int i = 0; i < messages.length(); i++) {
-                    if (messages.opt(i) == retainedUserMsg) messages.put(i, outgoingUserMsg);
-                }
-
-                body.put("messages", messages);
-
-                Request request = new Request.Builder()
-                        .url(AiService.chatUrl(this))
-                        .addHeader("Authorization", "Bearer " + apiKey)
-                        .addHeader("Content-Type", "application/json")
-                        .post(RequestBody.create(body.toString(), JSON))
-                        .build();
-
-                okhttp3.Call call = httpClient.newCall(request);
-                currentCall = call;
-                Response response = call.execute();
-                String responseBody = response.body() != null ? response.body().string() : "";
-                if (cancelled) return;
-
-                if (!response.isSuccessful()) {
-                    final String err = friendlyApiError("API error " + response.code() + ": "
-                            + responseBody.substring(0, Math.min(200, responseBody.length())));
-                    runOnUiThread(() -> updateLastBotMessage(err));
-                    doneTalking(false);
-                    return;
-                }
-
-                JSONObject json = new JSONObject(responseBody);
-                // A completion names the model that ACTUALLY served it, which for a router
-                // (openrouter/free, openrouter/auto) is only knowable after the fact. Recording
-                // it turns the eye indicator's prediction into an observation.
-                ModelCapabilities.noteServedModel(json.optString("model", null));
-                JSONArray choices = json.optJSONArray("choices");
-                if (choices == null || choices.length() == 0) {
-                    runOnUiThread(() -> updateLastBotMessage("I got an empty reply. Try again."));
-                    doneTalking(false);
-                    return;
-                }
-
-                String aiText = choices.getJSONObject(0)
-                        .getJSONObject("message")
-                        .getString("content");
-
-                JSONObject aiMsg = new JSONObject();
-                aiMsg.put("role", "assistant");
-                aiMsg.put("content", aiText);
-                conversationHistory.add(aiMsg);
-
-                final String shown = replyToShow(aiText);
-                runOnUiThread(() -> updateLastBotMessage(shown));
-                doneTalking(true);
-            } catch (Exception e) {
-                if (cancelled) return;
-                runOnUiThread(() -> updateLastBotMessage(e instanceof IOException
-                        ? friendlyNetworkError((IOException) e) : "I couldn't look at that: " + e.getMessage()));
-                doneTalking(false);
-            }
-        });
+        askAgent(typed.isEmpty() ? "What do you see here?" : typed,
+                "data:image/jpeg;base64," + base64Image, imgW, imgH);
     }
 
     private void initSystemPrompt() {
@@ -995,13 +868,25 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void sendMessage() {
         stopDictation();
         String text = inputField.getText().toString().trim();
-        if (text.isEmpty()) return;
+        if (text.isEmpty() && stagedImage == null) return;
         if (busy) {
             Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
             return;
         }
 
         voice.hush();
+        // A staged picture goes with these words, straight to the model: it is what can see it,
+        // and it can act on it with the same tools as any other request.
+        if (stagedImage != null) {
+            String image = stagedImage;
+            stagedImage = null;
+            inputField.setHint("Ask anything…");
+            if (text.isEmpty()) text = "What do you see in this picture?";
+            addUserMessage(text);
+            inputField.setText("");
+            askAgent(text, image, stagedW, stagedH);
+            return;
+        }
         addUserMessage(text);
         inputField.setText("");
 
@@ -1119,296 +1004,81 @@ public class ChatAssistantActivity extends AppCompatActivity {
     // ── Online AI query ────────────────────────────────────────────
 
     private void handleAiQuery(@NonNull String userText) {
-        try {
-            JSONObject userMsg = new JSONObject();
-            userMsg.put("role", "user");
-            userMsg.put("content", userText);
-            conversationHistory.add(userMsg);
-        } catch (Exception e) {
-            addBotMessage("Error preparing message: " + e.getMessage());
-            return;
-        }
-
-        addBotMessage("Thinking…");
-        toolRounds = 0;
-        cancelled = false;
-        requestLabel = requestLabelFor(userText);
-        requestStepPushed = false;
-        nudgedForTool = false;
-        toolRanThisRequest = false;
-        setBusy(true);
-        actor.setMood(JoybotView.Mood.THINK);
-
-        aiExecutor.execute(() -> {
-            try {
-                final boolean[] talking = {false};
-                Completion done = streamCompletion(partial -> runOnUiThread(() -> {
-                    String shown = shownWhileStreaming(partial);
-                    updateLastBotMessage(shown);
-                    if (!talking[0] && !shown.equals("Working…")) {
-                        talking[0] = true;
-                        actor.setMood(JoybotView.Mood.TALK);
-                    }
-                }));
-                if (cancelled) return;
-                if (done.error != null) {
-                    runOnUiThread(() -> updateLastBotMessage(friendlyApiError(done.error)));
-                    doneTalking(false);
-                    return;
-                }
-                // A completion names the model that ACTUALLY served it, which for a router
-                // (openrouter/free, openrouter/auto) is only knowable after the fact. Recording
-                // it turns the eye indicator's prediction into an observation.
-                ModelCapabilities.noteServedModel(done.servedModel);
-                if (done.text.isEmpty()) {
-                    runOnUiThread(() -> updateLastBotMessage("I got an empty reply. Try asking again."));
-                    doneTalking(false);
-                    return;
-                }
-
-                String aiText = done.text;
-
-                JSONObject aiMsg = new JSONObject();
-                aiMsg.put("role", "assistant");
-                aiMsg.put("content", aiText);
-                conversationHistory.add(aiMsg);
-
-                String toolResult = tryExecuteTool(aiText);
-                if (toolResult != null) {
-                    // Show the words (never the command), the tool line, then continue.
-                    final String toolMsg = toolResult;
-                    final String prose = proseOf(aiText);
-                    runOnUiThread(() -> {
-                        updateLastBotMessage(prose.isEmpty() ? "On it…" : prose);
-                        addToolResultMessage(toolMsg);
-                    });
-                    conversationHistory.add(toolFollowUp(toolResult));
-                    continueAiConversation();
-                } else if (!pendingAsyncTool && projectId != null && !HelpBook.isQuestion(userText)
-                        && !nudgedForTool && !aiText.trim().endsWith("?") && claimsAChange(aiText)) {
-                    nudgedForTool = true;
-                    // It SAID it changed the project but called no tool, so nothing changed (a
-                    // free model did exactly this on the Note 9, 2026-10-14). Don't show the claim;
-                    // ask once more for the tool call itself.
-                    runOnUiThread(() -> updateLastBotMessage("Doing it…"));
-                    conversationHistory.add(new JSONObject().put("role", "user").put("content",
-                            "You described the change but did not call a tool, so nothing in the project"
-                            + " changed. To change it, reply now with ONLY the tool JSON"
-                            + " {\"tool\":...,\"args\":{...}} — no other words."));
-                    continueAiConversation();
-                } else if (!pendingAsyncTool) {
-                    final String shown = replyToShow(aiText);
-                    runOnUiThread(() -> { updateLastBotMessage(shown); voice.speak(shown); });
-                    doneTalking(true);
-                }
-            } catch (IOException e) {
-                if (cancelled) return;
-                runOnUiThread(() -> updateLastBotMessage(friendlyNetworkError(e)));
-                doneTalking(false);
-            } catch (Exception e) {
-                if (cancelled) return;
-                runOnUiThread(() -> updateLastBotMessage("Something went wrong: " + e.getMessage()));
-                doneTalking(false);
-            }
-        });
-    }
-
-    /** The message that hands a tool's result back to the model. */
-    @NonNull
-    private static JSONObject toolFollowUp(@NonNull String toolResult) throws Exception {
-        return new JSONObject().put("role", "user").put("content", "Tool result:\n" + toolResult
-                + "\n\nNow tell the person what changed, in one or two plain sentences"
-                + " (or call the next tool if the request needs another step).");
-    }
-
-    private void continueAiConversation() {
-        if (cancelled) return;
-        if (++toolRounds > MAX_TOOL_ROUNDS) {
-            runOnUiThread(() -> addBotMessage("I stopped after " + MAX_TOOL_ROUNDS
-                    + " steps in a row so nothing runs away. Say \"keep going\" if you want me to continue."));
-            doneTalking(true);
-            return;
-        }
-        aiExecutor.execute(() -> {
-            try {
-                // The follow-up gets its own bubble, opened by the first words that arrive.
-                final boolean[] opened = {false};
-                Completion done = streamCompletion(partial -> runOnUiThread(() -> {
-                    String shown = shownWhileStreaming(partial);
-                    if (opened[0]) updateLastBotMessage(shown);
-                    else {
-                        opened[0] = true;
-                        addBotMessage(shown);
-                        actor.setMood(JoybotView.Mood.TALK);
-                    }
-                }));
-                if (cancelled) return;
-                if (done.error != null) {
-                    runOnUiThread(() -> addBotMessage(friendlyApiError(done.error)));
-                    doneTalking(false);
-                    return;
-                }
-                ModelCapabilities.noteServedModel(done.servedModel);
-                if (done.text.isEmpty()) {
-                    runOnUiThread(() -> {
-                        if (opened[0]) updateLastBotMessage("Done.");
-                        else addBotMessage("Done.");
-                    });
-                    doneTalking(true);
-                    return;
-                }
-
-                String aiText = done.text;
-
-                JSONObject aiMsg = new JSONObject();
-                aiMsg.put("role", "assistant");
-                aiMsg.put("content", aiText);
-                conversationHistory.add(aiMsg);
-
-                // Chained tool calls
-                String toolResult = tryExecuteTool(aiText);
-                if (toolResult != null) {
-                    final String toolMsg = toolResult;
-                    final String prose = proseOf(aiText);
-                    runOnUiThread(() -> {
-                        if (opened[0]) updateLastBotMessage(prose.isEmpty() ? "Next step…" : prose);
-                        addToolResultMessage(toolMsg);
-                    });
-                    conversationHistory.add(toolFollowUp(toolResult));
-                    continueAiConversation();
-                } else if (!pendingAsyncTool) {
-                    // Asked once for the tool and it STILL only claims a change: say so plainly.
-                    final String shown = nudgedForTool && !toolRanThisRequest && claimsAChange(aiText)
-                            ? "This model keeps describing the change instead of making it, so nothing"
-                              + " changed. Try again, or pick another model (tap its name at the top)."
-                            : replyToShow(aiText);
-                    runOnUiThread(() -> {
-                        if (opened[0]) updateLastBotMessage(shown);
-                        else addBotMessage(shown);
-                        voice.speak(shown);
-                    });
-                    doneTalking(true);
-                }
-            } catch (Exception e) {
-                if (cancelled) return;
-                runOnUiThread(() -> addBotMessage(e instanceof IOException
-                        ? friendlyNetworkError((IOException) e) : "Something went wrong: " + e.getMessage()));
-                doneTalking(false);
-            }
-        });
-    }
-
-    /** The service's error, said plainly; the free tier's limits get their own sentence. */
-    @NonNull
-    private static String friendlyApiError(@NonNull String raw) {
-        String l = raw.toLowerCase(java.util.Locale.US);
-        if (l.contains("429") || l.contains("rate limit") || l.contains("rate-limit")) {
-            return "The AI service is busy, or I've hit its limit for now (free models allow a few "
-                    + "requests a minute). Try again in a minute, or pick another model in ⚙.";
-        }
-        if (l.contains("401") || l.contains("unauthorized") || l.contains("invalid api key")
-                || l.contains("no auth")) {
-            return "The AI service didn't accept the key. Check it in ⚙.";
-        }
-        if (l.contains("402") || l.contains("credit") || l.contains("insufficient")) {
-            return "That model needs credit on your AI account. Pick a free one in ⚙, or add credit.";
-        }
-        return raw;
-    }
-
-    @NonNull
-    private static String friendlyNetworkError(@NonNull IOException e) {
-        String m = String.valueOf(e.getMessage());
-        if (e instanceof java.net.UnknownHostException || m.contains("Unable to resolve host")) {
-            return "I can't reach the AI service — check the internet, or the address in ⚙. "
-                    + "The buttons below still work offline.";
-        }
-        if (e instanceof java.net.SocketTimeoutException) {
-            return "The AI service took too long to answer. Try again in a moment.";
-        }
-        return "Network problem: " + m;
-    }
-
-    // ── Streaming replies ────────────────────────────────────────────
-    // Words appear as the model writes them instead of a frozen "Thinking..." (roadmap 3.6).
-
-    private static final class Completion {
-        String text = "";
-        @Nullable String servedModel;
-        /** What to show instead of a reply, or null when it worked. */
-        @Nullable String error;
-    }
-
-    /** Text arrived so far; called on the request thread, at most every ~80 ms. */
-    private interface PartialText {
-        void onText(@NonNull String soFar);
+        askAgent(userText, null, 0, 0);
     }
 
     /**
-     * One chat completion over the conversation so far, streamed (server-sent events). Returns the
-     * whole reply; {@code partial} sees it grow. Blocking: call on {@link #aiExecutor}.
+     * Hand a request to Joybot's agent, which runs it — tools and all — whether or not this
+     * screen stays open; {@link #agentListener} shows it while it does.
      */
-    @NonNull
-    private Completion streamCompletion(@Nullable PartialText partial) throws Exception {
-        JSONObject body = new JSONObject();
-        body.put("model", model);
-        body.put("messages", messagesForRequest());
-        body.put("max_tokens", REPLY_TOKENS);
-        body.put("temperature", 0.7);
-        body.put("stream", true);
-        Request request = new Request.Builder()
-                .url(AiService.chatUrl(this))
-                .addHeader("Authorization", "Bearer " + apiKey)
-                .addHeader("Content-Type", "application/json")
-                .post(RequestBody.create(body.toString(), JSON))
-                .build();
-        Completion c = new Completion();
-        okhttp3.Call call = httpClient.newCall(request);
-        currentCall = call;   // the Stop button cancels this
-        try (Response response = call.execute()) {
-            if (!response.isSuccessful() || response.body() == null) {
-                String err = response.body() != null ? response.body().string() : "";
-                c.error = "API error " + response.code() + ": " + err.substring(0, Math.min(200, err.length()));
-                return c;
-            }
-            okio.BufferedSource src = response.body().source();
-            StringBuilder text = new StringBuilder();
-            long lastShown = 0;
-            String line;
-            while ((line = src.readUtf8Line()) != null) {
-                // Lines are "data: {json}", ": keep-alive" comments, or blank separators.
-                if (!line.startsWith("data:")) continue;
-                String data = line.substring(5).trim();
-                if ("[DONE]".equals(data)) break;
-                JSONObject chunk;
-                try {
-                    chunk = new JSONObject(data);
-                } catch (Exception notJson) {
-                    continue;
-                }
-                if (chunk.has("error")) {
-                    JSONObject e = chunk.optJSONObject("error");
-                    c.error = "API error: " + (e != null ? e.optString("message", "unknown") : chunk.optString("error"));
-                    return c;
-                }
-                if (c.servedModel == null && chunk.has("model")) c.servedModel = chunk.optString("model", null);
-                JSONArray choices = chunk.optJSONArray("choices");
-                if (choices == null || choices.length() == 0) continue;
-                JSONObject delta = choices.getJSONObject(0).optJSONObject("delta");
-                if (delta == null || delta.isNull("content")) continue;
-                String piece = delta.optString("content", "");
-                if (piece.isEmpty()) continue;
-                text.append(piece);
-                long now = android.os.SystemClock.uptimeMillis();
-                if (partial != null && now - lastShown >= 80) {
-                    lastShown = now;
-                    partial.onText(text.toString());
-                }
-            }
-            c.text = text.toString();
+    private void askAgent(@NonNull String text, @Nullable String imageDataUrl, int imgW, int imgH) {
+        addBotMessage(imageDataUrl != null ? "Looking…" : "Thinking…");
+        cancelled = false;
+        setBusy(true);
+        actor.setMood(JoybotView.Mood.THINK);
+        JoybotAgent.Situation where = new JoybotAgent.Situation();
+        where.room = room;
+        where.playheadMs = getIntent().getLongExtra(EXTRA_PLAYHEAD_MS, -1);
+        where.selectedId = getIntent().getStringExtra(EXTRA_SELECTED_ID);
+        IdeaEngine.Offer o = currentOffer;
+        if (o != null && o.hasIdea()) {
+            for (Idea i : o.ideas) if (i.kind != Idea.Kind.TYPE) where.suggestions.add(i.label);
         }
-        return c;
+        JoybotAgent.Ask ask = new JoybotAgent.Ask(projectId, text,
+                model == null || model.isEmpty() ? DEFAULT_MODEL : model, apiKey == null ? "" : apiKey,
+                requestLabelFor(text), where);
+        ask.question = HelpBook.isQuestion(text);
+        ask.imageDataUrl = imageDataUrl;
+        ask.imageW = imgW;
+        ask.imageH = imgH;
+        JoybotAgent.ask(this, ask);
     }
+
+    /** The agent's request, shown while this screen is open (attached in onCreate). */
+    private final JoybotAgent.Listener agentListener = new JoybotAgent.Listener() {
+        private boolean gone() { return isFinishing() || isDestroyed(); }
+
+        @Override public void onText(@NonNull String shown, boolean newBubble) {
+            if (gone()) return;
+            if (newBubble) addBotMessage(shown);
+            else updateLastBotMessage(shown);
+            if (!shown.startsWith("Working") && !shown.startsWith("Thinking")
+                    && !shown.startsWith("Looking")) {
+                actor.setMood(JoybotView.Mood.TALK);
+            }
+        }
+
+        @Override public void onWorking(@NonNull String task, int percent) {
+            if (gone()) return;
+            if (percent < 0) showStatus(task);
+            else showStatusProgress(task, percent);
+            markChecklistFromTask(task);
+            actor.setMood(JoybotView.Mood.WORK);
+        }
+
+        @Override public void onChecklist(@NonNull String[] stages) {
+            if (!gone()) showChecklist(stages);
+        }
+
+        @Override public void onToolLine(@NonNull String line) {
+            if (gone()) return;
+            if (line.startsWith("ai_enhance")) for (int i = 0; i < 5; i++) checkChecklistItem(i, true);
+            hideStatus();
+            addToolResultMessage(line);
+        }
+
+        @Override public void onStep(@NonNull AIChatState.Step step) {
+            if (!gone()) addUndoRow(step);
+        }
+
+        @Override public boolean onFinished(@NonNull JoybotAgent.Finished f) {
+            if (gone() || !java.util.Objects.equals(projectId, f.projectId)) return false;
+            if (f.reply == null) return true;   // stopped: stopWorking already said so
+            if (f.ok) voice.speak(f.reply);
+            doneTalking(f.ok);
+            return true;
+        }
+    };
 
     /**
      * Whether the model takes pictures. Answered from OpenRouter's catalogue, which says nothing
@@ -1417,91 +1087,6 @@ public class ChatAssistantActivity extends AppCompatActivity {
     @NonNull
     private ModelCapabilities.Vision visionOf(@Nullable String modelId) {
         return AiService.isCustom(this) ? ModelCapabilities.Vision.UNKNOWN : ModelCapabilities.visionFor(modelId);
-    }
-
-    /** A reply that is a tool command (JSON) shows as "Working..." while it streams, not as code. */
-    @NonNull
-    private static String shownWhileStreaming(@NonNull String soFar) {
-        String prose = proseOf(soFar);
-        return prose.isEmpty() ? "Working\u2026" : prose;
-    }
-
-    /** True while a tool runs on its own thread and will continue the conversation itself. */
-    private volatile boolean pendingAsyncTool;
-
-    @Nullable
-    private String tryExecuteTool(@NonNull String aiText) {
-        pendingAsyncTool = false;
-        JSONObject json = findToolCall(aiText);
-        if (json == null) return null;
-        toolRanThisRequest = true;
-        try {
-            String toolName = json.getString("tool");
-            JSONObject args = json.optJSONObject("args");
-            if (args == null) args = json.optJSONObject("arguments");
-            if (args == null) args = new JSONObject();
-
-            showStatus(humanizeToolName(toolName));
-            startAiJob(humanizeToolName(toolName));
-            updateAiJob(humanizeToolName(toolName), 0);
-            runOnUiThread(() -> actor.setMood(JoybotView.Mood.WORK));
-
-            // The long multi-step tool runs on its own and continues the conversation itself.
-            if ("ai_enhance".equals(toolName)) {
-                showChecklist(new String[]{
-                        "Generate Vosk transcript", "Generate Whisper transcript",
-                        "Detect silence", "Synthesize transcripts", "Cut fillers"});
-                pendingAsyncTool = true;
-                final String fnToolName = toolName;
-                final JSONObject fnArgs = args;
-                aiExecutor.execute(() -> {
-                    String result = runToolRecorded(fnToolName, fnArgs);
-                    runOnUiThread(() -> {
-                        for (int i = 0; i < 5; i++) checkChecklistItem(i, true);
-                        hideStatus();
-                    });
-                    finishAiJob();
-                    final String toolMsg = fnToolName + " → " + result;
-                    runOnUiThread(() -> addToolResultMessage(toolMsg));
-                    try {
-                        conversationHistory.add(toolFollowUp(result));
-                    } catch (Exception ignored) { }
-                    continueAiConversation();
-                });
-                return null;
-            }
-
-            String result = runToolRecorded(toolName, args);
-            finishAiJob();
-            hideStatus();
-            return toolName + " → " + result;
-        } catch (Exception e) {
-            finishAiJob();
-            hideStatus();
-            return null;
-        }
-    }
-
-    /**
-     * The tool command in a reply, if there is one. Models are told to reply with ONLY the JSON,
-     * and many add a sentence first ("Sure! {...}") or wrap it in a code fence; the old parser
-     * then treated the whole reply as chat and the edit silently never happened.
-     */
-    @Nullable
-    private static JSONObject findToolCall(@NonNull String aiText) {
-        String t = aiText.trim();
-        int from = 0;
-        while (true) {
-            int i = t.indexOf('{', from);
-            if (i < 0) return null;
-            String obj = extractJsonObject(t.substring(i));
-            if (obj == null) return null;
-            try {
-                JSONObject j = new JSONObject(obj);
-                if (j.has("tool") && j.optString("tool", "").length() > 0) return j;
-            } catch (Exception ignored) { }
-            from = i + 1;
-        }
     }
 
     // ══ JOYBOT: ideas, direct runs, results, undo, the slide flow ═══════════════════════
@@ -1698,6 +1283,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     /** Jobs that finished after the chat was closed: say so first thing. */
     private void showFinishedWhileAway() {
+        // Requests the MODEL carried out after the chat closed (JoybotAgent): what was asked, what
+        // it did, what it said — and its Undo while that step is still the newest.
+        for (JoybotAgent.Finished f : JoybotAgent.takeWaiting(projectId)) {
+            addBotMessage("While you were away I finished “" + JoybotAgent.shortOf(f.asked) + "”:");
+            for (String line : f.toolLines) addToolResultMessage(line);
+            if (f.reply != null) addBotMessage(f.reply);
+            if (f.step != null && projectId != null && AIChatState.peekStep(projectId) == f.step) addUndoRow(f.step);
+        }
         java.util.List<JoybotJobs.Done> away = JoybotJobs.takeWaiting(projectId);
         if (away.isEmpty()) return;
         addBotMessage(away.size() == 1 ? "While you were away I finished this:" : "While you were away I finished these:");
@@ -2309,8 +1902,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         cancelled = true;
         JoybotJobs.cancel();
         voice.hush();
-        okhttp3.Call c = currentCall;
-        if (c != null) c.cancel();
+        JoybotAgent.cancel();
         addBotMessage("Stopped.");
         actor.setMood(JoybotView.Mood.IDLE);
         setBusy(false);
@@ -2375,189 +1967,6 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 || t.contains("intro card") || t.contains("end card") || t.contains("credits");
     }
 
-    // ── what the model is told about the project, fresh for every request ────────
-
-    /** The conversation as sent: the system message carries a just-read project context. */
-    @NonNull
-    private JSONArray messagesForRequest() {
-        JSONArray out = new JSONArray();
-        for (int i = 0; i < conversationHistory.size(); i++) {
-            JSONObject m = conversationHistory.get(i);
-            if (i == 0 && "system".equals(m.optString("role"))) {
-                try {
-                    out.put(new JSONObject().put("role", "system")
-                            .put("content", m.optString("content") + "\n" + freshContext()));
-                    continue;
-                } catch (Exception ignored) { }
-            }
-            out.put(m);
-        }
-        return out;
-    }
-
-    private static final int CONTEXT_CAP = 14_000;
-    private static final int TRANSCRIPT_PREVIEW = 900;
-
-    /** A compact, just-read picture of the project. Blocking (reads the project file). */
-    @NonNull
-    private String freshContext() {
-        StringBuilder sb = new StringBuilder("CURRENT PROJECT (read just now; trust it over anything earlier in the chat)\n");
-        sb.append("Joybot was opened from: ").append(room.name().toLowerCase(java.util.Locale.US)).append('\n');
-        if (projectId == null) return sb.append("No project is open.\n").toString();
-        try {
-            com.fadcam.ui.faditor.project.ProjectStorage st = new com.fadcam.ui.faditor.project.ProjectStorage(this);
-            com.fadcam.ui.faditor.model.FaditorProject p = st.load(projectId);
-            if (p == null) return sb.append("The project could not be read.\n").toString();
-            com.fadcam.ui.faditor.model.Timeline tl = p.getTimeline();
-            sb.append("Project \"").append(p.getName()).append("\": ").append(tl.getClipCount())
-                    .append(" clips, ").append(formatClock(tl.getTotalDurationMs()))
-                    .append(" long, canvas ").append(p.getCanvasPreset()).append('\n');
-            long ph = getIntent().getLongExtra(EXTRA_PLAYHEAD_MS, -1);
-            if (room == IdeaEngine.Room.STUDIO && ph >= 0) sb.append("Playhead: ").append(ph).append("ms (").append(formatClock(ph)).append(")").append('\n');
-            long clipAt = 0;
-            for (int i = 0; i < tl.getClipCount(); i++) {
-                com.fadcam.ui.faditor.model.Clip c = tl.getClip(i);
-                sb.append("Clip ").append(i).append(" id=").append(c.getId()).append(" \"")
-                        .append(ProjectFactsReader.nameOf(c)).append("\" ")
-                        .append(c.isGeneratedSlide() ? "slide" : c.isImageClip() ? "picture" : "video")
-                        .append(" from ").append(clipAt).append("ms for ").append(c.getVisualDurationMs()).append("ms");
-                clipAt += c.getVisualDurationMs();
-                if (c.isAudioMuted()) sb.append(" muted");
-                sb.append(fades(c.getMasterFadeInMs(), c.getMasterFadeOutMs()));
-                if (c.getSpeedMultiplier() != 1f) sb.append(" speed=").append(c.getSpeedMultiplier());
-                if (c.isCaptionsEnabled()) sb.append(" captions=").append(c.getCaptionStyleId());
-                if (!c.getRemovedSpans().isEmpty()) sb.append(" cuts=").append(c.getRemovedSpans().size());
-                sb.append('\n');
-                appendTranscript(sb, c.getActiveNamedTranscript(), c.getTranscripts(), c.getRemovedSpans());
-            }
-            for (com.fadcam.ui.faditor.model.AudioClip ac : tl.getAudioClips()) {
-                sb.append("AudioClip id=").append(ac.getId()).append(" \"").append(ProjectFactsReader.nameOf(ac))
-                        .append("\" at ").append(ac.getOffsetMs() + "ms").append(", ")
-                        .append(formatClock(ac.getTrimmedDurationMs()));
-                if (ac.isMuted()) sb.append(" muted");
-                if (ac.isCaptionsEnabled()) sb.append(" captions=").append(ac.getCaptionStyleId());
-                sb.append('\n');
-                appendTranscript(sb, ac.getActiveNamedTranscript(), ac.getTranscripts(), ac.getRemovedSpans());
-            }
-            // Every layer kind, with ids, names, times and fade handles — so "this", "the cat",
-            // "every layer" and "the fades" all resolve to real things.
-            int shown = 0;
-            for (com.fadcam.ui.faditor.model.Clip oc : tl.getOverlayClips()) {
-                if (shown++ >= 30) break;
-                sb.append("Video layer id=").append(oc.getId()).append(" \"").append(ProjectFactsReader.nameOf(oc))
-                        .append("\" from ").append(oc.getOverlayStartMs() + "ms")
-                        .append(" for ").append(formatClock(oc.getVisualDurationMs())).append(fades(oc.getMasterFadeInMs(), oc.getMasterFadeOutMs())).append('\n');
-            }
-            for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
-                if (shown++ >= 30) break;
-                String txt = o.isImage() ? "image" : o.getText();
-                if (txt != null && txt.length() > 30) txt = txt.substring(0, 30) + "…";
-                sb.append(o.isImage() ? "Image layer" : "Text layer").append(" id=").append(o.getId())
-                        .append(" \"").append(txt).append("\" ")
-                        .append(o.getStartMs() + "ms").append('-')
-                        .append(o.getEndMs() == Long.MAX_VALUE ? "end" : o.getEndMs() + "ms")
-                        .append(fades(o.getImageFadeInMs(), o.getImageFadeOutMs())).append('\n');
-            }
-            for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : tl.getSpriteOverlays()) {
-                if (shown++ >= 30) break;
-                sb.append("Sprite layer id=").append(s.getId()).append(' ').append(s.getStartMs() + "ms")
-                        .append('-').append(s.getEndMs() + "ms").append(fades(s.getFadeInMs(), s.getFadeOutMs())).append('\n');
-            }
-            for (com.fadcam.ui.faditor.model.WaveformOverlayInstance w : tl.getWaveformOverlays()) {
-                if (shown++ >= 30) break;
-                sb.append("Visualizer id=").append(w.getId()).append(' ').append(w.getStartMs() + "ms")
-                        .append('-').append(w.getEndMs() + "ms").append(fades(w.getFadeInMs(), w.getFadeOutMs())).append('\n');
-            }
-            for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
-                if (shown++ >= 30) break;
-                sb.append("Adjustment layer id=").append(a.getId()).append(" \"").append(a.getName()).append("\" ")
-                        .append(a.getStartMs() + "ms").append('-').append(a.getEndMs() + "ms").append('\n');
-            }
-            if (shown > 30) sb.append("  …more layers not listed\n");
-            for (com.fadcam.ui.faditor.model.Transition t : tl.getTransitions()) {
-                sb.append("Transition ").append(t.type).append(' ').append(t.durationMs).append("ms at seam ")
-                        .append(t.clipIndex).append(" (between clip ").append(t.clipIndex).append(" and ")
-                        .append(t.clipIndex + 1).append(")\n");
-            }
-            String sel = getIntent().getStringExtra(EXTRA_SELECTED_ID);
-            if (room == IdeaEngine.Room.STUDIO && sel != null) {
-                sb.append("SELECTED in the editor (\"this\"): id=").append(sel).append('\n');
-            }
-            for (com.fadcam.ui.faditor.sprite.SpriteSheet s : p.getSpriteSheets()) {
-                sb.append("Sprite sheet id=").append(s.getId()).append(" \"").append(s.getName()).append("\" ")
-                        .append(s.cellCount()).append(s.isSequence() ? " frames" : " cells, ")
-                        .append(s.isSequence() ? "" : s.getCellNames().size() + " named, ")
-                        .append(s.getPresets().size()).append(" animations\n");
-            }
-            try {
-                int b = new BRollBucket(this).listAssets().size();
-                if (b > 0) sb.append("B-roll bucket: ").append(b).append(" files (list_broll for names)\n");
-            } catch (Exception ignored) { }
-            IdeaEngine.Offer o = currentOffer;
-            if (o != null && o.hasIdea()) {
-                sb.append("Joybot's suggestions on screen now: ");
-                for (Idea i : o.ideas) if (i.kind != Idea.Kind.TYPE) sb.append('"').append(i.label).append("\" ");
-                sb.append('\n');
-            }
-        } catch (Exception e) {
-            sb.append("(Could not read the project: ").append(e.getMessage()).append(")\n");
-        }
-        if (sb.length() > CONTEXT_CAP) sb.setLength(CONTEXT_CAP);
-        return sb.toString();
-    }
-
-    /** " fade handles: in 2.0s, out 2.0s", or "" when it has none. */
-    @NonNull
-    private static String fades(long in, long out) {
-        if (in <= 0 && out <= 0) return "";
-        return String.format(java.util.Locale.US, " fade handles: in %.1fs, out %.1fs", in / 1000.0, out / 1000.0);
-    }
-
-    private static void appendTranscript(@NonNull StringBuilder sb,
-                                         @Nullable com.fadcam.ui.faditor.transcript.NamedTranscript nt,
-                                         @NonNull List<com.fadcam.ui.faditor.transcript.NamedTranscript> all,
-                                         @NonNull List<long[]> removed) {
-        if (nt == null && !all.isEmpty()) nt = all.get(0);
-        if (nt == null || nt.transcript == null) { sb.append("  (no transcript)\n"); return; }
-        StringBuilder words = new StringBuilder();
-        int kept = 0, fillers = 0;
-        for (com.fadcam.ui.faditor.transcript.TranscriptWord w : nt.transcript.words) {
-            if (com.fadcam.ui.faditor.ai.joybot.Fillers.isCut(w.startMs, w.endMs, removed)) continue;
-            if (w.struck || com.fadcam.ui.faditor.ai.joybot.Fillers.isFiller(w.text)) { fillers++; continue; }
-            kept++;
-            if (words.length() < TRANSCRIPT_PREVIEW) words.append(w.text).append(' ');
-        }
-        sb.append("  Transcript (").append(nt.engine).append(", ").append(kept).append(" words, ")
-                .append(fillers).append(" filler words still in): \"").append(words.toString().trim())
-                .append(words.length() >= TRANSCRIPT_PREVIEW ? "…\" (get_transcript for all words with timings)" : "\"")
-                .append('\n');
-    }
-
-    /**
-     * The words to show for a finished reply. The free router sometimes hands a turn to a
-     * moderation model, whose whole answer is "User Safety: safe / Response Safety: safe" (seen on
-     * the Note 9, 2026-10-14); that is never shown as Joybot speaking.
-     */
-    @NonNull
-    static String replyToShow(@NonNull String aiText) {
-        String prose = proseOf(aiText);
-        String t = (prose.isEmpty() ? aiText : prose).trim();
-        if (looksLikeJunk(t)) return "Done.";
-        // Ids are for tools, never for people (the persona says so; free models forget).
-        return t.replaceAll("\\s*\\(id\\s*=\\s*[^)]*\\)", "")
-                .replaceAll("\\bid\\s*=\\s*[0-9a-fA-F-]{8,}", "").trim();
-    }
-
-    /** A reply that says the project changed ("Done", "I've set…", "now ends at…"). */
-    static boolean claimsAChange(@NonNull String t) {
-        String l = t.toLowerCase(java.util.Locale.US);
-        String[] tells = {"done", "i've ", "i have ", "has been", "have been", "will end", "now ends",
-                "will start", "now starts", "is now", "are now", "set the", "added", "removed",
-                "trimmed", "moved", "applied", "updated", "changed"};
-        for (String w : tells) if (l.contains(w)) return true;
-        return false;
-    }
-
     /**
      * "Make this end here" / "make this start here": the selected item and the playhead, done
      * directly — free, instant, and impossible for a model to only pretend to do.
@@ -2576,27 +1985,6 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 .undo(end ? "End it at the playhead" : "Start it at the playhead")
                 .step(Idea.Step.of("set_item_time", "id", sel, end ? "endMs" : "startMs", ph))
                 .build();
-    }
-
-    static boolean looksLikeJunk(@NonNull String t) {
-        String l = t.toLowerCase(java.util.Locale.US).trim();
-        if (l.isEmpty() || l.equals("safe") || l.equals("unsafe")) return true;
-        if (l.matches("(?s)^((user|response|prompt)\\s*safety\\s*:\\s*\\w+\\s*)+$")) return true;
-        return l.startsWith("<|") || l.startsWith("[inst]");
-    }
-
-    /** What the person sees of a reply that contains a tool command: the words, never the JSON. */
-    @NonNull
-    private static String proseOf(@NonNull String soFar) {
-        String t = soFar.trim();
-        if (t.startsWith("{")) return "";
-        int cut = -1;
-        for (String marker : new String[]{"{\"tool\"", "```", "{ \"tool\""}) {
-            int i = t.indexOf(marker);
-            if (i >= 0 && (cut < 0 || i < cut)) cut = i;
-        }
-        if (cut < 0) return t;
-        return t.substring(0, cut).trim();
     }
 
     /** Read the project as the undo snapshot format. Null when there is no project. */
@@ -3006,7 +2394,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             int tagEnd = body.indexOf("@@");
             if (tagEnd < 0) return false;
             String type = body.substring(0, tagEnd);
-            String jsonStr = extractJsonObject(body.substring(tagEnd + 2));
+            String jsonStr = JoybotAgent.extractJsonObject(body.substring(tagEnd + 2));
             if (jsonStr == null) return false;
             JSONObject payload = new JSONObject(jsonStr);
             if ("narrative".equals(type)) { buildNarrativeCard(payload); return true; }
@@ -3014,31 +2402,6 @@ public class ChatAssistantActivity extends AppCompatActivity {
             if ("avatar_rig".equals(type)) { buildAvatarRigCard(payload); return true; }
         } catch (Exception ignored) { }
         return false;
-    }
-
-    /** First balanced {...} object in a string (tolerates newlines and quoted braces). */
-    @Nullable
-    private static String extractJsonObject(@NonNull String s) {
-        int start = s.indexOf('{');
-        if (start < 0) return null;
-        int depth = 0;
-        boolean inStr = false;
-        char prev = 0;
-        for (int i = start; i < s.length(); i++) {
-            char ch = s.charAt(i);
-            if (inStr) {
-                if (ch == '"' && prev != '\\') inStr = false;
-            } else if (ch == '"') {
-                inStr = true;
-            } else if (ch == '{') {
-                depth++;
-            } else if (ch == '}') {
-                depth--;
-                if (depth == 0) return s.substring(start, i + 1);
-            }
-            prev = ch;
-        }
-        return null;
     }
 
     private void buildNarrativeCard(@NonNull JSONObject payload) throws Exception {
@@ -3369,6 +2732,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         super.onDestroy();
         AIChatState.chatActive = false;
         JoybotJobs.attach(null);
+        JoybotAgent.detach(agentListener);
         if (voice != null) voice.release();
         aiExecutor.shutdownNow();
     }

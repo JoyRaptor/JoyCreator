@@ -1947,6 +1947,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         for (com.fadcam.ui.faditor.ai.AIChatState.Step s : jbSteps) {
                             aiStepRecorded |= undoManager.recordAiCheckpoint(s.label, s.before);
                         }
+                        // The chat closed mid-request: what that request writes from here on lands
+                        // live (joybotLive.adopt) and must merge into this step — one press, one step.
+                        com.fadcam.ui.faditor.ai.AIChatState.Step last = jbSteps.get(jbSteps.size() - 1);
+                        if (!last.request.isEmpty()) {
+                            jbLiveRequest = last.request;
+                            jbLiveUndoCount = undoManager.getUndoCount();
+                        }
                     } else if (jbAllUndone) {
                         aiStepRecorded = false;
                     } else {
@@ -1998,11 +2005,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String jbShow = com.fadcam.ui.faditor.ai.AIChatState.showClipId;
         com.fadcam.ui.faditor.ai.AIChatState.showClipId = null;
         if (jbShow != null && project != null) {
+            boolean isClip = false;
             for (int i = 0; i < project.getTimeline().getClipCount(); i++) {
                 if (jbShow.equals(project.getTimeline().getClip(i).getId())) {
                     selectSegment(i);
+                    isClip = true;
                     break;
                 }
+            }
+            // A LAYER (picture, text, slide, sprite…): select it, scroll its row into view — a
+            // new row can land below the fold, which read as "the layer vanished" (Joybot hand-off
+            // P0-4) — and put the playhead inside it so the preview shows it too.
+            if (!isClip && editorTimeline != null) {
+                for (com.fadcam.ui.faditor.layers.Track t : project.getTimeline().getLayers()) {
+                    for (com.fadcam.ui.faditor.layers.TimedItem it : t.getItems()) {
+                        if (!jbShow.equals(it.getId())) continue;
+                        long start = it.getTimelineStartMs();
+                        long end = start + it.getDisplayDurationMs(1000L);
+                        long now = editorTimeline.getPlayheadPositionMs();
+                        if (now < start || now >= end) {
+                            editorTimeline.seekToTimelineMs(start + Math.min(500L, (end - start) / 2));
+                        }
+                    }
+                }
+                selectAndRevealNewObject(jbShow);
             }
         }
 

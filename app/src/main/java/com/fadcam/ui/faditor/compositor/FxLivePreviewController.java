@@ -413,7 +413,12 @@ public final class FxLivePreviewController {
         // one was what showed ("the bend distorts a duplicate; an undistorted one is behind
         // it", Note 9 ZA_CONTROL 2026-09-25). Its blend above then samples the video - a
         // preview-only gap; the export draws it bent through CompositeExportOverlay.
-        belowTexts.removeIf(t -> t.hasMesh() || t.hasCornerPin());
+        // An ON-TOP SLIDE stays with its Canvas view too. It is a TextOverlayItem with no text —
+        // its picture is a live WebView (GeneratedSlideView) — so the flat text raster here drew
+        // an empty string while its view was handed over at alpha 0: the slide vanished from the
+        // preview in any project with a blending picture above it (Joybot P0-1, Note 9
+        // 2026-10-15, measured: drawChild alpha=0.0 every frame). Same preview-only gap as above.
+        belowTexts.removeIf(t -> t.hasMesh() || t.hasCornerPin() || t.isGeneratedSlide());
         // Every text left is drawn by the composite, UNDER the blend, which is where the
         // export paints it - so its Canvas view hands over (buildPlan -> onGlOwnedImages).
         // It used to paint a second copy on top, over the blend.

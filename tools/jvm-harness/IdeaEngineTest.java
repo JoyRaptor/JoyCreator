@@ -421,6 +421,43 @@ public class IdeaEngineTest {
             check("straddling a cut is not cut", !Fillers.isCut(1800, 2300, cuts), "");
         }
 
+        // ── SlideContract: a slide that would draw nothing is refused (Note 9, 2026-10-15) ──
+        {
+            String head = "<!doctype html><html><body>";
+            String tail = "<script src=\"gsap.min.js\"></script><script src=\"faditor_runtime.js\"></script>";
+            // The real one: bare stage, animates a #title it never wrote, loose gsap.to tweens.
+            String empty = head + "<div id=\"stage\"></div>" + tail
+                    + "<script>const tl = gsap.timeline({paused:true});"
+                    + "const title = document.getElementById('title');"
+                    + "if (title) { gsap.to(title, {opacity:1, duration:0.4}); }"
+                    + "Faditor.register(tl, 3500);</script></body></html>";
+            String why = com.fadcam.ui.faditor.slides.SlideContract.validate(empty);
+            check("slide gate: the empty Note 9 slide is refused", why != null, String.valueOf(why));
+            // The 10-14 overlay that was fine (a #bg and a #title, tl.fromTo, a colour '#FFD700' in CSS).
+            String good = head + "<style>#title{color:#FFD700}</style><div id=\"stage\"><div id=\"bg\"></div>"
+                    + "<h1 id=\"title\">Restore video test</h1></div>" + tail
+                    + "<script>const tl = gsap.timeline({paused:true});"
+                    + "tl.fromTo('#bg', {opacity:0}, {opacity:0.6, duration:1});"
+                    + "tl.fromTo('#title', {opacity:0, color:'#FFD700'}, {opacity:1, duration:1.5}, '-=0.5');"
+                    + "Faditor.register(tl, 3500);</script></body></html>";
+            String ok = com.fadcam.ui.faditor.slides.SlideContract.validate(good);
+            check("slide gate: a real slide (with a colour that looks like an id) passes", ok == null, String.valueOf(ok));
+            String loose = good.replace("tl.fromTo(", "gsap.fromTo(");
+            check("slide gate: loose gsap tweens are refused",
+                    com.fadcam.ui.faditor.slides.SlideContract.validate(loose) != null, "");
+            String built = head + "<div id=\"stage\"></div>" + tail
+                    + "<script>const tl = gsap.timeline({paused:true});"
+                    + "const t = document.createElement('div'); t.id = 'title'; t.textContent = 'Hi';"
+                    + "document.getElementById('stage').appendChild(t);"
+                    + "tl.from(t, {opacity:0}); Faditor.register(tl, 2000);</script></body></html>";
+            check("slide gate: a script that builds its elements passes",
+                    com.fadcam.ui.faditor.slides.SlideContract.validate(built) == null,
+                    String.valueOf(com.fadcam.ui.faditor.slides.SlideContract.validate(built)));
+            check("slide gate: the plain fallback passes", com.fadcam.ui.faditor.slides.SlideContract.validate(
+                    com.fadcam.ui.faditor.slides.SlideContract.buildFallbackHtml(1080, 1920,
+                            com.fadcam.ui.faditor.slides.SlideContract.MODE_OVERLAY, "Hi", 3000)) == null, "");
+        }
+
         System.out.println();
         System.out.println(pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);

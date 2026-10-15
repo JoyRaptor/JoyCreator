@@ -74,7 +74,11 @@ public final class SlideContract {
                 + "  " + durationHintMs + "ms, exact precision not required — author for what\n"
                 + "  looks good).\n"
                 + "- The host app may hold your final frame longer than your authored\n"
-                + "  duration, or cut you off early. Design an ending that looks fine frozen.\n\n"
+                + "  duration, or cut you off early. Design an ending that looks fine frozen.\n"
+                + "- Every tween goes ON that timeline (tl.to / tl.from / tl.fromTo), never a\n"
+                + "  loose gsap.to: the host only scrubs the registered timeline.\n"
+                + "- Write every element you animate INSIDE #stage in the HTML, with the id\n"
+                + "  your script uses. An empty #stage is rejected.\n\n"
                 + "CONTENT\n"
                 + "- Requested content: \"" + sanitize(titleOrText) + "\"\n"
                 + "- Style direction: \"" + sanitize(styleHint) + "\"\n"
@@ -248,6 +252,48 @@ public final class SlideContract {
                 "@import url(http"};
         for (String b : banned) {
             if (html.contains(b)) return "contains forbidden token: " + b;
+        }
+        return validateContent(html);
+    }
+
+    /**
+     * A slide that would DRAW NOTHING. The rules above pass a slide that is structurally right and
+     * empty: a free model wrote one on the Note 9 (2026-10-15) whose stage was a bare
+     * {@code <div id="stage"></div>}, whose script animated {@code getElementById('title')} — an
+     * element it never wrote — and whose tweens were loose {@code gsap.to} calls the registered
+     * timeline never contained. It passed, was placed On top, and showed nothing at any playhead.
+     */
+    @Nullable
+    static String validateContent(@NonNull String html) {
+        boolean builds = html.contains("createElement(") || html.contains("innerHTML")
+                || html.contains("insertAdjacentHTML") || html.contains("appendChild(");
+        // Every id the script reaches for must exist in the markup.
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("getElementById\\(\\s*['\"]([^'\"]+)['\"]\\s*\\)|['\"]#([A-Za-z][\\w-]*)['\"]")
+                .matcher(html);
+        while (m.find()) {
+            String id = m.group(1) != null ? m.group(1) : m.group(2);
+            if (m.group(2) != null && id.matches("[0-9a-fA-F]{3,8}")) continue;   // a colour, '#FFD700'
+            if (!builds && !html.matches("(?s).*\\bid\\s*=\\s*['\"]" + java.util.regex.Pattern.quote(id) + "['\"].*")) {
+                return "the script animates #" + id + " but no element has id=\"" + id + "\"";
+            }
+        }
+        // The stage must hold something to show.
+        if (!builds && html.matches("(?s).*<div[^>]*id\\s*=\\s*['\"]stage['\"][^>]*>\\s*</div>.*")) {
+            return "the #stage element is empty — put the visible elements inside it";
+        }
+        // Tweens must be ON a timeline (tl.to / tl.from / tl.add), not loose gsap.to calls: the
+        // host scrubs only the registered timeline, so loose tweens never move.
+        java.util.regex.Matcher t = java.util.regex.Pattern
+                .compile("([A-Za-z_$][\\w$]*)\\s*\\.\\s*(to|from|fromTo|add|set|call)\\s*\\(")
+                .matcher(html);
+        boolean onTimeline = false;
+        while (t.find()) {
+            if (!"gsap".equals(t.group(1))) { onTimeline = true; break; }
+        }
+        if (!onTimeline) {
+            return "no animation is on the timeline — use tl.to/tl.from/tl.fromTo on the timeline"
+                    + " you pass to Faditor.register, not loose gsap.to calls";
         }
         return null;
     }

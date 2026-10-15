@@ -367,3 +367,42 @@ The brush-engines session asked for, in order: a medium-tooth drawing paper (too
 | `bristol_paper` | `bristol_tooth` |
 
 **Upgrade path:** rough is the cold-press felt scaled up. A real rough-paper scan (or an owner photo under a raking lamp) would replace its felt; the tool takes any such photo.
+
+## 13. Crumples, free sources, and the road to top tier (2026-10-15, paper specialist)
+
+**Owner:** our slightly crinkled paper "looks terrible". Their reference is Concepts' crinkled paper: "I cannot find its pattern or seam".
+
+**What Concepts' crinkle is** (measured on the owner's screenshot):
+- It is a real photograph of a crumpled-then-flattened white sheet, lit from the side. That is visible once the contrast is stretched: long thin creases, flat facets, fine mottling.
+- It is shown extremely faint: mean 251/255, std 1.9 levels.
+- Folds are 20–100 screen px; 60% of the power is in the 20–100 px band.
+- No repeat across ~2000 px: patches one apparent period apart correlate at about 0.
+- **Ours today** (`crumpled`, `crumpled_flattened`) is a procedural star-polygon net: thin even lines meeting at points. That is the defect.
+
+**Free sources** (Wikimedia Commons API; Openverse; publicdomainpictures.net is behind a bot check we may not pass):
+
+| Candidate | Licence | Verdict |
+|---|---|---|
+| "Crumpled olive green paper.jpg", 3888×2592 | Public domain | ✅ Good STRONG crumple. Evenly lit, creases at every scale. Desaturate; fold scale ≈ Concepts at look texelPx ~0.8 from a 1024 tile |
+| Pink Sherbet, "Free crumpled paper texture for layers (2978651767)", 2848×4272 | CC BY 2.0 (credit needed) | ✅ Good MEDIUM crumple |
+| "Crumpled Paper.png", 3440×2480 | CC0 | ❌ 63% of pixels blown to white: only shadows survive |
+| Pink Sherbet "Wrinkled Paper Texture (6816216700)" | CC BY 2.0 | ⚠️ Blotchy |
+| "Crumpled tissue paper.jpg" | CC0 | ❌ A hand holding tissue |
+
+None is Concepts' gently flattened sheet. High-passing the strong one (to flatten its facets) keeps its dense star creases, so it does not become a flattened sheet.
+Hex tiling with NO rotation hides the repeat of a 512–820 doc px crumple tile (checked on the PC, plain vs hex). Crumple photos keep their lamp, so they must never rotate.
+
+**Free supply for the remaining materials** (Commons, ≥3 MP, CC0/PD vs CC BY):
+- Concrete/cement: plenty (PD).
+- Papyrus, parchment: museum scans carrying writing.
+- Canvas: only paintings, with the weave covered.
+- Silk and fabric: CC BY only.
+- Jute: nothing.
+The library cannot be finished from free sources alone.
+
+**Finding for the paper-engine owner (not changed):** `watercolour_cold` and `watercolour_rough` keep 30%/45% of the photo's lamp shading, yet look and surface are `rotatable: true`. Each hex turns the lamp, and neighbours look lit from different sides (checked with `papersim.hex_read`, rotation on vs off). Any look that keeps directional shading should be `rotatable: false`, together with its surface.
+
+**Still procedural (needs a real source):** canvas ×3, crumpled ×2, papyrus, parchment, silk, fabric, cement, blueprint, off-white, pulp factory/handmade.
+- Blueprint and off-white can be derived from existing photo papers (recolour, like the green chalkboard), with no new source.
+- Cement has PD sources.
+- The rest need the owner's scans/photos, the owner's own image generations (as for rice/thai), or CC BY with credit.

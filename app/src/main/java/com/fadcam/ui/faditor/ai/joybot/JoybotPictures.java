@@ -228,10 +228,29 @@ public final class JoybotPictures {
      *
      * @return the picture's address, for the timeline hand-off
      */
+    /** Where a picture was kept: its address, and the folder + name in words. */
+    public static final class Saved {
+        @NonNull public final Uri uri;
+        /** "Client A/" or "" for the top of the Joy Creator folder. */
+        @NonNull public final String dir;
+        @NonNull public final String name;
+
+        Saved(@NonNull Uri uri, @NonNull String dir, @NonNull String name) {
+            this.uri = uri;
+            this.dir = dir;
+            this.name = name;
+        }
+
+        /** "“Cat astronaut.png” in Joy Creator › Client A". */
+        @NonNull public String where() {
+            return "“" + name + "” in Joy Creator" + (dir.isEmpty() ? "" : " › " + dir.replace("/", " › "));
+        }
+    }
+
     @WorkerThread
     @NonNull
-    public static Uri save(@NonNull Context c, @Nullable String projectId, @NonNull Picture pic,
-                           @NonNull String prompt) throws Problem {
+    public static Saved save(@NonNull Context c, @Nullable String projectId, @NonNull Picture pic,
+                             @NonNull String prompt) throws Problem {
         if (!JoyFolderHome.isReachable(c)) {
             throw new Problem(JoyFolderHome.isChosen(c)
                     ? "I can't reach your Joy Creator folder right now, so I didn't keep the picture. Reconnect it and try again."
@@ -248,7 +267,7 @@ public final class JoybotPictures {
             jf.saveIndex();
             Uri u = saf.documentUri(rel);
             if (u == null) throw new Problem("The picture was saved, but I can't find it again.");
-            return u;
+            return new Saved(u, dir, Placement.nameOf(rel));
         } catch (Problem p) {
             throw p;
         } catch (Exception e) {

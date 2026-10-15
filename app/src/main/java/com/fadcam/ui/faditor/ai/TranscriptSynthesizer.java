@@ -53,7 +53,7 @@ public class TranscriptSynthesizer {
 
     public TranscriptSynthesizer(@NonNull Context context, @NonNull String projectId) {
         this.context = context.getApplicationContext();
-        this.storage = new ProjectStorage(this.context);
+        this.storage = new com.fadcam.ui.faditor.ai.joybot.JoybotStorage(this.context);
         this.projectId = projectId;
     }
 

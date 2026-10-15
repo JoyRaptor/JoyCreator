@@ -32,6 +32,7 @@ public final class Outcome {
 
         int newlyTranscribed = 0, newWords = 0, captionsOn = 0, fillersCut = 0;
         String oneName = null;
+        StringBuilder each = new StringBuilder();
         List<ProjectFacts.ClipFacts> now = new ArrayList<>(after.spine);
         now.addAll(after.audio);
         for (ProjectFacts.ClipFacts c : now) {
@@ -41,6 +42,8 @@ public final class Outcome {
                 newlyTranscribed++;
                 newWords += c.words + c.fillersLeft;
                 oneName = c.name;
+                if (each.length() > 0) each.append(", ");
+                each.append(IdeaEngine.q(c.name)).append(' ').append(count(c.words + c.fillersLeft, "word"));
             }
             if (c.captionsOn && !b.captionsOn) captionsOn++;
             if (b.hasTranscript && c.hasTranscript && b.fillersLeft > c.fillersLeft) {
@@ -49,7 +52,9 @@ public final class Outcome {
         }
         if (newlyTranscribed == 1) {
             out.add("Transcribed " + IdeaEngine.q(oneName) + ": " + count(newWords, "word") + ".");
-        } else if (newlyTranscribed > 1) {
+        } else if (newlyTranscribed > 1 && newlyTranscribed <= 6) {
+            out.add("Transcribed " + newlyTranscribed + " clips: " + each + ".");
+        } else if (newlyTranscribed > 6) {
             out.add("Transcribed " + newlyTranscribed + " clips: " + count(newWords, "word") + ".");
         }
         if (captionsOn == 1) out.add("Captions are on.");
@@ -77,7 +82,11 @@ public final class Outcome {
             out.add("The video is " + IdeaEngine.seconds(-shorter) + " longer ("
                     + clock(before.totalMs) + " → " + clock(after.totalMs) + ").");
         }
-        return out.isEmpty() ? null : String.join(" ", out);
+        if (out.isEmpty()) return null;
+        // Not String.join: that is Android 8+, and the app runs from Android 7.
+        StringBuilder b = new StringBuilder();
+        for (String sentence : out) { if (b.length() > 0) b.append(' '); b.append(sentence); }
+        return b.toString();
     }
 
     private static int slideCount(@NonNull ProjectFacts f) {

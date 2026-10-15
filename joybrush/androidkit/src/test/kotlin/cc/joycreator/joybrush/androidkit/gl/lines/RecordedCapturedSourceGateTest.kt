@@ -22,7 +22,8 @@ class RecordedCapturedSourceGateTest {
         "line", brush.id, 19L, 0f, 1f, emptyList(), seq = 1L,
         capturedPhysicalSource = if (captured) CapturedPhysicalSource(CaptureDomain()) else null,
     )
-    private fun plane(record: StrokeRecord) = mapOf(address to RecordedCel("paint", null, listOf(record)))
+    private fun plane(record: StrokeRecord): Map<Pair<String, String?>, RecordedCel<Int>> =
+        mapOf(address to RecordedCel<Int>("paint", null, listOf(record)))
     private fun history() = UndoLog<Int>(1_000_000, { 4 }, {})
 
     private class ProbeRenderer : RecordedScene.Renderer<Int> {

@@ -22,7 +22,7 @@ const val BRUSH_FORMAT = "joybrush.brush"
  *  - **9** (VECTOR_RENDER_DESIGN §3, H6) added the `line` section and `blend: "multiply"` / `"screen"` — [VERSION_LINES].
  *    Written as "the version before + 1": the Lead checks the number against JB-2.40's bump when both land.
  *  - **10** added replayable `engine: "watercolour"` and its dab-array/finish settings — [VERSION_WATERCOLOUR].
- *  - **11** added the pencil's `media.stick.blend` and `media.stick.build` — [VERSION_PENCIL_BLEND].
+ *  - **11** added the pencil's `media.stick.blend`, `media.stick.build` and `media.stick.tuning` — [VERSION_PENCIL_BLEND].
  *
  * A word needs the version that introduced it, NOT the newest one: a fill pen is still a version-2
  * file, so a build that predates smudge can open it. [BrushJson.wordsNeedingVersion] carries the
@@ -187,6 +187,7 @@ object BrushJson {
         p.media?.stick?.let { s ->
             if (s.blend != 0.0) out += VersionedWord("media.stick.blend", VERSION_PENCIL_BLEND)
             if (s.build != 1.0) out += VersionedWord("media.stick.build", VERSION_PENCIL_BLEND)
+            if (s.tuning != null) out += VersionedWord("media.stick.tuning", VERSION_PENCIL_BLEND)
         }
         if (p.engine == ENGINE_WATERCOLOUR) out += VersionedWord("engine \"$ENGINE_WATERCOLOUR\"", VERSION_WATERCOLOUR)
         else if (p.watercolour != null) out += VersionedWord("watercolour", VERSION_WATERCOLOUR)

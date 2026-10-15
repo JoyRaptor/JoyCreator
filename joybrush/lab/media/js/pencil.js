@@ -48,6 +48,7 @@ const MAT_MUL = ['abrasion', 'leadSoft', 'dustRate', 'smear', 'smearMm', 'crushR
 function defaultsFor(base) {
   if (PRESETS[base]) { const p = PRESETS[base]; const d = defaultsFor(p.base); d.base = base; return merge(d, structuredClone(p.settings)); }
   const st = STICKS[base];
+  if (st.tuning) return tunedDefaults(base, st);
   const m = stickMaterial({ ...st, build: 1 });
   const mat = {};
   for (const k of MAT_ABS) mat[k] = k === 'pileLo' ? m.pileRange[0] : k === 'pileHi' ? m.pileRange[1] : m[k];
@@ -67,6 +68,28 @@ function defaultsFor(base) {
     paper: 'drawing_tooth',
   };
 }
+
+/** A stick that carries its own tuning (the flagship): the tuner starts from exactly its numbers. */
+function tunedDefaults(base, st) {
+  const tu = st.tuning, d = defaultsFor('Proto 2');
+  d.base = base;
+  d.stick = { tipR: st.tipR, tipMax: st.tipMax, side1: st.side1, side2: st.side2, face: st.face, soft: st.soft, rInf: st.rInf,
+    blend: st.blend ?? 0, build: st.build ?? 1,
+    sizeCurve: [...tu.sizeCurve], darkCurve: [...tu.darkCurve], sideCurve: [...tu.sideCurve], pointCurve: [...tu.pointCurve] };
+  d.shape = { bell: tu.bell, bellReach: tu.bellReach, acrossSoft: tu.acrossSoft, tipYield: tu.tipYield, tail: tu.tail };
+  d.zones = { side1From: tu.side1From, side1Full: tu.side1Full, side2From: tu.side2From, side2Full: tu.side2Full, evenFrom: tu.evenFrom, grad1: tu.grad1, grad2: tu.grad2 };
+  d.press = { depth: tu.pressDepth, gamma: tu.pressGamma, sideEase: tu.sideEase, toothStiffness: tu.toothStiffness, padSoft: tu.padSoft };
+  d.mat = { capMm: tu.capMm, transferExp: tu.transferExp, plateau: tu.plateau, crushStart: tu.crushStart, crushMax: tu.crushMax, clump: tu.clump,
+    pileLo: tu.pileLo, pileHi: tu.pileHi, dirStrength: tu.dirStrength, conform: tu.conform, abrasion: tu.abrasionX, leadSoft: tu.leadSoftX,
+    dustRate: tu.dustRateX, smear: tu.smearX, smearMm: tu.smearMmX, crushRate: tu.crushRateX, sheen: tu.sheenX };
+  d.response = structuredClone(FLAGSHIP_RESPONSE[base] || { pressure: [...LINEAR], tilt: [...LINEAR] });
+  d.pen.tiltReach = tu.tiltReachDeg;
+  return d;
+}
+// The flagship's pressure and tilt curves live on the brush (the app's ResponseSpec), not on the stick.
+const FLAGSHIP_RESPONSE = {
+  'Proto Pencil': { pressure: [0.754175, 0.240418, 0.551931, 1], tilt: [0.749207, 0.29791, 0.524506, 0.954035] },
+};
 
 // ---- every knob: [path, label, what it does, min, max, step, unit] ----
 const R_LIGHT = 0.3, R_DARK = 0.002;   // as the app's Darkness slider (BrushKnobs): rInf runs the other way
@@ -173,7 +196,7 @@ function applyGlobals() {
   Object.assign(SHAPE, cfg.shape);
 }
 function liveStick() {
-  const k = cfg.size, s = cfg.stick;
+  const k = cfg.size, s = cfg.stick;   // no `tuning`: the tuner's own numbers are the tables it sets (applyGlobals)
   return { ...s, tipR: s.tipR * k, tipMax: s.tipMax * k, side1: s.side1 * k, side2: s.side2 * k, face: s.face * k };
 }
 function liveMaterial(stick) {
@@ -596,7 +619,7 @@ function restore() {
     const got = JSON.parse(localStorage.getItem(STORE) || 'null');
     if (got && (STICKS[got.base] || PRESETS[got.base]) && !qs.has('fresh')) { baseCfg = defaultsFor(got.base); cfg = merge(structuredClone(baseCfg), got); return; }
   } catch { /* fall through to the default */ }
-  baseCfg = defaultsFor('Proto 3');
+  baseCfg = defaultsFor('Proto Pencil');
   cfg = structuredClone(baseCfg);
 }
 

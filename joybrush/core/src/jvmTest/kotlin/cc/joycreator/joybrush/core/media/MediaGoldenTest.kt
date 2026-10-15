@@ -111,6 +111,13 @@ class MediaGoldenTest {
         }
         // The blended footprint (Proto 2): a bell point that yields to soft-edged sides, as the lab draws it.
         val b = stickContact(Sticks.ALL["Proto 2"]!!, 0.7 * Math.PI / 2, 0.6, paper.toothMm)!!
+        // The flagship: its own zones and shape (Proto Pencil, 2026-10-15).
+        val pp = Sticks.ALL["Proto Pencil"]!!
+        val f = stickContact(pp, 0.75 * Math.PI / 2, 0.55, paper.toothMm)!!
+        for (row in g["squeezeFlagship"]!!.jsonArray) {
+            val o = row.jsonObject
+            near(o["v"]!!.d(), stickSqueeze(o["x"]!!.d(), o["y"]!!.d(), f, pp.tuning!!.zones, pp.tuning), "flagship squeeze ${o["x"]} ${o["y"]}")
+        }
         for (row in g["squeezeBlend"]!!.jsonArray) {
             val o = row.jsonObject
             near(o["v"]!!.d(), stickSqueeze(o["x"]!!.d(), o["y"]!!.d(), b), "blended squeeze ${o["x"]} ${o["y"]}")
@@ -128,6 +135,7 @@ class MediaGoldenTest {
         compareDabs(obj("dry")["Proto"]!!, runDry("Proto", "s40"), "dry Proto")
         compareDabs(obj("dry")["HB"]!!, runDry("HB", "s30flat"), "dry HB")
         compareDabs(obj("dry")["dab"]!!, runDry("Proto", "dab20"), "dry dab")
+        compareDabs(obj("dry")["flagship"]!!, runDry("Proto Pencil", "s40"), "dry flagship")
     }
 
     @Test fun wetTablesAndPaint() {

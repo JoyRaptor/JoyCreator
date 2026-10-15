@@ -1954,31 +1954,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 (aiWhat == null || aiWhat.isEmpty())
                                         ? getString(R.string.faditor_undo_ai_edits) : aiWhat);
                     }
-                    // Everything already on the stacks closes over the model objects we are
-                    // about to discard; replaying one would silently mutate an orphan and
-                    // report success. Keep what can still be honoured (the snapshots), drop
-                    // what cannot.
-                    undoManager.invalidateActionsForProjectSwap();
                     FLog.i(TAG, "AI reload: undo checkpoint recorded=" + aiStepRecorded);
-                    project = reloaded;
-                    selectedClipIndex = Math.min(selectedClipIndex,
-                            project.getTimeline().getClipCount() - 1);
-                    if (selectedClipIndex < 0) selectedClipIndex = 0;
-                    editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
-                    editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
-                    syncTimelineOverlays();
-                    if (overlayLayer != null) {
-                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
-                                overlayLayerCallback());
-                    }
-                    selectSegment(selectedClipIndex);
-                    updateEditorTitle();
-                    refreshTotalTimeDisplay();
-                    syncTimelineTranscript();
-                    // The AI checkpoint above captured the PRE-AI state as its before. Now
-                    // reseed the rolling baseline from the swapped-in (post-AI) project so the
-                    // next user edit records a correct pre-state (audit 1.6).
-                    undoManager.resetBaseline();
+                    swapInProject(reloaded);
                     Toast.makeText(this, R.string.studio_toast_ai_edits_applied, Toast.LENGTH_SHORT).show();
                 } else {
                     // The signal was consumed above, so refusing here means the change on disk
@@ -1998,6 +1975,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // path, so this is the moment to let it be re-asked — lazily, on the next thing that needs
         // it, not by re-statting anything here.
         invalidateSpriteMissingState();
+
+        // Joybot's long jobs outlive his chat: while this editor is on screen, his reads and writes
+        // go to the project open here (JoybotStorage), never to the file under it.
+        if (project != null) {
+            com.fadcam.ui.faditor.ai.AIChatState.setLiveEditor(project.getId(), joybotLive);
+        }
+        // Pictures Joybot was asked to put ON TOP: the same path as Add → Image as new layer.
+        if (project != null) {
+            for (Uri u : com.fadcam.ui.faditor.ai.AIChatState.takeLayerInserts(project.getId())) {
+                onImageAsNewLayerPicked(u);
+            }
+        }
 
         // Joybot glows when he has an idea for this project that hasn't been seen yet.
         if (project != null) {
@@ -2048,9 +2037,78 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 || !reloaded.getSpriteSheets().isEmpty();
     }
 
+    /**
+     * Swap in a project changed outside this editor (Joybot, SpriteLab, Avatar Studio). The caller
+     * records the undo step first, from the state still held.
+     */
+    private void swapInProject(@NonNull com.fadcam.ui.faditor.model.FaditorProject reloaded) {
+        // Everything already on the stacks closes over the model objects we are
+        // about to discard; replaying one would silently mutate an orphan and
+        // report success. Keep what can still be honoured (the snapshots), drop
+        // what cannot.
+        undoManager.invalidateActionsForProjectSwap();
+        project = reloaded;
+        selectedClipIndex = Math.min(selectedClipIndex,
+                project.getTimeline().getClipCount() - 1);
+        if (selectedClipIndex < 0) selectedClipIndex = 0;
+        editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
+        editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+        syncTimelineOverlays();
+        if (overlayLayer != null) {
+            overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
+                    overlayLayerCallback());
+        }
+        selectSegment(selectedClipIndex);
+        updateEditorTitle();
+        refreshTotalTimeDisplay();
+        syncTimelineTranscript();
+        // The checkpoint the caller recorded captured the PRE-change state as its before. Now
+        // reseed the rolling baseline from the swapped-in project so the next user edit records
+        // a correct pre-state (audit 1.6).
+        undoManager.resetBaseline();
+    }
+
+    /** The request the last live Joybot write belonged to, and the undo depth it left. */
+    private String jbLiveRequest = "";
+    private int jbLiveUndoCount = -1;
+
+    /**
+     * Joybot writing while this editor is on screen (a job that kept running after the chat
+     * closed). Each write is adopted here as an undo step; further writes from the same request
+     * merge into it, so "Transcribe all 4" is one press, one step.
+     */
+    private final com.fadcam.ui.faditor.ai.AIChatState.LiveEditor joybotLive =
+            new com.fadcam.ui.faditor.ai.AIChatState.LiveEditor() {
+        @Nullable @Override public String snapshotJson() {
+            return project == null ? null : projectStorage.toJson(project);
+        }
+
+        @Override public boolean adopt(@NonNull String json, @NonNull String label, @NonNull String request) {
+            if (project == null || isFinishing() || isDestroyed()) return false;
+            com.fadcam.ui.faditor.model.FaditorProject next;
+            try {
+                next = projectStorage.fromJson(json);
+            } catch (Exception e) {
+                return false;
+            }
+            if (!reloadLooksReal(next)) return false;
+            boolean sameRequest = request.equals(jbLiveRequest) && undoManager.getUndoCount() == jbLiveUndoCount;
+            if (!sameRequest) undoManager.recordAiCheckpoint(label);
+            swapInProject(next);
+            saveProjectNow();
+            jbLiveRequest = request;
+            jbLiveUndoCount = undoManager.getUndoCount();
+            if (!sameRequest) {
+                Toast.makeText(FaditorEditorActivity.this, label, Toast.LENGTH_SHORT).show();
+            }
+            return true;
+        }
+    };
+
     @Override
     protected void onPause() {
         super.onPause();
+        com.fadcam.ui.faditor.ai.AIChatState.clearLiveEditor(joybotLive);
         playheadHandler.removeCallbacks(playheadUpdater);
         // Camera single-owner: a rolling performance take must not outlive the
         // visible editor (the studio's onPause stopTracking rule).
@@ -3498,6 +3556,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             intent.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_PLAYHEAD_MS,
                     Math.max(0, lastPlayheadAbsoluteMs));
             intent.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "STUDIO");
+            // What is selected, so "cut this so it ends here" means this thing and the playhead.
+            // A layer item (image, text, sprite, audio…) wins over the spine clip under it.
+            String jbLayer = editorTimeline != null ? editorTimeline.getSelectedLayerItemId() : null;
+            Clip jbClip = getSelectedClip();
+            intent.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_SELECTED_ID,
+                    jbLayer != null ? jbLayer : (jbClip != null ? jbClip.getId() : null));
             intent.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_FROM_PULSE,
                     com.fadcam.ui.faditor.ai.joybot.JoybotPulse.isBreathing(v));
             com.fadcam.ui.faditor.ai.joybot.JoybotPulse.breathe(v, false);

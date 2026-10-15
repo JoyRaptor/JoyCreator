@@ -115,6 +115,9 @@ public final class SlideFlow {
     private final int clipCount;
     /** Index of the clip under the playhead, or -1 when not known (opened from the lobby). */
     private final int clipAtPlayhead;
+    /** Timeline position of the playhead, or -1 when not known. */
+    private final long playheadMs;
+    private boolean onTop;
 
     private Stage stage = Stage.KIND;
     @Nullable private Kind kind;
@@ -124,9 +127,14 @@ public final class SlideFlow {
     @NonNull private String placeWords = "";
 
     public SlideFlow(@NonNull String projectName, int clipCount, int clipAtPlayhead) {
+        this(projectName, clipCount, clipAtPlayhead, -1);
+    }
+
+    public SlideFlow(@NonNull String projectName, int clipCount, int clipAtPlayhead, long playheadMs) {
         this.projectName = projectName.trim();
         this.clipCount = Math.max(0, clipCount);
         this.clipAtPlayhead = clipAtPlayhead;
+        this.playheadMs = playheadMs;
     }
 
     /** Start already knowing the kind (the "Make a title card" idea). */
@@ -163,13 +171,21 @@ public final class SlideFlow {
                 return new Question("What mood?", c, false, null);
             }
             case PLACE: {
+                // Two different jobs (owner, 2026-10-14): IN LINE adds a card to the video, which
+                // gets longer; ON TOP lays it over what is already playing, the length unchanged.
                 List<Choice> c = new ArrayList<>();
-                c.add(new Choice("start", "At the start", "Before your first clip"));
+                c.add(new Choice("start", "In line, at the start",
+                        "Add it as a card before your first clip; the video gets longer"));
                 if (clipAtPlayhead > 0 && clipAtPlayhead < clipCount) {
-                    c.add(new Choice("here", "Before this clip", "Just before the clip under the playhead"));
+                    c.add(new Choice("here", "In line, before this clip",
+                            "Add it as a card just before the clip under the playhead; the video gets longer"));
                 }
-                c.add(new Choice("end", "At the end", "After your last clip"));
-                return new Question("Where should it go?", c, false, null);
+                c.add(new Choice("end", "In line, at the end",
+                        "Add it as a card after your last clip; the video gets longer"));
+                c.add(new Choice("over", playheadMs > 0 ? "On top, at the playhead" : "On top, from the start",
+                        "Lay it over the video as a see-through layer; the length stays the same"));
+                return new Question("Where should it go? In line adds it to the video (it gets longer); "
+                        + "on top lays it over what's playing.", c, false, null);
             }
             default:
                 return new Question("", new ArrayList<>(), false, null);
@@ -201,13 +217,7 @@ public final class SlideFlow {
                 Mood m = matchMood(a);
                 if (m == null) return false;
                 mood = m;
-                // An intro title goes first; nothing to ask.
-                if ("title".equals(kindOrTitle().id)) {
-                    place("start");
-                    stage = Stage.DONE;
-                } else {
-                    stage = Stage.PLACE;
-                }
+                stage = Stage.PLACE;
                 return true;
             }
             case PLACE:
@@ -220,7 +230,10 @@ public final class SlideFlow {
     }
 
     private boolean place(String a) {
-        if (a.equals("start") || a.contains("start") || a.contains("beginning")) {
+        onTop = false;
+        if (a.equals("over") || a.contains("on top") || a.contains("over") || a.contains("layer")) {
+            onTop = true; placeWords = "on top of the video";
+        } else if (a.equals("start") || a.contains("start") || a.contains("beginning")) {
             insertAt = 0; placeWords = "at the start";
         } else if (a.equals("end") || a.contains("end") || a.contains("last")) {
             insertAt = clipCount; placeWords = "at the end";
@@ -247,14 +260,15 @@ public final class SlideFlow {
         Kind k = kindOrTitle();
         Mood m = mood == null ? MOODS.get(4) : mood;
         Map<String, Object> args = new LinkedHashMap<>();
-        args.put("mode", "fullscreen");
+        args.put("mode", onTop ? "overlay" : "fullscreen");
         args.put("title_or_text", text == null ? projectName : text);
         args.put("style_hint", k.layout + "; " + m.style);
         args.put("duration_ms_hint", k.durationMs);
         args.put("kind", k.id);
         args.put("mood", m.id);
         Map<String, Object> placement = new LinkedHashMap<>();
-        placement.put("insertAtClipIndex", Math.max(0, insertAt));
+        if (onTop) placement.put("startMs", Math.max(0, playheadMs));
+        else placement.put("insertAtClipIndex", Math.max(0, insertAt));
         args.put("placement", placement);
         return args;
     }

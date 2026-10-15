@@ -40,6 +40,8 @@ public final class DirectRunner {
         @Nullable public String error;
         /** The undo step this run parked, or null when nothing changed. */
         @Nullable public AIChatState.Step step;
+        /** Something changed (even when the step was recorded by the editor on screen). */
+        public boolean changed;
         /** The project read back afterwards (for "Show me" and the next ideas). */
         @Nullable public ProjectFacts after;
     }
@@ -63,17 +65,24 @@ public final class DirectRunner {
                              @Nullable Cancelled cancelled) {
         Context app = context.getApplicationContext();
         Result r = new Result();
-        ProjectStorage storage = new ProjectStorage(app);
+        ProjectStorage storage = new JoybotStorage(app);
         boolean online = AiService.ready(app, AiKey.get(app));
         FaditorProject p0 = storage.load(projectId);
         if (p0 == null) { r.error = "I couldn't open this project."; return r; }
         String before = storage.toJson(p0);
         ProjectFacts f0 = ProjectFactsReader.read(app, p0, online);
 
-        AIToolExecutor ex = new AIToolExecutor(app, projectId, progress);
+        // Progress says WHICH clip and how far through the list, so "Transcribe all 4" is followable.
+        java.util.Map<String, String> names = new java.util.HashMap<>();
+        for (ProjectFacts.ClipFacts c : f0.spine) names.put(c.id, c.name);
+        for (ProjectFacts.ClipFacts c : f0.audio) names.put(c.id, c.name);
         StringBuilder details = new StringBuilder();
-        for (Idea.Step s : steps) {
+        for (int si = 0; si < steps.size(); si++) {
+            Idea.Step s = steps.get(si);
             if (cancelled != null && cancelled.isCancelled()) { r.error = "Stopped."; break; }
+            final String where = stepWords(s, names, si, steps.size());
+            AIToolExecutor ex = new AIToolExecutor(app, projectId, progress == null ? null
+                    : (task, percent) -> progress.onProgress(where.isEmpty() ? task : where, percent));
             String out;
             try {
                 out = ex.executeTool(s.tool, toJson(s.args));
@@ -88,11 +97,14 @@ public final class DirectRunner {
         FaditorProject p1 = storage.load(projectId);
         if (p1 != null) {
             String after = storage.toJson(p1);
-            if (!after.equals(before)) {
+            // With the editor on screen the editor adopted each change as it was saved and recorded
+            // the undo step itself; parking another here would make a second one.
+            if (!after.equals(before) && !JoybotStorage.isLive(projectId)) {
                 AIChatState.pushStep(projectId, undoLabel, before);
                 AIChatState.signalModified(projectId, undoLabel);
                 r.step = AIChatState.peekStep(projectId);
             }
+            r.changed = !after.equals(before);
             r.after = ProjectFactsReader.read(app, p1, online);
             r.summary = Outcome.describe(f0, r.after);
         }
@@ -114,6 +126,25 @@ public final class DirectRunner {
         }
         AIChatState.signalModified(projectId);
         return true;
+    }
+
+    /** "Transcribing “Take 2” (2 of 4)", or "" for steps that name no clip. */
+    @NonNull
+    static String stepWords(@NonNull Idea.Step s, @NonNull java.util.Map<String, String> names, int i, int n) {
+        Object id = s.args.get("clipId");
+        if (id == null) id = s.args.get("audioClipId");
+        String name = id == null ? null : names.get(String.valueOf(id));
+        String verb;
+        switch (s.tool) {
+            case "generate_transcript": verb = "Transcribing"; break;
+            case "toggle_captions": verb = "Turning on captions for"; break;
+            case "cut_all_fillers": verb = "Cutting the ums in"; break;
+            case "detect_silence": verb = "Listening for quiet parts in"; break;
+            case "remove_silence": verb = "Cutting silences in"; break;
+            default: verb = "Working on"; break;
+        }
+        if (name == null) return n > 1 ? "Step " + (i + 1) + " of " + n : "";
+        return verb + " “" + name + "”" + (n > 1 ? " (" + (i + 1) + " of " + n + ")" : "");
     }
 
     /** The tool vocabulary for "that didn't work". */

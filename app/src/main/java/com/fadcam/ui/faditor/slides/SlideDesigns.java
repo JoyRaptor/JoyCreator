@@ -40,12 +40,22 @@ public final class SlideDesigns {
     @NonNull
     public static String build(int width, int height, @Nullable String kind, @Nullable String mood,
                                @NonNull String text, long durationMs) {
+        return build(width, height, kind, mood, text, durationMs, false);
+    }
+
+    /**
+     * @param overlay true for a see-through slide laid ON TOP of the video: no background, no
+     *                letterbox, and a soft shadow so the words read over any footage
+     */
+    @NonNull
+    public static String build(int width, int height, @Nullable String kind, @Nullable String mood,
+                               @NonNull String text, long durationMs, boolean overlay) {
         String k = indexOf(KINDS, kind) >= 0 ? kind : "title";
         String m = indexOf(MOODS, mood) >= 0 ? mood : "clean";
         long ms = Math.max(800, durationMs);
         return "<!doctype html><html><head><meta charset=\"utf-8\">\n"
                 + "<!-- " + SlideContract.CONTRACT_MARKER + SlideContract.CONTRACT_VERSION + " (built-in: " + k + "/" + m + ") -->\n"
-                + "<style>\n" + css(width, height, m) + "</style></head>\n"
+                + "<style>\n" + css(width, height, m) + (overlay ? OVERLAY_CSS : "") + "</style></head>\n"
                 + "<body>\n<div id=\"stage\"><div id=\"wrap\"></div></div>\n"
                 + "<script src=\"gsap.min.js\"></script>\n"
                 + "<script src=\"faditor_runtime.js\"></script>\n"
@@ -54,10 +64,17 @@ public final class SlideDesigns {
                 + "const MOOD = " + moodJs(m) + ";\n"
                 + "const TEXT = " + jsString(text) + ";\n"
                 + "const W = " + width + ", H = " + height + ", T = " + (ms / 1000.0) + ";\n"
+                + (overlay ? "MOOD.bars = false;\n" : "")
                 + SCRIPT
                 + "Faditor.register(tl, " + ms + ");\n"
                 + "</script>\n</body></html>";
     }
+
+    /** See-through: the video shows around the words; a shadow keeps them readable on any picture. */
+    private static final String OVERLAY_CSS =
+            "html,body{background:transparent !important;}\n"
+            + "#stage{background:transparent !important;}\n"
+            + "#wrap{text-shadow:0 2px 12px rgba(0,0,0,0.75),0 0 2px rgba(0,0,0,0.9);}\n";
 
     // ── moods ───────────────────────────────────────────────────────────────
 
@@ -117,7 +134,7 @@ public final class SlideDesigns {
      * Shared layout + timeline. Everything is built before the first seek and depends only on the
      * timeline's time, so any frame can be drawn in any order (the contract's main rule).
      */
-    private static final String SCRIPT = String.join("\n",
+    private static final String SCRIPT = lines(
             "const S = Math.min(W, H);",
             "const wrap = document.getElementById('wrap');",
             "const tl = gsap.timeline({ paused: true });",
@@ -185,6 +202,14 @@ public final class SlideDesigns {
             "if (KIND !== 'credits') tl.to(wrap, { opacity: 0, duration: out, ease: 'power1.in' }, Math.max(T - out, tl.duration() + 0.2));",
             "if (tl.duration() < T) tl.to({}, { duration: T - tl.duration() });",
             "");
+
+    /** The lines joined with newlines (String.join is Android 8+; the app runs from 7). */
+    @NonNull
+    private static String lines(@NonNull String... ls) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < ls.length; i++) { if (i > 0) b.append('\n'); b.append(ls[i]); }
+        return b.toString();
+    }
 
     // ── helpers ─────────────────────────────────────────────────────────────
 

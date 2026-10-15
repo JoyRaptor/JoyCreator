@@ -300,6 +300,10 @@ public class IdeaEngineTest {
             ProjectFacts sb = facts(transcribed("a", "A", 1, 1)); sb.totalMs = 196_000;
             ProjectFacts.ClipFacts slide = video("s", "Slide", 3500); slide.slide = true;
             ProjectFacts sa = facts(slide, transcribed("a", "A", 1, 1)); sa.totalMs = 200_000;
+            ProjectFacts mb = facts(video("a", "Take 1", 1000), video("b", "Take 2", 1000));
+            ProjectFacts ma = facts(transcribed("a", "Take 1", 1000, 312), transcribed("b", "Take 2", 1000, 85));
+            for (ProjectFacts.ClipFacts mc : ma.spine) mc.captionsOn = false;
+            eq("outcome: each transcribed clip named", "Transcribed 2 clips: “Take 1” 312 words, “Take 2” 85 words.", Outcome.describe(mb, ma));
             eq("outcome: a slide, not '1 clip'", "Added a slide. The video is 4 s longer (3:16 → 3:20).", Outcome.describe(sb, sa));
             eq("outcome: thousands", "Transcribed “X”: 1,204 words.", Outcome.describe(
                     facts(video("x", "X", 1)), facts(transcribed("x", "X", 1, 1204))).replace(" Captions are on.", ""));
@@ -317,8 +321,8 @@ public class IdeaEngineTest {
             check("slide: words typed", s.answer("Part two: the waves"), "");
             eq("slide: asks the mood", "What mood?", s.question().text);
             check("slide: typed mood synonym", s.answer("something dramatic"), "");
-            eq("slide: asks where", "Where should it go?", s.question().text);
-            eq("slide: three places when the playhead is mid-project", 3, s.question().choices.size());
+            check("slide: asks where", s.question().text.startsWith("Where should it go?"), s.question().text);
+            eq("slide: four places when the playhead is mid-project", 4, s.question().choices.size());
             check("slide: here accepted", s.answer("here"), "");
             eq("slide: done", com.fadcam.ui.faditor.ai.joybot.SlideFlow.Stage.DONE, s.stage());
             java.util.Map<String, Object> a = s.toolArgs();
@@ -334,14 +338,28 @@ public class IdeaEngineTest {
             eq("title: prefill", "Beach Day", t.question().prefill);
             t.answer("use_name");
             t.answer("bold");
-            eq("title: goes first without asking where", com.fadcam.ui.faditor.ai.joybot.SlideFlow.Stage.DONE, t.stage());
-            eq("title: at index 0", "{insertAtClipIndex=0}", t.toolArgs().get("placement"));
+            eq("title: asks in line or on top", com.fadcam.ui.faditor.ai.joybot.SlideFlow.Stage.PLACE, t.stage());
+            check("title: on-top choice offered", t.question().choices.get(t.question().choices.size() - 1).id.equals("over"), "");
+            t.answer("start");
+            eq("title: in line at index 0", "{insertAtClipIndex=0}", t.toolArgs().get("placement"));
+            eq("title: in line is fullscreen", "fullscreen", t.toolArgs().get("mode"));
             eq("title: text is the name", "Beach Day", t.toolArgs().get("title_or_text"));
+
+            com.fadcam.ui.faditor.ai.joybot.SlideFlow o =
+                    new com.fadcam.ui.faditor.ai.joybot.SlideFlow("Beach Day", 4, 2, 12_500).startingWith("title");
+            o.answer("Hello"); o.answer("clean"); o.answer("over");
+            eq("on top: overlay mode", "overlay", o.toolArgs().get("mode"));
+            eq("on top: at the playhead", "{startMs=12500}", o.toolArgs().get("placement"));
+            eq("on top: summary", "Make a clean title slide on top of the video.", o.summary());
+            String ov = com.fadcam.ui.faditor.slides.SlideDesigns.build(1280, 720, "title", "cinematic", "Hi", 3000, true);
+            check("overlay design: see-through", ov.contains("background:transparent"), "");
+            check("overlay design: no letterbox", ov.contains("MOOD.bars = false;"), "");
+            check("overlay design: still valid", com.fadcam.ui.faditor.slides.SlideContract.validate(ov) == null, "");
 
             com.fadcam.ui.faditor.ai.joybot.SlideFlow e =
                     new com.fadcam.ui.faditor.ai.joybot.SlideFlow("", 4, -1).startingWith("credits");
             e.answer("Me\nMy dog"); e.answer("calm");
-            eq("no playhead: only start and end", 2, e.question().choices.size());
+            eq("no playhead: start, end, on top", 3, e.question().choices.size());
             check("no playhead: 'here' refused", !e.answer("here"), "");
             e.answer("end");
             eq("credits at the end", "{insertAtClipIndex=4}", e.toolArgs().get("placement"));

@@ -1168,7 +1168,7 @@ C:/Temp/jb-promotion-inventory. No concurrent engine edits or helper builds/devi
 Claude independent reviewer: AUDIT_CHECKPOINT_20261014.md; storage/Joybot files untouched.
 
 ## JOYBOT_20261014 (Claude, JoyBot specialist — cross-cutting account)
-status: ACTIVE (2026-10-14 16:00) — phases 1–3 committed and tested on the Note 9 (ledger + device results in plan B6). Plan: tasks/joybot/JOYBOT_PLAN_20261014.md.
+status: HANDED OFF (2026-10-15 10:15) — evening round committed + phone-tested; next agent starts from tasks/joybot/JOYBOT_HANDOFF_20261015.md (ordered roadmap; P0-1 = overlay slides invisible in the editor preview, Studio-editor code). Plan: tasks/joybot/JOYBOT_PLAN_20261014.md.
 files (also, small): MainActivity (onNewIntent) · tools/jvm-harness/typecheck.sh (studiokit + JoyBrush jars) · new slides/SlideDesigns.java
 files (owned): app/.../ui/faditor/ai/** (ChatAssistantActivity, AIToolExecutor, AIChatState, new ai/joybot/**) ·
   app/.../ui/lobby/JoybotView.java, JoybotFilm.java · res/layout/activity_chat_assistant.xml · tools/jvm-harness/IdeaEngineTest.java, run-ideas.sh

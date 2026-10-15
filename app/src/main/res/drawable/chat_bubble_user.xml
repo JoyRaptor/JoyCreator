@@ -4,7 +4,9 @@
      own right edge / toward the screen edge) is a straight vertical drop;
      only the inner edge (the hypotenuse, facing left/inward) angles in to
      the point — NOT a symmetric diamond notch. Reads as if the message is
-     rising straight up from the "Ask anything" box below. -->
+     rising straight up from the "Ask anything" box below.
+     Fill is the Studio's aqua-to-lime (same as studio_action_pill); the tail sits at
+     the right end, so it takes the lime stop. Text on it is s_on_go. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:width="10dp"
@@ -21,13 +23,14 @@
                  (10,7) outer point straight down from (10,0); close back to
                  (0,0) draws the angled inner hypotenuse. -->
             <path
-                android:fillColor="#FF1B3A20"
+                android:fillColor="@color/s_go_end"
                 android:pathData="M0,0 L10,0 L10,7 Z" />
         </vector>
     </item>
     <item android:bottom="7dp">
         <shape android:shape="rectangle">
-            <solid android:color="#FF1B3A20" />
+            <gradient android:type="linear" android:angle="0"
+                android:startColor="@color/s_go" android:endColor="@color/s_go_end" />
             <corners android:radius="14dp" />
         </shape>
     </item>

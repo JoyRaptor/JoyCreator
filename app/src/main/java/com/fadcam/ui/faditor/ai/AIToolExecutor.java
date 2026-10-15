@@ -72,7 +72,7 @@ public class AIToolExecutor {
     public AIToolExecutor(@NonNull Context context, @NonNull String projectId,
                           @Nullable ProgressListener progressListener) {
         this.context = context.getApplicationContext();
-        this.storage = new ProjectStorage(this.context);
+        this.storage = new com.fadcam.ui.faditor.ai.joybot.JoybotStorage(this.context);
         this.projectId = projectId;
         this.progressListener = progressListener;
     }
@@ -147,6 +147,10 @@ public class AIToolExecutor {
                 case "remove_silence": return toolRemoveSilence(args);
                 case "fix_audio": return toolFixAudio(args);
                 case "add_visualizer": return toolAddVisualizer(args);
+                case "set_fades": return toolSetFades(args);
+                case "remove_transitions": return toolRemoveTransitions(args);
+                case "set_item_time": return toolSetItemTime(args);
+                case "rename_item": return toolRenameItem(args);
                 default: return "Error: unknown tool '" + toolName + "'";
             }
         } catch (Exception e) {
@@ -327,6 +331,13 @@ public class AIToolExecutor {
                 args: {"audioClipId":"...", "fadeInMs":500, "fadeOutMs":500}
             41. remove_silence — CUT the silent spans detect_silence found on a clip (non-destructive cuts, each can be tapped back). Run detect_silence first. Use for "remove silences", "tighten the pauses".
                 args: {"clipId":"...", "sensitivity":0.5} or {"audioClipId":"..."}
+            42c. set_fades — FADE HANDLES on clips and layers: fade in from black (or from nothing, for a layer) at an item's start, fade out at its end. Not transitions. Use for "fade every clip in and out over 2 seconds", "remove the fades on my clips" (fadeInMs/fadeOutMs 0).
+                args: {"which":"clips|layers|audio|everything", "fadeInMs":2000, "fadeOutMs":2000} or {"ids":["..."], "fadeOutMs":1000}
+            42d. remove_transitions — Remove TRANSITIONS (the effects BETWEEN two clips, incl. FADE_*_BLACK at a seam). kind "fades" removes only the fade-type ones.
+                args: {"kind":"all|fades"} or {"seams":[0,2]}
+            42e. set_item_time — When ANY item (clip, picture, text, sprite, visualizer, adjustment, audio) starts/ends on the timeline, in timeline ms. "Make it end here" = endMs at the playhead. Spine clips get trimmed (the video's length changes).
+                args: {"id":"...", "endMs":5200} or {"id":"...", "startMs":1000, "endMs":4000}
+            42f. rename_item — Give an audio clip or adjustment layer a name (clips and other layers: not yet). args: {"id":"...", "name":"Cat 2"}
             42b. add_visualizer — Add a waveform/spectrum visualizer that dances to a clip's sound, over that clip's whole length. Use for "add a visualizer", "make the music move on screen".
                 args: {"audioClipId":"..."} (or a video clip id; omit to use the first audio clip), optional "style":"spectrum_mirror"
             42. fix_audio — One-tap Fix audio chain (highpass → afftdn → acompressor → loudnorm) via BakedAudioCache. Baked, shows progress, one undo to revert. Use for "fix my audio".
@@ -499,16 +510,22 @@ public class AIToolExecutor {
                     public void onResult(@NonNull Transcript transcript) {
                         NamedTranscript nt = new NamedTranscript(
                                 finalModelType.label, finalModelType.engine.name().toLowerCase(), transcript);
-                        clip.addTranscript(nt);
+                        // Read the project AGAIN now, not the copy loaded before a transcription
+                        // that can take minutes: anything changed meanwhile (by the person in the
+                        // editor, or an earlier step) must survive this save.
+                        FaditorProject fresh = storage.load(projectId);
+                        Clip target = fresh == null ? null : findClip(fresh, clipId);
+                        if (target == null) { fresh = proj; target = clip; }
+                        target.addTranscript(nt);
                         // Re-running the same model REPLACES its previous run instead of
                         // stacking another near-identical copy in project.json. Only
                         // un-edited, non-active older runs of the same engine+label are
                         // dropped (see TranscriptDedup's conservative rule); guarded on a
                         // non-empty result so an empty run can never displace real words.
                         if (!transcript.words.isEmpty()) {
-                            com.fadcam.ui.faditor.transcript.TranscriptDedup.dedupClip(clip, true);
+                            com.fadcam.ui.faditor.transcript.TranscriptDedup.dedupClip(target, true);
                         }
-                        storage.save(proj);
+                        storage.save(fresh);
                         AIChatState.signalModified(projectId);
                         resultRef.set("Transcript generated successfully. "
                                 + transcript.words.size() + " words. Engine: "
@@ -757,9 +774,9 @@ public class AIToolExecutor {
     @NonNull
     private static String builtInSlide(int w, int h, @NonNull String mode, @NonNull String text,
                                        long durationMs, @NonNull String kind, @NonNull String mood) {
-        if (SlideContract.MODE_FULLSCREEN.equals(mode)
-                && com.fadcam.ui.faditor.slides.SlideDesigns.knows(kind, mood)) {
-            return com.fadcam.ui.faditor.slides.SlideDesigns.build(w, h, kind, mood, text, durationMs);
+        if (com.fadcam.ui.faditor.slides.SlideDesigns.knows(kind, mood)) {
+            return com.fadcam.ui.faditor.slides.SlideDesigns.build(w, h, kind, mood, text, durationMs,
+                    SlideContract.MODE_OVERLAY.equals(mode));
         }
         return SlideContract.buildFallbackHtml(w, h, mode, text, durationMs);
     }
@@ -2154,6 +2171,281 @@ public class AIToolExecutor {
         return merged;
     }
 
+    // ── Fades, timing and names for ANY item (owner, 2026-10-14) ───────────────────────────
+    // "Give all my clips a two second fade in from black and out" failed: the fade HANDLES (a
+    // property of each clip/layer) had no tool at all, only TRANSITIONS (between two clips).
+    // These tools reach every kind of item by id, so batches and "this one" both work.
+
+    /** Every timed thing in the project, by id: spine clip, overlay clip, layer, sound. */
+    private static final class Item {
+        final String id, kind, name;
+        @Nullable final Clip clip;                 // spine or overlay video/picture clip
+        final boolean spine;
+        final long timelineStart;                  // where it starts on the timeline
+        @Nullable final Object obj;                // the layer object otherwise
+
+        Item(String id, String kind, String name, @Nullable Clip clip, boolean spine, long start,
+             @Nullable Object obj) {
+            this.id = id; this.kind = kind; this.name = name; this.clip = clip; this.spine = spine;
+            this.timelineStart = start; this.obj = obj;
+        }
+    }
+
+    @NonNull
+    private List<Item> allItems(@NonNull FaditorProject proj) {
+        List<Item> out = new ArrayList<>();
+        Timeline tl = proj.getTimeline();
+        long at = 0;
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            out.add(new Item(c.getId(), c.isImageClip() ? "picture clip" : c.isGeneratedSlide() ? "slide" : "video clip",
+                    friendlyClipName(c), c, true, at, null));
+            at += c.getVisualDurationMs();
+        }
+        for (Clip oc : tl.getOverlayClips()) {
+            out.add(new Item(oc.getId(), "video layer", friendlyClipName(oc), oc, false, oc.getOverlayStartMs(), null));
+        }
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
+            out.add(new Item(o.getId(), o.isImage() ? "image layer" : "text layer",
+                    o.isImage() ? "image" : o.getText(), null, false, o.getStartMs(), o));
+        }
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : tl.getSpriteOverlays()) {
+            out.add(new Item(s.getId(), "sprite layer", "sprite", null, false, s.getStartMs(), s));
+        }
+        for (com.fadcam.ui.faditor.model.WaveformOverlayInstance w : tl.getWaveformOverlays()) {
+            out.add(new Item(w.getId(), "visualizer", "visualizer", null, false, w.getStartMs(), w));
+        }
+        for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
+            out.add(new Item(a.getId(), "adjustment layer", a.getName(), null, false, a.getStartMs(), a));
+        }
+        for (com.fadcam.ui.faditor.model.AudioClip ac : tl.getAudioClips()) {
+            out.add(new Item(ac.getId(), "audio clip", ac.getLabel(), null, false, ac.getOffsetMs(), ac));
+        }
+        return out;
+    }
+
+    /** The items named by {"ids":[…]} or {"which":"clips|layers|everything"}. */
+    @NonNull
+    private List<Item> pick(@NonNull FaditorProject proj, @NonNull JSONObject args) {
+        List<Item> all = allItems(proj);
+        List<Item> out = new ArrayList<>();
+        JSONArray ids = args.optJSONArray("ids");
+        String one = args.optString("id", "");
+        if (ids != null || !one.isEmpty()) {
+            java.util.Set<String> want = new java.util.HashSet<>();
+            if (!one.isEmpty()) want.add(one);
+            if (ids != null) for (int i = 0; i < ids.length(); i++) want.add(ids.optString(i));
+            for (Item it : all) if (want.contains(it.id)) out.add(it);
+            return out;
+        }
+        String which = args.optString("which", "clips");
+        for (Item it : all) {
+            boolean isClip = it.spine;
+            if ("everything".equals(which) || ("clips".equals(which) && isClip)
+                    || ("layers".equals(which) && !isClip && !"audio clip".equals(it.kind))
+                    || ("audio".equals(which) && "audio clip".equals(it.kind))) {
+                out.add(it);
+            }
+        }
+        return out;
+    }
+
+    /** Duration of an item on the timeline. */
+    private static long itemLength(@NonNull Item it) {
+        if (it.clip != null) return it.clip.getVisualDurationMs();
+        if (it.obj instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
+            com.fadcam.ui.faditor.model.TextOverlayItem o = (com.fadcam.ui.faditor.model.TextOverlayItem) it.obj;
+            return o.getEndMs() == Long.MAX_VALUE ? Long.MAX_VALUE : o.getEndMs() - o.getStartMs();
+        }
+        if (it.obj instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
+            com.fadcam.ui.faditor.sprite.SpriteOverlayItem s = (com.fadcam.ui.faditor.sprite.SpriteOverlayItem) it.obj;
+            return s.getEndMs() - s.getStartMs();
+        }
+        if (it.obj instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) {
+            com.fadcam.ui.faditor.model.WaveformOverlayInstance w = (com.fadcam.ui.faditor.model.WaveformOverlayInstance) it.obj;
+            return w.getEndMs() - w.getStartMs();
+        }
+        if (it.obj instanceof com.fadcam.ui.faditor.model.AdjustmentLayer) {
+            return ((com.fadcam.ui.faditor.model.AdjustmentLayer) it.obj).getDurationMs();
+        }
+        if (it.obj instanceof com.fadcam.ui.faditor.model.AudioClip) {
+            return ((com.fadcam.ui.faditor.model.AudioClip) it.obj).getTrimmedDurationMs();
+        }
+        return 0;
+    }
+
+    /**
+     * Fade handles: fade in from black (or from nothing, for a layer) at the start and out at
+     * the end of each item. NOT transitions — those sit BETWEEN two clips (remove_transitions).
+     */
+    private String toolSetFades(@NonNull JSONObject args) {
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        long in = args.has("fadeInMs") ? Math.max(0, args.optLong("fadeInMs", 0)) : -1;
+        long out = args.has("fadeOutMs") ? Math.max(0, args.optLong("fadeOutMs", 0)) : -1;
+        if (in < 0 && out < 0) return "Error: give fadeInMs and/or fadeOutMs (0 removes a fade)";
+        List<Item> items = pick(proj, args);
+        if (items.isEmpty()) return "Error: nothing matched (use ids from the project context, or which=clips|layers|audio|everything)";
+        int done = 0;
+        StringBuilder skipped = new StringBuilder();
+        for (Item it : items) {
+            long len = itemLength(it);
+            if (it.clip != null) {
+                if (in >= 0) it.clip.setMasterFadeInMs(Math.min(in, len / 2));
+                if (out >= 0) it.clip.setMasterFadeOutMs(Math.min(out, len / 2));
+                done++;
+            } else if (it.obj instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
+                com.fadcam.ui.faditor.model.TextOverlayItem o = (com.fadcam.ui.faditor.model.TextOverlayItem) it.obj;
+                if (len == Long.MAX_VALUE) {
+                    if (in >= 0) o.setImageFadeInMs(in);
+                    if (out >= 0) o.setImageFadeOutMs(out);
+                } else {
+                    if (in >= 0) o.setImageFadeInMs(in, len);
+                    if (out >= 0) o.setImageFadeOutMs(out, len);
+                }
+                done++;
+            } else if (it.obj instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem s = (com.fadcam.ui.faditor.sprite.SpriteOverlayItem) it.obj;
+                if (in >= 0) s.setFadeInMs(Math.min(in, len / 2));
+                if (out >= 0) s.setFadeOutMs(Math.min(out, len / 2));
+                done++;
+            } else if (it.obj instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) {
+                com.fadcam.ui.faditor.model.WaveformOverlayInstance w = (com.fadcam.ui.faditor.model.WaveformOverlayInstance) it.obj;
+                if (in >= 0) w.setFadeInMs(Math.min(in, len / 2));
+                if (out >= 0) w.setFadeOutMs(Math.min(out, len / 2));
+                done++;
+            } else if (it.obj instanceof com.fadcam.ui.faditor.model.AudioClip) {
+                com.fadcam.ui.faditor.model.AudioClip a = (com.fadcam.ui.faditor.model.AudioClip) it.obj;
+                if (in >= 0) a.setFadeInMs(Math.min(in, len / 2));
+                if (out >= 0) a.setFadeOutMs(Math.min(out, len / 2));
+                done++;
+            } else {
+                if (skipped.length() > 0) skipped.append(", ");
+                skipped.append(it.kind);
+            }
+        }
+        if (done == 0) return "Error: those items have no fade handles (" + skipped + ")";
+        storage.save(proj);
+        AIChatState.signalModified(projectId, "Set fades on " + done + " item" + (done == 1 ? "" : "s"));
+        return "Fade handles set on " + done + " item(s): "
+                + (in >= 0 ? "fade in " + in + "ms " : "") + (out >= 0 ? "fade out " + out + "ms" : "")
+                + " (capped at half of each item's length)."
+                + (skipped.length() > 0 ? " Skipped (no fade handles): " + skipped + "." : "");
+    }
+
+    /** Remove transitions (the effects between clips), all or just the fade kinds, or at given seams. */
+    private String toolRemoveTransitions(@NonNull JSONObject args) {
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        String kind = args.optString("kind", "all");
+        JSONArray seams = args.optJSONArray("seams");
+        java.util.Set<Integer> only = null;
+        if (seams != null) {
+            only = new java.util.HashSet<>();
+            for (int i = 0; i < seams.length(); i++) only.add(seams.optInt(i));
+        }
+        List<com.fadcam.ui.faditor.model.Transition> ts = proj.getTimeline().getTransitions();
+        int removed = 0;
+        for (int i = ts.size() - 1; i >= 0; i--) {
+            com.fadcam.ui.faditor.model.Transition t = ts.get(i);
+            if ("fades".equals(kind) && !t.isFade()) continue;
+            if (only != null && !only.contains(t.clipIndex)) continue;
+            proj.getTimeline().removeTransition(i);
+            removed++;
+        }
+        if (removed == 0) return "No matching transitions to remove.";
+        storage.save(proj);
+        AIChatState.signalModified(projectId, "Remove " + removed + " transitions");
+        return "Removed " + removed + " transition(s).";
+    }
+
+    /**
+     * When an item starts and ends on the timeline. "Make it end here" = endMs at the playhead.
+     * Spine clips trim their own source (the video gets shorter or longer); layers just move edges.
+     */
+    private String toolSetItemTime(@NonNull JSONObject args) {
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        String id = args.optString("id", "");
+        Item it = null;
+        for (Item x : allItems(proj)) if (x.id.equals(id)) { it = x; break; }
+        if (it == null) return "Error: no item with id '" + id + "'";
+        boolean hasStart = args.has("startMs"), hasEnd = args.has("endMs");
+        if (!hasStart && !hasEnd) return "Error: give startMs and/or endMs (timeline milliseconds)";
+        long start = hasStart ? Math.max(0, args.optLong("startMs")) : it.timelineStart;
+        long len = itemLength(it);
+        long end = hasEnd ? args.optLong("endMs") : (len == Long.MAX_VALUE ? Long.MAX_VALUE : it.timelineStart + len);
+        if (end != Long.MAX_VALUE && end <= start + 50) return "Error: it would end before it starts";
+        if (it.clip != null && it.spine) {
+            // A spine clip's place is set by the clips before it; trim its own source instead.
+            Clip c = it.clip;
+            if (hasEnd) {
+                long local = Math.max(50, end - it.timelineStart);
+                if (local >= c.getVisualDurationMs()) return "Error: a clip can't end later than its footage; it already ends at "
+                        + (it.timelineStart + c.getVisualDurationMs()) + "ms";
+                c.setOutPointMs(c.mapToSourceMs(local));
+            }
+            if (hasStart && start > it.timelineStart) {
+                c.setInPointMs(c.mapToSourceMs(start - it.timelineStart));
+            }
+        } else if (it.clip != null) {
+            Clip c = it.clip;
+            if (hasEnd && end != Long.MAX_VALUE) c.setOutPointMs(c.mapToSourceMs(Math.max(50, end - it.timelineStart)));
+            if (hasStart) c.setOverlayStartMs(start);
+        } else if (it.obj instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
+            ((com.fadcam.ui.faditor.model.TextOverlayItem) it.obj).setTimeRange(start, end);
+        } else if (it.obj instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
+            ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) it.obj).setTimeRange(start, end);
+        } else if (it.obj instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) {
+            ((com.fadcam.ui.faditor.model.WaveformOverlayInstance) it.obj).setTimeRange(start, end);
+        } else if (it.obj instanceof com.fadcam.ui.faditor.model.AdjustmentLayer) {
+            com.fadcam.ui.faditor.model.AdjustmentLayer a = (com.fadcam.ui.faditor.model.AdjustmentLayer) it.obj;
+            a.setStartMs(start);
+            if (end != Long.MAX_VALUE) a.setDurationMs(end - start);
+        } else if (it.obj instanceof com.fadcam.ui.faditor.model.AudioClip) {
+            com.fadcam.ui.faditor.model.AudioClip a = (com.fadcam.ui.faditor.model.AudioClip) it.obj;
+            long oldOffset = a.getOffsetMs();
+            if (hasEnd && end != Long.MAX_VALUE) a.setOutPointMs(a.getInPointMs() + Math.max(50, end - oldOffset));
+            if (hasStart) a.setOffsetMs(start);
+        } else {
+            return "Error: can't retime a " + it.kind;
+        }
+        storage.save(proj);
+        AIChatState.signalModified(projectId, "Retime " + it.kind);
+        return "The " + it.kind + " “" + it.name + "” now runs from " + clock(start) + " to "
+                + (end == Long.MAX_VALUE ? "the end" : clock(end))
+                + (it.spine ? " (it's on the main track, so it was trimmed and the video's length changed)." : ".");
+    }
+
+    /** "1:02.35" — minutes, seconds and hundredths, for sentences people read. */
+    @NonNull
+    private static String clock(long ms) {
+        long s = Math.max(0, ms) / 1000;
+        return String.format(java.util.Locale.US, "%d:%02d.%02d", s / 60, s % 60, (Math.max(0, ms) % 1000) / 10);
+    }
+
+    /** A name of your choosing for any clip or layer (shown to Joybot, and where the app shows names). */
+    private String toolRenameItem(@NonNull JSONObject args) {
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        String id = args.optString("id", "");
+        String name = args.optString("name", "").trim();
+        if (name.isEmpty()) return "Error: 'name' is required";
+        Item it = null;
+        for (Item x : allItems(proj)) if (x.id.equals(id)) { it = x; break; }
+        if (it == null) return "Error: no item with id '" + id + "'";
+        // Not Clip.displayName: the editor uses it to remember a clip's ORIGINAL file name for
+        // relinking, and to recognise its own "Blank (auto)" filler. Clips get a real name field
+        // with the naming feature (tasks/joybot/NAMING_DESIGN_20261014.md).
+        if (it.clip != null) return "Error: clips can't be given their own names yet (it's planned). Audio clips and adjustment layers can.";
+        if (it.obj instanceof com.fadcam.ui.faditor.model.AudioClip) ((com.fadcam.ui.faditor.model.AudioClip) it.obj).setLabel(name);
+        else if (it.obj instanceof com.fadcam.ui.faditor.model.AdjustmentLayer) ((com.fadcam.ui.faditor.model.AdjustmentLayer) it.obj).setName(name);
+        else return "Error: " + it.kind + "s can't be named yet (planned: naming any layer).";
+        storage.save(proj);
+        AIChatState.signalModified(projectId, "Rename to " + name);
+        return "Renamed the " + it.kind + " to \"" + name + "\".";
+    }
+
     /** A visualizer over an audio clip (or a video clip's sound), the length of that clip. */
     private String toolAddVisualizer(@NonNull JSONObject args) {
         String id = args.optString("audioClipId", args.optString("clipId", ""));
@@ -2293,15 +2585,21 @@ public class AIToolExecutor {
         return "Clip " + clipId + " " + (muted ? "muted" : "unmuted");
     }
 
-    private String toolToggleCaptions(@NonNull JSONObject args) {
+    private String toolToggleCaptions(@NonNull JSONObject args) throws org.json.JSONException {
         String clipId = args.optString("clipId", "");
         boolean enabled = args.optBoolean("enabled", true);
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";
         Clip clip = findClip(proj, clipId);
         if (clip == null) return "Error: clip not found: " + clipId;
-        if (enabled && clip.getActiveNamedTranscript() == null) {
-            return "Error: clip has no transcript. Generate a transcript first.";
+        if (enabled && clip.getActiveNamedTranscript() == null && clip.getTranscripts().isEmpty()) {
+            // Captions ARE the transcript on screen, so a request for captions on a clip with no
+            // words yet means "transcribe it, then show them" (owner, 2026-10-14) — not an error.
+            String t = toolGenerateTranscript(new JSONObject().put("clipId", clipId).put("engine", "whisper"));
+            if (t == null || t.startsWith("Error")) return t == null ? "Error: transcription failed" : t;
+            proj = storage.load(projectId);
+            clip = proj == null ? null : findClip(proj, clipId);
+            if (clip == null) return "Error: clip not found after transcribing: " + clipId;
         }
         clip.setCaptionsEnabled(enabled);
         storage.save(proj);

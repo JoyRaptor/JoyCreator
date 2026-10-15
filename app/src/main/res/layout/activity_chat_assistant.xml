@@ -81,7 +81,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="#FF0D1F0D"
+        android:background="@color/s_raised"
         android:padding="6dp"
         android:visibility="gone">
 
@@ -103,7 +103,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textColor="#FF4CAF50"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp"
                 android:singleLine="true" />
 
@@ -250,7 +250,7 @@
             android:layout_height="40dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_btn_speak_now"
-            android:tint="#FF4CAF50"
+            android:tint="@color/s_ink_dim"
             android:contentDescription="Voice input" />
 
         <!-- Shown instead of mic + send while Joybot is answering or working. -->
@@ -271,9 +271,12 @@
             android:id="@+id/chat_send"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_marginStart="4dp"
+            android:padding="9dp"
+            android:scaleType="fitCenter"
+            android:background="@drawable/studio_action_pill"
             android:src="@android:drawable/ic_menu_send"
-            android:tint="#FF4CAF50"
+            android:tint="@color/s_on_go"
             android:contentDescription="Send" />
     </LinearLayout>
 </LinearLayout>

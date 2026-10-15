@@ -53,7 +53,7 @@ reaches for a paid AI when the job really needs one — and tells you the price 
 | "How do I…" help with Take-me-there | ✅ built-in answers | ✅ smarter answers | ✅ |
 | Typed requests ("cut the first 10 seconds") | ✅ common ones understood | ✅ anything | ✅ |
 | Title / chapter / quote / list / credits slides | ✅ built-in designs | ✅ AI-designed | ✅ better designs |
-| Pictures | ↗ hand off to your ChatGPT/Gemini app | ✅ designed graphics (HTML/SVG) + hand-off | ✅ generated pictures (~1½¢ each) |
+| Pictures | ↗ hand off to your ChatGPT/Gemini app | ↗ hand-off (designed HTML/SVG graphics not built yet — hand-off item 10) | ✅ generated pictures (~1½¢ each) |
 | Look at a frame / find matching b-roll | — | ✅ (max 2–3 pictures per ask) | ✅ |
 
 ## JoyBot as a character (your sprite sheet)
@@ -67,10 +67,10 @@ automatically. Name your animations with those words (or tell me yours and I'll 
 
 | Phase | What you get | Status |
 |---|---|---|
-| **1. He notices** | Idea buttons in chat, the breathing glow (lobby + editor), buttons that run instantly (offline OK), result cards with Undo + Show me, one undo step per JoyBot change, sturdier chat (no stuck "Thinking", a Stop button, always-fresh project info), moods/places with the stills | 🔨 building now |
-| **2. He builds with you** | Slide wizard (5 kinds × 5 moods, offline designs), offline understanding of common requests, studio-wide "how do I" help with Take me there, hold-to-talk mic | 🟢 next |
-| **3. He makes pictures** | Design / generate / hand-off, lands in your Joy Creator folder + timeline as one undo, b-roll finder that reads what you say, show-off flight | 🟢 after 2 |
-| **4. He's everywhere** | SpriteLab, Avatar, Library and JoyBrush (via the JoyBrush lane) with their own ideas; optional read-aloud; your sprite sheet loader | 🟢 after 3 |
+| **1. He notices** | Idea buttons in chat, the breathing glow (lobby + editor), buttons that run instantly (offline OK), result cards with Undo + Show me, one undo step per JoyBot change, sturdier chat (no stuck "Thinking", a Stop button, always-fresh project info), moods/places with the stills | ✅ on the phone |
+| **2. He builds with you** | Slide wizard (5 kinds × 5 moods, offline designs), offline understanding of common requests, studio-wide "how do I" help with Take me there, hold-to-talk mic | ✅ built (mic = dictation; phone test owed) |
+| **3. He makes pictures** | Design / generate / hand-off, lands in your Joy Creator folder + timeline as one undo, b-roll finder that reads what you say, show-off flight | 🟡 make + place work; b-roll + show-off flight owed |
+| **4. He's everywhere** | SpriteLab, Avatar, Library and JoyBrush (via the JoyBrush lane) with their own ideas; optional read-aloud; your sprite sheet loader | 🟡 read-aloud + sheet loader built; rooms owed |
 
 ## Questions only you can answer (no rush — I picked a default for each)
 
@@ -202,7 +202,30 @@ Always last: **Something else?** (focuses the text box). At most 3 ideas before 
 | 🐞→✅ fixed after the test | messages scrolled over the title bar (fly-in clipping); key shown in plain text in settings (now dots + hold-to-show, verified); "1 file is missing" for a just-made slide (ProjectIntegrity now skips slides); prefilled words lingered after wizard/vision; no buttons after a picture; "Added 1 clip" → "Added a slide" |
 | 🐞 handed off | editor preview keeps showing a removed slide after a snapshot undo (task chip spawned; editor lane) |
 
-**Known limits:** a long tool run (e.g. transcribing a long clip) stops if the chat is closed mid-run (the chat's
-own worker owns it; moving tool runs into `AIJobService` is the next robustness step). SpriteLab / Avatar don't yet
+### 2026-10-14 evening — owner feedback round (built, type-checked, 118 JVM tests; not yet on the phone)
+
+| Owner said | Done |
+|---|---|
+| Closing the chat stops a long transcription | Jobs run on an app-wide worker under the foreground notification (`JoybotJobs`); results wait for the chat ("While you were away…"). While the editor is on screen Joybot writes INTO the editor's open project (`JoybotStorage` + `AIChatState.LiveEditor`, editor `joybotLive` adopts as one undo step per request) so nothing you edit meanwhile is overwritten; transcription re-reads the project when it saves |
+| Captions need a transcript first | `toggle_captions` transcribes first when there are no words |
+| Ask "in line or on top" when inserting, and explain | Picture card: **In line** (clip, video longer) / **On top** (new layer via the editor's "Image as new layer"); slide wizard asks the same for every kind (overlay slides are see-through designs); persona tells the model to ask |
+| Where does an undone picture live? | Unchanged on disk: beside the project's file in the Joy folder, else Assets, else the top. The card now names the folder and file |
+| "2 s fade in/out on all clips" failed; fades vs transitions | New `set_fades` (fade handles on clips, layers, sprites, visualizers, audio), `remove_transitions` (all / fades only / seams), context lists each item's fade handles and every transition by seam; persona explains the difference and asks when unclear |
+| Mic sends on every breath | Mic is dictation: tap to start (solid cyan), words collect across pauses, tap to stop, YOU press Send |
+| "Transcribe all 4" — what, where? | Progress names each clip "(2 of 4)"; result lists each clip with its word count; from the lobby every result has **Open in Studio** |
+| Model switching with stars, free / vision / picture badges, talk to a picture model | `ModelCatalog` + `ModelPicker` (search, ★, FREE · 👁 · 🎨, Chat / Picture tabs); tap the model name in the chat header for the starred quick switcher; picking a picture model makes every message a picture (price shown) |
+| Read-aloud toggle | Speaker button in the chat header (plus the settings checkbox) |
+| "Cut this so it ends here" did the wrong thing | The editor now tells Joybot what's selected; new `set_item_time` retimes ANY item (spine clips are trimmed); "this" = selected, "here" = playhead in the persona |
+| Name clips/layers ("Cat 1", "Cat 2") | Design + edge cases: `NAMING_DESIGN_20261014.md` (trap: `Clip.displayName` is the relink/auto-blank memory — needs a new field). Three questions for the owner |
+
+**Known limits:** button jobs now survive closing the chat, but a request the MODEL is carrying out (several
+tools chained by the AI) still stops at the step in progress when the chat closes. SpriteLab / Avatar don't yet
 open Joybot with their room. "Design a picture" (free HTML/SVG graphic) is not built — the picture flow offers make
 here / your own AI app.
+
+### 2026-10-15 — phone results + hand-off
+
+Gradient UI, "make this end here" (local, exact), undo surviving a reinstall, the In line / On top question and a
+long job finishing after the chat closed (adopted by the editor as one undo step) all 🟢 on the Note 9.
+🔴 Found: an On-top (overlay) HTML slide does not draw in the editor preview. Full results, the bug trail and the
+ordered roadmap for the next agent: **`JOYBOT_HANDOFF_20261015.md`**.

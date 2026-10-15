@@ -1978,6 +1978,15 @@ class GlPaintEngine(
         } finally {
             try {
                 check(current()) { "Captured diagnostic context lost; old names abandoned" }
+                // The ordinary recipe renderer's main FBO retains its last output attachment.
+                // Detach all engine copy/recipe attachments before deleting either private lease.
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo)
+                attach(0)
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,readFbo)
+                attach(0)
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,copyFbo)
+                attach(0)
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0)
                 deleteUnit(placed)
                 deleteUnit(canonical?.unit)
                 check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Captured lease cleanup failed" }

@@ -28,6 +28,7 @@ internal object RecordedCapturedCopyProbe {
         var canonicalBytes: Map<Long, ByteArray> = emptyMap()
         val n = Tiles.SIZE
         val length = n * n * 4
+        report.put("tileSize",n).put("tileBytes",length)
         var fbo = 0
         var readFboDeleted = false
         var readFboAbandoned = false

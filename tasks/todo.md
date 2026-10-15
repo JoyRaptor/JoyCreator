@@ -642,3 +642,10 @@ are still gated; these passing contracts do not complete JB-5.20d.
   integrations and their device/recovery evidence replace them.
 - [ ] Atlas follow-on remains staged: A2 dry stitching, A3 wet propagation, A5 periodic
   pixel-space Tile behavior. A2 alone cannot complete all three.
+
+## October15 cold rollback checkpoint and next slice
+- [x] Full hostile-state/payload diagnostic compiles; source249 backend801/native203
+  and APK pass. Core2435 unchanged from deabc. GPU execution remains unrun.
+- [ ] Review21 controlled upload/scene/root/retirement failure points in isolated
+  jb-cold-faults; verify exact XML and independent device rollback counts.
+- [ ] Replace no production load/Select/save guard until end-to-end acceptance exists.

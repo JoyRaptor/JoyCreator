@@ -2224,6 +2224,79 @@ class GlPaintEngine(
         }
     }
 
+    /** Physical context token for a disposable, empty-engine cold-upload diagnostic only. */
+    internal fun coldUploadProbeContext(): () -> Boolean {
+        check(ready && !forgettingGraphicsContext && !resettingJointPaint && publishedPaint == null &&
+            recordedScene == null && layers.isEmpty() && !undo.canUndo && !undo.canRedo &&
+            !strokeInProgress && !wcFading && !mediaStrokeInProgress) { "Cold probe needs a fresh empty context" }
+        val physical = physicalContextEpoch
+        return { ready && !forgettingGraphicsContext && physicalContextEpoch == physical }
+    }
+
+    /**
+     * Internal cold-probe inventory, from actual stores rather than a caller's upload descriptors.
+     * No GL call, replay, composition, ownership transfer or production load permission occurs.
+     */
+    internal fun inspectColdUploadedOwners(): ColdUploadedOwners {
+        check(ready && !forgettingGraphicsContext && !resettingJointPaint &&
+            !strokeInProgress && !wcFading && !mediaStrokeInProgress &&
+            framePreviews.isEmpty() && tileBoardId == null) { "Cold inspection needs an idle current engine" }
+        val root = checkNotNull(publishedPaint) { "Cold inspection needs a bound source root" }
+        val state = root.recorded
+        check(!undo.canUndo && !undo.canRedo && state.units.isEmpty() &&
+            state.planes.all { (at, cel) -> cel.records.isEmpty() || !root.coordinator.isMaterialized(at) }) {
+            "Inspect cold uploads before any edit, replay or history"
+        }
+        val physical = physicalContextEpoch
+        val graphics = graphicsEpoch
+        fun current() = ready && !forgettingGraphicsContext && !resettingJointPaint &&
+            publishedPaint === root && physicalContextEpoch == physical && graphicsEpoch == graphics
+        val owners = ArrayList<ColdUploadedOwners.Owner>()
+        fun add(kind: ColdRecordedLoadPlan.Kind, layer: String, cel: String?, key: Long,
+                texture: Int, store: String? = null, seq: Long? = null, op: String? = null) {
+            check(owners.size < 20_000) { "Cold inspection exceeds its diagnostic entry budget" }
+            owners.add(ColdUploadedOwners.Owner(ColdUploadedOwners.Address(kind,layer,cel,key,store,seq,op),texture))
+        }
+        for ((id, layer) in root.nativeLayers) {
+            for ((key, texture) in layer.tiles) add(ColdRecordedLoadPlan.Kind.NATIVE_RGBA8,id,null,key,texture)
+            for ((cel, tiles) in layer.cels) if (cel != layer.sharedCel) {
+                for ((key, texture) in tiles) add(ColdRecordedLoadPlan.Kind.NATIVE_RGBA8,id,cel,key,texture)
+            }
+            layer.mask?.tiles?.forEach { (key, texture) -> add(ColdRecordedLoadPlan.Kind.MASK_RGBA8,id,null,key,texture) }
+            for ((cel, stores) in layer.planes()) for ((store, tiles) in stores) for ((key, texture) in tiles) {
+                add(if (store == MediaStores.GROUND) ColdRecordedLoadPlan.Kind.GROUND_RGBA8
+                    else ColdRecordedLoadPlan.Kind.MEDIA_RGBA16F,id,cel,key,texture,store)
+            }
+        }
+        for ((at, cel) in state.planes) for ((key, slabs) in cel.slabs) for (slab in slabs) {
+            add(ColdRecordedLoadPlan.Kind.SOURCE_SLAB_RGBA8,at.first,at.second,key,
+                slab.value.texture,seq=slab.seq,op=slab.value.op)
+        }
+        for ((at, tiles) in state.looks) for ((key, texture) in tiles) {
+            add(ColdRecordedLoadPlan.Kind.SAVED_LINE_LOOK_RGBA8,at.first,at.second,key,texture)
+        }
+        // Native shared-cel aliases are deliberately enumerated once; distinct physical roles
+        // remain distinct entries so the probe can detect accidental texture aliasing.
+        check(owners.map { it.address }.toSet().size == owners.size) { "Duplicate cold owner address" }
+        val forbidden = buildSet {
+            addAll(undo.heldTextures()); addAll(freeLayerTex); addAll(freeStrokeTex)
+            addAll(freeSmudgeTex); addAll(freeFloatTex); addAll(strokeTiles.values)
+            for (layer in layers.values) {
+                addAll(layer.projected.values); addAll(layer.visibleProjection?.values.orEmpty())
+                layer.mask?.let { addAll(it.projected.values); addAll(it.visibleProjection?.values.orEmpty()) }
+            }
+            addAll(listOf(clearTex,whiteTex,thumbTex,tuftPaperTex,compositor.target,compositor.backdrop,
+                boardCompositor.target,boardCompositor.backdrop,look.tipGrainTex,look.paperGrainTex))
+            addAll(listOfNotNull(lookTexture,surfaceTexture,fluidTexture,look.fluidTexture))
+            addAll(grains.heldTextureHandles()); addAll(boardPreview.heldTextureHandles())
+            addAll(paperBackground.heldTextureHandles()); addAll(wcPass?.heldTextureHandles().orEmpty())
+            remove(0)
+        }
+        check(current()) { "Cold root changed during inspection" }
+        return ColdUploadedOwners(owners,forbidden,floatNames,::current,
+            state.planes.count { (at, cel) -> cel.records.isNotEmpty() && !root.coordinator.isMaterialized(at) })
+    }
+
     /** Pixel unpack state belongs to the caller, including a PBO and strided/subimage uploads. */
     private class ColdUploadGlState private constructor(private val unpack: IntArray,
         private val active: Int, private val texture0: Int, private val drawFbo: Int, private val readFbo: Int) {

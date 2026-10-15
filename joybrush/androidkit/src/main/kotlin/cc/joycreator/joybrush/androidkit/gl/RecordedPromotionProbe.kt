@@ -212,9 +212,12 @@ internal object RecordedPromotionProbe {
                 @Suppress("UNCHECKED_CAST")
                 val owners=field(root(),"nativeLayers") as Map<String,Any>
                 owners.values.forEach(::nativeOwner)
-                val history=engine.undo.heldTextures(); val independent=units.flatMap { it.tiles.values }.toSet()
+                val history=engine.undo.heldTextures(); val independentNames=units.flatMap { it.tiles.values }
+                val independent=independentNames.toSet()
                 own(sources.distinct().size==sources.size && sources.none { it in native || it in history || it in independent },"$label source families")
                 own(caches.distinct().size==caches.size && caches.none { it in sources || it in native || it in history || it in independent },"$label cache families")
+                own(RecordedPromotionExternalTextureInventory.check(engine,sources,caches,independentNames).passed,
+                    "$label pool/transient/global families")
             }
             checkpoint("promoted",currentDisplay,null); retainedSources("promoted")
             archive("promoted",currentDisplay,null)

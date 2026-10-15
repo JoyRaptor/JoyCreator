@@ -52,10 +52,12 @@ public class GeneratedSlideView extends WebView {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(true);
-        // Scale the fixed-pixel slide stage down to fit the preview area (unlike
-        // the capture activity, which renders 1:1 for full-resolution frames).
-        settings.setUseWideViewPort(true);
-        settings.setLoadWithOverviewMode(true);
+        // The fixed-pixel stage is scaled to fit by fitStage(), NOT by page zoom. Overview mode
+        // used to do it, but WebView will not zoom out past 25%, and a 1080-wide stage in a
+        // ~390px preview needs ~18%: the preview showed the left ~70% of every slide, the title
+        // pushed off the right edge (Note 9, 2026-10-15). The capture activity renders 1:1.
+        settings.setUseWideViewPort(false);
+        settings.setLoadWithOverviewMode(false);
 
         setWebChromeClient(new WebChromeClient() {
             @Override
@@ -63,6 +65,7 @@ public class GeneratedSlideView extends WebView {
                 super.onReceivedTitle(view, title);
                 if (READY_TITLE.equals(title)) {
                     ready = true;
+                    fitStage();
                     if (pendingSeekMs >= 0) {
                         seekTo(pendingSeekMs);
                         pendingSeekMs = -1;
@@ -113,13 +116,44 @@ public class GeneratedSlideView extends WebView {
         loadUrl(android.net.Uri.fromFile(htmlFile).toString());
     }
 
+    /**
+     * Scale the page so its #stage exactly fills this view — the whole slide, at any preview size.
+     * A CSS transform has no minimum, unlike page zoom.
+     */
+    private void fitStage() {
+        evaluateJavascript(FIT_JS, null);
+    }
+
+    /**
+     * Installs {@code __jbFit} once and runs it. It scales the #stage element (the body when a
+     * page has none) — not the root element, whose transform Chromium applied twice (the slide
+     * shrank into the top-left corner, Note 9, 2026-10-15). It is re-run on every seek as well as
+     * on resize: the view's size can land before or after the page reports ready, and a fit made
+     * once raced it (measured: scaled for a 788-wide viewport inside a 197-wide view).
+     */
+    private static final String FIT_JS = "(function(){if(!window.__jbFit){window.__jbFit=function(){"
+            + "var s=document.getElementById('stage')||document.body;if(!s)return;"
+            + "var w=s.offsetWidth,h=s.offsetHeight;if(!w||!h||!innerWidth)return;"
+            + "var t='scale('+Math.min(innerWidth/w,innerHeight/h)+')';"
+            + "if(s.style.transform===t)return;"
+            + "s.style.transformOrigin='0 0';s.style.transform=t;"
+            + "document.documentElement.style.overflow='hidden';document.body.style.overflow='hidden';};"
+            + "addEventListener('resize',window.__jbFit);}window.__jbFit();})();";
+
+    @Override
+    protected void onSizeChanged(int w, int h, int ow, int oh) {
+        super.onSizeChanged(w, h, ow, oh);
+        // innerWidth follows the view; refit once the page has caught up with the new size.
+        if (ready) post(this::fitStage);
+    }
+
     /** Seek the slide's GSAP timeline to the given local time (ms). */
     public void seekTo(long ms) {
         if (!ready) {
             pendingSeekMs = ms;
             return;
         }
-        evaluateJavascript("Faditor.seek(" + Math.max(0, ms) + ");", null);
+        evaluateJavascript("Faditor.seek(" + Math.max(0, ms) + ");window.__jbFit&&__jbFit();", null);
     }
 
     public boolean isReady() {

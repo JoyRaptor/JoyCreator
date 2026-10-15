@@ -113,6 +113,14 @@ public final class JoybotJobs {
         });
     }
 
+    /**
+     * Run on Joybot's one worker. {@link JoybotAgent} queues here too, so a model's request and a
+     * button job never write the project at the same time.
+     */
+    static void execute(@NonNull Runnable work) {
+        WORKER.execute(work);
+    }
+
     private static synchronized void deliver(@NonNull Done done) {
         Listener l = listener;
         if (l != null && l.onDone(done)) return;

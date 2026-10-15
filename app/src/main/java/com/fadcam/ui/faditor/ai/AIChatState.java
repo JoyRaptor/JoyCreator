@@ -69,11 +69,17 @@ public class AIChatState {
         public final String label;
         /** {@code ProjectStorage.toJson} of the project before this request. */
         public final String before;
+        /**
+         * The request this step belongs to ("" for none). When the chat closes mid-request, the
+         * rest of it lands in the editor live under the same token, and merges into this step.
+         */
+        public final String request;
 
-        Step(String projectId, String label, String before) {
+        Step(String projectId, String label, String before, String request) {
             this.projectId = projectId;
             this.label = label;
             this.before = before;
+            this.request = request == null ? "" : request;
         }
     }
 
@@ -82,7 +88,11 @@ public class AIChatState {
     private static final java.util.Set<String> UNDONE_TO_START = new java.util.HashSet<>();
 
     public static synchronized void pushStep(String projectId, String label, String before) {
-        STEPS.add(new Step(projectId, label, before));
+        pushStep(projectId, label, before, "");
+    }
+
+    public static synchronized void pushStep(String projectId, String label, String before, String request) {
+        STEPS.add(new Step(projectId, label, before, request));
         UNDONE_TO_START.remove(projectId);
     }
 

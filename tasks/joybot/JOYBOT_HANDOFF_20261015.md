@@ -4,7 +4,31 @@
 context. **Read first:** `JOYBOT_PLAN_20261014.md` (Part A = what Joybot is, B2 = architecture, B6 = ledger),
 then this file. Owner: JoyRaptor — non-technical, phone-first (Note 9), wants emoji status tables, no jargon.
 
-## Where it stands (all committed in the commit that adds this file)
+## Update — 2026-10-15 midday session (read this first; the sections below are the morning's)
+
+Phone-tested on the Note 9, 11:04–11:27 (owner OK'd the install; "Restore video test" left with the same layers —
+its undo list has one extra "remove" entry, because the test slide's own add step did not survive my reinstalls).
+
+| Item | Result |
+|---|---|
+| **P0-1 overlay slides invisible** | 🟢 FIXED, three stacked bugs, each measured: (1) `FxLivePreviewController.belowTexts` handed every "text" under a blending picture to GL, which drew a slide as an EMPTY string and set its view to alpha 0 (logged alpha=0.0 every frame) → slides now stay on their view, like bent/pinned text; (2) `TextOverlayLayer` overhang strips drew the WebView 3×/frame and the last (clipped) draw won → `drawChild` skips slides in strip passes (proven: with the skip off, only a sliver showed); (3) WebView won't zoom below 25 %, so a 1080-wide slide in a ~390 px preview showed its left 70 % → `GeneratedSlideView` now scales #stage itself (`__jbFit`, re-run on seek + resize; also fixes in-line slide previews — NOT yet eyeballed on an in-line slide). |
+| AI-written slide that is EMPTY | 🟢 new gate `SlideContract.validateContent`: animated ids must exist, #stage not empty, tweens on the timeline. One correction round, then the built-in design. The free model produced exactly this on the phone. 5 harness tests (123 pass). |
+| **P0-3 model requests stop when the chat closes** | 🟢 FIXED + phone-tested: new headless `ai/joybot/JoybotAgent` runs ask→tools→reply on Joybot's one worker (`JoybotJobs.execute`); the chat is a `Listener`. Sent "make the hello 2 text fade in over 2 seconds", closed the chat at once: editor logged `Recorded AI checkpoint: Joybot: “make the hello 2 text fade in…”` after close. Reopened chat mid-run shows "Still working on …"; finished-while-away replies wait (`JoybotAgent.takeWaiting`, shown by the chat's "While you were away"). |
+| Pictures act, not just talk | 🟢 built, 🟡 not phone-tested: attaching a picture now STAGES it ("What should I do with it?") and the next message carries it through the agent WITH tools. Was: auto-sent "Describe what's in this image", words only. |
+| `look` tool (Joybot's eyes) | 🟢 built, 🟡 not phone-tested (needs a vision model): `ai/joybot/JoybotEyes` — sprite sheet with numbered grid (indices = label_sprite_cells), sequence contact sheet, picture layer, clip frame, playhead frame; the next request carries the picture. This is what makes "label my sprite sheet's expressions" real. |
+| P0-4 Show me for layers | 🟢 built, 🟡 not phone-tested: editor selects the layer, scrolls its row into view, parks the playhead in it. |
+| Request spanning chat-open → chat-closed | 🟢 built: `AIChatState.Step.request` token; the editor's drained step adopts later live writes (one press, one step). Not phone-tested. |
+
+**New P0 (next):**
+5. ~~Chat shows `JoybotAgent.takeWaiting`~~ DONE in the same commit (`showFinishedWhileAway`); not phone-tested.
+6. Phone-test: picture staging + `look` on a sprite sheet (needs a vision model — ask the owner which; free router
+   may pick one), Show me on a layer, an in-line slide preview with the new fit.
+7. "Added 1 layer." card after an On-top slide has no Show me — add one (the slide's id is known).
+8. Export check: a slide UNDER a blending picture — does `ExportManager`'s below-blend pass (also fed by
+   `plainTextsBelowBlend`) draw it? Preview was fixed without touching export; export may have the same hole.
+9. "Remove text overlay?" dialog says "text" for a slide.
+
+## Where it stood this morning (all committed in the commit that adds this file)
 
 Device-verified on the Note 9, 2026-10-15 10:00–10:08 (phone lock claimed and released; owner's project
 "Restore video test" left exactly as it was — every test edit undone in the editor):

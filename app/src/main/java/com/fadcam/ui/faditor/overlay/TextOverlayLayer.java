@@ -535,9 +535,39 @@ public class TextOverlayLayer extends FrameLayout {
         canvas.save();
         canvas.clipRect(l, t, r, b);
         canvas.saveLayerAlpha(l, t, r, b, OVERHANG_ALPHA);
-        super.dispatchDraw(canvas);
+        drawingOverhangStrip = true;
+        try {
+            super.dispatchDraw(canvas);
+        } finally {
+            drawingOverhangStrip = false;
+        }
         canvas.restore();
         canvas.restore();
+    }
+
+    /** True while {@link #drawOverhangStrip} is re-drawing the children outside the live rect. */
+    private boolean drawingOverhangStrip;
+
+    /**
+     * AN OVERLAY SLIDE IS DRAWN ONCE PER FRAME, in pass 1 only.
+     *
+     * <p>A slide is a WebView, and a WebView paints through a draw functor that renders once per
+     * frame: recorded five times (pass 1 plus four strips), the LAST recording is the one that
+     * shows — and the last strip is clipped to the right of the canvas, so the slide drew
+     * nowhere. Any project with one object hanging off the canvas took every On-top slide with it.
+     * Measured on the Note 9 (2026-10-15, Joybot P0-1): with this skip removed the slide was drawn
+     * three times a frame and showed only a sliver at the canvas's right edge; with it, whole. A
+     * slide is sized to the live rect exactly, so the strips never had anything of it to show.
+     * (The other half of P0-1 was the GL handover: FxLivePreviewController's belowTexts.)</p>
+     */
+    @Override
+    protected boolean drawChild(@NonNull android.graphics.Canvas canvas, @NonNull View child,
+                                long drawingTime) {
+        if (drawingOverhangStrip
+                && child instanceof com.fadcam.ui.faditor.slides.GeneratedSlideView) {
+            return false;
+        }
+        return super.drawChild(canvas, child, drawingTime);
     }
 
     /**

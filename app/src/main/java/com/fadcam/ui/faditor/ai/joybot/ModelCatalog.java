@@ -196,21 +196,31 @@ public final class ModelCatalog {
         File f = new File(c.getCacheDir(), file);
         boolean fresh = f.exists() && System.currentTimeMillis() - f.lastModified() < TTL_MS;
         if (!fresh) {
-            Request.Builder rb = new Request.Builder().url(url).get();
-            if (key != null && !key.isEmpty()) {
-                // Bearer for OpenAI-style services; Anthropic's /models reads its own header.
-                rb.addHeader("Authorization", "Bearer " + key)
-                        .addHeader("x-api-key", key).addHeader("anthropic-version", "2023-06-01");
-            }
-            try (Response r = HTTP.newCall(rb.build()).execute()) {
-                if (r.isSuccessful() && r.body() != null) {
-                    String body = r.body().string();
-                    try (FileOutputStream o = new FileOutputStream(f)) {
-                        o.write(body.getBytes(StandardCharsets.UTF_8));
-                    }
-                    return body;
+            // Inside the try: a bad header or address must cost the list, never the app (a
+            // wrapped key crashed this thread on the Note 9, 2026-10-15).
+            try {
+                Request.Builder rb = new Request.Builder().url(url).get();
+                if (key != null && !key.isEmpty()) {
+                    // Bearer for OpenAI-style services; Anthropic's /models reads its own header.
+                    rb.addHeader("Authorization", "Bearer " + key)
+                            .addHeader("x-api-key", key).addHeader("anthropic-version", "2023-06-01");
                 }
-            } catch (Exception ignored) { }
+                try (Response r = HTTP.newCall(rb.build()).execute()) {
+                    if (!r.isSuccessful()) {
+                        com.fadcam.FLog.w("ModelCatalog", "model list " + url + " -> HTTP " + r.code()
+                                + (key == null ? "" : " (key length " + key.length() + ")"));
+                    }
+                    if (r.isSuccessful() && r.body() != null) {
+                        String body = r.body().string();
+                        try (FileOutputStream o = new FileOutputStream(f)) {
+                            o.write(body.getBytes(StandardCharsets.UTF_8));
+                        }
+                        return body;
+                    }
+                }
+            } catch (Exception e) {
+                com.fadcam.FLog.w("ModelCatalog", "model list " + url + " failed: " + e.getClass().getSimpleName());
+            }
         }
         if (!f.exists()) return null;
         // FileInputStream, not java.nio.file.Files: that needs Android 8 and the app runs from 7.

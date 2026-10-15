@@ -231,6 +231,8 @@ public final class JoybotAgent {
         boolean stepPushed, nudged, toolRan;
         /** The last tool's own result, handed back to the model. */
         String lastResult = "";
+        /** The next request must be a tool call (after a "you only described it" nudge). */
+        boolean requireTool;
         /** What {@code look} just fetched, and the message that will carry it. */
         @Nullable JoybotEyes.Sight sight;
         @Nullable JSONObject sightMsg;
@@ -275,12 +277,51 @@ public final class JoybotAgent {
                 if (cancelled) return;
                 if (c.error != null) { finish(false, friendlyApiError(c.error)); return; }
                 ModelCapabilities.noteServedModel(c.servedModel);
-                if (c.text.isEmpty()) {
+                if (c.text.isEmpty() && c.calls.isEmpty()) {
                     if (round == 0) finish(false, "I got an empty reply. Try asking again.");
                     else finish(true, "Done.");
                     return;
                 }
                 String aiText = c.text;
+                if (!c.calls.isEmpty()) {
+                    // NATIVE TOOL CALLS (gap F1, 2026-10-15): the model used the API's own tool
+                    // interface, so there is no JSON to fish out of prose and nothing to mis-parse.
+                    // Several calls in one reply run in order; each gets its own "tool" answer.
+                    JSONArray tc = new JSONArray();
+                    for (ToolCall k : c.calls) {
+                        tc.put(new JSONObject().put("id", k.id).put("type", "function")
+                                .put("function", new JSONObject().put("name", k.name).put("arguments", k.args.toString())));
+                    }
+                    HISTORY.add(new JSONObject().put("role", "assistant")
+                            .put("content", aiText.isEmpty() ? JSONObject.NULL : aiText).put("tool_calls", tc));
+                    String prose = proseOf(aiText);
+                    text(prose.isEmpty() ? (round == 0 ? "On it…" : "Next step…") : prose);
+                    for (ToolCall k : c.calls) {
+                        if (cancelled) return;
+                        JSONObject args;
+                        try {
+                            String a = k.args.toString().trim();
+                            args = a.isEmpty() ? new JSONObject() : new JSONObject(a);
+                        } catch (Exception badArgs) {
+                            args = new JSONObject();
+                        }
+                        final String line = runTool(new JSONObject().put("tool", k.name).put("args", args));
+                        if (line != null) {
+                            out.toolLines.add(line);
+                            post(l -> l.onToolLine(line));
+                        }
+                        HISTORY.add(new JSONObject().put("role", "tool").put("tool_call_id", k.id)
+                                .put("content", line == null ? "Error: that call could not run." : lastResult));
+                    }
+                    if (sight != null) {
+                        // A tool answer can't carry a picture, so the look's picture rides on a
+                        // user message right after it (this request only).
+                        sightMsg = new JSONObject().put("role", "user").put("content",
+                                "Here is what you asked to look at. Carry on with the request.");
+                        HISTORY.add(sightMsg);
+                    }
+                    continue;
+                }
                 HISTORY.add(new JSONObject().put("role", "assistant").put("content", aiText));
 
                 JSONObject toolCall = findToolCall(aiText);
@@ -308,12 +349,14 @@ public final class JoybotAgent {
                     // instead (a model LOOKED at a sprite sheet, listed sixteen names and stopped,
                     // 2026-10-15). Ask once for the tool that does it.
                     nudged = true;
+                    requireTool = true;   // with native tools, the next reply MUST be a call
                     text("Doing it…");
                     HISTORY.add(new JSONObject().put("role", "user").put("content",
                             "Nothing in the project has changed yet, but the person asked for a change: \""
-                                    + ask.text + "\". Make it now — reply with ONLY the tool JSON"
-                                    + " {\"tool\":...,\"args\":{...}} for the tool that does it"
-                                    + " (for names on a sprite sheet: label_sprite_cells), no other words."));
+                                    + ask.text + "\". Make it now: call the tool that does it"
+                                    + " (for names on a sprite sheet: label_sprite_cells). If you can't call"
+                                    + " tools directly, reply with ONLY the tool JSON"
+                                    + " {\"tool\":...,\"args\":{...}}, no other words."));
                     continue;
                 }
                 finish(true, nudged && !toolRan && unfinished
@@ -432,28 +475,32 @@ public final class JoybotAgent {
         @NonNull
         Completion complete(@Nullable JSONObject swap, @Nullable String swapText,
                             @Nullable String imageUrl) throws Exception {
-            JSONArray messages = messages();
-            JSONObject withImage = swap;
-            if (withImage != null && imageUrl != null) {
-                JSONArray content = new JSONArray()
-                        // Text part first: OpenRouter reads the parts in order.
-                        .put(new JSONObject().put("type", "text").put("text", swapText == null ? "" : swapText))
-                        .put(new JSONObject().put("type", "image_url")
-                                .put("image_url", new JSONObject().put("url", imageUrl)));
-                JSONObject outgoing = new JSONObject().put("role", "user").put("content", content);
-                for (int i = 0; i < messages.length(); i++) {
-                    if (messages.opt(i) == withImage) messages.put(i, outgoing);
-                }
-            }
             String url = AiService.chatUrl(app);
             Quirks q = quirksFor(url);
             for (int attempt = 0; ; attempt++) {
+                // Rebuilt per attempt: dropping native tools changes how past tool turns are sent.
+                JSONArray messages = messages(q.nativeTools);
+                if (swap != null && imageUrl != null) {
+                    JSONArray content = new JSONArray()
+                            // Text part first: OpenRouter reads the parts in order.
+                            .put(new JSONObject().put("type", "text").put("text", swapText == null ? "" : swapText))
+                            .put(new JSONObject().put("type", "image_url")
+                                    .put("image_url", new JSONObject().put("url", imageUrl)));
+                    JSONObject outgoing = new JSONObject().put("role", "user").put("content", content);
+                    for (int i = 0; i < messages.length(); i++) {
+                        if (messages.opt(i) == swap) messages.put(i, outgoing);
+                    }
+                }
                 JSONObject body = new JSONObject()
                         .put("model", ask.model)
                         .put("messages", messages)
                         .put(q.completionTokens ? "max_completion_tokens" : "max_tokens", REPLY_TOKENS)
                         .put("stream", q.stream);
                 if (q.temperature) body.put("temperature", 0.7);
+                if (q.nativeTools) {
+                    body.put("tools", nativeTools());
+                    if (requireTool && q.requiredChoice) body.put("tool_choice", "required");
+                }
                 Request request = new Request.Builder()
                         .url(url)
                         .addHeader("Authorization", "Bearer " + ask.apiKey)
@@ -463,17 +510,30 @@ public final class JoybotAgent {
                 okhttp3.Call k = HTTP.newCall(request);
                 call = k;
                 try (Response response = k.execute()) {
-                    if (response.code() == 400 && attempt < 3 && response.body() != null) {
+                    int code = response.code();
+                    if ((code == 400 || code == 404 || code == 422) && attempt < 5 && response.body() != null) {
                         // A service that refuses one of OUR settings (OpenAI's newer models take
-                        // max_completion_tokens and no temperature; some accounts may not stream):
-                        // drop it, remember it for this address, and ask again.
+                        // max_completion_tokens and no temperature; some accounts may not stream;
+                        // some models have no tool calling — OpenRouter answers 404 "no endpoints
+                        // support tool use"): drop it, remember it for this address, ask again.
                         String err = response.body().string();
-                        if (q.adapt(err)) continue;
+                        if (q.adapt(err)) {
+                            FLog.i(TAG, "service refused a setting (HTTP " + code + "); now native tools "
+                                    + (q.nativeTools ? "on" : "off") + ", required " + q.requiredChoice
+                                    + ", stream " + q.stream + ", temperature " + q.temperature);
+                            continue;
+                        }
                         Completion c = new Completion();
-                        c.error = "API error 400: " + err.substring(0, Math.min(200, err.length()));
+                        c.error = "API error " + code + ": " + err.substring(0, Math.min(200, err.length()));
                         return c;
                     }
-                    return read(response, q.stream);
+                    Completion c = read(response, q.stream);
+                    FLog.i(TAG, "reply: native tools " + (q.nativeTools ? "on" : "off")
+                            + (requireTool && q.requiredChoice ? " (required)" : "")
+                            + ", " + c.calls.size() + " native call(s), text " + c.text.length() + " chars"
+                            + (c.servedModel != null ? ", served by " + c.servedModel : ""));
+                    requireTool = false;
+                    return c;
                 }
             }
         }
@@ -494,9 +554,22 @@ public final class JoybotAgent {
                     JSONArray ch = json.optJSONArray("choices");
                     JSONObject msg = ch == null || ch.length() == 0 ? null : ch.getJSONObject(0).optJSONObject("message");
                     c.text = msg == null || msg.isNull("content") ? "" : msg.optString("content", "");
+                    JSONArray calls = msg == null ? null : msg.optJSONArray("tool_calls");
+                    for (int i = 0; calls != null && i < calls.length(); i++) {
+                        JSONObject tc = calls.getJSONObject(i);
+                        JSONObject fn = tc.optJSONObject("function");
+                        if (fn == null) continue;
+                        ToolCall k = new ToolCall(tc.optString("id", "call_" + i));
+                        k.name = fn.optString("name", "");
+                        k.args.append(fn.optString("arguments", ""));
+                        if (!k.name.isEmpty()) c.calls.add(k);
+                    }
                     if (!c.text.isEmpty()) text(shownWhileStreaming(c.text));
                     return c;
                 }
+                // Streamed tool calls arrive in pieces, keyed by index: the id and name once, the
+                // arguments as string fragments to join.
+                java.util.TreeMap<Integer, ToolCall> streamedCalls = new java.util.TreeMap<>();
                 okio.BufferedSource src = response.body().source();
                 StringBuilder text = new StringBuilder();
                 long lastShown = 0;
@@ -521,7 +594,29 @@ public final class JoybotAgent {
                     JSONArray choices = chunk.optJSONArray("choices");
                     if (choices == null || choices.length() == 0) continue;
                     JSONObject delta = choices.getJSONObject(0).optJSONObject("delta");
-                    if (delta == null || delta.isNull("content")) continue;
+                    if (delta == null) continue;
+                    JSONArray tcs = delta.optJSONArray("tool_calls");
+                    for (int i = 0; tcs != null && i < tcs.length(); i++) {
+                        JSONObject tc = tcs.getJSONObject(i);
+                        int index = tc.optInt("index", i);
+                        ToolCall k = streamedCalls.get(index);
+                        if (k == null) {
+                            k = new ToolCall(tc.optString("id", "call_" + index));
+                            streamedCalls.put(index, k);
+                        } else if (tc.has("id") && !tc.isNull("id")) {
+                            k.id = tc.optString("id", k.id);
+                        }
+                        JSONObject fn = tc.optJSONObject("function");
+                        if (fn != null) {
+                            if (fn.has("name") && !fn.isNull("name")) k.name += fn.optString("name", "");
+                            if (fn.has("arguments") && !fn.isNull("arguments")) k.args.append(fn.optString("arguments", ""));
+                        }
+                    }
+                    if (tcs != null && text.length() == 0) {
+                        long now = android.os.SystemClock.uptimeMillis();
+                        if (now - lastShown >= 400) { lastShown = now; text("Working…"); }
+                    }
+                    if (delta.isNull("content")) continue;
                     String piece = delta.optString("content", "");
                     if (piece.isEmpty()) continue;
                     text.append(piece);
@@ -532,25 +627,71 @@ public final class JoybotAgent {
                     }
                 }
                 c.text = text.toString();
+                for (ToolCall k : streamedCalls.values()) if (!k.name.isEmpty()) c.calls.add(k);
             }
             return c;
         }
 
-        /** The conversation as sent: the system message carries a just-read project context. */
+        /**
+         * The conversation as sent: the system message carries a just-read project context.
+         *
+         * <p>Past tool turns are sent natively only when {@code nativeTools} is on AND every call
+         * has its answer (a stopped request can leave one unanswered, which services reject).
+         * Otherwise they go as text — the call as the JSON the docs describe, the answer as a
+         * "Tool result" message — so a switch to a model without tool calling still reads the
+         * whole story.</p>
+         */
         @NonNull
-        JSONArray messages() {
+        JSONArray messages(boolean nativeTools) {
             JSONArray out = new JSONArray();
             List<JSONObject> copy;
             synchronized (HISTORY) { copy = new ArrayList<>(HISTORY); }
+            java.util.Set<String> answered = new java.util.HashSet<>();
+            for (JSONObject m : copy) if ("tool".equals(m.optString("role"))) answered.add(m.optString("tool_call_id"));
+            java.util.Set<String> sentNatively = new java.util.HashSet<>();
             for (int i = 0; i < copy.size(); i++) {
                 JSONObject m = copy.get(i);
-                if (i == 0 && "system".equals(m.optString("role"))) {
-                    try {
-                        out.put(new JSONObject().put("role", "system")
-                                .put("content", m.optString("content") + "\n" + context()));
+                String role = m.optString("role");
+                try {
+                    if (i == 0 && "system".equals(role)) {
+                        String sys = m.optString("content");
+                        if (nativeTools) {
+                            // The tool list goes as real tool definitions; the same text here
+                            // would be paid for twice and tell the model to type JSON.
+                            sys = sys.replace(com.fadcam.ui.faditor.ai.AIToolExecutor.getToolDescriptions(),
+                                    NATIVE_NOTE);
+                        }
+                        out.put(new JSONObject().put("role", "system").put("content", sys + "\n" + context()));
                         continue;
-                    } catch (Exception ignored) { }
-                }
+                    }
+                    JSONArray calls = m.optJSONArray("tool_calls");
+                    if ("assistant".equals(role) && calls != null) {
+                        boolean ok = nativeTools;
+                        for (int c = 0; ok && c < calls.length(); c++) {
+                            ok = answered.contains(calls.getJSONObject(c).optString("id"));
+                        }
+                        if (ok) {
+                            for (int c = 0; c < calls.length(); c++) sentNatively.add(calls.getJSONObject(c).optString("id"));
+                            out.put(m);
+                        } else {
+                            StringBuilder t = new StringBuilder(m.isNull("content") ? "" : m.optString("content", ""));
+                            for (int c = 0; c < calls.length(); c++) {
+                                JSONObject fn = calls.getJSONObject(c).optJSONObject("function");
+                                if (fn == null) continue;
+                                if (t.length() > 0) t.append('\n');
+                                t.append("{\"tool\":\"").append(fn.optString("name")).append("\",\"args\":")
+                                        .append(fn.optString("arguments", "{}").isEmpty() ? "{}" : fn.optString("arguments")).append('}');
+                            }
+                            out.put(new JSONObject().put("role", "assistant").put("content", t.toString()));
+                        }
+                        continue;
+                    }
+                    if ("tool".equals(role)) {
+                        if (sentNatively.contains(m.optString("tool_call_id"))) out.put(m);
+                        else out.put(new JSONObject().put("role", "user").put("content", "Tool result:\n" + m.optString("content")));
+                        continue;
+                    }
+                } catch (Exception ignored) { }
                 out.put(m);
             }
             return out;
@@ -676,10 +817,16 @@ public final class JoybotAgent {
      */
     private static final class Quirks {
         volatile boolean completionTokens, stream = true, temperature = true;
+        /** Native tool calling (gap F1); off for a service or model that refuses it. */
+        volatile boolean nativeTools = true, requiredChoice = true;
 
         /** Change what this error is about; false when it is about none of ours. */
         boolean adapt(@NonNull String err) {
             String l = err.toLowerCase(Locale.US);
+            // Tool settings first: an error about them often also quotes other fields.
+            if (requiredChoice && l.contains("tool_choice")) { requiredChoice = false; return true; }
+            if (nativeTools && (l.contains("tool use") || l.contains("tools") || l.contains("tool_call")
+                    || l.contains("function"))) { nativeTools = false; return true; }
             if (!completionTokens && l.contains("max_tokens")) { completionTokens = true; return true; }
             if (temperature && l.contains("temperature")) { temperature = false; return true; }
             if (stream && l.contains("stream")) { stream = false; return true; }
@@ -696,7 +843,46 @@ public final class JoybotAgent {
         return q;
     }
 
+    /** One native tool call, as it arrived (streamed in pieces or whole). */
+    private static final class ToolCall {
+        @NonNull String id;
+        @NonNull String name = "";
+        @NonNull final StringBuilder args = new StringBuilder();
+
+        ToolCall(@NonNull String id) { this.id = id; }
+    }
+
+    /** Said in place of the tool list when the tools go as real definitions. */
+    private static final String NATIVE_NOTE = "Your tools are given to you through the tool-calling"
+            + " interface: CALL them (one or several), never write tool JSON in your reply. Their"
+            + " descriptions there say what each does and which args it takes.\n";
+
+    @Nullable private static volatile JSONArray TOOLS;
+
+    /**
+     * Joybot's tools as native definitions, parsed from the same text the JSON-in-text fallback
+     * shows ({@link ToolDocs}) so the two can never disagree. Arguments stay open (each tool's
+     * description gives them): exact schemas are the action registry's job (gap F2).
+     */
+    @NonNull
+    static JSONArray nativeTools() throws Exception {
+        JSONArray t = TOOLS;
+        if (t != null) return t;
+        t = new JSONArray();
+        for (ToolDocs.Doc d : ToolDocs.parse(com.fadcam.ui.faditor.ai.AIToolExecutor.getToolDescriptions())) {
+            t.put(new JSONObject().put("type", "function").put("function", new JSONObject()
+                    .put("name", d.name)
+                    .put("description", d.text)
+                    .put("parameters", new JSONObject().put("type", "object")
+                            .put("properties", new JSONObject()).put("additionalProperties", true))));
+        }
+        TOOLS = t;
+        return t;
+    }
+
     private static final class Completion {
+        /** Native tool calls in the reply, in order (empty when it called none). */
+        final List<ToolCall> calls = new ArrayList<>();
         String text = "";
         @Nullable String servedModel;
         /** What to show instead of a reply, or null when it worked. */

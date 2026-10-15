@@ -443,6 +443,57 @@ public class IdeaEngineTest {
             check("not chat: dall-e", !com.fadcam.ui.faditor.ai.joybot.AiProviders.isChatModel("dall-e-3"), "");
         }
 
+        // ── ToolDocs: native tool definitions come from the same text as the JSON fallback (F1) ──
+        {
+            String docs = "Available tools:\n\n"
+                    + "            1. get_project_state — Get full project info\n"
+                    + "               args: {}\n"
+                    + "            42g. look — SEE something in the project.\n"
+                    + "                args: {\"id\":\"...\"}\n"
+                    + "            42. fix_audio — One-tap Fix audio chain.\n"
+                    + "                args: {\"audioClipId\":\"...\"}\n"
+                    + "\n"
+                    + "            EditScript ops for the above (use with apply_edit_script):\n"
+                    + "              SPLIT_CLIP_AT_TIME {\"type\":\"SPLIT_CLIP_AT_TIME\"}\n"
+                    + "            33c. set_sprite_grid — Set a sheet's grid.\n"
+                    + "                args: {\"sheetId\":\"...\"}\n"
+                    + "            33c. set_sprite_grid — a repeated name keeps the first.\n";
+            java.util.List<com.fadcam.ui.faditor.ai.joybot.ToolDocs.Doc> d =
+                    com.fadcam.ui.faditor.ai.joybot.ToolDocs.parse(docs);
+            eq("tool docs: four tools", "4", String.valueOf(d.size()));
+            eq("tool docs: names in order", "get_project_state look fix_audio set_sprite_grid",
+                    d.get(0).name + " " + d.get(1).name + " " + d.get(2).name + " " + d.get(3).name);
+            check("tool docs: args ride along", d.get(1).text.contains("args: {\"id\""), d.get(1).text);
+            check("tool docs: the EditScript block stays out of fix_audio",
+                    !d.get(2).text.contains("SPLIT_CLIP"), d.get(2).text);
+            check("tool docs: repeated name keeps the first", d.get(3).text.startsWith("Set a sheet"), d.get(3).text);
+            // The REAL tool text, read from the source (the harness can't load AIToolExecutor).
+            try {
+                String src = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                        "app/src/main/java/com/fadcam/ui/faditor/ai/AIToolExecutor.java")), "UTF-8");
+                int a = src.indexOf("public static String getToolDescriptions()");
+                int s = src.indexOf("\"\"\"", a) + 3;
+                int e = src.indexOf("\"\"\"", s);
+                java.util.List<com.fadcam.ui.faditor.ai.joybot.ToolDocs.Doc> real =
+                        com.fadcam.ui.faditor.ai.joybot.ToolDocs.parse(src.substring(s, e));
+                java.util.Set<String> names = new java.util.HashSet<>();
+                for (com.fadcam.ui.faditor.ai.joybot.ToolDocs.Doc x : real) names.add(x.name);
+                check("real tool docs: 60+ tools", real.size() >= 60, String.valueOf(real.size()));
+                for (String must : new String[]{"look", "label_sprite_cells", "set_fades", "auto_chapters",
+                        "health_check", "export_project", "apply_edit_script"}) {
+                    check("real tool docs: has " + must, names.contains(must), names.toString());
+                }
+                boolean allArgs = true;
+                for (com.fadcam.ui.faditor.ai.joybot.ToolDocs.Doc x : real) {
+                    if (x.name.matches("[a-z][a-z0-9_]{0,63}") && x.text.length() <= 1000) continue;
+                    allArgs = false;
+                }
+                check("real tool docs: names and lengths fit every provider", allArgs, "");
+            } catch (Exception ex) {
+                check("real tool docs: readable", false, ex.toString());
+            }
+        }
+
         // ── HelpBook.wantsChange: a request that must end in a change (Note 9, 2026-10-15) ──
         {
             check("wants change: name every cell", com.fadcam.ui.faditor.ai.joybot.HelpBook.wantsChange(

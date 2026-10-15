@@ -1,5 +1,17 @@
 # Joy Brush shared agent board
 
+## Current Root lane — October15 captured format, then private clipping adapter
+
+Source628424db passes core2402 (4 optional skips), backend786/native203 and exact
+APK47s/Note9 ALL10 cases,2082 zero-difference RGBA8 rows,16 archive roundtrips.
+Owner Working/all3 archives unchanged. CAPTURED_FORMAT_DEVICE_20261015.md/.json.
+Doc11/JBSv4 values/history and unsupported-consumer guards are verified. GPU rows
+remain ORDINARY source cases; captured-kind rendering/live/save is still gated.
+Root now owns UNCOMMITTED private captured-copy engine/oracle/plan work, UNBUILT.
+Helpers only bounded new test/review work; no peer hot-file edits. Preserve unrelated
+Studio/Space/media organization/Joybot work and all primary/helper worktrees. Current
+handoff first section has exact pending source/jobs; remote publication may await DNS.
+
 ## Current Root frontier lane — October15 cold source checkpoint
 
 Exact6d8651b49 passes backend772/native201 and Note9 ALL10 joint/promotion/cold cases:

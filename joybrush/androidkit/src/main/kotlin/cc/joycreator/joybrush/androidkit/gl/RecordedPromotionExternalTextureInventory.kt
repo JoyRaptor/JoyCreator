@@ -50,7 +50,10 @@ internal object RecordedPromotionExternalTextureInventory {
             groups[name] = (value as? Int)?.let { if (it == 0) emptySet() else setOf(it) }
                 ?: (value as? Number)?.toInt()?.let { if (it == 0) emptySet() else setOf(it) }.orEmpty()
         }
-        groups["agreedLook"] = mapValues(engine, "agreedLook")
+        // agreedLook is a computed property: once bound it reads the actual published root.
+        val publication = field(engine, "publishedPaint")
+        groups["agreedLook"] = if (publication == null) mapValues(engine, "localAgreedLook")
+            else mapValues(publication, "agreements")
         for ((fieldName, prefix) in listOf("compositor" to "compositor", "boardCompositor" to "boardCompositor")) {
             val owner = field(engine, fieldName) ?: continue
             groups["$prefix.targets"] = listOf("target", "backdrop").mapNotNull { child ->

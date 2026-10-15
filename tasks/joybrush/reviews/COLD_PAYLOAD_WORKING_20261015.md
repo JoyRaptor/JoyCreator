@@ -35,6 +35,11 @@ only the disposable engine created by the existing debug host; no owner file wri
   paper cleanup failures preserve the original failure. One actual no-GL ownership test
   distinguishes orphan registry tags from pooled float ownership. These later changes
   await backend/native/APK checks; GPU success/fault evidence remains UNRUN.
+- Intermediate f121795d6 full backend801/76suites PASS2m44,0 failures/errors/skips.
+  One further static failure path was confirmed: resetJointPaint retires the root before
+  cache release/recycling, so a release exception can orphan adopted slab state4. Root
+  cleanup now considers all attempt states1..4 while protecting actual surviving-root
+  slab names explicitly. This later fix needs its own checks; no fault run is claimed.
 
 Even success is only cold upload acceptance. Controlled allocation/storage/upload/scene/
 binding failures, rollback/paper equality and context-loss proofs remain before production

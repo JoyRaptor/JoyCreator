@@ -2198,12 +2198,18 @@ class GlPaintEngine(
                 val wasBound = publishedPaint != null
                 if (!wasBound) cleanup { releaseRecordedScene() }
                 cleanup { resetDocument() }
-                if (!wasBound && current()) cleanup {
+                if (current()) cleanup {
                     // Partial reset/scene-close failure can orphan caller, native or look uploads.
                     // A float-format registry entry alone is not an owner. Retain actual stores,
                     // caches/pools and every pre-attempt name; delete only this attempt's leftovers.
-                    val protected = activeTextureOwners() + priorOwners
-                    for (id in names.indices) if (ownership[id].toInt() in 1..3 &&
+                    // A reset may retire the root, then throw while releasing caches. Its
+                    // unrecycled slabs are then orphans too. If retirement did NOT complete,
+                    // retain every slab still referenced by the surviving published root.
+                    val rootedSlabs = publishedPaint?.recorded?.planes?.values.orEmpty().flatMap { cel ->
+                        cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } }
+                    }
+                    val protected = activeTextureOwners() + priorOwners + rootedSlabs
+                    for (id in names.indices) if (ownership[id].toInt() in 1..4 &&
                         names[id] != 0 && names[id] !in protected) {
                         floatNames.remove(names[id])
                         GLES30.glDeleteTextures(1, names, id)

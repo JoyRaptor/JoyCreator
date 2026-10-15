@@ -177,6 +177,24 @@ public final class HelpBook {
                 || t.startsWith("help");
     }
 
+    /**
+     * The person asked for the project to CHANGE ("name every cell with its expression", "fade the
+     * title in") rather than to be told something. Joybot's agent uses it to notice a request that
+     * ended without a change: on the Note 9 (2026-10-15) a model looked at a sprite sheet, LISTED
+     * the sixteen names and stopped — nothing was named. Telling, describing and "don't change"
+     * requests are never change requests.
+     */
+    public static boolean wantsChange(@NonNull String text) {
+        String t = text.toLowerCase(Locale.US).trim();
+        if (isQuestion(t)) return false;
+        if (t.matches("(?s).*\\b(tell me|describe|explain|show me|list|do not|don't|dont|without changing)\\b.*")) {
+            return false;
+        }
+        return t.matches("(?s).*\\b(name|label|rename|tag|add|make|put|set|cut|trim|remove|delete|move"
+                + "|change|fade|mute|unmute|split|create|animate|build|apply|fix|replace|insert|caption"
+                + "|transcribe|speed up|slow down|shorten|lengthen|crop|zoom|resize|reorder|sort|turn)\\b.*");
+    }
+
     /** "How do I…", "where is…": a request for directions, which the book answers best. */
     public static boolean isHowTo(@NonNull String text) {
         String t = text.toLowerCase(Locale.US).trim();

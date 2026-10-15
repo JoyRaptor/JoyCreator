@@ -81,6 +81,37 @@ public final class AiKey {
         }
     }
 
+    /** {@code key} encrypted with the same Keystore key, for a saved account; null if it can't be. */
+    static synchronized String seal(@NonNull String key) {
+        if (key.isEmpty()) return "";
+        try {
+            Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+            c.init(Cipher.ENCRYPT_MODE, wrapKey());
+            byte[] iv = c.getIV();
+            byte[] ct = c.doFinal(key.getBytes(StandardCharsets.UTF_8));
+            return Base64.encodeToString(ByteBuffer.allocate(iv.length + ct.length).put(iv).put(ct).array(),
+                    Base64.NO_WRAP);
+        } catch (Exception e) {
+            FLog.w(TAG, "Keystore unavailable; saved account key not kept", e);
+            return null;
+        }
+    }
+
+    /** A {@link #seal}ed key, or "" when it can't be read on this install. */
+    @NonNull
+    static synchronized String open(String blob) {
+        if (blob == null || blob.isEmpty()) return "";
+        try {
+            byte[] all = Base64.decode(blob, Base64.NO_WRAP);
+            Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+            c.init(Cipher.DECRYPT_MODE, wrapKey(), new GCMParameterSpec(TAG_BITS, all, 0, IV_LEN));
+            return new String(c.doFinal(all, IV_LEN, all.length - IV_LEN), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            FLog.w(TAG, "Saved account key can't be read on this install", e);
+            return "";
+        }
+    }
+
     private static boolean store(Context context, String key) {
         try {
             Cipher c = Cipher.getInstance("AES/GCM/NoPadding");

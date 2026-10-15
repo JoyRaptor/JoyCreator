@@ -35,7 +35,8 @@ class CanvasBoundSaveGuardTest {
 
     private fun invoke(owner: Any, name: String, vararg args: Any?): Any? {
         val method = owner.javaClass.declaredMethods.single {
-            (it.name == name || it.name.startsWith("$name\$")) && it.parameterCount == args.size
+            (it.name == name || (it.name.startsWith("$name\$") &&
+                !it.name.removePrefix("$name\$").contains('$'))) && it.parameterCount == args.size
         }.also { it.isAccessible = true }
         return try { method.invoke(owner, *args) }
         catch (failure: InvocationTargetException) { throw failure.targetException }
@@ -206,7 +207,7 @@ class CanvasBoundSaveGuardTest {
         }
         val companion = sceneClass.getDeclaredField("Companion").get(null)
         val scene = invoke(companion, "createSaved",
-            mapOf(plane to RecordedCel("paint", null, listOf(record))),
+            mapOf(plane to RecordedCel<Int>("paint", null, listOf(record))),
             mapOf(brush.id to brush), e.undo, fakeRenderer,
             mapOf(plane to setOf(0L)), mapOf(plane to mapOf(0L to 900_001)),
             emptySet<Int>())!!

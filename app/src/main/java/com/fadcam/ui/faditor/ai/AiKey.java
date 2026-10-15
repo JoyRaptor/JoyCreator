@@ -45,9 +45,25 @@ public final class AiKey {
 
     private AiKey() {}
 
+    /**
+     * A key as the services need it: no spaces or line breaks anywhere. Keys never contain them, but
+     * a key copied out of a chat or an email arrives wrapped — the owner's OpenAI key had a line
+     * break in the middle (Note 9, 2026-10-15), and the HTTP library refused the header and took
+     * the app down with it.
+     */
+    @NonNull
+    public static String clean(@NonNull String key) {
+        return key.replaceAll("\\s+", "");
+    }
+
     /** The saved key, or "" when none. */
     @NonNull
     public static synchronized String get(@NonNull Context context) {
+        return clean(rawGet(context));
+    }
+
+    @NonNull
+    private static String rawGet(@NonNull Context context) {
         SharedPreferences legacy = SharedPreferencesManager.getInstance(context).sharedPreferences;
         String plain = legacy.getString(LEGACY, "");
         if (plain != null && !plain.isEmpty()) {
@@ -70,6 +86,7 @@ public final class AiKey {
 
     /** Save {@code key}; empty clears it. */
     public static synchronized void set(@NonNull Context context, @NonNull String key) {
+        key = clean(key);
         SharedPreferencesManager.getInstance(context).sharedPreferences.edit().remove(LEGACY).apply();
         if (key.isEmpty()) {
             prefs(context).edit().remove(BLOB).apply();

@@ -1029,7 +1029,22 @@ public class ChatAssistantActivity extends AppCompatActivity {
      * Hand a request to Joybot's agent, which runs it — tools and all — whether or not this
      * screen stays open; {@link #agentListener} shows it while it does.
      */
+    /** An account other than OpenRouter with no model of its own chosen yet. */
+    private boolean needsModelPick() {
+        return AiService.isCustom(this) && (model == null || model.isEmpty() || model.equals(DEFAULT_MODEL));
+    }
+
     private void askAgent(@NonNull String text, @Nullable String imageDataUrl, int imgW, int imgH) {
+        if (needsModelPick()) {
+            // Sending "openrouter/free" to OpenAI only earns an error: ask for the model first.
+            addBotMessage("Pick which " + AiAccounts.active(this).name
+                    + " model to talk to first, then send that again.");
+            ModelPicker.show(this, false, new ModelPicker.OnPick() {
+                @Override public void chat(@NonNull ModelCatalog.Model m) { useChatModel(m.id); }
+                @Override public void pictures(@NonNull ModelCatalog.Model m) { usePictureModel(m.id); }
+            });
+            return;
+        }
         addBotMessage(imageDataUrl != null ? "Looking…" : "Thinking…");
         cancelled = false;
         setBusy(true);
@@ -1491,7 +1506,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         finish();
     }
 
-    /** "Take me there": a tab of the main screen. */
+    /** "Take me there": a tab of the main screen, or a screen that opens on its own. */
     private void route(@NonNull String where) {
         int tab;
         switch (where) {
@@ -1501,6 +1516,26 @@ public class ChatAssistantActivity extends AppCompatActivity {
             case "setup": tab = 4; break;
             case "joybrush":
                 startActivity(new Intent(this, cc.joycreator.joybrush.android.library.DrawingsActivity.class));
+                finish();
+                return;
+            case "spritelab":
+                // Sprite Lab edits a sheet inside a project, so it needs one open. The Lobby does the same
+                // (LobbyFragment.enterRoom): with no project yet, the Studio is where one gets made.
+                if (projectId == null) { route("studio"); return; }
+                startActivity(new Intent(this, com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity.class)
+                        .putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity.EXTRA_PROJECT_ID, projectId));
+                finish();
+                return;
+            case "avatar":
+                // Avatar Studio needs a project too, for the same reason and with the same fallback as Sprite Lab.
+                if (projectId == null) { route("studio"); return; }
+                startActivity(new Intent(this, com.fadcam.ui.faditor.avatar.AvatarStudioActivity.class)
+                        .putExtra(com.fadcam.ui.faditor.avatar.AvatarStudioActivity.EXTRA_PROJECT_ID, projectId));
+                finish();
+                return;
+            case "space":
+                // Space is a screen of its own (also reached from Setup > Storage), so it opens directly.
+                startActivity(com.fadcam.joyfolder.studio.SpaceActivity.intent(this));
                 finish();
                 return;
             default: return;
@@ -2879,6 +2914,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 : (v == ModelCapabilities.Vision.NO ? "  \u20E0" : "");
         // With more than one account, say which one is talking.
         String account = AiAccounts.list(this).size() > 1 ? AiAccounts.active(this).name + " \u00B7 " : "";
+        if (needsModelPick()) {
+            // OpenRouter's free router means nothing to OpenAI: say what's missing, not "Free models".
+            modelLabel.setText(account + "pick a model \u25BE");
+            return;
+        }
         modelLabel.setText(account + ModelCatalog.nameOf(this, id) + marker + " \u25BE");
         maybeRefreshCapabilities();
     }

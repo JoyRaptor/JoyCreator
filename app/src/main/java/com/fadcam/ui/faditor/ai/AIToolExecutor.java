@@ -340,6 +340,12 @@ public class AIToolExecutor {
             42f. rename_item — Give an audio clip or adjustment layer a name (clips and other layers: not yet). args: {"id":"...", "name":"Cat 2"}
             42g. look — SEE something in the project: the picture comes back attached to the tool result. Use it whenever the job depends on what something LOOKS like — naming a sprite sheet's cells, building its animations ("these are my character's expressions, label them"), choosing B-roll or a thumbnail, judging whether text reads over a background, describing a clip. A sprite sheet comes back with its grid drawn on and every cell NUMBERED with the index label_sprite_cells / author_sprite_animation use. Look first, then act; don't guess from names. Only works with a model that can see pictures.
                 args: {"id":"<sprite sheet id | sprite layer id | picture layer id | clip id | playhead>"} optional "atMs": ms into a clip (default its middle)
+            42h. auto_chapters — Split a clip into chapters from its transcript: a new chapter starts at a long pause or a sentence end (at most 12). Lists each start time with the first few words. Use for "make chapters" or "where do the topics change". Needs a transcript first (generate_transcript).
+                args: {"clipId":"..."}
+            42i. health_check — Check the project for problems: clips with no source, zero or inverted trims, zero-length clips, overlays with an invalid time range. Says "No issues found" with counts of clips, overlays and audio clips when clean. Use for "is anything broken" or "check my project".
+                args: {}
+            42j. export_project — Does NOT export anything. Use when they ask to export: it tells them to close the chat and tap the Export button (green upload icon) in the editor.
+                args: {}
             42b. add_visualizer — Add a waveform/spectrum visualizer that dances to a clip's sound, over that clip's whole length. Use for "add a visualizer", "make the music move on screen".
                 args: {"audioClipId":"..."} (or a video clip id; omit to use the first audio clip), optional "style":"spectrum_mirror"
             42. fix_audio — One-tap Fix audio chain (highpass → afftdn → acompressor → loudnorm) via BakedAudioCache. Baked, shows progress, one undo to revert. Use for "fix my audio".

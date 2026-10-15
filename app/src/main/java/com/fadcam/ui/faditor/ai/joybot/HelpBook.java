@@ -28,7 +28,7 @@ public final class HelpBook {
         @NonNull public final String id;
         @NonNull final String[] keys;
         @NonNull public final String answer;
-        /** Where "Take me there" goes ("studio", "record", "library", "setup", "joybrush"), or null. */
+        /** Where "Take me there" goes ("studio", "record", "library", "setup", "joybrush", "spritelab", "avatar", "space"), or null. */
         @Nullable public final String route;
         /** An idea key Joybot can run for them ("transcribe"…), a flow ("slide", "picture"), or null. */
         @Nullable public final String doIt;
@@ -119,13 +119,13 @@ public final class HelpBook {
                             + "one undo step — or just tell me “undo that”.", "studio", null),
             new Topic("sprites", "sprite|spritelab|sprite sheet|walk cycle|character animation",
                     "SpriteLab cuts a sprite sheet into named cells and animations. Open it from the lobby, or "
-                            + "tap Sprites in the Studio's tool strip to place one on your video.", "studio", null),
+                            + "tap Sprites in the Studio's tool strip to place one on your video.", "spritelab", null),
             new Topic("joybrush", "joybrush|joy brush|draw|paint|sketch|illustrat|brush",
                     "JoyBrush is the painting and animation wing. Your drawings are in its library; "
                             + "“Send to Studio” brings a drawing into a video.", "joybrush", null),
             new Topic("avatar", "avatar|puppet|vtuber|face track|lip sync",
                     "Avatar Studio turns a drawn character into a puppet that follows your face and voice. "
-                            + "Open it from the lobby (it needs a project).", null, null),
+                            + "Open it from the lobby (it needs a project).", "avatar", null),
             new Topic("record", "record|screen record|camera|film|capture",
                     "Capture records your screen or your camera. Recordings land in the Library.",
                     "record", null),
@@ -138,6 +138,11 @@ public final class HelpBook {
             new Topic("folder", "folder|storage|where are my files|backup|sd card",
                     "Everything lives in your Joy Creator folder, a folder you chose — so nothing is lost if "
                             + "the app is uninstalled. Change it in Setup → Storage.", "setup", null),
+            new Topic("space", "free up|free some|free space|how much space|space left|clear cache|clear the cache"
+                            + "|storage full|out of space|takes room|biggest files|room on",
+                    "Setup → Storage has a Space row. It shows what takes room on the phone, lets you clear the "
+                            + "app's rebuildable caches, and lists your biggest files so an unused one can go to Trash.",
+                    "space", null),
             new Topic("trash", "trash|deleted|bin|recover",
                     "Hold the Joy Creator logo at the top of the lobby to open the Trash.", null, null),
             new Topic("ai", "api key|key|openrouter|model|ai setting|connect|free ai",

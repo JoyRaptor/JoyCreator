@@ -35,7 +35,7 @@ class MediaLayerDocTest {
         assertEquals(doc, back)
         assertEquals(listOf("0_0", "1_0"), back.layers.last().cels.single().floatTiles)
         assertEquals("lines.bin", back.layers.last().cels.single().strokesFile)
-        assertEquals(10, DOC_VERSION, "R51 took version 9 at landing (R30.3)")
+        assertEquals(11, DOC_VERSION, "Captured physical source extends the document format")
     }
 
     @Test fun aVersion8MediaLayerOpensAsPaintWithItsPayload() {

@@ -112,7 +112,8 @@ class RecordedTilePlanTest {
 
     @Test fun captureOwnsInputCollectionsAndSamplesWhileBorrowingSlabTexture() {
         val r = record()
-        val records = mutableListOf(r)
+        val inputSamples = r.samples.toMutableList()
+        val records = mutableListOf(r.copy(samples = inputSamples))
         val keys = mutableSetOf(1L, 2L)
         val footprints = mutableMapOf(address() to keys)
         val slabs = mutableListOf(slab(0L, 100))
@@ -124,8 +125,9 @@ class RecordedTilePlanTest {
         keys.clear()
         footprints.clear()
         slabs.clear()
-        // RecordedCel exposes read-only values, but capture must also survive an input alias changing.
-        (cel.records.single().samples as MutableList<PenSample>).clear()
+        // The input alias remains mutable; the cel now also enforces its read-only contract.
+        inputSamples.clear()
+        assertFails { (cel.records.single().samples as MutableList<PenSample>).clear() }
         assertEquals(setOf(1L, 2L), p.tileKeys)
         assertEquals(r, captured)
         assertEquals(100, (p.itemsOn(1L).first() as RecordedTilePlan.Pixel<Int>).value.texture)

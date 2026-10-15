@@ -7,6 +7,8 @@ import kotlinx.serialization.Serializable
 
 const val DOC_FORMAT = "joybrush.document"
 /**
+ * 11: recorded physical capture domains and integer appearance placement in JBS v4. Regional
+ *     recorded sources require their persisted domain; legacy source semantics are not inferred.
  * 10: lines in the one layer (R51 Phase 3, JB-5.20a): a PAINT cel may hold editable line records ([Cel.strokesFile]),
  *     pixel slabs above its bottom one ([Cel.slabs]), saved looks for the tiles lines cross ([Cel.looks]); the document
  *     keeps frozen copies of the brushes its lines use ([JbDocument.brushes]). A v9 INK layer is read as PAINT

@@ -29,6 +29,17 @@ badged when they take reference pictures (`input_references`, read from OpenRout
 along as the reference; "Remove this slide?" wording; hover labels on copy/Apply/Discard/ticks. Export check (old
 item 8) done by another session: **no export bug**. 142 harness tests pass.
 
+**Evening (18:00), commit 260f399cf — gap F1 native tool calling:** tools go as real API tool definitions parsed
+from `getToolDescriptions()` (`joybot/ToolDocs`, 60+ tools, harness-tested against the real text); JSON-in-text is the
+fallback (`Quirks.nativeTools`, adapted on a 400/404/422 that mentions tools); past tool turns are downgraded to text
+when native is off or a call was left unanswered; after a nudge `tool_choice: required`. Phone 🟢: "make the hello 2
+text fade in over 2 seconds" on the free router = 2 native calls by two different free models + a summary, one undo
+step; undone. Log line per reply: `JoybotAgent: reply: native tools on, N native call(s)…`. Also: routes to SpriteLab /
+Avatar / Space (Haiku agent; Trash needs a MainActivity hook — not done); keys cleaned of whitespace (the owner's pasted
+OpenAI key had a line break and lost one character: phone stored 163 of 164 → HTTP 401; **owner must re-paste it**);
+"pick a model" for an account without one. OpenAI test still owed: once re-pasted, pick **gpt-6-luna** (owner's
+"luna level"; the account lists it), run checklist #4 + the fade request, few calls.
+
 ### Phone checklist — grunt work (any careful agent; follow tasks/LANES.md + tools/phone.ps1 rules)
 
 Setup each time: ask the owner before installing; `bash tools/build-install.sh`; claim the phone lock as `joybot`;

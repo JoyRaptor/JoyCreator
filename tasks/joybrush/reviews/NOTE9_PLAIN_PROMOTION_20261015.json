@@ -1,0 +1,132 @@
+{
+  "source": "674d02f1f2d7210201d69e3689c988325fb0183f",
+  "installedSha256": "2a0d9b1200e5272093158e6b13b6fd95a8c9991f0dfb9bdfa03b80ebd8d3069e",
+  "updateTimeChanged": true,
+  "counts": {
+    "cases": 8,
+    "exactRgba8Rows": 1468,
+    "differentChannels": 0,
+    "inMemoryArchiveRoundtrips": 8,
+    "archiveByteComparisons": 90,
+    "readbacks": 1124.0,
+    "glChecks": 1536.0,
+    "fboChecks": 1124.0,
+    "feedbackChecks": 1404.0,
+    "rows": [
+      {
+        "case": "recordedPromotionProbe",
+        "brush": "joybrush.ink",
+        "passed": true,
+        "exactRows": 239,
+        "readbacks": 136,
+        "glChecks": 214,
+        "fboChecks": 136,
+        "feedbackChecks": 163,
+        "archiveRoundtrips": 3,
+        "archiveByteComparisons": 35
+      },
+      {
+        "case": "recordedJointProbe",
+        "brush": "joybrush.watercolour",
+        "passed": true,
+        "exactRows": 141,
+        "readbacks": 145,
+        "glChecks": 167,
+        "fboChecks": 145,
+        "feedbackChecks": 186,
+        "archiveRoundtrips": null,
+        "archiveByteComparisons": null
+      },
+      {
+        "case": "recordedJointColdProbe",
+        "brush": "joybrush.watercolour",
+        "passed": true,
+        "exactRows": 137,
+        "readbacks": 141,
+        "glChecks": 171,
+        "fboChecks": 141,
+        "feedbackChecks": 186,
+        "archiveRoundtrips": null,
+        "archiveByteComparisons": null
+      },
+      {
+        "case": "recordedJointProbe",
+        "brush": "joybrush.ink",
+        "passed": true,
+        "exactRows": 141,
+        "readbacks": 145,
+        "glChecks": 167,
+        "fboChecks": 145,
+        "feedbackChecks": 186,
+        "archiveRoundtrips": null,
+        "archiveByteComparisons": null
+      },
+      {
+        "case": "recordedPromotionRegionProbe",
+        "brush": "joybrush.ink",
+        "passed": true,
+        "exactRows": 217,
+        "readbacks": 140,
+        "glChecks": 216,
+        "fboChecks": 140,
+        "feedbackChecks": 167,
+        "archiveRoundtrips": 1,
+        "archiveByteComparisons": 10
+      },
+      {
+        "case": "recordedPromotionRegionProbe",
+        "brush": "joybrush.watercolour",
+        "passed": true,
+        "exactRows": 217,
+        "readbacks": 140,
+        "glChecks": 216,
+        "fboChecks": 140,
+        "feedbackChecks": 167,
+        "archiveRoundtrips": 1,
+        "archiveByteComparisons": 10
+      },
+      {
+        "case": "recordedJointColdProbe",
+        "brush": "joybrush.ink",
+        "passed": true,
+        "exactRows": 137,
+        "readbacks": 141,
+        "glChecks": 171,
+        "fboChecks": 141,
+        "feedbackChecks": 186,
+        "archiveRoundtrips": null,
+        "archiveByteComparisons": null
+      },
+      {
+        "case": "recordedPromotionProbe",
+        "brush": "joybrush.watercolour",
+        "passed": true,
+        "exactRows": 239,
+        "readbacks": 136,
+        "glChecks": 214,
+        "fboChecks": 136,
+        "feedbackChecks": 163,
+        "archiveRoundtrips": 3,
+        "archiveByteComparisons": 35
+      }
+    ]
+  },
+  "working": {
+    "source": "674d02f1f2d7210201d69e3689c988325fb0183f",
+    "brushes": "ink,joybrush.watercolour",
+    "cases": "recordedJointProbe,recordedJointColdProbe,recordedPromotionProbe,recordedPromotionRegionProbe",
+    "workingPresent": true,
+    "workingUnchanged": true,
+    "namedDrawingArchivesChecked": 3,
+    "namedDrawingArchivesUnchanged": true,
+    "capturedReports": 8,
+    "expectedReports": 8
+  },
+  "scope": "Debug throwaway engine; actual native promotion, physical display, original-Step history, source snapshots and in-memory archive. No live capture/Select/Working/recovery activation.",
+  "regionalArchiveScope": "Line-free promoted scene only; regional line-bearing saves remain refused.",
+  "nativeTests": 201,
+  "nativeSource": "a07806681; production engine/native source unchanged",
+  "backendTests": 712,
+  "backendSuites": 67,
+  "focusedCoreDomainTests": 28
+}

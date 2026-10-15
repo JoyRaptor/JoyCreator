@@ -102,3 +102,31 @@ across the composite-module visibility boundary; no production visibility was wi
 Owner freed RAM and confirmed a usage reset. Recurring same-chat wake-up
 resume-joybrush-every-five-hours is ACTIVE, every five hours, stopping when work completes or
 owner requests stop. Current goal is still unfinished; old usageLimited tool status is preserved.
+
+## October15 overnight continuation
+
+Same-chat recurring five-hour wakeup remains active. Owner explicitly requests continued
+work through the refreshed usage window; no reset credit purchased/consumed. The previous
+persistent goal remains unfinished, even where its tool status still reads usageLimited.
+
+Actual native save guard tests now PASS: 201 tests,24 suites,0 failures/errors/skips,
+independently counted in live-root-snapshot-native-xml.json; run PASS1m15. Initial fixture
+inference and generated-lambda reflection-selector failures retained privately, repaired
+without weakening either guard. Source fixture ac9ced6c.
+
+Diagnostic pool/transient/global ownership checks added at every promotion checkpoint
+(178e72a3a); they do not subtract scene ownership from a combined inventory. App assembly
+PASS2m25, source178e72a3abc1ca1904a8a2b038f14ec19a2b1df6, preserved arm64 APK
+SHA B2AC98EA7C6C9690C34790BA3D75067EE95D33F3BFBBE3449FE12338745C0520.
+Native201/backend706 precede this diagnostic-only ownership extension; the APK compiles it.
+Initial incorrect assembleBetaDebug task failure retained; corrected assembleDefaultDebug.
+Fresh gated/locked Note9 eight-case acceptance is in progress; do not claim its outcome yet.
+
+Next source contract: immutable captured physical pixel domain plus exact integer placement,
+keeping full raw/seed/pooling recipe. Sol owns ONLY new pure CapturedPhysicalSource value and
+focused tests in isolated C:/Temp/jb-captured-source; no codec/document/engine activation.
+Review design C:/Temp/jb-lead-ops/CAPTURED_PHYSICAL_CLIP_REVIEW_20261015.md is a proposal,
+not36 executed tests. Root retains regional source-save refusal pending complete execution.
+Luna audits real cold root load/recovery touchpoints read-only. All original worktrees preserved.
+
+Actual promotion GPU and source/archive acceptance now PASS on exact674d02f1; see NOTE9_PLAIN_PROMOTION_20261015.md for counted evidence and limits. Earlier pending/failure wording above is historical.

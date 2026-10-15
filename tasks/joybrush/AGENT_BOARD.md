@@ -691,3 +691,6 @@ source data; do not make their thumbnail by ignoring them or flattening a saved 
 Lead will supply a verified full-scene thumbnail/display reader when recorded save activates;
 retain engine/archive refusals until that backing exists. No file-lane or Joybot hot-code edits
 are requested here; this is the interface boundary for coordinating the upcoming connection.
+
+## JoyBrush Lead overnight — October15
+Root owns engine/View/Scene integration in C:/Temp/jb-live-current; latest HANDOFF_20261015.md. Actual promotion GPU refused shared-cel legacy alias safely; root correction under full serialized checks, not yet accepted. Pure captured-domain value from isolated jb-captured-source is under focused checks, no format activation. Sol audits cold load-plan read-only. Preserve primary and all source partials; fresh shared Gradle/phone locks and Home gates apply. Independent Claude audit can use the new checkpoint after verified publication; no overlapping hot-file edits requested.

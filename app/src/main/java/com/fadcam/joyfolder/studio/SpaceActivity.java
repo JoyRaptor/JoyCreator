@@ -245,6 +245,16 @@ public class SpaceActivity extends AppCompatActivity {
                 }
                 big.addView(t);
             }
+            // Unused files, for the bulk button below.
+            List<FolderIndex.Item> unused = new ArrayList<>();
+            for (int i = 0; i < r.biggest.size(); i++) {
+                if (!r.biggestUsed.get(i)) unused.add(r.biggest.get(i));
+            }
+            if (!unused.isEmpty()) {
+                LinearLayout unusedRow = buttons();
+                unusedRow.addView(pill("Move unused to Trash…", false, v -> confirmTrashUnused(unused)));
+                big.addView(unusedRow);
+            }
             col.addView(big);
         }
     }
@@ -309,6 +319,48 @@ public class SpaceActivity extends AppCompatActivity {
                             msg = StudioMirror.trashFiles(app, one) == 1 ? "Moved to Trash." : "It was already gone.";
                         } catch (Exception e) {
                             msg = "Couldn't move it: " + e.getMessage();
+                        }
+                        final String m = msg;
+                        runOnUiThread(() -> {
+                            Toast.makeText(this, m, Toast.LENGTH_LONG).show();
+                            load();
+                        });
+                    });
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** Several unused files at once: tick the ones to send to Trash, then move them in one go. */
+    private void confirmTrashUnused(List<FolderIndex.Item> unused) {
+        String[] labels = new String[unused.size()];
+        boolean[] ticked = new boolean[unused.size()];
+        for (int i = 0; i < unused.size(); i++) {
+            FolderIndex.Item it = unused.get(i);
+            labels[i] = Placement.nameOf(it.path) + " · " + size(it.size);
+            ticked[i] = true;
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Files no project uses")
+                .setMultiChoiceItems(labels, ticked, (d, which, isChecked) -> ticked[which] = isChecked)
+                .setPositiveButton("Move to Trash", (d, w) -> {
+                    List<String> paths = new ArrayList<>();
+                    for (int i = 0; i < unused.size(); i++) {
+                        if (ticked[i]) paths.add(unused.get(i).path);
+                    }
+                    if (paths.isEmpty()) {
+                        Toast.makeText(this, "No files were ticked.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    final Context app = getApplicationContext();
+                    JoyFolderHome.io().execute(() -> {
+                        String msg;
+                        try {
+                            int n = StudioMirror.trashFiles(app, paths);
+                            msg = (n == 1 ? "1 file" : n + " files")
+                                    + " moved to Trash. Put them back from Settings → Storage Location → Recently deleted.";
+                        } catch (Exception e) {
+                            msg = "Couldn't move them all: " + e.getMessage() + ". Nothing was lost.";
                         }
                         final String m = msg;
                         runOnUiThread(() -> {

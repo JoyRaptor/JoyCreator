@@ -81,6 +81,8 @@ export function stickMaterial(stick) {
     // 0 = the three zones as they were; 1 = one footprint: a soft point that melts into a soft-edged side
     // (the owner, 2026-10-14: "looks like two brushes overlaid"). See jb_stickSqueeze.
     blend: stick.blend ?? 0,
+    stickShape: [SHAPE.bell, SHAPE.acrossSoft, SHAPE.tipYield, SHAPE.tail],
+    zoneGrad: [ZONES.grad1, ZONES.grad2],
     ...MAT_OVERRIDE,
   };
 }
@@ -107,7 +109,7 @@ export function stickContact(stick, tilt, pressure, paper, press = PRESS, zones 
   const D = paper.toothMm * press.depth * Math.pow(P, press.gamma) / (1 + press.sideEase * (0.4 * s1 + s2));
   const sideOn = w1 + w2 > 0.005;
   // A blended point is a soft bell that reaches a little past R0: the footprint grows to hold it.
-  const blend = stick.blend ?? 0, reach = R0 * (1 + BELL_REACH * blend);
+  const blend = stick.blend ?? 0, reach = R0 * (1 + SHAPE.bellReach * blend);
   return {
     D, R0, L1, L2, H: sideOn ? stick.face : R0, w0, w1, w2, even, blend,
     xMin: -reach, xMax: sideOn ? Math.max(reach, w2 > 0.005 ? L2 : L1) : reach, yMax: sideOn ? Math.max(reach, stick.face) : reach,
@@ -121,9 +123,9 @@ export function stickSqueeze(x, y, c, zones = ZONES) {
   // Blended, the point's darkness runs on toward the barrel and fades into the side (a tail TAIL·R0 long) instead of
   // stopping at the rim: one continuous gradient from the dark edge into the shading (the owner, 2026-10-14, linen).
   const sideDown = Math.min(1, (c.w1 + c.w2) * 2);
-  const along = x < 0 ? Math.exp(-BELL * x * x / R2) : mix(Math.exp(-BELL * x * x / R2), Math.exp(-x / (TAIL * c.R0)), sideDown);
-  const point = mix(Math.max(0, 1 - (x * x + y * y) / R2), Math.exp(-BELL * y * y / R2) * along, b);
-  const front = x < 0 ? mix(Math.max(0, 1 - (x * x) / R2), Math.exp(-BELL * x * x / R2), b) : 1;
+  const along = x < 0 ? Math.exp(-SHAPE.bell * x * x / R2) : mix(Math.exp(-SHAPE.bell * x * x / R2), Math.exp(-x / (SHAPE.tail * c.R0)), sideDown);
+  const point = mix(Math.max(0, 1 - (x * x + y * y) / R2), Math.exp(-SHAPE.bell * y * y / R2) * along, b);
+  const front = x < 0 ? mix(Math.max(0, 1 - (x * x) / R2), Math.exp(-SHAPE.bell * x * x / R2), b) : 1;
   const ramp = (L, g, ev) => {
     if (x < 0) return 1;
     const u = x / Math.max(L, 1e-3);
@@ -133,23 +135,21 @@ export function stickSqueeze(x, y, c, zones = ZONES) {
   const across = L => {
     const Hw = c.R0 + (c.H - c.R0) * smoothstep(0, 0.3 * L, Math.max(x, 0));
     const e = Math.max(0, 1 - (y * y) / (Hw * Hw));
-    return mix(Math.sqrt(e), Math.pow(e, ACROSS_SOFT), b);
+    return mix(Math.sqrt(e), Math.pow(e, SHAPE.acrossSoft), b);
   };
   const g2 = zones.grad2 + (0.55 - zones.grad2) * c.even;
   const side = (c.w1 * ramp(c.L1, zones.grad1, 0) * across(c.L1) + c.w2 * ramp(c.L2, g2, c.even) * across(c.L2)) * front;
   // Blended, the point stops sitting on top of the side as a second mark: where the side is down it takes the
   // point's share, so the tip edge is the dark end of one gradient.
-  const pointShare = c.w0 * (1 - TIP_YIELD * b * sideDown);
+  const pointShare = c.w0 * (1 - SHAPE.tipYield * b * sideDown);
   return c.D * (pointShare * point + side);
 }
 
-// The blended footprint (stick.blend = 1): the point is a bell exp(−BELL·r²/R0²), the side's edge falls as
-// (1 − y²/H²)^ACROSS_SOFT, and the point yields TIP_YIELD of its share where the side is down.
-export const BELL = 2.2;
-export const BELL_REACH = 0.6;
-export const ACROSS_SOFT = 1.6;
-export const TIP_YIELD = 0.5;
-export const TAIL = 2.5;
+// The blended footprint (stick.blend = 1): the point is a bell exp(−bell·r²/R0²) reaching bellReach·R0 past R0,
+// the side's edge falls as (1 − y²/H²)^acrossSoft, and where the side is down the point yields tipYield of its
+// share and runs on as a tail tail·R0 long toward the barrel. Mutable (the pencil tuner moves them live); the
+// shader reads them as u_stickShape through stickMaterial, the app from core Stick.kt's STICK_* defaults.
+export const SHAPE = { bell: 2.2, bellReach: 0.6, acrossSoft: 1.6, tipYield: 0.5, tail: 2.5 };
 function mix(a, b, t) { return a + (b - a) * t; }
 
 export function makePsiTable(paper) {

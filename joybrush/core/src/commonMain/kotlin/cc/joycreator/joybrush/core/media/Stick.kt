@@ -75,6 +75,11 @@ data class StickMaterial(
     val dirStrength: Double, val conform: Double, val sheen: Double,
     /** 0 the three zones, 1 one blended footprint ([Stick.blend]): the dry dab shader's u_stickBlend. */
     val blend: Double = 0.0,
+    /** The blended footprint's shape (u_stickShape): bell, acrossSoft, tipYield, tail (the STICK_* constants). */
+    val bell: Double = STICK_BELL, val acrossSoft: Double = STICK_ACROSS_SOFT, val tipYield: Double = STICK_TIP_YIELD,
+    val tail: Double = STICK_TAIL,
+    /** The side zones' fade curves (u_zoneGrad): [Zones.grad1], [Zones.grad2]. */
+    val grad1: Double = Zones().grad1, val grad2: Double = Zones().grad2,
 ) {
     companion object {
         fun of(stick: Stick): StickMaterial {

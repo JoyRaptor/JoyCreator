@@ -296,6 +296,8 @@ class MediaUniformsParityTest {
                 "u_pileRange" to doubleArrayOf(stick.pileRangeLo, stick.pileRangeHi), "u_crushStart" to stick.crushStart * t,
                 "u_conform" to stick.conform, "u_transferExp" to stick.transferExp, "u_leadSoft" to stick.leadSoft, "u_plateau" to stick.plateau,
                 "u_stickBlend" to stick.blend,
+                "u_stickShape" to floatArrayOf(stick.bell.toFloat(), stick.acrossSoft.toFloat(), stick.tipYield.toFloat(), stick.tail.toFloat()),
+                "u_zoneGrad" to doubleArrayOf(stick.grad1, stick.grad2),
             )))
             r.new(dDry).let { u ->
                 MediaUniforms.common(u, lay.ox, lay.oy, lay.scale); MediaUniforms.paper(u, paper)

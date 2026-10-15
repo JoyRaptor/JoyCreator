@@ -435,6 +435,7 @@ object BrushValidate {
         m.wet?.let { walk("media.wet", MEDIA_NUMBERS.encodeToJsonElement(WetBrush.serializer(), it)) }
         m.paste?.let { walk("media.paste", MEDIA_NUMBERS.encodeToJsonElement(PasteBrush.serializer(), it)) }
         if (bad.isNotEmpty()) out += "media numbers must be finite and not below 0: " + bad.joinToString("; ")
+        m.stick?.let { if (it.blend > 1.0) out += "media.stick.blend ${it.blend} must be 0..1" }
         return out
     }
 

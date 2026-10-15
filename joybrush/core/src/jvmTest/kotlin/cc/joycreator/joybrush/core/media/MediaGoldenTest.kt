@@ -109,6 +109,12 @@ class MediaGoldenTest {
             val o = row.jsonObject
             near(o["v"]!!.d(), stickSqueeze(o["x"]!!.d(), o["y"]!!.d(), c), "squeeze ${o["x"]} ${o["y"]}")
         }
+        // The blended footprint (Proto 2): a bell point that yields to soft-edged sides, as the lab draws it.
+        val b = stickContact(Sticks.ALL["Proto 2"]!!, 0.7 * Math.PI / 2, 0.6, paper.toothMm)!!
+        for (row in g["squeezeBlend"]!!.jsonArray) {
+            val o = row.jsonObject
+            near(o["v"]!!.d(), stickSqueeze(o["x"]!!.d(), o["y"]!!.d(), b), "blended squeeze ${o["x"]} ${o["y"]}")
+        }
     }
 
     private fun runDry(name: String, input: String): List<DoubleArray> {

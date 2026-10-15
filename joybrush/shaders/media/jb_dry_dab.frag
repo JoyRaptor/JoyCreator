@@ -39,6 +39,7 @@ uniform float u_conform;        // 0..1: the sheet bends onto the stick, so only
 uniform float u_transferExp;    // n above
 uniform float u_leadSoft;       // a soft lead gives where it meets a tip (× tooth): gradual, not binary, contact
 uniform float u_plateau;        // paper tooth is plateaus and narrow pits, not spikes: depth below the top = (1−h)^k
+uniform float u_stickBlend;     // 0 the three zones, 1 one blended footprint (jb_stick.glsl)
 
 in vec2 v_q;
 in vec2 v_docPx;
@@ -52,7 +53,7 @@ flat in vec2 v_lean;
 out vec4 o_delta;               // R pile work (mm²), G crush work (mm²), B dust (mm), A contact·slide (mm)
 
 void main() {
-    float c = jb_stickSqueeze(v_q, v_i1.w, v_i2, v_i3.xyz, v_i4.z);
+    float c = jb_stickSqueeze(v_q, v_i1.w, v_i2, v_i3.xyz, v_i4.z, u_stickBlend);
     if (c <= 0.0) discard;
     const float N = 255.0;
     float a = texture(u_contactLut, vec2((sqrt(min(c / u_lutMaxMm, 1.0)) * N + 0.5) / (N + 1.0), 0.5)).r;   // sqrt-spaced table

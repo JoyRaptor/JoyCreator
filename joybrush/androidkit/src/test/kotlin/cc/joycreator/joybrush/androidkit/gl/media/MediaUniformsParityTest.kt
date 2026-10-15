@@ -295,6 +295,7 @@ class MediaUniformsParityTest {
                 "u_dirStrength" to stick.dirStrength, "u_dustRate" to stick.dustRate, "u_clump" to stick.clump,
                 "u_pileRange" to doubleArrayOf(stick.pileRangeLo, stick.pileRangeHi), "u_crushStart" to stick.crushStart * t,
                 "u_conform" to stick.conform, "u_transferExp" to stick.transferExp, "u_leadSoft" to stick.leadSoft, "u_plateau" to stick.plateau,
+                "u_stickBlend" to stick.blend,
             )))
             r.new(dDry).let { u ->
                 MediaUniforms.common(u, lay.ox, lay.oy, lay.scale); MediaUniforms.paper(u, paper)

@@ -104,7 +104,8 @@ object MediaPresets {
         engine = ENGINE_MEDIA,
         // The LOWEST version that can say a media brush, not BrushPreset's default (the newest): a shipped media brush
         // shared from this build must still open in a version-8 build (Lead review M1, brush version 9).
-        version = VERSION_MEDIA,
+        // A stick with an edge blend or a build-up (Proto 2) says words of version 11; every other one stays 8.
+        version = if (spec.stick?.let { it.blend != 0.0 || it.build != 1.0 } == true) VERSION_PENCIL_BLEND else VERSION_MEDIA,
         size = Param(spec.referencePx),
         smoothing = 0f,
         author = "Joy Creator",

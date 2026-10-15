@@ -23,6 +23,8 @@ const D2R = Math.PI / 180;
 export const STICKS = {
   // Proto: a soft woodless stick, the owner's Infinite Painter "Proko" reference.
   'Proto': { tipR: 0.25, tipMax: 1.0, side1: 5.5, side2: 16, face: 1.6, soft: 0.75, rInf: 0.006 },
+  // Proto 2 (the owner, 2026-10-14): finer point, smaller side, one blended footprint, black that builds slower.
+  'Proto 2': { tipR: 0.15, tipMax: 0.55, side1: 3.5, side2: 10, face: 1.1, soft: 0.75, rInf: 0.006, blend: 1, build: 0.6 },
   '2H': { tipR: 0.12, tipMax: 0.35, side1: 2.2, side2: 5, face: 0.6, soft: 0.15, rInf: 0.22 },
   'HB': { tipR: 0.14, tipMax: 0.45, side1: 2.6, side2: 5.5, face: 0.7, soft: 0.35, rInf: 0.12 },
   '2B': { tipR: 0.17, tipMax: 0.6, side1: 3.0, side2: 6, face: 0.8, soft: 0.5, rInf: 0.07 },
@@ -53,7 +55,7 @@ export function stickMaterial(stick) {
   return {
     capMm,
     flakeR: stick.rInf,
-    abrasion: 400 * (0.25 + 0.75 * s * s),  // 1/mm²: how readily the stick sheds onto the tooth
+    abrasion: 400 * (0.25 + 0.75 * s * s) * (stick.build ?? 1),  // 1/mm²: how readily the stick sheds onto the tooth
     // Graphite shears off a tooth tip steeply with how hard that tip is pressed: a feather touch leaves a
     // thin film (soft grey grain that builds over passes), a firm one a thick one. Work ∝ (δ/T)^n · T.
     transferExp: 2.2,
@@ -68,7 +70,7 @@ export function stickMaterial(stick) {
     // than dots (the owner asked for more, 2026-10-07).
     smear: 0.18 + 0.6 * s * s,
     smearMm: 0.15 + 0.3 * s,
-    dustRate: 0.0006 + 0.0024 * s,         // dusting: mm of graphite per mm slid at full contact (soft grades shed more)
+    dustRate: (0.0006 + 0.0024 * s) * (stick.build ?? 1),  // dusting: mm of graphite per mm slid at full contact (soft grades shed more)
     clump: 0.35,                           // pressed graphite piles on the tooth's small hills
     // A light touch only dusts (soft, even, low-contrast grey); piling (dark, clumped, contrasty) comes in
     // with pressure. Proko's light strokes are a grey dusting, its firm ones dark grain (2026-10-07).
@@ -76,6 +78,9 @@ export function stickMaterial(stick) {
     dirStrength: 0.9,
     conform: 0.8,                          // the sheet bends onto a broad stick: big hills don't decide contact
     sheen: 0.03 + 0.10 * s,
+    // 0 = the three zones as they were; 1 = one footprint: a soft point that melts into a soft-edged side
+    // (the owner, 2026-10-14: "looks like two brushes overlaid"). See jb_stickSqueeze.
+    blend: stick.blend ?? 0,
     ...MAT_OVERRIDE,
   };
 }
@@ -101,17 +106,20 @@ export function stickContact(stick, tilt, pressure, paper, press = PRESS, zones 
   w0 /= sum; w1 /= sum; w2 /= sum;
   const D = paper.toothMm * press.depth * Math.pow(P, press.gamma) / (1 + press.sideEase * (0.4 * s1 + s2));
   const sideOn = w1 + w2 > 0.005;
+  // A blended point is a soft bell that reaches a little past R0: the footprint grows to hold it.
+  const blend = stick.blend ?? 0, reach = R0 * (1 + BELL_REACH * blend);
   return {
-    D, R0, L1, L2, H: sideOn ? stick.face : R0, w0, w1, w2, even,
-    xMin: -R0, xMax: sideOn ? Math.max(R0, w2 > 0.005 ? L2 : L1) : R0, yMax: sideOn ? Math.max(R0, stick.face) : R0,
+    D, R0, L1, L2, H: sideOn ? stick.face : R0, w0, w1, w2, even, blend,
+    xMin: -reach, xMax: sideOn ? Math.max(reach, w2 > 0.005 ? L2 : L1) : reach, yMax: sideOn ? Math.max(reach, stick.face) : reach,
   };
 }
 
 // Twin of jb_stickSqueeze (for tests and tools): the squeeze (mm) at a stick-frame point (x toward the
 // barrel, y across).
 export function stickSqueeze(x, y, c, zones = ZONES) {
-  const point = Math.max(0, 1 - (x * x + y * y) / (c.R0 * c.R0));
-  const front = x < 0 ? Math.max(0, 1 - (x * x) / (c.R0 * c.R0)) : 1;
+  const b = c.blend ?? 0, R2 = c.R0 * c.R0;
+  const point = mix(Math.max(0, 1 - (x * x + y * y) / R2), Math.exp(-BELL * (x * x + y * y) / R2), b);
+  const front = x < 0 ? mix(Math.max(0, 1 - (x * x) / R2), Math.exp(-BELL * x * x / R2), b) : 1;
   const ramp = (L, g, ev) => {
     if (x < 0) return 1;
     const u = x / Math.max(L, 1e-3);
@@ -120,11 +128,21 @@ export function stickSqueeze(x, y, c, zones = ZONES) {
   };
   const across = L => {
     const Hw = c.R0 + (c.H - c.R0) * smoothstep(0, 0.3 * L, Math.max(x, 0));
-    return Math.sqrt(Math.max(0, 1 - (y * y) / (Hw * Hw)));
+    const e = Math.max(0, 1 - (y * y) / (Hw * Hw));
+    return mix(Math.sqrt(e), Math.pow(e, ACROSS_SOFT), b);
   };
   const g2 = zones.grad2 + (0.55 - zones.grad2) * c.even;
-  return c.D * (c.w0 * point + (c.w1 * ramp(c.L1, zones.grad1, 0) * across(c.L1) + c.w2 * ramp(c.L2, g2, c.even) * across(c.L2)) * front);
+  const side = (c.w1 * ramp(c.L1, zones.grad1, 0) * across(c.L1) + c.w2 * ramp(c.L2, g2, c.even) * across(c.L2)) * front;
+  // Blended, the point stops sitting on top of the side as a second mark: where the side is down it takes the
+  // point's share, so the tip edge is the dark end of one gradient.
+  const pointShare = c.w0 * (1 - TIP_YIELD * b * Math.min(1, (c.w1 + c.w2) * 2));
+  return c.D * (pointShare * point + side);
 }
+
+// The blended footprint (stick.blend = 1): the point is a bell exp(−BELL·r²/R0²), the side's edge falls as
+// (1 − y²/H²)^ACROSS_SOFT, and the point yields TIP_YIELD of its share where the side is down.
+export const BELL = 2.2, BELL_REACH = 0.6, ACROSS_SOFT = 1.6, TIP_YIELD = 0.5;
+function mix(a, b, t) { return a + (b - a) * t; }
 
 export function makePsiTable(paper) {
   if (paper.psi) return paper.psi;

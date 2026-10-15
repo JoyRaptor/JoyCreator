@@ -37,9 +37,31 @@ class MediaBrushTest {
         for (p in all) {
             assertEquals(emptyList(), BrushValidate.validate(p), p.id)
             val json = BrushJson.encode(p)
-            assertTrue("\"version\": $VERSION_MEDIA" in json, p.id)
-            assertEquals(p.copy(version = VERSION_MEDIA), BrushJson.decodeChecked(json), p.id)
+            // The lowest version that can say it: a stick with an edge blend or a build-up needs 11, the rest stay 8.
+            val v = p.media?.stick?.let { if (it.blend != 0.0 || it.build != 1.0) VERSION_PENCIL_BLEND else null } ?: VERSION_MEDIA
+            assertTrue("\"version\": $v" in json, p.id)
+            assertEquals(p.copy(version = v), BrushJson.decodeChecked(json), p.id)
         }
+    }
+
+    @Test fun proto2IsTheBlendedSlowerPencilAndProtoStaysBesideIt() {
+        // The owner, 2026-10-14: finer point, smaller side when tilted, one blended footprint, slower black.
+        val proto = byId("media:dry:Proto").media!!.stick!!
+        val p2 = byId("media:dry:Proto 2").media!!.stick!!
+        assertTrue(p2.tipMax < proto.tipMax && p2.tipR < proto.tipR, "a finer point")
+        assertTrue(p2.side1 < proto.side1 && p2.side2 < proto.side2, "a smaller side when tilted")
+        assertEquals(1.0, p2.blend)
+        assertTrue(p2.build < 1.0, "black builds more slowly")
+        assertEquals(0.0, proto.blend, "the old pencil is unchanged, to compare")
+        assertEquals(1.0, proto.build)
+    }
+
+    @Test fun anOlderVersionCannotSayBlendOrBuild() {
+        val json = BrushJson.encode(byId("media:dry:Proto 2")).replace("\"version\": $VERSION_PENCIL_BLEND", "\"version\": 8")
+        val thrown = assertFailsWith<BrushException> { BrushJson.decode(json) }
+        assertEquals("media.stick.blend needs brush version $VERSION_PENCIL_BLEND", thrown.message)
+        val tooMuch = byId("media:dry:Proto 2").let { it.copy(media = it.media!!.copy(stick = it.media!!.stick!!.copy(blend = 1.5))) }
+        assertTrue("media.stick.blend 1.5 must be 0..1" in refusals(tooMuch))
     }
 
     @Test fun anOlderVersionCannotSayMedia() {

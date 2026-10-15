@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
@@ -20,16 +21,26 @@ import kotlin.math.sqrt
 // squeeze; tilt sets which zones are down. Nothing is ever placed away from the pen tip. The owner rated it A+.
 
 /**
- * A grade. Its field names are brush-file words (brush version 8, `media.stick`): rename none of them. Sizes in mm: tipR → tipMax the point's radius over pressure; side1/side2 zone lengths; face the half-width. */
+ * A grade. Its field names are brush-file words (brush version 8, `media.stick`): rename none of them. Sizes in mm: tipR → tipMax the point's radius over pressure; side1/side2 zone lengths; face the half-width.
+ *
+ * [blend] and [build] are brush version 11 ([cc.joycreator.joybrush.core.brush.VERSION_PENCIL_BLEND]; the owner,
+ * 2026-10-14: the tilted pencil "looks like two brushes overlaid", and its black "should build up a little slower"):
+ * [blend] 0 draws the three zones as before, 1 one footprint (a soft point that melts into a soft-edged side); [build]
+ * scales how readily the lead sheds graphite (1 = as before).
+ */
 @Serializable data class Stick(
     val tipR: Double, val tipMax: Double, val side1: Double, val side2: Double,
     val face: Double, val soft: Double, val rInf: Double,
+    val blend: Double = 0.0, val build: Double = 1.0,
 )
 
 object Sticks {
     val ALL: Map<String, Stick> = linkedMapOf(
         // Proto: a soft woodless stick, the owner's Infinite Painter "Proko" reference.
         "Proto" to Stick(0.25, 1.0, 5.5, 16.0, 1.6, 0.75, 0.006),
+        // Proto 2 (the owner, 2026-10-14): a finer point, a smaller side when tilted, one blended footprint, and
+        // black that builds more slowly. Proto stays beside it to compare.
+        "Proto 2" to Stick(0.15, 0.55, 3.5, 10.0, 1.1, 0.75, 0.006, blend = 1.0, build = 0.6),
         "2H" to Stick(0.12, 0.35, 2.2, 5.0, 0.6, 0.15, 0.22),
         "HB" to Stick(0.14, 0.45, 2.6, 5.5, 0.7, 0.35, 0.12),
         "2B" to Stick(0.17, 0.6, 3.0, 6.0, 0.8, 0.5, 0.07),
@@ -62,6 +73,8 @@ data class StickMaterial(
     val plateau: Double, val crushRate: Double, val crushStart: Double, val crushMax: Double, val smear: Double,
     val smearMm: Double, val dustRate: Double, val clump: Double, val pileRangeLo: Double, val pileRangeHi: Double,
     val dirStrength: Double, val conform: Double, val sheen: Double,
+    /** 0 the three zones, 1 one blended footprint ([Stick.blend]): the dry dab shader's u_stickBlend. */
+    val blend: Double = 0.0,
 ) {
     companion object {
         fun of(stick: Stick): StickMaterial {
@@ -69,7 +82,7 @@ data class StickMaterial(
             return StickMaterial(
                 capMm = 0.004,
                 flakeR = stick.rInf,
-                abrasion = 400 * (0.25 + 0.75 * s * s),
+                abrasion = 400 * (0.25 + 0.75 * s * s) * stick.build,
                 transferExp = 2.2,
                 leadSoft = 0.08 + 0.22 * s,
                 plateau = 2.2,
@@ -78,12 +91,13 @@ data class StickMaterial(
                 crushMax = 0.6,
                 smear = 0.18 + 0.6 * s * s,
                 smearMm = 0.15 + 0.3 * s,
-                dustRate = 0.0006 + 0.0024 * s,
+                dustRate = (0.0006 + 0.0024 * s) * stick.build,
                 clump = 0.35,
                 pileRangeLo = 0.12, pileRangeHi = 0.75,
                 dirStrength = 0.9,
                 conform = 0.8,
                 sheen = 0.03 + 0.10 * s,
+                blend = stick.blend,
             )
         }
     }
@@ -94,7 +108,16 @@ data class StickContact(
     val d: Double, val r0: Double, val l1: Double, val l2: Double, val h: Double,
     val w0: Double, val w1: Double, val w2: Double, val even: Double,
     val xMin: Double, val xMax: Double, val yMax: Double,
+    val blend: Double = 0.0,
 )
+
+/** The blended footprint (Stick.blend 1; twin of stick.js and jb_stick.glsl): a bell point exp(−BELL·r²/R0²) that
+ * reaches BELL_REACH past R0, side edges falling as (1 − y²/H²)^ACROSS_SOFT, and a point that yields TIP_YIELD of its
+ * share where the side is down. */
+const val STICK_BELL = 2.2
+const val STICK_BELL_REACH = 0.6
+const val STICK_ACROSS_SOFT = 1.6
+const val STICK_TIP_YIELD = 0.5
 
 fun stickContact(stick: Stick, tilt: Double, pressure: Double, toothMm: Double, press: Press = Press(), zones: Zones = Zones()): StickContact? {
     val p = max(0.0, min(1.0, pressure))
@@ -114,18 +137,24 @@ fun stickContact(stick: Stick, tilt: Double, pressure: Double, toothMm: Double, 
     w0 /= sum; w1 /= sum; w2 /= sum
     val d = toothMm * press.depth * p.pow(press.gamma) / (1 + press.sideEase * (0.4 * s1 + s2))
     val sideOn = w1 + w2 > 0.005
+    // A blended point is a soft bell that reaches a little past r0: the footprint grows to hold it.
+    val reach = r0 * (1 + STICK_BELL_REACH * stick.blend)
     return StickContact(
         d, r0, l1, l2, if (sideOn) stick.face else r0, w0, w1, w2, even,
-        xMin = -r0,
-        xMax = if (sideOn) max(r0, if (w2 > 0.005) l2 else l1) else r0,
-        yMax = if (sideOn) max(r0, stick.face) else r0,
+        xMin = -reach,
+        xMax = if (sideOn) max(reach, if (w2 > 0.005) l2 else l1) else reach,
+        yMax = if (sideOn) max(reach, stick.face) else reach,
+        blend = stick.blend,
     )
 }
 
 /** Twin of jb_stickSqueeze: the squeeze (mm) at a stick-frame point (x toward the barrel, y across). */
 fun stickSqueeze(x: Double, y: Double, c: StickContact, zones: Zones = Zones()): Double {
-    val point = max(0.0, 1 - (x * x + y * y) / (c.r0 * c.r0))
-    val front = if (x < 0) max(0.0, 1 - (x * x) / (c.r0 * c.r0)) else 1.0
+    val b = c.blend
+    val r2 = c.r0 * c.r0
+    fun mix(a: Double, z: Double) = a + (z - a) * b
+    val point = mix(max(0.0, 1 - (x * x + y * y) / r2), exp(-STICK_BELL * (x * x + y * y) / r2))
+    val front = if (x < 0) mix(max(0.0, 1 - (x * x) / r2), exp(-STICK_BELL * x * x / r2)) else 1.0
     fun ramp(l: Double, g: Double, ev: Double): Double {
         if (x < 0) return 1.0
         val u = x / max(l, 1e-3)
@@ -134,10 +163,14 @@ fun stickSqueeze(x: Double, y: Double, c: StickContact, zones: Zones = Zones()):
     }
     fun across(l: Double): Double {
         val hw = c.r0 + (c.h - c.r0) * smoothstep(0.0, 0.3 * l, max(x, 0.0))
-        return sqrt(max(0.0, 1 - (y * y) / (hw * hw)))
+        val e = max(0.0, 1 - (y * y) / (hw * hw))
+        return mix(sqrt(e), e.pow(STICK_ACROSS_SOFT))
     }
     val g2 = zones.grad2 + (0.55 - zones.grad2) * c.even
-    return c.d * (c.w0 * point + (c.w1 * ramp(c.l1, zones.grad1, 0.0) * across(c.l1) + c.w2 * ramp(c.l2, g2, c.even) * across(c.l2)) * front)
+    val side = (c.w1 * ramp(c.l1, zones.grad1, 0.0) * across(c.l1) + c.w2 * ramp(c.l2, g2, c.even) * across(c.l2)) * front
+    // Blended, the point stops sitting on top of the side as a second mark: where the side is down it yields.
+    val pointShare = c.w0 * (1 - STICK_TIP_YIELD * b * min(1.0, (c.w1 + c.w2) * 2))
+    return c.d * (pointShare * point + side)
 }
 
 /** One stroke of a dry stick: samples in, instanced dabs out (20 floats each, see jb_dry_dab.vert). */
@@ -194,7 +227,7 @@ class DryStroke(
         val cb = b.c
         if (ca == null && cb == null) return
         val some = ca ?: cb!!
-        val zero = StickContact(0.0, some.r0, some.l1, some.l2, some.h, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        val zero = StickContact(0.0, some.r0, some.l1, some.l2, some.h, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, some.blend)
         val ra = ca ?: zero
         val rb = cb ?: zero
         fun l(x: Double, y: Double) = x + (y - x) * w

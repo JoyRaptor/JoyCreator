@@ -537,7 +537,7 @@ export class MediaEngine {
       u_dustRate: mat.dustRate, u_clump: mat.clump, u_pileRange: mat.pileRange,
       u_crushStart: mat.crushStart * paper.toothMm,
       u_conform: mat.conform,
-      u_transferExp: mat.transferExp, u_leadSoft: mat.leadSoft, u_plateau: mat.plateau,
+      u_transferExp: mat.transferExp, u_leadSoft: mat.leadSoft, u_plateau: mat.plateau, u_stickBlend: mat.blend ?? 0,
     });
     gl.bindBuffer(gl.ARRAY_BUFFER, this.dabBuf);
     gl.bufferData(gl.ARRAY_BUFFER, batch.dabs, gl.STREAM_DRAW);

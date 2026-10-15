@@ -62,6 +62,10 @@ out.squeeze = [];
 {
   const c = stick.stickContact(stick.STICKS.Proto, 0.85 * Math.PI / 2, 0.6, paper);
   for (const x of [-0.5, -0.1, 0, 0.3, 1, 3, 6, 10, 14]) for (const y of [0, 0.4, 1.2]) out.squeeze.push({ x, y, v: stick.stickSqueeze(x, y, c) });
+  // The blended footprint (Proto 2, 2026-10-14), at a middle tilt where the point yields to the side.
+  const b = stick.stickContact(stick.STICKS['Proto 2'], 0.7 * Math.PI / 2, 0.6, paper);
+  out.squeezeBlend = [];
+  for (const x of [-0.4, -0.1, 0, 0.2, 0.6, 1.5, 3, 6]) for (const y of [0, 0.3, 0.8]) out.squeezeBlend.push({ x, y, v: stick.stickSqueeze(x, y, b) });
 }
 const runDry = (name, smp) => {
   const ds = new stick.DryStroke(stick.STICKS[name], paper, 20);

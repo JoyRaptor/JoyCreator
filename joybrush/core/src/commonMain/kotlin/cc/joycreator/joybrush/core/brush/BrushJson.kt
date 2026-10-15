@@ -22,12 +22,16 @@ const val BRUSH_FORMAT = "joybrush.brush"
  *  - **9** (VECTOR_RENDER_DESIGN §3, H6) added the `line` section and `blend: "multiply"` / `"screen"` — [VERSION_LINES].
  *    Written as "the version before + 1": the Lead checks the number against JB-2.40's bump when both land.
  *  - **10** added replayable `engine: "watercolour"` and its dab-array/finish settings — [VERSION_WATERCOLOUR].
+ *  - **11** added the pencil's `media.stick.blend` and `media.stick.build` — [VERSION_PENCIL_BLEND].
  *
  * A word needs the version that introduced it, NOT the newest one: a fill pen is still a version-2
  * file, so a build that predates smudge can open it. [BrushJson.wordsNeedingVersion] carries the
  * per-word number.
  */
-const val BRUSH_VERSION = 10
+const val BRUSH_VERSION = 11
+
+/** The brush version that introduced the pencil's edge blend and build-up (`media.stick.blend`, `.build`). */
+const val VERSION_PENCIL_BLEND = 11
 
 /** The brush version that introduced the `line` section and the multiply/screen blends (VECTOR_RENDER_DESIGN H6). */
 const val VERSION_LINES = 8 + 1 // "current + 1": the Lead reconciles the number with JB-2.40's bump at merge
@@ -180,6 +184,10 @@ object BrushJson {
         if (p.engine == ENGINE_MEDIA) out += VersionedWord("engine \"$ENGINE_MEDIA\"", VERSION_MEDIA)
         else if (p.media != null) out += VersionedWord("media", VERSION_MEDIA)
         if (p.line != null) out += VersionedWord("line", VERSION_LINES)
+        p.media?.stick?.let { s ->
+            if (s.blend != 0.0) out += VersionedWord("media.stick.blend", VERSION_PENCIL_BLEND)
+            if (s.build != 1.0) out += VersionedWord("media.stick.build", VERSION_PENCIL_BLEND)
+        }
         if (p.engine == ENGINE_WATERCOLOUR) out += VersionedWord("engine \"$ENGINE_WATERCOLOUR\"", VERSION_WATERCOLOUR)
         else if (p.watercolour != null) out += VersionedWord("watercolour", VERSION_WATERCOLOUR)
         if (p.blend == BLEND_MULTIPLY || p.blend == BLEND_SCREEN) out += VersionedWord("blend \"${p.blend}\"", VERSION_LINES)

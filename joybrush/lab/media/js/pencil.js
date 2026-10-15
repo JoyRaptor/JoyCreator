@@ -29,9 +29,8 @@ const PRESETS = {
     paper: 'cardboard',
   } },
 };
-// Android reports the S Pen's lean turned half a turn (the owner, 2026-10-15: "x and y of the tilt are flipped …
-// a graphite spray airbrush"). A desktop pen tablet reports it the right way round.
-const ANDROID = /Android/i.test(navigator.userAgent);
+// The browser reports the pen's lean the right way round, on the Note 9 and on a Samsung laptop alike (the owner,
+// 2026-10-15: the tuner "looks and works great"; only the app was flipped). The switch stays for other pens.
 
 const canvas = document.getElementById('c');
 const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
@@ -64,7 +63,7 @@ function defaultsFor(base) {
     press: { depth: PRESS0.depth, gamma: PRESS0.gamma, sideEase: PRESS0.sideEase, toothStiffness: PRESS0.toothStiffness, padSoft: PRESS0.padSoft },
     mat,
     response: { pressure: [...LINEAR], tilt: [...LINEAR] },
-    pen: { tiltReach: 68, mousePressure: 0.5, mouseTilt: 0, leanFlip: ANDROID ? 1 : 0 },
+    pen: { tiltReach: 68, mousePressure: 0.5, mouseTilt: 0, leanFlip: 0 },
     paper: 'drawing_tooth',
   };
 }

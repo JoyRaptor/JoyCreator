@@ -101,7 +101,7 @@ Detail and history: tasks/todo.md "NEXT: export speed".
 | 2.2 | ✅ **DONE 2026-10-14** — choosing the folder is a required first step (owner: no fractured body of work); "I already have one" restores | The restore path is what proves the ownership promise |
 | 2.3 | ✅ **DONE** — choosing the folder copies every project in, with media after a size-showing consent | One-time, while JoyRaptor is the only user |
 | 2.4 | ✅ **DONE** — recordings and exports land in the folder, readable names | Ends "where the hell is my screen recording" |
-| 2.5 | Always copy on import, silently. No question. | The alternative breaks projects weeks later |
+| 2.5 | ✅ **SUPERSEDED 2026-10-14 by the owner** — small files copied silently; big ones linked with a warning and Copy / Move / Leave per file; yellow dot until brought in. | The alternative breaks projects weeks later |
 | 2.6 | ✅ **DONE** — "can't reach this folder, nothing has been lost" + reconnect; recordings fall back inside the app | SD card popped out must not look like data loss |
 | 2.7 | ✅ **DONE 2026-09-23** — audio clip ids survive save/load (re-proved 2026-10-14) | Data integrity, and it undermines portability |
 | 2.8 | Agree the pack folder contract (contract only, no manager UI) | Free now. Four asset systems later if we skip it. |
@@ -118,7 +118,7 @@ Detail and history: tasks/todo.md "NEXT: export speed".
 | 3.6 | ✅ **BUILT 2026-10-14 (compiles; needs a phone with an AI key to try)** — replies stream into the bubble; a tool command shows "Working…" instead of code | Most of what makes an AI feel good |
 | 3.7 | ✅ **DONE** (d0fecd60) — found already fixed 2026-10-14 | One file, three functions, one at a time |
 | 3.8 | ✅ **DONE 2026-10-14** — `ai/AiService`: one address for chat + tools; settings has "Service address" for any OpenAI-compatible server (https, or http://localhost on the phone); no key needed for a custom one. Tested on the Note 9 against a local address. Was: Split the AI networking behind one seam | Needed for everything after. Ship two providers: OpenRouter and a custom URL box. |
-| 3.9 | **Share-in** — accept an image or video from the Android share sheet, straight onto the timeline | The headline. Works with any AI app, no key. **Owner, 2026-10-13: implement "as soon as we have the perfect place to put things" — i.e. it lands right after the file home (Lane 2), not before.** |
+| 3.9 | ✅ **DONE 2026-10-13 (Note 9-proven)** — **Share-in** — accept an image or video from the Android share sheet, straight onto the timeline | The headline. Works with any AI app, no key. **Owner, 2026-10-13: implement "as soon as we have the perfect place to put things" — i.e. it lands right after the file home (Lane 2), not before.** |
 | 3.10 | generate_image through OpenRouter, into the project | Same pipeline as 3.9. Endpoint verified. |
 
 ## Lane 4 — What a stranger meets

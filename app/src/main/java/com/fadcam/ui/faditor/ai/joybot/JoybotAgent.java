@@ -300,19 +300,23 @@ public final class JoybotAgent {
                     if (sight != null) sightMsg = result;
                     continue;
                 }
+                boolean unfinished = claimsAChange(aiText) || HelpBook.wantsChange(ask.text);
                 if (!nudged && !toolRan && ask.projectId != null && !ask.question
-                        && !aiText.trim().endsWith("?") && claimsAChange(aiText)) {
-                    // It SAID it changed the project but called no tool, so nothing changed (a free
-                    // model did exactly this on the Note 9, 2026-10-14). Ask once for the tool.
+                        && !aiText.trim().endsWith("?") && unfinished) {
+                    // Nothing in the project changed, yet the reply claims it did (a free model,
+                    // Note 9 2026-10-14) or the person asked for a change and got a description
+                    // instead (a model LOOKED at a sprite sheet, listed sixteen names and stopped,
+                    // 2026-10-15). Ask once for the tool that does it.
                     nudged = true;
                     text("Doing it…");
                     HISTORY.add(new JSONObject().put("role", "user").put("content",
-                            "You described the change but did not call a tool, so nothing in the project"
-                                    + " changed. To change it, reply now with ONLY the tool JSON"
-                                    + " {\"tool\":...,\"args\":{...}} — no other words."));
+                            "Nothing in the project has changed yet, but the person asked for a change: \""
+                                    + ask.text + "\". Make it now — reply with ONLY the tool JSON"
+                                    + " {\"tool\":...,\"args\":{...}} for the tool that does it"
+                                    + " (for names on a sprite sheet: label_sprite_cells), no other words."));
                     continue;
                 }
-                finish(true, nudged && !toolRan && claimsAChange(aiText)
+                finish(true, nudged && !toolRan && unfinished
                         ? "This model keeps describing the change instead of making it, so nothing"
                           + " changed. Try again, or pick another model (tap its name at the top)."
                         : replyToShow(aiText));
@@ -372,7 +376,11 @@ public final class JoybotAgent {
                 FLog.e(TAG, "tool failed: " + name, t);
                 result = "Error: " + t.getMessage();
             }
-            if (before != null) {
+            // The editor came back on screen while the tool ran (the chat was closed mid-request):
+            // it re-saved the file, so before/after differ by ITS save, not ours. Any write of ours
+            // went through it (JoybotStorage) as its own undo step. Recording one here put a false
+            // "Changed:" card with an Undo in the chat after a read-only describe (Note 9, 10-15).
+            if (before != null && !JoybotStorage.isLive(pid)) {
                 String after = snapshot(app, pid);
                 if (after != null && !after.equals(before)) {
                     stepPushed = true;
@@ -437,25 +445,56 @@ public final class JoybotAgent {
                     if (messages.opt(i) == withImage) messages.put(i, outgoing);
                 }
             }
-            JSONObject body = new JSONObject()
-                    .put("model", ask.model)
-                    .put("messages", messages)
-                    .put("max_tokens", REPLY_TOKENS)
-                    .put("temperature", 0.7)
-                    .put("stream", true);
-            Request request = new Request.Builder()
-                    .url(AiService.chatUrl(app))
-                    .addHeader("Authorization", "Bearer " + ask.apiKey)
-                    .addHeader("Content-Type", "application/json")
-                    .post(RequestBody.create(body.toString(), JSON))
-                    .build();
+            String url = AiService.chatUrl(app);
+            Quirks q = quirksFor(url);
+            for (int attempt = 0; ; attempt++) {
+                JSONObject body = new JSONObject()
+                        .put("model", ask.model)
+                        .put("messages", messages)
+                        .put(q.completionTokens ? "max_completion_tokens" : "max_tokens", REPLY_TOKENS)
+                        .put("stream", q.stream);
+                if (q.temperature) body.put("temperature", 0.7);
+                Request request = new Request.Builder()
+                        .url(url)
+                        .addHeader("Authorization", "Bearer " + ask.apiKey)
+                        .addHeader("Content-Type", "application/json")
+                        .post(RequestBody.create(body.toString(), JSON))
+                        .build();
+                okhttp3.Call k = HTTP.newCall(request);
+                call = k;
+                try (Response response = k.execute()) {
+                    if (response.code() == 400 && attempt < 3 && response.body() != null) {
+                        // A service that refuses one of OUR settings (OpenAI's newer models take
+                        // max_completion_tokens and no temperature; some accounts may not stream):
+                        // drop it, remember it for this address, and ask again.
+                        String err = response.body().string();
+                        if (q.adapt(err)) continue;
+                        Completion c = new Completion();
+                        c.error = "API error 400: " + err.substring(0, Math.min(200, err.length()));
+                        return c;
+                    }
+                    return read(response, q.stream);
+                }
+            }
+        }
+
+        /** A finished response: streamed (server-sent events) or one JSON body. */
+        @NonNull
+        private Completion read(@NonNull Response response, boolean streamed) throws Exception {
             Completion c = new Completion();
-            okhttp3.Call k = HTTP.newCall(request);
-            call = k;
-            try (Response response = k.execute()) {
+            {
                 if (!response.isSuccessful() || response.body() == null) {
                     String err = response.body() != null ? response.body().string() : "";
                     c.error = "API error " + response.code() + ": " + err.substring(0, Math.min(200, err.length()));
+                    return c;
+                }
+                if (!streamed) {
+                    JSONObject json = new JSONObject(response.body().string());
+                    c.servedModel = json.optString("model", null);
+                    JSONArray ch = json.optJSONArray("choices");
+                    JSONObject msg = ch == null || ch.length() == 0 ? null : ch.getJSONObject(0).optJSONObject("message");
+                    c.text = msg == null || msg.isNull("content") ? "" : msg.optString("content", "");
+                    if (!c.text.isEmpty()) text(shownWhileStreaming(c.text));
                     return c;
                 }
                 okio.BufferedSource src = response.body().source();
@@ -630,6 +669,33 @@ public final class JoybotAgent {
         }
     }
 
+    /**
+     * What a service at one address accepts, learned from its refusals and kept while the app runs.
+     * Every service starts with the settings OpenRouter takes; a 400 that names one of them turns
+     * it off.
+     */
+    private static final class Quirks {
+        volatile boolean completionTokens, stream = true, temperature = true;
+
+        /** Change what this error is about; false when it is about none of ours. */
+        boolean adapt(@NonNull String err) {
+            String l = err.toLowerCase(Locale.US);
+            if (!completionTokens && l.contains("max_tokens")) { completionTokens = true; return true; }
+            if (temperature && l.contains("temperature")) { temperature = false; return true; }
+            if (stream && l.contains("stream")) { stream = false; return true; }
+            return false;
+        }
+    }
+
+    private static final java.util.Map<String, Quirks> QUIRKS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    @NonNull
+    private static Quirks quirksFor(@NonNull String url) {
+        Quirks q = QUIRKS.get(url);
+        if (q == null) { q = new Quirks(); QUIRKS.put(url, q); }
+        return q;
+    }
+
     private static final class Completion {
         String text = "";
         @Nullable String servedModel;
@@ -689,7 +755,10 @@ public final class JoybotAgent {
         String t = soFar.trim();
         if (t.startsWith("{")) return "";
         int cut = -1;
-        for (String marker : new String[]{"{\"tool\"", "```", "{ \"tool\""}) {
+        // Some models emit their own tool-call tokens before the JSON ("<dots_function_call>",
+        // seen on the Note 9) — markup, never words for the person.
+        for (String marker : new String[]{"{\"tool\"", "```", "{ \"tool\"", "<dots_function_call",
+                "<tool_call", "<function", "<|"}) {
             int i = t.indexOf(marker);
             if (i >= 0 && (cut < 0 || i < cut)) cut = i;
         }

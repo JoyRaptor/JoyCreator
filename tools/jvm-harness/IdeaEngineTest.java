@@ -421,6 +421,44 @@ public class IdeaEngineTest {
             check("straddling a cut is not cut", !Fillers.isCut(1800, 2300, cuts), "");
         }
 
+        // ── AiProviders: a pasted key names its own service (owner, 2026-10-15: several subscriptions) ──
+        {
+            com.fadcam.ui.faditor.ai.joybot.AiProviders.Provider p;
+            p = com.fadcam.ui.faditor.ai.joybot.AiProviders.fromKey("sk-proj-abc123");
+            check("key: sk-proj- is OpenAI", p != null && p.name.equals("OpenAI") && p.base.equals("https://api.openai.com/v1"), "");
+            p = com.fadcam.ui.faditor.ai.joybot.AiProviders.fromKey("  sk-or-v1-abc ");
+            check("key: sk-or- is OpenRouter (default address)", p != null && p.isOpenRouter(), "");
+            p = com.fadcam.ui.faditor.ai.joybot.AiProviders.fromKey("sk-ant-api03-x");
+            check("key: sk-ant- is Anthropic", p != null && p.name.equals("Anthropic"), "");
+            p = com.fadcam.ui.faditor.ai.joybot.AiProviders.fromKey("AIzaSyX");
+            check("key: AIza is Google", p != null && p.name.startsWith("Google"), "");
+            check("key: unknown shape says nothing", com.fadcam.ui.faditor.ai.joybot.AiProviders.fromKey("hello") == null, "");
+            eq("base name: OpenAI", "OpenAI", com.fadcam.ui.faditor.ai.joybot.AiProviders.nameForBase("https://api.openai.com/v1/"));
+            eq("base name: default", "OpenRouter", com.fadcam.ui.faditor.ai.joybot.AiProviders.nameForBase(""));
+            eq("base name: on the phone", "On this phone", com.fadcam.ui.faditor.ai.joybot.AiProviders.nameForBase("http://localhost:11434/v1"));
+            eq("base name: other host", "example.com", com.fadcam.ui.faditor.ai.joybot.AiProviders.nameForBase("https://example.com/v1"));
+            check("chat model: gpt-4o-mini", com.fadcam.ui.faditor.ai.joybot.AiProviders.isChatModel("gpt-4o-mini"), "");
+            check("not chat: embeddings", !com.fadcam.ui.faditor.ai.joybot.AiProviders.isChatModel("text-embedding-3-small"), "");
+            check("not chat: whisper", !com.fadcam.ui.faditor.ai.joybot.AiProviders.isChatModel("whisper-1"), "");
+            check("not chat: dall-e", !com.fadcam.ui.faditor.ai.joybot.AiProviders.isChatModel("dall-e-3"), "");
+        }
+
+        // ── HelpBook.wantsChange: a request that must end in a change (Note 9, 2026-10-15) ──
+        {
+            check("wants change: name every cell", com.fadcam.ui.faditor.ai.joybot.HelpBook.wantsChange(
+                    "this is my Starguy sprite sheet of expressions. Look at it and name every cell with its expression"), "");
+            check("wants change: fade the title", com.fadcam.ui.faditor.ai.joybot.HelpBook.wantsChange(
+                    "make the hello 2 text fade in over 2 seconds"), "");
+            check("not a change: look and tell me, do not change", !com.fadcam.ui.faditor.ai.joybot.HelpBook.wantsChange(
+                    "look at my sprite sheet and tell me what each cell shows. Do not change anything."), "");
+            check("not a change: a question", !com.fadcam.ui.faditor.ai.joybot.HelpBook.wantsChange(
+                    "how do I add captions?"), "");
+            check("not a change: describe", !com.fadcam.ui.faditor.ai.joybot.HelpBook.wantsChange(
+                    "describe the second clip"), "");
+            check("not a change: 'names' inside a word", !com.fadcam.ui.faditor.ai.joybot.HelpBook.wantsChange(
+                    "nice cinematography"), "");
+        }
+
         // ── SlideContract: a slide that would draw nothing is refused (Note 9, 2026-10-15) ──
         {
             String head = "<!doctype html><html><body>";

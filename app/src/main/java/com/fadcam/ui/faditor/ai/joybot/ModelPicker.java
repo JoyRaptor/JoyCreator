@@ -69,7 +69,8 @@ public final class ModelPicker {
         root.addView(search);
 
         TextView status = new TextView(a);
-        status.setText("Loading the list from OpenRouter…");
+        status.setText("Loading the list from "
+                + com.fadcam.ui.faditor.ai.AiAccounts.active(a).name + "…");
         status.setTextColor(Studio.INK_FAINT);
         status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         root.addView(status);
@@ -175,7 +176,12 @@ public final class ModelPicker {
                 if (!dialog.isShowing()) return;
                 chat.clear(); chat.addAll(c);
                 pics.clear(); pics.addAll(p);
-                if (c.size() <= 1) status.setText("Couldn't load the full list (offline?) — showing what I know.");
+                if (com.fadcam.ui.faditor.ai.AiService.isCustom(a) && c.isEmpty()) {
+                    status.setText("Couldn't load this account's models (offline, or the key was refused?). "
+                            + "You can still type a model name in ⚙.");
+                } else if (c.size() <= 1) {
+                    status.setText("Couldn't load the full list (offline?) — showing what I know.");
+                }
                 refresh.run();
             });
         });

@@ -78,7 +78,8 @@ public final class ModelCatalog {
     @WorkerThread
     @NonNull
     public static List<Model> chatModels(@NonNull Context c) {
-        String json = cached(c, "openrouter_models.json", "https://openrouter.ai/api/v1/models");
+        if (com.fadcam.ui.faditor.ai.AiService.isCustom(c)) return accountModels(c);
+        String json = cached(c, "openrouter_models.json", "https://openrouter.ai/api/v1/models", null);
         List<Model> out = new ArrayList<>();
         out.add(FREE_ROUTER);
         if (json == null) return out;
@@ -103,7 +104,9 @@ public final class ModelCatalog {
     @WorkerThread
     @NonNull
     public static List<Model> pictureModels(@NonNull Context c) {
-        String json = cached(c, "openrouter_image_models.json", "https://openrouter.ai/api/v1/images/models");
+        // Pictures are made through OpenRouter only (JoybotPictures.canGenerate says the same).
+        if (com.fadcam.ui.faditor.ai.AiService.isCustom(c)) return new ArrayList<>();
+        String json = cached(c, "openrouter_image_models.json", "https://openrouter.ai/api/v1/images/models", null);
         List<Model> out = new ArrayList<>();
         if (json == null) {
             out.add(new Model(JoybotPictures.DEFAULT_MODEL, "FLUX.2 Klein", false, false, true, true));
@@ -125,6 +128,36 @@ public final class ModelCatalog {
         return out;
     }
 
+    /**
+     * The chat models of the account in use when it is NOT OpenRouter — OpenAI, Anthropic, a server
+     * on the person's computer — from that service's own {@code /models}, asked with their key
+     * (OpenAI's list is private to the account). No prices or picture flags there: unknown, never a
+     * wrong "free".
+     */
+    @WorkerThread
+    @NonNull
+    private static List<Model> accountModels(@NonNull Context c) {
+        String base = com.fadcam.ui.faditor.ai.AiService.base(c);
+        String key = com.fadcam.ui.faditor.ai.AiKey.get(c);
+        String json = cached(c, "models_" + Integer.toHexString(base.hashCode()) + ".json",
+                base + "/models", key);
+        List<Model> out = new ArrayList<>();
+        if (json == null) return out;
+        try {
+            JSONArray data = new JSONObject(json).optJSONArray("data");
+            for (int i = 0; data != null && i < data.length(); i++) {
+                JSONObject m = data.optJSONObject(i);
+                if (m == null) continue;
+                String id = m.optString("id", "");
+                if (id.startsWith("models/")) id = id.substring("models/".length());   // Google
+                if (id.isEmpty() || !AiProviders.isChatModel(id)) continue;
+                out.add(new Model(id, m.optString("display_name", id), false, false, false, false));
+            }
+        } catch (Exception ignored) { }
+        java.util.Collections.sort(out, (a, b) -> a.id.compareToIgnoreCase(b.id));
+        return out;
+    }
+
     private static boolean has(@Nullable JSONObject arch, String key, String value) {
         JSONArray a = arch == null ? null : arch.optJSONArray(key);
         for (int i = 0; a != null && i < a.length(); i++) if (value.equals(a.optString(i))) return true;
@@ -134,11 +167,18 @@ public final class ModelCatalog {
     /** The cached catalogue, refreshed when older than six hours; the old copy if offline. */
     @WorkerThread
     @Nullable
-    private static String cached(@NonNull Context c, @NonNull String file, @NonNull String url) {
+    private static String cached(@NonNull Context c, @NonNull String file, @NonNull String url,
+                                 @Nullable String key) {
         File f = new File(c.getCacheDir(), file);
         boolean fresh = f.exists() && System.currentTimeMillis() - f.lastModified() < TTL_MS;
         if (!fresh) {
-            try (Response r = HTTP.newCall(new Request.Builder().url(url).get().build()).execute()) {
+            Request.Builder rb = new Request.Builder().url(url).get();
+            if (key != null && !key.isEmpty()) {
+                // Bearer for OpenAI-style services; Anthropic's /models reads its own header.
+                rb.addHeader("Authorization", "Bearer " + key)
+                        .addHeader("x-api-key", key).addHeader("anthropic-version", "2023-06-01");
+            }
+            try (Response r = HTTP.newCall(rb.build()).execute()) {
                 if (r.isSuccessful() && r.body() != null) {
                     String body = r.body().string();
                     try (FileOutputStream o = new FileOutputStream(f)) {
@@ -185,11 +225,13 @@ public final class ModelCatalog {
 
     @NonNull
     public static Set<String> stars(@NonNull Context c) {
-        Set<String> s = prefs(c).getStringSet("stars", null);
+        Set<String> s = prefs(c).getStringSet(starsKey(c), null);
         if (s == null) {
             s = new HashSet<>();
-            s.add(FREE_ROUTER.id);
-            s.add(JoybotPictures.DEFAULT_MODEL);
+            if (!com.fadcam.ui.faditor.ai.AiService.isCustom(c)) {
+                s.add(FREE_ROUTER.id);
+                s.add(JoybotPictures.DEFAULT_MODEL);
+            }
         }
         return new HashSet<>(s);
     }
@@ -197,7 +239,14 @@ public final class ModelCatalog {
     public static void setStar(@NonNull Context c, @NonNull String id, boolean on) {
         Set<String> s = stars(c);
         if (on) s.add(id); else s.remove(id);
-        prefs(c).edit().putStringSet("stars", s).apply();
+        prefs(c).edit().putStringSet(starsKey(c), s).apply();
+    }
+
+    /** Stars belong to a service: an OpenRouter id means nothing to OpenAI, and the reverse. */
+    @NonNull
+    private static String starsKey(@NonNull Context c) {
+        return com.fadcam.ui.faditor.ai.AiService.isCustom(c)
+                ? "stars@" + com.fadcam.ui.faditor.ai.AiService.base(c) : "stars";
     }
 
     /** True when messages go to the picture model (each message makes a picture). */

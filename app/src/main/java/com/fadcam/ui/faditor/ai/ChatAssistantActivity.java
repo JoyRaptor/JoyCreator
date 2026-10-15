@@ -254,10 +254,15 @@ public class ChatAssistantActivity extends AppCompatActivity {
         List<String[]> snapshot;
         synchronized (messageLog) {
             snapshot = new ArrayList<>(messageLog);
+            // Replaying re-logs every message, so the log starts empty: it used to be replayed ON
+            // TOP of itself and doubled at every reopen (two "Hi, I'm Joybot" on the Note 9).
+            messageLog.clear();
         }
         for (String[] msg : snapshot) {
             if ("user".equals(msg[0])) {
                 addUserMessage(msg[1]);
+            } else if ("tool".equals(msg[0])) {
+                addToolResultMessage(msg[1]);   // a quiet tool line again, not a speech bubble
             } else {
                 addBotMessage(msg[1]);
             }
@@ -848,6 +853,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
             several tools one at a time. For big or destructive changes (deleting clips, \
             reordering, dropping parts) propose first and wait for a yes, unless they asked for \
             exactly that. Every request you carry out is one undo step for them.
+
+            You can SEE the project: the look tool shows you a sprite sheet (cells numbered), a \
+            picture layer or a video frame. Before naming, labelling, describing or choosing \
+            anything visual, look — never ask the person what is in a picture you can look at. \
+            Then act: if they asked for names, apply them with the tool, don't just list them.
 
             Words that matter: "this" / "the selected one" means the item marked SELECTED in the \
             project context; "here" / "now" means the playhead. Call things by their names in the \
@@ -2064,8 +2074,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(pad, pad, pad, pad);
 
+        final AiAccounts.Account account = AiAccounts.active(this);
+        final int accountCount = AiAccounts.list(this).size();
         TextView labelKey = new TextView(this);
-        labelKey.setText("API Key (OpenRouter or compatible):");
+        labelKey.setText((accountCount > 1 ? "Account: " + (account.name.isEmpty() ? "new" : account.name) + "\n" : "")
+                + "API key — paste one from OpenRouter, OpenAI, Anthropic, Google…");
         labelKey.setTextColor(Studio.INK_DIM);
         root.addView(labelKey);
 
@@ -2104,6 +2117,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
         });
         keyRow.addView(eye);
         root.addView(keyRow);
+        // Which service the pasted key belongs to, said back in words (filled in below).
+        TextView detected = new TextView(this);
+        detected.setTextColor(Studio.GO);
+        detected.setTextSize(12);
+        root.addView(detected);
 
         TextView labelModel = new TextView(this);
         labelModel.setText("Model:");
@@ -2145,10 +2163,45 @@ public class ChatAssistantActivity extends AppCompatActivity {
         inputBase.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
         root.addView(inputBase);
 
+        // PASTE A KEY, GET THE SERVICE. The key's own shape says whose it is (sk-or- OpenRouter,
+        // sk-proj- OpenAI, sk-ant- Anthropic…), so the address fills itself in and an OpenRouter
+        // model name that would mean nothing to OpenAI is cleared for a pick from their own list.
+        android.text.TextWatcher detect = new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) { }
+            @Override public void onTextChanged(CharSequence s, int st, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable e) {
+                com.fadcam.ui.faditor.ai.joybot.AiProviders.Provider p =
+                        com.fadcam.ui.faditor.ai.joybot.AiProviders.fromKey(e.toString());
+                if (p == null) { detected.setText(""); return; }
+                String base = inputBase.getText().toString().trim();
+                if (p.isOpenRouter()) {
+                    // An OpenRouter key can't be spent at OpenAI's address: back to the default.
+                    if (!base.isEmpty() && !"OpenRouter".equals(
+                            com.fadcam.ui.faditor.ai.joybot.AiProviders.nameForBase(base))) {
+                        inputBase.setText("");
+                    }
+                    if (inputModel.getText().toString().trim().isEmpty()) inputModel.setText(DEFAULT_MODEL);
+                    detected.setText("✓ An OpenRouter key.");
+                } else {
+                    if (base.isEmpty() || !base.equals(p.base)) inputBase.setText(p.base);
+                    String m = inputModel.getText().toString().trim();
+                    if (m.isEmpty() || m.equals(DEFAULT_MODEL) || m.contains("/")) {
+                        inputModel.setText("");
+                        inputModel.setHint("you'll pick from your " + p.name + " models");
+                    }
+                    detected.setText("✓ A " + p.name + " key — address filled in for you.");
+                }
+            }
+        };
+        inputKey.addTextChangedListener(detect);
+        detect.afterTextChanged(inputKey.getText());
+
         TextView hint = new TextView(this);
         hint.setText("Free tiers available on OpenRouter for lower-end models.\n"
-                + "Any OpenAI-compatible service works: put its address above (https, or http://localhost "
-                + "for one running on this phone). Leave it empty for OpenRouter.\n"
+                + "Any OpenAI-compatible service works: paste its key (the address fills in), or put "
+                + "its address above (https, or http://localhost for one running on this phone).\n"
+                + "More than one subscription? Add each as its own account: tap the model name at "
+                + "the top to switch.\n"
                 + "No key and no address: offline helper mode.");
         hint.setTextColor(Studio.INK_FAINT);
         hint.setTextSize(12);
@@ -2192,12 +2245,26 @@ public class ChatAssistantActivity extends AppCompatActivity {
         titleText.setTypeface(null, Typeface.BOLD);
         titleRow.addView(titleText);
 
-        androidx.appcompat.app.AlertDialog dialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        com.google.android.material.dialog.MaterialAlertDialogBuilder builder =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setCustomTitle(titleRow)
                 .setView(root)
                 .setPositiveButton("Save", null)
-                .setNegativeButton("Cancel", null)
-                .create();
+                .setNegativeButton("Cancel", null);
+        if (accountCount > 1) {
+            builder.setNeutralButton("Remove account", (d, w) ->
+                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                            .setMessage("Forget the " + account.name + " account and its key on this phone?")
+                            .setPositiveButton("Forget it", (d2, w2) -> {
+                                AiAccounts.remove(this, account.id);
+                                reloadAccount();
+                                addBotMessage("Forgot that account. Now using "
+                                        + AiAccounts.active(this).name + ".");
+                            })
+                            .setNegativeButton("Keep", null)
+                            .show());
+        }
+        androidx.appcompat.app.AlertDialog dialog = builder.create();
 
         // A key and an address are not a username and password: keep password managers out.
         for (EditText f : new EditText[]{inputKey, inputModel, inputBase, inputPic}) {
@@ -2219,17 +2286,36 @@ public class ChatAssistantActivity extends AppCompatActivity {
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                 String key = inputKey.getText().toString().trim();
                 String mdl = inputModel.getText().toString().trim();
-                final String finalMdl = mdl.isEmpty() ? DEFAULT_MODEL : mdl;
                 AiKey.set(this, key);
                 AiService.setBase(this, inputBase.getText().toString());
+                // Not OpenRouter and no model yet: one is picked from the account's own list below.
+                final boolean pickModel = AiService.isCustom(this) && (mdl.isEmpty() || mdl.equals(DEFAULT_MODEL));
+                final String finalMdl = mdl.isEmpty() ? DEFAULT_MODEL : mdl;
                 JoybotVoice.setReadAloud(this, readAloud.isChecked());
                 JoybotPictures.setModel(this, inputPic.getText().toString());
                 prefs.sharedPreferences.edit()
                         .putString(PREF_MODEL, finalMdl)
                         .apply();
+                if (AiService.isCustom(this)) ModelCatalog.setTalkingToPictures(this, false);
+                // Keep the saved account in step; one still wearing an automatic name ("OpenRouter",
+                // or none yet) is renamed for the service its key now points at ("OpenAI").
+                String newBase = AiService.isCustom(this) ? AiService.base(this) : "";
+                boolean autoName = account.name.isEmpty()
+                        || account.name.startsWith(com.fadcam.ui.faditor.ai.joybot.AiProviders.nameForBase(account.base));
+                AiAccounts.syncActive(this, autoName ? AiAccounts.freshName(this, newBase, account.id) : null);
                 apiKey = key;
                 model = finalMdl;
                 updateModelLabel();
+                if (pickModel) {
+                    dialog.dismiss();
+                    addBotMessage("Connected to " + AiAccounts.active(this).name
+                            + ". Pick the model to talk to — these are the ones your account has.");
+                    ModelPicker.show(this, false, new ModelPicker.OnPick() {
+                        @Override public void chat(@NonNull ModelCatalog.Model m) { useChatModel(m.id); }
+                        @Override public void pictures(@NonNull ModelCatalog.Model m) { usePictureModel(m.id); }
+                    });
+                    return;
+                }
                 titleIcon.animate()
                         .scaleX(0f)
                         .scaleY(0f)
@@ -2289,7 +2375,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         wrapper.setTag(isUser ? "user" : "bot");
 
         TextView tv = new TextView(this);
-        tv.setText(text);
+        tv.setText(isUser ? text : JoybotChatViews.styled(text));
         tv.setTextIsSelectable(true);
         tv.setTextColor(isUser ? Studio.ON_GO : Studio.INK_DIM);
         tv.setBackgroundResource(isUser ? R.drawable.chat_bubble_user : R.drawable.chat_bubble_bot);
@@ -2361,7 +2447,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         tv.setOnClickListener(v -> tv.setText(tv.getText().toString().equals(line) ? line + "\n" + body : line));
         androidx.appcompat.widget.TooltipCompat.setTooltipText(tv, "Tap to see the details");
         messagesContainer.addView(tv);
-        synchronized (messageLog) { messageLog.add(new String[]{"bot", line}); trimMessageLog(); }
+        synchronized (messageLog) { messageLog.add(new String[]{"tool", toolMsg}); trimMessageLog(); }
         scrollToBottom();
     }
 
@@ -2644,7 +2730,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             if (last instanceof FrameLayout) {
                 FrameLayout fl = (FrameLayout) last;
                 if (fl.getChildCount() > 0 && fl.getChildAt(0) instanceof TextView) {
-                    ((TextView) fl.getChildAt(0)).setText(text);
+                    ((TextView) fl.getChildAt(0)).setText(JoybotChatViews.styled(text));
                 }
                 if (fl.getChildCount() > 1) {
                     fl.getChildAt(1).setTag(text);
@@ -2765,7 +2851,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
         ModelCapabilities.Vision v = visionOf(id);
         String marker = v == ModelCapabilities.Vision.YES ? "  \uD83D\uDC41"
                 : (v == ModelCapabilities.Vision.NO ? "  \u20E0" : "");
-        modelLabel.setText(ModelCatalog.nameOf(this, id) + marker + " \u25BE");
+        // With more than one account, say which one is talking.
+        String account = AiAccounts.list(this).size() > 1 ? AiAccounts.active(this).name + " \u00B7 " : "";
+        modelLabel.setText(account + ModelCatalog.nameOf(this, id) + marker + " \u25BE");
         maybeRefreshCapabilities();
     }
 
@@ -2776,9 +2864,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void showModelSwitcher() {
         java.util.List<String> ids = new ArrayList<>(ModelCatalog.stars(this));
         java.util.Collections.sort(ids);
-        // The free router first, picture models last.
+        // The free router first (on OpenRouter — it means nothing to another service).
         ids.remove(ModelCatalog.FREE_ROUTER.id);
-        ids.add(0, ModelCatalog.FREE_ROUTER.id);
+        if (!AiService.isCustom(this)) ids.add(0, ModelCatalog.FREE_ROUTER.id);
         final java.util.List<String> labels = new ArrayList<>();
         final java.util.List<Runnable> actions = new ArrayList<>();
         boolean pics = ModelCatalog.talkingToPictures(this);
@@ -2796,15 +2884,53 @@ public class ChatAssistantActivity extends AppCompatActivity {
             @Override public void chat(@NonNull ModelCatalog.Model m) { useChatModel(m.id); }
             @Override public void pictures(@NonNull ModelCatalog.Model m) { usePictureModel(m.id); }
         }));
+        // MORE THAN ONE SUBSCRIPTION (owner, 2026-10-15): every other saved account, one tap away.
+        AiAccounts.Account in = AiAccounts.active(this);
+        for (AiAccounts.Account a : AiAccounts.list(this)) {
+            if (a.id.equals(in.id)) continue;
+            labels.add("\u21c4 Use your " + a.name + " account");
+            actions.add(() -> switchAccount(a.id));
+        }
+        labels.add("+ Add another AI account\u2026");
+        actions.add(() -> {
+            AiAccounts.addBlank(this);
+            reloadAccount();
+            showSettingsDialog();
+        });
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Talk to\u2026")
                 .setItems(labels.toArray(new String[0]), (d, w) -> actions.get(w).run())
                 .show();
     }
 
+    /** Use another saved AI account: its key, address and model become Joybot's. */
+    private void switchAccount(@NonNull String id) {
+        AiAccounts.switchTo(this, id);
+        reloadAccount();
+        AiAccounts.Account a = AiAccounts.active(this);
+        if (AiService.isCustom(this) && (model == null || model.isEmpty() || model.equals(DEFAULT_MODEL))) {
+            addBotMessage("Now using your " + a.name + " account. Pick a model to talk to.");
+            ModelPicker.show(this, false, new ModelPicker.OnPick() {
+                @Override public void chat(@NonNull ModelCatalog.Model m) { useChatModel(m.id); }
+                @Override public void pictures(@NonNull ModelCatalog.Model m) { usePictureModel(m.id); }
+            });
+            return;
+        }
+        addBotMessage("Now using your " + a.name + " account (" + ModelCatalog.nameOf(this, model) + ").");
+    }
+
+    /** Re-read the account in use into this screen (after a switch, an add or a removal). */
+    private void reloadAccount() {
+        apiKey = AiKey.get(this);
+        model = SharedPreferencesManager.getInstance(this).sharedPreferences.getString(PREF_MODEL, DEFAULT_MODEL);
+        if (AiService.isCustom(this)) ModelCatalog.setTalkingToPictures(this, false);
+        updateModelLabel();
+    }
+
     private void useChatModel(@NonNull String id) {
         model = id;
         SharedPreferencesManager.getInstance(this).sharedPreferences.edit().putString(PREF_MODEL, id).apply();
+        AiAccounts.syncActive(this, null);
         ModelCatalog.setTalkingToPictures(this, false);
         updateModelLabel();
         addBotMessage("Now talking with " + ModelCatalog.nameOf(this, id) + ".");

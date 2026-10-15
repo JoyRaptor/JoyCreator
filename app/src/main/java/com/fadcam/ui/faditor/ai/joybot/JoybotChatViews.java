@@ -196,4 +196,32 @@ public final class JoybotChatViews {
     private static int dp(Context c, int v) {
         return Math.round(v * c.getResources().getDisplayMetrics().density);
     }
+
+    /**
+     * A model's reply as the bubble shows it. Models write Markdown, and a TextView showed it raw:
+     * "*   **Cell 0:** A happy star" (Note 9, 2026-10-15, the first sprite-sheet look). Bold
+     * becomes bold, list markers become bullets, heading hashes and code ticks go. The copy
+     * button still copies the words as written.
+     */
+    @NonNull
+    public static CharSequence styled(@NonNull String text) {
+        String t = text.replaceAll("(?m)^\\s{0,3}#{1,6}\\s+", "")
+                .replaceAll("(?m)^(\\s*)[*\\-+]\\s+", "$1• ")
+                .replaceAll("`([^`\\n]+)`", "$1");
+        android.text.SpannableStringBuilder out = new android.text.SpannableStringBuilder();
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("\\*\\*(.+?)\\*\\*|__(.+?)__").matcher(t);
+        int at = 0;
+        while (m.find()) {
+            out.append(t, at, m.start());
+            String bold = m.group(1) != null ? m.group(1) : m.group(2);
+            int s = out.length();
+            out.append(bold);
+            out.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), s, out.length(),
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            at = m.end();
+        }
+        out.append(t, at, t.length());
+        return out;
+    }
 }

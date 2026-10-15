@@ -191,7 +191,7 @@ class GlPlainPromotionTest {
         val changes = listOf(
             listOf(UndoLog.TileChange("paint", 3, 9, 11)),
             listOf(UndoLog.TileChange("missing", 3, 9, 10)),
-            listOf(UndoLog.TileChange("paint", 3, 9, 10, "shared")),
+            listOf(UndoLog.TileChange("paint", 3, 9, 10, "missing-cel")),
             listOf(UndoLog.TileChange("paint", 3, 9, 10), UndoLog.TileChange("paint", 3, 8, 11)),
             listOf(UndoLog.TileChange("paint#p0", 3, 9, 11)),
             listOf(UndoLog.TileChange("paint", 3, 10, 10)),
@@ -212,6 +212,63 @@ class GlPlainPromotionTest {
         assertTrue(f.engine.redoStep()); assertSame(step, f.engine.undo.peekUndo())
         assertEquals(10, scene(f.engine).planes.getValue(plane).slabs.getValue(3).single().value.texture)
         assertEquals(setOf(9), f.engine.undo.heldTextures()); assertEquals(mapOf(3L to 10), tiles(f.owner))
+    }
+
+    @Test fun documentSharedAliasAndNullHistoryBothProjectToTheSameActualBaseWithoutRewritingSteps() {
+        for (regional in listOf(false, true)) for (alias in listOf<String?>(null, "shared")) {
+            val f = fixture(regional = regional)
+            val step = UndoLog.Step(listOf(UndoLog.TileChange("paint", 3, 9, 10, alias)))
+            f.engine.undo.push(step); val cursor = f.engine.undo.snapshotCursor()
+            assertTrue(f.engine.preparePlainRecordingPromotion("paint").publish())
+            assertSame(cursor, f.engine.undo.snapshotCursor()); fakeReplay(f.engine)
+            val raw = add(f.engine)
+            assertTrue(f.engine.publishJointPaintStep(raw, frozen = mapOf(brush.id to brush)))
+            assertTrue(f.engine.undoStep()); assertTrue(f.engine.undoStep())
+            assertSame(step, f.engine.undo.peekRedo())
+            assertEquals(alias, step.changes.single().celId)
+            assertEquals(9, scene(f.engine).planes.getValue(plane).slabs.getValue(3).single().value.texture)
+            assertTrue(f.engine.redoStep()); assertSame(step, f.engine.undo.peekUndo())
+            assertTrue(f.engine.redoStep()); assertSame(raw, f.engine.undo.peekUndo())
+            assertEquals(10, scene(f.engine).planes.getValue(plane).slabs.getValue(3).single().value.texture)
+        }
+    }
+
+    @Test fun documentSharedAliasInTheReachableRedoBranchRetainsItsOriginalEndpoint() {
+        val f = fixture(); val step = UndoLog.Step(listOf(UndoLog.TileChange("paint", 3, 10, 11, "shared")))
+        f.engine.undo.push(step); f.engine.undo.undo()
+        val cursor = f.engine.undo.snapshotCursor()
+        assertTrue(f.engine.preparePlainRecordingPromotion("paint").publish()); fakeReplay(f.engine)
+        assertSame(cursor, f.engine.undo.snapshotCursor()); assertSame(step, f.engine.undo.peekRedo())
+        assertTrue(f.engine.redoStep()); assertSame(step, f.engine.undo.peekUndo())
+        assertEquals(11, scene(f.engine).planes.getValue(plane).slabs.getValue(3).single().value.texture)
+        assertTrue(f.engine.undoStep())
+        assertEquals(10, scene(f.engine).planes.getValue(plane).slabs.getValue(3).single().value.texture)
+    }
+
+    @Test fun nullAndDocumentSharedAliasesCannotSmuggleTwoChangesToOnePhysicalTarget() {
+        val f = fixture()
+        f.engine.undo.push(UndoLog.Step(listOf(UndoLog.TileChange("paint", 3, 9, 10),
+            UndoLog.TileChange("paint", 3, 8, 11, "shared"))))
+        failPrepare(f)
+    }
+
+    @Test fun disjointNativeSharedAliasKeepsItsRealStoreAndFullStepThroughJointUndo() {
+        val f = fixture()
+        f.engine.addLayer("other")
+        f.engine.setBoardDocument(f.doc.copy(layers = f.doc.layers +
+            Layer("other", "Other", LayerKind.PAINT, cels = listOf(Cel("other-shared")))))
+        tiles(local(f.engine).getValue("other"))[3] = 30
+        val legacy = UndoLog.Step(listOf(UndoLog.TileChange("other", 3, 29, 30, "other-shared")))
+        f.engine.undo.push(legacy)
+        assertTrue(f.engine.preparePlainRecordingPromotion("paint").publish()); fakeReplay(f.engine)
+        val raw = add(f.engine)
+        assertTrue(f.engine.publishJointPaintStep(raw, frozen = mapOf(brush.id to brush)))
+        assertTrue(f.engine.undoStep()); assertTrue(f.engine.undoStep()); assertSame(legacy, f.engine.undo.peekRedo())
+        assertEquals(29, tiles(owners(f.engine).getValue("other"))[3])
+        assertTrue(f.engine.redoStep()); assertSame(legacy, f.engine.undo.peekUndo())
+        assertEquals(30, tiles(owners(f.engine).getValue("other"))[3])
+        val owner = owners(f.engine).getValue("other")
+        assertSame(tiles(owner), cels(owner).getValue("other-shared"))
     }
 
     @Test fun actualRawAddUndoLegacyUndoAndRedoUseOneCompleteHistoryWithoutDuplicateNativeCommit() {

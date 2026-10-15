@@ -24,6 +24,7 @@ internal object PromotedBaseProjection {
         cursor: UndoLog.Cursor<T>,
         activationHistory: Collection<UndoLog.Step<T>>,
         promotedPlanes: Set<Pair<String, String?>>,
+        sharedCelAliases: Map<String, String> = emptyMap(),
     ): Prepared<T> {
         require(fullStep.stackBefore == null && fullStep.stackAfter == null &&
             fullStep.paperBefore == null && fullStep.paperAfter == null &&
@@ -31,14 +32,21 @@ internal object PromotedBaseProjection {
             "Structural/paper/document history needs a joint adapter before promotion"
         }
         require(promotedPlanes.all { it in planes }) { "A promoted physical cel is missing" }
+        require(sharedCelAliases.all { (id, shared) -> shared.isNotBlank() &&
+            (id to null) in promotedPlanes && (id to shared) !in planes }) {
+            "A native shared alias must name one promoted shared plane"
+        }
+        fun address(change: UndoLog.TileChange<T>): Pair<String, String?> {
+            val owner = MediaStores.parse(change.layerId)?.first ?: change.layerId
+            return owner to change.celId.takeUnless { it != null && sharedCelAliases[owner] == it }
+        }
         require(when (direction) {
             RecordedScene.Direction.NEW -> true
             RecordedScene.Direction.UNDO -> cursor.peekUndo() === fullStep
             RecordedScene.Direction.REDO -> cursor.peekRedo() === fullStep
         }) { "The complete original history Step must be the actual current cursor endpoint" }
         val bridged = fullStep.changes.filter { change ->
-            val owner = MediaStores.parse(change.layerId)?.first ?: change.layerId
-            (owner to change.celId) in planes
+            address(change) in planes
         }
         require(bridged.isEmpty() || (direction != RecordedScene.Direction.NEW && activationHistory.any { it === fullStep })) {
             "Only exact pre-activation undo/redo Steps may address a promoted base"
@@ -47,9 +55,9 @@ internal object PromotedBaseProjection {
         val slabs = ArrayList<UndoLog.SlabChange<T>>()
         for (change in bridged) {
             require(MediaStores.parse(change.layerId) == null) { "Media history cannot become a plain base slab" }
-            val address = change.layerId to change.celId
+            val address = address(change)
             require(address in promotedPlanes) { "This recorded cel has no native-base transfer proof" }
-            require(targets.add(Triple(change.layerId, change.celId, change.key))) {
+            require(targets.add(Triple(address.first, address.second, change.key))) {
                 "A native Step repeats its promoted physical target"
             }
             val cel = planes.getValue(address)
@@ -64,7 +72,7 @@ internal object PromotedBaseProjection {
             require(base?.value?.texture == expected) { "Native history no longer matches its promoted base endpoint" }
             // Preserve legacy resource-free/no-op history movement without inventing a changed slab.
             if (change.before == change.after) continue
-            slabs += UndoLog.SlabChange(change.layerId, change.celId, change.key, 0L,
+            slabs += UndoLog.SlabChange(address.first, address.second, change.key, 0L,
                 change.before?.let { UndoLog.SlabValue(it, "normal") },
                 change.after?.let { UndoLog.SlabValue(it, "normal") })
         }

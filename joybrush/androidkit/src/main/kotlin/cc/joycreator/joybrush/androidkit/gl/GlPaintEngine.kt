@@ -421,6 +421,9 @@ class GlPaintEngine(
         val baseTransferProof: NativeBaseTransferProof? = null,
     ) : RecordedScene.PromotedPublication<Int> {
         override val baseTransferIdentity: Any? get() = baseTransferProof
+        override val promotedSharedCels: Map<String, String> = promotedBases.mapNotNull { (id, cel) ->
+            if (cel == null) nativeLayers.getValue(id).sharedCel?.let { id to it } else null
+        }.toMap()
     }
 
     private var publishedPaint: PublishedPaintState? = null
@@ -1995,12 +1998,10 @@ class GlPaintEngine(
                 val media = MediaStores.parse(change.layerId)
                 val id = media?.first ?: change.layerId
                 val owner = layers[id] ?: error("A reachable history owner is missing")
-                require(!owner.isMask && !id.endsWith(MASK_SUFFIX) &&
-                    (change.celId == null || (change.celId != owner.sharedCel && change.celId in owner.cels))) {
-                    "Reachable history needs canonical existing physical destinations"
-                }
-                require(targets.add(Triple(change.layerId, change.celId, change.key))) { "A reachable history Step repeats a target" }
-                val bridged = (id to change.celId) in promoted
+                require(!owner.isMask && !id.endsWith(MASK_SUFFIX)) { "Reachable history needs a paint owner" }
+                val cel = nativeHistoryCel(owner, change.celId)
+                require(targets.add(Triple(change.layerId, cel, change.key))) { "A reachable history Step repeats a target" }
+                val bridged = (id to cel) in promoted
                 require(!bridged || media == null) { "Selected media history cannot become a plain base" }
                 require(change.before != change.after || (bridged && change.before == null)) { "Reachable texture no-ops cannot transfer ownership" }
                 for (texture in listOfNotNull(change.before, change.after)) {
@@ -2017,7 +2018,8 @@ class GlPaintEngine(
             val state = current.toMutableMap()
             for (step in steps.asReversed()) {
                 for (change in step.changes) {
-                    val at = Triple(change.layerId, change.celId, change.key)
+                    val id = MediaStores.parse(change.layerId)?.first ?: change.layerId
+                    val at = Triple(change.layerId, nativeHistoryCel(layers.getValue(id), change.celId), change.key)
                     require(state[at] == if (forward) change.before else change.after) { "Reachable history has a stale physical endpoint" }
                     val next = if (forward) change.after else change.before
                     if (next == null) state.remove(at) else state[at] = next
@@ -2899,14 +2901,28 @@ class GlPaintEngine(
         // Disposable projections are rebuilt against these new physical stores after publication.
     }
 
-    private fun nativeStepOwner(change: UndoLog.TileChange<Int>, root: PublishedPaintState): Layer {
+    /** Native paint history uses both null and the document shared ID for the same real map. */
+    private fun nativeHistoryCel(layer: Layer, cel: String?): String? {
+        if (cel == null) return null
+        require(cel in layer.cels) { "Native history names a missing physical cel" }
+        if (cel == layer.sharedCel) {
+            require(layer.cels[cel] === layer.tiles) { "The native shared alias lost its physical store" }
+            return null
+        }
+        require(layer.cels[cel] !== layer.tiles) { "An unrelated cel aliases the shared native store" }
+        return cel
+    }
+
+    private fun nativeStepOwner(change: UndoLog.TileChange<Int>, root: PublishedPaintState,
+                                allowLegacySharedAlias: Boolean): Layer {
         val ownerId = MediaStores.parse(change.layerId)?.first ?: change.layerId
         require(!ownerId.endsWith(MASK_SUFFIX)) { "Recorded clipping masks need the joint clipping adapter" }
         val layer = root.nativeLayers[ownerId] ?: error("No native owner $ownerId")
-        require(change.celId == null || (change.celId != layer.sharedCel && change.celId in layer.cels)) {
-            "Native history must address a canonical existing physical cel"
+        require(change.celId == null || change.celId != layer.sharedCel || allowLegacySharedAlias) {
+            "New native writes must use their canonical physical address"
         }
-        require((ownerId to change.celId) !in root.recorded.planes) {
+        val cel = nativeHistoryCel(layer, change.celId)
+        require((ownerId to cel) !in root.recorded.planes) {
             "Native writes on recorded planes need the physical slab adapter"
         }
         require(change.before != change.after) { "A native no-op cannot publish artwork history" }
@@ -2915,7 +2931,7 @@ class GlPaintEngine(
     }
 
     private fun nativeStepTiles(layer: Layer, change: UndoLog.TileChange<Int>): Map<Long, Int> {
-        val cel = change.celId
+        val cel = nativeHistoryCel(layer, change.celId)
         return MediaStores.parse(change.layerId)?.let { (_, store) ->
             (if (cel == null) layer.floats else layer.celFloats[cel])?.get(store).orEmpty()
         } ?: (if (cel == null) layer.tiles else layer.cels.getValue(cel))
@@ -2940,7 +2956,7 @@ class GlPaintEngine(
         }
         val projection = expected.baseTransferProof?.let {
             PromotedBaseProjection.prepare(expected.recorded.planes, step, direction, expected.cursor,
-                expected.legacyBaseSteps, expected.promotedBases)
+                expected.legacyBaseSteps, expected.promotedBases, expected.promotedSharedCels)
         }
         val nativeChanges = step.changes.filter { change -> projection?.bridgedChanges?.none { it === change } != false }
         val nextLayers = LinkedHashMap(expected.nativeLayers)
@@ -2962,9 +2978,12 @@ class GlPaintEngine(
         val recordedOwners = (step.lines.map { it.layerId } + step.slabs.map { it.layerId } +
             projection?.bridgedChanges.orEmpty().map { it.layerId }).toSet()
         recordedOwners.forEach { detachOwner(expected.nativeLayers[it] ?: error("Missing recorded paint owner")) }
+        val allowLegacySharedAlias = projection != null && direction != RecordedScene.Direction.NEW &&
+            expected.legacyBaseSteps.any { it === step }
         for (change in nativeChanges) {
-            val owner = nativeStepOwner(change, expected)
-            require(targets.add(Triple(change.layerId, change.celId, change.key))) {
+            val owner = nativeStepOwner(change, expected, allowLegacySharedAlias)
+            val cel = nativeHistoryCel(owner, change.celId)
+            require(targets.add(Triple(change.layerId, cel, change.key))) {
                 "A joint native batch cannot repeat a physical target"
             }
             val before = if (direction == RecordedScene.Direction.UNDO) change.after else change.before
@@ -2977,22 +2996,24 @@ class GlPaintEngine(
                 }
             }
             val target = detachOwner(owner)
-            val store = MediaStores.parse(change.layerId)?.let { (_, name) -> payload(target, name, change.celId) }
-                ?: planeTiles(target, change.celId)
+            val store = MediaStores.parse(change.layerId)?.let { (_, name) -> payload(target, name, cel) }
+                ?: planeTiles(target, cel)
             val after = if (direction == RecordedScene.Direction.UNDO) change.before else change.after
             if (after == null) store.remove(change.key) else store[change.key] = after
         }
         val nextAgreements = HashMap(expected.agreements)
         val payloadTargets = nativeChanges.mapNotNull { change ->
-            MediaStores.parse(change.layerId)?.let { Triple(it.first, change.celId, change.key) }
+            MediaStores.parse(change.layerId)?.let { Triple(it.first,
+                nativeHistoryCel(expected.nativeLayers.getValue(it.first), change.celId), change.key) }
         }.toSet()
         for (change in nativeChanges) {
             val ownerId = MediaStores.parse(change.layerId)?.first ?: change.layerId
             val target = nextLayers.getValue(ownerId)
-            val at = Triple(ownerId, change.celId, change.key)
-            val stores = if (change.celId == null) target.floats else target.celFloats[change.celId]
+            val cel = nativeHistoryCel(target, change.celId)
+            val at = Triple(ownerId, cel, change.key)
+            val stores = if (cel == null) target.floats else target.celFloats[cel]
             if (stores?.values?.any { change.key in it } == true && at in payloadTargets) {
-                nextAgreements[at] = (if (change.celId == null) target.tiles else target.cels[change.celId])?.get(change.key) ?: NO_LOOK
+                nextAgreements[at] = (if (cel == null) target.tiles else target.cels[cel])?.get(change.key) ?: NO_LOOK
             } else nextAgreements.remove(at)
         }
         val protected = persistentNativeTextures(nextLayers)

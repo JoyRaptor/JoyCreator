@@ -88,6 +88,8 @@ internal class RecordedScene<T : Any> private constructor(
     internal interface PromotedPublication<T : Any> : Publication<T> {
         val promotedBases: Set<Pair<String, String?>>
         val legacyBaseSteps: Set<UndoLog.Step<T>>
+        /** Proven native shared-cel aliases; recorded addresses remain null for shared. */
+        val promotedSharedCels: Map<String, String> get() = emptyMap()
         /** Null for ordinary/reset roots; not a caller-supplied alias permission flag. */
         val baseTransferIdentity: Any?
     }
@@ -531,7 +533,8 @@ internal class RecordedScene<T : Any> private constructor(
             // Never trust a caller's Prepared or replace the actual root with a wrapper. The pure
             // adapter verifies exact eligible Step identity, actual cursor endpoint and seq0 source.
             PromotedBaseProjection.prepare(before.planes, step, direction, publication.cursor,
-                expectedPromotion.legacyBaseSteps, expectedPromotion.promotedBases).recordedEdit
+                expectedPromotion.legacyBaseSteps, expectedPromotion.promotedBases,
+                expectedPromotion.promotedSharedCels).recordedEdit
         }
         val endpoints = stepTextures(step) + projectedEdit?.let { stepTextures(it.step) }.orEmpty()
         val cacheOwned = before.cacheTextures()

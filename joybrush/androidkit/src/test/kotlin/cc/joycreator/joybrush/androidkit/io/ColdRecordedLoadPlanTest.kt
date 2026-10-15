@@ -210,7 +210,8 @@ class ColdRecordedLoadPlanTest {
     }
 
     @Test fun regionalCurrentInactiveAndHeldLinesAllNeedPersistedClips() {
-        val base = regional()
+        // Legacy v10 structure remains readable; the cold runtime still cannot infer its domain.
+        val base = regional().let { it.copy(doc = it.doc.copy(version = 10)) }
         val brush = LineArchiveFixture.brush
         val record = mixed().strokes.values.single().first()
         for (id in listOf("shared", "active", "inactive")) for (held in listOf(false, true)) {
@@ -219,6 +220,7 @@ class ColdRecordedLoadPlanTest {
             }, regions = base.doc.layers.single().regions.map { it.copy(held = held) })
             val source = base.copy(doc = base.doc.copy(layers = listOf(layer), brushes = listOf(brush.id)),
                 strokes = mapOf(("l" to id) to listOf(record)), brushes = mapOf(brush.id to brush))
+            JbArchive.requireStructure(source)
             assertTrue(failure(source).contains("captured physical clipping"))
         }
     }

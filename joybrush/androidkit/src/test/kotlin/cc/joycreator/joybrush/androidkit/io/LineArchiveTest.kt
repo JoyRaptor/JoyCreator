@@ -90,7 +90,7 @@ class LineArchiveTest {
         val seen = mutableListOf<String>()
         val back = read(bytes) { seen += it; LineArchiveFixture.brush }
         assertEquals(listOf(LineArchiveFixture.brush.id), seen)
-        assertEquals(DOC_VERSION, back.doc.version)
+        assertEquals(10, back.doc.version, "Historical INK migration does not invent v11 captured domains")
         assertEquals(LayerKind.PAINT, back.doc.layers.single().kind)
         assertEquals(listOf(1L, 2L), back.strokes.getValue("l" to "c").map { it.seq })
         assertTrue(back.strokes.values.flatten().all { !it.locked && it.groupId == null })
@@ -153,7 +153,7 @@ class LineArchiveTest {
         val current = LineArchiveFixture.entries(LineArchiveFixture.encoded(pixel)).toMap()
         assertEquals(old.keys, current.keys)
         for (name in old.keys - "document.json") assertContentEquals(old.getValue(name), current.getValue(name), name)
-        assertEquals(old.getValue("document.json").decodeToString().replace("\"version\": 9", "\"version\": 10"), current.getValue("document.json").decodeToString())
+        assertEquals(old.getValue("document.json").decodeToString().replace("\"version\": 9", "\"version\": 11"), current.getValue("document.json").decodeToString())
         val back = read(LineArchiveFixture.encoded(pixel))
         for ((key, tile) in pixel.mediaTiles) assertContentEquals(tile, back.mediaTiles.getValue(key))
         for ((key, tile) in pixel.tiles) assertContentEquals(tile, back.tiles.getValue(key))

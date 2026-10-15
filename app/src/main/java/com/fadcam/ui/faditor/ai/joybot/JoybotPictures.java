@@ -158,6 +158,18 @@ public final class JoybotPictures {
     @NonNull
     public static Picture generate(@NonNull Context c, @NonNull String prompt, @NonNull String aspect)
             throws Problem {
+        return generate(c, prompt, aspect, null);
+    }
+
+    /**
+     * As above, with the person's own pictures as references ("data:" or https URLs) — "make my
+     * sketch into a finished picture". Sent as OpenRouter's {@code input_references}, at most as
+     * many as the model takes; a model that takes none gets the words alone.
+     */
+    @WorkerThread
+    @NonNull
+    public static Picture generate(@NonNull Context c, @NonNull String prompt, @NonNull String aspect,
+                                   @Nullable java.util.List<String> references) throws Problem {
         if (!canGenerate(c)) {
             throw new Problem(AiService.isCustom(c)
                     ? "Making pictures works through OpenRouter; your AI is set to another service."
@@ -169,6 +181,15 @@ public final class JoybotPictures {
                     .put("prompt", prompt)
                     .put("n", 1)
                     .put("aspect_ratio", ratioFor(aspect));
+            int max = references == null || references.isEmpty() ? 0 : ModelCatalog.maxReferences(c, model(c));
+            if (max > 0) {
+                JSONArray refs = new JSONArray();
+                for (int i = 0; i < references.size() && i < max; i++) {
+                    refs.put(new JSONObject().put("type", "image_url")
+                            .put("image_url", new JSONObject().put("url", references.get(i))));
+                }
+                body.put("input_references", refs);
+            }
             Request req = new Request.Builder()
                     .url(AiService.DEFAULT_BASE + "/images")
                     .addHeader("Authorization", "Bearer " + AiKey.get(c))

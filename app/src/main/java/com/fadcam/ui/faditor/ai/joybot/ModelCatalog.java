@@ -51,10 +51,21 @@ public final class ModelCatalog {
         /** From the picture catalogue: talks only in pictures. */
         public final boolean pictureModel;
 
+        /**
+         * How many of the person's own pictures a picture model takes as references (OpenRouter's
+         * {@code supported_parameters.input_references.max}); 0 = it only reads words.
+         */
+        public final int maxRefs;
+
         Model(@NonNull String id, @NonNull String name, boolean free, boolean sees,
               boolean makesPictures, boolean pictureModel) {
+            this(id, name, free, sees, makesPictures, pictureModel, 0);
+        }
+
+        Model(@NonNull String id, @NonNull String name, boolean free, boolean sees,
+              boolean makesPictures, boolean pictureModel, int maxRefs) {
             this.id = id; this.name = name; this.free = free; this.sees = sees;
-            this.makesPictures = makesPictures; this.pictureModel = pictureModel;
+            this.makesPictures = makesPictures; this.pictureModel = pictureModel; this.maxRefs = maxRefs;
         }
 
         /** "FREE · 👁" — the badges, in words a row can show. */
@@ -63,6 +74,7 @@ public final class ModelCatalog {
             if (free) b.append("FREE");
             if (sees) { if (b.length() > 0) b.append("  "); b.append("👁 sees pictures"); }
             if (makesPictures) { if (b.length() > 0) b.append("  "); b.append("🎨 makes pictures"); }
+            if (maxRefs > 0) { if (b.length() > 0) b.append("  "); b.append("🖼 works from your pictures"); }
             return b.toString();
         }
     }
@@ -121,11 +133,23 @@ public final class ModelCatalog {
                 String id = m.optString("id", "");
                 if (id.isEmpty()) continue;
                 JSONObject arch = m.optJSONObject("architecture");
+                // Read, not assumed: most picture models take references, a few only words
+                // (recraft-v4.1-flash, meta/muse-image on 2026-10-15).
+                JSONObject params = m.optJSONObject("supported_parameters");
+                JSONObject refs = params == null ? null : params.optJSONObject("input_references");
+                int maxRefs = refs == null ? 0 : refs.optInt("max", 1);
                 out.add(new Model(id, m.optString("name", id), false,
-                        has(arch, "input_modalities", "image"), true, true));
+                        has(arch, "input_modalities", "image"), true, true, maxRefs));
             }
         } catch (Exception ignored) { }
         return out;
+    }
+
+    /** How many reference pictures this picture model takes (0 = none, or not known). Blocking. */
+    @WorkerThread
+    public static int maxReferences(@NonNull Context c, @NonNull String modelId) {
+        for (Model m : pictureModels(c)) if (m.id.equals(modelId)) return m.maxRefs;
+        return 0;
     }
 
     /**

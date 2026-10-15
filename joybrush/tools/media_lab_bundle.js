@@ -2,16 +2,17 @@
 // papers inlined) so it can be opened on the phone from a single link.
 //   node tools/media_lab_bundle.js <out.html>            the lab (index.html)
 //   node tools/media_lab_bundle.js <out.html> pencil     the pencil tuner (pencil.html)
+//   node tools/media_lab_bundle.js <out.html> oils       vector oils, lift vs repaint (oils.html)
 const fs = require('fs');
 const path = require('path');
 const root = path.join(__dirname, '..');
 const lab = path.join(root, 'lab', 'media');
 const which = process.argv[3] || 'index';
-const out = process.argv[2] || path.join(lab, 'build', which === 'pencil' ? 'pencil_tuner.html' : 'media_lab.html');
+const out = process.argv[2] || path.join(lab, 'build', which === 'pencil' ? 'pencil_tuner.html' : which === 'oils' ? 'vector_oils.html' : 'media_lab.html');
 
 // Scripts: each ES module becomes a scope that returns its exports; imports read from those scopes.
-const order = which === 'pencil'
-  ? ['gl.js', 'paper.js', 'stick.js', 'wet.js', 'spline.js', 'paste.js', 'engine.js', 'pencil.js']
+const order = which === 'pencil' ? ['gl.js', 'paper.js', 'stick.js', 'wet.js', 'spline.js', 'paste.js', 'engine.js', 'pencil.js']
+  : which === 'oils' ? ['gl.js', 'paper.js', 'stick.js', 'wet.js', 'spline.js', 'paste.js', 'engine.js', 'oils.js']
   : ['gl.js', 'paper.js', 'stick.js', 'tests.js', 'wet.js', 'spline.js', 'paste.js', 'engine.js', 'vector.js', 'main.js'];
 let js = '';
 for (const f of order) {
@@ -48,7 +49,7 @@ for (const s of appCat.surfaces) for (const f of [s.file, s.fluid].filter(Boolea
   files['../../assets/paper/' + f] = fs.readFileSync(path.join(root, 'assets', 'paper', f)).toString('base64');
 const bundle = { shaders, json: { '../../assets/paper/catalogue.json': appCat }, files };
 
-const html = fs.readFileSync(path.join(lab, which === 'pencil' ? 'pencil.html' : 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(lab, which === 'pencil' ? 'pencil.html' : which === 'oils' ? 'oils.html' : 'index.html'), 'utf8');
 const title = html.match(/<title>[\s\S]*?<\/title>/)[0];
 const style = html.match(/<style>[\s\S]*?<\/style>/)[0];
 const body = html.match(/<body>([\s\S]*?)<script/)[1];

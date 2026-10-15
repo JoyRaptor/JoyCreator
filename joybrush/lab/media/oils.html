@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Vector Oils</title>
+<style>
+  /* The media lab's dark working surface: zinc greys, flat pills, a frosted bar over the paper. */
+  :root { --ground: #232326; --panel: rgba(24, 24, 27, 0.86); --pill: #3f3f46; --pill-on: #22d3ee; --ink: #e8e6e3;
+          --muted: #a1a1aa; --err: #fca5a5; color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: var(--ground); overflow: hidden; font: 13px system-ui, sans-serif; color: var(--ink); }
+  canvas { display: block; touch-action: none; }
+  #c, #over { position: fixed; inset: 0; }
+  #over { pointer-events: none; }
+  #bar { position: fixed; top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+         background: var(--panel); backdrop-filter: blur(10px); border-radius: 14px; padding: 8px; }
+  .seg { display: inline-flex; background: #18181b; border-radius: 999px; padding: 2px; gap: 2px; }
+  button, select { background: var(--pill); color: var(--ink); border: 0; border-radius: 999px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  .seg button { background: transparent; }
+  .seg button.on, button.on { background: var(--pill-on); color: #0a0a0b; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+  input[type=color] { width: 34px; height: 30px; border: 0; border-radius: 999px; padding: 0; background: none; }
+  [hidden] { display: none !important; }
+  #readout { color: var(--muted); font-variant-numeric: tabular-nums; padding: 0 4px; }
+  #help { position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); color: var(--muted); background: var(--panel);
+          backdrop-filter: blur(10px); border-radius: 12px; padding: 8px 10px; line-height: 1.4; max-width: 760px; }
+  #help b { color: var(--ink); font-weight: 600; }
+  .err { position: fixed; bottom: 0; left: 0; right: 0; color: var(--err); background: var(--ground); margin: 0; padding: 8px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<canvas id="over"></canvas>
+<div id="bar">
+  <div class="seg" role="group" aria-label="What the pen does">
+    <button id="mPaint" class="on" title="Paint new oil strokes">Paint</button>
+    <button id="mMove" title="Tap a stroke to select it, drag to move it">Move</button>
+  </div>
+  <div class="seg" id="moveStyle" role="group" aria-label="How a moved stroke behaves">
+    <button id="sLift" class="on" title="Lift: the stroke moves as the paint it laid, mix and ridges kept; the paint under it shows again. Nothing is repainted">Lift</button>
+    <button id="sRemix" title="Re-mix: only this stroke is painted again where you put it, mixing into what is under it; strokes painted after it stay as they were">Re-mix</button>
+    <button id="sRepaint" title="Repaint: the stroke is painted again where you put it, mixing into what is there, and every stroke painted after it is painted again on top">Repaint</button>
+  </div>
+  <select id="tool" title="Brush"></select>
+  <input id="color" type="color" value="#2b4fb3" title="Paint colour (and the colour Recolour gives the selected stroke)">
+  <button id="recolor" title="Give the selected stroke the current colour: it is painted again and re-mixes" disabled>Recolour</button>
+  <button id="nudgeL" title="Nudge the selected stroke left 1 mm" disabled>◀</button>
+  <button id="nudgeR" title="Nudge the selected stroke right 1 mm" disabled>▶</button>
+  <button id="del" title="Remove the selected stroke" disabled>Remove</button>
+  <button id="repaintAll" title="Paint every stroke again from its record, in order">Repaint all</button>
+  <button id="sample" title="Start again with a sample painting of overlapping strokes">Sample painting</button>
+  <button id="clear" title="Remove every stroke">Clear</button>
+  <span id="readout">starting…</span>
+</div>
+<div id="help"><b>Move</b>, then tap a stroke and drag it. <b>Lift</b> slides the paint it laid, mix and ridges kept, over or under the others. <b>Re-mix</b> paints just this stroke again where you drop it, mixing into what is there. <b>Repaint</b> also paints again every later stroke it touches, so they pick up from it too. Tap the same place again to pick the stroke underneath. Two fingers pan and zoom.</div>
+<script type="module" src="js/oils.js"></script>
+</body>
+</html>

@@ -22,6 +22,9 @@ class ScopedSelectEditTest {
     private val c = LineAddress("other", "frame", "same")
     private fun record(seq: Long) = StrokeRecord("same", "brush", 7L, 0f, 1f,
         listOf(PenSample(10f, 50f, 0.0), PenSample(90f, 50f, 1.0)), seq = seq)
+    private fun capturedRecord(seq: Long) = record(seq).copy(
+        capturedPhysicalSource = CapturedPhysicalSource(CaptureDomain(CaptureRect(0, 0, 100, 100)))
+    )
 
     private class Host(initial: List<AddressedStroke>, private val live: Boolean) : SelectionHost {
         // Deliberately not seq-sorted: changing order must never re-pair ownership and records.
@@ -177,6 +180,39 @@ class ScopedSelectEditTest {
         choose(tool, c)
         assertTrue(tool.rasterizeDown())
         assertEquals(setOf(c), host.baked)
+    }
+
+    @Test fun externalOrderCannotSelectCapturedLineForLiftDeleteOrBake() {
+        val host = Host(listOf(AddressedStroke(b, capturedRecord(2))), live = true)
+        val tool = SelectTool(host, 1f) { true }
+
+        choose(tool, b)
+        assertNull(tool.selection)
+        assertTrue(host.lifted.isEmpty())
+        assertFalse(tool.deleteSelection())
+        assertTrue(host.deleted.isEmpty())
+        assertFalse(tool.rasterizeDown())
+        assertTrue(host.baked.isEmpty())
+
+        val (ordinaryTool, ordinaryHost) = fixture()
+        choose(ordinaryTool, b)
+        assertEquals(setOf(b), ordinaryHost.lifted)
+        assertTrue(ordinaryTool.deleteSelection())
+        assertEquals(setOf(b), ordinaryHost.deleted)
+    }
+
+    @Test fun deleteAndBakeRefuseWhenSelectedOrdinaryAddressNowNamesCapturedRecord() {
+        val (deleteTool, deleteHost) = fixture()
+        choose(deleteTool, b)
+        deleteHost.stored[b] = capturedRecord(2)
+        assertFalse(deleteTool.deleteSelection())
+        assertTrue(deleteHost.deleted.isEmpty())
+
+        val (bakeTool, bakeHost) = fixture()
+        choose(bakeTool, b)
+        bakeHost.stored[b] = capturedRecord(2)
+        assertFalse(bakeTool.rasterizeDown())
+        assertTrue(bakeHost.baked.isEmpty())
     }
 
     @Test fun countScrubberDistinguishesSameIdCelsAndRejectsChangedOwnership() {

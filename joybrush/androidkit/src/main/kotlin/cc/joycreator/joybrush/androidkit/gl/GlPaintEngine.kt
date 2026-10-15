@@ -2097,7 +2097,6 @@ class GlPaintEngine(
         val names = IntArray(plan.uploads.size)
         val ownership = ByteArray(names.size)
         val glState = ColdUploadGlState.capture()
-        var restoredGl = false
         var priorOwners: Set<Int> = emptySet()
         fun current() = ready && physicalContextEpoch == physical && !forgettingGraphicsContext
         fun checkedGl() { check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Cold source GL upload failed" } }
@@ -2173,7 +2172,7 @@ class GlPaintEngine(
             agreeAllPayloads()
             check(current())
             // Restore fallible GL state BEFORE accepting scene/root ownership. Factory/binding are CPU-only.
-            glState.restore(); restoredGl = true
+            glState.restore()
             checkedGl()
             val planes = plan.recordedPlanes.associate { plane ->
                 val at = plane.address
@@ -2200,13 +2199,11 @@ class GlPaintEngine(
                 if (!wasBound) cleanup { releaseRecordedScene() }
                 cleanup { resetDocument() }
                 if (!wasBound && current()) cleanup {
-                    for (upload in plan.uploads) if (ownership[upload.id] == 1.toByte() &&
-                        upload.kind == ColdRecordedLoadPlan.Kind.MEDIA_RGBA16F && names[upload.id] !in priorOwners)
-                        floatNames.remove(names[upload.id])
-                    // A failed scene close may have released only some looks. Preserve all names
-                    // still in real caches/pools/native owners; delete only this attempt's leftovers.
-                    val protected = protectedRecordedTextureHandles()
-                    for (id in names.indices) if ((ownership[id] == 1.toByte() || ownership[id] == 3.toByte()) &&
+                    // Partial reset/scene-close failure can orphan caller, native or look uploads.
+                    // A float-format registry entry alone is not an owner. Retain actual stores,
+                    // caches/pools and every pre-attempt name; delete only this attempt's leftovers.
+                    val protected = activeTextureOwners() + priorOwners
+                    for (id in names.indices) if (ownership[id].toInt() in 1..3 &&
                         names[id] != 0 && names[id] !in protected) {
                         floatNames.remove(names[id])
                         GLES30.glDeleteTextures(1, names, id)
@@ -2215,8 +2212,10 @@ class GlPaintEngine(
                 if (current()) {
                     localDocumentPaper = priorPaper; resolvedPaper = priorResolved; loadedPaper = priorLoaded
                     lookTexture = priorLook; surfaceTexture = priorSurface; fluidTexture = priorFluid
-                    paperBackground.invalidate()
-                    if (!restoredGl) cleanup { glState.restore() }
+                    cleanup { paperBackground.invalidate() }
+                    // reset/retirement cleanup may bind GL objects even if state was restored
+                    // before scene binding. Reestablish caller state after the final cleanup.
+                    cleanup { glState.restore() }
                 }
             }
             // On context retirement no old ledger name may be deleted/restored in the new epoch.
@@ -2262,7 +2261,13 @@ class GlPaintEngine(
             for ((cel, tiles) in layer.cels) if (cel != layer.sharedCel) {
                 for ((key, texture) in tiles) add(ColdRecordedLoadPlan.Kind.NATIVE_RGBA8,id,cel,key,texture)
             }
-            layer.mask?.tiles?.forEach { (key, texture) -> add(ColdRecordedLoadPlan.Kind.MASK_RGBA8,id,null,key,texture) }
+            layer.mask?.let { mask ->
+                check(mask.cels.values.all { it === mask.tiles || it.isEmpty() } &&
+                    mask.planes().all { (_, stores) -> stores.values.all { it.isEmpty() } }) {
+                    "Cold mask inspection cannot omit auxiliary paint or media stores"
+                }
+                mask.tiles.forEach { (key, texture) -> add(ColdRecordedLoadPlan.Kind.MASK_RGBA8,id,null,key,texture) }
+            }
             for ((cel, stores) in layer.planes()) for ((store, tiles) in stores) for ((key, texture) in tiles) {
                 add(if (store == MediaStores.GROUND) ColdRecordedLoadPlan.Kind.GROUND_RGBA8
                     else ColdRecordedLoadPlan.Kind.MEDIA_RGBA16F,id,cel,key,texture,store)

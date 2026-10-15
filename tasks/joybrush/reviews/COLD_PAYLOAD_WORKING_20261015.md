@@ -24,8 +24,17 @@ only the disposable engine created by the existing debug host; no owner file wri
   Builder now canonicalizes only its copied output; original order/content assertions remain.
   Failed XML/log/independent receipt are preserved privately under
   C:/Temp/jb-lead-ops/cold-payload-focused-failure-45a37636a/.
-- New GPU source/host/fixture repairs are UNCOMPILED/UNRUN at this writing. Next full
-  core/backend/native/APK and exact-device checks must establish their own evidence.
+- Exact deabc3d5d full core2435/214suites (4 existing optional skips) and backend800/
+  76suites PASS4m6,0 failures/errors. New probe/host therefore compiles, but no new
+  Android execution is claimed. Independent fresh XML receipts are private
+  live-cold-payload-{core,backend}-full-xml.json. Job7638 finished/released its claim.
+- Subsequent static review hardened the mask manifest against auxiliary paint/media
+  stores. Rollback now considers orphan native uploads as well as caller/look uploads,
+  using real active ownership rather than a float-format registry as an owner. Caller GL
+  state is restored after final cleanup even if it was restored before root binding;
+  paper cleanup failures preserve the original failure. One actual no-GL ownership test
+  distinguishes orphan registry tags from pooled float ownership. These later changes
+  await backend/native/APK checks; GPU success/fault evidence remains UNRUN.
 
 Even success is only cold upload acceptance. Controlled allocation/storage/upload/scene/
 binding failures, rollback/paper equality and context-loss proofs remain before production

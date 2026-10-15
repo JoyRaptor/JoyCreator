@@ -44,6 +44,21 @@ public final class DirectRunner {
         public boolean changed;
         /** The project read back afterwards (for "Show me" and the next ideas). */
         @Nullable public ProjectFacts after;
+        /** An item this run ADDED (a slide on top, a picture, a clip), for "Show me"; else null. */
+        @Nullable public String newItemId;
+    }
+
+    /** Every clip and layer id in the project, to see what a run added. */
+    @NonNull
+    private static java.util.Set<String> itemIds(@NonNull FaditorProject p) {
+        java.util.Set<String> ids = new java.util.LinkedHashSet<>();
+        com.fadcam.ui.faditor.model.Timeline tl = p.getTimeline();
+        for (int i = 0; i < tl.getClipCount(); i++) ids.add(tl.getClip(i).getId());
+        for (com.fadcam.ui.faditor.model.Clip c : tl.getOverlayClips()) ids.add(c.getId());
+        for (com.fadcam.ui.faditor.layers.Track t : tl.getLayers()) {
+            for (com.fadcam.ui.faditor.layers.TimedItem it : t.getItems()) ids.add(it.getId());
+        }
+        return ids;
     }
 
     public interface Cancelled { boolean isCancelled(); }
@@ -105,6 +120,8 @@ public final class DirectRunner {
                 r.step = AIChatState.peekStep(projectId);
             }
             r.changed = !after.equals(before);
+            java.util.Set<String> was = itemIds(p0);
+            for (String id : itemIds(p1)) if (!was.contains(id)) { r.newItemId = id; break; }
             r.after = ProjectFactsReader.read(app, p1, online);
             r.summary = Outcome.describe(f0, r.after);
         }

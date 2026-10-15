@@ -53,6 +53,8 @@
     <string name="studio_opt_delete_text_overlay">Delete text overlay</string>
     <string name="studio_opt_remove_image_overlay">Remove image overlay?</string>
     <string name="studio_opt_remove_text_overlay">Remove text overlay?</string>
+    <string name="studio_opt_remove_slide_overlay">Remove this slide?</string>
+    <string name="studio_opt_delete_slide_overlay">Delete slide</string>
     <string name="studio_opt_one_block_the_whole_box">One block — the whole box stays a single caption, spaces won\'t split it.</string>
     <string name="studio_opt_split_into_words_the_box">Split into words — the box splits on spaces into timed words.</string>
     <string name="studio_opt_one_block">One block</string>

@@ -18043,19 +18043,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (askAboutFollowers(o.getId(), linkName(o), () -> {
             project.getTimeline().removeTextOverlay(o);
             undoManager.recordAction(new EditActions.LambdaAction(
-                    o.isImage() ? getString(R.string.studio_opt_delete_image_overlay) : getString(R.string.studio_opt_delete_text_overlay),
+                    o.isGeneratedSlide() ? getString(R.string.studio_opt_delete_slide_overlay) : o.isImage() ? getString(R.string.studio_opt_delete_image_overlay) : getString(R.string.studio_opt_delete_text_overlay),
                     () -> project.getTimeline().removeTextOverlay(o),
                     () -> project.getTimeline().addTextOverlay(o)));
             refreshAfterMarqueeBatchDelete();
             scheduleAutoSave();
         })) return;
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle(o.isImage() ? getString(R.string.studio_opt_remove_image_overlay) : getString(R.string.studio_opt_remove_text_overlay))
+                .setTitle(o.isGeneratedSlide() ? getString(R.string.studio_opt_remove_slide_overlay)
+                        : o.isImage() ? getString(R.string.studio_opt_remove_image_overlay) : getString(R.string.studio_opt_remove_text_overlay))
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .setPositiveButton(R.string.studio_ui_remove, (d, w) -> {
                     project.getTimeline().removeTextOverlay(o);
                     undoManager.recordAction(new EditActions.LambdaAction(
-                            o.isImage() ? getString(R.string.studio_opt_delete_image_overlay) : getString(R.string.studio_opt_delete_text_overlay),
+                            o.isGeneratedSlide() ? getString(R.string.studio_opt_delete_slide_overlay) : o.isImage() ? getString(R.string.studio_opt_delete_image_overlay) : getString(R.string.studio_opt_delete_text_overlay),
                             () -> project.getTimeline().removeTextOverlay(o),
                             () -> project.getTimeline().addTextOverlay(o)));
                     syncTimelineOverlays();

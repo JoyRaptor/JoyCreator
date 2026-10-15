@@ -894,6 +894,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
             if (text.isEmpty()) text = "What do you see in this picture?";
             addUserMessage(text);
             inputField.setText("");
+            // A PICTURE REQUEST with a picture attached ("make this sketch a finished cover"): the
+            // picture is the reference for the new one, not something to describe.
+            String subject = ModelCatalog.talkingToPictures(this) ? text : pictureSubject(text);
+            if (subject != null && projectId != null && JoybotPictures.canGenerate(this)) {
+                pictureReference = image;
+                if (ModelCatalog.talkingToPictures(this)) makePicture(text); else startPictureFlow(subject);
+                return;
+            }
             askAgent(text, image, stagedW, stagedH);
             return;
         }
@@ -1337,6 +1345,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
         if (!idea.target.isEmpty() && isSpineClip(r, idea.target)) {
             card.buttons.addView(JoybotChatViews.cardButton(this, "Show me",
                     "Go to this clip in the editor", v -> showMe(idea.target)));
+        } else if (r.newItemId != null && room == IdeaEngine.Room.STUDIO) {
+            // Something NEW (a slide on top, a picture): its row can land below the fold, so the
+            // editor selects it, scrolls to it and parks the playhead on it.
+            final String added = r.newItemId;
+            card.buttons.addView(JoybotChatViews.cardButton(this, "Show me",
+                    "Show what I just added in the editor", v -> showMe(added)));
         } else if ((changed || r.changed) && room != IdeaEngine.Room.STUDIO && projectId != null) {
             // From the lobby a change happened in a project you can't see: one tap to go and look
             // (owner, 2026-10-14: "I didn't know where it did it or how to get there").
@@ -1690,6 +1704,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void cancelSlideFlow() {
         slideFlow = null;
         awaitingPictureSubject = false;
+        pictureReference = null;
         addBotMessage("No problem.");
         if (currentOffer != null) showChips(currentOffer.ideas); else refreshIdeas(false);
     }
@@ -1698,6 +1713,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     /** Waiting for "what should the picture show?". */
     private boolean awaitingPictureSubject;
+    /** The person's own picture to make the new one from (a "data:" URL), or null. */
+    @Nullable private String pictureReference;
 
     /** "Make a picture", optionally already knowing what of. */
     private void startPictureFlow(@Nullable String subject) {
@@ -1769,14 +1786,18 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void makePicture(@NonNull String subject) {
         setBusy(true);
         actor.setMood(JoybotView.Mood.WORK);
-        addBotMessage("Making it — this usually takes 5 to 30 seconds…");
+        final String ref = pictureReference;
+        pictureReference = null;
+        addBotMessage((ref != null ? "Making it from your picture" : "Making it")
+                + " — this usually takes 5 to 30 seconds…");
         final String pid = projectId;
         aiExecutor.execute(() -> {
             String err = null;
             JoybotPictures.Saved saved = null;
             Bitmap thumb = null;
             try {
-                JoybotPictures.Picture pic = JoybotPictures.generate(this, subject, canvasPreset());
+                JoybotPictures.Picture pic = JoybotPictures.generate(this, subject, canvasPreset(),
+                        ref == null ? null : java.util.Collections.singletonList(ref));
                 saved = JoybotPictures.save(this, pid, pic, subject);
                 BitmapFactory.Options o = new BitmapFactory.Options();
                 o.inSampleSize = 2;
@@ -1865,6 +1886,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     /** The free route: their own AI app makes it; Share to Joy Creator brings it back. */
     private void handOffPicture(@NonNull String subject) {
+        pictureReference = null;
         aiExecutor.execute(() -> {
             String p = JoybotPictures.handoffPrompt(subject, canvasPreset());
             runOnUiThread(() -> {
@@ -2407,6 +2429,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         clp.setMargins(0, 0, dp(2), isUser ? dp(9) : dp(2));
         copyBtn.setLayoutParams(clp);
         copyBtn.setTag(text);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(copyBtn, "Copy this message");
         copyBtn.setOnClickListener(v -> {
             ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
             if (cm != null) {
@@ -2693,6 +2716,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
         applyBtn.setText("Apply");
         applyBtn.setLayoutParams(blp);
         applyBtn.setOnClickListener(v -> { setCardEnabled(card, false); apply.onClick(v); });
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(discard, "Don't make this change");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(applyBtn, "Make this change (one Undo puts it back)");
         rowView.addView(discard);
         rowView.addView(applyBtn);
         card.addView(rowView);
@@ -2786,6 +2811,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         tick.setBackground(shape);
         final int idx = messageViews.size() - 1;
         tick.setOnClickListener(v -> scrollToMessage(idx));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(tick, isUser ? "Jump to what you said here" : "Jump to Joybot's message");
         tickerContainer.addView(tick);
     }
 

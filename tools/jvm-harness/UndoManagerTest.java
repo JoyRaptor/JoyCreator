@@ -131,6 +131,39 @@ public class UndoManagerTest {
             eq("1g redo re-applies the edit", "S1", reopened.state);
         }
 
+        // ── 1b. Undo PAST the session start, then redo everything (device, 2026-10-14) ────────
+        // A history loaded from disk (snapshot-only) with a new in-session edit on top. Undoing
+        // both restores a snapshot for the older one, which invalidates every action; the newer
+        // edit, already on the redo stack, used to have no snapshot either, so redo dropped it:
+        // "Redo skipped an unrestorable entry: Add clip".
+        {
+            Model m = new Model("S0");
+            UndoManager um = new UndoManager();
+            FakeRestorer r = new FakeRestorer(m);
+            um.setSnapshotRestorer(r);
+            um.resetBaseline();
+            advance(2000);
+            m.state = "S1";
+            um.recordAction(new FakeAction(m, "Old edit", "S0", "S1"));
+            advance(20); r.tick();
+            Model reopened = new Model("S1");
+            FakeRestorer[] hr = new FakeRestorer[1];
+            UndoManager um2 = restart(um, reopened, hr);      // "Old edit" is snapshot-only now
+            advance(2000);
+            reopened.state = "S2";
+            um2.recordAction(new FakeAction(reopened, "Add clip", "S1", "S2"));
+            advance(20); hr[0].tick();
+            um2.undo();                                       // Add clip: by action
+            eq("1h undo the new edit", "S1", reopened.state);
+            um2.undo();                                       // Old edit: by snapshot (swaps the graph)
+            eq("1i undo past the session start", "S0", reopened.state);
+            eqI("1j both are redoable", 2, um2.getRedoCount());
+            eqB("1k redo the old edit", true, um2.redo());
+            eq("1l state after redo 1", "S1", reopened.state);
+            eqB("1m THE FIX: redo the new edit too", true, um2.redo());
+            eq("1n state after redo 2", "S2", reopened.state);
+        }
+
         // ── 2. record-BEFORE-mutate site (rotate-style) is correct via the deferred tick ───
         // The action is recorded while the model is still pre-edit; the mutation lands after.
         // The posted refresh runs after the whole handler, so the NEXT entry's before is right.
@@ -282,9 +315,14 @@ public class UndoManagerTest {
             eq("6c snapshot undo restored pre-loaded state", "H0", m.state);
             um.redo();                                        // snapshot redo -> H1
             eq("6d snapshot redo -> H1", "H1", m.state);
-            boolean redo2 = um.redo();                        // stale action entry (action nulled)
-            eqB("6e stale action's redo SAFELY no-ops (not replayed on orphan)", false, redo2);
-            eq("6f state is NOT the orphan-replay H2", "H1", m.state);
+            // The stale action is nulled, so it is NOT replayed on the orphan. Since 2026-10-14 its
+            // after-state was kept when it was undone (an older snapshot-only entry sat below it),
+            // so redo restores H2 BY VALUE instead of no-op'ing and losing the edit.
+            int restoresBefore = r.restores;
+            boolean redo2 = um.redo();
+            eqB("6e stale action's redo succeeds", true, redo2);
+            eq("6f ...back at H2", "H2", m.state);
+            eqI("6g ...by snapshot restore, not by replaying the orphaned action", restoresBefore + 1, r.restores);
         }
 
         // ── amendTopAction: ONE gesture must stay ONE undo press ─────────────────────────

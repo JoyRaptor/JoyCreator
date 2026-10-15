@@ -701,6 +701,7 @@ public final class StudioMirror {
     public static boolean healMovedFiles(Context context, String projectId, File projectJson) {
         Context app = context.getApplicationContext();
         if (!JoyFolderHome.isChosen(app) || !projectJson.isFile()) return false;
+        healMovedOriginals(app, projectJson);
         try {
             String text = readText(projectJson);
             Uri tree = JoyFolderHome.treeUri(app);
@@ -967,6 +968,54 @@ public final class StudioMirror {
         if (copied.isEmpty()) return copied;
         rewriteProject(context, projectId, copied);
         return copied;
+    }
+
+    // ── Moved originals ──────────────────────────────────────────────────
+    //
+    // A MOVE removes the original. Undo history keeps whole copies of the project from before the
+    // move, so undoing past it would bring back a link to a file that is gone. Every move is
+    // written down here (the original, by its usageKey, to its copy's link), and links to a moved
+    // original are pointed at the copy whenever a project loads and after every undo or redo.
+
+    private static final String MOVED_PREFS = "joy_moved";
+
+    /** Write down that these originals now live at these copies. */
+    public static void rememberMoved(Context context, Map<String, String> moved) {
+        android.content.SharedPreferences.Editor ed =
+                context.getSharedPreferences(MOVED_PREFS, Context.MODE_PRIVATE).edit();
+        for (Map.Entry<String, String> e : moved.entrySet()) ed.putString(usageKey(e.getKey()), e.getValue());
+        ed.apply();
+    }
+
+    /** Where a moved original's copy is now, or null when this link was never moved. */
+    public static String movedTo(Context context, String ref) {
+        return context.getSharedPreferences(MOVED_PREFS, Context.MODE_PRIVATE).getString(usageKey(ref), null);
+    }
+
+    /** True when anything has ever been moved (most people: never), so the checks cost nothing otherwise. */
+    public static boolean anyMoved(Context context) {
+        return !context.getSharedPreferences(MOVED_PREFS, Context.MODE_PRIVATE).getAll().isEmpty();
+    }
+
+    /** Point a saved project's links to moved originals at their copies. Before a load. */
+    private static boolean healMovedOriginals(Context app, File projectJson) {
+        if (!anyMoved(app)) return false;
+        try {
+            JsonElement root = JsonParser.parseString(readText(projectJson));
+            final boolean[] hit = {false};
+            rewrite(root, value -> {
+                String to = movedTo(app, value);
+                if (to == null || to.equals(value)) return value;
+                hit[0] = true;
+                return to;
+            });
+            if (!hit[0]) return false;
+            writeProjectJson(projectJson, root);
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "Could not re-point moved originals in " + projectJson, e);
+            return false;
+        }
     }
 
     /** A file's name as a person would know it ("IMG_2041.jpg"), from any kind of link. */

@@ -192,6 +192,18 @@ internal class RecordedScene<T : Any> private constructor(
         return read() === expected
     }
 
+    /** Source-root snapshot admission. Never replay, publish, or certify an unresolved cold index. */
+    internal fun checkSnapshotPublication(expected: Publication<T>) {
+        fun quiescent() = boundRead != null && history.isCursorBound && !binding && !resetPreparing &&
+            openLocalLeases == 0 && localPreparations == 0 && jointPreparations == 0 && jointLeases.isEmpty()
+        check(quiescent() && samePublication(expected)) { "Finish the current recorded transaction before saving" }
+        require(expected.recorded.planes.all { (plane, cel) -> cel.records.isEmpty() || plane in expected.recorded.plans }) {
+            "This cold saved drawing needs its actual source footprints verified before a new save"
+        }
+        check(renderer.contextCurrent()) { "Recorded source graphics are unavailable for saving" }
+        check(quiescent() && samePublication(expected)) { "Recorded artwork changed during snapshot admission" }
+    }
+
     /** Cache release never proceeds to another old name after a reset during one release. */
     private fun releaseInEpoch(textures: Collection<T>, epoch: Long) {
         for (texture in textures) {

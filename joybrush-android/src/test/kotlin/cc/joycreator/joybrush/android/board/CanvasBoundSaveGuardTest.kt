@@ -3,13 +3,11 @@ package cc.joycreator.joybrush.android.board
 import android.content.Context
 import cc.joycreator.joybrush.androidkit.JbCanvasView
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
-import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
 import cc.joycreator.joybrush.androidkit.io.JbArchiveException
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.input.PenSample
-import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.vector.RecordedCel
 import org.junit.After
@@ -21,6 +19,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Proxy
 
 /** Real view/root bookkeeping with fake names; no GPU execution or appearance claim. */
 @RunWith(RobolectricTestRunner::class)
@@ -84,7 +83,8 @@ class CanvasBoundSaveGuardTest {
         val e = engine(view)
         val root = checkNotNull(field(e, "publishedPaint"))
         val coordinator = checkNotNull(field(root, "coordinator"))
-        val state = (coordinator as RecordedScene<Int>).snapshotState()
+        val state = checkNotNull(field(root, "recorded"))
+        val planes = field(state, "planes") as Map<Pair<String, String?>, RecordedCel<Int>>
         val nativeLayers = field(root, "nativeLayers") as Map<String, Any>
         val owners = nativeLayers.mapValues { (_, owner) ->
             val stores = linkedMapOf<String, StoreState>()
@@ -94,7 +94,7 @@ class CanvasBoundSaveGuardTest {
             cels.forEach { (cel, map) -> stores["cel:$cel"] = StoreState(map, map.toMap()) }
             OwnerState(owner, stores)
         }
-        val slabs = state.planes.mapValues { (_, cel) ->
+        val slabs = planes.mapValues { (_, cel) ->
             cel.slabs.mapValues { (_, stack) -> stack.map { it.seq to it.value.texture } }
         }
         val pools = listOf("freeLayerTex", "freeStrokeTex", "freeSmudgeTex", "freeFloatTex")
@@ -104,9 +104,9 @@ class CanvasBoundSaveGuardTest {
         val queues = listOf("frameWork", "afterFrameWork", "pendingPaperVisits").associateWith {
             (field(view, it) as Collection<*>).toList()
         }
-        return Snapshot(root, coordinator, e.undo.snapshotCursor(), e.layerIds(), owners, state.planes, slabs,
+        return Snapshot(root, coordinator, e.undo.snapshotCursor(), e.layerIds(), owners, planes, slabs,
             invoke(e, "protectedRecordedTextureHandles") as Set<Int>, pools, e.boardDocument,
-            e.recordedLinePreparationCalls, e.recordedCompositionCalls, viewState, queues)
+            field(e, "recordedLinePreparationCalls") as Long, field(e, "recordedCompositionCalls") as Long, viewState, queues)
     }
 
     private fun assertUnchanged(view: JbCanvasView, before: Snapshot) {
@@ -140,7 +140,7 @@ class CanvasBoundSaveGuardTest {
 
     private fun assertReadRefusesWithoutMutation(view: JbCanvasView) {
         val e = engine(view)
-        assertTrue("fixture must have a bound root", e.hasJointPaintPublication)
+        assertNotNull("fixture must have a bound root", field(e, "publishedPaint"))
         val before = snapshot(view)
         val refusal = assertThrows(JbArchiveException::class.java) {
             invoke(view, "readContents", 64, 64)
@@ -173,11 +173,12 @@ class CanvasBoundSaveGuardTest {
         val ticket = invoke(e, "preparePlainRecordingPromotion", "paint")!!
         assertEquals(true, invoke(ticket, "canPublish"))
         assertEquals(true, invoke(ticket, "publish"))
-        assertTrue(e.hasJointPaintPublication)
+        assertNotNull(field(e, "publishedPaint"))
         val root = checkNotNull(field(e, "publishedPaint"))
-        val coordinator = checkNotNull(field(root, "coordinator")) as RecordedScene<Int>
-        assertTrue("promoted plane is line-free", coordinator.planes.getValue("paint" to null).records.isEmpty())
-        assertEquals(setOf(0L), coordinator.planes.getValue("paint" to null).slabs.keys)
+        @Suppress("UNCHECKED_CAST")
+        val planes = field(checkNotNull(field(root, "recorded")), "planes") as Map<Pair<String, String?>, RecordedCel<Int>>
+        assertTrue("promoted plane is line-free", planes.getValue("paint" to null).records.isEmpty())
+        assertEquals(setOf(0L), planes.getValue("paint" to null).slabs.keys)
 
         assertReadRefusesWithoutMutation(view)
     }
@@ -189,23 +190,31 @@ class CanvasBoundSaveGuardTest {
         val record = StrokeRecord("line", brush.id, 81L, 0f, 1f,
             listOf(PenSample(10f, 10f, 0.0)), seq = 1L)
         val plane = "paint" to null
-        val fakeRenderer = object : RecordedScene.Renderer<Int> {
-            override fun contextCurrent() = true
-            override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset) =
-                RecordedScene.Unit<Int>("normal", emptyMap())
-            override fun look(plane: Pair<String, String?>, key: Long, sources: List<RecordedScene.Source<Int>>) = 900_002
-            override fun release(texture: Int) = Unit
+        // androidkit is a composite dependency, not this test module's friend. Exercise its
+        // actual internal contract through JVM reflection rather than changing visibility.
+        val sceneClass = Class.forName("cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene")
+        val rendererClass = Class.forName("cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene\$Renderer")
+        val fakeRenderer = Proxy.newProxyInstance(rendererClass.classLoader, arrayOf(rendererClass)) { proxy, method, args ->
+            when (method.name) {
+                "contextCurrent" -> true
+                "line", "look", "release" -> throw AssertionError("The save guard must not render or release")
+                "hashCode" -> System.identityHashCode(proxy)
+                "equals" -> proxy === args?.firstOrNull()
+                "toString" -> "Cold save-guard fixture"
+                else -> null
+            }
         }
-        val scene = RecordedScene.createSaved(
+        val companion = sceneClass.getDeclaredField("Companion").get(null)
+        val scene = invoke(companion, "createSaved",
             mapOf(plane to RecordedCel("paint", null, listOf(record))),
             mapOf(brush.id to brush), e.undo, fakeRenderer,
             mapOf(plane to setOf(0L)), mapOf(plane to mapOf(0L to 900_001)),
-        )
+            emptySet<Int>())!!
         invoke(e, "registerRecordedScene", scene)
         invoke(e, "bindRecordedPaintPublication")
         assertNull("generic fixture intentionally has no board metadata", e.boardDocument)
-        assertTrue(e.hasJointPaintPublication)
-        assertEquals(900_001, scene.look(plane, 0L))
+        assertNotNull(field(e, "publishedPaint"))
+        assertEquals(900_001, invoke(scene, "look", plane, 0L))
 
         assertReadRefusesWithoutMutation(view)
     }

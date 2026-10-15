@@ -19,6 +19,8 @@ import cc.joycreator.joybrush.androidkit.gl.lines.PromotedBaseProjection
 import cc.joycreator.joybrush.androidkit.gl.watercolour.WatercolourPass
 import cc.joycreator.joybrush.androidkit.gl.media.GlUniformSink
 import cc.joycreator.joybrush.androidkit.io.PaperResources
+import cc.joycreator.joybrush.androidkit.io.JbContents
+import cc.joycreator.joybrush.androidkit.io.RecordedSnapshot
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.paper.PaperState
 import cc.joycreator.joybrush.core.paper.ResolvedPaper
@@ -1877,6 +1879,9 @@ class GlPaintEngine(
         val ownerOrder = expectedLayers.keys.toList()
         val ownerChecks = expectedLayers.values.map(::plainPromotionLayerCheck)
         val document = checkNotNull(boardDocument)
+        require(document.brushes.isEmpty() && document.layers.all { meta -> DocOps.storedCels(meta).all {
+            it.strokesFile == null && it.slabs.isEmpty() && it.looks.isEmpty()
+        } }) { "Existing recorded archive metadata needs its complete source registry before native activation" }
         val documentJson = DocJson.encode(document)
         val agreements = agreedLook.toMap()
         val expectedAgreements = localAgreedLook
@@ -3016,6 +3021,105 @@ class GlPaintEngine(
             }
             return true
         }
+    }
+
+    /**
+     * Internal GL-thread source snapshot, not the raster View save route. Reads physical native
+     * stores/slabs and authoritative line-only looks from ONE actual root; never a viewport
+     * projection as paint. Cold unmeasured line indexes refuse without replay or root mutation.
+     */
+    internal fun snapshotJointRecordedArtwork(): JbContents {
+        val expected = checkNotNull(publishedPaint) { "A recorded source snapshot needs the actual bound artwork" }
+        val physical = physicalContextEpoch
+        val scene = expected.coordinator
+        check(ready && !forgettingGraphicsContext && !resettingJointPaint && !preparingPlainPromotion &&
+            !strokeInProgress && !wcFading && !mediaStrokeInProgress && framePreviews.isEmpty() && tileBoardId == null) {
+            "Finish painting and playback before a recorded source snapshot"
+        }
+        scene.checkSnapshotPublication(expected)
+        require(expected.recorded.planes.all { (at, cel) -> cel.records.isEmpty() ||
+            expected.nativeLayers[at.first]?.plan?.frames.isNullOrEmpty() }) {
+            "Regional recorded lines need their captured physical clipping contract before a new source save"
+        }
+        val document = checkNotNull(expected.document) { "Recorded sources need complete document identities before saving" }
+        require(DocOps.validate(document).isEmpty() && document.layers.map { it.id }.toSet() == expected.nativeLayers.keys &&
+            document.layers.all { it.kind.hasPixels && it.animatedIn == null } &&
+            document.brushes.all { it in expected.recorded.brushes }) { "The document does not describe every native paint owner and frozen definition" }
+        for (meta in document.layers) {
+            val owner = expected.nativeLayers.getValue(meta.id)
+            val shared = meta.sharedCelId ?: meta.cels.singleOrNull()?.id
+            require(owner.id == meta.id && !owner.isMask && shared != null && owner.sharedCel == shared && owner.cels[shared] === owner.tiles &&
+                owner.cels.keys == meta.cels.map { it.id }.toSet() && ((owner.mask != null) == (meta.mask != null)) &&
+                owner.celFloats.keys.all { it != shared && it in owner.cels } &&
+                owner.planes().all { (_, stores) -> stores.keys.all { it in MediaStores.PAYLOAD } } &&
+                owner.mask?.let { mask -> mask.planes().all { (_, stores) -> stores.values.all { it.isEmpty() } } &&
+                    mask.cels.values.all { it === mask.tiles || it.isEmpty() } } != false) {
+                "Snapshot physical cels or masks do not match document identities"
+            }
+            for (cel in meta.cels) {
+                val at = meta.id to cel.id.takeUnless { it == shared }
+                if (at in expected.recorded.planes) {
+                    val pixels = if (at.second == null) owner.tiles else owner.cels.getValue(cel.id)
+                    val payload = if (at.second == null) owner.floats else owner.celFloats[cel.id]
+                    require(pixels.isEmpty() && payload.orEmpty().values.all { it.isEmpty() }) {
+                        "Recorded source snapshots cannot omit native paint or media on their planes"
+                    }
+                }
+            }
+        }
+        val slabNames = expected.recorded.planes.values.flatMap { cel ->
+            cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } }
+        }
+        val forbidden = ownedNativeTextures(expected.nativeLayers) + expected.cursor.heldTextures() +
+            expected.recorded.cacheTextures() + freeLayerTex + freeStrokeTex + freeSmudgeTex + freeFloatTex +
+            listOfNotNull(clearTex, whiteTex, thumbTex, tuftPaperTex, lookTexture, surfaceTexture, fluidTexture,
+                look.tipGrainTex, look.paperGrainTex, look.fluidTexture, compositor.target, compositor.backdrop,
+                boardCompositor.target, boardCompositor.backdrop) + grains.heldTextureHandles() +
+            boardPreview.heldTextureHandles() + paperBackground.heldTextureHandles() + wcPass?.heldTextureHandles().orEmpty()
+        require(slabNames.distinct().size == slabNames.size && slabNames.none { it == 0 || it in floatNames || it in forbidden }) {
+            "Snapshot slabs must retain exclusive physical RGBA8 source ownership"
+        }
+        validateRecordedPhysicalDisplay(expected.recorded)
+        val metadata = document.copy(layers = document.layers.map { meta ->
+            val owner = expected.nativeLayers.getValue(meta.id)
+            meta.copy(name = owner.name, visible = owner.visible, opacity = owner.opacity, blend = owner.blend, clip = owner.clip)
+        })
+        fun current() {
+            check(publishedPaint === expected && physicalContextEpoch == physical && !forgettingGraphicsContext && ready) {
+                "Artwork or graphics changed during physical source snapshot"
+            }
+        }
+        fun nativeStore(id: String, cel: String): Map<Long, Int> {
+            val meta = document.layers.single { it.id == id }
+            val owner = expected.nativeLayers.getValue(id)
+            if (meta.mask?.id == cel) return checkNotNull(owner.mask).tiles
+            val shared = meta.sharedCelId ?: meta.cels.singleOrNull()?.id
+            return if (cel == shared) owner.tiles else owner.cels.getValue(cel)
+        }
+        fun rgba(texture: Int): ByteArray? {
+            current(); require(texture != 0 && texture !in floatNames) { "Physical paint needs its native RGBA8 source" }
+            val bytes = readTextureTile(texture); current(); return bytes
+        }
+        current()
+        val snapshot = RecordedSnapshot.capture(metadata, expected.recorded.planes, scene.brushes,
+            readTexture = ::rgba,
+            keys = { id, cel -> current(); nativeStore(id, cel).keys.toList() },
+            read = { id, cel, key -> nativeStore(id, cel)[key]?.let(::rgba) },
+            expectedLookKeys = expected.recorded.savedKeys.mapValues { it.value.toList() },
+            lookRead = { id, cel, key -> expected.recorded.looks[id to cel]?.get(key)?.let(::rgba) },
+            paper = expected.paper,
+            mediaKeys = { id, cel ->
+                current(); val owner = expected.nativeLayers.getValue(id)
+                val stores = if (cel == owner.sharedCel) owner.floats else owner.celFloats[cel].orEmpty()
+                stores.mapValues { it.value.keys.toList() }
+            },
+            mediaRead = { id, cel, store, key ->
+                current(); val owner = expected.nativeLayers.getValue(id)
+                val bytes = readMediaTile(id, store, key, cel.takeUnless { it == owner.sharedCel })
+                current(); bytes
+            })
+        current(); scene.checkSnapshotPublication(expected); current()
+        return snapshot
     }
 
     /** Undo's half of a stack step: back to [target], every layer that survives keeping how it is shown or hidden. */

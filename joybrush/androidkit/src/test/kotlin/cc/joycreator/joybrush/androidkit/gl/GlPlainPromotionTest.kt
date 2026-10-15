@@ -177,6 +177,16 @@ class GlPlainPromotionTest {
         failPrepare(f)
     }
 
+    @Test fun unownedExistingFrozenOrSiblingRecordedMetadataCannotBeDroppedDuringActivation() {
+        fixture().also { f -> f.engine.setBoardDocument(f.doc.copy(brushes=listOf("unowned-frozen"))); failPrepare(f) }
+        fixture().also { f ->
+            f.engine.addLayer("other")
+            val other=Layer("other","Other",LayerKind.PAINT,cels=listOf(Cel("other-cel",
+                strokesFile="layers/other/other-cel/strokes.jbs")))
+            f.engine.setBoardDocument(f.doc.copy(layers=f.doc.layers+other)); failPrepare(f)
+        }
+    }
+
     @Test fun staleMissingDuplicateAndFormatHistoryEndpointsRefuseBeforeTransfer() {
         val changes = listOf(
             listOf(UndoLog.TileChange("paint", 3, 9, 11)),

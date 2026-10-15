@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.gl
 
 import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
+import cc.joycreator.joybrush.androidkit.io.JbArchive
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.paint.Tiles
@@ -12,6 +13,8 @@ import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.vector.RecordedEdits
 import java.nio.ByteBuffer
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.roundToInt
@@ -33,6 +36,7 @@ internal object RecordedPromotionProbe {
         var sourceChecks = 0; var rootChecks = 0; var historyChecks = 0; var openingLines = -1L; var openingLooks = -1L
         var lineAlphaPixels = 0L; var planeCount = 0; var emptyPlanes = 0
         var wrongOrderChannels = 0L; var badPremultiplied = 0L
+        var archiveRoundtrips = 0; var archiveComparisons = 0; val archives = JSONArray()
         fun gl(label: String) {
             glChecks++; var code = GLES30.glGetError(); var first = 0
             while (code != GLES30.GL_NO_ERROR) { errors++; if (first == 0) first = code; code = GLES30.glGetError() }
@@ -101,7 +105,9 @@ internal object RecordedPromotionProbe {
                 val board = doc.boards.single { it.kind == BoardKind.ANIMATION }
                 doc = RegionDocumentOps.addFrame(doc,board.id,NewFrame.BLANK) { "region-${++serial}" }.doc
             }
-            engine.setBoardDocument(doc); engine.addLayer(nativeId); engine.writeTile(nativeId,nativeKey,sibling)
+            doc=doc.copy(layers=doc.layers+Layer(nativeId,"Native sibling",LayerKind.PAINT,
+                cels=listOf(Cel("promotion-native-cel"))))
+            engine.addLayer(nativeId); engine.setBoardDocument(doc); engine.writeTile(nativeId,nativeKey,sibling)
             val names=IntArray(1); GLES30.glGenFramebuffers(1,names,0); readFbo=names[0]; check(readFbo!=0)
             phase="independent raw preparation"
             for (record in listOf(old,moved)) {
@@ -144,6 +150,43 @@ internal object RecordedPromotionProbe {
                 units.forEachIndexed { i,unit -> unit.tiles.forEach { (key,texture) -> compare(raw[i].getValue(key),read(texture),"$label-independent-$i",key) } }
                 compare(sibling,engine.readTile(nativeId,nativeKey),"$label-native",nativeKey)
             }
+            fun archive(label:String, expected:Map<Long,ByteArray>, record:StrokeRecord?) {
+                phase="$label source snapshot/archive"
+                val beforeRoot=root(); val beforeCursor=engine.undo.snapshotCursor()
+                val snapshot=engine.snapshotJointRecordedArtwork()
+                val expectedTiles=linkedSetOf<Triple<String,String,String>>()
+                for((plane,tiles) in sourceBytes) {
+                    val meta=doc.layers.single { it.id==plane.first }
+                    val cel=plane.second ?: meta.sharedCelId ?: meta.cels.single().id
+                    for((key,bytes) in tiles) {
+                        val address=Triple(plane.first,cel,DocOps.key(Tiles.tx(key),Tiles.ty(key))); expectedTiles.add(address)
+                        compare(bytes,snapshot.tiles.getValue(address),"$label-snapshot-source",key)
+                    }
+                }
+                val nativeAddress=Triple(nativeId,"promotion-native-cel",DocOps.key(Tiles.tx(nativeKey),Tiles.ty(nativeKey)))
+                expectedTiles.add(nativeAddress); compare(sibling,snapshot.tiles.getValue(nativeAddress),"$label-snapshot-native",nativeKey)
+                check(snapshot.tiles.keys==expectedTiles && snapshot.slabs.isEmpty() && snapshot.mediaTiles.isEmpty())
+                val shared=doc.layers.single { it.id==owner }.sharedCelId ?: doc.layers.single { it.id==owner }.cels.single().id
+                check(snapshot.strokes==if(record==null) emptyMap() else mapOf((owner to shared) to listOf(record)))
+                check(snapshot.looks.keys==current.savedLookKeys(at).map { Triple(owner,shared,DocOps.key(Tiles.tx(it),Tiles.ty(it))) }.toSet())
+                for(key in current.savedLookKeys(at)) compare(expected.getValue(key),
+                    snapshot.looks.getValue(Triple(owner,shared,DocOps.key(Tiles.tx(key),Tiles.ty(key)))),"$label-snapshot-look",key)
+                check(snapshot.brushes==if(record==null) emptyMap() else mapOf(preset.id to preset))
+                val output=ByteArrayOutputStream(); JbArchive.write(output,snapshot)
+                val loaded=JbArchive.read(ByteArrayInputStream(output.toByteArray()))
+                check(loaded.doc==snapshot.doc && loaded.strokes==snapshot.strokes && loaded.brushes==snapshot.brushes)
+                fun <K> bytes(expected:Map<K,ByteArray>,actual:Map<K,ByteArray>) {
+                    check(expected.keys==actual.keys)
+                    expected.forEach { (key,value) -> archiveComparisons++; check(value.contentEquals(actual.getValue(key))) }
+                }
+                bytes(snapshot.tiles,loaded.tiles); bytes(snapshot.slabs,loaded.slabs)
+                bytes(snapshot.looks,loaded.looks); bytes(snapshot.mediaTiles,loaded.mediaTiles)
+                check(root()===beforeRoot && engine.undo.snapshotCursor()===beforeCursor)
+                archiveRoundtrips++; archives.put(JSONObject().put("phase",label).put("passed",true)
+                    .put("archiveBytes",output.size()).put("bottomPixelTiles",loaded.tiles.size)
+                    .put("savedLookTiles",loaded.looks.size).put("rawRecords",loaded.strokes.values.sumOf { it.size }))
+                gl("$label source snapshot/archive")
+            }
             fun checkpoint(label:String, pixels:Map<Long,ByteArray>, record:StrokeRecord?) {
                 phase=label; checkRoot(); historyChecks++
                 check(current.planes.getValue(at).records==listOfNotNull(record))
@@ -174,6 +217,7 @@ internal object RecordedPromotionProbe {
                 own(caches.distinct().size==caches.size && caches.none { it in sources || it in native || it in history || it in independent },"$label cache families")
             }
             checkpoint("promoted",currentDisplay,null); retainedSources("promoted")
+            archive("promoted",currentDisplay,null)
             val frameKey=Tiles.key(0,0)
             fun expected(i:Int):Map<Long,ByteArray> = allKeys.associateWith { key ->
                 val bytes=raw[i][key]
@@ -193,6 +237,7 @@ internal object RecordedPromotionProbe {
             check(engine.publishJointPaintStep(add,frozen=mapOf(preset.id to preset)))
             check(engine.undo.peekUndo()===add && engine.undo.undoDepth==2)
             checkpoint("raw-add",expectedOld,old); retainedSources("raw-add")
+            if(!regional) archive("raw-add",expectedOld,old)
             val edit=RecordedEdits.replace(current.planes,listOf(AddressedStroke(LineAddress(owner,null,old.id),moved)),setOf(preset.id)).step
             check(engine.publishJointPaintStep(edit)); check(engine.undo.peekUndo()===edit)
             checkpoint("raw-move",expectedMoved,moved)
@@ -203,6 +248,8 @@ internal object RecordedPromotionProbe {
             check(engine.redoStep()); check(engine.undo.peekUndo()===add); checkpoint("redo-add",expectedOld,old)
             check(engine.redoStep()); check(engine.undo.peekUndo()===edit); checkpoint("redo-move",expectedMoved,moved)
             retainedSources("final"); gl("final")
+            if(!regional) archive("final",expectedMoved,moved)
+            check(archiveRoundtrips==if(regional) 1 else 3)
         } catch (e:Exception) { failure="$phase ${e.javaClass.simpleName}: ${e.message}" }
         finally {
             try {
@@ -215,13 +262,15 @@ internal object RecordedPromotionProbe {
             } catch(e:Exception) { failure=listOfNotNull(failure,"cleanup ${e.message}").joinToString("; ") }
         }
         return JSONObject().put("probe","recordedPromotion").put("schemaVersion",1).put("regional",regional)
-            .put("proofScope","Actual existing native base transfer, physical display and raw/legacy history on throwaway engine; no live capture, Select, archive, recovery, performance or quality claim")
+            .put("proofScope","Actual native base transfer, physical display, raw/legacy history and root-source in-memory archive roundtrip; no live capture, Select, Working/recovery, performance or quality claim")
             .put("passed",failure==null && cleanup && errors==0 && badFbos==0 && aliases==0)
             .put("failure",failure?:JSONObject.NULL).put("phase",phase).put("cleanupComplete",cleanup)
             .put("comparisonCount",comparisons).put("comparisons",rows).put("maxComparisonRows",1024)
             .put("openingLineCalls",openingLines).put("openingCompositionCalls",openingLooks)
             .put("sourceNonzeroAlphaPixels",lineAlphaPixels).put("changedReferenceChannels",changedChannels)
             .put("sourceInvalidPremultipliedPixels",badPremultiplied).put("wrongOrderDifferentChannels",wrongOrderChannels)
+            .put("archiveRoundtripsCompleted",archiveRoundtrips).put("archiveByteComparisons",archiveComparisons)
+            .put("archives",archives).put("regionalLineArchiveSkipped",regional)
             .put("physicalPlanes",planeCount).put("emptyPhysicalPlanes",emptyPlanes).put("physicalSourceChecks",sourceChecks)
             .put("rootChecks",rootChecks).put("historyChecks",historyChecks).put("readbackCalls",reads)
             .put("glErrorChecks",glChecks).put("observedGlErrors",errors).put("framebufferChecks",fbos)

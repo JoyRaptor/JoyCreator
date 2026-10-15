@@ -80,3 +80,25 @@ Media Atlas A2 follows the complete recorded milestone. No pencil quality or per
 Placed images/reference versus Edit original and Drop to canvas, plus Joybot image jobs, are
 captured in `briefs/PLACED_IMAGES_JOYBOT_20261014.md` and the project Inbox. Those lane boundaries
 do not replace the current engine goal or authorize overwriting linked originals silently.
+
+## Later source-root snapshot checkpoint
+
+New internal snapshotJointRecordedArtwork reads one exact idle root through RecordedSnapshot:
+canonical native shared/frame maps and masks, source slabs, frozen definitions and authoritative
+line-only saved looks. No viewport projection is used as saved paint. It checks complete document
+ownership, source exclusivity, physical epoch/context before/after, and no outstanding joint lease.
+Cold unmeasured line indexes and regional line source-saving refuse. Regional raw clipping needs
+its persisted capture contract; no geometric archive guard was weakened. The raster View guard
+remains until actual load/Working/recovery/thumbnail integration is proved.
+
+Full backend now706/0/0/0,66suites PASS3m13, independently counted in
+live-root-snapshot-backend-xml.json with exact engine/scene/probe blobs. Thirteen additional
+contracts cover empty complete snapshots, source admission and frozen/sibling metadata retention.
+The expanded compiled probe adds real-root source snapshot and in-memory JbArchive roundtrips:
+flat expected3, regional line-free expected1. Regional line-bearing archive is explicitly skipped.
+Neither native201 nor a new APK/phone result is claimed yet. Native view tests use reflection
+across the composite-module visibility boundary; no production visibility was widened.
+
+Owner freed RAM and confirmed a usage reset. Recurring same-chat wake-up
+resume-joybrush-every-five-hours is ACTIVE, every five hours, stopping when work completes or
+owner requests stop. Current goal is still unfinished; old usageLimited tool status is preserved.

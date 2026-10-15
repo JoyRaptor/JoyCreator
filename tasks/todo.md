@@ -625,5 +625,6 @@ are still gated; these passing contracts do not complete JB-5.20d.
 - [x] Physical-root source snapshots and in-memory archive gate:8 roundtrips/90 payload byte checks,1468 total exactRGBA8 rows/0 differences; no Working/recovery activation.
 - [x] Pure captured pixel-domain/integer placement prerequisite: focused28 tests; no record/codec integration.
 - [x] Shared structural archive preflight: dc940101, full backend735/68suites, zero failures/errors/skips.
-- [ ] Verify owned cold-load plan and fresh engine loader/rollback independently; preserve public View/recovery gates. Current full backend run: live-cold-root-backend.log, source uncommitted and not accepted yet.
+- [x] Owned cold-load plan and internal flat fresh engine source/edit/history slice:6d8651b49, backend772/native201, exact APK all10 GPU cases PASS2082 exact rows/0 differences;16 in-memory archive roundtrips/186 payload comparisons. Public View/recovery gates retained.
+- [ ] Prove fresh-loader runtime masks/media/upper slabs, allocation failure cleanup and inherited unpack/PBO state before any View replacement contract.
 - [ ] Complete captured regional source contract, committed live capture, Select, structural/media history and Working/save/recovery before Atlas A2.

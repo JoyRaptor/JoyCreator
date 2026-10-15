@@ -1,5 +1,18 @@
 # Independent audit packet — JoyBrush overnight October15
 
+Current additional audit target: feature6d8651b49 (C:/Temp/jb-live-current) adds
+the owned ColdRecordedLoadPlan, fresh empty-engine loader and new diagnostic cold
+archive/load/edit/undo/redo route. Full backend772/70suites passes twice after fixture
+repair, including final filter/resource/counter guards; native201, APK44s and Note9
+all10 cases PASS2082 exact rows/0 differences,16 archive roundtrips/186 byte checks.
+See NOTE9_COLD_LOAD_20261015.md for exact source/artifact and limits. Public production
+load/save/recovery still refuse recorded sources. Please audit plan ownership/budgets,
+exact paper resources, upload pixel unpack/PBO state, primitive per-name allocation
+ledger, native/mask/media/source/look handoffs and same-context versus lost-context
+cleanup. Opening must stay zero replay/composition; first edit must measure footprints.
+The new GPU fixture is flat source plus native sibling; it does not prove mask/media
+or upper-slab runtime upload merely because CPU descriptors cover those families.
+
 Root retains engine/View/source implementation ownership. Please audit, without parallel
 hot-file edits. Current root C:/Temp/jb-live-current; latest HANDOFF_20261015.md records
 actual source hashes, tests and device outcomes. No complete live activation is claimed.

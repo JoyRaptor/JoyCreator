@@ -1,0 +1,174 @@
+{
+  "source": "6d8651b4988b0f5f1ca0c4e004a7f5530b472b9b",
+  "cases": 10,
+  "exactRgba8Rows": 2082,
+  "differentChannels": 0,
+  "inMemoryArchiveRoundtrips": 16,
+  "archiveByteComparisons": 186,
+  "readbacks": 1460.0,
+  "glChecks": 2036.0,
+  "fboChecks": 1460.0,
+  "feedbackChecks": 1802.0,
+  "rows": [
+    {
+      "case": "recordedJointProbe",
+      "brush": "joybrush.ink",
+      "exactRows": 141,
+      "readbacks": 145,
+      "glChecks": 167,
+      "fboChecks": 145,
+      "feedbackChecks": 186,
+      "archiveRoundtrips": null,
+      "archiveByteComparisons": null,
+      "coldLoad": null
+    },
+    {
+      "case": "recordedPromotionColdProbe",
+      "brush": "joybrush.watercolour",
+      "exactRows": 307,
+      "readbacks": 168,
+      "glChecks": 250,
+      "fboChecks": 168,
+      "feedbackChecks": 199,
+      "archiveRoundtrips": 4,
+      "archiveByteComparisons": 48,
+      "coldLoad": {
+        "requested": true,
+        "completed": true,
+        "openingLinePreparationCalls": 0,
+        "openingCompositionCalls": 0,
+        "sourceSlabs": 8,
+        "savedLooks": 4,
+        "nativeTiles": 1,
+        "unresolvedLinePlanesAtOpen": 1,
+        "firstEditLinePreparationCalls": 2,
+        "firstEditCompositionCalls": 8,
+        "actualFilterChecks": 26,
+        "coldHistoryUndoRedoPassed": true,
+        "postEditArchivePassed": true
+      }
+    },
+    {
+      "case": "recordedPromotionColdProbe",
+      "brush": "joybrush.ink",
+      "exactRows": 307,
+      "readbacks": 168,
+      "glChecks": 250,
+      "fboChecks": 168,
+      "feedbackChecks": 199,
+      "archiveRoundtrips": 4,
+      "archiveByteComparisons": 48,
+      "coldLoad": {
+        "requested": true,
+        "completed": true,
+        "openingLinePreparationCalls": 0,
+        "openingCompositionCalls": 0,
+        "sourceSlabs": 8,
+        "savedLooks": 4,
+        "nativeTiles": 1,
+        "unresolvedLinePlanesAtOpen": 1,
+        "firstEditLinePreparationCalls": 2,
+        "firstEditCompositionCalls": 8,
+        "actualFilterChecks": 26,
+        "coldHistoryUndoRedoPassed": true,
+        "postEditArchivePassed": true
+      }
+    },
+    {
+      "case": "recordedPromotionProbe",
+      "brush": "joybrush.ink",
+      "exactRows": 239,
+      "readbacks": 136,
+      "glChecks": 214,
+      "fboChecks": 136,
+      "feedbackChecks": 163,
+      "archiveRoundtrips": 3,
+      "archiveByteComparisons": 35,
+      "coldLoad": {
+        "requested": false,
+        "completed": false
+      }
+    },
+    {
+      "case": "recordedJointColdProbe",
+      "brush": "joybrush.watercolour",
+      "exactRows": 137,
+      "readbacks": 141,
+      "glChecks": 171,
+      "fboChecks": 141,
+      "feedbackChecks": 186,
+      "archiveRoundtrips": null,
+      "archiveByteComparisons": null,
+      "coldLoad": null
+    },
+    {
+      "case": "recordedJointProbe",
+      "brush": "joybrush.watercolour",
+      "exactRows": 141,
+      "readbacks": 145,
+      "glChecks": 167,
+      "fboChecks": 145,
+      "feedbackChecks": 186,
+      "archiveRoundtrips": null,
+      "archiveByteComparisons": null,
+      "coldLoad": null
+    },
+    {
+      "case": "recordedJointColdProbe",
+      "brush": "joybrush.ink",
+      "exactRows": 137,
+      "readbacks": 141,
+      "glChecks": 171,
+      "fboChecks": 141,
+      "feedbackChecks": 186,
+      "archiveRoundtrips": null,
+      "archiveByteComparisons": null,
+      "coldLoad": null
+    },
+    {
+      "case": "recordedPromotionRegionProbe",
+      "brush": "joybrush.ink",
+      "exactRows": 217,
+      "readbacks": 140,
+      "glChecks": 216,
+      "fboChecks": 140,
+      "feedbackChecks": 167,
+      "archiveRoundtrips": 1,
+      "archiveByteComparisons": 10,
+      "coldLoad": {
+        "requested": false,
+        "completed": false
+      }
+    },
+    {
+      "case": "recordedPromotionRegionProbe",
+      "brush": "joybrush.watercolour",
+      "exactRows": 217,
+      "readbacks": 140,
+      "glChecks": 216,
+      "fboChecks": 140,
+      "feedbackChecks": 167,
+      "archiveRoundtrips": 1,
+      "archiveByteComparisons": 10,
+      "coldLoad": {
+        "requested": false,
+        "completed": false
+      }
+    },
+    {
+      "case": "recordedPromotionProbe",
+      "brush": "joybrush.watercolour",
+      "exactRows": 239,
+      "readbacks": 136,
+      "glChecks": 214,
+      "fboChecks": 136,
+      "feedbackChecks": 163,
+      "archiveRoundtrips": 3,
+      "archiveByteComparisons": 35,
+      "coldLoad": {
+        "requested": false,
+        "completed": false
+      }
+    }
+  ]
+}

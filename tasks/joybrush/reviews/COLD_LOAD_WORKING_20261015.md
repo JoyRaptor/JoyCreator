@@ -1,6 +1,7 @@
 # Fresh engine cold source load — working implementation
 
-Root worktree: C:/Temp/jb-live-current, base ddaf59cbe. This work is not yet accepted.
+Root worktree: C:/Temp/jb-live-current. Internal flat slice accepted on6d8651b49;
+complete evidence/limits are in NOTE9_COLD_LOAD_20261015.md. Historical trail follows.
 Read HANDOFF_20261015.md for previously verified source and exact APK evidence.
 
 ## Scope
@@ -57,5 +58,15 @@ Paper response of real shipped Ink is preserved; it is not cleared to simplify a
 - Final backend repeat deferred safely at1920MiB after owned watcher pause (<2800MiB).
   No unowned app/JVM was stopped. Native regression and exact APK also remain pending.
 - Actual cold loader GPU/replay/archive and failure/ownership evidence is still pending.
+
+Final update: exact source6d8651b4988b0f5f1ca0c4e004a7f5530b472b9b passes
+the complete772/70suites again,3m13, zero failures/errors/skips. Receipt:
+C:/Temp/jb-lead-ops/live-cold-root-backend-final-xml.json. Engine blob
+d526a1e08fb968d68b5700ce7ae466d4f71af71e; cold-plan blob
+88f087748ea0fa16d6dd8fe262f8ce7f4f6ca068. Native201/24suites passed2m10.
+APK44s and exact Note9 all10 cases PASS2082 exact rows/0 differences;16 archive
+roundtrips/186 payload comparisons. Working/all3 archives unchanged. Cold flat
+source/native sibling load, edit and public undo/redo are accepted; runtime mask/
+media/upper-slab, failure injection and hostile unpack/PBO cases remain separate.
 
 The earlier674d02f1 Note9 promotion acceptance does not exercise this new loader.

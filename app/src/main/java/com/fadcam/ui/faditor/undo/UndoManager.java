@@ -473,7 +473,16 @@ public class UndoManager {
         boolean applied = false;
 
         if (entry.action != null) {
-            // In-session: precise action-based undo
+            // In-session: precise action-based undo.
+            //
+            // If an older, snapshot-only entry sits below this one, a later undo of it restores a
+            // snapshot and invalidates every action, this one's included, and then this entry
+            // could never be redone (device 2026-10-14: "Redo skipped an unrestorable entry: Add
+            // clip" after undoing past the session start). Keep its after-state so redo falls back
+            // to the snapshot. Only then: in a session-only history, this costs nothing.
+            if (entry.snapshotAfter == null && snapshotRestorer != null && hasSnapshotOnlyEntryBelow()) {
+                entry.snapshotAfter = snapshotRestorer.captureSnapshot();
+            }
             entry.action.undo();
             applied = true;
             FLog.d(TAG, "Undone (action): " + entry.description);
@@ -797,6 +806,16 @@ public class UndoManager {
      * model objects (the graph was replaced). Null them out so undo/redo fall back to snapshot
      * restoration, which restores by value and is immune to the swap.
      */
+    /** True when the undo stack, under its top entry, holds an entry that can only undo by snapshot. */
+    private boolean hasSnapshotOnlyEntryBelow() {
+        boolean top = true;
+        for (HistoryEntry e : undoStack) {
+            if (top) { top = false; continue; }
+            if (e.action == null && e.snapshotBefore != null) return true;
+        }
+        return false;
+    }
+
     private void invalidateActions(@NonNull Deque<HistoryEntry> stack) {
         int n = 0;
         for (HistoryEntry entry : stack) {

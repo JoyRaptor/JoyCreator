@@ -85,15 +85,14 @@ internal object PromotedBaseProjection {
     /**
      * Borrowed physical source/display choice for the initial singleton-base scope. Does not add a
      * plain tile to the line-saved index or make its source handle an owned derived look cache.
-     * Ordered multi-slab plain display remains an explicit caller composition requirement.
+     * Ordered plain slabs require their actual separately owned composition from Scene.looks.
      */
     fun <T : Any> displayTile(cel: RecordedCel<T>, lineKeys: Set<Long>, look: T?, key: Long): T? {
         if (key in lineKeys) return requireNotNull(look) { "A line-crossed physical tile needs its actual composed look" }
         val stack = cel.slabs[key].orEmpty()
         if (stack.isEmpty()) return null
-        require(stack.size == 1 && stack.single().seq == 0L && stack.single().value.op == "normal") {
-            "Ordered plain slabs need a separate composed display cache"
-        }
-        return stack.single().value.texture
+        if (stack.size == 1 && stack.single().seq == 0L && stack.single().value.op == "normal")
+            return stack.single().value.texture
+        return requireNotNull(look) { "Ordered plain slabs need a separate composed display cache" }
     }
 }

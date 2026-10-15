@@ -310,7 +310,7 @@ class GlPlainPromotionInventoryTest {
             f.engine.createSavedRecordedScene(mapOf(shared to RecordedCel<Int>("paint", null, listOf(record))),
                 mapOf(pen.id to pen), mapOf(shared to setOf(0L)), mapOf(shared to mapOf(0L to 10)))
         }
-        assertNull(field<RecordedScene<Int>?>(f.engine, "recordedScene"))
+        assertNull(field<RecordedScene<Int>?>(f.engine, "localRecordedScene"))
         assertTrue(field<ArrayDeque<Int>>(f.engine, "freeLayerTex").isEmpty())
     }
 }

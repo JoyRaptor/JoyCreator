@@ -1957,6 +1957,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** The GL-thread half of [snapshot]: every layer, every tile, read back, under one document. */
     private fun readContents(w: Int, h: Int): JbContents {
+        if (engine.hasJointPaintPublication) throw JbArchiveException(
+            "This recorded drawing needs its physical-source save connection; your previous save is kept")
         // Pen-up already released UI drawing state; the cosmetic fade must finish before
         // capturing metadata or enumerating keys, otherwise newly painted tiles are absent.
         if(engine.settleWatercolourFade()) reportHistory()
@@ -2181,6 +2183,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                                bake: Boolean = false,
                                openCold: Boolean = false,
                                joint: Boolean = false,
+                               promotion: Boolean = false,
+                               regional: Boolean = false,
                                ready: (String) -> Unit) {
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
             ready("{\"passed\":false,\"failure\":\"Recorded replay probe is debug only\"}")
@@ -2194,7 +2198,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 probe.setDocumentPaper(paper)
                 probe.addLayer("recorded-probe")
                 val frozen = cc.joycreator.joybrush.core.brush.FrozenBrushRegistry.freeze(emptyMap(), preset) { "probe-frozen" }
-                val value = if (joint) cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.json(
+                val value = if (promotion) cc.joycreator.joybrush.androidkit.gl.RecordedPromotionProbe.run(
+                    probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id), regional)
+                else if (joint) cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.json(
                     cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.run(probe, "recorded-probe",
                         frozen.preset, record.copy(brushId = frozen.id), openCold = openCold))
                 else if (bake) cc.joycreator.joybrush.androidkit.gl.RecordedBakeProbe.json(

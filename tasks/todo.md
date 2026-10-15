@@ -612,3 +612,10 @@ Review: latest lifecycle source passes all three suites. Concrete recorded repla
 private stroke-buffer preparation so bound public-paint guards do not block replay.
 Debug joint GPU cases compile but remain unexecuted. Production capture/Select/save
 are still gated; these passing contracts do not complete JB-5.20d.
+
+## October14 existing paint promotion implementation
+
+- [x] Independently count and publish inventory655/0/0/0,62suites as fda85b1e4.
+- [ ] Verify actual single-use source-transfer ticket, whole reachable native history preflight, rooted coordinator and physical shared/frame display.
+- [ ] Verify projected legacy original-Step history and real RawAdd/older paint undo sequence.
+- [ ] Check exact APK on sandbox GPU, archive/snapshot and reset ownership; production live activation remains gated.

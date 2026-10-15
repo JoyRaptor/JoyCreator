@@ -110,4 +110,3 @@ Root adopted only the reviewed inventory source and 19 tests. Full androidkit:te
 2m19 under the exclusive resource-admitted shared lock. Independent XML count: 655 tests,
 62 suites, zero failures/errors/skips. Receipt: C:/Temp/jb-lead-ops/live-promotion-inventory-backend-xml.json;
 exact engine/test Git blobs are recorded there. No promotion, live UI or GPU-format proof follows.
-

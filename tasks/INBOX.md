@@ -485,5 +485,9 @@ Worth doing when someone is next in that file with a working build. The correct 
 `cellRectBitmap` already has: go through `sheet.sourceCell(slot)` rather than assuming the slot
 and the art share an index.
 
-## 2026-09-21 — Ranged export (export a span, not the whole timeline)
-Genuinely useful on its own (re-export one fixed region without redoing 48 min). Explicitly NOT the mitigation for the 30:35 watchdog stall (tasks/todo.md) — that bug must die as a one-pass export, not be worked around by user choice.
+## 2026-09-21 ï¿½ Ranged export (export a span, not the whole timeline)
+Genuinely useful on its own (re-export one fixed region without redoing 48 min). Explicitly NOT the mitigation for the 30:35 watchdog stall (tasks/todo.md) ï¿½ that bug must die as a one-pass export, not be worked around by user choice.
+
+## October14 â€” JoyBrush placed images and Joybot image jobs
+
+Owner requests lightweight referenced pictures with editable stroke overlays; explicit Edit original/portal and independent Drop to canvas, retaining original pixel dimensions/aligned export. Also selected-sketch color/edit/generate prompts using owner-selected providers and attached references. Boundaries and proposed contracts: tasks/joybrush/briefs/PLACED_IMAGES_JOYBOT_20261014.md. Continue current engine milestone; this is follow-on scope, not implemented.

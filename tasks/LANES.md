@@ -1166,4 +1166,3 @@ physical display, native-base full-history validation and engine tests. Sol sour
 owns ONLY isolated RecordedScene.kt internal projected staging/new tests in
 C:/Temp/jb-promotion-inventory. No concurrent engine edits or helper builds/device/Git.
 Claude independent reviewer: AUDIT_CHECKPOINT_20261014.md; storage/Joybot files untouched.
-

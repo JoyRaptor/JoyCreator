@@ -15,6 +15,7 @@ import cc.joycreator.joybrush.core.vector.RecordedEdits
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
 import cc.joycreator.joybrush.androidkit.gl.lines.NativeBaseTransferProof
+import cc.joycreator.joybrush.androidkit.gl.lines.PromotedBaseProjection
 import cc.joycreator.joybrush.androidkit.gl.watercolour.WatercolourPass
 import cc.joycreator.joybrush.androidkit.gl.media.GlUniformSink
 import cc.joycreator.joybrush.androidkit.io.PaperResources
@@ -400,6 +401,7 @@ class GlPaintEngine(
     private var physicalContextEpoch = 0L
     private var forgettingGraphicsContext = false
     private var resettingJointPaint = false
+    private var preparingPlainPromotion = false
 
     /** Persistent maps change only by replacement while bound; projection caches remain disposable. */
     private class PublishedPaintState(
@@ -411,15 +413,26 @@ class GlPaintEngine(
         override val cursor: UndoLog.Cursor<Int>,
         override val graphicsEpoch: Long,
         override val protectedTextures: Set<Int>,
-    ) : RecordedScene.Publication<Int>
+        val coordinator: RecordedScene<Int>,
+        override val promotedBases: Set<Pair<String, String?>> = emptySet(),
+        override val legacyBaseSteps: Set<UndoLog.Step<Int>> = emptySet(),
+        val baseTransferProof: NativeBaseTransferProof? = null,
+    ) : RecordedScene.PromotedPublication<Int> {
+        override val baseTransferIdentity: Any? get() = baseTransferProof
+    }
 
     private var publishedPaint: PublishedPaintState? = null
     internal val hasJointPaintPublication: Boolean get() = publishedPaint != null
 
     private fun requireLocalPaint() {
-        check(publishedPaint == null && !resettingJointPaint) { "This writer needs the joint recorded artwork publisher" }
+        check(publishedPaint == null && !resettingJointPaint && !preparingPlainPromotion) {
+            "This writer needs the joint recorded artwork publisher"
+        }
     }
-    private var recordedScene: RecordedScene<Int>? = null
+    private var localRecordedScene: RecordedScene<Int>? = null
+    private var recordedScene: RecordedScene<Int>?
+        get() = publishedPaint?.coordinator ?: localRecordedScene
+        private set(value) { localRecordedScene = value }
     /** GL-thread diagnostic attempt counts; used to prove cold acceptance does no source rendering. */
     internal var recordedLinePreparationCalls = 0L
         private set
@@ -1101,7 +1114,7 @@ class GlPaintEngine(
         requireLocalPaint()
         layers[id]?.blend = mode }
     fun layerBlend(id: String): BlendMode = layers[id]?.blend ?: BlendMode.NORMAL
-    fun tileCount(id: String): Int = layers[id]?.tiles?.size ?: 0
+    fun tileCount(id: String): Int = layers[id]?.let { physicalDisplayTiles(it, null).size } ?: 0
 
     /** Empties a layer as one undoable step. */
     fun clearLayer(id: String) {
@@ -1133,7 +1146,9 @@ class GlPaintEngine(
     /** Keys of every tile a layer has (sparse). */
     fun tileKeys(layerId: String): List<Long> {
         settleWatercolourFade()
-        return storeOf(layerId)?.tiles?.keys?.toList() ?: emptyList()
+        val layer = storeOf(layerId) ?: return emptyList()
+        return if (publishedPaint?.recorded?.planes?.keys?.any { it.first == layer.id } == true)
+            visibleTiles(layer).keys.toList() else layer.tiles.keys.toList()
     }
 
     /**
@@ -1505,7 +1520,8 @@ class GlPaintEngine(
 
     fun celTileKeys(layerId: String,celId: String): List<Long> {
         settleWatercolourFade()
-        return layers[layerId]?.cels?.get(celId)?.keys?.toList().orEmpty()
+        val layer = layers[layerId] ?: return emptyList()
+        return physicalDisplayTiles(layer, planeOf(layer, celId)).keys.toList()
     }
     fun writeCelTile(layerId: String,celId: String,key: Long,rgba: ByteArray) {
         requireLocalPaint()
@@ -1516,7 +1532,8 @@ class GlPaintEngine(
     }
     fun readCelTile(layerId: String,celId: String,key: Long): ByteArray? {
         settleWatercolourFade()
-        return readTextureTile(layers[layerId]?.cels?.get(celId)?.get(key))
+        val layer = layers[layerId] ?: return null
+        return readTextureTile(physicalDisplayTiles(layer, planeOf(layer, celId))[key])
     }
 
     private fun readTextureTile(tex: Int?): ByteArray? {
@@ -1536,8 +1553,30 @@ class GlPaintEngine(
     private fun invalidateProjection(layer: Layer) {
         layer.projected.values.forEach(::recycleLayerTex); layer.projected.clear(); layer.visibleProjection=null
     }
+    /** Display borrows source bases or actual line looks; it never adopts a look as pixel truth. */
+    private fun physicalDisplayTiles(layer: Layer, cel: String?): Map<Long, Int> {
+        val root = publishedPaint
+        val at = layer.id to cel
+        val physical = root?.recorded?.planes?.get(at)
+            ?: return if (cel == null) layer.tiles else layer.cels[cel].orEmpty()
+        val lineKeys = root.recorded.savedKeys[at].orEmpty()
+        return (physical.slabs.keys + lineKeys).associateWith { key ->
+            checkNotNull(PromotedBaseProjection.displayTile(physical, lineKeys,
+                root.recorded.looks[at]?.get(key), key))
+        }
+    }
+    private fun validateRecordedPhysicalDisplay(state: RecordedScene.State<Int>) {
+        for ((at, cel) in state.planes) {
+            val keys = state.savedKeys[at].orEmpty()
+            require(keys.all { state.looks[at]?.get(it) != null }) { "Recorded display is missing a line-crossed saved look" }
+            require(cel.slabs.all { (key, stack) -> key in keys || state.looks[at]?.get(key) != null ||
+                (stack.size == 1 && stack.single().seq == 0L && stack.single().value.op == "normal") }) {
+                "Ordered plain slabs need their separate display cache before publication"
+            }
+        }
+    }
     private fun visibleTiles(layer: Layer): Map<Long,Int> {
-        if (layer.plan?.frames.isNullOrEmpty()) return layer.tiles
+        if (layer.plan?.frames.isNullOrEmpty()) return physicalDisplayTiles(layer, null)
         layer.visibleProjection?.let { return it }
         val bindings=IntArray(2)
         GLES30.glGetIntegerv(GLES30.GL_DRAW_FRAMEBUFFER_BINDING,bindings,0)
@@ -1550,17 +1589,19 @@ class GlPaintEngine(
         }
     }
     private fun projectedTiles(layer: Layer): Map<Long,Int> {
-        val plan=layer.plan ?: return layer.tiles
-        if(plan.frames.isEmpty())return layer.tiles
+        val plan=layer.plan ?: return physicalDisplayTiles(layer, null)
+        if(plan.frames.isEmpty())return physicalDisplayTiles(layer, null)
         layer.visibleProjection?.let{return it}
         val keys=LinkedHashSet<Long>()
-        keys.addAll(layer.tiles.keys)
-        plan.frames.forEach { keys.addAll(layer.cels[it.celId]?.keys.orEmpty()) }
+        val physical = (listOf<String?>(null) + plan.frames.map { planeOf(layer, it.celId) })
+            .distinct().associateWith { physicalDisplayTiles(layer, it) }
+        keys.addAll(physical[null].orEmpty().keys)
+        plan.frames.forEach { keys.addAll(physical[planeOf(layer, it.celId)].orEmpty().keys) }
         val result=LinkedHashMap<Long,Int>()
         for(key in keys) {
             val slices=plan.tileSlices(key)
-            if(slices.size==1) { layer.cels[slices[0].plane.celId]?.get(key)?.let{result[key]=it}; continue }
-            val sources=slices.mapNotNull { slice -> layer.cels[slice.plane.celId]?.get(key)?.let{slice.rect to it} }
+            if(slices.size==1) { physical[planeOf(layer,slices[0].plane.celId)]?.get(key)?.let{result[key]=it}; continue }
+            val sources=slices.mapNotNull { slice -> physical[planeOf(layer,slice.plane.celId)]?.get(key)?.let{slice.rect to it} }
             if(sources.isEmpty())continue
             val tex=layer.projected.getOrPut(key) {
                 val made=newLayerTile()
@@ -1750,6 +1791,7 @@ class GlPaintEngine(
         addAll(boardPreview.heldTextureHandles())
         addAll(paperBackground.heldTextureHandles())
         addAll(wcPass?.heldTextureHandles().orEmpty())
+        add(look.tipGrainTex); add(look.paperGrainTex); look.fluidTexture?.let(::add)
         remove(0)
     }
 
@@ -1798,6 +1840,187 @@ class GlPaintEngine(
         return PlainPromotionInventory(physical.toMap(), physical.mapValues { it.value.store.toMap() },
             occurrences.toList(), rgba8.toSet(), cursor,
             NativeBaseTransferProof.Context(boardDocument, documentPaper, resolvedPaper, graphicsEpoch, physicalContextEpoch))
+    }
+
+    /** A single-use metadata ticket. Cancellation never recycles borrowed native bases. */
+    internal inner class PlainPromotionTicket internal constructor(
+        private var validate: (() -> Boolean)?, private var install: (() -> Unit)?,
+    ) : AutoCloseable {
+        fun canPublish(): Boolean = validate?.invoke() == true
+        fun publish(): Boolean {
+            check(install != null) { "This source transfer is already finished" }
+            check(!preparingPlainPromotion && !resettingJointPaint)
+            preparingPlainPromotion = true
+            try {
+                if (!canPublish()) return false
+                install!!.invoke()
+                return true
+            } finally {
+                close()
+                preparingPlainPromotion = false
+            }
+        }
+        override fun close() { validate = null; install = null }
+    }
+
+    /**
+     * Diagnostic opt-in only. Transfers one native owner and ALL canonical physical cels without
+     * copying/rendering pixels or adding/dropping history. The ordinary view does not call this.
+     */
+    internal fun preparePlainRecordingPromotion(ownerId: String): PlainPromotionTicket {
+        requireLocalPaint()
+        check(recordedScene == null) { "Existing recorded sources need an extension transaction" }
+        val inventory = inspectPlainPromotionInventory(ownerId)
+        validatePlainPromotionHistory(inventory)
+        val expectedLayers = localLayers
+        val expectedOwners = expectedLayers.toMap()
+        val ownerOrder = expectedLayers.keys.toList()
+        val ownerChecks = expectedLayers.values.map(::plainPromotionLayerCheck)
+        val document = checkNotNull(boardDocument)
+        val documentJson = DocJson.encode(document)
+        val agreements = agreedLook.toMap()
+        val expectedAgreements = localAgreedLook
+        preparingPlainPromotion = true
+        try {
+            val source = layers.getValue(ownerId)
+            val addresses = inventory.physical.keys
+            val replacement = detachedNativeLayer(source, addresses.map { it.second }.toSet(), emptyRecordedStores = true)
+            // These derived textures remain the same owned display allocations until an edit.
+            replacement.projected.putAll(source.projected)
+            replacement.visibleProjection = source.visibleProjection
+            val nextLayers = LinkedHashMap(layers).also { it[ownerId] = replacement }
+            val nextPhysical = inventory.physical.mapValues { (at, _) ->
+                val store = if (at.second == null) replacement.tiles else replacement.cels.getValue(at.second!!)
+                NativeBaseTransferProof.Physical(replacement, replacement.ownershipIdentity, replacement.plan,
+                    store, if (at.second == null) store else null)
+            }
+            val proof = NativeBaseTransferProof.capture(inventory.context, inventory.cursor,
+                inventory.physical, nextPhysical, inventory.occurrences, inventory.rgba8Bases,
+                inventory.cursor.heldTextures())
+            val planes = inventory.contents.mapValues { (at, pixels) -> RecordedCel.fromPixels(at.first, at.second, pixels) }
+            val scene = RecordedScene.createSaved(planes, emptyMap(), undo, recordedRenderer(planes, proof),
+                planes.mapValues { emptySet<Long>() }, planes.mapValues { emptyMap<Long, Int>() },
+                protectedRecordedTextureHandles())
+            scene.checkStateBindingAllowed()
+            scene.checkBindingContext()
+            undo.checkCursorBindingAllowed()
+            val next = PublishedPaintState(nextLayers, HashMap(agreements), document, documentPaper,
+                scene.snapshotState(), inventory.cursor, graphicsEpoch, persistentNativeTextures(nextLayers),
+                scene, addresses.toSet(), (inventory.cursor.undoSteps + inventory.cursor.redoSteps).toSet(), proof)
+            proof.prepareRoot(next)
+            val sceneRead = { checkNotNull(publishedPaint) }
+            val cursorRead = { checkNotNull(publishedPaint).cursor }
+            val validate = {
+                try {
+                    if (publishedPaint != null || localRecordedScene != null || localLayers !== expectedLayers ||
+                        layers.keys.toList() != ownerOrder || expectedOwners.any { (id, owner) -> layers[id] !== owner } ||
+                        ownerChecks.any { !it() } ||
+                        boardDocument !== document || DocJson.encode(document) != documentJson ||
+                        localAgreedLook !== expectedAgreements || agreedLook != agreements) false
+                    else {
+                        val fresh = inspectPlainPromotionInventory(ownerId)
+                        proof.canPublish(publishedPaint, fresh.context, fresh.cursor, fresh.physical,
+                            fresh.occurrences, fresh.rgba8Bases, fresh.cursor.heldTextures())
+                    }
+                } catch (_: IllegalArgumentException) { false }
+                  catch (_: IllegalStateException) { false }
+            }
+            check(validate()) { "Native source ownership changed while preparing recording" }
+            return PlainPromotionTicket(validate) {
+                publishedPaint = next // Sole source/history/coordinator ownership publication.
+                proof.acknowledgeInstalled(next)
+                scene.bindState(sceneRead)
+                undo.bindCursor(cursorRead)
+            }
+        } finally { preparingPlainPromotion = false }
+    }
+
+    /** Captures every surviving owner's mutable metadata, map identities and detached contents. */
+    private fun plainPromotionLayerCheck(owner: Layer): () -> Boolean {
+        val tiles = owner.tiles.toMap()
+        val cels = owner.cels.toMap(); val celContents = cels.mapValues { it.value.toMap() }
+        val floats = owner.floats.toMap(); val floatContents = floats.mapValues { it.value.toMap() }
+        val payloads = owner.celFloats.toMap()
+        val payloadStores = payloads.mapValues { it.value.toMap() }
+        val payloadContents = payloadStores.mapValues { (_, stores) -> stores.mapValues { it.value.toMap() } }
+        val projected = owner.projected.toMap()
+        val visible = owner.visibleProjection; val visibleContents = visible?.toMap()
+        val plan = owner.plan; val shared = owner.sharedCel; val mask = owner.mask
+        val planFrames = plan?.frames?.toList()
+        val maskCheck = mask?.let(::plainPromotionLayerCheck)
+        val metadata = listOf(owner.clip, owner.name, owner.opacity, owner.visible, owner.blend)
+        return {
+            owner.tiles == tiles && owner.cels.keys == cels.keys &&
+                cels.all { (id, map) -> owner.cels[id] === map && map == celContents[id] } &&
+                owner.floats.keys == floats.keys && floats.all { (id, map) -> owner.floats[id] === map && map == floatContents[id] } &&
+                owner.celFloats.keys == payloads.keys && payloads.all { (cel, stores) ->
+                    owner.celFloats[cel] === stores && stores.keys == payloadStores.getValue(cel).keys &&
+                        payloadStores.getValue(cel).all { (id, map) -> stores[id] === map && map == payloadContents.getValue(cel)[id] }
+                } && owner.projected == projected && owner.visibleProjection === visible && visible == visibleContents &&
+                owner.plan === plan && plan?.frames == planFrames && owner.sharedCel == shared && owner.mask === mask &&
+                (maskCheck?.invoke() != false) &&
+                metadata == listOf(owner.clip, owner.name, owner.opacity, owner.visible, owner.blend)
+        }
+    }
+
+    /** Prove BOTH reachable history branches before a renderer/provider is created. */
+    private fun validatePlainPromotionHistory(inventory: PlainPromotionInventory) {
+        val promoted = inventory.physical.keys
+        val cursor = inventory.cursor
+        val allSteps = cursor.undoSteps + cursor.redoSteps
+        val current = LinkedHashMap<Triple<String, String?, Long>, Int>()
+        for (owner in layers.values) {
+            owner.tiles.forEach { (key, tex) -> current[Triple(owner.id, null, key)] = tex }
+            owner.cels.filterKeys { it != owner.sharedCel }.forEach { (cel, tiles) ->
+                tiles.forEach { (key, tex) -> current[Triple(owner.id, cel, key)] = tex }
+            }
+            owner.planes().forEach { (cel, stores) -> stores.forEach { (store, tiles) ->
+                tiles.forEach { (key, tex) -> current[Triple(MediaStores.id(owner.id, store), cel, key)] = tex }
+            } }
+        }
+        val ownership = inventory.occurrences.groupBy { it.texture }
+        val available = current.values.toSet() + cursor.heldTextures()
+        require(current.values.distinct().size == current.size) { "Native current sources alias two physical destinations" }
+        for (step in allSteps) {
+            require(step.stackBefore == null && step.stackAfter == null && step.paperBefore == null && step.paperAfter == null &&
+                step.documentBefore == null && step.documentAfter == null && step.lines.isEmpty() && step.slabs.isEmpty() &&
+                step.changes.isNotEmpty()) { "Reachable structural or recorded history needs its activation adapter" }
+            val targets = HashSet<Triple<String, String?, Long>>()
+            for (change in step.changes) {
+                val media = MediaStores.parse(change.layerId)
+                val id = media?.first ?: change.layerId
+                val owner = layers[id] ?: error("A reachable history owner is missing")
+                require(!owner.isMask && !id.endsWith(MASK_SUFFIX) &&
+                    (change.celId == null || (change.celId != owner.sharedCel && change.celId in owner.cels))) {
+                    "Reachable history needs canonical existing physical destinations"
+                }
+                require(targets.add(Triple(change.layerId, change.celId, change.key))) { "A reachable history Step repeats a target" }
+                val bridged = (id to change.celId) in promoted
+                require(!bridged || media == null) { "Selected media history cannot become a plain base" }
+                require(change.before != change.after || (bridged && change.before == null)) { "Reachable texture no-ops cannot transfer ownership" }
+                for (texture in listOfNotNull(change.before, change.after)) {
+                    require(texture != 0 && texture in available && ownership[texture]?.size == 1) {
+                        "A reachable endpoint lacks exclusive current/history ownership"
+                    }
+                    require((texture in floatNames) == (media != null && media.second != MediaStores.GROUND)) {
+                        "Reachable history has a mismatched native format contract"
+                    }
+                }
+            }
+        }
+        fun walk(steps: List<UndoLog.Step<Int>>, forward: Boolean) {
+            val state = current.toMutableMap()
+            for (step in steps.asReversed()) {
+                for (change in step.changes) {
+                    val at = Triple(change.layerId, change.celId, change.key)
+                    require(state[at] == if (forward) change.before else change.after) { "Reachable history has a stale physical endpoint" }
+                    val next = if (forward) change.after else change.before
+                    if (next == null) state.remove(at) else state[at] = next
+                }
+                require(state.values.distinct().size == state.size) { "Reachable history aliases two physical sources" }
+            }
+        }
+        walk(cursor.undoSteps, false); walk(cursor.redoSteps, true)
     }
 
     /** Existing canonical stores only: never call planeTiles/getOrPut during refusal checks. */
@@ -1931,12 +2154,15 @@ class GlPaintEngine(
     }
 
     /** Concrete paper/clipping renderer shared by eager replay and no-replay cold adoption. */
-    private fun recordedRenderer(planes: Map<Pair<String, String?>, RecordedCel<Int>>): RecordedScene.Renderer<Int> {
+    private fun recordedRenderer(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
+                                 transfer: NativeBaseTransferProof? = null): RecordedScene.Renderer<Int> {
         check(ready) { "The drawing context is not ready for recorded cels" }
         check(recordedScene == null) { "Release the previous recorded scene before opening another" }
         val capturedDocument = boardDocument
         val capturedPaper = documentPaper
         val capturedResolvedPaper = resolvedPaper
+        val capturedPhysicalEpoch = physicalContextEpoch
+        val capturedDocumentJson = capturedDocument?.let(DocJson::encode)
         require(planes.keys.all { (id, cel) ->
             layers[id]?.let { layer -> !layer.isMask &&
                 (cel == null || (cel in layer.cels && planeOf(layer, cel) == cel)) } == true
@@ -1949,10 +2175,36 @@ class GlPaintEngine(
             val layer = layers.getValue(plane.first)
             return layer.plan?.tileSlices(key)?.filter { planeOf(layer, it.plane.celId) == plane.second }?.map { it.rect }
         }
+        fun protectedOutputs(extra: Collection<Int> = emptyList()): Set<Int> = activeTextureOwners() + extra +
+            (publishedPaint?.recorded?.planes ?: planes).values.flatMap { cel ->
+                cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } }
+            }
+        fun validateOutputs(outputs: Collection<Int>, extra: Collection<Int> = emptyList()) {
+            val owned = protectedOutputs(extra)
+            require(outputs.all { it != 0 && it !in floatNames && it !in owned } && outputs.distinct().size == outputs.size) {
+                "Recorded rendering must return distinct fresh RGBA8 outputs outside current owners"
+            }
+            check(physicalContextEpoch == capturedPhysicalEpoch && !forgettingGraphicsContext)
+        }
+        fun discardFresh(outputs: Collection<Int>, extra: Collection<Int> = emptyList()) {
+            val owned = protectedOutputs(extra)
+            for (texture in outputs.distinct()) {
+                if (physicalContextEpoch != capturedPhysicalEpoch || forgettingGraphicsContext) break
+                if (texture != 0 && texture !in owned) recycleLayerTex(texture)
+            }
+        }
         return object : RecordedScene.Renderer<Int> {
-            override fun contextCurrent(): Boolean = ready && boardDocument == capturedDocument &&
+            override fun contextCurrent(): Boolean = ready && physicalContextEpoch == capturedPhysicalEpoch &&
+                !forgettingGraphicsContext && boardDocument === capturedDocument &&
+                boardDocument?.let(DocJson::encode) == capturedDocumentJson &&
                 documentPaper == capturedPaper && resolvedPaper == capturedResolvedPaper &&
-                framePreviews.isEmpty() && tileBoardId == null && physicalOwners.all { (plane, captured) ->
+                framePreviews.isEmpty() && tileBoardId == null && if (transfer != null) {
+                    try { transfer.contextCurrent(publishedPaint,
+                        NativeBaseTransferProof.Context(boardDocument, documentPaper, resolvedPaper, graphicsEpoch, physicalContextEpoch),
+                        plainPromotionPhysical(planes.keys.first().first)) }
+                    catch (_: IllegalArgumentException) { false }
+                    catch (_: IllegalStateException) { false }
+                } else physicalOwners.all { (plane, captured) ->
                     val (identity, plan, store) = captured
                     layers[plane.first]?.let { owner -> owner.ownershipIdentity === identity && owner.plan == plan &&
                         (if (plane.second == null) owner.tiles else owner.cels[plane.second]) === store } == true
@@ -1962,14 +2214,15 @@ class GlPaintEngine(
                 val rendered = prepareRecordedLine(address.layerId, record, preset)
                 var accepted = false
                 try {
+                    validateOutputs(rendered.tiles.values)
                     val plane = address.layerId to address.celId
                     val kept = rendered.tiles.filterKeys { key -> clips(plane, key)?.isNotEmpty() != false }
                     val unit = RecordedScene.Unit(rendered.op, kept)
-                    rendered.tiles.filterKeys { it !in kept }.values.forEach(::recycleLayerTex)
+                    discardFresh(rendered.tiles.filterKeys { it !in kept }.values)
                     accepted = true
                     return unit
                 } finally {
-                    if (!accepted) discardRecordedLine(rendered)
+                    if (!accepted) discardFresh(rendered.tiles.values)
                 }
             }
 
@@ -1985,17 +2238,21 @@ class GlPaintEngine(
                         copied[key] = checkNotNull(composeRecordedTile(listOf(
                             OrderedRecordedUnit(0, texture, "normal", clips(plane, key)))))
                     }
+                    validateOutputs(copied.values, unit.tiles.values)
                     return RecordedScene.Unit(unit.op, copied)
                 } catch (failure: Throwable) {
-                    copied.values.forEach(::recycleLayerTex)
+                    discardFresh(copied.values, unit.tiles.values)
                     throw failure
                 }
             }
 
             override fun look(plane: Pair<String, String?>, key: Long,
-                              sources: List<RecordedScene.Source<Int>>): Int? = composeRecordedTile(sources.map {
-                OrderedRecordedUnit(it.seq, it.texture, it.op, clips(plane, key))
-            })
+                              sources: List<RecordedScene.Source<Int>>): Int? {
+                val made = composeRecordedTile(sources.map { OrderedRecordedUnit(it.seq, it.texture, it.op, clips(plane, key)) })
+                    ?: return null
+                try { validateOutputs(listOf(made), sources.map { it.texture }); return made }
+                catch (failure: Throwable) { discardFresh(listOf(made), sources.map { it.texture }); throw failure }
+            }
 
             override fun release(texture: Int) = recycleLayerTex(texture)
         }
@@ -2519,6 +2776,7 @@ class GlPaintEngine(
         scene.checkBindingContext()
         undo.checkCursorBindingAllowed()
         val sourceState = scene.snapshotState()
+        validateRecordedPhysicalDisplay(sourceState)
         require(sourceState.planes.keys.all { (owner, cel) ->
             layers[owner]?.let { layer ->
                 val pixels = if (cel == null) layer.tiles else layer.cels[cel]
@@ -2534,7 +2792,7 @@ class GlPaintEngine(
             "Recorded physical slabs need distinct caller-owned sources before engine adoption"
         }
         val root = PublishedPaintState(LinkedHashMap(layers), HashMap(agreedLook), boardDocument, documentPaper,
-            sourceState, undo.snapshotCursor(), graphicsEpoch, persistentNativeTextures(layers))
+            sourceState, undo.snapshotCursor(), graphicsEpoch, persistentNativeTextures(layers), scene)
         // These accessors are engine-owned readonly field lookups. All identities were prepared
         // before binding, so there is no external callback or fallible native work between them.
         publishedPaint = root
@@ -2568,9 +2826,9 @@ class GlPaintEngine(
             val physical = physicalContextEpoch
             val physicalAlive = { physicalContextEpoch == physical && !forgettingGraphicsContext }
             val next = PublishedPaintState(LinkedHashMap(), HashMap(), null, expected.paper,
-                scene.emptyState(), undo.emptyCursor(), Math.addExact(expected.graphicsEpoch, 1L), emptySet())
+                scene.emptyState(), undo.emptyCursor(), Math.addExact(expected.graphicsEpoch, 1L), emptySet(), scene)
             val ticket = scene.prepareResetHandoff(expected, next, mode)
-            val physicalSources = persistentNativeTextures(expected.nativeLayers) + expected.recorded.planes.values.flatMap { cel ->
+            val physicalSources = ownedNativeTextures(expected.nativeLayers) + expected.recorded.planes.values.flatMap { cel ->
                 cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } }
             }
             val retiredSources = (physicalSources + ticket.retiredHistoryTextures).toList()
@@ -2607,12 +2865,20 @@ class GlPaintEngine(
         return protectedRecordedTextureHandles() - (floatNames - ownedFloats)
     }
 
-    private fun detachedNativeLayer(source: Layer, recordedCels: Set<String?>): Layer =
-        Layer(source.id, source.isMask, if (null in recordedCels) source.tiles else HashMap(source.tiles),
+    private fun ownedNativeTextures(source: Map<String, Layer>): Set<Int> = buildSet {
+        fun include(owner: Layer) { addAll(owner.ownedTextures()); owner.mask?.let(::include) }
+        source.values.forEach(::include)
+        remove(0)
+    }
+
+    private fun detachedNativeLayer(source: Layer, recordedCels: Set<String?>, emptyRecordedStores: Boolean = false): Layer =
+        Layer(source.id, source.isMask, if (null in recordedCels && !emptyRecordedStores) source.tiles
+            else if (null in recordedCels) HashMap() else HashMap(source.tiles),
             source.ownershipIdentity).also { copy ->
         source.cels.forEach { (id, tiles) ->
             copy.cels[id] = if (tiles === source.tiles) copy.tiles
-                else if (id in recordedCels) tiles else HashMap(tiles)
+                else if (id in recordedCels && !emptyRecordedStores) tiles
+                else if (id in recordedCels) HashMap() else HashMap(tiles)
         }
         copy.sharedCel = source.sharedCel
         copy.plan = source.plan
@@ -2667,6 +2933,11 @@ class GlPaintEngine(
         require(step.slabs.all { (it.layerId to it.celId) in expected.recorded.planes }) {
             "Native slab changes need a physical slab owner adapter"
         }
+        val projection = expected.baseTransferProof?.let {
+            PromotedBaseProjection.prepare(expected.recorded.planes, step, direction, expected.cursor,
+                expected.legacyBaseSteps, expected.promotedBases)
+        }
+        val nativeChanges = step.changes.filter { change -> projection?.bridgedChanges?.none { it === change } != false }
         val nextLayers = LinkedHashMap(expected.nativeLayers)
         val changedOwners = LinkedHashSet<String>()
         val targets = HashSet<Triple<String, String?, Long>>()
@@ -2677,7 +2948,16 @@ class GlPaintEngine(
         if (direction == RecordedScene.Direction.NEW) require(step.slabs.all { change ->
             change.after?.texture?.let { it != 0 && it !in currentOwners } ?: true
         }) { "A new physical slab must be a fresh caller-owned source" }
-        for (change in step.changes) {
+        fun detachOwner(owner: Layer): Layer = if (changedOwners.add(owner.id)) {
+            retiredProjection.addAll(owner.projected.values)
+            detachedNativeLayer(owner, expected.recorded.planes.keys.filter { it.first == owner.id }
+                .map { it.second }.toSet()).also { nextLayers[owner.id] = it }
+        } else nextLayers.getValue(owner.id)
+        // Raw/slab/base edits invalidate derived region projections, preserving physical placeholders.
+        val recordedOwners = (step.lines.map { it.layerId } + step.slabs.map { it.layerId } +
+            projection?.bridgedChanges.orEmpty().map { it.layerId }).toSet()
+        recordedOwners.forEach { detachOwner(expected.nativeLayers[it] ?: error("Missing recorded paint owner")) }
+        for (change in nativeChanges) {
             val owner = nativeStepOwner(change, expected)
             require(targets.add(Triple(change.layerId, change.celId, change.key))) {
                 "A joint native batch cannot repeat a physical target"
@@ -2691,21 +2971,17 @@ class GlPaintEngine(
                     "A new native endpoint must be a fresh caller-owned source"
                 }
             }
-            val target = if (changedOwners.add(owner.id)) {
-                retiredProjection.addAll(owner.projected.values)
-                detachedNativeLayer(owner, expected.recorded.planes.keys.filter { it.first == owner.id }
-                    .map { it.second }.toSet()).also { nextLayers[owner.id] = it }
-            } else nextLayers.getValue(owner.id)
+            val target = detachOwner(owner)
             val store = MediaStores.parse(change.layerId)?.let { (_, name) -> payload(target, name, change.celId) }
                 ?: planeTiles(target, change.celId)
             val after = if (direction == RecordedScene.Direction.UNDO) change.before else change.after
             if (after == null) store.remove(change.key) else store[change.key] = after
         }
         val nextAgreements = HashMap(expected.agreements)
-        val payloadTargets = step.changes.mapNotNull { change ->
+        val payloadTargets = nativeChanges.mapNotNull { change ->
             MediaStores.parse(change.layerId)?.let { Triple(it.first, change.celId, change.key) }
         }.toSet()
-        for (change in step.changes) {
+        for (change in nativeChanges) {
             val ownerId = MediaStores.parse(change.layerId)?.first ?: change.layerId
             val target = nextLayers.getValue(ownerId)
             val at = Triple(ownerId, change.celId, change.key)
@@ -2720,9 +2996,14 @@ class GlPaintEngine(
         } }
         if (direction == RecordedScene.Direction.NEW && residentMedia > mediaBudgetBytes)
             throw MediaRoomException("There is no room for these media tiles")
-        scene.stageJoint(step, direction, frozen).use { proposal ->
+        val staged = if (projection == null) scene.stageJoint(step, direction, frozen)
+            else scene.stageJointProjected(expected, step, direction, frozen)
+        staged.use { proposal ->
+            validateRecordedPhysicalDisplay(proposal.candidateState)
+            val remainingSteps = proposal.historyProposal.cursor.undoSteps + proposal.historyProposal.cursor.redoSteps
             val next = PublishedPaintState(nextLayers, nextAgreements, expected.document, expected.paper, proposal.candidateState,
-                proposal.historyProposal.cursor, expected.graphicsEpoch, protected)
+                proposal.historyProposal.cursor, expected.graphicsEpoch, protected, scene, expected.promotedBases,
+                expected.legacyBaseSteps.filter { old -> remainingSteps.any { it === old } }.toSet(), expected.baseTransferProof)
             val retiredNative = (retiredProjection + proposal.historyProposal.retirements).toList()
             if (!proposal.canPublish() || publishedPaint !== expected || graphicsEpoch != expected.graphicsEpoch ||
                 (direction == RecordedScene.Direction.NEW && residentMedia > mediaBudgetBytes)) return false

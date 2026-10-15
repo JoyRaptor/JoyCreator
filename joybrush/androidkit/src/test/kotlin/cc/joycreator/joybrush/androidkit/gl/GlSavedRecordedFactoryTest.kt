@@ -40,7 +40,7 @@ class GlSavedRecordedFactoryTest {
         val owned = engine.protectedRecordedTextureHandles()
         assertTrue(texture in owned, "Alias fixture did not plant ownership for $texture")
         assertFailsWith<IllegalArgumentException> { open(engine, mapOf(0L to texture, 1L to 99999)) }
-        assertNull(field<RecordedScene<Int>?>(engine, "recordedScene"))
+        assertNull(field<RecordedScene<Int>?>(engine, "localRecordedScene"))
         assertEquals(beforePool, pool(engine), "Rejection recycled protected handles or fresh upload siblings")
         assertEquals(owned, engine.protectedRecordedTextureHandles())
         assertSame(undoHead, engine.undo.peekUndo()); assertSame(redoHead, engine.undo.peekRedo())
@@ -124,7 +124,7 @@ class GlSavedRecordedFactoryTest {
         }
         assertSame(step, e.undo.peekUndo())
         assertTrue(pool(e).isEmpty())
-        assertNull(field<RecordedScene<Int>?>(e, "recordedScene"))
+        assertNull(field<RecordedScene<Int>?>(e, "localRecordedScene"))
     }
 
     @Test fun inputBorrowedSlabAliasAndZeroLookAreRefusedWithAllUploadsStillCallerOwned() {
@@ -136,7 +136,7 @@ class GlSavedRecordedFactoryTest {
         val zeroSource = RecordedCel("paint", null, listOf(record()), mapOf(0L to listOf(
             RecordedCel.PixelSlab(0L, UndoLog.SlabValue(0, "normal")))))
         assertFailsWith<IllegalArgumentException> { open(e, cel = zeroSource) }
-        assertTrue(pool(e).isEmpty()); assertNull(field<RecordedScene<Int>?>(e, "recordedScene"))
+        assertTrue(pool(e).isEmpty()); assertNull(field<RecordedScene<Int>?>(e, "localRecordedScene"))
     }
 
     @Test fun protectsSharedFrameMaskProjectedAndBothPhysicalMediaFamilies() {
@@ -213,7 +213,7 @@ class GlSavedRecordedFactoryTest {
         val e = engine()
         val old = open(e)
         assertFailsWith<IllegalStateException> { open(e, mapOf(0L to 901)) }
-        assertSame(old, field<RecordedScene<Int>?>(e, "recordedScene"))
+        assertSame(old, field<RecordedScene<Int>?>(e, "localRecordedScene"))
         assertEquals(900, old.look(plane, 0)); assertTrue(pool(e).isEmpty())
         e.releaseRecordedScene()
         assertEquals(listOf(900), pool(e))
@@ -303,7 +303,7 @@ class GlSavedRecordedFactoryTest {
         val scene = open(e)
         e.initWith {}
         assertTrue(scene.heldCacheTextures().isEmpty())
-        assertNull(field<RecordedScene<Int>?>(e, "recordedScene"))
+        assertNull(field<RecordedScene<Int>?>(e, "localRecordedScene"))
         assertTrue(pool(e).isEmpty(), "Dead uploaded names must not enter replacement-context free pools")
         e.addLayer("paint")
         assertEquals(900, open(e).look(plane, 0), "A replacement context may legitimately reuse the old numeric name")

@@ -113,11 +113,15 @@ data class StickContact(
 
 /** The blended footprint (Stick.blend 1; twin of stick.js and jb_stick.glsl): a bell point exp(−BELL·r²/R0²) that
  * reaches BELL_REACH past R0, side edges falling as (1 − y²/H²)^ACROSS_SOFT, and a point that yields TIP_YIELD of its
- * share where the side is down. */
+ * share where the side is down and runs on as a tail into it (the owner, 2026-10-14, on fine linen: the dark core
+ * thinner, the gradient continuous). */
 const val STICK_BELL = 2.2
 const val STICK_BELL_REACH = 0.6
 const val STICK_ACROSS_SOFT = 1.6
 const val STICK_TIP_YIELD = 0.5
+
+/** Blended, the point's darkness runs on this many R0 toward the barrel where the side is down, fading into it. */
+const val STICK_TAIL = 2.5
 
 fun stickContact(stick: Stick, tilt: Double, pressure: Double, toothMm: Double, press: Press = Press(), zones: Zones = Zones()): StickContact? {
     val p = max(0.0, min(1.0, pressure))
@@ -153,7 +157,10 @@ fun stickSqueeze(x: Double, y: Double, c: StickContact, zones: Zones = Zones()):
     val b = c.blend
     val r2 = c.r0 * c.r0
     fun mix(a: Double, z: Double) = a + (z - a) * b
-    val point = mix(max(0.0, 1 - (x * x + y * y) / r2), exp(-STICK_BELL * (x * x + y * y) / r2))
+    val sideDown = min(1.0, (c.w1 + c.w2) * 2)
+    val along = if (x < 0) exp(-STICK_BELL * x * x / r2)
+        else exp(-STICK_BELL * x * x / r2).let { bell -> bell + (exp(-x / (STICK_TAIL * c.r0)) - bell) * sideDown }
+    val point = mix(max(0.0, 1 - (x * x + y * y) / r2), exp(-STICK_BELL * y * y / r2) * along)
     val front = if (x < 0) mix(max(0.0, 1 - (x * x) / r2), exp(-STICK_BELL * x * x / r2)) else 1.0
     fun ramp(l: Double, g: Double, ev: Double): Double {
         if (x < 0) return 1.0
@@ -169,7 +176,7 @@ fun stickSqueeze(x: Double, y: Double, c: StickContact, zones: Zones = Zones()):
     val g2 = zones.grad2 + (0.55 - zones.grad2) * c.even
     val side = (c.w1 * ramp(c.l1, zones.grad1, 0.0) * across(c.l1) + c.w2 * ramp(c.l2, g2, c.even) * across(c.l2)) * front
     // Blended, the point stops sitting on top of the side as a second mark: where the side is down it yields.
-    val pointShare = c.w0 * (1 - STICK_TIP_YIELD * b * min(1.0, (c.w1 + c.w2) * 2))
+    val pointShare = c.w0 * (1 - STICK_TIP_YIELD * b * sideDown)
     return c.d * (pointShare * point + side)
 }
 

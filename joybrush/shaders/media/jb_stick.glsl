@@ -19,6 +19,7 @@ float jb_zoneRamp(float x, float L, float g, float even) {
 const float JB_BELL = 2.2;        // BELL
 const float JB_ACROSS_SOFT = 1.6; // ACROSS_SOFT
 const float JB_TIP_YIELD = 0.5;   // TIP_YIELD
+const float JB_TAIL = 2.5;        // TAIL: the point's darkness runs on this many R0 toward the barrel when the side is down
 
 float jb_zoneAcross(float x, float y, float L, float R0, float H, float blend) {
     float Hw = mix(R0, H, smoothstep(0.0, 0.3 * L, max(x, 0.0)));
@@ -31,11 +32,13 @@ float jb_stickSqueeze(vec2 q, float D, vec4 zones, vec3 w, float even, float ble
     float R0 = zones.x, L1 = zones.y, L2 = zones.z, H = zones.w;
     float x = q.x, y = q.y;
     float R2 = R0 * R0;
-    float point = mix(max(0.0, 1.0 - dot(q, q) / R2), exp(-JB_BELL * dot(q, q) / R2), blend);
+    float sideDown = min(1.0, (w.y + w.z) * 2.0);
+    float along = x < 0.0 ? exp(-JB_BELL * x * x / R2) : mix(exp(-JB_BELL * x * x / R2), exp(-x / (JB_TAIL * R0)), sideDown);
+    float point = mix(max(0.0, 1.0 - dot(q, q) / R2), exp(-JB_BELL * y * y / R2) * along, blend);
     float front = x < 0.0 ? mix(max(0.0, 1.0 - (x * x) / R2), exp(-JB_BELL * x * x / R2), blend) : 1.0;
     float g2 = mix(JB_GRAD2, 0.55, even);
     float side = (w.y * jb_zoneRamp(x, L1, JB_GRAD1, 0.0) * jb_zoneAcross(x, y, L1, R0, H, blend)
                + w.z * jb_zoneRamp(x, L2, g2, even) * jb_zoneAcross(x, y, L2, R0, H, blend)) * front;
-    float pointShare = w.x * (1.0 - JB_TIP_YIELD * blend * min(1.0, (w.y + w.z) * 2.0));
+    float pointShare = w.x * (1.0 - JB_TIP_YIELD * blend * sideDown);
     return D * (pointShare * point + side);
 }

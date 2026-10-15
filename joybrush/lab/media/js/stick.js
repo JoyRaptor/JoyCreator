@@ -118,7 +118,11 @@ export function stickContact(stick, tilt, pressure, paper, press = PRESS, zones 
 // barrel, y across).
 export function stickSqueeze(x, y, c, zones = ZONES) {
   const b = c.blend ?? 0, R2 = c.R0 * c.R0;
-  const point = mix(Math.max(0, 1 - (x * x + y * y) / R2), Math.exp(-BELL * (x * x + y * y) / R2), b);
+  // Blended, the point's darkness runs on toward the barrel and fades into the side (a tail TAIL·R0 long) instead of
+  // stopping at the rim: one continuous gradient from the dark edge into the shading (the owner, 2026-10-14, linen).
+  const sideDown = Math.min(1, (c.w1 + c.w2) * 2);
+  const along = x < 0 ? Math.exp(-BELL * x * x / R2) : mix(Math.exp(-BELL * x * x / R2), Math.exp(-x / (TAIL * c.R0)), sideDown);
+  const point = mix(Math.max(0, 1 - (x * x + y * y) / R2), Math.exp(-BELL * y * y / R2) * along, b);
   const front = x < 0 ? mix(Math.max(0, 1 - (x * x) / R2), Math.exp(-BELL * x * x / R2), b) : 1;
   const ramp = (L, g, ev) => {
     if (x < 0) return 1;
@@ -135,13 +139,17 @@ export function stickSqueeze(x, y, c, zones = ZONES) {
   const side = (c.w1 * ramp(c.L1, zones.grad1, 0) * across(c.L1) + c.w2 * ramp(c.L2, g2, c.even) * across(c.L2)) * front;
   // Blended, the point stops sitting on top of the side as a second mark: where the side is down it takes the
   // point's share, so the tip edge is the dark end of one gradient.
-  const pointShare = c.w0 * (1 - TIP_YIELD * b * Math.min(1, (c.w1 + c.w2) * 2));
+  const pointShare = c.w0 * (1 - TIP_YIELD * b * sideDown);
   return c.D * (pointShare * point + side);
 }
 
 // The blended footprint (stick.blend = 1): the point is a bell exp(−BELL·r²/R0²), the side's edge falls as
 // (1 − y²/H²)^ACROSS_SOFT, and the point yields TIP_YIELD of its share where the side is down.
-export const BELL = 2.2, BELL_REACH = 0.6, ACROSS_SOFT = 1.6, TIP_YIELD = 0.5;
+export const BELL = 2.2;
+export const BELL_REACH = 0.6;
+export const ACROSS_SOFT = 1.6;
+export const TIP_YIELD = 0.5;
+export const TAIL = 2.5;
 function mix(a, b, t) { return a + (b - a) * t; }
 
 export function makePsiTable(paper) {

@@ -48,6 +48,17 @@ only the disposable engine created by the existing debug host; no owner file wri
 - Isolated C:/Temp/jb-cold-faults now drafts21 controlled failure points: generated,
   storage and upload for each of six kinds, scene, bound root and post-retirement
   cleanup exception. This is UNCOMPILED/UNRUN work, not a completed rollback proof.
+- Exact249 Note9 cold payload cases executed for Ink and watercolor. BOTH stopped in
+  fixture archive preflight before new payload uploads: generated upper seq2 on2_1
+  was not listed by recorded-probe/promotion-shared cel.tiles. This is a diagnostic
+  fixture bug; no cold payload GPU success is claimed. Working and all3 named drawing
+  archives stayed unchanged. Full reports/working receipts remain privately under
+  recorded-phone-cold-payload-249cdd9d0. Luna is repairing the copied metadata manifest
+  with a regression where saved-look and bottom-slab key sets differ.
+- Controlled fault source05b3d6232 compiled production code but test compilation failed
+  on missing io.LineArchiveFixture import. Failed log retained under
+  cold-fault-compile-failure-05b3d6232. Corrected6a3508ed0 also makes prior paper visibly
+  distinct so restoration equality is meaningful; it still awaits full verification.
 
 Even success is only cold upload acceptance. Controlled allocation/storage/upload/scene/
 binding failures, rollback/paper equality and context-loss proofs remain before production

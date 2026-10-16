@@ -12,6 +12,7 @@ import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.doc.SlabRef
 import cc.joycreator.joybrush.core.media.HalfFloat
 import cc.joycreator.joybrush.core.media.MediaStores
+import cc.joycreator.joybrush.core.vector.CelLayout
 
 /** Deterministic, diagnostic-only cold upload payload fixture. This does not prove GL upload behavior. */
 internal object ColdPayloadProbeFixture {
@@ -43,6 +44,18 @@ internal object ColdPayloadProbeFixture {
         val nativeLayer = input.doc.layers.single { it !== recordedLayer }
         val lineKey = recordedCel.looks.minWithOrNull(compareBy<String>({ tileCoordinate(it, 0) }, { tileCoordinate(it, 1) }))
             ?: throw IllegalArgumentException("Probe fixture requires a saved line-look key")
+        require(lineKey in recordedCel.tiles || recordedCel.tiles.size < MAX_TILES) {
+            "Probe fixture would exceed the cel tile bound"
+        }
+        val lineAddress = Triple(recordedLayer.id, recordedCel.id, lineKey)
+        val existingStack = CelLayout.stacks(recordedCel)[lineKey]
+        val existingBottom = input.tiles[lineAddress]
+        require(existingStack == null || existingBottom != null) {
+            "Probe fixture refuses a listed bottom tile without its existing bytes"
+        }
+        require(existingStack != null || existingBottom == null) {
+            "Probe fixture refuses an unlisted bottom payload at the chosen saved-look key"
+        }
         val allSeq = buildList {
             input.strokes.values.flatten().forEach { add(it.seq) }
             input.doc.layers.flatMap { it.cels }.flatMap { it.slabs }.forEach { add(it.seq) }
@@ -62,7 +75,17 @@ internal object ColdPayloadProbeFixture {
         val ground = ByteArray(TILE_BYTES) { i -> if (i % 4 == 3) 0xff.toByte() else ((i * 17 + 29) and 255).toByte() }
         val mask = ByteArray(TILE_BYTES) { i -> if (i % 4 == 3) 0xff.toByte() else ((i * 7 + 11) and 255).toByte() }
         val slabRef = SlabRef(lineKey, upperSeq, "normal")
-        val updatedRecorded = recordedCel.copy(slabs = recordedCel.slabs + slabRef)
+        val existingLineSlabs = recordedCel.slabs.filter { it.key == lineKey }
+        require(existingStack != null || existingLineSlabs.isEmpty()) {
+            "Probe fixture refuses slab references outside the bottom tile manifest"
+        }
+        // An implicit plain bottom becomes explicit when a second slab is added. A line key
+        // without any bottom instead makes the generated slab the first stack entry at its own seq.
+        val bottomRef = if (existingStack != null && existingLineSlabs.isEmpty()) listOf(SlabRef(lineKey, 0L)) else emptyList()
+        val updatedRecorded = recordedCel.copy(
+            tiles = (recordedCel.tiles + lineKey).distinct(),
+            slabs = recordedCel.slabs + bottomRef + slabRef,
+        )
         val updatedLayers = input.doc.layers.map { layer ->
             when (layer.id) {
                 recordedLayer.id -> layer.copy(cels = listOf(updatedRecorded))
@@ -75,9 +98,10 @@ internal object ColdPayloadProbeFixture {
         )
         val doc = DocJson.decode(DocJson.encode(input.doc.copy(layers = updatedLayers)))
         val tiles = input.tiles.mapValues { it.value.copyOf() }.toMutableMap()
+        if (existingStack == null) tiles[lineAddress] = upper.copyOf()
         tiles[Triple(nativeLayer.id, MASK_CEL, MASK_TILE)] = mask.copyOf()
         val slabs = input.slabs.mapValues { it.value.copyOf() }.toMutableMap()
-        slabs[SlabKey(recordedLayer.id, recordedCel.id, lineKey, upperSeq)] = upper.copyOf()
+        if (existingStack != null) slabs[SlabKey(recordedLayer.id, recordedCel.id, lineKey, upperSeq)] = upper.copyOf()
         val looks = input.looks.mapValues { it.value.copyOf() }.toMutableMap()
         looks[Triple(recordedLayer.id, recordedCel.id, lineKey)] = upper.copyOf()
         val media = input.mediaTiles.mapValues { it.value.copyOf() }.toMutableMap()
@@ -86,6 +110,7 @@ internal object ColdPayloadProbeFixture {
         val contents = input.copy(doc = doc, tiles = tiles.toMap(), slabs = slabs.toMap(), looks = looks.toMap(),
             mediaTiles = media.toMap(), strokes = input.strokes.mapValues { (_, records) -> records.sortedBy { it.seq }.map { it.copy(samples = it.samples.map { s -> s.copy() }) } },
             thumbnailPng = input.thumbnailPng?.copyOf(), brushes = input.brushes.mapValues { BrushJson.decodeChecked(BrushJson.encode(it.value)) })
+        JbArchive.requireStructure(contents)
         val expected = listOf(
             ExpectedPayload("MASK_RGBA8", Address(nativeLayer.id, MASK_CEL, MASK_TILE), mask),
             ExpectedPayload("MEDIA_RGBA16F", Address(MEDIA_LAYER, MEDIA_CEL, MEDIA_TILE, "p0"), p0),
@@ -110,7 +135,7 @@ internal object ColdPayloadProbeFixture {
         }
         val rc = recorded.single().cels.single()
         require(rc.looks.isNotEmpty() && rc.looks.size <= MAX_TILES && rc.tiles.isNotEmpty() && rc.tiles.size <= MAX_TILES &&
-            rc.looks.all { it in rc.tiles } && rc.floatTiles.isEmpty()) {
+            rc.floatTiles.isEmpty()) {
             "Probe fixture requires at most $MAX_TILES ordinary RGBA8 bottom and saved-look tiles"
         }
         require(c.strokes.values.flatten().none { it.capturedPhysicalSource != null }) {

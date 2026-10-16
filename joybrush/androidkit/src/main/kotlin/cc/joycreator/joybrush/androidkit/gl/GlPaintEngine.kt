@@ -2277,7 +2277,7 @@ class GlPaintEngine(
         var unexpected: String? = null
         var glChecks=0; var generated=0; var owned=0; var deleted=0; var orphaned=0; var dangling=0
         var empty=false; var restored=false; var paperRestored=false; var cpuPaperRestored=false
-        var paperTexturesValid=false
+        var paperTexturesValid=false; var priorPaperTextureChecks=0
         try {
             loadFreshRecordedArtworkImpl(plan,attempt)
             unexpected="Controlled failure target was not reached"
@@ -2307,11 +2307,12 @@ class GlPaintEngine(
                 } else if(!exists) deleted++ else orphaned++
                 glChecks++; check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Failed-upload texture query GL error" }
             }
-            paperTexturesValid=true
-            for(name in listOfNotNull(beforeLook,beforeSurface,beforeFluid).filter { it != 0 }.distinct()) {
+            val priorPaperNames=listOfNotNull(beforeLook,beforeSurface,beforeFluid).filter { it != 0 }.distinct()
+            paperTexturesValid=priorPaperNames.size == 3
+            for(name in priorPaperNames) {
                 check(alive())
                 if(!GLES30.glIsTexture(name)) paperTexturesValid=false
-                check(alive()); glChecks++
+                check(alive()); glChecks++; priorPaperTextureChecks++
                 check(GLES30.glGetError() == GLES30.GL_NO_ERROR)
             }
             check(recordedLinePreparationCalls == preparations && recordedCompositionCalls == compositions)
@@ -2332,6 +2333,7 @@ class GlPaintEngine(
             .put("expectedFaultReached",attempt.reached).put("retirementFailureObserved",injectedRetire)
             .put("candidateEmpty",empty).put("callerGlStateRestored",restored).put("paperFieldsRestored",paperRestored)
             .put("cpuPaperRestored",cpuPaperRestored).put("priorPaperTexturesValid",paperTexturesValid)
+            .put("priorPaperTextureChecks",priorPaperTextureChecks)
             .put("generatedTextures",generated).put("ownedAfterRollback",owned).put("deletedAfterRollback",deleted)
             .put("orphanedAfterRollback",orphaned).put("actualTextureGlChecks",glChecks)
             .put("danglingOwnersAfterRollback",dangling).put("unexpectedCleanupFailures",unexpectedCleanup.size)

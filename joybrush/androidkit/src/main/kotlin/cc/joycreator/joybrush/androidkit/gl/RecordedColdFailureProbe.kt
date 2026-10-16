@@ -4,9 +4,11 @@ import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.io.ColdRecordedLoadPlan
 import cc.joycreator.joybrush.androidkit.io.JbArchive
 import cc.joycreator.joybrush.androidkit.io.JbContents
+import cc.joycreator.joybrush.androidkit.io.PaperResources
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.doc.Paper
 import cc.joycreator.joybrush.core.doc.RectPx
+import cc.joycreator.joybrush.core.paper.PaperState
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
@@ -110,10 +112,17 @@ internal object RecordedColdFailureProbe {
 
             val targetPaperPixels = engine.renderPaper(RectPx(0,0,8,8))
             engine.resetDocument()
-            // A visibly different previous paper makes rollback equality nonvacuous.
-            engine.setDocumentPaper(Paper(color = "#123456"))
+            // Existing look/surface/fluid GPU objects must survive every candidate failure.
+            // Load before the caller-state snapshot: decoding paper legitimately binds GL objects.
+            val priorPaper = Paper(lookId = "rice_cool", textureId = "rice_fibres", tint = "#123456")
+            val resolvedPrior = PaperState.resolve(priorPaper, PaperResources.catalogue)
+            check(PaperState.problems(priorPaper, PaperResources.catalogue).isEmpty() &&
+                resolvedPrior.look?.file == "look_rice_cool.jpg" &&
+                resolvedPrior.surface?.file == "height_rice_fibres.png" &&
+                resolvedPrior.surface?.fluid == "fluid_rice_fibres.png")
+            engine.setDocumentPaper(priorPaper)
             if (engine.renderPaper(RectPx(0,0,8,8)).contentEquals(targetPaperPixels)) {
-                engine.setDocumentPaper(Paper(color = "#ABCDEF"))
+                engine.setDocumentPaper(priorPaper.copy(tint = "#ABCDEF"))
             }
             paperSentinelDifferent = !engine.renderPaper(RectPx(0,0,8,8)).contentEquals(targetPaperPixels)
             check(paperSentinelDifferent && engine.documentPaper != plan.metadataCopy().paper)
@@ -172,7 +181,8 @@ internal object RecordedColdFailureProbe {
                     row.optInt("danglingOwnersAfterRollback", -1) == 0 &&
                     row.optInt("unexpectedCleanupFailures", -1) == 0 &&
                     row.optBoolean("paperFieldsRestored") && row.optBoolean("cpuPaperRestored") &&
-                    row.optBoolean("priorPaperTexturesValid") && row.optBoolean("contextCurrent") &&
+                    row.optBoolean("priorPaperTexturesValid") && row.optInt("priorPaperTextureChecks", -1) == 3 &&
+                    row.optBoolean("contextCurrent") &&
                     row.optInt("linePreparationCalls", -1) == 0 && row.optInt("compositionCalls", -1) == 0) {
                     "Engine rejected controlled rollback target ${target.phase}/${target.uploadId}: $raw"
                 }

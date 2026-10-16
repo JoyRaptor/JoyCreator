@@ -75,3 +75,10 @@ Pre-existing, not captured by me: `color_picker_hex_wrap.png` was already in thi
 - Settings sub-screens (each settings row): not reached. The legacy Settings tab showed the record screen, not the settings hub.
 - Studio editor drawers Fix audio, Beats, Select, Volume, FX, Adjust, Move, Opacity, Align, Transitions, Canvas: not opened.
 - Lobby nav tabs (Remote, Bits, Packs, Setup) have not been identified by eye.
+
+## Verified before shots (lead, 2026-10-16, viewed by eye)
+- v_finder_smart_detection.png: Finder = legacy "Smart Detection" screen (FadCam).
+- v_remote_server_room.png: Remote = legacy "Server Room" (stream/server stats).
+- v_bits_home_recorder.png: Bits = legacy screen recorder home (Camera/Screen/Mic tabs, Start Screen Recording).
+- v_packs_settings.png and v_setup_settings.png: Packs and Setup both = the legacy Settings list.
+- The Library "before" is s36 (the legacy Records screen).

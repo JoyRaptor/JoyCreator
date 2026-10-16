@@ -410,6 +410,8 @@ class GlPaintEngine(
     private var localGraphicsEpoch = 0L
     private val graphicsEpoch: Long get() = publishedPaint?.graphicsEpoch ?: localGraphicsEpoch
     private var physicalContextEpoch = 0L
+    /** Returned renderer outputs stay visible to accounting before Scene publication/adoption. */
+    private val recordedWorkingTiles = RecordedWorkingTileLedger(physicalContextEpoch)
     private var forgettingGraphicsContext = false
     private var resettingJointPaint = false
     private var preparingPlainPromotion = false
@@ -693,6 +695,8 @@ class GlPaintEngine(
      * something that does not exist.
      */
     private fun forgetEverythingFromTheLastContext(): Boolean {
+        // initWith advanced the physical epoch before any replacement-context allocation.
+        recordedWorkingTiles.reset(physicalContextEpoch)
         // [heldTextureNames] rather than the maps one by one, so "there was something to lose" and
         // "a name is still being held" can never mean different things. `ready` is deliberately NOT
         // in the question: init is also how a second init on a live context is recovered from, and
@@ -749,7 +753,7 @@ class GlPaintEngine(
     /** Frees every GL object this engine owns. */
     fun release() {
         check(!resettingJointPaint) { "Finish joint retirement before releasing the drawing" }
-        if (!ready) return
+        if (!ready) { recordedWorkingTiles.reset(physicalContextEpoch); return }
         resetJointPaint(RecordedScene.ResetMode.SAME_CONTEXT)
         releaseRecordedScene()
         undo.clear()
@@ -760,6 +764,7 @@ class GlPaintEngine(
         if (thumbTex != 0) all.add(thumbTex)
         thumbTex = 0; thumbW = 0; thumbH = 0
         GLES30.glDeleteTextures(all.size, all.toIntArray(), 0)
+        all.forEach { if (it != 0) recordedWorkingTiles.forget(physicalContextEpoch, it) }
         layers.clear(); freeLayerTex.clear(); freeStrokeTex.clear(); freeSmudgeTex.clear(); freeFloatTex.clear(); floatNames.clear()
         mediaStroke = null; mediaStrokeHeld.clear()
         GLES30.glDeleteBuffers(3, intArrayOf(quadVbo, unitVbo, instanceVbo), 0)
@@ -774,6 +779,7 @@ class GlPaintEngine(
         boardPreview.release()
         compositeProg?.release(); compositeProg = null
         recordedComposeProg?.release(); recordedComposeProg = null
+        recordedWorkingTiles.reset(physicalContextEpoch)
         ready = false
     }
 
@@ -2246,6 +2252,7 @@ class GlPaintEngine(
                         names[id] != 0 && names[id] !in protected) {
                         floatNames.remove(names[id])
                         GLES30.glDeleteTextures(1, names, id)
+                        recordedWorkingTiles.forget(physical, names[id])
                     }
                 }
                 if (current()) {
@@ -2882,6 +2889,22 @@ class GlPaintEngine(
                 if (texture != 0 && texture !in owned) recycleLayerTex(texture)
             }
         }
+        fun stagedBeforeCallback(): Set<Int> {
+            check(ready && physicalContextEpoch == capturedPhysicalEpoch && !forgettingGraphicsContext) {
+                "Recorded output accounting needs its current physical context"
+            }
+            return recordedWorkingTiles.snapshot(capturedPhysicalEpoch).keys
+        }
+        fun registerReturned(outputs: Collection<Int>) {
+            check(ready && physicalContextEpoch == capturedPhysicalEpoch && !forgettingGraphicsContext)
+            recordedWorkingTiles.register(capturedPhysicalEpoch, outputs, size.toLong() * size * 4)
+        }
+        fun discardAfterFailure(failure: Throwable, outputs: Collection<Int>, protected: Collection<Int>) {
+            try { discardFresh(outputs, protected) }
+            catch (secondary: Throwable) {
+                if (secondary !== failure) try { failure.addSuppressed(secondary) } catch (_: Throwable) { }
+            }
+        }
         return object : RecordedScene.Renderer<Int> {
             override fun contextCurrent(): Boolean = ready && physicalContextEpoch == capturedPhysicalEpoch &&
                 !forgettingGraphicsContext && boardDocument === capturedDocument &&
@@ -2900,23 +2923,27 @@ class GlPaintEngine(
                 }
 
             override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): RecordedScene.Unit<Int> {
+                val priorStaged = stagedBeforeCallback()
                 val rendered = prepareRecordedLine(address.layerId, record, preset)
-                var accepted = false
                 try {
-                    validateOutputs(rendered.tiles.values)
+                    validateOutputs(rendered.tiles.values, priorStaged)
                     val plane = address.layerId to address.celId
                     val kept = rendered.tiles.filterKeys { key -> clips(plane, key)?.isNotEmpty() != false }
                     val unit = RecordedScene.Unit(rendered.op, kept)
-                    discardFresh(rendered.tiles.filterKeys { it !in kept }.values)
-                    accepted = true
+                    discardFresh(rendered.tiles.filterKeys { it !in kept }.values, priorStaged)
+                    // Final registration is atomic and is the last fallible operation before
+                    // handoff. Cleanup protects prior staged owners, never this batch itself.
+                    registerReturned(unit.tiles.values)
                     return unit
-                } finally {
-                    if (!accepted) discardFresh(rendered.tiles.values)
+                } catch (failure: Throwable) {
+                    discardAfterFailure(failure, rendered.tiles.values, priorStaged)
+                    throw failure
                 }
             }
 
             override fun copyForBake(address: LineAddress,
                                      unit: RecordedScene.Unit<Int>): RecordedScene.Unit<Int> {
+                val priorStaged = stagedBeforeCallback() + unit.tiles.values
                 val copied = linkedMapOf<Long, Int>()
                 try {
                     val plane = address.layerId to address.celId
@@ -2927,23 +2954,41 @@ class GlPaintEngine(
                         copied[key] = checkNotNull(composeRecordedTile(listOf(
                             OrderedRecordedUnit(0, texture, "normal", clips(plane, key)))))
                     }
-                    validateOutputs(copied.values, unit.tiles.values)
-                    return RecordedScene.Unit(unit.op, copied)
+                    validateOutputs(copied.values, priorStaged)
+                    val result = RecordedScene.Unit(unit.op, copied)
+                    registerReturned(result.tiles.values)
+                    return result
                 } catch (failure: Throwable) {
-                    discardFresh(copied.values, unit.tiles.values)
+                    discardAfterFailure(failure, copied.values, priorStaged)
                     throw failure
                 }
             }
 
             override fun look(plane: Pair<String, String?>, key: Long,
                               sources: List<RecordedScene.Source<Int>>): Int? {
+                val priorStaged = stagedBeforeCallback() + sources.map { it.texture }
                 val made = composeRecordedTile(sources.map { OrderedRecordedUnit(it.seq, it.texture, it.op, clips(plane, key)) })
                     ?: return null
-                try { validateOutputs(listOf(made), sources.map { it.texture }); return made }
-                catch (failure: Throwable) { discardFresh(listOf(made), sources.map { it.texture }); throw failure }
+                try {
+                    validateOutputs(listOf(made), priorStaged)
+                    registerReturned(listOf(made))
+                    return made
+                } catch (failure: Throwable) {
+                    // Include cleanup-holder allocation in the guard: registration can fail
+                    // from allocation pressure, and cleanup must preserve that first failure.
+                    try { discardFresh(listOf(made), priorStaged) }
+                    catch (secondary: Throwable) {
+                        if (secondary !== failure) try { failure.addSuppressed(secondary) } catch (_: Throwable) { }
+                    }
+                    throw failure
+                }
             }
 
-            override fun release(texture: Int) = recycleLayerTex(texture)
+            override fun release(texture: Int) {
+                // A retained old Scene/renderer cannot remove a reused replacement-context tag.
+                if (ready && physicalContextEpoch == capturedPhysicalEpoch && !forgettingGraphicsContext)
+                    recycleLayerTex(texture)
+            }
         }
     }
 
@@ -4556,9 +4601,16 @@ class GlPaintEngine(
 
     private fun recycleLayerTex(tex: Int) {
         if (forgettingGraphicsContext) return
+        // Scene caches, baked slabs and UndoLog endpoints all retire through this hook.
+        // The pool still owns a recycled allocation; future budgets count that actual owner.
+        if (tex != 0) recordedWorkingTiles.forget(physicalContextEpoch, tex)
         if (tex in floatNames) {
             freeFloatTex.addLast(tex)
-            while (freeFloatTex.size > 16) freeFloatTex.removeFirst().let { floatNames.remove(it); GLES30.glDeleteTextures(1, intArrayOf(it), 0) }
+            while (freeFloatTex.size > 16) freeFloatTex.removeFirst().let {
+                floatNames.remove(it)
+                GLES30.glDeleteTextures(1, intArrayOf(it), 0)
+                if (it != 0) recordedWorkingTiles.forget(physicalContextEpoch, it)
+            }
             return
         }
         freeLayerTex.addLast(tex)
@@ -4566,7 +4618,11 @@ class GlPaintEngine(
     }
 
     private fun trimPool(pool: ArrayDeque<Int>, keep: Int) {
-        while (pool.size > keep) GLES30.glDeleteTextures(1, intArrayOf(pool.removeFirst()), 0)
+        while (pool.size > keep) {
+            val texture = pool.removeFirst()
+            GLES30.glDeleteTextures(1, intArrayOf(texture), 0)
+            if (texture != 0) recordedWorkingTiles.forget(physicalContextEpoch, texture)
+        }
     }
 
     private fun newTexture(dim: Int, internal: Int, format: Int, type: Int): Int = newTexture(dim, dim, internal, format, type)

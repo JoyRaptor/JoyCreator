@@ -1675,7 +1675,12 @@ class GlPaintEngine(
      * The returned RGBA8 units include stroke opacity once and retain the brush's operator separately.
      * Caller owns every returned texture until it is committed or discarded. Final cel clipping is the composer's job.
      */
-    internal fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset): RecordedLineUnit {
+    internal fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset): RecordedLineUnit =
+        prepareRecordedLine(layerId, record, preset, null)
+
+    /** Only the same synchronous admission call may supply its already transcribed recipe. */
+    private fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset,
+                                    admittedReplay: InkReplay.Replayed?): RecordedLineUnit {
         recordedLinePreparationCalls++
         check(ready) { "The drawing context is not ready for recorded replay" }
         check(!strokeInProgress && !wcFading) { "Finish the current stroke before replaying a line" }
@@ -1689,7 +1694,7 @@ class GlPaintEngine(
         require(preset.line == null) { "Whole-stroke shaping is not connected to live recording yet" }
         require(preset.blend in setOf("normal", "erase", "behind", "multiply", "screen")) { "This line operator is not connected to GPU composition yet" }
         require(paperWarnings.isEmpty()) { "Recorded replay needs the document's actual paper resources" }
-        val replay = InkReplay.replay(record, preset)
+        val replay = admittedReplay ?: InkReplay.replay(record, preset)
         // Older grain brushes used the newest contact of each native event batch as a uniform.
         // Raw samples alone do not retain those batch boundaries, so varying legacy pose cannot
         // be transcribed as one draw without changing the grain. Modern contacts carry it per dab.
@@ -1863,10 +1868,11 @@ class GlPaintEngine(
         val recipe = record.copy(capturedPhysicalSource = null)
         // This CPU admission uses the SAME dab generator and tile allocator geometry as replay.
         // It bounds even WC's own size/dynamics/scatter before the first source GPU allocation.
-        // The diagnostic evaluates the CPU recipe twice; this is not a performance claim.
-        val replay = InkReplay.replay(recipe, preset)
-        val admittedKeys = if (workingTileBudgetBytes == null) capturedDiagnosticSourceKeys(replay.dabs)
-            else RecordedReplayTilePlan.keys(replay.dabs, replayTileLimit(workingTileBudgetBytes), size)
+        // Reuse this exact admitted descriptor for GPU replay. Retained CPU history is not bounded here.
+        val footprint = workingTileBudgetBytes?.let { RecordedReplayTilePlan.Accumulator(replayTileLimit(it), size) }
+        val replay = if (footprint == null) InkReplay.replay(recipe, preset)
+            else InkReplay.replayAdmitted(recipe, preset, footprint::add)
+        val admittedKeys = footprint?.snapshot() ?: capturedDiagnosticSourceKeys(replay.dabs)
         val limits = if (workingTileBudgetBytes == null)
             cc.joycreator.joybrush.core.stroke.CapturedSourceCopyPlan.Limits()
         else cc.joycreator.joybrush.core.stroke.CapturedSourceCopyPlan.Limits(
@@ -1888,7 +1894,7 @@ class GlPaintEngine(
         val priorStaged = recordedWorkingTiles.snapshot(physical).keys
         var cleanupProtected = protectedRecordedTextureHandles() + priorStaged
         val discardName = IntArray(1)
-        val unit = prepareRecordedLine(layerId, recipe, preset)
+        val unit = prepareRecordedLine(layerId, recipe, preset, replay)
         var handedOff = false
         fun current() = ready && !forgettingGraphicsContext && physicalContextEpoch == physical && graphicsEpoch == graphics
         try {
@@ -3060,13 +3066,15 @@ class GlPaintEngine(
                 val priorStaged = stagedBeforeCallback()
                 var admittedKeys: Set<Long>? = null
                 val rendered = if (record.capturedPhysicalSource == null) {
+                    var admittedReplay: InkReplay.Replayed? = null
                     if (capturedWorkingTileBudgetBytes != null) {
-                        val keys = RecordedReplayTilePlan.keys(InkReplay.replay(record, preset).dabs,
-                            replayTileLimit(capturedWorkingTileBudgetBytes), size)
+                        val footprint = RecordedReplayTilePlan.Accumulator(replayTileLimit(capturedWorkingTileBudgetBytes), size)
+                        admittedReplay = InkReplay.replayAdmitted(record, preset, footprint::add)
+                        val keys = footprint.snapshot()
                         admittedKeys = keys
                         admitPeak(RecordedWorkingTilePlan.replay(keys.size, tileSize = size))
                     }
-                    prepareRecordedLine(address.layerId, record, preset)
+                    prepareRecordedLine(address.layerId, record, preset, admittedReplay)
                 } else {
                     checkNotNull(capturedWorkingTileBudgetBytes) { "Captured source replay needs explicit admission" }
                     val lease = capturedRecipeLease(address.layerId, record, preset, planes, capturedWorkingTileBudgetBytes)

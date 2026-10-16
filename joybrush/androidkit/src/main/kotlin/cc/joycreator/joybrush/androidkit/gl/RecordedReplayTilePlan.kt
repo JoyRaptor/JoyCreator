@@ -10,14 +10,23 @@ import kotlin.math.floor
 /** Pure, bounded address planning for a canonical recorded replay. */
 internal object RecordedReplayTilePlan {
     fun keys(dabs: List<Dab>, maxTiles: Int, tileSize: Int = Tiles.SIZE): Set<Long> {
-        require(maxTiles >= 0) { "Tile budget must be non-negative" }
-        require(tileSize > 0) { "Tile size must be positive" }
+        val plan = Accumulator(maxTiles, tileSize)
+        dabs.forEach(plan::add)
+        return plan.snapshot()
+    }
 
-        val minTile = -((Int.MAX_VALUE.toLong() + 1L) / tileSize)
-        val maxTile = Math.floorDiv(Int.MAX_VALUE.toLong() + 1L - tileSize, tileSize.toLong())
-        val result = LinkedHashSet<Long>()
+    /** Incremental admission before a replay retains another final dab. Discard on refusal. */
+    class Accumulator(private val maxTiles: Int, private val tileSize: Int = Tiles.SIZE) {
+        init {
+            require(maxTiles >= 0) { "Tile budget must be non-negative" }
+            require(tileSize > 0) { "Tile size must be positive" }
+        }
 
-        for (dab in dabs) {
+        private val minTile = -((Int.MAX_VALUE.toLong() + 1L) / tileSize)
+        private val maxTile = Math.floorDiv(Int.MAX_VALUE.toLong() + 1L - tileSize, tileSize.toLong())
+        private val result = LinkedHashSet<Long>()
+
+        fun add(dab: Dab) {
             require(dab.x.isFinite() && dab.y.isFinite() && dab.radius.isFinite() && dab.radius >= 0f) {
                 "Invalid replay dab coordinates or radius"
             }
@@ -49,6 +58,6 @@ internal object RecordedReplayTilePlan {
             }
         }
 
-        return Collections.unmodifiableSet(LinkedHashSet(result))
+        fun snapshot(): Set<Long> = Collections.unmodifiableSet(LinkedHashSet(result))
     }
 }

@@ -21227,8 +21227,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
         commitVisualizerWorkingStyle(overlay);
         final String after = com.fadcam.ui.faditor.waveform.WaveformStyleIO.toJson(visualizerWorkingStyle);
         if (before.equals(after)) return;
+        recordVizStyleUndo(overlay, before, after);
+    }
+
+    private void recordVizStyleUndo(@NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay,
+                                    @NonNull String before, @NonNull String after) {
         undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_undo_viz_style),
                 () -> applyVizStyleJson(overlay, after), () -> applyVizStyleJson(overlay, before)));
+    }
+
+    /** A drawer slider whose whole drag (finger down to finger up) is ONE visualizer undo step. */
+    @NonNull
+    private LinearLayout vizGridSlider(@NonNull Context ctx,
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay,
+            @NonNull CharSequence label, @NonNull CharSequence name, float min, float max, float value,
+            @NonNull com.fadcam.ui.faditor.tools.VizDrawerGrid.Format format,
+            @NonNull com.fadcam.ui.faditor.tools.VizDrawerGrid.Setter onChange) {
+        final String[] before = {null};
+        return com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(ctx, label, name, min, max, value, format,
+                onChange, new com.fadcam.ui.faditor.tools.VizDrawerGrid.Gesture() {
+                    @Override public void onStart() {
+                        before[0] = visualizerWorkingStyle == null ? null
+                                : com.fadcam.ui.faditor.waveform.WaveformStyleIO.toJson(visualizerWorkingStyle);
+                    }
+                    @Override public void onStop() {
+                        if (before[0] == null || visualizerWorkingStyle == null) return;
+                        String after = com.fadcam.ui.faditor.waveform.WaveformStyleIO.toJson(visualizerWorkingStyle);
+                        if (!before[0].equals(after)) recordVizStyleUndo(overlay, before[0], after);
+                        before[0] = null;
+                    }
+                });
     }
 
     private void applyVizStyleJson(@NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay,
@@ -21398,11 +21426,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // particles (only when emitter == particles): they tune the shape, so they sit under it.
         if (com.fadcam.ui.faditor.model.VizLayer.EMITTER_PARTICLES.equals(layer.emitter)) {
             propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
-                    com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx,
+                    vizGridSlider(gx, overlay,
                             getString(R.string.studio_viz_count), getString(R.string.studio_viz_hover_count),
                             1f, 8f, layer.particleCount, whole,
                             v -> { layer.particleCount = Math.round(v); commit.run(); }),
-                    com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx,
+                    vizGridSlider(gx, overlay,
                             getString(R.string.studio_viz_speed), getString(R.string.studio_viz_hover_speed),
                             0.1f, 4f, layer.particleSpeed, dec,
                             v -> { layer.particleSpeed = v; commit.run(); })));
@@ -21457,14 +21485,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String sGain = getString(R.string.studio_viz_gain);
         final String sSpread = getString(R.string.studio_viz_spread);
         propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
-                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx, sOpacity, sOpacity,
+                vizGridSlider(gx, overlay, sOpacity, sOpacity,
                         0f, 1f, layer.opacity, dec, v -> { layer.opacity = v; commit.run(); }),
-                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx, sSoftness, sSoftness,
+                vizGridSlider(gx, overlay, sSoftness, sSoftness,
                         0f, 1f, layer.softness, dec, v -> { layer.softness = v; commit.run(); })));
         propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
-                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx, sGain, sGain,
+                vizGridSlider(gx, overlay, sGain, sGain,
                         0.1f, 4f, layer.gain, dec, v -> { layer.gain = v; commit.run(); }),
-                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx, sSpread, sSpread,
+                vizGridSlider(gx, overlay, sSpread, sSpread,
                         0.1f, 1f, layer.spread, dec, v -> { layer.spread = v; commit.run(); })));
         // Blend and Mirror: both choices visible, each in its own half.
         View blendChoices = vizChoices(dp,
@@ -21497,7 +21525,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
                 com.fadcam.ui.faditor.tools.VizDrawerGrid.choice(gx,
                         getString(R.string.studio_viz_glow), glowChoices),
-                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx,
+                vizGridSlider(gx, overlay,
                         getString(R.string.studio_viz_radius), getString(R.string.studio_viz_hover_radius),
                         0f, 24f, layer.glowRadiusDp, dec, v -> {
                             layer.glowRadiusDp = v;
@@ -21511,18 +21539,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String sTrails = getString(R.string.studio_viz_trails);
         final String sPhase = getString(R.string.studio_viz_phase);
         propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
-                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx, sTrails, sTrails,
+                vizGridSlider(gx, overlay, sTrails, sTrails,
                         0f, 6f, layer.trailCount, whole,
                         v -> { layer.trailCount = Math.round(v); commit.run(); }),
-                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx, sPhase, sPhase,
+                vizGridSlider(gx, overlay, sPhase, sPhase,
                         0f, 360f, layer.phaseDeg, deg,
                         v -> { layer.phaseDeg = Math.round(v); commit.run(); })));
         propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
-                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx,
+                vizGridSlider(gx, overlay,
                         getString(R.string.studio_viz_attack), getString(R.string.studio_viz_hover_attack),
                         0f, 1000f, layer.attackMs, ms,
                         v -> { layer.attackMs = Math.round(v); commit.run(); }),
-                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx,
+                vizGridSlider(gx, overlay,
                         getString(R.string.studio_viz_release), getString(R.string.studio_viz_hover_release),
                         0f, 1000f, layer.releaseMs, ms,
                         v -> { layer.releaseMs = Math.round(v); commit.run(); })));
@@ -30326,12 +30354,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     () -> { spec.copyFrom(redoState); applyComp.run(); },
                     () -> { spec.copyFrom(undoState); applyComp.run(); }));
         };
-        ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
 
         // The drawer wears the OBJECT's colour, so its own controls say what you
         // are editing without a row spent announcing it.
         ensureObjectDrawer().setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.ADJUSTMENT);
         ensureObjectDrawer().show(tabs, toggles, true);
+        // AFTER show(): show() flushes any hook left by the PREVIOUS drawer by running it at once,
+        // so a hook registered before it was consumed on open and the close-time undo never ran.
+        ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
     }
 
     /**
@@ -31230,7 +31260,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // (MaskKeyPanel:371 explains why): holding the live `spec` would make both directions
         // point at the same mutating object, and undo would restore the state it was undoing.
         final String compBefore = spec.toJson().toString();
+        // The blend mode lives on the clip, not in the compositing spec, so the snapshot below
+        // never saw it: picking Multiply on a video overlay could not be undone. Same close-time
+        // idiom, one more step.
+        final String blendBefore = c.getOverlayBlendMode();
         pendingCompUndoCommit = () -> {
+            final String blendAfter = c.getOverlayBlendMode();
+            if (blendAfter != null && !blendAfter.equals(blendBefore)) {
+                undoManager.recordAction(new EditActions.LambdaAction(
+                        getString(R.string.faditor_blend_title),
+                        () -> { c.setOverlayBlendMode(blendAfter); applyComp.run(); },
+                        () -> { c.setOverlayBlendMode(blendBefore); applyComp.run(); }));
+            }
             String compAfter = spec.toJson().toString();
             if (compAfter.equals(compBefore)) return;   // opened and closed, or looked only
             final com.fadcam.ui.faditor.model.CompositingSpec undoState =
@@ -31244,12 +31285,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     () -> { spec.copyFrom(redoState); applyComp.run(); },
                     () -> { spec.copyFrom(undoState); applyComp.run(); }));
         };
-        ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
 
         // The drawer wears the OBJECT's colour, so its own controls say what you
         // are editing without a row spent announcing it.
         ensureObjectDrawer().setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.VIDEO);
         ensureObjectDrawer().show(tabs, toggles, true);
+        // AFTER show(): show() flushes any hook left by the PREVIOUS drawer by running it at once,
+        // so a hook registered before it was consumed on open and the close-time undo never ran.
+        ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
     }
 
     private void showAudioDrawer(@NonNull AudioClip ac) {
@@ -34922,7 +34965,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         //
         // Posted because show() announces the change before its own layout settles, and the pin
         // rect is read from the overlay view's laid-out bounds.
-        ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
         final com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
         // The image's own colour, from the same rule its tape uses: Avatar violet once it has
         // pins, image colour otherwise. It used to inherit the previous drawer's accent.
@@ -34945,6 +34987,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         puppetWorkingRig = null;
         puppetSelectedPin = -1;
         drawer.show(tabs, toggles, true);
+        // AFTER show(): show() flushes any hook left by the PREVIOUS drawer by running it at once,
+        // so a hook registered before it was consumed on open and the close-time undo never ran.
+        ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
     }
 
     /**

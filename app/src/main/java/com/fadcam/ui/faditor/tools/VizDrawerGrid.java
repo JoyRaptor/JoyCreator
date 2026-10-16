@@ -73,10 +73,21 @@ public final class VizDrawerGrid {
      * [{@code min}, {@code max}] and calls {@code onChange} on every user tick, exactly as the
      * old full-width rows did. {@code name} is the slider's hover / TalkBack name.
      */
+    /** Called when a finger lands on / leaves a slider: one drag is one undo step. */
+    public interface Gesture { void onStart(); void onStop(); }
+
     @NonNull
     public static LinearLayout slider(@NonNull Context ctx, @NonNull CharSequence label,
                                       @NonNull CharSequence name, float min, float max, float value,
                                       @NonNull Format format, @NonNull Setter onChange) {
+        return slider(ctx, label, name, min, max, value, format, onChange, null);
+    }
+
+    @NonNull
+    public static LinearLayout slider(@NonNull Context ctx, @NonNull CharSequence label,
+                                      @NonNull CharSequence name, float min, float max, float value,
+                                      @NonNull Format format, @NonNull Setter onChange,
+                                      @androidx.annotation.Nullable Gesture gesture) {
         LinearLayout cell = cell(ctx, label);
         final SeekBar bar = new SeekBar(ctx);
         bar.setMax(STEPS);
@@ -100,8 +111,8 @@ public final class VizDrawerGrid {
                 show.run();
                 onChange.set(min + p / (float) STEPS * (max - min));
             }
-            @Override public void onStartTrackingTouch(SeekBar s) { }
-            @Override public void onStopTrackingTouch(SeekBar s) { }
+            @Override public void onStartTrackingTouch(SeekBar s) { if (gesture != null) gesture.onStart(); }
+            @Override public void onStopTrackingTouch(SeekBar s) { if (gesture != null) gesture.onStop(); }
         });
         cell.addView(bar, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));

@@ -931,7 +931,13 @@ public final class ObjectDrawer extends LinearLayout {
                 .withEndAction(() -> {
                     setVisibility(GONE);
                     contentHost.removeAllViews();
-                    if (onClose != null) onClose.run();
+                    // ONE-SHOT. The hook belongs to the show() that registered it. It was left in
+                    // place after running, so the NEXT show() flushed it on open and it consumed
+                    // that session's freshly taken undo snapshot: Mask, Chroma and Blend edits
+                    // were never recorded from the second open on.
+                    Runnable closing = onClose;
+                    onClose = null;
+                    if (closing != null) closing.run();
                 }).start();
     }
 

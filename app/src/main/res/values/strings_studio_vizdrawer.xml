@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Visualizer drawer, Style tab: section titles, two-up cell labels and their hover names (2026-10-16). -->
+<resources>
+    <!-- Section titles (drawn uppercase by the drawer kit). -->
+    <string name="studio_viz_sec_shape">Shape</string>
+    <string name="studio_viz_sec_colour">Colour</string>
+    <string name="studio_viz_sec_look">Look</string>
+    <string name="studio_viz_sec_motion">Motion</string>
+
+    <!-- Cell labels: short, they share a half-width cell with a slider and its value. -->
+    <string name="studio_viz_opacity">Opacity</string>
+    <string name="studio_viz_softness">Softness</string>
+    <string name="studio_viz_gain">Gain</string>
+    <string name="studio_viz_spread">Spread</string>
+    <string name="studio_viz_blend">Blend</string>
+    <string name="studio_viz_mirror">Mirror</string>
+    <string name="studio_viz_trails">Trails</string>
+    <string name="studio_viz_phase">Phase</string>
+    <string name="studio_viz_attack">Attack</string>
+    <string name="studio_viz_release">Release</string>
+    <string name="studio_viz_glow">Glow</string>
+    <string name="studio_viz_radius">Radius</string>
+    <string name="studio_viz_count">Count</string>
+    <string name="studio_viz_speed">Speed</string>
+
+    <!-- Hover / TalkBack names where the short label needs its group to make sense. -->
+    <string name="studio_viz_hover_attack">Attack: how fast it rises, in ms</string>
+    <string name="studio_viz_hover_release">Release: how fast it falls, in ms</string>
+    <string name="studio_viz_hover_radius">Glow radius</string>
+    <string name="studio_viz_hover_count">Particle count</string>
+    <string name="studio_viz_hover_speed">Particle speed</string>
+
+    <!-- Value readouts. -->
+    <string name="studio_viz_value_ms">%1$dms</string>
+    <string name="studio_viz_value_deg">%1$d°</string>
+</resources>

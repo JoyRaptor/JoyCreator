@@ -17,33 +17,42 @@ public final class MeshPinLink implements LinkPose {
 
     public static final String MARK = "#pin";
 
-    @NonNull private final TextOverlayItem owner;
-    private final int pin;
-    private final float frameAspect;
+    /** Where this pin is at a time, in frame fractions; false when the pin no longer exists. */
+    private interface PinAt { boolean at(long t, @NonNull float[] out); }
 
+    @NonNull private final LinkPose owner;
+    private final int pin;
+    @NonNull private final PinAt where;
+
+    /** A pin of a bent or puppeted picture. */
     public MeshPinLink(@NonNull TextOverlayItem owner, int pin, float frameAspect) {
         this.owner = owner;
         this.pin = pin;
-        this.frameAspect = frameAspect;
+        this.where = (t, out) -> MeshPinPose.pin(owner, pin, t, frameAspect, owner.getImageAspect(), out);
     }
 
-    @NonNull public TextOverlayItem owner() { return owner; }
+    /** A pin of a bent or puppeted sprite. */
+    public MeshPinLink(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem owner, int pin,
+                       float frameAspect) {
+        this.owner = owner;
+        this.pin = pin;
+        this.where = (t, out) -> MeshPinPose.pin(owner, pin, t, frameAspect, out);
+    }
+
+    /** The picture or sprite this pin belongs to. */
+    @NonNull public LinkPose owner() { return owner; }
     public int pin() { return pin; }
 
     @NonNull @Override public String getId() { return owner.getId() + MARK + pin; }
 
-    private boolean at(long t, @NonNull float[] out) {
-        return MeshPinPose.pin(owner, pin, t, frameAspect, owner.getImageAspect(), out);
-    }
-
     @Override public float animatedCenterX(long t) {
         float[] p = new float[2];
-        return at(t, p) ? p[0] : owner.animatedCenterX(t);
+        return where.at(t, p) ? p[0] : owner.animatedCenterX(t);
     }
 
     @Override public float animatedCenterY(long t) {
         float[] p = new float[2];
-        return at(t, p) ? p[1] : owner.animatedCenterY(t);
+        return where.at(t, p) ? p[1] : owner.animatedCenterY(t);
     }
 
     @Override public float animatedSizeFraction(long t) { return owner.animatedSizeFraction(t); }

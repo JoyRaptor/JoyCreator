@@ -141,6 +141,21 @@ public final class ObjectDrawer extends LinearLayout {
         int peekRows;
 
         @NonNull public Tab peek(int rows) { peekRows = Math.max(0, rows); return this; }
+
+        /**
+         * Open this tab no lower than the top edge of {@code floor} (the editor's timeline grab
+         * bar), so the play button, undo / redo and the timeline resize bar stay uncovered and
+         * the rest of the tab scrolls, with MORE on the grip. JoyRaptor, 2026-10-16, on the
+         * visualizer drawer: "it shouldn't open so far as to cover the play button, middle resize
+         * drag handle ... it is scrollable for a reason."
+         *
+         * <p>A PIXEL bound measured live, not a row count, because the floor moves: portrait,
+         * landscape and wherever the user has dragged the timeline split. Like {@link #peek} it
+         * sets only the OPENING height; MORE and a grip drag still go past it on purpose.</p>
+         */
+        @Nullable View floor;
+
+        @NonNull public Tab fitAbove(@Nullable View floor) { this.floor = floor; return this; }
     }
 
     public interface ContentBuilder { @NonNull View build(@NonNull Context ctx); }
@@ -683,7 +698,7 @@ public final class ObjectDrawer extends LinearLayout {
         openOnTab = -1;
         contentHost.removeAllViews();
         contentHost.addView(wrap(tabs.get(activeTab).content.build(getContext()),
-                tabs.get(activeTab).peekRows));
+                tabs.get(activeTab)));
         collapsed = collapseOnShow;
         collapseOnShow = false;
         contentHost.setVisibility(collapsed ? GONE : VISIBLE);
@@ -720,7 +735,7 @@ public final class ObjectDrawer extends LinearLayout {
         if (animating || tabs.isEmpty()) return;
         contentHost.removeAllViews();
         contentHost.addView(wrap(tabs.get(activeTab).content.build(getContext()),
-                tabs.get(activeTab).peekRows));
+                tabs.get(activeTab)));
         post(this::reportHeight);
     }
 
@@ -916,7 +931,13 @@ public final class ObjectDrawer extends LinearLayout {
                 .withEndAction(() -> {
                     setVisibility(GONE);
                     contentHost.removeAllViews();
-                    if (onClose != null) onClose.run();
+                    // ONE-SHOT. The hook belongs to the show() that registered it. It was left in
+                    // place after running, so the NEXT show() flushed it on open and it consumed
+                    // that session's freshly taken undo snapshot: Mask, Chroma and Blend edits
+                    // were never recorded from the second open on.
+                    Runnable closing = onClose;
+                    onClose = null;
+                    if (closing != null) closing.run();
                 }).start();
     }
 
@@ -1124,7 +1145,7 @@ public final class ObjectDrawer extends LinearLayout {
         final boolean forward = target > activeTab;
         final View outgoing = contentHost.getChildAt(0);
         final View incoming = wrap(tabs.get(target).content.build(getContext()),
-                tabs.get(target).peekRows);
+                tabs.get(target));
         final float w = Math.max(getWidth(), dp(300));
 
         incoming.setTranslationX(forward ? w : -w);
@@ -1204,7 +1225,10 @@ public final class ObjectDrawer extends LinearLayout {
      * <p>The user can also drag the grip to resize (see {@code wireGrip}); {@link #userHeightPx}
      * overrides the fraction when they have expressed a preference.</p>
      */
-    private View wrap(@NonNull View content, final int peekRows) {
+    private View wrap(@NonNull View content, @NonNull Tab tab) {
+        final int peekRows = tab.peekRows;
+        final View floor = tab.floor;
+        watchFloor(floor);
         ScrollView sv = new ScrollView(getContext()) {
             @Override
             protected void onMeasure(int widthSpec, int heightSpec) {
@@ -1217,11 +1241,14 @@ public final class ObjectDrawer extends LinearLayout {
                 super.onMeasure(widthSpec, MeasureSpec.makeMeasureSpec(cap, mode));
                 if (userHeightPx <= 0) {
                     // The rows are measured now, so the peek height can be added up; a second
-                    // pass only while the user has not dragged a height of their own.
+                    // pass only while the user has not dragged a height of their own. A floor
+                    // (Tab#fitAbove) is the same kind of opening limit, so the lower one wins.
                     int peek = peekBodyHeightPx(this, peekRows);
-                    if (peek > 0 && peek < getMeasuredHeight()) {
+                    int fit = floorBodyHeightPx(floor);
+                    int limit = (peek > 0 && fit > 0) ? Math.min(peek, fit) : Math.max(peek, fit);
+                    if (limit > 0 && limit < getMeasuredHeight()) {
                         super.onMeasure(widthSpec,
-                                MeasureSpec.makeMeasureSpec(peek, MeasureSpec.EXACTLY));
+                                MeasureSpec.makeMeasureSpec(limit, MeasureSpec.EXACTLY));
                     }
                 }
                 post(ObjectDrawer.this::syncMoreHint);
@@ -1264,6 +1291,52 @@ public final class ObjectDrawer extends LinearLayout {
             sum += h;
         }
         return sum;
+    }
+
+    /** Room kept under the body for the grip with MORE showing (6 + label + pill + 6). */
+    private static final int FLOOR_GRIP_RESERVE_DP = 34;
+
+    /**
+     * Body height that ends the whole drawer, grip included, just above {@code floor}'s top
+     * edge, or -1 with no floor or one that is not laid out. Never below {@link #MIN_BODY_DP}.
+     *
+     * <p>The drawer's top is read from its PARENT plus its layout top, never from its own
+     * screen position: show() slides it in with a translationY, and reading that mid-slide
+     * would size the body 120dp too tall.</p>
+     */
+    private int floorBodyHeightPx(@Nullable View floor) {
+        if (floor == null || !floor.isAttachedToWindow() || floor.getVisibility() != VISIBLE
+                || floor.getHeight() <= 0 || !(getParent() instanceof View)) {
+            return -1;
+        }
+        int[] at = new int[2];
+        floor.getLocationOnScreen(at);
+        int floorTop = at[1];
+        ((View) getParent()).getLocationOnScreen(at);
+        int headerH = header.getMeasuredHeight() > 0 ? header.getMeasuredHeight() : dp(38);
+        int bodyTop = at[1] + getTop() + getPaddingTop() + headerH;
+        return Math.max(dp(MIN_BODY_DP), floorTop - bodyTop - dp(FLOOR_GRIP_RESERVE_DP));
+    }
+
+    /** The floor the current tab fits above, watched so a moved timeline split re-fits it. */
+    @Nullable private View watchedFloor;
+    private final OnLayoutChangeListener floorMoved = this::onFloorLayout;
+
+    @SuppressWarnings("unused")
+    private void onFloorLayout(View v, int l, int t, int r, int b,
+                               int oldL, int oldT, int oldR, int oldB) {
+        // Only a MOVED floor matters (the user dragged the timeline split); re-measure next
+        // frame rather than inside this layout pass.
+        if (t == oldT || bodyScroll == null || userHeightPx > 0) return;
+        final ScrollView sv = bodyScroll;
+        sv.post(sv::requestLayout);
+    }
+
+    private void watchFloor(@Nullable View floor) {
+        if (watchedFloor == floor) return;
+        if (watchedFloor != null) watchedFloor.removeOnLayoutChangeListener(floorMoved);
+        watchedFloor = floor;
+        if (floor != null) floor.addOnLayoutChangeListener(floorMoved);
     }
 
     /** MORE shows only while there is something below the fold of the current tab. */
@@ -1607,34 +1680,7 @@ public final class ObjectDrawer extends LinearLayout {
          * delegates here rather than drawing a second one (drawer audit 2026-09-24, T2).
          */
         public static void styleSlider(@NonNull android.widget.SeekBar bar, int fillColour) {
-            Context ctx = bar.getContext();
-            int h = dp(ctx, 4);
-            // setProgressDrawable can drop the level on some API levels; put it back below.
-            int progress = bar.getProgress();
-            GradientDrawable track = new GradientDrawable();
-            track.setColor(TRACK);
-            track.setCornerRadius(h);
-            GradientDrawable fill = new GradientDrawable();
-            fill.setColor(fillColour);
-            fill.setCornerRadius(h);
-            android.graphics.drawable.ClipDrawable clip = new android.graphics.drawable.ClipDrawable(
-                    fill, Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL);
-            android.graphics.drawable.LayerDrawable layers = new android.graphics.drawable.LayerDrawable(
-                    new android.graphics.drawable.Drawable[]{track, clip});
-            layers.setId(0, android.R.id.background);
-            layers.setId(1, android.R.id.progress);
-            for (int i = 0; i < 2; i++) {
-                layers.setLayerHeight(i, h);
-                layers.setLayerGravity(i, Gravity.CENTER_VERTICAL | Gravity.FILL_HORIZONTAL);
-            }
-            bar.setProgressDrawable(layers);
-            GradientDrawable thumb = new GradientDrawable();
-            thumb.setShape(GradientDrawable.OVAL);
-            thumb.setColor(Studio.DRAWER_INK);
-            thumb.setSize(dp(ctx, 15), dp(ctx, 15));
-            bar.setThumb(thumb);
-            bar.setSplitTrack(false);
-            bar.setProgress(progress);
+            SliderFace.apply(bar, fillColour, TRACK, Studio.DRAWER_INK);
         }
 
         /**

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hover and TalkBack labels for icon-only controls in FaditorEditorActivity (2026-10-15). -->
+<resources>
+    <string name="studio_hover_export_progress">Show export progress</string>
+    <string name="studio_hover_viz_add_layer">Add layer</string>
+    <string name="studio_hover_viz_duplicate_layer">Duplicate layer</string>
+    <string name="studio_hover_viz_delete_layer">Delete layer</string>
+    <string name="studio_hover_viz_move_layer_left">Move layer left</string>
+    <string name="studio_hover_viz_move_layer_right">Move layer right</string>
+    <string name="studio_hover_bold">Bold</string>
+    <string name="studio_hover_underline">Underline</string>
+    <string name="studio_hover_italic">Italic</string>
+    <string name="studio_hover_text_motion">Motion</string>
+    <string name="studio_hover_pivot">Rotation pivot</string>
+</resources>

@@ -178,6 +178,7 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
         c.fadeOutMs = fadeOutMs;
         c.flipH = flipH;
         c.flipV = flipV;
+        c.cellAspect = cellAspect;
         c.startMs = startMs;
         c.endMs = endMs;
         c.spaceLink = spaceLink == null ? null : spaceLink.copy();
@@ -234,6 +235,13 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
     public long getFadeOutMs() { return fadeOutMs; }
     public void setFadeInMs(long ms) { this.fadeInMs = Math.max(0, ms); }
     public void setFadeOutMs(long ms) { this.fadeOutMs = Math.max(0, ms); }
+    /**
+     * Width / height of one cell, remembered from the sheet the last time this sprite was drawn,
+     * so the model can place a bend or puppet pin (a link parent) without a bitmap. 0 = unknown.
+     */
+    private float cellAspect;
+    public float getCellAspect() { return cellAspect; }
+    public void setCellAspect(float a) { this.cellAspect = a > 0f ? a : 0f; }
     public boolean isFlipH() { return flipH; }
     public void setFlipH(boolean flipH) { this.flipH = flipH; }
     public boolean isFlipV() { return flipV; }

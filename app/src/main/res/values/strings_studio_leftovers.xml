@@ -155,4 +155,14 @@ You can keep going without them, or open the last saved backup instead."</string
     <string name="studio_timer_field_hidden">%1$s: hidden</string>
     <string name="studio_object_menu_image_title">Image</string>
     <string name="studio_pip_drawer_title">Video overlay</string>
+    <string name="studio_tool_visualizer">Visualizer</string>
+    <string name="studio_tool_fix_audio">Fix audio</string>
+    <string name="studio_tool_beats">Beats</string>
+    <string name="studio_tool_align">Align</string>
+    <string name="studio_tool_consolidate">Consolidate</string>
+    <string name="studio_tool_select">Select</string>
+    <string name="studio_tool_adjust">Adjust</string>
+    <string name="studio_undo_viz_style">Visualizer style</string>
+    <string name="studio_case_none">Normal case</string>
+    <string name="studio_case_cycle">Letter case: %1$s. Tap to change.</string>
 </resources>

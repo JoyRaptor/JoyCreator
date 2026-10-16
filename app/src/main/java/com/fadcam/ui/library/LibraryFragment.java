@@ -1,0 +1,292 @@
+package com.fadcam.ui.library;
+
+import android.os.Build;
+import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.fadcam.MainActivity;
+import com.fadcam.R;
+import com.fadcam.ui.BaseFragment;
+import com.fadcam.ui.OverlayNavUtil;
+import com.fadcam.ui.TrashFragment;
+import com.fadcam.ui.faditor.SheetKit;
+import com.fadcam.ui.type.Type;
+
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * THE LIBRARY: every kind of thing the user has made or brought in, in one calm grid.
+ *
+ * <p>A new screen beside the classic Records tab, which stays whole and one tap away under
+ * "Classic view" (owner ruling f). Opened from the lobby's Library row and its search glass, as an
+ * overlay, so Back returns to the lobby exactly where it was.</p>
+ *
+ * <p>This class only wires the parts together: {@link LibrarySource} reads, {@link LibraryFilter}
+ * decides, {@link LibraryAdapter} draws, {@link LibraryDock} takes the thumb's input.</p>
+ */
+public class LibraryFragment extends BaseFragment {
+
+    private static final String TAG = "library";
+    private static final String ARG_SEARCH = "focus_search";
+
+    /** Show the Library over the lobby; with {@code focusSearch}, the keyboard opens on the search. */
+    public static void open(@NonNull FragmentActivity activity, boolean focusSearch) {
+        if (activity.getSupportFragmentManager().findFragmentByTag(TAG) != null) return;
+        LibraryFragment f = new LibraryFragment();
+        Bundle b = new Bundle();
+        b.putBoolean(ARG_SEARCH, focusSearch);
+        f.setArguments(b);
+        OverlayNavUtil.show(activity, f, TAG);
+    }
+
+    private final LibraryFilter filter = new LibraryFilter();
+    private LibrarySource source;
+    private LibraryAdapter adapter;
+    private LibraryDock dock;
+    private GridLayoutManager grid;
+    private RecyclerView list;
+    private LinearLayout empty;
+    private TextView count, notice;
+    private List<LibraryItem> items = new ArrayList<>();
+    private boolean complete;
+    private boolean dense;
+
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.fragment_library, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(v, savedInstanceState);
+        source = new LibrarySource(requireContext());
+        dense = LibraryPrefs.list(requireContext());
+        filter.setSort(LibraryPrefs.sort(requireContext()));
+
+        TextView title = v.findViewById(R.id.library_title);
+        Type.display(title, Type.EXTRA);
+        title.setAllCaps(true);
+        count = v.findViewById(R.id.library_count);
+        Type.mono(count, Type.REGULAR);
+        count.setSingleLine(true);
+        count.setAllCaps(true);   // after setSingleLine: both are transformations, the last one wins
+        notice = v.findViewById(R.id.library_notice);
+        Type.body(notice, Type.REGULAR);
+        TextView back = v.findViewById(R.id.library_back);
+        back.setText("arrow_back");
+        SheetKit.label(back, getString(R.string.library_back));
+        back.setOnClickListener(b -> OverlayNavUtil.dismiss(requireActivity()));
+
+        list = v.findViewById(R.id.library_grid);
+        empty = v.findViewById(R.id.library_empty);
+        adapter = new LibraryAdapter(new LibraryAdapter.Listener() {
+            @Override public void onOpen(@NonNull LibraryItem it) { open(it); }
+            @Override public void onMenu(@NonNull LibraryItem it) { menu(it); }
+        });
+        grid = new GridLayoutManager(requireContext(), dense ? 1 : 2);
+        grid.setSpanSizeLookup(adapter.spans(grid));
+        list.setLayoutManager(grid);
+        list.setAdapter(adapter);
+        list.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override public void onScrollStateChanged(@NonNull RecyclerView rv, int state) {
+                if (state == RecyclerView.SCROLL_STATE_DRAGGING) dock.hideKeyboard();
+            }
+        });
+
+        dock = new LibraryDock(v.findViewById(R.id.library_dock), new LibraryDock.Listener() {
+            @Override public void onKind(@Nullable LibraryKind kind) { chooseKind(kind); }
+            @Override public void onQuery(@NonNull String q) { filter.setQuery(q); render(); }
+            @Override public void onSharedCycle() { filter.setShared(filter.shared().next()); render(); }
+            @Override public void onOptions() { options(); }
+        });
+        // The view is rebuilt when Trash is opened over it and closed again; the filter is not.
+        dock.setQuery(filter.query());
+        dock.paintShared(filter.shared());
+        dock.chips.setSelected(filter.kind());
+        liftDockOverKeyboard(v, v.findViewById(R.id.library_dock));
+        render();
+        if (getArguments() != null && getArguments().getBoolean(ARG_SEARCH)) {
+            getArguments().putBoolean(ARG_SEARCH, false);   // once: not again when Trash closes over it
+            dock.focusSearch();
+        }
+    }
+
+    /** The window's keyboard mode before this screen took over, restored on pause. */
+    private int previousSoftInputMode = -1;
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // The search field sits at the bottom; with the host window's default mode (pan or
+        // nothing) the keyboard covered it, so you typed blind. Resize the window while this
+        // screen is up and put the host's own mode back when it leaves.
+        android.view.Window w = requireActivity().getWindow();
+        previousSoftInputMode = w.getAttributes().softInputMode;
+        w.setSoftInputMode((previousSoftInputMode & ~android.view.WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST)
+                | android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        // Read again on every return: a project edited, a drawing saved, a file shared in.
+        reload();
+    }
+
+    @Override
+    public void onPause() {
+        if (previousSoftInputMode != -1 && getActivity() != null) {
+            getActivity().getWindow().setSoftInputMode(previousSoftInputMode);
+        }
+        previousSoftInputMode = -1;
+        super.onPause();
+    }
+
+    private void reload() {
+        source.load((all, done, folder) -> {
+            if (!isAdded() || getView() == null) return;
+            items = all;
+            complete = done;
+            showNotice(folder);
+            render();
+        });
+    }
+
+    @Override
+    public void onDestroyView() {
+        if (source != null) source.cancel();
+        if (dock != null) dock.hideKeyboard();
+        super.onDestroyView();
+    }
+
+    /** Back with words in the search clears them first. */
+    @Override
+    protected boolean onBackPressed() {
+        return dock != null && dock.clearSearch();
+    }
+
+    // ── drawing ─────────────────────────────────────────────────────────────
+
+    private void render() {
+        if (adapter == null) return;
+        List<LibraryItem> shown = filter.apply(items);
+        adapter.submit(LibrarySections.rows(shown, filter.sort() == LibraryFilter.Sort.NEWEST,
+                LibraryFormat.startOfToday()), dense);
+        Map<LibraryKind, Integer> counts = filter.counts(items);
+        Set<LibraryKind> present = EnumSet.noneOf(LibraryKind.class);
+        for (LibraryItem it : items) present.add(it.kind);
+        dock.chips.setCounts(counts, present);
+        dock.paintShared(filter.shared());
+
+        String n = getResources().getQuantityString(R.plurals.library_count, shown.size(), shown.size());
+        count.setText(complete ? n : getString(R.string.library_count_reading, n));
+        boolean nothing = shown.isEmpty() && complete;
+        empty.setVisibility(nothing ? View.VISIBLE : View.GONE);
+        if (nothing) LibraryEmpty.paint(empty, filter, this::showEverything);
+    }
+
+    private void showNotice(@NonNull LibrarySource.FolderState folder) {
+        int words = folder == LibrarySource.FolderState.NOT_CHOSEN ? R.string.library_notice_no_folder
+                : folder == LibrarySource.FolderState.UNREACHABLE ? R.string.library_notice_unreachable : 0;
+        notice.setVisibility(words == 0 ? View.GONE : View.VISIBLE);
+        if (words != 0) notice.setText(words);
+    }
+
+    private void chooseKind(@Nullable LibraryKind kind) {
+        filter.setKind(kind);
+        dock.chips.setSelected(kind);
+        render();
+        list.scrollToPosition(0);
+    }
+
+    private void showEverything() {
+        dock.clearSearch();
+        filter.setShared(LibraryFilter.Shared.ANY);
+        chooseKind(null);
+    }
+
+    // ── acting ──────────────────────────────────────────────────────────────
+
+    private void open(@NonNull LibraryItem it) {
+        dock.hideKeyboard();
+        if (!LibraryOpener.open(requireActivity(), it)) menu(it);
+    }
+
+    private void menu(@NonNull LibraryItem it) {
+        dock.hideKeyboard();
+        LibraryItemSheet.show(requireContext(), it, new LibraryItemSheet.Listener() {
+            @Override public void onOpen(@NonNull LibraryItem item) {
+                if (isAdded() && !LibraryOpener.open(requireActivity(), item)) {
+                    Toast.makeText(requireContext(), R.string.library_open_failed, Toast.LENGTH_SHORT).show();
+                }
+            }
+            @Override public void onDone(@NonNull String message, boolean changed) {
+                if (!isAdded()) return;
+                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+                if (changed) reload();
+            }
+        });
+    }
+
+    private void options() {
+        dock.hideKeyboard();
+        LibraryOptionsSheet.show(requireContext(), filter.sort(), dense, new LibraryOptionsSheet.Listener() {
+            @Override public void onSort(@NonNull LibraryFilter.Sort sort) {
+                filter.setSort(sort);
+                LibraryPrefs.setSort(requireContext(), sort);
+                render();
+                list.scrollToPosition(0);
+            }
+            @Override public void onDense(boolean listView) {
+                dense = listView;
+                LibraryPrefs.setList(requireContext(), listView);
+                grid.setSpanCount(listView ? 1 : 2);
+                render();
+            }
+            @Override public void onTrash() {
+                OverlayNavUtil.show(requireActivity(), new TrashFragment(), "trash");
+            }
+            @Override public void onClassic() {
+                FragmentActivity a = requireActivity();
+                OverlayNavUtil.dismiss(a);
+                if (a instanceof MainActivity) ((MainActivity) a).switchFragment(1, true);
+            }
+        });
+    }
+
+    /**
+     * Keep the dock above the keyboard. Up to Android 10 the window's own bottom inset already
+     * includes the keyboard (MainActivity pads the overlay by it); from 11 the keyboard is its own
+     * inset, so the dock is lifted by the part of it the system bars do not already cover.
+     */
+    private static void liftDockOverKeyboard(@NonNull View root, @NonNull View dock) {
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            int lift;
+            if (Build.VERSION.SDK_INT >= 30) {
+                int ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+                int bars = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
+                lift = ime - bars;
+            } else {
+                // Android 10 and older: the keyboard arrives inside the system window inset, and the
+                // stable inset is what the bars alone take. The difference is the keyboard.
+                lift = insets.getSystemWindowInsetBottom() - insets.getStableInsetBottom();
+            }
+            dock.setTranslationY(-Math.max(0, lift));
+            return insets;
+        });
+    }
+}

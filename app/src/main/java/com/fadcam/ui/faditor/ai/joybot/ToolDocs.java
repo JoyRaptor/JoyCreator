@@ -42,7 +42,7 @@ public final class ToolDocs {
     public static List<Doc> parse(@NonNull String docs) {
         List<Doc> out = new ArrayList<>();
         List<String> seen = new ArrayList<>();
-        String[] lines = docs.split("\n", -1);
+        String[] lines = docs.split("\r?\n", -1);   // a Windows checkout reads the source as CRLF
         for (int i = 0; i < lines.length; i++) {
             Matcher m = ENTRY.matcher(lines[i]);
             if (!m.matches()) continue;

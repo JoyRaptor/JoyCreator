@@ -145,6 +145,7 @@ public class WatchCameraFragment extends Fragment {
         // Hamburger opens HomeSidebarFragment (sidebar with preview controls, tips, etc.)
         View hamburger = view.findViewById(R.id.btn_watch_hamburger);
         if (hamburger != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(hamburger, hamburger.getContext().getString(R.string.watch_hamburger_desc));
             hamburger.setOnClickListener(v ->
                     HomeSidebarFragment.newInstance().show(getChildFragmentManager(), "watch_sidebar"));
         }
@@ -153,6 +154,7 @@ public class WatchCameraFragment extends Fragment {
         // long press → open WatchTrashFragment overlay (watch-optimised delete screen)
         View appTitle = view.findViewById(R.id.iv_watch_app_title);
         if (appTitle != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(appTitle, appTitle.getContext().getString(R.string.app_name));
             appTitle.setOnClickListener(v -> {
                 try {
                     SharedPreferencesManager sp = SharedPreferencesManager.getInstance(requireContext());
@@ -188,9 +190,13 @@ public class WatchCameraFragment extends Fragment {
             }
         });
 
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(ivWatchAudioToggle, ivWatchAudioToggle.getContext().getString(R.string.watch_audio_toggle_desc));
         ivWatchAudioToggle.setOnClickListener(v -> toggleAudio());
+        if (ivWatchPauseResume != null) androidx.appcompat.widget.TooltipCompat.setTooltipText(ivWatchPauseResume, ivWatchPauseResume.getContext().getString(R.string.watch_pause_desc));
         if (ivWatchPauseResume != null) ivWatchPauseResume.setOnClickListener(v -> pauseResumeRecording());
+        if (ivWatchFullscreen != null) androidx.appcompat.widget.TooltipCompat.setTooltipText(ivWatchFullscreen, ivWatchFullscreen.getContext().getString(R.string.watch_fullscreen_desc));
         if (ivWatchFullscreen  != null) ivWatchFullscreen.setOnClickListener(v -> toggleFullscreen());
+        if (ivWatchFadShot != null) androidx.appcompat.widget.TooltipCompat.setTooltipText(ivWatchFadShot, ivWatchFadShot.getContext().getString(R.string.watch_fadshot_desc));
         if (ivWatchFadShot     != null) ivWatchFadShot.setOnClickListener(v -> takeFadShot());
 
         // Initial UI state

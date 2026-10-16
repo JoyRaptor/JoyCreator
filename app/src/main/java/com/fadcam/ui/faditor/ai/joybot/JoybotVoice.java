@@ -4,16 +4,20 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Joybot's ears and voice: hold-to-talk listening in the chat, and (if switched on) reading his
@@ -61,6 +65,14 @@ public final class JoybotVoice {
 
     /** Start listening; {@link #stopListening} (finger up) ends it and delivers the words. */
     public void startListening(@NonNull Ears e) {
+        startListening(e, 4000L);
+    }
+
+    /**
+     * Start listening. {@code gapMs} is the pause that ends what was said: dictation waits four
+     * seconds (holding the button is the "still talking" signal); hands-free sends after about 1.5.
+     */
+    public void startListening(@NonNull Ears e, long gapMs) {
         ears = e;
         lastPartial = "";
         if (recognizer == null) {
@@ -72,8 +84,8 @@ public final class JoybotVoice {
         i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag());
         // Holding the button IS the "still talking" signal; don't cut off at the first pause.
-        i.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4000L);
-        i.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 4000L);
+        i.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, gapMs);
+        i.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, gapMs);
         try {
             recognizer.startListening(i);
             listening = true;
@@ -152,19 +164,62 @@ public final class JoybotVoice {
     /** Speak a sentence if reading aloud is on. Emoji and symbols are dropped first. */
     public void speak(@Nullable String text) {
         if (text == null || !readAloud(context)) return;
-        String clean = speakable(text);
-        if (clean.isEmpty()) return;
+        say(text, null);
+    }
+
+    /**
+     * Speak a sentence whatever the read-aloud setting says (hands-free reads the replies to
+     * requests made by voice). {@code done} runs on the main thread when the sentence has been
+     * said, or straight away when there was nothing to say.
+     */
+    public void speakNow(@Nullable String text, @NonNull Runnable done) {
+        say(text, done);
+    }
+
+    private void say(@Nullable String text, @Nullable Runnable done) {
+        String clean = text == null || looksLikeData(text) ? "" : speakable(text);
+        if (clean.isEmpty()) { finish(done); return; }
         if (tts == null) {
             tts = new TextToSpeech(context.getApplicationContext(), status -> {
                 ttsReady = status == TextToSpeech.SUCCESS;
                 if (ttsReady && tts != null) {
                     tts.setLanguage(Locale.getDefault());
-                    tts.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "joybot");
+                    utter(clean, done);
+                } else {
+                    finish(done);
                 }
             });
             return;
         }
-        if (ttsReady) tts.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "joybot");
+        if (ttsReady) utter(clean, done); else finish(done);
+    }
+
+    private void utter(@NonNull String clean, @Nullable Runnable done) {
+        if (done == null) {
+            tts.setOnUtteranceProgressListener(null);
+            tts.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "joybot");
+            return;
+        }
+        final Handler main = new Handler(Looper.getMainLooper());
+        final AtomicBoolean ran = new AtomicBoolean(false);
+        Runnable once = () -> { if (ran.compareAndSet(false, true)) done.run(); };
+        tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+            @Override public void onStart(String utteranceId) { }
+            @Override public void onDone(String utteranceId) { main.post(once); }
+            @Override public void onError(String utteranceId) { main.post(once); }
+        });
+        tts.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "joybot");
+    }
+
+    private void finish(@Nullable Runnable done) {
+        if (done != null) new Handler(Looper.getMainLooper()).post(done);
+    }
+
+    /** Tool output, JSON and proposal markers are never read out. */
+    static boolean looksLikeData(@NonNull String s) {
+        String t = s.trim();
+        return t.startsWith("{") || t.startsWith("[") || t.contains("@@")
+                || t.matches("(?s).*\"\\w+\"\\s*:\\s*.*");
     }
 
     public void hush() {

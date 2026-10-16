@@ -273,6 +273,7 @@ public class LobbyFragment extends BaseFragment {
         // gets his face rather than a coloured dot standing in for one.
         botLineOrb.setOrb(Studio.ROOM_AVATAR, Studio.ORB_DEEP);
         botLineYes.setBackground(pill(INK, dp(999)));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(botLineNo, "Dismiss");
         botLineNo.setOnClickListener(b -> {
             botDismissed = true;
             botLine.setVisibility(View.GONE);
@@ -380,6 +381,7 @@ public class LobbyFragment extends BaseFragment {
         libraryDoor.setOnClickListener(b -> routeTab(TAB_LIBRARY));
         Motion.press(libraryDoor);
         Motion.press(v.findViewById(R.id.lobby_search));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(v.findViewById(R.id.lobby_search), "Search everything");
         v.findViewById(R.id.lobby_search).setOnClickListener(b -> routeTab(TAB_LIBRARY));
 
         // "On scroll gesture in screens it looks like he's watching and reacting."

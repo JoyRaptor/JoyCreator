@@ -121,7 +121,7 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | Loudness normalisation (EBU R128) | 🟢 ~ | |
 | fix_audio chain (highpass → denoise → compress → loudnorm) | 🟢 ✔ | Works. **Not exposed as a button — only reachable by asking the chatbot.** |
 | Voiceover recording | 🟢 ~ | audio/VoiceoverRecorder |
-| Audio ducking | 🔵 | Removed pending a mixer that can honour it (set_clip_duck removal comment in code ✔) |
+| Audio ducking | 🟡 | **Rebuilt** (2026-10-15 code read): lane menu "Duck under…" → Ducker + DuckApplier write ordinary volume points that export reads. Joybot's `set_ducking` mirrors it (needs the voice clip's transcript). The old set_clip_duck stays removed. Not seen on a phone by this lane. |
 | Visualizer studio | 🔵 ~ | feature-visualizer-studio-spec.md, Tier 3 planned |
 
 ---

@@ -12,6 +12,7 @@ import androidx.annotation.Nullable;
 
 import com.fadcam.FLog;
 import com.fadcam.SharedPreferencesManager;
+import com.fadcam.ui.faditor.ai.joybot.AiRequest;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.FaditorProject;
 import com.fadcam.ui.faditor.model.Timeline;
@@ -33,12 +34,6 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
 
 /**
  * Executes AI-requested tool calls against the live project.
@@ -86,6 +81,11 @@ public class AIToolExecutor {
      */
     @NonNull
     public String executeTool(@NonNull String toolName, @NonNull JSONObject args) {
+        // The action registry (gap F2) answers first; tools not moved into it yet fall through.
+        if (com.fadcam.ui.faditor.ai.actions.StudioActions.registry().has(toolName)) {
+            return com.fadcam.ui.faditor.ai.actions.StudioActions.execute(
+                    context, storage, projectId, toolName, args);
+        }
         try {
             switch (toolName) {
                 case "get_project_state": return toolGetProjectState();
@@ -455,6 +455,11 @@ public class AIToolExecutor {
             40. apply_avatar_rig — Apply a CONFIRMED avatar rig: registers it in the
                 project. Only call AFTER the user confirms (or use the Apply card).
                 args: {"rig":{ …the same rig JSON… }}
+            """
+            // Registered actions (gap F2) describe themselves, numbered on from the list above.
+            + com.fadcam.ui.faditor.ai.actions.AgentTools.docsText("49")
+            + com.fadcam.ui.faditor.ai.actions.StudioActions.registry().docsText(50)
+            + """
 
             To call a tool, respond with ONLY a JSON object:
             {"tool":"generate_transcript","args":{"clipId":"abc123","engine":"vosk"}}
@@ -796,36 +801,7 @@ public class AIToolExecutor {
             JSONArray messages = new JSONArray();
             messages.put(new JSONObject().put("role", "system").put("content", system));
             messages.put(new JSONObject().put("role", "user").put("content", user));
-            JSONObject body = new JSONObject();
-            body.put("model", model);
-            body.put("messages", messages);
-            body.put("max_tokens", 4096);
-            body.put("temperature", 0.6);
-
-            OkHttpClient client = new OkHttpClient.Builder()
-                    .connectTimeout(30, TimeUnit.SECONDS)
-                    .readTimeout(90, TimeUnit.SECONDS)
-                    .writeTimeout(30, TimeUnit.SECONDS)
-                    .build();
-            Request request = new Request.Builder()
-                    .url(AiService.chatUrl(context))
-                    .addHeader("Authorization", "Bearer " + apiKey)
-                    .addHeader("Content-Type", "application/json")
-                    .post(RequestBody.create(body.toString(),
-                            MediaType.parse("application/json")))
-                    .build();
-            try (Response response = client.newCall(request).execute()) {
-                String respBody = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) {
-                    FLog.e(TAG, "Slide author API error " + response.code() + ": "
-                            + respBody.substring(0, Math.min(200, respBody.length())));
-                    return null;
-                }
-                JSONObject json = new JSONObject(respBody);
-                JSONArray choices = json.optJSONArray("choices");
-                if (choices == null || choices.length() == 0) return null;
-                return choices.getJSONObject(0).getJSONObject("message").getString("content");
-            }
+            return AiRequest.complete(context, model, apiKey, messages, 4096, 0.6, 90);
         } catch (Exception e) {
             FLog.e(TAG, "callOpenRouterForHtml failed", e);
             return null;
@@ -1443,37 +1419,13 @@ public class AIToolExecutor {
             JSONArray messages = new JSONArray();
             messages.put(new JSONObject().put("role", "system").put("content", system));
             messages.put(new JSONObject().put("role", "user").put("content", content));
-            JSONObject body = new JSONObject();
-            body.put("model", model);
-            body.put("messages", messages);
-            body.put("max_tokens", 600);
-            body.put("temperature", 0.2);
-
-            OkHttpClient client = new OkHttpClient.Builder()
-                    .connectTimeout(30, TimeUnit.SECONDS)
-                    .readTimeout(90, TimeUnit.SECONDS)
-                    .writeTimeout(30, TimeUnit.SECONDS)
-                    .build();
-            Request request = new Request.Builder()
-                    .url(AiService.chatUrl(context))
-                    .addHeader("Authorization", "Bearer " + apiKey)
-                    .addHeader("Content-Type", "application/json")
-                    .post(RequestBody.create(body.toString(),
-                            MediaType.parse("application/json")))
-                    .build();
-            try (Response response = client.newCall(request).execute()) {
-                String respBody = response.body() != null ? response.body().string() : "";
-                lastVisionHttpCode = response.code();
-                if (!response.isSuccessful()) {
-                    FLog.e(TAG, "Vision tag API error " + response.code() + ": "
-                            + respBody.substring(0, Math.min(200, respBody.length())));
-                    return null;
-                }
-                JSONObject json = new JSONObject(respBody);
-                JSONArray choices = json.optJSONArray("choices");
-                if (choices == null || choices.length() == 0) return null;
-                return choices.getJSONObject(0).getJSONObject("message").getString("content");
-            }
+            String reply = AiRequest.complete(context, model, apiKey, messages, 600, 0.2, 90);
+            lastVisionHttpCode = 200;
+            return reply;
+        } catch (AiRequest.HttpError e) {
+            lastVisionHttpCode = e.code;
+            FLog.e(TAG, "Vision tag API error " + e.getMessage());
+            return null;
         } catch (Exception e) {
             FLog.e(TAG, "callOpenRouterVision failed", e);
             return null;
@@ -1814,6 +1766,7 @@ public class AIToolExecutor {
         }
         if (changed.length() == 0) return "No change — every field matched the current grid.";
         storage.save(proj);
+        AIChatState.signalModified(projectId);   // SpriteLab reloads on this (2026-10-15)
         return "Updated '" + sheet.getName() + "': " + changed
                 + "now " + sheet.getCols() + "x" + sheet.getRows()
                 + " (" + (sheet.getCols() * sheet.getRows()) + " cells) at " + sheet.getFps()
@@ -1894,6 +1847,7 @@ public class AIToolExecutor {
         preset.weights.addAll(weights);
         sheet.getPresets().add(preset);
         storage.save(proj);
+        AIChatState.signalModified(projectId);   // SpriteLab reloads on this (2026-10-15)
 
         return "Added animation '" + name + "' to '" + sheet.getName() + "': "
                 + frames.size() + " frames, " + type
@@ -1914,10 +1868,50 @@ public class AIToolExecutor {
      * the tool worked, and the mistake would only surface much later as an animation that
      * cannot find its frames.</p>
      */
+    /**
+     * {"0":"happy",...} is the documented shape, but free models sent a list of names, a list of
+     * {cell,name} pairs, or the object as a string, and failed three times in a row on the phone
+     * (2026-10-15) before claiming success. Every one of those says the same thing; take them all.
+     */
+    @Nullable
+    static JSONObject labelsAsObject(@Nullable Object raw) {
+        try {
+            if (raw instanceof String) {
+                String s = ((String) raw).trim();
+                if (s.startsWith("{")) raw = new JSONObject(s);
+                else if (s.startsWith("[")) raw = new JSONArray(s);
+                else return null;
+            }
+            if (raw instanceof JSONObject) {
+                JSONObject o = (JSONObject) raw;
+                JSONObject inner = o.optJSONObject("labels");   // {"labels":{...}} nested once
+                return inner != null ? inner : o;
+            }
+            if (raw instanceof JSONArray) {
+                JSONArray a = (JSONArray) raw;
+                JSONObject out = new JSONObject();
+                for (int i = 0; i < a.length(); i++) {
+                    Object e = a.opt(i);
+                    if (e instanceof JSONObject) {
+                        JSONObject p = (JSONObject) e;
+                        Object idx = p.has("cell") ? p.opt("cell") : p.has("index") ? p.opt("index")
+                                : p.has("cellIndex") ? p.opt("cellIndex") : null;
+                        String name = p.optString("name", p.optString("label", ""));
+                        if (idx != null) out.put(String.valueOf(idx).trim(), name);
+                    } else if (e != null && e != JSONObject.NULL) {
+                        out.put(String.valueOf(i), String.valueOf(e));   // a plain list, in cell order
+                    }
+                }
+                return out;
+            }
+        } catch (Exception ignored) { }
+        return null;
+    }
+
     private String toolLabelSpriteCells(@NonNull JSONObject args) {
         String sheetId = args.optString("sheetId", "");
         if (sheetId.isEmpty()) return "Error: 'sheetId' is required.";
-        JSONObject labels = args.optJSONObject("labels");
+        JSONObject labels = labelsAsObject(args.opt("labels"));
         if (labels == null || labels.length() == 0) {
             return "Error: 'labels' must be an object of cellIndex -> name, "
                     + "e.g. {\"0\":\"idle\",\"1\":\"walk_01\"}.";
@@ -1953,6 +1947,7 @@ public class AIToolExecutor {
                     + (sheet.getCols() * sheet.getRows()) + " cells.";
         }
         storage.save(proj);
+        AIChatState.signalModified(projectId);   // SpriteLab reloads on this (2026-10-15)
         StringBuilder out = new StringBuilder("Named " + named + " cell(s)");
         if (cleared > 0) out.append(", cleared ").append(cleared);
         out.append(" on '").append(sheet.getName()).append("'.");

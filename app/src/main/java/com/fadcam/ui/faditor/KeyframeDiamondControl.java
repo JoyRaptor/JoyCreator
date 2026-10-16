@@ -79,6 +79,7 @@ public final class KeyframeDiamondControl extends LinearLayout {
         dlp.rightMargin = dp(2);
         diamond.setLayoutParams(dlp);
         wireDiamond(diamond);
+        SheetKit.label(diamond, ctx.getString(R.string.desc_keyframe_toggle));
         addView(diamond);
         addView(chevron("›", false));
     }
@@ -145,6 +146,7 @@ public final class KeyframeDiamondControl extends LinearLayout {
         getContext().getTheme().resolveAttribute(
                 android.R.attr.selectableItemBackgroundBorderless, tv, true);
         v.setBackgroundResource(tv.resourceId);
+        SheetKit.label(v, getContext().getString(prev ? R.string.faditor_lc_key_prev : R.string.faditor_lc_key_next));
         // Both chevrons are swipe-sensitive like the diamond (user, 2026-08-10): a quick
         // horizontal swipe-left = prev, swipe-right = next, on EITHER chevron. Taps keep
         // their positional meaning (‹ = prev, › = next).

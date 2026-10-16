@@ -84,6 +84,7 @@ public class AboutFragment extends BaseFragment {
         // Header back button handling (new)
         View back = view.findViewById(R.id.back_button);
         if (back != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(back, back.getContext().getString(R.string.back));
             back.setOnClickListener(v -> OverlayNavUtil.dismiss(requireActivity()));
         }
         ImageView appIcon = view.findViewById(R.id.app_icon);

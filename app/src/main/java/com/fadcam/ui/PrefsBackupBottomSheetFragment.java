@@ -103,6 +103,7 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
         // Handle close button
         ImageView closeBtn = view.findViewById(R.id.picker_close_btn);
         if(closeBtn != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(closeBtn, closeBtn.getContext().getString(R.string.close));
             closeBtn.setOnClickListener(v -> dismiss());
         }
         View helper = view.findViewById(R.id.picker_helper);

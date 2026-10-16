@@ -646,6 +646,7 @@ public class PreviewPipController {
                 Gravity.END | Gravity.CENTER_VERTICAL);
         expand.setLayoutParams(exLp);
         expand.setOnClickListener(v -> requestExpand());
+        com.fadcam.ui.faditor.SheetKit.label(expand, ctx.getString(R.string.desc_pip_expand));
         chrome.addView(expand);
 
         // UNDOCK: back to a free-floating window without leaving PiP.
@@ -671,6 +672,7 @@ public class PreviewPipController {
                 (int) (30 * density), ViewGroup.LayoutParams.MATCH_PARENT,
                 Gravity.START | Gravity.CENTER_VERTICAL));
         undock.setOnClickListener(v -> undock());
+        com.fadcam.ui.faditor.SheetKit.label(undock, ctx.getString(R.string.desc_pip_undock));
         undock.setVisibility(dockedEdge == 0 ? View.GONE : View.VISIBLE);
         chrome.addView(undock);
         undockButton = undock;

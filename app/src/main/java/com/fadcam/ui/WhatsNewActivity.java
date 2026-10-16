@@ -109,6 +109,7 @@ public class WhatsNewActivity extends AppCompatActivity {
 
         // Close button listener
         if (btnClose != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnClose, btnClose.getContext().getString(R.string.desc_close));
             btnClose.setOnClickListener(v -> {
                 navigateToHome();
             });

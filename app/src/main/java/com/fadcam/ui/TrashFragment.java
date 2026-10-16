@@ -160,6 +160,7 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
     private void initializeViews(@NonNull View view) {
         ImageView backButton = view.findViewById(R.id.back_button);
         if (backButton != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(backButton, backButton.getContext().getString(R.string.watch_back_desc));
             backButton.setOnClickListener(v -> {
                 // If we're in selection mode, exit it instead of leaving the screen
                 if (isInSelectionMode()) {
@@ -174,6 +175,7 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
         // Setup menu button click listener
         ImageView menuButton = view.findViewById(R.id.action_trash_auto_delete_settings);
         if (menuButton != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(menuButton, menuButton.getContext().getString(R.string.trash_menu_auto_delete_settings));
             menuButton.setOnClickListener(v -> showAutoDeleteBottomSheet());
         }
         titleText = view.findViewById(R.id.title_text);

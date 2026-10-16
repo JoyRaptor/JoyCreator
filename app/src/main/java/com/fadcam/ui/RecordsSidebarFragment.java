@@ -107,6 +107,8 @@ public class RecordsSidebarFragment extends DialogFragment {
         // Handle close button
         ImageView closeButton = view.findViewById(R.id.records_sidebar_close_btn);
         if (closeButton != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(closeButton, closeButton.getContext().getString(R.string.close));
+            closeButton.setContentDescription(closeButton.getContext().getString(R.string.close));
             closeButton.setOnClickListener(v -> dismiss());
         }
 

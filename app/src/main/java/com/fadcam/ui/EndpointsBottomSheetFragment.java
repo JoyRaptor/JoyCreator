@@ -93,6 +93,7 @@ public class EndpointsBottomSheetFragment extends BottomSheetDialogFragment {
         urlView.setText(fullUrl);
 
         // Copy button click listener
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(copyButton, copyButton.getContext().getString(R.string.desc_copy_url));
         copyButton.setOnClickListener(v -> {
             if (!fullUrl.contains("not active")) {
                 copyToClipboard(fullUrl);

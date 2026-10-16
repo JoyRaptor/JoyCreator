@@ -14,6 +14,7 @@ javac -nowarn -encoding UTF-8 -d "$OUT" \
   tools/jvm-harness/stubs/androidx/annotation/Nullable.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/ProjectFacts.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/Idea.java \
+  app/src/main/java/com/fadcam/ui/faditor/ai/joybot/Recipe.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/IdeaEngine.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/Outcome.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/Fillers.java \

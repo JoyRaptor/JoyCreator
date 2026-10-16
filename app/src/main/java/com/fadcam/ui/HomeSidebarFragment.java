@@ -115,6 +115,8 @@ public class HomeSidebarFragment extends DialogFragment {
         // Handle close button
         ImageView closeButton = view.findViewById(R.id.home_sidebar_close_btn);
         if (closeButton != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(closeButton, closeButton.getContext().getString(R.string.desc_close));
+            closeButton.setContentDescription(closeButton.getContext().getString(R.string.desc_close));
             closeButton.setOnClickListener(v -> dismiss());
         }
 
@@ -248,6 +250,7 @@ public class HomeSidebarFragment extends DialogFragment {
         // Mini Apps Info Button
         View btnMiniAppsInfo = view.findViewById(R.id.btn_mini_apps_info);
         if (btnMiniAppsInfo != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnMiniAppsInfo, btnMiniAppsInfo.getContext().getString(R.string.desc_mini_apps_info));
             btnMiniAppsInfo.setOnClickListener(v -> {
                 MiniAppsInfoBottomSheet infoBS = MiniAppsInfoBottomSheet.newInstance();
                 infoBS.show(getParentFragmentManager(), "mini_apps_info");

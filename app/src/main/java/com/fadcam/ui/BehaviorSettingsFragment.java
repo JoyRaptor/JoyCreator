@@ -53,6 +53,7 @@ public class BehaviorSettingsFragment extends BaseFragment {
         toggleOnboarding = view.findViewById(R.id.toggle_onboarding);
         toggleAutoUpdate = view.findViewById(R.id.toggle_auto_update);
     View back = view.findViewById(R.id.back_button);
+    if (back != null) androidx.appcompat.widget.TooltipCompat.setTooltipText(back, back.getContext().getString(R.string.watch_back_desc));
     if (back != null) back.setOnClickListener(v -> OverlayNavUtil.dismiss(requireActivity()));
         if (toggleOnboarding != null) {
             boolean show = prefs.isShowOnboarding();

@@ -41,6 +41,7 @@ public final class IdeaEngine {
     public static final String FLOW_SLIDE = "slide";
     public static final String FLOW_PICTURE = "picture";
     public static final String ROUTE_RECORD = "record";
+    public static final String ROUTE_LIBRARY = "library";
 
     /** Ideas Joybot offers and the sentence he opens with. */
     public static final class Offer {
@@ -104,6 +105,16 @@ public final class IdeaEngine {
     // ── the tree ────────────────────────────────────────────────────────────
 
     private static void collect(ProjectFacts f, Room room, Set<String> flows, List<Idea> out) {
+        // Sprite Lab and the Library each have their own job; they never fall through to the
+        // talking-video tree, and a sheet-only project is not "empty" to Sprite Lab.
+        if (room == Room.SPRITELAB) {
+            sheets(f, room, out);
+            return;
+        }
+        if (room == Room.LIBRARY) {
+            library(f, out);
+            return;
+        }
         if (f.isEmpty()) {
             emptyProject(f, flows, out);
             return;
@@ -327,6 +338,17 @@ public final class IdeaEngine {
                         .needsKey().priority(33 + boost).build());
             }
         }
+    }
+
+    /** The Library: the newest recording this project does not use yet, shown on the Library tab. */
+    private static void library(ProjectFacts f, List<Idea> out) {
+        if (f.newestRecordingNotInProject.isEmpty()) return;
+        out.add(Idea.of("newest_recording", Idea.Kind.ROUTE, "Show my newest recording")
+                .flow(ROUTE_LIBRARY).say("Show me my newest recording")
+                .opener(q(f.newestRecordingNotInProject)
+                        + " is your newest recording, and this project doesn't use it yet.")
+                .hint("Go to the Library to find it and open it in the Studio")
+                .priority(60).build());
     }
 
     // ── words ───────────────────────────────────────────────────────────────

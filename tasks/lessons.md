@@ -1030,3 +1030,12 @@ throws, the whole stroke is lost, and that looked to the owner like "the pen doe
 
 ## Positional gesture cycles must survive caller reconstruction (Codex, October7)
 A picker stored candidate reference identities; its actual InkEditSession caller reconstructs InkLine values each tap, so direct picker tests passed while integrated cycling reset. Compare immutable geometry snapshots in positional order (including copied arrays), keep repeated ids as separate positions, and test the real session gesture path as well as the helper.
+
+## Python text-mode writes CRLF on Windows (Claude/Joybot, 2026-10-15)
+Patching Java files with `open(p).read()` / `open(p,'w').write()` silently turned four LF files into CRLF. The app still compiled (text blocks normalise line ends), but the harness that reads `getToolDescriptions()` from source split on `\n`, every line kept a `\r`, the tool regex matched nothing, and 8 checks failed with "0 tools". `grep -q $'\r'` in Git Bash did NOT see the CRs.
+- Rule: script edits read and write BYTES (`open(p,'rb').read().decode('utf-8')` … `open(p,'wb').write(s.encode('utf-8'))`), or pass `newline=''`. Check line endings with Python (`b.count(b'\r\n')`), not grep. Put the same rule in every brief that lets an agent script edits.
+
+
+## Project JSON is pretty-printed: test patterns on a real file (Claude/Joybot, 2026-10-15)
+Two Joybot regexes over project.json — `"id":"..."` (to find what a tool added) and `"lastModified":\d+` (to ignore a plain re-save) — never matched, because gson writes `"id": "..."` with a space. Result on the phone: Review rows had no Show me, and every "Undo from here" was refused as "the project has changed". It took two phone rounds to see because the code looked right and compiled.
+- Rule: any pattern over a stored file is checked against a REAL file pulled from the device (`adb exec-out run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json`) before it ships; allow `\s*` around every `:` in JSON patterns.

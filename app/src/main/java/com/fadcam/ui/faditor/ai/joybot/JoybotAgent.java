@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.ai.actions.AgentTools;
 import com.fadcam.ui.faditor.ai.AIChatState;
 import com.fadcam.ui.faditor.ai.AIJobService;
 import com.fadcam.ui.faditor.ai.AIToolExecutor;
@@ -59,6 +60,20 @@ public final class JoybotAgent {
     private static final OkHttpClient HTTP = new OkHttpClient();
 
     public static final int MAX_TOOL_ROUNDS = 8;
+    /**
+     * A job the person approved as a plan (Director mode, gap F3/F4) may take this many steps
+     * before it pauses and asks to keep going — big mandates ("B-roll and chapters for the whole
+     * talk") need 30+, a chat request never should.
+     */
+    public static final int DIRECTOR_STEPS = 40;
+    /** A streamed reply that sends nothing real for this long is cut (keep-alives don't count). */
+    private static final long STALL_MS = 75_000;
+    private static final java.util.concurrent.ScheduledExecutorService WATCHDOG =
+            java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "joybot-watchdog");
+                t.setDaemon(true);
+                return t;
+            });
     private static final int REPLY_TOKENS = 4096;
     private static final int CONTEXT_CAP = 14_000;
     private static final int TRANSCRIPT_PREVIEW = 900;
@@ -94,6 +109,10 @@ public final class JoybotAgent {
         /** "data:image/jpeg;base64,…" sent with THIS request only, or null. */
         @Nullable public String imageDataUrl;
         public int imageW, imageH;
+        /** Tool rounds allowed before it pauses with "Keep going" ({@link #DIRECTOR_STEPS} for a plan). */
+        public int maxSteps = MAX_TOOL_ROUNDS;
+        /** Carrying out a plan the person approved: no re-planning, every change kept for review. */
+        public boolean director;
 
         public Ask(@Nullable String projectId, @NonNull String text, @NonNull String model,
                    @NonNull String apiKey, @NonNull String undoLabel, @NonNull Situation situation) {
@@ -118,11 +137,76 @@ public final class JoybotAgent {
         @NonNull public final List<String> toolLines = new ArrayList<>();
         /** The undo step the request made, if it changed the project behind the editor. */
         @Nullable public AIChatState.Step step;
+        /** Set when the model proposed a plan instead of acting: show it, wait for Go ahead. */
+        @Nullable public Plan plan;
+        /** It used its whole step budget with work left: offer "Keep going". */
+        public boolean budgetHit;
+        /** Whether this was a Director (approved-plan) run — a "Keep going" continues as one. */
+        public boolean director;
+        /** Each change a Director run made, in order, for the Review card. */
+        @NonNull public final List<Change> changes = new ArrayList<>();
+        /**
+         * Every tool call that changed the project, as it was made — what "Save as a recipe"
+         * keeps (gap F7). Reads and failures are left out.
+         */
+        @NonNull public final List<Idea.Step> calls = new ArrayList<>();
+        /** Tool rounds used. */
+        public int steps;
+        /** What the service reported using; -1 = it didn't say. */
+        public long tokens = -1;
+        public double cost = -1;
+
+        /** "12 steps · 18k words read and written · about $0.004", or "" when there's nothing to say. */
+        @NonNull
+        public String usageWords() {
+            List<String> parts = new ArrayList<>();
+            if (steps > 1) parts.add(steps + " steps");
+            if (tokens > 0) parts.add(tokens >= 1000 ? (tokens / 1000) + "k tokens" : tokens + " tokens");
+            if (cost > 0) parts.add(cost < 0.01 ? String.format(java.util.Locale.US, "about $%.4f", cost)
+                    : String.format(java.util.Locale.US, "about $%.2f", cost));
+            else if (cost == 0) parts.add("free");
+            StringBuilder sb = new StringBuilder();
+            for (String p : parts) sb.append(sb.length() > 0 ? " · " : "").append(p);
+            return sb.toString();
+        }
 
         Finished(@Nullable String projectId, @NonNull String asked) {
             this.projectId = projectId;
             this.asked = asked;
         }
+    }
+
+    /** A plan the model wants approved before a big job (the {@code propose_plan} tool). */
+    public static final class Plan {
+        @NonNull public final String title;
+        @NonNull public final List<String> steps;
+
+        Plan(@NonNull String title, @NonNull List<String> steps) {
+            this.title = title;
+            this.steps = steps;
+        }
+    }
+
+    /**
+     * One change a Director run made: what it was, what it touched (Show me), and the project as it
+     * was just before it (Undo from here). The snapshot lives in a cache file, not in memory.
+     */
+    public static final class Change {
+        @NonNull public final String tool;
+        /** The tool's own result, shortened — what changed, in its words. */
+        @NonNull public final String said;
+        @NonNull public final List<String> ids;
+        @Nullable final java.io.File before;
+
+        Change(@NonNull String tool, @NonNull String said, @NonNull List<String> ids, @Nullable java.io.File before) {
+            this.tool = tool;
+            this.said = said;
+            this.ids = ids;
+            this.before = before;
+        }
+
+        /** Whether "Undo from here" can work (its snapshot was written). */
+        public boolean canRevert() { return before != null && before.isFile(); }
     }
 
     /** What the chat shows while a request runs. Every call is on the main thread. */
@@ -181,14 +265,26 @@ public final class JoybotAgent {
         final Context app = context.getApplicationContext();
         cancelled = false;
         current = ask;
+        clearPendingPlan(ask.projectId);   // a new request is the answer to any plan on screen
+        if (ask.projectId != null) REVIEWS.remove(ask.projectId);   // and moves the project on
         JoybotJobs.execute(() -> {
             AIJobService.start(app, "Joybot: " + shortOf(ask.text));
             Finished f = new Finished(ask.projectId, ask.text);
+            f.director = ask.director;
+            Run run = new Run(app, ask, f);
             try {
-                new Run(app, ask, f).go();
+                run.go();
             } catch (Throwable t) {
                 FLog.e(TAG, "request failed", t);
-                if (!cancelled) {
+                if (run.stalled) {
+                    // The watchdog cut a reply that had gone silent: not the person's network.
+                    cancelled = false;
+                    f.reply = "The AI service went quiet for over a minute, so I stopped waiting."
+                            + " Try again, or pick another model (tap its name at the top).";
+                    f.ok = false;
+                    final String r = f.reply;
+                    post(l -> l.onText(r, false));
+                } else if (!cancelled) {
                     f.reply = t instanceof IOException ? friendlyNetworkError((IOException) t)
                             : "Something went wrong: " + t.getMessage();
                     f.ok = false;
@@ -197,9 +293,15 @@ public final class JoybotAgent {
             } finally {
                 call = null;
                 current = null;
+                // Over, however it ended: nothing to carry on. (A killed process never gets here,
+                // which is exactly what leaves the file for interrupted() to find.)
+                JobFile.clear(app);
                 AIJobService.stop(app);
             }
             if (cancelled) f.reply = null;
+            if (f.projectId != null && f.changes.size() >= 2) {
+                REVIEWS.put(f.projectId, new Review(f.changes, fingerprint(liveSnapshot(app, f.projectId))));
+            }
             MAIN.post(() -> deliver(f));
         });
     }
@@ -238,11 +340,34 @@ public final class JoybotAgent {
         @Nullable JSONObject sightMsg;
         /** Whether the bubble this round writes into is already open. */
         boolean opened = true;
+        /** The model proposed a plan this round: show it and stop (it waits for Go ahead). */
+        boolean planShown;
+        /** The last tool only put a confirm card on screen (export…): nothing has happened yet. */
+        boolean cardWaiting;
+        /** The tool round in progress (0-based). */
+        int round;
+        /** Joybot's write count when this request began, and the last tool error, for honesty. */
+        final long writesAtStart = JoybotStorage.writes();
+        @Nullable String lastError;
+        /** The project as the last Director-tracked tool left it, so the next needn't re-read it. */
+        @Nullable String lastAfter;
+        /**
+         * The model this request talks to now. Starts as the person's pick; if that model is busy or
+         * gone on OpenRouter, the rest of the request falls back ONCE to the free router (gap F9) —
+         * never the other way, so a fallback can't cost money.
+         */
+        @NonNull String model;
+        boolean fellBack;
+        /** When the streamed reply last sent anything real (keep-alive comments don't count). */
+        volatile long lastData;
+        /** The watchdog cut the reply because nothing came for {@link #STALL_MS}. */
+        volatile boolean stalled;
 
         Run(@NonNull Context app, @NonNull Ask ask, @NonNull Finished out) {
             this.app = app;
             this.ask = ask;
             this.out = out;
+            this.model = ask.model;
         }
 
         void go() throws Exception {
@@ -256,30 +381,57 @@ public final class JoybotAgent {
                             + " another look.]");
             HISTORY.add(retained);
 
-            for (int round = 0; ; round++) {
+            for (round = 0; ; round++) {
                 if (cancelled) return;
-                if (round > MAX_TOOL_ROUNDS) {
-                    finish(true, "I stopped after " + MAX_TOOL_ROUNDS + " steps in a row so nothing"
-                            + " runs away. Say \"keep going\" if you want me to continue.");
+                out.steps = round;
+                if (round > ask.maxSteps) {
+                    // A budget, not a wall (gap F4): the conversation is kept, so Keep going
+                    // carries on exactly where this stopped.
+                    out.budgetHit = true;
+                    finish(true, "I've done " + ask.maxSteps + " steps and there's more to do. Tap Keep"
+                            + " going and I'll carry on from here.");
                     return;
                 }
+                // Written every round, so a job the phone kills can carry on (interrupted()).
+                if (ask.projectId != null) JobFile.save(app, ask, round);
                 opened = round == 0;   // the first reply fills the "Thinking…" bubble
                 Completion c;
-                if (round == 0 && ask.imageDataUrl != null) {
-                    c = complete(retained, ask.text, ask.imageDataUrl);
-                } else if (sight != null && sightMsg != null) {
-                    c = complete(sightMsg, sightMsg.optString("content"), sight.dataUrl);
-                } else {
-                    c = complete(null, null, null);
+                boolean picture = (round == 0 && ask.imageDataUrl != null) || (sight != null && sightMsg != null);
+                // Gap F9: a picture goes to a model that can see. The person's model may be a
+                // text-only one; for THIS step only, the free router (which picks a model that
+                // takes pictures) looks instead, then their model carries on.
+                String own = model;
+                boolean borrowEyes = picture && !FREE_ROUTER.equals(model)
+                        && AiService.chatUrl(app).contains("openrouter.ai")
+                        && com.fadcam.ui.faditor.ai.ModelCapabilities.visionFor(model)
+                                == com.fadcam.ui.faditor.ai.ModelCapabilities.Vision.NO;
+                if (borrowEyes) {
+                    FLog.i(TAG, model + " can't see pictures; the free router looks for this step");
+                    model = FREE_ROUTER;
+                }
+                try {
+                    if (round == 0 && ask.imageDataUrl != null) {
+                        c = complete(retained, ask.text, ask.imageDataUrl);
+                    } else if (sight != null && sightMsg != null) {
+                        c = complete(sightMsg, sightMsg.optString("content"), sight.dataUrl);
+                    } else {
+                        c = complete(null, null, null);
+                    }
+                } finally {
+                    if (borrowEyes && !fellBack) model = own;
                 }
                 sight = null;
                 sightMsg = null;
                 if (cancelled) return;
+                if (c.tokens > 0) out.tokens = Math.max(0, out.tokens) + c.tokens;
+                if (c.cost >= 0) out.cost = Math.max(0, out.cost) + c.cost;
                 if (c.error != null) { finish(false, friendlyApiError(c.error)); return; }
                 ModelCapabilities.noteServedModel(c.servedModel);
                 if (c.text.isEmpty() && c.calls.isEmpty()) {
                     if (round == 0) finish(false, "I got an empty reply. Try asking again.");
-                    else finish(true, "Done.");
+                    // After a confirm card nothing is done yet: "Done." under an unanswered Export
+                    // card read as if it had exported (Note 9, 2026-10-15).
+                    else finish(true, cardWaiting ? "It's on the card above: tap its button when you're ready." : "Done.");
                     return;
                 }
                 String aiText = c.text;
@@ -313,6 +465,7 @@ public final class JoybotAgent {
                         HISTORY.add(new JSONObject().put("role", "tool").put("tool_call_id", k.id)
                                 .put("content", line == null ? "Error: that call could not run." : lastResult));
                     }
+                    if (planShown) { finish(true, PLAN_SHOWN); return; }
                     if (sight != null) {
                         // A tool answer can't carry a picture, so the look's picture rides on a
                         // user message right after it (this request only).
@@ -330,6 +483,11 @@ public final class JoybotAgent {
                     text(prose.isEmpty() ? (round == 0 ? "On it…" : "Next step…") : prose);
                     String line = runTool(toolCall);
                     if (line == null) { finish(false, "That step didn't work, so I stopped."); return; }
+                    if (planShown) {
+                        HISTORY.add(new JSONObject().put("role", "user").put("content", "Tool result:\n" + lastResult));
+                        finish(true, PLAN_SHOWN);
+                        return;
+                    }
                     out.toolLines.add(line);
                     post(l -> l.onToolLine(line));
                     JSONObject result = new JSONObject().put("role", "user").put("content", "Tool result:\n"
@@ -358,6 +516,15 @@ public final class JoybotAgent {
                                     + " tools directly, reply with ONLY the tool JSON"
                                     + " {\"tool\":...,\"args\":{...}}, no other words."));
                     continue;
+                }
+                if (toolRan && lastError != null && JoybotStorage.writes() == writesAtStart
+                        && claimsAChange(aiText)) {
+                    // Every attempt failed and nothing was written, yet the reply says "Done!"
+                    // (a free model, three failed label_sprite_cells, Note 9 2026-10-15). Say what
+                    // really happened instead.
+                    finish(false, "That didn't work, so nothing changed. The last error was: "
+                            + shortOf(lastError.replaceFirst("^Error:\\s*", "")));
+                    return;
                 }
                 finish(true, nudged && !toolRan && unfinished
                         ? "This model keeps describing the change instead of making it, so nothing"
@@ -394,8 +561,10 @@ public final class JoybotAgent {
                 return null;
             }
             if ("look".equals(name)) return look(args);
+            if (AgentTools.PROPOSE_PLAN.equals(name)) return plan(args);
             toolRan = true;
-            final String task = name.replace('_', ' ');
+            final String task = (ask.director ? "Step " + (round + 1) + " of up to " + ask.maxSteps + " · " : "")
+                    + name.replace('_', ' ');
             post(l -> l.onWorking(task, -1));
             if ("ai_enhance".equals(name)) {
                 post(l -> l.onChecklist(new String[]{"Generate Vosk transcript",
@@ -409,6 +578,12 @@ public final class JoybotAgent {
             String pid = ask.projectId;
             boolean live = JoybotStorage.isLive(pid);
             String before = (!live && !stepPushed && pid != null) ? snapshot(app, pid) : null;
+            // Director runs keep every change for the Review card: the project just before it
+            // (Undo from here) and what it touched (Show me). Reads don't change anything.
+            boolean track = ask.director && pid != null && !AgentTools.isRead(name);
+            String trackBefore = track ? (lastAfter != null ? lastAfter : liveSnapshot(app, pid)) : null;
+            com.fadcam.ui.faditor.ai.actions.StudioActions.takeTouched();   // clear a stale one
+            final long writesBefore = JoybotStorage.writes();
             String result;
             try {
                 result = new AIToolExecutor(app, pid, (t, pct) -> {
@@ -423,7 +598,8 @@ public final class JoybotAgent {
             // it re-saved the file, so before/after differ by ITS save, not ours. Any write of ours
             // went through it (JoybotStorage) as its own undo step. Recording one here put a false
             // "Changed:" card with an Undo in the chat after a read-only describe (Note 9, 10-15).
-            if (before != null && !JoybotStorage.isLive(pid)) {
+            final boolean wrote = JoybotStorage.writes() != writesBefore;
+            if (before != null && wrote && !JoybotStorage.isLive(pid)) {
                 String after = snapshot(app, pid);
                 if (after != null && !after.equals(before)) {
                     stepPushed = true;
@@ -433,8 +609,63 @@ public final class JoybotAgent {
                     if (step != null) post(l -> l.onStep(step));
                 }
             }
+            if (track && trackBefore != null && wrote && !DirectRunner.isFailure(result)) {
+                String after = liveSnapshot(app, pid);
+                lastAfter = after;
+                if (after != null && !after.equals(trackBefore)) {
+                    List<String> ids = com.fadcam.ui.faditor.ai.actions.StudioActions.takeTouched();
+                    if (ids.isEmpty()) ids = addedIds(trackBefore, after);
+                    out.changes.add(new Change(name, shortOf(result.split("\n", 2)[0]), ids,
+                            JobFile.keepBefore(app, token, out.changes.size(), trackBefore)));
+                }
+            } else if (track && wrote) {
+                lastAfter = null;   // it wrote but failed: re-read before the next change
+            }
+            cardWaiting = result != null && result.startsWith("@@PROPOSAL:");
+            if (cardWaiting) {
+                // The card is for the person; the model saw the raw sentinel and told them "Your
+                // video has been exported" after they tapped Not now (Note 9, 2026-10-15).
+                lastResult = "A card is now on the person's screen asking them to confirm. NOTHING has"
+                        + " happened yet: it happens only if they tap its button. Tell them that in one"
+                        + " short sentence, and don't say it's done.";
+                return name + " → " + result;
+            }
+            if (DirectRunner.isFailure(result)) lastError = result;
+            else if (wrote) out.calls.add(new Idea.Step(name, com.fadcam.ui.faditor.ai.actions.StudioActions.toMap(args)));
             lastResult = result;
             return name + " → " + result;
+        }
+
+        /**
+         * {@code propose_plan}: the model wants a yes before a big job. Nothing runs; the plan goes
+         * on screen and the request ends there. Inside an approved plan it is already a yes.
+         */
+        @NonNull
+        String plan(@NonNull JSONObject args) {
+            if (ask.director) {
+                lastResult = "The person already approved the plan. Carry on doing it; don't ask again.";
+                return "propose_plan → " + lastResult;
+            }
+            List<String> steps = new ArrayList<>();
+            JSONArray a = args.optJSONArray("steps");
+            for (int i = 0; a != null && i < a.length(); i++) {
+                String st = a.optString(i, "").trim();
+                if (!st.isEmpty()) steps.add(st);
+            }
+            if (steps.isEmpty()) {
+                // A model that sent the steps as one string, one per line.
+                for (String st : args.optString("steps", "").split("\n")) {
+                    String t = st.trim().replaceFirst("^[-•0-9.)\\s]+", "");
+                    if (!t.isEmpty()) steps.add(t);
+                }
+            }
+            String title = args.optString("title", "").trim();
+            out.plan = new Plan(title.isEmpty() ? shortOf(ask.text) : title, steps);
+            if (ask.projectId != null) PENDING.put(ask.projectId, out.plan);
+            planShown = true;
+            lastResult = "The plan is on the person's screen with a Go ahead button. Stop here and wait"
+                    + " for them; don't change anything yet.";
+            return "propose_plan → " + lastResult;
         }
 
         /**
@@ -492,11 +723,14 @@ public final class JoybotAgent {
                     }
                 }
                 JSONObject body = new JSONObject()
-                        .put("model", ask.model)
+                        .put("model", model)
                         .put("messages", messages)
                         .put(q.completionTokens ? "max_completion_tokens" : "max_tokens", REPLY_TOKENS)
                         .put("stream", q.stream);
                 if (q.temperature) body.put("temperature", 0.7);
+                // OpenRouter reports what a reply cost when asked (gap F4's meter); others may
+                // refuse an unknown field, so only there.
+                if (url.contains("openrouter.ai")) body.put("usage", new JSONObject().put("include", true));
                 if (q.nativeTools) {
                     body.put("tools", nativeTools());
                     if (requireTool && q.requiredChoice) body.put("tool_choice", "required");
@@ -509,6 +743,15 @@ public final class JoybotAgent {
                         .build();
                 okhttp3.Call k = HTTP.newCall(request);
                 call = k;
+                // A free model can hold a stream open with keep-alives and never answer (Note 9,
+                // 2026-10-15: "Thinking…" for two minutes until Stop). Cut it after a silent minute.
+                lastData = android.os.SystemClock.uptimeMillis();
+                java.util.concurrent.ScheduledFuture<?> dog = !q.stream ? null : WATCHDOG.scheduleAtFixedRate(() -> {
+                    if (android.os.SystemClock.uptimeMillis() - lastData > STALL_MS) {
+                        stalled = true;
+                        k.cancel();
+                    }
+                }, 5, 5, java.util.concurrent.TimeUnit.SECONDS);
                 try (Response response = k.execute()) {
                     int code = response.code();
                     if ((code == 400 || code == 404 || code == 422) && attempt < 5 && response.body() != null) {
@@ -523,19 +766,48 @@ public final class JoybotAgent {
                                     + ", stream " + q.stream + ", temperature " + q.temperature);
                             continue;
                         }
+                        if (shouldFallBack(url, code, err)) {   // e.g. a retired model id (gap F9)
+                            model = FREE_ROUTER;
+                            fellBack = true;
+                            text("That model isn't available right now, so I'm using a free one for this.");
+                            continue;
+                        }
                         Completion c = new Completion();
                         c.error = "API error " + code + ": " + err.substring(0, Math.min(200, err.length()));
                         return c;
                     }
                     Completion c = read(response, q.stream);
+                    if (c.error != null && shouldFallBack(url, code, c.error)) {
+                        FLog.i(TAG, "model " + model + " unavailable (" + c.error.substring(0, Math.min(80, c.error.length()))
+                                + "); falling back to " + FREE_ROUTER);
+                        model = FREE_ROUTER;
+                        fellBack = true;
+                        text("That model is busy right now, so I'm using a free one for this.");
+                        continue;
+                    }
                     FLog.i(TAG, "reply: native tools " + (q.nativeTools ? "on" : "off")
                             + (requireTool && q.requiredChoice ? " (required)" : "")
                             + ", " + c.calls.size() + " native call(s), text " + c.text.length() + " chars"
                             + (c.servedModel != null ? ", served by " + c.servedModel : ""));
                     requireTool = false;
                     return c;
+                } finally {
+                    if (dog != null) dog.cancel(false);
                 }
             }
+        }
+
+        /**
+         * Busy, rate-limited, down or retired: worth one try on the free router. Only on OpenRouter
+         * (the router is theirs), only once, and never from the router to itself. A key or credit
+         * problem (401/402/403) is the person's to fix, so it is not hidden behind a fallback.
+         */
+        boolean shouldFallBack(@NonNull String url, int code, @NonNull String error) {
+            if (fellBack || FREE_ROUTER.equals(model) || !url.contains("openrouter.ai")) return false;
+            if (code == 401 || code == 402 || code == 403) return false;
+            String e = error.toLowerCase(java.util.Locale.ROOT);
+            return code == 429 || code >= 500 || e.contains("no endpoints") || e.contains("rate limit")
+                    || e.contains("overloaded") || e.contains("is not a valid model") || e.contains("not found");
         }
 
         /** A finished response: streamed (server-sent events) or one JSON body. */
@@ -551,6 +823,7 @@ public final class JoybotAgent {
                 if (!streamed) {
                     JSONObject json = new JSONObject(response.body().string());
                     c.servedModel = json.optString("model", null);
+                    c.usage(json.optJSONObject("usage"));
                     JSONArray ch = json.optJSONArray("choices");
                     JSONObject msg = ch == null || ch.length() == 0 ? null : ch.getJSONObject(0).optJSONObject("message");
                     c.text = msg == null || msg.isNull("content") ? "" : msg.optString("content", "");
@@ -577,6 +850,7 @@ public final class JoybotAgent {
                 while ((line = src.readUtf8Line()) != null) {
                     // Lines are "data: {json}", ": keep-alive" comments, or blank separators.
                     if (!line.startsWith("data:")) continue;
+                    lastData = android.os.SystemClock.uptimeMillis();
                     String data = line.substring(5).trim();
                     if ("[DONE]".equals(data)) break;
                     JSONObject chunk;
@@ -591,6 +865,7 @@ public final class JoybotAgent {
                         return c;
                     }
                     if (c.servedModel == null && chunk.has("model")) c.servedModel = chunk.optString("model", null);
+                    c.usage(chunk.optJSONObject("usage"));   // the last chunk carries it
                     JSONArray choices = chunk.optJSONArray("choices");
                     if (choices == null || choices.length() == 0) continue;
                     JSONObject delta = choices.getJSONObject(0).optJSONObject("delta");
@@ -778,7 +1053,7 @@ public final class JoybotAgent {
                     sb.append("Adjustment layer id=").append(a.getId()).append(" \"").append(a.getName()).append("\" ")
                             .append(a.getStartMs()).append("ms-").append(a.getEndMs()).append("ms\n");
                 }
-                if (shown > 30) sb.append("  …more layers not listed\n");
+                if (shown > 30) sb.append("  …more layers not listed: use list_items (pages, time windows) and get_item\n");
                 for (com.fadcam.ui.faditor.model.Transition t : tl.getTransitions()) {
                     sb.append("Transition ").append(t.type).append(' ').append(t.durationMs).append("ms at seam ")
                             .append(t.clipIndex).append(" (between clip ").append(t.clipIndex).append(" and ")
@@ -805,7 +1080,11 @@ public final class JoybotAgent {
             } catch (Exception e) {
                 sb.append("(Could not read the project: ").append(e.getMessage()).append(")\n");
             }
-            if (sb.length() > CONTEXT_CAP) sb.setLength(CONTEXT_CAP);
+            // Gap F5: this block is a summary, not the whole project. The rest is one call away.
+            String more = "\n(This is a summary. For anything not shown: list_items, get_item for every setting"
+                    + " of one item, find_words for where something is said.)\n";
+            if (sb.length() > CONTEXT_CAP - more.length()) sb.setLength(CONTEXT_CAP - more.length());
+            sb.append(more);
             return sb.toString();
         }
     }
@@ -860,16 +1139,21 @@ public final class JoybotAgent {
     @Nullable private static volatile JSONArray TOOLS;
 
     /**
-     * Joybot's tools as native definitions, parsed from the same text the JSON-in-text fallback
-     * shows ({@link ToolDocs}) so the two can never disagree. Arguments stay open (each tool's
-     * description gives them): exact schemas are the action registry's job (gap F2).
+     * Joybot's tools as native definitions. Actions in the registry (gap F2) go with their exact
+     * typed schema; the older tools are parsed from the same text the JSON-in-text fallback shows
+     * ({@link ToolDocs}) with open arguments (each one's description gives them).
      */
     @NonNull
     static JSONArray nativeTools() throws Exception {
         JSONArray t = TOOLS;
         if (t != null) return t;
         t = new JSONArray();
+        com.fadcam.ui.faditor.ai.actions.ActionRegistry<?> reg =
+                com.fadcam.ui.faditor.ai.actions.StudioActions.registry();
+        for (String def : reg.nativeToolsJson()) t.put(new JSONObject(def));
+        for (String def : AgentTools.nativeToolsJson()) t.put(new JSONObject(def));
         for (ToolDocs.Doc d : ToolDocs.parse(com.fadcam.ui.faditor.ai.AIToolExecutor.getToolDescriptions())) {
+            if (reg.has(d.name)) continue;
             t.put(new JSONObject().put("type", "function").put("function", new JSONObject()
                     .put("name", d.name)
                     .put("description", d.text)
@@ -883,10 +1167,177 @@ public final class JoybotAgent {
     private static final class Completion {
         /** Native tool calls in the reply, in order (empty when it called none). */
         final List<ToolCall> calls = new ArrayList<>();
+        /** What the service said this reply used; -1 = it didn't say. */
+        long tokens = -1;
+        double cost = -1;
+
+        void usage(@Nullable JSONObject u) {
+            if (u == null) return;
+            long t = u.optLong("total_tokens", u.optLong("prompt_tokens", 0) + u.optLong("completion_tokens", 0));
+            if (t > 0) tokens = t;
+            if (u.has("cost") && !u.isNull("cost")) cost = u.optDouble("cost", -1);
+        }
         String text = "";
         @Nullable String servedModel;
         /** What to show instead of a reply, or null when it worked. */
         @Nullable String error;
+    }
+
+    /** OpenRouter's free router: picks any free model that can do the request (tools, pictures). */
+    static final String FREE_ROUTER = "openrouter/free";
+
+    private static final String PLAN_SHOWN = "Here's my plan. Tap Go ahead, or tell me what to change.";
+
+    /**
+     * Plans waiting for Go ahead, by project. The chat's saved messages are words only, so a plan
+     * card vanished when the chat was closed and reopened, leaving "Tap Go ahead" with nothing to
+     * tap (Note 9, 2026-10-15). Any new request for the project replaces it.
+     */
+    private static final java.util.Map<String, Plan> PENDING = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** The plan for this project still waiting for an answer, or null. */
+    @Nullable
+    public static Plan pendingPlan(@Nullable String projectId) {
+        return projectId == null ? null : PENDING.get(projectId);
+    }
+
+    /**
+     * The last Director run's changes, by project, for the Review card after Show me or a reopen
+     * (it vanished on the phone the moment Show me opened the editor, 2026-10-15). {@code end} is
+     * the project as the run (or the last Undo from here) left it: Undo from here refuses once the
+     * project has moved on, because putting back an old snapshot would also erase the person's
+     * own edits made since.
+     */
+    private static final class Review {
+        final List<Change> changes;
+        volatile int revertedFrom;
+        @Nullable volatile String end;
+
+        Review(@NonNull List<Change> changes, @Nullable String end) {
+            this.changes = new ArrayList<>(changes);
+            this.revertedFrom = changes.size();
+            this.end = end;
+        }
+    }
+
+    private static final java.util.Map<String, Review> REVIEWS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** The last Director run's changes for this project, or null. */
+    @Nullable
+    public static List<Change> pendingReview(@Nullable String projectId) {
+        Review r = projectId == null ? null : REVIEWS.get(projectId);
+        return r == null ? null : r.changes;
+    }
+
+    /** Rows from this index on were already put back (grey them); the size when none were. */
+    public static int reviewRevertedFrom(@Nullable String projectId) {
+        Review r = projectId == null ? null : REVIEWS.get(projectId);
+        return r == null ? Integer.MAX_VALUE : r.revertedFrom;
+    }
+
+    /** The project's save stamp: a plain re-save (the editor on resume) changes nothing else. */
+    private static final java.util.regex.Pattern SAVE_STAMP = java.util.regex.Pattern.compile("\"lastModified\"\\s*:\\s*\\d+\\s*,?");
+
+    @Nullable
+    private static String fingerprint(@Nullable String json) {
+        if (json == null) return null;
+        String s = SAVE_STAMP.matcher(json).replaceAll("");
+        return s.length() + ":" + s.hashCode();
+    }
+
+    private static final java.util.regex.Pattern ID = java.util.regex.Pattern.compile("\"id\"\\s*:\\s*\"([^\"]+)\"");
+
+    /**
+     * Ids present after a change but not before: what a tool ADDED. The older tools don't report
+     * what they touched, so without this a Review row for "added a title" had no Show me
+     * (Note 9, 2026-10-15).
+     */
+    @NonNull
+    static List<String> addedIds(@NonNull String before, @NonNull String after) {
+        java.util.Set<String> had = new java.util.HashSet<>();
+        java.util.regex.Matcher m = ID.matcher(before);
+        while (m.find()) had.add(m.group(1));
+        List<String> out = new ArrayList<>();
+        m = ID.matcher(after);
+        while (m.find()) if (!had.contains(m.group(1)) && !out.contains(m.group(1))) out.add(m.group(1));
+        return out;
+    }
+
+    /** "Not now" (or Go ahead): the plan has its answer. */
+    public static void clearPendingPlan(@Nullable String projectId) {
+        if (projectId != null) PENDING.remove(projectId);
+    }
+
+    /** The project as the person sees it now (the live editor's copy when it's open); null when unreadable. */
+    @Nullable
+    private static String liveSnapshot(@NonNull Context app, @NonNull String projectId) {
+        try {
+            JoybotStorage st = new JoybotStorage(app);
+            com.fadcam.ui.faditor.model.FaditorProject p = st.load(projectId);
+            return p == null ? null : st.toJson(p);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Review's "Undo from here": puts the project back as it was just before {@code change}; that
+     * change and every later one go. Written through the editor when it's open, so it is one undo
+     * step there too ("Joybot: put back before ..."). Call off the main thread.
+     */
+    @Nullable
+    public static String revertTo(@NonNull Context context, @NonNull String projectId, @NonNull Change change) {
+        final String cant = "I couldn't put that back. The editor's undo button still can.";
+        if (!change.canRevert()) return cant;
+        Context app = context.getApplicationContext();
+        Review r = REVIEWS.get(projectId);
+        if (r != null && r.end != null && !r.end.equals(fingerprint(liveSnapshot(app, projectId)))) {
+            return "The project has changed since I finished, so putting it back now would also undo"
+                    + " those newer edits. The editor's undo button can step back safely.";
+        }
+        try {
+            String json = JobFile.read(change.before);
+            JoybotStorage st = new JoybotStorage(app);
+            com.fadcam.ui.faditor.model.FaditorProject p = json == null ? null : st.fromJson(json);
+            if (p == null) return cant;
+            String label = "Joybot: put back before " + shortOf(change.said);
+            AIChatState.liveWriteLabel = label;
+            AIChatState.liveWriteRequest = UUID.randomUUID().toString();
+            if (!st.save(p)) return cant;
+            AIChatState.signalModified(projectId, label);
+            if (r != null) {
+                int at = r.changes.indexOf(change);
+                if (at >= 0) r.revertedFrom = Math.min(r.revertedFrom, at);
+                r.end = fingerprint(liveSnapshot(app, projectId));
+            }
+            return null;
+        } catch (Exception e) {
+            FLog.e(TAG, "revert failed", e);
+            return cant;
+        }
+    }
+
+    /** A job the phone stopped mid-way (the app was killed), for "Carry on"; null when none. */
+    @Nullable
+    public static JobFile.Interrupted interrupted(@NonNull Context context) {
+        return current != null ? null : JobFile.find(context.getApplicationContext());
+    }
+
+    /**
+     * Puts back the interrupted job's conversation so the next {@link #ask} carries on from it, and
+     * forgets the file. The chat then asks with a "carry on" request as a Director run.
+     */
+    public static void restore(@NonNull Context context, @NonNull JobFile.Interrupted job) {
+        synchronized (HISTORY) {
+            HISTORY.clear();
+            HISTORY.addAll(job.history);
+        }
+        JobFile.clear(context.getApplicationContext());
+    }
+
+    /** "Leave it": the interrupted job is dropped and not offered again. */
+    public static void forgetInterrupted(@NonNull Context context) {
+        JobFile.clear(context.getApplicationContext());
     }
 
     /** The project as the undo snapshot format; null when unreadable. */

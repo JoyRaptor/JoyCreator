@@ -4,6 +4,7 @@ import com.fadcam.ui.faditor.Studio;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -231,6 +232,62 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (!joybotOpen) return;
+        joybotOpen = false;
+        long wrote = com.fadcam.ui.faditor.ai.joybot.JoybotStorage.writes() - joybotWritesAtOpen;
+        com.fadcam.FLog.i("SpriteLab", "back from Joybot: " + wrote + " write(s)");
+        if (wrote > 0) reloadAfterJoybot();
+    }
+
+    /**
+     * Joybot changes the project FILE while this screen is away, so the copy held here is stale
+     * when it returns. Take the file as it now stands, show it, and forget the undo history: its
+     * snapshots hold the old sheet, and an undo would silently revert Joybot's work.
+     *
+     * <p>The shared AIChatState flag is read, never cleared, because the Studio editor consumes it
+     * on its own resume. This screen's pre-chat save also sets the flag, so the file is compared
+     * with what is held before anything is rebuilt.</p>
+     */
+    private void reloadAfterJoybot() {
+        if (isNewSheet || project == null || sheet == null) return;
+        FaditorProject reloaded = storage.load(project.getId());
+        if (reloaded == null || storage.toJson(reloaded).equals(storage.toJson(project))) {
+            com.fadcam.FLog.i("SpriteLab", "Joybot reload skipped: " + (reloaded == null ? "unreadable" : "file same as held copy"));
+            return;
+        }
+        SpriteSheet fresh = reloaded.spriteSheetById(sheet.getId());
+        com.fadcam.FLog.i("SpriteLab", "Joybot reload: sheet " + sheet.getId() + (fresh == null ? " gone" : " found"));
+        if (fresh == null) {   // Joybot removed this sheet: there is nothing here left to keep
+            Toast.makeText(this, R.string.sprite_editor_no_project, Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+        project = reloaded;
+        sheet = fresh;
+        boolean pruned = false;
+        restoring = true;   // rebuilding the screen must not look like a fresh edit
+        try {
+            reloadRenderer();   // new renderer, re-bound to grid, preview and film strip
+            nameField.setText(sheet.getName());
+            pruned = pruneDeadFrames() > 0;   // the roll may point at cells Joybot removed
+            showSection(labSection);            // same section, rebuilt from the new sheet
+        } finally {
+            restoring = false;
+        }
+        undoStack.clear();
+        redoStack.clear();
+        settled = snapshot();
+        burstAt = 0;
+        labDirty = false;
+        if (pruned) markDirtyQuiet();   // a pruned roll is a change on disk: save it like an edit
+        syncSaveBtn();
+        syncUndo();
+        Toast.makeText(this, R.string.studio_toast_ai_edits_applied, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
     public void onBackPressed() {
         // Autosave semantics, matching the rest of the app (editor autosaves on pause).
         save();
@@ -248,6 +305,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private String labSection = "play";
     private int benchPx;
     private boolean labDirty = false;
+    /** True from opening Joybot until the next resume: it may have changed this project on disk. */
+    private boolean joybotOpen = false;
+    /** Joybot's write count when its chat opened from here: more on return = reload. */
+    private long joybotWritesAtOpen;
     private int labSelected = 0;
     private ScrollView benchScroll;
     private LinearLayout benchBody;
@@ -420,6 +481,27 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         addNav(nav, "out",   "out",    SpriteTheme.ACCENT_OUT);
         space(nav, d, 1);
         top.addView(nav);
+
+        // Joybot: names and animations for this sheet, in the project it belongs to.
+        android.widget.ImageView joy = new android.widget.ImageView(this);
+        joy.setImageResource(R.drawable.joybot_neutral);
+        joy.setColorFilter(SpriteTheme.INK);
+        joy.setBackground(pillBg(SpriteTheme.CONTROL, SpriteTheme.LINE, d));
+        joy.setPadding((int) (5 * d), (int) (5 * d), (int) (5 * d), (int) (5 * d));
+        joy.setContentDescription("Joybot");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(joy,
+                "Joybot — ideas for this sprite sheet");
+        joy.setOnClickListener(v -> {
+            // Joybot reads this project from DISK, not from the copy held here. Write an unsaved
+            // edit first, or Joybot works on a stale sheet and this screen's next save undoes its work.
+            if (labDirty) save(true);
+            joybotOpen = true;
+            joybotWritesAtOpen = com.fadcam.ui.faditor.ai.joybot.JoybotStorage.writes();
+            startActivity(new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
+                    .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_PROJECT_ID, project.getId())
+                    .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "SPRITELAB"));
+        });
+        top.addView(joy, new LinearLayout.LayoutParams((int) (28 * d), (int) (28 * d)));
 
         saveBtn = ichip("save");
         saveBtn.setOnClickListener(v -> { save(); labDirty = false; syncSaveBtn(); });
@@ -1556,6 +1638,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
         // One button for the ground behind the art: tap cycles it, hold lists it.
         bgSwatch = new BgSwatch(this);
+        bgSwatch.setContentDescription("Preview background");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(bgSwatch, "Preview background: tap to change it, hold to pick");
         bgSwatch.setOnClickListener(v -> {
             previewBg = (previewBg + 1) % BG_NAMES.length;
             bgSwatch.invalidate();
@@ -1664,6 +1748,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             final int colour = c;
             View sw = new View(this);
             sw.setBackground(pillBg(colour, SpriteTheme.LINE, d));
+            String ghostWhat = past ? "Set the past ghost colour" : "Set the future ghost colour";
+            sw.setContentDescription(ghostWhat);
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(sw, ghostWhat);
             sw.setOnClickListener(v -> {
                 if (past) onionPastColour = colour; else onionFutureColour = colour;
                 syncOnion();

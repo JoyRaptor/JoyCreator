@@ -67,6 +67,7 @@ public class AudioSettingsFragment extends Fragment {
         refreshMicList();
         refreshAllValues();
     View back = view.findViewById(R.id.back_button);
+    if (back != null) androidx.appcompat.widget.TooltipCompat.setTooltipText(back, back.getContext().getString(R.string.watch_back_desc));
     if(back!=null){ back.setOnClickListener(v -> com.fadcam.ui.OverlayNavUtil.dismiss(requireActivity())); }
         // Removed redundant back handling; central navigation handles this globally.
     }

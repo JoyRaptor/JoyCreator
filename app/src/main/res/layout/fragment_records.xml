@@ -118,6 +118,17 @@
             </LinearLayout>
 
             <ImageView
+                android:id="@+id/action_joybot"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="8dp"
+                android:padding="2dp"
+                android:src="@drawable/joybot_neutral"
+                android:contentDescription="Joybot"
+                android:tint="@android:color/white"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <ImageView
                 android:id="@+id/action_more_options"
                 android:layout_width="24dp"
                 android:layout_height="24dp"

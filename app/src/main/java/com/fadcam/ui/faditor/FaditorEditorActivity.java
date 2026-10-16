@@ -1334,6 +1334,69 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
+    /** How long "Show me how" rings a tool: three breaths across it (reduced motion: one steady ring). */
+    private static final long SHOW_HOW_MS = 2000L;
+
+    /**
+     * Joybot's "Show me how": scroll the tool strip to this tool and ring its real cell, so the person
+     * taps it themselves. Pins, recency and order are never touched. A tool the strip is not showing for
+     * this selection (context-hidden or always hidden) gets a toast instead: the All tools sheet leaves
+     * those out too, so there is nothing there to point at.
+     */
+    private void showHowTool(@NonNull String toolId) {
+        View scrollView = findViewById(R.id.faditor_tools_scroll);
+        if (toolsAdapter == null || !(scrollView instanceof HorizontalScrollView)) return;
+        final HorizontalScrollView strip = (HorizontalScrollView) scrollView;
+        final View cell = toolsAdapter.getCellForId(toolId);
+        if (cell == null) return;
+        String labelText = toolId;
+        for (com.fadcam.ui.faditor.tools.FaditorTool t : toolsAdapter.getTools()) {
+            if (t.id.equals(toolId)) labelText = t.label;
+        }
+        final String label = labelText;
+        strip.post(() -> {
+            if (cell.getVisibility() != View.VISIBLE) {
+                Toast.makeText(this, "“" + label + "” isn't in the tool strip for this selection right now.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            // Centre the cell in the strip. offsetDescendantRectToMyCoords gives content coordinates.
+            android.graphics.Rect r = new android.graphics.Rect(0, 0, cell.getWidth(), cell.getHeight());
+            strip.offsetDescendantRectToMyCoords(cell, r);
+            View content = strip.getChildAt(0);
+            int maxX = content == null ? 0 : Math.max(0, content.getWidth() - strip.getWidth());
+            int target = Math.max(0, Math.min(maxX, r.left + r.width() / 2 - strip.getWidth() / 2));
+            boolean reduced = com.fadcam.ui.motion.Motion.reduced(this);
+            if (reduced) strip.scrollTo(target, 0); else strip.smoothScrollTo(target, 0);
+
+            android.graphics.drawable.GradientDrawable ring = new android.graphics.drawable.GradientDrawable();
+            ring.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+            ring.setCornerRadius(dp(10));
+            ring.setStroke(dp(2), Studio.ARMED);
+            cell.setForeground(ring);
+            Toast.makeText(this, "Tap " + label + " in the tool strip", Toast.LENGTH_SHORT).show();
+            if (reduced) {
+                ring.setAlpha(255);
+                cell.postDelayed(() -> cell.setForeground(null), SHOW_HOW_MS);
+                return;
+            }
+            // Three breaths: alpha 0 -> 255 -> 0, three times over SHOW_HOW_MS.
+            ValueAnimator breath = ValueAnimator.ofFloat(0f, 1f);
+            breath.setDuration(SHOW_HOW_MS / 3);
+            breath.setRepeatCount(2);
+            breath.addUpdateListener(a -> {
+                float t = (float) a.getAnimatedValue();
+                ring.setAlpha(Math.round(255 * (0.5f - 0.5f * (float) Math.cos(2 * Math.PI * t))));
+            });
+            breath.addListener(new android.animation.AnimatorListenerAdapter() {
+                @Override public void onAnimationEnd(android.animation.Animator a) {
+                    cell.setForeground(null);
+                }
+            });
+            breath.start();
+        });
+    }
+
     /** Opens the Stage 2 all-tools drawer (no-op if already showing). */
     private void openToolsDrawer() {
         if (toolsDrawer != null && !toolsDrawer.isShowing()) {
@@ -2001,6 +2064,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     project.getId(), com.fadcam.ui.faditor.ai.joybot.IdeaEngine.Room.STUDIO);
         }
 
+        // Joybot's "Show me how": ring the real tool button so the person taps it themselves.
+        String jbHow = com.fadcam.ui.faditor.ai.AIChatState.showHowTool;
+        com.fadcam.ui.faditor.ai.AIChatState.showHowTool = null;
+        if (jbHow != null) showHowTool(jbHow);
+
         // Joybot's "Show me": select the clip his last change was about.
         String jbShow = com.fadcam.ui.faditor.ai.AIChatState.showClipId;
         com.fadcam.ui.faditor.ai.AIChatState.showClipId = null;
@@ -2074,10 +2142,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // what cannot.
         undoManager.invalidateActionsForProjectSwap();
         project = reloaded;
+        // A Joybot edit can repoint an in-line slide at new code under the SAME clip id; the
+        // preview reloads only when the id differs, so forget which one it holds (2026-10-15).
+        loadedSlideClipId = null;
         selectedClipIndex = Math.min(selectedClipIndex,
                 project.getTimeline().getClipCount() - 1);
         if (selectedClipIndex < 0) selectedClipIndex = 0;
         editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
+        // Markers are not in the project JSON just swapped in; the bookmarks.json sidecar holds them, and
+        // Joybot writes markers there (StudioActions). Take the sidecar's list onto the model and the ruler.
+        java.util.List<Long> marks = com.fadcam.ui.faditor.project.BookmarkStore.load(
+                projectStorage.projectDir(project.getId()));
+        project.setBookmarksMs(marks);
+        editorTimeline.setBookmarks(marks);
         editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
         syncTimelineOverlays();
         if (overlayLayer != null) {
@@ -3293,6 +3370,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         });
         btnPlayPause = findViewById(R.id.btn_play_pause);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnPlayPause, getString(R.string.faditor_play_pause));
         timeCurrent = findViewById(R.id.time_current);
         timeTotal = findViewById(R.id.time_total);
         exportProgressOverlay = findViewById(R.id.export_progress_overlay);
@@ -3301,6 +3379,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         exportEtaText = findViewById(R.id.export_eta_text);
         exportStatusIcon = findViewById(R.id.export_status_icon);
         exportBtnDone = findViewById(R.id.export_btn_done);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(exportBtnDone, getString(R.string.faditor_export_done));
         exportTitle = findViewById(R.id.export_title);
         exportProgressBar = findViewById(R.id.export_progress_bar);
         exportInfoText = findViewById(R.id.export_info_text);
@@ -3310,6 +3389,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transcriptStatusBadge = findViewById(R.id.transcript_status_badge);
         transcriptGlobalProgressBar = findViewById(R.id.transcript_global_progress_bar);
         btnSoftSnap = findViewById(R.id.btn_soft_snap);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnSoftSnap, getString(R.string.snap_magnet_desc));
 
         // Data-driven bottom tools carousel. Builds all tool cells (with the
         // same R.id.tool_* ids the old XML used) into @id/faditor_tools_row so
@@ -3331,7 +3411,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         volumeDrawerIcon = findViewById(R.id.volume_drawer_icon);
         volumeDrawerValue = findViewById(R.id.volume_drawer_value);
         volumeDrawerKeyframe = findViewById(R.id.volume_drawer_keyframe);
+        volumeDrawerKeyframe.setContentDescription(getString(R.string.desc_volume_keyframe));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(volumeDrawerKeyframe, getString(R.string.desc_volume_keyframe));
         volumeDrawerMute = findViewById(R.id.volume_drawer_mute);
+        volumeDrawerMute.setContentDescription(getString(R.string.desc_volume_mute));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(volumeDrawerMute, getString(R.string.desc_volume_mute));
         toolOpacity = findViewById(R.id.tool_opacity);
         toolOpacityIcon = findViewById(R.id.tool_opacity_icon);
         toolOpacityLabel = findViewById(R.id.tool_opacity_label);
@@ -3340,14 +3424,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         opacityDrawerIcon = findViewById(R.id.opacity_drawer_icon);
         opacityDrawerValue = findViewById(R.id.opacity_drawer_value);
         opacityDrawerKeyframe = findViewById(R.id.opacity_drawer_keyframe);
+        opacityDrawerKeyframe.setContentDescription(getString(R.string.desc_opacity_keyframe));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(opacityDrawerKeyframe, getString(R.string.desc_opacity_keyframe));
         wordScrubDrawer = findViewById(R.id.word_scrub_drawer);
         wordScrubStrip = findViewById(R.id.word_scrub_strip);
         wordSyncMagnet = findViewById(R.id.word_sync_magnet);
         wordScrubWordText = findViewById(R.id.word_scrub_word_text);
         wordScrubTimestamp = findViewById(R.id.word_scrub_timestamp);
         wordScrubPrev = findViewById(R.id.word_scrub_prev);
+        wordScrubPrev.setContentDescription(getString(R.string.desc_word_earlier));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(wordScrubPrev, getString(R.string.desc_word_earlier));
         wordScrubNext = findViewById(R.id.word_scrub_next);
+        wordScrubNext.setContentDescription(getString(R.string.desc_word_later));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(wordScrubNext, getString(R.string.desc_word_later));
         wordScrubCenter = findViewById(R.id.word_scrub_center);
+        wordScrubCenter.setContentDescription(getString(R.string.desc_word_center));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(wordScrubCenter, getString(R.string.desc_word_center));
         toolSpeedLabel = findViewById(R.id.tool_speed_label);
         toolRotate = findViewById(R.id.tool_rotate);
         toolRotateIcon = findViewById(R.id.tool_rotate_icon);
@@ -3391,12 +3483,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Undo/Redo buttons with count badges
         btnUndo = findViewById(R.id.btn_undo);
         btnRedo = findViewById(R.id.btn_redo);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnUndo, getString(R.string.faditor_undo));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnRedo, getString(R.string.faditor_redo));
         // The layout ships these at alpha 0.3 and the listener below only fires when the
         // undo stack CHANGES, so on a cold open they kept the old faded-white look instead
         // of the receded off-grey. Seed the resting state here.
         if (btnUndo != null) { btnUndo.setAlpha(1f); btnUndo.setTextColor(STUDIO_OFF); }
         if (btnRedo != null) { btnRedo.setAlpha(1f); btnRedo.setTextColor(STUDIO_OFF); }
         btnRelinkMedia = findViewById(R.id.btn_relink_media);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnRelinkMedia, getString(R.string.faditor_relink_btn));
         if (btnRelinkMedia != null) btnRelinkMedia.setTextColor(STUDIO_OFF);
         TextView undoCount = findViewById(R.id.undo_count);
         TextView redoCount = findViewById(R.id.redo_count);
@@ -3406,6 +3501,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btnRedo.setOnLongClickListener(v -> { showUndoRedoHistoryPopup(v); return true; });
         // G13: voiceover mic on transport — direct R.id (R.jar lock fixed, no getIdentifier workaround)
         btnVoiceover = findViewById(R.id.btn_voiceover);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnVoiceover, "Record voiceover");
         if (btnVoiceover != null) {
             btnVoiceover.setOnClickListener(v -> {
                 if (voiceoverRecorder != null && voiceoverRecorder.isRecording()) stopVoiceoverRecording();
@@ -3440,6 +3536,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> runOnUiThread(this::applySnapSettings));
         applySnapSettings();
         btnRippleMode = findViewById(R.id.btn_ripple_mode);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnRippleMode, "Ripple or gap delete mode");
         if (btnRippleMode != null) {
             btnRippleMode.setOnClickListener(v -> toggleRippleMode());
         }
@@ -3525,6 +3622,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (toolSelect != null) toolSelect.setOnClickListener(v -> cycleMarqueeMode());
         // JoyRaptor 2026-07-19: promoted transport-row twin of the select toggle.
         View transportSelect = findViewById(R.id.btn_select_mode);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(transportSelect, "Multi-select mode");
         if (transportSelect != null) transportSelect.setOnClickListener(v -> cycleMarqueeMode());
         wireMarqueeListener();
         toolMove.setOnClickListener(v -> toggleMoveDrawer());
@@ -3571,6 +3669,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
 
         // Asset Browser button — opens the pinned-folder asset panel
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.btn_asset_browser), getString(R.string.faditor_asset_browser));
         findViewById(R.id.btn_asset_browser).setOnClickListener(v -> showAssetBrowser());
 
         // AI Assistant button — opens the chat assistant with project context
@@ -6933,10 +7032,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             });
         }
         View close = findViewById(R.id.volume_drawer_close);
+        close.setContentDescription(getString(R.string.desc_close));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(close, getString(R.string.desc_close));
         if (close != null) close.setOnClickListener(v -> hideVolumeDrawer());
         View prev = findViewById(R.id.volume_kf_prev);
+        prev.setContentDescription(getString(R.string.desc_keyframe_prev));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(prev, getString(R.string.desc_keyframe_prev));
         if (prev != null) prev.setOnClickListener(v -> jumpVolumeKeyframe(-1));
         View next = findViewById(R.id.volume_kf_next);
+        next.setContentDescription(getString(R.string.desc_keyframe_next));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(next, getString(R.string.desc_keyframe_next));
         if (next != null) next.setOnClickListener(v -> jumpVolumeKeyframe(+1));
 
         // Swipe up on the grab handle / header dismisses.
@@ -7189,12 +7294,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             });
         }
         View close = findViewById(R.id.opacity_drawer_close);
+        close.setContentDescription(getString(R.string.desc_close));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(close, getString(R.string.desc_close));
         if (close != null) close.setOnClickListener(v -> hideOpacityDrawer());
         View prev = findViewById(R.id.opacity_kf_prev);
+        prev.setContentDescription(getString(R.string.desc_keyframe_prev));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(prev, getString(R.string.desc_keyframe_prev));
         if (prev != null) prev.setOnClickListener(v -> jumpOpacityKeyframe(-1));
         View next = findViewById(R.id.opacity_kf_next);
+        next.setContentDescription(getString(R.string.desc_keyframe_next));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(next, getString(R.string.desc_keyframe_next));
         if (next != null) next.setOnClickListener(v -> jumpOpacityKeyframe(+1));
         View delKf = findViewById(R.id.opacity_kf_delete);
+        delKf.setContentDescription(getString(R.string.desc_keyframe_delete));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(delKf, getString(R.string.desc_keyframe_delete));
         if (delKf != null) delKf.setOnClickListener(v -> {
             Clip c = getSelectedClip();
             if (c == null) return;
@@ -7238,6 +7351,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         captionKeyframeDrawerWired = true;
 
         View arm = findViewById(R.id.caption_kf_arm);
+        arm.setContentDescription(getString(R.string.desc_caption_keyframe));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(arm, getString(R.string.desc_caption_keyframe));
         if (arm != null) arm.setOnClickListener(v -> {
             toggleCaptionStyleKeyframeMode();
             if (!captionStyleKeyframeMode) {
@@ -7247,18 +7362,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
 
         View close = findViewById(R.id.caption_kf_close);
+        close.setContentDescription(getString(R.string.desc_close));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(close, getString(R.string.desc_close));
         if (close != null) close.setOnClickListener(v -> {
             View d = findViewById(R.id.caption_keyframe_drawer);
             if (d != null) d.setVisibility(View.GONE);
         });
 
         View prev = findViewById(R.id.caption_kf_prev);
+        prev.setContentDescription(getString(R.string.desc_keyframe_prev));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(prev, getString(R.string.desc_keyframe_prev));
         if (prev != null) prev.setOnClickListener(v -> jumpCaptionStyleKeyframe(-1));
 
         View next = findViewById(R.id.caption_kf_next);
+        next.setContentDescription(getString(R.string.desc_keyframe_next));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(next, getString(R.string.desc_keyframe_next));
         if (next != null) next.setOnClickListener(v -> jumpCaptionStyleKeyframe(+1));
 
         View del = findViewById(R.id.caption_kf_delete);
+        del.setContentDescription(getString(R.string.desc_keyframe_delete));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(del, getString(R.string.desc_keyframe_delete));
         if (del != null) del.setOnClickListener(v -> deleteCurrentCaptionStyleKeyframe());
     }
 
@@ -7283,6 +7406,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (captionKfArmShortcutWired) return;
         captionKfArmShortcutWired = true;
         View shortcut = findViewById(R.id.caption_kf_arm_shortcut);
+        shortcut.setContentDescription(getString(R.string.desc_caption_keyframe));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(shortcut, getString(R.string.desc_caption_keyframe));
         if (shortcut == null) return;
         shortcut.setOnClickListener(v -> {
             toggleCaptionStyleKeyframeMode();
@@ -7396,6 +7521,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Close button
         View close = findViewById(R.id.loop_drawer_close);
+        close.setContentDescription(getString(R.string.desc_close));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(close, getString(R.string.desc_close));
         if (close != null) close.setOnClickListener(v -> hideLoopDrawer());
 
         // Swipe-up gesture to dismiss
@@ -7610,12 +7737,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         movePositionLayer = findViewById(R.id.move_position_layer);
         moveTargetInput = findViewById(R.id.move_target_input);
         moveGo = findViewById(R.id.move_go);
+        moveGo.setContentDescription(getString(R.string.desc_move_go));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(moveGo, getString(R.string.desc_move_go));
         moveLayerUp = findViewById(R.id.move_layer_up);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(moveLayerUp, getString(R.string.faditor_move_layer_up));
         moveLayerDown = findViewById(R.id.move_layer_down);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(moveLayerDown, getString(R.string.faditor_move_layer_down));
         moveClipStart = findViewById(R.id.move_clip_start);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(moveClipStart, getString(R.string.faditor_move_clip_start));
         moveClipLeft = findViewById(R.id.move_clip_left);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(moveClipLeft, getString(R.string.faditor_move_clip_left));
         moveClipRight = findViewById(R.id.move_clip_right);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(moveClipRight, getString(R.string.faditor_move_clip_right));
         moveClipEnd = findViewById(R.id.move_clip_end);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(moveClipEnd, getString(R.string.faditor_move_clip_end));
 
         moveClipStart.setOnClickListener(v -> moveSelectedClipTo(0));
         moveClipLeft.setOnClickListener(v -> moveSelectedClipBy(-1));
@@ -7624,6 +7759,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (project != null) moveSelectedClipTo(project.getTimeline().getClipCount() - 1);
         });
 
+        findViewById(R.id.move_drawer_close).setContentDescription(getString(R.string.desc_close));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.move_drawer_close), getString(R.string.desc_close));
         findViewById(R.id.move_drawer_close).setOnClickListener(v -> hideMoveDrawer());
 
         // Swipe-up gesture to dismiss
@@ -8352,8 +8489,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Build aspect preset chips and wire buttons
         buildCropPresetChips();
+        findViewById(R.id.crop_btn_done).setContentDescription(getString(R.string.desc_done));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.crop_btn_done), getString(R.string.desc_done));
         findViewById(R.id.crop_btn_done).setOnClickListener(v -> exitCropMode(true));
         findViewById(R.id.crop_btn_cancel).setOnClickListener(v -> exitCropMode(false));
+        findViewById(R.id.crop_btn_reset).setContentDescription(getString(R.string.desc_reset));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.crop_btn_reset), getString(R.string.desc_reset));
         findViewById(R.id.crop_btn_reset).setOnClickListener(v -> {
             if (cropOverlay != null) {
                 cropOverlay.setLockedAspectRatio(0f);
@@ -8370,7 +8511,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             Toast.makeText(this, R.string.faditor_crop_reset, Toast.LENGTH_SHORT).show();
         });
+        findViewById(R.id.crop_btn_auto_crop).setContentDescription(getString(R.string.desc_crop_auto));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.crop_btn_auto_crop), getString(R.string.desc_crop_auto));
         findViewById(R.id.crop_btn_auto_crop).setOnClickListener(v -> autoCropBlackBars());
+        findViewById(R.id.crop_btn_snap_center).setContentDescription(getString(R.string.desc_crop_snap_center));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.crop_btn_snap_center), getString(R.string.desc_crop_snap_center));
         findViewById(R.id.crop_btn_snap_center).setOnClickListener(v -> toggleCropSnapCenter());
 
         // Set clip to "custom" and defer crop overlay activation until layout is complete.
@@ -10005,6 +10150,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.faditor_export_cancelled, Toast.LENGTH_SHORT).show();
         });
 
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.export_btn_back), getString(R.string.faditor_export_back));
         // Back button on export screen: while an export is RUNNING it minimizes to
         // the background (the service exports an edit-immune snapshot, so returning
         // to a live editor is safe); otherwise it just dismisses the overlay.
@@ -14387,6 +14533,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         this.project = restored;
+        // Markers are not in the snapshot either: keep the model's list the sidecar's (as swapInProject does),
+        // so a later bookmark change does not record an empty "before" and undo it to nothing.
+        project.setBookmarksMs(com.fadcam.ui.faditor.project.BookmarkStore.load(
+                projectStorage.projectDir(project.getId())));
         FLog.d(TAG, "Project restored from snapshot, clips="
                 + restored.getTimeline().getClipCount()
                 + ", audioClips=" + restored.getTimeline().getAudioClipCount());
@@ -18229,12 +18379,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (captionsActive && clip.hasTranscript()) bindCaptionData(clip);
             scheduleAutoSave();
         };
+        prev.setContentDescription(getString(R.string.desc_word_earlier));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(prev, getString(R.string.desc_word_earlier));
         prev.setOnClickListener(v -> {
             com.fadcam.ui.faditor.transcript.TranscriptWord w = transcriptView.getWord(index);
             if (w == null) return;
             long absMs = segStart + (long) ((w.startMs - clipIn) / speed);
             applyAbs.accept(absMs - frameMs);
         });
+        next.setContentDescription(getString(R.string.desc_word_later));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(next, getString(R.string.desc_word_later));
         next.setOnClickListener(v -> {
             com.fadcam.ui.faditor.transcript.TranscriptWord w = transcriptView.getWord(index);
             if (w == null) return;
@@ -18639,6 +18793,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.transcript.WordScrubDrawerStyle.apply(wordScrubDrawer);
 
         View close = wordScrubDrawer.findViewById(R.id.word_scrub_close);
+        close.setContentDescription(getString(R.string.desc_close));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(close, getString(R.string.desc_close));
         if (close != null) close.setOnClickListener(v -> hideWordScrubDrawer());
 
         // EditText word editor: commit on IME action or focus loss.
@@ -20490,6 +20646,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         saveBtn.setTextSize(18);
         saveBtn.setPadding((int) (10 * dp), (int) (6 * dp), (int) (10 * dp), (int) (6 * dp));
         saveBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
+        saveBtn.setContentDescription(getString(R.string.desc_visualizer_save));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(saveBtn, getString(R.string.desc_visualizer_save));
         saveBtn.setOnClickListener(v -> saveCurrentVisualizerStyle(overlay));
         topRow.addView(saveBtn);
 
@@ -20504,6 +20662,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         exportLp.setMarginStart((int) (6 * dp));
         exportBtn.setLayoutParams(exportLp);
+        exportBtn.setContentDescription(getString(R.string.desc_visualizer_export));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(exportBtn, getString(R.string.desc_visualizer_export));
         exportBtn.setOnClickListener(v -> exportCurrentVisualizerStyle(overlay));
         topRow.addView(exportBtn);
 
@@ -20516,6 +20676,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         importLp.setMarginStart((int) (6 * dp));
         importBtn.setLayoutParams(importLp);
+        importBtn.setContentDescription(getString(R.string.desc_visualizer_import));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(importBtn, getString(R.string.desc_visualizer_import));
         importBtn.setOnClickListener(v -> {
             pendingVisualizerImportOverlay = overlay;
             visualizerStyleImportLauncher.launch(new String[]{"application/json", "text/plain", "*/*"});
@@ -20778,15 +20940,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (waveformOverlayView != null) waveformOverlayView.invalidate();
             scheduleAutoSave();
         };
+        justBtn.setContentDescription(getString(R.string.desc_wave_justify));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(justBtn, getString(R.string.desc_wave_justify));
         justBtn.setOnClickListener(v -> { overlay.cycleJustify(); labels.run(); live.run(); });
+        modeBtn.setContentDescription(getString(R.string.desc_wave_data_mode));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(modeBtn, getString(R.string.desc_wave_data_mode));
         modeBtn.setOnClickListener(v -> { overlay.cycleDataMode(); labels.run(); live.run(); });
+        mirBtn.setContentDescription(getString(R.string.desc_wave_mirror));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(mirBtn, getString(R.string.desc_wave_mirror));
         mirBtn.setOnClickListener(v -> { overlay.toggleHorizontalMirror(); labels.run(); live.run(); });
+        centerBtn.setContentDescription(getString(R.string.desc_wave_center_mode));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(centerBtn, getString(R.string.desc_wave_center_mode));
         centerBtn.setOnClickListener(v -> { overlay.cycleCenterMode(); labels.run(); live.run(); });
+        rendBtn.setContentDescription(getString(R.string.desc_wave_render_mode));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(rendBtn, getString(R.string.desc_wave_render_mode));
         rendBtn.setOnClickListener(v -> { overlay.toggleRenderMode(); labels.run(); live.run(); });
         // G5 attach/detach (contract §4): tether the visualizer to the master clip under its
         // start so it TIME-RIDES that clip (trims/moves/reorders shift it along); detach keeps
         // the current absolute window. ONE undo step restoring the full attachment + window +
         // audio-source state either way.
+        attachBtn.setContentDescription(getString(R.string.desc_wave_attach));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(attachBtn, getString(R.string.desc_wave_attach));
         attachBtn.setOnClickListener(v -> {
             if (project == null) return;
             final Timeline tl = project.getTimeline();
@@ -21212,6 +21386,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             boolean isCur = hex.equalsIgnoreCase(layer.color);
             dg.setStroke((int) ((isCur ? 2 : 1) * dp), isCur ? Studio.INK : Studio.alpha(Studio.INK, 0x55));
             dot.setBackground(dg);
+            dot.setContentDescription(getString(R.string.desc_layer_colour));
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(dot, getString(R.string.desc_layer_colour));
             dot.setOnClickListener(v -> {
                 layer.color = hex;
                 layer.gradientStart = null;
@@ -21504,6 +21680,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void setupVisualizerDrawerChrome() {
         if (visualizerDrawerChromeWired) return;
         View close = findViewById(R.id.visualizer_drawer_close);
+        close.setContentDescription(getString(R.string.desc_close));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(close, getString(R.string.desc_close));
         if (close != null) close.setOnClickListener(v -> showVisualizerDrawer(false));
         // Tapping the preview area (player_container) dismisses the drawer — but NOT the
         // timeline/play area since those are separate views outside player_container.
@@ -26205,12 +26383,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         keyframeRibbon.addView(ribbonLabel);
 
         TextView prev = ribbonGlyph("◀︎");
+        prev.setContentDescription(getString(R.string.desc_keyframe_prev));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(prev, getString(R.string.desc_keyframe_prev));
         prev.setOnClickListener(v -> {
             if (ribbonProp != null) ribbonProp.prevKey();
         });
         keyframeRibbon.addView(prev);
 
         ribbonDiamond = ribbonGlyph("◇");
+        ribbonDiamond.setContentDescription(getString(R.string.desc_keyframe_playhead));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(ribbonDiamond, getString(R.string.desc_keyframe_playhead));
         ribbonDiamond.setTextSize(18);
         ribbonDiamond.setOnClickListener(v -> {
             if (ribbonProp == null) return;
@@ -26241,6 +26423,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         keyframeRibbon.addView(ribbonDiamond);
 
         TextView next = ribbonGlyph("▶︎");
+        next.setContentDescription(getString(R.string.desc_keyframe_next));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(next, getString(R.string.desc_keyframe_next));
         next.setOnClickListener(v -> {
             if (ribbonProp != null) ribbonProp.nextKey();
         });
@@ -37929,6 +38113,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         t.setTextSize(15);
         int pad = Math.round(8 * d);
         t.setPadding(pad, pad, pad, pad);
+        t.setContentDescription(getString(R.string.desc_keyframe_playhead));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(t, getString(R.string.desc_keyframe_playhead));
         t.setOnClickListener(v -> { onTap.run(); refresh.run(); scheduleAutoSave(); });
         return t;
     }
@@ -38725,6 +38911,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         transcriptView = findViewById(R.id.transcript_view);
         transcriptReopenTab = findViewById(R.id.transcript_reopen_tab);
+        transcriptReopenTab.setContentDescription(getString(R.string.desc_transcript_show));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(transcriptReopenTab, getString(R.string.desc_transcript_show));
         // H1 recovery: the shift is derived from geometry that can change UNDER an open
         // panel — rotation (the activity self-handles config changes, so nothing re-runs
         // showTranscriptPanel) and the very first layout when the panel was opened before
@@ -38742,6 +38930,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     });
         }
         transcriptBreakBtn = findViewById(R.id.transcript_break);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(transcriptBreakBtn, getString(R.string.faditor_transcript_break));
         transcriptProgress = findViewById(R.id.transcript_progress);
         transcriptProgressText = findViewById(R.id.transcript_progress_text);
         transcriptProgressBar = findViewById(R.id.transcript_progress_bar);
@@ -38768,6 +38957,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final View searchBar = findViewById(R.id.transcript_search_bar);
         final android.widget.EditText searchInput = findViewById(R.id.transcript_search_input);
         final TextView searchCount = findViewById(R.id.transcript_search_count);
+        findViewById(R.id.transcript_search_btn).setContentDescription(getString(R.string.desc_transcript_search));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.transcript_search_btn), getString(R.string.desc_transcript_search));
         findViewById(R.id.transcript_search_btn).setOnClickListener(v -> {
             boolean show = searchBar.getVisibility() != View.VISIBLE;
             searchBar.setVisibility(show ? View.VISIBLE : View.GONE);
@@ -38790,14 +38981,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 pushSearchHitsToTimeline();
             }
         });
+        findViewById(R.id.transcript_search_prev).setContentDescription(getString(R.string.desc_search_prev));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.transcript_search_prev), getString(R.string.desc_search_prev));
         findViewById(R.id.transcript_search_prev).setOnClickListener(v -> {
             int cur = transcriptView.moveSearch(-1);
             searchCount.setText(cur + "/" + transcriptView.getSearchTotal());
         });
+        findViewById(R.id.transcript_search_next).setContentDescription(getString(R.string.desc_search_next));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.transcript_search_next), getString(R.string.desc_search_next));
         findViewById(R.id.transcript_search_next).setOnClickListener(v -> {
             int cur = transcriptView.moveSearch(1);
             searchCount.setText(cur + "/" + transcriptView.getSearchTotal());
         });
+        findViewById(R.id.transcript_search_close).setContentDescription(getString(R.string.desc_close));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.transcript_search_close), getString(R.string.desc_close));
         findViewById(R.id.transcript_search_close).setOnClickListener(v -> {
             searchInput.setText("");
             transcriptView.clearSearch();
@@ -39089,6 +39286,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         });
 
+        findViewById(R.id.transcript_close).setContentDescription(getString(R.string.desc_transcript_hide));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.transcript_close), getString(R.string.desc_transcript_hide));
         findViewById(R.id.transcript_close).setOnClickListener(v -> showTranscriptPanel(false));
         transcriptReopenTab.setOnClickListener(v -> showTranscriptPanel(true));
         findViewById(R.id.transcript_clean).setOnClickListener(v -> {
@@ -39124,6 +39323,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // quietly vanish in the shipped app. GlTransitionCardBaker's getIdentifier call is
         // legitimate by contrast: those resource names are genuinely dynamic.
         android.view.View speakerBtn = findViewById(R.id.transcript_speaker);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(speakerBtn, "Speaker");
         if (speakerBtn != null) {
             speakerBtn.setOnClickListener(v -> {
                 if (currentTranscript == null || transcriptView == null) return;
@@ -39202,6 +39402,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Drag the left handle to resize the panel width.
         View handle = findViewById(R.id.transcript_resize_handle);
+        handle.setContentDescription(getString(R.string.desc_transcript_resize));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(handle, getString(R.string.desc_transcript_resize));
         handle.setOnTouchListener(new View.OnTouchListener() {
             float downRawX;
             int startWidth;
@@ -39532,6 +39734,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
         hlp.rightMargin = pad / 2;
         hideChip.setLayoutParams(hlp);
+        hideChip.setContentDescription(getString(R.string.desc_hide_captions_clip));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(hideChip, getString(R.string.desc_hide_captions_clip));
         hideChip.setOnClickListener(v -> {
             boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
                     && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
@@ -40635,6 +40839,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transitionPanel.setOnDragListener((v, event) ->
                 event.getAction() == android.view.DragEvent.ACTION_DRAG_STARTED);
         setupTransitionDragDrop();
+        findViewById(R.id.transition_panel_close).setContentDescription(getString(R.string.desc_close));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.transition_panel_close), getString(R.string.desc_close));
         findViewById(R.id.transition_panel_close).setOnClickListener(v -> {
             hideTransitionInspector();
             showTransitionPanel(false);
@@ -43234,6 +43440,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         add.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         add.setPadding(pad + pad / 2, pad / 2, pad + pad / 2, pad / 2);
         add.setBackgroundResource(R.drawable.floating_button_item_bg);
+        add.setContentDescription(getString(R.string.desc_transcript_add_pass));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(add, getString(R.string.desc_transcript_add_pass));
         add.setOnClickListener(view -> {
             transcriptView.setVisibility(View.GONE);
             transcriptModelChoice.setVisibility(View.VISIBLE);
@@ -45298,6 +45506,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btnPlayhead.setGravity(Gravity.CENTER);
         int size = (int)(48 * d);
         btnPlayhead.setLayoutParams(new LinearLayout.LayoutParams(size, size));
+        btnPlayhead.setContentDescription(getString(R.string.desc_insert_playhead));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnPlayhead, getString(R.string.desc_insert_playhead));
         btnPlayhead.setOnClickListener(v -> insertSelectedAssetAtPlayhead());
         bar.addView(btnPlayhead);
 

@@ -363,6 +363,8 @@ public class RemoteFragment extends BaseFragment {
         networkHealthRow.setOnClickListener(v -> showNetworkHealth());
         
         // Copy URL button listener
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(copyRootButton, copyRootButton.getContext().getString(R.string.desc_copy_url));
+        copyRootButton.setContentDescription(copyRootButton.getContext().getString(R.string.desc_copy_url));
         copyRootButton.setOnClickListener(v -> {
             String rootUrl = rootUrlText.getText().toString();
             if (!rootUrl.contains("---")) {

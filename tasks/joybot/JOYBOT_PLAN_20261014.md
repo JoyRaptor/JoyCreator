@@ -229,3 +229,64 @@ Gradient UI, "make this end here" (local, exact), undo surviving a reinstall, th
 long job finishing after the chat closed (adopted by the editor as one undo step) all 🟢 on the Note 9.
 🔴 Found: an On-top (overlay) HTML slide does not draw in the editor preview. Full results, the bug trail and the
 ordered roadmap for the next agent: **`JOYBOT_HANDOFF_20261015.md`**.
+
+### 2026-10-15 evening — F2 registry, Director mode, big projects (compiles; whole-app typecheck OK 850 sources; 325 + 43 harness; NOT on the phone)
+
+Built by the Joybot lead (core, engine, review) with a swarm of Haiku agents (each family, the chat cards, help, rooms, G5),
+every agent report checked against the code; brief for future families: `ACTION_FAMILY_BRIEF_20261015.md`.
+
+| Item | State | Where |
+|---|---|---|
+| **F2 action registry**: each action declared once (typed params → exact JSON Schema for native tools, numbered text for the fallback, plain-words argument errors); handlers change the loaded project, the host saves once (= one undo step per request); names accepted as well as ids; one bad family can't take the others down | 🔨 | `ai/actions/` ActionSpec, ActionRegistry, Args, ActionResult, ActionError, StudioCtx, StudioActions; `AIToolExecutor.executeTool` asks the registry first, old tools fall through |
+| Families (25 actions): text look (font/colour/size/outline/shadow/glow/plate/opacity, words, 11 animations, list_fonts) · transitions (whole GL catalogue, any cut or all) · audio (**ducking is real** — "music quieter under my voice", needs the voice's transcript; volume points; pan + voice clean-up) · captions (look, placement, motion — per-track draft like the drawer) · transform (move/size/turn/mirror/fade, clip crop) · organise (duplicate, hide/lock, row up/down) · slides (get_slide/set_slide, in line and on top) · looks (grade, blend mode, green screen, saved looks) · inspect (list_items, get_item, find_words) | 🔨 | `ai/actions/*Actions.java` |
+| Held back: markers (live in bookmarks.json, the host can't save them yet) | 📝 | `OrganiseActions.MARKERS_PERSIST` |
+| **F3 Director mode**: `propose_plan` → plan card (Go ahead / Not now) → run with 40 steps → Review card per change (Show me, Undo from here = put back before that change, as one editor undo step) | 🔨 | `actions/AgentTools`, `JoybotAgent` (Plan, Change, revertTo), `ChatAssistantActivity` (renderFinishedExtras) |
+| **F4 budgets**: per-request step budget; Keep going; "N steps · tokens · about $x" line (OpenRouter reports cost); job file each round → "The phone stopped me… [Carry on] [Leave it]" | 🔨 | `JoybotAgent`, `joybot/JobFile` |
+| **F5**: context says it's a summary and names list_items / get_item / find_words | 🔨 | `JoybotAgent.Run.context()` |
+| M3 rooms: Joybot buttons in SpriteLab and Library (+ "Show my newest recording") | 🔨 | SpriteSheetEditorActivity, RecordsFragment, IdeaEngine |
+| G3 help: 61 topics; 4 old answers named buttons that don't exist — corrected | ✅ harness | `HelpBook` |
+| G5: slide writer, narrative, b-roll, vision tagging adapt to services that refuse max_tokens/temperature | 🔨 | `joybot/AiRequest` |
+| Editor: in-line slide preview forgets its cached slide on a project swap (a Joybot set_slide keeps the clip id) | 🔨 | `FaditorEditorActivity.swapInProject` (1 line) |
+
+**Phone checks owed (in this order):** "change the font of the hello text to Bold Serif and make it yellow" (one undo step) ·
+"make the music quieter under my voice" on a project whose voice clip has words · a big ask ("add a gentle transition at
+every cut and a chapter title at each topic") → plan card → Go ahead → Review → Undo from here on the 2nd change ·
+force-stop the app mid-job → reopen chat → Carry on · SpriteLab Joybot button → "name the cells" → back in SpriteLab the
+names show and Save keeps them.
+
+### 2026-10-15 night — phone rounds + F7/F8/F9 + more families (typecheck OK 855 sources; 362 + 43 harness)
+
+**Phone (Note 9, owner OK'd installs; "Restore video test" restored to its 32,947-byte file each round):**
+🟢 text font + colour = one undo step · 🟢 plan card (free models read the project, list transitions, then propose) ·
+🟢 plan survives closing the chat · 🟢 Carry on after a force-stop · 🟢 usage line ("2 steps · 71k tokens · free").
+Bugs the phone found, all fixed in code: false "Changed: … Undo" after read-only steps (now gated on Joybot's own
+writes, `JoybotStorage.writes()`) · plan and Review cards lost on reopen / after Show me (kept per project) · endless
+"Thinking…" on a stalled free model (75 s watchdog) · "Done!" after three failed tool calls (honest failure line) ·
+label_sprite_cells rejected list-shaped labels (now takes every shape) · **the three sprite tools never raised
+AIChatState.signalModified** (SpriteLab now reloads on Joybot's write count) · "Undo from here" refused after the
+editor's plain re-save (fingerprint ignores `lastModified`) · Review rows without Show me for legacy tools (ids diffed).
+
+| Built this round (not yet phone-proved unless the final pass says so) | Where |
+|---|---|
+| F7 recipes: Save as a recipe, My recipes chip, Run (offline when portable), Delete to Trash | `joybot/Recipe`, `RecipeStore`, chat |
+| F8 Show me how: 28 help topics name their strip button; the editor rings it | `HelpBook.Topic.tool`, `AIChatState.showHowTool`, `FaditorEditorActivity.showHowTool()` |
+| F9 fallback to openrouter/free on 429/5xx/"no endpoints"/retired id (never paid, never 401/402/403) | `JoybotAgent.Run.shouldFallBack` |
+| Families: export_video (card → Export now, same start as the Studio) · list_media / add_media · check_project / relink_missing | `actions/ExportActions`, `SourcesActions`, `ProjectCareActions` |
+| G2 hover labels: 93 controls, 50 files outside the editor; About back arrow now says "Back" | ui/**, lobby |
+
+### 2026-10-15 late — final phone passes (Note 9; last install 20:57; phone released; "Restore video test" back to its 32,947-byte file)
+
+| Check | Result |
+|---|---|
+| SpriteLab → Joybot names 16 cells → names on the grid, survive Save + reopen | 🟢 (log: "back from Joybot: 1 write(s)" → "Joybot reload: sheet … found") |
+| Director: plan → Go ahead → Review: Show me on every row, jumps to the item, card back after reopen | 🟢 |
+| Undo from here on row 2 → "Put back how it was before …", rows 2+ grey, still grey after reopen | 🟢 |
+| Recipe: Save as a recipe → My recipes → Run (no model, ~5 s) → Undo → Delete | 🟢 |
+| Show me how: "change the speed" → the editor rings the 1x Speed button | 🟢 |
+| Export card: "720p · Medium quality · full video", Not now → "Not exported." | 🟢 card; the "Done." under it fixed after (not re-run) |
+| Carry on after force-stop · plan survives reopen · no false Changed card · usage line | 🟢 (earlier passes) |
+| Not phone-tested: hands-free voice loop (M7, needs his voice), F9 fallback + borrowed eyes, add_media / relink / list_items, ducking (needs a music+voice project), markers (add_marker held until markers join undo) | 🟡 |
+
+Also built this session after the first ledger entry: M7 hands-free (hold mic → auto-send → reply read aloud → "yes / undo / stop / no"),
+F9 borrowed eyes (a text-only model's picture step goes to the free router), markers persist via the sidecar (list_markers on; add_marker
+off until undoable), G2 labels for the editor, drawers and SpriteLab (≈ 130 more controls). Lessons: tasks/lessons.md (CRLF, pretty JSON).

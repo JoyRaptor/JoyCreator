@@ -15,22 +15,22 @@ place matching B-roll and chapter titles on its own judgment; then "change the f
 | # | Gap | Why it matters (user side) | Today |
 |---|---|---|---|
 | F1 | ✅ **DONE 10-15 (260f399cf), phone-tested on 3 free models** — **Native tool calling** (the model API's own `tools`, not JSON typed into a reply) | The #1 reliability gap: free models "describe instead of do", leak tokens, mangle JSON. OpenAI/Anthropic/Google all support native tools; OpenRouter passes them through. Keep JSON-in-text as the fallback for models without it. | JSON-in-text only, with nudges as patches |
-| F2 | **One action registry for the whole app** — every person-action (each drawer, sheet, button, in every wing) declared once with name, args, undo, and plain-words help; Joybot's tools, offline buttons, macros and help all read it | "Anything the user can do" can't be met by hand-writing 66 switch cases; it also gives discovery ("what can I do here?") for free | `AIToolExecutor` switch, ~66 tools, Studio-centric |
-| F3 | **Director mode: plan → run → review** for big mandates | "Find B-roll that matches what I say and add chapter titles": Joybot shows a short plan, runs headless (already possible via JoybotAgent), then a **Review** screen lists each change with Show me / Keep / Revert, and "change the font on that slide" works from there | Runs, but no plan view, no per-change review, 8-step cap |
-| F4 | **Job budgets instead of the 8-step cap** | Big jobs need 30+ steps; people need a cost/step meter, a pause, and resume after the phone kills the app | Hard stop at 8; job state not persisted |
-| F5 | **Context protocol for large projects** | Long projects overflow the 14k-char context; models need a compact map + "ask for details" tools, names (Cat 1, Cat 2), selection, playhead, every layer's properties | One flat text block, capped, 30 layers max |
+| F2 | 🔨 **BUILT 10-15 evening (compiles, not phone-tested)** — 9 families, 25 typed actions, see JOYBOT_PLAN B6 — **One action registry for the whole app** — every person-action (each drawer, sheet, button, in every wing) declared once with name, args, undo, and plain-words help; Joybot's tools, offline buttons, macros and help all read it | "Anything the user can do" can't be met by hand-writing 66 switch cases; it also gives discovery ("what can I do here?") for free | `AIToolExecutor` switch, ~66 tools, Studio-centric |
+| F3 | 🔨 **BUILT 10-15 evening (compiles, not phone-tested)** — propose_plan → Go ahead → Review card (Show me / Undo from here) — **Director mode: plan → run → review** for big mandates | "Find B-roll that matches what I say and add chapter titles": Joybot shows a short plan, runs headless (already possible via JoybotAgent), then a **Review** screen lists each change with Show me / Keep / Revert, and "change the font on that slide" works from there | Runs, but no plan view, no per-change review, 8-step cap |
+| F4 | 🔨 **BUILT 10-15 evening** — 40 steps for an approved plan, Keep going, cost/step line, Carry on after the phone kills the app — **Job budgets instead of the 8-step cap** | Big jobs need 30+ steps; people need a cost/step meter, a pause, and resume after the phone kills the app | Hard stop at 8; job state not persisted |
+| F5 | 🔨 **BUILT 10-15 evening** — list_items / get_item / find_words; the context says it is a summary — **Context protocol for large projects** | Long projects overflow the 14k-char context; models need a compact map + "ask for details" tools, names (Cat 1, Cat 2), selection, playhead, every layer's properties | One flat text block, capped, 30 layers max |
 | F6 | **Cross-wing jobs** (sprite sheet → animation → placed in the video; JoyBrush canvas region → picture job → back as a layer) | The studio's whole point; needs the JoyBrush interface agreed with its lead (Codex) | Studio-only tools; JoyBrush brief written, not built |
-| F7 | **Recipes: record, replay, trigger** ("every new recording: transcribe, cut ums, captions, export a draft") | Offline scripted automation for everyone; power users build their own | Ideas are one-shot; no recording or triggers |
-| F8 | **Show-me-how mode** (Joybot points at the real buttons and walks you through, instead of doing it) | Discovery for non-technical people; teaches the app | Help answers in words + "Take me there" routes |
-| F9 | **Model routing** (cheap fast model for simple steps, a seeing model for `look`, a strong one for plans; auto-fallback when one fails) | Cost and quality without the person thinking about models | One model per request; manual switch |
+| F7 | 🔨 **BUILT 10-15 night** (record + replay; triggers not yet) — Save as a recipe → My recipes → Run (offline when it names nothing project-specific, else the AI redoes the request); files in Joy folder Joybot/recipes — **Recipes: record, replay, trigger** ("every new recording: transcribe, cut ums, captions, export a draft") | Offline scripted automation for everyone; power users build their own | Ideas are one-shot; no recording or triggers |
+| F8 | 🔨 **BUILT 10-15 night** (Studio strip) — help answers get "Show me how": the editor rings the real button — **Show-me-how mode** (Joybot points at the real buttons and walks you through, instead of doing it) | Discovery for non-technical people; teaches the app | Help answers in words + "Take me there" routes |
+| F9 | 🔨 **BUILT 10-15 night** (fallback only) — a busy/retired model falls back once to the free router, never to paid; per-step routing not yet — **Model routing** (cheap fast model for simple steps, a seeing model for `look`, a strong one for plans; auto-fallback when one fails) | Cost and quality without the person thinking about models | One model per request; manual switch |
 
 ## ⚙️ Mid
 
 | # | Gap | Notes |
 |---|---|---|
-| M1 | Review-and-revise tools for slides: `edit_slide` (rewrite a slide's HTML from an instruction), slide font/colour | "I didn't like this font in this slide" |
+| M1 | 🔨 BUILT 10-15 (get_slide / set_slide, in line AND on top) — Review-and-revise tools for slides: `edit_slide` (rewrite a slide's HTML from an instruction), slide font/colour | "I didn't like this font in this slide" |
 | M2 | Naming clips/layers (designed: NAMING_DESIGN_20261014.md) + `rename_item` for every kind | Studio-editor session |
-| M3 | Rooms: SpriteLab / Avatar / Library ideas + chat opened there (`EXTRA_ROOM`) | IdeaEngine is pure Java, easy to test |
+| M3 | 🔨 BUILT 10-15 (Joybot buttons in SpriteLab + Library; Avatar stays hidden for launch) — Rooms: SpriteLab / Avatar / Library ideas + chat opened there (`EXTRA_ROOM`) | IdeaEngine is pure Java, easy to test |
 | M4 | Joybot's own sprite sheet (owner draws it): moods → animations, fly-to places | Loader exists |
 | M5 | Picture jobs keep the revision they started from (never overwrite later edits) — JoyBrush half with Codex | Brief exists |
 | M6 | Per-request visual diff (before/after thumbnails on the result card) | Builds on F3 |
@@ -42,10 +42,10 @@ place matching B-roll and chapter titles on its own judgment; then "change the f
 | # | Gap | Notes |
 |---|---|---|
 | G1 | Phone checklist (10 checks + OpenAI) | In JOYBOT_HANDOFF_20261015.md |
-| G2 | App-wide hover-label sweep (house rule) | Joybot screens done 10-15 |
-| G3 | HelpBook answers for every wing's main features | Pure Java + harness tests |
-| G4 | Harness tests for every pure Joybot helper | 142 today |
-| G5 | Other AI call sites still send `max_tokens`/`temperature` (slide writer, vision tagging, narrative) — move them onto one request helper with the Quirks fallback | Mechanical once F1 lands |
+| G2 | App-wide hover-label sweep (house rule) | 10-15 night: 93 controls in 50 files outside the editor (lobby, records, settings…); editor drawers + SpriteLab still owed |
+| G3 | ✅ 10-15: 61 topics (+25), 4 wrong old answers corrected, harness-tested — HelpBook answers for every wing's main features | Pure Java + harness tests |
+| G4 | Harness tests for every pure Joybot helper | 325 + 43 (ActionRegistryTest) on 10-15 evening |
+| G5 | ✅ 10-15: `joybot/AiRequest` — slide writer, narrative, b-roll, vision tagging — Other AI call sites still send `max_tokens`/`temperature` (slide writer, vision tagging, narrative) — move them onto one request helper with the Quirks fallback | Mechanical once F1 lands |
 
 ## Studio coverage — what a person can do that Joybot can't (Haiku inventory, spot-checked 10-15)
 

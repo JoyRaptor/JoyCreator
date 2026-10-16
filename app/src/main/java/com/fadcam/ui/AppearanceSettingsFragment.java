@@ -66,6 +66,7 @@ public class AppearanceSettingsFragment extends Fragment {
         setupLogoRow(view);
         View backBtn = view.findViewById(R.id.back_button);
         if (backBtn != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(backBtn, backBtn.getContext().getString(R.string.watch_back_desc));
             backBtn.setOnClickListener(v ->
                 OverlayNavUtil.dismiss(getActivity())
             );

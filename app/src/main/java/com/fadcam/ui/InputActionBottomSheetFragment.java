@@ -197,6 +197,7 @@ public class InputActionBottomSheetFragment extends BottomSheetDialogFragment {
         // Handle close button
         ImageView closeButton = view.findViewById(R.id.picker_close_btn);
         if (closeButton != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(closeButton, closeButton.getContext().getString(R.string.close));
             closeButton.setOnClickListener(v -> dismiss());
         }
 

@@ -134,6 +134,7 @@ public class FadCamProActivity extends AppCompatActivity {
      */
     private void setupClickListeners() {
         // Back button
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnBack, btnBack.getContext().getString(R.string.back));
         btnBack.setOnClickListener(v -> finish());
 
         // Get Pro button - opens Patreon shop

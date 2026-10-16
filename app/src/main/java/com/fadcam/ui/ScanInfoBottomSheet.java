@@ -100,6 +100,7 @@ public class ScanInfoBottomSheet extends BottomSheetDialogFragment {
 
         // Close
         View close = view.findViewById(R.id.picker_close_btn);
+        if (close != null) androidx.appcompat.widget.TooltipCompat.setTooltipText(close, close.getContext().getString(R.string.close));
         if (close != null) close.setOnClickListener(v -> dismiss());
 
         // Read metadata

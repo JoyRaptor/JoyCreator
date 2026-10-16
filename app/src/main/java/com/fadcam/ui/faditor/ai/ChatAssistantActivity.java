@@ -39,6 +39,7 @@ import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
 import com.fadcam.ui.faditor.ai.joybot.DirectRunner;
 import com.fadcam.ui.faditor.ai.joybot.HelpBook;
+import com.fadcam.ui.faditor.ai.joybot.JobFile;
 import com.fadcam.ui.faditor.ai.joybot.JoybotAgent;
 import com.fadcam.ui.faditor.ai.joybot.Idea;
 import com.fadcam.ui.faditor.ai.joybot.IdeaEngine;
@@ -51,6 +52,8 @@ import com.fadcam.ui.faditor.ai.joybot.ModelPicker;
 import com.fadcam.ui.faditor.ai.joybot.JoybotPulse;
 import com.fadcam.ui.faditor.ai.joybot.JoybotVoice;
 import com.fadcam.ui.faditor.ai.joybot.ProjectFactsReader;
+import com.fadcam.ui.faditor.ai.joybot.Recipe;
+import com.fadcam.ui.faditor.ai.joybot.RecipeStore;
 import com.fadcam.ui.faditor.ai.joybot.SlideFlow;
 import com.fadcam.ui.lobby.JoybotView;
 
@@ -245,6 +248,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
             addBotMessage("Still working on \u201c" + JoybotAgent.shortOf(running.text) + "\u201d\u2026");
         }
         showFinishedWhileAway();
+        offerCarryOn();
+        // A plan still waiting for Go ahead: its card isn't in the saved words, so show it again.
+        JoybotAgent.Plan waitingPlan = JoybotAgent.pendingPlan(projectId);
+        if (waitingPlan != null && !planCardShown && JoybotAgent.current() == null) addPlanCard(waitingPlan);
+        // The last Director run's Review: Show me opens the editor and closes this screen, and the
+        // card is not in the saved words, so bring it back (rows already put back stay grey).
+        List<JoybotAgent.Change> lastReview = JoybotAgent.pendingReview(projectId);
+        if (lastReview != null && !reviewCardShown && projectId != null && JoybotAgent.current() == null) {
+            addReviewCard(projectId, lastReview);
+        }
         refreshIdeas(true);
     }
 
@@ -304,6 +317,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
         addReadAloudToggle();
         // Dictation: tap to talk, words collect across pauses, tap again to stop. Never sends.
         btnMic.setOnClickListener(v -> toggleDictation());
+        // Hold the mic: say it and it sends itself when you stop talking, and hands-free turns on.
+        btnMic.setOnLongClickListener(v -> { dictateAndSend(); return true; });
 
         actor = findViewById(R.id.chat_actor);
         chipsScroll = findViewById(R.id.chat_chips_scroll);
@@ -315,7 +330,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // learn the app by hovering).
         androidx.appcompat.widget.TooltipCompat.setTooltipText(sendButton, "Send your message to Joybot");
         androidx.appcompat.widget.TooltipCompat.setTooltipText(btnMic,
-                "Talk instead of typing: tap to start, tap again to stop, then press Send");
+                "Talk instead of typing: tap to start, tap again to stop, then press Send. "
+                        + "Hold it to talk hands-free: it sends itself when you stop talking");
         androidx.appcompat.widget.TooltipCompat.setTooltipText(btnAttach, "Show Joybot a picture or the frame you're on");
         androidx.appcompat.widget.TooltipCompat.setTooltipText(btnSettings, "AI service, key and model");
         androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.chat_back), "Close Joybot");
@@ -873,9 +889,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
             already there — the length stays the same, good for logos, stickers, picture-in-picture \
             and titles over footage. Unless they already said which, ask, in one short sentence.
 
+            For a BIG job (more than about four changes, or anything over the whole video), call \
+            propose_plan first with a title and short plain steps, then stop and wait. When the \
+            person says go, you get many more steps: do all of it without asking again, then sum \
+            up what you changed.
+
             """;
 
     private void sendMessage() {
+        boolean follow = handsFreeFollow;
+        handsFreeFollow = false;
         stopDictation();
         String text = inputField.getText().toString().trim();
         if (text.isEmpty() && stagedImage == null) return;
@@ -883,6 +906,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
             Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
             return;
         }
+        // Hands-free: dictated and sent unedited = sent by voice; so is a voice answer's new request.
+        boolean bySpeech = follow || (dictatedText != null && dictatedText.equals(text));
+        if (!follow) handsFreeUsed = false;
+        dictatedText = null;
+        handsFree = bySpeech;
 
         voice.hush();
         // A staged picture goes with these words, straight to the model: it is what can see it,
@@ -992,13 +1020,21 @@ public class ChatAssistantActivity extends AppCompatActivity {
             card.buttons.addView(JoybotChatViews.cardButton(this, "Take me there",
                     "Open the part of the app this is in", v -> route(t.route)));
         }
+        // "Show me how": Joybot points at the real button in the Studio's tool strip and the person
+        // taps it. Needs the Studio here, or a project to open the editor on.
+        if (t.tool != null && (room == IdeaEngine.Room.STUDIO || projectId != null)) {
+            final String where = t.tool;
+            card.buttons.addView(JoybotChatViews.cardButton(this, "Show me how",
+                    "Joybot points at the button so you can tap it yourself", v -> showHow(where)));
+        }
         if (card.buttons.getChildCount() == 0) card.root.removeView(card.buttons);
         messagesContainer.addView(card.root);
         messageViews.add(card.root);
         addTickerTick(false);
         scrollToBottom();
         synchronized (messageLog) { messageLog.add(new String[]{"bot", t.answer}); trimMessageLog(); }
-        voice.speak(t.answer);
+        // A question asked by voice is answered by voice, and then Joybot listens (hands-free).
+        if (handsFree) handsFreeSay(t.answer); else voice.speak(t.answer);
         actor.setMood(JoybotView.Mood.TALK);
         actor.postDelayed(() -> actor.setMood(JoybotView.Mood.IDLE), 1200L);
         try {
@@ -1035,6 +1071,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     private void askAgent(@NonNull String text, @Nullable String imageDataUrl, int imgW, int imgH) {
+        askAgent(text, imageDataUrl, imgW, imgH, requestLabelFor(text), false, JoybotAgent.MAX_TOOL_ROUNDS);
+    }
+
+    /** {@code director}: carrying out an approved plan, with its own undo label and step budget. */
+    private void askAgent(@NonNull String text, @Nullable String imageDataUrl, int imgW, int imgH,
+                          @NonNull String undoLabel, boolean director, int maxSteps) {
         if (needsModelPick()) {
             // Sending "openrouter/free" to OpenAI only earns an error: ask for the model first.
             addBotMessage("Pick which " + AiAccounts.active(this).name
@@ -1059,11 +1101,13 @@ public class ChatAssistantActivity extends AppCompatActivity {
         }
         JoybotAgent.Ask ask = new JoybotAgent.Ask(projectId, text,
                 model == null || model.isEmpty() ? DEFAULT_MODEL : model, apiKey == null ? "" : apiKey,
-                requestLabelFor(text), where);
+                undoLabel, where);
         ask.question = HelpBook.isQuestion(text);
         ask.imageDataUrl = imageDataUrl;
         ask.imageW = imgW;
         ask.imageH = imgH;
+        ask.director = director;
+        ask.maxSteps = maxSteps;
         JoybotAgent.ask(this, ask);
     }
 
@@ -1106,9 +1150,17 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         @Override public boolean onFinished(@NonNull JoybotAgent.Finished f) {
             if (gone() || !java.util.Objects.equals(projectId, f.projectId)) return false;
-            if (f.reply == null) return true;   // stopped: stopWorking already said so
-            if (f.ok) voice.speak(f.reply);
+            // Stopped (reply null): stopWorking already said so, but a stopped Director run still
+            // made changes that the Review card should offer to put back.
+            if (f.reply == null) { endHandsFree(); renderFinishedExtras(f); return true; }
+            if (handsFree && f.ok) {
+                handsFreeSay(f.reply);
+            } else {
+                endHandsFree();
+                if (f.ok) voice.speak(f.reply);
+            }
             doneTalking(f.ok);
+            renderFinishedExtras(f);
             return true;
         }
     };
@@ -1172,6 +1224,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
      * say the "I noticed…" sentence (once per new idea, not every time the chat opens).
      */
     private void refreshIdeas(boolean speak) {
+        checkRecipes();
         if (projectId == null) {
             currentOffer = null;
             showChips(noProjectIdeas());
@@ -1217,7 +1270,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     private void showChips(@NonNull List<Idea> ideas) {
-        JoybotChatViews.fillChips(chipsRow, ideas, new JoybotChatViews.OnChip() {
+        shownIdeas = ideas;
+        JoybotChatViews.fillChips(chipsRow, withRecipesChip(ideas), new JoybotChatViews.OnChip() {
             @Override public void onTap(@NonNull Idea idea) { runIdea(idea, true); }
             @Override public void onDismiss(@NonNull Idea idea) { dismissIdea(idea); }
         });
@@ -1243,6 +1297,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void runIdea(@NonNull Idea idea, boolean sayIt) {
         if (busy) {
             Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (MY_RECIPES.key.equals(idea.key)) {
+            addUserMessage(idea.say);
+            showRecipes();
             return;
         }
         if (idea.kind == Idea.Kind.TYPE) {
@@ -1285,6 +1344,190 @@ public class ChatAssistantActivity extends AppCompatActivity {
         }
     }
 
+    // ── Recipes (gap F7): keep what Joybot did, and run it again in one tap ──
+
+    /** The chip that opens My recipes. Kind TYPE so it never shows the "stop suggesting" hold. */
+    private static final Idea MY_RECIPES = Idea.of("my_recipes", Idea.Kind.TYPE, "My recipes")
+            .say("My recipes")
+            .hint("Run or delete the recipes you have saved")
+            .build();
+
+    /** Whether any recipe is saved (read on the worker by {@link #checkRecipes}). */
+    private boolean haveRecipes;
+    /** The ideas the chip row shows, before the My recipes chip is added. */
+    private List<Idea> shownIdeas = new ArrayList<>();
+
+    /** The ideas, with My recipes just before Something else? when a recipe is saved. */
+    @NonNull
+    private List<Idea> withRecipesChip(@NonNull List<Idea> ideas) {
+        if (!haveRecipes) return ideas;
+        List<Idea> out = new ArrayList<>(ideas);
+        int at = out.size();
+        if (!out.isEmpty() && out.get(out.size() - 1).kind == Idea.Kind.TYPE) at = out.size() - 1;
+        out.add(at, MY_RECIPES);
+        return out;
+    }
+
+    /** Reads the saved recipes on the worker; shows or hides the My recipes chip when that changed. */
+    private void checkRecipes() {
+        aiExecutor.execute(() -> {
+            boolean any = !RecipeStore.list(this).isEmpty();
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed() || any == haveRecipes) return;
+                haveRecipes = any;
+                if (chipsScroll.getVisibility() == View.VISIBLE) showChips(shownIdeas);
+            });
+        });
+    }
+
+    /** After a request that changed the project: offer to keep its steps as a recipe. */
+    private void addSaveRecipeCard(@NonNull JoybotAgent.Finished f) {
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this, "Want to do this again?", null);
+        card.buttons.addView(JoybotChatViews.cardButton(this, "Save as a recipe",
+                "Keep these steps so you can run them again in one tap",
+                v -> askRecipeName(f, card)));
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        addTickerTick(false);
+        scrollToBottom();
+    }
+
+    /** Asks what to call the recipe; the request, shortened, is the suggested name. */
+    private void askRecipeName(@NonNull JoybotAgent.Finished f, @NonNull JoybotChatViews.Card card) {
+        if (!idleOrSay()) return;
+        String words = f.asked.replaceAll("\\s+", " ").trim();
+        if (words.length() > 30) words = words.substring(0, 29).trim() + "…";
+        EditText field = new EditText(this);
+        field.setSingleLine(true);
+        field.setText(words);
+        field.setSelectAllOnFocus(true);
+        LinearLayout box = new LinearLayout(this);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        box.addView(field);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Name this recipe")
+                .setView(box)
+                .setPositiveButton("Save", (d, w) -> saveRecipe(f, field.getText().toString(), card))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void saveRecipe(@NonNull JoybotAgent.Finished f, @NonNull String name,
+                            @NonNull JoybotChatViews.Card card) {
+        Recipe recipe = new Recipe(name, f.asked, f.calls);
+        aiExecutor.execute(() -> {
+            String failed = null;
+            try {
+                RecipeStore.save(this, recipe);
+            } catch (Exception e) {
+                failed = e.getMessage() == null ? "something went wrong" : e.getMessage();
+            }
+            final String why = failed;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (why != null) {
+                    addBotMessage("I couldn't save that recipe: " + why);
+                    return;
+                }
+                card.retire("Saved as a recipe.");
+                addBotMessage("Saved “" + recipe.name + "” — " + recipe.describe() + ". Find it under My recipes.");
+                checkRecipes();
+            });
+        });
+    }
+
+    /** My recipes: the saved recipes as rows, each with Run and Delete. Read on the worker. */
+    private void showRecipes() {
+        aiExecutor.execute(() -> {
+            List<RecipeStore.Saved> saved = RecipeStore.list(this);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (saved.isEmpty()) {
+                    addBotMessage("You have no recipes yet. After I do something for you, tap Save as a recipe.");
+                    checkRecipes();
+                    return;
+                }
+                addRecipesCard(saved);
+            });
+        });
+    }
+
+    private void addRecipesCard(@NonNull List<RecipeStore.Saved> saved) {
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this, "My recipes", null);
+        card.root.removeView(card.buttons);
+        for (RecipeStore.Saved s : saved) {
+            Recipe recipe = s.recipe;
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.VERTICAL);
+            row.setPadding(0, dp(8), 0, 0);
+            TextView label = new TextView(this);
+            label.setText(recipe.name + "\n" + recipe.describe());
+            label.setTextColor(Studio.INK);
+            label.setTextSize(13);
+            row.addView(label);
+            LinearLayout buttons = new LinearLayout(this);
+            buttons.setOrientation(LinearLayout.HORIZONTAL);
+            buttons.setPadding(0, dp(6), 0, 0);
+            buttons.addView(JoybotChatViews.cardButton(this, "Run", "Run “" + recipe.name + "” again",
+                    v -> runRecipe(recipe)));
+            TextView delete = JoybotChatViews.cardButton(this, "Delete", "Delete the recipe “" + recipe.name + "”",
+                    v -> confirmDeleteRecipe(s, row));
+            delete.setTextSize(11);
+            buttons.addView(delete);
+            row.addView(buttons);
+            card.root.addView(row);
+        }
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        addTickerTick(false);
+        scrollToBottom();
+    }
+
+    /** Runs a recipe: on the phone when its steps fit any project, else through the model as an approved plan. */
+    private void runRecipe(@NonNull Recipe recipe) {
+        if (!idleOrSay()) return;
+        String undo = "recipe “" + recipe.name + "”";
+        if (recipe.portable() && projectId != null) {
+            Idea.Builder b = Idea.of("recipe", Idea.Kind.DIRECT, recipe.name)
+                    .say("Run my recipe “" + recipe.name + "”")
+                    .hint("Run this recipe on this project")
+                    .undo(undo);
+            for (Idea.Step s : recipe.steps) b.step(s);
+            addUserMessage("Run my recipe “" + recipe.name + "”");
+            runDirect(b.build());
+        } else {
+            sendFollowUp("Run my recipe “" + recipe.name + "”.", recipe.request, "Joybot: " + undo,
+                    true, JoybotAgent.DIRECTOR_STEPS);
+        }
+    }
+
+    private void confirmDeleteRecipe(@NonNull RecipeStore.Saved s, @NonNull View row) {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Delete “" + s.recipe.name + "”?")
+                .setMessage("Its steps will be gone from My recipes.")
+                .setPositiveButton("Delete", (d, w) -> aiExecutor.execute(() -> {
+                    String failed = null;
+                    try {
+                        RecipeStore.delete(this, s.file);
+                    } catch (Exception e) {
+                        failed = e.getMessage() == null ? "something went wrong" : e.getMessage();
+                    }
+                    final String why = failed;
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        if (why != null) {
+                            addBotMessage("I couldn't delete that recipe: " + why);
+                            return;
+                        }
+                        row.setVisibility(View.GONE);
+                        addBotMessage("Deleted “" + s.recipe.name + "”.");
+                        checkRecipes();
+                    });
+                }))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
     /** Run an idea's steps on the phone, then show what changed with Undo and Show me. */
     private void runDirect(@NonNull Idea idea) {
         if (projectId == null) return;
@@ -1323,6 +1566,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             for (String line : f.toolLines) addToolResultMessage(line);
             if (f.reply != null) addBotMessage(f.reply);
             if (f.step != null && projectId != null && AIChatState.peekStep(projectId) == f.step) addUndoRow(f.step);
+            renderFinishedExtras(f);
         }
         java.util.List<JoybotJobs.Done> away = JoybotJobs.takeWaiting(projectId);
         if (away.isEmpty()) return;
@@ -1331,6 +1575,243 @@ public class ChatAssistantActivity extends AppCompatActivity {
             showDirectResult(d.idea, d.result);
             rememberForModel(d.idea.say, d.result);
         }
+    }
+
+    // ── Director mode in the chat: plans, Keep going, the Review card, Carry on (gaps F3/F4) ──
+
+    /** Under a finished request's reply: the usage line, the Review card, Keep going, the plan. */
+    private void renderFinishedExtras(@NonNull JoybotAgent.Finished f) {
+        String words = f.usageWords();
+        if (!words.isEmpty() && (f.director || f.steps > 1)) addUsageLine(words);
+        if (f.projectId != null && f.changes.size() >= 2) addReviewCard(f.projectId, f.changes);
+        if (f.budgetHit) addKeepGoingCard(f);
+        if (f.plan != null) addPlanCard(f.plan);
+        if (f.ok && !f.calls.isEmpty()) addSaveRecipeCard(f);
+    }
+
+    /** What a request spent, in a small grey line like the tool lines. */
+    private void addUsageLine(@NonNull String words) {
+        TextView tv = new TextView(this);
+        tv.setText(words);
+        tv.setTextSize(12);
+        tv.setTextColor(Studio.INK_FAINT);
+        tv.setPadding(dp(16), dp(2), dp(60), dp(2));
+        messagesContainer.addView(tv);
+        scrollToBottom();
+    }
+
+    /** The one action a card leads with: the studio green pill the Send button wears. */
+    @NonNull
+    private TextView primaryCardButton(@NonNull String text, @NonNull String hint,
+                                       @NonNull View.OnClickListener onClick) {
+        TextView b = JoybotChatViews.cardButton(this, text, hint, onClick);
+        b.setTag(VOICE_LEAD);
+        b.setBackgroundResource(R.drawable.studio_action_pill);
+        b.setTextColor(Studio.ON_GO);
+        b.setTypeface(Typeface.DEFAULT_BOLD);
+        return b;
+    }
+
+    /** False (with a note) while Joybot is still working: a card button must not start a second request. */
+    private boolean idleOrSay() {
+        if (!busy) return true;
+        Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
+        return false;
+    }
+
+    /** A follow-up request: the person's bubble, then the agent, exactly as a typed message would go. */
+    private void sendFollowUp(@NonNull String shown, @NonNull String text, @NonNull String undoLabel,
+                              boolean director, int maxSteps) {
+        addUserMessage(shown);
+        askAgent(text, null, 0, 0, undoLabel, director, maxSteps);
+    }
+
+    /** A plan Joybot wants approved before a big job: Go ahead starts a Director run, Not now retires it. */
+    /** This screen already shows the waiting plan's card (so reopening doesn't add a second). */
+    private boolean planCardShown;
+
+    private void addPlanCard(@NonNull JoybotAgent.Plan plan) {
+        planCardShown = true;
+        StringBuilder steps = new StringBuilder();
+        for (int i = 0; i < plan.steps.size(); i++) {
+            if (i > 0) steps.append('\n');
+            steps.append(i + 1).append(". ").append(plan.steps.get(i));
+        }
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this, plan.title,
+                steps.length() > 0 ? steps.toString() : null);
+        card.buttons.addView(primaryCardButton("Go ahead", "Joybot does the whole plan without asking again", v -> {
+            if (!idleOrSay()) return;
+            card.retire("Going ahead.");
+            sendFollowUp("Go ahead with the plan.", "Go ahead with the plan.", "Joybot: " + plan.title,
+                    true, JoybotAgent.DIRECTOR_STEPS);
+        }));
+        card.buttons.addView(JoybotChatViews.cardButton(this, "Not now", "Leave the plan for now",
+                v -> {
+                    JoybotAgent.clearPendingPlan(projectId);
+                    card.retire("Not now.");
+                }));
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        addTickerTick(false);
+        scrollToBottom();
+    }
+
+    /** Joybot used its step budget with work left: one tap carries on with the rest. */
+    private void addKeepGoingCard(@NonNull JoybotAgent.Finished f) {
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this, "There's more to do.", null);
+        card.buttons.addView(primaryCardButton("Keep going", "Joybot used its steps for now: carry on with the rest", v -> {
+            if (!idleOrSay()) return;
+            card.retire("Carrying on.");
+            sendFollowUp("Keep going.", "Keep going.", requestLabelFor("Keep going."), f.director,
+                    f.director ? JoybotAgent.DIRECTOR_STEPS : JoybotAgent.MAX_TOOL_ROUNDS);
+        }));
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        addTickerTick(false);
+        scrollToBottom();
+    }
+
+    /**
+     * A Director run's changes, one row each: what it was, Show me, and Undo from here (puts the
+     * project back as it was before that change, and every later change goes with it).
+     */
+    /** This screen already shows the last Director run's Review card. */
+    private boolean reviewCardShown;
+
+    private void addReviewCard(@NonNull String pid, @NonNull List<JoybotAgent.Change> changes) {
+        reviewCardShown = true;
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this,
+                "Review — " + changes.size() + " changes", null);
+        card.root.removeView(card.buttons);
+        final List<JoybotAgent.Change> list = new ArrayList<>(changes);
+        final List<LinearLayout> rows = new ArrayList<>();
+        for (int i = 0; i < list.size(); i++) {
+            final JoybotAgent.Change ch = list.get(i);
+            final int index = i;
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setPadding(0, dp(6), 0, 0);
+            TextView said = new TextView(this);
+            said.setText(ch.said.replaceAll("\\s+", " ").trim());
+            said.setTextSize(13);
+            said.setTextColor(Studio.INK_DIM);
+            said.setSingleLine(true);
+            said.setEllipsize(TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            tlp.setMarginEnd(dp(6));
+            said.setLayoutParams(tlp);
+            row.addView(said);
+            if (!ch.ids.isEmpty()) {
+                final String clip = ch.ids.get(0);
+                row.addView(JoybotChatViews.cardButton(this, "Show me", "Go to this clip in the editor",
+                        v -> showMe(clip)));
+            }
+            if (ch.canRevert()) {
+                row.addView(JoybotChatViews.cardButton(this, "Undo from here",
+                        "Put the project back the way it was before this change",
+                        v -> confirmUndoFrom(pid, list, index, rows)));
+            }
+            card.root.addView(row);
+            rows.add(row);
+        }
+        // Rows already put back (before this screen was closed) stay grey, with no buttons.
+        for (int k = Math.max(0, JoybotAgent.reviewRevertedFrom(pid)); k < rows.size(); k++) {
+            LinearLayout r = rows.get(k);
+            r.setAlpha(0.35f);
+            for (int c = 1; c < r.getChildCount(); c++) r.getChildAt(c).setVisibility(View.GONE);
+        }
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        addTickerTick(false);
+        scrollToBottom();
+    }
+
+    private void confirmUndoFrom(@NonNull String pid, @NonNull List<JoybotAgent.Change> changes, int index,
+                                 @NonNull List<LinearLayout> rows) {
+        if (!idleOrSay()) return;
+        int after = changes.size() - index - 1;
+        String rest = after == 0 ? "This change will go."
+                : "This change and " + (after == 1 ? "the one after it" : "the " + after + " after it") + " will go.";
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Undo from here?")
+                .setMessage("Put the project back how it was before this? " + rest)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Undo from here", (d, w) -> undoFrom(pid, changes, index, rows))
+                .show();
+    }
+
+    /** Puts the project back before change {@code index} on a worker; greys that row and every later one. */
+    private void undoFrom(@NonNull String pid, @NonNull List<JoybotAgent.Change> changes, int index,
+                          @NonNull List<LinearLayout> rows) {
+        if (!idleOrSay()) return;
+        final JoybotAgent.Change ch = changes.get(index);
+        setBusy(true);
+        aiExecutor.execute(() -> {
+            final String problem = JoybotAgent.revertTo(this, pid, ch);
+            final boolean ok = problem == null;
+            runOnUiThread(() -> {
+                setBusy(false);
+                if (isFinishing() || isDestroyed()) return;
+                if (ok) {
+                    for (int k = index; k < rows.size(); k++) {
+                        LinearLayout r = rows.get(k);
+                        r.setAlpha(0.35f);
+                        for (int c = 1; c < r.getChildCount(); c++) r.getChildAt(c).setVisibility(View.GONE);
+                    }
+                    addBotMessage("Put back how it was before “" + JoybotAgent.shortOf(ch.said) + "”.");
+                    try {
+                        conversationHistory.add(new JSONObject().put("role", "user")
+                                .put("content", "[The person undid Joybot's changes from: " + ch.said + " onward.]"));
+                    } catch (Exception ignored) { }
+                } else {
+                    addBotMessage(problem);
+                }
+                refreshIdeas(false);
+            });
+        });
+    }
+
+    /** A job the phone stopped in the middle (the app was killed): offer to pick it up, or let it go. */
+    private void offerCarryOn() {
+        JobFile.Interrupted j = JoybotAgent.interrupted(this);
+        if (j == null || projectId == null || !projectId.equals(j.projectId)) return;
+        String steps = j.round + (j.round == 1 ? " step" : " steps");
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this,
+                "The phone stopped me in the middle of “" + JoybotAgent.shortOf(j.text) + "” (after " + steps + ").",
+                null);
+        card.buttons.addView(primaryCardButton("Carry on", "Pick the job up where it stopped", v -> {
+            if (!idleOrSay()) return;
+            card.retire("Carrying on.");
+            carryOn(j);
+        }));
+        card.buttons.addView(JoybotChatViews.cardButton(this, "Leave it", "Forget the unfinished job", v -> {
+            card.retire("Left it.");
+            leaveJob(j);
+        }));
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        addTickerTick(false);
+        scrollToBottom();
+    }
+
+    /** Puts the killed job's conversation back, then carries on with it as a Director run. */
+    private void carryOn(@NonNull JobFile.Interrupted j) {
+        // restore() replaces whatever the chat holds (the fresh system prompt included) with the
+        // saved conversation, which carries its own system prompt; and it forgets the file.
+        JoybotAgent.restore(this, j);
+        sendFollowUp("Carry on.",
+                "Carry on with the job from where you stopped. Check the project first — some of it is already done.",
+                j.undoLabel, true, JoybotAgent.DIRECTOR_STEPS);
+    }
+
+    /**
+     * Forgets the killed job: the file must go, or the card would come back on every open. restore()
+     * is the only public way to clear it, so the history it brings is put back to what the chat had.
+     */
+    private void leaveJob(@NonNull JobFile.Interrupted j) {
+        JoybotAgent.forgetInterrupted(this);
     }
 
     private void showDirectResult(@NonNull Idea idea, @NonNull DirectRunner.Result r) {
@@ -1506,6 +1987,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
         finish();
     }
 
+    /** "Show me how": the editor points at this tool's real button. Same route as showMe. */
+    private void showHow(@NonNull String toolId) {
+        AIChatState.showHowTool = toolId;
+        if (room != IdeaEngine.Room.STUDIO && projectId != null) {
+            startActivity(new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class)
+                    .putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, projectId));
+        }
+        finish();
+    }
+
     /** "Take me there": a tab of the main screen, or a screen that opens on its own. */
     private void route(@NonNull String where) {
         int tab;
@@ -1562,16 +2053,64 @@ public class ChatAssistantActivity extends AppCompatActivity {
     /** Phrases in a row that heard nothing: three and the mic switches itself off. */
     private int dictEmpty;
 
+    // ── Hands-free (owner, 2026-10-15) ─────────────────────────────────────
+    // For one-handed use. A request sent by voice (dictated and sent unedited, or held-mic dictation
+    // that sends itself when talking stops) is read aloud when it finishes, even with read-aloud
+    // off. Then Joybot listens once, up to six seconds, for "yes", "undo", "stop" or "no". One
+    // follow-up exchange per voice request, then hands-free ends. Any tap on the screen, or Stop,
+    // ends it. Export never runs by voice: "yes" only presses the newest card's lead button.
+
+    private static final long HANDS_FREE_GAP_MS = 1500L;
+    private static final long HANDS_FREE_LISTEN_MS = 6000L;
+    private static final String VOICE_YES = "(yes|yeah|yep|yes please|go|go ahead|do it|do that)";
+    private static final String VOICE_UNDO = "(undo|undo that|undo it|take (that|it) back|put it back)";
+    private static final String VOICE_STOP = "(stop|stop it|stop that)";
+    private static final String VOICE_NO = "(no|nope|no thanks|not now|cancel)";
+    /** Tag on a card's lead (primary) button: the only button "yes" may press. */
+    private static final String VOICE_LEAD = "joybot_voice_lead";
+
+    /** This request was sent by voice: its reply is read aloud, then Joybot listens once. */
+    private boolean handsFree;
+    /** Held-mic dictation: the first pause sends what was said. */
+    private boolean dictateToSend;
+    /** The listening window after a voice reply is open. */
+    private boolean handsFreeAnswering;
+    private boolean handsFreeHeard;
+    /** The one listening window has been used: the next reply is read, then hands-free ends. */
+    private boolean handsFreeUsed;
+    /** The next send is a voice answer's new request, so it stays hands-free. */
+    private boolean handsFreeFollow;
+    /** What dictation last put in the box: sent unedited, the request was sent by voice. */
+    private String dictatedText;
+    private final Handler handsFreeClock = new Handler(Looper.getMainLooper());
+    private final Runnable handsFreeDeadline = this::handsFreeTimeUp;
+
     private void toggleDictation() {
         if (dictating) { stopDictation(); return; }
-        if (androidx.core.content.ContextCompat.checkSelfPermission(this,
-                android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        startDictation(false);
+    }
+
+    /** Hold the mic: say it, and it sends itself when you stop talking. Turns hands-free on. */
+    private void dictateAndSend() {
+        if (dictating) { stopDictation(); return; }
+        startDictation(true);
+    }
+
+    private boolean micGranted() {
+        return androidx.core.content.ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void startDictation(boolean sendWhenDone) {
+        if (!micGranted()) {
             requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, MIC_PERMISSION_REQUEST);
             return;
         }
-        if (!JoybotVoice.canListenInBackground(this)) { startVoiceInput(); return; }
+        if (!JoybotVoice.canListenInBackground(this)) { if (!sendWhenDone) startVoiceInput(); return; }
         voice.hush();
         dictating = true;
+        dictateToSend = sendWhenDone;
+        if (sendWhenDone) handsFree = true;
         dictEmpty = 0;
         paintMic();
         actor.setMood(JoybotView.Mood.LISTEN);
@@ -1588,6 +2127,19 @@ public class ChatAssistantActivity extends AppCompatActivity {
             }
 
             @Override public void onFinal(@Nullable String text) {
+                if (dictateToSend) {
+                    // Held-mic dictation: the first pause is the end, and what was said goes now.
+                    stopDictation();
+                    if (text == null) {
+                        endHandsFree();
+                        Toast.makeText(ChatAssistantActivity.this,
+                                "I didn't catch that. Hold the mic and try again.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    showDictated(text);
+                    sendMessage();
+                    return;
+                }
                 if (text != null) { dictEmpty = 0; showDictated(text); }
                 else dictEmpty++;
                 if (dictating && dictEmpty < 3) listenForPhrase();
@@ -1596,20 +2148,23 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
             @Override public void onProblem(@NonNull String message) {
                 stopDictation();
+                endHandsFree();
                 Toast.makeText(ChatAssistantActivity.this, message, Toast.LENGTH_SHORT).show();
             }
-        });
+        }, dictateToSend ? HANDS_FREE_GAP_MS : 4000L);
     }
 
     private void showDictated(@NonNull String phrase) {
         String t = dictBase.isEmpty() ? phrase : dictBase + " " + phrase;
         inputField.setText(t);
         inputField.setSelection(inputField.getText().length());
+        dictatedText = t.trim();
     }
 
     private void stopDictation() {
         if (!dictating) return;
         dictating = false;
+        dictateToSend = false;
         voice.stopListening();
         paintMic();
         actor.setMood(JoybotView.Mood.IDLE);
@@ -1625,7 +2180,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
             on.setColor(com.fadcam.ui.faditor.Studio.ARMED);
             mic.setBackground(on);
             mic.setImageTintList(android.content.res.ColorStateList.valueOf(com.fadcam.ui.faditor.Studio.GROUND));
-            inputField.setHint("Listening\u2026 tap the mic to stop, then Send");
+            inputField.setHint(handsFreeAnswering ? "Listening\u2026 say yes, undo, stop or no"
+                    : dictateToSend ? "Listening\u2026 stop talking and it sends"
+                    : "Listening\u2026 tap the mic to stop, then Send");
         } else {
             android.util.TypedValue tv = new android.util.TypedValue();
             getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true);
@@ -1646,6 +2203,109 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     // ── the slide flow ─────────────────────────────────────────────────────
+
+    // ── hands-free: the reply, the one listening window, the short words ──────
+
+    /** A voice request's reply: read aloud even with read-aloud off, then listen once if allowed. */
+    private void handsFreeSay(@NonNull String reply) {
+        final boolean listenAfter = !handsFreeUsed;
+        voice.speakNow(reply, () -> {
+            if (!handsFree || isFinishing() || isDestroyed()) return;
+            if (listenAfter) listenForAnswer(); else endHandsFree();
+        });
+    }
+
+    /** The one listening window after a voice reply: up to six seconds for a short answer. */
+    private void listenForAnswer() {
+        if (!handsFree || isFinishing() || isDestroyed()) return;
+        // No permission prompt in the middle of a reply: without the mic, hands-free just stops.
+        if (!micGranted() || !JoybotVoice.canListenInBackground(this)) { endHandsFree(); return; }
+        handsFreeUsed = true;
+        handsFreeAnswering = true;
+        handsFreeHeard = false;
+        dictating = true;
+        paintMic();
+        actor.setMood(JoybotView.Mood.LISTEN);
+        voice.startListening(new JoybotVoice.Ears() {
+            @Override public void onPartial(@NonNull String soFar) {
+                if (handsFreeAnswering) handsFreeHeard = true;
+            }
+
+            @Override public void onFinal(@Nullable String text) {
+                if (handsFreeAnswering) heardAnswer(text);
+            }
+
+            @Override public void onProblem(@NonNull String message) {
+                if (handsFreeAnswering) endHandsFree();
+            }
+        }, HANDS_FREE_GAP_MS);
+        handsFreeClock.postDelayed(handsFreeDeadline, HANDS_FREE_LISTEN_MS);
+    }
+
+    /** Six seconds went by: words already heard are let in; silence ends hands-free. */
+    private void handsFreeTimeUp() {
+        if (!handsFreeAnswering) return;
+        if (handsFreeHeard) voice.stopListening(); else endHandsFree();
+    }
+
+    /** What was said in the window: a short answer acts, anything else becomes a new request. */
+    private void heardAnswer(@Nullable String said) {
+        handsFreeAnswering = false;
+        handsFreeClock.removeCallbacks(handsFreeDeadline);
+        stopDictation();
+        String t = said == null ? "" : norm(said);
+        if (t.isEmpty()) { endHandsFree(); return; }
+        if (t.matches(VOICE_YES)) {
+            int how = sayYesToNewestCard();
+            // Pressed: hands-free stays on, so the card's reply is read and then it ends.
+            if (how == 1) return;
+            addBotMessage(how == 2 ? "Tap the button on that card to do it." : "Nothing is waiting for a yes right now.");
+            endHandsFree();
+            return;
+        }
+        if (t.matches(VOICE_UNDO)) { endHandsFree(); undoByWords(); return; }
+        if (t.matches(VOICE_STOP)) { stopWorking(); return; }
+        if (t.matches(VOICE_NO)) { endHandsFree(); addBotMessage("Okay."); return; }
+        // Anything else is a new request, sent as a dictated one is: its reply is read aloud.
+        inputField.setText(said.trim());
+        handsFreeFollow = true;
+        sendMessage();
+    }
+
+    /**
+     * "Yes" by voice presses the lead button of the NEWEST card on screen, if it has one. Returns 1
+     * when pressed, 2 when the newest card has no voice-safe lead (Export's card never does), 0 when
+     * there is no card.
+     */
+    private int sayYesToNewestCard() {
+        for (int i = messagesContainer.getChildCount() - 1; i >= 0; i--) {
+            View c = messagesContainer.getChildAt(i);
+            if (!JoybotChatViews.CARD_TAG.equals(c.getTag())) continue;
+            View lead = c.findViewWithTag(VOICE_LEAD);
+            if (lead == null || !lead.isEnabled()) return 2;
+            lead.performClick();
+            return 1;
+        }
+        return 0;
+    }
+
+    /** Hands-free is over: nothing more is listened for, and no reply is read on. */
+    private void endHandsFree() {
+        if (handsFree) voice.hush();
+        boolean listening = handsFreeAnswering || dictateToSend;
+        handsFree = false;
+        handsFreeAnswering = false;
+        handsFreeHeard = false;
+        handsFreeClock.removeCallbacks(handsFreeDeadline);
+        if (listening) stopDictation();
+    }
+
+    /** Any tap on the screen ends hands-free: the person is back at the phone. */
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
+        if (handsFree && ev.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) endHandsFree();
+        return super.dispatchTouchEvent(ev);
+    }
 
     /** Start "help me make a slide"; {@code kind} skips the first question when already known. */
     private void startSlideFlow(@Nullable String kind) {
@@ -1969,6 +2629,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         cancelled = true;
         JoybotJobs.cancel();
         voice.hush();
+        endHandsFree();
         JoybotAgent.cancel();
         addBotMessage("Stopped.");
         actor.setMood(JoybotView.Mood.IDLE);
@@ -2544,6 +3205,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             if ("narrative".equals(type)) { buildNarrativeCard(payload); return true; }
             if ("broll".equals(type)) { buildBrollCard(payload); return true; }
             if ("avatar_rig".equals(type)) { buildAvatarRigCard(payload); return true; }
+            if ("export".equals(type)) { buildExportCard(payload); return true; }
         } catch (Exception ignored) { }
         return false;
     }
@@ -2688,6 +3350,128 @@ public class ChatAssistantActivity extends AppCompatActivity {
         scrollToBottom();
     }
 
+    /**
+     * The export card (family "export", ExportActions.export_video). Joybot never starts an export: the card
+     * shows the settings, and only "Export now" starts the Studio's own export.
+     */
+    private void buildExportCard(@NonNull JSONObject payload) throws Exception {
+        final String projectId = payload.optString("projectId", "");
+        final String resolution = payload.optString("resolution", "Original");
+        final String quality = payload.optString("quality", "HIGH");
+        final boolean ranged = payload.has("fromMs") && payload.has("toMs");
+        final long fromMs = payload.optLong("fromMs", 0L);
+        final long toMs = payload.optLong("toMs", 0L);
+        String qualityWords = "LOW".equals(quality) ? "Low quality"
+                : "MEDIUM".equals(quality) ? "Medium quality" : "High quality";
+        String part = ranged ? formatClock(fromMs) + "–" + formatClock(toMs) : "full video";
+
+        LinearLayout card = newCardContainer();
+        addCardTitle(card, "Export the video?");
+        addCardSubtitle(card, resolution + " · " + qualityWords + " · " + part);
+        addExportCardButtons(card, v -> startExportFromCard(projectId, resolution, quality, ranged, fromMs, toMs));
+        messagesContainer.addView(card);
+        scrollToBottom();
+    }
+
+    /** Not now / Export now for the export card: the same row as addCardButtons, with its own labels. */
+    private void addExportCardButtons(@NonNull LinearLayout card, @NonNull View.OnClickListener exportNow) {
+        LinearLayout rowView = new LinearLayout(this);
+        rowView.setOrientation(LinearLayout.HORIZONTAL);
+        rowView.setPadding(0, dp(8), 0, 0);
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        Button notNow = new Button(this);
+        notNow.setText("Not now");
+        notNow.setLayoutParams(blp);
+        notNow.setContentDescription("Don't export the video now");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(notNow, "Don't export now");
+        notNow.setOnClickListener(v -> {
+            View sub = card.getChildAt(1);
+            if (sub instanceof TextView) ((TextView) sub).setText("Not exported.");
+            setCardEnabled(card, false);
+        });
+        Button go = new Button(this);
+        go.setText("Export now");
+        go.setLayoutParams(blp);
+        go.setContentDescription("Start the export now with these settings");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(go, "Start the export with these settings");
+        go.setOnClickListener(v -> { setCardEnabled(card, false); exportNow.onClick(v); });
+        rowView.addView(notNow);
+        rowView.addView(go);
+        card.addView(rowView);
+    }
+
+    /**
+     * "Export now" on the export card. Starts the export the Studio's Export button starts
+     * (FaditorEditorActivity.doStartOutOfProcessExport): the project is written to an export snapshot file,
+     * then ExportService gets ACTION_START_EXPORT with the same extras. Off the UI thread.
+     */
+    private void startExportFromCard(@NonNull String projectId, @NonNull String resolution,
+                                     @NonNull String quality, boolean ranged, long fromMs, long toMs) {
+        aiExecutor.execute(() -> {
+            String problem = null;
+            try {
+                com.fadcam.ui.faditor.project.ProjectStorage storage =
+                        new com.fadcam.ui.faditor.project.ProjectStorage(this);
+                storage.flushPendingWrites();
+                com.fadcam.ui.faditor.model.FaditorProject proj = storage.load(projectId);
+                if (proj == null) {
+                    problem = "I couldn't find this project any more, so nothing was exported.";
+                } else if (proj.getTimeline().getClipCount() == 0) {
+                    problem = "There is no video to export yet.";
+                } else {
+                    // The sheet's choices, set on the copy the export reads (the same fields the sheet sets).
+                    com.fadcam.ui.faditor.model.ExportSettings es = proj.getExportSettings();
+                    if (es != null) {
+                        com.fadcam.ui.faditor.model.ExportSettings.Resolution res =
+                                com.fadcam.ui.faditor.model.ExportSettings.Resolution.ORIGINAL;
+                        if ("1080p".equals(resolution)) res = com.fadcam.ui.faditor.model.ExportSettings.Resolution.FHD_1080P;
+                        else if ("720p".equals(resolution)) res = com.fadcam.ui.faditor.model.ExportSettings.Resolution.HD_720P;
+                        else if ("480p".equals(resolution)) res = com.fadcam.ui.faditor.model.ExportSettings.Resolution.SD_480P;
+                        es.setResolution(res);
+                        com.fadcam.ui.faditor.model.ExportSettings.Quality q =
+                                com.fadcam.ui.faditor.model.ExportSettings.Quality.HIGH;
+                        if ("MEDIUM".equals(quality)) q = com.fadcam.ui.faditor.model.ExportSettings.Quality.MEDIUM;
+                        else if ("LOW".equals(quality)) q = com.fadcam.ui.faditor.model.ExportSettings.Quality.LOW;
+                        es.setQuality(q);
+                    }
+                    // The snapshot file the Studio writes at export time (ExportService reads it and deletes it).
+                    java.io.File dir = new java.io.File(getFilesDir(), "faditor");
+                    //noinspection ResultOfMethodCallIgnored
+                    dir.mkdirs();
+                    java.io.File snapshot = new java.io.File(dir,
+                            "export_snapshot_" + System.currentTimeMillis() + ".json");
+                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(snapshot)) {
+                        fos.write(storage.toJson(proj).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    }
+                    android.content.Intent svc = new android.content.Intent(this,
+                            com.fadcam.ui.faditor.export.ExportService.class);
+                    svc.setAction(com.fadcam.ui.faditor.export.ExportService.ACTION_START_EXPORT);
+                    svc.putExtra(com.fadcam.ui.faditor.export.ExportService.EXTRA_PROJECT_SNAPSHOT_PATH,
+                            snapshot.getAbsolutePath());
+                    svc.putExtra(com.fadcam.ui.faditor.export.ExportService.EXTRA_AUDIO_ONLY, false);
+                    if (ranged) {
+                        svc.putExtra(com.fadcam.ui.faditor.export.ExportService.EXTRA_RANGE_START_MS, fromMs);
+                        svc.putExtra(com.fadcam.ui.faditor.export.ExportService.EXTRA_RANGE_END_MS, toMs);
+                    }
+                    // The loudness target the sheet last stored (the Studio reads the same key).
+                    svc.putExtra("extra_loudness_target", getSharedPreferences("faditor_export", MODE_PRIVATE)
+                            .getString("pending_loudness_target", "OFF"));
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        startForegroundService(svc);
+                    } else {
+                        startService(svc);
+                    }
+                }
+            } catch (Exception e) {
+                problem = "The export didn't start: " + e.getMessage();
+            }
+            final String result = problem;
+            runOnUiThread(() -> addBotMessage(result != null ? result
+                    : "Exporting — you'll see the progress bar in the Studio and lobby; it keeps going if you close me."));
+        });
+    }
+
     private void applyProposal(@NonNull String tool, @NonNull JSONObject args) {
         addBotMessage("⏳ Applying…");
         // Applying a card is its own request: its own undo step.
@@ -2705,6 +3489,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     private LinearLayout newCardContainer() {
         LinearLayout card = new LinearLayout(this);
+        card.setTag(JoybotChatViews.CARD_TAG);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackgroundResource(R.drawable.chat_bubble_bot);
         card.setPadding(dp(14), dp(12), dp(14), dp(12));
@@ -2880,6 +3665,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         AIChatState.chatActive = false;
         JoybotJobs.attach(null);
         JoybotAgent.detach(agentListener);
+        handsFreeClock.removeCallbacksAndMessages(null);
         if (voice != null) voice.release();
         aiExecutor.shutdownNow();
     }

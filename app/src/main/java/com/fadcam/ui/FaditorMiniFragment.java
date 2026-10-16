@@ -220,6 +220,7 @@ public class FaditorMiniFragment extends BaseFragment {
         // door lives on this main surface next to the editor branding.
         View btnAvatarStudio = view.findViewById(R.id.btn_avatar_studio);
         if (btnAvatarStudio != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnAvatarStudio, "Avatar Studio");
             btnAvatarStudio.setOnClickListener(v -> startActivity(new android.content.Intent(
                     requireContext(),
                     com.fadcam.ui.faditor.avatar.AvatarStudioActivity.class)));
@@ -228,6 +229,7 @@ public class FaditorMiniFragment extends BaseFragment {
         // Info icon → opens Faditor info bottom sheet
         View btnInfo = view.findViewById(R.id.btn_info);
         if (btnInfo != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnInfo, btnInfo.getContext().getString(R.string.video_menu_info));
             btnInfo.setOnClickListener(v -> {
                 FaditorInfoBottomSheet.newInstance()
                         .show(getChildFragmentManager(), "faditor_info");
@@ -255,12 +257,18 @@ public class FaditorMiniFragment extends BaseFragment {
 
         // Toggle selection mode
         if (btnSelectMode != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnSelectMode, btnSelectMode.getContext().getString(R.string.desc_select_mode));
+            btnSelectMode.setContentDescription(btnSelectMode.getContext().getString(R.string.desc_select_mode));
             btnSelectMode.setOnClickListener(v -> toggleSelectionMode());
         }
         if (btnCancelSelection != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnCancelSelection, btnCancelSelection.getContext().getString(R.string.desc_cancel_selection));
+            btnCancelSelection.setContentDescription(btnCancelSelection.getContext().getString(R.string.desc_cancel_selection));
             btnCancelSelection.setOnClickListener(v -> exitSelectionMode());
         }
         if (btnDeleteSelected != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnDeleteSelected, btnDeleteSelected.getContext().getString(R.string.desc_delete_selected));
+            btnDeleteSelected.setContentDescription(btnDeleteSelected.getContext().getString(R.string.desc_delete_selected));
             btnDeleteSelected.setOnClickListener(v -> confirmDeleteSelected());
         }
         if (cbSelectAll != null) {

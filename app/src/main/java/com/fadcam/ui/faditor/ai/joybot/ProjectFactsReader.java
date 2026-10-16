@@ -6,6 +6,9 @@ import android.net.Uri;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.fadcam.SharedPreferencesManager;
+import com.fadcam.data.VideoIndexRepository;
+import com.fadcam.ui.VideoItem;
 import com.fadcam.ui.faditor.ai.BRollBucket;
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
@@ -16,7 +19,9 @@ import com.fadcam.ui.faditor.sprite.SpriteSheet;
 import com.fadcam.ui.faditor.transcript.NamedTranscript;
 import com.fadcam.ui.faditor.transcript.TranscriptWord;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Reads a {@link FaditorProject} into the {@link ProjectFacts} Joybot reasons over.
@@ -120,7 +125,40 @@ public final class ProjectFactsReader {
             sf.animations = s.getPresets().size();
             f.sheets.add(sf);
         }
+        f.newestRecordingNotInProject = newestRecordingNotIn(context, tl);
         return f;
+    }
+
+    /**
+     * The newest Library video that no clip on this timeline comes from, by its name; "" if none.
+     * Off the main thread (the Library index may be read from disk). Any failure is "none".
+     */
+    @NonNull
+    private static String newestRecordingNotIn(@NonNull Context context, @Nullable Timeline tl) {
+        try {
+            Set<String> used = new HashSet<>();
+            if (tl != null) {
+                for (int i = 0; i < tl.getClipCount(); i++) {
+                    Clip c = tl.getClip(i);
+                    if (c != null && c.getSourceUri() != null) used.add(c.getSourceUri().toString());
+                }
+                for (AudioClip ac : tl.getAudioClips()) {
+                    if (ac != null && ac.getSourceUri() != null) used.add(ac.getSourceUri().toString());
+                }
+            }
+            VideoItem best = null;
+            List<VideoItem> library = VideoIndexRepository.getInstance(context)
+                    .getVideos(SharedPreferencesManager.getInstance(context));
+            for (VideoItem v : library) {
+                if (v == null || v.uri == null || v.mediaType != VideoItem.MediaType.VIDEO) continue;
+                if (v.isTemporary || v.isProcessingUri || v.isSkeleton) continue;
+                if (used.contains(v.uri.toString())) continue;
+                if (best == null || v.lastModified > best.lastModified) best = v;
+            }
+            return best == null ? "" : stripExt(best.displayName == null ? "" : best.displayName.trim());
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     @Nullable

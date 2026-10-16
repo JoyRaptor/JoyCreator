@@ -30913,6 +30913,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // header stays functionally intact underneath (the drawer dismisses with one gesture).
             root.addView(objectDrawer, lp);
             objectDrawer.setFrostSource(this::paintBehindDrawer);
+            objectDrawer.setUndoSink((label, redo, undo) ->
+                    undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo)));
             objectDrawer.setHeightListener(h -> {
                 objectDrawerHeightPx = h;
                 if (masterMeter != null) syncMasterMeterVisibility(masterMeter);

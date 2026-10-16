@@ -531,6 +531,11 @@ public final class ObjectDrawer extends LinearLayout {
 
     public void setOnClose(@Nullable Runnable r) { this.onClose = r; }
 
+    /** Where a header toggle's undo step goes (the editor's undo stack). */
+    public interface UndoSink { void record(@NonNull String label, @NonNull Runnable redo, @NonNull Runnable undo); }
+    @Nullable private UndoSink undoSink;
+    public void setUndoSink(@Nullable UndoSink sink) { this.undoSink = sink; }
+
     /**
      * Called after the visible tab changes — on {@link #show} and on every switch.
      *
@@ -1049,8 +1054,18 @@ public final class ObjectDrawer extends LinearLayout {
         toggleIcons.clear();
         for (Toggle t : toggles) {
             ImageView iv = iconButton(t.iconOff);
-            iv.setOnClickListener(v -> { t.onTap.run(); refreshIcons(); });
-            CharSequence name = t.label != null ? t.label : toggleLabel(getContext(), t.iconOff);
+            final CharSequence name = t.label != null ? t.label : toggleLabel(getContext(), t.iconOff);
+            iv.setOnClickListener(v -> {
+                boolean before = t.state.isOn();
+                t.onTap.run();
+                refreshIcons();
+                // One press, one undo step (owner rule). A header toggle flips a state, so the same
+                // tap run again is its own undo and its own redo.
+                if (undoSink != null && t.state.isOn() != before) {
+                    final Runnable flip = () -> { t.onTap.run(); refreshIcons(); };
+                    undoSink.record(name != null ? name.toString() : "", flip, flip);
+                }
+            });
             if (name != null) Kit.describe(iv, name);
             iconRow.addView(iv);
             toggleIcons.add(iv);

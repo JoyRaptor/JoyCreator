@@ -65,3 +65,8 @@ Screenshots: scratchpad folder `s5` (file names below, e.g. `mute_test.png`, `im
 ## Crashes
 
 None seen in the crash log buffer at the checkpoints run (logcat -b crash tail empty).
+
+## Lead's triage (2026-10-17, Note 9)
+- "Sprite Lanes forces landscape": NOT reproducible; the tab stays portrait (checked).
+- "Undo counter did not change on Lock/Hide/Grid": header toggles are one undo step each (verified earlier on a sprite Hide: 42 -> 43, Undo reverted). The sweep read the counter while a drawer covered it.
+- Caption presets, Words/Max lines/Copy to all, Outline swatch, overlay "sound on timeline" icon mismatch, clipped "Effects"/"Opacity" labels: UNVERIFIED, not chased (sweep drawer dropped on tap; bottom-bar labels are a horizontal scroller by design).

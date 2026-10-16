@@ -9,6 +9,9 @@ import cc.joycreator.joybrush.core.brush.VERSION_CONTACT
 import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
 import cc.joycreator.joybrush.core.brush.watercolourRuntime
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.CaptureDomain
+import cc.joycreator.joybrush.core.stroke.CapturedPaintDomains
+import cc.joycreator.joybrush.core.stroke.CapturedPhysicalSource
 import cc.joycreator.joybrush.core.vector.InkReplay
 import cc.joycreator.joybrush.core.vector.RecordedCel
 import cc.joycreator.joybrush.core.vector.RecordedEdits
@@ -472,6 +475,9 @@ class GlPaintEngine(
     // Active stroke.
     private var strokeLayer: Layer? = null
     private var strokePlan: RegionPaintPlan? = null
+    /** A completed begin, rather than equal brush/owner values, identifies one live contact. */
+    private var liveStrokeIdentity: Any? = null
+    private var liveSourceAdmissionTaken = false
     private var localBoardDocument: JbDocument? = null
     @set:JvmName("assignBoardDocument")
     var boardDocument: JbDocument?
@@ -1671,6 +1677,234 @@ class GlPaintEngine(
                                     internal val physicalEpoch: Long? = null)
 
     /**
+     * One actual live source, before any native/history publication. Domains use the engine's
+     * null shared address. With no region plan there is no invented document cel identity.
+     * This does not certify a raw recipe or frozen preset, or grant a source adoption capability.
+     */
+    internal class LiveRecordedSourceLease internal constructor(
+        val layerId: String,
+        val unit: RecordedLineUnit,
+        val domains: Map<String?, CapturedPhysicalSource>,
+        val capturedDomains: CapturedPaintDomains?,
+        val sharedDocumentCelId: String?,
+        val allocatedBytes: Long,
+        private var retire: (() -> Unit)?,
+    ) : AutoCloseable {
+        override fun close() {
+            val release = retire ?: return
+            retire = null
+            release()
+        }
+    }
+
+    /** Closing an unused ticket is CPU-only; neither close nor finish publishes artwork. */
+    internal class LiveRecordedSourceTicket internal constructor(
+        val layerId: String,
+        val domains: Map<String?, CapturedPhysicalSource>,
+        val capturedDomains: CapturedPaintDomains?,
+        val sharedDocumentCelId: String?,
+        private var extract: (() -> LiveRecordedSourceLease)?,
+    ) : AutoCloseable {
+        fun finish(): LiveRecordedSourceLease {
+            val finish = checkNotNull(extract) { "This live source ticket is already finished" }
+            // Even a refused finish consumes the ticket. A second ticket needs a new real begin.
+            extract = null
+            return finish()
+        }
+        override fun close() { extract = null }
+    }
+
+    /**
+     * Admit after the real begin and before its first allocated scratch tile. Runtime support
+     * is intentionally narrower than native painting; no replay-family claim is inferred here.
+     * GL thread only. The caller must explicitly cancel the live stroke after finishing/closing.
+     */
+    internal fun admitLiveRecordedSource(
+        layerId: String, workingTileBudgetBytes: Long = boardSnapshotAllowanceBytes,
+    ): LiveRecordedSourceTicket {
+        requireLocalPaint()
+        check(ready && !forgettingGraphicsContext && recordedScene == null) {
+            "Live source admission needs a current local context without a recorded scene"
+        }
+        require(workingTileBudgetBytes in 0L..boardSnapshotAllowanceBytes) { "Invalid live source tile budget" }
+        val identity = checkNotNull(liveStrokeIdentity) { "Begin the actual live stroke before admitting its source" }
+        check(!liveSourceAdmissionTaken && strokeTiles.isEmpty()) { "Admit one source ticket before the first live dab" }
+        val owner = checkNotNull(strokeLayer)
+        require(layers[layerId] === owner && !owner.isMask && owner.mask == null && !owner.clip &&
+            !hasMediaState(layerId) && !mediaStrokeInProgress && framePreviews.isEmpty() &&
+            tileBoardId == null && strokeTileRect == null && blend == StrokeBlend.NORMAL &&
+            opacity.isFinite() && opacity in 0f..1f &&
+            smudge == null && tuft == null && !wcFading && !wcPrepared &&
+            strokeIsRgba == (wcSpec != null)) { "This live stroke runtime needs its source adapter" }
+        val paper = checkNotNull(resolvedPaper) { "Live source capture needs resolved paper" }
+        require(paperWarnings.isEmpty() &&
+            (paper.look?.file == null || lookTexture?.let { it != 0 } == true) &&
+            (paper.surface?.file == null || surfaceTexture?.let { it != 0 } == true) &&
+            (paper.surface?.fluid == null || fluidTexture?.let { it != 0 } == true)) {
+            "Live source capture needs the actual paper resources"
+        }
+        val plan = strokePlan
+        check(owner.plan === plan) { "The actual live region plan changed" }
+        val captured = plan?.let { CapturedPaintDomains.prepare(it) }
+        if (plan != null) {
+            require(owner.sharedCel == plan.shared.celId && owner.cels[plan.shared.celId] === owner.tiles &&
+                plan.frames.all { owner.cels[it.celId] != null && owner.cels[it.celId] !== owner.tiles } &&
+                plan.frames.map { owner.cels.getValue(it.celId) }.let { stores ->
+                    stores.indices.all { i -> (0 until i).all { j -> stores[i] !== stores[j] } }
+                }) { "The live region plan needs its actual physical stores" }
+        }
+        val domains = java.util.Collections.unmodifiableMap(LinkedHashMap<String?, CapturedPhysicalSource>().also { result ->
+            if (captured == null) result[null] = CapturedPhysicalSource(CaptureDomain())
+            else captured.planes.forEach { result[it.engineCelId] = it.source }
+        })
+        val shared = owner.sharedCel
+        // Preview can rebuild disposable projection caches during this contact. Pin physical
+        // sources/plan/metadata; refresh all current projection bytes at final admission instead.
+        val ownerUnchanged = plainPromotionLayerCheck(owner, checkDerived = false)
+        val document = boardDocument
+        val documentJson = document?.let(DocJson::encode)
+        val expectedPaper = documentPaper
+        val loaded = loadedPaper
+        val resourceNames = listOf(lookTexture, surfaceTexture, fluidTexture)
+        val strokeLook = look
+        val options = wcSpec
+        val pass = wcPass
+        val parameters = listOf(colR, colG, colB, opacity, accumulate, blend, strokeIsRgba)
+        val cursor = undo.snapshotCursor()
+        val physical = physicalContextEpoch
+        val graphics = graphicsEpoch
+        fun checkCurrent() {
+            check(ready && !forgettingGraphicsContext && physicalContextEpoch == physical && graphicsEpoch == graphics &&
+                publishedPaint == null && !resettingJointPaint && !preparingPlainPromotion && recordedScene == null &&
+                liveStrokeIdentity === identity && strokeLayer === owner && layers[layerId] === owner &&
+                strokePlan === plan && ownerUnchanged() && undo.snapshotCursor() === cursor &&
+                boardDocument === document && document?.let(DocJson::encode) == documentJson &&
+                documentPaper == expectedPaper && resolvedPaper === paper && loadedPaper === loaded &&
+                listOf(lookTexture, surfaceTexture, fluidTexture) == resourceNames && paperWarnings.isEmpty() &&
+                look === strokeLook && wcSpec === options && wcPass === pass &&
+                parameters == listOf(colR, colG, colB, opacity, accumulate, blend, strokeIsRgba) &&
+                smudge == null && tuft == null && !wcFading && !mediaStrokeInProgress &&
+                framePreviews.isEmpty() && tileBoardId == null && strokeTileRect == null) {
+                "The admitted live stroke, owner, paper, history or context changed"
+            }
+        }
+        liveSourceAdmissionTaken = true
+        return LiveRecordedSourceTicket(layerId, domains, captured, shared) {
+            checkCurrent()
+            check(!wcPrepared) { "The live source was already pooled by another writer" }
+            val tileBytes = Math.multiplyExact(Math.multiplyExact(size.toLong(), size.toLong()), 4L)
+            val extra = Math.multiplyExact(strokeTiles.size.toLong(), tileBytes)
+            // WC finishInto allocates no targets. Its existing bands/helper and scratch, pools,
+            // native/history owners and previous staged sources are all counted before GL.
+            recordedWorkingTiles.admit(physical, recordedWorkingTileBytes(), extra, workingTileBudgetBytes)
+            copyLiveRecordedSource(layerId, domains, captured, shared, physical, extra, ::checkCurrent)
+        }
+    }
+
+    /** Copies the independently rendered scratch, including transparent allocation keys. */
+    private fun copyLiveRecordedSource(
+        layerId: String, domains: Map<String?, CapturedPhysicalSource>, captured: CapturedPaintDomains?,
+        shared: String?, physical: Long, allocatedBytes: Long, checkCurrent: () -> Unit,
+    ): LiveRecordedSourceLease {
+        val targets = LinkedHashMap<Long, Int>()
+        val borrowed = (protectedRecordedTextureHandles() - freeLayerTex.toSet()) +
+            recordedWorkingTiles.snapshot(physical).keys
+        fun current() = ready && !forgettingGraphicsContext && physicalContextEpoch == physical
+        var failure: Throwable? = null
+        var succeeded = false
+        var untrackedOutput = 0
+        fun discardOutputs(primary: Throwable) {
+            try {
+                for (texture in (targets.values + untrackedOutput).filter { it != 0 && it !in borrowed }.distinct()) {
+                    if (!current()) return
+                    try {
+                        GLES30.glDeleteTextures(1, intArrayOf(texture), 0)
+                        recordedWorkingTiles.forget(physical, texture)
+                    } catch (cleanup: Throwable) {
+                        if (cleanup !== primary) try { primary.addSuppressed(cleanup) } catch (_: Throwable) { }
+                    }
+                }
+            } catch (cleanup: Throwable) {
+                if (cleanup !== primary) try { primary.addSuppressed(cleanup) } catch (_: Throwable) { }
+            }
+        }
+        try {
+            checkCurrent()
+            if (strokeTiles.isNotEmpty()) {
+                GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+                GLES30.glBindBuffer(GLES30.GL_PIXEL_UNPACK_BUFFER, 0)
+                GLES30.glPixelStorei(GLES30.GL_UNPACK_ALIGNMENT, 1)
+                GLES30.glPixelStorei(GLES30.GL_UNPACK_ROW_LENGTH, 0)
+                GLES30.glPixelStorei(GLES30.GL_UNPACK_SKIP_ROWS, 0)
+                GLES30.glPixelStorei(GLES30.GL_UNPACK_SKIP_PIXELS, 0)
+                if (wcSpec != null) {
+                    checkNotNull(wcPass).finishInto(strokeTiles, 1f)
+                    check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Live watercolor pooling failed" }
+                    checkCurrent()
+                    // A later copy failure leaves fully pooled scratch for explicit cancel.
+                    wcPrepared = true
+                }
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+                GLES30.glViewport(0, 0, size, size)
+                GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+                GLES30.glDisable(GLES30.GL_BLEND)
+                commitProg.use()
+                setCommitUniforms(layerOpacity = 1f)
+                GLES30.glBindVertexArray(tileVao)
+                for ((key, source) in strokeTiles) {
+                    checkCurrent()
+                    val output = newLayerTile()
+                    untrackedOutput = output
+                    targets[key] = output
+                    untrackedOutput = 0
+                    require(output != 0 && output !in borrowed && output !in floatNames &&
+                        targets.values.count { it == output } == 1) { "Live source allocation aliased an existing owner" }
+                    initializeTile(output, null, false)
+                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+                    attach(output)
+                    check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) {
+                        "Live source framebuffer is unavailable"
+                    }
+                    val ox = Tiles.tx(key).toFloat() * size
+                    val oy = Tiles.ty(key).toFloat() * size
+                    GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), ox, oy)
+                    GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
+                    bindTextures(clearTex, source)
+                    GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+                    check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Live source copy failed" }
+                }
+            }
+            checkCurrent()
+            val unit = RecordedLineUnit("normal", java.util.Collections.unmodifiableMap(LinkedHashMap(targets)), physical)
+            recordedWorkingTiles.register(physical, unit.tiles.values, Math.multiplyExact(size.toLong() * size, 4L))
+            val lease = LiveRecordedSourceLease(layerId, unit, domains, captured, shared, allocatedBytes) {
+                discardRecordedLine(unit)
+            }
+            succeeded = true
+            return lease
+        } catch (primary: Throwable) {
+            failure = primary
+            throw primary
+        } finally {
+            if (current()) {
+                if (!succeeded) failure?.let(::discardOutputs)
+                if (strokeTiles.isNotEmpty()) try {
+                    GLES30.glBindVertexArray(0)
+                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+                    GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+                } catch (cleanup: Throwable) {
+                    val primary = failure
+                    if (primary == null) {
+                        discardOutputs(cleanup)
+                        throw cleanup
+                    }
+                    if (cleanup !== primary) try { primary.addSuppressed(cleanup) } catch (_: Throwable) { }
+                }
+            }
+        }
+    }
+
+    /**
      * Replay through this context's live stamping and watercolor paths, without publishing pixels or history.
      * The returned RGBA8 units include stroke opacity once and retain the brush's operator separately.
      * Caller owns every returned texture until it is committed or discarded. Final cel clipping is the composer's job.
@@ -2761,7 +2995,9 @@ class GlPaintEngine(
     }
 
     /** Captures every surviving owner's mutable metadata, map identities and detached contents. */
-    private fun plainPromotionLayerCheck(owner: Layer): () -> Boolean {
+    private fun plainPromotionLayerCheck(owner: Layer): () -> Boolean = plainPromotionLayerCheck(owner, true)
+
+    private fun plainPromotionLayerCheck(owner: Layer, checkDerived: Boolean): () -> Boolean {
         val tiles = owner.tiles.toMap()
         val cels = owner.cels.toMap(); val celContents = cels.mapValues { it.value.toMap() }
         val floats = owner.floats.toMap(); val floatContents = floats.mapValues { it.value.toMap() }
@@ -2781,7 +3017,7 @@ class GlPaintEngine(
                 owner.celFloats.keys == payloads.keys && payloads.all { (cel, stores) ->
                     owner.celFloats[cel] === stores && stores.keys == payloadStores.getValue(cel).keys &&
                         payloadStores.getValue(cel).all { (id, map) -> stores[id] === map && map == payloadContents.getValue(cel)[id] }
-                } && owner.projected == projected && owner.visibleProjection === visible && visible == visibleContents &&
+                } && (!checkDerived || (owner.projected == projected && owner.visibleProjection === visible && visible == visibleContents)) &&
                 owner.plan === plan && plan?.frames == planFrames && owner.sharedCel == shared && owner.mask === mask &&
                 (maskCheck?.invoke() != false) &&
                 metadata == listOf(owner.clip, owner.name, owner.opacity, owner.visible, owner.blend)
@@ -3422,6 +3658,8 @@ class GlPaintEngine(
                 }
             } catch (e: Throwable) { cancelStroke(); throw e }
         }
+        liveStrokeIdentity = Any()
+        liveSourceAdmissionTaken = false
     }
 
     /** The cap every dab of the active stroke should carry (see Accumulate). */
@@ -3612,6 +3850,7 @@ class GlPaintEngine(
     /** Commits the active stroke into its layer as one undoable step. Returns tiles changed. */
     fun endStroke(): Int {
         requireLocalPaint()
+        liveStrokeIdentity = null
         val layer = strokeLayer ?: return 0
         val options = wcSpec
         if(options != null && !wcPrepared) {
@@ -3690,6 +3929,7 @@ class GlPaintEngine(
     }
 
     fun cancelStroke() {
+        liveStrokeIdentity = null
         wcPass?.clearStroke(); wcSpec=null; wcPrepared=false; wcFading=false
         releaseStrokeTiles()
         strokeLayer = null

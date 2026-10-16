@@ -84,7 +84,7 @@ public final class FaditorToolRegistry {
         add(t, "visualizer", R.id.tool_visualizer, R.id.tool_visualizer_icon, R.id.tool_visualizer_label,
                 // graphic_eq, not music_note: Beats already wears the note, and the owner tells
                 // tools apart by their icon. Two tools, one glyph, is one tool too few to find.
-                "Visualizer", "graphic_eq",
+                ctx.getString(R.string.studio_tool_visualizer), "graphic_eq",
                 FaditorTool.BindMode.CLICK, false);
         // "closed_caption" is the CC badge, which is literally what captions ARE. It was on
         // Transcript, where it meant nothing, while Captions wore "subtitles" — a stack of
@@ -109,13 +109,13 @@ public final class FaditorToolRegistry {
                 ctx.getString(R.string.faditor_tool_silence), "cleaning_services",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "fix_audio", R.id.tool_fix_audio, R.id.tool_fix_audio_icon, R.id.tool_fix_audio_label,
-                "Fix audio", "auto_fix_high",
+                ctx.getString(R.string.studio_tool_fix_audio), "auto_fix_high",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "beats", R.id.tool_beats, R.id.tool_beats_icon, R.id.tool_beats_label,
-                "Beats", "music_note",
+                ctx.getString(R.string.studio_tool_beats), "music_note",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "align", R.id.tool_align, R.id.tool_align_icon, R.id.tool_align_label,
-                "Align", "compare_arrows",
+                ctx.getString(R.string.studio_tool_align), "compare_arrows",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "loop", R.id.tool_loop, R.id.tool_loop_icon, R.id.tool_loop_label,
                 ctx.getString(R.string.faditor_tool_loop), "loop",
@@ -131,7 +131,7 @@ public final class FaditorToolRegistry {
         // shapes. See FaditorTool.TEXT_ICON. This tool no longer creates a layer either —
         // that lives in Add, where the user went looking for it.
         add(t, "adjustment", R.id.tool_adjustment, R.id.tool_adjustment_icon,
-                R.id.tool_adjustment_label, "Adjust", FaditorTool.TEXT_ICON + "FX",
+                R.id.tool_adjustment_label, ctx.getString(R.string.studio_tool_adjust), FaditorTool.TEXT_ICON + "FX",
                 FaditorTool.BindMode.CLICK, false);
         // Slice F: compact lanes — drop every overlay into the fewest no-overlap lanes.
         // "Consolidate layers" over "Compact": longer, but it names the OBJECT it acts on.
@@ -141,11 +141,11 @@ public final class FaditorToolRegistry {
                 // clipped to "onsolidate la" in a 68dp cell even at the 7sp autosize floor -
                 // and a centre-clipped label loses BOTH ends, which is worse than a short one.
                 // The full name survives everywhere it has room.
-                "Consolidate", "compress",
+                ctx.getString(R.string.studio_tool_consolidate), "compress",
                 FaditorTool.BindMode.CLICK, false);
         // G8: marquee multi-select mode toggle (off / inclusive-crossing / exclusive-window).
         add(t, "select", R.id.tool_select, R.id.tool_select_icon, R.id.tool_select_label,
-                "Select", "highlight_alt",
+                ctx.getString(R.string.studio_tool_select), "highlight_alt",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "settings", R.id.tool_settings, R.id.tool_settings_icon, R.id.tool_settings_label,
                 ctx.getString(R.string.faditor_tool_settings), "settings",

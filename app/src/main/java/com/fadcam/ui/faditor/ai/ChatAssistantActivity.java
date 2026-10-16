@@ -868,7 +868,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
             nothing else. After a tool result, say in one or two sentences what changed. Call \
             several tools one at a time. For big or destructive changes (deleting clips, \
             reordering, dropping parts) propose first and wait for a yes, unless they asked for \
-            exactly that. Every request you carry out is one undo step for them.
+            exactly that. Every request you carry out is ONE undo step for them, however many \
+            tools it took: one Undo takes back all of it. Never say each change is its own undo step.
 
             You can SEE the project: the look tool shows you a sprite sheet (cells numbered), a \
             picture layer or a video frame. Before naming, labelling, describing or choosing \

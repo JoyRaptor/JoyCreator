@@ -57,7 +57,15 @@ public final class JoybotAgent {
     private static final String TAG = "JoybotAgent";
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
-    private static final OkHttpClient HTTP = new OkHttpClient();
+    /**
+     * Read timeout 90 s, not OkHttp's 10: a free "reasoning" model can think in silence for longer
+     * than that mid-stream, and the request died after six good tool calls (Note 9, 2026-10-16).
+     */
+    private static final OkHttpClient HTTP = new OkHttpClient.Builder()
+            .connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build();
 
     public static final int MAX_TOOL_ROUNDS = 8;
     /**
@@ -342,6 +350,8 @@ public final class JoybotAgent {
         boolean opened = true;
         /** The model proposed a plan this round: show it and stop (it waits for Go ahead). */
         boolean planShown;
+        /** open_room ran: the chat is leaving, so the request ends with its words. */
+        boolean navigated;
         /** The last tool only put a confirm card on screen (export…): nothing has happened yet. */
         boolean cardWaiting;
         /** The tool round in progress (0-based). */
@@ -466,6 +476,12 @@ public final class JoybotAgent {
                                 .put("content", line == null ? "Error: that call could not run." : lastResult));
                     }
                     if (planShown) { finish(true, PLAN_SHOWN); return; }
+                    if (navigated) {
+                        // The chat is leaving for another room: anything the model said next would
+                        // go to a closed screen ("You're in Sprite Lab. You can…", Note 9, 10-16).
+                        finish(true, lastResult);
+                        return;
+                    }
                     if (sight != null) {
                         // A tool answer can't carry a picture, so the look's picture rides on a
                         // user message right after it (this request only).
@@ -632,7 +648,13 @@ public final class JoybotAgent {
             }
             if (DirectRunner.isFailure(result)) lastError = result;
             else if (wrote) out.calls.add(new Idea.Step(name, com.fadcam.ui.faditor.ai.actions.StudioActions.toMap(args)));
-            lastResult = result;
+            if ("open_room".equals(name) && !DirectRunner.isFailure(result)) navigated = true;
+            // A refusal is an answer, not a puzzle: a free model refused add_motion on a linked
+            // layer and then reordered the lanes to get round it — a change nobody asked for
+            // (Note 9, 2026-10-16). Say so to the model right where it reads the refusal.
+            lastResult = DirectRunner.isFailure(result) ? result + "\n(That did NOT happen. Don't make a"
+                    + " different change to get round it: tell the person in one sentence what stopped it"
+                    + " and what they can do, then carry on with the rest of their request.)" : result;
             return name + " → " + result;
         }
 

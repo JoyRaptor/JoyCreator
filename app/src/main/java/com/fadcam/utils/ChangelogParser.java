@@ -2,6 +2,7 @@ package com.fadcam.utils;
 
 import com.fadcam.Log;
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.Studio;
 import android.text.Html;
 import android.text.Spanned;
 import java.io.BufferedReader;
@@ -22,7 +23,21 @@ public class ChangelogParser {
     // This was anonfaded/FadCam's CHANGELOG, so the update sheet showed another app's release notes.
     // Missing file = no notes shown, never the wrong ones.
     private static final String CHANGELOG_URL = "https://raw.githubusercontent.com/JoyRaptor/JoyCreator/joy-creator/CHANGELOG.md";
-    private static final String HEADER_COLOR = "#E43C3C"; // Red color for headers
+    // The changelog's colours come from the Studio tokens (one place of truth), written out as CSS.
+    private static String css(int argb) { return String.format("#%06X", argb & 0xFFFFFF); }
+    private static String rgb(int argb) {
+        return ((argb >> 16) & 0xFF) + ", " + ((argb >> 8) & 0xFF) + ", " + (argb & 0xFF);
+    }
+    private static final String HEADER_COLOR = css(Studio.INK);   // headings are structure: ink, not accent
+    private static final String C_INK = css(Studio.INK);
+    private static final String C_DIM = css(Studio.INK_DIM);
+    private static final String C_RAISED = css(Studio.RAISED);
+    private static final String C_PANEL = css(Studio.PANEL);
+    private static final String C_LINE = css(Studio.LINE);
+    private static final String C_GO = css(Studio.GO);
+    private static final String C_GO_END = css(Studio.GO_END);
+    private static final String C_GO_RGB = rgb(Studio.GO);
+    private static final String C_ON_GO = css(Studio.ON_GO);
 
     /**
      * Fetches the changelog from GitHub and returns it as a CompletableFuture<String>
@@ -91,31 +106,31 @@ public class ChangelogParser {
         html.append("<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'>")
             .append("<style>")
             .append("* { margin: 0; padding: 0; box-sizing: border-box; }")
-            .append("body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #E0E0E0; font-size: 13px; }")
-            .append("table { width: 100%; border-collapse: collapse; margin: 12px 0; background: #1a1a1a; border-radius: 8px; overflow: hidden; font-size: 12px; }")
-            .append("thead { background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%); position: sticky; top: 0; z-index: 10; }")
+            .append("body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: " + C_INK + "; font-size: 13px; }")
+            .append("table { width: 100%; border-collapse: collapse; margin: 12px 0; background: " + C_PANEL + "; border-radius: 8px; overflow: hidden; font-size: 12px; }")
+            .append("thead { background: linear-gradient(135deg, " + C_PANEL + " 0%, " + C_RAISED + " 100%); position: sticky; top: 0; z-index: 10; }")
             .append("thead tr:first-child th:first-child { border-radius: 8px 0 0 0; }")
             .append("thead tr:first-child th:last-child { border-radius: 0 8px 0 0; }")
             .append("tbody tr:last-child td:first-child { border-radius: 0 0 0 8px; }")
             .append("tbody tr:last-child td:last-child { border-radius: 0 0 8px 0; }")
-            .append("th { padding: 8px 6px; text-align: left; color: #E43C3C; font-weight: 600; font-size: 12px; border-bottom: 2px solid #E43C3C; white-space: nowrap; }")
-            .append("th:last-child { color: #4CAF50; background: rgba(76, 175, 80, 0.12); border-bottom: 2px solid #4CAF50; }")
-            .append("td { padding: 6px 8px; border-bottom: 1px solid #333333; color: #E0E0E0; word-break: break-word; font-size: 12px; }")
-            .append("tbody tr:hover { background: rgba(228, 60, 60, 0.08); }")
-            .append("tbody tr:hover td.improvement-cell { background: rgba(76, 175, 80, 0.2) !important; }")
-            .append("tbody td.improvement-cell { background: rgba(76, 175, 80, 0.15) !important; color: #4CAF50; font-weight: 500; }")
-            .append(".fa-external-link-alt { color: #4CAF50; margin-left: 4px; font-size: 10px; }")
+            .append("th { padding: 8px 6px; text-align: left; color: " + C_DIM + "; font-weight: 600; font-size: 12px; border-bottom: 2px solid " + C_LINE + "; white-space: nowrap; }")
+            .append("th:last-child { color: " + C_GO + "; background: rgba(" + C_GO_RGB + ", 0.12); border-bottom: 2px solid " + C_GO + "; }")
+            .append("td { padding: 6px 8px; border-bottom: 1px solid " + C_LINE + "; color: " + C_INK + "; word-break: break-word; font-size: 12px; }")
+            .append("tbody tr:hover { background: rgba(" + C_GO_RGB + ", 0.08); }")
+            .append("tbody tr:hover td.improvement-cell { background: rgba(" + C_GO_RGB + ", 0.2) !important; }")
+            .append("tbody td.improvement-cell { background: rgba(" + C_GO_RGB + ", 0.15) !important; color: " + C_GO + "; font-weight: 500; }")
+            .append(".fa-external-link-alt { color: " + C_GO + "; margin-left: 4px; font-size: 10px; }")
             .append("tbody tr:last-child td { border-bottom: none; }")
-            .append(".fa-arrow-up, .fa-arrow-down { color: #4CAF50; margin-right: 4px; font-size: 11px; }")
+            .append(".fa-arrow-up, .fa-arrow-down { color: " + C_GO + "; margin-right: 4px; font-size: 11px; }")
             .append(".thank-you-section { margin-top: 20px; padding: 20px 18px; text-align: center; animation: fadeSlideIn 0.8s ease-out forwards; opacity: 0; animation-delay: 800ms; }")
-            .append(".thank-you-text { font-size: 14px; color: #A0A0A0; line-height: 1.6; }")
-            .append(".tree { background: linear-gradient(180deg, #AA1F1F, #661111, #AA1F1F); background-size: 100% 200%; animation: flow 4s ease-in-out infinite, glow 3s ease-in-out infinite; }")
+            .append(".thank-you-text { font-size: 14px; color: " + C_DIM + "; line-height: 1.6; }")
+            .append(".tree { background: linear-gradient(180deg, " + C_GO + ", " + C_GO_END + ", " + C_GO + "); background-size: 100% 200%; animation: flow 4s ease-in-out infinite, glow 3s ease-in-out infinite; }")
             .append(".fade-in { animation: fadeSlideIn 0.6s ease-out forwards; opacity: 0; }")
             .append("@keyframes fadeSlideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }")
             .append("@keyframes flow { 0%, 100% { background-position: 100% 0%; } 50% { background-position: 0% 100%; } }")
-            .append("@keyframes glow { 0%, 100% { text-shadow: 0 0 10px rgba(228, 60, 60, 0.5); } 50% { text-shadow: 0 0 20px rgba(228, 60, 60, 0.8); } }")
+            .append("@keyframes glow { 0%, 100% { text-shadow: 0 0 10px rgba(" + C_GO_RGB + ", 0.5); } 50% { text-shadow: 0 0 20px rgba(" + C_GO_RGB + ", 0.8); } }")
             .append(".table-container { margin: 12px 18px; overflow-x: auto; }")
-            .append("@keyframes progressPulse { 0% { box-shadow: inset 0 0 0px rgba(76, 175, 80, 0.5); } 50% { box-shadow: inset 0 0 20px rgba(76, 175, 80, 0.8); } 100% { box-shadow: inset 0 0 0px rgba(76, 175, 80, 0.5); } }")
+            .append("@keyframes progressPulse { 0% { box-shadow: inset 0 0 0px rgba(" + C_GO_RGB + ", 0.5); } 50% { box-shadow: inset 0 0 20px rgba(" + C_GO_RGB + ", 0.8); } 100% { box-shadow: inset 0 0 0px rgba(" + C_GO_RGB + ", 0.5); } }")
             .append("@keyframes slideGradient { 0% { background-position: -200% 0%; } 100% { background-position: 200% 0%; } }")
             .append("</style>")
             .append("<script>")
@@ -159,7 +174,7 @@ public class ChangelogParser {
                     inTreeSection = false;
                 }
                 html.append("<div style='height:8px;'></div>")
-                    .append("<hr class='fade-in' style='border:none;border-top:1px solid #444444;margin:0 12px;animation-delay:").append(animationDelay).append("ms;'>")
+                    .append("<hr class='fade-in' style='border:none;border-top:1px solid " + C_LINE + ";margin:0 12px;animation-delay:").append(animationDelay).append("ms;'>")
                     .append("<div style='height:8px;'></div>");
                 animationDelay += 50;
             }
@@ -225,7 +240,7 @@ public class ChangelogParser {
             else if (line.startsWith("- ")) {
                 String bulletText = line.substring(2);
                 bulletText = processInlineFormatting(bulletText);
-                html.append("<div class='fade-in' style='margin:2px 0; padding-left:40px;animation-delay:").append(animationDelay).append("ms;'><font color='#A0A0A0'>")
+                html.append("<div class='fade-in' style='margin:2px 0; padding-left:40px;animation-delay:").append(animationDelay).append("ms;'><font color='" + C_DIM + "'>")
                     .append("• ").append(bulletText)
                     .append("</font></div>");
                 animationDelay += 40;
@@ -262,17 +277,17 @@ public class ChangelogParser {
         // Process links first: [text](url) → <a href="url">text <i class="fas fa-external-link-alt"></i></a>
         // Pattern: [text](url)
         text = text.replaceAll("\\[([^\\]]+)\\]\\(([^\\)]+)\\)", 
-            "<a href='$2' style='color:#4CAF50;text-decoration:none;font-weight:bold;'>$1&nbsp;<i class='fas fa-external-link-alt'></i></a>");
+            "<a href='$2' style='color:" + C_GO + ";text-decoration:none;font-weight:bold;'>$1&nbsp;<i class='fas fa-external-link-alt'></i></a>");
         
         // Process backticks (code blocks)
         // Pattern: `code` → <code style="...">code</code>
         text = text.replaceAll("`([^`]+)`", 
-            "<code style='background-color:#333333;color:#00FF00;padding:2px 4px;border-radius:3px;font-family:monospace;font-size:11px;'>$1</code>");
+            "<code style='background-color:" + C_LINE + ";color:" + C_GO + ";padding:2px 4px;border-radius:3px;font-family:monospace;font-size:11px;'>$1</code>");
         
         // Process bold (**bold**) 
         // Pattern: **bold** → <b style="color:white;">bold</b>
         text = text.replaceAll("\\*\\*([^\\*]+)\\*\\*", 
-            "<b style='color:#FFFFFF;'>$1</b>");
+            "<b style='color:" + C_INK + ";'>$1</b>");
         
         return text;
     }
@@ -402,7 +417,7 @@ public class ChangelogParser {
         for (int i = 0; i < headers.length; i++) {
             boolean isLastColumn = (i == headers.length - 1);
             if (isLastColumn) {
-                tableHtml.append("<th style='background: rgba(76, 175, 80, 0.12); color: #4CAF50;'>");
+                tableHtml.append("<th style='background: rgba(" + C_GO_RGB + ", 0.12); color: " + C_GO + ";'>");
             } else {
                 tableHtml.append("<th>");
             }

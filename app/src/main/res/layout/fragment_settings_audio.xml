@@ -27,15 +27,15 @@
             android:padding="2dp"
             android:src="@drawable/ic_close"
             android:contentDescription="@string/watch_back_desc"
-            android:tint="@android:color/white"/>
+            android:tint="@color/s_ink_dim"/>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/settings_audio_title"
-            android:textSize="20sp"
-            android:textStyle="bold"
+            android:textSize="19sp"
+            android:fontFamily="@font/joy_display"
             android:layout_marginStart="12dp"
-            android:textColor="@android:color/white"/>
+            android:textColor="@color/s_ink"/>
     </LinearLayout>
 
     <ScrollView
@@ -74,14 +74,14 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:src="@drawable/ic_audio"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/row_record_audio_title"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
+                    android:fontFamily="@font/joy_body"
+                    android:textSize="14sp"
                     android:textColor="?attr/colorHeading"/>
                 <TextView
                     android:id="@+id/value_record_audio"
@@ -89,7 +89,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="0.5"
                     android:text="-"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="13sp"
                     android:gravity="end"/>
                 <ImageView
@@ -97,7 +97,7 @@
                     android:layout_height="14dp"
                     android:layout_marginStart="12dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <View style="@style/SettingsDivider" />
 
@@ -110,14 +110,14 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:src="@drawable/ic_mic"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/row_input_source_title"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
+                    android:fontFamily="@font/joy_body"
+                    android:textSize="14sp"
                     android:textColor="?attr/colorHeading"/>
                 <TextView
                     android:id="@+id/value_audio_input_source"
@@ -125,7 +125,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="0.5"
                     android:text="-"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="13sp"
                     android:gravity="end"/>
                 <ImageView
@@ -133,7 +133,7 @@
                     android:layout_height="14dp"
                     android:layout_marginStart="12dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <View style="@style/SettingsDivider" />
 
@@ -146,14 +146,14 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:src="@drawable/ic_volume_off_24"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/row_noise_suppression_title"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
+                    android:fontFamily="@font/joy_body"
+                    android:textSize="14sp"
                     android:textColor="?attr/colorHeading"/>
                 <TextView
                     android:id="@+id/value_noise_suppression"
@@ -161,7 +161,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="0.5"
                     android:text="-"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="13sp"
                     android:gravity="end"/>
                 <ImageView
@@ -169,7 +169,7 @@
                     android:layout_height="14dp"
                     android:layout_marginStart="12dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <View style="@style/SettingsDivider" />
 
@@ -182,28 +182,28 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:src="@drawable/ic_settings"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/settings_advanced_title"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
+                    android:fontFamily="@font/joy_body"
+                    android:textSize="14sp"
                     android:textColor="?attr/colorHeading"/>
                 <TextView
                     android:id="@+id/value_audio_advanced"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="-"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="13sp"/>
                 <ImageView
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:layout_marginStart="12dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <!-- Removed trailing divider under last row -->
             </LinearLayout> <!-- end group_card_audio -->

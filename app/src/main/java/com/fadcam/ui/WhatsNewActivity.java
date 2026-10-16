@@ -4,12 +4,10 @@ import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.view.View;
-import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.webkit.WebView;
@@ -24,7 +22,9 @@ import androidx.core.view.WindowCompat;
 import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
 import com.fadcam.utils.ChangelogParser;
-import com.google.android.material.button.MaterialButton;
+import com.fadcam.ui.faditor.SheetKit;
+import com.fadcam.ui.faditor.Studio;
+import com.fadcam.ui.type.Type;
 
 /**
  * What's New Screen - Full-screen activity showing latest changes
@@ -37,8 +37,8 @@ public class WhatsNewActivity extends AppCompatActivity {
     
     private WebView changelogWebView;
     private TextView countdownText;
-    private MaterialButton btnGotIt;
-    private ImageButton btnClose;
+    private TextView btnGotIt;
+    private View btnClose;
     private CountDownTimer countdownTimer;
     private View shimmerContainer;
     private ProgressBar scrollProgressBar;
@@ -51,8 +51,8 @@ public class WhatsNewActivity extends AppCompatActivity {
         // Set edge-to-edge display and status bar color
         // Use AndroidX wrapper for Android 10+ compatibility
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-        getWindow().setStatusBarColor(0xFF000000); // Full black
-        getWindow().setNavigationBarColor(0xFF000000); // Full black
+        getWindow().setStatusBarColor(Studio.GROUND);
+        getWindow().setNavigationBarColor(Studio.GROUND);
 
         // Initialize views
         changelogWebView = findViewById(R.id.changelogWebView);
@@ -61,6 +61,15 @@ public class WhatsNewActivity extends AppCompatActivity {
         btnGotIt = findViewById(R.id.btnGotIt);
         shimmerContainer = findViewById(R.id.shimmerContainer);
         scrollProgressBar = findViewById(R.id.scrollProgressBar);
+
+        Type.display((TextView) findViewById(R.id.whatsNewTitle), Type.EXTRA);
+        Type.body((TextView) findViewById(R.id.whatsNewIntro), Type.REGULAR);
+        Type.body((TextView) findViewById(R.id.whatsNewReenable), Type.REGULAR);
+        if (countdownText != null) Type.mono(countdownText, Type.REGULAR);
+        if (btnGotIt != null) {
+            Type.body(btnGotIt, Type.BOLD);
+            SheetKit.label(btnGotIt, btnGotIt.getText());
+        }
 
         // Configure WebView
         if (changelogWebView != null) {
@@ -92,24 +101,12 @@ public class WhatsNewActivity extends AppCompatActivity {
             });
         }
 
-        // Set gradient background
-        View rootView = findViewById(R.id.whatsNewRoot);
-        if (rootView != null) {
-            GradientDrawable gradient = new GradientDrawable();
-            gradient.setOrientation(GradientDrawable.Orientation.TOP_BOTTOM);
-            gradient.setColors(new int[]{
-                    0xFF1a1a1a, // Dark gray
-                    0xFF0d0d0d  // Very dark gray
-            });
-            rootView.setBackground(gradient);
-        }
-
         // Load and display offline changelog
         loadOfflineChangelog();
 
         // Close button listener
         if (btnClose != null) {
-            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnClose, btnClose.getContext().getString(R.string.desc_close));
+            SheetKit.label(btnClose, btnClose.getContext().getString(R.string.desc_close));
             btnClose.setOnClickListener(v -> {
                 navigateToHome();
             });
@@ -185,9 +182,11 @@ public class WhatsNewActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     if (changelogWebView != null) {
                         // Wrap HTML with proper styling and margins
+                        String ink = String.format("#%06X", Studio.INK & 0xFFFFFF);
+                        String accent = String.format("#%06X", Studio.GO & 0xFFFFFF);
                         String htmlContent = "<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'><style>" +
-                            "body { color: #E0E0E0; background: transparent; font-family: sans-serif; margin: 0; padding: 0 12px; font-size: 12px; line-height: 1.4; } " +
-                            "a { color: #4CAF50; } " +
+                            "body { color: " + ink + "; background: transparent; font-family: sans-serif; margin: 0; padding: 0 12px; font-size: 12px; line-height: 1.4; } " +
+                            "a { color: " + accent + "; } " +
                             "</style></head><body>" +
                             formattedChangelog +
                             "</body></html>";
@@ -227,7 +226,8 @@ public class WhatsNewActivity extends AppCompatActivity {
             public void onTick(long millisUntilFinished) {
                 long secondsLeft = (millisUntilFinished + 999) / 1000;
                 if (countdownText != null) {
-                    countdownText.setText("Ready in " + secondsLeft + " second" + (secondsLeft == 1 ? "" : "s") + "...");
+                    countdownText.setText(getResources().getQuantityString(
+                            R.plurals.legacyv2_whatsnew_ready, (int) secondsLeft, (int) secondsLeft));
                 }
             }
 
@@ -243,7 +243,7 @@ public class WhatsNewActivity extends AppCompatActivity {
                 }
                 
                 if (countdownText != null) {
-                    countdownText.setText("You can now close this");
+                    countdownText.setText(R.string.legacyv2_whatsnew_done);
                 }
             }
         }.start();
@@ -292,20 +292,11 @@ public class WhatsNewActivity extends AppCompatActivity {
                     int targetProgress = Math.min(progress, 100);
                     scrollProgressBar.setProgress(targetProgress);
                     
-                    // Add color shift: green -> bright green -> lime as progress increases
-                    if (targetProgress >= 80) {
-                        scrollProgressBar.setProgressTintList(
-                            android.content.res.ColorStateList.valueOf(0xFF66BB6A) // Bright green
-                        );
-                    } else if (targetProgress >= 50) {
-                        scrollProgressBar.setProgressTintList(
-                            android.content.res.ColorStateList.valueOf(0xFF4CAF50) // Medium green
-                        );
-                    } else {
-                        scrollProgressBar.setProgressTintList(
-                            android.content.res.ColorStateList.valueOf(0xFF45a049) // Dark green
-                        );
-                    }
+                    // Colour shift along the Studio's own aqua-to-lime as the notes are read
+                    scrollProgressBar.setProgressTintList(
+                        android.content.res.ColorStateList.valueOf(
+                            androidx.core.graphics.ColorUtils.blendARGB(
+                                Studio.GO, Studio.GO_END, targetProgress / 100f)));
                 }
             });
         }

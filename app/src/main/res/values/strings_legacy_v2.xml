@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Legacy screens rebuilt in the Joy Creator look (names legacyv2_*). -->
+<resources>
+    <!-- What's New -->
+    <string name="legacyv2_whatsnew_title">What\'s New</string>
+    <string name="legacyv2_whatsnew_intro">New features, improvements, and bug fixes in this version.</string>
+    <string name="legacyv2_whatsnew_reenable">Re-enable in Settings → \'Show Intro\' toggle</string>
+    <plurals name="legacyv2_whatsnew_ready">
+        <item quantity="one">Ready in %d second...</item>
+        <item quantity="other">Ready in %d seconds...</item>
+    </plurals>
+    <string name="legacyv2_whatsnew_done">You can now close this</string>
+    <string name="legacyv2_whatsnew_got_it">Got it</string>
+    <string name="legacyv2_whatsnew_progress_desc">How far through the notes you have scrolled</string>
+    <string name="legacyv2_whatsnew_sparkle_desc">New in this version</string>
+
+    <!-- Update sheets -->
+    <string name="legacyv2_update_pro_title">Joy Creator Pro update</string>
+    <string name="legacyv2_update_pro_desc">A new version of Joy Creator Pro is available.\n\nFor free users, the stable release will arrive after approximately 60 days. Pro users receive updates immediately.</string>
+    <string name="legacyv2_update_get_pro">Get Joy Creator Pro</string>
+    <string name="legacyv2_update_versions">v%1$s  →  v%2$s</string>
+    <string name="legacyv2_update_versions_desc">Updating from version %1$s to version %2$s</string>
+
+    <!-- Settings mode popup -->
+    <string name="legacyv2_mode_option_desc">Show %1$s settings</string>
+</resources>

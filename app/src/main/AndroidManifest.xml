@@ -439,7 +439,7 @@
         </activity>
 
         <activity android:name=".ui.OnboardingActivity" android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
-        <activity android:name=".ui.WhatsNewActivity" android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
+        <activity android:name=".ui.WhatsNewActivity" android:theme="@style/Theme.FadCam.JoyCreator" />
 
         <activity 
             android:name=".ui.FadCamProActivity" 

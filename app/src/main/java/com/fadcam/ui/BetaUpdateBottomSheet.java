@@ -7,13 +7,15 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.fadcam.R;
+import com.fadcam.ui.faditor.Studio;
+import com.fadcam.ui.faditor.SheetKit;
+import com.fadcam.ui.type.Type;
 
 public class BetaUpdateBottomSheet extends BottomSheetDialogFragment {
 
@@ -34,13 +36,7 @@ public class BetaUpdateBottomSheet extends BottomSheetDialogFragment {
     @NonNull @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         Dialog dialog = super.onCreateDialog(savedInstanceState);
-        dialog.setOnShowListener(d -> {
-            View bottomSheet = ((com.google.android.material.bottomsheet.BottomSheetDialog) dialog)
-                    .findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (bottomSheet != null) {
-                bottomSheet.setBackgroundResource(R.drawable.gradient_beta_bg);
-            }
-        });
+        SheetKit.install(dialog, null);
         return dialog;
     }
 
@@ -60,15 +56,24 @@ public class BetaUpdateBottomSheet extends BottomSheetDialogFragment {
 
         TextView tvVer = v.findViewById(R.id.tv_beta_sheet_version);
         if (tvVer != null) {
-            String text = "v" + cur + "  >>  v" + ver;
+            String text = getString(R.string.legacyv2_update_versions, cur, ver);
             android.text.SpannableString sp = new android.text.SpannableString(text);
-            int curEnd = ("v" + cur).length();
-            sp.setSpan(new android.text.style.ForegroundColorSpan(0xFFFFFFFF), 0, curEnd, 0);
-            sp.setSpan(new android.text.style.ForegroundColorSpan(0xFFB39DDB), curEnd, text.length(), 0);
+            int curEnd = Math.min(text.length(), ("v" + cur).length());
+            sp.setSpan(new android.text.style.ForegroundColorSpan(Studio.INK_DIM), 0, curEnd, 0);
+            sp.setSpan(new android.text.style.ForegroundColorSpan(Studio.GUIDE), curEnd, text.length(), 0);
+            Type.mono(tvVer, Type.SEMIBOLD);
+            SheetKit.label(tvVer, getString(R.string.legacyv2_update_versions_desc, cur, ver));
             tvVer.setText(sp);
         }
 
-        Button btnGet = v.findViewById(R.id.btn_beta_get);
+        Type.display((TextView) v.findViewById(R.id.tv_beta_sheet_title), Type.EXTRA);
+        Type.body((TextView) v.findViewById(R.id.tv_beta_sheet_desc), Type.REGULAR);
+        TextView btnGet = v.findViewById(R.id.btn_beta_get);
+        TextView btnLater = v.findViewById(R.id.btn_beta_dismiss);
+        Type.body(btnGet, Type.BOLD);
+        Type.body(btnLater, Type.SEMIBOLD);
+        SheetKit.label(btnGet, btnGet.getText());
+        SheetKit.label(btnLater, btnLater.getText());
         if (btnGet != null) {
             btnGet.setOnClickListener(view -> {
                 try {
@@ -78,7 +83,7 @@ public class BetaUpdateBottomSheet extends BottomSheetDialogFragment {
             });
         }
 
-        v.findViewById(R.id.btn_beta_dismiss).setOnClickListener(view -> dismiss());
+        btnLater.setOnClickListener(view -> dismiss());
         return v;
     }
 }

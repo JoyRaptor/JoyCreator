@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Follow what?" picker for a picture or sprite with bend/puppet pins: a small diagram of the pins plus a short list. -->
+<resources>
+    <string name="studio_pinpick_title">Follow what?</string>
+    <string name="studio_pinpick_hint">Tap a numbered dot, or pick from the list.</string>
+    <string name="studio_pinpick_whole">The picture itself</string>
+    <string name="studio_pinpick_pin_n">Pin %1$d</string>
+    <string name="studio_pinpick_diagram">Where each pin sits on the picture. Tap a dot to follow that pin.</string>
+    <string name="studio_pinpick_dot_n">Follow pin %1$d</string>
+    <string name="studio_pinpick_cancel">Cancel</string>
+</resources>

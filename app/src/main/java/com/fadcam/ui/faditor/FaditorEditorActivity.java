@@ -20596,8 +20596,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private int visualizerSelectedLayer = 0;
     /** Re-materialize + repaint the Layers section (called when the preset changes under it). */
     @Nullable private Runnable visualizerLayersRefresh;
-    /** Setter for a single float control value (avoids java.util.function on older desugar paths). */
-    private interface FloatSetter { void set(float v); }
 
     /**
      * Build the compact 3-column visualizer Rolodex: a top row (sensitivity + save), then
@@ -21156,12 +21154,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         secLp.topMargin = (int) (8 * dp);
         section.setLayoutParams(secLp);
 
-        TextView header = new TextView(this);
-        header.setText(R.string.studio_text_lanes);
-        header.setTextColor(Studio.INK_FAINT);
-        header.setTextSize(12);
-        header.setPadding(0, 0, 0, (int) (4 * dp));
-        section.addView(header);
+        // The same small section title every group below it wears (Shape, Colour, Look...).
+        section.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.section(this,
+                getString(R.string.studio_text_lanes)));
 
         // Chips row (horizontally scrollable) + action buttons.
         android.widget.HorizontalScrollView chipsScroll = new android.widget.HorizontalScrollView(this);
@@ -21172,30 +21167,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         chipsScroll.addView(chipsRow);
         section.addView(chipsScroll);
 
-        // Prop area — capped ScrollView (~0.25 screen height) so the drawer stays compact.
-        android.widget.ScrollView propScroll = new android.widget.ScrollView(this);
-        int propMaxH = (int) (getResources().getDisplayMetrics().heightPixels * 0.25f);
-        LinearLayout.LayoutParams psLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        psLp.topMargin = (int) (4 * dp);
-        propScroll.setLayoutParams(psLp);
+        // Prop area. No scroller of its own any more: the drawer body already scrolls, and is
+        // bounded above the timeline grab bar (Tab#fitAbove). A capped ScrollView nested in the
+        // drawer's ScrollView fought it for every vertical drag.
         LinearLayout propBox = new LinearLayout(this);
         propBox.setOrientation(LinearLayout.VERTICAL);
-        propScroll.addView(propBox);
-        section.addView(propScroll);
-        // Enforce the cap after measure (ScrollView has no maxHeight attr pre-set programmatically).
-        propScroll.getViewTreeObserver().addOnPreDrawListener(
-                new android.view.ViewTreeObserver.OnPreDrawListener() {
-                    @Override public boolean onPreDraw() {
-                        if (propScroll.getHeight() > propMaxH) {
-                            android.view.ViewGroup.LayoutParams lp = propScroll.getLayoutParams();
-                            lp.height = propMaxH;
-                            propScroll.setLayoutParams(lp);
-                            return false;
-                        }
-                        return true;
-                    }
-                });
+        LinearLayout.LayoutParams pbLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        pbLp.topMargin = (int) (2 * dp);
+        section.addView(propBox, pbLp);
 
         // rebuild() re-renders chips + selected-layer props from the current working stack.
         Runnable rebuild = () -> rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
@@ -21231,6 +21211,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /** Persist the working stack to the instance (customStyleJson) and push it live to preview. */
+    /** Redraws the open visualizer Style tab after an undo/redo swapped the style under it. */
+    @Nullable private Runnable vizStyleRefresh;
+
+    /**
+     * One press, one undo step (the owner's rule) for a DISCRETE visualizer style choice: Shape, Blend,
+     * Mirror, Glow, a colour dot. Sliders are not routed through here; they would make a step per tick.
+     * The whole style is saved as its JSON before and after, so undo and redo are exact.
+     */
+    private void vizUndoable(@NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay,
+                             @NonNull Runnable mutate) {
+        if (visualizerWorkingStyle == null) { mutate.run(); return; }
+        final String before = com.fadcam.ui.faditor.waveform.WaveformStyleIO.toJson(visualizerWorkingStyle);
+        mutate.run();
+        commitVisualizerWorkingStyle(overlay);
+        final String after = com.fadcam.ui.faditor.waveform.WaveformStyleIO.toJson(visualizerWorkingStyle);
+        if (before.equals(after)) return;
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_undo_viz_style),
+                () -> applyVizStyleJson(overlay, after), () -> applyVizStyleJson(overlay, before)));
+    }
+
+    private void applyVizStyleJson(@NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay,
+                                   @NonNull String json) {
+        visualizerWorkingStyle = com.fadcam.ui.faditor.waveform.WaveformStyleIO.fromJson(json);
+        commitVisualizerWorkingStyle(overlay);
+        if (vizStyleRefresh != null) vizStyleRefresh.run();
+    }
+
     private void commitVisualizerWorkingStyle(
             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
         if (visualizerWorkingStyle == null) return;
@@ -21356,23 +21363,54 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.model.VizLayer layer = layers.get(visualizerSelectedLayer);
         final Runnable commit = () -> commitVisualizerWorkingStyle(overlay);
         final Runnable refreshChips = () -> rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
+        vizStyleRefresh = refreshChips;
 
         // Shape: EVERY option visible at once, each with a drawn icon (owner, 2026-09-30: "a
         // preview icon in the chip ... show all the options"). Scrolls sideways if the drawer is narrow.
-        LinearLayout emRow = vizPropRow(dp, "Shape");
+        //
+        // LAYOUT (owner, 2026-10-16: "so many options ... Not all scrollbars need to go whole
+        // width. We can have two columns"): small section titles, chip rows full width with no
+        // label column (the title names them), short sliders two to a row via VizDrawerGrid.
+        //   SHAPE   chips · [particles only] Count | Speed
+        //   COLOUR  dots
+        //   LOOK    Opacity | Softness · Gain | Spread · Blend | Mirror · Glow | Radius
+        //   MOTION  Trails | Phase · Attack | Release
+        final android.content.Context gx = this;
+        final com.fadcam.ui.faditor.tools.VizDrawerGrid.Format dec =
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.decimal();
+        final com.fadcam.ui.faditor.tools.VizDrawerGrid.Format whole =
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.whole();
+        final com.fadcam.ui.faditor.tools.VizDrawerGrid.Format ms =
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.whole(gx, R.string.studio_viz_value_ms);
+        final com.fadcam.ui.faditor.tools.VizDrawerGrid.Format deg =
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.whole(gx, R.string.studio_viz_value_deg);
+        propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.section(gx,
+                getString(R.string.studio_viz_sec_shape)));
         final int[] emIdx = {0};
         for (int k = 0; k < VIZ_EMITTERS.length; k++) if (VIZ_EMITTERS[k].equals(layer.emitter)) emIdx[0] = k;
         String[] emNames = new String[VIZ_EMITTERS.length];
         for (int k = 0; k < emNames.length; k++) emNames[k] = emitterLabel(VIZ_EMITTERS[k]);
-        emRow.addView(vizChoices(dp, emNames, VIZ_EMITTERS, emIdx[0], true, which -> {
-            layer.emitter = VIZ_EMITTERS[which];
-            commit.run();
+        propBox.addView(vizChoices(dp, emNames, VIZ_EMITTERS, emIdx[0], true, which -> {
+            vizUndoable(overlay, () -> layer.emitter = VIZ_EMITTERS[which]);
             refreshChips.run(); // the layer chip's label and the particle rows depend on the emitter
-        }), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        propBox.addView(emRow);
+        }));
+
+        // particles (only when emitter == particles): they tune the shape, so they sit under it.
+        if (com.fadcam.ui.faditor.model.VizLayer.EMITTER_PARTICLES.equals(layer.emitter)) {
+            propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
+                    com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx,
+                            getString(R.string.studio_viz_count), getString(R.string.studio_viz_hover_count),
+                            1f, 8f, layer.particleCount, whole,
+                            v -> { layer.particleCount = Math.round(v); commit.run(); }),
+                    com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx,
+                            getString(R.string.studio_viz_speed), getString(R.string.studio_viz_hover_speed),
+                            0.1f, 4f, layer.particleSpeed, dec,
+                            v -> { layer.particleSpeed = v; commit.run(); })));
+        }
 
         // color dots (in a horizontal scroll so a long palette never widens the drawer)
-        LinearLayout colRow = vizPropRow(dp, "Color");
+        propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.section(gx,
+                getString(R.string.studio_viz_sec_colour)));
         String[] palette = {"#35F6BF", "#22D3EE", "#4397FD", "#52525B", "#CC27FF",
                 "#FF4438", "#FBBF24", "#FBBF24", "#F4F4F5", "#8A8A94"};
         android.widget.HorizontalScrollView colScroll = new android.widget.HorizontalScrollView(this);
@@ -21394,80 +21432,100 @@ public class FaditorEditorActivity extends AppCompatActivity {
             dot.setContentDescription(getString(R.string.desc_layer_colour));
             androidx.appcompat.widget.TooltipCompat.setTooltipText(dot, getString(R.string.desc_layer_colour));
             dot.setOnClickListener(v -> {
-                layer.color = hex;
-                layer.gradientStart = null;
-                layer.gradientEnd = null;
-                layer.gradientStops = null;
-                commit.run();
+                vizUndoable(overlay, () -> {
+                    layer.color = hex;
+                    layer.gradientStart = null;
+                    layer.gradientEnd = null;
+                    layer.gradientStops = null;
+                });
                 refreshChips.run();
             });
             dotsHost.addView(dot);
         }
         colScroll.addView(dotsHost);
-        colRow.addView(colScroll);
-        propBox.addView(colRow);
+        LinearLayout.LayoutParams colLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        colLp.topMargin = (int) (2 * dp);
+        colLp.bottomMargin = (int) (2 * dp);
+        propBox.addView(colScroll, colLp);
 
-        // opacity / softness / gain
-        propBox.addView(vizSlider(dp, "Opacity", 0f, 1f, layer.opacity, false, v -> { layer.opacity = v; commit.run(); }));
-        propBox.addView(vizSlider(dp, "Softness", 0f, 1f, layer.softness, false, v -> { layer.softness = v; commit.run(); }));
-        propBox.addView(vizSlider(dp, "Gain", 0.1f, 4f, layer.gain, false, v -> { layer.gain = v; commit.run(); }));
-
-        // Blend: both choices visible.
-        LinearLayout blendRow = vizPropRow(dp, "Blend");
-        blendRow.addView(vizChoices(dp,
+        // LOOK: opacity | softness, gain | spread, blend | mirror, glow | radius.
+        propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.section(gx,
+                getString(R.string.studio_viz_sec_look)));
+        final String sOpacity = getString(R.string.studio_viz_opacity);
+        final String sSoftness = getString(R.string.studio_viz_softness);
+        final String sGain = getString(R.string.studio_viz_gain);
+        final String sSpread = getString(R.string.studio_viz_spread);
+        propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx, sOpacity, sOpacity,
+                        0f, 1f, layer.opacity, dec, v -> { layer.opacity = v; commit.run(); }),
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx, sSoftness, sSoftness,
+                        0f, 1f, layer.softness, dec, v -> { layer.softness = v; commit.run(); })));
+        propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx, sGain, sGain,
+                        0.1f, 4f, layer.gain, dec, v -> { layer.gain = v; commit.run(); }),
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx, sSpread, sSpread,
+                        0.1f, 1f, layer.spread, dec, v -> { layer.spread = v; commit.run(); })));
+        // Blend and Mirror: both choices visible, each in its own half.
+        View blendChoices = vizChoices(dp,
                 new String[]{getString(R.string.studio_opt_normal), getString(R.string.studio_opt_add)}, null,
-                com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD.equals(layer.blend) ? 1 : 0, false, which -> {
-                    layer.blend = which == 1 ? com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD
-                            : com.fadcam.ui.faditor.model.VizLayer.BLEND_NORMAL;
-                    commit.run();
-                }));
-        propBox.addView(blendRow);
-
-        // trails
-        propBox.addView(vizSlider(dp, "Trails", 0f, 6f, layer.trailCount, true,
-                v -> { layer.trailCount = Math.round(v); commit.run(); }));
-
-        // particles (only when emitter == particles)
-        if (com.fadcam.ui.faditor.model.VizLayer.EMITTER_PARTICLES.equals(layer.emitter)) {
-            propBox.addView(vizSlider(dp, "Count", 1f, 8f, layer.particleCount, true,
-                    v -> { layer.particleCount = Math.round(v); commit.run(); }));
-            propBox.addView(vizSlider(dp, "Speed", 0.1f, 4f, layer.particleSpeed, false,
-                    v -> { layer.particleSpeed = v; commit.run(); }));
-        }
-
-        // spread / phase / mirror
-        propBox.addView(vizSlider(dp, "Spread", 0.1f, 1f, layer.spread, false, v -> { layer.spread = v; commit.run(); }));
-        propBox.addView(vizSlider(dp, "Phase", 0f, 360f, layer.phaseDeg, true,
-                v -> { layer.phaseDeg = Math.round(v); commit.run(); }));
-        LinearLayout mirRow = vizPropRow(dp, "Mirror");
-        mirRow.addView(vizChoices(dp,
+                com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD.equals(layer.blend) ? 1 : 0, true, which -> {
+                    vizUndoable(overlay, () -> layer.blend = which == 1
+                            ? com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD
+                            : com.fadcam.ui.faditor.model.VizLayer.BLEND_NORMAL);
+                });
+        View mirrorChoices = vizChoices(dp,
                 new String[]{getString(R.string.studio_opt_off), getString(R.string.studio_opt_on)}, null,
-                layer.mirror ? 1 : 0, false, which -> { layer.mirror = which == 1; commit.run(); }));
-        propBox.addView(mirRow);
+                layer.mirror ? 1 : 0, true, which -> vizUndoable(overlay, () -> layer.mirror = which == 1));
+        propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.choice(gx,
+                        getString(R.string.studio_viz_blend), blendChoices),
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.choice(gx,
+                        getString(R.string.studio_viz_mirror), mirrorChoices)));
 
-        // glow on/off + radius
-        LinearLayout glowRow = vizPropRow(dp, "Glow");
+        // Glow on/off | radius: the last row of LOOK.
         final boolean glowOn = layer.glowColor != null && layer.glowRadiusDp > 0f;
-        glowRow.addView(vizChoices(dp,
+        View glowChoices = vizChoices(dp,
                 new String[]{getString(R.string.studio_opt_off), getString(R.string.studio_opt_on)}, null,
-                glowOn ? 1 : 0, false, which -> {
-                    if (which == 1) { layer.glowColor = layer.color; layer.glowRadiusDp = 6f; }
-                    else { layer.glowColor = null; layer.glowRadiusDp = 0f; }
-                    commit.run();
+                glowOn ? 1 : 0, true, which -> {
+                    vizUndoable(overlay, () -> {
+                        if (which == 1) { layer.glowColor = layer.color; layer.glowRadiusDp = 6f; }
+                        else { layer.glowColor = null; layer.glowRadiusDp = 0f; }
+                    });
                     refreshChips.run(); // the glow radius slider's default follows the state
-                }));
-        propBox.addView(glowRow);
-        propBox.addView(vizSlider(dp, "Glow radius", 0f, 24f, layer.glowRadiusDp, false, v -> {
-            layer.glowRadiusDp = v;
-            if (v > 0f && layer.glowColor == null) layer.glowColor = layer.color;
-            commit.run();
-        }));
+                });
+        propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.choice(gx,
+                        getString(R.string.studio_viz_glow), glowChoices),
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx,
+                        getString(R.string.studio_viz_radius), getString(R.string.studio_viz_hover_radius),
+                        0f, 24f, layer.glowRadiusDp, dec, v -> {
+                            layer.glowRadiusDp = v;
+                            if (v > 0f && layer.glowColor == null) layer.glowColor = layer.color;
+                            commit.run();
+                        })));
 
-        // response attack / release
-        propBox.addView(vizSlider(dp, "Attack ms", 0f, 1000f, layer.attackMs, true,
-                v -> { layer.attackMs = Math.round(v); commit.run(); }));
-        propBox.addView(vizSlider(dp, "Release ms", 0f, 1000f, layer.releaseMs, true,
-                v -> { layer.releaseMs = Math.round(v); commit.run(); }));
+        // MOTION: trails | phase, attack | release (the response).
+        propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.section(gx,
+                getString(R.string.studio_viz_sec_motion)));
+        final String sTrails = getString(R.string.studio_viz_trails);
+        final String sPhase = getString(R.string.studio_viz_phase);
+        propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx, sTrails, sTrails,
+                        0f, 6f, layer.trailCount, whole,
+                        v -> { layer.trailCount = Math.round(v); commit.run(); }),
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx, sPhase, sPhase,
+                        0f, 360f, layer.phaseDeg, deg,
+                        v -> { layer.phaseDeg = Math.round(v); commit.run(); })));
+        propBox.addView(com.fadcam.ui.faditor.tools.VizDrawerGrid.pair(gx,
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx,
+                        getString(R.string.studio_viz_attack), getString(R.string.studio_viz_hover_attack),
+                        0f, 1000f, layer.attackMs, ms,
+                        v -> { layer.attackMs = Math.round(v); commit.run(); }),
+                com.fadcam.ui.faditor.tools.VizDrawerGrid.slider(gx,
+                        getString(R.string.studio_viz_release), getString(R.string.studio_viz_hover_release),
+                        0f, 1000f, layer.releaseMs, ms,
+                        v -> { layer.releaseMs = Math.round(v); commit.run(); })));
     }
 
     /** Small square action button for the layer chip row (＋ ⧉ 🗑 ◀ ▶). */
@@ -21539,60 +21597,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return hs;
     }
 
-    /** A labeled prop row (horizontal; label + caller-appended control(s)). */
-    @NonNull
-    private LinearLayout vizPropRow(float dp, @NonNull String label) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        row.setPadding(0, (int) (3 * dp), 0, (int) (3 * dp));
-        TextView t = new TextView(this);
-        t.setText(label);
-        t.setTextColor(Studio.INK_FAINT);
-        t.setTextSize(11);
-        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams((int) (74 * dp),
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        t.setLayoutParams(tlp);
-        row.addView(t);
-        return row;
-    }
-
-    /** A labeled SeekBar row mapping the progress 0..1000 onto [min,max]; value text updates live. */
-    @NonNull
-    private LinearLayout vizSlider(float dp, @NonNull String label, float min, float max, float value,
-                                   boolean intVal, @NonNull FloatSetter onChange) {
-        LinearLayout row = vizPropRow(dp, label);
-        TextView valT = new TextView(this);
-        valT.setTextSize(11);
-        valT.setTextColor(Studio.INK_DIM);
-        valT.setMinEms(3);
-        valT.setGravity(android.view.Gravity.END);
-        SeekBar sb = new SeekBar(this);
-        sb.setMax(1000);
-        float clamped = Math.max(min, Math.min(max, value));
-        sb.setProgress(Math.round((clamped - min) / (max - min) * 1000f));
-        Runnable setValLabel = () -> {
-            float cur = min + sb.getProgress() / 1000f * (max - min);
-            valT.setText(intVal ? String.valueOf(Math.round(cur))
-                    : String.format(java.util.Locale.US, "%.2f", cur));
-        };
-        setValLabel.run();
-        LinearLayout.LayoutParams sblp = new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        row.addView(sb, sblp);
-        row.addView(valT);
-        sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
-                if (!fromUser) return;
-                float cur = min + p / 1000f * (max - min);
-                setValLabel.run();
-                onChange.set(cur);
-            }
-            @Override public void onStartTrackingTouch(SeekBar s) { }
-            @Override public void onStopTrackingTouch(SeekBar s) { }
-        });
-        return row;
-    }
+    // vizPropRow / vizSlider (one full-width row per control) were replaced by the two-up
+    // cells in tools/VizDrawerGrid (owner, 2026-10-16).
 
     private int indexOfStyle(java.util.List<com.fadcam.ui.faditor.model.WaveformStyle> styles, String id) {
         if (id == null) return 0;
@@ -32069,12 +32075,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
         // STYLE FIRST: the look is what people come to a visualizer for (owner, 2026-09-29).
+        // Both tabs open above the timeline grab bar (owner, 2026-10-16: "it shouldn't open so
+        // far as to cover the play button, middle resize drag handle"); the rest scrolls.
+        final View vizFloor = findViewById(R.id.timeline_grab_bar);
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.drawer_title_visualizer), getString(R.string.caption_tab_style),
-                R.drawable.ic_waveform_bars, ctx -> buildVisualizerStyleTab(wf)));
+                R.drawable.ic_waveform_bars, ctx -> buildVisualizerStyleTab(wf)).fitAbove(vizFloor));
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.drawer_title_visualizer), getString(R.string.drawer_tab_transform),   // drawer audit 2026-09-24, V-1
-                R.drawable.ic_transform_24, ctx -> buildVisualizerTransformTab(wf, host)));
+                R.drawable.ic_transform_24, ctx -> buildVisualizerTransformTab(wf, host)).fitAbove(vizFloor));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         final Runnable afterToggle = () -> { refreshVizAfterMenuWrite(); scheduleAutoSave(); };
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
@@ -35792,12 +35801,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final int n = pic != null ? com.fadcam.ui.faditor.transform.mesh.MeshPinPose.pinCount(pic)
                 : com.fadcam.ui.faditor.transform.mesh.MeshPinPose.pinCount(spr);
         if (n <= 0 || (pic != null && !pic.isImage())) { then.accept(parent); return; }
-        final String[] names = new String[n + 1];
-        names[0] = getString(R.string.link_pin_picture);
-        for (int i = 0; i < n; i++) names[i + 1] = getString(R.string.link_pin_n, i + 1);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.link_pin_choose)
-                .setItems(names, (d, which) -> {
+        // A map of where each pin sits (rest position, picture's unit square) so "Pin 4" can be
+        // told from "Pin 5" by looking, not guessing.
+        final com.fadcam.ui.faditor.transform.mesh.MeshTopology topo =
+                (pic != null ? pic.getMesh() : spr.getMesh()).topology();
+        final float[] restX = new float[n], restY = new float[n];
+        for (int i = 0; i < n; i++) { restX[i] = topo.handleRestX(i); restY[i] = topo.handleRestY(i); }
+        float cellAspect = spr != null ? spr.getCellAspect() : pic.getImageAspect();
+        if (pic != null && cellAspect < 0.01f) {
+            float[] wh0 = getImageWHForPreset(pic);
+            cellAspect = wh0[1] > 0f ? wh0[0] / wh0[1] : 1f;
+        }
+        com.fadcam.ui.faditor.tools.PinPickerDialog.show(this, restX, restY, cellAspect,
+                pinPicked -> {
+                    final int which = pinPicked + 1;   // 0 = the picture itself, as before
                     if (which == 0) { then.accept(parent); return; }
                     if (pic != null) {
                         float[] wh = getImageWHForPreset(pic);
@@ -35811,9 +35828,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             project.getTimeline().pinPoseById(ownerId + "#pin" + (which - 1),
                                     cr.height() > 1f ? cr.width() / cr.height() : 9f / 16f);
                     then.accept(pin != null ? pin : parent);
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+                });
     }
 
     /**
@@ -36887,45 +36902,42 @@ public class FaditorEditorActivity extends AppCompatActivity {
         row.addView(italicBtn);
         row.addView(underlineBtn);
 
-        // CASE — three toggles, mutually exclusive with NONE (tapping the active one clears it).
-        // With a selection the active chip is the (possibly MIXED → two-tone) range's case; mixed
-        // or different → tap sets that case over the range, tapping the active case clears it.
-        TextView capFirstBtn = topRowToggle(this, d, "Tt",
-                getString(R.string.faditor_text_case_first));
-        TextView allCapsBtn = topRowToggle(this, d, "TT",
-                getString(R.string.faditor_text_case_all));
-        TextView smallCapsBtn = topRowToggle(this, d, "ᴛᴛ",
-                getString(R.string.faditor_text_case_small));
+        // CASE — ONE button that cycles Aa (normal) -> Tt (first letters) -> TT (all caps) -> tt
+        // (small caps) -> Aa. This row is the densest in the app and scrolls sideways; three
+        // case buttons were three of its widest cells (owner, 2026-10-16: "a 3 mode tap cycle for
+        // places that have a lot of density"). With a selection it shows and writes the range's
+        // case; mixed reads two-tone and the first tap sets Tt.
+        final TextView caseBtn = topRowToggle(this, d, "Aa", getString(R.string.studio_case_none));
         Runnable refreshCase = () -> {
             String active = textCaseValue(session);
-            if (active == null) {
-                styleMixedState(capFirstBtn);
-                styleMixedState(allCapsBtn);
-                styleMixedState(smallCapsBtn);
-            } else {
-                styleToggleState(capFirstBtn,
-                        TextStyleResolver.CASE_CAPITALIZE_FIRST.equals(active));
-                styleToggleState(allCapsBtn, TextStyleResolver.CASE_ALL_CAPS.equals(active));
-                styleToggleState(smallCapsBtn, TextStyleResolver.CASE_SMALL_CAPS.equals(active));
-            }
+            String label; int nameRes;
+            if (active == null) { label = "Aa"; nameRes = R.string.studio_case_none; }
+            else if (TextStyleResolver.CASE_CAPITALIZE_FIRST.equals(active)) { label = "Tt"; nameRes = R.string.faditor_text_case_first; }
+            else if (TextStyleResolver.CASE_ALL_CAPS.equals(active)) { label = "TT"; nameRes = R.string.faditor_text_case_all; }
+            else if (TextStyleResolver.CASE_SMALL_CAPS.equals(active)) { label = "ᴛᴛ"; nameRes = R.string.faditor_text_case_small; }
+            else { label = "Aa"; nameRes = R.string.studio_case_none; }
+            caseBtn.setText(label);
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(caseBtn,
+                    getString(R.string.studio_case_cycle, getString(nameRes)));
+            if (active == null) styleMixedState(caseBtn);
+            else styleToggleState(caseBtn, TextStyleResolver.CASE_CAPITALIZE_FIRST.equals(active)
+                    || TextStyleResolver.CASE_ALL_CAPS.equals(active)
+                    || TextStyleResolver.CASE_SMALL_CAPS.equals(active));
         };
-        capFirstBtn.setOnClickListener(v -> {
-            textCaseTap(session, TextStyleResolver.CASE_CAPITALIZE_FIRST, item::setTextCase);
-            session.refresh.run(); refreshOverlayPreview(); scheduleAutoSave();
-        });
-        allCapsBtn.setOnClickListener(v -> {
-            textCaseTap(session, TextStyleResolver.CASE_ALL_CAPS, item::setTextCase);
-            session.refresh.run(); refreshOverlayPreview(); scheduleAutoSave();
-        });
-        smallCapsBtn.setOnClickListener(v -> {
-            textCaseTap(session, TextStyleResolver.CASE_SMALL_CAPS, item::setTextCase);
+        caseBtn.setOnClickListener(v -> {
+            String cur = textCaseValue(session);
+            String next;
+            if (cur == null || TextStyleResolver.CASE_NONE.equals(cur)) next = TextStyleResolver.CASE_CAPITALIZE_FIRST;
+            else if (TextStyleResolver.CASE_CAPITALIZE_FIRST.equals(cur)) next = TextStyleResolver.CASE_ALL_CAPS;
+            else if (TextStyleResolver.CASE_ALL_CAPS.equals(cur)) next = TextStyleResolver.CASE_SMALL_CAPS;
+            else next = TextStyleResolver.CASE_NONE;
+            // textCaseTap sets a case, or clears it when it is already active: clearing is "tap the active one".
+            textCaseTap(session, TextStyleResolver.CASE_NONE.equals(next) ? cur : next, item::setTextCase);
             session.refresh.run(); refreshOverlayPreview(); scheduleAutoSave();
         });
         session.refreshers.add(refreshCase);
         refreshCase.run();
-        row.addView(capFirstBtn);
-        row.addView(allCapsBtn);
-        row.addView(smallCapsBtn);
+        row.addView(caseBtn);
 
         // ALIGNMENT — cycles LEFT → CENTER → RIGHT → JUSTIFY → LEFT, as a DRAWN paragraph in a
         // fixed square. It was four text glyphs of two different widths, so cycling it resized the

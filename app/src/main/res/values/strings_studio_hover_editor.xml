@@ -10,6 +10,6 @@
     <string name="studio_hover_bold">Bold</string>
     <string name="studio_hover_underline">Underline</string>
     <string name="studio_hover_italic">Italic</string>
-    <string name="studio_hover_text_motion">Text motion</string>
+    <string name="studio_hover_text_motion">Motion</string>
     <string name="studio_hover_pivot">Rotation pivot</string>
 </resources>

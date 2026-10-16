@@ -1799,7 +1799,10 @@ public class LobbyFragment extends BaseFragment {
         int captures = 0;
         long newestCapture = 0L;
         for (Recent r : recents) {
-            if (r.projectId == null) {
+            // Only what the camera or screen recorder made. Drawings, exports, photos and
+            // streams also have no project, and counting them made this line say "3 recordings"
+            // to someone who had only drawn three pictures.
+            if (r.projectId == null && ("RECORDING".equals(r.kindLabel) || "SCREEN".equals(r.kindLabel))) {
                 captures++;
                 if (r.when > newestCapture) newestCapture = r.when;
             }

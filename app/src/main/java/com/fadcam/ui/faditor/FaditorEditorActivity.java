@@ -35773,14 +35773,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void chooseFollowTarget(@NonNull com.fadcam.ui.faditor.model.LinkPose parent,
                                     @NonNull java.util.function.Consumer<com.fadcam.ui.faditor.model.LinkPose> then) {
-        if (!(parent instanceof com.fadcam.ui.faditor.model.TextOverlayItem) || project == null) {
-            then.accept(parent);
-            return;
-        }
+        if (project == null) { then.accept(parent); return; }
         final com.fadcam.ui.faditor.model.TextOverlayItem pic =
-                (com.fadcam.ui.faditor.model.TextOverlayItem) parent;
-        final int n = com.fadcam.ui.faditor.transform.mesh.MeshPinPose.pinCount(pic);
-        if (n <= 0 || !pic.isImage()) { then.accept(parent); return; }
+                parent instanceof com.fadcam.ui.faditor.model.TextOverlayItem
+                        ? (com.fadcam.ui.faditor.model.TextOverlayItem) parent : null;
+        final com.fadcam.ui.faditor.sprite.SpriteOverlayItem spr =
+                parent instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
+                        ? (com.fadcam.ui.faditor.sprite.SpriteOverlayItem) parent : null;
+        if (pic == null && spr == null) { then.accept(parent); return; }
+        final int n = pic != null ? com.fadcam.ui.faditor.transform.mesh.MeshPinPose.pinCount(pic)
+                : com.fadcam.ui.faditor.transform.mesh.MeshPinPose.pinCount(spr);
+        if (n <= 0 || (pic != null && !pic.isImage())) { then.accept(parent); return; }
         final String[] names = new String[n + 1];
         names[0] = getString(R.string.link_pin_picture);
         for (int i = 0; i < n; i++) names[i + 1] = getString(R.string.link_pin_n, i + 1);
@@ -35789,13 +35792,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setTitle(R.string.link_pin_choose)
                 .setItems(names, (d, which) -> {
                     if (which == 0) { then.accept(parent); return; }
-                    float[] wh = getImageWHForPreset(pic);
-                    if (wh[1] > 0f) pic.setImageAspect(wh[0] / wh[1]);
+                    if (pic != null) {
+                        float[] wh = getImageWHForPreset(pic);
+                        if (wh[1] > 0f) pic.setImageAspect(wh[0] / wh[1]);
+                    }
+                    final String ownerId = pic != null ? pic.getId() : spr.getId();
                     android.graphics.RectF cr = computeCanvasRect();
                     project.getTimeline().setLinkFrameAspect(
                             cr.height() > 1f ? cr.width() / cr.height() : 9f / 16f);
                     com.fadcam.ui.faditor.model.LinkPose pin =
-                            project.getTimeline().pinPoseById(pic.getId() + "#pin" + (which - 1),
+                            project.getTimeline().pinPoseById(ownerId + "#pin" + (which - 1),
                                     cr.height() > 1f ? cr.width() / cr.height() : 9f / 16f);
                     then.accept(pin != null ? pin : parent);
                 })

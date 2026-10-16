@@ -14,6 +14,7 @@ import androidx.annotation.Nullable;
 import com.fadcam.R;
 import com.fadcam.ui.faditor.SheetKit;
 import com.fadcam.ui.faditor.Studio;
+import com.fadcam.ui.lobby.SlantDrawable;
 import com.fadcam.ui.type.Type;
 
 import java.util.EnumMap;
@@ -25,9 +26,12 @@ import java.util.Set;
  * Project media last behind a hairline (owner ruling c: hidden unless asked for).
  *
  * <p>Chips keep their places as counts change, so the thumb learns where Drawings is. A chip with
- * nothing in it fades to the off grey rather than leaving. The chosen chip is solid cyan with its
- * words cut out of it (the owner's ON rule: never an outline). A small dot in the kind's colour ties
- * each chip to the corner cut on its cards.</p>
+ * nothing in it fades to the off grey rather than leaving.</p>
+ *
+ * <p>The shape is the lobby's own: the sheared chip of the New row (SlantDrawable), the first one
+ * square on the left and every one after it leaning. Off = zinc with the kind's colour on its icon;
+ * on = the kind's gradient with icon, words and count punched out in black (owner, 2026-10-17:
+ * "everyone has pills, this will make us stand out").</p>
  */
 @SuppressLint("ViewConstructor")
 final class LibraryChipsView extends HorizontalScrollView {
@@ -103,12 +107,14 @@ final class LibraryChipsView extends HorizontalScrollView {
         return d;
     }
 
-    /** One chip: dot, label, count. */
+    /** Horizontal run of the shear, the lobby New chips' value. */
+    private static final int SLANT_DP = 10;
+
+    /** One chip: the kind's icon, label, count, on the lobby's sheared shape. */
     private final class Chip {
         final LibraryKind kind;
         final LinearLayout view;
-        final View dot;
-        final TextView label, count;
+        final TextView icon, label, count;
         int n;
 
         Chip(@NonNull Context c, @Nullable LibraryKind kind) {
@@ -117,21 +123,24 @@ final class LibraryChipsView extends HorizontalScrollView {
             view.setOrientation(LinearLayout.HORIZONTAL);
             view.setGravity(Gravity.CENTER_VERTICAL);
             view.setMinimumHeight(LibraryViews.dp(c, 34));
-            view.setPadding(LibraryViews.dp(c, kind == null ? 13 : 11), 0, LibraryViews.dp(c, 12), 0);
+            int slant = LibraryViews.dp(c, SLANT_DP);
+            // Content centred in the shape; the lean eats the ends, so pad by about half of it.
+            view.setPadding(slant / 2 + LibraryViews.dp(c, 8), 0, slant / 2 + LibraryViews.dp(c, 8), 0);
             view.setClickable(true);
             view.setFocusable(true);
             SheetKit.press(view);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
                     LibraryViews.dp(c, 34));
-            lp.setMarginEnd(LibraryViews.dp(c, 6));
+            // Banded, like the New row: the gap reads as a division, not a space.
+            lp.setMarginEnd(Math.round(3.5f * c.getResources().getDisplayMetrics().density));
             view.setLayoutParams(lp);
 
-            dot = new View(c);
-            dot.setBackground(LibraryViews.fill(LibraryKindStyle.colours(c, kind)[0], LibraryViews.dp(c, 3)));
-            LinearLayout.LayoutParams dLp = new LinearLayout.LayoutParams(LibraryViews.dp(c, 6), LibraryViews.dp(c, 6));
-            dLp.setMarginEnd(LibraryViews.dp(c, 6));
-            view.addView(dot, dLp);
-            dot.setVisibility(kind == null ? GONE : VISIBLE);
+            icon = LibraryViews.glyph(c, 15f, Studio.INK_DIM);
+            icon.setText(LibraryKindStyle.glyph(kind));
+            icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);   // the chip speaks once, as itself
+            LinearLayout.LayoutParams iLp = new LinearLayout.LayoutParams(LibraryViews.dp(c, 18), LibraryViews.dp(c, 18));
+            iLp.setMarginEnd(LibraryViews.dp(c, 5));
+            view.addView(icon, iLp);
 
             label = LibraryViews.line(c, 12f, Studio.INK_DIM, false, Type.MEDIUM);
             label.setText(LibraryKindStyle.label(kind));
@@ -154,12 +163,19 @@ final class LibraryChipsView extends HorizontalScrollView {
 
         void paint(boolean on) {
             Context c = view.getContext();
-            view.setBackground(LibraryViews.pressable(on ? Studio.ARMED : Studio.RAISED, LibraryViews.dp(c, 99)));
+            int[] pair = kind == null ? new int[]{Studio.ARMED_LIGHT, Studio.ARMED} : LibraryKindStyle.colours(c, kind);
+            boolean first = kind == null;   // the row starts square on the left, like the lobby's New row
+            int slant = LibraryViews.dp(c, SLANT_DP);
+            view.setBackground(on
+                    ? new SlantDrawable(pair[0], pair[1], slant, LibraryViews.dp(c, 3), first, false)
+                    : new SlantDrawable(Studio.RAISED, Studio.RAISED, slant, LibraryViews.dp(c, 3), first, false));
             boolean empty = n == 0 && kind != null;
+            // On: everything punched out in black. Off: the kind's own colour on the icon, light grey
+            // words, medium grey number; an empty kind drops to the off grey.
+            icon.setTextColor(on ? Studio.GROUND : empty ? Studio.INK_OFF : kind == null ? Studio.INK_DIM : pair[0]);
             label.setTextColor(on ? Studio.GROUND : empty ? Studio.INK_OFF : Studio.INK_DIM);
             Type.body(label, on ? Type.SEMIBOLD : Type.MEDIUM);
             count.setTextColor(on ? Studio.alpha(Studio.GROUND, 0xB3) : empty ? Studio.INK_OFF : Studio.INK_FAINT);
-            dot.setAlpha(on ? 0f : empty ? 0.35f : 1f);
             view.setSelected(on);
         }
     }

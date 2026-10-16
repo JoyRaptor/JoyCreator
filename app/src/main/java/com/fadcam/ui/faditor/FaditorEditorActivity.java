@@ -30927,6 +30927,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (masterMeter != null) syncMasterMeterVisibility(masterMeter);
                 reflowPreviewUnderDrawer(h);
                 syncTransformChromeInset();
+                if (puppetHelper != null) puppetHelper.post(this::parkPuppetHelper);
                 // One place that knows the drawer's visibility, so the tool light
                 // cannot be left on by a close path nobody remembered to hook.
                 // A2: caller-supplied via show(..., lightAdjust) — which tool this open should light.
@@ -34222,6 +34223,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.view.View pc = (android.view.View) vp;
         if (pc.getWidth() <= 0) return;
         float[] at = puppetHelper.parkAt(pc.getWidth(), pc.getHeight());
+        // NEVER UNDER THE DRAWER. The Puppet drawer comes down from the top and (on Recording
+        // especially) covers the top of the preview; a strip that dodged into a top corner sat
+        // under the tool chips, clipped. Keep it below the drawer's lower edge, which on a
+        // short preview simply means the bottom corner.
+        if (objectDrawer != null && objectDrawer.isShowing()) {
+            int[] dl = new int[2];
+            int[] pl = new int[2];
+            objectDrawer.getLocationOnScreen(dl);
+            pc.getLocationOnScreen(pl);
+            float floor = (dl[1] + objectDrawer.getHeight() - pl[1])
+                    + 6f * getResources().getDisplayMetrics().density;
+            float lowest = pc.getHeight() - puppetHelper.heightPx()
+                    - 10f * getResources().getDisplayMetrics().density;
+            if (at[1] < floor) at[1] = Math.max(at[1], Math.min(floor, lowest));
+        }
         puppetHelper.setX(at[0]);
         puppetHelper.setY(at[1]);
     }

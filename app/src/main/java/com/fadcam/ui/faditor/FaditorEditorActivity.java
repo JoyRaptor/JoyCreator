@@ -35787,8 +35787,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String[] names = new String[n + 1];
         names[0] = getString(R.string.link_pin_picture);
         for (int i = 0; i < n; i++) names[i + 1] = getString(R.string.link_pin_n, i + 1);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this,
-                R.style.CustomBottomSheetDialogTheme)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.link_pin_choose)
                 .setItems(names, (d, which) -> {
                     if (which == 0) { then.accept(parent); return; }

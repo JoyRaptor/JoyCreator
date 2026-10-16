@@ -175,6 +175,10 @@ public class FaditorToolsAdapter {
             // things that must happen once per cell; running it on every retarget would stack
             // a second copy of whatever it installs on a cell that already has the first.
             if (fresh) binder.onBindTool(tool, cell, icon, label);
+            // Every tool names itself on hover (stylus / mouse); the word under the glyph is the name.
+            if (label != null && label.getText().length() > 0) {
+                androidx.appcompat.widget.TooltipCompat.setTooltipText(cell, label.getText());
+            }
             installRecencyHook(tool, cell);
             // Set in BOTH directions. A reused cell remembers the visibility it had in its last
             // position, so a tool that was hidden once would otherwise stay hidden for good.

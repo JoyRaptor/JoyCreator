@@ -89,13 +89,34 @@ Legend: **📱** driven on the Note 9 by the agent · **🔨** compiles (watcher
 | Project zip / consolidate into the app | `ProjectBundle`, `ProjectConsolidator` (old entry `btnRelinkMedia` only shows when media is missing) | menu reached from the rename dialog's "More…"; Consolidate becomes "Gather into one folder" when the Joy folder is reachable |
 | Used / unused filter | editor asset browser `AssetBrowserPanel` (ALL / USED / UNUSED, current project) | fourth mode added: no project uses |
 
-## 6. Still to do (in this order)
+## 6. Still to do — handoff list (updated 2026-10-15, end of the cross-cutting account's week)
 
-- [ ] Device-check screen recording and photo names, and their Library categories; the camera fallback; the earned-folder card (needs 20+ loose recordings that are under half of the top).
-- [x] ~~Owner's call on copying gallery media~~ — decided 2026-10-14: big files linked with a warning + Copy; the yellow dot; bring in any time (built, §4).
-- [ ] Asset browser: select several "no project uses" files and send them to Trash in one step (today: filter shows them; delete one by one in Files).
-- [ ] JoyBrush half (JoyBrush lanes): drawings in the folder, thumbnails, multiple drawings, autosave while drawing.
-- [ ] Later: presets/settings into the folder; storage screen ("free up space"); version history; the application ID change only after the folder ships (the folder is the bridge to a new ID).
+Everything in §4 is pushed. This is the complete open list; nothing else is half-done in a working copy.
+
+**A. Phone checks — run 2026-10-15 on the Note 9 (Haiku tester, evidence verified by the lead):**
+- [x] Redo after undoing past the session start: undo ×6 then redo ×5, "Redid: Add clip", logcat has no "Redo skipped". ✅
+- [x] Screen-recording and photo names: "Screen recording 2026-10-15 17.50.mp4", "Photo 2026-10-15 17.50.jpg". ✅
+- [x] JoyBrush gallery: rename (folder file renamed too), delete → Recently deleted → Restore. ✅
+- [x] Space → Clear: rebuildable 105 MB → 0 B. ✅
+- [ ] Undo after a Move: not exercised (the test clip was 20 MB, under the 25 MB copy limit, so it was copied, not linked). Needs a >25 MB outside file. The Move itself is proven (10-14).
+- [ ] Camera recording with the folder unreachable, and the earned-folder card: left for real use (testing either means renaming or littering the owner's real folder).
+- [ ] Space "Move unused to Trash…" (multi-select, added 10-15): compiles, not yet on the phone.
+
+**B. Small, unbuilt, in this lane:**
+- [x] Space multi-select → Trash (5a0a3a4a).
+- [ ] Share-in of a large file: today copied whatever the size; should follow the Copy/Move/Leave rule (link + warning above 25 MB).
+- [x] "What's new" text is Joy Creator's (5a0a3a4a).
+
+**C. Needs the owner:**
+- [ ] Application ID (decided: not tied to the domain; candidates `studio.joycreator.app`, `cc.joycreator.app`). Switch only after he picks; the folder is the bridge (the new app restores from it).
+- [ ] README.md / PRIVACY.md drafts: read, contact email, publish date.
+- [ ] Intro copy approved 2026-09-09 was never saved to the repo — he must paste it.
+
+**D. Other lanes (briefed, not ours):**
+- [ ] JoyBrush lanes — `tasks/joybrush/briefs/JOY_FOLDER_FOR_JOYBRUSH.md` §0: owner's 10-12 drawing needs the media-tile reader to preview; textured paper in thumbnails; thumbnail = last view (§0 3b); "Open…" should add a new drawing; doc name on rename; autosave during continuous drawing.
+- [ ] Play build split (roadmap 1.1–1.4): needs a build the watcher doesn't make.
+
+**E. Later (not started):** presets/settings into the folder; version history of a project; the application ID change itself.
 
 ## 7. Test leftovers on the Note 9
 

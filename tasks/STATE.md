@@ -121,7 +121,7 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | Loudness normalisation (EBU R128) | 🟢 ~ | |
 | fix_audio chain (highpass → denoise → compress → loudnorm) | 🟢 ✔ | Works. **Not exposed as a button — only reachable by asking the chatbot.** |
 | Voiceover recording | 🟢 ~ | audio/VoiceoverRecorder |
-| Audio ducking | 🔵 | Removed pending a mixer that can honour it (set_clip_duck removal comment in code ✔) |
+| Audio ducking | 🟡 | **Rebuilt** (2026-10-15 code read): lane menu "Duck under…" → Ducker + DuckApplier write ordinary volume points that export reads. Joybot's `set_ducking` mirrors it (needs the voice clip's transcript). The old set_clip_duck stays removed. Not seen on a phone by this lane. |
 | Visualizer studio | 🔵 ~ | feature-visualizer-studio-spec.md, Tier 3 planned |
 
 ---
@@ -261,7 +261,7 @@ as four separate chips two could be armed at once with reorder silently winning.
 | Headless apply over adb | 🟢 ~ | ApplyEditsActivity — dev tool |
 | Image generation | 🔵 | Endpoint verified live: POST openrouter.ai/api/v1/images |
 | Video generation | 🔵 | First post-launch feature |
-| Share-in from other apps | 🔵 | **The headline.** Needs an intent filter plus the existing import path. |
+| Share-in from other apps | 🟢 | Built 2026-10-13, Note 9-proven: "Share to Joy Creator" saves beside the open project (else Assets, else the top) and "Add to" drops it on the timeline. |
 | Multi-provider support | 🔵 | ai_provider pref ✔ **declared and never used** |
 | Streaming replies | 🔵 | Currently a frozen "Thinking…" |
 | Joybot sprite and states | ⚪ | INBOX.md — needs its own session |
@@ -282,7 +282,7 @@ as four separate chips two could be armed at once with reorder silently winning.
 | Relink by content hash and filename | 🟢 ~ | One relink resolves a whole folder |
 | Asset browser (scans a chosen folder) | 🟢 ~ | assetbrowser/AssetScanner |
 | B-roll bucket + .broll_tags.json | 🟢 ✔ | Lives in Pictures/FadCam/assets — **outside the project** |
-| **THE VAULT** (now "the Joy Creator folder") | 🟡 | ✔ Built 2026-10-13/14, agent-driven on the Note 9: projects mirrored + restored, one Trash with Undo, recordings and exports land in the folder with readable names, the Library reads it. Owner has not used it yet. Live spec: `tasks/SPEC_20261013_FILE_MANAGEMENT.md` (§4 has the proof level of every piece). |
+| **THE VAULT** (now "the Joy Creator folder") | 🟢 | ✔ Built 2026-10-13/15, agent-driven on the Note 9: required first step; projects mirrored + restored; Gather; one Trash with Undo; recordings and exports land in the folder with readable names, the Library reads it; share-in; big outside files linked with Copy/Move/Leave + yellow dot; Space screen; JoyBrush drawings with thumbnails in the folder and the Lobby. Open items: spec §6. Live spec: `tasks/SPEC_20261013_FILE_MANAGEMENT.md` (§4 has the proof level of every piece). |
 
 ### 🚨 The storage finding
 
@@ -337,7 +337,7 @@ demo project, a display typeface. All listed in design record 07 with sizes.
 | Permission screen (all up front) | 🟢 ✔ | Recommend deferring to point of use |
 | "Verify you are a human" + privacy link | 🟢 ✔ | **Copy is written for a covert recorder. Must be rewritten for Play.** |
 | New intro copy | 🔵 | Drafted 2026-09-09, approved by JoyRaptor |
-| Vault picker screen ("Your Joy Creator folder") | 🟡 | Built 2026-10-13: setup screen, Studio-list banner, Storage settings row. Not in first-run onboarding yet. |
+| Vault picker screen ("Your Joy Creator folder") | 🟢 | Required first step since 2026-10-14 (shown after onboarding, before using the app); Note 9-proven. |
 | Demo project | ⚪ | INBOX.md |
 | New landing screen / studio funnel | ⚪ | INBOX.md — its own session |
 

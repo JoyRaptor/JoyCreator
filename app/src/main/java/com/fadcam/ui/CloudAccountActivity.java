@@ -80,6 +80,7 @@ public class CloudAccountActivity extends AppCompatActivity {
         statusText = findViewById(R.id.cloud_status_text);
         
         // Back button
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.cloud_back_button), findViewById(R.id.cloud_back_button).getContext().getString(R.string.back));
         findViewById(R.id.cloud_back_button).setOnClickListener(v -> finish());
         
         // Setup WebView

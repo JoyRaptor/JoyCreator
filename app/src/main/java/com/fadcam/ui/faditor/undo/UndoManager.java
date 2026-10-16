@@ -745,6 +745,15 @@ public class UndoManager {
             FLog.e(TAG, "AI checkpoint: snapshot capture failed", e);
             return false;
         }
+        return recordAiCheckpoint(description, snapshot);
+    }
+
+    /**
+     * Record an AI step whose BEFORE state the caller already holds — the second and later
+     * Joybot requests of one chat visit, each captured from disk by the chat before it ran, so
+     * every request becomes its own undo step instead of one step for the whole visit.
+     */
+    public boolean recordAiCheckpoint(@NonNull String description, @Nullable String snapshot) {
         if (snapshot == null) return false;
 
         undoStack.push(new HistoryEntry(null, description, snapshot, true));

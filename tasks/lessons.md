@@ -1052,3 +1052,12 @@ On the Note9, `dumpsys window windows` omits focused-window fields. Treat an abs
 
 ## October 12 — Preserve owner-approved resolution changes when comparing prototypes
 The owner prefers the sharper full-resolution watercolor pooling and judges it good overall; darker pooling and grain can be tuned with parameters. An old lower-resolution prototype's perceptual threshold is a useful diagnostic, but it cannot veto an explicitly approved resolution change. Record the actual comparison failure and the owner ruling separately; keep seam, numerical, compositing and mutation gates unchanged. Verify grain and darkness controls against rendered output before tuning. Do not infer missing behavior from a resolution mismatch alone.
+
+## Python text-mode writes CRLF on Windows (Claude/Joybot, 2026-10-15)
+Patching Java files with `open(p).read()` / `open(p,'w').write()` silently turned four LF files into CRLF. The app still compiled (text blocks normalise line ends), but the harness that reads `getToolDescriptions()` from source split on `\n`, every line kept a `\r`, the tool regex matched nothing, and 8 checks failed with "0 tools". `grep -q $'\r'` in Git Bash did NOT see the CRs.
+- Rule: script edits read and write BYTES (`open(p,'rb').read().decode('utf-8')` … `open(p,'wb').write(s.encode('utf-8'))`), or pass `newline=''`. Check line endings with Python (`b.count(b'\r\n')`), not grep. Put the same rule in every brief that lets an agent script edits.
+
+
+## Project JSON is pretty-printed: test patterns on a real file (Claude/Joybot, 2026-10-15)
+Two Joybot regexes over project.json — `"id":"..."` (to find what a tool added) and `"lastModified":\d+` (to ignore a plain re-save) — never matched, because gson writes `"id": "..."` with a space. Result on the phone: Review rows had no Show me, and every "Undo from here" was refused as "the project has changed". It took two phone rounds to see because the code looked right and compiled.
+- Rule: any pattern over a stored file is checked against a REAL file pulled from the device (`adb exec-out run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json`) before it ships; allow `\s*` around every `:` in JSON patterns.

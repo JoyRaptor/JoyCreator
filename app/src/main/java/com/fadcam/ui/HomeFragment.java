@@ -5248,6 +5248,8 @@ public class HomeFragment extends BaseFragment {
             }
         });
 
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(buttonPauseResume, buttonPauseResume.getContext().getString(R.string.watch_pause_desc));
+        buttonPauseResume.setContentDescription(buttonPauseResume.getContext().getString(R.string.watch_pause_desc));
         buttonPauseResume.setOnClickListener(v -> {
             if (isPaused()) {
                 vibrateTouch();
@@ -5258,11 +5260,14 @@ public class HomeFragment extends BaseFragment {
             }
         });
 
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(buttonCamSwitch, buttonCamSwitch.getContext().getString(R.string.fullscreen_camera_switch));
+        buttonCamSwitch.setContentDescription(buttonCamSwitch.getContext().getString(R.string.fullscreen_camera_switch));
         buttonCamSwitch.setOnClickListener(v -> {
             switchCamera();
         });
 
         if (buttonMirrorSwitch != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(buttonMirrorSwitch, buttonMirrorSwitch.getContext().getString(R.string.front_video_mirror_enable));
             buttonMirrorSwitch.setOnClickListener(v -> {
                 boolean enabled = !sharedPreferencesManager.isFrontVideoMirrorEnabled();
                 sharedPreferencesManager.setFrontVideoMirrorEnabled(enabled);
@@ -5310,6 +5315,7 @@ public class HomeFragment extends BaseFragment {
         buttonMirrorSwitch.setContentDescription(
             getString(enabled ? R.string.front_video_mirror_disable : R.string.front_video_mirror_enable)
         );
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(buttonMirrorSwitch, getString(enabled ? R.string.front_video_mirror_disable : R.string.front_video_mirror_enable));
         buttonMirrorSwitch.setBackgroundTintList(
             ColorStateList.valueOf(enabled ? ContextCompat.getColor(requireContext(), R.color.button_stop) : 0xFF3A3A3A)
         );
@@ -8082,6 +8088,7 @@ public class HomeFragment extends BaseFragment {
                 }
             } catch (Exception ignored) {}
 
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(tileAfToggle, tileAfToggle.getContext().getString(R.string.desc_autofocus_toggle));
             tileAfToggle.setOnClickListener(v -> {
                 // show overlay to pick AF mode
                 FLog.d(
@@ -8136,6 +8143,7 @@ public class HomeFragment extends BaseFragment {
 
             // AE lock control moved into Exposure slider sheet (handled below)
 
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(tileExp, tileExp.getContext().getString(R.string.desc_exposure_compensation));
             tileExp.setOnClickListener(v -> {
                 // Reload exposure value from SharedPreferences before showing picker
                 // This ensures UI reflects any changes made by web/RecordingService
@@ -8201,6 +8209,7 @@ public class HomeFragment extends BaseFragment {
                 evSlider.show(getParentFragmentManager(), "ev_slider_sheet");
             });
 
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(tileZoom, tileZoom.getContext().getString(R.string.desc_zoom_ratio));
             tileZoom.setOnClickListener(v -> {
                 FLog.d(
                     TAG,
@@ -8488,6 +8497,8 @@ public class HomeFragment extends BaseFragment {
 
     private void setupPreviewZoomHud() {
         if (btnPreviewZoomReset != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnPreviewZoomReset, btnPreviewZoomReset.getContext().getString(R.string.desc_reset_zoom));
+            btnPreviewZoomReset.setContentDescription(btnPreviewZoomReset.getContext().getString(R.string.desc_reset_zoom));
             btnPreviewZoomReset.setOnClickListener(v -> {
                 CameraType cam = sharedPreferencesManager.getCameraSelection();
                 previewPinchZoomRatio = 1.0f;
@@ -9061,6 +9072,8 @@ public class HomeFragment extends BaseFragment {
         // updateTorchButtonState(isTorchOn); // This might be called too early,
         // consider moving or ensuring isTorchOn is accurate
 
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(buttonTorchSwitch, buttonTorchSwitch.getContext().getString(R.string.fullscreen_torch));
+        buttonTorchSwitch.setContentDescription(buttonTorchSwitch.getContext().getString(R.string.fullscreen_torch));
         buttonTorchSwitch.setOnClickListener(v -> {
             if (!isAdded() || getContext() == null) {
                 FLog.w(
@@ -9923,6 +9936,8 @@ public class HomeFragment extends BaseFragment {
         ivAppTitle = view.findViewById(R.id.ivAppTitle);
         // Set up header logo click handler for Privacy Black Mode
         if (ivAppTitle != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(ivAppTitle, ivAppTitle.getContext().getString(R.string.app_name));
+            ivAppTitle.setContentDescription(ivAppTitle.getContext().getString(R.string.app_name));
             ivAppTitle.setOnClickListener(v -> {
                 if (sharedPreferencesManager.isPrivacyBlackModeEnabled()) {
                     Intent intent = new Intent(requireContext(), PrivacyBlackActivity.class);
@@ -9939,6 +9954,7 @@ public class HomeFragment extends BaseFragment {
 
         // Set up hamburger menu click handler
         if (btnHamburgerMenu != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnHamburgerMenu, btnHamburgerMenu.getContext().getString(R.string.home_menu));
             btnHamburgerMenu.setOnClickListener(v -> {
                 HomeSidebarFragment sidebar = HomeSidebarFragment.newInstance();
                 sidebar.show(getParentFragmentManager(), "HomeSidebar");
@@ -9957,6 +9973,7 @@ public class HomeFragment extends BaseFragment {
         View bannerGpsWarning = view.findViewById(R.id.banner_gps_warning);
         View btnDismissGpsBanner = view.findViewById(R.id.btn_dismiss_gps_banner);
         if (btnDismissGpsBanner != null && bannerGpsWarning != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnDismissGpsBanner, btnDismissGpsBanner.getContext().getString(R.string.universal_cancel));
             btnDismissGpsBanner.setOnClickListener(v -> bannerGpsWarning.setVisibility(View.GONE));
         }
         updateGpsWarningBanner();
@@ -11666,9 +11683,11 @@ public class HomeFragment extends BaseFragment {
             applyCardRailFoldedState(true);
         };
         if (cardRailTogglePortrait != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(cardRailTogglePortrait, cardRailTogglePortrait.getContext().getString(R.string.home_cards_fold_toggle));
             cardRailTogglePortrait.setOnClickListener(listener);
         }
         if (cardRailToggleLandscape != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(cardRailToggleLandscape, cardRailToggleLandscape.getContext().getString(R.string.home_cards_fold_toggle));
             cardRailToggleLandscape.setOnClickListener(listener);
         }
     }

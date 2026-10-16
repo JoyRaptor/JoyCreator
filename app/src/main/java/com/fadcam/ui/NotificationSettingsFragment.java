@@ -40,6 +40,7 @@ public class NotificationSettingsFragment extends Fragment {
     previewText = view.findViewById(R.id.preview_text);
     previewStopButton = view.findViewById(R.id.preview_stop_button);
         View back = view.findViewById(R.id.back_button);
+        if (back != null) androidx.appcompat.widget.TooltipCompat.setTooltipText(back, back.getContext().getString(R.string.watch_back_desc));
         if(back!=null){ back.setOnClickListener(v -> OverlayNavUtil.dismiss(requireActivity())); }
     View row = view.findViewById(R.id.row_notification_preset);
     if(row!=null){ row.setOnClickListener(v -> showPresetPicker()); }

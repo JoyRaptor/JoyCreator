@@ -53,6 +53,8 @@ public class MiniAppsInfoBottomSheet extends BottomSheetDialogFragment {
         // Setup close button
         View closeBtn = view.findViewById(R.id.picker_close_btn);
         if (closeBtn != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(closeBtn, closeBtn.getContext().getString(R.string.close));
+            closeBtn.setContentDescription(closeBtn.getContext().getString(R.string.close));
             closeBtn.setOnClickListener(v -> dismiss());
         }
     }

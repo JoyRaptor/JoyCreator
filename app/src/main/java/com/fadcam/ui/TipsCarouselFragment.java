@@ -54,6 +54,7 @@ public class TipsCarouselFragment extends BottomSheetDialogFragment {
         btnNext = view.findViewById(R.id.btn_next_tip);
         btnClose = view.findViewById(R.id.btn_close_tips);
         
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnClose, btnClose.getContext().getString(R.string.close));
         btnClose.setOnClickListener(v -> dismiss());
     }
 
@@ -76,12 +77,14 @@ public class TipsCarouselFragment extends BottomSheetDialogFragment {
     }
 
     private void setupNavigation() {
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnPrevious, btnPrevious.getContext().getString(R.string.previous));
         btnPrevious.setOnClickListener(v -> {
             if (currentPosition > 0) {
                 viewPager.setCurrentItem(currentPosition - 1, true);
             }
         });
 
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnNext, btnNext.getContext().getString(R.string.next));
         btnNext.setOnClickListener(v -> {
             if (currentPosition < tips.length - 1) {
                 viewPager.setCurrentItem(currentPosition + 1, true);

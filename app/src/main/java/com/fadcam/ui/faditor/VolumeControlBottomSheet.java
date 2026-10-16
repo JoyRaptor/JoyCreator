@@ -125,7 +125,6 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
         volumeIcon.setBackground(SheetKit.pillBackground(requireContext(), Studio.alpha(Studio.RAISED, 0)));
         volumeIcon.setClickable(true);
         volumeIcon.setFocusable(true);
-        SheetKit.label(volumeIcon, getString(R.string.faditor_volume_mute));
         SheetKit.press(volumeIcon);
         sliderRow.addView(volumeIcon);
 
@@ -282,6 +281,8 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void updateVolumeIcon(TextView icon, float volume, boolean muted) {
+        // The icon is the mute toggle, so its name follows what a tap will do.
+        SheetKit.label(icon, getString(muted ? R.string.faditor_volume_unmute : R.string.faditor_volume_mute));
         if (muted || volume == 0f) {
             icon.setText("volume_off");
             icon.setTextColor(Studio.DANGER);

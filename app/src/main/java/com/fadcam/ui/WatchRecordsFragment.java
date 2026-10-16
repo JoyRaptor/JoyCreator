@@ -493,6 +493,7 @@ public class WatchRecordsFragment extends Fragment {
                 return false;
             });
             // 3-dot menu button opens the same options sheet as long-press
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(holder.btnMenu, holder.btnMenu.getContext().getString(R.string.watch_video_menu_desc));
             holder.btnMenu.setOnClickListener(v -> {
                 if (longClickListener != null) { longClickListener.onLongClick(entry); }
             });

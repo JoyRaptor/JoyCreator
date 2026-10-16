@@ -82,6 +82,7 @@ public class WatchTrashFragment extends Fragment {
 
         final View btnBack = view.findViewById(R.id.btn_watch_trash_back);
         if (btnBack != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnBack, btnBack.getContext().getString(R.string.watch_back_desc));
             btnBack.setOnClickListener(v -> OverlayNavUtil.popLevel(requireActivity()));
         }
 
@@ -387,10 +388,12 @@ public class WatchTrashFragment extends Fragment {
             }
 
             // Action buttons
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(holder.btnRestore, holder.btnRestore.getContext().getString(R.string.universal_restore));
             holder.btnRestore.setOnClickListener(v -> {
                 final int pos = holder.getAdapterPosition();
                 if (pos != RecyclerView.NO_ID) restoreItem(pos);
             });
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(holder.btnDelete, holder.btnDelete.getContext().getString(R.string.watch_trash_delete_one));
             holder.btnDelete.setOnClickListener(v -> {
                 final int pos = holder.getAdapterPosition();
                 if (pos != RecyclerView.NO_ID) confirmDeleteItem(pos);

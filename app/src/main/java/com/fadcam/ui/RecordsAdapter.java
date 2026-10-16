@@ -777,6 +777,8 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         // INSTEAD, set a click listener on the menuButtonContainer
         if (holder.menuButtonContainer != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(holder.menuButtonContainer, holder.menuButtonContainer.getContext().getString(R.string.desc_video_options));
+            holder.menuButtonContainer.setContentDescription(holder.menuButtonContainer.getContext().getString(R.string.desc_video_options));
             holder.menuButtonContainer.setOnClickListener(v -> {
                 boolean isStillAllowMenuClick = !this.currentlyProcessingUris.contains(videoItem.uri)
                         && !this.isSelectionModeActive;
@@ -3606,6 +3608,8 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
         holder.selectBg.setVisibility(isSelectionModeActive ? View.VISIBLE : View.INVISIBLE);
         holder.selectCheck.setVisibility(isSelectionModeActive && allSelected ? View.VISIBLE : View.INVISIBLE);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(holder.selectContainer, holder.selectContainer.getContext().getString(R.string.desc_select_month));
+        holder.selectContainer.setContentDescription(holder.selectContainer.getContext().getString(R.string.desc_select_month));
         holder.selectContainer.setOnClickListener(isSelectionModeActive ? v -> {
             if (monthActionListener != null) {
                 monthActionListener.onMonthSelectAll(header.monthKey, monthItems);

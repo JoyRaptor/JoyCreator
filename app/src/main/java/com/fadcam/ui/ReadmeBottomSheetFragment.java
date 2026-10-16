@@ -103,6 +103,7 @@ public class ReadmeBottomSheetFragment extends BottomSheetDialogFragment {
         // 6. Handle close button
         ImageView closeButton = view.findViewById(R.id.picker_close_btn);
         if (closeButton != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(closeButton, closeButton.getContext().getString(R.string.close));
             closeButton.setOnClickListener(v -> dismiss());
         }
         // 7. Disable dragging outside content causing accidental dismiss? Keep default for now.

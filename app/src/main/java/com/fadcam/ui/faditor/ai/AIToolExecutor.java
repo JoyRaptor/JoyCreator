@@ -12,6 +12,7 @@ import androidx.annotation.Nullable;
 
 import com.fadcam.FLog;
 import com.fadcam.SharedPreferencesManager;
+import com.fadcam.ui.faditor.ai.joybot.AiRequest;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.FaditorProject;
 import com.fadcam.ui.faditor.model.Timeline;
@@ -33,12 +34,6 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
 
 /**
  * Executes AI-requested tool calls against the live project.
@@ -72,7 +67,7 @@ public class AIToolExecutor {
     public AIToolExecutor(@NonNull Context context, @NonNull String projectId,
                           @Nullable ProgressListener progressListener) {
         this.context = context.getApplicationContext();
-        this.storage = new ProjectStorage(this.context);
+        this.storage = new com.fadcam.ui.faditor.ai.joybot.JoybotStorage(this.context);
         this.projectId = projectId;
         this.progressListener = progressListener;
     }
@@ -86,6 +81,11 @@ public class AIToolExecutor {
      */
     @NonNull
     public String executeTool(@NonNull String toolName, @NonNull JSONObject args) {
+        // The action registry (gap F2) answers first; tools not moved into it yet fall through.
+        if (com.fadcam.ui.faditor.ai.actions.StudioActions.registry().has(toolName)) {
+            return com.fadcam.ui.faditor.ai.actions.StudioActions.execute(
+                    context, storage, projectId, toolName, args);
+        }
         try {
             switch (toolName) {
                 case "get_project_state": return toolGetProjectState();
@@ -146,6 +146,11 @@ public class AIToolExecutor {
                 case "set_audio_fade": return toolSetAudioFade(args);
                 case "remove_silence": return toolRemoveSilence(args);
                 case "fix_audio": return toolFixAudio(args);
+                case "add_visualizer": return toolAddVisualizer(args);
+                case "set_fades": return toolSetFades(args);
+                case "remove_transitions": return toolRemoveTransitions(args);
+                case "set_item_time": return toolSetItemTime(args);
+                case "rename_item": return toolRenameItem(args);
                 default: return "Error: unknown tool '" + toolName + "'";
             }
         } catch (Exception e) {
@@ -224,7 +229,7 @@ public class AIToolExecutor {
                  args: {"clipId":"...", "anchors":[{"word":"in","timeMs":6000},{"index":5,"timeMs":15000}], "distribute":"even"}
             21. synthesize_transcript — Merge Vosk timing + Whisper words + silence data into a "best of both" transcript. Filler words (um/uh) are detected via silence cross-checking and pre-marked as [CUT]. Requires both Vosk and Whisper transcripts to exist.
                 args: {"clipId":"...", "runSilence":true, "sensitivity":0.5}
-            22. cut_all_fillers — Cut all pre-marked filler words (struck) from a clip's transcript. Run synthesize_transcript first.
+            22. cut_all_fillers — Cut every filler word from a clip: words marked [CUT] plus plain um/uh sounds. If it finds none, synthesize_transcript can find hidden ones.
                 args: {"clipId":"..."}
             23. merge_transcripts — Merge Vosk + Whisper transcripts algorithmically (LCS alignment, picks better word per position)
                 args: {"clipId":"..."}
@@ -243,6 +248,9 @@ public class AIToolExecutor {
                        "style_hint":"bold cinematic, dark background, gold accents",
                        "duration_ms_hint":3000,
                        "placement":{"insertAtClipIndex":0}}
+                Optional "kind" (title|chapter|quote|list|credits) and "mood"
+                (calm|bold|playful|cinematic|clean) pick Joybot's built-in design if
+                yours can't be used. For quote/list/credits put one item per line.
                 mode "overlay" composites the slide TRANSPARENTLY over the video
                 (animated lower-third); it needs placement.startMs instead of
                 insertAtClipIndex:
@@ -321,8 +329,25 @@ public class AIToolExecutor {
                 args: {"audioClipId":"...", "volume":0.5} or {"clipId":"...", "volume":0.5}
             40. set_audio_fade — Set fade in/out for an audio clip (ms). 0 removes the fade. Use for "fade in the music".
                 args: {"audioClipId":"...", "fadeInMs":500, "fadeOutMs":500}
-            41. remove_silence — Remove silent spans from a clip (uses detect_silence candidates). Use for "cut the first 30 seconds of silence", "remove silences".
+            41. remove_silence — CUT the silent spans detect_silence found on a clip (non-destructive cuts, each can be tapped back). Run detect_silence first. Use for "remove silences", "tighten the pauses".
                 args: {"clipId":"...", "sensitivity":0.5} or {"audioClipId":"..."}
+            42c. set_fades — FADE HANDLES on clips and layers: fade in from black (or from nothing, for a layer) at an item's start, fade out at its end. Not transitions. Use for "fade every clip in and out over 2 seconds", "remove the fades on my clips" (fadeInMs/fadeOutMs 0).
+                args: {"which":"clips|layers|audio|everything", "fadeInMs":2000, "fadeOutMs":2000} or {"ids":["..."], "fadeOutMs":1000}
+            42d. remove_transitions — Remove TRANSITIONS (the effects BETWEEN two clips, incl. FADE_*_BLACK at a seam). kind "fades" removes only the fade-type ones.
+                args: {"kind":"all|fades"} or {"seams":[0,2]}
+            42e. set_item_time — When ANY item (clip, picture, text, sprite, visualizer, adjustment, audio) starts/ends on the timeline, in timeline ms. "Make it end here" = endMs at the playhead. Spine clips get trimmed (the video's length changes).
+                args: {"id":"...", "endMs":5200} or {"id":"...", "startMs":1000, "endMs":4000}
+            42f. rename_item — Give an audio clip or adjustment layer a name (clips and other layers: not yet). args: {"id":"...", "name":"Cat 2"}
+            42g. look — SEE something in the project: the picture comes back attached to the tool result. Use it whenever the job depends on what something LOOKS like — naming a sprite sheet's cells, building its animations ("these are my character's expressions, label them"), choosing B-roll or a thumbnail, judging whether text reads over a background, describing a clip. A sprite sheet comes back with its grid drawn on and every cell NUMBERED with the index label_sprite_cells / author_sprite_animation use. Look first, then act; don't guess from names. Only works with a model that can see pictures.
+                args: {"id":"<sprite sheet id | sprite layer id | picture layer id | clip id | playhead>"} optional "atMs": ms into a clip (default its middle)
+            42h. auto_chapters — Split a clip into chapters from its transcript: a new chapter starts at a long pause or a sentence end (at most 12). Lists each start time with the first few words. Use for "make chapters" or "where do the topics change". Needs a transcript first (generate_transcript).
+                args: {"clipId":"..."}
+            42i. health_check — Check the project for problems: clips with no source, zero or inverted trims, zero-length clips, overlays with an invalid time range. Says "No issues found" with counts of clips, overlays and audio clips when clean. Use for "is anything broken" or "check my project".
+                args: {}
+            42j. export_project — Does NOT export anything. Use when they ask to export: it tells them to close the chat and tap the Export button (green upload icon) in the editor.
+                args: {}
+            42b. add_visualizer — Add a waveform/spectrum visualizer that dances to a clip's sound, over that clip's whole length. Use for "add a visualizer", "make the music move on screen".
+                args: {"audioClipId":"..."} (or a video clip id; omit to use the first audio clip), optional "style":"spectrum_mirror"
             42. fix_audio — One-tap Fix audio chain (highpass → afftdn → acompressor → loudnorm) via BakedAudioCache. Baked, shows progress, one undo to revert. Use for "fix my audio".
                 args: {"audioClipId":"..."}
 
@@ -430,6 +455,11 @@ public class AIToolExecutor {
             40. apply_avatar_rig — Apply a CONFIRMED avatar rig: registers it in the
                 project. Only call AFTER the user confirms (or use the Apply card).
                 args: {"rig":{ …the same rig JSON… }}
+            """
+            // Registered actions (gap F2) describe themselves, numbered on from the list above.
+            + com.fadcam.ui.faditor.ai.actions.AgentTools.docsText("49")
+            + com.fadcam.ui.faditor.ai.actions.StudioActions.registry().docsText(50)
+            + """
 
             To call a tool, respond with ONLY a JSON object:
             {"tool":"generate_transcript","args":{"clipId":"abc123","engine":"vosk"}}
@@ -464,10 +494,19 @@ public class AIToolExecutor {
             modelType = te.anyReadyModel();
         }
         if (modelType == null) {
-            return "Error: No transcription model is downloaded. "
-                    + "Please open the Transcript tool in the editor first to download a model.";
+            // Nothing downloaded yet. The engine fetches its model on first use (with progress),
+            // so pick one and let it: refusing here sent people to find the Transcript tool for a
+            // download the engine would have done itself. The small fast model, unless Whisper was
+            // asked for by name.
+            modelType = "whisper".equalsIgnoreCase(engine)
+                    ? TranscriptionEngine.ModelType.WHISPER_BASE_EN
+                    : TranscriptionEngine.ModelType.FAST;
         }
         final TranscriptionEngine.ModelType finalModelType = modelType;
+        // A fixed two minutes failed every clip longer than a few minutes. Allow for a one-time model
+        // download plus roughly twice real time, up to 45 minutes.
+        final long timeoutMs = Math.min(45 * 60_000L,
+                TOOL_TIMEOUT_MS + 2L * Math.max(0, clip.getOutPointMs() - clip.getInPointMs()));
 
         AtomicReference<String> resultRef = new AtomicReference<>(null);
         CountDownLatch latch = new CountDownLatch(1);
@@ -484,16 +523,22 @@ public class AIToolExecutor {
                     public void onResult(@NonNull Transcript transcript) {
                         NamedTranscript nt = new NamedTranscript(
                                 finalModelType.label, finalModelType.engine.name().toLowerCase(), transcript);
-                        clip.addTranscript(nt);
+                        // Read the project AGAIN now, not the copy loaded before a transcription
+                        // that can take minutes: anything changed meanwhile (by the person in the
+                        // editor, or an earlier step) must survive this save.
+                        FaditorProject fresh = storage.load(projectId);
+                        Clip target = fresh == null ? null : findClip(fresh, clipId);
+                        if (target == null) { fresh = proj; target = clip; }
+                        target.addTranscript(nt);
                         // Re-running the same model REPLACES its previous run instead of
                         // stacking another near-identical copy in project.json. Only
                         // un-edited, non-active older runs of the same engine+label are
                         // dropped (see TranscriptDedup's conservative rule); guarded on a
                         // non-empty result so an empty run can never displace real words.
                         if (!transcript.words.isEmpty()) {
-                            com.fadcam.ui.faditor.transcript.TranscriptDedup.dedupClip(clip, true);
+                            com.fadcam.ui.faditor.transcript.TranscriptDedup.dedupClip(target, true);
                         }
-                        storage.save(proj);
+                        storage.save(fresh);
                         AIChatState.signalModified(projectId);
                         resultRef.set("Transcript generated successfully. "
                                 + transcript.words.size() + " words. Engine: "
@@ -510,8 +555,8 @@ public class AIToolExecutor {
                 });
 
         try {
-            if (!latch.await(TOOL_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                return "Error: transcription timed out after 2 minutes";
+            if (!latch.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+                return "Error: transcription timed out after " + (timeoutMs / 60_000) + " minutes";
             }
         } catch (InterruptedException e) {
             return "Error: transcription interrupted";
@@ -647,7 +692,8 @@ public class AIToolExecutor {
         int w = dims[0], h = dims[1];
 
         // Author the HTML (model → validate → retry once → built-in fallback).
-        String[] authored = authorSlideHtml(mode, text, styleHint, durationMs, w, h);
+        String[] authored = authorSlideHtml(mode, text, styleHint, durationMs, w, h,
+                args.optString("kind", ""), args.optString("mood", ""));
         String html = authored[0];
         String usedModel = authored[1];
 
@@ -702,13 +748,13 @@ public class AIToolExecutor {
     @NonNull
     private String[] authorSlideHtml(@NonNull String mode, @NonNull String text,
                                      @NonNull String styleHint, long durationMs,
-                                     int w, int h) {
+                                     int w, int h, @NonNull String kind, @NonNull String mood) {
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(context);
         String apiKey = AiKey.get(context);
         String model = prefs.sharedPreferences.getString("ai_model", "openrouter/free");
 
         if (!AiService.ready(context, apiKey)) {
-            return new String[]{SlideContract.buildFallbackHtml(w, h, mode, text, durationMs), null};
+            return new String[]{builtInSlide(w, h, mode, text, durationMs, kind, mood), null};
         }
 
         String system = SlideContract.buildSystemPrompt(w, h, mode, text, styleHint, durationMs);
@@ -730,7 +776,22 @@ public class AIToolExecutor {
             }
         }
         // Never let a bad model response break the user's project.
-        return new String[]{SlideContract.buildFallbackHtml(w, h, mode, text, durationMs), null};
+        return new String[]{builtInSlide(w, h, mode, text, durationMs, kind, mood), null};
+    }
+
+    /**
+     * The no-model slide: Joybot's designed kind × mood when the request names them (the slide
+     * wizard does), else the plain fade. Overlays keep the plain fade: the designs paint a
+     * background, and an overlay must stay see-through.
+     */
+    @NonNull
+    private static String builtInSlide(int w, int h, @NonNull String mode, @NonNull String text,
+                                       long durationMs, @NonNull String kind, @NonNull String mood) {
+        if (com.fadcam.ui.faditor.slides.SlideDesigns.knows(kind, mood)) {
+            return com.fadcam.ui.faditor.slides.SlideDesigns.build(w, h, kind, mood, text, durationMs,
+                    SlideContract.MODE_OVERLAY.equals(mode));
+        }
+        return SlideContract.buildFallbackHtml(w, h, mode, text, durationMs);
     }
 
     @Nullable
@@ -740,36 +801,7 @@ public class AIToolExecutor {
             JSONArray messages = new JSONArray();
             messages.put(new JSONObject().put("role", "system").put("content", system));
             messages.put(new JSONObject().put("role", "user").put("content", user));
-            JSONObject body = new JSONObject();
-            body.put("model", model);
-            body.put("messages", messages);
-            body.put("max_tokens", 4096);
-            body.put("temperature", 0.6);
-
-            OkHttpClient client = new OkHttpClient.Builder()
-                    .connectTimeout(30, TimeUnit.SECONDS)
-                    .readTimeout(90, TimeUnit.SECONDS)
-                    .writeTimeout(30, TimeUnit.SECONDS)
-                    .build();
-            Request request = new Request.Builder()
-                    .url(AiService.chatUrl(context))
-                    .addHeader("Authorization", "Bearer " + apiKey)
-                    .addHeader("Content-Type", "application/json")
-                    .post(RequestBody.create(body.toString(),
-                            MediaType.parse("application/json")))
-                    .build();
-            try (Response response = client.newCall(request).execute()) {
-                String respBody = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) {
-                    FLog.e(TAG, "Slide author API error " + response.code() + ": "
-                            + respBody.substring(0, Math.min(200, respBody.length())));
-                    return null;
-                }
-                JSONObject json = new JSONObject(respBody);
-                JSONArray choices = json.optJSONArray("choices");
-                if (choices == null || choices.length() == 0) return null;
-                return choices.getJSONObject(0).getJSONObject("message").getString("content");
-            }
+            return AiRequest.complete(context, model, apiKey, messages, 4096, 0.6, 90);
         } catch (Exception e) {
             FLog.e(TAG, "callOpenRouterForHtml failed", e);
             return null;
@@ -1253,9 +1285,12 @@ public class AIToolExecutor {
      */
     private String toolTagBrollAssets(@NonNull JSONObject args) {
         boolean force = args.optBoolean("force", false);
-        int maxAssets = Math.max(1, Math.min(20, args.optInt("maxAssets", 10)));
         String[] km = apiKeyModel();
         if (km == null) return "Error: no AI API key configured (Settings → AI).";
+        // Free models allow a handful of requests a minute: smaller batches, spaced out, and a
+        // polite stop when the service asks us to slow down (owner, 2026-10-14).
+        boolean free = km[1].endsWith(":free") || km[1].startsWith("openrouter/free");
+        int maxAssets = Math.max(1, Math.min(free ? 6 : 20, args.optInt("maxAssets", free ? 6 : 10)));
         BRollBucket bucket = new BRollBucket(context);
         org.json.JSONObject index = bucket.loadTagIndex();
         java.util.List<BRollBucket.AssetEntry> assets = bucket.listAssets();
@@ -1268,6 +1303,9 @@ public class AIToolExecutor {
                 continue;
             }
             if (attempted >= maxAssets) break;
+            if (attempted > 0 && free) {
+                try { Thread.sleep(3200); } catch (InterruptedException ie) { break; }
+            }
             attempted++;
             notifyProgress("Tagging " + a.name, (attempted * 100) / maxAssets);
             String b64 = assetThumbnailBase64(a);
@@ -1281,6 +1319,10 @@ public class AIToolExecutor {
                     b64);
             if (reply == null) {
                 failed++;
+                if (lastVisionHttpCode == 429) {
+                    report.append("  The AI service asked me to slow down; the rest can be tagged next time.\n");
+                    break;
+                }
                 report.append("  ").append(a.name)
                         .append(": model call failed (is the configured model multimodal?)\n");
                 continue;
@@ -1361,6 +1403,9 @@ public class AIToolExecutor {
         }
     }
 
+    /** HTTP status of the last vision call (429 = slow down). */
+    private int lastVisionHttpCode;
+
     /** Chat-completions call with an image part (OpenRouter multimodal convention). */
     @Nullable
     private String callOpenRouterVision(@NonNull String apiKey, @NonNull String model,
@@ -1374,36 +1419,13 @@ public class AIToolExecutor {
             JSONArray messages = new JSONArray();
             messages.put(new JSONObject().put("role", "system").put("content", system));
             messages.put(new JSONObject().put("role", "user").put("content", content));
-            JSONObject body = new JSONObject();
-            body.put("model", model);
-            body.put("messages", messages);
-            body.put("max_tokens", 600);
-            body.put("temperature", 0.2);
-
-            OkHttpClient client = new OkHttpClient.Builder()
-                    .connectTimeout(30, TimeUnit.SECONDS)
-                    .readTimeout(90, TimeUnit.SECONDS)
-                    .writeTimeout(30, TimeUnit.SECONDS)
-                    .build();
-            Request request = new Request.Builder()
-                    .url(AiService.chatUrl(context))
-                    .addHeader("Authorization", "Bearer " + apiKey)
-                    .addHeader("Content-Type", "application/json")
-                    .post(RequestBody.create(body.toString(),
-                            MediaType.parse("application/json")))
-                    .build();
-            try (Response response = client.newCall(request).execute()) {
-                String respBody = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) {
-                    FLog.e(TAG, "Vision tag API error " + response.code() + ": "
-                            + respBody.substring(0, Math.min(200, respBody.length())));
-                    return null;
-                }
-                JSONObject json = new JSONObject(respBody);
-                JSONArray choices = json.optJSONArray("choices");
-                if (choices == null || choices.length() == 0) return null;
-                return choices.getJSONObject(0).getJSONObject("message").getString("content");
-            }
+            String reply = AiRequest.complete(context, model, apiKey, messages, 600, 0.2, 90);
+            lastVisionHttpCode = 200;
+            return reply;
+        } catch (AiRequest.HttpError e) {
+            lastVisionHttpCode = e.code;
+            FLog.e(TAG, "Vision tag API error " + e.getMessage());
+            return null;
         } catch (Exception e) {
             FLog.e(TAG, "callOpenRouterVision failed", e);
             return null;
@@ -1744,6 +1766,7 @@ public class AIToolExecutor {
         }
         if (changed.length() == 0) return "No change — every field matched the current grid.";
         storage.save(proj);
+        AIChatState.signalModified(projectId);   // SpriteLab reloads on this (2026-10-15)
         return "Updated '" + sheet.getName() + "': " + changed
                 + "now " + sheet.getCols() + "x" + sheet.getRows()
                 + " (" + (sheet.getCols() * sheet.getRows()) + " cells) at " + sheet.getFps()
@@ -1824,6 +1847,7 @@ public class AIToolExecutor {
         preset.weights.addAll(weights);
         sheet.getPresets().add(preset);
         storage.save(proj);
+        AIChatState.signalModified(projectId);   // SpriteLab reloads on this (2026-10-15)
 
         return "Added animation '" + name + "' to '" + sheet.getName() + "': "
                 + frames.size() + " frames, " + type
@@ -1844,10 +1868,50 @@ public class AIToolExecutor {
      * the tool worked, and the mistake would only surface much later as an animation that
      * cannot find its frames.</p>
      */
+    /**
+     * {"0":"happy",...} is the documented shape, but free models sent a list of names, a list of
+     * {cell,name} pairs, or the object as a string, and failed three times in a row on the phone
+     * (2026-10-15) before claiming success. Every one of those says the same thing; take them all.
+     */
+    @Nullable
+    static JSONObject labelsAsObject(@Nullable Object raw) {
+        try {
+            if (raw instanceof String) {
+                String s = ((String) raw).trim();
+                if (s.startsWith("{")) raw = new JSONObject(s);
+                else if (s.startsWith("[")) raw = new JSONArray(s);
+                else return null;
+            }
+            if (raw instanceof JSONObject) {
+                JSONObject o = (JSONObject) raw;
+                JSONObject inner = o.optJSONObject("labels");   // {"labels":{...}} nested once
+                return inner != null ? inner : o;
+            }
+            if (raw instanceof JSONArray) {
+                JSONArray a = (JSONArray) raw;
+                JSONObject out = new JSONObject();
+                for (int i = 0; i < a.length(); i++) {
+                    Object e = a.opt(i);
+                    if (e instanceof JSONObject) {
+                        JSONObject p = (JSONObject) e;
+                        Object idx = p.has("cell") ? p.opt("cell") : p.has("index") ? p.opt("index")
+                                : p.has("cellIndex") ? p.opt("cellIndex") : null;
+                        String name = p.optString("name", p.optString("label", ""));
+                        if (idx != null) out.put(String.valueOf(idx).trim(), name);
+                    } else if (e != null && e != JSONObject.NULL) {
+                        out.put(String.valueOf(i), String.valueOf(e));   // a plain list, in cell order
+                    }
+                }
+                return out;
+            }
+        } catch (Exception ignored) { }
+        return null;
+    }
+
     private String toolLabelSpriteCells(@NonNull JSONObject args) {
         String sheetId = args.optString("sheetId", "");
         if (sheetId.isEmpty()) return "Error: 'sheetId' is required.";
-        JSONObject labels = args.optJSONObject("labels");
+        JSONObject labels = labelsAsObject(args.opt("labels"));
         if (labels == null || labels.length() == 0) {
             return "Error: 'labels' must be an object of cellIndex -> name, "
                     + "e.g. {\"0\":\"idle\",\"1\":\"walk_01\"}.";
@@ -1883,6 +1947,7 @@ public class AIToolExecutor {
                     + (sheet.getCols() * sheet.getRows()) + " cells.";
         }
         storage.save(proj);
+        AIChatState.signalModified(projectId);   // SpriteLab reloads on this (2026-10-15)
         StringBuilder out = new StringBuilder("Named " + named + " cell(s)");
         if (cleared > 0) out.append(", cleared ").append(cleared);
         out.append(" on '").append(sheet.getName()).append("'.");
@@ -2066,18 +2131,363 @@ public class AIToolExecutor {
             }
             return "Error: clip not found: " + clipId;
         }
-        // Use existing silence candidates if present, else detect
         java.util.List<long[]> gaps = clip.getSilenceCandidates();
         if (gaps == null || gaps.isEmpty()) {
-            // No candidates — try to detect with default sensitivity
             return "No silence candidates — call detect_silence first on " + clipId;
         }
-        // Convert gaps to keep ranges via remove_span (like the UI does)
-        // For now, just report what would be cut
-        StringBuilder sb = new StringBuilder("Found " + gaps.size() + " silent spans on " + clipId + ":\n");
-        for (long[] g : gaps) sb.append(String.format(java.util.Locale.US, "  %.1fs — %.1fs\n", g[0]/1000.0, g[1]/1000.0));
-        sb.append("Call apply_edit_script with remove_span for each, or use the Silence tool in the UI.");
-        return sb.toString();
+        // The same move as tapping a yellow silence band in the editor: each candidate becomes a
+        // non-destructive cut (removed span) and stops being a candidate. Every cut can be tapped
+        // back on the timeline. This used to only LIST the gaps and cut nothing.
+        List<long[]> spans = new ArrayList<>(clip.getRemovedSpans());
+        int cut = 0;
+        long cutMs = 0;
+        for (long[] g : gaps) {
+            if (g == null || g.length < 2 || g[1] <= g[0]) continue;
+            if (com.fadcam.ui.faditor.ai.joybot.Fillers.isCut(g[0], g[1], spans)) continue;
+            spans.add(new long[]{g[0], g[1]});
+            cut++;
+            cutMs += g[1] - g[0];
+        }
+        if (cut == 0) return "All " + gaps.size() + " silent spans on this clip are already cut.";
+        clip.setRemovedSpans(mergeSpans(spans));
+        clip.setSilenceCandidates(new ArrayList<>());
+        storage.save(proj);
+        AIChatState.signalModified(projectId, "Remove " + cut + " silences");
+        return String.format(java.util.Locale.US,
+                "Cut %d silent spans (%.1fs) from clip %s. Each cut can be tapped back on the timeline.",
+                cut, cutMs / 1000.0, clipId);
+    }
+
+    /** Sort and merge touching/overlapping spans, the way the editor stores removed spans. */
+    @NonNull
+    private static List<long[]> mergeSpans(@NonNull List<long[]> in) {
+        List<long[]> spans = new ArrayList<>(in);
+        java.util.Collections.sort(spans, (a, b) -> Long.compare(a[0], b[0]));
+        List<long[]> merged = new ArrayList<>();
+        for (long[] s : spans) {
+            if (!merged.isEmpty() && s[0] <= merged.get(merged.size() - 1)[1] + 1) {
+                merged.get(merged.size() - 1)[1] = Math.max(merged.get(merged.size() - 1)[1], s[1]);
+            } else {
+                merged.add(new long[]{s[0], s[1]});
+            }
+        }
+        return merged;
+    }
+
+    // ── Fades, timing and names for ANY item (owner, 2026-10-14) ───────────────────────────
+    // "Give all my clips a two second fade in from black and out" failed: the fade HANDLES (a
+    // property of each clip/layer) had no tool at all, only TRANSITIONS (between two clips).
+    // These tools reach every kind of item by id, so batches and "this one" both work.
+
+    /** Every timed thing in the project, by id: spine clip, overlay clip, layer, sound. */
+    private static final class Item {
+        final String id, kind, name;
+        @Nullable final Clip clip;                 // spine or overlay video/picture clip
+        final boolean spine;
+        final long timelineStart;                  // where it starts on the timeline
+        @Nullable final Object obj;                // the layer object otherwise
+
+        Item(String id, String kind, String name, @Nullable Clip clip, boolean spine, long start,
+             @Nullable Object obj) {
+            this.id = id; this.kind = kind; this.name = name; this.clip = clip; this.spine = spine;
+            this.timelineStart = start; this.obj = obj;
+        }
+    }
+
+    @NonNull
+    private List<Item> allItems(@NonNull FaditorProject proj) {
+        List<Item> out = new ArrayList<>();
+        Timeline tl = proj.getTimeline();
+        long at = 0;
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            out.add(new Item(c.getId(), c.isImageClip() ? "picture clip" : c.isGeneratedSlide() ? "slide" : "video clip",
+                    friendlyClipName(c), c, true, at, null));
+            at += c.getVisualDurationMs();
+        }
+        for (Clip oc : tl.getOverlayClips()) {
+            out.add(new Item(oc.getId(), "video layer", friendlyClipName(oc), oc, false, oc.getOverlayStartMs(), null));
+        }
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
+            out.add(new Item(o.getId(), o.isImage() ? "image layer" : "text layer",
+                    o.isImage() ? "image" : o.getText(), null, false, o.getStartMs(), o));
+        }
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : tl.getSpriteOverlays()) {
+            out.add(new Item(s.getId(), "sprite layer", "sprite", null, false, s.getStartMs(), s));
+        }
+        for (com.fadcam.ui.faditor.model.WaveformOverlayInstance w : tl.getWaveformOverlays()) {
+            out.add(new Item(w.getId(), "visualizer", "visualizer", null, false, w.getStartMs(), w));
+        }
+        for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
+            out.add(new Item(a.getId(), "adjustment layer", a.getName(), null, false, a.getStartMs(), a));
+        }
+        for (com.fadcam.ui.faditor.model.AudioClip ac : tl.getAudioClips()) {
+            out.add(new Item(ac.getId(), "audio clip", ac.getLabel(), null, false, ac.getOffsetMs(), ac));
+        }
+        return out;
+    }
+
+    /** The items named by {"ids":[…]} or {"which":"clips|layers|everything"}. */
+    @NonNull
+    private List<Item> pick(@NonNull FaditorProject proj, @NonNull JSONObject args) {
+        List<Item> all = allItems(proj);
+        List<Item> out = new ArrayList<>();
+        JSONArray ids = args.optJSONArray("ids");
+        String one = args.optString("id", "");
+        if (ids != null || !one.isEmpty()) {
+            java.util.Set<String> want = new java.util.HashSet<>();
+            if (!one.isEmpty()) want.add(one);
+            if (ids != null) for (int i = 0; i < ids.length(); i++) want.add(ids.optString(i));
+            for (Item it : all) if (want.contains(it.id)) out.add(it);
+            return out;
+        }
+        String which = args.optString("which", "clips");
+        for (Item it : all) {
+            boolean isClip = it.spine;
+            if ("everything".equals(which) || ("clips".equals(which) && isClip)
+                    || ("layers".equals(which) && !isClip && !"audio clip".equals(it.kind))
+                    || ("audio".equals(which) && "audio clip".equals(it.kind))) {
+                out.add(it);
+            }
+        }
+        return out;
+    }
+
+    /** Duration of an item on the timeline. */
+    private static long itemLength(@NonNull Item it) {
+        if (it.clip != null) return it.clip.getVisualDurationMs();
+        if (it.obj instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
+            com.fadcam.ui.faditor.model.TextOverlayItem o = (com.fadcam.ui.faditor.model.TextOverlayItem) it.obj;
+            return o.getEndMs() == Long.MAX_VALUE ? Long.MAX_VALUE : o.getEndMs() - o.getStartMs();
+        }
+        if (it.obj instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
+            com.fadcam.ui.faditor.sprite.SpriteOverlayItem s = (com.fadcam.ui.faditor.sprite.SpriteOverlayItem) it.obj;
+            return s.getEndMs() - s.getStartMs();
+        }
+        if (it.obj instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) {
+            com.fadcam.ui.faditor.model.WaveformOverlayInstance w = (com.fadcam.ui.faditor.model.WaveformOverlayInstance) it.obj;
+            return w.getEndMs() - w.getStartMs();
+        }
+        if (it.obj instanceof com.fadcam.ui.faditor.model.AdjustmentLayer) {
+            return ((com.fadcam.ui.faditor.model.AdjustmentLayer) it.obj).getDurationMs();
+        }
+        if (it.obj instanceof com.fadcam.ui.faditor.model.AudioClip) {
+            return ((com.fadcam.ui.faditor.model.AudioClip) it.obj).getTrimmedDurationMs();
+        }
+        return 0;
+    }
+
+    /**
+     * Fade handles: fade in from black (or from nothing, for a layer) at the start and out at
+     * the end of each item. NOT transitions — those sit BETWEEN two clips (remove_transitions).
+     */
+    private String toolSetFades(@NonNull JSONObject args) {
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        long in = args.has("fadeInMs") ? Math.max(0, args.optLong("fadeInMs", 0)) : -1;
+        long out = args.has("fadeOutMs") ? Math.max(0, args.optLong("fadeOutMs", 0)) : -1;
+        if (in < 0 && out < 0) return "Error: give fadeInMs and/or fadeOutMs (0 removes a fade)";
+        List<Item> items = pick(proj, args);
+        if (items.isEmpty()) return "Error: nothing matched (use ids from the project context, or which=clips|layers|audio|everything)";
+        int done = 0;
+        StringBuilder skipped = new StringBuilder();
+        for (Item it : items) {
+            long len = itemLength(it);
+            if (it.clip != null) {
+                if (in >= 0) it.clip.setMasterFadeInMs(Math.min(in, len / 2));
+                if (out >= 0) it.clip.setMasterFadeOutMs(Math.min(out, len / 2));
+                done++;
+            } else if (it.obj instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
+                com.fadcam.ui.faditor.model.TextOverlayItem o = (com.fadcam.ui.faditor.model.TextOverlayItem) it.obj;
+                if (len == Long.MAX_VALUE) {
+                    if (in >= 0) o.setImageFadeInMs(in);
+                    if (out >= 0) o.setImageFadeOutMs(out);
+                } else {
+                    if (in >= 0) o.setImageFadeInMs(in, len);
+                    if (out >= 0) o.setImageFadeOutMs(out, len);
+                }
+                done++;
+            } else if (it.obj instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem s = (com.fadcam.ui.faditor.sprite.SpriteOverlayItem) it.obj;
+                if (in >= 0) s.setFadeInMs(Math.min(in, len / 2));
+                if (out >= 0) s.setFadeOutMs(Math.min(out, len / 2));
+                done++;
+            } else if (it.obj instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) {
+                com.fadcam.ui.faditor.model.WaveformOverlayInstance w = (com.fadcam.ui.faditor.model.WaveformOverlayInstance) it.obj;
+                if (in >= 0) w.setFadeInMs(Math.min(in, len / 2));
+                if (out >= 0) w.setFadeOutMs(Math.min(out, len / 2));
+                done++;
+            } else if (it.obj instanceof com.fadcam.ui.faditor.model.AudioClip) {
+                com.fadcam.ui.faditor.model.AudioClip a = (com.fadcam.ui.faditor.model.AudioClip) it.obj;
+                if (in >= 0) a.setFadeInMs(Math.min(in, len / 2));
+                if (out >= 0) a.setFadeOutMs(Math.min(out, len / 2));
+                done++;
+            } else {
+                if (skipped.length() > 0) skipped.append(", ");
+                skipped.append(it.kind);
+            }
+        }
+        if (done == 0) return "Error: those items have no fade handles (" + skipped + ")";
+        storage.save(proj);
+        AIChatState.signalModified(projectId, "Set fades on " + done + " item" + (done == 1 ? "" : "s"));
+        return "Fade handles set on " + done + " item(s): "
+                + (in >= 0 ? "fade in " + in + "ms " : "") + (out >= 0 ? "fade out " + out + "ms" : "")
+                + " (capped at half of each item's length)."
+                + (skipped.length() > 0 ? " Skipped (no fade handles): " + skipped + "." : "");
+    }
+
+    /** Remove transitions (the effects between clips), all or just the fade kinds, or at given seams. */
+    private String toolRemoveTransitions(@NonNull JSONObject args) {
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        String kind = args.optString("kind", "all");
+        JSONArray seams = args.optJSONArray("seams");
+        java.util.Set<Integer> only = null;
+        if (seams != null) {
+            only = new java.util.HashSet<>();
+            for (int i = 0; i < seams.length(); i++) only.add(seams.optInt(i));
+        }
+        List<com.fadcam.ui.faditor.model.Transition> ts = proj.getTimeline().getTransitions();
+        int removed = 0;
+        for (int i = ts.size() - 1; i >= 0; i--) {
+            com.fadcam.ui.faditor.model.Transition t = ts.get(i);
+            if ("fades".equals(kind) && !t.isFade()) continue;
+            if (only != null && !only.contains(t.clipIndex)) continue;
+            proj.getTimeline().removeTransition(i);
+            removed++;
+        }
+        if (removed == 0) return "No matching transitions to remove.";
+        storage.save(proj);
+        AIChatState.signalModified(projectId, "Remove " + removed + " transitions");
+        return "Removed " + removed + " transition(s).";
+    }
+
+    /**
+     * When an item starts and ends on the timeline. "Make it end here" = endMs at the playhead.
+     * Spine clips trim their own source (the video gets shorter or longer); layers just move edges.
+     */
+    private String toolSetItemTime(@NonNull JSONObject args) {
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        String id = args.optString("id", "");
+        Item it = null;
+        for (Item x : allItems(proj)) if (x.id.equals(id)) { it = x; break; }
+        if (it == null) return "Error: no item with id '" + id + "'";
+        boolean hasStart = args.has("startMs"), hasEnd = args.has("endMs");
+        if (!hasStart && !hasEnd) return "Error: give startMs and/or endMs (timeline milliseconds)";
+        long start = hasStart ? Math.max(0, args.optLong("startMs")) : it.timelineStart;
+        long len = itemLength(it);
+        long end = hasEnd ? args.optLong("endMs") : (len == Long.MAX_VALUE ? Long.MAX_VALUE : it.timelineStart + len);
+        if (end != Long.MAX_VALUE && end <= start + 50) return "Error: it would end before it starts";
+        if (it.clip != null && it.spine) {
+            // A spine clip's place is set by the clips before it; trim its own source instead.
+            Clip c = it.clip;
+            if (hasEnd) {
+                long local = Math.max(50, end - it.timelineStart);
+                if (local >= c.getVisualDurationMs()) return "Error: a clip can't end later than its footage; it already ends at "
+                        + (it.timelineStart + c.getVisualDurationMs()) + "ms";
+                c.setOutPointMs(c.mapToSourceMs(local));
+            }
+            if (hasStart && start > it.timelineStart) {
+                c.setInPointMs(c.mapToSourceMs(start - it.timelineStart));
+            }
+        } else if (it.clip != null) {
+            Clip c = it.clip;
+            if (hasEnd && end != Long.MAX_VALUE) c.setOutPointMs(c.mapToSourceMs(Math.max(50, end - it.timelineStart)));
+            if (hasStart) c.setOverlayStartMs(start);
+        } else if (it.obj instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
+            ((com.fadcam.ui.faditor.model.TextOverlayItem) it.obj).setTimeRange(start, end);
+        } else if (it.obj instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
+            ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) it.obj).setTimeRange(start, end);
+        } else if (it.obj instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) {
+            ((com.fadcam.ui.faditor.model.WaveformOverlayInstance) it.obj).setTimeRange(start, end);
+        } else if (it.obj instanceof com.fadcam.ui.faditor.model.AdjustmentLayer) {
+            com.fadcam.ui.faditor.model.AdjustmentLayer a = (com.fadcam.ui.faditor.model.AdjustmentLayer) it.obj;
+            a.setStartMs(start);
+            if (end != Long.MAX_VALUE) a.setDurationMs(end - start);
+        } else if (it.obj instanceof com.fadcam.ui.faditor.model.AudioClip) {
+            com.fadcam.ui.faditor.model.AudioClip a = (com.fadcam.ui.faditor.model.AudioClip) it.obj;
+            long oldOffset = a.getOffsetMs();
+            if (hasEnd && end != Long.MAX_VALUE) a.setOutPointMs(a.getInPointMs() + Math.max(50, end - oldOffset));
+            if (hasStart) a.setOffsetMs(start);
+        } else {
+            return "Error: can't retime a " + it.kind;
+        }
+        storage.save(proj);
+        AIChatState.signalModified(projectId, "Retime " + it.kind);
+        return "The " + it.kind + " “" + it.name + "” now runs from " + clock(start) + " to "
+                + (end == Long.MAX_VALUE ? "the end" : clock(end))
+                + (it.spine ? " (it's on the main track, so it was trimmed and the video's length changed)." : ".");
+    }
+
+    /** "1:02.35" — minutes, seconds and hundredths, for sentences people read. */
+    @NonNull
+    private static String clock(long ms) {
+        long s = Math.max(0, ms) / 1000;
+        return String.format(java.util.Locale.US, "%d:%02d.%02d", s / 60, s % 60, (Math.max(0, ms) % 1000) / 10);
+    }
+
+    /** A name of your choosing for any clip or layer (shown to Joybot, and where the app shows names). */
+    private String toolRenameItem(@NonNull JSONObject args) {
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        String id = args.optString("id", "");
+        String name = args.optString("name", "").trim();
+        if (name.isEmpty()) return "Error: 'name' is required";
+        Item it = null;
+        for (Item x : allItems(proj)) if (x.id.equals(id)) { it = x; break; }
+        if (it == null) return "Error: no item with id '" + id + "'";
+        // Not Clip.displayName: the editor uses it to remember a clip's ORIGINAL file name for
+        // relinking, and to recognise its own "Blank (auto)" filler. Clips get a real name field
+        // with the naming feature (tasks/joybot/NAMING_DESIGN_20261014.md).
+        if (it.clip != null) return "Error: clips can't be given their own names yet (it's planned). Audio clips and adjustment layers can.";
+        if (it.obj instanceof com.fadcam.ui.faditor.model.AudioClip) ((com.fadcam.ui.faditor.model.AudioClip) it.obj).setLabel(name);
+        else if (it.obj instanceof com.fadcam.ui.faditor.model.AdjustmentLayer) ((com.fadcam.ui.faditor.model.AdjustmentLayer) it.obj).setName(name);
+        else return "Error: " + it.kind + "s can't be named yet (planned: naming any layer).";
+        storage.save(proj);
+        AIChatState.signalModified(projectId, "Rename to " + name);
+        return "Renamed the " + it.kind + " to \"" + name + "\".";
+    }
+
+    /** A visualizer over an audio clip (or a video clip's sound), the length of that clip. */
+    private String toolAddVisualizer(@NonNull JSONObject args) {
+        String id = args.optString("audioClipId", args.optString("clipId", ""));
+        String style = args.optString("style", "spectrum_mirror");
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        Timeline tl = proj.getTimeline();
+        long start = -1, dur = 0;
+        if (id.isEmpty() && !tl.getAudioClips().isEmpty()) id = tl.getAudioClips().get(0).getId();
+        for (com.fadcam.ui.faditor.model.AudioClip ac : tl.getAudioClips()) {
+            if (ac != null && ac.getId().equals(id)) {
+                start = ac.getOffsetMs();
+                dur = ac.getTrimmedDurationMs();
+                break;
+            }
+        }
+        if (start < 0) {
+            long at = 0;
+            for (int i = 0; i < tl.getClipCount(); i++) {
+                Clip c = tl.getClip(i);
+                if (c.getId().equals(id)) {
+                    start = at;
+                    dur = c.hasLoopExtension() ? c.getVisualDurationMs() : c.getTrimmedDurationMs();
+                    break;
+                }
+                at += c.getVisualDurationMs();
+            }
+        }
+        if (start < 0 || dur <= 0) return "Error: no clip with sound found for id '" + id + "'";
+        com.fadcam.ui.faditor.model.WaveformOverlayInstance wo =
+                new com.fadcam.ui.faditor.model.WaveformOverlayInstance(style);
+        wo.setAudioSourceRef(id);
+        wo.setTimeRange(start, start + dur);
+        wo.setCenter(0.5f, 0.78f);
+        wo.setSize(0.85f, 0.22f);
+        tl.addWaveformOverlay(wo);
+        storage.save(proj);
+        AIChatState.signalModified(projectId, "Add a visualizer");
+        return "Visualizer added (" + style + ") for " + (dur / 1000) + "s, reading clip " + id + ".";
     }
 
     private String toolFixAudio(@NonNull JSONObject args) {
@@ -2178,15 +2588,21 @@ public class AIToolExecutor {
         return "Clip " + clipId + " " + (muted ? "muted" : "unmuted");
     }
 
-    private String toolToggleCaptions(@NonNull JSONObject args) {
+    private String toolToggleCaptions(@NonNull JSONObject args) throws org.json.JSONException {
         String clipId = args.optString("clipId", "");
         boolean enabled = args.optBoolean("enabled", true);
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";
         Clip clip = findClip(proj, clipId);
         if (clip == null) return "Error: clip not found: " + clipId;
-        if (enabled && clip.getActiveNamedTranscript() == null) {
-            return "Error: clip has no transcript. Generate a transcript first.";
+        if (enabled && clip.getActiveNamedTranscript() == null && clip.getTranscripts().isEmpty()) {
+            // Captions ARE the transcript on screen, so a request for captions on a clip with no
+            // words yet means "transcribe it, then show them" (owner, 2026-10-14) — not an error.
+            String t = toolGenerateTranscript(new JSONObject().put("clipId", clipId).put("engine", "whisper"));
+            if (t == null || t.startsWith("Error")) return t == null ? "Error: transcription failed" : t;
+            proj = storage.load(projectId);
+            clip = proj == null ? null : findClip(proj, clipId);
+            if (clip == null) return "Error: clip not found after transcribing: " + clipId;
         }
         clip.setCaptionsEnabled(enabled);
         storage.save(proj);
@@ -2421,25 +2837,51 @@ public class AIToolExecutor {
         NamedTranscript nt = clip.getActiveNamedTranscript();
         if (nt == null) nt = versions.get(0);
 
-        // Simple chapter detection: look for long pauses (>1.5s between words)
-        // or sentence boundaries as chapter markers.
-        StringBuilder sb = new StringBuilder();
-        sb.append("Suggested chapters for clip ").append(clipId).append(":\n");
-        int chapter = 1;
-        sb.append("Chapter 1: 0ms — ").append(nt.transcript.words.isEmpty() ? "" : nt.transcript.words.get(0).text).append("\n");
-
-        for (int i = 1; i < nt.transcript.words.size(); i++) {
-            var prev = nt.transcript.words.get(i - 1);
-            var curr = nt.transcript.words.get(i);
+        // A chapter starts after a real break: a long pause, or a sentence end once the current
+        // chapter has run at least MIN_MS. The first version split on EVERY sentence end, so a
+        // ten-minute talk came back as two hundred "chapters". The longest pauses win when there
+        // are more candidates than MAX.
+        final long MIN_MS = 30_000;
+        final int MAX = 12;
+        java.util.List<com.fadcam.ui.faditor.transcript.TranscriptWord> kept = new ArrayList<>();
+        for (var w : nt.transcript.words) {
+            if (w.struck || com.fadcam.ui.faditor.ai.joybot.Fillers.isCut(w.startMs, w.endMs, clip.getRemovedSpans())) continue;
+            kept.add(w);
+        }
+        if (kept.isEmpty()) return "Error: the transcript has no words left in the video.";
+        java.util.List<long[]> starts = new ArrayList<>();   // {wordIndex, pauseMs}
+        starts.add(new long[]{0, Long.MAX_VALUE});
+        long chapterStart = kept.get(0).startMs;
+        for (int i = 1; i < kept.size(); i++) {
+            com.fadcam.ui.faditor.transcript.TranscriptWord prev = kept.get(i - 1), curr = kept.get(i);
             long gap = curr.startMs - prev.endMs;
-            // New chapter on >2s pause or after a sentence-ending word
-            if (gap > 2000 || prev.text.endsWith(".") || prev.text.endsWith("!") || prev.text.endsWith("?")) {
-                chapter++;
-                sb.append("Chapter ").append(chapter).append(": ").append(curr.startMs)
-                        .append("ms — ").append(curr.text).append("\n");
+            boolean sentenceEnd = prev.text.endsWith(".") || prev.text.endsWith("!") || prev.text.endsWith("?");
+            if (curr.startMs - chapterStart >= MIN_MS && (gap > 2000 || (sentenceEnd && gap > 600))) {
+                starts.add(new long[]{i, gap});
+                chapterStart = curr.startMs;
             }
         }
-        sb.append("\n(To create text overlays from these, ask me to add chapter titles.)");
+        if (starts.size() > MAX) {
+            java.util.List<long[]> byPause = new ArrayList<>(starts.subList(1, starts.size()));
+            byPause.sort((a, b) -> Long.compare(b[1], a[1]));
+            java.util.List<long[]> keepStarts = new ArrayList<>(byPause.subList(0, MAX - 1));
+            keepStarts.add(starts.get(0));
+            keepStarts.sort((a, b) -> Long.compare(a[0], b[0]));
+            starts = keepStarts;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append(starts.size()).append(" chapters for clip ").append(clipId)
+                .append(" (source time, from pauses and sentence ends):\n");
+        for (int c = 0; c < starts.size(); c++) {
+            int wi = (int) starts.get(c)[0];
+            long s = kept.get(wi).startMs / 1000;
+            StringBuilder first = new StringBuilder();
+            for (int k = wi; k < Math.min(kept.size(), wi + 7); k++) first.append(kept.get(k).text).append(' ');
+            sb.append(c + 1).append(". ").append(s / 60).append(':')
+                    .append(String.format(java.util.Locale.US, "%02d", s % 60))
+                    .append(" — ").append(first.toString().trim()).append("…\n");
+        }
+        sb.append("\n(Ask me to add these as chapter titles if you want them on screen.)");
         return sb.toString();
     }
 
@@ -2709,41 +3151,41 @@ public class AIToolExecutor {
         if (clip == null) return "Error: clip not found: " + clipId;
 
         notifyProgress("Cutting filler words", 0);
-        // Find the synthesized transcript (or any with struck words)
-        NamedTranscript target = null;
-        for (NamedTranscript nt : clip.getTranscripts()) {
-            for (var w : nt.transcript.words) {
-                if (w.struck) { target = nt; break; }
+        // The transcript the user is looking at (the one captions read), else the first that has
+        // marked words. Fillers are the words the synthesizer MARKED plus plain hesitation sounds
+        // ("um", "uh") — the same definition Joybot counts with, so his "12 filler words" is
+        // exactly the 12 cuts this makes.
+        NamedTranscript target = clip.getActiveNamedTranscript();
+        if (target == null || target.transcript == null) {
+            for (NamedTranscript nt : clip.getTranscripts()) {
+                for (var w : nt.transcript.words) {
+                    if (w.struck) { target = nt; break; }
+                }
+                if (target != null) break;
             }
-            if (target != null) break;
         }
-
-        if (target == null) {
-            return "No struck/filler words found. Run synthesize_transcript first.";
-        }
-
-        int cutCount = 0;
-        for (var w : target.transcript.words) {
-            if (w.struck) {
-                clip.getRemovedSpans().add(new long[]{w.startMs, w.endMs});
-                cutCount++;
-            }
+        if (target == null || target.transcript == null) {
+            return "No transcript on this clip yet. Run generate_transcript first.";
         }
 
         List<long[]> spans = new ArrayList<>(clip.getRemovedSpans());
-        java.util.Collections.sort(spans, (a, b) -> Long.compare(a[0], b[0]));
-        List<long[]> merged = new ArrayList<>();
-        for (long[] s : spans) {
-            if (!merged.isEmpty() && s[0] <= merged.get(merged.size() - 1)[1] + 1) {
-                merged.get(merged.size() - 1)[1] = Math.max(merged.get(merged.size() - 1)[1], s[1]);
-            } else {
-                merged.add(new long[]{s[0], s[1]});
-            }
+        int cutCount = 0;
+        for (var w : target.transcript.words) {
+            boolean filler = w.struck || com.fadcam.ui.faditor.ai.joybot.Fillers.isFiller(w.text);
+            if (!filler || w.endMs <= w.startMs) continue;
+            if (com.fadcam.ui.faditor.ai.joybot.Fillers.isCut(w.startMs, w.endMs, spans)) continue;
+            w.struck = true;
+            spans.add(new long[]{w.startMs, w.endMs});
+            cutCount++;
         }
-        clip.setRemovedSpans(merged);
+        if (cutCount == 0) {
+            return "No filler words left to cut. (Speech engines often drop ums; synthesize_transcript"
+                    + " finds hidden ones by comparing two transcriptions.)";
+        }
+        clip.setRemovedSpans(mergeSpans(spans));
 
         storage.save(proj);
-        AIChatState.signalModified(projectId);
+        AIChatState.signalModified(projectId, "Cut " + cutCount + " filler words");
         notifyProgress("Filler cuts saved", 100);
         return "Cut " + cutCount + " filler words from clip " + clipId
                 + ". The cuts are non-destructive — tap them in the timeline to undo.";

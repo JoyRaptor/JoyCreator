@@ -55,6 +55,8 @@ public class ShortcutsSettingsFragment extends Fragment {
         initImagePicker();
         View back = view.findViewById(R.id.back_button);
         if (back != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(back, back.getContext().getString(R.string.back));
+            back.setContentDescription(back.getContext().getString(R.string.back));
             back.setOnClickListener(v -> OverlayNavUtil.dismiss(requireActivity()));
         }
 

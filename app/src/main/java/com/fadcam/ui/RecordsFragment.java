@@ -1748,7 +1748,14 @@ public class RecordsFragment extends BaseFragment implements
 
         // Setup menu button click listener
         if (menuButton != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(menuButton, menuButton.getContext().getString(R.string.more_options));
             menuButton.setOnClickListener(v -> showRecordsSidebar());
+        }
+        View joybotButton = view.findViewById(R.id.action_joybot);
+        if (joybotButton != null) {
+            joybotButton.setOnClickListener(v -> openJoybot());
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(joybotButton,
+                    "Joybot — ideas about your recordings");
         }
         if (closeButton != null) {
             closeButton.setOnClickListener(v -> exitSelectionMode());
@@ -2476,6 +2483,7 @@ public class RecordsFragment extends BaseFragment implements
         // -----------
 
         if (fabScrollNavigation != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(fabScrollNavigation, fabScrollNavigation.getContext().getString(R.string.scroll_to_top));
             fabScrollNavigation.setOnClickListener(v -> {
                 FLog.d(TAG, "fabScrollNavigation CLICKED!");
                 if (!isAdded() || getContext() == null || recyclerView == null) {
@@ -3373,6 +3381,7 @@ public class RecordsFragment extends BaseFragment implements
             chipMiniAppsQR.setOnClickListener(v -> setActiveMiniAppsSubtype("QR"));
         }
         if (filterChecklistButton != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(filterChecklistButton, filterChecklistButton.getContext().getString(R.string.records_filter_checklist_desc));
             filterChecklistButton.setOnClickListener(v -> {
                 if (isInSelectionMode) {
                     exitSelectionMode();
@@ -4689,6 +4698,38 @@ public class RecordsFragment extends BaseFragment implements
         }
         // R.id.action_delete_all is handled in the bottom sheet now
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * Joybot from the Library. A recording means something inside a project, so he opens on the
+     * newest project, the same one the Lobby opens him on. Listing projects reads files, so it
+     * runs off the main thread and the chat opens back on it.
+     */
+    private void openJoybot() {
+        final Context app = requireContext().getApplicationContext();
+        final View anchor = getView();
+        if (anchor == null) return;
+        new Thread(() -> {
+            String projectId = null;
+            try {
+                List<com.fadcam.ui.faditor.project.ProjectStorage.ProjectSummary> all =
+                        new com.fadcam.ui.faditor.project.ProjectStorage(app).listProjects();
+                if (!all.isEmpty()) projectId = all.get(0).id;
+            } catch (Exception ignored) {
+                // No projects readable: Joybot opens with the no-project ideas.
+            }
+            final String pid = projectId;
+            anchor.post(() -> {
+                if (!isAdded()) return;
+                Intent i = new Intent(requireContext(),
+                        com.fadcam.ui.faditor.ai.ChatAssistantActivity.class);
+                if (pid != null) {
+                    i.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_PROJECT_ID, pid);
+                }
+                i.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "LIBRARY");
+                startActivity(i);
+            });
+        }).start();
     }
 
     private void showRecordsSidebar() {
@@ -6178,6 +6219,7 @@ public class RecordsFragment extends BaseFragment implements
             fabScrollNavigation.setRotation(targetRotation);
         }
         fabScrollNavigation.setContentDescription(contentDescription);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(fabScrollNavigation, contentDescription);
     }
 
     /**

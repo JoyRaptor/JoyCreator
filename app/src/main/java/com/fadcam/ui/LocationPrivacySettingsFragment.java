@@ -50,6 +50,7 @@ public class LocationPrivacySettingsFragment extends Fragment {
         valueEmbed = view.findViewById(R.id.value_location_embed);
         view.findViewById(R.id.row_location_embed).setOnClickListener(v -> toggleLocationEmbed());
     View back = view.findViewById(R.id.back_button);
+    if (back != null) androidx.appcompat.widget.TooltipCompat.setTooltipText(back, back.getContext().getString(R.string.watch_back_desc));
     if(back!=null){ back.setOnClickListener(v -> OverlayNavUtil.dismiss(requireActivity())); }
         permissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
             if(granted){ onPermissionGrantedPostRequest(); } else { onPermissionDeniedPostRequest(); }

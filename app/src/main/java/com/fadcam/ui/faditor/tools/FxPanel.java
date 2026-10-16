@@ -1063,9 +1063,13 @@ public final class FxPanel {
                                           @NonNull Host host, @NonNull Runnable rebuild,
                                           float d) {
         View handle = grabHandle(ctx, d);
-        // Content description only — NOT Kit.describe. Below API 26 a tooltip is delivered by a
-        // long-click listener, and a long press is this handle's own gesture (it lifts the card).
+        // Tooltip only from API 26: below that TooltipCompat installs a long-click listener, and a
+        // long press is this handle's own gesture (it lifts the card).
         handle.setContentDescription(ctx.getString(com.fadcam.R.string.faditor_lc_fx_reorder));
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(handle,
+                    ctx.getString(com.fadcam.R.string.faditor_lc_fx_reorder));
+        }
         head.addView(handle, 0);
         if (count < 2) {
             // Dimmed AND answerable. A greyed control with no explanation reads as broken; the

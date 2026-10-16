@@ -891,6 +891,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         top.setPadding(pad, pad, pad, pad);
         TextView back = chip("←");
         back.setOnClickListener(v -> onBackPressed());
+        com.fadcam.ui.faditor.SheetKit.label(back, getString(R.string.desc_back));
         nameField = new EditText(this);
         nameField.setSingleLine(true);
         nameField.setTextColor(Color.WHITE);
@@ -1085,6 +1086,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         minus.setMinWidth((int) (34 * d));
         minus.setGravity(Gravity.CENTER);
         minus.setOnClickListener(v -> apply.apply(-1));
+        com.fadcam.ui.faditor.SheetKit.label(minus, getString(R.string.desc_decrease_named, label));
         TextView value = new TextView(this);
         value.setTextColor(Color.WHITE);
         value.setMinWidth((int) (40 * d));
@@ -1093,6 +1095,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         plus.setMinWidth((int) (34 * d));
         plus.setGravity(Gravity.CENTER);
         plus.setOnClickListener(v -> apply.apply(+1));
+        com.fadcam.ui.faditor.SheetKit.label(plus, getString(R.string.desc_increase_named, label));
         box.addView(minus);
         box.addView(value);
         box.addView(plus);

@@ -119,6 +119,7 @@ public class WatchFullscreenActivity extends AppCompatActivity {
 
         // Back button — matches trash screen style (ImageView with ic_arrow_back)
         final View btnBack = findViewById(R.id.btn_watch_fs_back);
+        if (btnBack != null) androidx.appcompat.widget.TooltipCompat.setTooltipText(btnBack, btnBack.getContext().getString(R.string.back));
         if (btnBack != null) btnBack.setOnClickListener(v -> finish());
 
         // Live camera preview via TextureView

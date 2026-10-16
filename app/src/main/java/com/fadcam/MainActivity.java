@@ -754,6 +754,17 @@ public class MainActivity extends AppCompatActivity {
         // shortcuts)-----------
     }
 
+    /**
+     * singleTop: a "go to this tab" intent (Joybot's Take me there, a notification) that finds the
+     * app already open lands here, not in onCreate, and used to be dropped.
+     */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleWidgetIntent();
+    }
+
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
         // Disable tab swipe when overlay fragment is visible.

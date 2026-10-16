@@ -78,3 +78,5 @@ Screenshots are in the session scratchpad: `C:/Users/JOYRAP~1/AppData/Local/Temp
 - "Clipped" Wrap-wide row, Peaks pill, bottom bar Opacity/Delete: by design, these are horizontal scrollers (buildTextTopRow wraps its row in a HorizontalScrollView).
 - "Text motion" label on an Image drawer: REAL, my own label; renamed "Motion".
 - Image Blend mode empty on second open, tab re-tap collapsing the drawer, Puppet floating buttons, stale Fade chip after undo: NOT yet checked.
+
+Follow-up 2026-10-16 (lead, Note 9): Image "Blend mode" empty body on reopen did NOT reproduce (Normal dropdown shown on three opens). Visualizer drawer in LANDSCAPE still covers the transport row: only ~75px sits above the resize bar and the drawer header alone needs more; same as the other drawers in landscape, accepted. Portrait is the fix target and works.

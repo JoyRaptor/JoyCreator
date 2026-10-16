@@ -63,7 +63,7 @@ class GlCapturedRendererAdmissionTest {
             it.name == "capturedRecipeLease" && it.parameterCount == 5
         }.apply { isAccessible = true }
         return try {
-            method.invoke(engine, "paint", record, brush, mapOf(plane to RecordedCel("paint", null)), budget)
+            method.invoke(engine, "paint", record, brush, mapOf(plane to RecordedCel<Int>("paint", null)), budget)
         } catch (failure: InvocationTargetException) {
             throw failure.cause ?: failure
         }

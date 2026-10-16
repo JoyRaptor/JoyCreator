@@ -52,9 +52,15 @@ internal object TilePainting {
         return buildList { for(y in y0..y1) for(x in x0..x1) add((baseX+x*rect.w).toFloat() to (baseY+y*rect.h).toFloat()) }
     }
 
-    fun dabs(rect: RectPx, dab: Dab): List<Dab> {
+    /**
+     * Every period copy of [dab] whose footprint reaches the board. [halo] widens "reaches" by that many document px, for a
+     * pass that READS around what it paints (watercolour's edge and gravity pooling): the copies then also cover the band
+     * just outside the board, so a read across the seam finds the repeat instead of empty paper.
+     */
+    fun dabs(rect: RectPx, dab: Dab, halo: Double = 0.0): List<Dab> {
         if(dab.radius <= 0f || dab.flow <= 0f || dab.cap <= 0f) return emptyList()
-        val e = TipMath.extent(dab.radius,dab.anchor).toDouble()
+        require(halo >= 0.0 && halo.isFinite()) { "A tile halo must be a finite distance" }
+        val e = TipMath.extent(dab.radius,dab.anchor).toDouble() + halo
         return translations(rect,dab.x-e,dab.y-e,dab.x+e,dab.y+e,dab.x.toDouble(),dab.y.toDouble())
             .map { (x,y) -> dab.copy(x=dab.x+x,y=dab.y+y) }
     }

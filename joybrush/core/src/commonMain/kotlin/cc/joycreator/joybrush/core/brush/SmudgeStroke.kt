@@ -1,5 +1,6 @@
 package cc.joycreator.joybrush.core.brush
 
+import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.paint.TipMath
@@ -33,12 +34,18 @@ fun interface TileReader {
  *
  * The patent rule lives in [SmudgeCarried] and is not restated here: this class holds exactly one of them and replaces it
  * after every dab. Pure Kotlin, testable with a fake [TileReader].
+ *
+ * On an armed Tile board [period] is the board rectangle: every sample point is wrapped into it ([PeriodicTiles.wrap]), so a
+ * dab across the seam picks up the paint on the far side exactly as a dab in the middle of the repeat would.
  */
 class SmudgeStroke(
     private val reader: TileReader,
     start: SmudgeCarried,
     private val tip: TipShape,
+    private val period: RectPx? = null,
 ) {
+    init { require(period == null || (period.w > 0 && period.h > 0)) { "A tile period must be at least one pixel" } }
+
     /** The carried colour the NEXT dab will paint with. The only state this class has besides the tile cache. */
     var carried: SmudgeCarried = start
         private set
@@ -87,8 +94,8 @@ class SmudgeStroke(
             val dy = ((gy + 0.5f) / GRID * 2f - 1f) * extent
             val w = TipMath.coverage(dx, dy, r, d.angle, liveTip)
             if (!(w > 0f)) continue
-            val px = floor(d.x + dx).toInt()
-            val py = floor(d.y + dy).toInt()
+            val px = floor(d.x + dx).toInt().let { if (period == null) it else PeriodicTiles.wrap(it, period.x, period.w) }
+            val py = floor(d.y + dy).toInt().let { if (period == null) it else PeriodicTiles.wrap(it, period.y, period.h) }
             val tx = tileOf(px)
             val ty = tileOf(py)
             val key = Tiles.key(tx, ty)

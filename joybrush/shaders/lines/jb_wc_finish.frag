@@ -88,12 +88,18 @@ void main() {
         finishedTint=wc_encode(pow(clamp(u_tintLinear,0.0,1.0),vec3(concentration)));
         finishedAlpha=1.0-pow(max(0.0,1.0-alpha),1.0+4.0*u_edgeAlpha*edge);
     }
-    float wash=texture(u_backdrop,(v_docPx+u_backdropOffset)/u_backdropWorld).r;
+    // Tile armed (uniform): the wash and the fine grain repeat with the board, blended exactly as the paper is, so the seam
+    // carries no texture break. Unarmed, both reads are the original lines, untouched.
+    bool tiled=u_tilePaperRect.z > 0.0 && u_tilePaperRect.w > 0.0;
+    float wash;
+    if(tiled) wash=jb_tileTextureR(u_backdrop,v_docPx,u_backdropOffset,u_backdropWorld,0.5);
+    else wash=texture(u_backdrop,(v_docPx+u_backdropOffset)/u_backdropWorld).r;
     wash=clamp((wash-0.5)*u_textureContrast+0.5,0.0,1.0);
     if(u_textureInvert == 0) wash=1.0-wash;
     float mask=mix(1.0,wash,u_textureStrength);
     // Fixed canvas grain, never the seeded backdrop offset.
-    mask*=1.0-u_grain*0.8*texture(u_fineGrain,v_docPx/256.0).r;
+    if(tiled) mask*=1.0-u_grain*0.8*jb_tileTextureR(u_fineGrain,v_docPx,vec2(0.0),256.0,0.5);
+    else mask*=1.0-u_grain*0.8*texture(u_fineGrain,v_docPx/256.0).r;
     vec4 plain=vec4(u_tintSrgb*alpha,alpha);
     vec4 pooled=vec4(finishedTint*finishedAlpha,finishedAlpha);
     o_color=mix(plain,pooled,clamp(u_pooling,0.0,1.0))*mask;

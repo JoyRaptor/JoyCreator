@@ -1,0 +1,561 @@
+{
+  "title": "Cold payload device evidence",
+  "date": "2026-10-15",
+  "source": "83b5be69cd4630a39677022a15568d04a152bd01",
+  "artifact": {
+    "path": "C:\\Temp\\jb-lead-ops\\apk-83b5be69c\\joybrush-83b5be69c-arm64.apk",
+    "bytes": 170797903,
+    "sha256": "27B0F057F9B0F6CFF0A72B02FBE90B00578ACAE931996306066DD7783184D462",
+    "buildLogSha256": "850AA55FD86CC466AA5E150B0B53B8C04D06503E0CDE69AC1CA3E14B91B6E244"
+  },
+  "installReceipt": {
+    "source": "83b5be69cd4630a39677022a15568d04a152bd01",
+    "installedSha256": "27b0f057f9b0f6cff0a72b02fbe90b00578acae931996306066dd7783184d462",
+    "installRequested": true,
+    "beforeUpdateTime": "2026-10-15 21:43:14",
+    "afterUpdateTime": "2026-10-15 22:07:07",
+    "updateTimeChanged": true,
+    "brushes": "ink,joybrush.watercolour",
+    "cases": "recordedColdPayloadProbe"
+  },
+  "workingReceipt": {
+    "source": "83b5be69cd4630a39677022a15568d04a152bd01",
+    "brushes": "ink,joybrush.watercolour",
+    "cases": "recordedColdPayloadProbe",
+    "workingPresent": true,
+    "workingUnchanged": true,
+    "namedDrawingArchivesChecked": 3,
+    "namedDrawingArchivesUnchanged": true,
+    "capturedReports": 2,
+    "expectedReports": 2
+  },
+  "lockReceipt": {
+    "owner": "CodexLead-phone-ea711c58-d356-4a11-8ca4-813563df4f27",
+    "source": "83b5be69cd4630a39677022a15568d04a152bd01",
+    "createdUtc": "2026-10-16T02:06:54.4766989Z"
+  },
+  "ownerArchiveHashes": {
+    "checked": 3,
+    "unchanged": true,
+    "individualDigestsIncluded": false,
+    "note": "Runner receipt confirms a pre/post SHA inventory of three named drawing archives was unchanged; it does not retain their individual digest strings."
+  },
+  "aggregate": {
+    "brushCases": 2,
+    "payloadComparisons": 34,
+    "comparedBytes": 9437184,
+    "differentBytes": 0,
+    "readbacks": 34,
+    "filterChecks": 68,
+    "probeGlErrorChecks": 44,
+    "probeGlOperations": 794,
+    "ownerArchivesUnchanged": true
+  },
+  "brushes": [
+    {
+      "brush": "joybrush.watercolour",
+      "case": "recordedColdPayloadProbe",
+      "passed": true,
+      "archiveSha256": "25d975e801e2a510fb92485b7c2e3a57234dd43a626fdefc43f74c8273e8ab3e",
+      "archiveBytes": 25775,
+      "ownerManifestExact": true,
+      "ownerNamesDistinct": true,
+      "historyEmpty": true,
+      "hostileUnpackStateRestored": true,
+      "cleanupComplete": true,
+      "contextRetired": false,
+      "nativeTileOwners": 1,
+      "maskTiles": 1,
+      "mediaTileStores": 2,
+      "sourceSlabs": 9,
+      "savedLineLooks": 4,
+      "unresolvedLinePlanes": 1,
+      "openingLinePreparationCalls": 0,
+      "openingCompositionCalls": 0,
+      "payloadRows": [
+        {
+          "kind": "NATIVE_RGBA8",
+          "layer": "promotion-native-sibling",
+          "cel": null,
+          "key": 34359738376,
+          "seq": null,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "MASK_RGBA8",
+          "layer": "promotion-native-sibling",
+          "cel": null,
+          "key": 77309411309,
+          "seq": null,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "MEDIA_RGBA16F",
+          "layer": "cold-payload-probe-media-layer",
+          "cel": null,
+          "key": -98784247779,
+          "seq": null,
+          "store": "p0",
+          "bytes": 524288,
+          "differentBytes": 0,
+          "floatingReadback": true
+        },
+        {
+          "kind": "GROUND_RGBA8",
+          "layer": "cold-payload-probe-media-layer",
+          "cel": null,
+          "key": -98784247779,
+          "seq": null,
+          "store": "g",
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 0,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 1,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 4294967296,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 4294967297,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 8589934593,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 8589934593,
+          "seq": 2,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 8589934594,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 12884901889,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 12884901890,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SAVED_LINE_LOOK_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 8589934593,
+          "seq": null,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SAVED_LINE_LOOK_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 8589934594,
+          "seq": null,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SAVED_LINE_LOOK_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 12884901889,
+          "seq": null,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SAVED_LINE_LOOK_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 12884901890,
+          "seq": null,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        }
+      ],
+      "categoryTotals": [
+        {
+          "kind": "GROUND_RGBA8",
+          "count": 1,
+          "bytes": 262144
+        },
+        {
+          "kind": "MASK_RGBA8",
+          "count": 1,
+          "bytes": 262144
+        },
+        {
+          "kind": "MEDIA_RGBA16F",
+          "count": 1,
+          "bytes": 524288
+        },
+        {
+          "kind": "NATIVE_RGBA8",
+          "count": 1,
+          "bytes": 262144
+        },
+        {
+          "kind": "SAVED_LINE_LOOK_RGBA8",
+          "count": 4,
+          "bytes": 1048576
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "count": 9,
+          "bytes": 2359296
+        }
+      ],
+      "exactComparisons": 17,
+      "comparedBytes": 4718592,
+      "differentBytes": 0,
+      "externalReadbacks": 17,
+      "actualFilterChecks": 34,
+      "probeGlErrorChecks": 22,
+      "probeGlOperations": 397,
+      "observedGlErrors": 0,
+      "scope": "Private cold upload/readback only; no load rollback fault, live/Select/Working/recovery activation"
+    },
+    {
+      "brush": "joybrush.ink",
+      "case": "recordedColdPayloadProbe",
+      "passed": true,
+      "archiveSha256": "884c3208d11b30be0c484ce0dfcddf895316c5353ade941d52d438ddd17e802d",
+      "archiveBytes": 18035,
+      "ownerManifestExact": true,
+      "ownerNamesDistinct": true,
+      "historyEmpty": true,
+      "hostileUnpackStateRestored": true,
+      "cleanupComplete": true,
+      "contextRetired": false,
+      "nativeTileOwners": 1,
+      "maskTiles": 1,
+      "mediaTileStores": 2,
+      "sourceSlabs": 9,
+      "savedLineLooks": 4,
+      "unresolvedLinePlanes": 1,
+      "openingLinePreparationCalls": 0,
+      "openingCompositionCalls": 0,
+      "payloadRows": [
+        {
+          "kind": "NATIVE_RGBA8",
+          "layer": "promotion-native-sibling",
+          "cel": null,
+          "key": 34359738376,
+          "seq": null,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "MASK_RGBA8",
+          "layer": "promotion-native-sibling",
+          "cel": null,
+          "key": 77309411309,
+          "seq": null,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "MEDIA_RGBA16F",
+          "layer": "cold-payload-probe-media-layer",
+          "cel": null,
+          "key": -98784247779,
+          "seq": null,
+          "store": "p0",
+          "bytes": 524288,
+          "differentBytes": 0,
+          "floatingReadback": true
+        },
+        {
+          "kind": "GROUND_RGBA8",
+          "layer": "cold-payload-probe-media-layer",
+          "cel": null,
+          "key": -98784247779,
+          "seq": null,
+          "store": "g",
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 0,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 1,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 4294967296,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 4294967297,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 8589934593,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 8589934593,
+          "seq": 2,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 8589934594,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 12884901889,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 12884901890,
+          "seq": 0,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SAVED_LINE_LOOK_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 8589934593,
+          "seq": null,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SAVED_LINE_LOOK_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 8589934594,
+          "seq": null,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SAVED_LINE_LOOK_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 12884901889,
+          "seq": null,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        },
+        {
+          "kind": "SAVED_LINE_LOOK_RGBA8",
+          "layer": "recorded-probe",
+          "cel": null,
+          "key": 12884901890,
+          "seq": null,
+          "store": null,
+          "bytes": 262144,
+          "differentBytes": 0,
+          "floatingReadback": false
+        }
+      ],
+      "categoryTotals": [
+        {
+          "kind": "GROUND_RGBA8",
+          "count": 1,
+          "bytes": 262144
+        },
+        {
+          "kind": "MASK_RGBA8",
+          "count": 1,
+          "bytes": 262144
+        },
+        {
+          "kind": "MEDIA_RGBA16F",
+          "count": 1,
+          "bytes": 524288
+        },
+        {
+          "kind": "NATIVE_RGBA8",
+          "count": 1,
+          "bytes": 262144
+        },
+        {
+          "kind": "SAVED_LINE_LOOK_RGBA8",
+          "count": 4,
+          "bytes": 1048576
+        },
+        {
+          "kind": "SOURCE_SLAB_RGBA8",
+          "count": 9,
+          "bytes": 2359296
+        }
+      ],
+      "exactComparisons": 17,
+      "comparedBytes": 4718592,
+      "differentBytes": 0,
+      "externalReadbacks": 17,
+      "actualFilterChecks": 34,
+      "probeGlErrorChecks": 22,
+      "probeGlOperations": 397,
+      "observedGlErrors": 0,
+      "scope": "Private cold upload/readback only; no load rollback fault, live/Select/Working/recovery activation"
+    }
+  ],
+  "fixtureCaveat": "The earlier 249cdd9d0 cold-payload attempt is retained as a failed archive-preflight attempt. In this 83b5be69c fixture, the selected seq2 source slab is the first slab on its tile and is stored in the tile bottom payload; no seq0 base was invented. This handles the archive first-stack storage rule even though stroke seq1 precedes slab seq2.",
+  "pendingSeparateWork": "Controlled cold-upload fault matrix device result was still running at publication time and is not included.",
+  "scope": "Private successful cold uploads only; no allocation-fault rollback, live capture, Select, or production load/save/recovery activation claim."
+}

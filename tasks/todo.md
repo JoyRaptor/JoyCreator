@@ -636,8 +636,8 @@ are still gated; these passing contracts do not complete JB-5.20d.
 - [x] Private post-pooling captured copy plan/kernel/oracle and bounded admission;
   exact caae13b4e full core2429/backend792 pass,4 existing optional core skips.
 - [x] Exact caae13b4e native203/24suites and APK57s pass; artifact preserved/hash recorded.
-- [ ] Finish captured Ink/WC GPU comparison with independent key/pixel/control/ownership
-  counts and unchanged owner archive hashes; fresh unlocked/Home readiness pending.
+- [x] Captured Ink/WC GPU comparison with independent key/pixel/control/ownership
+  counts and unchanged owner archive hashes:249 first pass,83b transparent-key pass.
 - [ ] Retain production source-kind guards until real Scene/live/Select/history/save
   integrations and their device/recovery evidence replace them.
 - [ ] Atlas follow-on remains staged: A2 dry stitching, A3 wet propagation, A5 periodic
@@ -646,6 +646,23 @@ are still gated; these passing contracts do not complete JB-5.20d.
 ## October15 cold rollback checkpoint and next slice
 - [x] Full hostile-state/payload diagnostic compiles; source249 backend801/native203
   and APK pass. Core2435 unchanged from deabc. GPU execution remains unrun.
-- [ ] Review21 controlled upload/scene/root/retirement failure points in isolated
-  jb-cold-faults; verify exact XML and independent device rollback counts.
+- [x] Review21 controlled upload/scene/root/retirement failure points in isolated
+  jb-cold-faults; exact817 XML and42 Ink/WC device rollback cases pass at83b.
 - [ ] Replace no production load/Select/save guard until end-to-end acceptance exists.
+
+## October15 exact83b internal source checkpoint
+- [x] Merge peer Joybot/Space d3fff7495; full backend817/78 and native203/24 pass,
+  APK83b assembled/installed by exact hash. No live source activation.
+- [x] Cold payload six kinds:34 exact GPU rows/9437184bytes; hostile state restored.
+- [x] Controlled cold rollback:42 cases,0orphan/dangling/unexpected cleanup, actual
+  ownership/deletion GL checks; smooth prior paper fields/CPU pixels restored.
+- [x] Captured copy including transparent allocated keys:5 perbrush,18 exact rows,
+  positive missing-key/wrong-offset/domain controls; stockWC300 retained.
+- [x] Ten ordinary regression cases again2082 exact rows and16 archive roundtrips;
+  all Working/three drawing archive hashes unchanged.
+- [x] Explicit default-refusing captured Scene capability and12 actual coordinator
+  contracts pass with fake handles; real engine renderer stays incapable.
+- [ ] Prove nonempty prior GPU-paper restoration; real OOM/context-retirement scopes
+  remain unproved before production whole-engine/View replacement.
+- [ ] Implement engine-owned staged allocation/physical-epoch budgeting and actual
+  captured renderer, then live capture/Select/structural undo/save/recovery and Atlas.

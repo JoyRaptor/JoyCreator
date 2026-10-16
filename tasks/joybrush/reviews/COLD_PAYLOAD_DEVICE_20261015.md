@@ -1,0 +1,13 @@
+# Cold payload device evidence — 2026-10-15
+
+The private `recordedColdPayloadProbe` ran on exact source `83b5be69cd4630a39677022a15568d04a152bd01`. The install receipt and artifact receipt agree on APK SHA-256 `27B0F057F9B0F6CFF0A72B02FBE90B00578ACAE931996306066DD7783184D462`; the artifact is 170,797,903 bytes. The artifact receipt also records build-log SHA-256 `850AA55FD86CC466AA5E150B0B53B8C04D06503E0CDE69AC1CA3E14B91B6E244`.
+
+I inspected both complete reports and the independent counter output. Each brush has 17 full-payload comparisons: 1 native RGBA8 tile, 1 mask RGBA8 tile, 1 media RGBA16F tile, 1 ground RGBA8 tile, 9 source slabs, and 4 saved line looks. Every row reports `differentBytes: 0`. The p0 media row uses floating readback; the remaining RGBA8 rows use byte readback. Per brush that is 4,718,592 bytes; across Ink and Watercolour it is 34 comparisons and 9,437,184 bytes, with zero differing bytes.
+
+Each report also records 17 external readbacks, 34 actual texture-filter checks, 22 probe GL-error checks, and 397 probe GL operations. The hostile unpack state was restored in both runs. The owner manifest is exact and texture names are distinct; the history cursor was empty. The fixture contains one native tile, one mask tile, two media stores, nine source slabs, four saved looks, and one unresolved recorded-line plane. Cold opening made zero line-preparation and zero composition calls. The p0 payload is RGBA16F, ground is RGBA8, and the seq2 source-slab row is present at tile key `8589934593`.
+
+The seq2 slab is the first slab on its tile and uses the tile’s bottom payload storage. The fixture does not invent a seq0 base. This is the corrected archive first-stack representation; the earlier 249cdd9d0 attempt remains recorded as a failed archive-preflight run and is not counted as a payload pass.
+
+The working receipt says the working tree remained unchanged and all three named drawing archives were hash-checked and unchanged. The receipt does not retain individual archive digest strings. The two deterministic cold-fixture archive SHA-256 values are `25d975e801e2a510fb92485b7c2e3a57234dd43a626fdefc43f74c8273e8ab3e` (Watercolour) and `884c3208d11b30be0c484ce0dfcddf895316c5353ade941d52d438ddd17e802d` (Ink). The install receipt reports an install request and changed update timestamp.
+
+Controlled cold-upload rollback is documented separately in COLD_FAILURE_DEVICE_20261015.md. Scope here is limited to successful private cold uploads. This payload evidence alone does not establish allocation-fault rollback, live capture, Select, or production load/save/recovery activation.

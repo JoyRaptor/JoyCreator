@@ -1,0 +1,375 @@
+{
+  "title": "Captured transparent destination device evidence",
+  "date": "2026-10-15",
+  "source": "83b5be69cd4630a39677022a15568d04a152bd01",
+  "artifact": {
+    "path": "C:\\Temp\\jb-lead-ops\\apk-83b5be69c\\joybrush-83b5be69c-arm64.apk",
+    "bytes": 170797903,
+    "sha256": "27B0F057F9B0F6CFF0A72B02FBE90B00578ACAE931996306066DD7783184D462",
+    "buildLogSha256": "850AA55FD86CC466AA5E150B0B53B8C04D06503E0CDE69AC1CA3E14B91B6E244"
+  },
+  "installReceipt": {
+    "source": "83b5be69cd4630a39677022a15568d04a152bd01",
+    "installedSha256": "27b0f057f9b0f6cff0a72b02fbe90b00578acae931996306066dd7783184d462",
+    "installRequested": false,
+    "beforeUpdateTime": "2026-10-15 22:07:07",
+    "afterUpdateTime": "2026-10-15 22:07:07",
+    "updateTimeChanged": false,
+    "brushes": "ink,joybrush.watercolour",
+    "cases": "recordedCapturedCopyProbe"
+  },
+  "workingReceipt": {
+    "source": "83b5be69cd4630a39677022a15568d04a152bd01",
+    "brushes": "ink,joybrush.watercolour",
+    "cases": "recordedCapturedCopyProbe",
+    "workingPresent": true,
+    "workingUnchanged": true,
+    "namedDrawingArchivesChecked": 3,
+    "namedDrawingArchivesUnchanged": true,
+    "capturedReports": 2,
+    "expectedReports": 2
+  },
+  "lockReceipt": {
+    "owner": "CodexLead-phone-bf3ea714-af08-4fed-8eed-f0b4fe4e8c96",
+    "source": "83b5be69cd4630a39677022a15568d04a152bd01",
+    "createdUtc": "2026-10-16T02:09:38.5791083Z"
+  },
+  "aggregate": {
+    "cases": 2,
+    "exactFullTileRows": 18,
+    "comparedRgba8Bytes": 4718592,
+    "differentChannels": 0,
+    "externalReadbacks": 34,
+    "externalFramebufferChecks": 34,
+    "externalGlChecks": 44,
+    "externalFeedbackChecks": 38,
+    "ownerArchivesUnchanged": true
+  },
+  "brushes": [
+    {
+      "brush": "joybrush.ink",
+      "passed": true,
+      "fixtureOpacity": 0.55,
+      "fixtureBrushVersion": 6,
+      "fixtureBrushSize": 6,
+      "fixtureWatercolourSize": null,
+      "tileSize": 256,
+      "tileBytes": 262144,
+      "canonicalTiles": 4,
+      "placedTiles": 9,
+      "expectedPlacedTiles": 9,
+      "expectedKeysEqual": true,
+      "expectedKeys": [
+        -8589934590,
+        -8589934589,
+        -8589934588,
+        -4294967294,
+        -4294967293,
+        -4294967292,
+        2,
+        3,
+        4
+      ],
+      "tileKeys": [
+        -8589934590,
+        -8589934589,
+        -8589934588,
+        -4294967294,
+        -4294967293,
+        -4294967292,
+        2,
+        3,
+        4
+      ],
+      "missingPlacedKeys": [],
+      "extraPlacedKeys": [],
+      "expectedWhollyTransparentTiles": 5,
+      "missingTransparentKeyControl": {
+        "present": true,
+        "missingTileKeyDetected": true,
+        "pixelDiffIfAbsent": 0
+      },
+      "comparisonRows": [
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": -8589934590,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": -8589934589,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": -8589934588,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": -4294967294,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": -4294967293,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": -4294967292,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": 2,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": 3,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": 4,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        }
+      ],
+      "differentChannels": 0,
+      "differentPixels": 0,
+      "maxByteDelta": 0,
+      "expectedNonzeroAlphaPixels": 870,
+      "expectedFractionalAlphaPixels": 870,
+      "expectedZeroAlphaPixels": 588954,
+      "sourceReadCalls": 8,
+      "placedReadCalls": 9,
+      "sourceBytesRead": 2097152,
+      "placedBytesRead": 2359296,
+      "framebufferChecks": 17,
+      "glErrorChecks": 22,
+      "feedbackChecks": 19,
+      "observedGlErrors": 0,
+      "incompleteFramebuffers": 0,
+      "feedbackFailures": 0,
+      "nativeOwnershipUnchanged": true,
+      "historyCursorUnchanged": true,
+      "publishedRootUnchanged": true,
+      "admittedWorkingTileBytes": 10747904,
+      "engineLeasesReleased": true,
+      "adapterAllocations": 9,
+      "adapterCopyCalls": 17,
+      "adapterFramebufferChecks": 43,
+      "adapterGlChecks": 28,
+      "controls": {
+        "wrongOffsetDifferentChannels": 1252,
+        "wrongOffsetDifferentPixels": 318,
+        "allDomainDifferentChannels": 1739,
+        "allDomainDifferentPixels": 437,
+        "missingTransparentKey": {
+          "present": true,
+          "missingTileKeyDetected": true,
+          "pixelDiffIfAbsent": 0
+        }
+      },
+      "proofScope": "Disposable complete recipe pooling then captured-domain integer texel copy; no source Scene, live capture, Select, save/recovery, quality or performance claim"
+    },
+    {
+      "brush": "joybrush.watercolour",
+      "passed": true,
+      "fixtureOpacity": 0.55,
+      "fixtureBrushVersion": 10,
+      "fixtureBrushSize": 300,
+      "fixtureWatercolourSize": 300,
+      "tileSize": 256,
+      "tileBytes": 262144,
+      "canonicalTiles": 4,
+      "placedTiles": 9,
+      "expectedPlacedTiles": 9,
+      "expectedKeysEqual": true,
+      "expectedKeys": [
+        -8589934590,
+        -8589934589,
+        -8589934588,
+        -4294967294,
+        -4294967293,
+        -4294967292,
+        2,
+        3,
+        4
+      ],
+      "tileKeys": [
+        -8589934590,
+        -8589934589,
+        -8589934588,
+        -4294967294,
+        -4294967293,
+        -4294967292,
+        2,
+        3,
+        4
+      ],
+      "missingPlacedKeys": [],
+      "extraPlacedKeys": [],
+      "expectedWhollyTransparentTiles": 5,
+      "missingTransparentKeyControl": {
+        "present": true,
+        "missingTileKeyDetected": true,
+        "pixelDiffIfAbsent": 0
+      },
+      "comparisonRows": [
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": -8589934590,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": -8589934589,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": -8589934588,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": -4294967294,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": -4294967293,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": -4294967292,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": 2,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": 3,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        },
+        {
+          "kind": "placed-vs-independent-expected",
+          "tileKey": 4,
+          "differentChannels": 0,
+          "differentPixels": 0,
+          "maxByteDelta": 0
+        }
+      ],
+      "differentChannels": 0,
+      "differentPixels": 0,
+      "maxByteDelta": 0,
+      "expectedNonzeroAlphaPixels": 2133,
+      "expectedFractionalAlphaPixels": 2133,
+      "expectedZeroAlphaPixels": 587691,
+      "sourceReadCalls": 8,
+      "placedReadCalls": 9,
+      "sourceBytesRead": 2097152,
+      "placedBytesRead": 2359296,
+      "framebufferChecks": 17,
+      "glErrorChecks": 22,
+      "feedbackChecks": 19,
+      "observedGlErrors": 0,
+      "incompleteFramebuffers": 0,
+      "feedbackFailures": 0,
+      "nativeOwnershipUnchanged": true,
+      "historyCursorUnchanged": true,
+      "publishedRootUnchanged": true,
+      "admittedWorkingTileBytes": 10747904,
+      "engineLeasesReleased": true,
+      "adapterAllocations": 9,
+      "adapterCopyCalls": 17,
+      "adapterFramebufferChecks": 43,
+      "adapterGlChecks": 28,
+      "controls": {
+        "wrongOffsetDifferentChannels": 5581,
+        "wrongOffsetDifferentPixels": 2196,
+        "allDomainDifferentChannels": 3167,
+        "allDomainDifferentPixels": 1079,
+        "missingTransparentKey": {
+          "present": true,
+          "missingTileKeyDetected": true,
+          "pixelDiffIfAbsent": 0
+        }
+      },
+      "proofScope": "Disposable complete recipe pooling then captured-domain integer texel copy; no source Scene, live capture, Select, save/recovery, quality or performance claim"
+    }
+  ],
+  "destinationTileSet": [
+    -8589934590,
+    -8589934589,
+    -8589934588,
+    -4294967294,
+    -4294967293,
+    -4294967292,
+    2,
+    3,
+    4
+  ],
+  "destinationTileCoordinateGrid": "x=-2..0, y=2..4",
+  "scope": "Private post-pool copy diagnostic only. No source Scene, live capture, save/recovery activation.",
+  "fixtureDomain": {
+    "window": {
+      "x": 0,
+      "y": 0,
+      "w": 512,
+      "h": 512
+    },
+    "excluded": [
+      {
+        "x": 256,
+        "y": 256,
+        "w": 200,
+        "h": 40
+      }
+    ],
+    "placement": {
+      "dx": -257,
+      "dy": 513
+    }
+  }
+}

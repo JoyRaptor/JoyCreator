@@ -1,5 +1,14 @@
 # Cold payload upload diagnostic — pending verification
 
+Latest accepted internal checkpoint: exact83b5be69c APK passes both Note9 successful
+payload cases (34 exact rows/9437184bytes), both controlled rollback matrices (42
+targets,0orphans/dangling/unexpected cleanup), captured transparent-key cases and all
+10 ordinary regressions. Full backend817/native203 pass; root retains all production
+View/live/Select/save gates. Rollback prior paper is smooth with zero GPU-paper names;
+fields and CPU pixels are proved, nonempty textured-paper GPU preservation remains.
+Current proof files: COLD_PAYLOAD_DEVICE, COLD_FAILURE_DEVICE and CAPTURED_TRANSPARENT_
+DEVICE_20261015.md/.json. Earlier failed logs/receipts remain preserved.
+
 Production View/Open/Working/recovery guards remain. This private debug case consumes
 only the disposable engine created by the existing debug host; no owner file writes.
 

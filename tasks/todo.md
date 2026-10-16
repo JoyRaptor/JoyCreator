@@ -1,3 +1,16 @@
+# JoyBrush current engine slice — October15
+
+- [x] Preserve merged Joybot/Space; publish independently verified83b checkpoint.
+- [x] Prove controlled cold rollback with actual prior paper GPU objects on cf559:
+  42targets,126object checks,0orphan/dangling,owner archives unchanged. See
+  tasks/joybrush/reviews/COLD_PAPER_DEVICE_20261015.md for exact limits.
+- [ ] Review/adopt staged working-tile ledger and central retirement hooks; run full
+  backend and native checks. Seeded host tests do not prove real GPU return tracking.
+- [ ] Add actual captured engine renderer with whole callback peak admission;
+  retain paper-context/production activation guards until device/recovery proof.
+- [ ] Complete live raw/seed commit, real Select, joint undo, cold save/recovery and
+  source-aware thumbnail/export. Then ready Media Atlas A2.
+
 # TODO — 48-minute export truncation + export UX (2026-09-21)
 
 ## Diagnosis (proved from on-device `faditor_export_errors/*.txt`, NOT theory)

@@ -1,0 +1,39 @@
+# Handoff: Studio + app UI lead (written 2026-10-17)
+
+You are taking over the Joy Creator UI/UX polish lane. Owner is JoyRaptor (non-technical artist; works one-handed holding a baby; phone-first). Read the memory index first (MEMORY.md): the rules there are binding. Highlights: old-black ground, zinc greys, colour only to guide; ON = solid colour with the glyph punched out in black (never outlines); drawers ~55% see-through; dp values stay as drawn; every button has a hover label; one press = one undo step; keep legacy screens until the new one is definitively better; build modular small files; before/after screenshots per screen (tasks/screens/before, tasks/screens/after); taste is paramount; do NOT touch the colour picker/helper beyond what JoyRaptor approved; never touch joybrush*/ (other teams).
+
+## How to work (hard-won)
+- Build: a watcher compiles; if `build.log` (UTF-16-LE) is stale run `.\gradlew.bat -t :app:assembleDefaultDebug --console=plain` in the background (a PowerShell background task). The APK must be NEWER than your last edit; `BUILD SUCCESSFUL in 2s` is normal for incremental.
+- Phone: Note 9 over adb. `dev.sh` in the old scratchpad defined `$A`, `act`, `dump`; recreate: `adb -s <serial> ...`. Screen 1080x2220. JoyRaptor granted full control; press Home first if the Joy Brush app is in front; never touch his drawings. Install = `adb install -r app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk`.
+- Commit: use a temp-index commit script (see how earlier commits were made: only your files, never sweep others' staged work); never put the device serial in committed files (a hook rejects it; say "the Note 9"). `git pull --rebase --autostash` then push (no force).
+- Agents: Haiku for phone sweeps and mechanical edits (one phone agent at a time), Sonnet for restyles with solid guidance, Opus for whole-screen design. Tell them: no adb unless they are the phone agent, no gradle, no commit, edit FaditorEditorActivity.java only with small unique anchors (it is ~46k lines and several agents touch it). Verify every claim yourself on the phone; agents over-report (the hover-label audit said 201 gaps, the real number was ~11; "sweep" agents mis-tap).
+- Typing/quoting: write python helper scripts with the Write tool; `python -c` with quotes breaks.
+
+## What is DONE (all pushed on joy-creator)
+Studio: undo fixes (drawer close hook one-shot so Mask/Chroma/Blend undo records; header toggles one step; visualizer style choices and slider drags one step; video-overlay blend undoable), visualizer drawer (sections, two columns, height-bounded, shape icons VizGlyph), caption drawer opens above the preset strip, case button cycles Aa/Tt/TT/tt, Follow-what pin diagram dialog, sprite pin links, image-overlay effects show while paused (onFxChanged resync), hover labels, ~250 strings in resources, colour tokens swept.
+App-wide: Library v2 (ui/library: kinds, chips, search, shared-in, Projects mode + New project pill, header sort/view cycles), Settings hub (ui/settingshub), Recently Deleted v2 (ui/trash), NewProjectFlow (ui/studio), JoyBot switch (ui/joybot, replaces AvatarToggleView everywhere; old class @Deprecated), slanted lobby-style chips on Library/Trash/Settings, lobby truth pass (heroes, count matches Library, off-main-thread reads), onboarding page 2 restyle, colour picker hex/sliders (SliderFace).
+
+## IN FLIGHT when this was written (check the output files / git log)
+1. Settings sub-screens restyle (Sonnet) - shared row styles + per-screen colour/wording; 2. What's New + BetaUpdate/ProUpdate sheets + mode popup restyle (Sonnet). Both uncommitted when written: check `git status`, build, verify on the phone, commit.
+Also uncommitted from me: Library "New project" pill changed to Studio green (SlantDrawable GO->GO_END) and strings `library_classic` = "Classic Records". Verify and commit.
+
+## OWNER DECISIONS (settled this session)
+- Remote / Server Room and Smart Detection ARE launch features: restyle them (legacy RemoteFragment ~1900 lines, DigitalForensicsSettingsFragment/forensics ui). Use the Library/Settings pattern: new overlay package, bottom dock, keep legacy reachable.
+- VisLab is a launch feature, to be built by a separate specialist later from tasks/VISLAB_BRIEF.md (JoyRaptor will give design references). Do not build it unless asked.
+- Viz Lab lobby card has no screen (placeholder room, fine for now). Bottom words Packs/Bits/Finder: Packs and Setup both open Settings; recommend cutting Packs, decide with JoyRaptor.
+- New project pill = Studio green (done in code, needs verify). Lobby "New" opens the Library on Projects WITH the new-project sheet (recommended); opening Projects deliberately shows the list first.
+- "Classic view" renamed "Classic Records"; "Classic Studio list" stays.
+- Orphan classes (11 old FadCam classes with no caller; see tasks/audits/legacy_screens_audit.md): leave until their replacements are verified, then remove in one pass WITH JoyRaptor's OK (rule: never delete unasked).
+- Warp/bend belongs to the sprite SHEET, not the cell: leave as is. Brush/paper/palette presets copy out of the APK into Supplies; user copy wins; "Revert to default" with a warning; voiceovers live with their project; shared-in items filterable.
+- Slanted (sheared) chips are the signature look; keep them on the three chip rows; JoyRaptor asked only for a 15% narrower gap with two thirds given back as padding (done).
+
+## STILL TO DO (priority order)
+1. Verify + commit the in-flight work above. 2. Restyle: Home recorder ("Bits"), Remote/Server Room, Smart Detection, fullscreen preview, Home sidebar, Records sidebar, Studio project classic list leftovers. 3. Library follow-ups: show voiceovers with their project (needs a project view), safe rename/trash helpers for sprite sheets and characters, Library row for supplies/presets once Supplies copy-out exists. 4. Retire AvatarToggleView + the avatar eye-colour preference (Appearance settings ~875-944; also read in HomeFragment ~10374 and FullscreenPreviewActivity ~2357) once every switch is confirmed on the phone: floating overlay services (fadrec/), watch screens, layer sheet (three 40dp switches per row may be better as eye/lock/pin icon toggles) were NOT eyeballed. 5. Studio leftovers: audio envelope Clear/In-time oddities (device sweep 4), A/V Sync Test unverified, Puppet helper column fix (code done, untested on phone), caption presets/Words/Max-lines/Copy-to-all unverified, Hide-toggle on an image resync (code in, untested), WaveformDebugActivity exported in release manifest (recommend debug-only). 6. Lobby: the Sprite Lab/Avatar heroes were never eyeballed on the phone. 7. Update tasks/todo.md and tasks/STUDIO_PLAN.md, keep before/after shots current.
+
+## Where things are
+tasks/todo.md (running plan), tasks/audits/*.md (lobby, legacy screens, storage/library, device sweeps 1-5, dialogs, hover labels), tasks/screens/before|after (screenshots; INDEX.md in before), tasks/VISLAB_BRIEF.md, tasks/JOYBOT_SWITCH_MIGRATION.md, tasks/design/*.html (design records: read UI-Studio-final, UI-JoyCreator-grand-design, UI-The-Marquee before any visual work), studiokit/.../Studio.java + app/src/main/res/values/studio_tokens.xml (tokens), ui/library + ui/settingshub + ui/trash (the benchmark for new screens: thin fragment, dock at bottom with search and chips, bite-sized classes <~300 lines, JVM tests in tools/*-tests, strings in strings_<screen>.xml).
+
+## Known sharp edges
+- LibraryFragment is ~344 lines (over the target). OverlayNavUtil.dismiss now pops one level for child overlays (fixed this session).
+- The Studio test project "Restore video test" is a throwaway; its undo stack is long; edits there are fine, never delete the project or export.
+- Sleep commands over ~2 minutes are blocked by the harness; wait with a Monitor or a background task.

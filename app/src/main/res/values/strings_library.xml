@@ -114,7 +114,7 @@
     <string name="library_view_list">List</string>
     <string name="library_more">More</string>
     <string name="library_open_trash">Trash</string>
-    <string name="library_classic">Classic view</string>
+    <string name="library_classic">Classic Records</string>
 
     <!-- Item sheet -->
     <string name="library_action_open">Open</string>

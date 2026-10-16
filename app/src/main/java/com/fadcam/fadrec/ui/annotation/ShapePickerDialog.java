@@ -15,7 +15,7 @@ import androidx.annotation.NonNull;
 
 import com.fadcam.R;
 import com.fadcam.fadrec.ui.annotation.objects.ShapeObject;
-import com.fadcam.ui.AvatarToggleView;
+import com.fadcam.ui.joybot.JoybotSwitch;
 
 /**
  * Cute and user-friendly dialog for selecting shape type and properties.
@@ -34,7 +34,7 @@ public class ShapePickerDialog extends Dialog {
     
     private LinearLayout[] shapeButtons;
     private View[] colorViews;
-    private AvatarToggleView switchFillShape;
+    private JoybotSwitch switchFillShape;
     
     public ShapePickerDialog(@NonNull Context context) {
         super(context);

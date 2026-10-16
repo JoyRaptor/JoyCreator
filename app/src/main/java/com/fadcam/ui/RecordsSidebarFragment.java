@@ -143,7 +143,7 @@ public class RecordsSidebarFragment extends DialogFragment {
 
         // Hide Thumbnails row and switch - update state label and keep toggle behavior
         View hideRow = view.findViewById(R.id.row_hide_thumbnails);
-        com.fadcam.ui.AvatarToggleView hideSwitch = view.findViewById(R.id.row_hide_thumbnails_switch);
+        com.fadcam.ui.joybot.JoybotSwitch hideSwitch = view.findViewById(R.id.row_hide_thumbnails_switch);
         TextView hideState = view.findViewById(R.id.row_hide_thumbnails_state);
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(requireContext());
         boolean currentHide = prefs.isHideThumbnailsEnabled();

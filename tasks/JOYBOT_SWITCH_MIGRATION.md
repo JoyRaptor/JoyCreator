@@ -76,3 +76,15 @@ read that pref - check what they use it for before removing the pref itself.
 
 Build green, then on the Note 9: tap each switch, tap its row, rotate, leave and return (state
 restores without animating), TalkBack reads "<label>, switch, on/off", stylus hover shows the label.
+
+## DONE 2026-10-16 (code migrated, awaiting Note 9 verification)
+
+- Groups A, B and C: every site above moved. All 17 layouts renamed to `com.fadcam.ui.joybot.JoybotSwitch`, ids kept; every Java type renamed (imports added where the file had none). No `AvatarToggleView` reference is left outside its own file.
+- Every switch has a content description: row-title strings reused where they exist; new `strings_joybot_switch_labels.xml` (Preview, Torch, Record, Visible, Locked, Pinned). Picker switches set theirs from the row/item title in Java.
+- Picker: `ARG_JOYBOT_SWITCH`, `withJoybotSwitch()`, the `JoybotSwitch.replace` branch, `applyThemedSwitchColors` removed. DebugLog: `newInstance(boolean)` and the legacy branch removed; `JoybotSwitch.replace` deleted (no users).
+- AnnotationService: own `setAlpha` removed; its toolbar switch is now wrap_content (48dp target).
+- Extra: `BehaviorSettingsFragment` (two `MaterialSwitch` rows) moved to JoybotSwitch.
+- `JoybotSwitch.setAccent(int)` / `getAccent()` added (default Studio.ARMED). No migrated screen has a Studio-token section colour in its code (they use theme attrs), so no site sets an accent.
+- `AvatarToggleView` marked `@Deprecated`, not deleted. Eye-colour pref cleanup still waits for deletion.
+- Skipped: `FaditorSettingsBottomSheet`, `SnapSettingsSheet` (MaterialSwitch, Studio editor), `SpriteSheetEditorActivity` (Switch, sprite editor), `FaditorEditorActivity`, `ObjectDrawer` - out of scope.
+- Still open: item_annotation_layer has three 40dp switches per row (eye / lock / pin as icon toggles may be better - ask owner); watch camera 80dp box gives an 80x47 pill (check on round watch).

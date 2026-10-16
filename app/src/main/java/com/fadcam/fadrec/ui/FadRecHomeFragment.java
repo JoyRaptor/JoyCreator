@@ -199,7 +199,7 @@ public class FadRecHomeFragment extends HomeFragment {
                     if (getView() != null) {
                         View cardFloatingControls = getView().findViewById(com.fadcam.R.id.cardFloatingControls);
                         if (cardFloatingControls != null) {
-                            com.fadcam.ui.AvatarToggleView switchFloatingControls = 
+                            com.fadcam.ui.joybot.JoybotSwitch switchFloatingControls = 
                                 cardFloatingControls.findViewById(com.fadcam.R.id.switchFloatingControls);
                             if (switchFloatingControls != null) {
                                 switchFloatingControls.setChecked(true);
@@ -304,7 +304,7 @@ public class FadRecHomeFragment extends HomeFragment {
                         if (getView() != null) {
                             View cardFloatingControls = getView().findViewById(com.fadcam.R.id.cardFloatingControls);
                             if (cardFloatingControls != null) {
-                                com.fadcam.ui.AvatarToggleView switchFloatingControls = 
+                                com.fadcam.ui.joybot.JoybotSwitch switchFloatingControls = 
                                     cardFloatingControls.findViewById(com.fadcam.R.id.switchFloatingControls);
                                 if (switchFloatingControls != null) {
                                     switchFloatingControls.setChecked(false);
@@ -325,7 +325,7 @@ public class FadRecHomeFragment extends HomeFragment {
                         if (getView() != null) {
                             View cardFloatingControls = getView().findViewById(com.fadcam.R.id.cardFloatingControls);
                             if (cardFloatingControls != null) {
-                                com.fadcam.ui.AvatarToggleView switchFloatingControls = 
+                                com.fadcam.ui.joybot.JoybotSwitch switchFloatingControls = 
                                     cardFloatingControls.findViewById(com.fadcam.R.id.switchFloatingControls);
                                 if (switchFloatingControls != null) {
                                     switchFloatingControls.setChecked(false);
@@ -591,7 +591,7 @@ public class FadRecHomeFragment extends HomeFragment {
             tilesParent.addView(cardFloatingControls, 0);
             
             // Setup switch
-            com.fadcam.ui.AvatarToggleView switchFloatingControls = 
+            com.fadcam.ui.joybot.JoybotSwitch switchFloatingControls = 
                 cardFloatingControls.findViewById(com.fadcam.R.id.switchFloatingControls);
             
             if (switchFloatingControls != null) {

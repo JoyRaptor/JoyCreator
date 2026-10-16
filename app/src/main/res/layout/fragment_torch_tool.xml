@@ -92,8 +92,8 @@
                     android:background="@drawable/bg_torch_glow_ring"
                     android:visibility="gone" />
 
-                <com.fadcam.ui.AvatarToggleView
-                    android:id="@+id/torch_toggle"
+                <com.fadcam.ui.joybot.JoybotSwitch
+                    android:id="@+id/torch_toggle" android:contentDescription="@string/joybotswitch_label_torch"
                     android:layout_width="120dp"
                     android:layout_height="120dp"
                     android:layout_gravity="center"

@@ -368,9 +368,9 @@
                         android:textAlignment="viewStart" />
                 </LinearLayout>
 
-                <!-- AvatarToggleView — consistent with all other toggle rows -->
-                <com.fadcam.ui.AvatarToggleView
-                    android:id="@+id/iv_preview_toggle"
+                <!-- JoybotSwitch — consistent with all other toggle rows -->
+                <com.fadcam.ui.joybot.JoybotSwitch
+                    android:id="@+id/iv_preview_toggle" android:contentDescription="@string/joybotswitch_label_preview"
                     android:layout_width="52dp"
                     android:layout_height="52dp"
                     android:layout_marginStart="0dp"
@@ -431,8 +431,8 @@
                         android:textAlignment="viewStart" />
                 </LinearLayout>
 
-                <com.fadcam.ui.AvatarToggleView
-                    android:id="@+id/switch_preview_quick_actions_toggle"
+                <com.fadcam.ui.joybot.JoybotSwitch
+                    android:id="@+id/switch_preview_quick_actions_toggle" android:contentDescription="@string/preview_quick_actions_title"
                     android:layout_width="52dp"
                     android:layout_height="52dp"
                     android:layout_marginStart="0dp"

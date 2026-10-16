@@ -20,7 +20,7 @@ import android.view.animation.AlphaAnimation;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import com.fadcam.ui.AvatarToggleView;
+import com.fadcam.ui.joybot.JoybotSwitch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -58,7 +58,7 @@ import java.util.List;
 public class RemoteFragment extends BaseFragment {
     private static final String TAG = "RemoteFragment";
     
-    private AvatarToggleView streamingToggle;
+    private JoybotSwitch streamingToggle;
     private TextView statusText;
     private TextView rootUrlText;
     private ImageView copyRootButton;
@@ -87,7 +87,7 @@ public class RemoteFragment extends BaseFragment {
     private LinearLayout networkHealthRow;
     
     // Remote Security UI
-    private AvatarToggleView remoteAuthToggle;
+    private JoybotSwitch remoteAuthToggle;
     private LinearLayout remoteAuthPasswordRow;
     private TextView remoteAuthPasswordValue;
     private LinearLayout remoteAuthAutoLockRow;
@@ -106,7 +106,7 @@ public class RemoteFragment extends BaseFragment {
     
     // Cloud Streaming UI
     private LinearLayout cloudStreamingRow;
-    private AvatarToggleView cloudStreamingToggle;
+    private JoybotSwitch cloudStreamingToggle;
     private TextView cloudStreamingStatus;
 
     // E2E Stream Encryption UI

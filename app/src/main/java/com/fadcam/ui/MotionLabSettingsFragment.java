@@ -33,7 +33,7 @@ import com.fadcam.motion.presentation.MotionLabViewState;
 import com.fadcam.ui.picker.NumberInputBottomSheetFragment;
 import com.fadcam.ui.picker.OptionItem;
 import com.fadcam.ui.picker.PickerBottomSheetFragment;
-import com.fadcam.ui.AvatarToggleView;
+import com.fadcam.ui.joybot.JoybotSwitch;
 
 import java.util.ArrayList;
 
@@ -55,8 +55,8 @@ public class MotionLabSettingsFragment extends Fragment {
     private TextView valueDebugMetrics;
     private ImageView imageDebugFrame;
     private View buttonDebugCopy;
-    private AvatarToggleView switchMotionEnabled;
-    private AvatarToggleView switchMotionAutoTorch;
+    private JoybotSwitch switchMotionEnabled;
+    private JoybotSwitch switchMotionAutoTorch;
     private String latestDebugSnapshot = "";
     private boolean motionDebugReceiverRegistered = false;
     private final BroadcastReceiver motionDebugReceiver = new BroadcastReceiver() {

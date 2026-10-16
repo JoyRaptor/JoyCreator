@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import com.fadcam.ui.AvatarToggleView;
+import com.fadcam.ui.joybot.JoybotSwitch;
 import androidx.fragment.app.DialogFragment;
 import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
@@ -165,7 +165,7 @@ public class HomeSidebarFragment extends DialogFragment {
             if (previewRow != null) {
                 TextView tvTitle = previewRow.findViewById(R.id.tv_preview_toggle_title);
                 TextView tvSub   = previewRow.findViewById(R.id.tv_preview_toggle_sub);
-                AvatarToggleView swPreview = previewRow.findViewById(R.id.iv_preview_toggle);
+                JoybotSwitch swPreview = previewRow.findViewById(R.id.iv_preview_toggle);
 
                 if (tvTitle != null) tvTitle.setText(R.string.ui_preview_area);
 
@@ -197,7 +197,7 @@ public class HomeSidebarFragment extends DialogFragment {
             View quickActionsRow = view.findViewById(R.id.row_preview_quick_actions_toggle);
             if (quickActionsRow != null) {
                 TextView tvSub = quickActionsRow.findViewById(R.id.tv_preview_quick_actions_sub);
-                AvatarToggleView sw = quickActionsRow.findViewById(R.id.switch_preview_quick_actions_toggle);
+                JoybotSwitch sw = quickActionsRow.findViewById(R.id.switch_preview_quick_actions_toggle);
                 if (sw != null) {
                     boolean current = sp.isPreviewQuickActionsAlwaysVisible();
                     sw.setChecked(current);
@@ -261,7 +261,7 @@ public class HomeSidebarFragment extends DialogFragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // AvatarToggleView handles its own animation cleanup via onDetachedFromWindow().
+        // JoybotSwitch handles its own animation cleanup via onDetachedFromWindow().
     }
 
     private void setupMiniAppRows(View view) {

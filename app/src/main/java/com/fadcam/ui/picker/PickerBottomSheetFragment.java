@@ -60,8 +60,6 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
     public static final String ARG_BROWSE_MODE = "browse_mode"; // tap doesn't dismiss; fires BUNDLE_PREVIEW_ID instead
     public static final String BUNDLE_PREVIEW_ID = "preview_id";
     public static final String ARG_AVATAR_SWATCH = "avatar_swatch_mode"; // show avatar preview instead of color circle
-    /** Show Joy Creator's JoybotSwitch in the top switch row instead of the legacy avatar. */
-    public static final String ARG_JOYBOT_SWITCH = "joybot_switch";
     public static final String ARG_INFO_MODE = "info_mode"; // display-only: no checkmarks, no row click interaction
 
     public static PickerBottomSheetFragment newInstance(
@@ -147,12 +145,6 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
             f.getArguments().putBoolean(ARG_SWITCH_STATE, switchState);
         }
         return f;
-    }
-
-    /** Opt in to the JoybotSwitch for the top switch row (Joy Creator screens only, for now). */
-    public PickerBottomSheetFragment withJoybotSwitch() {
-        if (getArguments() != null) getArguments().putBoolean(ARG_JOYBOT_SWITCH, true);
-        return this;
     }
 
     public static PickerBottomSheetFragment newInstanceWithSwitchDependencies(
@@ -326,7 +318,7 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
     private boolean switchState;
     private ArrayList<String> switchDependentIds = new ArrayList<>();
     private LinearLayout containerLayoutRef;
-    private com.fadcam.ui.AvatarToggleView switchRef;
+    private com.fadcam.ui.joybot.JoybotSwitch switchRef;
     private boolean useGradientBg = true; // default enabled globally
     private boolean gridMode = false;
     private boolean hideCheck = false;
@@ -836,22 +828,8 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
             View switchDivider = root.findViewById(R.id.picker_switch_divider);
             View toggle = root.findViewById(R.id.picker_switch);
             TextView switchLabel = root.findViewById(R.id.picker_switch_label);
-            // Joy Creator screens (the Settings hub) ask for the Joybot switch; every other
-            // caller keeps the legacy avatar until the owner has approved the new one.
-            if (toggle != null && switchRow != null && switchLabel != null
-                    && getArguments() != null && getArguments().getBoolean(ARG_JOYBOT_SWITCH, false)) {
-                com.fadcam.ui.joybot.JoybotSwitch js = com.fadcam.ui.joybot.JoybotSwitch.replace(toggle);
-                switchRow.setVisibility(View.VISIBLE);
-                if (switchDivider != null && !items.isEmpty()) switchDivider.setVisibility(View.VISIBLE);
-                switchLabel.setText(switchTitle);
-                js.setContentDescription(switchTitle);
-                js.setChecked(switchState);
-                switchRow.setOnClickListener(v -> js.performClick());
-                js.setOnCheckedChangeListener((button, checked) -> onTopSwitchChanged(checked));
-                toggle = null; // handled
-            }
-            com.fadcam.ui.AvatarToggleView swc = toggle instanceof com.fadcam.ui.AvatarToggleView
-                ? (com.fadcam.ui.AvatarToggleView) toggle : null;
+            com.fadcam.ui.joybot.JoybotSwitch swc = toggle instanceof com.fadcam.ui.joybot.JoybotSwitch
+                ? (com.fadcam.ui.joybot.JoybotSwitch) toggle : null;
             FLog.d("PickerBottomSheet", "DEBUG: Switch setup - swc=" + swc + ", switchLabel=" + switchLabel + ", switchRow=" + switchRow);
             if (switchRow != null && swc != null && switchLabel != null) {
                 FLog.d("PickerBottomSheet", "DEBUG: Setting up switch with title: " + switchTitle + ", state: " + switchState);
@@ -859,7 +837,7 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
                 if (switchDivider != null && !items.isEmpty()) switchDivider.setVisibility(View.VISIBLE);
                 switchLabel.setText(switchTitle);
                 swc.setChecked(switchState);
-                applyThemedSwitchColors(swc);
+                swc.setContentDescription(switchTitle);
                 switchRef = swc;
 
                 // Ensure row click triggers the switch's native toggle (keeps internal animations + accessibility)
@@ -904,7 +882,7 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
                 ImageView trailingIcon = row.findViewById(
                     R.id.picker_item_trailing_icon
                 );
-                com.fadcam.ui.AvatarToggleView itemSwitch =
+                com.fadcam.ui.joybot.JoybotSwitch itemSwitch =
                     row.findViewById(R.id.picker_item_switch);
                 row.setTag(item.id); // tag row with its id for dependency handling
                 tvTitle.setText(item.title);
@@ -940,7 +918,7 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
                 if (item.hasSwitch != null && item.hasSwitch) {
                     // Show switch and keep helper subtitle when provided
                     itemSwitch.setVisibility(View.VISIBLE);
-                    applyThemedSwitchColors(itemSwitch);
+                    itemSwitch.setContentDescription(item.title);
                     itemSwitch.setChecked(
                         item.switchState != null && item.switchState
                     );
@@ -1566,7 +1544,7 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
             View child = containerLayoutRef.getChildAt(i);
             Object tag = child.getTag();
             if ("show_date".equals(tag)) {
-                com.fadcam.ui.AvatarToggleView dateSwitch =
+                com.fadcam.ui.joybot.JoybotSwitch dateSwitch =
                     child.findViewById(R.id.picker_item_switch);
                 if (dateSwitch != null) {
                     showDateEnabled = dateSwitch.isChecked();
@@ -1610,7 +1588,7 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
             View child = containerLayoutRef.getChildAt(i);
             Object tag = child.getTag();
             if ("arabic_date".equals(tag)) {
-                com.fadcam.ui.AvatarToggleView arabicDateSwitch =
+                com.fadcam.ui.joybot.JoybotSwitch arabicDateSwitch =
                     child.findViewById(R.id.picker_item_switch);
                 if (arabicDateSwitch != null) {
                     arabicDateEnabled = arabicDateSwitch.isChecked();
@@ -1650,11 +1628,6 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
         result.putBoolean(BUNDLE_SWITCH_STATE, checked);
         String switchResultKey = "Lock AE".equals(switchTitle) ? com.fadcam.Constants.RK_AE_LOCK : resultKey;
         getParentFragmentManager().setFragmentResult(switchResultKey, result);
-    }
-
-    /** No-op: AvatarToggleView uses avatar drawable, no theme tinting needed. */
-    private void applyThemedSwitchColors(@Nullable com.fadcam.ui.AvatarToggleView swc) {
-        // AvatarToggleView uses the eye/avatar drawable; no color tinting required.
     }
 
     private int resolveThemeColor(int attr, int fallback) {

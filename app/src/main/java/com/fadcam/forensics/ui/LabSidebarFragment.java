@@ -9,7 +9,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import com.fadcam.ui.AvatarToggleView;
+import com.fadcam.ui.joybot.JoybotSwitch;
 import androidx.fragment.app.DialogFragment;
 
 import com.fadcam.R;
@@ -90,7 +90,7 @@ public class LabSidebarFragment extends DialogFragment {
         bindAction(view, R.id.row_lab_tape_style, resultKey, "open_tape_style");
 
         // Hide Thumbnails toggle (Classified Mode)
-        AvatarToggleView hideSwitch = view.findViewById(R.id.row_lab_hide_thumbnails_switch);
+        JoybotSwitch hideSwitch = view.findViewById(R.id.row_lab_hide_thumbnails_switch);
         TextView hideState = view.findViewById(R.id.row_lab_hide_thumbnails_state);
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(requireContext());
         boolean currentHide = prefs.isLabHideThumbnailsEnabled();

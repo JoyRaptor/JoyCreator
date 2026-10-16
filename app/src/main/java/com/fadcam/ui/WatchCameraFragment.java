@@ -1,5 +1,7 @@
 package com.fadcam.ui;
 
+import com.fadcam.ui.joybot.JoybotSwitch;
+
 import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.content.BroadcastReceiver;
@@ -47,7 +49,7 @@ public class WatchCameraFragment extends Fragment {
 
     // ── Views ─────────────────────────────────────────────────────────────────
 
-    private AvatarToggleView watchAvatarToggle;
+    private JoybotSwitch watchAvatarToggle;
     private TextView         tvWatchStorage;
     private TextView         tvWatchTimer;
     private ImageView        ivWatchAudioToggle;

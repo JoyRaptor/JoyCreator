@@ -57,7 +57,7 @@ import androidx.core.app.NotificationCompat;
 
 import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
-import com.fadcam.ui.AvatarToggleView;
+import com.fadcam.ui.joybot.JoybotSwitch;
 import com.fadcam.fadrec.MediaProjectionHelper;
 import com.fadcam.fadrec.ui.annotation.AnnotationState;
 import com.fadcam.fadrec.ui.annotation.ProjectFileManager;
@@ -154,7 +154,7 @@ public class AnnotationService extends Service {
     private TextView annotationsExpandIcon;
     private View annotationsContent;
     private TextView iconSnapGuides, labelSnapGuides;
-    private AvatarToggleView snapGuidesSwitch;
+    private JoybotSwitch snapGuidesSwitch;
     private boolean isAnnotationsExpanded = false;
 
     // Annotation toolbar controls
@@ -4677,7 +4677,7 @@ public class AnnotationService extends Service {
         if (labelSnapGuides != null)
             labelSnapGuides.setAlpha(alpha);
         if (snapGuidesSwitch != null) {
-            snapGuidesSwitch.setAlpha(alpha);
+            // JoybotSwitch dims itself when disabled; no setAlpha here or it double-dims.
             snapGuidesSwitch.setEnabled(enabled);
             snapGuidesSwitch.setClickable(enabled);
         }

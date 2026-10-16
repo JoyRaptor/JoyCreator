@@ -409,8 +409,8 @@
                             android:textColor="@android:color/darker_gray"
                             android:textSize="12sp"/>
                     </LinearLayout>
-                    <com.fadcam.ui.AvatarToggleView
-                        android:id="@+id/switch_timezone"
+                    <com.fadcam.ui.joybot.JoybotSwitch
+                        android:id="@+id/switch_timezone" android:contentDescription="@string/watermark_timezone_title"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />
@@ -487,8 +487,8 @@
                             android:textColor="@android:color/darker_gray"
                             android:textSize="12sp"/>
                     </LinearLayout>
-                    <com.fadcam.ui.AvatarToggleView
-                        android:id="@+id/switch_utm"
+                    <com.fadcam.ui.joybot.JoybotSwitch
+                        android:id="@+id/switch_utm" android:contentDescription="@string/watermark_utm_title"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />
@@ -542,8 +542,8 @@
                             android:textColor="@android:color/darker_gray"
                             android:textSize="12sp"/>
                     </LinearLayout>
-                    <com.fadcam.ui.AvatarToggleView
-                        android:id="@+id/switch_speed"
+                    <com.fadcam.ui.joybot.JoybotSwitch
+                        android:id="@+id/switch_speed" android:contentDescription="@string/watermark_speed_title"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />
@@ -581,8 +581,8 @@
                             android:textColor="@android:color/darker_gray"
                             android:textSize="12sp"/>
                     </LinearLayout>
-                    <com.fadcam.ui.AvatarToggleView
-                        android:id="@+id/switch_altitude"
+                    <com.fadcam.ui.joybot.JoybotSwitch
+                        android:id="@+id/switch_altitude" android:contentDescription="@string/watermark_altitude_title"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />
@@ -620,8 +620,8 @@
                             android:textColor="@android:color/darker_gray"
                             android:textSize="12sp"/>
                     </LinearLayout>
-                    <com.fadcam.ui.AvatarToggleView
-                        android:id="@+id/switch_accuracy"
+                    <com.fadcam.ui.joybot.JoybotSwitch
+                        android:id="@+id/switch_accuracy" android:contentDescription="@string/watermark_accuracy_title"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />
@@ -659,8 +659,8 @@
                             android:textColor="@android:color/darker_gray"
                             android:textSize="12sp"/>
                     </LinearLayout>
-                    <com.fadcam.ui.AvatarToggleView
-                        android:id="@+id/switch_compass"
+                    <com.fadcam.ui.joybot.JoybotSwitch
+                        android:id="@+id/switch_compass" android:contentDescription="@string/watermark_compass_title"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />
@@ -698,8 +698,8 @@
                             android:textColor="@android:color/darker_gray"
                             android:textSize="12sp"/>
                     </LinearLayout>
-                    <com.fadcam.ui.AvatarToggleView
-                        android:id="@+id/switch_noise"
+                    <com.fadcam.ui.joybot.JoybotSwitch
+                        android:id="@+id/switch_noise" android:contentDescription="@string/watermark_noise_title"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />
@@ -737,8 +737,8 @@
                             android:textColor="@android:color/darker_gray"
                             android:textSize="12sp"/>
                     </LinearLayout>
-                    <com.fadcam.ui.AvatarToggleView
-                        android:id="@+id/switch_weather"
+                    <com.fadcam.ui.joybot.JoybotSwitch
+                        android:id="@+id/switch_weather" android:contentDescription="@string/watermark_weather_title"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />

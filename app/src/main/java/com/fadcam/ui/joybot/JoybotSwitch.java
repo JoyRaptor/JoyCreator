@@ -89,6 +89,8 @@ public class JoybotSwitch extends ViewGroup {
     @Nullable private ValueAnimator anim;
     @Nullable private CompoundButton.OnCheckedChangeListener listener;
     private boolean pressDim = false;
+    /** The ON colour. Studio.ARMED unless a screen gives its section a colour via {@link #setAccent}. */
+    private int accent = Studio.ARMED;
     @Nullable private CharSequence autoTip;
 
     private final Runnable stir = this::stir;
@@ -146,6 +148,18 @@ public class JoybotSwitch extends ViewGroup {
         return super.performClick();
     }
 
+    /**
+     * Optional: the ON colour for this switch, so it can take the colour of the section it sits
+     * in. Default is Studio.ARMED (cyan). Pass an opaque colour from the Studio tokens.
+     */
+    public void setAccent(int colour) {
+        if (colour == accent) return;
+        accent = colour;
+        applyLook();
+    }
+
+    public int getAccent() { return accent; }
+
     @Override
     public void setContentDescription(CharSequence d) {
         super.setContentDescription(d);
@@ -201,7 +215,7 @@ public class JoybotSwitch extends ViewGroup {
         face.setTranslationX(travel * (rtl ? -pos : pos));
         float dipT = clamp((pos - 0.5f) / 0.5f);
         face.setTranslationY(Math.round(face.bodyHeight(Math.round(knob)) * DIP * dipT));
-        int ink = (int) ARGB.evaluate(t, Studio.INK_DIM, Studio.ARMED);
+        int ink = (int) ARGB.evaluate(t, Studio.INK_DIM, accent);
         float mix = clamp((t - 0.35f) / 0.4f);
         face.setLook(ink, mix, lookFade());
         invalidate();
@@ -316,7 +330,7 @@ public class JoybotSwitch extends ViewGroup {
         if (pill.isEmpty()) return;
         float fade = lookFade();
         float r = pill.height() / 2f;
-        fill.setColor((int) ARGB.evaluate(t, Studio.OFF, Studio.ARMED));
+        fill.setColor((int) ARGB.evaluate(t, Studio.OFF, accent));
         fill.setAlpha(Math.round(255 * fade));
         c.drawRoundRect(pill, r, r, fill);
         // The porthole: a disc cut out of the pill.
@@ -329,7 +343,7 @@ public class JoybotSwitch extends ViewGroup {
         c.drawCircle(cx, pill.centerY(), knob / 2f, fill);
         // Keyboard / stylus focus. Cyan on the grey pill; ink on the cyan one, where cyan vanishes.
         if (isFocused() && !isInTouchMode()) {
-            ring.setColor(checked ? Studio.INK : Studio.ARMED);
+            ring.setColor(checked ? Studio.INK : accent);
             float o = ring.getStrokeWidth() / 2f;
             c.drawRoundRect(pill.left + o, pill.top + o, pill.right - o, pill.bottom - o,
                     r - o, r - o, ring);
@@ -379,29 +393,6 @@ public class JoybotSwitch extends ViewGroup {
     public void onInitializeAccessibilityEvent(AccessibilityEvent e) {
         super.onInitializeAccessibilityEvent(e);
         e.setChecked(checked);
-    }
-
-    // ── migration helper ─────────────────────────────────────────────────────
-
-    /**
-     * Swaps a view already in a layout (an inflated AvatarToggleView) for a JoybotSwitch with
-     * the same id, layout params, visibility and content description, at the same position.
-     * Lets a shared legacy layout show the new switch on the new screens only.
-     */
-    @NonNull
-    public static JoybotSwitch replace(@NonNull View old) {
-        JoybotSwitch s = new JoybotSwitch(old.getContext());
-        s.setId(old.getId());
-        s.setVisibility(old.getVisibility());
-        s.setContentDescription(old.getContentDescription());
-        if (old.getParent() instanceof ViewGroup) {
-            ViewGroup p = (ViewGroup) old.getParent();
-            int i = p.indexOfChild(old);
-            ViewGroup.LayoutParams lp = old.getLayoutParams();
-            p.removeViewAt(i);
-            if (lp != null) p.addView(s, i, lp); else p.addView(s, i);
-        }
-        return s;
     }
 
     private static float clamp(float v) { return v < 0f ? 0f : v > 1f ? 1f : v; }

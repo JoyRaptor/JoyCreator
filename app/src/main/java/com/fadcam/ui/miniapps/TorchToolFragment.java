@@ -32,7 +32,7 @@ import androidx.core.content.res.ResourcesCompat;
 import com.fadcam.Constants;
 import com.fadcam.FLog;
 import com.fadcam.R;
-import com.fadcam.ui.AvatarToggleView;
+import com.fadcam.ui.joybot.JoybotSwitch;
 import com.fadcam.ui.BaseFragment;
 import com.fadcam.ui.OverlayNavUtil;
 import com.google.android.material.slider.Slider;
@@ -49,7 +49,7 @@ public class TorchToolFragment extends BaseFragment {
     private TorchManager torchManager;
 
     // Views
-    private AvatarToggleView torchToggle;
+    private JoybotSwitch torchToggle;
     private View torchGlow;
     private TextView torchStatusLabel;
     private LinearLayout patternChipsContainer;

@@ -36825,6 +36825,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> {
                     o.setHidden(!o.isHidden());
                     refreshAfterMarqueeBatchDelete();
+                    requestGlPreviewResync();   // an image drawn by the GL preview must hide/show while paused too
                     scheduleAutoSave();
                 }, true));
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(

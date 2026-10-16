@@ -93,8 +93,8 @@
                     android:text="-"
                     android:textColor="@android:color/darker_gray"
                     android:textSize="13sp"/>
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/toggle_onboarding"
+                <com.fadcam.ui.joybot.JoybotSwitch
+                    android:id="@+id/toggle_onboarding" android:contentDescription="@string/settings_onboarding_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
             </LinearLayout>
@@ -127,8 +127,8 @@
                     android:text="-"
                     android:textColor="@android:color/darker_gray"
                     android:textSize="13sp"/>
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/toggle_auto_update"
+                <com.fadcam.ui.joybot.JoybotSwitch
+                    android:id="@+id/toggle_auto_update" android:contentDescription="@string/settings_auto_update_check"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
             </LinearLayout>

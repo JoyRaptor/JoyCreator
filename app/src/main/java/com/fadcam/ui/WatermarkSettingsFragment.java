@@ -1,5 +1,7 @@
 package com.fadcam.ui;
 
+import com.fadcam.ui.joybot.JoybotSwitch;
+
 import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.Manifest;
@@ -112,7 +114,7 @@ public class WatermarkSettingsFragment extends Fragment {
         }
 
         // Timezone toggle
-        com.fadcam.ui.AvatarToggleView switchTimezone = view.findViewById(R.id.switch_timezone);
+        com.fadcam.ui.joybot.JoybotSwitch switchTimezone = view.findViewById(R.id.switch_timezone);
         if (switchTimezone != null) {
             switchTimezone.setChecked(prefs.isTimezoneEnabled());
             switchTimezone.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -132,7 +134,7 @@ public class WatermarkSettingsFragment extends Fragment {
         updateTimezoneFormatRowState();
 
         // UTM toggle
-        com.fadcam.ui.AvatarToggleView switchUtm = view.findViewById(R.id.switch_utm);
+        com.fadcam.ui.joybot.JoybotSwitch switchUtm = view.findViewById(R.id.switch_utm);
         if (switchUtm != null) {
             switchUtm.setChecked(prefs.isUtmEnabled());
             switchUtm.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -149,12 +151,12 @@ public class WatermarkSettingsFragment extends Fragment {
 
         View rowAccuracy = view.findViewById(R.id.row_accuracy);
         if (rowAccuracy != null) rowAccuracy.setOnClickListener(v -> {
-            com.fadcam.ui.AvatarToggleView sw = view.findViewById(R.id.switch_accuracy);
+            com.fadcam.ui.joybot.JoybotSwitch sw = view.findViewById(R.id.switch_accuracy);
             if (sw != null) sw.performClick();
         });
 
         // Extended watermark feature toggles
-        com.fadcam.ui.AvatarToggleView switchSpeed = view.findViewById(R.id.switch_speed);
+        com.fadcam.ui.joybot.JoybotSwitch switchSpeed = view.findViewById(R.id.switch_speed);
         if (switchSpeed != null) {
             switchSpeed.setChecked(prefs.isSpeedEnabled());
             switchSpeed.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -162,7 +164,7 @@ public class WatermarkSettingsFragment extends Fragment {
                 refreshExtendedRowValues();
             });
         }
-        com.fadcam.ui.AvatarToggleView switchAltitude = view.findViewById(R.id.switch_altitude);
+        com.fadcam.ui.joybot.JoybotSwitch switchAltitude = view.findViewById(R.id.switch_altitude);
         if (switchAltitude != null) {
             switchAltitude.setChecked(prefs.isAltitudeEnabled());
             switchAltitude.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -170,7 +172,7 @@ public class WatermarkSettingsFragment extends Fragment {
                 refreshExtendedRowValues();
             });
         }
-        com.fadcam.ui.AvatarToggleView switchAccuracy = view.findViewById(R.id.switch_accuracy);
+        com.fadcam.ui.joybot.JoybotSwitch switchAccuracy = view.findViewById(R.id.switch_accuracy);
         if (switchAccuracy != null) {
             switchAccuracy.setChecked(prefs.isAccuracyEnabled());
             switchAccuracy.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -178,7 +180,7 @@ public class WatermarkSettingsFragment extends Fragment {
                 refreshExtendedRowValues();
             });
         }
-        com.fadcam.ui.AvatarToggleView switchCompass = view.findViewById(R.id.switch_compass);
+        com.fadcam.ui.joybot.JoybotSwitch switchCompass = view.findViewById(R.id.switch_compass);
         if (switchCompass != null) {
             switchCompass.setChecked(prefs.isCompassEnabled());
             switchCompass.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -186,7 +188,7 @@ public class WatermarkSettingsFragment extends Fragment {
                 refreshExtendedRowValues();
             });
         }
-        com.fadcam.ui.AvatarToggleView switchNoise = view.findViewById(R.id.switch_noise);
+        com.fadcam.ui.joybot.JoybotSwitch switchNoise = view.findViewById(R.id.switch_noise);
         if (switchNoise != null) {
             switchNoise.setChecked(prefs.isNoiseEnabled());
             switchNoise.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -201,7 +203,7 @@ public class WatermarkSettingsFragment extends Fragment {
                 }
             });
         }
-        com.fadcam.ui.AvatarToggleView switchWeather = view.findViewById(R.id.switch_weather);
+        com.fadcam.ui.joybot.JoybotSwitch switchWeather = view.findViewById(R.id.switch_weather);
         if (switchWeather != null) {
             switchWeather.setChecked(prefs.isWeatherEnabled());
             switchWeather.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -373,8 +375,8 @@ public class WatermarkSettingsFragment extends Fragment {
             // Just show toast - app can't work without mic anyway
             Toast.makeText(ctx, R.string.watermark_audio_permission_required, Toast.LENGTH_SHORT).show();
             View switchNoise = getView().findViewById(R.id.switch_noise);
-            if (switchNoise instanceof com.fadcam.ui.AvatarToggleView) {
-                ((com.fadcam.ui.AvatarToggleView) switchNoise).setChecked(false);
+            if (switchNoise instanceof com.fadcam.ui.joybot.JoybotSwitch) {
+                ((com.fadcam.ui.joybot.JoybotSwitch) switchNoise).setChecked(false);
             }
         }
     }
@@ -754,7 +756,7 @@ public class WatermarkSettingsFragment extends Fragment {
 
         // Timezone subtitle
         TextView valueTimezone = view.findViewById(R.id.value_timezone);
-        AvatarToggleView switchTimezone = view.findViewById(R.id.switch_timezone);
+        JoybotSwitch switchTimezone = view.findViewById(R.id.switch_timezone);
         if (valueTimezone != null) {
             if (prefs.isTimezoneEnabled()) {
                 java.util.TimeZone tz = java.util.TimeZone.getDefault();
@@ -772,7 +774,7 @@ public class WatermarkSettingsFragment extends Fragment {
 
         // UTM subtitle
         TextView valueUtm = view.findViewById(R.id.value_utm);
-        AvatarToggleView switchUtm = view.findViewById(R.id.switch_utm);
+        JoybotSwitch switchUtm = view.findViewById(R.id.switch_utm);
         if (valueUtm != null) {
             if (prefs.isUtmEnabled()) {
                 valueUtm.setText(getString(R.string.watermark_utm_on));
@@ -802,7 +804,7 @@ public class WatermarkSettingsFragment extends Fragment {
                 valueSpeed.setTextColor(grayColor);
             }
         }
-        AvatarToggleView switchSpeed = view.findViewById(R.id.switch_speed);
+        JoybotSwitch switchSpeed = view.findViewById(R.id.switch_speed);
         if (switchSpeed != null && switchSpeed.isChecked() != prefs.isSpeedEnabled()) {
             switchSpeed.setChecked(prefs.isSpeedEnabled());
         }
@@ -822,7 +824,7 @@ public class WatermarkSettingsFragment extends Fragment {
                 valueAltitude.setTextColor(grayColor);
             }
         }
-        AvatarToggleView switchAltitude = view.findViewById(R.id.switch_altitude);
+        JoybotSwitch switchAltitude = view.findViewById(R.id.switch_altitude);
         if (switchAltitude != null && switchAltitude.isChecked() != prefs.isAltitudeEnabled()) {
             switchAltitude.setChecked(prefs.isAltitudeEnabled());
         }
@@ -842,7 +844,7 @@ public class WatermarkSettingsFragment extends Fragment {
                 valueAccuracy.setTextColor(grayColor);
             }
         }
-        AvatarToggleView switchAccuracy = view.findViewById(R.id.switch_accuracy);
+        JoybotSwitch switchAccuracy = view.findViewById(R.id.switch_accuracy);
         if (switchAccuracy != null && switchAccuracy.isChecked() != prefs.isAccuracyEnabled()) {
             switchAccuracy.setChecked(prefs.isAccuracyEnabled());
         }
@@ -865,7 +867,7 @@ public class WatermarkSettingsFragment extends Fragment {
                 valueCompass.setTextColor(grayColor);
             }
         }
-        AvatarToggleView switchCompass = view.findViewById(R.id.switch_compass);
+        JoybotSwitch switchCompass = view.findViewById(R.id.switch_compass);
         if (switchCompass != null && switchCompass.isChecked() != prefs.isCompassEnabled()) {
             switchCompass.setChecked(prefs.isCompassEnabled());
         }
@@ -880,7 +882,7 @@ public class WatermarkSettingsFragment extends Fragment {
                 valueNoise.setTextColor(grayColor);
             }
         }
-        AvatarToggleView switchNoise = view.findViewById(R.id.switch_noise);
+        JoybotSwitch switchNoise = view.findViewById(R.id.switch_noise);
         if (switchNoise != null && switchNoise.isChecked() != prefs.isNoiseEnabled()) {
             switchNoise.setChecked(prefs.isNoiseEnabled());
         }
@@ -900,7 +902,7 @@ public class WatermarkSettingsFragment extends Fragment {
                 valueWeather.setTextColor(grayColor);
             }
         }
-        AvatarToggleView switchWeather = view.findViewById(R.id.switch_weather);
+        JoybotSwitch switchWeather = view.findViewById(R.id.switch_weather);
         if (switchWeather != null && switchWeather.isChecked() != prefs.isWeatherEnabled()) {
             switchWeather.setChecked(prefs.isWeatherEnabled());
         }
@@ -918,8 +920,8 @@ public class WatermarkSettingsFragment extends Fragment {
                 .setNegativeButton("Cancel", (d, w) -> {
                     // Reset the switch
                     View switchWeather = getView().findViewById(R.id.switch_weather);
-                    if (switchWeather instanceof com.fadcam.ui.AvatarToggleView) {
-                        ((com.fadcam.ui.AvatarToggleView) switchWeather).setChecked(false);
+                    if (switchWeather instanceof com.fadcam.ui.joybot.JoybotSwitch) {
+                        ((com.fadcam.ui.joybot.JoybotSwitch) switchWeather).setChecked(false);
                     }
                     prefs.setWeatherEnabled(false);
                 })

@@ -59,6 +59,8 @@ import java.util.Random;
  * <p>Resource efficient: single {@link Handler} per instance, cancelled in
  * {@link #onDetachedFromWindow()}. AVD callbacks are cleared before re-use to prevent leaks.
  */
+/** @deprecated Replaced everywhere by {@link com.fadcam.ui.joybot.JoybotSwitch}. Kept until the owner has verified the migration, then delete with the toggle_* drawables. */
+@Deprecated
 public class AvatarToggleView extends FrameLayout {
 
     // ─── Constants ───────────────────────────────────────────────────────────

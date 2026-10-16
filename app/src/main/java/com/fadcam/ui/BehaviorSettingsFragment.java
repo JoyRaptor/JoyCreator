@@ -21,7 +21,7 @@ import com.fadcam.SharedPreferencesManager;
 import com.fadcam.MainActivity;
 import com.fadcam.ui.OverlayNavUtil;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.materialswitch.MaterialSwitch;
+import com.fadcam.ui.joybot.JoybotSwitch;
 import com.google.android.material.textfield.TextInputEditText;
 
 /**
@@ -35,8 +35,8 @@ public class BehaviorSettingsFragment extends BaseFragment {
     private SharedPreferencesManager prefs;
     private TextView valueOnboardingState;
     private TextView valueAutoUpdateState;
-    private com.google.android.material.materialswitch.MaterialSwitch toggleOnboarding;
-    private com.google.android.material.materialswitch.MaterialSwitch toggleAutoUpdate;
+    private com.fadcam.ui.joybot.JoybotSwitch toggleOnboarding;
+    private com.fadcam.ui.joybot.JoybotSwitch toggleAutoUpdate;
 
     @Nullable
     @Override

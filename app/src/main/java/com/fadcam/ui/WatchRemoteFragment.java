@@ -1,5 +1,7 @@
 package com.fadcam.ui;
 
+import com.fadcam.ui.joybot.JoybotSwitch;
+
 import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.content.Context;
@@ -28,7 +30,7 @@ public class WatchRemoteFragment extends Fragment {
 
     private static final String TAG = "WatchRemoteFragment";
 
-    private AvatarToggleView remoteToggle;
+    private JoybotSwitch remoteToggle;
     private TextView tvStatus;
     private TextView tvUrl;
 

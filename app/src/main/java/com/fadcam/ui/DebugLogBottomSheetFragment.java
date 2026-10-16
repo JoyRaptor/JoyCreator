@@ -44,17 +44,6 @@ public class DebugLogBottomSheetFragment extends BottomSheetDialogFragment {
 
     public static DebugLogBottomSheetFragment newInstance(){ return new DebugLogBottomSheetFragment(); }
 
-    private static final String ARG_JOYBOT_SWITCH = "joybot_switch";
-
-    /** @param joybotSwitch true on Joy Creator screens (the Settings hub): the switch is JoybotSwitch. */
-    public static DebugLogBottomSheetFragment newInstance(boolean joybotSwitch){
-        DebugLogBottomSheetFragment f = new DebugLogBottomSheetFragment();
-        Bundle b = new Bundle();
-        b.putBoolean(ARG_JOYBOT_SWITCH, joybotSwitch);
-        f.setArguments(b);
-        return f;
-    }
-
     private ActivityResultLauncher<Intent> shareLauncher;
     private RecyclerView previewRv;
     private EditText searchEdit;
@@ -330,22 +319,12 @@ public class DebugLogBottomSheetFragment extends BottomSheetDialogFragment {
             prefs.sharedPreferences.edit().putBoolean(Constants.PREF_DEBUG_DATA, isChecked).apply();
             Log.setDebugEnabled(isChecked);
         };
-        final View sw;
-        if (getArguments() != null && getArguments().getBoolean(ARG_JOYBOT_SWITCH, false)) {
-            com.fadcam.ui.joybot.JoybotSwitch js = new com.fadcam.ui.joybot.JoybotSwitch(requireContext());
-            js.setContentDescription(label.getText());
-            js.setChecked(prefs.isDebugLoggingEnabled());
-            js.setOnCheckedChangeListener(onChange);
-            row.addView(js, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            sw = js;
-        } else {
-            AvatarToggleView av = new AvatarToggleView(requireContext());
-            av.setChecked(prefs.isDebugLoggingEnabled());
-            av.setOnCheckedChangeListener(onChange);
-            row.addView(av, new LinearLayout.LayoutParams(dp(52), dp(52)));
-            sw = av;
-        }
+        final com.fadcam.ui.joybot.JoybotSwitch sw = new com.fadcam.ui.joybot.JoybotSwitch(requireContext());
+        sw.setContentDescription(label.getText());
+        sw.setChecked(prefs.isDebugLoggingEnabled());
+        sw.setOnCheckedChangeListener(onChange);
+        row.addView(sw, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         // Make entire row clickable, not just the switch
         row.setClickable(true);
         row.setFocusable(true);

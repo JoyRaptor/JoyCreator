@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Content descriptions for the JoybotSwitch at call sites whose row title is not a reusable string. -->
+    <string name="joybotswitch_label_preview">Preview</string>
+    <string name="joybotswitch_label_torch">Torch</string>
+    <string name="joybotswitch_label_record">Record</string>
+    <string name="joybotswitch_label_visible">Visible</string>
+    <string name="joybotswitch_label_locked">Locked</string>
+    <string name="joybotswitch_label_pinned">Pinned</string>
+</resources>

@@ -1168,7 +1168,8 @@ C:/Temp/jb-promotion-inventory. No concurrent engine edits or helper builds/devi
 Claude independent reviewer: AUDIT_CHECKPOINT_20261014.md; storage/Joybot files untouched.
 
 ## JOYBOT_20261014 (Claude, JoyBot specialist — cross-cutting account)
-status: ACTIVE (2026-10-15 11:30) — P0-1 + P0-3 fixed and phone-tested; next steps in the "Update — midday" section of tasks/joybot/JOYBOT_HANDOFF_20261015.md. Plan: tasks/joybot/JOYBOT_PLAN_20261014.md.
+status: ACTIVE (2026-10-15 evening) — F2 action registry (13 families) + F3/F4 Director mode + F5/F7/F8/F9 + M7 built; core flows phone-tested on the Note 9 10-15 night (see JOYBOT_PLAN B6); see the "Update — 2026-10-15 evening" section of tasks/joybot/JOYBOT_HANDOFF_20261015.md. Plan: tasks/joybot/JOYBOT_PLAN_20261014.md.
+files (10-15 evening, small, outside ai/): FaditorEditorActivity.swapInProject (1 line: loadedSlideClipId = null) · ui/faditor/sprite/SpriteSheetEditorActivity (Joybot button + reload after Joybot) · ui/RecordsFragment + res/layout/fragment_records.xml (Joybot button) · new app/.../ai/actions/** · tools/jvm-harness/ActionRegistryTest.java + run-actions.sh.
 files (Studio editor, announced 10-15, small): overlay/TextOverlayLayer.java (drawChild: slides skip overhang strips) · compositor/FxLivePreviewController.java (one removeIf: slides stay off the GL text handover) · slides/GeneratedSlideView.java (fit #stage) · slides/SlideContract.java (validateContent) · FaditorEditorActivity (Show me for layers; drained Joybot step keeps its request token).
 files (also, small): MainActivity (onNewIntent) · tools/jvm-harness/typecheck.sh (studiokit + JoyBrush jars) · new slides/SlideDesigns.java
 files (owned): app/.../ui/faditor/ai/** (ChatAssistantActivity, AIToolExecutor, AIChatState, new ai/joybot/**) ·

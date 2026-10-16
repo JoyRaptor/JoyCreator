@@ -58,8 +58,19 @@ public class JoybotStorage extends ProjectStorage {
         return super.load(projectId);
     }
 
+    /**
+     * Every write Joybot makes, live or to the file. "Did this tool change the project?" is asked
+     * of THIS, not of a before/after diff of the file: the screen Joybot was opened from can save
+     * its own copy while a read-only tool runs, and a diff then showed a false "Changed: … Undo"
+     * card after nothing but a look (Note 9, 2026-10-15 evening, twice).
+     */
+    private static final java.util.concurrent.atomic.AtomicLong WRITES = new java.util.concurrent.atomic.AtomicLong();
+
+    public static long writes() { return WRITES.get(); }
+
     @Override
     public boolean save(@NonNull FaditorProject project) {
+        WRITES.incrementAndGet();
         AIChatState.LiveEditor live = AIChatState.liveEditorFor(project.getId());
         if (live != null) {
             final String json = toJson(project);

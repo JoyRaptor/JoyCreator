@@ -53,6 +53,8 @@ public class WatchRemoteFragment extends Fragment {
 
         // Toggle streaming on tap
         if (remoteToggle != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(remoteToggle, remoteToggle.getContext().getString(R.string.desc_watch_remote_toggle));
+            remoteToggle.setContentDescription(remoteToggle.getContext().getString(R.string.desc_watch_remote_toggle));
             remoteToggle.setOnClickListener(v -> toggleStreaming());
         }
     }

@@ -53,6 +53,7 @@ public class UpdateAvailableBottomSheet extends BottomSheetDialogFragment {
         // Set up close button
         ImageButton btnCloseSheet = view.findViewById(R.id.btnCloseSheet);
         if (btnCloseSheet != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnCloseSheet, btnCloseSheet.getContext().getString(R.string.desc_close));
             btnCloseSheet.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {

@@ -88,6 +88,12 @@ public final class ProjectFacts {
     /** Pictures/clips waiting in the shared b-roll bucket. */
     public int brollAssets;
 
+    /**
+     * Name (no extension) of the newest video in the Library that no clip on this timeline comes
+     * from; "" when there is none. Measured from the Library index and the timeline's sources.
+     */
+    public String newestRecordingNotInProject = "";
+
     public final List<SheetFacts> sheets = new ArrayList<>();
 
     /** A key or a custom service is set, so tools that call a model can run. */

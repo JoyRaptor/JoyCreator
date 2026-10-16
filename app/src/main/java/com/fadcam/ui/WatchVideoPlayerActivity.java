@@ -88,9 +88,12 @@ public class WatchVideoPlayerActivity extends AppCompatActivity {
         final View ivBack = findViewById(R.id.watch_player_back);
 
         // Back button
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(ivBack, ivBack.getContext().getString(R.string.back));
         ivBack.setOnClickListener(v -> finish());
 
         // Play / pause toggle
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(ivPlayPause, ivPlayPause.getContext().getString(R.string.faditor_play_pause));
+        ivPlayPause.setContentDescription(ivPlayPause.getContext().getString(R.string.faditor_play_pause));
         ivPlayPause.setOnClickListener(v -> {
             if (player == null) return;
             if (player.isPlaying()) {

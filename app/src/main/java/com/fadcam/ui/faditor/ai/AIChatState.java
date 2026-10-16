@@ -139,6 +139,8 @@ public class AIChatState {
 
     /** "Show me": the clip the editor should select when it comes back. */
     public static volatile String showClipId = null;
+    /** "Show me how": the Studio tool-strip id (FaditorToolRegistry) the editor points at on return, or null. */
+    public static volatile String showHowTool = null;
 
     // ── The live editor: where Joybot writes while the editor is on screen ──────
     //

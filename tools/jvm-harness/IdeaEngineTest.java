@@ -32,6 +32,13 @@ public class IdeaEngineTest {
         check(what, String.valueOf(want).equals(String.valueOf(got)), "want=" + want + " got=" + got);
     }
 
+    /** A natural question must find the topic with this id. */
+    static void helpIs(String question, String wantId) {
+        com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic t =
+                com.fadcam.ui.faditor.ai.joybot.HelpBook.find(question);
+        eq("help: " + question, wantId, t == null ? null : t.id);
+    }
+
     static final Set<String> FLOWS = new HashSet<>(Arrays.asList(IdeaEngine.FLOW_SLIDE));
     static final Set<String> NONE = new HashSet<>();
 
@@ -406,6 +413,64 @@ public class IdeaEngineTest {
             check("howto: how do I", com.fadcam.ui.faditor.ai.joybot.HelpBook.isHowTo("How do I export?"), "");
             check("howto: not a command", !com.fadcam.ui.faditor.ai.joybot.HelpBook.isHowTo("cut the ums"), "");
             check("help: every topic has an answer", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size() > 30, "");
+
+            // G3 wing help: every new topic is reachable by a natural question, ids stay unique, and the
+            // book only offers a doIt/route the app really has.
+            check("help G3: 60+ topics", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size() >= 60,
+                    String.valueOf(com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size()));
+            java.util.Set<String> helpIds = new HashSet<>();
+            for (com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic x : com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS) {
+                helpIds.add(x.id);
+            }
+            eq("help G3: no two topics share an id", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size(), helpIds.size());
+            Set<String> helpRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "setup",
+                    "joybrush", "spritelab", "avatar", "space"));
+            for (com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic x : com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS) {
+                check("help G3: route is a real one: " + x.id, helpRoutes.contains(x.route), String.valueOf(x.route));
+                check("help G3: \"Or I can do it\" only with a doIt: " + x.id,
+                        !x.answer.endsWith("Or I can do it for you.") || x.doIt != null, x.answer);
+            }
+            // Show me how: a topic's tool id must be a button the Studio's tool strip really has.
+            // FaditorToolRegistry registers each one as add(t, "id", R.id.tool_...); read as text.
+            int showMeTopics = 0;
+            try {
+                String reg = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                        "app/src/main/java/com/fadcam/ui/faditor/tools/FaditorToolRegistry.java")), "UTF-8");
+                for (com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic x : com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS) {
+                    if (x.tool == null) continue;
+                    showMeTopics++;
+                    check("help show-me: " + x.id + " points at a registered tool: " + x.tool,
+                            reg.contains("add(t, \"" + x.tool + "\", R.id."), x.tool);
+                }
+                check("help show-me: 20+ topics point at a tool", showMeTopics >= 20, String.valueOf(showMeTopics));
+            } catch (java.io.IOException ex) {
+                check("help show-me: registry readable", false, ex.toString());
+            }
+            helpIs("How do I make a sprite animation?", "sprite_animation");
+            helpIs("How do I slice my sprite sheet?", "sprite_slice");
+            helpIs("How do I name cells in my sprite sheet?", "sprite_names");
+            helpIs("How do I turn on onion skin?", "sprite_onion");
+            helpIs("How do I bake a clean sprite sheet?", "sprite_bake");
+            helpIs("How do I export the sprite file?", "sprite_export");
+            helpIs("How do I place a sprite on my video?", "sprite_place");
+            helpIs("How do I open Sprite Lab?", "sprite_open");
+            helpIs("How do I open my drawing?", "joybrush_open");
+            helpIs("How do I record my screen?", "record_screen");
+            helpIs("How do I add my webcam bubble while I record?", "record_webcam");
+            helpIs("Can I record with the screen off?", "record_background");
+            helpIs("How do I edit a recording in the Studio?", "library_open_studio");
+            helpIs("Where did my export go?", "library_exports");
+            helpIs("How do I restore a deleted video?", "trash_restore");
+            helpIs("How do I use a green screen?", "chroma");
+            helpIs("How do I put a mask on my video?", "mask");
+            helpIs("How do I bend a picture?", "puppet");
+            helpIs("How do I animate text?", "text_animation");
+            helpIs("How do I change a text's font?", "text_font");
+            helpIs("How do I record a voiceover?", "voiceover");
+            helpIs("How do I extract audio from my clip?", "extract_audio");
+            helpIs("How do I change the blend mode?", "blend");
+            helpIs("How do I add an adjustment layer?", "fx_layer");
+            helpIs("How do I add to the timeline after sharing?", "share_add");
         }
 
         // ── Fillers: the one definition the count and the cut share ──────
@@ -545,6 +610,90 @@ public class IdeaEngineTest {
             check("slide gate: the plain fallback passes", com.fadcam.ui.faditor.slides.SlideContract.validate(
                     com.fadcam.ui.faditor.slides.SlideContract.buildFallbackHtml(1080, 1920,
                             com.fadcam.ui.faditor.slides.SlideContract.MODE_OVERLAY, "Hi", 3000)) == null, "");
+        }
+
+        // ── Joybot's rooms: Sprite Lab and the Library ───────────────────
+        {
+            // A sheet-only project is not "empty" to Sprite Lab: its sheet ideas still show.
+            ProjectFacts f = new ProjectFacts();
+            f.online = true;
+            ProjectFacts.SheetFacts s = new ProjectFacts.SheetFacts();
+            s.id = "sh2"; s.name = "Cat"; s.cells = 8; s.namedCells = 8; s.animations = 0;
+            f.sheets.add(s);
+            IdeaEngine.Offer lab = IdeaEngine.offer(f, IdeaEngine.Room.SPRITELAB, FLOWS, NONE);
+            check("spritelab: sheet-only project offers ideas", lab.hasIdea(), labels(lab));
+            eq("spritelab: all named, no animation: make an animation", "Make an animation", lab.ideas.get(0).label);
+            eq("spritelab: make an animation is ASK", Idea.Kind.ASK, lab.ideas.get(0).kind);
+            eq("spritelab: the idea targets the sheet", "sh2", lab.ideas.get(0).target);
+            check("spritelab: no name-the-cells when every cell is named",
+                    !labels(lab).contains("Name the cells"), labels(lab));
+
+            s.namedCells = 0; s.animations = 2;
+            lab = IdeaEngine.offer(f, IdeaEngine.Room.SPRITELAB, FLOWS, NONE);
+            eq("spritelab: unnamed cells: name the cells first", "Name the cells", lab.ideas.get(0).label);
+            eq("spritelab: name the cells is ASK", Idea.Kind.ASK, lab.ideas.get(0).kind);
+            check("spritelab: name the cells asks Joybot to look",
+                    lab.ideas.get(0).say.startsWith("Look at my sprite sheet"), lab.ideas.get(0).say);
+            check("spritelab: animations exist, no make-an-animation",
+                    !labels(lab).contains("Make an animation"), labels(lab));
+
+            // Sprite Lab never falls through into the talking-video ideas.
+            f.spine.add(transcribed("c9", "Talk", 60_000, 50));
+            lab = IdeaEngine.offer(f, IdeaEngine.Room.SPRITELAB, FLOWS, NONE);
+            check("spritelab: no talking-video ideas", !labels(lab).contains("Transcribe")
+                    && !labels(lab).contains("captions"), labels(lab));
+
+            f.online = false;
+            lab = IdeaEngine.offer(f, IdeaEngine.Room.SPRITELAB, FLOWS, NONE);
+            check("spritelab offline: sheet ideas hidden", !lab.hasIdea(), labels(lab));
+
+            // Library: the newest recording this project does not use, taken to the Library tab.
+            ProjectFacts lib = new ProjectFacts();
+            lib.newestRecordingNotInProject = "Sunset 3";
+            IdeaEngine.Offer lo = IdeaEngine.offer(lib, IdeaEngine.Room.LIBRARY, FLOWS, NONE);
+            eq("library: newest recording first", "Show my newest recording", lo.ideas.get(0).label);
+            eq("library: it is a route", Idea.Kind.ROUTE, lo.ideas.get(0).kind);
+            eq("library: route goes to the library tab", IdeaEngine.ROUTE_LIBRARY, lo.ideas.get(0).flow);
+            eq("library opener", "“Sunset 3” is your newest recording, and this project doesn't use it yet.",
+                    lo.opener);
+            eq("library: two entries with Something else", 2, lo.ideas.size());
+            lib.online = false;
+            lo = IdeaEngine.offer(lib, IdeaEngine.Room.LIBRARY, FLOWS, NONE);
+            check("library offline: route still offered (no model needed)", lo.hasIdea(), labels(lo));
+
+            lib.newestRecordingNotInProject = "";
+            lo = IdeaEngine.offer(lib, IdeaEngine.Room.LIBRARY, FLOWS, NONE);
+            check("library: nothing unused, nothing offered", !lo.hasIdea(), labels(lo));
+
+            // The Library room shows only its own idea, even for a project with clips.
+            lib.newestRecordingNotInProject = "Sunset 3";
+            lib.spine.add(transcribed("c10", "Talk", 60_000, 50));
+            lo = IdeaEngine.offer(lib, IdeaEngine.Room.LIBRARY, FLOWS, NONE);
+            eq("library: only the library idea beside Something else", 2, lo.ideas.size());
+            IdeaEngine.Offer so = IdeaEngine.offer(lib, IdeaEngine.Room.STUDIO, FLOWS, NONE);
+            check("studio: no library route", !labels(so).contains("Show my newest recording"), labels(so));
+        }
+
+        // Recipes (gap F7): a recipe replays offline only when no step names this project's things.
+        {
+            List<Idea.Step> portable = Arrays.asList(
+                    Idea.Step.of("toggle_captions", "clipId", "all"),
+                    Idea.Step.of("set_text_style", "text", "all", "font", "Mono"));
+            check("recipe: all-clips steps are portable",
+                    com.fadcam.ui.faditor.ai.joybot.Recipe.portable(portable), "");
+            check("recipe: a clip id makes it not portable",
+                    !com.fadcam.ui.faditor.ai.joybot.Recipe.portable(Arrays.asList(
+                            Idea.Step.of("toggle_captions", "clipId", "3f2a9c1e-1b2c-4d5e-8f90-123456789abc"))), "");
+            check("recipe: a named text makes it not portable",
+                    !com.fadcam.ui.faditor.ai.joybot.Recipe.portable(Arrays.asList(
+                            Idea.Step.of("set_text_style", "text", "hello 2"))), "");
+            check("recipe: an empty recipe is not portable",
+                    !com.fadcam.ui.faditor.ai.joybot.Recipe.portable(new java.util.ArrayList<Idea.Step>()), "");
+            eq("recipe: slug drops punctuation", "clean-up-my-talk",
+                    com.fadcam.ui.faditor.ai.joybot.Recipe.slug("Clean up my talk!"));
+            com.fadcam.ui.faditor.ai.joybot.Recipe r =
+                    new com.fadcam.ui.faditor.ai.joybot.Recipe("Tidy", "tidy up", portable);
+            check("recipe: describe says offline when portable", r.describe().contains("offline"), r.describe());
         }
 
         System.out.println();

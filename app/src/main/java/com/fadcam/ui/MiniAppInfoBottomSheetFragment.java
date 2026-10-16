@@ -57,6 +57,8 @@ public class MiniAppInfoBottomSheetFragment extends BottomSheetDialogFragment {
         ImageView closeBtn = view.findViewById(R.id.mini_app_close_btn);
 
         if (closeBtn != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(closeBtn, closeBtn.getContext().getString(R.string.close));
+            closeBtn.setContentDescription(closeBtn.getContext().getString(R.string.close));
             closeBtn.setOnClickListener(v -> dismiss());
         }
 

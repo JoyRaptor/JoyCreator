@@ -29,6 +29,9 @@ public final class JoybotChatViews {
 
     private JoybotChatViews() {}
 
+    /** Tag on every result card's root, so hands-free can find the newest card on screen. */
+    public static final String CARD_TAG = "joybot_card";
+
     public interface OnChip {
         void onTap(@NonNull Idea idea);
         /** Long-press: "don't suggest this here again". */
@@ -139,6 +142,7 @@ public final class JoybotChatViews {
     @NonNull
     public static Card resultCard(@NonNull Context c, @NonNull String title, @Nullable String details) {
         LinearLayout card = new LinearLayout(c);
+        card.setTag(CARD_TAG);
         card.setOrientation(LinearLayout.VERTICAL);
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Studio.PANEL);

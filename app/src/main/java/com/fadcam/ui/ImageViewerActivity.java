@@ -96,6 +96,7 @@ public class ImageViewerActivity extends AppCompatActivity {
         bottomDock = findViewById(R.id.imageViewerBottomDock);
         applySystemInsets();
         if (back != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(back, back.getContext().getString(R.string.back));
             back.setOnClickListener(v -> finish());
         }
         if (imageView != null) {
@@ -122,6 +123,7 @@ public class ImageViewerActivity extends AppCompatActivity {
             metaView.setText(buildInlineMeta());
         }
         if (more != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(more, more.getContext().getString(R.string.video_menu_info));
             more.setOnClickListener(v -> showInfoSheet(uri));
         }
 

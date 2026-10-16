@@ -4,7 +4,18 @@
 context. **Read first:** `JOYBOT_PLAN_20261014.md` (Part A = what Joybot is, B2 = architecture, B6 = ledger),
 then this file. Owner: JoyRaptor — non-technical, phone-first (Note 9), wants emoji status tables, no jargon.
 
-## Update — 2026-10-15 midday session (read this first; the sections below are the morning's)
+## Update — 2026-10-15 evening, F2–F5 built (read this first)
+
+Gaps F2 (action registry, 9 families / 25 actions), F3 (Director mode: plan → run → review), F4 (budgets, Keep
+going, cost line, Carry on after a kill), F5 (list_items / get_item / find_words), M1 (slide edit), M3 (SpriteLab +
+Library rooms), G3 (help, 61 topics) and G5 (AiRequest) are **built and type-checked, none phone-tested.** Ledger and
+the ordered phone checks: `JOYBOT_PLAN_20261014.md` B6 "2026-10-15 evening". Adding a family: one file per
+`ACTION_FAMILY_BRIEF_20261015.md`, one `add(...)` line in `StudioActions.build()`. Harness: `run-actions.sh` (43) and
+`run-ideas.sh` (325). Next frontier: F6 cross-wing (JoyBrush interface with its lead), F7 recipes, F8 show-me-how, F9
+model routing; family candidates left: markers (needs the host to write bookmarks.json), export_project that really
+exports (needs a confirm + ExportService start), sources (PiP from the phone, image as clip), project care (relink).
+
+## Update — 2026-10-15 midday session (the sections below are the morning's)
 
 Phone-tested on the Note 9, 11:04–11:27 (owner OK'd the install; "Restore video test" left with the same layers —
 its undo list has one extra "remove" entry, because the test slide's own add step did not survive my reinstalls).

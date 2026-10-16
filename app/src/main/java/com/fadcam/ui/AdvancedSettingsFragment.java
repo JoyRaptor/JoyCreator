@@ -28,6 +28,7 @@ public class AdvancedSettingsFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         View back = view.findViewById(R.id.back_button);
         if (back != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(back, back.getContext().getString(R.string.watch_back_desc));
             back.setOnClickListener(v -> handleBack());
         }
         View motionLab = view.findViewById(R.id.row_motion_lab);

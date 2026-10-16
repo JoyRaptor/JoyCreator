@@ -459,6 +459,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
 
     private void setupCaptureShotButton() {
         if (btnFullscreenCaptureShot == null) return;
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnFullscreenCaptureShot, btnFullscreenCaptureShot.getContext().getString(R.string.shortcut_take_photo));
         btnFullscreenCaptureShot.setOnClickListener(v -> {
             Intent intent = new Intent(this, getTargetServiceClass());
             intent.setAction(Constants.INTENT_ACTION_CAPTURE_PHOTO);
@@ -536,6 +537,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
 
     private void setupCloseButton() {
         android.widget.ImageView btnClose = findViewById(R.id.btnClose);
+        if (btnClose != null) androidx.appcompat.widget.TooltipCompat.setTooltipText(btnClose, btnClose.getContext().getString(R.string.fullscreen_preview_close));
         if (btnClose != null) btnClose.setOnClickListener(v -> finish());
     }
 
@@ -884,6 +886,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         isTorchOn = prefs.sharedPreferences.getBoolean(Constants.PREF_TORCH_STATE, false);
         updateTorchIcon();
 
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnFullscreenTorch, btnFullscreenTorch.getContext().getString(R.string.fullscreen_torch));
         btnFullscreenTorch.setOnClickListener(v -> {
             if (isRecordingActive || isRecordingPaused || isPreviewOnlyActive) {
                 Intent intent = new Intent(this, getTargetServiceClass());
@@ -1011,11 +1014,13 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
 
     private void setupCamSwitchButton() {
         if (btnFullscreenCamSwitch == null) return;
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnFullscreenCamSwitch, btnFullscreenCamSwitch.getContext().getString(R.string.fullscreen_camera_switch));
         btnFullscreenCamSwitch.setOnClickListener(v -> switchCamera());
     }
 
     private void setupMirrorButton() {
         if (btnFullscreenMirror == null) return;
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnFullscreenMirror, btnFullscreenMirror.getContext().getString(R.string.front_video_mirror_enable));
         btnFullscreenMirror.setOnClickListener(v -> {
             boolean enabled = !prefs.isFrontVideoMirrorEnabled();
             prefs.setFrontVideoMirrorEnabled(enabled);
@@ -1042,6 +1047,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                 enabled ? 0x66FFC107 : 0x2AFFFFFF));
         btnFullscreenMirror.setContentDescription(getString(
                 enabled ? R.string.front_video_mirror_disable : R.string.front_video_mirror_enable));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnFullscreenMirror, getString(enabled ? R.string.front_video_mirror_disable : R.string.front_video_mirror_enable));
         if (labelFullscreenMirror != null) {
             labelFullscreenMirror.setTextColor(enabled ? 0xFFFFC107 : 0xB3FFFFFF);
         }
@@ -1051,6 +1057,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         labelPauseResume = findViewById(R.id.labelPauseResume);
         updatePauseResumeButton();
         if (btnFullscreenPauseResume == null) return;
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnFullscreenPauseResume, btnFullscreenPauseResume.getContext().getString(R.string.button_pause));
         btnFullscreenPauseResume.setOnClickListener(v -> togglePauseResumeRecording());
     }
 
@@ -1118,6 +1125,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         btnFullscreenPauseResume.setIconResource(iconRes);
         btnFullscreenPauseResume.setIconTint(android.content.res.ColorStateList.valueOf(0xFFFFFFFF));
         btnFullscreenPauseResume.setContentDescription(getString(labelRes));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnFullscreenPauseResume, getString(labelRes));
         btnFullscreenPauseResume.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
                 !isRecordingActive ? 0x404CAF50 : (isRecordingPaused ? 0x40210F00 : 0x5A0D1015)));
         btnFullscreenPauseResume.setStrokeColor(android.content.res.ColorStateList.valueOf(
@@ -1216,6 +1224,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
 
         // ── AF click ──
         if (tileAfToggle != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(tileAfToggle, tileAfToggle.getContext().getString(R.string.af_mode_title));
             tileAfToggle.setOnClickListener(v -> {
                 ArrayList<OptionItem> items = new ArrayList<>();
                 items.add(new OptionItem(
@@ -1240,6 +1249,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
 
         // ── Exposure click ──
         if (tileExp != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(tileExp, tileExp.getContext().getString(R.string.exposure_title));
             tileExp.setOnClickListener(v -> {
                 // Reload exposure value from SharedPreferences before showing picker
                 // This ensures UI reflects any changes made by web/RecordingService
@@ -1271,6 +1281,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
 
         // ── Zoom click ──
         if (tileZoom != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(tileZoom, tileZoom.getContext().getString(R.string.zoom_slider_title));
             tileZoom.setOnClickListener(v -> {
                 CameraType currentCam = prefs.getCameraSelection();
                 List<Float> zoomRatios = buildZoomRatioOptions(currentCam);
@@ -1464,6 +1475,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
 
     private void setupZoomHud() {
         if (btnZoomReset != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnZoomReset, btnZoomReset.getContext().getString(R.string.zoom_slider_title));
             btnZoomReset.setOnClickListener(v -> {
                 CameraType cam = prefs.getCameraSelection();
                 pinchZoomRatio = 1.0f;

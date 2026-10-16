@@ -115,6 +115,7 @@ public class MotionLabSettingsFragment extends Fragment {
     private void setupClickListeners(@NonNull View view) {
         View back = view.findViewById(R.id.back_button);
         if (back != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(back, back.getContext().getString(R.string.watch_back_desc));
             back.setOnClickListener(v -> handleBack());
         }
 
@@ -131,6 +132,7 @@ public class MotionLabSettingsFragment extends Fragment {
         view.findViewById(R.id.row_motion_pre_roll).setOnClickListener(v -> showPreRollInput());
         View info = view.findViewById(R.id.info_button);
         if (info != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(info, info.getContext().getString(R.string.motion_lab_info_cd));
             info.setOnClickListener(v -> showMotionLabInfoBottomSheet());
         }
         if (buttonDebugCopy != null) {

@@ -19,6 +19,7 @@ public class WebViewActivity extends AppCompatActivity {
         setContentView(R.layout.activity_webview);
 
         // Set up the back button
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.back_button), findViewById(R.id.back_button).getContext().getString(R.string.watch_back_desc));
         findViewById(R.id.back_button).setOnClickListener(v -> finish());
 
         // Set up the WebView

@@ -144,6 +144,7 @@ public class ClientDetailsBottomSheetFragment extends BottomSheetDialogFragment 
         }
 
         // Copy IP button click listener
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(copyIpButton, copyIpButton.getContext().getString(R.string.desc_copy_ip));
         copyIpButton.setOnClickListener(v -> {
             ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
             ClipData clip = ClipData.newPlainText("Client IP", ip);

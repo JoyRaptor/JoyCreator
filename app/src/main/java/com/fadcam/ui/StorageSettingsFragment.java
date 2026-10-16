@@ -84,6 +84,7 @@ public class StorageSettingsFragment extends Fragment {
         view.findViewById(R.id.row_storage_mode).setOnClickListener(v -> showStorageOptionsSheet());
         View back = view.findViewById(R.id.back_button);
         if (back != null) {
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(back, back.getContext().getString(R.string.universal_back));
             back.setOnClickListener(v -> OverlayNavUtil.dismiss(requireActivity()));
         }
         // The Joy Creator folder, above the recorder's own location setting.

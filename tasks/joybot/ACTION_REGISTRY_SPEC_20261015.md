@@ -57,3 +57,15 @@ layers, audio clips.
    — the owner's "change the font" example. Phone-test.
 4. Grunt briefs: one per family from FEATURE_GAPS (audio ducking, transforms, looks, organisation, captions,
    transitions, project care, then other wings). Each brief = specs + handlers + tests, following family #3.
+
+## Two hosts (added 2026-10-16)
+
+| Host | Context | For | Families |
+|---|---|---|---|
+| `StudioActions` | `StudioCtx` — one loaded project; saved once after the action; the editor adopts it as one undo step | everything done TO a project | text look, transitions, audio, captions, transform, organise, slides, looks, inspect, export, project care, sources (+ motion, sprites on video, clip shape, visualizer — 10-16) |
+| `AppActions` | `AppCtx` — the app + the open project id (may be null); nothing to save; `ctx.route` names a room to open | app-wide: rooms, the Library, starting things | navigate (`open_room`), library (10-16) |
+
+`AIToolExecutor.executeTool` asks Studio, then App, then the old switch. NAVIGATE actions never touch the screen from
+the worker: they set `ctx.route`; the chat takes it (`AppActions.takePendingRoute`) and calls its `route()`.
+A new app-wide family = one file `<Family>Actions.java` with `register(ActionRegistry<AppCtx>)` + one line in
+`AppActions.build()`; the family brief applies, with AppCtx in place of StudioCtx.

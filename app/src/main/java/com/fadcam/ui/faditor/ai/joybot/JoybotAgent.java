@@ -1151,9 +1151,19 @@ public final class JoybotAgent {
         com.fadcam.ui.faditor.ai.actions.ActionRegistry<?> reg =
                 com.fadcam.ui.faditor.ai.actions.StudioActions.registry();
         for (String def : reg.nativeToolsJson()) t.put(new JSONObject(def));
+        com.fadcam.ui.faditor.ai.actions.ActionRegistry<?> appReg =
+                com.fadcam.ui.faditor.ai.actions.AppActions.registry();
+        for (String def : appReg.nativeToolsJson()) t.put(new JSONObject(def));
         for (String def : AgentTools.nativeToolsJson()) t.put(new JSONObject(def));
+        // Typed definitions above win; the text list also describes them (for models without tool
+        // calling), and a name sent twice is a request some services refuse outright.
+        java.util.Set<String> typed = new java.util.HashSet<>();
+        for (int i = 0; i < t.length(); i++) {
+            JSONObject fn = t.getJSONObject(i).optJSONObject("function");
+            if (fn != null) typed.add(fn.optString("name"));
+        }
         for (ToolDocs.Doc d : ToolDocs.parse(com.fadcam.ui.faditor.ai.AIToolExecutor.getToolDescriptions())) {
-            if (reg.has(d.name)) continue;
+            if (reg.has(d.name) || typed.contains(d.name)) continue;
             t.put(new JSONObject().put("type", "function").put("function", new JSONObject()
                     .put("name", d.name)
                     .put("description", d.text)

@@ -71,6 +71,10 @@ public final class StudioActions {
         add(r, "export", ExportActions::register);
         add(r, "project care", ProjectCareActions::register);
         add(r, "sources", SourcesActions::register);
+        add(r, "clip shape", ClipShapeActions::register);
+        add(r, "visualizer", VisualizerActions::register);
+        add(r, "sprite on video", SpriteVideoActions::register);
+        add(r, "motion", MotionActions::register);
         return r;
     }
 

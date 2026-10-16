@@ -1142,6 +1142,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
             if (line.startsWith("ai_enhance")) for (int i = 0; i < 5; i++) checkChecklistItem(i, true);
             hideStatus();
             addToolResultMessage(line);
+            // An open_room action names a room; going there is a screen change, so it happens here.
+            String room = com.fadcam.ui.faditor.ai.actions.AppActions.takePendingRoute();
+            if (room != null) {
+                final String where = room;
+                messagesContainer.postDelayed(() -> { if (!gone()) route(where); }, 900L);
+            }
         }
 
         @Override public void onStep(@NonNull AIChatState.Step step) {

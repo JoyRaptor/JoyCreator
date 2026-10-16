@@ -1381,8 +1381,10 @@ internal class RecordedScene<T : Any> private constructor(
                 } catch (failure: Throwable) {
                     // Includes an output returned just before its callback changed history or
                     // context, which render may not yet have added to its own fresh set.
-                    fun cleanup(texture: T): kotlin.Unit = try { retire(texture) } catch (cleanup: Throwable) {
-                        if (cleanup !== failure) try { failure.addSuppressed(cleanup) } catch (_: Throwable) { }
+                    fun cleanup(texture: T) {
+                        try { retire(texture) } catch (cleanup: Throwable) {
+                            if (cleanup !== failure) try { failure.addSuppressed(cleanup) } catch (_: Throwable) { }
+                        }
                     }
                     try {
                         untrackedOutput?.let(::cleanup)

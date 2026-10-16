@@ -1457,7 +1457,7 @@ public final class ObjectDrawer extends LinearLayout {
         /** {@code --dring} rgba(255,255,255,.12): the 1dp ring an idle chip wears. */
         public static final int RING = Studio.alpha(Studio.DRAWER_INK, 0x1F);
         /** {@code .dsl .tr} rgba(255,255,255,.18): a slider's empty track. */
-        public static final int TRACK = Studio.alpha(Studio.DRAWER_INK, 0x2E);
+        public static final int TRACK = SliderFace.TRACK;
         /** {@code .dgrab span} rgba(255,255,255,.30): the grab pill. */
         public static final int GRAB = Studio.alpha(Studio.DRAWER_INK, 0x4D);
         /** An ON control is the object's accent at 70% (record 06 {@code .dchip.on}). */

@@ -21803,13 +21803,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // No header TITLE: the CC icon and the track pill beside it already name what is being
         // edited, and a "Style" title over a "Style" tab said the same word twice (the
         // redundancy JoyRaptor flagged on the image drawer, 2026-09-23).
+        // Open above the caption preset strip (Pop, Zoom, Bounce...) while it is showing, else above
+        // the timeline grab bar, so the strip and the play row are never covered or seen through
+        // the drawer's own text (owner, 2026-10-16: drawers "shouldn't open so far as to cover ...";
+        // the sweep saw the Timing rows printed over the strip).
+        final View capStrip = findViewById(R.id.caption_style_bar);
+        final View capFloor = capStrip != null && capStrip.getVisibility() == View.VISIBLE
+                ? capStrip : findViewById(R.id.timeline_grab_bar);
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "", getString(R.string.caption_tab_style), 0,
-                ctx -> buildCaptionStyleTab(ctx)));
+                ctx -> buildCaptionStyleTab(ctx)).fitAbove(capFloor));
         // ── Fit tab ── mode, truncate, words per caption, floor, max lines (SPEC §3.3)
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.drawer_fit), R.drawable.ic_caption_fit_24,   // drawer audit 2026-09-24, C13
-                ctx -> buildCaptionFitTab(ctx)));
+                ctx -> buildCaptionFitTab(ctx)).fitAbove(capFloor));
         // ── Header consolidation (SPEC_20260831_CAPTION_SLIDES_UX §7.2): [CC] Style | pills | icons.
         // The pills row is kept in captionHeaderPills so selection changes can refill it in place
         // instead of re-running show() (§7.1.5 — show() resets the drawer to tab 0).

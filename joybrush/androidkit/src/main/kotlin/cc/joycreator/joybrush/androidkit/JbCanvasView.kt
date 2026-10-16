@@ -1577,10 +1577,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     if(pixels*zoom*zoom >= 4.0) {
                         val ownership=engine.boardDocument?.let { RegionDocumentOps.paintPlans(it,emptyMap())[target] }
                         // An armed Tile board fills the repeat: the shape is folded back into the board rectangle (R50).
-                        val period=engine.tileBoardId?.let { id -> engine.boardDocument?.boards?.firstOrNull { it.id == id }?.rect }
-                        val shape=if(period == null) mask else mask.foldInto(period)
+                        val tileBoard=engine.tileBoardId?.let { id -> engine.boardDocument?.boards?.firstOrNull { it.id == id } }
+                        val shape=if(tileBoard == null) mask else mask.foldInto(tileBoard.rect)
                         val changes=FillPenRaster.plan(shape,argb,opacity,mode,ownership) { engine.readTile(target,it) }
-                        engine.replaceTiles(target,changes)
+                        engine.replaceTiles(target,changes,wrappedBoardId=tileBoard?.id)
                         if(changes.isNotEmpty()) reportHistory()
                     }
                 } finally {

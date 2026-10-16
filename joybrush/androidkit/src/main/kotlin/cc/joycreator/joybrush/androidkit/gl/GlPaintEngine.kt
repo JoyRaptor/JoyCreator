@@ -1251,7 +1251,8 @@ class GlPaintEngine(
      * deletes that tile. Same layout as [readTile]. Copy-on-write like [endStroke]: the old texture
      * becomes the undo snapshot, so nothing is copied. Returns how many tiles changed.
      */
-    fun replaceTiles(layerId: String, tiles: Map<Long, ByteArray?>): Int {
+    /** [wrappedBoardId]: the armed Tile board this replacement painted (the fill pen), marked tiled in the same undo step. */
+    fun replaceTiles(layerId: String, tiles: Map<Long, ByteArray?>, wrappedBoardId: String? = null): Int {
         requireLocalPaint()
         checkStrokeEnded("replaceTiles during a stroke would be undone out of order")
         val layer = storeOf(layerId) ?: error("no layer $layerId")
@@ -1288,7 +1289,12 @@ class GlPaintEngine(
         }catch(e:Throwable){changes.forEach{it.after?.let(::recycleLayerTex)};throw e}
         finally{GLES30.glDisable(GLES30.GL_SCISSOR_TEST);GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0)}
         changes.forEach{put(it.layerId,it.key,it.after,it.celId)}
-        if(changes.isNotEmpty())undo.push(UndoLog.Step(changes + settlePlainWrites(changes)))
+        if(changes.isNotEmpty()) {
+            val beforeDoc=boardDocument
+            val afterDoc=if(wrappedBoardId != null && beforeDoc != null) BoardDocumentOps.markWrappedStroke(beforeDoc,wrappedBoardId) else beforeDoc
+            if(afterDoc != beforeDoc && afterDoc != null) setBoardDocument(afterDoc)
+            undo.push(UndoLog.Step(changes + settlePlainWrites(changes),documentBefore=beforeDoc?.takeIf { it != afterDoc },documentAfter=afterDoc?.takeIf { it != beforeDoc }))
+        }
         return changes.size
     }
 

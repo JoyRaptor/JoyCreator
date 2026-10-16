@@ -312,7 +312,8 @@ public final class JoybotView extends FrameLayout {
         d.setShape(android.graphics.drawable.GradientDrawable.OVAL);
         setBackground(d);
         onOrb = true;
-        setTint(0xFFFFFFFF);
+        // White strokes on the orb: studio_tokens.xml s_on_room, the ink for dark room gradients.
+        setTint(androidx.core.content.ContextCompat.getColor(getContext(), com.fadcam.R.color.s_on_room));
         if (getWidth() > 0) { fit(neutral, getWidth(), getHeight()); fit(smile, getWidth(), getHeight()); }
     }
 

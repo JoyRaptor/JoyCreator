@@ -2,7 +2,6 @@ package com.fadcam.ui.lobby;
 
 import android.content.Intent;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -128,6 +127,22 @@ public class LobbyFragment extends BaseFragment {
     private static final int TAB_FINDER   = 5;
 
     /**
+     * Room ids. Code asks "is this the Sprite Lab?" by id, never by position, so reordering
+     * {@link #buildRooms()} cannot silently repoint a chip, a hero or a route.
+     */
+    private static final int ROOM_STUDIO   = 0;
+    private static final int ROOM_CAPTURE  = 1;
+    private static final int ROOM_SPRITE   = 2;
+    private static final int ROOM_AVATAR   = 3;
+    private static final int ROOM_VIZ      = 4;
+    private static final int ROOM_JOYBRUSH = 5;
+
+    /** Ink for the dark room gradients: pure white, studio_tokens.xml {@code s_on_room}. */
+    private static int onRoom(@NonNull android.content.Context c) {
+        return androidx.core.content.ContextCompat.getColor(c, R.color.s_on_room);
+    }
+
+    /**
      * One room on the marquee.
      *
      * <p>A room is a CATEGORY OF THING YOU MAKE, not a feature. That is why Capture is on
@@ -135,6 +150,8 @@ public class LobbyFragment extends BaseFragment {
      * rather than a picture of a camera.</p>
      */
     private static final class Room {
+        /** Which room this is ({@link #ROOM_STUDIO}...), independent of where it sits on the dial. */
+        final int id;
         final String title;
         final int gradA, gradB;
         /** Ink that reads on this room's gradient — black for light pairs, white for dark. */
@@ -146,8 +163,9 @@ public class LobbyFragment extends BaseFragment {
         final int tab;
         final String glyph;
 
-        Room(String title, int gradA, int gradB, int onGrad, String tag,
+        Room(int id, String title, int gradA, int gradB, int onGrad, String tag,
              String action, String emptyCopy, int tab, String glyph) {
+            this.id = id;
             this.title = title; this.gradA = gradA; this.gradB = gradB; this.onGrad = onGrad;
             this.tag = tag; this.action = action; this.emptyCopy = emptyCopy;
             this.tab = tab; this.glyph = glyph;
@@ -194,6 +212,10 @@ public class LobbyFragment extends BaseFragment {
 
         iconFont = ResourcesCompat.getFont(requireContext(), R.font.materialicons);
         projectStorage = new ProjectStorage(requireContext());
+        // Paint the first frame from the last read (if any); onResume reads again off the main thread.
+        if (lastProjects != null) projects = lastProjects;
+        if (lastDrawings != null) drawings = lastDrawings;
+        if (lastRecents != null) { recents = lastRecents; recentsComplete = true; }
 
         marquee    = v.findViewById(R.id.lobby_marquee);
         marqueeScroll = v.findViewById(R.id.lobby_marquee_scroll);
@@ -263,6 +285,8 @@ public class LobbyFragment extends BaseFragment {
         statText   = v.findViewById(R.id.lobby_stat_text);
         wordmark   = v.findViewById(R.id.lobby_wordmark);
         libraryCount = v.findViewById(R.id.lobby_library_count);
+        // Capitals as before ("12 ITEMS"), from the Library's own words for its count.
+        libraryCount.setAllCaps(true);
         hairline    = v.findViewById(R.id.lobby_hairline);
         botLine     = v.findViewById(R.id.lobby_bot_line);
         botLineText = v.findViewById(R.id.lobby_bot_line_text);
@@ -273,7 +297,7 @@ public class LobbyFragment extends BaseFragment {
         // gets his face rather than a coloured dot standing in for one.
         botLineOrb.setOrb(Studio.ROOM_AVATAR, Studio.ORB_DEEP);
         botLineYes.setBackground(pill(INK, dp(999)));
-        androidx.appcompat.widget.TooltipCompat.setTooltipText(botLineNo, "Dismiss");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(botLineNo, getString(R.string.lobbyv2_dismiss));
         botLineNo.setOnClickListener(b -> {
             botDismissed = true;
             botLine.setVisibility(View.GONE);
@@ -359,8 +383,8 @@ public class LobbyFragment extends BaseFragment {
         //
         // He smiles when pushed, and he smiles while the recents strip is being scrolled,
         // which is JoyRaptor's note that on a scroll "it looks like he's watching and
-        // reacting". The push is not a navigation: tapping him opens the Studio, and the
-        // smile is the acknowledgement that the tap landed.
+        // reacting". The smile is the acknowledgement that a tap landed; what the tap opens
+        // is the assistant (below).
         joybot = v.findViewById(R.id.lobby_bot);
         joybot.setOrb(Studio.ROOM_AVATAR, Studio.ORB_DEEP);
         // Joybot opens the ASSISTANT. He used to open the Studio's project list, which is
@@ -375,13 +399,13 @@ public class LobbyFragment extends BaseFragment {
         // the project id in there is null-guarded.
         joybot.setOnClickListener(b -> { joybot.react(); openAssistant(); });
         androidx.appcompat.widget.TooltipCompat.setTooltipText(joybot,
-                "Joybot, your helper — he glows green when he has an idea for your project");
+                getString(R.string.lobbyv2_joybot_tip));
 
         View libraryDoor = v.findViewById(R.id.lobby_library_door);
         libraryDoor.setOnClickListener(b -> openLibrary(false));
         Motion.press(libraryDoor);
         Motion.press(v.findViewById(R.id.lobby_search));
-        androidx.appcompat.widget.TooltipCompat.setTooltipText(v.findViewById(R.id.lobby_search), "Search everything");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(v.findViewById(R.id.lobby_search), getString(R.string.lobbyv2_search));
         v.findViewById(R.id.lobby_search).setOnClickListener(b -> openLibrary(true));
 
         // "On scroll gesture in screens it looks like he's watching and reacting."
@@ -406,17 +430,18 @@ public class LobbyFragment extends BaseFragment {
             w.setNavigationBarColor(Studio.GROUND);
         } catch (Exception ignored) { }
         registerExportWatch();
-        reloadProjects();
+        // First paint from what is already known (this visit's last read, or the last visit's),
+        // then the disk is read off the main thread and the screen repaints once when it lands.
         paintMarquee();
         paintHero();
-        loadRecentsAsync();
+        paintRecents();
+        reloadAsync();
+        loadGlance();
         syncDrawingsOnce();
         // A drawing just left is still saving: repaint when its picture lands.
         cc.joycreator.joybrush.android.library.DrawingLibrary.setOnChange(() -> ui.post(() -> {
             if (!isAdded()) return;
-            reloadDrawings();
-            paintHero();
-            loadRecentsAsync();
+            reloadAsync();
         }));
     }
 
@@ -430,6 +455,7 @@ public class LobbyFragment extends BaseFragment {
     @Override
     public void onDestroyView() {
         if (statTick != null) ui.removeCallbacks(statTick);
+        if (libraryGlance != null) libraryGlance.cancel();
         unregisterExportWatch();
         hairlineFill = null;
         super.onDestroyView();
@@ -448,42 +474,55 @@ public class LobbyFragment extends BaseFragment {
      */
     private void buildRooms() {
         rooms.clear();
-        rooms.add(new Room(getString(R.string.lobby_room_studio),
-                Studio.ROOM_STUDIO, Studio.GO_END, ON_LIGHT, "LAST PROJECT",
+        final int onRoom = onRoom(requireContext());
+        rooms.add(new Room(ROOM_STUDIO, getString(R.string.lobby_room_studio),
+                Studio.ROOM_STUDIO, Studio.GO_END, ON_LIGHT, getString(R.string.lobbyv2_tag_last_project),
                 getString(R.string.lobby_act_carry_on),
                 getString(R.string.lobby_empty_studio), TAB_STUDIO, "movie_edit"));
 
-        rooms.add(new Room(getString(R.string.lobby_room_capture),
-                Studio.ROOM_CAPTURE, Studio.ROOM_SPRITE, Color.WHITE, "READY",
+        rooms.add(new Room(ROOM_CAPTURE, getString(R.string.lobby_room_capture),
+                Studio.ROOM_CAPTURE, Studio.ROOM_SPRITE, onRoom, getString(R.string.lobbyv2_tag_ready),
                 getString(R.string.lobby_act_record), null, TAB_CAPTURE, "videocam"));
 
-        rooms.add(new Room(getString(R.string.lobby_room_sprites),
-                Studio.ROOM_SPRITE, Studio.ROOM_AVATAR, Color.WHITE, "LAST SHEET",
+        rooms.add(new Room(ROOM_SPRITE, getString(R.string.lobby_room_sprites),
+                Studio.ROOM_SPRITE, Studio.ROOM_AVATAR, onRoom, getString(R.string.lobbyv2_tag_last_sheet),
                 getString(R.string.lobby_act_open),
                 getString(R.string.lobby_empty_sprites), -1, "directions_run"));
 
-        rooms.add(new Room(getString(R.string.lobby_room_avatar),
-                Studio.ROOM_AVATAR, Studio.ROOM_AVATAR_DEEP, Color.WHITE, "LAST CHARACTER",
+        rooms.add(new Room(ROOM_AVATAR, getString(R.string.lobby_room_avatar),
+                Studio.ROOM_AVATAR, Studio.ROOM_AVATAR_DEEP, onRoom, getString(R.string.lobbyv2_tag_last_character),
                 getString(R.string.lobby_act_open),
                 getString(R.string.lobby_empty_avatar), -1, "accessibility_new"));
 
-        rooms.add(new Room(getString(R.string.lobby_room_viz),
-                Studio.ROOM_VIZ, Studio.ROOM_VIZ_DEEP, ON_LIGHT, "LAST VISUALISER",
+        rooms.add(new Room(ROOM_VIZ, getString(R.string.lobby_room_viz),
+                Studio.ROOM_VIZ, Studio.ROOM_VIZ_DEEP, ON_LIGHT, getString(R.string.lobbyv2_tag_last_visualiser),
                 getString(R.string.lobby_act_start),
                 getString(R.string.lobby_empty_viz), -1, "graphic_eq"));
 
-        // JB-0.09 — Joy Brush, the painting room. APPENDED, never inserted: enterRoom() and paintHero() address rooms by index
-        // (2 Sprite Lab, 3 Avatar, 4 Viz Lab), so a room anywhere but the end would silently re-point them. Its colours are
-        // Joy Brush's own (jb_tokens.xml, which the owner can change without touching this file) and its ink is white, the
-        // same as the other dark-gradient rooms.
+        // JB-0.09 — Joy Brush, the painting room. Rooms are addressed by id (ROOM_*), not by position, so
+        // where it sits on the dial is a design choice only. Its colours are Joy Brush's own (jb_tokens.xml,
+        // which the owner can change without touching this file) and its ink is white, the same as the
+        // other dark-gradient rooms.
         cc.joycreator.joybrush.android.Palette jb = cc.joycreator.joybrush.android.JbColors.palette(requireContext());
-        rooms.add(new Room(getString(R.string.lobby_room_joybrush),
-                jb.getRoomStart(), jb.getRoomEnd(), Color.WHITE, "NEW DRAWING",
+        rooms.add(new Room(ROOM_JOYBRUSH, getString(R.string.lobby_room_joybrush),
+                jb.getRoomStart(), jb.getRoomEnd(), onRoom, getString(R.string.lobbyv2_tag_new_drawing),
                 getString(R.string.lobby_act_new_drawing),
                 getString(R.string.lobby_empty_joybrush), -1, "brush"));
     }
 
     private Room room() { return rooms.get(active); }
+
+    /** Where a room sits on the dial, or -1 if it is not on it. */
+    private int indexOfRoom(int id) {
+        for (int i = 0; i < rooms.size(); i++) if (rooms.get(i).id == id) return i;
+        return -1;
+    }
+
+    @Nullable
+    private Room roomById(int id) {
+        int i = indexOfRoom(id);
+        return i < 0 ? null : rooms.get(i);
+    }
 
     // ── the marquee ─────────────────────────────────────────────────────────
 
@@ -996,39 +1035,69 @@ public class LobbyFragment extends BaseFragment {
 
         boolean hasContent;
         String name, sub;
+        String tag = r.tag;
+        // The picture under the hero, when it is not the newest project's frame.
+        String art = null;
+        // A sheet or character the hero names, so tapping it opens exactly that.
+        heroPart = null;
 
-        if (r.tab == TAB_CAPTURE) {
+        if (r.id == ROOM_CAPTURE) {
             // Capture's hero is the room's READINESS, not a picture of a camera. Until the
-            // live viewfinder is wired through, it states what pressing Record will do.
+            // live viewfinder is wired through, it states what pressing Record will do: which
+            // camera (the recorder's own setting) and roughly how much room is left.
             hasContent = true;
-            name = "Back camera";
+            name = cameraName();
             sub  = capturedSummary();
-        } else if (rooms.indexOf(r) == 0) {
+        } else if (r.id == ROOM_STUDIO) {
             hasContent = !projects.isEmpty();
             name = hasContent ? projects.get(0).name : "";
             sub  = hasContent ? projectSub(projects.get(0)) : "";
+        } else if (r.id == ROOM_SPRITE || r.id == ROOM_AVATAR) {
+            // The Library's newest sheet / character, read the Library's way (LibraryGlance), so the
+            // tag says what is actually shown. Until that read lands the hero names the newest
+            // project neutrally ("LAST PROJECT"), which is where the bench opens; once it has landed
+            // and there is none, the room's own empty copy is the truth.
+            com.fadcam.ui.library.LibraryItem part = r.id == ROOM_SPRITE ? newestSheet : newestCharacter;
+            if (part != null) {
+                heroPart = part;
+                hasContent = true;
+                name = part.name;
+                sub = part.parentName != null ? getString(R.string.lobbyv2_in_project, caps(part.parentName))
+                        : part.avatarDir != null ? getString(R.string.lobbyv2_avatar_library) : "";
+                art = part.thumb;
+            } else if (!glanceRead && !projects.isEmpty()) {
+                hasContent = true;
+                tag = getString(R.string.lobbyv2_tag_last_project);
+                name = projects.get(0).name;
+                sub = projectSub(projects.get(0));
+            } else {
+                hasContent = false;
+                name = sub = "";
+            }
         } else {
             // Sprite Lab, Avatar and Viz Lab all live INSIDE a project today (STATE §9
             // defect 13: "sheets live inside project.json, so a character perfected in one
             // project does not exist in the next"). So the honest hero is the most recent
             // project's, and the empty state is honest too when there is none.
-            // Room 4 (Viz Lab) has no room yet, and room 5 (Joy Brush) is not inside a project at all: a drawing has its
-            // own store, so putting "IN <LAST VIDEO>" under it would be a lie (JB-0.09 Decision 4).
-            hasContent = !projects.isEmpty() && rooms.indexOf(r) != 4 && rooms.indexOf(r) != ROOM_JOYBRUSH;
-            name = hasContent ? projects.get(0).name : "";
-            sub  = hasContent ? "IN " + projects.get(0).name.toUpperCase(Locale.US) : "";
+            // That was the old rule for the benches; they now show their own newest sheet or character
+            // (above). What is left here: Viz Lab has no room yet, and Joy Brush is not inside a project
+            // at all: a drawing has its own store, so putting "IN <LAST VIDEO>" under it would be a lie
+            // (JB-0.09 Decision 4).
+            hasContent = false;
+            name = sub = "";
         }
         // Joy Brush: the last drawing, with its picture.
         cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing lastDrawing = null;
-        if (rooms.indexOf(r) == ROOM_JOYBRUSH && !drawings.isEmpty()) {
+        if (r.id == ROOM_JOYBRUSH && !drawings.isEmpty()) {
             lastDrawing = drawings.get(0);
             hasContent = true;
             name = lastDrawing.name;
-            sub = drawings.size() == 1 ? "DRAWING \u00b7 " + ago(lastDrawing.modified).toUpperCase(Locale.US)
-                    : drawings.size() + " DRAWINGS \u00b7 " + ago(lastDrawing.modified).toUpperCase(Locale.US);
+            tag = getString(R.string.lobbyv2_tag_last_drawing);
+            sub = getResources().getQuantityString(R.plurals.lobbyv2_hero_drawings, drawings.size(),
+                    drawings.size(), caps(ago(lastDrawing.modified)));
         }
 
-        heroTag.setText(lastDrawing != null ? "LAST DRAWING" : r.tag);
+        heroTag.setText(tag);
         heroTag.setBackground(pill(Studio.alpha(Studio.ON_GO, 0x8C), dp(999)));
         heroTag.setVisibility(hasContent ? View.VISIBLE : View.GONE);
 
@@ -1060,7 +1129,9 @@ public class LobbyFragment extends BaseFragment {
             heroArt.setBackgroundColor(Studio.SURFACE);
             if (lastDrawing != null) {
                 loadThumbInto(heroArt, lastDrawing.thumbPath);
-            } else if (!projects.isEmpty() && r.tab != TAB_CAPTURE) {
+            } else if (heroPart != null) {
+                loadThumbInto(heroArt, art);   // the sheet's own picture; plain ground if it has none
+            } else if (!projects.isEmpty() && r.id != ROOM_CAPTURE) {
                 loadThumbInto(heroArt, projects.get(0).videoUri);
             }
         } else {
@@ -1077,7 +1148,7 @@ public class LobbyFragment extends BaseFragment {
         // children are pictures and whose text lives in siblings. Everything the eye gets
         // from it — which room, which item, what pressing it does — now has words.
         hero.setContentDescription(hasContent
-                ? getString(R.string.lobby_a11y_hero, r.tag, name, r.action)
+                ? getString(R.string.lobby_a11y_hero, tag, name, r.action)
                 : getString(R.string.lobby_a11y_hero_empty, r.title));
         heroName.setText(name);
         heroName.setVisibility(hasContent ? View.VISIBLE : View.INVISIBLE);
@@ -1085,7 +1156,7 @@ public class LobbyFragment extends BaseFragment {
         heroSub.setVisibility(hasContent ? View.VISIBLE : View.INVISIBLE);
 
         heroAction.setText(lastDrawing != null ? getString(R.string.lobby_act_carry_on)
-                : hasContent || rooms.indexOf(r) == ROOM_JOYBRUSH ? r.action : getString(R.string.lobby_act_start));
+                : hasContent || r.id == ROOM_JOYBRUSH ? r.action : getString(R.string.lobby_act_start));
         heroAction.setTextColor(r.onGrad);
         heroAction.setBackground(pillGradient(r.gradA, r.gradB, dp(999)));
         heroAction.setOnClickListener(v -> enterRoom());
@@ -1100,7 +1171,7 @@ public class LobbyFragment extends BaseFragment {
         // state. Horizontal drags on it are handed to the strip, so the two behave as one
         // control; a tap still enters, because a tap was never ambiguous.
         hero.setOnTouchListener(heroSwipe());
-        if (recentsRow != null && drawingRowShown != (rooms.indexOf(r) == ROOM_JOYBRUSH)) paintRecents();
+        if (recentsRow != null && drawingRowShown != (r.id == ROOM_JOYBRUSH)) paintRecents();
         // Motion.press is NOT called on the hero, and must not be: it installs its own
         // OnTouchListener, and a View has room for exactly one. It was being set five lines
         // after heroSwipe() and silently replacing it, which is why dragging the hero kept
@@ -1108,20 +1179,23 @@ public class LobbyFragment extends BaseFragment {
         // attached. The press feedback lives inside heroSwipe instead.
     }
 
-    /** Where a marquee word actually takes you. */
     /**
-     * Start something NEW in the room the carousel is pointing at.
+     * The hero's quiet "New", for the room the carousel is pointing at. What it does today:
      *
-     * <p>Room-aware rather than a single "new project": the hero is showing a room, and the
-     * new thing a person wants in Sprite Lab is a sheet, not a timeline. Routing to the room
-     * and letting it do its own creation is also the only version that stays correct as
-     * rooms are added.
+     * <ul>
+     *   <li>Joy Brush: a new drawing.</li>
+     *   <li>Capture: the camera.</li>
+     *   <li>Studio: the Library on its Projects view, with the new-project sheet already open.</li>
+     *   <li>Sprite Lab, Avatar, Viz Lab: the Library on its Projects view, WITHOUT the sheet. A
+     *       sheet or character is made inside a project, so the list of projects is the honest
+     *       first step; none of these rooms has a "new" of its own yet.</li>
+     * </ul>
      */
     private void startNewInRoom() {
         Room r = room();
-        if (rooms.indexOf(r) == ROOM_JOYBRUSH) { openDrawing(null); return; }
-        if (r.tab == TAB_CAPTURE) { routeTab(TAB_CAPTURE); return; }
-        openProjects(r.tab == TAB_STUDIO);   // the Studio's New starts one; the benches land on the list
+        if (r.id == ROOM_JOYBRUSH) { openDrawing(null); return; }
+        if (r.id == ROOM_CAPTURE) { routeTab(TAB_CAPTURE); return; }
+        openProjects(r.id == ROOM_STUDIO);
     }
 
     /** A pill that is only an outline — available, and clearly not the primary. */
@@ -1134,13 +1208,23 @@ public class LobbyFragment extends BaseFragment {
         return d;
     }
 
+    /** Where the hero, its action and the active marquee word take you. */
     private void enterRoom() {
+        enterRoom(true);
+    }
+
+    /**
+     * @param openShownPart true for the hero: when it names a sheet or character, open exactly
+     *                      that one. The Character chip passes false and keeps its old route
+     *                      (the bench, in the newest project).
+     */
+    private void enterRoom(boolean openShownPart) {
         Room r = room();
 
         // "Carry on" names a PROJECT, so it must open that project. Routing to the project
         // LIST would be a button that lies: it says the name of the thing and then hands you
         // a list containing it. Caught by driving the screen rather than by reading it.
-        if (rooms.indexOf(r) == 0 && !projects.isEmpty()) {
+        if (r.id == ROOM_STUDIO && !projects.isEmpty()) {
             openProject(projects.get(0).id);
             return;
         }
@@ -1148,8 +1232,15 @@ public class LobbyFragment extends BaseFragment {
         if (r.tab == TAB_STUDIO) { openProjects(true); return; }   // empty Studio: "Start one" starts one
         if (r.tab >= 0) { routeTab(r.tab); return; }
 
+        // The hero names a sheet or character: the same thing must open, the way the Library opens it.
+        if (openShownPart && heroPart != null && getActivity() != null
+                && (r.id == ROOM_SPRITE || r.id == ROOM_AVATAR)
+                && com.fadcam.ui.library.LibraryGlance.open(getActivity(), heroPart)) {
+            return;
+        }
+
         String projectId = projects.isEmpty() ? null : projects.get(0).id;
-        int idx = rooms.indexOf(r);
+        int idx = r.id;
         if (idx == ROOM_JOYBRUSH) {                                  // Joy Brush: the last drawing, or a new one
             try {
                 openDrawing(cc.joycreator.joybrush.android.library.DrawingLibrary.lastOpened(requireContext()));
@@ -1159,7 +1250,7 @@ public class LobbyFragment extends BaseFragment {
             }
         }
         try {
-            if (idx == 2 && projectId != null) {                    // Sprite Lab
+            if (idx == ROOM_SPRITE && projectId != null) {
                 Intent i = new Intent(requireContext(),
                         com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity.class);
                 i.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity.EXTRA_PROJECT_ID,
@@ -1167,7 +1258,7 @@ public class LobbyFragment extends BaseFragment {
                 startActivity(i);
                 return;
             }
-            if (idx == 3 && projectId != null) {                    // Avatar Studio
+            if (idx == ROOM_AVATAR && projectId != null) {
                 Intent i = new Intent(requireContext(),
                         com.fadcam.ui.faditor.avatar.AvatarStudioActivity.class);
                 i.putExtra(com.fadcam.ui.faditor.avatar.AvatarStudioActivity.EXTRA_PROJECT_ID,
@@ -1179,7 +1270,7 @@ public class LobbyFragment extends BaseFragment {
             FLog.w("Lobby", "enterRoom failed for " + r.title, e);
         }
         // Viz Lab has no room yet, and neither bench has anywhere to live without a project.
-        // Sending someone to the Studio is the honest fallback: it is where they will make one.
+        // The Library's Projects view is the honest fallback: it is where they will make one.
         openProjects(false);
     }
 
@@ -1260,19 +1351,19 @@ public class LobbyFragment extends BaseFragment {
     private void paintRecents() {
         if (recentsRow == null) return;
         recentsRow.removeAllViews();
-        drawingRowShown = !rooms.isEmpty() && rooms.indexOf(room()) == ROOM_JOYBRUSH;
+        drawingRowShown = !rooms.isEmpty() && room().id == ROOM_JOYBRUSH;
         View door = getView() == null ? null : getView().findViewById(R.id.lobby_library_door);
         TextView label = getView() == null ? null : getView().findViewById(R.id.lobby_library_label);
         if (drawingRowShown) {
-            if (label != null) label.setText("Drawings");
+            if (label != null) label.setText(R.string.lobbyv2_drawings);
             if (door != null) door.setOnClickListener(b -> openAllDrawings());
-            libraryCount.setText(String.format(Locale.US, "%d DRAWING%s", drawings.size(), drawings.size() == 1 ? "" : "S"));
-            int jbA = rooms.get(ROOM_JOYBRUSH).gradA, jbB = rooms.get(ROOM_JOYBRUSH).gradB;
+            paintLibraryCount();
+            int jbA = room().gradA, jbB = room().gradB;
             recentsRow.addView(newDrawingCard(jbA, jbB));
             int n = Math.min(drawings.size(), 10);
             for (int i = 0; i < n; i++) {
                 cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing d = drawings.get(i);
-                Recent item = new Recent(d.name, "DRAWING", d.thumbPath, d.modified, jbA, jbB, null);
+                Recent item = new Recent(d.name, Kind.DRAWING, d.thumbPath, d.modified, jbA, jbB, null);
                 item.drawingFile = d.file;
                 View card = recentCard(item);
                 recentsRow.addView(card);
@@ -1283,25 +1374,65 @@ public class LobbyFragment extends BaseFragment {
         if (label != null) label.setText(R.string.lobby_library);
         if (door != null) door.setOnClickListener(b -> openLibrary(false));
 
+        // The Library's own count, not this row's: the row is recents, the number is the Library.
+        paintLibraryCount();
+
         if (recents.isEmpty()) {
+            // Not read yet: say nothing rather than "Nothing yet", which may be false a moment later.
+            if (!recentsComplete) return;
             TextView none = new TextView(requireContext());
-            none.setText("Nothing yet. Make something and it will land here.");
+            none.setText(R.string.lobbyv2_nothing_yet);
             none.setTextColor(DIMMER);
             none.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
             none.setPadding(0, dp(16), 0, dp(16));
             recentsRow.addView(none);
-            libraryCount.setText("");
             return;
         }
-
-        libraryCount.setText(String.format(Locale.US, "%d ITEM%s",
-                recents.size(), recents.size() == 1 ? "" : "S"));
 
         int n = Math.min(recents.size(), 10);
         for (int i = 0; i < n; i++) {
             View card = recentCard(recents.get(i));
             recentsRow.addView(card);
             Motion.enter(card, i);
+        }
+    }
+
+    // ── the Library's own numbers ───────────────────────────────────────────
+    // "N ITEMS" is read and counted by the Library itself (LibraryGlance: its LibrarySource and
+    // LibraryFilter), so it is the number on the Library's All chip, never this row's length.
+
+    @Nullable private com.fadcam.ui.library.LibraryGlance libraryGlance;
+    /** The Library's count from its last full read, or -1 before the first; kept across visits. */
+    private static int libraryItems = -1;
+    /** The Library's newest sprite sheet and character, for the Sprite Lab and Avatar heroes. */
+    @Nullable private static com.fadcam.ui.library.LibraryItem newestSheet, newestCharacter;
+    /** True once a Library read has landed, so "no sheet" means none rather than "not read yet". */
+    private static boolean glanceRead;
+    /** The sheet or character the hero is naming right now, if any (paintHero sets it). */
+    @Nullable private com.fadcam.ui.library.LibraryItem heroPart;
+
+    private void loadGlance() {
+        if (libraryGlance == null) libraryGlance = new com.fadcam.ui.library.LibraryGlance(requireContext());
+        libraryGlance.load(g -> {
+            if (!isAdded() || getView() == null) return;
+            if (g.count >= 0) libraryItems = g.count;
+            glanceRead = true;
+            newestSheet = g.newestSheet;
+            newestCharacter = g.newestCharacter;
+            paintLibraryCount();
+            if (!rooms.isEmpty() && (room().id == ROOM_SPRITE || room().id == ROOM_AVATAR)) paintHero();
+        });
+    }
+
+    /** The Library row's number: drawings in the Joy Brush room, the Library's own count elsewhere. */
+    private void paintLibraryCount() {
+        if (libraryCount == null) return;
+        if (drawingRowShown) {
+            libraryCount.setText(getResources().getQuantityString(
+                    R.plurals.lobbyv2_drawing_count, drawings.size(), drawings.size()));
+        } else {
+            libraryCount.setText(libraryItems < 0 ? "" : getResources().getQuantityString(
+                    R.plurals.library_count, libraryItems, libraryItems));
         }
     }
 
@@ -1314,14 +1445,14 @@ public class LobbyFragment extends BaseFragment {
         clp.setMarginEnd(dp(9));
         card.setLayoutParams(clp);
         TextView plus = new TextView(requireContext());
-        plus.setText("+ New");
-        plus.setTextColor(Color.WHITE);
+        plus.setText(R.string.lobbyv2_new_card);
+        plus.setTextColor(onRoom(requireContext()));
         plus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
         Type.body(plus, Type.SEMIBOLD);
         plus.setGravity(Gravity.CENTER);
         card.addView(plus, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        card.setContentDescription("New drawing");
-        if (android.os.Build.VERSION.SDK_INT >= 26) card.setTooltipText("New drawing");
+        card.setContentDescription(getString(R.string.lobbyv2_new_drawing));
+        if (android.os.Build.VERSION.SDK_INT >= 26) card.setTooltipText(getString(R.string.lobbyv2_new_drawing));
         card.setOnClickListener(v -> openDrawing(null));
         Motion.press(card);
         return card;
@@ -1386,7 +1517,7 @@ public class LobbyFragment extends BaseFragment {
         card.addView(name);
 
         TextView meta = new TextView(requireContext());
-        meta.setText(item.kindLabel + " \u00b7 " + ago(item.when));
+        meta.setText(getString(R.string.lobbyv2_card_meta, getString(item.kind.label), ago(item.when)));
         meta.setTextColor(DIMMER);
         meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
         // Duration and date are machine facts, so they get the mono — and because it is
@@ -1400,7 +1531,7 @@ public class LobbyFragment extends BaseFragment {
         // The card is one control and its children are its description, not four
         // separate announcements. Name, what kind of thing it is, and how long ago.
         card.setContentDescription(getString(R.string.lobby_a11y_recent,
-                item.name, item.kindLabel, ago(item.when)));
+                item.name, getString(item.kind.label), ago(item.when)));
         card.setOnClickListener(v -> {
             if (item.drawingFile != null) { openDrawing(item.drawingFile); return; }
             if (item.projectId != null) { openProject(item.projectId); return; }
@@ -1424,22 +1555,45 @@ public class LobbyFragment extends BaseFragment {
      * a mixed row makes it information.</p>
      */
     private static final class Recent {
-        final String name, kindLabel, thumbUri;
+        final String name, thumbUri;
+        final Kind kind;
         final long when;
         final int gradA, gradB;
         @Nullable final String projectId;
         /** A Joy Brush drawing's file, when this card is one. */
         @Nullable String drawingFile;
 
-        Recent(String name, String kindLabel, String thumbUri, long when,
+        Recent(String name, Kind kind, String thumbUri, long when,
                int gradA, int gradB, @Nullable String projectId) {
-            this.name = name; this.kindLabel = kindLabel; this.thumbUri = thumbUri;
+            this.name = name; this.kind = kind; this.thumbUri = thumbUri;
             this.when = when; this.gradA = gradA; this.gradB = gradB;
             this.projectId = projectId;
         }
     }
 
     private List<Recent> recents = new ArrayList<>();
+    /** True once a full list (projects, drawings AND recordings) has been read, so "Nothing yet" is never said early. */
+    private boolean recentsComplete;
+    /** Bumped by every recents read, so an older scan that lands late is dropped. */
+    private int recentsGeneration;
+
+    /** What a recents card is. Decided here, worded in strings_lobby_v2.xml. */
+    private enum Kind {
+        PROJECT(R.string.lobbyv2_kind_project),
+        DRAWING(R.string.lobbyv2_kind_drawing),
+        EXPORT(R.string.lobbyv2_kind_export),
+        SCREEN(R.string.lobbyv2_kind_screen),
+        PHOTO(R.string.lobbyv2_kind_photo),
+        STREAM(R.string.lobbyv2_kind_stream),
+        RECORDING(R.string.lobbyv2_kind_recording),
+        MINI_APP(R.string.lobbyv2_kind_mini_app),
+        VIDEO(R.string.lobbyv2_kind_video),
+        PICTURE(R.string.lobbyv2_kind_picture);
+
+        final int label;
+
+        Kind(int label) { this.label = label; }
+    }
 
     /** Room gradients, reused so a card's corner matches the room that made it. */
     // ROOM_STUDIO, not GO. They hold the same value and always will — the Studio room's
@@ -1462,46 +1616,61 @@ public class LobbyFragment extends BaseFragment {
     private void loadRecentsAsync() {
         List<Recent> immediate = new ArrayList<>();
         for (ProjectStorage.ProjectSummary p : projects) {
-            immediate.add(new Recent(p.name, "PROJECT", p.videoUri, p.lastModified,
+            immediate.add(new Recent(p.name, Kind.PROJECT, p.videoUri, p.lastModified,
                     G_STUDIO_A, G_STUDIO_B, p.id));
         }
-        if (rooms.size() > ROOM_JOYBRUSH) {
-            Room jb = rooms.get(ROOM_JOYBRUSH);
+        Room jb = roomById(ROOM_JOYBRUSH);
+        if (jb != null) {
             for (cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing d : drawings) {
-                Recent item = new Recent(d.name, "DRAWING", d.thumbPath, d.modified, jb.gradA, jb.gradB, null);
+                Recent item = new Recent(d.name, Kind.DRAWING, d.thumbPath, d.modified, jb.gradA, jb.gradB, null);
                 item.drawingFile = d.file;
                 immediate.add(item);
             }
             java.util.Collections.sort(immediate, (x, y) -> Long.compare(y.when, x.when));
         }
-        recents = immediate;
-        paintRecents();
-        paintBotLine();
+        // With a full list already on screen (this visit's or the last), keep it until the new
+        // full list lands: swapping in the projects-only list first would blink the recordings away.
+        if (!recentsComplete) {
+            recents = immediate;
+            paintRecents();
+            paintBotLine();
+        }
         refreshJoybotIdea();
 
+        final android.content.Context app = requireContext().getApplicationContext();
+        final int rgen = ++recentsGeneration;
         THUMB_IO.execute(() -> {
             final List<Recent> merged = new ArrayList<>(immediate);
             try {
-                List<VideoItem> vids = VideoIndexRepository.getInstance(requireContext())
-                        .getVideos(SharedPreferencesManager.getInstance(requireContext()));
+                List<VideoItem> vids = VideoIndexRepository.getInstance(app)
+                        .getVideos(SharedPreferencesManager.getInstance(app));
                 if (vids != null) {
                     for (VideoItem v : vids) {
-                        if (v == null || v.uri == null) continue;
+                        // Half-written and temporary files are skipped, as the Library skips them.
+                        if (v == null || v.uri == null || v.isSkeleton || v.isTemporary) continue;
                         int a, b;
-                        String label;
-                        switch (v.category) {
+                        Kind kind;
+                        boolean image = v.mediaType == VideoItem.MediaType.IMAGE;
+                        switch (v.category == null ? VideoItem.Category.UNKNOWN : v.category) {
                             case FADITOR:
-                                a = G_LIBRARY_A; b = G_LIBRARY_B; label = "EXPORT"; break;
+                                a = G_LIBRARY_A; b = G_LIBRARY_B; kind = Kind.EXPORT; break;
                             case SCREEN:
-                                a = G_CAPTURE_A; b = G_CAPTURE_B; label = "SCREEN"; break;
+                                a = G_CAPTURE_A; b = G_CAPTURE_B; kind = Kind.SCREEN; break;
                             case SHOT:
-                                a = G_LIBRARY_A; b = G_LIBRARY_B; label = "PHOTO"; break;
+                                a = G_LIBRARY_A; b = G_LIBRARY_B; kind = Kind.PHOTO; break;
                             case STREAM:
-                                a = G_SOUND_A; b = G_SOUND_B; label = "STREAM"; break;
+                                a = G_SOUND_A; b = G_SOUND_B; kind = Kind.STREAM; break;
+                            case CAMERA:
+                            case DUAL:
+                                a = G_CAPTURE_A; b = G_CAPTURE_B; kind = Kind.RECORDING; break;
+                            case MINIAPPS:
+                                // Made by a mini app (QR, torch...), not by the recorder.
+                                a = G_LIBRARY_A; b = G_LIBRARY_B; kind = Kind.MINI_APP; break;
                             default:
-                                a = G_CAPTURE_A; b = G_CAPTURE_B; label = "RECORDING"; break;
+                                // Nobody knows who made it: say only what it is.
+                                a = G_LIBRARY_A; b = G_LIBRARY_B; kind = image ? Kind.PICTURE : Kind.VIDEO; break;
                         }
-                        merged.add(new Recent(v.displayName, label, v.uri.toString(),
+                        merged.add(new Recent(v.displayName, kind, v.uri.toString(),
                                 v.lastModified, a, b, null));
                     }
                 }
@@ -1510,8 +1679,10 @@ public class LobbyFragment extends BaseFragment {
             }
             java.util.Collections.sort(merged, (x, y) -> Long.compare(y.when, x.when));
             ui.post(() -> {
-                if (!isAdded()) return;
+                if (rgen != recentsGeneration || !isAdded() || getView() == null) return;
                 recents = merged;
+                recentsComplete = true;
+                lastRecents = merged;
                 paintRecents();
                 paintBotLine();
             });
@@ -1547,12 +1718,16 @@ public class LobbyFragment extends BaseFragment {
         // "Character" is a promise to take you where characters are made.
         //
         // enterRoom() is what handles the awkward part: Sprite Lab lives INSIDE a project,
-        // so with no project to open it falls back to the Studio, which is where you would
-        // make one. Selecting first is what makes that legible — the dial has visibly moved
-        // to Sprite Lab, so the Studio is obviously a step on the way rather than the wrong
-        // door.
+        // so with no project to open it falls back to the Library's Projects view, which is
+        // where you would make one. Selecting first is what makes that legible — the dial has
+        // visibly moved to Sprite Lab, so the project list is obviously a step on the way
+        // rather than the wrong door.
         addNewChip("directions_run", Studio.ROOM_AVATAR, Studio.ROOM_AVATAR_DEEP, getString(R.string.lobby_new_character), R.string.lobby_a11y_new_character,
-                false, () -> { active = 2; paintMarquee(); paintHero(); enterRoom(); });
+                false, () -> {
+                    int sprite = indexOfRoom(ROOM_SPRITE);
+                    if (sprite < 0) return;
+                    active = sprite; paintMarquee(); paintHero(); enterRoom(false);
+                });
         addNewChip("folder",         Studio.ARMED_LIGHT, Studio.ARMED, getString(R.string.lobby_new_import), R.string.lobby_a11y_new_import,
                 false, () -> openLibrary(false));
     }
@@ -1821,7 +1996,7 @@ public class LobbyFragment extends BaseFragment {
             // Only what the camera or screen recorder made. Drawings, exports, photos and
             // streams also have no project, and counting them made this line say "3 recordings"
             // to someone who had only drawn three pictures.
-            if (r.projectId == null && ("RECORDING".equals(r.kindLabel) || "SCREEN".equals(r.kindLabel))) {
+            if (r.projectId == null && (r.kind == Kind.RECORDING || r.kind == Kind.SCREEN)) {
                 captures++;
                 if (r.when > newestCapture) newestCapture = r.when;
             }
@@ -1832,13 +2007,13 @@ public class LobbyFragment extends BaseFragment {
             // TRUE BY CONSTRUCTION: the newest thing you captured is more recent than the
             // newest thing you edited. It does not claim the clip is unused - only that it
             // arrived after your last edit, which is exactly what the sentence says.
-            message = "Your newest recording landed after your last edit.";
-            yesLabel = "Open Library";
+            message = getString(R.string.lobbyv2_bot_newest_recording);
+            yesLabel = getString(R.string.lobbyv2_bot_open_library);
             onYes = () -> openLibrary(false);
         } else if (projects.isEmpty() && captures > 0) {
-            message = captures + (captures == 1 ? " recording" : " recordings")
-                    + " and no projects yet.";
-            yesLabel = "Start one";
+            message = getResources().getQuantityString(
+                    R.plurals.lobbyv2_bot_recordings_no_projects, captures, captures);
+            yesLabel = getString(R.string.lobby_act_start);
             onYes = () -> openProjects(true);
         }
 
@@ -1867,29 +2042,33 @@ public class LobbyFragment extends BaseFragment {
         statTick = new Runnable() {
             @Override public void run() {
                 if (!isAdded() || statText == null) return;
-                long freeBytes = freeSpaceBytes();
-                boolean low = freeBytes > 0 && freeBytes < 2L * 1024 * 1024 * 1024;
+                // Measured off the main thread on resume (recordingVolumeFree); -1 when the
+                // volume recordings go to cannot be known, and then storage is simply not shown.
+                long free = freeBytes;
+                boolean known = free > 0;
+                boolean low = known && free < 2L * 1024 * 1024 * 1024;
                 if (low) {
                     statIcon.setText("warning");
                     statIcon.setTextColor(WARN);
                     statText.setTextColor(WARN);
-                    statText.setText(humanBytes(freeBytes) + " left");
+                    statText.setText(getString(R.string.lobbyv2_stat_low, humanBytes(free)));
                 } else {
                     statIcon.setTextColor(DIMMER);
                     statText.setTextColor(DIM);
-                    switch (statIndex % 3) {
+                    // Without a known free space only the project count is true, so only it shows.
+                    switch (known ? statIndex % 3 : 1) {
                         case 0:
                             statIcon.setText("storage");
-                            statText.setText(humanBytes(freeBytes) + " free");
+                            statText.setText(getString(R.string.lobbyv2_stat_free, humanBytes(free)));
                             break;
                         case 1:
                             statIcon.setText("movie_edit");
-                            statText.setText(projects.size() + " project"
-                                    + (projects.size() == 1 ? "" : "s"));
+                            statText.setText(getResources().getQuantityString(
+                                    R.plurals.lobbyv2_stat_projects, projects.size(), projects.size()));
                             break;
                         default:
                             statIcon.setText("timer");
-                            statText.setText(approxRecordingTime(freeBytes));
+                            statText.setText(getString(R.string.lobbyv2_time_left, approxRecordingTime(free)));
                             break;
                     }
                     statIndex++;
@@ -1980,15 +2159,56 @@ public class LobbyFragment extends BaseFragment {
 
     // ── data ────────────────────────────────────────────────────────────────
 
-    private void reloadProjects() {
+    /**
+     * The lobby's disk reads (projects, drawings), one at a time and never on the main thread:
+     * {@code listProjects} parses every project's file, and a big library would stall the front door.
+     */
+    private static final ExecutorService DATA_IO = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "lobby-read");
+        t.setPriority(Thread.NORM_PRIORITY - 1);
+        return t;
+    });
+
+    /** What the last read found, kept across visits so a new lobby paints at once instead of empty. */
+    @Nullable private static List<ProjectStorage.ProjectSummary> lastProjects;
+    @Nullable private static List<cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing> lastDrawings;
+    @Nullable private static List<Recent> lastRecents;
+    /** Free bytes where recordings go (recordingVolumeFree), or -1 when not known; kept across visits. */
+    private static long freeBytes = -1L;
+
+    /** Bumped by every read, so an older read that lands late is dropped rather than painted. */
+    private int readGeneration;
+
+    /** Read projects and drawings off the main thread, then repaint once with what was found. */
+    private void reloadAsync() {
+        final int gen = ++readGeneration;
+        final android.content.Context app = requireContext().getApplicationContext();
+        DATA_IO.execute(() -> {
+            final List<ProjectStorage.ProjectSummary> p = readProjects(app);
+            final List<cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing> d = readDrawings(app);
+            final long free = recordingVolumeFree(app);
+            ui.post(() -> {
+                if (gen != readGeneration || !isAdded() || getView() == null) return;
+                freeBytes = free;
+                projects = p;
+                drawings = d;
+                lastProjects = p;
+                lastDrawings = d;
+                paintHero();
+                loadRecentsAsync();
+            });
+        });
+    }
+
+    @NonNull
+    private static List<ProjectStorage.ProjectSummary> readProjects(@NonNull android.content.Context app) {
         try {
-            List<ProjectStorage.ProjectSummary> all = projectStorage.listProjects();
-            projects = all == null ? new ArrayList<>() : all;
+            List<ProjectStorage.ProjectSummary> all = new ProjectStorage(app).listProjects();
+            return all == null ? new ArrayList<>() : all;
         } catch (Exception e) {
             FLog.w("Lobby", "listProjects failed", e);
-            projects = new ArrayList<>();
+            return new ArrayList<>();
         }
-        reloadDrawings();
     }
 
     // ── Joy Brush drawings ──────────────────────────────────────────────────
@@ -1997,21 +2217,23 @@ public class LobbyFragment extends BaseFragment {
     // the last drawing (its picture, Carry on, New), its row is the drawings, and the row's door
     // opens every drawing (DrawingsActivity: open, rename, delete to Trash).
 
-    /** Read once per resume: paintHero runs on every marquee tick and must not touch the disk. */
+    /** Read off the main thread on every resume (reloadAsync): paintHero runs on every marquee tick and must not touch the disk. */
     private List<cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing> drawings = new ArrayList<>();
 
-    private static final int ROOM_JOYBRUSH = 5;
-
-    private void reloadDrawings() {
+    @NonNull
+    private static List<cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing> readDrawings(
+            @NonNull android.content.Context app) {
         try {
-            drawings = new ArrayList<>(cc.joycreator.joybrush.android.library.DrawingLibrary.list(requireContext()));
+            List<cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing> out =
+                    new ArrayList<>(cc.joycreator.joybrush.android.library.DrawingLibrary.list(app));
             // A thumbnail is redrawn in place as the drawing changes: forget the old picture.
-            for (cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing d : drawings) {
+            for (cc.joycreator.joybrush.android.library.DrawingLibrary.Drawing d : out) {
                 if (d.thumbPath != null) THUMBS.remove(d.thumbPath);
             }
+            return out;
         } catch (Exception e) {
             FLog.w("Lobby", "drawing list failed", e);
-            drawings = new ArrayList<>();
+            return new ArrayList<>();
         }
     }
 
@@ -2033,9 +2255,7 @@ public class LobbyFragment extends BaseFragment {
             }
             if (added > 0) ui.post(() -> {
                 if (!isAdded()) return;
-                reloadDrawings();
-                paintHero();
-                loadRecentsAsync();
+                reloadAsync();
             });
         });
     }
@@ -2044,7 +2264,7 @@ public class LobbyFragment extends BaseFragment {
         android.content.Context c = requireContext();
         String f = file != null ? file : cc.joycreator.joybrush.android.library.DrawingLibrary.create(c);
         if (f == null) {
-            android.widget.Toast.makeText(c, "This phone has nowhere to keep a drawing.", android.widget.Toast.LENGTH_LONG).show();
+            android.widget.Toast.makeText(c, R.string.lobbyv2_no_room_for_drawing, android.widget.Toast.LENGTH_LONG).show();
             return;
         }
         startActivity(cc.joycreator.joybrush.android.library.DrawingLibrary.openIntent(c, f));
@@ -2170,7 +2390,7 @@ public class LobbyFragment extends BaseFragment {
      */
     private String projectSub(ProjectStorage.ProjectSummary p) {
         String cached = heroMeta.get(p.id);
-        String age = ago(p.lastModified).toUpperCase(Locale.US);
+        String age = caps(ago(p.lastModified));
         warmHeroMeta(p);
         return cached == null ? age : cached + " \u00b7 " + age;
     }
@@ -2189,6 +2409,7 @@ public class LobbyFragment extends BaseFragment {
     private void warmHeroMeta(ProjectStorage.ProjectSummary p) {
         if (heroMeta.containsKey(p.id) || !heroMetaInFlight.add(p.id)) return;
         final String id = p.id;
+        final android.content.res.Resources res = getResources();
         THUMB_IO.execute(() -> {
             String line = null;
             try {
@@ -2207,7 +2428,7 @@ public class LobbyFragment extends BaseFragment {
                     long ms = t.getTotalDurationMs();
                     StringBuilder sb = new StringBuilder();
                     if (layers > 0) {
-                        sb.append(layers).append(layers == 1 ? " LAYER" : " LAYERS");
+                        sb.append(res.getQuantityString(R.plurals.lobbyv2_layers, layers, layers));
                     }
                     if (ms > 0) {
                         if (sb.length() > 0) sb.append(" \u00b7 ");
@@ -2237,45 +2458,93 @@ public class LobbyFragment extends BaseFragment {
                      : String.format(Locale.US, "%d:%02d", m, sec);
     }
 
-    private String capturedSummary() {
-        return "READY · " + approxRecordingTime(freeSpaceBytes()).toUpperCase(Locale.US);
+    /** The camera the recorder will use: its own setting, read the way RecordingService reads it. */
+    private String cameraName() {
+        com.fadcam.CameraType cam;
+        try {
+            cam = SharedPreferencesManager.getInstance(requireContext()).getCameraSelection();
+        } catch (Exception e) {
+            cam = null;
+        }
+        if (cam == null) return getString(R.string.lobbyv2_capture_ready);
+        switch (cam) {
+            case FRONT:    return getString(R.string.lobbyv2_camera_front);
+            case DUAL_PIP: return getString(R.string.lobbyv2_camera_dual);
+            default:       return getString(R.string.lobbyv2_camera_back);
+        }
     }
 
-    private long freeSpaceBytes() {
+    /** "READY · ~3H 20M LEFT", or just "READY" when the free space cannot be known truthfully. */
+    private String capturedSummary() {
+        String left = approxRecordingTime(freeBytes);
+        return left == null ? getString(R.string.lobbyv2_capture_sub_plain)
+                : getString(R.string.lobbyv2_capture_sub, caps(getString(R.string.lobbyv2_time_left_short, left)));
+    }
+
+    /**
+     * Free bytes on the volume new recordings actually go to, or -1 when that cannot be known.
+     * Off the main thread (reloadAsync). Recordings go to the app's external files folder
+     * ({@link com.fadcam.utils.RecordingStoragePaths#getInternalBaseDir}) unless a custom folder
+     * (or the Joy Creator folder) is chosen; a chosen folder on the phone's own storage
+     * ("primary:") is measured there, and one anywhere else (an SD card, a cloud provider) is not
+     * guessed at.
+     */
+    private static long recordingVolumeFree(@NonNull android.content.Context app) {
         try {
-            File dir = requireContext().getFilesDir();
-            StatFs st = new StatFs(dir.getAbsolutePath());
-            return st.getAvailableBytes();
+            SharedPreferencesManager sp = SharedPreferencesManager.getInstance(app);
+            File dir;
+            if (SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(sp.getStorageMode())) {
+                String tree = sp.getCustomStorageUri();
+                if (tree == null) return -1L;
+                String doc = android.provider.DocumentsContract.getTreeDocumentId(Uri.parse(tree));
+                if (doc == null || !doc.startsWith("primary:")) return -1L;
+                dir = android.os.Environment.getExternalStorageDirectory();
+            } else {
+                dir = com.fadcam.utils.RecordingStoragePaths.getInternalBaseDir(app);
+                // The recordings folder may not exist yet; the volume it will be made on does.
+                while (dir != null && !dir.exists()) dir = dir.getParentFile();
+            }
+            if (dir == null) return -1L;
+            return new StatFs(dir.getAbsolutePath()).getAvailableBytes();
         } catch (Exception e) {
-            return 0L;
+            return -1L;
         }
     }
 
     private String humanBytes(long b) {
-        if (b <= 0) return "—";
         double gb = b / (1024d * 1024d * 1024d);
-        if (gb >= 1) return String.format(Locale.US, "%.0f GB", gb);
-        return String.format(Locale.US, "%.0f MB", b / (1024d * 1024d));
+        if (gb >= 1) return getString(R.string.lobbyv2_bytes_gb, gb);
+        return getString(R.string.lobbyv2_bytes_mb, b / (1024d * 1024d));
     }
 
-    /** Rough, and labelled as rough. ~9 MB per second is a fair FHD30 working figure. */
+    /**
+     * An ESTIMATE, and every string it lands in says so ("~"): free bytes over ~9 MB a second,
+     * a fair FHD30 working figure, not the user's actual bitrate. Null when the space is unknown.
+     */
+    @Nullable
     private String approxRecordingTime(long freeBytes) {
-        if (freeBytes <= 0) return "—";
+        if (freeBytes <= 0) return null;
         long seconds = freeBytes / (9L * 1024 * 1024);
         long h = TimeUnit.SECONDS.toHours(seconds);
-        if (h >= 24) return (h / 24) + "d " + (h % 24) + "h left";
-        if (h >= 1) return h + "h " + (TimeUnit.SECONDS.toMinutes(seconds) % 60) + "m left";
-        return TimeUnit.SECONDS.toMinutes(seconds) + "m left";
+        long m = TimeUnit.SECONDS.toMinutes(seconds) % 60;
+        if (h >= 24) return getString(R.string.lobbyv2_dur_days, (int) (h / 24), (int) (h % 24));
+        if (h >= 1) return getString(R.string.lobbyv2_dur_hours, (int) h, (int) m);
+        return getString(R.string.lobbyv2_dur_minutes, (int) TimeUnit.SECONDS.toMinutes(seconds));
     }
 
     private String ago(long ts) {
         long d = System.currentTimeMillis() - ts;
-        if (d < TimeUnit.MINUTES.toMillis(2)) return "just now";
-        if (d < TimeUnit.HOURS.toMillis(1)) return TimeUnit.MILLISECONDS.toMinutes(d) + "m ago";
-        if (d < TimeUnit.DAYS.toMillis(1)) return TimeUnit.MILLISECONDS.toHours(d) + "h ago";
+        if (d < TimeUnit.MINUTES.toMillis(2)) return getString(R.string.lobbyv2_ago_now);
+        if (d < TimeUnit.HOURS.toMillis(1)) return getString(R.string.lobbyv2_ago_minutes, (int) TimeUnit.MILLISECONDS.toMinutes(d));
+        if (d < TimeUnit.DAYS.toMillis(1)) return getString(R.string.lobbyv2_ago_hours, (int) TimeUnit.MILLISECONDS.toHours(d));
         long days = TimeUnit.MILLISECONDS.toDays(d);
-        if (days < 30) return days + "d ago";
-        return (days / 30) + "mo ago";
+        if (days < 30) return getString(R.string.lobbyv2_ago_days, (int) days);
+        return getString(R.string.lobbyv2_ago_months, (int) (days / 30));
+    }
+
+    /** Capitals for a tag or a meta line, in the reader's own language rules. */
+    private static String caps(String s) {
+        return s == null ? "" : s.toUpperCase(Locale.getDefault());
     }
 
     // ── drawing helpers ─────────────────────────────────────────────────────

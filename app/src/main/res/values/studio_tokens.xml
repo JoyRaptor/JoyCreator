@@ -83,6 +83,9 @@
     <!-- What Split will cut: the dashed marker on the playhead. Twin of Studio.SLICE. -->
     <color name="s_slice">#FFF9F462</color>
     <color name="s_on_go">#FF050507</color>      <!-- ink that sits ON the gradient -->
+    <!-- Ink that sits ON a DARK room gradient (Capture, Sprite Lab, Avatar, Joy Brush) and
+         Joybot's strokes on his orb: pure white, the light twin of s_on_go. -->
+    <color name="s_on_room">#FFFFFFFF</color>
 
     <!-- ── ROOMS ──────────────────────────────────────────────────────────────
          The lobby's colour code, so the editor can agree with it. Each room's

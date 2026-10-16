@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The lobby (com.fadcam.ui.lobby): words that used to be typed into LobbyFragment and
+     fragment_lobby.xml. The older lobby_* strings stay in strings.xml. -->
+<resources>
+    <!-- Chrome -->
+    <string name="lobbyv2_wordmark" translatable="false">Joy Creator</string>
+    <string name="lobbyv2_search">Search everything</string>
+    <string name="lobbyv2_joybot">Joybot</string>
+    <string name="lobbyv2_joybot_tip">Joybot, your helper — he glows green when he has an idea for your project</string>
+    <string name="lobbyv2_dismiss">Dismiss</string>
+
+    <!-- Hero tags (shown in capitals) -->
+    <string name="lobbyv2_tag_last_project">LAST PROJECT</string>
+    <string name="lobbyv2_tag_ready">READY</string>
+    <string name="lobbyv2_tag_last_sheet">LAST SHEET</string>
+    <string name="lobbyv2_tag_last_character">LAST CHARACTER</string>
+    <string name="lobbyv2_tag_last_visualiser">LAST VISUALISER</string>
+    <string name="lobbyv2_tag_new_drawing">NEW DRAWING</string>
+    <string name="lobbyv2_tag_last_drawing">LAST DRAWING</string>
+
+    <!-- Hero lines -->
+    <string name="lobbyv2_camera_back">Back camera</string>
+    <string name="lobbyv2_camera_front">Front camera</string>
+    <string name="lobbyv2_camera_dual">Both cameras</string>
+    <string name="lobbyv2_capture_ready">Ready to record</string>
+    <!-- %1$s: the time left, e.g. "~3H 20M LEFT" -->
+    <string name="lobbyv2_capture_sub">READY · %1$s</string>
+    <string name="lobbyv2_capture_sub_plain">READY</string>
+    <!-- %1$s: a project's name -->
+    <string name="lobbyv2_in_project">IN %1$s</string>
+    <string name="lobbyv2_avatar_library">AVATAR LIBRARY</string>
+    <!-- %1$d: how many drawings; %2$s: how long ago the newest changed -->
+    <plurals name="lobbyv2_hero_drawings">
+        <item quantity="one">DRAWING · %2$s</item>
+        <item quantity="other">%1$d DRAWINGS · %2$s</item>
+    </plurals>
+    <plurals name="lobbyv2_layers">
+        <item quantity="one">%d LAYER</item>
+        <item quantity="other">%d LAYERS</item>
+    </plurals>
+
+    <!-- The Library row -->
+    <string name="lobbyv2_drawings">Drawings</string>
+    <plurals name="lobbyv2_drawing_count">
+        <item quantity="one">%d drawing</item>
+        <item quantity="other">%d drawings</item>
+    </plurals>
+    <string name="lobbyv2_nothing_yet">Nothing yet. Make something and it will land here.</string>
+    <string name="lobbyv2_new_card">+ New</string>
+    <string name="lobbyv2_new_drawing">New drawing</string>
+    <string name="lobbyv2_no_room_for_drawing">This phone has nowhere to keep a drawing.</string>
+
+    <!-- What a recent card is (shown in capitals) -->
+    <string name="lobbyv2_kind_project">PROJECT</string>
+    <string name="lobbyv2_kind_drawing">DRAWING</string>
+    <string name="lobbyv2_kind_export">EXPORT</string>
+    <string name="lobbyv2_kind_screen">SCREEN</string>
+    <string name="lobbyv2_kind_photo">PHOTO</string>
+    <string name="lobbyv2_kind_stream">STREAM</string>
+    <string name="lobbyv2_kind_recording">RECORDING</string>
+    <string name="lobbyv2_kind_mini_app">MINI APP</string>
+    <string name="lobbyv2_kind_video">VIDEO</string>
+    <string name="lobbyv2_kind_picture">PICTURE</string>
+    <!-- %1$s: what kind of thing; %2$s: how long ago -->
+    <string name="lobbyv2_card_meta">%1$s · %2$s</string>
+
+    <!-- Joybot's one line -->
+    <string name="lobbyv2_bot_newest_recording">Your newest recording landed after your last edit.</string>
+    <string name="lobbyv2_bot_open_library">Open Library</string>
+    <plurals name="lobbyv2_bot_recordings_no_projects">
+        <item quantity="one">%d recording and no projects yet.</item>
+        <item quantity="other">%d recordings and no projects yet.</item>
+    </plurals>
+
+    <!-- The cycling stat -->
+    <!-- %1$s: free space, e.g. "1 GB" -->
+    <string name="lobbyv2_stat_low">%1$s left</string>
+    <string name="lobbyv2_stat_free">%1$s free</string>
+    <plurals name="lobbyv2_stat_projects">
+        <item quantity="one">%d project</item>
+        <item quantity="other">%d projects</item>
+    </plurals>
+    <!-- An estimate from a typical bitrate, so it says "about". %1$s: e.g. "3h 20m" -->
+    <string name="lobbyv2_time_left">~%1$s of video left</string>
+    <string name="lobbyv2_time_left_short">~%1$s left</string>
+    <string name="lobbyv2_dur_days">%1$dd %2$dh</string>
+    <string name="lobbyv2_dur_hours">%1$dh %2$dm</string>
+    <string name="lobbyv2_dur_minutes">%1$dm</string>
+    <string name="lobbyv2_bytes_gb">%1$.0f GB</string>
+    <string name="lobbyv2_bytes_mb">%1$.0f MB</string>
+
+    <!-- How long ago -->
+    <string name="lobbyv2_ago_now">just now</string>
+    <string name="lobbyv2_ago_minutes">%1$dm ago</string>
+    <string name="lobbyv2_ago_hours">%1$dh ago</string>
+    <string name="lobbyv2_ago_days">%1$dd ago</string>
+    <string name="lobbyv2_ago_months">%1$dmo ago</string>
+</resources>

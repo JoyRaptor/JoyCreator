@@ -125,14 +125,15 @@ final class LibraryChipsView extends HorizontalScrollView {
             view.setMinimumHeight(LibraryViews.dp(c, 34));
             int slant = LibraryViews.dp(c, SLANT_DP);
             // Content centred in the shape; the lean eats the ends, so pad by about half of it.
-            view.setPadding(slant / 2 + LibraryViews.dp(c, 8), 0, slant / 2 + LibraryViews.dp(c, 8), 0);
+            // Gap between chips shaved 15% (owner, 2026-10-17); two thirds of what was shaved goes back as padding.
+            view.setPadding(slant / 2 + LibraryViews.dp(c, 8), 0, slant / 2 + LibraryViews.dp(c, 8) + Math.max(1, Math.round(3.5f * 0.15f * (2f / 3f) * c.getResources().getDisplayMetrics().density)), 0);
             view.setClickable(true);
             view.setFocusable(true);
             SheetKit.press(view);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
                     LibraryViews.dp(c, 34));
             // Banded, like the New row: the gap reads as a division, not a space.
-            lp.setMarginEnd(Math.round(3.5f * c.getResources().getDisplayMetrics().density));
+            lp.setMarginEnd(Math.round(3.5f * 0.85f * c.getResources().getDisplayMetrics().density));
             view.setLayoutParams(lp);
 
             icon = LibraryViews.glyph(c, 15f, Studio.INK_DIM);

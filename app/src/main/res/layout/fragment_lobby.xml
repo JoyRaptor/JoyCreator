@@ -82,7 +82,7 @@
                 android:id="@+id/lobby_wordmark"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Joy Creator"
+                android:text="@string/lobbyv2_wordmark"
                 android:textColor="#00000000"
                 android:textSize="16sp"
                 android:maxLines="1"
@@ -134,7 +134,7 @@
                 android:textColor="@color/s_ink_faint"
                 android:textSize="19sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Search everything" />
+                android:contentDescription="@string/lobbyv2_search" />
 
             <!-- ── JOYBOT ─────────────────────────────────────────────────────
                  JoyRaptor's own art, two frames, registered on the HANDS — his widest span — and
@@ -151,7 +151,7 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginStart="2dp"
-                android:contentDescription="Joybot" />
+                android:contentDescription="@string/lobbyv2_joybot" />
         </LinearLayout>
         </FrameLayout>
 
@@ -495,7 +495,7 @@
                 android:textColor="@color/s_ink_off"
                 android:textSize="15sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Dismiss" />
+                android:contentDescription="@string/lobbyv2_dismiss" />
         </LinearLayout>
 
         <View

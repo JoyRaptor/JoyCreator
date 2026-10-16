@@ -14,6 +14,7 @@ import androidx.annotation.NonNull;
 import com.fadcam.R;
 import com.fadcam.ui.faditor.SheetKit;
 import com.fadcam.ui.faditor.Studio;
+import com.fadcam.ui.lobby.SlantDrawable;
 import com.fadcam.ui.type.Type;
 
 import java.util.ArrayList;
@@ -35,6 +36,8 @@ final class SettingsSectionChips extends HorizontalScrollView {
     }
 
     private static final float CHIP_DP = 34f, TARGET_DP = 44f;
+    /** The lobby New chips' shear, shared with the Library. */
+    private static final int SLANT_DP = 10;
 
     private final List<Chip> chips = new ArrayList<>();
     private int current = -1;
@@ -82,20 +85,25 @@ final class SettingsSectionChips extends HorizontalScrollView {
     private static final class Chip {
         final LinearLayout view;
         final TextView glyph, label;
+        boolean first;
 
         Chip(@NonNull Context c, int section, @NonNull Listener listener) {
             SettingsCatalog.Section s = SettingsCatalog.SECTIONS.get(section);
             view = new LinearLayout(c);
             view.setOrientation(LinearLayout.HORIZONTAL);
             view.setGravity(Gravity.CENTER_VERTICAL);
-            view.setPadding(SettingsViews.dp(c, 11), 0, SettingsViews.dp(c, 13), 0);
+            int slant = SettingsViews.dp(c, SLANT_DP);
+            // Same gap and padding as the Library chips (owner, 2026-10-17: gap 15% smaller, two thirds of it back as padding).
+            int give = Math.max(1, Math.round(3.5f * 0.15f * (2f / 3f) * c.getResources().getDisplayMetrics().density));
+            view.setPadding(slant / 2 + SettingsViews.dp(c, 8), 0, slant + SettingsViews.dp(c, 6) + give, 0);
             view.setClickable(true);
             view.setFocusable(true);
             SheetKit.press(view);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
                     SettingsViews.dp(c, TARGET_DP));
-            lp.setMarginEnd(SettingsViews.dp(c, 6));
+            lp.setMarginEnd(Math.round(3.5f * 0.85f * c.getResources().getDisplayMetrics().density));
             view.setLayoutParams(lp);
+            this.first = section == 0;
 
             glyph = SettingsViews.glyph(c, 14f, Studio.INK_FAINT);
             glyph.setText(s.glyph);
@@ -115,11 +123,18 @@ final class SettingsSectionChips extends HorizontalScrollView {
         void paint(boolean on) {
             Context c = view.getContext();
             int inset = Math.round((SettingsViews.dp(c, TARGET_DP) - SettingsViews.dp(c, CHIP_DP)) / 2f);
-            view.setBackground(new InsetDrawable(SettingsViews.pressablePill(c, on ? Studio.ARMED : Studio.RAISED),
-                    0, inset, 0, inset));
+            int slant = SettingsViews.dp(c, SLANT_DP);
+            SlantDrawable face = on
+                    ? new SlantDrawable(Studio.ARMED_LIGHT, Studio.ARMED, slant, SettingsViews.dp(c, 3), first, false)
+                    : new SlantDrawable(Studio.RAISED, Studio.RAISED, slant, SettingsViews.dp(c, 3), first, false);
+            view.setBackground(new InsetDrawable(face, 0, inset, 0, inset));
+            // setBackground replaces the view's padding with the drawable's own (none): put ours back,
+            // or the label runs to the chip's edge and, when chosen, black text spills onto black.
+            int give = Math.max(1, Math.round(3.5f * 0.15f * (2f / 3f) * c.getResources().getDisplayMetrics().density));
+            view.setPadding(slant / 2 + SettingsViews.dp(c, 8), 0, slant + SettingsViews.dp(c, 6) + give, 0);
             glyph.setTextColor(on ? Studio.GROUND : Studio.INK_FAINT);
             label.setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
-            Type.body(label, on ? Type.SEMIBOLD : Type.MEDIUM);
+            // Weight stays put: a bolder label would be wider than the width the chip was measured at.
             view.setSelected(on);
         }
     }

@@ -15,6 +15,7 @@ import com.fadcam.R;
 import com.fadcam.ui.faditor.SheetKit;
 import com.fadcam.ui.faditor.Studio;
 import com.fadcam.ui.library.LibraryKindStyle;
+import com.fadcam.ui.lobby.SlantDrawable;
 import com.fadcam.ui.library.LibraryViews;
 import com.fadcam.ui.type.Type;
 
@@ -79,12 +80,14 @@ final class TrashChipsView extends HorizontalScrollView {
         for (Map.Entry<TrashKind, Chip> e : chips.entrySet()) e.getValue().paint(e.getKey() == selected);
     }
 
-    /** One chip: dot, label, count. */
+    /** The lobby New chips' shear, shared with the Library. */
+    private static final int SLANT_DP = 10;
+
+    /** One chip: the kind's icon, label, count, on the lobby's sheared shape. */
     private static final class Chip {
         final TrashKind kind;
         final LinearLayout view;
-        final View dot;
-        final TextView label, count;
+        final TextView icon, label, count;
         int n;
 
         Chip(@NonNull Context c, @Nullable TrashKind kind, @NonNull Listener listener) {
@@ -92,22 +95,23 @@ final class TrashChipsView extends HorizontalScrollView {
             view = new LinearLayout(c);
             view.setOrientation(LinearLayout.HORIZONTAL);
             view.setGravity(Gravity.CENTER_VERTICAL);
-            view.setPadding(LibraryViews.dp(c, kind == null ? 13 : 11), 0, LibraryViews.dp(c, 12), 0);
+            int slant = LibraryViews.dp(c, SLANT_DP);
+            // Gap between chips shaved 15% (owner, 2026-10-17); two thirds of what was shaved goes back as padding.
+            view.setPadding(slant / 2 + LibraryViews.dp(c, 8), 0, slant / 2 + LibraryViews.dp(c, 8) + Math.max(1, Math.round(3.5f * 0.15f * (2f / 3f) * c.getResources().getDisplayMetrics().density)), 0);
             view.setClickable(true);
             view.setFocusable(true);
             SheetKit.press(view);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
                     LibraryViews.dp(c, 34));
-            lp.setMarginEnd(LibraryViews.dp(c, 6));
+            lp.setMarginEnd(Math.round(3.5f * 0.85f * c.getResources().getDisplayMetrics().density));
             view.setLayoutParams(lp);
 
-            dot = new View(c);
-            dot.setBackground(LibraryViews.fill(LibraryKindStyle.colours(c, kind == null ? null : kind.look)[0],
-                    LibraryViews.dp(c, 3)));
-            LinearLayout.LayoutParams dLp = new LinearLayout.LayoutParams(LibraryViews.dp(c, 6), LibraryViews.dp(c, 6));
-            dLp.setMarginEnd(LibraryViews.dp(c, 6));
-            view.addView(dot, dLp);
-            dot.setVisibility(kind == null ? GONE : VISIBLE);
+            icon = LibraryViews.glyph(c, 15f, Studio.INK_DIM);
+            icon.setText(LibraryKindStyle.glyph(kind == null ? null : kind.look));
+            icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            LinearLayout.LayoutParams iLp = new LinearLayout.LayoutParams(LibraryViews.dp(c, 18), LibraryViews.dp(c, 18));
+            iLp.setMarginEnd(LibraryViews.dp(c, 5));
+            view.addView(icon, iLp);
 
             label = LibraryViews.line(c, 12f, Studio.INK_DIM, false, Type.MEDIUM);
             label.setText(LibraryKindStyle.label(kind == null ? null : kind.look));
@@ -130,12 +134,17 @@ final class TrashChipsView extends HorizontalScrollView {
 
         void paint(boolean on) {
             Context c = view.getContext();
-            view.setBackground(LibraryViews.pressable(on ? Studio.ARMED : Studio.RAISED, LibraryViews.dp(c, 99)));
+            int[] pair = kind == null ? new int[]{Studio.ARMED_LIGHT, Studio.ARMED} : LibraryKindStyle.colours(c, kind.look);
+            int slant = LibraryViews.dp(c, SLANT_DP);
+            boolean first = kind == null;
+            view.setBackground(on
+                    ? new SlantDrawable(pair[0], pair[1], slant, LibraryViews.dp(c, 3), first, false)
+                    : new SlantDrawable(Studio.RAISED, Studio.RAISED, slant, LibraryViews.dp(c, 3), first, false));
             boolean empty = n == 0 && kind != null;
+            icon.setTextColor(on ? Studio.GROUND : empty ? Studio.INK_OFF : kind == null ? Studio.INK_DIM : pair[0]);
             label.setTextColor(on ? Studio.GROUND : empty ? Studio.INK_OFF : Studio.INK_DIM);
             Type.body(label, on ? Type.SEMIBOLD : Type.MEDIUM);
             count.setTextColor(on ? Studio.alpha(Studio.GROUND, 0xB3) : empty ? Studio.INK_OFF : Studio.INK_FAINT);
-            dot.setAlpha(on ? 0f : empty ? 0.35f : 1f);
             view.setSelected(on);
         }
     }

@@ -53,16 +53,18 @@ public final class TextOverlayDrawer {
 
         /** {@code --scrim} rgba(0,0,0,.64). 6.63:1 body ink over a blown-out frame. */
         public static final int SCRIM = Studio.alpha(Studio.GROUND, 0xA3);
-        /** {@code --dctl} rgba(255,255,255,.10): a control's fill on the scrim. */
-        public static final int CTL   = Studio.alpha(Studio.DRAWER_INK, 0x1A);
-        /** {@code --dring} rgba(255,255,255,.12): the 1dp ring an unselected control wears. */
-        public static final int RING  = Studio.alpha(Studio.DRAWER_INK, 0x1F);
-        /** {@code --edge} rgba(255,255,255,.10): the only border a drawer surface has. */
+        // One source for the drawer's faces: ObjectDrawer.Kit. These were copied here constant for
+        // constant, which is how two "identical" drawers drift. Names kept so callers do not change.
+        /** {@code --dctl}: a control's fill on the scrim. */
+        public static final int CTL   = ObjectDrawer.Kit.CTL;
+        /** {@code --dring}: the 1dp ring an unselected control wears. */
+        public static final int RING  = ObjectDrawer.Kit.RING;
+        /** {@code --edge}: the only border a drawer surface has. */
         public static final int EDGE  = Studio.alpha(Studio.DRAWER_INK, 0x1A);
-        /** {@code .dsl .tr} rgba(255,255,255,.18): an empty slider track. */
-        public static final int TRACK = Studio.alpha(Studio.DRAWER_INK, 0x2E);
-        /** {@code .dgrab span} rgba(255,255,255,.30): the grab pill. */
-        public static final int GRAB  = Studio.alpha(Studio.DRAWER_INK, 0x4D);
+        /** {@code .dsl .tr}: an empty slider track. */
+        public static final int TRACK = ObjectDrawer.Kit.TRACK;
+        /** {@code .dgrab span}: the grab pill. */
+        public static final int GRAB  = ObjectDrawer.Kit.GRAB;
         /** "Any press 140ms ease-out, scale(.97)". */
         public static final long PRESS_MS = 140L;
         /** Popovers "from scale(.95) never scale(0), 220ms ease-out". */

@@ -700,13 +700,26 @@ public class MainActivity extends AppCompatActivity {
                 FLog.d("FragmentNav", "Theme reopen: Switching to Settings tab");
                 // Clear flag to avoid loops
                 reopenPrefs.edit().putBoolean("reopen_appearance_after_theme", false).apply();
+                // Picked from the Settings hub: the recreate restored the hub and Appearance on the
+                // overlay stack by themselves. Show them again over the lobby, rather than putting the
+                // classic Settings tab under them and a second Appearance on top.
+                final Fragment restoredTop = getSupportFragmentManager().findFragmentById(R.id.overlay_fragment_container);
+                final boolean fromHub = restoredTop instanceof com.fadcam.ui.AppearanceSettingsFragment
+                        && getSupportFragmentManager().findFragmentByTag(com.fadcam.ui.settingshub.SettingsHubFragment.TAG) != null;
                 //  Ensure Settings tab selected (index 4)
-                switchFragment(4, false);
+                if (!fromHub) switchFragment(4, false);
                 // Post to allow SettingsHomeFragment attach
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
                     try {
-                        com.fadcam.ui.AppearanceSettingsFragment frag = new com.fadcam.ui.AppearanceSettingsFragment();
-                        OverlayNavUtil.show(this, frag, "AppearanceSettingsFragment");
+                        final com.fadcam.ui.AppearanceSettingsFragment frag = fromHub
+                                ? (com.fadcam.ui.AppearanceSettingsFragment) restoredTop
+                                : new com.fadcam.ui.AppearanceSettingsFragment();
+                        if (fromHub) {
+                            View overlay = findViewById(R.id.overlay_fragment_container);
+                            if (overlay != null) { overlay.setAlpha(1f); overlay.setVisibility(View.VISIBLE); }
+                        } else {
+                            OverlayNavUtil.show(this, frag, "AppearanceSettingsFragment");
+                        }
                         boolean reopenSheet = reopenPrefs.getBoolean("reopen_theme_sheet_after_theme", false);
                         if (reopenSheet) {
                             reopenPrefs.edit().putBoolean("reopen_theme_sheet_after_theme", false).apply();

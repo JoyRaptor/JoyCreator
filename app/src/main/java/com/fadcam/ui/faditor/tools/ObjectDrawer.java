@@ -531,6 +531,11 @@ public final class ObjectDrawer extends LinearLayout {
 
     public void setOnClose(@Nullable Runnable r) { this.onClose = r; }
 
+    /** Where a header toggle's undo step goes (the editor's undo stack). */
+    public interface UndoSink { void record(@NonNull String label, @NonNull Runnable redo, @NonNull Runnable undo); }
+    @Nullable private UndoSink undoSink;
+    public void setUndoSink(@Nullable UndoSink sink) { this.undoSink = sink; }
+
     /**
      * Called after the visible tab changes — on {@link #show} and on every switch.
      *
@@ -1049,8 +1054,18 @@ public final class ObjectDrawer extends LinearLayout {
         toggleIcons.clear();
         for (Toggle t : toggles) {
             ImageView iv = iconButton(t.iconOff);
-            iv.setOnClickListener(v -> { t.onTap.run(); refreshIcons(); });
-            CharSequence name = t.label != null ? t.label : toggleLabel(getContext(), t.iconOff);
+            final CharSequence name = t.label != null ? t.label : toggleLabel(getContext(), t.iconOff);
+            iv.setOnClickListener(v -> {
+                boolean before = t.state.isOn();
+                t.onTap.run();
+                refreshIcons();
+                // One press, one undo step (owner rule). A header toggle flips a state, so the same
+                // tap run again is its own undo and its own redo.
+                if (undoSink != null && t.state.isOn() != before) {
+                    final Runnable flip = () -> { t.onTap.run(); refreshIcons(); };
+                    undoSink.record(name != null ? name.toString() : "", flip, flip);
+                }
+            });
             if (name != null) Kit.describe(iv, name);
             iconRow.addView(iv);
             toggleIcons.add(iv);
@@ -1442,7 +1457,7 @@ public final class ObjectDrawer extends LinearLayout {
         /** {@code --dring} rgba(255,255,255,.12): the 1dp ring an idle chip wears. */
         public static final int RING = Studio.alpha(Studio.DRAWER_INK, 0x1F);
         /** {@code .dsl .tr} rgba(255,255,255,.18): a slider's empty track. */
-        public static final int TRACK = Studio.alpha(Studio.DRAWER_INK, 0x2E);
+        public static final int TRACK = SliderFace.TRACK;
         /** {@code .dgrab span} rgba(255,255,255,.30): the grab pill. */
         public static final int GRAB = Studio.alpha(Studio.DRAWER_INK, 0x4D);
         /** An ON control is the object's accent at 70% (record 06 {@code .dchip.on}). */

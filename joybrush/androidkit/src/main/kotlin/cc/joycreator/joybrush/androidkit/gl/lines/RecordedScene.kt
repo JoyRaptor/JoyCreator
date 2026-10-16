@@ -7,6 +7,7 @@ import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.CapturedStrokeRules
 import cc.joycreator.joybrush.core.doc.SlabOps
 import cc.joycreator.joybrush.core.vector.RecordedCel
 import cc.joycreator.joybrush.core.vector.RecordedEdits
@@ -59,6 +60,19 @@ internal class RecordedScene<T : Any> private constructor(
         fun release(texture: T)
     }
 
+    /**
+     * Explicit source-kind opt-in. Ordinary renderers remain incapable, including cold acceptance.
+     * Admission is readonly and allocation-free, for this exact physical address, immutable raw
+     * recipe/domain/placement and frozen brush. Returning true promises that [Renderer.line]
+     * fully pools the original recipe BEFORE capture-domain clipping and exact integer placement,
+     * returns fresh placed sources and their actual tile keys, and keeps opacity/operator once.
+     * Neither admission nor line rendering may reinterpret today's boards as the historical domain.
+     * Unsupported records must refuse the whole operation; an empty actual footprint is legitimate.
+     */
+    interface CapturedSourceRenderer<T : Any> : Renderer<T> {
+        fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Boolean
+    }
+
     internal class Cached<T : Any>(val record: StrokeRecord, val unit: Unit<T>)
     /** Readonly borrowed slice. Retaining a retired State does not retain cache ownership/lifetime. */
     internal class State<T : Any>(
@@ -106,6 +120,7 @@ internal class RecordedScene<T : Any> private constructor(
     private val jointLeases = LinkedHashSet<JointStaged>()
     private var jointOwnershipRevision = 0L
     private var resetPreparing = false
+    private var admittingCapturedSource = false
     private val state: State<T> get() = snapshotState()
     private val generation: Long get() = boundRead?.invoke()?.graphicsEpoch ?: localGeneration
     val isStateBound: Boolean get() = boundRead != null
@@ -151,7 +166,7 @@ internal class RecordedScene<T : Any> private constructor(
     /** Readonly engine preflight; no provider callback runs before local leases are excluded. */
     fun checkStateBindingAllowed() {
         checkUnbound()
-        check(!binding && !resetPreparing && openLocalLeases == 0 && localPreparations == 0 &&
+        check(!binding && !resetPreparing && !admittingCapturedSource && openLocalLeases == 0 && localPreparations == 0 &&
             jointPreparations == 0 && jointLeases.isEmpty()) {
             "Cannot bind while local scene preparation or a proposal is outstanding"
         }
@@ -180,6 +195,7 @@ internal class RecordedScene<T : Any> private constructor(
     }
 
     private inline fun <R> prepareLocal(block: () -> R): R {
+        check(!admittingCapturedSource) { "Captured source admission cannot reenter scene preparation" }
         checkUnbound()
         localPreparations++
         try { return block() } finally { localPreparations-- }
@@ -482,7 +498,7 @@ internal class RecordedScene<T : Any> private constructor(
         require(step.changes.isNotEmpty() || step.lines.isNotEmpty() || step.slabs.isNotEmpty()) {
             "An empty edit cannot publish a joint undo step"
         }
-        check(!resetPreparing) { "Cannot stage recorded work during reset preflight" }
+        check(!resetPreparing && !admittingCapturedSource) { "Cannot stage recorded work during reset or source admission" }
         jointPreparations++
         try { return stageJointPrepared(step, direction, frozen) } finally { jointPreparations-- }
     }
@@ -502,7 +518,7 @@ internal class RecordedScene<T : Any> private constructor(
         require(fullStep.changes.isNotEmpty() || fullStep.lines.isNotEmpty() || fullStep.slabs.isNotEmpty()) {
             "An empty edit cannot publish a joint undo step"
         }
-        check(!resetPreparing) { "Cannot stage recorded work during reset preflight" }
+        check(!resetPreparing && !admittingCapturedSource) { "Cannot stage recorded work during reset or source admission" }
         jointPreparations++
         try { return stageJointPrepared(fullStep, direction, frozen, expected) } finally { jointPreparations-- }
     }
@@ -511,12 +527,12 @@ internal class RecordedScene<T : Any> private constructor(
                                    frozen: Map<String, BrushPreset>?,
                                    expectedPromotion: PromotedPublication<T>? = null): JointStaged {
         if(direction == Direction.NEW) cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireNewStep(step)
-        requireOrdinaryStep(step)
+        requireSourceKinds(step)
         val read = boundRead ?: error("Joint recorded staging requires an engine publication binding")
         check(history.isCursorBound) { "Joint recorded staging requires history bound to the same root" }
         val publication = read()
         val before = publication.recorded
-        requireOrdinaryPlanes(before.planes)
+        requireSourceKinds(before.planes)
         require(before.belongsTo(sceneIdentity)) { "Recorded state belongs to a different scene" }
         val projectedEdit = if (expectedPromotion == null) {
             // The public route keeps its existing native-disjoint refusal and callback ordering.
@@ -734,8 +750,8 @@ internal class RecordedScene<T : Any> private constructor(
     private fun stagePrepared(edit: RecordedEdits.Prepared<T>, direction: Direction,
                               frozen: Map<String, BrushPreset>, freshSources: Set<T>): Staged {
         if(direction == Direction.NEW) cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireNewStep(edit.step)
-        requireOrdinaryPlanes(edit.before)
-        requireOrdinaryPlanes(edit.after)
+        requireSourceKinds(edit.before)
+        requireSourceKinds(edit.after)
         check(renderer.contextCurrent()) { "The recorded renderer's paper or clipping context changed" }
         require(edit.isCurrent(state.planes)) { "The recorded scene changed before staging" }
         val step = edit.step
@@ -886,21 +902,64 @@ internal class RecordedScene<T : Any> private constructor(
     private fun slabTextures(planes: Map<Pair<String, String?>, RecordedCel<T>>): List<T> =
         planes.values.flatMap { cel -> cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } } }
 
-    private fun requireOrdinaryPlanes(planes: Map<Pair<String, String?>, RecordedCel<T>>) {
-        planes.values.forEach { cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(it.records) }
+    private fun requireSourceKinds(planes: Map<Pair<String, String?>, RecordedCel<T>>) {
+        if (renderer !is CapturedSourceRenderer<*>)
+            planes.values.forEach { CapturedStrokeRules.requireOrdinary(it.records) }
     }
 
-    private fun requireOrdinaryStep(step: UndoLog.Step<T>) {
-        step.lines.forEach { change ->
-            cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(
-                listOfNotNull(change.before?.record, change.after?.record))
+    private fun requireSourceKinds(step: UndoLog.Step<T>) {
+        if (renderer !is CapturedSourceRenderer<*>) step.lines.forEach { change ->
+            CapturedStrokeRules.requireOrdinary(listOfNotNull(change.before?.record, change.after?.record))
+        }
+    }
+
+    /** No capability callback can cross a local edit, binding, history move or root/context reset. */
+    private fun admitCapturedSources(planes: Map<Pair<String, String?>, RecordedCel<T>>, saved: Map<String, String>) {
+        val physical = planes.toMap()
+        val captured = physical.values.flatMap { cel -> cel.records.filter { it.capturedPhysicalSource != null }.map {
+            LineAddress(cel.layerId, cel.celId, it.id) to it
+        } }
+        if (captured.isEmpty()) return
+        val capable = renderer as? CapturedSourceRenderer<T>
+            ?: throw IllegalArgumentException("Captured physical sources need an explicitly capable renderer")
+        val read = boundRead
+        val binding = bindingVersion
+        val epoch = generation
+        val live = state
+        val cursor = history.snapshotCursor()
+        val publication = read?.invoke()
+        fun checkCurrent() {
+            check(boundRead === read && bindingVersion == binding && generation == epoch && state === live &&
+                planes.keys == physical.keys && physical.all { (at, cel) -> planes[at] === cel } &&
+                history.snapshotCursor() === cursor && (publication == null || samePublication(publication)) &&
+                boundRead === read && bindingVersion == binding && generation == epoch && state === live &&
+                planes.keys == physical.keys && physical.all { (at, cel) -> planes[at] === cel } &&
+                history.snapshotCursor() === cursor) { "Recorded state or history changed during captured source admission" }
+        }
+        check(!admittingCapturedSource) { "Captured source admission cannot recurse" }
+        checkCurrent()
+        admittingCapturedSource = true
+        try {
+            for ((address, record) in captured) {
+                require(CapturedStrokeRules.problems(record).isEmpty()) { "Invalid captured source recipe" }
+                check(renderer.contextCurrent()) { "The captured renderer context is unavailable" }
+                checkCurrent()
+                val admitted = capable.admitCapturedSource(address, CapturedStrokeRules.snapshot(record),
+                    BrushJson.decodeChecked(saved.getValue(record.brushId)))
+                checkCurrent()
+                require(admitted) { "The renderer refused this captured physical source" }
+                check(renderer.contextCurrent()) { "The captured renderer context changed during admission" }
+                checkCurrent()
+            }
+        } finally {
+            admittingCapturedSource = false
         }
     }
 
     private fun validateRender(before: State<T>, after: Map<Pair<String, String?>, RecordedCel<T>>,
                                frozen: Map<String, BrushPreset>): Map<String, String> {
-        requireOrdinaryPlanes(before.planes)
-        requireOrdinaryPlanes(after)
+        requireSourceKinds(before.planes)
+        requireSourceKinds(after)
         val saved = FrozenBrushRegistry.validate(frozen).mapValues { BrushJson.encode(it.value) }
         require(before.brushes.all { (id, json) -> saved[id] == json }) { "Frozen brushes cannot be replaced or removed while history can reference them" }
         val borrowed = after.values.flatMap { cel -> cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } } }
@@ -910,14 +969,19 @@ internal class RecordedScene<T : Any> private constructor(
             require(cel.records.all { it.id.isNotBlank() }) { "A recorded line needs its full address" }
             require(cel.records.all { it.brushId in saved }) { "A recorded line has no frozen document brush" }
         }
+        // Admit both history endpoints, including records removed by a delete or bake. All
+        // records are checked before warm/render allocates any source; admission grants no save,
+        // cold-loader, Select or other consumer permission outside this renderer instance.
+        admitCapturedSources(before.planes, saved)
+        admitCapturedSources(after, saved)
         return saved
     }
 
     private fun render(before: State<T>, after: Map<Pair<String, String?>, RecordedCel<T>>,
                        frozen: Map<String, BrushPreset>, epoch: Long = generation,
                        publication: Publication<T>? = null, protected: Set<T> = emptySet()): Rendered<T> {
-        requireOrdinaryPlanes(before.planes)
-        requireOrdinaryPlanes(after)
+        requireSourceKinds(before.planes)
+        requireSourceKinds(after)
         checkEpoch(epoch, publication)
         check(renderer.contextCurrent()) { "The recorded renderer context is unavailable" }
         checkEpoch(epoch, publication)
@@ -946,7 +1010,8 @@ internal class RecordedScene<T : Any> private constructor(
                 for (record in cel.records) {
                     val address = LineAddress(cel.layerId, cel.celId, record.id)
                     val previous = before.units[address]
-                    val unit = if (previous != null && renderingRecord(previous.record) == renderingRecord(record)) previous.unit
+                    val unit = if (previous != null && CapturedStrokeRules.sameRecord(
+                            renderingRecord(previous.record), renderingRecord(record))) previous.unit
                     else {
                         checkEpoch(epoch, publication)
                         val rendered = renderer.line(address, record, BrushJson.decodeChecked(saved.getValue(record.brushId)))

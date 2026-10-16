@@ -62,30 +62,30 @@ class ColdPayloadProbeFixtureTest {
         val base = source()
         val originalLayer = base.doc.layers.single { it.id == "l" }
         val originalCel = originalLayer.cels.single()
-        val savedLookKey = "2_1"
+        val savedLookKey = "-2_-1"
         assertTrue(savedLookKey !in originalCel.tiles)
         assertTrue(savedLookKey !in originalCel.slabs.map { it.key })
         val savedLook = LineArchiveFixture.tile(42)
-        val cel = originalCel.copy(looks = listOf(savedLookKey))
+        val cel = originalCel.copy(looks = listOf(savedLookKey) + originalCel.looks)
         val doc = base.doc.copy(layers = base.doc.layers.map { layer ->
             if (layer.id == originalLayer.id) layer.copy(sharedCelId = cel.id, cels = listOf(cel)) else layer
         })
         val input = base.copy(doc = doc,
-            looks = mapOf(Triple(originalLayer.id, cel.id, savedLookKey) to savedLook.copyOf()),
-            strokes = base.strokes.mapValues { (_, records) -> records.map { record ->
-                record.copy(samples = record.samples.map { it.copy(x = it.x + 512f, y = it.y + 256f) })
-            } })
+            looks = base.looks + (Triple(originalLayer.id, cel.id, savedLookKey) to savedLook.copyOf()),
+            strokes = base.strokes.mapValues { (_, records) -> records + records.first().copy(
+                id = "outside", seq = 5L,
+                samples = records.first().samples.map { it.copy(x = it.x - 512f, y = it.y - 256f) }) })
 
         val prepared = ColdPayloadProbeFixture.enrich(input)
         val enriched = prepared.contentsCopy()
         val outputCel = enriched.doc.layers.single { it.id == originalLayer.id }.cels.single()
         assertEquals(cel.id, enriched.doc.layers.single { it.id == originalLayer.id }.sharedCelId)
         assertTrue(savedLookKey in outputCel.tiles)
-        assertEquals(listOf(SlabRef(savedLookKey, 4L, "normal")),
+        assertEquals(listOf(SlabRef(savedLookKey, 6L, "normal")),
             outputCel.slabs.filter { it.key == savedLookKey })
         assertContentEquals(prepared.expected.last().bytesCopy(),
             enriched.tiles.getValue(Triple(originalLayer.id, cel.id, savedLookKey)))
-        assertFalse(SlabKey(originalLayer.id, cel.id, savedLookKey, 4L) in enriched.slabs)
+        assertFalse(SlabKey(originalLayer.id, cel.id, savedLookKey, 6L) in enriched.slabs)
 
         val archived = roundTrip(enriched)
         val roundTripLayer = archived.doc.layers.single { it.id == originalLayer.id }
@@ -99,14 +99,14 @@ class ColdPayloadProbeFixtureTest {
             archived.looks.getValue(Triple(originalLayer.id, cel.id, savedLookKey)))
         val cold = ColdRecordedLoadPlan.prepare(archived)
         val firstSlab = cold.recordedPlanes.single().slabs.single {
-            it.key == cc.joycreator.joybrush.core.paint.Tiles.key(2,1) }
-        assertEquals(4L, firstSlab.seq)
+            it.key == cc.joycreator.joybrush.core.paint.Tiles.key(-2,-1) }
+        assertEquals(6L, firstSlab.seq)
         assertContentEquals(prepared.expected.last().bytesCopy(), cold.copyPayload(firstSlab.id))
-        val upper = roundTripCel.slabs.single { it.key == savedLookKey && it.seq == 4L }
-        assertEquals(4L, upper.seq)
+        val upper = roundTripCel.slabs.single { it.key == savedLookKey && it.seq == 6L }
+        assertEquals(6L, upper.seq)
         assertFalse(SlabKey(originalLayer.id, cel.id, savedLookKey, upper.seq) in archived.slabs)
 
-        // No bottom source existed: the generated seq-4 first slab is stored in the .rgba tile entry,
+        // No bottom source existed: the generated seq-6 first slab is stored in the .rgba tile entry,
         // not an invented seq-zero base plus an upper .s4 entry.
         assertTrue(savedLookKey !in input.doc.layers.single { it.id == originalLayer.id }.cels.single().tiles)
         assertEquals(listOf("0_0"), input.doc.layers.single { it.id == originalLayer.id }.cels.single().tiles)

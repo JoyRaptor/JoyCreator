@@ -53,7 +53,7 @@ each keyable (diamond + prev/next).
 Header: tabs **Transform | Blend mode | Mask | Chroma key | Effects | Lanes**, toggles Mute, Show this
 overlay's sound on the timeline, Hide, Lock, Let taps pass through, close. Transform: Pos X, Pos Y, Scale,
 Rotate, Opacity, Volume (each with value, diamond, previous/next key). Chroma key: "Key out a colour"
-(eyedropper). Lanes: New lane (Above / Below), Move (Up / Down a lane).
+(eyedropper). Blend mode: one dropdown (Normal) plus the note that blends apply at export. Mask: an add (+) button and the "No mask" line. Effects: "Add effect" button and its explanation. Lanes: New lane (Above / Below), Move (Up / Down a lane).
 
 ## Caption drawer (ZA_CONTROL, HOLD on the CC lane)
 Header: Captions chip (dot + eye toggle), add (+), tabs **Style | Fit**, Frost, close. Style: caption

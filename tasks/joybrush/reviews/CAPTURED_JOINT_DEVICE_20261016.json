@@ -1,0 +1,173 @@
+{
+  "evidenceId": "captured-joint-8b40d6dcf",
+  "date": "2026-10-16",
+  "source": "8b40d6dcf2d827a4cf8bff28fd282ff1bcf03079",
+  "apk": {
+    "path": "C:\\Temp\\jb-lead-ops\\apk-8b40d6dcf\\joybrush-8b40d6dcf-arm64.apk",
+    "bytes": 170934398,
+    "sha256": "537eb04d0a42a89cc5d7fa2c8ea8bbd2ff1f084b5566b9a601ab83ed1d17ffad",
+    "buildLogSha256": "49d0c3a0c35d86ffe8c8f924c5ab894db38947099b818edd9aca2fba76be05ba"
+  },
+  "hostTests": {
+    "core": { "tests": 2442, "suites": 215, "failures": 0, "errors": 0, "skipped": 4, "skipNote": "Four existing optional corpus skips.", "xmlSource": "8b40d6dcf2d827a4cf8bff28fd282ff1bcf03079" },
+    "androidBackend": { "tests": 878, "suites": 89, "failures": 0, "errors": 0, "skipped": 0, "xmlSource": "8b40d6dcf2d827a4cf8bff28fd282ff1bcf03079" },
+    "androidNative": { "tests": 203, "suites": 24, "failures": 0, "errors": 0, "skipped": 0, "xmlSource": "8b40d6dcf2d827a4cf8bff28fd282ff1bcf03079" }
+  },
+  "deviceProbe": {
+    "case": "recordedCapturedJointProbe",
+    "brushes": ["joybrush.ink", "joybrush.watercolour"],
+    "reportsPassed": true,
+    "fixtureScope": "Bound captured source Scene, native sibling, exact integer movement, joint publication, public undo/redo, and engine source-copy bake.",
+    "tileSize": 256,
+    "fixtureOpacity": 0.55,
+    "placementDelta": { "x": 512, "y": -256 },
+    "phases": ["before", "published", "undone", "redone", "baked", "bake-undone", "bake-redone"],
+    "perBrush": {
+      "sourceAndLookKeys": { "oldPlaced": 9, "movedPlaced": 9, "actualUnion": 16, "transparentSourceKeys": 5 },
+      "fullTileComparisonRowsIncludingCanonicalSourceRows": 401,
+      "canonicalSourceComparisonRows": 63,
+      "mainLookRows": 112,
+      "nativeSiblingRows": 7,
+      "sourceUnionAbsentChecks": 49,
+      "lookUnionAbsentChecks": 0,
+      "wrongOffsetControlDifferentChannelsOrKeys": { "ink": 1255, "watercolour": 5584 },
+      "wrongDomainControlDifferentChannelsOrKeys": { "ink": 1739, "watercolour": 3167 },
+      "changedReferenceChannels": { "ink": 5200, "watercolour": 12748 },
+      "nativeApiChecks": 7,
+      "nativeReadChecks": 7,
+      "untouchedSiblingChecks": 7,
+      "rawPreservationChecks": 56,
+      "physicalSourceChecks": 112,
+      "budgetRefusalBeforeGpuChecks": 1,
+      "engineBakeApiCalls": 1,
+      "reflectionBakeCalls": 0,
+      "publicUndoCalls": 2,
+      "publicRedoCalls": 2,
+      "publishCalls": 2
+    },
+    "aggregate": {
+      "fullTileComparisonRowsIncludingCanonicalSourceRows": 802,
+      "canonicalSourceComparisonRows": 126,
+      "comparedRgba8Bytes": 210239488,
+      "comparedPixels": 52559872,
+      "differentChannels": 0,
+      "differentPixels": 0,
+      "maxByteDelta": 0,
+      "glErrorChecksPerBrush": 427,
+      "observedGlErrorsPerBrush": 0,
+      "framebufferChecksPerBrush": 395,
+      "incompleteFramebuffersPerBrush": 0,
+      "feedbackChecksPerBrush": 570,
+      "feedbackFailuresPerBrush": 0,
+      "resetCallsPerBrush": 1,
+      "engineReleaseGlErrorPerBrush": 0
+    },
+    "bounds": {
+      "maxActualUnionKeys": 32,
+      "observedActualUnionKeys": 16,
+      "maxComparisonRows": 2048,
+      "savedUploadCalls": 0,
+      "optionalNativeMediaExecuted": false
+    }
+  },
+  "workingTileAdmission": {
+    "checks": 14,
+    "registrationChecks": 14,
+    "exactBudgetAcceptedChecks": 14,
+    "oneByteShortRefusedChecks": 14,
+    "physicalEpochPerBrush": 1,
+    "peakDerivedBytes": { "ink": 29884416, "watercolour": 34078720 },
+    "inventoryMeaning": "Actual-owner and staged tile handles deduplicated by maximum reported bytes per handle; total independently rederived with checked arithmetic.",
+    "registeredOutputRequirement": "Every reported registered output is present in staged inventory at tileSize*tileSize*4 bytes.",
+    "exclusions": ["screen/compositor targets", "paper and grain assets or mipmaps", "framebuffers", "buffers", "programs"],
+    "notAClaim": "Not total process/device VRAM and not an OOM guarantee."
+  },
+  "independentCounter": {
+    "source": "8b40d6dcf2d827a4cf8bff28fd282ff1bcf03079",
+    "apkSha256": "537eb04d0a42a89cc5d7fa2c8ea8bbd2ff1f084b5566b9a601ab83ed1d17ffad",
+    "allSevenPhasesVerified": true,
+    "allThreeOwnerArchivesUnchanged": true,
+    "totalWorkingTileRegistrationChecks": 14,
+    "totalExactBoundaryChecks": 14,
+    "totalOneByteShortRefusals": 14,
+    "counterRepair": "Initial run stopped at a legitimate native-sibling phase. Counter was tightened to require the seven exact phase-native-sibling rows; source inspection also corrected bake-undone source keys and source-vs-look absence accounting.",
+    "syntheticSelftest": { "acceptedValidFixtures": 2, "refusedMutations": 22, "gpuProof": false, "actualDeviceResultCount": 0, "actualSourceEvidenceCount": 0 }
+  },
+  "ordinaryRegression": {
+    "source": "8b40d6dcf2d827a4cf8bff28fd282ff1bcf03079",
+    "apkSha256": "537eb04d0a42a89cc5d7fa2c8ea8bbd2ff1f084b5566b9a601ab83ed1d17ffad",
+    "installRequested": false,
+    "installTimestampChanged": false,
+    "brushes": ["joybrush.ink", "joybrush.watercolour"],
+    "casesPerBrush": ["recordedJointProbe", "recordedJointColdProbe", "recordedPromotionProbe", "recordedPromotionRegionProbe", "recordedPromotionColdProbe"],
+    "reports": 10,
+    "exactRgba8Rows": 2082,
+    "differentChannels": 0,
+    "inMemoryArchiveRoundtrips": 16,
+    "archivePayloadByteComparisons": 186,
+    "glChecks": 2036,
+    "framebufferChecks": 1460,
+    "feedbackChecks": 1802,
+    "observedGlErrors": 0,
+    "incompleteFramebuffers": 0,
+    "feedbackFailures": 0,
+    "archivesUnchanged": 3,
+    "coldPromotionPerBrush": {
+      "archiveRoundtrips": 4,
+      "arrayArchiveEntries": 3,
+      "arrayArchivePhases": ["promoted", "raw-add", "final"],
+      "postEditArchivePassedSeparateFromArray": true,
+      "sourceSlabs": 8,
+      "savedLooks": 4,
+      "nativeTiles": 1,
+      "unresolvedLinePlanesAtOpen": 1,
+      "openingLinePreparationCalls": 0,
+      "openingCompositionCalls": 0,
+      "firstEditLinePreparationCalls": 2,
+      "firstEditCompositionCalls": 8,
+      "actualFilterChecks": 26,
+      "coldHistoryUndoRedoPassed": true,
+      "archivePayloadByteComparisons": 48
+    },
+    "counterReview": "The first one-off counter assumption that all four cold roundtrips were in archives[] was wrong. Actual report has three array rows and the fourth is coldLoad.postEditArchivePassed; the corrected counter checks both sources.",
+    "scope": "Ordinary cold-load/projection and promotion checks for these fixtures only; not captured-stroke persistence or production View activation.",
+    "receipts": {
+      "reports": { "path": "C:\\Temp\\jb-lead-ops\\recorded-phone-ordinary-regression-8b40d6dcf-reports.json", "bytes": 389618, "sha256": "2fd0c58f9a3e5f2346bc930199fed60a7ac9dc70c3e812cc6b2e447e1e8114b8" },
+      "independentCount": { "path": "C:\\Temp\\jb-lead-ops\\recorded-phone-ordinary-regression-8b40d6dcf-independent-count.json", "bytes": 3205, "sha256": "0e0bfb574deba2ef77d6ee232debc9727b4283a94a4ee3cd14bd19fe82fd7106" },
+      "workingDrawingArchive": { "path": "C:\\Temp\\jb-lead-ops\\recorded-phone-ordinary-regression-8b40d6dcf-working-receipt.json", "bytes": 427, "sha256": "e00b160bf3b464ba630fbb46128dc858f0bb297d8f4f1e7ff423af909deeb702", "workingArchivePresent": true, "workingArchiveUnchanged": true, "namedDrawingArchivesChecked": 3, "namedDrawingArchivesUnchanged": true },
+      "installation": { "path": "C:\\Temp\\jb-lead-ops\\recorded-phone-ordinary-regression-8b40d6dcf-install-receipt.json", "bytes": 482, "sha256": "0777ca7265ec74b18d230751bb6e3d76c883e0c3add9255fe88e7e33df75254e", "source": "8b40d6dcf2d827a4cf8bff28fd282ff1bcf03079", "installedSha256": "537eb04d0a42a89cc5d7fa2c8ea8bbd2ff1f084b5566b9a601ab83ed1d17ffad", "installRequested": false, "updateTimeChanged": false },
+      "lock": { "path": "C:\\Temp\\jb-lead-ops\\recorded-phone-ordinary-regression-8b40d6dcf-lock-receipt.json", "bytes": 179, "sha256": "0e599404c955cdf5cd63cd26c63a8958f83ad7527705cd32655f60b95e983725" },
+      "probeLog": { "path": "C:\\Temp\\jb-lead-ops\\recorded-phone-ordinary-regression-8b40d6dcf-probe.log", "bytes": 361143, "sha256": "bca3a879da3847fc38d8e3eff5caeb13b7d49890143d784c1d43e0c12cd2d888" }
+    }
+  },
+  "receipts": {
+    "workingDrawingArchive": { "path": "C:\\Temp\\jb-lead-ops\\recorded-phone-captured-joint-8b40d6dcf-working-receipt.json", "sha256": "e1e88e4e94e5a8548b892ba9bd84b7262c3da81b2720159ee271a0c0cce5b245", "workingArchivePresent": true, "workingArchiveUnchanged": true, "namedDrawingArchivesChecked": 3, "namedDrawingArchivesUnchanged": true },
+    "installation": { "path": "C:\\Temp\\jb-lead-ops\\recorded-phone-captured-joint-8b40d6dcf-install-receipt.json", "sha256": "0e245514f47b7c5b3b76b58f82a9e93e782db76f08863bb4061cd515e3b28986", "installRequested": true, "updateTimeChanged": true, "source": "8b40d6dcf2d827a4cf8bff28fd282ff1bcf03079" },
+    "lock": { "path": "C:\\Temp\\jb-lead-ops\\recorded-phone-captured-joint-8b40d6dcf-lock-receipt.json", "sha256": "5442ae89badc4067c6662d7afb94fe2766f6dd2f663e9348604a90bb698a9868", "owner": "CodexLead-phone-c0ede144-4a7d-4c23-8b75-4b855e46f55b", "source": "8b40d6dcf2d827a4cf8bff28fd282ff1bcf03079", "createdUtc": "2026-10-16T13:27:06.9214958Z"},
+    "artifact": { "path": "C:\\Temp\\jb-lead-ops\\apk-8b40d6dcf\\artifact.json", "sha256": "028804aac2734d9426a73f522dcfa5a8033126bc346eeedfb0e5544c79802bf2", "source": "8b40d6dcf2d827a4cf8bff28fd282ff1bcf03079", "apkSha256": "537eb04d0a42a89cc5d7fa2c8ea8bbd2ff1f084b5566b9a601ab83ed1d17ffad", "bytes": 170934398 },
+    "rawReports": { "path": "C:\\Temp\\jb-lead-ops\\recorded-phone-captured-joint-8b40d6dcf-reports.json", "sha256": "7729796295f0b7721aee4e394927c3fe5bdcf214f6867c1914cf827daeefeef1", "bytes": 323252 },
+    "independentCount": { "path": "C:\\Temp\\jb-lead-ops\\recorded-phone-captured-joint-8b40d6dcf-independent-count.json", "sha256": "7bc833a4acdcf37c6a3df9a3358f11c403ceb4bed0f4b3aa573a535a581ba92c", "bytes": 1830 },
+    "probeLog": { "path": "C:\\Temp\\jb-lead-ops\\recorded-phone-captured-joint-8b40d6dcf-probe.log", "sha256": "66cf5c92d79f1ca3ef1dc4a0c4edfa671e2539d01e4bcf6b63c8b085cc97c017", "bytes": 233510 },
+    "apkBuildLog": { "path": "C:\\Temp\\jb-lead-ops\\live-streaming-apk.log", "sha256": "49d0c3a0c35d86ffe8c8f924c5ab894db38947099b818edd9aca2fba76be05ba"},
+    "hostXml": [
+      { "path": "C:\\Temp\\jb-lead-ops\\live-streaming-full-core-xml.json", "sha256": "93f093c29c19557438f48b195b62bc0edf61dcb8909b2052a3cbbe83fb774290", "logSha256": "80ec779b7a1e6f9f1cc7f422d08677cde587ca4deeebca25f59a6bea0696d028" },
+      { "path": "C:\\Temp\\jb-lead-ops\\live-streaming-full-backend-xml.json", "sha256": "4c80efffba2648cd538f2ac7e850e0a600949a9a198696ed11f98c542383e8e2", "logSha256": "80ec779b7a1e6f9f1cc7f422d08677cde587ca4deeebca25f59a6bea0696d028" },
+      { "path": "C:\\Temp\\jb-lead-ops\\live-streaming-native-xml.json", "sha256": "1fa1834d1944a15c8d7faeea79fe9842e14b33ef15c22167dff22f3c48af9405", "logSha256": "b4577d9b2620a8b607343e82cb3dafb43197360ec1c63b42ca529d0cc9158bd3" }
+    ]
+  },
+  "limits": [
+    "Disposable debug-engine probe only; no production View or actual live pen capture path.",
+    "No Select integration and no save/archive/load persistence or recovery proof.",
+    "Only the named Ink and Watercolour fixtures were exercised; no general brush-compatibility claim.",
+    "No real OOM, driver failure, context-loss recovery, quality, or performance proof.",
+    "GPU success is not inferred from host test counts or synthetic counter self-tests."
+  ],
+  "rawEvidencePaths": {
+    "reports": "C:\\Temp\\jb-lead-ops\\recorded-phone-captured-joint-8b40d6dcf-reports.json",
+    "counter": "C:\\Temp\\jb-lead-ops\\recorded-phone-captured-joint-8b40d6dcf-independent-count.json",
+    "workingReceipt": "C:\\Temp\\jb-lead-ops\\recorded-phone-captured-joint-8b40d6dcf-working-receipt.json",
+    "installReceipt": "C:\\Temp\\jb-lead-ops\\recorded-phone-captured-joint-8b40d6dcf-install-receipt.json",
+    "artifactReceipt": "C:\\Temp\\jb-lead-ops\\apk-8b40d6dcf\\artifact.json",
+    "probeLog": "C:\\Temp\\jb-lead-ops\\recorded-phone-captured-joint-8b40d6dcf-probe.log"
+  }
+}

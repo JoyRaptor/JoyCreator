@@ -52,8 +52,9 @@ Rule: nothing below marked DECISION gets built until the owner picks.
 - [x] Incremental replay tile admission without diagnostic raw/sample caps on the opted-in
   renderer; source 8b40d6dcf full core 2442 (four existing optional skips), backend 878,
   native 203 and combined APK passed. Default recording/Select/save guards remain.
-- [ ] Exact-source captured joint Note9 acceptance and ordinary paint regression; current
-  guarded run label captured-joint-8b40d6dcf. Do not infer completion from compilation.
+- [x] Exact-source captured joint Note9 acceptance (802 exact RGBA8 rows, 14 actual
+  output-registration and budget-boundary checks) and ordinary regression (2082 exact rows,
+  16 in-memory archive roundtrips). Owner Working / three archives unchanged.
 - [ ] Review/test the isolated live scratch source lease and prepared-unit handoff, then
   connect one committed raw/seed/domain transaction without a preceding native pixel Step.
 - [ ] Actual Select host, continued joint native/media/structural/paper edits, durable captured

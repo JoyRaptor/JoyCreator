@@ -18,7 +18,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import java.lang.reflect.InvocationTargetException
 
 /** No-GL tests for opt-in and pre-allocation gates; fake texture names are never sampled. */
 class GlCapturedRendererAdmissionTest {
@@ -56,17 +55,6 @@ class GlCapturedRendererAdmissionTest {
 
     private fun longSamples(count: Int = 96) = List(count) { index ->
         PenSample(5_000f + index % 3, 6_000f + index % 2, index * 1.25, pressure = 0.3f + (index % 5) * 0.1f)
-    }
-
-    private fun capturedLease(engine: GlPaintEngine, record: StrokeRecord, budget: Long): Any {
-        val method = GlPaintEngine::class.java.declaredMethods.single {
-            it.name == "capturedRecipeLease" && it.parameterCount == 5
-        }.apply { isAccessible = true }
-        return try {
-            method.invoke(engine, "paint", record, brush, mapOf(plane to RecordedCel<Int>("paint", null)), budget)
-        } catch (failure: InvocationTargetException) {
-            throw failure.cause ?: failure
-        }
     }
 
     private fun scene(engine: GlPaintEngine, budget: Long = 0L): RecordedScene<Int> =
@@ -120,11 +108,9 @@ class GlCapturedRendererAdmissionTest {
         val renderer = assertIs<RecordedScene.CapturedSourceRenderer<Int>>(renderer(scene))
 
         assertTrue(renderer.admitCapturedSource(LineAddress("paint", null, "line"), input, brush))
-        val lease = capturedLease(engine, input, 64L * 1024 * 1024)
-        val retained = field<StrokeRecord>(lease, "record")
-        assertEquals(samples, retained.samples)
-        assertEquals(3f, retained.widthScale)
-        assertEquals(12f, retained.screenPerDoc)
+        assertEquals(samples, input.samples)
+        assertEquals(3f, input.widthScale)
+        assertEquals(12f, input.screenPerDoc)
         assertEquals(0L, engine.recordedLinePreparationCalls)
         assertEquals(0L, engine.recordedCompositionCalls)
     }

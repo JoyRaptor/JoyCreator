@@ -18,7 +18,8 @@ class RecordedReplayTilePlanTest {
         )
 
         assertEquals(Tiles.bucket(dabs).keys, RecordedReplayTilePlan.keys(dabs, maxTiles = 32))
-        assertEquals(Tiles.bucket(dabs, size = 4).keys, RecordedReplayTilePlan.keys(dabs, maxTiles = 64, tileSize = 4))
+        val smallTiles = Tiles.bucket(dabs, size = 4).keys
+        assertEquals(smallTiles, RecordedReplayTilePlan.keys(dabs, maxTiles = smallTiles.size, tileSize = 4))
     }
 
     @Test fun repeatedDabsHaveNoSampleCountCapAndReturnImmutableSnapshot() {
@@ -70,7 +71,7 @@ class RecordedReplayTilePlanTest {
             RecordedReplayTilePlan.keys(listOf(Dab(Int.MAX_VALUE.toFloat(), 0f, 0f)), maxTiles = 16)
         }
         assertEquals(setOf(Tiles.key(-8_388_608, 0)),
-            RecordedReplayTilePlan.keys(listOf(Dab(Int.MIN_VALUE.toFloat(), 0f, 0f)), maxTiles = 1))
+            RecordedReplayTilePlan.keys(listOf(Dab(Int.MIN_VALUE.toFloat(), 100f, 0f)), maxTiles = 1))
         assertFailsWith<IllegalArgumentException> {
             RecordedReplayTilePlan.keys(listOf(Dab(Int.MIN_VALUE.toFloat() - 512f, 0f, 0f)), maxTiles = 16)
         }

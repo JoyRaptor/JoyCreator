@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
@@ -20,16 +21,130 @@ import kotlin.math.sqrt
 // squeeze; tilt sets which zones are down. Nothing is ever placed away from the pen tip. The owner rated it A+.
 
 /**
- * A grade. Its field names are brush-file words (brush version 8, `media.stick`): rename none of them. Sizes in mm: tipR → tipMax the point's radius over pressure; side1/side2 zone lengths; face the half-width. */
+ * A grade. Its field names are brush-file words (brush version 8, `media.stick`): rename none of them. Sizes in mm: tipR → tipMax the point's radius over pressure; side1/side2 zone lengths; face the half-width.
+ *
+ * [blend] and [build] are brush version 11 ([cc.joycreator.joybrush.core.brush.VERSION_PENCIL_BLEND]; the owner,
+ * 2026-10-14: the tilted pencil "looks like two brushes overlaid", and its black "should build up a little slower"):
+ * [blend] 0 draws the three zones as before, 1 one footprint (a soft point that melts into a soft-edged side); [build]
+ * scales how readily the lead sheds graphite (1 = as before).
+ */
 @Serializable data class Stick(
     val tipR: Double, val tipMax: Double, val side1: Double, val side2: Double,
     val face: Double, val soft: Double, val rInf: Double,
+    val blend: Double = 0.0, val build: Double = 1.0,
+    /** The stick's own tuning (brush version 11), or null for the shared tables: [Press], [Zones], the STICK_* shape, [StickMaterial.of]. */
+    val tuning: StickTuning? = null,
 )
+
+/**
+ * Every number the pencil tuner moves (lab/media/pencil.html), carried by the stick itself so a tuned pencil paints the
+ * same everywhere (brush version 11, `media.stick.tuning`; the owner, 2026-10-15: "pretty dialed in now - lets make it
+ * the flagship"). Each default is the shared table's value, so `StickTuning()` paints exactly as no tuning does. Its
+ * field names are brush-file words: rename none of them. Twin of the lab's `tuning` object (stick.js).
+ *
+ * Material: the `...X` numbers multiply what the grade's softness derives ([StickMaterial.of]); the rest replace it.
+ * Curves are the app's response-curve form, `[x1, y1, x2, y2]` from (0, 0) to (1, 1) (see [stickCurve]): [sizeCurve]
+ * and [darkCurve] shape how the point grows and darkens with pressure, [sideCurve] and [pointCurve] how the side comes
+ * in and the point gives way with tilt. [tiltReachDeg] is the pen tilt that counts as lying flat ([MediaInput]).
+ */
+@Serializable data class StickTuning(
+    val pressDepth: Double = 1.9, val pressGamma: Double = 1.5, val sideEase: Double = 0.45,
+    val toothStiffness: Double = 9.0, val padSoft: Double = 1.0,
+    val side1From: Double = 0.5, val side1Full: Double = 0.78, val side2From: Double = 0.7, val side2Full: Double = 0.98,
+    val evenFrom: Double = 0.88, val grad1: Double = 1.2, val grad2: Double = 0.9,
+    val bell: Double = STICK_BELL, val bellReach: Double = STICK_BELL_REACH, val acrossSoft: Double = STICK_ACROSS_SOFT,
+    val tipYield: Double = STICK_TIP_YIELD, val tail: Double = STICK_TAIL,
+    val capMm: Double = 0.004, val transferExp: Double = 2.2, val plateau: Double = 2.2, val crushStart: Double = 0.45,
+    val crushMax: Double = 0.6, val clump: Double = 0.35, val pileLo: Double = 0.12, val pileHi: Double = 0.75,
+    val dirStrength: Double = 0.9, val conform: Double = 0.8,
+    val abrasionX: Double = 1.0, val leadSoftX: Double = 1.0, val dustRateX: Double = 1.0, val smearX: Double = 1.0,
+    val smearMmX: Double = 1.0, val crushRateX: Double = 1.0, val sheenX: Double = 1.0,
+    val sizeCurve: List<Double> = LINEAR_CURVE, val darkCurve: List<Double> = LINEAR_CURVE,
+    val sideCurve: List<Double> = LINEAR_CURVE, val pointCurve: List<Double> = LINEAR_CURVE,
+    val tiltReachDeg: Double = MediaInput.REACH_DEG,
+) {
+    val press: Press get() = Press(pressDepth, pressGamma, sideEase, toothStiffness, padSoft)
+    val zones: Zones get() = Zones(side1From, side1Full, side2From, side2Full, evenFrom, grad1, grad2)
+}
+
+/** The straight response curve: what a missing curve means. */
+val LINEAR_CURVE: List<Double> = listOf(1.0 / 3, 1.0 / 3, 2.0 / 3, 2.0 / 3)
+
+/** y at [x] on a response curve `[x1, y1, x2, y2]` (core ResponseCurve's maths, in double; twin of stick.js curveEval). */
+fun stickCurve(h: List<Double>, x: Double): Double {
+    // The straight line is exactly the identity (a solved Bezier is only within 1e-7 of it): an untouched curve changes nothing.
+    if (h.size != 4 || (0 until 4).all { kotlin.math.abs(h[it] - LINEAR_CURVE[it]) < 1e-9 }) return x
+    val x1 = h[0].coerceIn(0.0, 1.0); val y1 = h[1]; val x2 = h[2].coerceIn(0.0, 1.0); val y2 = h[3]
+    fun bez(a: Double, b: Double, t: Double): Double { val u = 1 - t; return 3 * u * u * t * a + 3 * u * t * t * b + t * t * t }
+    val target = x.coerceIn(0.0, 1.0)
+    var lo = 0.0
+    var hi = 1.0
+    repeat(24) { val mid = (lo + hi) / 2; if (bez(x1, x2, mid) < target) lo = mid else hi = mid }
+    return bez(y1, y2, (lo + hi) / 2).coerceIn(0.0, 1.0)
+}
 
 object Sticks {
     val ALL: Map<String, Stick> = linkedMapOf(
+        // Proto Pencil, the flagship (the owner, 2026-10-15): his own settings from the pencil tuner, every one of them.
+        "Proto Pencil" to Stick(0.15, 0.55, 3.5, 9.2, 1.1, 0.53, 0.01243, blend = 1.0, build = 0.36, tuning = StickTuning(
+            pressDepth = 1.4, pressGamma = 1.68, sideEase = 0.73, toothStiffness = 9.2, padSoft = 0.9,
+            side1From = 0.57, side1Full = 0.82, side2From = 0.74, side2Full = 0.95, evenFrom = 0.98, grad1 = 1.2, grad2 = 2.0,
+            bell = 4.45, bellReach = 0.6, acrossSoft = 1.6, tipYield = 0.5, tail = 3.6,
+            capMm = 0.0055, transferExp = 2.2, plateau = 2.05, crushStart = 0.58, crushMax = 0.45, clump = 0.46,
+            pileLo = 0.11, pileHi = 0.44, dirStrength = 1.31, conform = 0.8,
+            abrasionX = 1.39, leadSoftX = 1.98, dustRateX = 2.0, smearX = 1.5, smearMmX = 2.0, crushRateX = 0.56, sheenX = 1.12,
+            sizeCurve = listOf(0.327214, 0.1815, 0.776646, 0.608461), darkCurve = listOf(0.16948, 0.639946, 0.695278, 0.473668),
+            sideCurve = listOf(0.340697, 0.377986, 0.682266, 0.607197), pointCurve = listOf(0.533494, 0.112884, 0.470578, 0.890346),
+            tiltReachDeg = 61.0,
+        )),
+        // Proto Mix (the owner, 2026-10-15): the mean of Proto, Proto 2 and Proto Pencil, every number; where only Proto
+        // Pencil has one, the other two count with the shared value.
+        "Proto Mix" to Stick(0.183333, 0.7, 4.166667, 11.733333, 1.266667, 0.676667, 0.008143, blend = 0.666667, build = 0.653333, tuning = StickTuning(
+            pressDepth = 1.733333,
+            pressGamma = 1.56,
+            sideEase = 0.543333,
+            toothStiffness = 9.066667,
+            padSoft = 0.966667,
+            side1From = 0.523333,
+            side1Full = 0.793333,
+            side2From = 0.713333,
+            side2Full = 0.97,
+            evenFrom = 0.913333,
+            grad1 = 1.2,
+            grad2 = 1.266667,
+            bell = 2.95,
+            bellReach = 0.6,
+            acrossSoft = 1.6,
+            tipYield = 0.5,
+            tail = 2.866667,
+            capMm = 0.0045,
+            transferExp = 2.2,
+            plateau = 2.15,
+            crushStart = 0.493333,
+            crushMax = 0.55,
+            clump = 0.386667,
+            pileLo = 0.116667,
+            pileHi = 0.646667,
+            dirStrength = 1.036667,
+            conform = 0.8,
+            abrasionX = 1.13,
+            leadSoftX = 1.326667,
+            dustRateX = 1.333333,
+            smearX = 1.166667,
+            smearMmX = 1.333333,
+            crushRateX = 0.853333,
+            sheenX = 1.04,
+            sizeCurve = listOf(0.331294, 0.282722, 0.703326, 0.647265),
+            darkCurve = listOf(0.278716, 0.435538, 0.676204, 0.602334),
+            sideCurve = listOf(0.335788, 0.348218, 0.671866, 0.646843),
+            pointCurve = listOf(0.400054, 0.25985, 0.601304, 0.741226),
+            tiltReachDeg = 65.666667,
+        )),
         // Proto: a soft woodless stick, the owner's Infinite Painter "Proko" reference.
         "Proto" to Stick(0.25, 1.0, 5.5, 16.0, 1.6, 0.75, 0.006),
+        // Proto 2 (the owner, 2026-10-14): a finer point, a smaller side when tilted, one blended footprint, and
+        // black that builds more slowly. Proto stays beside it to compare.
+        "Proto 2" to Stick(0.15, 0.55, 3.5, 10.0, 1.1, 0.75, 0.006, blend = 1.0, build = 0.6),
         "2H" to Stick(0.12, 0.35, 2.2, 5.0, 0.6, 0.15, 0.22),
         "HB" to Stick(0.14, 0.45, 2.6, 5.5, 0.7, 0.35, 0.12),
         "2B" to Stick(0.17, 0.6, 3.0, 6.0, 0.8, 0.5, 0.07),
@@ -62,14 +177,42 @@ data class StickMaterial(
     val plateau: Double, val crushRate: Double, val crushStart: Double, val crushMax: Double, val smear: Double,
     val smearMm: Double, val dustRate: Double, val clump: Double, val pileRangeLo: Double, val pileRangeHi: Double,
     val dirStrength: Double, val conform: Double, val sheen: Double,
+    /** 0 the three zones, 1 one blended footprint ([Stick.blend]): the dry dab shader's u_stickBlend. */
+    val blend: Double = 0.0,
+    /** The blended footprint's shape (u_stickShape): bell, acrossSoft, tipYield, tail (the STICK_* constants). */
+    val bell: Double = STICK_BELL, val acrossSoft: Double = STICK_ACROSS_SOFT, val tipYield: Double = STICK_TIP_YIELD,
+    val tail: Double = STICK_TAIL,
+    /** The side zones' fade curves (u_zoneGrad): [Zones.grad1], [Zones.grad2]. */
+    val grad1: Double = Zones().grad1, val grad2: Double = Zones().grad2,
+    /** The paper's two-layer contact table is built for these (MediaPaper.contactLut). */
+    val toothStiffness: Double = Press().toothStiffness, val padSoft: Double = Press().padSoft,
 ) {
+    /** The press the contact table is built for. */
+    val lutPress: Press get() = Press(toothStiffness = toothStiffness, padSoft = padSoft)
+
     companion object {
         fun of(stick: Stick): StickMaterial {
+            val base = shared(stick)
+            val tu = stick.tuning ?: return base
+            return base.copy(
+                capMm = tu.capMm, transferExp = tu.transferExp, plateau = tu.plateau, crushStart = tu.crushStart,
+                crushMax = tu.crushMax, clump = tu.clump, pileRangeLo = tu.pileLo, pileRangeHi = tu.pileHi,
+                dirStrength = tu.dirStrength, conform = tu.conform,
+                abrasion = base.abrasion * tu.abrasionX, leadSoft = base.leadSoft * tu.leadSoftX, dustRate = base.dustRate * tu.dustRateX,
+                smear = base.smear * tu.smearX, smearMm = base.smearMm * tu.smearMmX, crushRate = base.crushRate * tu.crushRateX,
+                sheen = base.sheen * tu.sheenX,
+                bell = tu.bell, acrossSoft = tu.acrossSoft, tipYield = tu.tipYield, tail = tu.tail, grad1 = tu.grad1, grad2 = tu.grad2,
+                toothStiffness = tu.toothStiffness, padSoft = tu.padSoft,
+            )
+        }
+
+        /** What the grade's softness gives, before any tuning. */
+        private fun shared(stick: Stick): StickMaterial {
             val s = stick.soft
             return StickMaterial(
                 capMm = 0.004,
                 flakeR = stick.rInf,
-                abrasion = 400 * (0.25 + 0.75 * s * s),
+                abrasion = 400 * (0.25 + 0.75 * s * s) * stick.build,
                 transferExp = 2.2,
                 leadSoft = 0.08 + 0.22 * s,
                 plateau = 2.2,
@@ -78,12 +221,13 @@ data class StickMaterial(
                 crushMax = 0.6,
                 smear = 0.18 + 0.6 * s * s,
                 smearMm = 0.15 + 0.3 * s,
-                dustRate = 0.0006 + 0.0024 * s,
+                dustRate = (0.0006 + 0.0024 * s) * stick.build,
                 clump = 0.35,
                 pileRangeLo = 0.12, pileRangeHi = 0.75,
                 dirStrength = 0.9,
                 conform = 0.8,
                 sheen = 0.03 + 0.10 * s,
+                blend = stick.blend,
             )
         }
     }
@@ -94,38 +238,90 @@ data class StickContact(
     val d: Double, val r0: Double, val l1: Double, val l2: Double, val h: Double,
     val w0: Double, val w1: Double, val w2: Double, val even: Double,
     val xMin: Double, val xMax: Double, val yMax: Double,
+    val blend: Double = 0.0,
 )
 
-fun stickContact(stick: Stick, tilt: Double, pressure: Double, toothMm: Double, press: Press = Press(), zones: Zones = Zones()): StickContact? {
+/** The blended footprint (Stick.blend 1; twin of stick.js and jb_stick.glsl): a bell point exp(−BELL·r²/R0²) that
+ * reaches BELL_REACH past R0, side edges falling as (1 − y²/H²)^ACROSS_SOFT, and a point that yields TIP_YIELD of its
+ * share where the side is down and runs on as a tail into it (the owner, 2026-10-14, on fine linen: the dark core
+ * thinner, the gradient continuous). */
+const val STICK_BELL = 2.2
+const val STICK_BELL_REACH = 0.6
+const val STICK_ACROSS_SOFT = 1.6
+const val STICK_TIP_YIELD = 0.5
+
+/** Blended, the point's darkness runs on this many R0 toward the barrel where the side is down, fading into it. */
+const val STICK_TAIL = 2.5
+
+/**
+ * The contact for one pen sample. A stick with its own [Stick.tuning] uses its press, zones, fringe and curves; the
+ * defaults here are then only what an untuned stick uses. With straight curves (or none) the point's share and the
+ * side's split are exactly w / Σw, the contact of version 8: the point's share comes from the point curve's tilt, the
+ * side's split of the rest from the side curve's (a point cannot give way where no side is down to take the pressure).
+ */
+fun stickContact(stick: Stick, tilt: Double, pressure: Double, toothMm: Double,
+                 press: Press = stick.tuning?.press ?: Press(), zones: Zones = stick.tuning?.zones ?: Zones()): StickContact? {
     val p = max(0.0, min(1.0, pressure))
     if (p <= 0) return null
+    val tu = stick.tuning
     val t = max(0.0, min(1.0, tilt / (PI / 2)))
-    val s1 = smoothstep(zones.side1From, zones.side1Full, t)
-    val s2 = smoothstep(zones.side2From, zones.side2Full, t)
-    // Near flat and lightly held, the side lies down evenly and the tip no longer dominates.
-    val even = smoothstep(zones.evenFrom, 1.0, t) * (1 - 0.6 * p)
-    val r0 = stick.tipR + (stick.tipMax - stick.tipR) * p.pow(0.8)
+    val ts = if (tu == null) t else stickCurve(tu.sideCurve, t)
+    val tp = if (tu == null) t else stickCurve(tu.pointCurve, t)
+    val side = zonesAt(zones, ts, p)
+    val pt = if (tp == ts) side else zonesAt(zones, tp, p)
+    val s1 = side.s1
+    val s2 = side.s2
+    val even = side.even
+    val pSize = if (tu == null) p else stickCurve(tu.sizeCurve, p)
+    val pDark = if (tu == null) p else stickCurve(tu.darkCurve, p)
+    val r0 = stick.tipR + (stick.tipMax - stick.tipR) * pSize.pow(0.8)
     val l1 = r0 + (stick.side1 - r0) * s1
     val l2 = l1 + (stick.side2 - l1) * s2
-    var w0 = 1 - 0.8 * even
-    var w1 = 0.9 * s1 * (1 - 0.35 * s2)
-    var w2 = 0.8 * s2
-    val sum = w0 + w1 + w2
-    w0 /= sum; w1 /= sum; w2 /= sum
-    val d = toothMm * press.depth * p.pow(press.gamma) / (1 + press.sideEase * (0.4 * s1 + s2))
+    val share0 = pt.w0 / (pt.w0 + pt.w1 + pt.w2)
+    val sideSum = side.w1 + side.w2
+    var w0 = 1.0
+    var w1 = 0.0
+    var w2 = 0.0
+    if (sideSum > 1e-9) { w0 = share0; w1 = (1 - share0) * side.w1 / sideSum; w2 = (1 - share0) * side.w2 / sideSum }
+    val d = toothMm * press.depth * pDark.pow(press.gamma) / (1 + press.sideEase * (0.4 * s1 + s2))
     val sideOn = w1 + w2 > 0.005
+    // A blended point is a soft bell that reaches a little past r0: the footprint grows to hold it.
+    val reach = r0 * (1 + (tu?.bellReach ?: STICK_BELL_REACH) * stick.blend)
     return StickContact(
         d, r0, l1, l2, if (sideOn) stick.face else r0, w0, w1, w2, even,
-        xMin = -r0,
-        xMax = if (sideOn) max(r0, if (w2 > 0.005) l2 else l1) else r0,
-        yMax = if (sideOn) max(r0, stick.face) else r0,
+        xMin = -reach,
+        xMax = if (sideOn) max(reach, if (w2 > 0.005) l2 else l1) else reach,
+        yMax = if (sideOn) max(reach, stick.face) else reach,
+        blend = stick.blend,
     )
 }
 
-/** Twin of jb_stickSqueeze: the squeeze (mm) at a stick-frame point (x toward the barrel, y across). */
-fun stickSqueeze(x: Double, y: Double, c: StickContact, zones: Zones = Zones()): Double {
-    val point = max(0.0, 1 - (x * x + y * y) / (c.r0 * c.r0))
-    val front = if (x < 0) max(0.0, 1 - (x * x) / (c.r0 * c.r0)) else 1.0
+/** The zones at a tilt fraction [u]: how far each side is down, the near-flat evening, and the raw zone weights. */
+private class ZoneState(val s1: Double, val s2: Double, val even: Double, val w0: Double, val w1: Double, val w2: Double)
+
+private fun zonesAt(zones: Zones, u: Double, p: Double): ZoneState {
+    val a = smoothstep(zones.side1From, zones.side1Full, u)
+    val b = smoothstep(zones.side2From, zones.side2Full, u)
+    // Near flat and lightly held, the side lies down evenly and the tip no longer dominates.
+    val ev = smoothstep(zones.evenFrom, 1.0, u) * (1 - 0.6 * p)
+    return ZoneState(a, b, ev, 1 - 0.8 * ev, 0.9 * a * (1 - 0.35 * b), 0.8 * b)
+}
+
+/** Twin of jb_stickSqueeze: the squeeze (mm) at a stick-frame point (x toward the barrel, y across). [tuning] gives the
+ * shape and fades of a tuned stick (the shader's u_stickShape and u_zoneGrad). */
+fun stickSqueeze(x: Double, y: Double, c: StickContact, zones: Zones = Zones(), tuning: StickTuning? = null): Double {
+    val bellK = tuning?.bell ?: STICK_BELL
+    val tailK = tuning?.tail ?: STICK_TAIL
+    val acrossK = tuning?.acrossSoft ?: STICK_ACROSS_SOFT
+    val yieldK = tuning?.tipYield ?: STICK_TIP_YIELD
+    val b = c.blend
+    val r2 = c.r0 * c.r0
+    fun mix(a: Double, z: Double) = a + (z - a) * b
+    val sideDown = min(1.0, (c.w1 + c.w2) * 2)
+    val along = if (x < 0) exp(-bellK * x * x / r2)
+        else exp(-bellK * x * x / r2).let { bell -> bell + (exp(-x / (tailK * c.r0)) - bell) * sideDown }
+    val point = mix(max(0.0, 1 - (x * x + y * y) / r2), exp(-bellK * y * y / r2) * along)
+    val front = if (x < 0) mix(max(0.0, 1 - (x * x) / r2), exp(-bellK * x * x / r2)) else 1.0
     fun ramp(l: Double, g: Double, ev: Double): Double {
         if (x < 0) return 1.0
         val u = x / max(l, 1e-3)
@@ -134,10 +330,14 @@ fun stickSqueeze(x: Double, y: Double, c: StickContact, zones: Zones = Zones()):
     }
     fun across(l: Double): Double {
         val hw = c.r0 + (c.h - c.r0) * smoothstep(0.0, 0.3 * l, max(x, 0.0))
-        return sqrt(max(0.0, 1 - (y * y) / (hw * hw)))
+        val e = max(0.0, 1 - (y * y) / (hw * hw))
+        return mix(sqrt(e), e.pow(acrossK))
     }
     val g2 = zones.grad2 + (0.55 - zones.grad2) * c.even
-    return c.d * (c.w0 * point + (c.w1 * ramp(c.l1, zones.grad1, 0.0) * across(c.l1) + c.w2 * ramp(c.l2, g2, c.even) * across(c.l2)) * front)
+    val side = (c.w1 * ramp(c.l1, zones.grad1, 0.0) * across(c.l1) + c.w2 * ramp(c.l2, g2, c.even) * across(c.l2)) * front
+    // Blended, the point stops sitting on top of the side as a second mark: where the side is down it yields.
+    val pointShare = c.w0 * (1 - yieldK * b * sideDown)
+    return c.d * (pointShare * point + side)
 }
 
 /** One stroke of a dry stick: samples in, instanced dabs out (20 floats each, see jb_dry_dab.vert). */
@@ -145,8 +345,8 @@ class DryStroke(
     private val stick: Stick,
     private val toothMm: Double,
     private val pxPerMm: Double,
-    private val press: Press = Press(),
-    private val zones: Zones = Zones(),
+    private val press: Press = stick.tuning?.press ?: Press(),
+    private val zones: Zones = stick.tuning?.zones ?: Zones(),
 ) {
     private class Solved(val s: MediaSample, val c: StickContact?, val leanX: Double, val leanY: Double)
 
@@ -194,7 +394,7 @@ class DryStroke(
         val cb = b.c
         if (ca == null && cb == null) return
         val some = ca ?: cb!!
-        val zero = StickContact(0.0, some.r0, some.l1, some.l2, some.h, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        val zero = StickContact(0.0, some.r0, some.l1, some.l2, some.h, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, some.blend)
         val ra = ca ?: zero
         val rb = cb ?: zero
         fun l(x: Double, y: Double) = x + (y - x) * w

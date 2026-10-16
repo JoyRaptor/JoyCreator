@@ -37,9 +37,55 @@ class MediaBrushTest {
         for (p in all) {
             assertEquals(emptyList(), BrushValidate.validate(p), p.id)
             val json = BrushJson.encode(p)
-            assertTrue("\"version\": $VERSION_MEDIA" in json, p.id)
-            assertEquals(p.copy(version = VERSION_MEDIA), BrushJson.decodeChecked(json), p.id)
+            // The lowest version that can say it: a stick with an edge blend or a build-up needs 11, the rest stay 8.
+            val v = p.media?.stick?.let { if (it.blend != 0.0 || it.build != 1.0) VERSION_PENCIL_BLEND else null } ?: VERSION_MEDIA
+            assertTrue("\"version\": $v" in json, p.id)
+            assertEquals(p.copy(version = v), BrushJson.decodeChecked(json), p.id)
         }
+    }
+
+    @Test fun proto2IsTheBlendedSlowerPencilAndProtoStaysBesideIt() {
+        // The owner, 2026-10-14: finer point, smaller side when tilted, one blended footprint, slower black.
+        val proto = byId("media:dry:Proto").media!!.stick!!
+        val p2 = byId("media:dry:Proto 2").media!!.stick!!
+        assertTrue(p2.tipMax < proto.tipMax && p2.tipR < proto.tipR, "a finer point")
+        assertTrue(p2.side1 < proto.side1 && p2.side2 < proto.side2, "a smaller side when tilted")
+        assertEquals(1.0, p2.blend)
+        assertTrue(p2.build < 1.0, "black builds more slowly")
+        assertEquals(0.0, proto.blend, "the old pencil is unchanged, to compare")
+        assertEquals(1.0, proto.build)
+    }
+
+    @Test fun protoPencilIsTheFlagshipWithEveryTunedNumberAndItsCurves() {
+        // The owner, 2026-10-15: "pretty dialed in now - lets make it the flagship".
+        val pencils = BrushShelf.shelves(all).single { it.first == BrushShelf.Kind.PENCILS }.second
+        assertEquals("media:dry:Proto Pencil", pencils.first().id, "first on the Pencils shelf")
+        val pp = byId("media:dry:Proto Pencil")
+        val tu = pp.media!!.stick!!.tuning!!
+        assertEquals(61.0, tu.tiltReachDeg)
+        assertEquals(listOf(0.533494, 0.112884, 0.470578, 0.890346), tu.pointCurve)
+        assertEquals(listOf(0.754175f, 0.240418f, 0.551931f, 1f), pp.response.pressure, "its pressure curve rides on the brush")
+        assertTrue("\"version\": $VERSION_PENCIL_BLEND" in BrushJson.encode(pp))
+        for (id in listOf("media:dry:Proto", "media:dry:Proto 2")) assertTrue(id in all.map { it.id }, "$id stays beside it")
+    }
+
+    @Test fun aBrokenTuningIsRefusedInWords() {
+        val pp = byId("media:dry:Proto Pencil")
+        val m = pp.media!!
+        fun with(tu: cc.joycreator.joybrush.core.media.StickTuning) = refusals(pp.copy(media = m.copy(stick = m.stick!!.copy(tuning = tu))))
+        val tu = m.stick!!.tuning!!
+        assertTrue("sizeCurve must be four finite numbers" in with(tu.copy(sizeCurve = listOf(0.1, 0.2))))
+        assertTrue("pointCurve handles' x must be 0..1" in with(tu.copy(pointCurve = listOf(1.4, 0.2, 0.5, 0.5))))
+        assertTrue("tiltReachDeg 5.0 must be 20..90" in with(tu.copy(tiltReachDeg = 5.0)))
+        assertTrue("pileLo 0.9 is above pileHi" in with(tu.copy(pileLo = 0.9)))
+    }
+
+    @Test fun anOlderVersionCannotSayBlendOrBuild() {
+        val json = BrushJson.encode(byId("media:dry:Proto 2")).replace("\"version\": $VERSION_PENCIL_BLEND", "\"version\": 8")
+        val thrown = assertFailsWith<BrushException> { BrushJson.decode(json) }
+        assertEquals("media.stick.blend needs brush version $VERSION_PENCIL_BLEND", thrown.message)
+        val tooMuch = byId("media:dry:Proto 2").let { it.copy(media = it.media!!.copy(stick = it.media!!.stick!!.copy(blend = 1.5))) }
+        assertTrue("media.stick.blend 1.5 must be 0..1" in refusals(tooMuch))
     }
 
     @Test fun anOlderVersionCannotSayMedia() {

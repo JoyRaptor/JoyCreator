@@ -5,6 +5,8 @@ import cc.joycreator.joybrush.androidkit.io.ColdRecordedLoadPlan
 import cc.joycreator.joybrush.androidkit.io.JbArchive
 import cc.joycreator.joybrush.androidkit.io.JbContents
 import cc.joycreator.joybrush.core.paint.Tiles
+import cc.joycreator.joybrush.core.doc.Paper
+import cc.joycreator.joybrush.core.doc.RectPx
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
@@ -34,6 +36,7 @@ internal object RecordedColdFailureProbe {
         var cleanupGlChecks = 0
         var cleanupErrors = 0
         var retirementFailureSeen = false
+        var paperSentinelDifferent = false
 
         val unpackNames = intArrayOf(
             GLES30.GL_UNPACK_ALIGNMENT, GLES30.GL_UNPACK_ROW_LENGTH,
@@ -105,7 +108,15 @@ internal object RecordedColdFailureProbe {
             manifestCount = plan.uploads.size
             check(targets.size == 21 && targets.toSet().size == 21)
 
+            val targetPaperPixels = engine.renderPaper(RectPx(0,0,8,8))
             engine.resetDocument()
+            // A visibly different previous paper makes rollback equality nonvacuous.
+            engine.setDocumentPaper(Paper(color = "#123456"))
+            if (engine.renderPaper(RectPx(0,0,8,8)).contentEquals(targetPaperPixels)) {
+                engine.setDocumentPaper(Paper(color = "#ABCDEF"))
+            }
+            paperSentinelDifferent = !engine.renderPaper(RectPx(0,0,8,8)).contentEquals(targetPaperPixels)
+            check(paperSentinelDifferent && engine.documentPaper != plan.metadataCopy().paper)
             alive = engine.coldUploadProbeContext()
             contextStarted = true
             entry = state()
@@ -222,6 +233,7 @@ internal object RecordedColdFailureProbe {
                 .put("manifestUploadCount", manifestCount)
                 .put("hostileCallerStateChecks", hostileStateChecks)
                 .put("retirementFailureObserved", retirementFailureSeen)
+                .put("paperSentinelDifferent", paperSentinelDifferent)
                 .put("diagnosticNamesReleased", cleanupComplete)
                 .put("contextRetired", retired)
                 .put("cleanupGlChecks", cleanupGlChecks)

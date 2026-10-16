@@ -3,6 +3,7 @@ package cc.joycreator.joybrush.androidkit.gl
 import cc.joycreator.joybrush.androidkit.io.ColdRecordedLoadPlan
 import cc.joycreator.joybrush.androidkit.io.JbArchive
 import cc.joycreator.joybrush.androidkit.io.JbContents
+import cc.joycreator.joybrush.androidkit.io.LineArchiveFixture
 import cc.joycreator.joybrush.core.doc.Cel
 import cc.joycreator.joybrush.core.doc.Layer
 import cc.joycreator.joybrush.core.doc.LayerKind

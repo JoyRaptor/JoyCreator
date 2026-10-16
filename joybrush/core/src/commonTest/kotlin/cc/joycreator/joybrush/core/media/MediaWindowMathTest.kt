@@ -46,6 +46,22 @@ class MediaWindowMathTest {
         assertEquals(MediaWindowMath.PX.toFloat(), r[3])
     }
 
+    @Test fun turningThePhoneOverNeverShrinksTheWetRectangle() {
+        // Downhill for a long while, then the slope reverses: the old downhill reach must stay simulated, so the drips
+        // there keep running (uphill now) instead of freezing; the new downhill side grows at the usual pace.
+        val paint = floatArrayOf(1000f, 1000f, 1100f, 1100f)
+        var r = paint.copyOf()
+        repeat(5000) { r = WetSpread.grow(r, paint, 0f, 0.5f, 4, 0.05, 100_000, 100_000) }
+        val before = r.copyOf()
+        r = WetSpread.grow(r, paint, 0f, -0.5f, 4, 0.05, 100_000, 100_000)
+        assertEquals(before[3], r[3], "the old downhill edge stays")
+        assertEquals(before[1] - 4f, r[1], "the new downhill edge grows by one frame's run")
+        repeat(5000) { r = WetSpread.grow(r, paint, 0f, -0.5f, 4, 0.05, 100_000, 100_000) }
+        assertEquals(1000f - 800f, r[1], "and stops 40 mm downhill as before")
+        assertEquals(before[3], r[3])
+        for (i in 0..1) assertTrue(r[i] <= before[i]); for (i in 2..3) assertTrue(r[i] >= before[i])
+    }
+
     @Test fun itGrowsOnlyAsFastAsWaterRuns() {
         val paint = floatArrayOf(1000f, 1000f, 1100f, 1100f)
         val r = WetSpread.grow(paint, paint, 0f, 1f, 4, 0.05, 100_000, 100_000)

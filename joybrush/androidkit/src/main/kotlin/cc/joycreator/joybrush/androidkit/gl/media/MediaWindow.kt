@@ -222,13 +222,14 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         for (store in MediaStores.WATER) paint.dropMediaTiles(id, store, all.filter { paint.mediaTile(id, store, it, plane) != null }, plane)
     }
 
-    /** Undo or redo put tiles of [layer] back: stop the water and reload what the window shows. */
-    fun restored(layer: String, plane: String?, keys: Set<Long>) {
-        if (layer != layerId || plane != this.plane) return
+    /** Undo or redo put tiles of [layer] back: stop the water and reload what the window shows. True when it stopped it. */
+    fun restored(layer: String, plane: String?, keys: Set<Long>): Boolean {
+        if (layer != layerId || plane != this.plane) return false
         val mine = MediaWindowMath.allKeys(tx, ty).toSet()
-        if (keys.none { it in mine }) return
+        if (keys.none { it in mine }) return false
         media.stopWater()
         load(layer, plane, tx, ty, resumeWater = false)
+        return true
     }
 
     /**

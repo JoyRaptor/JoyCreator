@@ -18,6 +18,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import java.lang.reflect.InvocationTargetException
 
 /** No-GL tests for opt-in and pre-allocation gates; fake texture names are never sampled. */
 class GlCapturedRendererAdmissionTest {
@@ -43,11 +44,30 @@ class GlCapturedRendererAdmissionTest {
         show = 0f, bite = 0f, light = false,
     )
 
-    private fun record(id: String = "line", seq: Long = 1L, captured: Boolean = false) = StrokeRecord(
-        id = id, brushId = brush.id, seed = 19L, smoothing = 0f, screenPerDoc = 1f,
-        samples = listOf(PenSample(2f, 3f, 0.0)), widthScale = 1f, seq = seq,
+    private fun record(
+        id: String = "line", seq: Long = 1L, captured: Boolean = false,
+        samples: List<PenSample> = listOf(PenSample(2f, 3f, 0.0)), widthScale: Float = 1f,
+        screenPerDoc: Float = 1f,
+    ) = StrokeRecord(
+        id = id, brushId = brush.id, seed = 19L, smoothing = 0f, screenPerDoc = screenPerDoc,
+        samples = samples, widthScale = widthScale, seq = seq,
         capturedPhysicalSource = if (captured) CapturedPhysicalSource(CaptureDomain()) else null,
     )
+
+    private fun longSamples(count: Int = 96) = List(count) { index ->
+        PenSample(5_000f + index % 3, 6_000f + index % 2, index * 1.25, pressure = 0.3f + (index % 5) * 0.1f)
+    }
+
+    private fun capturedLease(engine: GlPaintEngine, record: StrokeRecord, budget: Long): Any {
+        val method = GlPaintEngine::class.java.declaredMethods.single {
+            it.name == "capturedRecipeLease" && it.parameterCount == 5
+        }.apply { isAccessible = true }
+        return try {
+            method.invoke(engine, "paint", record, brush, mapOf(plane to RecordedCel("paint", null)), budget)
+        } catch (failure: InvocationTargetException) {
+            throw failure.cause ?: failure
+        }
+    }
 
     private fun scene(engine: GlPaintEngine, budget: Long = 0L): RecordedScene<Int> =
         engine.createCapturedRecordedScene(
@@ -90,6 +110,47 @@ class GlCapturedRendererAdmissionTest {
         assertFails { scene.stage(edit) }
         assertEquals(0L, engine.recordedLinePreparationCalls)
         assertEquals(0L, engine.recordedCompositionCalls)
+    }
+
+    @Test fun capturedBudgetAdmissionAcceptsLongRawRecipeOutsideDiagnosticLimits() {
+        val engine = engine()
+        val scene = scene(engine, budget = 64L * 1024 * 1024)
+        val samples = longSamples()
+        val input = record(captured = true, samples = samples, widthScale = 3f, screenPerDoc = 12f)
+        val renderer = assertIs<RecordedScene.CapturedSourceRenderer<Int>>(renderer(scene))
+
+        assertTrue(renderer.admitCapturedSource(LineAddress("paint", null, "line"), input, brush))
+        val lease = capturedLease(engine, input, 64L * 1024 * 1024)
+        val retained = field<StrokeRecord>(lease, "record")
+        assertEquals(samples, retained.samples)
+        assertEquals(3f, retained.widthScale)
+        assertEquals(12f, retained.screenPerDoc)
+        assertEquals(0L, engine.recordedLinePreparationCalls)
+        assertEquals(0L, engine.recordedCompositionCalls)
+    }
+
+    @Test fun zeroBudgetRefusesLongCapturedAndOrdinaryRendererLinesBeforeGpuPreparation() {
+        fun attempt(captured: Boolean) {
+            val engine = engine()
+            val scene = scene(engine, budget = 0L)
+            val samples = longSamples()
+            val longRecord = record(id = "long", captured = captured, samples = samples,
+                widthScale = 3f, screenPerDoc = 12f)
+            val edit = cc.joycreator.joybrush.core.vector.RecordedEdits.add(
+                scene.planes,
+                listOf(cc.joycreator.joybrush.core.stroke.AddressedStroke(
+                    LineAddress("paint", null, "long"), longRecord,
+                )),
+                brushes.keys,
+            )
+
+            assertFails { scene.stage(edit) }
+            assertEquals(0L, engine.recordedLinePreparationCalls)
+            assertEquals(0L, engine.recordedCompositionCalls)
+        }
+
+        attempt(captured = true)
+        attempt(captured = false)
     }
 
     @Test fun lookAndBakePeaksRefuseBeforeCompositionAndEmptyBakeDoesNotCompose() {

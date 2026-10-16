@@ -257,7 +257,8 @@ internal class RecordedScene<T : Any> private constructor(
     /**
      * Pure preflight for one exact empty engine root and both facade handoffs. Current cache and
      * history ownership is borrowed until publication, then caller-owned for retirement/abandonment.
-     * Physical slabs/native sources stay outside these ledgers and belong to the engine plan.
+     * Published physical slabs/native sources stay outside these ledgers and belong to the
+     * engine plan. Dead-context pending allocations also include uncommitted bake slab copies.
      */
     inner class ResetHandoff internal constructor(
         val expectedPublication: Publication<T>,
@@ -281,7 +282,8 @@ internal class RecordedScene<T : Any> private constructor(
         /** ONLY current derived cache ownership; no source/history endpoints. */
         val retiredCacheTextures: List<T> get() = caches.toList()
         val retiredHistoryTextures: List<T> get() = historyHandoff.retiredHistoryTextures
-        /** Dead-context-only outstanding cache ownership; never execute as a live retirement ledger. */
+        /** Dead-context-only outstanding allocations (caches AND uncommitted bake sources).
+         * Never execute as a live retirement ledger. The historical property name is retained. */
         val abandonedJointCacheTextures: Set<T> get() = pending.toSet()
 
         /**
@@ -378,7 +380,7 @@ internal class RecordedScene<T : Any> private constructor(
                 "Recorded ownership or root changed during reset preflight"
             }
             val leases = jointLeases.toList()
-            val pending = leases.flatMap { it.pendingCacheOwnership() }.toSet()
+            val pending = leases.flatMap { it.pendingAllocationOwnership() }.toSet()
             val caches = before.cacheTextures().toList()
             check(samePublication(expectedPublication) && core.isCurrent() && resetLocallyAllowed(mode) &&
                 boundRead === reader && bindingVersion == token && jointOwnershipRevision == revision &&
@@ -392,9 +394,10 @@ internal class RecordedScene<T : Any> private constructor(
     }
 
     /**
-     * Derived-cache lease for a complete engine transaction. It never publishes scene or history.
+     * Allocation lease for a complete engine transaction. It never publishes scene or history.
      * The full Step lives in historyProposal; only its recorded projection was rendered here.
-     * Native tile/media/slab outputs remain the caller's responsibility until joint publication.
+     * Native tile/media outputs remain the caller's responsibility until joint publication.
+     * Fresh bake slabs belong to this lease until adoption, then to scene/history source ownership.
      */
     inner class JointStaged internal constructor(
         val expectedPublication: Publication<T>,
@@ -403,8 +406,11 @@ internal class RecordedScene<T : Any> private constructor(
         fresh: Set<T>,
         retired: Set<T>,
         val affected: Map<Pair<String, String?>, Set<Long>>,
+        freshSources: Set<T> = emptySet(),
     ) : AutoCloseable {
         private val fresh = fresh.toSet()
+        private val sources = freshSources.toSet()
+        private val allocations = (fresh + freshSources).toSet()
         private val retired = retired.toList()
         private val epoch = expectedPublication.graphicsEpoch
         private var finished = false
@@ -415,7 +421,7 @@ internal class RecordedScene<T : Any> private constructor(
             jointLeases.add(this)
             jointOwnershipRevision++
         }
-        internal fun pendingCacheOwnership(): Collection<T> = if (adopted) retired else fresh
+        internal fun pendingAllocationOwnership(): Collection<T> = if (adopted) retired else allocations
         internal fun invalidateAfterContextReset() {
             invalidated = true
             finished = true
@@ -426,6 +432,8 @@ internal class RecordedScene<T : Any> private constructor(
         }
         /** All freshly minted caches, including transient warm units in the retirement ledger. */
         val freshCacheTextures: Set<T> get() = fresh.toSet()
+        /** Newly copied canonical slab sources; adoption transfers these to scene/history. */
+        val freshSourceTextures: Set<T> get() = sources.toSet()
         /** Old replaced caches plus transient warm units; no native/history-owned source handles. */
         val retiredCacheTextures: List<T> get() = retired.toList()
 
@@ -478,8 +486,136 @@ internal class RecordedScene<T : Any> private constructor(
             if (finished) return
             finished = true
             jointOwnershipRevision++
-            // Cancellation owns only newly rendered caches, never borrowed Step endpoints.
-            try { releaseInEpoch(fresh, epoch) } finally { untrack() }
+            // Cancellation owns caches and our bake copies, never borrowed Step endpoints.
+            try { releaseInEpoch(allocations, epoch) } finally { untrack() }
+        }
+    }
+
+    /**
+     * Bound bake of already measured canonical sources. No lazy replay, publication or native
+     * ownership mutation: the engine must install candidateState and historyProposal.cursor once.
+     * Until then this lease owns every fresh slab copy as well as every derived cache it made.
+     */
+    internal fun stageJointBake(expected: Publication<T>, addresses: Set<LineAddress>): JointStaged {
+        check(!resetPreparing && !admittingCapturedSource && !binding && jointPreparations == 0) {
+            "Cannot bake during recorded reset, source admission, binding or preparation"
+        }
+        jointPreparations++
+        try {
+            val read = boundRead ?: error("Joint bake requires an engine publication binding")
+            check(history.isCursorBound) { "Joint bake requires history bound to the same root" }
+            val binding = bindingVersion
+            val ownership = jointOwnershipRevision
+            val before = expected.recorded
+            require(before.belongsTo(sceneIdentity)) { "Joint bake state belongs to a different scene" }
+            check(samePublication(expected)) { "The joint bake root is no longer current" }
+            require(addresses.isNotEmpty()) { "An empty bake cannot publish an undo step" }
+            requireSourceKinds(before.planes)
+            // Snapshot and preflight the WHOLE scope before any renderer callback, including
+            // context/admission callbacks. A cold or stale source cannot trigger partial copying.
+            val inputSources = LinkedHashSet<T>()
+            val baking = addresses.toList().map { address ->
+                val plane = address.layerId to address.celId
+                val cel = before.planes[plane] ?: error("No physical cel for this line")
+                require(plane == (cel.layerId to cel.celId)) { "Physical cel ownership does not match its address" }
+                val record = cel.records.singleOrNull { it.id == address.recordId }
+                    ?: error("This line no longer exists at its exact address")
+                require(!record.locked) { "Unlock the line before baking it" }
+                require(plane in before.plans) { "Joint bake requires already materialized sources" }
+                val cached = before.units[address] ?: error("Joint bake needs its actual cached source")
+                require(CapturedStrokeRules.sameRecord(cached.record, record)) { "The cached source is stale" }
+                require(cached.unit.tiles.values.all { inputSources.add(it) }) {
+                    "Cached canonical sources cannot share texture ownership"
+                }
+                Triple(address, record, cached.unit)
+            }
+            val epoch = expected.graphicsEpoch
+            // A callback may publish another same-epoch root or leave a foreign pending lease.
+            // Its new handles are borrowed too, even though they were absent at entry. If a
+            // stable current ownership snapshot cannot be obtained, abandon attempted names.
+            fun borrowedNow(): Set<T> {
+                checkGraphicsEpoch(epoch, true)
+                check(boundRead === read && bindingVersion == binding) { "Joint bake binding changed" }
+                val current = read()
+                val revision = jointOwnershipRevision
+                checkGraphicsEpoch(epoch, true)
+                require(current.recorded.belongsTo(sceneIdentity)) { "Joint bake ownership belongs to another scene" }
+                val owned = current.recorded.cacheTextures() + slabTextures(current.recorded.planes) +
+                    current.protectedTextures + current.cursor.heldTextures() +
+                    jointLeases.flatMap { it.pendingAllocationOwnership() }
+                check(boundRead === read && bindingVersion == binding && jointOwnershipRevision == revision &&
+                    read() === current && history.snapshotCursor() === current.cursor && read() === current &&
+                    boundRead === read && bindingVersion == binding && jointOwnershipRevision == revision) {
+                    "Joint bake current ownership changed while classifying outputs"
+                }
+                checkGraphicsEpoch(epoch, true)
+                return owned
+            }
+            fun checkCurrent() {
+                check(boundRead === read && bindingVersion == binding && jointOwnershipRevision == ownership) {
+                    "Joint bake binding or pending ownership changed"
+                }
+                checkEpoch(epoch, expected)
+                check(boundRead === read && bindingVersion == binding && jointOwnershipRevision == ownership) {
+                    "Joint bake binding or pending ownership changed"
+                }
+            }
+            fun checkContext() {
+                checkCurrent()
+                val current = renderer.contextCurrent()
+                checkCurrent()
+                check(current) { "The recorded renderer context is unavailable for bake" }
+            }
+            checkContext()
+            val frozen = before.brushes.mapValues { BrushJson.decodeChecked(it.value) }
+            val existing = before.cacheTextures() + slabTextures(before.planes) + expected.cursor.heldTextures() +
+                expected.protectedTextures + jointLeases.flatMap { it.pendingAllocationOwnership() }
+            val basis = Basis(before, epoch, expected.cursor.peekUndo(), expected.cursor.peekRedo(),
+                expected.cursor, expected, existing.toSet())
+            val freshSources = LinkedHashSet<T>()
+            var built: Built<T>? = null
+            try {
+                // Retain all normal source-kind/frozen-definition admission, including captured
+                // before endpoints. Reentrant admission is checked against this exact root too.
+                validateRender(before, before.planes, frozen)
+                checkContext()
+                val slabs = ArrayList<UndoLog.SlabChange<T>>()
+                for ((address, record, unit) in baking) {
+                    checkContext()
+                    val copied = renderer.copyForBake(address, unit)
+                    // Dead-epoch names must never enter a replacement context's release path.
+                    checkGraphicsEpoch(epoch, true)
+                    val borrowed = borrowedNow()
+                    var valid = true
+                    for (texture in copied.tiles.values) {
+                        if (texture in existing || texture in borrowed || !freshSources.add(texture)) valid = false
+                    }
+                    checkCurrent() // A stale root/foreign lease remains the primary refusal.
+                    require(valid) { "A bake copy must return distinct fresh owned textures" }
+                    require(copied.op == unit.op && copied.tiles.keys == unit.tiles.keys) {
+                        "A bake copy must preserve its canonical operator and exact tile keys"
+                    }
+                    checkContext()
+                    for ((key, texture) in copied.tiles) slabs += UndoLog.SlabChange(address.layerId,
+                        address.celId, key, record.seq, null, UndoLog.SlabValue(texture, copied.op))
+                }
+                val lines = baking.map { (address, record, _) -> UndoLog.LineChange(address.layerId,
+                    address.celId, address.recordId, CelComposer.Line(record.seq, record), null) }
+                val step = UndoLog.Step<T>(emptyList(), lines = lines, slabs = slabs)
+                val cursor = history.prepareNew(step, expected.cursor)
+                checkContext() // History size/budget callbacks are external too.
+                val edit = RecordedEdits.prepare(before.planes, step, true)
+                val ready = buildStage(basis, Warmed(before, emptySet()), edit, frozen, freshSources, ::borrowedNow)
+                built = ready
+                checkContext()
+                return JointStaged(expected, ready.state, cursor, ready.fresh - freshSources,
+                    ready.retired, ready.affected, freshSources)
+            } catch (failure: Throwable) {
+                releaseAfterFailure(failure, built?.fresh ?: freshSources, epoch, ::borrowedNow)
+                throw failure
+            }
+        } finally {
+            jointPreparations--
         }
     }
 
@@ -556,9 +692,9 @@ internal class RecordedScene<T : Any> private constructor(
                 expectedPromotion.promotedSharedCels).recordedEdit
         }
         val endpoints = stepTextures(step) + projectedEdit?.let { stepTextures(it.step) }.orEmpty()
-        val cacheOwned = before.cacheTextures()
+        val cacheOwned = before.cacheTextures() + jointLeases.flatMap { it.pendingAllocationOwnership() }
         require(endpoints.none { it in cacheOwned }) {
-            "Joint source/history endpoints cannot take ownership of recorded cache textures"
+            "Joint source/history endpoints cannot take ownership of caches or pending allocations"
         }
         val protected = publication.protectedTextures.toSet() + endpoints
         val basis = Basis(before, publication.graphicsEpoch, publication.cursor.peekUndo(),
@@ -865,9 +1001,10 @@ internal class RecordedScene<T : Any> private constructor(
                                  val affected: Map<Pair<String, String?>, Set<Long>>)
 
     private fun buildStage(basis: Basis<T>, warmed: Warmed<T>, edit: RecordedEdits.Prepared<T>,
-                           frozen: Map<String, BrushPreset>, freshSources: Set<T>): Built<T> {
+                           frozen: Map<String, BrushPreset>, freshSources: Set<T>,
+                           currentBorrowed: (() -> Set<T>)? = null): Built<T> {
         checkEpoch(basis.epoch, basis.publication)
-        val rendered = render(warmed.state, edit.after, frozen, basis.epoch, basis.publication, basis.protected)
+        val rendered = render(warmed.state, edit.after, frozen, basis.epoch, basis.publication, basis.protected, currentBorrowed)
         try {
             checkEpoch(basis.epoch, basis.publication)
             val transientWarm = warmed.fresh - rendered.state.cacheTextures()
@@ -876,8 +1013,20 @@ internal class RecordedScene<T : Any> private constructor(
                 rendered.affected)
         } catch (failure: Throwable) {
             // The caller still owns warm units/bake copies; only this render's additions are ours.
-            releaseInEpoch(rendered.fresh, basis.epoch)
+            releaseAfterFailure(failure, rendered.fresh, basis.epoch, currentBorrowed)
             throw failure
+        }
+    }
+
+    /** A new callback owner is borrowed during rollback too; loss of a stable epoch abandons it. */
+    private fun releaseAfterFailure(failure: Throwable, textures: Collection<T>, epoch: Long,
+                                    currentBorrowed: (() -> Set<T>)? = null) {
+        try {
+            if (generation != epoch) return
+            val borrowed = currentBorrowed?.invoke().orEmpty()
+            releaseInEpoch(if (borrowed.isEmpty()) textures else textures.filter { it !in borrowed }, epoch)
+        } catch (secondary: Throwable) {
+            if (secondary !== failure) try { failure.addSuppressed(secondary) } catch (_: Throwable) { }
         }
     }
 
@@ -979,7 +1128,8 @@ internal class RecordedScene<T : Any> private constructor(
 
     private fun render(before: State<T>, after: Map<Pair<String, String?>, RecordedCel<T>>,
                        frozen: Map<String, BrushPreset>, epoch: Long = generation,
-                       publication: Publication<T>? = null, protected: Set<T> = emptySet()): Rendered<T> {
+                       publication: Publication<T>? = null, protected: Set<T> = emptySet(),
+                       currentBorrowed: (() -> Set<T>)? = null): Rendered<T> {
         requireSourceKinds(before.planes)
         requireSourceKinds(after)
         checkEpoch(epoch, publication)
@@ -989,11 +1139,12 @@ internal class RecordedScene<T : Any> private constructor(
         val existing = before.cacheTextures() + slabTextures(before.planes) + slabTextures(after) + history.heldTextures() + protected
         val fresh = LinkedHashSet<T>()
         fun own(textures: Collection<T>) {
+            val borrowed = currentBorrowed?.invoke().orEmpty()
             var valid = true
             // Inspect the complete returned batch even if an early name is invalid, so all fresh
             // siblings are reclaimed on refusal without releasing any already-live texture.
             for (texture in textures) {
-                if (texture in existing || !fresh.add(texture)) valid = false
+                if (texture in existing || texture in borrowed || !fresh.add(texture)) valid = false
             }
             require(valid) { "A renderer returned a texture already owned by this scene" }
         }
@@ -1065,7 +1216,7 @@ internal class RecordedScene<T : Any> private constructor(
             checkEpoch(epoch, publication)
             return Rendered(State(sceneIdentity, after.toMap(), saved, units.toMap(), plans, looks.toMap(), savedKeys), fresh.toSet(), affected.toMap())
         } catch (failure: Throwable) {
-            releaseInEpoch(fresh, epoch)
+            releaseAfterFailure(failure, fresh, epoch, currentBorrowed)
             throw failure
         }
     }

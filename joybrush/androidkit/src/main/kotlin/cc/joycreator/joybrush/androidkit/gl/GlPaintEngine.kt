@@ -1805,7 +1805,8 @@ class GlPaintEngine(
 
     /** A complete unmasked recipe image; only this engine can construct the captured lease. */
     private class CapturedRecipeLease(val record: StrokeRecord, val unit: RecordedLineUnit,
-                                      val physical: Long, val graphics: Long, val admittedTileBytes: Long)
+                                      val physical: Long, val graphics: Long, val admittedTileBytes: Long,
+                                      val copyPlan: cc.joycreator.joybrush.core.stroke.CapturedSourceCopyPlan)
 
     private class CapturedCopyMetrics {
         var allocations = 0
@@ -1829,14 +1830,14 @@ class GlPaintEngine(
         require((preset.engine != "stamp" || preset.tip.source == "procedural") && preset.line == null) {
             "Captured diagnostic needs a procedural unshaped recipe"
         }
-        require(record.samples.size in 1..64 && record.samples.all { kotlin.math.abs(it.x) <= 4096f && kotlin.math.abs(it.y) <= 4096f } &&
+        require(workingTileBudgetBytes != null || (record.samples.size in 1..64 && record.samples.all { kotlin.math.abs(it.x) <= 4096f && kotlin.math.abs(it.y) <= 4096f } &&
             record.widthScale <= 2f && record.screenPerDoc in 0.125f..8f &&
-            (preset.engine == ENGINE_WATERCOLOUR || preset.size.base in 1f..64f)) {
+            (preset.engine == ENGINE_WATERCOLOUR || preset.size.base in 1f..64f))) {
             "This diagnostic accepts only its bounded small recipe profile"
         }
         val length = record.samples.zipWithNext().sumOf { (a,b) ->
             kotlin.math.hypot((b.x-a.x).toDouble(), (b.y-a.y).toDouble()) }
-        require(length <= 2048.0) { "Captured diagnostic path budget exceeded" }
+        require(workingTileBudgetBytes != null || length <= 2048.0) { "Captured diagnostic path budget exceeded" }
         require(preset.blend == "normal") { "Captured diagnostic supports NORMAL source units" }
         if (workingTileBudgetBytes == null) requireLocalPaint()
         check(ready && (workingTileBudgetBytes != null || recordedScene == null) &&
@@ -1864,9 +1865,16 @@ class GlPaintEngine(
         // It bounds even WC's own size/dynamics/scatter before the first source GPU allocation.
         // The diagnostic evaluates the CPU recipe twice; this is not a performance claim.
         val replay = InkReplay.replay(recipe, preset)
-        val admittedKeys = capturedDiagnosticSourceKeys(replay.dabs)
+        val admittedKeys = if (workingTileBudgetBytes == null) capturedDiagnosticSourceKeys(replay.dabs)
+            else RecordedReplayTilePlan.keys(replay.dabs, replayTileLimit(workingTileBudgetBytes), size)
+        val limits = if (workingTileBudgetBytes == null)
+            cc.joycreator.joybrush.core.stroke.CapturedSourceCopyPlan.Limits()
+        else cc.joycreator.joybrush.core.stroke.CapturedSourceCopyPlan.Limits(
+            maxSourceTiles = replayTileLimit(workingTileBudgetBytes).coerceAtLeast(1),
+            maxDestinationTiles = (workingTileBudgetBytes / (size.toLong() * size * 4))
+                .coerceAtMost(Int.MAX_VALUE.toLong()).toInt().coerceAtLeast(1))
         val admittedPlan = cc.joycreator.joybrush.core.stroke.CapturedSourceCopyPlan.prepare(
-            admittedKeys, checkNotNull(record.capturedPhysicalSource), size)
+            admittedKeys, checkNotNull(record.capturedPhysicalSource), size, limits)
         // This fresh replay uses band + stroke + RGBA8 canonical targets (<=20 bytes/texel
         // for WC). Reserve32 bytes per source texel, plus every planned4-byte destination.
         // Fixed paper/image resources are independently required above and remain engine-owned.
@@ -1889,7 +1897,7 @@ class GlPaintEngine(
             cleanupProtected = owners
             require(unit.tiles.keys == admittedKeys && unit.tiles.values.all { it != 0 && it !in owners && it !in floatNames } &&
                 unit.tiles.values.distinct().size == unit.tiles.size) { "Captured recipe escaped its admitted fresh tile owners" }
-            val lease = CapturedRecipeLease(record, unit, physical, graphics, admittedTileBytes)
+            val lease = CapturedRecipeLease(record, unit, physical, graphics, admittedTileBytes, admittedPlan)
             handedOff = true
             return lease
         } finally {
@@ -1932,13 +1940,17 @@ class GlPaintEngine(
         return keys.toSet()
     }
 
+    /** A tile allowance, never a sample/dab-count policy for editable contacts. */
+    private fun replayTileLimit(budgetBytes: Long): Int =
+        (budgetBytes / (size.toLong() * size * 32)).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+
     /** Pool completely first; only then intersect the persisted domain and copy exact texels. */
     private fun copyCapturedRecipe(lease: CapturedRecipeLease, metrics: CapturedCopyMetrics): RecordedLineUnit {
         fun physicalAlive() = ready && !forgettingGraphicsContext && physicalContextEpoch == lease.physical
         fun current() = physicalAlive() && graphicsEpoch == lease.graphics
         check(current()) { "Captured copy context changed" }
-        val plan = cc.joycreator.joybrush.core.stroke.CapturedSourceCopyPlan.prepare(
-            lease.unit.tiles.keys, checkNotNull(lease.record.capturedPhysicalSource), size)
+        val plan = lease.copyPlan
+        require(plan.sourceKeys == lease.unit.tiles.keys) { "Captured source changed after copy admission" }
         val otherStaged = recordedWorkingTiles.snapshot(lease.physical).keys - lease.unit.tiles.values.toSet()
         val actualOwners = protectedRecordedTextureHandles() + otherStaged
         val protected = actualOwners + lease.unit.tiles.values
@@ -3049,16 +3061,8 @@ class GlPaintEngine(
                 var admittedKeys: Set<Long>? = null
                 val rendered = if (record.capturedPhysicalSource == null) {
                     if (capturedWorkingTileBudgetBytes != null) {
-                        // This explicit first connection is bounded before CPU dab generation too.
-                        // The ordinary renderer and live paint path keep their existing semantics.
-                        require(record.samples.size in 1..64 && record.samples.all {
-                            it.x.isFinite() && it.y.isFinite() && kotlin.math.abs(it.x) <= 4096f && kotlin.math.abs(it.y) <= 4096f
-                        } && record.widthScale.isFinite() && record.widthScale in 0.05f..2f &&
-                            record.screenPerDoc in 0.125f..8f && record.samples.zipWithNext().sumOf { (a,b) ->
-                                kotlin.math.hypot((b.x-a.x).toDouble(), (b.y-a.y).toDouble()) } <= 2048.0) {
-                            "This bounded recorded renderer needs a small finite raw recipe"
-                        }
-                        val keys = capturedDiagnosticSourceKeys(InkReplay.replay(record, preset).dabs)
+                        val keys = RecordedReplayTilePlan.keys(InkReplay.replay(record, preset).dabs,
+                            replayTileLimit(capturedWorkingTileBudgetBytes), size)
                         admittedKeys = keys
                         admitPeak(RecordedWorkingTilePlan.replay(keys.size, tileSize = size))
                     }
@@ -3160,16 +3164,13 @@ class GlPaintEngine(
         return object : RecordedScene.CapturedSourceRenderer<Int>, RecordedScene.Renderer<Int> by renderer {
             override fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Boolean {
                 if (!renderer.contextCurrent() || (address.layerId to address.celId) !in planes) return false
-                // Bounded first connection, shared with the proven full-resolution copy path.
-                // CPU preflight never paints or changes ownership/history.
+                // Resource admission belongs to the actual replay footprint, not a diagnostic
+                // sample/path cap. CPU preflight never paints or changes ownership/history.
                 return record.capturedPhysicalSource != null &&
                     cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.problems(record).isEmpty() &&
                     record.brushId == preset.id && BrushValidate.validate(preset).isEmpty() &&
                     preset.blend == "normal" && preset.line == null &&
-                    (preset.engine == ENGINE_WATERCOLOUR || (preset.engine == "stamp" && preset.tip.source == "procedural")) &&
-                    record.samples.size in 1..64 && record.samples.all { kotlin.math.abs(it.x) <= 4096f && kotlin.math.abs(it.y) <= 4096f } &&
-                    record.widthScale <= 2f && record.screenPerDoc in 0.125f..8f &&
-                    (preset.engine == ENGINE_WATERCOLOUR || preset.size.base in 1f..64f)
+                    (preset.engine == ENGINE_WATERCOLOUR || (preset.engine == "stamp" && preset.tip.source == "procedural"))
             }
         }
     }
@@ -4098,6 +4099,36 @@ class GlPaintEngine(
         }
         } finally {
             recordedPendingTileBytes = if (physicalContextEpoch == pendingPhysical) previousPending else emptyMap()
+        }
+    }
+
+    /** Source-unit copies and their history publish together; no native endStroke or look flattening. */
+    internal fun bakeRecordedLines(addresses: Set<LineAddress>): Boolean {
+        val expected = checkNotNull(publishedPaint) { "Recorded bake needs the bound artwork" }
+        val physical = physicalContextEpoch
+        check(ready && !resettingJointPaint && !forgettingGraphicsContext && !strokeInProgress &&
+            !wcFading && !mediaStrokeInProgress && framePreviews.isEmpty() && tileBoardId == null) {
+            "Finish paint and playback before baking recorded sources"
+        }
+        val scene = expected.coordinator
+        scene.stageJointBake(expected, addresses).use { proposal ->
+            validateRecordedPhysicalDisplay(proposal.candidateState)
+            val remainingSteps = proposal.historyProposal.cursor.undoSteps + proposal.historyProposal.cursor.redoSteps
+            val next = PublishedPaintState(expected.nativeLayers, expected.agreements, expected.document,
+                expected.paper, proposal.candidateState, proposal.historyProposal.cursor, expected.graphicsEpoch,
+                expected.protectedTextures, scene, expected.promotedBases,
+                expected.legacyBaseSteps.filter { old -> remainingSteps.any { it === old } }.toSet(), expected.baseTransferProof)
+            val retiredHistory = proposal.historyProposal.retirements.toList()
+            if (!proposal.canPublish() || publishedPaint !== expected || physicalContextEpoch != physical ||
+                graphicsEpoch != expected.graphicsEpoch) return false
+            publishedPaint = next
+            proposal.adoptAfterPublication()
+            proposal.releaseRetiredAfterPublication()
+            for (texture in retiredHistory) {
+                if (!ready || forgettingGraphicsContext || physicalContextEpoch != physical || graphicsEpoch != expected.graphicsEpoch) break
+                recycleLayerTex(texture)
+            }
+            return true
         }
     }
 

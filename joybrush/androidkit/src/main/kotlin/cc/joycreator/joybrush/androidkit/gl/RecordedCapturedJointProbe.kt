@@ -13,7 +13,6 @@ import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.stroke.CapturedStrokeRules
 import cc.joycreator.joybrush.core.stroke.CaptureDomain
 import cc.joycreator.joybrush.core.stroke.SourcePlacement
-import cc.joycreator.joybrush.core.vector.CelComposer
 import cc.joycreator.joybrush.core.vector.RecordedCel
 import cc.joycreator.joybrush.core.vector.RecordedEdits
 import java.nio.ByteBuffer
@@ -54,7 +53,6 @@ internal object RecordedCapturedJointProbe {
         val rawUnits = arrayListOf<GlPaintEngine.RecordedLineUnit>()
         val rawBytes = arrayListOf<Map<Long, ByteArray>>()
         val unadoptedUploads = linkedSetOf<Int>()
-        val unadoptedBake = linkedSetOf<Int>()
         var scene: RecordedScene<Int>? = null
         var readFbo = 0
         var failure: String? = null
@@ -471,25 +469,22 @@ internal object RecordedCapturedJointProbe {
             val beforeBakeOwners = (engine.protectedRecordedTextureHandles() - reusableBakeNames) +
                 current.heldCacheTextures() + baseTextures.values + engine.undo.heldTextures() +
                 rawUnits.flatMap { it.tiles.values }
-            @Suppress("UNCHECKED_CAST")
-            val actualRenderer = field(current, "renderer") as RecordedScene.Renderer<Int>
-            val copied = actualRenderer.copyForBake(address, cached)
-            copied.tiles.values.forEach(unadoptedBake::add) // Caller owns every source until publication.
-            bakeCalls++
-            feedback(copied.op == cached.op && copied.tiles.keys == cached.tiles.keys &&
-                copied.tiles.values.distinct().size == copied.tiles.size &&
-                copied.tiles.values.none { it in beforeBakeOwners || it in cached.tiles.values ||
-                    it in rawUnits.flatMap { raw -> raw.tiles.values } }, "bake canonical source copy")
-            for ((key, texture) in copied.tiles)
-                compare(expectedNewPlaced.getValue(key), read(texture, "unpublished bake source"), "bake-copy", key)
-            val baking = UndoLog.Step<Int>(emptyList(), lines = listOf(UndoLog.LineChange(layerId, null, old.id,
-                CelComposer.Line(moved.seq, moved), null)), slabs = copied.tiles.map { (key, texture) ->
-                UndoLog.SlabChange(layerId, null, key, moved.seq, null, UndoLog.SlabValue(texture, copied.op))
-            })
-            bakeStep = baking
             val beforeBakeRoot = root()
-            publishCalls++; check(engine.publishJointPaintStep(baking))
-            copied.tiles.values.forEach(unadoptedBake::remove)
+            bakeCalls++
+            publishCalls++; check(engine.bakeRecordedLines(setOf(address)))
+            val baking = checkNotNull(engine.undo.peekUndo())
+            bakeStep = baking
+            check(baking.changes.isEmpty() && baking.lines.size == 1 && baking.lines.single().after == null &&
+                CapturedStrokeRules.sameRecord(baking.lines.single().before?.record, moved))
+            val copied = baking.slabs.associate { change ->
+                check(change.layerId == layerId && change.celId == null && change.seq == moved.seq && change.before == null)
+                val value = checkNotNull(change.after)
+                check(value.op == cached.op)
+                change.key to value.texture
+            }
+            feedback(copied.keys == cached.tiles.keys && copied.values.distinct().size == copied.size &&
+                copied.values.none { it in beforeBakeOwners || it in cached.tiles.values ||
+                    it in rawUnits.flatMap { raw -> raw.tiles.values } }, "engine bake canonical source copy")
             check(root() !== beforeBakeRoot)
             checkpoint("baked", expectedNewFull, null, nativeAfter, afterBytes, 3)
             undoCalls++; check(engine.undoStep())
@@ -514,9 +509,6 @@ internal object RecordedCapturedJointProbe {
                     cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } }
                 }.toSet() else emptySet()
                 val actualOwners = engine.protectedRecordedTextureHandles() + adoptedSources + engine.undo.heldTextures()
-                val abandonedBake = unadoptedBake.filter { it !in actualOwners }
-                if (abandonedBake.isNotEmpty()) engine.discardRecordedLine(GlPaintEngine.RecordedLineUnit("normal",
-                    abandonedBake.mapIndexed { i, texture -> i.toLong() to texture }.toMap()))
                 val abandonedUploads = unadoptedUploads.filter { it != 0 && it !in actualOwners }
                 if (abandonedUploads.isNotEmpty()) GLES30.glDeleteTextures(abandonedUploads.size,
                     abandonedUploads.toIntArray(), 0)
@@ -542,6 +534,7 @@ internal object RecordedCapturedJointProbe {
             .put("wrongOffsetDifferentChannelsOrKeys", wrongOffsetDifferences).put("wrongDomainDifferentChannelsOrKeys", wrongDomainDifferences)
             .put("budgetRefusalChecks", budgetRefusalChecks).put("budgetRefusalBeforeGpu", budgetRefusalBeforeGpu)
             .put("bakeCalls", bakeCalls).put("bakeExecuted", bakeCalls == 1)
+            .put("engineBakeApiCalls", bakeCalls).put("reflectionBakeCalls", 0)
             .put("comparisonCount", comparisons).put("checkedChannels", checkedChannels).put("checkedPixels", checkedPixels)
             .put("differentChannels", differentChannels).put("differentPixels", differentPixels).put("maxByteDelta", maxDelta)
             .put("comparisons", rows).put("changedReferenceChannels", changedReferenceChannels)

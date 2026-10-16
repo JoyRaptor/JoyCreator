@@ -168,6 +168,7 @@ public final class ColorPickerDialog {
 
         final SeekBar alphaBar = new SeekBar(ctx);
         alphaBar.setMax(100);
+        SliderFace.apply(alphaBar, Studio.INK_DIM);
         titleRow.addView(alphaBar, new LinearLayout.LayoutParams(
                 Math.round(96 * d), LinearLayout.LayoutParams.WRAP_CONTENT));
 
@@ -230,7 +231,9 @@ public final class ColorPickerDialog {
         rightCol.addView(sliders, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
-        top.addView(leftCol);
+        // Exactly the wheel's width: the hex row under it must fit INSIDE this, never widen it.
+        top.addView(leftCol, new LinearLayout.LayoutParams(
+                Math.round(112 * d), LinearLayout.LayoutParams.WRAP_CONTENT));
         top.addView(rightCol, rightLp);
         root.addView(top);
 
@@ -258,6 +261,7 @@ public final class ColorPickerDialog {
 
             SeekBar bar = new SeekBar(ctx);
             bar.setMax(maxes[i]);
+            SliderFace.apply(bar, Studio.INK_DIM);
             bars[i] = bar;
             row.addView(bar, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -306,7 +310,7 @@ public final class ColorPickerDialog {
         copy.setText("⧉");
         copy.setTextSize(17f);
         copy.setTextColor(Studio.LABEL);
-        copy.setPadding(Math.round(10 * d), 0, Math.round(6 * d), 0);
+        copy.setPadding(Math.round(6 * d), 0, Math.round(4 * d), 0);
         hexRow.addView(copy);
 
         hex.setTextColor(Studio.INK);
@@ -315,7 +319,15 @@ public final class ColorPickerDialog {
         // Selectable so it can be copied by hand as well as by the icon — the icon is the fast
         // path, not the only one.
         hex.setTextIsSelectable(true);
-        hexRow.addView(hex);
+        // One line, always. The column under the wheel is only ~112dp wide, so at a large
+        // display or font size "#FFFFFF" broke onto a second line ("#FFFFF" / "F"). Fit the
+        // text to the room instead of letting it wrap.
+        hex.setSingleLine(true);
+        hex.setMaxLines(1);
+        androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                hex, 9, 14, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
+        hexRow.addView(hex, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         leftCol.addView(hexRow);
 
         copy.setOnClickListener(v -> {

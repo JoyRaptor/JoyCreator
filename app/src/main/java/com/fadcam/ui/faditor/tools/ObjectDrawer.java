@@ -1674,34 +1674,7 @@ public final class ObjectDrawer extends LinearLayout {
          * delegates here rather than drawing a second one (drawer audit 2026-09-24, T2).
          */
         public static void styleSlider(@NonNull android.widget.SeekBar bar, int fillColour) {
-            Context ctx = bar.getContext();
-            int h = dp(ctx, 4);
-            // setProgressDrawable can drop the level on some API levels; put it back below.
-            int progress = bar.getProgress();
-            GradientDrawable track = new GradientDrawable();
-            track.setColor(TRACK);
-            track.setCornerRadius(h);
-            GradientDrawable fill = new GradientDrawable();
-            fill.setColor(fillColour);
-            fill.setCornerRadius(h);
-            android.graphics.drawable.ClipDrawable clip = new android.graphics.drawable.ClipDrawable(
-                    fill, Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL);
-            android.graphics.drawable.LayerDrawable layers = new android.graphics.drawable.LayerDrawable(
-                    new android.graphics.drawable.Drawable[]{track, clip});
-            layers.setId(0, android.R.id.background);
-            layers.setId(1, android.R.id.progress);
-            for (int i = 0; i < 2; i++) {
-                layers.setLayerHeight(i, h);
-                layers.setLayerGravity(i, Gravity.CENTER_VERTICAL | Gravity.FILL_HORIZONTAL);
-            }
-            bar.setProgressDrawable(layers);
-            GradientDrawable thumb = new GradientDrawable();
-            thumb.setShape(GradientDrawable.OVAL);
-            thumb.setColor(Studio.DRAWER_INK);
-            thumb.setSize(dp(ctx, 15), dp(ctx, 15));
-            bar.setThumb(thumb);
-            bar.setSplitTrack(false);
-            bar.setProgress(progress);
+            SliderFace.apply(bar, fillColour, TRACK, Studio.DRAWER_INK);
         }
 
         /**

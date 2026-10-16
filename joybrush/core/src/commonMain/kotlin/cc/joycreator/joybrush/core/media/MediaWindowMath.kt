@@ -61,11 +61,14 @@ object WetSpread {
         val grow = ceil(substeps * 0.45).toFloat() + 2
         val far = ceil(DOWNHILL_MM / cellMm).toFloat(); val near = ceil(SIDEWAYS_MM / cellMm).toFloat()
         fun reach(d: Float) = if (d > 1e-4f) far else near
+        // Every edge only ever moves OUT within a wet episode. Turning the phone flips which side is "downhill"; a rect
+        // recomputed from the new slope alone shrank by up to 3 cm in one frame and froze every drip beyond it (owner:
+        // "the water only changes direction at the next stroke"). A steady slope gives exactly what it always did.
         return floatArrayOf(
-            max(0f, max(paint[0] - reach(-slopeX), rect[0] - grow)),
-            max(0f, max(paint[1] - reach(-slopeY), rect[1] - grow)),
-            min(w.toFloat(), min(paint[2] + reach(slopeX), rect[2] + grow)),
-            min(h.toFloat(), min(paint[3] + reach(slopeY), rect[3] + grow)),
+            min(rect[0], max(0f, max(paint[0] - reach(-slopeX), rect[0] - grow))),
+            min(rect[1], max(0f, max(paint[1] - reach(-slopeY), rect[1] - grow))),
+            max(rect[2], min(w.toFloat(), min(paint[2] + reach(slopeX), rect[2] + grow))),
+            max(rect[3], min(h.toFloat(), min(paint[3] + reach(slopeY), rect[3] + grow))),
         )
     }
 }

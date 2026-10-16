@@ -5,8 +5,8 @@ Rule: nothing below marked DECISION gets built until the owner picks.
 ## A. Studio (finish first)
 - [x] Sprite pin links, visualizer parent-follow, string resources (150 + 7 tool labels), token sweep, drawer inventories.
 - [ ] Sprite warp net looks detached from the sprite (owner report 2026-10-15). Sonnet agent investigating; verify on phone.
-- [ ] Dialogs: one Studio dialog theme (see studio_dialogs_audit.md). DECISION: positive-button colour.
-- [ ] Hover labels: 201 clickable sites with no label, 117 in FaditorEditorActivity (studio_hover_labels_audit.md). Fix the 15 most visible first via Kit.describe.
+- [x] Dialogs: the editor theme already styles dialogs; the one off-theme site (pin chooser) fixed. Remaining dialog work is strings and 11 non-MDC sites (studio_dialogs_audit.md).
+- [x] Hover labels: audit said 201 uncovered, but reading each site showed helpers already name nearly all; the real gaps (bottom-bar tools, visualizer layer buttons, B/I/U, text motion, pivot, export stripe) are labelled.
 - [ ] Drawer helper duplicates (studio_tools_audit.md top 10): TextOverlayDrawer.Kit aliasing ObjectDrawer.Kit, Kit.setChipOn View overload, grip pill, header toggle names.
 - [ ] Colour picker hex field wraps on the phone (colour helper: owner said do not touch).
 

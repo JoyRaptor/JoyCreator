@@ -10166,6 +10166,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Tapping the thin progress stripe re-opens the minimized export overlay.
         if (exportProgressStripe != null) {
             exportProgressStripe.setOnClickListener(v -> reshowExportProgress());
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(exportProgressStripe,
+                    getString(R.string.studio_hover_export_progress));
         }
 
         // Done button → navigate to Faditor Mini tab
@@ -18945,10 +18947,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             View ttLow = wordScrubDrawer.findViewById(R.id.word_sync_tt_low);
             if (ttLow != null) ttLow.setOnClickListener(v -> applyWordSyncCase("tt"));
             View b = wordScrubDrawer.findViewById(R.id.word_sync_b);
+            if (b != null) com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(b, getString(R.string.studio_hover_bold));
             if (b != null) b.setOnClickListener(v -> showWordSyncToast("Bold, underline and italic need per-word styling, which isn't built yet."));
             View u = wordScrubDrawer.findViewById(R.id.word_sync_u);
+            if (u != null) com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(u, getString(R.string.studio_hover_underline));
             if (u != null) u.setOnClickListener(v -> showWordSyncToast("Bold, underline and italic need per-word styling, which isn't built yet."));
             View i = wordScrubDrawer.findViewById(R.id.word_sync_i);
+            if (i != null) com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(i, getString(R.string.studio_hover_italic));
             if (i != null) i.setOnClickListener(v -> showWordSyncToast("Bold, underline and italic need per-word styling, which isn't built yet."));
             if (wordSyncDrawerRippleLabel != null) wordSyncDrawerRippleLabel.setOnClickListener(v -> cycleWordSyncRipple());
             if (wordSyncDrawerSnapLabel != null) wordSyncDrawerSnapLabel.setOnClickListener(v -> toggleWordSyncSnap());
@@ -21303,7 +21308,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Action buttons: ＋ add · ⧉ duplicate · 🗑 delete · ◀ ▶ reorder.
         final java.util.List<com.fadcam.ui.faditor.model.VizLayer> fLayers = layers;
-        chipsRow.addView(makeVizActionBtn("＋", dp, v -> {
+        chipsRow.addView(makeVizActionBtn("＋", R.string.studio_hover_viz_add_layer, dp, v -> {
             com.fadcam.ui.faditor.model.VizLayer nl = fLayers.isEmpty()
                     ? new com.fadcam.ui.faditor.model.VizLayer()
                     : fLayers.get(Math.min(visualizerSelectedLayer, fLayers.size() - 1)).copy();
@@ -21312,7 +21317,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             commitVisualizerWorkingStyle(overlay);
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
-        chipsRow.addView(makeVizActionBtn("⧉", dp, v -> {
+        chipsRow.addView(makeVizActionBtn("⧉", R.string.studio_hover_viz_duplicate_layer, dp, v -> {
             if (fLayers.isEmpty()) return;
             com.fadcam.ui.faditor.model.VizLayer dup = fLayers.get(visualizerSelectedLayer).copy();
             fLayers.add(visualizerSelectedLayer + 1, dup);
@@ -21320,7 +21325,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             commitVisualizerWorkingStyle(overlay);
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
-        chipsRow.addView(makeVizActionBtn("🗑", dp, v -> {
+        chipsRow.addView(makeVizActionBtn("🗑", R.string.studio_hover_viz_delete_layer, dp, v -> {
             if (fLayers.size() <= 1) { // min 1 layer stays
                 Toast.makeText(this, R.string.studio_toast_at_least_one_lane, Toast.LENGTH_SHORT).show();
                 return;
@@ -21330,14 +21335,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             commitVisualizerWorkingStyle(overlay);
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
-        chipsRow.addView(makeVizActionBtn("◀︎", dp, v -> {
+        chipsRow.addView(makeVizActionBtn("◀︎", R.string.studio_hover_viz_move_layer_left, dp, v -> {
             if (visualizerSelectedLayer <= 0) return;
             java.util.Collections.swap(fLayers, visualizerSelectedLayer, visualizerSelectedLayer - 1);
             visualizerSelectedLayer--;
             commitVisualizerWorkingStyle(overlay);
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
-        chipsRow.addView(makeVizActionBtn("▶︎", dp, v -> {
+        chipsRow.addView(makeVizActionBtn("▶︎", R.string.studio_hover_viz_move_layer_right, dp, v -> {
             if (visualizerSelectedLayer >= fLayers.size() - 1) return;
             java.util.Collections.swap(fLayers, visualizerSelectedLayer, visualizerSelectedLayer + 1);
             visualizerSelectedLayer++;
@@ -21467,9 +21472,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Small square action button for the layer chip row (＋ ⧉ 🗑 ◀ ▶). */
     @NonNull
-    private TextView makeVizActionBtn(@NonNull String label, float dp, @NonNull View.OnClickListener onClick) {
+    private TextView makeVizActionBtn(@NonNull String label, int nameRes, float dp, @NonNull View.OnClickListener onClick) {
         TextView b = new TextView(this);
         b.setText(label);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(b, getString(nameRes));
         b.setTextSize(13);
         b.setTextColor(Studio.INK);
         b.setGravity(android.view.Gravity.CENTER);
@@ -23357,6 +23363,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Named for TalkBack AND the stylus hover (drawer audit 2026-09-24, E8).
         com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(v,
                 getString(R.string.faditor_lc_motion_title));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(v, getString(R.string.studio_hover_text_motion));
         return v;
     }
 
@@ -35136,6 +35143,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             Math.round(44 * d), Math.round(44 * d));
             pivotLp.leftMargin = Math.round(2 * d);
             topRow.addView(pivotBtn, pivotLp);
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(pivotBtn, getString(R.string.studio_hover_pivot));
             pivotBtn.setOnClickListener(v ->
                     com.fadcam.ui.faditor.tools.PivotPickerPopover.show(pivotBtn,
                             o.rotationPivotXNorm(), o.rotationPivotYNorm(), (nx, ny) ->

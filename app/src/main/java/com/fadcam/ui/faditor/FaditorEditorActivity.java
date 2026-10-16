@@ -35025,6 +35025,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public void onFxChanged() {
                 item.setFx(fx);
                 refreshAfterMarqueeBatchDelete();
+                // AND RE-RUN THE GL COMPOSITE. An image's effects are drawn ONLY by the plan
+                // FxLivePreviewController.buildPlan bakes (its ImageView is held at alpha 0), and
+                // that plan is rebuilt on a playhead tick, which never comes while paused. So the
+                // card and the lane badge appeared and the picture did not change. The PiP and
+                // adjustment hosts push here for the same reason; coalesced, so a slider drag
+                // costs one rebuild per frame.
+                requestGlPreviewResync();
                 scheduleAutoSave();
             }
             @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,

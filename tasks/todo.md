@@ -45,6 +45,20 @@ Rule: nothing below marked DECISION gets built until the owner picks.
 - [ ] Sweep leftovers: caption motion "Type - word" stuck; caption hide-eye / outline swatch no visible response; Invert effect not visible on an image overlay; Puppet RECORDING tab button column clipped.
 - [ ] Lobby: reads off the main thread; "N ITEMS" count to match Library; recording card opens the recording.
 
+## JoyBrush engine continuation — October 16 (Codex Lead)
+
+- [x] Bound canonical-source bake through actual engine publication and public undo/redo;
+  source 97d0a51c full backend 876 and native 203 passed.
+- [x] Incremental replay tile admission without diagnostic raw/sample caps on the opted-in
+  renderer; source 8b40d6dcf full core 2442 (four existing optional skips), backend 878,
+  native 203 and combined APK passed. Default recording/Select/save guards remain.
+- [ ] Exact-source captured joint Note9 acceptance and ordinary paint regression; current
+  guarded run label captured-joint-8b40d6dcf. Do not infer completion from compilation.
+- [ ] Review/test the isolated live scratch source lease and prepared-unit handoff, then
+  connect one committed raw/seed/domain transaction without a preceding native pixel Step.
+- [ ] Actual Select host, continued joint native/media/structural/paper edits, durable captured
+  source save/cold load/Working/recovery/thumbnail/export. Then ready Media Atlas A2.
+
 ## Progress 2026-10-16 morning (lead)
 - [x] Settings hub v2 verified on the Note 9 (sections, jump chips, search above keyboard, Torch opens, Back returns). Classic settings kept under About. Owner decisions in the agent report: results stack at the bottom (nearest thumb); clock-widget tap and Joybot "setup" still land on the classic tab; Ko-fi link still points at the original FadCam author (not in hub); Packs has no room of its own.
 - [x] Drawer header toggles (Hide/Lock/Mute/Bypass/Pass-through) = one undo step each; verified.

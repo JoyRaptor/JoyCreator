@@ -117,7 +117,9 @@ class InkReplayAdmittedTest {
         }
     }
 
-    private fun inputs(dab: Dab) = DabInputs(pressure = dab.pressure, tilt = dab.tilt)
+    private fun inputs(dab: Dab) = DabInputs(pressure = dab.pressure, tilt = dab.tilt,
+        speedPxPerS = Float.NaN, direction = Float.NaN, lean = Float.NaN, distancePx = Float.NaN,
+        random = Float.NaN, strokeRandom = Float.NaN, barrel = Float.NaN)
 
     @Test fun placerAndBothScatterSinkFormsKeepBatchingFieldsAndExactRandomDrawCount() {
         val brush = stamp()

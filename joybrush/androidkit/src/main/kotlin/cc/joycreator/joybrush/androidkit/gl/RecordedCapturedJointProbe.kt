@@ -85,6 +85,8 @@ internal object RecordedCapturedJointProbe {
         var rawPreservationChecks = 0
         var physicalSourceChecks = 0
         var unionAbsenceChecks = 0
+        var sourceUnionAbsenceChecks = 0
+        val workingTileRows = JSONArray()
         var nativeAfter = 0
         var nativeBefore = 0
         var cleanupComplete = false
@@ -398,6 +400,42 @@ internal object RecordedCapturedJointProbe {
                     sourceComparisons++
                     compare(bytes, read(baked.value.texture, "$label baked canonical source"), "$label-baked-source", key)
                 }
+                val physicalSources = if (record != null) checkNotNull(actualUnit).unit.tiles else
+                    current.planes.getValue(plane).slabs.mapNotNull { (key, stack) ->
+                        stack.singleOrNull { it.seq == old.seq }?.let { key to it.value.texture }
+                    }.toMap()
+                check(physicalSources.keys == sourceExpected.keys)
+                for (key in actualUnion - sourceExpected.keys) {
+                    sourceUnionAbsenceChecks++
+                    check(key !in physicalSources) { "$label stale canonical source at old/new union key $key" }
+                }
+                // These are device-generated output names. Expose both byte inventories so
+                // the external counter can recompute dedup/max independently of admit().
+                val physicalEpoch = field(engine, "physicalContextEpoch") as Long
+                val ledger = field(engine, "recordedWorkingTiles") as RecordedWorkingTileLedger
+                val staged = ledger.snapshot(physicalEpoch)
+                val actualOwners = engine.recordedWorkingTileBytes(current.planes)
+                val registeredOutputs = (current.heldCacheTextures() + physicalSources.values +
+                    rawUnits.flatMap { it.tiles.values }).toSet()
+                check(registeredOutputs.all { staged[it] == length.toLong() }) {
+                    "$label actual recorded outputs are not registered in their physical epoch"
+                }
+                val merged = LinkedHashMap(actualOwners)
+                staged.forEach { (texture, bytes) -> merged[texture] = maxOf(merged[texture] ?: 0L, bytes) }
+                val used = merged.values.fold(0L) { total, bytes -> Math.addExact(total, bytes) }
+                check(used > 0L && ledger.admit(physicalEpoch, actualOwners, 0L, used) == used)
+                var refusedBoundary = false
+                try { ledger.admit(physicalEpoch, actualOwners, 0L, used - 1L) }
+                catch (_: IllegalArgumentException) { refusedBoundary = true }
+                check(refusedBoundary) { "$label resident/staged bytes escaped their exact tile allowance" }
+                fun inventory(values: Map<Int, Long>) = JSONArray().also { entries ->
+                    values.forEach { (texture, bytes) -> entries.put(JSONObject().put("texture", texture).put("bytes", bytes)) }
+                }
+                workingTileRows.put(JSONObject().put("phase", label).put("physicalEpoch", physicalEpoch)
+                    .put("actualOwners", inventory(actualOwners)).put("staged", inventory(staged))
+                    .put("registeredOutputs", JSONArray(registeredOutputs.toList()))
+                    .put("admittedBytes", used).put("refusedBudgetBytes", used - 1L)
+                    .put("exactBudgetAccepted", true).put("oneByteShortRefused", refusedBoundary))
                 for (key in actualUnion) {
                     val texture = current.look(plane, key)
                     if (key !in expected) {
@@ -523,7 +561,8 @@ internal object RecordedCapturedJointProbe {
         }
         return report.put("passed", failure == null && cleanupComplete && errors == 0 && badFbos == 0 && badFeedback == 0 &&
             budgetRefusalChecks == 1 && budgetRefusalBeforeGpu && sourceComparisons > 0 && bakeCalls == 1 &&
-            wrongOffsetDifferences > 0 && wrongDomainDifferences > 0)
+            wrongOffsetDifferences > 0 && wrongDomainDifferences > 0 && workingTileRows.length() == 7 &&
+            sourceUnionAbsenceChecks > 0 && unionAbsenceChecks == 0)
             .put("failure", failure ?: JSONObject.NULL).put("phase", phase).put("cleanupComplete", cleanupComplete)
             .put("tileSize", n).put("maxActualUnionKeys", 32).put("actualUnionKeys", JSONArray(actualUnion.sorted().map { it.toString() }))
             .put("oldPlacedSourceKeys", JSONArray(oldPlacedKeys.sorted().map { it.toString() }))
@@ -546,7 +585,8 @@ internal object RecordedCapturedJointProbe {
             .put("rootChecks", rootChecks).put("historyChecks", historyChecks).put("nativeApiChecks", nativeApiChecks)
             .put("nativeReadChecks", nativeReadChecks).put("untouchedSiblingChecks", siblingChecks).put("rawPreservationChecks", rawPreservationChecks)
             .put("physicalSourceChecks", physicalSourceChecks)
-            .put("unionAbsenceChecks", unionAbsenceChecks).put("maxComparisonRows", 2048)
+            .put("unionAbsenceChecks", unionAbsenceChecks).put("sourceUnionAbsenceChecks", sourceUnionAbsenceChecks)
+            .put("workingTileChecks", workingTileRows).put("maxComparisonRows", 2048)
             .put("readbackCalls", reads).put("glErrorChecks", glChecks).put("observedGlErrors", errors)
             .put("framebufferChecks", fboChecks).put("incompleteFramebuffers", badFbos)
             .put("feedbackChecks", feedbackChecks).put("feedbackFailures", badFeedback).put("resetCalls", resetCalls)

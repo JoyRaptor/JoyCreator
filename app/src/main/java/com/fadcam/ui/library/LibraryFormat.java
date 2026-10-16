@@ -15,13 +15,13 @@ import java.util.concurrent.TimeUnit;
  * The words and numbers under a card. Same voice as the lobby's recents ("RECORDING · 2h ago"), so a
  * thing reads the same on the front door and in the Library.
  */
-final class LibraryFormat {
+public final class LibraryFormat {
 
     private LibraryFormat() {}
 
     /** "just now", "12m ago", "3h ago", "5d ago", "2mo ago". */
     @NonNull
-    static String ago(@NonNull Context c, long when) {
+    public static String ago(@NonNull Context c, long when) {
         long d = Math.max(0, System.currentTimeMillis() - when);
         if (d < TimeUnit.MINUTES.toMillis(2)) return c.getString(R.string.library_ago_now);
         if (d < TimeUnit.HOURS.toMillis(1)) return c.getString(R.string.library_ago_minutes, (int) TimeUnit.MILLISECONDS.toMinutes(d));
@@ -33,7 +33,7 @@ final class LibraryFormat {
 
     /** "24 MB", or "" when the size is not known. */
     @NonNull
-    static String size(@NonNull Context c, long bytes) {
+    public static String size(@NonNull Context c, long bytes) {
         return bytes < 0 ? "" : Formatter.formatShortFileSize(c, bytes);
     }
 
@@ -46,10 +46,12 @@ final class LibraryFormat {
 
     /**
      * The card's second line. A sheet or a character says which project it lives in, since that is
-     * what tells two "Walk cycle"s apart; everything else says how long ago.
+     * what tells two "Walk cycle"s apart; everything else says how long ago. A project also says
+     * its running time, and in the roomier list its layers too, in the lobby's order:
+     * {@code PROJECT · 6 layers · 0:47 · 2h ago}.
      */
     @NonNull
-    static String meta(@NonNull Context c, @NonNull LibraryItem it) {
+    static String meta(@NonNull Context c, @NonNull LibraryItem it, boolean roomy) {
         String tag = c.getString(LibraryKindStyle.tag(it));
         String second;
         if (it.needsRestore) {
@@ -60,6 +62,13 @@ final class LibraryFormat {
             second = c.getString(R.string.library_avatar_library);
         } else {
             second = ago(c, it.modified);
+        }
+        if (it.durationMs > 0) {
+            second = c.getString(R.string.library_meta, LibraryClock.of(it.durationMs), second);
+        }
+        if (roomy && it.layers > 0) {
+            second = c.getString(R.string.library_meta,
+                    c.getResources().getQuantityString(R.plurals.projects_layers, it.layers, it.layers), second);
         }
         return c.getString(R.string.library_meta, tag, second);
     }

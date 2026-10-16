@@ -32,7 +32,7 @@ import java.io.File;
  * never an error on the screen. The glyph steps aside once the picture is in, because a sprite
  * sheet's transparent pixels would otherwise show it through. A font draws its own specimen.</p>
  */
-final class LibraryThumbs {
+public final class LibraryThumbs {
 
     /** One second in: a recording's first frame is very often black (the lobby's rule too). */
     private static final long FRAME_US = 1_000_000L;
@@ -44,7 +44,7 @@ final class LibraryThumbs {
      * @param glyph   the kind's glyph (or a font's specimen), shown wherever the picture is not
      * @param sizePx  the longest side to decode at
      */
-    static void bind(@NonNull LibraryItem it, @NonNull ImageView picture, @NonNull TextView glyph,
+    public static void bind(@NonNull LibraryItem it, @NonNull ImageView picture, @NonNull TextView glyph,
                      int sizePx) {
         Glide.with(picture).clear(picture);
         picture.setImageDrawable(null);

@@ -10,8 +10,9 @@ import com.fadcam.ui.faditor.SheetKit;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 /**
- * The options button's sheet: sort, view density, and the two ways out: Trash, and the classic
- * Records screen (owner ruling f: it stays whole and reachable until this one is better in every way).
+ * The options button's sheet: sort, view density, and the ways out: Trash, the classic Records
+ * screen and the classic Studio list (owner ruling f: they stay whole and reachable until this one
+ * is better in every way).
  */
 final class LibraryOptionsSheet {
 
@@ -20,6 +21,7 @@ final class LibraryOptionsSheet {
         void onDense(boolean list);
         void onTrash();
         void onClassic();
+        void onClassicStudio();
     }
 
     private LibraryOptionsSheet() {}
@@ -55,6 +57,8 @@ final class LibraryOptionsSheet {
                 false, SheetKit.Trail.CHEVRON, v -> { d.dismiss(); l.onTrash(); }).view);
         root.addView(SheetKit.row(c, "history", c.getString(R.string.library_classic),
                 false, SheetKit.Trail.CHEVRON, v -> { d.dismiss(); l.onClassic(); }).view);
+        root.addView(SheetKit.row(c, "movie_edit", c.getString(R.string.projects_classic_list),
+                false, SheetKit.Trail.CHEVRON, v -> { d.dismiss(); l.onClassicStudio(); }).view);
 
         d.setContentView(SheetKit.fitNavBar(root));
         d.show();

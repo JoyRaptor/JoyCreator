@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
  *
  * <p>Folder I/O: run on {@link JoyFolderHome#io()}, the one thread all folder work shares.</p>
  */
-final class FolderReader {
+public final class FolderReader {
 
     private static final String TAG = "LibraryFolder";
     private static final Pattern PROJECT_ID = Pattern.compile("\"id\"\\s*:\\s*\"([^\"]+)\"");
@@ -115,7 +115,7 @@ final class FolderReader {
 
     /** What the recorder's readable name says made the file ("Screen recording 2026-…"). */
     @NonNull
-    static LibraryClassifier.Capture captureOf(@NonNull String fileName) {
+    public static LibraryClassifier.Capture captureOf(@NonNull String fileName) {
         RecordingStoragePaths.JoyKind k = RecordingStoragePaths.JoyKind.ofName(fileName);
         if (k == null) return LibraryClassifier.Capture.NONE;
         switch (k) {

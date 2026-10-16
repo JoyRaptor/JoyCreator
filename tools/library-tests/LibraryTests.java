@@ -1,6 +1,7 @@
 import com.fadcam.joyfolder.FileKind;
 import com.fadcam.ui.library.LibraryClassifier;
 import com.fadcam.ui.library.LibraryClassifier.Capture;
+import com.fadcam.ui.library.LibraryClock;
 import com.fadcam.ui.library.LibraryFilter;
 import com.fadcam.ui.library.LibraryItem;
 import com.fadcam.ui.library.LibraryKind;
@@ -34,6 +35,7 @@ public final class LibraryTests {
         run("sort: newest, then name in number order", LibraryTests::sort);
         run("bands: today, yesterday, week, month, earlier", LibraryTests::bands);
         run("bands: rows carry headers only when banded", LibraryTests::bandRows);
+        run("clock: m:ss, then h:mm:ss, as the lobby writes it", LibraryTests::clock);
         System.out.println();
         System.out.println(passed + " passed, " + failed + " failed");
         if (failed > 0) System.exit(1);
@@ -174,6 +176,16 @@ public final class LibraryTests {
         eq(2, rows.get(0).bandCount);
         check(rows.get(3).isHeader() && rows.get(3).band == LibrarySections.Band.THIS_WEEK, "then this week");
         eq(3, LibrarySections.rows(sorted, false, TODAY).size());
+    }
+
+    static void clock() {
+        eq("0:00", LibraryClock.of(0));
+        eq("0:00", LibraryClock.of(-5));
+        eq("0:47", LibraryClock.of(47_999));          // cut, not rounded
+        eq("2:05", LibraryClock.of(125_000));
+        eq("59:59", LibraryClock.of(3_599_000));
+        eq("1:00:00", LibraryClock.of(3_600_000));
+        eq("1:02:03", LibraryClock.of(3_723_000));
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────────

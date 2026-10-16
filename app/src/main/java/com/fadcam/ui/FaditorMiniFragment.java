@@ -3,15 +3,12 @@ package com.fadcam.ui;
 import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.app.Activity;
-import android.content.ContentResolver;
 import android.content.Intent;
-import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Typeface;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.OpenableColumns;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -32,7 +29,6 @@ import androidx.core.content.res.ResourcesCompat;
 import com.fadcam.R;
 import com.fadcam.ui.faditor.FaditorEditorActivity;
 import com.fadcam.ui.faditor.FaditorInfoBottomSheet;
-import com.fadcam.ui.faditor.VideoSourceBottomSheet;
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.FaditorProject;
@@ -63,8 +59,8 @@ public class FaditorMiniFragment extends BaseFragment {
 
     private static final String TAG = "FaditorMiniFragment";
 
-    /** Launcher for the system video file picker. */
-    private ActivityResultLauncher<Intent> videoPickerLauncher;
+    /** Starting a project: the source sheet, the picker, naming and building (shared with the Library). */
+    private com.fadcam.ui.studio.NewProjectFlow newProject;
 
     /** Launcher for the editor Activity result. */
     private ActivityResultLauncher<Intent> editorLauncher;
@@ -145,43 +141,6 @@ public class FaditorMiniFragment extends BaseFragment {
             }
         }
 
-        // Register video picker result handler
-        videoPickerLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) {
-                        return;
-                    }
-                    // Collect one or many picked videos, preserving selection order.
-                    List<Uri> uris = new ArrayList<>();
-                    android.content.ClipData clip = result.getData().getClipData();
-                    if (clip != null) {
-                        for (int i = 0; i < clip.getItemCount(); i++) {
-                            Uri u = clip.getItemAt(i).getUri();
-                            if (u != null) uris.add(u);
-                        }
-                    } else if (result.getData().getData() != null) {
-                        uris.add(result.getData().getData());
-                    }
-                    if (uris.isEmpty()) return;
-
-                    for (Uri u : uris) {
-                        try {
-                            requireContext().getContentResolver().takePersistableUriPermission(
-                                    u, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                        } catch (SecurityException e) {
-                            FLog.w(TAG, "Could not take persistable URI permission", e);
-                        }
-                    }
-
-                    if (uris.size() == 1) {
-                        launchEditor(uris.get(0));
-                    } else {
-                        promptNameThenCreateProject(uris);
-                    }
-                }
-        );
-
         // Register editor result handler
         editorLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -193,6 +152,8 @@ public class FaditorMiniFragment extends BaseFragment {
                     refreshRecentProjects();
                 }
         );
+        // The picker is registered by the flow, after the editor launcher it reports back through.
+        newProject = new com.fadcam.ui.studio.NewProjectFlow(this, editorLauncher);
     }
 
     @Nullable
@@ -212,7 +173,7 @@ public class FaditorMiniFragment extends BaseFragment {
         // Setup "Start Project" button → opens video source chooser
         View selectButton = view.findViewById(R.id.btn_select_video);
         if (selectButton != null) {
-            selectButton.setOnClickListener(v -> showVideoSourceChooser());
+            selectButton.setOnClickListener(v -> newProject.start());
         }
 
         // Avatar Studio, standalone (library-backed — no project needed): avatars
@@ -848,7 +809,7 @@ public class FaditorMiniFragment extends BaseFragment {
             // Normal mode: tap opens editor, long-press enters selection
             row.setOnClickListener(v -> {
                 if (summary.videoUri != null) {
-                    launchEditor(Uri.parse(summary.videoUri), summary.id);
+                    newProject.openEditor(Uri.parse(summary.videoUri), summary.id);
                 }
             });
             row.setOnLongClickListener(v -> {
@@ -866,68 +827,13 @@ public class FaditorMiniFragment extends BaseFragment {
     // ── Helpers ──────────────────────────────────────────────────────
 
     /**
-     * Extract a human-readable display name from a video URI.
-     * Falls back to "Untitled" if extraction fails.
+     * A source video's readable name, or "Untitled": the file name rule now lives in
+     * {@link com.fadcam.ui.studio.SourceName}, shared with new projects and the Library.
      */
     @NonNull
     private String extractDisplayName(@Nullable String uriString) {
-        if (uriString == null) return "Untitled";
-
-        try {
-            Uri uri = Uri.parse(uriString);
-
-            // Try ContentResolver query for content:// URIs
-            if ("content".equals(uri.getScheme())) {
-                ContentResolver cr = requireContext().getContentResolver();
-                try (Cursor cursor = cr.query(uri, new String[]{OpenableColumns.DISPLAY_NAME},
-                        null, null, null)) {
-                    if (cursor != null && cursor.moveToFirst()) {
-                        int idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-                        if (idx >= 0) {
-                            String name = cursor.getString(idx);
-                            if (name != null && !name.isEmpty()) {
-                                return stripExtension(name);
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    FLog.w(TAG, "ContentResolver query failed for display name", e);
-                }
-            }
-
-            // Try extracting from path
-            String path = uri.getPath();
-            if (path != null) {
-                // Handle SAF-style paths like /tree/primary:Android/data/.../FadCam_xxx.mp4
-                if (path.contains(":")) {
-                    String afterColon = path.substring(path.lastIndexOf(':') + 1);
-                    if (afterColon.contains("/")) {
-                        afterColon = afterColon.substring(afterColon.lastIndexOf('/') + 1);
-                    }
-                    if (!afterColon.isEmpty()) {
-                        return stripExtension(afterColon);
-                    }
-                }
-                // Simple file path
-                String lastSegment = uri.getLastPathSegment();
-                if (lastSegment != null && !lastSegment.isEmpty()) {
-                    return stripExtension(lastSegment);
-                }
-            }
-        } catch (Exception e) {
-            FLog.w(TAG, "Failed to extract display name from: " + uriString, e);
-        }
-
-        return "Untitled";
-    }
-
-    /**
-     * Remove .mp4 / .MP4 extension from a filename.
-     */
-    @NonNull
-    private static String stripExtension(@NonNull String filename) {
-        int dot = filename.lastIndexOf('.');
-        return dot > 0 ? filename.substring(0, dot) : filename;
+        String name = com.fadcam.ui.studio.SourceName.of(requireContext(), uriString);
+        return name != null ? name : getString(R.string.projects_untitled);
     }
 
     /**
@@ -978,179 +884,8 @@ public class FaditorMiniFragment extends BaseFragment {
         });
     }
 
-    // ── Video Source Chooser ────────────────────────────────────────
-
-    /**
-     * Show the video source bottom sheet, offering "Browse Device" and
-     * "FadCam Recordings" options.
-     */
-    private void showVideoSourceChooser() {
-        VideoSourceBottomSheet sheet = new VideoSourceBottomSheet();
-        sheet.setCallback(new VideoSourceBottomSheet.Callback() {
-            @Override
-            public void onBrowseDevice() {
-                openVideoPicker();
-            }
-
-            @Override
-            public void onStartBlankAudioProject() {
-                // G21/B9: no video pick — the editor opens an empty audio project.
-                Intent intent = new Intent(requireContext(), FaditorEditorActivity.class);
-                intent.putExtra(FaditorEditorActivity.EXTRA_START_BLANK_AUDIO, true);
-                try {
-                    editorLauncher.launch(intent);
-                } catch (Exception e) {
-                    FLog.e(TAG, "Failed to launch blank audio project", e);
-                    android.widget.Toast.makeText(requireContext(),
-                            "Couldn't open the project.",
-                            android.widget.Toast.LENGTH_LONG).show();
-                }
-            }
-
-            @Override
-            public void onRecordingSelected(@NonNull Uri videoUri) {
-                launchEditor(videoUri);
-            }
-        });
-        sheet.show(getChildFragmentManager(), "video_source");
-    }
-
-    /**
-     * Open the system file picker to select a video file.
-     */
-    private void openVideoPicker() {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("video/*");
-        // Allow picking several clips at once → one ordered project.
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-
-        try {
-            videoPickerLauncher.launch(intent);
-        } catch (Exception e) {
-            FLog.e(TAG, "Failed to open video picker", e);
-            Toast.makeText(requireContext(),
-                    R.string.faditor_error_picker, Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    /**
-     * Launch the full-screen editor with the selected video (new project).
-     */
-    private void launchEditor(@NonNull Uri videoUri) {
-        launchEditor(videoUri, null);
-    }
-
-    /**
-     * Launch the full-screen editor, optionally loading a saved project.
-     *
-     * @param videoUri  the video URI for playback
-     * @param projectId the saved project ID to restore, or null for a new project
-     */
-    private void launchEditor(@NonNull Uri videoUri, @Nullable String projectId) {
-        Intent intent = new Intent(requireContext(), FaditorEditorActivity.class);
-        if (projectId != null) {
-            // Saved project: the editor loads the source URI from storage itself.
-            // Attaching the content:// URI with a grant flag here crashes the app
-            // at launch if the persisted permission was lost (SecurityException).
-            intent.putExtra(FaditorEditorActivity.EXTRA_PROJECT_ID, projectId);
-        } else {
-            // New project: URI is freshly picked, so the grant is valid.
-            intent.setData(videoUri);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        }
-        try {
-            editorLauncher.launch(intent);
-        } catch (Exception e) {
-            FLog.e(TAG, "Failed to launch editor", e);
-            android.widget.Toast.makeText(requireContext(),
-                    "Couldn't open the project — the source video's access may have been lost.",
-                    android.widget.Toast.LENGTH_LONG).show();
-        }
-    }
-
-    /**
-     * Ask for a project name, then build one project containing the picked
-     * videos in the order they were selected and open it in the editor.
-     */
-    private void promptNameThenCreateProject(@NonNull List<Uri> uris) {
-        final android.widget.EditText input = new android.widget.EditText(requireContext());
-        input.setHint(R.string.faditor_new_project_hint);
-        String defaultName = new SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
-                .format(new Date());
-        input.setText(defaultName);
-        input.setSelectAllOnFocus(true);
-        int pad = (int) (20 * getResources().getDisplayMetrics().density);
-        android.widget.FrameLayout wrap = new android.widget.FrameLayout(requireContext());
-        wrap.setPadding(pad, pad / 2, pad, 0);
-        wrap.addView(input);
-
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(getString(R.string.faditor_new_project_title, uris.size()))
-                .setView(wrap)
-                .setNegativeButton(R.string.faditor_cancel, null)
-                .setPositiveButton(R.string.faditor_create, (d, w) -> {
-                    String name = input.getText().toString().trim();
-                    if (name.isEmpty()) name = defaultName;
-                    createMultiClipProject(name, uris);
-                })
-                .show();
-    }
-
-    /** Probe each video, build the project off the UI thread, then open it. */
-    private void createMultiClipProject(@NonNull String name, @NonNull List<Uri> uris) {
-        Toast.makeText(requireContext(), R.string.faditor_creating_project,
-                Toast.LENGTH_SHORT).show();
-        thumbnailExecutor.execute(() -> {
-            FaditorProject project = new FaditorProject(name);
-            Timeline timeline = project.getTimeline();
-            int added = 0;
-            for (Uri uri : uris) {
-                long durationMs = probeDurationMs(uri);
-                if (durationMs <= 0) {
-                    FLog.w(TAG, "Skipping clip with unknown duration: " + uri);
-                    continue;
-                }
-                Clip clip = new Clip(uri, durationMs);
-                clip.setDisplayName(extractDisplayName(uri.toString()));
-                timeline.addClip(clip);
-                added++;
-            }
-            final int finalAdded = added;
-            boolean saved = finalAdded > 0 && projectStorage.save(project);
-            if (!isAdded()) return;
-            requireActivity().runOnUiThread(() -> {
-                if (!saved) {
-                    Toast.makeText(requireContext(),
-                            R.string.faditor_create_failed, Toast.LENGTH_LONG).show();
-                    return;
-                }
-                // Open the saved multi-clip project by id (URI is loaded from storage).
-                launchEditor(uris.get(0), project.getId());
-            });
-        });
-    }
-
-    /** Probe a video's duration in milliseconds, or 0 if it can't be read. */
-    private long probeDurationMs(@NonNull Uri uri) {
-        MediaMetadataRetriever r = null;
-        try {
-            r = new MediaMetadataRetriever();
-            if ("file".equals(uri.getScheme()) && uri.getPath() != null) {
-                r.setDataSource(uri.getPath());
-            } else {
-                r.setDataSource(requireContext(), uri);
-            }
-            String d = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
-            return d != null ? Long.parseLong(d) : 0;
-        } catch (Exception e) {
-            return 0;
-        } finally {
-            if (r != null) try { r.release(); } catch (Exception ignored) { }
-        }
-    }
+    // Starting a project (source sheet, picker, naming, building) is NewProjectFlow,
+    // shared with the Library's Projects view.
 
     /**
      * Calculate cache size for a project and format it as a human-readable string.

@@ -62,10 +62,12 @@ final class LibrarySource {
     void load(@NonNull Listener listener) {
         final int gen = ++generation;
         WORK.execute(() -> {
-            final List<LibraryItem> inApp = readInsideApp();
+            final ProjectStorage storage = new ProjectStorage(app);
+            final List<ProjectStorage.ProjectSummary> projects = listProjects(storage);
+            final List<LibraryItem> rest = readRestOfApp(storage, projects);
             final Set<String> projectIds = new HashSet<>();
-            for (LibraryItem it : inApp) if (it.kind == LibraryKind.PROJECTS) projectIds.add(it.projectId);
-            post(gen, listener, inApp, false, FolderState.UNKNOWN);
+            for (ProjectStorage.ProjectSummary p : projects) projectIds.add(p.id);
+            post(gen, listener, withProjects(projects, rest), false, FolderState.UNKNOWN);
 
             JoyFolderHome.io().execute(() -> {
                 FolderReader.Result folder;
@@ -78,28 +80,51 @@ final class LibrarySource {
                 final FolderReader.Result f = folder;
                 WORK.execute(() -> {
                     if (gen != generation) return;
-                    List<LibraryItem> all = new ArrayList<>(inApp);
+                    // The project cards are made again: their layers and running time were read
+                    // meanwhile (below), on this same single thread, so this merge sees them.
+                    List<LibraryItem> all = withProjects(projects, rest);
                     all.addAll(f.items);
                     all.addAll(CaptureReader.read(app, f.state == FolderReader.State.READ));
                     post(gen, listener, all, true, stateOf(f.state));
                 });
             });
+            // While the folder is walked on its own thread: each project's layers and running time
+            // (slow on first sight, remembered after; see ProjectFacts).
+            if (gen == generation) ProjectFacts.read(storage, projects);
         });
     }
 
     @NonNull
-    private List<LibraryItem> readInsideApp() {
-        List<LibraryItem> out = new ArrayList<>();
+    private static List<ProjectStorage.ProjectSummary> listProjects(@NonNull ProjectStorage storage) {
         try {
-            ProjectStorage storage = new ProjectStorage(app);
-            List<ProjectStorage.ProjectSummary> projects = storage.listProjects();
-            out.addAll(WorkReader.projects(projects));
-            out.addAll(PartsReader.read(app, storage, projects));
+            return storage.listProjects();
         } catch (Throwable t) {
             FLog.w("LibrarySource", "projects unreadable", t);
+            return new ArrayList<>();
+        }
+    }
+
+    /** Everything inside the app except the projects themselves: their sheets and characters, drawings, fonts. */
+    @NonNull
+    private List<LibraryItem> readRestOfApp(@NonNull ProjectStorage storage,
+                                            @NonNull List<ProjectStorage.ProjectSummary> projects) {
+        List<LibraryItem> out = new ArrayList<>();
+        try {
+            out.addAll(PartsReader.read(app, storage, projects));
+        } catch (Throwable t) {
+            FLog.w("LibrarySource", "sheets and characters unreadable", t);
         }
         out.addAll(WorkReader.drawings(app));
         out.addAll(SupplyReader.fonts(app));
+        return out;
+    }
+
+    /** A fresh list: the project cards (with whatever facts are known now), then the rest. */
+    @NonNull
+    private List<LibraryItem> withProjects(@NonNull List<ProjectStorage.ProjectSummary> projects,
+                                           @NonNull List<LibraryItem> rest) {
+        List<LibraryItem> out = new ArrayList<>(WorkReader.projects(app, projects));
+        out.addAll(rest);
         return out;
     }
 

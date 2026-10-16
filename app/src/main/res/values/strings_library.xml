@@ -86,7 +86,7 @@
 
     <!-- Empty states, one friendly line per kind -->
     <string name="library_empty_all">Nothing here yet. Make something and it lands here.</string>
-    <string name="library_empty_projects">No projects yet. Start one in the Studio.</string>
+    <string name="library_empty_projects">No projects yet. Tap New project to start one.</string>
     <string name="library_empty_drawings">No drawings yet. Joy Brush keeps every one here.</string>
     <string name="library_empty_sprite_sheets">No sprite sheets yet. Sprite Lab makes them inside a project.</string>
     <string name="library_empty_avatars">No avatars yet. Avatar Studio builds them from your sprite sheets.</string>

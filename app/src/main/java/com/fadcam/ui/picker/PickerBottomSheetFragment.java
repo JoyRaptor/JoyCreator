@@ -60,6 +60,8 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
     public static final String ARG_BROWSE_MODE = "browse_mode"; // tap doesn't dismiss; fires BUNDLE_PREVIEW_ID instead
     public static final String BUNDLE_PREVIEW_ID = "preview_id";
     public static final String ARG_AVATAR_SWATCH = "avatar_swatch_mode"; // show avatar preview instead of color circle
+    /** Show Joy Creator's JoybotSwitch in the top switch row instead of the legacy avatar. */
+    public static final String ARG_JOYBOT_SWITCH = "joybot_switch";
     public static final String ARG_INFO_MODE = "info_mode"; // display-only: no checkmarks, no row click interaction
 
     public static PickerBottomSheetFragment newInstance(
@@ -145,6 +147,12 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
             f.getArguments().putBoolean(ARG_SWITCH_STATE, switchState);
         }
         return f;
+    }
+
+    /** Opt in to the JoybotSwitch for the top switch row (Joy Creator screens only, for now). */
+    public PickerBottomSheetFragment withJoybotSwitch() {
+        if (getArguments() != null) getArguments().putBoolean(ARG_JOYBOT_SWITCH, true);
+        return this;
     }
 
     public static PickerBottomSheetFragment newInstanceWithSwitchDependencies(
@@ -826,10 +834,24 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
             View root = view;
             View switchRow = root.findViewById(R.id.picker_switch_row);
             View switchDivider = root.findViewById(R.id.picker_switch_divider);
-            com.fadcam.ui.AvatarToggleView swc = root.findViewById(
-                R.id.picker_switch
-            );
+            View toggle = root.findViewById(R.id.picker_switch);
             TextView switchLabel = root.findViewById(R.id.picker_switch_label);
+            // Joy Creator screens (the Settings hub) ask for the Joybot switch; every other
+            // caller keeps the legacy avatar until the owner has approved the new one.
+            if (toggle != null && switchRow != null && switchLabel != null
+                    && getArguments() != null && getArguments().getBoolean(ARG_JOYBOT_SWITCH, false)) {
+                com.fadcam.ui.joybot.JoybotSwitch js = com.fadcam.ui.joybot.JoybotSwitch.replace(toggle);
+                switchRow.setVisibility(View.VISIBLE);
+                if (switchDivider != null && !items.isEmpty()) switchDivider.setVisibility(View.VISIBLE);
+                switchLabel.setText(switchTitle);
+                js.setContentDescription(switchTitle);
+                js.setChecked(switchState);
+                switchRow.setOnClickListener(v -> js.performClick());
+                js.setOnCheckedChangeListener((button, checked) -> onTopSwitchChanged(checked));
+                toggle = null; // handled
+            }
+            com.fadcam.ui.AvatarToggleView swc = toggle instanceof com.fadcam.ui.AvatarToggleView
+                ? (com.fadcam.ui.AvatarToggleView) toggle : null;
             FLog.d("PickerBottomSheet", "DEBUG: Switch setup - swc=" + swc + ", switchLabel=" + switchLabel + ", switchRow=" + switchRow);
             if (switchRow != null && swc != null && switchLabel != null) {
                 FLog.d("PickerBottomSheet", "DEBUG: Setting up switch with title: " + switchTitle + ", state: " + switchState);
@@ -847,33 +869,7 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
                 });
 
                 // Single listener for state changes
-                swc.setOnCheckedChangeListener((button, checked) -> {
-                    FLog.d("PickerBottomSheet", "Switch changed -> " + checked + " (title=" + switchTitle + ")");
-                    
-                    // For AE Lock, dependent rows should be DISABLED when lock is ENABLED (inverted logic)
-                    boolean enableDependentRows = checked;
-                    if ("Lock AE".equals(switchTitle)) {
-                        enableDependentRows = !checked; // Invert: when AE locked, disable slider
-                    }
-                    updateDependentRows(enableDependentRows);
-                    
-                    // Persist video splitting flag if this sheet controls it
-                    try {
-                        if ("Enable Video Splitting".equals(switchTitle)) {
-                            com.fadcam.SharedPreferencesManager.getInstance(requireContext()).setVideoSplittingEnabled(checked);
-                        } else if ("Lock AE".equals(switchTitle)) {
-                            // Also persist AE lock state directly for immediate consistency
-                            com.fadcam.SharedPreferencesManager.getInstance(requireContext()).setSavedAeLock(checked);
-                            FLog.d("PickerBottomSheet", "Saved AE lock state to prefs: " + checked);
-                        }
-                    } catch (Exception e) {
-                        FLog.w("PickerBottomSheet", "Failed to persist switch state", e);
-                    }
-                    Bundle result = new Bundle();
-                    result.putBoolean(BUNDLE_SWITCH_STATE, checked);
-                    String switchResultKey = "Lock AE".equals(switchTitle) ? com.fadcam.Constants.RK_AE_LOCK : resultKey;
-                    getParentFragmentManager().setFragmentResult(switchResultKey, result);
-                });
+                swc.setOnCheckedChangeListener((button, checked) -> onTopSwitchChanged(checked));
             }
         }
         if (gridMode) {
@@ -1625,6 +1621,35 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
 
         // Apply dependency to Arabic date format option
         updateArabicDateFormatDependency(arabicDateEnabled);
+    }
+
+    /** The top switch row's state changed by a user tap (either switch class). */
+    private void onTopSwitchChanged(boolean checked) {
+        FLog.d("PickerBottomSheet", "Switch changed -> " + checked + " (title=" + switchTitle + ")");
+
+        // For AE Lock, dependent rows should be DISABLED when lock is ENABLED (inverted logic)
+        boolean enableDependentRows = checked;
+        if ("Lock AE".equals(switchTitle)) {
+            enableDependentRows = !checked; // Invert: when AE locked, disable slider
+        }
+        updateDependentRows(enableDependentRows);
+
+        // Persist video splitting flag if this sheet controls it
+        try {
+            if ("Enable Video Splitting".equals(switchTitle)) {
+                com.fadcam.SharedPreferencesManager.getInstance(requireContext()).setVideoSplittingEnabled(checked);
+            } else if ("Lock AE".equals(switchTitle)) {
+                // Also persist AE lock state directly for immediate consistency
+                com.fadcam.SharedPreferencesManager.getInstance(requireContext()).setSavedAeLock(checked);
+                FLog.d("PickerBottomSheet", "Saved AE lock state to prefs: " + checked);
+            }
+        } catch (Exception e) {
+            FLog.w("PickerBottomSheet", "Failed to persist switch state", e);
+        }
+        Bundle result = new Bundle();
+        result.putBoolean(BUNDLE_SWITCH_STATE, checked);
+        String switchResultKey = "Lock AE".equals(switchTitle) ? com.fadcam.Constants.RK_AE_LOCK : resultKey;
+        getParentFragmentManager().setFragmentResult(switchResultKey, result);
     }
 
     /** No-op: AvatarToggleView uses avatar drawable, no theme tinting needed. */

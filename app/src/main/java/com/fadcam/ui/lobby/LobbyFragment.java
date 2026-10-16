@@ -1121,7 +1121,7 @@ public class LobbyFragment extends BaseFragment {
         Room r = room();
         if (rooms.indexOf(r) == ROOM_JOYBRUSH) { openDrawing(null); return; }
         if (r.tab == TAB_CAPTURE) { routeTab(TAB_CAPTURE); return; }
-        routeTab(TAB_STUDIO);
+        openProjects(r.tab == TAB_STUDIO);   // the Studio's New starts one; the benches land on the list
     }
 
     /** A pill that is only an outline — available, and clearly not the primary. */
@@ -1145,6 +1145,7 @@ public class LobbyFragment extends BaseFragment {
             return;
         }
 
+        if (r.tab == TAB_STUDIO) { openProjects(true); return; }   // empty Studio: "Start one" starts one
         if (r.tab >= 0) { routeTab(r.tab); return; }
 
         String projectId = projects.isEmpty() ? null : projects.get(0).id;
@@ -1179,7 +1180,7 @@ public class LobbyFragment extends BaseFragment {
         }
         // Viz Lab has no room yet, and neither bench has anywhere to live without a project.
         // Sending someone to the Studio is the honest fallback: it is where they will make one.
-        routeTab(TAB_STUDIO);
+        openProjects(false);
     }
 
     /** Joybot's destination: the chat, with whatever you last touched for context. */
@@ -1214,6 +1215,12 @@ public class LobbyFragment extends BaseFragment {
     /** The new Library (every kind of thing), over the lobby. The classic Records tab stays one tap away in its menu. */
     private void openLibrary(boolean focusSearch) {
         if (getActivity() != null) com.fadcam.ui.library.LibraryFragment.open(getActivity(), focusSearch);
+    }
+
+    /** The Library on its Projects chip (the classic Studio list stays in its menu); {@code startNew} opens the new-project sheet over it. */
+    private void openProjects(boolean startNew) {
+        if (getActivity() != null) com.fadcam.ui.library.LibraryFragment.open(getActivity(),
+                com.fadcam.ui.library.LibraryKind.PROJECTS, startNew);
     }
 
     /** The new Settings hub, over the lobby. The classic Settings tab stays one tap away as its last row. */
@@ -1533,7 +1540,7 @@ public class LobbyFragment extends BaseFragment {
         addNewChip("videocam",       G_CAPTURE_A, G_CAPTURE_B, getString(R.string.lobby_new_recording), R.string.lobby_a11y_new_recording,
                 true,  () -> routeTab(TAB_CAPTURE));
         addNewChip("movie_edit",     G_STUDIO_A, G_STUDIO_B, getString(R.string.lobby_new_project), R.string.lobby_a11y_new_project,
-                false, () -> routeTab(TAB_STUDIO));
+                false, () -> openProjects(true));
         // Character SELECTS the Sprite Lab and then ENTERS it. It used to only select —
         // the dial turned, the hero changed, and nothing else happened. Three chips in this
         // row act and one pointed, which reads as the chip not working; and a chip labelled
@@ -1832,7 +1839,7 @@ public class LobbyFragment extends BaseFragment {
             message = captures + (captures == 1 ? " recording" : " recordings")
                     + " and no projects yet.";
             yesLabel = "Start one";
-            onYes = () -> routeTab(TAB_STUDIO);
+            onYes = () -> openProjects(true);
         }
 
         if (message == null) { botLine.setVisibility(View.GONE); return; }

@@ -93,7 +93,7 @@ final class SettingsDestinations {
             case WHATS_NEW:          a.startActivity(new Intent(a, WhatsNewActivity.class)); break;
             case SHOW_INTRO:         SettingsSwitchSheets.showIntro(host); break;
             case UPDATE_CHECK:       SettingsSwitchSheets.updateCheck(host); break;
-            case DEBUG_LOG:          DebugLogBottomSheetFragment.newInstance().show(host.getParentFragmentManager(), "debug_log_tools"); break;
+            case DEBUG_LOG:          DebugLogBottomSheetFragment.newInstance(true).show(host.getParentFragmentManager(), "debug_log_tools"); break;
             case SETTINGS_BACKUP:    new PrefsBackupBottomSheetFragment().show(host.getParentFragmentManager(), "prefs_backup"); break;
             case ABOUT:              over(a, new AboutFragment()); break;
             case RATE:               rate(a); break;

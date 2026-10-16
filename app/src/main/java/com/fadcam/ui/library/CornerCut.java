@@ -19,18 +19,18 @@ import androidx.annotation.Nullable;
  * mixed grid stays readable at a glance. Same shape as the lobby's recents (LobbyFragment.CornerCut,
  * private there), so a thing wears the same corner on the front door and in the Library.
  */
-final class CornerCut extends Drawable {
+public final class CornerCut extends Drawable {
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private int a, b;
 
-    CornerCut(int a, int b) {
+    public CornerCut(int a, int b) {
         this.a = a;
         this.b = b;
     }
 
-    void setColours(int a, int b) {
+    public void setColours(int a, int b) {
         this.a = a;
         this.b = b;
         onBoundsChange(getBounds());

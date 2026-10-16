@@ -23,6 +23,7 @@ import com.fadcam.ui.BaseFragment;
 import com.fadcam.ui.OverlayNavUtil;
 import com.fadcam.ui.TrashFragment;
 import com.fadcam.ui.faditor.SheetKit;
+import com.fadcam.ui.studio.NewProjectFlow;
 import com.fadcam.ui.type.Type;
 
 import java.util.ArrayList;
@@ -45,18 +46,40 @@ public class LibraryFragment extends BaseFragment {
 
     private static final String TAG = "library";
     private static final String ARG_SEARCH = "focus_search";
+    private static final String ARG_KIND = "kind";
+    private static final String ARG_START_NEW = "start_new";
+    /** MainActivity's tabs for the two classic screens this one is replacing. */
+    private static final int TAB_RECORDS = 1, TAB_STUDIO = 3;
 
     /** Show the Library over the lobby; with {@code focusSearch}, the keyboard opens on the search. */
     public static void open(@NonNull FragmentActivity activity, boolean focusSearch) {
-        if (activity.getSupportFragmentManager().findFragmentByTag(TAG) != null) return;
-        LibraryFragment f = new LibraryFragment();
         Bundle b = new Bundle();
         b.putBoolean(ARG_SEARCH, focusSearch);
-        f.setArguments(b);
+        show(activity, b);
+    }
+
+    /**
+     * Show the Library on one kind's chip. On Projects it is the Studio's project list, with New
+     * project in reach; {@code startNew} (the lobby's New buttons) also opens the new-project sheet
+     * over it at once, so closing that sheet leaves you on your projects.
+     */
+    public static void open(@NonNull FragmentActivity activity, @NonNull LibraryKind kind, boolean startNew) {
+        Bundle b = new Bundle();
+        b.putString(ARG_KIND, kind.name());
+        b.putBoolean(ARG_START_NEW, startNew && kind == LibraryKind.PROJECTS);
+        show(activity, b);
+    }
+
+    private static void show(@NonNull FragmentActivity activity, @NonNull Bundle args) {
+        if (activity.getSupportFragmentManager().findFragmentByTag(TAG) != null) return;
+        LibraryFragment f = new LibraryFragment();
+        f.setArguments(args);
         OverlayNavUtil.show(activity, f, TAG);
     }
 
     private final LibraryFilter filter = new LibraryFilter();
+    private NewProjectFlow newProject;
+    private int gridFloor;
     private LibrarySource source;
     private LibraryAdapter adapter;
     private LibraryDock dock;
@@ -67,6 +90,15 @@ public class LibraryFragment extends BaseFragment {
     private List<LibraryItem> items = new ArrayList<>();
     private boolean complete;
     private boolean dense;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // Here, as the platform requires: the video picker answers this screen.
+        newProject = new NewProjectFlow(this, null);
+        String kind = getArguments() == null ? null : getArguments().getString(ARG_KIND);
+        if (kind != null) filter.setKind(LibraryKind.valueOf(kind));
+    }
 
     @Nullable
     @Override
@@ -97,6 +129,7 @@ public class LibraryFragment extends BaseFragment {
         back.setOnClickListener(b -> OverlayNavUtil.dismiss(requireActivity()));
 
         list = v.findViewById(R.id.library_grid);
+        gridFloor = list.getPaddingBottom();
         empty = v.findViewById(R.id.library_empty);
         adapter = new LibraryAdapter(new LibraryAdapter.Listener() {
             @Override public void onOpen(@NonNull LibraryItem it) { open(it); }
@@ -117,6 +150,7 @@ public class LibraryFragment extends BaseFragment {
             @Override public void onQuery(@NonNull String q) { filter.setQuery(q); render(); }
             @Override public void onSharedCycle() { filter.setShared(filter.shared().next()); render(); }
             @Override public void onOptions() { options(); }
+            @Override public void onNewProject() { startNewProject(); }
         });
         // The view is rebuilt when Trash is opened over it and closed again; the filter is not.
         dock.setQuery(filter.query());
@@ -128,6 +162,16 @@ public class LibraryFragment extends BaseFragment {
             getArguments().putBoolean(ARG_SEARCH, false);   // once: not again when Trash closes over it
             dock.focusSearch();
         }
+        if (getArguments() != null && getArguments().getBoolean(ARG_START_NEW)) {
+            getArguments().putBoolean(ARG_START_NEW, false);   // once, as with search
+            v.post(this::startNewProject);                      // once the screen is attached
+        }
+    }
+
+    private void startNewProject() {
+        if (!isAdded() || dock == null) return;
+        dock.hideKeyboard();
+        newProject.start();
     }
 
     /** The window's keyboard mode before this screen took over, restored on pause. */
@@ -191,6 +235,10 @@ public class LibraryFragment extends BaseFragment {
         for (LibraryItem it : items) present.add(it.kind);
         dock.chips.setCounts(counts, present);
         dock.paintShared(filter.shared());
+        // On the Projects chip, however it was chosen, New project shows and the grid's floor
+        // rises by it, so the last cards still scroll clear.
+        int lift = dock.showNewProject(filter.kind() == LibraryKind.PROJECTS);
+        list.setPadding(list.getPaddingLeft(), list.getPaddingTop(), list.getPaddingRight(), gridFloor + lift);
 
         String n = getResources().getQuantityString(R.plurals.library_count, shown.size(), shown.size());
         count.setText(complete ? n : getString(R.string.library_count_reading, n));
@@ -260,12 +308,16 @@ public class LibraryFragment extends BaseFragment {
             @Override public void onTrash() {
                 OverlayNavUtil.show(requireActivity(), new TrashFragment(), "trash");
             }
-            @Override public void onClassic() {
-                FragmentActivity a = requireActivity();
-                OverlayNavUtil.dismiss(a);
-                if (a instanceof MainActivity) ((MainActivity) a).switchFragment(1, true);
-            }
+            @Override public void onClassic() { leaveFor(TAB_RECORDS); }
+            @Override public void onClassicStudio() { leaveFor(TAB_STUDIO); }
         });
+    }
+
+    /** Out to a classic screen: the overlay closes and its tab shows. */
+    private void leaveFor(int tab) {
+        FragmentActivity a = requireActivity();
+        OverlayNavUtil.dismiss(a);
+        if (a instanceof MainActivity) ((MainActivity) a).switchFragment(tab, true);
     }
 
     /**

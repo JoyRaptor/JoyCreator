@@ -14,7 +14,8 @@ import java.util.ArrayList;
  * The two classic rows that open a one-switch sheet rather than a screen: Show the intro and Check
  * for updates. The same sheet, keys, words and side effects as {@code SettingsHomeFragment}'s
  * {@code showOnboardingSwitchSheet} and {@code showAutoUpdateSwitchSheet}. The hub's row values
- * follow by themselves: it listens for preference changes.
+ * follow by themselves: it listens for preference changes. Both sheets show Joy Creator's
+ * JoybotSwitch rather than FadCam's avatar (the hub is the first screen to carry it).
  */
 final class SettingsSwitchSheets {
 
@@ -36,6 +37,7 @@ final class SettingsSwitchSheets {
         String title = host.getString(R.string.setting_onboarding_title);
         PickerBottomSheetFragment.newInstanceWithSwitch(title, new ArrayList<>(), null, resultKey,
                 host.getString(R.string.note_onboarding), title, prefs.isShowOnboarding())
+                .withJoybotSwitch()
                 .show(host.getParentFragmentManager(), "onboarding_switch_sheet");
     }
 
@@ -52,6 +54,7 @@ final class SettingsSwitchSheets {
         PickerBottomSheetFragment.newInstanceWithSwitch(title, new ArrayList<>(), null, resultKey,
                 host.getString(R.string.note_auto_update_check), title,
                 prefs.sharedPreferences.getBoolean(KEY_AUTO_UPDATE, true))
+                .withJoybotSwitch()
                 .show(host.getParentFragmentManager(), "auto_update_switch_sheet");
     }
 }

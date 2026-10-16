@@ -48,6 +48,10 @@ public final class LibraryItem {
     public String captureCategory;
     /** A project that is in the folder but not yet in the app (after a reinstall). */
     public boolean needsRestore;
+    /** A project's layers (what sits on its main track), or -1 until its facts are read. */
+    public int layers = -1;
+    /** A project's running time in milliseconds, or -1 until its facts are read. */
+    public long durationMs = -1;
 
     public LibraryItem(String key, LibraryKind kind, String name, long modified, long size,
                        boolean sharedIn) {

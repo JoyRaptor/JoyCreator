@@ -38,7 +38,7 @@ final class PartsReader {
 
     private static final String TAG = "LibraryParts";
     /** ProjectStorage's file name inside a project folder (also hard-coded by StudioMirror). */
-    private static final String PROJECT_JSON = "project.json";
+    static final String PROJECT_JSON = "project.json";
 
     private PartsReader() {}
 
@@ -139,9 +139,9 @@ final class PartsReader {
         return path == null ? null : new File(path);
     }
 
-    /** java.nio.file is API 26; this app starts at 24. */
+    /** java.nio.file is API 26; this app starts at 24. Also {@link ProjectFacts}' reader. */
     @NonNull
-    private static String readText(@NonNull File f) throws java.io.IOException {
+    static String readText(@NonNull File f) throws java.io.IOException {
         try (java.io.InputStream in = new java.io.FileInputStream(f)) {
             java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
             byte[] buf = new byte[64 * 1024];

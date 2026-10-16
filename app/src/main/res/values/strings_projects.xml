@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Starting and finding Studio projects: com.fadcam.ui.studio.NewProjectFlow (shared by the classic
+  Studio list and the Library) and the Library's Projects view.
+-->
+<resources>
+    <!-- The Library, on its Projects chip: the one action, above the dock -->
+    <string name="projects_new">New project</string>
+    <string name="projects_new_a11y">Start a new project from a video on your phone, one of your recordings, or a blank audio track</string>
+
+    <!-- The Library's options sheet: the classic Studio list, kept whole until the Library replaces it -->
+    <string name="projects_classic_list">Classic Studio list</string>
+
+    <!-- A project card's meta in the list view: what sits on top of the main track, as the lobby counts it -->
+    <plurals name="projects_layers">
+        <item quantity="one">%d layer</item>
+        <item quantity="other">%d layers</item>
+    </plurals>
+
+    <!-- NewProjectFlow: the same words the classic Studio list always said -->
+    <string name="projects_open_failed">Couldn\'t open the project.</string>
+    <string name="projects_open_failed_access">Couldn\'t open the project — the source video\'s access may have been lost.</string>
+    <string name="projects_untitled">Untitled</string>
+</resources>

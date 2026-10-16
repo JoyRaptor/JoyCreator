@@ -20,12 +20,12 @@ import com.fadcam.ui.faditor.Studio;
  * that came from outside, supplies and copies are zinc: they are not anyone's product, so they get
  * no hue to compete with the user's own work.
  */
-final class LibraryKindStyle {
+public final class LibraryKindStyle {
 
     private LibraryKindStyle() {}
 
     @StringRes
-    static int label(@Nullable LibraryKind k) {
+    public static int label(@Nullable LibraryKind k) {
         if (k == null) return R.string.library_kind_all;
         switch (k) {
             case PROJECTS:      return R.string.library_kind_projects;
@@ -47,7 +47,7 @@ final class LibraryKindStyle {
 
     /** The short caps tag in a card's meta line. Supplies say FONT when they are one. */
     @StringRes
-    static int tag(@NonNull LibraryItem it) {
+    public static int tag(@NonNull LibraryItem it) {
         switch (it.kind) {
             case PROJECTS:      return R.string.library_tag_project;
             case DRAWINGS:      return R.string.library_tag_drawing;
@@ -90,7 +90,7 @@ final class LibraryKindStyle {
 
     /** A materialicons ligature: what stands in until (or instead of) a picture. */
     @NonNull
-    static String glyph(@Nullable LibraryKind k) {
+    public static String glyph(@Nullable LibraryKind k) {
         if (k == null) return "apps";
         switch (k) {
             case PROJECTS:      return "movie_edit";
@@ -112,7 +112,7 @@ final class LibraryKindStyle {
 
     /** The kind's two stops: {start, end}. Rooms' products get the room; the rest is zinc. */
     @NonNull
-    static int[] colours(@NonNull Context c, @Nullable LibraryKind k) {
+    public static int[] colours(@NonNull Context c, @Nullable LibraryKind k) {
         if (k == null) return new int[]{Studio.INK_DIM, Studio.INK_FAINT};
         switch (k) {
             case PROJECTS:

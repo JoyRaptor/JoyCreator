@@ -10,6 +10,6 @@ LIB=app/src/main/java/com/fadcam/ui/library
 javac -Xlint:unchecked -encoding UTF-8 --release 11 -d "$OUT" \
   studiokit/src/main/java/com/fadcam/joyfolder/FileKind.java \
   $LIB/LibraryKind.java $LIB/LibraryItem.java $LIB/LibraryClassifier.java \
-  $LIB/LibraryFilter.java $LIB/LibrarySections.java \
+  $LIB/LibraryFilter.java $LIB/LibrarySections.java $LIB/LibraryClock.java \
   tools/library-tests/LibraryTests.java
 java -cp "$OUT" LibraryTests

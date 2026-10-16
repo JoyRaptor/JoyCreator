@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  JoybotSwitch (com.fadcam.ui.joybot): Joy Creator's on/off switch, with Joybot as the thumb.
+  The state words are what a screen reader says after the label; the hover labels show when a
+  stylus or a mouse rests on the switch.
+-->
+<resources>
+    <string name="joybotswitch_state_on">On</string>
+    <string name="joybotswitch_state_off">Off</string>
+    <!-- Hover label when the caller gave the switch no name. -->
+    <string name="joybotswitch_tip_on">On. Tap to turn it off.</string>
+    <string name="joybotswitch_tip_off">Off. Tap to turn it on.</string>
+    <!-- Hover label with the switch's name, e.g. "Show the intro is on. Tap to turn it off." -->
+    <string name="joybotswitch_tip_on_named">%1$s is on. Tap to turn it off.</string>
+    <string name="joybotswitch_tip_off_named">%1$s is off. Tap to turn it on.</string>
+</resources>

@@ -38,15 +38,23 @@ final class LibraryDock {
         void onQuery(@NonNull String query);
         void onSharedCycle();
         void onOptions();
+        void onNewProject();
     }
+
+    /** New project's height, the pill's own: what the grid's floor rises by while it shows. */
+    private static final int NEW_PROJECT_DP = 44;
 
     final LibraryChipsView chips;
     private final EditText search;
     private final TextView clear, sharedGlyph, sharedLabel;
     private final LinearLayout shared;
+    private final LinearLayout newProject;
 
     LibraryDock(@NonNull LinearLayout dock, @NonNull Listener l) {
         Context c = dock.getContext();
+        newProject = newProjectRow(c, l::onNewProject);
+        dock.addView(newProject, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         View fade = new View(c);
         fade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{Studio.alpha(Studio.GROUND, 0x00), Studio.GROUND}));
@@ -138,6 +146,49 @@ final class LibraryDock {
         LinearLayout.LayoutParams oLp = new LinearLayout.LayoutParams(LibraryViews.dp(c, 42), LibraryViews.dp(c, 42));
         oLp.setMarginStart(LibraryViews.dp(c, 8));
         controls.addView(options, oLp);
+    }
+
+    /**
+     * New project: the Library's one action, shown while the Projects chip is chosen. A solid cyan
+     * pill with its words cut out, the Library's own colour (the chosen chip under it wears the
+     * same), at the bottom edge where the thumb rests. The row around it is not a control, so a
+     * tap beside the pill lands on the card underneath.
+     */
+    @NonNull
+    private static LinearLayout newProjectRow(@NonNull Context c, @NonNull Runnable onTap) {
+        LinearLayout row = new LinearLayout(c);
+        row.setGravity(Gravity.END);
+        row.setPadding(0, 0, LibraryViews.dp(c, 12), 0);
+        row.setVisibility(View.GONE);
+
+        LinearLayout pill = new LinearLayout(c);
+        pill.setOrientation(LinearLayout.HORIZONTAL);
+        pill.setGravity(Gravity.CENTER_VERTICAL);
+        pill.setPadding(LibraryViews.dp(c, 14), 0, LibraryViews.dp(c, 18), 0);
+        pill.setBackground(LibraryViews.pressable(Studio.ARMED, LibraryViews.dp(c, 99)));
+        pill.setClickable(true);
+        pill.setFocusable(true);
+        SheetKit.press(pill);
+        SheetKit.label(pill, c.getString(R.string.projects_new_a11y));
+        TextView plus = LibraryViews.glyph(c, 20f, Studio.GROUND);
+        plus.setText("add");
+        pill.addView(plus);
+        TextView words = LibraryViews.line(c, 14f, Studio.GROUND, false, Type.SEMIBOLD);
+        words.setText(R.string.projects_new);
+        LinearLayout.LayoutParams wLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        wLp.setMarginStart(LibraryViews.dp(c, 6));
+        pill.addView(words, wLp);
+        pill.setOnClickListener(v -> onTap.run());
+        row.addView(pill, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                LibraryViews.dp(c, NEW_PROJECT_DP)));
+        return row;
+    }
+
+    /** Show or hide New project; returns the height it adds to the dock, in pixels. */
+    int showNewProject(boolean show) {
+        newProject.setVisibility(show ? View.VISIBLE : View.GONE);
+        return show ? LibraryViews.dp(newProject.getContext(), NEW_PROJECT_DP) : 0;
     }
 
     void paintShared(@NonNull LibraryFilter.Shared s) {

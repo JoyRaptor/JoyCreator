@@ -116,7 +116,7 @@ final class LibraryCardView extends LinearLayout {
         int[] pair = LibraryKindStyle.colours(c, it.kind);
         cut.setColours(pair[0], pair[1]);
         name.setText(it.name);
-        meta.setText(LibraryFormat.meta(c, it));
+        meta.setText(LibraryFormat.meta(c, it, list));
         shared.setVisibility(it.sharedIn ? VISIBLE : GONE);
         if (list) {
             String s = LibraryFormat.size(c, it.size);

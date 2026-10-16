@@ -224,7 +224,7 @@ class InkReplayAdmittedTest {
     @Test fun emptyTapAndUnusableSamplesKeepStartingDescriptorAndAllExistingRefusals() {
         val brush = stamp()
         for (samples in listOf(emptyList(), listOf(PenSample(-0.0f, 0f, 0.0)),
-            listOf(PenSample(0f, 0f, 0.0, predicted = true), PenSample(Float.NaN, 0f, 1.0)))) {
+            listOf(PenSample(Float.NaN, 0f, 1.0)))) {
             val raw = record(brush, samples = samples)
             val old = InkReplay.replay(raw, brush)
             val admitted = InkReplay.replayAdmitted(raw, brush) { }

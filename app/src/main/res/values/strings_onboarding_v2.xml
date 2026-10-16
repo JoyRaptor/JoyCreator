@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- First-run intro, page 2: the permissions page in Joy Creator's own voice. -->
+<resources>
+    <string name="onboardingv2_perm_title">A few permissions</string>
+    <string name="onboardingv2_perm_why">Joy Creator needs these to film, record your voice and keep your work on your phone. Nothing leaves it.</string>
+
+    <string name="onboardingv2_perm_camera">Camera</string>
+    <string name="onboardingv2_perm_camera_why">To film, and to see what you are filming.</string>
+    <string name="onboardingv2_perm_mic">Microphone</string>
+    <string name="onboardingv2_perm_mic_why">To record your voice with the picture.</string>
+    <string name="onboardingv2_perm_files">Files and notices</string>
+    <string name="onboardingv2_perm_files_why">To save your videos, and to show the recording notice.</string>
+    <string name="onboardingv2_perm_battery">Keep recording alive</string>
+    <string name="onboardingv2_perm_battery_why">Optional: turn off battery optimisation so long takes are not cut short.</string>
+    <string name="onboardingv2_perm_battery_done">Optional: battery optimisation is already off.</string>
+
+    <string name="onboardingv2_perm_allow">Allow what\'s missing</string>
+    <string name="onboardingv2_perm_all_set">All set</string>
+    <string name="onboardingv2_perm_open_settings">Open settings</string>
+    <string name="onboardingv2_perm_nudge">Please allow the three above to carry on.</string>
+
+    <string name="onboardingv2_perm_state_granted">allowed</string>
+    <string name="onboardingv2_perm_state_missing">not yet allowed</string>
+    <string name="onboardingv2_perm_row_cd">%1$s, %2$s. %3$s</string>
+    <string name="onboardingv2_perm_allow_cd">Ask for the permissions that are still missing</string>
+    <string name="onboardingv2_perm_all_set_cd">Every permission is allowed. Swipe to the next page.</string>
+    <string name="onboardingv2_perm_open_settings_cd">Open this app\'s system settings to allow permissions you declined</string>
+    <string name="onboardingv2_perm_battery_cd">Open the system screen to turn off battery optimisation for Joy Creator</string>
+</resources>

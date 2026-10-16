@@ -37,18 +37,18 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
 
     /**
      * Canvas preset definitions.
-     * Format: {key, label, ratioW, ratioH}
+     * Format: {key, label string-resource id (as text), ratioW, ratioH}
      * ratioW=0, ratioH=0 means "original" (no canvas change).
      */
     private static final String[][] CANVAS_PRESETS = {
-        {"original", "Original",           "0",  "0"},
-        {"16_9",     "16:9  Landscape",    "16", "9"},
-        {"9_16",     "9:16  Portrait",     "9",  "16"},
-        {"1_1",      "1:1  Square",        "1",  "1"},
-        {"4_3",      "4:3  Classic",       "4",  "3"},
-        {"3_4",      "3:4  Portrait",      "3",  "4"},
-        {"4_5",      "4:5  Social",        "4",  "5"},
-        {"21_9",     "21:9  Cinematic",    "21", "9"},
+        {"original", String.valueOf(R.string.studio_sheet_canvas_original), "0",  "0"},
+        {"16_9",     String.valueOf(R.string.studio_sheet_canvas_16_9), "16", "9"},
+        {"9_16",     String.valueOf(R.string.studio_sheet_canvas_9_16), "9",  "16"},
+        {"1_1",      String.valueOf(R.string.studio_sheet_canvas_1_1), "1",  "1"},
+        {"4_3",      String.valueOf(R.string.studio_sheet_canvas_4_3), "4",  "3"},
+        {"3_4",      String.valueOf(R.string.studio_sheet_canvas_3_4), "3",  "4"},
+        {"4_5",      String.valueOf(R.string.studio_sheet_canvas_4_5), "4",  "5"},
+        {"21_9",     String.valueOf(R.string.studio_sheet_canvas_21_9), "21", "9"},
     };
 
     /** Prefix for a custom-resolution preset key, e.g. "custom_1080_1920". */
@@ -81,10 +81,10 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
 
     /** A human-readable label for any preset key, including custom ones (e.g. "1080×1920"). */
     @NonNull
-    public static String displayLabel(@NonNull String preset) {
+    public static String displayLabel(@NonNull android.content.Context ctx, @NonNull String preset) {
         int[] dims = parseCustomDims(preset);
         if (dims != null) return dims[0] + "×" + dims[1];
-        if ("original".equals(preset)) return "Original";
+        if ("original".equals(preset)) return ctx.getString(R.string.studio_sheet_canvas_original);
         return preset.replace("_", ":");
     }
 
@@ -149,7 +149,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
         int previewSize = (int) (40 * dp);
         for (String[] preset : CANVAS_PRESETS) {
             String key = preset[0];
-            String label = preset[1];
+            String label = getString(Integer.parseInt(preset[1]));
             int ratioW = Integer.parseInt(preset[2]);
             int ratioH = Integer.parseInt(preset[3]);
             boolean selected = key.equals(currentPreset);
@@ -178,7 +178,8 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
         // crop toolbar's Custom-ratio chip pattern (numeric-entry AlertDialog).
         boolean customSelected = currentPreset.startsWith(CUSTOM_PREFIX);
         SheetKit.Row customRow = SheetKit.row(requireContext(), "aspect_ratio",
-                customSelected ? displayLabel(currentPreset) : "Custom…",
+                customSelected ? displayLabel(requireContext(), currentPreset)
+                        : getString(R.string.studio_sheet_canvas_custom),
                 customSelected, SheetKit.Trail.CHECK, v -> showCustomResolutionDialog());
         if (customRow.icon != null) {
             // Same 40dp slot as the previews above, so every label starts on one line.

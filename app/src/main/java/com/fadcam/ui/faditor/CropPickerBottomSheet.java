@@ -29,8 +29,8 @@ public class CropPickerBottomSheet extends BottomSheetDialogFragment {
     }
 
     private static final String[][] CROP_OPTIONS = {
-        {"none",    "Original",        "crop_free"},
-        {"custom",  "Free Crop",       "crop"},
+        {"none",    String.valueOf(R.string.studio_sheet_crop_original), "crop_free"},
+        {"custom",  String.valueOf(R.string.studio_sheet_crop_free), "crop"},
     };
 
     @Nullable
@@ -92,7 +92,7 @@ public class CropPickerBottomSheet extends BottomSheetDialogFragment {
 
         for (String[] option : CROP_OPTIONS) {
             String key = option[0];
-            String label = option[1];
+            String label = getString(Integer.parseInt(option[1]));
             String icon = option[2];
             boolean selected = key.equals(currentPreset);
 

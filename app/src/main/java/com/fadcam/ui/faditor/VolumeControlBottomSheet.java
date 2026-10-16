@@ -220,7 +220,7 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
 
         // -- Reset row (matches mute row style) -----------------------------
         boolean needsReset = currentMuted || Math.abs(currentVolume - 1.0f) > 0.01f;
-        SheetKit.Row reset = SheetKit.row(requireContext(), "refresh", "Reset", false,
+        SheetKit.Row reset = SheetKit.row(requireContext(), "refresh", getString(R.string.studio_sheet_reset), false,
                 SheetKit.Trail.NONE, null);
         SheetKit.tintRow(reset, Studio.DANGER, true);
         LinearLayout resetRow = reset.view;

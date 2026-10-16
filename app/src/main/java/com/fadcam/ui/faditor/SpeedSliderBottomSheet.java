@@ -233,7 +233,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         pitchRow.addView(pitchCheck);
 
         // -- Reset button (consistent row style) ----------------------------
-        SheetKit.Row reset = SheetKit.row(requireContext(), "refresh", "Reset", false,
+        SheetKit.Row reset = SheetKit.row(requireContext(), "refresh", getString(R.string.studio_sheet_reset), false,
                 SheetKit.Trail.NONE, null);
         SheetKit.tintRow(reset, Studio.DANGER, true);
         LinearLayout resetRow = reset.view;

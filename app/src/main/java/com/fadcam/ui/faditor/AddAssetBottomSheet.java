@@ -150,14 +150,14 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         // layer path). Kept near Video because it is ALSO an overlay-like addition, not a
         // spine segment. Uses the SAME image payload as the toolbox Image overlay.
         root.addView(createOptionRow(
-                "Image as new layer", "layers",
+                getString(R.string.studio_sheet_add_image_layer), "layers",
                 () -> { if (callback != null) callback.onImageAsNewLayerSelected(); }));
 
         // Black clip -- a spine still with no picture (title card / pause). Kept here
         // because it IS a spine segment, same machinery as image-as-clip, but it is its
         // own concept (JoyRaptor: "having it be part of image").
         root.addView(createOptionRow(
-                "Black clip (title card / pause)", "crop_din",
+                getString(R.string.studio_sheet_add_black_clip), "crop_din",
                 () -> { if (callback != null) callback.onBlankClipSelected(); }));
 
         // Overlay video (PiP) row — feature-flagged with M-COMP-2.
@@ -175,7 +175,7 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         // B5.U — record voiceover against playback (punch-in). Add is where
         // people go to add things; NO new carousel tool (27 already too many).
         root.addView(createOptionRow(
-                "Record voiceover", "mic",
+                getString(R.string.studio_sheet_add_voiceover), "mic",
                 () -> { if (callback != null) callback.onVoiceoverRecordSelected(); }));
 
         // AI slide row — copy-a-prompt / paste-HTML animated slide flow.
@@ -194,10 +194,11 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         // but is deliberately last and visually de-emphasized. Long-press on the toolbox
         // Image button will also offer this same callback (same code path, no duplicate).
         root.addView(SheetKit.divider(requireContext()));
-        root.addView(SheetKit.sectionLabel(requireContext(), "More - timeline segments", 0));
+        root.addView(SheetKit.sectionLabel(requireContext(), getString(R.string.studio_sheet_add_more_segments), 0));
 
         root.addView(createOptionRow(
-                getString(R.string.faditor_add_asset_image) + " as clip (timeline segment - rare)",
+                getString(R.string.studio_sheet_add_image_as_clip,
+                        getString(R.string.faditor_add_asset_image)),
                 "image",
                 () -> { if (callback != null) callback.onImageAsClipSelected(); }));
 

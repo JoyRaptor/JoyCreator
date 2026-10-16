@@ -142,16 +142,16 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         outer.addView(root);
 
         specs = new Spec[]{
-                new Spec("Exposure", -1f, 1f, 0f, EffectStack::getExposure, EffectStack::setExposure),
-                new Spec("Contrast", -1f, 1f, 0f, EffectStack::getContrast, EffectStack::setContrast),
-                new Spec("Saturation", 0f, 2f, 1f, EffectStack::getSaturation, EffectStack::setSaturation),
-                new Spec("Temperature", -1f, 1f, 0f, EffectStack::getTemperature, EffectStack::setTemperature),
-                new Spec("Tint", -1f, 1f, 0f, EffectStack::getTint, EffectStack::setTint),
-                new Spec("Highlights", -1f, 1f, 0f, EffectStack::getHighlights, EffectStack::setHighlights),
-                new Spec("Shadows", -1f, 1f, 0f, EffectStack::getShadows, EffectStack::setShadows),
-                new Spec("Fade", -1f, 1f, 0f, EffectStack::getFade, EffectStack::setFade),
-                new Spec("Vignette", 0f, 1f, 0f, EffectStack::getVignette, EffectStack::setVignette),
-                new Spec("Grain", 0f, 1f, 0f, EffectStack::getGrain, EffectStack::setGrain),
+                new Spec(getString(R.string.studio_sheet_filter_exposure), -1f, 1f, 0f, EffectStack::getExposure, EffectStack::setExposure),
+                new Spec(getString(R.string.studio_sheet_filter_contrast), -1f, 1f, 0f, EffectStack::getContrast, EffectStack::setContrast),
+                new Spec(getString(R.string.studio_sheet_filter_saturation), 0f, 2f, 1f, EffectStack::getSaturation, EffectStack::setSaturation),
+                new Spec(getString(R.string.studio_sheet_filter_temperature), -1f, 1f, 0f, EffectStack::getTemperature, EffectStack::setTemperature),
+                new Spec(getString(R.string.studio_sheet_filter_tint), -1f, 1f, 0f, EffectStack::getTint, EffectStack::setTint),
+                new Spec(getString(R.string.studio_sheet_filter_highlights), -1f, 1f, 0f, EffectStack::getHighlights, EffectStack::setHighlights),
+                new Spec(getString(R.string.studio_sheet_filter_shadows), -1f, 1f, 0f, EffectStack::getShadows, EffectStack::setShadows),
+                new Spec(getString(R.string.studio_sheet_filter_fade), -1f, 1f, 0f, EffectStack::getFade, EffectStack::setFade),
+                new Spec(getString(R.string.studio_sheet_filter_vignette), 0f, 1f, 0f, EffectStack::getVignette, EffectStack::setVignette),
+                new Spec(getString(R.string.studio_sheet_filter_grain), 0f, 1f, 0f, EffectStack::getGrain, EffectStack::setGrain),
         };
         sliders = new Slider[specs.length];
         valueTexts = new TextView[specs.length];
@@ -389,6 +389,13 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         updateLutIntensityVisibility();
     }
 
+    /** Display names for the look chips, in the order of {@code names} in buildPresetRow. */
+    private static final int[] LOOK_LABELS = {
+            R.string.studio_sheet_filter_look_none, R.string.studio_sheet_filter_look_cinematic,
+            R.string.studio_sheet_filter_look_warm, R.string.studio_sheet_filter_look_cool,
+            R.string.studio_sheet_filter_look_vivid, R.string.studio_sheet_filter_look_vintage,
+            R.string.studio_sheet_filter_look_mono};
+
     /** Horizontal row of one-tap look presets above the manual sliders. */
     private void buildPresetRow(@NonNull LinearLayout root, float dp) {
         final String[] names = {"None", "Cinematic", "Warm", "Cool", "Vivid", "Vintage", "Mono"};
@@ -397,8 +404,9 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         LinearLayout row = new LinearLayout(requireContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
         hs.addView(row);
-        for (String name : names) {
-            TextView chip = SheetKit.chip(requireContext(), name);
+        for (int ni = 0; ni < names.length; ni++) {
+            final String name = names[ni];
+            TextView chip = SheetKit.chip(requireContext(), getString(LOOK_LABELS[ni]));
             chip.setTextColor(Studio.INK);
             chip.setOnClickListener(v -> applyPreset(name));
             row.addView(chip);

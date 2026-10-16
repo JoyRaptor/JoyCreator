@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Studio editor sheets and popovers: user-visible strings moved out of Java. English only for now. -->
+<resources>
+    <!-- Shared -->
+    <string name="studio_sheet_reset">Reset</string>
+
+    <!-- AddAssetBottomSheet -->
+    <string name="studio_sheet_add_image_layer">Image as new layer</string>
+    <string name="studio_sheet_add_black_clip">Black clip (title card / pause)</string>
+    <string name="studio_sheet_add_voiceover">Record voiceover</string>
+    <string name="studio_sheet_add_more_segments">More - timeline segments</string>
+    <string name="studio_sheet_add_image_as_clip">%1$s as clip (timeline segment - rare)</string>
+
+    <!-- CanvasPickerBottomSheet (double spaces are deliberate, hence the quotes) -->
+    <string name="studio_sheet_canvas_original">Original</string>
+    <string name="studio_sheet_canvas_16_9">"16:9  Landscape"</string>
+    <string name="studio_sheet_canvas_9_16">"9:16  Portrait"</string>
+    <string name="studio_sheet_canvas_1_1">"1:1  Square"</string>
+    <string name="studio_sheet_canvas_4_3">"4:3  Classic"</string>
+    <string name="studio_sheet_canvas_3_4">"3:4  Portrait"</string>
+    <string name="studio_sheet_canvas_4_5">"4:5  Social"</string>
+    <string name="studio_sheet_canvas_21_9">"21:9  Cinematic"</string>
+    <string name="studio_sheet_canvas_custom">Custom…</string>
+
+    <!-- CropPickerBottomSheet -->
+    <string name="studio_sheet_crop_original">Original</string>
+    <string name="studio_sheet_crop_free">Free Crop</string>
+
+    <!-- FaditorSettingsBottomSheet -->
+    <string name="studio_sheet_settings_waveform_title">Waveform visualizer</string>
+    <string name="studio_sheet_settings_waveform_desc">Customize the audio waveform look and when clips are analyzed.</string>
+    <string name="studio_sheet_settings_selfcontained_title">Make project self-contained</string>
+    <string name="studio_sheet_settings_selfcontained_desc">Copy every video, image and audio file this project uses into the project itself, so it keeps working if the originals are moved or deleted. Originals are never changed or removed.</string>
+
+    <!-- FilterBottomSheet: sliders -->
+    <string name="studio_sheet_filter_exposure">Exposure</string>
+    <string name="studio_sheet_filter_contrast">Contrast</string>
+    <string name="studio_sheet_filter_saturation">Saturation</string>
+    <string name="studio_sheet_filter_temperature">Temperature</string>
+    <string name="studio_sheet_filter_tint">Tint</string>
+    <string name="studio_sheet_filter_highlights">Highlights</string>
+    <string name="studio_sheet_filter_shadows">Shadows</string>
+    <string name="studio_sheet_filter_fade">Fade</string>
+    <string name="studio_sheet_filter_vignette">Vignette</string>
+    <string name="studio_sheet_filter_grain">Grain</string>
+    <!-- FilterBottomSheet: look presets -->
+    <string name="studio_sheet_filter_look_none">None</string>
+    <string name="studio_sheet_filter_look_cinematic">Cinematic</string>
+    <string name="studio_sheet_filter_look_warm">Warm</string>
+    <string name="studio_sheet_filter_look_cool">Cool</string>
+    <string name="studio_sheet_filter_look_vivid">Vivid</string>
+    <string name="studio_sheet_filter_look_vintage">Vintage</string>
+    <string name="studio_sheet_filter_look_mono">Mono</string>
+
+    <!-- FlipPickerBottomSheet -->
+    <string name="studio_sheet_flip_horizontal">Flip Horizontal</string>
+    <string name="studio_sheet_flip_vertical">Flip Vertical</string>
+
+    <!-- FaditorEditorActivity: neutral button + project file actions -->
+    <string name="studio_sheet_more">More…</string>
+    <string name="studio_sheet_link_selected">Link selected</string>
+    <string name="studio_sheet_link_unlink_selected">Unlink selected</string>
+    <string name="studio_sheet_link_relink_media">Relink media</string>
+    <string name="studio_sheet_link_gather">Gather into one folder</string>
+    <string name="studio_sheet_link_consolidate">Consolidate project</string>
+    <string name="studio_sheet_link_export_bundle">Export bundle</string>
+    <string name="studio_sheet_link_import_bundle">Import bundle</string>
+
+    <!-- FaditorEditorActivity: transition direction picker -->
+    <string name="studio_sheet_dir_left">Left</string>
+    <string name="studio_sheet_dir_right">Right</string>
+    <string name="studio_sheet_dir_up">Up</string>
+    <string name="studio_sheet_dir_down">Down</string>
+
+    <!-- FaditorEditorActivity: gather into one folder -->
+    <string name="studio_sheet_gather_unreachable">Your Joy Creator folder can\'t be reached right now.</string>
+    <string name="studio_sheet_gather_all_inside">Everything this project uses is already in “%1$s”.</string>
+    <string name="studio_sheet_gather_moves_one">Moves %1$d file into “%2$s”, next to where the project is now. Every project still finds its files.</string>
+    <string name="studio_sheet_gather_moves_many">Moves %1$d files into “%2$s”, next to where the project is now. Every project still finds its files.</string>
+    <string name="studio_sheet_gather_also_move_one">Also move the recording it uses</string>
+    <string name="studio_sheet_gather_also_move_many">Also move the %1$d recordings it uses</string>
+    <string name="studio_sheet_gather_shared_one">1 file is also used by another project:</string>
+    <string name="studio_sheet_gather_shared_many">%1$d files are also used by other projects:</string>
+    <string name="studio_sheet_gather_leave">Leave them where they are</string>
+    <string name="studio_sheet_gather_to_assets">Move them to Assets</string>
+    <string name="studio_sheet_gather_make_assets">Make an Assets folder for them</string>
+    <string name="studio_sheet_gather_title">Gather “%1$s” into one folder</string>
+    <string name="studio_sheet_gather_button">Gather</string>
+    <string name="studio_sheet_gather_working">Gathering…</string>
+    <string name="studio_sheet_gather_already">Already gathered in “%1$s”.</string>
+    <string name="studio_sheet_gather_done_one">Gathered into “%1$s” (%2$d file).</string>
+    <string name="studio_sheet_gather_done_many">Gathered into “%1$s” (%2$d files).</string>
+    <string name="studio_sheet_gather_failed">Couldn\'t finish gathering: %1$s. Nothing was lost.</string>
+
+    <!-- FaditorEditorActivity: consolidate project -->
+    <string name="studio_sheet_consolidate_ask">Consolidate will copy %1$d file(s), %2$s%3$s%4$s. Originals stay. Continue?</string>
+    <string name="studio_sheet_consolidate_deduped">" (%1$d deduped)"</string>
+    <string name="studio_sheet_consolidate_inside_dash">" — %1$d already inside"</string>
+    <string name="studio_sheet_consolidate_nothing">Project is already consolidated — nothing to copy.%1$s</string>
+    <string name="studio_sheet_consolidate_inside_paren">" (%1$d already inside)"</string>
+    <string name="studio_sheet_consolidate_done">Consolidated %1$d file(s)%2$s — now portable</string>
+</resources>

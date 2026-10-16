@@ -5351,7 +5351,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 // The project's file actions (relink, gather into one folder, bundles) live here too:
                 // their old button only shows when media is missing.
-                .setNeutralButton("More\u2026", (d, w) -> showLinkOptions())
+                .setNeutralButton(R.string.studio_sheet_more, (d, w) -> showLinkOptions())
                 .show();
     }
 
@@ -9191,7 +9191,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             saveProjectNow();
 
             // Format label for toast
-            String displayLabel = CanvasPickerBottomSheet.displayLabel(preset);
+            String displayLabel = CanvasPickerBottomSheet.displayLabel(this, preset);
             Toast.makeText(this, getString(R.string.faditor_canvas_applied, displayLabel), Toast.LENGTH_SHORT).show();
         });
         sheet.show(getSupportFragmentManager(), "canvas_picker");
@@ -9207,7 +9207,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             toolCanvasIcon.setTextColor(color);
         }
         if (toolCanvasLabel != null) {
-            String label = active ? CanvasPickerBottomSheet.displayLabel(preset) :
+            String label = active ? CanvasPickerBottomSheet.displayLabel(this, preset) :
                     getString(R.string.faditor_tool_canvas);
             toolCanvasLabel.setText(label);
             toolCanvasLabel.setTextColor(color);
@@ -20119,8 +20119,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // With a Joy Creator folder, "consolidate" means gathering the project into its own folder
         // there (the owner's design); without one it keeps copying media into the app's project.
         boolean joy = com.fadcam.joyfolder.android.JoyFolderHome.isReachable(this);
-        String[] opts = {"Link selected", "Unlink selected", "Relink media",
-                joy ? "Gather into one folder" : "Consolidate project", "Export bundle", "Import bundle"};
+        String[] opts = {getString(R.string.studio_sheet_link_selected), getString(R.string.studio_sheet_link_unlink_selected), getString(R.string.studio_sheet_link_relink_media),
+                getString(joy ? R.string.studio_sheet_link_gather : R.string.studio_sheet_link_consolidate),
+                getString(R.string.studio_sheet_link_export_bundle), getString(R.string.studio_sheet_link_import_bundle)};
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle(R.string.studio_ui_project).setItems(opts, (d,which)-> {
             if (which==0) android.widget.Toast.makeText(this, R.string.studio_toast_pick_target_to_link, android.widget.Toast.LENGTH_SHORT).show();
             else if (which==1) android.widget.Toast.makeText(this, R.string.studio_toast_unlinked, android.widget.Toast.LENGTH_SHORT).show();
@@ -20156,7 +20157,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 if (isFinishing()) return;
                 if (first == null) {
-                    Toast.makeText(this, "Your Joy Creator folder can't be reached right now.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, R.string.studio_sheet_gather_unreachable, Toast.LENGTH_LONG).show();
                     return;
                 }
                 int own = first.plan.moves.size();
@@ -20166,14 +20167,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 box.setPadding(pad + pad / 2, pad / 2, pad + pad / 2, 0);
                 android.widget.TextView msg = new android.widget.TextView(this);
                 msg.setText(own == 0 && first.plan.sharedFiles.isEmpty()
-                        ? "Everything this project uses is already in “" + first.plan.boxDir + "”."
-                        : "Moves " + own + (own == 1 ? " file" : " files") + " into “" + first.plan.boxDir
-                        + "”, next to where the project is now. Every project still finds its files.");
+                        ? getString(R.string.studio_sheet_gather_all_inside, first.plan.boxDir)
+                        : getString(own == 1 ? R.string.studio_sheet_gather_moves_one : R.string.studio_sheet_gather_moves_many, own, first.plan.boxDir));
+                // (singular/plural wording lives in the string resources)
                 box.addView(msg);
                 final android.widget.CheckBox recs = new android.widget.CheckBox(this);
                 if (first.recordingsUsed > 0) {
-                    recs.setText(first.recordingsUsed == 1 ? "Also move the recording it uses"
-                            : "Also move the " + first.recordingsUsed + " recordings it uses");
+                    recs.setText(first.recordingsUsed == 1 ? getString(R.string.studio_sheet_gather_also_move_one)
+                            : getString(R.string.studio_sheet_gather_also_move_many, first.recordingsUsed));
                     recs.setChecked(true);
                     box.addView(recs);
                 }
@@ -20185,20 +20186,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (!first.plan.sharedFiles.isEmpty()) {
                     android.widget.TextView s2 = new android.widget.TextView(this);
                     int n = first.plan.sharedFiles.size();
-                    s2.setText(n == 1 ? "1 file is also used by another project:" : n + " files are also used by other projects:");
+                    s2.setText(n == 1 ? getString(R.string.studio_sheet_gather_shared_one) : getString(R.string.studio_sheet_gather_shared_many, n));
                     s2.setPadding(0, pad / 2, 0, 0);
                     box.addView(s2);
-                    leave.setText("Leave them where they are");
-                    assets.setText(first.hasAssets ? "Move them to Assets" : "Make an Assets folder for them");
+                    leave.setText(R.string.studio_sheet_gather_leave);
+                    assets.setText(first.hasAssets ? R.string.studio_sheet_gather_to_assets : R.string.studio_sheet_gather_make_assets);
                     shared.addView(leave);
                     shared.addView(assets);
                     shared.check(first.hasAssets ? assets.getId() : leave.getId());
                     box.addView(shared);
                 }
                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                        .setTitle("Gather “" + first.projectName + "” into one folder")
+                        .setTitle(getString(R.string.studio_sheet_gather_title, first.projectName))
                         .setView(box)
-                        .setPositiveButton("Gather", (d, w) -> {
+                        .setPositiveButton(R.string.studio_sheet_gather_button, (d, w) -> {
                             com.fadcam.joyfolder.ConsolidatePlan.Options chosen = new com.fadcam.joyfolder.ConsolidatePlan.Options();
                             chosen.moveRecordings = first.recordingsUsed > 0 && recs.isChecked();
                             chosen.shared = shared.getCheckedRadioButtonId() == assets.getId()
@@ -20214,18 +20215,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void runGather(android.content.Context app, String id,
                            com.fadcam.joyfolder.ConsolidatePlan.Options chosen) {
-        Toast.makeText(this, "Gathering…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.studio_sheet_gather_working, Toast.LENGTH_SHORT).show();
         com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
             String result;
             try {
                 com.fadcam.joyfolder.studio.StudioMirror.Gather g =
                         com.fadcam.joyfolder.studio.StudioMirror.planGather(app, id, chosen);
                 int moved = g == null ? 0 : com.fadcam.joyfolder.studio.StudioMirror.applyGather(app, g);
-                result = g == null ? "Your Joy Creator folder can't be reached right now."
-                        : moved == 0 ? "Already gathered in “" + g.plan.boxDir + "”."
-                        : "Gathered into “" + g.plan.boxDir + "” (" + moved + (moved == 1 ? " file)." : " files).");
+                result = g == null ? getString(R.string.studio_sheet_gather_unreachable)
+                        : moved == 0 ? getString(R.string.studio_sheet_gather_already, g.plan.boxDir)
+                        : getString(moved == 1 ? R.string.studio_sheet_gather_done_one : R.string.studio_sheet_gather_done_many, g.plan.boxDir, moved);
             } catch (Exception e) {
-                result = "Couldn't finish gathering: " + e.getMessage() + ". Nothing was lost.";
+                result = getString(R.string.studio_sheet_gather_failed, e.getMessage());
             }
             final String r = result;
             runOnUiThread(() -> Toast.makeText(this, r, Toast.LENGTH_LONG).show());
@@ -20237,12 +20238,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void showConsolidateDialog() {
         if (project == null) return;
         ProjectConsolidator.Estimate est = ProjectConsolidator.estimate(this, project);
-        String msg = "Consolidate will copy " + est.fileCount + " file(s), " + est.humanSize
-                + (est.deduped > 0 ? " (" + est.deduped + " deduped)" : "")
-                + (est.alreadyInside > 0 ? " — " + est.alreadyInside + " already inside" : "")
-                + ". Originals stay. Continue?";
-        if (est.fileCount == 0) msg = "Project is already consolidated — nothing to copy."
-                + (est.alreadyInside > 0 ? " (" + est.alreadyInside + " already inside)" : "");
+        String msg = getString(R.string.studio_sheet_consolidate_ask, est.fileCount, est.humanSize,
+                est.deduped > 0 ? getString(R.string.studio_sheet_consolidate_deduped, est.deduped) : "",
+                est.alreadyInside > 0 ? getString(R.string.studio_sheet_consolidate_inside_dash, est.alreadyInside) : "");
+                // (the ". Originals stay. Continue?" tail lives in the string resource)
+        if (est.fileCount == 0) msg = getString(R.string.studio_sheet_consolidate_nothing,
+                est.alreadyInside > 0 ? getString(R.string.studio_sheet_consolidate_inside_paren, est.alreadyInside) : "");
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.studio_ui_consolidate_project)
                 .setMessage(msg)
@@ -20285,7 +20286,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
                         editorTimeline.setMissingSegments(computeMissingSegmentIndices());
                     }
-                    android.widget.Toast.makeText(this, "Consolidated " + res.copied + " file(s)" + (res.deduped>0? " ("+res.deduped+" deduped)":"") + " — now portable", android.widget.Toast.LENGTH_LONG).show();
+                    android.widget.Toast.makeText(this, getString(R.string.studio_sheet_consolidate_done, res.copied, res.deduped > 0 ? getString(R.string.studio_sheet_consolidate_deduped, res.deduped) : ""), android.widget.Toast.LENGTH_LONG).show();
                 }
             });
         }).start();
@@ -41462,7 +41463,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         Transition.Type.PUSH_UP, Transition.Type.PUSH_DOWN}
                 : new Transition.Type[]{Transition.Type.WIPE_LEFT, Transition.Type.WIPE_RIGHT,
                         Transition.Type.WIPE_UP, Transition.Type.WIPE_DOWN};
-        final CharSequence[] labels = {"Left", "Right", "Up", "Down"};
+        final CharSequence[] labels = {getString(R.string.studio_sheet_dir_left), getString(R.string.studio_sheet_dir_right),
+                getString(R.string.studio_sheet_dir_up), getString(R.string.studio_sheet_dir_down)};
         int checked = -1;
         for (int i = 0; i < types.length; i++) {
             if (types[i] == transition.type) checked = i;

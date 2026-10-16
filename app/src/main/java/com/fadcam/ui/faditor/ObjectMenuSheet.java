@@ -793,7 +793,7 @@ public final class ObjectMenuSheet extends LinearLayout {
 
         new android.app.AlertDialog.Builder(ctx)
                 .setView(sheet)
-                .setPositiveButton("Got it", null)
+                .setPositiveButton(R.string.studio_ui_got_it, null)
                 .show();
     }
 

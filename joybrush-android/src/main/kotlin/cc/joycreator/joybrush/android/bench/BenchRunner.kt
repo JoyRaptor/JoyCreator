@@ -90,7 +90,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                     pressure = 0.7f, tilt = 0.4f, azimuth = 0.3f) }, colorArgb = 0xFF205CA9.toInt(), seq = 1,
                 capturedPhysicalSource = if (capturedCopy) cc.joycreator.joybrush.core.stroke.CapturedPhysicalSource(
                     cc.joycreator.joybrush.core.stroke.CaptureDomain(
-                        cc.joycreator.joybrush.core.stroke.CaptureRect(210,220,220,90),
+                        cc.joycreator.joybrush.core.stroke.CaptureRect(0,0,512,512),
                         listOf(cc.joycreator.joybrush.core.stroke.CaptureRect(256,256,200,40))),
                     cc.joycreator.joybrush.core.stroke.SourcePlacement(-257,513)) else null)
             canvas.runRecordedReplayProbe(probePreset, record, bake = bakeOperator != null,

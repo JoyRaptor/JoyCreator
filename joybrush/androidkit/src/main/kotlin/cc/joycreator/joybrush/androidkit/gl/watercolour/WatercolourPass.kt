@@ -11,6 +11,8 @@ import cc.joycreator.joybrush.core.paint.Tiles
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import java.util.Collections
+import java.util.LinkedHashMap
 import kotlin.math.pow
 
 /** Three coverage channels, shared live/replay draw, and a seam-aware finish. All GL names belong to this context. */
@@ -179,6 +181,19 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
     /** Borrowed coverage, finish pools and image ownership; no GL calls. */
     internal fun heldTextureHandles(): Set<Int> = (bands.values + plain.values + pooled.values + free +
         listOf(empty) + textures.heldTextureHandles()).filter { it != 0 }.toSet()
+
+    /** Actual resident watercolor tile targets only; image textures and non-tile GL objects are excluded. */
+    internal fun heldWorkingTileBytes(): Map<Int, Long> {
+        val tileBytes = Math.multiplyExact(Math.multiplyExact(size.toLong(), size.toLong()), 8L)
+        val result = LinkedHashMap<Int, Long>()
+        fun include(texture: Int) { if (texture != 0) result[texture] = tileBytes }
+        bands.values.forEach(::include)
+        plain.values.forEach(::include)
+        pooled.values.forEach(::include)
+        free.forEach(::include)
+        include(empty)
+        return Collections.unmodifiableMap(result)
+    }
 
     fun forget() { bands.clear(); plain.clear(); pooled.clear(); free.clear(); textures.forget(); empty=0; fbo=0; quad=0; instance=0; vao=0; finishVao=0; unitVbo=0; dab=null; finish=null; mix=null; images=null; paper=null }
     fun release() {

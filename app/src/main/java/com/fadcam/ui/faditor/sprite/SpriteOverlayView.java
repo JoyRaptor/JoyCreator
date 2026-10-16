@@ -287,6 +287,7 @@ public class SpriteOverlayView extends View {
 
         float h = sizeFraction * r.height();
         float aspect = renderer != null ? renderer.cellAspect() : 1f;
+        if (renderer != null && aspect > 0f && o.getCellAspect() != aspect) o.setCellAspect(aspect); // pin links read it
         float w = h * (aspect > 0 ? aspect : 1f);
         workRect.set(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f);
 

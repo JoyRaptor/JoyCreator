@@ -2695,6 +2695,7 @@ public class ProjectStorage {
                     if (so.getFadeInMs() != 0) sj.addProperty("fadeInMs", so.getFadeInMs());
                     if (so.getFadeOutMs() != 0) sj.addProperty("fadeOutMs", so.getFadeOutMs());
                     if (so.isFlipH()) sj.addProperty("flipH", true);
+                    if (so.getCellAspect() > 0f) sj.addProperty("cellAspect", so.getCellAspect());
                     if (so.isFlipV()) sj.addProperty("flipV", true);
                     if (so.getStartMs() != 0) sj.addProperty("startMs", so.getStartMs());
                     // Follows a parent in the picture (SPEC_20260924_LINKING). Absent = free.
@@ -3739,6 +3740,7 @@ public class ProjectStorage {
                             if (hasValue(sj, "fadeInMs")) so.setFadeInMs(sj.get("fadeInMs").getAsLong());
                             if (hasValue(sj, "fadeOutMs")) so.setFadeOutMs(sj.get("fadeOutMs").getAsLong());
                             if (hasValue(sj, "flipH")) so.setFlipH(sj.get("flipH").getAsBoolean());
+                            if (hasValue(sj, "cellAspect")) so.setCellAspect(sj.get("cellAspect").getAsFloat());
                             if (hasValue(sj, "flipV")) so.setFlipV(sj.get("flipV").getAsBoolean());
                             long sStart = hasValue(sj, "startMs") ? sj.get("startMs").getAsLong() : 0;
                             long sEnd = hasValue(sj, "endMs") ? sj.get("endMs").getAsLong() : Long.MAX_VALUE;

@@ -2964,6 +2964,9 @@ public class Timeline {
             for (TextOverlayItem o : textOverlays) {
                 if (o.getId().equals(ownerId)) return new MeshPinLink(o, pin, frameAspect);
             }
+            for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp : spriteOverlays) {
+                if (sp.getId().equals(ownerId)) return new MeshPinLink(sp, pin, frameAspect);
+            }
         } catch (NumberFormatException ignored) { }
         return null;
     }

@@ -52,25 +52,48 @@ public final class MeshPinPose {
      */
     public static boolean pin(@NonNull TextOverlayItem o, int pin, long t, float frameAspect,
                               float imageAspect, @NonNull float[] out) {
-        MeshWarpSpec m = o.getMesh();
-        if (m == null || m.topology() == null || !o.hasMesh()) return false;
+        if (!o.hasMesh()) return false;
+        float a = frameAspect > 0.01f ? frameAspect : 1f;
+        float ia = imageAspect > 0.01f ? imageAspect : 1f;
+        float size = o.animatedSizeFraction(t);
+        return pin(o.getMesh(), pin, o.meshLocalTime(t), o.animatedCenterX(t), o.animatedCenterY(t),
+                size * ia * o.animatedScaleX(t) / a, size * o.animatedScaleY(t),
+                o.mirrorSignX(), o.mirrorSignY(), o.animatedRotation(t), a, out);
+    }
+
+    /** A sprite's pin: its cell is {@code cellAspect} wide per unit of height, flips mirror it. */
+    public static int pinCount(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
+        MeshWarpSpec m = s.getMesh();
+        return m == null || m.topology() == null || !s.hasMesh() ? 0 : m.topology().handleCount();
+    }
+
+    public static boolean pin(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s, int pin, long t,
+                              float frameAspect, @NonNull float[] out) {
+        if (!s.hasMesh()) return false;
+        float a = frameAspect > 0.01f ? frameAspect : 1f;
+        float ca = s.getCellAspect() > 0.01f ? s.getCellAspect() : 1f;
+        float h = s.animatedSizeFraction(t);
+        return pin(s.getMesh(), pin, s.meshLocalTime(t), s.animatedCenterX(t), s.animatedCenterY(t),
+                h * ca / a, h, s.isFlipH() ? -1f : 1f, s.isFlipV() ? -1f : 1f,
+                s.animatedRotation(t), a, out);
+    }
+
+    /** The shared maths: pin {@code pin} of {@code m} at local time, carried into the frame. */
+    private static boolean pin(@NonNull MeshWarpSpec m, int pin, long localMs, float cx, float cy,
+                               float wNorm, float hNorm, float mirrorX, float mirrorY, float rotDeg,
+                               float a, @NonNull float[] out) {
+        if (m.topology() == null) return false;
         MeshTopology topo = m.topology();
         if (pin < 0 || pin >= topo.handleCount()) return false;
         int comp = Math.max(2, topo.handleComponents());
         float[] pose = new float[topo.handleArity()];
-        if (!m.handlesAt(o.meshLocalTime(t), pose)) {
+        if (!m.handlesAt(localMs, pose)) {
             float[] st = m.handles();
             if (st != null) System.arraycopy(st, 0, pose, 0, Math.min(st.length, pose.length));
         }
         float u = topo.handleRestX(pin) + pose[pin * comp];
         float v = topo.handleRestY(pin) + pose[pin * comp + 1];
-        float a = frameAspect > 0.01f ? frameAspect : 1f;
-        float ia = imageAspect > 0.01f ? imageAspect : 1f;
-        float size = o.animatedSizeFraction(t);
-        float wNorm = size * ia * o.animatedScaleX(t) / a;
-        float hNorm = size * o.animatedScaleY(t);
-        pinToFrame(u, v, o.animatedCenterX(t), o.animatedCenterY(t), wNorm, hNorm,
-                o.mirrorSignX(), o.mirrorSignY(), o.animatedRotation(t), a, out);
+        pinToFrame(u, v, cx, cy, wNorm, hNorm, mirrorX, mirrorY, rotDeg, a, out);
         return true;
     }
 }

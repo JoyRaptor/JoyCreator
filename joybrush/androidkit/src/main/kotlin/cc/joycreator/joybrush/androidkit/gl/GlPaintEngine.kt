@@ -1815,9 +1815,12 @@ class GlPaintEngine(
     }
 
     /** Diagnostic profile only. No Scene, live input, save or recovery capability is granted. */
+    private fun capturedRecipeLease(layerId: String, input: StrokeRecord, preset: BrushPreset): CapturedRecipeLease =
+        capturedRecipeLease(layerId, input, preset, null, null)
+
     private fun capturedRecipeLease(layerId: String, input: StrokeRecord, preset: BrushPreset,
-                                    residentPlanes: Map<Pair<String, String?>, RecordedCel<Int>>? = null,
-                                    workingTileBudgetBytes: Long? = null): CapturedRecipeLease {
+                                    residentPlanes: Map<Pair<String, String?>, RecordedCel<Int>>?,
+                                    workingTileBudgetBytes: Long?): CapturedRecipeLease {
         val record = cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.snapshot(input)
         require(record.capturedPhysicalSource != null &&
             cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.problems(record).isEmpty()) { "Invalid captured recipe" }
@@ -2125,7 +2128,9 @@ class GlPaintEngine(
                                              frozen: Map<String, BrushPreset>,
                                              workingTileBudgetBytes: Long = boardSnapshotAllowanceBytes): RecordedScene<Int> {
         requireLocalPaint()
-        checkStrokeEnded("Finish the stroke before opening captured cels")
+        check(ready && !strokeInProgress && !wcFading && !mediaStrokeInProgress) {
+            "Finish paint and media before opening captured cels"
+        }
         require(workingTileBudgetBytes in 0..boardSnapshotAllowanceBytes) { "Invalid captured working-tile allowance" }
         val scene = RecordedScene.create(planes, frozen, undo,
             recordedRenderer(planes, capturedWorkingTileBudgetBytes = workingTileBudgetBytes))
@@ -3039,10 +3044,20 @@ class GlPaintEngine(
                 }
 
             override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): RecordedScene.Unit<Int> {
+                check(contextCurrent()) { "Recorded renderer context changed before line replay" }
                 val priorStaged = stagedBeforeCallback()
                 var admittedKeys: Set<Long>? = null
                 val rendered = if (record.capturedPhysicalSource == null) {
                     if (capturedWorkingTileBudgetBytes != null) {
+                        // This explicit first connection is bounded before CPU dab generation too.
+                        // The ordinary renderer and live paint path keep their existing semantics.
+                        require(record.samples.size in 1..64 && record.samples.all {
+                            it.x.isFinite() && it.y.isFinite() && kotlin.math.abs(it.x) <= 4096f && kotlin.math.abs(it.y) <= 4096f
+                        } && record.widthScale.isFinite() && record.widthScale in 0.05f..2f &&
+                            record.screenPerDoc in 0.125f..8f && record.samples.zipWithNext().sumOf { (a,b) ->
+                                kotlin.math.hypot((b.x-a.x).toDouble(), (b.y-a.y).toDouble()) } <= 2048.0) {
+                            "This bounded recorded renderer needs a small finite raw recipe"
+                        }
                         val keys = capturedDiagnosticSourceKeys(InkReplay.replay(record, preset).dabs)
                         admittedKeys = keys
                         admitPeak(RecordedWorkingTilePlan.replay(keys.size, tileSize = size))
@@ -3090,6 +3105,7 @@ class GlPaintEngine(
 
             override fun copyForBake(address: LineAddress,
                                      unit: RecordedScene.Unit<Int>): RecordedScene.Unit<Int> {
+                check(contextCurrent()) { "Recorded renderer context changed before source copy" }
                 val priorStaged = stagedBeforeCallback() + unit.tiles.values
                 val copied = linkedMapOf<Long, Int>()
                 try {
@@ -3114,6 +3130,7 @@ class GlPaintEngine(
 
             override fun look(plane: Pair<String, String?>, key: Long,
                               sources: List<RecordedScene.Source<Int>>): Int? {
+                check(contextCurrent()) { "Recorded renderer context changed before composition" }
                 val priorStaged = stagedBeforeCallback() + sources.map { it.texture }
                 admitPeak(RecordedWorkingTilePlan.compose(if (sources.isEmpty()) 0 else 1, size))
                 val made = composeRecordedTile(sources.map { OrderedRecordedUnit(it.seq, it.texture, it.op, clips(plane, key)) })

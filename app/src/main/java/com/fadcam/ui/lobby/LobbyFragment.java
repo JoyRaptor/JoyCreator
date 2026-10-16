@@ -1216,6 +1216,11 @@ public class LobbyFragment extends BaseFragment {
         if (getActivity() != null) com.fadcam.ui.library.LibraryFragment.open(getActivity(), focusSearch);
     }
 
+    /** The new Settings hub, over the lobby. The classic Settings tab stays one tap away as its last row. */
+    private void openSettings() {
+        if (getActivity() != null) com.fadcam.ui.settingshub.SettingsHubFragment.open(getActivity(), false);
+    }
+
     /**
      * Hidden recycle bin: long-hold on the upper-left logo banner opens the trash
      * overlay. Same contract as the old Faditor main window's center-top button hold
@@ -1733,8 +1738,10 @@ public class LobbyFragment extends BaseFragment {
         addFloorWord("travel_explore", getString(R.string.lobby_floor_finder), () -> routeTab(TAB_FINDER));
         addFloorWord("cast",           getString(R.string.lobby_floor_remote), () -> routeTab(TAB_REMOTE));
         addFloorWord("build",          getString(R.string.lobby_floor_bits),   () -> routeTab(TAB_CAPTURE));
-        addFloorWord("inventory_2",    getString(R.string.lobby_floor_packs),  () -> routeTab(TAB_SETUP));
-        addFloorWord("tune",           getString(R.string.lobby_floor_setup),  () -> routeTab(TAB_SETUP));
+        // Packs has no room of its own yet and has always opened Settings; both now open the new
+        // Settings hub, whose last row is the classic Settings tab (TAB_SETUP).
+        addFloorWord("inventory_2",    getString(R.string.lobby_floor_packs),  this::openSettings);
+        addFloorWord("tune",           getString(R.string.lobby_floor_setup),  this::openSettings);
     }
 
     private void addFloorWord(String glyph, String label, Runnable onTap) {

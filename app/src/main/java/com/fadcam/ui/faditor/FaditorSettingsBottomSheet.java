@@ -144,7 +144,9 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
         // AV4: opens the quad-band tape "Waveform visualizer" settings sheet (crossovers,
         // per-band colors/lanes, shaping, FX, and eager/lazy analysis timing). Inline literals
         // because strings.xml is owned by another lane.
-        addButtonRow(content, dp,
+        // Shown only when a project is open behind the sheet (the editor wires it); opened from the
+        // Settings hub there is no project, and a row that does nothing is worse than no row.
+        if (onOpenWaveformVisualizer != null) addButtonRow(content, dp,
                 "Waveform visualizer",
                 "Customize the audio waveform look and when clips are analyzed.",
                 () -> {
@@ -164,7 +166,8 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
         // 3.4: copy every referenced file INTO the project so it stops depending on media it does
         // not own. A BUTTON row, not a switch — it is an action with a cost (disk, time), not a
         // preference, and doing it automatically on open would copy gigabytes nobody asked for.
-        addButtonRow(content, dp,
+        // Project-only, like the visualizer row: hidden when no project is open (the Settings hub).
+        if (onConsolidateProject != null) addButtonRow(content, dp,
                 "Make project self-contained",
                 "Copy every video, image and audio file this project uses into the project itself, "
                         + "so it keeps working if the originals are moved or deleted. "

@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Settings hub (com.fadcam.ui.settingshub). Every row opens the same screen or sheet the classic
+  Settings tab opens; the classic tab stays reachable from the last row.
+
+  Each row has a title, a one-line description, and "names": other words people use for it, comma
+  separated. Names are never shown; search reads them, so "flashlight" finds Torch. Translate them
+  as the words a person would type in that language, not word for word.
+-->
+<resources>
+    <!-- Top bar -->
+    <string name="settingshub_title">Settings</string>
+    <string name="settingshub_back">Back to the lobby</string>
+    <string name="settingshub_version">v%1$s</string>
+    <plurals name="settingshub_matches">
+        <item quantity="one">%d match</item>
+        <item quantity="other">%d matches</item>
+    </plurals>
+
+    <!-- The dock -->
+    <string name="settingshub_search_hint">Search settings</string>
+    <string name="settingshub_search_clear">Clear search</string>
+    <string name="settingshub_jump">Jump to %1$s</string>
+
+    <!-- Nothing found -->
+    <string name="settingshub_empty">Nothing in Settings matches “%1$s”.</string>
+    <string name="settingshub_empty_hint">Try one word, like camera, theme or folder.</string>
+    <string name="settingshub_empty_show_all">Show all settings</string>
+
+    <!-- Live values on rows -->
+    <string name="settingshub_on">On</string>
+    <string name="settingshub_off">Off</string>
+    <string name="settingshub_status_folder_none">Not chosen yet. Tap to choose one.</string>
+    <string name="settingshub_status_folder_lost">Can\'t be reached. Tap to reconnect it.</string>
+    <string name="settingshub_status_inside_app">Inside the app</string>
+    <string name="settingshub_status_free">%1$s free on this phone</string>
+    <string name="settingshub_status_video">%1$d × %2$d · %3$d fps</string>
+    <string name="settingshub_status_theme">%1$s theme</string>
+    <string name="settingshub_status_tab_lock_on">Tab lock on</string>
+    <string name="settingshub_status_tab_lock_off">Tab lock off</string>
+    <string name="settingshub_status_version">Version %1$s</string>
+
+    <!-- What a row says to a screen reader and on hover -->
+    <string name="settingshub_row_a11y">%1$s. %2$s</string>
+    <string name="settingshub_row_a11y_state">%1$s, %2$s. %3$s</string>
+    <string name="settingshub_row_a11y_leaves">%1$s. %2$s. Opens Google Play.</string>
+    <string name="settingshub_open_failed">That couldn\'t be opened here. Classic settings, at the bottom, still has it.</string>
+
+    <!-- Sections: the heading, and the shorter word on its jump chip -->
+    <string name="settingshub_section_folder">Folder and storage</string>
+    <string name="settingshub_chip_folder">Folder</string>
+    <string name="settingshub_section_studio">Studio</string>
+    <string name="settingshub_chip_studio">Studio</string>
+    <string name="settingshub_section_recording">Recording</string>
+    <string name="settingshub_chip_recording">Recording</string>
+    <string name="settingshub_section_appearance">Appearance</string>
+    <string name="settingshub_chip_appearance">Appearance</string>
+    <string name="settingshub_section_notifications">Notifications</string>
+    <string name="settingshub_chip_notifications">Notifications</string>
+    <string name="settingshub_section_security">Security and privacy</string>
+    <string name="settingshub_chip_security">Privacy</string>
+    <string name="settingshub_section_shortcuts">Shortcuts and tools</string>
+    <string name="settingshub_chip_shortcuts">Tools</string>
+    <string name="settingshub_section_labs">Labs</string>
+    <string name="settingshub_chip_labs">Labs</string>
+    <string name="settingshub_section_about">About and help</string>
+    <string name="settingshub_chip_about">About</string>
+
+    <!-- Folder and storage -->
+    <string name="settingshub_joy_folder">Joy Creator folder</string>
+    <string name="settingshub_joy_folder_desc">Where your work lives, so removing the app never loses it</string>
+    <string name="settingshub_joy_folder_names">folder, files, backup, sd card, save, uninstall, reinstall, reconnect, sync, location</string>
+    <string name="settingshub_recording_location">Where recordings are saved</string>
+    <string name="settingshub_recording_location_desc">Inside the app, or a folder you pick</string>
+    <string name="settingshub_recording_location_names">storage, storage location, save location, path, sd card, custom folder, directory, recordings</string>
+    <string name="settingshub_space">Space</string>
+    <string name="settingshub_space_desc">See what takes room on your phone, and free some up</string>
+    <string name="settingshub_space_names">free up, storage, cache, disk, full, size, clean, room, memory</string>
+    <string name="settingshub_recently_deleted">Recently deleted</string>
+    <string name="settingshub_recently_deleted_desc">Put back recordings and projects you deleted</string>
+    <string name="settingshub_recently_deleted_names">trash, bin, recycle, restore, undelete, deleted, undo</string>
+
+    <!-- Studio -->
+    <string name="settingshub_editor">Editor</string>
+    <string name="settingshub_editor_desc">Transcribe offers, safe-zone guide, drawer see-through, and objects on a deleted clip</string>
+    <string name="settingshub_editor_names">studio, editor, faditor, transcribe, transcript, captions, safe zone, guide, drawer, see-through, transparency, frost, orphan, anchor</string>
+    <string name="settingshub_video_player">Video player</string>
+    <string name="settingshub_video_player_desc">Playback speed and quick speed</string>
+    <string name="settingshub_video_player_names">player, playback, speed, quick speed, watch, fast forward, slow motion</string>
+
+    <!-- Recording -->
+    <string name="settingshub_camera_video">Camera video</string>
+    <string name="settingshub_camera_video_desc">Resolution, frame rate, bitrate, codec and camera</string>
+    <string name="settingshub_camera_video_names">camera, video, resolution, fps, frame rate, bitrate, codec, quality, zoom, orientation, lens, 4k, 1080p, hd, front, back, dual</string>
+    <string name="settingshub_audio">Audio</string>
+    <string name="settingshub_audio_desc">Record sound, microphone source and noise suppression</string>
+    <string name="settingshub_audio_names">audio, sound, microphone, mic, input, noise, suppression, mute</string>
+    <string name="settingshub_screen_recording">Screen recording</string>
+    <string name="settingshub_screen_recording_desc">Quality, audio and output for recording your screen</string>
+    <string name="settingshub_screen_recording_names">screen, screen recorder, record screen, capture, display, fadrec</string>
+    <string name="settingshub_watermark">Watermark</string>
+    <string name="settingshub_watermark_desc">Time, place and branding stamped on recordings</string>
+    <string name="settingshub_watermark_names">watermark, timestamp, date, time, overlay, location, gps, speed, altitude, weather, branding, logo, stamp</string>
+
+    <!-- Appearance, notifications, security -->
+    <string name="settingshub_appearance">Theme, language and icon</string>
+    <string name="settingshub_appearance_desc">Theme, language, app icon, header logo and eye colour</string>
+    <string name="settingshub_appearance_names">appearance, theme, dark, colour, color, language, translation, icon, app icon, logo, eye, look</string>
+    <string name="settingshub_notifications">Recording notification</string>
+    <string name="settingshub_notifications_desc">How it looks while recording, and its Stop button</string>
+    <string name="settingshub_notifications_names">notifications, notification, alerts, stop button, style, preset</string>
+    <string name="settingshub_security">Lock and privacy</string>
+    <string name="settingshub_security_desc">Tab lock, screenshot blocking and the privacy black screen</string>
+    <string name="settingshub_security_names">security, lock, tab lock, app lock, pin, password, privacy, screenshots, recents, hide, black screen, cloak</string>
+
+    <!-- Shortcuts and tools -->
+    <string name="settingshub_shortcuts">Shortcuts and widgets</string>
+    <string name="settingshub_shortcuts_desc">Pin start, stop, photo and torch to your home screen</string>
+    <string name="settingshub_shortcuts_names">shortcuts, widgets, home screen, launcher, pin, clock widget, automation, macrodroid</string>
+    <string name="settingshub_torch">Torch</string>
+    <string name="settingshub_torch_desc">The flashlight, with patterns</string>
+    <string name="settingshub_torch_names">torch, flashlight, light, led, strobe, sos</string>
+    <string name="settingshub_qr_scanner">QR scanner</string>
+    <string name="settingshub_qr_scanner_desc">Scan QR codes and barcodes</string>
+    <string name="settingshub_qr_scanner_names">qr, barcode, scan, scanner, code</string>
+
+    <!-- Labs -->
+    <string name="settingshub_motion_lab">Motion Lab</string>
+    <string name="settingshub_motion_lab_desc">Record when something moves, for keeping an eye on a room</string>
+    <string name="settingshub_motion_lab_names">motion, motion detection, cctv, security camera, surveillance, sensor, sensitivity, events</string>
+    <string name="settingshub_smart_detection">Smart Detection</string>
+    <string name="settingshub_smart_detection_desc">Story Board, people and smart insights from what the camera sees</string>
+    <string name="settingshub_smart_detection_names">smart detection, ai, people, person, snapshots, story board, forensics, insights, overlay</string>
+    <string name="settingshub_remote">Remote streaming</string>
+    <string name="settingshub_remote_desc">Watch and control the camera from a browser on your network</string>
+    <string name="settingshub_remote_names">remote, stream, streaming, server, lan, wifi, browser, hls, cloud, live</string>
+
+    <!-- About and help -->
+    <string name="settingshub_readme">Read me</string>
+    <string name="settingshub_readme_desc">A note from the developer, with links and updates</string>
+    <string name="settingshub_readme_names">readme, note from developer, help, links, guide</string>
+    <string name="settingshub_whats_new">What\'s new</string>
+    <string name="settingshub_whats_new_desc">What changed in this version</string>
+    <string name="settingshub_whats_new_names">changelog, release notes, updates, news, version</string>
+    <string name="settingshub_show_intro">Show the intro</string>
+    <string name="settingshub_show_intro_desc">Welcome slides and the permissions guide, next time the app opens</string>
+    <string name="settingshub_show_intro_names">intro, onboarding, tutorial, welcome, first run, permissions, slides</string>
+    <string name="settingshub_update_check">Check for updates</string>
+    <string name="settingshub_update_check_desc">Look for a new version each time the app opens</string>
+    <string name="settingshub_update_check_names">updates, auto update, update check, version, new version, upgrade</string>
+    <string name="settingshub_debug_log">Debug log</string>
+    <string name="settingshub_debug_log_desc">Read, search and share the app\'s log for a bug report</string>
+    <string name="settingshub_debug_log_names">debug, log, logs, logging, bug, report, diagnostics, crash</string>
+    <string name="settingshub_settings_backup">Back up settings</string>
+    <string name="settingshub_settings_backup_desc">Export, import or reset all your settings</string>
+    <string name="settingshub_settings_backup_names">backup, back up, import, export, reset, restore, preferences, transfer</string>
+    <string name="settingshub_about">About Joy Creator</string>
+    <string name="settingshub_about_desc">Version, updates, privacy and licences</string>
+    <string name="settingshub_about_names">about, version, licenses, licences, credits, source code, privacy, contact, email</string>
+    <string name="settingshub_rate">Rate on Google Play</string>
+    <string name="settingshub_rate_desc">Tell us how it\'s going</string>
+    <string name="settingshub_rate_names">rate, review, feedback, stars, play store</string>
+    <string name="settingshub_classic">Classic settings</string>
+    <string name="settingshub_classic_desc">The previous settings screen, kept while this one settles in</string>
+    <string name="settingshub_classic_names">classic, old, legacy, previous, fadcam, mini apps</string>
+</resources>

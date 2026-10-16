@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Settings hub (com.fadcam.ui.settingshub.SettingsHubFragment). The skeleton only; the code paints it.
+
+  Top: the title and a quiet line (the version, or how many settings match), nothing to reach for.
+  Middle: the list, which scrolls under the dock.
+  Bottom: the dock, in the thumb's reach: section chips, then search.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/settingshub_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/s_ground"
+    android:clickable="true"
+    android:focusable="true"
+    android:focusableInTouchMode="true">
+
+    <LinearLayout
+        android:id="@+id/settingshub_top"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="6dp"
+        android:paddingEnd="16dp">
+
+        <TextView
+            android:id="@+id/settingshub_back"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:fontFamily="@font/materialicons"
+            android:textColor="@color/s_ink_dim"
+            android:textSize="20sp"
+            android:contentDescription="@string/settingshub_back"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <TextView
+            android:id="@+id/settingshub_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="@string/settingshub_title"
+            android:textColor="@color/s_ink"
+            android:textSize="19sp"
+            android:letterSpacing="-0.04" />
+
+        <TextView
+            android:id="@+id/settingshub_count"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="9dp"
+            android:layout_marginTop="3dp"
+            android:textColor="@color/s_ink_off"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/settingshub_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="120dp"
+            android:clipToPadding="false"
+            android:scrollbars="none" />
+
+        <LinearLayout
+            android:id="@+id/settingshub_empty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp"
+            android:paddingBottom="80dp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/settingshub_dock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical" />
+    </FrameLayout>
+</LinearLayout>

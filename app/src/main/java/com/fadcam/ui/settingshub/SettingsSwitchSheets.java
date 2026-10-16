@@ -37,7 +37,6 @@ final class SettingsSwitchSheets {
         String title = host.getString(R.string.setting_onboarding_title);
         PickerBottomSheetFragment.newInstanceWithSwitch(title, new ArrayList<>(), null, resultKey,
                 host.getString(R.string.note_onboarding), title, prefs.isShowOnboarding())
-                .withJoybotSwitch()
                 .show(host.getParentFragmentManager(), "onboarding_switch_sheet");
     }
 
@@ -54,7 +53,6 @@ final class SettingsSwitchSheets {
         PickerBottomSheetFragment.newInstanceWithSwitch(title, new ArrayList<>(), null, resultKey,
                 host.getString(R.string.note_auto_update_check), title,
                 prefs.sharedPreferences.getBoolean(KEY_AUTO_UPDATE, true))
-                .withJoybotSwitch()
                 .show(host.getParentFragmentManager(), "auto_update_switch_sheet");
     }
 }

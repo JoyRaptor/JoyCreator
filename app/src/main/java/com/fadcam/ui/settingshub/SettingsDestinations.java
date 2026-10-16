@@ -63,7 +63,7 @@ final class SettingsDestinations {
             case JOY_FOLDER:         a.startActivity(com.fadcam.joyfolder.studio.JoyFolderSetupActivity.intent(a)); break;
             case RECORDING_LOCATION: over(a, new StorageSettingsFragment()); break;
             case SPACE:              a.startActivity(com.fadcam.joyfolder.studio.SpaceActivity.intent(a)); break;
-            case RECENTLY_DELETED:   OverlayNavUtil.show(a, new TrashFragment(), "trash"); break;
+            case RECENTLY_DELETED:   com.fadcam.ui.trash.RecentlyDeletedFragment.open(a); break;
             // ── studio ──
             case EDITOR:
                 // Outside a project, the sheet shows only its app-wide rows.
@@ -93,7 +93,7 @@ final class SettingsDestinations {
             case WHATS_NEW:          a.startActivity(new Intent(a, WhatsNewActivity.class)); break;
             case SHOW_INTRO:         SettingsSwitchSheets.showIntro(host); break;
             case UPDATE_CHECK:       SettingsSwitchSheets.updateCheck(host); break;
-            case DEBUG_LOG:          DebugLogBottomSheetFragment.newInstance(true).show(host.getParentFragmentManager(), "debug_log_tools"); break;
+            case DEBUG_LOG:          DebugLogBottomSheetFragment.newInstance().show(host.getParentFragmentManager(), "debug_log_tools"); break;
             case SETTINGS_BACKUP:    new PrefsBackupBottomSheetFragment().show(host.getParentFragmentManager(), "prefs_backup"); break;
             case ABOUT:              over(a, new AboutFragment()); break;
             case RATE:               rate(a); break;

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Recently deleted (com.fadcam.ui.trash): the one Trash, rebuilt in the Library's look.
+     The classic Trash screen (com.fadcam.ui.TrashFragment) keeps its own strings. -->
+<resources>
+    <!-- Top bar -->
+    <string name="trash_title">Recently deleted</string>
+    <string name="trash_close">Close Recently deleted</string>
+    <plurals name="trash_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · reading folder</string>
+    <string name="trash_notice_unreachable">Your Joy Creator folder can\'t be reached right now, so only things deleted inside the app are shown.</string>
+
+    <!-- Days left, on a card -->
+    <plurals name="trash_days_left">
+        <item quantity="one">%d day left</item>
+        <item quantity="other">%d days left</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="one">%d hour left</item>
+        <item quantity="other">%d hours left</item>
+    </plurals>
+    <string name="trash_left_soon">goes very soon</string>
+    <string name="trash_left_kept">kept</string>
+    <string name="trash_a11y_card">%1$s. %2$s, %3$s.</string>
+    <string name="trash_a11y_selected">Selected.</string>
+
+    <!-- The quiet line in the dock: what the Trash rule is -->
+    <plurals name="trash_rule_days">
+        <item quantity="one">Kept %d day, then deleted for good.</item>
+        <item quantity="other">Kept %d days, then deleted for good.</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="one">Kept %d hour, then deleted for good.</item>
+        <item quantity="other">Kept %d hours, then deleted for good.</item>
+    </plurals>
+    <string name="trash_rule_never">Kept until you delete it.</string>
+    <string name="trash_rule_now">Deleted for good straight away.</string>
+
+    <!-- Choosing -->
+    <string name="trash_hold_hint">Press and hold to choose things to restore or delete.</string>
+    <string name="trash_stop_selecting">Stop choosing</string>
+    <string name="trash_restore">Restore</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="one">Restore %d item</item>
+        <item quantity="other">Restore %d items</item>
+    </plurals>
+    <string name="trash_delete_forever">Delete forever</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="one">Delete %d item forever</item>
+        <item quantity="other">Delete %d items forever</item>
+    </plurals>
+    <string name="trash_open_failed">Couldn\'t open this.</string>
+
+    <!-- Confirm sheets -->
+    <plurals name="trash_confirm_delete">
+        <item quantity="one">Delete %d item forever?</item>
+        <item quantity="other">Delete %d items forever?</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="one">Empty the trash? %d item goes forever.</item>
+        <item quantity="other">Empty the trash? All %d items go forever.</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="one">%d item is older than that and goes forever now.</item>
+        <item quantity="other">%d items are older than that and go forever now.</item>
+    </plurals>
+    <string name="trash_confirm_undone">This cannot be undone.</string>
+    <string name="trash_confirm_keep">Keep</string>
+    <string name="trash_confirm_empty_button">Empty trash</string>
+    <string name="trash_confirm_rule_button">Change and delete</string>
+
+    <!-- Restore: where recordings go -->
+    <plurals name="trash_restore_title">
+        <item quantity="one">Restore %d item</item>
+        <item quantity="other">Restore %d items</item>
+    </plurals>
+    <string name="trash_restore_where">Choose where the recordings go.</string>
+    <string name="trash_restore_where_mixed">Choose where the recordings go. Projects, drawings and other files go back where they were in your Joy Creator folder.</string>
+
+    <!-- Results -->
+    <plurals name="trash_done_restored">
+        <item quantity="one">Restored %d item.</item>
+        <item quantity="other">Restored %d items.</item>
+    </plurals>
+    <string name="trash_done_restored_part">Restored %1$d of %2$d. The rest couldn\'t be restored.</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="one">Deleted %d item forever.</item>
+        <item quantity="other">Deleted %d items forever.</item>
+    </plurals>
+    <string name="trash_done_delete_failed">Some items couldn\'t be deleted.</string>
+    <string name="trash_done_emptied">Trash emptied.</string>
+    <string name="trash_done_empty_failed">The trash couldn\'t be emptied completely.</string>
+    <plurals name="trash_done_swept">
+        <item quantity="one">%d old item was deleted for good.</item>
+        <item quantity="other">%d old items were deleted for good.</item>
+    </plurals>
+
+    <!-- Options sheet -->
+    <string name="trash_options">Select, empty and more</string>
+    <string name="trash_options_title">Recently deleted</string>
+    <string name="trash_opt_select_all">Select all</string>
+    <string name="trash_opt_rule">Delete for good after · %1$s</string>
+    <string name="trash_opt_empty">Empty trash</string>
+    <string name="trash_opt_classic">Classic trash</string>
+    <string name="trash_rule_title">Delete for good after</string>
+
+    <!-- Empty states -->
+    <string name="trash_empty_all">Nothing in the trash. Things you delete wait here before they go for good.</string>
+    <string name="trash_empty_projects">No deleted projects.</string>
+    <string name="trash_empty_drawings">No deleted drawings.</string>
+    <string name="trash_empty_recordings">No deleted recordings or videos.</string>
+    <string name="trash_empty_photos">No deleted photos or pictures.</string>
+    <string name="trash_empty_other">Nothing else in the trash.</string>
+    <string name="trash_empty_show_all">Show everything</string>
+</resources>

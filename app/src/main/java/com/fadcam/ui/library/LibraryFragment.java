@@ -128,6 +128,12 @@ public class LibraryFragment extends BaseFragment {
         SheetKit.label(back, getString(R.string.library_back));
         back.setOnClickListener(b -> OverlayNavUtil.dismiss(requireActivity()));
 
+        sortBtn = v.findViewById(R.id.library_sort);
+        viewBtn = v.findViewById(R.id.library_view);
+        sortBtn.setOnClickListener(b -> cycleSort());
+        viewBtn.setOnClickListener(b -> cycleView());
+        paintHeaderCycles();
+
         list = v.findViewById(R.id.library_grid);
         gridFloor = list.getPaddingBottom();
         empty = v.findViewById(R.id.library_empty);
@@ -290,23 +296,40 @@ public class LibraryFragment extends BaseFragment {
         });
     }
 
+    private TextView sortBtn, viewBtn;
+
+    /** Sort and view are always one tap away in the header, each a cycle that shows what it is now. */
+    private void paintHeaderCycles() {
+        boolean newest = filter.sort() == LibraryFilter.Sort.NEWEST;
+        sortBtn.setText(newest ? "schedule" : "sort_by_alpha");
+        SheetKit.label(sortBtn, getString(newest ? R.string.library_sort_cycle_newest : R.string.library_sort_cycle_name));
+        viewBtn.setText(dense ? "view_list" : "grid_view");
+        SheetKit.label(viewBtn, getString(dense ? R.string.library_view_cycle_list : R.string.library_view_cycle_grid));
+    }
+
+    private void cycleSort() {
+        LibraryFilter.Sort next = filter.sort() == LibraryFilter.Sort.NEWEST
+                ? LibraryFilter.Sort.NAME : LibraryFilter.Sort.NEWEST;
+        filter.setSort(next);
+        LibraryPrefs.setSort(requireContext(), next);
+        paintHeaderCycles();
+        render();
+        list.scrollToPosition(0);
+    }
+
+    private void cycleView() {
+        dense = !dense;
+        LibraryPrefs.setList(requireContext(), dense);
+        grid.setSpanCount(dense ? 1 : 2);
+        paintHeaderCycles();
+        render();
+    }
+
     private void options() {
         dock.hideKeyboard();
-        LibraryOptionsSheet.show(requireContext(), filter.sort(), dense, new LibraryOptionsSheet.Listener() {
-            @Override public void onSort(@NonNull LibraryFilter.Sort sort) {
-                filter.setSort(sort);
-                LibraryPrefs.setSort(requireContext(), sort);
-                render();
-                list.scrollToPosition(0);
-            }
-            @Override public void onDense(boolean listView) {
-                dense = listView;
-                LibraryPrefs.setList(requireContext(), listView);
-                grid.setSpanCount(listView ? 1 : 2);
-                render();
-            }
+        LibraryOptionsSheet.show(requireContext(), new LibraryOptionsSheet.Listener() {
             @Override public void onTrash() {
-                OverlayNavUtil.show(requireActivity(), new TrashFragment(), "trash");
+                com.fadcam.ui.trash.RecentlyDeletedFragment.open(requireActivity());
             }
             @Override public void onClassic() { leaveFor(TAB_RECORDS); }
             @Override public void onClassicStudio() { leaveFor(TAB_STUDIO); }

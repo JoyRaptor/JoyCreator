@@ -142,4 +142,8 @@
     <string name="library_no_app">No app on this phone opens this kind of file.</string>
     <string name="library_restoring">Bringing the project back from your folder…</string>
     <string name="library_restore_failed">Couldn\'t bring the project back from your folder.</string>
+    <string name="library_sort_cycle_newest">Sorted newest first. Tap for name, A to Z.</string>
+    <string name="library_sort_cycle_name">Sorted by name, A to Z. Tap for newest first.</string>
+    <string name="library_view_cycle_grid">Grid view. Tap for list.</string>
+    <string name="library_view_cycle_list">List view. Tap for grid.</string>
 </resources>

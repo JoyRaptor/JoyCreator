@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Library (com.fadcam.ui.library.LibraryFragment). The skeleton only; the code paints it.
+
+  Top: the title and a live count, nothing to reach for (the top of a phone is the hard part).
+  Middle: the grid, which scrolls under the dock.
+  Bottom: the dock, in the thumb's reach: kind chips, then search, Shared in, and options.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/library_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/s_ground"
+    android:clickable="true"
+    android:focusable="true"
+    android:focusableInTouchMode="true">
+
+    <LinearLayout
+        android:id="@+id/library_top"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="6dp"
+        android:paddingEnd="16dp">
+
+        <TextView
+            android:id="@+id/library_back"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:fontFamily="@font/materialicons"
+            android:textColor="@color/s_ink_dim"
+            android:textSize="20sp"
+            android:contentDescription="@string/library_back"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <TextView
+            android:id="@+id/library_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="@string/library_title"
+            android:textColor="@color/s_ink"
+            android:textSize="19sp"
+            android:letterSpacing="-0.04" />
+
+        <TextView
+            android:id="@+id/library_count"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="9dp"
+            android:layout_marginTop="3dp"
+            android:textColor="@color/s_ink_off"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/library_notice"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp"
+        android:textColor="@color/s_ink_faint"
+        android:textSize="11sp"
+        android:visibility="gone" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/library_grid"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="140dp"
+            android:clipToPadding="false"
+            android:scrollbars="none" />
+
+        <LinearLayout
+            android:id="@+id/library_empty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp"
+            android:paddingBottom="140dp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/library_dock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical" />
+    </FrameLayout>
+</LinearLayout>

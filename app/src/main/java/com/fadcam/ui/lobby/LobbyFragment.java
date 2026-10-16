@@ -378,11 +378,11 @@ public class LobbyFragment extends BaseFragment {
                 "Joybot, your helper — he glows green when he has an idea for your project");
 
         View libraryDoor = v.findViewById(R.id.lobby_library_door);
-        libraryDoor.setOnClickListener(b -> routeTab(TAB_LIBRARY));
+        libraryDoor.setOnClickListener(b -> openLibrary(false));
         Motion.press(libraryDoor);
         Motion.press(v.findViewById(R.id.lobby_search));
         androidx.appcompat.widget.TooltipCompat.setTooltipText(v.findViewById(R.id.lobby_search), "Search everything");
-        v.findViewById(R.id.lobby_search).setOnClickListener(b -> routeTab(TAB_LIBRARY));
+        v.findViewById(R.id.lobby_search).setOnClickListener(b -> openLibrary(true));
 
         // "On scroll gesture in screens it looks like he's watching and reacting."
         // The recents strip is the only thing on this screen the user scrolls, so it is
@@ -1211,6 +1211,11 @@ public class LobbyFragment extends BaseFragment {
         }
     }
 
+    /** The new Library (every kind of thing), over the lobby. The classic Records tab stays one tap away in its menu. */
+    private void openLibrary(boolean focusSearch) {
+        if (getActivity() != null) com.fadcam.ui.library.LibraryFragment.open(getActivity(), focusSearch);
+    }
+
     /**
      * Hidden recycle bin: long-hold on the upper-left logo banner opens the trash
      * overlay. Same contract as the old Faditor main window's center-top button hold
@@ -1264,7 +1269,7 @@ public class LobbyFragment extends BaseFragment {
             return;
         }
         if (label != null) label.setText(R.string.lobby_library);
-        if (door != null) door.setOnClickListener(b -> routeTab(TAB_LIBRARY));
+        if (door != null) door.setOnClickListener(b -> openLibrary(false));
 
         if (recents.isEmpty()) {
             TextView none = new TextView(requireContext());
@@ -1390,7 +1395,7 @@ public class LobbyFragment extends BaseFragment {
             // A recording is not a project: opening it in the editor would silently CREATE
             // one. Sending the user to the Library is the honest action until "start a
             // project from this clip" exists as a deliberate choice.
-            routeTab(TAB_LIBRARY);
+            openLibrary(false);
         });
         Motion.press(card);
         return card;
@@ -1537,7 +1542,7 @@ public class LobbyFragment extends BaseFragment {
         addNewChip("directions_run", Studio.ROOM_AVATAR, Studio.ROOM_AVATAR_DEEP, getString(R.string.lobby_new_character), R.string.lobby_a11y_new_character,
                 false, () -> { active = 2; paintMarquee(); paintHero(); enterRoom(); });
         addNewChip("folder",         Studio.ARMED_LIGHT, Studio.ARMED, getString(R.string.lobby_new_import), R.string.lobby_a11y_new_import,
-                false, () -> routeTab(TAB_LIBRARY));
+                false, () -> openLibrary(false));
     }
 
     /** Visual height of a New chip. Half the old stacked cell, as asked. */
@@ -1815,7 +1820,7 @@ public class LobbyFragment extends BaseFragment {
             // arrived after your last edit, which is exactly what the sentence says.
             message = "Your newest recording landed after your last edit.";
             yesLabel = "Open Library";
-            onYes = () -> routeTab(TAB_LIBRARY);
+            onYes = () -> openLibrary(false);
         } else if (projects.isEmpty() && captures > 0) {
             message = captures + (captures == 1 ? " recording" : " recordings")
                     + " and no projects yet.";

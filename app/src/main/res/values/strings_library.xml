@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Library (com.fadcam.ui.library): every kind of thing in the Joy Creator folder and the app, in one place. -->
+<resources>
+    <!-- Top bar -->
+    <string name="library_title">Library</string>
+    <plurals name="library_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <string name="library_count_reading">%1$s · reading folder</string>
+    <string name="library_back">Back to the lobby</string>
+    <string name="library_notice_no_folder">No Joy Creator folder chosen yet, so only what is inside the app is shown.</string>
+    <string name="library_notice_unreachable">Your Joy Creator folder can\'t be reached right now, so only what is inside the app is shown.</string>
+
+    <!-- The dock -->
+    <string name="library_search_hint">Search by name</string>
+    <string name="library_search_clear">Clear search</string>
+    <string name="library_options">Sort, view and more</string>
+    <string name="library_shared_any">Shared in</string>
+    <string name="library_shared_only">Only shared</string>
+    <string name="library_shared_hide">No shared</string>
+    <string name="library_shared_any_tip">Showing everything. Tap to show only what was shared in or imported.</string>
+    <string name="library_shared_only_tip">Showing only what was shared in or imported. Tap to hide those instead.</string>
+    <string name="library_shared_hide_tip">Hiding what was shared in or imported. Tap to show everything again.</string>
+    <plurals name="library_a11y_kind">
+        <item quantity="one">%1$s: %2$d item</item>
+        <item quantity="other">%1$s: %2$d items</item>
+    </plurals>
+
+    <!-- Kinds, as chips -->
+    <string name="library_kind_all">All</string>
+    <string name="library_kind_projects">Projects</string>
+    <string name="library_kind_drawings">Drawings</string>
+    <string name="library_kind_sprite_sheets">Sprite sheets</string>
+    <string name="library_kind_avatars">Avatars</string>
+    <string name="library_kind_recordings">Recordings</string>
+    <string name="library_kind_photos">Photos</string>
+    <string name="library_kind_exports">Exports</string>
+    <string name="library_kind_clips">Clips</string>
+    <string name="library_kind_images">Images</string>
+    <string name="library_kind_audio">Audio</string>
+    <string name="library_kind_documents">Documents</string>
+    <string name="library_kind_supplies">Fonts and supplies</string>
+    <string name="library_kind_other">Other</string>
+    <string name="library_kind_project_media">Project media</string>
+
+    <!-- Kinds, as the short tag on a card -->
+    <string name="library_tag_project">PROJECT</string>
+    <string name="library_tag_drawing">DRAWING</string>
+    <string name="library_tag_sheet">SHEET</string>
+    <string name="library_tag_avatar">AVATAR</string>
+    <string name="library_tag_recording">RECORDING</string>
+    <string name="library_tag_photo">PHOTO</string>
+    <string name="library_tag_export">EXPORT</string>
+    <string name="library_tag_clip">CLIP</string>
+    <string name="library_tag_image">IMAGE</string>
+    <string name="library_tag_audio">AUDIO</string>
+    <string name="library_tag_document">DOC</string>
+    <string name="library_tag_font">FONT</string>
+    <string name="library_tag_supply">SUPPLY</string>
+    <string name="library_tag_other">FILE</string>
+    <string name="library_tag_project_media">PROJECT MEDIA</string>
+
+    <!-- Card meta and descriptions -->
+    <string name="library_meta">%1$s · %2$s</string>
+    <string name="library_in_project">in %1$s</string>
+    <string name="library_folder_only">folder copy</string>
+    <string name="library_avatar_library">avatar library</string>
+    <string name="library_a11y_card">%1$s. %2$s, %3$s.</string>
+    <string name="library_a11y_shared">Shared in.</string>
+    <!-- A font's card draws this in the font itself: a type specimen, not words. -->
+    <string name="library_font_sample" translatable="false">Aa</string>
+    <string name="library_ago_now">just now</string>
+    <string name="library_ago_minutes">%dm ago</string>
+    <string name="library_ago_hours">%dh ago</string>
+    <string name="library_ago_days">%dd ago</string>
+    <string name="library_ago_months">%dmo ago</string>
+
+    <!-- Date bands -->
+    <string name="library_band_today">Today</string>
+    <string name="library_band_yesterday">Yesterday</string>
+    <string name="library_band_week">This week</string>
+    <string name="library_band_month">This month</string>
+    <string name="library_band_earlier">Earlier</string>
+    <string name="library_band_count">%1$s · %2$d</string>
+
+    <!-- Empty states, one friendly line per kind -->
+    <string name="library_empty_all">Nothing here yet. Make something and it lands here.</string>
+    <string name="library_empty_projects">No projects yet. Start one in the Studio.</string>
+    <string name="library_empty_drawings">No drawings yet. Joy Brush keeps every one here.</string>
+    <string name="library_empty_sprite_sheets">No sprite sheets yet. Sprite Lab makes them inside a project.</string>
+    <string name="library_empty_avatars">No avatars yet. Avatar Studio builds them from your sprite sheets.</string>
+    <string name="library_empty_recordings">No recordings yet. Capture puts them here.</string>
+    <string name="library_empty_photos">No photos yet. Pictures you take in Capture land here.</string>
+    <string name="library_empty_exports">No exports yet. Finished videos from the Studio land here.</string>
+    <string name="library_empty_clips">No clips yet. Videos shared in from other apps show up here.</string>
+    <string name="library_empty_images">No images yet. Pictures shared in or imported show up here.</string>
+    <string name="library_empty_audio">No sounds yet. Audio shared in from other apps shows up here.</string>
+    <string name="library_empty_documents">No documents yet. Subtitles, PDFs and notes in your folder show up here.</string>
+    <string name="library_empty_supplies">No fonts or supplies yet. Fonts you import show up here.</string>
+    <string name="library_empty_other">Nothing else in your folder.</string>
+    <string name="library_empty_project_media">No project media. These are the copies the app keeps so your projects survive an uninstall.</string>
+    <string name="library_empty_search">Nothing called “%1$s” here.</string>
+    <string name="library_empty_shared_only">Nothing shared in here yet. Share a picture, clip or sound to Joy Creator from any app.</string>
+    <string name="library_empty_show_all">Show everything</string>
+
+    <!-- Options sheet -->
+    <string name="library_options_title">Library</string>
+    <string name="library_sort">Sort</string>
+    <string name="library_sort_newest">Newest first</string>
+    <string name="library_sort_name">Name, A to Z</string>
+    <string name="library_view">View</string>
+    <string name="library_view_grid">Grid</string>
+    <string name="library_view_list">List</string>
+    <string name="library_more">More</string>
+    <string name="library_open_trash">Trash</string>
+    <string name="library_classic">Classic view</string>
+
+    <!-- Item sheet -->
+    <string name="library_action_open">Open</string>
+    <string name="library_action_rename">Rename</string>
+    <string name="library_action_share">Share</string>
+    <string name="library_action_trash">Move to Trash</string>
+    <string name="library_action_trash_confirm">Tap again to move to Trash</string>
+    <string name="library_rename_hint">New name</string>
+    <string name="library_where_folder">In your Joy Creator folder · %1$s</string>
+    <string name="library_where_folder_top">In your Joy Creator folder</string>
+    <string name="library_where_app">Inside the app</string>
+    <string name="library_where_elsewhere">Outside your Joy Creator folder</string>
+    <string name="library_where_project">In the project “%1$s”</string>
+    <string name="library_nowhere_to_open">Nothing in Joy Creator opens this kind of thing yet.</string>
+
+    <!-- Results -->
+    <string name="library_trashed">Moved to Trash. You can put it back from Trash.</string>
+    <string name="library_trash_failed">Couldn\'t move it to Trash: %1$s</string>
+    <string name="library_trash_in_use">A project uses this, so it stays. Take it out of the project first.</string>
+    <string name="library_trash_no_copy">This project has no copy in your Joy Creator folder yet, so it could not be put back later. It was left alone.</string>
+    <string name="library_trash_no_folder">Your Joy Creator folder can\'t be reached, so this could not be put back later. It was left alone.</string>
+    <string name="library_renamed">Renamed.</string>
+    <string name="library_rename_failed">Couldn\'t rename it.</string>
+    <string name="library_open_failed">Couldn\'t open this.</string>
+    <string name="library_no_app">No app on this phone opens this kind of file.</string>
+    <string name="library_restoring">Bringing the project back from your folder…</string>
+    <string name="library_restore_failed">Couldn\'t bring the project back from your folder.</string>
+</resources>

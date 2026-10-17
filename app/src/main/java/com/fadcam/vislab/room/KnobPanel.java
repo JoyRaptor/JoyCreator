@@ -51,6 +51,9 @@ final class KnobPanel extends LinearLayout {
 
         /** Brand lock: re-colour every look with these stops, or null to stop. */
         void brand(@Nullable String[] stops);
+
+        /** Let the person choose a picture for this image layer (a logo, album art). */
+        void pickPicture(@NonNull JsonObject layer);
     }
 
     private static final String[][] PALETTES = {
@@ -190,6 +193,36 @@ final class KnobPanel extends LinearLayout {
                     L.addProperty("echo", on);
                     host.edited();
                 }));
+        if (VisType.DRAW_IMAGE.equals(t.draw)) {
+            boolean own = L.has("image") && L.get("image").isJsonPrimitive() && !L.get("image").getAsString().isEmpty();
+            LinearLayout row = new LinearLayout(c);
+            row.setOrientation(HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setMinimumHeight(Ui.dp(c, 36));
+            row.addView(Ui.text(c, "Picture", 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
+            TextView pick = pill(c, own ? "Change picture" : "Use my picture", false);
+            Ui.label(pick, "Put your own logo or album art in this layer");
+            pick.setOnClickListener(v -> {
+                Motion.press(v);
+                host.pickPicture(L);
+            });
+            row.addView(pick);
+            if (own) {
+                TextView back = pill(c, "Joy emblem", false);
+                Ui.label(back, "Go back to the built-in Joy emblem");
+                back.setOnClickListener(v -> {
+                    Motion.press(v);
+                    host.beginEdit("Picture");
+                    L.remove("image");
+                    host.edited();
+                    rebuild();
+                });
+                LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+                lp.leftMargin = Ui.dp(c, 6);
+                row.addView(back, lp);
+            }
+            body.addView(row);
+        }
         buildKnobs(t, knobsOf(L));
     }
 

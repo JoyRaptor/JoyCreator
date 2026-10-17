@@ -75,6 +75,8 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
 
     private ActivityResultLauncher<String> askMic;
     private ActivityResultLauncher<String[]> pickSong;
+    private ActivityResultLauncher<String[]> pickPicture;
+    @Nullable private com.google.gson.JsonObject pictureFor;
 
     @Override
     protected void onCreate(@Nullable Bundle state) {
@@ -92,6 +94,20 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         pickSong = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
             if (uri != null) useSource(SRC_SONG, uri);
             else sources.setSelected(sourceKind);
+        });
+        pickPicture = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+            com.google.gson.JsonObject L = pictureFor;
+            pictureFor = null;
+            if (uri == null || L == null) return;
+            try {
+                // Keep the right to read it after a restart, so a saved look still shows it.
+                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (SecurityException ignored) {
+            }
+            beginEdit("Picture");
+            L.addProperty("image", uri.toString());
+            edited();
+            panel.rebuild();
         });
         session = VisLabSession.get(this);
         buildUi();
@@ -112,6 +128,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         stage = new FrameLayout(this);
         view = new VisTextureView(this);
         view.setFeatureSource(dt -> analyzer.step(dt));
+        view.renderer().setImageSource(new Pictures(this));
         stage.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(stage, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         GestureDetector swipe = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
@@ -387,6 +404,12 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     public void brand(@Nullable String[] stops) {
         session.roomBrand(stops);
         view.renderer().setBrandPalette(stops);
+    }
+
+    @Override
+    public void pickPicture(@NonNull com.google.gson.JsonObject layer) {
+        pictureFor = layer;
+        pickPicture.launch(new String[]{"image/*"});
     }
 
     // ------------------------------------------------------------------ sound

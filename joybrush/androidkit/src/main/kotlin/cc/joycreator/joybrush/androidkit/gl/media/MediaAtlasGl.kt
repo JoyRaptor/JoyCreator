@@ -3,6 +3,8 @@ package cc.joycreator.joybrush.androidkit.gl.media
 import android.opengl.GLES30
 import cc.joycreator.joybrush.core.media.DabBatch
 import cc.joycreator.joybrush.core.media.MediaAtlasDraw
+import cc.joycreator.joybrush.core.media.MediaAtlasPlacement
+import cc.joycreator.joybrush.core.paint.Tiles
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -18,7 +20,13 @@ import java.nio.ByteOrder
  */
 internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: Int, broken: Boolean = false) {
     private val draw = MediaAtlasDraw()
-    private val slotOf = MediaAtlasDraw.identity(nx, ny)
+    /** B1: the identity table. B2 ([setResidency]): whatever the host placed where; −1 = not resident. */
+    private var slotOf: (Int, Int) -> Int = MediaAtlasDraw.identity(nx, ny)
+    private var grid = intArrayOf(0, 0, nx, ny)
+    /** True once a host places tiles freely ([setResidency]): the engine then has no window edge. */
+    var free = false; private set
+    /** Free placement: tile key -> slot, as last set. */
+    var resident: Map<Long, Int> = emptyMap(); private set
     private val upload = FloatUploadBuffer()
     val table: Int
     private val instBuf: Int
@@ -66,9 +74,65 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     }
 
     /** The page-table uniforms for a pass whose target slots are `1 shl shift` (8 full resolution, 7 the bead field). */
+    /** Media Atlas v2 B2: the page table becomes [map] (tile key -> slot), uploaded at once; the engine loses its window edge. */
+    fun setResidency(map: Map<Long, Int>) {
+        for (s in map.values) require(s in 0 until nx * ny) { "slot $s is not in this atlas" }
+        val t = MediaAtlasPlacement.table(map)
+        free = true; resident = HashMap(map)
+        slotOf = t::slotOf; grid = intArrayOf(t.x, t.y, t.w, t.h)
+        val cells = ByteBuffer.allocateDirect(t.data.size * 4).order(ByteOrder.nativeOrder()).asIntBuffer()
+        cells.put(t.data); cells.position(0)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, table)
+        GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_R32I, t.w, t.h, 0, GLES30.GL_RED_INTEGER, GLES30.GL_INT, cells)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+    }
+
+    /** Slot [slot]'s first texel (full resolution). */
+    fun slotTexel(slot: Int): Pair<Int, Int> = ((slot % nx) shl MediaAtlasDraw.SHIFT) to ((slot / nx) shl MediaAtlasDraw.SHIFT)
+
+    /** Every resident tile layer-px [rect] touches: its slot, the tile, and the part of [rect] in it (layer px, whole pixels). */
+    fun forEachPart(rect: FloatArray, f: (slot: Int, tx: Int, ty: Int, x0: Int, y0: Int, x1: Int, y1: Int) -> Unit) {
+        val x0 = kotlin.math.floor(rect[0]).toInt(); val y0 = kotlin.math.floor(rect[1]).toInt()
+        val x1 = kotlin.math.ceil(rect[2]).toInt(); val y1 = kotlin.math.ceil(rect[3]).toInt()
+        if (x1 <= x0 || y1 <= y0) return
+        for (key in MediaAtlasPlacement.tiles(x0.toDouble(), y0.toDouble(), x1.toDouble(), y1.toDouble(), 0)) {
+            val tx = Tiles.tx(key); val ty = Tiles.ty(key)
+            val slot = slotOf(tx, ty); if (slot < 0) continue
+            val s = MediaAtlasDraw.SIDE
+            f(slot, tx, ty, maxOf(x0, tx * s), maxOf(y0, ty * s), minOf(x1, tx * s + s), minOf(y1, ty * s + s))
+        }
+    }
+
+    /** Clears layer-px [rect] of the slot-shaped target bound to [fbo], slot by slot (a window's scissored clear). */
+    fun clearRect(fbo: Int, rect: FloatArray) {
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+        GLES30.glClearColor(0f, 0f, 0f, 0f)
+        GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+        forEachPart(rect) { slot, tx, ty, x0, y0, x1, y1 ->
+            val (ax, ay) = slotTexel(slot)
+            GLES30.glScissor(ax + x0 - tx * MediaAtlasDraw.SIDE, ay + y0 - ty * MediaAtlasDraw.SIDE, x1 - x0, y1 - y0)
+            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+        }
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+    }
+
+    /** Scissor to the part of layer-px [rect] in [slot] (tile [tx], [ty]); false when there is none. */
+    fun scissorSlot(slot: Int, tx: Int, ty: Int, rect: FloatArray): Boolean {
+        var hit = false
+        forEachPart(rect) { s, x, y, x0, y0, x1, y1 ->
+            if (s == slot && x == tx && y == ty) {
+                val (ax, ay) = slotTexel(s)
+                GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+                GLES30.glScissor(ax + x0 - x * MediaAtlasDraw.SIDE, ay + y0 - y * MediaAtlasDraw.SIDE, x1 - x0, y1 - y0)
+                hit = true
+            }
+        }
+        return hit
+    }
+
     fun uniforms(u: UniformBank, shift: Int = MediaAtlasDraw.SHIFT) {
         u.itex("u_atlasTable", table)
-        u.i4("u_atlasGrid", 0, 0, nx, ny)
+        u.i4("u_atlasGrid", grid[0], grid[1], grid[2], grid[3])
         u.f1("u_atlasSlotsX", nx)
         u.f1("u_atlasShift", shift)
         u.i4("u_atlasWrap", 0, 0, 0, 0)
@@ -88,8 +152,24 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
      * [batch]'s dabs, each once per slot its box touches (dab order kept). [boxOf] writes dab i's layer-px box into its array;
      * it may be generous: a copy outside its slot draws nothing (jb_outsideSlot).
      */
-    fun drawDabs(batch: DabBatch, boxOf: (FloatArray, Int, FloatArray) -> Unit) {
-        val n = draw.dabs(batch.dabs, batch.count, nx, slotOf) { i, out -> boxOf(batch.dabs, i, out) }
+    fun drawDabs(batch: DabBatch, boxOf: (FloatArray, Int, FloatArray) -> Unit) = drawDabs(batch, boxOf, slotOf)
+
+    /**
+     * [batch]'s dabs where the window build scissored them to layer-px [clip] (the wet brush input): one draw per slot,
+     * each under that slot's own scissor, its dabs in order. One scissor cannot cover slots that lie apart.
+     */
+    fun drawDabs(batch: DabBatch, boxOf: (FloatArray, Int, FloatArray) -> Unit, clip: FloatArray) {
+        forEachPart(clip) { slot, tx, ty, x0, y0, x1, y1 ->
+            val (ax, ay) = slotTexel(slot)
+            GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+            GLES30.glScissor(ax + x0 - tx * MediaAtlasDraw.SIDE, ay + y0 - ty * MediaAtlasDraw.SIDE, x1 - x0, y1 - y0)
+            drawDabs(batch, boxOf) { x, y -> if (x == tx && y == ty) slot else -1 }
+        }
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+    }
+
+    private fun drawDabs(batch: DabBatch, boxOf: (FloatArray, Int, FloatArray) -> Unit, table: (Int, Int) -> Int) {
+        val n = draw.dabs(batch.dabs, batch.count, nx, table) { i, out -> boxOf(batch.dabs, i, out) }
         if (n == 0) return
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
         GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, n * MediaAtlasDraw.DAB_FLOATS * 4, upload.upload(draw.dabs, n * MediaAtlasDraw.DAB_FLOATS), GLES30.GL_STREAM_DRAW)

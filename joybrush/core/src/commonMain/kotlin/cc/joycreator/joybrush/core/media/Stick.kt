@@ -189,6 +189,11 @@ class DryStroke(
         carry = len - (pos - spacingPx)
     }
 
+    /**
+     * One dab instance (jb_dry_dab.vert's layout). Its quad (xMin, xMax, yMax) must cover everywhere the stick's zones can
+     * press, as [StickContact] sizes it: where the squeeze is still positive at the quad's edge, which pixels it covers depends
+     * on rasterisation rounding, so the same dab would paint differently in different atlas slots (Media Atlas v2 B2).
+     */
     private fun emit(a: Solved, b: Solved, w: Double, slideMm: Double) {
         val ca = a.c
         val cb = b.c

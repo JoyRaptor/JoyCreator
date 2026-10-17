@@ -16,6 +16,7 @@ flat out highp ivec4 v_slot;
 out vec2 v_unit;                           // position in dab radii, (0,0) at the centre
 flat out float v_strength;
 flat out float v_feather;
+flat out vec3 v_cr;                        // the dab's centre (layer px) and radius: the fragment's unit position, exact
 void main() {
     float r = max(a_i0.z * u_layerScale, 0.5);
     float pad = r + 1.5;
@@ -24,6 +25,7 @@ void main() {
     v_unit = (p - c) / r;
     v_strength = clamp(a_i0.w, 0.0, 1.0);
     v_feather = min(0.5, 1.5 / r);          // about a pixel and a half of soft edge at any size
+    v_cr = vec3(c, r);
 #ifdef JB_ATLAS
     highp ivec4 slot = ivec4(a_slot);
     v_slot = slot;

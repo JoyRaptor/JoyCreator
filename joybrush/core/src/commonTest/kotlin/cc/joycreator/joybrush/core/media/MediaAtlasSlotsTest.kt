@@ -79,4 +79,20 @@ class MediaAtlasSlotsTest {
         val first = assertIs<MediaAtlasSlots.Reservation>(s.begin(c)); assertEquals(a, first.victim?.page); s.cancel(first)
         s.touch(a); val r=assertIs<MediaAtlasSlots.Reservation>(s.begin(c)); assertEquals(b,r.victim?.page)
     }
+
+    @Test fun cleanRemoveAndClearForTheAtlasHost() {
+        val s = slots(4)
+        val a = page(key = 1); val b = page(key = 2)
+        val sa = commit(s, a); commit(s, b)
+        s.markDirty(a); s.clean(a)
+        assertEquals(false, s.resident(a)!!.dirty, "written back: no write-back owed before reuse")
+        s.pin(b)
+        assertFailsWith<IllegalStateException> { s.remove(b) }
+        s.unpin(b); s.remove(a)
+        assertNull(s.resident(a))
+        assertEquals(sa, commit(s, page(key = 3)), "the freed slot is handed out again")
+        s.clear()
+        assertTrue(s.residents().isEmpty())
+        assertFailsWith<IllegalStateException> { s.clean(a) }
+    }
 }

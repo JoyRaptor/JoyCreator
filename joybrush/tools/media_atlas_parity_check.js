@@ -157,7 +157,9 @@ function buildDry(sc) {
     const dabs = []; let dirty = null;
     pts.forEach((p, i) => {
       const P = 0.25 + 0.65 * ((f * 6 + i) % 11) / 10, lean = [Math.cos(sc.lean), Math.sin(sc.lean)];
-      const xMin = -0.6, xMax = sc.side ? 4.0 : 1.2, yMax = sc.side ? 1.1 : 0.7, D = 0.03 + 0.07 * P;
+      // The quad must cover everywhere the stick can press (stickContact does): past the longest zone (L2 = 3.4 mm) and
+      // the face half-width. A quad edge where the stick still presses would make coverage depend on rasterisation rounding.
+      const xMin = -0.6, xMax = sc.side ? 4.0 : 3.6, yMax = sc.side ? 1.1 : 1.0, D = 0.03 + 0.07 * P;
       dabs.push([p.x, p.y, lean[0], lean[1], xMin, xMax, yMax, D, 0.45, 1.6, 3.4, 0.8, 1, 0.6, 0.35, 0.12, p.dx, p.dy, 0.4, P]);
       const v = [-lean[1], lean[0]], cs = [];
       for (const [qx, qy] of [[xMin - 0.06, -yMax - 0.06], [xMax + 0.06, -yMax - 0.06], [xMin - 0.06, yMax + 0.06], [xMax + 0.06, yMax + 0.06]])

@@ -26,6 +26,7 @@ out vec2 v_layerPx;
 flat out vec4 v_i1;
 flat out vec4 v_i2;
 flat out vec4 v_i3;
+flat out vec4 v_i0;    // centre.xy, axis.xy: the fragment derives its brush-frame position from these exactly
 
 void main() {
     vec2 r = a_i1.xy + 0.08;
@@ -34,7 +35,7 @@ void main() {
     vec2 docPx = a_i0.xy + (q.x * u + q.y * v) * u_pxPerMm;
     v_q = q;
     v_docPx = docPx;
-    v_i1 = a_i1; v_i2 = a_i2; v_i3 = a_i3;
+    v_i1 = a_i1; v_i2 = a_i2; v_i3 = a_i3; v_i0 = a_i0;
     v_layerPx = (docPx - u_layerOrigin) * u_layerScale;
 #ifdef JB_ATLAS
     highp ivec4 slot = ivec4(a_slot);

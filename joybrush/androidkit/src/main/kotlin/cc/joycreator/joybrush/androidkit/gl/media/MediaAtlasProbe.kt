@@ -43,8 +43,11 @@ internal object MediaAtlasProbe {
     private const val SIZE = 768
 
     fun probe(shaders: ShaderLibrary, paper: MediaPaperGl): String {
-        val kinds = listOf("window", "atlas", "broken")
+        val kinds = listOf("window", "atlas", "scrambled", "broken")
         val engines = kinds.map { k -> MediaLayerEngine(shaders, atlasMode = k != "window", atlasBroken = k == "broken").also { it.init(SIZE, SIZE) } }
+        // B2's free placement: the same 3 × 3 tiles, every one in a slot that is not its own (no two neighbours adjacent in
+        // the atlas the way they are on the layer). Read back un-shuffled, it must be the window's bits.
+        engines[2].setResidency(SCRAMBLE.withIndex().associate { (t, slot) -> cc.joycreator.joybrush.core.paint.Tiles.key(t % 3, t / 3) to slot })
         val report = JSONObject().put("probe", "mediaAtlasB1").put("size", SIZE).put("renderer", GLES30.glGetString(GLES30.GL_RENDERER))
         val read = IntArray(1).also { GLES30.glGenFramebuffers(1, it, 0) }[0]
         try {
@@ -53,7 +56,7 @@ internal object MediaAtlasProbe {
             val look = MediaLook(floatArrayOf(0.95f, 0.93f, 0.88f))
             val interior = floatArrayOf(96f, 96f, SIZE - 96f, SIZE - 96f)
             fun compare(name: String, frames: Int) {
-                val snaps = engines.map { e -> snapshot(e, read, e.renderLook(interior, paper, look, ppm)) }
+                val snaps = engines.mapIndexed { i, e -> snapshot(e, read, e.renderLook(interior, paper, look, ppm), if (i == 2) SCRAMBLE else null) }
                 val o = JSONObject().put("stroke", name).put("frames", frames)
                 for ((i, k) in kinds.withIndex()) if (i > 0) o.put(k, diff(snaps[0], snaps[i]))
                 o.put("changedFromEmpty", snaps[0].values.sumOf { a -> a.count { it != 0 } })
@@ -143,9 +146,11 @@ internal object MediaAtlasProbe {
                 atlasBad += s.getJSONObject("atlas").getLong("pixels"); brokenSeen += s.getJSONObject("broken").getLong("pixels")
                 if (s.getInt("changedFromEmpty") < 1000) vacuous = true
             }
-            report.put("atlasVsWindowPixels", atlasBad).put("brokenDetectedPixels", brokenSeen).put("nonvacuous", !vacuous)
+            var scrambledBad = 0L
+            for (i in 0 until strokes.length()) scrambledBad += strokes.getJSONObject(i).getJSONObject("scrambled").getLong("pixels")
+            report.put("atlasVsWindowPixels", atlasBad).put("scrambledVsWindowPixels", scrambledBad).put("brokenDetectedPixels", brokenSeen).put("nonvacuous", !vacuous)
             report.put("glError", GLES30.glGetError())
-            report.put("pass", atlasBad == 0L && brokenSeen > 0L && !vacuous)
+            report.put("pass", atlasBad == 0L && scrambledBad == 0L && brokenSeen > 0L && !vacuous)
         } catch (e: Throwable) {
             report.put("pass", false).put("error", e.toString())
         } finally {
@@ -156,12 +161,26 @@ internal object MediaAtlasProbe {
         return report.toString()
     }
 
-    /** Every state plane as raw float bits, and the look as RGBA8 bytes widened to ints. */
-    private fun snapshot(e: MediaLayerEngine, fbo: Int, look: Int): Map<String, IntArray> {
+    /** Tile t (column t % 3, row t / 3) lives in slot SCRAMBLE[t] in the scrambled engine. */
+    private val SCRAMBLE = intArrayOf(4, 7, 1, 8, 0, 5, 2, 6, 3)
+
+    /** Every state plane as raw float bits, and the look as RGBA8 bytes widened to ints; [slots]: put scrambled tiles back. */
+    private fun snapshot(e: MediaLayerEngine, fbo: Int, look: Int, slots: IntArray? = null): Map<String, IntArray> {
         val out = LinkedHashMap<String, IntArray>()
-        for ((name, tex) in e.stateTextures().toSortedMap()) out[name] = readFloatBits(fbo, tex)
-        out["look"] = readBytes(fbo, look)
+        for ((name, tex) in e.stateTextures().toSortedMap()) out[name] = unscramble(readFloatBits(fbo, tex), slots)
+        out["look"] = unscramble(readBytes(fbo, look), slots)
         return out
+    }
+
+    /** Layer layout from slot layout: tile t's 256² block copied from slot [slots] [t]'s place (4 ints per texel). */
+    private fun unscramble(a: IntArray, slots: IntArray?): IntArray {
+        if (slots == null) return a
+        val o = IntArray(a.size); val side = 256; val n = SIZE / side
+        for (t in slots.indices) {
+            val tx = t % n; val ty = t / n; val sx = slots[t] % n; val sy = slots[t] / n
+            for (row in 0 until side) System.arraycopy(a, ((sy * side + row) * SIZE + sx * side) * 4, o, ((ty * side + row) * SIZE + tx * side) * 4, side * 4)
+        }
+        return o
     }
 
     private fun attach(fbo: Int, tex: Int) {

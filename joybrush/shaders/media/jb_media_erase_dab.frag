@@ -7,10 +7,11 @@ precision highp int;
 in vec2 v_unit;
 flat in float v_strength;
 flat in float v_feather;
+flat in vec3 v_cr;
 out vec4 o_cover;
 void main() {
     if (jb_outsideSlot()) discard;
-    float d = length(v_unit);
+    float d = length((jb_fragPx() - v_cr.xy) / v_cr.z);   // exact cell centre, not the interpolated v_unit (B2)
     float a = (1.0 - smoothstep(1.0 - v_feather, 1.0, d)) * v_strength;
     o_cover = vec4(a);
 }

@@ -22,23 +22,31 @@ in vec2 v_layerPx;
 flat in vec4 v_i1;
 flat in vec4 v_i2;
 flat in vec4 v_i3;
+flat in vec4 v_i0;
+uniform vec2 u_layerOrigin;
+uniform float u_layerScale;
+uniform float u_pxPerMm;
 
 layout(location = 0) out vec4 o_in0;   // Δw, ΔK rgb
 layout(location = 1) out vec4 o_in1;   // ΔS, solubility weight, -, -
 
 void main() {
     if (jb_outsideSlot()) discard;
+    // Brush frame from the exact cell centre (not interpolated): the same bits in any slot (Media Atlas v2 B2).
+    vec2 docPx = u_layerOrigin + jb_fragPx() / u_layerScale;
+    vec2 rel = (docPx - v_i0.xy) / u_pxPerMm;
+    vec2 q = vec2(dot(rel, v_i0.zw), dot(rel, vec2(-v_i0.w, v_i0.z)));
     vec2 r = v_i1.xy;
-    vec2 e = v_q / r;
+    vec2 e = q / r;
     // Hair edges are never a perfect ellipse: the outline wanders a little, fixed in document space so
     // overlapping dabs agree and the stroke's side is one ragged line, not a row of bumps.
-    float rag = jb_vnoise2(v_docPx / 11.0, 5u) * 0.65 + jb_vnoise2(v_docPx / 4.0, 6u) * 0.35;
+    float rag = jb_vnoise2(docPx / 11.0, 5u) * 0.65 + jb_vnoise2(docPx / 4.0, 6u) * 0.35;
     float d = length(e) + 0.09 * (rag - 0.5) * smoothstep(0.6, 1.0, length(e));
     if (d > 1.0) discard;
     // A loaded brush leaves a puddle with a definite edge (surface tension), not a soft airbrush ramp.
     float press = 1.0 - smoothstep(0.9, 1.0, d);
     // Hairs across the brush (fixed per brush): coarse clumps plus single hairs, smooth across the width.
-    float across = v_q.y / max(r.y, 1e-3);
+    float across = q.y / max(r.y, 1e-3);
     uint seed = uint(v_i3.w) * 7u + 1u;
     float hair = 0.65 * jb_vnoise1(across * 3.5, seed) + 0.35 * jb_vnoise1(across * 11.0, seed + 3u);
     // Loaded: faint streaks of more or less paint along the stroke. Drying: separate runs of hair.

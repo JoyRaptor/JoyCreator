@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.core.paint.Tiles
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -43,5 +44,39 @@ class MediaAtlasPlacementTest {
         val empty = MediaAtlasPlacement.table(emptyMap())
         assertEquals(listOf(0, 0, 1, 1), listOf(empty.x, empty.y, empty.w, empty.h)); assertContentEquals(intArrayOf(-1), empty.data)
         assertFailsWith<IllegalArgumentException> { MediaAtlasPlacement.table(mapOf(Tiles.key(0, 0) to -3)) }
+    }
+    @Test fun aFrameFitsWhenItAndWhatMustStayNumberNoMoreThanTheSlots() {
+        // A tile both needed and held counts once.
+        assertTrue(MediaAtlasPlacement.fits(3, keys(0 to 0, 1 to 0), keys(1 to 0, 5 to 5)))
+        assertFalse(MediaAtlasPlacement.fits(2, keys(0 to 0, 1 to 0), keys(1 to 0, 5 to 5)))
+        assertTrue(MediaAtlasPlacement.fits(15, keys(), keys()))
+    }
+
+    @Test fun aLongStrokeIsNeverRefusedOnlyOneFrameAtATimeCounts() {
+        // B3 (owner: a stroke never stops partway because the atlas filled up). A stroke 40 tiles long, each frame admitted
+        // whole (its rect plus the wet reach), the least recently used unpinned tile written back to make room.
+        val slots = MediaAtlasSlots(16, 1L, 16L)
+        var peak = 0; var evicted = 0; val seen = HashSet<Long>()
+        for (f in 0 until 160) {
+            val x = 40.0 + f * 64.0
+            val frame = MediaAtlasPlacement.tiles(x, 300.0, x + 200.0, 500.0, MediaAtlasPlacement.WET_REACH).toSet()
+            val held = slots.residents().filter { it.pins > 0 }.map { it.page.tileKey }.toSet()
+            assertTrue(MediaAtlasPlacement.fits(slots.capacity, frame, held), "frame $f")
+            // Hold what is here first (as MediaAtlas.hold does), then load the rest: a load may evict anything not held.
+            val pages = frame.map { MediaAtlasPage("L", null, it) }
+            for (page in pages) if (slots.resident(page) != null) slots.pin(page)
+            for (page in pages) if (slots.resident(page) == null) {
+                when (val a = slots.begin(page)) {
+                    is MediaAtlasSlots.Reservation -> { if (a.victim != null) evicted++; slots.commit(a) }
+                    else -> error("frame $f: $a")
+                }
+                slots.pin(page)
+            }
+            peak = maxOf(peak, slots.residents().size); seen += frame
+            for (k in frame) slots.unpin(MediaAtlasPage("L", null, k))
+        }
+        assertTrue(seen.size >= 30, "crossed ${seen.size} tiles")
+        assertTrue(peak <= slots.capacity, "peak $peak")
+        assertTrue(evicted > 0)
     }
 }

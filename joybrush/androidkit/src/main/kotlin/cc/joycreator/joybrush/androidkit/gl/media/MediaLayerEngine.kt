@@ -310,6 +310,38 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     /** The residency rule's hook: the host makes [rect] (layer px) and [reach] around it resident, or throws, before a pass. */
     var onNeed: ((FloatArray, Int) -> Unit)? = null
     private fun need(rect: FloatArray, reach: Int) { if (free) onNeed?.invoke(rect, reach) }
+
+    /** One pass's ask of the host: [rect] (layer px) and [reach] around it, exactly as that pass will call [need]. */
+    class Need(val rect: FloatArray, val reach: Int)
+
+    // Media Atlas v2 B3: a frame is admitted whole before it draws (MediaCanvas -> [MediaPlace.admit]), so a frame is never
+    // refused or short of a tile half-way. These compute what each pass will ask for with the passes' own code.
+    /** What [dryFrame] will ask for. */
+    fun dryNeed(batch: DabBatch, mat: StickMaterial, pxPerMm: Double): Need? =
+        if (batch.count == 0) null
+        else layerRect(batch.dirty, pxPerMm * mat.smearMm + 2)?.let { Need(it, MediaAtlasPlacement.dryReach(pxPerMm * mat.smearMm * scale)) }
+
+    /** What [pasteStep] will ask for: the old square (the quad it still draws), with the paste reach. */
+    fun pasteNeed(st: PasteStep, b: PasteBrush, pxPerMm: Double): Need? =
+        layerRect(PasteFootprint.legacyBounds(st, b, pxPerMm), 2.0)?.let { Need(it, MediaAtlasPlacement.PASTE_REACH) }
+
+    /** What [eraseFrame] will ask for. */
+    fun eraseNeed(batch: DabBatch): Need? =
+        if (batch.count == 0) null else layerRect(batch.dirty, 2.0)?.let { Need(it, MediaAtlasPlacement.ERASE_REACH) }
+
+    /**
+     * What [frames] calls of [wetFrame] (the batches in order, null = water only) will ask for at most: the simulated
+     * rectangle after the last of them, which contains every earlier one (it only grows within an episode). Null: no water.
+     */
+    fun wetNeed(batches: List<DabBatch?>, pxPerMm: Double, steps: Int): Need? {
+        var wr = wetRect; var pr = paintRect
+        for (batch in batches) {
+            if (batch != null && batch.count > 0) layerRect(batch.dirty, 48.0)?.let { wr = union(wr, it); pr = union(pr, it) }
+            wr = wr?.let { WetSpread.grow(it, pr, slope[0], slope[1], steps, 1 / (pxPerMm * scale),
+                if (free) Int.MAX_VALUE else w, if (free) Int.MAX_VALUE else h) }
+        }
+        return wr?.let { Need(it, MediaAtlasPlacement.WET_REACH) }
+    }
     /** How many slots the atlas has (B2: one of them is staging). */
     val slotCount: Int get() = (w / MediaAtlasDraw.SIDE) * (h / MediaAtlasDraw.SIDE)
     fun slotTexel(slot: Int): Pair<Int, Int> = requireNotNull(atlas) { "not an atlas engine" }.slotTexel(slot)
@@ -534,8 +566,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         ensureDry()
         val cur = state[0]
         val nxt = state[1]
-        val rect = layerRect(batch.dirty, pxPerMm * mat.smearMm + 2) ?: return
-        need(rect, MediaAtlasPlacement.dryReach(pxPerMm * mat.smearMm * scale))
+        val n = dryNeed(batch, mat, pxPerMm) ?: return
+        val rect = n.rect
+        need(rect, n.reach)
         touch(rect)
         stores += "paper"
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, deltaFbo)
@@ -651,7 +684,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         // The quad is STILL the old square and the box is a scissor on it: a smaller quad would interpolate v_docPx /
         // v_layerPx with different rounding, and the noise inside the shader would shift by an ulp (measured:
         // tools/media_paste_rect_parity_check.js). Same primitive + scissor = the same fragments, bit for bit.
-        val square = layerRect(PasteFootprint.legacyBounds(st, b, pxPerMm), 2.0)
+        val square = pasteNeed(st, b, pxPerMm)?.rect
         val rect = if (legacyRect) square else layerRect(PasteFootprint.docBounds(st, b, scale.toDouble(), pxPerMm), 2.0)
         if (square != null && rect != null) {
             need(square, MediaAtlasPlacement.PASTE_REACH)
@@ -686,8 +719,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     fun eraseFrame(batch: DabBatch, stores: Set<String>) {
         if (batch.count == 0 || stores.isEmpty()) return
         ensureDry()
-        val rect = layerRect(batch.dirty, 2.0) ?: return
-        need(rect, MediaAtlasPlacement.ERASE_REACH)
+        val n = eraseNeed(batch) ?: return
+        val rect = n.rect
+        need(rect, n.reach)
         touch(rect)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, deltaFbo)
         GLES30.glViewport(0, 0, w, h)

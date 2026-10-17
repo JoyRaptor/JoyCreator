@@ -27,6 +27,13 @@ object MediaAtlasPlacement {
     const val LOOK_REACH = 56
     fun dryReach(smearPx: Double): Int = ceil(smearPx).toInt() + 4
 
+    /**
+     * Media Atlas v2 B3, the admission rule: a frame needing [keys] fits when they and every tile that must stay ([held]:
+     * held for this frame already, or by running water) number no more than [capacity]. Every other resident tile can be
+     * written back to make room, so how many tiles a stroke has crossed never matters, only what one frame needs at once.
+     */
+    fun fits(capacity: Int, keys: Set<Long>, held: Set<Long>): Boolean = keys.size + held.count { it !in keys } <= capacity
+
     /** Every tile a layer-px rectangle [x0, y0, x1, y1) touches once dilated by [reach]: the tiles to make resident. */
     fun tiles(x0: Double, y0: Double, x1: Double, y1: Double, reach: Int): List<Long> {
         require(reach >= 0) { "a reach is a distance" }

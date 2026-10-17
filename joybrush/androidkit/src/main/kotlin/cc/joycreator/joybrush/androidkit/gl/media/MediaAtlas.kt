@@ -14,9 +14,10 @@ import kotlin.math.floor
 /**
  * Media Atlas v2, slice B2 (tasks/joybrush/specs/MEDIA_ATLAS_V2_20261016.md): the media engine's state on ONE layer with
  * no window. Layer tiles are placed freely in [media]'s slots (15 resident + 1 staging, A1's [MediaAtlasSlots]) and loaded
- * where the passes need them: the engine asks before every pass ([MediaLayerEngine.onNeed]) for the tiles its rectangle
- * and its read reach touch (the residency rule, [MediaAtlasPlacement]); a tile that cannot be made resident is refused in
- * words before that pass draws anything. There is no edge to move, so nothing is ever clipped or creased by one.
+ * where the passes need them (the residency rule, [MediaAtlasPlacement]: each pass's rectangle and its read reach). B3:
+ * a frame is admitted whole before it draws ([admit]); room comes from writing back the least recently used tiles that
+ * are not held, so a stroke crosses any number of tiles and is refused, in words and before drawing, only if one frame
+ * needs more than the atlas holds. There is no edge to move, so nothing is ever clipped or creased by one.
  *
  * Same contract as [MediaWindow] towards [MediaCanvas] ([MediaPlace]) and towards the layer's stores: the payload, the
  * look and the ground travel through [GlPaintEngine.writableMediaTiles] (copy-on-write, so undo and the running-water rule
@@ -66,7 +67,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (layerId == null) return
         flush()
         for (r in slots.residents()) if (r.dirty) writeBackSlot(r.slot, r.page.tileKey)
-        pinned.clear(); slots.clear(); media.setResidency(emptyMap())
+        pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap())
         media.sleep()
         layerId = null
     }
@@ -83,44 +84,85 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         resumeOnLoad = resumeWater
         val (lx, ly) = layerPx(docX, docY)
         try { need(floatArrayOf(lx, ly, lx + 1f, ly + 1f), tile) } finally { resumeOnLoad = true }
+        // Loaded, not held: the first frame's admission decides what it needs (these tiles must not crowd it out).
+        unpinAll()
     }
 
-    /** The atlas has no edge to keep a stroke inside: it makes the stroke's area resident instead (atomic, or refused). */
-    override fun follow(docRect: DoubleArray, penX: Double, penY: Double) {
-        if (layerId == null) return
-        val (x0, y0) = layerPx(docRect[0], docRect[1]); val (x1, y1) = layerPx(docRect[2], docRect[3])
-        need(floatArrayOf(x0, y0, x1, y1), 0)
-        media.wetRect?.let { need(it, MediaAtlasPlacement.WET_REACH) }
+    /** The atlas has no edge to keep a stroke inside: each frame is admitted whole instead ([admit]). */
+    override fun follow(docRect: DoubleArray, penX: Double, penY: Double) {}
+
+    /** True between a frame's [admit] and its [flush]: every pass of the frame should find its tiles held already. */
+    private var admitted = false
+    /** Passes that asked past their frame's admission (a planning bug; the pass is still served if there is room). */
+    var admissionMisses = 0; private set
+
+    override fun admit(needs: List<MediaLayerEngine.Need>) {
+        if (layerId == null || needs.isEmpty()) return
+        val keys = LinkedHashSet<Long>()
+        var x0 = Float.MAX_VALUE; var y0 = Float.MAX_VALUE; var x1 = -Float.MAX_VALUE; var y1 = -Float.MAX_VALUE
+        for (n in needs) {
+            keys += tilesOf(n.rect, n.reach)
+            x0 = minOf(x0, n.rect[0]); y0 = minOf(y0, n.rect[1]); x1 = maxOf(x1, n.rect[2]); y1 = maxOf(y1, n.rect[3])
+        }
+        // The look at the frame's end ([writeLook]): the dirty area (inside these rects), its halo, whole pixels, its reach.
+        keys += tilesOf(floatArrayOf(x0, y0, x1, y1), lookHalo + 1 + MediaAtlasPlacement.LOOK_REACH)
+        hold(keys)
+        admitted = true
     }
 
     private fun layerPx(x: Double, y: Double): Pair<Float, Float> = media.toLayerPx(x, y)
 
     /**
-     * The residency rule ([MediaLayerEngine.onNeed]): every tile [rect] (layer px) dilated by [reach] touches is made
-     * resident and held for this frame, or nothing is drawn: a [MediaRoomException] in words.
+     * The residency rule ([MediaLayerEngine.onNeed]): every tile [rect] (layer px) dilated by [reach] touches is resident and
+     * held for this frame. After [admit] that is already true for every pass of the frame (the fast path); a pass asking
+     * past its admission is counted and served if it fits, else refused before it draws.
      */
     private fun need(rect: FloatArray, reach: Int) {
         if (layerId == null) return
-        val keys = MediaAtlasPlacement.tiles(rect[0].toDouble(), rect[1].toDouble(), rect[2].toDouble(), rect[3].toDouble(), reach)
-        val missing = keys.filter { slots.resident(page(it)) == null }
-        // Atomic: count what this pass needs against what can be freed BEFORE loading any of it (a tile held for this frame,
-        // or by running water, cannot leave).
-        val free = slots.capacity - slots.residents().size + slots.residents().count { it.pins == 0 && it.page !in pinned && it.page.tileKey !in keys }
-        if (missing.size > free || keys.size > slots.capacity) {
+        val keys = tilesOf(rect, reach)
+        if (keys.all { page(it) in pinned }) return
+        if (admitted) {
+            admissionMisses++
+            android.util.Log.w(TAG, "a pass asked past its frame's admission (${keys.size} areas)")
+        }
+        hold(keys)
+    }
+
+    private fun tilesOf(r: FloatArray, reach: Int): List<Long> =
+        MediaAtlasPlacement.tiles(r[0].toDouble(), r[1].toDouble(), r[2].toDouble(), r[3].toDouble(), reach)
+
+    /**
+     * Makes [keys] resident and held until [flush], atomically: first counts them with every tile that must stay (this
+     * frame's, and all of them while water runs: B3 refines that per tile) against the slots, and only then loads. Room
+     * comes from writing back the least recently used unpinned tiles (A1's [MediaAtlasResidency]): a stroke moves on over
+     * any number of tiles, and is only refused when ONE frame needs more than the atlas holds.
+     */
+    private fun hold(keys: Collection<Long>) {
+        val wanted = keys.toSet()
+        if (media.wetActive) for (r in slots.residents()) if (r.page !in pinned) { slots.pin(r.page); pinned += r.page }
+        val held = pinned.mapTo(HashSet()) { it.tileKey }
+        if (!MediaAtlasPlacement.fits(slots.capacity, wanted, held)) {
             throw MediaRoomException("This pencil, watercolour or oil stroke reaches further than this phone can hold at once " +
-                "(${keys.size} areas of ${slots.capacity}). Paint a smaller area at a time.")
+                "(${(wanted + held).size} areas of ${slots.capacity}). Paint a smaller area at a time.")
         }
-        val wet = media.wetActive
-        for (key in keys) {
+        // Hold what is here first: loading the rest writes back and evicts whatever is not held.
+        for (key in wanted) {
             val p = page(key)
-            residency.ensure(p)
-                ?: throw MediaRoomException("There is no room for more pencil, watercolour or oil here right now.")
-            slots.touch(p)
-            if (p !in pinned) { slots.pin(p); pinned += p }
+            if (slots.resident(p) != null) { slots.touch(p); if (p !in pinned) { slots.pin(p); pinned += p } }
         }
-        // Running water may flow into any tile it is in: nothing wet leaves while it runs (B3 refines this per tile).
-        if (wet) for (r in slots.residents()) if (r.page !in pinned) { slots.pin(r.page); pinned += r.page }
-        if (missing.isNotEmpty()) media.setResidency(resident())
+        var loaded = false
+        for (key in wanted) {
+            val p = page(key)
+            if (slots.resident(p) != null) continue
+            residency.ensure(p) ?: throw MediaRoomException("There is no room for more pencil, watercolour or oil here right now.")
+            slots.pin(p); pinned += p; loaded = true
+        }
+        if (loaded) media.setResidency(resident())
+    }
+
+    private fun unpinAll() {
+        for (p in pinned) if (slots.resident(p) != null) slots.unpin(p)
+        pinned.clear()
     }
 
     private val residency by lazy { MediaAtlasResidency(slots, backing) }
@@ -183,7 +225,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     override fun flush(stores: Boolean) {
         val id = layerId ?: return
         if (id !in paint.layerIds()) {
-            layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null; pinned.clear(); slots.clear(); media.setResidency(emptyMap())
+            layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null; pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap())
             media.takeDirty(); media.takeDirtyStores(); media.stopWater(); return
         }
         if (dryPending && !paint.mediaStrokeInProgress) { dryPending = false; dropWater(id) }
@@ -195,12 +237,12 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             writeLook(id, rect)
         }
         if (stores) writeStores(id) else reserveStores()
-        // The frame is over: its tiles may leave again (running water keeps its own, see [need]).
-        for (p in pinned) if (slots.resident(p) != null) slots.unpin(p)
-        pinned.clear()
+        // The frame is over: its tiles may leave again (running water keeps its own, see [hold]).
+        unpinAll()
+        admitted = false
     }
 
-    private fun keysIn(r: FloatArray): List<Long> = MediaAtlasPlacement.tiles(r[0].toDouble(), r[1].toDouble(), r[2].toDouble(), r[3].toDouble(), 0)
+    private fun keysIn(r: FloatArray): List<Long> = tilesOf(r, 0)
 
     private fun writeLook(id: String, dirty: FloatArray) {
         val h = lookHalo.toFloat()
@@ -299,6 +341,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         media.resumeWater(floatArrayOf(wet.minOf { Tiles.tx(it) } * tile.toFloat(), wet.minOf { Tiles.ty(it) } * tile.toFloat(),
             (wet.maxOf { Tiles.tx(it) } + 1) * tile.toFloat(), (wet.maxOf { Tiles.ty(it) } + 1) * tile.toFloat()))
     }
+
+    private companion object { const val TAG = "JoyBrushMediaAtlas" }
 
     private fun union(a: FloatArray?, b: FloatArray?): FloatArray? = when {
         a == null -> b?.copyOf()

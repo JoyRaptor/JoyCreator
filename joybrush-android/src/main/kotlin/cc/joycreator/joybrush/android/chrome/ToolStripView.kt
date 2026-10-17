@@ -122,8 +122,8 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
         if (left) { addView(column); addView(recentBar, hair) } else { addView(recentBar, hair); addView(column) }
     }
 
-    /** Which tools exist (a library with no smudge brush has no smudge button) and which is in the hand. */
-    fun showTools(available: Set<ToolSlot>, active: ToolSlot) {
+    /** Which tools exist (a library with no smudge brush has no smudge button) and which is in the hand (null: Select is). */
+    fun showTools(available: Set<ToolSlot>, active: ToolSlot?) {
         for ((slot, item) in tools) {
             item.visibility = if (slot in available) VISIBLE else GONE
             item.chosen = slot == active

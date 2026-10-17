@@ -1549,6 +1549,15 @@ public final class JoybotAgent {
     @NonNull
     public static String friendlyApiError(@NonNull String raw) {
         String l = raw.toLowerCase(Locale.US);
+        // Out of credit FIRST: OpenAI sends it as a 429 ("insufficient_quota"), the same code as
+        // "busy", and the owner was told to wait a minute for an account that had no money on it
+        // (Note 9, 2026-10-17).
+        if (l.contains("insufficient_quota") || l.contains("no credits") || l.contains("credit_balance")
+                || l.contains("billing") || l.contains("exceeded your current quota")) {
+            return "That account has no credit left, so it can't answer. Add credit on the AI service's"
+                    + " website (OpenAI: platform.openai.com → Settings → Billing), or tap the"
+                    + " model name at the top and switch to your free models.";
+        }
         if (l.contains("429") || l.contains("rate limit") || l.contains("rate-limit")) {
             return "The AI service is busy, or I've hit its limit for now (free models allow a few "
                     + "requests a minute). Try again in a minute, or pick another model in ⚙.";

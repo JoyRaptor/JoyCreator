@@ -3,6 +3,7 @@ package cc.joycreator.joybrush.core.media
 import cc.joycreator.joybrush.core.bench.Bench
 import cc.joycreator.joybrush.core.bench.BenchCase
 import cc.joycreator.joybrush.core.bench.Verdict
+import cc.joycreator.joybrush.core.input.Angles
 import cc.joycreator.joybrush.core.input.PenSample
 import kotlin.math.PI
 import kotlin.math.abs
@@ -130,7 +131,8 @@ class MediaFastCBenchTest {
                         timeMs = u * g.durationMs,
                         pressure = pressureAt(u).toFloat(),
                         tilt = (tiltDegAt(u) * PI / 180.0).toFloat(),
-                        azimuth = azimuthRadAt(u).toFloat(),
+                        // The pen reports where its TIP points (Android); MediaInput turns it to the barrel's lean.
+                        azimuth = Angles.wrap(azimuthRadAt(u) + PI).toFloat(),
                     ),
                 )
             }

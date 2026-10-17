@@ -104,11 +104,27 @@ object MediaPresets {
         engine = ENGINE_MEDIA,
         // The LOWEST version that can say a media brush, not BrushPreset's default (the newest): a shipped media brush
         // shared from this build must still open in a version-8 build (Lead review M1, brush version 9).
-        version = VERSION_MEDIA,
+        // A stick with an edge blend, a build-up or its own tuning says words of version 11; every other one stays 8.
+        version = if (spec.stick?.let { it.blend != 0.0 || it.build != 1.0 || it.tuning != null } == true) VERSION_PENCIL_BLEND
+            else if (RESPONSES[tool] != null && medium == MEDIUM_DRY) VERSION_RESPONSE else VERSION_MEDIA,
         size = Param(spec.referencePx),
         smoothing = 0f,
         author = "Joy Creator",
         media = spec,
+        response = RESPONSES[tool]?.takeIf { medium == MEDIUM_DRY } ?: ResponseSpec(),
+    )
+
+    /**
+     * How a shipped pencil hears the pen, where it is not the straight line: the flagship's pressure and tilt curves
+     * from the pencil tuner (the owner, 2026-10-15). They are the brush's own response curves, the same ones the brush
+     * settings sheet draws.
+     */
+    private val RESPONSES: Map<String, ResponseSpec> = mapOf(
+        "Proto Pencil" to ResponseSpec(
+            pressure = listOf(0.754175f, 0.240418f, 0.551931f, 1f),
+            tilt = listOf(0.749207f, 0.29791f, 0.524506f, 0.954035f),
+        ),
+        "Proto Mix" to ResponseSpec(pressure = listOf(0.473614f, 0.302362f, 0.628421f, 0.777778f), tilt = listOf(0.471958f, 0.321526f, 0.61928f, 0.762456f)),
     )
 
     val ALL: List<BrushPreset> by lazy {

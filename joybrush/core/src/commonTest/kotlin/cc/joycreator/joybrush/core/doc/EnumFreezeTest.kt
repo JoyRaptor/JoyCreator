@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.core.doc
 
 import cc.joycreator.joybrush.core.brush.BRUSH_VERSION
+import cc.joycreator.joybrush.core.brush.VERSION_PENCIL_BLEND
 import cc.joycreator.joybrush.core.brush.BrushException
 import cc.joycreator.joybrush.core.brush.BrushInput
 import cc.joycreator.joybrush.core.brush.BrushJson
@@ -107,8 +108,10 @@ class EnumFreezeTest {
         // 9 is the `line` section and `blend: "multiply"` / `"screen"` (VECTOR_RENDER_DESIGN H6). Written as 8 + 1 in
         // VERSION_LINES: the Lead checks it against JB-2.40's bump when both land, so the two cannot claim one number.
         // 10 is the replayable line-watercolour engine, not the media-watercolour engine.
-        assertEquals(10, BRUSH_VERSION)
-        assertEquals(VERSION_WATERCOLOUR, BRUSH_VERSION, "the newest version is the one this row added")
+        // 11 is the pencil's edge blend and build-up (`media.stick.blend`, `.build`; the owner, 2026-10-14).
+        assertEquals(11, BRUSH_VERSION)
+        assertEquals(VERSION_PENCIL_BLEND, BRUSH_VERSION, "the newest version is the one this row added")
+        assertTrue(VERSION_WATERCOLOUR < VERSION_PENCIL_BLEND)
         assertTrue(VERSION_LINES < VERSION_WATERCOLOUR)
         assertTrue(VERSION_MEDIA < VERSION_LINES)
         // BrushPreset.version is a second literal beside BRUSH_VERSION, and the file writes the

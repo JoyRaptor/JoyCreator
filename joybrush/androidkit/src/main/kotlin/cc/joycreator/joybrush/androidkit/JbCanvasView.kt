@@ -1386,7 +1386,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             // A predicted point is drawn for latency elsewhere; paint and water cannot be taken back, so media never uses one.
             if (s.predicted) continue
             val placed = snap?.map(s) ?: s
-            out += MediaInput.sample(p.response.apply(placed))
+            // A tuned pencil knows its own pen reach (the tilt that counts as lying flat); every other media brush uses the app's.
+            out += MediaInput.sample(p.response.apply(placed), p.media?.stick?.tuning?.tiltReachDeg ?: MediaInput.REACH_DEG)
         }
         if (snap != null && snap.locked && !lockShown) { lockShown = true; onGuideLock?.invoke(true) }
         if (out.isEmpty()) return

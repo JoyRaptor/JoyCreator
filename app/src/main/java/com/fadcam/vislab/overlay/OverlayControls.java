@@ -35,7 +35,7 @@ final class OverlayControls extends LinearLayout {
         setGravity(Gravity.CENTER_VERTICAL);
         int p = Ui.dp(c, 6);
         setPadding(p, p, p, p);
-        setBackground(Ui.round(Ui.DRAWER, Ui.dp(c, 999)));
+        setBackground(Ui.round(VisOverlayService.LEGIBLE, Ui.dp(c, 999)));
         addView(button(c, "chevron_left", "Previous look", v -> a.step(-1)));
         LinearLayout words = new LinearLayout(c);
         words.setOrientation(VERTICAL);

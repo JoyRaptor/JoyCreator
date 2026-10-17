@@ -115,9 +115,22 @@ same tick grid: the frames match.
 **7.5 Words (karaoke, captions in the look).** Owner, 10-16: the pulsing JOY puck (Halo Drop)
 should be able to show the transcript's words, plus "sick karaoke". `Transcript` /
 `TranscriptWord(text, startMs, endMs)` / `CaptionPhrases` already give timed words and phrases.
-Plan: a `words` layer type: the current word as the picture on an image layer (puck), a
-karaoke line with a sweep across the phrase (per-word timings as uniforms), words bursting into
-particles on their onset, a word ring. Prototype in the web pilot with a sample transcript first.
+**Owner ruling, 10-17: words as art, not captions.** Studio already has stylised TikTok-style
+captions, and those are linear, in one place. VisLab words are artistic, procedural, wowing:
+words on rotating, spiralling banners; words flying at you through a star field; a ticker
+running along a tunnel wall as you travel through it; words floating up and dissolving into
+smoke; "ideas like that". Never a line of text along the bottom.
+
+Plan: a `words` primitive whose modes are those scenes, each a 3D placement of the current and
+coming words (from `TranscriptWord` timings), drawn from a glyph atlas so any word is cheap:
+- **Spiral banner**: words wrapped on a ribbon that coils around the view and turns with the beat.
+- **Star-field flight**: each word starts far away and rushes past the camera on its start time.
+- **Tunnel ticker**: words run along the inside wall of the tunnel looks (Hyperdrive, Gyroid Dive).
+- **Smoke**: the word holds, then breaks into particles that rise and curl (the particle and
+  slime layers already simulate this kind of motion).
+- **Puck**: the word replaces JOY in Halo Drop's centre, pulsing with the kick.
+Word size, glow and colour take music links like every knob. Prototype in the web pilot with a
+sample transcript first; then the app, fed by Studio's transcript at the playhead.
 
 ## 8. Screen recorder overlay (built 10-17)
 

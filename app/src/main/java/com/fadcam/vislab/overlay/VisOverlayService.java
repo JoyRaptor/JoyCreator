@@ -54,6 +54,11 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     private static final int NOTIFICATION_ID = 7414;
     private static final String PREFS = "vislab_overlay";
     private static final int MIN_DP = 140;
+    /**
+     * Controls float over any app, so the text underneath is unknown: they get a denser fill than
+     * the room's 55% drawers, or they cannot be read (seen on the Note 9 over the recorder page).
+     */
+    static final int LEGIBLE = (0xE0 << 24) | (Studio.PANEL & 0xFFFFFF);
 
     /** True while the floating visualiser is showing. */
     public static volatile boolean isRunning;
@@ -83,6 +88,11 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     private OverlayControls controls;
     private TextView resize;
     @Nullable private FrameLayout handle;
+    /** Full screen: the controls tuck into this small round button (it is in the recording too). */
+    @Nullable private TextView dot;
+    private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable tuck = this::tuck;
+    private static final long TUCK_MS = 4000;
     private WindowManager.LayoutParams boxLp, handleLp;
     private boolean full;
     private OverlaySound sound;
@@ -145,6 +155,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     public void onDestroy() {
         isRunning = false;
         if (instance == this) instance = null;
+        ui.removeCallbacks(tuck);
         if (sound != null) sound.stop();
         removeQuietly(handle);
         handle = null;
@@ -203,6 +214,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
             boxLp.x = boxLp.y = 0;
             boxLp.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
             view.renderer().setForceFrame(-1);   // the look's own edges: bleed, as it was made
+            resize.setVisibility(View.GONE);
             moveControls(true);
         } else {
             boxLp.width = Math.max(Ui.dp(this, MIN_DP), prefs.getInt("w", Math.round(dm.widthPixels * 0.9f)));
@@ -231,14 +243,23 @@ public class VisOverlayService extends Service implements OverlayControls.Action
                 handleLp.gravity = Gravity.TOP | Gravity.START;
                 handleLp.x = prefs.getInt("hx", Ui.dp(this, 12));
                 handleLp.y = prefs.getInt("hy", Ui.dp(this, 96));
+                dot = Ui.icon(this, "graphic_eq", 22, Ui.VIZ_A);
+                dot.setGravity(Gravity.CENTER);
+                dot.setBackground(Ui.round(LEGIBLE, Ui.dp(this, 999)));
+                Ui.label(dot, "Visualiser: tap for its controls, drag to move");
+                int d = Ui.dp(this, 44);
+                handle.addView(dot, new FrameLayout.LayoutParams(d, d));
                 wm.addView(handle, handleLp);
                 handle.setOnTouchListener(new Drag(handleLp, handle, false));
+                // A view with a hover label takes its own touches, so the dot needs the drag/tap too.
+                dot.setOnTouchListener(new Drag(handleLp, handle, false));
             }
             handle.addView(controls);
-            controls.setVisibility(View.VISIBLE);
+            showControls();
         } else {
             removeQuietly(handle);
             handle = null;
+            dot = null;
             FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
             cl.bottomMargin = Ui.dp(this, 10);
@@ -248,9 +269,26 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     }
 
     private void toggleBoxControls() {
-        boolean show = controls.getVisibility() != View.VISIBLE;
-        controls.setVisibility(show ? View.VISIBLE : View.GONE);
-        resize.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (controls.getVisibility() == View.VISIBLE) tuck();
+        else showControls();
+    }
+
+    /** Show the controls; they tuck away again after a few seconds untouched. */
+    private void showControls() {
+        controls.setVisibility(View.VISIBLE);
+        if (dot != null) dot.setVisibility(View.GONE);
+        if (!full) resize.setVisibility(View.VISIBLE);
+        ui.removeCallbacks(tuck);
+        ui.postDelayed(tuck, TUCK_MS);
+    }
+
+    /** Out of the way (and out of the recording): nothing in the box, a small dot in full screen. */
+    private void tuck() {
+        ui.removeCallbacks(tuck);
+        if (controls == null) return;
+        controls.setVisibility(View.GONE);
+        resize.setVisibility(View.GONE);
+        if (full && dot != null) dot.setVisibility(View.VISIBLE);
     }
 
     private static int overlayType() {
@@ -303,6 +341,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
                     boolean tap = System.currentTimeMillis() - down < 250
                             && Math.abs(e.getRawX() - tx) < 12 && Math.abs(e.getRawY() - ty) < 12;
                     if (tap && isBox) toggleBoxControls();
+                    else if (tap) showControls();
                     else if (!tap) prefs.edit().putInt(isBox ? "x" : "hx", lp.x).putInt(isBox ? "y" : "hy", lp.y).apply();
                     return true;
                 default:
@@ -371,6 +410,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         int i = lookId == null ? 0 : Math.max(0, ids.indexOf(lookId));
         lookId = ids.get(((i + dir) % ids.size() + ids.size()) % ids.size());
         showLook();
+        showControls();
     }
 
     @Override

@@ -59,12 +59,40 @@ public final class AppActions {
         try {
             ActionResult res = registry().run(ctx, tool, StudioActions.toMap(args));
             if (ctx.route != null) pendingRoute = ctx.route;
+            if (ctx.openItem != null) {
+                pendingItem = ctx.openItem;
+                pendingAsNewProject = ctx.asNewProject;
+            }
             return res.toToolText();
         } catch (ActionError e) {
             return "Error: " + e.getMessage();
         } catch (Exception e) {
             return "Error: " + tool + " failed: " + e.getMessage();
         }
+    }
+
+    @Nullable private static volatile com.fadcam.ui.library.LibraryItem pendingItem;
+    private static volatile boolean pendingAsNewProject;
+
+    /**
+     * Opens the Library thing an action named, once (as tapping it in the Library would, or as a
+     * new Studio project). True when something was waiting. Main thread.
+     */
+    public static boolean takePendingOpen(@NonNull android.app.Activity a) {
+        com.fadcam.ui.library.LibraryItem it = pendingItem;
+        boolean asNew = pendingAsNewProject;
+        pendingItem = null;
+        if (it == null) return false;
+        if (asNew && it.uri != null) {
+            // The Library's "new project from this video": the editor builds the project from the
+            // file, exactly as when one is picked (NewProjectFlow.openEditor, new-project branch).
+            android.content.Intent i = new android.content.Intent(a, com.fadcam.ui.faditor.FaditorEditorActivity.class);
+            i.setData(android.net.Uri.parse(it.uri));
+            i.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            a.startActivity(i);
+            return true;
+        }
+        return com.fadcam.ui.library.LibraryOpen.open(a, it);
     }
 
     /** Where an action asked to go, once; null when nothing is waiting. Main thread. */

@@ -663,7 +663,8 @@ public final class JoybotAgent {
             }
             if (DirectRunner.isFailure(result)) lastError = result;
             else if (wrote) out.calls.add(new Idea.Step(name, com.fadcam.ui.faditor.ai.actions.StudioActions.toMap(args)));
-            if ("open_room".equals(name) && !DirectRunner.isFailure(result)) navigated = true;
+            if (("open_room".equals(name) || "open_library_item".equals(name) || "new_project_from".equals(name))
+                    && !DirectRunner.isFailure(result)) navigated = true;
             // A refusal is an answer, not a puzzle: a free model refused add_motion on a linked
             // layer and then reordered the lanes to get round it — a change nobody asked for
             // (Note 9, 2026-10-16). Say so to the model right where it reads the refusal.

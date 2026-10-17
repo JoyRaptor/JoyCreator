@@ -986,6 +986,16 @@ public class MainActivity extends AppCompatActivity {
                 intent.removeExtra("navigate_to_tab");
             }
             
+            // Joybot's "Take me there" for screens that live inside this one as overlays.
+            if ("trash".equals(intent.getStringExtra("open_overlay"))) {
+                intent.removeExtra("open_overlay");
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    if (isFinishing()) return;
+                    // The same overlay the Lobby's logo-hold opens (LobbyFragment).
+                    com.fadcam.ui.OverlayNavUtil.show(this, new com.fadcam.ui.TrashFragment(), "trash");
+                }, 250);
+            }
+
             // Handle widget intent to open shortcuts
             if (intent.getBooleanExtra("open_shortcuts_widgets", false)) {
                 // Navigate to Settings tab and then open Shortcuts & Widgets screen

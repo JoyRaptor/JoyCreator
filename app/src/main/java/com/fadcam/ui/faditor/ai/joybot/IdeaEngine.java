@@ -35,7 +35,8 @@ public final class IdeaEngine {
     public static final int MAX_IDEAS = 3;
 
     /** Where Joybot was opened; the same project can call for different help in different rooms. */
-    public enum Room { LOBBY, STUDIO, SPRITELAB, AVATAR, LIBRARY, JOYBRUSH }
+    /** Where Joybot was opened from. VISLAB: the visualiser room (VisLab lane, 10-17); no ideas of its own yet. */
+    public enum Room { LOBBY, STUDIO, SPRITELAB, AVATAR, LIBRARY, JOYBRUSH, VISLAB }
 
     /** Guided flows that are actually built; an idea for an unbuilt flow is never shown. */
     public static final String FLOW_SLIDE = "slide";

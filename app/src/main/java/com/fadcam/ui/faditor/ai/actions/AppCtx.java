@@ -17,6 +17,10 @@ public final class AppCtx {
     @Nullable public final String projectId;
     /** Where to go next ("spritelab", "library"…), or null to stay. Set by NAVIGATE actions. */
     @Nullable public String route;
+    /** A Library thing to open (as tapping it would), or to start a new project from. */
+    @Nullable public com.fadcam.ui.library.LibraryItem openItem;
+    /** With {@link #openItem}: start a new Studio project from it instead of opening it. */
+    public boolean asNewProject;
 
     public AppCtx(@NonNull Context app, @Nullable String projectId) {
         this.app = app;

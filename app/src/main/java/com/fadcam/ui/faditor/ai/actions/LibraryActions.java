@@ -50,6 +50,73 @@ final class LibraryActions {
                 .number("limit", false, "How many to list, newest first (default 10)", 1.0, (double) MAX_LIMIT)
                 .text("query", false, "Words to look for in the name")
                 .build(), LibraryActions::listLibrary);
+
+        r.add(ActionSpec.of("open_library_item", "Open something from the Library")
+                .help("Opens a thing from the Library exactly as tapping it there does: a project in the"
+                        + " Studio, a drawing in JoyBrush, a sprite sheet in Sprite Lab, a character in Avatar"
+                        + " Studio, a video or picture in its viewer. item: its name or its key from"
+                        + " list_library. Closes the chat; say what you're opening first.")
+                .wing("APP", FAMILY).effect(Effect.NAVIGATE)
+                .where("Lobby › Library › tap the thing")
+                .text("item", true, "The thing's name, or its key from list_library")
+                .build(), (ctx, a) -> openItem(ctx, a, false));
+
+        r.add(ActionSpec.of("new_project_from", "Start a new project from a video")
+                .help("Starts a new Studio project from a recording, clip or export in the Library, the way"
+                        + " New project does with a picked video. Use for \"make a project from my last"
+                        + " recording\", \"edit the screen recording from yesterday\". item: its name or key from"
+                        + " list_library (call list_library first if you don't know it). Closes the chat.")
+                .wing("APP", FAMILY).effect(Effect.NAVIGATE)
+                .where("Lobby › Library › New project › pick the video")
+                .text("item", true, "The video's name, or its key from list_library")
+                .build(), (ctx, a) -> openItem(ctx, a, true));
+    }
+
+    /** The kinds a new project can start from: videos. */
+    private static boolean isVideo(@NonNull LibraryItem it) {
+        return (it.kind == LibraryKind.RECORDINGS || it.kind == LibraryKind.EXPORTS || it.kind == LibraryKind.CLIPS)
+                && !it.isImage() && it.uri != null && !it.uri.isEmpty();
+    }
+
+    @NonNull
+    private static ActionResult openItem(@NonNull AppCtx ctx, @NonNull Args a, boolean asNewProject) throws ActionError {
+        String ref = a.str("item");
+        if (ref == null) throw new ActionError("Which thing? Give its name or its key from list_library.");
+        List<LibraryItem> all = readLibrary(ctx.app);
+        if (asNewProject) {
+            List<LibraryItem> videos = new ArrayList<>();
+            for (LibraryItem it : all) if (isVideo(it)) videos.add(it);
+            all = videos;
+            if (all.isEmpty()) throw new ActionError("There are no recordings, clips or exports in the Library to start from.");
+        }
+        LibraryItem it = find(ctx.app, all, ref.trim());
+        ctx.openItem = it;
+        ctx.asNewProject = asNewProject;
+        String name = it.name.isEmpty() ? "it" : "“" + it.name + "”";
+        return ActionResult.unchanged(asNewProject ? "Starting a new project from " + name + "." : "Opening " + name + ".");
+    }
+
+    /** By key; then the exact name; then names containing the words. Several → an error naming them. */
+    @NonNull
+    private static LibraryItem find(@NonNull Context app, @NonNull List<LibraryItem> all, @NonNull String ref) throws ActionError {
+        for (LibraryItem it : all) if (ref.equals(it.key)) return it;
+        String want = ref.toLowerCase(Locale.ROOT);
+        List<LibraryItem> exact = new ArrayList<>(), part = new ArrayList<>();
+        for (LibraryItem it : all) {
+            String n = it.name.toLowerCase(Locale.ROOT);
+            if (n.equals(want)) exact.add(it);
+            else if (!want.isEmpty() && n.contains(want)) part.add(it);
+        }
+        List<LibraryItem> hit = !exact.isEmpty() ? exact : part;
+        if (hit.size() == 1) return hit.get(0);
+        if (hit.isEmpty()) {
+            throw new ActionError("Nothing in the Library is called \"" + ref + "\". Call list_library to see the names.");
+        }
+        StringBuilder sb = new StringBuilder(hit.size() + " things match \"" + ref + "\":");
+        for (int i = 0; i < Math.min(8, hit.size()); i++) {
+            sb.append("\n").append(line(app, hit.get(i))).append(" = ").append(hit.get(i).key);
+        }
+        throw new ActionError(sb.append("\nAsk which one, or use its key.").toString());
     }
 
     // ── handler ──────────────────────────────────────────────────────────────

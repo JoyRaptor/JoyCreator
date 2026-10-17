@@ -424,7 +424,7 @@ public class IdeaEngineTest {
             }
             eq("help G3: no two topics share an id", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size(), helpIds.size());
             Set<String> helpRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "setup",
-                    "joybrush", "spritelab", "avatar", "space"));
+                    "joybrush", "spritelab", "avatar", "space", "trash"));
             for (com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic x : com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS) {
                 check("help G3: route is a real one: " + x.id, helpRoutes.contains(x.route), String.valueOf(x.route));
                 check("help G3: \"Or I can do it\" only with a doIt: " + x.id,

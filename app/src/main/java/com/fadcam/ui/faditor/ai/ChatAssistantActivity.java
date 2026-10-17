@@ -1150,6 +1150,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 final String where = room;
                 messagesContainer.postDelayed(() -> { if (!gone()) route(where); }, 900L);
             }
+            // open_library_item / new_project_from: open it as the Library would, then step aside.
+            messagesContainer.postDelayed(() -> {
+                if (!gone() && com.fadcam.ui.faditor.ai.actions.AppActions.takePendingOpen(ChatAssistantActivity.this)) {
+                    finish();
+                }
+            }, 900L);
         }
 
         @Override public void onStep(@NonNull AIChatState.Step step) {
@@ -2118,6 +2124,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
             case "space":
                 // Space is a screen of its own (also reached from Setup > Storage), so it opens directly.
                 startActivity(com.fadcam.joyfolder.studio.SpaceActivity.intent(this));
+                finish();
+                return;
+            case "trash":
+                // The Trash is an overlay inside the main screen (the Lobby's logo-hold opens it), so
+                // the main screen is asked to open it (MainActivity "open_overlay").
+                startActivity(new Intent(this, com.fadcam.MainActivity.class)
+                        .putExtra("open_overlay", "trash")
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
                 finish();
                 return;
             default: return;

@@ -9,7 +9,7 @@
 //   4. jb_wet_update.frag skips the 8-tap drying ring (and two fetches) for a cell whose water is exactly 0.
 //
 // HOW. Two engines are driven through the SAME wet strokes (a seeded RGBA32F state, dabs from a dab vertex shader, many frames):
-//   OLD = the shaders of <base> (default origin/joy-creator, via `git show`) with the OLD pass sequence and formats;
+//   OLD = the shaders of <base> (default 44379471e~1, the commit before the cuts, via `git show`) with the OLD pass sequence and formats;
 //   NEW = the shaders in this working tree with the NEW sequence and formats (a JS port of MediaLayerEngine.wetFrame);
 //   plus deliberately BROKEN controls that MUST be detected: noRing (NEW without the p0 ring copy: breaks tilted paper),
 //   noClear (NEW that forgets to clear the brush input), badIdle (NEW whose update shader skips the drying ring for
@@ -18,7 +18,7 @@
 // (all four channels, so -0/NaN count) and the RGBA8 look (jb_media_render.frag) byte for byte, OLD vs NEW (0 pixels may
 // differ) and OLD vs each control (> 0 required). The baked fluid/water/height values are compared too.
 //
-// Run: NODE_PATH=<dir with playwright-core> node joybrush/tools/media_wet_exact_parity_check.js [--base origin/joy-creator]
+// Run: NODE_PATH=<dir with playwright-core> node joybrush/tools/media_wet_exact_parity_check.js [--base 44379471e~1]
 //        [--chrome <exe>] [--size 256] [--quick]
 // Prints one JSON line; exit 0 only on pass. SwiftShader is software GL: this proves the maths, not Adreno timing.
 const fs = require('fs');
@@ -31,7 +31,9 @@ try { chromium = require('playwright-core').chromium; } catch (e) {
 const ROOT = path.join(__dirname, '..');
 const SHADER_DIR = path.join(ROOT, 'shaders');
 function argVal(name, dflt) { const i = process.argv.indexOf('--' + name); return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : dflt; }
-const BASE = argVal('base', 'origin/joy-creator');
+// The commit before 44379471e (lead/wet-exact): what the bandwidth cuts are proved against. origin/joy-creator has
+// carried those cuts since, so it stopped being a valid default.
+const BASE = argVal('base', '44379471e~1');
 const SIZE = parseInt(argVal('size', '256'), 10);
 const QUICK = process.argv.includes('--quick');
 const PPM = 12;            // doc px per mm (layer scale 1)
@@ -45,7 +47,12 @@ function expand(rel, read, seen = new Set()) {
   const text = read(rel).replace(/\r\n/g, '\n');
   return text.split('\n').map(l => { const m = l.trim().match(INCLUDE_RE); return m ? expand(m[1], read, seen) : l; }).join('\n');
 }
-const readNew = (rel) => fs.readFileSync(path.join(SHADER_DIR, rel), 'utf8');
+// --head <ref>: the NEW shaders from a commit instead of the working tree. Since Media Atlas v2 B1 (2c33263d4) the flux
+// reads the bead with a hand bilinear (the Lead's accepted one-time change), so tilted scenarios are no longer bit-exact
+// against the pre-cut base; flat ones still are. Reproduce this checker's own proof with --head 735ff55e9.
+const HEAD = argVal('head', null);
+const readNew = HEAD ? (rel) => execFileSync('git', ['-C', ROOT, 'show', HEAD + ':joybrush/shaders/' + rel], { encoding: 'utf8', maxBuffer: 1 << 26 })
+  : (rel) => fs.readFileSync(path.join(SHADER_DIR, rel), 'utf8');
 const readOld = (rel) => execFileSync('git', ['-C', ROOT, 'show', BASE + ':joybrush/shaders/' + rel], { encoding: 'utf8', maxBuffer: 1 << 26 });
 const FILES = { quad: 'media/jb_media_quad.vert', flux: 'media/jb_wet_flux.frag', update: 'media/jb_wet_update.frag', copy: 'media/jb_media_copy.frag',
   bead: 'media/jb_wet_bead.frag', dabV: 'media/jb_wet_dab.vert', dabF: 'media/jb_wet_dab.frag', bake: 'media/jb_media_bake.frag',

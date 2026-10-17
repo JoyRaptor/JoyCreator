@@ -466,6 +466,7 @@ class JoyBrushActivity : Activity() {
         // JB-2.04: the column follows the stack, and anything refused is said in words.
         canvas.onLayersChanged = { stack -> layersChanged(stack) }
         canvas.onRefused = { why -> toast(why) }
+        canvas.onNotice = { sentence -> toast(sentence) }
         canvas.onGraphicsLost = { documentId -> boardController?.stop(); recoverGraphics(documentId) }
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
@@ -788,8 +789,15 @@ class JoyBrushActivity : Activity() {
         strip.showOpacity(canvas.preset?.engine != cc.joycreator.joybrush.core.brush.ENGINE_MEDIA)
     }
 
+    /** Said once, the first time the drawer opens: a packaged brush that could not load is missing from it (just-works sweep). */
+    private var unusableBrushesTold = false
+
     /** The brush drawer, opened on the shelf the tool's brush is on. Picking closes it at once (0 ms). */
     private fun openBrushes(slot: ToolSlot) {
+        if (!unusableBrushesTold) {
+            unusableBrushesTold = true
+            BrushLibrary.unusableSentence()?.let { toast(it) }
+        }
         val current = tools.current?.brushId
         val own = when (slot) {
             ToolSlot.SMUDGE -> BrushShelf.Kind.SMUDGE

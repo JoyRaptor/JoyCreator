@@ -195,11 +195,23 @@ class UndoLog<T : Any>(
         val direction: Direction,
         val step: Step<T>,
         retirements: List<T>,
+        /** How many of the oldest undo steps the budget let go while preparing this proposal. */
+        val trimmedSteps: Int = 0,
     ) {
         private val retired = retirements.toList()
         /** Ordered exactly as unbound history discard/trim would release its owned endpoints. */
         val retirements: List<T> get() = retired.toList()
     }
+
+    /**
+     * Told ONCE per history (it re-arms in [clear]) the first time the budget lets the oldest undo steps go, with how many
+     * steps undo still reaches. The budget itself is unchanged: this only stops the trim being silent. Called on whichever
+     * thread mutated the log, after the step is published; it must not re-enter the log. A callback that throws cannot
+     * break the edit that triggered it. Only the unbound log notifies: a log bound to a joint publisher is mutated by that
+     * publisher, which has no production caller.
+     */
+    var onFirstTrim: ((stepsKept: Int) -> Unit)? = null
+    private var trimTold = false
 
     private val cursorIdentity = Any()
     private var localCursor = Cursor<T>(cursorIdentity, emptyList(), emptyList())
@@ -347,7 +359,7 @@ class UndoLog<T : Any>(
         val retired = ArrayList<T>()
         expectedCursor.redoSteps.asReversed().forEach { retired.addAll(afterHandles(it)) }
         dropped.forEach { retired.addAll(beforeHandles(it)) }
-        return PreparedCursor(expectedCursor, Cursor(cursorIdentity, nextUndo, nextRedo), Direction.NEW, step, retired)
+        return PreparedCursor(expectedCursor, Cursor(cursorIdentity, nextUndo, nextRedo), Direction.NEW, step, retired, dropped.size)
     }
 
     fun prepareUndo(
@@ -371,7 +383,7 @@ class UndoLog<T : Any>(
         val nextRedo = expectedCursor.copyRedo().also { it.removeLast() }
         val dropped = prepareTrim(nextUndo, nextRedo)
         return PreparedCursor(expectedCursor, Cursor(cursorIdentity, nextUndo, nextRedo), Direction.REDO, expectedStep,
-            dropped.flatMap(::beforeHandles))
+            dropped.flatMap(::beforeHandles), dropped.size)
     }
 
     private fun requireOwned(cursor: Cursor<T>) {
@@ -397,7 +409,7 @@ class UndoLog<T : Any>(
     }
 
     /** Publish one prebuilt LOCAL cursor; this path is forbidden while externally bound. */
-    private fun publishLocal(expected: Cursor<T>, next: Cursor<T>, retired: List<T>, publish: () -> Unit = {}) {
+    private fun publishLocal(expected: Cursor<T>, next: Cursor<T>, retired: List<T>, publish: () -> Unit = {}, trimmed: Int = 0) {
         checkWriteAllowed()
         check(localCursor === expected) { "The history cursor changed during preparation" }
         publishing = true
@@ -408,13 +420,21 @@ class UndoLog<T : Any>(
         } finally {
             publishing = false
         }
+        if (trimmed > 0) tellTrim(next.undoDepth)
+    }
+
+    private fun tellTrim(stepsKept: Int) {
+        val tell = onFirstTrim ?: return
+        if (trimTold) return
+        trimTold = true
+        try { tell(stepsKept) } catch (_: Throwable) { /* a notice must never undo the work it reports on */ }
     }
 
     fun push(step: Step<T>) { checkWriteAllowed(); pushAndPublish(step) {} }
     fun pushAndPublish(step: Step<T>, publish: () -> Unit) {
         checkWriteAllowed()
         val prepared = prepareNew(step)
-        publishLocal(prepared.expectedCursor, prepared.cursor, prepared.retirements, publish)
+        publishLocal(prepared.expectedCursor, prepared.cursor, prepared.retirements, publish, prepared.trimmedSteps)
     }
     fun undo(): Step<T>? {
         checkWriteAllowed()
@@ -437,7 +457,7 @@ class UndoLog<T : Any>(
         checkWriteAllowed()
         val prepared = prepareRedo(expectedStep = expectedStep) ?: return false
         if (!isCurrent(prepared)) return false
-        publishLocal(prepared.expectedCursor, prepared.cursor, prepared.retirements, publish)
+        publishLocal(prepared.expectedCursor, prepared.cursor, prepared.retirements, publish, prepared.trimmedSteps)
         return true
     }
 
@@ -487,8 +507,9 @@ class UndoLog<T : Any>(
             steps.lastOrNull { it.documentAfter != null }?.documentAfter,
             lines.values.filter { it.before != null || it.after != null },
             slabs.values.filter { it.before != null || it.after != null }))
-        prepareTrim(nextUndo, nextRedo).forEach { retired.addAll(beforeHandles(it)) }
-        publishLocal(before, Cursor(cursorIdentity, nextUndo, nextRedo), retired)
+        val dropped = prepareTrim(nextUndo, nextRedo)
+        dropped.forEach { retired.addAll(beforeHandles(it)) }
+        publishLocal(before, Cursor(cursorIdentity, nextUndo, nextRedo), retired, trimmed = dropped.size)
     }
 
     /** Running-water extension keeps the same public rules; all backing is replaced privately. */
@@ -504,8 +525,8 @@ class UndoLog<T : Any>(
         val nextRedo = before.copyRedo()
         nextUndo[nextUndo.lastIndex] = Step(top.changes + changes, top.stackBefore, top.stackAfter, top.paperBefore, top.paperAfter,
             top.documentBefore, top.documentAfter, top.lines, top.slabs)
-        val retired = prepareTrim(nextUndo, nextRedo).flatMap(::beforeHandles)
-        publishLocal(before, Cursor(cursorIdentity, nextUndo, nextRedo), retired)
+        val dropped = prepareTrim(nextUndo, nextRedo)
+        publishLocal(before, Cursor(cursorIdentity, nextUndo, nextRedo), dropped.flatMap(::beforeHandles), trimmed = dropped.size)
         return true
     }
 
@@ -540,5 +561,14 @@ class UndoLog<T : Any>(
         val before = localCursor
         val retired = before.undoSteps.flatMap(::beforeHandles) + before.redoSteps.flatMap(::afterHandles)
         publishLocal(before, emptyCursor(), retired)
+        trimTold = false // a new history gets its own word, once
+    }
+
+    companion object {
+        /** What the person is told when [onFirstTrim] fires: calm, and honest about what they still have. */
+        fun trimmedSentence(stepsKept: Int): String {
+            val steps = if (stepsKept == 1) "1 step" else "$stepsKept steps"
+            return "Undo now reaches back $steps; older steps were let go to keep the phone responsive."
+        }
     }
 }

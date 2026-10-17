@@ -32,6 +32,27 @@ object BoardExportLayout {
         fun choice() = Choice(boardId, scope, format, currentFrameId, rangeStartId, rangeEndId)
         fun canExport() = exportEnabled && scope in availableScopes && format in availableFormats
     }
+    /**
+     * Why the Export button is greyed, as the sentence a tap on it gives; null when it is not greyed. The button stays
+     * greyed (nothing may be exported then); this only stops it being silent.
+     */
+    fun whyNotExportable(i: Input): String? {
+        if (i.canExport()) return null
+        val ids = i.identity.frameIds
+        val frames = when (i.scope) {
+            Scope.ANIMATION -> ids.size
+            Scope.RANGE -> (ids.indexOf(i.rangeEndId) - ids.indexOf(i.rangeStartId) + 1).coerceAtLeast(1)
+            else -> 1
+        }
+        return when {
+            !i.exportEnabled && frames > 1 ->
+                "This export is bigger than this phone can hold in memory. Choose a shorter range or fewer frames, or make the board smaller."
+            !i.exportEnabled -> "This board is bigger than this phone can export. Make the board smaller and try again."
+            i.scope !in i.availableScopes -> "\"${i.scope.label}\" can't be exported from this board."
+            else -> "${i.format.label} isn't available for \"${i.scope.label}\"; choose another file type."
+        }
+    }
+
     const val HEIGHT_DP = 236f
     const val TOP_RADIUS_DP = 20f
     const val BUDGET_TOOLTIP = "How much of this board's memory budget its frames use"

@@ -22,6 +22,16 @@ object FillPenRaster {
     private const val MAX_SCREEN_PATH = 32_768.0
     private const val MAX_COORD = 1_073_741_824.0
 
+    /** What the person is told when a shape is too small to fill (see [fillsEnough]). */
+    const val TOO_SMALL = "That shape is too small to fill."
+    private const val MIN_SCREEN_AREA = 4.0
+
+    /** True when the shape covers at least 4 screen px²: smaller than that is a speck the fill would not show. */
+    fun fillsEnough(mask: SelectionMask, screenPerDoc: Float): Boolean {
+        val docPixels = mask.tileKeys.sumOf { key -> mask.tile(key)!!.sumOf { (it.toInt() and 255).toLong() } } / 255.0
+        return docPixels * screenPerDoc * screenPerDoc >= MIN_SCREEN_AREA
+    }
+
     /**
      * Exact core outline and nonzero, antialiased fill. Refuse oversized gestures BEFORE the
      * smoother expands their path or the polygon allocates coverage. Empty/degenerate gestures

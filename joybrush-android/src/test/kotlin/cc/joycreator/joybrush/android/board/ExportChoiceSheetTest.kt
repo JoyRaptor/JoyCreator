@@ -136,4 +136,42 @@ class ExportChoiceSheetTest {
         touch(view,MotionEvent.ACTION_UP,176f,808f);settle()
         assertEquals(listOf(state.choice()),choices)
     }
+
+    // Just-works sweep: the over-budget Export stays greyed and refuses, but a tap on it now says why.
+    @Test fun tappingAGreyedExportExplainsWhyAndStillExportsNothing() {
+        val view=sheet();val reasons=mutableListOf<String>();var exports=0
+        view.host=object:ExportChoiceSheet.Host {
+            override fun export(choice:Export.Choice){exports++}
+            override fun refused(reason:String){reasons+=reason}
+        }
+        view.show(input().copy(availableScopes=Export.Scope.entries.toSet(),availableFormats=Export.chipFormats.toSet(),exportEnabled=false));settle()
+        assertTrue(touch(view,MotionEvent.ACTION_DOWN,176f,808f))
+        assertTrue(touch(view,MotionEvent.ACTION_UP,176f,808f))
+        assertEquals(1,reasons.size)
+        assertTrue(reasons.single(),reasons.single().contains("fewer frames"))
+        assertEquals(0,exports)
+    }
+
+    @Test fun onlyAWholeTapOnTheGreyedButtonSpeaks() {
+        val view=sheet();val reasons=mutableListOf<String>()
+        view.host=object:ExportChoiceSheet.Host {override fun refused(reason:String){reasons+=reason}}
+        view.show(input().copy(availableScopes=Export.Scope.entries.toSet(),availableFormats=Export.chipFormats.toSet(),exportEnabled=false));settle()
+        // Slid off the button before lifting, or cancelled: not a tap.
+        touch(view,MotionEvent.ACTION_DOWN,176f,808f);touch(view,MotionEvent.ACTION_UP,176f,500f)
+        touch(view,MotionEvent.ACTION_DOWN,176f,808f);touch(view,MotionEvent.ACTION_CANCEL,176f,808f)
+        // A tap on empty sheet, nowhere near Export.
+        touch(view,MotionEvent.ACTION_DOWN,176f,618f);touch(view,MotionEvent.ACTION_UP,176f,618f)
+        assertEquals(emptyList<String>(),reasons)
+    }
+
+    @Test fun anEnabledExportExportsAndNeverClaimsToBeRefused() {
+        val view=sheet();val reasons=mutableListOf<String>();val choices=mutableListOf<Export.Choice>()
+        view.host=object:ExportChoiceSheet.Host {
+            override fun export(choice:Export.Choice){choices+=choice}
+            override fun refused(reason:String){reasons+=reason}
+        }
+        view.show(input().copy(availableScopes=Export.Scope.entries.toSet(),availableFormats=Export.chipFormats.toSet(),exportEnabled=true));settle()
+        touch(view,MotionEvent.ACTION_DOWN,176f,808f);touch(view,MotionEvent.ACTION_UP,176f,808f);settle()
+        assertEquals(1,choices.size);assertTrue(reasons.isEmpty())
+    }
 }

@@ -85,6 +85,7 @@ import cc.joycreator.joybrush.core.input.Tool
 import cc.joycreator.joybrush.core.stroke.StrokeCapture
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.paint.Accumulate
+import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.DabPlacer
 import cc.joycreator.joybrush.core.paint.StrokeBlend
@@ -423,7 +424,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** The colour a new stroke starts with: the override if there is one, else the brush's. */
     val strokeColor: Int get() = colorArgb ?: brush.argb
 
-    private val engine = GlPaintEngine()
+    private val engine = GlPaintEngine().also {
+        // Undo letting its oldest steps go over the memory budget is said once per drawing, never done silently.
+        it.undo.onFirstTrim = { kept -> post { onNotice?.invoke(UndoLog.trimmedSentence(kept)) } }
+    }
 
     /**
      * Pencil, watercolour and oil (MEDIA_ENGINE_PLAN step 4c), on the GL thread beside [engine]. It asks the phone how much
@@ -531,6 +535,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** Called on the UI thread when something the person tried is refused, with the reason in words. */
     var onRefused: ((String) -> Unit)? = null
+
+    /** Called on the UI thread with a calm sentence about something the app did on its own, which is not a refusal. */
+    var onNotice: ((String) -> Unit)? = null
 
     val layers: LayerStack get() = stackUi
     val activeLayerId: String get() = activeLayer
@@ -642,14 +649,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** A new empty layer above the active one. False (and [onRefused]) when the device has no room for another. */
     fun addLayer(): Boolean {
-        if (!roomForAnother()) return false
+        if (penIsDown() || !roomForAnother()) return false
         val before = stackUi
         commitStack(before, before.add(before.freshId()))
         return true
     }
 
     fun duplicateLayer(id: String): Boolean {
-        if (drawing || !roomForAnother()) return false
+        if (penIsDown() || !roomForAnother()) return false
         val before = stackUi
         val newId = before.freshId()
         val after = before.duplicate(id, newId) ?: return false
@@ -660,7 +667,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** False for the last layer: a drawing always has somewhere to paint. */
     fun deleteLayer(id: String): Boolean {
-        if (drawing) return false
+        if (penIsDown()) return false
         val before = stackUi
         val after = before.delete(id)
         if (after == null) {
@@ -695,6 +702,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * was when the finger went down makes the whole drag ONE step.
      */
     fun previewLayerOpacity(id: String, opacity: Float) {
+        if (drawing) return // nothing is shown that the release could not keep: it says "Lift the pen first." once, at commit
         stackUi = stackUi.withOpacity(id, opacity)
         val v = stackUi[id]?.opacity ?: return
         onGl { engine.setLayerOpacity(id, v) }
@@ -723,6 +731,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** An empty mask (it shows everything) on [id], as ONE undo step; the brush goes to it, ready to hide. */
     fun addMask(id: String) {
+        if (penIsDown()) return
         val before = stackUi
         if (before[id]?.hasMask != false) return
         editingMask = id == before.activeId
@@ -731,7 +740,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** Throws the mask away as ONE undo step (its pixels go into the step: Undo brings it back). */
     fun deleteMask(id: String) {
-        if (drawing) return
+        if (penIsDown()) return
         val before = stackUi
         if (before[id]?.hasMask != true) return
         val after = before.withMask(id, false)
@@ -835,6 +844,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         return false
     }
 
+    /** A layer change asked for with the pen down is said no to in words; the stroke is never ended to make room for it (R26). */
+    private fun penIsDown(): Boolean {
+        if (!drawing) return false
+        onRefused?.invoke("Lift the pen first.")
+        return true
+    }
+
     private fun adopt(next: LayerStack) {
         if (next.activeId != activeLayer) onGl { mediaCanvas.releaseWindow() }
         stackUi = next
@@ -845,7 +861,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** A stack-only change as ONE undo step. Shown at once; the engine confirms through [reportHistory]. */
     private fun commitStack(before: LayerStack, after: LayerStack) {
-        if (drawing) return
+        if (penIsDown()) return
         adopt(after)
         onGl { engine.pushStackStep(before, after); reportHistory() }
     }
@@ -1717,8 +1733,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             boardStrokeWork {
                 try {
                     val mask=FillPenRaster.prepare(samples,amount,zoom)
-                    val pixels=mask.tileKeys.sumOf { key -> mask.tile(key)!!.sumOf { (it.toInt() and 255).toLong() } } / 255.0
-                    if(pixels*zoom*zoom >= 4.0) {
+                    if(FillPenRaster.fillsEnough(mask,zoom)) {
                         val ownership=engine.boardDocument?.let { RegionDocumentOps.paintPlans(it,emptyMap())[target] }
                         // An armed Tile board fills the repeat: the shape is folded back into the board rectangle (R50).
                         val tileBoard=engine.tileBoardId?.let { id -> engine.boardDocument?.boards?.firstOrNull { it.id == id } }
@@ -1726,7 +1741,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                         val changes=FillPenRaster.plan(shape,argb,opacity,mode,ownership) { engine.readTile(target,it) }
                         engine.replaceTiles(target,changes,wrappedBoardId=tileBoard?.id)
                         if(changes.isNotEmpty()) reportHistory()
-                    }
+                    } else post { onRefused?.invoke(FillPenRaster.TOO_SMALL) }
                 } finally {
                     afterFrameWork.addLast { post { if(fillSerial == serial) onFillPreview?.invoke(null) } }
                 }

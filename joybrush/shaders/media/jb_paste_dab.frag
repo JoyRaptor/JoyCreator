@@ -13,6 +13,7 @@ precision highp int;
 
 #include "media/jb_media_common.glsl"
 #include "media/jb_paste.glsl"
+#include "media/jb_media_atlas.glsl"
 
 uniform sampler2D u_p0;          // K rgb, thickness (mm)
 uniform sampler2D u_p1;          // S rgb, openness (wet = movable)
@@ -30,15 +31,19 @@ layout(location = 1) out vec4 o_p1;
 
 // Paper relief + paint body at a LAYER px (the paper bake is at layer resolution).
 float surfaceAt(vec2 lp) {
-    return texelFetch(u_paperBake, ivec2(clamp(lp, vec2(0.0), u_targetSize - 1.0)), 0).b * u_toothMm
-         + jb_bilinear(u_p0, lp).a;
+    return jb_fetch(u_paperBake, jb_cellAt(lp, u_targetSize)).b * u_toothMm
+         + jb_bilinearL(u_p0, lp).a;
 }
 
 void main() {
-    vec4 p0 = texelFetch(u_p0, ivec2(v_layerPx), 0);
-    vec4 p1 = texelFetch(u_p1, ivec2(v_layerPx), 0);
+    // The cell and its centre, exact (not interpolated): layer px, and the doc px the quad's v_docPx interpolates.
+    ivec2 cell = jb_cell();
+    vec2 layerPx = jb_fragPx();
+    vec2 docPx = u_layerOrigin + layerPx / u_layerScale;
+    vec4 p0 = jb_fetch(u_p0, cell);
+    vec4 p1 = jb_fetch(u_p1, cell);
     o_p0 = p0; o_p1 = p1;
-    vec2 rel = (v_docPx - u_center) / u_pxPerMm;
+    vec2 rel = (docPx - u_center) / u_pxPerMm;
     if (u_blade > 0.5) {
         // Rigid blade: paint above its underside comes off onto it; below it, the blade's paint fills up to it.
         float pxB = 1.0 / (u_pxPerMm * u_layerScale);
@@ -50,8 +55,8 @@ void main() {
         float load = b0.a;
         float t = p0.a;
         float open = p1.a;
-        float valley = (1.0 - texelFetch(u_paperBake, ivec2(clamp(v_layerPx, vec2(0.0), u_targetSize - 1.0)), 0).b) * u_toothMm;
-        float target = jb_bladeTarget(xb, yb, valley, load) + (load > 1e-6 ? jb_bladeChatter(v_docPx) : 0.0);
+        float valley = (1.0 - jb_fetch(u_paperBake, jb_cellAt(layerPx, u_targetSize)).b) * u_toothMm;
+        float target = jb_bladeTarget(xb, yb, valley, load) + (load > 1e-6 ? jb_bladeChatter(docPx) : 0.0);
         float r = 1.0 - exp(-u_rate * u_slideMm / max(2.0 * jb_bladeHalf(xb), 0.3));
         // A rigid blade moves ALL the paint above its underside as it passes (r for laying is gentler).
         float rPick = 1.0 - exp(-10.0 * u_rate * u_slideMm / max(2.0 * jb_bladeHalf(xb), 0.3));
@@ -75,7 +80,7 @@ void main() {
         return;
     }
     float a = dot(rel, u_wDir) / max(u_halfW, 1e-3);
-    a *= 1.0 - jb_pasteRag(v_docPx);
+    a *= 1.0 - jb_pasteRag(docPx);
     float b = dot(rel, u_lDir);
     float px = 1.0 / (u_pxPerMm * u_layerScale);   // one LAYER px, in mm
     u_hairLen = jb_vnoise1((a + 1.0) * 8.0, uint(u_seed) + 41u);
@@ -85,15 +90,15 @@ void main() {
     vec4 b0, b1;
     jb_pasteRead(a, b, b0, b1);
     float load = b0.a;
-    float hair = jb_pasteHair(a, v_docPx);
+    float hair = jb_pasteHair(a, docPx);
 
     // Scumble: a nearly dry brush, lightly held, only catches the high points. A loaded brush's paint flows
     // into dips and pressure bends the hairs into them, so they fill (they used to stay empty: the owner's
     // "holes that ignore new strokes", 2026-10-06).
-    float here = surfaceAt(v_layerPx);
+    float here = surfaceAt(layerPx);
     float o = 8.0 * u_layerScale;
-    float around = 0.25 * (surfaceAt(v_layerPx + vec2(o, 0)) + surfaceAt(v_layerPx - vec2(o, 0))
-                         + surfaceAt(v_layerPx + vec2(0, o)) + surfaceAt(v_layerPx - vec2(0, o)));
+    float around = 0.25 * (surfaceAt(layerPx + vec2(o, 0)) + surfaceAt(layerPx - vec2(o, 0))
+                         + surfaceAt(layerPx + vec2(0, o)) + surfaceAt(layerPx - vec2(0, o)));
     float fillLoad = clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0);
     float give = u_pressure * mix(0.12, 0.25, u_fillDips) + fillLoad * mix(0.3, 2.0 * u_thick + 0.2, u_fillDips);
     float edgeW = mix(0.02, 0.03, u_fillDips);
@@ -107,8 +112,8 @@ void main() {
     float Sb = load > 1e-6 ? b1.r / load : 0.0;
     float open = p1.a;
 
-    float valley = (1.0 - texelFetch(u_paperBake, ivec2(clamp(v_layerPx, vec2(0.0), u_targetSize - 1.0)), 0).b) * u_toothMm;
-    float target = jb_pasteTarget(a, load, hair, b, valley, v_docPx);
+    float valley = (1.0 - jb_fetch(u_paperBake, jb_cellAt(layerPx, u_targetSize)).b) * u_toothMm;
+    float target = jb_pasteTarget(a, load, hair, b, valley, docPx);
     float r = 1.0 - exp(-u_rate * u_slideMm / max(u_len, 0.2));
     if (target > t) {
         float dep = (jb_pasteFast(target, t, valley) * jb_pasteRateFast() + (target - t - jb_pasteFast(target, t, valley)) * r) * c;

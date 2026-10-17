@@ -7,6 +7,7 @@ precision highp int;
 
 #include "media/jb_media_common.glsl"
 #include "jb_paper.glsl"
+#include "media/jb_media_atlas.glsl"
 
 uniform sampler2D u_p0;          // K·X rgb, volume
 uniform sampler2D u_p1;          // S·X rgb, openness
@@ -35,20 +36,20 @@ uniform float u_paperHTop;       // bake), so under paint the paper's relief is 
 
 out vec4 o_color;
 
-float crushAt(vec2 lp) { return jb_bilinear(u_paperState, lp).r; }
+float crushAt(vec2 lp) { return jb_bilinearL(u_paperState, lp).r; }
 
 void main() {
     vec2 docPx = (gl_FragCoord.xy - u_pan) / u_zoom;
     vec2 lp = (docPx - u_layerOrigin) * u_layerScale;
     float lpm = u_pxPerMm * u_layerScale;          // layer px per mm
-    if (lp.x < 0.0 || lp.y < 0.0 || lp.x > u_targetSize.x || lp.y > u_targetSize.y) {
+    if (!jb_insidePx(lp, u_targetSize)) {
         o_color = vec4(0.16, 0.16, 0.17, 1.0);
         return;
     }
-    vec4 p0 = jb_bilinear(u_p0, lp);
-    vec4 p1 = jb_bilinear(u_p1, lp);
-    vec4 wa = jb_bilinear(u_w0, lp);
-    vec4 wp = jb_bilinear(u_w1, lp);
+    vec4 p0 = jb_bilinearL(u_p0, lp);
+    vec4 p1 = jb_bilinearL(u_p1, lp);
+    vec4 wa = jb_bilinearL(u_w0, lp);
+    vec4 wp = jb_bilinearL(u_w1, lp);
     // A flat look does not use the paper's surface vector. Keep the real
     // surface for relief and the height debug view.
     vec4 s = vec4(0.0);
@@ -56,7 +57,7 @@ void main() {
     float crush = crushAt(lp);
 
     if (u_mode == 1) { o_color = vec4(vec3(s.z), 1.0); return; }
-    vec4 dry = jb_bilinear(u_paperState, lp);
+    vec4 dry = jb_bilinearL(u_paperState, lp);
     if (u_mode == 2) { o_color = vec4(vec3(1.0 - clamp(dry.g / max(u_capMm, 1e-6), 0.0, 1.0)), 1.0); return; }
     if (u_mode == 3) { o_color = vec4(vec3(1.0 - clamp(crush * 2.0, 0.0, 1.0)), 1.0); return; }
     if (u_mode == 4) { o_color = vec4(clamp(wa.r / 0.3, 0.0, 1.0), clamp(wa.g, 0.0, 1.0), wa.r > 0.002 ? 0.5 : 0.0, 1.0); return; }
@@ -70,7 +71,7 @@ void main() {
     vec4 ground = vec4(0.0);
     vec3 under = u_paperColor;
     if (u_look > 0.5) {
-        ground = texelFetch(u_ground, ivec2(lp), 0);
+        ground = jb_fetch(u_ground, ivec2(floor(lp)));   // lp >= 0 here in the window build: floor == truncation
         if (p0 == vec4(0.0) && p1 == vec4(0.0) && wa == vec4(0.0) && wp == vec4(0.0) && dry.g == 0.0) { o_color = ground; return; }
         under = ground.rgb + u_paperColor * (1.0 - ground.a);
     }
@@ -80,11 +81,11 @@ void main() {
     // Gradients over ±1 layer px, in units per mm (lpm layer px per mm); crush is in tooth units.
     vec2 dC = vec2(crushAt(lp + vec2(1, 0)) - crushAt(lp - vec2(1, 0)),
                    crushAt(lp + vec2(0, 1)) - crushAt(lp - vec2(0, 1))) * 0.5 * u_layerScale;
-    vec2 dW = vec2(jb_bilinear(u_w0, lp + vec2(1, 0)).r - jb_bilinear(u_w0, lp - vec2(1, 0)).r,
-                   jb_bilinear(u_w0, lp + vec2(0, 1)).r - jb_bilinear(u_w0, lp - vec2(0, 1)).r) * 0.5 * u_layerScale;
+    vec2 dW = vec2(jb_bilinearL(u_w0, lp + vec2(1, 0)).r - jb_bilinearL(u_w0, lp - vec2(1, 0)).r,
+                   jb_bilinearL(u_w0, lp + vec2(0, 1)).r - jb_bilinearL(u_w0, lp - vec2(0, 1)).r) * 0.5 * u_layerScale;
     // Paint body: its thickness is real relief (mm), lit like the paper.
-    vec2 dT = vec2(jb_bilinear(u_p0, lp + vec2(1, 0)).a - jb_bilinear(u_p0, lp - vec2(1, 0)).a,
-                   jb_bilinear(u_p0, lp + vec2(0, 1)).a - jb_bilinear(u_p0, lp - vec2(0, 1)).a) * 0.5 * u_layerScale;
+    vec2 dT = vec2(jb_bilinearL(u_p0, lp + vec2(1, 0)).a - jb_bilinearL(u_p0, lp - vec2(1, 0)).a,
+                   jb_bilinearL(u_p0, lp + vec2(0, 1)).a - jb_bilinearL(u_p0, lp - vec2(0, 1)).a) * 0.5 * u_layerScale;
     vec2 gPaper = (s.xy - dC) * k;                       // paper/canvas relief, mm per mm
     vec2 gPaint = dT * u_pxPerMm;                        // paint body, mm per mm
     float bodyHere = smoothstep(0.004, 0.04, p0.a);
@@ -92,8 +93,8 @@ void main() {
     // texels, same filtering), so thick paint that fills the weave cancels it exactly and only the paint's
     // own ridges and lumps show. Reading it from the paper texture instead (other filtering, normalised
     // scale ×normK) left the weave showing through thick paint as a grid (v8–v9).
-    vec2 dB = vec2(jb_bilinear(u_paperBake, lp + vec2(1, 0)).b - jb_bilinear(u_paperBake, lp - vec2(1, 0)).b,
-                   jb_bilinear(u_paperBake, lp + vec2(0, 1)).b - jb_bilinear(u_paperBake, lp - vec2(0, 1)).b) * 0.5 * u_layerScale;
+    vec2 dB = vec2(jb_bilinearL(u_paperBake, lp + vec2(1, 0)).b - jb_bilinearL(u_paperBake, lp - vec2(1, 0)).b,
+                   jb_bilinearL(u_paperBake, lp + vec2(0, 1)).b - jb_bilinearL(u_paperBake, lp - vec2(0, 1)).b) * 0.5 * u_layerScale;
     vec2 gUnder = (dB - dC) * k;
     vec2 grad = mix(gPaper * u_relief, (gUnder + gPaint) * u_impasto, bodyHere) + dW * u_pxPerMm * 0.35;
     vec3 n = normalize(vec3(-grad, 1.0));
@@ -105,15 +106,15 @@ void main() {
     // Heights are the paint's TOP (canvas under it + its thickness): paint that fills the weave is thicker in
     // the valleys, and marching on thickness alone shadowed the weave as a grid under thick paint (v8–v9).
     if (u_impasto > 0.0 && u_zoom > 0.15) {
-        float t0 = (p0.a + bodyHere * jb_bilinear(u_paperBake, lp).b * u_toothMm) * u_impasto;
+        float t0 = (p0.a + bodyHere * jb_bilinearL(u_paperBake, lp).b * u_toothMm) * u_impasto;
         vec2 ldir = normalize(u_lamp.xy + vec2(1e-6));
         float tanE = u_lamp.z / max(length(u_lamp.xy), 1e-3);
         float lit = 1.0;
         for (int i = 1; i <= 10; i++) {
             float d = float(i * i) * 0.5 + 1.0;                       // doc px, spreading out
             vec2 q = lp + ldir * d * u_layerScale;
-            float pq = jb_bilinear(u_p0, q).a;
-            float tq = (pq + smoothstep(0.004, 0.04, pq) * jb_bilinear(u_paperBake, q).b * u_toothMm) * u_impasto;
+            float pq = jb_bilinearL(u_p0, q).a;
+            float tq = (pq + smoothstep(0.004, 0.04, pq) * jb_bilinearL(u_paperBake, q).b * u_toothMm) * u_impasto;
             float rise = (tq - t0) - d / u_pxPerMm * tanE;            // mm above the light's line
             lit = min(lit, clamp(1.0 - rise / (0.01 + 0.25 * d / u_pxPerMm), 0.0, 1.0));
         }

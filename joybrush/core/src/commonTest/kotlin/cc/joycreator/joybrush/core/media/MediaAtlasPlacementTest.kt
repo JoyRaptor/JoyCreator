@@ -1,0 +1,47 @@
+package cc.joycreator.joybrush.core.media
+
+import cc.joycreator.joybrush.core.paint.Tiles
+import kotlin.test.Test
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
+
+/** Media Atlas v2 B2: the tiles a pass needs resident, and the page table the shaders read. */
+class MediaAtlasPlacementTest {
+    private fun keys(vararg xy: Pair<Int, Int>) = xy.map { (x, y) -> Tiles.key(x, y) }.toSet()
+
+    @Test fun aPassNeedsTheTilesItWritesAndThoseWithinItsReach() {
+        // Inside tile (1,1) with no reach: that tile. 29 px from its left edge with a 30 px reach: pixel 255 is read, so the
+        // tile to the left too (from 286 the reach would stop at 256, still tile 1).
+        assertEquals(keys(1 to 1), MediaAtlasPlacement.tiles(300.0, 300.0, 480.0, 480.0, 0).toSet())
+        assertEquals(keys(0 to 1, 1 to 1), MediaAtlasPlacement.tiles(285.0, 300.0, 480.0, 480.0, 30).toSet())
+        assertEquals(keys(0 to 0, 1 to 0, 0 to 1, 1 to 1), MediaAtlasPlacement.tiles(285.0, 285.0, 480.0, 480.0, 30).toSet(), "a corner pulls in the diagonal")
+        // Half-open: a rect ending exactly on a border, with no reach, does not touch the next tile.
+        assertEquals(keys(1 to 1), MediaAtlasPlacement.tiles(256.0, 256.0, 512.0, 512.0, 0).toSet())
+        assertEquals(keys(0 to 0, 1 to 0, 2 to 0, 0 to 1, 1 to 1, 2 to 1, 0 to 2, 1 to 2, 2 to 2), MediaAtlasPlacement.tiles(256.0, 256.0, 512.0, 512.0, 1).toSet())
+        assertTrue(MediaAtlasPlacement.tiles(10.0, 10.0, 10.0, 40.0, 50).isEmpty(), "an empty rect needs nothing")
+    }
+
+    @Test fun negativeTilesAndTheReachOfEachMedium() {
+        assertEquals(keys(-1 to -1, 0 to -1, -1 to 0, 0 to 0), MediaAtlasPlacement.tiles(-5.0, -5.0, 5.0, 5.0, 0).toSet())
+        assertEquals(keys(-2 to 0, -1 to 0), MediaAtlasPlacement.tiles(-300.0, 10.0, -260.0, 20.0, MediaAtlasPlacement.WET_REACH).toSet() - keys(-2 to -1, -1 to -1))
+        assertEquals(9, MediaAtlasPlacement.dryReach(4.8)); assertEquals(4, MediaAtlasPlacement.dryReach(0.0))
+        assertTrue(MediaAtlasPlacement.WET_REACH >= 3 + 2 * 12 * 2 + 12 * 2, "bead margin + blur, full-res px")
+        assertTrue(MediaAtlasPlacement.LOOK_REACH >= 53)
+        assertFailsWith<IllegalArgumentException> { MediaAtlasPlacement.tiles(0.0, 0.0, 1e6, 1e6, 0) }
+        assertFailsWith<IllegalArgumentException> { MediaAtlasPlacement.tiles(0.0, 0.0, 1.0, 1.0, -1) }
+    }
+
+    @Test fun theTableIsTheSmallestGridHoldingEveryResidentTile() {
+        val resident = mapOf(Tiles.key(3, -2) to 7, Tiles.key(5, 0) to 0, Tiles.key(4, -1) to 14)
+        val t = MediaAtlasPlacement.table(resident)
+        assertEquals(listOf(3, -2, 3, 3), listOf(t.x, t.y, t.w, t.h))
+        assertContentEquals(intArrayOf(7, -1, -1, -1, 14, -1, -1, -1, 0), t.data)
+        for ((k, s) in resident) assertEquals(s, t.slotOf(Tiles.tx(k), Tiles.ty(k)))
+        assertEquals(-1, t.slotOf(4, 0), "inside the grid, not resident"); assertEquals(-1, t.slotOf(9, 9), "outside the grid")
+        val empty = MediaAtlasPlacement.table(emptyMap())
+        assertEquals(listOf(0, 0, 1, 1), listOf(empty.x, empty.y, empty.w, empty.h)); assertContentEquals(intArrayOf(-1), empty.data)
+        assertFailsWith<IllegalArgumentException> { MediaAtlasPlacement.table(mapOf(Tiles.key(0, 0) to -3)) }
+    }
+}

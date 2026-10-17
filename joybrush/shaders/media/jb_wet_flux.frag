@@ -12,6 +12,7 @@ precision highp float;
 precision highp int;
 
 #include "media/jb_media_common.glsl"
+#include "media/jb_media_atlas.glsl"
 
 uniform sampler2D u_w0;       // w (mm), s (0..1 capillary saturation), wet age, -
 uniform sampler2D u_flux;     // outflow L, R, D, U (mm per second, per cell)
@@ -46,6 +47,7 @@ uniform sampler2D u_bead;     // the bead field (jb_wet_bead.frag), valid while 
 uniform float u_runCohere;    // how strongly a bead's own slope moves its water (drains a bead into its drips)
 
 uniform float u_layerScale;   // layer px per doc px
+uniform vec2 u_layerOrigin;   // layerPx = (docPx - origin) * scale: the fragment's doc px is derived, not interpolated
 uniform float u_runSizing;    // how uneven the paper's sizing is at drip scale (0 = even)
 uniform float u_dripGapMm;    // a bead lets go only where it stands highest within about this along its edge
 uniform float u_quietMm;      // a neighbour pouring this much more (mm of bead) keeps this part of the edge shut
@@ -55,11 +57,11 @@ layout(location = 0) out vec4 o_flux;   // the slow levelling flow (kept from st
 layout(location = 1) out vec4 o_run;    // running water this step (mm/s), signed along x and y
 
 float H(ivec2 q, out float w, out float s) {
-    vec4 a = texelFetch(u_w0, q, 0);
+    vec4 a = jb_fetch(u_w0, q);
     w = a.r; s = a.g;
     // The water's surface: paper, plus any paint body under it (water pools between impasto ridges and runs
     // round blobs), plus the water itself.
-    return texelFetch(u_waterBake, q, 0).r * u_toothMm + texelFetch(u_p0, q, 0).a + w;
+    return jb_fetch(u_waterBake, q).r * u_toothMm + jb_fetch(u_p0, q).a + w;
 }
 
 float pinHold(ivec2 q, float s) {
@@ -67,7 +69,7 @@ float pinHold(ivec2 q, float s) {
     // water surface already includes the tooth, so a front stalls against bumps and runs along trenches.
     // On damp paper the hold mostly breaks, but not evenly: the front fingers along thirstier fibres,
     // which is what draws a bloom's cauliflower edge.
-    float absorb = texelFetch(u_fluidBake, q, 0).r;
+    float absorb = jb_fetch(u_fluidBake, q).r;
     float dry = 1.0 - smoothstep(0.0, u_dampS, s);
     float dampHold = 0.35 * (1.0 - absorb) * (1.0 - absorb);
     return u_pinMm * (dry * (1.4 - 0.8 * absorb) + (1.0 - dry) * dampHold);
@@ -75,8 +77,10 @@ float pinHold(ivec2 q, float s) {
 
 // Running water's bead (jb_wet_bead.frag): the water's depth Gaussian-blurred at half resolution, read
 // bilinearly at a cell. Its slope (mm per mm) is taken across four cells.
+// Read by hand (four texel taps, the jb_bilinear weights at the half-resolution cell), not by the sampler's LINEAR filter:
+// the atlas addresses every tap, and both builds must do the same arithmetic.
 float beadAt(vec2 cell) {
-    return texture(u_bead, (cell + 0.5) * 0.5 / vec2(textureSize(u_bead, 0))).r;
+    return jb_bilinearLS(u_bead, (cell + 0.5) * 0.5, 7).r;
 }
 vec2 beadSlope(vec2 cell) {
     return vec2(beadAt(cell + vec2(2.0, 0.0)) - beadAt(cell - vec2(2.0, 0.0)),
@@ -87,13 +91,13 @@ vec2 beadSlope(vec2 cell) {
 // cannot feed back on the water.
 vec2 paperSlope(ivec2 c, ivec2 size) {
     int d = max(2, int(u_steerScale * u_beadCells));
-    ivec2 ql = clamp(c - ivec2(d, 0), ivec2(0), size - 1), qr = clamp(c + ivec2(d, 0), ivec2(0), size - 1);
-    ivec2 qb = clamp(c - ivec2(0, d), ivec2(0), size - 1), qt = clamp(c + ivec2(0, d), ivec2(0), size - 1);
+    ivec2 ql = jb_clampCell(c - ivec2(d, 0), size), qr = jb_clampCell(c + ivec2(d, 0), size);
+    ivec2 qb = jb_clampCell(c - ivec2(0, d), size), qt = jb_clampCell(c + ivec2(0, d), size);
     // Paper relief and paint body both steer: a drip runs round a blob of paint.
-    float l = texelFetch(u_waterBake, ql, 0).r * u_toothMm + texelFetch(u_p0, ql, 0).a;
-    float r = texelFetch(u_waterBake, qr, 0).r * u_toothMm + texelFetch(u_p0, qr, 0).a;
-    float b = texelFetch(u_waterBake, qb, 0).r * u_toothMm + texelFetch(u_p0, qb, 0).a;
-    float t = texelFetch(u_waterBake, qt, 0).r * u_toothMm + texelFetch(u_p0, qt, 0).a;
+    float l = jb_fetch(u_waterBake, ql).r * u_toothMm + jb_fetch(u_p0, ql).a;
+    float r = jb_fetch(u_waterBake, qr).r * u_toothMm + jb_fetch(u_p0, qr).a;
+    float b = jb_fetch(u_waterBake, qb).r * u_toothMm + jb_fetch(u_p0, qb).a;
+    float t = jb_fetch(u_waterBake, qt).r * u_toothMm + jb_fetch(u_p0, qt).a;
     return vec2(r - l, t - b) / (2.0 * float(d) * u_cellMm);
 }
 
@@ -111,12 +115,13 @@ bool outside(ivec2 q) {
 }
 
 void main() {
-    ivec2 c = ivec2(gl_FragCoord.xy);
+    ivec2 c = jb_cell();
     ivec2 size = textureSize(u_w0, 0);
+    vec2 docPx = u_layerOrigin + jb_fragPx() / u_layerScale;
     float w, s;
     float h0 = H(c, w, s);
     if (w <= 0.0) { o_flux = vec4(0.0); o_run = vec4(0.0); return; }
-    vec4 prev = texelFetch(u_flux, c, 0);
+    vec4 prev = jb_fetch(u_flux, c);
     ivec2 nb[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
     float sl = length(u_slope);
     float tilted = smoothstep(0.0, 0.15, sl);
@@ -127,7 +132,7 @@ void main() {
     if (sl > 1.0e-4) {
         wb = beadAt(vec2(c));
         gb = beadSlope(vec2(c));
-        float sz = runSizingAt(v_docPx);
+        float sz = runSizingAt(docPx);
         holdK = u_runHoldK * sz;
         float gl = length(gb);
         if (gl > 1.0e-4) {
@@ -146,7 +151,7 @@ void main() {
             for (int k = -2; k <= 2; k++) {
                 if (k == 0) continue;
                 vec2 o = t * (L * float(k));
-                emax = max(emax, beadAt(vec2(c) + o) / runSizingAt(v_docPx + o / u_layerScale));
+                emax = max(emax, beadAt(vec2(c) + o) / runSizingAt(docPx + o / u_layerScale));
                 rmax = max(rmax, beadAt(vec2(c) + o + out1));
             }
             float peak = smoothstep(-0.02, 0.02, e0 - emax);
@@ -157,7 +162,7 @@ void main() {
     }
     vec4 f;
     for (int i = 0; i < 4; i++) {
-        ivec2 q = clamp(c + nb[i], ivec2(0), size - 1);
+        ivec2 q = jb_clampCell(c + nb[i], size);
         float wn, sn;
         float hn = H(q, wn, sn);
         // A tilt adds a gentle slope under the slow levelling too.
@@ -223,7 +228,7 @@ void main() {
             if (abs(fa) < 1.0e-9) continue;
             ivec2 step_ = axis == 0 ? ivec2(fa > 0.0 ? 1 : -1, 0) : ivec2(0, fa > 0.0 ? 1 : -1);
             ivec2 q = c + step_;
-            if (q.x < 0 || q.y < 0 || q.x >= size.x || q.y >= size.y) continue;   // runs off the paper's edge
+            if (!jb_inside(q, size)) continue;   // runs off the paper's edge (the window's; the atlas has none)
             if (outside(q)) { run[axis] = 0.0; continue; }
             float wn, sn;
             float hn = H(q, wn, sn);

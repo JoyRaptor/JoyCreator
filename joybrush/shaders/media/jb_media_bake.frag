@@ -6,6 +6,8 @@ precision highp float;
 precision highp int;
 
 #include "jb_paper.glsl"
+#include "media/jb_media_common.glsl"
+#include "media/jb_media_atlas.glsl"
 
 uniform vec2 u_layerOrigin;   // layerPx = (docPx - origin) * scale
 uniform float u_paperHBot;     // the paper's 2nd and 98th height percentiles: bakes are normalised to them,
@@ -16,7 +18,7 @@ layout(location = 1) out vec4 o_fluid;
 layout(location = 2) out vec4 o_water;   // the paper as water feels it: R = height smoothed to fibre scale
 
 void main() {
-    vec2 docPx = u_layerOrigin + gl_FragCoord.xy / u_layerScale;
+    vec2 docPx = u_layerOrigin + jb_fragPx() / u_layerScale;
     o_surface = jb_paperSurface(docPx);
     o_surface.b = clamp((o_surface.b - u_paperHBot) / max(u_paperHTop - u_paperHBot, 0.05), 0.0, 1.0);
     o_fluid = jb_paperFluid(docPx);

@@ -48,7 +48,7 @@ class MediaCanvas(
     private val shaders: ShaderLibrary = ShaderLibrary(),
 ) {
     private var engine: MediaLayerEngine? = null
-    private var window: MediaWindow? = null
+    private var window: MediaPlace? = null
     /** Why this GPU cannot do media, once found out: said again rather than retried every stroke. Read by the UI thread. */
     @Volatile var unsupported: String? = null
         private set
@@ -265,7 +265,9 @@ class MediaCanvas(
             }
         }
         if (e != null) return e
-        val made = MediaLayerEngine(shaders)
+        // Media Atlas v2 B2 (off by default, MediaAtlasGl.enabled): the same textures as the window, tiles placed freely.
+        val atlas = MediaAtlasGl.enabled
+        val made = MediaLayerEngine(shaders, atlasMode = atlas)
         try {
             made.init(MediaWindowMath.PX, MediaWindowMath.PX)
         } catch (x: IllegalStateException) {
@@ -273,7 +275,8 @@ class MediaCanvas(
             return null
         }
         engine = made
-        window = MediaWindow(paint, made) { r -> made.renderLook(r, paint.mediaPaper(), look, DOC_PX_PER_MM) }.also { it.stats = stats }
+        val render = { r: FloatArray -> made.renderLook(r, paint.mediaPaper(), look, DOC_PX_PER_MM); Unit }
+        window = (if (atlas) MediaAtlas(paint, made, render) else MediaWindow(paint, made, render)).also { it.stats = stats }
         return made
     }
 
@@ -313,7 +316,7 @@ class MediaCanvas(
      * the smear the apply pass reads), not a worst-case reach: 12 point-widths did not fit the window for most pencils,
      * so it moved and reloaded every frame and clipped dabs outside it (LEAD_PLAN F1, F2).
      */
-    private fun run(e: MediaLayerEngine, w: MediaWindow, st: Stroke, last: Boolean = false) {
+    private fun run(e: MediaLayerEngine, w: MediaPlace, st: Stroke, last: Boolean = false) {
         val paper = paint.mediaPaper()
         val batch = st.dry?.take()
         w.legacyLook = legacyWindow
@@ -372,8 +375,8 @@ class MediaCanvas(
     }
 
     /** The stores this layer has inside the window: the eraser writes only those (stores stay lazy). */
-    private fun existingStores(layerId: String, w: MediaWindow): Set<String> {
-        val keys = MediaWindowMath.allKeys(w.tx, w.ty)
+    private fun existingStores(layerId: String, w: MediaPlace): Set<String> {
+        val keys = w.heldKeys()
         return MediaStores.ALL.filter { st -> keys.any { paint.mediaTile(layerId, st, it, w.plane) != null } }.toSet()
     }
 

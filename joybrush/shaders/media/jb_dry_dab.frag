@@ -23,6 +23,7 @@ precision highp int;
 #include "media/jb_media_common.glsl"
 #include "media/jb_stick.glsl"
 #include "jb_paper.glsl"
+#include "media/jb_media_atlas.glsl"
 
 uniform sampler2D u_crush;      // R = crush, in tooth units (0 = untouched)
 uniform sampler2D u_contactLut; // R = tooth level a for squeeze c (jb lab: stick.js contactLut)
@@ -51,21 +52,35 @@ flat in vec4 v_i2;
 flat in vec4 v_i3;
 flat in vec4 v_i4;
 flat in vec2 v_lean;
+flat in vec4 v_i0;
+uniform vec2 u_layerOrigin;
+uniform float u_layerScale;
 
 out vec4 o_delta;               // R pile work (mm²), G crush work (mm²), B dust (mm), A contact·slide (mm)
 
 void main() {
-    float c = jb_stickSqueeze(v_q, v_i1.w, v_i2, v_i3.xyz, v_i4.z, u_stickBlend, u_stickShape, u_zoneGrad);
+    if (jb_outsideSlot()) discard;
+    // The cell centre, exact, and the stick frame from it (the vertex shader's map inverted: u, v orthonormal). Nothing
+    // here is interpolated across the quad, so a dab drawn into any slot gives the same bits (Media Atlas v2 B2).
+    vec2 layerPx = jb_fragPx();
+    vec2 docPx = u_layerOrigin + layerPx / u_layerScale;
+    vec2 rel = (docPx - v_i0.xy) / u_pxPerMm;
+    vec2 q = vec2(dot(rel, v_i0.zw), dot(rel, vec2(-v_i0.w, v_i0.z)));
+    // The footprint ends at its box, decided here, not by which pixels the quad (box + 0.06 mm) happens to rasterise: a
+    // blended stick's bells (Proto 2, Proto Pencil) are never exactly 0, so the quad edge would cut them differently in
+    // different atlas slots. The three-zone stick is already 0 outside its box.
+    if (q.x < v_i1.x || q.x > v_i1.y || abs(q.y) > v_i1.z) discard;
+    float c = jb_stickSqueeze(q, v_i1.w, v_i2, v_i3.xyz, v_i4.z, u_stickBlend, u_stickShape, u_zoneGrad);
     if (c <= 0.0) discard;
     const float N = 255.0;
     float a = texture(u_contactLut, vec2((sqrt(min(c / u_lutMaxMm, 1.0)) * N + 0.5) / (N + 1.0), 0.5)).r;   // sqrt-spaced table
-    vec4 s = jb_paperSurface(v_docPx);
-    float crush = jb_bilinear(u_crush, v_layerPx).r;
+    vec4 s = jb_paperSurface(docPx);
+    float crush = jb_bilinearL(u_crush, layerPx).r;
     float T = u_toothMm;
     float P = v_i4.w;
     // The sheet bends onto the stick over the felt-scale bumps (~0.5 mm): only the fine tooth decides which
     // specks catch graphite. (Read far enough down the mips to hold the felt, not the tooth.)
-    float hc = jb_paperRead(v_docPx, 0, false, 40.0).z;
+    float hc = jb_paperRead(docPx, 0, false, 40.0).z;
     // Plateaus: most of a sheet's surface lies near the top of the tooth and the pits are narrow, so a light
     // touch already greys much of it and only the pits stay white (the soft grain of real graphite). The
     // paper maps are rank-uniform in height; this reshapes depth below the top as (1 − h)^k.
@@ -86,7 +101,7 @@ void main() {
     vec2 grad = s.xy * u_pxPerMm * T;            // physical slope of the tooth (mm per mm)
     float dirW = clamp(1.0 + u_dirStrength * smoothstep(0.15, 0.85, P) * dot(grad, v_i4.xy), 0.0, 3.0);
     // Pressed graphite piles on the small hills of the tooth (~0.2 mm), not on the felt-scale bumps.
-    float hClump = jb_paperCoarseHeight(v_docPx);
+    float hClump = jb_paperCoarseHeight(docPx);
     float clump = max(0.0, 1.0 + u_clump * smoothstep(0.25, 1.0, P) * (hClump - u_paperHeightMean) * 4.0);
     float work = T * pow(e / T, u_transferExp) * slide * dirW * clump * smoothstep(u_pileRange.x, u_pileRange.y, P);
     float crushWork = jb_expectPos(mu - u_crushStart, sigma) * slide;

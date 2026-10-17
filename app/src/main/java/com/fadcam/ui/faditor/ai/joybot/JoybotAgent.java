@@ -380,7 +380,11 @@ public final class JoybotAgent {
             this.model = ask.model;
         }
 
+        /** The tool families this request is sent with (ToolRouter); more_tools adds to it. */
+        final java.util.Set<String> families = new java.util.LinkedHashSet<>();
+
         void go() throws Exception {
+            families.addAll(ToolRouter.pick(ask.text));
             JSONObject retained = new JSONObject().put("role", "user").put("content", ask.imageDataUrl == null
                     ? ask.text
                     // Worded as a FACT ABOUT THE PAST: on a later turn the picture is gone, and
@@ -468,7 +472,8 @@ public final class JoybotAgent {
                             args = new JSONObject();
                         }
                         final String line = runTool(new JSONObject().put("tool", k.name).put("args", args));
-                        if (line != null) {
+                        // more_tools is plumbing (which tools are loaded), not something done for them.
+                        if (line != null && !ToolRouter.MORE_TOOLS.equals(k.name)) {
                             out.toolLines.add(line);
                             post(l -> l.onToolLine(line));
                         }
@@ -578,6 +583,16 @@ public final class JoybotAgent {
             }
             if ("look".equals(name)) return look(args);
             if (AgentTools.PROPOSE_PLAN.equals(name)) return plan(args);
+            if (ToolRouter.MORE_TOOLS.equals(name)) {
+                String f = args.optString("family", "");
+                if (!ToolRouter.FAMILIES.containsKey(f)) {
+                    lastResult = "Error: no tool family called \"" + f + "\". Families: " + ToolRouter.FAMILIES.keySet();
+                } else {
+                    families.add(f);
+                    lastResult = "Loaded the " + f + " tools (" + ToolRouter.FAMILIES.get(f) + "). Use them now.";
+                }
+                return name + " → " + lastResult;
+            }
             toolRan = true;
             final String task = (ask.director ? "Step " + (round + 1) + " of up to " + ask.maxSteps + " · " : "")
                     + name.replace('_', ' ');
@@ -754,9 +769,15 @@ public final class JoybotAgent {
                 // refuse an unknown field, so only there.
                 if (url.contains("openrouter.ai")) body.put("usage", new JSONObject().put("include", true));
                 if (q.nativeTools) {
-                    body.put("tools", nativeTools());
+                    body.put("tools", nativeTools(families));
                     if (requireTool && q.requiredChoice) body.put("tool_choice", "required");
                 }
+                // What a request weighs, by part, so trimming is measured, not guessed.
+                String sys = messages.length() > 0 ? messages.getJSONObject(0).optString("content", "") : "";
+                FLog.i(TAG, "request size: total " + body.toString().length() + " chars; tools "
+                        + (q.nativeTools ? nativeTools(families).toString().length() : 0) + " (" + families + ")"
+                        + "; system " + sys.length()
+                        + "; messages " + messages.length());
                 Request request = new Request.Builder()
                         .url(url)
                         .addHeader("Authorization", "Bearer " + ask.apiKey)
@@ -1170,6 +1191,7 @@ public final class JoybotAgent {
         JSONArray t = TOOLS;
         if (t != null) return t;
         t = new JSONArray();
+        java.util.Map<String, String> fam = new java.util.HashMap<>();
         com.fadcam.ui.faditor.ai.actions.ActionRegistry<?> reg =
                 com.fadcam.ui.faditor.ai.actions.StudioActions.registry();
         for (String def : reg.nativeToolsJson()) t.put(new JSONObject(def));
@@ -1192,8 +1214,42 @@ public final class JoybotAgent {
                     .put("parameters", new JSONObject().put("type", "object")
                             .put("properties", new JSONObject()).put("additionalProperties", true))));
         }
+        // Each definition's router family (ToolRouter), for the per-request list below.
+        com.fadcam.ui.faditor.ai.actions.ActionRegistry<?> appRegistry =
+                com.fadcam.ui.faditor.ai.actions.AppActions.registry();
+        for (int i = 0; i < t.length(); i++) {
+            JSONObject fn = t.getJSONObject(i).optJSONObject("function");
+            if (fn == null) continue;
+            String name = fn.optString("name");
+            com.fadcam.ui.faditor.ai.actions.ActionSpec spec = reg.spec(name);
+            if (spec == null) spec = appRegistry.spec(name);
+            fam.put(name, ToolRouter.familyOf(name, spec == null ? null : spec.family));
+        }
+        TOOL_FAMILY = fam;
         TOOLS = t;
         return t;
+    }
+
+    /** Each tool's router family, filled with {@link #TOOLS}. */
+    @Nullable private static volatile java.util.Map<String, String> TOOL_FAMILY;
+
+    /**
+     * The tools this request is sent with: the families it needs (ToolRouter) plus more_tools to
+     * load others. Measured 10-16: all ~100 tools were 83% of every request.
+     */
+    @NonNull
+    static JSONArray nativeTools(@NonNull java.util.Set<String> families) throws Exception {
+        JSONArray all = nativeTools();
+        java.util.Map<String, String> fam = TOOL_FAMILY;
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < all.length(); i++) {
+            JSONObject def = all.getJSONObject(i);
+            JSONObject fn = def.optJSONObject("function");
+            String f = fn == null || fam == null ? ToolRouter.CORE : fam.get(fn.optString("name"));
+            if (f == null || families.contains(f)) out.put(def);
+        }
+        out.put(new JSONObject(ToolRouter.moreToolsJson()));
+        return out;
     }
 
     private static final class Completion {

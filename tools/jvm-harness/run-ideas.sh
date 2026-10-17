@@ -22,6 +22,7 @@ javac -nowarn -encoding UTF-8 -d "$OUT" \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/HelpBook.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/AiProviders.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/ToolDocs.java \
+  app/src/main/java/com/fadcam/ui/faditor/ai/joybot/ToolRouter.java \
   app/src/main/java/com/fadcam/ui/faditor/slides/SlideContract.java \
   app/src/main/java/com/fadcam/ui/faditor/slides/SlideDesigns.java \
   tools/jvm-harness/IdeaEngineTest.java || exit 1

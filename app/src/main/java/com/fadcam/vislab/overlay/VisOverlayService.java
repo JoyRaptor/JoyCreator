@@ -57,6 +57,24 @@ public class VisOverlayService extends Service implements OverlayControls.Action
 
     /** True while the floating visualiser is showing. */
     public static volatile boolean isRunning;
+    @Nullable private static volatile VisOverlayService instance;
+
+    /**
+     * Show look {@code id} (a VisLab look file's id) in the floating visualiser: at once if it is
+     * showing, otherwise the next time it starts. An id that no longer exists falls back to the
+     * first look. Any thread.
+     */
+    public static void setLook(@NonNull Context c, @NonNull String id) {
+        c.getApplicationContext().getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString("look", id).apply();
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            VisOverlayService s = instance;
+            if (s == null || s.view == null) return;
+            if (s.session.lookIds().contains(id)) {
+                s.lookId = id;
+                s.showLook();
+            }
+        });
+    }
 
     private WindowManager wm;
     private SharedPreferences prefs;
@@ -100,6 +118,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
             stopSelf();
             return;
         }
+        instance = this;
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         session = VisLabSession.get(this);
@@ -123,6 +142,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     @Override
     public void onDestroy() {
         isRunning = false;
+        if (instance == this) instance = null;
         if (sound != null) sound.stop();
         removeQuietly(handle);
         handle = null;

@@ -103,6 +103,7 @@ final class VisLabActions {
                 .param("colors", Type.STRING_LIST, false, "Five colours like #FF2BD6, darkest to brightest")
                 .flag("off", false, "true: each look uses its own colours again")
                 .build(), VisLabActions::brand);
+        VisLabLookFiles.register(r);
     }
 
     // ------------------------------------------------------------------ handlers
@@ -117,9 +118,12 @@ final class VisLabActions {
         for (String id : ids) {
             JsonObject l = parse(s.lookJson(id));
             if (l == null) continue;
-            sb.append(id.equals(onScreen) ? "★ " : "• ").append(VisLabEdit.lookLine(l)).append('\n');
+            sb.append(id.equals(onScreen) ? "★ " : "• ").append(VisLabEdit.lookLine(l))
+                    .append(VisLabLookFiles.status(s, id)).append('\n');
         }
         sb.append(onScreen.isEmpty() ? "" : "★ = on screen. ");
+        String file = onScreen.isEmpty() ? null : s.lookFile(onScreen);
+        if (file != null) sb.append("It's kept in the Joy Creator folder as ").append(file).append(". ");
         String[] b = s.brand();
         sb.append(b == null ? "Brand colours: off." : "Brand colours locked: " + String.join(" ", b) + ".");
         if (!s.isRoomOpen()) sb.append(" The VisLab room isn't open; changes show when it is (open_room vislab).");
@@ -259,7 +263,7 @@ final class VisLabActions {
     // ------------------------------------------------------------------ helpers
 
     @NonNull
-    private static VisLabSession session(@NonNull AppCtx ctx) throws ActionError {
+    static VisLabSession session(@NonNull AppCtx ctx) throws ActionError {
         try {
             return VisLabSession.get(ctx.app);
         } catch (IllegalStateException e) {
@@ -281,7 +285,7 @@ final class VisLabActions {
 
     /** The look by id or name (exact, then containing); null ref = the one on screen. */
     @NonNull
-    private static JsonObject look(@NonNull VisLabSession s, @Nullable String ref) throws ActionError {
+    static JsonObject look(@NonNull VisLabSession s, @Nullable String ref) throws ActionError {
         if (ref == null || ref.trim().isEmpty()) {
             JsonObject c = current(s);
             if (c == null) throw new ActionError("VisLab has no looks.");
@@ -318,7 +322,7 @@ final class VisLabActions {
     }
 
     @Nullable
-    private static JsonObject parse(@Nullable String json) {
+    static JsonObject parse(@Nullable String json) {
         if (json == null) return null;
         try {
             return JsonParser.parseString(json).getAsJsonObject();
@@ -329,20 +333,20 @@ final class VisLabActions {
 
     /** The undo step's name: the person's words, as the Studio's steps are named. */
     @NonNull
-    private static String label() {
+    static String label() {
         String l = AIChatState.liveWriteLabel;
         return l == null || l.isEmpty() ? "Joybot" : l;
     }
 
     /** The request this change belongs to: changes in one request merge into one VisLab undo step. */
     @Nullable
-    private static String group() {
+    static String group() {
         String g = AIChatState.liveWriteRequest;
         return g == null || g.isEmpty() ? null : "joybot:" + g;
     }
 
     @NonNull
-    private static ActionResult result(@NonNull VisLabSession s, @NonNull VisLabSession.ApplyResult r,
+    static ActionResult result(@NonNull VisLabSession s, @NonNull VisLabSession.ApplyResult r,
                                        @NonNull String said) throws ActionError {
         if (!r.ok) throw new ActionError(r.warnings.isEmpty() ? "VisLab couldn't show that." : String.join(" ", r.warnings));
         StringBuilder sb = new StringBuilder(said);

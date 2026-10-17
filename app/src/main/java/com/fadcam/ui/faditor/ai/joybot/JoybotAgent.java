@@ -385,6 +385,8 @@ public final class JoybotAgent {
 
         void go() throws Exception {
             families.addAll(ToolRouter.pick(ask.text, ask.situation.room == IdeaEngine.Room.VISLAB));
+            AIChatState.liveAsk = ask.text;
+            AIChatState.liveReplyBefore = lastReply();
             JSONObject retained = new JSONObject().put("role", "user").put("content", ask.imageDataUrl == null
                     ? ask.text
                     // Worded as a FACT ABOUT THE PAST: on a later turn the picture is gone, and
@@ -1014,6 +1016,19 @@ public final class JoybotAgent {
                 out.put(m);
             }
             return out;
+        }
+
+        /** Joybot's last words to the person (the question a "yes" answers), or "". */
+        @NonNull
+        String lastReply() {
+            synchronized (HISTORY) {
+                for (int i = HISTORY.size() - 1; i >= 0; i--) {
+                    JSONObject m = HISTORY.get(i);
+                    String c = m.optString("content", "");
+                    if ("assistant".equals(m.optString("role")) && !c.trim().isEmpty()) return c;
+                }
+            }
+            return "";
         }
 
         /** In VisLab, "this" is the look on screen: its name, so the model starts from it. */

@@ -213,4 +213,10 @@ public class AIChatState {
     /** Label + request token for writes made while the editor is live (set by the job runner). */
     public static volatile String liveWriteLabel = "Joybot";
     public static volatile String liveWriteRequest = "";
+    /**
+     * The person's words for the request now running, and Joybot's last reply before it — so an
+     * action that needs a yes can tell "the person answered my question" from "the model decided".
+     */
+    public static volatile String liveAsk = "";
+    public static volatile String liveReplyBefore = "";
 }

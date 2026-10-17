@@ -558,8 +558,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** Every visible layer's planes, bottom to top (the All layers chip). */
     fun visibleLinePlanes(): List<LinePlane> = stackUi.layers.filter { it.visible }.flatMap { linePlanesOf(it.id) }
 
+    // Cached per board document (immutable, replaced whenever it changes): hover asks for these on every move.
+    private var linePlanesDoc: JbDocument? = null
+    private val linePlanesCache = HashMap<String, List<LinePlane>>()
+
     private fun linePlanesOf(layerId: String): List<LinePlane> {
         val doc = boardDocument ?: return listOf(LinePlane(layerId, null))
+        if (doc !== linePlanesDoc) { linePlanesCache.clear(); linePlanesDoc = doc }
+        return linePlanesCache.getOrPut(layerId) { computeLinePlanes(doc, layerId) }
+    }
+
+    private fun computeLinePlanes(doc: JbDocument, layerId: String): List<LinePlane> {
         val meta = doc.layers.firstOrNull { it.id == layerId } ?: return emptyList()
         val shared = meta.sharedCelId ?: meta.cels.singleOrNull()?.id ?: return emptyList()
         val frames = try { RegionDocumentOps.paintPlans(doc, emptyMap())[layerId]?.frames.orEmpty() } catch (e: Exception) { emptyList() }

@@ -249,6 +249,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         }
         showFinishedWhileAway();
         offerCarryOn();
+        offerBringIn();
         // A plan still waiting for Go ahead: its card isn't in the saved words, so show it again.
         JoybotAgent.Plan waitingPlan = JoybotAgent.pendingPlan(projectId);
         if (waitingPlan != null && !planCardShown && JoybotAgent.current() == null) addPlanCard(waitingPlan);
@@ -1274,6 +1275,89 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 .hint("Go to Capture to film your screen or your camera").build());
         l.add(IdeaEngine.SOMETHING_ELSE);
         return l;
+    }
+
+    // ── Files outside the Joy Creator folder (replaces the editor's yellow dot + dialog) ──
+    //
+    // Owner, 2026-10-16: Joybot breathes amber in the editor while the project uses outside files,
+    // and says it here, with his Copy/Move guess for each and four buttons. The editor carries the
+    // answer out when the chat closes (AIChatState.putBringIn → bringInOutside).
+
+    /** In the Studio, with outside files: say so first thing. */
+    private void offerBringIn() {
+        if (projectId == null || room != IdeaEngine.Room.STUDIO) return;
+        final String pid = projectId;
+        aiExecutor.execute(() -> {
+            com.fadcam.ui.faditor.model.FaditorProject p =
+                    new com.fadcam.ui.faditor.project.ProjectStorage(this).load(pid);
+            final List<com.fadcam.joyfolder.studio.OutsideFiles.File> files = p == null
+                    ? new ArrayList<com.fadcam.joyfolder.studio.OutsideFiles.File>()
+                    : com.fadcam.joyfolder.studio.OutsideFiles.list(this, p);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed() || files.isEmpty()) return;
+                showBringIn(files);
+            });
+        });
+    }
+
+    /**
+     * Joybot says it, and his message holds the very panel the old dialog showed (BringInPanel):
+     * Copy all / Move all / Leave all, each file's Copy · Move · Leave with his guess picked, and
+     * Do it. Owner, 2026-10-16: "same formatting, just conversational".
+     */
+    private void showBringIn(@NonNull List<com.fadcam.joyfolder.studio.OutsideFiles.File> files) {
+        int n = files.size();
+        String title = (n == 1 ? "Heads up: one file in this project lives" : "Heads up: " + n + " files in this project live")
+                + " outside your Joy Creator folder, so if " + (n == 1 ? "it's" : "they're")
+                + " moved or deleted on the phone, the project loses " + (n == 1 ? "it" : "them")
+                + ". I've picked what I'd do for each — change any, then tap Do it.";
+        List<String> refs = new ArrayList<>(), names = new ArrayList<>();
+        List<Long> sizes = new ArrayList<>();
+        for (com.fadcam.joyfolder.studio.OutsideFiles.File f : files) {
+            refs.add(f.ref);
+            names.add(f.name);
+            sizes.add(f.size);
+        }
+        final com.fadcam.joyfolder.studio.BringInPanel panel =
+                com.fadcam.joyfolder.studio.BringInPanel.build(this, refs, names, sizes, false);
+        final JoybotChatViews.Card card = JoybotChatViews.resultCard(this, title, null);
+        panel.view.setPadding(0, dp(8), 0, dp(4));
+        card.root.addView(panel.view, card.root.indexOfChild(card.buttons));
+        card.buttons.addView(JoybotChatViews.cardButton(this, "Do it",
+                "Bring the files in as chosen above; Leave keeps a file where it is", v -> {
+                    card.retire("Done.");
+                    answerBringIn(panel.choices);
+                }));
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        addTickerTick(false);
+        scrollToBottom();
+        synchronized (messageLog) { messageLog.add(new String[]{"bot", title}); trimMessageLog(); }
+        voice.speak(n == 1 ? "One file is outside your Joy Creator folder." : n + " files are outside your Joy Creator folder.");
+        actor.setMood(JoybotView.Mood.SHOW);
+        actor.postDelayed(() -> actor.setMood(JoybotView.Mood.IDLE), 1200L);
+    }
+
+    private void answerBringIn(@NonNull java.util.Map<String, com.fadcam.joyfolder.studio.BringInDialog.Choice> chosen) {
+        if (projectId == null) return;
+        java.util.Map<String, String> take = new java.util.LinkedHashMap<>();
+        List<String> left = new ArrayList<>();
+        for (java.util.Map.Entry<String, com.fadcam.joyfolder.studio.BringInDialog.Choice> e : chosen.entrySet()) {
+            if (e.getValue() == com.fadcam.joyfolder.studio.BringInDialog.Choice.LEAVE) left.add(e.getKey());
+            else take.put(e.getKey(), e.getValue().name());
+        }
+        // Leave is a decision, remembered: Joybot stops glowing about those files.
+        if (!left.isEmpty()) com.fadcam.joyfolder.studio.OutsideFiles.leave(this, projectId, left);
+        if (take.isEmpty()) {
+            addBotMessage(left.size() == 1 ? "Okay, it stays where it is. I won't bring it up again."
+                    : "Okay, they stay where they are. I won't bring them up again.");
+            return;
+        }
+        AIChatState.putBringIn(projectId, take);
+        // The editor does the copying (it re-points every clip and, for a move, other projects);
+        // it starts as soon as it's back on screen.
+        addBotMessage("On it — I'll close the chat so you can watch it happen.");
+        messagesContainer.postDelayed(() -> { if (!isFinishing()) finish(); }, 900L);
     }
 
     private void showChips(@NonNull List<Idea> ideas) {

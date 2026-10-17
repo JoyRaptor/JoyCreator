@@ -196,6 +196,20 @@ public class AIChatState {
         return l == null ? new java.util.ArrayList<>() : l;
     }
 
+    // ── Outside files the person told Joybot to bring in: file → "COPY" / "MOVE" ──
+    // The copy, the re-pointing and the move's clean-up are the editor's (bringInOutside); the chat
+    // only parks the answer and closes, and the editor carries it out when it comes back.
+    private static final java.util.Map<String, java.util.Map<String, String>> BRING_IN = new java.util.HashMap<>();
+
+    public static synchronized void putBringIn(String projectId, java.util.Map<String, String> choices) {
+        BRING_IN.put(projectId, new java.util.LinkedHashMap<>(choices));
+    }
+
+    public static synchronized java.util.Map<String, String> takeBringIn(String projectId) {
+        java.util.Map<String, String> m = BRING_IN.remove(projectId);
+        return m == null ? new java.util.LinkedHashMap<String, String>() : m;
+    }
+
     /** Label + request token for writes made while the editor is live (set by the job runner). */
     public static volatile String liveWriteLabel = "Joybot";
     public static volatile String liveWriteRequest = "";

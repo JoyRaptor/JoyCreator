@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.gl.media
 
 import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.gl.ShaderLibrary
+import cc.joycreator.joybrush.core.media.MediaAtlasDraw
 import cc.joycreator.joybrush.core.media.DabBatch
 import cc.joycreator.joybrush.core.media.MediaPaper
 import cc.joycreator.joybrush.core.media.MediaStores
@@ -16,6 +17,7 @@ import cc.joycreator.joybrush.core.media.WetConstants
 import cc.joycreator.joybrush.core.media.WetSpread
 import cc.joycreator.joybrush.core.media.cellCap
 import cc.joycreator.joybrush.core.media.wetUniforms
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.hypot
@@ -54,7 +56,10 @@ class MediaLook(
  * [lookTexture]) and writes back what the passes wrote ([takeDirtyStores], [current]) through the app's stores
  * (#p0 #p1 #paper #w0 #w1 + the RGBA8 look; MEDIA_ENGINE_PLAN M5.3c). GL thread only.
  */
-class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
+class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), private val atlasMode: Boolean = MediaAtlasGl.enabled,
+                       private val atlasBroken: Boolean = false) {
+    /** Media Atlas v2 B1: the per-slot driver when this engine draws through the atlas (identity layout); null = the window. */
+    private var atlas: MediaAtlasGl? = null
     var w = 0; private set
     var h = 0; private set
     private var originX = 0f
@@ -128,7 +133,11 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         val ext = GLES30.glGetString(GLES30.GL_EXTENSIONS) ?: ""
         check("EXT_color_buffer_float" in ext) { "media layers need EXT_color_buffer_float" }
         w = width; h = height; this.originX = originX; this.originY = originY; this.scale = scale
-        fun p(v: String, f: String, l: String) = MediaProgram(shaders, "media/$v", "media/$f", l)
+        // Atlas mode builds every media program with JB_ATLAS; the paste brush's cells are not layer-shaped (JB_PLAIN_TARGET).
+        if (atlasMode) require(width % MediaAtlasDraw.SIDE == 0 && height % MediaAtlasDraw.SIDE == 0) { "an atlas window is whole slots" }
+        val defs = if (atlasMode) listOf("JB_ATLAS") else emptyList()
+        fun p(v: String, f: String, l: String, plain: Boolean = false) =
+            MediaProgram(shaders, "media/$v", "media/$f", l, if (plain && atlasMode) defs + "JB_PLAIN_TARGET" else defs)
         progDab = p("jb_dry_dab.vert", "jb_dry_dab.frag", "media dry dab")
         progApply = p("jb_media_quad.vert", "jb_media_apply.frag", "media apply")
         progCopy = p("jb_media_quad.vert", "jb_media_copy.frag", "media copy")
@@ -138,7 +147,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         progFlux = p("jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux")
         progUpdate = p("jb_media_quad.vert", "jb_wet_update.frag", "media wet update")
         progPasteDab = p("jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab")
-        progPasteBrush = p("jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush")
+        progPasteBrush = p("jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush", plain = true)
         progBead = p("jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead")
         progEraseDab = p("jb_media_erase_dab.vert", "jb_media_erase_dab.frag", "media erase dab")
         progErase = p("jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase")
@@ -172,6 +181,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         }
         GLES30.glBindVertexArray(0)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
+        if (atlasMode) atlas = MediaAtlasGl(w / MediaAtlasDraw.SIDE, h / MediaAtlasDraw.SIDE, quadBuf, atlasBroken)
         clearAll()
     }
 
@@ -290,7 +300,35 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     }
 
     /** The layer window's placement, written before each pass's own uniforms ([MediaUniforms.common]). */
-    private fun common(u: UniformBank) = MediaUniforms.common(u, originX, originY, scale)
+    private fun common(u: UniformBank) { MediaUniforms.common(u, originX, originY, scale); atlas?.uniforms(u) }
+
+    /** A layer-shaped pass over [rect] (layer px at the target's resolution; shift 7 = the half-resolution bead field). */
+    private fun quad(rect: FloatArray, shift: Int = MediaAtlasDraw.SHIFT) {
+        val a = atlas
+        if (a != null) { a.drawRect(rect, shift); return }
+        GLES30.glBindVertexArray(quadVao)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+    }
+    private val fullRect = FloatArray(4)
+    private fun full(): FloatArray { fullRect[0] = 0f; fullRect[1] = 0f; fullRect[2] = w.toFloat(); fullRect[3] = h.toFloat(); return fullRect }
+
+    /** Instanced dabs: window = one draw of [batch]; atlas = each dab once per slot its box (a doc-px [reach] round its centre) touches. */
+    private fun dabs(batch: DabBatch, reach: (FloatArray, Int) -> Float) {
+        val a = atlas
+        if (a != null) {
+            a.drawDabs(batch) { d, i, out ->
+                val o = i * DabBatch.FLOATS
+                val cx = (d[o] - originX) * scale; val cy = (d[o + 1] - originY) * scale
+                val r = reach(d, o) * scale + 2f
+                out[0] = cx - r; out[1] = cy - r; out[2] = cx + r; out[3] = cy + r
+            }
+            return
+        }
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, uploadBuffer.upload(batch.dabs), GLES30.GL_STREAM_DRAW)
+        GLES30.glBindVertexArray(dabVao)
+        GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, batch.count)
+    }
 
     /** A doc-px rectangle â†’ this layer's px, padded (doc px) and clamped. */
     private fun layerRect(r: DoubleArray?, padDoc: Double = 0.0): FloatArray? {
@@ -406,8 +444,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         GLES30.glDisable(GLES30.GL_BLEND)
         val u = progBake.use()
         common(u); MediaUniforms.paper(u, paper); MediaUniforms.bake(u, w, h)   // (the old u_cellPx named no uniform of jb_media_bake.frag)
-        GLES30.glBindVertexArray(quadVao)
-        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        quad(full())
         bakedPaper = paper
     }
 
@@ -427,8 +464,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         GLES30.glDisable(GLES30.GL_BLEND)
         val u = progCopy.use()
         common(u); MediaUniforms.copy(u, src.p0, src.p1, src.paper, w, h, rect)
-        GLES30.glBindVertexArray(quadVao)
-        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        quad(rect)
     }
 
     // ---- dry media (pencil) ----
@@ -450,13 +486,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         val du = progDab.use()
         common(du); MediaUniforms.paper(du, paper)
         MediaUniforms.dryDab(du, cur.paper, lutTex, paper.stats.contactLut().maxMm, w, h, pxPerMm, t, mat)
-        mediaTrace("JB.media.dry.upload") {
-            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
-            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, uploadBuffer.upload(batch.dabs), GLES30.GL_STREAM_DRAW)
-        }
         mediaTrace("JB.media.dry.delta") {
-            GLES30.glBindVertexArray(dabVao)
-            GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, batch.count)
+            // The stick's footprint: xMin, xMax, yMax (mm, stick frame) at floats 4-6, plus the vertex shader's 0.06 mm margin.
+            val ppm = pxPerMm.toFloat()
+            dabs(batch) { d, o -> (hypot(max(abs(d[o + 4]), abs(d[o + 5])), d[o + 6]) + 0.1f) * ppm }
         }
         GLES30.glDisable(GLES30.GL_BLEND)
 
@@ -465,8 +498,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             val au = progApply.use()
             common(au)
             MediaUniforms.dryApply(au, cur.p0, cur.p1, cur.paper, delta, w, h, rect, mat, travelX, travelY, pxPerMm, scale)
-            GLES30.glBindVertexArray(quadVao)
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            quad(rect)
         }
         mediaTrace("JB.media.dry.copy") {
             copyRect(nxt, cur.fbo, rect)
@@ -572,7 +604,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             common(du)
             MediaUniforms.paste(du, st, b, cap, t, pxPerMm, seed, bakeTex, state[0].p0, state[0].p1)
             MediaUniforms.pasteDab(du, cur.b0, cur.b1, w, h, square)
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            quad(square)   // the scissor still trims the square to the footprint box (identity: atlas px are layer px)
             if (tight) GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
             copyRect(state[1], pFbo0, rect)
         }
@@ -597,10 +629,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         GLES30.glBlendEquation(GLES30.GL_MAX)   // overlapping dabs never take away more than one does
         val eu = progEraseDab.use()
         common(eu); MediaUniforms.eraseDab(eu, w, h)
-        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
-        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, uploadBuffer.upload(batch.dabs), GLES30.GL_STREAM_DRAW)
-        GLES30.glBindVertexArray(dabVao)
-        GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, batch.count)
+        // radius (doc px) at float 2; the vertex shader pads by 1.5 layer px and never draws a dab under half a pixel.
+        dabs(batch) { d, o -> d[o + 2] + (2f + 0.5f) / scale }
         GLES30.glBlendEquation(GLES30.GL_FUNC_ADD)
         GLES30.glDisable(GLES30.GL_BLEND)
         GLES30.glBindVertexArray(quadVao)
@@ -608,7 +638,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, state[1].fbo)
             val su = progErase.use()
             common(su); MediaUniforms.erase(su, state[0].p0, state[0].p1, state[0].paper, delta, 0, w, h, rect)
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            quad(rect)
             copyRect(state[1], state[0].fbo, rect)
             for (st in listOf("p0", "p1", "paper")) if (st in stores) this.stores += st
         }
@@ -620,7 +650,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             GLES30.glViewport(0, 0, w, h)
             val wu = progErase.use()
             common(wu); MediaUniforms.erase(wu, ws[wc].w0, ws[wc].w1, ws[wc].w0, delta, 1, w, h, rect)
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            quad(rect)
             val (x0, y0, x1, y1) = intArrayOf(floor(rect[0]).toInt(), floor(rect[1]).toInt(), ceil(rect[2]).toInt(), ceil(rect[3]).toInt()).let { listOf(it[0], it[1], it[2], it[3]) }
             blit(ws[other].w0, x0, y0, x1, y1, ws[wc].w0, x0, y0, x1, y1)
             blit(ws[other].w1, x0, y0, x1, y1, ws[wc].w1, x0, y0, x1, y1)
@@ -663,10 +693,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             GLES30.glBlendEquation(GLES30.GL_FUNC_ADD)
             val du = progWetDab.use()
             common(du); MediaUniforms.wetDab(du, ws[wc].w0, bakeTex, w, h, pxPerMm, wc0.fullMm)
-            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
-            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, batch.dabs.size * 4, uploadBuffer.upload(batch.dabs), GLES30.GL_STREAM_DRAW)
-            GLES30.glBindVertexArray(dabVao)
-            GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, batch.count)
+            // half-length, half-width (mm) at floats 4-5, plus the vertex shader's 0.08 mm.
+            val ppm = pxPerMm.toFloat()
+            dabs(batch) { d, o -> (hypot(d[o + 4], d[o + 5]) + 0.1f) * ppm }
             GLES30.glDisable(GLES30.GL_BLEND)
             GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
             useInput = true
@@ -703,13 +732,13 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             val fu = progFlux.use()
             common(fu); wetFrameUniforms.apply(fu)
             MediaUniforms.wetFlux(fu, bead[0], src.p0, a.w0, a.flux, bakeTex, fluidBake, waterBake, rect, w, h)
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            quad(rect)
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, updFbo[bi * 2 + 1 - (k and 1)])
             val pu = progUpdate.use()
             common(pu); wetFrameUniforms.apply(pu)
             MediaUniforms.wetUpdate(pu, a.w0, a.w1, b.flux, run, src.p0, src.p1, bakeTex, waterBake, fluidBake, in0, in1,
                 if (k == 0 && useInput) 1 else 0, rect, w, h)
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            quad(rect)
             wc = bi
         }
         // An odd number of substeps (the dry-now frame) leaves the result in state[1]: one copy, as every substep used to make.
@@ -766,7 +795,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             GLES30.glViewport(0, 0, beadW, beadH)
             val bu = progBead.use()
             common(bu); MediaUniforms.bead(bu, hr, beadW, beadH, sigma, pass, w0, src, axisX, axisY)
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            atlas?.uniforms(bu, MediaAtlasDraw.SHIFT - 1)   // the half-resolution field's slots are 128 cells
+            quad(hr, MediaAtlasDraw.SHIFT - 1)
         }
         pass(beadFbo[0], 0, bead[1], 1f, 0f)
         pass(beadFbo[1], 1, bead[0], 1f, 0f)
@@ -864,6 +894,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
         GLES30.glDeleteBuffers(2, intArrayOf(quadBuf, dabBuf), 0)
         GLES30.glDeleteVertexArrays(3, intArrayOf(quadVao, dabVao, emptyVao), 0)
+        atlas?.release(); atlas = null
         uploadBuffer.reset()
     }
 

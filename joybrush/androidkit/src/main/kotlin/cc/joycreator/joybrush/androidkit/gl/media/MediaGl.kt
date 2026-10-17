@@ -20,6 +20,8 @@ internal interface UniformSink {
     fun uniform3f(loc: Int, a: Float, b: Float, c: Float)
     fun uniform4f(loc: Int, a: Float, b: Float, c: Float, d: Float)
     fun uniform1i(loc: Int, a: Int)
+    /** Only Media Atlas v2's page-table uniforms are int vectors (the window build declares none). */
+    fun uniform4i(loc: Int, a: Int, b: Int, c: Int, d: Int): Unit = throw UnsupportedOperationException("uniform4i")
 
     /** Binds [tex] on texture [unit] and leaves unit 0 active again, exactly as the map-based `use` always did. */
     fun bindTexture(unit: Int, tex: Int)
@@ -31,6 +33,7 @@ internal object GlUniformSink : UniformSink {
     override fun uniform3f(loc: Int, a: Float, b: Float, c: Float) = GLES30.glUniform3f(loc, a, b, c)
     override fun uniform4f(loc: Int, a: Float, b: Float, c: Float, d: Float) = GLES30.glUniform4f(loc, a, b, c, d)
     override fun uniform1i(loc: Int, a: Int) = GLES30.glUniform1i(loc, a)
+    override fun uniform4i(loc: Int, a: Int, b: Int, c: Int, d: Int) = GLES30.glUniform4i(loc, a, b, c, d)
     override fun bindTexture(unit: Int, tex: Int) {
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0 + unit)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
@@ -127,6 +130,21 @@ internal class UniformBank(private val slots: Map<String, UniformSlot>, private 
         writeInt(s, s.unit)
     }
 
+    // ---- Media Atlas v2: the page table (an integer texture) and its int-vector uniforms ----
+    fun itex(name: String, tex: Int) {
+        val s = slots[name] ?: return
+        if (s.type != GLES30.GL_INT_SAMPLER_2D) wrongType(name, "an integer sampler")
+        sink.bindTexture(s.unit, tex)
+        writeInt(s, s.unit)
+    }
+    fun i4(name: String, x: Int, y: Int, z: Int, w: Int) {
+        val s = slots[name] ?: return
+        if (s.type != GLES30.GL_INT_VEC4) wrongType(name, "an ivec4")
+        val f = s.f   // small ints are exact as floats: the shadow copy
+        if (s.known && f[0] == x.toFloat() && f[1] == y.toFloat() && f[2] == z.toFloat() && f[3] == w.toFloat()) return
+        sink.uniform4i(s.loc, x, y, z, w); f[0] = x.toFloat(); f[1] = y.toFloat(); f[2] = z.toFloat(); f[3] = w.toFloat(); s.known = true
+    }
+
     private fun wrongType(name: String, wanted: String): Nothing =
         error("$label: $name is not $wanted (declared type differs)")
 }
@@ -137,8 +155,8 @@ internal class UniformBank(private val slots: Map<String, UniformSlot>, private 
  * in declaration order. The program's active uniforms and their locations are read once, here, at link time. GL thread
  * only.
  */
-class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: String) {
-    val program = GlProgram(shaders.source(vert), shaders.source(frag), label)
+class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: String, defines: List<String> = emptyList()) {
+    val program = GlProgram(shaders.source(vert, defines), shaders.source(frag, defines), label)
 
     private val bank: UniformBank
 
@@ -151,7 +169,8 @@ class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: St
         val type = IntArray(1)
         for (i in 0 until count[0]) {
             val name = GLES30.glGetActiveUniform(program.id, i, size, 0, type, 0).substringBefore('[')
-            val unit = if (type[0] == GLES30.GL_SAMPLER_2D) units++ else -1
+            // The atlas page table is an integer sampler: it takes a unit in the same order (the window build has none).
+            val unit = if (type[0] == GLES30.GL_SAMPLER_2D || type[0] == GLES30.GL_INT_SAMPLER_2D) units++ else -1
             slots[name] = UniformSlot(GLES30.glGetUniformLocation(program.id, name), type[0], unit)
         }
         bank = UniformBank(slots, GlUniformSink, label)

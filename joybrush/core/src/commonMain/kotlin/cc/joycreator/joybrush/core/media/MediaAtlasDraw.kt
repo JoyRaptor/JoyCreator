@@ -86,7 +86,9 @@ class MediaAtlasDraw {
         const val DAB_FLOATS = DabBatch.FLOATS + 4
 
         /** The identity layout of B1: the window's [n] × [n] tiles are its slots, in place. */
-        fun identity(n: Int): (Int, Int) -> Int = { tx, ty -> if (tx in 0 until n && ty in 0 until n) tx + ty * n else -1 }
+        fun identity(n: Int): (Int, Int) -> Int = identity(n, n)
+        /** The identity layout of a [nx] × [ny] window (slots per row = [nx]). */
+        fun identity(nx: Int, ny: Int): (Int, Int) -> Int = { tx, ty -> if (tx in 0 until nx && ty in 0 until ny) tx + ty * nx else -1 }
 
         private fun floorDiv(v: Float, side: Int): Int = floor(v / side).toInt()
         /** The last pixel a half-open edge [v] covers starts below v: an edge on a tile border does not touch the next tile. */

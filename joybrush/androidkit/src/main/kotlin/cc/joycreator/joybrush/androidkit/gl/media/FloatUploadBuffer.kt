@@ -28,16 +28,20 @@ internal class FloatUploadBuffer {
      * Stage [data] for upload. Returns a direct native-order FloatBuffer with position 0
      * and limit exactly [data].size.
      */
-    fun upload(data: FloatArray): FloatBuffer {
+    fun upload(data: FloatArray): FloatBuffer = upload(data, data.size)
+
+    /** Stage the first [size] floats of [data] (a reused, oversized array): limit exactly [size]. */
+    fun upload(data: FloatArray, size: Int): FloatBuffer {
+        require(size in 0..data.size) { "upload size $size is outside the array (${data.size})" }
         var b = buffer
-        if (b == null || b.capacity() < data.size) {
-            b = ByteBuffer.allocateDirect(byteSizeOrThrow(data.size))
+        if (b == null || b.capacity() < size) {
+            b = ByteBuffer.allocateDirect(byteSizeOrThrow(size))
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer()
             buffer = b
         }
         b.clear()
-        b.put(data)
+        b.put(data, 0, size)
         b.flip()
         return b
     }

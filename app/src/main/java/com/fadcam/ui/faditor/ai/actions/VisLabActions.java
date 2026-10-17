@@ -89,7 +89,7 @@ final class VisLabActions {
         r.add(ActionSpec.of("vislab_apply_look", "Put a whole VisLab look on screen")
                 .help("Shows a complete look written as joy.vis/1 JSON (start from vislab_describe raw=true)."
                         + " Same id replaces that look; a new id adds one. Prefer vislab_change for edits —"
-                        + " this is for building a look from scratch. VisLab fixes what it can and says so.")
+                        + " this is for building a look from scratch. VisLab fixes what it can and says so. Never set a layer's image: only the person picks pictures.")
                 .wing("APP", FAMILY).effect(Effect.EDIT)
                 .where("VisLab › Import look")
                 .text("look_json", true, "The whole look, joy.vis/1 JSON")
@@ -191,10 +191,50 @@ final class VisLabActions {
     @NonNull
     private static ActionResult applyLook(@NonNull AppCtx ctx, @NonNull Args a) throws ActionError {
         VisLabSession s = session(ctx);
-        String json = a.str("look_json");
-        if (json == null || parse(json) == null) throw new ActionError("look_json must be a whole look as JSON.");
-        VisLabSession.ApplyResult r = s.apply(json, label(), group());
-        return result(s, r, "Put the look on screen.");
+        JsonObject look = parse(a.str("look_json"));
+        if (look == null) throw new ActionError("look_json must be a whole look as JSON.");
+        String said = keepPickedPictures(s, look) ? "Put the look on screen. Its picture layers show the Joy emblem:"
+                + " only the person can pick a picture (Use my picture on the layer)." : "Put the look on screen.";
+        VisLabSession.ApplyResult r = s.apply(look.toString(), label(), group());
+        return result(s, r, said);
+    }
+
+    /**
+     * A picture layer's "image" is a file the person picked (content://…). Joybot never invents
+     * one: any image that isn't already in one of the looks becomes the emblem (empty). True when
+     * one was dropped.
+     */
+    private static boolean keepPickedPictures(@NonNull VisLabSession s, @NonNull JsonObject look) {
+        java.util.Set<String> picked = new java.util.HashSet<>();
+        for (String id : s.lookIds()) {
+            JsonObject l = parse(s.lookJson(id));
+            if (l != null) picked.addAll(images(l));
+        }
+        boolean dropped = false;
+        com.google.gson.JsonElement le = look.get("layers");
+        if (le == null || !le.isJsonArray()) return false;
+        for (com.google.gson.JsonElement e : le.getAsJsonArray()) {
+            if (!e.isJsonObject()) continue;
+            String img = VisLabEdit.str(e.getAsJsonObject(), "image");
+            if (!img.isEmpty() && !picked.contains(img)) {
+                e.getAsJsonObject().remove("image");
+                dropped = true;
+            }
+        }
+        return dropped;
+    }
+
+    @NonNull
+    private static List<String> images(@NonNull JsonObject look) {
+        List<String> out = new ArrayList<>();
+        com.google.gson.JsonElement le = look.get("layers");
+        if (le == null || !le.isJsonArray()) return out;
+        for (com.google.gson.JsonElement e : le.getAsJsonArray()) {
+            if (!e.isJsonObject()) continue;
+            String img = VisLabEdit.str(e.getAsJsonObject(), "image");
+            if (!img.isEmpty()) out.add(img);
+        }
+        return out;
     }
 
     @NonNull

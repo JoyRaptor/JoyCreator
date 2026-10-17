@@ -1239,6 +1239,15 @@ public class ChatAssistantActivity extends AppCompatActivity {
      */
     private void refreshIdeas(boolean speak) {
         checkRecipes();
+        if (room == IdeaEngine.Room.VISLAB) {
+            // VisLab's ideas are about the look on screen, not a project: no project is needed.
+            com.fadcam.ui.faditor.ai.joybot.ProjectFacts f = new com.fadcam.ui.faditor.ai.joybot.ProjectFacts();
+            f.online = AiService.ready(this, apiKey);
+            currentOffer = IdeaEngine.offer(f, room, java.util.Collections.<String>emptySet(),
+                    java.util.Collections.<String>emptySet());
+            if (!busy && slideFlow == null) showChips(currentOffer.ideas);
+            return;
+        }
         if (projectId == null) {
             currentOffer = null;
             showChips(noProjectIdeas());
@@ -2124,6 +2133,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
             case "space":
                 // Space is a screen of its own (also reached from Setup > Storage), so it opens directly.
                 startActivity(com.fadcam.joyfolder.studio.SpaceActivity.intent(this));
+                finish();
+                return;
+            case "vislab":
+                // VisLab is its own room (the Lobby's tile opens it the same way).
+                startActivity(new Intent(this, com.fadcam.vislab.room.VisLabActivity.class));
                 finish();
                 return;
             case "trash":
@@ -3293,6 +3307,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
             case "apply_edit_script": return "Made the edits";
             case "ai_enhance": return "Cleaned up the speech";
             default:
+                // A typed action has its own title, in the person's words ("Change a VisLab look").
+                com.fadcam.ui.faditor.ai.actions.ActionSpec spec =
+                        com.fadcam.ui.faditor.ai.actions.StudioActions.registry().spec(tool);
+                if (spec == null) spec = com.fadcam.ui.faditor.ai.actions.AppActions.registry().spec(tool);
+                if (spec != null) return spec.title;
                 String t = tool.replace('_', ' ');
                 return t.isEmpty() ? "Done" : Character.toUpperCase(t.charAt(0)) + t.substring(1);
         }

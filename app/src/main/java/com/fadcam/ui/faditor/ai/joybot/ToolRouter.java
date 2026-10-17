@@ -50,6 +50,7 @@ public final class ToolRouter {
         f.put("avatar", "avatar puppet rigs");
         f.put("story", "the story: structure, best parts, B-roll and chapter proposals");
         f.put("project", "the whole project: export, canvas shape, health check");
+        f.put("vislab", "VisLab, the music visualiser room: its looks, their layers and knobs, music links, brand colours");
         FAMILIES = Collections.unmodifiableMap(f);
 
         w("clips", "clips?|cut|split|trim|speed|faster|slower|slow( it)?|mute|unmute|crop|rotate|flip|mirror|loop|"
@@ -72,6 +73,7 @@ public final class ToolRouter {
         w("sprites", "sprites?|sprite sheet|sheet|cells?|frames?|walk cycle|character|expressions?");
         w("avatar", "avatar|puppet|rig");
         w("story", "story|narrative|structure|best (part|bits|moments)|highlights?|b-?roll|chapters?");
+        w("vislab", "vislab|vis lab|visuali[sz]er looks?|music visuali[sz]er");
         w("project", "export|render|save|share|post|upload|health|broken|check|canvas|aspect|vertical|"
                 + "square|landscape|portrait|tiktok|reels|youtube");
     }
@@ -87,9 +89,23 @@ public final class ToolRouter {
      */
     @NonNull
     public static Set<String> pick(@NonNull String request) {
+        return pick(request, false);
+    }
+
+    /**
+     * As {@link #pick(String)}; asked from inside VisLab, the request is about the look on screen:
+     * core + vislab only (more_tools reaches the rest).
+     */
+    @NonNull
+    public static Set<String> pick(@NonNull String request, boolean inVisLab) {
         String t = request.toLowerCase(Locale.US);
         Set<String> out = new LinkedHashSet<>();
         out.add(CORE);
+        if (inVisLab) {
+            // "brighter", "echo", "bass" mean the look here, not the Studio's tools of those names.
+            out.add("vislab");
+            return out;
+        }
         for (Map.Entry<String, Pattern> e : WORDS.entrySet()) {
             if (e.getValue().matcher(t).find()) out.add(e.getKey());
         }
@@ -112,7 +128,7 @@ public final class ToolRouter {
                 {"export", "project"}, {"inspect", CORE}, {"library", CORE}, {"navigate", CORE},
                 {"looks", "looks"}, {"transform", "looks"}, {"motion", "motion"}, {"organise", "organise"},
                 {"slides", "slides"}, {"sources", "media"}, {"transitions", "transitions"},
-                {"text_look", "text"}, {"clip_shape", "clips"}, {"sprite_video", "sprites"}, {"director", CORE}};
+                {"text_look", "text"}, {"clip_shape", "clips"}, {"sprite_video", "sprites"}, {"director", CORE}, {"vislab", "vislab"}};
         for (String[] p : spec) SPEC_FAMILY.put(p[0], p[1]);
 
         legacy("transcript", "generate_transcript", "detect_silence", "get_transcript", "correct_transcript",

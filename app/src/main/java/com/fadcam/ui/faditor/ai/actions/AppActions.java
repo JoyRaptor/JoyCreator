@@ -39,6 +39,7 @@ public final class AppActions {
         ActionRegistry<AppCtx> r = new ActionRegistry<>();
         add(r, "navigate", NavigateActions::register);
         add(r, "library", LibraryActions::register);
+        add(r, "vislab", VisLabActions::register);
         return r;
     }
 

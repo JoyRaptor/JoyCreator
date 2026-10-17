@@ -1981,8 +1981,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * the rest is the one thing this must never do.
      */
     fun load(contents: JbContents, onDone: () -> Unit) {
-        val doc = contents.doc
-        val retained = validatedLoadMetadata(contents)
+        val doc = withoutLineDeclarations(contents.doc)
+        val retained = validatedLoadMetadata(contents).let { it.copy(doc = withoutLineDeclarations(it.doc)) }
 
         val states = doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend, it.mask != null, it.clip) }
         val active = doc.activeLayerId?.takeIf { id -> doc.layers.any { it.id == id } } ?: doc.layers.last().id
@@ -2145,6 +2145,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         val doc = c.doc.copy(layers = layers, brushes = save.brushes.keys.sorted(), version = maxOf(c.doc.version, 11))
         return c.copy(doc = doc, tiles = tiles, looks = looks, strokes = strokes, brushes = save.brushes)
+    }
+
+    /**
+     * The document as the engine holds it after an open: a cel that kept looks lists them among its tiles (the screen
+     * shows them there), and no cel names line storage and the drawing names no frozen brushes. Those live in the
+     * engine's NativeLines, and [withLines] declares them again on every save.
+     */
+    private fun withoutLineDeclarations(doc: JbDocument): JbDocument {
+        if (doc.brushes.isEmpty() && doc.layers.none { l -> l.cels.any { it.strokesFile != null || it.looks.isNotEmpty() } }) return doc
+        return doc.copy(brushes = emptyList(), layers = doc.layers.map { l ->
+            l.copy(cels = l.cels.map { c -> c.copy(tiles = (c.tiles + c.looks).distinct().sorted(), looks = emptyList(), strokesFile = null) })
+        })
     }
 
     /** The GL-thread half of [snapshot]: every layer, every tile, read back, under one document. */

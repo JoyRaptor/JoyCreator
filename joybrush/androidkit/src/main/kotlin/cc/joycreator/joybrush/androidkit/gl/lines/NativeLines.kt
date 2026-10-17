@@ -79,12 +79,15 @@ internal class NativeLines(
 
     /** Put a line (null = remove) at its id; keeps seq order. */
     fun put(plane: LinePlane, id: String, record: StrokeRecord?) {
-        val p = planes.getOrPut(plane) { Plane() }
-        p.records.removeAll { it.id == id }
+        // Validate before touching anything: a refused put leaves the plane exactly as it was.
         if (record != null) {
             require(record.id == id) { "A line is put at its own id" }
             require(record.seq >= 1) { "A line in a plane has a seq of 1 or more" }
-            require(p.records.none { it.seq == record.seq }) { "Two lines cannot share seq ${record.seq}" }
+            require(planes[plane]?.records.orEmpty().none { it.seq == record.seq && it.id != id }) { "Two lines cannot share seq ${record.seq}" }
+        }
+        val p = planes.getOrPut(plane) { Plane() }
+        p.records.removeAll { it.id == id }
+        if (record != null) {
             p.records.add(record)
             p.records.sortBy { it.seq }
         }
@@ -101,10 +104,9 @@ internal class NativeLines(
 
     /** A shared plane got its document cel id (the first board document): its lines follow it. */
     fun rename(from: LinePlane, to: LinePlane) {
-        if (from == to) return
-        val p = planes.remove(from) ?: return
+        if (from == to || from !in planes) return
         require(to !in planes) { "Lines cannot merge into a plane that already has them" }
-        planes[to] = p
+        planes[to] = planes.remove(from)!!
         revision++
     }
 

@@ -1157,6 +1157,7 @@ class GlPaintEngine(
     fun clearLayer(id: String) {
         requireLocalPaint()
         val layer = storeOf(id) ?: return
+        if (!layer.isMask && nativeLines.hasLinesOnLayer(id)) { clearLayerWithLines(layer); return }
         if (layer.planes().all { (_, p) -> p.values.all { it.isEmpty() } }) { replaceTiles(id,visibleTiles(layer).keys.associateWith{null}); return }
         // A layer with media: its payload is emptied in the same step as its look, or the next look render brings it back.
         val changes = ArrayList<UndoLog.TileChange<Int>>()
@@ -1757,6 +1758,31 @@ class GlPaintEngine(
             val plane = LinePlane(c.layerId, c.celId ?: layers[c.layerId]?.sharedCel)
             nativeLines.put(plane, c.id, (if (forward) c.after else c.before)?.record)
         }
+    }
+
+    /** Clear on a layer with lines: its pixels, its lines and their bases go together, as ONE step (no line comes back). */
+    private fun clearLayerWithLines(layer: Layer) {
+        settleWatercolourFade()
+        val tiles = ArrayList<UndoLog.TileChange<Int>>()
+        val slabs = ArrayList<UndoLog.SlabChange<Int>>()
+        val lines = ArrayList<UndoLog.LineChange>()
+        val bases = ArrayList<Pair<LinePlane, Long>>()
+        for (plane in nativeLines.linePlanes().filter { it.layerId == layer.id }) {
+            val cel = engineCel(layer, plane)
+            val records = nativeLines.lines(plane)
+            for (r in records) lines += UndoLog.LineChange(layer.id, cel, r.id, CelComposer.Line(r.seq, r), null)
+            for (key in records.flatMapTo(HashSet()) { nativeLines.footprint(it) }) nativeLines.base(plane, key)?.let {
+                slabs += UndoLog.SlabChange(layer.id, cel, key, 0L, UndoLog.SlabValue(it, "normal"), null)
+                bases += plane to key
+            }
+        }
+        val planes: Map<String?, HashMap<Long, Int>> =
+            if (layer.sharedCel == null) mapOf(null to layer.tiles) else layer.cels.mapKeys { it.key }
+        for ((cel, map) in planes) for ((key, tex) in map) tiles += UndoLog.TileChange(layer.id, key, tex, null, cel)
+        for (c in tiles) put(c.layerId, c.key, null, c.celId)
+        for ((plane, key) in bases) nativeLines.setBase(plane, key, null)
+        for (c in lines) nativeLines.put(LinePlane(c.layerId, c.celId ?: layer.sharedCel), c.id, null)
+        undo.push(UndoLog.Step(tiles, lines = lines, slabs = slabs))
     }
 
     /** Does the layer hold editable lines on any plane? (Other strokes there are refused: its pixels must stay its lines.) */

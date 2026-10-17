@@ -218,8 +218,22 @@
     });
 
     // drawer
-    $('#editBtn').onclick = () => { $('#drawer').classList.toggle('open'); renderDrawer(); };
-    $('#closeDrawer').onclick = () => $('#drawer').classList.remove('open');
+    // Portrait: the drawer covers the lower part of the screen, so shrink the picture into the
+    // space above it (scaled, not re-laid-out: the composition being edited stays the same).
+    function fitStage() {
+      const box = $('#box');
+      const open = $('#drawer').classList.contains('open') && matchMedia('(max-width: 700px)').matches;
+      if (!open) { box.style.transform = ''; return; }
+      const topH = $('#top').getBoundingClientRect().bottom;
+      const avail = innerHeight * (1 - 0.62) - topH - 6;
+      const sc = Math.max(0.2, Math.min(1, avail / box.offsetHeight));
+      box.style.transformOrigin = 'top center';
+      box.style.transform = 'translateY(' + (topH - box.offsetTop) + 'px) scale(' + sc + ')';
+    }
+    function setDrawer(open) { $('#drawer').classList.toggle('open', open); renderDrawer(); fitStage(); }
+    $('#editBtn').onclick = () => setDrawer(!$('#drawer').classList.contains('open'));
+    $('#closeDrawer').onclick = () => setDrawer(false);
+    addEventListener('resize', fitStage);
     $$('#tabs .pill').forEach((b) => (b.onclick = () => { tab = b.dataset.tab; $$('#tabs .pill').forEach((p) => p.classList.toggle('on', p === b)); renderDrawer(); }));
     $('#copyBtn').onclick = async () => {
       const txt = JSON.stringify(working[current], (k, v) => (k === 'image' && typeof v === 'object' ? undefined : v), 2);
@@ -249,11 +263,19 @@
         let input, val = document.createElement('span');
         val.className = 'val';
         if (d.enum) {
-          input = document.createElement('select');
-          d.enum.forEach((name, i) => { const o = document.createElement('option'); o.value = i; o.textContent = name; input.appendChild(o); });
-          input.value = Math.round(baseOf(raw, d));
-          input.onchange = () => set(Number(input.value));
-          input.title = d.label;
+          // Choices are fully rounded pills, not a dropdown: every option visible, one tap.
+          row.classList.add('choice');
+          input = document.createElement('div');
+          input.className = 'pills';
+          const cur = Math.round(baseOf(raw, d));
+          d.enum.forEach((name, i) => {
+            const b = document.createElement('button');
+            b.className = 'pill' + (i === cur ? ' on' : '');
+            b.textContent = name;
+            b.title = d.label + ': ' + name;
+            b.onclick = () => { set(i); 53436('.pill', input).forEach((x, k) => x.classList.toggle('on', k === i)); };
+            input.appendChild(b);
+          });
         } else if (d.toggle) {
           input = document.createElement('button');
           const on = () => baseOf(holder[key] ? holder[key][d.id] : undefined, d) > 0.5;
@@ -275,6 +297,7 @@
           input.oninput = () => { const v = fromS(input.value / 1000); set(v); show(v); };
         }
         row.appendChild(input);
+        if (d.enum) { container.appendChild(row); continue; }
         row.appendChild(val);
         const mb = document.createElement('button');
         mb.className = 'modbtn' + (modsOf(raw) ? ' has' : '');

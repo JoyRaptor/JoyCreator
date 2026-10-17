@@ -95,6 +95,10 @@ final class LookStrip extends HorizontalScrollView {
         return sw;
     }
 
+    int childCount() {
+        return cards.size();
+    }
+
     void setSelected(int index) {
         selected = index;
         paintAll();

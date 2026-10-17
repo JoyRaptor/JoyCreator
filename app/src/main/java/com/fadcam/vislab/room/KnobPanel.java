@@ -38,8 +38,16 @@ final class KnobPanel extends LinearLayout {
     interface Host {
         @Nullable VisScene scene();
 
+        /** The look's tree is about to change by hand: one undo step per gesture. */
+        void beginEdit(@NonNull String what);
+
         /** The look's tree changed. */
         void edited();
+
+        /** Step back / forward. Returns false when there is nothing to step to. */
+        boolean undo();
+
+        boolean redo();
 
         /** Brand lock: re-colour every look with these stops, or null to stop. */
         void brand(@Nullable String[] stops);
@@ -87,7 +95,17 @@ final class KnobPanel extends LinearLayout {
             tab = i;
             rebuild();
         });
-        addView(tabs, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        LinearLayout head = new LinearLayout(c);
+        head.setOrientation(HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.addView(tabs, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        head.addView(iconButton(c, "undo", Studio.INK_DIM, "Undo the last change", v -> {
+            if (host.undo()) rebuild();
+        }));
+        head.addView(iconButton(c, "redo", Studio.INK_DIM, "Redo", v -> {
+            if (host.redo()) rebuild();
+        }));
+        addView(head, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         ScrollView scroll = new ScrollView(c);
         scroll.setVerticalScrollBarEnabled(false);
         body = new LinearLayout(c);
@@ -142,6 +160,7 @@ final class KnobPanel extends LinearLayout {
                 Ui.label(p, t.about);
                 p.setOnClickListener(v -> {
                     Motion.press(v);
+                    host.beginEdit("Add " + t.label);
                     JsonObject lo = new JsonObject();
                     lo.addProperty("type", t.id);
                     lo.addProperty("name", t.label);
@@ -167,6 +186,7 @@ final class KnobPanel extends LinearLayout {
         body.addView(knobRow(c, add2, L));
         body.addView(toggleRow(c, "Under echo", !(L.has("echo") && L.get("echo").isJsonPrimitive() && !L.get("echo").getAsBoolean()),
                 "Draw into the echo trails, or crisp above them", on -> {
+                    host.beginEdit("Under echo");
                     L.addProperty("echo", on);
                     host.edited();
                 }));
@@ -178,6 +198,7 @@ final class KnobPanel extends LinearLayout {
         JsonObject echo = s.json().has("echo") && s.json().get("echo").isJsonObject() ? s.json().getAsJsonObject("echo") : null;
         boolean on = s.echoOn() != null;
         body.addView(toggleRow(c, "Echo", on, "Feedback trails on or off", v -> {
+            host.beginEdit("Echo");
             JsonObject e = s.json().has("echo") && s.json().get("echo").isJsonObject() ? s.json().getAsJsonObject("echo") : new JsonObject();
             e.addProperty("on", v);
             if (!e.has("p")) e.add("p", new JsonObject());
@@ -200,6 +221,7 @@ final class KnobPanel extends LinearLayout {
             Ui.label(chip, "Use the " + p[0] + " palette on this look");
             chip.setOnClickListener(v -> {
                 Motion.press(v);
+                host.beginEdit("Palette " + p[0]);
                 JsonArray a = new JsonArray();
                 for (int i = 1; i < p.length; i++) a.add(p[i]);
                 s.json().add("palette", a);
@@ -234,6 +256,7 @@ final class KnobPanel extends LinearLayout {
         body.addView(b);
         body.addView(toggleRow(c, "See-through", s.background() == null,
                 "No background: the look sits over whatever is underneath", on -> {
+                    host.beginEdit("See-through");
                     if (on) s.json().add("background", com.google.gson.JsonNull.INSTANCE);
                     else s.json().addProperty("background", "#000000");
                     host.edited();
@@ -258,6 +281,7 @@ final class KnobPanel extends LinearLayout {
         boolean on = !(L.has("on") && L.get("on").isJsonPrimitive() && !L.get("on").getAsBoolean());
         TextView eye = iconButton(c, on ? "visibility" : "visibility_off", on ? Studio.INK : Studio.INK_FAINT,
                 "Show or hide this layer", v -> {
+                    host.beginEdit(on ? "Hide layer" : "Show layer");
                     L.addProperty("on", !on);
                     host.edited();
                     rebuild();
@@ -272,6 +296,7 @@ final class KnobPanel extends LinearLayout {
         row.addView(iconButton(c, "arrow_upward", Studio.INK_DIM, "Move up: drawn later, on top", v -> move(s, index, 1)));
         row.addView(iconButton(c, "arrow_downward", Studio.INK_DIM, "Move down: drawn earlier, behind", v -> move(s, index, -1)));
         row.addView(iconButton(c, "content_copy", Studio.INK_DIM, "Duplicate this layer", v -> {
+            host.beginEdit("Duplicate layer");
             JsonObject copy = L.deepCopy();
             copy.addProperty("seed", (int) (Math.random() * 1000));
             insert(s.layers(), index + 1, copy);
@@ -280,6 +305,7 @@ final class KnobPanel extends LinearLayout {
             rebuild();
         }));
         row.addView(iconButton(c, "close", Studio.INK_DIM, "Remove this layer", v -> {
+            host.beginEdit("Remove layer");
             s.layers().remove(index);
             selLayer = Math.max(0, index - 1);
             host.edited();
@@ -297,6 +323,7 @@ final class KnobPanel extends LinearLayout {
         JsonArray a = s.layers();
         int to = index + dir;
         if (to < 0 || to >= a.size()) return;
+        host.beginEdit("Move layer");
         JsonElement e = a.remove(index);
         insert(a, to, e);
         selLayer = to;
@@ -351,6 +378,7 @@ final class KnobPanel extends LinearLayout {
                 Ui.label(p, k.label + ": " + opts[i]);
                 p.setOnClickListener(v -> {
                     Motion.press(v);
+                    host.beginEdit(k.label);
                     holder.addProperty(k.id, value);
                     host.edited();
                     for (int j = 0; j < pills.getChildCount(); j++) stylePill((TextView) pills.getChildAt(j), j == value);
@@ -399,6 +427,7 @@ final class KnobPanel extends LinearLayout {
 
             @Override
             public void onStartTrackingTouch(SeekBar sb) {
+                host.beginEdit(k.label);
             }
 
             @Override
@@ -420,6 +449,7 @@ final class KnobPanel extends LinearLayout {
                     : "React to " + sig.label);
             p.setOnClickListener(v -> {
                 Motion.press(v);
+                host.beginEdit(k.label + " follows " + sig.label);
                 JsonObject mm = ensureMods(holder, k);
                 if (!mm.has(sig.id)) mm.addProperty(sig.id, 0.25f);
                 else {
@@ -432,6 +462,7 @@ final class KnobPanel extends LinearLayout {
                 fillMods(c, box, k, holder, note);
             });
             p.setOnLongClickListener(v -> {
+                host.beginEdit(k.label + " stops following " + sig.label);
                 JsonObject mm = mods(holder, k.id);
                 if (mm != null) {
                     mm.remove(sig.id);

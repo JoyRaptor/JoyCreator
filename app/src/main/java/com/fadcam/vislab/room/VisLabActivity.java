@@ -3,7 +3,6 @@ package com.fadcam.vislab.room;
 import android.Manifest;
 import android.animation.ValueAnimator;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.LinearGradient;
 import android.graphics.Shader;
 import android.net.Uri;
@@ -42,7 +41,6 @@ import com.fadcam.vislab.audio.SoundSource;
 import com.fadcam.vislab.model.VisScene;
 import com.fadcam.vislab.view.VisTextureView;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -51,11 +49,9 @@ import java.util.List;
  * from the phone), and the editor. Opening the editor shrinks the picture into the space above
  * it, so the part being edited is never hidden behind the drawer.
  */
-public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host {
+public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host, VisLabSession.Listener {
 
     public static final String EXTRA_LOOK = "vislab_look";
-    private static final String PREFS = "vislab";
-    private static final String PREF_LAST = "last_look";
     private static final String DEMO = "vislab/demo/vislab_demo.m4a";
     private static final int SRC_DEMO = 0, SRC_MIC = 1, SRC_SONG = 2;
 
@@ -67,8 +63,8 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host 
     private KnobPanel panel;
     private TextView lookName;
     private TextView pauseBtn;
-    private final List<VisScene> looks = new ArrayList<>();
-    private int current;
+    private VisLabSession session;
+    private ImageView joy;
     private boolean drawerOpen;
     private boolean paused;
 
@@ -97,13 +93,14 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host 
             if (uri != null) useSource(SRC_SONG, uri);
             else sources.setSelected(sourceKind);
         });
-        for (VisScene s : VisLab.get(this).builtInLooks()) looks.add(s.copy());
+        session = VisLabSession.get(this);
         buildUi();
         String want = getIntent().getStringExtra(EXTRA_LOOK);
-        if (want == null) want = getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_LAST, null);
-        int start = 0;
-        for (int i = 0; i < looks.size(); i++) if (looks.get(i).id().equals(want)) start = i;
-        setLook(start);
+        if (want != null) {
+            List<VisScene> looks = session.looks();
+            for (int i = 0; i < looks.size(); i++) if (looks.get(i).id().equals(want)) session.roomPicked(i);
+        }
+        session.bind(this);
         useSource(SRC_DEMO, null);
     }
 
@@ -128,7 +125,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host 
                 if (a == null || drawerOpen) return false;
                 float dx = b.getX() - a.getX(), dy = b.getY() - a.getY();
                 if (Math.abs(dx) > Ui.dp(VisLabActivity.this, 60) && Math.abs(dx) > Math.abs(dy) * 1.5f) {
-                    setLook(current + (dx < 0 ? 1 : -1));
+                    setLook(session.current() + (dx < 0 ? 1 : -1));
                     return true;
                 }
                 return false;
@@ -191,20 +188,22 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host 
         LinearLayout.LayoutParams elp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(this, 32));
         elp.setMarginStart(Ui.dp(this, 6));
         top.addView(edit, elp);
-        // Joybot lives in the upper-right corner of every room.
-        ImageView joy = new ImageView(this);
+        // Joybot lives in the upper-right corner of every room: the Studio editor's own button.
+        joy = new ImageView(this);
         joy.setImageResource(R.drawable.joybot_neutral);
-        joy.setColorFilter(Studio.INK);
-        int jp = Ui.dp(this, 5);
+        joy.setBackgroundResource(R.drawable.joybot_orb);
+        joy.setImageTintList(android.content.res.ColorStateList.valueOf(Studio.INK));
+        int jp = Ui.dp(this, 7);
         joy.setPadding(jp, jp, jp, jp);
-        joy.setBackground(Ui.round(Studio.RAISED, Ui.dp(this, 999)));
-        Ui.label(joy, "Joybot: ideas for this look");
+        joy.setContentDescription("Joybot");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(joy,
+                "Joybot, your helper — he glows green when he has an idea, amber when something needs your attention");
         joy.setOnClickListener(v -> {
-            Motion.press(v);
             startActivity(new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
                     .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "VISLAB"));
+            com.fadcam.ui.faditor.ai.joybot.JoybotPulse.breathe(v, false);
         });
-        LinearLayout.LayoutParams jlp = new LinearLayout.LayoutParams(Ui.dp(this, 34), Ui.dp(this, 34));
+        LinearLayout.LayoutParams jlp = new LinearLayout.LayoutParams(Ui.dp(this, 40), Ui.dp(this, 40));
         jlp.setMarginStart(Ui.dp(this, 8));
         top.addView(joy, jlp);
         chrome.addView(top);
@@ -233,7 +232,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host 
         strip.setPadding(g, Ui.dp(this, 10), g, Ui.dp(this, 12));
         strip.setBackground(new android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP, new int[]{0xBF000000, 0x00000000}));
-        strip.setLooks(looks);
+        strip.setLooks(session.looks());
         strip.setOnPick(this::setLook);
         root.addView(strip, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM));
 
@@ -330,24 +329,42 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host 
 
     // ------------------------------------------------------------------ looks
 
+    /** Browsing (strip, swipe) is not an undo step; it just changes what is on screen. */
     private void setLook(int i) {
-        if (looks.isEmpty()) return;
-        current = ((i % looks.size()) + looks.size()) % looks.size();
-        VisScene s = looks.get(current);
-        view.setScene(s);
-        lookName.setText(s.name());
-        strip.setSelected(current);
+        session.roomPicked(i);
+        List<VisScene> looks = session.looks();
+        if (!looks.isEmpty()) onLook(looks.get(session.current()), session.current());
+    }
+
+    // VisLabSession.Listener: the look on screen changed (here, by Joybot, or by undo).
+    @Override
+    public void onLook(@NonNull VisScene look, int index) {
+        view.setScene(look);
+        lookName.setText(look.name());
+        if (strip.childCount() != session.looks().size()) strip.setLooks(session.looks());
+        strip.setSelected(index);
         if (drawerOpen) {
             panel.resetSelection();
             panel.rebuild();
         }
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_LAST, s.id()).apply();
     }
 
+    @Override
+    public void onBrand(@Nullable String[] stops) {
+        view.renderer().setBrandPalette(stops);
+    }
+
+    // KnobPanel.Host
     @Nullable
     @Override
     public VisScene scene() {
-        return looks.isEmpty() ? null : looks.get(current);
+        List<VisScene> looks = session.looks();
+        return looks.isEmpty() ? null : looks.get(session.current());
+    }
+
+    @Override
+    public void beginEdit(@NonNull String what) {
+        session.roomWillEdit(what);
     }
 
     @Override
@@ -357,7 +374,18 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host 
     }
 
     @Override
+    public boolean undo() {
+        return session.undo();
+    }
+
+    @Override
+    public boolean redo() {
+        return session.redo();
+    }
+
+    @Override
     public void brand(@Nullable String[] stops) {
+        session.roomBrand(stops);
         view.renderer().setBrandPalette(stops);
     }
 
@@ -400,6 +428,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host 
     @Override
     protected void onResume() {
         super.onResume();
+        com.fadcam.ui.faditor.ai.joybot.JoybotPulse.lightButton(joy, null, com.fadcam.ui.faditor.ai.joybot.IdeaEngine.Room.VISLAB);
         if (!paused) {
             if (source != null) source.setPaused(false);
             view.setPaused(false);
@@ -408,6 +437,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host 
 
     @Override
     protected void onDestroy() {
+        session.bind(null);
         if (source != null) source.stop();
         source = null;
         super.onDestroy();

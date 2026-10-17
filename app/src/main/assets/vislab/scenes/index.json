@@ -3,6 +3,7 @@
   "note": "Order of the built-in looks.",
   "scenes": [
     "sound-city.vis.json",
+    "disco-ocean.vis.json",
     "glass-peaks.vis.json",
     "trap-halo.vis.json",
     "hyperdrive.vis.json",

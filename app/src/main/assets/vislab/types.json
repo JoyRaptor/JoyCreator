@@ -409,7 +409,7 @@
     },
     "floor": {
       "label": "Woven floor", "family": "worlds", "draw": "fullscreen", "frag": "floor.frag",
-      "about": "A plane of interlaced ribbons rolling toward you, rippling with the sound.",
+      "about": "A floor of woven ribbons, or a Launchpad grid of glowing pads, rolling toward you with the sound.",
       "params": [
         {"id": "speed", "label": "Speed", "slot": "0x", "min": 0, "max": 3, "def": 0.4},
         {"id": "horizon", "label": "Horizon", "slot": "0y", "min": -0.6, "max": 0.4, "def": -0.05},
@@ -422,7 +422,13 @@
         {"id": "hueSpin", "label": "Colour cycle", "slot": "2x", "min": -0.2, "max": 0.2, "def": 0},
         {"id": "glow", "label": "Horizon glow", "slot": "2y", "min": 0, "max": 2, "def": 0.8},
         {"id": "fade", "label": "Distance fade", "slot": "2z", "min": 0, "max": 3, "def": 1},
-        {"id": "colorMode", "label": "Colour by", "slot": "2w", "enum": ["Across", "Waves"], "def": 0}
+        {"id": "colorMode", "label": "Colour by", "slot": "2w", "enum": ["Across", "Waves"], "def": 0},
+        {"id": "kind", "label": "Floor", "slot": "3x", "enum": ["Woven ribbons", "Launchpad pads"], "def": 0},
+        {"id": "gap", "label": "Pad gap", "slot": "3y", "min": 0.02, "max": 0.6, "def": 0.18},
+        {"id": "ripple", "label": "Kick ripples", "slot": "3z", "min": 0, "max": 2, "def": 1},
+        {"id": "chase", "label": "Beat chase", "slot": "3w", "min": 0, "max": 2, "def": 0.6},
+        {"id": "ocean", "label": "Ocean swell", "slot": "4x", "min": 0, "max": 2, "def": 0},
+        {"id": "leds", "label": "LED steps", "slot": "4y", "min": 0, "max": 12, "def": 0, "step": 1}
       ]
     },
     "lasers": {

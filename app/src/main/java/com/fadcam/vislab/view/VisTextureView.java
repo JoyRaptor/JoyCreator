@@ -201,18 +201,32 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
         keepSmooth(dt, nowNs);
     }
 
+    private final double[] frameTimes = new double[240];
+
     private void keepSmooth(double dt, long nowNs) {
+        if (frames < frameTimes.length) frameTimes[frames] = dt;
         frames++;
-        // Ignore one-off stalls (an app switch, a screenshot): they are not the GPU.
-        if (dt > 0.024 && dt < 0.08) slow++;
-        else if (dt < 0.0175) fast++;
         if (statsStartNs == 0) statsStartNs = nowNs;
         if (nowNs - statsStartNs < 1_000_000_000L) return;
-        if (autoQuality) {
+        if (autoQuality && frames > 3) {
+            // Judge the TYPICAL frame (the median), so one stall (an app switch, a screenshot)
+            // changes nothing, while a look that is slow on every frame is always caught, however
+            // slow. The pixel cost goes with scale squared, hence the square root.
+            int n = Math.min(frames, frameTimes.length);
+            double[] sorted = java.util.Arrays.copyOf(frameTimes, n);
+            java.util.Arrays.sort(sorted);
+            double median = sorted[n / 2];
             float s = renderer.renderScale();
-            if (slow > frames * 0.3f && s > 0.45f) renderer.setRenderScale(s - 0.1f);
-            else if (fast > frames * 0.9f && s < 1f) renderer.setRenderScale(s + 0.05f);
+            if (median > 1.0 / 48 && s > 0.4f) {
+                float want = (float) (s * Math.sqrt((1.0 / 56) / median));
+                renderer.setRenderScale(Math.max(0.4f, Math.max(s - 0.25f, Math.min(s - 0.05f, want))));
+            } else if (median < 1.0 / 58 && s < 1f) {
+                renderer.setRenderScale(Math.min(1f, s + 0.05f));
+            }
         }
+        Log.i(TAG, "fps " + frames + " scale " + Math.round(renderer.renderScale() * 100) + "% cpu "
+                + String.format(java.util.Locale.ROOT, "%.1f", renderer.lastFrameMs()) + "ms " + surfW + "x" + surfH
+                + (renderer.lastError() != null ? " error: " + renderer.lastError() : ""));
         StatsListener l = stats;
         if (l != null) {
             final int fps = frames;

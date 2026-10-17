@@ -6,7 +6,7 @@ then this file. Owner: JoyRaptor — non-technical, phone-first (Note 9), wants 
 
 ## Update — 2026-10-17, app-wide host + amber warning (read this first)
 
-All pushed (origin/joy-creator at f9b723ff6). Built on the 10-15 work:
+All pushed (origin/joy-creator at 34fd0e4e9 + this note). Built on the 10-15 work:
 - **App host** `AppActions`/`AppCtx` beside `StudioActions`: open_room (studio, spritelab, avatar, library, record,
   joybrush, space, setup, trash), list_library, open_library_item, new_project_from (recording → new Studio project).
   The chat takes `takePendingRoute` / `takePendingOpen` after the action and closes; navigating ends the request.
@@ -17,10 +17,12 @@ All pushed (origin/joy-creator at f9b723ff6). Built on the 10-15 work:
 - 90 s read timeout; refusal guidance; no-credit errors say "no credit left" (OpenAI reports them as busy).
 - Phone-green: list_library, open_room, place_sprite, trash, open_library_item, new_project_from, a 3-call request
   as one undo, amber Joybot + bring-in card (**Do it never tapped — real files; owner's call**).
-- **Waiting on others:** VisLab lane is building `com.fadcam.vislab.room.VisLabSession` (get, currentLookJson,
-  lookIds/lookJson, typesJson, pickLook, apply → ApplyResult, undo/redo, setBrand). When it lands: write
-  `VisLabActions` (app host), add a room-based "vislab" ToolRouter family and VisLab ideas (`IdeaEngine.Room.VISLAB`
-  already exists). OpenAI test shelved until the owner buys API credits (use gpt-6-luna; a stale duplicate "OpenAI"
+- **VisLab (done 10-17, 34fd0e4e9):** `VisLabActions` (app host) on the VisLab lane's `VisLabSession`; change
+  lines parsed by pure-Java `VisLabEdit` (`run-vislab-edit.sh`, 46 checks). One request = one VisLab undo
+  (request token = undo group). Inside VisLab the router sends core + vislab only. Phone-green on free models:
+  look switch + knob changes, one undo restores both; "A calmer version" adds a new look, one undo removes it.
+  **Owed:** a look Joybot adds lives only in the session until the VisLab lane ships save_look — wire it then.
+- OpenAI test shelved until the owner buys API credits (use gpt-6-luna; a stale duplicate "OpenAI"
   account with a broken key can be removed in ⚙). An "Untitled" Studio project from the 10-15 screen recording was
   made by the new_project_from test — owner keeps or deletes it.
 - Still untested on phone: hands-free voice, F9 fallback, add_media / relink / list_items, ducking.

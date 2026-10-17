@@ -18,23 +18,23 @@ import com.fadcam.ui.faditor.Studio;
 import com.fadcam.ui.type.Type;
 
 /** Small builders shared by the VisLab room's views, all on the Studio tokens. */
-final class Ui {
+public final class Ui {
 
     private Ui() {}
 
     /** VisLab's room gradient (the lobby card's amber pair). */
-    static final int VIZ_A = Studio.ROOM_VIZ, VIZ_B = Studio.ROOM_VIZ_DEEP;
+    public static final int VIZ_A = Studio.ROOM_VIZ, VIZ_B = Studio.ROOM_VIZ_DEEP;
     /** Drawers are never opaque: the Studio panel at ~55%. */
-    static final int DRAWER = (0x8C << 24) | (Studio.PANEL & 0xFFFFFF);
+    public static final int DRAWER = (0x8C << 24) | (Studio.PANEL & 0xFFFFFF);
 
     private static Typeface icons;
 
-    static int dp(@NonNull Context c, float v) {
+    public static int dp(@NonNull Context c, float v) {
         return Math.round(v * c.getResources().getDisplayMetrics().density);
     }
 
     @NonNull
-    static Typeface iconFont(@NonNull Context c) {
+    public static Typeface iconFont(@NonNull Context c) {
         if (icons == null) {
             Typeface t = ResourcesCompat.getFont(c, R.font.materialicons);
             icons = t != null ? t : Typeface.DEFAULT;
@@ -44,7 +44,7 @@ final class Ui {
 
     /** An icon from the Material Icons font, by ligature name ("mic", "music_note"). */
     @NonNull
-    static TextView icon(@NonNull Context c, @NonNull String ligature, float sp, int color) {
+    public static TextView icon(@NonNull Context c, @NonNull String ligature, float sp, int color) {
         TextView t = new TextView(c);
         t.setTypeface(iconFont(c));
         t.setText(ligature);
@@ -59,7 +59,7 @@ final class Ui {
     }
 
     @NonNull
-    static TextView text(@NonNull Context c, @NonNull CharSequence s, float sp, int color, boolean display, int weight) {
+    public static TextView text(@NonNull Context c, @NonNull CharSequence s, float sp, int color, boolean display, int weight) {
         TextView t = new TextView(c);
         t.setText(s);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
@@ -70,13 +70,13 @@ final class Ui {
     }
 
     /** Every control gets a hover label: stylus and mouse users see it, TalkBack reads it. */
-    static void label(@NonNull View v, @NonNull String what) {
+    public static void label(@NonNull View v, @NonNull String what) {
         v.setContentDescription(what);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) v.setTooltipText(what);
     }
 
     @NonNull
-    static GradientDrawable round(int color, float radiusPx) {
+    public static GradientDrawable round(int color, float radiusPx) {
         GradientDrawable g = new GradientDrawable();
         g.setColor(color);
         g.setCornerRadius(radiusPx);

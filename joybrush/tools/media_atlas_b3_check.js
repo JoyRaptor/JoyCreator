@@ -213,13 +213,41 @@ const KINDS = ['orderA', 'orderB', 'noWriteBack', 'noReplay'];
     return fs.existsSync(edge) ? edge : null;
   })();
   if (!exe) { console.log(JSON.stringify({ pass: false, error: 'no browser' })); process.exit(1); }
-  const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-  let out;
-  try {
-    const page = await browser.newPage();
-    page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
-    out = await page.evaluate(PAGE, { LW, AW, PPM, SRC, wu: wetUniformMap(WC), WC, REACH, KINDS, scenarios: SCENARIOS });
-  } finally { await browser.close(); }
+  // One browser per scenario and kind: a pair needs about 1 GB of float textures, and SwiftShader does not hand freed
+  // texture memory back fast enough for the next pair in the same page.
+  const only = argVal('only', null), kindsArg = argVal('kinds', null);
+  const kinds = kindsArg ? kindsArg.split(',') : KINDS, picks = only === null ? SCENARIOS.map((_, i) => i) : [+only];
+  const out = { results: [], missingUniforms: [] }, missing = new Set();
+  for (const si of picks) {
+    let merged = null;
+    for (const kind of kinds) {
+      let part;
+      // A browser that dies under memory pressure (another job on the machine) is retried once; a real failure repeats.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+        try {
+          const page = await browser.newPage();
+          page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
+          part = await page.evaluate(PAGE, { LW, AW, PPM, SRC, wu: wetUniformMap(WC), WC, REACH, KINDS: [kind], scenarios: [SCENARIOS[si]] });
+        } catch (e) { part = { results: [{ name: SCENARIOS[si].name, medium: SCENARIOS[si].kind, mismatch: {}, evictions: {}, loads: {}, misses: {}, maxResident: 0, tilesCrossed: 0, changed: 0, error: kind + ': ' + String(e.message || e).split(String.fromCharCode(10))[0] }], missingUniforms: [], crashed: true }; }
+        finally { await browser.close().catch(() => {}); }
+        if (!part.crashed) break;
+        console.error('[b3] browser lost on ' + SCENARIOS[si].name + ' / ' + kind + (attempt ? ', giving up' : ', retrying'));
+      }
+      if (part.error) { console.log(JSON.stringify({ pass: false, ...part })); process.exit(1); }
+      for (const u of part.missingUniforms) missing.add(u);
+      const r = part.results[0];
+      if (!merged) merged = r;
+      else {
+        for (const k of ['mismatch', 'evictions', 'loads', 'misses']) Object.assign(merged[k], r[k]);
+        merged.maxResident = Math.max(merged.maxResident, r.maxResident); merged.tilesCrossed = Math.max(merged.tilesCrossed, r.tilesCrossed);
+        merged.changed = Math.max(merged.changed, r.changed);
+        if (r.error) merged.error = merged.error ? merged.error + '; ' + r.error : r.error;
+      }
+    }
+    out.results.push(merged);
+  }
+  out.missingUniforms = [...missing].sort();
   if (out.error) { console.log(JSON.stringify({ pass: false, ...out })); process.exit(1); }
   let exactBad = 0, noWb = 0, noRp = 0, errors = 0, misses = 0;
   for (const r of out.results) {
@@ -684,6 +712,7 @@ async function PAGE(P) {
   // ---------- the run: each atlas kind against its own oracle (one pair alive at a time) ----------
   const results = [];
   const dryReach = (sc) => Math.ceil(sc.smearMm * P.PPM) + 4;
+  const union = (a, b) => !a ? b.slice() : [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
   function frameParts(sc, Fr) {
     if (sc.kind === 'dry') return [[Fr.rect, dryReach(sc)]];
     if (sc.kind === 'erase') return [[Fr.rect, P.REACH.erase]];
@@ -693,6 +722,7 @@ async function PAGE(P) {
     const r = { name: sc.name, medium: sc.kind, frames: sc.frames.length, mismatch: {}, changed: 0, maxResident: 0, evictions: {}, loads: {}, misses: {}, tilesCrossed: 0 };
     try {
       for (const kind of P.KINDS) {
+        console.error('[b3] ' + sc.name + ' / ' + kind + ' start ' + new Date().toISOString());
         OWNED = { tex: [], fbo: [] };
         const O = makeEngine('window', sc.seed * 101 + 7), A = makeEngine(kind, sc.seed * 101 + 7), m = { total: 0 };
         A.oracle = O;

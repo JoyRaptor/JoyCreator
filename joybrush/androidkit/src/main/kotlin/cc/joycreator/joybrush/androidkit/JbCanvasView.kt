@@ -2062,7 +2062,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         if (contents.strokes.values.any { lines -> lines.any { it.capturedPhysicalSource != null } }) {
             return "this drawing has exact-copy lines in it, and this screen cannot show them yet"
         }
-        if (contents.slabs.isNotEmpty()) return "this drawing has pixel slabs in it, and this screen cannot show them yet"
+        if (contents.slabs.isNotEmpty() || doc.layers.any { l -> DocOps.storedCels(l).any { it.slabs.isNotEmpty() } })
+            return "this drawing has pixel slabs in it, and this screen cannot show them yet"
+        // Editable lines (NATIVE_LINES_V1): what the drawing lists and what it carries must agree exactly; a drawing
+        // half-written in either direction is refused before anything on screen changes.
+        val declaredLooks = doc.layers.flatMap { l -> DocOps.storedCels(l).flatMap { c -> c.looks.map { Triple(l.id, c.id, it) } } }.toSet()
+        if (declaredLooks != contents.looks.keys) return "this drawing's saved line pictures do not match what it lists"
+        if (contents.looks.values.any { it.size != TILE_BYTES }) return "a saved line picture in this drawing has the wrong size"
+        val declaredLines = doc.layers.flatMap { l -> DocOps.storedCels(l).filter { it.strokesFile != null }.map { l.id to it.id } }.toSet()
+        if (declaredLines != contents.strokes.filterValues { it.isNotEmpty() }.keys) return "this drawing's editable lines do not match what it lists"
+        if (doc.brushes.toSet() != contents.brushes.keys) return "this drawing's kept brushes do not match what it lists"
+        if (contents.strokes.values.any { lines -> lines.any { it.brushId !in contents.brushes } })
+            return "a line in this drawing names a brush the drawing does not keep"
         if (doc.layers.isEmpty()) return "this drawing has no layers"
         if(doc.boards.any{it.kind !in listOf(BoardKind.CANVAS,BoardKind.ANIMATION,BoardKind.SPRITE)})
             return "This renderer does not show puppet or character boards yet"

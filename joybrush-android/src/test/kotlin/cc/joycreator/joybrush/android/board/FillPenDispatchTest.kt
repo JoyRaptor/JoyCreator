@@ -173,12 +173,12 @@ class FillPenDispatchTest {
         assertTrue(reason.contains("masks")); assertNull(get(view,"strokePreset"))
     }
 
-    @Test fun armedTilingRefusesFillBeforeTheStrokeBegins() {
+    // Tile tools (2026-10-16): the fill pen works on an armed Tile board; its shape is folded into the repeat at commit.
+    @Test fun armedTilingDispatchesTheFillPen() {
         val view=surface(); set(view,"tileBoardId","tile")
         var reason=""; view.onRefused={reason=it}
         begin(view)
-        assertFalse(view.strokeInProgress); assertTrue(reason.contains("tiling"))
-        assertNull(get(view,"strokePreset"))
+        assertTrue(view.strokeInProgress); assertEquals("",reason)
     }
 
     // R51 (JB-2.40): pencil, watercolour and oil are a payload on an ordinary layer's tiles, and every plain write over

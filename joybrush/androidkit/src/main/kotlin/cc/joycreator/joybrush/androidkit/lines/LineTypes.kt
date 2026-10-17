@@ -22,14 +22,21 @@ class LineSnapshot(
     val revision: Long,
     planes: Map<LinePlane, List<StrokeRecord>>,
     brushes: Map<String, BrushPreset>,
+    /** Every plane that holds ITEMS (lines or pixel slabs): its pixels must stay what its items draw (v1.2). */
+    itemPlanes: Set<LinePlane> = emptySet(),
 ) {
     val planes: Map<LinePlane, List<StrokeRecord>> = planes.mapValues { it.value.toList() }
     val brushes: Map<String, BrushPreset> = brushes.toMap()
+    val itemPlanes: Set<LinePlane> = (itemPlanes + planes.filterValues { it.isNotEmpty() }.keys).toSet()
 
     /** The plane's lines in drawing order (seq), empty when it has none. */
     fun lines(plane: LinePlane): List<StrokeRecord> = planes[plane].orEmpty()
     fun brush(id: String): BrushPreset? = brushes[id]
     fun hasLines(plane: LinePlane): Boolean = planes[plane]?.isNotEmpty() == true
+
+    /** Does the plane hold lines or pixel slabs? A stroke there that is not a line becomes a slab. */
+    fun holdsItems(plane: LinePlane): Boolean = plane in itemPlanes
+    fun holdsItemsOnLayer(layerId: String): Boolean = itemPlanes.any { it.layerId == layerId }
 
     companion object { val EMPTY = LineSnapshot(0L, emptyMap(), emptyMap()) }
 }

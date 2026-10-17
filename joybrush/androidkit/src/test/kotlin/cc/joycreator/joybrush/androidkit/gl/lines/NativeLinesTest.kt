@@ -9,8 +9,9 @@ import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import kotlin.test.*
 
 /**
- * Editable lines v1 (tasks/joybrush/specs/NATIVE_LINES_V1_20261016.md): the engine-side bookkeeping, pure JVM. Footprints
- * come from a fake function so every crossing rule is stated with explicit tile keys, not geometry.
+ * Editable lines v1 + v1.2 (tasks/joybrush/specs/NATIVE_LINES_V1_20261016.md, NATIVE_LINES_V12_HARDENING_20261017.md): the
+ * engine-side bookkeeping, pure JVM. Footprints come from a fake function so every crossing rule is stated with explicit
+ * tile keys, not geometry.
  */
 class NativeLinesTest {
     private val paint = LinePlane("paint", null)
@@ -22,7 +23,7 @@ class NativeLinesTest {
         listOf(PenSample(x, 2f, 0.0)), seq = seq)
     private fun pen(size: Float = 8f) = BrushPreset(id = "pen", name = "Pen", size = Param(size))
 
-    /** Tiles by record id; every call is kept so caching is observable. */
+    /** Tiles by record id; every call is kept so computing is observable. */
     private class Fake {
         val tilesOf = HashMap<String, Set<Long>>()
         val calls = ArrayList<Pair<StrokeRecord, BrushPreset?>>()
@@ -44,6 +45,9 @@ class NativeLinesTest {
         assertEquals(0L, lines.revision)
         assertTrue(lines.snapshot().planes.isEmpty())
         assertTrue(lines.baseTextures().isEmpty())
+        assertTrue(lines.textures().isEmpty())
+        assertFalse(lines.hasItems(paint))
+        assertTrue(lines.itemPlanes().isEmpty())
     }
 
     @Test fun linesAreKeptInSeqOrderWhateverTheOrderTheyArePut() {
@@ -116,6 +120,7 @@ class NativeLinesTest {
         lines.put(paint, "a", null)
         assertFalse(lines.hasLines(paint))
         assertTrue(lines.linePlanes().isEmpty(), "a plane with only a base holds no lines")
+        assertFalse(lines.hasItems(paint), "a base alone is not an item")
         assertTrue(lines.snapshot().planes.isEmpty())
         assertEquals(11, lines.base(paint, tile(0)), "the base outlives the line: undo can bring the line back")
         assertEquals(setOf(11), lines.baseTextures())
@@ -143,76 +148,99 @@ class NativeLinesTest {
         assertEquals(2, lines.lines(paint).size)
     }
 
-    // ── footprints and crossing ───────────────────────────────────────────────
+    // ── footprints and crossing (identity, never value) ───────────────────────
 
-    @Test fun crossedAnswersFromTheStoreOrFromAnyExplicitListOfRecords() {
+    @Test fun theIndexAnswersWhichItemsCrossATileInSeqOrder() {
         val fake = Fake().apply {
             tilesOf["a"] = setOf(tile(0), tile(1)); tilesOf["b"] = setOf(tile(1), tile(2)); tilesOf["c"] = setOf(tile(5))
         }
         val lines = store(fake)
-        val a = line("a", 1); val b = line("b", 2); val c = line("c", 3)
-        lines.put(paint, "a", a); lines.put(paint, "b", b)
-        assertTrue(lines.crossed(paint, tile(0))); assertTrue(lines.crossed(paint, tile(2)))
-        assertFalse(lines.crossed(paint, tile(5)), "c is not in the plane")
-        assertTrue(lines.crossed(paint, tile(5), listOf(c)), "an explicit list (an edit's next state) decides")
-        assertFalse(lines.crossed(paint, tile(0), listOf(b, c)))
-        assertFalse(lines.crossed(paint, tile(0), emptyList()), "an explicit empty list is no lines, not the store")
-        assertFalse(lines.crossed(other, tile(0)), "another plane has no lines")
+        lines.put(paint, "b", line("b", 2)); lines.put(paint, "a", line("a", 1))
+        assertTrue(lines.isCrossed(paint, tile(0))); assertTrue(lines.isCrossed(paint, tile(2)))
+        assertFalse(lines.isCrossed(paint, tile(5)), "c is not in the plane")
+        assertEquals(listOf(1L, 2L), lines.seqsAt(paint, tile(1)))
+        assertEquals(listOf("a", "b"), lines.linesAt(paint, tile(1)).map { it.id })
+        assertEquals(listOf("a"), lines.linesAt(paint, tile(0)).map { it.id })
+        assertEquals(listOf("b"), lines.linesAt(paint, tile(2)).map { it.id })
+        assertTrue(lines.linesAt(paint, tile(7)).isEmpty())
+        assertFalse(lines.isCrossed(other, tile(0)), "another plane has no lines")
+        assertEquals(setOf(tile(0), tile(1), tile(2)), lines.crossedKeys(paint))
     }
 
-    @Test fun crossingListsTheLinesOfTheGivenRecordsThatReachTheTileInSeqOrder() {
-        val fake = Fake().apply {
-            tilesOf["a"] = setOf(tile(0), tile(1)); tilesOf["b"] = setOf(tile(1)); tilesOf["c"] = setOf(tile(1), tile(2))
-            tilesOf["d"] = setOf(tile(9))
-        }
+    @Test fun removingOrReplacingALineTakesItsTilesOutOfTheIndex() {
+        val fake = Fake().apply { tilesOf["a"] = setOf(tile(0), tile(1)); tilesOf["b"] = setOf(tile(1)) }
         val lines = store(fake)
-        val given = listOf(line("c", 30), line("a", 10), line("d", 5), line("b", 20))   // not in seq order on purpose
-        assertEquals(listOf("a", "b", "c"), lines.crossing(given, tile(1)).map { it.id })
-        assertEquals(listOf("a"), lines.crossing(given, tile(0)).map { it.id })
-        assertEquals(listOf("c"), lines.crossing(given, tile(2)).map { it.id })
-        assertTrue(lines.crossing(given, tile(7)).isEmpty())
-        assertTrue(lines.crossing(emptyList(), tile(1)).isEmpty())
+        lines.put(paint, "a", line("a", 1)); lines.put(paint, "b", line("b", 2))
+        lines.put(paint, "a", null)
+        assertFalse(lines.isCrossed(paint, tile(0)))
+        assertEquals(listOf("b"), lines.linesAt(paint, tile(1)).map { it.id })
+        fake.tilesOf["b"] = setOf(tile(3))
+        lines.put(paint, "b", line("b", 2, x = 9f))   // moved: the footprint is the new one
+        assertFalse(lines.isCrossed(paint, tile(1)))
+        assertTrue(lines.isCrossed(paint, tile(3)))
+        assertEquals(setOf(tile(3)), lines.footprint(paint, "b"))
+        assertEquals(emptySet(), lines.footprint(paint, "a"), "a removed line has no footprint")
     }
 
-    @Test fun aFootprintIsComputedOnceByValueAndGetsTheFrozenBrushOfTheRecord() {
+    @Test fun aFootprintIsComputedOnceWhenALineIsPutAndGetsTheFrozenBrushOfTheRecord() {
         val fake = Fake().apply { tilesOf["a"] = setOf(tile(3)) }
         val lines = store(fake)
         lines.addBrushes(mapOf("pen" to pen()))
-        val a = line("a", 1)
-        assertEquals(setOf(tile(3)), lines.footprint(a))
-        assertEquals(setOf(tile(3)), lines.footprint(a.copy()), "an undo hands back an equal copy: same cache entry")
+        lines.put(paint, "a", line("a", 1))
         assertEquals(1, fake.calls.size)
         assertEquals(pen(), fake.calls.single().second)
-        lines.footprint(line("ghost", 2, brushId = "unknown-brush"))
+        assertEquals(setOf(tile(3)), lines.footprint(paint, "a"))
+        assertEquals(setOf(tile(3)), lines.footprint(paint, "a"))
+        assertEquals(1, fake.calls.size, "reading a footprint never computes it again")
+        lines.estimate(line("ghost", 2, brushId = "unknown-brush"))
         assertNull(fake.calls.last().second, "a brush the drawing does not hold is handed over as null")
-        lines.footprint(a.copy(seq = 4))
-        assertEquals(3, fake.calls.size, "a record that differs in any field is another record")
+    }
+
+    @Test fun anExplicitFootprintReplacesTheEstimate() {
+        val fake = Fake().apply { tilesOf["a"] = setOf(tile(0)) }
+        val lines = store(fake)
+        lines.put(paint, "a", line("a", 1), footprint = setOf(tile(0), tile(4)))
+        assertEquals(setOf(tile(0), tile(4)), lines.footprint(paint, "a"))
+        assertTrue(lines.isCrossed(paint, tile(4)))
     }
 
     @Test fun widenAddsTilesTheGpuDrewAndNeverNarrows() {
         val fake = Fake().apply { tilesOf["a"] = setOf(tile(0), tile(1)) }
         val lines = store(fake)
-        val a = line("a", 1)
-        lines.put(paint, "a", a)
-        lines.widen(a, setOf(tile(1)))
-        assertEquals(setOf(tile(0), tile(1)), lines.footprint(a), "tiles it already had change nothing")
-        lines.widen(a, emptySet())
-        assertEquals(setOf(tile(0), tile(1)), lines.footprint(a))
-        lines.widen(a, setOf(tile(1), tile(4)))
-        assertEquals(setOf(tile(0), tile(1), tile(4)), lines.footprint(a))
-        lines.widen(a, setOf(tile(0)))
-        assertEquals(setOf(tile(0), tile(1), tile(4)), lines.footprint(a), "a smaller drawn set never takes tiles away")
-        assertTrue(lines.crossed(paint, tile(4)), "a widened tile counts as crossed")
+        lines.put(paint, "a", line("a", 1))
+        lines.widen(paint, "a", setOf(tile(1)))
+        assertEquals(setOf(tile(0), tile(1)), lines.footprint(paint, "a"), "tiles it already had change nothing")
+        lines.widen(paint, "a", emptySet())
+        assertEquals(setOf(tile(0), tile(1)), lines.footprint(paint, "a"))
+        lines.widen(paint, "a", setOf(tile(1), tile(4)))
+        assertEquals(setOf(tile(0), tile(1), tile(4)), lines.footprint(paint, "a"))
+        lines.widen(paint, "a", setOf(tile(0)))
+        assertEquals(setOf(tile(0), tile(1), tile(4)), lines.footprint(paint, "a"), "a smaller drawn set never takes tiles away")
+        assertTrue(lines.isCrossed(paint, tile(4)), "a widened tile counts as crossed")
+        lines.widen(paint, "unknown", setOf(tile(9)))   // widening a line that is not there is harmless
+        assertFalse(lines.isCrossed(paint, tile(9)))
     }
 
-    @Test fun aRecordTheCpuCannotReplayStartsEmptyAndIsWidenedFromWhatTheGpuDrew() {
-        val lines = store()   // the fake knows no tiles for it, as cpuFootprint does for a refused brush
+    @Test fun aWidenedFootprintComesBackWhenAnUndoPutsTheLineAgain() {
+        val fake = Fake().apply { tilesOf["a"] = setOf(tile(0)) }
+        val lines = store(fake)
         val a = line("a", 1)
         lines.put(paint, "a", a)
-        assertTrue(lines.footprint(a).isEmpty())
-        assertFalse(lines.crossed(paint, tile(0)))
-        lines.widen(a, setOf(tile(0), tile(1)))
-        assertTrue(lines.crossed(paint, tile(1)))
+        lines.widen(paint, "a", setOf(tile(6)))
+        lines.put(paint, "a", null)          // deleted
+        assertFalse(lines.isCrossed(paint, tile(6)))
+        lines.put(paint, "a", a)             // undo of the delete hands back an equal record, nothing else
+        assertEquals(setOf(tile(0), tile(6)), lines.footprint(paint, "a"))
+    }
+
+    @Test fun aRecordTheCpuKnowsNothingOfStartsEmptyAndIsWidenedFromWhatTheGpuDrew() {
+        val lines = store()   // the fake knows no tiles for it, as cpuFootprint does for a missing brush
+        val a = line("a", 1)
+        lines.put(paint, "a", a)
+        assertTrue(lines.footprint(paint, "a").isEmpty())
+        assertFalse(lines.isCrossed(paint, tile(0)))
+        lines.widen(paint, "a", setOf(tile(0), tile(1)))
+        assertTrue(lines.isCrossed(paint, tile(1)))
     }
 
     @Test fun theRealFootprintOfAnUnknownBrushIsEmptyAndOfAStrokeIsPaddedPastItsDabs() {
@@ -243,6 +271,7 @@ class NativeLinesTest {
         assertNull(lines.base(paint, tile(2)), "an absent base on a crossed tile means transparent")
         assertNull(lines.base(shared, tile(0)))
         assertEquals(setOf(11, 12, 13), lines.baseTextures())
+        assertEquals(mapOf(tile(0) to 11, tile(1) to 12), lines.bases(paint))
         lines.setBase(paint, tile(0), 21)
         assertEquals(21, lines.base(paint, tile(0)))
         assertEquals(setOf(21, 12, 13), lines.baseTextures())
@@ -260,6 +289,138 @@ class NativeLinesTest {
         lines.setBase(paint, tile(0), null)
         assertNull(lines.base(paint, tile(0)))
         assertTrue(lines.baseTextures().isEmpty())
+    }
+
+    // ── slabs (v1.2 H1) ───────────────────────────────────────────────────────
+
+    @Test fun aSlabIsKeptPerSeqWithItsOperatorAndOneTexturePerTile() {
+        val lines = store()
+        lines.setSlab(paint, 3, tile(0), 31, "erase")
+        lines.setSlab(paint, 3, tile(1), 32, "erase")
+        lines.setSlab(paint, 5, tile(1), 51)
+        assertEquals(listOf(3L, 5L), lines.slabSeqs(paint))
+        val slab = assertNotNull(lines.slab(paint, 3))
+        assertEquals("erase", slab.op)
+        assertEquals(mapOf(tile(0) to 31, tile(1) to 32), slab.tiles)
+        assertEquals("normal", lines.slab(paint, 5)?.op)
+        assertNull(lines.slab(paint, 4))
+        assertTrue(lines.hasSlabs(paint)); assertTrue(lines.hasItems(paint))
+        assertTrue(lines.hasItemsOnLayer("paint")); assertFalse(lines.hasLinesOnLayer("paint"))
+        assertEquals(setOf(paint), lines.itemPlanes())
+        assertTrue(lines.linePlanes().isEmpty(), "a slab is not a line")
+        assertEquals(setOf(31, 32, 51), lines.textures())
+        assertTrue(lines.baseTextures().isEmpty())
+    }
+
+    @Test fun aSlabCrossesItsOwnTilesAndTheIndexListsItBesideTheLinesInSeqOrder() {
+        val fake = Fake().apply { tilesOf["a"] = setOf(tile(0), tile(1)); tilesOf["b"] = setOf(tile(1)) }
+        val lines = store(fake)
+        lines.put(paint, "a", line("a", 1))
+        lines.setSlab(paint, 2, tile(1), 21, "multiply")
+        lines.setSlab(paint, 2, tile(4), 24, "multiply")
+        lines.put(paint, "b", line("b", 3))
+        assertEquals(listOf(1L, 2L, 3L), lines.seqsAt(paint, tile(1)))
+        assertEquals(listOf("a", "b"), lines.linesAt(paint, tile(1)).map { it.id })
+        val slabs = lines.slabsAt(paint, tile(1))
+        assertEquals(listOf(2L), slabs.map { it.seq }); assertEquals(listOf("multiply"), slabs.map { it.op }); assertEquals(listOf(21), slabs.map { it.texture })
+        assertTrue(lines.isCrossed(paint, tile(4)), "a slab alone crosses its tile")
+        assertTrue(lines.linesAt(paint, tile(4)).isEmpty())
+        assertEquals(setOf(tile(0), tile(1), tile(4)), lines.crossedKeys(paint))
+        assertEquals(4L, lines.nextSeq(paint), "seqs are shared: the next is past the slab and the lines")
+    }
+
+    @Test fun nextSeqCountsSlabsToo() {
+        val lines = store()
+        lines.put(paint, "a", line("a", 1))
+        lines.setSlab(paint, 7, tile(0), 70)
+        assertEquals(8L, lines.nextSeq(paint))
+        lines.setSlab(paint, 7, tile(0), null)
+        assertEquals(2L, lines.nextSeq(paint))
+    }
+
+    @Test fun droppingEverySlabTileRemovesTheSlabAndAPlaneWithNothingLeftDisappears() {
+        val lines = store()
+        lines.setSlab(paint, 2, tile(0), 20); lines.setSlab(paint, 2, tile(1), 21)
+        lines.setSlab(paint, 2, tile(0), null)
+        assertEquals(mapOf(tile(1) to 21), lines.slab(paint, 2)?.tiles)
+        assertFalse(lines.isCrossed(paint, tile(0)))
+        lines.setSlab(paint, 2, tile(1), null)
+        assertNull(lines.slab(paint, 2))
+        assertTrue(lines.slabSeqs(paint).isEmpty())
+        assertFalse(lines.hasItems(paint))
+        assertTrue(lines.itemPlanes().isEmpty())
+        lines.setSlab(paint, 9, tile(0), null)   // dropping what is not there is harmless
+        assertFalse(lines.hasItems(paint))
+    }
+
+    @Test fun aLineAndASlabNeverShareASeq() {
+        val lines = store()
+        lines.put(paint, "a", line("a", 2))
+        assertFailsWith<IllegalArgumentException> { lines.setSlab(paint, 2, tile(0), 20) }
+        assertFalse(lines.hasSlabs(paint), "the refused slab left nothing behind")
+        lines.setSlab(paint, 3, tile(0), 30)
+        assertFailsWith<IllegalArgumentException> { lines.put(paint, "b", line("b", 3)) }
+        assertNull(lines.record(paint, "b"))
+        assertEquals(mapOf(tile(0) to 30), lines.slab(paint, 3)?.tiles)
+        // A slab takes the seq of a line that has gone (Rasterize Down), and the line takes it back on undo.
+        lines.put(paint, "a", null)
+        lines.setSlab(paint, 2, tile(0), 20)
+        assertFailsWith<IllegalArgumentException> { lines.put(paint, "a", line("a", 2)) }
+        lines.setSlab(paint, 2, tile(0), null)
+        lines.put(paint, "a", line("a", 2))
+        assertEquals(listOf("a"), lines.lines(paint).map { it.id })
+    }
+
+    @Test fun aSlabSeqBelowOneAndAnUnknownOperatorAreRefused() {
+        val lines = store()
+        assertFailsWith<IllegalArgumentException> { lines.setSlab(paint, 0, tile(0), 1) }
+        assertFailsWith<IllegalArgumentException> { lines.setSlab(paint, -3, tile(0), 1) }
+        assertFailsWith<IllegalArgumentException> { lines.setSlab(paint, 2, tile(0), 1, "overlay") }
+        assertFalse(lines.hasItems(paint))
+        for (op in NativeLines.OPERATORS) lines.setSlab(paint, 2, tile(0), 5, op)
+        assertEquals("screen".takeIf { "screen" in NativeLines.OPERATORS }, lines.slab(paint, 2)?.op?.takeIf { it == "screen" })
+    }
+
+    @Test fun theSlabReturnedIsACopy() {
+        val lines = store()
+        lines.setSlab(paint, 2, tile(0), 20)
+        val copy = lines.slab(paint, 2)!!
+        lines.setSlab(paint, 2, tile(1), 21)
+        assertEquals(setOf(tile(0)), copy.tiles.keys)
+        assertEquals(setOf(tile(0), tile(1)), lines.slab(paint, 2)!!.tiles.keys)
+    }
+
+    @Test fun planesKeepTheirSlabsApartAndRenameMovesThemWithTheLines() {
+        val lines = store()
+        lines.put(paint, "a", line("a", 1))
+        lines.setSlab(paint, 2, tile(0), 20)
+        lines.setBase(paint, tile(0), 11)
+        lines.setSlab(other, 2, tile(0), 90)
+        lines.rename(paint, shared)
+        assertFalse(lines.hasItems(paint))
+        assertEquals(listOf("a"), lines.lines(shared).map { it.id })
+        assertEquals(mapOf(tile(0) to 20), lines.slab(shared, 2)?.tiles)
+        assertEquals(11, lines.base(shared, tile(0)))
+        assertTrue(lines.isCrossed(shared, tile(0)))
+        assertEquals(mapOf(tile(0) to 90), lines.slab(other, 2)?.tiles)
+        assertEquals(setOf(20, 90, 11), lines.textures())
+    }
+
+    // A Rasterize Down in NativeLines' terms: the line goes and a slab takes its seq, in one step; undo swaps them back.
+    @Test fun aLineBecomingASlabAtItsOwnSeqAndBackLeavesTheIndexExact() {
+        val fake = Fake().apply { tilesOf["a"] = setOf(tile(0), tile(1)) }
+        val lines = store(fake)
+        val a = line("a", 4)
+        lines.put(paint, "a", a)
+        lines.put(paint, "a", null)
+        lines.setSlab(paint, 4, tile(0), 40, "behind"); lines.setSlab(paint, 4, tile(1), 41, "behind")
+        assertEquals(listOf(4L), lines.seqsAt(paint, tile(1)))
+        assertTrue(lines.lines(paint).isEmpty())
+        assertTrue(lines.hasItems(paint))
+        lines.setSlab(paint, 4, tile(0), null); lines.setSlab(paint, 4, tile(1), null)
+        lines.put(paint, "a", a)
+        assertEquals(listOf("a"), lines.linesAt(paint, tile(1)).map { it.id })
+        assertFalse(lines.hasSlabs(paint))
     }
 
     // ── rename ────────────────────────────────────────────────────────────────
@@ -317,6 +478,18 @@ class NativeLinesTest {
         assertEquals(pen(), snapshot.brush("pen"))
         assertNull(snapshot.brush("none"))
         assertEquals(lines.revision, snapshot.revision)
+        assertFalse(snapshot.holdsItems(shared)); assertTrue(snapshot.holdsItems(other))
+    }
+
+    @Test fun theSnapshotKnowsWhichPlanesHoldOnlySlabs() {
+        val lines = store()
+        lines.setSlab(shared, 2, tile(0), 20)
+        lines.put(paint, "a", line("a", 1))
+        val snapshot = lines.snapshot()
+        assertTrue(snapshot.holdsItems(shared)); assertTrue(snapshot.holdsItems(paint))
+        assertTrue(snapshot.holdsItemsOnLayer("paint")); assertFalse(snapshot.holdsItemsOnLayer("sketch"))
+        assertFalse(snapshot.hasLines(shared), "a slab is not a line")
+        assertEquals(setOf(paint, shared), snapshot.itemPlanes)
     }
 
     @Test fun aSnapshotDoesNotChangeWhenTheStoreDoes() {
@@ -331,7 +504,7 @@ class NativeLinesTest {
         assertEquals(listOf("b"), lines.snapshot().lines(paint).map { it.id })
     }
 
-    @Test fun theRevisionGrowsWithEveryLineChangeRenameClearAndNewBrush() {
+    @Test fun theRevisionGrowsWithEveryLineChangeSlabChangeRenameClearAndNewBrush() {
         val lines = store()
         var last = lines.revision
         fun grew(why: String) { assertTrue(lines.revision > last, why); last = lines.revision }
@@ -339,6 +512,8 @@ class NativeLinesTest {
         lines.put(paint, "a", line("a", 1, x = 9f)); grew("a line was replaced")
         lines.put(paint, "a", null); grew("a line was removed")
         lines.put(paint, "b", line("b", 2)); grew("another line was added")
+        lines.setSlab(paint, 3, tile(0), 30); grew("a slab appeared (the UI mirror must learn the plane holds items)")
+        lines.setSlab(paint, 3, tile(0), null); grew("a slab went")
         lines.rename(paint, shared); grew("a plane was renamed")
         lines.addBrushes(mapOf("pen" to pen())); grew("a new frozen brush")
         lines.clear(); grew("everything was forgotten")
@@ -386,51 +561,61 @@ class NativeLinesTest {
 
     // ── clear ─────────────────────────────────────────────────────────────────
 
-    // A layer clear (GlPaintEngine.clearLayerWithLines), as NativeLines sees it: bases and lines go together and come back together.
-    @Test fun takingEveryLineAndBaseOfAPlaneLeavesNothingAndPuttingThemBackRestoresIt() {
+    // A layer clear (GlPaintEngine.clearLayerWithLines), as NativeLines sees it: bases, lines and slabs go together and
+    // come back together.
+    @Test fun takingEveryItemAndBaseOfAPlaneLeavesNothingAndPuttingThemBackRestoresIt() {
         val fake = Fake().apply { tilesOf["a"] = setOf(tile(0), tile(1)); tilesOf["b"] = setOf(tile(1)) }
         val lines = store(fake)
-        val a = line("a", 1); val b = line("b", 2)
+        val a = line("a", 1); val b = line("b", 3)
         lines.put(paint, "a", a); lines.put(paint, "b", b)
+        lines.setSlab(paint, 2, tile(1), 21, "erase"); lines.setSlab(paint, 2, tile(2), 22, "erase")
         lines.setBase(paint, tile(0), 11); lines.setBase(paint, tile(1), 12)
 
-        // Clear: one step's worth of bases and lines go together.
+        // Clear: one step's worth of bases, lines and slabs go together.
         val records = lines.lines(paint)
-        val bases = records.flatMapTo(HashSet()) { lines.footprint(it) }.mapNotNull { key -> lines.base(paint, key)?.let { key to it } }
+        val bases = lines.bases(paint)
+        val slab = assertNotNull(lines.slab(paint, 2))
         for ((key, _) in bases) lines.setBase(paint, key, null)
+        for (key in slab.tiles.keys) lines.setSlab(paint, 2, key, null)
         for (r in records) lines.put(paint, r.id, null)
         assertTrue(lines.linePlanes().isEmpty())
-        assertFalse(lines.hasLinesOnLayer("paint"))
-        assertTrue(lines.baseTextures().isEmpty())
+        assertFalse(lines.hasItemsOnLayer("paint"))
+        assertTrue(lines.textures().isEmpty())
         assertTrue(lines.snapshot().planes.isEmpty())
         assertEquals(1L, lines.nextSeq(paint))
 
-        // Undo: the same bases and records come back, in seq order, with their footprints.
+        // Undo: the same bases, slabs and records come back, in seq order, with their footprints.
         for ((key, texture) in bases) lines.setBase(paint, key, texture)
+        for ((key, texture) in slab.tiles) lines.setSlab(paint, 2, key, texture, slab.op)
         for (r in records.reversed()) lines.put(paint, r.id, r)
         assertEquals(listOf("a", "b"), lines.lines(paint).map { it.id })
-        assertEquals(setOf(11, 12), lines.baseTextures())
+        assertEquals(setOf(11, 12, 21, 22), lines.textures())
         assertEquals(11, lines.base(paint, tile(0))); assertEquals(12, lines.base(paint, tile(1)))
-        assertTrue(lines.crossed(paint, tile(0)))
-        assertEquals(setOf(tile(0), tile(1)), lines.footprint(a))
+        assertTrue(lines.isCrossed(paint, tile(0)))
+        assertEquals(setOf(tile(0), tile(1)), lines.footprint(paint, "a"))
+        assertEquals(listOf(1L, 2L, 3L), lines.seqsAt(paint, tile(1)))
     }
 
-    @Test fun clearForgetsLinesBasesBrushesAndCachedFootprints() {
+    @Test fun clearForgetsLinesSlabsBasesBrushesAndTheWidenedMemory() {
         val fake = Fake().apply { tilesOf["a"] = setOf(tile(0)) }
         val lines = store(fake)
         lines.addBrushes(mapOf("pen" to pen()))
         val a = line("a", 1)
         lines.put(paint, "a", a)
+        lines.widen(paint, "a", setOf(tile(8)))
+        lines.setSlab(paint, 2, tile(0), 20)
         lines.setBase(paint, tile(0), 11)
-        lines.footprint(a)
         lines.clear()
         assertTrue(lines.linePlanes().isEmpty())
+        assertTrue(lines.itemPlanes().isEmpty())
         assertNull(lines.base(paint, tile(0)))
-        assertTrue(lines.baseTextures().isEmpty())
+        assertTrue(lines.textures().isEmpty())
         assertTrue(lines.brushes().isEmpty())
         assertEquals(1L, lines.nextSeq(paint))
         assertTrue(lines.snapshot().planes.isEmpty())
-        lines.footprint(a)
-        assertEquals(2, fake.calls.size, "the cache went with the drawing")
+        val callsBefore = fake.calls.size
+        lines.put(paint, "a", a)
+        assertFalse(lines.isCrossed(paint, tile(8)), "the widened memory went with the drawing")
+        assertEquals(callsBefore + 1, fake.calls.size, "putting the line again estimated it afresh")
     }
 }

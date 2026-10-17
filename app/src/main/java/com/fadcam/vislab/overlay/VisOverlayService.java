@@ -92,7 +92,8 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     @Nullable private TextView dot;
     private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable tuck = this::tuck;
-    private static final long TUCK_MS = 4000;
+    /** Long enough to read and choose (4 s was too short in the 10-17 phone test). */
+    private static final long TUCK_MS = 6000;
     private WindowManager.LayoutParams boxLp, handleLp;
     private boolean full;
     private OverlaySound sound;
@@ -197,7 +198,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
                 PixelFormat.TRANSLUCENT);
         boxLp.gravity = Gravity.TOP | Gravity.START;
         boxLp.x = prefs.getInt("x", Math.round(dm.widthPixels * 0.05f));
-        boxLp.y = prefs.getInt("y", Math.round(dm.heightPixels * 0.62f));
+        boxLp.y = prefs.getInt("y", defaultY(dm));
         wm.addView(box, boxLp);
         box.setOnTouchListener(new Drag(boxLp, box, true));
         resize.setOnTouchListener(new Resize());
@@ -220,7 +221,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
             boxLp.width = Math.max(Ui.dp(this, MIN_DP), prefs.getInt("w", Math.round(dm.widthPixels * 0.9f)));
             boxLp.height = Math.max(Ui.dp(this, MIN_DP), prefs.getInt("h", Math.round(dm.heightPixels * 0.3f)));
             boxLp.x = prefs.getInt("x", Math.round(dm.widthPixels * 0.05f));
-            boxLp.y = prefs.getInt("y", Math.round(dm.heightPixels * 0.62f));
+            boxLp.y = prefs.getInt("y", defaultY(dm));
             boxLp.flags &= ~WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
             view.renderer().setForceFrame(1);    // contained: soft box, never a hard seam
             moveControls(false);
@@ -289,6 +290,14 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         controls.setVisibility(View.GONE);
         resize.setVisibility(View.GONE);
         if (full && dot != null) dot.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * First placement: near the top, clear of the bottom of the screen where apps keep their main
+     * buttons (on the recorder page the box sat over Start Screen Recording and took its taps).
+     */
+    private static int defaultY(@NonNull DisplayMetrics dm) {
+        return Math.round(dm.heightPixels * 0.14f);
     }
 
     private static int overlayType() {

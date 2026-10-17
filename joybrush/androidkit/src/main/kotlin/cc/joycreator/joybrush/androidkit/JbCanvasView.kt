@@ -622,6 +622,26 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
+    // Select's live drag (NATIVE_LINES_V1 v1.1): the lifted lines leave their plane's tiles and follow the box through a
+    // homography until put back. Never history; the engine puts the tiles back before anything reads or edits them.
+    /** Lift [ids] for a live preview; false when nothing could be lifted (the box then drags without one). UI thread. */
+    fun beginLineLift(ids: Set<cc.joycreator.joybrush.core.stroke.LineAddress>): Boolean {
+        if (drawing || ids.isEmpty()) return false
+        onGl {
+            try { engine.beginLift(ids) }
+            catch (e: Exception) { android.util.Log.w("JoyBrushLines", "lift refused: ${e.message}") }
+        }
+        return true
+    }
+    /** The lifted lines' document → document homography (row-major 3×3), null = where they were. UI thread. */
+    fun setLineLiftTransform(rowMajor: DoubleArray?) { val m = rowMajor?.copyOf(); onGl { engine.setLiftTransform(m) } }
+    /** Re-draw the lifted lines from [records] (a live recolour or weight scrub), no history. UI thread. */
+    fun previewLineLift(records: List<cc.joycreator.joybrush.core.stroke.AddressedStroke>) {
+        onGl { try { engine.previewLift(records) } catch (e: Exception) { android.util.Log.w("JoyBrushLines", "lift preview: ${e.message}") } }
+    }
+    /** Put the lifted lines back where they were (no history). UI thread. */
+    fun endLineLift() { onGl { engine.endLift() } }
+
     /** GL thread: hands the UI a fresh copy of the engine's lines when they changed. */
     private fun publishLines() {
         val snapshot = engine.lineSnapshot()

@@ -10,6 +10,7 @@ import cc.joycreator.joybrush.androidkit.select.LiftedPixels
 import cc.joycreator.joybrush.androidkit.select.SelectionHost
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
+import cc.joycreator.joybrush.core.select.Homography
 import cc.joycreator.joybrush.core.select.SelectionMask
 import cc.joycreator.joybrush.core.stroke.AddressedStroke
 import cc.joycreator.joybrush.core.stroke.LineAddress
@@ -30,6 +31,11 @@ interface HostCanvas {
     /** Runs [edit] as ONE undo step on the GL thread; [done] comes back on the UI thread (it may also come back at once). */
     fun submitLineEdit(edit: LineEdit, done: (LineEditResult) -> Unit)
     fun redraw()
+    /** Live drag preview (v1.1): lift, move through a homography, re-draw, put back. Defaults = no preview. */
+    fun beginLineLift(ids: Set<LineAddress>): Boolean = false
+    fun setLineLiftTransform(rowMajor: DoubleArray?) {}
+    fun previewLineLift(records: List<AddressedStroke>) {}
+    fun endLineLift() {}
 }
 
 class JbHostCanvas(private val canvas: JbCanvasView) : HostCanvas {
@@ -41,6 +47,10 @@ class JbHostCanvas(private val canvas: JbCanvasView) : HostCanvas {
     override fun visibleLinePlanes(): List<LinePlane> = canvas.visibleLinePlanes()
     override fun submitLineEdit(edit: LineEdit, done: (LineEditResult) -> Unit) = canvas.submitLineEdit(edit, done)
     override fun redraw() = canvas.invalidate()
+    override fun beginLineLift(ids: Set<LineAddress>): Boolean = canvas.beginLineLift(ids)
+    override fun setLineLiftTransform(rowMajor: DoubleArray?) = canvas.setLineLiftTransform(rowMajor)
+    override fun previewLineLift(records: List<AddressedStroke>) = canvas.previewLineLift(records)
+    override fun endLineLift() = canvas.endLineLift()
 }
 
 /** What the host needs of the screen around it. */
@@ -75,8 +85,10 @@ interface HostUi {
  * move would start from the line as it was before the first. When the answer comes the edit drops off, and the snapshot
  * already holds it. If the engine refused, [HostUi.editRefused] hears the reason and the screen puts the box back.
  *
- * NOT YET (v1, by the spec): no live lift preview ([liftLines] is null: the box drags and the pixels update on commit),
- * no Rasterize Down, no paint lift, no colour adjustment, and [paintClip] is kept but nothing paints through it.
+ * LIVE DRAG (v1.1): [liftLines] lifts the lines out of their plane's tiles and the engine draws them through the box's
+ * homography until [LiftedLines.commit] (one undo step, then lifted again at identity) or [LiftedLines.release].
+ *
+ * NOT YET: no Rasterize Down, no paint lift, no colour adjustment, and [paintClip] is kept but nothing paints through it.
  */
 class CanvasSelectionHost(
     private val canvas: HostCanvas,
@@ -302,10 +314,37 @@ class CanvasSelectionHost(
     /** True while an edit is on its way to the engine. */
     val editing: Boolean get() = pending.isNotEmpty()
 
-    // ── v1: nothing live ──
+    // ── live drag (v1.1) ──
 
-    /** No live lift in v1: the box drags and the pixels update on commit (spec: Select host). */
-    override fun liftLines(ids: Set<LineAddress>): LiftedLines? = null
+    override fun liftLines(ids: Set<LineAddress>): LiftedLines? {
+        if (ids.isEmpty() || ids.any { find(it) == null }) return null
+        if (!canvas.beginLineLift(ids)) return null
+        return HostLift(ids.toSet())
+    }
+
+    private inner class HostLift(private var ids: Set<LineAddress>) : LiftedLines {
+        private var live = true
+        override fun setTransform(h: Homography) { if (live) canvas.setLineLiftTransform(h.m) }
+        override fun preview(records: List<AddressedStroke>) {
+            if (!live) return
+            if (records.any { it.address !in ids }) { ui.say("Only the chosen lines can be previewed."); return }
+            canvas.previewLineLift(records)
+        }
+        override fun commit(after: List<AddressedStroke>): Boolean {
+            if (!live) return false
+            // Put the lines back, apply the edit as ONE step, then lift the result at identity (all queued in order on GL).
+            canvas.endLineLift()
+            val ok = replaceLines(after)
+            ids = after.map { it.address }.toSet()
+            if (!canvas.beginLineLift(ids)) live = false
+            return ok
+        }
+        override fun release() {
+            if (!live) return
+            live = false
+            canvas.endLineLift()
+        }
+    }
 
     override fun bakeLines(ids: Set<LineAddress>): Boolean {
         ui.say("Rasterize Down is coming next")

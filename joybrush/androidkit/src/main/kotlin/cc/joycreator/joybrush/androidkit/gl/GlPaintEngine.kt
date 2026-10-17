@@ -1161,6 +1161,7 @@ class GlPaintEngine(
     /** Empties a layer as one undoable step. */
     fun clearLayer(id: String) {
         requireLocalPaint()
+        settleLift()
         val layer = storeOf(id) ?: return
         if (!layer.isMask && nativeLines.hasLinesOnLayer(id)) { clearLayerWithLines(layer); return }
         if (layer.planes().all { (_, p) -> p.values.all { it.isEmpty() } }) { replaceTiles(id,visibleTiles(layer).keys.associateWith{null}); return }
@@ -1189,6 +1190,7 @@ class GlPaintEngine(
     /** Keys of every tile a layer has (sparse). */
     fun tileKeys(layerId: String): List<Long> {
         settleWatercolourFade()
+        settleLift()
         val layer = storeOf(layerId) ?: return emptyList()
         return if (publishedPaint?.recorded?.planes?.keys?.any { it.first == layer.id } == true)
             visibleTiles(layer).keys.toList() else layer.tiles.keys.toList()
@@ -1200,6 +1202,7 @@ class GlPaintEngine(
      */
     fun readTile(layerId: String, key: Long): ByteArray? {
         settleWatercolourFade()
+        settleLift()
         val store=storeOf(layerId) ?: return null
         val tex = visibleTiles(store)[key] ?: return null
         return readTexture(tex)
@@ -1267,6 +1270,7 @@ class GlPaintEngine(
     /** [wrappedBoardId]: the armed Tile board this replacement painted (the fill pen), marked tiled in the same undo step. */
     fun replaceTiles(layerId: String, tiles: Map<Long, ByteArray?>, wrappedBoardId: String? = null): Int {
         requireLocalPaint()
+        settleLift()
         checkStrokeEnded("replaceTiles during a stroke would be undone out of order")
         val layer = storeOf(layerId) ?: error("no layer $layerId")
         for (rgba in tiles.values) {
@@ -1323,6 +1327,7 @@ class GlPaintEngine(
 
     /** Empties the whole document (all layers, all undo). For "open another document". */
     fun resetDocument() {
+        settleLift()
         check(!resettingJointPaint) { "Finish joint retirement before resetting the drawing" }
         resetJointPaint(RecordedScene.ResetMode.SAME_CONTEXT)
         cancelStroke()
@@ -1343,6 +1348,7 @@ class GlPaintEngine(
     /** Metadata is renderer-independent. This backend implements PAINT planes; vectors use the same board model. */
     fun setBoardDocument(doc: JbDocument) {
         requireLocalPaint()
+        settleLift()
         checkStrokeEnded("A board cannot change during a stroke")
         val errors=DocOps.validate(doc); require(errors.isEmpty()) { errors.joinToString("; ") }
         require(doc.layers.all { it.kind.hasPixels && it.animatedIn==null }) { "This renderer paints raster layers" }
@@ -1578,6 +1584,7 @@ class GlPaintEngine(
 
     fun celTileKeys(layerId: String,celId: String): List<Long> {
         settleWatercolourFade()
+        settleLift()
         val layer = layers[layerId] ?: return emptyList()
         return physicalDisplayTiles(layer, planeOf(layer, celId)).keys.toList()
     }
@@ -1590,6 +1597,7 @@ class GlPaintEngine(
     }
     fun readCelTile(layerId: String,celId: String,key: Long): ByteArray? {
         settleWatercolourFade()
+        settleLift()
         val layer = layers[layerId] ?: return null
         return readTextureTile(physicalDisplayTiles(layer, planeOf(layer, celId))[key])
     }
@@ -1806,6 +1814,7 @@ class GlPaintEngine(
     /** GL thread. A deleted layer's or frame's lines are history only and are not saved. */
     fun lineSave(): LineSave {
         settleWatercolourFade()
+        settleLift()
         val records = LinkedHashMap<LinePlane, List<StrokeRecord>>()
         val crossed = LinkedHashMap<LinePlane, Set<Long>>()
         val bases = LinkedHashMap<Pair<LinePlane, Long>, ByteArray>()
@@ -1835,6 +1844,7 @@ class GlPaintEngine(
      */
     internal fun editLines(edit: LineEdit) {
         requireLocalPaint()
+        settleLift()
         settleWatercolourFade()
         check(!strokeInProgress && !wcFading && !mediaStrokeInProgress) { "Finish the stroke before editing lines" }
         check(framePreviews.isEmpty()) { "Stop playback before editing lines" }
@@ -1954,6 +1964,168 @@ class GlPaintEngine(
         for ((plane, key, tex) in baseUpdates) nativeLines.setBase(plane, key, tex)
         for (c in lineChanges) nativeLines.put(LinePlane(c.layerId, c.celId ?: layers[c.layerId]?.sharedCel), c.id, c.after?.record)
         undo.push(UndoLog.Step(tileChanges, lines = lineChanges, slabs = slabChanges))
+    }
+
+    // ── lift preview (Select's live drag; NATIVE_LINES_V1 v1.1) ──────────────
+    // While lines are lifted, each plane they cross shows base ∘ the OTHER lines on those tiles, and the lifted lines are
+    // drawn on top through the selection's homography. Nothing here is history: the plane's own tiles are set aside and
+    // put back by [endLift], which every reading or mutating entry calls first ([settleLift]), so a save, an undo or a
+    // stroke never sees the preview.
+    private class Lift(
+        val ids: Set<cc.joycreator.joybrush.core.stroke.LineAddress>,
+        val originals: Map<Pair<LinePlane, Long>, Int?>,   // the plane tiles set aside, put back on end
+        val rest: List<Int>,                                  // textures shown instead (owned by the lift)
+        var lifted: List<Pair<Long, Int>>,                    // (tile key, texture) drawn through the homography
+    )
+    private var lift: Lift? = null
+    private var liftMatrix: FloatArray? = null   // column-major document homography (null = identity)
+    private var liftProg: GlProgram? = null
+
+    val lifting: Boolean get() = lift != null
+
+    /** Ends any lift before something reads or changes the planes (the preview is never pixel truth). */
+    private fun settleLift() { if (lift != null) endLift() }
+
+    /** Lift [ids] (one Select gesture): build the rest-of-plane tiles and the lifted lines' own tiles. GL thread. */
+    internal fun beginLift(ids: Set<cc.joycreator.joybrush.core.stroke.LineAddress>) {
+        settleLift()
+        settleWatercolourFade()
+        check(!strokeInProgress && !wcFading && !mediaStrokeInProgress) { "Finish the stroke before moving lines" }
+        if (ids.isEmpty()) return
+        val originals = LinkedHashMap<Pair<LinePlane, Long>, Int?>()
+        val rest = ArrayList<Int>()
+        val lifted = ArrayList<Pair<Long, Int>>()
+        val units = ArrayList<RecordedLineUnit>()
+        val made = ArrayList<Int>()
+        try {
+            for ((plane, addresses) in ids.groupBy { LinePlane(it.layerId, it.celId ?: layers[it.layerId]?.sharedCel) }) {
+                val layer = layers[plane.layerId] ?: continue
+                val wanted = addresses.map { it.recordId }.toSet()
+                val all = nativeLines.lines(plane)
+                val sel = all.filter { it.id in wanted }
+                if (sel.isEmpty()) continue
+                val keys = sel.flatMapTo(LinkedHashSet()) { nativeLines.footprint(it) }
+                val rendered = HashMap<String, RecordedLineUnit>()
+                for (r in all) if (nativeLines.footprint(r).any { it in keys }) {
+                    val brush = nativeLines.brush(r.brushId) ?: continue
+                    rendered[r.id] = prepareRecordedLine(layer.id, r, brush).also { units += it }
+                }
+                val cel = engineCel(layer, plane)
+                val tiles = planeTiles(layer, cel)
+                for (key in keys) {
+                    val clips = lineClips(layer, plane, key)
+                    fun compose(lines: List<StrokeRecord>, base: Int?): Int? {
+                        val items = ArrayList<OrderedRecordedUnit>()
+                        base?.let { items += OrderedRecordedUnit(0L, it, "normal") }
+                        for (r in nativeLines.crossing(lines, key)) {
+                            val u = rendered[r.id] ?: continue
+                            u.tiles[key]?.let { items += OrderedRecordedUnit(r.seq, it, u.op, clips) }
+                        }
+                        return composeRecordedTile(items)?.also(made::add)
+                    }
+                    val shown = compose(all.filter { it.id !in wanted }, nativeLines.base(plane, key))
+                    compose(sel, null)?.let { lifted += key to it }
+                    originals[plane to key] = tiles[key]
+                    shown?.let(rest::add)
+                    if (shown == null) tiles.remove(key) else tiles[key] = shown
+                }
+                invalidateProjection(layer)
+            }
+        } catch (e: Throwable) {
+            // Put back whatever was set aside, then free everything this attempt made.
+            for ((at, tex) in originals) layers[at.first.layerId]?.let { l ->
+                val t = planeTiles(l, engineCel(l, at.first))
+                if (tex == null) t.remove(at.second) else t[at.second] = tex
+                invalidateProjection(l)
+            }
+            made.forEach(::recycleLayerTex)
+            throw e
+        } finally {
+            units.forEach(::discardRecordedLine)
+        }
+        lift = Lift(ids, originals, rest, lifted)
+        liftMatrix = null
+    }
+
+    /** The lifted lines' document -> document homography (row-major 3x3), null = identity. GL thread. */
+    internal fun setLiftTransform(rowMajor: DoubleArray?) {
+        liftMatrix = rowMajor?.let { m -> floatArrayOf(m[0].toFloat(), m[3].toFloat(), m[6].toFloat(), m[1].toFloat(), m[4].toFloat(),
+            m[7].toFloat(), m[2].toFloat(), m[5].toFloat(), m[8].toFloat()) }
+    }
+
+    /** Re-render the lifted lines from [records] (a live recolour or re-weight), with no history. GL thread. */
+    internal fun previewLift(records: List<cc.joycreator.joybrush.core.stroke.AddressedStroke>) {
+        val l = lift ?: return
+        require(records.all { it.address in l.ids }) { "Only the lifted lines can be previewed" }
+        val units = ArrayList<RecordedLineUnit>()
+        val made = ArrayList<Int>()
+        try {
+            val byKey = LinkedHashMap<Long, MutableList<OrderedRecordedUnit>>()
+            for (a in records) {
+                val layer = layers[a.address.layerId] ?: continue
+                val brush = nativeLines.brush(a.record.brushId) ?: continue
+                val u = prepareRecordedLine(layer.id, a.record, brush).also { units += it }
+                for ((key, tex) in u.tiles) byKey.getOrPut(key) { ArrayList() } += OrderedRecordedUnit(a.record.seq, tex, u.op)
+            }
+            val fresh = byKey.mapNotNull { (key, items) ->
+                composeRecordedTile(items.sortedBy { it.seq })?.also(made::add)?.let { key to it }
+            }
+            l.lifted.forEach { recycleLayerTex(it.second) }
+            l.lifted = fresh
+        } catch (e: Throwable) {
+            made.forEach(::recycleLayerTex)
+            throw e
+        } finally {
+            units.forEach(::discardRecordedLine)
+        }
+    }
+
+    /** Put every set-aside tile back and free the preview's textures (no history). GL thread. */
+    internal fun endLift() {
+        val l = lift ?: return
+        lift = null
+        liftMatrix = null
+        val touched = HashSet<Layer>()
+        for ((at, tex) in l.originals) {
+            val layer = layers[at.first.layerId] ?: continue
+            val tiles = planeTiles(layer, engineCel(layer, at.first))
+            if (tex == null) tiles.remove(at.second) else tiles[at.second] = tex
+            touched += layer
+        }
+        touched.forEach(::invalidateProjection)
+        l.rest.forEach(::recycleLayerTex)
+        l.lifted.forEach { recycleLayerTex(it.second) }
+    }
+
+    /** Draws the lifted lines over the finished picture, through view x homography. */
+    private fun drawLiftOverlay(docToClip: FloatArray, targetFbo: Int) {
+        val l = lift ?: return
+        if (l.lifted.isEmpty()) return
+        val h = liftMatrix
+        val m = if (h == null) docToClip else FloatArray(9).also { out ->
+            for (c in 0 until 3) for (r in 0 until 3) {
+                var acc = 0.0
+                for (k in 0 until 3) acc += docToClip[k * 3 + r].toDouble() * h[c * 3 + k].toDouble()
+                out[c * 3 + r] = acc.toFloat()
+            }
+        }
+        val prog = liftProg ?: GlProgram(shaders.source("jb_lift.vert"), shaders.source("jb_tile.frag"), "lift preview").also { liftProg = it }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, targetFbo)
+        GLES30.glEnable(GLES30.GL_BLEND)
+        GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+        GLES30.glBindVertexArray(tileVao)
+        prog.use()
+        GLES30.glUniform1f(prog.loc("u_tileSize"), size.toFloat())
+        GLES30.glUniformMatrix3fv(prog.loc("u_docToClip"), 1, false, m, 0)
+        GLES30.glUniform1f(prog.loc("u_layerOpacity"), 1f)
+        GLES30.glUniform1i(prog.loc("u_layer"), 0)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        for ((key, tex) in l.lifted) {
+            GLES30.glUniform2f(prog.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        }
+        GLES30.glBindVertexArray(0)
     }
 
     // ── strokes ──────────────────────────────────────────────────────────────
@@ -3652,6 +3824,7 @@ class GlPaintEngine(
                     grain: GrainMath.StrokeGrain = GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF),
                     smudge: SmudgeParams? = null, tuft: TuftShading? = null,
                     watercolour: WatercolourSpec? = null, watercolourSeed: Long = 0L) {
+        settleLift()
         requireLocalPaint()
         beginStrokeBuffer(layerId, argb, opacity, accumulate, blend, tip, grain, smudge, tuft, watercolour, watercolourSeed)
     }
@@ -4019,6 +4192,7 @@ class GlPaintEngine(
     }
 
     fun undoStep(): Boolean {
+        settleLift()
         if (publishedPaint != null) {
             val step = undo.peekUndo() ?: return false
             return publishJointPaintStep(step, RecordedScene.Direction.UNDO)
@@ -4045,6 +4219,7 @@ class GlPaintEngine(
     }
 
     fun redoStep(): Boolean {
+        settleLift()
         if (publishedPaint != null) {
             val step = undo.peekRedo() ?: return false
             return publishJointPaintStep(step, RecordedScene.Direction.REDO)
@@ -5032,6 +5207,7 @@ class GlPaintEngine(
         }
         GLES30.glBindVertexArray(0)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        drawLiftOverlay(docToClip, targetFbo)
     }
 
 
@@ -5128,6 +5304,7 @@ class GlPaintEngine(
         compositor.blitToScreen(targetFbo)
         GLES30.glBindVertexArray(0)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        drawLiftOverlay(docToClip, targetFbo)
     }
 
     /**

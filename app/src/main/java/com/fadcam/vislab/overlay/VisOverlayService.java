@@ -113,8 +113,10 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         isRunning = true;
         startInForeground();   // first, always: a foreground start that never calls it crashes the app
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
+            // Samsung titles the same switch "Appear on top": name both so it can be found.
             android.widget.Toast.makeText(this, "To float the visualiser over other apps, allow Joy Creator to "
-                    + "\"Display over other apps\" in Android's settings.", android.widget.Toast.LENGTH_LONG).show();
+                    + "\"Display over other apps\" (Samsung: \"Appear on top\") in Android's settings.",
+                    android.widget.Toast.LENGTH_LONG).show();
             stopSelf();
             return;
         }

@@ -6,7 +6,7 @@ then this file. Owner: JoyRaptor — non-technical, phone-first (Note 9), wants 
 
 ## Update — 2026-10-17, app-wide host + amber warning (read this first)
 
-All pushed (origin/joy-creator at 34fd0e4e9 + this note). Built on the 10-15 work:
+All pushed (origin/joy-creator at 6d67bf5d2 + this note). Built on the 10-15 work:
 - **App host** `AppActions`/`AppCtx` beside `StudioActions`: open_room (studio, spritelab, avatar, library, record,
   joybrush, space, setup, trash), list_library, open_library_item, new_project_from (recording → new Studio project).
   The chat takes `takePendingRoute` / `takePendingOpen` after the action and closes; navigating ends the request.
@@ -21,7 +21,11 @@ All pushed (origin/joy-creator at 34fd0e4e9 + this note). Built on the 10-15 wor
   lines parsed by pure-Java `VisLabEdit` (`run-vislab-edit.sh`, 46 checks). One request = one VisLab undo
   (request token = undo group). Inside VisLab the router sends core + vislab only. Phone-green on free models:
   look switch + knob changes, one undo restores both; "A calmer version" adds a new look, one undo removes it.
-  **Owed:** a look Joybot adds lives only in the session until the VisLab lane ships save_look — wire it then.
+  Looks are now files (Supplies/Looks, saved by VisLabSession); `VisLabLookFiles` adds save_as / rename /
+  revert / delete (6d67bf5d2, phone-green). Revert/delete ask in the room's words and only take the PERSON's
+  yes (AIChatState.liveAsk/liveReplyBefore) — a model setting confirmed=true alone is refused.
+  **Next:** vislab_float (floating visualiser) once VisLab ships VisOverlayService.setLook and the owner grants
+  "Display over other apps" on the Note 9.
 - OpenAI test shelved until the owner buys API credits (use gpt-6-luna; a stale duplicate "OpenAI"
   account with a broken key can be removed in ⚙). An "Untitled" Studio project from the 10-15 screen recording was
   made by the new_project_from test — owner keeps or deletes it.

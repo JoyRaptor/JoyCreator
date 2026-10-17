@@ -10,6 +10,8 @@
 // sorting a wash into stripes.
 precision highp float;
 precision highp int;
+#include "media/jb_media_common.glsl"
+#include "media/jb_media_atlas.glsl"
 
 uniform sampler2D u_w0;     // pass 0: the water, full resolution (r = depth, mm)
 uniform sampler2D u_src;    // passes 1, 2: the half-resolution field being blurred
@@ -20,13 +22,13 @@ uniform float u_sigma;      // in half-resolution cells (at most 4.8: the kernel
 out vec4 o_bead;
 
 void main() {
-    ivec2 c = ivec2(gl_FragCoord.xy);
+    ivec2 c = jb_cell();             // half-resolution cell
     if (u_pass == 0) {
         ivec2 size = textureSize(u_w0, 0);
         float s = 0.0;
         for (int j = 0; j < 2; j++)
             for (int i = 0; i < 2; i++)
-                s += texelFetch(u_w0, clamp(c * 2 + ivec2(i, j), ivec2(0), size - 1), 0).r;
+                s += jb_fetch(u_w0, jb_clampCell(c * 2 + ivec2(i, j), size)).r;
         o_bead = vec4(0.25 * s, 0.0, 0.0, 1.0);
         return;
     }
@@ -37,7 +39,7 @@ void main() {
         float fk = float(k);
         if (abs(fk) > r) continue;
         float wk = exp(-fk * fk / (2.0 * u_sigma * u_sigma));
-        sum += wk * texelFetch(u_src, clamp(c + k * ivec2(u_axis), ivec2(0), size - 1), 0).r;
+        sum += wk * jb_fetchS(u_src, jb_clampCell(c + k * ivec2(u_axis), size), 7).r;
         wsum += wk;
     }
     o_bead = vec4(sum / wsum, 0.0, 0.0, 1.0);

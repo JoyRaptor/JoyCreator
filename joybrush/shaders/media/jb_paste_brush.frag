@@ -10,6 +10,7 @@ precision highp int;
 
 #include "media/jb_media_common.glsl"
 #include "media/jb_paste.glsl"
+#include "media/jb_media_atlas.glsl"
 
 uniform sampler2D u_p0;
 uniform sampler2D u_p1;
@@ -26,8 +27,8 @@ layout(location = 0) out vec4 o_b0;
 layout(location = 1) out vec4 o_b1;
 
 float surfaceAt(vec2 lp) {
-    return texelFetch(u_paperBake, ivec2(clamp(lp, vec2(0.0), u_layerSize - 1.0)), 0).b * u_toothMm
-         + jb_bilinear(u_p0, lp).a;
+    return jb_fetch(u_paperBake, jb_cellAt(lp, u_layerSize)).b * u_toothMm
+         + jb_bilinearL(u_p0, lp).a;
 }
 
 void main() {
@@ -49,10 +50,10 @@ void main() {
             float yb = ((float(k) + 0.5) / 5.0 * 2.0 - 1.0) * half_;
             vec2 docPos = docBase + yb * n * u_pxPerMm;
             vec2 pos = (docPos - u_layerOrigin) * u_layerScale;
-            vec4 p0 = jb_bilinear(u_p0, pos);
-            vec4 p1 = jb_bilinear(u_p1, pos);
+            vec4 p0 = jb_bilinearL(u_p0, pos);
+            vec4 p1 = jb_bilinearL(u_p1, pos);
             float t = p0.a;
-            float valley = (1.0 - texelFetch(u_paperBake, ivec2(clamp(pos, vec2(0.0), u_layerSize - 1.0)), 0).b) * u_toothMm;
+            float valley = (1.0 - jb_fetch(u_paperBake, jb_cellAt(pos, u_layerSize)).b) * u_toothMm;
             float target = jb_bladeTarget(xb, yb, valley, b0.a);
             float r = 1.0 - exp(-u_rate * u_slideMm / max(2.0 * half_, 0.3));
             float rPick = 1.0 - exp(-10.0 * u_rate * u_slideMm / max(2.0 * half_, 0.3));
@@ -86,8 +87,8 @@ void main() {
         vec2 pos = (docPos - u_layerOrigin) * u_layerScale;          // layer px
         // The cell is a strip of hair: read the paint across its width.
         vec2 side = u_wDir * (u_halfW / JB_LANES) * u_pxPerMm * u_layerScale;
-        vec4 p0 = (jb_bilinear(u_p0, pos - side) + jb_bilinear(u_p0, pos) + jb_bilinear(u_p0, pos + side)) / 3.0;
-        vec4 p1 = (jb_bilinear(u_p1, pos - side) + jb_bilinear(u_p1, pos) + jb_bilinear(u_p1, pos + side)) / 3.0;
+        vec4 p0 = (jb_bilinearL(u_p0, pos - side) + jb_bilinearL(u_p0, pos) + jb_bilinearL(u_p0, pos + side)) / 3.0;
+        vec4 p1 = (jb_bilinearL(u_p1, pos - side) + jb_bilinearL(u_p1, pos) + jb_bilinearL(u_p1, pos + side)) / 3.0;
         float load = b0.a;
         float hair = jb_pasteHair(a, docPos);
         float here = surfaceAt(pos);
@@ -101,7 +102,7 @@ void main() {
         vec3 Kc = t > 1e-6 ? p0.rgb / t : vec3(0.0);
         vec3 Sc = t > 1e-6 ? p1.rgb / t : vec3(0.0);
         float open = p1.a;
-        float valley = (1.0 - texelFetch(u_paperBake, ivec2(clamp(pos, vec2(0.0), u_layerSize - 1.0)), 0).b) * u_toothMm;
+        float valley = (1.0 - jb_fetch(u_paperBake, jb_cellAt(pos, u_layerSize)).b) * u_toothMm;
         float target = jb_pasteTarget(a, load, hair, b, valley, docPos);
         float r = 1.0 - exp(-u_rate * u_slideMm / max(u_len, 0.2));
         if (target > t) {

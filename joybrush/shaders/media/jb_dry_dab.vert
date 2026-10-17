@@ -14,6 +14,11 @@ uniform vec2 u_targetSize;    // layer texture size (layer px)
 uniform float u_pxPerMm;
 uniform vec2 u_layerOrigin;   // layerPx = (docPx - origin) * scale (see jb_media_quad.vert)
 uniform float u_layerScale;
+#ifdef JB_ATLAS
+layout(location = 6) in vec4 a_slot;      // the atlas slot this copy of the dab is drawn into: origin (texels), tile
+uniform highp int u_atlasShift;
+flat out highp ivec4 v_slot;
+#endif
 
 out vec2 v_q;                 // stick-frame position, mm
 out vec2 v_docPx;
@@ -37,5 +42,12 @@ void main() {
     v_i1 = a_i1; v_i2 = a_i2; v_i3 = a_i3; v_i4 = a_i4;
     v_lean = u;
     v_layerPx = (docPx - u_layerOrigin) * u_layerScale;
-    gl_Position = vec4(v_layerPx / u_targetSize * 2.0 - 1.0, 0.0, 1.0);
+#ifdef JB_ATLAS
+    highp ivec4 slot = ivec4(a_slot);
+    v_slot = slot;
+    vec2 t = v_layerPx + vec2(slot.xy - (slot.zw << u_atlasShift));   // layer px → atlas texel, offset made in ints (identity: +0)
+#else
+    vec2 t = v_layerPx;
+#endif
+    gl_Position = vec4(t / u_targetSize * 2.0 - 1.0, 0.0, 1.0);
 }

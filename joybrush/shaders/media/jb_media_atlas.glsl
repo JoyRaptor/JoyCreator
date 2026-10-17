@@ -11,18 +11,21 @@
 // instance per slot it writes; the instance hands the fragment its slot (v_slot).
 
 #ifdef JB_ATLAS
+// highp throughout: u_atlasShift is also declared by the vertex stage, and a uniform shared by two stages must agree
+// on precision (a fragment shader's default int is mediump).
 uniform highp isampler2D u_atlasTable;   // .r = slot index (column + row · slots per row); −1 = not resident
-uniform ivec4 u_atlasGrid;               // the table's first tile (x, y) and its size in tiles (w, h)
-uniform int u_atlasSlotsX;               // slots per atlas row
-uniform int u_atlasShift;                // log2 of THIS pass's target slot side: 8 (256), or 7 for the half-res bead
-uniform ivec4 u_atlasWrap;               // a Tile board in full-res layer px: origin (x, y), size (w, h); w == 0 = no wrap
-flat in ivec4 v_slot;                    // this fragment's slot origin (atlas texels, xy) and its tile (zw)
+uniform highp ivec4 u_atlasGrid;         // the table's first tile (x, y) and its size in tiles (w, h)
+uniform highp int u_atlasSlotsX;         // slots per atlas row
+uniform highp int u_atlasShift;          // log2 of THIS pass's target slot side: 8 (256), or 7 for the half-res bead
+uniform highp ivec4 u_atlasWrap;         // a Tile board in full-res layer px: origin (x, y), size (w, h); w == 0 = no wrap
+flat in highp ivec4 v_slot;              // this fragment's slot origin (atlas texels, xy) and its tile (zw); a pass that
+                                         // is not per-slot (brush cells, the look) gets a tile no layer cell can have
 #endif
 
 const int JB_SLOT_SHIFT = 8;             // full-resolution slot side 256 = Tiles.SIZE
 
 // This fragment's cell (layer px at the pass's resolution).
-ivec2 jb_cell() {
+highp ivec2 jb_cell() {
 #ifdef JB_ATLAS
     return ivec2(gl_FragCoord.xy) - v_slot.xy + (v_slot.zw << u_atlasShift);
 #else
@@ -41,24 +44,24 @@ vec2 jb_fragPx() {
 
 #ifdef JB_ATLAS
 // floor(a / b) for b > 0, exact for any int a (GLSL's % and / are undefined or truncating for negatives).
-int jb_floorDiv(int a, int b) { int q = a / b; if (q * b > a) q -= 1; return q; }
+highp int jb_floorDiv(highp int a, highp int b) { int q = a / b; if (q * b > a) q -= 1; return q; }
 
 // Layer cell q at slot side (1 << shift) → its atlas texel. ok = false where the tile is not resident.
-ivec2 jb_atS(ivec2 q, int shift, out bool ok) {
+highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
     if (u_atlasWrap.z > 0) {
         // A Tile board repeats in pixel space; boards need not be tile-aligned. The half-res field wraps at half the
         // size, which the driver only allows for even board rectangles.
-        int d = JB_SLOT_SHIFT - shift;
-        ivec2 o = u_atlasWrap.xy >> d, n = u_atlasWrap.zw >> d;
-        ivec2 r = q - o;
+        highp int d = JB_SLOT_SHIFT - shift;
+        highp ivec2 o = u_atlasWrap.xy >> d, n = u_atlasWrap.zw >> d;
+        highp ivec2 r = q - o;
         q = o + r - n * ivec2(jb_floorDiv(r.x, n.x), jb_floorDiv(r.y, n.y));
     }
-    ivec2 tile = q >> shift;                       // arithmetic shift: floor, also for negative cells
-    ivec2 local = q - (tile << shift);
+    highp ivec2 tile = q >> shift;                 // arithmetic shift: floor, also for negative cells
+    highp ivec2 local = q - (tile << shift);
     if (shift == u_atlasShift && tile == v_slot.zw) { ok = true; return v_slot.xy + local; }   // own tile: the common case
-    ivec2 g = tile - u_atlasGrid.xy;
+    highp ivec2 g = tile - u_atlasGrid.xy;
     if (g.x < 0 || g.y < 0 || g.x >= u_atlasGrid.z || g.y >= u_atlasGrid.w) { ok = false; return ivec2(0); }
-    int slot = texelFetch(u_atlasTable, g, 0).r;
+    highp int slot = texelFetch(u_atlasTable, g, 0).r;
     if (slot < 0) { ok = false; return ivec2(0); }
     ok = true;
     return (ivec2(slot - (slot / u_atlasSlotsX) * u_atlasSlotsX, slot / u_atlasSlotsX) << shift) + local;
@@ -66,27 +69,27 @@ ivec2 jb_atS(ivec2 q, int shift, out bool ok) {
 #endif
 
 // texelFetch(t, q, 0) of a layer-shaped texture at layer cell q (half-res fields: shift 7).
-vec4 jb_fetchS(sampler2D t, ivec2 q, int shift) {
+vec4 jb_fetchS(sampler2D t, highp ivec2 q, highp int shift) {
 #ifdef JB_ATLAS
     bool ok;
-    ivec2 a = jb_atS(q, shift, ok);
+    highp ivec2 a = jb_atS(q, shift, ok);
     return ok ? texelFetch(t, a, 0) : vec4(0.0);
 #else
     return texelFetch(t, q, 0);
 #endif
 }
-vec4 jb_fetch(sampler2D t, ivec2 q) { return jb_fetchS(t, q, JB_SLOT_SHIFT); }
+vec4 jb_fetch(sampler2D t, highp ivec2 q) { return jb_fetchS(t, q, JB_SLOT_SHIFT); }
 
 // The window build clamps neighbour cells to the window and skips cells outside it; the atlas has no edge (a cell with
 // nothing resident reads as zero), so both become no-ops there.
-ivec2 jb_clampCell(ivec2 q, ivec2 size) {
+highp ivec2 jb_clampCell(highp ivec2 q, highp ivec2 size) {
 #ifdef JB_ATLAS
     return q;
 #else
     return clamp(q, ivec2(0), size - 1);
 #endif
 }
-bool jb_inside(ivec2 q, ivec2 size) {
+bool jb_inside(highp ivec2 q, highp ivec2 size) {
 #ifdef JB_ATLAS
     return true;
 #else
@@ -95,15 +98,45 @@ bool jb_inside(ivec2 q, ivec2 size) {
 }
 
 // jb_bilinear (jb_media_common.glsl) of a layer-shaped texture at layer px: the same four taps and weights, addressed.
-vec4 jb_bilinearL(sampler2D t, vec2 px) {
+// [shift] 7 reads a half-resolution field (px in its own cells), the same way.
+vec4 jb_bilinearLS(sampler2D t, vec2 px, highp int shift) {
 #ifdef JB_ATLAS
     vec2 p = px - 0.5;
-    ivec2 i = ivec2(floor(p));
+    highp ivec2 i = ivec2(floor(p));
     vec2 f = p - vec2(i);
-    vec4 v00 = jb_fetch(t, i), v10 = jb_fetch(t, i + ivec2(1, 0));
-    vec4 v01 = jb_fetch(t, i + ivec2(0, 1)), v11 = jb_fetch(t, i + ivec2(1, 1));
+    vec4 v00 = jb_fetchS(t, i, shift), v10 = jb_fetchS(t, i + ivec2(1, 0), shift);
+    vec4 v01 = jb_fetchS(t, i + ivec2(0, 1), shift), v11 = jb_fetchS(t, i + ivec2(1, 1), shift);
     return mix(mix(v00, v10, f.x), mix(v01, v11, f.x), f.y);
 #else
     return jb_bilinear(t, px);
+#endif
+}
+vec4 jb_bilinearL(sampler2D t, vec2 px) { return jb_bilinearLS(t, px, JB_SLOT_SHIFT); }
+
+// The cell under layer px [lp] for a single-texel read. The window build clamps into the window (its edge texel stands
+// for everything beyond); the atlas floors (no edge: what is not resident reads as zero).
+highp ivec2 jb_cellAt(vec2 lp, vec2 size) {
+#ifdef JB_ATLAS
+    return ivec2(floor(lp));
+#else
+    return ivec2(clamp(lp, vec2(0.0), size - 1.0));
+#endif
+}
+// Layer px [lp] is on the layer's texture (the look's bounds test). The atlas has no edge.
+bool jb_insidePx(vec2 lp, vec2 size) {
+#ifdef JB_ATLAS
+    return true;
+#else
+    return !(lp.x < 0.0 || lp.y < 0.0 || lp.x > size.x || lp.y > size.y);
+#endif
+}
+// A dab pass draws each dab once per slot it touches: a fragment of another slot's area is not this instance's.
+bool jb_outsideSlot() {
+#ifdef JB_ATLAS
+    highp ivec2 local = ivec2(gl_FragCoord.xy) - v_slot.xy;
+    highp int side = 1 << u_atlasShift;
+    return local.x < 0 || local.y < 0 || local.x >= side || local.y >= side;
+#else
+    return false;
 #endif
 }

@@ -23,6 +23,7 @@ precision highp int;
 #include "media/jb_media_common.glsl"
 #include "media/jb_stick.glsl"
 #include "jb_paper.glsl"
+#include "media/jb_media_atlas.glsl"
 
 uniform sampler2D u_crush;      // R = crush, in tooth units (0 = untouched)
 uniform sampler2D u_contactLut; // R = tooth level a for squeeze c (jb lab: stick.js contactLut)
@@ -52,12 +53,13 @@ flat in vec2 v_lean;
 out vec4 o_delta;               // R pile work (mm²), G crush work (mm²), B dust (mm), A contact·slide (mm)
 
 void main() {
+    if (jb_outsideSlot()) discard;
     float c = jb_stickSqueeze(v_q, v_i1.w, v_i2, v_i3.xyz, v_i4.z);
     if (c <= 0.0) discard;
     const float N = 255.0;
     float a = texture(u_contactLut, vec2((sqrt(min(c / u_lutMaxMm, 1.0)) * N + 0.5) / (N + 1.0), 0.5)).r;   // sqrt-spaced table
     vec4 s = jb_paperSurface(v_docPx);
-    float crush = jb_bilinear(u_crush, v_layerPx).r;
+    float crush = jb_bilinearL(u_crush, v_layerPx).r;
     float T = u_toothMm;
     float P = v_i4.w;
     // The sheet bends onto the stick over the felt-scale bumps (~0.5 mm): only the fine tooth decides which

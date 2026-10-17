@@ -9,6 +9,7 @@ precision highp float;
 precision highp int;
 
 #include "media/jb_media_common.glsl"
+#include "media/jb_media_atlas.glsl"
 
 uniform sampler2D u_w0;         // current water (w, s)
 uniform sampler2D u_paperBake;  // .b = height
@@ -26,6 +27,7 @@ layout(location = 0) out vec4 o_in0;   // Δw, ΔK rgb
 layout(location = 1) out vec4 o_in1;   // ΔS, solubility weight, -, -
 
 void main() {
+    if (jb_outsideSlot()) discard;
     vec2 r = v_i1.xy;
     vec2 e = v_q / r;
     // Hair edges are never a perfect ellipse: the outline wanders a little, fixed in document space so
@@ -41,15 +43,15 @@ void main() {
     float hair = 0.65 * jb_vnoise1(across * 3.5, seed) + 0.35 * jb_vnoise1(across * 11.0, seed + 3u);
     // Loaded: faint streaks of more or less paint along the stroke. Drying: separate runs of hair.
     float streak = mix(0.9 + 0.2 * hair, 0.45 + 0.55 * hair, v_i3.y);
-    ivec2 cell = ivec2(v_layerPx);
-    float h = texelFetch(u_paperBake, cell, 0).b;
+    ivec2 cell = jb_cell();         // the cell under this fragment (ivec2(v_layerPx) truncated to the same cell)
+    float h = jb_fetch(u_paperBake, cell).b;
     // Dry brush: the less water, the more only the tooth tops are reached, and each run of hair reaches
     // its own depth, so the paper shows through in streaks along the drag rather than in dots.
     float reach = mix(1.15, 0.38, v_i3.y);
     float tooth = smoothstep(1.0 - reach - 0.07, 1.0 - reach + 0.07, h + (hair - 0.5) * 1.1 * v_i3.y);
     float contact = press * streak * tooth;
 
-    vec4 water = texelFetch(u_w0, cell, 0);
+    vec4 water = jb_fetch(u_w0, cell);
     float paperWet = clamp(water.r / u_fullMm, 0.0, 1.5);
     float give = v_i1.z * v_i3.x * contact * (v_i1.w - paperWet);   // signed exchange
     vec3 dK = give > 0.0 ? v_i2.rgb * give : vec3(0.0);

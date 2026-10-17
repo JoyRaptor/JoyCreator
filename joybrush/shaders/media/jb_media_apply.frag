@@ -9,8 +9,10 @@
 //   crush:    the tooth is flattened by hard pressure and stays flattened (paper state, shared)
 //   smear:    soft sticks drag a little of what is already down along the stroke
 precision highp float;
+precision highp int;
 
 #include "media/jb_media_common.glsl"
+#include "media/jb_media_atlas.glsl"
 
 uniform sampler2D u_p0;          // K·X rgb, deposit volume V (mm)
 uniform sampler2D u_p1;          // S·X rgb, openness
@@ -32,11 +34,12 @@ layout(location = 1) out vec4 o_p1;
 layout(location = 2) out vec4 o_paper;
 
 void main() {
-    vec2 uv = v_layerPx / u_targetSize;
-    vec4 p0 = texture(u_p0, uv);
-    vec4 p1 = texture(u_p1, uv);
-    vec4 ps = texture(u_paperState, uv);
-    vec4 dl = texture(u_delta, uv);
+    ivec2 c = jb_cell();
+    vec2 lp = jb_fragPx();          // this cell's centre, exact (not the interpolated v_layerPx)
+    vec4 p0 = jb_fetch(u_p0, c);
+    vec4 p1 = jb_fetch(u_p1, c);
+    vec4 ps = jb_fetch(u_paperState, c);
+    vec4 dl = jb_fetch(u_delta, c);
     vec4 keepS = ps;
     // A bad delta (NaN/inf from any dab) must never reach the layer: drop it for this pixel.
     if (any(isnan(dl)) || any(isinf(dl))) dl = vec4(0.0);
@@ -46,9 +49,9 @@ void main() {
     // read as a soft dusting rather than as dots. Rate ∝ how much the lead rubbed this pixel this frame.
     float sw = clamp(dl.a * u_smear, 0.0, 0.3);
     if (sw > 0.0) {
-        vec2 up = jb_bilinear(u_paperState, v_layerPx - u_smearPx).gb;
-        vec2 nb = 0.25 * (jb_bilinear(u_paperState, v_layerPx + vec2(1.5, 0.0)).gb + jb_bilinear(u_paperState, v_layerPx - vec2(1.5, 0.0)).gb
-                        + jb_bilinear(u_paperState, v_layerPx + vec2(0.0, 1.5)).gb + jb_bilinear(u_paperState, v_layerPx - vec2(0.0, 1.5)).gb);
+        vec2 up = jb_bilinearL(u_paperState, lp - u_smearPx).gb;
+        vec2 nb = 0.25 * (jb_bilinearL(u_paperState, lp + vec2(1.5, 0.0)).gb + jb_bilinearL(u_paperState, lp - vec2(1.5, 0.0)).gb
+                        + jb_bilinearL(u_paperState, lp + vec2(0.0, 1.5)).gb + jb_bilinearL(u_paperState, lp - vec2(0.0, 1.5)).gb);
         ps.gb = mix(ps.gb, mix(nb, up, 0.6), sw);
     }
 

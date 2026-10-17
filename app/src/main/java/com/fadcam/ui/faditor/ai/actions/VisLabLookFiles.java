@@ -145,8 +145,9 @@ final class VisLabLookFiles {
             return;
         }
         if (now != null) ASKED.put(key, now);
-        throw new ActionError("Not done: the person must say yes first. Ask them exactly this and stop: \""
-                + question + "\" If they say yes, call again with confirmed=true.");
+        // First line is what the person sees on the step; the rest is for the model.
+        throw new ActionError("Waiting for your yes.\nNot done: the person must say yes first. Ask them exactly this"
+                + " and stop: \"" + question + "\" If they say yes, call again with confirmed=true.");
     }
 
     private static final java.util.regex.Pattern YES = java.util.regex.Pattern.compile(

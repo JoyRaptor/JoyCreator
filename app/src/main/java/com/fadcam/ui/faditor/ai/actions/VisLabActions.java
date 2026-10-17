@@ -104,6 +104,7 @@ final class VisLabActions {
                 .flag("off", false, "true: each look uses its own colours again")
                 .build(), VisLabActions::brand);
         VisLabLookFiles.register(r);
+        VisLabFloat.register(r);
     }
 
     // ------------------------------------------------------------------ handlers

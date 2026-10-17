@@ -2135,6 +2135,15 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 startActivity(com.fadcam.joyfolder.studio.SpaceActivity.intent(this));
                 finish();
                 return;
+            case "overlay_permission":
+                // Android's "Display over other apps" page for Joy Creator: the person flips it there
+                // (Joybot never changes a permission itself). The floating visualiser needs it.
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:" + getPackageName())));
+                }
+                finish();
+                return;
             case "vislab":
                 // VisLab is its own room (the Lobby's tile opens it the same way).
                 startActivity(new Intent(this, com.fadcam.vislab.room.VisLabActivity.class));

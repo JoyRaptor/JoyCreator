@@ -84,51 +84,81 @@ class ExportCapabilityTest {
         }
     }
 
-    @Test fun snapshotsRefuseLineStorageAndFrozenMetadataBeforeCallbacksOrReconstruction() {
+    private fun snapshotCalls(contents: JbContents, base: JbContents) = listOf<() -> Unit>(
+        { CanvasSnapshot.metadataOf(contents); Unit },
+        { CanvasSnapshot.merge(null, contents); Unit },
+        { CanvasSnapshot.merge(contents, base); Unit },
+        { CanvasSnapshot.merge(base, contents); Unit })
+
+    private fun assertRasterReadbackRefusesBeforeReading(doc: JbDocument) {
+        var reads = 0
+        assertFailsWith<IllegalArgumentException> { BoardSnapshot.capture(doc,
+            { _, _ -> reads++; emptyList() }, { _, _, _ -> reads++; null },
+            mediaKeys = { _, _ -> reads++; emptyMap() }, mediaRead = { _, _, _, _ -> reads++; null }) }
+        assertEquals(0, reads)
+    }
+
+    private fun withCel(cel: Cel): JbContents = pixel().let { base ->
+        base.copy(doc = base.doc.copy(layers = base.doc.layers.map { it.copy(cels = listOf(cel)) }))
+    }
+
+    // Editable lines v1 (NATIVE_LINES_V1): pixel slabs and captured-source lines are still refused by every snapshot
+    // entry point before a callback runs or anything is rebuilt; ordinary line storage and frozen brushes are not.
+    @Test fun snapshotsStillRefusePixelSlabsAndCapturedLinesBeforeCallbacksOrReconstruction() {
+        val base = pixel()
+        val slabbed = listOf(LineArchiveFixture.contents(), withCel(Cel("c", tiles = listOf("0_0"), slabs = listOf(SlabRef("0_0", 0)))))
+        for (contents in slabbed + LineArchiveFixture.capturedLines()) {
+            for (snapshot in snapshotCalls(contents, base)) assertFailsWith<JbArchiveException> { snapshot() }
+        }
+        for (contents in slabbed) assertRasterReadbackRefusesBeforeReading(contents.doc)
+    }
+
+    @Test fun snapshotsAdmitOrdinaryLineStorageAndFrozenMetadata() {
         val base = pixel()
         val frozen = base.copy(doc = base.doc.copy(brushes = listOf(LineArchiveFixture.brush.id)),
             brushes = mapOf(LineArchiveFixture.brush.id to LineArchiveFixture.brush))
-        val brushMapOnly = base.copy(brushes = frozen.brushes)
-        for (contents in variants() + listOf(frozen, brushMapOnly, base.copy(doc = frozen.doc))) {
-            for (snapshot in listOf<() -> Unit>(
-                { CanvasSnapshot.metadataOf(contents); Unit },
-                { CanvasSnapshot.merge(null, contents); Unit },
-                { CanvasSnapshot.merge(contents, base); Unit },
-                { CanvasSnapshot.merge(base, contents); Unit })) {
-                assertFailsWith<JbArchiveException> { snapshot() }
-            }
-            if (contents !== brushMapOnly) {
-                var reads = 0
-                assertFailsWith<IllegalArgumentException> { BoardSnapshot.capture(contents.doc,
-                    { _, _ -> reads++; emptyList() }, { _, _, _ -> reads++; null },
-                    mediaKeys = { _, _ -> reads++; emptyMap() }, mediaRead = { _, _, _, _ -> reads++; null }) }
-                assertEquals(0, reads)
-            }
+        val lineStorage = withCel(Cel("c", strokesFile = "layers/l/c/strokes.jbs"))
+        for (contents in listOf(lineStorage, frozen, base.copy(brushes = frozen.brushes), base.copy(doc = frozen.doc))) {
+            for (snapshot in snapshotCalls(contents, base)) snapshot()
         }
+        assertEquals(frozen.doc, CanvasSnapshot.metadataOf(frozen).doc)
+        assertTrue(CanvasSnapshot.metadataOf(frozen).brushes.isEmpty())
     }
 
-    @Test fun frozenMetadataOnlyRefusalKeepsStagedAndRecoveryArtifacts() = inDirectory { dir ->
+    // BoardSnapshot.capture is the raw tile readback: it still refuses a document that names line storage, looks or
+    // frozen brushes (JbCanvasView adds the lines to what it returns), and it refuses before reading a single tile.
+    @Test fun rasterReadbackStillRefusesDocumentsThatNameLineStorageOrFrozenBrushes() {
+        val base = pixel()
+        val frozenDoc = base.doc.copy(brushes = listOf(LineArchiveFixture.brush.id))
+        for (doc in listOf(frozenDoc, withCel(Cel("c", strokesFile = "layers/l/c/strokes.jbs")).doc,
+            LineArchiveFixture.linesOnly().doc)) assertRasterReadbackRefusesBeforeReading(doc)
+    }
+
+    // Editable lines v1: a frozen brush copy is no longer a reason to refuse; the staged selection is read, not consumed,
+    // and recovery keeps the copy with the drawing. (Refusal keeping staged and recovery files is covered with slabs
+    // in LineLifecycleTest.)
+    @Test fun frozenBrushOnlyDrawingIsAdmittedByStagedReadAndRecovery() = inDirectory { dir ->
         val base = pixel()
         val brush = LineArchiveFixture.brush
         val frozen = base.copy(doc = base.doc.copy(brushes = listOf(brush.id)), brushes = mapOf(brush.id to brush))
         val bytes = LineArchiveFixture.encoded(frozen)
         val stageDir = File(dir, "stage")
         StagedDrawing.stage(stageDir, ByteArrayInputStream(bytes)).use { staged ->
-            assertFailsWith<JbArchiveException> { staged.read() }
+            val read = staged.read()
+            assertEquals(listOf(brush.id), read.doc.brushes)
+            assertEquals(frozen.brushes, read.brushes)
             assertContentEquals(bytes, stageDir.listFiles()!!.single().readBytes())
         }
         val saved = File(dir, "opened.joybrush")
         val recovery = DrawingRecovery(saved)
         recovery.rememberOpened(base)
-        val preserved = saved.readBytes()
-        assertFailsWith<JbArchiveException> { recovery.rememberOpened(frozen) }
-        assertContentEquals(preserved, saved.readBytes())
+        recovery.rememberOpened(frozen)
+        assertEquals(frozen.brushes, recovery.read(base.doc.id).brushes)
         val working = File(dir, "working.joybrush").also { JbArchive.save(it, frozen) }
         recovery.rememberWorking(working)
-        val before = saved.readBytes()
-        val workingBefore = working.readBytes()
-        assertFailsWith<JbArchiveException> { recovery.read(base.doc.id) }
-        assertContentEquals(before, saved.readBytes()); assertContentEquals(workingBefore, working.readBytes())
+        val back = recovery.read(base.doc.id)
+        assertEquals(listOf(brush.id), back.doc.brushes)
+        assertEquals(frozen.brushes, back.brushes)
     }
 
     @Test fun unusedFrozenBrushListDoesNotBlockPlainPixelExport() {

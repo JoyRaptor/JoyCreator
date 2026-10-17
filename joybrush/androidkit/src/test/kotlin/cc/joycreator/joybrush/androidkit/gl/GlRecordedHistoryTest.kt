@@ -1,9 +1,12 @@
 package cc.joycreator.joybrush.androidkit.gl
 
 import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
+import cc.joycreator.joybrush.androidkit.lines.LinePlane
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.input.PenSample
+import cc.joycreator.joybrush.core.layers.LayerStack
+import cc.joycreator.joybrush.core.layers.LayerState
 import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.stroke.AddressedStroke
 import cc.joycreator.joybrush.core.stroke.LineAddress
@@ -68,14 +71,71 @@ class GlRecordedHistoryTest {
         assertSame(step, engine.undo.peekRedo())
     }
 
-    @Test fun recordedHistoryWithoutItsSceneRefusesBeforePoppingTheStep() {
+    // Editable lines v1 (NATIVE_LINES_V1): without a RecordedScene a line step is native. Its tiles go back as for any
+    // stroke and its records are applied to NativeLines; nothing refuses and nothing is re-rendered.
+    @Test fun nativeUndoAndRedoOfALineStepApplyItWithoutAScene() {
         val engine = GlPaintEngine().also { it.initWith {} }
+        val at = LinePlane("paint", null)
+        engine.nativeLines.put(at, "line", record())   // what the commit that made the step did
         val step = UndoLog.Step<Int>(emptyList(), lines = listOf(UndoLog.LineChange("paint", null,
             "line", null, CelComposer.Line(1, record()))))
         engine.undo.push(step)
-        assertFailsWith<IllegalStateException> { engine.undoStep() }
+        assertTrue(engine.undoStep())
+        assertFalse(engine.nativeLines.hasLines(at))
+        assertNull(engine.nativeLines.record(at, "line"))
+        assertNull(engine.undo.peekUndo())
+        assertSame(step, engine.undo.peekRedo())
+        assertTrue(engine.redoStep())
+        assertEquals(record(), engine.nativeLines.record(at, "line"))
         assertSame(step, engine.undo.peekUndo())
         assertNull(engine.undo.peekRedo())
+    }
+
+    @Test fun nativeUndoOfAReplacedLineRestoresTheEarlierRecordAndRedoTheLater() {
+        val engine = GlPaintEngine().also { it.initWith {} }
+        val at = LinePlane("paint", null)
+        engine.nativeLines.put(at, "line", record(2f))
+        val step = UndoLog.Step<Int>(emptyList(), lines = listOf(UndoLog.LineChange("paint", null, "line",
+            CelComposer.Line(1, record()), CelComposer.Line(1, record(2f)))))
+        engine.undo.push(step)
+        assertTrue(engine.undoStep())
+        assertEquals(record(), engine.nativeLines.record(at, "line"))
+        assertEquals(listOf(record()), engine.nativeLines.lines(at))
+        assertTrue(engine.redoStep())
+        assertEquals(record(2f), engine.nativeLines.record(at, "line"))
+        assertEquals(listOf(record(2f)), engine.nativeLines.lines(at))
+    }
+
+    // Clearing a layer that holds editable lines takes its lines AND their bases in the same ONE step; undo and redo
+    // move them together (no line may come back on its own, and none may be left behind without its base).
+    @Test fun clearingALayerWithLinesRemovesLinesAndBasesInOneStepThatUndoAndRedoMoveTogether() {
+        val engine = GlPaintEngine().also { it.initWith {} }
+        engine.setStack(LayerStack(listOf(LayerState("paint", "Paint")), "paint"))
+        val at = LinePlane("paint", null)
+        val line = record()
+        engine.nativeLines.put(at, "line", line)
+        engine.nativeLines.widen(line, setOf(0L))   // the tile the line crosses
+        engine.nativeLines.setBase(at, 0L, 77)
+        assertTrue(engine.layerHasLines("paint"))
+
+        engine.clearLayer("paint")
+        assertFalse(engine.layerHasLines("paint"))
+        assertNull(engine.nativeLines.base(at, 0L))
+        assertTrue(engine.nativeLines.baseTextures().isEmpty())
+        val step = assertNotNull(engine.undo.peekUndo())
+        assertEquals(listOf("line"), step.lines.map { it.id })
+        assertEquals(listOf(0L), step.slabs.filter { it.seq == 0L }.map { it.key })
+        assertNull(engine.undo.peekRedo())
+
+        assertTrue(engine.undoStep())
+        assertEquals(line, engine.nativeLines.record(at, "line"))
+        assertEquals(77, engine.nativeLines.base(at, 0L))
+        assertSame(step, engine.undo.peekRedo())
+
+        assertTrue(engine.redoStep())
+        assertFalse(engine.layerHasLines("paint"))
+        assertNull(engine.nativeLines.base(at, 0L))
+        assertSame(step, engine.undo.peekUndo())
     }
 
     @Test fun legacyPixelHistoryWithARecordedSceneRefusesBeforeDroppingEitherDataFamily() {

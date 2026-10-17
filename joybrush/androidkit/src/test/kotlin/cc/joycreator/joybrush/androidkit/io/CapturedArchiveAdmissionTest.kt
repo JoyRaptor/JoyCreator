@@ -88,23 +88,39 @@ class CapturedArchiveAdmissionTest {
         assertTrue(refusedBeforeOutput(c).contains("widthScale"))
     }
 
-    @Test fun legacyRegionalNullSourceReadRemainsPossibleButResaveCannotInventDomain() {
+    // Editable lines v1 (NATIVE_LINES_V1): an ordinary line on a regional layer needs no captured source; the plane's
+    // current regions clip it when it is re-rendered. What must still hold: resaving never INVENTS a captured domain.
+    @Test fun legacyRegionalNullSourceReadsAndResavesAsOrdinaryWithoutInventingADomain() {
         val c = regional(source()).let { it.copy(doc = it.doc.copy(version = 10)) }
         val back = read(wire(c))
         assertEquals(10, back.doc.version)
         assertTrue(back.strokes.getValue(address).all { it.capturedPhysicalSource == null })
         JbArchive.requireStructure(back)
-        assertTrue(refusedBeforeOutput(back).contains("captured physical source"))
+        val again = read(LineArchiveFixture.encoded(back))
+        assertEquals(11, again.doc.version, "only the output metadata is upgraded")
+        assertEquals(back.strokes, again.strokes)
+        assertTrue(again.strokes.getValue(address).all { it.capturedPhysicalSource == null })
     }
 
-    @Test fun currentRegionalNullSourceRefusesOnReadAndStructure() {
+    @Test fun currentRegionalNullSourceIsAdmittedOnReadStructureAndWrite() {
         val c = regional(source())
-        assertFailsWith<JbArchiveException> { read(wire(c)) }
-        assertFailsWith<JbArchiveException> { JbArchive.requireStructure(c) }
-        assertTrue(refusedBeforeOutput(c).contains("captured physical source"))
+        assertEquals(11, c.doc.version)
+        val back = read(wire(c))
+        JbArchive.requireStructure(c)
+        assertEquals(c.strokes.mapValues { it.value.sortedBy { r -> r.seq } }, back.strokes)
+        assertTrue(back.strokes.getValue(address).all { it.capturedPhysicalSource == null })
+        assertEquals(back.strokes, read(LineArchiveFixture.encoded(c)).strokes)
     }
 
-    @Test fun legacyRegionalInkMigrationStopsAtTenRatherThanAssertingCapturedOwnership() {
+    @Test fun capturedLineOnARegionalLayerKeepsItsDomainAndStillRefusesTheWriter() {
+        val c = captured(regional(source()))
+        val back = read(wire(c))
+        assertTrue(back.strokes.getValue(address).all { it.capturedPhysicalSource != null })
+        JbArchive.requireStructure(back)
+        assertTrue(refusedBeforeOutput(back).contains("clipping-aware"))
+    }
+
+    @Test fun legacyRegionalInkMigrationStopsAtTenAndResavesAsOrdinaryWithoutAssertingCapturedOwnership() {
         val entries = LineArchiveFixture.entries(LineArchiveFixture.oldInk())
         val oldDoc = JbDocument(version = 9, id = "old", name = "Old ink",
             boards = listOf(Board("b", "Region", BoardKind.ANIMATION, RectPx(0, 0, 64, 64),
@@ -118,6 +134,10 @@ class CapturedArchiveAdmissionTest {
         assertEquals(10, back.doc.version)
         assertEquals(LayerKind.PAINT, back.doc.layers.single().kind)
         assertEquals(2, back.strokes.getValue(address).size)
-        assertTrue(refusedBeforeOutput(back).contains("captured physical source"))
+        assertTrue(back.strokes.getValue(address).all { it.capturedPhysicalSource == null })
+        val again = read(LineArchiveFixture.encoded(back))
+        assertEquals(11, again.doc.version)
+        assertEquals(back.strokes, again.strokes)
+        assertEquals(back.brushes, again.brushes)
     }
 }

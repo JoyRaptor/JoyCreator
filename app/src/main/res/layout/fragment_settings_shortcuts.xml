@@ -26,15 +26,15 @@
             android:layout_height="24dp"
             android:padding="2dp"
             android:src="@drawable/ic_close"
-            android:tint="@android:color/white"/>
+            android:tint="@color/s_ink_dim"/>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:text="@string/shortcuts_and_widgets"
-            android:textStyle="bold"
-            android:textColor="@android:color/white"
-            android:textSize="20sp"/>
+            android:fontFamily="@font/joy_display"
+            android:textColor="@color/s_ink"
+            android:textSize="19sp"/>
     </LinearLayout>
 
     <ScrollView
@@ -65,7 +65,8 @@
                 android:layout_marginBottom="6dp"
                 android:text="@string/shortcuts_video_category"
                 android:textColor="?attr/colorHeading"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+            android:fontFamily="@font/joy_body" />
 
             <!-- Group card container replicating settings style -->
     <LinearLayout
@@ -111,7 +112,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:textColor="@android:color/white"
+                        android:textColor="@color/s_ink"
                         android:textSize="14sp"
                         android:text="@string/shortcut_start_back"/>
                     <TextView
@@ -146,7 +147,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:textColor="@android:color/white"
+                        android:textColor="@color/s_ink"
                         android:textSize="14sp"
                         android:text="@string/stop_recording"/>
                     <TextView
@@ -181,7 +182,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:textColor="@android:color/white"
+                        android:textColor="@color/s_ink"
                         android:textSize="14sp"
                         android:text="@string/torch_shortcut_short_label"/>
                     <TextView
@@ -225,7 +226,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:textColor="@android:color/white"
+                        android:textColor="@color/s_ink"
                         android:textSize="14sp"
                         android:text="@string/shortcut_start_front"/>
                     <TextView
@@ -260,7 +261,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:textColor="@android:color/white"
+                        android:textColor="@color/s_ink"
                         android:textSize="14sp"
                         android:text="@string/shortcut_start_current"/>
                     <TextView
@@ -295,7 +296,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:textColor="@android:color/white"
+                        android:textColor="@color/s_ink"
                         android:textSize="14sp"
                         android:text="@string/shortcut_start_dual"/>
                     <TextView
@@ -325,7 +326,8 @@
         android:layout_marginBottom="6dp"
         android:text="@string/shortcuts_picture_category"
         android:textColor="?attr/colorHeading"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+            android:fontFamily="@font/joy_body" />
 
     <LinearLayout
         android:id="@+id/shortcuts_picture_group_card"
@@ -358,7 +360,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:textColor="@android:color/white"
+                    android:textColor="@color/s_ink"
                     android:textSize="14sp"
                     android:text="@string/shortcut_take_photo" />
                 <TextView
@@ -393,7 +395,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:textColor="@android:color/white"
+                    android:textColor="@color/s_ink"
                     android:textSize="14sp"
                     android:text="@string/shortcut_take_photo_front" />
                 <TextView
@@ -428,7 +430,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:textColor="@android:color/white"
+                    android:textColor="@color/s_ink"
                     android:textSize="14sp"
                     android:text="@string/shortcut_take_screenshot" />
                 <TextView
@@ -454,7 +456,7 @@
         android:layout_marginTop="8dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
-        android:textColor="@android:color/darker_gray"
+        android:textColor="@color/s_ink_dim"
         android:textSize="12sp"
         android:text="@string/shortcuts_helper_text"/>
 
@@ -468,7 +470,8 @@
         android:layout_marginBottom="6dp"
         android:text="@string/shortcuts_and_widgets"
         android:textColor="?attr/colorHeading"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+            android:fontFamily="@font/joy_body" />
 
     <!-- Widgets group card (dark themed) with full width widgets -->
     <LinearLayout
@@ -512,19 +515,19 @@
                     android:layout_height="18dp"
                     android:layout_marginEnd="8dp"
                     android:src="@drawable/ic_clock_widget"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Clock"
                     android:textStyle="bold"
-                    android:textColor="@android:color/white"/>
+                    android:textColor="@color/s_ink"/>
                 <ImageView
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:src="@drawable/ic_open_in_new"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
         </LinearLayout>
 

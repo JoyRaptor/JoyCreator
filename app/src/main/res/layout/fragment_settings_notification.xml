@@ -27,15 +27,15 @@
             android:padding="2dp"
             android:src="@drawable/ic_close"
             android:contentDescription="@string/watch_back_desc"
-            android:tint="@android:color/white"/>
+            android:tint="@color/s_ink_dim"/>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Recording Notification"
-            android:textSize="20sp"
-            android:textStyle="bold"
+            android:textSize="19sp"
+            android:fontFamily="@font/joy_display"
             android:layout_marginStart="12dp"
-            android:textColor="@android:color/white"/>
+            android:textColor="@color/s_ink"/>
     </LinearLayout>
 
     <ScrollView
@@ -62,6 +62,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/notification_preview_title"
                 android:textStyle="bold"
+            android:fontFamily="@font/joy_body"
                 android:textColor="?attr/colorHeading"
                 android:textSize="14sp"
                 android:layout_marginStart="4dp"
@@ -91,13 +92,13 @@
                         android:layout_height="wrap_content"
                         android:text="-"
                         android:textStyle="bold"
-                        android:textColor="@android:color/white"/>
+                        android:textColor="@color/s_ink"/>
                     <TextView
                         android:id="@+id/preview_text"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="-"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:layout_marginTop="2dp"/>
                     <TextView
                         android:id="@+id/preview_stop_button"
@@ -105,7 +106,7 @@
                         android:layout_height="wrap_content"
                         android:text="@string/notification_stop"
                         android:textStyle="bold"
-                        android:textColor="@android:color/holo_red_light"
+                        android:textColor="@color/s_danger"
                         android:layout_marginTop="8dp"/>
                 </LinearLayout>
             </LinearLayout>
@@ -114,7 +115,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/notification_preview_helper"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp"
                 android:layout_marginTop="8dp"
                 android:paddingStart="16dp"
@@ -131,6 +132,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/notification_options_heading"
                 android:textStyle="bold"
+            android:fontFamily="@font/joy_body"
                 android:textColor="?attr/colorHeading"
                 android:textSize="14sp"
                 android:layout_marginStart="4dp"
@@ -154,28 +156,28 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_info"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/notification_style_row_title"
-                        android:textStyle="bold"
-                        android:textSize="15sp"
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"
                         android:textColor="?attr/colorHeading"/>
                     <TextView
                         android:id="@+id/value_notification_preset"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="-"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="13sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:layout_marginStart="12dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -189,28 +191,28 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_notifications"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/notification_stop_button_row_title"
-                        android:textStyle="bold"
-                        android:textSize="15sp"
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"
                         android:textColor="?attr/colorHeading"/>
                     <TextView
                         android:id="@+id/value_hide_stop_button"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="-"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="13sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:layout_marginStart="12dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>

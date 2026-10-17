@@ -27,16 +27,16 @@
             android:contentDescription="@string/back"
             android:padding="2dp"
             android:src="@drawable/ic_close"
-            android:tint="@android:color/white" />
+            android:tint="@color/s_ink_dim" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:text="@string/digital_forensics_title"
-            android:textColor="@android:color/white"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:textColor="@color/s_ink"
+            android:textSize="19sp"
+            android:fontFamily="@font/joy_display" />
     </LinearLayout>
 
     <ScrollView
@@ -73,7 +73,7 @@
                     android:layout_height="20dp"
                     android:layout_marginEnd="10dp"
                     android:src="@drawable/ic_notifications"
-                    android:tint="#FFE082" />
+                    android:tint="@color/s_careful" />
 
                 <TextView
                     android:id="@+id/text_motion_lab_dependency"
@@ -81,7 +81,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/digital_forensics_motion_lab_dependency"
-                    android:textColor="@android:color/white"
+                    android:textColor="@color/s_ink"
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -100,14 +100,15 @@
                     android:text="@string/digital_forensics_preview_title"
                     android:textColor="?attr/colorHeading"
                     android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+            android:fontFamily="@font/joy_body" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
                     android:text="@string/digital_forensics_preview_subtitle"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="11sp" />
 
                 <FrameLayout
@@ -123,7 +124,7 @@
                         android:alpha="0.26"
                         android:scaleType="centerCrop"
                         android:src="@drawable/ic_photo"
-                        android:tint="#101010" />
+                        android:tint="@color/s_ground" />
 
                     <View
                         android:id="@+id/forensics_preview_bbox"
@@ -147,7 +148,7 @@
                         android:paddingEnd="8dp"
 
                         android:text="@string/digital_forensics_preview_default"
-                        android:textColor="@android:color/white"
+                        android:textColor="@color/s_on_go"
                         android:textSize="11sp"
                         android:textStyle="bold" />
                 </FrameLayout>
@@ -171,7 +172,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_focus_target"
-                        android:tint="@android:color/darker_gray" />
+                        android:tint="@color/s_ink_faint" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -184,15 +185,15 @@
                             android:layout_height="wrap_content"
                             android:text="@string/digital_forensics_enable"
                             android:textColor="?attr/colorHeading"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
+                            android:textSize="14sp"
+                            android:fontFamily="@font/joy_body" />
 
                         <TextView
                             android:id="@+id/value_df_status"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/digital_forensics_status_disabled"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp" />
                     </LinearLayout>
 
@@ -200,7 +201,7 @@
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray" />
+                        android:tint="@color/s_ink_faint" />
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -214,7 +215,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_camera"
-                        android:tint="@android:color/darker_gray" />
+                        android:tint="@color/s_ink_faint" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -227,14 +228,14 @@
                             android:layout_height="wrap_content"
                             android:text="@string/digital_forensics_overlay"
                             android:textColor="?attr/colorHeading"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
+                            android:textSize="14sp"
+                            android:fontFamily="@font/joy_body" />
 
                         <TextView
                             android:id="@+id/value_df_overlay"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp" />
                     </LinearLayout>
 
@@ -242,7 +243,7 @@
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray" />
+                        android:tint="@color/s_ink_faint" />
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -256,7 +257,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_grid"
-                        android:tint="@android:color/darker_gray" />
+                        android:tint="@color/s_ink_faint" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -269,14 +270,14 @@
                             android:layout_height="wrap_content"
                             android:text="@string/digital_forensics_evidence_enable"
                             android:textColor="?attr/colorHeading"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
+                            android:textSize="14sp"
+                            android:fontFamily="@font/joy_body" />
 
                         <TextView
                             android:id="@+id/value_df_evidence"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp" />
                     </LinearLayout>
 
@@ -284,7 +285,7 @@
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray" />
+                        android:tint="@color/s_ink_faint" />
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -298,7 +299,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_list"
-                        android:tint="@android:color/darker_gray" />
+                        android:tint="@color/s_ink_faint" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -311,14 +312,14 @@
                             android:layout_height="wrap_content"
                             android:text="@string/digital_forensics_capture_scope"
                             android:textColor="?attr/colorHeading"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
+                            android:textSize="14sp"
+                            android:fontFamily="@font/joy_body" />
 
                         <TextView
                             android:id="@+id/value_df_capture_scope"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp" />
                     </LinearLayout>
 
@@ -326,7 +327,7 @@
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray" />
+                        android:tint="@color/s_ink_faint" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -335,7 +336,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="@string/digital_forensics_helper"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp" />
         </LinearLayout>
     </ScrollView>

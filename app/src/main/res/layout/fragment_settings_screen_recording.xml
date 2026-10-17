@@ -26,15 +26,15 @@
             android:layout_height="24dp"
             android:padding="2dp"
             android:src="@drawable/ic_close"
-            android:tint="@android:color/white"/>
+            android:tint="@color/s_ink_dim"/>
         <TextView
             android:id="@+id/header_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/screen_recording_title"
-            android:textStyle="bold"
-            android:textSize="20sp"
-            android:textColor="@android:color/white"
+            android:fontFamily="@font/joy_display"
+            android:textSize="19sp"
+            android:textColor="@color/s_ink"
             android:layout_marginStart="12dp"/>
     </LinearLayout>
 
@@ -74,27 +74,27 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_grid"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/screen_rec_resolution"
-                        android:textStyle="bold"
-                        android:textSize="15sp"
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"
                         android:textColor="?attr/colorHeading"/>
                     <TextView
                         android:id="@+id/value_resolution"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/screen_rec_resolution_value"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="13sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -108,27 +108,27 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_fps"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/screen_rec_framerate"
-                        android:textStyle="bold"
-                        android:textSize="15sp"
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"
                         android:textColor="?attr/colorHeading"/>
                     <TextView
                         android:id="@+id/value_framerate"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/screen_rec_framerate_value"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="13sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -142,27 +142,27 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_bitrate"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/screen_rec_bitrate"
-                        android:textStyle="bold"
-                        android:textSize="15sp"
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"
                         android:textColor="?attr/colorHeading"/>
                     <TextView
                         android:id="@+id/value_bitrate"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/screen_rec_bitrate_value"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="13sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -176,27 +176,27 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_screen_rotation"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/screen_rec_orientation"
-                        android:textStyle="bold"
-                        android:textSize="15sp"
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"
                         android:textColor="?attr/colorHeading"/>
                     <TextView
                         android:id="@+id/value_orientation"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/setting_portrait"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="13sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -210,27 +210,27 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_audio"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/fadrec_audio_source_title"
-                        android:textStyle="bold"
-                        android:textSize="15sp"
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"
                         android:textColor="?attr/colorHeading"/>
                     <TextView
                         android:id="@+id/value_audio_source"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/setting_microphone"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="13sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -244,7 +244,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_split_file"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -255,21 +255,21 @@
                             android:layout_height="wrap_content"
                             android:text="@string/video_splitting_title"
                             android:textColor="?attr/colorHeading"
-                            android:textStyle="bold"
-                            android:textSize="15sp"/>
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"/>
                         <TextView
                             android:id="@+id/value_splitting"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/setting_off"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="13sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -287,7 +287,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_camera"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -298,21 +298,21 @@
                             android:layout_height="wrap_content"
                             android:text="Record webcam as separate file"
                             android:textColor="?attr/colorHeading"
-                            android:textStyle="bold"
-                            android:textSize="15sp"/>
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"/>
                         <TextView
                             android:id="@+id/value_dual_stream"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/setting_off"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="13sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View
@@ -329,7 +329,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_pause"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -340,21 +340,21 @@
                             android:layout_height="wrap_content"
                             android:text="@string/menu_auto_pause_title"
                             android:textColor="?attr/colorHeading"
-                            android:textStyle="bold"
-                            android:textSize="15sp"/>
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"/>
                         <TextView
                             android:id="@+id/value_menu_auto_pause"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/setting_on"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="13sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -368,7 +368,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/color_picker_swatch_circle"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -379,21 +379,21 @@
                             android:layout_height="wrap_content"
                             android:text="@string/button_state_tint_title"
                             android:textColor="?attr/colorHeading"
-                            android:textStyle="bold"
-                            android:textSize="15sp"/>
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"/>
                         <TextView
                             android:id="@+id/value_button_state_tint"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/setting_on"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="13sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
             </LinearLayout>

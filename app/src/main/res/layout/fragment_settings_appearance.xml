@@ -27,16 +27,16 @@
             android:padding="2dp"
             android:src="@drawable/ic_close"
             android:contentDescription="@string/watch_back_desc"
-            android:tint="@android:color/white"/>
+            android:tint="@color/s_ink_dim"/>
         <TextView
             android:id="@+id/title_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/settings_appearance_title"
-            android:textSize="20sp"
-            android:textStyle="bold"
+            android:textSize="19sp"
+            android:fontFamily="@font/joy_display"
             android:layout_marginStart="12dp"
-            android:textColor="@android:color/white"/>
+            android:textColor="@color/s_ink"/>
     </LinearLayout>
 
     <ScrollView
@@ -77,28 +77,28 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:src="@drawable/ic_theme"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/setting_theme"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
+                    android:fontFamily="@font/joy_body"
+                    android:textSize="14sp"
                     android:textColor="?attr/colorHeading"/>
                 <TextView
                     android:id="@+id/value_theme"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="-"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="13sp"/>
                 <ImageView
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:layout_marginStart="8dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <View style="@style/SettingsDivider" />
 
@@ -113,28 +113,28 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:src="@drawable/ic_language"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/setting_language"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
+                    android:fontFamily="@font/joy_body"
+                    android:textSize="14sp"
                     android:textColor="?attr/colorHeading"/>
                 <TextView
                     android:id="@+id/value_language"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="-"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="13sp"/>
                 <ImageView
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:layout_marginStart="8dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <View style="@style/SettingsDivider" />
 
@@ -149,28 +149,28 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:src="@drawable/ic_camera"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/setting_app_icon"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
+                    android:fontFamily="@font/joy_body"
+                    android:textSize="14sp"
                     android:textColor="?attr/colorHeading"/>
                 <TextView
                     android:id="@+id/value_app_icon"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="-"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="13sp"/>
                 <ImageView
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:layout_marginStart="8dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <View style="@style/SettingsDivider" />
 
@@ -188,14 +188,14 @@
                     android:text="visibility"
                     android:textSize="20sp"
                     android:fontFamily="@font/materialicons"
-                    android:textColor="@android:color/darker_gray"/>
+                    android:textColor="@color/s_ink_dim"/>
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/setting_eye_color_title"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
+                    android:fontFamily="@font/joy_body"
+                    android:textSize="14sp"
                     android:textColor="?attr/colorHeading"/>
                 <View
                     android:id="@+id/eye_color_swatch"
@@ -208,14 +208,14 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="-"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="13sp"/>
                 <ImageView
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:layout_marginStart="8dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <View style="@style/SettingsDivider" />
 
@@ -233,28 +233,28 @@
                     android:text="smart_display"
                     android:textSize="20sp"
                     android:fontFamily="@font/materialicons"
-                    android:textColor="@android:color/darker_gray"/>
+                    android:textColor="@color/s_ink_dim"/>
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/setting_header_logo_title"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
+                    android:fontFamily="@font/joy_body"
+                    android:textSize="14sp"
                     android:textColor="?attr/colorHeading"/>
                 <TextView
                     android:id="@+id/value_header_logo"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="-"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="13sp"/>
                 <ImageView
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:layout_marginStart="8dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <!-- Removed trailing divider under last row for cleaner card bottom -->
             </LinearLayout> <!-- end group_card_appearance -->

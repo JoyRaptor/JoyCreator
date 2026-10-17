@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- A group of settings rows: one zinc panel on the old-black ground, no border (the ground
+     step does the separating). Shared by every legacy settings sub-screen. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/dark_card_background" />
+    <solid android:color="@color/s_panel" />
     <corners android:radius="12dp" />
 </shape>

@@ -165,7 +165,8 @@ final class LibraryDock {
         pill.setOrientation(LinearLayout.HORIZONTAL);
         pill.setGravity(Gravity.CENTER_VERTICAL);
         pill.setPadding(LibraryViews.dp(c, 14), 0, LibraryViews.dp(c, 18), 0);
-        pill.setBackground(LibraryViews.pressable(Studio.ARMED, LibraryViews.dp(c, 99)));
+        // Studio green: a new project starts in the Studio, and green is the Studio's colour (owner, 2026-10-17).
+        pill.setBackground(new com.fadcam.ui.lobby.SlantDrawable(Studio.GO, Studio.GO_END, LibraryViews.dp(c, 10), LibraryViews.dp(c, 3), false, false));
         pill.setClickable(true);
         pill.setFocusable(true);
         SheetKit.press(pill);

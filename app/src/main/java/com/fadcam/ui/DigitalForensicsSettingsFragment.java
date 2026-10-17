@@ -14,6 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import androidx.core.content.ContextCompat;
 import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
 import com.fadcam.ui.picker.OptionItem;
@@ -241,21 +242,21 @@ public class DigitalForensicsSettingsFragment extends Fragment {
                 y = dp(24);
                 scale = 0.86f;
                 label = "PERSON 92%";
-                color = 0xFF29B6F6;
+                color = ContextCompat.getColor(requireContext(), R.color.s_armed);
                 break;
             case 2:
                 x = dp(60);
                 y = dp(78);
                 scale = 0.96f;
                 label = "VEHICLE 87%";
-                color = 0xFFFFB300;
+                color = ContextCompat.getColor(requireContext(), R.color.s_careful);
                 break;
             default:
                 x = dp(20);
                 y = dp(36);
                 scale = 1.0f;
                 label = "PET 89%";
-                color = 0xFF4CAF50;
+                color = ContextCompat.getColor(requireContext(), R.color.s_go);
                 break;
         }
         previewStep++;

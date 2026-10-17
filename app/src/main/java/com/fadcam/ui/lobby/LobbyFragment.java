@@ -2062,6 +2062,12 @@ public class LobbyFragment extends BaseFragment {
                             statText.setText(getString(R.string.lobbyv2_stat_free, humanBytes(free)));
                             break;
                         case 1:
+                            // Before the first read finishes the count is unknown, not zero: say nothing.
+                            if (lastProjects == null && projects.isEmpty()) {
+                                statIcon.setText("");
+                                statText.setText("");
+                                break;
+                            }
                             statIcon.setText("movie_edit");
                             statText.setText(getResources().getQuantityString(
                                     R.plurals.lobbyv2_stat_projects, projects.size(), projects.size()));

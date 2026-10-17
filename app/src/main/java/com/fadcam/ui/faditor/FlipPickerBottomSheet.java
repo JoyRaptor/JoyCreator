@@ -90,10 +90,10 @@ public class FlipPickerBottomSheet extends BottomSheetDialogFragment {
                 getString(R.string.faditor_flip_title), null).view);
 
         // Horizontal flip row
-        root.addView(createFlipRow("Flip Horizontal", flipH, true));
+        root.addView(createFlipRow(getString(R.string.studio_sheet_flip_horizontal), flipH, true));
 
         // Vertical flip row
-        root.addView(createFlipRow("Flip Vertical", flipV, false));
+        root.addView(createFlipRow(getString(R.string.studio_sheet_flip_vertical), flipV, false));
 
         // Reset row
         if (flipH || flipV) {
@@ -133,7 +133,7 @@ public class FlipPickerBottomSheet extends BottomSheetDialogFragment {
      * Creates a reset row to clear all flips.
      */
     private View createResetRow() {
-        SheetKit.Row row = SheetKit.row(requireContext(), "refresh", "Reset", false,
+        SheetKit.Row row = SheetKit.row(requireContext(), "refresh", getString(R.string.studio_sheet_reset), false,
                 SheetKit.Trail.NONE, v -> {
                     flipH = false;
                     flipV = false;

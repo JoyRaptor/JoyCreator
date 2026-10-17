@@ -26,8 +26,8 @@ object LineRules {
             val captured = record.capturedPhysicalSource
             if(captured != null && documentVersion < 11) out += "Captured physical source requires document version11"
             if(layer.mask?.id == cel.id) out += "A mask cannot own recorded lines"
-            if(documentVersion >= 11 && layer.regions.isNotEmpty() && captured == null)
-                out += "Regional line ${record.id} needs its captured physical source"
+            // Editable lines v1 (NATIVE_LINES_V1): an ordinary line on a regional layer is clipped to its plane's
+            // current regions when it is re-rendered (boards lock after placing, R50); no captured source is required.
             out += CapturedStrokeRules.problems(record)
         }
         return out
@@ -93,6 +93,9 @@ object LineRules {
         if(records.any { it.capturedPhysicalSource != null })
             return listOf("Captured physical source needs a clipping-aware saved-look validator")
         if (cel.looks.isEmpty()) return emptyList()
+        // Editable lines v1 keep CONSERVATIVE crossing sets: a look on a tile no line reaches equals its base, which is
+        // harmless, and proving the exact set would replay every line on every autosave. Ordinary looks are not checked.
+        if (records.none { it.capturedPhysicalSource != null }) return emptyList()
         val where = "cel \"${cel.id}\" of layer \"$layerId\""
         if (records.isEmpty()) return emptyList() // [problems] says a look with no lines is wrong
         val drawn = try {

@@ -50,16 +50,19 @@ class JbContentsStructureTest {
         assertContentEquals(contents.looks.getValue(paint), back.looks.getValue(paint))
     }
 
-    @Test fun structuralAdmissionDoesNotRunTheWritersGeometricLookCheck() {
+    // Editable lines v1 (NATIVE_LINES_V1): crossing sets are conservative, so a look on a tile no ordinary line reaches
+    // equals its base and is harmless. Neither structure nor the writer replays lines to prove the exact set (that
+    // would cost a full replay per autosave); what stays guarded is the DECLARATION (see the completeness tests below).
+    @Test fun ordinaryLooksOnTilesNoLineReachesAreAdmittedByStructureAndTheWriter() {
         val base = mixed()
         val distant = Triple("l", "c", "99_99")
         val contents = withCel(base, base.doc.layers.single().cels.single().copy(looks = listOf("99_99")))
             .copy(looks = mapOf(distant to bytes()))
-        JbArchive.requireStructure(contents) // A valid declaration, but no line actually reaches this tile.
-        val out = ByteArrayOutputStream().apply { write(91) }
-        val error = assertFailsWith<JbArchiveException> { JbArchive.write(out, contents) }
-        assertTrue(error.message.orEmpty().contains("no line crosses"))
-        assertContentEquals(byteArrayOf(91), out.toByteArray())
+        JbArchive.requireStructure(contents) // A valid declaration, though no line actually reaches this tile.
+        val back = JbArchive.read(ByteArrayInputStream(encoded(contents)))
+        assertEquals(listOf("99_99"), back.doc.layers.single().cels.single().looks)
+        assertContentEquals(bytes(), back.looks.getValue(distant))
+        assertEquals(contents.strokes.mapValues { it.value.sortedBy { r -> r.seq } }, back.strokes)
     }
 
     @Test fun rendererIncompatibilityIsNotInventedAsGenericArchiveStructure() {

@@ -62,6 +62,16 @@ out.squeeze = [];
 {
   const c = stick.stickContact(stick.STICKS.Proto, 0.85 * Math.PI / 2, 0.6, paper);
   for (const x of [-0.5, -0.1, 0, 0.3, 1, 3, 6, 10, 14]) for (const y of [0, 0.4, 1.2]) out.squeeze.push({ x, y, v: stick.stickSqueeze(x, y, c) });
+  // The blended footprint (Proto 2, 2026-10-14), at a middle tilt where the point yields to the side.
+  const b = stick.stickContact(stick.STICKS['Proto 2'], 0.7 * Math.PI / 2, 0.6, paper);
+  out.squeezeBlend = [];
+  for (const x of [-0.4, -0.1, 0, 0.2, 0.6, 1.5, 3, 6]) for (const y of [0, 0.3, 0.8]) out.squeezeBlend.push({ x, y, v: stick.stickSqueeze(x, y, b) });
+  // The flagship (Proto Pencil, 2026-10-15): its own zones and shape, at a tilt where its curves bend the zones.
+  const pp = stick.STICKS['Proto Pencil'], tu = pp.tuning;
+  const f = stick.stickContact(pp, 0.75 * Math.PI / 2, 0.55, paper);
+  const shape = { bell: tu.bell, bellReach: tu.bellReach, acrossSoft: tu.acrossSoft, tipYield: tu.tipYield, tail: tu.tail };
+  out.squeezeFlagship = [];
+  for (const x of [-0.3, -0.1, 0, 0.2, 0.6, 1.5, 3, 6]) for (const y of [0, 0.3, 0.8]) out.squeezeFlagship.push({ x, y, v: stick.stickSqueeze(x, y, f, stick.zonesFor(pp), shape) });
 }
 const runDry = (name, smp) => {
   const ds = new stick.DryStroke(stick.STICKS[name], paper, 20);
@@ -69,7 +79,7 @@ const runDry = (name, smp) => {
   for (const s of smp) { ds.add(s); const b = ds.take(); for (let i = 0; i < b.count; i++) dabs.push(Array.from(b.dabs.slice(i * 20, i * 20 + 20))); }
   return dabs;
 };
-out.dry = { Proto: runDry('Proto', IN.s40), HB: runDry('HB', IN.s30flat), dab: runDry('Proto', IN.dab20) };
+out.dry = { Proto: runDry('Proto', IN.s40), HB: runDry('HB', IN.s30flat), dab: runDry('Proto', IN.dab20), flagship: runDry('Proto Pencil', IN.s40) };
 
 // ---- wet
 out.wet = { WET: wet.WET, WETNESS: wet.WETNESS, WET_BRUSHES: wet.WET_BRUSHES, THINNER: wet.THINNER };

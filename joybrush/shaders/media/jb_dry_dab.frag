@@ -40,6 +40,9 @@ uniform float u_conform;        // 0..1: the sheet bends onto the stick, so only
 uniform float u_transferExp;    // n above
 uniform float u_leadSoft;       // a soft lead gives where it meets a tip (× tooth): gradual, not binary, contact
 uniform float u_plateau;        // paper tooth is plateaus and narrow pits, not spikes: depth below the top = (1−h)^k
+uniform float u_stickBlend;     // 0 the three zones, 1 one blended footprint (jb_stick.glsl)
+uniform vec4 u_stickShape;      // blended footprint: bell, acrossSoft, tipYield, tail (jb_stick.glsl)
+uniform vec2 u_zoneGrad;        // side zones' fade curves: grad1, grad2
 
 in vec2 v_q;
 in vec2 v_docPx;
@@ -63,7 +66,7 @@ void main() {
     vec2 docPx = u_layerOrigin + layerPx / u_layerScale;
     vec2 rel = (docPx - v_i0.xy) / u_pxPerMm;
     vec2 q = vec2(dot(rel, v_i0.zw), dot(rel, vec2(-v_i0.w, v_i0.z)));
-    float c = jb_stickSqueeze(q, v_i1.w, v_i2, v_i3.xyz, v_i4.z);
+    float c = jb_stickSqueeze(q, v_i1.w, v_i2, v_i3.xyz, v_i4.z, u_stickBlend, u_stickShape, u_zoneGrad);
     if (c <= 0.0) discard;
     const float N = 255.0;
     float a = texture(u_contactLut, vec2((sqrt(min(c / u_lutMaxMm, 1.0)) * N + 0.5) / (N + 1.0), 0.5)).r;   // sqrt-spaced table

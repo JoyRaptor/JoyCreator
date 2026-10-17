@@ -27,15 +27,15 @@
             android:padding="2dp"
             android:src="@drawable/ic_close"
             android:contentDescription="@string/watch_back_desc"
-            android:tint="@android:color/white"/>
+            android:tint="@color/s_ink_dim"/>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/settings_watermark_title"
-            android:textSize="20sp"
-            android:textStyle="bold"
+            android:textSize="19sp"
+            android:fontFamily="@font/joy_display"
             android:layout_marginStart="12dp"
-            android:textColor="@android:color/white"/>
+            android:textColor="@color/s_ink"/>
     </LinearLayout>
 
     <ScrollView
@@ -66,7 +66,8 @@
                 android:layout_marginBottom="12dp"
                 android:text="@string/watermark_preview_heading"
                 android:textColor="?attr/colorHeading"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+            android:fontFamily="@font/joy_body" />
 
             <!-- Preview Mode Tabs (FadCam / FadRec) — transparent bg, dark ripple -->
             <com.google.android.material.tabs.TabLayout
@@ -85,7 +86,7 @@
                 app:tabPaddingEnd="8dp"
                 app:tabTextColor="?attr/colorOnSurface"
                 app:tabSelectedTextColor="?attr/colorPrimary"
-                app:tabRippleColor="#7A000000"
+                app:tabRippleColor="@color/s_pressed"
                 android:elevation="0dp">
                 <com.google.android.material.tabs.TabItem
                     android:id="@+id/tab_fadcam"
@@ -131,7 +132,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
                 android:text="@string/helper_watermark_preview"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp"/>
 
             <!-- Options Heading -->
@@ -144,7 +145,8 @@
                 android:layout_marginBottom="8dp"
                 android:text="@string/watermark_options_heading"
                 android:textColor="?attr/colorHeading"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+            android:fontFamily="@font/joy_body" />
 
             <!-- Options Card -->
             <LinearLayout
@@ -165,7 +167,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_settings"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -175,8 +177,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/watermark_style_row_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_watermark_style"
@@ -184,14 +186,14 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="-"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
                 <View style="@style/SettingsDivider" />
 
@@ -204,7 +206,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_location"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -214,8 +216,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/settings_location_watermark_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_location_watermark"
@@ -223,14 +225,14 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="-"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
                 <View style="@style/SettingsDivider" />
 
@@ -243,7 +245,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_location"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -253,8 +255,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/location_format_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_location_format"
@@ -262,14 +264,14 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="@string/setting_coordinates_only"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
                 <View style="@style/SettingsDivider" />
 
@@ -282,7 +284,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_settings"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -292,8 +294,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/location_update_interval_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_location_interval"
@@ -301,14 +303,14 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="@string/settings_location_update_interval_5s"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
                 <View style="@style/SettingsDivider" />
 
@@ -325,7 +327,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_draw_edit"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -335,8 +337,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/watermark_custom_text_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_custom_text"
@@ -344,7 +346,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="-"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"
                             android:maxLines="1"
                             android:ellipsize="end"/>
@@ -353,7 +355,7 @@
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     </LinearLayout>
                     
                     <!-- NEW Badge -->
@@ -369,7 +371,7 @@
                         android:paddingTop="2dp"
                         android:paddingBottom="2dp"
                         android:text="@string/badge_new"
-                        android:textColor="@color/s_ink"
+                        android:textColor="@color/s_on_go"
                         android:textSize="9sp"
                         android:textStyle="bold"
                         android:visibility="visible" />
@@ -387,7 +389,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_settings"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -397,8 +399,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/watermark_timezone_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_timezone"
@@ -406,7 +408,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="@string/watermark_timezone_off"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <com.fadcam.ui.joybot.JoybotSwitch
@@ -426,7 +428,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_settings"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -436,8 +438,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/watermark_timezone_format_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_timezone_format"
@@ -445,14 +447,14 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="@string/watermark_timezone_format_gmt_only"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
                 <View style="@style/SettingsDivider" />
 
@@ -465,7 +467,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_location"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -475,8 +477,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/watermark_utm_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_utm"
@@ -484,7 +486,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="@string/watermark_utm_off"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <com.fadcam.ui.joybot.JoybotSwitch
@@ -506,7 +508,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/watermark_utm_helper"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="11sp"/>
                 </LinearLayout>
                 <View style="@style/SettingsDivider" />
@@ -520,7 +522,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_location"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -530,8 +532,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/watermark_speed_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_speed"
@@ -539,7 +541,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="@string/watermark_speed_off"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <com.fadcam.ui.joybot.JoybotSwitch
@@ -559,7 +561,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_location"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -569,8 +571,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/watermark_altitude_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_altitude"
@@ -578,7 +580,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="@string/watermark_altitude_off"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <com.fadcam.ui.joybot.JoybotSwitch
@@ -598,7 +600,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_location"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -608,8 +610,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/watermark_accuracy_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_accuracy"
@@ -617,7 +619,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="@string/watermark_accuracy_off"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <com.fadcam.ui.joybot.JoybotSwitch
@@ -637,7 +639,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_location"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -647,8 +649,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/watermark_compass_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_compass"
@@ -656,7 +658,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="@string/watermark_compass_off"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <com.fadcam.ui.joybot.JoybotSwitch
@@ -676,7 +678,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_mic"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -686,8 +688,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/watermark_noise_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_noise"
@@ -695,7 +697,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="@string/watermark_noise_off"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <com.fadcam.ui.joybot.JoybotSwitch
@@ -715,7 +717,7 @@
                         android:layout_height="24dp"
                         android:layout_marginEnd="16dp"
                         android:src="@drawable/ic_location"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -725,8 +727,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/watermark_weather_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_weather"
@@ -734,7 +736,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
                             android:text="@string/watermark_weather_off"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <com.fadcam.ui.joybot.JoybotSwitch

@@ -435,6 +435,16 @@ object BrushValidate {
         m.wet?.let { walk("media.wet", MEDIA_NUMBERS.encodeToJsonElement(WetBrush.serializer(), it)) }
         m.paste?.let { walk("media.paste", MEDIA_NUMBERS.encodeToJsonElement(PasteBrush.serializer(), it)) }
         if (bad.isNotEmpty()) out += "media numbers must be finite and not below 0: " + bad.joinToString("; ")
+        m.stick?.let { if (it.blend > 1.0) out += "media.stick.blend ${it.blend} must be 0..1" }
+        m.stick?.tuning?.let { tu ->
+            // A curve is the response-curve form: four finite numbers, the handles' x inside 0..1 (one y per x).
+            for ((name, h) in listOf("sizeCurve" to tu.sizeCurve, "darkCurve" to tu.darkCurve, "sideCurve" to tu.sideCurve, "pointCurve" to tu.pointCurve)) {
+                if (h.size != 4 || h.any { !it.isFinite() }) out += "media.stick.tuning.$name must be four finite numbers [x1, y1, x2, y2]"
+                else if (h[0] !in 0.0..1.0 || h[2] !in 0.0..1.0) out += "media.stick.tuning.$name handles' x must be 0..1"
+            }
+            if (tu.tiltReachDeg !in 20.0..90.0) out += "media.stick.tuning.tiltReachDeg ${tu.tiltReachDeg} must be 20..90"
+            if (tu.pileLo > tu.pileHi) out += "media.stick.tuning.pileLo ${tu.pileLo} is above pileHi ${tu.pileHi}"
+        }
         return out
     }
 

@@ -508,8 +508,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         bakedPaper = paper
     }
 
-    private fun contactTexture(paper: MediaPaperGl): Int {
-        val lut = paper.stats.contactLut()
+    /** The paper's contact table for this stick's press (a tuned stick has its own tooth stiffness and cushion). */
+    private fun contactTexture(paper: MediaPaperGl, mat: StickMaterial): Int {
+        val lut = paper.stats.contactLut(mat.lutPress)
         if (lutSrc === lut) return lutTex
         if (lutTex == 0) lutTex = MediaTex.make(lut.a.size, 1, GLES30.GL_R16F, GLES30.GL_RED, GLES30.GL_FLOAT, GLES30.GL_LINEAR)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, lutTex)
@@ -543,10 +544,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE)
         GLES30.glBlendEquation(GLES30.GL_FUNC_ADD)
         val t = paper.stats.toothMm
-        val lutTex = contactTexture(paper)   // before the program is made current, as the old map building did (it binds on unit 0)
+        val lutTex = contactTexture(paper, mat)   // before the program is made current, as the old map building did (it binds on unit 0)
         val du = progDab.use()
         common(du); MediaUniforms.paper(du, paper)
-        MediaUniforms.dryDab(du, cur.paper, lutTex, paper.stats.contactLut().maxMm, w, h, pxPerMm, t, mat)
+        MediaUniforms.dryDab(du, cur.paper, lutTex, paper.stats.contactLut(mat.lutPress).maxMm, w, h, pxPerMm, t, mat)
         mediaTrace("JB.media.dry.delta") {
             // The stick's footprint: xMin, xMax, yMax (mm, stick frame) at floats 4-6, plus the vertex shader's 0.06 mm margin.
             val ppm = pxPerMm.toFloat()

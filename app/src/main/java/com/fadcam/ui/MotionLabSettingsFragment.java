@@ -23,6 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
+import androidx.core.content.ContextCompat;
 import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
 import com.fadcam.Constants;
@@ -415,11 +416,11 @@ public class MotionLabSettingsFragment extends Fragment {
     }
 
     private void applyDebugTerminalColors(String state, String action, float score, boolean person, float personConf) {
-        int green = Color.parseColor("#7CFF8A");
-        int cyan = Color.parseColor("#67E8F9");
-        int amber = Color.parseColor("#FBBF24");
-        int red = Color.parseColor("#F87171");
-        int bright = Color.parseColor("#B2FF59");
+        int green = ContextCompat.getColor(requireContext(), R.color.s_go);
+        int cyan = ContextCompat.getColor(requireContext(), R.color.s_armed);
+        int amber = ContextCompat.getColor(requireContext(), R.color.s_careful);
+        int red = ContextCompat.getColor(requireContext(), R.color.s_danger);
+        int bright = ContextCompat.getColor(requireContext(), R.color.s_go_end);
 
         TextView[] views = new TextView[]{
             valueDebugState, valueDebugScore, valueDebugThreshold, valueDebugAction, valueDebugPerson, valueDebugMetrics

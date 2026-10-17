@@ -21,8 +21,30 @@ const D2R = Math.PI / 180;
 //   tipR → tipMax: the point's radius from a feather touch to full pressure
 //   side1: the worn usage face's length; side2: the whole side that can touch; face: the face's half-width
 export const STICKS = {
+  // Proto Pencil, the flagship (the owner, 2026-10-15: "pretty dialed in now - lets make it the flagship"): his own
+  // settings from the pencil tuner. Its tuning carries every number the tuner moved; a stick without one uses the
+  // shared tables below (PRESS, ZONES, SHAPE, stickMaterial), exactly as before.
+  'Proto Pencil': { tipR: 0.15, tipMax: 0.55, side1: 3.5, side2: 9.2, face: 1.1, soft: 0.53, rInf: 0.01243, blend: 1, build: 0.36,
+    tuning: {
+      pressDepth: 1.4, pressGamma: 1.68, sideEase: 0.73, toothStiffness: 9.2, padSoft: 0.9,
+      side1From: 0.57, side1Full: 0.82, side2From: 0.74, side2Full: 0.95, evenFrom: 0.98, grad1: 1.2, grad2: 2,
+      bell: 4.45, bellReach: 0.6, acrossSoft: 1.6, tipYield: 0.5, tail: 3.6,
+      capMm: 0.0055, transferExp: 2.2, plateau: 2.05, crushStart: 0.58, crushMax: 0.45, clump: 0.46, pileLo: 0.11, pileHi: 0.44,
+      dirStrength: 1.31, conform: 0.8,
+      abrasionX: 1.39, leadSoftX: 1.98, dustRateX: 2, smearX: 1.5, smearMmX: 2, crushRateX: 0.56, sheenX: 1.12,
+      sizeCurve: [0.327214, 0.1815, 0.776646, 0.608461], darkCurve: [0.16948, 0.639946, 0.695278, 0.473668],
+      sideCurve: [0.340697, 0.377986, 0.682266, 0.607197], pointCurve: [0.533494, 0.112884, 0.470578, 0.890346],
+      tiltReachDeg: 61,
+    } },
+  // Proto Mix (the owner, 2026-10-15: "average the values of the proto proto2 and proto pencil"): every number the
+  // mean of the three; where only Proto Pencil has a number, the other two count with the shared value.
+  'Proto Mix': { tipR: 0.183333, tipMax: 0.7, side1: 4.166667, side2: 11.733333, face: 1.266667, soft: 0.676667,
+    rInf: 0.008143, blend: 0.666667, build: 0.653333,
+    tuning: { pressDepth: 1.733333, pressGamma: 1.56, sideEase: 0.543333, toothStiffness: 9.066667, padSoft: 0.966667, side1From: 0.523333, side1Full: 0.793333, side2From: 0.713333, side2Full: 0.97, evenFrom: 0.913333, grad1: 1.2, grad2: 1.266667, bell: 2.95, bellReach: 0.6, acrossSoft: 1.6, tipYield: 0.5, tail: 2.866667, capMm: 0.0045, transferExp: 2.2, plateau: 2.15, crushStart: 0.493333, crushMax: 0.55, clump: 0.386667, pileLo: 0.116667, pileHi: 0.646667, dirStrength: 1.036667, conform: 0.8, abrasionX: 1.13, leadSoftX: 1.326667, dustRateX: 1.333333, smearX: 1.166667, smearMmX: 1.333333, crushRateX: 0.853333, sheenX: 1.04, sizeCurve: [0.331294, 0.282722, 0.703326, 0.647265], darkCurve: [0.278716, 0.435538, 0.676204, 0.602334], sideCurve: [0.335788, 0.348218, 0.671866, 0.646843], pointCurve: [0.400054, 0.25985, 0.601304, 0.741226], tiltReachDeg: 65.666667 } },
   // Proto: a soft woodless stick, the owner's Infinite Painter "Proko" reference.
   'Proto': { tipR: 0.25, tipMax: 1.0, side1: 5.5, side2: 16, face: 1.6, soft: 0.75, rInf: 0.006 },
+  // Proto 2 (the owner, 2026-10-14): finer point, smaller side, one blended footprint, black that builds slower.
+  'Proto 2': { tipR: 0.15, tipMax: 0.55, side1: 3.5, side2: 10, face: 1.1, soft: 0.75, rInf: 0.006, blend: 1, build: 0.6 },
   '2H': { tipR: 0.12, tipMax: 0.35, side1: 2.2, side2: 5, face: 0.6, soft: 0.15, rInf: 0.22 },
   'HB': { tipR: 0.14, tipMax: 0.45, side1: 2.6, side2: 5.5, face: 0.7, soft: 0.35, rInf: 0.12 },
   '2B': { tipR: 0.17, tipMax: 0.6, side1: 3.0, side2: 6, face: 0.8, soft: 0.5, rInf: 0.07 },
@@ -41,19 +63,44 @@ export const ZONES = {
   grad2: 0.9,            // fade curve of side 2 when not lying flat
 };
 
+// A stick's own tuning (the flagship's): every number the tuner moved, laid over the shared tables. Twin of core
+// Stick.kt StickTuning.
+export function pressFor(stick, press = PRESS) {
+  const tu = stick.tuning;
+  return tu ? { ...press, depth: tu.pressDepth, gamma: tu.pressGamma, sideEase: tu.sideEase, toothStiffness: tu.toothStiffness, padSoft: tu.padSoft } : press;
+}
+export function zonesFor(stick, zones = ZONES) {
+  const tu = stick.tuning;
+  return tu ? { ...zones, side1From: tu.side1From, side1Full: tu.side1Full, side2From: tu.side2From, side2Full: tu.side2Full,
+    evenFrom: tu.evenFrom, grad1: tu.grad1, grad2: tu.grad2 } : zones;
+}
+function tunedMaterial(stick, tu) {
+  const base = stickMaterial({ ...stick, tuning: undefined });
+  return {
+    ...base,
+    capMm: tu.capMm, transferExp: tu.transferExp, plateau: tu.plateau, crushStart: tu.crushStart, crushMax: tu.crushMax,
+    clump: tu.clump, pileRange: [tu.pileLo, tu.pileHi], dirStrength: tu.dirStrength, conform: tu.conform,
+    abrasion: base.abrasion * tu.abrasionX, leadSoft: base.leadSoft * tu.leadSoftX, dustRate: base.dustRate * tu.dustRateX,
+    smear: base.smear * tu.smearX, smearMm: base.smearMm * tu.smearMmX, crushRate: base.crushRate * tu.crushRateX, sheen: base.sheen * tu.sheenX,
+    stickShape: [tu.bell, tu.acrossSoft, tu.tipYield, tu.tail],
+    zoneGrad: [tu.grad1, tu.grad2],
+  };
+}
+
 // Tuning hook (lab only): numbers set here override the derived material (see main.js ?mat=).
 export const MAT_OVERRIDE = {};
 
 // Engine numbers derived from a stick. Everything the shaders need per stroke.
 export function stickMaterial(stick) {
-  const s = stick.soft;
+  const s = stick.soft, tu = stick.tuning;
+  if (tu) return tunedMaterial(stick, tu);
   const capMm = 0.004;                     // deposit volume the tooth holds (mm)
   // Optics: graphite is opaque grey FLAKES covering the paper by area, not a see-through film (a film model
   // went near-black from a trace of graphite: the owner's "100% black dots", 2026-10-06).
   return {
     capMm,
     flakeR: stick.rInf,
-    abrasion: 400 * (0.25 + 0.75 * s * s),  // 1/mm²: how readily the stick sheds onto the tooth
+    abrasion: 400 * (0.25 + 0.75 * s * s) * (stick.build ?? 1),  // 1/mm²: how readily the stick sheds onto the tooth
     // Graphite shears off a tooth tip steeply with how hard that tip is pressed: a feather touch leaves a
     // thin film (soft grey grain that builds over passes), a firm one a thick one. Work ∝ (δ/T)^n · T.
     transferExp: 2.2,
@@ -68,7 +115,7 @@ export function stickMaterial(stick) {
     // than dots (the owner asked for more, 2026-10-07).
     smear: 0.18 + 0.6 * s * s,
     smearMm: 0.15 + 0.3 * s,
-    dustRate: 0.0006 + 0.0024 * s,         // dusting: mm of graphite per mm slid at full contact (soft grades shed more)
+    dustRate: (0.0006 + 0.0024 * s) * (stick.build ?? 1),  // dusting: mm of graphite per mm slid at full contact (soft grades shed more)
     clump: 0.35,                           // pressed graphite piles on the tooth's small hills
     // A light touch only dusts (soft, even, low-contrast grey); piling (dark, clumped, contrasty) comes in
     // with pressure. Proko's light strokes are a grey dusting, its firm ones dark grain (2026-10-07).
@@ -76,42 +123,87 @@ export function stickMaterial(stick) {
     dirStrength: 0.9,
     conform: 0.8,                          // the sheet bends onto a broad stick: big hills don't decide contact
     sheen: 0.03 + 0.10 * s,
+    // 0 = the three zones as they were; 1 = one footprint: a soft point that melts into a soft-edged side
+    // (the owner, 2026-10-14: "looks like two brushes overlaid"). See jb_stickSqueeze.
+    blend: stick.blend ?? 0,
+    stickShape: [SHAPE.bell, SHAPE.acrossSoft, SHAPE.tipYield, SHAPE.tail],
+    zoneGrad: [ZONES.grad1, ZONES.grad2],
     ...MAT_OVERRIDE,
   };
 }
 
 function smoothstep(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
+// The app's response curve (core ResponseSpec / ResponseCurve): a cubic Bezier from (0, 0) to (1, 1) through two handles
+// [x1, y1, x2, y2]. A missing curve is the straight line: the pencil as it was.
+export const LINEAR_CURVE = [1 / 3, 1 / 3, 2 / 3, 2 / 3];
+export function curveEval(h, x) {
+  // The straight line is exactly the identity (a solved Bezier is only within 1e-7 of it).
+  if (!h || h.length !== 4 || h.every((v, i) => Math.abs(v - LINEAR_CURVE[i]) < 1e-9)) return x;
+  const x1 = Math.min(1, Math.max(0, h[0])), y1 = h[1], x2 = Math.min(1, Math.max(0, h[2])), y2 = h[3];
+  const bez = (a, b, t) => { const u = 1 - t; return 3 * u * u * t * a + 3 * u * t * t * b + t * t * t; };
+  const target = Math.min(1, Math.max(0, x));
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (bez(x1, x2, mid) < target) lo = mid; else hi = mid; }
+  return Math.min(1, Math.max(0, bez(y1, y2, (lo + hi) / 2)));
+}
+
 // The contact for one pen sample: how hard at the tip (D, mm of squeeze), the zone sizes (mm) and how much
 // of the squeeze each zone carries (weights sum to 1), plus the extents of the footprint.
+//
+// Four shaping curves (the owner, 2026-10-15), each the straight line unless the stick says otherwise:
+//   sizeCurve  — pressure → how far the point has grown (upright size);
+//   darkCurve  — pressure → how hard it presses into the tooth (upright darkness). A sharp point cuts in and
+//                darkens early while it stays small: the two need not rise together;
+//   sideCurve  — tilt → how far the side has come down;
+//   pointCurve — tilt → how far the hard point has given way. Bent below the line, the point holds on while the
+//                side comes in: more overlap, a longer ramp into the tilt.
 export function stickContact(stick, tilt, pressure, paper, press = PRESS, zones = ZONES) {
   const P = Math.max(0, Math.min(1, pressure));
   if (P <= 0) return null;
+  const tu = stick.tuning;
+  if (tu) { press = pressFor(stick, press); zones = zonesFor(stick, zones); }
+  const curve = k => stick[k] ?? (tu && tu[k]);
   const t = Math.max(0, Math.min(1, tilt / (Math.PI / 2)));
-  const s1 = smoothstep(zones.side1From, zones.side1Full, t);
-  const s2 = smoothstep(zones.side2From, zones.side2Full, t);
-  // Near flat and lightly held, the side lies down evenly and the tip no longer dominates ("if it is an
-  // even pressure or the tilt is close to flat, then you won't have the hard edge at the tip").
-  const even = smoothstep(zones.evenFrom, 1.0, t) * (1 - 0.6 * P);
-  const R0 = stick.tipR + (stick.tipMax - stick.tipR) * Math.pow(P, 0.8);
+  const ts = curveEval(curve('sideCurve'), t), tp = curveEval(curve('pointCurve'), t);
+  // The zones at a tilt: how far each side is down, and the near-flat evening (light and flat: no hard tip edge,
+  // "if it is an even pressure or the tilt is close to flat, then you won't have the hard edge at the tip").
+  const zonesAt = u => {
+    const a = smoothstep(zones.side1From, zones.side1Full, u), b = smoothstep(zones.side2From, zones.side2Full, u);
+    const ev = smoothstep(zones.evenFrom, 1.0, u) * (1 - 0.6 * P);
+    return { s1: a, s2: b, even: ev, w0: 1 - 0.8 * ev, w1: 0.9 * a * (1 - 0.35 * b), w2: 0.8 * b };
+  };
+  const side = zonesAt(ts), pt = ts === tp ? side : zonesAt(tp);
+  const { s1, s2, even } = side;
+  const R0 = stick.tipR + (stick.tipMax - stick.tipR) * Math.pow(curveEval(curve('sizeCurve'), P), 0.8);
   const L1 = R0 + (stick.side1 - R0) * s1;
   const L2 = L1 + (stick.side2 - L1) * s2;
-  let w0 = 1 - 0.8 * even, w1 = 0.9 * s1 * (1 - 0.35 * s2), w2 = 0.8 * s2;
-  const sum = w0 + w1 + w2;
-  w0 /= sum; w1 /= sum; w2 /= sum;
-  const D = paper.toothMm * press.depth * Math.pow(P, press.gamma) / (1 + press.sideEase * (0.4 * s1 + s2));
+  // The point's share comes from the point's tilt, the side's split of the rest from the side's: with both curves
+  // straight this is exactly w / Σw. A point cannot give way where no side is down to take the pressure.
+  const share0 = pt.w0 / (pt.w0 + pt.w1 + pt.w2), sideSum = side.w1 + side.w2;
+  let w0 = 1, w1 = 0, w2 = 0;
+  if (sideSum > 1e-9) { w0 = share0; w1 = (1 - share0) * side.w1 / sideSum; w2 = (1 - share0) * side.w2 / sideSum; }
+  else if (side.w0 > 0) w0 = 1;
+  const D = paper.toothMm * press.depth * Math.pow(curveEval(curve('darkCurve'), P), press.gamma) / (1 + press.sideEase * (0.4 * s1 + s2));
   const sideOn = w1 + w2 > 0.005;
+  // A blended point is a soft bell that reaches a little past R0: the footprint grows to hold it.
+  const blend = stick.blend ?? 0, reach = R0 * (1 + (tu ? tu.bellReach : SHAPE.bellReach) * blend);
   return {
-    D, R0, L1, L2, H: sideOn ? stick.face : R0, w0, w1, w2, even,
-    xMin: -R0, xMax: sideOn ? Math.max(R0, w2 > 0.005 ? L2 : L1) : R0, yMax: sideOn ? Math.max(R0, stick.face) : R0,
+    D, R0, L1, L2, H: sideOn ? stick.face : R0, w0, w1, w2, even, blend,
+    xMin: -reach, xMax: sideOn ? Math.max(reach, w2 > 0.005 ? L2 : L1) : reach, yMax: sideOn ? Math.max(reach, stick.face) : reach,
   };
 }
 
 // Twin of jb_stickSqueeze (for tests and tools): the squeeze (mm) at a stick-frame point (x toward the
 // barrel, y across).
-export function stickSqueeze(x, y, c, zones = ZONES) {
-  const point = Math.max(0, 1 - (x * x + y * y) / (c.R0 * c.R0));
-  const front = x < 0 ? Math.max(0, 1 - (x * x) / (c.R0 * c.R0)) : 1;
+export function stickSqueeze(x, y, c, zones = ZONES, shape = SHAPE) {
+  const b = c.blend ?? 0, R2 = c.R0 * c.R0;
+  // Blended, the point's darkness runs on toward the barrel and fades into the side (a tail TAIL·R0 long) instead of
+  // stopping at the rim: one continuous gradient from the dark edge into the shading (the owner, 2026-10-14, linen).
+  const sideDown = Math.min(1, (c.w1 + c.w2) * 2);
+  const along = x < 0 ? Math.exp(-shape.bell * x * x / R2) : mix(Math.exp(-shape.bell * x * x / R2), Math.exp(-x / (shape.tail * c.R0)), sideDown);
+  const point = mix(Math.max(0, 1 - (x * x + y * y) / R2), Math.exp(-shape.bell * y * y / R2) * along, b);
+  const front = x < 0 ? mix(Math.max(0, 1 - (x * x) / R2), Math.exp(-shape.bell * x * x / R2), b) : 1;
   const ramp = (L, g, ev) => {
     if (x < 0) return 1;
     const u = x / Math.max(L, 1e-3);
@@ -120,11 +212,23 @@ export function stickSqueeze(x, y, c, zones = ZONES) {
   };
   const across = L => {
     const Hw = c.R0 + (c.H - c.R0) * smoothstep(0, 0.3 * L, Math.max(x, 0));
-    return Math.sqrt(Math.max(0, 1 - (y * y) / (Hw * Hw)));
+    const e = Math.max(0, 1 - (y * y) / (Hw * Hw));
+    return mix(Math.sqrt(e), Math.pow(e, shape.acrossSoft), b);
   };
   const g2 = zones.grad2 + (0.55 - zones.grad2) * c.even;
-  return c.D * (c.w0 * point + (c.w1 * ramp(c.L1, zones.grad1, 0) * across(c.L1) + c.w2 * ramp(c.L2, g2, c.even) * across(c.L2)) * front);
+  const side = (c.w1 * ramp(c.L1, zones.grad1, 0) * across(c.L1) + c.w2 * ramp(c.L2, g2, c.even) * across(c.L2)) * front;
+  // Blended, the point stops sitting on top of the side as a second mark: where the side is down it takes the
+  // point's share, so the tip edge is the dark end of one gradient.
+  const pointShare = c.w0 * (1 - shape.tipYield * b * sideDown);
+  return c.D * (pointShare * point + side);
 }
+
+// The blended footprint (stick.blend = 1): the point is a bell exp(−bell·r²/R0²) reaching bellReach·R0 past R0,
+// the side's edge falls as (1 − y²/H²)^acrossSoft, and where the side is down the point yields tipYield of its
+// share and runs on as a tail tail·R0 long toward the barrel. Mutable (the pencil tuner moves them live); the
+// shader reads them as u_stickShape through stickMaterial, the app from core Stick.kt's STICK_* defaults.
+export const SHAPE = { bell: 2.2, bellReach: 0.6, acrossSoft: 1.6, tipYield: 0.5, tail: 2.5 };
+function mix(a, b, t) { return a + (b - a) * t; }
 
 export function makePsiTable(paper) {
   if (paper.psi) return paper.psi;
@@ -220,7 +324,8 @@ export class DryStroke {
     this.stick = stick;
     this.paper = paper;
     this.pxPerMm = pxPerMm;
-    this.press = press;
+    this.press = pressFor(stick, press);
+    press = this.press;
     this.mat = stickMaterial(stick);
     contactLut(paper, press);
     this.last = null;

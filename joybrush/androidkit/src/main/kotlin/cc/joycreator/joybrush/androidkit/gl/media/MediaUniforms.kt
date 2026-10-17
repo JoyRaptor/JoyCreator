@@ -59,6 +59,9 @@ internal object MediaUniforms {
         u.f1("u_dirStrength", mat.dirStrength); u.f1("u_dustRate", mat.dustRate); u.f1("u_clump", mat.clump)
         u.f2("u_pileRange", mat.pileRangeLo, mat.pileRangeHi); u.f1("u_crushStart", mat.crushStart * toothMm)
         u.f1("u_conform", mat.conform); u.f1("u_transferExp", mat.transferExp); u.f1("u_leadSoft", mat.leadSoft); u.f1("u_plateau", mat.plateau)
+        u.f1("u_stickBlend", mat.blend)
+        u.f4("u_stickShape", floatArrayOf(mat.bell.toFloat(), mat.acrossSoft.toFloat(), mat.tipYield.toFloat(), mat.tail.toFloat()))
+        u.f2("u_zoneGrad", mat.grad1, mat.grad2)
     }
 
     /** jb_media_apply.frag, after [common]. */

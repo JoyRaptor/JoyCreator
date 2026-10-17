@@ -131,7 +131,7 @@ public class AboutFragment extends BaseFragment {
             // Format: "Version Name (versionCode)\npackage.name"
             String versionText = getString(R.string.version_format, versionName) + " (" + versionCode + ")\n" + packageName;
             appVersion.setText(versionText);
-            appVersion.setTextColor(Color.WHITE);
+            appVersion.setTextColor(ink());
         } catch (Exception e) {
             appVersion.setText("");
         }
@@ -147,25 +147,25 @@ public class AboutFragment extends BaseFragment {
         appDesc = appDesc.replaceAll("#cfbafd", highlightColorHex);
         
         appDescription.setText(Html.fromHtml(appDesc, Html.FROM_HTML_MODE_LEGACY));
-        appDescription.setTextColor(Color.WHITE);
-        checkUpdatesButton.setTextColor(Color.WHITE);
-        checkUpdatesButton.setIconTint(ColorStateList.valueOf(Color.WHITE));
+        appDescription.setTextColor(ink());
+        checkUpdatesButton.setTextColor(ink());
+        checkUpdatesButton.setIconTint(ColorStateList.valueOf(ink()));
         checkUpdatesButton.setStrokeColor(ColorStateList.valueOf(colorButton));
         fadSecInfoCard.setCardBackgroundColor(colorDialog);
         fadSecInfoCard.setStrokeColor(colorButton);
         TextView fadSecInfoText = fadSecInfoCard.findViewById(R.id.fadsec_info_text);
-        if (fadSecInfoText != null) fadSecInfoText.setTextColor(Color.WHITE);
+        if (fadSecInfoText != null) fadSecInfoText.setTextColor(ink());
         sourceCodeButton.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.gray_button_filled)));
         sourceCodeButton.setStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.gray)));
-        sourceCodeButton.setTextColor(Color.WHITE);
-        sourceCodeButton.setIconTint(ColorStateList.valueOf(Color.WHITE));
+        sourceCodeButton.setTextColor(ink());
+        sourceCodeButton.setIconTint(ColorStateList.valueOf(ink()));
         int gold = ContextCompat.getColor(requireContext(), R.color.gold);
         int black = ContextCompat.getColor(requireContext(), R.color.black);
         donateButton.setBackgroundTintList(ColorStateList.valueOf(gold));
         donateButton.setTextColor(black);
         donateButton.setIconTint(ColorStateList.valueOf(black));
-        emailText.setTextColor(Color.WHITE);
-        discordText.setTextColor(Color.WHITE);
+        emailText.setTextColor(ink());
+        discordText.setTextColor(ink());
         privacyInfoCard.setCardBackgroundColor(colorDialog);
         privacyInfoCard.setStrokeColor(colorButton);
         LinearLayout privacyHeader = privacyInfoCard.findViewById(R.id.privacy_info_header);
@@ -176,7 +176,7 @@ public class AboutFragment extends BaseFragment {
             if (expandIcon != null) expandIcon.setColorFilter(themeTextColor);
         }
         TextView privacyInfoContent = privacyInfoCard.findViewById(R.id.privacy_info_content);
-        if (privacyInfoContent != null) privacyInfoContent.setTextColor(Color.WHITE);
+        if (privacyInfoContent != null) privacyInfoContent.setTextColor(ink());
         String[] questions = getResources().getStringArray(R.array.questions_array);
         String[] answers = getResources().getStringArray(R.array.answers_array);
         
@@ -203,14 +203,14 @@ public class AboutFragment extends BaseFragment {
                     @Override
                     public void updateDrawState(android.text.TextPaint ds) {
                         super.updateDrawState(ds);
-                        ds.setColor(Color.parseColor("#E43C3C")); // Red color
+                        ds.setColor(ContextCompat.getColor(requireContext(), R.color.s_danger));
                         ds.setUnderlineText(false); // No underline
                     }
                 }, fadSecLabStart, fadSecLabEnd, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             }
             
             tvAboutFooter.setText(spannable);
-            tvAboutFooter.setTextColor(isSnowVeilTheme() ? Color.BLACK : Color.WHITE);
+            tvAboutFooter.setTextColor(isSnowVeilTheme() ? Color.BLACK : ink());
             tvAboutFooter.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
         }
         
@@ -728,6 +728,11 @@ public class AboutFragment extends BaseFragment {
     }
 
     // Helper method to check if Snow Veil theme is active
+    /** Ordinary text on the Joy Creator ground: the ink token, not pure white. */
+    private int ink() {
+        return ContextCompat.getColor(requireContext(), R.color.s_ink);
+    }
+
     private boolean isSnowVeilTheme() {
         String currentTheme = com.fadcam.SharedPreferencesManager.getInstance(requireContext()).sharedPreferences.getString(com.fadcam.Constants.PREF_APP_THEME, Constants.DEFAULT_APP_THEME);
         return "Snow Veil".equals(currentTheme);

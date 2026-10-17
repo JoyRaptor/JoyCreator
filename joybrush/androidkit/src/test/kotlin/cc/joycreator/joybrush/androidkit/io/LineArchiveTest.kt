@@ -31,6 +31,18 @@ internal object LineArchiveFixture {
             slabs = mapOf(SlabKey("l", "c", "0_0", 2) to tile(9)),
             looks = mapOf(Triple("l", "c", "0_0") to tile(13)), brushes = mapOf(brush.id to brush))
     }
+    /** Editable lines v1: the mixed fixture without its upper pixel slab, i.e. ordinary lines, a saved look and a frozen brush. */
+    fun linesOnly(): JbContents {
+        val mixed = contents()
+        return mixed.copy(doc = mixed.doc.copy(layers = mixed.doc.layers.map { l ->
+            l.copy(cels = l.cels.map { it.copy(slabs = emptyList()) })
+        }), slabs = emptyMap())
+    }
+    /** The same lines carrying a captured physical source: the exact-provenance format, which this build refuses to show. */
+    fun capturedLines(): JbContents = linesOnly().let { c ->
+        c.copy(strokes = c.strokes.mapValues { (_, rs) -> rs.map { it.copy(capturedPhysicalSource = CapturedPhysicalSource(
+            CaptureDomain(CaptureRect(-10, -20, 80, 90), listOf(CaptureRect(3, 4, 5, 6))), SourcePlacement(7, -8))) } })
+    }
     fun encoded(contents: JbContents) = ByteArrayOutputStream().also { JbArchive.write(it, contents) }.toByteArray()
     fun entries(bytes: ByteArray): List<Pair<String, ByteArray>> = ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
         buildList { while (true) { val entry = zip.nextEntry ?: break; add(entry.name to zip.readBytes()) } }

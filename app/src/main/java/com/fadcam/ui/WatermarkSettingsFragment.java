@@ -749,10 +749,10 @@ public class WatermarkSettingsFragment extends Fragment {
                 requireContext().getSystemService(Context.LOCATION_SERVICE);
         boolean gpsEnabled = lm != null && lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER);
 
-        int greenColor = getResources().getColor(android.R.color.holo_green_dark, null);
-        int orangeColor = getResources().getColor(android.R.color.holo_orange_dark, null);
-        int grayColor = getResources().getColor(android.R.color.darker_gray, null);
-        int redColor = getResources().getColor(android.R.color.holo_red_dark, null);
+        int greenColor = getResources().getColor(R.color.s_go, null);
+        int orangeColor = getResources().getColor(R.color.s_careful, null);
+        int grayColor = getResources().getColor(R.color.s_ink_faint, null);
+        int redColor = getResources().getColor(R.color.s_danger, null);
 
         // Timezone subtitle
         TextView valueTimezone = view.findViewById(R.id.value_timezone);

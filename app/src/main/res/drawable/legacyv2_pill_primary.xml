@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The one saturated pill on a screen: the Studio gradient, pressed ripple on top. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/s_pressed">
+    <item android:drawable="@drawable/studio_action_pill" />
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <corners android:radius="999dp" />
+            <solid android:color="@color/s_ink" />
+        </shape>
+    </item>
+</ripple>

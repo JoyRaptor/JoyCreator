@@ -37,6 +37,14 @@ public final class OverlayNavUtil {
         if(container==null || container.getVisibility()!=View.VISIBLE){
             return;
         }
+        // A CHILD screen (a sub-screen opened over another overlay) closes back to its parent. This
+        // used to hide the whole overlay while popping only one level, which left the parent in
+        // the stack but invisible: the Library's Trash and Settings sub-screens landed on a bare
+        // lobby with a ghost fragment behind it. Only the LAST overlay hides the container.
+        if (activity.getSupportFragmentManager().getBackStackEntryCount() > 1) {
+            activity.getSupportFragmentManager().popBackStack();
+            return;
+        }
         // Capture the current top fragment; only pop/hide if it is still the same when the
         // animation finishes to avoid dismissing a newly opened overlay.
         final androidx.fragment.app.Fragment beforeTop = activity.getSupportFragmentManager()

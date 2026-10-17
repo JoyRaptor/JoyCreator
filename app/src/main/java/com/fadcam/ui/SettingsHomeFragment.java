@@ -162,22 +162,29 @@ public class SettingsHomeFragment extends Fragment {
     }
 
     private void updatePopupChecks(View popupView, SettingsMode mode) {
-        TextView checkAll = popupView.findViewById(R.id.check_all);
-        TextView checkFadCam = popupView.findViewById(R.id.check_fadcam);
-        TextView checkFadRec = popupView.findViewById(R.id.check_fadrec);
+        paintPopupCheck(popupView.findViewById(R.id.check_all), mode == SettingsMode.ALL);
+        paintPopupCheck(popupView.findViewById(R.id.check_fadcam), mode == SettingsMode.FADCAM);
+        paintPopupCheck(popupView.findViewById(R.id.check_fadrec), mode == SettingsMode.FADREC);
 
-        if (checkAll != null)
-            checkAll.setText(mode == SettingsMode.ALL ? "check_circle" : "radio_button_unchecked");
-        if (checkFadCam != null)
-            checkFadCam.setText(mode == SettingsMode.FADCAM ? "check_circle" : "radio_button_unchecked");
-        if (checkFadRec != null)
-            checkFadRec.setText(mode == SettingsMode.FADREC ? "check_circle" : "radio_button_unchecked");
+        // Every row says what it does on hover and to a screen reader, and which one is on.
+        labelPopupRow(popupView, R.id.mode_all, R.id.label_all, mode == SettingsMode.ALL);
+        labelPopupRow(popupView, R.id.mode_fadcam, R.id.label_fadcam, mode == SettingsMode.FADCAM);
+        labelPopupRow(popupView, R.id.mode_fadrec, R.id.label_fadrec, mode == SettingsMode.FADREC);
+    }
 
-        int green = 0xFF4CAF50;
-        int grey = 0xFF666666;
-        if (checkAll != null) checkAll.setTextColor(mode == SettingsMode.ALL ? green : grey);
-        if (checkFadCam != null) checkFadCam.setTextColor(mode == SettingsMode.FADCAM ? green : grey);
-        if (checkFadRec != null) checkFadRec.setTextColor(mode == SettingsMode.FADREC ? green : grey);
+    /** ON = a solid cyan disc with the check punched out in black; off = nothing at all. */
+    private void paintPopupCheck(TextView check, boolean on) {
+        if (check == null) return;
+        check.setBackgroundResource(R.drawable.legacyv2_check_on);
+        check.setVisibility(on ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    private void labelPopupRow(View popupView, int rowId, int labelId, boolean on) {
+        View row = popupView.findViewById(rowId);
+        TextView label = popupView.findViewById(labelId);
+        if (row == null || label == null) return;
+        com.fadcam.ui.type.Type.body(label, on ? com.fadcam.ui.type.Type.SEMIBOLD : com.fadcam.ui.type.Type.REGULAR);
+        com.fadcam.ui.faditor.SheetKit.label(row, getString(R.string.legacyv2_mode_option_desc, label.getText()));
     }
 
     /** Update the header button text/icon to reflect current mode. */

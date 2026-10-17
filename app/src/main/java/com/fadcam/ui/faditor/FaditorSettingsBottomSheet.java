@@ -147,8 +147,8 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
         // Shown only when a project is open behind the sheet (the editor wires it); opened from the
         // Settings hub there is no project, and a row that does nothing is worse than no row.
         if (onOpenWaveformVisualizer != null) addButtonRow(content, dp,
-                "Waveform visualizer",
-                "Customize the audio waveform look and when clips are analyzed.",
+                getString(R.string.studio_sheet_settings_waveform_title),
+                getString(R.string.studio_sheet_settings_waveform_desc),
                 () -> {
                     if (onOpenWaveformVisualizer != null) onOpenWaveformVisualizer.run();
                     dismiss();
@@ -168,10 +168,8 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
         // preference, and doing it automatically on open would copy gigabytes nobody asked for.
         // Project-only, like the visualizer row: hidden when no project is open (the Settings hub).
         if (onConsolidateProject != null) addButtonRow(content, dp,
-                "Make project self-contained",
-                "Copy every video, image and audio file this project uses into the project itself, "
-                        + "so it keeps working if the originals are moved or deleted. "
-                        + "Originals are never changed or removed.",
+                getString(R.string.studio_sheet_settings_selfcontained_title),
+                getString(R.string.studio_sheet_settings_selfcontained_desc),
                 () -> {
                     if (onConsolidateProject != null) onConsolidateProject.run();
                     dismiss();

@@ -26,15 +26,15 @@
             android:layout_height="24dp"
             android:padding="2dp"
             android:src="@drawable/ic_close"
-            android:tint="@android:color/white"/>
+            android:tint="@color/s_ink_dim"/>
         <TextView
             android:id="@+id/header_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/video_player_settings_title"
-            android:textStyle="bold"
-            android:textSize="20sp"
-            android:textColor="@android:color/white"
+            android:fontFamily="@font/joy_display"
+            android:textSize="19sp"
+            android:textColor="@color/s_ink"
             android:layout_marginStart="12dp"/>
     </LinearLayout>
 
@@ -67,7 +67,8 @@
                 android:layout_marginBottom="8dp"
                 android:text="@string/playback_controls_heading"
                 android:textColor="?attr/colorHeading"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+            android:fontFamily="@font/joy_body" />
 
             <LinearLayout
                 android:id="@+id/group_card_playback"
@@ -89,7 +90,7 @@
                         android:gravity="center"
                         android:text="speed"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <TextView
                         android:layout_width="0dp"
@@ -97,20 +98,20 @@
                         android:layout_weight="1"
                         android:text="@string/playback_speed_label"
                         android:textColor="?attr/colorHeading"
-                        android:textStyle="bold"
-                        android:textSize="15sp"/>
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"/>
                     <TextView
                         android:id="@+id/sub_playback_speed"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="12sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -126,7 +127,7 @@
                         android:gravity="center"
                         android:text="bolt"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <TextView
                         android:layout_width="0dp"
@@ -134,20 +135,20 @@
                         android:layout_weight="1"
                         android:text="@string/quick_speed_title"
                         android:textColor="?attr/colorHeading"
-                        android:textStyle="bold"
-                        android:textSize="15sp"/>
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"/>
                     <TextView
                         android:id="@+id/sub_quick_speed"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="12sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -163,7 +164,7 @@
                         android:gravity="center"
                         android:text="replay_10"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <TextView
                         android:layout_width="0dp"
@@ -171,20 +172,20 @@
                         android:layout_weight="1"
                         android:text="@string/seek_amount_title"
                         android:textColor="?attr/colorHeading"
-                        android:textStyle="bold"
-                        android:textSize="15sp"/>
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"/>
                     <TextView
                         android:id="@+id/sub_seek_amount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="12sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -200,7 +201,7 @@
                         android:gravity="center"
                         android:text="timer"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <TextView
                         android:layout_width="0dp"
@@ -208,20 +209,20 @@
                         android:layout_weight="1"
                         android:text="@string/controls_hide_delay_title"
                         android:textColor="?attr/colorHeading"
-                        android:textStyle="bold"
-                        android:textSize="15sp"/>
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"/>
                     <TextView
                         android:id="@+id/sub_controller_timeout"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="12sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -237,7 +238,7 @@
                         android:gravity="center"
                         android:text="visibility"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <TextView
                         android:layout_width="0dp"
@@ -245,20 +246,20 @@
                         android:layout_weight="1"
                         android:text="@string/keep_screen_on_title"
                         android:textColor="?attr/colorHeading"
-                        android:textStyle="bold"
-                        android:textSize="15sp"/>
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"/>
                     <TextView
                         android:id="@+id/sub_keep_screen_on"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="12sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -274,7 +275,7 @@
                         android:gravity="center"
                         android:text="play_circle"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <TextView
                         android:layout_width="0dp"
@@ -282,20 +283,20 @@
                         android:layout_weight="1"
                         android:text="@string/background_playback_title"
                         android:textColor="?attr/colorHeading"
-                        android:textStyle="bold"
-                        android:textSize="15sp"/>
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"/>
                     <TextView
                         android:id="@+id/sub_background_playback"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="12sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -311,7 +312,7 @@
                         android:gravity="center"
                         android:text="timer"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <TextView
                         android:layout_width="0dp"
@@ -319,20 +320,20 @@
                         android:layout_weight="1"
                         android:text="@string/background_playback_timer_title_short"
                         android:textColor="?attr/colorHeading"
-                        android:textStyle="bold"
-                        android:textSize="15sp"/>
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"/>
                     <TextView
                         android:id="@+id/sub_background_playback_timer"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="12sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
             </LinearLayout>
@@ -345,7 +346,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
                 android:text="@string/playback_controls_helper"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp"/>
 
             <!-- Sound/Mute Section Title -->
@@ -358,7 +359,8 @@
                 android:layout_marginBottom="8dp"
                 android:text="@string/sound_heading"
                 android:textColor="?attr/colorHeading"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+            android:fontFamily="@font/joy_body" />
 
             <LinearLayout
                 android:id="@+id/group_card_sound"
@@ -380,7 +382,7 @@
                         android:gravity="center"
                         android:text="volume_off"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <TextView
                         android:layout_width="0dp"
@@ -388,20 +390,20 @@
                         android:layout_weight="1"
                         android:text="@string/mute_playback_title"
                         android:textColor="?attr/colorHeading"
-                        android:textStyle="bold"
-                        android:textSize="15sp"/>
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"/>
                     <TextView
                         android:id="@+id/sub_mute_playback"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="12sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
                 <View style="@style/SettingsDivider" />
@@ -417,7 +419,7 @@
                         android:gravity="center"
                         android:text="graphic_eq"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <TextView
                         android:layout_width="0dp"
@@ -425,20 +427,20 @@
                         android:layout_weight="1"
                         android:text="@string/audio_waveform_title"
                         android:textColor="?attr/colorHeading"
-                        android:textStyle="bold"
-                        android:textSize="15sp"/>
+                        android:fontFamily="@font/joy_body"
+                        android:textSize="14sp"/>
                     <TextView
                         android:id="@+id/sub_audio_waveform"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="12sp"/>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
             </LinearLayout>
@@ -451,7 +453,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
                 android:text="@string/mute_playback_helper"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp"/>
 
         </LinearLayout>

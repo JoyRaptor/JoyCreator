@@ -27,14 +27,14 @@
             android:padding="2dp"
             android:src="@drawable/ic_close"
             android:contentDescription="@string/universal_back"
-            android:tint="@android:color/white"/>
+            android:tint="@color/s_ink_dim"/>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/dual_camera_pip_settings"
-            android:textStyle="bold"
-            android:textSize="20sp"
-            android:textColor="@android:color/white"
+            android:fontFamily="@font/joy_display"
+            android:textSize="19sp"
+            android:textColor="@color/s_ink"
             android:layout_marginStart="12dp"/>
     </LinearLayout>
 
@@ -75,7 +75,7 @@
                     android:gravity="center"
                     android:text="info"
                     android:textSize="20sp"
-                    android:textColor="#FF9800"
+                    android:textColor="@color/s_careful"
                     android:fontFamily="@font/materialicons" />
                 <TextView
                     android:id="@+id/text_banner_message"
@@ -83,13 +83,13 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/dual_cam_banner_checking"
-                    android:textColor="#FFD180"
+                    android:textColor="@color/s_careful"
                     android:textSize="13sp" />
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/dual_cam_banner_tap_details"
-                    android:textColor="#FF9800"
+                    android:textColor="@color/s_careful"
                     android:textSize="11sp"
                     android:textStyle="bold"
                     android:layout_marginStart="8dp"/>
@@ -103,7 +103,8 @@
                 android:layout_marginBottom="6dp"
                 android:text="@string/dual_cam_section_preview"
                 android:textColor="?attr/colorHeading"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+            android:fontFamily="@font/joy_body" />
 
             <!-- Preview Card: simulated video frame + PiP overlay -->
             <FrameLayout
@@ -121,7 +122,7 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
                     android:text="@string/dual_cam_preview_primary"
-                    android:textColor="#88FFFFFF"
+                    android:textColor="@color/s_ink_faint"
                     android:textSize="16sp"
                     android:textStyle="bold"/>
 
@@ -139,7 +140,7 @@
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
                         android:text="@string/dual_cam_preview_pip"
-                        android:textColor="#AAFFFFFF"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="10sp"
                         android:textStyle="bold"/>
                 </FrameLayout>
@@ -153,7 +154,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
                 android:text="@string/dual_cam_preview_helper"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp"/>
 
             <!-- ═══ Layout Section ═══ -->
@@ -165,7 +166,8 @@
                 android:layout_marginBottom="8dp"
                 android:text="@string/dual_cam_section_layout"
                 android:textColor="?attr/colorHeading"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+            android:fontFamily="@font/joy_body" />
 
             <!-- Layout Group Card -->
             <LinearLayout
@@ -188,7 +190,7 @@
                         android:gravity="center"
                         android:text="grid_view"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <LinearLayout
                         android:layout_width="0dp"
@@ -199,22 +201,22 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/dual_cam_pip_position_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_pip_position"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="-"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
                 <View style="@style/SettingsDivider" />
 
@@ -229,7 +231,7 @@
                         android:gravity="center"
                         android:text="aspect_ratio"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <LinearLayout
                         android:layout_width="0dp"
@@ -240,22 +242,22 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/dual_cam_pip_size_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_pip_size"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="-"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
                 <View style="@style/SettingsDivider" />
 
@@ -270,7 +272,7 @@
                         android:gravity="center"
                         android:text="videocam"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <LinearLayout
                         android:layout_width="0dp"
@@ -281,22 +283,22 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/dual_cam_primary_camera_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_primary_camera"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="-"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
             </LinearLayout>
@@ -309,7 +311,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
                 android:text="@string/dual_cam_layout_helper"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp"/>
 
             <!-- ═══ Appearance Section ═══ -->
@@ -321,7 +323,8 @@
                 android:layout_marginBottom="8dp"
                 android:text="@string/dual_cam_section_appearance"
                 android:textColor="?attr/colorHeading"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+            android:fontFamily="@font/joy_body" />
 
             <!-- Appearance Group Card -->
             <LinearLayout
@@ -344,7 +347,7 @@
                         android:gravity="center"
                         android:text="border_style"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <LinearLayout
                         android:layout_width="0dp"
@@ -355,22 +358,22 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/dual_cam_show_border_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_show_border"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="-"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
                 <View style="@style/SettingsDivider" />
 
@@ -385,7 +388,7 @@
                         android:gravity="center"
                         android:text="rounded_corner"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <LinearLayout
                         android:layout_width="0dp"
@@ -396,22 +399,22 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/dual_cam_round_corners_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_round_corners"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="-"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
                 <View style="@style/SettingsDivider" />
 
@@ -426,7 +429,7 @@
                         android:gravity="center"
                         android:text="padding"
                         android:textSize="20sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:fontFamily="@font/materialicons" />
                     <LinearLayout
                         android:layout_width="0dp"
@@ -437,22 +440,22 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/dual_cam_pip_margin_title"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
+                            android:fontFamily="@font/joy_body"
+                            android:textSize="14sp"
                             android:textColor="?attr/colorHeading"/>
                         <TextView
                             android:id="@+id/value_pip_margin"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="-"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="12sp"/>
                     </LinearLayout>
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="@android:color/darker_gray"/>
+                        android:tint="@color/s_ink_faint"/>
                 </LinearLayout>
 
             </LinearLayout>
@@ -465,7 +468,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
                 android:text="@string/dual_cam_appearance_helper"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp"/>
 
         </LinearLayout>

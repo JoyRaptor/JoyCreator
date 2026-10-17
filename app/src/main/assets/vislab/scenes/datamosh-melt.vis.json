@@ -1,0 +1,68 @@
+{
+  "format": "joy.vis/1",
+  "id": "datamosh-melt",
+  "name": "Meltdown",
+  "family": "Glitch",
+  "description": "Your logo and a ring of sound melting downward as the bass hits. VHS-worn.",
+  "palette": [
+    "#FF3CAC",
+    "#784BA0",
+    "#2B86C5",
+    "#00F5D4",
+    "#FFFFFF"
+  ],
+  "background": "#060208",
+  "layers": [
+    {
+      "type": "spectrum",
+      "name": "Ring",
+      "p": {
+        "radial": 1,
+        "mode": 0,
+        "count": 90,
+        "y": 0,
+        "size": 0.3,
+        "height": 0.22,
+        "fill": 0.5,
+        "glow": 0.3,
+        "mirror": 1,
+        "brightness": 0.45
+      }
+    },
+    {
+      "type": "image",
+      "name": "Logo",
+      "add": 0,
+      "p": {
+        "size": 0.25,
+        "pump": 0.6,
+        "halo": 0.4,
+        "circle": 1,
+        "split": 1
+      }
+    }
+  ],
+  "echo": {
+    "p": {
+      "mode": 2,
+      "decay": 0.9,
+      "amount": 1.4,
+      "zoom": 1,
+      "hue": 0.03
+    }
+  },
+  "post": {
+    "p": {
+      "vhs": 0.5,
+      "chroma": {
+        "v": 0.2,
+        "mod": {
+          "kick": 0.4
+        }
+      },
+      "bloom": 0.6,
+      "grain": 0.2,
+      "scanlines": 0.2
+    }
+  }
+}

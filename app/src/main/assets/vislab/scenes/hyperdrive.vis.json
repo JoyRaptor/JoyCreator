@@ -1,0 +1,102 @@
+{
+  "format": "joy.vis/1",
+  "id": "hyperdrive",
+  "name": "Hyperdrive",
+  "family": "Rave",
+  "description": "Warp-speed stars and tunnel rings, the loudness is your throttle.",
+  "palette": [
+    "#FFFFFF",
+    "#7DF9FF",
+    "#3D5AFE",
+    "#B517FF",
+    "#FF2BD6"
+  ],
+  "background": "#000000",
+  "layers": [
+    {
+      "type": "particles",
+      "name": "Stars",
+      "p": {
+        "count": 8000,
+        "emitter": 3,
+        "zDepth": 6,
+        "zSpeed": {
+          "v": 1.5,
+          "mod": {
+            "level": 0.3,
+            "kick": 0.2
+          }
+        },
+        "speed": 0,
+        "persp": 1,
+        "viewDist": 1,
+        "look": 1,
+        "stretch": 2,
+        "size": 0.003,
+        "brightness": 1.1,
+        "depthFade": 0.8,
+        "life": 4,
+        "lifeVar": 0.2,
+        "drag": 0,
+        "curl": 0,
+        "rate": 1.2,
+        "colorMode": 2,
+        "fadeIn": 0.1,
+        "fadeOut": 0.1,
+        "dirMode": 0,
+        "spread": 0,
+        "punch": 0
+      }
+    },
+    {
+      "type": "shapes",
+      "name": "Rings",
+      "p": {
+        "mode": 3,
+        "radius": 0.12,
+        "thick": 0.003,
+        "glow": 0.5,
+        "count": 10,
+        "zSpeed": {
+          "v": 0.6,
+          "mod": {
+            "level": 0.25
+          }
+        },
+        "wobble": 0.4,
+        "brightness": 0.5
+      }
+    }
+  ],
+  "echo": {
+    "p": {
+      "decay": 0.74,
+      "zoom": {
+        "v": 1.025,
+        "mod": {
+          "bass": 0.15
+        }
+      },
+      "rotate": 0.03,
+      "hue": 0.02
+    }
+  },
+  "post": {
+    "p": {
+      "bloom": 1,
+      "chroma": {
+        "v": 0.3,
+        "mod": {
+          "kick": 0.4
+        }
+      },
+      "zoomBlur": {
+        "v": 0.3,
+        "mod": {
+          "kick": 0.3
+        }
+      },
+      "vignette": 0.5
+    }
+  }
+}

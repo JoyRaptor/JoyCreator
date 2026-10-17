@@ -1,0 +1,53 @@
+{
+  "format": "joy.vis/1",
+  "id": "hypno",
+  "name": "Hypno",
+  "family": "Rave",
+  "description": "A checkerboard tunnel under a turning spiral; the picture inverts on the beat.",
+  "palette": [
+    "#FFFFFF",
+    "#FF2BD6",
+    "#00F0FF",
+    "#FFE14D",
+    "#FFFFFF"
+  ],
+  "background": "#000000",
+  "layers": [
+    {
+      "type": "pattern",
+      "name": "Checker tunnel",
+      "p": {
+        "mode": 3,
+        "scale": 1,
+        "brightness": 0.7,
+        "speed": 0.8,
+        "beat": 1,
+        "fill": 0
+      }
+    },
+    {
+      "type": "pattern",
+      "name": "Spiral",
+      "p": {
+        "mode": 4,
+        "scale": 1.2,
+        "lineWidth": 0.12,
+        "brightness": 1,
+        "speed": 0.6,
+        "beat": 0.8
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "invert": {
+        "v": 0,
+        "mod": {
+          "beat": 0.35
+        }
+      },
+      "bloom": 0.7,
+      "chroma": 0.2
+    }
+  }
+}

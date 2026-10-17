@@ -1,0 +1,80 @@
+{
+  "format": "joy.vis/1",
+  "id": "mandala",
+  "name": "Mandala",
+  "family": "Psychedelic",
+  "description": "Smoke-flow particles folded through an 8-way kaleidoscope with swirling echo.",
+  "palette": [
+    "#FFD60A",
+    "#FF5F1F",
+    "#FF006E",
+    "#8338EC",
+    "#3A86FF"
+  ],
+  "background": "#030206",
+  "layers": [
+    {
+      "type": "particles",
+      "name": "Petals",
+      "p": {
+        "count": 20000,
+        "emitter": 0,
+        "ex": 0.25,
+        "ey": 0,
+        "esize": 0.5,
+        "speed": 0.45,
+        "dirMode": 4,
+        "life": 2.5,
+        "curl": 1.2,
+        "curlScale": 2.2,
+        "curlSpeed": 0.3,
+        "swirl": 0.6,
+        "drag": 0.5,
+        "size": 0.004,
+        "look": 0,
+        "brightness": 0.45,
+        "colorMode": 1,
+        "punch": 1.2,
+        "burst": 0.1
+      }
+    },
+    {
+      "type": "spectrum",
+      "name": "Inner ring",
+      "p": {
+        "radial": 1,
+        "mode": 2,
+        "size": 0.15,
+        "height": 0.15,
+        "thick": 0.004,
+        "glow": 0.6,
+        "mirror": 1,
+        "brightness": 1.2,
+        "y": 0
+      }
+    }
+  ],
+  "echo": {
+    "p": {
+      "decay": 0.82,
+      "zoom": 1.006,
+      "rotate": 0.05,
+      "swirl": 0.2,
+      "hue": 0.04
+    }
+  },
+  "post": {
+    "p": {
+      "kaleido": 8,
+      "kaleidoAngle": {
+        "v": 0,
+        "mod": {
+          "slow": 0.2
+        }
+      },
+      "bloom": 1,
+      "vignette": 0.5,
+      "chroma": 0.15
+    }
+  }
+}

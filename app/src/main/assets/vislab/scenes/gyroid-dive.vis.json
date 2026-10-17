@@ -1,0 +1,51 @@
+{
+  "format": "joy.vis/1",
+  "id": "gyroid-dive",
+  "name": "Gyroid Dive",
+  "family": "Generative",
+  "description": "Fly through an endless glowing mathematical cave; the bass is the accelerator.",
+  "palette": [
+    "#FFFFFF",
+    "#00E5FF",
+    "#5B5BFF",
+    "#FF2BD6",
+    "#FFB000"
+  ],
+  "background": "#000000",
+  "layers": [
+    {
+      "type": "raymarch",
+      "name": "Cave",
+      "res": 0.5,
+      "p": {
+        "mode": 1,
+        "speed": 0.6,
+        "steps": 56,
+        "react": 1,
+        "glow": 0.5,
+        "surface": 0.6,
+        "fog": 1.6,
+        "brightness": 0.8
+      }
+    }
+  ],
+  "echo": {
+    "p": {
+      "decay": 0.55,
+      "zoom": 1.01
+    }
+  },
+  "post": {
+    "p": {
+      "bloom": 0.9,
+      "chroma": {
+        "v": 0.15,
+        "mod": {
+          "kick": 0.4
+        }
+      },
+      "vignette": 0.5,
+      "grain": 0.1
+    }
+  }
+}

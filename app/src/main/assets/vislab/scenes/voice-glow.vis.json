@@ -1,0 +1,88 @@
+{
+  "format": "joy.vis/1",
+  "id": "voice-glow",
+  "name": "Voice Glow",
+  "family": "Podcast",
+  "description": "A soft breathing orb and rings that move when you talk. See-through, inside a soft circle.",
+  "palette": [
+    "#FFFFFF",
+    "#FFC9DE",
+    "#FF7AB6",
+    "#B16CFF",
+    "#6C8CFF"
+  ],
+  "background": null,
+  "layers": [
+    {
+      "type": "shapes",
+      "name": "Orb",
+      "p": {
+        "mode": 5,
+        "radius": {
+          "v": 0.2,
+          "mod": {
+            "voice": 0.08
+          }
+        },
+        "glow": 0.8,
+        "brightness": 0.9,
+        "fill": 0.6,
+        "kickScale": 0
+      }
+    },
+    {
+      "type": "lines",
+      "name": "Voice rings",
+      "p": {
+        "mode": 1,
+        "rows": 3,
+        "size": 0.3,
+        "spacing": 0.05,
+        "amp": {
+          "v": 0.08,
+          "mod": {
+            "voice": 0.25
+          }
+        },
+        "thick": 0.003,
+        "glow": 0.9,
+        "brightness": 1.2,
+        "spread": 0.15,
+        "colorMode": 1
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Motes",
+      "p": {
+        "count": 1500,
+        "emitter": 1,
+        "esize": 0.3,
+        "speed": 0.08,
+        "dirMode": 1,
+        "life": 2,
+        "curl": 0.3,
+        "size": 0.003,
+        "look": 0,
+        "brightness": 1,
+        "rate": {
+          "v": 0.3,
+          "mod": {
+            "voice": 0.4
+          }
+        },
+        "punch": 0
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.9,
+      "frame": 2,
+      "inset": 0.02,
+      "feather": 0.2,
+      "vignette": 0,
+      "grain": 0
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "format": "joy.vis/1",
+  "id": "ink",
+  "name": "Ink in Water",
+  "family": "Painterly",
+  "description": "Coloured ink blooming and curling on pale paper. A painterly look for calm music.",
+  "palette": [
+    "#FF006E",
+    "#FB5607",
+    "#FFBE0B",
+    "#3A86FF",
+    "#8338EC"
+  ],
+  "background": "#F2EEE6",
+  "layers": [
+    {
+      "type": "particles",
+      "name": "Ink",
+      "add": 0,
+      "p": {
+        "count": 4000,
+        "emitter": 0,
+        "esize": 0.6,
+        "speed": 0.12,
+        "dirMode": 4,
+        "life": 3,
+        "curl": 1.4,
+        "curlScale": 1.6,
+        "curlSpeed": 0.15,
+        "drag": 0.8,
+        "size": 0.018,
+        "sizeVar": 0.7,
+        "sizeLife": -0.5,
+        "look": 7,
+        "brightness": 0.16,
+        "colorMode": 2,
+        "rate": {
+          "v": 0.4,
+          "mod": {
+            "level": 0.5
+          }
+        },
+        "burst": 0.05,
+        "punch": 0.4,
+        "fadeIn": 0.2,
+        "fadeOut": 0.5
+      }
+    }
+  ],
+  "echo": {
+    "p": {
+      "mode": 3,
+      "decay": 0.985,
+      "amount": 1.2,
+      "zoom": 1,
+      "hue": 0.01
+    }
+  },
+  "post": {
+    "p": {
+      "bloom": 0,
+      "grain": 0.2,
+      "vignette": 0.25,
+      "saturation": 1.1
+    }
+  }
+}

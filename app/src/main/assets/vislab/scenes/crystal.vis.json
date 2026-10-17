@@ -1,0 +1,46 @@
+{
+  "format": "joy.vis/1",
+  "id": "crystal",
+  "name": "Crystal",
+  "family": "Elegant",
+  "description": "Glowing crystal cells, each lit by its own note; a light wave crosses on the kick.",
+  "palette": [
+    "#E0FBFC",
+    "#98C1D9",
+    "#3D5A80",
+    "#EE6C4D",
+    "#FFD6A5"
+  ],
+  "background": "#04070C",
+  "layers": [
+    {
+      "type": "voronoi",
+      "name": "Cells",
+      "p": {
+        "scale": 3,
+        "edgeW": 0.003,
+        "edgeGlow": 0.8,
+        "cellFill": 0.08,
+        "pulse": 1,
+        "wave": 0.8,
+        "brightness": 0.8
+      }
+    },
+    {
+      "type": "rays",
+      "name": "Light",
+      "p": {
+        "count": 18,
+        "length": 0.8,
+        "brightness": 0.4
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.9,
+      "vignette": 0.4,
+      "grain": 0.1
+    }
+  }
+}

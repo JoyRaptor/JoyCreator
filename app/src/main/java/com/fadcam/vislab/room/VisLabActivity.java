@@ -366,6 +366,19 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         }
     }
 
+    // VisLabSession.Listener: looks were added, removed, renamed, or read from the folder.
+    @Override
+    public void onLooks() {
+        strip.setLooks(session.looks());
+        strip.setSelected(session.current());
+        if (drawerOpen) panel.rebuild();
+    }
+
+    @Override
+    public void onKept() {
+        if (drawerOpen) panel.refreshFooter();
+    }
+
     @Override
     public void onBrand(@Nullable String[] stops) {
         view.renderer().setBrandPalette(stops);
@@ -388,7 +401,14 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     public void edited() {
         VisScene s = scene();
         if (s != null) s.touch();
+        session.roomEdited();
+        stage.removeCallbacks(refreshFooter);
+        stage.postDelayed(refreshFooter, 300);
     }
+
+    private final Runnable refreshFooter = () -> {
+        if (drawerOpen) panel.refreshFooter();
+    };
 
     @Override
     public boolean undo() {
@@ -404,6 +424,59 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     public void brand(@Nullable String[] stops) {
         session.roomBrand(stops);
         view.renderer().setBrandPalette(stops);
+    }
+
+    @Nullable
+    @Override
+    public String lookFile() {
+        VisScene s = scene();
+        return s == null ? null : session.lookFile(s.id());
+    }
+
+    @Override
+    public boolean lookIsBuiltIn() {
+        VisScene s = scene();
+        return s != null && session.isBuiltIn(s.id());
+    }
+
+    @Override
+    public boolean lookIsCustomised() {
+        VisScene s = scene();
+        return s != null && session.isCustomised(s.id());
+    }
+
+    @Override
+    public void duplicateLook() {
+        VisScene s = scene();
+        if (s == null) return;
+        LookSheets.askName(this, "Duplicate " + s.name(), s.name() + " copy", "Duplicate",
+                name -> session.duplicate(name, "Duplicate", null));
+    }
+
+    @Override
+    public void renameLook() {
+        VisScene s = scene();
+        if (s == null) return;
+        LookSheets.askName(this, "Rename " + s.name(), s.name(), "Rename",
+                name -> session.rename(s.id(), name, "Rename", null));
+    }
+
+    @Override
+    public void revertLook() {
+        VisScene s = scene();
+        if (s == null) return;
+        LookSheets.confirm(this, "Revert " + s.name() + " to default?",
+                "This will override any customisations you have made to this look. Undo can still bring them back.",
+                "Revert", () -> session.revertToDefault(s.id(), "Revert to default", null));
+    }
+
+    @Override
+    public void deleteLook() {
+        VisScene s = scene();
+        if (s == null) return;
+        LookSheets.confirm(this, "Delete " + s.name() + "?",
+                "Its file goes to the Trash in your Joy Creator folder. Undo brings it back.",
+                "Delete", () -> session.deleteLook(s.id(), "Delete look", null));
     }
 
     @Override
@@ -446,6 +519,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         super.onPause();
         if (source != null) source.setPaused(true);
         view.setPaused(true);
+        session.flush();   // the app may be closed from here: keep every change now
     }
 
     @Override

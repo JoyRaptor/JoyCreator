@@ -81,8 +81,11 @@ void main() {
     float t = TIME * SPEEDF;
     vec3 ro, rd;
     if (MODE > 0.5 && MODE < 1.5) {
+        // Fly down one of the gyroid's open channels: at (x, y) = (PI/2, 0) in its own units the
+        // field never reaches the surface, so the camera never passes through a wall. A gentle
+        // drift around the channel's centre keeps the walls moving.
         float z = t * 0.6 + BASSACC * 0.6;
-        ro = vec3(0.3 * sin(t * 0.3), 0.3 * cos(t * 0.25), z);
+        ro = vec3(PI * 0.5 / 2.2 + 0.12 * sin(t * 0.3), 0.12 * cos(t * 0.25), z);
         rd = normalize(vec3(uv, 1.2));
         rd.xy = rot2(t * 0.1) * rd.xy;
     } else {
@@ -112,10 +115,10 @@ void main() {
     float cover = 0.0;
     if (hit) {
         float tg;
-        vec2 e = vec2(0.0015, 0.0);
-        vec3 n = normalize(vec3(mapScene(p + e.xyy, tg) - mapScene(p - e.xyy, tg),
-                                mapScene(p + e.yxy, tg) - mapScene(p - e.yxy, tg),
-                                mapScene(p + e.yyx, tg) - mapScene(p - e.yyx, tg)));
+        // Surface direction from four samples (a tetrahedron), not six.
+        vec2 e = vec2(0.0015, -0.0015);
+        vec3 n = normalize(e.xyy * mapScene(p + e.xyy, tg) + e.yyx * mapScene(p + e.yyx, tg)
+                         + e.yxy * mapScene(p + e.yxy, tg) + e.xxx * mapScene(p + e.xxx, tg));
         float fres = pow(1.0 - abs(dot(n, -rd)), 3.0);
         float dif = max(dot(n, normalize(vec3(0.4, 0.8, -0.3))), 0.0);
         vec3 base = palw(tag * 0.5 + PALSHIFT + TIME * HUESPIN + dot(n, vec3(0.2, 0.3, 0.1)));

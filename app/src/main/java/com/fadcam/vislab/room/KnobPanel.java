@@ -54,6 +54,26 @@ final class KnobPanel extends LinearLayout {
 
         /** Let the person choose a picture for this image layer (a logo, album art). */
         void pickPicture(@NonNull JsonObject layer);
+
+        // This look's own actions: the footer under every tab.
+
+        /** Where the look's file is in the Joy Creator folder, or null before its first write. */
+        @Nullable String lookFile();
+
+        boolean lookIsBuiltIn();
+
+        /** A built-in look changed from its factory version (Revert to default has work to do). */
+        boolean lookIsCustomised();
+
+        void duplicateLook();
+
+        void renameLook();
+
+        /** Asks first: it replaces every change made to the look. */
+        void revertLook();
+
+        /** Asks first; undo brings it back. Only the person's own looks. */
+        void deleteLook();
     }
 
     private static final String[][] PALETTES = {
@@ -79,6 +99,7 @@ final class KnobPanel extends LinearLayout {
     private int tab;
     private int selLayer;
     @Nullable private String brandName;
+    @Nullable private LinearLayout footer;
 
     KnobPanel(@NonNull Context c, @NonNull VisTypes types, @NonNull Host host) {
         super(c);
@@ -126,6 +147,55 @@ final class KnobPanel extends LinearLayout {
         else if (tab == 1) buildKnobs(types.post, block(s.json(), "post"));
         else if (tab == 2) buildEcho(s);
         else buildColours(s);
+        buildFooter();
+    }
+
+    /**
+     * Under every tab: copy, rename, and the way back (the owner's supplies ruling: "Revert to
+     * default" near the bottom, with a warning), plus where the look's file lives.
+     */
+    private void buildFooter() {
+        footer = new LinearLayout(getContext());
+        footer.setOrientation(VERTICAL);
+        body.addView(footer);
+        fillFooter();
+    }
+
+    /** After an edit: Revert appears once the look differs from its factory version. */
+    void refreshFooter() {
+        if (footer != null && footer.getParent() == body) fillFooter();
+    }
+
+    private void fillFooter() {
+        Context c = getContext();
+        LinearLayout body = footer;
+        body.removeAllViews();
+        body.addView(section(c, "This look"));
+        WrapLayout w = new WrapLayout(c, Ui.dp(c, 6), Ui.dp(c, 6));
+        w.addView(footerPill(c, "Duplicate", "Keep a copy of this look under a new name", host::duplicateLook));
+        w.addView(footerPill(c, "Rename", "Give this look a new name (its file follows)", host::renameLook));
+        if (!host.lookIsBuiltIn()) {
+            w.addView(footerPill(c, "Delete", "Move this look to the Trash (asks first; undo brings it back)", host::deleteLook));
+        } else if (host.lookIsCustomised()) {
+            w.addView(footerPill(c, "Revert to default", "Put this look back as it came with the app (asks first)", host::revertLook));
+        }
+        body.addView(w);
+        String f = host.lookFile();
+        TextView where = Ui.text(c, f != null ? "Kept in your Joy Creator folder as " + f
+                : "Kept in your Joy Creator folder a moment after each change", 10.5f, Studio.INK_FAINT, false, 400);
+        where.setPadding(0, Ui.dp(c, 8), 0, 0);
+        body.addView(where);
+    }
+
+    @NonNull
+    private TextView footerPill(@NonNull Context c, @NonNull String text, @NonNull String hover, @NonNull Runnable run) {
+        TextView p = pill(c, text, false);
+        Ui.label(p, hover);
+        p.setOnClickListener(v -> {
+            Motion.press(v);
+            run.run();
+        });
+        return p;
     }
 
     void resetSelection() {

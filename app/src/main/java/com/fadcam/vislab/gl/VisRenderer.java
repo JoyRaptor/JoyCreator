@@ -63,6 +63,8 @@ public final class VisRenderer {
     private volatile int alphaMode = -1;     // -1 auto, 0 additive, 1 screen
     private volatile int forceFrame = -1;    // -1 = the look's own edges
     private volatile float renderScale = 1f;
+    private volatile boolean profile;
+    @Nullable private GpuTimer gpu;
     private volatile ImageSource images;
     private volatile boolean resetRequested;
 
@@ -150,6 +152,17 @@ public final class VisRenderer {
         return lastError;
     }
 
+    /** Time each stage on the GPU (debug builds); read with {@link #gpuReport()}. */
+    public void setProfiling(boolean on) {
+        profile = on;
+    }
+
+    /** GPU ms per stage, averaged since the last call ("" when off or unsupported). GL thread. */
+    @NonNull
+    public String gpuReport() {
+        return gpu != null ? gpu.report() : "";
+    }
+
     /** CPU time of the last frame, ms (GPU time is not visible from here). */
     public float lastFrameMs() {
         return lastMs;
@@ -187,6 +200,7 @@ public final class VisRenderer {
         texWave = dataTex(NW, 1, GLES30.GL_RGBA16F, GLES30.GL_RGBA);
         texHist = dataTex(NB, NH, GLES30.GL_R16F, GLES30.GL_RED);
         texBlack = dataTex(1, 1, GLES30.GL_RGBA8, GLES30.GL_RGBA);
+        gpu = profile ? new GpuTimer("living", "layers", "bloom", "finish") : null;
         initialised = true;
         Log.i(TAG, "init " + ver + " hdr=" + hdrFormat.name + " state=" + (stateFormat == null ? "none" : stateFormat.name));
     }
@@ -203,6 +217,8 @@ public final class VisRenderer {
         GlTarget.free(echoB);
         main = half = echoA = echoB = null;
         bloom.free();
+        if (gpu != null) gpu.release();
+        gpu = null;
         if (initialised) {
             GLES30.glDeleteTextures(4, new int[]{texSpec, texWave, texHist, texBlack}, 0);
             GLES30.glDeleteBuffers(1, new int[]{ubo}, 0);
@@ -221,6 +237,7 @@ public final class VisRenderer {
         imageRef.clear();
         main = half = echoA = echoB = null;
         bloom.free();
+        gpu = null;
         initialised = false;
         w = h = 0;
     }
@@ -272,6 +289,7 @@ public final class VisRenderer {
         for (CompiledScene.Layer L : compiled.layers) L.eval(signals);
 
         // 2. living layers on the absolute 60 Hz grid
+        if (gpu != null) gpu.begin(0);
         long tick = (long) Math.floor(time * 60);
         int ticks;
         if (lastTick == Long.MIN_VALUE || tick < lastTick) ticks = 1;
@@ -287,6 +305,7 @@ public final class VisRenderer {
         pxScene = 2f / Math.min(w, h);
 
         // 3 + 4. echo and layers
+        if (gpu != null) gpu.begin(1);
         GlTarget canvas;
         if (compiled.echo != null) {
             if (echoA == null || echoA.w != w || echoA.h != h) {
@@ -340,9 +359,11 @@ public final class VisRenderer {
         VisType pt = types.post;
         float bloomAmt = post.value(pt, "bloom", 0.8f);
         boolean bloomOn = bloomAmt > 0.001f;
+        if (gpu != null) gpu.begin(2);
         if (bloomOn) bloom.run(this, canvas, post.value(pt, "bloomThreshold", 0.6f), post.value(pt, "bloomRadius", 0.75f));
 
         // 6. finish
+        if (gpu != null) gpu.begin(3);
         bindTarget(null);
         GLES30.glDisable(GLES30.GL_BLEND);
         float[] P = finishParams;
@@ -364,6 +385,7 @@ public final class VisRenderer {
         tex(cp, "uScene", canvas.tex(), unit++);
         tex(cp, "uBloom", bloomOn ? bloom.result() : texBlack, unit);
         drawFullscreen();
+        if (gpu != null) gpu.frameDone();
         lastMs = (SystemClock.elapsedRealtimeNanos() - t0) / 1e6f;
     }
 

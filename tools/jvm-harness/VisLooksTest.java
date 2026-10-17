@@ -84,6 +84,10 @@ public class VisLooksTest {
                 for (float v : L.knobs.params) check(!Float.isNaN(v), file + " NaN knob");
             }
             check(s.palette() != null, file + " has a palette");
+            // A shipped look must need no fixing: otherwise its copy in the folder reads as
+            // "customised" forever and never follows app updates.
+            java.util.List<String> fixes = com.fadcam.vislab.model.LookValidator.fix(s.json().deepCopy(), types);
+            check(fixes.isEmpty(), file + " needs no fixing " + fixes);
             // Round trip keeps the tree.
             check(VisScene.parse(s.toJson()).toJson().equals(s.toJson()), file + " round trip");
             looks++;

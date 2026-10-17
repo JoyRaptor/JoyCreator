@@ -5,9 +5,9 @@
   "family": "Generative",
   "description": "Fly through an endless glowing mathematical cave; the bass is the accelerator.",
   "palette": [
-    "#FFFFFF",
     "#00E5FF",
-    "#5B5BFF",
+    "#3D5AFE",
+    "#B517FF",
     "#FF2BD6",
     "#FFB000"
   ],
@@ -20,24 +20,24 @@
       "p": {
         "mode": 1,
         "speed": 0.6,
-        "steps": 56,
+        "steps": 48,
         "react": 1,
-        "glow": 0.5,
-        "surface": 0.6,
-        "fog": 1.6,
+        "glow": 0.22,
+        "surface": 0.95,
+        "fog": 2.4,
         "brightness": 0.8
       }
     }
   ],
   "echo": {
     "p": {
-      "decay": 0.55,
+      "decay": 0.5,
       "zoom": 1.01
     }
   },
   "post": {
     "p": {
-      "bloom": 0.9,
+      "bloom": 0.7,
       "chroma": {
         "v": 0.15,
         "mod": {

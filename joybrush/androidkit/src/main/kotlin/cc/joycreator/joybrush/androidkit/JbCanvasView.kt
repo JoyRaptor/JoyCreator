@@ -46,6 +46,10 @@ import cc.joycreator.joybrush.androidkit.io.JbContents
 import cc.joycreator.joybrush.androidkit.io.BoardSnapshot
 import cc.joycreator.joybrush.androidkit.io.CanvasSnapshot
 import cc.joycreator.joybrush.androidkit.io.TILE_BYTES
+import cc.joycreator.joybrush.androidkit.lines.LineEdit
+import cc.joycreator.joybrush.androidkit.lines.LineEditResult
+import cc.joycreator.joybrush.androidkit.lines.LinePlane
+import cc.joycreator.joybrush.androidkit.lines.LineSnapshot
 import cc.joycreator.joybrush.core.brush.BrushDabber
 import cc.joycreator.joybrush.core.brush.WatercolourDabber
 import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
@@ -531,6 +535,100 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     val activeLayerId: String get() = activeLayer
     val pageWidth: Int get() = pageW
     val pageHeight: Int get() = pageH
+
+    // ── editable lines (tasks/joybrush/specs/NATIVE_LINES_V1_20261016.md) ────
+
+    /**
+     * The "Editable lines" switch (the app keeps it). On: a stroke whose brush the engine can replay is kept as an
+     * editable line. A plane that already holds lines keeps every replayable stroke as a line whatever this says, and
+     * refuses the others in words: its pixels must stay what its lines draw.
+     */
+    @Volatile var editableLines: Boolean = false
+
+    /** The engine's lines as of its last change (UI thread). */
+    var lineSnapshot: LineSnapshot = LineSnapshot.EMPTY
+        private set
+
+    /** UI thread, after [lineSnapshot] changed: a line drawn, an edit, an undo or redo, a drawing opened. */
+    var onLinesChanged: (() -> Unit)? = null
+
+    /** The planes a selection on the active layer covers: its shared cel and each board's current frame. */
+    fun activeLinePlanes(): List<LinePlane> = linePlanesOf(activeLayer)
+
+    /** Every visible layer's planes, bottom to top (the All layers chip). */
+    fun visibleLinePlanes(): List<LinePlane> = stackUi.layers.filter { it.visible }.flatMap { linePlanesOf(it.id) }
+
+    // Cached per board document (immutable, replaced whenever it changes): hover asks for these on every move.
+    private var linePlanesDoc: JbDocument? = null
+    private val linePlanesCache = HashMap<String, List<LinePlane>>()
+
+    private fun linePlanesOf(layerId: String): List<LinePlane> {
+        val doc = boardDocument ?: return listOf(LinePlane(layerId, null))
+        if (doc !== linePlanesDoc) { linePlanesCache.clear(); linePlanesDoc = doc }
+        return linePlanesCache.getOrPut(layerId) { computeLinePlanes(doc, layerId) }
+    }
+
+    private fun computeLinePlanes(doc: JbDocument, layerId: String): List<LinePlane> {
+        val meta = doc.layers.firstOrNull { it.id == layerId } ?: return emptyList()
+        val shared = meta.sharedCelId ?: meta.cels.singleOrNull()?.id ?: return emptyList()
+        val frames = try { RegionDocumentOps.paintPlans(doc, emptyMap())[layerId]?.frames.orEmpty() } catch (e: Exception) { emptyList() }
+        return listOf(LinePlane(layerId, shared)) + frames.map { LinePlane(layerId, it.celId) }
+    }
+
+    /** Runs [edit] on the GL thread as ONE undo step; [done] runs on the UI thread with what happened. */
+    fun submitLineEdit(edit: LineEdit, done: (LineEditResult) -> Unit) {
+        if (drawing) { done(LineEditResult(false, "Lift the pen before editing lines")); return }
+        onGl {
+            val result = try {
+                engine.editLines(edit)
+                LineEditResult(true)
+            } catch (e: Exception) {
+                LineEditResult(false, e.message ?: "Those lines could not be changed")
+            }
+            if (result.ok) reportHistory()
+            publishLines()
+            post { done(result) }
+        }
+    }
+
+    /** A pen contact being kept as an editable line: its raw recording and any brush copies frozen for it. */
+    private class LineContact(val capture: StrokeCapture, val brushes: Map<String, BrushPreset>) {
+        var samples = 0
+        var startArgb: Int? = null
+    }
+    private var lineContact: LineContact? = null
+
+    private fun newLineName(prefix: String): String =
+        prefix + "-" + java.lang.Long.toHexString(java.util.UUID.randomUUID().mostSignificantBits and 0xFFFFFFFFFFFFL)
+
+    /** Why this stroke can't be kept as an editable line, as the end of a sentence; null = it can. */
+    private fun lineRefusal(p: BrushPreset?, erase: Boolean, amount: Float): String? {
+        val layer = boardDocument?.layers?.firstOrNull { it.id == activeLayer }
+        return when {
+            p == null -> "the built-in round brush can't be kept as a line"
+            p.engine == ENGINE_MEDIA -> "realistic pencil, watercolour and oil can't share a layer with lines yet"
+            p.engine == ENGINE_SMUDGE -> "smudge doesn't work on lines yet"
+            p.engine == ENGINE_FILL -> "the fill pen doesn't work on lines yet"
+            p.engine !in setOf("stamp", ENGINE_WATERCOLOUR) -> "this brush can't be kept as a line yet"
+            p.engine == ENGINE_WATERCOLOUR && (erase || p.blend == "erase") -> "the watercolour eraser can't be kept as a line yet"
+            p.line != null -> "brushes that shape the whole stroke can't be kept as lines yet"
+            !erase && p.blend !in setOf("normal", "erase", "behind", BLEND_MULTIPLY, BLEND_SCREEN) -> "the ${p.blend} blend can't be kept as a line yet"
+            p.engine == "stamp" && p.tip.source != "procedural" -> "picture-tip brushes can't be kept as lines yet"
+            tileBoardId != null -> "lines don't work on a tiled board yet"
+            layer?.cels?.any { it.floatTiles.isNotEmpty() } == true -> "it already holds realistic paint"
+            !amount.isFinite() || amount !in 0f..1f || !view.zoom.isFinite() || view.zoom <= 0f -> "the smoothing setting is out of range"
+            else -> null
+        }
+    }
+
+    /** GL thread: hands the UI a fresh copy of the engine's lines when they changed. */
+    private fun publishLines() {
+        val snapshot = engine.lineSnapshot()
+        if (snapshot.revision == publishedLineRevision) return
+        publishedLineRevision = snapshot.revision
+        post { lineSnapshot = snapshot; onLinesChanged?.invoke() }
+    }
+    private var publishedLineRevision = 0L
 
     fun selectLayer(id: String) {
         val next = stackUi.select(id)
@@ -1393,6 +1491,32 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 diagnosticObserver(DiagnosticStrokeCaptureResult.Refused("Diagnostic brush could not be frozen: ${e.message}"))
             }
         }
+        // Editable lines (NATIVE_LINES_V1): a layer that holds lines keeps every stroke it can replay as a line and
+        // refuses the rest in words (its pixels must stay its lines); with the switch on, a replayable stroke starts one.
+        var lineFrozen: FrozenBrushResult? = null
+        if (!editingMask && watercolourPreviewSeed == null) {
+            val layerHasLines = lineSnapshot.planes.any { (k, v) -> k.layerId == activeLayer && v.isNotEmpty() }
+            if (editableLines || layerHasLines) {
+                val refusal = lineRefusal(p, erase, amount)
+                if (refusal != null && layerHasLines) {
+                    drawing = false
+                    onRefused?.invoke("\"${stackUi.active.name}\" holds editable lines, and $refusal. Use another layer for it.")
+                    return
+                }
+                if (refusal == null) try {
+                    val effective = if (erase) p!!.copy(blend = "erase") else p!!
+                    lineFrozen = FrozenBrushRegistry.freeze(lineSnapshot.brushes, effective) { newLineName("lb") }
+                    p = lineFrozen.preset   // the live dabber and the record use the same detached definition
+                } catch (e: Exception) {
+                    lineFrozen = null
+                    if (layerHasLines) {
+                        drawing = false
+                        onRefused?.invoke("This brush can't draw editable lines: ${e.message}")
+                        return
+                    }
+                }
+            }
+        }
         // The glaze blends (brush version 9) composite colour over colour. A mask holds grey with missing tiles meaning
         // white, so a screen glaze would grey out the white it should keep: refused in words, never painted as normal.
         if ((p?.blend == BLEND_MULTIPLY || p?.blend == BLEND_SCREEN) && editingMask && !erase) {
@@ -1466,6 +1590,24 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             // first dab exists, so the tip's hardness and the stroke's opacity are the ones the
             // file evaluated AT that dab rather than the base values the file happens to carry.
         }
+        lineContact = lineFrozen?.let { f ->
+            try {
+                LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, colorArgb ?: b.argb), f.newEntries)
+            } catch (e: Exception) { null }
+        }
+        // Lines live under document cels and are saved by the board path: a fresh drawing gets its board document first
+        // (queued before this stroke's own GL work, as the media path does).
+        if (lineContact != null && boardDocument == null) {
+            val stack = stackUi
+            val w = viewW; val h = viewH
+            onGl {
+                try {
+                    if (engine.boardDocument == null) engine.setBoardDocument(syncBoardLayersFor(readContents(w, h).doc, stack))
+                } catch (e: Exception) {
+                    post { onRefused?.invoke(e.message ?: "This drawing could not keep editable lines") }
+                }
+            }
+        }
         if (frozen != null && diagnosticObserver != null) {
             val layer = boardDocument?.layers?.firstOrNull { it.id == strokeLayerId }
             val argb = colorArgb ?: b.argb
@@ -1514,6 +1656,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
         val argb = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
         diagnosticContact?.let { it.start = DiagnosticStrokeStart(argb, opacity, tip.hardness) }
+        lineContact?.startArgb = argb
         val target = strokeLayerId
         val watercolorOptions=strokeWatercolour?.spec
         val watercolorSeed=strokeSeed
@@ -1593,10 +1736,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // R9: the lift — a fast one carries on as the bristles leave the paper — and any spatter it throws.
         strokeTuft?.let { t -> paintTuft(t.finish()) }
         val diagnosticResult = finishDiagnosticCapture()
+        // The line's record carries the colour the stroke actually began with (as the first dab evaluated it).
+        val line = lineContact?.let { c -> c.capture.finish()?.let { r -> c.startArgb?.let { r.copy(colorArgb = it) } } }
+        val lineBrushes = lineContact?.brushes.orEmpty()
+        lineContact = null
         drawing = false
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
-        boardStrokeWork { engine.endStroke(); reportHistory() }
+        boardStrokeWork { engine.setPendingLine(line, lineBrushes); engine.endStroke(); reportHistory() }
         flushPaperVisits()
         onStrokeEnded?.invoke()
         diagnosticResult?.let { (observer, result) -> observer(result) }
@@ -1605,6 +1752,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private fun cancelStroke() {
         diagnosticContact?.capture?.cancel()
         diagnosticContact = null
+        lineContact?.capture?.cancel()
+        lineContact = null
         // What a media stroke already painted stays, as one step (water cannot be un-run mid-flow).
         if (mediaStroke || mediaErase) { finishMediaStroke(); return }
         resetSnapper(fresh = false)
@@ -1716,6 +1865,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             if (contact.sampleCount >= 32768) refuseDiagnosticCapture("Diagnostic capture reached its 32768 raw sample budget")
             else { contact.capture.add(raw); contact.sampleCount++ }
         }
+        if (raw.isPlaceable && !raw.predicted) lineContact?.let { it.capture.add(raw); it.samples++ }
         // The watercolor dabber owns the POC's pressure/tilt/path filters. Never smooth or curve it twice.
         if(strokeWatercolour != null) { if(raw.isPlaceable && !raw.predicted) released.add(raw); return }
         if (strokePreset?.engine == ENGINE_FILL && !mediaErase) {
@@ -1840,14 +1990,23 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * the rest is the one thing this must never do.
      */
     fun load(contents: JbContents, onDone: () -> Unit) {
-        val doc = contents.doc
-        val retained = validatedLoadMetadata(contents)
+        val doc = withoutLineDeclarations(contents.doc)
+        val retained = validatedLoadMetadata(contents).let { it.copy(doc = withoutLineDeclarations(it.doc)) }
 
         val states = doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend, it.mask != null, it.clip) }
         val active = doc.activeLayerId?.takeIf { id -> doc.layers.any { it.id == id } } ?: doc.layers.last().id
         val stack = LayerStack(states, active)
         val wanted = ArrayList<Pair<Triple<String,String,Long>,ByteArray>>(contents.tiles.size)
+        // Editable lines (NATIVE_LINES_V1): where a cel keeps a look, the screen shows the look and the tile file is the
+        // base under its lines; no line is replayed to open.
+        val lineBases = LinkedHashMap<Pair<LinePlane, Long>, ByteArray>()
+        for ((key, look) in contents.looks) wanted.add(Triple(key.first, key.second, tileKeyOf(key.third)) to look)
+        val lineRecords = contents.strokes.filterValues { it.isNotEmpty() }.mapKeys { (k, _) -> LinePlane(k.first, k.second) }
         for (entry in contents.tiles) {
+            if (entry.key in contents.looks) {
+                lineBases[LinePlane(entry.key.first, entry.key.second) to tileKeyOf(entry.key.third)] = entry.value
+                continue
+            }
             // Iterating the map gives the ENTRY: its key is (layer, cel, "tx_ty").
             // A mask's tiles go to the mask's store (JB-2.23); every other tile to its layer.
             val layer = doc.layers.first { it.id == entry.key.first }
@@ -1877,6 +2036,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             // they agree with.
             for ((k, bytes) in contents.mediaTiles) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), bytes, k.celId)
             engine.agreeAllPayloads()
+            engine.loadLines(lineRecords, lineBases, contents.brushes)
             retainedContents = retained
             contentLost = false
             paper = resolved
@@ -1898,9 +2058,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      */
     private fun refusalFor(contents: JbContents): String? {
         val doc = contents.doc
-        if (contents.strokes.isNotEmpty()) {
-            return "this drawing has ink strokes in it, and this screen cannot show ink yet"
+        if (contents.strokes.values.any { lines -> lines.any { it.capturedPhysicalSource != null } }) {
+            return "this drawing has exact-copy lines in it, and this screen cannot show them yet"
         }
+        if (contents.slabs.isNotEmpty()) return "this drawing has pixel slabs in it, and this screen cannot show them yet"
         if (doc.layers.isEmpty()) return "this drawing has no layers"
         if(doc.boards.any{it.kind !in listOf(BoardKind.CANVAS,BoardKind.ANIMATION,BoardKind.SPRITE)})
             return "This renderer does not show puppet or character boards yet"
@@ -1955,6 +2116,58 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
+    /**
+     * Editable lines into a board snapshot (NATIVE_LINES_V1, Codex's v11 layout): a tile some line crosses is saved as
+     * its look (what the screen shows) with its base as the tile file under it; the records go to the cel's strokes and
+     * the frozen brushes with the drawing. GL thread.
+     */
+    private fun withLines(c: JbContents): JbContents {
+        val save = engine.lineSave()
+        if (save.records.isEmpty()) return c
+        val tiles = LinkedHashMap(c.tiles)
+        val looks = LinkedHashMap(c.looks)
+        val strokes = LinkedHashMap(c.strokes)
+        val celLooks = HashMap<Pair<String, String>, MutableList<String>>()
+        for ((plane, records) in save.records) {
+            val cel = plane.celId ?: continue
+            strokes[plane.layerId to cel] = records
+            for (key in save.crossed[plane].orEmpty()) {
+                val name = DocOps.key(Tiles.tx(key), Tiles.ty(key))
+                val at = Triple(plane.layerId, cel, name)
+                val shown = c.tiles[at]
+                val base = save.bases[plane to key]?.takeUnless { Tiles.isBlank(it) }
+                if (shown == null && base == null) continue          // nothing under, nothing on top
+                looks[at] = shown ?: ByteArray(TILE_BYTES)            // a look that erased everything is still a look
+                celLooks.getOrPut(plane.layerId to cel) { ArrayList() }.add(name)
+                if (base != null) tiles[at] = base else tiles.remove(at)
+            }
+        }
+        val layers = c.doc.layers.map { layer ->
+            layer.copy(cels = layer.cels.map { cel ->
+                val at = layer.id to cel.id
+                if (at !in strokes) cel else cel.copy(
+                    tiles = tiles.keys.filter { it.first == layer.id && it.second == cel.id }.map { it.third }.sorted(),
+                    looks = celLooks[at].orEmpty().sorted(),
+                    strokesFile = "strokes.jbs",
+                )
+            })
+        }
+        val doc = c.doc.copy(layers = layers, brushes = save.brushes.keys.sorted(), version = maxOf(c.doc.version, 11))
+        return c.copy(doc = doc, tiles = tiles, looks = looks, strokes = strokes, brushes = save.brushes)
+    }
+
+    /**
+     * The document as the engine holds it after an open: a cel that kept looks lists them among its tiles (the screen
+     * shows them there), and no cel names line storage and the drawing names no frozen brushes. Those live in the
+     * engine's NativeLines, and [withLines] declares them again on every save.
+     */
+    private fun withoutLineDeclarations(doc: JbDocument): JbDocument {
+        if (doc.brushes.isEmpty() && doc.layers.none { l -> l.cels.any { it.strokesFile != null || it.looks.isNotEmpty() } }) return doc
+        return doc.copy(brushes = emptyList(), layers = doc.layers.map { l ->
+            l.copy(cels = l.cels.map { c -> c.copy(tiles = (c.tiles + c.looks).distinct().sorted(), looks = emptyList(), strokesFile = null) })
+        })
+    }
+
     /** The GL-thread half of [snapshot]: every layer, every tile, read back, under one document. */
     private fun readContents(w: Int, h: Int): JbContents {
         if (engine.hasJointPaintPublication) throw JbArchiveException(
@@ -1965,7 +2178,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         engine.boardDocument?.let { doc ->
             val current=syncBoardLayers(doc)
             engine.setBoardDocument(current)
-            return BoardSnapshot.capture(current,
+            return withLines(BoardSnapshot.capture(current,
                 mediaKeys={layer,cel->val p=engine.mediaPlaneOfCel(layer,cel); MediaStores.PAYLOAD.associateWith{engine.mediaTileKeys(layer,it,p)}},
                 mediaRead={layer,cel,store,key->engine.readMediaTile(layer,store,key,engine.mediaPlaneOfCel(layer,cel))},
                 keys={layer,cel->
@@ -1974,7 +2187,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 }, read={layer,cel,key->
                     val mask=current.layers.first{it.id==layer}.mask
                     if(mask?.id==cel)engine.readTile(maskStoreId(layer),key) else engine.readCelTile(layer,cel,key)
-                },paper=documentPaperState)
+                },paper=documentPaperState))
         }
         // Read back, not guessed at: the tiles are the drawing, so the archive carries exactly the
         // bytes the engine is holding and nothing has to be rebuilt from stroke records to save.
@@ -2564,6 +2777,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             retainedContents=JbContents(current,emptyMap(),emptyMap(),null)
             post{onBoardsChanged?.invoke(current)}
         }
+        publishLines()
         val u = engine.undo.canUndo
         val r = engine.undo.canRedo
         val stack = engine.stack(activeLayer)

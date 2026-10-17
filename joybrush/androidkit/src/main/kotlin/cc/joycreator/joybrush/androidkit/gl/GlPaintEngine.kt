@@ -12,8 +12,13 @@ import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.vector.InkReplay
 import cc.joycreator.joybrush.core.vector.RecordedCel
 import cc.joycreator.joybrush.core.vector.RecordedEdits
+import cc.joycreator.joybrush.core.vector.CelComposer
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
+import cc.joycreator.joybrush.androidkit.gl.lines.NativeLines
+import cc.joycreator.joybrush.androidkit.lines.LineEdit
+import cc.joycreator.joybrush.androidkit.lines.LinePlane
+import cc.joycreator.joybrush.androidkit.lines.LineSnapshot
 import cc.joycreator.joybrush.androidkit.gl.lines.NativeBaseTransferProof
 import cc.joycreator.joybrush.androidkit.gl.lines.PromotedBaseProjection
 import cc.joycreator.joybrush.androidkit.gl.watercolour.WatercolourPass
@@ -727,6 +732,7 @@ class GlPaintEngine(
         framePreviews = emptyMap()
         tileBoardId=null; tilePreviewRect=null; onionBoardId=null; strokeTileRect=null
         undo.clear()
+        nativeLines.clear()   // its base names died with the context
         freeLayerTex.clear()
         freeStrokeTex.clear()
         freeSmudgeTex.clear()
@@ -768,6 +774,7 @@ class GlPaintEngine(
         cancelStroke()
         val all = ArrayList<Int>()
         layers.values.forEach { all.addAll(it.ownedTextures()); it.mask?.let { m -> all.addAll(m.ownedTextures()) } }
+        all.addAll(nativeLines.baseTextures()); nativeLines.clear()
         all.addAll(freeLayerTex); all.addAll(freeStrokeTex); all.addAll(freeSmudgeTex); all.addAll(freeFloatTex); all.add(clearTex); all.add(whiteTex)
         if (thumbTex != 0) all.add(thumbTex)
         thumbTex = 0; thumbW = 0; thumbH = 0
@@ -1150,6 +1157,7 @@ class GlPaintEngine(
     fun clearLayer(id: String) {
         requireLocalPaint()
         val layer = storeOf(id) ?: return
+        if (!layer.isMask && nativeLines.hasLinesOnLayer(id)) { clearLayerWithLines(layer); return }
         if (layer.planes().all { (_, p) -> p.values.all { it.isEmpty() } }) { replaceTiles(id,visibleTiles(layer).keys.associateWith{null}); return }
         // A layer with media: its payload is emptied in the same step as its look, or the next look render brings it back.
         val changes = ArrayList<UndoLog.TileChange<Int>>()
@@ -1189,6 +1197,11 @@ class GlPaintEngine(
         settleWatercolourFade()
         val store=storeOf(layerId) ?: return null
         val tex = visibleTiles(store)[key] ?: return null
+        return readTexture(tex)
+    }
+
+    /** One RGBA8 tile texture read back (premultiplied, [size]² · 4 bytes). */
+    private fun readTexture(tex: Int): ByteArray {
         val buf = tileReadback
         buf.clear()
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
@@ -1305,6 +1318,7 @@ class GlPaintEngine(
         releaseRecordedScene()
         mediaStroke = null; mediaStrokeHeld.clear(); agreedLook.clear()
         undo.clear()
+        nativeLines.baseTextures().forEach(::recycleLayerTex); nativeLines.clear()
         layers.values.forEach { l -> l.ownedTextures().forEach(::recycleLayerTex); l.mask?.ownedTextures()?.forEach(::recycleLayerTex) }
         layers.clear()
         boardDocument = null
@@ -1329,7 +1343,10 @@ class GlPaintEngine(
         for (meta in doc.layers) {
             val layer=layers[meta.id] ?: error("No live layer ${meta.id}")
             val shared=meta.sharedCelId ?: meta.cels.single().id
-            if (layer.sharedCel==null) { layer.sharedCel=shared; layer.cels[shared]?.let { layer.tiles.putAll(it) }; layer.cels[shared]=layer.tiles }
+            if (layer.sharedCel==null) {
+                layer.sharedCel=shared; layer.cels[shared]?.let { layer.tiles.putAll(it) }; layer.cels[shared]=layer.tiles
+                nativeLines.rename(LinePlane(layer.id, null), LinePlane(layer.id, shared))
+            }
             check(layer.sharedCel==shared) { "Shared paint identity cannot silently change" }
             meta.cels.forEach { layer.cels.getOrPut(it.id) { HashMap() } }
             val plan=plans.getValue(meta.id)
@@ -1662,6 +1679,270 @@ class GlPaintEngine(
         GLES30.glBlitFramebuffer(from.x,from.y,from.right,from.bottom,to.x,to.y,to.right,to.bottom,GLES30.GL_COLOR_BUFFER_BIT,GLES30.GL_NEAREST)
         check(GLES30.glGetError()==GLES30.GL_NO_ERROR) { "Board tile copy failed" }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo)
+    }
+
+    // ── editable lines v1 (tasks/joybrush/specs/NATIVE_LINES_V1_20261016.md) ──
+
+    /** The planes' lines and bases beside the ordinary tiles; the tiles stay the pixel truth. */
+    internal val nativeLines = NativeLines()
+
+    /** A live stroke's record, handed over before [endStroke]; consumed by the commit that makes its step. */
+    private class PendingLine(val record: StrokeRecord, val brushes: Map<String, BrushPreset>)
+    private var pendingLine: PendingLine? = null
+
+    /** The stroke being painted becomes an editable line when it commits ([record]'s seq is assigned then). */
+    fun setPendingLine(record: StrokeRecord?, newBrushes: Map<String, BrushPreset> = emptyMap()) {
+        pendingLine = record?.let { PendingLine(it, newBrushes) }
+    }
+
+    fun lineSnapshot(): LineSnapshot = nativeLines.snapshot()
+
+    /** A layer's plane in line terms: the engine's celId, with the shared plane under its document cel id once known. */
+    private fun linePlane(layer: Layer, celId: String?): LinePlane = LinePlane(layer.id, celId ?: layer.sharedCel)
+
+    /** The engine's own celId for a line plane (null = the layer's tiles while it has no document cel yet). */
+    private fun engineCel(layer: Layer, plane: LinePlane): String? = if (layer.sharedCel == null) null else plane.celId
+
+    /** Where a plane owns pixels inside [key]; null = the whole tile (no regions). */
+    private fun lineClips(layer: Layer, plane: LinePlane, key: Long): List<RegionTileRect>? {
+        val plan = layer.plan ?: return null
+        return plan.tileSlices(key).filter { it.plane.celId == plane.celId }.map { it.rect }
+    }
+
+    private fun copyOfTile(source: Int): Int {
+        val copy = newLayerTile()
+        initializeTile(copy, source, false)
+        return copy
+    }
+
+    /**
+     * [endStroke]'s part for a stroke that is a line: one record per plane it wrote (each keeps the whole raw recipe; the
+     * plane's region clips it), seq on top, and the bases of tiles it is first to cross. Returns the step's slab and line
+     * changes; the bookkeeping is updated here, in the same GL turn as the tiles.
+     */
+    private fun commitPendingLine(layer: Layer, written: List<UndoLog.TileChange<Int>>): Pair<List<UndoLog.SlabChange<Int>>, List<UndoLog.LineChange>> {
+        val line = pendingLine ?: return emptyList<UndoLog.SlabChange<Int>>() to emptyList()
+        pendingLine = null
+        if (layer.isMask || written.isEmpty()) return emptyList<UndoLog.SlabChange<Int>>() to emptyList()
+        nativeLines.addBrushes(line.brushes)
+        val slabs = ArrayList<UndoLog.SlabChange<Int>>()
+        val lines = ArrayList<UndoLog.LineChange>()
+        for ((celId, planeWrites) in written.groupBy { it.celId }) {
+            val plane = linePlane(layer, celId)
+            var id = line.record.id
+            while (nativeLines.record(plane, id) != null) id = line.record.id + "-" + (1..99999).random()
+            val record = line.record.copy(id = id, seq = nativeLines.nextSeq(plane))
+            nativeLines.widen(record, planeWrites.map { it.key }.toSet())
+            val before = planeWrites.associate { it.key to it.before }
+            for (key in nativeLines.footprint(record)) {
+                if (nativeLines.crossed(plane, key)) continue   // its base is already kept
+                val source = if (key in before) before[key] else planeTiles(layer, celId)[key]
+                val copy = source?.let(::copyOfTile) ?: continue   // nothing under it: the base is transparent
+                slabs += UndoLog.SlabChange(layer.id, celId, key, 0L, null, UndoLog.SlabValue(copy, "normal"))
+                nativeLines.setBase(plane, key, copy)
+            }
+            nativeLines.put(plane, id, record)
+            lines += UndoLog.LineChange(layer.id, celId, id, null, CelComposer.Line(record.seq, record))
+        }
+        return slabs to lines
+    }
+
+    /** Undo ([forward] false) or redo of a step's lines and bases. The step's tiles were put back already: no replay. */
+    private fun applyNativeLineStep(s: UndoLog.Step<Int>, forward: Boolean) {
+        for (c in s.slabs) {
+            if (c.seq != 0L) continue
+            val layer = layers[c.layerId] ?: continue
+            nativeLines.setBase(linePlane(layer, c.celId), c.key, (if (forward) c.after else c.before)?.texture)
+        }
+        for (c in s.lines) {
+            val plane = LinePlane(c.layerId, c.celId ?: layers[c.layerId]?.sharedCel)
+            nativeLines.put(plane, c.id, (if (forward) c.after else c.before)?.record)
+        }
+    }
+
+    /** Clear on a layer with lines: its pixels, its lines and their bases go together, as ONE step (no line comes back). */
+    private fun clearLayerWithLines(layer: Layer) {
+        settleWatercolourFade()
+        val tiles = ArrayList<UndoLog.TileChange<Int>>()
+        val slabs = ArrayList<UndoLog.SlabChange<Int>>()
+        val lines = ArrayList<UndoLog.LineChange>()
+        val bases = ArrayList<Pair<LinePlane, Long>>()
+        for (plane in nativeLines.linePlanes().filter { it.layerId == layer.id }) {
+            val cel = engineCel(layer, plane)
+            val records = nativeLines.lines(plane)
+            for (r in records) lines += UndoLog.LineChange(layer.id, cel, r.id, CelComposer.Line(r.seq, r), null)
+            for (key in records.flatMapTo(HashSet()) { nativeLines.footprint(it) }) nativeLines.base(plane, key)?.let {
+                slabs += UndoLog.SlabChange(layer.id, cel, key, 0L, UndoLog.SlabValue(it, "normal"), null)
+                bases += plane to key
+            }
+        }
+        val planes: Map<String?, HashMap<Long, Int>> =
+            if (layer.sharedCel == null) mapOf(null to layer.tiles) else layer.cels.mapKeys { it.key }
+        for ((cel, map) in planes) for ((key, tex) in map) tiles += UndoLog.TileChange(layer.id, key, tex, null, cel)
+        for (c in tiles) put(c.layerId, c.key, null, c.celId)
+        for ((plane, key) in bases) nativeLines.setBase(plane, key, null)
+        for (c in lines) nativeLines.put(LinePlane(c.layerId, c.celId ?: layer.sharedCel), c.id, null)
+        undo.push(UndoLog.Step(tiles, lines = lines, slabs = slabs))
+    }
+
+    /** Does the layer hold editable lines on any plane? (Other strokes there are refused: its pixels must stay its lines.) */
+    fun layerHasLines(layerId: String): Boolean = nativeLines.hasLinesOnLayer(layerId)
+
+    /** What a save keeps of the lines: each live plane's records, the tiles they cross, and those tiles' bases. */
+    class LineSave(val records: Map<LinePlane, List<StrokeRecord>>, val crossed: Map<LinePlane, Set<Long>>,
+                   val bases: Map<Pair<LinePlane, Long>, ByteArray>, val brushes: Map<String, BrushPreset>)
+
+    /** GL thread. A deleted layer's or frame's lines are history only and are not saved. */
+    fun lineSave(): LineSave {
+        settleWatercolourFade()
+        val records = LinkedHashMap<LinePlane, List<StrokeRecord>>()
+        val crossed = LinkedHashMap<LinePlane, Set<Long>>()
+        val bases = LinkedHashMap<Pair<LinePlane, Long>, ByteArray>()
+        for (plane in nativeLines.linePlanes()) {
+            val layer = layers[plane.layerId] ?: continue
+            if (layer.sharedCel != null && plane.celId !in layer.cels) continue
+            val lines = nativeLines.lines(plane)
+            records[plane] = lines
+            val keys = lines.flatMapTo(HashSet()) { nativeLines.footprint(it) }
+            crossed[plane] = keys
+            for (key in keys) nativeLines.base(plane, key)?.let { bases[plane to key] = readTexture(it) }
+        }
+        return LineSave(records, crossed, bases, nativeLines.brushes())
+    }
+
+    /** GL thread, after a drawing's tiles (its looks) are in: its lines, their brushes and the bases under them. */
+    fun loadLines(records: Map<LinePlane, List<StrokeRecord>>, bases: Map<Pair<LinePlane, Long>, ByteArray>,
+                  brushes: Map<String, BrushPreset>) {
+        nativeLines.addBrushes(brushes)
+        for ((plane, list) in records) for (r in list.sortedBy { it.seq }) nativeLines.put(plane, r.id, r)
+        for ((at, bytes) in bases) nativeLines.setBase(at.first, at.second, uploadTile(newLayerTile(), bytes))
+    }
+
+    /**
+     * One Select edit as ONE undo step: the affected tiles (old and new footprints) are re-rendered as
+     * base ∘ every line crossing them, in seq order, from the frozen brushes; bases follow the crossing rule.
+     */
+    internal fun editLines(edit: LineEdit) {
+        requireLocalPaint()
+        settleWatercolourFade()
+        check(!strokeInProgress && !wcFading && !mediaStrokeInProgress) { "Finish the stroke before editing lines" }
+        check(framePreviews.isEmpty()) { "Stop playback before editing lines" }
+        require(tileBoardId == null) { "Editable lines don't work on a tiled board yet" }
+        val brushes = when (edit) { is LineEdit.Replace -> edit.brushes; is LineEdit.Add -> edit.brushes; else -> emptyMap() }
+        for ((id, preset) in brushes) {
+            val known = nativeLines.brush(id)
+            require(known == null || known == preset) { "Frozen brush \"$id\" already means another brush" }
+        }
+        fun brushOf(r: StrokeRecord): BrushPreset =
+            brushes[r.brushId] ?: nativeLines.brush(r.brushId) ?: throw IllegalArgumentException("This line's brush is missing from the drawing")
+        // The next list of every plane the edit touches.
+        val next = LinkedHashMap<LinePlane, MutableList<StrokeRecord>>()
+        fun list(p: LinePlane) = next.getOrPut(p) { nativeLines.lines(p).toMutableList() }
+        fun planeOf(a: cc.joycreator.joybrush.core.stroke.LineAddress): LinePlane {
+            val layer = layers[a.layerId] ?: throw IllegalArgumentException("That layer is gone")
+            require(!layer.isMask) { "Masks hold no lines" }
+            return LinePlane(a.layerId, a.celId ?: layer.sharedCel)
+        }
+        when (edit) {
+            is LineEdit.Replace -> for (a in edit.after) {
+                val p = planeOf(a.address); val l = list(p)
+                val i = l.indexOfFirst { it.id == a.address.recordId }
+                require(i >= 0) { "That line is gone (undone or deleted)" }
+                l[i] = a.record.copy(seq = l[i].seq)
+            }
+            is LineEdit.Add -> for (a in edit.records) {
+                val p = planeOf(a.address); val l = list(p)
+                require(l.none { it.id == a.address.recordId }) { "A line with that name is already there" }
+                l += a.record.copy(seq = (l.maxOfOrNull { it.seq } ?: 0L) + 1L)
+            }
+            is LineEdit.Delete -> for (a in edit.ids) {
+                val p = planeOf(a); val l = list(p)
+                require(l.removeAll { it.id == a.recordId }) { "That line is gone (undone or deleted)" }
+            }
+        }
+        if (brushes.isNotEmpty()) nativeLines.addBrushes(brushes)
+        val tileChanges = ArrayList<UndoLog.TileChange<Int>>()
+        val slabChanges = ArrayList<UndoLog.SlabChange<Int>>()
+        val lineChanges = ArrayList<UndoLog.LineChange>()
+        val units = ArrayList<RecordedLineUnit>()
+        val made = ArrayList<Int>()          // fresh textures, recycled if the edit fails
+        val baseUpdates = ArrayList<Triple<LinePlane, Long, Int?>>()
+        try {
+            for ((plane, newList) in next) {
+                val layer = layers.getValue(plane.layerId)
+                val cel = engineCel(layer, plane)
+                val oldList = nativeLines.lines(plane)
+                newList.sortBy { it.seq }
+                val gone = oldList.filter { o -> newList.none { it == o } }
+                val fresh = newList.filter { n -> oldList.none { it == n } }
+                if (gone.isEmpty() && fresh.isEmpty()) continue
+                // Render every line of the new list that reaches an affected tile; fresh lines first, they widen it.
+                val affected = HashSet<Long>()
+                gone.forEach { affected += nativeLines.footprint(it) }
+                val rendered = HashMap<String, RecordedLineUnit>()
+                for (r in fresh) {
+                    val unit = prepareRecordedLine(layer.id, r, brushOf(r)).also { units += it }
+                    rendered[r.id] = unit
+                    nativeLines.widen(r, unit.tiles.keys)
+                    affected += nativeLines.footprint(r)
+                }
+                for (r in newList) if (r.id !in rendered && nativeLines.footprint(r).any { it in affected }) {
+                    rendered[r.id] = prepareRecordedLine(layer.id, r, brushOf(r)).also { units += it }
+                }
+                val tiles = planeTiles(layer, cel)
+                for (key in affected) {
+                    val crossedBefore = nativeLines.crossed(plane, key, oldList)
+                    val crossedAfter = nativeLines.crossed(plane, key, newList)
+                    if (!crossedBefore && !crossedAfter) continue
+                    val current = tiles[key]
+                    var base = nativeLines.base(plane, key)
+                    if (!crossedBefore) {
+                        // First crossed now: the tile as it is IS its base.
+                        base = current?.let { copyOfTile(it).also(made::add) }
+                        if (base != null) {
+                            slabChanges += UndoLog.SlabChange(layer.id, cel, key, 0L, null, UndoLog.SlabValue(base, "normal"))
+                            baseUpdates += Triple(plane, key, base)
+                        }
+                    }
+                    val out: Int? = if (crossedAfter) {
+                        val items = ArrayList<OrderedRecordedUnit>()
+                        base?.let { items += OrderedRecordedUnit(0L, it, "normal") }
+                        val clips = lineClips(layer, plane, key)
+                        for (r in nativeLines.crossing(newList, key)) {
+                            val unit = rendered[r.id] ?: continue
+                            val tex = unit.tiles[key] ?: continue
+                            items += OrderedRecordedUnit(r.seq, tex, unit.op, clips)
+                        }
+                        composeRecordedTile(items)?.also(made::add)
+                    } else {
+                        // No line crosses it any more: the tile is its base again, and the base goes.
+                        val kept = base
+                        if (kept != null) {
+                            slabChanges += UndoLog.SlabChange(layer.id, cel, key, 0L, UndoLog.SlabValue(kept, "normal"), null)
+                            baseUpdates += Triple(plane, key, null)
+                        }
+                        kept?.let { copyOfTile(it).also(made::add) }
+                    }
+                    if (out != current) tileChanges += UndoLog.TileChange(layer.id, key, current, out, cel)
+                }
+                for (o in gone) if (newList.none { it.id == o.id }) lineChanges += UndoLog.LineChange(layer.id, cel, o.id, CelComposer.Line(o.seq, o), null)
+                for (n in fresh) {
+                    val o = oldList.firstOrNull { it.id == n.id }
+                    lineChanges += UndoLog.LineChange(layer.id, cel, n.id, o?.let { CelComposer.Line(it.seq, it) }, CelComposer.Line(n.seq, n))
+                }
+            }
+        } catch (e: Throwable) {
+            made.forEach(::recycleLayerTex)
+            throw e
+        } finally {
+            units.forEach(::discardRecordedLine)
+        }
+        if (lineChanges.isEmpty()) { made.forEach(::recycleLayerTex); return }
+        // Commit: pixels, bases and lines in the same GL turn, then ONE step.
+        for (c in tileChanges) put(c.layerId, c.key, c.after, c.celId)
+        for ((plane, key, tex) in baseUpdates) nativeLines.setBase(plane, key, tex)
+        for (c in lineChanges) nativeLines.put(LinePlane(c.layerId, c.celId ?: layers[c.layerId]?.sharedCel), c.id, c.after?.record)
+        undo.push(UndoLog.Step(tileChanges, lines = lineChanges, slabs = slabChanges))
     }
 
     // ── strokes ──────────────────────────────────────────────────────────────
@@ -3635,6 +3916,7 @@ class GlPaintEngine(
         GLES30.glBindVertexArray(tileVao)
         // The stroke owns one frozen region plan; every physical plane joins this one history step.
         val pending = ArrayList<UndoLog.TileChange<Int>>()
+        var lineParts: Pair<List<UndoLog.SlabChange<Int>>, List<UndoLog.LineChange>> = emptyList<UndoLog.SlabChange<Int>>() to emptyList()
         try {
             for ((key, strokeTex) in strokeTiles) {
                 val allSlices = strokePlan?.tileSlices(key) ?: listOf(RegionTileSlice(
@@ -3668,6 +3950,7 @@ class GlPaintEngine(
             for (c in pending) { planeTiles(layer,c.celId)[c.key]=c.after!! }
             changes.addAll(pending)
             invalidateProjection(layer)
+            lineParts = commitPendingLine(layer, pending)
         } catch (e: Throwable) {
             pending.forEach { it.after?.let(::recycleLayerTex) }
             throw e
@@ -3684,12 +3967,15 @@ class GlPaintEngine(
         if (changes.isNotEmpty()) {
             val afterDoc=if(wrappedId != null && beforeDoc != null) BoardDocumentOps.markWrappedStroke(beforeDoc,wrappedId) else beforeDoc
             if(afterDoc != beforeDoc && afterDoc != null) setBoardDocument(afterDoc)
-            undo.push(UndoLog.Step(changes + settlePlainWrites(changes),documentBefore=beforeDoc?.takeIf { it != afterDoc },documentAfter=afterDoc?.takeIf { it != beforeDoc }))
+            undo.push(UndoLog.Step(changes + settlePlainWrites(changes),documentBefore=beforeDoc?.takeIf { it != afterDoc },documentAfter=afterDoc?.takeIf { it != beforeDoc },
+                lines = lineParts.second, slabs = lineParts.first))
         }
+        pendingLine = null
         return changes.size
     }
 
     fun cancelStroke() {
+        pendingLine = null
         wcPass?.clearStroke(); wcSpec=null; wcPrepared=false; wcFading=false
         releaseStrokeTiles()
         strokeLayer = null
@@ -3706,9 +3992,10 @@ class GlPaintEngine(
         }
         settleWatercolourFade()
         val pending = undo.peekUndo() ?: return false
-        if (pending.lines.isNotEmpty() || pending.slabs.isNotEmpty()) return recordedHistory(pending, false)
+        if ((pending.lines.isNotEmpty() || pending.slabs.isNotEmpty()) && recordedScene != null) return recordedHistory(pending, false)
         check(recordedScene?.hasContent != true) { "Recorded artwork needs the joint pixel/media/structural history publisher" }
         val s = undo.undo() ?: return false
+        applyNativeLineStep(s, forward = false)
         val restored = s.documentBefore?.let { target ->
             val opposite = s.documentAfter
             val live = boardDocument
@@ -3731,9 +4018,10 @@ class GlPaintEngine(
         }
         settleWatercolourFade()
         val pending = undo.peekRedo() ?: return false
-        if (pending.lines.isNotEmpty() || pending.slabs.isNotEmpty()) return recordedHistory(pending, true)
+        if ((pending.lines.isNotEmpty() || pending.slabs.isNotEmpty()) && recordedScene != null) return recordedHistory(pending, true)
         check(recordedScene?.hasContent != true) { "Recorded artwork needs the joint pixel/media/structural history publisher" }
         val s = undo.redo() ?: return false
+        applyNativeLineStep(s, forward = true)
         val restored = s.documentAfter?.let { target ->
             val opposite = s.documentBefore
             val live = boardDocument

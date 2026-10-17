@@ -50,6 +50,15 @@ import cc.joycreator.joybrush.android.chrome.LayerColumnView
 import cc.joycreator.joybrush.android.chrome.Popovers
 import cc.joycreator.joybrush.android.chrome.ReferenceView
 import cc.joycreator.joybrush.android.chrome.ToolStripView
+import cc.joycreator.joybrush.android.select.CanvasSelectionHost
+import cc.joycreator.joybrush.android.select.HostUi
+import cc.joycreator.joybrush.android.select.JbHostCanvas
+import cc.joycreator.joybrush.android.select.LineBrushes
+import cc.joycreator.joybrush.android.select.SelectController
+import cc.joycreator.joybrush.android.select.SelectionSync
+import cc.joycreator.joybrush.core.input.PenAction
+import cc.joycreator.joybrush.core.input.PenButton
+import cc.joycreator.joybrush.core.select.SelectionState
 import cc.joycreator.joybrush.android.chrome.TopButton
 import cc.joycreator.joybrush.android.chrome.BrushSettingsView
 import cc.joycreator.joybrush.android.chrome.ValueHud
@@ -162,6 +171,9 @@ private const val PREF_TILT_PHONE = "tilt_phone"
 
 /** JB-2.12, Lead ruling R49: the guides are remembered by the app, never by the drawing. */
 private const val PREF_GUIDES = "guides"
+
+/** NATIVE_LINES_V1: the "Editable lines" switch. Off until chosen; the app remembers it, the drawing does not. */
+private const val PREF_EDITABLE_LINES = "joybrush.editableLines"
 
 /** Layer thumbnails are re-drawn this long after the last change, so a burst of strokes costs one refresh. */
 private const val THUMBS_AFTER_MS = 250L
@@ -389,6 +401,7 @@ class JoyBrushActivity : Activity() {
             prefs.edit().putString(PREF_TUNING, BrushTuning.encode(tuning)).remove(PREF_TUFT).apply()
         }
         placement = StripPlacement.decode(prefs.getString(PREF_STRIP, null))
+        canvas.editableLines = prefs.getBoolean(PREF_EDITABLE_LINES, false)
         val overlays = buildOverlays()
         overlaysView = overlays
 
@@ -437,7 +450,10 @@ class JoyBrushActivity : Activity() {
         })
         canvas.onBoardsChanged = { boardController?.documentChanged(it); updateAnimationLayerMarkers() }
         canvas.onTileBoardChanged = { boardController?.tileChanged(it) }
-        canvas.onBeforeStroke = { boardController?.stopPreview() }
+        // A pen stroke over a line selection ends it, as in Concepts (D12).
+        canvas.onBeforeStroke = { boardController?.stopPreview(); endLineSelection() }
+        // The Select tool and its box, row and bar go in before the chrome so the chrome's panels open over them.
+        setUpSelect(root)
         root.addView(overlays, FrameLayout.LayoutParams(MATCH, MATCH))
         // Joy Brush's identity, as a hairline along the very top (visual language §4.2): the section colour, never a button.
         hairline = View(this).apply { background = JbColors.roomGradient(this@JoyBrushActivity) }
@@ -453,7 +469,7 @@ class JoyBrushActivity : Activity() {
         canvas.onGraphicsLost = { documentId -> boardController?.stop(); recoverGraphics(documentId) }
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
-        canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate(); fillPreview.invalidate(); boardController?.refreshTransform(); paperTilt.viewMoved() }
+        canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate(); fillPreview.invalidate(); boardController?.refreshTransform(); paperTilt.viewMoved(); selection?.viewMoved() }
         canvas.onGuideLock = { on -> guideOverlay.locked = on }
         guides = GuideSettings.decode(prefs.getString(PREF_GUIDES, null))
         guidesChanged()
@@ -461,7 +477,8 @@ class JoyBrushActivity : Activity() {
         root.post { checkIcons() }
         // JbCanvasView reports this on the UI thread via post(), after every committed stroke,
         // undo, redo and clear. Undo and Redo start disabled -- there is no history yet.
-        canvas.onBeforeHistoryChange = { popovers.close(); boardController?.stopPreview() }
+        // Undo, redo, a frame change and a board edit all change the lines under a selection: it ends first.
+        canvas.onBeforeHistoryChange = { popovers.close(); boardController?.stopPreview(); endSelection() }
         canvas.onPaperChanged = { p -> refreshPaper(p) }
         refreshPaper(canvas.documentPaper)
         canvas.onHistoryChanged = { canUndo, canRedo ->
@@ -550,6 +567,7 @@ class JoyBrushActivity : Activity() {
     }
 
     override fun onDestroy() {
+        selection?.detach(); selection = null
         boardBackdrop?.close(); boardBackdrop=null
         boardExports.dismiss()
         boardController?.stop()
@@ -667,15 +685,40 @@ class JoyBrushActivity : Activity() {
     /** What the strip asks of the screen. The strip only reports; the values live in [tools] and the canvas. */
     private val stripHost = object : ToolStripView.Host {
         override fun toolTapped(slot: ToolSlot, anchor: View) {
+            // K8/K22: while lines are selected, the strip's Brush button re-brushes them.
+            if (slot == ToolSlot.BRUSH && linesSelected()) { restyleSelectionBrush(); return }
+            // With Select in the hand, the first tap on a brush takes the brush back.
+            if (selectInHand) { leaveSelect(); tools = tools.activate(slot); applyTool(); return }
             // First tap takes the tool up; a tap on the tool already in the hand opens its brushes (Infinite Painter's way).
             if (tools.active == slot) openBrushes(slot) else { tools = tools.activate(slot); applyTool() }
+        }
+
+        override fun selectTapped(anchor: View) {
+            val sel = selection ?: return
+            if (selectInHand) { sel.showSettings(anchor); return }   // tapped again: its Settings
+            popovers.close()
+            selectInHand = true
+            sel.selectToolInHand = true
+            strip.showSelect(shown = true, chosen = true)
+            applyTool()
         }
 
         override fun sizeNow(): Float = tools.current?.sizePx ?: 12f
         override fun opacityNow(): Float = tools.current?.opacity ?: 1f
         override fun zoom(): Float = canvas.view.zoom
 
+        /** The size a weight drag started from, while it drags selected lines (their weight scales by the ratio). */
+        private var weightBasePx: Float? = null
+
         override fun sizeDragged(px: Float, done: Boolean) {
+            val picked = selection?.tool
+            if (picked != null && linesSelected()) {
+                // K8/K22: the strip's width control scales the selected lines' weight; the brush's own size is not touched.
+                val base = weightBasePx ?: (tools.current?.sizePx ?: px).also { weightBasePx = it }
+                picked.reweight(if (base > 0f) px / base else 1f, done)
+                if (done) { weightBasePx = null; hud.hide(); picked.listener?.selectionChanged() } else hud.showSize(px, canvas.view.zoom)
+                return
+            }
             tools = tools.withSize(px)
             if (done) { hud.hide(); applyTool() } else { hud.showSize(tools.current?.sizePx ?: px, canvas.view.zoom); showStripValues() }
         }
@@ -685,7 +728,11 @@ class JoyBrushActivity : Activity() {
             if (done) { hud.hide(); applyTool() } else { hud.showOpacity(canvas.strokeColor, tools.current?.opacity ?: value); showStripValues() }
         }
 
-        override fun sizeTapped(anchor: View) = sizeSlider(anchor)
+        override fun sizeTapped(anchor: View) {
+            // The same selection-weight slider the floating row opens.
+            val sel = selection
+            if (sel != null && linesSelected()) sel.showWeightSlider(anchor) else sizeSlider(anchor)
+        }
         override fun opacityTapped(anchor: View) = opacitySlider(anchor)
 
         override fun stripDropped(cx: Float, cy: Float) {
@@ -730,7 +777,7 @@ class JoyBrushActivity : Activity() {
     private fun applyTool() {
         val tuned = tunedBrushes()
         canvas.preset = tools.presetFrom(tuned) ?: tuned.firstOrNull()
-        strip.showTools(tools.slots.keys, tools.active)
+        strip.showTools(tools.slots.keys, if (selectInHand) null else tools.active)
         showStripValues()
         prefs.edit().putString(PREF_TOOLS, tools.encode()).apply()
     }
@@ -827,6 +874,12 @@ class JoyBrushActivity : Activity() {
     private fun moreMenu(anchor: View) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         box.addView(menuRow("Boards…", "Create or select an Image, Animation or Sprite board") { popovers.close(); boardController?.showMenu() })
+        val linesOn = canvas.editableLines
+        box.addView(menuRow(if (linesOn) "Editable lines  ✓" else "Editable lines",
+            if (linesOn) "Editable lines are on: new strokes stay lines you can pick with Select, then move, recolour and re-brush. Tap to turn off"
+            else "Editable lines are off: new strokes are plain pixels. Tap to keep new strokes as lines you can pick with Select") {
+            setEditableLines(!linesOn)
+        })
         addTiltRows(box)
         box.addView(menuRow("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() })
         box.addView(menuRow("Open…", "Open a drawing from your files") { askWhichToOpen() })
@@ -874,7 +927,7 @@ class JoyBrushActivity : Activity() {
         box.addView(menuRow("Put everything back", "Move the tool strip and the reference picture back to where they started") { putEverythingBack() })
         // The one destructive row carries the one colour allowed to mean "something is lost", as a dot: red TEXT over a
         // see-through panel was hard to read on the Note 9. Undo brings the drawing back.
-        box.addView(menuRow("Clear drawing", "Clear the drawing — Undo brings it back", dot = kit.p.stateDestroy) { canvas.clearCanvas() })
+        box.addView(menuRow("Clear drawing", "Clear the drawing — Undo brings it back", dot = kit.p.stateDestroy) { endSelection(); canvas.clearCanvas() })
         popovers.show(box, anchor, Popovers.Side.BELOW, widthDp = 240f)
     }
 
@@ -1118,6 +1171,7 @@ class JoyBrushActivity : Activity() {
     /** One worker owns the bounded cache; obsolete slider/closed-sheet work never reaches views. */
     private fun refreshPaper(p: Paper) {
         if (destroyed || !::column.isInitialized) return
+        selection?.paperChanged()
         val sheet = paperSheet
         sheet?.refresh(p)
         val requests = sheet?.previewRequests().orEmpty()
@@ -1170,6 +1224,10 @@ class JoyBrushActivity : Activity() {
 
     /** The stack moved: the column shows it and its pictures are re-drawn shortly. */
     private fun layersChanged(stack: LayerStack) {
+        // Another layer in the hand ends a selection; a layer hidden or deleted takes its lines out from under one.
+        if (lastActiveLayer != null && lastActiveLayer != stack.activeId) endSelection()
+        lastActiveLayer = stack.activeId
+        selection?.tool?.let { tool -> selectionHost?.let { SelectionSync.afterLinesChanged(tool, it) } }
         canvas.maxLayers = budget()
         updateLayerPreviewAspect(boardController?.selectedBounds)
         updateAnimationLayerMarkers()
@@ -1309,7 +1367,7 @@ class JoyBrushActivity : Activity() {
         box.addView(menuRow("Duplicate", "Make a copy of this layer above it") { canvas.duplicateLayer(id) })
         box.addView(menuRow("Clear layer", "Empty this layer — Undo brings it back") {
             canvas.selectLayer(id)
-            canvas.clearCanvas()
+            endSelection(); canvas.clearCanvas()
         })
         box.addView(menuRow("Delete layer", "Delete this layer — Undo brings it back", dot = kit.p.stateDestroy) { canvas.deleteLayer(id) })
         popovers.show(box, anchor, Popovers.Side.BESIDE, widthDp = 220f)
@@ -1695,7 +1753,7 @@ class JoyBrushActivity : Activity() {
                 }
                 MotionEvent.ACTION_UP -> {
                     if (dragging) canvas.dragEyedropEnd(take = !overPill(v, ev))
-                    else { v.performClick(); openColourPicker() }
+                    else { v.performClick(); if (linesSelected()) openSelectionColour(strip.swatch, canvas.strokeColor) { argb -> recolourSelection(argb) } else openColourPicker() }
                     dragging = false
                 }
                 MotionEvent.ACTION_CANCEL -> {
@@ -2051,6 +2109,7 @@ class JoyBrushActivity : Activity() {
     }
 
     private fun uploadContents(contents: JbContents, onLoaded: (Boolean) -> Unit) {
+        endSelection()   // the drawing the lines belonged to is about to be replaced
         canvas.load(contents) {
             // Loading reports a history change; it is not a new edit.
             changes = 0
@@ -2063,6 +2122,7 @@ class JoyBrushActivity : Activity() {
 
     private fun recoverGraphics(documentId: String) {
         if (destroyed || !canvas.needsRecovery) return
+        endSelection()
         recoveringDrawing = true
         workingSaveAllowed = false
         overlaysView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
@@ -2233,6 +2293,160 @@ class JoyBrushActivity : Activity() {
 
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
+    // ── Select (JB-5.20e): the tool on the canvas, backed by the editable lines (NATIVE_LINES_V1) ──
+    //
+    // The canvas's own tool slot belongs to the SelectController for good; whether Select is the tool IN THE HAND is
+    // [selectInHand]. With a brush in the hand only the S Pen button selects and the pen paints. v1 limits (spec): no live
+    // lift preview, no Rasterize Down, no paint lift, no colour adjustment.
+
+    /** The strip's Select is the tool in the hand (the brush buttons then show unchosen). */
+    private var selectInHand = false
+    private var selection: SelectController? = null
+    private var selectionHost: CanvasSelectionHost? = null
+    private var lastActiveLayer: String? = null
+
+    private fun setUpSelect(root: FrameLayout) {
+        val host = CanvasSelectionHost(JbHostCanvas(canvas), selectUi)
+        selectionHost = host
+        val controller = SelectController(kit, root, canvas, host, popovers, selectApp(host))
+        selection = controller
+        controller.attach()
+        // Lines that changed from outside the tool (a stroke, an undo, a drawing opened): a selection naming a line that
+        // is gone ends. The tool's own edits are already in the host's lists, so they pass.
+        canvas.onLinesChanged = { SelectionSync.afterLinesChanged(controller.tool, host) }
+        strip.showSelect(shown = true, chosen = false)
+    }
+
+    /** What the host needs of this screen. */
+    private val selectUi = object : HostUi {
+        override fun say(text: String, action: String?, onAction: (() -> Unit)?) {
+            val s = selection
+            if (s != null) s.showToast(text, action, onAction) else toast(text)
+        }
+
+        override fun penButtonTap(x: Float, y: Float) {
+            // R42: the S Pen button's tap action. The eyedropper is the default and the only action this screen has.
+            if (canvas.penButtons.tapActionFor(PenButton.bit(PenButton.BIT_STYLUS_PRIMARY)) != PenAction.EYEDROPPER) return
+            canvas.sampleAt(x, y) { argb -> canvas.colorArgb = argb; canvas.onColorPicked?.invoke(argb) }
+        }
+
+        override fun overlaysChanged() { selection?.tool?.listener?.overlayChanged() }
+
+        // An edit the tool was told had worked did not: it re-reads the lines so its box shows where they really are.
+        override fun editRefused(message: String) { selection?.tool?.let { SelectionSync.afterRefusedEdit(it) } }
+
+        override fun log(note: String) { android.util.Log.w("JoyBrushSelect", note) }
+    }
+
+    /** What only this screen knows or owns, for the controller. */
+    private fun selectApp(host: CanvasSelectionHost) = object : SelectController.App {
+        override fun paperArgb(): Int = canvas.paperArgb
+
+        override fun openColour(anchor: View, current: Int, onPicked: (Int) -> Unit) = openSelectionColour(anchor, current, onPicked)
+
+        override fun openLineBrushes(anchor: View, onPicked: (String) -> Unit) = pickLineBrush(host, onPicked)
+
+        override fun brushIcon(brushId: String): JbIcon = if (host.brushOf(brushId)?.blend == "erase") JbIcon.ERASER else JbIcon.BRUSH
+
+        override fun newLineId(): String = host.newLineId()
+
+        // Nothing holds copied lines yet and no picture is made of a selection: say so rather than copy nothing.
+        override fun copySelection(selection: SelectionState.Selection) { selectUi.say("Copy is coming next") }
+
+        override fun restyleRing(on: Boolean, pulse: Boolean) = strip.setSelectionRestyle(on, pulse)
+
+        override fun paintMakesLines(): Boolean = canvas.editableLines
+
+        override fun setPaintMakesLines(on: Boolean) = setEditableLines(on)
+
+        // No resting-finger tracking exists yet; the + chip adds instead.
+        override fun hasRestingThumbForCount(): Boolean = false
+    }
+
+    /** The "Editable lines" switch: the canvas keeps new strokes as lines, and the app remembers the choice. */
+    private fun setEditableLines(on: Boolean) {
+        if (canvas.editableLines == on) return
+        canvas.editableLines = on
+        prefs.edit().putBoolean(PREF_EDITABLE_LINES, on).apply()
+        toast(if (on) "Editable lines on: new strokes stay lines you can select" else "Editable lines off: new strokes are plain pixels")
+    }
+
+    private fun linesSelected(): Boolean = selection?.tool?.selection is SelectionState.Lines
+
+    private fun leaveSelect() {
+        selectInHand = false
+        selection?.selectToolInHand = false
+        strip.showSelect(shown = true, chosen = false)
+    }
+
+    /** Whatever is selected ends (undo, redo, a frame change, a layer change, a drawing opened, a clear). */
+    private fun endSelection() {
+        selection?.tool?.let { if (it.selection != null) it.end() }
+    }
+
+    /** A pen stroke ends a LINE selection (D12); a paint selection stays, for the paint clip. */
+    private fun endLineSelection() {
+        selection?.tool?.let { if (it.selection is SelectionState.Lines) it.end() }
+    }
+
+    private fun recolourSelection(argb: Int) {
+        selection?.tool?.let { it.recolour(argb); it.listener?.selectionChanged() }
+    }
+
+    /** K8/K22: the strip's Brush button, while lines are selected, re-brushes them. */
+    private fun restyleSelectionBrush() {
+        val host = selectionHost ?: return
+        pickLineBrush(host) { id -> selection?.tool?.let { it.rebrush(id); it.listener?.selectionChanged() } }
+    }
+
+    /**
+     * The line brushes (the ones an editable line can wear) in the brush drawer. A pick is frozen into the drawing (an
+     * identical copy there is reused) and [onPicked] gets the id the line will name it by. The brush comes as the person
+     * last had it in the hand: its remembered size and opacity.
+     */
+    private fun pickLineBrush(host: CanvasSelectionHost, onPicked: (String) -> Unit) {
+        val library = LineBrushes.forPicker(tunedBrushes())
+        if (library.isEmpty()) { toast("No brush in the library can be kept as a line yet."); return }
+        val drawer = BrushDrawerView(kit, library, BrushShelf.Kind.ALL, null, onPick = { picked ->
+            popovers.close()
+            val memory = tools.slots.values.firstOrNull { it.brushId == picked.id }
+            val brush = ToolMemory.sized(picked, memory?.sizePx ?: picked.size.base, memory?.opacity ?: picked.opacity.base)
+            val id = try { host.freezeBrush(brush) } catch (e: Exception) { null }
+            if (id != null) onPicked(id) else toast("That brush can't be kept as a line.")
+        })
+        popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
+    }
+
+    /**
+     * The colour wheel for the selected lines: the same wheel as the strip's, but it changes nothing while it turns. The
+     * colour the person settles on is applied ONCE, when the panel closes (one press, one undo step); "More colours…" applies
+     * what the full picker's Set returns.
+     */
+    private fun openSelectionColour(anchor: View, before: Int, onPicked: (Int) -> Unit) {
+        var now = before
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        val pair = ColourPairView(kit, before) { now = before; popovers.close() }
+        val hsv = FloatArray(3)
+        Color.colorToHSV(before, hsv)
+        val wheel = ColorWheelView(this).apply {
+            setHsb(hsv[0], hsv[1], hsv[2])
+            kit.label(this, "Colour wheel — turn the ring for the hue, move in the triangle for how rich and how light")
+            setListener { h, s, b ->
+                now = Color.HSVToColor(floatArrayOf(h, s, b))
+                pair.now = now
+            }
+        }
+        box.addView(wheel, LinearLayout.LayoutParams(dp(WHEEL_DP), dp(WHEEL_DP)))
+        box.addView(pair, LinearLayout.LayoutParams(dp(WHEEL_DP) - dp(24), dp(22)).apply { topMargin = dp(8) })
+        box.addView(menuRow("More colours…", "Open the full colour picker: sliders, hex, and saved colours") {
+            ColorPickerDialog.show(this, "Colour", before, false, { _ -> }, { picked -> if (picked != null) onPicked(picked) })
+        })
+        popovers.show(box, anchor, Popovers.Side.BESIDE, onClosed = { if (now != before) onPicked(now) })
     }
 
     // ── the hidden pen diagnostics (JB-0.06) ─────────────────────────────────

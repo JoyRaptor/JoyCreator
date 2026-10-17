@@ -88,8 +88,10 @@ class CapturedConsumerGateTest {
         assertEquals(0, tileReads)
     }
 
+    // Editable lines v1 (NATIVE_LINES_V1): an ordinary line on a regional layer needs no captured source (the plane's
+    // regions clip it when it is re-rendered); a captured source still needs document version 11.
     @Test
-    fun archiveSourceRulesAreVersionAndOwnerSpecific() {
+    fun archiveSourceRulesAreVersionSpecificAndOrdinaryRegionalLinesNeedNoCapturedSource() {
         val global = Layer("g", "Global", LayerKind.PAINT, cels = listOf(Cel("gc")))
         val regional = Layer(
             "r", "Regional", LayerKind.PAINT, cels = listOf(Cel("rc")),
@@ -98,9 +100,19 @@ class CapturedConsumerGateTest {
         val ordinary = captured.copy(capturedPhysicalSource = null)
 
         assertTrue(LineRules.sourceProblems(10, global, global.cels.single(), listOf(captured)).isNotEmpty())
-        assertTrue(LineRules.sourceProblems(11, regional, regional.cels.single(), listOf(ordinary)).isNotEmpty())
+        assertTrue(LineRules.sourceProblems(11, regional, regional.cels.single(), listOf(ordinary)).isEmpty())
         assertTrue(LineRules.sourceProblems(10, regional, regional.cels.single(), listOf(ordinary)).isEmpty())
         assertTrue(LineRules.sourceProblems(11, global, global.cels.single(), listOf(captured)).isEmpty())
+        assertTrue(LineRules.sourceProblems(10, regional, regional.cels.single(), listOf(captured)).isNotEmpty())
+        assertTrue(LineRules.sourceProblems(11, regional, regional.cels.single(), listOf(captured)).isEmpty())
+    }
+
+    @Test
+    fun savedLooksOfOrdinaryRecordsAreConservativeAndNotGeometricallyProven() {
+        // A look on a tile no line reaches equals its base, which is harmless; proving the exact set would replay every line.
+        val ordinary = captured.copy(capturedPhysicalSource = null)
+        assertTrue(LineRules.lookProblems("layer", Cel("cel", looks = listOf("99_99")), listOf(ordinary)) { brush }.isEmpty())
+        assertTrue(LineRules.lookProblems("layer", Cel("cel", looks = listOf("99_99")), listOf(captured)) { brush }.isNotEmpty())
     }
 
     @Test

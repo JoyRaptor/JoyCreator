@@ -69,7 +69,8 @@ class CanvasLoadAdmissionTest {
         assertFalse(completed); unchanged()
     }
 
-    @Test fun upperSlabAndLookBodiesRefuseBeforeEitherPublicEntryMutatesOrQueues() {
+    // Editable lines v1: upper slabs stay refused; a look body the drawing does not list is half-written, so refused.
+    @Test fun upperSlabsAndUnlistedLookBodiesRefuseBeforeEitherPublicEntryMutatesOrQueues() {
         val view = surface(); val base = raster(); val bytes = ByteArray(TILE_BYTES)
         val header = cel(base) { it.copy(slabs = listOf(SlabRef("0_0", 0), SlabRef("0_0", 2, "erase"))) }
         requireRefusal(view, header.copy(slabs = mapOf(SlabKey("paint", "cel", "0_0", 2) to bytes)))
@@ -77,18 +78,21 @@ class CanvasLoadAdmissionTest {
         requireRefusal(view, base.copy(looks = mapOf(Triple("paint", "cel", "0_0") to bytes)))
     }
 
-    @Test fun recordedCelHeadersRefuseWithoutDependingOnBodyMaps() {
+    // A header that lists slabs, looks or line records the drawing does not carry is half-written: refused.
+    @Test fun recordedCelHeadersWithoutTheirBodiesRefuse() {
         val view = surface(); val base = raster()
         requireRefusal(view, cel(base) { it.copy(slabs = listOf(SlabRef("0_0", 0), SlabRef("0_0", 2))) })
         requireRefusal(view, cel(base) { it.copy(looks = listOf("0_0")) })
         requireRefusal(view, cel(base) { it.copy(strokesFile = "layers/paint/cel/strokes.jbs") })
     }
 
-    @Test fun frozenBrushCopiesRefuseFromHeaderBodyOrBoth() {
+    // Editable lines v1 keep frozen brush copies with the drawing: listed AND carried is admitted; either alone is
+    // half-written and refused.
+    @Test fun frozenBrushCopiesAdmittedWhenListedAndCarriedRefusedOtherwise() {
         val view = surface(); val base = raster(); val brush = BrushPreset(id = "frozen", name = "Frozen", size = Param(4f))
         requireRefusal(view, base.copy(doc = base.doc.copy(brushes = listOf(brush.id))))
         requireRefusal(view, base.copy(brushes = mapOf(brush.id to brush)))
-        requireRefusal(view, base.copy(doc = base.doc.copy(brushes = listOf(brush.id)), brushes = mapOf(brush.id to brush)))
+        view.checkContents(base.copy(doc = base.doc.copy(brushes = listOf(brush.id)), brushes = mapOf(brush.id to brush)))
     }
 
     @Test fun invalidRetainedMetadataRefusesOnCallerThreadAsArchiveError() {

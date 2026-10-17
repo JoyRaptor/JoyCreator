@@ -15,16 +15,15 @@ import cc.joycreator.joybrush.core.doc.Paper
  * enable animation or other board types: those require a renderer that can retain every cel.
  */
 object CanvasSnapshot {
-    /** Until JB-5.20d, the raster renderer must refuse the whole drawing before replacing its live payload. */
+    /**
+     * Editable lines v1 (NATIVE_LINES_V1): ordinary line records, their looks and frozen brush copies are kept; upper
+     * pixel slabs and captured-source lines (the exact-provenance format) are refused before anything is replaced.
+     */
     internal fun requireSupportedPayload(contents: JbContents) {
-        if (contents.strokes.values.any { it.isNotEmpty() } || contents.slabs.isNotEmpty() || contents.looks.isNotEmpty() ||
-            contents.doc.layers.any { layer -> DocOps.storedCels(layer).any {
-                it.strokesFile != null || it.slabs.isNotEmpty() || it.looks.isNotEmpty()
-            } }
-        ) throw JbArchiveException("This drawing has editable lines or pixel slabs that this screen cannot show yet; your saved drawing was kept")
-        if (contents.doc.brushes.isNotEmpty() || contents.brushes.isNotEmpty()) {
-            throw JbArchiveException("This drawing keeps frozen brush copies that this screen cannot retain yet; your saved drawing was kept")
-        }
+        if (contents.slabs.isNotEmpty() || contents.doc.layers.any { layer -> DocOps.storedCels(layer).any { it.slabs.isNotEmpty() } })
+            throw JbArchiveException("This drawing has pixel slabs that this screen cannot show yet; your saved drawing was kept")
+        if (contents.strokes.values.any { lines -> lines.any { it.capturedPhysicalSource != null } })
+            throw JbArchiveException("This drawing has exact-copy lines that this screen cannot show yet; your saved drawing was kept")
     }
 
     /** After GPU upload, keep identities/settings only. A second pixel copy can exhaust the heap.
@@ -34,10 +33,10 @@ object CanvasSnapshot {
         requireSupportedPayload(contents)
         val errors=DocOps.validate(contents.doc)
         require(errors.isEmpty()){errors.joinToString("; ")}
-        require(contents.doc.layers.all{it.kind.hasPixels && it.animatedIn==null} && contents.strokes.isEmpty()) {
+        require(contents.doc.layers.all{it.kind.hasPixels && it.animatedIn==null}) {
             "The raster renderer cannot retain vector payloads"
         }
-        return contents.copy(tiles = emptyMap(), strokes = emptyMap(), mediaTiles = emptyMap())
+        return contents.copy(tiles = emptyMap(), strokes = emptyMap(), mediaTiles = emptyMap(), looks = emptyMap(), brushes = emptyMap())
     }
 
     /** [livePaper] carries current paper settings; omitted for older colour-only snapshot callers. */

@@ -25,6 +25,19 @@ class TilePaintingTest {
         assertEquals(listOf(0,0,4,6),listOf(b.x,b.y,b.w,b.h))
         assertNull(TilePainting.clip(r,Tiles.key(-1,-1)))
     }
+    @Test fun haloCopiesCoverTheReadBandJustOutsideTheBoard() {
+        // Watercolour pools by reading coverage up to its gravity width away, so a dab just inside the left edge must ALSO
+        // be painted one period to the right, where its copy sits outside the board but inside the read band.
+        val r=RectPx(100,50,200,120)
+        val dab=Dab(110f,100f,5f,0f,1f,1f)
+        assertEquals(setOf(110f),TilePainting.dabs(r,dab).map { it.x }.toSet())
+        assertEquals(setOf(110f,310f),TilePainting.dabs(r,dab,halo=38.0).map { it.x }.toSet())
+        // A copy is made exactly when its footprint plus the halo reaches the board, in every direction.
+        val corner=TilePainting.dabs(r,Dab(298f,168f,3f,0f,1f,1f),halo=10.0).map { it.x to it.y }.toSet()
+        assertEquals(setOf(298f to 168f,98f to 168f,298f to 48f,98f to 48f),corner)
+        assertEquals(TilePainting.dabs(r,dab),TilePainting.dabs(r,dab,halo=0.0))
+        try { TilePainting.dabs(r,dab,halo=Double.NaN); fail("must refuse") } catch(_: IllegalArgumentException) {}
+    }
     @Test fun excessiveBrushFootprintRefusesBeforeProducingCopies() {
         try { TilePainting.dabs(RectPx(0,0,1,1),Dab(0f,0f,1000f,0f,1f,1f)); fail("must refuse") }
         catch(_: IllegalArgumentException) {}

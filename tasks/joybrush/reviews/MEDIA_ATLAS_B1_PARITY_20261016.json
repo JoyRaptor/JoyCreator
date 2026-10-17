@@ -1,0 +1,420 @@
+{
+ "pass": true,
+ "base": "23de18dcd6aaa7d1bccc37a5af5f72a6d71918a6",
+ "size": 512,
+ "slots": 4,
+ "totals": {
+  "pixelFieldsCompared": 207618048,
+  "atlasVsWindowMismatchedPixels": 0,
+  "brokenTableDetectedPixels": 21613066
+ },
+ "nonvacuous": true,
+ "perScenario": [
+  {
+   "name": "wet Round flat (crosses both seams)",
+   "medium": "wet",
+   "frames": 22,
+   "pixelsCompared": 34603008,
+   "mismatch": {
+    "new": {
+     "total": 0,
+     "framesDetected": 0,
+     "maxAbs": {},
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "look": 0
+    },
+    "atlas": {
+     "total": 0,
+     "framesDetected": 0,
+     "maxAbs": {},
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "look": 0
+    },
+    "broken": {
+     "total": 3079781,
+     "framesDetected": 22,
+     "maxAbs": {
+      "look": 253,
+      "w0": 0.5604720115661621,
+      "w1": 0.33506983518600464,
+      "p0": 0.29851067066192627,
+      "p1": 0.029035252518951893
+     },
+     "w0": 298390,
+     "w1": 204943,
+     "p0": 179561,
+     "p1": 144087,
+     "paper": 0,
+     "look": 2252800
+    }
+   },
+   "changed": 296296,
+   "lookDistinct": 101002
+  },
+  {
+   "name": "wet Wash tilted (bead, flux steer, ring)",
+   "medium": "wet",
+   "frames": 22,
+   "pixelsCompared": 34603008,
+   "mismatch": {
+    "new": {
+     "total": 73,
+     "framesDetected": 12,
+     "maxAbs": {
+      "w1": 7.450580596923828e-9,
+      "p0": 3.725290298461914e-9
+     },
+     "w0": 0,
+     "w1": 31,
+     "p0": 42,
+     "p1": 0,
+     "paper": 0,
+     "look": 0
+    },
+    "atlas": {
+     "total": 0,
+     "framesDetected": 0,
+     "maxAbs": {},
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "look": 0
+    },
+    "broken": {
+     "total": 6244057,
+     "framesDetected": 22,
+     "maxAbs": {
+      "w0": 1917.0977478027344,
+      "w1": 110.00599336624146,
+      "p0": 0.18667879700660706,
+      "p1": 0.22692006826400757,
+      "look": 251
+     },
+     "w0": 1055199,
+     "w1": 998563,
+     "p0": 992632,
+     "p1": 944863,
+     "paper": 0,
+     "look": 2252800
+    }
+   },
+   "changed": 342003,
+   "lookDistinct": 101398
+  },
+  {
+   "name": "wet Round reversed tilt + odd substeps + dryNow",
+   "medium": "wet",
+   "frames": 20,
+   "pixelsCompared": 31457280,
+   "mismatch": {
+    "new": {
+     "total": 585,
+     "framesDetected": 16,
+     "maxAbs": {
+      "w0": 0.00000762939453125,
+      "w1": 4.76837158203125e-7,
+      "p0": 4.76837158203125e-7,
+      "p1": 4.470348358154297e-8
+     },
+     "w0": 36,
+     "w1": 258,
+     "p0": 240,
+     "p1": 51,
+     "paper": 0,
+     "look": 0
+    },
+    "atlas": {
+     "total": 0,
+     "framesDetected": 0,
+     "maxAbs": {},
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "look": 0
+    },
+    "broken": {
+     "total": 4515531,
+     "framesDetected": 20,
+     "maxAbs": {
+      "w0": 647.58935546875,
+      "w1": 82.7601215839386,
+      "p0": 62.0132301710546,
+      "p1": 2.5142249245545827,
+      "look": 254
+     },
+     "w0": 589366,
+     "w1": 539992,
+     "p0": 685659,
+     "p1": 652514,
+     "paper": 0,
+     "look": 2048000
+    }
+   },
+   "changed": 480553,
+   "lookDistinct": 101088
+  },
+  {
+   "name": "dry point stick across the seam",
+   "medium": "dry",
+   "frames": 16,
+   "pixelsCompared": 25165824,
+   "mismatch": {
+    "new": {
+     "total": 11216,
+     "framesDetected": 12,
+     "maxAbs": {
+      "paper": 0.00003743171691894531,
+      "look": 1
+     },
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 11214,
+     "look": 2
+    },
+    "atlas": {
+     "total": 0,
+     "framesDetected": 0,
+     "maxAbs": {},
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "look": 0
+    },
+    "broken": {
+     "total": 1644269,
+     "framesDetected": 16,
+     "maxAbs": {
+      "paper": 0.0021258024498820305,
+      "look": 253
+     },
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 5869,
+     "look": 1638400
+    }
+   },
+   "changed": 12402,
+   "lookDistinct": 100916
+  },
+  {
+   "name": "dry side stick, smear, corner",
+   "medium": "dry",
+   "frames": 16,
+   "pixelsCompared": 25165824,
+   "mismatch": {
+    "new": {
+     "total": 1509,
+     "framesDetected": 4,
+     "maxAbs": {
+      "paper": 0.000004291534423828125,
+      "look": 1
+     },
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 1508,
+     "look": 1
+    },
+    "atlas": {
+     "total": 0,
+     "framesDetected": 0,
+     "maxAbs": {},
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "look": 0
+    },
+    "broken": {
+     "total": 1657690,
+     "framesDetected": 16,
+     "maxAbs": {
+      "look": 252,
+      "paper": 0.003375473665073514
+     },
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 19290,
+     "look": 1638400
+    }
+   },
+   "changed": 20439,
+   "lookDistinct": 99853
+  },
+  {
+   "name": "eraser across both seams",
+   "medium": "erase",
+   "frames": 10,
+   "pixelsCompared": 15728640,
+   "mismatch": {
+    "new": {
+     "total": 763,
+     "framesDetected": 5,
+     "maxAbs": {
+      "w0": 0.0000022724270820617676,
+      "w1": 2.086162567138672e-7,
+      "p0": 0.0000010468065738677979,
+      "p1": 0.0000068247318267822266,
+      "paper": 3.166496753692627e-8
+     },
+     "w0": 223,
+     "w1": 28,
+     "p0": 223,
+     "p1": 223,
+     "paper": 66,
+     "look": 0
+    },
+    "atlas": {
+     "total": 0,
+     "framesDetected": 0,
+     "maxAbs": {},
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "look": 0
+    },
+    "broken": {
+     "total": 1023980,
+     "framesDetected": 10,
+     "maxAbs": {
+      "look": 254
+     },
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "look": 1023980
+    }
+   },
+   "changed": 56636,
+   "lookDistinct": 101221
+  },
+  {
+   "name": "oil round brush across the seam",
+   "medium": "paste",
+   "frames": 14,
+   "pixelsCompared": 22020096,
+   "mismatch": {
+    "new": {
+     "total": 27018,
+     "framesDetected": 11,
+     "maxAbs": {
+      "p0": 0.000004090368747711182,
+      "p1": 0.00008130073547363281,
+      "look": 1
+     },
+     "w0": 0,
+     "w1": 0,
+     "p0": 16539,
+     "p1": 10478,
+     "paper": 0,
+     "look": 1
+    },
+    "atlas": {
+     "total": 0,
+     "framesDetected": 0,
+     "maxAbs": {},
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "look": 0
+    },
+    "broken": {
+     "total": 1776036,
+     "framesDetected": 14,
+     "maxAbs": {
+      "p0": 0.022796541452407837,
+      "p1": 0.046507835388183594,
+      "look": 253
+     },
+     "w0": 0,
+     "w1": 0,
+     "p0": 171316,
+     "p1": 171148,
+     "paper": 0,
+     "look": 1433572
+    }
+   },
+   "changed": 96181,
+   "lookDistinct": 101377
+  },
+  {
+   "name": "palette knife (blade) across the corner",
+   "medium": "paste",
+   "frames": 12,
+   "pixelsCompared": 18874368,
+   "mismatch": {
+    "new": {
+     "total": 52588,
+     "framesDetected": 7,
+     "maxAbs": {
+      "p0": 0.0000010281801223754883,
+      "p1": 0.000004023313522338867
+     },
+     "w0": 0,
+     "w1": 0,
+     "p0": 28733,
+     "p1": 23855,
+     "paper": 0,
+     "look": 0
+    },
+    "atlas": {
+     "total": 0,
+     "framesDetected": 0,
+     "maxAbs": {},
+     "w0": 0,
+     "w1": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "look": 0
+    },
+    "broken": {
+     "total": 1671722,
+     "framesDetected": 12,
+     "maxAbs": {
+      "p0": 0.01598978042602539,
+      "p1": 0.05024617910385132,
+      "look": 251
+     },
+     "w0": 0,
+     "w1": 0,
+     "p0": 225410,
+     "p1": 217512,
+     "paper": 0,
+     "look": 1228800
+    }
+   },
+   "changed": 100572,
+   "lookDistinct": 101054
+  }
+ ],
+ "unsetUniforms": []
+}

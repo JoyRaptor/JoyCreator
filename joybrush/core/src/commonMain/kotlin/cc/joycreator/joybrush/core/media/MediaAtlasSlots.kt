@@ -80,6 +80,25 @@ class MediaAtlasSlots(val physicalSlots: Int, val bytesPerSlot: Long, workingBud
         pages[page] = required(page).copy(dirty = true)
     }
 
+    /** The page's state was written back: it no longer needs a write-back before its slot is reused. */
+    fun clean(page: MediaAtlasPage) {
+        idle()
+        pages[page] = required(page).copy(dirty = false)
+    }
+
+    /** Lets [page] go (the caller wrote it back first if it was dirty); its slot is free again. Must not be pinned. */
+    fun remove(page: MediaAtlasPage) {
+        idle()
+        check(required(page).pins == 0) { "a pinned atlas page cannot leave" }
+        pages.remove(page)
+    }
+
+    /** Every page leaves (the layer or the screen changed; the caller wrote back what was dirty). */
+    fun clear() {
+        idle()
+        pages.clear()
+    }
+
     fun touch(page: MediaAtlasPage) {
         idle()
         val r = required(page)

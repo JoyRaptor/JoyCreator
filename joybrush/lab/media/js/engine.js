@@ -420,10 +420,11 @@ export class MediaEngine {
       const grow = Math.ceil((opts.substeps ?? w.substeps) * 0.45) + 2, r = this.wetRect, p = this.paintRect;
       const mm = pxPerMm * this.scale, far = Math.ceil(40 * mm), near = Math.ceil(10 * mm);
       const reachTo = d => (d > 1e-4 ? far : near);
-      r[0] = Math.max(0, p[0] - reachTo(-slope[0]), r[0] - grow);
-      r[2] = Math.min(this.w, p[2] + reachTo(slope[0]), r[2] + grow);
-      r[1] = Math.max(0, p[1] - reachTo(-slope[1]), r[1] - grow);
-      r[3] = Math.min(this.h, p[3] + reachTo(slope[1]), r[3] + grow);
+      // Edges only move out within a wet episode (WetSpread.grow): a reversed tilt must not strand the drips.
+      r[0] = Math.min(r[0], Math.max(0, p[0] - reachTo(-slope[0]), r[0] - grow));
+      r[2] = Math.max(r[2], Math.min(this.w, p[2] + reachTo(slope[0]), r[2] + grow));
+      r[1] = Math.min(r[1], Math.max(0, p[1] - reachTo(-slope[1]), r[1] - grow));
+      r[3] = Math.max(r[3], Math.min(this.h, p[3] + reachTo(slope[1]), r[3] + grow));
     }
     const rect = this.wetRect;
     this.touch(rect);
@@ -537,7 +538,8 @@ export class MediaEngine {
       u_dustRate: mat.dustRate, u_clump: mat.clump, u_pileRange: mat.pileRange,
       u_crushStart: mat.crushStart * paper.toothMm,
       u_conform: mat.conform,
-      u_transferExp: mat.transferExp, u_leadSoft: mat.leadSoft, u_plateau: mat.plateau,
+      u_transferExp: mat.transferExp, u_leadSoft: mat.leadSoft, u_plateau: mat.plateau, u_stickBlend: mat.blend ?? 0,
+      u_stickShape: mat.stickShape, u_zoneGrad: mat.zoneGrad,
     });
     gl.bindBuffer(gl.ARRAY_BUFFER, this.dabBuf);
     gl.bufferData(gl.ARRAY_BUFFER, batch.dabs, gl.STREAM_DRAW);

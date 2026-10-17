@@ -15,6 +15,7 @@ import cc.joycreator.joybrush.core.brush.PaperResponse
 import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.brush.TuftSpec
 import cc.joycreator.joybrush.core.brush.VERSION_PAPER
+import cc.joycreator.joybrush.core.brush.VERSION_PENCIL_BLEND
 import cc.joycreator.joybrush.core.brush.VERSION_RESPONSE
 import cc.joycreator.joybrush.core.media.EdgeMode
 import cc.joycreator.joybrush.core.media.FaceMode
@@ -260,6 +261,10 @@ object BrushKnobs {
                       get: (PasteBrush) -> Double, set: (PasteBrush, Double) -> PasteBrush) =
         ranged("media.paste.$key", label, hint, lo, hi, unit, { m -> m.paste?.let(get) }, { m, v -> m.copy(paste = m.paste?.let { set(it, v) }) })
 
+    /** A knob whose words need brush version 11 ([VERSION_PENCIL_BLEND]): setting it raises the brush's version to say them. */
+    private fun newer(k: Knob) = Knob(k.key, k.label, k.hint, get = k.get,
+        set = { p, v -> k.set(p, v).let { it.copy(version = maxOf(it.version, VERSION_PENCIL_BLEND)) } }, show = k.show)
+
     // rInf is how much light a full layer of lead still reflects: lower is darker, so Darkness runs the other way.
     private const val R_LIGHT = 0.3
     private const val R_DARK = 0.002
@@ -277,6 +282,12 @@ object BrushKnobs {
             get = { p -> p.media?.stick?.let(::darkness) ?: 0f },
             set = { p, v -> p.media?.let { m -> p.copy(media = m.copy(stick = m.stick?.copy(rInf = R_LIGHT - (R_LIGHT - R_DARK) * v))) } ?: p },
             show = { p -> pct(p.media?.stick?.let(::darkness) ?: 0f) }),
+        // The owner, 2026-10-14: a tilted pencil "looks like two brushes overlaid", and its black should build slower.
+        // Words of brush version 11: moving either raises the brush to it, so the file says what it means.
+        newer(stick("blend", "Edge blend", "How smoothly the point melts into the side when you tilt: none draws a crisp point on a separate shade, full draws one soft-edged mark.",
+            0.0, 1.0, "%", { it.blend }, { s, v -> s.copy(blend = v) })),
+        newer(stick("build", "Build-up", "How quickly the lead lays graphite: lower takes more passes to reach black.",
+            0.2, 1.5, "×", { it.build }, { s, v -> s.copy(build = v) })),
     )
 
     private val WET: List<Knob> = listOf(

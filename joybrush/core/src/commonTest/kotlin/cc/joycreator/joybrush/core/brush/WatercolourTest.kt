@@ -101,7 +101,7 @@ class WatercolourTest {
         assertEquals(emptyList(), BrushValidate.validate(b))
         assertEquals(b, BrushJson.decodeChecked(BrushJson.encode(b)))
         assertEquals(VERSION_WATERCOLOUR, BrushJson.decode(BrushJson.encode(b.copy(version = 1))).version)
-        assertFailsWith<BrushException> { BrushJson.decode(BrushJson.encode(b).replace("\"version\": 10", "\"version\": 9")) }
+        assertFailsWith<BrushException> { BrushJson.decode(BrushJson.encode(b).replace("\"version\": ${b.version}", "\"version\": ${VERSION_WATERCOLOUR - 1}")) }
         val old = BrushPreset(version = 1, id = "old", name = "Old", size = Param(4f))
         assertEquals(1, BrushJson.decode(BrushJson.encode(old)).version)
         assertEquals(null, BrushRules.refusalFor(ENGINE_WATERCOLOUR, LayerKind.INK))

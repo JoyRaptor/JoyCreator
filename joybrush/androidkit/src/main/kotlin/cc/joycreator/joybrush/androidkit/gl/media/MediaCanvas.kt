@@ -48,7 +48,7 @@ class MediaCanvas(
     private val shaders: ShaderLibrary = ShaderLibrary(),
 ) {
     private var engine: MediaLayerEngine? = null
-    private var window: MediaWindow? = null
+    private var window: MediaPlace? = null
     /** Why this GPU cannot do media, once found out: said again rather than retried every stroke. Read by the UI thread. */
     @Volatile var unsupported: String? = null
         private set
@@ -67,6 +67,10 @@ class MediaCanvas(
 
     /** The paper's downhill slope in document space (the phone-tilt switch, M5.6); [0, 0] = flat. */
     var slope = floatArrayOf(0f, 0f)
+    /** The slope the last [frame] saw: a change wakes water that is lying still (owner: tilt worked only at the next stroke). */
+    private var lastSlope = floatArrayOf(0f, 0f)
+    /** Undo or redo stopped the water; only the next stroke ([begin]) may start it again, never a tilt (the Lead's rule). */
+    private var waterStoppedByUndo = false
 
     // The app's lamp, in document space (y DOWN, unlike the lab's y-up view): light from the upper left.
     private var look = MediaLook(floatArrayOf(1f, 1f, 1f), lamp = MediaLook.normalise(floatArrayOf(-0.55f, -0.55f, 0.62f)))
@@ -122,6 +126,7 @@ class MediaCanvas(
             // JB-2.40 slice 3: the stroke paints the plane under its first touch (an animation frame, or the shared plane).
             w.place(layerId, paint.mediaPlaneAt(layerId, x, y), x, y)
             w.wakeWater()
+            waterStoppedByUndo = false
             e.slope = slope
             look = MediaLook(rgb(paint.paperArgb).map { it.toFloat() }.toFloatArray(), lamp = look.lamp)
             paint.beginMediaStroke()
@@ -176,8 +181,16 @@ class MediaCanvas(
         val w = window ?: return false
         // The paper's tilt is read every frame, so running water turns as the pad or the phone turns (it was read only
         // at a stroke's start: owner, 2026-10-12).
+        val tilted = !slope.contentEquals(lastSlope)
+        if (tilted) {
+            lastSlope = slope.copyOf()
+            android.util.Log.d("JoyBrushTilt", "slope=${slope[0]},${slope[1]} wetActive=${e.wetActive} wetRect=${e.wetRect?.contentToString()}")
+        }
         e.slope = slope
         val st = stroke
+        // Water left lying in the window (a layer switch, a reopen, a window that was released and reloaded) starts to run
+        // again when the paper tilts, not only at the next stroke. Water an undo stopped stays stopped.
+        if (tilted && st == null && !e.wetActive && !e.asleep && !waterStoppedByUndo) w.wakeWater()
         if (st != null) {
             stats?.let { if (it.recording) it.mediaFrames++ }
             run(e, w, st)
@@ -212,7 +225,9 @@ class MediaCanvas(
     fun cancel() = end()
 
     /** [GlPaintEngine.onMediaRestored]: undo or redo stops the water and reloads (never restarting it). */
-    fun restored(layerId: String, plane: String?, keys: Set<Long>) { window?.restored(layerId, plane, keys) }
+    fun restored(layerId: String, plane: String?, keys: Set<Long>) {
+        if (window?.restored(layerId, plane, keys) == true) waterStoppedByUndo = true
+    }
 
     /** [GlPaintEngine.onLookWritten]: a plain write changed these tiles' pixels; the window reloads them. */
     fun lookWritten(layerId: String, plane: String?, keys: Set<Long>) { window?.lookWritten(layerId, plane, keys) }
@@ -250,7 +265,9 @@ class MediaCanvas(
             }
         }
         if (e != null) return e
-        val made = MediaLayerEngine(shaders)
+        // Media Atlas v2 B2 (off by default, MediaAtlasGl.enabled): the same textures as the window, tiles placed freely.
+        val atlas = MediaAtlasGl.enabled
+        val made = MediaLayerEngine(shaders, atlasMode = atlas)
         try {
             made.init(MediaWindowMath.PX, MediaWindowMath.PX)
         } catch (x: IllegalStateException) {
@@ -258,7 +275,8 @@ class MediaCanvas(
             return null
         }
         engine = made
-        window = MediaWindow(paint, made) { r -> made.renderLook(r, paint.mediaPaper(), look, DOC_PX_PER_MM) }.also { it.stats = stats }
+        val render = { r: FloatArray -> made.renderLook(r, paint.mediaPaper(), look, DOC_PX_PER_MM); Unit }
+        window = (if (atlas) MediaAtlas(paint, made, render) else MediaWindow(paint, made, render)).also { it.stats = stats }
         return made
     }
 
@@ -298,7 +316,7 @@ class MediaCanvas(
      * the smear the apply pass reads), not a worst-case reach: 12 point-widths did not fit the window for most pencils,
      * so it moved and reloaded every frame and clipped dabs outside it (LEAD_PLAN F1, F2).
      */
-    private fun run(e: MediaLayerEngine, w: MediaWindow, st: Stroke, last: Boolean = false) {
+    private fun run(e: MediaLayerEngine, w: MediaPlace, st: Stroke, last: Boolean = false) {
         val paper = paint.mediaPaper()
         val batch = st.dry?.take()
         w.legacyLook = legacyWindow
@@ -357,8 +375,8 @@ class MediaCanvas(
     }
 
     /** The stores this layer has inside the window: the eraser writes only those (stores stay lazy). */
-    private fun existingStores(layerId: String, w: MediaWindow): Set<String> {
-        val keys = MediaWindowMath.allKeys(w.tx, w.ty)
+    private fun existingStores(layerId: String, w: MediaPlace): Set<String> {
+        val keys = w.heldKeys()
         return MediaStores.ALL.filter { st -> keys.any { paint.mediaTile(layerId, st, it, w.plane) != null } }.toSet()
     }
 

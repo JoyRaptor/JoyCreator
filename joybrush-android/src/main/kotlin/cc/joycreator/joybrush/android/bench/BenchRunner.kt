@@ -64,6 +64,15 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         }
         val (preset, case, run) = job
         if (case == "recordedCaptureProbe") { runRecordedCaptureCase(preset, case, run); return }
+        if (case == "mediaAtlasProbe") {
+            // Media Atlas v2 B1: window vs atlas engines on this GPU, same frames, readback compare (MediaAtlasProbe).
+            canvas.runMediaAtlasProbe { result ->
+                val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("pass", false).put("raw", result) }
+                logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
+                ui.postDelayed({ next() }, spec.settleMs)
+            }
+            return
+        }
         val bakeOperator = when (case) {
             "recordedBakeProbe" -> "normal"
             "recordedSavedProbe" -> "normal"

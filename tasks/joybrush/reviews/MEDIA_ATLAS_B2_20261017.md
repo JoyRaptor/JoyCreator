@@ -106,3 +106,40 @@ phone (not mine to install); the lead runs it.
 ## Not done here
 
 Eviction (B3), the look atlas (B4), any default-on, any device run.
+
+## Merge of origin/joy-creator (Proto 2 pencil, Proto Pencil, brush v11) — October 17
+
+Merged 984485eac into this branch (a107de9ed), as a one-time exception to the never-resolve rule granted by the owner for
+this merge only. Three conflicts, each keeping both sides:
+
+- `jb_dry_dab.frag`: the exact cell-centre stick frame calls Proto 2's
+  `jb_stickSqueeze(q, …, u_stickBlend, u_stickShape, u_zoneGrad)`.
+- `MediaLayerEngine.kt`: B1's per-slot dab draw (`dabs(batch) {…}`, which does the upload) with Proto 2's
+  `contactLut(mat.lutPress)`.
+- `MediaWindow.kt`: `restored()` keeps B2's `override`; the body is the same on both sides.
+
+Audit: all 184 files only one side changed equal that side; on the 9 files both changed, every line either side added
+is present except the 2 combined lines above. The tilt fix (lastSlope, waterStoppedByUndo, monotone WetSpread)
+is intact: MediaWindowMath, its test and lab engine.js equal the cherry-pick e7888abef.
+
+**Deliberate follow-up (c07fe316e): the dry footprint ends at its box in the shader.** Proto 2 / Proto Pencil's
+footprint is exp() bells that never reach 0, so the quad edge (box + 0.06 mm) decided where the tail stopped, and that
+depends on rasterisation: the B2 harness saw 2–4 placement-dependent pixels per Proto stroke (about 3% of the crush
+there). The fragment now discards outside (xMin, xMax, ±yMax) in the stick frame. Measured against the merge: three-zone
+sticks, wet, eraser, oil and knife are bit-identical; Proto strokes move only the paper-crush plane (max 0.0017) and the
+look there (max 71/255 at isolated tooth specks); pigment is unchanged. Lab sheets, the proto sheet drawn with Proto
+Pencil and the scribble sheet with Proto 2 (Iris Xe): mean per-channel delta 0.019 / 0.149, p99 1 / 2, max 194 / 106,
+mean brightness 237.77 → 237.77 / 181.74 → 181.71; noise floor mean 0.000. Side by side they look the same.
+
+Harnesses now include a Proto 2 point stroke and a Proto Pencil tilted stroke, with the v11 stick uniforms set for every
+dry stroke. Results on c07fe316e:
+
+- B2 free placement, full: PASS. orderA and orderB are 0 on all 9 strokes (Proto 2 and Proto Pencil included);
+  the noRing control was caught 76,133 times. JSON: MEDIA_ATLAS_B2_FREE_MERGED_20261017.json.
+- B1 window parity, full: PASS. Atlas vs window 0 of 257,949,696 compared; the broken table was caught 24,922,054 times.
+  JSON: MEDIA_ATLAS_B2_WINDOW_PARITY_MERGED_20261017.json.
+- `node joybrush/tools/media_golden.mjs`: golden.json regenerates byte-identical (blob 0c67b5a39, the same as joy-creator).
+- Full `:core:jvmTest` + `:androidkit:test` under the lock: 311 classes, 3396 tests, 0 failed, MediaGoldenTest 9/9.
+  On c07fe316e the androidkit tests were up-to-date: the shader is not one of their inputs, so their results are
+  the merge run's.
+

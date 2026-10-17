@@ -1,0 +1,560 @@
+{
+ "pass": true,
+ "layer": 1280,
+ "atlas": 1024,
+ "slots": 16,
+ "resident": 15,
+ "totals": {
+  "freePlacementMismatchedPixels": 0,
+  "missingRingDetectedPixels": 76133
+ },
+ "nonvacuous": true,
+ "perScenario": [
+  {
+   "name": "wet Round flat, 3×3 tiles",
+   "medium": "wet",
+   "frames": 18,
+   "mismatch": {
+    "orderA": {
+     "total": 0,
+     "checkpoints": 5,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "orderB": {
+     "total": 0,
+     "checkpoints": 5,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "noRing": {
+     "total": 55058,
+     "checkpoints": 5,
+     "p0": 5868,
+     "p1": 4626,
+     "paper": 0,
+     "w0": 37672,
+     "w1": 6694,
+     "where": [
+      {
+       "plane": "p0",
+       "x": 760,
+       "y": 616,
+       "oracle": [
+        0.013298263773322105,
+        0.008049464784562588,
+        0.0059333681128919125,
+        0.004918830469250679
+       ],
+       "atlas": [
+        0.013298263773322105,
+        0.008049465715885162,
+        0.0059333681128919125,
+        0.004918830469250679
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 761,
+       "y": 617,
+       "oracle": [
+        0.008918720297515392,
+        0.0063264025375247,
+        0.003710301360115409,
+        0.003514228854328394
+       ],
+       "atlas": [
+        0.008918722160160542,
+        0.006326404400169849,
+        0.00371030205860734,
+        0.003514228854328394
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 761,
+       "y": 618,
+       "oracle": [
+        0.008054107427597046,
+        0.0060206190682947636,
+        0.003311415668576956,
+        0.003310020547360182
+       ],
+       "atlas": [
+        0.00805411022156477,
+        0.0060206213966012,
+        0.003311416134238243,
+        0.003310020547360182
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 761,
+       "y": 619,
+       "oracle": [
+        0.007203474175184965,
+        0.005733932834118605,
+        0.002943433355540037,
+        0.003107537515461445
+       ],
+       "atlas": [
+        0.007203476503491402,
+        0.005733934696763754,
+        0.0029434342868626118,
+        0.003107537515461445
+       ]
+      }
+     ],
+     "look": 198
+    }
+   },
+   "changed": 545434,
+   "maxResident": 9,
+   "seamReads": 12,
+   "loads": {
+    "orderA": 9,
+    "orderB": 9,
+    "noRing": 9
+   }
+  },
+  {
+   "name": "wet Wash tilted (bead, steer, ring)",
+   "medium": "wet",
+   "frames": 10,
+   "mismatch": {
+    "orderA": {
+     "total": 0,
+     "checkpoints": 3,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "orderB": {
+     "total": 0,
+     "checkpoints": 3,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "noRing": {
+     "total": 21075,
+     "checkpoints": 3,
+     "p0": 5423,
+     "p1": 4056,
+     "paper": 0,
+     "w0": 5019,
+     "w1": 6573,
+     "where": [
+      {
+       "plane": "p0",
+       "x": 645,
+       "y": 747,
+       "oracle": [
+        0.0015194681473076344,
+        0.0057534403167665005,
+        0.0006143960636109114,
+        0.0008209012448787689
+       ],
+       "atlas": [
+        0.0015194681473076344,
+        0.005753440782427788,
+        0.0006143960636109114,
+        0.0008209012448787689
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 647,
+       "y": 747,
+       "oracle": [
+        0.0009278072393499315,
+        0.0033822592813521624,
+        0.0002704604994505644,
+        0.0005607159109786153
+       ],
+       "atlas": [
+        0.0009278072393499315,
+        0.0033822592813521624,
+        0.0002704605576582253,
+        0.0005607159109786153
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 680,
+       "y": 747,
+       "oracle": [
+        0.0017392529407516122,
+        0.004378762561827898,
+        0.000707796192727983,
+        0.0012899799039587379
+       ],
+       "atlas": [
+        0.0017392528243362904,
+        0.004378762561827898,
+        0.000707796192727983,
+        0.0012899799039587379
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 682,
+       "y": 747,
+       "oracle": [
+        0.0017486454453319311,
+        0.0042553492821753025,
+        0.0006502233445644379,
+        0.0012127150548622012
+       ],
+       "atlas": [
+        0.0017486454453319311,
+        0.004255348816514015,
+        0.0006502233445644379,
+        0.0012127150548622012
+       ]
+      }
+     ],
+     "look": 4
+    }
+   },
+   "changed": 427855,
+   "maxResident": 9,
+   "seamReads": 12,
+   "loads": {
+    "orderA": 9,
+    "orderB": 9,
+    "noRing": 9
+   }
+  },
+  {
+   "name": "dry point stick, 3×3 tiles",
+   "medium": "dry",
+   "frames": 14,
+   "mismatch": {
+    "orderA": {
+     "total": 0,
+     "checkpoints": 4,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "orderB": {
+     "total": 0,
+     "checkpoints": 4,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "noRing": {
+     "total": 0,
+     "checkpoints": 4,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    }
+   },
+   "changed": 12910,
+   "maxResident": 9,
+   "seamReads": 10,
+   "loads": {
+    "orderA": 9,
+    "orderB": 9,
+    "noRing": 9
+   }
+  },
+  {
+   "name": "dry side stick, smear",
+   "medium": "dry",
+   "frames": 14,
+   "mismatch": {
+    "orderA": {
+     "total": 0,
+     "checkpoints": 4,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "orderB": {
+     "total": 0,
+     "checkpoints": 4,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "noRing": {
+     "total": 0,
+     "checkpoints": 4,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    }
+   },
+   "changed": 14777,
+   "maxResident": 9,
+   "seamReads": 12,
+   "loads": {
+    "orderA": 9,
+    "orderB": 9,
+    "noRing": 9
+   }
+  },
+  {
+   "name": "Proto 2 point, 3×3 tiles",
+   "medium": "dry",
+   "frames": 14,
+   "mismatch": {
+    "orderA": {
+     "total": 0,
+     "checkpoints": 4,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "orderB": {
+     "total": 0,
+     "checkpoints": 4,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "noRing": {
+     "total": 0,
+     "checkpoints": 4,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    }
+   },
+   "changed": 10071,
+   "maxResident": 9,
+   "seamReads": 11,
+   "loads": {
+    "orderA": 9,
+    "orderB": 9,
+    "noRing": 9
+   }
+  },
+  {
+   "name": "Proto Pencil tilted, 3×3 tiles",
+   "medium": "dry",
+   "frames": 14,
+   "mismatch": {
+    "orderA": {
+     "total": 0,
+     "checkpoints": 4,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "orderB": {
+     "total": 0,
+     "checkpoints": 4,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "noRing": {
+     "total": 0,
+     "checkpoints": 4,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    }
+   },
+   "changed": 31486,
+   "maxResident": 9,
+   "seamReads": 12,
+   "loads": {
+    "orderA": 9,
+    "orderB": 9,
+    "noRing": 9
+   }
+  },
+  {
+   "name": "eraser across the block",
+   "medium": "erase",
+   "frames": 10,
+   "mismatch": {
+    "orderA": {
+     "total": 0,
+     "checkpoints": 3,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "orderB": {
+     "total": 0,
+     "checkpoints": 3,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "noRing": {
+     "total": 0,
+     "checkpoints": 3,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    }
+   },
+   "changed": 74764,
+   "maxResident": 9,
+   "seamReads": 10,
+   "loads": {
+    "orderA": 9,
+    "orderB": 9,
+    "noRing": 9
+   }
+  },
+  {
+   "name": "oil round brush",
+   "medium": "paste",
+   "frames": 12,
+   "mismatch": {
+    "orderA": {
+     "total": 0,
+     "checkpoints": 3,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "orderB": {
+     "total": 0,
+     "checkpoints": 3,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "noRing": {
+     "total": 0,
+     "checkpoints": 3,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    }
+   },
+   "changed": 115970,
+   "maxResident": 9,
+   "seamReads": 10,
+   "loads": {
+    "orderA": 9,
+    "orderB": 9,
+    "noRing": 9
+   }
+  },
+  {
+   "name": "palette knife (blade)",
+   "medium": "paste",
+   "frames": 10,
+   "mismatch": {
+    "orderA": {
+     "total": 0,
+     "checkpoints": 3,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "orderB": {
+     "total": 0,
+     "checkpoints": 3,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    },
+    "noRing": {
+     "total": 0,
+     "checkpoints": 3,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0
+    }
+   },
+   "changed": 118352,
+   "maxResident": 9,
+   "seamReads": 12,
+   "loads": {
+    "orderA": 9,
+    "orderB": 9,
+    "noRing": 9
+   }
+  }
+ ],
+ "unsetUniforms": []
+}

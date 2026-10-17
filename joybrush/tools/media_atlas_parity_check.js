@@ -150,6 +150,20 @@ function buildWet(sc) {
 }
 
 // ---- dry stick strokes (stick-frame zones as jb_stick.glsl reads them; MediaLayerEngine.dryFrame's passes) ----
+// Proto 2 / Proto Pencil (brush v11, Stick.blend 1): one blended footprint of exp() bells, so the squeeze is never exactly
+// 0 and the quad edge cuts a tail. The quad is sized as stickContact sizes it (reach = r0 · (1 + bellReach)).
+const STICKS = {
+  zones: { blend: 0, shape: [2.2, 1.6, 0.5, 2.5], grads: [1.2, 0.9] },
+  'Proto 2': { blend: 1, shape: [2.2, 1.6, 0.5, 2.5], grads: [1.2, 0.9], bellReach: 0.6, tipR: 0.15, tipMax: 0.55, side1: 3.5, side2: 10.0, face: 1.1 },
+  'Proto Pencil': { blend: 1, shape: [4.45, 1.6, 0.5, 3.6], grads: [1.2, 2.0], bellReach: 0.6, tipR: 0.15, tipMax: 0.55, side1: 3.5, side2: 9.2, face: 1.1 },
+};
+function protoDab(st, p, lean, P, tilted) {
+  const r0 = st.tipR + (st.tipMax - st.tipR) * Math.pow(P, 0.8), reach = r0 * (1 + st.bellReach * st.blend);
+  const l1 = tilted ? r0 + (st.side1 - r0) * 0.7 : r0, l2 = tilted ? l1 + (st.side2 - l1) * 0.45 : r0, H = tilted ? st.face : r0;
+  const w = tilted ? [0.5, 0.3, 0.2] : [1, 0, 0];
+  const xMin = -reach, xMax = tilted ? Math.max(reach, l2) : reach, yMax = tilted ? Math.max(reach, st.face) : reach, D = 0.02 + 0.05 * P;
+  return [p.x, p.y, lean[0], lean[1], xMin, xMax, yMax, D, r0, l1, l2, H, w[0], w[1], w[2], 0.12, p.dx, p.dy, 0.4, P];
+}
 function buildDry(sc) {
   const frames = [];
   for (let f = 0; f < sc.frames; f++) {
@@ -160,9 +174,10 @@ function buildDry(sc) {
       // The quad must cover everywhere the stick can press (stickContact does): past the longest zone (L2 = 3.4 mm) and
       // the face half-width. A quad edge where the stick still presses would make coverage depend on rasterisation rounding.
       const xMin = -0.6, xMax = sc.side ? 4.0 : 3.6, yMax = sc.side ? 1.1 : 1.0, D = 0.03 + 0.07 * P;
-      dabs.push([p.x, p.y, lean[0], lean[1], xMin, xMax, yMax, D, 0.45, 1.6, 3.4, 0.8, 1, 0.6, 0.35, 0.12, p.dx, p.dy, 0.4, P]);
+      const dab = sc.stick ? protoDab(STICKS[sc.stick], p, lean, P, sc.side) : [p.x, p.y, lean[0], lean[1], xMin, xMax, yMax, D, 0.45, 1.6, 3.4, 0.8, 1, 0.6, 0.35, 0.12, p.dx, p.dy, 0.4, P];
+      dabs.push(dab);
       const v = [-lean[1], lean[0]], cs = [];
-      for (const [qx, qy] of [[xMin - 0.06, -yMax - 0.06], [xMax + 0.06, -yMax - 0.06], [xMin - 0.06, yMax + 0.06], [xMax + 0.06, yMax + 0.06]])
+      for (const [qx, qy] of [[dab[4] - 0.06, -dab[6] - 0.06], [dab[5] + 0.06, -dab[6] - 0.06], [dab[4] - 0.06, dab[6] + 0.06], [dab[5] + 0.06, dab[6] + 0.06]])
         cs.push([p.x + (qx * lean[0] + qy * v[0]) * PPM, p.y + (qx * lean[1] + qy * v[1]) * PPM]);
       const box = [Math.min(...cs.map(c => c[0])), Math.min(...cs.map(c => c[1])), Math.max(...cs.map(c => c[0])), Math.max(...cs.map(c => c[1]))];
       dirty = union(dirty, box);
@@ -170,7 +185,8 @@ function buildDry(sc) {
     const travel = [pts[pts.length - 1].dx, pts[pts.length - 1].dy];
     frames.push({ dabs, travel, rect: layerRect(dirty, sc.smearMm * PPM + 2) });
   }
-  return { kind: 'dry', name: sc.name, seed: sc.seed, smearMm: sc.smearMm, frames };
+  const st = STICKS[sc.stick || 'zones'];
+  return { kind: 'dry', name: sc.name, seed: sc.seed, smearMm: sc.smearMm, stick: { u_stickBlend: st.blend, u_stickShape: st.shape, u_zoneGrad: st.grads }, frames };
 }
 
 // ---- eraser on a media layer (MediaLayerEngine's erase passes: cover, state, water) ----
@@ -210,6 +226,8 @@ const SCENARIOS = [
     steps: (f) => (f % 5 === 3 ? 3 : f % 7 === 5 ? 1 : 4), dryNowAt: F(16) }),
   buildDry({ name: 'dry point stick across the seam', from: [50, 120], to: [215, 140], bend: 20, frames: F(16), seed: 21, lean: 0.6, side: false, smearMm: 0.4 }),
   buildDry({ name: 'dry side stick, smear, corner', from: [200, 50], to: [60, 210], bend: -25, frames: F(16), seed: 22, lean: 2.3, side: true, smearMm: 0.9 }),
+  buildDry({ name: 'Proto 2 point across the seam', stick: 'Proto 2', from: [70, 110], to: [190, 150], bend: 15, frames: F(16), seed: 23, lean: 0.9, side: false, smearMm: 0.4 }),
+  buildDry({ name: 'Proto Pencil tilted across the corner', stick: 'Proto Pencil', from: [88, 168], to: [168, 88], bend: -8, frames: F(16), seed: 24, lean: 1.9, side: true, smearMm: 0.9 }),
   buildErase({ name: 'eraser across both seams', from: [60, 80], to: [200, 190], bend: 12, frames: F(10), seed: 31, radius: 9 }),
   buildPaste({ name: 'oil round brush across the seam', from: [60, 100], to: [200, 160], bend: 15, frames: F(14), seed: 41, shape: 0, blade: 0, halfW: 2.2, lenMax: 7 }),
   buildPaste({ name: 'palette knife (blade) across the corner', from: [190, 70], to: [70, 190], bend: -10, frames: F(12), seed: 42, shape: 2, blade: 1, halfW: 3.0, lenMax: 5 }),
@@ -521,7 +539,7 @@ async function PAGE(P) {
   function dryFrame(E, sc, Fr) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, E.deltaFbo); gl.viewport(0, 0, W, H);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.blendEquation(gl.FUNC_ADD);
-    use(E.P.dry, { ...COMMON, ...paperU, ...DRY, ...atlasU(E, 8), u_crush: { tex: E.st[0].paper }, u_contactLut: { tex: lutTex } });
+    use(E.P.dry, { ...COMMON, ...paperU, ...DRY, ...sc.stick, ...atlasU(E, 8), u_crush: { tex: E.st[0].paper }, u_contactLut: { tex: lutTex } });
     drawDabs(E, Fr.dabs, (d) => { const ext = (Math.hypot(Math.max(Math.abs(d[4]), Math.abs(d[5])), d[6]) + 0.1) * P.PPM + 2; return [d[0] - ext, d[1] - ext, d[0] + ext, d[1] + ext]; });
     gl.disable(gl.BLEND);
     const smearPx = sc.smearMm * P.PPM, rect = Fr.rect;

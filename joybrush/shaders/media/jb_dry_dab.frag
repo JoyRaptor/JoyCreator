@@ -66,6 +66,10 @@ void main() {
     vec2 docPx = u_layerOrigin + layerPx / u_layerScale;
     vec2 rel = (docPx - v_i0.xy) / u_pxPerMm;
     vec2 q = vec2(dot(rel, v_i0.zw), dot(rel, vec2(-v_i0.w, v_i0.z)));
+    // The footprint ends at its box, decided here, not by which pixels the quad (box + 0.06 mm) happens to rasterise: a
+    // blended stick's bells (Proto 2, Proto Pencil) are never exactly 0, so the quad edge would cut them differently in
+    // different atlas slots. The three-zone stick is already 0 outside its box.
+    if (q.x < v_i1.x || q.x > v_i1.y || abs(q.y) > v_i1.z) discard;
     float c = jb_stickSqueeze(q, v_i1.w, v_i2, v_i3.xyz, v_i4.z, u_stickBlend, u_stickShape, u_zoneGrad);
     if (c <= 0.0) discard;
     const float N = 255.0;

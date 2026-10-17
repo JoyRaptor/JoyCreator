@@ -198,7 +198,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             session=session.arm(current,id)
             if(active && !tileHintShown && current.boards.any { it.id == id && it.kind == BoardKind.CANVAS }) {
                 tileHintShown=true
-                host.refusal("Smudge, fill and the eyedropper do not wrap yet.")
+                host.refusal("Realistic pencil, watercolour and oil do not wrap yet.")
             }
         }
         else if(doc?.boards?.any { it.id == session.armedBoardId && it.kind == BoardKind.CANVAS } == true)

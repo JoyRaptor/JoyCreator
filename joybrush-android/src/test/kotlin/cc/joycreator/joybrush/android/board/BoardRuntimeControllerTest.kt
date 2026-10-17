@@ -80,7 +80,7 @@ class BoardRuntimeControllerTest {
         assertTrue(host.messages.isEmpty()); assertFalse(shownInput(image).armed)
         host.tileAllowed=true
         image.host.action("feature",false)
-        assertEquals(listOf("Smudge, fill and the eyedropper do not wrap yet."),host.messages)
+        assertEquals(listOf("Realistic pencil, watercolour and oil do not wrap yet."),host.messages)
         image.host.action("feature",false)
         image.host.action("feature",false)
         controller.stop(); controller.resume()

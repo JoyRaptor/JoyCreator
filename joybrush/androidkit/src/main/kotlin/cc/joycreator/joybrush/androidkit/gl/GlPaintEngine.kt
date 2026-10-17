@@ -34,6 +34,7 @@ import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.brush.SmudgeCarried
 import cc.joycreator.joybrush.core.brush.SmudgeStroke
 import cc.joycreator.joybrush.core.brush.TileReader
+import cc.joycreator.joybrush.core.brush.PeriodicTiles
 import cc.joycreator.joybrush.core.doc.BlendMode
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.layers.LayerStack
@@ -556,6 +557,10 @@ class GlPaintEngine(
     /** Set while a smudge stroke is in progress: the ONE carried colour, and the layer as it was at pen-down. */
     private var smudge: SmudgeStroke? = null
     private var smudgeTexturePickup = 0f
+    /** Tile board only: the pen-down layer tiles a smudge has read back, shared by its colours and its periodic pickup cells. */
+    private val strokeReads = HashMap<Long, ByteArray?>()
+    /** Tile board only: pickup cells holding the REPEATED picture where a cell is not wholly on the board (0 = empty). */
+    private val periodicPickup = HashMap<Long, Int>()
     private var smudgePaint = false
 
     /** True while the stroke buffer holds RGBA carried paint (a smudge) instead of a single coverage channel. */
@@ -1259,7 +1264,8 @@ class GlPaintEngine(
      * deletes that tile. Same layout as [readTile]. Copy-on-write like [endStroke]: the old texture
      * becomes the undo snapshot, so nothing is copied. Returns how many tiles changed.
      */
-    fun replaceTiles(layerId: String, tiles: Map<Long, ByteArray?>): Int {
+    /** [wrappedBoardId]: the armed Tile board this replacement painted (the fill pen), marked tiled in the same undo step. */
+    fun replaceTiles(layerId: String, tiles: Map<Long, ByteArray?>, wrappedBoardId: String? = null): Int {
         requireLocalPaint()
         checkStrokeEnded("replaceTiles during a stroke would be undone out of order")
         val layer = storeOf(layerId) ?: error("no layer $layerId")
@@ -1296,7 +1302,12 @@ class GlPaintEngine(
         }catch(e:Throwable){changes.forEach{it.after?.let(::recycleLayerTex)};throw e}
         finally{GLES30.glDisable(GLES30.GL_SCISSOR_TEST);GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0)}
         changes.forEach{put(it.layerId,it.key,it.after,it.celId)}
-        if(changes.isNotEmpty())undo.push(UndoLog.Step(changes + settlePlainWrites(changes)))
+        if(changes.isNotEmpty()) {
+            val beforeDoc=boardDocument
+            val afterDoc=if(wrappedBoardId != null && beforeDoc != null) BoardDocumentOps.markWrappedStroke(beforeDoc,wrappedBoardId) else beforeDoc
+            if(afterDoc != beforeDoc && afterDoc != null) setBoardDocument(afterDoc)
+            undo.push(UndoLog.Step(changes + settlePlainWrites(changes),documentBefore=beforeDoc?.takeIf { it != afterDoc },documentAfter=afterDoc?.takeIf { it != beforeDoc }))
+        }
         return changes.size
     }
 
@@ -3655,8 +3666,6 @@ class GlPaintEngine(
         settleWatercolourFade()
         cancelStroke()
         tilePreviewRect=null
-        require(smudge == null || tileBoardId == null) { "Turn tiling off to use smudge" }
-        require(watercolour == null || tileBoardId == null) { "Turn tiling off to use watercolor" }
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         strokeTravel.reset()
         strokeLayer = storeOf(layerId) ?: error("no layer $layerId")
@@ -3674,10 +3683,12 @@ class GlPaintEngine(
         // pixels it picks up from stay put for the whole stroke. Colours are decided on the GL thread, where a tile can be read.
         smudgeTexturePickup = smudge?.texturePickup?.coerceIn(0f, 1f) ?: 0f
         smudgePaint = smudge?.paint ?: false
+        // On a Tile board the smudge reads the repeated picture: sample points wrap into the board (PeriodicTiles).
         this.smudge = if (smudge == null) null else SmudgeStroke(
-            TileReader { tx, ty -> readTile(layerId, Tiles.key(tx, ty)) },
+            TileReader { tx, ty -> strokeRead(layerId, Tiles.key(tx, ty)) },
             SmudgeCarried(colR, colG, colB, 1f, smudge.pickup.coerceIn(0f, 1f), smudge.load.coerceIn(0f, 1f)),
             tip,
+            strokeTileRect,
         )
         // The stroke's look (tip, grain pictures, paper), resolved once per stroke: StampPass.lookFor.
         val p = loadedPaper?.paper
@@ -3748,14 +3759,27 @@ class GlPaintEngine(
     /** The new engine owns only its band/finish targets; existing dab packing and draws stay untouched. */
     private fun addWatercolourDabs(dabs: List<Dab>) {
         val tile = strokeTileRect
-        val wrapped = if(tile == null) dabs else dabs.flatMap { TilePainting.dabs(tile,it) }
-        val buckets = Tiles.bucket(wrapped,size).filterKeys { tile == null || TilePainting.clip(tile,it) != null }
-        require(tile == null || (strokeTiles.keys+buckets.keys).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
+        if(tile == null) {
+            val buckets = Tiles.bucket(dabs,size)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo)
+            for(key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
+            val pass = requireNotNull(wcPass)
+            pass.add(buckets) { null }
+            pass.finishInto(strokeTiles,0f,buckets.keys)
+            return
+        }
+        // Tile board: the finish pools by reading coverage up to the edge/gravity widths away. Copies cover that halo round
+        // the board and the coverage bands are NOT clipped, so a read across the seam finds the repeat; only tiles on the
+        // board get output, and endStroke's commit is clipped to the board as for every tile stroke.
+        val halo = wcSpec?.let { minOf(kotlin.math.ceil(maxOf(it.edgeWidth, it.gravityWidth, 0.0)) + 2.0, size.toDouble()) } ?: 0.0
+        val bands = Tiles.bucket(dabs.flatMap { TilePainting.dabs(tile,it,halo) },size)
+        val outputs = bands.keys.filter { TilePainting.clip(tile,it) != null }
+        require((strokeTiles.keys+outputs).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo)
-        for(key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
+        for(key in outputs) strokeTiles.getOrPut(key) { newStrokeTile() }
         val pass = requireNotNull(wcPass)
-        pass.add(buckets) { key -> tile?.let { TilePainting.clip(it,key) } }
-        pass.finishInto(strokeTiles,0f,buckets.keys)
+        pass.add(bands) { null }
+        pass.finishInto(strokeTiles,0f,outputs)
     }
 
     /** Cosmetic cached-image fade. Return true only when its final commit changes undo/history. */
@@ -3849,12 +3873,19 @@ class GlPaintEngine(
     private fun addSmudgeDabs(sm: SmudgeStroke, dabs: List<Dab>) {
         val colours = sm.colours(dabs)
         val at = IdentityHashMap<Dab, Int>(dabs.size * 2)
-        for ((i, d) in dabs.withIndex()) at[d] = i
+        val tile = strokeTileRect
+        // A wrapped copy paints with ITS dab's carried colour: the copies are new objects, so each is indexed here.
+        val drawn = if (tile == null) { for ((i, d) in dabs.withIndex()) at[d] = i; dabs }
+            else buildList { for ((i, d) in dabs.withIndex()) for (c in TilePainting.dabs(tile, d)) { at[c] = i; add(c) } }
+        if (drawn.isEmpty()) return
+        val buckets = Tiles.bucket(drawn, size).let { b -> if (tile == null) b else b.filterKeys { TilePainting.clip(tile, it) != null } }
+        require(tile == null || (strokeTiles.keys + buckets.keys).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
+        // Read-backs and uploads bind framebuffers and textures, so the repeated pickup cells are made before any draw state.
+        if (tile != null && smudgeTexturePickup > 0f) for (key in buckets.keys) preparePeriodicPickup(tile, key)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         GLES30.glViewport(0, 0, size, size)
         GLES30.glEnable(GLES30.GL_BLEND)
         GLES30.glBlendFuncSeparate(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA, GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
-        val buckets = Tiles.bucket(dabs, size)
         for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
         smudgeProg.use()
         GLES30.glUniform1f(smudgeProg.loc("u_tileSize"), size.toFloat())
@@ -3868,6 +3899,7 @@ class GlPaintEngine(
         GLES30.glBindVertexArray(smudgeVao)
         for ((key, list) in buckets) {
             attach(strokeTiles.getValue(key))
+            clipTileStroke(key)
             GLES30.glUniform2f(smudgeProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
             if (smudgeTexturePickup > 0f) bindPickupTiles(key)
             val need = list.size * 21
@@ -3885,6 +3917,7 @@ class GlPaintEngine(
             GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * 84, smudgeInstanceData, GLES30.GL_STREAM_DRAW)
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
         }
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         GLES30.glBindVertexArray(0)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
@@ -5249,6 +5282,8 @@ class GlPaintEngine(
         if (strokeIsRgba) { freeSmudgeTex.addAll(strokeTiles.values); trimPool(freeSmudgeTex, 16) }
         else { freeStrokeTex.addAll(strokeTiles.values); trimPool(freeStrokeTex, 32) }
         strokeTiles.clear()
+        periodicPickup.values.forEach { if (it != 0) recycleLayerTex(it) }
+        periodicPickup.clear(); strokeReads.clear()
     }
 
     private fun recycleLayerTex(tex: Int) {
@@ -5300,12 +5335,34 @@ class GlPaintEngine(
 
     // The destination's 3x3 pen-down neighbourhood. Pixel pickup is capped at half a tile,
     // so every displaced source lies here, including negative coordinates and tile crossings.
+    /** A pen-down tile of the stroke's layer, read back once per stroke. */
+    private fun strokeRead(layerId: String, key: Long): ByteArray? =
+        if (strokeReads.containsKey(key)) strokeReads[key] else readTile(layerId, key).also { strokeReads[key] = it }
+
+    /**
+     * Tile board: every pickup cell around [key] that is not wholly on the board gets the REPEATED picture (PeriodicTiles.compose
+     * of the pen-down read-backs), so the texture pickup behind the pen reads across the seam. Cells wholly on the board keep
+     * the layer's own tile. Made once per stroke; recycled with the stroke tiles.
+     */
+    private fun preparePeriodicPickup(tile: RectPx, key: Long) {
+        val layer = strokeLayer ?: return
+        val reader = TileReader { tx, ty -> strokeRead(layer.id, Tiles.key(tx, ty)) }
+        for (dy in -1..1) for (dx in -1..1) {
+            val cell = Tiles.key(Tiles.tx(key) + dx, Tiles.ty(key) + dy)
+            if (cell in periodicPickup || PeriodicTiles.inside(tile, cell)) continue
+            periodicPickup[cell] = PeriodicTiles.compose(tile, cell, reader)?.let { uploadTile(newLayerTile(), it) } ?: 0
+        }
+    }
+
     private fun bindPickupTiles(key: Long) {
         val layer = strokeLayer ?: return
         for (dy in -1..1) for (dx in -1..1) {
             val slot = (dy + 1) * 3 + dx + 1
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0 + 2 + slot)
-            val source = visibleTiles(layer)[Tiles.key(Tiles.tx(key) + dx, Tiles.ty(key) + dy)] ?: emptyTexOf(layer)
+            val cell = Tiles.key(Tiles.tx(key) + dx, Tiles.ty(key) + dy)
+            val repeated = periodicPickup[cell]
+            val source = if (repeated != null) repeated.takeIf { it != 0 } ?: emptyTexOf(layer)
+                else visibleTiles(layer)[cell] ?: emptyTexOf(layer)
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, source)
             GLES30.glUniform1i(smudgeProg.loc("u_pickup${dx + 1}${dy + 1}"), 2 + slot)
         }

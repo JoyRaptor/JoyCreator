@@ -35,6 +35,7 @@ import cc.joycreator.joybrush.androidkit.io.JbArchiveException
 import cc.joycreator.joybrush.androidkit.tools.EyedropState
 import cc.joycreator.joybrush.androidkit.tools.Eyedropper
 import cc.joycreator.joybrush.androidkit.tools.FillPenRaster
+import cc.joycreator.joybrush.core.select.foldInto
 import cc.joycreator.joybrush.androidkit.tools.FillPenPreviewState
 import cc.joycreator.joybrush.core.brush.ENGINE_FILL
 import cc.joycreator.joybrush.core.fill.MaskPaintMode
@@ -1217,7 +1218,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     private fun startEyedrop(x: Float, y: Float, withCancelCircle: Boolean, finger: Boolean = false) {
-        if(refuseTileTool("the eyedropper")) return
         eyedropping = true
         eyedropFinger = finger
         eyedropOld = strokeColor
@@ -1270,7 +1270,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * the day there were two). [onColor] arrives on the UI thread, opaque.
      */
     fun sampleAt(screenX: Float, screenY: Float, onColor: (Int) -> Unit) {
-        if(refuseTileTool("the eyedropper")) return
+        // On an armed Tile board the screen shows the repeat, so the colour under the pen is the wrapped pixel.
         sampleScreen(floatArrayOf(screenX, screenY)) { c -> onColor(c[0]) }
     }
 
@@ -1467,8 +1467,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         onBeforeStroke?.invoke()
         val b = brush
         var p = preset
-        if(p?.engine == ENGINE_SMUDGE && refuseTileTool("smudge")) { drawing=false; return }
-        if(p?.engine == ENGINE_FILL && refuseTileTool("fill")) { drawing=false; return }
         if(p?.engine == ENGINE_FILL && editingMask) {
             drawing=false; onRefused?.invoke("Select the paint layer to use the fill pen; masks are not supported yet."); return
         }
@@ -1526,7 +1524,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         // A media brush paints through the media engine (step 4c) on the active layer (R51).
         if (p?.engine == ENGINE_MEDIA && !eraser) { startMediaStroke(p); return }
-        if(p?.engine == ENGINE_WATERCOLOUR && !erase && refuseTileTool("watercolor")) { drawing=false; return }
         // Every other brush, the eraser included, writes pixels; over media the engine's bake keeps the two agreeing.
         mediaErase = false
         mediaBegun = false
@@ -1722,8 +1719,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     val pixels=mask.tileKeys.sumOf { key -> mask.tile(key)!!.sumOf { (it.toInt() and 255).toLong() } } / 255.0
                     if(pixels*zoom*zoom >= 4.0) {
                         val ownership=engine.boardDocument?.let { RegionDocumentOps.paintPlans(it,emptyMap())[target] }
-                        val changes=FillPenRaster.plan(mask,argb,opacity,mode,ownership) { engine.readTile(target,it) }
-                        engine.replaceTiles(target,changes)
+                        // An armed Tile board fills the repeat: the shape is folded back into the board rectangle (R50).
+                        val tileBoard=engine.tileBoardId?.let { id -> engine.boardDocument?.boards?.firstOrNull { it.id == id } }
+                        val shape=if(tileBoard == null) mask else mask.foldInto(tileBoard.rect)
+                        val changes=FillPenRaster.plan(shape,argb,opacity,mode,ownership) { engine.readTile(target,it) }
+                        engine.replaceTiles(target,changes,wrappedBoardId=tileBoard?.id)
                         if(changes.isNotEmpty()) reportHistory()
                     }
                 } finally {

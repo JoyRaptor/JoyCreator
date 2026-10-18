@@ -71,7 +71,14 @@ clip; when they animate in two different overlapping clips, it says "Combine the
 play once). "Play all" exports (the whole scene): length = the longest clip, with an option "Full loop" = the least common
 multiple of the looping clips' lengths in ticks (capped at 600 frames, said if capped).
 
-## 4. UI changes (U1–U7): what the person sees. For the UI specialist, after the engine lands
+**C8. Drag a clip with its drawings.** Composing clips means picking a clip up and dropping it over another. That already
+exists as the board menu's "Move all frames…" (`AnimationBoardOps.moveAll`, behind a confirm, and edge drags are ignored for
+clips of 2+ frames). Make it direct: dragging an unlocked clip moves its rectangle AND every frame of the layers that animate
+in it, as ONE undo step (no confirm; undo is the safety). Still layers' pixels under it never move. Locked clips don't move by
+touch (R50). No separate "move layer" tool is needed for clips; moving a layer's own pixels is the Select tool's pixel lift
+(a later Select phase).
+
+## 4. UI changes (U1–U8): what the person sees. For the UI specialist, after the engine lands
 The engine work above adds plain menu rows only where nothing exists (so it can be tested); everything below is design work.
 | | Change | Acceptance |
 |---|---|---|
@@ -81,14 +88,15 @@ The engine work above adds plain menu rows only where nothing exists (so it can 
 | U4 | Board menu **"Combine with <name>"**, with the sentence about fps when they differ | One undo brings the two clips back |
 | U5 | **New clip animates the active layer**: a first-time hint "Only <layer> animates here. Tap the runner on a layer to add it." | Other layers' pixels are untouched by creating a clip |
 | U6 | Overlap refusal sentence with layer and clip names, once per gesture | No raw ids anywhere |
+| U8 | **Drag a clip** directly (no confirm), with its drawings; a lock shows it can't move | One undo puts it back |
 | U7 | The layer cell's runner glyph reads "Animates in <clip name>" / "Still in <clip name>" | Clear on a stylus hover |
 
 ## 5. Who does what
-- **Engine (lead or the Opus helper): C1–C7** with plain, working menu rows for C4 (Play all in the ⋯ menu) and C5 (Combine in
+- **Engine (lead or the Opus helper): C1–C8** with plain, working menu rows for C4 (Play all in the ⋯ menu) and C5 (Combine in
   the board menu) so the owner can try it on the phone. JVM tests per change; bench `playAll`; Note 9 check.
-- **UI specialist: U1–U7** from a handoff written when C1–C5 land (tasks/joybrush/handoffs/ANIMATION_CLIPS_UI_HANDOFF_<date>.md):
+- **UI specialist: U1–U8** from a handoff written when C1–C5 land (tasks/joybrush/handoffs/ANIMATION_CLIPS_UI_HANDOFF_<date>.md):
   the APIs, where the plain rows are, the screenshots, and the owner's design rules (design-language memory, hover labels,
-  chosen-chip style). U1–U7 do not change engine behaviour.
+  chosen-chip style). U1–U8 do not change engine behaviour.
 
 ## 6. Later (from the TVPaint research, ranked; each needs its own owner OK)
 Light table colours and per-frame toggles · marks in/out with loop-range playback · auto-break of linked frames on edit (a

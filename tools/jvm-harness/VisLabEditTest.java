@@ -148,6 +148,19 @@ public class VisLabEditTest {
         eq("removed", n, look.getAsJsonArray("layers").size());
         check("bad type lists types", errType(e, look).contains("Types:"), errType(e, look));
 
+        // Words (10-18): path x behaviour x letters; knobs with showFor only count for some choices
+        e.addLayer(look, "words", "Lyrics", null);
+        String w = e.describe(look, "Lyrics");
+        check("words: ribbon knobs shown on Ribbon", w.contains("travel “Words”"), w);
+        check("words: spiral-only knob hidden on Ribbon", !w.contains("tilt “Tilt back”") && w.contains("more knobs only do something"), w);
+        s = e.change(look, "Lyrics.tilt = 1");
+        check("words: idle knob says why", s.contains("no effect yet") && s.contains("Path is Spiral, Ring"), s);
+        e.change(look, "Lyrics.path = spiral");
+        check("words: after Path = Spiral the knob shows", e.describe(look, "Lyrics").contains("tilt “Tilt back”"), "");
+        s = e.change(look, "Lyrics.behaviour = burst");
+        check("words: behaviour by option name", s.contains("Karaoke → Burst"), s);
+        e.removeLayer(look, "Lyrics");
+
         String types = e.describeTypes(null);
         check("types list", types.contains("floor “Woven floor”"), types);
         System.out.println("  (types " + types.length() + " chars)");

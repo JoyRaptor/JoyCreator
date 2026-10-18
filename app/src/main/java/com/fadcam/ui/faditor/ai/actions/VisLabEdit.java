@@ -34,6 +34,11 @@ public final class VisLabEdit {
         public final boolean toggle;
         /** Where the value lives: "p" (the knob list) or "top" (a field on the layer itself). */
         final boolean top;
+        /**
+         * types.json "showFor": the knob only does something while these choice knobs hold one of
+         * these options ({"path": [0, 5]}: Ribbon or Flight). Empty = always.
+         */
+        final Map<String, List<Integer>> showFor = new LinkedHashMap<>();
 
         Knob(@NonNull String id, @NonNull String label, double min, double max, double def,
              @NonNull List<String> options, boolean toggle, boolean top) {
@@ -112,7 +117,16 @@ public final class VisLabEdit {
             double def = num(p, "def", 0);
             double min = opts.isEmpty() ? (toggle ? 0 : num(p, "min", 0)) : 0;
             double max = opts.isEmpty() ? (toggle ? 1 : num(p, "max", 1)) : opts.size() - 1;
-            knobs.add(new Knob(str(p, "id"), str(p, "label"), min, max, def, opts, toggle, false));
+            Knob k = new Knob(str(p, "id"), str(p, "label"), min, max, def, opts, toggle, false);
+            JsonObject sf = obj(p, "showFor");
+            if (sf != null) {
+                for (Map.Entry<String, JsonElement> en : sf.entrySet()) {
+                    List<Integer> ok = new ArrayList<>();
+                    if (en.getValue().isJsonArray()) for (JsonElement x : en.getValue().getAsJsonArray()) ok.add(x.getAsInt());
+                    k.showFor.put(en.getKey(), ok);
+                }
+            }
+            knobs.add(k);
         }
         String fam = str(o, "family");
         return new Kind(id, str(o, "label").isEmpty() ? id : str(o, "label"),
@@ -167,7 +181,13 @@ public final class VisLabEdit {
         }
         Target t = target(look, layerRef);
         sb.append(t.title).append(" — every knob (id “label” = value, range):\n");
-        for (Knob k : t.knobs) sb.append("  ").append(knobLine(k, t.holder)).append('\n');
+        int hidden = 0;
+        for (Knob k : t.knobs) {
+            if (whyIdle(k, t) != null) { hidden++; continue; }
+            sb.append("  ").append(knobLine(k, t.holder)).append('\n');
+        }
+        if (hidden > 0) sb.append("(").append(hidden).append(" more knobs only do something with another ")
+                .append(String.join(" / ", controllers(t))).append("; change that first to use them.)\n");
         if (t.kind != null && !t.kind.about.isEmpty()) sb.append(t.kind.about).append('\n');
         sb.append("Music: add “+ signal amount” to a number (amount = share of the knob's range, -2…2). Signals: ")
                 .append(String.join(", ", signals.keySet())).append('.');
@@ -289,7 +309,40 @@ public final class VisLabEdit {
         Knob k = knob(t, what);
         String before = valueWords(k, t.holder);
         set(t, k, right);
-        return t.title + " › " + k.label + ": " + before + " → " + valueWords(k, t.holder);
+        String idle = whyIdle(k, t);
+        return t.title + " › " + k.label + ": " + before + " → " + valueWords(k, t.holder)
+                + (idle == null ? "" : " (no effect yet: " + idle + ")");
+    }
+
+    /**
+     * Null when knob {@code k} does something with the target's current choices; otherwise why
+     * not, in words ("it only works when Path is Ribbon, Flight or Rising").
+     */
+    @Nullable
+    private String whyIdle(@NonNull Knob k, @NonNull Target t) {
+        for (Map.Entry<String, List<Integer>> e : k.showFor.entrySet()) {
+            Knob ctl = null;
+            for (Knob c : t.knobs) if (c.id.equals(e.getKey())) ctl = c;
+            if (ctl == null) continue;
+            JsonElement v = raw(ctl, t.holder);
+            int now = (int) Math.round(v == null ? ctl.def : v.isJsonObject() ? num(v.getAsJsonObject(), "v", ctl.def)
+                    : v.isJsonPrimitive() && v.getAsJsonPrimitive().isNumber() ? v.getAsDouble() : ctl.def);
+            if (e.getValue().contains(now)) continue;
+            List<String> names = new ArrayList<>();
+            for (int i : e.getValue()) names.add(i >= 0 && i < ctl.options.size() ? ctl.options.get(i) : String.valueOf(i));
+            return "it only works when " + ctl.label + " is " + String.join(", ", names);
+        }
+        return null;
+    }
+
+    /** The choice knobs other knobs depend on ("Path", "Behaviour"). */
+    @NonNull
+    private static List<String> controllers(@NonNull Target t) {
+        java.util.LinkedHashSet<String> ids = new java.util.LinkedHashSet<>();
+        for (Knob k : t.knobs) ids.addAll(k.showFor.keySet());
+        List<String> out = new ArrayList<>();
+        for (Knob k : t.knobs) if (ids.contains(k.id)) out.add(k.label);
+        return out;
     }
 
     private static final java.util.regex.Pattern LOOK_FIELDS =

@@ -1,7 +1,8 @@
 package cc.joycreator.joybrush.android.library
 
 import cc.joycreator.joybrush.androidkit.JbCanvasView.Companion.LEGACY_SHARED_DOC_ID
-import kotlin.test.*
+import org.junit.Assert.*
+import org.junit.Test
 
 /** Audit 2026-10-18 P1: one drawing's folder copy never takes over another drawing's file. */
 class FolderAdoptionTest {

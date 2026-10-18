@@ -71,7 +71,8 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
   - DONE 10-18, Note 9: leaving VisLab saves a still + name (room/LobbyHero); the lobby shows LAST VISUALISER, the look, Carry on.
   `ui/lobby/LobbyFragment.java:500` (`R.string.lobby_empty_viz`); a small `VisTextureView` with
   the session's current look, paused when off screen.
-- [ ] **C2. Floating visualiser: a look picker** (only ‹ › now) — `vislab/overlay/OverlayControls.java`.
+- [x] **C2. Floating visualiser: a look picker** (only ‹ › now) — `vislab/overlay/OverlayControls.java`.
+  - DONE 10-18, Note 9: tap the look's name in the floating controls for every look by name; picked Glass Peaks from the list (it also floats over the home screen). The chosen row is solid cyan and the list stays 15 s (built after the test, compiles green).
 - [ ] **C3. Floating visualiser hears phone audio without recording** (Android's playback
   capture needs the screen-capture consent) — `vislab/overlay/OverlaySound.java` (NONE/RECORDING/MIC).
 - [ ] **C4. Studio** (looks as overlays, scrub, export, transcript words) — handed to the Studio

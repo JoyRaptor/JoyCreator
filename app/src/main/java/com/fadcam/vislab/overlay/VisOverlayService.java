@@ -281,13 +281,14 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         if (dot != null) dot.setVisibility(View.GONE);
         if (!full) resize.setVisibility(View.VISIBLE);
         ui.removeCallbacks(tuck);
-        ui.postDelayed(tuck, TUCK_MS);
+        ui.postDelayed(tuck, controls.pickerOpen() ? TUCK_MS * 5 / 2 : TUCK_MS);   // browsing the list takes longer
     }
 
     /** Out of the way (and out of the recording): nothing in the box, a small dot in full screen. */
     private void tuck() {
         ui.removeCallbacks(tuck);
         if (controls == null) return;
+        controls.closePicker();
         controls.setVisibility(View.GONE);
         resize.setVisibility(View.GONE);
         if (full && dot != null) dot.setVisibility(View.VISIBLE);
@@ -426,6 +427,44 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     @Override
     public void toggleFull() {
         setFull(!full);
+    }
+
+    @NonNull
+    @Override
+    public List<String> lookIds() {
+        return session.lookIds();
+    }
+
+    @NonNull
+    @Override
+    public List<String> lookNames() {
+        return session.lookNames();
+    }
+
+    @Nullable
+    @Override
+    public String currentLook() {
+        return lookId;
+    }
+
+    @Override
+    public void pickLook(@NonNull String id) {
+        lookId = id;
+        showLook();
+        controls.closePicker();
+        showControls();
+    }
+
+    @Override
+    public void touched() {
+        showControls();
+    }
+
+    @Override
+    public int roomForList() {
+        // Full screen: the handle window grows. A box: what is left above the row inside it.
+        if (full) return Math.round(getResources().getDisplayMetrics().heightPixels * 0.45f);
+        return boxLp.height - Ui.dp(this, 52 + 10 + 6 + 8);
     }
 
     @Override

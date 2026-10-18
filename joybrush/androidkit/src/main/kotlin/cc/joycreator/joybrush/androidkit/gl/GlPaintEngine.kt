@@ -1179,6 +1179,30 @@ class GlPaintEngine(
      * a hidden clip base hiding its clipped layers) over transparency, so the picture is unchanged. Lines, slabs and
      * pencil/watercolour/oil state of every merged layer are baked: they go into the step, and their memory is freed.
      */
+    /**
+     * Freeze layer (LAYER_OPS §3): [id]'s editable lines, pixel slabs and pencil/watercolour/oil state become plain pixels,
+     * ONE undo step. Its tiles already are the picture, so nothing is drawn: the items and the float stores go into the
+     * step and their memory is freed. Every plane (frames too). Its blend, opacity and mask stay as they are.
+     * Returns false when there was nothing to freeze.
+     */
+    fun freezeLayerStep(id: String): Boolean {
+        requireLocalPaint()
+        settleLift()
+        settleWatercolourFade()
+        checkStrokeEnded("a layer change during a stroke would be undone out of order")
+        val layer = layers[id] ?: return false
+        var items = LineItems.Changes.NONE
+        for (plane in nativeLines.itemPlanes().filter { it.layerId == id }) items += LineItems.removal(nativeLines, plane, id, engineCel(layer, plane))
+        val changes = ArrayList<UndoLog.TileChange<Int>>()
+        for ((plane, p) in layer.planes()) p.forEach { (store, tiles) -> tiles.forEach { (k, t) -> changes += UndoLog.TileChange(MediaStores.id(id, store), k, t, null, plane) } }
+        if (changes.isEmpty() && items.lines.isEmpty() && items.slabs.isEmpty()) return false
+        applyItemChanges(items.slabs, items.lines, forward = true)
+        layer.floats.clear(); layer.celFloats.clear()
+        forgetAgreements(id)
+        undo.push(UndoLog.Step(changes, lines = items.lines, slabs = items.slabs))
+        return true
+    }
+
     fun flattenStep(targetId: String, merged: List<String>, discarded: List<String>, before: LayerStack, after: LayerStack) {
         requireLocalPaint()
         settleLift()

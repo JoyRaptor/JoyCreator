@@ -1445,6 +1445,9 @@ class JoyBrushActivity : Activity() {
                 popovers.close(); canvas.mergeDown(id)
             })
         }
+        box.addView(menuRow("Freeze layer", "Turn this layer's editable lines and realistic paint into plain pixels; frees memory. Undo brings them back") {
+            popovers.close(); canvas.freezeLayer(id)
+        })
         box.addView(menuRow("Flatten", "Freeze every visible layer into one, exactly as it looks. Undo brings them back") {
             popovers.close(); flattenAsking(anchor)
         })

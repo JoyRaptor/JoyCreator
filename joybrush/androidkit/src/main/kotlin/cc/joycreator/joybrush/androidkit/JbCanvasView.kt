@@ -766,6 +766,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
+    /** Freeze layer (LAYER_OPS §3): [id]'s editable lines and realistic paint become plain pixels, ONE undo step. */
+    fun freezeLayer(id: String) {
+        if (penIsDown()) return
+        if (layerLocked(id)) { onRefused?.invoke(lockedSentence(id)); return }
+        val name = stackUi[id]?.name ?: "This layer"
+        onBeforeHistoryChange?.invoke()
+        onGl {
+            val done = try { engine.freezeLayerStep(id) } catch (e: Exception) { post { onRefused?.invoke(e.message ?: "\"$name\" could not be frozen") }; return@onGl }
+            if (done) { reportHistory(); publishLines(); post { onNotice?.invoke("\"$name\" is plain pixels now. Undo brings its lines and paint back.") } }
+            else post { onNotice?.invoke("\"$name\" is already plain pixels.") }
+        }
+    }
+
     /** Are any layers hidden? Flatten asks what to do with them (keep, or discard), unless the person chose to be remembered. */
     val hasHiddenLayers: Boolean get() = stackUi.layers.any { !it.visible }
 

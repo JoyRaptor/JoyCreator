@@ -654,6 +654,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
     private var lineContact: LineContact? = null
 
+    /**
+     * The id of the document this canvas makes when it has none from a file: unique per drawing (a new library drawing,
+     * a fresh bench canvas), kept for every later snapshot of it. Audit 2026-10-18 P1: a shared constant let separate
+     * drawings overwrite one folder copy.
+     */
+    private var freshDocId: String = newDocumentId()
+
+    private fun newDocumentId(): String = "jb-" + java.util.UUID.randomUUID()
+
     /** H8: pen-down freezes the brush against the drawing's kept brushes once per (brush set, brush), not every stroke. */
     private val frozenBrushes = FrozenBrushCache()
 
@@ -1080,7 +1089,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     surfaceReady = true
                     if (contentLost) {
                         val recover = onGraphicsLost
-                        if (recover != null) recover(retainedContents?.doc?.id ?: DOC_ID)
+                        if (recover != null) recover(retainedContents?.doc?.id ?: freshDocId)
                         else onRefused?.invoke("The graphics restarted. Reopen your saved drawing before continuing; the empty canvas will not be saved.")
                     }
                     onReady?.invoke()
@@ -2164,9 +2173,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * Several PAINT layers are shown in full (JB-2.04). Opening the half that can be shown and dropping
      * the rest is the one thing this must never do.
      */
-    fun load(contents: JbContents, onDone: () -> Unit) {
+    fun load(opened: JbContents, onDone: () -> Unit) {
         lineEditEpoch += 1          // edits handed in before this are about the old drawing (H10)
         frozenBrushes.clear()
+        // A drawing that still carries the once-shared id gets its own now; the next save writes it (audit 2026-10-18).
+        val contents = if (opened.doc.id == LEGACY_SHARED_DOC_ID) opened.copy(doc = opened.doc.copy(id = newDocumentId())) else opened
+        freshDocId = contents.doc.id
         val doc = withoutLineDeclarations(contents.doc)
         val retained = validatedLoadMetadata(contents).let { it.copy(doc = withoutLineDeclarations(it.doc)) }
 
@@ -2207,6 +2219,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         activeLayer = active
         editingMask = false
         onGl(allowLost = true) {
+            // The previous drawing's realistic paint (its media window and any moving water) is discarded first, never
+            // flushed into the new drawing's layers (audit 2026-10-18 P1: a wet wash could paint into the next drawing).
+            if (contentLost) mediaCanvas.forget() else mediaCanvas.release()
             // resetDocument() empties EVERY layer; the file's stack is put back whole, then its pixels.
             engine.resetDocument()
             engine.setStack(stack)
@@ -2408,7 +2423,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     if (bytes == null || bytes.size != TILE_BYTES) {
                         throw JbArchiveException("a tile of the mask of layer \"${s.name}\" could not be read back from the GPU")
                     }
-                    if (Tiles.isBlank(bytes)) continue
+                    // Kept even when all zero: a mask tile erased to nothing HIDES its area, while a missing one shows
+                    // everything (audit 2026-10-18 P1; BoardSnapshot already keeps them).
                     val name = DocOps.key(Tiles.tx(key), Tiles.ty(key))
                     maskNames.add(name)
                     tiles[Triple(s.id, LayerMask.MASK_CEL, name)] = bytes
@@ -2423,7 +2439,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val pw = if (pageW > 0) pageW else w
         val ph = if (pageH > 0) pageH else h
         val ids = ArrayDeque(listOf(BOARD_ID, stack.layers[0].id, CEL_ID))
-        val base = DocOps.newDocument(DOC_ID, documentName, pw, ph) { ids.removeFirst() }
+        val base = DocOps.newDocument(freshDocId, documentName, pw, ph) { ids.removeFirst() }
         val template = base.layers[0]
         val templateCel = template.cels[0]
         val docLayers = stack.layers.map { s ->
@@ -2617,7 +2633,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     fun benchFreshDrawing(onDone: () -> Unit) {
         if (drawing) cancelStroke()
         val ids = ArrayDeque(listOf(BOARD_ID, FIRST_LAYER, CEL_ID))
-        val fresh = DocOps.newDocument(DOC_ID, documentName, viewW, viewH) { ids.removeFirst() }.copy(paper = documentPaperState)
+        freshDocId = newDocumentId()
+        val fresh = DocOps.newDocument(freshDocId, documentName, viewW, viewH) { ids.removeFirst() }.copy(paper = documentPaperState)
         onGl(allowLost = true) { mediaCanvas.releaseWindow() }
         load(JbContents(fresh, emptyMap(), emptyMap(), null), onDone)
     }
@@ -3098,7 +3115,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         const val SCATTER_SALT = 0x5CA7L
 
         /** This screen holds exactly one drawing, so its document id is a constant. */
-        private const val DOC_ID = "joy-brush"
+        /**
+         * The id every drawing used to share (audit 2026-10-18, P1: two drawings with one id could overwrite each other's
+         * folder copy). Never given to a new document any more; a drawing that still carries it gets its own on open.
+         */
+        const val LEGACY_SHARED_DOC_ID = "joy-brush"
         private const val BOARD_ID = "board-1"
         private const val CEL_ID = "cel-1"
 

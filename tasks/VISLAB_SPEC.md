@@ -131,17 +131,22 @@ coming words (from `TranscriptWord` timings), drawn from a glyph atlas so any wo
 - **Puck**: the word replaces JOY in Halo Drop's centre, pulsing with the kick.
 Word size, glow and colour take music links like every knob.
 
-**Built 10-17/18** (`words` primitive, `shaders/words.frag`, both engines): scenes Star flight,
-Spiral banner, Tunnel ticker, Smoke, Puck, Ring, and from the owner's second round Weaving ribbon
-(words UV-mapped on an invisible ribbon weaving to the horizon), Cigar smoke, Neon street, plus
-Constellations and Fireworks. Letters are a separate knob: Glow, Neon tube, Outline, Stars. Ten
-looks in the Lyrics family. Words come from `WordFeed` (Java) / `vislab-words.js` (pilot): timed
-words to a glyph atlas + per-word timing uniforms; the demo song's sample words are
-`assets/vislab/words/demo-lyrics.json`. **For Studio:** `renderer.setWords(feed)` with
+**Built 10-17/18** (`words` primitive, `shaders/words.frag`, both engines). Since 10-18 it is
+**three parts that mix freely** (owner: everything is parts for building new visualisers):
+- **Path** (where words live): Ribbon (coming at you / going away, rotate, lean, ripple, reach,
+  closest, side), Spiral, Ring, Tunnel, Street, Flight, Centre, Scatter, Rising.
+- **Behaviour** (how a word arrives and leaves): Karaoke, Pop, Neon flicker, Smoke, Burst (keeps
+  opening as it falls), Sparkle. Works on any path, in the word's own space.
+- **Letters**: Glow, Neon tube, Outline, Stars, Sparks, Constellation.
+Each knob shows only for the parts it belongs to (`showFor` in types.json). Ten looks in the
+Lyrics family are presets of the parts; looks saved with the old single `mode` are converted on
+load (`LookValidator.wordsScene`). Words come from `WordFeed` (Java) / `vislab-words.js`
+(pilot): timed words to a glyph atlas + per-word timing uniforms; the demo song's sample words
+are `assets/vislab/words/demo-lyrics.json`. **For Studio:** `renderer.setWords(feed)` with
 `feed.setWords(transcriptWords, 0)` and `renderer.setWordsTime(clipSeconds)` per frame.
-Phone rules learned: build one small program per scene and letter style (`#define SCENE`,
-`LETTER_STYLE`; one program with everything ran at 5 fps), and keep word drawing out of long
-loops (find the word, then draw it once).
+Phone rules learned: build one small GPU program per part combination (`#define WPATH`,
+`BEHAVIOUR`, `LETTER_STYLE`; one program with everything ran at 5 fps), and keep word drawing
+out of long loops (find the word, then draw it once).
 
 ## 8. Screen recorder overlay (built 10-17)
 

@@ -139,6 +139,9 @@ scope, a 64-row history for the terrain/waterfall looks). Proposal:
 **7.2 Scrubbing.** Looks with memory (particles, slime, reaction-diffusion, echo) are simulated on
 an absolute 60 Hz tick grid. On a seek: `VisRenderer.reset()`, then pre-roll ~2 s of ticks from
 the feature track (cheap: state textures only), then draw. Stateless looks need no pre-roll.
+**Speeds with a music link (`rate`, §2) carry state too:** after a seek the distance restarts
+as base speed x time, so a music-linked spin lands slightly differently from continuous play.
+For preview = export, pre-roll from a fixed point (or the start) so the distance is replayed.
 
 **7.3 The overlay item.** A `WaveformOverlayInstance` (or a sibling) gains a VisLab look id (the
 look file's `id`, resolved through `VisLabSession`). Old waveform styles stay selectable (owner:

@@ -431,10 +431,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** The colour a new stroke starts with: the override if there is one, else the brush's. */
     val strokeColor: Int get() = colorArgb ?: brush.argb
 
-    private val engine = GlPaintEngine().also { e ->
-        // A stroke meant as an editable line that had to stay pixels (v1.2 H12), said once for that stroke.
-        e.onLineNotice = { said -> post { onRefused?.invoke(said) } }
-    }
+    private val engine = GlPaintEngine()
 
     /**
      * Pencil, watercolour and oil (MEDIA_ENGINE_PLAN step 4c), on the GL thread beside [engine]. It asks the phone how much
@@ -1768,7 +1765,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                         val tileBoard=engine.tileBoardId?.let { id -> engine.boardDocument?.boards?.firstOrNull { it.id == id } }
                         val shape=if(tileBoard == null) mask else mask.foldInto(tileBoard.rect)
                         val changes=FillPenRaster.plan(shape,argb,opacity,mode,ownership) { engine.readTile(target,it) }
-                        engine.replaceTiles(target,changes,wrappedBoardId=tileBoard?.id,fill=FillRequest(shape,argb,opacity,mode))
+                        engine.replaceTiles(target,changes,wrappedBoardId=tileBoard?.id)
                         if(changes.isNotEmpty()) reportHistory()
                     }
                 } finally {

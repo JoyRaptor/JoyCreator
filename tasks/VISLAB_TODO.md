@@ -111,6 +111,11 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
         replay-after-seek clock instead of a stored track); NOT wired into preview/export, never run.
   - [ ] S4 small editor: Reactivity, Fade (opacity) and the look's key knobs, keyframable.
   - [ ] S5 the transcript's words feed a look's Words layer.
+## E. Audit 10-18 (tasks/audits/2026-10-18/; details in the handoff, section 7)
+
+- [ ] **Audit R1-R3** floating visualiser: fixed 10-18 (`VisOverlayService`, `OverlaySound`, `AnnotationService`), NOT phone-checked yet.
+- [ ] **Audit V1-V9** VisLab: open, for the next agent.
+
 ## D. Speed, heat, sharing
 
 - [x] **D1. Crystal and Gyroid Dive** are the slowest looks (`shaders/voronoi.frag`, `raymarch.frag`).

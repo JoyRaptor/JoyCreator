@@ -200,3 +200,37 @@ and `setWordsTime(sourceMs / 1000.0)` per frame. Preview and export use the same
 Tick S1-S5 and C4 in `tasks/VISLAB_TODO.md` with commit hashes; update the status table in
 `tasks/VISLAB_SPEC.md` (section 9) and section 7 ("Built" paragraph); push; report to the owner
 with a before/after screenshot of a Studio frame and the exported frame side by side.
+
+## 7. Audit findings to fix (Codex audit 10-18)
+
+Full location, trigger and remedy for each: `tasks/audits/2026-10-18/vislab.md` (VisLab) and
+`tasks/audits/2026-10-18/recorder.md` (floating visualiser + recorder). Tick in VISLAB_TODO as
+"Audit V1" etc. when fixed and phone-checked.
+
+Recorder side, FIXED 10-18, built and compiling but NOT phone-checked (the Note 9 was unplugged).
+Check these first: R3 (close the visualiser by its X, the label reads Off), R1 (during a recording
+the speaker shows a note and the recording keeps going), R2 on an Android 12+ phone:
+- R1 [P1] the speaker button asked for a second screen-capture yes during a recording, which made
+  Android END the recording. Now it refuses while a recording runs (it already hears the
+  recording) and drops a yes that arrives after a recording started.
+- R2 [P1] full screen blocked touches to the app below on Android 12+: the window now sits just
+  under Android's obscuring-opacity limit (`InputManager.getMaximumObscuringOpacityForTouch`).
+  Needs a test on an Android 12+ phone (the Note 9 is Android 10).
+- R3 [P2] the toolbar's Visualiser label went stale: `VisOverlayService.addStateListener`, and
+  the recording toolbar row listens.
+
+VisLab side, OPEN (in priority order):
+- V1 [P1] a failed look write is never retried (`VisLabSession` sync/write): track pending vs
+  saved revisions, retry, tell the person.
+- V2 [P1] two Words layers with different typed text rebuild the one 2048x2048 glyph atlas twice
+  every frame (`VisRenderer` typed feed + `WordFeed`): one typed feed per text (or per layer).
+- V3 [P1] Pause keeps rendering and echo looks brighten instead of freezing: when paused, stop
+  stepping and redraw the last picture (or stop frames).
+- V4 [P2] the typed-words feed keeps a dead texture id after a normal GL teardown: release /
+  forget it with the other feed in `VisRenderer.release`.
+- V5 [P2] the room's microphone stays open while the room is paused: stop the mic on pause.
+- V6 [P2] floating picture layers upload a transparent pixel every frame.
+- V7 [P2] deleted picture layers keep their GPU textures until the look changes.
+- V8 [P2] audio that stops arriving stays "loud" forever (no decay when no samples come).
+- V9 [P2] a custom look chosen for the floating visualiser is lost on a cold start (the folder
+  is not read yet): wait for the session's load before falling back.

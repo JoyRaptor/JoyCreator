@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.io
 
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.vector.CelLayout
 
 /**
@@ -59,6 +60,16 @@ class LineOpenPlan private constructor(
          * the engine applies, and one seq means one operator across a cel's tiles (a slab is ONE item).
          */
         fun refusal(contents: JbContents): String? {
+            // Declared and carried must match exactly, as for looks: a header without its bodies (or bodies without a
+            // header) is half-written.
+            val declared = contents.doc.layers.flatMap { l ->
+                DocOps.storedCels(l).flatMap { c -> c.slabs.filter { it.seq >= 1 }.map { SlabKey(l.id, c.id, it.key, it.seq) } }
+            }.toSet()
+            if (declared != contents.slabs.keys) return "this drawing's pixel slabs do not match what it lists"
+            if (contents.slabs.values.any { it.size != TILE_BYTES }) return "a pixel slab in this drawing has the wrong size"
+            for (layer in contents.doc.layers) for (cel in DocOps.storedCels(layer)) {
+                if (cel.slabs.any { it.key !in cel.tiles }) return "this drawing has a pixel slab on a tile it does not list"
+            }
             for (layer in contents.doc.layers) for (cel in layer.cels) {
                 if (cel.slabs.isEmpty()) continue
                 val opOfSeq = HashMap<Long, String>()

@@ -101,9 +101,9 @@ class CanvasSelectionHost(
 
     // ── reading ──
 
-    override fun activeLines(): List<SelectionHost.Line> = active.get(canvas.activeLinePlanes())
+    override fun activeLines(): List<SelectionHost.Line> { dropPendingIfReloaded(); return active.get(canvas.activeLinePlanes()) }
 
-    override fun visibleLines(): List<SelectionHost.Line> = visible.get(canvas.visibleLinePlanes())
+    override fun visibleLines(): List<SelectionHost.Line> { dropPendingIfReloaded(); return visible.get(canvas.visibleLinePlanes()) }
 
     private inner class Memo {
         private var snapshot: LineSnapshot? = null

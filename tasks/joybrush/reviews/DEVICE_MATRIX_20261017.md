@@ -1,93 +1,99 @@
-# Device matrix: first Note 9 run (2026-10-17)
+# Device matrix: Note 9, 2026-10-18 (run 2, after the Select-tool fix)
 
-**Result: the run finished, but every one of the 132 cells is a no-op (0 changed pixels). These numbers are not brush costs.** The stroke replay appears not to have drawn anything. Treat this run as a harness or stroke-delivery failure until it is diagnosed. It is not evidence about any brush.
+**Result: 132 of 132 cells completed. 80 works, 28 refused, 24 noop.** Canvas-board ink changed 7,029 px with an exact undo, so the sanity rule passes.
+Run 1 (2026-10-17, every cell a no-op) is superseded; its cause is below.
 
-- Build commit: `6753dc323` (lead/device-matrix, merge of origin/joy-creator; `2ba653ed8` is the matrix bench commit it includes)
-- Merge of origin/joy-creator: clean, no conflicts
-- Build: `:app:assembleDefaultDebug` (debug, applicationId com.fadcam.beta), BUILD SUCCESSFUL in 8m 55s, 0 `e:` errors
-- APK: `app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk`
-- APK sha256: `e06b33adfac13d58807a92b51e063043a48e6e45a893ffa930654d8d581e35fd`
-- Date: 2026-10-17
-- Device: Galaxy Note 9 (SM_N960U), the only device attached
-- Install: `adb install -r`, Success (no uninstall, no data clear)
-- Launch: `am start -n com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity --es jb_bench matrix --es jb_bench_brushes all` (boards, from and to left at defaults: all four boards, all cells)
-- Plan: 132 cells (33 brushes x 4 boards); `done` event after 301,993 ms; 22:45 to 22:50 local
-- Raw log: `matrix-logcat.txt` in the worktree root (not committed)
+- Code under test: `436ffb5ca` (lead/device-matrix, on top of the merge 6753dc323)
+- APK: `app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk` (debug, com.fadcam.beta)
+- APK sha256: `c378b9719467281e6a7f7478c1512c3edfb405d2b82e98fe7480abe0bc779bb2`
+- Date: 2026-10-18. Phone run 05:42 to 06:02 EDT.
+- Install: `adb install -r`, Success. The app was in front (MainActivity), so HOME was pressed before the install and again after the run. Only the Note 9 was attached.
+- Launch: `am start -n com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity --es jb_bench matrix --es jb_bench_brushes all`
+- Done: `{"case":"matrix","event":"done","cells":132,"elapsedMs":1146684}`. No FATAL, no crash.
+
+## Run 1 cause (every cell a no-op)
+
+Debug build with temporary logs, cells 0 to 2, log `JoyBrushMatrixDbg`:
+
+- Every stylus event was claimed by the canvas tool: 435 of 435 touch events logged `onTouchEvent: toolTouch returned true`. No `startStroke entered` line exists in the log, so `startStroke` never ran.
+- Example: `onTouchEvent action=0 tool=2 x=372.0 y=516.0 drawing=false penSeen=false` followed by `onTouchEvent: toolTouch returned true`.
+- The tool is the Select tool. `JoyBrushActivity.setUpSelect` calls `SelectController.attach()`, which sets `canvas.tool`. `SelectTool.selectToolInHand` defaults to `true` (SelectTool.kt line 54). On a fresh launch nothing clears it; `leaveSelect()` runs only when a brush is tapped on the strip, and the bench never taps one.
+
+**Fix:** `MatrixBench` clears `canvas.tool` before each cell and restores the prior tool when the matrix finishes. The temporary logs were removed (JbCanvasView restored to HEAD).
 
 ## Table
 
-Each cell: `p50 / p95 ms (frames)`, the busy time per stroke frame as the bench reports it. `[noop]` = verdict noop.
+Each cell: `p50 / p95 ms (frames)`, busy time per stroke frame. `[tag]` = verdict other than works.
 
 | brush | canvas | animation | tile | sprite |
 |---|---|---|---|---|
-| joybrush.ink | 3.15 / 3.15 ms (1f) **[noop]** | 4.08 / 4.08 ms (2f) **[noop]** | 16.85 / 16.85 ms (1f) **[noop]** | 5.14 / 5.14 ms (2f) **[noop]** |
-| joybrush.sable | 4.33 / 4.33 ms (2f) **[noop]** | 4.65 / 4.65 ms (2f) **[noop]** | 24.4 / 24.4 ms (1f) **[noop]** | 3.94 / 3.94 ms (2f) **[noop]** |
-| joybrush.pencil | 2.95 / 2.95 ms (2f) **[noop]** | 15.16 / 15.16 ms (1f) **[noop]** | 5.13 / 5.13 ms (2f) **[noop]** | 4.77 / 4.77 ms (2f) **[noop]** |
-| joybrush.bristle | 4.88 / 4.88 ms (2f) **[noop]** | 22.28 / 22.28 ms (1f) **[noop]** | 4.28 / 4.28 ms (2f) **[noop]** | 4.53 / 4.53 ms (2f) **[noop]** |
-| joybrush.flatpaint | 2.83 / 2.83 ms (2f) **[noop]** | 4.53 / 4.53 ms (2f) **[noop]** | 5.04 / 5.04 ms (2f) **[noop]** | 3.91 / 3.91 ms (2f) **[noop]** |
-| joybrush.marker | 4.42 / 4.42 ms (2f) **[noop]** | 3.9 / 3.9 ms (2f) **[noop]** | 16.91 / 16.91 ms (1f) **[noop]** | 6.03 / 6.03 ms (2f) **[noop]** |
-| joybrush.softair | 3.88 / 3.88 ms (2f) **[noop]** | 3.6 / 3.6 ms (2f) **[noop]** | 3.5 / 3.5 ms (2f) **[noop]** | 2.76 / 2.76 ms (2f) **[noop]** |
-| joybrush.smudge | 4.8 / 4.8 ms (2f) **[noop]** | 4.84 / 4.84 ms (2f) **[noop]** | 20.85 / 20.85 ms (1f) **[noop]** | 4.44 / 4.44 ms (2f) **[noop]** |
-| joybrush.eraser | 4.15 / 4.15 ms (2f) **[noop]** | 3.65 / 3.65 ms (2f) **[noop]** | 3.45 / 3.45 ms (2f) **[noop]** | 4.08 / 4.08 ms (2f) **[noop]** |
-| fill | 1.63 / 1.63 ms (2f) **[noop]** | 19.17 / 19.17 ms (1f) **[noop]** | 4.96 / 4.96 ms (2f) **[noop]** | 18.99 / 18.99 ms (1f) **[noop]** |
-| joybrush.watercolour | 3.32 / 3.32 ms (2f) **[noop]** | 18.04 / 18.04 ms (1f) **[noop]** | 4.92 / 4.92 ms (2f) **[noop]** | 5.8 / 5.8 ms (2f) **[noop]** |
-| media:dry:Proto Pencil | 3.61 / 3.61 ms (2f) **[noop]** | 4.77 / 4.77 ms (2f) **[noop]** | 4.26 / 4.26 ms (2f) **[noop]** | 3.83 / 3.83 ms (2f) **[noop]** |
-| media:dry:Proto Mix | 4.45 / 4.45 ms (2f) **[noop]** | 5.8 / 5.8 ms (2f) **[noop]** | 23.01 / 23.01 ms (1f) **[noop]** | 4.21 / 4.21 ms (2f) **[noop]** |
-| media:dry:Proto | 5.06 / 5.06 ms (2f) **[noop]** | 4.32 / 4.32 ms (2f) **[noop]** | 5.64 / 5.64 ms (2f) **[noop]** | 4.15 / 4.15 ms (2f) **[noop]** |
-| media:dry:Proto 2 | 3.43 / 3.43 ms (2f) **[noop]** | 3.56 / 3.56 ms (2f) **[noop]** | 4.19 / 4.19 ms (2f) **[noop]** | 5.53 / 5.53 ms (2f) **[noop]** |
-| media:dry:2H | 3.92 / 3.92 ms (2f) **[noop]** | 3.02 / 3.02 ms (2f) **[noop]** | 14.43 / 14.43 ms (1f) **[noop]** | 5.01 / 5.01 ms (2f) **[noop]** |
-| media:dry:HB | 2.41 / 2.41 ms (2f) **[noop]** | 4.7 / 4.7 ms (2f) **[noop]** | 5.5 / 5.5 ms (2f) **[noop]** | 4.5 / 4.5 ms (2f) **[noop]** |
-| media:dry:2B | 16.87 / 16.87 ms (1f) **[noop]** | 3.95 / 3.95 ms (2f) **[noop]** | 16.68 / 16.68 ms (1f) **[noop]** | 4.29 / 4.29 ms (2f) **[noop]** |
-| media:dry:6B | 25.81 / 25.81 ms (1f) **[noop]** | 4.19 / 4.19 ms (2f) **[noop]** | 5.2 / 5.2 ms (2f) **[noop]** | 4.16 / 4.16 ms (2f) **[noop]** |
-| media:dry:Woodless 8B | 4.56 / 4.56 ms (2f) **[noop]** | 16.82 / 16.82 ms (1f) **[noop]** | 4.95 / 4.95 ms (2f) **[noop]** | 3.46 / 3.46 ms (2f) **[noop]** |
-| media:wet:All-round | 3.65 / 3.65 ms (2f) **[noop]** | 4.21 / 4.21 ms (2f) **[noop]** | 17.7 / 17.7 ms (1f) **[noop]** | 3.48 / 3.48 ms (2f) **[noop]** |
-| media:wet:Round | 3.7 / 3.7 ms (2f) **[noop]** | 2.8 / 2.8 ms (2f) **[noop]** | 2.83 / 2.83 ms (2f) **[noop]** | 3.9 / 3.9 ms (2f) **[noop]** |
-| media:wet:Wash | 5.09 / 5.09 ms (2f) **[noop]** | 3.35 / 3.35 ms (2f) **[noop]** | 16.46 / 16.46 ms (1f) **[noop]** | 5.27 / 5.27 ms (2f) **[noop]** |
-| media:wet:Dry brush | 5.69 / 5.69 ms (2f) **[noop]** | 2.44 / 2.44 ms (2f) **[noop]** | 11.18 / 11.18 ms (1f) **[noop]** | 4.58 / 4.58 ms (2f) **[noop]** |
-| media:wet:Water | 3.93 / 3.93 ms (2f) **[noop]** | 5.07 / 5.07 ms (2f) **[noop]** | 3.76 / 3.76 ms (2f) **[noop]** | 5.43 / 5.43 ms (2f) **[noop]** |
-| media:wet:Thirsty | 5.61 / 5.61 ms (2f) **[noop]** | 3.68 / 3.68 ms (2f) **[noop]** | 18.52 / 18.52 ms (1f) **[noop]** | 4.01 / 4.01 ms (2f) **[noop]** |
-| media:paste:All-round | 4.62 / 4.62 ms (2f) **[noop]** | 4.05 / 4.05 ms (2f) **[noop]** | 5.94 / 5.94 ms (2f) **[noop]** | 7.32 / 7.32 ms (2f) **[noop]** |
-| media:paste:Oil flat | 21.84 / 21.84 ms (1f) **[noop]** | 2.8 / 2.8 ms (2f) **[noop]** | 4.92 / 4.92 ms (2f) **[noop]** | 5.14 / 5.14 ms (2f) **[noop]** |
-| media:paste:Oil round | 4.44 / 4.44 ms (2f) **[noop]** | 16.54 / 16.54 ms (1f) **[noop]** | 5.03 / 5.03 ms (2f) **[noop]** | 3.17 / 3.17 ms (2f) **[noop]** |
-| media:paste:Fan blender | 5.14 / 5.14 ms (2f) **[noop]** | 4.22 / 4.22 ms (2f) **[noop]** | 16.49 / 16.49 ms (1f) **[noop]** | 5.5 / 5.5 ms (2f) **[noop]** |
-| media:paste:Palette knife 1 | 4 / 4 ms (2f) **[noop]** | 16.98 / 16.98 ms (1f) **[noop]** | 17.61 / 17.61 ms (1f) **[noop]** | 3.97 / 3.97 ms (2f) **[noop]** |
-| media:paste:Palette knife 2 | 4.26 / 4.26 ms (2f) **[noop]** | 3.46 / 3.46 ms (2f) **[noop]** | 5.05 / 5.05 ms (2f) **[noop]** | 2.56 / 2.56 ms (2f) **[noop]** |
-| media:paste:Scraper | 22.41 / 22.41 ms (1f) **[noop]** | 3.92 / 3.92 ms (2f) **[noop]** | 24.33 / 24.33 ms (1f) **[noop]** | 3.44 / 3.44 ms (2f) **[noop]** |
+| joybrush.ink | 15.84 / 16.94 ms (36f) | 15.29 / 17.74 ms (37f) | 15.38 / 17.94 ms (38f) | 15.75 / 16.62 ms (38f) |
+| joybrush.sable | 15.67 / 16.95 ms (37f) | 15.4 / 16.67 ms (38f) | 15.7 / 17.17 ms (38f) | 15.51 / 16.68 ms (38f) |
+| joybrush.pencil | 23.44 / 56.33 ms (17f) | 42.3 / 61.44 ms (13f) | 76.46 / 87.14 ms (10f) | 15.62 / 18.41 ms (34f) |
+| joybrush.bristle | 15.46 / 16.99 ms (38f) | 15.07 / 17.67 ms (38f) | 16.52 / 40.87 ms (28f) | 15.23 / 16.35 ms (38f) |
+| joybrush.flatpaint | 0 / 0 ms (0f) **[refused]** | 0 / 0 ms (0f) **[refused]** | 220.53 / 220.53 ms (3f) | 0 / 0 ms (0f) **[refused]** |
+| joybrush.marker | 15.39 / 16.78 ms (36f) | 15.74 / 18.59 ms (38f) | 30.95 / 47.73 ms (19f) | 15.37 / 17.17 ms (36f) |
+| joybrush.softair | 16.92 / 20.86 ms (33f) | 16.67 / 24.4 ms (34f) | 97.34 / 195.66 ms (7f) | 15.46 / 18.18 ms (35f) |
+| joybrush.smudge | 0 / 0 ms (0f) **[refused]** | 0 / 0 ms (0f) **[refused]** | 15.71 / 18.04 ms (36f) | 0 / 0 ms (0f) **[refused]** |
+| joybrush.eraser | 15.36 / 17.61 ms (37f) | 15.47 / 17.26 ms (36f) | 15.75 / 17.72 ms (39f) | 15.54 / 18.72 ms (36f) |
+| fill | 122.97 / 122.97 ms (1f) | 126.28 / 126.28 ms (1f) | 70.68 / 70.68 ms (1f) | 29.64 / 29.64 ms (1f) |
+| joybrush.watercolour | 0 / 0 ms (0f) | 24.6 / 51.11 ms (18f) | 81.55 / 144.32 ms (7f) | 21.4 / 34.45 ms (25f) |
+| media:dry:Proto Pencil | 1011.8 / 1011.8 ms (1f) | 17.13 / 28.4 ms (29f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 15.63 / 23.53 ms (35f) |
+| media:dry:Proto Mix | 15.74 / 17.48 ms (36f) | 18.82 / 24.83 ms (29f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 15.83 / 20.81 ms (37f) |
+| media:dry:Proto | 15.85 / 20.94 ms (37f) | 20.03 / 25.45 ms (27f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 15.58 / 22.2 ms (35f) |
+| media:dry:Proto 2 | 15.91 / 17.63 ms (38f) | 15.49 / 24.38 ms (33f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 16.01 / 21.13 ms (33f) |
+| media:dry:2H | 15.83 / 17.17 ms (38f) | 15.82 / 18.83 ms (36f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 15.85 / 19.33 ms (35f) |
+| media:dry:HB | 15.56 / 24.26 ms (37f) | 15.68 / 21.29 ms (36f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 15.66 / 26.88 ms (33f) |
+| media:dry:2B | 15.63 / 23.75 ms (33f) | 15.72 / 24.86 ms (35f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 15.65 / 18.58 ms (35f) |
+| media:dry:6B | 15.73 / 23.36 ms (34f) | 15.13 / 19.86 ms (34f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 15.46 / 18.07 ms (36f) |
+| media:dry:Woodless 8B | 16.92 / 20.43 ms (33f) | 18.1 / 25.47 ms (31f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 16.18 / 20.93 ms (34f) |
+| media:wet:All-round | 58.33 / 119.92 ms (8f) | 88.89 / 134.61 ms (6f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 60.97 / 150.37 ms (7f) |
+| media:wet:Round | 71.19 / 85.67 ms (8f) | 93.05 / 159.7 ms (7f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 39.7 / 87.6 ms (11f) |
+| media:wet:Wash | 160.31 / 160.84 ms (5f) | 157.53 / 168.46 ms (4f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 87.03 / 106.13 ms (7f) |
+| media:wet:Dry brush | 70.81 / 113.92 ms (8f) | 67.16 / 109.68 ms (7f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 75.86 / 105.97 ms (9f) |
+| media:wet:Water | 82.36 / 123.7 ms (7f) | 73.59 / 118.08 ms (7f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 94.46 / 118.54 ms (6f) |
+| media:wet:Thirsty | 64.93 / 113.53 ms (8f) | 62.72 / 112.74 ms (8f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 38.43 / 87.95 ms (11f) |
+| media:paste:All-round | 125.88 / 217.42 ms (4f) | 118.32 / 215.87 ms (5f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 30.32 / 68.79 ms (17f) |
+| media:paste:Oil flat | 94.54 / 116.71 ms (7f) | 127.42 / 129.51 ms (5f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 19.91 / 63.7 ms (21f) |
+| media:paste:Oil round | 117.23 / 131.23 ms (7f) | 68.98 / 93.36 ms (8f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 16.8 / 31.68 ms (30f) |
+| media:paste:Fan blender | 133.3 / 155.05 ms (5f) | 129.19 / 177.78 ms (6f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 89.56 / 99.99 ms (7f) |
+| media:paste:Palette knife 1 | 186.02 / 211.38 ms (4f) | 162.49 / 176.13 ms (4f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 75.13 / 108.46 ms (8f) |
+| media:paste:Palette knife 2 | 219.61 / 239.78 ms (4f) | 190.22 / 191.64 ms (4f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 70.62 / 100.99 ms (8f) |
+| media:paste:Scraper | 149.55 / 257.52 ms (4f) **[noop]** | 144.9 / 221.88 ms (4f) **[noop]** | 0 / 0 ms (0f) **[refused]** | 101.54 / 124.4 ms (6f) **[noop]** |
 
-## Ten slowest cells (by p95)
+## Ten slowest cells by p95 (as the parser ranks them)
 
-These are slow only as no-op strokes; they do not show brush cost.
+One row is a single-frame measurement (media Proto Pencil, canvas, 1 frame): it includes first-use cost and is not steady-state.
 
-```
-media:dry:6B | canvas | p50 25.81 p95 25.81 frames 1 | noop
-joybrush.sable | tile | p50 24.4 p95 24.4 frames 1 | noop
-media:paste:Scraper | tile | p50 24.33 p95 24.33 frames 1 | noop
-media:dry:Proto Mix | tile | p50 23.01 p95 23.01 frames 1 | noop
-media:paste:Scraper | canvas | p50 22.41 p95 22.41 frames 1 | noop
-joybrush.bristle | animation | p50 22.28 p95 22.28 frames 1 | noop
-media:paste:Oil flat | canvas | p50 21.84 p95 21.84 frames 1 | noop
-joybrush.smudge | tile | p50 20.85 p95 20.85 frames 1 | noop
-fill | animation | p50 19.17 p95 19.17 frames 1 | noop
-fill | sprite | p50 18.99 p95 18.99 frames 1 | noop
-```
+- media:dry:Proto Pencil | canvas | p50 1011.8 p95 1011.8 frames 1 | works
+- media:paste:Scraper | canvas | p50 149.55 p95 257.52 frames 4 | noop
+- media:paste:Palette knife 2 | canvas | p50 219.61 p95 239.78 frames 4 | works
+- media:paste:Scraper | animation | p50 144.9 p95 221.88 frames 4 | noop
+- joybrush.flatpaint | tile | p50 220.53 p95 220.53 frames 3 | works
+- media:paste:All-round | canvas | p50 125.88 p95 217.42 frames 4 | works
+- media:paste:All-round | animation | p50 118.32 p95 215.87 frames 5 | noop
+- media:paste:Palette knife 1 | canvas | p50 186.02 p95 211.38 frames 4 | works
+- joybrush.softair | tile | p50 97.34 p95 195.66 frames 7 | works
+- media:paste:Palette knife 2 | animation | p50 190.22 p95 191.64 frames 4 | noop
 
-## Failed, refused, or errored cells
+Four of these ten rows are noop cells (three animation media cells, which the verdict bug mislabels, and Scraper on canvas). Their timings are for strokes the verdict calls no-op.
 
-- Refused: 0
-- Errored: 0
-- Verdict `noop`: 132 of 132 cells (changedPx 0, changedTiles 0, undoSteps 0, undoExact null)
-- Cells started without a result: 0
-- Every cell settled (`settled: true`)
-- Frames per stroke: 1 or 2 in every cell, for a stroke about 600 ms long
+## Failed, refused, and noop cells (by cause)
 
-## Crash stack
+**Refused, 22 cells: media brushes on the tile board.** Message: "Turn tiling off to use pencil, watercolour and oil". This is the app's rule, not a fault.
 
-None. No `FATAL EXCEPTION` in JoyBrushPerf or AndroidRuntime during the run.
+**Refused, 6 cells: smudge-engine brushes (Flat Paint, Smudge) on canvas, animation and sprite boards.** Message: "Layer 1 holds editable lines, and smudge doesn't work on lines yet." These cells ran with \`primed: true\`. The priming strokes became editable lines, so the smudge refused. The activity restores the Editable lines switch from the saved preference (JoyBrushActivity.kt line 404, default false). This phone's saved value was not read, so this is an inference from the refusal text.
 
-## Observations (unverified)
+**Noop, 22 cells, animation board. This is a bench verdict bug, not a dead brush.** 21 of them have \`framePx\` between 21,866 and 40,192 with \`undoExact: true\`, so the stroke painted the frame cels. \`MatrixDiff.verdict\` counts only the visible plane, so it reports them as noop. The 22nd is Scraper (framePx 0, see next). Six of the wet cells also ended with \`settled: false\`.
 
-- The stroke frames count (1 or 2) against a 600 ms stroke suggests the replayed touches did not reach the drawing surface. Not verified; no test was run to confirm.
-- Logcat during the run had one warning when the run began: `WindowManager: preserveSurfaceLocked: failed, no surface` for the JoyBrushActivity window (22:45:13).
-- Next step (not done): find out why the stroke replay changes nothing, then re-run this matrix.
+**Noop, 2 cells, Scraper on canvas and sprite.** The bench primes only erase and smudge brushes, and the scraper has no paint under it on an empty board, so there is nothing to scrape. Undo is exact and frames were drawn. This is a bench gap.
 
-Raw JSON: `tasks/joybrush/reviews/DEVICE_MATRIX_20261017.jsonl` (132 cell lines, plus the `plan` and `done` lines).
+**Errors:** none. **Cells started with no result:** none.
+
+## Notes on what was not done
+
+- Not fixed in this round, each needs another build and phone window: (1) the animation verdict should count \`framePx\` as changed; (2) prime the scraper, or mark it as not measurable on blank paper; (3) decide whether the matrix should run with Editable lines off, since that is a product setting.
+- Not verified: whether a normal first launch of the app also gives the Select tool the pen-down. The bench reproduces it on a fresh launch, so a user drawing straight after launch may get a selection instead of a stroke. The owner or lead should check on a normal launch.
+- Not verified: the older bench cases (BenchRunner, for example fastC) go through the same tool path, so they may have the same hold unless some other step clears it.
+
+Raw JSON: \`tasks/joybrush/reviews/DEVICE_MATRIX_20261017.jsonl\` (132 cell lines, plus the \`plan\` and \`done\` lines).

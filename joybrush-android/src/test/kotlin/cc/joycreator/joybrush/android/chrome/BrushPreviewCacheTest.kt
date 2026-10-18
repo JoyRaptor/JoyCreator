@@ -210,7 +210,7 @@ class BrushPreviewCacheTest {
             settle(); maker.finish("P$id", index = i); settle()
         }
         assertEquals(2, stored().size)
-        assertTrue(stored().none { it.startsWith("a_") }, "the oldest went: ${stored()}")
+        assertTrue("the oldest went: ${stored()}", stored().none { it.startsWith("a_") })
     }
 
     @Test fun aReadFromTheFolderMakesThatPictureTheNewestThere() {

@@ -8,6 +8,7 @@ import cc.joycreator.joybrush.androidkit.BrushLibrary
 import cc.joycreator.joybrush.androidkit.JbCanvasView
 import cc.joycreator.joybrush.androidkit.bench.FrameStats
 import cc.joycreator.joybrush.androidkit.bench.StrokeReplay
+import cc.joycreator.joybrush.androidkit.tools.CanvasTool
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 import cc.joycreator.joybrush.core.brush.Param
@@ -45,6 +46,7 @@ class MatrixBench(private val canvas: JbCanvasView, private val spec: BenchRunne
     private val refusals = ArrayList<String>()
     private var priorRefused: ((String) -> Unit)? = null
     private var priorStrokeEnded: (() -> Unit)? = null
+    private var priorTool: CanvasTool? = null
     private var startedAt = 0L
     private var cells = 0
     private lateinit var primer: BrushPreset
@@ -64,6 +66,7 @@ class MatrixBench(private val canvas: JbCanvasView, private val spec: BenchRunne
         // Refusals are collected, not toasted; the stroke-ended hook (recent colours, autosave clock) is left out of a bench.
         priorRefused = canvas.onRefused; canvas.onRefused = { why -> refusals.add(why) }
         priorStrokeEnded = canvas.onStrokeEnded; canvas.onStrokeEnded = null
+        priorTool = canvas.tool
         canvas.benchWatch = true
         startedAt = SystemClock.uptimeMillis()
         waitForSurface()
@@ -79,6 +82,7 @@ class MatrixBench(private val canvas: JbCanvasView, private val spec: BenchRunne
         if (job == null) {
             canvas.benchWatch = false
             canvas.onRefused = priorRefused; canvas.onStrokeEnded = priorStrokeEnded
+            canvas.tool = priorTool
             Log.i(TAG, JSONObject().put("case", "matrix").put("event", "done").put("cells", cells)
                 .put("elapsedMs", SystemClock.uptimeMillis() - startedAt).toString())
             onDone()
@@ -107,6 +111,10 @@ class MatrixBench(private val canvas: JbCanvasView, private val spec: BenchRunne
         fun run() {
             Log.i(TAG, JSONObject().put("case", "matrix").put("event", "start").put("idx", job.index)
                 .put("brush", preset.id).put("board", kind.label).toString())
+            // A fresh launch has the Select tool in the hand (SelectTool.selectToolInHand defaults to true), and it takes every
+            // pen-down as a selection until a brush is tapped on the strip. The bench takes no tool, so the brush paints
+            // (measured on the Note 9 2026-10-17: toolTouch claimed 435 of 435 stylus events, startStroke never ran).
+            canvas.tool = null
             refusals.clear(); canvas.benchErrors.clear()
             ui.postDelayed(timeout, CELL_TIMEOUT_MS)
             phase = "fresh"

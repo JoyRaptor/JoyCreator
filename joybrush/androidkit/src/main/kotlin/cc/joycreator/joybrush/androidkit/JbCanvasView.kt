@@ -766,6 +766,37 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
+    /** Are any layers hidden? Flatten asks what to do with them (keep, or discard), unless the person chose to be remembered. */
+    val hasHiddenLayers: Boolean get() = stackUi.layers.any { !it.visible }
+
+    /**
+     * Flatten (LAYER_OPS L6): every visible layer frozen into one layer of plain pixels, the picture unchanged, ONE undo
+     * step; [discardHidden] drops hidden layers in the same step. Lines, slabs and pencil/watercolour/oil state are baked.
+     */
+    fun flatten(discardHidden: Boolean) {
+        if (penIsDown()) return
+        val before = stackUi
+        onBeforeHistoryChange?.invoke()
+        onGl {
+            val plan = try {
+                cc.joycreator.joybrush.androidkit.layers.FlattenPlan.decide(before, discardHidden) { id ->
+                    cc.joycreator.joybrush.androidkit.layers.FlattenPlan.Facts(hasFrames = before[id]?.let { engine.mergeSide(it).hasFrames } == true)
+                }
+            } catch (e: Exception) { cc.joycreator.joybrush.androidkit.layers.FlattenPlan.Result.Refused(e.message ?: "The layers could not be flattened") }
+            when (plan) {
+                is cc.joycreator.joybrush.androidkit.layers.FlattenPlan.Result.Refused -> post { onRefused?.invoke(plan.sentence) }
+                is cc.joycreator.joybrush.androidkit.layers.FlattenPlan.Result.Flatten -> try {
+                    engine.flattenStep(plan.targetId, plan.merged, plan.discarded, before, plan.after)
+                    reportHistory(); publishLines()
+                    val name = before[plan.targetId]?.name ?: "one layer"
+                    post { adopt(plan.after); onNotice?.invoke("Flattened into \"$name\". Undo brings the layers back.") }
+                } catch (e: Exception) {
+                    post { onRefused?.invoke(e.message ?: "The layers could not be flattened") }
+                }
+            }
+        }
+    }
+
     fun moveLayer(id: String, toIndex: Int) {
         val before = stackUi
         val after = before.move(id, toIndex)

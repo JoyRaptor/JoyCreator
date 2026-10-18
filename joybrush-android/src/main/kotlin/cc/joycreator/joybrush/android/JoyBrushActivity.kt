@@ -177,6 +177,8 @@ private const val PREF_GUIDES = "guides"
 
 /** NATIVE_LINES_V1: the "Editable lines" switch. Off until chosen; the app remembers it, the drawing does not. */
 private const val PREF_EDITABLE_LINES = "joybrush.editableLines"
+/** LAYER_OPS L6: what Flatten does with hidden layers: "ask" (default), "keep" or "discard". */
+private const val PREF_FLATTEN_HIDDEN = "joybrush.flattenHidden"
 
 /** Layer thumbnails are re-drawn this long after the last change, so a burst of strokes costs one refresh. */
 private const val THUMBS_AFTER_MS = 250L
@@ -899,6 +901,32 @@ class JoyBrushActivity : Activity() {
 
     // ── the ⋯ menu ──
 
+    /**
+     * Flatten, asking first about hidden layers the way Photoshop does, unless the person ticked "Remember my choice"
+     * (the ⋯ menu's "Flatten: hidden layers" row changes it later).
+     */
+    private fun flattenAsking(anchor: View) {
+        val pref = prefs.getString(PREF_FLATTEN_HIDDEN, "ask") ?: "ask"
+        if (!canvas.hasHiddenLayers || pref != "ask") { canvas.flatten(discardHidden = pref == "discard"); return }
+        var remember = false
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        box.addView(drawerText("Some layers are hidden.", 13f).apply { setPadding(dp(12), dp(10), dp(12), dp(4)) })
+        fun choose(discard: Boolean) {
+            if (remember) prefs.edit().putString(PREF_FLATTEN_HIDDEN, if (discard) "discard" else "keep").apply()
+            popovers.close(); canvas.flatten(discard)
+        }
+        box.addView(menuRow("Keep hidden layers", "Flatten what shows; hidden layers stay as they are") { choose(false) })
+        box.addView(menuRow("Discard hidden layers", "Flatten what shows and delete the hidden layers. Undo brings them back",
+            dot = kit.p.stateDestroy) { choose(true) })
+        lateinit var rememberRow: View
+        rememberRow = menuRow("☐  Remember my choice", "Don't ask again; change it later in the ⋯ menu") {
+            remember = !remember
+            (rememberRow as? android.widget.TextView)?.text = if (remember) "☑  Remember my choice" else "☐  Remember my choice"
+        }
+        box.addView(rememberRow)
+        popovers.show(box, anchor, Popovers.Side.BESIDE, widthDp = 240f)
+    }
+
     private fun moreMenu(anchor: View) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         box.addView(menuRow("Boards…", "Create or select an Image, Animation or Sprite board") { popovers.close(); boardController?.showMenu() })
@@ -907,6 +935,13 @@ class JoyBrushActivity : Activity() {
             if (linesOn) "Editable lines are on: new strokes stay lines you can pick with Select, then move, recolour and re-brush. Tap to turn off"
             else "Editable lines are off: new strokes are plain pixels. Tap to keep new strokes as lines you can pick with Select") {
             setEditableLines(!linesOn)
+        })
+        val flattenPref = prefs.getString(PREF_FLATTEN_HIDDEN, "ask") ?: "ask"
+        box.addView(menuRow("Hidden layers on Flatten: ${mapOf("ask" to "Ask", "keep" to "Keep", "discard" to "Discard")[flattenPref]}",
+            "What Flatten does with hidden layers. Tap to change: Ask, Keep, Discard") {
+            val next = when (flattenPref) { "ask" -> "keep"; "keep" -> "discard"; else -> "ask" }
+            prefs.edit().putString(PREF_FLATTEN_HIDDEN, next).apply()
+            popovers.close(); moreMenu(anchor)
         })
         addTiltRows(box)
         box.addView(menuRow("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() })
@@ -1410,6 +1445,9 @@ class JoyBrushActivity : Activity() {
                 popovers.close(); canvas.mergeDown(id)
             })
         }
+        box.addView(menuRow("Flatten", "Freeze every visible layer into one, exactly as it looks. Undo brings them back") {
+            popovers.close(); flattenAsking(anchor)
+        })
         box.addView(menuRow("Clear layer", "Empty this layer — Undo brings it back") {
             canvas.selectLayer(id)
             endSelection(); canvas.clearCanvas()

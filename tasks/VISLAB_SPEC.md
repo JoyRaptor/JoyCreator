@@ -3,6 +3,8 @@
 Lane: `VISLAB_20261016`. Owner: JoyRaptor. Written 2026-10-17; this file is the truth for VisLab,
 the brief (`tasks/VISLAB_BRIEF.md`) is history.
 
+**What is left, as a checklist with the code places scouted: `tasks/VISLAB_TODO.md`.**
+
 ## 1. What VisLab is
 
 A music-visualiser studio inside Joy Creator, built for three places (owner, 10-16):

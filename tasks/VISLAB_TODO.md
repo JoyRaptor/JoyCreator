@@ -81,9 +81,32 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
 - [x] **C3. Floating visualiser hears phone audio without recording** (Android's playback
   - DONE 10-18, Note 9 with the owner: speaker button -> Android's question -> Start now -> hearing the phone; Glass Peaks jumped with the demo song playing on the phone; tapping again went back to the microphone and Android released the permission. Apps that forbid capture stay silent.
   capture needs the screen-capture consent) — `vislab/overlay/OverlaySound.java` (NONE/RECORDING/MIC).
-- [ ] **C4. Studio** (looks as overlays, scrub, export, transcript words) — handed to the Studio
-  lane, `tasks/INBOX.md` 10-17 + spec §7. VisLab side is ready; only do it if the owner moves it here.
-
+- [ ] **C4. Studio: VisLab looks inside Studio's visualiser** (owner 10-18: build it here, not the
+  Studio lane; integrate, not override; "Studio is meant to replace After Effects").
+  Owner rulings 10-18: VisLab looks are a **section of the Rolodex** (same visualiser item, classic
+  styles stay selectable); a **small editor in Studio** for values worth keyframing (reactivity,
+  fades...), using Studio's shared keyframe helper (two arrows, diamond); movement / attachment comes
+  from Studio's own transform keyframes and proxy links (the item already implements LinkFollower).
+  Scouted 10-18 (Haiku), paths under `app/src/main/java/com/fadcam/`:
+  - Item: `ui/faditor/model/WaveformOverlayInstance.java` (time range :41, centre/size/rotation
+    :109-113, styleId :34, customStyleJson :106, keyframes :223, mapToSourceMs :473). Saved by hand in
+    `ui/faditor/project/ProjectStorage.java` writer :2569-2646, reader :3534-3630 ("absent = default").
+  - Add: `FaditorEditorActivity.addWaveformVisualizer` (~:20423). Style tab: `buildVisualizerRolodex`
+    (~:20595), carousel writes styleId (~:21099). Transform tab: `buildVisualizerTransformTab` (~:32143).
+  - Preview: `ui/faditor/waveform/WaveformOverlayView.onDraw` (:133-197) renders a Bitmap per overlay
+    (`renderer.renderReusable` :160). Playhead from `playheadUpdater` every 50 ms.
+  - Export: `ui/faditor/export/CompositeExportOverlay.getBitmap(presentationTimeUs)` (:859), waveform
+    loop :1097-1169 (`render` :1120, time `instance.mapToSourceMs(timelineMs)` :1105). Runs on Media3's
+    GL thread, so VisLab must render on its OWN EGL thread and hand back a Bitmap.
+  - Sound: `ui/faditor/waveform/PcmSidecar` (whole-source PCM, 22050 Hz mono, `open(ctx, uri)`,
+    `frameAt`), used by scrubbing. Transcripts: `Clip.getActiveNamedTranscript`, words in source ms.
+  Build order (tick each):
+  - [ ] S1 the item can carry a VisLab look (`visLook` id), saved and loaded, undoable.
+  - [ ] S2 Rolodex section "VisLab looks"; choosing one swaps the classic knobs out (Classic brings them back).
+  - [ ] S3 one renderer for preview and export: offscreen ES 3 on its own thread -> Bitmap; sound from an
+        offline 60 Hz feature track of the source (PcmSidecar -> FeatureExtractor), cached.
+  - [ ] S4 small editor: Reactivity, Fade (opacity) and the look's key knobs, keyframable.
+  - [ ] S5 the transcript's words feed a look's Words layer.
 ## D. Speed, heat, sharing
 
 - [x] **D1. Crystal and Gyroid Dive** are the slowest looks (`shaders/voronoi.frag`, `raymarch.frag`).

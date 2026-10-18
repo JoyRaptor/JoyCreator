@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.gl.lines
 
 import cc.joycreator.joybrush.androidkit.lines.LinePlane
 import cc.joycreator.joybrush.core.paint.UndoLog
+import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.vector.CelComposer
 
 /**
@@ -21,20 +22,48 @@ internal object LineItems {
     /**
      * Apply a step's item changes to [nl], forward (redo, or the step as made) or back (undo). Removals go first, so a
      * baked line's slab can take the seq of the line that goes in the same step. [planeOf] says which plane a change names.
+     * [footprints] hands a line the tiles it is known to cover (a fresh line's estimate plus what the GPU drew); a line
+     * without an entry gets the estimate plus whatever was learned of it before.
+     *
+     * ALL OR NOTHING: if any change is refused (a seq clash, a bad operator), every change already made is taken back in
+     * reverse order before the exception goes on, so the plane is exactly as it was.
      */
     fun apply(nl: NativeLines, slabs: List<UndoLog.SlabChange<Int>>, lines: List<UndoLog.LineChange>,
-              forward: Boolean, planeOf: (layerId: String, celId: String?) -> LinePlane) {
+              forward: Boolean, planeOf: (layerId: String, celId: String?) -> LinePlane,
+              footprints: Map<Pair<LinePlane, String>, Set<Long>> = emptyMap()) {
+        val inverses = ArrayList<() -> Unit>()
         fun lineTarget(c: UndoLog.LineChange) = if (forward) c.after else c.before
         fun slabTarget(c: UndoLog.SlabChange<Int>) = if (forward) c.after else c.before
-        fun set(c: UndoLog.SlabChange<Int>, value: UndoLog.SlabValue<Int>?) {
-            val plane = planeOf(c.layerId, c.celId)
-            if (c.seq == 0L) nl.setBase(plane, c.key, value?.texture)
-            else nl.setSlab(plane, c.seq, c.key, value?.texture, value?.op ?: "normal")
+        fun setLine(plane: LinePlane, id: String, record: StrokeRecord?) {
+            val previous = nl.record(plane, id)
+            val previousFootprint = nl.footprint(plane, id)
+            nl.put(plane, id, record, if (record == null) null else footprints[plane to id])
+            inverses += { nl.put(plane, id, previous, if (previous == null) null else previousFootprint) }
         }
-        for (c in lines) if (lineTarget(c) == null) nl.put(planeOf(c.layerId, c.celId), c.id, null)
-        for (c in slabs) if (slabTarget(c) == null) set(c, null)
-        for (c in slabs) slabTarget(c)?.let { set(c, it) }
-        for (c in lines) lineTarget(c)?.let { nl.put(planeOf(c.layerId, c.celId), c.id, it.record) }
+        fun setSlabTile(c: UndoLog.SlabChange<Int>, value: UndoLog.SlabValue<Int>?) {
+            val plane = planeOf(c.layerId, c.celId)
+            if (c.seq == 0L) {
+                val previous = nl.base(plane, c.key)
+                nl.setBase(plane, c.key, value?.texture)
+                inverses += { nl.setBase(plane, c.key, previous) }
+            } else {
+                val previous = nl.slab(plane, c.seq)
+                val previousTexture = previous?.tiles?.get(c.key)
+                nl.setSlab(plane, c.seq, c.key, value?.texture, value?.op ?: "normal")
+                inverses += { nl.setSlab(plane, c.seq, c.key, previousTexture, previous?.op ?: "normal") }
+            }
+        }
+        try {
+            for (c in lines) if (lineTarget(c) == null) setLine(planeOf(c.layerId, c.celId), c.id, null)
+            for (c in slabs) if (slabTarget(c) == null) setSlabTile(c, null)
+            for (c in slabs) slabTarget(c)?.let { setSlabTile(c, it) }
+            for (c in lines) lineTarget(c)?.let { setLine(planeOf(c.layerId, c.celId), c.id, it.record) }
+        } catch (e: Throwable) {
+            for (undo in inverses.asReversed()) {
+                try { undo() } catch (secondary: Throwable) { if (secondary !== e) e.addSuppressed(secondary) }
+            }
+            throw e
+        }
     }
 
     /**

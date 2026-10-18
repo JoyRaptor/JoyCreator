@@ -12,7 +12,7 @@ uniform float u_strokeScale;   // opacity for BUILD_UP strokes, 1 for WASH
 uniform int u_erase;           // 1 = erase
 uniform int u_blend;           // 0 = normal (default), 1 = multiply, 2 = screen (brush v9, VECTOR_RENDER_DESIGN H6); erase wins
 uniform int u_rgbaStroke; // 1 = colour-varying watercolor, 0 leaves every existing branch unchanged
-uniform int u_smudge;          // 1 = the stroke buffer holds PREMULTIPLIED RGBA carried paint, not a coverage (JB-1.06)
+uniform int u_smudge;          // >0 = the stroke buffer holds PREMULTIPLIED RGBA carried paint, not a coverage (JB-1.06); 2 = with paint, 3 = a slab unit
 uniform float u_layerOpacity;
 
 in vec2 v_uv;
@@ -36,6 +36,8 @@ void main() {
         // RGB alone would still replace the backdrop at full strength; ignoring this scale
         // made the smudge tool's opacity control ineffective.
         vec4 s = texture(u_stroke, v_uv) * u_strokeScale;
+        // 3 = a pixel slab's unit (editable lines v1.2): only the carried paint, where the layer under it had paint.
+        if (u_smudge == 3) { o_color = dst.a > 0.0 ? s : vec4(0.0); return; }
         if (u_erase == 1) {
             o_color = dst * (1.0 - s.a) * u_layerOpacity;
             return;

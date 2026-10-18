@@ -36,10 +36,13 @@ interface HostCanvas {
     fun setLineLiftTransform(rowMajor: DoubleArray?) {}
     fun previewLineLift(records: List<AddressedStroke>) {}
     fun endLineLift() {}
+    /** Moves when another drawing is opened: edits still in flight were about the old one (v1.2 H10). */
+    val lineEditEpoch: Int get() = 0
 }
 
 class JbHostCanvas(private val canvas: JbCanvasView) : HostCanvas {
     override val lineSnapshot: LineSnapshot get() = canvas.lineSnapshot
+    override val lineEditEpoch: Int get() = canvas.lineEditEpoch
 
     // Not memoised here on purpose: the canvas owns what "the current planes" are (frames, layers, visibility), and a copy
     // kept on this side would go stale the day it changes how it works them out.
@@ -174,7 +177,17 @@ class CanvasSelectionHost(
 
     private fun planeOf(a: LineAddress) = LinePlane(a.layerId, a.celId)
 
+    /** The drawing the in-flight edits were made against; a new one (an open) drops them (v1.2 H10). */
+    private var pendingEpoch = canvas.lineEditEpoch
+
+    private fun dropPendingIfReloaded() {
+        if (pendingEpoch == canvas.lineEditEpoch) return
+        pendingEpoch = canvas.lineEditEpoch
+        if (pending.isNotEmpty()) { pending.clear(); editsVersion++ }
+    }
+
     private fun effective(plane: LinePlane): List<StrokeRecord> {
+        dropPendingIfReloaded()
         val base = canvas.lineSnapshot.lines(plane)
         if (pending.isEmpty()) return base
         val list = base.toMutableList()
@@ -187,8 +200,10 @@ class CanvasSelectionHost(
             is LineEdit.Add -> for (a in edit.records) if (planeOf(a.address) == plane && list.none { it.id == a.address.recordId }) {
                 list += a.record.copy(seq = (list.maxOfOrNull { it.seq } ?: 0L) + 1L)
             }
-            is LineEdit.Delete -> {
-                val gone = edit.ids.filter { planeOf(it) == plane }.map { it.recordId }.toSet()
+            // A baked line leaves the lines (it stays as pixels), exactly like a delete as far as Select can see.
+            is LineEdit.Delete, is LineEdit.Bake -> {
+                val ids = if (edit is LineEdit.Delete) edit.ids else (edit as LineEdit.Bake).ids
+                val gone = ids.filter { planeOf(it) == plane }.map { it.recordId }.toSet()
                 if (gone.isNotEmpty()) list.removeAll { it.id in gone }
             }
         }
@@ -277,6 +292,7 @@ class CanvasSelectionHost(
 
     /** Sends [edit] and shows it at once. False only when the canvas answered before returning, with no. */
     private fun submit(edit: LineEdit): Boolean {
+        dropPendingIfReloaded()
         val entry = Pending(edit)
         pending += entry
         editsVersion++
@@ -347,8 +363,9 @@ class CanvasSelectionHost(
     }
 
     override fun bakeLines(ids: Set<LineAddress>): Boolean {
-        ui.say("Rasterize Down is coming next")
-        return false
+        if (ids.isEmpty()) return false
+        if (ids.any { find(it) == null }) return refuse(GONE)
+        return submit(LineEdit.Bake(ids.toSet()))
     }
 
     override fun liftPixels(mask: SelectionMask, keepSource: Boolean): LiftedPixels? = null

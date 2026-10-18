@@ -15,6 +15,9 @@ import cc.joycreator.joybrush.core.vector.RecordedEdits
 import cc.joycreator.joybrush.core.vector.CelComposer
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
+import cc.joycreator.joybrush.androidkit.gl.lines.BoardItemFlatten
+import cc.joycreator.joybrush.androidkit.gl.lines.LineBake
+import cc.joycreator.joybrush.androidkit.gl.lines.LineEditBudget
 import cc.joycreator.joybrush.androidkit.gl.lines.LineItems
 import cc.joycreator.joybrush.androidkit.gl.lines.NativeLines
 import cc.joycreator.joybrush.androidkit.lines.LineEdit
@@ -939,10 +942,15 @@ class GlPaintEngine(
             m.tiles.forEach { (k, tex) -> changes.add(UndoLog.TileChange(m.id, k, tex, null)) }
             m.tiles.clear()
         }
+        // Its editable lines, bases and slabs go too, in the same step (v1.2 H4): a deleted layer never leaves a dead plane
+        // behind for a save to write, and one undo brings them back with the pixels.
+        var items = LineItems.Changes.NONE
+        for (plane in nativeLines.itemPlanes().filter { it.layerId == id }) items += LineItems.removal(nativeLines, plane, id, engineCel(layer, plane))
+        applyItemChanges(items.slabs, items.lines, forward = true)
         applyStack(after)
         val next=oldDoc?.copy(layers=oldDoc.layers.filterNot{it.id==id},activeLayerId=after.activeId)
         next?.let(::setBoardDocument)
-        undo.push(UndoLog.Step(changes,before,after,documentBefore=oldDoc,documentAfter=next))
+        undo.push(UndoLog.Step(changes,before,after,documentBefore=oldDoc,documentAfter=next, lines = items.lines, slabs = items.slabs))
     }
 
     /** Deletes [id]'s mask (as [after] says) as ONE undo step: its tiles go into the step. */
@@ -972,6 +980,8 @@ class GlPaintEngine(
         val next = oldDoc?.let { documentForStack(it, after, mapOf(newId to clone!!.layer)) }
         val changes = ArrayList<UndoLog.TileChange<Int>>()
         var published = false
+        var items = LineItems.Changes.NONE
+        val itemCopies = ArrayList<Int>()
         fun copyStore(store: Map<Long, Int>, target: String, cel: String?) {
             for ((key, tex) in store) {
                 val copy = newLayerTile()
@@ -997,21 +1007,29 @@ class GlPaintEngine(
                     initializeTile(copy, tex, false)
                 }
             }
+            // Its editable lines, bases and slabs follow each plane to the copy's plane, with texture COPIES (v1.2 H4).
+            for (plane in nativeLines.itemPlanes().filter { it.layerId == sourceId }) {
+                val toCel = if (clone == null) null else celMap[plane.celId] ?: continue
+                items += LineItems.copyOf(nativeLines, plane, newId, toCel) { copyOfTile(it).also(itemCopies::add) }
+            }
             // Publish only after every GPU copy succeeds; failures leave the original stack intact.
             applyStack(after)
             published = true
             changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
+            applyItemChanges(items.slabs, items.lines, forward = true)
             // The copy's payload agrees with the copy's look, as the source's did.
             for (c in changes) if (MediaStores.isMediaStore(c.layerId)) agree(newId, c.key, c.celId)
             next?.let(::setBoardDocument)
-            undo.push(UndoLog.Step(changes, before, after, documentBefore = oldDoc, documentAfter = next))
+            undo.push(UndoLog.Step(changes, before, after, documentBefore = oldDoc, documentAfter = next, lines = items.lines, slabs = items.slabs))
         } catch (e: Throwable) {
             if (published) {
+                applyItemChanges(items.slabs, items.lines, forward = false)
                 changes.forEach { put(it.layerId, it.key, null, it.celId) }
                 applyStack(before)
                 oldDoc?.let(::setBoardDocument)
             }
             changes.forEach { it.after?.let(::recycleLayerTex) }
+            itemCopies.forEach(::recycleLayerTex)
             throw e
         } finally {
             // An empty clone changes metadata only; no graphics state was touched.
@@ -1453,7 +1471,11 @@ class GlPaintEngine(
     }
 
     /** Execute bounded physical copies/drops, then publish metadata and all pixels as ONE history step. */
-    fun applyBoardChange(change: RegionChange) {
+    /**
+     * One board edit as ONE undo step. Returns a sentence when editable lines had to become pixels for it (v1.2 H4: the
+     * edit rewrites pixels under their items, so the affected planes are flattened in the same step), else null.
+     */
+    fun applyBoardChange(change: RegionChange): String? {
         requireLocalPaint()
         checkStrokeEnded("Check failed.")
         val before=boardDocument ?: error("No board document is attached")
@@ -1462,6 +1484,14 @@ class GlPaintEngine(
         require(change.doc.layers.all { it.kind.hasPixels && it.animatedIn == null }) {
             "This renderer paints raster layers"
         }
+        // Editable lines (v1.2 H4): planes whose pixels this edit rewrites, or whose region moves, lose their items in
+        // this same step; their tiles stay, so the lines become those pixels. Nothing is applied until the edit publishes.
+        val flatten = BoardItemFlatten.plan(nativeLines.itemPlanes(), change) { p ->
+            BoardItemFlatten.region(before, p) != BoardItemFlatten.region(change.doc, p)
+        }
+        var items = LineItems.Changes.NONE
+        for (p in flatten.all) layers[p.layerId]?.let { items += LineItems.removal(nativeLines, p, p.layerId, engineCel(it, p)) }
+        var itemsApplied = false
         // GPU-to-GPU copies hold original + staged textures, not an image-sized CPU buffer.
         val memory = BoardTransactionMemory<Pair<String, Pair<String?, Long>>>(
             boardSnapshotAllowanceBytes, size.toLong() * size * 4, change.copies.isNotEmpty(),
@@ -1629,16 +1659,20 @@ class GlPaintEngine(
             published=true
             pending.values.forEach { c->put(c.layerId,c.key,c.after,c.celId) }
             setBoardDocument(change.doc)
+            applyItemChanges(items.slabs, items.lines, forward = true); itemsApplied = true
             // JB-2.40 slice 3a: payloads are per plane now, so a layer gaining frames keeps them; only tiles whose pixels a
             // board edit moved lose theirs (settled: the look stays, it just can't be re-wetted until slice 3b carries it).
-            if(before!=change.doc || pending.isNotEmpty()) undo.push(UndoLog.Step(pending.values.toList() + settlePlainWrites(pending.values),
-                documentBefore=before,documentAfter=change.doc))
+            if(before!=change.doc || pending.isNotEmpty() || items.lines.isNotEmpty() || items.slabs.isNotEmpty())
+                undo.push(UndoLog.Step(pending.values.toList() + settlePlainWrites(pending.values),
+                    documentBefore=before,documentAfter=change.doc, lines = items.lines, slabs = items.slabs))
         } catch(e:Throwable) {
             // Restore every published address before releasing prepared textures.
+            if(itemsApplied) applyItemChanges(items.slabs, items.lines, forward = false)
             if(published) { pending.values.forEach{c->put(c.layerId,c.key,c.before,c.celId)}; setBoardDocument(before) }
             pending.values.forEach { c->c.after?.let(::recycleLayerTex) }
             throw e
         } finally { GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) }
+        return BoardItemFlatten.sentence(flatten.all.mapNotNull { p -> before.layers.firstOrNull { it.id == p.layerId }?.name })
     }
 
     fun celTileKeys(layerId: String,celId: String): List<Long> {
@@ -1823,50 +1857,109 @@ class GlPaintEngine(
      * lines under and over it. Returns the step's slab and line changes; the bookkeeping is updated here, in the same GL
      * turn as the tiles.
      */
-    private fun commitPendingLine(layer: Layer, written: List<UndoLog.TileChange<Int>>): Pair<List<UndoLog.SlabChange<Int>>, List<UndoLog.LineChange>> {
-        val line = pendingLine
+    private fun commitPendingLine(layer: Layer, written: List<UndoLog.TileChange<Int>>): PendingItems {
+        var line = pendingLine
         pendingLine = null
-        if (layer.isMask || written.isEmpty()) return emptyList<UndoLog.SlabChange<Int>>() to emptyList()
-        if (line != null) nativeLines.addBrushes(line.brushes)
+        if (layer.isMask || written.isEmpty()) return PendingItems.NONE
+        // H12: a line is kept only if it can be redrawn later; otherwise it stays pixels (a slab where the plane holds
+        // items), said once, rather than becoming a line that would come back wrong or not at all.
+        if (line != null) lineReplayRefusal(line.record, line.brushes[line.record.brushId] ?: nativeLines.brush(line.record.brushId))?.let {
+            android.util.Log.i("JoyBrushLines", "kept as pixels: $it")
+            onLineNotice?.invoke(KEPT_AS_PIXELS)
+            line = null
+        }
+        // H11: a stroke split across planes (it crossed a frame's edge) is ONE line to Select: the copies share a group.
+        val group = line?.record?.groupId ?: if (line != null && written.map { it.celId }.distinct().size > 1) "g-" + UUID.randomUUID() else null
+        // Phase 1 (H5): make every copy, unit and record WITHOUT touching NativeLines. On a throw the fresh textures are
+        // recycled and nothing has changed; [installPendingItems] applies the result after the tiles are in.
         val slabs = ArrayList<UndoLog.SlabChange<Int>>()
         val lines = ArrayList<UndoLog.LineChange>()
-        for ((celId, planeWrites) in written.groupBy { it.celId }) {
-            val plane = linePlane(layer, celId)
-            val before = planeWrites.associate { it.key to it.before }
-            if (line == null) {
-                if (!nativeLines.hasItems(plane)) continue
-                // Not a line, on a plane that holds items: the stroke's own pixels, kept in order.
-                val seq = nativeLines.nextSeq(plane)
-                val op = strokeSlabOp()
-                for (c in planeWrites) {
-                    if (!nativeLines.isCrossed(plane, c.key)) {
-                        val copy = c.before?.let(::copyOfTile)   // nothing under it: the base is transparent
-                        if (copy != null) {
-                            slabs += UndoLog.SlabChange(layer.id, celId, c.key, 0L, null, UndoLog.SlabValue(copy, "normal"))
-                            nativeLines.setBase(plane, c.key, copy)
+        val footprints = HashMap<Pair<LinePlane, String>, Set<Long>>()
+        try {
+            for ((celId, planeWrites) in written.groupBy { it.celId }) {
+                val plane = linePlane(layer, celId)
+                val before = planeWrites.associate { it.key to it.before }
+                if (line == null) {
+                    if (!nativeLines.hasItems(plane)) continue
+                    // Not a line, on a plane that holds items: the stroke's own pixels, kept in order (H2).
+                    val seq = nativeLines.nextSeq(plane)
+                    val op = strokeSlabOp()
+                    for (c in planeWrites) {
+                        if (!nativeLines.isCrossed(plane, c.key)) {
+                            // nothing under it: the base is transparent
+                            c.before?.let(::copyOfTile)?.let { copy ->
+                                slabs += UndoLog.SlabChange(layer.id, celId, c.key, 0L, null, UndoLog.SlabValue(copy, "normal"))
+                            }
                         }
+                        val unit = renderStrokeUnit(strokeTiles.getValue(c.key), c.key, under = c.before)
+                        slabs += UndoLog.SlabChange(layer.id, celId, c.key, seq, null, UndoLog.SlabValue(unit, op))
                     }
-                    val unit = renderStrokeUnit(strokeTiles.getValue(c.key), c.key)
-                    slabs += UndoLog.SlabChange(layer.id, celId, c.key, seq, null, UndoLog.SlabValue(unit, op))
-                    nativeLines.setSlab(plane, seq, c.key, unit, op)
+                    continue
                 }
-                continue
+                var id = line.record.id
+                while (nativeLines.record(plane, id) != null) id = line.record.id + "-" + (1..99999).random()
+                val record = line.record.copy(id = id, seq = nativeLines.nextSeq(plane), groupId = group)
+                val footprint = nativeLines.estimate(record, line.brushes[record.brushId]) + planeWrites.map { it.key }
+                for (key in footprint) {
+                    if (nativeLines.isCrossed(plane, key)) continue   // its base is already kept
+                    val source = if (key in before) before[key] else planeTiles(layer, celId)[key]
+                    val copy = source?.let(::copyOfTile) ?: continue   // nothing under it: the base is transparent
+                    slabs += UndoLog.SlabChange(layer.id, celId, key, 0L, null, UndoLog.SlabValue(copy, "normal"))
+                }
+                val change = UndoLog.LineChange(layer.id, celId, id, null, CelComposer.Line(record.seq, record))
+                lines += change
+                footprints[plane to id] = footprint
             }
-            var id = line.record.id
-            while (nativeLines.record(plane, id) != null) id = line.record.id + "-" + (1..99999).random()
-            val record = line.record.copy(id = id, seq = nativeLines.nextSeq(plane))
-            val footprint = nativeLines.estimate(record) + planeWrites.map { it.key }
-            for (key in footprint) {
-                if (nativeLines.isCrossed(plane, key)) continue   // its base is already kept
-                val source = if (key in before) before[key] else planeTiles(layer, celId)[key]
-                val copy = source?.let(::copyOfTile) ?: continue   // nothing under it: the base is transparent
-                slabs += UndoLog.SlabChange(layer.id, celId, key, 0L, null, UndoLog.SlabValue(copy, "normal"))
-                nativeLines.setBase(plane, key, copy)
-            }
-            nativeLines.put(plane, id, record, footprint)
-            lines += UndoLog.LineChange(layer.id, celId, id, null, CelComposer.Line(record.seq, record))
+        } catch (e: Throwable) {
+            slabs.forEach { it.after?.texture?.let(::recycleLayerTex) }
+            throw e
         }
-        return slabs to lines
+        return PendingItems(slabs, lines, footprints, line?.brushes.orEmpty())
+    }
+
+    /** Said (on the GL thread) when a stroke meant as a line is kept as pixels instead; the canvas shows it. */
+    var onLineNotice: ((String) -> Unit)? = null
+
+    /**
+     * H12: why the just-drawn line [record] could not be redrawn later, null = it can: the CPU replay must succeed and the
+     * GPU's own preconditions for a line ([prepareRecordedLine]) must hold. Pure checks, nothing is rendered.
+     */
+    private fun lineReplayRefusal(record: StrokeRecord, preset: BrushPreset?): String? {
+        InkReplay.refusal(record, preset)?.let { return it }
+        val p = preset ?: return "no brush"
+        if (BrushValidate.validate(p).isNotEmpty()) return "its frozen brush is not valid"
+        if (p.engine != "stamp" && p.engine != ENGINE_WATERCOLOUR) return "the ${p.engine} engine is not replayed"
+        if (p.engine == "stamp" && p.tip.source != "procedural") return "picture tips are not replayed"
+        if (p.line != null) return "whole-stroke shaping is not replayed"
+        if (p.blend !in NativeLines.OPERATORS) return "the ${p.blend} operator is not composed"
+        if (paperWarnings.isNotEmpty()) return "the paper's resources are missing"
+        val replay = try { InkReplay.replay(record, p) } catch (e: Exception) { return e.message ?: "the replay refused" }
+        if (p.version < VERSION_CONTACT &&
+            (replay.strokeGrain.tip.enabled || replay.strokeGrain.paper.enabled || !replay.strokeGrain.paperResponse.isDefault)) {
+            val first = replay.dabs.firstOrNull()
+            if (first != null && !replay.dabs.all { dab ->
+                    GrainMath.tiltAmount(dab.tilt) == GrainMath.tiltAmount(first.tilt) &&
+                        GrainMath.leanX(dab.azimuth) == GrainMath.leanX(first.azimuth) &&
+                        GrainMath.leanY(dab.azimuth) == GrainMath.leanY(first.azimuth)
+                }) return "an older grain brush's changing tilt"
+        }
+        return null
+    }
+
+    /** What a stroke adds to the items of its planes, made but not yet applied ([commitPendingLine] phase 1). */
+    private class PendingItems(val slabs: List<UndoLog.SlabChange<Int>>, val lines: List<UndoLog.LineChange>,
+                               val footprints: Map<Pair<LinePlane, String>, Set<Long>>, val brushes: Map<String, BrushPreset>) {
+        companion object { val NONE = PendingItems(emptyList(), emptyList(), emptyMap(), emptyMap()) }
+    }
+
+    /**
+     * Phase 2 (H5): the stroke's tiles are installed; its items go in exactly as a redo puts them (all or nothing), each new
+     * line with the tiles it is known to cover.
+     */
+    private fun installPendingItems(items: PendingItems) {
+        if (items.slabs.isEmpty() && items.lines.isEmpty()) return
+        nativeLines.addBrushes(items.brushes)
+        applyItemChanges(items.slabs, items.lines, forward = true, footprints = items.footprints)
     }
 
     /** The operator a stroke that is kept as a slab applies with: its own blend (smudge and tuft strokes are plain paint). */
@@ -1880,10 +1973,10 @@ class GlPaintEngine(
     /**
      * The live stroke's own contribution to one tile, committed onto a CLEARED tile with the NORMAL operator (as
      * [prepareRecordedLine] does for a line): premultiplied colour with the stroke's opacity, ready to be applied with
-     * its operator in seq order. A smudge's carried paint is kept whole (it is the stroke's pixels, not a reading of the
-     * layer). The caller owns the returned texture.
+     * its operator in seq order. A smudge's carried paint is kept as it landed: without "paint" it only lands where the
+     * layer [under] it had paint (Smudge Decision 4), so the unit is masked by that. The caller owns the returned texture.
      */
-    private fun renderStrokeUnit(strokeTex: Int, key: Long): Int {
+    private fun renderStrokeUnit(strokeTex: Int, key: Long, under: Int?): Int {
         val unit = newLayerTile()
         try {
             initializeTile(unit, null, false)
@@ -1898,7 +1991,7 @@ class GlPaintEngine(
             GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), ox, oy)
             GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
             GLES30.glBindVertexArray(tileVao)
-            bindTextures(clearTex, strokeTex)
+            bindTextures(if (smudge != null && !smudgePaint) under ?: clearTex else clearTex, strokeTex)
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
             check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Stroke slab rendering failed" }
         } catch (e: Throwable) {
@@ -1914,8 +2007,9 @@ class GlPaintEngine(
      */
     private fun applyNativeLineStep(s: UndoLog.Step<Int>, forward: Boolean) = applyItemChanges(s.slabs, s.lines, forward)
 
-    private fun applyItemChanges(slabs: List<UndoLog.SlabChange<Int>>, lines: List<UndoLog.LineChange>, forward: Boolean) =
-        LineItems.apply(nativeLines, slabs, lines, forward, ::changePlane)
+    private fun applyItemChanges(slabs: List<UndoLog.SlabChange<Int>>, lines: List<UndoLog.LineChange>, forward: Boolean,
+                                 footprints: Map<Pair<LinePlane, String>, Set<Long>> = emptyMap()) =
+        LineItems.apply(nativeLines, slabs, lines, forward, ::changePlane, footprints)
 
     /** Clear on a layer with lines or slabs: its pixels, its items and their bases go together, as ONE step (nothing comes back). */
     private fun clearLayerWithLines(layer: Layer) {
@@ -1933,12 +2027,59 @@ class GlPaintEngine(
         undo.push(UndoLog.Step(tiles, lines = items.lines, slabs = items.slabs))
     }
 
+    /**
+     * Rasterize Down (editable lines v1.2 H3): each chosen line becomes a pixel slab at its own seq and the record goes, as
+     * ONE undo step. The tiles do not change: a slab composes to exactly what its line drew. The units rendered here are
+     * taken over by the slabs, so nothing is copied.
+     */
+    private fun bakeLines(ids: Set<LineAddress>) {
+        val byPlane = LinkedHashMap<LinePlane, MutableList<StrokeRecord>>()
+        for (a in ids) {
+            val layer = layers[a.layerId] ?: throw IllegalArgumentException("That layer is gone")
+            require(!layer.isMask) { "Masks hold no lines" }
+            val plane = LinePlane(a.layerId, a.celId ?: layer.sharedCel)
+            val record = nativeLines.record(plane, a.recordId) ?: throw IllegalArgumentException("That line is gone (undone or deleted)")
+            byPlane.getOrPut(plane) { ArrayList() } += record
+        }
+        if (byPlane.isEmpty()) return
+        // H7: each baked line's unit is rendered and kept (it becomes the slab): estimate them before rendering any.
+        val unitTiles = byPlane.entries.sumOf { (plane, baked) -> baked.sumOf { nativeLines.footprint(plane, it.id).size.toLong() } }
+        LineEditBudget.refusal(LineEditBudget.bytes(unitTiles, 0L))?.let { throw IllegalStateException(it) }
+        val units = ArrayList<RecordedLineUnit>()
+        var committed = false
+        try {
+            var items = LineItems.Changes.NONE
+            for ((plane, baked) in byPlane) {
+                val layer = layers.getValue(plane.layerId)
+                val rendered = HashMap<String, LineBake.Unit>()
+                for (r in baked) {
+                    val brush = nativeLines.brush(r.brushId) ?: throw IllegalArgumentException("This line's brush is missing from the drawing")
+                    val unit = prepareRecordedLine(layer.id, r, brush).also { units += it }
+                    rendered[r.id] = LineBake.Unit(unit.op, unit.tiles)
+                }
+                items += LineBake.plan(nativeLines, plane, layer.id, engineCel(layer, plane), baked.sortedBy { it.seq }, rendered)
+            }
+            applyItemChanges(items.slabs, items.lines, forward = true)
+            try {
+                undo.push(UndoLog.Step(emptyList(), lines = items.lines, slabs = items.slabs))
+            } catch (e: Throwable) {
+                applyItemChanges(items.slabs, items.lines, forward = false)
+                throw e
+            }
+            committed = true   // the slabs own the units' textures now
+        } finally {
+            if (!committed) units.forEach(::discardRecordedLine)
+        }
+    }
+
     /** Does the layer hold editable lines or pixel slabs on any plane? (Other strokes there become slabs.) */
     fun layerHasLines(layerId: String): Boolean = nativeLines.hasItemsOnLayer(layerId)
 
     /** What a save keeps of the lines: each live plane's records, the tiles they cross, and those tiles' bases. */
     class LineSave(val records: Map<LinePlane, List<StrokeRecord>>, val crossed: Map<LinePlane, Set<Long>>,
-                   val bases: Map<Pair<LinePlane, Long>, ByteArray>, val brushes: Map<String, BrushPreset>)
+                   val bases: Map<Pair<LinePlane, Long>, ByteArray>, val brushes: Map<String, BrushPreset>,
+                   /** v1.2 H13: each plane's pixel slabs, seq to (operator, bytes per tile). A plane of slabs alone has no records. */
+                   val slabs: Map<LinePlane, Map<Long, Pair<String, Map<Long, ByteArray>>>> = emptyMap())
 
     /** GL thread. A deleted layer's or frame's lines are history only and are not saved. */
     fun lineSave(): LineSave {
@@ -1947,26 +2088,50 @@ class GlPaintEngine(
         val records = LinkedHashMap<LinePlane, List<StrokeRecord>>()
         val crossed = LinkedHashMap<LinePlane, Set<Long>>()
         val bases = LinkedHashMap<Pair<LinePlane, Long>, ByteArray>()
+        val slabs = LinkedHashMap<LinePlane, Map<Long, Pair<String, Map<Long, ByteArray>>>>()
         for (plane in nativeLines.itemPlanes()) {
             val layer = layers[plane.layerId] ?: continue
             if (layer.sharedCel != null && plane.celId !in layer.cels) continue
-            // Pixel slabs reach disk with the v1.2 save (H13); until then a save must not silently drop them.
-            if (nativeLines.hasSlabs(plane)) throw IllegalStateException("Pixel slabs can't be saved yet")
             val lines = nativeLines.lines(plane)
             records[plane] = lines
             val keys = nativeLines.crossedKeys(plane)
             crossed[plane] = keys
             for (key in keys) nativeLines.base(plane, key)?.let { bases[plane to key] = readTexture(it) }
+            // v1.2 H13: the plane's pixel slabs go to disk with it.
+            val planeSlabs = LinkedHashMap<Long, Pair<String, Map<Long, ByteArray>>>()
+            for (seq in nativeLines.slabSeqs(plane)) {
+                val slab = nativeLines.slab(plane, seq) ?: continue
+                planeSlabs[seq] = slab.op to slab.tiles.mapValues { readTexture(it.value) }
+            }
+            if (planeSlabs.isNotEmpty()) slabs[plane] = planeSlabs
         }
-        return LineSave(records, crossed, bases, nativeLines.brushes())
+        return LineSave(records, crossed, bases, nativeLines.brushes(), slabs)
     }
 
-    /** GL thread, after a drawing's tiles (its looks) are in: its lines, their brushes and the bases under them. */
+    /**
+     * GL thread, after a drawing's tiles (its looks) are in: its lines, their brushes, the bases under them and its pixel
+     * slabs (v1.2 H13). A tile in [compose] kept no look (a cel of slabs alone): its picture is base + slabs, composed here.
+     */
     fun loadLines(records: Map<LinePlane, List<StrokeRecord>>, bases: Map<Pair<LinePlane, Long>, ByteArray>,
-                  brushes: Map<String, BrushPreset>) {
+                  brushes: Map<String, BrushPreset>,
+                  slabs: Map<LinePlane, Map<Long, Pair<String, Map<Long, ByteArray>>>> = emptyMap(),
+                  compose: Map<LinePlane, Set<Long>> = emptyMap()) {
         nativeLines.addBrushes(brushes)
         for ((plane, list) in records) for (r in list.sortedBy { it.seq }) nativeLines.put(plane, r.id, r)
         for ((at, bytes) in bases) nativeLines.setBase(at.first, at.second, uploadTile(newLayerTile(), bytes))
+        for ((plane, bySeq) in slabs) for ((seq, slab) in bySeq) for ((key, bytes) in slab.second) {
+            nativeLines.setSlab(plane, seq, key, uploadTile(newLayerTile(), bytes), slab.first)
+        }
+        for ((plane, keys) in compose) {
+            val layer = layers[plane.layerId] ?: continue
+            val store = planeTiles(layer, engineCel(layer, plane))
+            for (key in keys) {
+                val out = composeRecordedTile(tileItems(layer, plane, key, nativeLines.base(plane, key), emptyList()) { null })
+                store.remove(key)?.let(::recycleLayerTex)
+                if (out != null) store[key] = out
+            }
+            invalidateProjection(layer)
+        }
     }
 
     /**
@@ -1981,6 +2146,7 @@ class GlPaintEngine(
         check(!strokeInProgress && !wcFading && !mediaStrokeInProgress) { "Finish the stroke before editing lines" }
         check(framePreviews.isEmpty()) { "Stop playback before editing lines" }
         require(tileBoardId == null) { "Editable lines don't work on a tiled board yet" }
+        if (edit is LineEdit.Bake) { bakeLines(edit.ids); return }
         val brushes = when (edit) { is LineEdit.Replace -> edit.brushes; is LineEdit.Add -> edit.brushes; else -> emptyMap() }
         for ((id, preset) in brushes) {
             val known = nativeLines.brush(id)
@@ -2016,6 +2182,7 @@ class GlPaintEngine(
                 val p = planeOf(a); val l = list(p)
                 require(l.removeAll { it.id == a.recordId }) { "That line is gone (undone or deleted)" }
             }
+            is LineEdit.Bake -> error("Rasterize Down is handled above")
         }
         if (brushes.isNotEmpty()) nativeLines.addBrushes(brushes)
         val tileChanges = ArrayList<UndoLog.TileChange<Int>>()
@@ -2025,6 +2192,27 @@ class GlPaintEngine(
         val made = ArrayList<Int>()          // fresh textures, recycled if the edit fails
         val baseUpdates = ArrayList<Triple<LinePlane, Long, Int?>>()
         val newFootprints = HashMap<Pair<LinePlane, String>, Set<Long>>()   // fresh lines: what they may draw on
+        // H7: every unit and composed tile this edit holds at once, estimated BEFORE anything is rendered, so a phone is
+        // never taken to the edge half way through an edit (footprints are supersets: the estimate errs on the safe side).
+        var unitTiles = 0L
+        var composedTiles = 0L
+        for ((plane, newList) in next) {
+            val oldList = nativeLines.lines(plane)
+            val oldById = oldList.associateBy { it.id }
+            val newById = newList.associateBy { it.id }
+            val gone = oldList.filter { o -> newById[o.id] != o }
+            val fresh = newList.filter { n -> oldById[n.id] != n }
+            if (gone.isEmpty() && fresh.isEmpty()) continue
+            val affected = HashSet<Long>()
+            gone.forEach { affected += nativeLines.footprint(plane, it.id) }
+            for (r in fresh) nativeLines.estimate(r, brushOf(r)).let { affected += it; unitTiles += it.size }
+            val standing = HashSet<String>()
+            for (key in affected) for (r in nativeLines.linesAt(plane, key)) {
+                if (newById[r.id] == r && standing.add(r.id)) unitTiles += nativeLines.footprint(plane, r.id).size
+            }
+            composedTiles += 2L * affected.size   // the composed tile and, at most, a new base
+        }
+        LineEditBudget.refusal(LineEditBudget.bytes(unitTiles, composedTiles))?.let { throw IllegalStateException(it) }
         try {
             for ((plane, newList) in next) {
                 val layer = layers.getValue(plane.layerId)
@@ -4257,7 +4445,7 @@ class GlPaintEngine(
         GLES30.glBindVertexArray(tileVao)
         // The stroke owns one frozen region plan; every physical plane joins this one history step.
         val pending = ArrayList<UndoLog.TileChange<Int>>()
-        var lineParts: Pair<List<UndoLog.SlabChange<Int>>, List<UndoLog.LineChange>> = emptyList<UndoLog.SlabChange<Int>>() to emptyList()
+        var items = PendingItems.NONE
         try {
             for ((key, strokeTex) in strokeTiles) {
                 val allSlices = strokePlan?.tileSlices(key) ?: listOf(RegionTileSlice(
@@ -4288,14 +4476,16 @@ class GlPaintEngine(
                     GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
                 }
             }
-            for (c in pending) { planeTiles(layer,c.celId)[c.key]=c.after!! }
-            changes.addAll(pending)
-            invalidateProjection(layer)
-            lineParts = commitPendingLine(layer, pending)
+            // The items are made before anything is installed (H5): a throw here leaves the layer and its lines untouched.
+            items = commitPendingLine(layer, pending)
         } catch (e: Throwable) {
             pending.forEach { it.after?.let(::recycleLayerTex) }
             throw e
         } finally { GLES30.glDisable(GLES30.GL_SCISSOR_TEST) }
+        for (c in pending) { planeTiles(layer,c.celId)[c.key]=c.after!! }
+        changes.addAll(pending)
+        invalidateProjection(layer)
+        installPendingItems(items)
         GLES30.glBindVertexArray(0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         releaseStrokeTiles()
@@ -4309,7 +4499,7 @@ class GlPaintEngine(
             val afterDoc=if(wrappedId != null && beforeDoc != null) BoardDocumentOps.markWrappedStroke(beforeDoc,wrappedId) else beforeDoc
             if(afterDoc != beforeDoc && afterDoc != null) setBoardDocument(afterDoc)
             undo.push(UndoLog.Step(changes + settlePlainWrites(changes),documentBefore=beforeDoc?.takeIf { it != afterDoc },documentAfter=afterDoc?.takeIf { it != beforeDoc },
-                lines = lineParts.second, slabs = lineParts.first))
+                lines = items.lines, slabs = items.slabs))
         }
         pendingLine = null
         return changes.size
@@ -5550,7 +5740,8 @@ class GlPaintEngine(
         GLES30.glUniform1i(commitProg.loc("u_erase"), if (!asUnit && blend == StrokeBlend.ERASE) 1 else 0)
         // Brush version 9 glazes (VECTOR_RENDER_DESIGN H6); 0 is the unchanged normal path.
         GLES30.glUniform1i(commitProg.loc("u_blend"), if (asUnit) 0 else when (blend) { StrokeBlend.MULTIPLY -> 1; StrokeBlend.SCREEN -> 2; else -> 0 })
-        GLES30.glUniform1i(commitProg.loc("u_smudge"), if (smudge == null) 0 else if (asUnit || smudgePaint) 2 else 1)
+        // A unit's smudge: 2 = carried paint whole (smudge with paint), 3 = carried paint only where the layer had paint.
+        GLES30.glUniform1i(commitProg.loc("u_smudge"), if (smudge == null) 0 else if (smudgePaint) 2 else if (asUnit) 3 else 1)
         GLES30.glUniform1f(commitProg.loc("u_layerOpacity"), layerOpacity)
     }
 
@@ -5713,3 +5904,6 @@ class GlPaintEngine(
     private fun newFloats(n: Int): FloatBuffer =
         ByteBuffer.allocateDirect(n * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 }
+
+/** H12's sentence: once per stroke that was meant as a line but is kept as pixels. */
+internal const val KEPT_AS_PIXELS = "This stroke was kept as pixels: its brush can't be redrawn later."

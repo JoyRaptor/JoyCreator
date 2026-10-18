@@ -51,6 +51,8 @@ sealed class LineEdit {
     /** New lines on top, at vacant addresses (duplicate, paste); the engine assigns their seqs. */
     data class Add(val records: List<AddressedStroke>, val brushes: Map<String, BrushPreset> = emptyMap()) : LineEdit()
     data class Delete(val ids: Set<LineAddress>) : LineEdit()
+    /** Rasterize Down (v1.2 H3): each line becomes a pixel slab at its own seq and its record goes; the pixels stay. */
+    data class Bake(val ids: Set<LineAddress>) : LineEdit()
 }
 
 /** What an edit did, on the UI thread. [message] says why in words when [ok] is false. */

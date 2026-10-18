@@ -3,11 +3,14 @@ package cc.joycreator.joybrush.androidkit.gl.lines
 import cc.joycreator.joybrush.androidkit.lines.LinePlane
 import cc.joycreator.joybrush.androidkit.lines.LineSnapshot
 import cc.joycreator.joybrush.core.brush.BrushPreset
-import cc.joycreator.joybrush.core.vector.InkReplay
+import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import java.util.TreeMap
 import java.util.TreeSet
+import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.sqrt
 import kotlin.math.floor
 import kotlin.math.max
 
@@ -112,6 +115,9 @@ internal class NativeLines(
 
     /** What the CPU thinks a record may draw on (nothing is stored). A brush the drawing does not hold has none. */
     fun estimate(record: StrokeRecord): Set<Long> = footprintOf(record, brushes[record.brushId])
+
+    /** [estimate] with a brush the drawing may not hold yet (a stroke's frozen brush, before it is committed). */
+    fun estimate(record: StrokeRecord, preset: BrushPreset?): Set<Long> = footprintOf(record, preset ?: brushes[record.brushId])
 
     /** The tiles a stored line may draw on. */
     fun footprint(plane: LinePlane, id: String): Set<Long> = planes[plane]?.footprints?.get(id).orEmpty()
@@ -274,24 +280,60 @@ internal class NativeLines(
         /** The operators a slab may carry; the ones `composeRecordedTile` applies. */
         val OPERATORS = setOf("normal", "erase", "behind", "multiply", "screen")
 
-        /** Extra px round each dab: soft edges, anti-aliasing and the watercolour finish stay inside. */
-        private const val PAD_PX = 8f
+        /** Slack beyond the brush's reach: soft edges, anti-aliasing and the watercolour finish stay inside. */
+        private const val PAD_PX = 16f
 
         /**
-         * The tiles a record's replayed dabs can reach, padded: a SUPERSET of what the GPU draws. A record the CPU
-         * cannot replay (refused brush) has an empty footprint here; the engine widens it from the GPU's tiles.
+         * The tiles a record may draw on, from its SAMPLES and nothing else (no replay): the path between reports widened by
+         *   R = 2 · size · widthScale (+ scatter reach) + 16 px.
+         * Every report is stamped with R. Between two reports d apart the path (joined, smoothed or a spline through them)
+         * is walked in n steps of at most half a tile, each stamped with R + d/(2n) (so no point of the segment is further
+         * than that from a stamp) + d/5 (a curve's bulge between the two reports). A guaranteed superset of what the GPU
+         * draws, and cheap enough for every put; fast, sparse strokes cannot skip a tile they cross. A brush the drawing
+         * does not hold has an empty footprint. The engine widens it from the GPU's own tiles whenever it renders the line.
          */
         fun cpuFootprint(record: StrokeRecord, preset: BrushPreset?): Set<Long> {
-            val dabs = try { InkReplay.replay(record, preset).dabs } catch (e: Exception) { return emptySet() }
+            if (preset == null || record.samples.isEmpty()) return emptySet()
+            val reach = reachPx(record, preset)
             val size = Tiles.SIZE.toFloat()
             val out = HashSet<Long>()
-            for (d in dabs) {
-                val r = max(d.radius, 0f) + PAD_PX
-                val x0 = floor((d.x - r) / size).toInt(); val x1 = floor((d.x + r) / size).toInt()
-                val y0 = floor((d.y - r) / size).toInt(); val y1 = floor((d.y + r) / size).toInt()
+            var lastX0 = Int.MIN_VALUE; var lastX1 = Int.MIN_VALUE; var lastY0 = Int.MIN_VALUE; var lastY1 = Int.MIN_VALUE
+            fun stamp(x: Float, y: Float, r: Float) {
+                val x0 = floor((x - r) / size).toInt(); val x1 = floor((x + r) / size).toInt()
+                val y0 = floor((y - r) / size).toInt(); val y1 = floor((y + r) / size).toInt()
+                if (x0 == lastX0 && x1 == lastX1 && y0 == lastY0 && y1 == lastY1) return   // the same tiles as the last stamp
+                lastX0 = x0; lastX1 = x1; lastY0 = y0; lastY1 = y1
                 for (ty in y0..y1) for (tx in x0..x1) out.add(Tiles.key(tx, ty))
             }
+            var px = Float.NaN; var py = Float.NaN
+            for (s in record.samples) {
+                if (!s.x.isFinite() || !s.y.isFinite()) continue
+                if (px.isNaN()) stamp(s.x, s.y, reach) else {
+                    val dx = s.x - px; val dy = s.y - py
+                    val d = sqrt(dx * dx + dy * dy)
+                    val n = max(1, ceil(d / (size / 2f)).toInt())
+                    val r = reach + d / (2f * n) + 0.2f * d
+                    for (i in 1..n) stamp(px + dx * i / n, py + dy * i / n, r)
+                }
+                px = s.x; py = s.y
+            }
             return out
+        }
+
+        /** R in doc px; see [cpuFootprint]. */
+        fun reachPx(record: StrokeRecord, preset: BrushPreset): Float {
+            val scale = record.widthScale.takeIf { it.isFinite() }?.let { abs(it) } ?: 1f
+            val wc = if (preset.engine == ENGINE_WATERCOLOUR) preset.watercolour else null
+            val size = if (wc != null) max(preset.size.base, wc.size.toFloat()) else preset.size.base
+            val scatter = if (wc != null) {
+                // The wash spreads by its scatter share of a dab and pools out to its gravity and edge widths.
+                wc.scatter.toFloat() * size * 1.5f * scale + wc.gravityWidth.toFloat() + wc.edgeWidth.toFloat()
+            } else {
+                // A scatter copy lands up to √2 · amount · diameter off the path (Scatter: a square of side amount × diameter).
+                preset.scatter.amount.base * 2f * size * scale * 1.5f
+            }
+            val r = 2f * size * scale + max(scatter, 0f) + PAD_PX
+            return if (r.isFinite()) r else PAD_PX
         }
     }
 }

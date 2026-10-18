@@ -23,6 +23,8 @@ object LineAdmission {
         p.engine == ENGINE_FILL -> "the fill pen doesn't work on lines yet"
         p.engine !in setOf("stamp", ENGINE_WATERCOLOUR) -> "this brush can't be kept as a line yet"
         p.engine == ENGINE_WATERCOLOUR && (erase || p.blend == "erase") -> "the watercolour eraser can't be kept as a line yet"
+        // A live stroke paints "behind" as plain paint (StrokeBlend has no behind), so a line would redraw differently.
+        !erase && p.blend == "behind" -> "paint-behind brushes can't be kept as lines yet"
         p.line != null -> "brushes that shape the whole stroke can't be kept as lines yet"
         !erase && p.blend !in setOf("normal", "erase", "behind", BLEND_MULTIPLY, BLEND_SCREEN) -> "the ${p.blend} blend can't be kept as a line yet"
         p.engine == "stamp" && p.tip.source != "procedural" -> "picture-tip brushes can't be kept as lines yet"
@@ -42,6 +44,16 @@ object LineAdmission {
         tiledBoard -> "lines don't work on a tiled board yet"
         else -> null
     }
+
+    /** Slab tiles (256 KB each) the drawing may hold before a stroke over lines is refused: 640 = 160 MiB on a Note 9. */
+    const val SLAB_TILE_BUDGET = 640
+
+    /**
+     * Why a stroke that would be kept as a slab can't be, as the end of a sentence; null = it can. Plain strokes merge into
+     * the slab under them, so this is only reached by a great deal of painting over many lines (review of v1.2).
+     */
+    fun slabBudgetRefusal(slabTiles: Int): String? =
+        if (slabTiles >= SLAB_TILE_BUDGET) "the painting kept over its lines has filled this phone's memory (Rasterize Down some lines to free it)" else null
 
     /** The sentence the person hears when a layer that holds items refuses a stroke. */
     fun refusalSentence(layerName: String, why: String): String =

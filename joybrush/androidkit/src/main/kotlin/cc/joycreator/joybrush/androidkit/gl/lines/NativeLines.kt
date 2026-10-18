@@ -94,9 +94,16 @@ internal class NativeLines(
             val known = brushes[id]
             require(known == null || known == preset) { "Frozen brush \"$id\" already means another brush" }
         }
-        if (entries.keys.any { it !in brushes }) revision++
+        if (entries.keys.any { it !in brushes }) { revision++; brushRevision++ }
         brushes.putAll(entries)
     }
+
+    /** Grows only when the drawing's kept brushes change (a freeze answer stays good across ordinary line commits). */
+    var brushRevision = 0L
+        private set
+
+    /** How many slab tiles (above the bases) every plane holds together: each is a 256 KB texture (v1.2 slab budget). */
+    fun slabTileCount(): Int = planes.values.sumOf { p -> p.slabs.values.sumOf { it.tiles.size } }
 
     // ── lines ────────────────────────────────────────────────────────────────
 
@@ -266,7 +273,7 @@ internal class NativeLines(
     /** Forget everything (a new drawing). Textures are released by their steps / the caller. */
     fun clear() {
         planes.clear(); brushes.clear(); extras.clear()
-        revision++
+        revision++; brushRevision++
     }
 
     fun snapshot(): LineSnapshot = LineSnapshot(
@@ -274,6 +281,8 @@ internal class NativeLines(
         planes.filterValues { it.records.isNotEmpty() }.mapValues { it.value.records.toList() },
         brushes,
         itemPlanes(),
+        brushRevision = brushRevision,
+        slabTiles = slabTileCount(),
     )
 
     companion object {

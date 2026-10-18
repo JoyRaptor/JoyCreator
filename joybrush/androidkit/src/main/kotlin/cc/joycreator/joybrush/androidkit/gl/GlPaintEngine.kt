@@ -926,6 +926,7 @@ class GlPaintEngine(
     /** Deletes [id] (as [after] says) as ONE undo step: its tiles go into the step, so undo brings the pixels back. */
     fun deleteLayerStep(id: String, before: LayerStack, after: LayerStack) {
         requireLocalPaint()
+        settleLift()   // a lifted line's tiles are put back before they move into this step
         checkStrokeEnded("a layer change during a stroke would be undone out of order")
         val layer = layers[id] ?: return
         val oldDoc=boardDocument
@@ -970,6 +971,7 @@ class GlPaintEngine(
     /** Copies [sourceId]'s pixels into the new layer [newId] that [after] adds, as ONE undo step. Copied on the GPU, tile by tile. */
     fun duplicateLayerStep(sourceId: String, newId: String, before: LayerStack, after: LayerStack) {
         requireLocalPaint()
+        settleLift()   // copy the tiles as they are, not with a line lifted out
         checkStrokeEnded("a layer change during a stroke would be undone out of order")
         val src = layers[sourceId] ?: return
         require(newId !in layers && after.layers.any { it.id == newId })
@@ -982,6 +984,7 @@ class GlPaintEngine(
         var published = false
         var items = LineItems.Changes.NONE
         val itemCopies = ArrayList<Int>()
+        val copiedFootprints = ArrayList<Triple<String?, String, Set<Long>>>()   // (copy's cel, line id, its footprint)
         fun copyStore(store: Map<Long, Int>, target: String, cel: String?) {
             for ((key, tex) in store) {
                 val copy = newLayerTile()
@@ -1011,12 +1014,15 @@ class GlPaintEngine(
             for (plane in nativeLines.itemPlanes().filter { it.layerId == sourceId }) {
                 val toCel = if (clone == null) null else celMap[plane.celId] ?: continue
                 items += LineItems.copyOf(nativeLines, plane, newId, toCel) { copyOfTile(it).also(itemCopies::add) }
+                // Each copy keeps every tile its original is known to draw on, GPU-widened ones too (review of v1.2).
+                for (r in nativeLines.lines(plane)) copiedFootprints += Triple(toCel, r.id, nativeLines.footprint(plane, r.id))
             }
             // Publish only after every GPU copy succeeds; failures leave the original stack intact.
             applyStack(after)
             published = true
             changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
-            applyItemChanges(items.slabs, items.lines, forward = true)
+            applyItemChanges(items.slabs, items.lines, forward = true,
+                footprints = copiedFootprints.associate { (cel, id, fp) -> (changePlane(newId, cel) to id) to fp })
             // The copy's payload agrees with the copy's look, as the source's did.
             for (c in changes) if (MediaStores.isMediaStore(c.layerId)) agree(newId, c.key, c.celId)
             next?.let(::setBoardDocument)
@@ -1351,8 +1357,13 @@ class GlPaintEngine(
             throw e
         }
         finally{GLES30.glDisable(GLES30.GL_SCISSOR_TEST);GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0)}
+        // The fill's slabs go in first (all or nothing), then the tiles, which cannot fail (H5).
+        if (slabs.isNotEmpty()) try { applyItemChanges(slabs, emptyList(), forward = true) } catch (e: Throwable) {
+            changes.forEach { it.after?.let(::recycleLayerTex) }
+            slabs.forEach { it.after?.texture?.let(::recycleLayerTex) }
+            throw e
+        }
         changes.forEach{put(it.layerId,it.key,it.after,it.celId)}
-        if (slabs.isNotEmpty()) applyItemChanges(slabs, emptyList(), forward = true)
         if(changes.isNotEmpty()) {
             val beforeDoc=boardDocument
             val afterDoc=if(wrappedBoardId != null && beforeDoc != null) BoardDocumentOps.markWrappedStroke(beforeDoc,wrappedBoardId) else beforeDoc
@@ -1382,7 +1393,7 @@ class GlPaintEngine(
                             out += UndoLog.SlabChange(layer.id, c.celId, c.key, 0L, null, UndoLog.SlabValue(copy, "normal"))
                         }
                     }
-                    out += UndoLog.SlabChange(layer.id, c.celId, c.key, seq, null, UndoLog.SlabValue(uploadTile(newLayerTile(), bytes), fill.operator))
+                    out += slabTile(layer, c.celId, plane, c.key, uploadTile(newLayerTile(), bytes), fill.operator, seq)
                 }
             }
         } catch (e: Throwable) {
@@ -1486,9 +1497,7 @@ class GlPaintEngine(
         }
         // Editable lines (v1.2 H4): planes whose pixels this edit rewrites, or whose region moves, lose their items in
         // this same step; their tiles stay, so the lines become those pixels. Nothing is applied until the edit publishes.
-        val flatten = BoardItemFlatten.plan(nativeLines.itemPlanes(), change) { p ->
-            BoardItemFlatten.region(before, p) != BoardItemFlatten.region(change.doc, p)
-        }
+        val flatten = BoardItemFlatten.plan(nativeLines.itemPlanes(), change, before) { nativeLines.crossedKeys(it) }
         var items = LineItems.Changes.NONE
         for (p in flatten.all) layers[p.layerId]?.let { items += LineItems.removal(nativeLines, p, p.layerId, engineCel(it, p)) }
         var itemsApplied = false
@@ -1672,7 +1681,8 @@ class GlPaintEngine(
             pending.values.forEach { c->c.after?.let(::recycleLayerTex) }
             throw e
         } finally { GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) }
-        return BoardItemFlatten.sentence(flatten.all.mapNotNull { p -> before.layers.firstOrNull { it.id == p.layerId }?.name })
+        // Only lines that stay as pixels are said; a dropped frame's lines went with the frame the person deleted.
+        return BoardItemFlatten.sentence(flatten.flattened.mapNotNull { p -> before.layers.firstOrNull { it.id == p.layerId }?.name })
     }
 
     fun celTileKeys(layerId: String,celId: String): List<Long> {
@@ -1820,9 +1830,31 @@ class GlPaintEngine(
 
     /** Where a plane owns pixels inside [key]; null = the whole tile (no regions). */
     private fun lineClips(layer: Layer, plane: LinePlane, key: Long): List<RegionTileRect>? {
-        val plan = layer.plan ?: return null
+        val plan = clipPlan(layer, plane) ?: return null
         return plan.tileSlices(key).filter { it.plane.celId == plane.celId }.map { it.rect }
     }
+
+    /**
+     * The region plan [plane] owns its pixels by. The layer's own plan holds only each board's CURRENT frame, so a frame
+     * cel that is not showing would own nothing there and its items would compose to nothing (review of v1.2, critical:
+     * a slabs-only frame opened blank). For such a cel this is the plan with ITS frame as the board's current one.
+     */
+    private fun clipPlan(layer: Layer, plane: LinePlane): RegionPaintPlan? {
+        val plan = layer.plan ?: return null
+        val cel = plane.celId ?: return plan
+        if (cel == plan.shared.celId || plan.frames.any { it.celId == cel }) return plan
+        val doc = boardDocument ?: return plan
+        if (clipPlanDoc !== doc || clipPlanBase !== plan) { clipPlans.clear(); clipPlanDoc = doc; clipPlanBase = plan }
+        return clipPlans.getOrPut(layer.id to cel) {
+            val region = doc.layers.firstOrNull { it.id == layer.id }?.regions?.firstOrNull { cel in it.frameCel.values }
+            val frameId = region?.frameCel?.entries?.firstOrNull { it.value == cel }?.key
+            if (region == null || frameId == null) plan
+            else try { RegionDocumentOps.paintPlans(doc, mapOf(region.boardId to frameId))[layer.id] ?: plan } catch (e: Exception) { plan }
+        }
+    }
+    private val clipPlans = HashMap<Pair<String, String>, RegionPaintPlan>()
+    private var clipPlanDoc: JbDocument? = null
+    private var clipPlanBase: RegionPaintPlan? = null
 
     private fun copyOfTile(source: Int): Int {
         val copy = newLayerTile()
@@ -1892,7 +1924,7 @@ class GlPaintEngine(
                             }
                         }
                         val unit = renderStrokeUnit(strokeTiles.getValue(c.key), c.key, under = c.before)
-                        slabs += UndoLog.SlabChange(layer.id, celId, c.key, seq, null, UndoLog.SlabValue(unit, op))
+                        slabs += slabTile(layer, celId, plane, c.key, unit, op, seq)
                     }
                     continue
                 }
@@ -1932,6 +1964,7 @@ class GlPaintEngine(
         if (p.engine == "stamp" && p.tip.source != "procedural") return "picture tips are not replayed"
         if (p.line != null) return "whole-stroke shaping is not replayed"
         if (p.blend !in NativeLines.OPERATORS) return "the ${p.blend} operator is not composed"
+        if (p.blend == "behind") return "a stroke paints behind as plain paint, so a behind line would redraw differently"
         if (paperWarnings.isNotEmpty()) return "the paper's resources are missing"
         val replay = try { InkReplay.replay(record, p) } catch (e: Exception) { return e.message ?: "the replay refused" }
         if (p.version < VERSION_CONTACT &&
@@ -1960,6 +1993,63 @@ class GlPaintEngine(
         if (items.slabs.isEmpty() && items.lines.isEmpty()) return
         nativeLines.addBrushes(items.brushes)
         applyItemChanges(items.slabs, items.lines, forward = true, footprints = items.footprints)
+    }
+
+    /**
+     * One tile of a stroke or a fill kept as a slab ([unit], owned by the result). When the tile's TOP item is a slab with
+     * the same plain operator (normal on normal, erase on erase: both stack as "over"), the unit is merged into it and that
+     * slab's tile changes, the old texture going into the step like an ordinary tile's, so undo puts it back. Otherwise it
+     * is a new slab at [seq]. This keeps a layer's slab memory to about one texture per tile per run of plain strokes
+     * between lines (review of v1.2: slabs grew without limit). Nothing is applied to NativeLines here.
+     */
+    private fun slabTile(layer: Layer, celId: String?, plane: LinePlane, key: Long, unit: Int, op: String, seq: Long): UndoLog.SlabChange<Int> {
+        if (op == "normal" || op == "erase") {
+            val topSeq = nativeLines.seqsAt(plane, key).maxOrNull()
+            val top = topSeq?.let { t -> nativeLines.slabsAt(plane, key).firstOrNull { it.seq == t } }
+            if (topSeq != null && top != null && top.op == op) {
+                val merged = try { overTile(top.texture, unit, key) } finally { recycleLayerTex(unit) }
+                return UndoLog.SlabChange(layer.id, celId, key, topSeq, UndoLog.SlabValue(top.texture, op), UndoLog.SlabValue(merged, op))
+            }
+        }
+        return UndoLog.SlabChange(layer.id, celId, key, seq, null, UndoLog.SlabValue(unit, op))
+    }
+
+    /**
+     * [over] composited over [under] (premultiplied "over"), as a new tile the caller owns. Through the commit program's
+     * RGBA branch, so it also runs inside [endStroke], where [composeRecordedTile] may not.
+     */
+    private fun overTile(under: Int, over: Int, key: Long): Int {
+        val out = newLayerTile()
+        try {
+            initializeTile(out, null, false)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+            attach(out)
+            GLES30.glViewport(0, 0, size, size)
+            GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+            GLES30.glDisable(GLES30.GL_BLEND)
+            commitProg.use()
+            GLES30.glUniform1i(commitProg.loc("u_rgbaStroke"), 1)
+            GLES30.glUniform1f(commitProg.loc("u_tileSize"), size.toFloat())
+            GLES30.glUniform1i(commitProg.loc("u_layer"), 0)
+            GLES30.glUniform1i(commitProg.loc("u_stroke"), 1)
+            GLES30.glUniform3f(commitProg.loc("u_color"), 0f, 0f, 0f)
+            GLES30.glUniform1f(commitProg.loc("u_strokeScale"), 1f)
+            GLES30.glUniform1i(commitProg.loc("u_erase"), 0)
+            GLES30.glUniform1i(commitProg.loc("u_blend"), 0)
+            GLES30.glUniform1i(commitProg.loc("u_smudge"), 0)
+            GLES30.glUniform1f(commitProg.loc("u_layerOpacity"), 1f)
+            val ox = (Tiles.tx(key) * size).toFloat(); val oy = (Tiles.ty(key) * size).toFloat()
+            GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), ox, oy)
+            GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
+            GLES30.glBindVertexArray(tileVao)
+            bindTextures(under, over)
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Slab merge rendering failed" }
+        } catch (e: Throwable) {
+            recycleLayerTex(out)
+            throw e
+        }
+        return out
     }
 
     /** The operator a stroke that is kept as a slab applies with: its own blend (smudge and tuft strokes are plain paint). */
@@ -4476,8 +4566,11 @@ class GlPaintEngine(
                     GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
                 }
             }
-            // The items are made before anything is installed (H5): a throw here leaves the layer and its lines untouched.
+            // The items are made, then applied all-or-nothing, BEFORE any tile is installed (H5): a throw here leaves the
+            // layer and its lines exactly as they were. Installing the tiles below cannot fail.
             items = commitPendingLine(layer, pending)
+            try { installPendingItems(items) }
+            catch (e: Throwable) { items.slabs.forEach { it.after?.texture?.let(::recycleLayerTex) }; throw e }
         } catch (e: Throwable) {
             pending.forEach { it.after?.let(::recycleLayerTex) }
             throw e
@@ -4485,7 +4578,6 @@ class GlPaintEngine(
         for (c in pending) { planeTiles(layer,c.celId)[c.key]=c.after!! }
         changes.addAll(pending)
         invalidateProjection(layer)
-        installPendingItems(items)
         GLES30.glBindVertexArray(0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         releaseStrokeTiles()

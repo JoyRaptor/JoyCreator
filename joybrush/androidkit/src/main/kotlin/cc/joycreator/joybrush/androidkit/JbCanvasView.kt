@@ -1575,9 +1575,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     return
                 }
                 val refusal = lineRefusal(p, erase, amount)
+                // Not a line, on a layer with items: it will be kept as a slab, within the slab budget.
+                if (holdsItems && refusal != null) LineAdmission.slabBudgetRefusal(lineSnapshot.slabTiles)?.let { why ->
+                    drawing = false
+                    onRefused?.invoke(LineAdmission.refusalSentence(stackUi.active.name, why))
+                    return
+                }
                 if (refusal == null) try {
                     val effective = if (erase) p!!.copy(blend = "erase") else p!!
-                    lineFrozen = frozenBrushes.freeze(lineSnapshot.revision, lineSnapshot.brushes, effective) { newLineName("lb") }
+                    lineFrozen = frozenBrushes.freeze(lineSnapshot.brushRevision, lineSnapshot.brushes, effective) { newLineName("lb") }
                     p = lineFrozen.preset   // the live dabber and the record use the same detached definition
                 } catch (e: Exception) {
                     lineFrozen = null       // a brush that can't be frozen is a plain stroke (a slab on a layer with items)

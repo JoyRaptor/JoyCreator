@@ -24,6 +24,10 @@ class LineSnapshot(
     brushes: Map<String, BrushPreset>,
     /** Every plane that holds ITEMS (lines or pixel slabs): its pixels must stay what its items draw (v1.2). */
     itemPlanes: Set<LinePlane> = emptySet(),
+    /** Grows only when the kept brushes change ([revision] grows with every line): the pen-down freeze cache's key. */
+    val brushRevision: Long = 0L,
+    /** Slab tiles held across the drawing (256 KB each): the slab budget's reading. */
+    val slabTiles: Int = 0,
 ) {
     val planes: Map<LinePlane, List<StrokeRecord>> = planes.mapValues { it.value.toList() }
     val brushes: Map<String, BrushPreset> = brushes.toMap()

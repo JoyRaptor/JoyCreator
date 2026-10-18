@@ -21,7 +21,10 @@ class LineAdmissionTest {
         assertNull(refusal(pen()))
         assertNull(refusal(pen(blend = "erase")))
         assertNull(refusal(pen(blend = "multiply")))
-        assertNull(refusal(pen(blend = "behind")))
+    }
+
+    @Test fun aPaintBehindStrokeStaysPixelsBecauseItIsPaintedAsPlainPaintLive() {
+        assertEquals("paint-behind brushes can't be kept as lines yet", refusal(pen(blend = "behind")))
     }
 
     @Test fun theBrushesThatCannotBeLinesSayWhyInWords() {
@@ -51,5 +54,11 @@ class LineAdmissionTest {
     @Test fun theSentenceNamesTheLayerAndSaysWhatToDo() {
         assertEquals("\"Sketch\" holds editable lines, and smudge doesn't work on lines yet. Use another layer for it.",
             LineAdmission.refusalSentence("Sketch", "smudge doesn't work on lines yet"))
+    }
+
+    @Test fun strokesOverLinesAreRefusedInWordsOnlyOnceTheSlabBudgetIsFull() {
+        assertNull(LineAdmission.slabBudgetRefusal(0))
+        assertNull(LineAdmission.slabBudgetRefusal(LineAdmission.SLAB_TILE_BUDGET - 1))
+        assertNotNull(LineAdmission.slabBudgetRefusal(LineAdmission.SLAB_TILE_BUDGET))
     }
 }

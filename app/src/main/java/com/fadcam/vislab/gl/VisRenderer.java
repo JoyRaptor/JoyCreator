@@ -64,6 +64,8 @@ public final class VisRenderer {
     private volatile int forceFrame = -1;    // -1 = the look's own edges
     private volatile float renderScale = 1f;
     private volatile boolean profile;
+    @Nullable private volatile com.fadcam.vislab.words.WordFeed words;
+    private volatile double wordsTime = Double.NaN;
     @Nullable private GpuTimer gpu;
     private volatile ImageSource images;
     private volatile boolean resetRequested;
@@ -152,6 +154,19 @@ public final class VisRenderer {
         return lastError;
     }
 
+    /** Where words layers get their words (a transcript, the demo lyrics); null = no words. */
+    public void setWords(@Nullable com.fadcam.vislab.words.WordFeed feed) {
+        words = feed;
+    }
+
+    /**
+     * The song's own clock, seconds, so words land when they are sung (the demo song's playhead,
+     * Studio's clip time). NaN = use the look's clock.
+     */
+    public void setWordsTime(double seconds) {
+        wordsTime = seconds;
+    }
+
     /** Time each stage on the GPU (debug builds); read with {@link #gpuReport()}. */
     public void setProfiling(boolean on) {
         profile = on;
@@ -219,6 +234,8 @@ public final class VisRenderer {
         bloom.free();
         if (gpu != null) gpu.release();
         gpu = null;
+        com.fadcam.vislab.words.WordFeed wf = words;
+        if (wf != null) wf.release();
         if (initialised) {
             GLES30.glDeleteTextures(4, new int[]{texSpec, texWave, texHist, texBlack}, 0);
             GLES30.glDeleteBuffers(1, new int[]{ubo}, 0);
@@ -238,6 +255,8 @@ public final class VisRenderer {
         main = half = echoA = echoB = null;
         bloom.free();
         gpu = null;
+        com.fadcam.vislab.words.WordFeed wf = words;
+        if (wf != null) wf.contextLost();
         initialised = false;
         w = h = 0;
     }
@@ -496,7 +515,7 @@ public final class VisRenderer {
         if (opacity <= 0.001f) return;
         String draw = t.draw;
         boolean fullscreenLike = VisType.DRAW_FULLSCREEN.equals(draw) || VisType.DRAW_IMAGE.equals(draw)
-                || VisType.DRAW_SLIME.equals(draw) || VisType.DRAW_RD.equals(draw);
+                || VisType.DRAW_SLIME.equals(draw) || VisType.DRAW_RD.equals(draw) || VisType.DRAW_WORDS.equals(draw);
         GlTarget dst = target;
         float px = pxScene;
         if (fullscreenLike && L.res < 0.99f) {
@@ -518,6 +537,24 @@ public final class VisRenderer {
             int unit = useLayer(p, L, px, drawOpacity, null);
             tex(p, "uImage", img[0], unit);
             GLES30.glUniform1f(p.u("uImageAspect"), img[2] > 0 ? (float) img[1] / img[2] : 1f);
+            drawFullscreen();
+        } else if (VisType.DRAW_WORDS.equals(draw)) {
+            com.fadcam.vislab.words.WordFeed feed = words;
+            if (feed == null) return;
+            double now = Double.isNaN(wordsTime) ? time : wordsTime;
+            float mode = L.knobs.value(t, "mode", 0f);
+            double back = mode > 2.5f && mode < 3.5f ? 3.2 / Math.max(L.knobs.value(t, "smoke", 1f), 0.2f) : 4.0;
+            feed.update(now, L.knobs.value(t, "lead", 3f), back);
+            // One small program per scene and letter style: all of them in one ran at 5 fps.
+            String defs = "#define SCENE " + Math.round(mode) + "\n#define LETTER_STYLE "
+                    + Math.round(L.knobs.value(t, "letters", 0f)) + "\n";
+            GlProgram p = program("fullscreen.vert", t.frag, defs);
+            int unit = useLayer(p, L, px, drawOpacity, null);
+            tex(p, "uWords", feed.texture(), unit);
+            GLES30.glUniform4fv(p.u("uWord"), com.fadcam.vislab.words.WordFeed.SLOTS, feed.u, 0);
+            GLES30.glUniform4fv(p.u("uWordB"), com.fadcam.vislab.words.WordFeed.SLOTS, feed.ub, 0);
+            GLES30.glUniform1f(p.u("uWordCount"), feed.count);
+            GLES30.glUniform1f(p.u("uFlowNow"), feed.flowNow);
             drawFullscreen();
         } else if (VisType.DRAW_INSTANCED.equals(draw)) {
             GlProgram p = program(t.vert, t.frag);
@@ -596,13 +633,18 @@ public final class VisRenderer {
 
     @NonNull
     GlProgram program(@NonNull String vert, @NonNull String frag) {
-        String key = vert + "|" + frag;
+        return program(vert, frag, "");
+    }
+
+    /** {@code defines}: lines put ahead of the fragment shader to build a smaller variant of it. */
+    GlProgram program(@NonNull String vert, @NonNull String frag, @NonNull String defines) {
+        String key = vert + "|" + frag + (defines.isEmpty() ? "" : "|" + defines);
         GlProgram p = programs.get(key);
         if (p != null) return p;
         String bad = brokenPrograms.get(key);
         if (bad != null) throw new IllegalStateException(bad);
         try {
-            p = GlProgram.link(key, lib.assemble(vert), lib.assemble(frag));
+            p = GlProgram.link(key, lib.assemble(vert), lib.assemble(frag, defines));
         } catch (RuntimeException e) {
             brokenPrograms.put(key, String.valueOf(e.getMessage()));
             throw e;

@@ -22,8 +22,9 @@ const scenes = index.scenes.map((f) => JSON.parse(read(path.join(assets, 'scenes
 
 // "</" inside an inline <script> would end it early.
 const safe = (s) => s.replace(/<\//g, '<\\/');
-const blob = safe(JSON.stringify({ types, shaders, scenes }));
-const scripts = ['vislab-engine.js', 'vislab-audio.js', 'vislab-app.js']
+const lyrics = JSON.parse(read(path.join(assets, 'words', 'demo-lyrics.json')));
+const blob = safe(JSON.stringify({ types, shaders, scenes, lyrics }));
+const scripts = ['vislab-engine.js', 'vislab-audio.js', 'vislab-words.js', 'vislab-app.js']
   .map((f) => '<script>\n' + safe(read(path.join(here, f))) + '\n</script>').join('\n');
 
 const html = read(path.join(here, 'index.html'));

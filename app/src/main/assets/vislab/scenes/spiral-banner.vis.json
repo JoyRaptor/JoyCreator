@@ -1,0 +1,63 @@
+{
+  "format": "joy.vis/1",
+  "id": "spiral-banner",
+  "name": "Spiral Banner",
+  "family": "Lyrics",
+  "description": "The words ride a ribbon that coils into the distance and turns with the music.",
+  "palette": [
+    "#FFE66D",
+    "#FF9A3C",
+    "#FF2E63",
+    "#B4166B",
+    "#5B1FA8"
+  ],
+  "background": "#07030C",
+  "layers": [
+    {
+      "type": "nebula",
+      "name": "Space",
+      "res": 0.5,
+      "palette": [
+        "#7B2CBF",
+        "#3A0CA3",
+        "#4361EE",
+        "#4CC9F0",
+        "#F72585"
+      ],
+      "p": {
+        "brightness": 0.45,
+        "stars": 0.7,
+        "coreGlow": 0.4
+      }
+    },
+    {
+      "type": "words",
+      "name": "Spiral",
+      "echo": false,
+      "p": {
+        "mode": 1,
+        "size": 0.13,
+        "spread": 0.5,
+        "spin": {
+          "v": 0.1,
+          "mod": {
+            "kick": 0.05
+          }
+        },
+        "tilt": 0.75,
+        "glow": 0.7,
+        "brightness": 1.3,
+        "banner": 0.6,
+        "colourBy": 1,
+        "pump": 0.3
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.85,
+      "vignette": 0.55,
+      "grain": 0.1
+    }
+  }
+}

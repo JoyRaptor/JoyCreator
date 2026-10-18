@@ -1,0 +1,44 @@
+{
+  "format": "joy.vis/1",
+  "id": "firework-words",
+  "name": "Firework Words",
+  "family": "Lyrics",
+  "description": "A rocket climbs before each word, then bursts into it: sparks fly out, hang, sag and twinkle away.",
+  "palette": [
+    "#FFD166",
+    "#EF476F",
+    "#06D6A0",
+    "#4CC9F0",
+    "#F8F7FF"
+  ],
+  "background": "#03030A",
+  "layers": [
+    {
+      "type": "words",
+      "name": "Fireworks",
+      "p": {
+        "mode": 10,
+        "size": 0.2,
+        "spread": 0.9,
+        "glow": 0.7,
+        "brightness": 1.2,
+        "pump": 0.2
+      }
+    }
+  ],
+  "echo": {
+    "p": {
+      "decay": 0.72,
+      "dy": -0.05,
+      "blur": 0.2
+    }
+  },
+  "post": {
+    "p": {
+      "bloom": 1.1,
+      "bloomThreshold": 0.45,
+      "vignette": 0.45,
+      "grain": 0.08
+    }
+  }
+}

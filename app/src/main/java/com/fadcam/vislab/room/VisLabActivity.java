@@ -127,7 +127,10 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         root.setBackgroundColor(Studio.GROUND);
         stage = new FrameLayout(this);
         view = new VisTextureView(this);
-        view.setFeatureSource(dt -> analyzer.step(dt));
+        view.setFeatureSource(dt -> {
+            view.renderer().setWordsTime(demoSeconds());   // the demo lyrics follow the demo song
+            return analyzer.step(dt);
+        });
         view.renderer().setImageSource(new Pictures(this));
         stage.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(stage, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -486,6 +489,14 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     }
 
     // ------------------------------------------------------------------ sound
+
+    /** Where the demo song is, seconds (its sample lyrics are timed to it); NaN for other sound. */
+    private double demoSeconds() {
+        SoundSource s = source;
+        if (sourceKind != SRC_DEMO || s == null) return Double.NaN;
+        long f = s.playheadFrame();
+        return f < 0 ? Double.NaN : f / (double) Math.max(1, ring.sampleRate());
+    }
 
     private void useSource(int kind, @Nullable Uri song) {
         if (source != null) source.stop();

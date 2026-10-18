@@ -86,6 +86,7 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     public VisTextureView(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
         renderer = VisLab.get(context).newRenderer();
+        renderer.setWords(com.fadcam.vislab.words.WordFeed.withDemo(context));   // until a transcript gives words
         renderer.setProfiling((context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         setOpaque(false);
         setSurfaceTextureListener(this);

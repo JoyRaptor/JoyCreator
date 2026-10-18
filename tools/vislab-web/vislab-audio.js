@@ -307,6 +307,14 @@
       await el.play();
       this.source = 'file';
     }
+    /** Where the song is, in seconds (what a listener hears now), or null for live sound. */
+    songTime() {
+      const c = this.ctx;
+      if (!c) return null;
+      if (this.demo && this.demo.t0 != null) return c.currentTime - (c.outputLatency || 0) - (c.baseLatency || 0) - this.demo.t0;
+      if (this.el) return this.el.currentTime;
+      return null;
+    }
     pause(p) {
       if (!this.ctx) return;
       if (p) { this.ctx.suspend(); if (this.el) this.el.pause(); }
@@ -365,7 +373,12 @@
       this.chords = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]];   // Am F C G
       this.roots = [45, 41, 36, 43];
     }
-    start() { this.next = this.ctx.currentTime + 0.1; this.timer = setInterval(() => this._schedule(), 25); }
+    start() {
+      this.next = this.ctx.currentTime + 0.1;
+      // The song's own clock: song seconds = audio time - t0 (lyrics are timed in song seconds).
+      this.t0 = this.next - this.step * this.sixteenth;
+      this.timer = setInterval(() => this._schedule(), 25);
+    }
     stop() { clearInterval(this.timer); }
     _hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
     _schedule() {

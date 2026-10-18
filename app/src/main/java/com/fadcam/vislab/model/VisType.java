@@ -28,6 +28,8 @@ public final class VisType {
     public static final String DRAW_SLIME = "slime";
     public static final String DRAW_RD = "rd";
     public static final String DRAW_IMAGE = "image";
+    /** Timed words drawn from a glyph atlas (see vislab/words/WordFeed). */
+    public static final String DRAW_WORDS = "words";
 
     @NonNull public final String id;
     @NonNull public final String label;

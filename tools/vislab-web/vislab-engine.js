@@ -106,9 +106,9 @@
       return s;
     }
 
-    _compile(type, name) {
+    _compile(type, name, defines) {
       const gl = this.gl;
-      const src = '#version 300 es\n' + PRECISION + this._shaderSrc('common.glsl') + '\n#line 1\n' + this._shaderSrc(name);
+      const src = '#version 300 es\n' + PRECISION + (defines || '') + this._shaderSrc('common.glsl') + '\n#line 1\n' + this._shaderSrc(name);
       const sh = gl.createShader(type);
       gl.shaderSource(sh, src);
       gl.compileShader(sh);
@@ -120,19 +120,20 @@
       return sh;
     }
 
-    program(vert, frag) {
-      const key = vert + '|' + frag;
+    /** `defines`: lines put ahead of the fragment shader to build a smaller variant of it. */
+    program(vert, frag, defines) {
+      const key = vert + '|' + frag + (defines ? '|' + defines : '');
       let p = this.programs.get(key);
       if (p) { if (p.error) throw p.error; return p; }
-      try { return this._link(key, vert, frag); } catch (e) { this.programs.set(key, { error: e }); throw e; }
+      try { return this._link(key, vert, frag, defines); } catch (e) { this.programs.set(key, { error: e }); throw e; }
     }
 
-    _link(key, vert, frag) {
+    _link(key, vert, frag, defines) {
       let p;
       const gl = this.gl;
       const prog = gl.createProgram();
       gl.attachShader(prog, this._compile(gl.VERTEX_SHADER, vert));
-      gl.attachShader(prog, this._compile(gl.FRAGMENT_SHADER, frag));
+      gl.attachShader(prog, this._compile(gl.FRAGMENT_SHADER, frag, defines));
       gl.linkProgram(prog);
       if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(key + ' link: ' + gl.getProgramInfoLog(prog));
       const block = gl.getUniformBlockIndex(prog, 'Audio');
@@ -522,7 +523,7 @@
       const pal = this._palette(layer);
       const res = layer.res !== undefined ? layer.res : (type.res || 1);
       const draw = type.draw;
-      const fullscreenLike = draw === 'fullscreen' || draw === 'image' || draw === 'slime' || draw === 'rd';
+      const fullscreenLike = draw === 'fullscreen' || draw === 'image' || draw === 'slime' || draw === 'rd' || draw === 'words';
       let dst = target;
       let px = pxScene;
       if (fullscreenLike && res < 0.99) {
@@ -542,6 +543,19 @@
         common.tex = { uImage: img.tex };
         common.uniforms = { uImageAspect: img.aspect };
         this._use(this.program('fullscreen.vert', type.frag), common);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      } else if (draw === 'words') {
+        // Timed words (a transcript, the demo lyrics, typed words) from this.words, at this.wordsTime
+        // (the song's own clock when there is one, so words land when they are sung).
+        const feed = this.words;
+        if (!feed) return;
+        const now = this.wordsTime != null ? this.wordsTime : this.time;
+        const back = values.mode > 2.5 && values.mode < 3.5 ? 3.2 / Math.max(values.smoke || 1, 0.2) : 4;
+        const u = feed.uniforms(now, values.lead || 3, back);
+        common.tex = { uWords: feed.texture(gl) };
+        common.uniforms = u;
+        const defs = '#define SCENE ' + Math.round(values.mode || 0) + '\n#define LETTER_STYLE ' + Math.round(values.letters || 0) + '\n';
+        this._use(this.program('fullscreen.vert', type.frag, defs), common);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       } else if (draw === 'instanced') {
         const n = this._instances(type, values);

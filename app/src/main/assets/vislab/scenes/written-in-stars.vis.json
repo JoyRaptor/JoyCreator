@@ -1,0 +1,55 @@
+{
+  "format": "joy.vis/1",
+  "id": "written-in-stars",
+  "name": "Written in Stars",
+  "family": "Lyrics",
+  "description": "Each word is written in stars across the night sky; they light one by one, join into a constellation, then drift away.",
+  "palette": [
+    "#FFFFFF",
+    "#BDE0FE",
+    "#A2D2FF",
+    "#CDB4DB",
+    "#FFC8DD"
+  ],
+  "background": "#02030A",
+  "layers": [
+    {
+      "type": "nebula",
+      "name": "Space",
+      "res": 0.5,
+      "palette": [
+        "#7B2CBF",
+        "#3A0CA3",
+        "#4361EE",
+        "#4CC9F0",
+        "#F72585"
+      ],
+      "p": {
+        "brightness": 0.2,
+        "stars": 0.7,
+        "coreGlow": 0.4
+      }
+    },
+    {
+      "type": "words",
+      "name": "Stars",
+      "echo": false,
+      "p": {
+        "mode": 9,
+        "size": 0.3,
+        "spread": 0.85,
+        "banner": 0.8,
+        "glow": 0.5,
+        "brightness": 1.2,
+        "pump": 0.3
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.9,
+      "vignette": 0.45,
+      "grain": 0.08
+    }
+  }
+}

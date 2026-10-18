@@ -45,7 +45,8 @@
     await Promise.all([...names].map(async (n) => { shaders[n] = await (await get('shaders/' + n)).text(); }));
     const index = await (await get('scenes/index.json')).json();
     const scenes = await Promise.all(index.scenes.map(async (f) => (await get('scenes/' + f)).json()));
-    return { types, shaders, scenes };
+    const lyrics = await (await get('words/demo-lyrics.json')).json();
+    return { types, shaders, scenes, lyrics };
   }
 
   function defaultLogo() {
@@ -94,6 +95,10 @@
     if (!gl) { fail('This browser has no WebGL2.'); return; }
     const engine = new VisEngine(gl, assets);
     engine.defaultImage = defaultLogo();
+    // Words for word layers: the demo song's sample lyrics until the person types their own.
+    const words = new WordFeed();
+    if (assets.lyrics) words.setWords(assets.lyrics.words, assets.lyrics.period, 'demo');
+    engine.words = words;
     engine.onError = (layer, e) => fail('Layer "' + (layer.name || layer.type) + '" switched off: ' + (e.message || e));
     window.__engine = engine;
     const rig = new VisAudio.AudioRig();
@@ -507,6 +512,8 @@
       let f = rig.read(dt);
       if (!f) f = VisAudio.idleFeatures(idleFx, now / 1000, dt);
       lastF = f;
+      const st = rig.songTime ? rig.songTime() : null;
+      engine.wordsTime = words.label === 'demo' && rig.source === 'demo' ? st : (words.label === 'typed' ? engine.time : st);
       try { engine.render(f, paused ? 0 : dt, cw, ch); } catch (e) { fail(e); return; }
       if (over) drawUnder(now / 1000);
       frames++; fpsT += dt;
@@ -522,7 +529,7 @@
       }
     }
     requestAnimationFrame(frame);
-    window.__vislab = { engine, rig, setScene: (i) => setScene(i), scenes: working, startSource };
+    window.__vislab = { engine, rig, words, setScene: (i) => setScene(i), scenes: working, startSource };
     // Dev: pick up edited shaders / looks without restarting the music.
     window.__vislab.reload = async () => {
       const a = await loadAssets();

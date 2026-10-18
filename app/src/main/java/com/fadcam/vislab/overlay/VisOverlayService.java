@@ -171,6 +171,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         box = new FrameLayout(this);
         view = new VisTextureView(this);
         view.renderer().setTransparent(true);   // see-through over whatever is below
+        view.renderer().setWords(null);         // no sample lyrics over someone's screen
         box.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         controls = new OverlayControls(this, this);
         controls.setVisibility(View.GONE);

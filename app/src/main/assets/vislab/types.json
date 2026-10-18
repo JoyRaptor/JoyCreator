@@ -557,6 +557,33 @@
         {"id": "palShift", "label": "Halo colour", "slot": "2w", "min": 0, "max": 1, "def": 0}
       ]
     },
+    "words": {
+      "label": "Words", "family": "media", "draw": "words", "frag": "words.frag",
+      "about": "The words of the song or the voice as art: flying at you through space, on a spiral banner or a weaving ribbon, along a tunnel wall, curling up as smoke, as neon signs down a night street, written in stars, bursting as fireworks, in the puck or round a ring. Never a caption line.",
+      "params": [
+        {"id": "mode", "label": "Scene", "slot": "0x", "enum": ["Star flight", "Spiral banner", "Tunnel ticker", "Smoke", "Puck", "Ring", "Weaving ribbon", "Cigar smoke", "Neon street", "Constellations", "Fireworks"], "def": 0},
+        {"id": "size", "label": "Text size", "slot": "0y", "min": 0.04, "max": 0.6, "def": 0.16},
+        {"id": "brightness", "label": "Brightness", "slot": "0z", "min": 0, "max": 3, "def": 1.2},
+        {"id": "palShift", "label": "Colour shift", "slot": "0w", "min": 0, "max": 1, "def": 0},
+        {"id": "speed", "label": "Speed", "slot": "1x", "min": 0.2, "max": 3, "def": 1},
+        {"id": "spin", "label": "Spin", "slot": "1y", "min": -1, "max": 1, "def": 0.12},
+        {"id": "glow", "label": "Glow", "slot": "1z", "min": 0, "max": 2, "def": 0.7},
+        {"id": "spread", "label": "Spread", "slot": "1w", "min": 0, "max": 1.5, "def": 0.6},
+        {"id": "tilt", "label": "Tilt back", "slot": "2x", "min": 0, "max": 1.2, "def": 0.6},
+        {"id": "lanes", "label": "Lanes", "slot": "2y", "min": 1, "max": 6, "def": 3, "step": 1},
+        {"id": "smoke", "label": "Smoke", "slot": "2z", "min": 0.2, "max": 2, "def": 1},
+        {"id": "pump", "label": "Kick pump", "slot": "2w", "min": 0, "max": 1, "def": 0.35},
+        {"id": "banner", "label": "Banner", "slot": "3x", "min": 0, "max": 1, "def": 0.5},
+        {"id": "colourBy", "label": "Colour by", "slot": "3y", "enum": ["Each word", "In order"], "def": 0},
+        {"id": "lead", "label": "Look ahead (s)", "slot": "3z", "min": 0.5, "max": 6, "def": 3},
+        {"id": "hueSpin", "label": "Colour cycle", "slot": "3w", "min": -0.2, "max": 0.2, "def": 0},
+        {"id": "letters", "label": "Letters", "slot": "4x", "enum": ["Glow", "Neon tube", "Outline", "Stars"], "def": 0},
+        {"id": "flicker", "label": "Neon flicker", "slot": "4y", "min": 0, "max": 1, "def": 0},
+        {"id": "weave", "label": "Weave", "slot": "4z", "min": 0, "max": 2, "def": 1},
+        {"id": "across", "label": "Across", "slot": "4w", "min": -1, "max": 1, "def": -0.6},
+        {"id": "up", "label": "Up", "slot": "5x", "min": -1, "max": 1, "def": 0}
+      ]
+    },
     "slime": {
       "label": "Slime web", "family": "living", "draw": "slime",
       "step": "slime_step.frag", "depositVert": "slime_deposit.vert", "depositFrag": "slime_deposit.frag",

@@ -1,0 +1,54 @@
+{
+  "format": "joy.vis/1",
+  "id": "cigar-smoke",
+  "name": "Cigar Smoke",
+  "family": "Lyrics",
+  "description": "Each word curls up off a glowing ember as it is sung, then sways, spreads and greys into smoke.",
+  "palette": [
+    "#FFE8C2",
+    "#F2B880",
+    "#D4745A",
+    "#8E3B46",
+    "#2B1B3D"
+  ],
+  "background": "#0A0606",
+  "layers": [
+    {
+      "type": "mesh",
+      "name": "Wash",
+      "res": 0.5,
+      "p": {
+        "brightness": 0.06,
+        "soft": 0.8,
+        "warp": 0.3,
+        "react": 0.4,
+        "grain": 0.3
+      }
+    },
+    {
+      "type": "words",
+      "name": "Smoke",
+      "echo": false,
+      "p": {
+        "mode": 7,
+        "size": 0.15,
+        "weave": 1,
+        "smoke": 0.9,
+        "across": -0.15,
+        "glow": 0.55,
+        "banner": 0.45,
+        "brightness": 1.15,
+        "pump": 0.2,
+        "speed": 1
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.7,
+      "vignette": 0.6,
+      "grain": 0.2,
+      "saturation": 0.9
+    }
+  }
+}

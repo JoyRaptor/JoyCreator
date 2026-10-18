@@ -77,7 +77,8 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
   the session's current look, paused when off screen.
 - [x] **C2. Floating visualiser: a look picker** (only ‹ › now) — `vislab/overlay/OverlayControls.java`.
   - DONE 10-18, Note 9: tap the look's name in the floating controls for every look by name; picked Glass Peaks from the list (it also floats over the home screen). The chosen row is solid cyan and the list stays 15 s (built after the test, compiles green).
-- [ ] **C3. Floating visualiser hears phone audio without recording** (Android's playback
+- [x] **C3. Floating visualiser hears phone audio without recording** (Android's playback
+  - DONE 10-18, Note 9 with the owner: speaker button -> Android's question -> Start now -> hearing the phone; Glass Peaks jumped with the demo song playing on the phone; tapping again went back to the microphone and Android released the permission. Apps that forbid capture stay silent.
   capture needs the screen-capture consent) — `vislab/overlay/OverlaySound.java` (NONE/RECORDING/MIC).
 - [ ] **C4. Studio** (looks as overlays, scrub, export, transcript words) — handed to the Studio
   lane, `tasks/INBOX.md` 10-17 + spec §7. VisLab side is ready; only do it if the owner moves it here.

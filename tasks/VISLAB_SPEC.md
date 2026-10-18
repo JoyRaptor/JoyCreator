@@ -202,16 +202,22 @@ out of long loops (find the word, then draw it once).
 - `VisOverlayService`: a floating window over everything. **Box** (drag, resize from the top-right
   handle, soft-edged frame so it never shows a seam; tap for controls) or **full screen**
   (see-through, touches pass to the app below; a small handle keeps the controls). Controls:
-  previous / next look, what it hears, box / full screen, close. Remembers look, mode, size, place.
+  previous / next look, the look's name (tap: every look by name, `OverlayPicker`), what it
+  hears, the speaker (hear the phone), box / full screen, close. Remembers look, mode, size, place.
 - Recorded too: the recorder captures the screen, so the overlay is in the video.
 - Sound (`OverlaySound`, chosen once a second): during a recording, exactly what is recorded,
   from `RecordingTap` (one line in `ScreenRecordingPipeline` after the existing visualizer tap);
   otherwise the microphone. **The microphone is never opened while a recording runs**, paused
   included (on Android 10 the newest listener takes the mic and the recording would go silent).
+- **The phone's own sound (10-18):** the speaker button asks Android's screen-capture question
+  (`PhoneAudioConsent`, see-through); on yes the service also runs as a mediaProjection service
+  and `PhoneAudioSource` hears playback (media, games, unknown) through Android 10+'s playback
+  capture. Order: a recording's sound, then the phone's, then the microphone. Tap again (or stop
+  it from Android's own controls) to go back to the microphone. Apps that forbid capture are
+  silent. The yes lasts until the visualiser closes.
 - Toggle: the recording toolbar (`annotation_toolbar_unified.xml`), "Visualiser" row under
   "Webcam overlay". The old in-recording strip (`LiveVisualizer`) is untouched and still selectable.
-- Not yet: phone audio without a recording (needs a MediaProjection consent of its own, or the
-  20 Hz `Visualizer` API); a look picker sheet (prev/next only for now).
+- Not yet: hearing the phone in the room itself (the room has the demo song, mic and a song).
 
 ## 9. Status
 
@@ -223,6 +229,7 @@ out of long loops (find the word, then draw it once).
 | Joybot in VisLab | ✅ (JOYBOT lane) |
 | 45-60 fps on Note 9 | ✅ most looks; Crystal, Gyroid Dive lower |
 | Floating overlay + recording toggle | ✅ device-tested 10-17 (incl. a real recording) |
+| Floating overlay: every look by name; hears the phone without a recording | ✅ Note 9 10-18 (owner tapped Start now) |
 | Studio overlay, scrubbing, export, mini editor | ❌ section 7 |
 | Words layer (art, not captions), 10 Lyrics looks | ✅ pilot + Note 9, 30-57 fps after the 10-18 fixes; Studio feed owed (7.5) |
 | Spiral Banner: log spiral filled with the song, slow turn (no beat jumps) | ✅ Note 9 10-18 |

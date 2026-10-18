@@ -43,9 +43,12 @@ final class OverlayControls extends LinearLayout {
 
         /** Pixels the look list may take above the row (a short box has less). */
         int roomForList();
+
+        /** Hear the phone's own sound (asks Android first), or stop and go back to the microphone. */
+        void togglePhoneAudio();
     }
 
-    private final TextView name, hears, mode;
+    private final TextView name, hears, mode, phone;
     private final OverlayPicker picker;
     private final Actions actions;
 
@@ -86,6 +89,8 @@ final class OverlayControls extends LinearLayout {
         LayoutParams wl = new LayoutParams(Ui.dp(c, 128), LayoutParams.WRAP_CONTENT);
         row.addView(words, wl);
         row.addView(button(c, "chevron_right", "Next look", v -> a.step(1)));
+        phone = button(c, "speaker", "Hear the phone's own sound: music, games, video (Android asks first)", v -> a.togglePhoneAudio());
+        row.addView(phone);
         mode = button(c, "fullscreen", "Fill the screen (touches pass through to the app below)", v -> a.toggleFull());
         row.addView(mode);
         row.addView(button(c, "close", "Turn the visualiser off", v -> a.close()));
@@ -98,7 +103,14 @@ final class OverlayControls extends LinearLayout {
 
     void setSource(int kind) {
         hears.setText(kind == OverlaySound.RECORDING ? "hearing the recording"
+                : kind == OverlaySound.PHONE ? "hearing the phone"
                 : kind == OverlaySound.MIC ? "hearing the microphone" : "waiting for sound");
+        boolean on = kind == OverlaySound.PHONE;
+        // ON = solid cyan with the icon cut out (the owner's rule).
+        phone.setTextColor(on ? Studio.GROUND : Studio.INK);
+        phone.setBackground(on ? Ui.round(Studio.ARMED, Ui.dp(getContext(), 999)) : null);
+        Ui.label(phone, on ? "Stop hearing the phone; back to the microphone"
+                : "Hear the phone's own sound: music, games, video (Android asks first)");
     }
 
     void setFull(boolean full) {

@@ -474,7 +474,8 @@
         <service android:name=".fadrec.ui.AnnotationService" android:enabled="true" android:exported="false" android:foregroundServiceType="specialUse" />
 
         <!-- VisLab floating visualiser: over any app, and over the screen while recording (VISLAB_20261016) -->
-        <service android:name=".vislab.overlay.VisOverlayService" android:enabled="true" android:exported="false" android:foregroundServiceType="microphone|specialUse" />
+        <service android:name=".vislab.overlay.VisOverlayService" android:enabled="true" android:exported="false" android:foregroundServiceType="microphone|specialUse|mediaProjection" />
+        <activity android:name=".vislab.overlay.PhoneAudioConsent" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:exported="false" />
 
         <!-- Transparent dialog activity for color picker -->
         <activity android:name=".fadrec.ui.ColorPickerDialogActivity" android:theme="@style/Theme.FadCam.TransparentDialog" android:excludeFromRecents="true" android:exported="false" />

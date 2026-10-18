@@ -50,6 +50,8 @@ import java.util.List;
 public class VisOverlayService extends Service implements OverlayControls.Actions, OverlaySound.Listener {
 
     public static final String ACTION_STOP = "com.fadcam.vislab.OVERLAY_STOP";
+    private static final String ACTION_PHONE = "com.fadcam.vislab.OVERLAY_PHONE_AUDIO";
+    private static final String EXTRA_CODE = "code", EXTRA_DATA = "data";
     private static final String CHANNEL_ID = "vislab_overlay";
     private static final int NOTIFICATION_ID = 7414;
     private static final String PREFS = "vislab_overlay";
@@ -149,7 +151,75 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && ACTION_STOP.equals(intent.getAction())) stopSelf();
+        if (intent != null && ACTION_PHONE.equals(intent.getAction())) takePhoneAudio(intent);
         return START_NOT_STICKY;
+    }
+
+    // ------------------------------------------------------------------ the phone's own sound
+
+    /** From {@link PhoneAudioConsent}: the person said yes. */
+    static void phoneAudioAllowed(@NonNull Context c, int code, @NonNull Intent data) {
+        if (!isRunning) return;
+        c.startService(new Intent(c, VisOverlayService.class).setAction(ACTION_PHONE)
+                .putExtra(EXTRA_CODE, code).putExtra(EXTRA_DATA, data));
+    }
+
+    /** From {@link PhoneAudioConsent}: no (or back). Nothing changes. */
+    static void phoneAudioRefused(@NonNull Context c) {
+        android.widget.Toast.makeText(c.getApplicationContext(), "The visualiser keeps listening to the microphone",
+                android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void togglePhoneAudio() {
+        showControls();
+        if (sound.hearsPhone()) {
+            sound.usePhone(null);
+            startInForeground();   // no longer a screen-capture service
+            return;
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            android.widget.Toast.makeText(this, "Hearing the phone's own sound needs Android 10 or newer",
+                    android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!com.fadcam.vislab.audio.MicSource.hasPermission(this)) {
+            android.widget.Toast.makeText(this, "Allow the microphone for Joy Creator first: Android counts the phone's sound as recording",
+                    android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
+        // An app showing a window over others may open its own screen from here.
+        startActivity(new Intent(this, PhoneAudioConsent.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    }
+
+    private void takePhoneAudio(@NonNull Intent intent) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || sound == null) return;
+        Intent data = intent.getParcelableExtra(EXTRA_DATA);
+        int code = intent.getIntExtra(EXTRA_CODE, 0);
+        if (data == null) return;
+        // Android only hands out the projection to a service that runs as a screen-capture one.
+        startInForeground(true);
+        try {
+            android.media.projection.MediaProjectionManager mpm =
+                    (android.media.projection.MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+            android.media.projection.MediaProjection p = mpm.getMediaProjection(code, data);
+            if (p == null) return;
+            p.registerCallback(new android.media.projection.MediaProjection.Callback() {
+                @Override
+                public void onStop() {   // the person stopped it from Android's own controls
+                    ui.post(() -> {
+                        if (sound != null && sound.hearsPhone()) {
+                            sound.usePhone(null);
+                            startInForeground();
+                        }
+                    });
+                }
+            }, ui);
+            sound.usePhone(p);
+        } catch (RuntimeException e) {
+            android.util.Log.w("VisOverlay", "phone audio refused by the system", e);
+            startInForeground();
+        }
     }
 
     @Override
@@ -480,6 +550,11 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     // ------------------------------------------------------------------ foreground
 
     private void startInForeground() {
+        startInForeground(false);
+    }
+
+    /** {@code projection}: also a screen-capture service (needed to hear the phone's sound). */
+    private void startInForeground(boolean projection) {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(new NotificationChannel(CHANNEL_ID, "Visualiser on screen",
@@ -495,10 +570,20 @@ public class VisOverlayService extends Service implements OverlayControls.Action
                 .setOngoing(true)
                 .addAction(0, "Turn off", stop)
                 .build();
-        // Android 11+ only lets a foreground service hear the microphone when it says so.
+        // Android 10 needs the screen-capture type to hand out the projection; Android 11+ also
+        // only lets a foreground service hear the microphone when it says so.
+        if (projection && Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+            try {
+                startForeground(NOTIFICATION_ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+                return;
+            } catch (RuntimeException e) {
+                // fall through
+            }
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             int type = com.fadcam.vislab.audio.MicSource.hasPermission(this)
                     ? android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE : 0;
+            if (projection) type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
             if (Build.VERSION.SDK_INT >= 34) type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE;
             try {
                 startForeground(NOTIFICATION_ID, n, type);

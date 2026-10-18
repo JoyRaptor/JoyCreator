@@ -29,8 +29,8 @@ internal object LineItems {
      * reverse order before the exception goes on, so the plane is exactly as it was.
      */
     fun apply(nl: NativeLines, slabs: List<UndoLog.SlabChange<Int>>, lines: List<UndoLog.LineChange>,
-              forward: Boolean, planeOf: (layerId: String, celId: String?) -> LinePlane,
-              footprints: Map<Pair<LinePlane, String>, Set<Long>> = emptyMap()) {
+              forward: Boolean, footprints: Map<Pair<LinePlane, String>, Set<Long>> = emptyMap(),
+              planeOf: (layerId: String, celId: String?) -> LinePlane) {
         val inverses = ArrayList<() -> Unit>()
         fun lineTarget(c: UndoLog.LineChange) = if (forward) c.after else c.before
         fun slabTarget(c: UndoLog.SlabChange<Int>) = if (forward) c.after else c.before

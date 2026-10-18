@@ -607,13 +607,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     fun submitLineEdit(edit: LineEdit, done: (LineEditResult) -> Unit) {
         if (drawing) { done(LineEditResult(false, "Lift the pen before editing lines")); return }
         // H9: a locked or hidden layer's lines can't be changed (they may still show), said in words.
-        val addresses = when (edit) {
-            is LineEdit.Replace -> edit.after.map { it.address }
-            is LineEdit.Add -> edit.records.map { it.address }
-            is LineEdit.Delete -> edit.ids
-            is LineEdit.Bake -> edit.ids
-        }
-        for (layerId in addresses.map { it.layerId }.distinct()) {
+        for (layerId in edit.layerIds()) {
             val layer = stackUi.layers.firstOrNull { it.id == layerId } ?: continue
             LineEditGate.layerRefusal(layer.name, layerLocked(layerId), layer.visible)?.let { done(LineEditResult(false, it)); return }
         }

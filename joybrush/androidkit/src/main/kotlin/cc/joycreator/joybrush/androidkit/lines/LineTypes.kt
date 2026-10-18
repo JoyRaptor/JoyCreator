@@ -43,6 +43,17 @@ class LineSnapshot(
 
 /** One Select edit; each is ONE undo step (owner: one press, one step). */
 sealed class LineEdit {
+    /** Every line this edit names. */
+    fun addresses(): Collection<LineAddress> = when (this) {
+        is Replace -> after.map { it.address }
+        is Add -> records.map { it.address }
+        is Delete -> ids
+        is Bake -> ids
+    }
+
+    /** The layers this edit touches (v1.2 H9: a locked or hidden one refuses it). */
+    fun layerIds(): Set<String> = addresses().mapTo(LinkedHashSet()) { it.layerId }
+
     /**
      * Same addresses and seqs (recolour, re-brush, re-weight, reshape, transform). [brushes] = frozen copies a
      * re-brush introduces (FrozenBrushRegistry.freeze against [LineSnapshot.brushes]); records name them by id.

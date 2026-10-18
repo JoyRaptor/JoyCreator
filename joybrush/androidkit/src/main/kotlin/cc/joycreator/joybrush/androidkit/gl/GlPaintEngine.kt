@@ -2009,7 +2009,7 @@ class GlPaintEngine(
 
     private fun applyItemChanges(slabs: List<UndoLog.SlabChange<Int>>, lines: List<UndoLog.LineChange>, forward: Boolean,
                                  footprints: Map<Pair<LinePlane, String>, Set<Long>> = emptyMap()) =
-        LineItems.apply(nativeLines, slabs, lines, forward, ::changePlane, footprints)
+        LineItems.apply(nativeLines, slabs, lines, forward, footprints, ::changePlane)
 
     /** Clear on a layer with lines or slabs: its pixels, its items and their bases go together, as ONE step (nothing comes back). */
     private fun clearLayerWithLines(layer: Layer) {

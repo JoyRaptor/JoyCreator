@@ -57,7 +57,6 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private var session = BoardSession()
     private val views = linkedMapOf<String, BoardChromeView>()
     private val scroll = mutableMapOf<String, Int>()
-    private val modes = mutableMapOf<String, PlayMode>()
     private val fpsPanels = mutableSetOf<String>()
     private val onionBoards = mutableSetOf<String>()
     private var pendingTile: String? = null
@@ -339,7 +338,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                 screen = Chrome.Rect(margin.toFloat(), margin.toFloat(), (margin + parent.width).toFloat(), (margin + parent.height).toFloat()),
                 stripScrollPx = (scroll[b.id] ?: 0).toFloat(), liftedFrame = lifted?.takeIf { session.selectedBoardId == b.id },
                 insertionIndex = gap?.takeIf { session.selectedBoardId == b.id }, playing = playingBoard == b.id || spritePlaying == b.id,
-                loopGlyph = when (modes[b.id] ?: PlayMode.LOOP) { PlayMode.LOOP -> "loop"; PlayMode.PING_PONG -> "ping-pong"; PlayMode.ONCE -> "once" },
+                loopGlyph = when (PlayMode.of(b.end)) { PlayMode.LOOP -> "loop"; PlayMode.PING_PONG -> "ping-pong"; PlayMode.ONCE -> "once" },
                 showFps = b.id in fpsPanels, fps = b.fps.roundToInt(), columns = b.grid?.cols ?: 1,
                 rows = b.grid?.rows ?: 1, cellWidth = b.grid?.cellW ?: b.rect.w, cellHeight = b.grid?.cellH ?: b.rect.h,
                 gridByPixels = spritePixels[b.id] == true, subGrid = spriteSubGrids[b.id] ?: 2,
@@ -534,7 +533,16 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                 "lock" -> if (b.kind == BoardKind.ANIMATION && b.frames.size > 1) moveBoardForm(b,allFrames=true) else metadata { BoardDocumentOps.setLocked(it, id, !b.locked) }
                 "add" -> if (held) frameMenu(id) else add(id, NewFrame.DUPLICATE)
                 "play" -> if (held) { if (!fpsPanels.add(id)) fpsPanels.remove(id); refreshTransform() } else togglePlay(id)
-                "loop" -> { modes[id] = PlayMode.values()[((modes[id] ?: PlayMode.LOOP).ordinal + 1) % 3]; stopPreview(); refreshTransform() }
+                // ANIMATION_CLIPS C3: the clip's "when it ends" is saved with the drawing (one undo step). Blank joins the
+                // cycle once the renderer shows a clip as empty past its end (C4).
+                "loop" -> {
+                    val next = when (cc.joycreator.joybrush.core.doc.BoardEnd.of(b.end)) {
+                        cc.joycreator.joybrush.core.doc.BoardEnd.LOOP -> cc.joycreator.joybrush.core.doc.BoardEnd.PING_PONG
+                        cc.joycreator.joybrush.core.doc.BoardEnd.PING_PONG -> cc.joycreator.joybrush.core.doc.BoardEnd.HOLD
+                        else -> cc.joycreator.joybrush.core.doc.BoardEnd.LOOP
+                    }
+                    stopPreview(); metadata { d -> BoardDocumentOps.setEnd(d, id, next) }; refreshTransform()
+                }
                 "fps-minus", "fps-plus" -> metadata { d -> d.copy(boards = d.boards.map { if (it.id == id) it.copy(fps = (it.fps + if (control == "fps-plus") 1 else -1).coerceIn(1f, 60f)) else it }) }
                 "feature" -> if(b.kind == BoardKind.SPRITE) {
                     if(!b.locked) host.refusal("Lock the board to rearrange cells") else {
@@ -828,7 +836,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         panels.form(title,fields,done)
     }
     private fun togglePlay(id: String) { if (playingBoard == id) { stopPreview(); refreshTransform() } else startPlay(id) }
-    private fun startPlay(id: String, mode: PlayMode = modes[id] ?: PlayMode.LOOP, hover: Boolean = false) {
+    private fun startPlay(id: String, mode: PlayMode = PlayMode.of(doc?.boards?.firstOrNull { it.id == id }?.end ?: "loop"), hover: Boolean = false) {
         if (!active) return
         val b = board(id) ?: return; if (b.frames.isEmpty()) return
         stopPreview(cancelHover = !hover); playingBoard = id; clock = PlaybackClock(b, mode); started = SystemClock.uptimeMillis(); tick.run()

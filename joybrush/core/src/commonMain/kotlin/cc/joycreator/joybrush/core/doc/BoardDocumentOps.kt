@@ -45,6 +45,12 @@ object BoardDocumentOps {
     fun setLocked(doc: JbDocument, boardId: String, locked: Boolean): JbDocument =
         update(doc, boardId) { it.copy(locked = locked) }
 
+    /** ANIMATION_CLIPS C3: what the clip does when it reaches its last frame (a [BoardEnd] word), saved with the drawing. */
+    fun setEnd(doc: JbDocument, boardId: String, end: String): JbDocument {
+        require(end in BoardEnd.ALL) { "unknown end behaviour $end" }
+        return update(doc, boardId) { it.copy(end = end) }
+    }
+
     /** Typing dimensions anchors the top-left, per H1. */
     fun resizeTyped(doc: JbDocument, boardId: String, width: Int, height: Int): JbDocument {
         val rect = board(doc, boardId).rect.copy(w = width, h = height)

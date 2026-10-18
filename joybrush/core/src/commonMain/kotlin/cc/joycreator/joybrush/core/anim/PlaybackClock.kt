@@ -3,8 +3,23 @@ package cc.joycreator.joybrush.core.anim
 import cc.joycreator.joybrush.core.doc.AnimOps
 import cc.joycreator.joybrush.core.doc.Board
 
-/** How a board plays once it reaches the end of its range. */
-enum class PlayMode { LOOP, PING_PONG, ONCE }
+/** How a board plays once it reaches the end of its range. ONCE stops on the last frame (a clip's "hold"). */
+enum class PlayMode {
+    LOOP, PING_PONG, ONCE;
+
+    companion object {
+        /**
+         * The mode a clip's saved [cc.joycreator.joybrush.core.doc.Board.end] plays with (ANIMATION_CLIPS C3). "blank"
+         * plays as ONCE until the renderer can show a clip as empty past its end (C4); Combine already writes it as
+         * empty frames.
+         */
+        fun of(end: String): PlayMode = when (cc.joycreator.joybrush.core.doc.BoardEnd.of(end)) {
+            cc.joycreator.joybrush.core.doc.BoardEnd.PING_PONG -> PING_PONG
+            cc.joycreator.joybrush.core.doc.BoardEnd.HOLD, cc.joycreator.joybrush.core.doc.BoardEnd.BLANK -> ONCE
+            else -> LOOP
+        }
+    }
+}
 
 /**
  * Playback as a pure function of elapsed time — never a counter that adds frame lengths, which is

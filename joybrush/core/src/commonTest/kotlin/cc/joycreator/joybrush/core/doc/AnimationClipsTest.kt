@@ -40,4 +40,17 @@ class AnimationClipsTest {
         val e = assertFailsWith<DocException> { RegionDocumentOps.setHeld(d, sky, "ch", held = false) }
         assertTrue(e.message.orEmpty().contains("Character"), e.message)
     }
+
+    @Test fun aClipsEndBehaviourIsSavedAndAnUnknownWordPlaysAsALoop() {
+        var d = BoardDocumentOps.createAnimation(doc("ch"), "Walk", RectPx(0, 0, 200, 200), ::ids).doc
+        val id = d.boards.last().id
+        assertEquals(BoardEnd.LOOP, d.boards.last().end)
+        d = BoardDocumentOps.setEnd(d, id, BoardEnd.PING_PONG)
+        val back = DocJson.decode(DocJson.encode(d))
+        assertEquals(BoardEnd.PING_PONG, back.boards.first { it.id == id }.end)
+        assertEquals(cc.joycreator.joybrush.core.anim.PlayMode.PING_PONG, cc.joycreator.joybrush.core.anim.PlayMode.of(BoardEnd.PING_PONG))
+        assertEquals(cc.joycreator.joybrush.core.anim.PlayMode.ONCE, cc.joycreator.joybrush.core.anim.PlayMode.of(BoardEnd.HOLD))
+        assertEquals(BoardEnd.LOOP, BoardEnd.of("spin"))
+        assertFalse(DocJson.encode(BoardDocumentOps.setEnd(d, id, BoardEnd.LOOP)).contains("\"end\""), "a loop is not written")
+    }
 }

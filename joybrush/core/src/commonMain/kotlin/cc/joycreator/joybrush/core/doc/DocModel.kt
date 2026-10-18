@@ -23,7 +23,7 @@ const val DOC_FORMAT = "joybrush.document"
  * 4: the paper carries a look, a tint and two sliders (JB-9.05, R10).
  * 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48).
  */
-const val DOC_VERSION = 11 // v11: recorded physical capture domain and exact integer placement.
+const val DOC_VERSION = 12 // v12: Board.end (ANIMATION_CLIPS C3). v11: recorded physical capture domain and exact integer placement.
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -111,6 +111,7 @@ const val TILE_SIZE = Tiles.SIZE
 
 @Serializable data class SpriteGrid(val cols: Int, val rows: Int, val cellW: Int, val cellH: Int)
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable data class Board(
     val id: String,
     val name: String,
@@ -123,7 +124,23 @@ const val TILE_SIZE = Tiles.SIZE
     val tiled: Boolean = false,            // v5 board chrome's saved tiling-display flag
     val currentFrameId: String? = null,    // v6: independent saved cursor for each Animation board
     val locked: Boolean = false,          // v6: explicit frame lock; multi-frame animation is fixed regardless
+    /**
+     * v12 (ANIMATION_CLIPS C3): what an Animation clip does when it reaches its last frame: "loop", "pingpong", "hold" or
+     * "blank" (BoardEnd). An unknown word reads as loop (R3). Not written while it is loop, so older drawings are unchanged.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val end: String = BoardEnd.LOOP,
 )
+
+/** The words [Board.end] takes. */
+object BoardEnd {
+    const val LOOP = "loop"
+    const val PING_PONG = "pingpong"
+    const val HOLD = "hold"
+    const val BLANK = "blank"
+    val ALL = listOf(LOOP, PING_PONG, HOLD, BLANK)
+    /** An unknown or missing word plays as a loop (R3: a broken value is read as a safe one). */
+    fun of(word: String?): String = if (word in ALL) word!! else LOOP
+}
 
 /** Per-board frame addresses; content outside all regions uses Layer.sharedCelId, for PAINT or INK. */
 @Serializable data class RegionFrames(

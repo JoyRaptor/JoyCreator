@@ -33,7 +33,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import cc.joycreator.joybrush.android.chrome.BitmapPreviewCodec
 import cc.joycreator.joybrush.android.chrome.BrushDrawerView
+import cc.joycreator.joybrush.android.chrome.BrushPreviewCache
 import cc.joycreator.joybrush.android.chrome.ChromeKit
 import cc.joycreator.joybrush.android.chrome.ColourPairView
 import cc.joycreator.joybrush.android.chrome.GuideOverlayView
@@ -41,6 +43,7 @@ import cc.joycreator.joybrush.android.chrome.PaperTiltController
 import cc.joycreator.joybrush.android.chrome.TiltPadView
 import cc.joycreator.joybrush.android.chrome.JbIcon
 import cc.joycreator.joybrush.android.chrome.PaperSheetView
+import cc.joycreator.joybrush.android.chrome.PreviewCancel
 import cc.joycreator.joybrush.androidkit.io.PaperResources
 import cc.joycreator.joybrush.core.doc.Paper
 import cc.joycreator.joybrush.core.paper.PaperPreviews
@@ -228,6 +231,23 @@ private val fileIo = Executors.newSingleThreadExecutor()
 class JoyBrushActivity : Activity() {
 
     private lateinit var canvas: JbCanvasView
+
+    /**
+     * The brush drawer's pictures, drawn by the engines on the canvas's GL thread and kept per brush version in memory and in
+     * `cacheDir/brush_previews`. One for the screen, so a second open of the drawer finds them already made.
+     */
+    private val brushPreviews: BrushPreviewCache<Bitmap> by lazy {
+        BrushPreviewCache(
+            dir = File(cacheDir, "brush_previews"),
+            maker = { preset, w, h, style, done ->
+                val ticket = canvas.renderBrushPreview(preset, w, h, style, done)
+                PreviewCancel { ticket.cancel() }
+            },
+            codec = BitmapPreviewCodec,
+            ui = BitmapPreviewCodec.uiThread(),
+            io = BitmapPreviewCodec.ioThread(),
+        )
+    }
     private lateinit var undoBtn: TopButton
     private lateinit var redoBtn: TopButton
 
@@ -808,7 +828,7 @@ class JoyBrushActivity : Activity() {
             tools = tools.pick(held)
             applyTool()
             brushes.firstOrNull { it.id == held.id }?.let { openSettings(it) }
-        })
+        }, previews = brushPreviews)
         // Full width on a phone (the Note 9 at its dense setting is ~548 dp); capped on a tablet so strokes stay readable.
         popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
     }
@@ -2415,7 +2435,7 @@ class JoyBrushActivity : Activity() {
             val brush = ToolMemory.sized(picked, memory?.sizePx ?: picked.size.base, memory?.opacity ?: picked.opacity.base)
             val id = try { host.freezeBrush(brush) } catch (e: Exception) { null }
             if (id != null) onPicked(id) else toast("That brush can't be kept as a line.")
-        })
+        }, previews = brushPreviews)
         popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
     }
 

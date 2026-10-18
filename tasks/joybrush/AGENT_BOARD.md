@@ -725,3 +725,23 @@ are requested here; this is the interface boundary for coordinating the upcoming
 
 ## JoyBrush Lead overnight — October15
 Root owns engine/View/Scene integration in C:/Temp/jb-live-current; latest HANDOFF_20261015.md. Actual promotion GPU refused shared-cel legacy alias safely; root correction under full serialized checks, not yet accepted. Pure captured-domain value from isolated jb-captured-source is under focused checks, no format activation. Sol audits cold load-plan read-only. Preserve primary and all source partials; fresh shared Gradle/phone locks and Home gates apply. Independent Claude audit can use the new checkpoint after verified publication; no overlapping hot-file edits requested.
+# Unibrush D1 — 2026-10-18 — ready for Lead review
+
+Branch `codex/unibrush`, worktree `C:/Temp/jb-codex-unibrush`, base `lead/layer-ops` 107748a78 per owner handoff.
+Engine/model commit **820c62802**: explicit fixed/stroke/penAzimuth/penBarrel sources, 1.5 mm (30 doc px)
+distance smoothing for new sources, offset and existing seeded jitter; pressure width/ink/both/none and tilt
+angle/flatten/size/none recipe APIs. Null angleSource keeps the old hybrid followDirection byte-for-byte;
+legacy files do not acquire the new JSON key. Brush version **12**, reconcile with current main at integration.
+Missing sensors hold the last valid heading (fixed offset before any reading); Note 9 has no barrel sensor.
+
+**Proof:** full `:core:jvmTest` 2521 tests / 0 failures / 0 errors / 4 optional corpus skips, serialized/offline
+under the shared lock. 88 legacy configurations / 7128 dabs match the unmodified 107748a78 SHA-256
+`2fa83c231a3938bbcb5695597204c6a980db2bf47056d81a557dd2f1bf08a8d3`. 64 source/behavior combinations
+match streamed live placement after raw codec roundtrip with nonlinear response and a changed-seed control.
+Independent read-only review found custom-recipe edge cases; they are fixed/tested. Nonrepresentable custom
+recipes raise BrushException; D9 must show that message rather than silently reset other inputs.
+
+**Not proved:** GPU/phone/feel/performance. Sheet chips remain D9; tilt side-fade comes with D2. No Lead
+canvas/engine/lines or helper media edits, no main merge and no phone commands. D2 profiles/fade now in progress;
+its small Lead adapter changes will be supplied as held patches. Lead review/integration of D1 is requested.
+

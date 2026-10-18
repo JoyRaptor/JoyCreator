@@ -742,27 +742,45 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * Merge Down (LAYER_OPS L2): [id] into the layer right under it, ONE undo step. The plan decides on the GL thread
      * (what is there, what can stay editable); a refusal or the one sentence about lines that became paint is said.
      */
-    fun mergeDown(id: String) {
+    fun mergeDown(id: String, animationBoardId: String? = null) {
         if (penIsDown()) return
         val before = stackUi
         val upper = before[id] ?: return
         val lower = before.layers.getOrNull(before.indexOf(id) - 1)
+        // On an animation board, only the frame being worked on merges (owner, 2026-10-18).
+        val frameBoard = animationBoardId?.takeIf { b -> boardDocument?.boards?.any { it.id == b && it.kind == BoardKind.ANIMATION } == true }
         onBeforeHistoryChange?.invoke()
         onGl {
             val plan = try {
-                cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.decide(engine.mergeSide(upper), lower?.let(engine::mergeSide))
+                cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.decide(engine.mergeSide(upper, frameBoard), lower?.let { engine.mergeSide(it, frameBoard) })
             } catch (e: Exception) { cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.Result.Refused(e.message ?: "Those layers could not be merged") }
             when (plan) {
                 is cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.Result.Refused -> post { onRefused?.invoke(plan.sentence) }
                 is cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.Result.Merge -> try {
-                    val after = before.delete(id)!!.let { it.copy(activeId = lower!!.id) }
-                    engine.mergeDownStep(id, lower!!.id, plan.way, plan.sheetOp, plan.flattenLower, before, after)
+                    val after = if (frameBoard != null) before else before.delete(id)!!.let { it.copy(activeId = lower!!.id) }
+                    engine.mergeDownStep(id, lower!!.id, plan.way, plan.sheetOp, plan.flattenLower, before, after, frameBoard)
                     reportHistory(); publishLines()
-                    post { adopt(after); plan.said?.let { onNotice?.invoke(it) } }
+                    post {
+                        if (frameBoard == null) adopt(after)
+                        (plan.said ?: if (frameBoard != null) "This frame of \"${upper.name}\" merged down; its other frames stay." else null)?.let { onNotice?.invoke(it) }
+                    }
                 } catch (e: Exception) {
                     post { onRefused?.invoke(e.message ?: "Those layers could not be merged") }
                 }
             }
+        }
+    }
+
+    /** Freeze layer (LAYER_OPS §3): [id]'s editable lines and realistic paint become plain pixels, ONE undo step. */
+    fun freezeLayer(id: String) {
+        if (penIsDown()) return
+        if (layerLocked(id)) { onRefused?.invoke(lockedSentence(id)); return }
+        val name = stackUi[id]?.name ?: "This layer"
+        onBeforeHistoryChange?.invoke()
+        onGl {
+            val done = try { engine.freezeLayerStep(id) } catch (e: Exception) { post { onRefused?.invoke(e.message ?: "\"$name\" could not be frozen") }; return@onGl }
+            if (done) { reportHistory(); publishLines(); post { onNotice?.invoke("\"$name\" is plain pixels now. Undo brings its lines and paint back.") } }
+            else post { onNotice?.invoke("\"$name\" is already plain pixels.") }
         }
     }
 

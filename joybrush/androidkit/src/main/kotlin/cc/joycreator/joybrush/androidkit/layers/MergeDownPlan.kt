@@ -32,6 +32,11 @@ object MergeDownPlan {
         val hasFrames: Boolean = false,
         /** It holds pencil, watercolour or oil state: L5. */
         val hasMedia: Boolean = false,
+        /**
+         * Merging on an animation frame (owner, 2026-10-18: only the frame being worked on merges, the animation stays):
+         * null = a whole-layer merge; true/false = this layer does / does not animate in that board.
+         */
+        val animatesHere: Boolean? = null,
     )
 
     enum class Way { PIXELS, MOVE_ITEMS, PRESS }
@@ -55,7 +60,11 @@ object MergeDownPlan {
         if (lower.locked) return Result.Refused("\"${lower.name}\" is locked. Unlock it to merge into it.")
         if (!upper.visible) return Result.Refused("\"${upper.name}\" is hidden. Show it to merge it.")
         if (!lower.visible) return Result.Refused("\"${lower.name}\" is hidden. Show it to merge into it.")
-        if (upper.hasFrames || lower.hasFrames) return Result.Refused("Merging layers that have animation frames is coming next.")
+        val frameMode = upper.animatesHere != null
+        if (frameMode) {
+            if (upper.animatesHere != true) return Result.Refused("\"${upper.name}\" doesn't animate on this board, so there is no frame of it to merge.")
+            if (lower.animatesHere != true) return Result.Refused("\"${lower.name}\" doesn't animate on this board yet. Merging a frame into a still layer is coming next.")
+        } else if (upper.hasFrames || lower.hasFrames) return Result.Refused("These layers have animation frames. Pick the animation board to merge the frame you're on.")
         if (upper.hasMedia || lower.hasMedia) return Result.Refused("Merging layers with pencil, watercolour or oil is coming next.")
         // L's own whole-layer settings would also act on U's pixels once they are in L: the picture would change.
         if (lower.clip) return Result.Refused("\"${lower.name}\" is clipped. Unclip it to merge into it.")

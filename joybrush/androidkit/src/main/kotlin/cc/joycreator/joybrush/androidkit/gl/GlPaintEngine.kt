@@ -1059,7 +1059,7 @@ class GlPaintEngine(
      * Layers with animation frames or realistic paint are refused by the plan before this is called.
      */
     /** [MergeDownPlan.Side] for [state], filled with what only the engine knows (items, frames, realistic paint). GL thread. */
-    fun mergeSide(state: cc.joycreator.joybrush.core.layers.LayerState): MergeDownPlan.Side {
+    fun mergeSide(state: cc.joycreator.joybrush.core.layers.LayerState, frameBoardId: String? = null): MergeDownPlan.Side {
         val layer = layers[state.id]
         val planes = nativeLines.itemPlanes().filter { it.layerId == state.id }
         val allNormal = planes.all { p ->
@@ -1070,11 +1070,12 @@ class GlPaintEngine(
         return MergeDownPlan.Side(state.name, state.blend, state.opacity, state.hasMask, state.clip, state.locked, state.visible,
             hasItems = planes.isNotEmpty(), itemsAllNormal = allNormal,
             hasFrames = layer?.plan?.frames?.isNotEmpty() == true || docLayer?.regions?.isNotEmpty() == true,
-            hasMedia = hasMediaState(state.id))
+            hasMedia = hasMediaState(state.id),
+            animatesHere = frameBoardId?.let { b -> layer?.plan?.frames?.any { it.boardId == b } == true })
     }
 
     fun mergeDownStep(upperId: String, lowerId: String, way: MergeDownPlan.Way, sheetOp: String, flattenLower: Boolean,
-                      before: LayerStack, after: LayerStack) {
+                      before: LayerStack, after: LayerStack, frameBoardId: String? = null) {
         requireLocalPaint()
         settleLift()
         settleWatercolourFade()
@@ -1082,9 +1083,12 @@ class GlPaintEngine(
         val u = layers[upperId] ?: return
         val l = layers[lowerId] ?: return
         require(!u.isMask && !l.isMask) { "Masks are merged with their layer" }
-        require(u.plan?.frames.isNullOrEmpty() && l.plan?.frames.isNullOrEmpty()) { "Merging layers that have animation frames is coming next." }
         require(!hasMediaState(upperId) && !hasMediaState(lowerId)) { "Merging layers with pencil, watercolour or oil is coming next." }
-        val uCel = u.sharedCel; val lCel = l.sharedCel
+        // On an animation frame only that frame's cels merge (owner, 2026-10-18); the upper layer stays with its other frames.
+        val frameMode = frameBoardId != null
+        if (!frameMode) require(u.plan?.frames.isNullOrEmpty() && l.plan?.frames.isNullOrEmpty()) { "Pick the animation board to merge the frame you're on." }
+        val uCel = if (frameMode) u.plan?.frames?.firstOrNull { it.boardId == frameBoardId }?.celId ?: error("No frame of that layer here") else u.sharedCel
+        val lCel = if (frameMode) l.plan?.frames?.firstOrNull { it.boardId == frameBoardId }?.celId ?: error("No frame of that layer here") else l.sharedCel
         val uPlane = linePlane(u, uCel); val lPlane = linePlane(l, lCel)
         val uTiles = planeTiles(u, uCel); val lTiles = planeTiles(l, lCel)
         val oldDoc = boardDocument
@@ -1161,6 +1165,13 @@ class GlPaintEngine(
         // From here nothing can fail: install, take the upper layer out (its tiles and mask go into the step), publish.
         for (c in tileChanges) put(c.layerId, c.key, c.after, c.celId)
         invalidateProjection(l)
+        if (frameMode) {
+            // Only this frame's drawing of the upper layer moved down: that cel empties; the layer and its other frames stay.
+            uTiles.forEach { (k, t) -> tileChanges += UndoLog.TileChange(u.id, k, t, null, uCel) }
+            uTiles.clear(); invalidateProjection(u)
+            undo.push(UndoLog.Step(tileChanges, lines = items.lines, slabs = items.slabs))
+            return
+        }
         u.tiles.forEach { (k, t) -> tileChanges += UndoLog.TileChange(u.id, k, t, null, uCel) }
         u.mask?.let { m -> m.tiles.forEach { (k, t) -> tileChanges += UndoLog.TileChange(m.id, k, t, null) }; m.tiles.clear() }
         u.tiles.clear(); u.cels.values.forEach { it.clear() }; invalidateProjection(u)
@@ -1179,6 +1190,30 @@ class GlPaintEngine(
      * a hidden clip base hiding its clipped layers) over transparency, so the picture is unchanged. Lines, slabs and
      * pencil/watercolour/oil state of every merged layer are baked: they go into the step, and their memory is freed.
      */
+    /**
+     * Freeze layer (LAYER_OPS §3): [id]'s editable lines, pixel slabs and pencil/watercolour/oil state become plain pixels,
+     * ONE undo step. Its tiles already are the picture, so nothing is drawn: the items and the float stores go into the
+     * step and their memory is freed. Every plane (frames too). Its blend, opacity and mask stay as they are.
+     * Returns false when there was nothing to freeze.
+     */
+    fun freezeLayerStep(id: String): Boolean {
+        requireLocalPaint()
+        settleLift()
+        settleWatercolourFade()
+        checkStrokeEnded("a layer change during a stroke would be undone out of order")
+        val layer = layers[id] ?: return false
+        var items = LineItems.Changes.NONE
+        for (plane in nativeLines.itemPlanes().filter { it.layerId == id }) items += LineItems.removal(nativeLines, plane, id, engineCel(layer, plane))
+        val changes = ArrayList<UndoLog.TileChange<Int>>()
+        for ((plane, p) in layer.planes()) p.forEach { (store, tiles) -> tiles.forEach { (k, t) -> changes += UndoLog.TileChange(MediaStores.id(id, store), k, t, null, plane) } }
+        if (changes.isEmpty() && items.lines.isEmpty() && items.slabs.isEmpty()) return false
+        applyItemChanges(items.slabs, items.lines, forward = true)
+        layer.floats.clear(); layer.celFloats.clear()
+        forgetAgreements(id)
+        undo.push(UndoLog.Step(changes, lines = items.lines, slabs = items.slabs))
+        return true
+    }
+
     fun flattenStep(targetId: String, merged: List<String>, discarded: List<String>, before: LayerStack, after: LayerStack) {
         requireLocalPaint()
         settleLift()

@@ -1442,9 +1442,12 @@ class JoyBrushActivity : Activity() {
         box.addView(menuRow("Duplicate", "Make a copy of this layer above it") { canvas.duplicateLayer(id) })
         if (canvas.layers.indexOf(id) > 0) {
             box.addView(menuRow("Merge down", "Merge this layer into the one under it; the picture stays the same. Undo brings both back") {
-                popovers.close(); canvas.mergeDown(id)
+                popovers.close(); canvas.mergeDown(id, boardController?.selectedBoardId)
             })
         }
+        box.addView(menuRow("Freeze layer", "Turn this layer's editable lines and realistic paint into plain pixels; frees memory. Undo brings them back") {
+            popovers.close(); canvas.freezeLayer(id)
+        })
         box.addView(menuRow("Flatten", "Freeze every visible layer into one, exactly as it looks. Undo brings them back") {
             popovers.close(); flattenAsking(anchor)
         })

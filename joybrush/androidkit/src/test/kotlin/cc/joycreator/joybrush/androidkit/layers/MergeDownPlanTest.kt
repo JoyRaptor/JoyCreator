@@ -41,6 +41,12 @@ class MergeDownPlanTest {
         assertEquals("Lines on \"Ink\" became paint and lines on \"Colour\" became paint to keep the overlay blend.", r.said)
     }
 
+    @Test fun onAnAnimationBoardOnlyTheFrameMergesWhenBothLayersAnimateThere() {
+        assertEquals(Result.Merge(Way.PIXELS), MergeDownPlan.decide(u.copy(hasFrames = true, animatesHere = true), l.copy(hasFrames = true, animatesHere = true)))
+        assertTrue(refused(MergeDownPlan.decide(u.copy(animatesHere = false), l.copy(animatesHere = true))).contains("doesn't animate"))
+        assertTrue(refused(MergeDownPlan.decide(u.copy(animatesHere = true), l.copy(animatesHere = false))).contains("still layer"))
+    }
+
     @Test fun refusalsAreSentences() {
         assertTrue(refused(MergeDownPlan.decide(u, null)).contains("bottom layer"))
         assertTrue(refused(MergeDownPlan.decide(u.copy(locked = true), l)).contains("locked"))

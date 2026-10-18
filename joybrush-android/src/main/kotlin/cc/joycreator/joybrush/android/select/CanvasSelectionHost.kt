@@ -91,7 +91,7 @@ interface HostUi {
  * LIVE DRAG (v1.1): [liftLines] lifts the lines out of their plane's tiles and the engine draws them through the box's
  * homography until [LiftedLines.commit] (one undo step, then lifted again at identity) or [LiftedLines.release].
  *
- * NOT YET: no Rasterize Down, no paint lift, no colour adjustment, and [paintClip] is kept but nothing paints through it.
+ * NOT YET: no paint lift, no colour adjustment, and [paintClip] is kept but nothing paints through it (Rasterize Down is v1.2 H3).
  */
 class CanvasSelectionHost(
     private val canvas: HostCanvas,

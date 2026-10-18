@@ -14,7 +14,6 @@ import com.fadcam.ui.faditor.project.ProjectStorage;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -46,13 +45,17 @@ public class JoybotStorage extends ProjectStorage {
         AIChatState.LiveEditor live = AIChatState.liveEditorFor(projectId);
         if (live != null) {
             String json = onMain(live::snapshotJson);
-            if (json != null) {
-                try {
-                    FaditorProject p = fromJson(json);
-                    if (p != null) return p;
-                } catch (Exception e) {
-                    FLog.w(TAG, "live snapshot unreadable; reading the file instead", e);
-                }
+            if (json == null) {
+                // The editor owns the project and didn't answer in time: its file may be older than
+                // what's on screen, so don't read it (audit 2026-10-18 J7). The tool reports a miss.
+                FLog.w(TAG, "live editor busy; not reading a possibly older file");
+                return null;
+            }
+            try {
+                FaditorProject p = fromJson(json);
+                if (p != null) return p;
+            } catch (Exception e) {
+                FLog.w(TAG, "live snapshot unreadable; reading the file instead", e);
             }
         }
         return super.load(projectId);
@@ -68,19 +71,36 @@ public class JoybotStorage extends ProjectStorage {
 
     public static long writes() { return WRITES.get(); }
 
+    /** Saves that did NOT happen; a tool that hit one must not report success (audit J6). */
+    private static final java.util.concurrent.atomic.AtomicLong FAILS = new java.util.concurrent.atomic.AtomicLong();
+
+    public static long saveFailures() { return FAILS.get(); }
+
+    /**
+     * Counts as a write only once it really saved. While the editor is on screen it owns the
+     * project: a change it doesn't take is a failed save, never a file written behind its back
+     * (its next autosave would undo it, or it would undo the person's newer edits, audit J7).
+     */
     @Override
     public boolean save(@NonNull FaditorProject project) {
-        WRITES.incrementAndGet();
         AIChatState.LiveEditor live = AIChatState.liveEditorFor(project.getId());
+        boolean ok;
         if (live != null) {
             final String json = toJson(project);
             final String label = AIChatState.liveWriteLabel;
             final String request = AIChatState.liveWriteRequest;
-            Boolean ok = onMain(() -> live.adopt(json, label, request));
-            if (Boolean.TRUE.equals(ok)) return true;
-            FLog.w(TAG, "live editor did not adopt Joybot's change; writing the file");
+            ok = Boolean.TRUE.equals(onMain(() -> live.adopt(json, label, request)));
+            if (!ok && AIChatState.liveEditorFor(project.getId()) == null) {
+                ok = super.save(project);   // the editor closed meanwhile: the file is the owner again
+            } else if (!ok) {
+                FLog.w(TAG, "live editor did not take Joybot's change (busy or refused)");
+            }
+        } else {
+            ok = super.save(project);
         }
-        return super.save(project);
+        if (ok) WRITES.incrementAndGet();
+        else FAILS.incrementAndGet();
+        return ok;
     }
 
     /** True when writes for this project go to the editor on screen rather than the file. */
@@ -90,20 +110,31 @@ public class JoybotStorage extends ProjectStorage {
 
     private interface Call<T> { T run(); }
 
+    /**
+     * Runs {@code call} on the main thread and waits. If it hasn't STARTED within WAIT_MS it is
+     * withdrawn — it will never run late (a late adopt replaced newer edits, audit J7) — and null
+     * comes back. Once started it is waited for: it is short, and its result is real.
+     */
     @Nullable
     private static <T> T onMain(@NonNull Call<T> call) {
         if (Looper.myLooper() == Looper.getMainLooper()) return call.run();
         AtomicReference<T> out = new AtomicReference<>();
-        AtomicBoolean done = new AtomicBoolean(false);
+        // 0 = waiting, 1 = running, 2 = withdrawn
+        java.util.concurrent.atomic.AtomicInteger state = new java.util.concurrent.atomic.AtomicInteger();
         CountDownLatch latch = new CountDownLatch(1);
         MAIN.post(() -> {
-            try { out.set(call.run()); } finally { done.set(true); latch.countDown(); }
+            if (!state.compareAndSet(0, 1)) return;
+            try { out.set(call.run()); } finally { latch.countDown(); }
         });
         try {
-            latch.await(WAIT_MS, TimeUnit.MILLISECONDS);
+            if (latch.await(WAIT_MS, TimeUnit.MILLISECONDS)) return out.get();
+            if (state.compareAndSet(0, 2)) return null;   // never started: withdrawn for good
+            latch.await();                                  // started: let it finish
+            return out.get();
         } catch (InterruptedException ie) {
+            state.compareAndSet(0, 2);
             Thread.currentThread().interrupt();
+            return null;
         }
-        return done.get() ? out.get() : null;
     }
 }

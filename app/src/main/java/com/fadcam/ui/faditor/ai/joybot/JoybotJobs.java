@@ -59,18 +59,23 @@ public final class JoybotJobs {
 
     @Nullable private static Listener listener;
     private static final List<Done> waiting = new ArrayList<>();
-    private static volatile boolean running;
-    private static volatile boolean cancelled;
+    /** Each queued or running job's own stop switch (a new job never un-stops an old one). */
+    private static final java.util.Set<java.util.concurrent.atomic.AtomicBoolean> LIVE =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
     /** The chat attaches while it is open; null when it closes. */
     public static synchronized void attach(@Nullable Listener l) {
         listener = l;
     }
 
-    public static boolean isRunning() { return running; }
+    public static boolean isRunning() { return !LIVE.isEmpty(); }
 
     /** Stop between steps (a step already under way finishes). */
-    public static void cancel() { cancelled = true; }
+    public static void cancel() {
+        synchronized (LIVE) {
+            for (java.util.concurrent.atomic.AtomicBoolean b : LIVE) b.set(true);
+        }
+    }
 
     /** Jobs that finished while the chat was closed, for this project; removed once taken. */
     @NonNull
@@ -85,8 +90,8 @@ public final class JoybotJobs {
     /** Run an idea's steps (see {@link DirectRunner}) where closing the chat can't stop it. */
     public static void run(@NonNull Context context, @NonNull String projectId, @NonNull Idea idea) {
         final Context app = context.getApplicationContext();
-        cancelled = false;
-        running = true;
+        final java.util.concurrent.atomic.AtomicBoolean stop = new java.util.concurrent.atomic.AtomicBoolean();
+        LIVE.add(stop);
         AIJobService.start(app, "Joybot: " + idea.label);
         WORKER.execute(() -> {
             // Writes that reach the editor while it is on screen are one undo step, named like this.
@@ -100,13 +105,13 @@ public final class JoybotJobs {
                         Listener l = listener;
                         if (l != null) l.onProgress(task, percent);
                     });
-                }, () -> cancelled);
+                }, stop::get);
             } catch (Throwable t) {
                 FLog.e("JoybotJobs", "job failed: " + idea.label, t);
                 r = new DirectRunner.Result();
                 r.error = "Something went wrong: " + t.getMessage();
             }
-            running = false;
+            LIVE.remove(stop);
             AIJobService.stop(app);
             final Done done = new Done(projectId, idea, r);
             MAIN.post(() -> deliver(done));

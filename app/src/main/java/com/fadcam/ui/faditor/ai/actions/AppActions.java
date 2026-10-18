@@ -59,6 +59,7 @@ public final class AppActions {
         AppCtx ctx = new AppCtx(app.getApplicationContext(), projectId);
         try {
             ActionResult res = registry().run(ctx, tool, StudioActions.toMap(args));
+            if (res.changed) CHANGES.incrementAndGet();
             if (ctx.route != null) pendingRoute = ctx.route;
             if (ctx.openItem != null) {
                 pendingItem = ctx.openItem;
@@ -70,6 +71,13 @@ public final class AppActions {
         } catch (Exception e) {
             return "Error: " + tool + " failed: " + e.getMessage();
         }
+    }
+
+    private static final java.util.concurrent.atomic.AtomicLong CHANGES = new java.util.concurrent.atomic.AtomicLong();
+
+    /** How many app-wide actions have changed something (a VisLab look…), for "did it really change?". */
+    public static long changes() {
+        return CHANGES.get();
     }
 
     @Nullable private static volatile com.fadcam.ui.library.LibraryItem pendingItem;

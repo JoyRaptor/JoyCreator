@@ -1,0 +1,119 @@
+{
+ "pass": false,
+ "layer": 1536,
+ "resident": 15,
+ "totals": {
+  "mismatchedPixels": 0,
+  "planMismatches": 0,
+  "admissionMisses": 0,
+  "settleMidFlowDetected": 0,
+  "noWallsDetected": 0,
+  "drainedTails": 0
+ },
+ "longStroke": true,
+ "perScenario": [
+  {
+   "name": "wet Round, one long trail over 36 tiles",
+   "medium": "wet",
+   "frames": 140,
+   "mismatch": {},
+   "changed": 1988768,
+   "maxResident": 15,
+   "evictions": {
+    "deviation": 32
+   },
+   "loads": {
+    "deviation": 47
+   },
+   "misses": {
+    "deviation": 0
+   },
+   "planMismatch": {},
+   "settled": {
+    "deviation": 0
+   },
+   "drained": {
+    "deviation": 39
+   },
+   "tilesCrossed": 36,
+   "deviation": {
+    "lookMean": 1.929454379611545,
+    "lookP99": 65,
+    "lookP999": 187,
+    "lookMax": 254,
+    "changedPx": 0.12426743683991609,
+    "settled": 0,
+    "drained": 39
+   }
+  },
+  {
+   "name": "wet Round, quiet pools then a new one",
+   "medium": "wet",
+   "frames": 138,
+   "mismatch": {},
+   "changed": 651819,
+   "maxResident": 15,
+   "evictions": {
+    "deviation": 20
+   },
+   "loads": {
+    "deviation": 35
+   },
+   "misses": {
+    "deviation": 0
+   },
+   "planMismatch": {},
+   "settled": {
+    "deviation": 1
+   },
+   "drained": {
+    "deviation": 10
+   },
+   "tilesCrossed": 35,
+   "deviation": {
+    "lookMean": 2.7168138292100696,
+    "lookP99": 100,
+    "lookP999": 201,
+    "lookMax": 254,
+    "changedPx": 0.052424254240813074,
+    "settled": 1,
+    "drained": 10
+   }
+  },
+  {
+   "name": "wet Round, nine separate pools",
+   "medium": "wet",
+   "frames": 138,
+   "mismatch": {},
+   "changed": 1455814,
+   "maxResident": 15,
+   "evictions": {
+    "deviation": 54
+   },
+   "loads": {
+    "deviation": 69
+   },
+   "misses": {
+    "deviation": 0
+   },
+   "planMismatch": {},
+   "settled": {
+    "deviation": 0
+   },
+   "drained": {
+    "deviation": 32
+   },
+   "tilesCrossed": 36,
+   "deviation": {
+    "lookMean": 7.5341063605414496,
+    "lookP99": 157,
+    "lookP999": 222,
+    "lookMax": 254,
+    "changedPx": 0.14308336046006945,
+    "settled": 0,
+    "drained": 32
+   }
+  }
+ ],
+ "unsetUniforms": []
+}

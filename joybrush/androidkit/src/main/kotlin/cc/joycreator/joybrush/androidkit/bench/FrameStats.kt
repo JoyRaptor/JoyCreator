@@ -28,6 +28,14 @@ class FrameStats {
     /** Media phase time inside the current frame (bench only; the media canvas adds to these with glFinish brackets). */
     var simAcc = 0.0
     var flushAcc = 0.0
+    /** Named media phases (MediaPhases: each mediaTrace section, glFinish brackets), summed per frame; one list per name. */
+    private val phaseAcc = LinkedHashMap<String, Double>()
+    private val phases = LinkedHashMap<String, ArrayList<Double>>()
+    /** What the media engine's textures cost (JSON, MediaLayerEngine.memoryReport), written once per recording. */
+    @Volatile var memory: String? = null
+
+    /** GL thread: [ms] more of phase [name] in the frame in progress. */
+    fun phase(name: String, ms: Double) { if (recording) phaseAcc[name] = (phaseAcc[name] ?: 0.0) + ms }
     private val inputs = ArrayList<Long>()       // pen reports dispatched, uptime ns
     private var downNs = 0L
     private var upNs = 0L
@@ -43,6 +51,7 @@ class FrameStats {
     /** GL thread. */
     fun start() {
         starts.clear(); busy.clear(); work.clear(); media.clear(); display.clear(); finish.clear(); sim.clear(); flush.clear(); simAcc = 0.0; flushAcc = 0.0
+        phaseAcc.clear(); phases.clear(); memory = null
         synchronized(inputs) { inputs.clear(); downNs = 0L; upNs = 0L }
         mediaWindowMoves = 0; mediaWindowLoads = 0; mediaFrames = 0
         recording = true
@@ -70,6 +79,10 @@ class FrameStats {
         busy += (end - t0) / 1e6
         work += ms(t0, t1); media += ms(t1, t2); display += ms(t2, t3); finish += (end - end0) / 1e6
         sim += simAcc; flush += flushAcc; simAcc = 0.0; flushAcc = 0.0
+        // Every phase gets one value per frame (0 where it did not run), so it lines up with the frames above.
+        for (name in phaseAcc.keys) if (name !in phases) phases[name] = ArrayList(List(starts.size - 1) { 0.0 })
+        for ((name, list) in phases) list += phaseAcc[name] ?: 0.0
+        phaseAcc.clear()
         t0 = 0L
     }
 
@@ -78,6 +91,9 @@ class FrameStats {
         val sim: Pct, val flush: Pct,
         val gap: Pct, val latency: Pct, val firstFrameMs: Double, val over17: Int, val over34: Int,
         val mediaWindowMoves: Int, val mediaWindowLoads: Int, val mediaFrames: Int,
+        /** Per media phase over the stroke's frames (MediaPhases); empty unless a media stroke ran. */
+        val phases: Map<String, Pct> = emptyMap(),
+        val memory: String? = null,
     )
     data class Pct(val p50: Double, val p95: Double, val max: Double, val mean: Double)
 
@@ -92,7 +108,7 @@ class FrameStats {
         fun sel(v: List<Double>) = pct(inStroke.map { v[it] })
         return Summary(starts.size, inStroke.size, sel(busy), sel(work), sel(media), sel(display), sel(finish), sel(sim), sel(flush),
             pct(gaps), pct(lat), first, gaps.count { it > 17.5 }, gaps.count { it > 34.0 },
-            mediaWindowMoves, mediaWindowLoads, mediaFrames)
+            mediaWindowMoves, mediaWindowLoads, mediaFrames, phases.mapValues { (_, v) -> sel(v) }, memory)
     }
 
     companion object {

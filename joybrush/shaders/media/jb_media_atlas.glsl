@@ -18,6 +18,7 @@ uniform highp ivec4 u_atlasGrid;         // the table's first tile (x, y) and it
 uniform highp int u_atlasSlotsX;         // slots per atlas row
 uniform highp int u_atlasShift;          // log2 of THIS pass's target slot side: 8 (256), or 7 for the half-res bead
 uniform highp ivec4 u_atlasWrap;         // a Tile board in full-res layer px: origin (x, y), size (w, h); w == 0 = no wrap
+uniform highp ivec4 u_atlasWalls;        // .x = 1 in the water's passes: tiles taken out of the water are walls (B3, D2)
 flat in highp ivec4 v_slot;              // this fragment's slot origin (atlas texels, xy) and its tile (zw); a pass that
                                          // is not per-slot (brush cells, the look) gets a tile no layer cell can have
 #endif
@@ -46,6 +47,28 @@ vec2 jb_fragPx() {
 // floor(a / b) for b > 0, exact for any int a (GLSL's % and / are undefined or truncating for negatives).
 highp int jb_floorDiv(highp int a, highp int b) { int q = a / b; if (q * b > a) q -= 1; return q; }
 
+// Media Atlas v2 B3 (the Lead's D2): a tile taken out of the water (a drip's dried tail) is marked in the page table:
+// resident = its slot + JB_WALL_BIT, not resident = JB_WALL_GONE. Every pass but the water's reads it as what it is; the
+// water's passes (u_atlasWalls.x = 1) see a WALL there, exactly as the window build sees its own edge: reads clamp to the
+// reader's own tile (zero gradient: the water beside it keeps its own height, no dry front, no dark edge), nothing flows in
+// or out (jb_inside, jb_wall).
+const highp int JB_WALL_BIT = 16777216;   // 1 << 24, above any slot index
+const highp int JB_WALL_GONE = -2;
+
+// Layer cell q clamped into the reading fragment's own tile, at slot side (1 << shift).
+highp ivec2 jb_ownCell(highp ivec2 q, highp int shift, out bool ok) {
+    highp ivec2 own = v_slot.zw;
+    highp ivec2 lo = own << shift;
+    highp ivec2 cl = clamp(q, lo, lo + (1 << shift) - 1);
+    highp ivec2 g = own - u_atlasGrid.xy;
+    if (g.x < 0 || g.y < 0 || g.x >= u_atlasGrid.z || g.y >= u_atlasGrid.w) { ok = false; return ivec2(0); }
+    highp int slot = texelFetch(u_atlasTable, g, 0).r;
+    if (slot >= JB_WALL_BIT) slot -= JB_WALL_BIT;
+    if (slot < 0) { ok = false; return ivec2(0); }
+    ok = true;
+    return (ivec2(slot - (slot / u_atlasSlotsX) * u_atlasSlotsX, slot / u_atlasSlotsX) << shift) + (cl - lo);
+}
+
 // Layer cell q at slot side (1 << shift) → its atlas texel. ok = false where the tile is not resident.
 highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
     if (u_atlasWrap.z > 0) {
@@ -62,11 +85,31 @@ highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
     highp ivec2 g = tile - u_atlasGrid.xy;
     if (g.x < 0 || g.y < 0 || g.x >= u_atlasGrid.z || g.y >= u_atlasGrid.w) { ok = false; return ivec2(0); }
     highp int slot = texelFetch(u_atlasTable, g, 0).r;
+    if (slot == JB_WALL_GONE || slot >= JB_WALL_BIT) {
+        if (u_atlasWalls.x != 0) return jb_ownCell(q, shift, ok);
+        if (slot < 0) { ok = false; return ivec2(0); }
+        slot -= JB_WALL_BIT;
+    }
     if (slot < 0) { ok = false; return ivec2(0); }
     ok = true;
     return (ivec2(slot - (slot / u_atlasSlotsX) * u_atlasSlotsX, slot / u_atlasSlotsX) << shift) + local;
 }
 #endif
+
+// True where layer cell q (full resolution) is a wall for the water (see JB_WALL_BIT); never in the window build.
+bool jb_wall(highp ivec2 q) {
+#ifdef JB_ATLAS
+    if (u_atlasWalls.x == 0) return false;
+    highp ivec2 tile = q >> JB_SLOT_SHIFT;
+    if (tile == v_slot.zw) return false;
+    highp ivec2 g = tile - u_atlasGrid.xy;
+    if (g.x < 0 || g.y < 0 || g.x >= u_atlasGrid.z || g.y >= u_atlasGrid.w) return false;
+    highp int slot = texelFetch(u_atlasTable, g, 0).r;
+    return slot == JB_WALL_GONE || slot >= JB_WALL_BIT;
+#else
+    return false;
+#endif
+}
 
 // texelFetch(t, q, 0) of a layer-shaped texture at layer cell q (half-res fields: shift 7).
 vec4 jb_fetchS(sampler2D t, highp ivec2 q, highp int shift) {
@@ -91,7 +134,7 @@ highp ivec2 jb_clampCell(highp ivec2 q, highp ivec2 size) {
 }
 bool jb_inside(highp ivec2 q, highp ivec2 size) {
 #ifdef JB_ATLAS
-    return true;
+    return !jb_wall(q);
 #else
     return q.x >= 0 && q.y >= 0 && q.x < size.x && q.y < size.y;
 #endif

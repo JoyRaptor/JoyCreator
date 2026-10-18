@@ -58,7 +58,7 @@ class MediaLook(
  * [lookTexture]) and writes back what the passes wrote ([takeDirtyStores], [current]) through the app's stores
  * (#p0 #p1 #paper #w0 #w1 + the RGBA8 look; MEDIA_ENGINE_PLAN M5.3c). GL thread only.
  */
-class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), private val atlasMode: Boolean = MediaAtlasGl.enabled,
+class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val atlasMode: Boolean = MediaAtlasGl.enabled,
                        private val atlasBroken: Boolean = false) {
     /** Media Atlas v2 B1: the per-slot driver when this engine draws through the atlas (identity layout); null = the window. */
     private var atlas: MediaAtlasGl? = null
@@ -81,6 +81,49 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     private lateinit var progBead: MediaProgram
     private lateinit var progEraseDab: MediaProgram
     private lateinit var progErase: MediaProgram
+    private lateinit var progActivity: MediaProgram
+
+    /**
+     * Every media program, in compile order: field setter, vertex, fragment, label, and whether it draws into the paste
+     * brush's cells (not layer-shaped: JB_PLAIN_TARGET in atlas mode). One table, so [compileNext] can never skip one.
+     */
+    private val programTable: List<ProgramSpec> = listOf(
+        ProgramSpec({ progDab = it }, "jb_dry_dab.vert", "jb_dry_dab.frag", "media dry dab"),
+        ProgramSpec({ progApply = it }, "jb_media_quad.vert", "jb_media_apply.frag", "media apply"),
+        ProgramSpec({ progCopy = it }, "jb_media_quad.vert", "jb_media_copy.frag", "media copy"),
+        ProgramSpec({ progRender = it }, "jb_media_screen.vert", "jb_media_render.frag", "media render"),
+        ProgramSpec({ progBake = it }, "jb_media_quad.vert", "jb_media_bake.frag", "media bake"),
+        ProgramSpec({ progWetDab = it }, "jb_wet_dab.vert", "jb_wet_dab.frag", "media wet dab"),
+        ProgramSpec({ progFlux = it }, "jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux"),
+        ProgramSpec({ progUpdate = it }, "jb_media_quad.vert", "jb_wet_update.frag", "media wet update"),
+        ProgramSpec({ progPasteDab = it }, "jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab"),
+        ProgramSpec({ progPasteBrush = it }, "jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush", plain = true),
+        ProgramSpec({ progBead = it }, "jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead"),
+        ProgramSpec({ progEraseDab = it }, "jb_media_erase_dab.vert", "jb_media_erase_dab.frag", "media erase dab"),
+        ProgramSpec({ progErase = it }, "jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase"),
+        ProgramSpec({ progActivity = it }, "jb_media_screen.vert", "jb_wet_activity.frag", "media wet activity"),
+    )
+    private class ProgramSpec(val set: (MediaProgram) -> Unit, val vert: String, val frag: String, val label: String, val plain: Boolean = false)
+
+    /** The programs compiled so far, in [programTable]'s order (what [releasePrograms] deletes). */
+    private val programs = ArrayList<MediaProgram>()
+
+    /**
+     * Compiles the next media program; false once all are compiled. A canvas calls it once per idle moment after a drawing
+     * opens (MediaCanvas.prewarmStep), so the first pencil, watercolour or oil stroke no longer stalls for all of them at once
+     * (the device matrix measured a 1012 ms first frame on the Note 9). [init] compiles whatever is left. No textures here.
+     */
+    fun compileNext(): Boolean {
+        val spec = programTable.getOrNull(programs.size) ?: return false
+        val defs = if (atlasMode) listOf("JB_ATLAS") else emptyList()
+        val made = MediaProgram(shaders, "media/${spec.vert}", "media/${spec.frag}", spec.label, if (spec.plain && atlasMode) defs + "JB_PLAIN_TARGET" else defs)
+        programs += made
+        spec.set(made)
+        return programs.size < programTable.size
+    }
+
+    /** Deletes the programs compiled so far (an engine compiled ahead and let go before any media stroke, or [release]). */
+    fun releasePrograms() { programs.forEach { it.release() }; programs.clear() }
     private var eraseWetFbo = IntArray(0)
 
     private class State(val p0: Int, val p1: Int, val paper: Int, val fbo: Int)
@@ -130,6 +173,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     var slope = floatArrayOf(0f, 0f)
 
     val wetActive get() = wetRect != null
+    /** True once the water's textures exist (the memory report then lists them). */
+    val hasWaterTextures get() = wet != null
 
     fun init(width: Int, height: Int, originX: Float = 0f, originY: Float = 0f, scale: Float = 1f) {
         val ext = GLES30.glGetString(GLES30.GL_EXTENSIONS) ?: ""
@@ -137,22 +182,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         w = width; h = height; this.originX = originX; this.originY = originY; this.scale = scale
         // Atlas mode builds every media program with JB_ATLAS; the paste brush's cells are not layer-shaped (JB_PLAIN_TARGET).
         if (atlasMode) require(width % MediaAtlasDraw.SIDE == 0 && height % MediaAtlasDraw.SIDE == 0) { "an atlas window is whole slots" }
-        val defs = if (atlasMode) listOf("JB_ATLAS") else emptyList()
-        fun p(v: String, f: String, l: String, plain: Boolean = false) =
-            MediaProgram(shaders, "media/$v", "media/$f", l, if (plain && atlasMode) defs + "JB_PLAIN_TARGET" else defs)
-        progDab = p("jb_dry_dab.vert", "jb_dry_dab.frag", "media dry dab")
-        progApply = p("jb_media_quad.vert", "jb_media_apply.frag", "media apply")
-        progCopy = p("jb_media_quad.vert", "jb_media_copy.frag", "media copy")
-        progRender = p("jb_media_screen.vert", "jb_media_render.frag", "media render")
-        progBake = p("jb_media_quad.vert", "jb_media_bake.frag", "media bake")
-        progWetDab = p("jb_wet_dab.vert", "jb_wet_dab.frag", "media wet dab")
-        progFlux = p("jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux")
-        progUpdate = p("jb_media_quad.vert", "jb_wet_update.frag", "media wet update")
-        progPasteDab = p("jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab")
-        progPasteBrush = p("jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush", plain = true)
-        progBead = p("jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead")
-        progEraseDab = p("jb_media_erase_dab.vert", "jb_media_erase_dab.frag", "media erase dab")
-        progErase = p("jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase")
+        while (compileNext()) Unit   // whatever was not compiled ahead (MediaCanvas.prewarmStep)
         allocate()
         brush = Array(2) {
             val b0 = MediaTex.make(PASTE_LANES, PASTE_DEPTH, GLES30.GL_RGBA32F, GLES30.GL_RGBA, GLES30.GL_FLOAT, GLES30.GL_NEAREST)
@@ -310,6 +340,49 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     /** The residency rule's hook: the host makes [rect] (layer px) and [reach] around it resident, or throws, before a pass. */
     var onNeed: ((FloatArray, Int) -> Unit)? = null
     private fun need(rect: FloatArray, reach: Int) { if (free) onNeed?.invoke(rect, reach) }
+    /** The water passes' ask (B3): the host keeps what the water needs by its own rules (MediaAtlasWater), not the whole rectangle. */
+    var onNeedWater: ((FloatArray, Int) -> Unit)? = null
+    private fun needWater(rect: FloatArray, reach: Int) { if (free) (onNeedWater ?: onNeed)?.invoke(rect, reach) }
+
+    /**
+     * One pass's ask of the host: [rect] (layer px) and [reach] around it, exactly as that pass will call [need].
+     * [water] = the water's simulated rectangle (held by the water's rules); [input] = where the brush puts water this frame.
+     */
+    class Need(val rect: FloatArray, val reach: Int, val water: Boolean = false, val input: Boolean = false)
+
+    // Media Atlas v2 B3: a frame is admitted whole before it draws (MediaCanvas -> [MediaPlace.admit]), so a frame is never
+    // refused or short of a tile half-way. These compute what each pass will ask for with the passes' own code.
+    /** What [dryFrame] will ask for. */
+    fun dryNeed(batch: DabBatch, mat: StickMaterial, pxPerMm: Double): Need? =
+        if (batch.count == 0) null
+        else layerRect(batch.dirty, pxPerMm * mat.smearMm + 2)?.let { Need(it, MediaAtlasPlacement.dryReach(pxPerMm * mat.smearMm * scale)) }
+
+    /** What [pasteStep] will ask for: the old square (the quad it still draws), with the paste reach. */
+    fun pasteNeed(st: PasteStep, b: PasteBrush, pxPerMm: Double): Need? =
+        layerRect(PasteFootprint.legacyBounds(st, b, pxPerMm), 2.0)?.let { Need(it, MediaAtlasPlacement.PASTE_REACH) }
+
+    /** What [eraseFrame] will ask for. */
+    fun eraseNeed(batch: DabBatch): Need? =
+        if (batch.count == 0) null else layerRect(batch.dirty, 2.0)?.let { Need(it, MediaAtlasPlacement.ERASE_REACH) }
+
+    /**
+     * What [frames] calls of [wetFrame] (the batches in order, null = water only) will ask for at most: the simulated
+     * rectangle after the last of them, which contains every earlier one (it only grows within an episode). Null: no water.
+     */
+    fun wetNeed(batches: List<DabBatch?>, pxPerMm: Double, steps: Int): Need? {
+        var wr = wetRect; var pr = paintRect
+        for (batch in batches) {
+            if (batch != null && batch.count > 0) layerRect(batch.dirty, 48.0)?.let { wr = union(wr, it); pr = union(pr, it) }
+            wr = wr?.let { WetSpread.grow(it, pr, slope[0], slope[1], steps, 1 / (pxPerMm * scale),
+                if (free) Int.MAX_VALUE else w, if (free) Int.MAX_VALUE else h) }
+        }
+        return wr?.let { Need(it, MediaAtlasPlacement.WET_REACH, water = true) }
+    }
+
+    /** Where [batches] put water ([wetFrame]'s brush input, before it is clipped to the water): made resident and marked wet. */
+    fun wetInputNeeds(batches: List<DabBatch?>): List<Need> = batches.mapNotNull { b ->
+        if (b == null || b.count == 0) null else layerRect(b.dirty, 48.0)?.let { Need(it, MediaAtlasPlacement.WET_REACH, input = true) }
+    }
     /** How many slots the atlas has (B2: one of them is staging). */
     val slotCount: Int get() = (w / MediaAtlasDraw.SIDE) * (h / MediaAtlasDraw.SIDE)
     fun slotTexel(slot: Int): Pair<Int, Int> = requireNotNull(atlas) { "not an atlas engine" }.slotTexel(slot)
@@ -534,8 +607,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         ensureDry()
         val cur = state[0]
         val nxt = state[1]
-        val rect = layerRect(batch.dirty, pxPerMm * mat.smearMm + 2) ?: return
-        need(rect, MediaAtlasPlacement.dryReach(pxPerMm * mat.smearMm * scale))
+        val n = dryNeed(batch, mat, pxPerMm) ?: return
+        val rect = n.rect
+        need(rect, n.reach)
         touch(rect)
         stores += "paper"
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, deltaFbo)
@@ -630,7 +704,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
 
     /** One step of a paste brush: the brush trades with the canvas under it, both sides from the same state. */
     fun pasteStep(st: PasteStep, b: PasteBrush, paper: MediaPaperGl, pxPerMm: Double, seed: Int) {
-        bakePaper(paper)
+        mediaTrace("JB.media.paper.bake") { bakePaper(paper) }
         val cap = cellCap(b)
         val t = paper.stats.toothMm
         val cur = brush[bc]
@@ -644,14 +718,14 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         common(bu)
         MediaUniforms.paste(bu, st, b, cap, t, pxPerMm, seed, bakeTex, state[0].p0, state[0].p1)
         MediaUniforms.pasteBrush(bu, cur.b0, cur.b1, b.wick, w, h, PASTE_LANES, PASTE_DEPTH)
-        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        mediaTrace("JB.media.paste.brush") { GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4) }
         // Canvas side, from the same (old) brush cells. The dab shader hands back its input untouched wherever the brush
         // has no coverage (jb_paste_dab.frag lines 40/47/83), so only the oriented box around the real footprint
         // ([PasteFootprint], ~7-10x smaller than the old square for Oil round) has to be shaded and copied back.
         // The quad is STILL the old square and the box is a scissor on it: a smaller quad would interpolate v_docPx /
         // v_layerPx with different rounding, and the noise inside the shader would shift by an ulp (measured:
         // tools/media_paste_rect_parity_check.js). Same primitive + scissor = the same fragments, bit for bit.
-        val square = layerRect(PasteFootprint.legacyBounds(st, b, pxPerMm), 2.0)
+        val square = pasteNeed(st, b, pxPerMm)?.rect
         val rect = if (legacyRect) square else layerRect(PasteFootprint.docBounds(st, b, scale.toDouble(), pxPerMm), 2.0)
         if (square != null && rect != null) {
             need(square, MediaAtlasPlacement.PASTE_REACH)
@@ -670,9 +744,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
             MediaUniforms.pasteDab(du, cur.b0, cur.b1, w, h, square)
             // Window: the square, trimmed by the scissor to the footprint box. Free placement: the box itself, slot by slot
             // (the same pixels: no varying is interpolated across the quad any more).
-            quad(if (free) rect else square)
+            mediaTrace("JB.media.paste.dab") { quad(if (free) rect else square) }
             if (tight) GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
-            copyRect(state[1], pFbo0, rect)
+            mediaTrace("JB.media.paste.copy") { copyRect(state[1], pFbo0, rect) }
         }
         bc = 1 - bc
     }
@@ -686,8 +760,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     fun eraseFrame(batch: DabBatch, stores: Set<String>) {
         if (batch.count == 0 || stores.isEmpty()) return
         ensureDry()
-        val rect = layerRect(batch.dirty, 2.0) ?: return
-        need(rect, MediaAtlasPlacement.ERASE_REACH)
+        val n = eraseNeed(batch) ?: return
+        val rect = n.rect
+        need(rect, n.reach)
         touch(rect)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, deltaFbo)
         GLES30.glViewport(0, 0, w, h)
@@ -737,8 +812,21 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     /** One frame of water: new dabs (if any) go into the brush input, then the water runs [WetConstants.substeps] times. */
     fun wetFrame(batch: DabBatch?, paper: MediaPaperGl, pxPerMm: Double, wc0: WetConstants = WetConstants(), substeps: Int? = null,
                  evapOverride: Double? = null, maxWetSeconds: Double = 240.0) {
+        // B3: tiles the water left (a drip's dried tail, MediaAtlasWater.excluded) are not simulated, as beyond the 4 cm cap.
+        // The water beside such a tile sees a wall there (zero gradient, no flow), as at the window's edge: no dry front.
+        val a = atlas
+        if (a != null) { a.skip = waterSkip; a.setWalls(waterSkip); a.wallsOn = waterSkip.isNotEmpty() }
+        try { wetFrameInner(batch, paper, pxPerMm, wc0, substeps, evapOverride, maxWetSeconds) }
+        finally { if (a != null) { a.skip = emptySet(); a.wallsOn = false } }
+    }
+
+    /** Tiles out of the water's simulation (Media Atlas v2 B3, set by the host): the water passes draw nothing there. */
+    var waterSkip: Set<Long> = emptySet()
+
+    private fun wetFrameInner(batch: DabBatch?, paper: MediaPaperGl, pxPerMm: Double, wc0: WetConstants, substeps: Int?,
+                              evapOverride: Double?, maxWetSeconds: Double) {
         ensureWet()
-        bakePaper(paper)
+        mediaTrace("JB.media.paper.bake") { bakePaper(paper) }
         val ws = wet!!
         val steps = substeps ?: wc0.substeps
         // The rectangle the substeps will simulate: a pure function of the rectangles, the tilt and the step count.
@@ -754,7 +842,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
             // there after the frame (the full-window clear wrote 16 B/px of nothing). Where there is no rectangle to clip to,
             // the dabs are drawn whole and the next clear is whole too (inFull), exactly as before.
             inRect = simRect()
-            inRect?.let { need(it, MediaAtlasPlacement.WET_REACH) }
+            inRect?.let { needWater(it, MediaAtlasPlacement.WET_REACH) }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, inFbo)
             GLES30.glViewport(0, 0, w, h)
             if (inRect != null) { if (!free) scissorTo(inRect) } else inFull = true
@@ -765,7 +853,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
             common(du); MediaUniforms.wetDab(du, ws[wc].w0, bakeTex, w, h, pxPerMm, wc0.fullMm)
             // half-length, half-width (mm) at floats 4-5, plus the vertex shader's 0.08 mm.
             val ppm = pxPerMm.toFloat()
-            dabs(batch, inRect) { d, o -> (hypot(d[o + 4], d[o + 5]) + 0.1f) * ppm }
+            mediaTrace("JB.media.wet.input") { dabs(batch, inRect) { d, o -> (hypot(d[o + 4], d[o + 5]) + 0.1f) * ppm } }
             GLES30.glDisable(GLES30.GL_BLEND)
             GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
             useInput = true
@@ -789,31 +877,31 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         // The flux pass also reads p0.a at the neighbours (the water's surface, and the paper's slope d cells away when
         // tilted); inside the rectangle those are the previous substep's output, and beyond it the paint never changes,
         // so state[0]'s values for the ring around the rectangle are copied into state[1] once, before the first substep.
-        need(rect, MediaAtlasPlacement.WET_REACH)
-        if (steps > 1) copyP0Ring(rect, ringCells(wc0, beadCells))
+        needWater(rect, MediaAtlasPlacement.WET_REACH)
+        if (steps > 1) mediaTrace("JB.media.wet.ring") { copyP0Ring(rect, ringCells(wc0, beadCells)) }
         for (k in 0 until steps) {
             val a = ws[wc]
             val bi = 1 - wc
             val b = ws[bi]
             val src = state[k and 1]
             GLES30.glBindVertexArray(quadVao)
-            if (tilted) beadPasses(a.w0, rect, beadCells)
+            if (tilted) mediaTrace("JB.media.wet.bead") { beadPasses(a.w0, rect, beadCells) }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fluxFbo[bi])
             GLES30.glViewport(0, 0, w, h)
             val fu = progFlux.use()
             common(fu); wetFrameUniforms.apply(fu)
             MediaUniforms.wetFlux(fu, bead[0], src.p0, a.w0, a.flux, bakeTex, fluidBake, waterBake, rect, w, h)
-            quad(rect)
+            mediaTrace("JB.media.wet.flux") { quad(rect) }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, updFbo[bi * 2 + 1 - (k and 1)])
             val pu = progUpdate.use()
             common(pu); wetFrameUniforms.apply(pu)
             MediaUniforms.wetUpdate(pu, a.w0, a.w1, b.flux, run, src.p0, src.p1, bakeTex, waterBake, fluidBake, in0, in1,
                 if (k == 0 && useInput) 1 else 0, rect, w, h)
-            quad(rect)
+            mediaTrace("JB.media.wet.update") { quad(rect) }
             wc = bi
         }
         // An odd number of substeps (the dry-now frame) leaves the result in state[1]: one copy, as every substep used to make.
-        if ((steps and 1) == 1) copyRect(state[1], pFbo0, rect)
+        if ((steps and 1) == 1) mediaTrace("JB.media.wet.tail") { copyRect(state[1], pFbo0, rect) }
         if (useInput) {
             if (inFull || inRect == null) { clearFbo(inFbo); inFull = false }
             else if (free) atlas!!.clearRect(inFbo, inRect)
@@ -883,6 +971,155 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         for (f in wetCopyFbo) clearFbo(f)
         wetRect = null
         paintRect = null
+    }
+
+    /**
+     * Bench only: every layer-shaped texture this engine holds, as GL reports it (real internal format and size, GLES 3.1+),
+     * the total, and what one 256² slot costs across all of them: the atlas's price per slot (Media Atlas v2: the slot
+     * count is sized from this and the phone's memory). JSON; "error" when the GL cannot say.
+     */
+    fun memoryReport(): String {
+        val named = LinkedHashMap<String, Int>()
+        state.forEachIndexed { i, st -> named["state$i.p0"] = st.p0; named["state$i.p1"] = st.p1; named["state$i.paper"] = st.paper }
+        named["ground"] = groundTex; named["delta"] = delta; named["bake"] = bakeTex; named["fluidBake"] = fluidBake; named["waterBake"] = waterBake
+        wet?.forEachIndexed { i, x -> named["wet$i.w0"] = x.w0; named["wet$i.w1"] = x.w1; named["wet$i.flux"] = x.flux }
+        named["run"] = run; bead.forEachIndexed { i, b -> named["bead$i"] = b }; named["in0"] = in0; named["in1"] = in1; named["look"] = lookTex
+        val out = org.json.JSONObject().put("w", w).put("h", h)
+        try {
+            val tex = org.json.JSONObject(); var total = 0L; val v = IntArray(1)
+            for ((name, id) in named) {
+                if (id == 0) continue
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, id)
+                android.opengl.GLES31.glGetTexLevelParameteriv(GLES30.GL_TEXTURE_2D, 0, android.opengl.GLES31.GL_TEXTURE_WIDTH, v, 0); val tw = v[0]
+                android.opengl.GLES31.glGetTexLevelParameteriv(GLES30.GL_TEXTURE_2D, 0, android.opengl.GLES31.GL_TEXTURE_HEIGHT, v, 0); val th = v[0]
+                android.opengl.GLES31.glGetTexLevelParameteriv(GLES30.GL_TEXTURE_2D, 0, android.opengl.GLES31.GL_TEXTURE_INTERNAL_FORMAT, v, 0)
+                val (fmt, bpp) = when (v[0]) {
+                    GLES30.GL_RGBA32F -> "RGBA32F" to 16; GLES30.GL_RGBA16F -> "RGBA16F" to 8; GLES30.GL_RG16F -> "RG16F" to 4
+                    GLES30.GL_R16F -> "R16F" to 2; GLES30.GL_R8 -> "R8" to 1; GLES30.GL_RGBA8 -> "RGBA8" to 4
+                    else -> "0x" + Integer.toHexString(v[0]) to 4
+                }
+                val bytes = tw.toLong() * th * bpp
+                tex.put(name, org.json.JSONObject().put("w", tw).put("h", th).put("format", fmt).put("bytes", bytes))
+                total += bytes
+            }
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+            val slots = (w / MediaAtlasDraw.SIDE) * (h / MediaAtlasDraw.SIDE)
+            out.put("textures", tex).put("totalBytes", total).put("slots", slots).put("bytesPerSlot", total / max(1, slots))
+        } catch (e: Throwable) { out.put("error", e.toString()) }
+        return out.toString()
+    }
+
+    // ---- Media Atlas v2 B3: water tile by tile (MediaAtlasWater) ----
+    /**
+     * Dries the water in [rects] (layer px, whole tiles) where it lies, in one step, as [dryNow] does for all of it: nothing
+     * flows out (their flux and running water are cleared first), evaporation without limit, the pigment left where it is;
+     * then their water buffers are emptied, so they hold no water and no dampness and stay as they are (a fixed point).
+     * D1 (a quiet component) and D2 (a drip's tail) of the B3 plan; the water elsewhere keeps running.
+     */
+    fun dryTilesNow(rects: List<FloatArray>, paper: MediaPaperGl, pxPerMm: Double, wc0: WetConstants = WetConstants()) {
+        val ws = wet ?: return
+        if (rects.isEmpty()) return
+        bakePaper(paper)
+        val bi = 1 - wc
+        // Everything else is a wall while these dry: nothing runs in from the water beside them, nothing reads dry paper
+        // there, so the pigment stays exactly where it lies (no edge drop-out along the tile's edge).
+        val a = atlas
+        if (a != null && free) {
+            val drying = rects.flatMap { MediaAtlasPlacement.tiles(it[0].toDouble(), it[1].toDouble(), it[2].toDouble(), it[3].toDouble(), 0) }.toSet()
+            a.setWalls(a.resident.keys - drying + waterSkip)
+            a.wallsOn = true
+        }
+        try { dryTilesInner(ws, rects, paper, pxPerMm, wc0, bi) } finally { if (a != null && free) { a.wallsOn = false; a.setWalls(waterSkip) } }
+    }
+
+    private fun dryTilesInner(ws: Array<Wet>, rects: List<FloatArray>, paper: MediaPaperGl, pxPerMm: Double, wc0: WetConstants, bi: Int) {
+        for (r in rects) clearIn(fluxFbo[bi], r)
+        wetFrameUniforms.load(wetUniforms(paper.stats, wc0), 1e4, slope, 1 / (pxPerMm * scale), wc0.beadMm * pxPerMm * scale)
+        GLES30.glDisable(GLES30.GL_BLEND)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, updFbo[bi * 2 + 1])
+        GLES30.glViewport(0, 0, w, h)
+        val pu = progUpdate.use()
+        common(pu); wetFrameUniforms.apply(pu)
+        for (r in rects) {
+            MediaUniforms.wetUpdate(pu, ws[wc].w0, ws[wc].w1, ws[bi].flux, run, state[0].p0, state[0].p1, bakeTex, waterBake, fluidBake,
+                in0, in1, 0, r, w, h)
+            quad(r)
+        }
+        for (r in rects) {
+            copyRect(state[1], pFbo0, r)
+            for (f in wetCopyFbo) clearIn(f, r)
+            touch(r)
+        }
+        stores += WATER_WRITES
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+    }
+
+    /** Clears layer-px [rect] of every target of [fbo] (slot by slot in the atlas). */
+    private fun clearIn(fbo: Int, rect: FloatArray) {
+        val a = atlas
+        if (a != null && free) { a.clearRect(fbo, rect); return }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+        GLES30.glViewport(0, 0, w, h)
+        scissorTo(rect)
+        GLES30.glClearColor(0f, 0f, 0f, 0f)
+        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+    }
+
+    private var actTex = 0
+    private var actFbo = 0
+    private var actPbo = 0
+    private var actFence = 0L
+
+    /**
+     * Starts measuring the water, coarsely and without waiting for the GPU: every 16×16 block of the current water state
+     * reduced to (max depth, max dampness, max outflow) (jb_wet_activity.frag), read back through a pixel buffer.
+     * [takeWaterActivity] collects it, frames later. False when there is no water or a measurement is still on its way.
+     */
+    fun requestWaterActivity(): Boolean {
+        val ws = wet ?: return false
+        if (actFence != 0L) return false
+        val aw = w / 16; val ah = h / 16
+        if (actTex == 0) {
+            actTex = MediaTex.make(aw, ah, GLES30.GL_RGBA32F, GLES30.GL_RGBA, GLES30.GL_FLOAT, GLES30.GL_NEAREST)
+            actFbo = MediaTex.fbo(actTex)
+            val ids = IntArray(1); GLES30.glGenBuffers(1, ids, 0); actPbo = ids[0]
+            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, actPbo)
+            GLES30.glBufferData(GLES30.GL_PIXEL_PACK_BUFFER, aw * ah * 16, null, GLES30.GL_STREAM_READ)
+            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0)
+        }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, actFbo)
+        GLES30.glViewport(0, 0, aw, ah)
+        GLES30.glDisable(GLES30.GL_BLEND); GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        val u = progActivity.use()
+        u.tex("u_w0", ws[wc].w0)
+        GLES30.glBindVertexArray(emptyVao)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3)
+        GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, actPbo)
+        GLES30.glReadPixels(0, 0, aw, ah, GLES30.GL_RGBA, GLES30.GL_FLOAT, 0)
+        GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0)
+        actFence = GLES30.glFenceSync(GLES30.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        return true
+    }
+
+    /**
+     * The measurement [requestWaterActivity] started, once the GPU has finished it (null before): (w / 16) × (h / 16) blocks,
+     * rows from the bottom, 4 floats each (max depth mm, max dampness, max outflow mm/s, 0). Never waits.
+     */
+    fun takeWaterActivity(): FloatArray? {
+        if (actFence == 0L) return null
+        val r = GLES30.glClientWaitSync(actFence, 0, 0L)
+        if (r != GLES30.GL_ALREADY_SIGNALED && r != GLES30.GL_CONDITION_SATISFIED) return null
+        GLES30.glDeleteSync(actFence); actFence = 0L
+        val n = (w / 16) * (h / 16) * 4
+        GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, actPbo)
+        val mapped = GLES30.glMapBufferRange(GLES30.GL_PIXEL_PACK_BUFFER, 0, n * 4, GLES30.GL_MAP_READ_BIT) as java.nio.ByteBuffer?
+        val out = FloatArray(n)
+        mapped?.order(java.nio.ByteOrder.nativeOrder())?.asFloatBuffer()?.get(out)
+        GLES30.glUnmapBuffer(GLES30.GL_PIXEL_PACK_BUFFER)
+        GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0)
+        return if (mapped != null) out else null
     }
 
     // ---- the look: what the app's layer stack composites ----
@@ -974,22 +1211,24 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     }
 
     fun release() {
-        for (p in listOf(progDab, progApply, progCopy, progRender, progBake, progWetDab, progFlux, progUpdate, progPasteDab, progPasteBrush, progBead,
-                progEraseDab, progErase)) p.release()
+        releasePrograms()
         val tex = ArrayList<Int>()
         for (s in state) tex += listOf(s.p0, s.p1, s.paper)
         for (b in brush) tex += listOf(b.b0, b.b1)
         wet?.forEach { tex += listOf(it.w0, it.w1, it.flux) }
-        tex += listOf(delta, bakeTex, fluidBake, waterBake, run, in0, in1, lutTex, lookTex, groundTex, empty) + bead.toList()
+        tex += listOf(delta, bakeTex, fluidBake, waterBake, run, in0, in1, lutTex, lookTex, groundTex, empty, actTex) + bead.toList()
         tex.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteTex(*it) }
         val fbos = ArrayList<Int>()
         for (s in state) fbos += s.fbo
         for (b in brush) fbos += b.fbo
-        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo, groundFbo, readFbo, drawFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
+        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo, groundFbo, readFbo, drawFbo, actFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
             wetCopyFbo.toList() + eraseWetFbo.toList()
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
         GLES30.glDeleteBuffers(2, intArrayOf(quadBuf, dabBuf), 0)
         GLES30.glDeleteVertexArrays(3, intArrayOf(quadVao, dabVao, emptyVao), 0)
+        if (actPbo != 0) GLES30.glDeleteBuffers(1, intArrayOf(actPbo), 0)
+        if (actFence != 0L) GLES30.glDeleteSync(actFence)
+        actTex = 0; actFbo = 0; actPbo = 0; actFence = 0L
         atlas?.release(); atlas = null
         uploadBuffer.reset()
     }

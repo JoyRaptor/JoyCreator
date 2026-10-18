@@ -77,7 +77,7 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     /** Media Atlas v2 B2: the page table becomes [map] (tile key -> slot), uploaded at once; the engine loses its window edge. */
     fun setResidency(map: Map<Long, Int>) {
         for (s in map.values) require(s in 0 until nx * ny) { "slot $s is not in this atlas" }
-        val t = MediaAtlasPlacement.table(map)
+        val t = MediaAtlasPlacement.table(map, walls)
         free = true; resident = HashMap(map)
         slotOf = t::slotOf; grid = intArrayOf(t.x, t.y, t.w, t.h)
         val cells = ByteBuffer.allocateDirect(t.data.size * 4).order(ByteOrder.nativeOrder()).asIntBuffer()
@@ -136,11 +136,27 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
         u.f1("u_atlasSlotsX", nx)
         u.f1("u_atlasShift", shift)
         u.i4("u_atlasWrap", 0, 0, 0, 0)
+        u.i4("u_atlasWalls", if (wallsOn) 1 else 0, 0, 0, 0)
     }
 
-    /** A layer-shaped pass over [rect] (x0, y0, x1, y1 at the pass's resolution): one instance per slot it touches. */
+    /** B3: tiles the current pass leaves alone even though they are resident (a drip's dried tail, out of the water). */
+    var skip: Set<Long> = emptySet()
+
+    /** B3 (D2): tiles marked in the page table as out of the water; [wallsOn] = the passes now drawn see them as walls. */
+    var walls: Set<Long> = emptySet(); private set
+    var wallsOn = false
+
+    /** Marks [w] as walls in the page table (uploaded at once when it changed). */
+    fun setWalls(w: Set<Long>) {
+        if (w == walls) return
+        walls = w.toSet()
+        if (free) setResidency(resident)
+    }
+
+    /** A layer-shaped pass over [rect] (x0, y0, x1, y1 at the pass's resolution): one instance per slot it touches, except [skip]. */
     fun drawRect(rect: FloatArray, shift: Int = MediaAtlasDraw.SHIFT) {
-        val n = draw.rects(rect[0], rect[1], rect[2], rect[3], shift, nx, slotOf)
+        val table = if (skip.isEmpty()) slotOf else { x: Int, y: Int -> if (Tiles.key(x, y) in skip) -1 else slotOf(x, y) }
+        val n = draw.rects(rect[0], rect[1], rect[2], rect[3], shift, nx, table)
         if (n == 0) return
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instBuf)
         GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, n * 32, upload.upload(draw.rect, n * 8), GLES30.GL_STREAM_DRAW)

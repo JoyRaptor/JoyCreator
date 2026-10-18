@@ -231,7 +231,7 @@ out of long loops (find the word, then draw it once).
 | Heat guard | ✅ seen working on the Note 9 10-18 04:10: `heat 3` (SEVERE) -> half resolution, 60 fps |
 | A build keeps what it does not know in a look | ✅ tests; the ten lyrics looks restored on the Note 9 |
 | Lab: per-layer colours, start from nothing, parts shelf, my parts | ✅ Note 9 10-18 (my parts app-only) |
-| Lab: split big pieces into mixable parts (particles first) | ❌ (VISLAB_TODO A5) |
+| Lab: particles shown as parts (Born from / How they move / What each one looks like / Camera) | ✅ Note 9 10-18 |
 | Lobby Viz Lab hero shows the last look | ❌ |
 
 ## 10. Owner rulings in force

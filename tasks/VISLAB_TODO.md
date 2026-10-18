@@ -49,7 +49,8 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
     without being taken for looks; add `readParts` / `writePart`.
   - Shared file (announce): `studiokit/.../joyfolder/FileKind.java` LOOK endings + ".vispart.json";
     `JoyFolderTests` gets `eq(FileKind.LOOK, FileKind.of("Aurora.vispart.json"))`.
-- [ ] **A5. Split the big pieces into mixable parts** the way Words became path x behaviour x
+- [x] **A5. Split the big pieces into mixable parts** the way Words became path x behaviour x
+  - DONE 10-18, Note 9 + pilot: particles were already independent choices (9 emitters x forces / 4 attractors x 9 looks); what hid them was 48 knobs in one list. Now four parts in the editor: Born from / How they move / What each one looks like / Camera (3D); Attractor size only with an attractor. Separate GPU programs per part (as Words) only if a phone test shows particles slow.
   letters. First: particles = where they come from x how they move x what each one looks like
   (`types.json` "particles", `shaders/particles_sim.frag`, `particles.vert/.frag`). Plan it in
   the spec before building.

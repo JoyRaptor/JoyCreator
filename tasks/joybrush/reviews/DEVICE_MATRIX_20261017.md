@@ -76,7 +76,7 @@ One row is a single-frame measurement (media Proto Pencil, canvas, 1 frame): it 
 - joybrush.softair | tile | p50 97.34 p95 195.66 frames 7 | works
 - media:paste:Palette knife 2 | animation | p50 190.22 p95 191.64 frames 4 | noop
 
-Four of these ten rows are noop cells (three animation media cells, which the verdict bug mislabels, and Scraper on canvas). Their timings are for strokes the verdict calls no-op.
+Four of these ten rows are noop cells: two animation cells that the verdict bug mislabels (Palette knife 2, All-round), and two Scraper cells (canvas, animation) with nothing to scrape. Their timings are for strokes the verdict calls no-op.
 
 ## Failed, refused, and noop cells (by cause)
 

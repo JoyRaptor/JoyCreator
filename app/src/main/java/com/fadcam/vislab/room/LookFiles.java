@@ -41,6 +41,8 @@ final class LookFiles {
 
     private static final String TAG = "VisLookFiles";
     static final String ENDING = ".vis.json";
+    /** The person's own parts sit beside the looks (not read as looks: a different ending). */
+    static final String PART_ENDING = ".vispart.json";
     /** Relative to the app's files folder, when the Joy Creator folder is unreachable. */
     static final String FALLBACK_DIR = "vislab/looks";
 
@@ -89,11 +91,24 @@ final class LookFiles {
     @WorkerThread
     @NonNull
     static List<Found> readAll(@NonNull Home h) {
+        return readAll(h, ENDING);
+    }
+
+    /** Every part file ({@code .vispart.json}) in the looks folder, by file name. */
+    @WorkerThread
+    @NonNull
+    static List<Found> readParts(@NonNull Home h) {
+        return readAll(h, PART_ENDING);
+    }
+
+    @WorkerThread
+    @NonNull
+    private static List<Found> readAll(@NonNull Home h, @NonNull String ending) {
         List<Found> out = new ArrayList<>();
         try {
             if (h.fs.stat(h.dir) == null) return out;
             for (JoyFs.Entry e : h.fs.list(h.dir)) {
-                if (e.dir || !e.name.toLowerCase(Locale.ROOT).endsWith(ENDING)) continue;
+                if (e.dir || !e.name.toLowerCase(Locale.ROOT).endsWith(ending)) continue;
                 String rel = Placement.join(h.dir, e.name);
                 try {
                     out.add(new Found(rel, new String(readAll(h.fs, rel), StandardCharsets.UTF_8)));
@@ -116,12 +131,26 @@ final class LookFiles {
     @NonNull
     static String write(@NonNull Home h, @Nullable String rel, @NonNull String name, @NonNull String text)
             throws IOException {
+        return write(h, rel, name, text, ENDING);
+    }
+
+    /** Save a new part file named after the part ("Fire Aurora.vispart.json"). */
+    @WorkerThread
+    @NonNull
+    static String writePart(@NonNull Home h, @NonNull String name, @NonNull String text) throws IOException {
+        return write(h, null, name, text, PART_ENDING);
+    }
+
+    @WorkerThread
+    @NonNull
+    private static String write(@NonNull Home h, @Nullable String rel, @NonNull String name, @NonNull String text,
+                                @NonNull String ending) throws IOException {
         byte[] data = text.getBytes(StandardCharsets.UTF_8);
         if (rel == null) {
             String dir = h.folder != null
                     ? h.folder.prepareDir(Placement.What.SUPPLY, null, null, FileKind.LOOK) : h.dir;
             if (h.folder == null) h.fs.mkdirs(dir);
-            rel = Placement.join(dir, freeName(h, dir, ReadableNames.sanitize(name) + ENDING));
+            rel = Placement.join(dir, freeName(h, dir, ReadableNames.sanitize(name) + ending));
         }
         if (h.folder != null) {
             h.folder.writeAtomic(rel, data);

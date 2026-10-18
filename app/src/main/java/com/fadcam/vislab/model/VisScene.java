@@ -124,7 +124,7 @@ public final class VisScene {
     }
 
     @Nullable
-    static String[] stops(@Nullable JsonElement e) {
+    public static String[] stops(@Nullable JsonElement e) {
         if (e == null || !e.isJsonArray() || e.getAsJsonArray().size() == 0) return null;
         JsonArray a = e.getAsJsonArray();
         String[] out = new String[5];

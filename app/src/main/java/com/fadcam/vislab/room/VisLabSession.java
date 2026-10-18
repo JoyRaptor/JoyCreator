@@ -14,6 +14,7 @@ import com.fadcam.vislab.VisLab;
 import com.fadcam.vislab.gl.ShaderLib;
 import com.fadcam.vislab.model.LookValidator;
 import com.fadcam.vislab.model.VisScene;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -130,6 +131,8 @@ public final class VisLabSession {
     /** Look id -> its file. Changed on the folder thread only. */
     private final Map<String, String> files = new ConcurrentHashMap<>();
     @Nullable private volatile LookFiles.Home home;
+    /** The person's own parts (layers saved out of looks), newest first. Main thread. */
+    private final List<com.fadcam.vislab.model.VisPart> parts = new ArrayList<>();
     private boolean loaded;
     private final Runnable syncSoon = this::sync;
 
@@ -327,6 +330,71 @@ public final class VisLabSession {
             changedList();
             show(i);
             return new ApplyResult(true, f.name(), new ArrayList<>());
+        });
+    }
+
+    /**
+     * A new, empty look to build from nothing (owner, 10-18: "build a scene from the ground up"):
+     * no layers, black, the Joy colours, named "My look", "My look 2"... Shown. An undo step.
+     */
+    @NonNull
+    public ApplyResult newLook(@NonNull String undoLabel, @Nullable String group) {
+        return onMain(() -> {
+            String name = "My look";
+            for (int n = 2; hasName(name); n++) name = "My look " + n;
+            JsonObject o = new JsonObject();
+            o.addProperty("format", VisScene.FORMAT);
+            o.addProperty("id", freeId(name));
+            o.addProperty("name", name);
+            o.addProperty("family", "Mine");
+            o.addProperty("description", "Built from nothing.");
+            JsonArray pal = new JsonArray();
+            for (String hex : new String[]{"#35F6BF", "#97FE8B", "#FAA03D", "#FF008C", "#CC27FF"}) pal.add(hex);
+            o.add("palette", pal);
+            o.addProperty("background", "#000000");
+            o.add("layers", new JsonArray());
+            remember(group, undoLabel);
+            looks.add(new VisScene(o));
+            changedList();
+            show(looks.size() - 1);
+            return new ApplyResult(true, name, new ArrayList<>());
+        });
+    }
+
+    private boolean hasName(@NonNull String name) {
+        for (VisScene s : looks) if (s.name().equalsIgnoreCase(name)) return true;
+        return false;
+    }
+
+    /** The person's own parts, newest first (empty until the folder has been read). */
+    @NonNull
+    List<com.fadcam.vislab.model.VisPart> parts() {
+        return parts;
+    }
+
+    /**
+     * Save {@code layer} as one of the person's parts: a file beside the looks, offered first on
+     * every look's parts shelf. Its colours go with it (the look's, when it has none of its own).
+     */
+    public void savePart(@NonNull JsonObject layer, @NonNull String name, @NonNull VisScene from) {
+        JsonObject l = layer.deepCopy();
+        String[] pal = from.palette();
+        if (!l.has("palette") && pal != null) {
+            JsonArray a = new JsonArray();
+            for (String hex : pal) a.add(hex);
+            l.add("palette", a);
+        }
+        com.fadcam.vislab.model.VisPart part = new com.fadcam.vislab.model.VisPart(name, from.name(), l);
+        parts.add(0, part);
+        String text = part.toJson();
+        JoyFolderHome.io().execute(() -> {
+            LookFiles.Home h = home != null ? home : LookFiles.home(app);
+            try {
+                LookFiles.writePart(h, name, text);
+                LookFiles.saveIndex(h);
+            } catch (IOException | RuntimeException e) {
+                FLog.w(TAG, "Couldn't save the part " + name, e);
+            }
         });
     }
 
@@ -679,7 +747,19 @@ public final class VisLabSession {
             }
             ed.apply();
             LookFiles.saveIndex(h);
-            main.post(() -> takeIn(mine, text));
+            List<com.fadcam.vislab.model.VisPart> found = new ArrayList<>();
+            for (LookFiles.Found f : LookFiles.readParts(h)) {
+                String file = f.rel.substring(f.rel.lastIndexOf('/') + 1);
+                com.fadcam.vislab.model.VisPart part = com.fadcam.vislab.model.VisPart.parse(f.text,
+                        file.substring(0, file.length() - LookFiles.PART_ENDING.length()));
+                if (part != null) found.add(part);
+                else FLog.w(TAG, "Skipped " + f.rel + ": not a readable part");
+            }
+            main.post(() -> {
+                parts.clear();
+                parts.addAll(found);
+                takeIn(mine, text);
+            });
         });
     }
 

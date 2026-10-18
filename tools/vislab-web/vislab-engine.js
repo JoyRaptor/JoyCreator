@@ -269,7 +269,8 @@
     }
 
     _palette(layer) {
-      const stops = (layer && layer.palette) || (this.brandPalette) || (this.scene && this.scene.palette) || ['#000000', '#333333', '#777777', '#bbbbbb', '#ffffff'];
+      // The brand lock wins over everything; then a layer's own colours; then the look's.
+      const stops = (this.brandPalette) || (layer && layer.palette) || (this.scene && this.scene.palette) || ['#000000', '#333333', '#777777', '#bbbbbb', '#ffffff'];
       const out = new Float32Array(15);
       for (let i = 0; i < 5; i++) {
         const c = hexToLinear(stops[Math.min(i, stops.length - 1)]);

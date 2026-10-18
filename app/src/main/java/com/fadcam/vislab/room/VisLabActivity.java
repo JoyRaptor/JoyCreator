@@ -254,6 +254,12 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
                 android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP, new int[]{0xBF000000, 0x00000000}));
         strip.setLooks(session.looks());
         strip.setOnPick(this::setLook);
+        strip.setOnNew(() -> {
+            session.newLook("New look", null);
+            panel.showLayers();
+            if (!drawerOpen) setDrawer(true);
+            else panel.rebuild();
+        });
         root.addView(strip, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM));
 
         panel = new KnobPanel(this, VisLab.get(this).types(), this);
@@ -446,6 +452,31 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     public boolean lookIsCustomised() {
         VisScene s = scene();
         return s != null && session.isCustomised(s.id());
+    }
+
+    @NonNull
+    @Override
+    public java.util.List<VisScene> allLooks() {
+        return session.looks();
+    }
+
+    @NonNull
+    @Override
+    public java.util.List<com.fadcam.vislab.model.VisPart> myParts() {
+        return session.parts();
+    }
+
+    @Override
+    public void saveLayerAsPart(@NonNull com.google.gson.JsonObject layer) {
+        VisScene s = scene();
+        if (s == null) return;
+        com.google.gson.JsonElement n = layer.get("name");
+        String base = n != null && n.isJsonPrimitive() ? n.getAsString() : "My part";
+        LookSheets.askName(this, "Save as a part", base + " (" + s.name() + ")", "Save", name -> {
+            session.savePart(layer, name, s);
+            android.widget.Toast.makeText(this, "Saved with your looks as " + name + ".vispart.json", android.widget.Toast.LENGTH_SHORT).show();
+            panel.rebuild();
+        });
     }
 
     @Override

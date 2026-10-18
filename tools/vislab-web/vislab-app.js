@@ -129,7 +129,24 @@
 
     // strip
     const strip = $('#strip');
-    working.forEach((s, i) => {
+    // "+ New": a look built from nothing (not a .card, so card k stays look k).
+    const newCard = document.createElement('button');
+    newCard.className = 'newcard'; newCard.title = 'Start a new look from nothing and build it layer by layer';
+    newCard.innerHTML = '<span class="nm">+ New</span><span class="fam">From nothing</span>';
+    newCard.style.cssText = 'flex:0 0 auto;min-width:96px;text-align:left;border-radius:12px;border:0;padding:8px 9px;background:rgba(39,39,42,.65);color:inherit;display:flex;flex-direction:column;gap:3px';
+    newCard.onclick = () => {
+      let name = 'My look';
+      for (let n = 2; working.some((w) => w.name === name); n++) name = 'My look ' + n;
+      working.push({ format: 'joy.vis/1', id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name, family: 'Mine',
+        description: 'Built from nothing.', palette: ['#35F6BF', '#97FE8B', '#FAA03D', '#FF008C', '#CC27FF'], background: '#000000', layers: [] });
+      addCard(working.length - 1);
+      setScene(working.length - 1);
+      tab = 'layers';
+      setDrawer(true);
+    };
+    strip.appendChild(newCard);
+    function addCard(i) {
+      const s = working[i];
       const b = document.createElement('button');
       b.className = 'card';
       b.title = s.description || s.name;
@@ -137,7 +154,8 @@
       b.innerHTML = `<span class="nm">${s.name}</span><span class="fam">${s.family || ''}</span><span class="sw">${pal}</span>`;
       b.onclick = () => setScene(i);
       strip.appendChild(b);
-    });
+    }
+    working.forEach((s, i) => addCard(i));
     const hashIdx = working.findIndex((s) => '#' + s.id === location.hash);
     setScene(hashIdx >= 0 ? hashIdx : 0);
 
@@ -398,6 +416,30 @@
         const grid = document.createElement('div');
         grid.className = 'hide';
         add.onclick = () => grid.classList.toggle('hide');
+        if (!scene.layers.length) grid.classList.remove('hide');   // an empty look: the parts are the point
+        // The parts shelf: every layer of every other look, keeping its home look's colours.
+        const shelfBtn = document.createElement('button'); shelfBtn.className = 'pill'; shelfBtn.textContent = 'Parts from every look';
+        shelfBtn.title = 'Browse the layers of every look and drop one into this look'; shelfBtn.style.margin = '6px 0';
+        const shelf = document.createElement('div'); shelf.className = 'addgrid hide';
+        shelfBtn.onclick = () => shelf.classList.toggle('hide');
+        for (const from of working) {
+          if (from === scene) continue;
+          for (const src of from.layers || []) {
+            const t = T.types[src.type];
+            if (!t) continue;
+            const label = (src.name || t.label) + ' · ' + from.name;
+            const b = document.createElement('button');
+            b.innerHTML = `${label}<small>${t.label}</small>`;
+            b.title = t.label + ' from ' + from.name + ': ' + t.about;
+            b.onclick = () => {
+              const part = JSON.parse(JSON.stringify(src, (k, v) => (k === 'image' && v && typeof v === 'object' ? undefined : v)));
+              if (!part.palette && from.palette) part.palette = from.palette.slice();
+              scene.layers.push(part); selLayer = scene.layers.length - 1; renderDrawer();
+            };
+            shelf.appendChild(b);
+          }
+        }
+        grid.appendChild(shelfBtn); grid.appendChild(shelf);
         for (const fam of T.families) {
           const s = document.createElement('div'); s.className = 'sec'; s.textContent = fam.label; grid.appendChild(s);
           const g = document.createElement('div'); g.className = 'addgrid';
@@ -440,6 +482,20 @@
             };
             r.appendChild(pick); lp.appendChild(r);
           }
+          // This layer's colours: the look's, or a palette of its own (brand lock still wins).
+          const cs = document.createElement('div'); cs.className = 'sec'; cs.textContent = 'Colours of this layer'; lp.appendChild(cs);
+          const lpals = document.createElement('div'); lpals.className = 'pals';
+          const lookPal = { name: "The look's", stops: scene.palette || PALETTES[0].stops };
+          [lookPal].concat(PALETTES).forEach((P) => {
+            const b = document.createElement('button');
+            const on = P === lookPal ? !L.palette : !!L.palette && L.palette.join().toLowerCase() === P.stops.join().toLowerCase();
+            b.className = on ? 'on' : '';
+            b.title = P === lookPal ? "This layer uses the look's colours" : 'Give this layer the ' + P.name + ' colours';
+            b.innerHTML = `<div class="sw" style="height:10px;margin-bottom:4px">${P.stops.map((c) => `<i style="background:${c}"></i>`).join('')}</div>${P.name}`;
+            b.onclick = () => { if (P === lookPal) delete L.palette; else L.palette = P.stops.slice(); renderDrawer(); };
+            lpals.appendChild(b);
+          });
+          lp.appendChild(lpals);
           body.appendChild(lp);
           knobRows(body, t.params, L, 'p');
           knobRows(body, common.filter((d) => d.group), { x: L }, 'x');

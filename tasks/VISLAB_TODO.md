@@ -16,7 +16,8 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
 
 ## A. Lab: build your own (owner, 10-18: "the lab part is making everything composable")
 
-- [ ] **A1. Colours per layer.** Each layer can keep the look's colours or take its own palette
+- [x] **A1. Colours per layer.** Each layer can keep the look's colours or take its own palette
+  - DONE 10-18, Note 9: the aurora in Ember inside My look; brand lock still wins (pilot too).
   (the aurora in Ember colours inside an Ice look).
   - Data already exists: a layer's `"palette": [5 hex]` (`CompiledScene.Layer.palette`,
     `VisRenderer.useLayer` prefers it). Brand lock must still win over it (check `useLayer`).
@@ -24,7 +25,8 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
     "Colours" row: "The look's" pill + the `PALETTES` chips (same `paletteChip()` as
     `buildColours()`), `host.beginEdit("Layer colours")` / `L.add("palette", ...)` / `host.edited()`.
   - Pilot: `tools/vislab-web/vislab-app.js` layer section (`knobRows(lp, common ...)`) — same row.
-- [ ] **A2. Start from nothing.** A "+ New" card first in the look strip makes an empty look
+- [x] **A2. Start from nothing.** A "+ New" card first in the look strip makes an empty look
+  - DONE 10-18, Note 9: the + New card opens an empty look with the shelf open (pilot too).
   (no layers, black, Joy palette, named "My look", "My look 2"...) and opens the editor on
   Layers with "+ Add a layer" open.
   - Session: `vislab/room/VisLabSession.java` — add `newLook(label, group)` beside `duplicate()`
@@ -32,14 +34,16 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
   - Strip: `vislab/room/LookStrip.java` `setLooks()` — a leading "+ New" card with its own
     callback; `VisLabActivity` wires it (it already wires `onPick`).
   - Check an empty look renders (background only) in `VisRenderer.render` / `CompiledScene`.
-- [ ] **A3. Parts shelf in "+ Add a layer".** Besides the base pieces, every layer of every look
+- [x] **A3. Parts shelf in "+ Add a layer".** Besides the base pieces, every layer of every look
+  - DONE 10-18, Note 9: Parts from every look in + Add a layer; a part keeps its home colours (pilot too).
   is a part you can drop in: "Aurora · Northern Lights", "Constellation · Written in Stars".
   - `KnobPanel.buildLayers()` `addBox` (line ~217): a "From looks" section listing each
     look's layers (Host needs `List<VisScene> allLooks()` from the session).
   - Copy = deep copy of the layer JSON; if it has no own palette, give it its source look's
     palette so it looks the same in the new look (then A1 lets you change it).
   - Pilot: `vislab-app.js` add grid (`for (const fam of T.families)` ~line 401).
-- [ ] **A4. My parts.** "Save as a part" on the chosen layer writes `Supplies/Looks/<Name>.vispart.json`
+- [x] **A4. My parts.** "Save as a part" on the chosen layer writes `Supplies/Looks/<Name>.vispart.json`
+  - DONE 10-18, Note 9: Save as a part wrote Supplies/Looks/Fire Aurora.vispart.json, shown under My parts (app only; the pilot has no folder).
   (`{"format":"joy.vis.part/1","name","from","layer":{...}}`); the shelf shows "My parts" first.
   - `vislab/room/LookFiles.java`: `readAll` only reads `.vis.json`, so parts sit beside looks
     without being taken for looks; add `readParts` / `writePart`.

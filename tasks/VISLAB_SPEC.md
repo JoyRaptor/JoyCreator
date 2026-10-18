@@ -85,6 +85,12 @@ latest on the Note 9 should merge `joy-creator` first.
   undo removes, or Delete, goes to the folder's Trash. Duplicate / Rename (the file follows the
   name) / Delete (own looks only) in the footer.
 - Unreachable folder: `files/vislab/looks/` and a log line.
+- **Parts (10-18):** a layer saved with "Save as a part" is `Supplies/Looks/<Name>.vispart.json`
+  (`{"format": "joy.vis.part/1", "name", "from", "layer"}`, `model/VisPart`), beside the looks
+  and not read as one; `FileKind.LOOK` knows the ending. The shelf in "+ Add a layer" offers My
+  parts, then every layer of every other look (keeping its home colours), then the base pieces.
+  "+ New" first in the strip starts a look from nothing. A layer may carry its own colours
+  (`"palette"`); the brand lock still wins.
 
 ## 5. Performance (Note 9, 1080x2220, measured 10-17)
 
@@ -224,7 +230,8 @@ out of long loops (find the word, then draw it once).
 | Speeds with music links move smoothly (`rate`) | ✅ tests + pilot + Note 9 |
 | Heat guard | ✅ seen working on the Note 9 10-18 04:10: `heat 3` (SEVERE) -> half resolution, 60 fps |
 | A build keeps what it does not know in a look | ✅ tests; the ten lyrics looks restored on the Note 9 |
-| Lab: per-layer colours, start from nothing, parts shelf, my parts | ❌ next |
+| Lab: per-layer colours, start from nothing, parts shelf, my parts | ✅ Note 9 10-18 (my parts app-only) |
+| Lab: split big pieces into mixable parts (particles first) | ❌ (VISLAB_TODO A5) |
 | Lobby Viz Lab hero shows the last look | ❌ |
 
 ## 10. Owner rulings in force

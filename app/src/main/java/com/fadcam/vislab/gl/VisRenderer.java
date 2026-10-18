@@ -728,7 +728,9 @@ public final class VisRenderer {
 
     /** Use a program for a layer: its knobs, palette, seed, light/paint and opacity. */
     int useLayer(@NonNull GlProgram p, @NonNull CompiledScene.Layer L, float px, float opacity, @Nullable float[] pal) {
-        return useParams(p, L.knobs.params, pal != null ? pal : (L.palette != null ? L.palette : compiled.palette),
+        // A layer's own colours, unless the brand lock is on: then everything is in the brand.
+        float[] own = L.palette != null && compiledBrand == null ? L.palette : null;
+        return useParams(p, L.knobs.params, pal != null ? pal : (own != null ? own : compiled.palette),
                 px, L.seed, L.add, opacity);
     }
 

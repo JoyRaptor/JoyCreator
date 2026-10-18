@@ -74,6 +74,15 @@ final class KnobPanel extends LinearLayout {
 
         /** Asks first; undo brings it back. Only the person's own looks. */
         void deleteLook();
+
+        /** Every look in the room, for the parts shelf (each layer of each look is a part). */
+        @NonNull java.util.List<VisScene> allLooks();
+
+        /** The person's own saved parts, newest first. */
+        @NonNull java.util.List<com.fadcam.vislab.model.VisPart> myParts();
+
+        /** Ask for a name and save this layer as one of the person's parts. */
+        void saveLayerAsPart(@NonNull JsonObject layer);
     }
 
     private static final String[][] PALETTES = {
@@ -202,6 +211,12 @@ final class KnobPanel extends LinearLayout {
         selLayer = 0;
     }
 
+    /** Open on the Layers tab (a new look starts there, with "+ Add a layer" open). */
+    void showLayers() {
+        tab = 0;
+        tabs.setSelected(0);
+    }
+
     // ------------------------------------------------------------------ tabs
 
     private void buildLayers(@NonNull VisScene s) {
@@ -216,7 +231,7 @@ final class KnobPanel extends LinearLayout {
         Ui.label(add, "Add a new piece to this look");
         LinearLayout addBox = new LinearLayout(c);
         addBox.setOrientation(VERTICAL);
-        addBox.setVisibility(GONE);
+        addBox.setVisibility(layers.size() == 0 ? VISIBLE : GONE);   // an empty look: the parts are the point
         add.setOnClickListener(v -> {
             Motion.press(v);
             addBox.setVisibility(addBox.getVisibility() == VISIBLE ? GONE : VISIBLE);
@@ -224,6 +239,8 @@ final class KnobPanel extends LinearLayout {
         LayoutParams alp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
         alp.topMargin = Ui.dp(c, 6);
         body.addView(add, alp);
+        myParts(c, s, addBox);
+        partsFromLooks(c, s, addBox);
         for (VisTypes.Family fam : types.families) {
             addBox.addView(section(c, fam.label));
             WrapLayout w = new WrapLayout(c, Ui.dp(c, 6), Ui.dp(c, 6));
@@ -253,6 +270,15 @@ final class KnobPanel extends LinearLayout {
         VisType t = types.type(str(L, "type"));
         if (t == null) return;
         body.addView(section(c, name(L, t) + ": layer"));
+        TextView save = pill(c, "Save as a part", false);
+        Ui.label(save, "Keep this layer, as it is now, among your parts for any look");
+        save.setOnClickListener(v -> {
+            Motion.press(v);
+            host.saveLayerAsPart(L);
+        });
+        LayoutParams slp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        slp.bottomMargin = Ui.dp(c, 4);
+        body.addView(save, slp);
         // The controls every layer has (types.json "layer"): Opacity, Reactivity, Softness here,
         // the Place group after the layer's own knobs.
         VisKnob add2 = new VisKnob("add", "Light / paint", -1, 0, 1, 1, 0, false, false, null, null);
@@ -264,6 +290,7 @@ final class KnobPanel extends LinearLayout {
                     L.addProperty("echo", on);
                     host.edited();
                 }));
+        layerColours(c, s, L);
         if (VisType.DRAW_IMAGE.equals(t.draw)) {
             boolean own = L.has("image") && L.get("image").isJsonPrimitive() && !L.get("image").getAsString().isEmpty();
             LinearLayout row = new LinearLayout(c);
@@ -374,6 +401,133 @@ final class KnobPanel extends LinearLayout {
                     else s.json().addProperty("background", "#000000");
                     host.edited();
                 }));
+    }
+
+    /** The person's own parts first: layers they saved (Supplies/Looks/<Name>.vispart.json). */
+    private void myParts(@NonNull Context c, @NonNull VisScene s, @NonNull LinearLayout addBox) {
+        java.util.List<com.fadcam.vislab.model.VisPart> mine = host.myParts();
+        if (mine.isEmpty()) return;
+        addBox.addView(section(c, "My parts"));
+        WrapLayout w = new WrapLayout(c, Ui.dp(c, 6), Ui.dp(c, 6));
+        for (com.fadcam.vislab.model.VisPart part : mine) {
+            VisType t = types.type(str(part.layer, "type"));
+            TextView p = pill(c, part.name, false);
+            Ui.label(p, (t != null ? t.label : "A layer") + (part.from.isEmpty() ? "" : ", saved from " + part.from));
+            p.setOnClickListener(v -> {
+                Motion.press(v);
+                host.beginEdit("Add " + part.name);
+                JsonObject lo = part.layer.deepCopy();
+                lo.addProperty("name", part.name);
+                s.layers().add(lo);
+                selLayer = s.layers().size() - 1;
+                host.edited();
+                rebuild();
+            });
+            w.addView(p);
+        }
+        addBox.addView(w);
+    }
+
+    /**
+     * The parts shelf (owner, 10-18: "a library people can browse and shop"): every layer of
+     * every other look, ready to drop in ("Aurora · Northern Lights"). Behind one pill, since
+     * there are dozens. A part with no colours of its own keeps its home look's palette, so it
+     * looks the same here; "Colours of this layer" changes it.
+     */
+    private void partsFromLooks(@NonNull Context c, @NonNull VisScene s, @NonNull LinearLayout addBox) {
+        LinearLayout shelf = new LinearLayout(c);
+        shelf.setOrientation(VERTICAL);
+        shelf.setVisibility(GONE);
+        TextView open = pill(c, "Parts from every look", false);
+        Ui.label(open, "Browse the layers of every look and drop one into this look");
+        open.setOnClickListener(v -> {
+            Motion.press(v);
+            shelf.setVisibility(shelf.getVisibility() == VISIBLE ? GONE : VISIBLE);
+        });
+        LayoutParams olp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        olp.topMargin = Ui.dp(c, 8);
+        addBox.addView(open, olp);
+        WrapLayout w = new WrapLayout(c, Ui.dp(c, 6), Ui.dp(c, 6));
+        for (VisScene from : host.allLooks()) {
+            if (from.id().equals(s.id())) continue;
+            JsonArray fl = from.layers();
+            for (int i = 0; i < fl.size(); i++) {
+                if (!fl.get(i).isJsonObject()) continue;
+                JsonObject src = fl.get(i).getAsJsonObject();
+                VisType t = types.type(str(src, "type"));
+                if (t == null) continue;
+                String label = name(src, t) + " · " + from.name();
+                TextView p = pill(c, label, false);
+                Ui.label(p, t.label + " from " + from.name() + ": " + t.about);
+                p.setOnClickListener(v -> {
+                    Motion.press(v);
+                    host.beginEdit("Add " + label);
+                    JsonObject part = src.deepCopy();
+                    if (!part.has("palette")) {
+                        String[] home = from.palette();
+                        if (home != null) {
+                            JsonArray a = new JsonArray();
+                            for (String hex : home) a.add(hex);
+                            part.add("palette", a);
+                        }
+                    }
+                    s.layers().add(part);
+                    selLayer = s.layers().size() - 1;
+                    host.edited();
+                    rebuild();
+                });
+                w.addView(p);
+            }
+        }
+        shelf.addView(w);
+        addBox.addView(shelf);
+    }
+
+    /**
+     * This layer's colours: the look's, or a palette of its own (the aurora in Ember inside an
+     * Ice look). The brand lock still puts everything in the brand.
+     */
+    private void layerColours(@NonNull Context c, @NonNull VisScene s, @NonNull JsonObject L) {
+        String[] own = VisScene.stops(L.get("palette"));
+        body.addView(section(c, "Colours of this layer"));
+        WrapLayout w = new WrapLayout(c, Ui.dp(c, 6), Ui.dp(c, 6));
+        String[] looks = new String[6];
+        looks[0] = "The look's";
+        String[] sp = s.palette();
+        for (int i = 0; i < 5; i++) looks[i + 1] = sp != null && i < sp.length ? sp[i] : "#808080";
+        View mine = paletteChip(c, looks, own == null);
+        Ui.label(mine, "This layer uses the look's colours (the Colours tab)");
+        mine.setOnClickListener(v -> {
+            if (!L.has("palette")) return;
+            Motion.press(v);
+            host.beginEdit("Layer colours");
+            L.remove("palette");
+            host.edited();
+            rebuild();
+        });
+        w.addView(mine);
+        for (String[] p : PALETTES) {
+            boolean on = own != null && samePalette(own, p);
+            View chip = paletteChip(c, p, on);
+            Ui.label(chip, "Give this layer the " + p[0] + " colours");
+            chip.setOnClickListener(v -> {
+                Motion.press(v);
+                host.beginEdit("Layer colours " + p[0]);
+                JsonArray a = new JsonArray();
+                for (int i = 1; i < p.length; i++) a.add(p[i]);
+                L.add("palette", a);
+                host.edited();
+                rebuild();
+            });
+            w.addView(chip);
+        }
+        body.addView(w);
+    }
+
+    private static boolean samePalette(@NonNull String[] stops, @NonNull String[] named) {
+        if (stops.length != named.length - 1) return false;
+        for (int i = 0; i < stops.length; i++) if (!stops[i].equalsIgnoreCase(named[i + 1])) return false;
+        return true;
     }
 
     // ------------------------------------------------------------------ rows

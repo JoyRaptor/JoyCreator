@@ -241,7 +241,7 @@ const SCENARIOS = [
     return fs.existsSync(edge) ? edge : null;
   })();
   if (!exe) { console.log(JSON.stringify({ pass: false, error: 'no browser: pass --chrome <exe> or set CHROME' })); process.exit(1); }
-  const browser = await chromium.launch({ executablePath: exe, args: (process.argv.includes('--gpu') ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']) });   // --gpu: this PC's GPU (atlas and window on one device: still bit for bit)
+  const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });   // SwiftShader only: these compare the atlas with the WINDOW build, two different programs, and a real GPU's compiler may round them apart (Intel d3d11: dry dabs differ by an ulp even at the proven size; the Note 9's Adreno does not)
   let out;
   try {
     const page = await browser.newPage();

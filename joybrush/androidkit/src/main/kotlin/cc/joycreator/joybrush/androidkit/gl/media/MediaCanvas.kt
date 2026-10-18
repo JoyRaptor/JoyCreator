@@ -368,7 +368,6 @@ class MediaCanvas(
      * so it moved and reloaded every frame and clipped dabs outside it (LEAD_PLAN F1, F2).
      */
     private fun run(e: MediaLayerEngine, w: MediaPlace, st: Stroke, last: Boolean = false) {
-        val paper = paint.mediaPaper()
         val batch = st.dry?.take()
         w.legacyLook = legacyWindow
         e.legacyRect = legacyWindow   // bench A/B: the old full-square paste rect too
@@ -386,11 +385,52 @@ class MediaCanvas(
         w.lookHalo = if (look.impasto > 0f) MediaWindow.LOOK_HALO_MAX else MediaWindow.LOOK_HALO_FLAT
         // Every input of this frame, taken before any pass runs, so the atlas can admit the whole frame first (B3).
         val wq = wetQuality ?: WetConstants()
-        val thin = st.thin?.take()
-        val steps = st.paste?.take()
-        val wetIn = st.wet?.take()
-        val eraseIn = if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null
-        if (w is MediaAtlas) w.admit(frameNeeds(e, st, batch, thin, steps, wetIn, eraseIn, wq))
+        val input = FrameInput(batch, st.thin?.take(), st.paste?.take(), st.wet?.take(),
+            if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null)
+        runFrame(e, w, st, input, wq, last)
+        if (input.erase != null) st.eraseDabs.clear()
+    }
+
+    /** One frame's inputs, in pen order within each medium. */
+    private class FrameInput(val dry: DabBatch?, val thin: DabBatch?, val paste: List<PasteStep>?, val wet: DabBatch?, val erase: DabBatch?) {
+        private fun n(b: DabBatch?) = b?.count ?: 0
+        val units get() = maxOf(n(dry), n(thin), paste?.size ?: 0, n(wet), n(erase))
+
+        /**
+         * The first and second halves of every input, in pen order (Media Atlas v2 B3 step 6, the Lead's D3): what a faster
+         * phone would have drawn as two frames. Null when it cannot be split (one dab, or dabs without their boxes).
+         */
+        fun halves(): Pair<FrameInput, FrameInput>? {
+            if (units < 2) return null
+            fun cut(b: DabBatch?): Pair<DabBatch?, DabBatch?>? {
+                if (b == null) return null to null
+                val m = (b.count + 1) / 2
+                return (b.slice(0, m) ?: return null) to (b.slice(m, b.count) ?: return null)
+            }
+            val d = cut(dry) ?: return null; val t = cut(thin) ?: return null; val w = cut(wet) ?: return null; val r = cut(erase) ?: return null
+            val pm = ((paste?.size ?: 0) + 1) / 2
+            return FrameInput(d.first, t.first, paste?.subList(0, pm), w.first, r.first) to
+                FrameInput(d.second, t.second, paste?.subList(pm, paste.size), w.second, r.second)
+        }
+    }
+
+    /**
+     * The passes of one frame. In the atlas the frame is admitted first; one that the atlas cannot hold even after the
+     * water made room (D1/D2) is split in time, its dabs in order, into frames that fit, each drawn, looked at and let go
+     * in turn, exactly as a faster phone would have batched the same dabs; only a single dab that cannot fit is refused.
+     */
+    private fun runFrame(e: MediaLayerEngine, w: MediaPlace, st: Stroke, input: FrameInput, wq: WetConstants, last: Boolean) {
+        val paper = paint.mediaPaper()
+        val batch = input.dry; val thin = input.thin; val steps = input.paste; val wetIn = input.wet; val eraseIn = input.erase
+        if (w is MediaAtlas) {
+            try { w.admit(frameNeeds(e, st, batch, thin, steps, wetIn, eraseIn, wq)) } catch (r: MediaRoomException) {
+                val (a, b) = input.halves() ?: throw r
+                android.util.Log.i("JoyBrushMediaAtlas", "a frame too big for the atlas, split in time (${input.units} dabs)")
+                runFrame(e, w, st, a, wq, last = false)
+                runFrame(e, w, st, b, wq, last)
+                return
+            }
+        }
         // Bench only: split the frame's media cost into the simulation (dabs, steps, water) and the write-back (look
         // render, tile copies), each finished on the GPU so the split is real time, not command submission.
         val timing = stats?.takeIf { it.recording }
@@ -409,10 +449,7 @@ class MediaCanvas(
             MediaPhases.timer?.invoke("paste.steps (count)", steps.size.toDouble())
         }
         if (st.wet != null) e.wetFrame(wetIn, paper, DOC_PX_PER_MM, wq)
-        if (eraseIn != null) {
-            e.eraseFrame(eraseIn, existingStores(st.layerId, w))
-            st.eraseDabs.clear()
-        }
+        if (eraseIn != null) e.eraseFrame(eraseIn, existingStores(st.layerId, w))
         // Water that is already running in the window keeps running under a dry or paste stroke.
         if (st.wet == null && st.thin == null && e.wetActive) e.wetFrame(null, paper, DOC_PX_PER_MM, wq)
         if (timing != null) android.opengl.GLES30.glFinish()
@@ -447,6 +484,7 @@ class MediaCanvas(
 
     private fun eraseBatch(dabs: List<Dab>): DabBatch {
         val out = FloatArray(dabs.size * DabBatch.FLOATS)
+        val boxes = DoubleArray(dabs.size * 4)
         var x0 = Double.MAX_VALUE; var y0 = Double.MAX_VALUE; var x1 = -Double.MAX_VALUE; var y1 = -Double.MAX_VALUE
         dabs.forEachIndexed { i, d ->
             val o = i * DabBatch.FLOATS
@@ -454,8 +492,10 @@ class MediaCanvas(
             out[o + 3] = (d.cap * d.flow.coerceAtMost(1f)).coerceIn(0f, 1f)
             x0 = minOf(x0, (d.x - d.radius).toDouble()); y0 = minOf(y0, (d.y - d.radius).toDouble())
             x1 = maxOf(x1, (d.x + d.radius).toDouble()); y1 = maxOf(y1, (d.y + d.radius).toDouble())
+            boxes[i * 4] = (d.x - d.radius - 2).toDouble(); boxes[i * 4 + 1] = (d.y - d.radius - 2).toDouble()
+            boxes[i * 4 + 2] = (d.x + d.radius + 2).toDouble(); boxes[i * 4 + 3] = (d.y + d.radius + 2).toDouble()
         }
-        return DabBatch(out, dabs.size, doubleArrayOf(x0 - 2, y0 - 2, x1 + 2, y1 + 2))
+        return DabBatch(out, dabs.size, doubleArrayOf(x0 - 2, y0 - 2, x1 + 2, y1 + 2), boxes)
     }
 
     /** The stores this layer has inside the window: the eraser writes only those (stores stay lazy). */

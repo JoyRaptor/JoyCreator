@@ -263,7 +263,14 @@ float behave(int i, inout vec2 uv, bool alone, out float grey, out float blur) {
         grey = dis * 0.75;
         blur = dis * 4.0;
     } else if (bh < 4.5) {                          // burst: flies out from its centre, hangs, sags, twinkles out
-        if (since < 0.0) return 0.0;
+        // Not sung yet: standing alone it is not there (its rocket is climbing); on a path it
+        // waits whole and dim along the way (lit() dims it), then bursts as it is sung. Hidden,
+        // Ribbon + Burst showed one word at a time.
+        if (since < 0.0) {
+            if (alone) return 0.0;
+            uv = vec2(q.x / W + 0.5, q.y + 0.5);
+            return 1.0;
+        }
         float k = 1.0 - exp(-since * 7.0);
         q.y += 0.11 * since * since / max(SIZE, 0.02);
         // Like a real shell it keeps opening as it falls (owner, 10-18): the sparks drift apart.

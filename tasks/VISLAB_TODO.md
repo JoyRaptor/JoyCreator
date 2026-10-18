@@ -62,7 +62,8 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
   Pilot has `WordFeed.setTyped()` (`tools/vislab-web/vislab-words.js:60`); Java
   `vislab/words/WordFeed.java` needs the twin. Room: a "Words" pill beside the sound chips in
   `VisLabActivity` (`sources` SlantRow ~line 231) opening a text sheet (`LookSheets.askName` style).
-- [ ] **B2. Ribbon + Burst is faint.** `shaders/words.frag` `weave()` (~line 417) with behaviour 4.
+- [x] **B2. Ribbon + Burst is faint.** `shaders/words.frag` `weave()` (~line 417) with behaviour 4.
+  - DONE 10-18, pilot (no shipped look uses Ribbon + Burst; same shader on the phone): on a path, coming words wait whole and dim and burst as they are sung; before, only the word being sung showed.
 - [ ] **B3. Busy moments still dip to ~30 fps** (Smoke Words, Cigar Smoke, Written in Stars).
   Next lever: the smoke behaviour's `curl2` + `fbm2` per word (`behave()`, bh 3).
 

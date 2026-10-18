@@ -519,6 +519,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         onGl {
             try { block() }
             catch(e: Exception) {
+                noteBenchError("stroke", e)
                 engine.cancelStroke()
                 post { if(drawing) cancelStroke(); onRefused?.invoke(e.message ?: "That stroke could not be painted") }
             }
@@ -1011,6 +1012,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 try {
                     if (mediaCanvas.frame(SystemClock.uptimeMillis())) { reportMediaHistory(); super@JbCanvasView.requestRender() }
                 } catch (e: Exception) {
+                    noteBenchError("media frame", e)
                     mediaCanvas.release()
                     post { if (drawing && (mediaStroke || mediaErase)) cancelStroke(); onRefused?.invoke(e.message ?: "The pencil, watercolour or oil stroke could not be painted") }
                 }
@@ -1022,6 +1024,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 paperWarnings = (PaperState.problems(documentPaperState,PaperResources.catalogue) + engine.paperWarnings).distinct()
                 try { engine.drawDisplay(viewW, viewH, drawView.docToClip(viewW, viewH), paperArgb) }
                 catch(e: Exception) {
+                    noteBenchError("display", e)
                     engine.cancelStroke(); engine.setTileBoard(null)
                     engine.setOnionBoard(null)
                     post { tileBoardId=null; onTileBoardChanged?.invoke(null); onRefused?.invoke(e.message ?: "Board preview could not be drawn") }
@@ -2467,6 +2470,60 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             val s = frameStats.snapshot()
             post { ready(s) }
         }
+    }
+
+    // ── device matrix probes (debug bench only: bench/MatrixBench) ────────────────────────────────────────────────
+
+    /**
+     * What the matrix reads back. [planes]: "visible" is the active layer as the screen shows it; on a layer with animation
+     * regions also "shared:<cel>" (the canvas under the boards) and "frame:<cel>" for each frame. Tiles are premultiplied
+     * RGBA8, [TILE_BYTES] each, by engine tile key. [idle]: no stroke, media stroke, running water or watercolour fade.
+     */
+    class BenchState(val planes: Map<String, Map<Long, ByteArray>>, val undoDepth: Int, val canUndo: Boolean,
+                     val doc: JbDocument?, val tileBoardId: String?, val idle: Boolean)
+
+    /** Exceptions the GL thread turned into a refusal sentence, collected only while [benchWatch] is on. */
+    val benchErrors = java.util.concurrent.ConcurrentLinkedQueue<String>()
+    @Volatile var benchWatch = false
+    private fun noteBenchError(where: String, e: Throwable) {
+        if (benchWatch && benchErrors.size < 50) benchErrors.add("$where: ${e.javaClass.simpleName}: ${e.message}")
+    }
+
+    /** Reads the active layer back on the GL thread, behind everything already queued (so it is also a fence). */
+    fun benchState(readPixels: Boolean = true, ready: (BenchState?, String?) -> Unit) {
+        onGl(allowLost = true) {
+            var state: BenchState? = null
+            var failure: String? = null
+            try {
+                val layerId = activeLayer
+                val doc = engine.boardDocument
+                val planes = LinkedHashMap<String, Map<Long, ByteArray>>()
+                if (readPixels) {
+                    planes["visible"] = engine.tileKeys(layerId).associateWith { k -> engine.readTile(layerId, k) ?: ByteArray(TILE_BYTES) }
+                    val meta = doc?.layers?.firstOrNull { it.id == layerId }
+                    if (meta != null && meta.regions.isNotEmpty()) {
+                        fun cel(id: String) = engine.celTileKeys(layerId, id).associateWith { k -> engine.readCelTile(layerId, id, k) ?: ByteArray(TILE_BYTES) }
+                        meta.sharedCelId?.let { planes["shared:$it"] = cel(it) }
+                        for (r in meta.regions) for (id in r.frameCel.values) planes["frame:$id"] = cel(id)
+                    }
+                }
+                state = BenchState(planes, engine.undo.undoDepth, engine.undo.canUndo, doc, engine.tileBoardId,
+                    idle = !mediaCanvas.inStroke && !mediaCanvas.running && !engine.strokeInProgress && !engine.watercolourAnimating)
+            } catch (e: Exception) { failure = "${e.javaClass.simpleName}: ${e.message}" }
+            post { ready(state, failure) }
+        }
+    }
+
+    /**
+     * A brand-new empty drawing on this screen's page, through the same [load] a file open uses: no boards, no history, no
+     * media window, nothing armed. The matrix starts every cell from it.
+     */
+    fun benchFreshDrawing(onDone: () -> Unit) {
+        if (drawing) cancelStroke()
+        val ids = ArrayDeque(listOf(BOARD_ID, FIRST_LAYER, CEL_ID))
+        val fresh = DocOps.newDocument(DOC_ID, documentName, viewW, viewH) { ids.removeFirst() }.copy(paper = documentPaperState)
+        onGl(allowLost = true) { mediaCanvas.releaseWindow() }
+        load(JbContents(fresh, emptyMap(), emptyMap(), null), onDone)
     }
 
     /** Debug adapter arithmetic check on a throwaway engine; it never reads/writes the drawing. */

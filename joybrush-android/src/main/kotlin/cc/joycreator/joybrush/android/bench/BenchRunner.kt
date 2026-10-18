@@ -28,7 +28,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                /** Per case (same order as [cases]): the colour to paint it in, or none to keep the brush's. */
                val colors: List<Int> = emptyList(), val slope: FloatArray? = null, val wetness: Int? = null,
                /** Fewer, longer water substeps per frame (4 = shipped): the same simulated time, less accuracy. */
-               val wetSubsteps: Int? = null, val holdMs: Long = 0L, val settleMs: Long = 800L)
+               val wetSubsteps: Int? = null, val holdMs: Long = 0L, val settleMs: Long = 800L,
+               /** The `matrix` case ([MatrixBench]): which board kinds (none = all four) and which cell numbers (from..to) to run. */
+               val matrixBoards: List<String> = emptyList(), val matrixFrom: Int = 0, val matrixTo: Int = Int.MAX_VALUE)
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
@@ -40,6 +42,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             val shipped = cc.joycreator.joybrush.core.media.WetConstants()
             shipped.copy(dt = shipped.dt * shipped.substeps / n, substeps = n)
         }
+        if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
         val all = BrushLibrary.builtIn()
         Log.i(TAG, "brushes available: " + all.joinToString(",") { it.id })
         for (b in spec.brushes) {
@@ -289,14 +292,16 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             if (intent == null || info.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return null
             val cases = intent.getStringExtra("jb_bench") ?: return null
             fun list(s: String?) = s?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
-            return Spec(list(cases), list(intent.getStringExtra("jb_bench_brushes")).ifEmpty { listOf("ink") },
+            return Spec(list(cases), list(intent.getStringExtra("jb_bench_brushes")).ifEmpty { listOf(if ("matrix" in list(cases)) "all" else "ink") },
                 intent.getIntExtra("jb_bench_runs", 3).coerceIn(1, 20), intent.getBooleanExtra("jb_bench_clear", true),
                 intent.getBooleanExtra("jb_media_legacy", false),
                 colors = list(intent.getStringExtra("jb_bench_colors")).map { android.graphics.Color.parseColor(it) },
                 slope = intent.getStringExtra("jb_slope")?.split(",")?.mapNotNull { it.trim().toFloatOrNull() }?.takeIf { it.size == 2 }?.toFloatArray(),
                 wetness = intent.getIntExtra("jb_wetness", -1).takeIf { it >= 0 },
                 wetSubsteps = intent.getIntExtra("jb_wet_substeps", -1).takeIf { it in 1..16 },
-                holdMs = intent.getLongExtra("jb_hold_ms", 0L), settleMs = intent.getLongExtra("jb_settle_ms", 800L))
+                holdMs = intent.getLongExtra("jb_hold_ms", 0L), settleMs = intent.getLongExtra("jb_settle_ms", 800L),
+                matrixBoards = list(intent.getStringExtra("jb_matrix_boards")), matrixFrom = intent.getIntExtra("jb_matrix_from", 0),
+                matrixTo = intent.getIntExtra("jb_matrix_to", Int.MAX_VALUE))
         }
     }
 }

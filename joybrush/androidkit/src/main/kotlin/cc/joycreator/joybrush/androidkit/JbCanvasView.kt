@@ -450,6 +450,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         info.availMem to info.threshold
     })
 
+    /** The brush drawer's previews, drawn on a throwaway engine of this GL context ([renderBrushPreview]). GL thread only. */
+    private val brushPreviews = cc.joycreator.joybrush.androidkit.preview.BrushPreviewRenderer.forContext(context)
+
     /** Debug A/B only: the media window's pre-2026-10-10 placement and write-back (see MediaCanvas.legacyWindow). */
     var mediaLegacyWindow: Boolean
         get() = mediaCanvas.legacyWindow
@@ -969,6 +972,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 if (engine.ready) graphicsEpoch += 1
                 engine.init()
                 mediaCanvas.forget()
+                brushPreviews.forget()
                 engine.onMediaRestored = { layer, plane, keys -> mediaCanvas.restored(layer, plane, keys) }
                 engine.onLookWritten = { layer, plane, keys -> mediaCanvas.lookWritten(layer, plane, keys) }
                 engine.onMediaWarning = { android.util.Log.w("JoyBrushMedia", it) }
@@ -2756,6 +2760,33 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             super@JbCanvasView.requestRender()
         }
         requestRender()
+    }
+
+    /**
+     * One brush's preview for the drawer ([cc.joycreator.joybrush.androidkit.preview.BrushPreviewRenderer]): a canned stroke
+     * drawn by the brush's own engine on a throwaway engine of this GL context, [widthPx] x [heightPx], handed back on the UI
+     * thread (null when none could be made). Never touches the drawing or its history. Metered a few per frame on the GL thread;
+     * the returned ticket calls a queued one off (the drawer closed).
+     */
+    fun renderBrushPreview(preset: BrushPreset, widthPx: Int, heightPx: Int, onBitmap: (android.graphics.Bitmap?) -> Unit) =
+        renderBrushPreview(preset, widthPx, heightPx, cc.joycreator.joybrush.androidkit.preview.BrushPreviewStyle(), onBitmap)
+
+    fun renderBrushPreview(preset: BrushPreset, widthPx: Int, heightPx: Int,
+                           style: cc.joycreator.joybrush.androidkit.preview.BrushPreviewStyle,
+                           onBitmap: (android.graphics.Bitmap?) -> Unit): cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket {
+        val ticket = cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket()
+        onGl(allowLost = true) {
+            val request = cc.joycreator.joybrush.androidkit.preview.BrushPreviewRenderer.Request(preset, widthPx, heightPx, style, ticket) { bmp -> post { onBitmap(bmp) } }
+            if (brushPreviews.submit(request)) pumpBrushPreviews()
+        }
+        return ticket
+    }
+
+    /** GL thread: a few previews now, and the rest on the next frames; once quiet, free the throwaway engines after a while. */
+    private fun pumpBrushPreviews() {
+        if (brushPreviews.pump(SystemClock.uptimeMillis())) onGl(allowLost = true) { pumpBrushPreviews() }
+        else postDelayed({ onGl(allowLost = true) { brushPreviews.releaseIfIdle(SystemClock.uptimeMillis()) } },
+            cc.joycreator.joybrush.androidkit.preview.BrushPreviewRenderer.IDLE_MS)
     }
 
     /**

@@ -5,10 +5,12 @@ import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Outline
 import android.graphics.RectF
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
+import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -16,15 +18,21 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.doOnLayout
+import cc.joycreator.joybrush.androidkit.preview.BrushPreviewStyle
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.chrome.BrushShelf
 import cc.joycreator.joybrush.core.chrome.SampleStroke
 import kotlin.math.roundToInt
 
 /**
- * The brush drawer (JB-2.01): kinds down the left, and on the right a real stroke of every brush on that shelf, drawn
- * by the brush's own dabber ([SampleStroke]) — so what you pick is what you get. Only shelves that hold a brush are
- * listed. Tapping a stroke picks the brush; the screen closes the drawer (0 ms: a brush pick is a hundred-a-day act).
+ * The brush drawer (JB-2.01): kinds down the left, and on the right a sample stroke of every brush on that shelf. Only
+ * shelves that hold a brush are listed. Tapping a stroke picks the brush; the screen closes the drawer (0 ms: a brush pick
+ * is a hundred-a-day act).
+ *
+ * Each row shows, once it has one, a picture drawn by the brush's OWN engine ([previews]; kept per brush version, so an open
+ * is instant after the first). Until it arrives a row shows [sample], a stand-in laid from the brush's dabs as soft discs: it
+ * knows the size, the spacing and the softness of a stamp brush and nothing else (no grain, no tuft streaks, no paper, no
+ * smudge, no media), so it is a placeholder for a moment and never the answer. Only rows that are on screen ask.
  */
 @SuppressLint("ViewConstructor")
 class BrushDrawerView(
@@ -35,6 +43,8 @@ class BrushDrawerView(
     private val onPick: (BrushPreset) -> Unit,
     /** Long-press on a brush: its advanced settings (owner, 2026-09-30). Null keeps the drawer tap-only. */
     private val onSettings: ((BrushPreset) -> Unit)? = null,
+    /** Where each row's real picture comes from. Null keeps the stand-in only (a screen with no canvas to draw on). */
+    private val previews: PreviewSource<Bitmap>? = null,
 ) : LinearLayout(kit.context) {
 
     private val shelves = BrushShelf.shelves(library)
@@ -42,12 +52,27 @@ class BrushDrawerView(
     private val strokes = LinearLayout(context).apply { orientation = VERTICAL }
     private val kindViews = HashMap<BrushShelf.Kind, TextView>()
     private var shown: BrushShelf.Kind = shelves.firstOrNull { it.first == startKind }?.first ?: BrushShelf.Kind.ALL
+    private val strokeScroll = ScrollView(context).apply { isVerticalScrollBarEnabled = false }
+    private val maxH = (resources.displayMetrics.heightPixels * 0.45f).roundToInt()
+
+    /** The look the pictures are drawn in: the drawer ink, and the eraser strip tinted with it. */
+    private val previewStyle = BrushPreviewStyle(ink = kit.p.drawerInk, strip = ColorUtils.setAlphaComponent(kit.p.drawerInk, 0x59))
+
+    /** One row picture: asked for once, when it first comes near the screen. [shelf] says which showing of the shelf it belongs to. */
+    private class Slot(val preset: BrushPreset, val img: ImageView, val shelf: Int) {
+        var laidOut = false
+        var asked = false
+    }
+
+    private val slots = ArrayList<Slot>()
+    private val asks = ArrayList<PreviewCancel>()
+    private var shelfShowing = 0
 
     init {
         orientation = HORIZONTAL
         val kindScroll = ScrollView(context).apply { isVerticalScrollBarEnabled = false; addView(kinds) }
-        val strokeScroll = ScrollView(context).apply { isVerticalScrollBarEnabled = false; addView(strokes) }
-        val maxH = (resources.displayMetrics.heightPixels * 0.45f).roundToInt()
+        strokeScroll.addView(strokes)
+        strokeScroll.setOnScrollChangeListener { _, _, _, _, _ -> askVisible() }
         addView(kindScroll, LayoutParams(kit.dpi(104f), LayoutParams.WRAP_CONTENT))
         addView(strokeScroll, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = kit.dpi(6f) })
         for ((kind, _) in shelves) {
@@ -79,9 +104,42 @@ class BrushDrawerView(
             v.setTextColor(if (on) kit.p.drawerInk else kit.p.drawerDim)
             v.background = if (on) ring(10f) else null
         }
+        callOffAsks()
+        shelfShowing++
         strokes.removeAllViews()
         val list = shelves.firstOrNull { it.first == kind }?.second ?: return
         for (p in list) strokes.addView(row(p), LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(ROW_DP)).apply { bottomMargin = kit.dpi(2f) })
+    }
+
+    /** The pictures of the rows that are on screen (and one row beyond), asked for from the top. */
+    private fun askVisible() {
+        val source = previews ?: return
+        val viewport = minOf(strokeScroll.height, maxH)
+        if (viewport <= 0) return
+        val reach = kit.dpi(ROW_DP)
+        val top = strokeScroll.scrollY - reach
+        val bottom = strokeScroll.scrollY + viewport + reach
+        for (slot in slots) {
+            if (slot.asked || !slot.laidOut || slot.shelf != shelfShowing) continue
+            val row = slot.img.parent as? View ?: continue
+            if (row.bottom < top || row.top > bottom) continue
+            slot.asked = true
+            asks += source.request(slot.preset, slot.img.width, slot.img.height, previewStyle) { bitmap ->
+                // A shelf that has been swapped out, or a drawer that has closed, takes no picture.
+                if (slot.shelf == shelfShowing && slot.img.isAttachedToWindow) slot.img.setImageBitmap(bitmap)
+            }
+        }
+    }
+
+    private fun callOffAsks() {
+        for (ask in asks) ask.cancel()
+        asks.clear()
+        slots.clear()
+    }
+
+    override fun onDetachedFromWindow() {
+        callOffAsks()
+        super.onDetachedFromWindow()
     }
 
     /** One brush: its sample stroke, its name in the corner, the cyan ring if it is the one in the hand. */
@@ -97,7 +155,15 @@ class BrushDrawerView(
         }
         box.addView(name, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
             Gravity.START or Gravity.TOP).apply { marginStart = kit.dpi(8f); topMargin = kit.dpi(2f) })
-        val img = ImageView(context).apply { scaleType = ImageView.ScaleType.FIT_XY }
+        val img = ImageView(context).apply {
+            scaleType = ImageView.ScaleType.FIT_XY
+            // A pencil, watercolour or oil picture keeps its paper: a soft corner, so a sheet of paper reads as a swatch.
+            val radius = kit.dp(6f)
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) = outline.setRoundRect(0, 0, view.width, view.height, radius)
+            }
+            clipToOutline = true
+        }
         box.addView(img, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply {
             topMargin = kit.dpi(LABEL_DP)
         })
@@ -105,14 +171,23 @@ class BrushDrawerView(
         kit.label(box, if (onSettings != null) "${p.name}. Hold for its settings" else p.name)
         box.setOnClickListener { onPick(p) }
         onSettings?.let { open -> box.setOnLongClickListener { open(p); true } }
-        // The sample needs the row's real width; it is drawn once the row is laid out.
-        img.doOnLayout { if (img.width > 0 && img.height > 0) img.setImageBitmap(sample(p, img.width, img.height)) }
+        // The stand-in needs the row's real width; it is drawn once the row is laid out, and the real picture is asked for.
+        val slot = Slot(p, img, shelfShowing)
+        slots += slot
+        img.doOnLayout {
+            if (img.width > 0 && img.height > 0 && !slot.laidOut) {
+                slot.laidOut = true
+                img.setImageBitmap(sample(p, img.width, img.height))
+                askVisible()
+            }
+        }
         return box
     }
 
     /**
-     * The dabs as soft discs, laid into a stroke layer at their flow and then the layer at the brush's opacity — so a
-     * wash brush does not darken where its dabs overlap, as on the canvas. Grain is left out: at this size it is noise.
+     * The stand-in: the dabs as soft discs, laid into a stroke layer at their flow and then the layer at the brush's opacity,
+     * so a wash brush does not darken where its dabs overlap. Grain, paper, smudging and media are not drawn. Shown only until
+     * the engine's own picture arrives.
      */
     private fun sample(p: BrushPreset, w: Int, h: Int): Bitmap {
         val layer = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)

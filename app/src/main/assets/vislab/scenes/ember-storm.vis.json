@@ -1,0 +1,107 @@
+{
+  "format": "joy.vis/1",
+  "id": "ember-storm",
+  "name": "Ember Storm",
+  "family": "Game FX",
+  "description": "Fire rising off the spectrum, embers riding the heat, sparks showering on the kick.",
+  "palette": [
+    "#FFF3B0",
+    "#FFBA08",
+    "#F48C06",
+    "#DC2F02",
+    "#6A040F"
+  ],
+  "background": "#070200",
+  "layers": [
+    {
+      "type": "spectrum",
+      "name": "Heat",
+      "p": {
+        "mode": 3,
+        "mirror": 2,
+        "y": -1,
+        "size": 1,
+        "height": 0.3,
+        "thick": 0.004,
+        "glow": 0.8,
+        "fill": 0.5,
+        "brightness": 0.55,
+        "colorMode": 1
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Embers",
+      "p": {
+        "count": 9000,
+        "emitter": 5,
+        "ey": -0.95,
+        "esize": 1,
+        "dir": 0,
+        "dirMode": 0,
+        "spread": 0.06,
+        "speed": 0.45,
+        "speedVar": 0.5,
+        "audioSpeed": 1.2,
+        "life": 2.6,
+        "curl": 0.9,
+        "curlScale": 2.5,
+        "curlSpeed": 0.4,
+        "gravity": -0.15,
+        "drag": 0.3,
+        "size": 0.004,
+        "sizeLife": 0.6,
+        "look": 6,
+        "brightness": 0.8,
+        "colorMode": 0,
+        "burst": 0.05,
+        "punch": 0.4,
+        "fadeOut": 0.5
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Sparks",
+      "p": {
+        "count": 4000,
+        "emitter": 2,
+        "ey": -0.95,
+        "esize": 1,
+        "dir": 0,
+        "dirMode": 0,
+        "spread": 0.2,
+        "speed": 1.4,
+        "speedVar": 0.6,
+        "gravity": 0.9,
+        "drag": 0.2,
+        "life": 1.2,
+        "size": 0.0035,
+        "look": 1,
+        "stretch": 1.5,
+        "brightness": 1.6,
+        "colorMode": 0,
+        "rate": 0.2,
+        "burst": 0.3,
+        "punch": 0
+      }
+    }
+  ],
+  "echo": {
+    "p": {
+      "decay": 0.76,
+      "dy": 0.15,
+      "warp": 0.4,
+      "warpScale": 3,
+      "zoom": 1
+    }
+  },
+  "post": {
+    "p": {
+      "bloom": 1.3,
+      "bloomThreshold": 0.4,
+      "vignette": 0.5,
+      "grain": 0.15,
+      "saturation": 1.1
+    }
+  }
+}

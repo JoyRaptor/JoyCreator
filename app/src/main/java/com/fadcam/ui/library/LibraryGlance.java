@@ -49,6 +49,17 @@ public final class LibraryGlance {
                 newest(items, LibraryKind.AVATARS))));
     }
 
+    /** The whole Library, not just its count: the Joybot list action needs the items themselves. */
+    public interface AllListener {
+        /** On the main thread: once after the fast in-app pass, again (complete) after the full read. */
+        void onAll(@NonNull List<LibraryItem> items, boolean complete);
+    }
+
+    /** Same read as {@link #load}, handing over the items; see {@link AllListener}. */
+    public void loadAll(@NonNull AllListener listener) {
+        source.load((items, complete, folder) -> listener.onAll(items, complete));
+    }
+
     /** Stop delivering: the screen is going away. */
     public void cancel() {
         source.cancel();

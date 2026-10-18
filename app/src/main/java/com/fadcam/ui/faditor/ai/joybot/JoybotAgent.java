@@ -57,7 +57,15 @@ public final class JoybotAgent {
     private static final String TAG = "JoybotAgent";
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
-    private static final OkHttpClient HTTP = new OkHttpClient();
+    /**
+     * Read timeout 90 s, not OkHttp's 10: a free "reasoning" model can think in silence for longer
+     * than that mid-stream, and the request died after six good tool calls (Note 9, 2026-10-16).
+     */
+    private static final OkHttpClient HTTP = new OkHttpClient.Builder()
+            .connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build();
 
     public static final int MAX_TOOL_ROUNDS = 8;
     /**
@@ -342,6 +350,8 @@ public final class JoybotAgent {
         boolean opened = true;
         /** The model proposed a plan this round: show it and stop (it waits for Go ahead). */
         boolean planShown;
+        /** open_room ran: the chat is leaving, so the request ends with its words. */
+        boolean navigated;
         /** The last tool only put a confirm card on screen (export…): nothing has happened yet. */
         boolean cardWaiting;
         /** The tool round in progress (0-based). */
@@ -370,7 +380,13 @@ public final class JoybotAgent {
             this.model = ask.model;
         }
 
+        /** The tool families this request is sent with (ToolRouter); more_tools adds to it. */
+        final java.util.Set<String> families = new java.util.LinkedHashSet<>();
+
         void go() throws Exception {
+            families.addAll(ToolRouter.pick(ask.text, ask.situation.room == IdeaEngine.Room.VISLAB));
+            AIChatState.liveAsk = ask.text;
+            AIChatState.liveReplyBefore = lastReply();
             JSONObject retained = new JSONObject().put("role", "user").put("content", ask.imageDataUrl == null
                     ? ask.text
                     // Worded as a FACT ABOUT THE PAST: on a later turn the picture is gone, and
@@ -458,7 +474,8 @@ public final class JoybotAgent {
                             args = new JSONObject();
                         }
                         final String line = runTool(new JSONObject().put("tool", k.name).put("args", args));
-                        if (line != null) {
+                        // more_tools is plumbing (which tools are loaded), not something done for them.
+                        if (line != null && !ToolRouter.MORE_TOOLS.equals(k.name)) {
                             out.toolLines.add(line);
                             post(l -> l.onToolLine(line));
                         }
@@ -466,6 +483,12 @@ public final class JoybotAgent {
                                 .put("content", line == null ? "Error: that call could not run." : lastResult));
                     }
                     if (planShown) { finish(true, PLAN_SHOWN); return; }
+                    if (navigated) {
+                        // The chat is leaving for another room: anything the model said next would
+                        // go to a closed screen ("You're in Sprite Lab. You can…", Note 9, 10-16).
+                        finish(true, lastResult);
+                        return;
+                    }
                     if (sight != null) {
                         // A tool answer can't carry a picture, so the look's picture rides on a
                         // user message right after it (this request only).
@@ -562,6 +585,16 @@ public final class JoybotAgent {
             }
             if ("look".equals(name)) return look(args);
             if (AgentTools.PROPOSE_PLAN.equals(name)) return plan(args);
+            if (ToolRouter.MORE_TOOLS.equals(name)) {
+                String f = args.optString("family", "");
+                if (!ToolRouter.FAMILIES.containsKey(f)) {
+                    lastResult = "Error: no tool family called \"" + f + "\". Families: " + ToolRouter.FAMILIES.keySet();
+                } else {
+                    families.add(f);
+                    lastResult = "Loaded the " + f + " tools (" + ToolRouter.FAMILIES.get(f) + "). Use them now.";
+                }
+                return name + " → " + lastResult;
+            }
             toolRan = true;
             final String task = (ask.director ? "Step " + (round + 1) + " of up to " + ask.maxSteps + " · " : "")
                     + name.replace('_', ' ');
@@ -632,7 +665,15 @@ public final class JoybotAgent {
             }
             if (DirectRunner.isFailure(result)) lastError = result;
             else if (wrote) out.calls.add(new Idea.Step(name, com.fadcam.ui.faditor.ai.actions.StudioActions.toMap(args)));
-            lastResult = result;
+            if (("open_room".equals(name) || "open_library_item".equals(name) || "new_project_from".equals(name)
+                    || com.fadcam.ui.faditor.ai.actions.AppActions.hasPendingRoute())
+                    && !DirectRunner.isFailure(result)) navigated = true;
+            // A refusal is an answer, not a puzzle: a free model refused add_motion on a linked
+            // layer and then reordered the lanes to get round it — a change nobody asked for
+            // (Note 9, 2026-10-16). Say so to the model right where it reads the refusal.
+            lastResult = DirectRunner.isFailure(result) ? result + "\n(That did NOT happen. Don't make a"
+                    + " different change to get round it: tell the person in one sentence what stopped it"
+                    + " and what they can do, then carry on with the rest of their request.)" : result;
             return name + " → " + result;
         }
 
@@ -732,9 +773,15 @@ public final class JoybotAgent {
                 // refuse an unknown field, so only there.
                 if (url.contains("openrouter.ai")) body.put("usage", new JSONObject().put("include", true));
                 if (q.nativeTools) {
-                    body.put("tools", nativeTools());
+                    body.put("tools", nativeTools(families));
                     if (requireTool && q.requiredChoice) body.put("tool_choice", "required");
                 }
+                // What a request weighs, by part, so trimming is measured, not guessed.
+                String sys = messages.length() > 0 ? messages.getJSONObject(0).optString("content", "") : "";
+                FLog.i(TAG, "request size: total " + body.toString().length() + " chars; tools "
+                        + (q.nativeTools ? nativeTools(families).toString().length() : 0) + " (" + families + ")"
+                        + "; system " + sys.length()
+                        + "; messages " + messages.length());
                 Request request = new Request.Builder()
                         .url(url)
                         .addHeader("Authorization", "Bearer " + ask.apiKey)
@@ -972,12 +1019,41 @@ public final class JoybotAgent {
             return out;
         }
 
+        /** Joybot's last words to the person (the question a "yes" answers), or "". */
+        @NonNull
+        String lastReply() {
+            synchronized (HISTORY) {
+                for (int i = HISTORY.size() - 1; i >= 0; i--) {
+                    JSONObject m = HISTORY.get(i);
+                    String c = m.optString("content", "");
+                    if ("assistant".equals(m.optString("role")) && !c.trim().isEmpty()) return c;
+                }
+            }
+            return "";
+        }
+
+        /** In VisLab, "this" is the look on screen: its name, so the model starts from it. */
+        @NonNull
+        String visLabNow() {
+            try {
+                String json = com.fadcam.vislab.room.VisLabSession.get(app).currentLookJson();
+                if (json == null) return "";
+                com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+                return "VisLab is showing the look \"" + o.get("name").getAsString() + "\" (id "
+                        + o.get("id").getAsString() + "). \"This\" / \"it\" means that look; the vislab tools"
+                        + " read and change it (vislab_describe first).\n";
+            } catch (RuntimeException e) {
+                return "";
+            }
+        }
+
         /** A compact, just-read picture of the project. Blocking (reads the project). */
         @NonNull
         String context() {
             Situation s = ask.situation;
             StringBuilder sb = new StringBuilder("CURRENT PROJECT (read just now; trust it over anything earlier in the chat)\n");
             sb.append("Joybot was opened from: ").append(s.room.name().toLowerCase(Locale.US)).append('\n');
+            if (s.room == IdeaEngine.Room.VISLAB) sb.append(visLabNow());
             String pid = ask.projectId;
             if (pid == null) return sb.append("No project is open.\n").toString();
             try {
@@ -1148,20 +1224,65 @@ public final class JoybotAgent {
         JSONArray t = TOOLS;
         if (t != null) return t;
         t = new JSONArray();
+        java.util.Map<String, String> fam = new java.util.HashMap<>();
         com.fadcam.ui.faditor.ai.actions.ActionRegistry<?> reg =
                 com.fadcam.ui.faditor.ai.actions.StudioActions.registry();
         for (String def : reg.nativeToolsJson()) t.put(new JSONObject(def));
+        com.fadcam.ui.faditor.ai.actions.ActionRegistry<?> appReg =
+                com.fadcam.ui.faditor.ai.actions.AppActions.registry();
+        for (String def : appReg.nativeToolsJson()) t.put(new JSONObject(def));
         for (String def : AgentTools.nativeToolsJson()) t.put(new JSONObject(def));
+        // Typed definitions above win; the text list also describes them (for models without tool
+        // calling), and a name sent twice is a request some services refuse outright.
+        java.util.Set<String> typed = new java.util.HashSet<>();
+        for (int i = 0; i < t.length(); i++) {
+            JSONObject fn = t.getJSONObject(i).optJSONObject("function");
+            if (fn != null) typed.add(fn.optString("name"));
+        }
         for (ToolDocs.Doc d : ToolDocs.parse(com.fadcam.ui.faditor.ai.AIToolExecutor.getToolDescriptions())) {
-            if (reg.has(d.name)) continue;
+            if (reg.has(d.name) || typed.contains(d.name)) continue;
             t.put(new JSONObject().put("type", "function").put("function", new JSONObject()
                     .put("name", d.name)
                     .put("description", d.text)
                     .put("parameters", new JSONObject().put("type", "object")
                             .put("properties", new JSONObject()).put("additionalProperties", true))));
         }
+        // Each definition's router family (ToolRouter), for the per-request list below.
+        com.fadcam.ui.faditor.ai.actions.ActionRegistry<?> appRegistry =
+                com.fadcam.ui.faditor.ai.actions.AppActions.registry();
+        for (int i = 0; i < t.length(); i++) {
+            JSONObject fn = t.getJSONObject(i).optJSONObject("function");
+            if (fn == null) continue;
+            String name = fn.optString("name");
+            com.fadcam.ui.faditor.ai.actions.ActionSpec spec = reg.spec(name);
+            if (spec == null) spec = appRegistry.spec(name);
+            fam.put(name, ToolRouter.familyOf(name, spec == null ? null : spec.family));
+        }
+        TOOL_FAMILY = fam;
         TOOLS = t;
         return t;
+    }
+
+    /** Each tool's router family, filled with {@link #TOOLS}. */
+    @Nullable private static volatile java.util.Map<String, String> TOOL_FAMILY;
+
+    /**
+     * The tools this request is sent with: the families it needs (ToolRouter) plus more_tools to
+     * load others. Measured 10-16: all ~100 tools were 83% of every request.
+     */
+    @NonNull
+    static JSONArray nativeTools(@NonNull java.util.Set<String> families) throws Exception {
+        JSONArray all = nativeTools();
+        java.util.Map<String, String> fam = TOOL_FAMILY;
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < all.length(); i++) {
+            JSONObject def = all.getJSONObject(i);
+            JSONObject fn = def.optJSONObject("function");
+            String f = fn == null || fam == null ? ToolRouter.CORE : fam.get(fn.optString("name"));
+            if (f == null || families.contains(f)) out.put(def);
+        }
+        out.put(new JSONObject(ToolRouter.moreToolsJson()));
+        return out;
     }
 
     private static final class Completion {
@@ -1461,6 +1582,15 @@ public final class JoybotAgent {
     @NonNull
     public static String friendlyApiError(@NonNull String raw) {
         String l = raw.toLowerCase(Locale.US);
+        // Out of credit FIRST: OpenAI sends it as a 429 ("insufficient_quota"), the same code as
+        // "busy", and the owner was told to wait a minute for an account that had no money on it
+        // (Note 9, 2026-10-17).
+        if (l.contains("insufficient_quota") || l.contains("no credits") || l.contains("credit_balance")
+                || l.contains("billing") || l.contains("exceeded your current quota")) {
+            return "That account has no credit left, so it can't answer. Add credit on the AI service's"
+                    + " website (OpenAI: platform.openai.com → Settings → Billing), or tap the"
+                    + " model name at the top and switch to your free models.";
+        }
         if (l.contains("429") || l.contains("rate limit") || l.contains("rate-limit")) {
             return "The AI service is busy, or I've hit its limit for now (free models allow a few "
                     + "requests a minute). Try again in a minute, or pick another model in ⚙.";

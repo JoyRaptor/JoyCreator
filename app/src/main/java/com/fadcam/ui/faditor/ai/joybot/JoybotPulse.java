@@ -115,21 +115,49 @@ public final class JoybotPulse {
     /** True while this button is glowing with an idea. */
     public static boolean isBreathing(@NonNull View v) {
         Breath b = BREATHS.get(v);
-        return b != null && b.on;
+        return b != null && b.idea;
     }
 
     /** Same look and timing as {@link JoybotView#setHasIdea}: studio green, ~4 s, low, no badge. */
     public static void breathe(@NonNull View v, boolean on) {
         Breath existing = BREATHS.get(v);
         if (existing != null) {
-            existing.set(on);
+            existing.idea = on;
+            existing.apply();
             return;
         }
         if (!on) return;
         Breath b = new Breath(v);
         BREATHS.put(v, b);
-        b.set(true);
+        b.idea = true;
+        b.apply();
     }
+
+    /**
+     * The same breath in amber: something needs the person's attention (files outside the Joy
+     * Creator folder). Owner, 2026-10-16: no separate yellow dot cluttering the screen — Joybot
+     * glows, and tapping him says what and offers to fix it. A warning wins over a green idea
+     * while it lasts; the idea's green comes back when the warning clears.
+     */
+    public static void warn(@NonNull View v, boolean on) {
+        Breath b = BREATHS.get(v);
+        if (b == null) {
+            if (!on) return;
+            b = new Breath(v);
+            BREATHS.put(v, b);
+        }
+        b.warning = on;
+        b.apply();
+    }
+
+    /** True while this button glows amber with a warning. */
+    public static boolean isWarning(@NonNull View v) {
+        Breath b = BREATHS.get(v);
+        return b != null && b.warning;
+    }
+
+    /** The amber end of the warning gradient (CAREFUL runs into a deeper amber, as GO into GO_END). */
+    private static final int CAREFUL_END = 0xFFF59E0B;
 
     private static final class Breath implements View.OnAttachStateChangeListener {
         /** Application context only: the map is weak on the view, so nothing here may hold it. */
@@ -137,6 +165,8 @@ public final class JoybotPulse {
         private final GradientDrawable glow;
         @Nullable private ValueAnimator anim;
         private boolean on;
+        /** Why it glows: an idea (green) and/or a warning (amber, wins). */
+        boolean idea, warning;
 
         Breath(View v) {
             app = v.getContext().getApplicationContext();
@@ -149,6 +179,13 @@ public final class JoybotPulse {
             v.addOnAttachStateChangeListener(this);
         }
 
+        int stillAlpha() { return warning ? 225 : 110; }
+
+        void apply() {
+            glow.setColors(warning ? new int[]{Studio.CAREFUL, CAREFUL_END} : new int[]{Studio.GO, Studio.GO_END});
+            set(idea || warning);
+        }
+
         void set(boolean want) {
             on = want;
             if (!want) {
@@ -156,15 +193,19 @@ public final class JoybotPulse {
                 glow.setAlpha(0);
                 return;
             }
-            if (anim != null) return;
-            if (Motion.reduced(app)) { glow.setAlpha(110); return; }
+            if (anim != null) { if (Motion.reduced(app)) glow.setAlpha(stillAlpha()); return; }
+            // Still (reduced motion — the Note 9 has animations off): a warning must READ as amber.
+            // At the idea's 110 the amber only turned the purple orb a muddy pink (10-16).
+            if (Motion.reduced(app)) { glow.setAlpha(stillAlpha()); return; }
             anim = ValueAnimator.ofFloat(0f, (float) (Math.PI * 2));
             anim.setDuration(4000L);
             anim.setRepeatCount(ValueAnimator.INFINITE);
             anim.setInterpolator(null);
             anim.addUpdateListener(a -> {
                 float t = (float) a.getAnimatedValue();
-                glow.setAlpha(Math.round(140 * 0.5f * (1f - (float) Math.cos(t))));
+                float b = 0.5f * (1f - (float) Math.cos(t));
+                // An idea fades in and out to nothing; a warning breathes but never disappears.
+                glow.setAlpha(Math.round(warning ? 130 + 110 * b : 140 * b));
             });
             anim.start();
         }

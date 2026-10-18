@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VisLab Look Book</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons&display=swap">
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root {
+  --ground: #000000; --surface: #0d0d10; --panel: #111114; --sunk: #16161b; --raised: #1c1c22;
+  --pressed: #26262e; --line: #2c2c35; --ink: #e4e4e7; --ink-dim: #a1a1aa; --ink-faint: #71717a;
+  --armed: #22d3ee; --viz: #faa03d; --viz-deep: #fc6818; --live: #f43f8e; --off: #33333c;
+  --drawer: rgba(17, 17, 20, 0.55);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--ground); color: var(--ink);
+  font: 13px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+button { font: inherit; color: inherit; }
+#under { position: fixed; inset: 0; display: none; overflow: hidden; }
+#under canvas { width: 100%; height: 100%; display: block; }
+#frame { position: fixed; left: 0; top: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; }
+#box { position: relative; width: 100%; height: 100%; }
+#box.boxed { outline: 1px dashed rgba(255,255,255,0.25); }
+#stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+.bar { position: fixed; left: 0; right: 0; z-index: 5; display: flex; gap: 6px; align-items: center;
+  padding-block: 8px; padding-top: max(8px, env(safe-area-inset-top, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+#top { top: 0; background: linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0)); flex-wrap: wrap; }
+.mark { font-weight: 800; letter-spacing: 0.02em; font-size: 15px;
+  background: linear-gradient(90deg, var(--viz), var(--viz-deep)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+#lookName { font-weight: 600; color: var(--ink); margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+#fps { color: var(--ink-faint); font-variant-numeric: tabular-nums; font-size: 11px; }
+.spacer { flex: 1; }
+.pill { border: 0; background: rgba(28,28,34,0.8); color: var(--ink); border-radius: 999px; padding: 6px 11px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 30px; white-space: nowrap; }
+.pill:hover { background: var(--pressed); }
+.pill.on { background: var(--armed); color: #050507; font-weight: 700; }
+.pill.go { background: linear-gradient(90deg, var(--viz), var(--viz-deep)); color: #140800; font-weight: 700; }
+.seg { display: inline-flex; background: rgba(28,28,34,0.8); border-radius: 999px; padding: 2px; }
+.seg .pill { background: transparent; min-height: 26px; padding: 4px 10px; }
+.seg .pill.on { background: var(--armed); }
+
+#strip { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; padding-block: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0.75)); }
+#strip::-webkit-scrollbar { display: none; }
+.card { flex: 0 0 auto; width: 128px; border: 0; text-align: left; border-radius: 12px; padding: 8px 9px; cursor: pointer;
+  background: rgba(17,17,20,0.72); color: var(--ink); display: flex; flex-direction: column; gap: 5px; }
+.card:hover { background: rgba(38,38,46,0.85); }
+.card.on { outline: 2px solid var(--armed); }
+.card .nm { font-weight: 650; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .fam { font-size: 10.5px; color: var(--ink-faint); }
+.sw { display: flex; height: 6px; border-radius: 3px; overflow: hidden; }
+.sw i { flex: 1; }
+
+#drawer { position: fixed; z-index: 8; right: 0; top: 0; bottom: 0; width: min(420px, 100vw); background: var(--drawer);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transform: translateX(100%); transition: transform .22s ease;
+  display: flex; flex-direction: column; border-left: 1px solid rgba(255,255,255,0.06); }
+#drawer.open { transform: none; }
+@media (max-width: 700px) {
+  #drawer { top: auto; height: 62vh; width: 100vw; transform: translateY(100%); border-left: 0; border-top: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px 16px 0 0; }
+}
+.dhead { display: flex; gap: 6px; padding: 10px 12px 6px; align-items: center; flex-wrap: wrap; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1 0 100%; }
+.tabs.slant > .pill { padding: 0 9px; }
+.dbody { flex: 1; overflow-y: auto; padding: 4px 12px 24px; }
+.sec { margin: 12px 0 4px; color: var(--ink-faint); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.row { display: grid; grid-template-columns: 96px 1fr 44px 28px; gap: 6px; align-items: center; min-height: 30px; }
+.row label { color: var(--ink-dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row input[type=range] { width: 100%; accent-color: var(--viz); }
+.row .val { color: var(--ink-faint); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
+.row select { width: 100%; background: var(--raised); color: var(--ink); border: 0; border-radius: 6px; padding: 4px; }
+.modbtn { border: 0; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: 6px; height: 24px; }
+.modbtn.has { color: #050507; background: var(--viz); }
+.mods { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 8px 0; }
+.mods .chip { border: 0; border-radius: 999px; padding: 3px 9px; background: var(--raised); color: var(--ink-dim); cursor: pointer; font-size: 11.5px; }
+.mods .chip.on { background: var(--armed); color: #050507; font-weight: 700; }
+.mods input { width: 100%; accent-color: var(--armed); }
+.layer { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 10px; background: rgba(28,28,34,0.65); margin: 4px 0; cursor: pointer; }
+.layer.sel { outline: 1px solid var(--viz); }
+.layer .ln { flex: 1; min-width: 0; }
+.layer .ln b { display: block; font-weight: 600; font-size: 12.5px; }
+.layer .ln span { color: var(--ink-faint); font-size: 11px; }
+.ib { border: 0; background: transparent; color: var(--ink-dim); cursor: pointer; width: 28px; height: 28px; border-radius: 8px; }
+.ib:hover { background: var(--pressed); color: var(--ink); }
+.ib.off { color: var(--ink-faint); opacity: .5; }
+.addgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.addgrid button { border: 0; text-align: left; background: rgba(28,28,34,0.75); border-radius: 10px; padding: 8px; cursor: pointer; color: var(--ink); }
+.addgrid button small { display: block; color: var(--ink-faint); font-size: 10.5px; margin-top: 2px; }
+.pals { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+.pals button { border: 0; border-radius: 10px; padding: 6px; background: rgba(28,28,34,0.75); cursor: pointer; color: var(--ink-dim); text-align: left; font-size: 11px; }
+.pals button.on { outline: 2px solid var(--armed); }
+.stops { display: flex; gap: 6px; margin: 6px 0; }
+.stops input { width: 44px; height: 32px; border: 0; padding: 0; background: none; }
+.meters { display: grid; grid-template-columns: 70px 1fr; gap: 4px 8px; align-items: center; }
+.meters i { display: block; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--viz), var(--live)); }
+.meters span { color: var(--ink-dim); font-size: 11.5px; }
+.note { color: var(--ink-faint); font-size: 11.5px; margin: 6px 0; }
+#start { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.55); text-align: center; padding: 24px; }
+#start h1 { margin: 0; font-size: 28px; }
+#start p { margin: 0; color: var(--ink-dim); max-width: 420px; }
+#start .choices { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+#toast { position: fixed; left: 50%; top: 64px; transform: translateX(-50%); z-index: 30; background: rgba(28,28,34,0.95); padding: 8px 14px;
+  border-radius: 999px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#err { position: fixed; left: 12px; right: 12px; top: 60px; z-index: 40; background: #3a0d16; color: #ffd0d8; padding: 10px; border-radius: 10px;
+  white-space: pre-wrap; font: 11px/1.4 ui-monospace, monospace; display: none; max-height: 50vh; overflow: auto; }
+.menu { position: fixed; z-index: 9; right: max(12px, env(safe-area-inset-right, 0px)); top: calc(52px + env(safe-area-inset-top, 0px)); background: var(--drawer); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-radius: 14px; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+  border: 1px solid rgba(255,255,255,0.06); max-width: calc(100vw - 24px); }
+.menu .seg { flex-wrap: wrap; }
+.mlabel { color: var(--ink-faint); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-top: 4px; }
+#top { flex-wrap: nowrap; }
+@media (max-width: 520px) { #fps { display: none; } #lookName { max-width: 34vw; } .pill { padding: 6px 9px; } }
+/* The lobby's sheared row: one object divided. First chip squared on the left, the rest lean
+   the same way. Off: zinc face, gradient icon. On: gradient face, icon and label punched out black. */
+.slant { display: flex; gap: 3.5px; background: none; padding: 0; border-radius: 0; flex-wrap: nowrap; }
+.slant > .pill { flex: 1 1 auto; height: 34px; min-height: 34px; border-radius: 3px; padding: 0 13px; gap: 5px; justify-content: center;
+  background: var(--raised); color: var(--ink-dim); font: 700 11px/1 'Archivo', system-ui, sans-serif;
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+.slant > .pill:first-child { clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+.slant > .pill:hover { background: var(--pressed); }
+.slant > .pill .mi { font-family: 'Material Icons'; font-size: 15px; font-weight: normal; letter-spacing: 0; line-height: 1;
+  background: linear-gradient(90deg, var(--viz), var(--viz-deep)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.slant > .pill.on { background: linear-gradient(90deg, var(--viz), var(--viz-deep)); color: #000; font-weight: 800; }
+.slant > .pill.on .mi { background: none; color: #000; }
+.menu .slant { flex-wrap: wrap; }
+/* Choices inside the drawer are fully rounded pills. */
+.pills { display: flex; flex-wrap: wrap; gap: 5px; }
+.pills .pill { min-height: 28px; padding: 4px 11px; font-size: 11.5px; border-radius: 999px; background: var(--raised); color: var(--ink-dim); }
+.pills .pill.on { background: var(--armed); color: #050507; font-weight: 700; }
+.row.choice { grid-template-columns: 96px 1fr; padding: 3px 0; }
+#box { transition: transform .22s ease; }
+.hide { display: none !important; }
+</style>
+</head>
+<body>
+<div id="under"><canvas id="underCanvas"></canvas></div>
+<div id="frame"><div id="box"><canvas id="stage"></canvas></div></div>
+
+<div id="top" class="bar">
+  <span class="mark" title="VisLab: Joy Creator's visualiser lab">VisLab</span>
+  <span id="lookName">...</span>
+  <span id="fps"></span>
+  <span class="spacer"></span>
+  <button class="pill" id="pauseBtn" title="Pause or play">Pause</button>
+  <button class="pill" id="soundBtn" title="Where the sound comes from">Sound &#x25BE;</button>
+  <button class="pill" id="viewBtn" title="Frame shape, edges, and over-a-video test">View &#x25BE;</button>
+  <button class="pill go" id="editBtn" title="Open the editor">Edit</button>
+</div>
+
+<div class="menu hide" id="soundMenu">
+  <div class="mlabel">Listen to</div>
+  <span class="seg slant" id="srcSeg" title="Where the sound comes from">
+    <button class="pill" data-src="demo" title="Built-in demo song (intro, build, drop)"><span class="mi">music_note</span>Demo song</button>
+    <button class="pill" data-src="mic" title="Your microphone, live"><span class="mi">mic</span>Microphone</button>
+    <button class="pill" data-src="file" title="Pick a song from this device"><span class="mi">library_music</span>A song</button>
+  </span>
+</div>
+<div class="menu hide" id="viewMenu">
+  <div class="mlabel">Frame</div>
+  <span class="seg slant" id="aspectSeg" title="Try the look in different frame shapes">
+    <button class="pill on" data-aspect="full" title="Fill this screen"><span class="mi">fullscreen</span>Full</button>
+    <button class="pill" data-aspect="16:9" title="Landscape video"><span class="mi">crop_16_9</span>16:9</button>
+    <button class="pill" data-aspect="9:16" title="Phone / Shorts / Reels"><span class="mi">crop_portrait</span>9:16</button>
+    <button class="pill" data-aspect="1:1" title="Square"><span class="mi">crop_square</span>1:1</button>
+    <button class="pill" data-aspect="overlay" title="A small overlay box, like a Studio overlay or the floating visualiser"><span class="mi">picture_in_picture</span>Box</button>
+  </span>
+  <div class="mlabel">Edges</div>
+  <span class="seg slant" id="edgeSeg" title="Bleed to the edges, or stay soft inside a frame">
+    <button class="pill on" data-edge="scene" title="Use the look's own edges"><span class="mi">tune</span>As made</button>
+    <button class="pill" data-edge="0" title="Art runs off every edge (full-screen use)"><span class="mi">open_in_full</span>Bleed</button>
+    <button class="pill" data-edge="1" title="Soft rounded box: never a hard cut at the edge"><span class="mi">crop_free</span>Contained</button>
+    <button class="pill" data-edge="2" title="Soft circle"><span class="mi">radio_button_unchecked</span>Circle</button>
+  </span>
+  <div class="mlabel">Underneath</div>
+  <button class="pill" id="overBtn" title="Show the look over a moving picture, the way it sits on a video or on your screen">Over a video</button>
+</div>
+
+<div id="strip"></div>
+
+<div id="drawer">
+  <div class="dhead">
+    <div class="tabs slant" id="tabs">
+      <button class="pill on" data-tab="layers" title="The pieces this look is built from"><span class="mi">layers</span>Layers</button>
+      <button class="pill" data-tab="finish" title="Bloom, lens, glitch, film, framing"><span class="mi">auto_awesome</span>Finish</button>
+      <button class="pill" data-tab="echo" title="Feedback trails under everything"><span class="mi">blur_on</span>Echo</button>
+      <button class="pill" data-tab="colours" title="Palette and brand colours"><span class="mi">palette</span>Colours</button>
+      <button class="pill" data-tab="sound" title="What the engine hears right now"><span class="mi">graphic_eq</span>Sound</button>
+    </div>
+    <span class="spacer"></span>
+    <button class="pill" id="copyBtn" title="Copy this look as a file you can paste to Claude or save">Copy look</button>
+    <button class="ib" id="closeDrawer" title="Close the editor">&#x2715;</button>
+  </div>
+  <div class="dbody" id="dbody"></div>
+</div>
+
+<div id="start">
+  <h1><span class="mark" style="font-size:32px">VisLab</span> look book</h1>
+  <p>Sound-reactive visuals running on your graphics chip. Pick something to listen to.</p>
+  <div class="choices">
+    <button class="pill go" data-start="demo" title="Built-in demo song">Play the demo song</button>
+    <button class="pill" data-start="mic" title="Your microphone">Use my microphone</button>
+    <button class="pill" data-start="file" title="Pick a song file">Pick a song</button>
+  </div>
+  <p class="note">Tap a look along the bottom. Edit opens every knob; the &#x266A; next to a knob makes it react to the music.</p>
+</div>
+<div id="toast"></div>
+<pre id="err"></pre>
+<input type="file" id="fileIn" accept="audio/*" class="hide">
+
+<!--@SCRIPTS@-->
+<script>
+  // Dev loader: always fresh copies (the bundled page inlines everything instead).
+  (function () {
+    var v = Date.now();
+    ['vislab-engine.js', 'vislab-audio.js', 'vislab-app.js'].forEach(function (s) {
+      document.write('<script src="' + s + '?v=' + v + '"><\/script>');
+    });
+  })();
+</script>
+<!--@END@-->
+</body>
+</html>

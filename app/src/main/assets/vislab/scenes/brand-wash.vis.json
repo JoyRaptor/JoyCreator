@@ -1,0 +1,52 @@
+{
+  "format": "joy.vis/1",
+  "id": "brand-wash",
+  "name": "Brand Wash",
+  "family": "Brand",
+  "description": "Your colours as a soft breathing gradient with one fine line of sound. For intros and talk shows.",
+  "palette": [
+    "#35F6BF",
+    "#97FE8B",
+    "#FAA03D",
+    "#FF008C",
+    "#CC27FF"
+  ],
+  "background": "#050507",
+  "layers": [
+    {
+      "type": "mesh",
+      "name": "Colour wash",
+      "res": 0.5,
+      "add": 0,
+      "p": {
+        "brightness": 0.6,
+        "soft": 0.65,
+        "warp": 0.5,
+        "react": 0.5,
+        "grain": 0.5
+      }
+    },
+    {
+      "type": "lines",
+      "name": "Sound line",
+      "p": {
+        "mode": 0,
+        "rows": 1,
+        "y": 0,
+        "size": 0.7,
+        "amp": 0.15,
+        "thick": 0.0025,
+        "glow": 0.3,
+        "brightness": 0.9,
+        "taper": 2
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.4,
+      "grain": 0.25,
+      "vignette": 0.2
+    }
+  }
+}

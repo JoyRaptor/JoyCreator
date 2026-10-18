@@ -1,0 +1,77 @@
+{
+  "format": "joy.vis/1",
+  "id": "strange-attractor",
+  "name": "Strange Attractor",
+  "family": "Generative",
+  "description": "Forty thousand particles riding the Lorenz butterfly; the kick throws them off it.",
+  "palette": [
+    "#FFFFFF",
+    "#FFD166",
+    "#EF476F",
+    "#7B2CBF",
+    "#118AB2"
+  ],
+  "background": "#030308",
+  "layers": [
+    {
+      "type": "nebula",
+      "name": "Haze",
+      "res": 0.5,
+      "palette": [
+        "#14213D",
+        "#3A0CA3",
+        "#118AB2",
+        "#7B2CBF",
+        "#14213D"
+      ],
+      "p": {
+        "brightness": 0.3,
+        "stars": 0.5,
+        "coreGlow": 0.2
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Butterfly",
+      "p": {
+        "count": 40000,
+        "attractor": 1,
+        "attractorSize": 1,
+        "emitter": 0,
+        "ey": -0.05,
+        "life": 6,
+        "lifeVar": 0.3,
+        "speed": 1.5,
+        "audioSpeed": 1,
+        "look": 1,
+        "stretch": 0.8,
+        "size": 0.0025,
+        "brightness": 0.35,
+        "colorMode": 1,
+        "persp": 1,
+        "yaw": 0.03,
+        "pitch": 0.05,
+        "viewDist": 2.2,
+        "depthFade": 0.5,
+        "fadeIn": 0.2,
+        "fadeOut": 0.3,
+        "punch": 0.5,
+        "drag": 0,
+        "curl": 0
+      }
+    }
+  ],
+  "echo": {
+    "p": {
+      "decay": 0.6,
+      "zoom": 1
+    }
+  },
+  "post": {
+    "p": {
+      "bloom": 1,
+      "vignette": 0.5,
+      "grain": 0.08
+    }
+  }
+}

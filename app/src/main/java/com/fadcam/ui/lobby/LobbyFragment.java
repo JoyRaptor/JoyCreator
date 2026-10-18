@@ -1239,6 +1239,11 @@ public class LobbyFragment extends BaseFragment {
             return;
         }
 
+        if (r.id == ROOM_VIZ) {                                      // VisLab: its own room (VISLAB_20261016)
+            startActivity(new Intent(requireContext(), com.fadcam.vislab.room.VisLabActivity.class));
+            return;
+        }
+
         String projectId = projects.isEmpty() ? null : projects.get(0).id;
         int idx = r.id;
         if (idx == ROOM_JOYBRUSH) {                                  // Joy Brush: the last drawing, or a new one
@@ -1269,7 +1274,7 @@ public class LobbyFragment extends BaseFragment {
         } catch (Exception e) {
             FLog.w("Lobby", "enterRoom failed for " + r.title, e);
         }
-        // Viz Lab has no room yet, and neither bench has anywhere to live without a project.
+        // Neither bench has anywhere to live without a project (Viz Lab returned above).
         // The Library's Projects view is the honest fallback: it is where they will make one.
         openProjects(false);
     }

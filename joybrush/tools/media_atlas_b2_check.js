@@ -390,7 +390,7 @@ async function PAGE(P) {
     return E;
   }
   const slotXY = (s, shift) => [(s % SN) << shift, Math.floor(s / SN) << shift];
-  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, GN, GN], u_atlasSlotsX: SN, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0] } : {};
+  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, GN, GN], u_atlasSlotsX: SN, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0] } : {};
   const COMMON = (E) => ({ u_layerOrigin: [0, 0], u_layerScale: 1, u_targetSize: [E.W, E.W] });
   // tiles a layer-px rect touches (inclusive ranges), clamped to the layer
   function tilesOf(r) {

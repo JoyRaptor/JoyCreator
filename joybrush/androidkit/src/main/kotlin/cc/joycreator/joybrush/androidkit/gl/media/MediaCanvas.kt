@@ -199,7 +199,9 @@ class MediaCanvas(
             return true
         }
         if (e.wetActive) {
-            e.wetFrame(null, paint.mediaPaper(), DOC_PX_PER_MM, wetQuality ?: WetConstants())
+            val wq = wetQuality ?: WetConstants()
+            if (w is MediaAtlas) w.admit(listOfNotNull(e.wetNeed(listOf(null), DOC_PX_PER_MM, wq.substeps)))
+            e.wetFrame(null, paint.mediaPaper(), DOC_PX_PER_MM, wq)
             w.flush()
             w.touched(nowMs)
             return true
@@ -277,7 +279,8 @@ class MediaCanvas(
         }
         engine = made
         val render = { r: FloatArray -> made.renderLook(r, paint.mediaPaper(), look, DOC_PX_PER_MM); Unit }
-        window = (if (atlas) MediaAtlas(paint, made, render) else MediaWindow(paint, made, render)).also { it.stats = stats }
+        val dry = { rects: List<FloatArray> -> made.dryTilesNow(rects, paint.mediaPaper(), DOC_PX_PER_MM, wetQuality ?: WetConstants()) }
+        window = (if (atlas) MediaAtlas(paint, made, render, dry) else MediaWindow(paint, made, render)).also { it.stats = stats }
         return made
     }
 
@@ -385,6 +388,7 @@ class MediaCanvas(
         if (st.wet != null) water += wetIn
         if (st.wet == null && st.thin == null && e.wetActive) water += null
         if (water.isNotEmpty()) e.wetNeed(water, DOC_PX_PER_MM, wq.substeps)?.let(out::add)
+        out += e.wetInputNeeds(water)
         return out
     }
 

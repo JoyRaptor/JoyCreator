@@ -368,7 +368,7 @@ async function PAGE(P) {
   // Slot s of a pass at resolution side = 1 << shift sits at ((s % N) << shift, floor(s / N) << shift); identity: tile (x, y) -> slot x + y·N.
   const tableIdentity = new Int32Array(N * N), tableBroken = new Int32Array(N * N);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { tableIdentity[y * N + x] = x + y * N; tableBroken[y * N + x] = (x + 1) % N + y * N; }
-  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, N, N], u_atlasSlotsX: N, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0] } : {};
+  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, N, N], u_atlasSlotsX: N, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0] } : {};
   // A layer-shaped pass over rect r (layer px at the pass's resolution). Window: one quad. Atlas: one instance per slot.
   function drawRect(E, r, shift = 8) {
     if (!E.atlas) { gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); return; }

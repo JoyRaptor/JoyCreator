@@ -22,6 +22,9 @@ object MediaAtlasPlacement {
      * the impasto shadow march (51 px) + gradient + bilinear. The dry apply's smear depends on the stick: [dryReach].
      */
     const val WET_REACH = 80
+    /** Page-table marks of a tile taken out of the water (B3, D2): resident = slot + [WALL_BIT], not resident = [WALL_GONE]. */
+    const val WALL_BIT = 1 shl 24
+    const val WALL_GONE = -2
     const val PASTE_REACH = 12
     const val ERASE_REACH = 3
     const val LOOK_REACH = 56
@@ -53,10 +56,10 @@ object MediaAtlasPlacement {
      * The page table for [resident] (tile key -> slot): the smallest grid of tiles that holds them all, row-major, −1 where
      * a tile is not resident. Empty residency = a 1 × 1 table holding −1 (a sampler must have a texture).
      */
-    fun table(resident: Map<Long, Int>): Table {
-        if (resident.isEmpty()) return Table(0, 0, 1, 1, intArrayOf(-1))
+    fun table(resident: Map<Long, Int>, walls: Set<Long> = emptySet()): Table {
+        if (resident.isEmpty() && walls.isEmpty()) return Table(0, 0, 1, 1, intArrayOf(-1))
         var minX = Int.MAX_VALUE; var minY = Int.MAX_VALUE; var maxX = Int.MIN_VALUE; var maxY = Int.MIN_VALUE
-        for (k in resident.keys) {
+        for (k in resident.keys + walls) {
             val x = Tiles.tx(k); val y = Tiles.ty(k)
             if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y
         }
@@ -64,12 +67,21 @@ object MediaAtlasPlacement {
         require(w.toLong() * h <= MAX_TILES) { "resident tiles spread over too large a table" }
         val data = IntArray(w * h) { -1 }
         for ((k, slot) in resident) { require(slot >= 0) { "a slot index is not negative" }; data[(Tiles.ty(k) - minY) * w + (Tiles.tx(k) - minX)] = slot }
+        // B3 (D2): tiles out of the water, marked for its passes (jb_media_atlas.glsl JB_WALL_BIT / JB_WALL_GONE).
+        for (k in walls) {
+            val i = (Tiles.ty(k) - minY) * w + (Tiles.tx(k) - minX)
+            data[i] = if (data[i] >= 0) data[i] + WALL_BIT else WALL_GONE
+        }
         return Table(minX, minY, w, h, data)
     }
 
     /** `u_atlasGrid` = (x, y, w, h); [data] row-major from (x, y), the R32I texture's contents. */
     class Table(val x: Int, val y: Int, val w: Int, val h: Int, val data: IntArray) {
-        /** What the shader reads for tile ([tx], [ty]): its slot, or −1 (outside the grid included). */
-        fun slotOf(tx: Int, ty: Int): Int = if (tx < x || ty < y || tx >= x + w || ty >= y + h) -1 else data[(ty - y) * w + (tx - x)]
+        /** Tile ([tx], [ty])'s slot, or −1 (not resident, outside the grid included); a wall's mark taken off. */
+        fun slotOf(tx: Int, ty: Int): Int {
+            if (tx < x || ty < y || tx >= x + w || ty >= y + h) return -1
+            val v = data[(ty - y) * w + (tx - x)]
+            return if (v >= WALL_BIT) v - WALL_BIT else if (v < 0) -1 else v
+        }
     }
 }

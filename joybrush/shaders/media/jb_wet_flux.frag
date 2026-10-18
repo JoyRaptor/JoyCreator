@@ -111,7 +111,8 @@ float runSizingAt(vec2 docPx) {
 }
 
 bool outside(ivec2 q) {
-    return float(q.x) < u_rect.x || float(q.y) < u_rect.y || float(q.x) >= u_rect.z || float(q.y) >= u_rect.w;
+    // The simulated rectangle's edge, and (atlas, B3) a tile taken out of the water: no flow either way.
+    return float(q.x) < u_rect.x || float(q.y) < u_rect.y || float(q.x) >= u_rect.z || float(q.y) >= u_rect.w || jb_wall(q);
 }
 
 void main() {

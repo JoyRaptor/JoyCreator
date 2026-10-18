@@ -6,6 +6,7 @@ import cc.joycreator.joybrush.androidkit.gl.MediaRoomException
 import cc.joycreator.joybrush.core.media.MediaAtlasPage
 import cc.joycreator.joybrush.core.media.MediaAtlasPlacement
 import cc.joycreator.joybrush.core.media.MediaAtlasSlots
+import cc.joycreator.joybrush.core.media.MediaAtlasWater
 import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.paint.Tiles
 import kotlin.math.ceil
@@ -25,7 +26,9 @@ import kotlin.math.floor
  * Proved headless bit for bit against one big window (tools/media_atlas_b2_check.js); off by default
  * ([MediaAtlasGl.enabled]) until the device probe has passed. GL thread only.
  */
-class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, private val renderLook: (FloatArray) -> Unit) : MediaPlace {
+class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, private val renderLook: (FloatArray) -> Unit,
+                 /** Dries the water of these tiles (layer px) where it lies: [MediaLayerEngine.dryTilesNow] with the canvas's paper. */
+                 private val dryTiles: (List<FloatArray>) -> Unit = {}) : MediaPlace {
     override var layerId: String? = null; private set
     override var plane: String? = null; private set
     override var stats: cc.joycreator.joybrush.androidkit.bench.FrameStats? = null
@@ -45,8 +48,22 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private val pendingStores = LinkedHashSet<String>()
     private var pendingRect: FloatArray? = null
 
+    // ---- B3 steps 3-5: the water, tile by tile (MediaAtlasWater; the Lead's D1/D2) ----
+    private val water = MediaAtlasWater()
+    /** What the water needs held (its tiles and their 8-neighbours, as last admitted): pinned before anything else loads. */
+    private var waterHeld: Set<Long> = emptySet()
+    /** This frame's own drawing (its passes' rects, where the brush put water): where the look is recomputed besides the water. */
+    private val frameDirty = ArrayList<FloatArray>()
+    private var framesSinceQuery = 0
+    /** Slot -> tile when the water was last measured: a measurement counts only for tiles still in the same slot. */
+    private var querySlots: Map<Int, Long>? = null
+    /** Quiet components dried in place, and drip tails dried and taken out of the water (D1, D2), since this atlas was made. */
+    var settledComponents = 0; private set
+    var drainedTails = 0; private set
+
     init {
         media.onNeed = { rect, reach -> need(rect, reach) }
+        media.onNeedWater = { rect, reach -> needWater(rect, reach) }
         media.setResidency(emptyMap())   // free placement from now on: the engine has no window edge
     }
 
@@ -68,6 +85,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         flush()
         for (r in slots.residents()) if (r.dirty) writeBackSlot(r.slot, r.page.tileKey)
         pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap())
+        resetWater()
         media.sleep()
         layerId = null
     }
@@ -98,16 +116,113 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     override fun admit(needs: List<MediaLayerEngine.Need>) {
         if (layerId == null || needs.isEmpty()) return
+        val now = nowMs()
+        if (!media.wetActive && needs.none { it.water }) resetWater()
         val keys = LinkedHashSet<Long>()
-        var x0 = Float.MAX_VALUE; var y0 = Float.MAX_VALUE; var x1 = -Float.MAX_VALUE; var y1 = -Float.MAX_VALUE
+        frameDirty.clear()
+        var box: FloatArray? = null
+        var waterRect: FloatArray? = null
         for (n in needs) {
+            if (n.water) { waterRect = n.rect; continue }
             keys += tilesOf(n.rect, n.reach)
-            x0 = minOf(x0, n.rect[0]); y0 = minOf(y0, n.rect[1]); x1 = maxOf(x1, n.rect[2]); y1 = maxOf(y1, n.rect[3])
+            frameDirty += n.rect
+            box = union(box, n.rect)
+            if (n.input) water.touched(intArrayOf(floor(n.rect[0]).toInt(), floor(n.rect[1]).toInt(), ceil(n.rect[2]).toInt(), ceil(n.rect[3]).toInt()), now)
         }
         // The look at the frame's end ([writeLook]): the dirty area (inside these rects), its halo, whole pixels, its reach.
-        keys += tilesOf(floatArrayOf(x0, y0, x1, y1), lookHalo + 1 + MediaAtlasPlacement.LOOK_REACH)
+        box?.let { keys += tilesOf(it, lookHalo + 1 + MediaAtlasPlacement.LOOK_REACH) }
+        waterHeld = if (waterRect != null) admitWater(waterRect, keys, box ?: waterRect, now) else emptySet()
+        keys += waterHeld
+        media.waterSkip = water.excluded.toSet()
         hold(keys)
         admitted = true
+    }
+
+    /**
+     * The water's part of a frame: only what holds water and what that water reads (MediaAtlasWater.mustStay), never the
+     * whole simulated rectangle, so a long wet stroke moves on like a dry one. Short of room, D1 then D2 make it: whole quiet
+     * components dry in place, farthest from the pen first; then the oldest drip loses its far end. Refused only when this
+     * frame itself cannot fit.
+     */
+    private fun admitWater(waterRect: FloatArray, frame: Set<Long>, pen: FloatArray, now: Long): Set<Long> {
+        val domain = tilesOf(waterRect, 0)
+        val reads = tilesOf(waterRect, MediaAtlasPlacement.WET_REACH)
+        for (k in domain) if (water.state(k) == null) water.entered(k, now, storedWater(k))
+        val held = pinned.mapTo(HashSet()) { it.tileKey }
+        var must = water.mustStay(domain, reads)
+        if (MediaAtlasPlacement.fits(slots.capacity, frame + must, held)) return must
+        val plan = water.plan(domain, reads, frame, held, slots.capacity, (pen[0] + pen[2]) / 2.0, (pen[1] + pen[3]) / 2.0, now)
+            ?: throw MediaRoomException("This watercolour stroke reaches further than this phone can hold at once. " +
+                "Paint a smaller area at a time.")
+        for (a in plan) {
+            // Every tile here holds water, so it is resident (water never leaves), and so are its neighbours (it reads them).
+            val rects = a.keys.map(::tileRect)
+            // Where their water was: the look changes only there (and its halo), and everything that reads is held.
+            val wet = a.keys.mapNotNull { water.extent(it) }.map { e -> floatArrayOf(e[0].toFloat(), e[1].toFloat(), e[2].toFloat(), e[3].toFloat()) }
+            dryTiles(rects)
+            water.dried(a.keys, a.drain)
+            pendingStores += media.takeDirtyStores()
+            for (k in a.keys) slots.resident(page(k))?.let { slots.markDirty(it.page) }
+            // Their look now, while everything it reads is still here: once dry they may leave this very frame.
+            for (r in wet) writeLook(layerId!!, r, hold = false)
+            if (a.drain) {
+                drainedTails++
+                android.util.Log.i(TAG, "watercolour: a drip's tail dried where it lay to make room (${a.keys.size} area)")
+            } else settledComponents++
+        }
+        must = water.mustStay(domain, reads)
+        return must
+    }
+
+    private fun nowMs(): Long = System.nanoTime() / 1_000_000
+
+    private fun storedWater(key: Long): Boolean = paint.mediaTile(layerId!!, "w0", key, plane) != null
+
+    private fun resetWater() {
+        water.reset(); waterHeld = emptySet(); media.waterSkip = emptySet(); querySlots = null; framesSinceQuery = 0
+    }
+
+    /** The water passes' ask: after admission it is held by the water's rules; outside a frame (the Dry button), the same rules. */
+    private fun needWater(rect: FloatArray, reach: Int) {
+        if (layerId == null || admitted) return
+        val now = nowMs()
+        val domain = tilesOf(rect, 0)
+        for (k in domain) if (water.state(k) == null) water.entered(k, now, storedWater(k))
+        waterHeld = water.mustStay(domain, tilesOf(rect, reach))
+        hold(waterHeld)
+    }
+
+    /** Takes in a finished measurement and starts the next one every [QUERY_FRAMES] frames while water runs. */
+    private fun measureWater() {
+        media.takeWaterActivity()?.let { a ->
+            val slotsNow = querySlots
+            querySlots = null
+            if (slotsNow != null) applyActivity(a, slotsNow)
+        }
+        if (++framesSinceQuery >= QUERY_FRAMES && querySlots == null && media.requestWaterActivity()) {
+            querySlots = resident().entries.associate { (k, s) -> s to k }
+            framesSinceQuery = 0
+        }
+    }
+
+    private fun applyActivity(a: FloatArray, at: Map<Int, Long>) {
+        val now = nowMs()
+        val perRow = media.slotCount.let { kotlin.math.sqrt(it.toDouble()).toInt() } * (tile / 16)
+        val minMm = WET_MIN_MM
+        for ((slot, key) in at) {
+            if (slots.resident(page(key))?.slot != slot) continue
+            val (ax, ay) = media.slotTexel(slot)
+            var mw = 0f; var ms = 0f; var mf = 0f
+            // Where the water is: the 16 px blocks holding any, as one rectangle (layer px).
+            var ext: IntArray? = null
+            val tx0 = Tiles.tx(key) * tile; val ty0 = Tiles.ty(key) * tile
+            for (j in 0 until tile / 16) for (i in 0 until tile / 16) {
+                val o = ((ay / 16 + j) * perRow + ax / 16 + i) * 4
+                mw = maxOf(mw, a[o]); ms = maxOf(ms, a[o + 1]); mf = maxOf(mf, a[o + 2])
+                if (a[o] > minMm || a[o + 1] > 0f) ext = MediaAtlasWater.union(ext, intArrayOf(tx0 + i * 16, ty0 + j * 16, tx0 + i * 16 + 16, ty0 + j * 16 + 16))
+            }
+            water.observe(key, mw, ms, mf, now, minMm, FLOW_EPS, ext)
+        }
     }
 
     private fun layerPx(x: Double, y: Double): Pair<Float, Float> = media.toLayerPx(x, y)
@@ -133,13 +248,17 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     /**
      * Makes [keys] resident and held until [flush], atomically: first counts them with every tile that must stay (this
-     * frame's, and all of them while water runs: B3 refines that per tile) against the slots, and only then loads. Room
+     * frame's, and what running water holds and reads) against the slots, and only then loads. Room
      * comes from writing back the least recently used unpinned tiles (A1's [MediaAtlasResidency]): a stroke moves on over
      * any number of tiles, and is only refused when ONE frame needs more than the atlas holds.
      */
     private fun hold(keys: Collection<Long>) {
         val wanted = keys.toSet()
-        if (media.wetActive) for (r in slots.residents()) if (r.page !in pinned) { slots.pin(r.page); pinned += r.page }
+        // Running water keeps what it holds and reads (MediaAtlasWater.mustStay, as last admitted); nothing else is held for it.
+        if (media.wetActive) for (k in waterHeld) {
+            val p = page(k)
+            if (slots.resident(p) != null && p !in pinned) { slots.pin(p); pinned += p }
+        }
         val held = pinned.mapTo(HashSet()) { it.tileKey }
         if (!MediaAtlasPlacement.fits(slots.capacity, wanted, held)) {
             throw MediaRoomException("This pencil, watercolour or oil stroke reaches further than this phone can hold at once " +
@@ -234,8 +353,17 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (rect != null) {
             pendingRect = union(pendingRect, rect)
             for (key in keysIn(rect)) slots.resident(page(key))?.let { slots.markDirty(it.page) }
-            writeLook(id, rect)
+            if (admitted && media.wetActive) {
+                // The water's rectangle is mostly tiles that did not change (dry, maybe not even here): the look is redone
+                // where the frame drew and where water lies (its extent), whose every read is held (MediaAtlasWater.mustStay).
+                for (r in frameDirty) writeLook(id, r, hold = false)
+                for (k in waterHeld) {
+                    val e = water.extent(k) ?: continue
+                    if (slots.resident(page(k)) != null) writeLook(id, floatArrayOf(e[0].toFloat(), e[1].toFloat(), e[2].toFloat(), e[3].toFloat()), hold = false)
+                }
+            } else writeLook(id, rect)
         }
+        if (media.wetActive) measureWater() else if (querySlots != null || framesSinceQuery != 0) resetWater()
         if (stores) writeStores(id) else reserveStores()
         // The frame is over: its tiles may leave again (running water keeps its own, see [hold]).
         unpinAll()
@@ -244,12 +372,16 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     private fun keysIn(r: FloatArray): List<Long> = tilesOf(r, 0)
 
-    private fun writeLook(id: String, dirty: FloatArray) {
+    /** [hold] false: everything the look reads is known to be here already (it must not be held: the frame is admitted). */
+    private fun writeLook(id: String, dirty: FloatArray, hold: Boolean = true) {
         val h = lookHalo.toFloat()
         // Recompute the dirty area and what it shades around it, with everything the look reads resident (no window edge).
         val out = floatArrayOf(dirty[0] - h, dirty[1] - h, dirty[2] + h, dirty[3] + h)
         val r = floatArrayOf(floor(out[0]), floor(out[1]), ceil(out[2]), ceil(out[3]))
-        try { need(r, MediaAtlasPlacement.LOOK_REACH) } catch (e: MediaRoomException) {
+        if (!hold) {
+            val missing = tilesOf(r, MediaAtlasPlacement.LOOK_REACH).count { slots.resident(page(it)) == null }
+            if (missing > 0) android.util.Log.w(TAG, "look of a water tile with $missing of its reads not here (should not happen)")
+        } else try { need(r, MediaAtlasPlacement.LOOK_REACH) } catch (e: MediaRoomException) {
             // The look of what was painted still shows; only its shading reach is cut short (logged, never silent).
             android.util.Log.w("JoyBrushMediaAtlas", "look reach not resident: ${e.message}")
         }
@@ -342,7 +474,15 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             (wet.maxOf { Tiles.tx(it) } + 1) * tile.toFloat(), (wet.maxOf { Tiles.ty(it) } + 1) * tile.toFloat()))
     }
 
-    private companion object { const val TAG = "JoyBrushMediaAtlas" }
+    private companion object {
+        const val TAG = "JoyBrushMediaAtlas"
+        /** Frames between water measurements (B3 plan: ~8; quiet means quiet for MediaAtlasWater.quietMs). */
+        const val QUERY_FRAMES = 8
+        /** Outflow (mm/s) below which water counts as still: above the flow that only feeds evaporation at a pool's edge. */
+        const val FLOW_EPS = 0.05f
+        /** Water deeper than this (mm) is water (WetConstants.minMm). */
+        val WET_MIN_MM = cc.joycreator.joybrush.core.media.WetConstants().minMm.toFloat()
+    }
 
     private fun union(a: FloatArray?, b: FloatArray?): FloatArray? = when {
         a == null -> b?.copyOf()

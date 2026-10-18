@@ -25,6 +25,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.view.MotionEvent
 import cc.joycreator.joybrush.androidkit.diag.BlendSelfCheck
+import cc.joycreator.joybrush.androidkit.gl.FillRequest
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
 import cc.joycreator.joybrush.androidkit.gl.SpritePreviewRequest
 import cc.joycreator.joybrush.androidkit.gl.MASK_SUFFIX
@@ -48,6 +49,7 @@ import cc.joycreator.joybrush.androidkit.io.BoardSnapshot
 import cc.joycreator.joybrush.androidkit.io.CanvasSnapshot
 import cc.joycreator.joybrush.androidkit.io.TILE_BYTES
 import cc.joycreator.joybrush.androidkit.lines.LineEdit
+import cc.joycreator.joybrush.androidkit.lines.LineAdmission
 import cc.joycreator.joybrush.androidkit.lines.LineEditResult
 import cc.joycreator.joybrush.androidkit.lines.LinePlane
 import cc.joycreator.joybrush.androidkit.lines.LineSnapshot
@@ -605,21 +607,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** Why this stroke can't be kept as an editable line, as the end of a sentence; null = it can. */
     private fun lineRefusal(p: BrushPreset?, erase: Boolean, amount: Float): String? {
         val layer = boardDocument?.layers?.firstOrNull { it.id == activeLayer }
-        return when {
-            p == null -> "the built-in round brush can't be kept as a line"
-            p.engine == ENGINE_MEDIA -> "realistic pencil, watercolour and oil can't share a layer with lines yet"
-            p.engine == ENGINE_SMUDGE -> "smudge doesn't work on lines yet"
-            p.engine == ENGINE_FILL -> "the fill pen doesn't work on lines yet"
-            p.engine !in setOf("stamp", ENGINE_WATERCOLOUR) -> "this brush can't be kept as a line yet"
-            p.engine == ENGINE_WATERCOLOUR && (erase || p.blend == "erase") -> "the watercolour eraser can't be kept as a line yet"
-            p.line != null -> "brushes that shape the whole stroke can't be kept as lines yet"
-            !erase && p.blend !in setOf("normal", "erase", "behind", BLEND_MULTIPLY, BLEND_SCREEN) -> "the ${p.blend} blend can't be kept as a line yet"
-            p.engine == "stamp" && p.tip.source != "procedural" -> "picture-tip brushes can't be kept as lines yet"
-            tileBoardId != null -> "lines don't work on a tiled board yet"
-            layer?.cels?.any { it.floatTiles.isNotEmpty() } == true -> "it already holds realistic paint"
-            !amount.isFinite() || amount !in 0f..1f || !view.zoom.isFinite() || view.zoom <= 0f -> "the smoothing setting is out of range"
-            else -> null
-        }
+        return LineAdmission.lineRefusal(p, erase, amount, view.zoom, tileBoardId != null,
+            layer?.cels?.any { it.floatTiles.isNotEmpty() } == true)
     }
 
     // Select's live drag (NATIVE_LINES_V1 v1.1): the lifted lines leave their plane's tiles and follow the box through a
@@ -1510,29 +1499,26 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 diagnosticObserver(DiagnosticStrokeCaptureResult.Refused("Diagnostic brush could not be frozen: ${e.message}"))
             }
         }
-        // Editable lines (NATIVE_LINES_V1): a layer that holds lines keeps every stroke it can replay as a line and
-        // refuses the rest in words (its pixels must stay its lines); with the switch on, a replayable stroke starts one.
+        // Editable lines (NATIVE_LINES_V1, v1.2): a layer that holds items (lines or pixel slabs) keeps every stroke it can
+        // replay as a line; any other stroke is still painted, and the engine keeps it as a pixel slab in time order with
+        // the lines. Only realistic media (and a tiled board) stay refused in words. With the switch on, a replayable
+        // stroke starts a line.
         var lineFrozen: FrozenBrushResult? = null
         if (!editingMask && watercolourPreviewSeed == null) {
-            val layerHasLines = lineSnapshot.planes.any { (k, v) -> k.layerId == activeLayer && v.isNotEmpty() }
-            if (editableLines || layerHasLines) {
-                val refusal = lineRefusal(p, erase, amount)
-                if (refusal != null && layerHasLines) {
+            val holdsItems = lineSnapshot.holdsItemsOnLayer(activeLayer)
+            if (editableLines || holdsItems) {
+                if (holdsItems) LineAdmission.slabRefusal(p, tileBoardId != null)?.let { why ->
                     drawing = false
-                    onRefused?.invoke("\"${stackUi.active.name}\" holds editable lines, and $refusal. Use another layer for it.")
+                    onRefused?.invoke(LineAdmission.refusalSentence(stackUi.active.name, why))
                     return
                 }
+                val refusal = lineRefusal(p, erase, amount)
                 if (refusal == null) try {
                     val effective = if (erase) p!!.copy(blend = "erase") else p!!
                     lineFrozen = FrozenBrushRegistry.freeze(lineSnapshot.brushes, effective) { newLineName("lb") }
                     p = lineFrozen.preset   // the live dabber and the record use the same detached definition
                 } catch (e: Exception) {
-                    lineFrozen = null
-                    if (layerHasLines) {
-                        drawing = false
-                        onRefused?.invoke("This brush can't draw editable lines: ${e.message}")
-                        return
-                    }
+                    lineFrozen = null       // a brush that can't be frozen is a plain stroke (a slab on a layer with items)
                 }
             }
         }
@@ -1744,7 +1730,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                         val tileBoard=engine.tileBoardId?.let { id -> engine.boardDocument?.boards?.firstOrNull { it.id == id } }
                         val shape=if(tileBoard == null) mask else mask.foldInto(tileBoard.rect)
                         val changes=FillPenRaster.plan(shape,argb,opacity,mode,ownership) { engine.readTile(target,it) }
-                        engine.replaceTiles(target,changes,wrappedBoardId=tileBoard?.id)
+                        engine.replaceTiles(target,changes,wrappedBoardId=tileBoard?.id,fill=FillRequest(shape,argb,opacity,mode))
                         if(changes.isNotEmpty()) reportHistory()
                     }
                 } finally {

@@ -2348,6 +2348,9 @@ class JoyBrushActivity : Activity() {
         val controller = SelectController(kit, root, canvas, host, popovers, selectApp(host))
         selection = controller
         controller.attach()
+        // The strip opens with a brush in hand, so the tool must too: SelectTool starts with Select in hand, which would
+        // swallow the first pen strokes after opening until a brush was tapped (found by the device matrix, 2026-10-18).
+        controller.selectToolInHand = selectInHand
         // Lines that changed from outside the tool (a stroke, an undo, a drawing opened): a selection naming a line that
         // is gone ends. The tool's own edits are already in the host's lists, so they pass.
         canvas.onLinesChanged = { SelectionSync.afterLinesChanged(controller.tool, host) }

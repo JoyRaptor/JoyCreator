@@ -392,6 +392,13 @@ class JoyBrushActivity : Activity() {
     /** Pausing the GL thread, once a snapshot has answered or the wait for one is up. */
     private val pauseView = Runnable { pauseViewNow() }
 
+    /** Back closes an open menu first (the smoke test, 2026-10-18: it left the drawing with a layer menu still open). */
+    @Deprecated("Back on a plain Activity")
+    override fun onBackPressed() {
+        if (popovers.isOpen) { popovers.close(); return }
+        @Suppress("DEPRECATION") super.onBackPressed()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingBoardExport = cc.joycreator.joybrush.android.board.BoardExportCoordinator.restore(savedInstanceState?.getBundle("board_export"))

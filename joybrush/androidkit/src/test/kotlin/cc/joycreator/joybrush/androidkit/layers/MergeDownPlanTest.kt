@@ -53,7 +53,7 @@ class MergeDownPlanTest {
         assertTrue(refused(MergeDownPlan.decide(u, l.copy(locked = true))).contains("locked"))
         assertTrue(refused(MergeDownPlan.decide(u.copy(visible = false), l)).contains("hidden"))
         assertTrue(refused(MergeDownPlan.decide(u.copy(hasFrames = true), l)).contains("animation frames"))
-        assertTrue(refused(MergeDownPlan.decide(u, l.copy(hasMedia = true))).contains("watercolour"))
+        assertIs<Result.Merge>(MergeDownPlan.decide(u.copy(hasMedia = true), l.copy(hasMedia = true)), "realistic paint merges (§2.3)")
         assertTrue(refused(MergeDownPlan.decide(u, l.copy(blend = BlendMode.SCREEN))).contains("Normal"))
         assertTrue(refused(MergeDownPlan.decide(u, l.copy(opacity = 0.4f))).contains("40%"))
         assertTrue(refused(MergeDownPlan.decide(u, l.copy(hasMask = true))).contains("mask"))

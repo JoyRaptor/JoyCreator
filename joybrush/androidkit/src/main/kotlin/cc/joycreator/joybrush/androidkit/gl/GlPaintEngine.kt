@@ -1075,15 +1075,14 @@ class GlPaintEngine(
     }
 
     fun mergeDownStep(upperId: String, lowerId: String, way: MergeDownPlan.Way, sheetOp: String, flattenLower: Boolean,
-                      before: LayerStack, after: LayerStack, frameBoardId: String? = null) {
+                      before: LayerStack, after: LayerStack, frameBoardId: String? = null): String? {
         requireLocalPaint()
         settleLift()
         settleWatercolourFade()
         checkStrokeEnded("a layer change during a stroke would be undone out of order")
-        val u = layers[upperId] ?: return
-        val l = layers[lowerId] ?: return
+        val u = layers[upperId] ?: return null
+        val l = layers[lowerId] ?: return null
         require(!u.isMask && !l.isMask) { "Masks are merged with their layer" }
-        require(!hasMediaState(upperId) && !hasMediaState(lowerId)) { "Merging layers with pencil, watercolour or oil is coming next." }
         // On an animation frame only that frame's cels merge (owner, 2026-10-18); the upper layer stays with its other frames.
         val frameMode = frameBoardId != null
         if (!frameMode) require(u.plan?.frames.isNullOrEmpty() && l.plan?.frames.isNullOrEmpty()) { "Pick the animation board to merge the frame you're on." }
@@ -1165,12 +1164,36 @@ class GlPaintEngine(
         // From here nothing can fail: install, take the upper layer out (its tiles and mask go into the step), publish.
         for (c in tileChanges) put(c.layerId, c.key, c.after, c.celId)
         invalidateProjection(l)
+        // LAYER_OPS §2.3 (lead's call): realistic paint. The lower layer's pencil/watercolour/oil state stays live wherever
+        // the upper layer added nothing; where it did, that state settles into the finished pixels (they are the merged
+        // picture). The upper layer's own state ends as its pixels. All of it goes into the step, so undo brings it back.
+        val uMedia = planeOf(u, uCel); val lMedia = planeOf(l, lCel)
+        fun mediaStores(layer: Layer, plane: String?) = if (plane == null) layer.floats else layer.celFloats[plane]
+        var dried = false
+        mediaStores(l, lMedia)?.forEach { (store, tiles) ->
+            for (k in uTiles.keys) tiles.remove(k)?.let { t ->
+                tileChanges += UndoLog.TileChange(MediaStores.id(l.id, store), k, t, null, lMedia)
+                agreedLook.remove(Triple(l.id, lMedia, k))
+                dried = true
+            }
+        }
+        var finished = false
+        val upperPlanes = if (frameMode) listOf(uMedia) else u.planes().map { it.first }
+        for (plane in upperPlanes) mediaStores(u, plane)?.forEach { (store, tiles) ->
+            tiles.forEach { (k, t) -> tileChanges += UndoLog.TileChange(MediaStores.id(u.id, store), k, t, null, plane); finished = true }
+            tiles.clear()
+        }
+        if (!frameMode) { u.floats.clear(); u.celFloats.clear() }
+        val said = listOfNotNull(
+            if (finished) "\"${before[upperId]?.name ?: "The upper layer"}\"'s pencil, watercolour or oil is finished paint now." else null,
+            if (dried) "Where it covered pencil, watercolour or oil on \"${before[lowerId]?.name ?: "the layer under it"}\", that paint is dry now; the rest stays live." else null,
+        ).joinToString(" ").ifEmpty { null }
         if (frameMode) {
             // Only this frame's drawing of the upper layer moved down: that cel empties; the layer and its other frames stay.
             uTiles.forEach { (k, t) -> tileChanges += UndoLog.TileChange(u.id, k, t, null, uCel) }
             uTiles.clear(); invalidateProjection(u)
             undo.push(UndoLog.Step(tileChanges, lines = items.lines, slabs = items.slabs))
-            return
+            return said
         }
         u.tiles.forEach { (k, t) -> tileChanges += UndoLog.TileChange(u.id, k, t, null, uCel) }
         u.mask?.let { m -> m.tiles.forEach { (k, t) -> tileChanges += UndoLog.TileChange(m.id, k, t, null) }; m.tiles.clear() }
@@ -1181,6 +1204,7 @@ class GlPaintEngine(
         next?.let(::setBoardDocument)
         undo.push(UndoLog.Step(tileChanges, before, after, documentBefore = oldDoc, documentAfter = next,
             lines = items.lines, slabs = items.slabs))
+        return said
     }
 
     /**

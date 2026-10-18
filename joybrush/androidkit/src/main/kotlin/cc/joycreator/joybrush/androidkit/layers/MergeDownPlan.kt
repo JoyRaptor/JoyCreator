@@ -65,7 +65,6 @@ object MergeDownPlan {
             if (upper.animatesHere != true) return Result.Refused("\"${upper.name}\" doesn't animate on this board, so there is no frame of it to merge.")
             if (lower.animatesHere != true) return Result.Refused("\"${lower.name}\" doesn't animate on this board yet. Merging a frame into a still layer is coming next.")
         } else if (upper.hasFrames || lower.hasFrames) return Result.Refused("These layers have animation frames. Pick the animation board to merge the frame you're on.")
-        if (upper.hasMedia || lower.hasMedia) return Result.Refused("Merging layers with pencil, watercolour or oil is coming next.")
         // L's own whole-layer settings would also act on U's pixels once they are in L: the picture would change.
         if (lower.clip) return Result.Refused("\"${lower.name}\" is clipped. Unclip it to merge into it.")
         if (lower.blend != BlendMode.NORMAL) return Result.Refused("\"${lower.name}\" uses the ${blendWord(lower.blend)} blend. Set it to Normal to merge into it.")

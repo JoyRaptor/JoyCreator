@@ -88,7 +88,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
     /** Keeps a stroke's area ([x0, y0, x1, y1], document px) inside the window, moving it to centre on the pen if not. */
     override fun follow(docRect: DoubleArray, penX: Double, penY: Double) {
         val id = layerId ?: return
-        if (!MediaWindowMath.holds(tx, ty, docRect)) moveTo(id, plane, penX, penY, resumeWater = true)
+        if (!MediaWindowMath.holds(tx, ty, docRect)) mediaTrace("JB.media.window.move") { moveTo(id, plane, penX, penY, resumeWater = true) }
     }
 
     private fun moveTo(layer: String, plane: String?, docX: Double, docY: Double, resumeWater: Boolean) {
@@ -133,8 +133,8 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         val rect = media.takeDirty()
         pendingStores += media.takeDirtyStores()
         if (rect != null) pendingRect = union(pendingRect, rect)
-        if (rect != null) writeLook(id, rect)
-        if (stores) writeStores(id) else reserveStores()
+        if (rect != null) mediaTrace("JB.media.look.write") { writeLook(id, rect) }
+        mediaTrace("JB.media.store.write") { if (stores) writeStores(id) else reserveStores() }
     }
 
     /** Debug A/B only (bench `jb_media_legacy`): the pre-2026-10-10 whole-tile look write-back. */

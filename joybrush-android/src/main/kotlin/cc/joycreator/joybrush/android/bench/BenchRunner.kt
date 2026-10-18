@@ -276,7 +276,18 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             "\"busyMs\":${pct(s.busy)},\"workMs\":${pct(s.work)},\"mediaMs\":${pct(s.media)},\"displayMs\":${pct(s.display)}," +
             "\"finishMs\":${pct(s.finish)},\"simMs\":${pct(s.sim)},\"flushMs\":${pct(s.flush)},\"gapMs\":${pct(s.gap)},\"latencyMs\":${pct(s.latency)}," +
             "\"gapsOver17\":${s.over17},\"gapsOver34\":${s.over34},\"mediaFrames\":${s.mediaFrames}," +
-            "\"windowMoves\":${s.mediaWindowMoves},\"windowLoads\":${s.mediaWindowLoads}}")
+            "\"windowMoves\":${s.mediaWindowMoves},\"windowLoads\":${s.mediaWindowLoads}," +
+            "\"phasesMs\":{" + s.phases.entries.joinToString(",") { (k, v) -> "\"$k\":${pct(v)}" } + "}," +
+            "\"memory\":${s.memory ?: "null"},\"device\":${deviceMemory()}}")
+    }
+
+    /** The phone's memory as Android reports it (bench only): what a bigger media atlas could use. */
+    private fun deviceMemory(): String {
+        val am = canvas.context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val mi = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
+        return "{\"availMem\":${mi.availMem},\"totalMem\":${mi.totalMem},\"threshold\":${mi.threshold},\"lowMemory\":${mi.lowMemory}," +
+            "\"memoryClassMb\":${am.memoryClass},\"largeMemoryClassMb\":${am.largeMemoryClass}," +
+            "\"nativeHeapAllocated\":${android.os.Debug.getNativeHeapAllocatedSize()}}"
     }
 
     companion object {

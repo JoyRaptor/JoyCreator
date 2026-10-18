@@ -131,6 +131,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     var slope = floatArrayOf(0f, 0f)
 
     val wetActive get() = wetRect != null
+    /** True once the water's textures exist (the memory report then lists them). */
+    val hasWaterTextures get() = wet != null
 
     fun init(width: Int, height: Int, originX: Float = 0f, originY: Float = 0f, scale: Float = 1f) {
         val ext = GLES30.glGetString(GLES30.GL_EXTENSIONS) ?: ""
@@ -676,7 +678,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
 
     /** One step of a paste brush: the brush trades with the canvas under it, both sides from the same state. */
     fun pasteStep(st: PasteStep, b: PasteBrush, paper: MediaPaperGl, pxPerMm: Double, seed: Int) {
-        bakePaper(paper)
+        mediaTrace("JB.media.paper.bake") { bakePaper(paper) }
         val cap = cellCap(b)
         val t = paper.stats.toothMm
         val cur = brush[bc]
@@ -690,7 +692,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         common(bu)
         MediaUniforms.paste(bu, st, b, cap, t, pxPerMm, seed, bakeTex, state[0].p0, state[0].p1)
         MediaUniforms.pasteBrush(bu, cur.b0, cur.b1, b.wick, w, h, PASTE_LANES, PASTE_DEPTH)
-        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        mediaTrace("JB.media.paste.brush") { GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4) }
         // Canvas side, from the same (old) brush cells. The dab shader hands back its input untouched wherever the brush
         // has no coverage (jb_paste_dab.frag lines 40/47/83), so only the oriented box around the real footprint
         // ([PasteFootprint], ~7-10x smaller than the old square for Oil round) has to be shaded and copied back.
@@ -716,9 +718,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
             MediaUniforms.pasteDab(du, cur.b0, cur.b1, w, h, square)
             // Window: the square, trimmed by the scissor to the footprint box. Free placement: the box itself, slot by slot
             // (the same pixels: no varying is interpolated across the quad any more).
-            quad(if (free) rect else square)
+            mediaTrace("JB.media.paste.dab") { quad(if (free) rect else square) }
             if (tight) GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
-            copyRect(state[1], pFbo0, rect)
+            mediaTrace("JB.media.paste.copy") { copyRect(state[1], pFbo0, rect) }
         }
         bc = 1 - bc
     }
@@ -798,7 +800,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     private fun wetFrameInner(batch: DabBatch?, paper: MediaPaperGl, pxPerMm: Double, wc0: WetConstants, substeps: Int?,
                               evapOverride: Double?, maxWetSeconds: Double) {
         ensureWet()
-        bakePaper(paper)
+        mediaTrace("JB.media.paper.bake") { bakePaper(paper) }
         val ws = wet!!
         val steps = substeps ?: wc0.substeps
         // The rectangle the substeps will simulate: a pure function of the rectangles, the tilt and the step count.
@@ -825,7 +827,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
             common(du); MediaUniforms.wetDab(du, ws[wc].w0, bakeTex, w, h, pxPerMm, wc0.fullMm)
             // half-length, half-width (mm) at floats 4-5, plus the vertex shader's 0.08 mm.
             val ppm = pxPerMm.toFloat()
-            dabs(batch, inRect) { d, o -> (hypot(d[o + 4], d[o + 5]) + 0.1f) * ppm }
+            mediaTrace("JB.media.wet.input") { dabs(batch, inRect) { d, o -> (hypot(d[o + 4], d[o + 5]) + 0.1f) * ppm } }
             GLES30.glDisable(GLES30.GL_BLEND)
             GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
             useInput = true
@@ -850,30 +852,30 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         // tilted); inside the rectangle those are the previous substep's output, and beyond it the paint never changes,
         // so state[0]'s values for the ring around the rectangle are copied into state[1] once, before the first substep.
         needWater(rect, MediaAtlasPlacement.WET_REACH)
-        if (steps > 1) copyP0Ring(rect, ringCells(wc0, beadCells))
+        if (steps > 1) mediaTrace("JB.media.wet.ring") { copyP0Ring(rect, ringCells(wc0, beadCells)) }
         for (k in 0 until steps) {
             val a = ws[wc]
             val bi = 1 - wc
             val b = ws[bi]
             val src = state[k and 1]
             GLES30.glBindVertexArray(quadVao)
-            if (tilted) beadPasses(a.w0, rect, beadCells)
+            if (tilted) mediaTrace("JB.media.wet.bead") { beadPasses(a.w0, rect, beadCells) }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fluxFbo[bi])
             GLES30.glViewport(0, 0, w, h)
             val fu = progFlux.use()
             common(fu); wetFrameUniforms.apply(fu)
             MediaUniforms.wetFlux(fu, bead[0], src.p0, a.w0, a.flux, bakeTex, fluidBake, waterBake, rect, w, h)
-            quad(rect)
+            mediaTrace("JB.media.wet.flux") { quad(rect) }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, updFbo[bi * 2 + 1 - (k and 1)])
             val pu = progUpdate.use()
             common(pu); wetFrameUniforms.apply(pu)
             MediaUniforms.wetUpdate(pu, a.w0, a.w1, b.flux, run, src.p0, src.p1, bakeTex, waterBake, fluidBake, in0, in1,
                 if (k == 0 && useInput) 1 else 0, rect, w, h)
-            quad(rect)
+            mediaTrace("JB.media.wet.update") { quad(rect) }
             wc = bi
         }
         // An odd number of substeps (the dry-now frame) leaves the result in state[1]: one copy, as every substep used to make.
-        if ((steps and 1) == 1) copyRect(state[1], pFbo0, rect)
+        if ((steps and 1) == 1) mediaTrace("JB.media.wet.tail") { copyRect(state[1], pFbo0, rect) }
         if (useInput) {
             if (inFull || inRect == null) { clearFbo(inFbo); inFull = false }
             else if (free) atlas!!.clearRect(inFbo, inRect)
@@ -943,6 +945,42 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         for (f in wetCopyFbo) clearFbo(f)
         wetRect = null
         paintRect = null
+    }
+
+    /**
+     * Bench only: every layer-shaped texture this engine holds, as GL reports it (real internal format and size, GLES 3.1+),
+     * the total, and what one 256² slot costs across all of them: the atlas's price per slot (Media Atlas v2: the slot
+     * count is sized from this and the phone's memory). JSON; "error" when the GL cannot say.
+     */
+    fun memoryReport(): String {
+        val named = LinkedHashMap<String, Int>()
+        state.forEachIndexed { i, st -> named["state$i.p0"] = st.p0; named["state$i.p1"] = st.p1; named["state$i.paper"] = st.paper }
+        named["ground"] = groundTex; named["delta"] = delta; named["bake"] = bakeTex; named["fluidBake"] = fluidBake; named["waterBake"] = waterBake
+        wet?.forEachIndexed { i, x -> named["wet$i.w0"] = x.w0; named["wet$i.w1"] = x.w1; named["wet$i.flux"] = x.flux }
+        named["run"] = run; bead.forEachIndexed { i, b -> named["bead$i"] = b }; named["in0"] = in0; named["in1"] = in1; named["look"] = lookTex
+        val out = org.json.JSONObject().put("w", w).put("h", h)
+        try {
+            val tex = org.json.JSONObject(); var total = 0L; val v = IntArray(1)
+            for ((name, id) in named) {
+                if (id == 0) continue
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, id)
+                android.opengl.GLES31.glGetTexLevelParameteriv(GLES30.GL_TEXTURE_2D, 0, android.opengl.GLES31.GL_TEXTURE_WIDTH, v, 0); val tw = v[0]
+                android.opengl.GLES31.glGetTexLevelParameteriv(GLES30.GL_TEXTURE_2D, 0, android.opengl.GLES31.GL_TEXTURE_HEIGHT, v, 0); val th = v[0]
+                android.opengl.GLES31.glGetTexLevelParameteriv(GLES30.GL_TEXTURE_2D, 0, android.opengl.GLES31.GL_TEXTURE_INTERNAL_FORMAT, v, 0)
+                val (fmt, bpp) = when (v[0]) {
+                    GLES30.GL_RGBA32F -> "RGBA32F" to 16; GLES30.GL_RGBA16F -> "RGBA16F" to 8; GLES30.GL_RG16F -> "RG16F" to 4
+                    GLES30.GL_R16F -> "R16F" to 2; GLES30.GL_R8 -> "R8" to 1; GLES30.GL_RGBA8 -> "RGBA8" to 4
+                    else -> "0x" + Integer.toHexString(v[0]) to 4
+                }
+                val bytes = tw.toLong() * th * bpp
+                tex.put(name, org.json.JSONObject().put("w", tw).put("h", th).put("format", fmt).put("bytes", bytes))
+                total += bytes
+            }
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+            val slots = (w / MediaAtlasDraw.SIDE) * (h / MediaAtlasDraw.SIDE)
+            out.put("textures", tex).put("totalBytes", total).put("slots", slots).put("bytesPerSlot", total / max(1, slots))
+        } catch (e: Throwable) { out.put("error", e.toString()) }
+        return out.toString()
     }
 
     // ---- Media Atlas v2 B3: water tile by tile (MediaAtlasWater) ----

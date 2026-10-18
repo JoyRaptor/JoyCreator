@@ -180,6 +180,20 @@ class MediaCanvas(
     fun frame(nowMs: Long): Boolean {
         val e = engine ?: return false
         val w = window ?: return false
+        // Bench only: time every media section of this frame (glFinish brackets) and note what the textures cost.
+        val rec = stats?.takeIf { it.recording }
+        MediaPhases.timer = rec?.let { s -> { name: String, ms: Double -> s.phase(name, ms) } }
+        try { return frameInner(e, w, nowMs) } finally {
+            MediaPhases.timer = null
+            if (rec != null && (rec.memory == null || (e.hasWaterTextures && !memoryHadWater))) {
+                rec.memory = e.memoryReport(); memoryHadWater = e.hasWaterTextures
+            }
+        }
+    }
+
+    private var memoryHadWater = false
+
+    private fun frameInner(e: MediaLayerEngine, w: MediaPlace, nowMs: Long): Boolean {
         // The paper's tilt is read every frame, so running water turns as the pad or the phone turns (it was read only
         // at a stroke's start: owner, 2026-10-12).
         val tilted = !slope.contentEquals(lastSlope)

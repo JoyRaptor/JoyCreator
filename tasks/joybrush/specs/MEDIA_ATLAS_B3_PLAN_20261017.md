@@ -81,3 +81,19 @@ wet tiles exceed 15; it is decided before the frame draws, never as a half-drawn
 Frame admission (1) and non-wet eviction (2), with the dry/paste/erase long-stroke proof → wet per-tile (3, 7) →
 activity query and settling (4, 5) → refusal and sub-frames (6) → device probe case. Each step lands with its proof,
 behind the flag.
+
+## Decisions (the Lead)
+
+- **October 17:** B3 plan approved. D1 = dry a whole quiet connected component in place, farthest from the pen first; never
+  cut connected water. D2 = no refusal for a drip: the oldest water's far end dries in place, silently (logged), and is
+  a mirror WALL for the water beside it (zero gradient, no flow, no dry front). D3 = split an oversize frame in TIME
+  (sub-frames by dab order), never spatially.
+- **October 18:** steps 3-5 accepted (20a1c2978); both rule changes approved:
+  - residency follows where the water is: tiles within 80 px (its reach) + 48 px (spread between measurements) of the
+    16 px blocks holding water or dampness, not a whole 3x3 ring;
+  - "quiet" = the STANDING water's extent unchanged for 2 s and nothing faster than 1 mm/s (a settling pool's outflow stays
+    0.2-0.4 mm/s feeding its drying edge, so "no flow" never comes; dampness counts for residency, not motion).
+- **October 18:** D2 must be a rare last resort: slots scale with the phone, clamp(budget / bytesPerSlot, 15, 64), sized
+  when the atlas is made (as windowFits sizes the window), target 4+ concurrent wet pools on the Note 9. Numbers (bytes
+  per slot per store, free memory with a drawing open) are reported before any budget constant changes.
+

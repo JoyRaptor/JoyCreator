@@ -766,6 +766,37 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
+    /** Are any layers hidden? Flatten asks what to do with them (keep, or discard), unless the person chose to be remembered. */
+    val hasHiddenLayers: Boolean get() = stackUi.layers.any { !it.visible }
+
+    /**
+     * Flatten (LAYER_OPS L6): every visible layer frozen into one layer of plain pixels, the picture unchanged, ONE undo
+     * step; [discardHidden] drops hidden layers in the same step. Lines, slabs and pencil/watercolour/oil state are baked.
+     */
+    fun flatten(discardHidden: Boolean) {
+        if (penIsDown()) return
+        val before = stackUi
+        onBeforeHistoryChange?.invoke()
+        onGl {
+            val plan = try {
+                cc.joycreator.joybrush.androidkit.layers.FlattenPlan.decide(before, discardHidden) { id ->
+                    cc.joycreator.joybrush.androidkit.layers.FlattenPlan.Facts(hasFrames = before[id]?.let { engine.mergeSide(it).hasFrames } == true)
+                }
+            } catch (e: Exception) { cc.joycreator.joybrush.androidkit.layers.FlattenPlan.Result.Refused(e.message ?: "The layers could not be flattened") }
+            when (plan) {
+                is cc.joycreator.joybrush.androidkit.layers.FlattenPlan.Result.Refused -> post { onRefused?.invoke(plan.sentence) }
+                is cc.joycreator.joybrush.androidkit.layers.FlattenPlan.Result.Flatten -> try {
+                    engine.flattenStep(plan.targetId, plan.merged, plan.discarded, before, plan.after)
+                    reportHistory(); publishLines()
+                    val name = before[plan.targetId]?.name ?: "one layer"
+                    post { adopt(plan.after); onNotice?.invoke("Flattened into \"$name\". Undo brings the layers back.") }
+                } catch (e: Exception) {
+                    post { onRefused?.invoke(e.message ?: "The layers could not be flattened") }
+                }
+            }
+        }
+    }
+
     fun moveLayer(id: String, toIndex: Int) {
         val before = stackUi
         val after = before.move(id, toIndex)
@@ -2171,6 +2202,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             for ((k, bytes) in contents.mediaTiles) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), bytes, k.celId)
             engine.agreeAllPayloads()
             engine.loadLines(lineRecords, lineBases, contents.brushes, lineSlabs, lineCompose)
+            post { postDelayed({ pumpMediaPrewarm() }, 400) }
             retainedContents = retained
             contentLost = false
             paper = resolved
@@ -2886,6 +2918,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     /** GL thread: a few previews now, and the rest on the next frames; once quiet, free the throwaway engines after a while. */
+    /**
+     * After a drawing opens, the pencil, watercolour and oil programs compile one per idle moment (GL thread), so the first
+     * realistic stroke starts at once instead of stalling about a second on a Note 9. Never during a stroke.
+     */
+    private fun pumpMediaPrewarm() {
+        onGl {
+            if (drawing || engine.strokeInProgress) { postDelayed({ pumpMediaPrewarm() }, 500); return@onGl }
+            if (mediaCanvas.prewarmStep()) post { postDelayed({ pumpMediaPrewarm() }, 60) }
+        }
+    }
+
     private fun pumpBrushPreviews() {
         if (brushPreviews.pump(SystemClock.uptimeMillis())) onGl(allowLost = true) { pumpBrushPreviews() }
         else postDelayed({ onGl(allowLost = true) { brushPreviews.releaseIfIdle(SystemClock.uptimeMillis()) } },

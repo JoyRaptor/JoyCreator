@@ -1173,11 +1173,88 @@ class GlPaintEngine(
     }
 
     /**
+     * Flatten (LAYER_OPS L6): every layer in [merged] (the visible ones, bottom to top) frozen into [targetId] as plain
+     * pixels, and the layers in [discarded] (hidden ones the person chose to drop) taken out, as ONE undo step; [after] is
+     * the stack once done ([FlattenPlan]). Each tile is composited exactly as the screen does it (blend, opacity, mask, clip,
+     * a hidden clip base hiding its clipped layers) over transparency, so the picture is unchanged. Lines, slabs and
+     * pencil/watercolour/oil state of every merged layer are baked: they go into the step, and their memory is freed.
+     */
+    fun flattenStep(targetId: String, merged: List<String>, discarded: List<String>, before: LayerStack, after: LayerStack) {
+        requireLocalPaint()
+        settleLift()
+        settleWatercolourFade()
+        checkStrokeEnded("a layer change during a stroke would be undone out of order")
+        val target = layers[targetId] ?: return
+        val order = layers.values.toList()
+        val inMerge = merged.toSet()
+        require(order.filter { it.id in inMerge }.all { it.plan?.frames.isNullOrEmpty() }) { "Flattening layers that have animation frames is coming next." }
+        val oldDoc = boardDocument
+        val made = ArrayList<Int>()
+        val tileChanges = ArrayList<UndoLog.TileChange<Int>>()
+        var items = LineItems.Changes.NONE
+        var itemsApplied = false
+        val tCel = target.sharedCel
+        fun tilesOf(l: Layer) = planeTiles(l, l.sharedCel)
+        try {
+            val keys = LinkedHashSet<Long>()
+            for (l in order) if (l.id in inMerge) keys += tilesOf(l).keys
+            for (key in keys) {
+                var out: Int? = null
+                for ((index, l) in order.withIndex()) {
+                    if (l.id !in inMerge || !l.visible || l.isMask) continue
+                    val src = tilesOf(l)[key] ?: continue
+                    // Clipping by core's LayerMask rules, as the display does; a hidden base hides what is clipped to it.
+                    val base = LayerMask.clipBase(index) { order[it].clip }?.let { order[it] }
+                    if (base != null && !base.visible) continue
+                    val baseTex: Int? = if (base != null) (tilesOf(base)[key] ?: continue) else null
+                    val next = compositeTile(l, key, src, out ?: clearTex, baseTex, l.blend, base?.mask?.tiles?.get(key))
+                    out?.let(::recycleLayerTex)
+                    out = next
+                }
+                out?.let { made += it }
+                val beforeTex = tilesOf(target)[key]
+                if (out != null || beforeTex != null) tileChanges += UndoLog.TileChange(target.id, key, beforeTex, out, tCel)
+            }
+            for (id in merged + discarded) for (plane in nativeLines.itemPlanes().filter { it.layerId == id }) {
+                val l = layers[id] ?: continue
+                items += LineItems.removal(nativeLines, plane, id, engineCel(l, plane))
+            }
+            applyItemChanges(items.slabs, items.lines, forward = true)
+            itemsApplied = true
+        } catch (e: Throwable) {
+            if (itemsApplied) applyItemChanges(items.slabs, items.lines, forward = false)
+            made.forEach(::recycleLayerTex)
+            throw e
+        } finally {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        }
+        // From here nothing can fail. The target's new pixels; everything else of the merged and discarded layers into the step.
+        for (c in tileChanges) put(c.layerId, c.key, c.after, c.celId)
+        invalidateProjection(target)
+        for (id in merged + discarded) {
+            val l = layers[id] ?: continue
+            if (id != targetId) {
+                l.tiles.forEach { (k, t) -> tileChanges += UndoLog.TileChange(id, k, t, null, l.sharedCel) }
+                l.tiles.clear(); l.cels.values.forEach { it.clear() }; invalidateProjection(l)
+            }
+            l.mask?.let { m -> m.tiles.forEach { (k, t) -> tileChanges += UndoLog.TileChange(m.id, k, t, null) }; m.tiles.clear() }
+            for ((plane, p) in l.planes()) p.forEach { (store, tiles) -> tiles.forEach { (k, t) -> tileChanges += UndoLog.TileChange(MediaStores.id(id, store), k, t, null, plane) } }
+            l.floats.clear(); l.celFloats.clear()
+            forgetAgreements(id)
+        }
+        applyStack(after)
+        val next = oldDoc?.let { documentForStack(it, after) }
+        next?.let(::setBoardDocument)
+        undo.push(UndoLog.Step(tileChanges, before, after, documentBefore = oldDoc, documentAfter = next,
+            lines = items.lines, slabs = items.slabs))
+    }
+
+    /**
      * Layer [u]'s tile [src] at [key] composited over [backdrop] (a tile texture) with [mode], u's opacity and mask, and its
      * clip against [clipBase] (the lower layer's tile; a clipped layer shows nothing where that has no tile), into a NEW
      * tile the caller owns. The display compositor's own program at tile size: the result is what the screen shows.
      */
-    private fun compositeTile(u: Layer, key: Long, src: Int, backdrop: Int, clipBase: Int?, mode: BlendMode): Int {
+    private fun compositeTile(u: Layer, key: Long, src: Int, backdrop: Int, clipBase: Int?, mode: BlendMode, clipMask: Int? = null): Int {
         if (u.clip && clipBase == null) return if (backdrop == clearTex) newLayerTile().also { initializeTile(it, null, false) } else copyOfTile(backdrop)
         val prog = compositeProg ?: GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_composite.frag"), "composite").also { compositeProg = it }
         val out = newLayerTile()
@@ -1205,7 +1282,7 @@ class GlPaintEngine(
             GLES30.glActiveTexture(GLES30.GL_TEXTURE1); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, backdrop)
             GLES30.glActiveTexture(GLES30.GL_TEXTURE2); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, u.mask?.tiles?.get(key) ?: whiteTex)
             GLES30.glActiveTexture(GLES30.GL_TEXTURE3); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, clipBase ?: whiteTex)
-            GLES30.glActiveTexture(GLES30.GL_TEXTURE4); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, whiteTex)
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE4); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, clipMask ?: whiteTex)
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, src)
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
             GLES30.glBindVertexArray(0)

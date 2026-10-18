@@ -104,10 +104,13 @@ object DocOps {
         if (regional) {
             if (doc.version < 6) out += "region animation needs document version 6"
             val animated = doc.boards.filter { it.kind == BoardKind.ANIMATION }
-            for ((i, a) in animated.withIndex()) for (b in animated.take(i)) {
-                if (a.rect.x.toLong() < b.rect.x.toLong()+b.rect.w && b.rect.x.toLong() < a.rect.x.toLong()+a.rect.w &&
-                    a.rect.y.toLong() < b.rect.y.toLong()+b.rect.h && b.rect.y.toLong() < a.rect.y.toLong()+a.rect.h) {
-                    out += "animation boards \"${a.id}\" and \"${b.id}\" overlap"
+            // ANIMATION_CLIPS C1: clips may overlap when no layer animates in both; one layer's frames never overlap.
+            fun overlaps(a: Board, b: Board) = a.rect.x.toLong() < b.rect.x.toLong()+b.rect.w && b.rect.x.toLong() < a.rect.x.toLong()+a.rect.w &&
+                a.rect.y.toLong() < b.rect.y.toLong()+b.rect.h && b.rect.y.toLong() < a.rect.y.toLong()+a.rect.h
+            for (layer in doc.layers) {
+                val mine = layer.regions.filterNot { it.held }.mapNotNull { r -> animated.firstOrNull { it.id == r.boardId } }
+                for ((i, a) in mine.withIndex()) for (b in mine.take(i)) if (overlaps(a, b)) {
+                    out += "layer \"${layer.name}\" animates in two overlapping boards, \"${b.name}\" and \"${a.name}\""
                 }
             }
             for (board in animated) if (board.currentFrameId == null || board.frames.none { it.id == board.currentFrameId }) {

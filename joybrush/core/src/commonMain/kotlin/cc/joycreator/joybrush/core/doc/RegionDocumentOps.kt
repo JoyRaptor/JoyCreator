@@ -45,7 +45,12 @@ data class RegionChange(val doc: JbDocument, val copies: List<RegionCopy> = empt
 
 /** Region metadata operations. No legacy conversion, pixel buffers, GPU or history owned here. */
 object RegionDocumentOps {
-    fun create(doc: JbDocument, name: String, rect: RectPx, ids: () -> String): RegionChange {
+    /**
+     * [animate]: the layers that animate in the new board (ANIMATION_CLIPS C2: the app passes the active layer only);
+     * every other layer is STILL there (a held region), its pixels untouched on the shared canvas. null = every layer
+     * (the original behaviour, kept for callers that want it).
+     */
+    fun create(doc: JbDocument, name: String, rect: RectPx, ids: () -> String, animate: Set<String>? = null): RegionChange {
         valid(doc)
         BoardDocumentOps.checkRect(rect)
         if (name.isBlank()) throw DocException("Give this board a name")
@@ -63,10 +68,13 @@ object RegionDocumentOps {
         val layers = doc.layers.map { layer ->
             val shared = layer.sharedCelId ?: layer.cels.single().id
             val celId = fresh()
-            transfers += RegionTransfer(layer.id, shared, celId, rect, rect)
-            clears += RegionClear(layer.id, shared, rect)
+            val animates = animate == null || layer.id in animate
+            if (animates) {
+                transfers += RegionTransfer(layer.id, shared, celId, rect, rect)
+                clears += RegionClear(layer.id, shared, rect)
+            }
             layer.copy(sharedCelId = shared, cels = layer.cels + Cel(celId),
-                regions = layer.regions + RegionFrames(boardId, mapOf(frameId to celId)))
+                regions = layer.regions + RegionFrames(boardId, mapOf(frameId to celId), held = !animates))
         }
         val next = doc.copy(version = DOC_VERSION, layers = layers,
             boards = doc.boards + Board(boardId,name,BoardKind.ANIMATION,rect,

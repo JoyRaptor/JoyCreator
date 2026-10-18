@@ -20,10 +20,15 @@ object BoardDocumentOps {
     fun createSprite(doc: JbDocument, name: String, rect: RectPx, grid: SpriteGrid, ids: () -> String): RegionChange =
         createPassive(doc, name, rect, BoardKind.SPRITE, grid, ids)
 
-    fun createAnimation(doc: JbDocument, name: String, rect: RectPx, ids: () -> String): RegionChange {
+    /**
+     * A new Animation board (a clip, ANIMATION_CLIPS C2) animates only the active layer (or [animate] when given); every
+     * other layer is still there and its pixels stay on the shared canvas. "Animates in this board" adds more layers.
+     */
+    fun createAnimation(doc: JbDocument, name: String, rect: RectPx, ids: () -> String,
+                        animate: Set<String>? = (doc.activeLayerId ?: doc.layers.lastOrNull()?.id)?.let { setOf(it) }): RegionChange {
         checkRect(rect)
         checkName(name)
-        return RegionDocumentOps.create(doc, name.trim(), rect, ids)
+        return RegionDocumentOps.create(doc, name.trim(), rect, ids, animate)
     }
 
     fun rename(doc: JbDocument, boardId: String, name: String): JbDocument {

@@ -84,7 +84,7 @@ class NativeLinesFootprintTest {
     @Test fun nothingToDrawOrNoBrushIsEmptyAndBrokenSamplesAreSkipped() {
         assertTrue(NativeLines.cpuFootprint(stroke(), null).isEmpty())
         assertTrue(NativeLines.cpuFootprint(stroke().copy(samples = emptyList()), pen(8f)).isEmpty())
-        val broken = stroke().copy(samples = listOf(PenSample(Float.NaN, 5f, 0.0), PenSample(30f, 30f, 8.0)))
+        val broken = stroke().copy(samples = listOf(PenSample(Float.NaN, 5f, 0.0), PenSample(100f, 100f, 8.0)))
         assertEquals(setOf(Tiles.key(0, 0)), NativeLines.cpuFootprint(broken, pen(8f)))
     }
 

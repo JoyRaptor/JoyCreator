@@ -31,6 +31,10 @@ internal object LineArchiveFixture {
             slabs = mapOf(SlabKey("l", "c", "0_0", 2) to tile(9)),
             looks = mapOf(Triple("l", "c", "0_0") to tile(13)), brushes = mapOf(brush.id to brush))
     }
+    /** [c] with every upper slab given an operator this screen cannot show yet ("overlay"): still refused on open (v1.2). */
+    fun overlay(c: JbContents): JbContents = c.copy(doc = c.doc.copy(layers = c.doc.layers.map { l ->
+        l.copy(cels = l.cels.map { cel -> cel.copy(slabs = cel.slabs.map { if (it.seq >= 1) it.copy(op = "overlay") else it }) })
+    }))
     /** Editable lines v1: the mixed fixture without its upper pixel slab, i.e. ordinary lines, a saved look and a frozen brush. */
     fun linesOnly(): JbContents {
         val mixed = contents()

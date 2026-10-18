@@ -53,7 +53,7 @@ class LineOpenPlan private constructor(
         }
 
         /**
-         * Why this screen cannot open [contents]' pixel slabs, as the end of a sentence; null = it can (v1.2 H13). The
+         * Why this screen cannot open [contents]' pixel slabs ("this drawing has …"); null = it can (v1.2 H13). The
          * archive has already checked that every declared slab has its bytes and that no slab shares a line's seq; this
          * adds what the engine composes: a stack starts with its plain bottom (seq 0), each upper slab's operator is one
          * the engine applies, and one seq means one operator across a cel's tiles (a slab is ONE item).
@@ -64,11 +64,11 @@ class LineOpenPlan private constructor(
                 val opOfSeq = HashMap<Long, String>()
                 for ((_, stack) in CelLayout.stacks(cel)) {
                     val bottom = stack.first()
-                    if (bottom.seq != CelLayout.BASE_SEQ || bottom.op != "normal") return "a pixel slab stack in this drawing does not start from its tile"
+                    if (bottom.seq != CelLayout.BASE_SEQ || bottom.op != "normal") return "this drawing has a pixel slab stack that does not start from its tile, which this screen cannot show yet"
                     for (s in stack.drop(1)) {
-                        if (s.seq < 1) return "a pixel slab in this drawing is out of order"
-                        if (s.op !in OPERATORS) return "a pixel slab in this drawing uses the ${s.op} operator, which this screen does not paint yet"
-                        if (opOfSeq.getOrPut(s.seq) { s.op } != s.op) return "one pixel slab in this drawing has two operators"
+                        if (s.seq < 1) return "this drawing has a pixel slab out of order, which this screen cannot show yet"
+                        if (s.op !in OPERATORS) return "this drawing has a pixel slab with the ${s.op} operator, which this screen cannot show yet"
+                        if (opOfSeq.getOrPut(s.seq) { s.op } != s.op) return "this drawing has a pixel slab with two operators, which this screen cannot show yet"
                     }
                 }
             }

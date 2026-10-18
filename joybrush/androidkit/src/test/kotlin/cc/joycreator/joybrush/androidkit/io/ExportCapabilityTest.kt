@@ -106,7 +106,10 @@ class ExportCapabilityTest {
     // entry point before a callback runs or anything is rebuilt; ordinary line storage and frozen brushes are not.
     @Test fun snapshotsStillRefusePixelSlabsAndCapturedLinesBeforeCallbacksOrReconstruction() {
         val base = pixel()
-        val slabbed = listOf(LineArchiveFixture.contents(), withCel(Cel("c", tiles = listOf("0_0"), slabs = listOf(SlabRef("0_0", 0)))))
+        // v1.2: slabs the engine composes are admitted; these two stacks it cannot show yet are refused.
+        val slabbed = listOf(LineArchiveFixture.overlay(LineArchiveFixture.contents()),
+            withCel(Cel("c", tiles = listOf("0_0"), slabs = listOf(SlabRef("0_0", 3), SlabRef("0_0", 4)))))
+        CanvasSnapshot.requireSupportedPayload(LineArchiveFixture.contents())
         for (contents in slabbed + LineArchiveFixture.capturedLines()) {
             for (snapshot in snapshotCalls(contents, base)) assertFailsWith<JbArchiveException> { snapshot() }
         }

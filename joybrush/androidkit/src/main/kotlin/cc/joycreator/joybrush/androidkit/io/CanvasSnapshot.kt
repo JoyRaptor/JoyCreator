@@ -21,7 +21,7 @@ object CanvasSnapshot {
      * are refused before anything is replaced.
      */
     internal fun requireSupportedPayload(contents: JbContents) {
-        LineOpenPlan.refusal(contents)?.let { throw JbArchiveException("This drawing has $it; your saved drawing was kept") }
+        LineOpenPlan.refusal(contents)?.let { throw JbArchiveException(it.replaceFirstChar { c -> c.uppercaseChar() } + "; your saved drawing was kept") }
         if (contents.strokes.values.any { lines -> lines.any { it.capturedPhysicalSource != null } })
             throw JbArchiveException("This drawing has exact-copy lines that this screen cannot show yet; your saved drawing was kept")
     }

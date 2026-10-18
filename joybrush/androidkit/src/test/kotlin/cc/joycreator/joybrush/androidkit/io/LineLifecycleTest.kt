@@ -39,7 +39,7 @@ class LineLifecycleTest {
     }
 
     @Test fun stagedReadRefusesSlabbedDrawingsWithoutChangingOrDeletingStagedBytes() = inDirectory { dir ->
-        for (contents in listOf(LineArchiveFixture.contents(), slabOnly())) {
+        for (contents in listOf(LineArchiveFixture.overlay(LineArchiveFixture.contents()), LineArchiveFixture.overlay(slabOnly()))) {
             val bytes = LineArchiveFixture.encoded(contents)
             val staged = StagedDrawing.stage(dir, ByteArrayInputStream(bytes))
             staged.use {
@@ -74,10 +74,10 @@ class LineLifecycleTest {
         val before = pixel()
         recovery.rememberOpened(before)
         val bytes = opened.readBytes()
-        assertFailsWith<JbArchiveException> { recovery.rememberOpened(slabOnly()) }
+        assertFailsWith<JbArchiveException> { recovery.rememberOpened(LineArchiveFixture.overlay(slabOnly())) }
         assertContentEquals(bytes, opened.readBytes())
         val working = File(dir, "current.joybrush")
-        JbArchive.save(working, slabOnly())
+        JbArchive.save(working, LineArchiveFixture.overlay(slabOnly()))
         recovery.rememberWorking(working)
         val preserved = dir.listFiles()!!.associate { it.name to it.readBytes() }
         val error = assertFailsWith<JbArchiveException> { recovery.read(before.doc.id) }.message.orEmpty()
@@ -104,7 +104,11 @@ class LineLifecycleTest {
 
     @Test fun snapshotRejectsPixelSlabsBeforeReconstruction() {
         val fresh = pixel()
-        for (unsupported in listOf(LineArchiveFixture.contents(), slabOnly())) assertSnapshotRefuses(unsupported, fresh)
+        // v1.2: slabs the engine composes are kept (LineSlabSaveTest); a stack it cannot show is still refused.
+        for (unsupported in listOf(LineArchiveFixture.overlay(LineArchiveFixture.contents()), LineArchiveFixture.overlay(slabOnly())))
+            assertSnapshotRefuses(unsupported, fresh)
+        CanvasSnapshot.requireSupportedPayload(LineArchiveFixture.contents())
+        CanvasSnapshot.requireSupportedPayload(slabOnly())
     }
 
     @Test fun snapshotRejectsCapturedSourceLinesBeforeReconstruction() {

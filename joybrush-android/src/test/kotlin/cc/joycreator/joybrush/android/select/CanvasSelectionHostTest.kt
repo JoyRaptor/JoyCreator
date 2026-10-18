@@ -305,7 +305,7 @@ class CanvasSelectionHostTest {
         assertTrue(rig.canvas.submitted.isEmpty())
         assertTrue(rig.host.bakeLines(setOf(planeP.address("a"))))
         assertEquals(LineEdit.Bake(setOf(planeP.address("a"))), rig.canvas.submitted.single().first)
-        assertEquals(listOf("b"), rig.host.activeLines().map { it.id }, "a baked line is pixels now, not a line")
+        assertEquals("a baked line is pixels now, not a line", listOf("b"), rig.host.activeLines().map { it.id })
     }
 
     @Test fun editsInFlightAreDroppedWhenAnotherDrawingOpens() {

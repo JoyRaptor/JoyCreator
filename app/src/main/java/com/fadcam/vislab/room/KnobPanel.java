@@ -253,9 +253,10 @@ final class KnobPanel extends LinearLayout {
         VisType t = types.type(str(L, "type"));
         if (t == null) return;
         body.addView(section(c, name(L, t) + ": layer"));
-        VisKnob opacity = new VisKnob("opacity", "Opacity", -1, 0, 1, 1, 0, false, false, null, null);
+        // The controls every layer has (types.json "layer"): Opacity, Reactivity, Softness here,
+        // the Place group after the layer's own knobs.
         VisKnob add2 = new VisKnob("add", "Light / paint", -1, 0, 1, 1, 0, false, false, null, null);
-        body.addView(knobRow(c, opacity, L));
+        for (VisKnob k : types.layer.knobs) if (k.group == null) body.addView(knobRow(c, k, L));
         body.addView(knobRow(c, add2, L));
         body.addView(toggleRow(c, "Under echo", !(L.has("echo") && L.get("echo").isJsonPrimitive() && !L.get("echo").getAsBoolean()),
                 "Draw into the echo trails, or crisp above them", on -> {
@@ -294,6 +295,15 @@ final class KnobPanel extends LinearLayout {
             body.addView(row);
         }
         buildKnobs(t, knobsOf(L));
+        String group = null;
+        for (VisKnob k : types.layer.knobs) {
+            if (k.group == null) continue;
+            if (!k.group.equals(group)) {
+                body.addView(section(c, k.group));
+                group = k.group;
+            }
+            body.addView(knobRow(c, k, L));
+        }
     }
 
     private void buildEcho(@NonNull VisScene s) {

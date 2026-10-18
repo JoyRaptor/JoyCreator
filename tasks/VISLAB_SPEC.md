@@ -40,13 +40,37 @@ premultiplied alpha, one blend (ONE, ONE_MINUS_SRC_ALPHA); a knob is a number or
 `{"v": base, "mod": {"kick": 0.4}}` (amount = share of the knob's range). Signals: bass low mid
 high air level voice bright kick snare hat beat beatSine bar energy slow wave.
 
+**Speeds (`"rate": true`, 49 knobs, 10-18).** A shader that does `TIME * SPIN` jumps by the whole
+elapsed time whenever SPIN changes: with a music link, Spiral Banner spun whole turns on every
+kick. Knobs a shader multiplies by TIME are marked `"rate"`; with a music link the host keeps
+the distance travelled and puts distance / TIME in the slot, so `TIME * slot` = distance and the
+beat speeds it up smoothly. Shaders unchanged. An edit carries the distance on
+(`KnobSet.carryFrom`, pilot `engine.travel`). New shader using `TIME * knob`: mark the knob.
+
+**Every layer's own controls (Lab, 10-18).** types.json `"layer"`: Opacity, Reactivity (scales
+every music link of the layer, 0 calm .. 2 wild), Softness, and Place (Move across, Move up,
+Size, Turn). Stored on the layer itself (`"turn": {"v": 10, "mod": {...}}` works). Place is NOT
+a moved picture: the layer is made in that space (`uView`; `placeIn` in fullscreen.vert,
+`placeOut` in the point/line/particle shaders), so an aurora keeps its curtains to the screen
+edge and a particle system flies as one. Living layers' simulations stay in their own space;
+grid effects (pattern growth, slime, spectrogram) end at their grid's edge. Softness alone
+needs the layer drawn on its own (half size) and laid back with `soften.frag`.
+
 ## 3. Look file format (`joy.vis/1`)
 
 Plain, hand-editable JSON: `id`, `name`, `family`, `description`, `palette` (5 hex), `background`
 (hex or null = see-through), `layers` [{`type`, `name`, `opacity`, `add` (0 paint / 1 light),
 `echo` (under the trails?), `res`, `seed`, `palette`, `image`, `p` {knobs}}], `echo` {`p`},
-`post` {`p`}. Anything out of range or unknown is fixed on load by `LookValidator` with a
-plain-language note (never fatal).
+`post` {`p`}. Anything out of range is fixed on load by `LookValidator` with a plain-language
+note (never fatal).
+
+**What a build does not know, it keeps (10-18).** An unknown layer type, setting or music
+signal stays in the file untouched (reported, not drawn). Why: the app writes back what it
+loaded, and on 2026-10-18 a build from another lane without the Words layer (installed on the
+Note 9 at 05:42) opened VisLab and deleted the words from all ten lyrics looks in
+`Supplies/Looks`. Restored (the damaged copies are in the folder's Trash, "(words lost)").
+**Builds from before this fix still strip**: any lane installing a branch without VisLab's
+latest on the Note 9 should merge `joy-creator` first.
 
 ## 4. Where looks live (owner's supplies ruling, 10-16)
 
@@ -71,6 +95,20 @@ plain-language note (never fatal).
 - Debug builds log `gpu living/layers/bloom/finish` ms per stage (`GpuTimer`).
 - Heavy looks: Crystal (Voronoi; second pass now 3x3), Gyroid Dive (raymarch), Ink and Meltdown
   (echo). Next lever if needed: per-layer `res` on the procedural layers.
+- **Words (10-18).** The three-part split was only pilot-tested and cost the Note 9 dearly
+  (Written in Stars 11-19 fps, Smoke Words 17-25, Cigar Smoke 12-27). Fixes: a reach test per
+  word sized by its age (`inReach`), no swirl (curl2 = 4 noise samples) on letters that are not
+  leaving, 2D noise for the sparkle drift, sines for the rising path's per-word wander. Now all
+  lyrics looks 30-57 fps. Rule: never put per-word noise on every pixel; a constant per word is
+  not hoisted by the GPU.
+- **Heat (Note 9, 10-18, 24 min of looks back to back, charging at 100%).** Back of the phone
+  36 -> 40 C, battery 31 -> 37 C, graphics chip 55-67 C, CPU peak 82 C. Android said SEVERE for
+  ~2.5 min at the 18-minute mark and cut the graphics clock 710 -> 414 MHz; the auto-quality
+  absorbed it (frame rate held, picture softer) and the phone cooled back to normal on lighter
+  looks. **Heat guard** (`view/HeatGuard`): from SEVERE until LIGHT the visualiser caps itself at
+  half resolution so the phone cools without the clock cut (which also slows a screen
+  recording). The log line shows `heat N`. Seen working 10-18 04:10 after hours of testing:
+  `heat 3` -> scale held at 50%, 60 fps.
 
 ## 6. Joybot (JOYBOT lane wires it)
 
@@ -175,7 +213,13 @@ out of long loops (find the word, then draw it once).
 | 45-60 fps on Note 9 | ✅ most looks; Crystal, Gyroid Dive lower |
 | Floating overlay + recording toggle | ✅ device-tested 10-17 (incl. a real recording) |
 | Studio overlay, scrubbing, export, mini editor | ❌ section 7 |
-| Words layer (art, not captions), 10 Lyrics looks | ✅ pilot + Note 9, 50-60 fps; Studio feed owed (7.5) |
+| Words layer (art, not captions), 10 Lyrics looks | ✅ pilot + Note 9, 30-57 fps after the 10-18 fixes; Studio feed owed (7.5) |
+| Spiral Banner: log spiral filled with the song, slow turn (no beat jumps) | ✅ Note 9 10-18 |
+| Every layer: Reactivity, Softness, Place (made in its own space) | ✅ engine + pilot + app drawer, Note 9 (Turn tried on Spiral Banner's space) |
+| Speeds with music links move smoothly (`rate`) | ✅ tests + pilot + Note 9 |
+| Heat guard | ✅ seen working on the Note 9 10-18 04:10: `heat 3` (SEVERE) -> half resolution, 60 fps |
+| A build keeps what it does not know in a look | ✅ tests; the ten lyrics looks restored on the Note 9 |
+| Lab: per-layer colours, start from nothing, parts shelf, my parts | ❌ next |
 | Lobby Viz Lab hero shows the last look | ❌ |
 
 ## 10. Owner rulings in force

@@ -120,13 +120,15 @@ public class VisLooksTest {
                 + "\"post\":{\"p\":{\"bloom\":\"lots\"}}}").getAsJsonObject();
         java.util.List<String> notes = com.fadcam.vislab.model.LookValidator.fix(messy, types);
         JsonObject sp = messy.getAsJsonArray("layers").get(0).getAsJsonObject();
-        check(messy.getAsJsonArray("layers").size() == 1, "unknown type and non-object layer removed");
+        // What it does not know it keeps (a newer Joy Creator wrote it); broken things it fixes.
+        check(messy.getAsJsonArray("layers").size() == 2, "non-object layer removed, unknown type KEPT");
+        check(messy.getAsJsonArray("layers").get(1).getAsJsonObject().get("type").getAsString().equals("warp-drive"), "the unknown layer is untouched");
         check(sp.get("opacity").getAsFloat() == 1f, "opacity clamped to 1");
         check(sp.getAsJsonObject("p").get("height").getAsFloat() == spec.knob("height").max, "height clamped to max");
         check(sp.getAsJsonObject("p").get("mode").getAsFloat() == 3f, "choice rounded to an option");
-        check(!sp.getAsJsonObject("p").has("bogus"), "unknown knob dropped");
+        check(sp.getAsJsonObject("p").has("bogus"), "unknown knob kept");
         JsonObject gm = sp.getAsJsonObject("p").getAsJsonObject("glow").getAsJsonObject("mod");
-        check(gm.get("kick").getAsFloat() == 2f && !gm.has("vibes"), "music link capped; unknown signal dropped");
+        check(gm.get("kick").getAsFloat() == 2f && gm.has("vibes"), "music link capped; unknown signal kept");
         check(messy.get("background").isJsonNull(), "bad background becomes see-through");
         check(messy.getAsJsonArray("palette").get(1).getAsString().equals("#808080"), "bad palette colour becomes grey");
         check(!messy.getAsJsonObject("post").getAsJsonObject("p").has("bloom"), "non-number knob back to default");
@@ -147,6 +149,51 @@ public class VisLooksTest {
         check(Math.abs(c[0] - 0.2158605f) < 1e-4, "srgb 128 -> linear 0.2159");
         check(VisScene.hexToLinear("#F00", new float[3], 0)[0] == 1f, "short hex");
         check(VisScene.hexToLinear("not a colour", new float[3], 0)[1] == 0f, "bad hex reads as black");
+
+        // 6. The controls every layer has (types.json "layer"): Reactivity scales the music links,
+        // Place reads back, out-of-range values are clamped.
+        JsonObject lay = JsonParser.parseString("{\"id\":\"y\",\"layers\":["
+                + "{\"type\":\"spectrum\",\"react\":0,\"turn\":30,\"size\":0.5,\"p\":{\"height\":{\"v\":0.5,\"mod\":{\"kick\":0.25}}}},"
+                + "{\"type\":\"spectrum\",\"react\":2,\"p\":{\"height\":{\"v\":0.5,\"mod\":{\"kick\":0.25}}}},"
+                + "{\"type\":\"spectrum\",\"opacity\":0.4,\"soft\":7,\"turn\":{\"v\":10,\"mod\":{\"kick\":0.5}}}]}").getAsJsonObject();
+        java.util.List<String> layFix = com.fadcam.vislab.model.LookValidator.fix(lay, types);
+        check(layFix.size() == 1 && lay.getAsJsonArray("layers").get(2).getAsJsonObject().get("soft").getAsFloat() == 1f,
+                "softness 7 clamped to 1, nothing else touched " + layFix);
+        CompiledScene lc = new CompiledScene(new VisScene(lay), types, null);
+        for (CompiledScene.Layer L : lc.layers) L.eval(sig);
+        check(lc.layers.get(0).knobs.value(spec, "height", -1) == 0.5f, "Reactivity 0: the music link is still");
+        float doubled = 0.5f + 2f * 1f * 0.25f * (h.max - h.min);
+        check(Math.abs(lc.layers.get(1).knobs.value(spec, "height", -1) - doubled) < 1e-5,
+                "Reactivity 2: the music link doubled (" + lc.layers.get(1).knobs.value(spec, "height", -1) + " vs " + doubled + ")");
+        check(lc.layers.get(0).turn() == 30f && lc.layers.get(0).size() == 0.5f && lc.layers.get(0).x() == 0f, "Place reads back");
+        check(lc.layers.get(1).size() == 1f && lc.layers.get(1).turn() == 0f && lc.layers.get(1).soft() == 0f, "untouched layer sits as drawn");
+        check(lc.layers.get(2).opacity() == 0.4f, "opacity still read");
+        check(lc.layers.get(2).turn() > 10f, "a layer's own Turn can follow the music (" + lc.layers.get(2).turn() + ")");
+
+        // 7. A speed with a music link ("rate"): the shader's TIME x slot is the distance travelled,
+        // so a kick speeds it up for the kick, it never jumps by the whole elapsed time.
+        VisType words = types.type("words");
+        check(words.knob("spin").rate && words.knob("hueSpin").rate && !words.knob("size").rate, "speed knobs are marked rate");
+        JsonObject spun = JsonParser.parseString("{\"spin\": {\"v\": 0.05, \"mod\": {\"kick\": 0.03}}}").getAsJsonObject();
+        KnobSet sk = KnobSet.compile(words.knobs, spun);
+        int spinSlot = words.knob("spin").slot;
+        Features calm = new Features();
+        Signals s0 = new Signals();
+        s0.set(calm, 100.0);
+        sk.eval(s0);
+        check(Math.abs(100.0 * sk.params[spinSlot] - 5.0) < 1e-3, "starts as if it always ran at its own speed (" + 100.0 * sk.params[spinSlot] + ")");
+        Signals s1 = new Signals();
+        s1.set(f, 100.1);   // a kick for a tenth of a second
+        sk.eval(s1);
+        float kickSpeed = 0.05f + 1f * 0.03f * words.knob("spin").range();
+        double want7 = 5.0 + kickSpeed * 0.1;
+        check(Math.abs(100.1 * sk.params[spinSlot] - want7) < 1e-3, "a kick adds speed x its length, not x the time since the start ("
+                + 100.1 * sk.params[spinSlot] + " vs " + want7 + ")");
+        check(sk.values[words.indexOf("spin")] == kickSpeed, "editors still see the speed itself");
+        KnobSet sk2 = KnobSet.compile(words.knobs, spun);
+        sk2.carryFrom(sk);
+        sk2.eval(s1);
+        check(Math.abs(sk2.params[spinSlot] - sk.params[spinSlot]) < 1e-6, "an edit carries the distance on, no jump");
 
         System.out.println("VisLooksTest: " + types.types.size() + " primitives, " + looks + " looks, "
                 + (fails == 0 ? "PASS" : fails + " FAIL"));

@@ -29,6 +29,10 @@ public final class KnobSet {
     public final float[] values;
     /** Evaluated this frame, packed for the shader's {@code uP[12]}. */
     public final float[] params = new float[48];
+    /** Speeds with a music link: distance travelled so far, and the clock when last added to. */
+    private final double[] dist;
+    private final double[] distAt;
+    private final boolean[] distOn;
 
     private KnobSet(@NonNull List<VisKnob> knobs) {
         this.knobs = knobs;
@@ -37,6 +41,9 @@ public final class KnobSet {
         modSig = new int[n][];
         modAmt = new float[n][];
         values = new float[n];
+        dist = new double[n];
+        distAt = new double[n];
+        distOn = new boolean[n];
     }
 
     /** Compile {@code raw} (may be null: every knob at its default). */
@@ -82,6 +89,11 @@ public final class KnobSet {
 
     /** Evaluate every knob for this frame. {@code signals} null = no music (bases only). */
     public void eval(@Nullable Signals signals) {
+        eval(signals, 1f);
+    }
+
+    /** As {@link #eval(Signals)}, every music link scaled by {@code react} (a layer's Reactivity). */
+    public void eval(@Nullable Signals signals, float react) {
         for (int i = 0; i < base.length; i++) {
             VisKnob k = knobs.get(i);
             float v = base[i];
@@ -89,11 +101,45 @@ public final class KnobSet {
             if (ms != null && signals != null) {
                 float range = k.range();
                 float[] amt = modAmt[i];
-                for (int j = 0; j < ms.length; j++) v += signals.v[ms[j]] * amt[j] * range;
+                for (int j = 0; j < ms.length; j++) v += signals.v[ms[j]] * amt[j] * range * react;
                 v = Math.max(k.min - range, Math.min(k.max + range, v));
             }
             values[i] = v;
-            if (k.slot >= 0) params[k.slot] = v;
+            if (k.slot >= 0) params[k.slot] = k.rate && ms != null && signals != null ? travelled(i, v, signals.time) : v;
+        }
+    }
+
+    /**
+     * A speed with a music link: the shader works out TIME x speed, which jumps by the whole
+     * elapsed time whenever the speed changes (the owner's Spiral Banner spun whole turns on each
+     * kick). Keep the distance travelled instead and hand the shader distance / TIME, so its
+     * TIME x speed comes out as that distance: the beat speeds it up, smoothly.
+     */
+    private float travelled(int i, float v, double t) {
+        double dt = t - distAt[i];
+        if (!distOn[i] || dt < 0) {
+            dist[i] = base[i] * t;   // (re)start as if it had always run at its own speed
+            distOn[i] = true;
+        } else {
+            dist[i] += v * dt;
+        }
+        distAt[i] = t;
+        return t > 1e-3 ? (float) (dist[i] / t) : v;
+    }
+
+    /** After an edit recompiles the look: speeds carry on from where they were, no jump. */
+    public void carryFrom(@Nullable KnobSet prev) {
+        if (prev == null) return;
+        for (int i = 0; i < knobs.size(); i++) {
+            if (!knobs.get(i).rate) continue;
+            String id = knobs.get(i).id;
+            for (int j = 0; j < prev.knobs.size(); j++) {
+                if (!prev.knobs.get(j).id.equals(id) || !prev.distOn[j]) continue;
+                dist[i] = prev.dist[j];
+                distAt[i] = prev.distAt[j];
+                distOn[i] = true;
+                break;
+            }
         }
     }
 

@@ -56,6 +56,7 @@ uniform float uPx;        // scene units per target pixel (antialias width)
 uniform float uSeed;      // per-layer random seed
 uniform float uAdd;       // 0 = paint (hides), 1 = light (adds)
 uniform float uOpacity;   // layer opacity
+uniform vec4  uView;      // where this layer sits: move x, y (scene units), log2 size, turn (radians); zeros = as drawn
 uniform sampler2D uSpec;  // 128x1: r smooth, g peak-hold, b raw   (x = log frequency 30Hz..16kHz)
 uniform sampler2D uWave;  // 512x1: r left/mono, g right            (-1..1, triggered, gain-levelled)
 uniform sampler2D uHist;  // 128x64: r = spectrum, row 0 = now, row 63 = ~2 s ago
@@ -96,6 +97,14 @@ vec3 hueRotate(vec3 c, float a) {
 }
 
 mat2 rot2(float a) { float c = cos(a), s = sin(a); return mat2(c, s, -s, c); }
+
+// ---- Place: every layer can be moved, sized and turned (types.json "layer"). The layer is MADE
+// in its own space, not drawn and then moved like a card: an aurora keeps its curtains to the
+// edge of the screen, a particle system flies as one, a pattern runs on. Zeros = as drawn.
+// Screen -> layer (a full-screen layer asks "what is here?").
+vec2 placeIn(vec2 q) { return rot2(-uView.w) * (q - uView.xy) * exp2(-uView.z); }
+// Layer -> screen (points, lines and particles say "draw me here").
+vec2 placeOut(vec2 p) { return rot2(uView.w) * p * exp2(uView.z) + uView.xy; }
 
 // ---- Hashes (no sin, stable on mobile) ----
 float hash11(float p) { p = fract(p * 0.1031); p *= p + 33.33; p *= p + p; return fract(p); }

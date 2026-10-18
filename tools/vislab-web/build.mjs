@@ -13,7 +13,7 @@ const assets = path.resolve(here, '../../app/src/main/assets/vislab');
 const read = (p) => fs.readFileSync(p, 'utf8');
 
 const types = JSON.parse(read(path.join(assets, 'types.json')));
-const names = new Set(['common.glsl', 'fullscreen.vert', 'copy.frag', 'bloom_down.frag', 'bloom_up.frag', 'echo.frag', 'composite.frag']);
+const names = new Set(['common.glsl', 'fullscreen.vert', 'copy.frag', 'bloom_down.frag', 'bloom_up.frag', 'echo.frag', 'composite.frag', 'soften.frag']);
 for (const t of Object.values(types.types)) for (const k of ['frag', 'vert', 'sim', 'step', 'depositVert', 'depositFrag', 'diffuse']) if (t[k]) names.add(t[k]);
 const shaders = {};
 for (const n of names) shaders[n] = read(path.join(assets, 'shaders', n));

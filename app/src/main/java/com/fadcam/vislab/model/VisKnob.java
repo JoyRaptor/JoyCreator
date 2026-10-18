@@ -34,6 +34,12 @@ public final class VisKnob {
      */
     @Nullable public final String showKnob;
     @Nullable public final int[] showValues;
+    /**
+     * A speed the shader multiplies by TIME ("rate": true in types.json). With a music link the
+     * host keeps the distance travelled instead (see {@link KnobSet}): TIME x a changing speed
+     * jumps the picture by the whole elapsed time on every beat.
+     */
+    public boolean rate;
 
     public VisKnob(@NonNull String id, @NonNull String label, int slot, float min, float max,
                    float def, float step, boolean log, boolean toggle,

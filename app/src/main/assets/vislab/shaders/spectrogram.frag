@@ -14,6 +14,8 @@ out vec4 o;
 #define HUESPIN  uP[1].w
 
 void main() {
+    // Moved / sized / turned (placeIn): the grid ends where it ends; nothing beyond it.
+    if (any(lessThan(vUv, vec2(0.0))) || any(greaterThan(vUv, vec2(1.0)))) { o = vec4(0.0); return; }
     vec2 uv = vUv;
     if (TILT > 0.0) {
         float y = uv.y;

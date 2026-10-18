@@ -107,7 +107,11 @@ float grains(int i, vec2 q) {
 float points(int i, vec2 q, float lod) {
     vec4 w = uWord[i];
     vec4 b = uWordB[i];
-    vec2 qq = q - curl2(vec3(q * 0.7, b.y)) * gScatter;     // leaving grains drift apart
+    // Leaving grains drift apart. Only while they leave: the swirl is 4 noise samples, and paid
+    // for every word on every pixel it took Written in Stars from 60 to 11-19 fps on the Note 9.
+    // Two 2D noises, not the 3D swirl (curl2, 4 noise samples): Written in Stars still ran at
+    // 14-23 fps on the Note 9 with every leaving word swirling every pixel round it.
+    vec2 qq = gScatter > 0.0 ? q - vec2(snoise(q * 0.7 + b.y), snoise(q * 0.7 + b.y + 17.3)) * gScatter : q;
     if (ST < 4.5) {
         float N = ST < 3.5 ? 14.0 : 12.0;
         vec2 g = qq * N;
@@ -301,6 +305,42 @@ float margin() {
     return 0.12;
 }
 
+// Could word i's light reach uv at all, given how far its behaviour moves it (smoke rises and
+// curls, a burst opens and sags, sparkle drifts)? A cheap test before the costly drawing: every
+// pixel used to work out the smoke for every word, and Cigar Smoke ran at 12-27 fps on the Note 9.
+bool inReach(int i, vec2 uv) {
+    float W = uWord[i].w;
+    vec2 q = vec2((uv.x - 0.5) * W, uv.y - 0.5);   // text heights from the word's centre
+    float bh = BH;
+    float gx = 0.5 * W + 0.2, up = 0.7, down = 0.7;
+    // How far it reaches NOW (its age), not the most it ever could: a word still forming, or not
+    // yet sung, stays close to its box. Swirls (curl2) rarely push past 1.2x their amount.
+    float since = -uWord[i].y, gone = -uWord[i].z;
+    if (bh > 2.5 && bh < 3.5) {
+        float dis = clamp(gone * max(SMOKEK, 0.2) / 2.6, 0.0, 1.0);
+        float amp = (dis * 1.6 + (1.0 - smoothstep(-0.7, 0.0, since)) * 0.9) * SMOKEK * 1.2;
+        gx += amp;
+        up += dis * dis * 4.0 * SMOKEK + amp;
+        down += amp;
+    } else if (bh > 3.5 && bh < 4.5) {
+        float sb = max(since, 0.0);
+        float e = 1.0 + sb * 0.3;
+        gx = 0.5 * W * e + 0.4;
+        up = 0.5 * e + 0.4;
+        down = 0.5 * e + 0.4 + 0.11 * sb * sb / max(SIZE, 0.02);
+    } else if (bh > 0.5 && bh < 1.5) {
+        gx = 0.75 * W + 0.3;
+        up = down = 0.9;
+    } else if (bh > 4.5) {
+        float lv = clamp((gone - 0.2) / 2.0, 0.0, 1.0);
+        float amp = lv * 1.5 * 1.2;
+        gx += amp;
+        up += lv * 0.6 + amp;
+        down += amp;
+    }
+    return abs(q.x) < gx && q.y < up && -q.y < down;
+}
+
 // Draw word i at uv (its box) with its behaviour and letters.
 vec3 drawWord(int i, vec2 uv, float sz, float fade, bool alone, inout float cover) {
     float grey, blur;
@@ -431,24 +471,30 @@ vec3 weave(vec2 p, inout float cover) {
 
 // ---- 1 spiral
 vec3 spiral(vec2 p, inout float cover) {
-    // Laid on a disc tipped back into the screen, turning.
+    // Laid on a disc tipped back into the screen, turning slowly (TIME x SPIN: a music link on
+    // Spin speeds the turn up smoothly, see "rate" in types.json; it once jumped whole turns).
     float ct = cos(TILT), st = sin(TILT);
     float zz = max(1.0 + p.y * st * 0.9, 0.15);
     vec2 q = vec2(p.x, p.y / max(ct, 0.25)) / zz;
     q = rot2(TIME * SPIN) * q;
-    float r = length(q);
+    float r = max(length(q), 1e-4);
     float th = -atan(q.y, q.x);                    // clockwise, so text reads left to right
-    float A = SIZE * (1.5 + SPREAD) / TAU;         // radius gained per radian: band plus gap
-    float turn = floor((r / A - th) / TAU + 0.5);
-    float phi = th + TAU * turn;
-    if (phi < 1.0) return vec3(0.0);
-    float v = (r - A * phi) / SIZE;
-    float R0 = 0.62 * min(EXT.x, EXT.y);           // where the word being sung sits
-    float phi0 = R0 / A;
-    float f = 0.5 * A * (phi * phi - phi0 * phi0) / SIZE;   // arc length from the anchor
-    // Words wind inward and shrink into the centre; the coming ones arrive from outside.
-    float fade = smoothstep(1.0, 4.0, phi) * smoothstep(1.6 * max(EXT.x, EXT.y), 0.9 * max(EXT.x, EXT.y), r);
-    return along(f, v, fade, 0.0, SIZE / zz, 0.0, cover) + banner(v, f, fade);
+    // A log spiral: the text shrinks with the radius, so every turn holds the same number of
+    // words and the song fills the coil to its centre (owner, 10-18: words moving round the
+    // spiral, filling it out). The word being sung sits on the rim; the lines already sung wind
+    // in behind it, the coming ones arrive from outside.
+    float R0 = 0.8 * min(EXT.x, EXT.y);
+    float c = SIZE / R0;                           // text height per unit of radius
+    float g = min(c * (1.5 + SPREAD), 0.9);        // each turn in is this much smaller
+    float k = -log(1.0 - g) / TAU;                 // radius growth per radian
+    float turn = floor((log(r / R0) / k - th) / TAU + 0.5);
+    float ph = th + TAU * turn;                    // radians along the coil from the rim word
+    float rc = R0 * exp(k * ph);                   // the middle of the coil here
+    float h = c * rc;                              // text height here
+    float v = (r - rc) / h;
+    float f = ph * sqrt(1.0 + k * k) / c;          // text heights along the coil from the rim word
+    float fade = smoothstep(0.006, 0.02, h) * smoothstep(1.6 * max(EXT.x, EXT.y), 0.9 * max(EXT.x, EXT.y), r);
+    return along(f, v, fade, 0.0, h / zz, 0.0, cover) + banner(v, f, fade);
 }
 
 // ---- 2 ring
@@ -601,6 +647,7 @@ vec3 flight(vec2 p, inout float cover) {
         float s = SIZE * (1.0 + PUMP * BASS * 0.15);
         vec2 q = (p * z - off) / s;
         vec2 uv = vec2(q.x / w.w + 0.5, q.y + 0.5);
+        if (!inReach(i, uv)) continue;
         float fade = clamp(1.0 - (z - 1.0) / (2.6 * SPEEDK * 2.5 + 0.5), 0.0, 1.0) * smoothstep(0.06, 0.35, z);
         col += drawWord(i, uv, s / z, fade, false, cover);
     }
@@ -648,6 +695,7 @@ vec3 standalone(vec2 p, bool centre, inout float cover) {
         }
         vec2 q = (p - home) / s;
         vec2 uv = vec2(q.x / w.w + 0.5, q.y + 0.5);
+        if (!inReach(i, uv)) continue;
         col += drawWord(i, uv, s, 1.0, true, cover);
         if (burst) col += mix(vec3(1.0, 0.95, 0.8), wordColour(i), 0.3) * exp(-length(p - home) * 26.0) * exp(w.y * 10.0) * 0.45;
     }
@@ -676,11 +724,15 @@ vec3 rising(vec2 p, inout float cover) {
         if (age < -0.25 || age > 6.0) continue;
         float rise = max(age, 0.0);
         vec2 c = src + vec2(0.0, 0.16 + rise * 0.2 * SPEEDK + max(-w.z, 0.0) * max(-w.z, 0.0) * 0.03);
-        c.x += sin(rise * 1.6 + hz * 6.3) * 0.06 * rise * WEAVE + snoise(vec2(rise * 0.4, hz * 9.0)) * 0.1 * rise * WEAVE;
+        // Wander: two slow sines per word (a noise here cost every pixel 16 noise samples).
+        c.x += (sin(rise * 1.6 + hz * 6.3) * 0.06 + (sin(rise * 0.43 + hz * 9.0) * 0.6 + sin(rise * 0.71 + hz * 23.0) * 0.4) * 0.1) * rise * WEAVE;
         float s = SIZE * (0.8 + rise * 0.22) * smoothstep(-0.25, 0.2, age);
         if (s < 1e-3) continue;
         vec2 q = rot2(sin(rise * 0.9 + hz * 4.0) * 0.12 * WEAVE) * (p - c);
-        q += curl2(vec3(q / s * 0.45, TIME * 0.3 + hz * 7.0)) * s * 0.015 * WEAVE;
+        if (!inReach(i, vec2(q.x / (s * w.w) + 0.5, q.y / s + 0.5))) continue;
+        // A small wobble (1.5% of the word): sines, not the 4-noise swirl it used to pay for.
+        vec2 qs = q / s;
+        q += vec2(sin(qs.y * 2.7 + TIME * 1.1 + hz * 7.0), sin(qs.x * 2.1 - TIME * 0.9 + hz * 3.0)) * s * 0.02 * WEAVE;
         vec2 uv = vec2(q.x / (s * w.w) + 0.5, q.y / s + 0.5);
         col += drawWord(i, uv, s, 1.0 - smoothstep(4.0, 6.0, rise), false, cover);
     }

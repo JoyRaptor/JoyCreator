@@ -39,7 +39,7 @@
     const bust = '?v=' + Date.now();
     const get = async (p) => { const r = await fetch(base + p + bust, { cache: 'no-store' }); if (!r.ok) throw new Error('fetch ' + p + ' ' + r.status); return r; };
     const types = await (await get('types.json')).json();
-    const names = new Set(['common.glsl', 'fullscreen.vert', 'copy.frag', 'bloom_down.frag', 'bloom_up.frag', 'echo.frag', 'composite.frag']);
+    const names = new Set(['common.glsl', 'fullscreen.vert', 'copy.frag', 'bloom_down.frag', 'bloom_up.frag', 'echo.frag', 'composite.frag', 'soften.frag']);
     for (const t of Object.values(types.types)) for (const k of ['frag', 'vert', 'sim', 'step', 'depositVert', 'depositFrag', 'diffuse']) if (t[k]) names.add(t[k]);
     const shaders = {};
     await Promise.all([...names].map(async (n) => { shaders[n] = await (await get('shaders/' + n)).text(); }));
@@ -418,10 +418,11 @@
           const t = T.types[L.type];
           const s = document.createElement('div'); s.className = 'sec'; s.textContent = (L.name || t.label) + ' - layer'; body.appendChild(s);
           const lp = document.createElement('div');
-          knobRows(lp, [
-            { id: 'opacity', label: 'Opacity', min: 0, max: 1, def: 1 },
-            { id: 'add', label: 'Light / paint', min: 0, max: 1, def: 1 }
-          ], { x: L }, 'x');
+          // The controls every layer has (types.json "layer"): Opacity, Reactivity, Softness here,
+          // the Place group after the layer's own knobs.
+          const common = T.layer ? T.layer.params : [{ id: 'opacity', label: 'Opacity', min: 0, max: 1, def: 1 }];
+          knobRows(lp, common.filter((d) => !d.group)
+            .concat([{ id: 'add', label: 'Light / paint', min: 0, max: 1, def: 1 }]), { x: L }, 'x');
           const echoRow = document.createElement('div'); echoRow.className = 'row';
           echoRow.innerHTML = '<label>Under echo</label>';
           const eb = document.createElement('button'); eb.className = 'pill' + (L.echo !== false ? ' on' : ''); eb.textContent = L.echo !== false ? 'Yes' : 'No';
@@ -441,6 +442,7 @@
           }
           body.appendChild(lp);
           knobRows(body, t.params, L, 'p');
+          knobRows(body, common.filter((d) => d.group), { x: L }, 'x');
         }
       } else if (tab === 'finish') {
         scene.post = scene.post || {};

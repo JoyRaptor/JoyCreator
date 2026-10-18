@@ -427,7 +427,9 @@ public final class VisRenderer {
         if (scene == null) return;
         if (compiled == null || compiled.edits != scene.edits() || b != compiledBrand) {
             try {
+                CompiledScene before = compiled;
                 compiled = new CompiledScene(scene, types, b);
+                compiled.carryFrom(before);
                 compiledBrand = b;
                 // Layers that were removed must not keep GPU memory.
                 java.util.Set<Object> alive = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
@@ -511,14 +513,18 @@ public final class VisRenderer {
 
     private void drawLayer(@NonNull CompiledScene.Layer L, @NonNull GlTarget target) {
         VisType t = L.type;
-        float opacity = L.opacity.values[0];
+        float opacity = L.opacity();
         if (opacity <= 0.001f) return;
         String draw = t.draw;
         boolean fullscreenLike = VisType.DRAW_FULLSCREEN.equals(draw) || VisType.DRAW_IMAGE.equals(draw)
                 || VisType.DRAW_SLIME.equals(draw) || VisType.DRAW_RD.equals(draw) || VisType.DRAW_WORDS.equals(draw);
         GlTarget dst = target;
         float px = pxScene;
-        if (fullscreenLike && L.res < 0.99f) {
+        // Moved / sized / turned needs nothing here: the layer is made in that space (useDrawn).
+        // Only softness needs the layer on its own first, at half size (cheaper; the softening
+        // hides it).
+        boolean soft = L.soft() > 0.001f;
+        if (soft || (fullscreenLike && L.res < 0.99f)) {
             dst = half;
             px = pxScene * 2f;
             clear(dst);
@@ -529,12 +535,12 @@ public final class VisRenderer {
         float drawOpacity = dst == target ? opacity : 1f;
         if (VisType.DRAW_FULLSCREEN.equals(draw)) {
             GlProgram p = program("fullscreen.vert", t.frag);
-            useLayer(p, L, px, drawOpacity, null);
+            useDrawn(p, L, px, drawOpacity);
             drawFullscreen();
         } else if (VisType.DRAW_IMAGE.equals(draw)) {
             int[] img = imageTexture(L);
             GlProgram p = program("fullscreen.vert", t.frag);
-            int unit = useLayer(p, L, px, drawOpacity, null);
+            int unit = useDrawn(p, L, px, drawOpacity);
             tex(p, "uImage", img[0], unit);
             GLES30.glUniform1f(p.u("uImageAspect"), img[2] > 0 ? (float) img[1] / img[2] : 1f);
             drawFullscreen();
@@ -551,6 +557,7 @@ public final class VisRenderer {
             double lead = L.knobs.value(t, "lead", 3f);
             if (beh == 3) back = Math.max(back, 3.2 / Math.max(L.knobs.value(t, "smoke", 1f), 0.2f));
             if (beh == 4 || beh == 5) back = Math.max(back, 3.0);
+            if (path == 1) back = Math.max(back, 14.0);   // the spiral fills with the lines already sung
             if (beh == 4) lead = Math.max(lead, 0.8);
             if (beh == 5) lead = Math.max(lead, 1.3);
             // A ribbon carrying the words away shows the ones already sung, far off: keep those.
@@ -563,7 +570,7 @@ public final class VisRenderer {
             String defs = "#define WPATH " + path + "\n#define BEHAVIOUR " + beh + "\n#define LETTER_STYLE "
                     + Math.round(L.knobs.value(t, "letters", 0f)) + "\n";
             GlProgram p = program("fullscreen.vert", t.frag, defs);
-            int unit = useLayer(p, L, px, drawOpacity, null);
+            int unit = useDrawn(p, L, px, drawOpacity);
             tex(p, "uWords", feed.texture(), unit);
             GLES30.glUniform4fv(p.u("uWord"), com.fadcam.vislab.words.WordFeed.SLOTS, feed.u, 0);
             GLES30.glUniform4fv(p.u("uWordB"), com.fadcam.vislab.words.WordFeed.SLOTS, feed.ub, 0);
@@ -572,14 +579,14 @@ public final class VisRenderer {
             drawFullscreen();
         } else if (VisType.DRAW_INSTANCED.equals(draw)) {
             GlProgram p = program(t.vert, t.frag);
-            useLayer(p, L, px, drawOpacity, null);
+            useDrawn(p, L, px, drawOpacity);
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLES, 0, t.verts, instances(L));
         } else if (VisType.DRAW_PARTICLES.equals(draw)) {
             LivingLayers.State st = living.get(L.source);
             if (!(st instanceof LivingLayers.Particles) || ((LivingLayers.Particles) st).cur == null) return;
             LivingLayers.Particles ps = (LivingLayers.Particles) st;
             GlProgram p = program(t.vert, t.frag);
-            int unit = useLayer(p, L, px, drawOpacity, null);
+            int unit = useDrawn(p, L, px, drawOpacity);
             tex(p, "uState0", ps.cur.texs[0], unit++);
             tex(p, "uState1", ps.cur.texs[1], unit);
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLES, 0, 6, ps.n);
@@ -587,18 +594,32 @@ public final class VisRenderer {
             LivingLayers.State st = living.get(L.source);
             if (!(st instanceof LivingLayers.Slime) || ((LivingLayers.Slime) st).trailA == null) return;
             GlProgram p = program("fullscreen.vert", t.frag);
-            int unit = useLayer(p, L, px, drawOpacity, null);
+            int unit = useDrawn(p, L, px, drawOpacity);
             tex(p, "uTrail", ((LivingLayers.Slime) st).trailA.tex(), unit);
             drawFullscreen();
         } else if (VisType.DRAW_RD.equals(draw)) {
             LivingLayers.State st = living.get(L.source);
             if (!(st instanceof LivingLayers.Rd) || ((LivingLayers.Rd) st).a == null) return;
             GlProgram p = program("fullscreen.vert", t.frag);
-            int unit = useLayer(p, L, px, drawOpacity, null);
+            int unit = useDrawn(p, L, px, drawOpacity);
             tex(p, "uState", ((LivingLayers.Rd) st).a.tex(), unit);
             drawFullscreen();
         }
-        if (dst != target) blit(dst.tex(), target, opacity);
+        if (soft) soften(dst, target, L.soft(), opacity);
+        else if (dst != target) blit(dst.tex(), target, opacity);
+    }
+
+    /** Lay a layer drawn on its own onto {@code target}, softened (0 sharp .. 1 very soft). */
+    private void soften(@NonNull GlTarget src, @NonNull GlTarget target, float soft, float opacity) {
+        bindTarget(target);
+        GLES30.glEnable(GLES30.GL_BLEND);
+        GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA);
+        GlProgram p = program("fullscreen.vert", "soften.frag");
+        int unit = useBare(p);
+        tex(p, "uSrc", src.tex(), unit);
+        GLES30.glUniform1f(p.u("uOpacity"), opacity);
+        GLES30.glUniform1f(p.u("uSoft"), soft);
+        drawFullscreen();
     }
 
     private int instances(@NonNull CompiledScene.Layer L) {
@@ -709,6 +730,19 @@ public final class VisRenderer {
     int useLayer(@NonNull GlProgram p, @NonNull CompiledScene.Layer L, float px, float opacity, @Nullable float[] pal) {
         return useParams(p, L.knobs.params, pal != null ? pal : (L.palette != null ? L.palette : compiled.palette),
                 px, L.seed, L.add, opacity);
+    }
+
+    /**
+     * A layer being drawn on screen: its knobs, plus where it sits (moved / sized / turned). The
+     * layer is MADE in that space (common.glsl placeIn / placeOut), not drawn and then moved like
+     * a card. Never for a living layer's simulation step: that runs in the layer's own space.
+     */
+    private int useDrawn(@NonNull GlProgram p, @NonNull CompiledScene.Layer L, float px, float opacity) {
+        float size = L.size();
+        int unit = useLayer(p, L, px / size, opacity, null);
+        int l = p.u("uView");
+        if (l >= 0) GLES30.glUniform4f(l, L.x(), L.y(), (float) (Math.log(size) / Math.log(2)), (float) Math.toRadians(L.turn()));
+        return unit;
     }
 
     int useParams(@NonNull GlProgram p, @NonNull float[] params, @NonNull float[] pal, float px, float seed, float add, float opacity) {

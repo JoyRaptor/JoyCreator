@@ -3,7 +3,7 @@
   "id": "spiral-banner",
   "name": "Spiral Banner",
   "family": "Lyrics",
-  "description": "The words ride a ribbon that coils into the distance and turns with the music.",
+  "description": "The song winds round a slowly turning coil: the word being sung on the rim, the lines already sung spiralling in behind it.",
   "palette": [
     "#FFE66D",
     "#FF9A3C",
@@ -37,12 +37,12 @@
       "p": {
         "path": 1,
         "behaviour": 0,
-        "size": 0.13,
-        "spread": 0.5,
+        "size": 0.2,
+        "spread": 0.3,
         "spin": {
-          "v": 0.1,
+          "v": 0.05,
           "mod": {
-            "kick": 0.05
+            "kick": 0.03
           }
         },
         "tilt": 0.75,

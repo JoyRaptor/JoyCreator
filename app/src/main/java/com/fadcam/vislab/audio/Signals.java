@@ -24,7 +24,11 @@ public final class Signals {
         return -1;
     }
 
+    /** The engine clock (the shaders' TIME) for this frame, seconds. */
+    public double time;
+
     public void set(@NonNull Features f, double time) {
+        this.time = time;
         v[0] = f.bass; v[1] = f.low; v[2] = f.mid; v[3] = f.high; v[4] = f.air;
         v[5] = f.level; v[6] = f.voice; v[7] = f.bright;
         v[8] = f.kick; v[9] = f.snare; v[10] = f.hat; v[11] = f.beat;

@@ -19,15 +19,15 @@ import java.util.List;
  */
 public final class CompiledScene {
 
-    private static final List<VisKnob> OPACITY = Collections.singletonList(
-            new VisKnob("opacity", "Opacity", -1, 0f, 1f, 1f, 0f, false, false, null, null));
 
     /** One drawable layer. {@link #source} is the layer's JSON (identity for per-layer state). */
     public static final class Layer {
         @NonNull public final JsonObject source;
         @NonNull public final VisType type;
         @NonNull public final KnobSet knobs;
-        @NonNull public final KnobSet opacity;
+        /** The controls every layer has (types.json "layer"): opacity, reactivity, softness, place. */
+        @NonNull public final KnobSet common;
+        private final int iOpacity, iReact, iSoft, iX, iY, iSize, iTurn;
         /** 0 = paint (hides what is behind), 1 = light (adds). */
         public final float add;
         /** Draw into the echo trails (true) or crisp above them. */
@@ -39,13 +39,21 @@ public final class CompiledScene {
         /** Picture reference for image layers ("asset:...", a file path, or null for the default logo). */
         @Nullable public final String image;
 
-        Layer(@NonNull JsonObject source, @NonNull VisType type, int index) {
+        Layer(@NonNull JsonObject source, @NonNull VisType type, @NonNull VisType layerType, int index) {
             this.source = source;
             this.type = type;
             knobs = KnobSet.compile(type.knobs, VisScene.knobsOf(source));
-            JsonObject op = new JsonObject();
-            if (source.has("opacity")) op.add("opacity", source.get("opacity"));
-            opacity = KnobSet.compile(OPACITY, op);
+            // Layer-wide controls sit on the layer itself ("opacity": 0.8, "turn": {"v": 0, "mod": ...}).
+            JsonObject lc = new JsonObject();
+            for (VisKnob k : layerType.knobs) if (source.has(k.id)) lc.add(k.id, source.get(k.id));
+            common = KnobSet.compile(layerType.knobs, lc);
+            iOpacity = layerType.indexOf("opacity");
+            iReact = layerType.indexOf("react");
+            iSoft = layerType.indexOf("soft");
+            iX = layerType.indexOf("x");
+            iY = layerType.indexOf("y");
+            iSize = layerType.indexOf("size");
+            iTurn = layerType.indexOf("turn");
             add = num(source, "add", 1f);
             JsonElement e = source.get("echo");
             underEcho = !(e != null && e.isJsonPrimitive() && !e.getAsBoolean());
@@ -58,9 +66,29 @@ public final class CompiledScene {
         }
 
         public void eval(@Nullable Signals s) {
-            knobs.eval(s);
-            opacity.eval(s);
+            common.eval(s);
+            knobs.eval(s, react());
         }
+
+        private float v(int i, float fallback) {
+            return i < 0 ? fallback : common.values[i];
+        }
+
+        public float opacity() { return v(iOpacity, 1f); }
+
+        /** Scales every music link of this layer: 0 calm, 1 as set, 2 wild. */
+        public float react() { return Math.max(0f, v(iReact, 1f)); }
+
+        public float soft() { return Math.max(0f, Math.min(1f, v(iSoft, 0f))); }
+
+        public float x() { return v(iX, 0f); }
+
+        public float y() { return v(iY, 0f); }
+
+        public float size() { return Math.max(0.05f, v(iSize, 1f)); }
+
+        /** Degrees. */
+        public float turn() { return v(iTurn, 0f); }
     }
 
     @NonNull public final VisScene scene;
@@ -72,6 +100,20 @@ public final class CompiledScene {
     @NonNull public final float[] palette;
     /** Linear rgb, or null for see-through. */
     @Nullable public final float[] background;
+
+    /** After an edit: every speed carries on from the look as it was (see KnobSet#carryFrom). */
+    public void carryFrom(@Nullable CompiledScene prev) {
+        if (prev == null) return;
+        for (Layer L : layers) {
+            for (Layer P : prev.layers) {
+                if (P.source != L.source) continue;
+                L.knobs.carryFrom(P.knobs);
+                break;
+            }
+        }
+        if (echo != null) echo.carryFrom(prev.echo);
+        post.carryFrom(prev.post);
+    }
 
     public CompiledScene(@NonNull VisScene scene, @NonNull VisTypes types, @Nullable String[] brandPalette) {
         this.scene = scene;
@@ -88,7 +130,7 @@ public final class CompiledScene {
             JsonElement t = lo.get("type");
             VisType type = types.type(t != null && t.isJsonPrimitive() ? t.getAsString() : null);
             if (type == null) continue;   // unknown type (newer pack): skipped, not fatal
-            out.add(new Layer(lo, type, i));
+            out.add(new Layer(lo, type, types.layer, i));
         }
         layers = Collections.unmodifiableList(out);
         JsonObject eo = scene.echoOn();

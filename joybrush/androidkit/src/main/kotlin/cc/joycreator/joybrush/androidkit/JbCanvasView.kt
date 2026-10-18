@@ -2171,7 +2171,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             for ((k, bytes) in contents.mediaTiles) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), bytes, k.celId)
             engine.agreeAllPayloads()
             engine.loadLines(lineRecords, lineBases, contents.brushes, lineSlabs, lineCompose)
-            post { postDelayed({ pumpMediaPrewarm() }, 400) }
             retainedContents = retained
             contentLost = false
             paper = resolved
@@ -2887,17 +2886,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     /** GL thread: a few previews now, and the rest on the next frames; once quiet, free the throwaway engines after a while. */
-    /**
-     * After a drawing opens, the pencil, watercolour and oil programs compile one per idle moment (GL thread), so the first
-     * realistic stroke starts at once instead of stalling about a second on a Note 9. Never during a stroke.
-     */
-    private fun pumpMediaPrewarm() {
-        onGl {
-            if (drawing || engine.strokeInProgress) { postDelayed({ pumpMediaPrewarm() }, 500); return@onGl }
-            if (mediaCanvas.prewarmStep()) post { postDelayed({ pumpMediaPrewarm() }, 60) }
-        }
-    }
-
     private fun pumpBrushPreviews() {
         if (brushPreviews.pump(SystemClock.uptimeMillis())) onGl(allowLost = true) { pumpBrushPreviews() }
         else postDelayed({ onGl(allowLost = true) { brushPreviews.releaseIfIdle(SystemClock.uptimeMillis()) } },

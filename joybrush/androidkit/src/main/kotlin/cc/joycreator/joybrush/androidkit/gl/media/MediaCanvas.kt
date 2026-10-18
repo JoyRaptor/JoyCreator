@@ -238,33 +238,12 @@ class MediaCanvas(
     /** GL context lost or the canvas closing. */
     fun release() {
         engine?.release()
-        warm?.releasePrograms()
-        engine = null; window = null; stroke = null; warm = null
+        engine = null; window = null; stroke = null
         heldBytes = 0L
     }
 
     /** The context these GL names came from is gone: forget them without deleting (they died with it). */
-    fun forget() { engine = null; window = null; stroke = null; heldBytes = 0L; warm = null }
-
-    /** An engine whose programs are being compiled ahead (no textures yet): the next [ensure] takes it over. */
-    private var warm: MediaLayerEngine? = null
-
-    /**
-     * GL thread, an idle frame: compiles ONE more media program ahead of the first pencil, watercolour or oil stroke.
-     * True while there is more to do. Never allocates the window; a phone that can't compile them simply stops trying
-     * (the first stroke then says why, as before).
-     */
-    fun prewarmStep(): Boolean {
-        if (engine != null || unsupported != null) return false
-        return try {
-            val e = warm ?: MediaLayerEngine(shaders, atlasMode = MediaAtlasGl.enabled).also { warm = it }
-            e.compileNext()
-        } catch (x: RuntimeException) {
-            warm?.releasePrograms(); warm = null
-            android.util.Log.w("JoyBrushMedia", "prewarm stopped: ${x.message}")
-            false
-        }
-    }
+    fun forget() { engine = null; window = null; stroke = null; heldBytes = 0L }
 
     // ---- inside ----
 
@@ -288,8 +267,7 @@ class MediaCanvas(
         if (e != null) return e
         // Media Atlas v2 B2 (off by default, MediaAtlasGl.enabled): the same textures as the window, tiles placed freely.
         val atlas = MediaAtlasGl.enabled
-        val made = warm?.takeIf { atlas == MediaAtlasGl.enabled } ?: MediaLayerEngine(shaders, atlasMode = atlas)
-        warm = null
+        val made = MediaLayerEngine(shaders, atlasMode = atlas)
         try {
             made.init(MediaWindowMath.PX, MediaWindowMath.PX)
         } catch (x: IllegalStateException) {

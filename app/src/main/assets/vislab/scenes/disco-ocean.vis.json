@@ -1,0 +1,104 @@
+{
+  "format": "joy.vis/1",
+  "id": "disco-ocean",
+  "name": "Disco Ocean",
+  "family": "Rave",
+  "description": "A Launchpad floor of glowing pads that heaves like the sea: every column its own frequency, kicks ripple across it, the bar sweeps over it.",
+  "palette": [
+    "#00F0FF",
+    "#7A5CFF",
+    "#FF2BD6",
+    "#FF9A3C",
+    "#FFE14D"
+  ],
+  "background": "#020208",
+  "layers": [
+    {
+      "type": "nebula",
+      "name": "Night sky",
+      "res": 0.5,
+      "palette": [
+        "#3A0CA3",
+        "#4361EE",
+        "#7209B7",
+        "#4CC9F0",
+        "#F72585"
+      ],
+      "p": {
+        "brightness": 0.2,
+        "stars": 0.9,
+        "coreGlow": 0.3,
+        "coreY": 0.3,
+        "dust": 0.8
+      }
+    },
+    {
+      "type": "floor",
+      "name": "Pads",
+      "add": 0,
+      "p": {
+        "kind": 1,
+        "horizon": 0.05,
+        "speed": 0.5,
+        "density": 7,
+        "swell": 1.6,
+        "gap": 0.16,
+        "ripple": 1.2,
+        "chase": 0.7,
+        "ocean": {
+          "v": 0.9,
+          "mod": {
+            "bass": 0.15
+          }
+        },
+        "leds": 8,
+        "glow": 0.6,
+        "fade": 0.8,
+        "brightness": 1.2
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Spray",
+      "p": {
+        "count": 3000,
+        "emitter": 2,
+        "ey": 0.04,
+        "esize": 1,
+        "dir": 0,
+        "dirMode": 0,
+        "spread": 0.15,
+        "speed": 0.25,
+        "life": 2,
+        "gravity": 0.1,
+        "size": 0.003,
+        "look": 3,
+        "brightness": 1.2,
+        "twinkle": 0.8,
+        "colorMode": 3,
+        "rate": {
+          "v": 0.3,
+          "mod": {
+            "kick": 0.6
+          }
+        },
+        "burst": 0.08,
+        "punch": 0.4
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 1.1,
+      "bloomThreshold": 0.5,
+      "vignette": 0.45,
+      "grain": 0.08,
+      "chroma": {
+        "v": 0.05,
+        "mod": {
+          "kick": 0.2
+        }
+      }
+    }
+  }
+}

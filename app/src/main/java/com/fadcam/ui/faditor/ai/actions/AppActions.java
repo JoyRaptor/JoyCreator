@@ -39,6 +39,7 @@ public final class AppActions {
         ActionRegistry<AppCtx> r = new ActionRegistry<>();
         add(r, "navigate", NavigateActions::register);
         add(r, "library", LibraryActions::register);
+        add(r, "vislab", VisLabActions::register);
         return r;
     }
 
@@ -93,6 +94,11 @@ public final class AppActions {
             return true;
         }
         return com.fadcam.ui.library.LibraryOpen.open(a, it);
+    }
+
+    /** True while an action's route is waiting for the chat (the request should end: the chat is leaving). */
+    public static boolean hasPendingRoute() {
+        return pendingRoute != null;
     }
 
     /** Where an action asked to go, once; null when nothing is waiting. Main thread. */

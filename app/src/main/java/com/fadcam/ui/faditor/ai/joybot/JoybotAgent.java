@@ -384,7 +384,9 @@ public final class JoybotAgent {
         final java.util.Set<String> families = new java.util.LinkedHashSet<>();
 
         void go() throws Exception {
-            families.addAll(ToolRouter.pick(ask.text));
+            families.addAll(ToolRouter.pick(ask.text, ask.situation.room == IdeaEngine.Room.VISLAB));
+            AIChatState.liveAsk = ask.text;
+            AIChatState.liveReplyBefore = lastReply();
             JSONObject retained = new JSONObject().put("role", "user").put("content", ask.imageDataUrl == null
                     ? ask.text
                     // Worded as a FACT ABOUT THE PAST: on a later turn the picture is gone, and
@@ -663,7 +665,8 @@ public final class JoybotAgent {
             }
             if (DirectRunner.isFailure(result)) lastError = result;
             else if (wrote) out.calls.add(new Idea.Step(name, com.fadcam.ui.faditor.ai.actions.StudioActions.toMap(args)));
-            if (("open_room".equals(name) || "open_library_item".equals(name) || "new_project_from".equals(name))
+            if (("open_room".equals(name) || "open_library_item".equals(name) || "new_project_from".equals(name)
+                    || com.fadcam.ui.faditor.ai.actions.AppActions.hasPendingRoute())
                     && !DirectRunner.isFailure(result)) navigated = true;
             // A refusal is an answer, not a puzzle: a free model refused add_motion on a linked
             // layer and then reordered the lanes to get round it — a change nobody asked for
@@ -1016,12 +1019,41 @@ public final class JoybotAgent {
             return out;
         }
 
+        /** Joybot's last words to the person (the question a "yes" answers), or "". */
+        @NonNull
+        String lastReply() {
+            synchronized (HISTORY) {
+                for (int i = HISTORY.size() - 1; i >= 0; i--) {
+                    JSONObject m = HISTORY.get(i);
+                    String c = m.optString("content", "");
+                    if ("assistant".equals(m.optString("role")) && !c.trim().isEmpty()) return c;
+                }
+            }
+            return "";
+        }
+
+        /** In VisLab, "this" is the look on screen: its name, so the model starts from it. */
+        @NonNull
+        String visLabNow() {
+            try {
+                String json = com.fadcam.vislab.room.VisLabSession.get(app).currentLookJson();
+                if (json == null) return "";
+                com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+                return "VisLab is showing the look \"" + o.get("name").getAsString() + "\" (id "
+                        + o.get("id").getAsString() + "). \"This\" / \"it\" means that look; the vislab tools"
+                        + " read and change it (vislab_describe first).\n";
+            } catch (RuntimeException e) {
+                return "";
+            }
+        }
+
         /** A compact, just-read picture of the project. Blocking (reads the project). */
         @NonNull
         String context() {
             Situation s = ask.situation;
             StringBuilder sb = new StringBuilder("CURRENT PROJECT (read just now; trust it over anything earlier in the chat)\n");
             sb.append("Joybot was opened from: ").append(s.room.name().toLowerCase(Locale.US)).append('\n');
+            if (s.room == IdeaEngine.Room.VISLAB) sb.append(visLabNow());
             String pid = ask.projectId;
             if (pid == null) return sb.append("No project is open.\n").toString();
             try {

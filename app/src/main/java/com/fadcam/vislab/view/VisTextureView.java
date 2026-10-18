@@ -28,7 +28,13 @@ import com.fadcam.vislab.model.VisScene;
  * A live VisLab picture: its own GL thread, an OpenGL ES 3 context, paced by the display
  * (Choreographer), drawing whatever {@link FeatureSource} hears. See-through by default, so it
  * can float over other apps or sit over video. Keeps itself smooth: when frames run long it
- * lowers the internal resolution, and raises it again when there is room.
+ * lowers the resolution, and raises it again when there is room.
+ *
+ * <p>The resolution is lowered by asking for a smaller window buffer, not by drawing small and
+ * stretching: Android scales the buffer up as it puts the view on screen, so EVERY pass,
+ * the full-screen finish included, gets cheaper. (Measured on the Note 9, 2026-10-17: the finish
+ * pass at full 1080x2220 cost 22 ms a frame while the scaler only shrank the passes before it,
+ * so every look sat at the lowest scale and still ran at 30 fps.)</p>
  */
 public class VisTextureView extends TextureView implements TextureView.SurfaceTextureListener {
 
@@ -57,6 +63,15 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     private EGLContext context = EGL14.EGL_NO_CONTEXT;
     private EGLSurface surface = EGL14.EGL_NO_SURFACE;
     private int surfW, surfH;
+    @Nullable private SurfaceTexture texture;
+    /** Share of the view size the window buffer is asked to be (the auto-quality knob). */
+    private volatile float scale = 1f;
+    private int bufW, bufH;
+    /** After a scale proves too slow, stay below it for a while: no sharpen-blur pumping. */
+    private float ceiling = 1f;
+    private long ceilingUntilNs;
+    private int ceilingStrikes;
+    private final int[] eglWH = new int[1];
     private boolean running;
     private long lastFrameNs;
     private double clock;
@@ -71,6 +86,7 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     public VisTextureView(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
         renderer = VisLab.get(context).newRenderer();
+        renderer.setProfiling((context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         setOpaque(false);
         setSurfaceTextureListener(this);
     }
@@ -83,6 +99,8 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     public void setScene(@Nullable VisScene s) {
         scene = s;
         renderer.setScene(s);
+        ceilingUntilNs = 0;   // a new look may be lighter: let it climb
+        ceilingStrikes = 0;
     }
 
     @Nullable
@@ -104,6 +122,7 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
 
     public void setAutoQuality(boolean on) {
         autoQuality = on;
+        if (!on) scale = 1f;
     }
 
     public void setStatsListener(@Nullable StatsListener l) {
@@ -116,6 +135,9 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     public void onSurfaceTextureAvailable(@NonNull SurfaceTexture st, int width, int height) {
         surfW = width;
         surfH = height;
+        texture = st;
+        bufW = bufH = 0;
+        renderer.setRenderScale(1f);   // the buffer size carries the scale here
         thread = new HandlerThread("vislab-gl");
         thread.start();
         handler = new Handler(thread.getLooper());
@@ -131,6 +153,7 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     public void onSurfaceTextureSizeChanged(@NonNull SurfaceTexture st, int width, int height) {
         surfW = width;
         surfH = height;
+        bufW = bufH = 0;   // TextureView reset the buffer to the view size: ask again
     }
 
     @Override
@@ -139,6 +162,7 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
         Handler h = handler;
         thread = null;
         handler = null;
+        texture = null;
         if (h != null) {
             final Object done = new Object();
             final boolean[] finished = {false};
@@ -189,11 +213,17 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
         lastFrameNs = nowNs;
         dt = Math.max(0, Math.min(0.1, dt));
         if (!EGL14.eglMakeCurrent(display, surface, surface, context)) return;
+        applyBufferSize();
         FeatureSource src = source;
         Features f = src != null ? src.next(paused ? 0 : dt) : silence;
         if (!paused) clock += dt;
         try {
-            renderer.render(f, clock, paused ? 0 : dt, 0, surfW, surfH);
+            // The buffer we draw into may still be the old size for a frame after a change.
+            EGL14.eglQuerySurface(display, surface, EGL14.EGL_WIDTH, eglWH, 0);
+            int w = eglWH[0];
+            EGL14.eglQuerySurface(display, surface, EGL14.EGL_HEIGHT, eglWH, 0);
+            int h = eglWH[0];
+            renderer.render(f, clock, paused ? 0 : dt, 0, w > 0 ? w : surfW, h > 0 ? h : surfH);
         } catch (RuntimeException e) {
             Log.w(TAG, "frame failed", e);
         }
@@ -201,22 +231,55 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
         keepSmooth(dt, nowNs);
     }
 
+    /** Ask for a window buffer of view size x scale; Android stretches it to the view. */
+    private void applyBufferSize() {
+        SurfaceTexture st = texture;
+        if (st == null || surfW <= 0 || surfH <= 0) return;
+        int w = Math.max(16, Math.round(surfW * scale));
+        int h = Math.max(16, Math.round(surfH * scale));
+        if (w == bufW && h == bufH) return;
+        st.setDefaultBufferSize(w, h);
+        bufW = w;
+        bufH = h;
+    }
+
+    private final double[] frameTimes = new double[240];
+
     private void keepSmooth(double dt, long nowNs) {
+        if (frames < frameTimes.length) frameTimes[frames] = dt;
         frames++;
-        // Ignore one-off stalls (an app switch, a screenshot): they are not the GPU.
-        if (dt > 0.024 && dt < 0.08) slow++;
-        else if (dt < 0.0175) fast++;
         if (statsStartNs == 0) statsStartNs = nowNs;
         if (nowNs - statsStartNs < 1_000_000_000L) return;
-        if (autoQuality) {
-            float s = renderer.renderScale();
-            if (slow > frames * 0.3f && s > 0.45f) renderer.setRenderScale(s - 0.1f);
-            else if (fast > frames * 0.9f && s < 1f) renderer.setRenderScale(s + 0.05f);
+        if (autoQuality && frames > 3) {
+            // Judge the slower quarter of frames (75th percentile): one stall (an app switch, a
+            // screenshot) changes nothing, but a look that drops every third frame (45 fps on a
+            // 60 Hz screen, a visible stutter) is caught, not just one slow on every frame.
+            // The pixel cost goes with scale squared, hence the square root.
+            int n = Math.min(frames, frameTimes.length);
+            double[] sorted = java.util.Arrays.copyOf(frameTimes, n);
+            java.util.Arrays.sort(sorted);
+            double median = sorted[(n * 3) / 4];
+            float s = scale;
+            if (median > 1.0 / 48 && s > 0.4f) {
+                float want = (float) (s * Math.sqrt((1.0 / 56) / median));
+                scale = Math.max(0.4f, Math.max(s - 0.25f, Math.min(s - 0.05f, want)));
+                // Remember what failed; each repeat failure holds off longer (10, 20, 40 s...).
+                ceiling = s - 0.05f;
+                ceilingStrikes = Math.min(ceilingStrikes + 1, 5);
+                ceilingUntilNs = nowNs + (10_000_000_000L << (ceilingStrikes - 1));
+            } else if (median < 1.0 / 58 && s < 1f) {
+                float cap = nowNs < ceilingUntilNs ? ceiling : 1f;
+                if (s + 0.05f <= cap + 1e-4f) scale = Math.min(1f, s + 0.05f);
+            }
         }
+        Log.i(TAG, "fps " + frames + " scale " + Math.round(scale * 100) + "% cpu "
+                + String.format(java.util.Locale.ROOT, "%.1f", renderer.lastFrameMs()) + "ms " + bufW + "x" + bufH
+                + " " + renderer.gpuReport()
+                + (renderer.lastError() != null ? " error: " + renderer.lastError() : ""));
         StatsListener l = stats;
         if (l != null) {
             final int fps = frames;
-            final float sc = renderer.renderScale();
+            final float sc = scale;
             final String err = renderer.lastError();
             post(() -> l.onStats(fps, sc, err));
         }

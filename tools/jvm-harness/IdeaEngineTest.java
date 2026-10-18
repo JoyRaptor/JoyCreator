@@ -256,6 +256,12 @@ public class IdeaEngineTest {
             f.online = false;
             lab = IdeaEngine.offer(f, IdeaEngine.Room.SPRITELAB, FLOWS, NONE);
             check("offline: sheet ideas need a key, hidden", !labels(lab).contains("Name the cells"), labels(lab));
+            // VisLab: ideas about the look on screen, never the talking-video tree; no green pulse opener.
+            f.online = true;
+            IdeaEngine.Offer vis = IdeaEngine.offer(f, IdeaEngine.Room.VISLAB, FLOWS, NONE);
+            eq("vislab: kick idea first", "Hit harder on the kick", vis.ideas.get(0).label);
+            check("vislab: no Studio ideas", !labels(vis).contains("Turn on captions"), labels(vis));
+            check("vislab: no opener", vis.opener == null, String.valueOf(vis.opener));
         }
 
         // ── never invents a number ───────────────────────────────────────
@@ -508,6 +514,12 @@ public class IdeaEngineTest {
                     com.fadcam.ui.faditor.ai.joybot.ToolRouter.familyOf("cut_all_fillers", null));
             eq("router: typed tool family", "text",
                     com.fadcam.ui.faditor.ai.joybot.ToolRouter.familyOf("set_text_style", "text_look"));
+            f = com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick("make it brighter and pump the bloom on the kick", true);
+            check("router: inside VisLab = core + vislab only", f.contains("vislab") && f.size() == 2, f.toString());
+            f = com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick("switch VisLab to Disco Ocean");
+            check("router: 'VisLab' from elsewhere wakes vislab", f.contains("vislab"), f.toString());
+            eq("router: vislab actions are the vislab family", "vislab",
+                    com.fadcam.ui.faditor.ai.joybot.ToolRouter.familyOf("vislab_change", "vislab"));
             eq("router: unknown tool is core (always sent)", "core",
                     com.fadcam.ui.faditor.ai.joybot.ToolRouter.familyOf("brand_new_tool", null));
             check("router: more_tools definition names every family",

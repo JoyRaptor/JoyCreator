@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>VisLab Look Book</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons&display=swap">
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 :root {
@@ -64,7 +66,8 @@ button { font: inherit; color: inherit; }
     border-radius: 16px 16px 0 0; }
 }
 .dhead { display: flex; gap: 6px; padding: 10px 12px 6px; align-items: center; flex-wrap: wrap; }
-.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1 0 100%; }
+.tabs.slant > .pill { padding: 0 9px; }
 .dbody { flex: 1; overflow-y: auto; padding: 4px 12px 24px; }
 .sec { margin: 12px 0 4px; color: var(--ink-faint); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
 .row { display: grid; grid-template-columns: 96px 1fr 44px 28px; gap: 6px; align-items: center; min-height: 30px; }
@@ -114,6 +117,25 @@ button { font: inherit; color: inherit; }
 .mlabel { color: var(--ink-faint); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-top: 4px; }
 #top { flex-wrap: nowrap; }
 @media (max-width: 520px) { #fps { display: none; } #lookName { max-width: 34vw; } .pill { padding: 6px 9px; } }
+/* The lobby's sheared row: one object divided. First chip squared on the left, the rest lean
+   the same way. Off: zinc face, gradient icon. On: gradient face, icon and label punched out black. */
+.slant { display: flex; gap: 3.5px; background: none; padding: 0; border-radius: 0; flex-wrap: nowrap; }
+.slant > .pill { flex: 1 1 auto; height: 34px; min-height: 34px; border-radius: 3px; padding: 0 13px; gap: 5px; justify-content: center;
+  background: var(--raised); color: var(--ink-dim); font: 700 11px/1 'Archivo', system-ui, sans-serif;
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+.slant > .pill:first-child { clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+.slant > .pill:hover { background: var(--pressed); }
+.slant > .pill .mi { font-family: 'Material Icons'; font-size: 15px; font-weight: normal; letter-spacing: 0; line-height: 1;
+  background: linear-gradient(90deg, var(--viz), var(--viz-deep)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.slant > .pill.on { background: linear-gradient(90deg, var(--viz), var(--viz-deep)); color: #000; font-weight: 800; }
+.slant > .pill.on .mi { background: none; color: #000; }
+.menu .slant { flex-wrap: wrap; }
+/* Choices inside the drawer are fully rounded pills. */
+.pills { display: flex; flex-wrap: wrap; gap: 5px; }
+.pills .pill { min-height: 28px; padding: 4px 11px; font-size: 11.5px; border-radius: 999px; background: var(--raised); color: var(--ink-dim); }
+.pills .pill.on { background: var(--armed); color: #050507; font-weight: 700; }
+.row.choice { grid-template-columns: 96px 1fr; padding: 3px 0; }
+#box { transition: transform .22s ease; }
 .hide { display: none !important; }
 </style>
 </head>
@@ -134,27 +156,27 @@ button { font: inherit; color: inherit; }
 
 <div class="menu hide" id="soundMenu">
   <div class="mlabel">Listen to</div>
-  <span class="seg" id="srcSeg" title="Where the sound comes from">
-    <button class="pill" data-src="demo" title="Built-in demo song (intro, build, drop)">Demo song</button>
-    <button class="pill" data-src="mic" title="Your microphone, live">Microphone</button>
-    <button class="pill" data-src="file" title="Pick a song from this device">A song</button>
+  <span class="seg slant" id="srcSeg" title="Where the sound comes from">
+    <button class="pill" data-src="demo" title="Built-in demo song (intro, build, drop)"><span class="mi">music_note</span>Demo song</button>
+    <button class="pill" data-src="mic" title="Your microphone, live"><span class="mi">mic</span>Microphone</button>
+    <button class="pill" data-src="file" title="Pick a song from this device"><span class="mi">library_music</span>A song</button>
   </span>
 </div>
 <div class="menu hide" id="viewMenu">
   <div class="mlabel">Frame</div>
-  <span class="seg" id="aspectSeg" title="Try the look in different frame shapes">
-    <button class="pill on" data-aspect="full" title="Fill this screen">Full</button>
-    <button class="pill" data-aspect="16:9" title="Landscape video">16:9</button>
-    <button class="pill" data-aspect="9:16" title="Phone / Shorts / Reels">9:16</button>
-    <button class="pill" data-aspect="1:1" title="Square">1:1</button>
-    <button class="pill" data-aspect="overlay" title="A small overlay box, like a Studio overlay or the floating visualiser">Box</button>
+  <span class="seg slant" id="aspectSeg" title="Try the look in different frame shapes">
+    <button class="pill on" data-aspect="full" title="Fill this screen"><span class="mi">fullscreen</span>Full</button>
+    <button class="pill" data-aspect="16:9" title="Landscape video"><span class="mi">crop_16_9</span>16:9</button>
+    <button class="pill" data-aspect="9:16" title="Phone / Shorts / Reels"><span class="mi">crop_portrait</span>9:16</button>
+    <button class="pill" data-aspect="1:1" title="Square"><span class="mi">crop_square</span>1:1</button>
+    <button class="pill" data-aspect="overlay" title="A small overlay box, like a Studio overlay or the floating visualiser"><span class="mi">picture_in_picture</span>Box</button>
   </span>
   <div class="mlabel">Edges</div>
-  <span class="seg" id="edgeSeg" title="Bleed to the edges, or stay soft inside a frame">
-    <button class="pill on" data-edge="scene" title="Use the look's own edges">As made</button>
-    <button class="pill" data-edge="0" title="Art runs off every edge (full-screen use)">Bleed</button>
-    <button class="pill" data-edge="1" title="Soft rounded box: never a hard cut at the edge">Contained</button>
-    <button class="pill" data-edge="2" title="Soft circle">Circle</button>
+  <span class="seg slant" id="edgeSeg" title="Bleed to the edges, or stay soft inside a frame">
+    <button class="pill on" data-edge="scene" title="Use the look's own edges"><span class="mi">tune</span>As made</button>
+    <button class="pill" data-edge="0" title="Art runs off every edge (full-screen use)"><span class="mi">open_in_full</span>Bleed</button>
+    <button class="pill" data-edge="1" title="Soft rounded box: never a hard cut at the edge"><span class="mi">crop_free</span>Contained</button>
+    <button class="pill" data-edge="2" title="Soft circle"><span class="mi">radio_button_unchecked</span>Circle</button>
   </span>
   <div class="mlabel">Underneath</div>
   <button class="pill" id="overBtn" title="Show the look over a moving picture, the way it sits on a video or on your screen">Over a video</button>
@@ -164,12 +186,12 @@ button { font: inherit; color: inherit; }
 
 <div id="drawer">
   <div class="dhead">
-    <div class="tabs" id="tabs">
-      <button class="pill on" data-tab="layers" title="The pieces this look is built from">Layers</button>
-      <button class="pill" data-tab="finish" title="Bloom, lens, glitch, film, framing">Finish</button>
-      <button class="pill" data-tab="echo" title="Feedback trails under everything">Echo</button>
-      <button class="pill" data-tab="colours" title="Palette and brand colours">Colours</button>
-      <button class="pill" data-tab="sound" title="What the engine hears right now">Sound</button>
+    <div class="tabs slant" id="tabs">
+      <button class="pill on" data-tab="layers" title="The pieces this look is built from"><span class="mi">layers</span>Layers</button>
+      <button class="pill" data-tab="finish" title="Bloom, lens, glitch, film, framing"><span class="mi">auto_awesome</span>Finish</button>
+      <button class="pill" data-tab="echo" title="Feedback trails under everything"><span class="mi">blur_on</span>Echo</button>
+      <button class="pill" data-tab="colours" title="Palette and brand colours"><span class="mi">palette</span>Colours</button>
+      <button class="pill" data-tab="sound" title="What the engine hears right now"><span class="mi">graphic_eq</span>Sound</button>
     </div>
     <span class="spacer"></span>
     <button class="pill" id="copyBtn" title="Copy this look as a file you can paste to Claude or save">Copy look</button>

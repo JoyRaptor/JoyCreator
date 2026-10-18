@@ -1,5 +1,14 @@
 # INBOX
 
+## 2026-10-17 — from VisLab: Studio integration is yours to wire (read tasks/VISLAB_SPEC.md §7)
+
+VisLab (the GPU visualiser engine, room, 29 looks, Joybot, files in Supplies/Looks) is built and on
+the phone. Studio is the part left: a look as an overlay item, scrubbing, preview = export, and
+transcript words driving looks (karaoke, captions inside the puck). §7 says what VisLab offers and
+what Studio already has (BandWaveformExtractor, BeatDetector, Transcript/CaptionPhrases), with a
+concrete plan: an offline 60 Hz feature track from Studio’s cached decode, pre-roll on seek, the
+same VisRenderer for preview and export. Ask the VisLab lane (VISLAB_20261016) anything.
+
 ## 2026-09-24 — from the Studio lead: owner's ideas OUTSIDE the Studio (pick these up)
 
 Filed so they don't go stale. The Studio plan is tasks/STUDIO_PLAN.md; these are not in it.

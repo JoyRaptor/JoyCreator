@@ -1061,6 +1061,12 @@ public class ScreenRecordingPipeline {
                 FLog.w(TAG, "Visualizer audio tap failed", e);
             }
         }
+
+        // VisLab's floating visualiser hears exactly what is recorded (no second AudioRecord).
+        // With the visualiser off this only notes the time.
+        audioData.position(0);
+        audioData.limit(size);
+        com.fadcam.vislab.audio.RecordingTap.offer(audioData, size, Constants.DEFAULT_AUDIO_SAMPLING_RATE);
     }
 
     /** Registers a PCM tap for audio duplication (Decision 4). Null clears it. */

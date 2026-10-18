@@ -38,6 +38,7 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
 
     private val buildUp: Boolean = preset.accumulate == "buildup"
     private val tracker = DirectionTracker()
+    private val tipRotation = preset.tip.angleSource?.let { TipRotation(it) }
 
     private var speedPxPerS = 0f
     private var hasTime = false
@@ -126,7 +127,8 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
         var angle = 0f
         val angleDeg = Dynamics.eval(preset.tip.angle, inputs)
         if (!angleDeg.isNaN()) angle = degToRad(angleDeg)
-        if (preset.tip.followDirection) angle += direction
+        if (tipRotation != null) angle += tipRotation.update(sample)
+        else if (preset.tip.followDirection) angle += direction
         angle += degToRad(preset.angleJitter) * (2f * angleDraw - 1f)
 
         // A NaN flow would make the placer drop the dab's flow to 0 and the brush would vanish, so

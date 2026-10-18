@@ -1,6 +1,8 @@
 package cc.joycreator.joybrush.core.brush
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 
 /**
  * The dynamic inputs a brush may respond to, read in declaration order. The constant NAME is the
@@ -29,6 +31,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class InputCurve(val input: BrushInput, val curve: List<List<Float>>) // [[x,y],…]
 @Serializable data class Param(val base: Float, val inputs: List<InputCurve> = emptyList(), val combine: String = "multiply")
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable data class TipSpec(
     val source: String = "procedural",   // "procedural" | "image"
     val image: String? = null,           // path inside the brush folder when source == image
@@ -43,6 +46,10 @@ import kotlinx.serialization.Serializable
     val aspectDynamics: Param? = null,
     /** 0 = centred; 1 = positive-X endpoint at the pen, long side trailing (brush v7). */
     val anchorDynamics: Param? = null,
+    /** v12: null preserves the old followDirection hybrid exactly, including lean/barrel priority.
+     * Explicit sources ignore followDirection. Omitted for legacy brushes on re-save. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val angleSource: TipAngleSource? = null,
 )
 
 /** Paper grain image/scale are ignored since JB-9.03: the document paper decides (R10 P4).

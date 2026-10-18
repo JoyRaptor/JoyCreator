@@ -77,3 +77,29 @@ Running: Settings sub-screens restyle (Sonnet); What's New + update sheets + mod
 Open (owner decisions): Viz Lab card; bottom words (Packs/Bits/Finder); Remote/Server Room + Smart Detection; WaveformDebugActivity export; 11 orphan classes; New button behaviour; pill colour; rename "Classic view".
 Open (mine): restyle Home recorder (Bits); fullscreen preview; Home sidebar; audio envelope oddities; voiceovers in project view; rename/trash helpers for sheets/characters; retire AvatarToggleView + eye-colour pref; sweep leftovers (caption presets retest).
 Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-project.
+
+# Unibrush — 2026-10-18
+
+Owner brief: tasks/joybrush/briefs/CODEX_DIGITAL_PEN_BRIEF_20261018.md. Section 0 wins.
+Isolated branch codex/unibrush starts at lead/layer-ops as authorized in the handoff.
+
+- [x] D1 engine/model: explicit rotation sources; legacy dab compatibility; pressure/tilt recipe APIs; JVM proof. Sheet controls are D9; side-fade is D2.
+- [ ] D1 Lead review/integration and phone acceptance.
+- [ ] D2: radial profiles and directional fade; shader/CPU checks.
+- [ ] D3: four-point shapes, rounding and A/B morph; shader/replay checks.
+- [ ] D4: seeded colour dynamics; determinism/replay checks.
+- [ ] D5: sampled image sets and frozen archive resources; Lead engine patch; phone proof.
+- [ ] D6: dual-tip masking; shader checks.
+- [ ] D7: stroke-end taper parity; Lead integration if required.
+- [ ] D8: stabilizer suggestions/settings and exact raw-record replay; Lead record integration.
+- [ ] D9: Unibrush sheet, shape editor, modes, New brush, live preview; owner phone review.
+- [ ] D10: measured Note 9 performance and soft-dab optimizations.
+
+Review: each slice receives a separate commit and AGENT_BOARD note before Lead integration.
+No merge/conflict resolution, shared-main edits, or phone use during the D1 engine work.
+
+D1 review: full core 2521 tests / 0 failures / 0 errors / 4 optional corpus skips (2026-10-18).
+Unmodified 107748a78 baseline fingerprint and new dabber agree across 88 recipes / 7128 dabs:
+2fa83c231a3938bbcb5695597204c6a980db2bf47056d81a557dd2f1bf08a8d3.
+64 behavior/source combinations replay the streamed live dabs after raw-record codec roundtrip,
+with nonlinear response curves and a changed-seed control. No GPU, phone, feel or performance claim.

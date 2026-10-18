@@ -581,7 +581,21 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     fun visibleLinePlanes(): List<LinePlane> = stackUi.layers.filter { it.visible && !layerLocked(it.id) }.flatMap { linePlanesOf(it.id) }
 
     /** Is [id] locked in the drawing (v1.2 H9: Select neither picks nor changes its lines)? */
-    private fun layerLocked(id: String): Boolean = boardDocument?.layers?.firstOrNull { it.id == id }?.locked == true
+    private fun layerLocked(id: String): Boolean = stackUi[id]?.locked == true
+
+    /**
+     * Lock or unlock [id] (LAYER_OPS L1), ONE undo step, saved with the drawing. A locked layer's pixels, lines and mask
+     * can't change (each attempt is refused in words); its opacity, blend and visibility still can.
+     */
+    fun setLayerLocked(id: String, locked: Boolean) {
+        if (penIsDown()) return
+        val before = stackUi
+        val after = before.withLocked(id, locked)
+        if (after != before) commitStack(before, after)
+    }
+
+    /** The sentence for a change a locked layer refuses. */
+    private fun lockedSentence(id: String): String = "\"${stackUi[id]?.name ?: "This layer"}\" is locked. Unlock it from its menu to change it."
 
     /**
      * Bumped by every open (v1.2 H10): an edit handed in before a load is about another drawing, and is answered
@@ -779,6 +793,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** An empty mask (it shows everything) on [id], as ONE undo step; the brush goes to it, ready to hide. */
     fun addMask(id: String) {
         if (penIsDown()) return
+        if (layerLocked(id)) { onRefused?.invoke(lockedSentence(id)); return }
         val before = stackUi
         val layer = before[id] ?: return
         if (layer.hasMask) { onRefused?.invoke("This layer already has a mask."); return }
@@ -789,6 +804,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** Throws the mask away as ONE undo step (its pixels go into the step: Undo brings it back). */
     fun deleteMask(id: String) {
         if (penIsDown()) return
+        if (layerLocked(id)) { onRefused?.invoke(lockedSentence(id)); return }
         val before = stackUi
         if (before[id]?.hasMask != true) return
         val after = before.withMask(id, false)
@@ -1053,10 +1069,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** Empties the layer being painted on, as one undo step. */
     fun clearCanvas() {
         val id = activeLayer
-        if (contentLost || retainedContents?.doc?.layers?.any { it.id == id && it.locked } == true) {
-            onRefused?.invoke("This drawing cannot be cleared while it is locked or awaiting recovery.")
+        if (contentLost) {
+            onRefused?.invoke("This drawing cannot be cleared while it is awaiting recovery.")
             return
         }
+        if (layerLocked(id)) { onRefused?.invoke(lockedSentence(id)); return }
         onGl { engine.clearLayer(id); reportHistory() }
     }
 
@@ -1532,9 +1549,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             onRefused?.invoke("Reopen your saved drawing before continuing.")
             return
         }
-        if (retainedContents?.doc?.layers?.any { it.id == activeLayer && it.locked } == true) {
+        if (layerLocked(activeLayer)) {
             drawing = false
-            onRefused?.invoke("\"${stackUi.active.name}\" is locked.")
+            onRefused?.invoke(lockedSentence(activeLayer))
             return
         }
         // A hidden layer is refused out loud: painting where the paint cannot be seen is how work gets lost (JB-2.04).
@@ -2076,7 +2093,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val doc = withoutLineDeclarations(contents.doc)
         val retained = validatedLoadMetadata(contents).let { it.copy(doc = withoutLineDeclarations(it.doc)) }
 
-        val states = doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend, it.mask != null, it.clip) }
+        val states = doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend, it.mask != null, it.clip, it.locked) }
         val active = doc.activeLayerId?.takeIf { id -> doc.layers.any { it.id == id } } ?: doc.layers.last().id
         val stack = LayerStack(states, active)
         val wanted = ArrayList<Pair<Triple<String,String,Long>,ByteArray>>(contents.tiles.size)
@@ -2341,6 +2358,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 cels = listOf(templateCel.copy(tiles = listed[s.id] ?: emptyList())),
                 mask = if (s.hasMask) Cel(LayerMask.MASK_CEL, maskListed[s.id] ?: emptyList()) else null,
                 clip = s.clip,
+                locked = s.locked,
             )
         }
         val doc = base.copy(

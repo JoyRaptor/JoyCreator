@@ -400,6 +400,7 @@ class GlPaintEngine(
         /** JB-2.23: this layer's mask, a second tile store whose missing tiles are WHITE (full coverage). */
         var mask: Layer? = null
         var clip = false
+        var locked = false
         var name = id
         var opacity = 1f
         var visible = true
@@ -847,7 +848,7 @@ class GlPaintEngine(
      * it away), the layer the last undo or redo named, else the top one.
      */
     fun stack(preferredActive: String?): LayerStack {
-        val list = layers.values.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend, it.mask != null, it.clip) }
+        val list = layers.values.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend, it.mask != null, it.clip, it.locked) }
         val ids = list.map { it.id }
         val hint = activeHint
         val active = when {
@@ -868,7 +869,7 @@ class GlPaintEngine(
         val next = LinkedHashMap<String, Layer>()
         for (s in target.layers) {
             val l = layers[s.id] ?: Layer(s.id)
-            l.name = s.name; l.opacity = s.opacity; l.visible = s.visible; l.blend = s.blend; l.clip = s.clip
+            l.name = s.name; l.opacity = s.opacity; l.visible = s.visible; l.blend = s.blend; l.clip = s.clip; l.locked = s.locked
             // A mask appears empty (all white); it only goes when it is empty too, for the same reason a layer does.
             if (s.hasMask && l.mask == null) l.mask = Layer(maskStoreId(s.id), isMask = true)
             if (!s.hasMask && l.mask?.tiles?.isEmpty() == true) l.mask = null
@@ -893,11 +894,11 @@ class GlPaintEngine(
                     cels.addAll(mappings.values.map { Cel(it) })
                     RegionFrames(board.id, mappings)
                 }
-                cc.joycreator.joybrush.core.doc.Layer(state.id, state.name, LayerKind.PAINT,
+                cc.joycreator.joybrush.core.doc.Layer(state.id, state.name, LayerKind.PAINT, locked = state.locked,
                     cels = cels, sharedCelId = shared, regions = regions)
             }
             base.copy(name = state.name, opacity = state.opacity, visible = state.visible,
-                blend = state.blend, clip = state.clip,
+                blend = state.blend, clip = state.clip, locked = state.locked,
                 mask = if (state.hasMask) base.mask ?: Cel(UUID.randomUUID().toString()) else null)
         }
         return doc.copy(layers = next, activeLayerId = target.activeId).also {
@@ -3100,7 +3101,7 @@ class GlPaintEngine(
             "Cold recorded sources require the document's actual paper resources"
         }
         val stack = LayerStack(doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible,
-            it.blend, it.mask != null, it.clip) }, doc.activeLayerId ?: doc.layers.last().id)
+            it.blend, it.mask != null, it.clip, it.locked) }, doc.activeLayerId ?: doc.layers.last().id)
         val frozen = plan.frozenBrushesCopy()
         val records = plan.recordedPlanes.associate { it.address to plan.recordsCopy(it.address) }
         val receipt = ColdRecordedLoadReceipt(
@@ -5112,7 +5113,7 @@ class GlPaintEngine(
         validateRecordedPhysicalDisplay(expected.recorded)
         val metadata = document.copy(layers = document.layers.map { meta ->
             val owner = expected.nativeLayers.getValue(meta.id)
-            meta.copy(name = owner.name, visible = owner.visible, opacity = owner.opacity, blend = owner.blend, clip = owner.clip)
+            meta.copy(name = owner.name, visible = owner.visible, opacity = owner.opacity, blend = owner.blend, clip = owner.clip, locked = owner.locked)
         })
         fun current() {
             check(publishedPaint === expected && physicalContextEpoch == physical && !forgettingGraphicsContext && ready) {

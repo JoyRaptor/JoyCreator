@@ -1399,6 +1399,11 @@ class JoyBrushActivity : Activity() {
         box.addView(menuRow(if (layer.visible) "Hide" else "Show", if (layer.visible) "Hide this layer" else "Show this layer") {
             canvas.setLayerVisible(id, !layer.visible)
         })
+        box.addView(menuRow(if (layer.locked) "Unlock" else "Lock",
+            if (layer.locked) "Let this layer's paint, lines and mask change again"
+            else "Keep this layer's paint, lines and mask from changing; its opacity, blend and visibility still change") {
+            canvas.setLayerLocked(id, !layer.locked)
+        })
         box.addView(menuRow("Duplicate", "Make a copy of this layer above it") { canvas.duplicateLayer(id) })
         box.addView(menuRow("Clear layer", "Empty this layer — Undo brings it back") {
             canvas.selectLayer(id)

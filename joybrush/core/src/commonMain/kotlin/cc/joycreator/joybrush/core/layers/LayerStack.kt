@@ -13,6 +13,8 @@ data class LayerState(
     val hasMask: Boolean = false,
     /** Clipped to the nearest unclipped layer below (JB-2.23). Never true of the bottom layer: see [LayerStack.normalized]. */
     val clip: Boolean = false,
+    /** Locked (LAYER_OPS L1): its pixels, lines and mask can't change; its settings (opacity, blend, show) still can. */
+    val locked: Boolean = false,
 )
 
 /**
@@ -92,6 +94,7 @@ data class LayerStack(val layers: List<LayerState>, val activeId: String) {
     fun withMask(id: String, on: Boolean): LayerStack = update(id) { it.copy(hasMask = on) }
 
     /** Clipped or not. The bottom layer has nothing to clip to, so asking to clip it changes nothing. */
+    fun withLocked(id: String, on: Boolean): LayerStack = update(id) { it.copy(locked = on) }
     fun withClip(id: String, on: Boolean): LayerStack = if (on && indexOf(id) == 0) this else update(id) { it.copy(clip = on) }
 
     /**

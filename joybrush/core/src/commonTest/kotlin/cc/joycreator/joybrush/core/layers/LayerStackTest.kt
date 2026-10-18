@@ -171,4 +171,12 @@ class LayerStackTest {
         assertFalse(stack.lostClipIn(stack.rename("a", "Base")))
         assertFalse(LayerStack.single().lostClipIn(LayerStack.single()))
     }
+
+    @Test fun lockingIsALayerSettingThatTravelsWithItsCopy() {
+        val locked = abc.withLocked("a", true)
+        assertTrue(locked["a"]!!.locked)
+        assertFalse(locked["b"]!!.locked)
+        assertFalse(locked.withLocked("a", false)["a"]!!.locked)
+        assertEquals(abc, abc.withLocked("a", false), "unlocking an unlocked layer changes nothing")
+    }
 }

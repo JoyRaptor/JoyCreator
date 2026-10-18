@@ -145,6 +145,12 @@
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:exported="false" />
 
+        <!-- VisLab: the visualiser room (VISLAB_20261016). Rotation is handled in place: the GL view resizes. -->
+        <activity android:name="com.fadcam.vislab.room.VisLabActivity"
+            android:theme="@style/Theme.FadCam.FaditorEditor"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:exported="false" />
+
         <!-- The Joy Creator folder: choose, reconnect, bring projects back (SPEC_20261013_FILE_MANAGEMENT). -->
         <activity android:name="com.fadcam.joyfolder.studio.JoyFolderSetupActivity"
             android:theme="@style/Theme.FadCam.FaditorEditor"
@@ -466,6 +472,9 @@
 
         <!-- Annotation overlay service for FadRec -->
         <service android:name=".fadrec.ui.AnnotationService" android:enabled="true" android:exported="false" android:foregroundServiceType="specialUse" />
+
+        <!-- VisLab floating visualiser: over any app, and over the screen while recording (VISLAB_20261016) -->
+        <service android:name=".vislab.overlay.VisOverlayService" android:enabled="true" android:exported="false" android:foregroundServiceType="microphone|specialUse" />
 
         <!-- Transparent dialog activity for color picker -->
         <activity android:name=".fadrec.ui.ColorPickerDialogActivity" android:theme="@style/Theme.FadCam.TransparentDialog" android:excludeFromRecents="true" android:exported="false" />

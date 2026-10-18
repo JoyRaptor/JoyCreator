@@ -1321,6 +1321,16 @@ public class AnnotationService extends Service {
             btnWebcamToggle.setOnClickListener(v -> toggleWebcamService(v));
         }
 
+        // VisLab floating visualiser toggle (VISLAB_20261016), under the webcam one
+        View btnVisualiserToggle = toolbarView.findViewById(R.id.btnVisualiserToggle);
+        if (btnVisualiserToggle != null) {
+            updateVisualiserToggleUi();
+            btnVisualiserToggle.setOnClickListener(v -> {
+                com.fadcam.vislab.overlay.VisOverlayService.toggle(this);
+                v.postDelayed(this::updateVisualiserToggleUi, 300);
+            });
+        }
+
         // Compact mode: slim bar with timer/record/pause/webcam/expand
         compactBar = toolbarView.findViewById(R.id.compactBar);
         compactTimer = toolbarView.findViewById(R.id.compactTimer);
@@ -1601,6 +1611,19 @@ public class AnnotationService extends Service {
         applyCompactContainerSizing();
         updateRecordingButtons();
         updateWebcamToggleUi();
+    }
+
+    /** The visualiser row shows On / Off like the webcam row above it. */
+    private void updateVisualiserToggleUi() {
+        if (toolbarView == null) return;
+        TextView state = toolbarView.findViewById(R.id.visualiserToggleState);
+        TextView icon = toolbarView.findViewById(R.id.iconVisualiserToggle);
+        boolean running = com.fadcam.vislab.overlay.VisOverlayService.isRunning;
+        if (state != null) {
+            state.setText(running ? R.string.webcam_overlay_on : R.string.webcam_overlay_off);
+            state.setTextColor(running ? 0xFF4CAF50 : 0xFFAAAAAA);
+        }
+        if (icon != null) icon.setTextColor(running ? 0xFF4CAF50 : 0xFF9E9E9E);
     }
 
     private void updateWebcamToggleUi() {

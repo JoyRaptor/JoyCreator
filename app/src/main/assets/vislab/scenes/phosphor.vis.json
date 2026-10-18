@@ -1,0 +1,69 @@
+{
+  "format": "joy.vis/1",
+  "id": "phosphor",
+  "name": "Phosphor Scope",
+  "family": "Retro",
+  "description": "Your audio drawn by an oscilloscope beam with glowing phosphor trails.",
+  "palette": [
+    "#B6FFB0",
+    "#3CFF6E",
+    "#15C24A",
+    "#0B8F35",
+    "#06401A"
+  ],
+  "background": "#010402",
+  "layers": [
+    {
+      "type": "lines",
+      "name": "Beam",
+      "p": {
+        "mode": 2,
+        "rows": 1,
+        "size": 0.7,
+        "amp": 0.7,
+        "thick": 0.0025,
+        "glow": 0.6,
+        "brightness": 0.7,
+        "gain": 1,
+        "spread": 0,
+        "colorMode": 2
+      }
+    },
+    {
+      "type": "lines",
+      "name": "Trace",
+      "p": {
+        "mode": 0,
+        "rows": 1,
+        "y": -0.78,
+        "size": 0.9,
+        "amp": 0.12,
+        "thick": 0.002,
+        "glow": 0.5,
+        "brightness": 0.5,
+        "colorMode": 2
+      }
+    }
+  ],
+  "echo": {
+    "p": {
+      "decay": 0.74,
+      "zoom": 1,
+      "blur": 0.5
+    }
+  },
+  "post": {
+    "p": {
+      "bloom": 1.2,
+      "bloomThreshold": 0.3,
+      "scanlines": 0.5,
+      "lens": 0.35,
+      "grain": 0.2,
+      "vignette": 0.6,
+      "frame": 1,
+      "inset": 0.03,
+      "feather": 0.06,
+      "rounding": 0.15
+    }
+  }
+}

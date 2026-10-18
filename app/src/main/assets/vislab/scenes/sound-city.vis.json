@@ -1,0 +1,124 @@
+{
+  "format": "joy.vis/1",
+  "id": "sound-city",
+  "name": "Sound City",
+  "family": "Landscape",
+  "description": "Peaks of light on a woven floor under a night sky: the city your song builds.",
+  "palette": [
+    "#22F2FF",
+    "#FFE45C",
+    "#FF9A3C",
+    "#FF3D6E",
+    "#B14CFF"
+  ],
+  "background": "#03030A",
+  "layers": [
+    {
+      "type": "nebula",
+      "name": "Night sky",
+      "res": 0.5,
+      "palette": [
+        "#4CC9F0",
+        "#4361EE",
+        "#7209B7",
+        "#3A0CA3",
+        "#F72585"
+      ],
+      "p": {
+        "speed": 0.3,
+        "scale": 0.9,
+        "brightness": 0.5,
+        "density": 0.9,
+        "contrast": 1.8,
+        "stars": 0.8,
+        "twinkle": 0.6,
+        "swell": 0.3,
+        "warp": 0.8,
+        "dust": 0.6,
+        "coreY": 0.15,
+        "coreGlow": 0.5,
+        "palShift": 0.1
+      }
+    },
+    {
+      "type": "floor",
+      "name": "Woven floor",
+      "add": 0,
+      "p": {
+        "horizon": -0.08,
+        "speed": 0.35,
+        "density": 12,
+        "weave": 0.8,
+        "swell": 1.4,
+        "gloss": 1,
+        "glow": 1,
+        "brightness": 0.9,
+        "fade": 1.2
+      }
+    },
+    {
+      "type": "filaments",
+      "name": "Peaks",
+      "p": {
+        "rows": 5,
+        "threads": 260,
+        "baseY": -0.08,
+        "width": 1.15,
+        "height": {
+          "v": 0.8,
+          "mod": {
+            "kick": 0.05
+          }
+        },
+        "crown": 0.85,
+        "freqHi": 0.65,
+        "depth": 0.035,
+        "sharp": 0.85,
+        "dof": 0.6,
+        "rim": 0.35,
+        "fill": 0.12,
+        "brightness": 0.7,
+        "gain": 1.15,
+        "mirror": 2,
+        "smooth": 0.45,
+        "spike": 0.7,
+        "sway": 0.08,
+        "rowShift": 0.04,
+        "ageStep": 0.09
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Dust",
+      "p": {
+        "count": 6000,
+        "emitter": 3,
+        "speed": 0.03,
+        "speedVar": 1,
+        "dirMode": 4,
+        "life": 6,
+        "curl": 0.15,
+        "curlScale": 1,
+        "size": 0.0035,
+        "look": 7,
+        "brightness": 0.5,
+        "twinkle": 0.5,
+        "colorMode": 2,
+        "fadeIn": 0.3,
+        "fadeOut": 0.5,
+        "punch": 0.2,
+        "burst": 0
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.9,
+      "bloomThreshold": 0.55,
+      "vignette": 0.45,
+      "grain": 0.1,
+      "saturation": 1.1,
+      "exposure": 1
+    }
+  }
+}

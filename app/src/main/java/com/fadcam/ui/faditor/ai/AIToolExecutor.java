@@ -86,6 +86,10 @@ public class AIToolExecutor {
             return com.fadcam.ui.faditor.ai.actions.StudioActions.execute(
                     context, storage, projectId, toolName, args);
         }
+        // Then the app-wide ones (rooms, the Library…), which need no project.
+        if (com.fadcam.ui.faditor.ai.actions.AppActions.registry().has(toolName)) {
+            return com.fadcam.ui.faditor.ai.actions.AppActions.execute(context, projectId, toolName, args);
+        }
         try {
             switch (toolName) {
                 case "get_project_state": return toolGetProjectState();
@@ -459,6 +463,7 @@ public class AIToolExecutor {
             // Registered actions (gap F2) describe themselves, numbered on from the list above.
             + com.fadcam.ui.faditor.ai.actions.AgentTools.docsText("49")
             + com.fadcam.ui.faditor.ai.actions.StudioActions.registry().docsText(50)
+            + com.fadcam.ui.faditor.ai.actions.AppActions.registry().docsText(200)
             + """
 
             To call a tool, respond with ONLY a JSON object:

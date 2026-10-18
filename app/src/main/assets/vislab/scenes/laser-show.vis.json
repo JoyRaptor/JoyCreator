@@ -1,0 +1,80 @@
+{
+  "format": "joy.vis/1",
+  "id": "laser-show",
+  "name": "Laser Show",
+  "family": "Rave",
+  "description": "Beams fanning from two sides and from above, sweeping through haze on the beat.",
+  "palette": [
+    "#00FF9C",
+    "#00E5FF",
+    "#3D5AFE",
+    "#FF00C8",
+    "#FF3D3D"
+  ],
+  "background": "#000000",
+  "layers": [
+    {
+      "type": "lasers",
+      "name": "Side lasers",
+      "p": {
+        "count": 10,
+        "sweep": 1.2,
+        "brightness": 1,
+        "ox": 0.9,
+        "oy": -0.95,
+        "mirror": 1,
+        "fan": 0.3,
+        "aim": 0,
+        "width": 0.0025,
+        "haze": 1.2,
+        "strobe": 0.3
+      }
+    },
+    {
+      "type": "lasers",
+      "name": "Top lasers",
+      "p": {
+        "count": 6,
+        "ox": 0,
+        "oy": 1,
+        "aim": 0.5,
+        "fan": 0.2,
+        "width": 0.002,
+        "sweep": 2,
+        "brightness": 0.8,
+        "palShift": 0.5
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Haze sparkle",
+      "p": {
+        "count": 800,
+        "emitter": 3,
+        "speed": 0.01,
+        "dirMode": 4,
+        "life": 3,
+        "size": 0.002,
+        "look": 3,
+        "brightness": 0.8,
+        "twinkle": 1,
+        "colorMode": 2,
+        "punch": 0
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 1.2,
+      "bloomThreshold": 0.3,
+      "flash": {
+        "v": 0,
+        "mod": {
+          "kick": 0.25
+        }
+      },
+      "vignette": 0.5,
+      "grain": 0.15
+    }
+  }
+}

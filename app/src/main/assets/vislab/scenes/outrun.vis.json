@@ -1,0 +1,67 @@
+{
+  "format": "joy.vis/1",
+  "id": "outrun",
+  "name": "Outrun",
+  "family": "Retro",
+  "description": "A striped sun, sound mountains and a neon grid racing at you.",
+  "palette": [
+    "#3D1FFF",
+    "#00E5FF",
+    "#FF2BD6",
+    "#FF7A1A",
+    "#FFE14D"
+  ],
+  "background": "#07021A",
+  "layers": [
+    {
+      "type": "synthgrid",
+      "name": "Grid world",
+      "p": {
+        "speed": 0.9,
+        "horizon": -0.08,
+        "brightness": 1.1,
+        "dense": 3.2,
+        "sunSize": 0.36,
+        "sunY": 0.2,
+        "mountains": 0.75,
+        "lineGlow": 0.7,
+        "flash": 0.7,
+        "sky": 1
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Embers",
+      "p": {
+        "count": 2500,
+        "emitter": 2,
+        "ey": -0.9,
+        "esize": 1,
+        "dir": 0,
+        "dirMode": 0,
+        "spread": 0.08,
+        "speed": 0.25,
+        "life": 3,
+        "curl": 0.4,
+        "curlScale": 2,
+        "gravity": -0.05,
+        "size": 0.004,
+        "look": 6,
+        "brightness": 1.5,
+        "colorMode": 2,
+        "palShift": 0.4,
+        "punch": 0
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 1,
+      "chroma": 0.2,
+      "scanlines": 0.3,
+      "grain": 0.15,
+      "vignette": 0.45,
+      "lens": 0.04
+    }
+  }
+}

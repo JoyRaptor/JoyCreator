@@ -1,0 +1,51 @@
+{
+  "format": "joy.vis/1",
+  "id": "liquid-chrome",
+  "name": "Liquid Chrome",
+  "family": "Elegant",
+  "description": "Glassy oil-slick blobs that swell with their own part of the sound and melt together.",
+  "palette": [
+    "#E8FFFE",
+    "#7DF9FF",
+    "#9D7BFF",
+    "#FF71CE",
+    "#FFB86B"
+  ],
+  "background": "#05050A",
+  "layers": [
+    {
+      "type": "mesh",
+      "name": "Backdrop",
+      "res": 0.5,
+      "p": {
+        "brightness": 0.25,
+        "soft": 0.7,
+        "warp": 0.6,
+        "react": 0.4,
+        "grain": 0.3
+      }
+    },
+    {
+      "type": "liquid",
+      "name": "Blobs",
+      "p": {
+        "count": 7,
+        "size": 0.16,
+        "react": 0.9,
+        "spread": 0.85,
+        "rim": 1,
+        "irid": 1.2,
+        "fill": 1,
+        "brightness": 0.9
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.9,
+      "vignette": 0.35,
+      "grain": 0.1,
+      "chroma": 0.08
+    }
+  }
+}

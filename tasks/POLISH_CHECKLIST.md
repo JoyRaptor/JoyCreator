@@ -739,7 +739,9 @@ appeared eleven times in one layout. `studio_tokens.xml` had also drifted from
 
 `uiautomator` cannot idle on the lobby because Joybot's hover never stops, which
 is the animation that was asked for and his lifecycle is correct. Read the tree
-with `animator_duration_scale 0`, then set it back to 1.
+with `animator_duration_scale 0`, then set it back to 1 **in the same command, before anything else** —
+leaving it at 0 turns every animation in every app off on the owner's phone (it happened: found 10-16, Joybot's
+breath stood still). `adb shell settings put global animator_duration_scale 1` when done.
 
 ### Needs JoyRaptor — found by driving the app, not reading it
 

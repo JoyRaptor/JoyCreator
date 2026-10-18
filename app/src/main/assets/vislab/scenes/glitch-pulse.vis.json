@@ -1,0 +1,105 @@
+{
+  "format": "joy.vis/1",
+  "id": "glitch-pulse",
+  "name": "Glitch Pulse",
+  "family": "Glitch",
+  "description": "LED blocks, a hex floor and a datamoshed echo; the snare tears the picture.",
+  "palette": [
+    "#F2F2F2",
+    "#FF1F4B",
+    "#00E5FF",
+    "#7A00FF",
+    "#F2F2F2"
+  ],
+  "background": "#050505",
+  "layers": [
+    {
+      "type": "pattern",
+      "name": "Hex floor",
+      "p": {
+        "mode": 1,
+        "scale": 1.2,
+        "brightness": 0.18,
+        "lineWidth": 0.1,
+        "beat": 1,
+        "glow": 0.2,
+        "fill": 0.5
+      }
+    },
+    {
+      "type": "spectrum",
+      "name": "Blocks",
+      "p": {
+        "mode": 1,
+        "count": 32,
+        "y": -0.55,
+        "size": 0.9,
+        "height": 0.75,
+        "fill": 0.8,
+        "round": 0,
+        "glow": 0.2,
+        "core": 1,
+        "mirror": 2,
+        "colorMode": 1,
+        "peaks": 1,
+        "brightness": 0.7
+      }
+    },
+    {
+      "type": "shapes",
+      "name": "Frame",
+      "p": {
+        "mode": 1,
+        "sides": 4,
+        "radius": 0.45,
+        "thick": 0.01,
+        "glow": 0.3,
+        "rotation": 0.125,
+        "brightness": 0.8,
+        "kickScale": 0.8,
+        "wobble": 0
+      }
+    }
+  ],
+  "echo": {
+    "p": {
+      "mode": 1,
+      "decay": 0.65,
+      "amount": 0.8,
+      "zoom": 1
+    }
+  },
+  "post": {
+    "p": {
+      "glitch": {
+        "v": 0.25,
+        "mod": {
+          "snare": 0.6
+        }
+      },
+      "chroma": {
+        "v": 0.3,
+        "mod": {
+          "kick": 0.5
+        }
+      },
+      "vhs": 0.3,
+      "scanlines": 0.3,
+      "pixelate": {
+        "v": 0,
+        "mod": {
+          "kick": 0.12
+        }
+      },
+      "flash": {
+        "v": 0,
+        "mod": {
+          "kick": 0.15
+        }
+      },
+      "grain": 0.3,
+      "vignette": 0.4,
+      "bloom": 0.6
+    }
+  }
+}

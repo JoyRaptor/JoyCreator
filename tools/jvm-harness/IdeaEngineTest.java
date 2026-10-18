@@ -256,6 +256,12 @@ public class IdeaEngineTest {
             f.online = false;
             lab = IdeaEngine.offer(f, IdeaEngine.Room.SPRITELAB, FLOWS, NONE);
             check("offline: sheet ideas need a key, hidden", !labels(lab).contains("Name the cells"), labels(lab));
+            // VisLab: ideas about the look on screen, never the talking-video tree; no green pulse opener.
+            f.online = true;
+            IdeaEngine.Offer vis = IdeaEngine.offer(f, IdeaEngine.Room.VISLAB, FLOWS, NONE);
+            eq("vislab: kick idea first", "Hit harder on the kick", vis.ideas.get(0).label);
+            check("vislab: no Studio ideas", !labels(vis).contains("Turn on captions"), labels(vis));
+            check("vislab: no opener", vis.opener == null, String.valueOf(vis.opener));
         }
 
         // ── never invents a number ───────────────────────────────────────
@@ -424,7 +430,7 @@ public class IdeaEngineTest {
             }
             eq("help G3: no two topics share an id", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size(), helpIds.size());
             Set<String> helpRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "setup",
-                    "joybrush", "spritelab", "avatar", "space"));
+                    "joybrush", "spritelab", "avatar", "space", "trash"));
             for (com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic x : com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS) {
                 check("help G3: route is a real one: " + x.id, helpRoutes.contains(x.route), String.valueOf(x.route));
                 check("help G3: \"Or I can do it\" only with a doIt: " + x.id,
@@ -484,6 +490,60 @@ public class IdeaEngineTest {
             cuts.add(new long[]{1000, 2000});
             check("inside a cut", Fillers.isCut(1200, 1500, cuts), "");
             check("straddling a cut is not cut", !Fillers.isCut(1800, 2300, cuts), "");
+        }
+
+        // ── ToolRouter: a request carries only the tools it needs (Note 9 2026-10-16: tools were 83%) ──
+        {
+            java.util.Set<String> f;
+            f = com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick("how long is my video");
+            check("router: vague request gets core + everyday", f.contains("core") && f.contains("clips")
+                    && f.contains("text") && f.contains("audio") && f.size() == 4, f.toString());
+            f = com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick(
+                    "rotate the first clip 90 degrees, make the visualizer pink, and make the FONT TEST text zoom in over 2 seconds");
+            check("router: phone test #3 gets clips+audio+text+motion", f.contains("clips") && f.contains("audio")
+                    && f.contains("text") && f.contains("motion"), f.toString());
+            f = com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick("put my Starguy sprite on the video at the start, small, bottom right");
+            check("router: sprite request gets sprites", f.contains("sprites"), f.toString());
+            f = com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick("what screen recordings do I have");
+            check("router: library question gets media + core", f.contains("media") && f.contains("core"), f.toString());
+            f = com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick("cut the ums");
+            check("router: 'cut the ums' gets transcript", f.contains("transcript"), f.toString());
+            check("router: 'mute' does not wake 'music'", !com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick("mute it")
+                    .contains("captions"), "");
+            eq("router: legacy tool family", "transcript",
+                    com.fadcam.ui.faditor.ai.joybot.ToolRouter.familyOf("cut_all_fillers", null));
+            eq("router: typed tool family", "text",
+                    com.fadcam.ui.faditor.ai.joybot.ToolRouter.familyOf("set_text_style", "text_look"));
+            f = com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick("make it brighter and pump the bloom on the kick", true);
+            check("router: inside VisLab = core + vislab only", f.contains("vislab") && f.size() == 2, f.toString());
+            f = com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick("switch VisLab to Disco Ocean");
+            check("router: 'VisLab' from elsewhere wakes vislab", f.contains("vislab"), f.toString());
+            eq("router: vislab actions are the vislab family", "vislab",
+                    com.fadcam.ui.faditor.ai.joybot.ToolRouter.familyOf("vislab_change", "vislab"));
+            eq("router: unknown tool is core (always sent)", "core",
+                    com.fadcam.ui.faditor.ai.joybot.ToolRouter.familyOf("brand_new_tool", null));
+            check("router: more_tools definition names every family",
+                    com.fadcam.ui.faditor.ai.joybot.ToolRouter.moreToolsJson().contains("\"sprites\"")
+                            && com.fadcam.ui.faditor.ai.joybot.ToolRouter.moreToolsJson().contains("\"project\""), "");
+            // Every legacy tool in the real tool text is placed in a family (none silently CORE by accident).
+            try {
+                String src = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                        "app/src/main/java/com/fadcam/ui/faditor/ai/AIToolExecutor.java")), "UTF-8");
+                int a0 = src.indexOf("public static String getToolDescriptions()");
+                int s0 = src.indexOf("\"\"\"", a0) + 3;
+                int e0 = src.indexOf("\"\"\"", s0);
+                java.util.List<String> core = new java.util.ArrayList<>();
+                java.util.Set<String> okCore = new java.util.HashSet<>(java.util.Arrays.asList(
+                        "get_project_state", "rename_item", "set_item_time", "look"));
+                for (com.fadcam.ui.faditor.ai.joybot.ToolDocs.Doc d
+                        : com.fadcam.ui.faditor.ai.joybot.ToolDocs.parse(src.substring(s0, e0))) {
+                    if ("core".equals(com.fadcam.ui.faditor.ai.joybot.ToolRouter.familyOf(d.name, null))
+                            && !okCore.contains(d.name)) core.add(d.name);
+                }
+                check("router: every legacy tool has a family", core.isEmpty(), core.toString());
+            } catch (Exception ex) {
+                check("router: tool text readable", false, ex.toString());
+            }
         }
 
         // ── AiProviders: a pasted key names its own service (owner, 2026-10-15: several subscriptions) ──

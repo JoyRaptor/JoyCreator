@@ -1,0 +1,53 @@
+{
+  "format": "joy.vis/1",
+  "id": "living-veins",
+  "name": "Living Veins",
+  "family": "Generative",
+  "description": "A hundred thousand slime-mould agents, three rival species, growing a web to the beat.",
+  "palette": [
+    "#00F5D4",
+    "#00BBF9",
+    "#9B5DE5",
+    "#F15BB5",
+    "#FEE440"
+  ],
+  "background": "#020204",
+  "layers": [
+    {
+      "type": "slime",
+      "name": "Slime",
+      "p": {
+        "count": 120000,
+        "sensorAngle": 0.07,
+        "sensorDist": 0.028,
+        "turn": 0.045,
+        "speed": {
+          "v": 0.22,
+          "mod": {
+            "bass": 0.1
+          }
+        },
+        "deposit": 1,
+        "decay": 0.93,
+        "diffuse": 0.5,
+        "brightness": 0.85,
+        "contrast": 1.6,
+        "scatter": 0.25,
+        "bassRun": 1,
+        "midSense": 0.5,
+        "species": 3,
+        "spawn": 2,
+        "edges": 0,
+        "detail": 0.5
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 1,
+      "bloomThreshold": 0.45,
+      "vignette": 0.35,
+      "grain": 0.08
+    }
+  }
+}

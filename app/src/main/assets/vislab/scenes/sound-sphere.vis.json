@@ -1,0 +1,76 @@
+{
+  "format": "joy.vis/1",
+  "id": "sound-sphere",
+  "name": "Sound Sphere",
+  "family": "Music video",
+  "description": "Fourteen thousand points on a sphere, pushed outward by every frequency, in a nebula.",
+  "palette": [
+    "#00F0FF",
+    "#3D5AFE",
+    "#B517FF",
+    "#FF2BD6",
+    "#FF7A1A"
+  ],
+  "background": "#020208",
+  "layers": [
+    {
+      "type": "nebula",
+      "name": "Nebula",
+      "res": 0.5,
+      "palette": [
+        "#3A0CA3",
+        "#4361EE",
+        "#4CC9F0",
+        "#7209B7",
+        "#F72585"
+      ],
+      "p": {
+        "brightness": 0.45,
+        "coreGlow": 0.7
+      }
+    },
+    {
+      "type": "points",
+      "name": "Sphere",
+      "p": {
+        "form": 0,
+        "count": 14000,
+        "radius": 0.55,
+        "spin": 0.04,
+        "tilt": 0.08,
+        "persp": 1,
+        "displace": 0.7,
+        "wobble": 0.25,
+        "kickPump": 0.7,
+        "size": 0.0055,
+        "brightness": 1.4,
+        "dof": 0.4,
+        "depthFade": 0.7,
+        "colorMode": 0,
+        "focus": 0.65,
+        "spinBass": 0.08
+      }
+    },
+    {
+      "type": "shapes",
+      "name": "Shock",
+      "p": {
+        "mode": 2,
+        "radius": 0.5,
+        "thick": 0.004,
+        "glow": 0.9,
+        "shockSpeed": 0.7,
+        "shockLife": 1.4,
+        "brightness": 0.9
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 1.1,
+      "chroma": 0.1,
+      "vignette": 0.5,
+      "grain": 0.1
+    }
+  }
+}

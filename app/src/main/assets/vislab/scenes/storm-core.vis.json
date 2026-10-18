@@ -1,0 +1,118 @@
+{
+  "format": "joy.vis/1",
+  "id": "storm-core",
+  "name": "Storm Core",
+  "family": "Game FX",
+  "description": "An energy core that throws lightning and shockwaves on every kick.",
+  "palette": [
+    "#FFFFFF",
+    "#B8F2FF",
+    "#4CC9F0",
+    "#7B2CBF",
+    "#3A0CA3"
+  ],
+  "background": "#020208",
+  "layers": [
+    {
+      "type": "nebula",
+      "name": "Dark sky",
+      "res": 0.5,
+      "p": {
+        "brightness": 0.25,
+        "palShift": 0.5,
+        "stars": 0.5,
+        "coreGlow": 0.4
+      }
+    },
+    {
+      "type": "shapes",
+      "name": "Core",
+      "p": {
+        "mode": 5,
+        "radius": {
+          "v": 0.16,
+          "mod": {
+            "bass": 0.03
+          }
+        },
+        "glow": 0.8,
+        "fill": 0.7,
+        "brightness": 1.1
+      }
+    },
+    {
+      "type": "lightning",
+      "name": "Bolts",
+      "p": {
+        "count": 4,
+        "from": 0,
+        "radius": 0.18,
+        "reach": 0.75,
+        "jitter": 1,
+        "branch": 0.7,
+        "width": 0.003,
+        "glow": 1,
+        "brightness": 1.4
+      }
+    },
+    {
+      "type": "shapes",
+      "name": "Shockwaves",
+      "p": {
+        "mode": 2,
+        "radius": 0.18,
+        "thick": 0.008,
+        "glow": 1,
+        "shockSpeed": 1.2,
+        "shockLife": 0.9,
+        "brightness": 1.3
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Debris",
+      "p": {
+        "count": 6000,
+        "emitter": 1,
+        "esize": 0.17,
+        "speed": 0.6,
+        "speedVar": 0.8,
+        "dirMode": 1,
+        "life": 1.2,
+        "drag": 1.2,
+        "size": 0.003,
+        "look": 1,
+        "stretch": 1,
+        "brightness": 2.5,
+        "rate": 0.1,
+        "burst": 0.4,
+        "punch": 0.5,
+        "colorMode": 0
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 1.2,
+      "flash": {
+        "v": 0,
+        "mod": {
+          "kick": 0.12
+        }
+      },
+      "chroma": {
+        "v": 0.1,
+        "mod": {
+          "kick": 0.3
+        }
+      },
+      "shake": {
+        "v": 0,
+        "mod": {
+          "kick": 0.15
+        }
+      },
+      "vignette": 0.5
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "format": "joy.vis/1",
+  "id": "sculpture",
+  "name": "Sculpture",
+  "family": "Generative",
+  "description": "Real 3D liquid blobs, each swelling with a band, merging and splitting as they orbit.",
+  "palette": [
+    "#F8F9FA",
+    "#00F5D4",
+    "#9B5DE5",
+    "#F15BB5",
+    "#FEE440"
+  ],
+  "background": "#040408",
+  "layers": [
+    {
+      "type": "raymarch",
+      "name": "Blobs",
+      "res": 0.5,
+      "p": {
+        "mode": 0,
+        "speed": 0.5,
+        "steps": 64,
+        "react": 1.2,
+        "glow": 0.45,
+        "surface": 0.95,
+        "fog": 0.6,
+        "spin": 0.12
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Glints",
+      "p": {
+        "count": 1200,
+        "emitter": 3,
+        "speed": 0.02,
+        "dirMode": 4,
+        "life": 4,
+        "size": 0.003,
+        "look": 3,
+        "brightness": 1,
+        "twinkle": 0.8,
+        "colorMode": 2,
+        "punch": 0.3
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 1,
+      "vignette": 0.4,
+      "grain": 0.08
+    }
+  }
+}

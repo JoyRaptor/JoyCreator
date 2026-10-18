@@ -5,7 +5,6 @@ import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.Param
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -64,7 +63,7 @@ class BrushPreviewKeyTest {
 
     @Test fun aStoredNameParsesBackToItsParts() {
         val key = BrushPreviewKey.of(brush("media:wet:Round"), 640, 77, style)
-        val back = assertNotNull(BrushPreviewKey.parse(key.fileName))
+        val back = requireNotNull(BrushPreviewKey.parse(key.fileName))
         assertEquals(key, back)
         assertEquals(BrushPreviewKey.idPart("media:wet:Round"), back.idPart)
         assertTrue(back.idPart, back.idPart.startsWith("media_wet_Round_"))
@@ -91,7 +90,7 @@ class BrushPreviewKeyTest {
     @Test fun aLongIdStoredAndParsedBackKeepsItsOwnParts() {
         val id = "media:" + "w".repeat(70) + ":Round"
         val key = BrushPreviewKey.of(brush(id), 640, 77, style)
-        val back = assertNotNull(BrushPreviewKey.parse(key.fileName))
+        val back = requireNotNull(BrushPreviewKey.parse(key.fileName))
         assertEquals(key, back)
         assertEquals(BrushPreviewKey.idPart(id), back.idPart)
     }

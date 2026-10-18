@@ -103,9 +103,12 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
     `frameAt`), used by scrubbing. Transcripts: `Clip.getActiveNamedTranscript`, words in source ms.
   Build order (tick each):
   - [ ] S1 the item can carry a VisLab look (`visLook` id), saved and loaded, undoable.
+        10-18: field + save/load BUILT (not phone-tested; no UI sets it yet; undo comes with S2).
   - [ ] S2 Rolodex section "VisLab looks"; choosing one swaps the classic knobs out (Classic brings them back).
   - [ ] S3 one renderer for preview and export: offscreen ES 3 on its own thread -> Bitmap; sound from an
         offline 60 Hz feature track of the source (PcmSidecar -> FeatureExtractor), cached.
+        10-18: core BUILT and compiling (`vislab/studio/OffscreenGl`, `SoundClock`, `StudioVis`; a
+        replay-after-seek clock instead of a stored track); NOT wired into preview/export, never run.
   - [ ] S4 small editor: Reactivity, Fade (opacity) and the look's key knobs, keyframable.
   - [ ] S5 the transcript's words feed a look's Words layer.
 ## D. Speed, heat, sharing

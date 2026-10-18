@@ -17,11 +17,20 @@ Done and phone-tested (Note 9), all pushed to `joy-creator`:
   own sound (Android's screen-capture yes) or the microphone.
 
 Open:
-1. **C4: VisLab looks inside Studio** (this file, sections 2-6). Nothing is built in Studio yet.
-   The model change (S1) and the hardest piece (S3, the renderer bridge) may already be in the
-   repo from the end of the 10-18 session: check `app/src/main/java/com/fadcam/vislab/studio/`
-   and the item's `visLook` field before starting. If they exist, read their header comments and
-   test them; the design below is what they implement.
+1. **C4: VisLab looks inside Studio** (this file, sections 2-6). State at the end of 10-18:
+   - **S1 built, untested:** `WaveformOverlayInstance.visLook` (+ `getVisLook`, `setVisLook`,
+     `isVisLab`) and its save / load in `ProjectStorage` (key `visLook`). No UI sets it yet.
+   - **S3 core built, compiles, NOT wired, NOT run:** `vislab/studio/OffscreenGl` (own ES 3
+     thread + pbuffer, FBO per size, read-back with row flip), `vislab/studio/SoundClock`
+     (features from PcmSidecar at source time, 60 Hz steps, 2.2 s replay after a jump),
+     `vislab/studio/StudioVis` (`renderBlocking` for export, `previewFrame` for preview,
+     `releaseAll`). Read their header comments. Left for S3: the preview and export wiring
+     below, then the phone test. First test of the bridge before S2's UI exists: on the Note 9,
+     open a SANDBOX project with a visualiser, close Studio, add `"visLook": "halo-drop"` to that
+     item in `files/faditor/projects/<id>/project.json` (`adb shell run-as com.fadcam.beta`),
+     reopen: the item should draw Halo Drop. Expect first-run bugs in the GL bridge (it has never
+     run): check `adb logcat -s VisStudio VisStudioGl`.
+   - S2, S4, S5: not started.
 2. **D2: the hour-long heat test** (owner deferred it): floating visualiser over a game while a
    screen recording runs, an hour, on the Note 9. Log `adb logcat -s VisTextureView:I` (it prints
    `fps N scale X% heat N ...` once a second) and `dumpsys thermalservice` every minute. Report:

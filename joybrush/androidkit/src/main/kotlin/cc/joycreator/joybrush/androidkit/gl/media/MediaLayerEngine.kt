@@ -83,6 +83,40 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     private lateinit var progErase: MediaProgram
     private var eraseWetFbo = IntArray(0)
 
+    /** The programs compiled so far, in [compileNext]'s order (what [release] deletes). */
+    private val programs = ArrayList<MediaProgram>()
+
+    /**
+     * Compiles the next media program; false once all are compiled. A canvas calls it one per idle frame after a drawing
+     * opens, so the first pencil, watercolour or oil stroke no longer stalls for all 13 at once (the device matrix measured
+     * a 1 s first-stroke frame on the Note 9). [init] compiles whatever is left. No textures are made here.
+     */
+    fun compileNext(): Boolean {
+        val defs = if (atlasMode) listOf("JB_ATLAS") else emptyList()
+        fun p(v: String, f: String, l: String, plain: Boolean = false) =
+            MediaProgram(shaders, "media/$v", "media/$f", l, if (plain && atlasMode) defs + "JB_PLAIN_TARGET" else defs).also { programs += it }
+        when (programs.size) {
+            0 -> progDab = p("jb_dry_dab.vert", "jb_dry_dab.frag", "media dry dab")
+            1 -> progApply = p("jb_media_quad.vert", "jb_media_apply.frag", "media apply")
+            2 -> progCopy = p("jb_media_quad.vert", "jb_media_copy.frag", "media copy")
+            3 -> progRender = p("jb_media_screen.vert", "jb_media_render.frag", "media render")
+            4 -> progBake = p("jb_media_quad.vert", "jb_media_bake.frag", "media bake")
+            5 -> progWetDab = p("jb_wet_dab.vert", "jb_wet_dab.frag", "media wet dab")
+            6 -> progFlux = p("jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux")
+            7 -> progUpdate = p("jb_media_quad.vert", "jb_wet_update.frag", "media wet update")
+            8 -> progPasteDab = p("jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab")
+            9 -> progPasteBrush = p("jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush", plain = true)
+            10 -> progBead = p("jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead")
+            11 -> progEraseDab = p("jb_media_erase_dab.vert", "jb_media_erase_dab.frag", "media erase dab")
+            12 -> progErase = p("jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase")
+            else -> return false
+        }
+        return programs.size < PROGRAM_COUNT
+    }
+
+    /** Programs compiled ahead but never [init]ed (the canvas let go before a media stroke): only those are deleted. */
+    fun releasePrograms() { programs.forEach { it.release() }; programs.clear() }
+
     private class State(val p0: Int, val p1: Int, val paper: Int, val fbo: Int)
     private lateinit var state: Array<State>
     private var pFbo0 = 0
@@ -137,22 +171,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
         w = width; h = height; this.originX = originX; this.originY = originY; this.scale = scale
         // Atlas mode builds every media program with JB_ATLAS; the paste brush's cells are not layer-shaped (JB_PLAIN_TARGET).
         if (atlasMode) require(width % MediaAtlasDraw.SIDE == 0 && height % MediaAtlasDraw.SIDE == 0) { "an atlas window is whole slots" }
-        val defs = if (atlasMode) listOf("JB_ATLAS") else emptyList()
-        fun p(v: String, f: String, l: String, plain: Boolean = false) =
-            MediaProgram(shaders, "media/$v", "media/$f", l, if (plain && atlasMode) defs + "JB_PLAIN_TARGET" else defs)
-        progDab = p("jb_dry_dab.vert", "jb_dry_dab.frag", "media dry dab")
-        progApply = p("jb_media_quad.vert", "jb_media_apply.frag", "media apply")
-        progCopy = p("jb_media_quad.vert", "jb_media_copy.frag", "media copy")
-        progRender = p("jb_media_screen.vert", "jb_media_render.frag", "media render")
-        progBake = p("jb_media_quad.vert", "jb_media_bake.frag", "media bake")
-        progWetDab = p("jb_wet_dab.vert", "jb_wet_dab.frag", "media wet dab")
-        progFlux = p("jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux")
-        progUpdate = p("jb_media_quad.vert", "jb_wet_update.frag", "media wet update")
-        progPasteDab = p("jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab")
-        progPasteBrush = p("jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush", plain = true)
-        progBead = p("jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead")
-        progEraseDab = p("jb_media_erase_dab.vert", "jb_media_erase_dab.frag", "media erase dab")
-        progErase = p("jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase")
+        while (compileNext()) Unit   // whatever [compileNext] did not compile ahead
         allocate()
         brush = Array(2) {
             val b0 = MediaTex.make(PASTE_LANES, PASTE_DEPTH, GLES30.GL_RGBA32F, GLES30.GL_RGBA, GLES30.GL_FLOAT, GLES30.GL_NEAREST)
@@ -974,8 +993,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     }
 
     fun release() {
-        for (p in listOf(progDab, progApply, progCopy, progRender, progBake, progWetDab, progFlux, progUpdate, progPasteDab, progPasteBrush, progBead,
-                progEraseDab, progErase)) p.release()
+        releasePrograms()
         val tex = ArrayList<Int>()
         for (s in state) tex += listOf(s.p0, s.p1, s.paper)
         for (b in brush) tex += listOf(b.b0, b.b1)
@@ -995,6 +1013,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), pri
     }
 
     private companion object {
+        /** How many programs [compileNext] makes. */
+        const val PROGRAM_COUNT = 13
         val WATER_WRITES = listOf("p0", "p1", "w0", "w1")
         val WATER_STORES = listOf("w0", "w1")
     }

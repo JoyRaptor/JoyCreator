@@ -1075,3 +1075,11 @@ as `TIME * knob` are "rate" and the host integrates them.
 - Rule: a speed that can change (music, an edit) is integrated over time, never multiplied by the clock.
 - Rule: a refactor of a shader that runs on the phone is measured on the phone before it ships.
   The Words three-part split was pilot-only tested and cost the Note 9 up to 4x (11-19 fps).
+
+## 2026-10-18 — JoyBrush Lead (fork): a merge conflict from editing a peer's lane
+- **What happened:** the lead fixed the 1 s first-media-stroke hitch inside MediaLayerEngine/MediaCanvas, the Opus helper's
+  lane files, while the helper was changing the same functions. The merge into the integration branch conflicted, and a
+  background test run had been launched in the SAME tool batch as the merge, so it briefly ran on a tree with conflict markers.
+- **Rule:** (1) never edit a file in another agent's lane: send them the patch and the reason; (2) run
+  `git merge-tree --write-tree HEAD <branch>` BEFORE any merge, and start a build only in a later step after `git status`
+  shows a clean tree; (3) on a conflict: `git merge --abort`, stop the build, revert or hand off; never resolve it.

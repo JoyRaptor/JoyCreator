@@ -472,6 +472,18 @@
           eb.onclick = () => { L.echo = L.echo === false; renderDrawer(); };
           echoRow.appendChild(eb);
           lp.appendChild(echoRow);
+          if (L.type === 'words') {
+            // The song's words, or the person's own (typed, kept in the look, one per beat).
+            const r = document.createElement('div'); r.className = 'row'; r.innerHTML = '<label>Words</label>';
+            const song = document.createElement('button'); song.className = 'pill' + (!L.text ? ' on' : ''); song.textContent = "The song's";
+            song.title = 'Show the words of the song (its lyrics, or a transcript)';
+            song.onclick = () => { delete L.text; renderDrawer(); };
+            const inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = 'Your words'; inp.value = L.text || '';
+            inp.title = 'Type your own words (a slogan, a name); they come one per beat and are kept in this look';
+            inp.style.cssText = 'flex:1;min-width:0;margin-left:6px;border-radius:999px;border:0;padding:6px 12px;background:rgba(39,39,42,.8);color:inherit';
+            inp.onchange = () => { const v = inp.value.trim(); if (v) L.text = v; else delete L.text; renderDrawer(); };
+            r.appendChild(song); r.appendChild(inp); lp.appendChild(r);
+          }
           if (L.type === 'image') {
             const r = document.createElement('div'); r.className = 'row'; r.innerHTML = '<label>Picture</label>';
             const pick = document.createElement('button'); pick.className = 'pill'; pick.textContent = 'Use my logo'; pick.title = 'Pick an image from this device';

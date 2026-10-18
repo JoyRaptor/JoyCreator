@@ -566,6 +566,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     @Override
     protected void onPause() {
         super.onPause();
+        LobbyHero.save(this, view, scene());   // the lobby's Viz Lab hero shows where you left off
         if (source != null) source.setPaused(true);
         view.setPaused(true);
         session.flush();   // the app may be closed from here: keep every change now

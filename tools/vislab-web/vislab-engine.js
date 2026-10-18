@@ -575,9 +575,13 @@
       } else if (draw === 'words') {
         // Timed words (a transcript, the demo lyrics, typed words) from this.words, at this.wordsTime
         // (the song's own clock when there is one, so words land when they are sung).
-        const feed = this.words;
+        // The layer's own words (typed, kept in the look as "text") win over the song's.
+        const text = typeof layer.text === 'string' ? layer.text.trim() : '';
+        if (text && !this.typed && global.WordFeed) this.typed = new global.WordFeed();
+        if (text && this.typed && this.typedText !== text) { this.typed.setTyped(text, 0, 0.6); this.typedText = text; }
+        const feed = text ? this.typed : this.words;
         if (!feed) return;
-        const now = this.wordsTime != null ? this.wordsTime : this.time;
+        const now = text ? this.time : (this.wordsTime != null ? this.wordsTime : this.time);   // the feed takes off its own offset
         // Words a path, a behaviour and a letter style (see words.frag). Keep each word in view as
         // long as its behaviour needs: smoke and sparkle linger after the word, a burst's rocket
         // climbs before it.

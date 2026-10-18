@@ -65,6 +65,9 @@ public final class VisRenderer {
     private volatile float renderScale = 1f;
     private volatile boolean profile;
     @Nullable private volatile com.fadcam.vislab.words.WordFeed words;
+    /** For a Words layer that carries its own words ("text"): typed, saved in the look. */
+    @Nullable private volatile com.fadcam.vislab.words.WordFeed typed;
+    @Nullable private String typedText;
     private volatile double wordsTime = Double.NaN;
     @Nullable private GpuTimer gpu;
     private volatile ImageSource images;
@@ -157,6 +160,12 @@ public final class VisRenderer {
     /** Where words layers get their words (a transcript, the demo lyrics); null = no words. */
     public void setWords(@Nullable com.fadcam.vislab.words.WordFeed feed) {
         words = feed;
+    }
+
+    /** The feed that shows a Words layer's own typed words (its "text"); made by the host. */
+    public void setTypedWords(@Nullable com.fadcam.vislab.words.WordFeed feed) {
+        typed = feed;
+        typedText = null;
     }
 
     /**
@@ -257,6 +266,8 @@ public final class VisRenderer {
         gpu = null;
         com.fadcam.vislab.words.WordFeed wf = words;
         if (wf != null) wf.contextLost();
+        com.fadcam.vislab.words.WordFeed tf = typed;
+        if (tf != null) tf.contextLost();
         initialised = false;
         w = h = 0;
     }
@@ -545,9 +556,16 @@ public final class VisRenderer {
             GLES30.glUniform1f(p.u("uImageAspect"), img[2] > 0 ? (float) img[1] / img[2] : 1f);
             drawFullscreen();
         } else if (VisType.DRAW_WORDS.equals(draw)) {
-            com.fadcam.vislab.words.WordFeed feed = words;
+            // The layer's own words (typed, kept in the look) win over the song's.
+            com.google.gson.JsonElement te = L.source.get("text");
+            String text = te != null && te.isJsonPrimitive() ? te.getAsString().trim() : "";
+            com.fadcam.vislab.words.WordFeed feed = text.isEmpty() ? words : typed;
             if (feed == null) return;
-            double now = Double.isNaN(wordsTime) ? time : wordsTime;
+            if (!text.isEmpty() && !text.equals(typedText)) {
+                feed.setTyped(text);
+                typedText = text;
+            }
+            double now = text.isEmpty() && !Double.isNaN(wordsTime) ? wordsTime : time;
             // Words = a path, a behaviour and a letter style (see words.frag). Keep each word in
             // view as long as its behaviour needs: smoke and sparkle linger after the word, a
             // burst's rocket climbs before it.

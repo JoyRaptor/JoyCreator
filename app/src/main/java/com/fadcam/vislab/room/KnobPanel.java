@@ -290,6 +290,7 @@ final class KnobPanel extends LinearLayout {
                     L.addProperty("echo", on);
                     host.edited();
                 }));
+        if (VisType.DRAW_WORDS.equals(t.draw)) yourWords(c, L);
         layerColours(c, s, L);
         if (VisType.DRAW_IMAGE.equals(t.draw)) {
             boolean own = L.has("image") && L.get("image").isJsonPrimitive() && !L.get("image").getAsString().isEmpty();
@@ -481,6 +482,47 @@ final class KnobPanel extends LinearLayout {
         }
         shelf.addView(w);
         addBox.addView(shelf);
+    }
+
+    /**
+     * Which words a Words layer shows: the song's (its lyrics, a transcript) or the person's own,
+     * typed and kept in the look ("text"), one per beat, round and round: a slogan, a name.
+     */
+    private void yourWords(@NonNull Context c, @NonNull JsonObject L) {
+        JsonElement te = L.get("text");
+        String text = te != null && te.isJsonPrimitive() ? te.getAsString() : "";
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(Ui.dp(c, 36));
+        row.addView(Ui.text(c, "Words", 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
+        TextView song = pill(c, "The song's", text.isEmpty());
+        Ui.label(song, "Show the words of the song (its lyrics, or a transcript)");
+        song.setOnClickListener(v -> {
+            if (text.isEmpty()) return;
+            Motion.press(v);
+            host.beginEdit("The song's words");
+            L.remove("text");
+            host.edited();
+            rebuild();
+        });
+        row.addView(song);
+        TextView mine = pill(c, text.isEmpty() ? "Your words" : "\u201C" + (text.length() > 18 ? text.substring(0, 17) + "\u2026" : text) + "\u201D", !text.isEmpty());
+        Ui.label(mine, "Type your own words (a slogan, a name); they come one per beat and are kept in this look");
+        mine.setOnClickListener(v -> {
+            Motion.press(v);
+            LookSheets.askName(c, "Your words", text, "Show", typedIn -> {
+                host.beginEdit("Your words");
+                if (typedIn.trim().isEmpty()) L.remove("text");
+                else L.addProperty("text", typedIn.trim());
+                host.edited();
+                rebuild();
+            });
+        });
+        LayoutParams mlp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        mlp.leftMargin = Ui.dp(c, 6);
+        row.addView(mine, mlp);
+        body.addView(row);
     }
 
     /**

@@ -137,6 +137,25 @@ public final class WordFeed {
         track = new Track(w, aspect, flow, period, f);
     }
 
+    /** Seconds per word for words the person typed. */
+    public static final double TYPED_BEAT = 0.6;
+
+    /**
+     * Words the person typed (a slogan, a name), one every {@link #TYPED_BEAT} seconds,
+     * repeating. Blank clears. Any thread.
+     */
+    public void setTyped(@Nullable String text) {
+        List<Word> list = new ArrayList<>();
+        if (text != null) {
+            for (String t : text.trim().split("\\s+")) {
+                if (t.isEmpty() || list.size() >= 200) continue;
+                double s = list.size() * TYPED_BEAT;
+                list.add(new Word(t, s, s + TYPED_BEAT * 0.92));
+            }
+        }
+        setWords(list, list.size() * TYPED_BEAT);
+    }
+
     /** Flow position at time t (inside one period): words arrive at the anchor as they start. */
     static float flowAt(@NonNull Track k, double t) {
         Word[] w = k.words;

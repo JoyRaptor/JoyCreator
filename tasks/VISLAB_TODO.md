@@ -56,7 +56,8 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
 
 ## B. Words
 
-- [ ] **B1. Typed words.** Type your own words; they show in the Words layer one per beat.
+- [x] **B1. Typed words.** Type your own words; they show in the Words layer one per beat.
+  - DONE 10-18, Note 9: a Words layer's Your words (kept in the look as "text", one word per 0.6 s, round and round); Firework Words showed JOY CREATOR LIVE TONIGHT (pilot too). Later: a pace knob, fireworks read better slower.
   Pilot has `WordFeed.setTyped()` (`tools/vislab-web/vislab-words.js:60`); Java
   `vislab/words/WordFeed.java` needs the twin. Room: a "Words" pill beside the sound chips in
   `VisLabActivity` (`sources` SlantRow ~line 231) opening a text sheet (`LookSheets.askName` style).
@@ -66,7 +67,8 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
 
 ## C. The other places
 
-- [ ] **C1. Lobby Viz Lab hero** shows "No visualisers yet": show the last look moving.
+- [x] **C1. Lobby Viz Lab hero** shows "No visualisers yet": show the last look moving.
+  - DONE 10-18, Note 9: leaving VisLab saves a still + name (room/LobbyHero); the lobby shows LAST VISUALISER, the look, Carry on.
   `ui/lobby/LobbyFragment.java:500` (`R.string.lobby_empty_viz`); a small `VisTextureView` with
   the session's current look, paused when off screen.
 - [ ] **C2. Floating visualiser: a look picker** (only ‹ › now) — `vislab/overlay/OverlayControls.java`.

@@ -760,6 +760,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val frameBoard = animationBoardId?.takeIf { b -> boardDocument?.boards?.any { it.id == b && it.kind == BoardKind.ANIMATION } == true }
         onBeforeHistoryChange?.invoke()
         onGl {
+            // The realistic-paint window writes its live state back and lets go first, so the merge reads current paint
+            // and nothing stale can flush into the merged layer later (audit 2026-10-18).
+            mediaCanvas.releaseWindow()
             val plan = try {
                 cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.decide(engine.mergeSide(upper, frameBoard), lower?.let { engine.mergeSide(it, frameBoard) })
             } catch (e: Exception) { cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.Result.Refused(e.message ?: "Those layers could not be merged") }
@@ -767,11 +770,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 is cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.Result.Refused -> post { onRefused?.invoke(plan.sentence) }
                 is cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.Result.Merge -> try {
                     val after = if (frameBoard != null) before else before.delete(id)!!.let { it.copy(activeId = lower!!.id) }
-                    engine.mergeDownStep(id, lower!!.id, plan.way, plan.sheetOp, plan.flattenLower, before, after, frameBoard)
+                    val media = engine.mergeDownStep(id, lower!!.id, plan.way, plan.sheetOp, plan.flattenLower, before, after, frameBoard)
                     reportHistory(); publishLines()
                     post {
                         if (frameBoard == null) adopt(after)
-                        (plan.said ?: if (frameBoard != null) "This frame of \"${upper.name}\" merged down; its other frames stay." else null)?.let { onNotice?.invoke(it) }
+                        listOfNotNull(plan.said ?: if (frameBoard != null) "This frame of \"${upper.name}\" merged down; its other frames stay." else null, media)
+                            .joinToString(" ").ifEmpty { null }?.let { onNotice?.invoke(it) }
                     }
                 } catch (e: Exception) {
                     post { onRefused?.invoke(e.message ?: "Those layers could not be merged") }
@@ -787,6 +791,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val name = stackUi[id]?.name ?: "This layer"
         onBeforeHistoryChange?.invoke()
         onGl {
+            mediaCanvas.releaseWindow()   // its live state written back first; nothing stale flushes into the frozen layer later
             val done = try { engine.freezeLayerStep(id) } catch (e: Exception) { post { onRefused?.invoke(e.message ?: "\"$name\" could not be frozen") }; return@onGl }
             if (done) { reportHistory(); publishLines(); post { onNotice?.invoke("\"$name\" is plain pixels now. Undo brings its lines and paint back.") } }
             else post { onNotice?.invoke("\"$name\" is already plain pixels.") }
@@ -805,6 +810,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val before = stackUi
         onBeforeHistoryChange?.invoke()
         onGl {
+            mediaCanvas.releaseWindow()   // its live state written back first; nothing stale flushes into the result later
             val plan = try {
                 cc.joycreator.joybrush.androidkit.layers.FlattenPlan.decide(before, discardHidden) { id ->
                     cc.joycreator.joybrush.androidkit.layers.FlattenPlan.Facts(hasFrames = before[id]?.let { engine.mergeSide(it).hasFrames } == true)

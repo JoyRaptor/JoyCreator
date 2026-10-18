@@ -64,8 +64,10 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
   `VisLabActivity` (`sources` SlantRow ~line 231) opening a text sheet (`LookSheets.askName` style).
 - [x] **B2. Ribbon + Burst is faint.** `shaders/words.frag` `weave()` (~line 417) with behaviour 4.
   - DONE 10-18, pilot (no shipped look uses Ribbon + Burst; same shader on the phone): on a path, coming words wait whole and dim and burst as they are sung; before, only the word being sung showed.
-- [ ] **B3. Busy moments still dip to ~30 fps** (Smoke Words, Cigar Smoke, Written in Stars).
-  Next lever: the smoke behaviour's `curl2` + `fbm2` per word (`behave()`, bh 3).
+- [ ] **B3. Busy moments dip to the mid-30s** (Note 9, 10-18, 20 s each: Smoke Words 44-55 fps,
+  Cigar Smoke 37-53, Written in Stars 34-55, all at 40-45% resolution). Next lever: the smoke
+  behaviour's swirl (`curl2`, 4 noise samples) per word in `behave()` bh 3. A 2D flow would be
+  about twice as fast but looks less like real curling smoke: the owner's call (taste over speed).
 
 ## C. The other places
 
@@ -82,10 +84,12 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
 
 ## D. Speed, heat, sharing
 
-- [ ] **D1. Crystal and Gyroid Dive** are the slowest looks (`shaders/voronoi.frag`, `raymarch.frag`).
+- [x] **D1. Crystal and Gyroid Dive** are the slowest looks (`shaders/voronoi.frag`, `raymarch.frag`).
+  - DONE 10-18, Note 9 (cool): Crystal 44-53 fps, Gyroid Dive 47-54 (60-64% resolution). Fine after the earlier fixes; no change needed.
 - [ ] **D2. The real heat case:** floating visualiser over a game while recording, an hour.
   Heat guard is in (`view/HeatGuard.java`, seen working 10-18).
-- [ ] **D3. Republish the web look book** with today's looks: `node tools/vislab-web/build.mjs`, then
+- [x] **D3. Republish the web look book** with today's looks: `node tools/vislab-web/build.mjs`, then
+  - DONE 10-18: rebuilt (39 looks, 44 shaders, with the Lab parts, typed words and the spiral fix) and republished as version 3 of https://claude.ai/artifact/Kc5e3auEwB8KQorH92hUXU (private until shared from its Share menu).
   the Artifact update (the pilot page).
 
 ## Done this window (newest first)

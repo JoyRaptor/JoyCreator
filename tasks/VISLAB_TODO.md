@@ -64,7 +64,8 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
   `VisLabActivity` (`sources` SlantRow ~line 231) opening a text sheet (`LookSheets.askName` style).
 - [x] **B2. Ribbon + Burst is faint.** `shaders/words.frag` `weave()` (~line 417) with behaviour 4.
   - DONE 10-18, pilot (no shipped look uses Ribbon + Burst; same shader on the phone): on a path, coming words wait whole and dim and burst as they are sung; before, only the word being sung showed.
-- [ ] **B3. Busy moments dip to the mid-30s** (Note 9, 10-18, 20 s each: Smoke Words 44-55 fps,
+- [x] **B3. Busy moments dip to the mid-30s** (Note 9, 10-18, 20 s each: Smoke Words 44-55 fps,
+  - DONE 10-18, owner's ruling: keep the curling smoke as it is; the mid-30s dips at busy moments are fine. Do not swap in a cheaper swirl.
   Cigar Smoke 37-53, Written in Stars 34-55, all at 40-45% resolution). Next lever: the smoke
   behaviour's swirl (`curl2`, 4 noise samples) per word in `behave()` bh 3. A 2D flow would be
   about twice as fast but looks less like real curling smoke: the owner's call (taste over speed).

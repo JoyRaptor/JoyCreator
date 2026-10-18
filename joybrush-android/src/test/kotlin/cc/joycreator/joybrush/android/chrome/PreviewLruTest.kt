@@ -53,7 +53,7 @@ class PreviewLruTest {
         assertEquals(listOf("big"), c.keys())
         assertEquals(40L, c.totalBytes)
         c.put("b", "12")
-        assertEquals(listOf("b"), c.keys(), "the next one pushes the oversize one out")
+        assertEquals("the next one pushes the oversize one out", listOf("b"), c.keys())
     }
 
     @Test fun removeAndClearGiveTheBytesBack() {

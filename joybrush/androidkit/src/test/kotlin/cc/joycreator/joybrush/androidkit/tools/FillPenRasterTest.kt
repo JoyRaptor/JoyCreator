@@ -171,4 +171,14 @@ class FillPenRasterTest {
         assertEquals(1, reads)
         assertTrue(changes.isEmpty())
     }
+
+    // Just-works sweep: a fill that would change no pixel says so instead of doing nothing.
+    @Test fun fillingWhatIsAlreadyThatColourChangesNothingAndSaysSo() {
+        val mask = FillPenRaster.prepare(square(), 0f, 1f)
+        val red = tile(255, 0, 0, 255)
+        val unchanged = FillPenRaster.plan(mask, 0xFFFF0000.toInt(), 1f, MaskPaintMode.FILL) { red }
+        assertTrue(unchanged.isEmpty(), "no pixel differs, so the plan is empty and the person is told")
+        assertEquals("Nothing to fill there.", FillPenRaster.NOTHING_TO_FILL)
+        assertFalse(FillPenRaster.plan(mask, 0xFF0000FF.toInt(), 1f, MaskPaintMode.FILL) { red }.isEmpty(), "a different colour does change it")
+    }
 }

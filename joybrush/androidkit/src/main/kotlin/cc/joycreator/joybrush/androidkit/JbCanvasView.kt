@@ -676,16 +676,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         adopt(after)
         onGl { engine.deleteLayerStep(id, before, after); reportHistory() }
+        tellIfUnclipped(before, after)
         return true
     }
 
     fun moveLayer(id: String, toIndex: Int) {
         val before = stackUi
         val after = before.move(id, toIndex)
-        if (after != before) commitStack(before, after)
+        if (after != before) { commitStack(before, after); if (!drawing) tellIfUnclipped(before, after) }
     }
 
     fun renameLayer(id: String, name: String) {
+        if (name.isBlank()) { onRefused?.invoke("A layer needs a name."); return }
         val before = stackUi
         val after = before.rename(id, name)
         if (after != before) commitStack(before, after)
@@ -723,6 +725,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         private set
 
     fun setEditingMask(on: Boolean) {
+        if (on && !stackUi.active.hasMask) { onRefused?.invoke("This layer has no mask yet. Add one from its menu."); return }
         val next = on && stackUi.active.hasMask
         if (next == editingMask) return
         editingMask = next
@@ -733,7 +736,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     fun addMask(id: String) {
         if (penIsDown()) return
         val before = stackUi
-        if (before[id]?.hasMask != false) return
+        val layer = before[id] ?: return
+        if (layer.hasMask) { onRefused?.invoke("This layer already has a mask."); return }
         editingMask = id == before.activeId
         commitStack(before, before.withMask(id, true))
     }
@@ -842,6 +846,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         if (stackUi.size < maxLayers) return true
         onRefused?.invoke("This phone has room for $maxLayers layers, and this drawing has ${stackUi.size}.")
         return false
+    }
+
+    /** A move or a delete left a clipped layer at the bottom with nothing to clip to, so the stack unclipped it: said, not silent. */
+    private fun tellIfUnclipped(before: LayerStack, after: LayerStack) {
+        if (before.lostClipIn(after)) onNotice?.invoke(LayerStack.UNCLIPPED)
     }
 
     /** A layer change asked for with the pen down is said no to in words; the stroke is never ended to make room for it (R26). */
@@ -1335,6 +1344,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var mediaErase = false
     /** The media stroke has been begun on the GL thread (at its first sample, where the window is placed). */
     private var mediaBegun = false
+    /** Making the board document for this media stroke failed, and the reason was already said. */
+    @Volatile private var mediaDocRefused = false
     /** The colour of the last media stroke: the "last colour" belly mode. */
     private var lastMediaArgb: Int? = null
     /** GL thread: what the history buttons last heard, so running water reports only when the undo stack changes. */
@@ -1378,10 +1389,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val w = viewW; val h = viewH
         // The Lead's check 8: a fresh drawing has no board document until its first save. Make it first, so the first
         // autosave after this stroke takes the path that keeps media state.
+        mediaDocRefused = false
         onGl {
             try {
                 if (engine.boardDocument == null) engine.setBoardDocument(syncBoardLayersFor(readContents(w, h).doc, stack))
             } catch (e: Exception) {
+                mediaDocRefused = true
                 post { onRefused?.invoke(e.message ?: "This drawing could not take pencil, watercolour or oil") }
             }
         }
@@ -1418,8 +1431,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             lastMediaArgb = argb
             onGl {
-                // Without the board document a save would drop the media state: nothing is painted (the refusal is said).
+                // Without the board document a save would drop the media state, so nothing is painted - and that is always
+                // said: the reason when making the document failed (above), else a sentence here. Never a silent stroke.
                 if (engine.boardDocument != null) mediaCanvas.begin(target, p, argb, belly, first.x, first.y, now)?.let { why -> post { onRefused?.invoke(why) } }
+                else if (!mediaDocRefused) post { onRefused?.invoke("This drawing could not take pencil, watercolour or oil") }
             }
         }
         onGl { mediaCanvas.add(out) }
@@ -1740,7 +1755,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                         val shape=if(tileBoard == null) mask else mask.foldInto(tileBoard.rect)
                         val changes=FillPenRaster.plan(shape,argb,opacity,mode,ownership) { engine.readTile(target,it) }
                         engine.replaceTiles(target,changes,wrappedBoardId=tileBoard?.id)
-                        if(changes.isNotEmpty()) reportHistory()
+                        if(changes.isNotEmpty()) reportHistory() else post { onRefused?.invoke(FillPenRaster.NOTHING_TO_FILL) }
                     } else post { onRefused?.invoke(FillPenRaster.TOO_SMALL) }
                 } finally {
                     afterFrameWork.addLast { post { if(fillSerial == serial) onFillPreview?.invoke(null) } }
@@ -1825,7 +1840,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * samples are SCREEN px of this view; they are put on the page where they appear. Ignored while a stroke is drawn.
      */
     fun drawStrokes(strokes: List<List<PenSample>>) {
-        if (drawing || strokes.isEmpty()) return
+        if (strokes.isEmpty() || penIsDown()) return
         var mark = 0
         onGl { mark = engine.undo.undoDepth }
         for ((index, samples) in strokes.withIndex()) {

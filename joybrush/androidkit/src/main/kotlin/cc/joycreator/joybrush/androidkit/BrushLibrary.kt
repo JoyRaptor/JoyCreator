@@ -31,7 +31,7 @@ object BrushLibrary {
     private const val INDEX = "index.txt"
 
     /** What reading the packaged brushes gave: the ones that load, and the folders that did not. */
-    internal class Loaded(val brushes: List<BrushPreset>, val skipped: List<String>)
+    internal class Loaded(val brushes: List<BrushPreset>, val skipped: List<String>, val indexMissing: Boolean = false)
 
     private var cache: Loaded? = null
 
@@ -42,7 +42,7 @@ object BrushLibrary {
     fun unusable(): List<String> = loaded().skipped
 
     /** One calm sentence for the person when any packaged brush could not be loaded, else null. */
-    fun unusableSentence(): String? = sentenceFor(unusable().size)
+    fun unusableSentence(): String? = loaded().let { if (it.indexMissing) ALL_LOST else sentenceFor(it.skipped.size) }
 
     private fun loaded(): Loaded {
         val hit = cache
@@ -53,7 +53,11 @@ object BrushLibrary {
     }
 
     /** Reads [names] through [read]; every brush that is lost is logged, and once more as a count. Pure but for [warn]. */
-    internal fun load(names: List<String>, read: (String) -> String?, warn: (String) -> Unit): Loaded {
+    internal fun load(names: List<String>?, read: (String) -> String?, warn: (String) -> Unit): Loaded {
+        if (names == null) {
+            warn("the packaged brush list ($INDEX) is missing: no built-in brush folder can be loaded")
+            return Loaded(cc.joycreator.joybrush.core.brush.MediaPresets.ALL.toList(), emptyList(), indexMissing = true)
+        }
         val out = ArrayList<BrushPreset>()
         val skipped = ArrayList<String>()
         for (name in names) {
@@ -72,15 +76,18 @@ object BrushLibrary {
         return Loaded(out, skipped)
     }
 
+    /** The packaged brush list itself is missing: every folder brush is gone, and that is said too. */
+    internal const val ALL_LOST = "The built-in brushes could not be loaded."
+
     internal fun sentenceFor(count: Int): String? = when {
         count <= 0 -> null
         count == 1 -> "1 brush could not be loaded."
         else -> "$count brushes could not be loaded."
     }
 
-    /** The folder names in `index.txt`, blanks and `#` comments dropped. */
-    private fun folderNames(): List<String> {
-        val index = readText(INDEX) ?: return emptyList()
+    /** The folder names in `index.txt`, blanks and `#` comments dropped; null when the list itself is missing. */
+    private fun folderNames(): List<String>? {
+        val index = readText(INDEX) ?: return null
         val names = ArrayList<String>()
         for (line in index.lineSequence()) {
             val name = line.trim()

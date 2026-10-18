@@ -1129,7 +1129,7 @@ class JoyBrushActivity : Activity() {
             if (canvas.activeLayerId != id) canvas.selectLayer(id)
             val on = !canvas.editingMask
             canvas.setEditingMask(on)
-            if (on) toast("Painting on the mask: dark hides, light shows")
+            if (on && canvas.editingMask) toast("Painting on the mask: dark hides, light shows")
         }
     }
 
@@ -1305,12 +1305,19 @@ class JoyBrushActivity : Activity() {
             setPadding(dp(8), 0, dp(8), 0)
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
             kit.label(this, "Layer name")
+            // A blank name is said no to once, and the field goes back to the name the layer keeps (so the focus loss that
+            // follows the Done key sees an unchanged name and stays quiet).
+            fun commitName(v: android.widget.EditText) {
+                val typed = v.text.toString()
+                canvas.renameLayer(id, typed)
+                if (typed.isBlank()) v.setText(canvas.layers[id]?.name ?: layer.name)
+            }
             setOnEditorActionListener { v, _, _ ->
-                canvas.renameLayer(id, v.text.toString())
+                commitName(v as android.widget.EditText)
                 v.clearFocus()
                 false
             }
-            setOnFocusChangeListener { v, has -> if (!has) canvas.renameLayer(id, (v as android.widget.EditText).text.toString()) }
+            setOnFocusChangeListener { v, has -> if (!has) commitName(v as android.widget.EditText) }
         }
         box.addView(name, LinearLayout.LayoutParams(MATCH, dp(40)))
 
@@ -1352,7 +1359,7 @@ class JoyBrushActivity : Activity() {
             box.addView(menuRow("Add mask", "Add a mask to this layer — paint dark on it to hide, light to show") {
                 canvas.selectLayer(id)
                 canvas.addMask(id)
-                toast("Painting on the mask: dark hides, light shows")
+                if (canvas.editingMask) toast("Painting on the mask: dark hides, light shows")
             })
         } else {
             val onMask = canvas.editingMask && canvas.activeLayerId == id

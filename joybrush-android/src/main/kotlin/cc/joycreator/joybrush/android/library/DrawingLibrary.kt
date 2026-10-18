@@ -3,7 +3,10 @@ package cc.joycreator.joybrush.android.library
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import cc.joycreator.joybrush.androidkit.io.JbArchive
 import cc.joycreator.joybrush.androidkit.io.JbContents
 import cc.joycreator.joybrush.core.doc.DocOps
@@ -264,12 +267,26 @@ object DrawingLibrary {
         if (!JoyFolderHome.isChosen(app)) return
         JoyFolderHome.io().execute {
             try {
-                val jf = JoyFolderHome.open(app) ?: return@execute
+                val jf = JoyFolderHome.open(app)
+                if (jf == null) {
+                    Log.w(TAG, "folder copy of ${file.name} not written: the Joy Creator folder can't be opened")
+                    tellFolderCopyFailed(app, file.name)
+                    return@execute
+                }
                 mirrorFile(app, jf, dir, file.name, contents.doc.id)
             } catch (e: Exception) {
                 Log.w(TAG, "folder copy of ${file.name} not written; the next save tries again", e)
+                tellFolderCopyFailed(app, file.name)
             }
         }
+    }
+
+    private val folderCopyNotice = FolderCopyNotice()
+
+    /** Tells the person, once per drawing per session, that the copy in their Joy Creator folder was not made. Any thread. */
+    private fun tellFolderCopyFailed(app: Context, file: String) {
+        if (!folderCopyNotice.firstFailure(file)) return
+        Handler(Looper.getMainLooper()).post { Toast.makeText(app, FolderCopyNotice.SENTENCE, Toast.LENGTH_LONG).show() }
     }
 
     /**

@@ -174,4 +174,25 @@ class ExportChoiceSheetTest {
         touch(view,MotionEvent.ACTION_DOWN,176f,808f);touch(view,MotionEvent.ACTION_UP,176f,808f);settle()
         assertEquals(1,choices.size);assertTrue(reasons.isEmpty())
     }
+
+    @Test fun tappingAGreyedScopeRowOrFormatChipExplainsItAndTheMemoryBarStaysQuiet() {
+        val view=sheet();val reasons=mutableListOf<String>();val scopes=mutableListOf<Export.Scope>()
+        view.host=object:ExportChoiceSheet.Host {
+            override fun refused(reason:String){reasons+=reason}
+            override fun scope(board:BoardChromeIdentity,scope:Export.Scope){scopes+=scope}
+        }
+        view.show(input().copy(availableScopes=setOf(Export.Scope.ANIMATION,Export.Scope.FRAME),
+            availableFormats=Export.chipFormats.toSet()-Export.Format.GIF,exportEnabled=true));settle()
+        // The range row (the same spot the enabled-row test taps) is greyed.
+        touch(view,MotionEvent.ACTION_DOWN,176f,687f);touch(view,MotionEvent.ACTION_UP,176f,687f)
+        assertEquals(listOf("\"A range of frames\" isn't available for this board."),reasons)
+        assertTrue("a greyed row selects nothing",scopes.isEmpty())
+        // The first format chip (GIF) is greyed.
+        touch(view,MotionEvent.ACTION_DOWN,25f,756f);touch(view,MotionEvent.ACTION_UP,25f,756f)
+        assertEquals("GIF isn't available for \"Animation\"; choose another file type.",reasons.last())
+        assertEquals(2,reasons.size)
+        // The memory bar is not a button.
+        touch(view,MotionEvent.ACTION_DOWN,176f,778f);touch(view,MotionEvent.ACTION_UP,176f,778f)
+        assertEquals(2,reasons.size)
+    }
 }

@@ -47,4 +47,14 @@ class BrushLibraryTest {
         assertEquals("1 brush could not be loaded.", BrushLibrary.sentenceFor(1))
         assertEquals("3 brushes could not be loaded.", BrushLibrary.sentenceFor(3))
     }
+
+    @Test fun aMissingBrushListIsTheSameLostBrushesNoticeAndNotAnEmptyDrawerInSilence() {
+        val warnings = mutableListOf<String>()
+        val loaded = BrushLibrary.load(null, { null }, warnings::add)
+        assertTrue(loaded.indexMissing)
+        assertTrue(loaded.skipped.isEmpty())
+        assertEquals(MediaPresets.ALL.map { it.id }, loaded.brushes.map { it.id }, "only the code-made media presets are left")
+        assertEquals(1, warnings.size)
+        assertEquals("The built-in brushes could not be loaded.", BrushLibrary.ALL_LOST)
+    }
 }

@@ -24,6 +24,8 @@ object FillPenRaster {
 
     /** What the person is told when a shape is too small to fill (see [fillsEnough]). */
     const val TOO_SMALL = "That shape is too small to fill."
+    /** What the person is told when the fill would change no pixel (see [plan]). */
+    const val NOTHING_TO_FILL = "Nothing to fill there."
     private const val MIN_SCREEN_AREA = 4.0
 
     /** True when the shape covers at least 4 screen px²: smaller than that is a speck the fill would not show. */

@@ -110,4 +110,24 @@ class BoardExportLayoutTest {
             assertEquals(i.canExport(), BoardExportLayout.whyNotExportable(i)==null, "$scope $format $enabled")
         }
     }
+
+    // Just-works sweep: every greyed control a person can tap says why; the memory bar is information and stays quiet.
+    @Test fun greyedScopeRowsAndFormatChipsExplainThemselvesLikeExport() {
+        val i=input().copy(availableScopes=setOf(Scope.ANIMATION,Scope.FRAME),availableFormats=setOf(Format.PNG_FRAMES))
+        assertEquals("\"A range of frames\" isn't available for this board.",BoardExportLayout.whyGreyed(i,"export-scope-range"))
+        assertNull(BoardExportLayout.whyGreyed(i,"export-scope-animation"))
+        assertEquals("GIF isn't available for \"Animation\"; choose another file type.",BoardExportLayout.whyGreyed(i,"export-format-gif"))
+        assertNull(BoardExportLayout.whyGreyed(i,"export-format-png_frames"))
+        assertEquals(BoardExportLayout.whyNotExportable(i),BoardExportLayout.whyGreyed(i,"export-go"))
+        assertNull(BoardExportLayout.whyGreyed(i,"export-budget"))
+        assertNull(BoardExportLayout.whyGreyed(i,"export-title"))
+    }
+
+    @Test fun everyDisabledControlInTheLayoutHasASentenceExceptTheMemoryBar() {
+        val i=input().copy(availableScopes=setOf(Scope.FRAME),availableFormats=setOf(Format.PNG),exportEnabled=false)
+        for (control in BoardExportLayout.layout(i).controls.filter { !it.enabled }) {
+            val said=BoardExportLayout.whyGreyed(i,control.id)
+            if (control.id=="export-budget") assertNull(said) else assertNotNull(said,"${control.id} is greyed and silent")
+        }
+    }
 }

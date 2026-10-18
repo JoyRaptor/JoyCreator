@@ -33,6 +33,13 @@ uniform float uFlowNow;     // the words laid end to end so far (text heights): 
 #define WEAVE    uP[4].z   // how much ribbons and smoke wander
 #define ACROSS   uP[4].w   // where the ribbon / ember / launch sits, left to right
 #define UPK      uP[5].x   // ... and up and down
+#define TRAVEL   uP[5].y   // ribbon: 0 words coming at you, 1 going away
+#define ROLL     uP[5].z   // ribbon: turn the whole ribbon round the screen, degrees
+#define LEAN     uP[5].w   // ribbon: lean the banner over, degrees (0 upright, 90 lying flat)
+#define RIPPLE   uP[6].x   // ribbon: how much it banks as it weaves
+#define REACH    uP[6].y   // ribbon: how far off it reaches, text heights
+#define CLOSEST  uP[6].z   // ribbon: how close the word being sung passes
+#define SIDEK    uP[6].w   // ribbon: how far to the side of you it runs
 
 // Hosts build one small program per scene and letter style (SCENE, LETTER_STYLE defined ahead
 // of this file): a single program holding every scene ran at 5 fps on the Note 9, because the
@@ -313,21 +320,28 @@ vec3 ring(vec2 p, inout float cover) {
 }
 
 // ---------------------------------------------------------------- 6 weaving ribbon
-// The words ride an invisible ribbon that weaves off toward the horizon like smoke. You travel
-// along it: the coming words wait far off near the centre, the one being sung passes close by,
-// big and readable, rippling with depth as the ribbon banks. Camera space: x right, y up, z
-// ahead, the screen at z = 1; f = text heights along the ribbon from the word being sung.
-vec3 ribbonAt(float f) {
+// The words ride an invisible ribbon that weaves off toward the horizon like smoke, the one
+// being sung passing close by, big and readable, rippling with depth as the ribbon banks.
+//   Coming at you: the ribbon runs down your left; the coming words wait far off toward the
+//     centre and fly at you, so the line reads on from the word being sung.
+//   Going away: the ribbon runs down your right; the sung words sail off toward the centre, so
+//     the line reads up to the word being sung.
+// Either way every word reads left to right, never mirrored (owner, 10-18). Rotate turns the
+// whole ribbon round the screen, Lean lays the banner over, Reach and Closest word set how far
+// it runs and how close the sung word passes. Camera space: x right, y up, z ahead, the screen
+// at z = 1; s = text heights along the ribbon away from you, from the word being sung.
+float ribbonSide() { return TRAVEL < 0.5 ? -1.0 : 1.0; }
+
+vec3 ribbonAt(float s) {
     float H = SIZE * 0.9;
     float t = TIME * SPEEDK;
-    // Off to one side (Across), so the banner is seen at a slant: readable, with depth.
-    float x = ACROSS * 0.85 + WEAVE * 0.11 * (sin(f * 0.21 + t * 0.6) + 0.6 * sin(f * 0.47 - t * 1.1));
-    float y = UPK * 0.45 + WEAVE * 0.12 * (sin(f * 0.29 - t * 0.8) + 0.5 * cos(f * 0.63 + t * 0.5));
-    return vec3(x, y, 1.1 + f * H);
+    float x = ribbonSide() * SIDEK * 0.85 + WEAVE * 0.11 * (sin(s * 0.21 + t * 0.6) + 0.6 * sin(s * 0.47 - t * 1.1));
+    float y = UPK * 0.45 + WEAVE * 0.12 * (sin(s * 0.29 - t * 0.8) + 0.5 * cos(s * 0.63 + t * 0.5));
+    return vec3(x, y, CLOSEST + s * H);
 }
 
-vec2 ribbonUp(float f) {
-    float bank = WEAVE * 0.3 * sin(f * 0.33 + TIME * SPEEDK * 0.9);
+vec2 ribbonUp(float s) {
+    float bank = ribbonSide() * radians(LEAN) + RIPPLE * 0.3 * sin(s * 0.33 + TIME * SPEEDK * 0.9);
     return vec2(-sin(bank), cos(bank));
 }
 
@@ -338,8 +352,10 @@ vec3 haze(float v, float f, float fade) {
 }
 
 vec3 weave(vec2 p, inout float cover) {
+    p = rot2(-radians(ROLL)) * p;                  // Rotate: the whole ribbon turns on screen
     float H = SIZE * 0.9;
-    float fMin = (0.25 - 1.1) / H, fMax = 42.0;
+    bool going = TRAVEL > 0.5;
+    float fMin = (0.2 - CLOSEST) / H, fMax = REACH;
     const int N = 64;
     float ds = (fMax - fMin) / float(N);
     // Where this pixel crosses the ribbon, far to near; only the 3 nearest are kept.
@@ -359,16 +375,18 @@ vec3 weave(vec2 p, inout float cover) {
             float h = (d.x * W.y - d.y * W.x) / det;   // along this piece, 0..1
             float v = (ab.x * d.y - ab.y * d.x) / det; // across, text heights
             if (h >= 0.0 && h < 1.0 && abs(v) < 0.85) {
-                float f = fa + h * ds;
+                float sAt = fa + h * ds;
+                float f = going ? -sAt : sAt;          // the words' order along the ribbon
                 float z = mix(Pa.z, Pb.z, h);
-                float fade = smoothstep(0.3, 0.75, z) * smoothstep(fMax * H, fMax * H * 0.5, z - 1.1);
+                float fade = smoothstep(0.18, min(0.7, CLOSEST * 0.8), z) * smoothstep(fMax * H, fMax * H * 0.5, z - CLOSEST);
                 if (nh == 3) {
                     hits[0] = hits[1]; flips[0] = flips[1];
                     hits[1] = hits[2]; flips[1] = flips[2];
                     nh = 2;
                 }
                 hits[nh] = vec4(f, v, fade, length(W));
-                flips[nh] = det < 0.0 ? 1.0 : 0.0;    // seen from behind: mirror so it reads
+                // Only if the ribbon swings right across: keep the letters the right way round.
+                flips[nh] = (det < 0.0) != going ? 1.0 : 0.0;
                 nh++;
             }
         }

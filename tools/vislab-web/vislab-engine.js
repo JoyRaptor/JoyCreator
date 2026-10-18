@@ -550,8 +550,11 @@
         const feed = this.words;
         if (!feed) return;
         const now = this.wordsTime != null ? this.wordsTime : this.time;
-        const back = values.mode > 2.5 && values.mode < 3.5 ? 3.2 / Math.max(values.smoke || 1, 0.2) : 4;
-        const u = feed.uniforms(now, values.lead || 3, back);
+        let back = values.mode > 2.5 && values.mode < 3.5 ? 3.2 / Math.max(values.smoke || 1, 0.2) : 4;
+        let lead = values.lead || 3;
+        // A ribbon carrying the words away shows the ones already sung, far off: keep those.
+        if (Math.round(values.mode) === 6 && values.travel > 0.5) { back = Math.max(lead, 4); lead = 1.5; }
+        const u = feed.uniforms(now, lead, back);
         common.tex = { uWords: feed.texture(gl) };
         common.uniforms = u;
         const defs = '#define SCENE ' + Math.round(values.mode || 0) + '\n#define LETTER_STYLE ' + Math.round(values.letters || 0) + '\n';

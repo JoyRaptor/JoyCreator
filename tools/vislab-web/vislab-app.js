@@ -252,6 +252,13 @@
       // holder[key] is the object of raw knob values (created on first edit).
       let lastGroup = null;
       for (const d of defs) {
+        // A scene's own controls appear only with that scene.
+        if (d.showFor) {
+          const dk = Object.keys(d.showFor)[0];
+          const dd = defs.find((x) => x.id === dk);
+          const cur = dd ? Math.round(baseOf(holder[key] ? holder[key][dk] : undefined, dd)) : 0;
+          if (dd && !d.showFor[dk].includes(cur)) continue;
+        }
         if (d.group && d.group !== lastGroup) { const s = document.createElement('div'); s.className = 'sec'; s.textContent = d.group; container.appendChild(s); lastGroup = d.group; }
         const row = document.createElement('div');
         row.className = 'row';
@@ -278,7 +285,7 @@
             b.className = 'pill' + (i === cur ? ' on' : '');
             b.textContent = name;
             b.title = d.label + ': ' + name;
-            b.onclick = () => { set(i); 53436('.pill', input).forEach((x, k) => x.classList.toggle('on', k === i)); };
+            b.onclick = () => { set(i); if (defs.some((x) => x.showFor && x.showFor[d.id])) { renderDrawer(); return; } 53436('.pill', input).forEach((x, k) => x.classList.toggle('on', k === i)); };
             input.appendChild(b);
           });
         } else if (d.toggle) {

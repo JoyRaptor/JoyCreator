@@ -149,9 +149,21 @@ public final class VisTypes {
         float def = num(o, "def", 0f);
         float min = num(o, "min", options != null || toggle ? 0f : def);
         float max = num(o, "max", options != null ? options.length - 1 : (toggle ? 1f : def));
+        String showKnob = null;
+        int[] showValues = null;
+        if (o.has("showFor") && o.get("showFor").isJsonObject()) {
+            for (java.util.Map.Entry<String, JsonElement> e : o.getAsJsonObject("showFor").entrySet()) {
+                if (!e.getValue().isJsonArray()) continue;
+                JsonArray va = e.getValue().getAsJsonArray();
+                showKnob = e.getKey();
+                showValues = new int[va.size()];
+                for (int i = 0; i < va.size(); i++) showValues[i] = va.get(i).getAsInt();
+                break;
+            }
+        }
         return new VisKnob(id, str(o, "label", id), VisKnob.parseSlot(str(o, "slot", null)),
                 min, max, def, num(o, "step", 0f), o.has("log") && o.get("log").getAsBoolean(),
-                toggle, options, str(o, "group", null));
+                toggle, options, str(o, "group", null), showKnob, showValues);
     }
 
     @Nullable

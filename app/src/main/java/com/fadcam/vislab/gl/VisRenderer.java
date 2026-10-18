@@ -544,7 +544,13 @@ public final class VisRenderer {
             double now = Double.isNaN(wordsTime) ? time : wordsTime;
             float mode = L.knobs.value(t, "mode", 0f);
             double back = mode > 2.5f && mode < 3.5f ? 3.2 / Math.max(L.knobs.value(t, "smoke", 1f), 0.2f) : 4.0;
-            feed.update(now, L.knobs.value(t, "lead", 3f), back);
+            double lead = L.knobs.value(t, "lead", 3f);
+            // A ribbon carrying the words away shows the ones already sung, far off: keep those.
+            if (Math.round(mode) == 6 && L.knobs.value(t, "travel", 0f) > 0.5f) {
+                back = Math.max(lead, 4.0);
+                lead = 1.5;
+            }
+            feed.update(now, lead, back);
             // One small program per scene and letter style: all of them in one ran at 5 fps.
             String defs = "#define SCENE " + Math.round(mode) + "\n#define LETTER_STYLE "
                     + Math.round(L.knobs.value(t, "letters", 0f)) + "\n";

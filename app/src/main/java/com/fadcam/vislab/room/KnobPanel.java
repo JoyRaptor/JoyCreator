@@ -449,17 +449,30 @@ final class KnobPanel extends LinearLayout {
         Context c = getContext();
         String group = null;
         for (VisKnob k : t.knobs) {
+            // A scene's own controls appear only with that scene.
+            if (k.showKnob != null) {
+                VisKnob drv = t.knob(k.showKnob);
+                if (drv != null && !k.shownAt(Math.round(base(holder, drv)))) continue;
+            }
             if (k.group != null && !k.group.equals(group)) {
                 body.addView(section(c, k.group));
                 group = k.group;
             }
-            body.addView(knobRow(c, k, holder));
+            boolean drives = false;
+            for (VisKnob o : t.knobs) if (k.id.equals(o.showKnob)) { drives = true; break; }
+            body.addView(knobRow(c, k, holder, drives));
         }
     }
 
     /** One knob: label, slider (or pills for a choice), value, and the ♪ music link. */
     @NonNull
     private View knobRow(@NonNull Context c, @NonNull VisKnob k, @NonNull JsonObject holder) {
+        return knobRow(c, k, holder, false);
+    }
+
+    /** {@code drives}: other knobs show or hide with this one, so a change redraws the list. */
+    @NonNull
+    private View knobRow(@NonNull Context c, @NonNull VisKnob k, @NonNull JsonObject holder, boolean drives) {
         LinearLayout wrap = new LinearLayout(c);
         wrap.setOrientation(VERTICAL);
         LinearLayout row = new LinearLayout(c);
@@ -485,6 +498,7 @@ final class KnobPanel extends LinearLayout {
                     holder.addProperty(k.id, value);
                     host.edited();
                     for (int j = 0; j < pills.getChildCount(); j++) stylePill((TextView) pills.getChildAt(j), j == value);
+                    if (drives) post(this::rebuild);
                 });
                 pills.addView(p);
             }

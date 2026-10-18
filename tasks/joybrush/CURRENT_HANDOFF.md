@@ -1,5 +1,8 @@
 # JoyBrush lead handoff — October 9, 2026
 
+> **2026-10-17 night: read [HANDOFF_20261017_LEAD.md](HANDOFF_20261017_LEAD.md) FIRST** (Claude lead handoff: what is on
+> joy-creator, open branches, decisions, remaining list, working rules), then [LEAD_PLAN_20261016.md](LEAD_PLAN_20261016.md).
+
 > **NEWEST: read [HANDOFF_20261013.md](HANDOFF_20261013.md) first (verified integration checkpoint), then HANDOFF_20261012.md and HANDOFF_20261011.md. Codex is the owner-appointed Lead during Claude cooldown.**
 
 > **2026-10-10: the owner appointed Claude (session "Joybrush orchestration and completion") as lead and

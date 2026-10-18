@@ -1721,9 +1721,18 @@ class GlPaintEngine(
     }
 
     /** Empties the whole document (all layers, all undo). For "open another document". */
+    /**
+     * Counts drawings: moves on each time [resetDocument] empties the engine for another one. The realistic-paint window
+     * and media atlas note it when they place and refuse to write back once it has moved, so one drawing's live paint can
+     * never land in the next (audit 2026-10-18 backstop; the canvas already lets that state go before a reset).
+     */
+    var documentGeneration: Long = 0L
+        private set
+
     fun resetDocument() {
         settleLift()
         check(!resettingJointPaint) { "Finish joint retirement before resetting the drawing" }
+        documentGeneration += 1
         resetJointPaint(RecordedScene.ResetMode.SAME_CONTEXT)
         cancelStroke()
         releaseRecordedScene()

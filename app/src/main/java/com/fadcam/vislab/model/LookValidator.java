@@ -17,9 +17,13 @@ import java.util.regex.Pattern;
 
 /**
  * Makes a look safe to show, whoever wrote it (a person, a pack, Joybot). Everything it can
- * fix it fixes and says so in plain words: unknown layer types and knobs are dropped, numbers
- * are pulled into range, choices are rounded to a real option, music links to signals that do
- * not exist are removed, bad colours are reported. It never throws.
+ * fix it fixes and says so in plain words: numbers are pulled into range, choices are rounded to
+ * a real option, bad colours are reported. It never throws.
+ *
+ * <p>What it does not know it KEEPS (and reports): a layer type, a setting or a music signal
+ * from a newer Joy Creator. The look is the person's file, and the app writes back what it
+ * loaded: on 2026-10-18 a build from before the Words layer opened the Note 9's looks folder and
+ * deleted the words from every lyrics look. The engine simply skips what it cannot draw.</p>
  */
 public final class LookValidator {
 
@@ -71,12 +75,12 @@ public final class LookValidator {
                 JsonElement te = L.get("type");
                 VisType t = types.type(te != null && te.isJsonPrimitive() ? te.getAsString() : null);
                 if (t == null) {
-                    layers.remove(i);
-                    w.add("There is no layer type called \"" + (te == null ? "?" : te.getAsString()) + "\"; that layer was removed.");
+                    w.add("This Joy Creator has no layer type called \"" + (te == null ? "?" : te.getAsString())
+                            + "\"; that layer is kept in the look but not shown.");
                     continue;
                 }
                 String who = layerName(L, t);
-                clampTop(L, "opacity", 0f, 1f, who, w);
+                for (VisKnob k : types.layer.knobs) clampTop(L, k.id, k.min, k.max, who, w);
                 clampTop(L, "add", 0f, 1f, who, w);
                 clampTop(L, "res", 0.25f, 1f, who, w);
                 knobs(L, t, who, w);
@@ -108,13 +112,13 @@ public final class LookValidator {
             return;
         }
         JsonObject p = pe.getAsJsonObject();
+        if ("words".equals(t.id)) wordsScene(p, who, w);
         Iterator<Map.Entry<String, JsonElement>> it = p.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, JsonElement> en = it.next();
             VisKnob k = t.knob(en.getKey());
             if (k == null) {
-                it.remove();
-                w.add(who + " has no setting called \"" + en.getKey() + "\"; it was ignored.");
+                w.add(who + " has no setting called \"" + en.getKey() + "\" here; it is kept but does nothing.");
                 continue;
             }
             JsonElement v = en.getValue();
@@ -144,10 +148,13 @@ public final class LookValidator {
                     Iterator<Map.Entry<String, JsonElement>> mi = me.getAsJsonObject().entrySet().iterator();
                     while (mi.hasNext()) {
                         Map.Entry<String, JsonElement> m = mi.next();
-                        if (Signals.indexOf(m.getKey()) < 0 || !m.getValue().isJsonPrimitive()
-                                || !m.getValue().getAsJsonPrimitive().isNumber()) {
+                        if (!m.getValue().isJsonPrimitive() || !m.getValue().getAsJsonPrimitive().isNumber()) {
                             mi.remove();
-                            w.add(who + ": " + k.label + " cannot follow \"" + m.getKey() + "\"; that link was removed.");
+                            w.add(who + ": " + k.label + "'s link to \"" + m.getKey() + "\" was not a number; it was removed.");
+                            continue;
+                        }
+                        if (Signals.indexOf(m.getKey()) < 0) {
+                            w.add(who + ": " + k.label + " cannot follow \"" + m.getKey() + "\" here; the link is kept but does nothing.");
                             continue;
                         }
                         float a = m.getValue().getAsFloat();
@@ -164,6 +171,41 @@ public final class LookValidator {
                 w.add(who + ": " + k.label + " was not a number; it is back to its default.");
             }
         }
+    }
+
+    /**
+     * Words layers saved before 10-18 picked one "mode" (a whole scene). Words is now three parts
+     * that mix freely: a path, a behaviour and letters. Turn the old scene into those parts so
+     * the look stays as it was. Rows: mode -> path, behaviour, letters (-1 = keep).
+     */
+    private static final int[][] WORDS_SCENES = {
+            {5, 0, -1},   // star flight
+            {1, 0, -1},   // spiral banner
+            {3, 0, -1},   // tunnel ticker
+            {7, 3, -1},   // smoke
+            {6, 1, -1},   // puck
+            {2, 0, -1},   // ring
+            {0, 0, -1},   // weaving ribbon
+            {8, 3, -1},   // cigar smoke
+            {4, 2, -1},   // neon street
+            {7, 5, 5},    // constellations
+            {7, 4, 4},    // fireworks
+    };
+
+    private static void wordsScene(@NonNull JsonObject p, @NonNull String who, @NonNull List<String> w) {
+        JsonElement m = p.get("mode");
+        if (m == null || p.has("path")) return;
+        p.remove("mode");
+        if (!m.isJsonPrimitive() || !m.getAsJsonPrimitive().isNumber()) return;
+        int mode = Math.max(0, Math.min(WORDS_SCENES.length - 1, Math.round(m.getAsFloat())));
+        int[] row = WORDS_SCENES[mode];
+        p.addProperty("path", row[0]);
+        p.addProperty("behaviour", row[1]);
+        if (row[2] >= 0) p.addProperty("letters", row[2]);
+        if (mode == 10 && p.has("size") && p.get("size").isJsonPrimitive()) {
+            p.addProperty("size", p.get("size").getAsFloat() * 1.3f);   // the old fireworks drew 1.3x
+        }
+        w.add(who + ": its words scene is now a path, a behaviour and letters (same look).");
     }
 
     private static float clampKnob(@NonNull VisKnob k, float f) {

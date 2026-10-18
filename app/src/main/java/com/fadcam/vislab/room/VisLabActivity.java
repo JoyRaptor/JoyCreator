@@ -127,7 +127,10 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         root.setBackgroundColor(Studio.GROUND);
         stage = new FrameLayout(this);
         view = new VisTextureView(this);
-        view.setFeatureSource(dt -> analyzer.step(dt));
+        view.setFeatureSource(dt -> {
+            view.renderer().setWordsTime(demoSeconds());   // the demo lyrics follow the demo song
+            return analyzer.step(dt);
+        });
         view.renderer().setImageSource(new Pictures(this));
         stage.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(stage, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -251,6 +254,12 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
                 android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP, new int[]{0xBF000000, 0x00000000}));
         strip.setLooks(session.looks());
         strip.setOnPick(this::setLook);
+        strip.setOnNew(() -> {
+            session.newLook("New look", null);
+            panel.showLayers();
+            if (!drawerOpen) setDrawer(true);
+            else panel.rebuild();
+        });
         root.addView(strip, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM));
 
         panel = new KnobPanel(this, VisLab.get(this).types(), this);
@@ -445,6 +454,31 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         return s != null && session.isCustomised(s.id());
     }
 
+    @NonNull
+    @Override
+    public java.util.List<VisScene> allLooks() {
+        return session.looks();
+    }
+
+    @NonNull
+    @Override
+    public java.util.List<com.fadcam.vislab.model.VisPart> myParts() {
+        return session.parts();
+    }
+
+    @Override
+    public void saveLayerAsPart(@NonNull com.google.gson.JsonObject layer) {
+        VisScene s = scene();
+        if (s == null) return;
+        com.google.gson.JsonElement n = layer.get("name");
+        String base = n != null && n.isJsonPrimitive() ? n.getAsString() : "My part";
+        LookSheets.askName(this, "Save as a part", base + " (" + s.name() + ")", "Save", name -> {
+            session.savePart(layer, name, s);
+            android.widget.Toast.makeText(this, "Saved with your looks as " + name + ".vispart.json", android.widget.Toast.LENGTH_SHORT).show();
+            panel.rebuild();
+        });
+    }
+
     @Override
     public void duplicateLook() {
         VisScene s = scene();
@@ -487,6 +521,14 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
 
     // ------------------------------------------------------------------ sound
 
+    /** Where the demo song is, seconds (its sample lyrics are timed to it); NaN for other sound. */
+    private double demoSeconds() {
+        SoundSource s = source;
+        if (sourceKind != SRC_DEMO || s == null) return Double.NaN;
+        long f = s.playheadFrame();
+        return f < 0 ? Double.NaN : f / (double) Math.max(1, ring.sampleRate());
+    }
+
     private void useSource(int kind, @Nullable Uri song) {
         if (source != null) source.stop();
         source = null;
@@ -512,11 +554,19 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         view.setPaused(p);
         if (source != null) source.setPaused(p);
         pauseBtn.setText(p ? "play_arrow" : "pause");
+        keepAwake(!p);
+    }
+
+    /** While the visualiser plays, the screen stays on (like a video); paused, it may sleep. */
+    private void keepAwake(boolean on) {
+        if (on) getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        LobbyHero.save(this, view, scene());   // the lobby's Viz Lab hero shows where you left off
         if (source != null) source.setPaused(true);
         view.setPaused(true);
         session.flush();   // the app may be closed from here: keep every change now

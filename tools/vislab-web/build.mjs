@@ -13,7 +13,7 @@ const assets = path.resolve(here, '../../app/src/main/assets/vislab');
 const read = (p) => fs.readFileSync(p, 'utf8');
 
 const types = JSON.parse(read(path.join(assets, 'types.json')));
-const names = new Set(['common.glsl', 'fullscreen.vert', 'copy.frag', 'bloom_down.frag', 'bloom_up.frag', 'echo.frag', 'composite.frag']);
+const names = new Set(['common.glsl', 'fullscreen.vert', 'copy.frag', 'bloom_down.frag', 'bloom_up.frag', 'echo.frag', 'composite.frag', 'soften.frag']);
 for (const t of Object.values(types.types)) for (const k of ['frag', 'vert', 'sim', 'step', 'depositVert', 'depositFrag', 'diffuse']) if (t[k]) names.add(t[k]);
 const shaders = {};
 for (const n of names) shaders[n] = read(path.join(assets, 'shaders', n));
@@ -22,8 +22,9 @@ const scenes = index.scenes.map((f) => JSON.parse(read(path.join(assets, 'scenes
 
 // "</" inside an inline <script> would end it early.
 const safe = (s) => s.replace(/<\//g, '<\\/');
-const blob = safe(JSON.stringify({ types, shaders, scenes }));
-const scripts = ['vislab-engine.js', 'vislab-audio.js', 'vislab-app.js']
+const lyrics = JSON.parse(read(path.join(assets, 'words', 'demo-lyrics.json')));
+const blob = safe(JSON.stringify({ types, shaders, scenes, lyrics }));
+const scripts = ['vislab-engine.js', 'vislab-audio.js', 'vislab-words.js', 'vislab-app.js']
   .map((f) => '<script>\n' + safe(read(path.join(here, f))) + '\n</script>').join('\n');
 
 const html = read(path.join(here, 'index.html'));

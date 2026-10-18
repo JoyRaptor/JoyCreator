@@ -96,5 +96,5 @@ void main() {
     vCol = col;
     vA = a * BRIGHTN;
     vLook = LOOK;
-    gl_Position = vec4(pos / EXT, 0.0, 1.0);
+    gl_Position = vec4(placeOut(pos) / EXT, 0.0, 1.0);
 }

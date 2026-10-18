@@ -1,0 +1,60 @@
+{
+  "format": "joy.vis/1",
+  "id": "smoke-words",
+  "name": "Smoke Words",
+  "family": "Lyrics",
+  "description": "Each word condenses out of mist, holds while it is sung, then drifts up and dissolves into smoke.",
+  "palette": [
+    "#E0F2FF",
+    "#8FD3FF",
+    "#5B8CFF",
+    "#9D7BFF",
+    "#FFB4E6"
+  ],
+  "background": "#05060C",
+  "layers": [
+    {
+      "type": "mesh",
+      "name": "Wash",
+      "res": 0.5,
+      "p": {
+        "brightness": 0.16,
+        "soft": 0.8,
+        "warp": 0.3,
+        "react": 0.4,
+        "grain": 0.3
+      },
+      "echo": false
+    },
+    {
+      "type": "words",
+      "name": "Smoke",
+      "p": {
+        "path": 7,
+        "behaviour": 3,
+        "size": 0.2,
+        "smoke": 1,
+        "spread": 0.4,
+        "glow": 0.8,
+        "brightness": 1,
+        "pump": 0.3
+      }
+    }
+  ],
+  "echo": {
+    "p": {
+      "decay": 0.8,
+      "dy": 0.12,
+      "warp": 0.5,
+      "warpScale": 2.5,
+      "zoom": 1
+    }
+  },
+  "post": {
+    "p": {
+      "bloom": 0.8,
+      "vignette": 0.5,
+      "grain": 0.12
+    }
+  }
+}

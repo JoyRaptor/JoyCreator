@@ -39,13 +39,14 @@
     const bust = '?v=' + Date.now();
     const get = async (p) => { const r = await fetch(base + p + bust, { cache: 'no-store' }); if (!r.ok) throw new Error('fetch ' + p + ' ' + r.status); return r; };
     const types = await (await get('types.json')).json();
-    const names = new Set(['common.glsl', 'fullscreen.vert', 'copy.frag', 'bloom_down.frag', 'bloom_up.frag', 'echo.frag', 'composite.frag']);
+    const names = new Set(['common.glsl', 'fullscreen.vert', 'copy.frag', 'bloom_down.frag', 'bloom_up.frag', 'echo.frag', 'composite.frag', 'soften.frag']);
     for (const t of Object.values(types.types)) for (const k of ['frag', 'vert', 'sim', 'step', 'depositVert', 'depositFrag', 'diffuse']) if (t[k]) names.add(t[k]);
     const shaders = {};
     await Promise.all([...names].map(async (n) => { shaders[n] = await (await get('shaders/' + n)).text(); }));
     const index = await (await get('scenes/index.json')).json();
     const scenes = await Promise.all(index.scenes.map(async (f) => (await get('scenes/' + f)).json()));
-    return { types, shaders, scenes };
+    const lyrics = await (await get('words/demo-lyrics.json')).json();
+    return { types, shaders, scenes, lyrics };
   }
 
   function defaultLogo() {
@@ -94,6 +95,10 @@
     if (!gl) { fail('This browser has no WebGL2.'); return; }
     const engine = new VisEngine(gl, assets);
     engine.defaultImage = defaultLogo();
+    // Words for word layers: the demo song's sample lyrics until the person types their own.
+    const words = new WordFeed();
+    if (assets.lyrics) words.setWords(assets.lyrics.words, assets.lyrics.period, 'demo');
+    engine.words = words;
     engine.onError = (layer, e) => fail('Layer "' + (layer.name || layer.type) + '" switched off: ' + (e.message || e));
     window.__engine = engine;
     const rig = new VisAudio.AudioRig();
@@ -124,7 +129,24 @@
 
     // strip
     const strip = $('#strip');
-    working.forEach((s, i) => {
+    // "+ New": a look built from nothing (not a .card, so card k stays look k).
+    const newCard = document.createElement('button');
+    newCard.className = 'newcard'; newCard.title = 'Start a new look from nothing and build it layer by layer';
+    newCard.innerHTML = '<span class="nm">+ New</span><span class="fam">From nothing</span>';
+    newCard.style.cssText = 'flex:0 0 auto;min-width:96px;text-align:left;border-radius:12px;border:0;padding:8px 9px;background:rgba(39,39,42,.65);color:inherit;display:flex;flex-direction:column;gap:3px';
+    newCard.onclick = () => {
+      let name = 'My look';
+      for (let n = 2; working.some((w) => w.name === name); n++) name = 'My look ' + n;
+      working.push({ format: 'joy.vis/1', id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name, family: 'Mine',
+        description: 'Built from nothing.', palette: ['#35F6BF', '#97FE8B', '#FAA03D', '#FF008C', '#CC27FF'], background: '#000000', layers: [] });
+      addCard(working.length - 1);
+      setScene(working.length - 1);
+      tab = 'layers';
+      setDrawer(true);
+    };
+    strip.appendChild(newCard);
+    function addCard(i) {
+      const s = working[i];
       const b = document.createElement('button');
       b.className = 'card';
       b.title = s.description || s.name;
@@ -132,7 +154,8 @@
       b.innerHTML = `<span class="nm">${s.name}</span><span class="fam">${s.family || ''}</span><span class="sw">${pal}</span>`;
       b.onclick = () => setScene(i);
       strip.appendChild(b);
-    });
+    }
+    working.forEach((s, i) => addCard(i));
     const hashIdx = working.findIndex((s) => '#' + s.id === location.hash);
     setScene(hashIdx >= 0 ? hashIdx : 0);
 
@@ -247,6 +270,13 @@
       // holder[key] is the object of raw knob values (created on first edit).
       let lastGroup = null;
       for (const d of defs) {
+        // A scene's own controls appear only with that scene.
+        if (d.showFor) {
+          const dk = Object.keys(d.showFor)[0];
+          const dd = defs.find((x) => x.id === dk);
+          const cur = dd ? Math.round(baseOf(holder[key] ? holder[key][dk] : undefined, dd)) : 0;
+          if (dd && !d.showFor[dk].includes(cur)) continue;
+        }
         if (d.group && d.group !== lastGroup) { const s = document.createElement('div'); s.className = 'sec'; s.textContent = d.group; container.appendChild(s); lastGroup = d.group; }
         const row = document.createElement('div');
         row.className = 'row';
@@ -273,7 +303,7 @@
             b.className = 'pill' + (i === cur ? ' on' : '');
             b.textContent = name;
             b.title = d.label + ': ' + name;
-            b.onclick = () => { set(i); 53436('.pill', input).forEach((x, k) => x.classList.toggle('on', k === i)); };
+            b.onclick = () => { set(i); if (defs.some((x) => x.showFor && x.showFor[d.id])) { renderDrawer(); return; } 53436('.pill', input).forEach((x, k) => x.classList.toggle('on', k === i)); };
             input.appendChild(b);
           });
         } else if (d.toggle) {
@@ -386,6 +416,30 @@
         const grid = document.createElement('div');
         grid.className = 'hide';
         add.onclick = () => grid.classList.toggle('hide');
+        if (!scene.layers.length) grid.classList.remove('hide');   // an empty look: the parts are the point
+        // The parts shelf: every layer of every other look, keeping its home look's colours.
+        const shelfBtn = document.createElement('button'); shelfBtn.className = 'pill'; shelfBtn.textContent = 'Parts from every look';
+        shelfBtn.title = 'Browse the layers of every look and drop one into this look'; shelfBtn.style.margin = '6px 0';
+        const shelf = document.createElement('div'); shelf.className = 'addgrid hide';
+        shelfBtn.onclick = () => shelf.classList.toggle('hide');
+        for (const from of working) {
+          if (from === scene) continue;
+          for (const src of from.layers || []) {
+            const t = T.types[src.type];
+            if (!t) continue;
+            const label = (src.name || t.label) + ' · ' + from.name;
+            const b = document.createElement('button');
+            b.innerHTML = `${label}<small>${t.label}</small>`;
+            b.title = t.label + ' from ' + from.name + ': ' + t.about;
+            b.onclick = () => {
+              const part = JSON.parse(JSON.stringify(src, (k, v) => (k === 'image' && v && typeof v === 'object' ? undefined : v)));
+              if (!part.palette && from.palette) part.palette = from.palette.slice();
+              scene.layers.push(part); selLayer = scene.layers.length - 1; renderDrawer();
+            };
+            shelf.appendChild(b);
+          }
+        }
+        grid.appendChild(shelfBtn); grid.appendChild(shelf);
         for (const fam of T.families) {
           const s = document.createElement('div'); s.className = 'sec'; s.textContent = fam.label; grid.appendChild(s);
           const g = document.createElement('div'); g.className = 'addgrid';
@@ -406,10 +460,11 @@
           const t = T.types[L.type];
           const s = document.createElement('div'); s.className = 'sec'; s.textContent = (L.name || t.label) + ' - layer'; body.appendChild(s);
           const lp = document.createElement('div');
-          knobRows(lp, [
-            { id: 'opacity', label: 'Opacity', min: 0, max: 1, def: 1 },
-            { id: 'add', label: 'Light / paint', min: 0, max: 1, def: 1 }
-          ], { x: L }, 'x');
+          // The controls every layer has (types.json "layer"): Opacity, Reactivity, Softness here,
+          // the Place group after the layer's own knobs.
+          const common = T.layer ? T.layer.params : [{ id: 'opacity', label: 'Opacity', min: 0, max: 1, def: 1 }];
+          knobRows(lp, common.filter((d) => !d.group)
+            .concat([{ id: 'add', label: 'Light / paint', min: 0, max: 1, def: 1 }]), { x: L }, 'x');
           const echoRow = document.createElement('div'); echoRow.className = 'row';
           echoRow.innerHTML = '<label>Under echo</label>';
           const eb = document.createElement('button'); eb.className = 'pill' + (L.echo !== false ? ' on' : ''); eb.textContent = L.echo !== false ? 'Yes' : 'No';
@@ -417,6 +472,18 @@
           eb.onclick = () => { L.echo = L.echo === false; renderDrawer(); };
           echoRow.appendChild(eb);
           lp.appendChild(echoRow);
+          if (L.type === 'words') {
+            // The song's words, or the person's own (typed, kept in the look, one per beat).
+            const r = document.createElement('div'); r.className = 'row'; r.innerHTML = '<label>Words</label>';
+            const song = document.createElement('button'); song.className = 'pill' + (!L.text ? ' on' : ''); song.textContent = "The song's";
+            song.title = 'Show the words of the song (its lyrics, or a transcript)';
+            song.onclick = () => { delete L.text; renderDrawer(); };
+            const inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = 'Your words'; inp.value = L.text || '';
+            inp.title = 'Type your own words (a slogan, a name); they come one per beat and are kept in this look';
+            inp.style.cssText = 'flex:1;min-width:0;margin-left:6px;border-radius:999px;border:0;padding:6px 12px;background:rgba(39,39,42,.8);color:inherit';
+            inp.onchange = () => { const v = inp.value.trim(); if (v) L.text = v; else delete L.text; renderDrawer(); };
+            r.appendChild(song); r.appendChild(inp); lp.appendChild(r);
+          }
           if (L.type === 'image') {
             const r = document.createElement('div'); r.className = 'row'; r.innerHTML = '<label>Picture</label>';
             const pick = document.createElement('button'); pick.className = 'pill'; pick.textContent = 'Use my logo'; pick.title = 'Pick an image from this device';
@@ -427,8 +494,23 @@
             };
             r.appendChild(pick); lp.appendChild(r);
           }
+          // This layer's colours: the look's, or a palette of its own (brand lock still wins).
+          const cs = document.createElement('div'); cs.className = 'sec'; cs.textContent = 'Colours of this layer'; lp.appendChild(cs);
+          const lpals = document.createElement('div'); lpals.className = 'pals';
+          const lookPal = { name: "The look's", stops: scene.palette || PALETTES[0].stops };
+          [lookPal].concat(PALETTES).forEach((P) => {
+            const b = document.createElement('button');
+            const on = P === lookPal ? !L.palette : !!L.palette && L.palette.join().toLowerCase() === P.stops.join().toLowerCase();
+            b.className = on ? 'on' : '';
+            b.title = P === lookPal ? "This layer uses the look's colours" : 'Give this layer the ' + P.name + ' colours';
+            b.innerHTML = `<div class="sw" style="height:10px;margin-bottom:4px">${P.stops.map((c) => `<i style="background:${c}"></i>`).join('')}</div>${P.name}`;
+            b.onclick = () => { if (P === lookPal) delete L.palette; else L.palette = P.stops.slice(); renderDrawer(); };
+            lpals.appendChild(b);
+          });
+          lp.appendChild(lpals);
           body.appendChild(lp);
           knobRows(body, t.params, L, 'p');
+          knobRows(body, common.filter((d) => d.group), { x: L }, 'x');
         }
       } else if (tab === 'finish') {
         scene.post = scene.post || {};
@@ -507,6 +589,8 @@
       let f = rig.read(dt);
       if (!f) f = VisAudio.idleFeatures(idleFx, now / 1000, dt);
       lastF = f;
+      const st = rig.songTime ? rig.songTime() : null;
+      engine.wordsTime = words.label === 'demo' && rig.source === 'demo' ? st : (words.label === 'typed' ? engine.time : st);
       try { engine.render(f, paused ? 0 : dt, cw, ch); } catch (e) { fail(e); return; }
       if (over) drawUnder(now / 1000);
       frames++; fpsT += dt;
@@ -522,7 +606,7 @@
       }
     }
     requestAnimationFrame(frame);
-    window.__vislab = { engine, rig, setScene: (i) => setScene(i), scenes: working, startSource };
+    window.__vislab = { engine, rig, words, setScene: (i) => setScene(i), scenes: working, startSource };
     // Dev: pick up edited shaders / looks without restarting the music.
     window.__vislab.reload = async () => {
       const a = await loadAssets();

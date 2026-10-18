@@ -30,6 +30,7 @@ final class LookStrip extends HorizontalScrollView {
     private final LinearLayout row;
     private final List<View> cards = new ArrayList<>();
     @Nullable private OnPick onPick;
+    @Nullable private Runnable onNew;
     private int selected = -1;
 
     LookStrip(@NonNull Context c) {
@@ -45,10 +46,16 @@ final class LookStrip extends HorizontalScrollView {
         onPick = l;
     }
 
+    /** The "+ New" card first in the strip: a look built from nothing. */
+    void setOnNew(@Nullable Runnable r) {
+        onNew = r;
+    }
+
     void setLooks(@NonNull List<VisScene> looks) {
         row.removeAllViews();
         cards.clear();
         Context c = getContext();
+        row.addView(newCard(c));   // not in cards: card i stays look i
         for (int i = 0; i < looks.size(); i++) {
             final int index = i;
             VisScene s = looks.get(i);
@@ -78,6 +85,29 @@ final class LookStrip extends HorizontalScrollView {
             row.addView(card);
         }
         paintAll();
+    }
+
+    @NonNull
+    private View newCard(@NonNull Context c) {
+        LinearLayout card = new LinearLayout(c);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.START);
+        int pad = Ui.dp(c, 9);
+        card.setPadding(pad, Ui.dp(c, 8), pad, Ui.dp(c, 8));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Ui.dp(c, 96), LinearLayout.LayoutParams.MATCH_PARENT);
+        lp.setMarginEnd(Ui.dp(c, 7));
+        card.setLayoutParams(lp);
+        card.setBackground(Ui.round(0xA6 << 24 | (Studio.RAISED & 0xFFFFFF), Ui.dp(c, 12)));
+        card.addView(Ui.text(c, "+ New", 12.5f, Studio.INK, true, 650));
+        TextView sub = Ui.text(c, "From nothing", 10.5f, Studio.INK_FAINT, false, 400);
+        sub.setPadding(0, Ui.dp(c, 3), 0, 0);
+        card.addView(sub);
+        Ui.label(card, "Start a new look from nothing and build it layer by layer");
+        card.setOnClickListener(v -> {
+            Motion.press(v);
+            if (onNew != null) onNew.run();
+        });
+        return card;
     }
 
     @NonNull

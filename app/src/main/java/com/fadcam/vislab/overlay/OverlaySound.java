@@ -19,6 +19,8 @@ import com.fadcam.vislab.audio.SoundSource;
  * <ul>
  *   <li>While a screen recording is running: exactly what it records (the phone's audio, the
  *       microphone, or whichever the recording is set to), handed over by the recorder.</li>
+ *   <li>Otherwise, once the person let it hear the phone (Android's screen-capture question): the
+ *       phone's own sound, music, games, video ({@link com.fadcam.vislab.audio.PhoneAudioSource}).</li>
  *   <li>Otherwise: the microphone.</li>
  * </ul>
  * The microphone is NEVER opened while a recording runs, paused included: on Android 10 the
@@ -26,7 +28,7 @@ import com.fadcam.vislab.audio.SoundSource;
  */
 final class OverlaySound {
 
-    static final int NONE = 0, RECORDING = 1, MIC = 2;
+    static final int NONE = 0, RECORDING = 1, MIC = 2, PHONE = 3;
 
     interface Listener {
         void onSource(int kind);
@@ -38,6 +40,8 @@ final class OverlaySound {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Listener listener;
     @Nullable private SoundSource source;
+    /** The person's yes to hearing the phone; null until then, or after they take it back. */
+    @Nullable private android.media.projection.MediaProjection projection;
     private int kind = -1;
     private boolean running;
 
@@ -67,6 +71,25 @@ final class OverlaySound {
         if (source != null) source.stop();
         source = null;
         kind = -1;
+        usePhone(null);
+    }
+
+    /** Hear the phone through this projection (null: stop, back to the microphone). */
+    void usePhone(@Nullable android.media.projection.MediaProjection p) {
+        if (projection == p) return;
+        android.media.projection.MediaProjection old = projection;
+        projection = p;
+        if (kind == PHONE && source != null) {   // drop the old capture before its projection goes
+            source.stop();
+            source = null;
+            kind = -1;
+        }
+        if (old != null) old.stop();
+        if (running) choose();
+    }
+
+    boolean hearsPhone() {
+        return projection != null;
     }
 
     int kind() {
@@ -79,11 +102,15 @@ final class OverlaySound {
     }
 
     private void choose() {
-        int want = recordingRuns() ? RECORDING : (MicSource.hasPermission(app) ? MIC : NONE);
+        boolean phone = projection != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q;
+        int want = recordingRuns() ? RECORDING : phone && MicSource.hasPermission(app) ? PHONE
+                : (MicSource.hasPermission(app) ? MIC : NONE);
         if (want == kind) return;
         if (source != null) source.stop();
         source = null;
-        SoundSource s = want == RECORDING ? new RecordingTap(ring) : want == MIC ? new MicSource(ring) : null;
+        SoundSource s = want == RECORDING ? new RecordingTap(ring)
+                : want == PHONE ? new com.fadcam.vislab.audio.PhoneAudioSource(ring, projection)
+                : want == MIC ? new MicSource(ring) : null;
         if (s != null && !s.start(app)) {
             s = null;
             want = NONE;

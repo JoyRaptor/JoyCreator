@@ -28,10 +28,31 @@ public final class VisKnob {
     @Nullable public final String[] options;
     /** Optional heading the editor groups knobs under ("Light", "Lens"...). */
     @Nullable public final String group;
+    /**
+     * Shown only while another knob of the same layer (this id) has one of {@link #showValues}:
+     * a scene's own controls appear with the scene. Null = always shown.
+     */
+    @Nullable public final String showKnob;
+    @Nullable public final int[] showValues;
+    /**
+     * A speed the shader multiplies by TIME ("rate": true in types.json). With a music link the
+     * host keeps the distance travelled instead (see {@link KnobSet}): TIME x a changing speed
+     * jumps the picture by the whole elapsed time on every beat.
+     */
+    public boolean rate;
 
     public VisKnob(@NonNull String id, @NonNull String label, int slot, float min, float max,
                    float def, float step, boolean log, boolean toggle,
                    @Nullable String[] options, @Nullable String group) {
+        this(id, label, slot, min, max, def, step, log, toggle, options, group, null, null);
+    }
+
+    public VisKnob(@NonNull String id, @NonNull String label, int slot, float min, float max,
+                   float def, float step, boolean log, boolean toggle,
+                   @Nullable String[] options, @Nullable String group,
+                   @Nullable String showKnob, @Nullable int[] showValues) {
+        this.showKnob = showKnob;
+        this.showValues = showValues;
         this.id = id;
         this.label = label;
         this.slot = slot;
@@ -43,6 +64,13 @@ public final class VisKnob {
         this.toggle = toggle;
         this.options = options;
         this.group = group;
+    }
+
+    /** Whether the editor shows this knob when its {@link #showKnob} is at {@code value}. */
+    public boolean shownAt(int value) {
+        if (showValues == null) return true;
+        for (int v : showValues) if (v == value) return true;
+        return false;
     }
 
     /** Range used to scale music modulation: amount 1 = the whole range. */

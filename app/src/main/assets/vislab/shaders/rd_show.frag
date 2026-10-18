@@ -12,6 +12,8 @@ uniform sampler2D uState;
 #define PAINT    uP[3].x   // 0 glowing lines, 1 solid relief that hides what is behind
 
 void main() {
+    // Moved / sized / turned (placeIn): the grid ends where it ends; nothing beyond it.
+    if (any(lessThan(vUv, vec2(0.0))) || any(greaterThan(vUv, vec2(1.0)))) { o = vec4(0.0); return; }
     vec2 px = 1.0 / vec2(textureSize(uState, 0));
     float b = texture(uState, vUv).g;
     float bx = texture(uState, vUv + vec2(px.x, 0.0)).g - texture(uState, vUv - vec2(px.x, 0.0)).g;

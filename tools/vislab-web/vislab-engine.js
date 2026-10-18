@@ -30,7 +30,7 @@
   const SLOT_AXIS = { x: 0, y: 1, z: 2, w: 3 };
 
   /** Resolve a knob to its number this frame: base + sum(signal * amount * range). */
-  function evalKnob(def, raw, signals) {
+  function evalKnob(def, raw, signals, react) {
     let base, mod = null;
     if (raw === undefined || raw === null) base = def.def;
     else if (typeof raw === 'object') { base = raw.v !== undefined ? raw.v : def.def; mod = raw.mod || null; }
@@ -40,7 +40,7 @@
       const range = (def.max !== undefined && def.min !== undefined) ? (def.max - def.min) : 1;
       for (const k in mod) {
         const s = signals[k];
-        if (s !== undefined) base += s * mod[k] * range;
+        if (s !== undefined) base += s * mod[k] * range * (react === undefined ? 1 : react);
       }
       if (def.min !== undefined) base = clamp(base, def.min - (def.max - def.min), def.max + (def.max - def.min));
     }
@@ -54,6 +54,7 @@
       this.types = assets.types.types;
       this.programs = new Map();
       this.layerState = new Map();       // runtime state per layer object
+      this.travel = new WeakMap();        // speeds with a music link: distance so far, per knob holder
       this.time = 0;
       this.frame = 0;
       this.scene = null;
@@ -106,9 +107,9 @@
       return s;
     }
 
-    _compile(type, name) {
+    _compile(type, name, defines) {
       const gl = this.gl;
-      const src = '#version 300 es\n' + PRECISION + this._shaderSrc('common.glsl') + '\n#line 1\n' + this._shaderSrc(name);
+      const src = '#version 300 es\n' + PRECISION + (defines || '') + this._shaderSrc('common.glsl') + '\n#line 1\n' + this._shaderSrc(name);
       const sh = gl.createShader(type);
       gl.shaderSource(sh, src);
       gl.compileShader(sh);
@@ -120,19 +121,20 @@
       return sh;
     }
 
-    program(vert, frag) {
-      const key = vert + '|' + frag;
+    /** `defines`: lines put ahead of the fragment shader to build a smaller variant of it. */
+    program(vert, frag, defines) {
+      const key = vert + '|' + frag + (defines ? '|' + defines : '');
       let p = this.programs.get(key);
       if (p) { if (p.error) throw p.error; return p; }
-      try { return this._link(key, vert, frag); } catch (e) { this.programs.set(key, { error: e }); throw e; }
+      try { return this._link(key, vert, frag, defines); } catch (e) { this.programs.set(key, { error: e }); throw e; }
     }
 
-    _link(key, vert, frag) {
+    _link(key, vert, frag, defines) {
       let p;
       const gl = this.gl;
       const prog = gl.createProgram();
       gl.attachShader(prog, this._compile(gl.VERTEX_SHADER, vert));
-      gl.attachShader(prog, this._compile(gl.FRAGMENT_SHADER, frag));
+      gl.attachShader(prog, this._compile(gl.FRAGMENT_SHADER, frag, defines));
       gl.linkProgram(prog);
       if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(key + ' link: ' + gl.getProgramInfoLog(prog));
       const block = gl.getUniformBlockIndex(prog, 'Audio');
@@ -169,6 +171,8 @@
       if ((l = this._u(p, 'uP')) !== null) gl.uniform4fv(l, opts.params || this.paramBuf);
       if ((l = this._u(p, 'uPal[0]')) !== null) gl.uniform3fv(l, opts.pal || this.palBuf);
       if ((l = this._u(p, 'uPx')) !== null) gl.uniform1f(l, opts.px);
+      // Where a layer sits (moved / sized / turned); everything else as drawn.
+      if ((l = this._u(p, 'uView')) !== null) gl.uniform4fv(l, opts.view || [0, 0, 0, 0]);
       if ((l = this._u(p, 'uSeed')) !== null) gl.uniform1f(l, opts.seed || 0);
       if ((l = this._u(p, 'uAdd')) !== null) gl.uniform1f(l, opts.add === undefined ? 1 : opts.add);
       if ((l = this._u(p, 'uOpacity')) !== null) gl.uniform1f(l, opts.opacity === undefined ? 1 : opts.opacity);
@@ -265,7 +269,8 @@
     }
 
     _palette(layer) {
-      const stops = (layer && layer.palette) || (this.brandPalette) || (this.scene && this.scene.palette) || ['#000000', '#333333', '#777777', '#bbbbbb', '#ffffff'];
+      // The brand lock wins over everything; then a layer's own colours; then the look's.
+      const stops = (this.brandPalette) || (layer && layer.palette) || (this.scene && this.scene.palette) || ['#000000', '#333333', '#777777', '#bbbbbb', '#ffffff'];
       const out = new Float32Array(15);
       for (let i = 0; i < 5; i++) {
         const c = hexToLinear(stops[Math.min(i, stops.length - 1)]);
@@ -275,18 +280,33 @@
     }
 
     /** Pack a knob set into uP[12]; returns {params, values} where values holds host knobs too. */
-    _pack(defList, raw, signals) {
+    _pack(defList, raw, signals, react) {
       const params = new Float32Array(48);
       const values = {};
       for (const d of defList) {
-        const v = evalKnob(d, raw ? raw[d.id] : undefined, signals);
+        const r = raw ? raw[d.id] : undefined;
+        const v = evalKnob(d, r, signals, react);
         values[d.id] = v;
         if (d.slot) {
           const idx = parseInt(d.slot, 10) * 4 + SLOT_AXIS[d.slot[d.slot.length - 1]];
-          params[idx] = v;
+          params[idx] = d.rate && signals && r && typeof r === 'object' && r.mod ? this._travelled(raw, d, r, v) : v;
         }
       }
       return { params, values };
+    }
+
+    // A speed with a music link ("rate" in types.json): the shader works out TIME x speed, which
+    // jumps by the whole elapsed time whenever the speed changes (the Spiral Banner spun whole
+    // turns on each kick). Keep the distance travelled and hand the shader distance / TIME, so its
+    // TIME x speed comes out as that distance: the beat speeds it up, smoothly. Same as KnobSet.
+    _travelled(holder, d, r, v) {
+      const t = this.time;
+      let m = this.travel.get(holder);
+      if (!m) { m = {}; this.travel.set(holder, m); }
+      let k = m[d.id];
+      if (!k || t < k.at) k = m[d.id] = { dist: Number(r.v !== undefined ? r.v : d.def) * t, at: t };   // as if always at its own speed
+      else { k.dist += v * (t - k.at); k.at = t; }
+      return t > 1e-3 ? k.dist / t : v;
     }
 
     // ------------------------------------------------------------------ sound
@@ -515,17 +535,25 @@
       const gl = this.gl;
       const type = this.types[layer.type];
       const st = this._state(layer);
-      const { params, values } = this._pack(type.params, layer.p, signals);
-      const opacity = evalKnob({ def: 1, min: 0, max: 1 }, layer.opacity, signals);
+      // The controls every layer has (types.json "layer"): opacity, reactivity, softness, place.
+      const lc = this._common(layer, signals);
+      const opacity = lc.opacity !== undefined ? lc.opacity : evalKnob({ def: 1, min: 0, max: 1 }, layer.opacity, signals);
       if (opacity <= 0.001) return;
+      const react = this._react(lc);
+      const { params, values } = this._pack(type.params, layer.p, signals, react);
+      const soft = clamp(lc.soft || 0, 0, 1), size = Math.max(0.05, lc.size !== undefined ? lc.size : 1);
+      const px0 = lc.x || 0, py0 = lc.y || 0, turn = lc.turn || 0;
       const add = layer.add === undefined ? 1 : layer.add;
       const pal = this._palette(layer);
       const res = layer.res !== undefined ? layer.res : (type.res || 1);
       const draw = type.draw;
-      const fullscreenLike = draw === 'fullscreen' || draw === 'image' || draw === 'slime' || draw === 'rd';
+      const fullscreenLike = draw === 'fullscreen' || draw === 'image' || draw === 'slime' || draw === 'rd' || draw === 'words';
       let dst = target;
       let px = pxScene;
-      if (fullscreenLike && res < 0.99) {
+      // Moved / sized / turned needs nothing here: the layer is MADE in that space (view below,
+      // common.glsl placeIn / placeOut), not drawn and then moved like a card. Only softness needs
+      // the layer on its own first, at half size (cheaper; the softening hides it).
+      if (soft > 0.001 || (fullscreenLike && res < 0.99)) {
         dst = this.half;
         px = pxScene * 2;
         this._clear(dst);
@@ -533,7 +561,8 @@
       this._bindTarget(dst);
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      const common = { params, pal, px, seed: st.seed, add, opacity: dst === target ? opacity : 1 };
+      const common = { params, pal, px: px / size, seed: st.seed, add, opacity: dst === target ? opacity : 1,
+        view: [px0, py0, Math.log2(size), turn * Math.PI / 180] };
       if (draw === 'fullscreen') {
         this._use(this.program('fullscreen.vert', type.frag), common);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -542,6 +571,34 @@
         common.tex = { uImage: img.tex };
         common.uniforms = { uImageAspect: img.aspect };
         this._use(this.program('fullscreen.vert', type.frag), common);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      } else if (draw === 'words') {
+        // Timed words (a transcript, the demo lyrics, typed words) from this.words, at this.wordsTime
+        // (the song's own clock when there is one, so words land when they are sung).
+        // The layer's own words (typed, kept in the look as "text") win over the song's.
+        const text = typeof layer.text === 'string' ? layer.text.trim() : '';
+        if (text && !this.typed && global.WordFeed) this.typed = new global.WordFeed();
+        if (text && this.typed && this.typedText !== text) { this.typed.setTyped(text, 0, 0.6); this.typedText = text; }
+        const feed = text ? this.typed : this.words;
+        if (!feed) return;
+        const now = text ? this.time : (this.wordsTime != null ? this.wordsTime : this.time);   // the feed takes off its own offset
+        // Words a path, a behaviour and a letter style (see words.frag). Keep each word in view as
+        // long as its behaviour needs: smoke and sparkle linger after the word, a burst's rocket
+        // climbs before it.
+        const path = Math.round(values.path || 0), beh = Math.round(values.behaviour || 0);
+        let back = 4, lead = values.lead || 3;
+        if (beh === 3) back = Math.max(back, 3.2 / Math.max(values.smoke || 1, 0.2));
+        if (beh === 4 || beh === 5) back = Math.max(back, 3);
+        if (path === 1) back = Math.max(back, 14);   // the spiral fills with the lines already sung
+        if (beh === 4) lead = Math.max(lead, 0.8);
+        if (beh === 5) lead = Math.max(lead, 1.3);
+        // A ribbon carrying the words away shows the ones already sung, far off: keep those.
+        if (path === 0 && values.travel > 0.5) { back = Math.max(lead, back); lead = 1.5; }
+        const u = feed.uniforms(now, lead, back);
+        common.tex = { uWords: feed.texture(gl) };
+        common.uniforms = u;
+        const defs = '#define WPATH ' + path + '\n#define BEHAVIOUR ' + beh + '\n#define LETTER_STYLE ' + Math.round(values.letters || 0) + '\n';
+        this._use(this.program('fullscreen.vert', type.frag, defs), common);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       } else if (draw === 'instanced') {
         const n = this._instances(type, values);
@@ -563,7 +620,13 @@
         this._use(this.program('fullscreen.vert', type.frag), common);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       }
-      if (dst !== target) this._blit(dst.tex, target, opacity);
+      if (soft > 0.001) {
+        this._bindTarget(target);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        this._use(this.program('fullscreen.vert', 'soften.frag'), { tex: { uSrc: dst.tex }, opacity, px: 0, uniforms: { uSoft: soft } });
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      } else if (dst !== target) this._blit(dst.tex, target, opacity);
     }
 
     _imageTex(layer, st) {
@@ -594,6 +657,16 @@
     }
 
     // ------------------------------------------------------------------ living layers
+    // The controls every layer has (types.json "layer"): opacity, reactivity, softness, place.
+    _common(layer, signals) {
+      return this._pack(this.assets.types.layer ? this.assets.types.layer.params : [], layer, signals).values;
+    }
+
+    // Reactivity scales every music link of the layer: 0 calm, 1 as set, 2 wild.
+    _react(lc) {
+      return Math.max(0, lc.react !== undefined ? lc.react : 1);
+    }
+
     _stepLayer(layer, signals, punch) {
       const type = this.types[layer.type];
       if (type.draw === 'particles') this._stepParticles(layer, type, signals, punch);
@@ -604,7 +677,7 @@
     _stepParticles(layer, type, signals, punch) {
       const gl = this.gl;
       const st = this._state(layer);
-      const { params, values } = this._pack(type.params, layer.p, signals);
+      const { params, values } = this._pack(type.params, layer.p, signals, this._react(this._common(layer, signals)));
       const want = clamp(Math.round(values.count), 256, 131072);
       if (!st.ps || st.ps.n !== want) {
         if (st.ps) { this._free(st.ps.cur); this._free(st.ps.next); }
@@ -643,7 +716,7 @@
     _stepSlime(layer, type, signals) {
       const gl = this.gl;
       const st = this._state(layer);
-      const { params, values } = this._pack(type.params, layer.p, signals);
+      const { params, values } = this._pack(type.params, layer.p, signals, this._react(this._common(layer, signals)));
       const count = clamp(Math.round(values.count), 1000, 300000);
       const detail = clamp(values.detail || 0.5, 0.2, 1);
       const tw = Math.max(32, Math.round(this.w * detail)), th = Math.max(32, Math.round(this.h * detail));
@@ -689,7 +762,7 @@
     _stepRd(layer, type, signals, punch) {
       const gl = this.gl;
       const st = this._state(layer);
-      const { params, values } = this._pack(type.params, layer.p, signals);
+      const { params, values } = this._pack(type.params, layer.p, signals, this._react(this._common(layer, signals)));
       const detail = clamp(values.detail || 0.4, 0.2, 1);
       const rw = Math.max(32, Math.round(this.w * detail)), rh = Math.max(32, Math.round(this.h * detail));
       let init = false;

@@ -1,5 +1,14 @@
 # INBOX
 
+## 2026-10-18 — from VisLab, to EVERY lane installing on the Note 9: merge joy-creator first
+
+A build from a branch without VisLab's Words layer (installed on the Note 9 at 05:42 today) opened
+VisLab and deleted the words from all ten lyrics looks in `Joy Creator/Supplies/Looks` (the app
+writes back what it loaded, and older builds drop what they don't know). Restored, and fixed for
+the future in `LookValidator` (it now keeps what it does not know) — but **any build made before
+this fix still strips**. Before you install on the Note 9, merge `origin/joy-creator`. Spec:
+tasks/VISLAB_SPEC.md §3.
+
 ## 2026-10-17 — from VisLab: Studio integration is yours to wire (read tasks/VISLAB_SPEC.md §7)
 
 VisLab (the GPU visualiser engine, room, 29 looks, Joybot, files in Supplies/Looks) is built and on

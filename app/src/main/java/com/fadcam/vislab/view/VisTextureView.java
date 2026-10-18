@@ -78,6 +78,9 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     private int frames, slow, fast;
     private long statsStartNs;
     private final Features silence = new Features();
+    private final HeatGuard heat;
+    /** While the phone runs hot: a quarter of the pixels, so it cools without slowing down. */
+    private static final float HOT_SCALE = 0.5f;
 
     public VisTextureView(@NonNull Context context) {
         this(context, null);
@@ -86,6 +89,9 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     public VisTextureView(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
         renderer = VisLab.get(context).newRenderer();
+        heat = new HeatGuard(context);
+        renderer.setWords(com.fadcam.vislab.words.WordFeed.withDemo(context));   // until a transcript gives words
+        renderer.setTypedWords(new com.fadcam.vislab.words.WordFeed(context));   // a Words layer's own words
         renderer.setProfiling((context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         setOpaque(false);
         setSurfaceTextureListener(this);
@@ -272,7 +278,9 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
                 if (s + 0.05f <= cap + 1e-4f) scale = Math.min(1f, s + 0.05f);
             }
         }
-        Log.i(TAG, "fps " + frames + " scale " + Math.round(scale * 100) + "% cpu "
+        // The phone says it is hot: ease off whatever the frame times say (see HeatGuard).
+        if (heat.check() && scale > HOT_SCALE) scale = HOT_SCALE;
+        Log.i(TAG, "fps " + frames + " scale " + Math.round(scale * 100) + "% heat " + heat.status() + " cpu "
                 + String.format(java.util.Locale.ROOT, "%.1f", renderer.lastFrameMs()) + "ms " + bufW + "x" + bufH
                 + " " + renderer.gpuReport()
                 + (renderer.lastError() != null ? " error: " + renderer.lastError() : ""));

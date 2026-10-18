@@ -48,11 +48,17 @@ public final class ShaderLib {
 
     @NonNull
     public String assemble(@NonNull String name) {
+        return assemble(name, "");
+    }
+
+    /** {@code defines}: lines put ahead of the shader to build a smaller variant of it. */
+    @NonNull
+    public String assemble(@NonNull String name, @NonNull String defines) {
         String body = files.get(name);
         if (body == null) throw new IllegalArgumentException("missing shader " + name);
         String common = files.get("common.glsl");
         if (common == null) throw new IllegalStateException("missing common.glsl");
-        return "#version 300 es\n" + PRECISION + common + "\n#line 1\n" + body;
+        return "#version 300 es\n" + PRECISION + defines + common + "\n#line 1\n" + body;
     }
 
     @NonNull

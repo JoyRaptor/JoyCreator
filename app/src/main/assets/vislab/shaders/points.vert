@@ -157,5 +157,5 @@ void main() {
     vA = a * BRIGHTN;
     vBlur = clamp(blur, 0.0, 1.0);
     vQ = c;
-    gl_Position = vec4((sp + c * size) / EXT, 0.0, 1.0);
+    gl_Position = vec4(placeOut(sp + c * size) / EXT, 0.0, 1.0);
 }

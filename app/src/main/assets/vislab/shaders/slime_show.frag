@@ -11,6 +11,8 @@ uniform sampler2D uTrail;
 #define SPECIES  uP[3].w
 
 void main() {
+    // Moved / sized / turned (placeIn): the grid ends where it ends; nothing beyond it.
+    if (any(lessThan(vUv, vec2(0.0))) || any(greaterThan(vUv, vec2(1.0)))) { o = vec4(0.0); return; }
     vec4 t = texture(uTrail, vUv);
     vec3 col;
     if (SPECIES < 1.5) {

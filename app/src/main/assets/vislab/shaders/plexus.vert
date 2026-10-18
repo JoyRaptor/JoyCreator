@@ -55,7 +55,7 @@ void main() {
         vCol = palw(ct * 0.5 + PALSHIFT + TIME * HUESPIN);
         vA = (0.5 + e) * BRIGHTN * (1.0 - p.z * 0.6);
         vKind = 0.0;
-        gl_Position = vec4((p.xy + c * size * (1.0 + GLOW * 2.0)) / EXT, 0.0, 1.0);
+        gl_Position = vec4(placeOut(p.xy + c * size * (1.0 + GLOW * 2.0)) / EXT, 0.0, 1.0);
         return;
     }
     float l = id - n;
@@ -82,5 +82,5 @@ void main() {
     vCol = palw(ct * 0.5 + PALSHIFT + TIME * HUESPIN);
     vA = near * (0.25 + e * LINKAMP + KICK * 0.6) * BRIGHTN * (1.0 - 0.3 * (A.z + B.z));
     vKind = 1.0;
-    gl_Position = vec4(pos / EXT, 0.0, 1.0);
+    gl_Position = vec4(placeOut(pos) / EXT, 0.0, 1.0);
 }

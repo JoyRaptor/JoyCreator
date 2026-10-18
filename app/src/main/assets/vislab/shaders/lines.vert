@@ -131,5 +131,5 @@ void main() {
         pos = mix(A, B, c.x) + nrm * across * hw + dir * (c.x * 2.0 - 1.0) * uPx * 0.5;
         vAcross = across * hw;
     }
-    gl_Position = vec4(pos / EXT, 0.0, 1.0);
+    gl_Position = vec4(placeOut(pos) / EXT, 0.0, 1.0);
 }

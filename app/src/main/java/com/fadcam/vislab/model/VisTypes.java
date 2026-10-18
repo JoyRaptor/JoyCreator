@@ -50,9 +50,13 @@ public final class VisTypes {
     @NonNull public final List<Family> families;
     @NonNull public final VisType echo;
     @NonNull public final VisType post;
+    /** The controls every layer has (opacity, reactivity, softness, place), read by the host. */
+    @NonNull public final VisType layer;
 
     private VisTypes(@NonNull Map<String, VisType> types, @NonNull List<Signal> signals,
-                     @NonNull List<Family> families, @NonNull VisType echo, @NonNull VisType post) {
+                     @NonNull List<Family> families, @NonNull VisType echo, @NonNull VisType post,
+                     @NonNull VisType layer) {
+        this.layer = layer;
         this.types = Collections.unmodifiableMap(types);
         this.signals = Collections.unmodifiableList(signals);
         this.families = Collections.unmodifiableList(families);
@@ -100,7 +104,11 @@ public final class VisTypes {
         VisType echo = readType("echo", eo != null ? eo : new JsonObject());
         VisType post = readType("post", po != null ? po : new JsonObject());
         if (echo == null || post == null) throw new IllegalArgumentException("types.json lost echo/post");
-        return new VisTypes(types, signals, families, echo, post);
+        JsonObject lo = obj(root, "layer");
+        VisType layer = readType("layer", lo != null ? lo : JsonParser.parseString(
+                "{\"params\":[{\"id\":\"opacity\",\"label\":\"Opacity\",\"min\":0,\"max\":1,\"def\":1}]}").getAsJsonObject());
+        if (layer == null) throw new IllegalArgumentException("types.json lost layer");
+        return new VisTypes(types, signals, families, echo, post, layer);
     }
 
     @Nullable
@@ -149,9 +157,23 @@ public final class VisTypes {
         float def = num(o, "def", 0f);
         float min = num(o, "min", options != null || toggle ? 0f : def);
         float max = num(o, "max", options != null ? options.length - 1 : (toggle ? 1f : def));
-        return new VisKnob(id, str(o, "label", id), VisKnob.parseSlot(str(o, "slot", null)),
+        String showKnob = null;
+        int[] showValues = null;
+        if (o.has("showFor") && o.get("showFor").isJsonObject()) {
+            for (java.util.Map.Entry<String, JsonElement> e : o.getAsJsonObject("showFor").entrySet()) {
+                if (!e.getValue().isJsonArray()) continue;
+                JsonArray va = e.getValue().getAsJsonArray();
+                showKnob = e.getKey();
+                showValues = new int[va.size()];
+                for (int i = 0; i < va.size(); i++) showValues[i] = va.get(i).getAsInt();
+                break;
+            }
+        }
+        VisKnob k = new VisKnob(id, str(o, "label", id), VisKnob.parseSlot(str(o, "slot", null)),
                 min, max, def, num(o, "step", 0f), o.has("log") && o.get("log").getAsBoolean(),
-                toggle, options, str(o, "group", null));
+                toggle, options, str(o, "group", null), showKnob, showValues);
+        k.rate = o.has("rate") && o.get("rate").isJsonPrimitive() && o.get("rate").getAsBoolean();
+        return k;
     }
 
     @Nullable

@@ -72,7 +72,8 @@
       "name": "Ticker",
       "echo": false,
       "p": {
-        "mode": 2,
+        "path": 3,
+        "behaviour": 0,
         "size": 0.16,
         "lanes": 4,
         "spin": 0.06,

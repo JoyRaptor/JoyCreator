@@ -30,7 +30,8 @@
       "name": "Smoke",
       "echo": false,
       "p": {
-        "mode": 7,
+        "path": 8,
+        "behaviour": 3,
         "size": 0.15,
         "weave": 1,
         "smoke": 0.9,

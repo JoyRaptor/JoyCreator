@@ -542,17 +542,25 @@ public final class VisRenderer {
             com.fadcam.vislab.words.WordFeed feed = words;
             if (feed == null) return;
             double now = Double.isNaN(wordsTime) ? time : wordsTime;
-            float mode = L.knobs.value(t, "mode", 0f);
-            double back = mode > 2.5f && mode < 3.5f ? 3.2 / Math.max(L.knobs.value(t, "smoke", 1f), 0.2f) : 4.0;
+            // Words = a path, a behaviour and a letter style (see words.frag). Keep each word in
+            // view as long as its behaviour needs: smoke and sparkle linger after the word, a
+            // burst's rocket climbs before it.
+            int path = Math.round(L.knobs.value(t, "path", 0f));
+            int beh = Math.round(L.knobs.value(t, "behaviour", 0f));
+            double back = 4.0;
             double lead = L.knobs.value(t, "lead", 3f);
+            if (beh == 3) back = Math.max(back, 3.2 / Math.max(L.knobs.value(t, "smoke", 1f), 0.2f));
+            if (beh == 4 || beh == 5) back = Math.max(back, 3.0);
+            if (beh == 4) lead = Math.max(lead, 0.8);
+            if (beh == 5) lead = Math.max(lead, 1.3);
             // A ribbon carrying the words away shows the ones already sung, far off: keep those.
-            if (Math.round(mode) == 6 && L.knobs.value(t, "travel", 0f) > 0.5f) {
-                back = Math.max(lead, 4.0);
+            if (path == 0 && L.knobs.value(t, "travel", 0f) > 0.5f) {
+                back = Math.max(lead, back);
                 lead = 1.5;
             }
             feed.update(now, lead, back);
             // One small program per scene and letter style: all of them in one ran at 5 fps.
-            String defs = "#define SCENE " + Math.round(mode) + "\n#define LETTER_STYLE "
+            String defs = "#define WPATH " + path + "\n#define BEHAVIOUR " + beh + "\n#define LETTER_STYLE "
                     + Math.round(L.knobs.value(t, "letters", 0f)) + "\n";
             GlProgram p = program("fullscreen.vert", t.frag, defs);
             int unit = useLayer(p, L, px, drawOpacity, null);

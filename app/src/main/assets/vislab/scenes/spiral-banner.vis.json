@@ -35,7 +35,8 @@
       "name": "Spiral",
       "echo": false,
       "p": {
-        "mode": 1,
+        "path": 1,
+        "behaviour": 0,
         "size": 0.13,
         "spread": 0.5,
         "spin": {

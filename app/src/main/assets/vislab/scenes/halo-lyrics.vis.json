@@ -101,7 +101,8 @@
       "name": "Ring of words",
       "echo": false,
       "p": {
-        "mode": 5,
+        "path": 2,
+        "behaviour": 0,
         "size": 0.055,
         "spread": 1.05,
         "spin": 0.08,
@@ -109,7 +110,8 @@
         "brightness": 1.1,
         "banner": 0.25,
         "pump": 0.2,
-        "colourBy": 1
+        "colourBy": 1,
+        "tilt": 0
       }
     },
     {
@@ -118,7 +120,8 @@
       "echo": false,
       "add": 0,
       "p": {
-        "mode": 4,
+        "path": 6,
+        "behaviour": 1,
         "size": 0.2,
         "spread": 0.42,
         "spin": 0.15,

@@ -550,14 +550,21 @@
         const feed = this.words;
         if (!feed) return;
         const now = this.wordsTime != null ? this.wordsTime : this.time;
-        let back = values.mode > 2.5 && values.mode < 3.5 ? 3.2 / Math.max(values.smoke || 1, 0.2) : 4;
-        let lead = values.lead || 3;
+        // Words a path, a behaviour and a letter style (see words.frag). Keep each word in view as
+        // long as its behaviour needs: smoke and sparkle linger after the word, a burst's rocket
+        // climbs before it.
+        const path = Math.round(values.path || 0), beh = Math.round(values.behaviour || 0);
+        let back = 4, lead = values.lead || 3;
+        if (beh === 3) back = Math.max(back, 3.2 / Math.max(values.smoke || 1, 0.2));
+        if (beh === 4 || beh === 5) back = Math.max(back, 3);
+        if (beh === 4) lead = Math.max(lead, 0.8);
+        if (beh === 5) lead = Math.max(lead, 1.3);
         // A ribbon carrying the words away shows the ones already sung, far off: keep those.
-        if (Math.round(values.mode) === 6 && values.travel > 0.5) { back = Math.max(lead, 4); lead = 1.5; }
+        if (path === 0 && values.travel > 0.5) { back = Math.max(lead, back); lead = 1.5; }
         const u = feed.uniforms(now, lead, back);
         common.tex = { uWords: feed.texture(gl) };
         common.uniforms = u;
-        const defs = '#define SCENE ' + Math.round(values.mode || 0) + '\n#define LETTER_STYLE ' + Math.round(values.letters || 0) + '\n';
+        const defs = '#define WPATH ' + path + '\n#define BEHAVIOUR ' + beh + '\n#define LETTER_STYLE ' + Math.round(values.letters || 0) + '\n';
         this._use(this.program('fullscreen.vert', type.frag, defs), common);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       } else if (draw === 'instanced') {

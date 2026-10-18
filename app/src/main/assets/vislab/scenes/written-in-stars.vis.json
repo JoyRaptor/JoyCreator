@@ -35,7 +35,9 @@
       "name": "Stars",
       "echo": false,
       "p": {
-        "mode": 9,
+        "path": 7,
+        "behaviour": 5,
+        "letters": 5,
         "size": 0.3,
         "spread": 0.85,
         "banner": 0.8,

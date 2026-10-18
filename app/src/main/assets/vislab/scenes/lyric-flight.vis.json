@@ -53,7 +53,8 @@
       "name": "Flying words",
       "echo": false,
       "p": {
-        "mode": 0,
+        "path": 5,
+        "behaviour": 0,
         "size": 0.2,
         "speed": 1,
         "spread": 0.8,

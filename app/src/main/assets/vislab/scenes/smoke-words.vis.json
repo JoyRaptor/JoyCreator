@@ -30,10 +30,11 @@
       "type": "words",
       "name": "Smoke",
       "p": {
-        "mode": 3,
+        "path": 7,
+        "behaviour": 3,
         "size": 0.2,
         "smoke": 1,
-        "spread": 0.5,
+        "spread": 0.4,
         "glow": 0.8,
         "brightness": 1,
         "pump": 0.3

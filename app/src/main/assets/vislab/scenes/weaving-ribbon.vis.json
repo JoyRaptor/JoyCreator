@@ -35,7 +35,8 @@
       "name": "Ribbon",
       "echo": false,
       "p": {
-        "mode": 6,
+        "path": 0,
+        "behaviour": 0,
         "size": 0.22,
         "weave": 1,
         "up": -0.05,

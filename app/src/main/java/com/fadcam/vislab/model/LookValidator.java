@@ -108,6 +108,7 @@ public final class LookValidator {
             return;
         }
         JsonObject p = pe.getAsJsonObject();
+        if ("words".equals(t.id)) wordsScene(p, who, w);
         Iterator<Map.Entry<String, JsonElement>> it = p.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, JsonElement> en = it.next();
@@ -164,6 +165,41 @@ public final class LookValidator {
                 w.add(who + ": " + k.label + " was not a number; it is back to its default.");
             }
         }
+    }
+
+    /**
+     * Words layers saved before 10-18 picked one "mode" (a whole scene). Words is now three parts
+     * that mix freely: a path, a behaviour and letters. Turn the old scene into those parts so
+     * the look stays as it was. Rows: mode -> path, behaviour, letters (-1 = keep).
+     */
+    private static final int[][] WORDS_SCENES = {
+            {5, 0, -1},   // star flight
+            {1, 0, -1},   // spiral banner
+            {3, 0, -1},   // tunnel ticker
+            {7, 3, -1},   // smoke
+            {6, 1, -1},   // puck
+            {2, 0, -1},   // ring
+            {0, 0, -1},   // weaving ribbon
+            {8, 3, -1},   // cigar smoke
+            {4, 2, -1},   // neon street
+            {7, 5, 5},    // constellations
+            {7, 4, 4},    // fireworks
+    };
+
+    private static void wordsScene(@NonNull JsonObject p, @NonNull String who, @NonNull List<String> w) {
+        JsonElement m = p.get("mode");
+        if (m == null || p.has("path")) return;
+        p.remove("mode");
+        if (!m.isJsonPrimitive() || !m.getAsJsonPrimitive().isNumber()) return;
+        int mode = Math.max(0, Math.min(WORDS_SCENES.length - 1, Math.round(m.getAsFloat())));
+        int[] row = WORDS_SCENES[mode];
+        p.addProperty("path", row[0]);
+        p.addProperty("behaviour", row[1]);
+        if (row[2] >= 0) p.addProperty("letters", row[2]);
+        if (mode == 10 && p.has("size") && p.get("size").isJsonPrimitive()) {
+            p.addProperty("size", p.get("size").getAsFloat() * 1.3f);   // the old fireworks drew 1.3x
+        }
+        w.add(who + ": its words scene is now a path, a behaviour and letters (same look).");
     }
 
     private static float clampKnob(@NonNull VisKnob k, float f) {

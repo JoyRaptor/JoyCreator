@@ -523,6 +523,13 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         view.setPaused(p);
         if (source != null) source.setPaused(p);
         pauseBtn.setText(p ? "play_arrow" : "pause");
+        keepAwake(!p);
+    }
+
+    /** While the visualiser plays, the screen stays on (like a video); paused, it may sleep. */
+    private void keepAwake(boolean on) {
+        if (on) getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     @Override

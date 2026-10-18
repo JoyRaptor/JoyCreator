@@ -134,6 +134,14 @@ public class VisLooksTest {
         CompiledScene fixed = new CompiledScene(new VisScene(messy), types, null);
         check(fixed.layers.size() == 1, "fixed look compiles");
 
+        // 4b. A words layer saved with the old single "mode" scene becomes path + behaviour + letters.
+        JsonObject oldWords = JsonParser.parseString("{\"id\":\"old\",\"layers\":[{\"type\":\"words\",\"p\":{\"mode\":10,\"size\":0.2}}]}").getAsJsonObject();
+        com.fadcam.vislab.model.LookValidator.fix(oldWords, types);
+        JsonObject wp = oldWords.getAsJsonArray("layers").get(0).getAsJsonObject().getAsJsonObject("p");
+        check(!wp.has("mode") && wp.get("path").getAsInt() == 7 && wp.get("behaviour").getAsInt() == 4 && wp.get("letters").getAsInt() == 4,
+                "old fireworks scene -> scatter + burst + sparks (" + wp + ")");
+        check(Math.abs(wp.get("size").getAsFloat() - 0.26f) < 1e-4, "old fireworks size kept (1.3x)");
+
         // 5. Colour: sRGB hex to linear.
         float[] c = VisScene.hexToLinear("#808080", new float[3], 0);
         check(Math.abs(c[0] - 0.2158605f) < 1e-4, "srgb 128 -> linear 0.2159");

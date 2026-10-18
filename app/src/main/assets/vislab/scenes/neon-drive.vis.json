@@ -18,7 +18,8 @@
       "name": "Street",
       "echo": false,
       "p": {
-        "mode": 8,
+        "path": 4,
+        "behaviour": 2,
         "letters": 1,
         "flicker": 1,
         "size": 0.14,

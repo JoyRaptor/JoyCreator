@@ -17,7 +17,9 @@
       "type": "words",
       "name": "Fireworks",
       "p": {
-        "mode": 10,
+        "path": 7,
+        "behaviour": 4,
+        "letters": 4,
         "size": 0.2,
         "spread": 0.9,
         "glow": 0.7,

@@ -24,6 +24,8 @@ class ExportChoiceSheet(context: Context) : FrameLayout(context) {
         fun export(choice: BoardExportLayout.Choice) {}
         /** The existing shared Frost provider supplies the blurred backdrop, if enabled. */
         fun frost(canvas: Canvas, element: BoardChromeLayout.Element) {}
+        /** The person tapped Export, a scope row or a format chip while it is greyed: [reason] says why. It stays greyed. */
+        fun refused(reason: String) {}
     }
     var host: Host = object : Host {}
     private val chrome = BoardChromeView(context)
@@ -31,6 +33,9 @@ class ExportChoiceSheet(context: Context) : FrameLayout(context) {
     private var shown: BoardExportLayout.Input? = null
     private var gestureSnapshot: BoardExportLayout.Input? = null
     private var blockingGesture = false
+    /** The displayed layout, so a tap on a greyed control can be told apart from a tap on the empty sheet. */
+    private var shownLayout: BoardChromeLayout.Layout? = null
+    private var greyedTap: String? = null
 
     init {
         addView(chrome, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -71,6 +76,7 @@ class ExportChoiceSheet(context: Context) : FrameLayout(context) {
         if (shown?.boardId != next.boardId || shown?.identity?.frameIds != next.identity.frameIds) chrome.stopInteractions()
         shown = next
         val layout = BoardExportLayout.layout(next)
+        shownLayout = layout
         chrome.submit(layout)
         if (Build.VERSION.SDK_INT >= 28) accessibilityPaneTitle = "Export ${next.name}"
         // The controls are native Views, while their labels/radio marks are drawn by chrome.
@@ -118,10 +124,23 @@ class ExportChoiceSheet(context: Context) : FrameLayout(context) {
         BoardExportLayout.Scope.ALL_IMAGES -> "All image boards"
     }
 
+    /** The sentence for a press that lands on a greyed control, else null. Disabled controls take no press of their own. */
+    private fun greyedReasonAt(event: MotionEvent): String? {
+        val input = shown ?: return null
+        val layout = shownLayout ?: return null
+        val control = BoardChromeLayout.hit(layout, BoardChromeLayout.Point(event.x, event.y), enabledOnly = false)
+        return if (control != null && !control.enabled) BoardExportLayout.whyGreyed(input, control.id) else null
+    }
+
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) gestureSnapshot = shown
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) { gestureSnapshot = shown; greyedTap = greyedReasonAt(event) }
         val childHandled = super.dispatchTouchEvent(event)
-        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) gestureSnapshot = null
+        if (event.actionMasked == MotionEvent.ACTION_UP) {
+            // The lift must still be on the control: sliding off it is not a tap, as with an enabled one.
+            val reason = greyedTap
+            if (reason != null && greyedReasonAt(event) == reason) host.refused(reason)
+        }
+        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) { gestureSnapshot = null; greyedTap = null }
         if (childHandled) return true
         if (event.actionMasked == MotionEvent.ACTION_DOWN) blockingGesture = shown?.let {
             BoardExportLayout.contains(it, BoardChromeLayout.Point(event.x, event.y))
@@ -131,6 +150,6 @@ class ExportChoiceSheet(context: Context) : FrameLayout(context) {
         return handled
     }
 
-    fun stopInteractions() { blockingGesture = false; gestureSnapshot = null; chrome.stopInteractions() }
+    fun stopInteractions() { blockingGesture = false; gestureSnapshot = null; greyedTap = null; chrome.stopInteractions() }
     override fun onDetachedFromWindow() { stopInteractions(); super.onDetachedFromWindow() }
 }

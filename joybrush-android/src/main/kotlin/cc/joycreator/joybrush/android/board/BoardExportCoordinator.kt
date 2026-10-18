@@ -71,6 +71,7 @@ class BoardExportCoordinator(private val activity: Activity,
         }
         sheet.host = object : ExportChoiceSheet.Host {
             override fun frost(canvas: android.graphics.Canvas,element: BoardChromeLayout.Element) = frost(canvas,sheet)
+            override fun refused(reason: String) = refusal(reason)
             override fun scope(board: BoardChromeIdentity, scope: Export.Scope) {
                 if(board.boardId != boardId) return
                 selectScope(scope)

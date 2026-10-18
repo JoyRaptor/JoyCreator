@@ -27,7 +27,7 @@ import kotlin.math.hypot
 class MediaAtlasWater(val quietMs: Long = 2000) {
     enum class State { UNKNOWN, WET, DAMP, DRY }
 
-    private class Tile(var state: State, var lastFlowMs: Long, var firstWetMs: Long, var ext: IntArray?)
+    private class Tile(var state: State, var lastFlowMs: Long, var firstWetMs: Long, var ext: IntArray?, var wetExt: IntArray? = null)
 
     private val tiles = HashMap<Long, Tile>()
 
@@ -83,13 +83,23 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
      * What the GPU measured over [key] (the activity query): the deepest water [maxW] (mm), the dampest paper [maxS], the
      * fastest outflow [maxFlow] (mm/s), and where there is any ([extent], layer px; null = the whole tile). Water above
      * [minMm] is wet; else dampness above 0 is damp; else dry.
+     *
+     * Moving: water in this simulation never stops flowing until it is dry (it keeps feeding its drying edge: the dark rim),
+     * so "quiet" is not "no flow". Water is moving while the extent of its STANDING water ([wetExtent]: blocks deeper than
+     * [minMm]) changes, or anything in it runs faster than [flowEps] (a drip); a pool that has stopped spreading for
+     * [quietMs] is quiet. Dampness keeps creeping through the fibres long after (the wick), so it counts for residency
+     * ([extent]) but not for motion. Measured in the wet harness: a settling pool's fastest outflow stays at 0.2-0.4 mm/s.
      */
-    fun observe(key: Long, maxW: Float, maxS: Float, maxFlow: Float, nowMs: Long, minMm: Float, flowEps: Float, extent: IntArray? = null) {
+    fun observe(key: Long, maxW: Float, maxS: Float, maxFlow: Float, nowMs: Long, minMm: Float, flowEps: Float, extent: IntArray? = null,
+                wetExtent: IntArray? = extent) {
         if (key in excluded) return
         val t = tiles.getOrPut(key) { Tile(State.UNKNOWN, nowMs, nowMs, null) }
         val was = t.state
+        val wasWet = t.wetExt
         t.state = when { maxW > minMm -> State.WET; maxS > 0f -> State.DAMP; else -> State.DRY }
         t.ext = if (t.state == State.DRY) null else extent
+        t.wetExt = if (t.state == State.WET) wetExtent ?: rectOf(key) else null
+        if (t.state == State.WET && was == State.WET && !(wasWet ?: rectOf(key)).contentEquals(t.wetExt!!)) t.lastFlowMs = nowMs
         // Water that appears where there was none ran in: it is moving now, and its age starts now.
         if (t.state != State.DRY && was == State.DRY) { t.firstWetMs = nowMs; t.lastFlowMs = nowMs }
         if (maxFlow > flowEps) t.lastFlowMs = nowMs

@@ -98,4 +98,20 @@ class MediaAtlasWaterTest {
         assertEquals(listOf(k(0, 0)), plan.first().keys, "the oldest end goes first")
         assertTrue(plan.none { a -> a.keys.any { it in frame } })
     }
+    @Test fun quietMeansStoppedSpreadingNotNoFlow() {
+        // A pool keeps a slow outflow feeding its drying edge for as long as it is wet: that is not "moving".
+        val w = MediaAtlasWater(quietMs = 2000)
+        val pool = intArrayOf(300, 300, 400, 400)
+        w.touched(pool, 0)
+        w.observe(k(1, 1), 0.2f, 0.5f, 0.3f, 300, minMm, flowEps = 1f, extent = intArrayOf(256, 256, 432, 432))   // still spreading
+        w.observe(k(1, 1), 0.2f, 0.5f, 0.3f, 600, minMm, flowEps = 1f, extent = intArrayOf(256, 256, 448, 448))   // still spreading
+        for (t in 900..3000 step 300) w.observe(k(1, 1), 0.2f, 0.5f, 0.3f, t.toLong(), minMm, flowEps = 1f, extent = intArrayOf(256, 256, 448, 448))
+        val domain = block(0, 0, 3, 3)
+        // Quiet 2.4 s after it stopped spreading at 0.6 s: a frame elsewhere that needs the room settles it whole.
+        val plan = w.plan(domain, domain, setOf(k(3, 3)), emptySet(), capacity = 2, penX = 900.0, penY = 900.0, nowMs = 3000)!!
+        assertEquals(listOf(MediaAtlasWater.Action(listOf(k(1, 1)), drain = false)), plan)
+        // A drip runs faster than eps: moving, whatever its extent.
+        w.observe(k(1, 1), 0.2f, 0.5f, 2.5f, 3300, minMm, flowEps = 1f, extent = intArrayOf(256, 256, 448, 448))
+        assertTrue(w.plan(domain, domain, setOf(k(3, 3)), emptySet(), capacity = 2, penX = 900.0, penY = 900.0, nowMs = 3400)!!.all { it.drain })
+    }
 }

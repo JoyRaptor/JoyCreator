@@ -215,13 +215,16 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             var mw = 0f; var ms = 0f; var mf = 0f
             // Where the water is: the 16 px blocks holding any, as one rectangle (layer px).
             var ext: IntArray? = null
+            var wetExt: IntArray? = null
             val tx0 = Tiles.tx(key) * tile; val ty0 = Tiles.ty(key) * tile
             for (j in 0 until tile / 16) for (i in 0 until tile / 16) {
                 val o = ((ay / 16 + j) * perRow + ax / 16 + i) * 4
                 mw = maxOf(mw, a[o]); ms = maxOf(ms, a[o + 1]); mf = maxOf(mf, a[o + 2])
-                if (a[o] > minMm || a[o + 1] > 0f) ext = MediaAtlasWater.union(ext, intArrayOf(tx0 + i * 16, ty0 + j * 16, tx0 + i * 16 + 16, ty0 + j * 16 + 16))
+                val b = intArrayOf(tx0 + i * 16, ty0 + j * 16, tx0 + i * 16 + 16, ty0 + j * 16 + 16)
+                if (a[o] > minMm || a[o + 1] > 0f) ext = MediaAtlasWater.union(ext, b)
+                if (a[o] > minMm) wetExt = MediaAtlasWater.union(wetExt, b)
             }
-            water.observe(key, mw, ms, mf, now, minMm, FLOW_EPS, ext)
+            water.observe(key, mw, ms, mf, now, minMm, FLOW_EPS, ext, wetExt)
         }
     }
 
@@ -478,8 +481,12 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         const val TAG = "JoyBrushMediaAtlas"
         /** Frames between water measurements (B3 plan: ~8; quiet means quiet for MediaAtlasWater.quietMs). */
         const val QUERY_FRAMES = 8
-        /** Outflow (mm/s) below which water counts as still: above the flow that only feeds evaporation at a pool's edge. */
-        const val FLOW_EPS = 0.05f
+        /**
+         * Outflow (mm/s) above which water is running (a drip), whatever its extent does. A settling pool keeps 0.2-0.4 mm/s
+         * feeding its drying edge (measured: tools/media_atlas_b3w_check.js), so it is not "running"; its quiet is that its
+         * extent stops changing (MediaAtlasWater.observe).
+         */
+        const val FLOW_EPS = 1.0f
         /** Water deeper than this (mm) is water (WetConstants.minMm). */
         val WET_MIN_MM = cc.joycreator.joybrush.core.media.WetConstants().minMm.toFloat()
     }

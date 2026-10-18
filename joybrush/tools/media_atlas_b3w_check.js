@@ -124,6 +124,11 @@ const REACH = { wet: 80, dry: 0, paste: 12, erase: 3, look: 56 };   // dry: the 
 function buildWetLong(sc) {
   const frames = []; let wetRect = null, paintRect = null;
   for (const seg of sc.segments) for (let f = 0; f < seg.frames; f++) {
+    if (seg.pause) {   // the pen lifted: the water runs on alone
+      const fr = { steps: WC.substeps, dabs: null, reach: 0, rect: wetRect ? grow(wetRect, paintRect, sc.slope[0], sc.slope[1], WC.substeps) : null, inRect: null };
+      if (fr.rect) wetRect = fr.rect;
+      frames.push(fr); continue;
+    }
     const fr = { steps: WC.substeps, dabs: null, reach: 0, rect: null, inRect: null };
     const batch = wetDabs(seg.brush || sc.brush, polyPts(seg.path, f / seg.frames, (f + 1) / seg.frames, 3), 0.55 * (f === 0 ? 3 : 1), 3);
     fr.dabs = batch.dabs; fr.reach = batch.reach;
@@ -137,7 +142,7 @@ function buildWetLong(sc) {
     if (fr.rect) wetRect = fr.rect;
     frames.push(fr);
   }
-  return { kind: 'wet', name: sc.name, slope: sc.slope, gran: sc.gran || 0, seed: sc.seed, frames };
+  return { kind: 'wet', name: sc.name, slope: sc.slope, gran: sc.gran || 0, seed: sc.seed, kinds: sc.kinds, frames };
 }
 function buildWet(sc) {
   const frames = []; let wetRect = null, paintRect = null;
@@ -217,9 +222,16 @@ const M0 = 215, M1 = LW - 215;
 const SNAKE = [[M0, 215], [M1, 215], [M1, 490], [M0, 490], [M0, 765], [M1, 765], [M1, 1040], [M0, 1040], [M0, M1], [M1, M1]];
 const DOT = (x, y) => [[x - 60, y - 20], [x + 60, y + 20]];
 const DOTS = [[300, 300], [1236, 1236], [300, 1236], [1236, 300], [768, 768], [768, 300], [300, 768], [1236, 768], [768, 1236]];
+// Frames are 1/30 s of water (4 substeps of 1/120 s): "quiet for 2 s" is 60 frames.
 const SCENARIOS = [
-  buildWetLong({ name: 'wet Round, one long trail over 36 tiles', brush: 'Round', segments: [{ path: SNAKE, frames: F(240) }], after: F(30), slope: [0, 0], seed: 51 }),
-  buildWetLong({ name: 'wet Round, nine separate pools', brush: 'Round', segments: DOTS.map(([x, y]) => ({ path: DOT(x, y), frames: F(24) })), after: F(40), slope: [0, 0], seed: 52 }),
+  // D2: one continuous trail, the pen always at its young end; the old end dries and becomes a wall as room runs out.
+  buildWetLong({ name: 'wet Round, one long trail over 36 tiles', brush: 'Round', segments: [{ path: SNAKE, frames: F(120) }], after: F(20), slope: [0, 0], seed: 51 }),
+  // D1: three pools, the pen away for 2.7 s, then a fourth pool far from them: the farthest quiet pool dries whole.
+  buildWetLong({ name: 'wet Round, quiet pools then a new one', brush: 'Round', segments: [...[[300, 300], [1236, 300], [300, 1236]].map(([x, y]) => ({ path: DOT(x, y), frames: F(12) })),
+    { pause: true, frames: F(80) }, { path: DOT(1236, 1236), frames: F(12) }], after: F(10), slope: [0, 0], seed: 53 }),
+  // Stress: nine pools one after another, each still moving when the next starts.
+  buildWetLong({ name: 'wet Round, nine separate pools', brush: 'Round', segments: DOTS.map(([x, y]) => ({ path: DOT(x, y), frames: F(12) })), after: F(30), slope: [0, 0], seed: 52,
+    kinds: ['orderA', 'orderB', 'noWalls'] }),
 ];
 const KINDS = ['orderA', 'orderB', 'settleMidFlow', 'noWalls', 'deviation'];
 
@@ -234,19 +246,22 @@ const KINDS = ['orderA', 'orderB', 'settleMidFlow', 'noWalls', 'deviation'];
   // One browser per scenario and kind: a pair needs about 1 GB of float textures, and SwiftShader does not hand freed
   // texture memory back fast enough for the next pair in the same page.
   const only = argVal('only', null), kindsArg = argVal('kinds', null);
-  const kinds = kindsArg ? kindsArg.split(',') : KINDS, picks = only === null ? SCENARIOS.map((_, i) => i) : [+only];
+  const picks = only === null ? SCENARIOS.map((_, i) => i) : [+only];
   const out = { results: [], missingUniforms: [] }, missing = new Set();
   for (const si of picks) {
     let merged = null;
+    const kinds = kindsArg ? kindsArg.split(',') : (SCENARIOS[si].kinds || KINDS);
     for (const kind of kinds) {
       let part;
       // A browser that dies under memory pressure (another job on the machine) is retried once; a real failure repeats.
       for (let attempt = 0; attempt < 2; attempt++) {
-        const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+        // --gpu: this machine's GPU (d3d11) instead of SwiftShader. The atlas and its oracle still run in the same browser on
+        // the same device, so the comparison stays bit for bit; it is just ~50x faster for the water.
+        const browser = await chromium.launch({ executablePath: exe, args: process.argv.includes('--gpu') ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
         try {
           const page = await browser.newPage();
           page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
-          part = await page.evaluate(PAGE, { LW, AW, PPM, SRC, wu: wetUniformMap(WC), WC, REACH, KINDS: [kind], scenarios: [SCENARIOS[si]], images: !!argVal('images', null) });
+          part = await page.evaluate(PAGE, { LW, AW, PPM, SRC, wu: wetUniformMap(WC), WC, REACH, KINDS: [kind], scenarios: [SCENARIOS[si]], images: !!argVal('images', null), clean: process.argv.includes('--clean') });
         } catch (e) { part = { results: [{ name: SCENARIOS[si].name, medium: SCENARIOS[si].kind, mismatch: {}, evictions: {}, loads: {}, misses: {}, planMismatch: {}, settled: {}, drained: {}, maxResident: 0, tilesCrossed: 0, changed: 0, error: kind + ': ' + String(e.message || e).split(String.fromCharCode(10))[0] }], missingUniforms: [], crashed: true }; }
         finally { await browser.close().catch(() => {}); }
         if (!part.crashed) break;
@@ -397,6 +412,7 @@ async function PAGE(P) {
       for (let k = 0; k < 4; k++) { o.g0[i + k] = 3 * r(); o.g1[i + k] = 3 * r(); o.g2[i + k] = 3 * r(); }
     }
     o.w0.fill(0); o.w1.fill(0);   // dry paper: all water comes from the brush
+    if (P.clean) { o.p0.fill(0); o.p1.fill(0); o.ps.fill(0); }   // --clean: no paint before the stroke (the seam images)
     seedCache.set(seed, o);
     return o;
   }
@@ -467,7 +483,7 @@ async function PAGE(P) {
       E.capV = kind === 'oracleFree' ? Infinity : 15;
       E.water = WaterRules(kind === 'settleMidFlow' ? 0 : 2000);
       E.walls = new Set(); E.skip = new Set(); E.skipOn = false; E.wallsOn = false; E.noWalls = kind === 'noWalls';
-      E.planLog = new Map(); E.settledN = 0; E.drainedN = 0; E.waterHeld = new Set(); E.admitted = false;
+      E.planLog = new Map(); E.pendingQuant = []; E.settledN = 0; E.drainedN = 0; E.waterHeld = new Set(); E.admitted = false;
       E.tableData = new Int32Array(GN * GN).fill(-1); E.table = tex(GN, GN, 'r32i', E.tableData);
       E.oracle = null;
     } else {
@@ -520,7 +536,7 @@ async function PAGE(P) {
     for (const [t, slot] of E.res) {
       if (E.pins.has(t)) continue;
       if (E.kind !== 'noWriteBack') writeBackTile(E, t, slot);
-      if (E.oracle) quantizeTile(E.oracle, t);
+      if (E.oracle) E.oracle.pendingQuant.push(t);   // rounded in the oracle once its own frame's actions are done
       E.res.delete(t); E.slotTile.delete(slot); E.free.push(slot); E.evictions++;
       writeTable(E);
       return;
@@ -603,11 +619,13 @@ async function PAGE(P) {
           t.state = 'W'; t.lastFlow = now; t.ext = ext; excluded.delete(k);
         }
       },
-      observe(k, mw, ms, mf, now, minMm, eps, ext) {
+      observe(k, mw, ms, mf, now, minMm, eps, ext, wetExt) {
         if (excluded.has(k)) return;
         let t = T.get(k); if (!t) { t = { state: 'U', lastFlow: now, firstWet: now, ext: null }; T.set(k, t); }
-        const was = t.state; t.state = mw > minMm ? 'W' : ms > 0 ? 'P' : 'D';
+        const was = t.state, wasWet = t.wetExt; t.state = mw > minMm ? 'W' : ms > 0 ? 'P' : 'D';
         t.ext = t.state === 'D' ? null : ext;
+        t.wetExt = t.state === 'W' ? (wetExt || rectOf(k)) : null;
+        if (t.state === 'W' && was === 'W' && String(wasWet || rectOf(k)) !== String(t.wetExt)) t.lastFlow = now;   // standing water still spreading
         if (t.state !== 'D' && was === 'D') { t.firstWet = now; t.lastFlow = now; }
         if (mf > eps) t.lastFlow = now;
       },
@@ -662,7 +680,7 @@ async function PAGE(P) {
     };
     return self;
   }
-  const FLOW_EPS = 0.05, MIN_MM = P.WC.minMm;
+  const FLOW_EPS = 1.0, MIN_MM = P.WC.minMm;   // MediaAtlas.FLOW_EPS: running water (a drip); a pool's quiet = its extent stops changing
   // The activity query: max depth, dampness, outflow over each resident tile, and the 16 px blocks that hold water.
   function measure(E, now) {
     const a = new Float32Array(256 * 256 * 4);
@@ -670,7 +688,7 @@ async function PAGE(P) {
     for (const [t, s2] of E.res) {
       const [ax, ay] = slotXY(s2, 8);
       gl.readPixels(ax, ay, 256, 256, gl.RGBA, gl.FLOAT, a);
-      let mw = 0, ms = 0, mf = 0, ext = null;
+      let mw = 0, ms = 0, mf = 0, ext = null, wetExt = null;
       const tx0 = t % GN * 256, ty0 = Math.floor(t / GN) * 256;
       for (let by = 0; by < 16; by++) for (let bx = 0; bx < 16; bx++) {
         let bw = 0, bs = 0;
@@ -679,10 +697,15 @@ async function PAGE(P) {
           if (a[i] > bw) bw = a[i]; if (a[i + 1] > bs) bs = a[i + 1]; if (a[i + 3] > mf) mf = a[i + 3];
         }
         if (bw > mw) mw = bw; if (bs > ms) ms = bs;
-        if (bw > MIN_MM || bs > 0) { const r = [tx0 + bx * 16, ty0 + by * 16, tx0 + bx * 16 + 16, ty0 + by * 16 + 16]; ext = ext ? [Math.min(ext[0], r[0]), Math.min(ext[1], r[1]), Math.max(ext[2], r[2]), Math.max(ext[3], r[3])] : r; }
+        const r = [tx0 + bx * 16, ty0 + by * 16, tx0 + bx * 16 + 16, ty0 + by * 16 + 16];
+        const u2 = (e) => e ? [Math.min(e[0], r[0]), Math.min(e[1], r[1]), Math.max(e[2], r[2]), Math.max(e[3], r[3])] : r;
+        if (bw > MIN_MM || bs > 0) ext = u2(ext);
+        if (bw > MIN_MM) wetExt = u2(wetExt);
       }
-      E.water.observe(t, mw, ms, mf, now, MIN_MM, FLOW_EPS, ext);
+      E.water.observe(t, mw, ms, mf, now, MIN_MM, FLOW_EPS, ext, wetExt);
+      if (mw > MIN_MM || ms > 0) { E.diagFlow = Math.max(E.diagFlow || 0, mf); E.diagWet = (E.diagWet || 0) + 1; }
     }
+    if (E.trace) E.trace.push([Math.round(now / 33.33), +(E.diagFlow || 0).toPrecision(3), E.diagWet || 0]); E.diagFlow = 0; E.diagWet = 0;
   }
   // MediaLayerEngine.dryTilesNow: everything else a wall, no flow in or out, evaporation without limit, water buffers emptied.
   function dryTiles(E, sc, keys) {
@@ -739,6 +762,9 @@ async function PAGE(P) {
     }
     E.waterHeld = must;
     hold(E, [...new Set([...frame, ...must])]);
+    // The atlas wrote these tiles back after ITS settling and draining this frame; the oracle rounds them at the same point.
+    for (const t of E.pendingQuant) quantizeTile(E, t);
+    E.pendingQuant = [];
     E.admitted = true;
   }
   function wetFrameW(E, sc, Fr) {
@@ -957,7 +983,7 @@ async function PAGE(P) {
         OWNED = { tex: [], fbo: [] };
         const seed = sc.seed * 101 + 7;
         const O = makeEngine(kind === 'deviation' ? 'oracleFree' : 'oracle', seed), A = makeEngine(kind === 'deviation' ? 'orderA' : kind, seed), m = { total: 0 };
-        O.q16 = tex(AW, AW, 'rgba16f'); A.oracle = O;
+        O.q16 = tex(AW, AW, 'rgba16f'); A.oracle = O; A.trace = [];
         const dt = 1000 * P.WC.dt * 4;
         for (let fi = 0; fi < sc.frames.length; fi++) {
           const Fr = sc.frames[fi], now = fi * dt;
@@ -995,6 +1021,7 @@ async function PAGE(P) {
         } else {
           r.mismatch[kind] = m; r.planMismatch[kind] = plans;
         }
+        if (kind === 'orderA') { r.flowTrace = A.trace; r.plans = [...A.planLog].map(([f, pl]) => [f, pl]); }
         r.loads[kind] = A.loads; r.evictions[kind] = A.evictions; r.misses[kind] = A.misses; r.settled[kind] = A.settledN; r.drained[kind] = A.drainedN;
         r.maxResident = Math.max(r.maxResident, A.maxResident); r.tilesCrossed = Math.max(r.tilesCrossed, A.touchedTiles.size);
         r.changed = Math.max(r.changed, diffPx(new Uint8Array(lo.length), lo));

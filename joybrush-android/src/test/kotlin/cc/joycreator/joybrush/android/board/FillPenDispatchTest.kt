@@ -67,6 +67,8 @@ class FillPenDispatchTest {
         val doc = JbDocument(id="test", name="Test", boards=emptyList(),
             layers=listOf(Layer(id,"Paint",kind,locked=locked,cels=listOf(Cel("shared",floatTiles=floatTiles)))), activeLayerId=id)
         set(view,"retainedContents",JbContents(doc,emptyMap(),emptyMap()))
+        // LAYER_OPS L1: the lock lives in the layer stack (it can change while drawing), not in the file as opened.
+        if (locked) set(view,"stackUi",view.layers.withLocked(id,true))
     }
 
     @Test fun fillDispatchMakesAClosedTransientShapeWithoutStartingStampPaint() {

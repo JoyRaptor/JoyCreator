@@ -1405,6 +1405,11 @@ class JoyBrushActivity : Activity() {
             canvas.setLayerLocked(id, !layer.locked)
         })
         box.addView(menuRow("Duplicate", "Make a copy of this layer above it") { canvas.duplicateLayer(id) })
+        if (canvas.layers.indexOf(id) > 0) {
+            box.addView(menuRow("Merge down", "Merge this layer into the one under it; the picture stays the same. Undo brings both back") {
+                popovers.close(); canvas.mergeDown(id)
+            })
+        }
         box.addView(menuRow("Clear layer", "Empty this layer — Undo brings it back") {
             canvas.selectLayer(id)
             endSelection(); canvas.clearCanvas()

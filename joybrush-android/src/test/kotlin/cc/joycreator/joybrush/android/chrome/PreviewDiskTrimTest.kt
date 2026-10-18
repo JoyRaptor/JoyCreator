@@ -72,6 +72,6 @@ class PreviewDiskTrimTest {
         val a = name("a", h1)
         val gone = PreviewDiskTrim.victims(listOf(entry(name("pen", h3), at = 1), entry(a, at = 2), entry(name("pen", h4), at = 3)), keep,
             PreviewDiskTrim.Limits(maxFiles = 2, maxBytes = Long.MAX_VALUE))
-        assertEquals(listOf(name("pen", h3)), gone, "the stale one goes, and then two files fit")
+        assertEquals("the stale one goes, and then two files fit", listOf(name("pen", h3)), gone)
     }
 }

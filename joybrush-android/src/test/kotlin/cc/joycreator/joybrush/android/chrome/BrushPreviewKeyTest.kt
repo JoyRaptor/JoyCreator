@@ -40,7 +40,7 @@ class BrushPreviewKeyTest {
         val base = BrushPreviewKey.of(brush(), 900, 90, style)
         assertNotEquals(base, BrushPreviewKey.of(brush(), 901, 90, style))
         assertNotEquals(base, BrushPreviewKey.of(brush(), 900, 91, style))
-        assertEquals(base.hash, BrushPreviewKey.of(brush(), 901, 90, style).hash, "the size is in the name, not the hash")
+        assertEquals("the size is in the name, not the hash", base.hash, BrushPreviewKey.of(brush(), 901, 90, style).hash)
         assertNotEquals(base.hash, BrushPreviewKey.of(brush(), 900, 90, style.copy(ink = 0xFF000000.toInt())).hash)
     }
 

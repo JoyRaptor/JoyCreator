@@ -19,6 +19,7 @@ import cc.joycreator.joybrush.androidkit.gl.lines.BoardItemFlatten
 import cc.joycreator.joybrush.androidkit.gl.lines.LineBake
 import cc.joycreator.joybrush.androidkit.gl.lines.LineEditBudget
 import cc.joycreator.joybrush.androidkit.gl.lines.LineItems
+import cc.joycreator.joybrush.androidkit.layers.MergeDownPlan
 import cc.joycreator.joybrush.androidkit.gl.lines.NativeLines
 import cc.joycreator.joybrush.androidkit.lines.LineEdit
 import cc.joycreator.joybrush.androidkit.lines.LinePlane
@@ -1045,6 +1046,175 @@ class GlPaintEngine(
                 GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
             }
         }
+    }
+
+    /**
+     * Merge Down (LAYER_OPS L2/L3): [upperId] into the layer right under it, [lowerId], as ONE undo step, the way
+     * [MergeDownPlan] decided ([way], [sheetOp], [flattenLower]); [after] is the stack without the upper layer. The merged
+     * pixels come from the screen's own compositor (the upper layer's blend, opacity, mask and clip over the lower), so
+     * they are exactly what was shown. Items: [MergeDownPlan.Way.MOVE_ITEMS] puts the upper layer's base as a pixel sheet
+     * on top of the lower's items, then its own lines and slabs above it in their order (all still editable);
+     * [MergeDownPlan.Way.PRESS] adds the upper layer as ONE sheet (with [sheetOp]) where the lower's items cross;
+     * [MergeDownPlan.Way.PIXELS] keeps no upper items (and, with [flattenLower], none of the lower's either).
+     * Layers with animation frames or realistic paint are refused by the plan before this is called.
+     */
+    /** [MergeDownPlan.Side] for [state], filled with what only the engine knows (items, frames, realistic paint). GL thread. */
+    fun mergeSide(state: cc.joycreator.joybrush.core.layers.LayerState): MergeDownPlan.Side {
+        val layer = layers[state.id]
+        val planes = nativeLines.itemPlanes().filter { it.layerId == state.id }
+        val allNormal = planes.all { p ->
+            nativeLines.lines(p).all { r -> nativeLines.brush(r.brushId)?.blend == "normal" } &&
+                nativeLines.slabSeqs(p).all { seq -> nativeLines.slab(p, seq)?.op == "normal" }
+        }
+        val docLayer = boardDocument?.layers?.firstOrNull { it.id == state.id }
+        return MergeDownPlan.Side(state.name, state.blend, state.opacity, state.hasMask, state.clip, state.locked, state.visible,
+            hasItems = planes.isNotEmpty(), itemsAllNormal = allNormal,
+            hasFrames = layer?.plan?.frames?.isNotEmpty() == true || docLayer?.regions?.isNotEmpty() == true,
+            hasMedia = hasMediaState(state.id))
+    }
+
+    fun mergeDownStep(upperId: String, lowerId: String, way: MergeDownPlan.Way, sheetOp: String, flattenLower: Boolean,
+                      before: LayerStack, after: LayerStack) {
+        requireLocalPaint()
+        settleLift()
+        settleWatercolourFade()
+        checkStrokeEnded("a layer change during a stroke would be undone out of order")
+        val u = layers[upperId] ?: return
+        val l = layers[lowerId] ?: return
+        require(!u.isMask && !l.isMask) { "Masks are merged with their layer" }
+        require(u.plan?.frames.isNullOrEmpty() && l.plan?.frames.isNullOrEmpty()) { "Merging layers that have animation frames is coming next." }
+        require(!hasMediaState(upperId) && !hasMediaState(lowerId)) { "Merging layers with pencil, watercolour or oil is coming next." }
+        val uCel = u.sharedCel; val lCel = l.sharedCel
+        val uPlane = linePlane(u, uCel); val lPlane = linePlane(l, lCel)
+        val uTiles = planeTiles(u, uCel); val lTiles = planeTiles(l, lCel)
+        val oldDoc = boardDocument
+        val made = ArrayList<Int>()
+        fun keep(t: Int): Int = t.also(made::add)
+        var items = LineItems.Changes.NONE
+        val footprints = HashMap<Pair<LinePlane, String>, Set<Long>>()
+        val tileChanges = ArrayList<UndoLog.TileChange<Int>>()
+        var itemsApplied = false
+        try {
+            val lItemCel = engineCel(l, lPlane)
+            val lCrossed = nativeLines.crossedKeys(lPlane)
+            val uCrossed = nativeLines.crossedKeys(uPlane)
+            val s0 = nativeLines.nextSeq(lPlane)
+            when (way) {
+                MergeDownPlan.Way.MOVE_ITEMS -> {
+                    // The upper layer's base as one sheet at s0 wherever a tile will be crossed, then its items above it.
+                    val sheetKeys = (uCrossed + lCrossed).filter { it in uTiles }
+                    val slabs = ArrayList<UndoLog.SlabChange<Int>>()
+                    val lines = ArrayList<UndoLog.LineChange>()
+                    for (k in (sheetKeys + uCrossed).toSet()) if (k !in lCrossed) lTiles[k]?.let { t ->
+                        slabs += UndoLog.SlabChange(l.id, lItemCel, k, 0L, null, UndoLog.SlabValue(keep(copyOfTile(t)), "normal"))
+                    }
+                    for (k in sheetKeys) {
+                        val src = if (k in uCrossed) nativeLines.base(uPlane, k) else uTiles[k]
+                        src?.let { slabs += UndoLog.SlabChange(l.id, lItemCel, k, s0, null, UndoLog.SlabValue(keep(copyOfTile(it)), "normal")) }
+                    }
+                    var next = s0 + 1
+                    val uLines = nativeLines.lines(uPlane).associateBy { it.seq }
+                    for (seq in (uLines.keys + nativeLines.slabSeqs(uPlane)).toSortedSet()) {
+                        val r = uLines[seq]
+                        if (r != null) {
+                            var id = r.id
+                            while (nativeLines.record(lPlane, id) != null) id = r.id + "-m" + (1..99999).random()
+                            val moved = r.copy(id = id, seq = next)
+                            lines += UndoLog.LineChange(l.id, lItemCel, id, null, CelComposer.Line(next, moved))
+                            footprints[lPlane to id] = nativeLines.footprint(uPlane, r.id)
+                        } else nativeLines.slab(uPlane, seq)?.let { slab ->
+                            for ((k, t) in slab.tiles) slabs += UndoLog.SlabChange(l.id, lItemCel, k, next, null, UndoLog.SlabValue(keep(copyOfTile(t)), slab.op))
+                        }
+                        next++
+                    }
+                    items += LineItems.Changes(slabs, lines)
+                }
+                MergeDownPlan.Way.PRESS -> {
+                    // The upper layer as ONE sheet, its settings applied, where the lower's items cross; elsewhere pixels.
+                    val slabs = ArrayList<UndoLog.SlabChange<Int>>()
+                    for (k in lCrossed) {
+                        val src = uTiles[k] ?: continue
+                        val sheet = keep(compositeTile(u, k, src, clearTex, lTiles[k], BlendMode.NORMAL))
+                        slabs += UndoLog.SlabChange(l.id, lItemCel, k, s0, null, UndoLog.SlabValue(sheet, sheetOp))
+                    }
+                    items += LineItems.Changes(slabs, emptyList())
+                }
+                MergeDownPlan.Way.PIXELS ->
+                    if (flattenLower) items += LineItems.removal(nativeLines, lPlane, l.id, lItemCel)
+            }
+            // The upper layer's own items leave with it (the moved ones above are copies).
+            items += LineItems.removal(nativeLines, uPlane, u.id, engineCel(u, uPlane))
+            // The merged pixels: what the screen showed, through the compositor.
+            for ((k, src) in uTiles) {
+                val merged = keep(compositeTile(u, k, src, lTiles[k] ?: clearTex, lTiles[k], u.blend))
+                tileChanges += UndoLog.TileChange(l.id, k, lTiles[k], merged, lCel)
+            }
+            applyItemChanges(items.slabs, items.lines, forward = true, footprints = footprints)
+            itemsApplied = true
+        } catch (e: Throwable) {
+            if (itemsApplied) applyItemChanges(items.slabs, items.lines, forward = false)
+            made.forEach(::recycleLayerTex)
+            throw e
+        } finally {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        }
+        // From here nothing can fail: install, take the upper layer out (its tiles and mask go into the step), publish.
+        for (c in tileChanges) put(c.layerId, c.key, c.after, c.celId)
+        invalidateProjection(l)
+        u.tiles.forEach { (k, t) -> tileChanges += UndoLog.TileChange(u.id, k, t, null, uCel) }
+        u.mask?.let { m -> m.tiles.forEach { (k, t) -> tileChanges += UndoLog.TileChange(m.id, k, t, null) }; m.tiles.clear() }
+        u.tiles.clear(); u.cels.values.forEach { it.clear() }; invalidateProjection(u)
+        forgetAgreements(u.id)
+        applyStack(after)
+        val next = oldDoc?.copy(layers = oldDoc.layers.filterNot { it.id == upperId }, activeLayerId = after.activeId)
+        next?.let(::setBoardDocument)
+        undo.push(UndoLog.Step(tileChanges, before, after, documentBefore = oldDoc, documentAfter = next,
+            lines = items.lines, slabs = items.slabs))
+    }
+
+    /**
+     * Layer [u]'s tile [src] at [key] composited over [backdrop] (a tile texture) with [mode], u's opacity and mask, and its
+     * clip against [clipBase] (the lower layer's tile; a clipped layer shows nothing where that has no tile), into a NEW
+     * tile the caller owns. The display compositor's own program at tile size: the result is what the screen shows.
+     */
+    private fun compositeTile(u: Layer, key: Long, src: Int, backdrop: Int, clipBase: Int?, mode: BlendMode): Int {
+        if (u.clip && clipBase == null) return if (backdrop == clearTex) newLayerTile().also { initializeTile(it, null, false) } else copyOfTile(backdrop)
+        val prog = compositeProg ?: GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_composite.frag"), "composite").also { compositeProg = it }
+        val out = newLayerTile()
+        try {
+            initializeTile(out, null, false)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+            attach(out)
+            GLES30.glViewport(0, 0, size, size)
+            GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+            GLES30.glDisable(GLES30.GL_BLEND)
+            prog.use()
+            val ox = (Tiles.tx(key) * size).toFloat(); val oy = (Tiles.ty(key) * size).toFloat()
+            GLES30.glUniform1f(prog.loc("u_tileSize"), size.toFloat())
+            GLES30.glUniformMatrix3fv(prog.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
+            GLES30.glUniform2f(prog.loc("u_tileOrigin"), ox, oy)
+            GLES30.glUniform1f(prog.loc("u_layerOpacity"), u.opacity)
+            GLES30.glUniform1f(prog.loc("u_mode"), BlendCodes.codeOf(mode))
+            GLES30.glUniform1i(prog.loc("u_layer"), 0)
+            GLES30.glUniform1i(prog.loc("u_backdrop"), 1)
+            GLES30.glUniform1i(prog.loc("u_mask"), 2)
+            GLES30.glUniform1i(prog.loc("u_clipBase"), 3)
+            GLES30.glUniform1i(prog.loc("u_clipMask"), 4)
+            GLES30.glUniform1f(prog.loc("u_clipped"), if (u.clip) 1f else 0f)
+            GLES30.glBindVertexArray(tileVao)
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE1); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, backdrop)
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE2); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, u.mask?.tiles?.get(key) ?: whiteTex)
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE3); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, clipBase ?: whiteTex)
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE4); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, whiteTex)
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, src)
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            GLES30.glBindVertexArray(0)
+            check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Merging the layers failed on the graphics card" }
+        } catch (e: Throwable) {
+            recycleLayerTex(out)
+            throw e
+        }
+        return out
     }
 
     /**

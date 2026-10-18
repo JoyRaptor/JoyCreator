@@ -129,8 +129,19 @@ coming words (from `TranscriptWord` timings), drawn from a glyph atlas so any wo
 - **Smoke**: the word holds, then breaks into particles that rise and curl (the particle and
   slime layers already simulate this kind of motion).
 - **Puck**: the word replaces JOY in Halo Drop's centre, pulsing with the kick.
-Word size, glow and colour take music links like every knob. Prototype in the web pilot with a
-sample transcript first; then the app, fed by Studio's transcript at the playhead.
+Word size, glow and colour take music links like every knob.
+
+**Built 10-17/18** (`words` primitive, `shaders/words.frag`, both engines): scenes Star flight,
+Spiral banner, Tunnel ticker, Smoke, Puck, Ring, and from the owner's second round Weaving ribbon
+(words UV-mapped on an invisible ribbon weaving to the horizon), Cigar smoke, Neon street, plus
+Constellations and Fireworks. Letters are a separate knob: Glow, Neon tube, Outline, Stars. Ten
+looks in the Lyrics family. Words come from `WordFeed` (Java) / `vislab-words.js` (pilot): timed
+words to a glyph atlas + per-word timing uniforms; the demo song's sample words are
+`assets/vislab/words/demo-lyrics.json`. **For Studio:** `renderer.setWords(feed)` with
+`feed.setWords(transcriptWords, 0)` and `renderer.setWordsTime(clipSeconds)` per frame.
+Phone rules learned: build one small program per scene and letter style (`#define SCENE`,
+`LETTER_STYLE`; one program with everything ran at 5 fps), and keep word drawing out of long
+loops (find the word, then draw it once).
 
 ## 8. Screen recorder overlay (built 10-17)
 
@@ -157,9 +168,9 @@ sample transcript first; then the app, fed by Studio's transcript at the playhea
 | Looks kept in Supplies/Looks, revert, duplicate, rename, delete | ✅ device-tested 10-17 |
 | Joybot in VisLab | ✅ (JOYBOT lane) |
 | 45-60 fps on Note 9 | ✅ most looks; Crystal, Gyroid Dive lower |
-| Floating overlay + recording toggle | 🟡 built, device test pending |
+| Floating overlay + recording toggle | ✅ device-tested 10-17 (incl. a real recording) |
 | Studio overlay, scrubbing, export, mini editor | ❌ section 7 |
-| Words / karaoke layer | ❌ section 7.5 |
+| Words layer (art, not captions), 10 Lyrics looks | ✅ pilot + Note 9, 50-60 fps; Studio feed owed (7.5) |
 | Lobby Viz Lab hero shows the last look | ❌ |
 
 ## 10. Owner rulings in force
